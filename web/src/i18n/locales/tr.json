@@ -208,6 +208,9 @@
 				"warning": "Front Desk sessizleşti. Bu örnek yönetiliyordu, ancak sinyali artık eski.",
 				"error": "Bu örnek için filo eşitlemesi engellendi (örneğin bir MASTER_KEY veya şema uyuşmazlığı)."
 			}
+		},
+		"managed": {
+			"banner": "Filo birincil örneği tarafından yönetiliyor. Eşitlenen öğeler burada salt okunurdur ve sonraki yapılandırma eşitlemesinde değiştirilir. Bunları birincil örnekte yönetin."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Kimlik Doğrulama"
+		},
+		"managed": {
+			"sectionNote": "Filo birincil örneği tarafından yönetiliyor. Burada yapılan değişiklikler sonraki yapılandırma eşitlemesinde değiştirilir.",
+			"alertsNote": "Uyarıların açılıp kapatılması ve olay yönlendirmesi filo birincil örneği tarafından yönetilir. Aşağıdaki Apprise teslimat ayarları bu örneğe yerel olarak kalır."
 		}
 	},
 	"components": {

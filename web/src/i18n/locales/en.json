@@ -208,6 +208,9 @@
 		"githubRepo": "GitHub repository",
 		"readOnly": {
 			"banner": "Read-only demo — creating, editing, and deleting are disabled."
+		},
+		"managed": {
+			"banner": "Managed by the fleet primary. Synced items here are read-only and are replaced on the next config sync. Manage them on the primary."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Authentication"
+		},
+		"managed": {
+			"sectionNote": "Managed by the fleet primary. Changes here are replaced on the next config sync.",
+			"alertsNote": "Alerting on or off and event routing are managed by the fleet primary. The Apprise delivery settings below stay local to this instance."
 		}
 	},
 	"components": {

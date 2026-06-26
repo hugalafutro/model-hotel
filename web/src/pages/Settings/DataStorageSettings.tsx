@@ -26,12 +26,14 @@ interface DataStorageSettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
 	onResetSection?: () => void;
+	managed?: boolean;
 }
 
 export function DataStorageSettings({
 	collapsed,
 	onToggle,
 	onResetSection,
+	managed,
 }: DataStorageSettingsProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -150,6 +152,7 @@ export function DataStorageSettings({
 			collapsed={collapsed}
 			onToggle={onToggle}
 			onResetSection={onResetSection}
+			managed={managed}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm">

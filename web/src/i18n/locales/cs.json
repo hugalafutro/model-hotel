@@ -208,6 +208,9 @@
 				"warning": "Front Desk ztichl. Tato instance byla spravována, ale její tep je nyní zastaralý.",
 				"error": "Synchronizace flotily je pro tuto instanci zablokována (například nesoulad MASTER_KEY nebo schématu)."
 			}
+		},
+		"managed": {
+			"banner": "Spravováno primární instancí flotily. Synchronizované položky jsou zde pouze pro čtení a při příští synchronizaci konfigurace se nahradí. Spravujte je na primární instanci."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Ověření"
+		},
+		"managed": {
+			"sectionNote": "Spravováno primární instancí flotily. Změny provedené zde se při příští synchronizaci konfigurace nahradí.",
+			"alertsNote": "Zapínání a vypínání upozornění a směrování událostí spravuje primární instance flotily. Nastavení doručování Apprise níže zůstávají místní pro tuto instanci."
 		}
 	},
 	"components": {

@@ -208,6 +208,9 @@
 				"warning": "Front Desk is stil geworden. Deze instantie werd beheerd, maar de hartslag is nu verouderd.",
 				"error": "Vlootsynchronisatie is geblokkeerd voor deze instantie (bijvoorbeeld een MASTER_KEY- of schema-mismatch)."
 			}
+		},
+		"managed": {
+			"banner": "Beheerd door de primaire instantie van de vloot. Gesynchroniseerde items zijn hier alleen-lezen en worden bij de volgende configuratiesynchronisatie vervangen. Beheer ze op de primaire instantie."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Authenticatie"
+		},
+		"managed": {
+			"sectionNote": "Beheerd door de primaire instantie van de vloot. Wijzigingen hier worden bij de volgende configuratiesynchronisatie vervangen.",
+			"alertsNote": "Het in- en uitschakelen van waarschuwingen en de gebeurtenisroutering worden beheerd door de primaire instantie van de vloot. De Apprise-bezorginstellingen hieronder blijven lokaal op deze instantie."
 		}
 	},
 	"components": {

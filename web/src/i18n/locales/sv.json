@@ -208,6 +208,9 @@
 				"warning": "Front Desk har tystnat. Den här instansen hanterades, men dess hjärtslag är nu föråldrat.",
 				"error": "Flottsynkronisering är blockerad för den här instansen (till exempel en MASTER_KEY- eller schemaavvikelse)."
 			}
+		},
+		"managed": {
+			"banner": "Hanteras av flottans primära instans. Synkroniserade objekt är skrivskyddade här och ersätts vid nästa konfigurationssynkronisering. Hantera dem på den primära instansen."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Autentisering"
+		},
+		"managed": {
+			"sectionNote": "Hanteras av flottans primära instans. Ändringar här ersätts vid nästa konfigurationssynkronisering.",
+			"alertsNote": "Att slå på och av aviseringar och händelsedirigering hanteras av flottans primära instans. Apprise-leveransinställningarna nedan förblir lokala för den här instansen."
 		}
 	},
 	"components": {

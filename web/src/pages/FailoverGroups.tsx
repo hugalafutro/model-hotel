@@ -14,9 +14,11 @@ import { DeleteConfirmModal } from "../components/DeleteConfirmModal";
 import { EmptyState } from "../components/EmptyState";
 import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
+import { ManagedBanner } from "../components/ManagedBanner";
 import { PageHeader } from "../components/PageHeader";
 import { Spinner } from "../components/Spinner";
 import { useToast } from "../context/ToastContext";
+import { useManaged } from "../hooks/useManaged";
 import { useReadOnly } from "../hooks/useReadOnly";
 import { countLabel, formatTimestamp } from "../utils/format";
 import { CreateGroupModal } from "./FailoverGroups/CreateGroupModal";
@@ -27,6 +29,7 @@ export function FailoverGroups() {
 	const { toast } = useToast();
 	const { t } = useTranslation();
 	const readOnly = useReadOnly();
+	const managed = useManaged();
 	const queryClient = useQueryClient();
 
 	const [showCreateModal, setShowCreateModal] = useState(false);
@@ -583,7 +586,7 @@ export function FailoverGroups() {
 								t("failover.btn_sync")
 							)}
 						</button>
-						{!readOnly && (
+						{!readOnly && !managed && (
 							<>
 								<button
 									type="button"
@@ -611,6 +614,8 @@ export function FailoverGroups() {
 				</span>
 				{t("failover.hint_drag")}
 			</p>
+
+			<ManagedBanner />
 
 			<div className="flex items-center gap-3 flex-wrap">
 				<FilterInput
@@ -654,34 +659,39 @@ export function FailoverGroups() {
 					]}
 					className="w-[160px] shrink-0"
 				/>
-				<button
-					type="button"
-					onClick={() => {
-						if (selectedGroupIds.size > 0) {
-							setSelectedGroupIds(new Set());
-						} else if (groups) {
-							setSelectedGroupIds(new Set(groups.map((g) => g.id)));
+				{/* Selection only feeds the bulk config mutations below (enable /
+				    disable / delete), all of which sync overwrites, so the whole
+				    select + bulk toolbar is hidden while managed. */}
+				{!managed && (
+					<button
+						type="button"
+						onClick={() => {
+							if (selectedGroupIds.size > 0) {
+								setSelectedGroupIds(new Set());
+							} else if (groups) {
+								setSelectedGroupIds(new Set(groups.map((g) => g.id)));
+							}
+						}}
+						className="ui-icon-btn ml-auto"
+						aria-label={
+							selectedGroupIds.size > 0
+								? t("failover.deselect_all")
+								: t("failover.select_all")
 						}
-					}}
-					className="ui-icon-btn ml-auto"
-					aria-label={
-						selectedGroupIds.size > 0
-							? t("failover.deselect_all")
-							: t("failover.select_all")
-					}
-					title={
-						selectedGroupIds.size > 0
-							? t("failover.deselect_all")
-							: t("failover.select_all")
-					}
-				>
-					{selectedGroupIds.size > 0 ? (
-						<CheckSquare size={18} />
-					) : (
-						<Square size={18} />
-					)}
-				</button>
-				{selectedGroupIds.size > 0 && (
+						title={
+							selectedGroupIds.size > 0
+								? t("failover.deselect_all")
+								: t("failover.select_all")
+						}
+					>
+						{selectedGroupIds.size > 0 ? (
+							<CheckSquare size={18} />
+						) : (
+							<Square size={18} />
+						)}
+					</button>
+				)}
+				{!managed && selectedGroupIds.size > 0 && (
 					<>
 						<span className="text-sm text-gray-400">
 							{t("failover.selected_count", { count: selectedGroupIds.size })}
@@ -844,6 +854,7 @@ export function FailoverGroups() {
 													}
 													onDelete={() => handleDelete(group)}
 													onEdit={() => setEditGroup(group)}
+													managed={managed}
 													cbProviderMap={cbProviderMap}
 												/>
 											))}
@@ -903,6 +914,7 @@ export function FailoverGroups() {
 														handleReorder(group, newOrder)
 													}
 													onDelete={() => handleDelete(group)}
+													managed={managed}
 													cbProviderMap={cbProviderMap}
 												/>
 											))}

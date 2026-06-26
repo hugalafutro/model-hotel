@@ -208,6 +208,9 @@
 				"warning": "A Front Desk elhallgatott. Ezt a példányt kezelték, de a szívverése mostanra elavult.",
 				"error": "A flottaszinkronizálás le van tiltva ehhez a példányhoz (például MASTER_KEY- vagy sémaeltérés)."
 			}
+		},
+		"managed": {
+			"banner": "A flotta elsődleges példánya kezeli. A szinkronizált elemek itt csak olvashatók, és a következő konfigurációs szinkronizáláskor lecserélődnek. Kezelje őket az elsődleges példányon."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Hitelesítés"
+		},
+		"managed": {
+			"sectionNote": "A flotta elsődleges példánya kezeli. Az itt végzett módosítások a következő konfigurációs szinkronizáláskor lecserélődnek.",
+			"alertsNote": "A riasztások be- és kikapcsolását és az eseményirányítást a flotta elsődleges példánya kezeli. Az alábbi Apprise kézbesítési beállítások helyiek maradnak ezen a példányon."
 		}
 	},
 	"components": {

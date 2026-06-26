@@ -9,6 +9,7 @@ import { EmptyState } from "../components/EmptyState";
 import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { ManagedBanner } from "../components/ManagedBanner";
 import { PageHeader } from "../components/PageHeader";
 import {
 	NanoGPTQuotaModal,
@@ -20,6 +21,7 @@ import { ProviderModelsModal } from "../components/ProviderModelsModal";
 import { Spinner } from "../components/Spinner";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
+import { useManaged } from "../hooks/useManaged";
 import { useQuotaData } from "../hooks/useQuotaData";
 import { useReadOnly } from "../hooks/useReadOnly";
 import { countLabel } from "../utils/format";
@@ -42,6 +44,7 @@ export function Providers() {
 	const { toast } = useToast();
 	const { t } = useTranslation();
 	const readOnly = useReadOnly();
+	const managed = useManaged();
 	const [editProvider, setEditProvider] = useState<Provider | null>(null);
 	const [deleteProvider, setDeleteProvider] = useState<Provider | null>(null);
 	const [showModal, setShowModal] = useState(false);
@@ -354,7 +357,7 @@ export function Providers() {
 								t("providers.btn_refresh_quotas")
 							)}
 						</button>
-						{!readOnly && (
+						{!readOnly && !managed && (
 							<button
 								type="button"
 								onClick={() => setShowModal(true)}
@@ -366,6 +369,8 @@ export function Providers() {
 					</>
 				}
 			/>
+
+			<ManagedBanner />
 
 			<div className="flex items-center justify-between gap-2">
 				<FilterInput
@@ -412,6 +417,7 @@ export function Providers() {
 						onEdit={setEditProvider}
 						onDiscover={(id) => discoverMutation.mutate(id)}
 						onDelete={setDeleteProvider}
+						managed={managed}
 						onSetModelsProvider={setModelsProvider}
 						onSetModalNano={() => setNanoOpen(true)}
 						onSetModalZaiCoding={() => setZaiCodingOpen(true)}

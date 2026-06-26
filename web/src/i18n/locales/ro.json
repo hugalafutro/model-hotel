@@ -208,6 +208,9 @@
 				"warning": "Front Desk a amuțit. Această instanță era gestionată, dar pulsul său este acum învechit.",
 				"error": "Sincronizarea flotei este blocată pentru această instanță (de exemplu, o nepotrivire de MASTER_KEY sau de schemă)."
 			}
+		},
+		"managed": {
+			"banner": "Gestionată de instanța primară a flotei. Elementele sincronizate sunt aici doar pentru citire și sunt înlocuite la următoarea sincronizare a configurației. Gestionați-le pe instanța primară."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Autentificare"
+		},
+		"managed": {
+			"sectionNote": "Gestionată de instanța primară a flotei. Modificările făcute aici sunt înlocuite la următoarea sincronizare a configurației.",
+			"alertsNote": "Activarea și dezactivarea alertelor și rutarea evenimentelor sunt gestionate de instanța primară a flotei. Setările de livrare Apprise de mai jos rămân locale pentru această instanță."
 		}
 	},
 	"components": {

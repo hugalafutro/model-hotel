@@ -15,12 +15,14 @@ interface AlertsSettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
 	onResetSection?: () => void;
+	managed?: boolean;
 }
 
 export function AlertsSettings({
 	collapsed,
 	onToggle,
 	onResetSection,
+	managed,
 }: AlertsSettingsProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -104,77 +106,89 @@ export function AlertsSettings({
 					{t("settings.alerts.description")}
 				</p>
 
-				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
-					{/* Enable toggle */}
-					<div className="flex items-center justify-between gap-3 ui-settings-group">
-						<div className="min-w-0">
-							<div className="flex items-center gap-1">
-								<p className="text-sm font-medium text-gray-300">
-									{t("settings.alerts.enable")}
+				{managed && (
+					<p data-testid="managed-note" className="text-xs text-(--text-muted)">
+						{t("settings.managed.alertsNote")}
+					</p>
+				)}
+				{/* Only alerting on/off and event routing are syncable; the Apprise
+				    delivery settings below stay instance-local, so the disabled
+				    fieldset wraps just this grid. */}
+				<fieldset disabled={managed} className="m-0 min-w-0 border-0 p-0">
+					<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
+						{/* Enable toggle */}
+						<div className="flex items-center justify-between gap-3 ui-settings-group">
+							<div className="min-w-0">
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.alerts.enable")}
+									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate(["alert_enabled"])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
+								</div>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.alerts.enableDescription")}
 								</p>
-								<ResetButton
-									tooltip={t("settings.common.resetSetting")}
-									onClick={() => resetSettingMutation.mutate(["alert_enabled"])}
-									size={12}
-									disabled={isResetting}
-								/>
 							</div>
-							<p className="text-gray-500 text-xs mt-0.5">
-								{t("settings.alerts.enableDescription")}
-							</p>
-						</div>
-						<Toggle
-							checked={enabled}
-							size="sm"
-							onChange={(v) =>
-								updateMutation.mutate({ alert_enabled: v ? "true" : "false" })
-							}
-							ariaLabel={t("settings.alerts.enable")}
-						/>
-					</div>
-
-					{/* Events to notify on (right column). Kept visible but dimmed and
-					    uninteractible until alerting is enabled, so the column is not
-					    empty when off. */}
-					<div
-						className={`space-y-2${enabled ? "" : " opacity-50"}`}
-						aria-disabled={!enabled}
-					>
-						<div className="flex items-center gap-1.5">
-							<button
-								type="button"
-								className="flex items-center gap-1.5 text-sm font-medium text-gray-300"
-								onClick={() => setPickerOpen((o) => !o)}
-								aria-expanded={pickerExpanded}
-								disabled={!enabled}
-								data-testid="alert-picker-toggle"
-							>
-								{pickerExpanded ? (
-									<ChevronDown size={14} />
-								) : (
-									<ChevronRight size={14} />
-								)}
-								{t("settings.alerts.events.title")}
-							</button>
-							<ResetButton
-								tooltip={t("settings.alerts.events.reset")}
-								onClick={() => resetSettingMutation.mutate(["alert_events"])}
-								size={12}
-								disabled={isResetting || !enabled}
+							<Toggle
+								checked={enabled}
+								size="sm"
+								onChange={(v) =>
+									updateMutation.mutate({ alert_enabled: v ? "true" : "false" })
+								}
+								ariaLabel={t("settings.alerts.enable")}
 							/>
 						</div>
-						{pickerExpanded && (
-							<div className="pl-5">
-								<AlertEventPicker
-									value={settings?.alert_events}
-									onChange={(csv) =>
-										updateMutation.mutate({ alert_events: csv })
-									}
+
+						{/* Events to notify on (right column). Kept visible but dimmed and
+					    uninteractible until alerting is enabled, so the column is not
+					    empty when off. */}
+						<div
+							className={`space-y-2${enabled ? "" : " opacity-50"}`}
+							aria-disabled={!enabled}
+						>
+							<div className="flex items-center gap-1.5">
+								<button
+									type="button"
+									className="flex items-center gap-1.5 text-sm font-medium text-gray-300"
+									onClick={() => setPickerOpen((o) => !o)}
+									aria-expanded={pickerExpanded}
+									disabled={!enabled}
+									data-testid="alert-picker-toggle"
+								>
+									{pickerExpanded ? (
+										<ChevronDown size={14} />
+									) : (
+										<ChevronRight size={14} />
+									)}
+									{t("settings.alerts.events.title")}
+								</button>
+								<ResetButton
+									tooltip={t("settings.alerts.events.reset")}
+									onClick={() => resetSettingMutation.mutate(["alert_events"])}
+									size={12}
+									disabled={isResetting || !enabled}
 								/>
 							</div>
-						)}
+							{pickerExpanded && (
+								<div className="pl-5">
+									<AlertEventPicker
+										value={settings?.alert_events}
+										onChange={(csv) =>
+											updateMutation.mutate({ alert_events: csv })
+										}
+									/>
+								</div>
+							)}
+						</div>
 					</div>
-				</div>
+				</fieldset>
 
 				{enabled && (
 					<>

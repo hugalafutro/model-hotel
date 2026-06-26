@@ -208,6 +208,9 @@
 				"warning": "Front Desk s'est tu. Cette instance était gérée, mais son signal de vie est désormais obsolète.",
 				"error": "La synchronisation de la flotte est bloquée pour cette instance (par exemple, une incompatibilité de MASTER_KEY ou de schéma)."
 			}
+		},
+		"managed": {
+			"banner": "Gérée par l'instance principale de la flotte. Les éléments synchronisés sont en lecture seule ici et sont remplacés à la prochaine synchronisation de configuration. Gérez-les sur l'instance principale."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Authentification"
+		},
+		"managed": {
+			"sectionNote": "Gérée par l'instance principale de la flotte. Les modifications apportées ici sont remplacées à la prochaine synchronisation de configuration.",
+			"alertsNote": "L'activation des alertes et le routage des événements sont gérés par l'instance principale de la flotte. Les paramètres de distribution Apprise ci-dessous restent locaux à cette instance."
 		}
 	},
 	"components": {

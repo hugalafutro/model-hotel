@@ -208,6 +208,9 @@
 				"warning": "Front Desk zamilkł. Ta instancja była zarządzana, ale jej puls jest już nieaktualny.",
 				"error": "Synchronizacja floty jest zablokowana dla tej instancji (na przykład niezgodność MASTER_KEY lub schematu)."
 			}
+		},
+		"managed": {
+			"banner": "Zarządzane przez instancję podstawową floty. Zsynchronizowane elementy są tutaj tylko do odczytu i zostaną zastąpione przy następnej synchronizacji konfiguracji. Zarządzaj nimi w instancji podstawowej."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Uwierzytelnianie"
+		},
+		"managed": {
+			"sectionNote": "Zarządzane przez instancję podstawową floty. Zmiany wprowadzone tutaj zostaną zastąpione przy następnej synchronizacji konfiguracji.",
+			"alertsNote": "Włączanie i wyłączanie alertów oraz routing zdarzeń są zarządzane przez instancję podstawową floty. Ustawienia dostarczania Apprise poniżej pozostają lokalne dla tej instancji."
 		}
 	},
 	"components": {

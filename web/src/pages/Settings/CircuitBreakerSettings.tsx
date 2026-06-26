@@ -12,12 +12,14 @@ interface CircuitBreakerSettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
 	onResetSection?: () => void;
+	managed?: boolean;
 }
 
 export function CircuitBreakerSettings({
 	collapsed,
 	onToggle,
 	onResetSection,
+	managed,
 }: CircuitBreakerSettingsProps) {
 	const { t } = useTranslation();
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
@@ -37,6 +39,7 @@ export function CircuitBreakerSettings({
 			collapsed={collapsed}
 			onToggle={onToggle}
 			onResetSection={onResetSection}
+			managed={managed}
 		>
 			<div className="space-y-5">
 				<p className="text-gray-400 text-sm">

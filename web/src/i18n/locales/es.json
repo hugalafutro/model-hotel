@@ -208,6 +208,9 @@
 				"warning": "Front Desk se ha quedado en silencio. Esta instancia estaba gestionada, pero su latido ahora está obsoleto.",
 				"error": "La sincronización de la flota está bloqueada para esta instancia (por ejemplo, una discrepancia de MASTER_KEY o de esquema)."
 			}
+		},
+		"managed": {
+			"banner": "Gestionada por la instancia primaria de la flota. Los elementos sincronizados son de solo lectura aquí y se reemplazan en la próxima sincronización de configuración. Gestiónalos en la instancia primaria."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Autenticación"
+		},
+		"managed": {
+			"sectionNote": "Gestionada por la instancia primaria de la flota. Los cambios realizados aquí se reemplazan en la próxima sincronización de configuración.",
+			"alertsNote": "La activación de las alertas y el enrutamiento de eventos los gestiona la instancia primaria de la flota. Los ajustes de entrega de Apprise de abajo permanecen locales a esta instancia."
 		}
 	},
 	"components": {

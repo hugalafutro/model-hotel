@@ -208,6 +208,9 @@
 				"warning": "Front Desk ha emmudit. Aquesta instància estava gestionada, però el seu batec ara està obsolet.",
 				"error": "La sincronització de la flota està bloquejada per a aquesta instància (per exemple, una discrepància de MASTER_KEY o d'esquema)."
 			}
+		},
+		"managed": {
+			"banner": "Gestionada per la instància primària de la flota. Els elements sincronitzats són de només lectura aquí i se substitueixen en la propera sincronització de configuració. Gestiona'ls a la instància primària."
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "Autenticació"
+		},
+		"managed": {
+			"sectionNote": "Gestionada per la instància primària de la flota. Els canvis fets aquí se substitueixen en la propera sincronització de configuració.",
+			"alertsNote": "L'activació i desactivació de les alertes i l'encaminament d'esdeveniments els gestiona la instància primària de la flota. La configuració de lliurament d'Apprise de sota es manté local en aquesta instància."
 		}
 	},
 	"components": {

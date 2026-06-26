@@ -208,6 +208,9 @@
 				"warning": "Front Desk 已无响应。此实例曾受管理，但其心跳现已过期。",
 				"error": "此实例的机群同步已被阻止（例如 MASTER_KEY 或架构不匹配）。"
 			}
+		},
+		"managed": {
+			"banner": "由机群主节点管理。此处的同步项为只读，将在下次配置同步时被替换。请在主节点上管理它们。"
 		}
 	},
 	"dashboard": {
@@ -1904,6 +1907,10 @@
 		},
 		"authentication": {
 			"title": "身份验证"
+		},
+		"managed": {
+			"sectionNote": "由机群主节点管理。此处的更改将在下次配置同步时被替换。",
+			"alertsNote": "警报的开关和事件路由由机群主节点管理。下方的 Apprise 投递设置仍保留在本实例本地。"
 		}
 	},
 	"components": {

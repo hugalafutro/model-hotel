@@ -39,6 +39,7 @@ export function FailoverGroupCard({
 	onReorder,
 	onDelete,
 	onEdit,
+	managed,
 	cbProviderMap,
 }: {
 	group: FailoverGroup;
@@ -49,6 +50,12 @@ export function FailoverGroupCard({
 	onReorder: (newOrder: string[]) => void;
 	onDelete: () => void;
 	onEdit?: () => void;
+	// When true this group's config is managed by the fleet primary. Every write
+	// here (edit, delete, reorder/priority_order, the group on/off flag, and the
+	// per-entry enabled flags) is synced config that the next config sync
+	// overwrites, so all of them are hidden or locked. These are not local
+	// runtime overrides; selection/bulk affordances are gated upstream too.
+	managed?: boolean;
 	cbProviderMap: Map<string, CircuitBreakerProviderStatus>;
 }) {
 	const { t } = useTranslation();
@@ -84,7 +91,8 @@ export function FailoverGroupCard({
 	);
 
 	const handleDragEnd = (event: DragEndEvent) => {
-		if (!group.group_enabled) return;
+		// Reorder writes priority_order, which sync replaces; locked while managed.
+		if (!group.group_enabled || managed) return;
 		const { active, over } = event;
 		if (over && active.id !== over.id) {
 			const oldIndex = localEntries.findIndex(
@@ -119,12 +127,14 @@ export function FailoverGroupCard({
 		>
 			<div className="flex items-center justify-between mb-2">
 				<div className="flex items-center gap-2 min-w-0">
-					<input
-						type="checkbox"
-						checked={selected}
-						onChange={(e) => onToggleSelect(e.target.checked)}
-						className="rounded border-gray-600 text-(--accent) focus:ring-(--accent) shrink-0"
-					/>
+					{!managed && (
+						<input
+							type="checkbox"
+							checked={selected}
+							onChange={(e) => onToggleSelect(e.target.checked)}
+							className="rounded border-gray-600 text-(--accent) focus:ring-(--accent) shrink-0"
+						/>
+					)}
 					{/* biome-ignore lint/a11y/useSemanticElements: cannot change to <button> without altering layout */}
 					<div
 						onClick={handleCopyModel}
@@ -167,19 +177,33 @@ export function FailoverGroupCard({
 							{t("failover.auto_created")}
 						</span>
 					)}
-					<button
-						type="button"
-						onClick={() => onToggleGroup(!group.group_enabled)}
-						className={`ui-badge px-2 py-px leading-[1.6] text-xs font-medium transition-colors ${
-							group.group_enabled
-								? "ui-badge-accent hover:brightness-125"
-								: "ui-badge-neutral hover:brightness-125"
-						}`}
-					>
-						<span className="badge-text">
-							{group.group_enabled ? t("failover.on") : t("failover.off")}
+					{managed ? (
+						// The group on/off flag (group_enabled) is synced config, so under
+						// management it is a static badge, not a toggle.
+						<span
+							className={`ui-badge px-2 py-px leading-[1.6] text-xs font-medium ${
+								group.group_enabled ? "ui-badge-accent" : "ui-badge-neutral"
+							}`}
+						>
+							<span className="badge-text">
+								{group.group_enabled ? t("failover.on") : t("failover.off")}
+							</span>
 						</span>
-					</button>
+					) : (
+						<button
+							type="button"
+							onClick={() => onToggleGroup(!group.group_enabled)}
+							className={`ui-badge px-2 py-px leading-[1.6] text-xs font-medium transition-colors ${
+								group.group_enabled
+									? "ui-badge-accent hover:brightness-125"
+									: "ui-badge-neutral hover:brightness-125"
+							}`}
+						>
+							<span className="badge-text">
+								{group.group_enabled ? t("failover.on") : t("failover.off")}
+							</span>
+						</button>
+					)}
 				</div>
 			</div>
 
@@ -199,6 +223,7 @@ export function FailoverGroupCard({
 								entry={entry}
 								groupEnabled={group.group_enabled}
 								onToggle={onToggleEntry}
+								locked={managed}
 								cbStatus={cbProviderMap.get(entry.provider_id)}
 							/>
 						))}
@@ -212,7 +237,7 @@ export function FailoverGroupCard({
 					{formatTokens(group.total_tokens)} {t("common.tokens")}
 				</span>
 				<div className="flex items-center gap-1">
-					{!group.auto_created && onEdit && (
+					{!group.auto_created && onEdit && !managed && (
 						<button
 							type="button"
 							onClick={onEdit}
@@ -221,13 +246,15 @@ export function FailoverGroupCard({
 							{t("common.edit")}
 						</button>
 					)}
-					<button
-						type="button"
-						onClick={() => onDelete()}
-						className="ui-btn ui-btn-compact text-(--text-muted) hover:text-red-400 hover:bg-white/5 transition-all"
-					>
-						{t("common.delete")}
-					</button>
+					{!managed && (
+						<button
+							type="button"
+							onClick={() => onDelete()}
+							className="ui-btn ui-btn-compact text-(--text-muted) hover:text-red-400 hover:bg-white/5 transition-all"
+						>
+							{t("common.delete")}
+						</button>
+					)}
 				</div>
 			</div>
 		</div>
