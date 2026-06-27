@@ -160,9 +160,9 @@ Runbook:
 3. Confirm. Before overwriting a member that will actually change, Front Desk asks
    it to take a backup first (badged **FD**, spared from GFS rotation), so a bad
    sync can be rolled back; a member whose backup fails is left untouched and
-   reported. Each member is independent: a failure leaves that member untouched and
-   is reported; re-run to retry. Request logs and metering are never touched (a
-   removed provider's logs are kept, with the provider link nulled).
+   reported. Each member is independent, and re-running retries any left behind.
+   Request logs and metering are never touched (a removed provider's logs are kept,
+   with the provider link nulled).
 
 ### Automatic config sync (set and forget)
 

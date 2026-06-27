@@ -318,7 +318,7 @@ func TestConfigSyncApplyVariants(t *testing.T) {
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	nm, _ := store.CreateMember(t.Context(), "not-applied", notApplied.srv.URL, "ntoken")
 	bm, _ := store.CreateMember(t.Context(), "bad-schema", badSchema.srv.URL, "stoken")
-	store.CreateMember(t.Context(), "unreachable", "http://127.0.0.1:1", "utoken")
+	um, _ := store.CreateMember(t.Context(), "unreachable", "http://127.0.0.1:1", "utoken")
 
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
 	if rec.Code != http.StatusOK {
@@ -343,5 +343,11 @@ func TestConfigSyncApplyVariants(t *testing.T) {
 	}
 	if !strings.Contains(byID[nm.ID].Error, "did not apply") {
 		t.Errorf("not-applied error = %q", byID[nm.ID].Error)
+	}
+	// An unreachable member fails the pre-sync dry-run, so the backup is never
+	// attempted: its error must report the unreachability, not be mislabeled a
+	// "backup failed" skip.
+	if got := byID[um.ID].Error; !strings.Contains(got, "reach") || strings.Contains(got, "backup") {
+		t.Errorf("unreachable error = %q, want a reach failure and not a backup failure", got)
 	}
 }
