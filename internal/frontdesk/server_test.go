@@ -171,14 +171,14 @@ func TestServerSettings(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("get settings = %d", rec.Code)
 	}
-	body := `{"health_poll_secs":9,"traefik_poll_secs":9,"traefik_stale_secs":40,"event_retention_days":30,"retry_attempts":3,"sticky_enabled":false}`
+	body := `{"health_poll_secs":9,"traefik_poll_secs":9,"traefik_stale_secs":40,"event_retention_days":30,"retry_attempts":3}`
 	if rec := do(t, srv, http.MethodPut, "/api/settings", body, true); rec.Code != http.StatusOK {
 		t.Fatalf("put settings = %d; body=%s", rec.Code, rec.Body.String())
 	}
 	rec = do(t, srv, http.MethodGet, "/api/settings", "", true)
 	var got Settings
 	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if got.HealthPollSecs != 9 || got.StickyEnabled {
+	if got.HealthPollSecs != 9 || got.RetryAttempts != 3 {
 		t.Errorf("settings not updated: %+v", got)
 	}
 

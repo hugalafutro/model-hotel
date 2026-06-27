@@ -54,7 +54,6 @@ export interface Settings {
 	traefik_stale_secs: number;
 	event_retention_days: number;
 	retry_attempts: number;
-	sticky_enabled: boolean;
 }
 
 export type Severity = "info" | "success" | "warning" | "error";

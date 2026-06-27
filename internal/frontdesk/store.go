@@ -74,12 +74,11 @@ type Member struct {
 // Settings shape the generated Traefik config and the pollers. The single row
 // (id = 1) is seeded with defaults by the first migration.
 type Settings struct {
-	HealthPollSecs     int  `json:"health_poll_secs"`
-	TraefikPollSecs    int  `json:"traefik_poll_secs"`
-	TraefikStaleSecs   int  `json:"traefik_stale_secs"`
-	EventRetentionDays int  `json:"event_retention_days"`
-	RetryAttempts      int  `json:"retry_attempts"`
-	StickyEnabled      bool `json:"sticky_enabled"`
+	HealthPollSecs     int `json:"health_poll_secs"`
+	TraefikPollSecs    int `json:"traefik_poll_secs"`
+	TraefikStaleSecs   int `json:"traefik_stale_secs"`
+	EventRetentionDays int `json:"event_retention_days"`
+	RetryAttempts      int `json:"retry_attempts"`
 }
 
 // Event is a control-plane fact (membership change, health transition, config
@@ -383,15 +382,13 @@ func (s *Store) encryptToken(token string) (cipher, nonce, salt []byte, err erro
 // GetSettings returns the single settings row.
 func (s *Store) GetSettings(ctx context.Context) (Settings, error) {
 	var set Settings
-	var sticky int
 	err := s.db.QueryRowContext(ctx,
-		`SELECT health_poll_secs, traefik_poll_secs, traefik_stale_secs, event_retention_days, retry_attempts, sticky_enabled
+		`SELECT health_poll_secs, traefik_poll_secs, traefik_stale_secs, event_retention_days, retry_attempts
 		 FROM settings WHERE id = 1`,
-	).Scan(&set.HealthPollSecs, &set.TraefikPollSecs, &set.TraefikStaleSecs, &set.EventRetentionDays, &set.RetryAttempts, &sticky)
+	).Scan(&set.HealthPollSecs, &set.TraefikPollSecs, &set.TraefikStaleSecs, &set.EventRetentionDays, &set.RetryAttempts)
 	if err != nil {
 		return Settings{}, fmt.Errorf("frontdesk: get settings: %w", err)
 	}
-	set.StickyEnabled = sticky != 0
 	return set, nil
 }
 
@@ -408,9 +405,9 @@ func (s *Store) UpdateSettings(ctx context.Context, set Settings) error {
 	}
 	_, err := s.db.ExecContext(ctx,
 		`UPDATE settings SET health_poll_secs = ?, traefik_poll_secs = ?, traefik_stale_secs = ?,
-		 event_retention_days = ?, retry_attempts = ?, sticky_enabled = ? WHERE id = 1`,
+		 event_retention_days = ?, retry_attempts = ? WHERE id = 1`,
 		set.HealthPollSecs, set.TraefikPollSecs, set.TraefikStaleSecs,
-		set.EventRetentionDays, set.RetryAttempts, boolToInt(set.StickyEnabled),
+		set.EventRetentionDays, set.RetryAttempts,
 	)
 	if err != nil {
 		return fmt.Errorf("frontdesk: update settings: %w", err)

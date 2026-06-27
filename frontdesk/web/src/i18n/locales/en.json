@@ -148,8 +148,6 @@
 		"retention": "Event retention (days)",
 		"retryAttempts": "Retry attempts",
 		"retryHint": "Retries that failed before any response byte (safe to retry).",
-		"sticky": "Sticky sessions",
-		"stickyHint": "Pin a browser dashboard (and its SSE stream) to one instance.",
 		"configSyncConfirmTitle_one": "Replace config on {{count}} member?",
 		"configSyncConfirmTitle_other": "Replace config on {{count}} members?",
 		"configSyncConfirmBody": "This makes each member below match the primary's providers, virtual keys, and settings. Items the primary does not have are removed from the member; its request logs and metering are untouched.",

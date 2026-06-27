@@ -186,26 +186,6 @@ export function SettingsPage() {
 					</div>
 				</div>
 
-				<label
-					className="fd-row"
-					style={{ marginTop: "0.5rem", cursor: "pointer" }}
-				>
-					<input
-						type="checkbox"
-						checked={settings.sticky_enabled}
-						onChange={(e) => patch({ sticky_enabled: e.target.checked })}
-					/>
-					<span>
-						<span style={{ fontWeight: 500 }}>{t("settings.sticky")}</span>
-						<span
-							className="fd-faint"
-							style={{ display: "block", fontSize: "0.78rem" }}
-						>
-							{t("settings.stickyHint")}
-						</span>
-					</span>
-				</label>
-
 				{saveError && (
 					<div
 						className="fd-error-text"

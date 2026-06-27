@@ -9,7 +9,7 @@ import (
 func defaultSettings() Settings {
 	return Settings{
 		HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 30,
-		EventRetentionDays: 90, RetryAttempts: 2, StickyEnabled: true,
+		EventRetentionDays: 90, RetryAttempts: 2,
 	}
 }
 
@@ -73,13 +73,10 @@ func TestBuildTraefikConfigDoesNotPassHostHeader(t *testing.T) {
 	}
 }
 
-func TestBuildTraefikConfigStickyAndHealthCheck(t *testing.T) {
+func TestBuildTraefikConfigHealthCheck(t *testing.T) {
 	cfg := BuildTraefikConfig(nil, defaultSettings())
 	lb := cfg.HTTP.Services[traefikServiceName].LoadBalancer
 
-	if lb.Sticky == nil || lb.Sticky.Cookie.Name != traefikStickyCookie {
-		t.Errorf("sticky cookie not set: %+v", lb.Sticky)
-	}
 	if lb.HealthCheck == nil || lb.HealthCheck.Path != "/health" {
 		t.Fatalf("health check missing: %+v", lb.HealthCheck)
 	}
@@ -88,12 +85,15 @@ func TestBuildTraefikConfigStickyAndHealthCheck(t *testing.T) {
 	}
 }
 
-func TestBuildTraefikConfigStickyDisabled(t *testing.T) {
-	set := defaultSettings()
-	set.StickyEnabled = false
-	cfg := BuildTraefikConfig(nil, set)
-	if cfg.HTTP.Services[traefikServiceName].LoadBalancer.Sticky != nil {
-		t.Error("sticky should be omitted when disabled")
+// Sticky sessions were removed: the LB serves only /v1, which never carries the
+// dashboard cookie, so the generated config must not emit a sticky stanza.
+func TestBuildTraefikConfigNoSticky(t *testing.T) {
+	out, err := json.Marshal(BuildTraefikConfig(nil, defaultSettings()))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(out), "sticky") {
+		t.Errorf("serialized config still mentions sticky: %s", out)
 	}
 }
 
