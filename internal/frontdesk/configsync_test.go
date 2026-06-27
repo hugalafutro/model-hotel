@@ -19,8 +19,10 @@ type stubConfigMember struct {
 	importCode  int
 	importBody  string
 	importDelay time.Duration // models a slow import (member-side discovery)
+	backupCode  int           // status returned by POST /api/backups (0 -> 200)
 	gotImport   bool
 	gotDryRun   bool
+	gotBackup   bool
 	srv         *httptest.Server
 }
 
@@ -48,6 +50,13 @@ func newStubConfigMember(t *testing.T, token string) *stubConfigMember {
 			}
 			w.WriteHeader(sm.importCode)
 			_, _ = w.Write([]byte(sm.importBody))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/backups":
+			sm.gotBackup = true
+			code := sm.backupCode
+			if code == 0 {
+				code = http.StatusOK
+			}
+			w.WriteHeader(code)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -79,8 +88,11 @@ func TestConfigSyncApplies(t *testing.T) {
 	if !replica.gotImport || replica.gotDryRun {
 		t.Errorf("replica import: got=%v dryRun=%v (want applied, not dry run)", replica.gotImport, replica.gotDryRun)
 	}
-	if primary.gotImport {
-		t.Error("primary must not be imported into (it is the source)")
+	if !replica.gotBackup {
+		t.Error("a changing replica must be snapshotted before the destructive import")
+	}
+	if primary.gotImport || primary.gotBackup {
+		t.Error("primary must not be imported into or backed up (it is the source)")
 	}
 
 	// A config.synced event was recorded.
@@ -163,6 +175,78 @@ func TestConfigSyncReportsFailure(t *testing.T) {
 	}
 }
 
+// A member whose pre-sync backup fails must be left untouched and reported, never
+// overwritten: the wizard now gives the same recoverability guarantee as the
+// auto-syncer.
+func TestConfigSyncBackupFailureSkipsMember(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	replica := newStubConfigMember(t, "rtoken")
+	replica.backupCode = http.StatusInternalServerError // the snapshot fails
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sync = %d", rec.Code)
+	}
+	var resp struct {
+		Results []syncResultItem `json:"results"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Results) != 1 || resp.Results[0].OK || !strings.Contains(resp.Results[0].Error, "backup") {
+		t.Fatalf("want a backup-failure result, got %+v", resp.Results)
+	}
+	if !replica.gotBackup {
+		t.Error("a backup should have been attempted before the overwrite")
+	}
+	// The destructive (non-dry-run) import must never run: the last import call was
+	// the gating dry-run, so gotDryRun stays true.
+	if !replica.gotDryRun {
+		t.Error("the destructive import must be skipped when the backup fails")
+	}
+	evs, _, _ := store.ListEvents(t.Context(), EventFilter{})
+	for _, e := range evs {
+		if e.Type == "config.synced" && e.MemberID == rm.ID {
+			t.Error("a member left unchanged must not emit config.synced")
+		}
+	}
+}
+
+// An already-converged member is not snapshotted: there is nothing to overwrite, so
+// the wizard skips the backup just as the auto-syncer does, avoiding backup spam.
+func TestConfigSyncConvergedMemberNotBackedUp(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	converged := newStubConfigMember(t, "ctoken")
+	converged.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{}}`
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "converged", converged.srv.URL, "ctoken")
+
+	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sync = %d", rec.Code)
+	}
+	var resp struct {
+		Results []syncResultItem `json:"results"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Results) != 1 || !resp.Results[0].OK {
+		t.Fatalf("converged member should report OK, got %+v", resp.Results)
+	}
+	if converged.gotBackup {
+		t.Error("an already-converged member must not be snapshotted")
+	}
+	// A converged member must not get a real import either: re-importing reopens
+	// the overwrite-without-backup window. Its only import call is the gating
+	// dry-run, so gotDryRun stays true.
+	if !converged.gotDryRun {
+		t.Error("a converged member must not be imported into; only the dry-run should run")
+	}
+}
+
 func TestConfigSyncUnknownPrimary(t *testing.T) {
 	srv, _ := newTestServer(t)
 	const missing = "00000000-0000-0000-0000-000000000000"
@@ -230,9 +314,11 @@ func TestConfigSyncPrimaryExportFails(t *testing.T) {
 func TestConfigSyncApplyVariants(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubConfigMember(t, "ptoken")
-	// applied=false despite a 200 -> "did not apply".
+	// applied=false despite a 200 -> "did not apply". A non-empty diff so the
+	// pre-sync gate sees a changing member and proceeds to the real import (an
+	// empty diff would be short-circuited as already-converged).
 	notApplied := newStubConfigMember(t, "ntoken")
-	notApplied.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":false,"diff":{}}`
+	notApplied.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":false,"diff":{"providers":{"added":["p"]}}}`
 	// 422 schema mismatch -> "version mismatch", NOT a MASTER_KEY message.
 	badSchema := newStubConfigMember(t, "stoken")
 	badSchema.importCode = http.StatusUnprocessableEntity
@@ -240,7 +326,7 @@ func TestConfigSyncApplyVariants(t *testing.T) {
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	nm, _ := store.CreateMember(t.Context(), "not-applied", notApplied.srv.URL, "ntoken")
 	bm, _ := store.CreateMember(t.Context(), "bad-schema", badSchema.srv.URL, "stoken")
-	store.CreateMember(t.Context(), "unreachable", "http://127.0.0.1:1", "utoken")
+	um, _ := store.CreateMember(t.Context(), "unreachable", "http://127.0.0.1:1", "utoken")
 
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
 	if rec.Code != http.StatusOK {
@@ -265,5 +351,11 @@ func TestConfigSyncApplyVariants(t *testing.T) {
 	}
 	if !strings.Contains(byID[nm.ID].Error, "did not apply") {
 		t.Errorf("not-applied error = %q", byID[nm.ID].Error)
+	}
+	// An unreachable member fails the pre-sync dry-run, so the backup is never
+	// attempted: its error must report the unreachability, not be mislabeled a
+	// "backup failed" skip.
+	if got := byID[um.ID].Error; !strings.Contains(got, "reach") || strings.Contains(got, "backup") {
+		t.Errorf("unreachable error = %q, want a reach failure and not a backup failure", got)
 	}
 }

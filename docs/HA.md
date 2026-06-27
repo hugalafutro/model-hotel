@@ -157,9 +157,12 @@ Runbook:
    lists, per member, what will be added, updated, or removed (and flags any
    blocked member). Anything the primary does not have is **removed** from a
    replica that has it, so review the preview before confirming.
-3. Confirm. Each member is independent: a failure leaves that member untouched
-   and is reported; re-run to retry. Request logs and metering are never touched
-   (a removed provider's logs are kept, with the provider link nulled).
+3. Confirm. Before overwriting a member that will actually change, Front Desk asks
+   it to take a backup first (badged **FD**, spared from GFS rotation), so a bad
+   sync can be rolled back; a member whose backup fails is left untouched and
+   reported. Each member is independent, and re-running retries any left behind.
+   Request logs and metering are never touched (a removed provider's logs are kept,
+   with the provider link nulled).
 
 ### Automatic config sync (set and forget)
 
@@ -171,11 +174,11 @@ change, propagates the change to the rest of the fleet for you. The Members tabl
 shows a **Last Config Sync** column so you can see when each member last
 converged and why.
 
-It reuses the same machinery as the wizard, with two safety properties:
+It reuses the same machinery as the wizard, with the same safety properties:
 
-- **Backed up first.** Before overwriting a member, Front Desk asks it to take a
-  backup (badged **FD** in that member's backup list, and spared from GFS
-  rotation like a manual backup), so a bad propagation can be rolled back.
+- **Backed up first.** As in the wizard, before overwriting a member Front Desk
+  asks it to take a backup (badged **FD** in that member's backup list, and spared
+  from GFS rotation like a manual backup), so a bad propagation can be rolled back.
 - **Converges, does not thrash.** A change is only propagated once it has settled
   (the same config two checks running), members already matching the primary are
   skipped untouched, and a member that is unreachable or `MASTER_KEY`-blocked is
