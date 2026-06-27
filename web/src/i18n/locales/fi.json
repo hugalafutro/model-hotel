@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Säännöllinen varmuuskopiointi käytössä. Poistettu {{count}} vanhaa varmuuskopiota."
 			},
 			"availableBackupsTitle": "Saatavilla Olevat Varmuuskopiot",
-			"manuallyCreated": "Manuaalinen"
+			"manuallyCreated": "Manuaalinen",
+			"frontDeskCreated": "Front Deskin luoma ennen HA-määritysten synkronointia"
 		},
 		"appearance": {
 			"title": "Ulkoasu",

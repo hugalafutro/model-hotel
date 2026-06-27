@@ -246,10 +246,10 @@ export function FleetSyncWizard({
 				>
 					<p className="fd-muted">{t("settings.configSyncConfirmBody")}</p>
 					{busy && (
-						<p className="fd-muted" style={{ margin: "0.5rem 0" }}>
+						<Notice variant="warn" style={{ margin: "0.5rem 0" }}>
 							<span className="fd-spinner" aria-hidden="true" />{" "}
 							{t("settings.configSyncProgress")}
-						</p>
+						</Notice>
 					)}
 					{totalRemoved > 0 && (
 						<p className="fd-error-text" style={{ margin: "0.5rem 0" }}>

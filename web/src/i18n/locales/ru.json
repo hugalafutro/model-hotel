@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Периодическое резервное копирование включено. Удалено {{count}} старых резервных копий."
 			},
 			"availableBackupsTitle": "Доступные резервные копии",
-			"manuallyCreated": "Вручную"
+			"manuallyCreated": "Вручную",
+			"frontDeskCreated": "Создано Front Desk перед синхронизацией конфигурации HA"
 		},
 		"appearance": {
 			"title": "Внешний вид",

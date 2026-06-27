@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "정기 백업이 활성화되었습니다. 오래된 백업 {{count}}개를 삭제했습니다."
 			},
 			"availableBackupsTitle": "사용 가능한 백업",
-			"manuallyCreated": "수동"
+			"manuallyCreated": "수동",
+			"frontDeskCreated": "HA 구성 동기화 전에 Front Desk에서 생성함"
 		},
 		"appearance": {
 			"title": "외관",

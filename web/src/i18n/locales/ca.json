@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Còpia de seguretat periòdica activada. S'han eliminat {{count}} còpia/es antiga/es."
 			},
 			"availableBackupsTitle": "Copies de seguretat disponibles",
-			"manuallyCreated": "Manual"
+			"manuallyCreated": "Manual",
+			"frontDeskCreated": "Creat per Front Desk abans d'una sincronització de configuració HA"
 		},
 		"appearance": {
 			"title": "Aparença",

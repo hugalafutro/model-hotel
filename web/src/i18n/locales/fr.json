@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Sauvegarde périodique activée. {{count}} ancienne(s) sauvegarde(s) supprimée(s)."
 			},
 			"availableBackupsTitle": "Sauvegardes disponibles",
-			"manuallyCreated": "Manuel"
+			"manuallyCreated": "Manuel",
+			"frontDeskCreated": "Créé par Front Desk avant une synchronisation de configuration HA"
 		},
 		"appearance": {
 			"title": "Apparence",

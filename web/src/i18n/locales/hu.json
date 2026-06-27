@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Időszakos biztonsági mentés engedélyezve. {{count}} régi mentés eltávolítva."
 			},
 			"availableBackupsTitle": "Elérhető biztonsági másolatok",
-			"manuallyCreated": "Kézi"
+			"manuallyCreated": "Kézi",
+			"frontDeskCreated": "A Front Desk hozta létre egy HA-konfigurációszinkronizálás előtt"
 		},
 		"appearance": {
 			"title": "Megjelenés",

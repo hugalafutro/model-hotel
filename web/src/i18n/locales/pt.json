@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Cópia de segurança periódica ativada. Removidas {{count}} cópia(s) antiga(s)."
 			},
 			"availableBackupsTitle": "Backups disponíveis",
-			"manuallyCreated": "Manual"
+			"manuallyCreated": "Manual",
+			"frontDeskCreated": "Criado pelo Front Desk antes de uma sincronização de configuração de HA"
 		},
 		"appearance": {
 			"title": "Aparência",

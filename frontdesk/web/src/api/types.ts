@@ -14,6 +14,19 @@ export interface Member {
 	// Set after add/edit when the admin token was saved but could not be
 	// confirmed (member offline, or an older build). A refused token is a 400.
 	token_warning?: string;
+	// When Front Desk last applied config to this member (wizard or automatic),
+	// RFC3339; absent until the first sync. last_config_sync_reason explains why
+	// (e.g. the primary's config changed). Both drive the "Last Config Sync"
+	// column on the Members tab.
+	last_config_sync_at?: string;
+	last_config_sync_reason?: string;
+}
+
+// AutoSyncConfig is the automatic config-propagation setup: a master on/off plus
+// the designated source-of-truth member (empty when none is chosen).
+export interface AutoSyncConfig {
+	enabled: boolean;
+	primary_id: string;
 }
 
 export interface HealthStatus {

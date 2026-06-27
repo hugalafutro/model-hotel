@@ -91,6 +91,45 @@ func doImport(t *testing.T, r chi.Router, env ConfigEnvelope, query string) *htt
 	return rec
 }
 
+func doVersion(t *testing.T, r chi.Router) string {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/config/version", http.NoBody))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("version status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode version: %v", err)
+	}
+	return resp.Version
+}
+
+// TestConfigSync_VersionStableAndChanges: the config-version hash is the auto-sync
+// drift signal, so it must be stable for an unchanged config and change when a
+// synced entity changes.
+func TestConfigSync_VersionStableAndChanges(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	v1 := doVersion(t, r)
+	if v1 == "" {
+		t.Fatal("version hash is empty")
+	}
+	if v2 := doVersion(t, r); v2 != v1 {
+		t.Errorf("version changed without a config change: %q -> %q", v1, v2)
+	}
+
+	// Adding a provider must change the hash.
+	seedProvider(t, "anthropic", "sk-other-value", configSyncMasterKey)
+	if v3 := doVersion(t, r); v3 == v1 {
+		t.Errorf("version unchanged after adding a provider: still %q", v1)
+	}
+}
+
 func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 	cleanConfigTables(t)
 	ctx := context.Background()
@@ -514,6 +553,17 @@ func TestConfigSync_ExportDBError(t *testing.T) {
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("export with DB error = %d, want 500", rec.Code)
+	}
+}
+
+func TestConfigSync_VersionDBError(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/config/version", http.NoBody).WithContext(cancelledCtx())
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("version with DB error = %d, want 500", rec.Code)
 	}
 }
 

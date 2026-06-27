@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Okresowa kopia zapasowa włączona. Usunięto {{count}} starych kopii zapasowych."
 			},
 			"availableBackupsTitle": "Dostępne kopie zapasowe",
-			"manuallyCreated": "Ręczne"
+			"manuallyCreated": "Ręczne",
+			"frontDeskCreated": "Utworzone przez Front Desk przed synchronizacją konfiguracji HA"
 		},
 		"appearance": {
 			"title": "Wygląd",

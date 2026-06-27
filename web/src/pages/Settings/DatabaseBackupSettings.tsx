@@ -574,6 +574,14 @@ export function DatabaseBackupSettings({
 														{gfsLabel.get(backup.filename)}
 													</span>
 												)}
+											{backup.origin === "frontdesk" && (
+												<span
+													className="shrink-0 inline-flex h-4 items-center justify-center rounded px-1 text-[10px] font-bold bg-(--accent)/15 text-(--accent)"
+													title={t("settings.backup.frontDeskCreated")}
+												>
+													FD
+												</span>
+											)}
 											<p className="text-sm font-medium text-(--text-primary) truncate">
 												{backup.filename}
 											</p>

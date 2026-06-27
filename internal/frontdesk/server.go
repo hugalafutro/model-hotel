@@ -51,18 +51,19 @@ type ServerConfig struct {
 
 // Server is the Front Desk HTTP server.
 type Server struct {
-	store      *Store
-	poller     *Poller
-	bus        *events.Bus
-	adminMgr   *admin.Manager
-	sessionMgr *webauthn.SessionManager
-	totpRepo   *totp.Repository
-	totpStatus *totpEnabledCache
-	probe      *http.Client // guarded client for proxying member admin APIs
-	readClient *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
-	syncClient *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
-	lbPort     string       // host port of the data-plane load balancer, surfaced to the wizard
-	router     http.Handler
+	store        *Store
+	poller       *Poller
+	bus          *events.Bus
+	adminMgr     *admin.Manager
+	sessionMgr   *webauthn.SessionManager
+	totpRepo     *totp.Repository
+	totpStatus   *totpEnabledCache
+	probe        *http.Client // guarded client for proxying member admin APIs
+	readClient   *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
+	syncClient   *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
+	backupClient *http.Client // guarded client for the pre-sync backup relay (deadline exceeds the member's pg_dump budget)
+	lbPort       string       // host port of the data-plane load balancer, surfaced to the wizard
+	router       http.Handler
 }
 
 // defaultLBPort is the load-balancer host port assumed when FLEET_LB_PORT is
@@ -84,17 +85,18 @@ func NewServer(cfg ServerConfig) *Server {
 	}
 
 	s := &Server{
-		store:      cfg.Store,
-		poller:     cfg.Poller,
-		bus:        cfg.Bus,
-		adminMgr:   cfg.AdminMgr,
-		sessionMgr: sessionMgr,
-		totpRepo:   totpRepo,
-		totpStatus: newTotpEnabledCache(totpRepo),
-		probe:      newProbeClient(httpProbeTimeout),
-		readClient: newProbeClient(memberReadTimeout),
-		syncClient: newProbeClient(memberSyncTimeout),
-		lbPort:     lbPort,
+		store:        cfg.Store,
+		poller:       cfg.Poller,
+		bus:          cfg.Bus,
+		adminMgr:     cfg.AdminMgr,
+		sessionMgr:   sessionMgr,
+		totpRepo:     totpRepo,
+		totpStatus:   newTotpEnabledCache(totpRepo),
+		probe:        newProbeClient(httpProbeTimeout),
+		readClient:   newProbeClient(memberReadTimeout),
+		syncClient:   newProbeClient(memberSyncTimeout),
+		backupClient: newProbeClient(memberBackupTimeout),
+		lbPort:       lbPort,
 	}
 
 	webauthnHandler := adminauth.NewWebAuthnHandler(
@@ -142,6 +144,8 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Get("/traefik-status", s.traefikStatus)
 			r.Get("/fleet/status", s.fleetStatus)
 			r.Get("/fleet/last-sync", s.fleetLastSync)
+			r.Get("/fleet/autosync", s.getAutoSync)
+			r.Put("/fleet/autosync", s.putAutoSync)
 			r.Post("/config/sync", s.configSync)
 			r.Get("/sse", s.sse)
 		})
@@ -246,6 +250,9 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		tokenWarning = p.warning()
+		// A newly added member with a valid token is stale relative to the primary;
+		// re-arm auto-sync so the next tick brings it in line (no-op when disabled).
+		s.rearmAutoSync(r.Context())
 	}
 	s.emit(r.Context(), Event{
 		Type: "member.added", Severity: "info", Source: "frontdesk",
@@ -292,6 +299,11 @@ func (s *Server) patchMember(w http.ResponseWriter, r *http.Request) {
 		if err := s.store.SetMemberToken(r.Context(), id, *req.Token); err != nil {
 			writeError(w, err)
 			return
+		}
+		if *req.Token != "" {
+			// The member just gained an admin token: it is now syncable but stale, so
+			// re-arm auto-sync to converge it (no-op when disabled).
+			s.rearmAutoSync(r.Context())
 		}
 	}
 	m, err := s.store.GetMember(r.Context(), id)
@@ -378,6 +390,84 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		Message: "Settings updated",
 	})
 	writeJSON(w, http.StatusOK, set)
+}
+
+// getAutoSync returns the automatic config-propagation setup (enabled + the
+// designated primary). The internal drift hash is never included.
+func (s *Server) getAutoSync(w http.ResponseWriter, r *http.Request) {
+	cfg, err := s.store.GetAutoSync(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, cfg)
+}
+
+// putAutoSync sets the auto-sync toggle and designated primary. Enabling without
+// a primary, or naming a primary that is unknown or has no stored admin token, is
+// rejected: the loop could not authenticate to pull its config, so the choice
+// would silently do nothing.
+func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Enabled   bool   `json:"enabled"`
+		PrimaryID string `json:"primary_id"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.PrimaryID != "" {
+		m, err := s.store.GetMember(r.Context(), req.PrimaryID)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				http.Error(w, "that primary is not a known member", http.StatusBadRequest)
+				return
+			}
+			writeError(w, err)
+			return
+		}
+		if !m.HasToken {
+			http.Error(w, "store an admin token for that primary first; auto-sync needs it to read the primary's config", http.StatusBadRequest)
+			return
+		}
+	} else if req.Enabled {
+		http.Error(w, "choose a primary before enabling auto-sync", http.StatusBadRequest)
+		return
+	}
+	if err := s.store.SetAutoSync(r.Context(), req.Enabled, req.PrimaryID); err != nil {
+		writeError(w, err)
+		return
+	}
+	s.emit(r.Context(), Event{
+		Type: "settings.changed", Severity: "info", Source: "frontdesk",
+		Message: fmt.Sprintf("Auto-sync %s", enabledWord(req.Enabled)),
+	})
+	cfg, err := s.store.GetAutoSync(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, cfg)
+}
+
+func enabledWord(b bool) string {
+	if b {
+		return "enabled"
+	}
+	return "disabled"
+}
+
+// rearmAutoSync clears the last-applied config hash so the auto-sync loop runs a
+// full convergence pass on its next tick. The loop's fast path skips work when the
+// primary's hash is unchanged, so a member that becomes newly syncable (just
+// added, or just given an admin token) would otherwise stay stale until the
+// primary's config next changed. Clearing the marker re-arms the loop; members
+// already matching the primary are still skipped by their own dry-run diff, so the
+// re-run only syncs the one(s) that actually need it. It is a no-op in effect when
+// auto-sync is disabled (the loop reads the marker but does nothing).
+func (s *Server) rearmAutoSync(ctx context.Context) {
+	if err := s.store.SetAutoSyncLastHash(ctx, ""); err != nil {
+		debuglog.Warn("frontdesk: re-arm auto-sync after membership change", "error", err)
+	}
 }
 
 // ---------------------------------------------------------------------------

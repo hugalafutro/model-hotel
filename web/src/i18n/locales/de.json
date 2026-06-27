@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Periodische Sicherung aktiviert. {{count}} alte Sicherung(en) entfernt."
 			},
 			"availableBackupsTitle": "Verfügbare Sicherungen",
-			"manuallyCreated": "Manuell"
+			"manuallyCreated": "Manuell",
+			"frontDeskCreated": "Von Front Desk vor einer HA-Konfigurationssynchronisierung erstellt"
 		},
 		"appearance": {
 			"title": "Erscheinung",

@@ -1708,7 +1708,8 @@
 				"pruneSuccess": "Periodic backup enabled. Removed {{count}} old backup(s)."
 			},
 			"availableBackupsTitle": "Available backups",
-			"manuallyCreated": "Manual"
+			"manuallyCreated": "Manual",
+			"frontDeskCreated": "Created by Front Desk before an HA config sync"
 		},
 		"appearance": {
 			"title": "Appearance",

@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Backup periodico attivato. Rimossi {{count}} backup obsoleti."
 			},
 			"availableBackupsTitle": "Backup Disponibili",
-			"manuallyCreated": "Manuale"
+			"manuallyCreated": "Manuale",
+			"frontDeskCreated": "Creato da Front Desk prima di una sincronizzazione della configurazione HA"
 		},
 		"appearance": {
 			"title": "Aspetto",

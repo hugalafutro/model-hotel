@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Периодично резервно копирање је омогућено. Уклоњено {{count}} старих резервних копија."
 			},
 			"availableBackupsTitle": "Доступне резервне копије",
-			"manuallyCreated": "Ручно"
+			"manuallyCreated": "Ручно",
+			"frontDeskCreated": "Направио Front Desk пре синхронизације HA конфигурације"
 		},
 		"appearance": {
 			"title": "Изглед",

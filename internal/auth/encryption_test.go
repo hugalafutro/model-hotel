@@ -205,6 +205,19 @@ func TestDecrypt_InvalidCiphertext(t *testing.T) {
 	}
 }
 
+func TestDecrypt_WrongNonceLength(t *testing.T) {
+	masterKey := "test-master-key-123"
+	salt := make([]byte, 32)
+	ciphertext := []byte("some-ciphertext")
+
+	// A nonce of the wrong length must return an error, not panic the GCM Open.
+	for _, n := range []int{0, 1, nonceLength - 1, nonceLength + 1} {
+		if _, err := Decrypt(ciphertext, make([]byte, n), salt, masterKey); err == nil {
+			t.Errorf("Decrypt with nonce length %d should fail, got nil", n)
+		}
+	}
+}
+
 func TestDecrypt_MissingSalt(t *testing.T) {
 	masterKey := "test-master-key-123"
 	ciphertext := []byte("some-ciphertext")

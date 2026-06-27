@@ -128,6 +128,7 @@ export function MembersPage() {
 								<th>{t("members.colFrontdesk")}</th>
 								<th>{t("members.colTraefik")}</th>
 								<th>{t("members.colVersion")}</th>
+								<th>{t("members.colLastSync")}</th>
 								<th>{t("members.colState")}</th>
 								<th />
 							</tr>
@@ -259,6 +260,24 @@ function MemberRow({
 				) : (
 					<span className="fd-faint">
 						{m.has_token ? "—" : t("members.noToken")}
+					</span>
+				)}
+			</td>
+			<td>
+				{m.last_config_sync_at ? (
+					<span
+						className="fd-faint"
+						title={t("members.lastSyncTip", {
+							when: formatRelative(m.last_config_sync_at),
+							reason:
+								m.last_config_sync_reason ?? t("members.lastSyncReasonUnknown"),
+						})}
+					>
+						{formatRelative(m.last_config_sync_at)}
+					</span>
+				) : (
+					<span className="fd-faint">
+						{isPrimary ? "—" : t("members.lastSyncNever")}
 					</span>
 				)}
 			</td>

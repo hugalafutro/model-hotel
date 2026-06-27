@@ -101,6 +101,7 @@ func main() {
 	defer stop()
 
 	go poller.Run(ctx)
+	go srv.RunAutoSync(ctx)
 
 	httpServer := &http.Server{
 		Addr:              port,

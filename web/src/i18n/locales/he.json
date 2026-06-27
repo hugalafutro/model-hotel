@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "גיבוי תקופתי הופעל. הוסרו {{count}} גיבויים ישנים."
 			},
 			"availableBackupsTitle": "גיבויים זמינים",
-			"manuallyCreated": "ידני"
+			"manuallyCreated": "ידני",
+			"frontDeskCreated": "נוצר על ידי Front Desk לפני סנכרון תצורת HA"
 		},
 		"appearance": {
 			"title": "מראה",

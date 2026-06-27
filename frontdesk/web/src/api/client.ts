@@ -3,6 +3,7 @@ import type {
 	PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
 import type {
+	AutoSyncConfig,
 	EventsPage,
 	FdEvent,
 	FleetStatus,
@@ -147,6 +148,13 @@ export const api = {
 		),
 	// Last successful wizard run (timestamp + primary), or null when never run.
 	fleetLastSync: () => request<FleetSyncState | null>("/api/fleet/last-sync"),
+
+	// Automatic config propagation: read and update the toggle + designated
+	// primary. Front Desk's poller watches that primary and re-syncs the fleet
+	// when its config changes.
+	getAutoSync: () => request<AutoSyncConfig>("/api/fleet/autosync"),
+	putAutoSync: (cfg: AutoSyncConfig) =>
+		request<AutoSyncConfig>("/api/fleet/autosync", jsonInit("PUT", cfg)),
 
 	configSync: (primaryId: string) =>
 		request<SyncResult>(

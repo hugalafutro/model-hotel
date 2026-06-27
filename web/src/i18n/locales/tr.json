@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Periyodik yedekleme etkinleştirildi. {{count}} eski yedek kaldırıldı."
 			},
 			"availableBackupsTitle": "Mevcut Yedeklemeler",
-			"manuallyCreated": "Manuel"
+			"manuallyCreated": "Manuel",
+			"frontDeskCreated": "HA yapılandırma eşitlemesinden önce Front Desk tarafından oluşturuldu"
 		},
 		"appearance": {
 			"title": "Görünüm",

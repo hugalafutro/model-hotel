@@ -55,6 +55,10 @@
 		"colFrontdesk": "Front Desk",
 		"colTraefik": "Traefik",
 		"colVersion": "Version",
+		"colLastSync": "Last Config Sync",
+		"lastSyncNever": "Never",
+		"lastSyncReasonUnknown": "a config sync",
+		"lastSyncTip": "Synced {{when}} · {{reason}}",
 		"colLatency": "Latency",
 		"colActions": "",
 		"stateActive": "Active",
@@ -158,6 +162,17 @@
 		"configSyncProgress": "Replacing config and rediscovering models on each member. This can take up to a minute; keep this window open.",
 		"configSyncDone_one": "Synced config to {{ok}} of {{total}} member",
 		"configSyncDone_other": "Synced config to {{ok}} of {{total}} members",
+		"autoSync": {
+			"title": "Automatic config sync",
+			"hint": "Designate one member as the primary and Front Desk keeps the rest of the fleet matched to it: whenever the primary's providers, virtual keys, or settings change, it propagates the change for you. You only manage the primary.",
+			"primaryLabel": "Primary (source of truth)",
+			"primaryNone": "None (automatic sync off)",
+			"primaryHint": "Only members with a stored admin token can be the primary, since Front Desk needs it to read their config.",
+			"enableLabel": "Keep the fleet synced to the primary automatically",
+			"enableHint": "Checks the primary every few seconds and re-syncs members when its config changes.",
+			"activeWarning": "Automatic sync is on. A change on the primary replaces config on every other member, which can remove providers or keys they have but the primary does not. Each member is backed up first so a bad change can be rolled back.",
+			"saved": "Auto-sync updated"
+		},
 		"wizard": {
 			"title": "Fleet sync wizard",
 			"intro": "Converge your whole fleet onto one primary, one step at a time. Each step unlocks only once the one before it is done for every reachable instance.",
