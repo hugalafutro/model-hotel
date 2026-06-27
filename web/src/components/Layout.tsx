@@ -673,7 +673,7 @@ export function Layout({ children }: LayoutProps) {
 		setLogsSubMode,
 	} = useSidebarMode();
 
-	const { running, latest, updateAvailable } = useGitHubVersion();
+	const { running, latest, commit, updateAvailable } = useGitHubVersion();
 
 	const { data: cbStatus } = useQuery({
 		queryKey: ["circuit-breaker-status"],
@@ -1041,13 +1041,17 @@ export function Layout({ children }: LayoutProps) {
 							target="_blank"
 							rel="noopener noreferrer"
 							aria-label={t("layout.githubRepo")}
-							title={
-								!updateAvailable && latest !== "GitHub"
-									? t("layout.runningLatest", { running })
-									: updateAvailable
-										? t("layout.updateAvailable", { running, latest })
-										: t("layout.running", { running })
-							}
+							title={(() => {
+								const base =
+									!updateAvailable && latest !== "GitHub"
+										? t("layout.runningLatest", { running })
+										: updateAvailable
+											? t("layout.updateAvailable", { running, latest })
+											: t("layout.running", { running });
+								// Append the source commit SHA (build stamp, not
+								// translatable) so a `dev` build's exact commit is visible.
+								return commit ? `${base} · ${commit.slice(0, 7)}` : base;
+							})()}
 							className={`sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5`}
 						>
 							<span

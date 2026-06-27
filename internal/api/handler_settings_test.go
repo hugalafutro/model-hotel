@@ -387,6 +387,11 @@ func TestResetSettings_AllKeys(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
+	// app_commit is read-only and always present (defaults to "unknown" when
+	// the build was not stamped with a source SHA).
+	if result["app_commit"] == "" {
+		t.Error("app_commit should always be present")
+	}
 	// app_version is read-only and always present
 	if result["app_version"] == "" {
 		t.Error("app_version should always be present")

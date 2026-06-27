@@ -35,6 +35,32 @@ describe("useGitHubVersion", () => {
 		expect(result.current.running).toBe("v1.0.0");
 	});
 
+	it("returns the build commit from settings API", async () => {
+		server.use(
+			...mockSettings({ body: { app_version: "dev", app_commit: "abc1234" } }),
+		);
+		server.use(...mockVersionLatest({ status: 500 }));
+
+		const { result } = renderHook(() => useGitHubVersion());
+
+		await waitFor(() => expect(result.current.commit).toBe("abc1234"));
+	});
+
+	it('treats "unknown" commit as no commit', async () => {
+		server.use(
+			...mockSettings({ body: { app_version: "dev", app_commit: "unknown" } }),
+		);
+		server.use(...mockVersionLatest({ status: 500 }));
+
+		const { result } = renderHook(() => useGitHubVersion());
+
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 0));
+		});
+
+		expect(result.current.commit).toBe("");
+	});
+
 	it("returns cached latest version from localStorage on mount", () => {
 		const cached = JSON.stringify({ tag: "v0.1.2", timestamp: Date.now() });
 		localStorage.setItem(STORAGE_KEY, cached);

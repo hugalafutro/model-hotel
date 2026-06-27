@@ -32,9 +32,13 @@ COPY . .
 COPY --from=frontend-builder /app/web/dist ./cmd/server/static/
 
 ARG VERSION=dev
+# Short SHA of the source commit. The .git dir is excluded from the build
+# context (.dockerignore), so it is passed in as a build arg rather than
+# derived in-image.
+ARG COMMIT=unknown
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    go build -ldflags "-X main.version=$VERSION" -o server ./cmd/server/
+    go build -ldflags "-X main.version=$VERSION -X github.com/hugalafutro/model-hotel/internal/api.buildCommit=$COMMIT" -o server ./cmd/server/
 
 # Stage 3: Minimal runtime image
 FROM alpine:3.24
