@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { Settings } from "../api/types";
+import { AlertsPanel } from "../components/AlertsPanel";
 import { AutoSyncPanel } from "../components/AutoSyncPanel";
 import { FleetSyncWizard } from "../components/FleetSyncWizard";
 import { SecurityPanels } from "../components/SecurityPanels";
@@ -207,6 +208,8 @@ export function SettingsPage() {
 			</form>
 
 			<AutoSyncPanel members={members} />
+
+			<AlertsPanel />
 
 			<FleetSyncWizard members={members} onChanged={refetchMembers} />
 

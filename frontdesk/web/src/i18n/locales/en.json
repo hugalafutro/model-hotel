@@ -171,6 +171,28 @@
 			"activeWarning": "Automatic sync is on. A change on the primary replaces config on every other member, which can remove providers or keys they have but the primary does not. Each member is backed up first so a bad change can be rolled back.",
 			"saved": "Auto-sync updated"
 		},
+		"alerts": {
+			"title": "Alerts",
+			"hint": "Send a push notification when something happens in your fleet (a member goes down, a config sync fails). Front Desk posts to an Apprise (apprise-api) container you run; from there it fans out to Telegram, Discord, email, and dozens more.",
+			"enableLabel": "Send outbound alert notifications",
+			"apiUrlLabel": "Apprise API URL",
+			"apiUrlHint": "Base URL of your apprise-api container, reachable from Front Desk (e.g. http://apprise:8000 on the HA network).",
+			"targetLabel": "Notification target(s)",
+			"targetHint": "One or more Apprise URLs, separated by ; (e.g. tgram://token/chat_id). Stored encrypted.",
+			"targetStoredNote": "A target is stored (hidden). Leave as-is to keep it, type a new value to replace it, or clear it to remove.",
+			"eventsLabel": "Notify on",
+			"eventsHint": "Choose which fleet events send a notification.",
+			"saveBtn": "Save alert settings",
+			"testBtn": "Send test",
+			"testing": "Sending…",
+			"testSent": "Test notification sent",
+			"testFailed": "Test notification failed",
+			"saved": "Alert settings saved",
+			"statusOk": "apprise-api reachable",
+			"statusUnreachable": "apprise-api unreachable",
+			"statusUnhealthy": "apprise-api unhealthy",
+			"statusNotConfigured": "Not configured"
+		},
 		"wizard": {
 			"title": "Fleet sync wizard",
 			"intro": "Converge your whole fleet onto one primary, one step at a time. Each step unlocks only once the one before it is done for every reachable instance.",

@@ -41,37 +41,80 @@ type ConfigProvider interface {
 	APIBaseURL(ctx context.Context) (string, error)
 }
 
-// Dispatcher consumes the events bus and forwards selected events to a
+// defaultTitlePrefix labels notifications from the main gateway. Front Desk
+// overrides it via WithTitlePrefix so a fleet operator can tell the two apart.
+const defaultTitlePrefix = "Model Hotel"
+
+// defaultDebounceKeys are the metadata keys, most specific first, that identify
+// the entity an event concerns so distinct entities debounce independently. The
+// main app labels providers/models; Front Desk overrides this with member_id.
+var defaultDebounceKeys = []string{"provider_id", "provider", "model_id"}
+
+// Dispatcher consumes an events bus and forwards selected events to a
 // stateless apprise-api container as outbound notifications.
 type Dispatcher struct {
-	cfg      ConfigProvider
-	client   *http.Client
-	catalog  map[string]EventDef
-	cooldown time.Duration
+	cfg          ConfigProvider
+	client       *http.Client
+	bus          *events.Bus
+	catalog      map[string]EventDef
+	titlePrefix  string
+	debounceKeys []string
+	cooldown     time.Duration
 
 	mu       sync.Mutex
 	lastSent map[string]time.Time
 }
 
-// New constructs a Dispatcher. A nil client gets a sensible default.
-func New(cfg ConfigProvider, client *http.Client) *Dispatcher {
+// Option customizes a Dispatcher. Without any option the Dispatcher reproduces
+// the main-app behavior (global bus, main catalog, "Model Hotel" title, provider/
+// model debounce keys); Front Desk supplies its own via these options.
+type Option func(*Dispatcher)
+
+// WithBus subscribes the Dispatcher to a specific events bus instead of the
+// package-global DefaultBus. Front Desk runs its own bus instance.
+func WithBus(b *events.Bus) Option { return func(d *Dispatcher) { d.bus = b } }
+
+// WithCatalog sets the alertable-event catalog (Type -> EventDef). Only events in
+// the catalog can be alerted on, and the admin event picker is rendered from it.
+func WithCatalog(defs []EventDef) Option {
+	return func(d *Dispatcher) { d.catalog = catalogIndexOf(defs) }
+}
+
+// WithTitlePrefix sets the notification title prefix (e.g. "Front Desk").
+func WithTitlePrefix(p string) Option { return func(d *Dispatcher) { d.titlePrefix = p } }
+
+// WithDebounceKeys sets the metadata keys used to scope per-entity debounce.
+func WithDebounceKeys(keys []string) Option {
+	return func(d *Dispatcher) { d.debounceKeys = keys }
+}
+
+// New constructs a Dispatcher. A nil client gets a sensible default. With no
+// options it is the main-app dispatcher; pass options to embed it elsewhere.
+func New(cfg ConfigProvider, client *http.Client, opts ...Option) *Dispatcher {
 	if client == nil {
 		client = &http.Client{Timeout: defaultTimeout}
 	}
-	return &Dispatcher{
-		cfg:      cfg,
-		client:   client,
-		catalog:  catalogIndex(),
-		cooldown: defaultCooldown,
-		lastSent: make(map[string]time.Time),
+	d := &Dispatcher{
+		cfg:          cfg,
+		client:       client,
+		bus:          events.DefaultBus,
+		catalog:      catalogIndex(),
+		titlePrefix:  defaultTitlePrefix,
+		debounceKeys: defaultDebounceKeys,
+		cooldown:     defaultCooldown,
+		lastSent:     make(map[string]time.Time),
 	}
+	for _, opt := range opts {
+		opt(d)
+	}
+	return d
 }
 
 // Run subscribes to the events bus and dispatches matching events until ctx is
 // cancelled. Best-effort: a failed send is logged, never fatal.
 func (d *Dispatcher) Run(ctx context.Context) {
-	ch := events.Subscribe()
-	defer events.Unsubscribe(ch)
+	ch := d.bus.Subscribe()
+	defer d.bus.Unsubscribe(ch)
 	debuglog.Info("alert: dispatcher started")
 	for {
 		select {
@@ -122,7 +165,7 @@ func (d *Dispatcher) handle(ctx context.Context, ev events.Event) bool {
 	// block the event-drain loop, which would overflow the bus subscriber buffer
 	// and drop unrelated events. Debounce above bounds how often we get here, so
 	// the goroutine rate is naturally limited.
-	payload := payloadFor(ev)
+	payload := payloadFor(ev, d.titlePrefix)
 	go func() {
 		if err := d.post(ctx, cfg, payload); err != nil {
 			debuglog.Warn("alert: notify failed", "type", ev.Type, "error", err.Error())
@@ -139,7 +182,7 @@ func (d *Dispatcher) handle(ctx context.Context, ev events.Event) bool {
 // (not on success) so a broken apprise-api is not hammered every event.
 func (d *Dispatcher) suppressed(ev events.Event) bool {
 	key := ev.Type
-	if id := debounceID(ev.Metadata); id != "" {
+	if id := debounceID(ev.Metadata, d.debounceKeys); id != "" {
 		key += "|" + id
 	}
 
@@ -159,9 +202,10 @@ func (d *Dispatcher) suppressed(ev events.Event) bool {
 // "provider_id", discovery.provider_failed carries "provider" (a name), and
 // failover.sync_error carries "model_id". Without this, two different providers
 // failing inside the cooldown window would collapse to a single alert and the
-// second failure would be silently dropped.
-func debounceID(meta map[string]interface{}) string {
-	for _, k := range []string{"provider_id", "provider", "model_id"} {
+// second failure would be silently dropped. keys is the most-specific-first list
+// to probe (the dispatcher's configured debounce keys).
+func debounceID(meta map[string]interface{}, keys []string) string {
+	for _, k := range keys {
 		if v, ok := meta[k].(string); ok && v != "" {
 			return v
 		}
@@ -179,13 +223,14 @@ type notifyPayload struct {
 }
 
 // payloadFor builds the notification for an event (target URLs filled in later).
-func payloadFor(ev events.Event) notifyPayload {
+// titlePrefix labels the source app ("Model Hotel" or "Front Desk").
+func payloadFor(ev events.Event, titlePrefix string) notifyPayload {
 	body := ev.Message
 	if body == "" {
 		body = ev.Type
 	}
 	return notifyPayload{
-		Title:  "Model Hotel — " + ev.Type,
+		Title:  titlePrefix + ": " + ev.Type,
 		Body:   body,
 		Type:   appriseType(ev.Severity),
 		Format: "text",
@@ -265,8 +310,8 @@ func (d *Dispatcher) TestSend(ctx context.Context) error {
 		return fmt.Errorf("notification target is not configured")
 	}
 	return d.post(ctx, cfg, notifyPayload{
-		Title:  "Model Hotel — test notification",
-		Body:   "If you can read this, Model Hotel alerting is wired up correctly.",
+		Title:  d.titlePrefix + ": test notification",
+		Body:   "If you can read this, " + d.titlePrefix + " alerting is wired up correctly.",
 		Type:   "info",
 		Format: "text",
 	})

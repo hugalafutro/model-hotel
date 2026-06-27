@@ -17,6 +17,8 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
 	"github.com/hugalafutro/model-hotel/internal/adminauth"
+	"github.com/hugalafutro/model-hotel/internal/alert"
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/totp"
@@ -63,6 +65,8 @@ type Server struct {
 	syncClient   *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
 	backupClient *http.Client // guarded client for the pre-sync backup relay (deadline exceeds the member's pg_dump budget)
 	lbPort       string       // host port of the data-plane load balancer, surfaced to the wizard
+	masterKey    string       // encrypts the Apprise target secret at rest
+	alertDisp    *alert.Dispatcher
 	router       http.Handler
 }
 
@@ -97,7 +101,19 @@ func NewServer(cfg ServerConfig) *Server {
 		syncClient:   newProbeClient(memberSyncTimeout),
 		backupClient: newProbeClient(memberBackupTimeout),
 		lbPort:       lbPort,
+		masterKey:    cfg.MasterKey,
 	}
+
+	// Outbound Apprise alerting: one consumer of the Front Desk event bus, gated by
+	// the HA event catalog and the operator's picker. Built here so the settings
+	// handlers can probe/test it; run as a goroutine via RunAlerts.
+	s.alertDisp = alert.New(
+		alertConfigProvider{store: cfg.Store, masterKey: cfg.MasterKey}, nil,
+		alert.WithBus(cfg.Bus),
+		alert.WithCatalog(fdCatalog),
+		alert.WithTitlePrefix("Front Desk"),
+		alert.WithDebounceKeys([]string{"member_id"}),
+	)
 
 	webauthnHandler := adminauth.NewWebAuthnHandler(
 		webAuthnStore, cfg.RelyingParty, sessionMgr, cfg.AdminMgr, cfg.IPLimiter, false, s.totpStatus.Enabled,
@@ -140,6 +156,9 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Get("/members/{id}/traffic", s.memberTraffic)
 			r.Get("/settings", s.getSettings)
 			r.Put("/settings", s.putSettings)
+			r.Get("/alert/events", s.alertEvents)
+			r.Get("/alert/status", s.alertStatus)
+			r.Post("/alert/test", s.alertTest)
 			r.Get("/events", s.listEvents)
 			r.Get("/traefik-status", s.traefikStatus)
 			r.Get("/fleet/status", s.fleetStatus)
@@ -373,6 +392,11 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	// Never expose the encrypted Apprise target: replace a stored secret with a
+	// mask the UI can echo back unchanged to preserve it.
+	if set.AlertAppriseTargets != "" {
+		set.AlertAppriseTargets = alertMaskValue
+	}
 	writeJSON(w, http.StatusOK, set)
 }
 
@@ -381,6 +405,15 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &set) {
 		return
 	}
+	// Resolve the Apprise target secret before storing: a masked submission keeps
+	// the existing ciphertext, a new value is encrypted at rest, a blank clears it.
+	resolved, err := s.resolveAlertTarget(r.Context(), set.AlertAppriseTargets)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	set.AlertAppriseTargets = resolved
+
 	if err := s.store.UpdateSettings(r.Context(), set); err != nil {
 		writeError(w, err)
 		return
@@ -389,7 +422,29 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		Type: "settings.changed", Severity: "info", Source: "frontdesk",
 		Message: "Settings updated",
 	})
+	// Re-mask before echoing the saved settings back to the client.
+	if set.AlertAppriseTargets != "" {
+		set.AlertAppriseTargets = alertMaskValue
+	}
 	writeJSON(w, http.StatusOK, set)
+}
+
+// resolveAlertTarget maps a submitted Apprise target field to the value to store:
+// the mask sentinel preserves the stored ciphertext, a blank clears it, and any
+// other value is encrypted at rest with the Front Desk master key.
+func (s *Server) resolveAlertTarget(ctx context.Context, submitted string) (string, error) {
+	switch submitted {
+	case alertMaskValue:
+		cur, err := s.store.GetSettings(ctx)
+		if err != nil {
+			return "", err
+		}
+		return cur.AlertAppriseTargets, nil
+	case "":
+		return "", nil
+	default:
+		return auth.EncryptString(submitted, s.masterKey)
+	}
 }
 
 // getAutoSync returns the automatic config-propagation setup (enabled + the
@@ -605,10 +660,55 @@ func (s *Server) emit(ctx context.Context, e Event) {
 		debuglog.Warn("frontdesk: persist event", "type", e.Type, "error", err)
 		stored = e
 	}
-	s.bus.Publish(events.Event{
-		ID: stored.ID, Type: stored.Type, Severity: stored.Severity, Source: stored.Source,
-		Message: stored.Message, Metadata: stored.Metadata, Timestamp: stored.CreatedAt,
-	})
+	s.bus.Publish(busEvent(stored))
+}
+
+// busEvent maps a stored Front Desk Event to a bus event. When the event concerns
+// a member, its MemberID is copied into the metadata as "member_id" (on a copy, so
+// the persisted metadata is untouched) so the alert dispatcher debounces per
+// member. Shared by Server.emit and Poller.recordEvent.
+func busEvent(e Event) events.Event {
+	meta := e.Metadata
+	if e.MemberID != "" {
+		meta = make(map[string]any, len(e.Metadata)+1)
+		for k, v := range e.Metadata {
+			meta[k] = v
+		}
+		meta["member_id"] = e.MemberID
+	}
+	return events.Event{
+		ID: e.ID, Type: e.Type, Severity: e.Severity, Source: e.Source,
+		Message: e.Message, Metadata: meta, Timestamp: e.CreatedAt,
+	}
+}
+
+// RunAlerts runs the outbound Apprise dispatcher until ctx is cancelled. Started
+// as a goroutine in cmd/frontdesk; best-effort, never blocks request serving.
+func (s *Server) RunAlerts(ctx context.Context) { s.alertDisp.Run(ctx) }
+
+// alertEvents serves the Front Desk alert catalog so the UI renders its picker.
+func (s *Server) alertEvents(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, fdCatalog)
+}
+
+// alertStatus reports whether the configured apprise-api is reachable.
+func (s *Server) alertStatus(w http.ResponseWriter, r *http.Request) {
+	st, err := s.alertDisp.Probe(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, st)
+}
+
+// alertTest sends a test notification to the configured target(s). A delivery or
+// configuration failure is reported as 502 with the reason, so the UI can show it.
+func (s *Server) alertTest(w http.ResponseWriter, r *http.Request) {
+	if err := s.alertDisp.TestSend(r.Context()); err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

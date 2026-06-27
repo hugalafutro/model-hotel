@@ -54,6 +54,32 @@ export interface Settings {
 	traefik_stale_secs: number;
 	event_retention_days: number;
 	retry_attempts: number;
+	// Outbound Apprise alerting. alert_apprise_targets is masked over the API
+	// ("********" when a secret is stored); echo it back unchanged to preserve the
+	// stored value, send a new value to replace it, or "" to clear it. alert_events
+	// is a CSV of enabled event Types (the per-event picker).
+	alert_enabled: boolean;
+	alert_apprise_api_url: string;
+	alert_apprise_targets: string;
+	alert_events: string;
+}
+
+// One alertable event in the Front Desk catalog (GET /api/alert/events), mirroring
+// alert.EventDef. The picker is rendered from this list, grouped by category.
+export interface AlertEventDef {
+	type: string;
+	category: string;
+	severity: string; // display severity: success|info|warning|error
+	defaultOn: boolean;
+}
+
+// Reachability of the operator's apprise-api (GET /api/alert/status), mirroring
+// alert.Status.
+export interface AlertStatus {
+	configured: boolean;
+	reachable: boolean;
+	healthy: boolean;
+	detail?: string;
 }
 
 export type Severity = "info" | "success" | "warning" | "error";

@@ -522,10 +522,7 @@ func (p *Poller) recordEvent(ctx context.Context, e Event) {
 		debuglog.Warn("frontdesk: persist event", "type", e.Type, "error", err)
 		stored = e
 	}
-	p.bus.Publish(events.Event{
-		ID: stored.ID, Type: stored.Type, Severity: stored.Severity, Source: stored.Source,
-		Message: stored.Message, Metadata: stored.Metadata, Timestamp: stored.CreatedAt,
-	})
+	p.bus.Publish(busEvent(stored))
 }
 
 // publishMemberStatus emits a bus-only signal that a member's live status

@@ -24,8 +24,9 @@ with the last config it fetched; only membership changes pause until it returns.
 8. [Replicating Config Across the Fleet](#replicating-config-across-the-fleet)
 9. [TLS Proxy](#tls-proxy)
 10. [Observability](#observability)
-11. [What This Does and Does Not Give You](#what-this-does-and-does-not-give-you)
-12. [Acceptance Checks](#acceptance-checks)
+11. [Alerting](#alerting)
+12. [What This Does and Does Not Give You](#what-this-does-and-does-not-give-you)
+13. [Acceptance Checks](#acceptance-checks)
 
 ---
 
@@ -326,6 +327,28 @@ Desk's **Events** tab records control-plane facts only: membership changes,
 health transitions tagged by source, config lifecycle, and a warning when
 **Traefik has not polled for too long** (the one silent failure mode of the
 HTTP-provider design). No request or prompt content is ever logged.
+
+---
+
+## Alerting
+
+Front Desk can push a notification when something happens in the fleet, so you do
+not have to watch the Events tab. It mirrors the main gateway's alerting: Front
+Desk POSTs a one-line event summary to a stateless
+[apprise-api](https://github.com/caronc/apprise-api) container you run, which fans
+it out to Telegram, Discord, email, ntfy, and dozens more. Only routing metadata
+is sent, never request or prompt content.
+
+Run an `apprise` service reachable from Front Desk (a commented-out example ships
+in `deploy/ha/docker-compose.yml`), then in Front Desk **Settings -> Alerts**: set
+the Apprise API URL (e.g. `http://apprise:8000`), paste your notification
+target(s), and pick which events to be notified about. The picker defaults to the
+high-signal HA events (a member going down or recovering, a config sync failing, a
+member's version read failing repeatedly); membership and routing events are
+available but off by default. The target is encrypted at rest with
+`FRONTDESK_MASTER_KEY`, and a **Send test** button confirms delivery end to end.
+This is the same `apprise-api` the main gateway uses, so one container can serve
+both.
 
 ---
 

@@ -3,6 +3,8 @@ import type {
 	PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
 import type {
+	AlertEventDef,
+	AlertStatus,
 	AutoSyncConfig,
 	EventsPage,
 	FdEvent,
@@ -133,6 +135,11 @@ export const api = {
 	getSettings: () => request<Settings>("/api/settings"),
 	putSettings: (s: Settings) =>
 		request<void>("/api/settings", jsonInit("PUT", s)),
+
+	// Outbound Apprise alerting (Settings -> Alerts panel).
+	getAlertEvents: () => request<AlertEventDef[]>("/api/alert/events"),
+	getAlertStatus: () => request<AlertStatus>("/api/alert/status"),
+	testAlert: () => request<void>("/api/alert/test", { method: "POST" }),
 
 	listEvents: (params: URLSearchParams) =>
 		request<EventsPage>(`/api/events?${params.toString()}`),

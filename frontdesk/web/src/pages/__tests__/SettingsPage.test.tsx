@@ -14,6 +14,10 @@ const defaults: Settings = {
 	traefik_stale_secs: 30,
 	event_retention_days: 90,
 	retry_attempts: 2,
+	alert_enabled: false,
+	alert_apprise_api_url: "",
+	alert_apprise_targets: "",
+	alert_events: "",
 };
 
 function renderPage() {
@@ -31,6 +35,15 @@ beforeEach(() => {
 	server.use(
 		sseHandler(),
 		http.get("/api/members", () => HttpResponse.json([])),
+		// The Alerts panel loads its catalog + reachability on mount.
+		http.get("/api/alert/events", () => HttpResponse.json([])),
+		http.get("/api/alert/status", () =>
+			HttpResponse.json({
+				configured: false,
+				reachable: false,
+				healthy: false,
+			}),
+		),
 	);
 });
 
