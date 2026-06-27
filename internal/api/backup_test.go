@@ -2753,10 +2753,11 @@ func TestParseBackupTimestamp(t *testing.T) {
 
 func TestBackupOrigin(t *testing.T) {
 	cases := map[string]string{
-		"backup_20240115_120000_0010_manual.dump": "manual",
-		"backup_20240115_120000_0010_auto.dump":   "scheduled",
-		"backup_20240115_120000_0010.dump":        "manual", // predates origin tracking
-		"backup_20240115_120000_manual.dump":      "manual",
+		"backup_20240115_120000_0010_manual.dump":    "manual",
+		"backup_20240115_120000_0010_auto.dump":      "scheduled",
+		"backup_20240115_120000_0010_frontdesk.dump": "frontdesk",
+		"backup_20240115_120000_0010.dump":           "manual", // predates origin tracking
+		"backup_20240115_120000_manual.dump":         "manual",
 	}
 	for name, want := range cases {
 		if got := backupOrigin(name); got != want {
@@ -2775,6 +2776,15 @@ func TestGenerateBackupFilenameOrigin(t *testing.T) {
 	}
 	if got := backupOrigin(generateBackupFilename("auto")); got != "scheduled" {
 		t.Errorf("auto backup origin = %q, want scheduled", got)
+	}
+	// Front Desk's pre-sync snapshots round-trip to "frontdesk" and, like manual,
+	// are not GFS rotation targets (only "_auto" files are scheduled).
+	fd := generateBackupFilename(backupOriginFrontDesk)
+	if got := backupOrigin(fd); got != backupOriginFrontDesk {
+		t.Errorf("frontdesk backup origin = %q, want %q", got, backupOriginFrontDesk)
+	}
+	if _, err := parseBackupTimestamp(fd); err != nil {
+		t.Errorf("parseBackupTimestamp(%q) failed: %v", fd, err)
 	}
 	// The origin segment must not break timestamp parsing (GFS classification).
 	if _, err := parseBackupTimestamp(manual); err != nil {

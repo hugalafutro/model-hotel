@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -78,10 +80,11 @@ func NewConfigSyncHandler(database *db.DB, settingsRepo SettingsStore, masterKey
 	}
 }
 
-// Register mounts GET/POST /config/{export,import}. The parent router must apply
-// admin auth (see type doc).
+// Register mounts GET/POST /config/{export,import} and GET /config/version. The
+// parent router must apply admin auth (see type doc).
 func (h *ConfigSyncHandler) Register(r chi.Router) {
 	r.Get("/config/export", h.Export)
+	r.Get("/config/version", h.Version)
 	r.Post("/config/import", h.Import)
 }
 
@@ -194,6 +197,33 @@ func (h *ConfigSyncHandler) Export(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, env)
+}
+
+// Version returns a stable content hash of this member's syncable config, so
+// Front Desk's auto-sync poller can cheaply detect that the primary's config
+// changed without pulling and diffing the full export every tick. The hash
+// covers only the Config payload (providers, virtual keys, syncable settings,
+// custom failover groups), never the volatile envelope fields (exported_at), so
+// it changes if and only if a synced entity changed. Same auth as Export.
+func (h *ConfigSyncHandler) Version(w http.ResponseWriter, r *http.Request) {
+	env, err := h.buildEnvelope(r.Context())
+	if err != nil {
+		debuglog.Error("configsync: build version envelope", "error", err)
+		http.Error(w, "could not read config", http.StatusInternalServerError)
+		return
+	}
+	// Marshal only the Config payload: providers come out ORDER BY name, virtual
+	// keys ORDER BY created_at, failover groups ORDER BY display_model, and the
+	// settings map is key-sorted by encoding/json, so the bytes are deterministic
+	// for an unchanged config and the hash is stable across calls.
+	payload, err := json.Marshal(env.Config)
+	if err != nil {
+		debuglog.Error("configsync: marshal config for version", "error", err)
+		http.Error(w, "could not read config", http.StatusInternalServerError)
+		return
+	}
+	sum := sha256.Sum256(payload)
+	writeJSON(w, map[string]string{"version": hex.EncodeToString(sum[:])})
 }
 
 // buildEnvelope reads this member's full config (providers with key ciphertext,

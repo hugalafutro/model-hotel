@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Pravidelné zálohování povoleno. Odstraněno {{count}} starých záloh."
 			},
 			"availableBackupsTitle": "Dostupné zálohy",
-			"manuallyCreated": "Ručne"
+			"manuallyCreated": "Ručne",
+			"frontDeskCreated": "Vytvořeno nástrojem Front Desk před synchronizací konfigurace HA"
 		},
 		"appearance": {
 			"title": "Vzhled",

@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Periodieke rugsteun geaktiveer. {{count}} ou rugsteun(e) verwyder."
 			},
 			"availableBackupsTitle": "Beskikbare rugsteun",
-			"manuallyCreated": "Handmatig"
+			"manuallyCreated": "Handmatig",
+			"frontDeskCreated": "Deur Front Desk geskep voor 'n HA-konfigurasiesinkronisasie"
 		},
 		"appearance": {
 			"title": "Uiterlike voorkoms",

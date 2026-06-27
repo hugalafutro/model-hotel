@@ -537,10 +537,11 @@ export interface BackupEntry {
 	filename: string;
 	size_bytes: number;
 	created_at: string;
-	/** "manual" (operator-created) or "scheduled" (GFS rotation). Absent on
-	 *  responses from servers predating origin tracking; treat as manual, matching
-	 *  the backend's default for filenames without an origin marker. */
-	origin?: "manual" | "scheduled";
+	/** "manual" (operator-created), "scheduled" (GFS rotation), or "frontdesk"
+	 *  (snapshot Front Desk took before an HA config sync). Absent on responses
+	 *  from servers predating origin tracking; treat as manual, matching the
+	 *  backend's default for filenames without an origin marker. */
+	origin?: "manual" | "scheduled" | "frontdesk";
 }
 
 export interface BackupClassification {

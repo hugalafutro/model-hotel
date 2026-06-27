@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Periodisk sikkerhetskopiering aktivert. Fjernet {{count}} gamle sikkerhetskopier."
 			},
 			"availableBackupsTitle": "Tilgjengelige sikkerhetskopier",
-			"manuallyCreated": "Manuell"
+			"manuallyCreated": "Manuell",
+			"frontDeskCreated": "Opprettet av Front Desk før en HA-konfigurasjonssynkronisering"
 		},
 		"appearance": {
 			"title": "Utseende",

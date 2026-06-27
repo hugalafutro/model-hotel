@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Τα περιοδικά αντίγραφα ασφαλείας ενεργοποιήθηκαν. Αφαιρέθηκαν {{count}} παλιά αντίγραφα ασφαλείας."
 			},
 			"availableBackupsTitle": "Διαθέσιμα Αντίγραφα Ασφαλείας",
-			"manuallyCreated": "Χειροκίνητο"
+			"manuallyCreated": "Χειροκίνητο",
+			"frontDeskCreated": "Δημιουργήθηκε από το Front Desk πριν από συγχρονισμό ρυθμίσεων HA"
 		},
 		"appearance": {
 			"title": "Εμφάνιση",

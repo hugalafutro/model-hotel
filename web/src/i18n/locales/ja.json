@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "定期バックアップを有効にしました。{{count}} 件の古いバックアップを削除しました。"
 			},
 			"availableBackupsTitle": "利用可能なバックアップ",
-			"manuallyCreated": "手動"
+			"manuallyCreated": "手動",
+			"frontDeskCreated": "HA 設定同期の前に Front Desk が作成"
 		},
 		"appearance": {
 			"title": "外観",

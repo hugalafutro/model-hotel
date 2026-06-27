@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Backup periodic activat. Au fost eliminate {{count}} backupuri vechi."
 			},
 			"availableBackupsTitle": "Backup-uri disponibile",
-			"manuallyCreated": "Manual"
+			"manuallyCreated": "Manual",
+			"frontDeskCreated": "Creat de Front Desk înainte de o sincronizare a configurației HA"
 		},
 		"appearance": {
 			"title": "Aspectul",

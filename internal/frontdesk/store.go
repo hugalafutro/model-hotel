@@ -63,6 +63,12 @@ type Member struct {
 	HasToken  bool        `json:"has_token"`
 	CreatedAt time.Time   `json:"created_at"`
 	UpdatedAt time.Time   `json:"updated_at"`
+	// LastConfigSyncAt is when Front Desk last applied config to this member
+	// (wizard or automatic); nil until the first sync. LastConfigSyncReason
+	// explains why (e.g. the primary's config changed). Both power the Members
+	// table "Last Config Sync" column.
+	LastConfigSyncAt     *time.Time `json:"last_config_sync_at,omitempty"`
+	LastConfigSyncReason string     `json:"last_config_sync_reason,omitempty"`
 }
 
 // Settings shape the generated Traefik config and the pollers. The single row
@@ -225,7 +231,7 @@ func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*
 // ListMembers returns all members ordered by creation time.
 func (s *Store) ListMembers(ctx context.Context) ([]*Member, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, url, state, token_cipher, created_at, updated_at FROM members ORDER BY created_at ASC`,
+		`SELECT id, name, url, state, token_cipher, created_at, updated_at, last_config_sync_at, last_config_sync_reason FROM members ORDER BY created_at ASC`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("frontdesk: list members: %w", err)
@@ -246,7 +252,7 @@ func (s *Store) ListMembers(ctx context.Context) ([]*Member, error) {
 // GetMember returns one member by id, or ErrNotFound.
 func (s *Store) GetMember(ctx context.Context, id string) (*Member, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, name, url, state, token_cipher, created_at, updated_at FROM members WHERE id = ?`, id,
+		`SELECT id, name, url, state, token_cipher, created_at, updated_at, last_config_sync_at, last_config_sync_reason FROM members WHERE id = ?`, id,
 	)
 	m, err := scanMember(row)
 	if err != nil {
@@ -292,7 +298,15 @@ func (s *Store) SetMemberState(ctx context.Context, id string, state MemberState
 // DeleteMember removes a member by id.
 func (s *Store) DeleteMember(ctx context.Context, id string) error {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM members WHERE id = ?`, id)
-	return affectedOrNotFound(res, err)
+	if err := affectedOrNotFound(res, err); err != nil {
+		return err
+	}
+	// If the removed member was the designated auto-sync primary, clear the
+	// pointer so the auto-sync loop stops treating a now-gone member as the
+	// source of truth. Best-effort: a failure here only leaves a dangling id the
+	// loop already guards against.
+	_, _ = s.db.ExecContext(ctx, `UPDATE settings SET auto_sync_primary_id = '' WHERE auto_sync_primary_id = ?`, id)
+	return nil
 }
 
 // MemberToken decrypts and returns a member's stored admin token. ok is false
@@ -380,6 +394,67 @@ func (s *Store) UpdateSettings(ctx context.Context, set Settings) error {
 		return fmt.Errorf("frontdesk: update settings: %w", err)
 	}
 	return nil
+}
+
+// AutoSyncConfig is the operator's automatic config-propagation setup: a master
+// on/off plus the designated source-of-truth member. LastHash is the internal
+// drift marker (the primary config hash last applied to the fleet) and is never
+// surfaced to the UI.
+type AutoSyncConfig struct {
+	Enabled   bool   `json:"enabled"`
+	PrimaryID string `json:"primary_id"`
+	LastHash  string `json:"-"`
+}
+
+// GetAutoSync reads the automatic config-sync setup from the settings row.
+func (s *Store) GetAutoSync(ctx context.Context) (AutoSyncConfig, error) {
+	var (
+		cfg     AutoSyncConfig
+		enabled int
+	)
+	err := s.db.QueryRowContext(ctx,
+		`SELECT auto_sync_enabled, auto_sync_primary_id, auto_sync_last_hash FROM settings WHERE id = 1`,
+	).Scan(&enabled, &cfg.PrimaryID, &cfg.LastHash)
+	if err != nil {
+		return AutoSyncConfig{}, fmt.Errorf("frontdesk: get auto-sync: %w", err)
+	}
+	cfg.Enabled = enabled != 0
+	return cfg, nil
+}
+
+// SetAutoSync persists the operator's auto-sync choice (enabled + designated
+// primary). It does not touch the last-applied hash; the poller owns that.
+func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ? WHERE id = 1`,
+		boolToInt(enabled), primaryID,
+	)
+	if err != nil {
+		return fmt.Errorf("frontdesk: set auto-sync: %w", err)
+	}
+	return nil
+}
+
+// SetAutoSyncLastHash records the primary config hash the poller just applied to
+// the fleet, so the next tick can detect a change cheaply.
+func (s *Store) SetAutoSyncLastHash(ctx context.Context, hash string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE settings SET auto_sync_last_hash = ? WHERE id = 1`, hash,
+	)
+	if err != nil {
+		return fmt.Errorf("frontdesk: set auto-sync hash: %w", err)
+	}
+	return nil
+}
+
+// SetMemberLastSync stamps when Front Desk last applied config to a member and
+// why, for the Members table "Last Config Sync" column.
+func (s *Store) SetMemberLastSync(ctx context.Context, id string, at time.Time, reason string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE members SET last_config_sync_at = ?, last_config_sync_reason = ? WHERE id = ?`,
+		at.UTC().UnixNano(), reason, id,
+	)
+	return affectedOrNotFound(res, err)
 }
 
 // ---------------------------------------------------------------------------
@@ -549,19 +624,26 @@ type scanner interface {
 
 func scanMember(sc scanner) (*Member, error) {
 	var (
-		m         Member
-		state     string
-		cipher    []byte
-		createdAt int64
-		updatedAt int64
+		m          Member
+		state      string
+		cipher     []byte
+		createdAt  int64
+		updatedAt  int64
+		lastSyncAt sql.NullInt64
+		syncReason string
 	)
-	if err := sc.Scan(&m.ID, &m.Name, &m.URL, &state, &cipher, &createdAt, &updatedAt); err != nil {
+	if err := sc.Scan(&m.ID, &m.Name, &m.URL, &state, &cipher, &createdAt, &updatedAt, &lastSyncAt, &syncReason); err != nil {
 		return nil, err
 	}
 	m.State = MemberState(state)
 	m.HasToken = len(cipher) > 0
 	m.CreatedAt = time.Unix(0, createdAt).UTC()
 	m.UpdatedAt = time.Unix(0, updatedAt).UTC()
+	if lastSyncAt.Valid {
+		t := time.Unix(0, lastSyncAt.Int64).UTC()
+		m.LastConfigSyncAt = &t
+	}
+	m.LastConfigSyncReason = syncReason
 	return &m, nil
 }
 

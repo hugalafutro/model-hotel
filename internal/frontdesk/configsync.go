@@ -24,6 +24,10 @@ import (
 const (
 	memberConfigExportPath = "/api/config/export"
 	memberConfigImportPath = "/api/config/import"
+
+	// wizardSyncReason is stamped on a member's last-config-sync marker when the
+	// operator drives the sync through the wizard (vs the automatic loop).
+	wizardSyncReason = "manual sync from the wizard"
 )
 
 // syncResultItem is one member's outcome from a fleet sync action.
@@ -102,7 +106,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		if err != nil || !ok {
 			continue
 		}
-		results = append(results, s.applyMemberConfig(r.Context(), m, token, export))
+		results = append(results, s.applyMemberConfig(r.Context(), m, token, export, wizardSyncReason))
 	}
 	s.recordFleetSyncRun(r.Context(), primary, results)
 	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "results": results})
@@ -129,8 +133,10 @@ func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, result
 }
 
 // applyMemberConfig imports the primary's config onto one member and records an
-// audit event for the outcome.
-func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte) syncResultItem {
+// audit event for the outcome. On success it stamps the member's last-config-sync
+// marker with reason (shown in the Members table), so both the wizard and the
+// auto-sync loop record why and when a member last converged.
+func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string) syncResultItem {
 	res := syncResultItem{MemberID: m.ID, Name: m.Name}
 	out, status, err := s.pushMemberImport(ctx, m, token, export, false)
 	switch {
@@ -153,6 +159,9 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	}
 
 	if res.OK {
+		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
+			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
+		}
 		s.emit(ctx, Event{
 			Type: "config.synced", Severity: "info", Source: "frontdesk",
 			Message: fmt.Sprintf("Config synced to %s", m.Name), MemberID: m.ID,

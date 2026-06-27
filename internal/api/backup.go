@@ -89,8 +89,16 @@ type backupEntry struct {
 	Origin string `json:"origin"`
 }
 
-// CreateBackup runs pg_dump and saves the output to a timestamped file.
+// CreateBackup runs pg_dump and saves the output to a timestamped file. An
+// operator-initiated call records origin "manual"; Front Desk passes
+// ?origin=frontdesk so the snapshot it takes before an HA config sync is badged
+// distinctly (and, like manual backups, spared from GFS rotation). "auto" is
+// scheduler-internal and never accepted here.
 func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
+	origin := "manual"
+	if r.URL.Query().Get("origin") == backupOriginFrontDesk {
+		origin = backupOriginFrontDesk
+	}
 	if !h.backupMu.TryLock() {
 		respondError(w, "backup already in progress", nil, http.StatusConflict)
 		return
@@ -110,7 +118,7 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := generateBackupFilename("manual")
+	filename := generateBackupFilename(origin)
 	path := filepath.Join(h.backupDir, filename)
 
 	// Use a dedicated 10-minute timeout so large databases don't get killed
@@ -149,7 +157,7 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		Filename:  filename,
 		SizeBytes: info.Size(),
 		CreatedAt: info.ModTime().Format(time.RFC3339),
-		Origin:    "manual",
+		Origin:    backupOrigin(filename),
 	})
 }
 
@@ -268,16 +276,27 @@ func generateBackupFilename(origin string) string {
 	)
 }
 
-// backupOrigin reports who created a backup. Only files the scheduler wrote
-// carry the "_auto" marker and count as "scheduled"; everything else, manual
-// "_manual" files and any predating origin tracking, reads as "manual". Erring
-// toward manual keeps GFS rotation from pruning backups it cannot prove it
-// created, which is the safe default for legacy files.
+// backupOriginFrontDesk marks a backup taken by Front Desk before an HA config
+// sync. It is both the ?origin= value CreateBackup accepts and the value
+// backupOrigin reports for "_frontdesk" files.
+const backupOriginFrontDesk = "frontdesk"
+
+// backupOrigin reports who created a backup. The scheduler's files carry "_auto"
+// and read as "scheduled"; Front Desk's pre-sync snapshots carry "_frontdesk" and
+// read as "frontdesk"; everything else, manual "_manual" files and any predating
+// origin tracking, reads as "manual". Erring toward manual keeps GFS rotation
+// from pruning backups it cannot prove it created, which is the safe default for
+// legacy files; like manual, "frontdesk" files are never rotation targets.
 func backupOrigin(filename string) string {
-	if strings.HasSuffix(strings.TrimSuffix(filename, ".dump"), "_auto") {
+	stem := strings.TrimSuffix(filename, ".dump")
+	switch {
+	case strings.HasSuffix(stem, "_auto"):
 		return "scheduled"
+	case strings.HasSuffix(stem, "_"+backupOriginFrontDesk):
+		return backupOriginFrontDesk
+	default:
+		return "manual"
 	}
-	return "manual"
 }
 
 // scheduledBackups drops manual (and legacy, which read as manual) backups so

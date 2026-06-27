@@ -95,6 +95,29 @@ describe("DatabaseBackupSettings", () => {
 		).toBeInTheDocument();
 	});
 
+	it("tags Front Desk pre-sync snapshots with an FD badge", async () => {
+		const frontdesk = {
+			filename: "backup_20260117_103000_0010_frontdesk.dump",
+			size_bytes: 4096,
+			created_at: "2026-01-17T10:30:00Z",
+			origin: "frontdesk",
+		};
+		server.use(
+			http.get("/api/backups", () => HttpResponse.json([frontdesk])),
+			http.post("/api/backups/prune-preview", () =>
+				HttpResponse.json({ son: [], father: [], grandfather: [], prune: [] }),
+			),
+		);
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		const row = (await screen.findByText(frontdesk.filename)).closest("div");
+		expect(
+			await within(row as HTMLElement).findByText("FD"),
+		).toBeInTheDocument();
+	});
+
 	it("shows Create Backup button", async () => {
 		renderWithProviders(
 			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,

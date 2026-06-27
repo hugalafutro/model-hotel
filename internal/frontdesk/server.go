@@ -142,6 +142,8 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Get("/traefik-status", s.traefikStatus)
 			r.Get("/fleet/status", s.fleetStatus)
 			r.Get("/fleet/last-sync", s.fleetLastSync)
+			r.Get("/fleet/autosync", s.getAutoSync)
+			r.Put("/fleet/autosync", s.putAutoSync)
 			r.Post("/config/sync", s.configSync)
 			r.Get("/sse", s.sse)
 		})
@@ -378,6 +380,70 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		Message: "Settings updated",
 	})
 	writeJSON(w, http.StatusOK, set)
+}
+
+// getAutoSync returns the automatic config-propagation setup (enabled + the
+// designated primary). The internal drift hash is never included.
+func (s *Server) getAutoSync(w http.ResponseWriter, r *http.Request) {
+	cfg, err := s.store.GetAutoSync(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, cfg)
+}
+
+// putAutoSync sets the auto-sync toggle and designated primary. Enabling without
+// a primary, or naming a primary that is unknown or has no stored admin token, is
+// rejected: the loop could not authenticate to pull its config, so the choice
+// would silently do nothing.
+func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Enabled   bool   `json:"enabled"`
+		PrimaryID string `json:"primary_id"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.PrimaryID != "" {
+		m, err := s.store.GetMember(r.Context(), req.PrimaryID)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) {
+				http.Error(w, "that primary is not a known member", http.StatusBadRequest)
+				return
+			}
+			writeError(w, err)
+			return
+		}
+		if !m.HasToken {
+			http.Error(w, "store an admin token for that primary first; auto-sync needs it to read the primary's config", http.StatusBadRequest)
+			return
+		}
+	} else if req.Enabled {
+		http.Error(w, "choose a primary before enabling auto-sync", http.StatusBadRequest)
+		return
+	}
+	if err := s.store.SetAutoSync(r.Context(), req.Enabled, req.PrimaryID); err != nil {
+		writeError(w, err)
+		return
+	}
+	s.emit(r.Context(), Event{
+		Type: "settings.changed", Severity: "info", Source: "frontdesk",
+		Message: fmt.Sprintf("Auto-sync %s", enabledWord(req.Enabled)),
+	})
+	cfg, err := s.store.GetAutoSync(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, cfg)
+}
+
+func enabledWord(b bool) string {
+	if b {
+		return "enabled"
+	}
+	return "disabled"
 }
 
 // ---------------------------------------------------------------------------

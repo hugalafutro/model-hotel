@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "تم تفعيل النسخ الاحتياطي الدوري. تمت إزالة {{count}} نسخة احتياطية قديمة."
 			},
 			"availableBackupsTitle": "النسخ الاحتياطي المتوفر",
-			"manuallyCreated": "يدوي"
+			"manuallyCreated": "يدوي",
+			"frontDeskCreated": "أنشأه Front Desk قبل مزامنة إعدادات الـ HA"
 		},
 		"appearance": {
 			"title": "المظهر",

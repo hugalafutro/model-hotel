@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Periodieke back-up ingeschakeld. {{count}} oude back-up(s) verwijderd."
 			},
 			"availableBackupsTitle": "Beschikbare back-ups",
-			"manuallyCreated": "Handmatig"
+			"manuallyCreated": "Handmatig",
+			"frontDeskCreated": "Gemaakt door Front Desk vóór een HA-configuratiesynchronisatie"
 		},
 		"appearance": {
 			"title": "Uiterlijk",

@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "已启用定期备份。已删除 {{count}} 个旧备份。"
 			},
 			"availableBackupsTitle": "可用备份",
-			"manuallyCreated": "手动"
+			"manuallyCreated": "手动",
+			"frontDeskCreated": "由 Front Desk 在 HA 配置同步前创建"
 		},
 		"appearance": {
 			"title": "外观",

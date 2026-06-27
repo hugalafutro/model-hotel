@@ -1665,7 +1665,8 @@
 				"pruneSuccess": "Đã bật sao lưu định kỳ. Đã xóa {{count}} bản sao lưu cũ."
 			},
 			"availableBackupsTitle": "Các bản sao lưu hiện có",
-			"manuallyCreated": "Thủ công"
+			"manuallyCreated": "Thủ công",
+			"frontDeskCreated": "Được Front Desk tạo trước khi đồng bộ cấu hình HA"
 		},
 		"appearance": {
 			"title": "Hình thức",

@@ -161,6 +161,31 @@ Runbook:
    and is reported; re-run to retry. Request logs and metering are never touched
    (a removed provider's logs are kept, with the provider link nulled).
 
+### Automatic config sync (set and forget)
+
+The wizard above is the manual path. For an unattended fleet, turn on **automatic
+config sync** (Front Desk -> Settings -> **Automatic config sync**): designate a
+primary, flip it on, and you only ever manage the primary. Front Desk watches the
+primary's config and, whenever its providers, virtual keys, or syncable settings
+change, propagates the change to the rest of the fleet for you. The Members table
+shows a **Last Config Sync** column so you can see when each member last
+converged and why.
+
+It reuses the same machinery as the wizard, with two safety properties:
+
+- **Backed up first.** Before overwriting a member, Front Desk asks it to take a
+  backup (badged **FD** in that member's backup list, and spared from GFS
+  rotation like a manual backup), so a bad propagation can be rolled back.
+- **Converges, does not thrash.** A change is only propagated once it has settled
+  (the same config two checks running), members already matching the primary are
+  skipped untouched, and a member that is unreachable or `MASTER_KEY`-blocked is
+  retried on the next check rather than overwritten.
+
+Automatic sync is **off by default** and is the opposite trade-off from the
+wizard: convenience over the per-change diff review. Leave it off if you want a
+human to approve every fleet-wide change; turn it on once you trust the primary as
+the source of truth.
+
 ## TLS proxy
 
 Put a real TLS proxy in front of both published ports. Example nginx, two
@@ -224,8 +249,9 @@ HTTP-provider design). No request or prompt content is ever logged.
   new requests go elsewhere.
 - **Not** Postgres HA, **not** LB redundancy: the HA host and each member's
   Postgres remain single points of failure for their own scope (accepted at
-  homelab scale). No automated cross-instance config sync yet, so keep config in
-  step with backup/restore and runbook discipline.
+  homelab scale). Cross-instance config replication is built in (the fleet-sync
+  wizard, or automatic config sync), but member databases themselves still rely
+  on per-member backup/restore discipline.
 
 ## Acceptance checks (two machines)
 
