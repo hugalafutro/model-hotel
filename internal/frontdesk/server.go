@@ -62,7 +62,6 @@ type Server struct {
 	readClient *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
 	syncClient *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
 	lbPort     string       // host port of the data-plane load balancer, surfaced to the wizard
-	masterKey  string       // fleet MASTER_KEY, used to confirm the destructive admin-token reset
 	router     http.Handler
 }
 
@@ -96,7 +95,6 @@ func NewServer(cfg ServerConfig) *Server {
 		readClient: newProbeClient(memberReadTimeout),
 		syncClient: newProbeClient(memberSyncTimeout),
 		lbPort:     lbPort,
-		masterKey:  cfg.MasterKey,
 	}
 
 	webauthnHandler := adminauth.NewWebAuthnHandler(
@@ -144,8 +142,6 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Get("/traefik-status", s.traefikStatus)
 			r.Get("/fleet/status", s.fleetStatus)
 			r.Get("/fleet/last-sync", s.fleetLastSync)
-			r.Post("/admin-token/sync", s.adminTokenSync)
-			r.Post("/admin-token/reset", s.adminTokenReset)
 			r.Post("/config/sync", s.configSync)
 			r.Get("/sse", s.sse)
 		})

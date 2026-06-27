@@ -1,12 +1,10 @@
 package admin
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 )
 
@@ -659,43 +657,6 @@ func TestNew_MkdirAllFails(t *testing.T) {
 
 // TestLoadOrCreateToken_PlaintextMigrationWriteFails tests the plaintext migration
 // path when WriteFile fails due to permission issues.
-// TestSetHashConcurrent guards P1-4: concurrent SetHash calls must never leave
-// the persisted file out of sync with the in-memory hash. Run with -race, it
-// also catches an unsynchronized write/swap.
-func TestSetHashConcurrent(t *testing.T) {
-	tmpDir := t.TempDir()
-	m, _, err := New(tmpDir, "")
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-
-	hashes := []string{strings.Repeat("a", 64), strings.Repeat("b", 64)}
-	var wg sync.WaitGroup
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			if err := m.SetHash("sha256:" + hashes[i%2]); err != nil {
-				t.Errorf("SetHash: %v", err)
-			}
-		}(i)
-	}
-	wg.Wait()
-
-	data, err := os.ReadFile(filepath.Join(tmpDir, "admin-token"))
-	if err != nil {
-		t.Fatalf("read token file: %v", err)
-	}
-	onDisk := strings.TrimPrefix(string(data), "sha256:")
-	inMemory := strings.TrimPrefix(m.Hash(), "sha256:")
-	if onDisk != inMemory {
-		t.Fatalf("disk hash %q != in-memory hash %q (write/swap desynced)", onDisk, inMemory)
-	}
-	if onDisk != hashes[0] && onDisk != hashes[1] {
-		t.Fatalf("final hash %q is neither written value", onDisk)
-	}
-}
-
 func TestLoadOrCreateToken_PlaintextMigrationWriteFails(t *testing.T) {
 	tmpDir := t.TempDir()
 	tokenPath := filepath.Join(tmpDir, "admin-token")
@@ -775,107 +736,4 @@ func TestGenerateToken_IsHexString(t *testing.T) {
 // direct testing of unexported methods.
 func newManagerForTest(dataDir string) (*Manager, error) {
 	return &Manager{dataDir: dataDir}, nil
-}
-
-// --- Hash() / SetHash() hot-reload ---
-
-func TestHashReturnsPrefixedDigest(t *testing.T) {
-	tmpDir := t.TempDir()
-	mgr, _, err := New(tmpDir, "")
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-	h := mgr.Hash()
-	if !strings.HasPrefix(h, sha256Prefix) {
-		t.Errorf("Hash() should be sha256: prefixed, got %q", h)
-	}
-	if len(h) != len(sha256Prefix)+64 {
-		t.Errorf("Hash() length = %d, want %d", len(h), len(sha256Prefix)+64)
-	}
-}
-
-func TestSetHashHotReloads(t *testing.T) {
-	tmpDir := t.TempDir()
-	mgr, _, err := New(tmpDir, "")
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-	oldToken := mgr.Token()
-	if !mgr.Validate(oldToken) {
-		t.Fatal("original token should validate")
-	}
-
-	// Compute the hash of a brand-new token and push it.
-	newToken := "the-new-group-admin-token-value"
-	sum := sha256.Sum256([]byte(newToken))
-	newHashHex := hex.EncodeToString(sum[:])
-
-	if err := mgr.SetHash(sha256Prefix + newHashHex); err != nil {
-		t.Fatalf("SetHash: %v", err)
-	}
-
-	// Old token no longer validates; new token does — without a restart.
-	if mgr.Validate(oldToken) {
-		t.Error("old token must stop validating after SetHash")
-	}
-	if !mgr.Validate(newToken) {
-		t.Error("new token must validate after SetHash")
-	}
-	if mgr.Token() != "" {
-		t.Error("plaintext should be cleared after SetHash")
-	}
-
-	// Hash() reflects the new value and the file persists it across reload.
-	if mgr.Hash() != sha256Prefix+newHashHex {
-		t.Errorf("Hash() = %q, want %q", mgr.Hash(), sha256Prefix+newHashHex)
-	}
-	mgr2, _, err := New(tmpDir, "")
-	if err != nil {
-		t.Fatalf("reload New(): %v", err)
-	}
-	if !mgr2.Validate(newToken) {
-		t.Error("pushed hash should persist across reload")
-	}
-}
-
-func TestSetHashAcceptsBareHex(t *testing.T) {
-	tmpDir := t.TempDir()
-	mgr, _, err := New(tmpDir, "")
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-	sum := sha256.Sum256([]byte("tok"))
-	bare := hex.EncodeToString(sum[:])
-	if err := mgr.SetHash(bare); err != nil {
-		t.Fatalf("SetHash(bare hex): %v", err)
-	}
-	if !mgr.Validate("tok") {
-		t.Error("token should validate after bare-hex SetHash")
-	}
-	// Stored file is always sha256: prefixed.
-	data, err := os.ReadFile(filepath.Join(tmpDir, "admin-token")) //nolint:gosec // test path
-	if err != nil {
-		t.Fatalf("read token file: %v", err)
-	}
-	if !strings.HasPrefix(string(data), sha256Prefix) {
-		t.Errorf("file should be sha256: prefixed, got %q", string(data))
-	}
-}
-
-func TestSetHashRejectsInvalid(t *testing.T) {
-	tmpDir := t.TempDir()
-	mgr, _, err := New(tmpDir, "")
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-	original := mgr.Token()
-	for _, bad := range []string{"", "too-short", strings.Repeat("z", 64), sha256Prefix + "nothex"} {
-		if err := mgr.SetHash(bad); err == nil {
-			t.Errorf("SetHash(%q) should fail", bad)
-		}
-	}
-	// A rejected SetHash must not disturb the live token.
-	if !mgr.Validate(original) {
-		t.Error("original token must still validate after rejected SetHash")
-	}
 }

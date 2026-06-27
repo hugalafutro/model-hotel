@@ -43,11 +43,11 @@ with the last config it fetched; only membership changes pause until it returns.
   members. It pulls its routing config from Front Desk over the internal compose
   network via Traefik's HTTP provider, polling `GET /traefik/config` every ~5s.
 - **Front Desk (control plane)** is a small Go binary with an embedded SQLite
-  database and its own web UI. You add, drain, and remove members here, sync
-  admin tokens, and watch health. It is **never** in the request path.
+  database and its own web UI. You add, drain, and remove members here, replicate
+  config across the fleet, and watch health. It is **never** in the request path.
 - **Members** are normal, independent Model Hotel installs (app + their own
   Postgres), each on its own host and update schedule. The HA stack does not
-  touch them beyond reading health/version and pushing the admin-token hash.
+  touch them beyond reading health/version and pushing config when you sync.
 
 Because Traefik caches the last config it fetched, a Front Desk outage degrades
 gracefully: traffic keeps flowing, and only membership changes wait.
@@ -107,19 +107,18 @@ You have one instance at `ip1:8080`. Move it aside and let the HA stack take ove
    Traefik now answers on `:8080`; clients work again.
 3. In Front Desk: add `http://ip1:8081` as "hotel-1" (supplying its admin token),
    confirm the health badge is green. Front Desk highlights the **first member as
-   the default sync primary** and shows a one-time notice that hotel-1's admin
-   token becomes the whole group's admin token when you sync.
+   the default config-sync primary** (the instance the rest of the fleet copies).
 4. On machine 2: deploy Model Hotel on `:8081` with the **same `MASTER_KEY`** and
-   `TRUSTED_PROXIES` including the HA host. The `ADMIN_TOKEN` need not match by
-   hand: supply each member's current admin token when adding it, then run "sync
-   admin token" to converge them on the primary's.
-5. On the primary dashboard: create a backup. On the new instance: restore it.
-6. In Front Desk: add `http://ip2:8081` as "hotel-2" (supplying its admin token).
-7. **Repeat steps 4-6 for each additional member.** Run "sync admin token" once
-   after the members are in to converge them all on the primary.
-8. Maintenance: drain a member in Front Desk, rebuild it, re-activate. Re-run the
-   backup/restore (step 5) after any provider/key/settings change, until
-   automated config sync ships.
+   `TRUSTED_PROXIES` including the HA host. Each member keeps its own dashboard
+   `ADMIN_TOKEN`; supply it to Front Desk when adding the member. To sign in to
+   every dashboard with one password, set the same `ADMIN_TOKEN` on each member
+   (a shared env secret, like `MASTER_KEY`).
+5. In Front Desk: add `http://ip2:8081` as "hotel-2" (supplying its admin token),
+   then converge its config from the primary via **Settings -> Fleet sync wizard**.
+6. **Repeat steps 4-5 for each additional member.** Same secrets, add it with its
+   admin token, run the config sync.
+7. Maintenance: drain a member in Front Desk, rebuild it, re-activate. Re-run the
+   config sync after any provider/key/settings change on the primary.
 
 <!-- TODO screenshot: add-member dialog / sync preview modal -->
 
@@ -132,9 +131,11 @@ Do not conflate these:
 1. **`FRONTDESK_TOKEN`** logs you into the **Front Desk UI**. Its own secret,
    unrelated to any member. Leave it blank in `.env` to auto-generate one printed
    once to the logs on first boot.
-2. **A member's `ADMIN_TOKEN`** logs you into **that member's dashboard** (direct
-   or through the LB hostname). This is the one the sync flow converges across
-   members.
+2. **A member's `ADMIN_TOKEN`** logs you into **that member's dashboard**, reached
+   directly by that member's own URL (the LB serves `/v1` only, not dashboards).
+   It is per-member; set the same value on every member if you want one password
+   to log into them all. Front Desk stores each member's token (you supply it when
+   adding the member) so it can authenticate to it; it never changes them for you.
 3. **`MASTER_KEY`** is not a login. It is the AES-256-GCM key that decrypts each
    member's provider API keys at rest.
 
@@ -150,25 +151,23 @@ decrypt them, leaving every provider dead there. It is a live decryption secret:
 set it out-of-band, the same way you would a shared DB password, never
 auto-transmitted between instances.
 
-### Member admin token: the stored hash is what agrees
+### Member admin token: per-instance, set by hand
 
 `internal/admin` persists the credential as `sha256:<hex>` in
 `DATA_DIR/admin-token` (a file, not the DB, so `pg_dump` skips it) and validates
 by hash-compare. The file is authoritative; the `ADMIN_TOKEN` env only seeds it
-when missing. Front Desk converges the member dashboards onto one shared token by
-syncing that hash, rather than asking you to hand-match env vars. Matching only
-matters for dashboard-through-the-LB; API clients use virtual keys and never see
-it.
+when missing. To use one password across the fleet, set the same `ADMIN_TOKEN` on
+every member before its first boot (a shared env secret, exactly like
+`MASTER_KEY`). API clients use virtual keys and never see it.
 
 ### Recovery
 
 Because the `admin-token` file is authoritative, editing `.env` and rebuilding
 does **not** change an existing member's token when `DATA_DIR` persists (the
-normal case). Use Front Desk's **Reset admin token** action (Settings tab) to
-mint a new group token and push it to every member, with no in-container file
-editing. As long as any one member still holds a token you know, make it the
-primary and sync from there: you are never locked out of the whole group at once.
-The data plane (`/v1` traffic) is unaffected; clients use virtual keys.
+normal case). To rotate a member's token, delete its `DATA_DIR/admin-token` file
+(it regenerates on the next boot, printed once to the logs) or set a new
+`ADMIN_TOKEN` on a fresh `DATA_DIR`, then update that member's stored token in
+Front Desk. The data plane (`/v1` traffic) is unaffected; clients use virtual keys.
 
 ---
 
@@ -181,11 +180,10 @@ which the external TLS proxy provides.
 
 Two things are worth understanding about authentication in an HA deployment:
 
-- **Passkeys and TOTP are per-instance and are never synced.** The admin-token
-  sync and reset flows push **only** the admin-token hash to each member; they do
-  not read, write, or transfer WebAuthn credentials or TOTP secrets. Each member
-  keeps its own in its own Postgres, and Front Desk keeps its own in its own
-  SQLite. This is by design: a passkey is bound to an origin (its relying-party
+- **Passkeys and TOTP are per-instance and are never synced.** Config sync pushes
+  **only** providers, virtual keys, and the syncable settings subset; it does not
+  read, write, or transfer WebAuthn credentials or TOTP secrets. Each member keeps
+  its own in its own Postgres, and Front Desk keeps its own in its own SQLite. This is by design: a passkey is bound to an origin (its relying-party
   ID is the hostname), so a credential created for one origin would not validate
   against another anyway. Register a passkey on each surface you actually log in
   to.
@@ -205,9 +203,9 @@ re-entering everything on each instance, replicate one member's configuration to
 the rest from **Front Desk → Settings → Config sync**.
 
 You pick a **primary** (the config source of truth); Front Desk pulls its config
-and pushes it to every other member so the fleet converges. This is a **separate
-action** from admin-token sync, by design: replacing config can remove providers
-or keys on a replica, so it must not ride along with a routine token rotation.
+and pushes it to every other member so the fleet converges. Because replacing
+config can remove providers or keys on a replica, the wizard shows a per-member
+diff (added / overwritten / removed) and double-confirms before it writes.
 
 **What replicates, and what does not:**
 
@@ -248,7 +246,7 @@ Put a real TLS proxy in front of both published ports. Example nginx, two
 hostnames:
 
 ```nginx
-# Client traffic: the /v1 API and member dashboards via the LB hostname.
+# Client traffic: the /v1 proxy API only (the LB 404s everything else).
 server {
     listen 443 ssl;
     server_name hotel.example.com;

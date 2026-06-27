@@ -14,15 +14,14 @@ import { ConfirmModal } from "./ConfirmModal";
 import { Notice } from "./Notice";
 
 // FleetSyncWizard walks the operator through converging a fleet onto one primary,
-// one gated step at a time: choose the primary, verify MASTER_KEY, sync the admin
-// token, then sync the configuration. A step unlocks only once the previous one
-// is satisfied (for every reachable member), so config sync can never be reached
-// before MASTER_KEY is verified and admin tokens are converged. A single probe
-// (GET /api/fleet/status) drives every gate, and every failure surfaces the real
-// backend message rather than a generic toast.
+// one gated step at a time: choose the primary, verify MASTER_KEY, then sync the
+// configuration. A step unlocks only once the previous one is satisfied (for every
+// reachable member), so config sync can never be reached before MASTER_KEY is
+// verified. A single probe (GET /api/fleet/status) drives every gate, and every
+// failure surfaces the real backend message rather than a generic toast.
 
-type Step = 1 | 2 | 3 | 4 | 5;
-const STEPS: Step[] = [1, 2, 3, 4, 5];
+type Step = 1 | 2 | 3 | 4;
+const STEPS: Step[] = [1, 2, 3, 4];
 
 // Reachable members other than the primary: the ones a step can actually act on.
 function reachablePeers(s: FleetStatus): FleetMemberStatus[] {
@@ -40,9 +39,6 @@ function masterKeyBlockers(s: FleetStatus): FleetMemberStatus[] {
 // for it. They can only be fixed by upgrading the member, so they hard-block.
 function schemaBlockers(s: FleetStatus): FleetMemberStatus[] {
 	return reachablePeers(s).filter((m) => !m.schema_ok);
-}
-function adminTokenBlockers(s: FleetStatus): FleetMemberStatus[] {
-	return reachablePeers(s).filter((m) => !m.admin_token_matches);
 }
 function configChanges(s: FleetStatus): FleetMemberStatus[] {
 	return reachablePeers(s).filter((m) => m.added + m.updated + m.removed > 0);
@@ -65,7 +61,7 @@ export function FleetSyncWizard({
 	const [status, setStatus] = useState<FleetStatus | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [busy, setBusy] = useState(false);
-	const [confirm, setConfirm] = useState<"admin" | "config" | null>(null);
+	const [confirm, setConfirm] = useState<"config" | null>(null);
 	const [configDone, setConfigDone] = useState(false);
 	const [lastSync, setLastSync] = useState<FleetSyncState | null>(null);
 
@@ -106,7 +102,7 @@ export function FleetSyncWizard({
 	// rather than an effect on primaryId, since the primary only ever changes
 	// through this handler. Clearing configDone matters: it records that *the
 	// previous* primary's config was synced, and letting it carry over would
-	// unlock step 5 for a new primary whose config was never pushed (canStep5
+	// unlock step 4 for a new primary whose config was never pushed (canStep4
 	// keys off configDone).
 	const pickPrimary = (id: string) => {
 		setConfigDone(false);
@@ -116,15 +112,18 @@ export function FleetSyncWizard({
 
 	// Which steps the operator may jump to, derived purely from the latest probe.
 	const canStep2 = !!status && status.primary_reachable;
+	// Step 3 (config) unlocks once every reachable member can decrypt the
+	// primary's keys (MASTER_KEY) and is on a compatible schema.
 	const canStep3 =
 		canStep2 &&
 		masterKeyBlockers(status as FleetStatus).length === 0 &&
 		schemaBlockers(status as FleetStatus).length === 0;
-	const canStep4 =
-		canStep3 && adminTokenBlockers(status as FleetStatus).length === 0;
-	const canStep5 =
-		canStep4 &&
-		(configDone || configChanges(status as FleetStatus).length === 0);
+	// Step 4 (done) unlocks only once the config step has been completed, either by
+	// running the sync or, when there is nothing to push, by acknowledging it on the
+	// config step (configDone). Gating on configDone alone keeps the config step the
+	// sole owner of the transition to Done, so Done can never be reached by jumping
+	// past the config review.
+	const canStep4 = canStep3 && configDone;
 
 	const unlocked = (s: Step): boolean => {
 		switch (s) {
@@ -136,38 +135,11 @@ export function FleetSyncWizard({
 				return canStep3;
 			case 4:
 				return canStep4;
-			case 5:
-				return canStep5;
 		}
 	};
 
 	const go = (s: Step) => {
 		if (unlocked(s)) setStep(s);
-	};
-
-	const doAdminSync = async () => {
-		setBusy(true);
-		try {
-			const res = await api.syncRun(primaryId);
-			const ok = res.results.filter((r) => r.ok).length;
-			reportResults(res.results, toast, t);
-			toast(
-				t("settings.syncDone", {
-					ok,
-					total: res.results.length,
-					count: res.results.length,
-				}),
-				ok === res.results.length ? "success" : "error",
-			);
-			onChanged();
-			loadLastSync();
-			await refresh(primaryId);
-		} catch (e) {
-			toast(e instanceof ApiError ? e.message : t("errors.generic"), "error");
-		} finally {
-			setBusy(false);
-			setConfirm(null);
-		}
 	};
 
 	const doConfigSync = async () => {
@@ -188,7 +160,7 @@ export function FleetSyncWizard({
 			setConfigDone(true);
 			loadLastSync();
 			await refresh(primaryId);
-			setStep(5);
+			setStep(4);
 		} catch (e) {
 			toast(e instanceof ApiError ? e.message : t("errors.generic"), "error");
 		} finally {
@@ -231,21 +203,18 @@ export function FleetSyncWizard({
 				<StepMasterKey status={status} nameOf={nameOf} />
 			)}
 			{step === 3 && status && (
-				<StepAdminToken
-					status={status}
-					busy={busy}
-					onSync={() => setConfirm("admin")}
-				/>
-			)}
-			{step === 4 && status && (
 				<StepConfig
 					status={status}
 					overwrites={overwrites}
 					busy={busy}
 					onSync={() => setConfirm("config")}
+					onContinue={() => {
+						setConfigDone(true);
+						setStep(4);
+					}}
 				/>
 			)}
-			{step === 5 && status && (
+			{step === 4 && status && (
 				<StepDone
 					status={status}
 					members={members}
@@ -260,29 +229,6 @@ export function FleetSyncWizard({
 				onGo={go}
 				onRestart={restart}
 			/>
-
-			{confirm === "admin" && (
-				<ConfirmModal
-					title={t("settings.syncConfirmTitle", {
-						count: adminTokenBlockers(status as FleetStatus).length,
-					})}
-					confirmLabel={t("settings.syncDo", {
-						count: adminTokenBlockers(status as FleetStatus).length,
-					})}
-					busy={busy}
-					busyLabel={t("settings.syncDoing")}
-					ackLabel={t("settings.syncAck")}
-					onConfirm={doAdminSync}
-					onClose={() => setConfirm(null)}
-				>
-					<p className="fd-muted">{t("settings.syncConfirmBody")}</p>
-					<ul style={{ margin: "0.6rem 0" }}>
-						{adminTokenBlockers(status as FleetStatus).map((m) => (
-							<li key={m.member_id}>{m.name}</li>
-						))}
-					</ul>
-				</ConfirmModal>
-			)}
 
 			{confirm === "config" && (
 				<ConfirmModal
@@ -461,67 +407,39 @@ function StepMasterKey({
 	);
 }
 
-function StepAdminToken({
+function StepConfig({
 	status,
+	overwrites,
 	busy,
 	onSync,
+	onContinue,
 }: {
 	status: FleetStatus;
+	overwrites: FleetMemberStatus[];
 	busy: boolean;
 	onSync: () => void;
+	onContinue: () => void;
 }) {
 	const { t } = useTranslation();
-	const blockers = adminTokenBlockers(status);
 	return (
 		<div>
 			<h3 className="fd-step-title">{t("settings.wizard.step3Title")}</h3>
 			<p className="fd-faint fd-step-intro">
 				{t("settings.wizard.step3Intro")}
 			</p>
-			<MemberTable status={status} kind="adminToken" />
-			{blockers.length === 0 ? (
-				<Notice variant="info" style={{ marginTop: "0.7rem" }}>
-					{t("settings.wizard.step3Ok")}
-				</Notice>
-			) : (
-				<div style={{ marginTop: "0.8rem" }}>
-					<button
-						type="button"
-						className="ui-btn"
-						disabled={busy}
-						onClick={onSync}
-					>
-						{t("settings.wizard.syncAdminBtn")}
-					</button>
-				</div>
-			)}
-		</div>
-	);
-}
-
-function StepConfig({
-	status,
-	overwrites,
-	busy,
-	onSync,
-}: {
-	status: FleetStatus;
-	overwrites: FleetMemberStatus[];
-	busy: boolean;
-	onSync: () => void;
-}) {
-	const { t } = useTranslation();
-	return (
-		<div>
-			<h3 className="fd-step-title">{t("settings.wizard.step4Title")}</h3>
-			<p className="fd-faint fd-step-intro">
-				{t("settings.wizard.step4Intro")}
-			</p>
 			<MemberTable status={status} kind="config" />
 			{overwrites.length === 0 ? (
-				<Notice variant="info" style={{ marginTop: "0.7rem" }}>
-					{t("settings.wizard.step4NoChanges")}
-				</Notice>
+				<div style={{ marginTop: "0.7rem" }}>
+					<Notice variant="info">{t("settings.wizard.step3NoChanges")}</Notice>
+					<button
+						type="button"
+						className="ui-btn ui-btn-primary"
+						style={{ marginTop: "0.8rem" }}
+						onClick={onContinue}
+					>
+						{t("settings.wizard.continueNoChanges")}
+					</button>
+				</div>
 			) : (
 				<div style={{ marginTop: "0.8rem" }}>
 					<ConfigLegend />
@@ -566,7 +484,7 @@ function StepDone({
 
 	return (
 		<div>
-			<h3 className="fd-step-title">{t("settings.wizard.step5Title")}</h3>
+			<h3 className="fd-step-title">{t("settings.wizard.step4Title")}</h3>
 			<Notice variant="info" style={{ marginTop: "0.2rem" }}>
 				{t("settings.wizard.doneSummary", {
 					count: synced,
@@ -727,7 +645,7 @@ function MemberTable({
 	kind,
 }: {
 	status: FleetStatus;
-	kind: "masterKey" | "adminToken" | "config";
+	kind: "masterKey" | "config";
 }) {
 	const { t } = useTranslation();
 	return (
@@ -767,7 +685,7 @@ function MemberBadge({
 }: {
 	member: FleetMemberStatus;
 	primaryId: string;
-	kind: "masterKey" | "adminToken" | "config";
+	kind: "masterKey" | "config";
 }) {
 	const { t } = useTranslation();
 	if (member.member_id === primaryId)
@@ -809,17 +727,6 @@ function MemberBadge({
 		) : (
 			<span className="ui-badge ui-badge-danger">
 				{t("settings.wizard.badgeMismatch")}
-			</span>
-		);
-	}
-	if (kind === "adminToken") {
-		return member.admin_token_matches ? (
-			<span className="ui-badge ui-badge-ok">
-				{t("settings.wizard.badgeMatch")}
-			</span>
-		) : (
-			<span className="ui-badge ui-badge-warn">
-				{t("settings.wizard.badgeWillSync")}
 			</span>
 		);
 	}
@@ -898,7 +805,7 @@ function WizardNav({
 						{t("settings.wizard.back")}
 					</button>
 				)}
-				{step < 5 && (
+				{step < 4 && (
 					<button
 						type="button"
 						className="ui-btn ui-btn-primary"
@@ -908,7 +815,7 @@ function WizardNav({
 						{t("settings.wizard.next")}
 					</button>
 				)}
-				{step === 5 && (
+				{step === 4 && (
 					<button type="button" className="ui-btn" onClick={onRestart}>
 						{t("settings.wizard.runAgain")}
 					</button>

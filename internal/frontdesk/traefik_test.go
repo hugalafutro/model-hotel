@@ -32,6 +32,24 @@ func TestBuildTraefikConfigActiveOnly(t *testing.T) {
 	}
 }
 
+// The data plane must route the OpenAI-compatible proxy only. A catch-all
+// `PathPrefix(/)` would load-balance the dashboard/SPA/admin paths too, so
+// hitting the LB host in a browser would drop you on a random member's login.
+// The router rule must stay scoped to /v1 (404 for everything else).
+func TestBuildTraefikConfigRoutesV1Only(t *testing.T) {
+	cfg := BuildTraefikConfig(
+		[]*Member{{Name: "a", URL: "http://a:8081", State: StateActive}},
+		defaultSettings(),
+	)
+	rule := cfg.HTTP.Routers[traefikRouterName].Rule
+	if rule != "PathPrefix(`/v1`)" {
+		t.Errorf("router rule must scope the LB to /v1, got %q", rule)
+	}
+	if strings.Contains(rule, "PathPrefix(`/`)") {
+		t.Error("router rule must not be the catch-all that exposes member dashboards via the LB")
+	}
+}
+
 // Members are often fronted by a Host-routing reverse proxy, so the LB must
 // address each backend by its own host rather than forward the client's Host
 // (the LB's public name), which would loop back into the LB. Traefik defaults

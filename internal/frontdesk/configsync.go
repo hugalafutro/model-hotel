@@ -7,25 +7,32 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
-// This file implements the Front Desk side of HA Phase 5 fleet config sync. It
+// This file implements the Front Desk side of HA fleet config sync. It
 // orchestrates the member-side /api/config/export + /api/config/import endpoints
 // (see internal/api/configsync.go): pull the chosen primary's config, then push
 // it to every other member so the fleet converges to one configuration.
 //
-// It mirrors the admin-token sync flow (admintoken.go) and reuses its primary
-// concept and netguard-protected probe client. It is a SEPARATE action from
-// token sync: config replace can remove providers/keys on a replica, so it must
-// never ride along with a routine token rotation. No key material is ever
-// returned to the browser or logged; only names and counts.
+// Config replace can remove providers/keys on a replica, so it is a deliberate,
+// primary-driven, double-confirmed action. No key material is ever returned to
+// the browser or logged; only names and counts.
 
 const (
 	memberConfigExportPath = "/api/config/export"
 	memberConfigImportPath = "/api/config/import"
 )
+
+// syncResultItem is one member's outcome from a fleet sync action.
+type syncResultItem struct {
+	MemberID string `json:"member_id"`
+	Name     string `json:"name"`
+	OK       bool   `json:"ok"`
+	Error    string `json:"error,omitempty"`
+}
 
 // memberImportResult mirrors internal/api.importResponse so Front Desk can read
 // a member's import/dry-run outcome.
@@ -101,14 +108,38 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "results": results})
 }
 
+// recordFleetSyncRun stamps the last-run marker when a sync action updated at
+// least one member, so the wizard can show it has run before. A persistence
+// failure is non-fatal: the sync itself already succeeded, so it is logged and
+// swallowed rather than surfaced.
+func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, results []syncResultItem) {
+	changed := false
+	for _, r := range results {
+		if r.OK {
+			changed = true
+			break
+		}
+	}
+	if !changed {
+		return
+	}
+	if err := s.store.SetFleetSyncState(ctx, primary.ID, primary.Name, time.Now().UTC()); err != nil {
+		debuglog.Warn("frontdesk: record fleet sync state", "error", err)
+	}
+}
+
 // applyMemberConfig imports the primary's config onto one member and records an
 // audit event for the outcome.
 func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte) syncResultItem {
 	res := syncResultItem{MemberID: m.ID, Name: m.Name}
-	out, err := s.pushMemberImport(ctx, m, token, export, false)
+	out, status, err := s.pushMemberImport(ctx, m, token, export, false)
 	switch {
-	case err != nil:
+	case err != nil && status == 0:
 		res.Error = "could not reach this member"
+	case err != nil:
+		// The member answered, just with a status we cannot apply: surface it so a
+		// wrong stored token or a member-side error is not mislabeled "offline".
+		res.Error = fmt.Sprintf("this member rejected the request (HTTP %d)", status)
 	case !out.SchemaVersionOK:
 		// Schema is checked before MASTER_KEY: a 422 short-circuits before the
 		// canary, leaving master_key_ok an unevaluated false (see previewMemberConfig).
@@ -152,8 +183,11 @@ func (s *Server) fetchMemberExport(ctx context.Context, m *Member, token string)
 // pushMemberImport posts the config envelope to a member. dryRun=true asks for a
 // diff without writing. A 409 (MASTER_KEY mismatch) or 422 (schema) is parsed
 // into the result rather than treated as a transport error, so the caller can
-// surface a precise disposition.
-func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, export []byte, dryRun bool) (memberImportResult, error) {
+// surface a precise disposition. The returned status is the member's HTTP status
+// (0 on a transport failure where the member never answered), so the caller can
+// tell a genuinely unreachable member from one that answered with a rejecting
+// code (e.g. 401/403 wrong token, 500) and report the real cause.
+func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, export []byte, dryRun bool) (memberImportResult, int, error) {
 	path := memberConfigImportPath
 	if dryRun {
 		path += "?dryRun=1"
@@ -164,16 +198,16 @@ func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, 
 	// "could not reach this member".
 	status, body, err := s.callMemberWith(ctx, s.syncClient, http.MethodPost, m.URL, path, token, strings.NewReader(string(export)))
 	if err != nil {
-		return memberImportResult{}, err
+		return memberImportResult{}, 0, err
 	}
 	switch status {
 	case http.StatusOK, http.StatusConflict, http.StatusUnprocessableEntity:
 		var res memberImportResult
 		if err := json.Unmarshal(body, &res); err != nil {
-			return memberImportResult{}, errors.New("frontdesk: parse member import response")
+			return memberImportResult{}, status, errors.New("frontdesk: parse member import response")
 		}
-		return res, nil
+		return res, status, nil
 	default:
-		return memberImportResult{}, fmt.Errorf("member config-import returned %d", status)
+		return memberImportResult{}, status, fmt.Errorf("member config-import returned %d", status)
 	}
 }

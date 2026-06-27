@@ -10,7 +10,7 @@ import (
 // These tests cover the add/edit-time admin-token probe: a token the member
 // positively refuses (401) blocks the save, an unreachable member saves with a
 // warning, and a good token saves cleanly. They reuse the fleet stub member,
-// which answers /api/admin/token-hash only when the Bearer matches its token.
+// which answers /api/settings (the probe endpoint) only when the Bearer matches.
 
 func createMemberJSON(t *testing.T, srv *Server, name, url, token string) (int, memberResponse) {
 	t.Helper()
@@ -25,7 +25,7 @@ func createMemberJSON(t *testing.T, srv *Server, name, url, token string) (int, 
 
 func TestCreateMemberAcceptsGoodToken(t *testing.T) {
 	srv, store := newTestServer(t)
-	stub := newStubFleetMember(t, "good", "sha256:x")
+	stub := newStubFleetMember(t, "good")
 
 	code, resp := createMemberJSON(t, srv, "m1", stub.srv.URL, "good")
 	if code != http.StatusCreated {
@@ -42,7 +42,7 @@ func TestCreateMemberAcceptsGoodToken(t *testing.T) {
 
 func TestCreateMemberRejectsRefusedToken(t *testing.T) {
 	srv, store := newTestServer(t)
-	stub := newStubFleetMember(t, "right", "sha256:x")
+	stub := newStubFleetMember(t, "right")
 
 	code, _ := createMemberJSON(t, srv, "m1", stub.srv.URL, "wrong")
 	if code != http.StatusBadRequest {
@@ -82,7 +82,7 @@ func TestCreateMemberWithoutTokenSkipsProbe(t *testing.T) {
 
 func TestPatchMemberRejectsRefusedToken(t *testing.T) {
 	srv, store := newTestServer(t)
-	stub := newStubFleetMember(t, "right", "sha256:x")
+	stub := newStubFleetMember(t, "right")
 	m, _ := store.CreateMember(t.Context(), "m1", stub.srv.URL, "right")
 
 	rec := do(t, srv, http.MethodPatch, "/api/members/"+m.ID, `{"token":"wrong"}`, true)
@@ -98,7 +98,7 @@ func TestPatchMemberRejectsRefusedToken(t *testing.T) {
 
 func TestPatchMemberClearingTokenSkipsProbe(t *testing.T) {
 	srv, store := newTestServer(t)
-	stub := newStubFleetMember(t, "right", "sha256:x")
+	stub := newStubFleetMember(t, "right")
 	m, _ := store.CreateMember(t.Context(), "m1", stub.srv.URL, "right")
 
 	rec := do(t, srv, http.MethodPatch, "/api/members/"+m.ID, `{"token":""}`, true)

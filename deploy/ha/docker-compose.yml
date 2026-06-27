@@ -37,7 +37,9 @@ services:
             - "--accesslog=false"
             - "--log.level=INFO"
         ports:
-            # Client traffic (the /v1 API + member dashboards via the LB host).
+            # Client traffic: the /v1 proxy API only. The LB does not serve
+            # member dashboards: `/` and `/api` 404 here. Reach a member's UI
+            # by its own URL (listed in Front Desk), not through this port.
             # Front the external TLS proxy at this port.
             - "${LB_PORT:-8080}:8080"
         restart: unless-stopped

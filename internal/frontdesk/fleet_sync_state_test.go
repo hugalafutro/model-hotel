@@ -67,29 +67,6 @@ func TestFleetLastSyncEndpointStoreError(t *testing.T) {
 	}
 }
 
-// A successful admin-token sync records the last-run marker so the wizard can
-// show it has run before.
-func TestAdminTokenSyncRecordsLastRun(t *testing.T) {
-	srv, store := newTestServer(t)
-	primary := newStubMember(t, "ptoken", "sha256:aaa")
-	secondary := newStubMember(t, "stoken", "sha256:bbb")
-	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	_, _ = store.CreateMember(t.Context(), "secondary", secondary.srv.URL, "stoken")
-
-	rec := do(t, srv, http.MethodPost, "/api/admin-token/sync", `{"primary_id":"`+pm.ID+`"}`, true)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("sync = %d (%s)", rec.Code, rec.Body.String())
-	}
-
-	state, found, err := store.GetFleetSyncState(t.Context())
-	if err != nil || !found {
-		t.Fatalf("GetFleetSyncState after sync = found %v, err %v; want found", found, err)
-	}
-	if state.PrimaryID != pm.ID || state.PrimaryName != "primary" {
-		t.Errorf("recorded state = %+v, want primary %q/%q", state, pm.ID, "primary")
-	}
-}
-
 // GET /api/fleet/last-sync is 204 before any run and 200 with the marker after.
 func TestFleetLastSyncEndpoint(t *testing.T) {
 	srv, store := newTestServer(t)

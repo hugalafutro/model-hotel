@@ -30,7 +30,6 @@ function primaryRow(): FleetMemberStatus {
 		name: "hotel-1",
 		reachable: true,
 		has_token: true,
-		admin_token_matches: true,
 		master_key_matches: true,
 		schema_ok: true,
 		added: 0,
@@ -91,7 +90,7 @@ describe("FleetSyncWizard", () => {
 		expect(screen.queryByText(/You last synced this fleet/i)).toBeNull();
 	});
 
-	it("blocks the admin-token step until MASTER_KEY matches on every member", async () => {
+	it("blocks the config step until MASTER_KEY matches on every member", async () => {
 		server.use(
 			http.get("/api/fleet/status", () =>
 				HttpResponse.json({
@@ -104,7 +103,6 @@ describe("FleetSyncWizard", () => {
 							name: "hotel-2",
 							reachable: true,
 							has_token: true,
-							admin_token_matches: false,
 							master_key_matches: false,
 							schema_ok: true,
 							added: 0,
@@ -124,7 +122,7 @@ describe("FleetSyncWizard", () => {
 		await userEvent.click(next); // -> step 2 (MASTER_KEY)
 
 		expect(await screen.findByText(/Set the same MASTER_KEY/i)).toBeVisible();
-		// The mismatch must keep the admin-token step locked.
+		// The mismatch must keep the config step locked.
 		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 	});
 
@@ -141,7 +139,6 @@ describe("FleetSyncWizard", () => {
 							name: "hotel-2",
 							reachable: true,
 							has_token: true,
-							admin_token_matches: true,
 							// Schema skew: the member checks its schema before the MASTER_KEY
 							// canary, so master_key_matches is unevaluated (null) and diff
 							// counts are zero. Without the schema gate this member would slip
@@ -163,7 +160,7 @@ describe("FleetSyncWizard", () => {
 		await waitFor(() => expect(next).toBeEnabled());
 		await userEvent.click(next); // -> step 2 (MASTER_KEY)
 
-		// The schema remedy is shown and the admin-token step stays locked.
+		// The schema remedy is shown and the config step stays locked.
 		expect(await screen.findByText(/older app version/i)).toBeVisible();
 		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 	});
@@ -203,9 +200,9 @@ describe("FleetSyncWizard", () => {
 	});
 
 	it("re-locks the Done step when the primary changes after a config sync", async () => {
-		// Both members are token- and key-converged, but each has one pending config
-		// change, so step 5 is only reachable once config has been synced for the
-		// CURRENT primary. The handler echoes whichever primary is asked about.
+		// Both members are key-converged, but each has one pending config change, so
+		// step 4 (Done) is only reachable once config has been synced for the CURRENT
+		// primary. The handler echoes whichever primary is asked about.
 		server.use(
 			http.get("/api/fleet/status", ({ request }) => {
 				const id = new URL(request.url).searchParams.get("primary") ?? "1";
@@ -220,7 +217,6 @@ describe("FleetSyncWizard", () => {
 							name: `hotel-${other}`,
 							reachable: true,
 							has_token: true,
-							admin_token_matches: true,
 							master_key_matches: true,
 							schema_ok: true,
 							added: 1,
@@ -237,13 +233,12 @@ describe("FleetSyncWizard", () => {
 		renderWizard();
 		await pickPrimary(); // primary "1"
 
-		// Walk to the config step and sync it, which lands on the Done step.
+		// Walk to the config step (step 3) and sync it, which lands on Done (step 4).
 		await waitFor(() =>
 			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
 		);
 		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
 		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
-		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 4
 		await userEvent.click(
 			await screen.findByRole("button", { name: /Sync configuration now/i }),
 		);
@@ -255,25 +250,79 @@ describe("FleetSyncWizard", () => {
 			}),
 		);
 		// configDone is set for primary "1": we land on the Done step.
-		expect(await screen.findByText("Step 5: Done")).toBeInTheDocument();
+		expect(await screen.findByText("Step 4: Done")).toBeInTheDocument();
 
 		// Walk back to step 1 and switch to a primary whose config was never synced.
-		for (let i = 0; i < 4; i++) {
+		for (let i = 0; i < 3; i++) {
 			await userEvent.click(screen.getByRole("button", { name: "Back" }));
 		}
 		await userEvent.selectOptions(screen.getByLabelText(/Primary/i), "2");
 
 		// configDone must have been reset, so the Done step is gated again: the
-		// step-4 Next button (which advances to step 5) stays disabled until the new
+		// step-3 Next button (which advances to step 4) stays disabled until the new
 		// primary's config is synced.
 		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
 		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
-		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 4
 		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 	});
 
-	it("walks every step, syncs admin token then config, and reports the summary", async () => {
-		let adminSynced = false;
+	it("reaches Done through the config step when there is nothing to sync", async () => {
+		// Every peer already matches the primary, so the config step has no changes
+		// to push. Done must still be reached *through* the config step (via its
+		// Continue button), never by jumping past it: the step-3 Next button stays
+		// disabled until Continue is clicked.
+		let syncCalled = false;
+		server.use(
+			http.get("/api/fleet/status", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_reachable: true,
+					members: [
+						primaryRow(),
+						{
+							member_id: "2",
+							name: "hotel-2",
+							reachable: true,
+							has_token: true,
+							master_key_matches: true,
+							schema_ok: true,
+							added: 0,
+							updated: 0,
+							removed: 0,
+						},
+					],
+				}),
+			),
+			http.post("/api/config/sync", () => {
+				syncCalled = true;
+				return HttpResponse.json({ results: [] });
+			}),
+		);
+		renderWizard();
+		await pickPrimary();
+
+		// Step 1 -> 2 -> 3.
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+		);
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
+
+		// On the config step with no changes, the nav Next (which advances to Done)
+		// is gated until the config step itself hands off via Continue.
+		expect(
+			await screen.findByText(/already matches the primary's configuration/i),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+
+		await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+		// We land on Done without ever calling the sync endpoint (nothing to push).
+		expect(await screen.findByText("Step 4: Done")).toBeInTheDocument();
+		expect(syncCalled).toBe(false);
+	});
+
+	it("walks every step, syncs config, and reports the summary", async () => {
 		let configSynced = false;
 		server.use(
 			http.get("/api/fleet/status", () =>
@@ -288,7 +337,6 @@ describe("FleetSyncWizard", () => {
 							name: "hotel-2",
 							reachable: true,
 							has_token: true,
-							admin_token_matches: adminSynced,
 							master_key_matches: true,
 							schema_ok: true,
 							added: configSynced ? 0 : 1,
@@ -298,12 +346,6 @@ describe("FleetSyncWizard", () => {
 					],
 				}),
 			),
-			http.post("/api/admin-token/sync", () => {
-				adminSynced = true;
-				return HttpResponse.json({
-					results: [{ member_id: "2", name: "hotel-2", ok: true }],
-				});
-			}),
 			http.post("/api/config/sync", () => {
 				configSynced = true;
 				return HttpResponse.json({
@@ -322,24 +364,7 @@ describe("FleetSyncWizard", () => {
 			await screen.findByText(/shares the primary's MASTER_KEY/i),
 		).toBeVisible();
 
-		// Step 2 -> 3 (admin token).
-		await userEvent.click(screen.getByRole("button", { name: "Next" }));
-		await userEvent.click(
-			await screen.findByRole("button", { name: /Sync admin token now/i }),
-		);
-		const adminDialog = await screen.findByRole("dialog");
-		await userEvent.click(within(adminDialog).getByRole("checkbox"));
-		await userEvent.click(
-			within(adminDialog).getByRole("button", {
-				name: /Overwrite 1 member now/i,
-			}),
-		);
-		// After syncing, the step reports success and unlocks the next.
-		expect(
-			await screen.findByText(/already uses the primary's admin token/i),
-		).toBeVisible();
-
-		// Step 3 -> 4 (config).
+		// Step 2 -> 3 (config).
 		await userEvent.click(screen.getByRole("button", { name: "Next" }));
 		await userEvent.click(
 			await screen.findByRole("button", { name: /Sync configuration now/i }),
@@ -352,11 +377,10 @@ describe("FleetSyncWizard", () => {
 			}),
 		);
 
-		// Step 5 summary names the primary and the synced count.
+		// Step 4 (Done) summary names the primary and the synced count.
 		expect(
 			await screen.findByText(/1 instance is now synced to hotel-1/i),
 		).toBeInTheDocument();
-		expect(adminSynced).toBe(true);
 		expect(configSynced).toBe(true);
 
 		// The Done step tells the operator where to send traffic: the configured

@@ -27,7 +27,7 @@ function renderPage() {
 
 beforeEach(() => {
 	localStorage.setItem("fdAuthToken", "tok");
-	// Settings now embeds the admin-token panels, which load the member list
+	// Settings embeds the fleet sync wizard, which loads the member list
 	// and an SSE stream.
 	server.use(
 		sseHandler(),
