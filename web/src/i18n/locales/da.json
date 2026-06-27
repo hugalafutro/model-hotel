@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Styres af flådens primære instans. Synkroniserede elementer er skrivebeskyttede her og erstattes ved næste konfigurationssynkronisering. Administrer dem på den primære instans."
-		}
+		},
+		"builtFromCommit": "Bygget fra commit {{commit}}"
 	},
 	"dashboard": {
 		"title": "Dashboard",

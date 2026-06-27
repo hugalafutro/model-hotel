@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Được quản lý bởi phiên bản chính của hạm đội. Các mục đã đồng bộ ở đây chỉ đọc và sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo. Hãy quản lý chúng trên phiên bản chính."
-		}
+		},
+		"builtFromCommit": "Được build từ commit {{commit}}"
 	},
 	"dashboard": {
 		"title": "Bảng điều khiển",

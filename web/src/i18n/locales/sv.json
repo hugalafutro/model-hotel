@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Hanteras av flottans primära instans. Synkroniserade objekt är skrivskyddade här och ersätts vid nästa konfigurationssynkronisering. Hantera dem på den primära instansen."
-		}
+		},
+		"builtFromCommit": "Byggd från commit {{commit}}"
 	},
 	"dashboard": {
 		"title": "Instrumentpanel",

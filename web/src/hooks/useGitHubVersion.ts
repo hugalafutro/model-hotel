@@ -16,26 +16,49 @@ export interface VersionInfo {
 	running: string;
 	/** Source commit SHA the running build was stamped with, or "" if unknown */
 	commit: string;
-	/** True when latest > running (both are semver-like tags) */
+	/**
+	 * True when the running build is a `dev`/non-release build (running is not a
+	 * semver-like tag). Dev builds are ahead of the last release far more often
+	 * than behind it, so they never advertise an update.
+	 */
+	isDev: boolean;
+	/** True when latest > running (both are semver-like tags); always false for dev builds */
 	updateAvailable: boolean;
 }
 
+/** A running version is a real release only if it looks like a semver tag
+ * (optionally `v`-prefixed). Anything else ("dev", "GitHub", git-describe
+ * output) is treated as a dev build. */
+function isDevVersion(running: string): boolean {
+	return !/^v?\d/.test(running);
+}
+
 function compareSemverTags(latest: string, running: string): boolean {
-	const strip = (v: string) => v.replace(/^v/, "");
-	const l = strip(latest);
-	const r = strip(running);
-	// If running is "dev" or non-semver, always consider update available
-	if (!r.match(/^\d+/)) return true;
-	if (!l.match(/^\d+/)) return false;
-	const lp = l.split(".").map(Number);
-	const rp = r.split(".").map(Number);
+	// Numeric core only, dropping any prerelease/build suffix (e.g.
+	// "v1.0.0-beta" → [1,0,0]); the suffix is compared separately below.
+	const core = (v: string) =>
+		v
+			.replace(/^v/, "")
+			.split(/[-+]/, 1)[0]
+			.split(".")
+			.map((n) => Number.parseInt(n, 10));
+	const isPrerelease = (v: string) => v.replace(/^v/, "").includes("-");
+
+	const lp = core(latest);
+	const rp = core(running);
+	// Callers gate on !isDev, so `running` is semver-like here. `latest` comes
+	// from the GitHub API, so guard it: a non-semver tag means "no update"
+	// rather than a guessed one.
+	if (lp.some(Number.isNaN)) return false;
 	for (let i = 0; i < Math.max(lp.length, rp.length); i++) {
 		const a = lp[i] ?? 0;
 		const b = rp[i] ?? 0;
 		if (a > b) return true;
 		if (a < b) return false;
 	}
-	return false; // equal
+	// Equal numeric cores: semver orders a prerelease before its final release,
+	// so a running prerelease is behind a stable `latest`.
+	return isPrerelease(running) && !isPrerelease(latest);
 }
 
 /**
@@ -122,8 +145,9 @@ export function useGitHubVersion(): VersionInfo {
 		};
 	}, []);
 
+	const isDev = isDevVersion(running);
 	const updateAvailable =
-		latest !== "GitHub" && compareSemverTags(latest, running);
+		!isDev && latest !== "GitHub" && compareSemverTags(latest, running);
 
-	return { latest, running, commit, updateAvailable };
+	return { latest, running, commit, isDev, updateAvailable };
 }

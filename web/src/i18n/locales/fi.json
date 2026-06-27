@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Laivaston ensisijaisen ilmentymän hallinnoima. Synkronoidut kohteet ovat täällä vain luettavissa, ja ne korvataan seuraavassa kokoonpanon synkronoinnissa. Hallinnoi niitä ensisijaisessa ilmentymässä."
-		}
+		},
+		"builtFromCommit": "Koottu commitista {{commit}}"
 	},
 	"dashboard": {
 		"title": "Koontinäyttö",

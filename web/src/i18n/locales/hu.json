@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "A flotta elsődleges példánya kezeli. A szinkronizált elemek itt csak olvashatók, és a következő konfigurációs szinkronizáláskor lecserélődnek. Kezelje őket az elsődleges példányon."
-		}
+		},
+		"builtFromCommit": "A(z) {{commit}} commitból építve"
 	},
 	"dashboard": {
 		"title": "Irányítópult",

@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Gestionada per la instància primària de la flota. Els elements sincronitzats són de només lectura aquí i se substitueixen en la propera sincronització de configuració. Gestiona'ls a la instància primària."
-		}
+		},
+		"builtFromCommit": "Compilat des del commit {{commit}}"
 	},
 	"dashboard": {
 		"title": "Tauler",

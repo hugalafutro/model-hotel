@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Gérée par l'instance principale de la flotte. Les éléments synchronisés sont en lecture seule ici et sont remplacés à la prochaine synchronisation de configuration. Gérez-les sur l'instance principale."
-		}
+		},
+		"builtFromCommit": "Compilé depuis le commit {{commit}}"
 	},
 	"dashboard": {
 		"title": "Tableau de bord",

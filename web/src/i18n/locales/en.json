@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Managed by the fleet primary. Synced items here are read-only and are replaced on the next config sync. Manage them on the primary."
-		}
+		},
+		"builtFromCommit": "Built from commit {{commit}}"
 	},
 	"dashboard": {
 		"title": "Dashboard",
