@@ -51,18 +51,19 @@ type ServerConfig struct {
 
 // Server is the Front Desk HTTP server.
 type Server struct {
-	store      *Store
-	poller     *Poller
-	bus        *events.Bus
-	adminMgr   *admin.Manager
-	sessionMgr *webauthn.SessionManager
-	totpRepo   *totp.Repository
-	totpStatus *totpEnabledCache
-	probe      *http.Client // guarded client for proxying member admin APIs
-	readClient *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
-	syncClient *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
-	lbPort     string       // host port of the data-plane load balancer, surfaced to the wizard
-	router     http.Handler
+	store        *Store
+	poller       *Poller
+	bus          *events.Bus
+	adminMgr     *admin.Manager
+	sessionMgr   *webauthn.SessionManager
+	totpRepo     *totp.Repository
+	totpStatus   *totpEnabledCache
+	probe        *http.Client // guarded client for proxying member admin APIs
+	readClient   *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
+	syncClient   *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
+	backupClient *http.Client // guarded client for the pre-sync backup relay (deadline exceeds the member's pg_dump budget)
+	lbPort       string       // host port of the data-plane load balancer, surfaced to the wizard
+	router       http.Handler
 }
 
 // defaultLBPort is the load-balancer host port assumed when FLEET_LB_PORT is
@@ -84,17 +85,18 @@ func NewServer(cfg ServerConfig) *Server {
 	}
 
 	s := &Server{
-		store:      cfg.Store,
-		poller:     cfg.Poller,
-		bus:        cfg.Bus,
-		adminMgr:   cfg.AdminMgr,
-		sessionMgr: sessionMgr,
-		totpRepo:   totpRepo,
-		totpStatus: newTotpEnabledCache(totpRepo),
-		probe:      newProbeClient(httpProbeTimeout),
-		readClient: newProbeClient(memberReadTimeout),
-		syncClient: newProbeClient(memberSyncTimeout),
-		lbPort:     lbPort,
+		store:        cfg.Store,
+		poller:       cfg.Poller,
+		bus:          cfg.Bus,
+		adminMgr:     cfg.AdminMgr,
+		sessionMgr:   sessionMgr,
+		totpRepo:     totpRepo,
+		totpStatus:   newTotpEnabledCache(totpRepo),
+		probe:        newProbeClient(httpProbeTimeout),
+		readClient:   newProbeClient(memberReadTimeout),
+		syncClient:   newProbeClient(memberSyncTimeout),
+		backupClient: newProbeClient(memberBackupTimeout),
+		lbPort:       lbPort,
 	}
 
 	webauthnHandler := adminauth.NewWebAuthnHandler(

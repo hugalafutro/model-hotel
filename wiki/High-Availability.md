@@ -256,6 +256,11 @@ Two safety properties make this safe to leave running:
   members already matching the primary are skipped, and an unreachable or
   `MASTER_KEY`-blocked member is retried later rather than overwritten.
 
+It reacts to *changes on the primary*; it is not a continuous reconciler. A direct
+edit on a replica (managed members are read-only, so you shouldn't) sits until the
+**primary** next changes, when the full config is pushed and the replica is
+brought back in line. There is no constant per-replica revert loop.
+
 Automatic sync is **off by default**: it trades the per-change diff review for
 convenience. Leave it off to approve every fleet-wide change by hand, or turn it
 on once you trust the primary as the source of truth.

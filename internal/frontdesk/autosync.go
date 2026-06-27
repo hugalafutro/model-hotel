@@ -186,8 +186,10 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		}
 
 		// applyMemberConfig stamps the member's last-sync marker with this reason on
-		// success, so the Members table shows when and why it last converged.
-		out := s.applyMemberConfig(ctx, m, token, export, autoSyncReason)
+		// success, so the Members table shows when and why it last converged. Per-
+		// member success events are suppressed here (emitSuccessEvent=false); the
+		// loop emits one roll-up below so a fleet sync does not toast per member.
+		out := s.applyMemberConfig(ctx, m, token, export, autoSyncReason, false)
 		if !out.OK {
 			allConverged = false
 			continue // applyMemberConfig already emitted the per-member failure
@@ -222,10 +224,11 @@ func (s *Server) fetchMemberConfigVersion(ctx context.Context, m *Member, token 
 
 // backupMember asks a member to snapshot itself before Front Desk overwrites its
 // config, tagging the backup with origin=frontdesk so it is badged distinctly and
-// spared from GFS rotation. It uses the longer import-relay deadline because
-// pg_dump can outlast the health-probe timeout.
+// spared from GFS rotation. It uses backupClient, whose deadline exceeds the
+// member's own pg_dump budget, so a large member completes its snapshot rather
+// than timing out every tick and leaving an orphaned dump holding the backup lock.
 func (s *Server) backupMember(ctx context.Context, m *Member, token string) error {
-	status, _, err := s.callMemberWith(ctx, s.syncClient, http.MethodPost, m.URL, memberBackupsPath+"?origin="+frontDeskBackupOrigin, token, nil)
+	status, _, err := s.callMemberWith(ctx, s.backupClient, http.MethodPost, m.URL, memberBackupsPath+"?origin="+frontDeskBackupOrigin, token, nil)
 	if err != nil {
 		return err
 	}

@@ -19,6 +19,8 @@ type stubAutoMember struct {
 	versionHash string
 	exportBody  string
 	dryDiff     string // diff object returned on a dry-run import
+	importCode  int    // status for the dry-run import (default 200)
+	importBody  string // full dry-run import body; overrides dryDiff when set
 	backupCode  int
 	gotBackup   bool
 	gotRealSync bool
@@ -31,6 +33,7 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 		versionHash: "hash-A",
 		exportBody:  fleetExportWithKey,
 		dryDiff:     `{"providers":{},"virtual_keys":{},"settings":{}}`, // converged
+		importCode:  http.StatusOK,
 		backupCode:  http.StatusCreated,
 	}
 	sm.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +50,11 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 			_, _ = w.Write([]byte(sm.exportBody))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/import":
 			if r.URL.Query().Get("dryRun") != "" {
+				w.WriteHeader(sm.importCode)
+				if sm.importBody != "" {
+					_, _ = w.Write([]byte(sm.importBody))
+					return
+				}
 				_, _ = w.Write([]byte(`{"schema_version_ok":true,"master_key_ok":true,"applied":false,"diff":` + sm.dryDiff + `}`))
 				return
 			}
@@ -180,6 +188,54 @@ func TestAutoSyncBackupFailureSkipsMember(t *testing.T) {
 	cfg, _ := store.GetAutoSync(t.Context())
 	if cfg.LastHash != "hash-A" {
 		t.Errorf("applied hash = %q, want it left at hash-A so the next tick retries", cfg.LastHash)
+	}
+}
+
+// TestAutoSyncUnreachableMemberHoldsHash: a member whose import probe fails (its
+// server is down) is left untouched and the applied hash is not recorded, so the
+// next tick retries rather than declaring the fleet converged.
+func TestAutoSyncUnreachableMemberHoldsHash(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	// A dead URL: the dry-run import is a transport failure, not an HTTP answer.
+	store.CreateMember(t.Context(), "down", "http://127.0.0.1:9", "dtoken") //nolint:errcheck // presence is the point
+	enableAutoSync(t, store, pm.ID, "hash-A")
+
+	srv.autoSyncOnce(t.Context(), "hash-B")
+
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash != "hash-A" {
+		t.Errorf("applied hash = %q, want it held at hash-A so the next tick retries", cfg.LastHash)
+	}
+}
+
+// TestAutoSyncSchemaBlockedMemberSkipped: a member that reports a schema or
+// MASTER_KEY mismatch is held off (not backed up, not overwritten) and the fleet
+// is not marked converged.
+func TestAutoSyncSchemaBlockedMemberSkipped(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	blocked := newStubAutoMember(t, "btoken")
+	blocked.dryDiff = driftDiff
+	blocked.importCode = http.StatusUnprocessableEntity // 422: schema mismatch
+	blocked.importBody = `{"schema_version_ok":false,"master_key_ok":false}`
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "blocked", blocked.srv.URL, "btoken") //nolint:errcheck // presence is the point
+	enableAutoSync(t, store, pm.ID, "hash-A")
+
+	srv.autoSyncOnce(t.Context(), "hash-B")
+
+	if blocked.didBackup() || blocked.didRealSync() {
+		t.Error("a schema-blocked member must not be backed up or overwritten")
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash != "hash-A" {
+		t.Errorf("applied hash = %q, want it held at hash-A (member not syncable)", cfg.LastHash)
 	}
 }
 

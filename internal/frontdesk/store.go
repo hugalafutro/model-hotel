@@ -176,15 +176,37 @@ func (s *Store) migrate(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("frontdesk: read migration %s: %w", e.Name(), err)
 		}
-		if _, err := s.db.ExecContext(ctx, string(content)); err != nil {
-			return fmt.Errorf("frontdesk: apply migration %s: %w", e.Name(), err)
-		}
-		if _, err := s.db.ExecContext(ctx,
-			`INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)`, e.Name(), time.Now().UTC().UnixNano(),
-		); err != nil {
-			return fmt.Errorf("frontdesk: record migration %s: %w", e.Name(), err)
+		if err := s.applyMigration(ctx, e.Name(), string(content)); err != nil {
+			return err
 		}
 		debuglog.Info("frontdesk: applied migration", "name", e.Name())
+	}
+	return nil
+}
+
+// applyMigration runs one migration's statements and records it in
+// schema_migrations within a single transaction. Bundling the two means a crash
+// between them can never leave a migration applied-but-unrecorded, which on the
+// next start would re-run it: harmless for an idempotent CREATE ... IF NOT
+// EXISTS, but fatal for an ALTER TABLE ADD COLUMN (duplicate column, bricked
+// binary). SQLite executes DDL transactionally, so a failure rolls the whole
+// migration back.
+func (s *Store) applyMigration(ctx context.Context, name, content string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("frontdesk: begin migration %s: %w", name, err)
+	}
+	defer tx.Rollback() //nolint:errcheck // rollback after a successful commit is a no-op
+	if _, err := tx.ExecContext(ctx, content); err != nil {
+		return fmt.Errorf("frontdesk: apply migration %s: %w", name, err)
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)`, name, time.Now().UTC().UnixNano(),
+	); err != nil {
+		return fmt.Errorf("frontdesk: record migration %s: %w", name, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("frontdesk: commit migration %s: %w", name, err)
 	}
 	return nil
 }

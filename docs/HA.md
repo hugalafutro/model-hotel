@@ -181,6 +181,12 @@ It reuses the same machinery as the wizard, with two safety properties:
   skipped untouched, and a member that is unreachable or `MASTER_KEY`-blocked is
   retried on the next check rather than overwritten.
 
+It reacts to *changes on the primary*, it is not a continuous reconciler. If you
+edit a replica directly (you shouldn't, managed members are read-only), that drift
+sits until the **primary** next changes, at which point the full config is pushed
+and the replica is brought back in line. There is no constant revert loop watching
+each replica.
+
 Automatic sync is **off by default** and is the opposite trade-off from the
 wizard: convenience over the per-change diff review. Leave it off if you want a
 human to approve every fleet-wide change; turn it on once you trust the primary as

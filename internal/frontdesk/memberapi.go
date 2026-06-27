@@ -70,6 +70,13 @@ const memberReadTimeout = 15 * time.Second
 // deadline; it is still capped so a hung member cannot stall the sync forever.
 const memberSyncTimeout = 120 * time.Second
 
+// memberBackupTimeout bounds the pre-sync backup relay the auto-syncer makes
+// before overwriting a member. It must exceed the member's own pg_dump budget
+// (10 minutes, internal/api.backup.go) or a large member would time out every
+// tick and leave an orphaned dump holding the member's backup lock. One extra
+// minute covers the round trip and dump teardown.
+const memberBackupTimeout = 11 * time.Minute
+
 // tokenProbe is the outcome of checking a member's admin token at add/edit time,
 // before the background poller would otherwise catch a mistake.
 type tokenProbe struct {
