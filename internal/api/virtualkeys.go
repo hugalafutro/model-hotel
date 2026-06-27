@@ -60,11 +60,16 @@ func (r *UpdateVirtualKeyRequest) UnmarshalJSON(data []byte) error {
 // RegisterVirtualKeys mounts virtual key management routes.
 func (h *Handler) RegisterVirtualKeys(r chi.Router) {
 	r.Route("/virtual-keys", func(r chi.Router) {
-		r.Post("/", h.CreateVirtualKey)
 		r.Get("/", h.ListVirtualKeys)
 		r.Get("/{id}", h.GetVirtualKey)
-		r.Put("/{id}", h.UpdateVirtualKey)
-		r.Delete("/{id}", h.DeleteVirtualKey)
+		// Virtual keys are synced config: a managed fleet member must not edit them
+		// locally (the primary owns them and replaces them on the next sync).
+		r.Group(func(r chi.Router) {
+			r.Use(managedWriteGuard(h.settingsRepo))
+			r.Post("/", h.CreateVirtualKey)
+			r.Put("/{id}", h.UpdateVirtualKey)
+			r.Delete("/{id}", h.DeleteVirtualKey)
+		})
 	})
 }
 

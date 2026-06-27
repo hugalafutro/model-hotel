@@ -231,11 +231,18 @@ func (h *Handler) Register(r chi.Router) {
 	}
 
 	r.Route("/providers", func(r chi.Router) {
-		r.Post("/", h.CreateProvider)
 		r.Get("/", h.ListProviders)
 		r.Get("/{id}", h.GetProvider)
-		r.Put("/{id}", h.UpdateProvider)
-		r.Delete("/{id}", h.DeleteProvider)
+		// Provider CRUD is synced config: a managed fleet member must not edit it
+		// locally (the primary owns it and replaces it on the next sync). Discovery
+		// routes under /providers (mounted via RegisterProviderDiscovery) are
+		// deliberately outside this group: models regenerate and are not synced.
+		r.Group(func(r chi.Router) {
+			r.Use(managedWriteGuard(h.settingsRepo))
+			r.Post("/", h.CreateProvider)
+			r.Put("/{id}", h.UpdateProvider)
+			r.Delete("/{id}", h.DeleteProvider)
+		})
 	})
 
 	h.RegisterModels(r)

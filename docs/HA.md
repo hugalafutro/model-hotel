@@ -184,11 +184,15 @@ It reuses the same machinery as the wizard, with the same safety properties:
   skipped untouched, and a member that is unreachable or `MASTER_KEY`-blocked is
   retried on the next check rather than overwritten.
 
-It reacts to *changes on the primary*, it is not a continuous reconciler. If you
-edit a replica directly (you shouldn't, managed members are read-only), that drift
-sits until the **primary** next changes, at which point the full config is pushed
-and the replica is brought back in line. There is no constant revert loop watching
-each replica.
+It reacts to *changes on the primary*, it is not a continuous reconciler. A managed
+member is read-only for synced config: the dashboard hides the create/edit/delete
+controls, and the API itself refuses those writes with a 403 (providers, virtual
+keys, custom failover groups, and synced settings), so a stale tab or a direct
+`curl` cannot quietly change config the next sync would overwrite. Instance-local
+settings (Apprise alert routing, observability) and the failover **Sync** action
+stay editable. Any drift you do manage to introduce sits until the **primary** next
+changes, at which point the full config is pushed and the replica is brought back
+in line. There is no constant revert loop watching each replica.
 
 Automatic sync is **off by default** and is the opposite trade-off from the
 wizard: convenience over the per-change diff review. Leave it off if you want a

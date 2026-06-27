@@ -211,6 +211,19 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// A managed fleet member must not edit synced settings locally: the primary
+	// owns them and replaces them on the next sync. Instance-local keys (Apprise,
+	// Observability) are allowed through, mirroring the mixed Alerts section in the
+	// dashboard. Checked after validation so an unknown key still reports 400.
+	reqKeys := make([]string, 0, len(req))
+	for key := range req {
+		reqKeys = append(reqKeys, key)
+	}
+	if managedBlocksSyncableSettings(r.Context(), h.settingsRepo, reqKeys) {
+		respondError(w, managedWriteMsg, nil, http.StatusForbidden)
+		return
+	}
+
 	// Encrypt secret values at rest. A masked (unchanged) submission is dropped
 	// so the stored ciphertext is preserved; an empty value clears the secret.
 	if err := h.encryptSecretSettings(req); err != nil {
@@ -291,6 +304,15 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 			respondBadRequest(w, fmt.Sprintf("unknown setting: %s", key), nil)
 			return
 		}
+	}
+
+	// A managed fleet member must not reset synced settings locally (including the
+	// "reset all" expansion, which covers syncable keys): the primary owns them
+	// and replaces them on the next sync. An Apprise/Observability-only reset is
+	// allowed through.
+	if managedBlocksSyncableSettings(r.Context(), h.settingsRepo, keys) {
+		respondError(w, managedWriteMsg, nil, http.StatusForbidden)
+		return
 	}
 
 	tx, err := h.dbPool.Begin(r.Context())

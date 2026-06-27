@@ -112,14 +112,21 @@ type FailoverGroupBrief struct {
 func (h *FailoverHandler) Register(r chi.Router) {
 	r.Route("/failover-groups", func(r chi.Router) {
 		r.Get("/", h.List)
-		r.Post("/", h.Create)
 		r.Post("/sync", h.Sync)
 		r.Get("/candidates", h.Candidates)
 		r.Get("/by-model/{model_uuid}", h.GetByModelUUID)
 		r.Get("/circuit-breaker-status", h.CircuitBreakerStatus)
 		r.Get("/{id}", h.Get)
-		r.Put("/{id}", h.Update)
-		r.Delete("/{id}", h.Delete)
+		// Custom failover groups are synced config: a managed fleet member must not
+		// create/edit/delete them locally (the primary owns them and replaces them
+		// on the next sync). Sync is exempt: it only regenerates auto-created groups
+		// from the already-synced providers, which the UI also keeps available.
+		r.Group(func(r chi.Router) {
+			r.Use(managedWriteGuard(h.settingsRepo))
+			r.Post("/", h.Create)
+			r.Put("/{id}", h.Update)
+			r.Delete("/{id}", h.Delete)
+		})
 	})
 }
 
