@@ -111,7 +111,10 @@ it("shows the stored target masked, never as raw text", async () => {
 });
 
 it("save preserves the masked secret and writes the current selection", async () => {
-	let putBody: Settings | null = null;
+	// Declared without a `= null` initializer: the only assignment happens inside
+	// the handler closure below, and a null initializer would make TS's control-
+	// flow analysis pin the outer reads to `null` (collapsing putBody?.x to never).
+	let putBody: Settings | undefined;
 	baseHandlers();
 	server.use(
 		http.put("/api/settings", async ({ request }) => {
@@ -125,7 +128,7 @@ it("save preserves the masked secret and writes the current selection", async ()
 		screen.getByRole("button", { name: /save alert settings/i }),
 	);
 
-	await waitFor(() => expect(putBody).not.toBeNull());
+	await waitFor(() => expect(putBody).toBeDefined());
 	// The mask is echoed back unchanged so the backend keeps the stored secret.
 	expect(putBody?.alert_apprise_targets).toBe("********");
 	expect(putBody?.alert_enabled).toBe(true);
