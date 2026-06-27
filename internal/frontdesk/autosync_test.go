@@ -537,6 +537,55 @@ func TestGetAutoSyncHandler(t *testing.T) {
 	}
 }
 
+// TestStoreAutoSyncDBErrors: the auto-sync store methods surface DB failures
+// rather than swallowing them. Closing the handle forces every query to fail.
+func TestStoreAutoSyncDBErrors(t *testing.T) {
+	_, store := newTestServer(t)
+	if err := store.db.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+	ctx := context.Background()
+	if _, err := store.GetAutoSync(ctx); err == nil {
+		t.Error("GetAutoSync: want error on a closed DB")
+	}
+	if err := store.SetAutoSync(ctx, true, "x"); err == nil {
+		t.Error("SetAutoSync: want error on a closed DB")
+	}
+	if err := store.SetAutoSyncLastHash(ctx, "h"); err == nil {
+		t.Error("SetAutoSyncLastHash: want error on a closed DB")
+	}
+	if err := store.SetMemberLastSync(ctx, "id", time.Now(), "r"); err == nil {
+		t.Error("SetMemberLastSync: want error on a closed DB")
+	}
+}
+
+// TestGetAutoSyncHandlerDBError: a store failure surfaces as a 500, not a silent
+// empty body. The admin token authenticates without a DB read, so the error comes
+// from the handler's own GetAutoSync call.
+func TestGetAutoSyncHandlerDBError(t *testing.T) {
+	srv, store := newTestServer(t)
+	if err := store.db.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+	rec := do(t, srv, http.MethodGet, "/api/fleet/autosync", "", true)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("get autosync on closed DB = %d, want 500", rec.Code)
+	}
+}
+
+// TestPutAutoSyncDBError: a store write failure surfaces as a 500. primary_id is
+// empty so the handler skips validation and fails on the persist itself.
+func TestPutAutoSyncDBError(t *testing.T) {
+	srv, store := newTestServer(t)
+	if err := store.db.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync", `{"enabled":false,"primary_id":""}`, true)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("put autosync on closed DB = %d, want 500", rec.Code)
+	}
+}
+
 // TestPutAutoSyncDisable: turning auto-sync off is accepted and persisted.
 func TestPutAutoSyncDisable(t *testing.T) {
 	srv, store := newTestServer(t)
