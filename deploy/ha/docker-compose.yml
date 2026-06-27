@@ -84,3 +84,18 @@ services:
         volumes:
             - ./.data:/data
         restart: unless-stopped
+
+    # Outbound notifications (optional). Run a stateless apprise-api container and
+    # Front Desk POSTs HA event summaries to it (a member going down, a config sync
+    # failing); Apprise fans them out to Telegram/Discord/email/etc. No request
+    # content is ever sent, only routing metadata. Uncomment, then in Front Desk
+    # Settings -> Alerts set the Apprise API URL to http://apprise:8000 and paste
+    # your notification target (e.g. tgram://<bot_token>/<chat_id>).
+    # apprise:
+    #     image: caronc/apprise:latest
+    #     labels:
+    #         app.group: model-hotel-ha
+    #     restart: unless-stopped
+    #     # Not exposed to the host: only Front Desk needs to reach it.
+    #     expose:
+    #         - "8000"

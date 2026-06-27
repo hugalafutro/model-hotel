@@ -91,14 +91,17 @@ func TestAppriseType(t *testing.T) {
 }
 
 func TestPayloadForUsesMessageElseType(t *testing.T) {
-	p := payloadFor(events.Event{Type: "circuit_breaker.open", Message: "Provider x: open", Severity: "warning"})
+	p := payloadFor(events.Event{Type: "circuit_breaker.open", Message: "Provider x: open", Severity: "warning"}, "Model Hotel")
 	if p.Body != "Provider x: open" {
 		t.Errorf("body = %q", p.Body)
 	}
 	if p.Type != "warning" {
 		t.Errorf("type = %q", p.Type)
 	}
-	p2 := payloadFor(events.Event{Type: "circuit_breaker.open", Severity: "warning"})
+	if p.Title != "Model Hotel: circuit_breaker.open" {
+		t.Errorf("title = %q", p.Title)
+	}
+	p2 := payloadFor(events.Event{Type: "circuit_breaker.open", Severity: "warning"}, "Model Hotel")
 	if p2.Body != "circuit_breaker.open" {
 		t.Errorf("empty-message body fallback = %q", p2.Body)
 	}
@@ -351,6 +354,102 @@ func TestRunDispatchesFromBus(t *testing.T) {
 	cancel()
 	// Cancelling Run must not deadlock; a brief wait lets the goroutine return.
 	time.Sleep(20 * time.Millisecond)
+}
+
+// --- Embedding options (used by Front Desk) ---
+
+func TestWithCatalogGatesEvents(t *testing.T) {
+	rs := newRecordingServer()
+	defer rs.Close()
+	// A catalog that knows only a Front-Desk event, not any main-app event.
+	cat := []EventDef{{Type: "health.down", Severity: "error", DefaultOn: true}}
+	d := New(fakeCfg{cfg: enabledConfig(rs.URL, "tgram://x", "health.down", "circuit_breaker.open")},
+		rs.Client(), WithCatalog(cat))
+
+	if !d.handle(context.Background(), events.Event{Type: "health.down", Severity: "error"}) {
+		t.Error("event in the custom catalog should dispatch")
+	}
+	if d.handle(context.Background(), events.Event{Type: "circuit_breaker.open", Severity: "warning"}) {
+		t.Error("event absent from the custom catalog must not dispatch")
+	}
+}
+
+func TestWithTitlePrefix(t *testing.T) {
+	rs := newRecordingServer()
+	defer rs.Close()
+	cat := []EventDef{{Type: "health.down", Severity: "error", DefaultOn: true}}
+	d := New(fakeCfg{cfg: enabledConfig(rs.URL, "tgram://x", "health.down")},
+		rs.Client(), WithCatalog(cat), WithTitlePrefix("Front Desk"))
+
+	if !d.handle(context.Background(), events.Event{Type: "health.down", Severity: "error"}) {
+		t.Fatal("expected dispatch")
+	}
+	waitForCount(t, rs, 1)
+	if got := rs.last().Title; got != "Front Desk: health.down" {
+		t.Errorf("title = %q, want Front Desk prefix", got)
+	}
+}
+
+func TestWithDebounceKeysScopesPerMember(t *testing.T) {
+	cat := []EventDef{{Type: "health.down", Severity: "error", DefaultOn: true}}
+	d := New(fakeCfg{cfg: enabledConfig("http://unused", "tgram://x", "health.down")},
+		nil, WithCatalog(cat), WithDebounceKeys([]string{"member_id"}))
+	d.cooldown = time.Minute
+
+	down := func(member string) events.Event {
+		return events.Event{Type: "health.down", Severity: "error", Metadata: map[string]interface{}{"member_id": member}}
+	}
+	if !d.handle(context.Background(), down("m1")) {
+		t.Fatal("first member-down should dispatch")
+	}
+	if d.handle(context.Background(), down("m1")) {
+		t.Error("immediate repeat for the same member should be suppressed")
+	}
+	if !d.handle(context.Background(), down("m2")) {
+		t.Error("a different member must alert independently")
+	}
+	// provider_id is NOT a configured debounce key here, so it does not scope:
+	// two events differing only by provider_id collapse to the empty-id bucket.
+	withProv := events.Event{Type: "health.down", Severity: "error", Metadata: map[string]interface{}{"provider_id": "p1"}}
+	if !d.handle(context.Background(), withProv) {
+		t.Fatal("first un-membered event should dispatch")
+	}
+	if d.handle(context.Background(), withProv) {
+		t.Error("provider_id must not scope debounce when only member_id is configured")
+	}
+}
+
+func TestWithBusIsolatesFromDefault(t *testing.T) {
+	rs := newRecordingServer()
+	defer rs.Close()
+	bus := events.NewBus()
+	cat := []EventDef{{Type: "health.down", Severity: "error", DefaultOn: true}}
+	d := New(fakeCfg{cfg: enabledConfig(rs.URL, "tgram://x", "health.down")},
+		rs.Client(), WithBus(bus), WithCatalog(cat))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go d.Run(ctx)
+
+	// An event on the GLOBAL bus must not reach a dispatcher bound to `bus`.
+	events.Publish(events.Event{Type: "health.down", Severity: "error"})
+	time.Sleep(50 * time.Millisecond)
+	if rs.count() != 0 {
+		t.Fatalf("dispatcher bound to a custom bus must ignore the default bus, got %d", rs.count())
+	}
+
+	// The same event on the custom bus is delivered.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		bus.Publish(events.Event{Type: "health.down", Severity: "error"})
+		if rs.count() > 0 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if rs.count() == 0 {
+		t.Fatal("event published on the custom bus was not dispatched")
+	}
 }
 
 func TestTestSendHappyAndError(t *testing.T) {

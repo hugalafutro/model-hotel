@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { Settings } from "../api/types";
+import { AlertsPanel } from "../components/AlertsPanel";
 import { AutoSyncPanel } from "../components/AutoSyncPanel";
 import { FleetSyncWizard } from "../components/FleetSyncWizard";
 import { SecurityPanels } from "../components/SecurityPanels";
@@ -98,7 +99,16 @@ export function SettingsPage() {
 		setSaveError("");
 		setSaving(true);
 		try {
-			await api.putSettings(settings);
+			// PUT only the polling fields this form owns; the server merges them onto
+			// the stored row, so alert settings edited in the Alerts panel are never
+			// reverted by saving here (and vice versa).
+			await api.putSettings({
+				health_poll_secs: settings.health_poll_secs,
+				traefik_poll_secs: settings.traefik_poll_secs,
+				traefik_stale_secs: settings.traefik_stale_secs,
+				event_retention_days: settings.event_retention_days,
+				retry_attempts: settings.retry_attempts,
+			});
 			toast(t("settings.saved"), "success");
 		} catch (err) {
 			setSaveError(
@@ -207,6 +217,8 @@ export function SettingsPage() {
 			</form>
 
 			<AutoSyncPanel members={members} />
+
+			<AlertsPanel />
 
 			<FleetSyncWizard members={members} onChanged={refetchMembers} />
 

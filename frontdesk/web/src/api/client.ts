@@ -3,6 +3,8 @@ import type {
 	PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
 import type {
+	AlertEventDef,
+	AlertStatus,
 	AutoSyncConfig,
 	EventsPage,
 	FdEvent,
@@ -131,8 +133,15 @@ export const api = {
 		),
 
 	getSettings: () => request<Settings>("/api/settings"),
-	putSettings: (s: Settings) =>
+	// Partial body: the server merges onto the stored row, so each panel PUTs only
+	// the fields it owns and never clobbers the other's (or erases the secret).
+	putSettings: (s: Partial<Settings>) =>
 		request<void>("/api/settings", jsonInit("PUT", s)),
+
+	// Outbound Apprise alerting (Settings -> Alerts panel).
+	getAlertEvents: () => request<AlertEventDef[]>("/api/alert/events"),
+	getAlertStatus: () => request<AlertStatus>("/api/alert/status"),
+	testAlert: () => request<void>("/api/alert/test", { method: "POST" }),
 
 	listEvents: (params: URLSearchParams) =>
 		request<EventsPage>(`/api/events?${params.toString()}`),

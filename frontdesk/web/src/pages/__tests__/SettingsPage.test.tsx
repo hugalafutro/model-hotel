@@ -14,6 +14,10 @@ const defaults: Settings = {
 	traefik_stale_secs: 30,
 	event_retention_days: 90,
 	retry_attempts: 2,
+	alert_enabled: false,
+	alert_apprise_api_url: "",
+	alert_apprise_targets: "",
+	alert_events: "",
 };
 
 function renderPage() {
@@ -31,6 +35,15 @@ beforeEach(() => {
 	server.use(
 		sseHandler(),
 		http.get("/api/members", () => HttpResponse.json([])),
+		// The Alerts panel loads its catalog + reachability on mount.
+		http.get("/api/alert/events", () => HttpResponse.json([])),
+		http.get("/api/alert/status", () =>
+			HttpResponse.json({
+				configured: false,
+				reachable: false,
+				healthy: false,
+			}),
+		),
 	);
 });
 
@@ -93,5 +106,54 @@ describe("SettingsPage", () => {
 		expect(await screen.findByRole("alert")).toHaveTextContent(
 			/at least 1 second/i,
 		);
+	});
+
+	it("does not revert alert settings when the polling form is saved (B1)", async () => {
+		// Stateful settings: PUT is a partial merge onto the stored row (mirrors the
+		// server), so each panel writes only its own fields and cannot clobber the
+		// other's. The test would fail if a panel sent a full row from stale state.
+		let current: Settings = { ...defaults, alert_enabled: true };
+		server.use(
+			http.get("/api/settings", () => HttpResponse.json(current)),
+			http.put("/api/settings", async ({ request }) => {
+				const patch = (await request.json()) as Partial<Settings>;
+				current = { ...current, ...patch };
+				return new HttpResponse(null, { status: 204 });
+			}),
+			http.get("/api/alert/events", () =>
+				HttpResponse.json([
+					{
+						type: "health.down",
+						category: "Health",
+						severity: "error",
+						defaultOn: true,
+					},
+				]),
+			),
+		);
+		renderPage();
+
+		// Turn alerts OFF in the Alerts panel and save it.
+		const enable = await screen.findByRole("checkbox", {
+			name: /outbound alert notifications/i,
+		});
+		expect(enable).toBeChecked();
+		await userEvent.click(enable);
+		await userEvent.click(
+			screen.getByRole("button", { name: /save alert settings/i }),
+		);
+		await waitFor(() => expect(current.alert_enabled).toBe(false));
+
+		// Now save an unrelated polling field. Pre-fix this PUT carried the panel's
+		// stale alert_enabled:true and reverted the change.
+		const stale = (await screen.findByLabelText(
+			/staleness warning/i,
+		)) as HTMLInputElement;
+		await userEvent.clear(stale);
+		await userEvent.type(stale, "42");
+		await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+		await waitFor(() => expect(current.traefik_stale_secs).toBe(42));
+		expect(current.alert_enabled).toBe(false);
 	});
 });

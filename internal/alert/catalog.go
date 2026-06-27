@@ -44,20 +44,28 @@ func Catalog() []EventDef {
 	return out
 }
 
-// catalogIndex builds a Type -> EventDef lookup.
-func catalogIndex() map[string]EventDef {
-	m := make(map[string]EventDef, len(catalog))
-	for _, e := range catalog {
+// catalogIndex builds a Type -> EventDef lookup for the main-app catalog.
+func catalogIndex() map[string]EventDef { return catalogIndexOf(catalog) }
+
+// catalogIndexOf builds a Type -> EventDef lookup for any catalog. Used by the
+// Dispatcher so an embedder (Front Desk) can supply its own event set.
+func catalogIndexOf(defs []EventDef) map[string]EventDef {
+	m := make(map[string]EventDef, len(defs))
+	for _, e := range defs {
 		m[e.Type] = e
 	}
 	return m
 }
 
-// DefaultEnabledCSV returns the comma-joined Type list of DefaultOn events,
-// used to seed the alert_events setting on first run.
-func DefaultEnabledCSV() string {
-	on := make([]string, 0, len(catalog))
-	for _, e := range catalog {
+// DefaultEnabledCSV returns the comma-joined Type list of the main catalog's
+// DefaultOn events, used to seed the alert_events setting on first run.
+func DefaultEnabledCSV() string { return DefaultEnabledCSVFor(catalog) }
+
+// DefaultEnabledCSVFor returns the comma-joined Type list of DefaultOn events in
+// the given catalog, used to seed an embedder's enabled-events setting.
+func DefaultEnabledCSVFor(defs []EventDef) string {
+	on := make([]string, 0, len(defs))
+	for _, e := range defs {
 		if e.DefaultOn {
 			on = append(on, e.Type)
 		}
