@@ -16,16 +16,30 @@ export interface VersionInfo {
 	running: string;
 	/** Source commit SHA the running build was stamped with, or "" if unknown */
 	commit: string;
-	/** True when latest > running (both are semver-like tags) */
+	/**
+	 * True when the running build is a `dev`/non-release build (running is not a
+	 * semver-like tag). Dev builds are ahead of the last release far more often
+	 * than behind it, so they never advertise an update.
+	 */
+	isDev: boolean;
+	/** True when latest > running (both are semver-like tags); always false for dev builds */
 	updateAvailable: boolean;
+}
+
+/** A running version is a real release only if it looks like a semver tag
+ * (optionally `v`-prefixed). Anything else ("dev", "GitHub", git-describe
+ * output) is treated as a dev build. */
+function isDevVersion(running: string): boolean {
+	return !/^v?\d/.test(running);
 }
 
 function compareSemverTags(latest: string, running: string): boolean {
 	const strip = (v: string) => v.replace(/^v/, "");
 	const l = strip(latest);
 	const r = strip(running);
-	// If running is "dev" or non-semver, always consider update available
-	if (!r.match(/^\d+/)) return true;
+	// Callers gate on !isDev, so running is semver-like here; bail defensively
+	// if either side is not, rather than guessing an update is available.
+	if (!r.match(/^\d+/)) return false;
 	if (!l.match(/^\d+/)) return false;
 	const lp = l.split(".").map(Number);
 	const rp = r.split(".").map(Number);
@@ -122,8 +136,9 @@ export function useGitHubVersion(): VersionInfo {
 		};
 	}, []);
 
+	const isDev = isDevVersion(running);
 	const updateAvailable =
-		latest !== "GitHub" && compareSemverTags(latest, running);
+		!isDev && latest !== "GitHub" && compareSemverTags(latest, running);
 
-	return { latest, running, commit, updateAvailable };
+	return { latest, running, commit, isDev, updateAvailable };
 }

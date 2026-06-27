@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Bestuur deur die vloot se primêre instansie. Gesinkroniseerde items is hier slegs-lees en word met die volgende konfigurasiesinkronisasie vervang. Bestuur hulle op die primêre instansie."
-		}
+		},
+		"builtFromCommit": "Gebou vanaf commit {{commit}}"
 	},
 	"dashboard": {
 		"title": "Paneelbord",

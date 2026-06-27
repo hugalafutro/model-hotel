@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Gestionada por la instancia primaria de la flota. Los elementos sincronizados son de solo lectura aquí y se reemplazan en la próxima sincronización de configuración. Gestiónalos en la instancia primaria."
-		}
+		},
+		"builtFromCommit": "Compilado desde el commit {{commit}}"
 	},
 	"dashboard": {
 		"title": "Panel",

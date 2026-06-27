@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Gestionată de instanța primară a flotei. Elementele sincronizate sunt aici doar pentru citire și sunt înlocuite la următoarea sincronizare a configurației. Gestionați-le pe instanța primară."
-		}
+		},
+		"builtFromCommit": "Compilat din commitul {{commit}}"
 	},
 	"dashboard": {
 		"title": "Tablou de bord",

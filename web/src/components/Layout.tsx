@@ -673,7 +673,8 @@ export function Layout({ children }: LayoutProps) {
 		setLogsSubMode,
 	} = useSidebarMode();
 
-	const { running, latest, commit, updateAvailable } = useGitHubVersion();
+	const { running, latest, commit, isDev, updateAvailable } =
+		useGitHubVersion();
 
 	const { data: cbStatus } = useQuery({
 		queryKey: ["circuit-breaker-status"],
@@ -1042,6 +1043,14 @@ export function Layout({ children }: LayoutProps) {
 							rel="noopener noreferrer"
 							aria-label={t("layout.githubRepo")}
 							title={(() => {
+								// Dev builds sit ahead of the last release far more
+								// often than behind it, so they never advertise an
+								// update; their useful identity is the build commit.
+								if (isDev) {
+									return commit
+										? t("layout.builtFromCommit", { commit })
+										: t("layout.running", { running });
+								}
 								const base =
 									!updateAvailable && latest !== "GitHub"
 										? t("layout.runningLatest", { running })
@@ -1049,7 +1058,7 @@ export function Layout({ children }: LayoutProps) {
 											? t("layout.updateAvailable", { running, latest })
 											: t("layout.running", { running });
 								// Append the source commit SHA (build stamp, not
-								// translatable) so a `dev` build's exact commit is visible.
+								// translatable) so the exact build commit stays visible.
 								// The backend already returns a normalized short SHA.
 								return commit ? `${base} · ${commit}` : base;
 							})()}

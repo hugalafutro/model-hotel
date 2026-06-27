@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Gerenciada pela instância primária da frota. Os itens sincronizados são somente leitura aqui e são substituídos na próxima sincronização de configuração. Gerencie-os na instância primária."
-		}
+		},
+		"builtFromCommit": "Compilado a partir do commit {{commit}}"
 	},
 	"dashboard": {
 		"title": "Painel",

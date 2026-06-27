@@ -203,6 +203,7 @@ describe("useGitHubVersion", () => {
 
 		expect(result.current.running).toBe("v1.0.0");
 		expect(result.current.latest).toBe("v1.1.0");
+		expect(result.current.isDev).toBe(false);
 		expect(result.current.updateAvailable).toBe(true);
 	});
 
@@ -219,7 +220,7 @@ describe("useGitHubVersion", () => {
 		expect(result.current.updateAvailable).toBe(false);
 	});
 
-	it("sets updateAvailable=true when running is dev", async () => {
+	it("never advertises an update for a dev build, even behind the latest tag", async () => {
 		server.use(...mockSettings({ body: { app_version: "dev" } }));
 		server.use(...mockVersionLatest({ body: { tag_name: "v1.0.0" } }));
 
@@ -230,6 +231,25 @@ describe("useGitHubVersion", () => {
 		});
 
 		expect(result.current.running).toBe("dev");
+		expect(result.current.isDev).toBe(true);
+		// dev sits ahead of the last release far more often than behind it.
+		expect(result.current.updateAvailable).toBe(false);
+	});
+
+	it("flags a non-dev release build (isDev=false) for the v-less version format", async () => {
+		// .version ships without a leading "v" (e.g. "0.9.80"); that must still
+		// register as a real release, not a dev build.
+		server.use(...mockSettings({ body: { app_version: "0.9.80" } }));
+		server.use(...mockVersionLatest({ body: { tag_name: "v0.9.81" } }));
+
+		const { result } = renderHook(() => useGitHubVersion());
+
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 0));
+		});
+
+		expect(result.current.running).toBe("0.9.80");
+		expect(result.current.isDev).toBe(false);
 		expect(result.current.updateAvailable).toBe(true);
 	});
 });

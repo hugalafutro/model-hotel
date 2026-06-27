@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "由机群主节点管理。此处的同步项为只读，将在下次配置同步时被替换。请在主节点上管理它们。"
-		}
+		},
+		"builtFromCommit": "从提交 {{commit}} 构建"
 	},
 	"dashboard": {
 		"title": "仪表板",

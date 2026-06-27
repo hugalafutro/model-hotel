@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Styres av flåtens primære instans. Synkroniserte elementer er skrivebeskyttet her og erstattes ved neste konfigurasjonssynkronisering. Administrer dem på den primære instansen."
-		}
+		},
+		"builtFromCommit": "Bygget fra commit {{commit}}"
 	},
 	"dashboard": {
 		"title": "Dashbord",

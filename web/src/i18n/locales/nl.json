@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Beheerd door de primaire instantie van de vloot. Gesynchroniseerde items zijn hier alleen-lezen en worden bij de volgende configuratiesynchronisatie vervangen. Beheer ze op de primaire instantie."
-		}
+		},
+		"builtFromCommit": "Gebouwd vanaf commit {{commit}}"
 	},
 	"dashboard": {
 		"title": "Dashboard",

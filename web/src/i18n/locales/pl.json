@@ -211,7 +211,8 @@
 		},
 		"managed": {
 			"banner": "Zarządzane przez instancję podstawową floty. Zsynchronizowane elementy są tutaj tylko do odczytu i zostaną zastąpione przy następnej synchronizacji konfiguracji. Zarządzaj nimi w instancji podstawowej."
-		}
+		},
+		"builtFromCommit": "Zbudowano z commita {{commit}}"
 	},
 	"dashboard": {
 		"title": "Panel",
