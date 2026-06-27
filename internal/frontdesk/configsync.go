@@ -106,12 +106,12 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		if err != nil || !ok {
 			continue
 		}
-		// Snapshot a member that will actually change before the destructive replace,
-		// the same recoverability guarantee the auto-syncer gives. A failed backup
-		// leaves the member untouched and reported rather than risking an
-		// unrecoverable overwrite.
-		if failed := s.backupChangingMember(r.Context(), m, token, export); failed != nil {
-			results = append(results, *failed)
+		// Gate the destructive replace on a dry-run: a member that will actually
+		// change is snapshotted first (the same recoverability guarantee the
+		// auto-syncer gives), an already-converged member is reported without an
+		// import, and a member whose backup fails is left untouched and reported.
+		if item, proceed := s.prepareMemberSync(r.Context(), m, token, export); !proceed {
+			results = append(results, *item)
 			continue
 		}
 		results = append(results, s.applyMemberConfig(r.Context(), m, token, export, wizardSyncReason, true))
@@ -120,21 +120,32 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "results": results})
 }
 
-// backupChangingMember snapshots a member before the wizard overwrites it, giving
-// the manual sync the same recoverability guarantee the auto-syncer already has. A
-// quick dry-run gates the backup: a member that is unreachable, version/MASTER_KEY-
-// blocked, or already converged is not needlessly snapshotted (nor mislabeled
-// "backup failed"), it falls through to applyMemberConfig which does the authoritative
-// import and classification. It returns a non-nil result only when the snapshot was
-// attempted and failed, in which case the member is left untouched and reported,
-// never overwritten.
-func (s *Server) backupChangingMember(ctx context.Context, m *Member, token string, export []byte) *syncResultItem {
+// prepareMemberSync runs the dry-run that gates the wizard's destructive replace
+// and reports whether the caller should proceed to applyMemberConfig. It returns
+// (item, proceed):
+//
+//   - proceed=true (item nil): either the member is reachable, syncable, and
+//     changing, and has just been snapshotted; or it is unreachable / version- or
+//     MASTER_KEY-blocked. In both cases the caller runs applyMemberConfig, which
+//     performs the authoritative import and reports the real outcome. A blocked or
+//     unreachable member cannot be destructively written (its import is refused),
+//     so letting it fall through costs nothing and yields a precise error.
+//   - proceed=false (item set): the member is already converged (reported OK, no
+//     import) or its pre-sync backup failed (reported as left unchanged). The
+//     caller skips applyMemberConfig and records item as-is.
+//
+// Crucially, a converged member is skipped entirely rather than handed to a no-op
+// import: re-importing it would reopen the window where a member edited between the
+// dry-run and the real import gets overwritten without the snapshot this gate is
+// meant to guarantee. This mirrors the auto-syncer, which also skips converged
+// members outright.
+func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string, export []byte) (*syncResultItem, bool) {
 	preview, status, err := s.pushMemberImport(ctx, m, token, export, true)
 	if err != nil || status != http.StatusOK || !preview.SchemaVersionOK || !preview.MasterKeyOK {
-		return nil // unreachable or blocked: let applyMemberConfig report the real cause
+		return nil, true // unreachable or blocked: let applyMemberConfig report the real cause
 	}
 	if added, updated, removed := preview.Diff.counts(); added+updated+removed == 0 {
-		return nil // already converged: no overwrite, so nothing to snapshot
+		return &syncResultItem{MemberID: m.ID, Name: m.Name, OK: true}, false // already in sync: no backup, no import
 	}
 	if err := s.backupMember(ctx, m, token); err != nil {
 		debuglog.Warn("frontdesk: wizard sync: pre-sync backup failed, skipping member", "member", m.Name, "error", err)
@@ -142,9 +153,9 @@ func (s *Server) backupChangingMember(ctx context.Context, m *Member, token stri
 			Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",
 			Message: fmt.Sprintf("Skipped %s: pre-sync backup failed", m.Name), MemberID: m.ID,
 		})
-		return &syncResultItem{MemberID: m.ID, Name: m.Name, Error: "pre-sync backup failed; this member was left unchanged"}
+		return &syncResultItem{MemberID: m.ID, Name: m.Name, Error: "pre-sync backup failed; this member was left unchanged"}, false
 	}
-	return nil
+	return nil, true // snapshotted: proceed to the authoritative import
 }
 
 // recordFleetSyncRun stamps the last-run marker when a sync action updated at

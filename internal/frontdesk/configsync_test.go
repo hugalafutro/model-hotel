@@ -239,6 +239,12 @@ func TestConfigSyncConvergedMemberNotBackedUp(t *testing.T) {
 	if converged.gotBackup {
 		t.Error("an already-converged member must not be snapshotted")
 	}
+	// A converged member must not get a real import either: re-importing reopens
+	// the overwrite-without-backup window. Its only import call is the gating
+	// dry-run, so gotDryRun stays true.
+	if !converged.gotDryRun {
+		t.Error("a converged member must not be imported into; only the dry-run should run")
+	}
 }
 
 func TestConfigSyncUnknownPrimary(t *testing.T) {
@@ -308,9 +314,11 @@ func TestConfigSyncPrimaryExportFails(t *testing.T) {
 func TestConfigSyncApplyVariants(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubConfigMember(t, "ptoken")
-	// applied=false despite a 200 -> "did not apply".
+	// applied=false despite a 200 -> "did not apply". A non-empty diff so the
+	// pre-sync gate sees a changing member and proceeds to the real import (an
+	// empty diff would be short-circuited as already-converged).
 	notApplied := newStubConfigMember(t, "ntoken")
-	notApplied.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":false,"diff":{}}`
+	notApplied.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":false,"diff":{"providers":{"added":["p"]}}}`
 	// 422 schema mismatch -> "version mismatch", NOT a MASTER_KEY message.
 	badSchema := newStubConfigMember(t, "stoken")
 	badSchema.importCode = http.StatusUnprocessableEntity
