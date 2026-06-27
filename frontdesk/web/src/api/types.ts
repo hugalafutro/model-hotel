@@ -64,6 +64,14 @@ export interface Settings {
 	alert_events: string;
 }
 
+// Running-build identity from GET /api/version, used by the footer to show which
+// Front Desk build is deployed. app_version is "dev" for un-stamped builds;
+// app_commit is a short SHA, or "unknown" when the build wasn't stamped.
+export interface VersionInfo {
+	app_version: string;
+	app_commit: string;
+}
+
 // One alertable event in the Front Desk catalog (GET /api/alert/events), mirroring
 // alert.EventDef. The picker is rendered from this list, grouped by category.
 export interface AlertEventDef {

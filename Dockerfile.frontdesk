@@ -38,10 +38,17 @@ COPY . .
 # placeholder and runs API-only).
 COPY --from=frontend-builder /app/frontdesk/web/dist ./internal/frontdesk/webui/
 
+ARG VERSION=dev
+# Source commit SHA. The .git dir is excluded from the build context
+# (.dockerignore), so it is passed in as a build arg rather than derived
+# in-image. The backend shortens it for display.
+ARG COMMIT=unknown
 # modernc.org/sqlite is pure Go, so CGO is not needed; build a static binary.
+# Stamp version + source commit so the UI footer can show which build is running
+# (mirrors the main Dockerfile; see internal/frontdesk.buildCommit).
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 go build -o frontdesk ./cmd/frontdesk/
+    CGO_ENABLED=0 go build -ldflags "-X main.version=$VERSION -X github.com/hugalafutro/model-hotel/internal/frontdesk.buildCommit=$COMMIT" -o frontdesk ./cmd/frontdesk/
 
 # Stage 3: Minimal runtime image
 FROM alpine:3.24

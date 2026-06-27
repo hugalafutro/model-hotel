@@ -23,6 +23,10 @@
 		"subtitle": "Model Hotel HA control plane",
 		"logout": "Log out"
 	},
+	"footer": {
+		"viewOnGitHub": "View this build on GitHub",
+		"wiki": "HA Wiki"
+	},
 	"tabs": {
 		"members": "Members",
 		"traffic": "Traffic",

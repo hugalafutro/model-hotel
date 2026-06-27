@@ -1,11 +1,13 @@
 name: Prune Docker Hub Tags
 
-# Keeps the Docker Hub repository tidy after a release. Retains the newest
-# KEEP version tags (vX.Y.Z) plus every protected moving tag (latest, X.Y),
-# and deletes older releases. Each release pushes a vX.Y.Z tag *and* a sha-
-# tag at the same image digest, so a sha- tag is pruned only when no retained
-# tag still points at its digest — this drops a release's sha- tag together
-# with the release, without parsing commit SHAs.
+# Keeps the Docker Hub repositories tidy after a release. Both the server image
+# (model-hotel) and the Front Desk control-plane image (model-hotel-frontdesk)
+# are released together under the same tag scheme, so both are pruned here with
+# identical retention. Retains the newest KEEP version tags (vX.Y.Z) plus every
+# protected moving tag (latest, X.Y), and deletes older releases. Each release
+# pushes a vX.Y.Z tag *and* a sha- tag at the same image digest, so a sha- tag
+# is pruned only when no retained tag still points at its digest — this drops a
+# release's sha- tag together with the release, without parsing commit SHAs.
 #
 # Runs automatically after "Publish Docker Image" succeeds. The manual
 # (workflow_dispatch) trigger defaults to dry_run=true: it lists what *would*
@@ -56,7 +58,6 @@ jobs:
           set -euo pipefail
 
           NS="${DOCKERHUB_USERNAME}"
-          REPO="model-hotel"
 
           # Guard against keep=0 (or non-numeric), which would leave every
           # version tag unprotected and eligible for deletion.
@@ -64,9 +65,6 @@ jobs:
             echo "::error::keep must be an integer >= 1 (got '${KEEP}')"
             exit 1
           fi
-
-          echo "Repository: ${NS}/${REPO}"
-          echo "Keep newest ${KEEP} version tags; dry_run=${DRY_RUN}"
 
           # --- authenticate (PAT used as password) -----------------------------
           login_payload=$(jq -n --arg u "$NS" --arg p "$DOCKERHUB_TOKEN" \
@@ -78,6 +76,15 @@ jobs:
             echo "::error::Docker Hub login failed"
             exit 1
           fi
+
+          # prune_repo prunes one Docker Hub repo with the shared auth token above.
+          # Called once per repo at the end; the server and Front Desk images use
+          # the same tag scheme, so the same retention logic applies to both.
+          prune_repo() {
+          REPO="$1"
+
+          echo "Repository: ${NS}/${REPO}"
+          echo "Keep newest ${KEEP} version tags; dry_run=${DRY_RUN}"
 
           # --- collect every tag (name, last_updated, digest) ------------------
           tags=$(mktemp)
@@ -127,8 +134,8 @@ jobs:
           ' "$tags")
 
           if [ -z "$to_delete" ]; then
-            echo "Nothing to prune." | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 0
+            echo "Nothing to prune in ${NS}/${REPO}." | tee -a "$GITHUB_STEP_SUMMARY"
+            return 0
           fi
 
           count=$(printf '%s\n' "$to_delete" | grep -c .)
@@ -159,4 +166,8 @@ jobs:
             fi
           done
 
-          echo "Prune complete."
+          echo "Prune complete for ${NS}/${REPO}."
+          }
+
+          prune_repo "model-hotel"
+          prune_repo "model-hotel-frontdesk"

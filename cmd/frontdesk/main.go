@@ -31,6 +31,12 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
+// version is the running Front Desk build, set at build time via
+// -ldflags -X main.version=... (see the Makefile / Dockerfile.frontdesk). It is
+// surfaced read-only over GET /api/version so the UI footer can show which build
+// is deployed. Defaults to "dev" for un-stamped builds.
+var version = "dev"
+
 func main() {
 	dbg := os.Getenv("DEBUG_LOG")
 	debuglog.Init(strings.EqualFold(dbg, "true") || dbg == "1")
@@ -95,6 +101,7 @@ func main() {
 		IPLimiter:    ipLimiter,
 		UI:           frontdesk.EmbeddedUI(),
 		LBPort:       lbPort,
+		Version:      version,
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
