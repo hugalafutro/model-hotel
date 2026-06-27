@@ -3,10 +3,13 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/alert"
@@ -263,6 +266,87 @@ func TestAlertStatusFlagsUndecryptableTarget(t *testing.T) {
 	}
 	if !strings.Contains(st.Detail, "decrypt") {
 		t.Errorf("detail = %q, want a decrypt reason", st.Detail)
+	}
+}
+
+// TestAlertStatusFlagsMissingTarget guards the other half of the reachability fix:
+// a reachable apprise-api with no notification target still cannot deliver, so it
+// must report unhealthy with a reason rather than a green pill.
+func TestAlertStatusFlagsMissingTarget(t *testing.T) {
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK) // apprise-api is up and answers /status
+	}))
+	defer stub.Close()
+
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set.AlertEnabled = true
+	set.AlertAppriseAPIURL = stub.URL
+	set.AlertAppriseTargets = "" // reachable, but nowhere to send
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := do(t, srv, http.MethodGet, "/api/alert/status", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/alert/status = %d", rec.Code)
+	}
+	var st alert.Status
+	if err := json.Unmarshal(rec.Body.Bytes(), &st); err != nil {
+		t.Fatal(err)
+	}
+	if !st.Reachable {
+		t.Fatal("setup: stub should be reachable")
+	}
+	if st.Healthy {
+		t.Error("status should be unhealthy when no target is configured")
+	}
+	if !strings.Contains(st.Detail, "target") {
+		t.Errorf("detail = %q, want a missing-target reason", st.Detail)
+	}
+}
+
+// TestPutSettingsConcurrentNoClobber fires polling-only and alert-only PUTs at the
+// same time. Because each writes only its own fields and the read-merge-write is
+// serialized, the final row must still carry both an alert value and a polling
+// value: neither category may be wiped by a racing save of the other.
+func TestPutSettingsConcurrentNoClobber(t *testing.T) {
+	srv, store := newTestServer(t)
+
+	const n = 25
+	var wg sync.WaitGroup
+	wg.Add(2 * n)
+	for i := range n {
+		go func() {
+			defer wg.Done()
+			do(t, srv, http.MethodPut, "/api/settings",
+				`{"alert_enabled":true,"alert_apprise_api_url":"http://apprise:8000","alert_apprise_targets":"tgram://tok/chat","alert_events":"health.down"}`,
+				true)
+		}()
+		go func(v int) {
+			defer wg.Done()
+			do(t, srv, http.MethodPut, "/api/settings",
+				fmt.Sprintf(`{"traefik_stale_secs":%d}`, 10+v), true)
+		}(i)
+	}
+	wg.Wait()
+
+	set, err := store.GetSettings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := auth.DecryptString(set.AlertAppriseTargets, testMasterKey); got != "tgram://tok/chat" {
+		t.Errorf("alert target wiped under concurrency: %q", got)
+	}
+	if !set.AlertEnabled || set.AlertEvents != "health.down" {
+		t.Errorf("alert config wiped under concurrency: enabled=%v events=%q", set.AlertEnabled, set.AlertEvents)
+	}
+	if set.TraefikStaleSecs < 10 || set.TraefikStaleSecs > 10+n {
+		t.Errorf("traefik_stale_secs = %d, not one of the concurrently written values", set.TraefikStaleSecs)
 	}
 }
 

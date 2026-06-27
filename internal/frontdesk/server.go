@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -67,6 +68,7 @@ type Server struct {
 	lbPort       string       // host port of the data-plane load balancer, surfaced to the wizard
 	masterKey    string       // encrypts the Apprise target secret at rest
 	alertDisp    *alert.Dispatcher
+	settingsMu   sync.Mutex // serializes the settings-row read-merge-write
 	router       http.Handler
 }
 
@@ -408,6 +410,13 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	// fields can no longer wipe the encrypted target. The target is presented as
 	// the mask first, so an omitted or echoed value both resolve to "preserve"
 	// (and the raw ciphertext is never re-encrypted into itself).
+	//
+	// The read-merge-write is serialized: two concurrent PUTs (e.g. both panels at
+	// once) must not both read the same snapshot and have the later write restore
+	// the other's pre-merge values. putSettings is the only writer of this row.
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+
 	set, err := s.store.GetSettings(r.Context())
 	if err != nil {
 		writeError(w, err)
@@ -716,10 +725,18 @@ func (s *Server) alertStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if st.Configured {
-		if set, gerr := s.store.GetSettings(r.Context()); gerr == nil && set.AlertAppriseTargets != "" {
-			if _, derr := auth.DecryptString(set.AlertAppriseTargets, s.masterKey); derr != nil {
+		if set, gerr := s.store.GetSettings(r.Context()); gerr == nil {
+			switch set.AlertAppriseTargets {
+			case "":
+				// A reachable apprise-api with no target still cannot deliver, so it
+				// must not show a green pill.
 				st.Healthy = false
-				st.Detail = "stored target cannot be decrypted (master key rotated?)"
+				st.Detail = "no notification target configured"
+			default:
+				if _, derr := auth.DecryptString(set.AlertAppriseTargets, s.masterKey); derr != nil {
+					st.Healthy = false
+					st.Detail = "stored target cannot be decrypted (master key rotated?)"
+				}
 			}
 		}
 	}
