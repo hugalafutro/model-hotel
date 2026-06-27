@@ -106,10 +106,45 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		if err != nil || !ok {
 			continue
 		}
+		// Snapshot a member that will actually change before the destructive replace,
+		// the same recoverability guarantee the auto-syncer gives. A failed backup
+		// leaves the member untouched and reported rather than risking an
+		// unrecoverable overwrite.
+		if failed := s.backupChangingMember(r.Context(), m, token, export); failed != nil {
+			results = append(results, *failed)
+			continue
+		}
 		results = append(results, s.applyMemberConfig(r.Context(), m, token, export, wizardSyncReason, true))
 	}
 	s.recordFleetSyncRun(r.Context(), primary, results)
 	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "results": results})
+}
+
+// backupChangingMember snapshots a member before the wizard overwrites it, giving
+// the manual sync the same recoverability guarantee the auto-syncer already has. A
+// quick dry-run gates the backup: a member that is unreachable, version/MASTER_KEY-
+// blocked, or already converged is not needlessly snapshotted (nor mislabeled
+// "backup failed"), it falls through to applyMemberConfig which does the authoritative
+// import and classification. It returns a non-nil result only when the snapshot was
+// attempted and failed, in which case the member is left untouched and reported,
+// never overwritten.
+func (s *Server) backupChangingMember(ctx context.Context, m *Member, token string, export []byte) *syncResultItem {
+	preview, status, err := s.pushMemberImport(ctx, m, token, export, true)
+	if err != nil || status != http.StatusOK || !preview.SchemaVersionOK || !preview.MasterKeyOK {
+		return nil // unreachable or blocked: let applyMemberConfig report the real cause
+	}
+	if added, updated, removed := preview.Diff.counts(); added+updated+removed == 0 {
+		return nil // already converged: no overwrite, so nothing to snapshot
+	}
+	if err := s.backupMember(ctx, m, token); err != nil {
+		debuglog.Warn("frontdesk: wizard sync: pre-sync backup failed, skipping member", "member", m.Name, "error", err)
+		s.emit(ctx, Event{
+			Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",
+			Message: fmt.Sprintf("Skipped %s: pre-sync backup failed", m.Name), MemberID: m.ID,
+		})
+		return &syncResultItem{MemberID: m.ID, Name: m.Name, Error: "pre-sync backup failed; this member was left unchanged"}
+	}
+	return nil
 }
 
 // recordFleetSyncRun stamps the last-run marker when a sync action updated at

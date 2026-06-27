@@ -233,8 +233,11 @@ provider IDs.
    shows, per member, what will be added, updated, or removed, and flags blocked
    members. Anything the primary lacks is **removed** from a replica that has it,
    so review before confirming.
-3. Confirm. Each member is independent: a failure leaves that member untouched
-   and is reported; re-run to retry. Request logs and metering are never touched.
+3. Confirm. Before overwriting a member that will actually change, Front Desk asks
+   it to snapshot itself first (badged **FD**, spared from GFS rotation), so a bad
+   sync can be rolled back; a member whose backup fails is left untouched and
+   reported. Each member is independent: a failure leaves that member untouched and
+   is reported; re-run to retry. Request logs and metering are never touched.
 
 <!-- TODO screenshot: Front Desk Settings → Config sync (preview with diff) -->
 
@@ -249,9 +252,9 @@ Sync** column shows when each member last converged and why.
 
 Two safety properties make this safe to leave running:
 
-- **Backed up first.** Each member is asked to snapshot itself before being
-  overwritten (badged **FD** in its backup list and spared from GFS rotation),
-  so a bad propagation can be rolled back.
+- **Backed up first.** As in the wizard, each member is asked to snapshot itself
+  before being overwritten (badged **FD** in its backup list and spared from GFS
+  rotation), so a bad propagation can be rolled back.
 - **Converges, does not thrash.** A change is propagated only after it settles,
   members already matching the primary are skipped, and an unreachable or
   `MASTER_KEY`-blocked member is retried later rather than overwritten.
