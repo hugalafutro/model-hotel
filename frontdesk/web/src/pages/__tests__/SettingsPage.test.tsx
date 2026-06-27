@@ -109,13 +109,15 @@ describe("SettingsPage", () => {
 	});
 
 	it("does not revert alert settings when the polling form is saved (B1)", async () => {
-		// Stateful settings: PUT replaces the whole row (mirrors the store), so a
-		// stale-state save from one panel must not clobber the other's fields.
+		// Stateful settings: PUT is a partial merge onto the stored row (mirrors the
+		// server), so each panel writes only its own fields and cannot clobber the
+		// other's. The test would fail if a panel sent a full row from stale state.
 		let current: Settings = { ...defaults, alert_enabled: true };
 		server.use(
 			http.get("/api/settings", () => HttpResponse.json(current)),
 			http.put("/api/settings", async ({ request }) => {
-				current = (await request.json()) as Settings;
+				const patch = (await request.json()) as Partial<Settings>;
+				current = { ...current, ...patch };
 				return new HttpResponse(null, { status: 204 });
 			}),
 			http.get("/api/alert/events", () =>

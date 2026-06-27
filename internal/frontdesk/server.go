@@ -401,7 +401,21 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
-	var set Settings
+	// Partial-merge onto the current row: decode the request body on top of the
+	// stored settings so a field the caller omits is preserved, not zeroed. The
+	// polling form and the Alerts panel each PUT only the fields they own, so
+	// neither clobbers the other; and an older client that never sends the alert
+	// fields can no longer wipe the encrypted target. The target is presented as
+	// the mask first, so an omitted or echoed value both resolve to "preserve"
+	// (and the raw ciphertext is never re-encrypted into itself).
+	set, err := s.store.GetSettings(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if set.AlertAppriseTargets != "" {
+		set.AlertAppriseTargets = alertMaskValue
+	}
 	if !decodeJSON(w, r, &set) {
 		return
 	}
@@ -691,12 +705,23 @@ func (s *Server) alertEvents(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, fdCatalog)
 }
 
-// alertStatus reports whether the configured apprise-api is reachable.
+// alertStatus reports whether the configured apprise-api is reachable. A
+// reachable host is not enough: if the stored target cannot be decrypted (master
+// key rotated, ciphertext corrupted) every dispatch fails silently, so that is
+// surfaced as unhealthy with a reason rather than a falsely green pill.
 func (s *Server) alertStatus(w http.ResponseWriter, r *http.Request) {
 	st, err := s.alertDisp.Probe(r.Context())
 	if err != nil {
 		writeError(w, err)
 		return
+	}
+	if st.Configured {
+		if set, gerr := s.store.GetSettings(r.Context()); gerr == nil && set.AlertAppriseTargets != "" {
+			if _, derr := auth.DecryptString(set.AlertAppriseTargets, s.masterKey); derr != nil {
+				st.Healthy = false
+				st.Detail = "stored target cannot be decrypted (master key rotated?)"
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, st)
 }

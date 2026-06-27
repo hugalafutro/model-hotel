@@ -175,6 +175,97 @@ func TestSettingsTargetMaskRoundTrip(t *testing.T) {
 	}
 }
 
+// TestSettingsPartialMergePreservesSecret proves PUT /api/settings is a partial
+// merge: a body that omits the alert fields (the polling form, or an older client)
+// preserves the stored secret and the rest of the alert config instead of zeroing
+// them, while an explicit blank still clears the target on purpose.
+func TestSettingsPartialMergePreservesSecret(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+	put := func(body string) {
+		if rec := do(t, srv, http.MethodPut, "/api/settings", body, true); rec.Code != http.StatusOK {
+			t.Fatalf("PUT settings = %d (%s)", rec.Code, rec.Body.String())
+		}
+	}
+	stored := func() Settings {
+		set, err := store.GetSettings(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return set
+	}
+
+	// Establish a full alert config (encrypts and stores the target).
+	put(`{"alert_enabled":true,"alert_apprise_api_url":"http://apprise:8000","alert_apprise_targets":"tgram://tok/chat","alert_events":"health.down"}`)
+	if got, _ := auth.DecryptString(stored().AlertAppriseTargets, testMasterKey); got != "tgram://tok/chat" {
+		t.Fatalf("setup target = %q", got)
+	}
+
+	// A PUT carrying only a polling field must not touch any alert field.
+	put(`{"traefik_stale_secs":42}`)
+	set := stored()
+	if got, _ := auth.DecryptString(set.AlertAppriseTargets, testMasterKey); got != "tgram://tok/chat" {
+		t.Errorf("secret erased by partial PUT: %q", got)
+	}
+	if !set.AlertEnabled {
+		t.Error("alert_enabled reverted by partial PUT")
+	}
+	if set.AlertEvents != "health.down" {
+		t.Errorf("alert_events = %q, want preserved", set.AlertEvents)
+	}
+	if set.TraefikStaleSecs != 42 {
+		t.Errorf("traefik_stale_secs = %d, want 42", set.TraefikStaleSecs)
+	}
+
+	// An explicit empty target still clears the secret on purpose.
+	put(`{"alert_apprise_targets":""}`)
+	if raw := stored().AlertAppriseTargets; raw != "" {
+		t.Errorf("explicit blank did not clear target: %q", raw)
+	}
+}
+
+// TestAlertStatusFlagsUndecryptableTarget guards the reachability fix: when a
+// target is stored but cannot be decrypted (master key rotated), the status must
+// report unhealthy with a reason rather than a falsely green pill.
+func TestAlertStatusFlagsUndecryptableTarget(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	// A target encrypted under a different key cannot be decrypted with this server's.
+	enc, err := auth.EncryptString("tgram://tok/chat", "a-completely-different-master-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set.AlertEnabled = true
+	set.AlertAppriseAPIURL = "http://127.0.0.1:1" // configured, unreachable is fine
+	set.AlertAppriseTargets = enc
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := do(t, srv, http.MethodGet, "/api/alert/status", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/alert/status = %d", rec.Code)
+	}
+	var st alert.Status
+	if err := json.Unmarshal(rec.Body.Bytes(), &st); err != nil {
+		t.Fatal(err)
+	}
+	if !st.Configured {
+		t.Error("status should be configured (URL is set)")
+	}
+	if st.Healthy {
+		t.Error("status should be unhealthy when the stored target cannot be decrypted")
+	}
+	if !strings.Contains(st.Detail, "decrypt") {
+		t.Errorf("detail = %q, want a decrypt reason", st.Detail)
+	}
+}
+
 func TestAlertEventsEndpoint(t *testing.T) {
 	srv, _ := newTestServer(t)
 	rec := do(t, srv, http.MethodGet, "/api/alert/events", "", true)

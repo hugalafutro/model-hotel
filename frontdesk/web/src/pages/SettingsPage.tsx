@@ -99,13 +99,10 @@ export function SettingsPage() {
 		setSaveError("");
 		setSaving(true);
 		try {
-			// putSettings is a full-row replace, and this form only owns the polling
-			// fields. Re-read the freshest settings and overlay just those, so alert
-			// settings edited in the Alerts panel (which round-trips the masked secret)
-			// are never reverted by saving an unrelated field here.
-			const fresh = await api.getSettings();
+			// PUT only the polling fields this form owns; the server merges them onto
+			// the stored row, so alert settings edited in the Alerts panel are never
+			// reverted by saving here (and vice versa).
 			await api.putSettings({
-				...fresh,
 				health_poll_secs: settings.health_poll_secs,
 				traefik_poll_secs: settings.traefik_poll_secs,
 				traefik_stale_secs: settings.traefik_stale_secs,

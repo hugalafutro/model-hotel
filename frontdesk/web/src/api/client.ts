@@ -133,7 +133,9 @@ export const api = {
 		),
 
 	getSettings: () => request<Settings>("/api/settings"),
-	putSettings: (s: Settings) =>
+	// Partial body: the server merges onto the stored row, so each panel PUTs only
+	// the fields it owns and never clobbers the other's (or erases the secret).
+	putSettings: (s: Partial<Settings>) =>
 		request<void>("/api/settings", jsonInit("PUT", s)),
 
 	// Outbound Apprise alerting (Settings -> Alerts panel).

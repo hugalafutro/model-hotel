@@ -107,20 +107,17 @@ export function AlertsPanel() {
 
 	if (loadError || !catalog) return null; // stay quiet; the rest of Settings works
 
-	// persist writes the current alert fields onto the freshest Settings (so a
-	// concurrent edit to the polling form is not lost) and PUTs them.
+	// persist PUTs only the alert fields; the server merges them onto the stored
+	// row, so this never disturbs the polling form's settings (and vice versa).
 	const persist = async () => {
-		const fresh = await api.getSettings();
-		const next: Settings = {
-			...fresh,
+		await api.putSettings({
 			alert_enabled: enabled,
 			alert_apprise_api_url: url.trim(),
 			// MASK preserves the stored secret; a new value replaces it; "" clears it.
 			// The mask is never trimmed (it has no whitespace); a typed value is.
 			alert_apprise_targets: target === MASK ? target : target.trim(),
 			alert_events: [...selected].join(","),
-		};
-		await api.putSettings(next);
+		});
 		applySettings(await api.getSettings());
 	};
 
