@@ -556,6 +556,17 @@ func TestConfigSync_ExportDBError(t *testing.T) {
 	}
 }
 
+func TestConfigSync_VersionDBError(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/config/version", http.NoBody).WithContext(cancelledCtx())
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("version with DB error = %d, want 500", rec.Code)
+	}
+}
+
 func TestConfigSync_ImportDBError(t *testing.T) {
 	cleanConfigTables(t)
 	r := newConfigSyncRouter(t, configSyncMasterKey)

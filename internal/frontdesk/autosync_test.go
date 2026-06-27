@@ -1,11 +1,13 @@
 package frontdesk
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"time"
 )
 
 // stubAutoMember plays a member for the auto-sync loop: it answers the config
@@ -17,7 +19,10 @@ type stubAutoMember struct {
 	srv         *httptest.Server
 	token       string
 	versionHash string
+	versionCode int    // status for the version GET (default 200)
+	versionRaw  string // raw version body; overrides the {"version":...} JSON when set
 	exportBody  string
+	exportCode  int    // status for the export GET (default 200)
 	dryDiff     string // diff object returned on a dry-run import
 	importCode  int    // status for the dry-run import (default 200)
 	importBody  string // full dry-run import body; overrides dryDiff when set
@@ -33,6 +38,8 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 		versionHash: "hash-A",
 		exportBody:  fleetExportWithKey,
 		dryDiff:     `{"providers":{},"virtual_keys":{},"settings":{}}`, // converged
+		versionCode: http.StatusOK,
+		exportCode:  http.StatusOK,
 		importCode:  http.StatusOK,
 		backupCode:  http.StatusCreated,
 	}
@@ -45,8 +52,14 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 		defer sm.mu.Unlock()
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/config/version":
+			w.WriteHeader(sm.versionCode)
+			if sm.versionRaw != "" {
+				_, _ = w.Write([]byte(sm.versionRaw))
+				return
+			}
 			_ = json.NewEncoder(w).Encode(map[string]string{"version": sm.versionHash})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/config/export":
+			w.WriteHeader(sm.exportCode)
 			_, _ = w.Write([]byte(sm.exportBody))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/import":
 			if r.URL.Query().Get("dryRun") != "" {
@@ -60,6 +73,9 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 			}
 			sm.gotRealSync = true
 			_, _ = w.Write([]byte(`{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":` + sm.dryDiff + `}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/settings":
+			// The token probe (createMember/patchMember) hits this; 200 = accepted.
+			_, _ = w.Write([]byte(`{}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/backups":
 			sm.gotBackup = true
 			w.WriteHeader(sm.backupCode)
@@ -152,6 +168,9 @@ func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	// A tokenless member is present too: it must be skipped without blocking the
+	// fleet from being recorded as converged.
+	store.CreateMember(t.Context(), "tokenless", "http://127.0.0.1:9", "") //nolint:errcheck // presence is the point
 	enableAutoSync(t, store, pm.ID, "hash-A")
 
 	srv.autoSyncOnce(t.Context(), "hash-B") // already settled: act this tick
@@ -305,5 +324,232 @@ func TestAutoSyncDisabledIsNoop(t *testing.T) {
 	}
 	if replica.didBackup() || replica.didRealSync() {
 		t.Error("disabled auto-sync touched a member")
+	}
+}
+
+// TestAutoSyncNoChangeWhenHashUnchanged: when the primary's hash already equals
+// the last applied hash, the loop short-circuits without touching any member.
+func TestAutoSyncNoChangeWhenHashUnchanged(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-A"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	enableAutoSync(t, store, pm.ID, "hash-A")                             // last applied == current
+
+	if got := srv.autoSyncOnce(t.Context(), "hash-A"); got != "hash-A" {
+		t.Errorf("autoSyncOnce = %q, want hash-A carried forward", got)
+	}
+	if replica.didBackup() || replica.didRealSync() {
+		t.Error("an unchanged primary triggered a sync")
+	}
+}
+
+// TestAutoSyncPrimaryTokenlessIsNoop: a designated primary with no stored token
+// can't be read, so the loop does nothing rather than erroring.
+func TestAutoSyncPrimaryTokenlessIsNoop(t *testing.T) {
+	srv, store := newTestServer(t)
+	// Point auto-sync at a tokenless member directly (the handler would reject this,
+	// but the loop must still be defensive if the token is later cleared).
+	pm, _ := store.CreateMember(t.Context(), "primary", "http://127.0.0.1:9", "")
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	if got := srv.autoSyncOnce(t.Context(), ""); got != "" {
+		t.Errorf("tokenless primary returned %q, want empty", got)
+	}
+}
+
+// TestAutoSyncPrimaryVersionUnreadable: if the primary's version endpoint errors,
+// the loop holds the applied hash and propagates nothing.
+func TestAutoSyncPrimaryVersionUnreadable(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionCode = http.StatusInternalServerError
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID, "hash-A")
+
+	if got := srv.autoSyncOnce(t.Context(), ""); got != "" {
+		t.Errorf("unreadable version returned %q, want empty", got)
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash != "hash-A" {
+		t.Errorf("applied hash = %q, want it held at hash-A", cfg.LastHash)
+	}
+}
+
+// TestAutoSyncPrimaryExportUnreadable: a primary whose export fails at the apply
+// stage leaves the fleet untouched and the hash unrecorded.
+func TestAutoSyncPrimaryExportUnreadable(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	primary.exportCode = http.StatusInternalServerError
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	enableAutoSync(t, store, pm.ID, "hash-A")
+
+	srv.autoSyncOnce(t.Context(), "hash-B") // settled: reach the apply stage
+
+	if replica.didBackup() || replica.didRealSync() {
+		t.Error("a member was touched despite the primary export failing")
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash != "hash-A" {
+		t.Errorf("applied hash = %q, want it held at hash-A", cfg.LastHash)
+	}
+}
+
+// TestFetchMemberConfigVersionRejectsBadResponses: the drift probe rejects a
+// non-200, malformed JSON, and an empty version string.
+func TestFetchMemberConfigVersionRejectsBadResponses(t *testing.T) {
+	srv, store := newTestServer(t)
+	stub := newStubAutoMember(t, "tok")
+	created, _ := store.CreateMember(t.Context(), "m", stub.srv.URL, "tok")
+	m, err := store.GetMember(t.Context(), created.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+
+	for name, mutate := range map[string]func(){
+		"non-200":    func() { stub.versionCode = http.StatusInternalServerError },
+		"bad json":   func() { stub.versionCode = http.StatusOK; stub.versionRaw = "not json" },
+		"empty hash": func() { stub.versionCode = http.StatusOK; stub.versionRaw = `{"version":""}` },
+	} {
+		t.Run(name, func(t *testing.T) {
+			stub.mu.Lock()
+			stub.versionCode = http.StatusOK
+			stub.versionRaw = ""
+			stub.mu.Unlock()
+			mutate()
+			if _, err := srv.fetchMemberConfigVersion(t.Context(), m, "tok"); err == nil {
+				t.Errorf("%s: expected an error, got nil", name)
+			}
+		})
+	}
+}
+
+// TestAutoSyncRearmsOnTokenAdd is the Greptile fix: a tokenless member is skipped
+// while the fleet is recorded converged, but the moment it gains an admin token the
+// applied hash is cleared so the next tick brings it in line, without waiting for
+// the primary's config to change again.
+func TestAutoSyncRearmsOnTokenAdd(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	// Replica is added without a token, so it is not yet syncable.
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "")
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	// Simulate the fleet having converged at hash-B while the replica was tokenless.
+	if err := store.SetAutoSyncLastHash(t.Context(), "hash-B"); err != nil {
+		t.Fatalf("SetAutoSyncLastHash: %v", err)
+	}
+
+	// Give the replica an admin token via the API. This must re-arm auto-sync.
+	rec := do(t, srv, http.MethodPatch, "/api/members/"+rm.ID, `{"token":"rtoken"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch token = %d (%s)", rec.Code, rec.Body.String())
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash != "" {
+		t.Fatalf("applied hash = %q, want cleared so the new token triggers a sync", cfg.LastHash)
+	}
+
+	// The next settled pass now converges the freshly-tokened replica.
+	prev := srv.autoSyncOnce(t.Context(), "")
+	srv.autoSyncOnce(t.Context(), prev)
+	if !replica.didRealSync() {
+		t.Error("newly-tokened replica was not synced after re-arm")
+	}
+}
+
+// TestAutoSyncRearmsOnMemberAdd: adding a new member with a token re-arms the loop
+// so the newcomer is converged without waiting for the primary to change.
+func TestAutoSyncRearmsOnMemberAdd(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	newcomer := newStubAutoMember(t, "ntoken")
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	if err := store.SetAutoSyncLastHash(t.Context(), "hash-A"); err != nil {
+		t.Fatalf("SetAutoSyncLastHash: %v", err)
+	}
+
+	body := `{"name":"newcomer","url":"` + newcomer.srv.URL + `","token":"ntoken"}`
+	rec := do(t, srv, http.MethodPost, "/api/members", body, true)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create member = %d (%s)", rec.Code, rec.Body.String())
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash != "" {
+		t.Errorf("applied hash = %q, want cleared after adding a tokened member", cfg.LastHash)
+	}
+}
+
+// TestRunAutoSyncStopsOnContextCancel: the loop returns promptly when its context
+// is cancelled.
+func TestRunAutoSyncStopsOnContextCancel(t *testing.T) {
+	srv, _ := newTestServer(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	done := make(chan struct{})
+	go func() { srv.RunAutoSync(ctx); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("RunAutoSync did not return after context cancel")
+	}
+}
+
+// TestGetAutoSyncHandler: the GET endpoint returns the current setup.
+func TestGetAutoSyncHandler(t *testing.T) {
+	srv, store := newTestServer(t)
+	pm, _ := store.CreateMember(t.Context(), "primary", "http://127.0.0.1:9", "tok")
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	rec := do(t, srv, http.MethodGet, "/api/fleet/autosync", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get autosync = %d", rec.Code)
+	}
+	var got AutoSyncConfig
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !got.Enabled || got.PrimaryID != pm.ID {
+		t.Errorf("autosync = %+v, want enabled at %s", got, pm.ID)
+	}
+}
+
+// TestPutAutoSyncDisable: turning auto-sync off is accepted and persisted.
+func TestPutAutoSyncDisable(t *testing.T) {
+	srv, store := newTestServer(t)
+	pm, _ := store.CreateMember(t.Context(), "primary", "http://127.0.0.1:9", "tok")
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync", `{"enabled":false,"primary_id":""}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("disable = %d (%s)", rec.Code, rec.Body.String())
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.Enabled {
+		t.Error("auto-sync still enabled after disable")
 	}
 }

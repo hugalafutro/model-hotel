@@ -250,6 +250,9 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		tokenWarning = p.warning()
+		// A newly added member with a valid token is stale relative to the primary;
+		// re-arm auto-sync so the next tick brings it in line (no-op when disabled).
+		s.rearmAutoSync(r.Context())
 	}
 	s.emit(r.Context(), Event{
 		Type: "member.added", Severity: "info", Source: "frontdesk",
@@ -296,6 +299,11 @@ func (s *Server) patchMember(w http.ResponseWriter, r *http.Request) {
 		if err := s.store.SetMemberToken(r.Context(), id, *req.Token); err != nil {
 			writeError(w, err)
 			return
+		}
+		if *req.Token != "" {
+			// The member just gained an admin token: it is now syncable but stale, so
+			// re-arm auto-sync to converge it (no-op when disabled).
+			s.rearmAutoSync(r.Context())
 		}
 	}
 	m, err := s.store.GetMember(r.Context(), id)
@@ -446,6 +454,20 @@ func enabledWord(b bool) string {
 		return "enabled"
 	}
 	return "disabled"
+}
+
+// rearmAutoSync clears the last-applied config hash so the auto-sync loop runs a
+// full convergence pass on its next tick. The loop's fast path skips work when the
+// primary's hash is unchanged, so a member that becomes newly syncable (just
+// added, or just given an admin token) would otherwise stay stale until the
+// primary's config next changed. Clearing the marker re-arms the loop; members
+// already matching the primary are still skipped by their own dry-run diff, so the
+// re-run only syncs the one(s) that actually need it. It is a no-op in effect when
+// auto-sync is disabled (the loop reads the marker but does nothing).
+func (s *Server) rearmAutoSync(ctx context.Context) {
+	if err := s.store.SetAutoSyncLastHash(ctx, ""); err != nil {
+		debuglog.Warn("frontdesk: re-arm auto-sync after membership change", "error", err)
+	}
 }
 
 // ---------------------------------------------------------------------------
