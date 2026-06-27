@@ -14,7 +14,6 @@ const defaults: Settings = {
 	traefik_stale_secs: 30,
 	event_retention_days: 90,
 	retry_attempts: 2,
-	sticky_enabled: true,
 };
 
 function renderPage() {
@@ -74,23 +73,6 @@ describe("SettingsPage", () => {
 		await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
 		// The saved value is the minimum (1), not NaN — a cleared field is coerced.
 		await waitFor(() => expect(saved?.traefik_stale_secs).toBe(1));
-	});
-
-	it("toggles sticky sessions", async () => {
-		let saved: Settings | null = null;
-		server.use(
-			http.get("/api/settings", () => HttpResponse.json(defaults)),
-			http.put("/api/settings", async ({ request }) => {
-				saved = (await request.json()) as Settings;
-				return new HttpResponse(null, { status: 204 });
-			}),
-		);
-		renderPage();
-		const sticky = (await screen.findByRole("checkbox")) as HTMLInputElement;
-		expect(sticky.checked).toBe(true);
-		await userEvent.click(sticky);
-		await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
-		await waitFor(() => expect(saved?.sticky_enabled).toBe(false));
 	});
 
 	it("surfaces a validation error from the API", async () => {

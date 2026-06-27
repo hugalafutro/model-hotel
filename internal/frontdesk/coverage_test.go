@@ -122,7 +122,7 @@ func TestServerSettingsEventsAndMemberMutations(t *testing.T) {
 		t.Errorf("get settings = %d", rec.Code)
 	}
 	if rec := do(t, srv, http.MethodPut, "/api/settings",
-		`{"health_poll_secs":10,"traefik_poll_secs":10,"traefik_stale_secs":30,"event_retention_days":30,"retry_attempts":3,"sticky_enabled":true}`,
+		`{"health_poll_secs":10,"traefik_poll_secs":10,"traefik_stale_secs":30,"event_retention_days":30,"retry_attempts":3}`,
 		true); rec.Code != http.StatusOK {
 		t.Errorf("put settings = %d: %s", rec.Code, rec.Body.String())
 	}

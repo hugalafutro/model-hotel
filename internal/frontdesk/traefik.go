@@ -15,7 +15,6 @@ const (
 	traefikServiceName     = "hotel"
 	traefikRetryMiddleware = "hotel-retry"
 	traefikEntryPoint      = "web"
-	traefikStickyCookie    = "mh_lb"
 	traefikHealthPath      = "/health"
 	// traefikRouterRule scopes the data plane to the OpenAI-compatible proxy
 	// only. The LB is a streaming front door, NOT a way to reach member
@@ -50,7 +49,7 @@ type TraefikService struct {
 	LoadBalancer TraefikLoadBalancer `json:"loadBalancer"`
 }
 
-// TraefikLoadBalancer is the backend pool with optional health check + sticky.
+// TraefikLoadBalancer is the backend pool with an optional active health check.
 type TraefikLoadBalancer struct {
 	Servers []TraefikServer `json:"servers"`
 	// PassHostHeader is deliberately false: each member is addressed by its own
@@ -63,7 +62,6 @@ type TraefikLoadBalancer struct {
 	// Traefik defaults this to true, so the false must be emitted explicitly.
 	PassHostHeader bool                `json:"passHostHeader"`
 	HealthCheck    *TraefikHealthCheck `json:"healthCheck,omitempty"`
-	Sticky         *TraefikSticky      `json:"sticky,omitempty"`
 }
 
 // TraefikServer is one backend URL.
@@ -76,16 +74,6 @@ type TraefikHealthCheck struct {
 	Path     string `json:"path"`
 	Interval string `json:"interval"`
 	Timeout  string `json:"timeout"`
-}
-
-// TraefikSticky pins a browser session (and its SSE) to one backend via cookie.
-type TraefikSticky struct {
-	Cookie TraefikCookie `json:"cookie"`
-}
-
-// TraefikCookie names the sticky cookie.
-type TraefikCookie struct {
-	Name string `json:"name"`
 }
 
 // TraefikMiddleware is a single middleware entry; only retry is used.
@@ -101,8 +89,7 @@ type TraefikRetry struct {
 // BuildTraefikConfig renders the dynamic config from the current members and
 // settings. Only active members enter the backend pool: a drained member is
 // removed from servers so its established streams finish while new requests go
-// elsewhere. Retry is included only when attempts >= 1; sticky only when the
-// setting is on.
+// elsewhere. Retry is included only when attempts >= 1.
 func BuildTraefikConfig(members []*Member, set Settings) TraefikConfig {
 	servers := make([]TraefikServer, 0, len(members))
 	for _, m := range members {
@@ -115,9 +102,6 @@ func BuildTraefikConfig(members []*Member, set Settings) TraefikConfig {
 		Servers:        servers,
 		PassHostHeader: false, // address each member by its own host; see field doc
 		HealthCheck:    buildHealthCheck(set),
-	}
-	if set.StickyEnabled {
-		lb.Sticky = &TraefikSticky{Cookie: TraefikCookie{Name: traefikStickyCookie}}
 	}
 
 	router := TraefikRouter{

@@ -208,13 +208,13 @@ func TestSettingsDefaultsAndUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSettings: %v", err)
 	}
-	if def.HealthPollSecs != 5 || def.EventRetentionDays != 90 || def.RetryAttempts != 2 || !def.StickyEnabled {
+	if def.HealthPollSecs != 5 || def.EventRetentionDays != 90 || def.RetryAttempts != 2 {
 		t.Errorf("unexpected defaults: %+v", def)
 	}
 
 	updated := Settings{
 		HealthPollSecs: 10, TraefikPollSecs: 7, TraefikStaleSecs: 60,
-		EventRetentionDays: 30, RetryAttempts: 0, StickyEnabled: false,
+		EventRetentionDays: 30, RetryAttempts: 0,
 	}
 	if err := s.UpdateSettings(ctx, updated); err != nil {
 		t.Fatalf("UpdateSettings: %v", err)
