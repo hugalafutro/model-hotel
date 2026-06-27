@@ -97,9 +97,29 @@ func (s *Server) fleetStatus(w http.ResponseWriter, r *http.Request) {
 			Providers []struct {
 				EncryptedKey string `json:"encrypted_key"`
 			} `json:"providers"`
+			VirtualKeys []json.RawMessage `json:"virtual_keys"`
+			Settings    map[string]string `json:"settings"`
 		} `json:"config"`
 	}
 	_ = json.Unmarshal(export, &exportShape)
+
+	// An export with no providers, virtual keys, or settings is one every member
+	// will refuse (the member-side Import returns 400 rather than wipe itself
+	// clean). Detect it here and report it once as a primary-level problem,
+	// instead of probing every peer with a config they all reject, which would
+	// otherwise paint the whole reachable fleet as "offline".
+	if len(exportShape.Config.Providers) == 0 &&
+		len(exportShape.Config.VirtualKeys) == 0 &&
+		len(exportShape.Config.Settings) == 0 {
+		writeJSON(w, http.StatusOK, fleetStatusResponse{
+			PrimaryID:   primary.ID,
+			PrimaryNote: "this primary has no providers, virtual keys, or settings to sync yet. Configure it first, then re-run the wizard.",
+			Members:     []fleetMemberStatus{},
+			LBPort:      s.lbPort,
+		})
+		return
+	}
+
 	keyless := true
 	for _, p := range exportShape.Config.Providers {
 		if p.EncryptedKey != "" {
@@ -170,9 +190,20 @@ func (s *Server) fleetStatusForMember(ctx context.Context, m *Member, primaryID 
 	// (a transport error or unexpected status means we cannot use this member as a
 	// sync target) and the source of the schema/MASTER_KEY/diff fields below. A 409
 	// or 422 is parsed into res, not returned as an error.
-	res, err := s.pushMemberImport(ctx, m, token, export, true) // dry run
+	res, status, err := s.pushMemberImport(ctx, m, token, export, true) // dry run
 	if err != nil {
-		item.Note = "could not reach this member"
+		// status == 0 is a real transport failure (the member never answered).
+		// A non-zero status means the member answered with a code we do not treat
+		// as a convergence disposition (e.g. 401/403 wrong token, 500): report the
+		// real cause rather than a blanket "offline" that hides a fixable blocker.
+		switch status {
+		case 0:
+			item.Note = "could not reach this member"
+		case http.StatusUnauthorized, http.StatusForbidden:
+			item.Note = fmt.Sprintf("this member rejected the stored admin token (HTTP %d); update it on the Members tab", status)
+		default:
+			item.Note = fmt.Sprintf("this member rejected the config request (HTTP %d)", status)
+		}
 		return item
 	}
 	item.Reachable = true

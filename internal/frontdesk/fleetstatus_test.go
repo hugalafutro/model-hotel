@@ -151,11 +151,11 @@ func TestFleetStatusClassifies(t *testing.T) {
 }
 
 // TestFleetStatusProbeFailureNotSchemaBlocker: a member whose config import
-// probe fails transiently (5xx) is reported as unreachable, not as a schema
+// probe fails transiently (5xx) is reported as not-converged, not as a schema
 // mismatch. The single dry-run probe is both the reachability check and the diff
-// source, so an unexpected status reads as "could not reach" rather than a
-// spurious "too old, upgrade it" remedy; an unreachable member is excluded from
-// the schema blockers and so never blocks the whole fleet on a transient blip.
+// source, so an unexpected status reports the real HTTP code rather than a
+// spurious "too old, upgrade it" remedy; such a member is excluded from the
+// schema blockers and so never blocks the whole fleet on a transient blip.
 func TestFleetStatusProbeFailureNotSchemaBlocker(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubFleetMember(t, "ptoken")
@@ -174,6 +174,65 @@ func TestFleetStatusProbeFailureNotSchemaBlocker(t *testing.T) {
 	// Not flagged as a schema/version problem (which would be a false "too old").
 	if f := byID[fm.ID]; f.Reachable || strings.Contains(f.Note, "version") {
 		t.Errorf("flaky = %+v (want not reachable, no version note)", f)
+	}
+}
+
+// TestFleetStatusEmptyPrimaryExport: a primary whose config has no providers,
+// virtual keys, or settings is reported as a primary-level problem (200 +
+// primary_reachable false + explanatory note), not by probing every peer with a
+// config the member side refuses, which would paint the whole fleet "offline".
+func TestFleetStatusEmptyPrimaryExport(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubFleetMember(t, "ptoken")
+	primary.exportBody = `{"schema_version":1,"app_version":"v-test","config":{"providers":[],"virtual_keys":[],"settings":{}}}`
+	replica := newStubFleetMember(t, "rtoken")
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+
+	resp := fleetStatusByID(t, srv, pm.ID)
+	if resp.PrimaryReachable {
+		t.Errorf("empty-export primary reported reachable: %+v", resp)
+	}
+	if !strings.Contains(resp.PrimaryNote, "providers") {
+		t.Errorf("primary note = %q, want it to explain the empty config", resp.PrimaryNote)
+	}
+	if len(resp.Members) != 0 {
+		t.Errorf("members = %+v, want none (no peer probed)", resp.Members)
+	}
+	// The replica must never have been probed with the empty config.
+	if replica.gotDryRun {
+		t.Error("replica was probed despite an empty primary export")
+	}
+}
+
+// TestFleetStatusMemberRejectsToken: a reachable member whose import answers with
+// 401 (a wrong stored token) is reported with the real cause, not the misleading
+// "could not reach this member" reserved for a transport failure.
+func TestFleetStatusMemberRejectsToken(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubFleetMember(t, "ptoken")
+	rejecting := newStubFleetMember(t, "rtoken")
+	rejecting.importCode = http.StatusUnauthorized
+	rejecting.importBody = ""
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "rejecting", rejecting.srv.URL, "rtoken")
+
+	resp := fleetStatusByID(t, srv, pm.ID)
+	byID := map[string]fleetMemberStatus{}
+	for _, it := range resp.Members {
+		byID[it.MemberID] = it
+	}
+	r := byID[rm.ID]
+	if r.Reachable {
+		t.Errorf("rejecting member reported reachable: %+v", r)
+	}
+	if strings.Contains(r.Note, "could not reach") {
+		t.Errorf("note = %q, want the real 401 cause, not a transport message", r.Note)
+	}
+	if !strings.Contains(r.Note, "401") || !strings.Contains(r.Note, "admin token") {
+		t.Errorf("note = %q, want it to name the HTTP 401 token rejection", r.Note)
 	}
 }
 

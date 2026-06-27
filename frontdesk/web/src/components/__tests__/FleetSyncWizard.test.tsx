@@ -266,6 +266,62 @@ describe("FleetSyncWizard", () => {
 		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 	});
 
+	it("reaches Done through the config step when there is nothing to sync", async () => {
+		// Every peer already matches the primary, so the config step has no changes
+		// to push. Done must still be reached *through* the config step (via its
+		// Continue button), never by jumping past it: the step-3 Next button stays
+		// disabled until Continue is clicked.
+		let syncCalled = false;
+		server.use(
+			http.get("/api/fleet/status", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_reachable: true,
+					members: [
+						primaryRow(),
+						{
+							member_id: "2",
+							name: "hotel-2",
+							reachable: true,
+							has_token: true,
+							master_key_matches: true,
+							schema_ok: true,
+							added: 0,
+							updated: 0,
+							removed: 0,
+						},
+					],
+				}),
+			),
+			http.post("/api/config/sync", () => {
+				syncCalled = true;
+				return HttpResponse.json({ results: [] });
+			}),
+		);
+		renderWizard();
+		await pickPrimary();
+
+		// Step 1 -> 2 -> 3.
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+		);
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
+
+		// On the config step with no changes, the nav Next (which advances to Done)
+		// is gated until the config step itself hands off via Continue.
+		expect(
+			await screen.findByText(/already matches the primary's configuration/i),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+
+		await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+		// We land on Done without ever calling the sync endpoint (nothing to push).
+		expect(await screen.findByText("Step 4: Done")).toBeInTheDocument();
+		expect(syncCalled).toBe(false);
+	});
+
 	it("walks every step, syncs config, and reports the summary", async () => {
 		let configSynced = false;
 		server.use(

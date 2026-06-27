@@ -176,6 +176,7 @@
 			"step3Title": "Step 3: Sync the configuration",
 			"step3Intro": "Copy the primary's providers, virtual keys, and settings onto the rest of the fleet. Items the primary does not have are removed from the others.",
 			"step3NoChanges": "Every reachable instance already matches the primary's configuration.",
+			"continueNoChanges": "Continue",
 			"syncConfigBtn": "Sync configuration now",
 			"configLegendTitle": "What the numbers mean (configuration entries: providers, virtual keys, settings):",
 			"configLegendAdded": "to add on this instance (only the primary has them)",

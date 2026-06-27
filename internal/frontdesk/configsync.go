@@ -132,10 +132,14 @@ func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, result
 // audit event for the outcome.
 func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte) syncResultItem {
 	res := syncResultItem{MemberID: m.ID, Name: m.Name}
-	out, err := s.pushMemberImport(ctx, m, token, export, false)
+	out, status, err := s.pushMemberImport(ctx, m, token, export, false)
 	switch {
-	case err != nil:
+	case err != nil && status == 0:
 		res.Error = "could not reach this member"
+	case err != nil:
+		// The member answered, just with a status we cannot apply: surface it so a
+		// wrong stored token or a member-side error is not mislabeled "offline".
+		res.Error = fmt.Sprintf("this member rejected the request (HTTP %d)", status)
 	case !out.SchemaVersionOK:
 		// Schema is checked before MASTER_KEY: a 422 short-circuits before the
 		// canary, leaving master_key_ok an unevaluated false (see previewMemberConfig).
@@ -179,8 +183,11 @@ func (s *Server) fetchMemberExport(ctx context.Context, m *Member, token string)
 // pushMemberImport posts the config envelope to a member. dryRun=true asks for a
 // diff without writing. A 409 (MASTER_KEY mismatch) or 422 (schema) is parsed
 // into the result rather than treated as a transport error, so the caller can
-// surface a precise disposition.
-func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, export []byte, dryRun bool) (memberImportResult, error) {
+// surface a precise disposition. The returned status is the member's HTTP status
+// (0 on a transport failure where the member never answered), so the caller can
+// tell a genuinely unreachable member from one that answered with a rejecting
+// code (e.g. 401/403 wrong token, 500) and report the real cause.
+func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, export []byte, dryRun bool) (memberImportResult, int, error) {
 	path := memberConfigImportPath
 	if dryRun {
 		path += "?dryRun=1"
@@ -191,16 +198,16 @@ func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, 
 	// "could not reach this member".
 	status, body, err := s.callMemberWith(ctx, s.syncClient, http.MethodPost, m.URL, path, token, strings.NewReader(string(export)))
 	if err != nil {
-		return memberImportResult{}, err
+		return memberImportResult{}, 0, err
 	}
 	switch status {
 	case http.StatusOK, http.StatusConflict, http.StatusUnprocessableEntity:
 		var res memberImportResult
 		if err := json.Unmarshal(body, &res); err != nil {
-			return memberImportResult{}, errors.New("frontdesk: parse member import response")
+			return memberImportResult{}, status, errors.New("frontdesk: parse member import response")
 		}
-		return res, nil
+		return res, status, nil
 	default:
-		return memberImportResult{}, fmt.Errorf("member config-import returned %d", status)
+		return memberImportResult{}, status, fmt.Errorf("member config-import returned %d", status)
 	}
 }

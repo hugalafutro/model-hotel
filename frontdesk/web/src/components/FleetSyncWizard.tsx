@@ -118,10 +118,12 @@ export function FleetSyncWizard({
 		canStep2 &&
 		masterKeyBlockers(status as FleetStatus).length === 0 &&
 		schemaBlockers(status as FleetStatus).length === 0;
-	// Step 4 (done) unlocks once config has been pushed or there was nothing to push.
-	const canStep4 =
-		canStep3 &&
-		(configDone || configChanges(status as FleetStatus).length === 0);
+	// Step 4 (done) unlocks only once the config step has been completed, either by
+	// running the sync or, when there is nothing to push, by acknowledging it on the
+	// config step (configDone). Gating on configDone alone keeps the config step the
+	// sole owner of the transition to Done, so Done can never be reached by jumping
+	// past the config review.
+	const canStep4 = canStep3 && configDone;
 
 	const unlocked = (s: Step): boolean => {
 		switch (s) {
@@ -206,6 +208,10 @@ export function FleetSyncWizard({
 					overwrites={overwrites}
 					busy={busy}
 					onSync={() => setConfirm("config")}
+					onContinue={() => {
+						setConfigDone(true);
+						setStep(4);
+					}}
 				/>
 			)}
 			{step === 4 && status && (
@@ -406,11 +412,13 @@ function StepConfig({
 	overwrites,
 	busy,
 	onSync,
+	onContinue,
 }: {
 	status: FleetStatus;
 	overwrites: FleetMemberStatus[];
 	busy: boolean;
 	onSync: () => void;
+	onContinue: () => void;
 }) {
 	const { t } = useTranslation();
 	return (
@@ -421,9 +429,17 @@ function StepConfig({
 			</p>
 			<MemberTable status={status} kind="config" />
 			{overwrites.length === 0 ? (
-				<Notice variant="info" style={{ marginTop: "0.7rem" }}>
-					{t("settings.wizard.step3NoChanges")}
-				</Notice>
+				<div style={{ marginTop: "0.7rem" }}>
+					<Notice variant="info">{t("settings.wizard.step3NoChanges")}</Notice>
+					<button
+						type="button"
+						className="ui-btn ui-btn-primary"
+						style={{ marginTop: "0.8rem" }}
+						onClick={onContinue}
+					>
+						{t("settings.wizard.continueNoChanges")}
+					</button>
+				</div>
 			) : (
 				<div style={{ marginTop: "0.8rem" }}>
 					<ConfigLegend />
