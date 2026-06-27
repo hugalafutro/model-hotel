@@ -11,7 +11,6 @@ import type {
 	MemberState,
 	MemberTraffic,
 	MemberView,
-	ResetResult,
 	Settings,
 	SyncResult,
 	TotpEnrollStart,
@@ -140,21 +139,11 @@ export const api = {
 	memberTraffic: (id: string) =>
 		request<MemberTraffic>(`/api/members/${encodeURIComponent(id)}/traffic`),
 
-	// One probe powers the whole sync wizard: per-member reachability, admin-token
-	// match, MASTER_KEY match, and the config diff against the chosen primary.
+	// One probe powers the whole sync wizard: per-member reachability, MASTER_KEY
+	// match, and the config diff against the chosen primary.
 	fleetStatus: (primaryId: string) =>
 		request<FleetStatus>(
 			`/api/fleet/status?primary=${encodeURIComponent(primaryId)}`,
-		),
-	syncRun: (primaryId: string) =>
-		request<SyncResult>(
-			"/api/admin-token/sync",
-			jsonInit("POST", { primary_id: primaryId }),
-		),
-	resetAdminToken: (masterKey: string) =>
-		request<ResetResult>(
-			"/api/admin-token/reset",
-			jsonInit("POST", { confirm: true, master_key: masterKey }),
 		),
 	// Last successful wizard run (timestamp + primary), or null when never run.
 	fleetLastSync: () => request<FleetSyncState | null>("/api/fleet/last-sync"),

@@ -215,8 +215,7 @@ func TestServerHandlersErrorWhenStoreClosed(t *testing.T) {
 		{http.MethodGet, "/api/settings", "", true},
 		{http.MethodPut, "/api/settings", `{"health_poll_secs":1,"traefik_poll_secs":1,"traefik_stale_secs":1}`, true},
 		{http.MethodGet, "/api/events", "", true},
-		{http.MethodGet, "/api/admin-token/preview?primary=" + m.ID, "", true},
-		{http.MethodPost, "/api/admin-token/sync", `{"primary_id":"` + m.ID + `"}`, true},
+		{http.MethodPost, "/api/config/sync", `{"primary_id":"` + m.ID + `"}`, true},
 		{http.MethodGet, "/traefik/config", "", false}, // unauthenticated, compose-internal
 	}
 	for _, c := range cases {

@@ -10,14 +10,13 @@ import (
 )
 
 // stubFleetMember plays a real member for the fleet-status probe: it answers the
-// admin token-hash GET, the config export GET, and the config import (dry-run)
-// POST, so one stub can be a primary or a replica. Its export carries an
-// encrypted_key by default so MASTER_KEY verification has something to check.
+// config export GET and the config import (dry-run) POST, so one stub can be a
+// primary or a replica. Its export carries an encrypted_key by default so
+// MASTER_KEY verification has something to check.
 type stubFleetMember struct {
 	mu         sync.Mutex
 	srv        *httptest.Server
 	token      string
-	hash       string
 	exportBody string
 	importCode int
 	importBody string
@@ -31,11 +30,10 @@ const fleetExportKeyless = `{"schema_version":1,"app_version":"v-test","config":
 // importOK is a clean dry-run response: schema + MASTER_KEY good, an empty diff.
 const importOK = `{"schema_version_ok":true,"master_key_ok":true,"applied":false,"diff":{"providers":{},"virtual_keys":{},"settings":{}}}`
 
-func newStubFleetMember(t *testing.T, token, hash string) *stubFleetMember {
+func newStubFleetMember(t *testing.T, token string) *stubFleetMember {
 	t.Helper()
 	sm := &stubFleetMember{
 		token:      token,
-		hash:       hash,
 		exportBody: fleetExportWithKey,
 		importCode: http.StatusOK,
 		importBody: importOK,
@@ -48,8 +46,10 @@ func newStubFleetMember(t *testing.T, token, hash string) *stubFleetMember {
 		sm.mu.Lock()
 		defer sm.mu.Unlock()
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/admin/token-hash":
-			_ = json.NewEncoder(w).Encode(map[string]string{"hash": sm.hash})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/settings":
+			// The lightweight admin-authenticated endpoint the add/edit token probe
+			// hits; app_version doubles for the version poller.
+			_ = json.NewEncoder(w).Encode(map[string]string{"app_version": "v1"})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/config/export":
 			_, _ = w.Write([]byte(sm.exportBody))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/import":
@@ -78,24 +78,24 @@ func fleetStatusByID(t *testing.T, srv *Server, primaryID string) fleetStatusRes
 }
 
 // TestFleetStatusClassifies exercises every per-member verdict in one fleet:
-// the primary, a fully-converged replica, a token + config drift, a MASTER_KEY
+// the primary, a fully-converged replica, a config drift, a MASTER_KEY
 // mismatch, a version (schema) mismatch, an unreachable box, and a token-less
 // member. None of these may fail the request.
 func TestFleetStatusClassifies(t *testing.T) {
 	srv, store := newTestServer(t)
 
-	primary := newStubFleetMember(t, "ptoken", "sha256:primary")
+	primary := newStubFleetMember(t, "ptoken")
 
-	matched := newStubFleetMember(t, "mtoken", "sha256:primary") // same hash, empty diff
+	matched := newStubFleetMember(t, "mtoken") // empty diff
 
-	drift := newStubFleetMember(t, "dtoken", "sha256:other") // token differs + config changes
+	drift := newStubFleetMember(t, "dtoken") // config changes
 	drift.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":false,"diff":{"providers":{"added":["anthropic"]},"virtual_keys":{},"settings":{}}}`
 
-	badKey := newStubFleetMember(t, "ktoken", "sha256:primary")
+	badKey := newStubFleetMember(t, "ktoken")
 	badKey.importCode = http.StatusConflict
 	badKey.importBody = `{"schema_version_ok":true,"master_key_ok":false}`
 
-	badSchema := newStubFleetMember(t, "stoken", "sha256:primary")
+	badSchema := newStubFleetMember(t, "stoken")
 	badSchema.importCode = http.StatusUnprocessableEntity
 	badSchema.importBody = `{"schema_version_ok":false,"master_key_ok":false}`
 
@@ -121,15 +121,15 @@ func TestFleetStatusClassifies(t *testing.T) {
 		byID[it.MemberID] = it
 	}
 
-	if p := byID[pm.ID]; !p.Reachable || !p.AdminTokenMatches || p.MasterKeyMatches == nil || !*p.MasterKeyMatches {
-		t.Errorf("primary = %+v (want reachable, token+key match)", p)
+	if p := byID[pm.ID]; !p.Reachable || p.MasterKeyMatches == nil || !*p.MasterKeyMatches {
+		t.Errorf("primary = %+v (want reachable, key match)", p)
 	}
-	if m := byID[mm.ID]; !m.Reachable || !m.AdminTokenMatches || m.MasterKeyMatches == nil || !*m.MasterKeyMatches ||
+	if m := byID[mm.ID]; !m.Reachable || m.MasterKeyMatches == nil || !*m.MasterKeyMatches ||
 		m.Added != 0 || m.Updated != 0 || m.Removed != 0 {
 		t.Errorf("matched = %+v (want converged, empty diff)", m)
 	}
-	if d := byID[dm.ID]; !d.Reachable || d.AdminTokenMatches || d.MasterKeyMatches == nil || !*d.MasterKeyMatches || d.Added != 1 {
-		t.Errorf("drift = %+v (want token mismatch + key match + added=1)", d)
+	if d := byID[dm.ID]; !d.Reachable || d.MasterKeyMatches == nil || !*d.MasterKeyMatches || d.Added != 1 {
+		t.Errorf("drift = %+v (want reachable + key match + added=1)", d)
 	}
 	if k := byID[km.ID]; !k.Reachable || k.MasterKeyMatches == nil || *k.MasterKeyMatches || !strings.Contains(k.Note, "MASTER_KEY") {
 		t.Errorf("badkey = %+v (want key mismatch false + MASTER_KEY note)", k)
@@ -150,14 +150,16 @@ func TestFleetStatusClassifies(t *testing.T) {
 	}
 }
 
-// TestFleetStatusProbeFailureNotSchemaBlocker: a reachable member whose config
-// import probe fails transiently (5xx, or a drop after the hash call) must not
-// be reported as a schema mismatch. SchemaOK stays true so the wizard does not
-// show a spurious "too old, upgrade it" remedy or block the whole fleet on it.
+// TestFleetStatusProbeFailureNotSchemaBlocker: a member whose config import
+// probe fails transiently (5xx) is reported as unreachable, not as a schema
+// mismatch. The single dry-run probe is both the reachability check and the diff
+// source, so an unexpected status reads as "could not reach" rather than a
+// spurious "too old, upgrade it" remedy; an unreachable member is excluded from
+// the schema blockers and so never blocks the whole fleet on a transient blip.
 func TestFleetStatusProbeFailureNotSchemaBlocker(t *testing.T) {
 	srv, store := newTestServer(t)
-	primary := newStubFleetMember(t, "ptoken", "sha256:primary")
-	flaky := newStubFleetMember(t, "ftoken", "sha256:primary") // hash matches, import 5xx
+	primary := newStubFleetMember(t, "ptoken")
+	flaky := newStubFleetMember(t, "ftoken") // import 5xx
 	flaky.importCode = http.StatusInternalServerError
 	flaky.importBody = "boom"
 
@@ -169,8 +171,9 @@ func TestFleetStatusProbeFailureNotSchemaBlocker(t *testing.T) {
 	for _, it := range resp.Members {
 		byID[it.MemberID] = it
 	}
-	if f := byID[fm.ID]; !f.Reachable || !f.SchemaOK || !strings.Contains(f.Note, "config diff") {
-		t.Errorf("flaky = %+v (want reachable, schema_ok true, config-diff note)", f)
+	// Not flagged as a schema/version problem (which would be a false "too old").
+	if f := byID[fm.ID]; f.Reachable || strings.Contains(f.Note, "version") {
+		t.Errorf("flaky = %+v (want not reachable, no version note)", f)
 	}
 }
 
@@ -178,9 +181,9 @@ func TestFleetStatusProbeFailureNotSchemaBlocker(t *testing.T) {
 // nothing to verify, so MASTER_KEY is reported as nil (not a false alarm).
 func TestFleetStatusKeylessFleet(t *testing.T) {
 	srv, store := newTestServer(t)
-	primary := newStubFleetMember(t, "ptoken", "sha256:primary")
+	primary := newStubFleetMember(t, "ptoken")
 	primary.exportBody = fleetExportKeyless
-	replica := newStubFleetMember(t, "rtoken", "sha256:primary")
+	replica := newStubFleetMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")

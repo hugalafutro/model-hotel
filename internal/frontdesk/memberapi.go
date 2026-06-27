@@ -9,9 +9,9 @@ import (
 )
 
 // This file holds the helpers Front Desk uses to call a member's own
-// admin-authenticated API (its stats time series for the Traffic tab, and its
-// admin-token-hash endpoints for the sync/reset flows). Every call goes through
-// the guarded probe client (netguard.go): a dial-time block on metadata/
+// admin-authenticated API (its stats time series for the Traffic tab, the
+// config import/export relays, and the add/edit-time token check). Every call
+// goes through the guarded probe client (netguard.go): a dial-time block on metadata/
 // link-local addresses and a refusal of cross-host redirects, so a member URL
 // pointed somewhere hostile cannot bounce the request (carrying the member's
 // admin Bearer token) to another host.
@@ -74,13 +74,13 @@ const memberSyncTimeout = 120 * time.Second
 // before the background poller would otherwise catch a mistake.
 type tokenProbe struct {
 	reached bool // the member returned an HTTP response at all
-	valid   bool // token-hash returned 200, i.e. the token was accepted
+	valid   bool // the settings probe returned 200, i.e. the token was accepted
 	status  int  // HTTP status when reached
 }
 
 // rejected reports a token the member positively refused (401/403): a definite
 // mistake worth blocking the save for. A 404/5xx is reached-but-unverified and
-// only warns (e.g. an older member without the token-hash endpoint).
+// only warns (e.g. an older member with an unexpected settings response).
 func (p tokenProbe) rejected() bool {
 	return p.reached && (p.status == http.StatusUnauthorized || p.status == http.StatusForbidden)
 }
@@ -99,14 +99,14 @@ func (p tokenProbe) warning() string {
 	}
 }
 
-// probeMemberToken checks whether url accepts token right now by calling the
-// lightest admin-authenticated endpoint (token-hash). It never returns an
+// probeMemberToken checks whether url accepts token right now by calling a
+// lightweight admin-authenticated endpoint (settings). It never returns an
 // error: a transport failure becomes reached:false so the caller can warn
 // instead of blocking an add for a host that is merely offline.
 func (s *Server) probeMemberToken(ctx context.Context, url, token string) tokenProbe {
 	ctx, cancel := context.WithTimeout(ctx, memberProbeTimeout)
 	defer cancel()
-	status, _, err := s.callMember(ctx, http.MethodGet, url, memberTokenHashPath, token, nil)
+	status, _, err := s.callMember(ctx, http.MethodGet, url, memberSettingsPath, token, nil)
 	if err != nil {
 		return tokenProbe{}
 	}

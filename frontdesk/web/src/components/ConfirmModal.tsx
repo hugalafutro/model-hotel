@@ -4,7 +4,7 @@ import { Modal } from "./Modal";
 
 // ConfirmModal is the shared cancel/confirm dialog for Front Desk's destructive
 // actions. Pass `ackLabel` to gate the confirm button behind an acknowledgement
-// checkbox (used by the admin-token sync/reset flows); omit it for a plain
+// checkbox (used by the config sync flow); omit it for a plain
 // confirm (e.g. removing a member). The ack state lives here and resets whenever
 // the caller unmounts the modal, so callers only track whether it is open.
 export function ConfirmModal({

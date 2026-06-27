@@ -2,7 +2,6 @@ import { type FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { Settings } from "../api/types";
-import { AdminTokenResetPanel } from "../components/AdminTokenPanels";
 import { FleetSyncWizard } from "../components/FleetSyncWizard";
 import { SecurityPanels } from "../components/SecurityPanels";
 import { useToast } from "../context/ToastContext";
@@ -227,7 +226,6 @@ export function SettingsPage() {
 			</form>
 
 			<FleetSyncWizard members={members} onChanged={refetchMembers} />
-			<AdminTokenResetPanel members={members} onChanged={refetchMembers} />
 
 			<SecurityPanels />
 		</div>

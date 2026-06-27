@@ -17,6 +17,12 @@ const (
 	traefikEntryPoint      = "web"
 	traefikStickyCookie    = "mh_lb"
 	traefikHealthPath      = "/health"
+	// traefikRouterRule scopes the data plane to the OpenAI-compatible proxy
+	// only. The LB is a streaming front door, NOT a way to reach member
+	// dashboards: a request to `/` (or `/api`, the SPA, etc.) gets a 404 from
+	// Traefik instead of being load-balanced onto a random member's login.
+	// Members are reached individually by their own URL (shown in Front Desk).
+	traefikRouterRule = "PathPrefix(`/v1`)"
 )
 
 // TraefikConfig is the root of the Traefik HTTP-provider dynamic config.
@@ -115,7 +121,7 @@ func BuildTraefikConfig(members []*Member, set Settings) TraefikConfig {
 	}
 
 	router := TraefikRouter{
-		Rule:        "PathPrefix(`/`)",
+		Rule:        traefikRouterRule,
 		Service:     traefikServiceName,
 		EntryPoints: []string{traefikEntryPoint},
 	}

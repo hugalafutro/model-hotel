@@ -79,7 +79,7 @@ export interface MemberTraffic {
 	points: MemberTrafficPoint[];
 }
 
-// Admin-token sync / reset result types (the POST actions the wizard runs).
+// Per-member result of the config-sync POST the wizard runs.
 export interface SyncResultItem {
 	member_id: string;
 	name: string;
@@ -91,11 +91,6 @@ export interface SyncResult {
 	results: SyncResultItem[];
 }
 
-export interface ResetResult {
-	token: string;
-	results: SyncResultItem[];
-}
-
 // --- Fleet sync wizard status (GET /api/fleet/status) ---
 // One member's convergence state against the chosen primary, mirroring
 // internal/frontdesk/fleetstatus.go. The wizard gates each step on these fields.
@@ -104,7 +99,6 @@ export interface FleetMemberStatus {
 	name: string;
 	reachable: boolean;
 	has_token: boolean;
-	admin_token_matches: boolean;
 	// null = MASTER_KEY not evaluated: a keyless fleet (nothing to verify) or a
 	// member that could not be probed. A non-null false is a real mismatch.
 	master_key_matches: boolean | null;
