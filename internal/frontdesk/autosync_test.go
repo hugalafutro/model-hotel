@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/auth"
 )
 
 // stubAutoMember plays a member for the auto-sync loop: it answers the config
@@ -534,6 +536,41 @@ func TestGetAutoSyncHandler(t *testing.T) {
 	}
 	if !got.Enabled || got.PrimaryID != pm.ID {
 		t.Errorf("autosync = %+v, want enabled at %s", got, pm.ID)
+	}
+}
+
+// TestAutoSyncTokenLoadFailureHoldsHash (Greptile P1): a member whose stored token
+// ciphertext can't be decrypted (e.g. a MASTER_KEY mismatch) has HasToken true but
+// fails MemberToken. It must not be recorded as converged, since nothing re-arms it
+// later; the applied hash is held so the loop keeps retrying.
+func TestAutoSyncTokenLoadFailureHoldsHash(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", "http://127.0.0.1:9", "rtoken")
+	// Replace the replica's token with ciphertext encrypted under a DIFFERENT master
+	// key: the fields are correctly sized (so decrypt fails authentication rather than
+	// panicking) and HasToken stays true, reproducing a MASTER_KEY-mismatch token that
+	// MemberToken cannot decrypt.
+	kp, err := auth.Encrypt("rtoken", testMasterKey+"-mismatch")
+	if err != nil {
+		t.Fatalf("encrypt under mismatched key: %v", err)
+	}
+	if _, err := store.db.ExecContext(t.Context(),
+		`UPDATE members SET token_cipher = ?, token_nonce = ?, token_salt = ? WHERE id = ?`,
+		kp.Ciphertext, kp.Nonce, kp.Salt, rm.ID,
+	); err != nil {
+		t.Fatalf("write mismatched token: %v", err)
+	}
+	enableAutoSync(t, store, pm.ID, "hash-A")
+
+	srv.autoSyncOnce(t.Context(), "hash-B") // settled: reach the apply stage
+
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash != "hash-A" {
+		t.Errorf("applied hash = %q, want held at hash-A (replica token could not be loaded)", cfg.LastHash)
 	}
 }
 

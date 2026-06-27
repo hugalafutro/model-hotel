@@ -85,6 +85,13 @@ func decryptWithKey(ciphertext, nonce, key []byte) (string, error) {
 		return "", fmt.Errorf("failed to create GCM: %w", err)
 	}
 
+	// gcm.Open panics (rather than erroring) on a wrong-length nonce, so guard it:
+	// a corrupt or truncated stored nonce must surface as an error the caller can
+	// handle, not crash the process.
+	if len(nonce) != gcm.NonceSize() {
+		return "", fmt.Errorf("failed to decrypt: invalid nonce length %d (want %d)", len(nonce), gcm.NonceSize())
+	}
+
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to decrypt: %w", err)

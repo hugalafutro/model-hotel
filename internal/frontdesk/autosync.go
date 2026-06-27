@@ -159,6 +159,13 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		}
 		token, ok, err := s.store.MemberToken(ctx, m.ID)
 		if err != nil || !ok {
+			// The member has token ciphertext (HasToken was true) but it could not be
+			// loaded or decrypted: a MASTER_KEY mismatch on the stored token, a transient
+			// DB error, or the token cleared in the race after the snapshot. Unlike a
+			// tokenless member there is no membership event that will re-arm the loop, so
+			// this must NOT count as converged: hold off and retry on the next tick.
+			debuglog.Debug("frontdesk: auto-sync: member token unavailable, will retry", "member", m.Name, "loaded", ok, "error", err)
+			allConverged = false
 			continue
 		}
 		// Decide whether this member needs the new config from its own dry-run
