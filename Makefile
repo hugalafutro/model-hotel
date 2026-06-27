@@ -55,7 +55,7 @@ frontdesk-build:
 	cd frontdesk/web && pnpm install --frozen-lockfile && pnpm run build:docker
 	find internal/frontdesk/webui -mindepth 1 ! -name .gitkeep ! -name .gitignore -delete
 	cp -r frontdesk/web/dist/. internal/frontdesk/webui/
-	CGO_ENABLED=0 go build -o bin/frontdesk ./cmd/frontdesk/
+	CGO_ENABLED=0 go build -ldflags "-X main.version=$(VERSION) -X github.com/hugalafutro/model-hotel/internal/frontdesk.buildCommit=$(COMMIT)" -o bin/frontdesk ./cmd/frontdesk/
 
 ha-up:
 	docker compose -f $(HA_COMPOSE) up -d --build

@@ -9,6 +9,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { clearAuthToken, getAuthToken, onUnauthorized } from "./api/client";
 import { Login } from "./components/Login";
+import { VersionFooter } from "./components/VersionFooter";
 import { ToastProvider } from "./context/ToastContext";
 import { EventsPage } from "./pages/EventsPage";
 import { MembersPage } from "./pages/MembersPage";
@@ -97,6 +98,7 @@ function Shell() {
 					{tab === "settings" && <SettingsPage />}
 				</Suspense>
 			</main>
+			<VersionFooter />
 		</div>
 	);
 }

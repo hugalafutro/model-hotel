@@ -19,6 +19,7 @@ import type {
 	TotpEnrollStart,
 	TotpEnrollVerify,
 	TotpInfo,
+	VersionInfo,
 	WebAuthnCredential,
 } from "./types";
 
@@ -133,6 +134,8 @@ export const api = {
 		),
 
 	getSettings: () => request<Settings>("/api/settings"),
+	// Running-build identity for the footer (version + short commit SHA).
+	getVersion: () => request<VersionInfo>("/api/version"),
 	// Partial body: the server merges onto the stored row, so each panel PUTs only
 	// the fields it owns and never clobbers the other's (or erases the secret).
 	putSettings: (s: Partial<Settings>) =>

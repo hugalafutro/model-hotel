@@ -502,6 +502,9 @@ jobs:
           file: Dockerfile.frontdesk
           load: true
           tags: model-hotel-frontdesk:dev-candidate
+          # VERSION stays at its `dev` default; stamp the source SHA so the
+          # footer can show which commit this :dev image was built from.
+          build-args: COMMIT=${{ github.sha }}
           cache-from: type=gha,scope=frontdesk
           cache-to: type=gha,mode=max,scope=frontdesk
           platforms: linux/amd64

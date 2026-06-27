@@ -50,6 +50,7 @@ type ServerConfig struct {
 	IPLimiter    adminauth.IPLimiterMiddleware // per-IP limit on login routes
 	UI           fs.FS                         // embedded SPA; nil disables the UI mount
 	LBPort       string                        // host port of the LB (Traefik "web"); shown in the wizard's Done step. Defaults to 8080.
+	Version      string                        // running build, stamped via ldflags; surfaced read-only over GET /api/version. Defaults to "dev".
 }
 
 // Server is the Front Desk HTTP server.
@@ -66,6 +67,7 @@ type Server struct {
 	syncClient   *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
 	backupClient *http.Client // guarded client for the pre-sync backup relay (deadline exceeds the member's pg_dump budget)
 	lbPort       string       // host port of the data-plane load balancer, surfaced to the wizard
+	version      string       // running build, surfaced read-only over GET /api/version
 	masterKey    string       // encrypts the Apprise target secret at rest
 	alertDisp    *alert.Dispatcher
 	settingsMu   sync.Mutex // serializes the settings-row read-merge-write
@@ -90,6 +92,11 @@ func NewServer(cfg ServerConfig) *Server {
 		lbPort = defaultLBPort
 	}
 
+	version := cfg.Version
+	if version == "" {
+		version = "dev"
+	}
+
 	s := &Server{
 		store:        cfg.Store,
 		poller:       cfg.Poller,
@@ -103,6 +110,7 @@ func NewServer(cfg ServerConfig) *Server {
 		syncClient:   newProbeClient(memberSyncTimeout),
 		backupClient: newProbeClient(memberBackupTimeout),
 		lbPort:       lbPort,
+		version:      version,
 		masterKey:    cfg.MasterKey,
 	}
 
@@ -158,6 +166,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Get("/members/{id}/traffic", s.memberTraffic)
 			r.Get("/settings", s.getSettings)
 			r.Put("/settings", s.putSettings)
+			r.Get("/version", s.getVersion)
 			r.Get("/alert/events", s.alertEvents)
 			r.Get("/alert/status", s.alertStatus)
 			r.Post("/alert/test", s.alertTest)
@@ -577,6 +586,38 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) traefikStatus(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, s.poller.Snapshot())
+}
+
+// buildCommit is the source commit SHA this Front Desk binary was built from,
+// stamped at build time via -ldflags -X (see the Makefile / Dockerfile.frontdesk)
+// and surfaced read-only as app_commit so the UI footer can show which commit a
+// `dev` build corresponds to. Defaults to "unknown" for un-stamped builds.
+var buildCommit = "unknown"
+
+// shortCommit normalizes a stamped commit SHA to a fixed-length short prefix so
+// app_commit reads the same across build paths (a local git SHA vs CI's full
+// github.sha). The "unknown" sentinel and any empty value pass through unchanged.
+// It mirrors internal/api.shortCommit so both surfaces present the same prefix.
+func shortCommit(c string) string {
+	const shortLen = 12
+	if c == "" || c == "unknown" {
+		return c
+	}
+	if len(c) > shortLen {
+		return c[:shortLen]
+	}
+	return c
+}
+
+// getVersion returns the running build's version and source commit so the UI
+// footer can show which Front Desk build is deployed (and link a `dev` build to
+// its commit on GitHub). app_version is "dev" for un-stamped builds; app_commit
+// is normalized to a short prefix so it reads the same across build paths.
+func (s *Server) getVersion(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{
+		"app_version": s.version,
+		"app_commit":  shortCommit(buildCommit),
+	})
 }
 
 // sseHeartbeat keeps idle SSE connections alive through proxies.

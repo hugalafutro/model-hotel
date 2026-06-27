@@ -110,8 +110,6 @@ jobs:
       # registries under the -frontdesk repo. Reuses the Buildx instance and
       # registry logins above; a distinct gha cache scope keeps it off the
       # server image's cache so neither build evicts the other's layers.
-      # Dockerfile.frontdesk does not consume a VERSION arg (plain go build), so
-      # none is passed.
       - name: Extract metadata (Front Desk)
         if: steps.version.outputs.skip_existing == 'false'
         id: meta-frontdesk
@@ -136,6 +134,9 @@ jobs:
           push: true
           tags: ${{ steps.meta-frontdesk.outputs.tags }}
           labels: ${{ steps.meta-frontdesk.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.tag }}
+            COMMIT=${{ github.sha }}
           cache-from: type=gha,scope=frontdesk
           cache-to: type=gha,mode=max,scope=frontdesk
           platforms: linux/amd64
