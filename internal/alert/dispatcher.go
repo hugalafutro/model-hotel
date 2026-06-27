@@ -83,9 +83,10 @@ func WithCatalog(defs []EventDef) Option {
 // WithTitlePrefix sets the notification title prefix (e.g. "Front Desk").
 func WithTitlePrefix(p string) Option { return func(d *Dispatcher) { d.titlePrefix = p } }
 
-// WithDebounceKeys sets the metadata keys used to scope per-entity debounce.
+// WithDebounceKeys sets the metadata keys used to scope per-entity debounce. The
+// slice is copied so a later mutation by the caller cannot change debounce behavior.
 func WithDebounceKeys(keys []string) Option {
-	return func(d *Dispatcher) { d.debounceKeys = keys }
+	return func(d *Dispatcher) { d.debounceKeys = append([]string(nil), keys...) }
 }
 
 // New constructs a Dispatcher. A nil client gets a sensible default. With no

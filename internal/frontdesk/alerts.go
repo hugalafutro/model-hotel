@@ -19,15 +19,19 @@ const alertMaskValue = "********"
 // event Front Desk actually publishes (recordEvent/emit), so the operator never
 // sees a checkbox nothing emits. Keep the DefaultOn set in step with the
 // alert_events seed in migrations/007_alerts.sql (a test guards the pairing).
+// The Severity on each entry is the display dot in the picker; it is kept in step
+// with the severity the event is actually published with (TestCatalogTypesAreEmitted
+// guards that every Type below is emitted somewhere in the package). The Apprise
+// notification type is still derived at dispatch time from the live event, not
+// from this value.
 var fdCatalog = []alert.EventDef{
 	// Member health: the core "is my fleet alive" signal.
 	{Type: "health.down", Category: "Health", Severity: "error", DefaultOn: true},
 	{Type: "health.up", Category: "Health", Severity: "success", DefaultOn: true},
 	// Config sync (manual wizard + auto-sync). A failed push is the headline alert.
-	{Type: "config.sync_failed", Category: "Config Sync", Severity: "error", DefaultOn: true},
-	{Type: "config.synced", Category: "Config Sync", Severity: "success", DefaultOn: false},
-	{Type: "config.auto_synced", Category: "Config Sync", Severity: "success", DefaultOn: false},
-	{Type: "config.regenerated", Category: "Config Sync", Severity: "info", DefaultOn: false},
+	{Type: "config.sync_failed", Category: "Config Sync", Severity: "warning", DefaultOn: true},
+	{Type: "config.synced", Category: "Config Sync", Severity: "info", DefaultOn: false},
+	{Type: "config.auto_synced", Category: "Config Sync", Severity: "info", DefaultOn: false},
 	// Version reads: a persistently failing member URL is surfaced here.
 	{Type: "version.fetch_failed", Category: "Member Reads", Severity: "warning", DefaultOn: true},
 	{Type: "version.fetch_recovered", Category: "Member Reads", Severity: "success", DefaultOn: false},
@@ -35,7 +39,7 @@ var fdCatalog = []alert.EventDef{
 	{Type: "traefik.stale", Category: "Routing", Severity: "warning", DefaultOn: false},
 	// Fleet roster + drain/active changes.
 	{Type: "member.added", Category: "Membership", Severity: "info", DefaultOn: false},
-	{Type: "member.removed", Category: "Membership", Severity: "warning", DefaultOn: false},
+	{Type: "member.removed", Category: "Membership", Severity: "info", DefaultOn: false},
 	{Type: "member.state_changed", Category: "Membership", Severity: "info", DefaultOn: false},
 }
 

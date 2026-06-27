@@ -4,11 +4,47 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 )
+
+// TestCatalogTypesAreEmitted enforces fdCatalog's documented invariant: every
+// alertable Type must correspond to an event the package actually publishes, so
+// the operator never ticks a checkbox that can never fire. It scans the package's
+// non-test Go sources (excluding alerts.go, which only declares the catalog) for a
+// quoted literal of each Type. A dead entry (declared but never emitted) fails here.
+func TestCatalogTypesAreEmitted(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var src strings.Builder
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") {
+			continue
+		}
+		if name == "alerts.go" || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Clean(name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		src.Write(b)
+	}
+	haystack := src.String()
+	for _, def := range fdCatalog {
+		if !strings.Contains(haystack, `"`+def.Type+`"`) {
+			t.Errorf("catalog event %q is never emitted in the package; remove it or wire the emit", def.Type)
+		}
+	}
+}
 
 // TestMigrationSeedMatchesCatalogDefaults guards the one hand-maintained pairing:
 // migration 007 seeds alert_events with a literal CSV that must equal the DefaultOn

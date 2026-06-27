@@ -9,7 +9,15 @@ import { useToast } from "../context/ToastContext";
 // the server's alertMaskValue.
 const MASK = "********";
 
-// parseCsv / joinCsv convert between the stored alert_events CSV and a Set.
+// Display dot colour per event/display severity, using the Front Desk palette.
+const SEVERITY_COLOR: Record<string, string> = {
+	success: "var(--ok)",
+	info: "var(--info)",
+	warning: "var(--warn)",
+	error: "var(--danger)",
+};
+
+// parseCsv turns the stored alert_events CSV into a membership Set.
 function parseCsv(csv: string): Set<string> {
 	return new Set(
 		csv
@@ -22,9 +30,10 @@ function parseCsv(csv: string): Set<string> {
 // AlertsPanel is the Settings -> Alerts control: point Front Desk at an apprise-api
 // container, choose which HA events to be notified about, and send a test. It is
 // self-contained (loads and saves its own copy of Settings) like AutoSyncPanel;
-// on a fresh save it re-reads the freshest Settings so it never clobbers numeric
-// edits made in the polling form above it. It stays quiet (renders nothing) if it
-// cannot load, so the rest of the page still works.
+// on every save it re-reads the freshest Settings before writing so it never
+// clobbers edits made in the polling form above it (and that form does the same).
+// It stays quiet (renders nothing) if it cannot load, so the rest of the page
+// still works.
 export function AlertsPanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -71,6 +80,20 @@ export function AlertsPanel() {
 			.catch(() => {});
 	}, []);
 
+	// Friendly label for an event Type, falling back to the raw type so a brand-new
+	// server-side event still renders something readable before a string is added.
+	const eventLabel = (type: string) =>
+		t(`settings.alerts.event.${type.replace(/\./g, "_")}`, {
+			defaultValue: type,
+		});
+
+	// Only a validation error (400) carries a safe, user-facing message; anything
+	// else (network, 5xx, auth) is shown as a generic string so internals do not leak.
+	const describeError = (err: unknown) =>
+		err instanceof ApiError && err.status === 400
+			? err.message
+			: t("errors.generic");
+
 	// Group the catalog by its (English) category for the picker.
 	const grouped = useMemo(() => {
 		const m = new Map<string, AlertEventDef[]>();
@@ -92,7 +115,9 @@ export function AlertsPanel() {
 			...fresh,
 			alert_enabled: enabled,
 			alert_apprise_api_url: url.trim(),
-			alert_apprise_targets: target, // MASK preserves, new replaces, "" clears
+			// MASK preserves the stored secret; a new value replaces it; "" clears it.
+			// The mask is never trimmed (it has no whitespace); a typed value is.
+			alert_apprise_targets: target === MASK ? target : target.trim(),
 			alert_events: [...selected].join(","),
 		};
 		await api.putSettings(next);
@@ -107,30 +132,28 @@ export function AlertsPanel() {
 			await refreshStatus();
 			toast(t("settings.alerts.saved"), "success");
 		} catch (err) {
-			setSaveError(
-				err instanceof ApiError && err.status === 400
-					? err.message
-					: t("errors.generic"),
-			);
+			setSaveError(describeError(err));
 		} finally {
 			setSaving(false);
 		}
 	};
 
 	// sendTest persists first so the test reflects the on-screen config, then asks
-	// the server to deliver a test notification to the configured target(s).
+	// the server to deliver a test notification to the configured target(s). A
+	// failure shows a generic toast (the reachability pill carries the reason); the
+	// raw transport/5xx error is never surfaced.
 	const sendTest = async () => {
 		setSaveError("");
 		setTesting(true);
 		try {
 			await persist();
 			await api.testAlert();
-			await refreshStatus();
 			toast(t("settings.alerts.testSent"), "success");
 		} catch (err) {
+			setSaveError(describeError(err));
 			toast(t("settings.alerts.testFailed"), "error");
-			if (err instanceof ApiError && err.message) setSaveError(err.message);
 		} finally {
+			await refreshStatus();
 			setTesting(false);
 		}
 	};
@@ -161,7 +184,6 @@ export function AlertsPanel() {
 			<label className="fd-row" style={{ cursor: "pointer" }}>
 				<input
 					type="checkbox"
-					data-testid="alert-enabled"
 					checked={enabled}
 					disabled={busy}
 					onChange={(e) => setEnabled(e.target.checked)}
@@ -232,21 +254,35 @@ export function AlertsPanel() {
 						<div style={{ fontWeight: 500, fontSize: "0.85rem" }}>
 							{category}
 						</div>
-						{defs.map((d) => (
-							<label
-								key={d.type}
-								className="fd-row"
-								style={{ cursor: "pointer", marginTop: "0.2rem" }}
-							>
-								<input
-									type="checkbox"
-									data-testid={`alert-event-${d.type}`}
-									checked={selected.has(d.type)}
-									onChange={(e) => toggleEvent(d.type, e.target.checked)}
-								/>
-								<span style={{ fontSize: "0.85rem" }}>{d.type}</span>
-							</label>
-						))}
+						{defs.map((d) => {
+							const label = eventLabel(d.type);
+							return (
+								<label
+									key={d.type}
+									className="fd-row"
+									style={{ cursor: "pointer", marginTop: "0.2rem" }}
+								>
+									<input
+										type="checkbox"
+										aria-label={label}
+										checked={selected.has(d.type)}
+										onChange={(e) => toggleEvent(d.type, e.target.checked)}
+									/>
+									<span
+										aria-hidden="true"
+										style={{
+											display: "inline-block",
+											width: "0.5rem",
+											height: "0.5rem",
+											borderRadius: "50%",
+											background:
+												SEVERITY_COLOR[d.severity] ?? "var(--text-faint)",
+										}}
+									/>
+									<span style={{ fontSize: "0.85rem" }}>{label}</span>
+								</label>
+							);
+						})}
 					</div>
 				))}
 			</fieldset>
@@ -269,7 +305,6 @@ export function AlertsPanel() {
 				<button
 					type="button"
 					className="ui-btn"
-					data-testid="alert-test"
 					disabled={busy}
 					onClick={sendTest}
 				>
@@ -282,7 +317,9 @@ export function AlertsPanel() {
 	);
 }
 
-// StatusPill renders the apprise-api reachability as a coloured badge.
+// StatusPill renders the apprise-api reachability as a coloured badge, with the
+// probe detail (e.g. "unreachable", "apprise-api returned status 417") shown as a
+// tooltip and inline note so the operator gets a reason, not just a colour.
 function StatusPill({
 	status,
 	t,
@@ -292,28 +329,30 @@ function StatusPill({
 }) {
 	if (!status?.configured) {
 		return (
-			<span className="ui-badge ui-badge-info" data-testid="alert-status">
+			<span className="ui-badge ui-badge-info">
 				{t("settings.alerts.statusNotConfigured")}
 			</span>
 		);
 	}
-	if (!status.reachable) {
-		return (
-			<span className="ui-badge ui-badge-danger" data-testid="alert-status">
-				{t("settings.alerts.statusUnreachable")}
-			</span>
-		);
-	}
-	if (!status.healthy) {
-		return (
-			<span className="ui-badge ui-badge-warn" data-testid="alert-status">
-				{t("settings.alerts.statusUnhealthy")}
-			</span>
-		);
-	}
+	const [variant, label] = !status.reachable
+		? (["ui-badge-danger", t("settings.alerts.statusUnreachable")] as const)
+		: !status.healthy
+			? (["ui-badge-warn", t("settings.alerts.statusUnhealthy")] as const)
+			: (["ui-badge-ok", t("settings.alerts.statusOk")] as const);
+	const showDetail = status.detail && (!status.reachable || !status.healthy);
 	return (
-		<span className="ui-badge ui-badge-ok" data-testid="alert-status">
-			{t("settings.alerts.statusOk")}
+		<span
+			className="fd-row"
+			style={{ gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}
+		>
+			<span className={`ui-badge ${variant}`} title={status.detail}>
+				{label}
+			</span>
+			{showDetail && (
+				<span className="fd-faint" style={{ fontSize: "0.72rem" }}>
+					{status.detail}
+				</span>
+			)}
 		</span>
 	);
 }

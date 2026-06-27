@@ -107,4 +107,51 @@ describe("SettingsPage", () => {
 			/at least 1 second/i,
 		);
 	});
+
+	it("does not revert alert settings when the polling form is saved (B1)", async () => {
+		// Stateful settings: PUT replaces the whole row (mirrors the store), so a
+		// stale-state save from one panel must not clobber the other's fields.
+		let current: Settings = { ...defaults, alert_enabled: true };
+		server.use(
+			http.get("/api/settings", () => HttpResponse.json(current)),
+			http.put("/api/settings", async ({ request }) => {
+				current = (await request.json()) as Settings;
+				return new HttpResponse(null, { status: 204 });
+			}),
+			http.get("/api/alert/events", () =>
+				HttpResponse.json([
+					{
+						type: "health.down",
+						category: "Health",
+						severity: "error",
+						defaultOn: true,
+					},
+				]),
+			),
+		);
+		renderPage();
+
+		// Turn alerts OFF in the Alerts panel and save it.
+		const enable = await screen.findByRole("checkbox", {
+			name: /outbound alert notifications/i,
+		});
+		expect(enable).toBeChecked();
+		await userEvent.click(enable);
+		await userEvent.click(
+			screen.getByRole("button", { name: /save alert settings/i }),
+		);
+		await waitFor(() => expect(current.alert_enabled).toBe(false));
+
+		// Now save an unrelated polling field. Pre-fix this PUT carried the panel's
+		// stale alert_enabled:true and reverted the change.
+		const stale = (await screen.findByLabelText(
+			/staleness warning/i,
+		)) as HTMLInputElement;
+		await userEvent.clear(stale);
+		await userEvent.type(stale, "42");
+		await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+		await waitFor(() => expect(current.traefik_stale_secs).toBe(42));
+		expect(current.alert_enabled).toBe(false);
+	});
 });
