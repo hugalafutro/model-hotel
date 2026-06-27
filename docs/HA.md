@@ -189,8 +189,8 @@ member is read-only for synced config: the dashboard hides the create/edit/delet
 controls, and the API itself refuses those writes with a 403 (providers, virtual
 keys, custom failover groups, and synced settings), so a stale tab or a direct
 `curl` cannot quietly change config the next sync would overwrite. Instance-local
-settings (Apprise alert routing, observability) and the failover **Sync** action
-stay editable. Any drift you do manage to introduce sits until the **primary** next
+Apprise alert routing and the failover **Sync** action stay editable. Any drift you
+do manage to introduce sits until the **primary** next
 changes, at which point the full config is pushed and the replica is brought back
 in line. There is no constant revert loop watching each replica.
 

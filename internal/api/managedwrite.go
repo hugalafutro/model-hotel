@@ -34,6 +34,13 @@ const managedWriteMsg = "this instance is managed by the fleet primary; " +
 // via computeFleetStatus, so it is cheap enough to call on a write request.
 // "primary", "warning" (stale heartbeat), and standalone (nil) all return false,
 // matching useManaged: an operator is never locked out when Front Desk is away.
+//
+// The guard is not instantaneous: the _fleet_* reads go through the settings
+// cache (~30s TTL), so a node that has just become a member can briefly still
+// accept a write. That fail-open-on-stale window is the correct posture here, not
+// a bug. The enforcement is defense-in-depth for the read-only UI, not a
+// consistency boundary, and any write that slips through is reconciled by the
+// next config sync (the primary remains the source of truth).
 func isManagedMember(ctx context.Context, fs fleetSettings) bool {
 	st := computeFleetStatus(ctx, fs, time.Now())
 	return st != nil && st.State == "member"

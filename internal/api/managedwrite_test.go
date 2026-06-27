@@ -133,40 +133,55 @@ func TestHandlerRegister_ManagedMember(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		return req
 	}
-	do := func(method, path, body string) int {
+	do := func(method, path, body string) (int, string) {
 		rec := httptest.NewRecorder()
 		req := auth(httptest.NewRequest(method, path, strings.NewReader(body)))
 		if body != "" {
 			req.Header.Set("Content-Type", "application/json")
 		}
 		r.ServeHTTP(rec, req)
-		return rec.Code
+		return rec.Code, rec.Body.String()
 	}
 
-	// Synced-entity writes are refused.
-	if code := do(http.MethodPost, "/providers", `{"name":"x","base_url":"http://localhost:1234"}`); code != http.StatusForbidden {
-		t.Errorf("managed POST /providers: expected 403, got %d", code)
-	}
-	if code := do(http.MethodPut, "/settings", `{"alert_enabled":"true"}`); code != http.StatusForbidden {
-		t.Errorf("managed PUT /settings (syncable): expected 403, got %d", code)
+	// Synced-entity writes are refused across every guarded route. Bodies can be
+	// minimal: the guard middleware runs before the handler parses them.
+	for _, w := range []struct{ name, method, path, body string }{
+		{"POST /providers", http.MethodPost, "/providers", `{"name":"x","base_url":"http://localhost:1234"}`},
+		{"POST /virtual-keys", http.MethodPost, "/virtual-keys", `{}`},
+		{"POST /failover-groups", http.MethodPost, "/failover-groups", `{}`},
+		{"PUT /settings (syncable)", http.MethodPut, "/settings", `{"alert_enabled":"true"}`},
+		{"DELETE /settings (reset all)", http.MethodDelete, "/settings", `{}`},
+	} {
+		if code, _ := do(w.method, w.path, w.body); code != http.StatusForbidden {
+			t.Errorf("managed %s: expected 403, got %d", w.name, code)
+		}
 	}
 
 	// Reads, failover sync, and instance-local apprise settings stay usable.
-	if code := do(http.MethodGet, "/providers", ""); code != http.StatusOK {
+	if code, _ := do(http.MethodGet, "/providers", ""); code != http.StatusOK {
 		t.Errorf("managed GET /providers: expected 200, got %d", code)
 	}
-	if code := do(http.MethodPost, "/failover-groups/sync", ""); code == http.StatusForbidden {
+	if code, _ := do(http.MethodPost, "/failover-groups/sync", ""); code == http.StatusForbidden {
 		t.Errorf("managed POST /failover-groups/sync: must be exempt, got 403")
 	}
-	if code := do(http.MethodPut, "/settings", `{"alert_apprise_api_url":"http://apprise:8000"}`); code != http.StatusOK {
+	if code, _ := do(http.MethodPut, "/settings", `{"alert_apprise_api_url":"http://apprise:8000"}`); code != http.StatusOK {
 		t.Errorf("managed PUT /settings (apprise-only): expected 200, got %d", code)
 	}
+	// Reset of an instance-local key only (no syncable key in the batch) is allowed.
+	if code, _ := do(http.MethodDelete, "/settings", `{"keys":["alert_apprise_api_url"]}`); code != http.StatusOK {
+		t.Errorf("managed DELETE /settings (apprise-only): expected 200, got %d", code)
+	}
 
-	// Promotion to primary lifts the lock.
+	// Promotion to primary lifts the lock: the write is not just un-refused, it
+	// persists (the provider is created and then listed).
 	if err := h.settingsRepo.Set(ctx, keyFleetIsPrimary, "true"); err != nil {
 		t.Fatal(err)
 	}
-	if code := do(http.MethodPost, "/providers", `{"name":"y","base_url":"http://localhost:1234"}`); code == http.StatusForbidden {
-		t.Errorf("primary POST /providers: must not be refused with 403")
+	if code, _ := do(http.MethodPost, "/providers", `{"name":"primary-prov","base_url":"http://localhost:1234"}`); code != http.StatusCreated {
+		t.Errorf("primary POST /providers: expected 201 Created, got %d", code)
+	}
+	code, body := do(http.MethodGet, "/providers", "")
+	if code != http.StatusOK || !strings.Contains(body, "primary-prov") {
+		t.Errorf("primary GET /providers: expected the created provider to persist, got code=%d body=%q", code, body)
 	}
 }
