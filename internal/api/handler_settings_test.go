@@ -19,6 +19,34 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/db"
 )
 
+func TestShortCommit(t *testing.T) {
+	full := "7a5eeac6aa758c56432a7dbc8cd059909800e390"
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"empty passes through", "", ""},
+		{"unknown sentinel passes through", "unknown", "unknown"},
+		{"full SHA truncated to 12", full, "7a5eeac6aa75"},
+		{"short SHA shorter than limit kept", "7a5eeac", "7a5eeac"},
+		{"exactly 12 kept", "7a5eeac6aa75", "7a5eeac6aa75"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := shortCommit(tc.in); got != tc.want {
+				t.Errorf("shortCommit(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+	// A full and a short stamp of the same commit must normalize identically so
+	// app_commit reads the same across build paths.
+	if shortCommit(full) != shortCommit(full[:12]) {
+		t.Errorf("full and short stamps of the same commit diverge: %q vs %q",
+			shortCommit(full), shortCommit(full[:12]))
+	}
+}
+
 func TestGetSettings(t *testing.T) {
 
 	h := newTestHandler(t)

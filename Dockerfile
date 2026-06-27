@@ -32,9 +32,9 @@ COPY . .
 COPY --from=frontend-builder /app/web/dist ./cmd/server/static/
 
 ARG VERSION=dev
-# Short SHA of the source commit. The .git dir is excluded from the build
-# context (.dockerignore), so it is passed in as a build arg rather than
-# derived in-image.
+# Source commit SHA. The .git dir is excluded from the build context
+# (.dockerignore), so it is passed in as a build arg rather than derived
+# in-image. The backend shortens it for display.
 ARG COMMIT=unknown
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \

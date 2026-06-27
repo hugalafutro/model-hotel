@@ -1,9 +1,11 @@
 .PHONY: build run clean test lint fmt deps docker-up docker-build docker-down docker-logs totp-disable test-db-up test-db-down setup notices frontdesk-build ha-up ha-down ha-logs
 
 VERSION := $(shell cat .version 2>/dev/null || git describe --tags --always --dirty 2>/dev/null || echo dev)
-# Short SHA of the commit this binary is built from, stamped into the API package
+# Full SHA of the commit this binary is built from, stamped into the API package
 # so the dashboard can show exactly which commit a `dev` build corresponds to.
-COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+# CI passes the full ${{ github.sha }} too; the backend shortens it for display,
+# so every build path feeds the same input and yields the same app_commit.
+COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 
 build:
 	go build -ldflags "-X main.version=$(VERSION) -X github.com/hugalafutro/model-hotel/internal/api.buildCommit=$(COMMIT)" -o bin/server ./cmd/server/

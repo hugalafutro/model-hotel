@@ -1050,7 +1050,8 @@ export function Layout({ children }: LayoutProps) {
 											: t("layout.running", { running });
 								// Append the source commit SHA (build stamp, not
 								// translatable) so a `dev` build's exact commit is visible.
-								return commit ? `${base} · ${commit.slice(0, 7)}` : base;
+								// The backend already returns a normalized short SHA.
+								return commit ? `${base} · ${commit}` : base;
 							})()}
 							className={`sidebar-footer-link flex items-center gap-2 px-2 py-1.5 text-xs text-gray-400 hover:text-white transition-colors ui-btn hover:bg-white/5`}
 						>

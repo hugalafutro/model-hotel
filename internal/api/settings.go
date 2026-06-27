@@ -66,17 +66,37 @@ func (h *Handler) RegisterSettings(r chi.Router) {
 	})
 }
 
-// buildCommit is the short SHA of the source commit this binary was built from.
-// It is stamped at build time via -ldflags -X (see the Makefile / Dockerfile)
-// and surfaced read-only as app_commit so the dashboard can show which commit a
+// buildCommit is the SHA of the source commit this binary was built from. It is
+// stamped at build time via -ldflags -X (see the Makefile / Dockerfile) and
+// surfaced read-only as app_commit so the dashboard can show which commit a
 // `dev` build corresponds to. Defaults to "unknown" for un-stamped builds.
+//
+// Different build paths stamp different SHA lengths (local `make build` derives
+// a full SHA via git, CI passes the full ${{ github.sha }}), so the value is
+// normalized through shortCommit before it reaches the API to keep the
+// app_commit contract identical for the same commit regardless of build path.
 var buildCommit = "unknown"
+
+// shortCommit normalizes a stamped commit SHA to a fixed-length short prefix so
+// app_commit reads the same across build paths. The "unknown" sentinel and any
+// empty value pass through unchanged.
+func shortCommit(c string) string {
+	const shortLen = 12
+	if c == "" || c == "unknown" {
+		return c
+	}
+	if len(c) > shortLen {
+		return c[:shortLen]
+	}
+	return c
+}
 
 // injectReadOnlyStatus adds server-derived, read-only fields to a settings map
 // before it is returned to the client. These keys are deliberately excluded
 // from allowedSettings so they cannot be written via PUT /api/settings:
 //   - app_version: the running build (set via ldflags).
-//   - app_commit: the source commit SHA the build was stamped with (ldflags).
+//   - app_commit: the source commit SHA the build was stamped with (ldflags),
+//     normalized to a short prefix via shortCommit.
 //   - log_export_json/metrics/otel: which log-export integrations are active,
 //     derived from process environment (LOG_FORMAT, METRICS_TOKEN, OTLP endpoint),
 //     for the Observability settings section to reflect.
@@ -88,7 +108,7 @@ func (h *Handler) injectReadOnlyStatus(all map[string]string) map[string]string 
 		all = make(map[string]string)
 	}
 	all["app_version"] = h.appVersion
-	all["app_commit"] = buildCommit
+	all["app_commit"] = shortCommit(buildCommit)
 	all["log_export_json"] = strconv.FormatBool(debuglog.JSONFormat())
 	all["log_export_metrics"] = strconv.FormatBool(h.cfg != nil && h.cfg.MetricsToken != "")
 	all["log_export_otel"] = strconv.FormatBool(otelexport.LogsEnabled())
