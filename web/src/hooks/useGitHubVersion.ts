@@ -34,22 +34,31 @@ function isDevVersion(running: string): boolean {
 }
 
 function compareSemverTags(latest: string, running: string): boolean {
-	const strip = (v: string) => v.replace(/^v/, "");
-	const l = strip(latest);
-	const r = strip(running);
-	// Callers gate on !isDev, so running is semver-like here; bail defensively
-	// if either side is not, rather than guessing an update is available.
-	if (!r.match(/^\d+/)) return false;
-	if (!l.match(/^\d+/)) return false;
-	const lp = l.split(".").map(Number);
-	const rp = r.split(".").map(Number);
+	// Numeric core only, dropping any prerelease/build suffix (e.g.
+	// "v1.0.0-beta" → [1,0,0]); the suffix is compared separately below.
+	const core = (v: string) =>
+		v
+			.replace(/^v/, "")
+			.split(/[-+]/, 1)[0]
+			.split(".")
+			.map((n) => Number.parseInt(n, 10));
+	const isPrerelease = (v: string) => v.replace(/^v/, "").includes("-");
+
+	const lp = core(latest);
+	const rp = core(running);
+	// Callers gate on !isDev, so `running` is semver-like here. `latest` comes
+	// from the GitHub API, so guard it: a non-semver tag means "no update"
+	// rather than a guessed one.
+	if (lp.some(Number.isNaN)) return false;
 	for (let i = 0; i < Math.max(lp.length, rp.length); i++) {
 		const a = lp[i] ?? 0;
 		const b = rp[i] ?? 0;
 		if (a > b) return true;
 		if (a < b) return false;
 	}
-	return false; // equal
+	// Equal numeric cores: semver orders a prerelease before its final release,
+	// so a running prerelease is behind a stable `latest`.
+	return isPrerelease(running) && !isPrerelease(latest);
 }
 
 /**

@@ -236,6 +236,36 @@ describe("useGitHubVersion", () => {
 		expect(result.current.updateAvailable).toBe(false);
 	});
 
+	it("treats a non-semver latest tag as no update", async () => {
+		server.use(...mockSettings({ body: { app_version: "0.9.80" } }));
+		server.use(...mockVersionLatest({ body: { tag_name: "nightly" } }));
+
+		const { result } = renderHook(() => useGitHubVersion());
+
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 0));
+		});
+
+		expect(result.current.latest).toBe("nightly");
+		expect(result.current.updateAvailable).toBe(false);
+	});
+
+	it("offers the stable release when running a prerelease of the same version", async () => {
+		// A prerelease counts as a release (isDev=false) but is behind its final
+		// tag: "v1.0.0-beta" should still surface "v1.0.0" as an update.
+		server.use(...mockSettings({ body: { app_version: "v1.0.0-beta" } }));
+		server.use(...mockVersionLatest({ body: { tag_name: "v1.0.0" } }));
+
+		const { result } = renderHook(() => useGitHubVersion());
+
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 0));
+		});
+
+		expect(result.current.isDev).toBe(false);
+		expect(result.current.updateAvailable).toBe(true);
+	});
+
 	it("flags a non-dev release build (isDev=false) for the v-less version format", async () => {
 		// .version ships without a leading "v" (e.g. "0.9.80"); that must still
 		// register as a real release, not a dev build.
