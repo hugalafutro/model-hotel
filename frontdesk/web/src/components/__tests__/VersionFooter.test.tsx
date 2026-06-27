@@ -48,6 +48,24 @@ it("release build: shows the tag and links to the repo (no commit deep-link)", a
 	expect(link.textContent).not.toContain("abc123def456");
 });
 
+it("git-describe build (tag + commits): treated as dev, shows + deep-links the commit", async () => {
+	// `make frontdesk-build` falls back to `git describe` when .version is absent,
+	// stamping e.g. "v1.2.3-15-gabc123". That is a dev build, not the v1.2.3
+	// release, so the footer must surface the commit and deep-link to it.
+	server.use(
+		http.get("/api/version", () =>
+			HttpResponse.json({
+				app_version: "v1.2.3-15-gabc123",
+				app_commit: "abc123def456",
+			}),
+		),
+	);
+	render(<VersionFooter />);
+
+	const link = await screen.findByRole("link", { name: /abc123def456/ });
+	expect(link).toHaveAttribute("href", `${REPO}/commit/abc123def456`);
+});
+
 it("dev build without a stamped commit: shows only dev, links to the repo", async () => {
 	server.use(
 		http.get("/api/version", () =>

@@ -7,12 +7,14 @@ const REPO_URL = "https://github.com/hugalafutro/model-hotel";
 const WIKI_URL =
 	"https://github.com/hugalafutro/model-hotel/wiki/High-Availability";
 
-// isDevVersion treats a build as a "dev" build unless its version looks like a
-// semver release tag (optionally v-prefixed). A `dev` image is rebuilt on every
-// master commit, so it shows its source commit SHA instead of a tag and never
-// claims to be a release. Mirrors the dashboard's useGitHubVersion classifier.
+// isDevVersion treats a build as a "dev" build unless its version is exactly a
+// semver release tag (optionally v-prefixed: "v1.2.3" / "1.2.3"). The match is
+// anchored so a `git describe` fallback like "v1.2.3-15-gabc123" or
+// "v1.2.3-dirty" is correctly classed as dev and shows its commit, rather than
+// masquerading as the v1.2.3 release. A `dev` image is rebuilt on every master
+// commit, so it shows its source commit SHA instead of a tag.
 function isDevVersion(v: string): boolean {
-	return !/^v?\d/.test(v);
+	return !/^v?\d+\.\d+\.\d+$/.test(v);
 }
 
 // VersionFooter shows which Front Desk build is running, centered at the bottom
