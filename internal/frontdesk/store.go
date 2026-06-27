@@ -445,10 +445,15 @@ func (s *Store) GetAutoSync(ctx context.Context) (AutoSyncConfig, error) {
 }
 
 // SetAutoSync persists the operator's auto-sync choice (enabled + designated
-// primary). It does not touch the last-applied hash; the poller owns that.
+// primary) and clears the last-applied hash in the same write. Resetting the
+// marker re-arms the poller: without it, re-enabling auto-sync or switching to a
+// primary whose config hash already equals the stored value would return early on
+// the next tick and never run a convergence pass, leaving replicas that drifted
+// while sync was off (or that should now follow the new primary) stale until the
+// primary's config next changed.
 func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string) error {
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ? WHERE id = 1`,
+		`UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ?, auto_sync_last_hash = '' WHERE id = 1`,
 		boolToInt(enabled), primaryID,
 	)
 	if err != nil {

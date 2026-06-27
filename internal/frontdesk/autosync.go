@@ -145,8 +145,17 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 
 	allConverged = true
 	for _, m := range members {
-		if m.ID == primary.ID || !m.HasToken {
-			continue // the source and token-less members are never written
+		if m.ID == primary.ID {
+			continue // the source is never written to
+		}
+		if !m.HasToken {
+			// A tokenless member can't be authenticated to, so it is skipped without
+			// flipping allConverged: counting it as not-converged would re-probe the
+			// whole fleet every tick for as long as it stayed tokenless. The skip is
+			// safe because the tokenless -> tokened transition only happens through
+			// createMember / patchMember, both of which call rearmAutoSync to clear the
+			// applied hash and force this pass to re-run once the member is syncable.
+			continue
 		}
 		token, ok, err := s.store.MemberToken(ctx, m.ID)
 		if err != nil || !ok {

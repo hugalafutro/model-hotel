@@ -537,6 +537,65 @@ func TestGetAutoSyncHandler(t *testing.T) {
 	}
 }
 
+// TestSetAutoSyncClearsAppliedHash: changing the auto-sync setup resets the
+// last-applied hash, so the next poll always runs a convergence pass.
+func TestSetAutoSyncClearsAppliedHash(t *testing.T) {
+	_, store := newTestServer(t)
+	pm, _ := store.CreateMember(t.Context(), "primary", "http://127.0.0.1:9", "tok")
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	if err := store.SetAutoSyncLastHash(t.Context(), "hash-X"); err != nil {
+		t.Fatalf("SetAutoSyncLastHash: %v", err)
+	}
+	// Re-applying the setup (re-enable, or any primary change) must clear the hash.
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash != "" {
+		t.Errorf("LastHash = %q after re-applying setup, want cleared", cfg.LastHash)
+	}
+}
+
+// TestAutoSyncReEnableConvergesDriftedReplica is the activation-gap fix (Greptile
+// P1): a replica that drifted while sync was off is brought back in line when the
+// operator re-enables auto-sync, even though the primary's config never changed.
+func TestAutoSyncReEnableConvergesDriftedReplica(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	// Simulate a prior convergence at hash-B that is now stale (replica drifted).
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	if err := store.SetAutoSyncLastHash(t.Context(), "hash-B"); err != nil {
+		t.Fatalf("SetAutoSyncLastHash: %v", err)
+	}
+
+	// Operator re-applies the setup through the API; this must re-arm the loop.
+	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync", `{"enabled":true,"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("put autosync = %d (%s)", rec.Code, rec.Body.String())
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash != "" {
+		t.Fatalf("LastHash = %q after re-enable, want cleared", cfg.LastHash)
+	}
+
+	// A settled pass now converges the drifted replica without the primary changing.
+	prev := srv.autoSyncOnce(t.Context(), "")
+	srv.autoSyncOnce(t.Context(), prev)
+	if !replica.didRealSync() {
+		t.Error("re-enabling auto-sync did not converge a replica that drifted while off")
+	}
+}
+
 // TestStoreAutoSyncDBErrors: the auto-sync store methods surface DB failures
 // rather than swallowing them. Closing the handle forces every query to fail.
 func TestStoreAutoSyncDBErrors(t *testing.T) {
