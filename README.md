@@ -248,6 +248,7 @@ ADMIN_TOKEN=
                 context: .
                 args:
                     VERSION: ${VERSION:-dev}
+                    COMMIT: ${COMMIT:-unknown}
             # Prebuilt images (uncomment 1 image according to registry preference, comment out build above):
             # image: ghcr.io/hugalafutro/model-hotel:latest
             # image: hugalafutro/model-hotel:latest

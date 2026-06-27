@@ -14,6 +14,8 @@ export interface VersionInfo {
 	latest: string;
 	/** Running instance version from /api/settings app_version (e.g. "v1.0.0" or "dev") */
 	running: string;
+	/** Source commit SHA the running build was stamped with, or "" if unknown */
+	commit: string;
 	/** True when latest > running (both are semver-like tags) */
 	updateAvailable: boolean;
 }
@@ -55,6 +57,7 @@ export function useGitHubVersion(): VersionInfo {
 	});
 
 	const [running, setRunning] = useState<string>("dev");
+	const [commit, setCommit] = useState<string>("");
 
 	// Fetch running version from settings API once
 	useEffect(() => {
@@ -62,8 +65,13 @@ export function useGitHubVersion(): VersionInfo {
 		api.settings
 			.get()
 			.then((settings) => {
-				if (!cancelled && settings.app_version) {
+				if (cancelled) return;
+				if (settings.app_version) {
 					setRunning(settings.app_version);
+				}
+				// "unknown" is the un-stamped sentinel; treat it as no commit.
+				if (settings.app_commit && settings.app_commit !== "unknown") {
+					setCommit(settings.app_commit);
 				}
 			})
 			.catch(() => {
@@ -117,5 +125,5 @@ export function useGitHubVersion(): VersionInfo {
 	const updateAvailable =
 		latest !== "GitHub" && compareSemverTags(latest, running);
 
-	return { latest, running, updateAvailable };
+	return { latest, running, commit, updateAvailable };
 }
