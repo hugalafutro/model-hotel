@@ -508,12 +508,31 @@ func (s *Server) getAutoSync(w http.ResponseWriter, r *http.Request) {
 // a primary, or naming a primary that is unknown or has no stored admin token, is
 // rejected: the loop could not authenticate to pull its config, so the choice
 // would silently do nothing.
+//
+// Repointing or clearing an already-configured primary is high-impact (it changes
+// which instance's config gets pushed across the whole fleet), so it is gated on a
+// fresh admin-token confirmation. The bearer may be a passkey/TOTP session token
+// rather than the raw FRONTDESK_TOKEN, so the check happens here against AdminMgr
+// rather than client-side. The first primary selection (none configured yet) and
+// changes that leave the primary untouched (e.g. just toggling enabled) need no
+// confirmation.
 func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Enabled   bool   `json:"enabled"`
-		PrimaryID string `json:"primary_id"`
+		Enabled      bool   `json:"enabled"`
+		PrimaryID    string `json:"primary_id"`
+		ConfirmToken string `json:"confirm_token"`
 	}
 	if !decodeJSON(w, r, &req) {
+		return
+	}
+	cur, err := s.store.GetAutoSync(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if cur.PrimaryID != "" && req.PrimaryID != cur.PrimaryID &&
+		!s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken)) {
+		http.Error(w, "confirm the admin token to change or clear the configured primary", http.StatusForbidden)
 		return
 	}
 	if req.PrimaryID != "" {

@@ -669,8 +669,9 @@ func TestGetAutoSyncHandlerDBError(t *testing.T) {
 	}
 }
 
-// TestPutAutoSyncDBError: a store write failure surfaces as a 500. primary_id is
-// empty so the handler skips validation and fails on the persist itself.
+// TestPutAutoSyncDBError: a store failure surfaces as a 500. The handler reads the
+// current config first (to gate primary changes), so on a closed DB it fails on
+// that read before reaching validation or the persist.
 func TestPutAutoSyncDBError(t *testing.T) {
 	srv, store := newTestServer(t)
 	if err := store.db.Close(); err != nil {
@@ -689,7 +690,10 @@ func TestPutAutoSyncDisable(t *testing.T) {
 	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
 		t.Fatalf("SetAutoSync: %v", err)
 	}
-	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync", `{"enabled":false,"primary_id":""}`, true)
+	// Clearing the configured primary is gated on a fresh admin-token confirmation
+	// (TestServerAutoSyncPrimaryGate covers the refusal path), so pass the token.
+	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
+		`{"enabled":false,"primary_id":"","confirm_token":"`+testFrontdeskToken+`"}`, true)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("disable = %d (%s)", rec.Code, rec.Body.String())
 	}

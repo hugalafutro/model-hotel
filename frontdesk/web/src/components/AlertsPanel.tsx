@@ -1,3 +1,4 @@
+import { ArrowSquareOut } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
@@ -8,6 +9,10 @@ import { useToast } from "../context/ToastContext";
 // unchanged preserves the stored secret; any other value replaces it. Must match
 // the server's alertMaskValue.
 const MASK = "********";
+
+// Official Apprise docs listing every supported service and its URL shape, the
+// same reference the main dashboard links from its alert settings.
+const APPRISE_SERVICES_URL = "https://AppriseIt.com/services/";
 
 // Display dot colour per event/display severity, using the Front Desk palette.
 const SEVERITY_COLOR: Record<string, string> = {
@@ -231,7 +236,19 @@ export function AlertsPanel() {
 				>
 					{target === MASK
 						? t("settings.alerts.targetStoredNote")
-						: t("settings.alerts.targetHint")}
+						: t("settings.alerts.targetHint")}{" "}
+					<a
+						className="fd-link"
+						href={APPRISE_SERVICES_URL}
+						target="_blank"
+						rel="noreferrer"
+					>
+						{t("settings.alerts.browseServices")}
+						<ArrowSquareOut
+							size={12}
+							style={{ marginLeft: 3, verticalAlign: "-1px" }}
+						/>
+					</a>
 				</div>
 			</div>
 

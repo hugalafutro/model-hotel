@@ -77,3 +77,57 @@ it("requires a primary before enabling, then warns when active", async () => {
 	// The amber warning appears once auto-sync is active.
 	expect(await screen.findByText(/Automatic sync is on/i)).toBeTruthy();
 });
+
+it("gates repointing an already-set primary behind the admin token", async () => {
+	const puts: Array<{
+		enabled: boolean;
+		primary_id: string;
+		confirm_token?: string;
+	}> = [];
+	server.use(
+		http.get("/api/fleet/autosync", () =>
+			HttpResponse.json({ enabled: true, primary_id: "1" }),
+		),
+		http.put("/api/fleet/autosync", async ({ request }) => {
+			const body = (await request.json()) as (typeof puts)[number];
+			puts.push(body);
+			// Mirror the backend: refuse a primary change without the admin token.
+			if (!body.confirm_token) {
+				return new HttpResponse("confirm the admin token", { status: 403 });
+			}
+			return HttpResponse.json({ enabled: true, primary_id: body.primary_id });
+		}),
+	);
+	render(
+		<ToastProvider>
+			<AutoSyncPanel
+				members={[member("1", "hotel-1"), member("3", "hotel-3")]}
+			/>
+		</ToastProvider>,
+	);
+
+	// Pick a different primary: the change must be held, not persisted yet.
+	await userEvent.selectOptions(await screen.findByRole("combobox"), "3");
+	const dialog = await screen.findByRole("dialog");
+	expect(puts).toHaveLength(0);
+
+	// Confirm stays blocked until a token is entered.
+	const confirmBtn = within(dialog).getByRole("button", {
+		name: /confirm change/i,
+	});
+	expect(confirmBtn).toBeDisabled();
+
+	await userEvent.type(
+		within(dialog).getByLabelText(/admin token/i),
+		"s3cret-token",
+	);
+	await userEvent.click(confirmBtn);
+
+	await waitFor(() =>
+		expect(puts).toContainEqual({
+			enabled: true,
+			primary_id: "3",
+			confirm_token: "s3cret-token",
+		}),
+	);
+});

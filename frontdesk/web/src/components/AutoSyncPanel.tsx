@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { AutoSyncConfig, MemberView } from "../api/types";
 import { useToast } from "../context/ToastContext";
+import { ConfirmModal } from "./ConfirmModal";
 import { Notice } from "./Notice";
 
 // AutoSyncPanel is the "set and forget" control for HA config replication: pick a
@@ -22,6 +23,11 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 	const [loadError, setLoadError] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [saveError, setSaveError] = useState("");
+	// Candidate primary awaiting admin-token confirmation (null = no prompt). "" is
+	// a real candidate meaning "clear the primary", so it must stay distinct.
+	const [pendingPrimary, setPendingPrimary] = useState<string | null>(null);
+	const [confirmToken, setConfirmToken] = useState("");
+	const [confirmError, setConfirmError] = useState("");
 
 	useEffect(() => {
 		api
@@ -32,18 +38,60 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 
 	if (loadError || !cfg) return null; // stay quiet on load; the wizard still works
 
-	const persist = async (next: AutoSyncConfig) => {
+	const errorMessage = (err: unknown): string =>
+		err instanceof ApiError && (err.status === 400 || err.status === 403)
+			? err.message
+			: t("errors.generic");
+
+	const persist = async (next: AutoSyncConfig, confirm?: string) => {
 		setSaveError("");
 		setSaving(true);
 		try {
-			setCfg(await api.putAutoSync(next));
+			setCfg(await api.putAutoSync(next, confirm));
 			toast(t("settings.autoSync.saved"), "success");
+			return true;
 		} catch (err) {
-			setSaveError(
-				err instanceof ApiError && err.status === 400
-					? err.message
-					: t("errors.generic"),
+			setSaveError(errorMessage(err));
+			return false;
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	// Repointing or clearing a primary that is already set is high-impact, so route
+	// it through an admin-token confirmation. The first selection (none set yet)
+	// applies immediately.
+	const onSelectPrimary = (value: string) => {
+		if (cfg.primary_id !== "" && value !== cfg.primary_id) {
+			setConfirmToken("");
+			setConfirmError("");
+			setPendingPrimary(value);
+			return;
+		}
+		void persist({ ...cfg, primary_id: value });
+	};
+
+	const closeConfirm = () => {
+		setPendingPrimary(null);
+		setConfirmToken("");
+		setConfirmError("");
+	};
+
+	const confirmPrimaryChange = async () => {
+		if (pendingPrimary === null) return;
+		setConfirmError("");
+		setSaving(true);
+		try {
+			setCfg(
+				await api.putAutoSync(
+					{ ...cfg, primary_id: pendingPrimary },
+					confirmToken.trim(),
+				),
 			);
+			toast(t("settings.autoSync.saved"), "success");
+			closeConfirm();
+		} catch (err) {
+			setConfirmError(errorMessage(err));
 		} finally {
 			setSaving(false);
 		}
@@ -70,7 +118,7 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 					className="ui-input"
 					value={cfg.primary_id}
 					disabled={saving}
-					onChange={(e) => persist({ ...cfg, primary_id: e.target.value })}
+					onChange={(e) => onSelectPrimary(e.target.value)}
 				>
 					<option value="">{t("settings.autoSync.primaryNone")}</option>
 					{tokenedMembers.map((m) => (
@@ -114,6 +162,42 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 				<div className="fd-error-text" role="alert">
 					{saveError}
 				</div>
+			)}
+
+			{pendingPrimary !== null && (
+				<ConfirmModal
+					title={t("settings.autoSync.confirmPrimaryTitle")}
+					confirmLabel={t("settings.autoSync.confirmPrimaryAction")}
+					confirmDisabled={!confirmToken.trim()}
+					busy={saving}
+					onConfirm={() => void confirmPrimaryChange()}
+					onClose={closeConfirm}
+				>
+					<p style={{ marginTop: 0 }}>
+						{pendingPrimary === ""
+							? t("settings.autoSync.confirmPrimaryClearBody")
+							: t("settings.autoSync.confirmPrimaryChangeBody")}
+					</p>
+					<div className="ui-field">
+						<label className="ui-label" htmlFor="fd-autosync-confirm-token">
+							{t("settings.autoSync.confirmTokenLabel")}
+						</label>
+						<input
+							id="fd-autosync-confirm-token"
+							className="ui-input"
+							type="password"
+							autoComplete="current-password"
+							value={confirmToken}
+							onChange={(e) => setConfirmToken(e.target.value)}
+							placeholder={t("settings.autoSync.confirmTokenPlaceholder")}
+						/>
+					</div>
+					{confirmError && (
+						<div className="fd-error-text" role="alert">
+							{confirmError}
+						</div>
+					)}
+				</ConfirmModal>
 			)}
 		</div>
 	);

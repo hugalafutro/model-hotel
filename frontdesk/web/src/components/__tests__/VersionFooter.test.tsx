@@ -16,7 +16,7 @@ function buildLink(): HTMLAnchorElement {
 	return link;
 }
 
-it("dev build with a commit: shows dev + sha and deep-links to the commit", async () => {
+it("dev build with a commit: shows dev, puts the sha in the tooltip, deep-links to the commit", async () => {
 	server.use(
 		http.get("/api/version", () =>
 			HttpResponse.json({ app_version: "dev", app_commit: "abc123def456" }),
@@ -24,9 +24,17 @@ it("dev build with a commit: shows dev + sha and deep-links to the commit", asyn
 	);
 	render(<VersionFooter />);
 
-	const link = await screen.findByRole("link", { name: /abc123def456/ });
-	expect(link).toHaveAttribute("href", `${REPO}/commit/abc123def456`);
+	await waitFor(() =>
+		expect(buildLink()).toHaveAttribute("href", `${REPO}/commit/abc123def456`),
+	);
+	const link = buildLink();
 	expect(link.textContent).toContain("dev");
+	// The commit SHA lives in the hover tooltip, not the visible label.
+	expect(link.textContent).not.toContain("abc123def456");
+	expect(link).toHaveAttribute(
+		"title",
+		expect.stringContaining("abc123def456"),
+	);
 
 	// The HA wiki link is always present alongside the build link.
 	const wiki = screen.getByRole("link", { name: /HA Wiki/ });
@@ -62,8 +70,15 @@ it("git-describe build (tag + commits): treated as dev, shows + deep-links the c
 	);
 	render(<VersionFooter />);
 
-	const link = await screen.findByRole("link", { name: /abc123def456/ });
-	expect(link).toHaveAttribute("href", `${REPO}/commit/abc123def456`);
+	await waitFor(() =>
+		expect(buildLink()).toHaveAttribute("href", `${REPO}/commit/abc123def456`),
+	);
+	// Dev build: the describe string shows, the SHA sits in the tooltip.
+	expect(buildLink().textContent).toContain("v1.2.3-15-gabc123");
+	expect(buildLink()).toHaveAttribute(
+		"title",
+		expect.stringContaining("abc123def456"),
+	);
 });
 
 it("dev build without a stamped commit: shows only dev, links to the repo", async () => {
