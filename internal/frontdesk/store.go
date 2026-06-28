@@ -492,6 +492,55 @@ func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string)
 	return nil
 }
 
+// SetAutoSyncGuarded persists the auto-sync choice while enforcing the repoint
+// guard in the same statement that writes, so there is no read-modify-write
+// window a concurrent repoint could slip through. When the caller is authorized
+// (tokenValid, a valid admin token), the choice is written unconditionally.
+// Otherwise the write only applies when it does not repoint an already-configured
+// primary: either none is set yet, or the request leaves the primary unchanged
+// (e.g. just toggling enabled). Reports whether the row was updated; false means
+// the change needed admin confirmation (or lost a concurrent repoint) and the
+// caller must refuse it. Clears the last-applied hash like SetAutoSync, for the
+// same re-arm reason.
+func (s *Store) SetAutoSyncGuarded(ctx context.Context, enabled bool, primaryID string, tokenValid bool) (bool, error) {
+	// auto_sync_enabled rules, evaluated in order against the row's pre-update
+	// primary (SQLite reads SET right-hand sides from the original row):
+	//   - clearing the primary (new primary empty) forces it off: auto-sync cannot
+	//     run without a primary, so this holds the invariant regardless of the
+	//     request's flag and independent of any concurrent enable.
+	//   - a first set (no primary yet) or an unchanged-primary toggle honors the
+	//     requested value: these are the enable/disable control itself.
+	//   - a true repoint (new primary differs from the stored one) keeps the stored
+	//     value, so a confirmed primary change can never overwrite an enable/disable
+	//     another operator made concurrently.
+	const set = `UPDATE settings SET
+		auto_sync_primary_id = ?,
+		auto_sync_enabled = CASE
+			WHEN ? = '' THEN 0
+			WHEN auto_sync_primary_id = '' OR auto_sync_primary_id = ? THEN ?
+			ELSE auto_sync_enabled
+		END,
+		auto_sync_last_hash = ''
+	WHERE id = 1`
+	query := set
+	args := []any{primaryID, primaryID, primaryID, boolToInt(enabled)}
+	if !tokenValid {
+		// Unauthorized writes may not repoint a configured primary: apply only when
+		// none is set yet or the primary is left unchanged.
+		query += ` AND (auto_sync_primary_id = '' OR auto_sync_primary_id = ?)`
+		args = append(args, primaryID)
+	}
+	res, err := s.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return false, fmt.Errorf("frontdesk: set auto-sync (guarded): %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("frontdesk: set auto-sync (guarded) rows: %w", err)
+	}
+	return n > 0, nil
+}
+
 // SetAutoSyncLastHash records the primary config hash the poller just applied to
 // the fleet, so the next tick can detect a change cheaply.
 func (s *Store) SetAutoSyncLastHash(ctx context.Context, hash string) error {

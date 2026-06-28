@@ -168,8 +168,16 @@ export const api = {
 	// primary. Front Desk's poller watches that primary and re-syncs the fleet
 	// when its config changes.
 	getAutoSync: () => request<AutoSyncConfig>("/api/fleet/autosync"),
-	putAutoSync: (cfg: AutoSyncConfig) =>
-		request<AutoSyncConfig>("/api/fleet/autosync", jsonInit("PUT", cfg)),
+	// confirmToken re-authenticates the operator when repointing or clearing an
+	// already-configured primary; the backend rejects that change without it.
+	putAutoSync: (cfg: AutoSyncConfig, confirmToken?: string) =>
+		request<AutoSyncConfig>(
+			"/api/fleet/autosync",
+			jsonInit(
+				"PUT",
+				confirmToken ? { ...cfg, confirm_token: confirmToken } : cfg,
+			),
+		),
 
 	configSync: (primaryId: string) =>
 		request<SyncResult>(

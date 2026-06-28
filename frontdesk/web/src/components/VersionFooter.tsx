@@ -18,9 +18,10 @@ function isDevVersion(v: string): boolean {
 }
 
 // VersionFooter shows which Front Desk build is running, centered at the bottom
-// of the shell, plus a link to the HA wiki. The version (or "dev · <sha>") links
-// to GitHub: a stamped dev build deep-links to its exact commit, anything else
-// to the repo. The probe is non-critical, so a failure just hides the footer.
+// of the shell, plus a link to the HA wiki. The version (e.g. "dev") links to
+// GitHub: a stamped dev build deep-links to its exact commit and surfaces the
+// SHA in its hover tooltip, anything else links to the repo. The probe is
+// non-critical, so a failure just hides the footer.
 export function VersionFooter() {
 	const { t } = useTranslation();
 	const [info, setInfo] = useState<VersionInfo | null>(null);
@@ -45,14 +46,17 @@ export function VersionFooter() {
 	const dev = isDevVersion(info.app_version);
 	const hasCommit = info.app_commit !== "" && info.app_commit !== "unknown";
 
-	// A release shows its tag; a dev build shows "dev · <sha>" (or just "dev" when
-	// no commit was stamped).
-	const label =
-		dev && hasCommit
-			? `${info.app_version} · ${info.app_commit}`
-			: info.app_version;
+	// The label always shows just the version (e.g. "dev" or "v1.2.3"); the build
+	// commit lives in the tooltip rather than inline, matching the main dashboard.
+	const label = info.app_version;
 
-	// A stamped dev build deep-links to its commit; everything else to the repo.
+	// A stamped dev build surfaces its source commit in the hover tooltip and
+	// deep-links to it; everything else links to the repo and keeps the generic
+	// tooltip.
+	const title =
+		dev && hasCommit
+			? t("footer.builtFromCommit", { commit: info.app_commit })
+			: t("footer.viewOnGitHub");
 	const href =
 		dev && hasCommit ? `${REPO_URL}/commit/${info.app_commit}` : REPO_URL;
 
@@ -63,7 +67,7 @@ export function VersionFooter() {
 				href={href}
 				target="_blank"
 				rel="noreferrer"
-				title={t("footer.viewOnGitHub")}
+				title={title}
 			>
 				{t("app.title")} <span className="fd-mono">{label}</span>
 			</a>

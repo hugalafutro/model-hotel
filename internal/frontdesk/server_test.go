@@ -229,6 +229,66 @@ func TestServerLogout(t *testing.T) {
 	}
 }
 
+func TestServerAutoSyncPrimaryGate(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example.com", "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	m2, err := store.CreateMember(ctx, "hotel-2", "https://h2.example.com", "tok2")
+	if err != nil {
+		t.Fatalf("create m2: %v", err)
+	}
+
+	put := func(body string) *httptest.ResponseRecorder {
+		return do(t, srv, http.MethodPut, "/api/fleet/autosync", body, true)
+	}
+	primaryNow := func() string {
+		rec := do(t, srv, http.MethodGet, "/api/fleet/autosync", "", true)
+		var cfg struct {
+			PrimaryID string `json:"primary_id"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &cfg)
+		return cfg.PrimaryID
+	}
+
+	// First selection (none configured yet) needs no confirmation.
+	if rec := put(`{"enabled":false,"primary_id":"` + m1.ID + `"}`); rec.Code != http.StatusOK {
+		t.Fatalf("initial primary = %d; body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Repointing an already-set primary without the admin token is refused.
+	if rec := put(`{"enabled":false,"primary_id":"` + m2.ID + `"}`); rec.Code != http.StatusForbidden {
+		t.Errorf("repoint without token = %d, want 403; body=%s", rec.Code, rec.Body.String())
+	}
+	// A wrong token is equally refused.
+	if rec := put(`{"enabled":false,"primary_id":"` + m2.ID + `","confirm_token":"nope"}`); rec.Code != http.StatusForbidden {
+		t.Errorf("repoint wrong token = %d, want 403", rec.Code)
+	}
+	if got := primaryNow(); got != m1.ID {
+		t.Errorf("primary changed despite refusal: got %q, want %q", got, m1.ID)
+	}
+	// The correct admin token lets the repoint through.
+	if rec := put(`{"enabled":false,"primary_id":"` + m2.ID + `","confirm_token":"` + testFrontdeskToken + `"}`); rec.Code != http.StatusOK {
+		t.Fatalf("repoint with token = %d; body=%s", rec.Code, rec.Body.String())
+	}
+	if got := primaryNow(); got != m2.ID {
+		t.Errorf("primary after confirmed repoint: got %q, want %q", got, m2.ID)
+	}
+
+	// Clearing the primary is gated the same way.
+	if rec := put(`{"enabled":false,"primary_id":""}`); rec.Code != http.StatusForbidden {
+		t.Errorf("clear without token = %d, want 403", rec.Code)
+	}
+	if rec := put(`{"enabled":false,"primary_id":"","confirm_token":"` + testFrontdeskToken + `"}`); rec.Code != http.StatusOK {
+		t.Fatalf("clear with token = %d; body=%s", rec.Code, rec.Body.String())
+	}
+	if got := primaryNow(); got != "" {
+		t.Errorf("primary after confirmed clear: got %q, want empty", got)
+	}
+}
+
 func TestServerEventsAndStatus(t *testing.T) {
 	srv, _ := newTestServer(t)
 

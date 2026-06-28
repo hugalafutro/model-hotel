@@ -595,6 +595,85 @@ func TestSetAutoSyncClearsAppliedHash(t *testing.T) {
 	}
 }
 
+// TestSetAutoSyncGuarded covers the atomic repoint guard: an unauthorized write
+// may set the first primary or leave it unchanged, but may not repoint a
+// configured one; an authorized (valid-token) write may repoint freely.
+func TestSetAutoSyncGuarded(t *testing.T) {
+	_, store := newTestServer(t)
+	a, _ := store.CreateMember(t.Context(), "a", "http://127.0.0.1:9", "tok")
+	b, _ := store.CreateMember(t.Context(), "b", "http://127.0.0.1:8", "tok")
+
+	// First set from the empty state needs no token.
+	applied, err := store.SetAutoSyncGuarded(t.Context(), true, a.ID, false)
+	if err != nil {
+		t.Fatalf("guarded first: %v", err)
+	}
+	if !applied {
+		t.Fatal("first set from empty primary should apply without a token")
+	}
+
+	// Toggling enabled while leaving the primary unchanged needs no token and is
+	// honored (this is the enable/disable control).
+	applied, err = store.SetAutoSyncGuarded(t.Context(), true, a.ID, false)
+	if err != nil {
+		t.Fatalf("guarded unchanged: %v", err)
+	}
+	if !applied {
+		t.Fatal("unchanged-primary write should apply without a token")
+	}
+	if cfg, _ := store.GetAutoSync(t.Context()); !cfg.Enabled {
+		t.Fatal("unchanged-primary toggle should have enabled auto-sync")
+	}
+
+	// Repointing a configured primary without a valid token must not apply and
+	// must leave the stored primary untouched.
+	applied, err = store.SetAutoSyncGuarded(t.Context(), true, b.ID, false)
+	if err != nil {
+		t.Fatalf("guarded unauthorized repoint: %v", err)
+	}
+	if applied {
+		t.Fatal("repoint without a token must not apply")
+	}
+	if cfg, _ := store.GetAutoSync(t.Context()); cfg.PrimaryID != a.ID {
+		t.Fatalf("primary = %q after refused repoint, want %q", cfg.PrimaryID, a.ID)
+	}
+
+	// The same repoint with a valid token applies, and must preserve the stored
+	// enabled flag: a confirmed primary change carries enabled=false here (a stale
+	// snapshot), but auto-sync is on, so it must stay on.
+	applied, err = store.SetAutoSyncGuarded(t.Context(), false, b.ID, true)
+	if err != nil {
+		t.Fatalf("guarded authorized repoint: %v", err)
+	}
+	if !applied {
+		t.Fatal("repoint with a valid token should apply")
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.PrimaryID != b.ID {
+		t.Fatalf("primary = %q after authorized repoint, want %q", cfg.PrimaryID, b.ID)
+	}
+	if !cfg.Enabled {
+		t.Fatal("repoint must preserve the stored enabled flag, not the request's stale value")
+	}
+
+	// Clearing the primary forces auto-sync off regardless of the request's flag:
+	// it cannot run without a primary, so even a stale enabled=true must not stick.
+	applied, err = store.SetAutoSyncGuarded(t.Context(), true, "", true)
+	if err != nil {
+		t.Fatalf("guarded clear: %v", err)
+	}
+	if !applied {
+		t.Fatal("clear with a valid token should apply")
+	}
+	cfg, _ = store.GetAutoSync(t.Context())
+	if cfg.PrimaryID != "" {
+		t.Fatalf("primary = %q after clear, want empty", cfg.PrimaryID)
+	}
+	if cfg.Enabled {
+		t.Fatal("clearing the primary must force auto-sync off")
+	}
+}
+
 // TestAutoSyncReEnableConvergesDriftedReplica is the activation-gap fix (Greptile
 // P1): a replica that drifted while sync was off is brought back in line when the
 // operator re-enables auto-sync, even though the primary's config never changed.
@@ -669,8 +748,8 @@ func TestGetAutoSyncHandlerDBError(t *testing.T) {
 	}
 }
 
-// TestPutAutoSyncDBError: a store write failure surfaces as a 500. primary_id is
-// empty so the handler skips validation and fails on the persist itself.
+// TestPutAutoSyncDBError: a store failure surfaces as a 500. Clearing the primary
+// skips member validation, so on a closed DB the guarded write is what fails.
 func TestPutAutoSyncDBError(t *testing.T) {
 	srv, store := newTestServer(t)
 	if err := store.db.Close(); err != nil {
@@ -689,7 +768,10 @@ func TestPutAutoSyncDisable(t *testing.T) {
 	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
 		t.Fatalf("SetAutoSync: %v", err)
 	}
-	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync", `{"enabled":false,"primary_id":""}`, true)
+	// Clearing the configured primary is gated on a fresh admin-token confirmation
+	// (TestServerAutoSyncPrimaryGate covers the refusal path), so pass the token.
+	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
+		`{"enabled":false,"primary_id":"","confirm_token":"`+testFrontdeskToken+`"}`, true)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("disable = %d (%s)", rec.Code, rec.Body.String())
 	}

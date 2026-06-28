@@ -25,6 +25,7 @@
 	},
 	"footer": {
 		"viewOnGitHub": "View this build on GitHub",
+		"builtFromCommit": "Built from commit {{commit}}",
 		"wiki": "HA Wiki"
 	},
 	"tabs": {
@@ -175,7 +176,13 @@
 			"enableLabel": "Keep the fleet synced to the primary automatically",
 			"enableHint": "Checks the primary every few seconds and re-syncs members when its config changes.",
 			"activeWarning": "Automatic sync is on. A change on the primary replaces config on every other member, which can remove providers or keys they have but the primary does not. Each member is backed up first so a bad change can be rolled back.",
-			"saved": "Auto-sync updated"
+			"saved": "Auto-sync updated",
+			"confirmPrimaryTitle": "Confirm primary change",
+			"confirmPrimaryChangeBody": "Repointing the primary changes which instance's config is pushed to the whole fleet. Enter the admin token to confirm.",
+			"confirmPrimaryClearBody": "Clearing the primary turns off automatic config sync for the fleet. Enter the admin token to confirm.",
+			"confirmPrimaryAction": "Confirm change",
+			"confirmTokenLabel": "Admin token",
+			"confirmTokenPlaceholder": "Enter the Front Desk admin token"
 		},
 		"alerts": {
 			"title": "Alerts",
@@ -186,6 +193,7 @@
 			"targetLabel": "Notification target(s)",
 			"targetHint": "One or more Apprise URLs, separated by ; (e.g. tgram://token/chat_id). Stored encrypted.",
 			"targetStoredNote": "A target is stored (hidden). Leave as-is to keep it, type a new value to replace it, or clear it to remove.",
+			"browseServices": "Browse all 80+ services",
 			"eventsLabel": "Notify on",
 			"eventsHint": "Choose which fleet events send a notification.",
 			"event": {
