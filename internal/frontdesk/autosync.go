@@ -220,9 +220,14 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 	// import already in flight is aborted rather than completing a now-stale write.
 	// All member HTTP calls below run under passCtx; the deferred cancel stops the
 	// watcher when the pass returns, so it never outlives this call.
+	//
+	// rearmCh is captured before watchRearm re-reads the generation, so a rearm that
+	// lands in that gap still wakes the watcher (the channel is closed, not missed)
+	// rather than slipping through an interval-poll window.
+	rearmCh := s.rearmChan()
 	passCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go s.watchRearm(passCtx, gen, cancel)
+	go s.watchRearm(passCtx, rearmCh, gen, cancel)
 
 	export, err := s.fetchMemberExport(passCtx, primary, primaryToken)
 	if err != nil {
@@ -331,26 +336,27 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 // watchRearm cancels a convergence pass the moment its rearm generation goes
 // stale, giving an in-flight member import a real cancellation point: a repoint
 // or rearm (which bumps auto_sync_gen) lands while applyMemberConfig is mid-flight
-// and the HTTP request is aborted instead of finishing a now-stale write. It polls
-// rather than waits on an event because rearm is a bare DB write with no in-process
-// signal; the interval is short relative to an import yet coarse enough to add no
-// real DB load, and the loop exits the instant ctx is done (the deferred cancel in
+// and the HTTP request is aborted instead of finishing a now-stale write.
+//
+// rearmCh is the in-process broadcast closed by signalRearm, so the wake is
+// synchronous with the generation bump rather than gated on a poll interval. The
+// generation is re-read first to close the gap between the caller capturing gen and
+// this watcher starting (a rearm there has already moved auto_sync_gen but its
+// channel close may predate our capture); after that, the channel close is the
+// signal. The watcher exits the instant ctx is done (the deferred cancel in
 // applyAutoSync), so it never outlives the pass. A transient read error is ignored:
 // the generation-guarded hash write stays the backstop if cancellation is missed.
-func (s *Server) watchRearm(ctx context.Context, gen int64, cancel context.CancelFunc) {
-	const interval = 250 * time.Millisecond
-	t := time.NewTicker(interval)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			if cur, err := s.store.AutoSyncGen(ctx); err == nil && cur != gen {
-				cancel()
-				return
-			}
-		}
+func (s *Server) watchRearm(ctx context.Context, rearmCh <-chan struct{}, gen int64, cancel context.CancelFunc) {
+	if cur, err := s.store.AutoSyncGen(ctx); err == nil && cur != gen {
+		cancel()
+		return
+	}
+	select {
+	case <-ctx.Done():
+	case <-rearmCh:
+		// A rearm/repoint broadcast woke us. It only fires after auto_sync_gen has
+		// moved, so any wake means this pass is stale: cancel it.
+		cancel()
 	}
 }
 

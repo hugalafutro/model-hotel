@@ -354,9 +354,7 @@ func TestConvergeFleetCancelsImportInFlightOnRearm(t *testing.T) {
 	// on it once the client call is cancelled.
 	const stall = 2 * time.Second
 	replica.onImport = func(reqCtx context.Context) bool {
-		if err := store.RearmAutoSync(t.Context()); err != nil {
-			t.Errorf("RearmAutoSync: %v", err)
-		}
+		srv.rearmAutoSync(t.Context()) // bumps the generation and broadcasts the cancel
 		select {
 		case <-reqCtx.Done():
 		case <-time.After(stall):
