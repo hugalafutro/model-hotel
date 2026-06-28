@@ -147,10 +147,19 @@ export function startIdleLogout(opts: IdleLogoutOptions): () => void {
 	win.addEventListener("storage", onStorage);
 	win.document?.addEventListener?.("visibilitychange", onVisibility);
 
-	// Seed from a peer tab's deadline if one is already set (so opening a second
-	// tab doesn't reset everyone's clock); otherwise establish the baseline.
+	// Seed from a peer tab's deadline if one is already set and still live (so
+	// opening a second tab doesn't reset everyone's clock); otherwise establish
+	// the baseline. A stale timestamp whose deadline already elapsed is ignored:
+	// logout clears only the auth token, so the prior session's value lingers in
+	// storage, and arming from it would compute a zero-delay timer that bounces
+	// the user straight back to login right after they sign in. A fresh start
+	// means the user is present now, so begin the window now and overwrite it.
 	const seeded = readStored();
-	if (seeded != null && seeded <= Date.now()) {
+	if (
+		seeded != null &&
+		seeded <= Date.now() &&
+		Date.now() < seeded + timeoutMs
+	) {
 		lastReset = seeded;
 		arm(seeded);
 	} else {

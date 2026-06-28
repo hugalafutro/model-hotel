@@ -140,6 +140,26 @@ describe("startIdleLogout", () => {
 		stop();
 	});
 
+	it("ignores a stale stored deadline on startup (no instant re-logout)", () => {
+		// A previous session left an expired timestamp behind: logout clears only
+		// the auth token, not this key. Startup must begin a fresh window rather
+		// than arm a zero-delay timer that bounces the user back to login.
+		localStorage.setItem(key, String(Date.now() - 10 * 60_000));
+
+		const onTimeout = vi.fn();
+		const stop = startIdleLogout({
+			timeoutMs: 5000,
+			onTimeout,
+			storageKey: key,
+		});
+
+		// Did not fire immediately, and fires on the fresh window, not the stale one.
+		expect(onTimeout).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(5000);
+		expect(onTimeout).toHaveBeenCalledTimes(1);
+		stop();
+	});
+
 	it("stops firing after cleanup", () => {
 		const onTimeout = vi.fn();
 		const stop = startIdleLogout({

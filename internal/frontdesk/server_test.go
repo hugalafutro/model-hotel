@@ -187,6 +187,19 @@ func TestServerSettings(t *testing.T) {
 		t.Errorf("session_idle_timeout_minutes=241 = %d, want 400", rec.Code)
 	}
 
+	// A JSON null for the int field is a no-op in encoding/json: it must preserve
+	// the stored value (30 above), NOT silently zero it to "never auto-logout".
+	// This is the partial-merge contract; an omitted field behaves identically.
+	if rec := do(t, srv, http.MethodPut, "/api/settings", `{"session_idle_timeout_minutes":null}`, true); rec.Code != http.StatusOK {
+		t.Fatalf("put null session timeout = %d; body=%s", rec.Code, rec.Body.String())
+	}
+	rec = do(t, srv, http.MethodGet, "/api/settings", "", true)
+	got = Settings{}
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if got.SessionIdleTimeoutMinutes != 30 {
+		t.Errorf("null preserved value: got %d, want 30 (unchanged)", got.SessionIdleTimeoutMinutes)
+	}
+
 	// Invalid settings -> 400.
 	if rec := do(t, srv, http.MethodPut, "/api/settings", `{"health_poll_secs":0,"traefik_poll_secs":1,"traefik_stale_secs":1,"event_retention_days":1,"retry_attempts":1}`, true); rec.Code != http.StatusBadRequest {
 		t.Errorf("invalid settings = %d, want 400", rec.Code)
