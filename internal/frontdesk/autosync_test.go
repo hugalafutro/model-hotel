@@ -32,6 +32,10 @@ type stubAutoMember struct {
 	gotBackup   bool
 	gotRealSync bool
 	onBackup    func() // fired inside the backup handler, to simulate a rearm landing mid-pass
+	// onImport fires inside the real (non-dry-run) import handler. It receives the
+	// request context and returns whether the import should be recorded as applied;
+	// returning false models the import being cancelled in flight before it commits.
+	onImport func(reqCtx context.Context) (commit bool)
 }
 
 func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
@@ -73,6 +77,9 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 				}
 				_, _ = w.Write([]byte(`{"schema_version_ok":true,"master_key_ok":true,"applied":false,"diff":` + sm.dryDiff + `}`))
 				return
+			}
+			if sm.onImport != nil && !sm.onImport(r.Context()) {
+				return // import cancelled in flight before commit: record nothing
 			}
 			sm.gotRealSync = true
 			_, _ = w.Write([]byte(`{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":` + sm.dryDiff + `}`))
@@ -312,6 +319,58 @@ func TestConvergeFleetAbortsImportWhenRearmLandsAfterBackup(t *testing.T) {
 	}
 	if replica.didRealSync() {
 		t.Error("imported stale export after a rearm landed post-backup; want aborted before mutating")
+	}
+	got, _ := store.GetAutoSync(t.Context())
+	if got.LastHash != "" {
+		t.Errorf("stale pass recorded a hash after the rearm: %q, want empty", got.LastHash)
+	}
+}
+
+// TestConvergeFleetCancelsImportInFlightOnRearm: the irreducible window the pre-
+// import gates cannot cover. A rearm/repoint lands while the member import HTTP
+// call is already in flight. watchRearm must cancel the request context so the
+// import aborts before committing rather than writing the now-stale export, and
+// no hash is recorded so the rearm's own pass reconverges the member.
+func TestConvergeFleetCancelsImportInFlightOnRearm(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff // needs the new config, so it reaches the real import
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID, "hash-A")
+
+	cfg, _ := store.GetAutoSync(t.Context())
+	staleGen := cfg.Gen
+	// The repoint lands the instant the import arrives, then the member handler stalls
+	// well past the watcher's poll interval to model a slow import. If watchRearm does
+	// its job it cancels the client request out from under applyMemberConfig, so the
+	// pass returns far sooner than this ceiling; if it does not, the client blocks the
+	// full stall and the pass runs long. Elapsed time is therefore the cancellation
+	// signal. onImport never reports a commit, so didRealSync is a clean secondary
+	// check. The handler unblocking later is irrelevant: convergeFleet does not wait
+	// on it once the client call is cancelled.
+	const stall = 2 * time.Second
+	replica.onImport = func(reqCtx context.Context) bool {
+		if err := store.RearmAutoSync(t.Context()); err != nil {
+			t.Errorf("RearmAutoSync: %v", err)
+		}
+		select {
+		case <-reqCtx.Done():
+		case <-time.After(stall):
+		}
+		return false
+	}
+
+	start := time.Now()
+	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, staleGen)
+	if elapsed := time.Since(start); elapsed > stall-time.Second {
+		t.Errorf("convergeFleet ran %v; watchRearm did not cancel the in-flight import", elapsed)
+	}
+	if replica.didRealSync() {
+		t.Error("in-flight import committed after a rearm; want the request cancelled before commit")
 	}
 	got, _ := store.GetAutoSync(t.Context())
 	if got.LastHash != "" {

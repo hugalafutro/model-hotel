@@ -215,7 +215,16 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		return 0, false // a rearm already landed: don't push the stale export at all
 	}
 
-	export, err := s.fetchMemberExport(ctx, primary, primaryToken)
+	// passCtx is the cancellation point the pre-import gates alone cannot provide: a
+	// watcher cancels it the instant a rearm/repoint moves the generation, so an
+	// import already in flight is aborted rather than completing a now-stale write.
+	// All member HTTP calls below run under passCtx; the deferred cancel stops the
+	// watcher when the pass returns, so it never outlives this call.
+	passCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go s.watchRearm(passCtx, gen, cancel)
+
+	export, err := s.fetchMemberExport(passCtx, primary, primaryToken)
 	if err != nil {
 		debuglog.Warn("frontdesk: auto-sync: read primary export", "member", primary.Name, "error", err)
 		return 0, false
@@ -261,7 +270,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		}
 		// Decide whether this member needs the new config from its own dry-run
 		// diff, which compares by name and so is valid across instances.
-		res, status, err := s.pushMemberImport(ctx, m, token, export, true)
+		res, status, err := s.pushMemberImport(passCtx, m, token, export, true)
 		if err != nil {
 			debuglog.Debug("frontdesk: auto-sync: member unreachable, will retry", "member", m.Name, "status", status, "error", err)
 			allConverged = false
@@ -282,7 +291,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		// Snapshot before overwriting so a bad propagation is recoverable. A failed
 		// backup blocks this member's overwrite rather than risking an unrecoverable
 		// replace.
-		if err := s.backupMember(ctx, m, token); err != nil {
+		if err := s.backupMember(passCtx, m, token); err != nil {
 			debuglog.Warn("frontdesk: auto-sync: pre-sync backup failed, skipping member", "member", m.Name, "error", err)
 			s.emit(ctx, Event{
 				Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",
@@ -294,11 +303,10 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 
 		// Final staleness gate, tightest to the mutation: a rearm or primary repoint
 		// can land during this member's (slow) dry-run diff and pre-sync backup. Re-
-		// check here so we never import a now-stale export into a member the operator
-		// has just repointed away from. The only residual window is the in-flight
-		// import call itself, which no pre-check can close; the rearm's own pass
-		// repairs that member on the next tick. The backup just taken is harmless: it
-		// is a recoverable snapshot, not a config change.
+		// check here so we never even start an import the operator has invalidated.
+		// The narrow window between this check and the import committing on the member
+		// is closed by passCtx: the watchRearm goroutine cancels it, aborting the
+		// in-flight request. The backup just taken is harmless: a recoverable snapshot.
 		if stale() {
 			debuglog.Debug("frontdesk: auto-sync: aborting stale pass before import", "synced", applied)
 			allConverged = false
@@ -308,8 +316,9 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		// applyMemberConfig stamps the member's last-sync marker with this reason on
 		// success, so the Members table shows when and why it last converged. Per-
 		// member success events are suppressed here (emitSuccessEvent=false); the
-		// loop emits one roll-up below so a fleet sync does not toast per member.
-		out := s.applyMemberConfig(ctx, m, token, export, reason, false)
+		// loop emits one roll-up below so a fleet sync does not toast per member. It
+		// runs under passCtx so a rearm landing mid-import cancels the request.
+		out := s.applyMemberConfig(passCtx, m, token, export, reason, false)
 		if !out.OK {
 			allConverged = false
 			continue // applyMemberConfig already emitted the per-member failure
@@ -317,6 +326,32 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		applied++
 	}
 	return applied, allConverged
+}
+
+// watchRearm cancels a convergence pass the moment its rearm generation goes
+// stale, giving an in-flight member import a real cancellation point: a repoint
+// or rearm (which bumps auto_sync_gen) lands while applyMemberConfig is mid-flight
+// and the HTTP request is aborted instead of finishing a now-stale write. It polls
+// rather than waits on an event because rearm is a bare DB write with no in-process
+// signal; the interval is short relative to an import yet coarse enough to add no
+// real DB load, and the loop exits the instant ctx is done (the deferred cancel in
+// applyAutoSync), so it never outlives the pass. A transient read error is ignored:
+// the generation-guarded hash write stays the backstop if cancellation is missed.
+func (s *Server) watchRearm(ctx context.Context, gen int64, cancel context.CancelFunc) {
+	const interval = 250 * time.Millisecond
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if cur, err := s.store.AutoSyncGen(ctx); err == nil && cur != gen {
+				cancel()
+				return
+			}
+		}
+	}
 }
 
 // fetchMemberConfigVersion reads a member's syncable-config hash from
