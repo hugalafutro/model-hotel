@@ -23,6 +23,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/totp"
+	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
@@ -177,6 +178,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Get("/fleet/autosync", s.getAutoSync)
 			r.Put("/fleet/autosync", s.putAutoSync)
 			r.Post("/config/sync", s.configSync)
+			r.Post("/logout", s.logout)
 			r.Get("/sse", s.sse)
 		})
 	})
@@ -191,6 +193,18 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 // token (when TOTP is on, the raw token is a first factor only).
 func (s *Server) requireAuth(next http.Handler) http.Handler {
 	return adminauth.RequireAdminOrSession(s.adminMgr, s.sessionMgr, s.totpStatus.Enabled, next)
+}
+
+// logout revokes the caller's server-side session so a manual or idle auto-logout
+// drops the session everywhere, not just in the calling browser tab. The bearer
+// is either a passkey/TOTP session token (revoked here) or the raw FRONTDESK_TOKEN
+// (no session row, so RevokeAuthToken is a harmless no-op). Always returns 200;
+// the client clears its local token regardless.
+func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
+	if token, ok := util.ParseBearerToken(r); ok {
+		s.sessionMgr.RevokeAuthToken(r.Context(), token)
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
 // ---------------------------------------------------------------------------

@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Beheerd door de primaire instantie van de vloot. Wijzigingen hier worden bij de volgende configuratiesynchronisatie vervangen.",
 			"alertsNote": "Het in- en uitschakelen van waarschuwingen en de gebeurtenisroutering worden beheerd door de primaire instantie van de vloot. De Apprise-bezorginstellingen hieronder blijven lokaal op deze instantie."
+		},
+		"sessionTimeout": {
+			"title": "Sessietime-out",
+			"label": "Automatisch afmelden na inactiviteit",
+			"hint": "Meldt het dashboard automatisch af na deze periode zonder activiteit. Stel in op Nooit om de sessie onbeperkt open te houden."
 		}
 	},
 	"components": {

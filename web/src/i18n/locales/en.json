@@ -1914,6 +1914,11 @@
 		"authentication": {
 			"title": "Authentication"
 		},
+		"sessionTimeout": {
+			"title": "Session timeout",
+			"label": "Auto-logout after inactivity",
+			"hint": "Sign the dashboard out automatically after this period with no activity. Set to Never to keep the session open indefinitely."
+		},
 		"managed": {
 			"sectionNote": "Managed by the fleet primary. Changes here are replaced on the next config sync.",
 			"alertsNote": "Alerting on or off and event routing are managed by the fleet primary. The Apprise delivery settings below stay local to this instance."

@@ -20,6 +20,7 @@ function NumberField({
 	hint,
 	value,
 	min,
+	max,
 	onChange,
 }: {
 	id: string;
@@ -27,8 +28,13 @@ function NumberField({
 	hint?: string;
 	value: number;
 	min: number;
+	max?: number;
 	onChange: (n: number) => void;
 }) {
+	const clamp = (n: number) => {
+		const lo = n < min ? min : n;
+		return max !== undefined && lo > max ? max : lo;
+	};
 	const [draft, setDraft] = useState(String(value));
 	// Re-sync the draft when the committed value changes from outside this field
 	// (e.g. a reset), using the render-time adjustment pattern rather than an
@@ -49,15 +55,16 @@ function NumberField({
 				className="ui-input"
 				type="number"
 				min={min}
+				max={max}
 				value={draft}
 				onChange={(e) => {
 					setDraft(e.target.value);
 					const n = Number.parseInt(e.target.value, 10);
-					if (!Number.isNaN(n)) onChange(n);
+					if (!Number.isNaN(n)) onChange(clamp(n));
 				}}
 				onBlur={() => {
 					const n = Number.parseInt(draft, 10);
-					const safe = Number.isNaN(n) || n < min ? min : n;
+					const safe = Number.isNaN(n) ? min : clamp(n);
 					setDraft(String(safe));
 					onChange(safe);
 				}}
@@ -108,6 +115,7 @@ export function SettingsPage() {
 				traefik_stale_secs: settings.traefik_stale_secs,
 				event_retention_days: settings.event_retention_days,
 				retry_attempts: settings.retry_attempts,
+				session_idle_timeout_minutes: settings.session_idle_timeout_minutes,
 			});
 			toast(t("settings.saved"), "success");
 		} catch (err) {
@@ -195,6 +203,16 @@ export function SettingsPage() {
 						/>
 					</div>
 				</div>
+
+				<NumberField
+					id="session-idle-timeout"
+					label={t("settings.sessionTimeout")}
+					hint={t("settings.sessionTimeoutHint")}
+					value={settings.session_idle_timeout_minutes}
+					min={0}
+					max={240}
+					onChange={(n) => patch({ session_idle_timeout_minutes: n })}
+				/>
 
 				{saveError && (
 					<div

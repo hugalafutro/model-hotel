@@ -34,6 +34,7 @@ const settings: Settings = {
 	traefik_stale_secs: 30,
 	event_retention_days: 90,
 	retry_attempts: 2,
+	session_idle_timeout_minutes: 60,
 	alert_enabled: true,
 	alert_apprise_api_url: "http://apprise:8000",
 	alert_apprise_targets: "********", // a secret is stored; served masked

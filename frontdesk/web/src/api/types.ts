@@ -54,6 +54,9 @@ export interface Settings {
 	traefik_stale_secs: number;
 	event_retention_days: number;
 	retry_attempts: number;
+	// Admin-UI inactivity auto-logout window in minutes; 0 disables it. Consumed
+	// by useIdleLogout to sign the operator out after inactivity.
+	session_idle_timeout_minutes: number;
 	// Outbound Apprise alerting. alert_apprise_targets is masked over the API
 	// ("********" when a secret is stored); echo it back unchanged to preserve the
 	// stored value, send a new value to replace it, or "" to clear it. alert_events

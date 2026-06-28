@@ -48,6 +48,11 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	alert_apprise_targets: "",
 	alert_events:
 		"circuit_breaker.open,circuit_breaker.closed,failover.sync_error",
+
+	// Authentication. Dashboard auto-logout after inactivity, in minutes; 0
+	// disables it. Consumed entirely on the frontend (see useIdleLogout); the
+	// backend only validates/stores the value.
+	session_idle_timeout_minutes: "60",
 };
 
 export type SectionName =
@@ -126,7 +131,8 @@ export type SettingKey =
 	| "alert_enabled"
 	| "alert_apprise_api_url"
 	| "alert_apprise_targets"
-	| "alert_events";
+	| "alert_events"
+	| "session_idle_timeout_minutes";
 
 /**
  * Mapping from DB setting keys to their human-readable i18n keys.
@@ -159,4 +165,5 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	alert_apprise_api_url: "settings.alerts.apiUrl",
 	alert_apprise_targets: "settings.alerts.target",
 	alert_events: "settings.alerts.eventsLabel",
+	session_idle_timeout_minutes: "settings.sessionTimeout.label",
 };

@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Spravované primárnou inštanciou flotily. Zmeny vykonané tu sa pri ďalšej synchronizácii konfigurácie nahradia.",
 			"alertsNote": "Zapínanie a vypínanie upozornení a smerovanie udalostí spravuje primárna inštancia flotily. Nastavenia doručovania Apprise nižšie zostávajú lokálne pre túto inštanciu."
+		},
+		"sessionTimeout": {
+			"title": "Časový limit relácie",
+			"label": "Automatické odhlásenie po nečinnosti",
+			"hint": "Po tomto čase nečinnosti vás z panela systém automaticky odhlási. Nastavte na Nikdy, ak chcete reláciu ponechať trvalo otvorenú."
 		}
 	},
 	"components": {

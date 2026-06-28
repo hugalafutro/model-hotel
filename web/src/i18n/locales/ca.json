@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Gestionada per la instància primària de la flota. Els canvis fets aquí se substitueixen en la propera sincronització de configuració.",
 			"alertsNote": "L'activació i desactivació de les alertes i l'encaminament d'esdeveniments els gestiona la instància primària de la flota. La configuració de lliurament d'Apprise de sota es manté local en aquesta instància."
+		},
+		"sessionTimeout": {
+			"title": "Temps d'espera de la sessió",
+			"label": "Tancament de sessió automàtic per inactivitat",
+			"hint": "Tanca la sessió del tauler automàticament després d'aquest període sense activitat. Posa'l a Mai per mantenir la sessió oberta indefinidament."
 		}
 	},
 	"components": {

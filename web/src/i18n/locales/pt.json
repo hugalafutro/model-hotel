@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Gerenciada pela instância primária da frota. As alterações feitas aqui são substituídas na próxima sincronização de configuração.",
 			"alertsNote": "A ativação de alertas e o roteamento de eventos são gerenciados pela instância primária da frota. As configurações de entrega do Apprise abaixo permanecem locais nesta instância."
+		},
+		"sessionTimeout": {
+			"title": "Tempo limite da sessão",
+			"label": "Encerramento de sessão automático por inatividade",
+			"hint": "Encerra a sessão do painel automaticamente após este período sem atividade. Defina como Nunca para manter a sessão aberta indefinidamente."
 		}
 	},
 	"components": {

@@ -53,6 +53,7 @@ var AllowedSettings = map[string]bool{
 	"alert_apprise_api_url":        true,
 	"alert_apprise_targets":        true,
 	"alert_events":                 true,
+	"session_idle_timeout_minutes": true,
 }
 
 type cacheEntry struct {

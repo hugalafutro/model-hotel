@@ -171,20 +171,61 @@ func TestServerSettings(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("get settings = %d", rec.Code)
 	}
-	body := `{"health_poll_secs":9,"traefik_poll_secs":9,"traefik_stale_secs":40,"event_retention_days":30,"retry_attempts":3}`
+	body := `{"health_poll_secs":9,"traefik_poll_secs":9,"traefik_stale_secs":40,"event_retention_days":30,"retry_attempts":3,"session_idle_timeout_minutes":30}`
 	if rec := do(t, srv, http.MethodPut, "/api/settings", body, true); rec.Code != http.StatusOK {
 		t.Fatalf("put settings = %d; body=%s", rec.Code, rec.Body.String())
 	}
 	rec = do(t, srv, http.MethodGet, "/api/settings", "", true)
 	var got Settings
 	_ = json.Unmarshal(rec.Body.Bytes(), &got)
-	if got.HealthPollSecs != 9 || got.RetryAttempts != 3 {
+	if got.HealthPollSecs != 9 || got.RetryAttempts != 3 || got.SessionIdleTimeoutMinutes != 30 {
 		t.Errorf("settings not updated: %+v", got)
+	}
+
+	// Out-of-range session idle timeout -> 400 (bounds 0..240).
+	if rec := do(t, srv, http.MethodPut, "/api/settings", `{"health_poll_secs":9,"traefik_poll_secs":9,"traefik_stale_secs":40,"event_retention_days":30,"retry_attempts":3,"session_idle_timeout_minutes":241}`, true); rec.Code != http.StatusBadRequest {
+		t.Errorf("session_idle_timeout_minutes=241 = %d, want 400", rec.Code)
+	}
+
+	// A JSON null for the int field is a no-op in encoding/json: it must preserve
+	// the stored value (30 above), NOT silently zero it to "never auto-logout".
+	// This is the partial-merge contract; an omitted field behaves identically.
+	if rec := do(t, srv, http.MethodPut, "/api/settings", `{"session_idle_timeout_minutes":null}`, true); rec.Code != http.StatusOK {
+		t.Fatalf("put null session timeout = %d; body=%s", rec.Code, rec.Body.String())
+	}
+	rec = do(t, srv, http.MethodGet, "/api/settings", "", true)
+	got = Settings{}
+	_ = json.Unmarshal(rec.Body.Bytes(), &got)
+	if got.SessionIdleTimeoutMinutes != 30 {
+		t.Errorf("null preserved value: got %d, want 30 (unchanged)", got.SessionIdleTimeoutMinutes)
 	}
 
 	// Invalid settings -> 400.
 	if rec := do(t, srv, http.MethodPut, "/api/settings", `{"health_poll_secs":0,"traefik_poll_secs":1,"traefik_stale_secs":1,"event_retention_days":1,"retry_attempts":1}`, true); rec.Code != http.StatusBadRequest {
 		t.Errorf("invalid settings = %d, want 400", rec.Code)
+	}
+}
+
+func TestServerLogout(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	// Unauthenticated logout is refused by the auth gate.
+	if rec := do(t, srv, http.MethodPost, "/api/logout", "", false); rec.Code != http.StatusUnauthorized {
+		t.Errorf("unauth logout = %d, want 401", rec.Code)
+	}
+
+	// Authenticated with the raw FRONTDESK_TOKEN (no server session row): the
+	// revoke is a harmless no-op and the route still returns 200 success.
+	rec := do(t, srv, http.MethodPost, "/api/logout", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("logout = %d; body=%s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]bool
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("parse logout response: %v", err)
+	}
+	if !resp["success"] {
+		t.Errorf("logout success = %v, want true", resp["success"])
 	}
 }
 

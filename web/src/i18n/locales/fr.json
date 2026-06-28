@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Gérée par l'instance principale de la flotte. Les modifications apportées ici sont remplacées à la prochaine synchronisation de configuration.",
 			"alertsNote": "L'activation des alertes et le routage des événements sont gérés par l'instance principale de la flotte. Les paramètres de distribution Apprise ci-dessous restent locaux à cette instance."
+		},
+		"sessionTimeout": {
+			"title": "Délai d'expiration de la session",
+			"label": "Déconnexion automatique après inactivité",
+			"hint": "Déconnecte automatiquement le tableau de bord après cette période d'inactivité. Réglez sur Jamais pour garder la session ouverte indéfiniment."
 		}
 	},
 	"components": {

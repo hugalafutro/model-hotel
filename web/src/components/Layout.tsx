@@ -27,6 +27,7 @@ import { api } from "../api/client";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
+import { useIdleLogout } from "../hooks/useIdleLogout";
 import { useReadOnly } from "../hooks/useReadOnly";
 import i18next, { LANGUAGE_STORAGE_KEY } from "../i18n";
 import {
@@ -34,7 +35,6 @@ import {
 	DiscoverySummaryModal,
 } from "../pages/Providers/DiscoverySummaryModal";
 import { useDiscoveryRetest } from "../pages/Providers/useDiscoveryRetest";
-import { isWebAuthnAvailable } from "../utils/webauthn";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CountryFlag } from "./CountryFlag";
@@ -835,10 +835,13 @@ export function Layout({ children }: LayoutProps) {
 
 	const handleLogout = async () => {
 		try {
-			const available = await isWebAuthnAvailable();
-			if (available) {
-				await api.webauthn.logout();
-			}
+			// Best-effort server-side session revoke. The endpoint revokes whatever
+			// session matches the bearer (passkey OR TOTP session token), so it must
+			// run for every session type, not only when passkeys are configured. A
+			// raw admin token with no server session is a harmless no-op; a route
+			// that isn't mounted 404s into the catch below. This matters for idle
+			// auto-logout: a TOTP-only admin's session must die server-side too.
+			await api.webauthn.logout();
 		} catch {
 			// Server-side logout failure is non-fatal.
 		}
@@ -846,6 +849,10 @@ export function Layout({ children }: LayoutProps) {
 		navigate("/dashboard");
 		window.location.reload();
 	};
+
+	// Sign out after the configured period of inactivity (0 = never). Reuses the
+	// same logout path as the manual button.
+	useIdleLogout(handleLogout);
 
 	return (
 		<div className="flex h-screen ui-surface-bg">

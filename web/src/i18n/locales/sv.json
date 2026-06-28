@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Hanteras av flottans primära instans. Ändringar här ersätts vid nästa konfigurationssynkronisering.",
 			"alertsNote": "Att slå på och av aviseringar och händelsedirigering hanteras av flottans primära instans. Apprise-leveransinställningarna nedan förblir lokala för den här instansen."
+		},
+		"sessionTimeout": {
+			"title": "Tidsgräns för session",
+			"label": "Automatisk utloggning efter inaktivitet",
+			"hint": "Loggar automatiskt ut från panelen efter denna period utan aktivitet. Ställ in på Aldrig för att hålla sessionen öppen på obestämd tid."
 		}
 	},
 	"components": {

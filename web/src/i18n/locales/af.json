@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Bestuur deur die vloot se primêre instansie. Veranderinge hier word met die volgende konfigurasiesinkronisasie vervang.",
 			"alertsNote": "Die aan- en afskakel van waarskuwings en gebeurtenisroetering word deur die vloot se primêre instansie bestuur. Die Apprise-afleweringsinstellings hieronder bly plaaslik tot hierdie instansie."
+		},
+		"sessionTimeout": {
+			"title": "Sessie-uittelling",
+			"label": "Outo-afmelding na onaktiwiteit",
+			"hint": "Meld outomaties by die paneelbord af na hierdie tydperk sonder aktiwiteit. Stel op Nooit om die sessie onbepaald oop te hou."
 		}
 	},
 	"components": {

@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Styres af flådens primære instans. Ændringer her erstattes ved næste konfigurationssynkronisering.",
 			"alertsNote": "Til- og frakobling af advarsler og hændelsesrouting styres af flådens primære instans. Apprise-leveringsindstillingerne nedenfor forbliver lokale for denne instans."
+		},
+		"sessionTimeout": {
+			"title": "Sessionstimeout",
+			"label": "Automatisk log ud efter inaktivitet",
+			"hint": "Log automatisk ud af dashboardet efter denne periode uden aktivitet. Indstil til Aldrig for at holde sessionen åben på ubestemt tid."
 		}
 	},
 	"components": {
