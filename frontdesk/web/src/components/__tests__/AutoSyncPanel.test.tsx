@@ -132,6 +132,51 @@ it("gates repointing an already-set primary behind the admin token", async () =>
 	);
 });
 
+it("freezes the other controls while a primary-change confirmation is open", async () => {
+	const puts: Array<{ primary_id: string; confirm_token?: string }> = [];
+	server.use(
+		http.get("/api/fleet/autosync", () =>
+			HttpResponse.json({ enabled: true, primary_id: "1" }),
+		),
+		http.put("/api/fleet/autosync", async ({ request }) => {
+			const body = (await request.json()) as (typeof puts)[number];
+			puts.push(body);
+			return HttpResponse.json({ enabled: true, primary_id: body.primary_id });
+		}),
+	);
+	render(
+		<ToastProvider>
+			<AutoSyncPanel
+				members={[member("1", "hotel-1"), member("3", "hotel-3")]}
+			/>
+		</ToastProvider>,
+	);
+
+	const select = await screen.findByRole("combobox");
+	await userEvent.selectOptions(select, "3");
+	const dialog = await screen.findByRole("dialog");
+
+	// With the confirmation open, the select and the enable toggle are frozen, so
+	// no unrelated save can fire and overwrite the pending choice of "3".
+	expect(select).toBeDisabled();
+	expect(screen.getByRole("checkbox")).toBeDisabled();
+	expect(puts).toHaveLength(0);
+
+	await userEvent.type(within(dialog).getByLabelText(/admin token/i), "tok");
+	await userEvent.click(
+		within(dialog).getByRole("button", { name: /confirm change/i }),
+	);
+
+	// The confirmed write still carries the operator's intended primary, "3".
+	await waitFor(() =>
+		expect(puts).toContainEqual({
+			enabled: true,
+			primary_id: "3",
+			confirm_token: "tok",
+		}),
+	);
+});
+
 it("recovers when a primary was set concurrently (stale snapshot)", async () => {
 	// The client loaded with no primary, but another admin configured one in the
 	// meantime, so the server gates the first un-tokened PUT with a 403.

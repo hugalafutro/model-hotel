@@ -54,10 +54,13 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 			// A primary was configured concurrently (another admin), so the server
 			// now gates this change even though our snapshot showed none set. Recover
 			// by prompting for the admin token instead of dead-ending on an error.
+			// Never do this while a confirmation is already pending: that would
+			// overwrite the operator's chosen primary with this save's value.
 			if (
 				err instanceof ApiError &&
 				err.status === 403 &&
-				confirm === undefined
+				confirm === undefined &&
+				pendingPrimary === null
 			) {
 				setConfirmToken("");
 				setConfirmError("");
@@ -119,6 +122,10 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 	};
 
 	const tokenedMembers = members.filter((m) => m.has_token);
+	// While a primary-change confirmation is open, freeze the other controls: an
+	// unrelated save (e.g. toggling enabled) could otherwise fire, hit the gate,
+	// and clobber the operator's pending choice.
+	const confirming = pendingPrimary !== null;
 
 	return (
 		<div className="ui-card ui-card-pad fd-stack">
@@ -138,7 +145,7 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 					id="autosync-primary"
 					className="ui-input"
 					value={cfg.primary_id}
-					disabled={saving}
+					disabled={saving || confirming}
 					onChange={(e) => onSelectPrimary(e.target.value)}
 				>
 					<option value="">{t("settings.autoSync.primaryNone")}</option>
@@ -160,7 +167,7 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 				<input
 					type="checkbox"
 					checked={cfg.enabled}
-					disabled={saving || !cfg.primary_id}
+					disabled={saving || !cfg.primary_id || confirming}
 					onChange={(e) => persist({ ...cfg, enabled: e.target.checked })}
 				/>
 				<span>
