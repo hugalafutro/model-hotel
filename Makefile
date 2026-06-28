@@ -58,7 +58,7 @@ frontdesk-build:
 	CGO_ENABLED=0 go build -ldflags "-X main.version=$(VERSION) -X github.com/hugalafutro/model-hotel/internal/frontdesk.buildCommit=$(COMMIT)" -o bin/frontdesk ./cmd/frontdesk/
 
 ha-up:
-	docker compose -f $(HA_COMPOSE) up -d --build
+	VERSION=$(VERSION) COMMIT=$(COMMIT) docker compose -f $(HA_COMPOSE) up -d --build
 
 ha-down:
 	docker compose -f $(HA_COMPOSE) down

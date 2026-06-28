@@ -50,6 +50,12 @@ services:
         build:
             context: ../..
             dockerfile: Dockerfile.frontdesk
+            # Stamp the build version/commit so the Front Desk footer shows the
+            # real build (the Makefile ha-up target exports these). Without them
+            # the Dockerfile defaults (dev/unknown) win and the footer reads "dev".
+            args:
+                VERSION: ${VERSION:-dev}
+                COMMIT: ${COMMIT:-unknown}
         # Prebuilt image (uncomment to pin a published tag instead of building):
         # image: ghcr.io/hugalafutro/model-hotel-frontdesk:latest
         labels:
