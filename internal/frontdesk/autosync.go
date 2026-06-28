@@ -195,11 +195,15 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 //
 // gen is the rearm generation captured before this pass began. A rearm (member
 // add, token update, enable, or primary repoint) bumps it, so the pass re-checks
-// it before pushing the export to each member and aborts the moment it changes:
-// otherwise a slow pass would keep importing the captured (now-stale) primary's
-// config into members the operator has just repointed away from. Members synced
-// before the change were current when written; the rearm's own pass converges
-// the rest. allConverged is forced false on abort so no hash is recorded.
+// it twice per member: once at the top of the loop, and again right before the
+// mutating import (after the slow dry-run and pre-sync backup, which is where a
+// repoint is most likely to slip in). It aborts the moment the generation changes,
+// so a slow pass cannot import the captured (now-stale) primary's config into a
+// member the operator has just repointed away from. The only window no pre-check
+// can close is the in-flight import call itself; the rearm's own pass converges
+// that member on the next tick. Members synced before the change were current when
+// written; the rearm's own pass converges the rest. allConverged is forced false
+// on abort so no hash is recorded.
 func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToken, reason string, gen int64) (applied int, allConverged bool) {
 	// A transient gen read shouldn't abort a valid pass, so a read error reports
 	// "not stale" and the generation-guarded hash record stays the backstop.
@@ -286,6 +290,19 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			})
 			allConverged = false
 			continue
+		}
+
+		// Final staleness gate, tightest to the mutation: a rearm or primary repoint
+		// can land during this member's (slow) dry-run diff and pre-sync backup. Re-
+		// check here so we never import a now-stale export into a member the operator
+		// has just repointed away from. The only residual window is the in-flight
+		// import call itself, which no pre-check can close; the rearm's own pass
+		// repairs that member on the next tick. The backup just taken is harmless: it
+		// is a recoverable snapshot, not a config change.
+		if stale() {
+			debuglog.Debug("frontdesk: auto-sync: aborting stale pass before import", "synced", applied)
+			allConverged = false
+			break
 		}
 
 		// applyMemberConfig stamps the member's last-sync marker with this reason on

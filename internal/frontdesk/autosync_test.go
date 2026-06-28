@@ -31,6 +31,7 @@ type stubAutoMember struct {
 	backupCode  int
 	gotBackup   bool
 	gotRealSync bool
+	onBackup    func() // fired inside the backup handler, to simulate a rearm landing mid-pass
 }
 
 func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
@@ -80,6 +81,9 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 			_, _ = w.Write([]byte(`{}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/backups":
 			sm.gotBackup = true
+			if sm.onBackup != nil {
+				sm.onBackup() // simulate a rearm/repoint landing after the backup, before the import
+			}
 			w.WriteHeader(sm.backupCode)
 			_, _ = w.Write([]byte(`{"filename":"backup_x_frontdesk.dump"}`))
 		default:
@@ -272,6 +276,46 @@ func TestConvergeFleetSkipsRecordAfterRearm(t *testing.T) {
 	got, _ = store.GetAutoSync(t.Context())
 	if got.LastHash != "hash-B" {
 		t.Errorf("current-gen record = %q, want hash-B", got.LastHash)
+	}
+}
+
+// TestConvergeFleetAbortsImportWhenRearmLandsAfterBackup: the tightest race. A
+// rearm/repoint lands after a member's pre-sync backup is taken but before its
+// import runs. The final staleness gate must catch it: the member is snapshotted
+// (harmless) but NOT overwritten with the now-stale export, and the hash is not
+// recorded, so the rearm's own pass converges it with the fresh primary.
+func TestConvergeFleetAbortsImportWhenRearmLandsAfterBackup(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff // needs the new config, so it reaches the backup+import path
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID, "hash-A")
+
+	cfg, _ := store.GetAutoSync(t.Context())
+	staleGen := cfg.Gen
+	// The rearm fires the instant the member's pre-sync backup is taken, opening the
+	// post-backup/pre-import window the final gate exists to close.
+	replica.onBackup = func() {
+		if err := store.RearmAutoSync(t.Context()); err != nil {
+			t.Errorf("RearmAutoSync: %v", err)
+		}
+	}
+
+	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, staleGen)
+
+	if !replica.didBackup() {
+		t.Fatal("test setup: backup never ran, so the post-backup window was not exercised")
+	}
+	if replica.didRealSync() {
+		t.Error("imported stale export after a rearm landed post-backup; want aborted before mutating")
+	}
+	got, _ := store.GetAutoSync(t.Context())
+	if got.LastHash != "" {
+		t.Errorf("stale pass recorded a hash after the rearm: %q, want empty", got.LastHash)
 	}
 }
 
