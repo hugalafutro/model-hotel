@@ -274,8 +274,9 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			continue
 		}
 		// Decide whether this member needs the new config from its own dry-run
-		// diff, which compares by name and so is valid across instances.
-		res, status, err := s.pushMemberImport(passCtx, m, token, export, true)
+		// diff, which compares by name and so is valid across instances. The dry-run
+		// is never fenced, so the generation is not sent on it.
+		res, status, err := s.pushMemberImport(passCtx, m, token, export, true, gen)
 		if err != nil {
 			debuglog.Debug("frontdesk: auto-sync: member unreachable, will retry", "member", m.Name, "status", status, "error", err)
 			allConverged = false
@@ -322,11 +323,17 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		// success, so the Members table shows when and why it last converged. Per-
 		// member success events are suppressed here (emitSuccessEvent=false); the
 		// loop emits one roll-up below so a fleet sync does not toast per member. It
-		// runs under passCtx so a rearm landing mid-import cancels the request.
-		out := s.applyMemberConfig(passCtx, m, token, export, reason, false)
+		// runs under passCtx so a rearm landing mid-import cancels the request, and
+		// carries gen so the member's commit fence can refuse this push outright if a
+		// newer generation already won the in-flight race (out.Stale, handled there
+		// as a benign supersede rather than a failure).
+		out := s.applyMemberConfig(passCtx, m, token, export, reason, false, gen)
 		if !out.OK {
+			// Not converged by this pass: a failure (already surfaced by
+			// applyMemberConfig) or a benign fence supersede. Either way the hash is
+			// not recorded for this generation and the authoritative pass takes over.
 			allConverged = false
-			continue // applyMemberConfig already emitted the per-member failure
+			continue
 		}
 		applied++
 	}

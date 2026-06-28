@@ -29,8 +29,10 @@ func (s *Server) callMember(ctx context.Context, method, baseURL, path, token st
 // callMemberWith is callMember with an explicit client, so a heavyweight call
 // (config import, which triggers member-side model discovery) can use a client
 // with a longer deadline than the fast health-probe client without that probe
-// timeout mislabeling a slow-but-successful import as "could not reach".
-func (s *Server) callMemberWith(ctx context.Context, client *http.Client, method, baseURL, path, token string, body io.Reader) (int, []byte, error) {
+// timeout mislabeling a slow-but-successful import as "could not reach". Extra
+// request headers (e.g. the fleet source-generation fence) may be passed as
+// (name, value) pairs; an empty value is skipped.
+func (s *Server) callMemberWith(ctx context.Context, client *http.Client, method, baseURL, path, token string, body io.Reader, headers ...[2]string) (int, []byte, error) {
 	req, err := http.NewRequestWithContext(ctx, method, baseURL+path, body)
 	if err != nil {
 		return 0, nil, err
@@ -38,6 +40,11 @@ func (s *Server) callMemberWith(ctx context.Context, client *http.Client, method
 	req.Header.Set("Authorization", "Bearer "+token)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	for _, hd := range headers {
+		if hd[1] != "" {
+			req.Header.Set(hd[0], hd[1])
+		}
 	}
 	resp, err := client.Do(req)
 	if err != nil {

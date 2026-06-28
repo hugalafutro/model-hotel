@@ -189,6 +189,12 @@ It reuses the same machinery as the wizard, with the same safety properties:
   (the same config two checks running), members already matching the primary are
   skipped untouched, and a member that is unreachable or `MASTER_KEY`-blocked is
   retried on the next check rather than overwritten.
+- **Newer config always wins.** Each push carries a monotonic source generation,
+  and a member refuses any import older than the one it has already applied. So if
+  you repoint the primary while a previous push is still in flight, the member
+  cannot end up on the older config: the stale push is rejected and the new one
+  stands. Both members must run this build for the fence to engage; an older member
+  simply applies in arrival order as before.
 
 It reacts to *changes on the primary*, it is not a continuous reconciler. A managed
 member is read-only for synced config: the dashboard hides the create/edit/delete

@@ -266,6 +266,11 @@ Two safety properties make this safe to leave running:
 - **Converges, does not thrash.** A change is propagated only after it settles,
   members already matching the primary are skipped, and an unreachable or
   `MASTER_KEY`-blocked member is retried later rather than overwritten.
+- **Newer config always wins.** Each push carries a monotonic source generation,
+  and a member refuses any import older than the one it has already applied, so
+  repointing the primary while an earlier push is still in flight can never strand a
+  member on the older config. The fence engages when both ends run this build; an
+  older member applies in arrival order as before.
 
 It reacts to *changes on the primary*; it is not a continuous reconciler. A direct
 edit on a replica (managed members are read-only, so you shouldn't) sits until the

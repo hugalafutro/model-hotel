@@ -46,6 +46,13 @@ const (
 	// keyFleetConfigSyncedAt is the RFC3339 timestamp of the last successful
 	// config-sync apply, written post-commit by ConfigSyncHandler.apply.
 	keyFleetConfigSyncedAt = "_fleet_config_synced_at"
+	// keyFleetLastSourceGen is the highest Front Desk source generation
+	// (auto_sync_gen) this member has applied. It is the member-side commit
+	// fence: an import carrying an older generation is refused so a stale,
+	// out-of-order push (a primary repoint while an import was in flight) can
+	// never overwrite a newer config that already landed. Stored as a decimal
+	// int64; absent on a member that has never taken a fenced import.
+	keyFleetLastSourceGen = "_fleet_last_source_gen"
 )
 
 const (
