@@ -107,7 +107,7 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 		return hash
 	}
 
-	s.convergeFleet(ctx, primary, primaryToken, hash, autoSyncReason)
+	s.convergeFleet(ctx, primary, primaryToken, hash, autoSyncReason, cfg.Gen)
 	return hash
 }
 
@@ -132,7 +132,7 @@ func (s *Server) forceAutoSyncNow(ctx context.Context) {
 	if !ok {
 		return
 	}
-	s.convergeFleet(ctx, primary, primaryToken, hash, autoSyncKickReason)
+	s.convergeFleet(ctx, primary, primaryToken, hash, autoSyncKickReason, cfg.Gen)
 }
 
 // primaryConfigHash resolves the designated primary, loads its admin token, and
@@ -158,16 +158,24 @@ func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (pri
 // convergeFleet pushes the primary's config to every member that needs it,
 // records the applied hash once the whole reachable fleet has converged, and
 // emits one roll-up event tagged with reason. Shared by the tick loop and the
-// enable-time kick so both take the identical apply/record/emit path.
-func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash, reason string) {
+// enable-time kick so both take the identical apply/record/emit path. gen is the
+// rearm generation captured before the member list was read; the hash is recorded
+// only if it is still current, so a rearm (member add, token update, enable, or
+// repoint) that landed mid-pass is never clobbered by this older pass.
+func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash, reason string, gen int64) {
 	applied, allConverged := s.applyAutoSync(ctx, primary, primaryToken, reason)
 	// Record the hash as applied only once every reachable member converged onto
 	// it. If a member was unreachable, leave the marker so the next tick retries;
 	// already-converged members are skipped by their dry-run diff, so the retry
 	// costs only cheap probes, never repeated backups or imports.
 	if allConverged {
-		if err := s.store.SetAutoSyncLastHash(ctx, hash); err != nil {
+		switch ok, err := s.store.RecordAutoSyncHash(ctx, hash, gen); {
+		case err != nil:
 			debuglog.Warn("frontdesk: auto-sync: record applied hash", "error", err)
+		case !ok:
+			// A rearm landed mid-pass and bumped the generation: leave the cleared
+			// marker so the next tick converges with the fresh member list/primary.
+			debuglog.Debug("frontdesk: auto-sync: skipped stale hash record after rearm")
 		}
 	}
 	if applied > 0 {

@@ -605,7 +605,7 @@ func enabledWord(b bool) string {
 // re-run only syncs the one(s) that actually need it. It is a no-op in effect when
 // auto-sync is disabled (the loop reads the marker but does nothing).
 func (s *Server) rearmAutoSync(ctx context.Context) {
-	if err := s.store.SetAutoSyncLastHash(ctx, ""); err != nil {
+	if err := s.store.RearmAutoSync(ctx); err != nil {
 		debuglog.Warn("frontdesk: re-arm auto-sync after membership change", "error", err)
 	}
 }

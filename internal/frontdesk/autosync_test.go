@@ -106,8 +106,20 @@ func enableAutoSync(t *testing.T, store *Store, primaryID, lastHash string) {
 	if err := store.SetAutoSync(t.Context(), true, primaryID); err != nil {
 		t.Fatalf("SetAutoSync: %v", err)
 	}
-	if err := store.SetAutoSyncLastHash(t.Context(), lastHash); err != nil {
-		t.Fatalf("SetAutoSyncLastHash: %v", err)
+	seedAutoSyncHash(t, store, lastHash)
+}
+
+// seedAutoSyncHash stamps an "already applied" hash at the current rearm
+// generation, so a following convergence pass (which captures that same
+// generation) records onto it rather than no-opping.
+func seedAutoSyncHash(t *testing.T, store *Store, hash string) {
+	t.Helper()
+	cfg, err := store.GetAutoSync(t.Context())
+	if err != nil {
+		t.Fatalf("GetAutoSync: %v", err)
+	}
+	if _, err := store.RecordAutoSyncHash(t.Context(), hash, cfg.Gen); err != nil {
+		t.Fatalf("RecordAutoSyncHash: %v", err)
 	}
 }
 
@@ -213,6 +225,49 @@ func TestForceAutoSyncNowDisabledIsNoop(t *testing.T) {
 
 	if replica.didRealSync() || replica.didBackup() {
 		t.Error("kick synced a member while auto-sync was disabled")
+	}
+}
+
+// TestConvergeFleetSkipsRecordAfterRearm: a convergence pass that captured an
+// older rearm generation (because a member add, token update, or repoint landed
+// while it was applying) must not write its now-stale hash over the cleared
+// marker. The marker stays empty so the next tick re-converges with the fresh
+// fleet, rather than skipping it as already-applied.
+func TestConvergeFleetSkipsRecordAfterRearm(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID, "hash-A")
+
+	// The generation the pass captured before it read the member list.
+	cfg, _ := store.GetAutoSync(t.Context())
+	staleGen := cfg.Gen
+	// A rearm lands mid-pass: clears the marker and bumps the generation.
+	if err := store.RearmAutoSync(t.Context()); err != nil {
+		t.Fatalf("RearmAutoSync: %v", err)
+	}
+
+	// The older pass finishes and tries to record its hash at the stale generation.
+	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, staleGen)
+
+	got, err := store.GetAutoSync(t.Context())
+	if err != nil {
+		t.Fatalf("GetAutoSync: %v", err)
+	}
+	if got.LastHash != "" {
+		t.Errorf("stale pass overwrote the rearm-cleared marker: %q, want empty", got.LastHash)
+	}
+
+	// A pass at the current generation records normally.
+	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, got.Gen)
+	got, _ = store.GetAutoSync(t.Context())
+	if got.LastHash != "hash-B" {
+		t.Errorf("current-gen record = %q, want hash-B", got.LastHash)
 	}
 }
 
@@ -513,9 +568,7 @@ func TestAutoSyncRearmsOnTokenAdd(t *testing.T) {
 		t.Fatalf("SetAutoSync: %v", err)
 	}
 	// Simulate the fleet having converged at hash-B while the replica was tokenless.
-	if err := store.SetAutoSyncLastHash(t.Context(), "hash-B"); err != nil {
-		t.Fatalf("SetAutoSyncLastHash: %v", err)
-	}
+	seedAutoSyncHash(t, store, "hash-B")
 
 	// Give the replica an admin token via the API. This must re-arm auto-sync.
 	rec := do(t, srv, http.MethodPatch, "/api/members/"+rm.ID, `{"token":"rtoken"}`, true)
@@ -546,9 +599,7 @@ func TestAutoSyncRearmsOnMemberAdd(t *testing.T) {
 	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
 		t.Fatalf("SetAutoSync: %v", err)
 	}
-	if err := store.SetAutoSyncLastHash(t.Context(), "hash-A"); err != nil {
-		t.Fatalf("SetAutoSyncLastHash: %v", err)
-	}
+	seedAutoSyncHash(t, store, "hash-A")
 
 	body := `{"name":"newcomer","url":"` + newcomer.srv.URL + `","token":"ntoken"}`
 	rec := do(t, srv, http.MethodPost, "/api/members", body, true)
@@ -639,9 +690,7 @@ func TestSetAutoSyncClearsAppliedHash(t *testing.T) {
 	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
 		t.Fatalf("SetAutoSync: %v", err)
 	}
-	if err := store.SetAutoSyncLastHash(t.Context(), "hash-X"); err != nil {
-		t.Fatalf("SetAutoSyncLastHash: %v", err)
-	}
+	seedAutoSyncHash(t, store, "hash-X")
 	// Re-applying the setup (re-enable, or any primary change) must clear the hash.
 	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
 		t.Fatalf("SetAutoSync: %v", err)
@@ -747,9 +796,7 @@ func TestAutoSyncReEnableConvergesDriftedReplica(t *testing.T) {
 	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
 		t.Fatalf("SetAutoSync: %v", err)
 	}
-	if err := store.SetAutoSyncLastHash(t.Context(), "hash-B"); err != nil {
-		t.Fatalf("SetAutoSyncLastHash: %v", err)
-	}
+	seedAutoSyncHash(t, store, "hash-B")
 
 	// Operator re-applies the setup through the API; this must re-arm the loop.
 	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync", `{"enabled":true,"primary_id":"`+pm.ID+`"}`, true)
@@ -783,8 +830,11 @@ func TestStoreAutoSyncDBErrors(t *testing.T) {
 	if err := store.SetAutoSync(ctx, true, "x"); err == nil {
 		t.Error("SetAutoSync: want error on a closed DB")
 	}
-	if err := store.SetAutoSyncLastHash(ctx, "h"); err == nil {
-		t.Error("SetAutoSyncLastHash: want error on a closed DB")
+	if _, err := store.RecordAutoSyncHash(ctx, "h", 0); err == nil {
+		t.Error("RecordAutoSyncHash: want error on a closed DB")
+	}
+	if err := store.RearmAutoSync(ctx); err == nil {
+		t.Error("RearmAutoSync: want error on a closed DB")
 	}
 	if err := store.SetMemberLastSync(ctx, "id", time.Now(), "r"); err == nil {
 		t.Error("SetMemberLastSync: want error on a closed DB")
