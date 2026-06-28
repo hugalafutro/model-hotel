@@ -100,12 +100,16 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 		setConfirmError("");
 		setSaving(true);
 		try {
-			setCfg(
-				await api.putAutoSync(
-					{ ...cfg, primary_id: pendingPrimary },
-					confirmToken.trim(),
-				),
+			// Re-read first so a confirmed primary change carries the server's current
+			// enabled flag, not the snapshot from when the modal opened: another admin
+			// could have toggled auto-sync while the operator was entering the token,
+			// and this write would otherwise silently revert that.
+			const latest = await api.getAutoSync();
+			const saved = await api.putAutoSync(
+				{ ...latest, primary_id: pendingPrimary },
+				confirmToken.trim(),
 			);
+			setCfg(saved);
 			toast(t("settings.autoSync.saved"), "success");
 			closeConfirm();
 		} catch (err) {

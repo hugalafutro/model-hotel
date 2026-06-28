@@ -170,3 +170,52 @@ it("recovers when a primary was set concurrently (stale snapshot)", async () => 
 		}),
 	);
 });
+
+it("re-reads the enabled flag before confirming, so a concurrent toggle survives", async () => {
+	const puts: Array<{
+		enabled: boolean;
+		primary_id: string;
+		confirm_token?: string;
+	}> = [];
+	let getCount = 0;
+	server.use(
+		http.get("/api/fleet/autosync", () => {
+			getCount += 1;
+			// First load: primary set, auto-sync off. Another admin enables it while
+			// the confirm modal is open, so the re-read (2nd GET) reports enabled.
+			return HttpResponse.json({ enabled: getCount > 1, primary_id: "1" });
+		}),
+		http.put("/api/fleet/autosync", async ({ request }) => {
+			const body = (await request.json()) as (typeof puts)[number];
+			puts.push(body);
+			return HttpResponse.json({
+				enabled: body.enabled,
+				primary_id: body.primary_id,
+			});
+		}),
+	);
+	render(
+		<ToastProvider>
+			<AutoSyncPanel
+				members={[member("1", "hotel-1"), member("3", "hotel-3")]}
+			/>
+		</ToastProvider>,
+	);
+
+	await userEvent.selectOptions(await screen.findByRole("combobox"), "3");
+	const dialog = await screen.findByRole("dialog");
+	await userEvent.type(within(dialog).getByLabelText(/admin token/i), "tok");
+	await userEvent.click(
+		within(dialog).getByRole("button", { name: /confirm change/i }),
+	);
+
+	// The confirmed write must carry the freshly-read enabled:true, not the stale
+	// enabled:false captured when the modal opened.
+	await waitFor(() =>
+		expect(puts).toContainEqual({
+			enabled: true,
+			primary_id: "3",
+			confirm_token: "tok",
+		}),
+	);
+});
