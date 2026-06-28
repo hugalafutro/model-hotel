@@ -1,0 +1,12 @@
+-- Generation guard for the auto-sync marker. A convergence pass can run for a
+-- while (it exports the primary's config and imports it into every drifted
+-- member in turn), and a concurrent rearm (a member add, a token update, an
+-- enable, or a primary repoint) clears auto_sync_last_hash on purpose so the
+-- next tick re-syncs. Without a guard, a slow older pass could blindly write its
+-- primary hash back after that clear, losing the rearm and leaving the freshly
+-- changed member stale until the primary's config next changed.
+--
+-- auto_sync_gen is bumped by every rearm. A pass captures the generation when it
+-- starts and records its hash only if the generation is unchanged, so a rearm
+-- that lands mid-pass causes the record to no-op and the next tick to converge.
+ALTER TABLE settings ADD COLUMN auto_sync_gen INTEGER NOT NULL DEFAULT 0;

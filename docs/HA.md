@@ -174,11 +174,11 @@ Runbook:
 
 The wizard above is the manual path. For an unattended fleet, turn on **automatic
 config sync** (Front Desk -> Settings -> **Automatic config sync**): designate a
-primary, flip it on, and you only ever manage the primary. Front Desk watches the
-primary's config and, whenever its providers, virtual keys, or syncable settings
-change, propagates the change to the rest of the fleet for you. The Members table
-shows a **Last Config Sync** column so you can see when each member last
-converged and why.
+primary, flip it on, and you only ever manage the primary. Turning it on converges
+the fleet to the primary right away, then Front Desk watches the primary's config
+and, whenever its providers, virtual keys, or syncable settings change, propagates
+the change to the rest of the fleet for you. The Members table shows a **Last
+Config Sync** column so you can see when each member last converged and why.
 
 It reuses the same machinery as the wizard, with the same safety properties:
 

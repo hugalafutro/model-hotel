@@ -1,6 +1,6 @@
 import { ArrowSquareOut, Warning } from "@phosphor-icons/react";
 import {
-	type FormEvent,
+	type SyntheticEvent,
 	useCallback,
 	useEffect,
 	useRef,
@@ -348,7 +348,7 @@ function AddMemberForm({
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 
-	const submit = async (e: FormEvent) => {
+	const submit = async (e: SyntheticEvent) => {
 		e.preventDefault();
 		setError("");
 		setBusy(true);

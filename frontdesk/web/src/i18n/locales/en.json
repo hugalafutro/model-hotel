@@ -174,7 +174,7 @@
 			"primaryNone": "None (automatic sync off)",
 			"primaryHint": "Only members with a stored admin token can be the primary, since Front Desk needs it to read their config.",
 			"enableLabel": "Keep the fleet synced to the primary automatically",
-			"enableHint": "Checks the primary every few seconds and re-syncs members when its config changes.",
+			"enableHint": "Turning this on syncs the fleet to the primary right away, then keeps checking every few seconds and re-syncs members whenever its config changes.",
 			"activeWarning": "Automatic sync is on. A change on the primary replaces config on every other member, which can remove providers or keys they have but the primary does not. Each member is backed up first so a bad change can be rolled back.",
 			"saved": "Auto-sync updated",
 			"confirmPrimaryTitle": "Confirm primary change",

@@ -72,7 +72,12 @@ type Server struct {
 	masterKey    string       // encrypts the Apprise target secret at rest
 	alertDisp    *alert.Dispatcher
 	settingsMu   sync.Mutex // serializes the settings-row read-merge-write
-	router       http.Handler
+	// rearmMu guards rearmCh, the in-process rearm broadcast. rearmCh is closed (and
+	// replaced) whenever a rearm/repoint bumps the auto-sync generation, so an
+	// in-flight convergence pass cancels synchronously instead of waiting on a poll.
+	rearmMu sync.Mutex
+	rearmCh chan struct{}
+	router  http.Handler
 }
 
 // defaultLBPort is the load-balancer host port assumed when FLEET_LB_PORT is
@@ -113,6 +118,7 @@ func NewServer(cfg ServerConfig) *Server {
 		lbPort:       lbPort,
 		version:      version,
 		masterKey:    cfg.MasterKey,
+		rearmCh:      make(chan struct{}),
 	}
 
 	// Outbound Apprise alerting: one consumer of the Front Desk event bus, gated by
@@ -564,6 +570,9 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "confirm the admin token to change or clear the configured primary", http.StatusForbidden)
 		return
 	}
+	// The guarded write bumped the generation: cancel any pass still importing the
+	// old primary's config before the kick below starts a fresh pass.
+	s.signalRearm()
 	s.emit(r.Context(), Event{
 		Type: "settings.changed", Severity: "info", Source: "frontdesk",
 		Message: fmt.Sprintf("Auto-sync %s", enabledWord(req.Enabled)),
@@ -572,6 +581,19 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, err)
 		return
+	}
+	// When auto-sync is left on, converge the fleet right away instead of waiting
+	// up to two ticks for the loop: the operator opted in deliberately, so this is
+	// the "sync now" they expect from the toggle. Detached from the request
+	// context (which ends when we respond) but time-bounded so a stuck pass cannot
+	// leak the goroutine. A no-op when nothing has drifted; the loop still owns the
+	// steady-state watch. Disabling (or no primary) never kicks.
+	if cfg.Enabled && cfg.PrimaryID != "" {
+		kickCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), autoSyncKickTimeout)
+		go func() {
+			defer cancel()
+			s.forceAutoSyncNow(kickCtx)
+		}()
 	}
 	writeJSON(w, http.StatusOK, cfg)
 }
@@ -592,9 +614,33 @@ func enabledWord(b bool) string {
 // re-run only syncs the one(s) that actually need it. It is a no-op in effect when
 // auto-sync is disabled (the loop reads the marker but does nothing).
 func (s *Server) rearmAutoSync(ctx context.Context) {
-	if err := s.store.SetAutoSyncLastHash(ctx, ""); err != nil {
+	if err := s.store.RearmAutoSync(ctx); err != nil {
 		debuglog.Warn("frontdesk: re-arm auto-sync after membership change", "error", err)
+		return
 	}
+	s.signalRearm()
+}
+
+// signalRearm wakes every in-flight convergence pass so it cancels synchronously,
+// the instant a rearm/repoint has bumped the auto-sync generation, rather than on
+// the next poll. Call it only after the generation-bumping write has committed.
+// Closing the channel broadcasts to all current waiters; a fresh channel replaces
+// it for the next pass. watchRearm still confirms the generation actually moved
+// before cancelling, so a spurious wake never aborts a valid pass.
+func (s *Server) signalRearm() {
+	s.rearmMu.Lock()
+	close(s.rearmCh)
+	s.rearmCh = make(chan struct{})
+	s.rearmMu.Unlock()
+}
+
+// rearmChan returns the current rearm-broadcast channel for a pass to wait on. It
+// must be captured before the pass reads the generation it guards, so a rearm
+// landing in between still wakes the waiter (the channel is closed, not missed).
+func (s *Server) rearmChan() <-chan struct{} {
+	s.rearmMu.Lock()
+	defer s.rearmMu.Unlock()
+	return s.rearmCh
 }
 
 // ---------------------------------------------------------------------------

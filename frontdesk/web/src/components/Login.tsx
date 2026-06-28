@@ -1,6 +1,6 @@
 import { Fingerprint } from "@phosphor-icons/react";
 import { startAuthentication } from "@simplewebauthn/browser";
-import { type FormEvent, useEffect, useState } from "react";
+import { type SyntheticEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api, clearAuthToken, setAuthToken } from "../api/client";
 
@@ -40,7 +40,7 @@ export function Login({ onAuthenticated }: LoginProps) {
 		}
 	};
 
-	const submitToken = async (e: FormEvent) => {
+	const submitToken = async (e: SyntheticEvent) => {
 		e.preventDefault();
 		setError("");
 		setBusy(true);

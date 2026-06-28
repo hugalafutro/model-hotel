@@ -456,6 +456,10 @@ type AutoSyncConfig struct {
 	Enabled   bool   `json:"enabled"`
 	PrimaryID string `json:"primary_id"`
 	LastHash  string `json:"-"`
+	// Gen is the rearm generation: every write that clears LastHash bumps it. A
+	// convergence pass captures it at the start and records its hash only if it is
+	// unchanged, so a rearm that lands mid-pass cannot be clobbered. Not surfaced.
+	Gen int64 `json:"-"`
 }
 
 // GetAutoSync reads the automatic config-sync setup from the settings row.
@@ -465,8 +469,8 @@ func (s *Store) GetAutoSync(ctx context.Context) (AutoSyncConfig, error) {
 		enabled int
 	)
 	err := s.db.QueryRowContext(ctx,
-		`SELECT auto_sync_enabled, auto_sync_primary_id, auto_sync_last_hash FROM settings WHERE id = 1`,
-	).Scan(&enabled, &cfg.PrimaryID, &cfg.LastHash)
+		`SELECT auto_sync_enabled, auto_sync_primary_id, auto_sync_last_hash, auto_sync_gen FROM settings WHERE id = 1`,
+	).Scan(&enabled, &cfg.PrimaryID, &cfg.LastHash, &cfg.Gen)
 	if err != nil {
 		return AutoSyncConfig{}, fmt.Errorf("frontdesk: get auto-sync: %w", err)
 	}
@@ -483,7 +487,8 @@ func (s *Store) GetAutoSync(ctx context.Context) (AutoSyncConfig, error) {
 // primary's config next changed.
 func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string) error {
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ?, auto_sync_last_hash = '' WHERE id = 1`,
+		`UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ?,
+			auto_sync_last_hash = '', auto_sync_gen = auto_sync_gen + 1 WHERE id = 1`,
 		boolToInt(enabled), primaryID,
 	)
 	if err != nil {
@@ -520,7 +525,8 @@ func (s *Store) SetAutoSyncGuarded(ctx context.Context, enabled bool, primaryID 
 			WHEN auto_sync_primary_id = '' OR auto_sync_primary_id = ? THEN ?
 			ELSE auto_sync_enabled
 		END,
-		auto_sync_last_hash = ''
+		auto_sync_last_hash = '',
+		auto_sync_gen = auto_sync_gen + 1
 	WHERE id = 1`
 	query := set
 	args := []any{primaryID, primaryID, primaryID, boolToInt(enabled)}
@@ -541,14 +547,54 @@ func (s *Store) SetAutoSyncGuarded(ctx context.Context, enabled bool, primaryID 
 	return n > 0, nil
 }
 
-// SetAutoSyncLastHash records the primary config hash the poller just applied to
-// the fleet, so the next tick can detect a change cheaply.
-func (s *Store) SetAutoSyncLastHash(ctx context.Context, hash string) error {
-	_, err := s.db.ExecContext(ctx,
-		`UPDATE settings SET auto_sync_last_hash = ? WHERE id = 1`, hash,
+// RecordAutoSyncHash records the primary config hash a convergence pass just
+// applied to the fleet, so the next tick can detect a change cheaply. The write
+// is guarded by gen: it applies only when the rearm generation still matches the
+// value the pass captured before it read the member list. If a rearm (member
+// add, token update, enable, or repoint) landed mid-pass it bumped the
+// generation, the write no-ops (applied=false), the cleared marker stands, and
+// the next tick re-converges with the fresh member list or primary. This stops a
+// slow older pass from clobbering a deliberate rearm.
+func (s *Store) RecordAutoSyncHash(ctx context.Context, hash string, gen int64) (applied bool, err error) {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE settings SET auto_sync_last_hash = ? WHERE id = 1 AND auto_sync_gen = ?`,
+		hash, gen,
 	)
 	if err != nil {
-		return fmt.Errorf("frontdesk: set auto-sync hash: %w", err)
+		return false, fmt.Errorf("frontdesk: record auto-sync hash: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("frontdesk: record auto-sync hash rows: %w", err)
+	}
+	return n > 0, nil
+}
+
+// AutoSyncGen returns the current rearm generation. It is a cheap read an
+// in-flight convergence pass uses to notice a rearm (member add, token update,
+// enable, or repoint) landed and stop before it pushes a now-stale primary
+// export to any further member.
+func (s *Store) AutoSyncGen(ctx context.Context) (int64, error) {
+	var gen int64
+	err := s.db.QueryRowContext(ctx,
+		`SELECT auto_sync_gen FROM settings WHERE id = 1`,
+	).Scan(&gen)
+	if err != nil {
+		return 0, fmt.Errorf("frontdesk: read auto-sync gen: %w", err)
+	}
+	return gen, nil
+}
+
+// RearmAutoSync clears the last-applied config hash and bumps the rearm
+// generation in one statement, so the auto-sync loop runs a fresh pass and any
+// convergence pass already in flight cannot record its (now stale) hash over the
+// clear. Called when the fleet's membership or the designated primary changes.
+func (s *Store) RearmAutoSync(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE settings SET auto_sync_last_hash = '', auto_sync_gen = auto_sync_gen + 1 WHERE id = 1`,
+	)
+	if err != nil {
+		return fmt.Errorf("frontdesk: rearm auto-sync: %w", err)
 	}
 	return nil
 }
