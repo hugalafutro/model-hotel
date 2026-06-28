@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Gestionată de instanța primară a flotei. Modificările făcute aici sunt înlocuite la următoarea sincronizare a configurației.",
 			"alertsNote": "Activarea și dezactivarea alertelor și rutarea evenimentelor sunt gestionate de instanța primară a flotei. Setările de livrare Apprise de mai jos rămân locale pentru această instanță."
+		},
+		"sessionTimeout": {
+			"title": "Expirarea sesiunii",
+			"label": "Deconectare automată după inactivitate",
+			"hint": "Vă deconectează automat din tablou după această perioadă de inactivitate. Setați la Niciodată pentru a menține sesiunea deschisă pe termen nelimitat."
 		}
 	},
 	"components": {

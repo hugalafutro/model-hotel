@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Laivaston ensisijaisen ilmentymän hallinnoima. Täällä tehdyt muutokset korvataan seuraavassa kokoonpanon synkronoinnissa.",
 			"alertsNote": "Hälytysten päälle- ja poiskytkentää sekä tapahtumien reititystä hallinnoi laivaston ensisijainen ilmentymä. Alla olevat Apprise-toimitusasetukset pysyvät paikallisina tässä ilmentymässä."
+		},
+		"sessionTimeout": {
+			"title": "Istunnon aikakatkaisu",
+			"label": "Automaattinen uloskirjautuminen käyttämättömyyden jälkeen",
+			"hint": "Sinut kirjataan ulos hallintapaneelista automaattisesti tämän käyttämättömyysajan jälkeen. Aseta arvoon Ei koskaan pitääksesi istunnon auki rajattomasti."
 		}
 	},
 	"components": {

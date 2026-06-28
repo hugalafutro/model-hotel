@@ -11,6 +11,7 @@ import { clearAuthToken, getAuthToken, onUnauthorized } from "./api/client";
 import { Login } from "./components/Login";
 import { VersionFooter } from "./components/VersionFooter";
 import { ToastProvider } from "./context/ToastContext";
+import { useIdleLogout } from "./hooks/useIdleLogout";
 import { EventsPage } from "./pages/EventsPage";
 import { MembersPage } from "./pages/MembersPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -43,6 +44,10 @@ function Shell() {
 		clearAuthToken();
 		setAuthed(false);
 	}, []);
+
+	// Sign out after the configured period of inactivity (0 = never). Gated on
+	// `authed` so the timer only runs while a session exists.
+	useIdleLogout(authed, logout);
 
 	if (!authed) return <Login onAuthenticated={() => setAuthed(true)} />;
 

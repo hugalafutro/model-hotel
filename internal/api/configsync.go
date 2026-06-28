@@ -986,12 +986,20 @@ var appriseSettingKeys = map[string]bool{
 	"alert_apprise_targets": true,
 }
 
+// sessionIdleTimeoutKey is the dashboard auto-logout window. It is a per-instance
+// admin-session preference (each deployment's operators choose their own idle
+// timeout), so config sync leaves it instance-local like the apprise routing
+// secrets above: a managed member keeps and can edit its own value.
+const sessionIdleTimeoutKey = "session_idle_timeout_minutes"
+
 // isSyncableSetting reports whether a settings key is replicated by config sync:
 // it must be in the shared settings allowlist and not an instance-local apprise
-// secret. Used on both ends (export, diff, apply) so a hand-crafted envelope
-// cannot push a key this member would not itself export.
+// secret or session preference. Used on both ends (export, diff, apply) so a
+// hand-crafted envelope cannot push a key this member would not itself export.
 func isSyncableSetting(key string) bool {
-	return settings.AllowedSettings[key] && !appriseSettingKeys[key]
+	return settings.AllowedSettings[key] &&
+		!appriseSettingKeys[key] &&
+		key != sessionIdleTimeoutKey
 }
 
 // syncableSettingKeys returns the settings keys this member exports.

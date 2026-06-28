@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Filo birincil örneği tarafından yönetiliyor. Burada yapılan değişiklikler sonraki yapılandırma eşitlemesinde değiştirilir.",
 			"alertsNote": "Uyarıların açılıp kapatılması ve olay yönlendirmesi filo birincil örneği tarafından yönetilir. Aşağıdaki Apprise teslimat ayarları bu örneğe yerel olarak kalır."
+		},
+		"sessionTimeout": {
+			"title": "Oturum zaman aşımı",
+			"label": "Hareketsizlik sonrası otomatik çıkış",
+			"hint": "Bu hareketsizlik süresinin ardından panodan otomatik olarak çıkış yapılır. Oturumu süresiz açık tutmak için Asla olarak ayarlayın."
 		}
 	},
 	"components": {

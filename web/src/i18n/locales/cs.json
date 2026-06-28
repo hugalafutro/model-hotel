@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Spravováno primární instancí flotily. Změny provedené zde se při příští synchronizaci konfigurace nahradí.",
 			"alertsNote": "Zapínání a vypínání upozornění a směrování událostí spravuje primární instance flotily. Nastavení doručování Apprise níže zůstávají místní pro tuto instanci."
+		},
+		"sessionTimeout": {
+			"title": "Časový limit relace",
+			"label": "Automatické odhlášení po nečinnosti",
+			"hint": "Po této době nečinnosti budete z panelu automaticky odhlášeni. Nastavte na Nikdy, chcete-li relaci ponechat trvale otevřenou."
 		}
 	},
 	"components": {

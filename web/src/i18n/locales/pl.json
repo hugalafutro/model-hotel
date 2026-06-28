@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Zarządzane przez instancję podstawową floty. Zmiany wprowadzone tutaj zostaną zastąpione przy następnej synchronizacji konfiguracji.",
 			"alertsNote": "Włączanie i wyłączanie alertów oraz routing zdarzeń są zarządzane przez instancję podstawową floty. Ustawienia dostarczania Apprise poniżej pozostają lokalne dla tej instancji."
+		},
+		"sessionTimeout": {
+			"title": "Limit czasu sesji",
+			"label": "Automatyczne wylogowanie po bezczynności",
+			"hint": "Po tym okresie bezczynności nastąpi automatyczne wylogowanie z panelu. Ustaw na Nigdy, aby sesja pozostała otwarta bez ograniczeń."
 		}
 	},
 	"components": {

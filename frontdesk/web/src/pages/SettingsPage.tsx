@@ -108,6 +108,7 @@ export function SettingsPage() {
 				traefik_stale_secs: settings.traefik_stale_secs,
 				event_retention_days: settings.event_retention_days,
 				retry_attempts: settings.retry_attempts,
+				session_idle_timeout_minutes: settings.session_idle_timeout_minutes,
 			});
 			toast(t("settings.saved"), "success");
 		} catch (err) {
@@ -195,6 +196,15 @@ export function SettingsPage() {
 						/>
 					</div>
 				</div>
+
+				<NumberField
+					id="session-idle-timeout"
+					label={t("settings.sessionTimeout")}
+					hint={t("settings.sessionTimeoutHint")}
+					value={settings.session_idle_timeout_minutes}
+					min={0}
+					onChange={(n) => patch({ session_idle_timeout_minutes: n })}
+				/>
 
 				{saveError && (
 					<div

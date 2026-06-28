@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Styres av flåtens primære instans. Endringer her erstattes ved neste konfigurasjonssynkronisering.",
 			"alertsNote": "Av- og påslåing av varsler og hendelsesruting styres av flåtens primære instans. Apprise-leveringsinnstillingene nedenfor forblir lokale for denne instansen."
+		},
+		"sessionTimeout": {
+			"title": "Tidsavbrudd for økt",
+			"label": "Automatisk utlogging etter inaktivitet",
+			"hint": "Logger automatisk ut av dashbordet etter denne perioden uten aktivitet. Sett til Aldri for å holde økten åpen på ubestemt tid."
 		}
 	},
 	"components": {

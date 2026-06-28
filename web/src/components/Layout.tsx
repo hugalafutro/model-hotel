@@ -27,6 +27,7 @@ import { api } from "../api/client";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
+import { useIdleLogout } from "../hooks/useIdleLogout";
 import { useReadOnly } from "../hooks/useReadOnly";
 import i18next, { LANGUAGE_STORAGE_KEY } from "../i18n";
 import {
@@ -846,6 +847,10 @@ export function Layout({ children }: LayoutProps) {
 		navigate("/dashboard");
 		window.location.reload();
 	};
+
+	// Sign out after the configured period of inactivity (0 = never). Reuses the
+	// same logout path as the manual button.
+	useIdleLogout(handleLogout);
 
 	return (
 		<div className="flex h-screen ui-surface-bg">

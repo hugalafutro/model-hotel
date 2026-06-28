@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Gestita dall'istanza primaria della flotta. Le modifiche apportate qui vengono sostituite alla successiva sincronizzazione della configurazione.",
 			"alertsNote": "L'attivazione degli avvisi e l'instradamento degli eventi sono gestiti dall'istanza primaria della flotta. Le impostazioni di consegna Apprise qui sotto restano locali a questa istanza."
+		},
+		"sessionTimeout": {
+			"title": "Timeout della sessione",
+			"label": "Disconnessione automatica dopo inattività",
+			"hint": "Disconnette automaticamente la dashboard dopo questo periodo di inattività. Imposta su Mai per mantenere la sessione aperta a tempo indeterminato."
 		}
 	},
 	"components": {

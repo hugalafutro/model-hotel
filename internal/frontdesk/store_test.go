@@ -211,10 +211,13 @@ func TestSettingsDefaultsAndUpdate(t *testing.T) {
 	if def.HealthPollSecs != 5 || def.EventRetentionDays != 90 || def.RetryAttempts != 2 {
 		t.Errorf("unexpected defaults: %+v", def)
 	}
+	if def.SessionIdleTimeoutMinutes != 60 {
+		t.Errorf("session idle timeout default = %d, want 60", def.SessionIdleTimeoutMinutes)
+	}
 
 	updated := Settings{
 		HealthPollSecs: 10, TraefikPollSecs: 7, TraefikStaleSecs: 60,
-		EventRetentionDays: 30, RetryAttempts: 0,
+		EventRetentionDays: 30, RetryAttempts: 0, SessionIdleTimeoutMinutes: 30,
 	}
 	if err := s.UpdateSettings(ctx, updated); err != nil {
 		t.Fatalf("UpdateSettings: %v", err)
@@ -232,6 +235,8 @@ func TestSettingsValidation(t *testing.T) {
 		{HealthPollSecs: 0, TraefikPollSecs: 5, TraefikStaleSecs: 5, EventRetentionDays: 1, RetryAttempts: 1},
 		{HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 5, EventRetentionDays: 0, RetryAttempts: 1},
 		{HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 5, EventRetentionDays: 1, RetryAttempts: -1},
+		{HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 5, EventRetentionDays: 1, RetryAttempts: 1, SessionIdleTimeoutMinutes: -1},
+		{HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 5, EventRetentionDays: 1, RetryAttempts: 1, SessionIdleTimeoutMinutes: 1441},
 	}
 	for i, b := range bad {
 		if err := s.UpdateSettings(ctx, b); !errors.Is(err, ErrValidation) {

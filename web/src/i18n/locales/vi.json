@@ -1917,6 +1917,11 @@
 		"managed": {
 			"sectionNote": "Được quản lý bởi phiên bản chính của hạm đội. Các thay đổi ở đây sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo.",
 			"alertsNote": "Việc bật tắt cảnh báo và định tuyến sự kiện do phiên bản chính của hạm đội quản lý. Các cài đặt phân phối Apprise bên dưới vẫn là cục bộ trên phiên bản này."
+		},
+		"sessionTimeout": {
+			"title": "Thời gian chờ phiên",
+			"label": "Tự động đăng xuất sau khi không hoạt động",
+			"hint": "Tự động đăng xuất khỏi bảng điều khiển sau khoảng thời gian không hoạt động này. Đặt thành Không bao giờ để giữ phiên mở vô thời hạn."
 		}
 	},
 	"components": {

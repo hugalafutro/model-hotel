@@ -2,8 +2,11 @@ import { useTranslation } from "react-i18next";
 import { KeyRound } from "@/lib/icons";
 import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSlider } from "../../components/SettingsSlider";
+import { SETTING_DEFAULTS } from "./defaults";
 import { PasskeyPanel } from "./PasskeySettings";
 import { TotpPanel } from "./TotpSettings";
+import { useSettingsMutations } from "./useSettingsMutations";
 
 interface AuthenticationSettingsProps {
 	collapsed: boolean;
@@ -11,16 +14,24 @@ interface AuthenticationSettingsProps {
 }
 
 /**
- * Authentication groups the two admin sign-in hardening methods, passkeys and
- * TOTP two-factor, side by side in one section. Each method keeps its own
- * panel/logic (PasskeyPanel, TotpPanel); this just frames them as labelled
- * SettingsGroup columns under a shared header.
+ * Authentication groups the admin sign-in hardening methods, passkeys and TOTP
+ * two-factor, side by side, with a session auto-logout control beneath them.
+ * Each method keeps its own panel/logic (PasskeyPanel, TotpPanel); the session
+ * timeout is a stored setting (session_idle_timeout_minutes) consumed by
+ * useIdleLogout to sign the admin out after inactivity (0 = never).
  */
 export function AuthenticationSettings({
 	collapsed,
 	onToggle,
 }: AuthenticationSettingsProps) {
 	const { t } = useTranslation();
+	const { settings, updateMutation, resetSettingMutation } =
+		useSettingsMutations();
+
+	const idleMinutes = Number(
+		settings?.session_idle_timeout_minutes ??
+			SETTING_DEFAULTS.session_idle_timeout_minutes,
+	);
 
 	return (
 		<SettingsSection
@@ -29,12 +40,38 @@ export function AuthenticationSettings({
 			collapsed={collapsed}
 			onToggle={onToggle}
 		>
-			<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
-				<SettingsGroup title={t("settings.passkeys.title")}>
-					<PasskeyPanel />
-				</SettingsGroup>
-				<SettingsGroup title={t("settings.totp.title")}>
-					<TotpPanel />
+			<div className="space-y-5">
+				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
+					<SettingsGroup title={t("settings.passkeys.title")}>
+						<PasskeyPanel />
+					</SettingsGroup>
+					<SettingsGroup title={t("settings.totp.title")}>
+						<TotpPanel />
+					</SettingsGroup>
+				</div>
+
+				<SettingsGroup title={t("settings.sessionTimeout.title")}>
+					<SettingsSlider
+						id="session-idle-timeout"
+						label={t("settings.sessionTimeout.label")}
+						value={Number.isFinite(idleMinutes) ? idleMinutes : 60}
+						min={0}
+						max={240}
+						step={5}
+						clampStep={5}
+						infinityValue={0}
+						unit="m"
+						onChange={(v) =>
+							updateMutation.mutate({
+								session_idle_timeout_minutes: String(v),
+							})
+						}
+						description={t("settings.sessionTimeout.hint")}
+						onReset={() =>
+							resetSettingMutation.mutate(["session_idle_timeout_minutes"])
+						}
+						resetTooltip={t("settings.common.resetSetting")}
+					/>
 				</SettingsGroup>
 			</div>
 		</SettingsSection>

@@ -80,6 +80,10 @@ type Settings struct {
 	EventRetentionDays int `json:"event_retention_days"`
 	RetryAttempts      int `json:"retry_attempts"`
 
+	// Admin-UI inactivity auto-logout window in minutes; 0 disables it. Consumed
+	// by the frontend (useIdleLogout); the server only stores and bounds it.
+	SessionIdleTimeoutMinutes int `json:"session_idle_timeout_minutes"`
+
 	// Outbound Apprise alerting (HA operator notifications). AlertAppriseTargets
 	// is stored encrypted at rest (auth.EncryptString) and masked at the API
 	// boundary; the store layer reads/writes the raw column value. AlertEvents is
@@ -397,9 +401,11 @@ func (s *Store) GetSettings(ctx context.Context) (Settings, error) {
 	)
 	err := s.db.QueryRowContext(ctx,
 		`SELECT health_poll_secs, traefik_poll_secs, traefik_stale_secs, event_retention_days, retry_attempts,
+		        session_idle_timeout_minutes,
 		        alert_enabled, alert_apprise_api_url, alert_apprise_targets, alert_events
 		 FROM settings WHERE id = 1`,
 	).Scan(&set.HealthPollSecs, &set.TraefikPollSecs, &set.TraefikStaleSecs, &set.EventRetentionDays, &set.RetryAttempts,
+		&set.SessionIdleTimeoutMinutes,
 		&alertEnabled, &set.AlertAppriseAPIURL, &set.AlertAppriseTargets, &set.AlertEvents)
 	if err != nil {
 		return Settings{}, fmt.Errorf("frontdesk: get settings: %w", err)
@@ -419,6 +425,9 @@ func (s *Store) UpdateSettings(ctx context.Context, set Settings) error {
 	if set.RetryAttempts < 0 {
 		return fmt.Errorf("%w: retry attempts cannot be negative", ErrValidation)
 	}
+	if set.SessionIdleTimeoutMinutes < 0 || set.SessionIdleTimeoutMinutes > 1440 {
+		return fmt.Errorf("%w: session idle timeout must be between 0 and 1440 minutes", ErrValidation)
+	}
 	alertEnabled := 0
 	if set.AlertEnabled {
 		alertEnabled = 1
@@ -427,10 +436,10 @@ func (s *Store) UpdateSettings(ctx context.Context, set Settings) error {
 	// new value or preserved the existing ciphertext for a masked submission.
 	_, err := s.db.ExecContext(ctx,
 		`UPDATE settings SET health_poll_secs = ?, traefik_poll_secs = ?, traefik_stale_secs = ?,
-		 event_retention_days = ?, retry_attempts = ?,
+		 event_retention_days = ?, retry_attempts = ?, session_idle_timeout_minutes = ?,
 		 alert_enabled = ?, alert_apprise_api_url = ?, alert_apprise_targets = ?, alert_events = ? WHERE id = 1`,
 		set.HealthPollSecs, set.TraefikPollSecs, set.TraefikStaleSecs,
-		set.EventRetentionDays, set.RetryAttempts,
+		set.EventRetentionDays, set.RetryAttempts, set.SessionIdleTimeoutMinutes,
 		alertEnabled, set.AlertAppriseAPIURL, set.AlertAppriseTargets, set.AlertEvents,
 	)
 	if err != nil {

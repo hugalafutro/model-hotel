@@ -176,10 +176,11 @@ var allowedSettings = map[string]struct {
 	"backup_son_retention":         {typeName: "int", min: 1, max: 365},
 	"backup_father_retention":      {typeName: "int", min: 0, max: 52},
 	"backup_grandfather_retention": {typeName: "int", min: 0, max: 120},
-	"alert_enabled":                {typeName: "string"}, // bool as string
-	"alert_apprise_api_url":        {typeName: "string"}, // base URL of the apprise-api container
-	"alert_apprise_targets":        {typeName: "string"}, // secret: encrypted at rest, masked on read
-	"alert_events":                 {typeName: "string"}, // CSV of enabled event Types (the picker)
+	"alert_enabled":                {typeName: "string"},                 // bool as string
+	"alert_apprise_api_url":        {typeName: "string"},                 // base URL of the apprise-api container
+	"alert_apprise_targets":        {typeName: "string"},                 // secret: encrypted at rest, masked on read
+	"alert_events":                 {typeName: "string"},                 // CSV of enabled event Types (the picker)
+	"session_idle_timeout_minutes": {typeName: "int", min: 0, max: 1440}, // dashboard auto-logout window; 0 = disabled
 }
 
 const maxSettingValueLen = 500
