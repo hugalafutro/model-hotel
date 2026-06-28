@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type SyntheticEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { Settings } from "../api/types";
@@ -100,7 +100,7 @@ export function SettingsPage() {
 	const patch = (p: Partial<Settings>) =>
 		setSettings((s) => (s ? { ...s, ...p } : s));
 
-	const save = async (e: FormEvent) => {
+	const save = async (e: SyntheticEvent) => {
 		e.preventDefault();
 		if (!settings) return;
 		setSaveError("");
@@ -236,9 +236,9 @@ export function SettingsPage() {
 
 			<AutoSyncPanel members={members} />
 
-			<AlertsPanel />
-
 			<FleetSyncWizard members={members} onChanged={refetchMembers} />
+
+			<AlertsPanel />
 
 			<SecurityPanels />
 		</div>

@@ -252,9 +252,10 @@ provider IDs.
 
 The runbook above is the manual path. For an unattended fleet, Front Desk →
 Settings → **Automatic config sync** lets you designate a primary and flip
-auto-sync on; from then on you only manage the primary. Front Desk watches the
-primary's config and propagates any change to providers, virtual keys, or
-syncable settings across the fleet by itself. The Members table's **Last Config
+auto-sync on; from then on you only manage the primary. Flipping it on converges
+the fleet to the primary right away, then Front Desk watches the primary's config
+and propagates any change to providers, virtual keys, or syncable settings across
+the fleet by itself. The Members table's **Last Config
 Sync** column shows when each member last converged and why.
 
 Two safety properties make this safe to leave running:

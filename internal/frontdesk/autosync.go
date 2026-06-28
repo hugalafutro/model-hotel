@@ -47,6 +47,16 @@ const (
 	// autoSyncReason is stamped on each member's last-sync record and shown in the
 	// Members table tooltip, so the operator sees why an automatic sync fired.
 	autoSyncReason = "the primary's config changed"
+
+	// autoSyncKickReason is stamped instead when a sync is triggered by the
+	// operator turning auto-sync on (or repointing the primary), so the marker
+	// reflects the deliberate enable rather than a primary edit.
+	autoSyncKickReason = "auto-sync was enabled"
+
+	// autoSyncKickTimeout caps the detached convergence pass fired when auto-sync
+	// is enabled, so a stuck member cannot leak the goroutine. Generous: a pass
+	// snapshots and imports config on every drifted member in turn.
+	autoSyncKickTimeout = 5 * time.Minute
 )
 
 // RunAutoSync samples the designated primary on a fixed tick and propagates its
@@ -81,17 +91,8 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 		return "" // disabled or no primary designated: nothing to do
 	}
 
-	primary, primaryToken, err := s.memberTokenOrErr(ctx, cfg.PrimaryID)
-	if err != nil {
-		// The designated primary was removed or lost its token. The loop cannot
-		// proceed without a source; stay quiet at debug and reset the window.
-		debuglog.Debug("frontdesk: auto-sync: primary unavailable", "error", err)
-		return ""
-	}
-
-	hash, err := s.fetchMemberConfigVersion(ctx, primary, primaryToken)
-	if err != nil {
-		debuglog.Debug("frontdesk: auto-sync: read primary version", "member", primary.Name, "error", err)
+	primary, primaryToken, hash, ok := s.primaryConfigHash(ctx, cfg)
+	if !ok {
 		return ""
 	}
 
@@ -106,7 +107,60 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 		return hash
 	}
 
-	applied, allConverged := s.applyAutoSync(ctx, primary, primaryToken)
+	s.convergeFleet(ctx, primary, primaryToken, hash, autoSyncReason)
+	return hash
+}
+
+// forceAutoSyncNow runs one convergence pass immediately, bypassing the tick
+// loop's coalescing gate. It is fired when the operator explicitly enables
+// auto-sync (or repoints the primary) so the fleet converges in seconds instead
+// of waiting up to two ticks: the operator opted in deliberately, so there is no
+// mid-edit ambiguity for coalescing to guard against. Safe to run in its own
+// goroutine with a detached context: it reuses the same primary read, per-member
+// backup, and dry-run diff as the loop, and is a no-op when auto-sync is off or
+// has no primary. It never returns an error; failures log and the loop retries.
+func (s *Server) forceAutoSyncNow(ctx context.Context) {
+	cfg, err := s.store.GetAutoSync(ctx)
+	if err != nil {
+		debuglog.Warn("frontdesk: auto-sync kick: read config", "error", err)
+		return
+	}
+	if !cfg.Enabled || cfg.PrimaryID == "" {
+		return
+	}
+	primary, primaryToken, hash, ok := s.primaryConfigHash(ctx, cfg)
+	if !ok {
+		return
+	}
+	s.convergeFleet(ctx, primary, primaryToken, hash, autoSyncKickReason)
+}
+
+// primaryConfigHash resolves the designated primary, loads its admin token, and
+// reads its current syncable-config hash. ok is false (with a debug log) when
+// the primary was removed, lost its token, or is unreachable, in which case the
+// caller skips this round and retries later.
+func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (primary *Member, token, hash string, ok bool) {
+	primary, token, err := s.memberTokenOrErr(ctx, cfg.PrimaryID)
+	if err != nil {
+		// The designated primary was removed or lost its token. We cannot
+		// proceed without a source; stay quiet at debug and reset the window.
+		debuglog.Debug("frontdesk: auto-sync: primary unavailable", "error", err)
+		return nil, "", "", false
+	}
+	hash, err = s.fetchMemberConfigVersion(ctx, primary, token)
+	if err != nil {
+		debuglog.Debug("frontdesk: auto-sync: read primary version", "member", primary.Name, "error", err)
+		return nil, "", "", false
+	}
+	return primary, token, hash, true
+}
+
+// convergeFleet pushes the primary's config to every member that needs it,
+// records the applied hash once the whole reachable fleet has converged, and
+// emits one roll-up event tagged with reason. Shared by the tick loop and the
+// enable-time kick so both take the identical apply/record/emit path.
+func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash, reason string) {
+	applied, allConverged := s.applyAutoSync(ctx, primary, primaryToken, reason)
 	// Record the hash as applied only once every reachable member converged onto
 	// it. If a member was unreachable, leave the marker so the next tick retries;
 	// already-converged members are skipped by their dry-run diff, so the retry
@@ -119,10 +173,9 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 	if applied > 0 {
 		s.emit(ctx, Event{
 			Type: "config.auto_synced", Severity: "info", Source: "frontdesk",
-			Message: fmt.Sprintf("Auto-synced %d member(s): %s", applied, autoSyncReason),
+			Message: fmt.Sprintf("Auto-synced %d member(s): %s", applied, reason),
 		})
 	}
-	return hash
 }
 
 // applyAutoSync pushes the primary's config to every other tokened member that
@@ -130,8 +183,8 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 // reachable member ended up converged (the signal autoSyncOnce uses to decide
 // whether to record the applied hash). Each member that needs the new config is
 // snapshotted first; a member whose pre-sync backup fails is skipped, not
-// overwritten.
-func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToken string) (applied int, allConverged bool) {
+// overwritten. reason is stamped onto each synced member's last-sync marker.
+func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToken, reason string) (applied int, allConverged bool) {
 	export, err := s.fetchMemberExport(ctx, primary, primaryToken)
 	if err != nil {
 		debuglog.Warn("frontdesk: auto-sync: read primary export", "member", primary.Name, "error", err)
@@ -205,7 +258,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		// success, so the Members table shows when and why it last converged. Per-
 		// member success events are suppressed here (emitSuccessEvent=false); the
 		// loop emits one roll-up below so a fleet sync does not toast per member.
-		out := s.applyMemberConfig(ctx, m, token, export, autoSyncReason, false)
+		out := s.applyMemberConfig(ctx, m, token, export, reason, false)
 		if !out.OK {
 			allConverged = false
 			continue // applyMemberConfig already emitted the per-member failure

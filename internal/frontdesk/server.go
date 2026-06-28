@@ -573,6 +573,19 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	// When auto-sync is left on, converge the fleet right away instead of waiting
+	// up to two ticks for the loop: the operator opted in deliberately, so this is
+	// the "sync now" they expect from the toggle. Detached from the request
+	// context (which ends when we respond) but time-bounded so a stuck pass cannot
+	// leak the goroutine. A no-op when nothing has drifted; the loop still owns the
+	// steady-state watch. Disabling (or no primary) never kicks.
+	if cfg.Enabled && cfg.PrimaryID != "" {
+		kickCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), autoSyncKickTimeout)
+		go func() {
+			defer cancel()
+			s.forceAutoSyncNow(kickCtx)
+		}()
+	}
 	writeJSON(w, http.StatusOK, cfg)
 }
 

@@ -159,6 +159,63 @@ func TestAutoSyncCoalescesThenApplies(t *testing.T) {
 	}
 }
 
+// TestForceAutoSyncNowConvergesImmediately: the enable-time kick converges a
+// drifted fleet in a single pass, with no coalescing wait, and stamps the
+// member's last-sync marker with the "auto-sync was enabled" reason.
+func TestForceAutoSyncNowConvergesImmediately(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B" // changed vs the recorded last hash
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff // this member needs the new config
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID, "hash-A")
+
+	// Single call, no prior tick: the kick must act at once.
+	srv.forceAutoSyncNow(t.Context())
+
+	if !replica.didBackup() {
+		t.Error("replica was not backed up before the kick sync")
+	}
+	if !replica.didRealSync() {
+		t.Error("replica did not receive the config on the kick")
+	}
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncReason != autoSyncKickReason {
+		t.Errorf("last-sync reason = %q, want %q", got.LastConfigSyncReason, autoSyncKickReason)
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash != "hash-B" {
+		t.Errorf("applied hash = %q, want hash-B recorded after convergence", cfg.LastHash)
+	}
+}
+
+// TestForceAutoSyncNowDisabledIsNoop: the kick does nothing when auto-sync is off
+// (e.g. the operator toggled it back off before the goroutine ran).
+func TestForceAutoSyncNowDisabledIsNoop(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	if err := store.SetAutoSync(t.Context(), false, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+
+	srv.forceAutoSyncNow(t.Context())
+
+	if replica.didRealSync() || replica.didBackup() {
+		t.Error("kick synced a member while auto-sync was disabled")
+	}
+}
+
 // TestAutoSyncSkipsConvergedMember: a member whose dry-run diff is empty is left
 // untouched (no backup, no import), but the fleet still counts as converged so the
 // new hash is recorded and the loop quiesces.
