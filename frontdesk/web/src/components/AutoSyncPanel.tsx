@@ -51,6 +51,19 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 			toast(t("settings.autoSync.saved"), "success");
 			return true;
 		} catch (err) {
+			// A primary was configured concurrently (another admin), so the server
+			// now gates this change even though our snapshot showed none set. Recover
+			// by prompting for the admin token instead of dead-ending on an error.
+			if (
+				err instanceof ApiError &&
+				err.status === 403 &&
+				confirm === undefined
+			) {
+				setConfirmToken("");
+				setConfirmError("");
+				setPendingPrimary(next.primary_id);
+				return false;
+			}
 			setSaveError(errorMessage(err));
 			return false;
 		} finally {

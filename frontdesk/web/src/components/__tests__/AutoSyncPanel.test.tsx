@@ -131,3 +131,42 @@ it("gates repointing an already-set primary behind the admin token", async () =>
 		}),
 	);
 });
+
+it("recovers when a primary was set concurrently (stale snapshot)", async () => {
+	// The client loaded with no primary, but another admin configured one in the
+	// meantime, so the server gates the first un-tokened PUT with a 403.
+	const puts: Array<{ primary_id: string; confirm_token?: string }> = [];
+	server.use(
+		http.put("/api/fleet/autosync", async ({ request }) => {
+			const body = (await request.json()) as (typeof puts)[number];
+			puts.push(body);
+			if (!body.confirm_token) {
+				return new HttpResponse("confirm the admin token", { status: 403 });
+			}
+			return HttpResponse.json({ enabled: false, primary_id: body.primary_id });
+		}),
+	);
+	renderPanel();
+
+	// Selecting a primary PUTs without a token and is refused; instead of an
+	// error, the confirmation modal opens so the operator can recover.
+	await userEvent.selectOptions(await screen.findByRole("combobox"), "1");
+	const dialog = await screen.findByRole("dialog");
+	await waitFor(() => expect(puts).toHaveLength(1));
+
+	await userEvent.type(
+		within(dialog).getByLabelText(/admin token/i),
+		"s3cret-token",
+	);
+	await userEvent.click(
+		within(dialog).getByRole("button", { name: /confirm change/i }),
+	);
+
+	await waitFor(() =>
+		expect(puts).toContainEqual({
+			enabled: false,
+			primary_id: "1",
+			confirm_token: "s3cret-token",
+		}),
+	);
+});
