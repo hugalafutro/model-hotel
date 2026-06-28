@@ -39,7 +39,8 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 	if (loadError || !cfg) return null; // stay quiet on load; the wizard still works
 
 	const errorMessage = (err: unknown): string =>
-		err instanceof ApiError && (err.status === 400 || err.status === 403)
+		err instanceof ApiError &&
+		(err.status === 400 || err.status === 403 || err.status === 409)
 			? err.message
 			: t("errors.generic");
 
@@ -83,6 +84,9 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 			setPendingPrimary(value);
 			return;
 		}
+		// First selection (none set yet). If our snapshot is stale because a primary
+		// was set concurrently, the server gates this PUT with a 403 and persist()
+		// opens the confirmation modal to recover, so we never dead-end.
 		void persist({ ...cfg, primary_id: value });
 	};
 

@@ -492,6 +492,30 @@ func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string)
 	return nil
 }
 
+// SetAutoSyncCAS persists the auto-sync choice only if the stored primary still
+// equals expectPrimaryID. This closes the read-modify-write race in putAutoSync:
+// the admin-token gate validates against the primary observed at read time, so
+// the write must not land if another request repointed the primary in between
+// (which would silently clobber a change we never confirmed against). Reports
+// whether the row was updated; false means a concurrent change won and the
+// caller should treat it as a conflict. Clears the last-applied hash like
+// SetAutoSync, for the same re-arm reason.
+func (s *Store) SetAutoSyncCAS(ctx context.Context, enabled bool, primaryID, expectPrimaryID string) (bool, error) {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ?, auto_sync_last_hash = ''
+		 WHERE id = 1 AND auto_sync_primary_id = ?`,
+		boolToInt(enabled), primaryID, expectPrimaryID,
+	)
+	if err != nil {
+		return false, fmt.Errorf("frontdesk: set auto-sync (cas): %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("frontdesk: set auto-sync (cas) rows: %w", err)
+	}
+	return n > 0, nil
+}
+
 // SetAutoSyncLastHash records the primary config hash the poller just applied to
 // the fleet, so the next tick can detect a change cheaply.
 func (s *Store) SetAutoSyncLastHash(ctx context.Context, hash string) error {

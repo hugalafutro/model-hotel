@@ -595,6 +595,49 @@ func TestSetAutoSyncClearsAppliedHash(t *testing.T) {
 	}
 }
 
+// TestSetAutoSyncCAS covers the compare-and-swap guard that closes the
+// read-modify-write race in putAutoSync: the write only lands when the stored
+// primary still matches the value the caller gated against.
+func TestSetAutoSyncCAS(t *testing.T) {
+	_, store := newTestServer(t)
+	a, _ := store.CreateMember(t.Context(), "a", "http://127.0.0.1:9", "tok")
+	b, _ := store.CreateMember(t.Context(), "b", "http://127.0.0.1:8", "tok")
+
+	// First set from the empty state: expect "" matches, so it applies.
+	applied, err := store.SetAutoSyncCAS(t.Context(), true, a.ID, "")
+	if err != nil {
+		t.Fatalf("SetAutoSyncCAS first: %v", err)
+	}
+	if !applied {
+		t.Fatal("first CAS from empty primary should apply")
+	}
+
+	// A repoint whose expected primary is stale (someone else already moved it to
+	// a.ID) must not apply and must leave the stored primary untouched.
+	applied, err = store.SetAutoSyncCAS(t.Context(), true, b.ID, "stale-id")
+	if err != nil {
+		t.Fatalf("SetAutoSyncCAS stale: %v", err)
+	}
+	if applied {
+		t.Fatal("CAS with a stale expected primary must not apply")
+	}
+	if cfg, _ := store.GetAutoSync(t.Context()); cfg.PrimaryID != a.ID {
+		t.Fatalf("primary = %q after refused CAS, want %q", cfg.PrimaryID, a.ID)
+	}
+
+	// Repoint with the correct expected primary applies.
+	applied, err = store.SetAutoSyncCAS(t.Context(), true, b.ID, a.ID)
+	if err != nil {
+		t.Fatalf("SetAutoSyncCAS repoint: %v", err)
+	}
+	if !applied {
+		t.Fatal("CAS with the correct expected primary should apply")
+	}
+	if cfg, _ := store.GetAutoSync(t.Context()); cfg.PrimaryID != b.ID {
+		t.Fatalf("primary = %q after repoint, want %q", cfg.PrimaryID, b.ID)
+	}
+}
+
 // TestAutoSyncReEnableConvergesDriftedReplica is the activation-gap fix (Greptile
 // P1): a replica that drifted while sync was off is brought back in line when the
 // operator re-enables auto-sync, even though the primary's config never changed.

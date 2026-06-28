@@ -558,8 +558,18 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "choose a primary before enabling auto-sync", http.StatusBadRequest)
 		return
 	}
-	if err := s.store.SetAutoSync(r.Context(), req.Enabled, req.PrimaryID); err != nil {
+	// Compare-and-swap against the primary we gated on: if another request
+	// repointed it between the read above and here, refuse rather than clobber a
+	// change this caller never confirmed against.
+	applied, err := s.store.SetAutoSyncCAS(r.Context(), req.Enabled, req.PrimaryID, cur.PrimaryID)
+	if err != nil {
 		writeError(w, err)
+		return
+	}
+	if !applied {
+		debuglog.Warn("frontdesk: auto-sync primary changed under a concurrent update; conflict",
+			"expected", cur.PrimaryID, "to", req.PrimaryID)
+		http.Error(w, "the configured primary changed; reload and try again", http.StatusConflict)
 		return
 	}
 	s.emit(r.Context(), Event{
