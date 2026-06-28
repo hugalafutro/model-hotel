@@ -83,6 +83,20 @@ describe("getSourceBadgeClasses", () => {
 		expect(result).toContain("text-indigo-400");
 	});
 
+	it("returns a bolder indigo for configsync (HA), distinct from settings", () => {
+		const result = getSourceBadgeClasses("configsync");
+		expect(result).toContain("bg-indigo-500/30");
+		expect(result).toContain("text-indigo-200");
+		// Must not collide with the muted indigo used for `settings`.
+		expect(result).not.toBe(getSourceBadgeClasses("settings"));
+	});
+
+	it("returns the same HA classes for fleet as for configsync", () => {
+		expect(getSourceBadgeClasses("fleet")).toBe(
+			getSourceBadgeClasses("configsync"),
+		);
+	});
+
 	it("returns violet classes for events", () => {
 		const result = getSourceBadgeClasses("events");
 		expect(result).toContain("bg-violet-900/30");

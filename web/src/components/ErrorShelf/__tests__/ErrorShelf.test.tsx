@@ -4,6 +4,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { ErrorShelf } from "../ErrorShelf";
+import { isHaSource } from "../useErrorShelf";
+
+describe("isHaSource", () => {
+	it("flags the fleet config-sync sources", () => {
+		expect(isHaSource("configsync")).toBe(true);
+		expect(isHaSource("fleet")).toBe(true);
+	});
+
+	it("rejects non-fleet and missing sources", () => {
+		expect(isHaSource("server")).toBe(false);
+		expect(isHaSource("proxy")).toBe(false);
+		expect(isHaSource(undefined)).toBe(false);
+		expect(isHaSource("")).toBe(false);
+	});
+});
 
 /** Seed the request-log (5xx) endpoint with one error row. */
 function seedRequestError(message: string, createdAt: string) {
@@ -132,6 +147,22 @@ describe("ErrorShelf", () => {
 		expect(within(rows[0]).getByTestId("error-shelf-chip-ha")).toBeTruthy();
 		expect(within(rows[0]).queryByTestId("error-shelf-chip-app")).toBeNull();
 		expect(within(rows[0]).getByText("apply import failed")).toBeTruthy();
+	});
+
+	it("opens an HA error in the app log-detail modal", async () => {
+		// HA stays kind="app", so "View details" must route to the app modal,
+		// which surfaces the source ("configsync") and message.
+		seedAppError("apply import failed", "2024-02-01T09:00:00Z", "configsync");
+		const { user } = renderWithProviders(<ErrorShelf />);
+
+		await screen.findByTestId("error-shelf-count");
+		await expand();
+		const row = await screen.findByTestId("error-shelf-row");
+		await user.click(within(row).getByTitle("View details"));
+
+		const dialog = await screen.findByRole("dialog");
+		expect(within(dialog).getByText("configsync")).toBeTruthy();
+		expect(within(dialog).getByText("apply import failed")).toBeTruthy();
 	});
 
 	it("acknowledges a single row, persists it, and hides when none remain", async () => {

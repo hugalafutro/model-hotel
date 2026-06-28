@@ -55,8 +55,10 @@ export const getSourceBadgeClasses = (source: string) => {
 			return "bg-orange-900/30 text-orange-400";
 		case "configsync":
 		case "fleet":
-			// HA / fleet membership — matches the indigo HA chip in the error shelf.
-			return "bg-indigo-900/30 text-indigo-400";
+			// HA / fleet membership — indigo family to echo the error-shelf HA chip,
+			// but a brighter, bolder shade than the muted indigo `settings` uses, so
+			// the two stay distinguishable when both appear in the source column.
+			return "bg-indigo-500/30 text-indigo-200";
 		case "modelsdev":
 			return "bg-rose-900/30 text-rose-400";
 		case "applogs":
