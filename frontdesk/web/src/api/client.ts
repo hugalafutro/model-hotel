@@ -134,6 +134,9 @@ export const api = {
 		),
 
 	getSettings: () => request<Settings>("/api/settings"),
+	// Best-effort server-side session revoke for logout (manual or idle). A raw
+	// FRONTDESK_TOKEN bearer has no session row, so the server no-ops and returns 200.
+	logout: () => request<void>("/api/logout", { method: "POST" }),
 	// Running-build identity for the footer (version + short commit SHA).
 	getVersion: () => request<VersionInfo>("/api/version"),
 	// Partial body: the server merges onto the stored row, so each panel PUTs only

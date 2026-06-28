@@ -310,6 +310,40 @@ func TestUpdateSettings_Hedging(t *testing.T) {
 	}
 }
 
+// Test that session_idle_timeout_minutes round-trips through the settings API
+// and that out-of-range values are rejected (AGENTS.md: one save/retrieve test
+// per allowedSettings key).
+func TestUpdateSettings_SessionIdleTimeout(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/settings", strings.NewReader(`{"session_idle_timeout_minutes": "30"}`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var response map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if response["session_idle_timeout_minutes"] != "30" {
+		t.Errorf("Expected session_idle_timeout_minutes='30', got %q", response["session_idle_timeout_minutes"])
+	}
+
+	// Out of range (max 240) is rejected with 400.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("PUT", "/settings", strings.NewReader(`{"session_idle_timeout_minutes": "241"}`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for out-of-range value, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 // Test for failover.go - SyncFailoverGroups
 
 func TestUpdateSettings_TooManySettings_Integration(t *testing.T) {

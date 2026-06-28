@@ -86,6 +86,60 @@ describe("startIdleLogout", () => {
 		stop();
 	});
 
+	it("ignores activity within the throttle window", () => {
+		const onTimeout = vi.fn();
+		const stop = startIdleLogout({
+			timeoutMs: 5000,
+			onTimeout,
+			storageKey: key,
+		});
+
+		// Activity 500ms in (< 1000ms throttle) must NOT push the deadline out.
+		vi.advanceTimersByTime(500);
+		window.dispatchEvent(new KeyboardEvent("keydown", { key: "a" }));
+
+		vi.advanceTimersByTime(4500); // original deadline t=5000
+		expect(onTimeout).toHaveBeenCalledTimes(1);
+		stop();
+	});
+
+	it("fires immediately on visibilitychange when the deadline already passed", () => {
+		const onTimeout = vi.fn();
+		const stop = startIdleLogout({
+			timeoutMs: 5000,
+			onTimeout,
+			storageKey: key,
+		});
+
+		// Simulate a tab that was suspended past its deadline: the shared
+		// timestamp is older than now - timeout, so returning to the tab must log
+		// out at once rather than waiting for the (possibly throttled) timer.
+		localStorage.setItem(key, String(Date.now() - 10_000));
+		document.dispatchEvent(new Event("visibilitychange"));
+
+		expect(onTimeout).toHaveBeenCalledTimes(1);
+		stop();
+	});
+
+	it("seeds the deadline from an existing peer timestamp on startup", () => {
+		// A peer tab recorded activity 2s ago before this timer started.
+		localStorage.setItem(key, String(Date.now() - 2000));
+
+		const onTimeout = vi.fn();
+		const stop = startIdleLogout({
+			timeoutMs: 5000,
+			onTimeout,
+			storageKey: key,
+		});
+
+		// Deadline is peer + 5000 = now + 3000, not a fresh now + 5000.
+		vi.advanceTimersByTime(2999);
+		expect(onTimeout).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(1);
+		expect(onTimeout).toHaveBeenCalledTimes(1);
+		stop();
+	});
+
 	it("stops firing after cleanup", () => {
 		const onTimeout = vi.fn();
 		const stop = startIdleLogout({

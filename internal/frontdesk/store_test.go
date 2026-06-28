@@ -236,7 +236,7 @@ func TestSettingsValidation(t *testing.T) {
 		{HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 5, EventRetentionDays: 0, RetryAttempts: 1},
 		{HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 5, EventRetentionDays: 1, RetryAttempts: -1},
 		{HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 5, EventRetentionDays: 1, RetryAttempts: 1, SessionIdleTimeoutMinutes: -1},
-		{HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 5, EventRetentionDays: 1, RetryAttempts: 1, SessionIdleTimeoutMinutes: 1441},
+		{HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 5, EventRetentionDays: 1, RetryAttempts: 1, SessionIdleTimeoutMinutes: 241},
 	}
 	for i, b := range bad {
 		if err := s.UpdateSettings(ctx, b); !errors.Is(err, ErrValidation) {

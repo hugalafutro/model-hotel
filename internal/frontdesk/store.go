@@ -425,8 +425,8 @@ func (s *Store) UpdateSettings(ctx context.Context, set Settings) error {
 	if set.RetryAttempts < 0 {
 		return fmt.Errorf("%w: retry attempts cannot be negative", ErrValidation)
 	}
-	if set.SessionIdleTimeoutMinutes < 0 || set.SessionIdleTimeoutMinutes > 1440 {
-		return fmt.Errorf("%w: session idle timeout must be between 0 and 1440 minutes", ErrValidation)
+	if set.SessionIdleTimeoutMinutes < 0 || set.SessionIdleTimeoutMinutes > 240 {
+		return fmt.Errorf("%w: session idle timeout must be between 0 and 240 minutes", ErrValidation)
 	}
 	alertEnabled := 0
 	if set.AlertEnabled {

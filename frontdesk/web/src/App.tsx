@@ -7,7 +7,12 @@ import {
 } from "@phosphor-icons/react";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { clearAuthToken, getAuthToken, onUnauthorized } from "./api/client";
+import {
+	api,
+	clearAuthToken,
+	getAuthToken,
+	onUnauthorized,
+} from "./api/client";
 import { Login } from "./components/Login";
 import { VersionFooter } from "./components/VersionFooter";
 import { ToastProvider } from "./context/ToastContext";
@@ -41,6 +46,9 @@ function Shell() {
 	useEffect(() => onUnauthorized(() => setAuthed(false)), []);
 
 	const logout = useCallback(() => {
+		// Best-effort server-side revoke so an idle/manual logout drops the session
+		// everywhere, not just this tab; failure is non-fatal (we clear locally).
+		void api.logout().catch(() => {});
 		clearAuthToken();
 		setAuthed(false);
 	}, []);
