@@ -718,19 +718,20 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, fleetSourceGenLock); err != nil {
 		return err
 	}
-	last, err := readAppliedSourceGen(ctx, tx)
+	last, fenced, err := readAppliedSourceGen(ctx, tx)
 	if err != nil {
 		return err
 	}
 	switch {
 	case sourceGen != nil:
-		if *sourceGen < last {
+		if fenced && *sourceGen < last {
 			return errStaleSourceGen // a newer generation already applied; refuse
 		}
-	case last > 0:
-		// Headerless (pre-fence) import onto a member a fenced generation already
-		// converged: applying an un-versioned write now could clobber that newer
-		// config and leave the marker lying. Refuse; the fenced source reconverges.
+	case fenced:
+		// Headerless (pre-fence) import onto a member any fenced generation already
+		// converged (including generation 0): applying an un-versioned write now
+		// could clobber that config and leave the marker lying. Refuse; the fenced
+		// source reconverges.
 		return errStaleSourceGen
 	}
 
@@ -1031,25 +1032,30 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 }
 
 // readAppliedSourceGen returns the highest Front Desk source generation this
-// member has applied, read inside the import transaction. A missing row (never
-// fenced before) or an unparseable value floors to 0, so the first fenced import
-// and any real generation (>= 0) is accepted rather than spuriously refused.
-func readAppliedSourceGen(ctx context.Context, tx pgx.Tx) (int64, error) {
+// member has applied and whether a marker row exists at all, read inside the
+// import transaction. present is the signal the fence keys on: a generation of 0
+// is a real applied generation (the wizard can sync at auto_sync_gen 0), so it
+// must be distinguished from "never fenced" rather than collapsed to the same
+// zero. A missing row reports present=false; an unparseable value reports
+// present=true at a floor of 0, so the corrupt marker still fences out a
+// header-less write yet a fresh fenced import can rewrite a clean value.
+func readAppliedSourceGen(ctx context.Context, tx pgx.Tx) (gen int64, present bool, err error) {
 	var raw string
-	switch err := tx.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, keyFleetLastSourceGen).Scan(&raw); {
-	case errors.Is(err, pgx.ErrNoRows):
-		return 0, nil
-	case err != nil:
-		return 0, err
+	switch scanErr := tx.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, keyFleetLastSourceGen).Scan(&raw); {
+	case errors.Is(scanErr, pgx.ErrNoRows):
+		return 0, false, nil
+	case scanErr != nil:
+		return 0, false, scanErr
 	}
-	n, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		// Deliberate: a corrupt marker floors to 0 (accept the import and let it
-		// rewrite a clean value) rather than wedging the fence on a 500 forever.
+	n, parseErr := strconv.ParseInt(raw, 10, 64)
+	if parseErr != nil {
+		// Deliberate: a corrupt marker floors to 0 but stays present, so a header-
+		// less write is still refused and a fenced import rewrites a clean value,
+		// rather than wedging the fence on a 500 forever.
 		debuglog.Warn("configsync: unparseable stored source generation, flooring to 0", "value", raw)
-		return 0, nil //nolint:nilerr // intentional degrade to floor; see comment above
+		return 0, true, nil //nolint:nilerr // intentional: corrupt marker floors but stays present
 	}
-	return n, nil
+	return n, true, nil
 }
 
 // writeAppliedSourceGen records gen as the highest applied source generation,
