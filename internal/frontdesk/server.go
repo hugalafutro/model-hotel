@@ -532,6 +532,11 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	}
 	if cur.PrimaryID != "" && req.PrimaryID != cur.PrimaryID &&
 		!s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken)) {
+		// Audit-worthy: someone tried to repoint or clear the fleet's config
+		// source without the admin token. No secrets are logged (the token is a
+		// pass/fail check), only the attempted transition.
+		debuglog.Warn("frontdesk: refused unconfirmed auto-sync primary change",
+			"from", cur.PrimaryID, "to", req.PrimaryID)
 		http.Error(w, "confirm the admin token to change or clear the configured primary", http.StatusForbidden)
 		return
 	}

@@ -63,6 +63,8 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 	// applies immediately.
 	const onSelectPrimary = (value: string) => {
 		if (cfg.primary_id !== "" && value !== cfg.primary_id) {
+			// Drop any stale persist error so it doesn't linger beneath the modal.
+			setSaveError("");
 			setConfirmToken("");
 			setConfirmError("");
 			setPendingPrimary(value);
