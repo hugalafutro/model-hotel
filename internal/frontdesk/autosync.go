@@ -163,7 +163,7 @@ func (s *Server) primaryConfigHash(ctx context.Context, cfg AutoSyncConfig) (pri
 // only if it is still current, so a rearm (member add, token update, enable, or
 // repoint) that landed mid-pass is never clobbered by this older pass.
 func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToken, hash, reason string, gen int64) {
-	applied, allConverged := s.applyAutoSync(ctx, primary, primaryToken, reason)
+	applied, allConverged := s.applyAutoSync(ctx, primary, primaryToken, reason, gen)
 	// Record the hash as applied only once every reachable member converged onto
 	// it. If a member was unreachable, leave the marker so the next tick retries;
 	// already-converged members are skipped by their dry-run diff, so the retry
@@ -192,7 +192,25 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 // whether to record the applied hash). Each member that needs the new config is
 // snapshotted first; a member whose pre-sync backup fails is skipped, not
 // overwritten. reason is stamped onto each synced member's last-sync marker.
-func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToken, reason string) (applied int, allConverged bool) {
+//
+// gen is the rearm generation captured before this pass began. A rearm (member
+// add, token update, enable, or primary repoint) bumps it, so the pass re-checks
+// it before pushing the export to each member and aborts the moment it changes:
+// otherwise a slow pass would keep importing the captured (now-stale) primary's
+// config into members the operator has just repointed away from. Members synced
+// before the change were current when written; the rearm's own pass converges
+// the rest. allConverged is forced false on abort so no hash is recorded.
+func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToken, reason string, gen int64) (applied int, allConverged bool) {
+	// A transient gen read shouldn't abort a valid pass, so a read error reports
+	// "not stale" and the generation-guarded hash record stays the backstop.
+	stale := func() bool {
+		cur, err := s.store.AutoSyncGen(ctx)
+		return err == nil && cur != gen
+	}
+	if stale() {
+		return 0, false // a rearm already landed: don't push the stale export at all
+	}
+
 	export, err := s.fetchMemberExport(ctx, primary, primaryToken)
 	if err != nil {
 		debuglog.Warn("frontdesk: auto-sync: read primary export", "member", primary.Name, "error", err)
@@ -208,6 +226,14 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 	for _, m := range members {
 		if m.ID == primary.ID {
 			continue // the source is never written to
+		}
+		if stale() {
+			// A rearm/repoint landed mid-pass: stop before importing the stale export
+			// into any further member. Force not-converged so the hash is not recorded
+			// and the rearm's own pass takes over.
+			debuglog.Debug("frontdesk: auto-sync: aborting stale pass after rearm", "synced", applied)
+			allConverged = false
+			break
 		}
 		if !m.HasToken {
 			// A tokenless member can't be authenticated to, so it is skipped without

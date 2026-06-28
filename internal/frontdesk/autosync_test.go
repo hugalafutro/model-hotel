@@ -252,9 +252,13 @@ func TestConvergeFleetSkipsRecordAfterRearm(t *testing.T) {
 		t.Fatalf("RearmAutoSync: %v", err)
 	}
 
-	// The older pass finishes and tries to record its hash at the stale generation.
+	// The older pass runs at the stale generation. It must not mutate members
+	// (no stale primary config pushed) and must not record its hash.
 	srv.convergeFleet(t.Context(), pm, "ptoken", "hash-B", autoSyncReason, staleGen)
 
+	if replica.didBackup() || replica.didRealSync() {
+		t.Error("stale pass pushed config to a member after the rearm; want aborted before mutating")
+	}
 	got, err := store.GetAutoSync(t.Context())
 	if err != nil {
 		t.Fatalf("GetAutoSync: %v", err)

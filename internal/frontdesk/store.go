@@ -570,6 +570,21 @@ func (s *Store) RecordAutoSyncHash(ctx context.Context, hash string, gen int64) 
 	return n > 0, nil
 }
 
+// AutoSyncGen returns the current rearm generation. It is a cheap read an
+// in-flight convergence pass uses to notice a rearm (member add, token update,
+// enable, or repoint) landed and stop before it pushes a now-stale primary
+// export to any further member.
+func (s *Store) AutoSyncGen(ctx context.Context) (int64, error) {
+	var gen int64
+	err := s.db.QueryRowContext(ctx,
+		`SELECT auto_sync_gen FROM settings WHERE id = 1`,
+	).Scan(&gen)
+	if err != nil {
+		return 0, fmt.Errorf("frontdesk: read auto-sync gen: %w", err)
+	}
+	return gen, nil
+}
+
 // RearmAutoSync clears the last-applied config hash and bumps the rearm
 // generation in one statement, so the auto-sync loop runs a fresh pass and any
 // convergence pass already in flight cannot record its (now stale) hash over the
