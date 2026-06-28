@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "关闭",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "清除所有",
 			"copyError": "复制错误",
 			"requestKind": "Req",

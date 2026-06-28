@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "تجاهل",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "مسح الكل",
 			"copyError": "نسخ الخطأ",
 			"requestKind": "Req",

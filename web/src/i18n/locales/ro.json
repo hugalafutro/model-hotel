@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Ignorați",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Ștergeți tot",
 			"copyError": "Eroare de copiere",
 			"requestKind": "Req",

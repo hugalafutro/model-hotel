@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Απόρριψη",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Εκκαθάριση όλων",
 			"copyError": "Σφάλμα αντιγραφής",
 			"requestKind": "Req",

@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "닫기",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "모두 지우기",
 			"copyError": "복사 오류",
 			"requestKind": "Req",

@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Zatvoriť",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Vymazať všetko",
 			"copyError": "Chyba kopírovania",
 			"requestKind": "Req",

@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Avvisa",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Rensa allt",
 			"copyError": "Kopiera fel",
 			"requestKind": "Req",

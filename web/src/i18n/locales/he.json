@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "בטל",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "נקה הכל",
 			"copyError": "שגיאת העתקה",
 			"requestKind": "Req",

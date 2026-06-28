@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Elutasítás",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Összes törlése",
 			"copyError": "Másolási hiba",
 			"requestKind": "Req",

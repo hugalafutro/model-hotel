@@ -187,6 +187,7 @@
 			"clearAllConfirm": "Click again to confirm",
 			"requestKind": "Req",
 			"appKind": "App",
+			"haKind": "HA",
 			"copyError": "Copy error",
 			"viewDetails": "View details",
 			"acknowledge": "Dismiss"
