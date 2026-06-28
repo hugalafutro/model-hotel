@@ -612,13 +612,17 @@ func TestSetAutoSyncGuarded(t *testing.T) {
 		t.Fatal("first set from empty primary should apply without a token")
 	}
 
-	// Toggling enabled while leaving the primary unchanged needs no token.
-	applied, err = store.SetAutoSyncGuarded(t.Context(), false, a.ID, false)
+	// Toggling enabled while leaving the primary unchanged needs no token and is
+	// honored (this is the enable/disable control).
+	applied, err = store.SetAutoSyncGuarded(t.Context(), true, a.ID, false)
 	if err != nil {
 		t.Fatalf("guarded unchanged: %v", err)
 	}
 	if !applied {
 		t.Fatal("unchanged-primary write should apply without a token")
+	}
+	if cfg, _ := store.GetAutoSync(t.Context()); !cfg.Enabled {
+		t.Fatal("unchanged-primary toggle should have enabled auto-sync")
 	}
 
 	// Repointing a configured primary without a valid token must not apply and
@@ -634,16 +638,22 @@ func TestSetAutoSyncGuarded(t *testing.T) {
 		t.Fatalf("primary = %q after refused repoint, want %q", cfg.PrimaryID, a.ID)
 	}
 
-	// The same repoint with a valid token applies.
-	applied, err = store.SetAutoSyncGuarded(t.Context(), true, b.ID, true)
+	// The same repoint with a valid token applies, and must preserve the stored
+	// enabled flag: a confirmed primary change carries enabled=false here (a stale
+	// snapshot), but auto-sync is on, so it must stay on.
+	applied, err = store.SetAutoSyncGuarded(t.Context(), false, b.ID, true)
 	if err != nil {
 		t.Fatalf("guarded authorized repoint: %v", err)
 	}
 	if !applied {
 		t.Fatal("repoint with a valid token should apply")
 	}
-	if cfg, _ := store.GetAutoSync(t.Context()); cfg.PrimaryID != b.ID {
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.PrimaryID != b.ID {
 		t.Fatalf("primary = %q after authorized repoint, want %q", cfg.PrimaryID, b.ID)
+	}
+	if !cfg.Enabled {
+		t.Fatal("repoint must preserve the stored enabled flag, not the request's stale value")
 	}
 }
 

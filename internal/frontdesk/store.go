@@ -503,13 +503,27 @@ func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string)
 // caller must refuse it. Clears the last-applied hash like SetAutoSync, for the
 // same re-arm reason.
 func (s *Store) SetAutoSyncGuarded(ctx context.Context, enabled bool, primaryID string, tokenValid bool) (bool, error) {
-	const set = `UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ?, auto_sync_last_hash = '' WHERE id = 1`
+	// auto_sync_enabled is honored only when the request is about the enabled flag
+	// itself: a first set (no primary yet), a clear (new primary empty), or a
+	// toggle that leaves the primary unchanged. On a true repoint (new primary
+	// differs from the stored one) the CASE keeps the stored value, so a confirmed
+	// primary change can never overwrite an enable/disable another operator made
+	// concurrently. The CASE compares against the row's pre-update primary, since
+	// SQLite evaluates SET right-hand sides against the original row.
+	const set = `UPDATE settings SET
+		auto_sync_primary_id = ?,
+		auto_sync_enabled = CASE
+			WHEN ? = '' OR auto_sync_primary_id = '' OR auto_sync_primary_id = ? THEN ?
+			ELSE auto_sync_enabled
+		END,
+		auto_sync_last_hash = ''
+	WHERE id = 1`
 	query := set
-	args := []any{boolToInt(enabled), primaryID}
+	args := []any{primaryID, primaryID, primaryID, boolToInt(enabled)}
 	if !tokenValid {
 		// Unauthorized writes may not repoint a configured primary: apply only when
 		// none is set yet or the primary is left unchanged.
-		query = set + ` AND (auto_sync_primary_id = '' OR auto_sync_primary_id = ?)`
+		query += ` AND (auto_sync_primary_id = '' OR auto_sync_primary_id = ?)`
 		args = append(args, primaryID)
 	}
 	res, err := s.db.ExecContext(ctx, query, args...)

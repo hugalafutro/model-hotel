@@ -171,27 +171,17 @@ it("recovers when a primary was set concurrently (stale snapshot)", async () => 
 	);
 });
 
-it("re-reads the enabled flag before confirming, so a concurrent toggle survives", async () => {
-	const puts: Array<{
-		enabled: boolean;
-		primary_id: string;
-		confirm_token?: string;
-	}> = [];
-	let getCount = 0;
+it("adopts the server's enabled state after confirming a primary change", async () => {
+	// The panel loaded with auto-sync off, but the server reports it on after the
+	// repoint (it preserved a concurrent enable). The panel must reflect server
+	// truth, not its stale local snapshot.
 	server.use(
-		http.get("/api/fleet/autosync", () => {
-			getCount += 1;
-			// First load: primary set, auto-sync off. Another admin enables it while
-			// the confirm modal is open, so the re-read (2nd GET) reports enabled.
-			return HttpResponse.json({ enabled: getCount > 1, primary_id: "1" });
-		}),
+		http.get("/api/fleet/autosync", () =>
+			HttpResponse.json({ enabled: false, primary_id: "1" }),
+		),
 		http.put("/api/fleet/autosync", async ({ request }) => {
-			const body = (await request.json()) as (typeof puts)[number];
-			puts.push(body);
-			return HttpResponse.json({
-				enabled: body.enabled,
-				primary_id: body.primary_id,
-			});
+			const body = (await request.json()) as { primary_id: string };
+			return HttpResponse.json({ enabled: true, primary_id: body.primary_id });
 		}),
 	);
 	render(
@@ -209,13 +199,7 @@ it("re-reads the enabled flag before confirming, so a concurrent toggle survives
 		within(dialog).getByRole("button", { name: /confirm change/i }),
 	);
 
-	// The confirmed write must carry the freshly-read enabled:true, not the stale
-	// enabled:false captured when the modal opened.
-	await waitFor(() =>
-		expect(puts).toContainEqual({
-			enabled: true,
-			primary_id: "3",
-			confirm_token: "tok",
-		}),
-	);
+	// The active-auto-sync warning appears because the panel took the server's
+	// enabled:true, proving it did not clobber the concurrent enable.
+	expect(await screen.findByText(/Automatic sync is on/i)).toBeTruthy();
 });
