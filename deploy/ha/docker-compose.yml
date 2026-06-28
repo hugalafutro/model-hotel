@@ -6,6 +6,11 @@
 # Desk serves its admin UI on :8090. Add/drain/remove members in the Front Desk
 # UI; Traefik follows within seconds.
 #
+# Build stamping: prefer `make ha-up` when building from source. It passes
+# VERSION/COMMIT into the build so the Front Desk footer shows the real build; a
+# bare `docker compose up -d` falls back to a `dev` footer (the prebuilt image
+# carries its own release stamp).
+#
 # HTTPS-ONLY INGRESS: this stack speaks plain HTTP. A TLS-terminating reverse
 # proxy (e.g. nginx with a real cert) MUST sit in front of both published ports
 # so browsers and clients only ever reach the stack over HTTPS. See docs/HA.md.
