@@ -655,6 +655,23 @@ func TestSetAutoSyncGuarded(t *testing.T) {
 	if !cfg.Enabled {
 		t.Fatal("repoint must preserve the stored enabled flag, not the request's stale value")
 	}
+
+	// Clearing the primary forces auto-sync off regardless of the request's flag:
+	// it cannot run without a primary, so even a stale enabled=true must not stick.
+	applied, err = store.SetAutoSyncGuarded(t.Context(), true, "", true)
+	if err != nil {
+		t.Fatalf("guarded clear: %v", err)
+	}
+	if !applied {
+		t.Fatal("clear with a valid token should apply")
+	}
+	cfg, _ = store.GetAutoSync(t.Context())
+	if cfg.PrimaryID != "" {
+		t.Fatalf("primary = %q after clear, want empty", cfg.PrimaryID)
+	}
+	if cfg.Enabled {
+		t.Fatal("clearing the primary must force auto-sync off")
+	}
 }
 
 // TestAutoSyncReEnableConvergesDriftedReplica is the activation-gap fix (Greptile
