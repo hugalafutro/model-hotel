@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Afvis",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Ryd alt",
 			"copyError": "Kopieringsfejl",
 			"requestKind": "Req",

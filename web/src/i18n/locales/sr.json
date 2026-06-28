@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Одбаци",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Очисти све",
 			"copyError": "Копирајте грешку",
 			"requestKind": "Req",

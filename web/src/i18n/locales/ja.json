@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "閉じる",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "すべてクリア",
 			"copyError": "コピーエラー",
 			"requestKind": "Req",

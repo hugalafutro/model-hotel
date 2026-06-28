@@ -13,7 +13,7 @@ import { useToast } from "../../context/ToastContext";
 import { formatRelativeTime, formatTimestamp } from "../../utils/format";
 import { truncateWithEllipsis } from "../../utils/truncate";
 import { LogDetailModal } from "../LogDetailModal";
-import { type ShelfError, useErrorShelf } from "./useErrorShelf";
+import { isHaSource, type ShelfError, useErrorShelf } from "./useErrorShelf";
 
 /**
  * Sidebar error shelf — a collapsible header that expands into a newest-first,
@@ -174,67 +174,77 @@ export function ErrorShelf() {
 							</button>
 						</div>
 						<ul className="ui-error-shelf-list max-h-[40vh] divide-y divide-[var(--error-border)] overflow-y-auto">
-							{unacked.map((err, i) => (
-								<li
-									key={err.key}
-									className={`ui-error-shelf-row ui-error-shelf-row--${err.kind} group/row px-2.5 py-1.5`}
-									style={{ animationDelay: `${Math.min(i, 10) * 28}ms` }}
-									data-testid="error-shelf-row"
-								>
-									<div className="flex items-center gap-1.5">
-										<span
-											className={`ui-error-shelf-chip ui-error-shelf-chip--${err.kind} shrink-0`}
-											data-testid={`error-shelf-chip-${err.kind}`}
-										>
-											{err.kind === "request"
-												? t("layout.errorShelf.requestKind")
-												: t("layout.errorShelf.appKind")}
-										</span>
-										<span
-											className="text-[10px] text-[var(--error-text-muted)] tabular-nums"
-											title={formatTimestamp(err.timestamp)}
-										>
-											{formatRelativeTime(err.timestamp)}
-										</span>
-										<span className="flex-1" />
-										<div className="flex shrink-0 items-center gap-0.5 opacity-70 transition-opacity group-hover/row:opacity-100">
-											<button
-												type="button"
-												onClick={() => handleCopy(err.message)}
-												className="ui-error-shelf-rowbtn"
-												title={t("layout.errorShelf.copyError")}
-											>
-												<Copy size={11} />
-											</button>
-											<button
-												type="button"
-												onClick={() => handleViewDetails(err)}
-												className="ui-error-shelf-rowbtn"
-												title={t("layout.errorShelf.viewDetails")}
-											>
-												<ExternalLink size={11} />
-											</button>
-											<button
-												type="button"
-												onClick={() => handleAck(err.key)}
-												className="ui-error-shelf-rowbtn"
-												title={t("layout.errorShelf.acknowledge")}
-												data-testid="error-shelf-ack"
-											>
-												<X size={11} />
-											</button>
-										</div>
-									</div>
-									<p
-										className="ui-error-shelf-msg mt-0.5 break-words font-mono text-[9.5px] leading-relaxed text-[var(--error-text-muted)]"
-										title={err.message}
+							{unacked.map((err, i) => {
+								// HA membership failures are app errors whose source is the
+								// fleet config-sync receiver; they get their own chip + accent
+								// while still opening as an "app" log in the detail modal.
+								const category = isHaSource(err.source) ? "ha" : err.kind;
+								const chipLabel =
+									category === "ha"
+										? t("layout.errorShelf.haKind")
+										: category === "request"
+											? t("layout.errorShelf.requestKind")
+											: t("layout.errorShelf.appKind");
+								return (
+									<li
+										key={err.key}
+										className={`ui-error-shelf-row ui-error-shelf-row--${category} group/row px-2.5 py-1.5`}
+										style={{ animationDelay: `${Math.min(i, 10) * 28}ms` }}
+										data-testid="error-shelf-row"
 									>
-										{err.message.length > 200
-											? truncateWithEllipsis(err.message, 200)
-											: err.message}
-									</p>
-								</li>
-							))}
+										<div className="flex items-center gap-1.5">
+											<span
+												className={`ui-error-shelf-chip ui-error-shelf-chip--${category} shrink-0`}
+												data-testid={`error-shelf-chip-${category}`}
+											>
+												{chipLabel}
+											</span>
+											<span
+												className="text-[10px] text-[var(--error-text-muted)] tabular-nums"
+												title={formatTimestamp(err.timestamp)}
+											>
+												{formatRelativeTime(err.timestamp)}
+											</span>
+											<span className="flex-1" />
+											<div className="flex shrink-0 items-center gap-0.5 opacity-70 transition-opacity group-hover/row:opacity-100">
+												<button
+													type="button"
+													onClick={() => handleCopy(err.message)}
+													className="ui-error-shelf-rowbtn"
+													title={t("layout.errorShelf.copyError")}
+												>
+													<Copy size={11} />
+												</button>
+												<button
+													type="button"
+													onClick={() => handleViewDetails(err)}
+													className="ui-error-shelf-rowbtn"
+													title={t("layout.errorShelf.viewDetails")}
+												>
+													<ExternalLink size={11} />
+												</button>
+												<button
+													type="button"
+													onClick={() => handleAck(err.key)}
+													className="ui-error-shelf-rowbtn"
+													title={t("layout.errorShelf.acknowledge")}
+													data-testid="error-shelf-ack"
+												>
+													<X size={11} />
+												</button>
+											</div>
+										</div>
+										<p
+											className="ui-error-shelf-msg mt-0.5 break-words font-mono text-[9.5px] leading-relaxed text-[var(--error-text-muted)]"
+											title={err.message}
+										>
+											{err.message.length > 200
+												? truncateWithEllipsis(err.message, 200)
+												: err.message}
+										</p>
+									</li>
+								);
+							})}
 						</ul>
 					</div>
 				)}

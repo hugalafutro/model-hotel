@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Sluiten",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Alles wissen",
 			"copyError": "Kopieerfout",
 			"requestKind": "Req",

@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Schließen",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Alle löschen",
 			"copyError": "Kopierfehler",
 			"requestKind": "Req",

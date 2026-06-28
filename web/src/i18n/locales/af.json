@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Verwerp",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Maak alles skoon",
 			"copyError": "Kopieer fout",
 			"requestKind": "Req",

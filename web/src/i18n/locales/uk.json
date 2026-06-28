@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Закрити",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Очистити все",
 			"copyError": "Копіювати помилку",
 			"requestKind": "Req",

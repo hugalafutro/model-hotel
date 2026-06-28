@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Hylkää",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Tyhjennä kaikki",
 			"copyError": "Kopioi virhe",
 			"requestKind": "Req",

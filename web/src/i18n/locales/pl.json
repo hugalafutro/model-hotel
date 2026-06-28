@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Odrzuć",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Wyczyść wszystko",
 			"copyError": "Błąd kopiowania",
 			"requestKind": "Req",

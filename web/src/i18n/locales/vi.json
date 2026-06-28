@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Bỏ qua",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Xóa tất cả",
 			"copyError": "Lỗi sao chép",
 			"requestKind": "Req",

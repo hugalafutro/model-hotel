@@ -18,6 +18,17 @@ const LEGACY_KEYS = ["dismissedAppErrorKey", "dismissedReqErrorKey"] as const;
 
 export type ShelfErrorKind = "request" | "app";
 
+/** App-log sources emitted by the HA member-side config-sync receiver. An app
+ * error from one of these is surfaced as a distinct "HA" category (a member
+ * failing to apply config pushed by the fleet primary) rather than a generic
+ * internal app error. Proxy/request errors never originate here. */
+const HA_SOURCES = new Set(["configsync", "fleet"]);
+
+/** True when an app-log source identifies a fleet/HA membership failure. */
+export function isHaSource(source: string | undefined): boolean {
+	return source !== undefined && HA_SOURCES.has(source);
+}
+
 export interface ShelfError {
 	/** Stable id used for acknowledgement + React keys. Mirrors the old
 	 * `${timestamp}:${msg[:50]}` scheme, kind-prefixed so app/request errors
@@ -30,6 +41,8 @@ export interface ShelfError {
 	entry: LogEntry | AppLogEntry;
 	/** Machine-readable failure classification (request errors only). */
 	errorKind?: string;
+	/** App-log emitter source (app errors only); drives the HA sub-category. */
+	source?: string;
 }
 
 function makeKey(kind: ShelfErrorKind, timestamp: string, message: string) {
@@ -147,6 +160,7 @@ export function useErrorShelf(): UseErrorShelf {
 				message: entry.message,
 				timestamp: entry.timestamp,
 				entry,
+				source: entry.source || undefined,
 			});
 		}
 

@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Descartar",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Esborrar tot",
 			"copyError": "Còpia d'error",
 			"requestKind": "Req",

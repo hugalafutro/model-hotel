@@ -189,6 +189,7 @@
 		"errorShelf": {
 			"acknowledge": "Kapat",
 			"appKind": "App",
+			"haKind": "HA",
 			"clearAll": "Tümünü temizle",
 			"copyError": "Hata kopyalama",
 			"requestKind": "Req",
