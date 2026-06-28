@@ -134,16 +134,38 @@ func TestConfigSync_CommitFenceRejectsStaleSourceGen(t *testing.T) {
 		t.Errorf("marker after gen=6 = %q, want 6", got)
 	}
 
-	// No header (a pre-fence Front Desk): the import is unfenced and applies
-	// unconditionally, and it leaves the marker untouched.
-	if resp, rec := doImportGen(t, r, withExtra, nil); rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
-		t.Fatalf("header-less import: code=%d applied=%v stale=%v, want 200 applied not-stale", rec.Code, resp.Applied, resp.Stale)
+	// No header (a pre-fence Front Desk) onto a member a fenced generation has
+	// already converged: the un-versioned write must be refused, not allowed to
+	// clobber the newer config and leave the marker (still 6) lying.
+	if resp, rec := doImportGen(t, r, withExtra, nil); rec.Code != http.StatusOK || resp.Applied || !resp.Stale {
+		t.Fatalf("header-less import after a fenced gen: code=%d applied=%v stale=%v, want 200 not-applied stale", rec.Code, resp.Applied, resp.Stale)
 	}
-	if !providerNames(t)["extra"] {
-		t.Error("a header-less (legacy) import should apply unconditionally")
+	if providerNames(t)["extra"] {
+		t.Error("a header-less import must not overwrite versioned config (extra provider leaked)")
 	}
 	if got := storedSourceGen(t); got != "6" {
-		t.Errorf("marker after header-less import = %q, want unchanged 6", got)
+		t.Errorf("marker after refused header-less import = %q, want unchanged 6", got)
+	}
+}
+
+// TestConfigSync_CommitFenceHeaderlessAppliesUnfenced: on a member no fenced push
+// has touched (marker unset), a header-less import from a pre-fence Front Desk
+// still applies unconditionally, preserving the pre-fence behaviour during a
+// rolling upgrade.
+func TestConfigSync_CommitFenceHeaderlessAppliesUnfenced(t *testing.T) {
+	cleanConfigTables(t)
+	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	base := doExport(t, r)
+
+	if resp, rec := doImportGen(t, r, withExtraProvider(base, "extra"), nil); rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
+		t.Fatalf("header-less import on an unfenced member: code=%d applied=%v stale=%v, want 200 applied not-stale", rec.Code, resp.Applied, resp.Stale)
+	}
+	if !providerNames(t)["extra"] {
+		t.Error("a header-less import on an unfenced member should apply")
+	}
+	if got := storedSourceGen(t); got != "" {
+		t.Errorf("marker after header-less import = %q, want still unset", got)
 	}
 }
 

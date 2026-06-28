@@ -532,9 +532,10 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 	sourceGen := parseSourceGen(r.Header.Get(fleetSourceGenHeader))
 	switch err := h.apply(ctx, env, sourceGen); {
 	case errors.Is(err, errStaleSourceGen):
-		// Benign: a newer generation already won on this member. Report it as a
-		// non-applied, non-error outcome so Front Desk does not surface a failure.
-		debuglog.Debug("configsync: refused stale import", "source_gen", *sourceGen)
+		// Benign: a newer generation already won on this member (or an un-versioned
+		// push arrived after one had). Report it as a non-applied, non-error outcome
+		// so Front Desk does not surface a failure.
+		debuglog.Debug("configsync: refused stale import", "source_gen", sourceGenLabel(sourceGen))
 		writeJSON(w, importResponse{SchemaVersionOK: true, MasterKeyOK: true, Applied: false, Stale: true, Diff: diff})
 		return
 	case err != nil:
@@ -559,6 +560,15 @@ func parseSourceGen(raw string) *int64 {
 		return nil
 	}
 	return &n
+}
+
+// sourceGenLabel renders an optional source generation for logs without
+// dereferencing a nil (a headerless import has none).
+func sourceGenLabel(gen *int64) string {
+	if gen == nil {
+		return "none"
+	}
+	return strconv.FormatInt(*gen, 10)
 }
 
 // canDecryptSample returns true when there is no encrypted key to check, or the
@@ -677,14 +687,23 @@ func (h *ConfigSyncHandler) computeDiff(ctx context.Context, env ConfigEnvelope)
 	return d, nil
 }
 
-// apply converges this member to the envelope in one transaction. When sourceGen
-// is non-nil it also enforces the commit fence: under a transaction-scoped
-// advisory lock (so concurrent imports cannot interleave their read-and-advance),
-// it reads the highest generation this member has applied, refuses the import
-// with errStaleSourceGen if the incoming generation is older, and otherwise
-// advances the stored marker in the same transaction as the config write. The
-// lock plus same-transaction advance is what makes a newer config win regardless
-// of the order two pushes arrive in.
+// apply converges this member to the envelope in one transaction, enforcing the
+// commit fence. Under a transaction-scoped advisory lock (so concurrent imports
+// cannot interleave their read-and-decide), it reads the highest source
+// generation this member has applied and:
+//
+//   - sourceGen present (a fenced push): refuses with errStaleSourceGen if it is
+//     older than the marker, otherwise applies and advances the marker in the same
+//     transaction as the config write;
+//   - sourceGen absent (a pre-fence Front Desk, which sends no header): applies
+//     only while the marker is unset (a member no fenced push has touched), and is
+//     refused once any fenced generation has been recorded. An un-versioned write
+//     must never overwrite versioned config, or it could leave the member on old
+//     config while the marker claims a newer generation already applied.
+//
+// The lock is taken for every import, headed or not, so a headerless push cannot
+// slip past a generation that already committed. That, plus the same-transaction
+// advance, is what makes a newer config win regardless of the order pushes arrive.
 func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourceGen *int64) error {
 	tx, err := h.db.Begin(ctx)
 	if err != nil {
@@ -692,22 +711,27 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if sourceGen != nil {
-		// Serialize fenced imports on this member: pg_advisory_xact_lock blocks a
-		// concurrent import's fence step until this transaction ends, so the
-		// read-current / reject-or-advance below is atomic even when two pushes'
-		// bytes both arrived before either committed. Released automatically on
-		// commit or rollback.
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, fleetSourceGenLock); err != nil {
-			return err
-		}
-		last, err := readAppliedSourceGen(ctx, tx)
-		if err != nil {
-			return err
-		}
+	// pg_advisory_xact_lock blocks a concurrent import's fence step until this
+	// transaction ends, so the read-current / reject-or-advance below is atomic
+	// even when two pushes' bytes both arrived before either committed. Released
+	// automatically on commit or rollback.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, fleetSourceGenLock); err != nil {
+		return err
+	}
+	last, err := readAppliedSourceGen(ctx, tx)
+	if err != nil {
+		return err
+	}
+	switch {
+	case sourceGen != nil:
 		if *sourceGen < last {
 			return errStaleSourceGen // a newer generation already applied; refuse
 		}
+	case last > 0:
+		// Headerless (pre-fence) import onto a member a fenced generation already
+		// converged: applying an un-versioned write now could clobber that newer
+		// config and leave the marker lying. Refuse; the fenced source reconverges.
+		return errStaleSourceGen
 	}
 
 	if err := upsertProviders(ctx, tx, env.Config.Providers); err != nil {
