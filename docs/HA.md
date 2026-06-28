@@ -47,6 +47,12 @@ docker compose up -d        # or, from the repo root: make ha-up
 docker compose logs -f      # capture the generated FRONTDESK_TOKEN if you left it blank
 ```
 
+> Build stamping: the Front Desk footer shows the version and commit stamped in
+> at build time. `make ha-up` (from the repo root) passes both into the build; a
+> bare `docker compose up -d` built from source does not, so its footer reads
+> `dev`. The prebuilt image (uncomment `image:` in the compose file) carries its
+> own release stamp.
+
 Traefik now answers client traffic on `:8080`; Front Desk's UI is on `:8090`.
 Point your external TLS proxy at both (see "TLS proxy" below).
 
