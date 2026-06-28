@@ -492,26 +492,33 @@ func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string)
 	return nil
 }
 
-// SetAutoSyncCAS persists the auto-sync choice only if the stored primary still
-// equals expectPrimaryID. This closes the read-modify-write race in putAutoSync:
-// the admin-token gate validates against the primary observed at read time, so
-// the write must not land if another request repointed the primary in between
-// (which would silently clobber a change we never confirmed against). Reports
-// whether the row was updated; false means a concurrent change won and the
-// caller should treat it as a conflict. Clears the last-applied hash like
-// SetAutoSync, for the same re-arm reason.
-func (s *Store) SetAutoSyncCAS(ctx context.Context, enabled bool, primaryID, expectPrimaryID string) (bool, error) {
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ?, auto_sync_last_hash = ''
-		 WHERE id = 1 AND auto_sync_primary_id = ?`,
-		boolToInt(enabled), primaryID, expectPrimaryID,
-	)
+// SetAutoSyncGuarded persists the auto-sync choice while enforcing the repoint
+// guard in the same statement that writes, so there is no read-modify-write
+// window a concurrent repoint could slip through. When the caller is authorized
+// (tokenValid, a valid admin token), the choice is written unconditionally.
+// Otherwise the write only applies when it does not repoint an already-configured
+// primary: either none is set yet, or the request leaves the primary unchanged
+// (e.g. just toggling enabled). Reports whether the row was updated; false means
+// the change needed admin confirmation (or lost a concurrent repoint) and the
+// caller must refuse it. Clears the last-applied hash like SetAutoSync, for the
+// same re-arm reason.
+func (s *Store) SetAutoSyncGuarded(ctx context.Context, enabled bool, primaryID string, tokenValid bool) (bool, error) {
+	const set = `UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ?, auto_sync_last_hash = '' WHERE id = 1`
+	query := set
+	args := []any{boolToInt(enabled), primaryID}
+	if !tokenValid {
+		// Unauthorized writes may not repoint a configured primary: apply only when
+		// none is set yet or the primary is left unchanged.
+		query = set + ` AND (auto_sync_primary_id = '' OR auto_sync_primary_id = ?)`
+		args = append(args, primaryID)
+	}
+	res, err := s.db.ExecContext(ctx, query, args...)
 	if err != nil {
-		return false, fmt.Errorf("frontdesk: set auto-sync (cas): %w", err)
+		return false, fmt.Errorf("frontdesk: set auto-sync (guarded): %w", err)
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		return false, fmt.Errorf("frontdesk: set auto-sync (cas) rows: %w", err)
+		return false, fmt.Errorf("frontdesk: set auto-sync (guarded) rows: %w", err)
 	}
 	return n > 0, nil
 }

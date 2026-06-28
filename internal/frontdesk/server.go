@@ -525,21 +525,6 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	cur, err := s.store.GetAutoSync(r.Context())
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	if cur.PrimaryID != "" && req.PrimaryID != cur.PrimaryID &&
-		!s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken)) {
-		// Audit-worthy: someone tried to repoint or clear the fleet's config
-		// source without the admin token. No secrets are logged (the token is a
-		// pass/fail check), only the attempted transition.
-		debuglog.Warn("frontdesk: refused unconfirmed auto-sync primary change",
-			"from", cur.PrimaryID, "to", req.PrimaryID)
-		http.Error(w, "confirm the admin token to change or clear the configured primary", http.StatusForbidden)
-		return
-	}
 	if req.PrimaryID != "" {
 		m, err := s.store.GetMember(r.Context(), req.PrimaryID)
 		if err != nil {
@@ -558,18 +543,25 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "choose a primary before enabling auto-sync", http.StatusBadRequest)
 		return
 	}
-	// Compare-and-swap against the primary we gated on: if another request
-	// repointed it between the read above and here, refuse rather than clobber a
-	// change this caller never confirmed against.
-	applied, err := s.store.SetAutoSyncCAS(r.Context(), req.Enabled, req.PrimaryID, cur.PrimaryID)
+	// Repointing or clearing an already-configured primary is high-impact (it
+	// changes which instance's config the whole fleet copies), so it requires a
+	// valid admin token. The bearer here may be a passkey/TOTP session token
+	// rather than the raw FRONTDESK_TOKEN, so the operator re-supplies the token
+	// in the body and we check it against AdminMgr. The guard is enforced inside
+	// the same UPDATE that writes (SetAutoSyncGuarded), so there is no
+	// read-modify-write window for a concurrent repoint to slip through.
+	tokenValid := s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken))
+	applied, err := s.store.SetAutoSyncGuarded(r.Context(), req.Enabled, req.PrimaryID, tokenValid)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 	if !applied {
-		debuglog.Warn("frontdesk: auto-sync primary changed under a concurrent update; conflict",
-			"expected", cur.PrimaryID, "to", req.PrimaryID)
-		http.Error(w, "the configured primary changed; reload and try again", http.StatusConflict)
+		// The change would repoint/clear a configured primary without a valid
+		// token (or lost a concurrent repoint). No secrets are logged, only that a
+		// confirmation-required change was refused.
+		debuglog.Warn("frontdesk: refused unconfirmed auto-sync primary change", "to", req.PrimaryID)
+		http.Error(w, "confirm the admin token to change or clear the configured primary", http.StatusForbidden)
 		return
 	}
 	s.emit(r.Context(), Event{

@@ -39,8 +39,7 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 	if (loadError || !cfg) return null; // stay quiet on load; the wizard still works
 
 	const errorMessage = (err: unknown): string =>
-		err instanceof ApiError &&
-		(err.status === 400 || err.status === 403 || err.status === 409)
+		err instanceof ApiError && (err.status === 400 || err.status === 403)
 			? err.message
 			: t("errors.generic");
 

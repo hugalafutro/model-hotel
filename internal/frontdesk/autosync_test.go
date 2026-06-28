@@ -595,46 +595,55 @@ func TestSetAutoSyncClearsAppliedHash(t *testing.T) {
 	}
 }
 
-// TestSetAutoSyncCAS covers the compare-and-swap guard that closes the
-// read-modify-write race in putAutoSync: the write only lands when the stored
-// primary still matches the value the caller gated against.
-func TestSetAutoSyncCAS(t *testing.T) {
+// TestSetAutoSyncGuarded covers the atomic repoint guard: an unauthorized write
+// may set the first primary or leave it unchanged, but may not repoint a
+// configured one; an authorized (valid-token) write may repoint freely.
+func TestSetAutoSyncGuarded(t *testing.T) {
 	_, store := newTestServer(t)
 	a, _ := store.CreateMember(t.Context(), "a", "http://127.0.0.1:9", "tok")
 	b, _ := store.CreateMember(t.Context(), "b", "http://127.0.0.1:8", "tok")
 
-	// First set from the empty state: expect "" matches, so it applies.
-	applied, err := store.SetAutoSyncCAS(t.Context(), true, a.ID, "")
+	// First set from the empty state needs no token.
+	applied, err := store.SetAutoSyncGuarded(t.Context(), true, a.ID, false)
 	if err != nil {
-		t.Fatalf("SetAutoSyncCAS first: %v", err)
+		t.Fatalf("guarded first: %v", err)
 	}
 	if !applied {
-		t.Fatal("first CAS from empty primary should apply")
+		t.Fatal("first set from empty primary should apply without a token")
 	}
 
-	// A repoint whose expected primary is stale (someone else already moved it to
-	// a.ID) must not apply and must leave the stored primary untouched.
-	applied, err = store.SetAutoSyncCAS(t.Context(), true, b.ID, "stale-id")
+	// Toggling enabled while leaving the primary unchanged needs no token.
+	applied, err = store.SetAutoSyncGuarded(t.Context(), false, a.ID, false)
 	if err != nil {
-		t.Fatalf("SetAutoSyncCAS stale: %v", err)
+		t.Fatalf("guarded unchanged: %v", err)
+	}
+	if !applied {
+		t.Fatal("unchanged-primary write should apply without a token")
+	}
+
+	// Repointing a configured primary without a valid token must not apply and
+	// must leave the stored primary untouched.
+	applied, err = store.SetAutoSyncGuarded(t.Context(), true, b.ID, false)
+	if err != nil {
+		t.Fatalf("guarded unauthorized repoint: %v", err)
 	}
 	if applied {
-		t.Fatal("CAS with a stale expected primary must not apply")
+		t.Fatal("repoint without a token must not apply")
 	}
 	if cfg, _ := store.GetAutoSync(t.Context()); cfg.PrimaryID != a.ID {
-		t.Fatalf("primary = %q after refused CAS, want %q", cfg.PrimaryID, a.ID)
+		t.Fatalf("primary = %q after refused repoint, want %q", cfg.PrimaryID, a.ID)
 	}
 
-	// Repoint with the correct expected primary applies.
-	applied, err = store.SetAutoSyncCAS(t.Context(), true, b.ID, a.ID)
+	// The same repoint with a valid token applies.
+	applied, err = store.SetAutoSyncGuarded(t.Context(), true, b.ID, true)
 	if err != nil {
-		t.Fatalf("SetAutoSyncCAS repoint: %v", err)
+		t.Fatalf("guarded authorized repoint: %v", err)
 	}
 	if !applied {
-		t.Fatal("CAS with the correct expected primary should apply")
+		t.Fatal("repoint with a valid token should apply")
 	}
 	if cfg, _ := store.GetAutoSync(t.Context()); cfg.PrimaryID != b.ID {
-		t.Fatalf("primary = %q after repoint, want %q", cfg.PrimaryID, b.ID)
+		t.Fatalf("primary = %q after authorized repoint, want %q", cfg.PrimaryID, b.ID)
 	}
 }
 
@@ -712,9 +721,8 @@ func TestGetAutoSyncHandlerDBError(t *testing.T) {
 	}
 }
 
-// TestPutAutoSyncDBError: a store failure surfaces as a 500. The handler reads the
-// current config first (to gate primary changes), so on a closed DB it fails on
-// that read before reaching validation or the persist.
+// TestPutAutoSyncDBError: a store failure surfaces as a 500. Clearing the primary
+// skips member validation, so on a closed DB the guarded write is what fails.
 func TestPutAutoSyncDBError(t *testing.T) {
 	srv, store := newTestServer(t)
 	if err := store.db.Close(); err != nil {
