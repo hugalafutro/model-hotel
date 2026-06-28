@@ -177,6 +177,39 @@ it("freezes the other controls while a primary-change confirmation is open", asy
 	);
 });
 
+it("does not offer a repoint when an enabled toggle hits the gate", async () => {
+	// Panel has primary 1 + auto-sync off; another admin repointed concurrently,
+	// so the toggle's stale primary is refused with a 403. The toggle must surface
+	// an error and resync, never pop a primary-change modal that could repoint.
+	server.use(
+		http.get("/api/fleet/autosync", () =>
+			HttpResponse.json({ enabled: false, primary_id: "1" }),
+		),
+		http.put("/api/fleet/autosync", async ({ request }) => {
+			const body = (await request.json()) as { confirm_token?: string };
+			if (!body.confirm_token) {
+				return new HttpResponse("confirm the admin token", { status: 403 });
+			}
+			return HttpResponse.json({ enabled: false, primary_id: "1" });
+		}),
+	);
+	render(
+		<ToastProvider>
+			<AutoSyncPanel
+				members={[member("1", "hotel-1"), member("3", "hotel-3")]}
+			/>
+		</ToastProvider>,
+	);
+
+	const checkbox = await screen.findByRole("checkbox");
+	await waitFor(() => expect(checkbox).toBeEnabled());
+	await userEvent.click(checkbox);
+
+	// The refusal shows an error and opens no confirmation dialog.
+	expect(await screen.findByRole("alert")).toBeTruthy();
+	expect(screen.queryByRole("dialog")).toBeNull();
+});
+
 it("recovers when a primary was set concurrently (stale snapshot)", async () => {
 	// The client loaded with no primary, but another admin configured one in the
 	// meantime, so the server gates the first un-tokened PUT with a 403.

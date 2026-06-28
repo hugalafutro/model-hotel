@@ -43,29 +43,36 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 			? err.message
 			: t("errors.generic");
 
-	const persist = async (next: AutoSyncConfig, confirm?: string) => {
+	// gateRecovery: true only for a deliberate primary selection. If that save is
+	// gated 403 because the primary changed under us, escalate to the confirmation
+	// modal. A non-primary save (e.g. an enabled toggle) must never escalate: it
+	// would offer to repoint the fleet to the stale primary the operator never
+	// chose to change.
+	const persist = async (next: AutoSyncConfig, gateRecovery = false) => {
 		setSaveError("");
 		setSaving(true);
 		try {
-			setCfg(await api.putAutoSync(next, confirm));
+			setCfg(await api.putAutoSync(next));
 			toast(t("settings.autoSync.saved"), "success");
 			return true;
 		} catch (err) {
-			// A primary was configured concurrently (another admin), so the server
-			// now gates this change even though our snapshot showed none set. Recover
-			// by prompting for the admin token instead of dead-ending on an error.
-			// Never do this while a confirmation is already pending: that would
-			// overwrite the operator's chosen primary with this save's value.
-			if (
-				err instanceof ApiError &&
-				err.status === 403 &&
-				confirm === undefined &&
-				pendingPrimary === null
-			) {
-				setConfirmToken("");
-				setConfirmError("");
-				setPendingPrimary(next.primary_id);
-				return false;
+			if (err instanceof ApiError && err.status === 403) {
+				// Our snapshot of the primary is stale (another operator changed it).
+				// Resync so the panel reflects the current primary and enabled state.
+				try {
+					setCfg(await api.getAutoSync());
+				} catch {
+					/* keep the last known config */
+				}
+				// Only a deliberate primary selection opens the confirmation modal, and
+				// never one that is already open (that would overwrite the operator's
+				// pending choice).
+				if (gateRecovery && pendingPrimary === null) {
+					setConfirmToken("");
+					setConfirmError("");
+					setPendingPrimary(next.primary_id);
+					return false;
+				}
 			}
 			setSaveError(errorMessage(err));
 			return false;
@@ -88,8 +95,8 @@ export function AutoSyncPanel({ members }: { members: MemberView[] }) {
 		}
 		// First selection (none set yet). If our snapshot is stale because a primary
 		// was set concurrently, the server gates this PUT with a 403 and persist()
-		// opens the confirmation modal to recover, so we never dead-end.
-		void persist({ ...cfg, primary_id: value });
+		// escalates to the confirmation modal to recover, so we never dead-end.
+		void persist({ ...cfg, primary_id: value }, true);
 	};
 
 	const closeConfirm = () => {
