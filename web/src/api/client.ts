@@ -22,6 +22,7 @@ import type {
 	ModelsCursorResponse,
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
+	OidcStatus,
 	OllamaCloudAccount,
 	OpenRouterBalance,
 	Provider,
@@ -1221,5 +1222,11 @@ export const api = {
 				},
 				"TOTP login failed",
 			),
+	},
+	// Unauthenticated: read on the login screen and in settings. The actual
+	// login is a full-page redirect to /api/auth/oidc/start, not an XHR.
+	oidc: {
+		status: async (): Promise<OidcStatus> =>
+			fetchJSON<OidcStatus>(`${API_BASE}/api/auth/oidc/status`),
 	},
 };

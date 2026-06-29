@@ -691,6 +691,17 @@ export interface TotpStatus {
 	enabled_at?: string;
 }
 
+/**
+ * Public OIDC SSO status, read unauthenticated on the login screen and in
+ * settings. Reports only whether SSO is enabled and fully configured plus a
+ * display name (the IdP host) for the button label; never any secret.
+ */
+export interface OidcStatus {
+	enabled: boolean;
+	/** IdP host, shown on the sign-in button; absent when not configured. */
+	display_name?: string;
+}
+
 /** Admin-gated detail for the settings panel (not the polled public status). */
 export interface TotpInfo {
 	recovery_remaining: number;

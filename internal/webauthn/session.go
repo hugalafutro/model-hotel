@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"errors"
 	"io"
 	"time"
 
@@ -13,6 +14,11 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
+
+// errInvalidLoginState is returned by ConsumeLoginState when the record is
+// missing, of the wrong type, or expired. Kept unexported and opaque so callers
+// can't distinguish the cases (no oracle for a probing attacker).
+var errInvalidLoginState = errors.New("invalid or expired login state")
 
 // SessionManager handles WebAuthn-based admin session authentication.
 // It validates bearer tokens stored as WebAuthn session records of type "auth_token",
@@ -118,6 +124,63 @@ func (m *SessionManager) CreateAuthToken(ctx context.Context, userID, credential
 	}
 
 	return token, nil
+}
+
+// CreateLoginState stores a short-lived OIDC login-state record holding the
+// per-login state/nonce/PKCE-verifier blob, keyed by a fresh random id. It
+// returns that id, which the caller sets in a cookie so the callback can find
+// the record. The record carries Type "oidc_login" and a short ExpiresAt; it is
+// never an auth token (TokenHash stays nil) so Validate can never accept it.
+// Reuses the same SessionStore as auth tokens, so it ports to Front Desk's
+// SQLite store unchanged.
+func (m *SessionManager) CreateLoginState(ctx context.Context, data []byte, ttl time.Duration) (uuid.UUID, error) {
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return uuid.Nil, err
+	}
+	challenge, err := generateChallenge(32)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	session := &SessionRecord{
+		ID:          id,
+		Challenge:   challenge,
+		SessionData: data,
+		Type:        "oidc_login",
+		UserID:      []byte("admin"),
+		ExpiresAt:   time.Now().Add(ttl),
+	}
+	if err := m.store.CreateSession(ctx, session); err != nil {
+		return uuid.Nil, err
+	}
+	return id, nil
+}
+
+// ConsumeLoginState fetches the OIDC login-state record by id and deletes it,
+// enforcing single use: a replayed callback finds nothing the second time. It
+// returns the stored blob only when the record exists, is of type "oidc_login",
+// and has not expired. The delete runs regardless of expiry so stale records
+// don't linger until the hourly cleanup.
+func (m *SessionManager) ConsumeLoginState(ctx context.Context, id uuid.UUID) ([]byte, error) {
+	session, err := m.store.GetSession(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// The delete is the atomic single-use claim: DeleteSession reports an error
+	// (ErrNotFound / 0 rows affected) when no row was removed, so under a
+	// concurrent replay only the goroutine whose DELETE actually removed the row
+	// proceeds; any other reader that saw the same row before the delete is
+	// rejected here. This closes the read-then-delete TOCTOU on the guard.
+	if delErr := m.store.DeleteSession(ctx, id); delErr != nil {
+		return nil, errInvalidLoginState
+	}
+	if session.Type != "oidc_login" {
+		return nil, errInvalidLoginState
+	}
+	if session.ExpiresAt.Before(time.Now()) {
+		return nil, errInvalidLoginState
+	}
+	return session.SessionData, nil
 }
 
 // RevokeAuthToken deletes an auth token session by hashing the token and

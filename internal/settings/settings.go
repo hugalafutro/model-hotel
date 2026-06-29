@@ -54,6 +54,12 @@ var AllowedSettings = map[string]bool{
 	"alert_apprise_targets":        true,
 	"alert_events":                 true,
 	"session_idle_timeout_minutes": true,
+	"oidc_enabled":                 true,
+	"oidc_issuer_url":              true,
+	"oidc_client_id":               true,
+	"oidc_client_secret":           true,
+	"oidc_allowed_emails":          true,
+	"oidc_public_base_url":         true,
 }
 
 type cacheEntry struct {

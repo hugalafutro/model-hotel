@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Kérjük, írja be a TOTP-kódját",
 			"totpFailed": "Érvénytelen adminisztrátori token vagy TOTP-kód",
 			"totpStep": "A kétfaktoros hitelesítés engedélyezve van. Írja be az azonosítóalkalmazásból kapott 6 számjegyű kódot.",
-			"totpThrottled": "Túl sok próbálkozás. Várjon egy pillanatot, és próbálja újra."
+			"totpThrottled": "Túl sok próbálkozás. Várjon egy pillanatot, és próbálja újra.",
+			"signInWithSSO": "Bejelentkezés SSO-val",
+			"signInWithSSOProvider": "Bejelentkezés ezzel: {{provider}}",
+			"ssoFailed": "Az egyszeri bejelentkezés sikertelen. Próbáld újra, vagy használj másik bejelentkezési módot."
 		},
 		"theme": {
 			"switchToLight": "Váltás világos módra",
@@ -1923,6 +1926,32 @@
 			"title": "Munkamenet időkorlátja",
 			"label": "Automatikus kijelentkezés inaktivitás után",
 			"hint": "Ennyi tétlenség után a rendszer automatikusan kijelentkezteti az irányítópultból. Állítsa Soha értékre, hogy a munkamenet korlátlan ideig nyitva maradjon."
+		},
+		"oidc": {
+			"title": "Egyszeri bejelentkezés (SSO)",
+			"description": "Lehetővé teszi, hogy a rendszergazdák külső OpenID Connect szolgáltatón keresztül jelentkezzenek be. Az SSO kiegészítő: a rendszergazdai tokennel, hozzáférési kulccsal és TOTP-vel való bejelentkezés továbbra is működik.",
+			"enable": "SSO engedélyezése",
+			"enableDescription": "Egyszeri bejelentkezési gombot jelenít meg a bejelentkezési képernyőn.",
+			"issuer": "Kibocsátó URL-címe",
+			"issuerDescription": "A szolgáltató OpenID Connect felderítési alap URL-címe.",
+			"clientId": "Ügyfél-azonosító",
+			"clientSecret": "Ügyféltitok",
+			"secretConfigured": "Titok beállítva (hagyd üresen a megtartásához)",
+			"secretPlaceholder": "Illeszd be az ügyféltitkot",
+			"clear": "Törlés",
+			"publicBaseUrl": "Nyilvános alap URL-cím",
+			"publicBaseUrlDescription": "Ennek az alkalmazásnak a kívülről elérhető címe, amelyből az átirányítási URI felépül.",
+			"redirectUri": "Átirányítási URI",
+			"redirectUriDescription": "Pontosan ezt az URL-címet regisztráld a szolgáltatódnál.",
+			"copyRedirectUri": "Átirányítási URI másolása",
+			"allowedEmails": "Engedélyezett e-mailek",
+			"allowedEmailsDescription": "Csak ezek a megerősített e-mail-címek jelentkezhetnek be, vesszővel vagy új sorokkal elválasztva.",
+			"fallbackNote": "Ha a szolgáltató nem érhető el, továbbra is bejelentkezhetsz a rendszergazdai tokennel, hozzáférési kulccsal vagy TOTP-vel.",
+			"status": {
+				"checking": "Konfiguráció ellenőrzése…",
+				"configured": "Engedélyezve és beállítva",
+				"incomplete": "Hiányos konfiguráció"
+			}
 		}
 	},
 	"components": {

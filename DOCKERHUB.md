@@ -120,6 +120,12 @@ Add a time-based one-time code (TOTP, RFC 6238) from an authenticator app (Googl
 
 When TOTP is on, the raw admin token no longer authenticates API requests by itself; it becomes a first factor that, combined with a valid code, is exchanged for a session token on the login screen (the same session infrastructure passkeys use). Recovery codes are single-use and stored as SHA-256 hashes; the TOTP secret is AES-256-GCM encrypted at rest with `MASTER_KEY`.
 
+## Single Sign-On (OIDC)
+
+Let admins sign in through an external OpenID Connect provider (Authentik, Authelia, Keycloak, Okta, Google, and so on). Configure the issuer URL, client ID, client secret, and an allowlist of verified emails from the Settings page; a "Sign in with SSO" button then appears on the login screen.
+
+SSO is a third login path, not a replacement: it mints the same session token as passkey and TOTP login. The allowlist fails closed, only verified emails match, the client secret is AES-256-GCM encrypted at rest, and the flow uses PKCE plus single-use state and nonce. The minted token is delivered in the URL fragment (never sent back to the server); if your reverse proxy logs response headers, redact `Location` on `/api/auth/oidc/callback`. Each operator registers their own OIDC app and points it at `<public base URL>/api/auth/oidc/callback`. Local login (admin token, passkeys, TOTP) always keeps working, so a misconfigured provider cannot lock you out. GitHub (plain OAuth2) is not supported in this version.
+
 ## Quick Start
 
 ```bash

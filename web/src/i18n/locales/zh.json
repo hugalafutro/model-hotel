@@ -159,7 +159,10 @@
 			"totpCodeRequired": "请输入您的 TOTP 代码",
 			"totpFailed": "管理令牌或 TOTP 代码无效",
 			"totpStep": "已启用双重身份验证。请输入您的身份验证器应用中的 6 位数字代码。",
-			"totpThrottled": "尝试次数过多。请稍候片刻后重试。"
+			"totpThrottled": "尝试次数过多。请稍候片刻后重试。",
+			"signInWithSSO": "使用 SSO 登录",
+			"signInWithSSOProvider": "使用 {{provider}} 登录",
+			"ssoFailed": "单点登录失败。请重试或使用其他登录方式。"
 		},
 		"theme": {
 			"switchToLight": "切换到浅色模式",
@@ -1923,6 +1926,32 @@
 			"title": "会话超时",
 			"label": "无活动后自动注销",
 			"hint": "经过这段无活动时间后将自动退出仪表板。设为“从不”可使会话一直保持打开。"
+		},
+		"oidc": {
+			"title": "单点登录 (SSO)",
+			"description": "让管理员通过外部 OpenID Connect 提供方登录。SSO 是附加方式：管理员令牌、通行密钥和 TOTP 登录仍然可用。",
+			"enable": "启用 SSO",
+			"enableDescription": "在登录页面显示单点登录按钮。",
+			"issuer": "颁发者 URL",
+			"issuerDescription": "提供方的 OpenID Connect 发现基础 URL。",
+			"clientId": "客户端 ID",
+			"clientSecret": "客户端密钥",
+			"secretConfigured": "已设置密钥（留空以保留）",
+			"secretPlaceholder": "粘贴客户端密钥",
+			"clear": "清除",
+			"publicBaseUrl": "公开基础 URL",
+			"publicBaseUrlDescription": "此应用的对外可访问地址，用于构建重定向 URI。",
+			"redirectUri": "重定向 URI",
+			"redirectUriDescription": "请将这个完整的 URL 注册到你的提供方。",
+			"copyRedirectUri": "复制重定向 URI",
+			"allowedEmails": "允许的邮箱",
+			"allowedEmailsDescription": "只有这些已验证的邮箱地址可以登录，用逗号或换行分隔。",
+			"fallbackNote": "如果提供方不可用，你仍然可以使用管理员令牌、通行密钥或 TOTP 登录。",
+			"status": {
+				"checking": "正在检查配置…",
+				"configured": "已启用并配置",
+				"incomplete": "配置不完整"
+			}
 		}
 	},
 	"components": {

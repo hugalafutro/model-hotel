@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Inserisci il tuo codice TOTP",
 			"totpFailed": "Token di amministrazione o codice TOTP non valido",
 			"totpStep": "L'autenticazione a due fattori è abilitata. Inserisci il codice a 6 cifre generato dalla tua app di autenticazione.",
-			"totpThrottled": "Troppi tentativi. Attendi un momento e riprova."
+			"totpThrottled": "Troppi tentativi. Attendi un momento e riprova.",
+			"signInWithSSO": "Accedi con SSO",
+			"signInWithSSOProvider": "Accedi con {{provider}}",
+			"ssoFailed": "Accesso unico non riuscito. Riprova o usa un altro metodo di accesso."
 		},
 		"theme": {
 			"switchToLight": "Passa alla modalità chiara",
@@ -1923,6 +1926,32 @@
 			"title": "Timeout della sessione",
 			"label": "Disconnessione automatica dopo inattività",
 			"hint": "Disconnette automaticamente la dashboard dopo questo periodo di inattività. Imposta su Mai per mantenere la sessione aperta a tempo indeterminato."
+		},
+		"oidc": {
+			"title": "Accesso unico (SSO)",
+			"description": "Consente agli amministratori di accedere tramite un provider OpenID Connect esterno. L'SSO è aggiuntivo: gli accessi con token amministratore, passkey e TOTP continuano a funzionare.",
+			"enable": "Abilita SSO",
+			"enableDescription": "Mostra un pulsante di accesso unico nella schermata di accesso.",
+			"issuer": "URL dell'emittente",
+			"issuerDescription": "L'URL di base di discovery OpenID Connect del provider.",
+			"clientId": "ID client",
+			"clientSecret": "Secret client",
+			"secretConfigured": "Secret impostato (lascia vuoto per mantenerlo)",
+			"secretPlaceholder": "Incolla il secret client",
+			"clear": "Cancella",
+			"publicBaseUrl": "URL di base pubblico",
+			"publicBaseUrlDescription": "L'indirizzo di questa app raggiungibile dall'esterno, usato per costruire l'URI di reindirizzamento.",
+			"redirectUri": "URI di reindirizzamento",
+			"redirectUriDescription": "Registra esattamente questo URL presso il tuo provider.",
+			"copyRedirectUri": "Copia URI di reindirizzamento",
+			"allowedEmails": "Email consentite",
+			"allowedEmailsDescription": "Solo questi indirizzi email verificati possono accedere, separati da virgole o a capo.",
+			"fallbackNote": "Se il provider non è disponibile, puoi comunque accedere con il token amministratore, una passkey o TOTP.",
+			"status": {
+				"checking": "Verifica della configurazione…",
+				"configured": "Abilitato e configurato",
+				"incomplete": "Configurazione incompleta"
+			}
 		}
 	},
 	"components": {

@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Vă rugăm să introduceți codul TOTP",
 			"totpFailed": "Token de administrator sau cod TOTP nevalid",
 			"totpStep": "Autentificarea în doi pași este activată. Introduceți codul din 6 cifre din aplicația dvs. de autentificare.",
-			"totpThrottled": "Prea multe încercări. Așteptați un moment și încercați din nou."
+			"totpThrottled": "Prea multe încercări. Așteptați un moment și încercați din nou.",
+			"signInWithSSO": "Conectează-te cu SSO",
+			"signInWithSSOProvider": "Conectează-te cu {{provider}}",
+			"ssoFailed": "Autentificarea unică a eșuat. Încearcă din nou sau folosește altă metodă de conectare."
 		},
 		"theme": {
 			"switchToLight": "Comută la modul luminos",
@@ -1923,6 +1926,32 @@
 			"title": "Expirarea sesiunii",
 			"label": "Deconectare automată după inactivitate",
 			"hint": "Vă deconectează automat din tablou după această perioadă de inactivitate. Setați la Niciodată pentru a menține sesiunea deschisă pe termen nelimitat."
+		},
+		"oidc": {
+			"title": "Autentificare unică (SSO)",
+			"description": "Permite administratorilor să se conecteze printr-un furnizor OpenID Connect extern. SSO este suplimentar: conectarea cu tokenul de administrator, cheia de acces și TOTP funcționează în continuare.",
+			"enable": "Activează SSO",
+			"enableDescription": "Afișează un buton de autentificare unică pe ecranul de conectare.",
+			"issuer": "URL-ul emitentului",
+			"issuerDescription": "URL-ul de bază de descoperire OpenID Connect al furnizorului.",
+			"clientId": "ID client",
+			"clientSecret": "Secret client",
+			"secretConfigured": "Secret setat (lasă gol pentru a-l păstra)",
+			"secretPlaceholder": "Lipește secretul clientului",
+			"clear": "Șterge",
+			"publicBaseUrl": "URL de bază public",
+			"publicBaseUrlDescription": "Adresa acestei aplicații accesibilă din exterior, folosită pentru a construi URI-ul de redirecționare.",
+			"redirectUri": "URI de redirecționare",
+			"redirectUriDescription": "Înregistrează exact acest URL la furnizorul tău.",
+			"copyRedirectUri": "Copiază URI-ul de redirecționare",
+			"allowedEmails": "E-mailuri permise",
+			"allowedEmailsDescription": "Doar aceste adrese de e-mail verificate se pot conecta, separate prin virgule sau rânduri noi.",
+			"fallbackNote": "Dacă furnizorul nu este disponibil, te poți conecta în continuare cu tokenul de administrator, o cheie de acces sau TOTP.",
+			"status": {
+				"checking": "Se verifică configurația…",
+				"configured": "Activat și configurat",
+				"incomplete": "Configurație incompletă"
+			}
 		}
 	},
 	"components": {

@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Indtast venligst din TOTP-kode",
 			"totpFailed": "Ugyldigt administrator-token eller TOTP-kode",
 			"totpStep": "To-faktor-autentificering er aktiveret. Indtast den 6-cifrede kode fra din autentificeringsapp.",
-			"totpThrottled": "For mange forsøg. Vent et øjeblik, og prøv igen."
+			"totpThrottled": "For mange forsøg. Vent et øjeblik, og prøv igen.",
+			"signInWithSSO": "Log ind med SSO",
+			"signInWithSSOProvider": "Log ind med {{provider}}",
+			"ssoFailed": "Enkeltlogin mislykkedes. Prøv igen, eller brug en anden loginmetode."
 		},
 		"theme": {
 			"switchToLight": "Skift til lys tilstand",
@@ -1923,6 +1926,32 @@
 			"title": "Sessionstimeout",
 			"label": "Automatisk log ud efter inaktivitet",
 			"hint": "Log automatisk ud af dashboardet efter denne periode uden aktivitet. Indstil til Aldrig for at holde sessionen åben på ubestemt tid."
+		},
+		"oidc": {
+			"title": "Enkeltlogin (SSO)",
+			"description": "Lader administratorer logge ind via en ekstern OpenID Connect-udbyder. SSO er et supplement: login med admin-token, adgangsnøgle og TOTP virker stadig.",
+			"enable": "Aktivér SSO",
+			"enableDescription": "Viser en enkeltlogin-knap på loginskærmen.",
+			"issuer": "Udsteder-URL",
+			"issuerDescription": "Udbyderens OpenID Connect-discovery-basis-URL.",
+			"clientId": "Klient-id",
+			"clientSecret": "Klienthemmelighed",
+			"secretConfigured": "Hemmelighed angivet (lad stå tom for at beholde den)",
+			"secretPlaceholder": "Indsæt klienthemmeligheden",
+			"clear": "Ryd",
+			"publicBaseUrl": "Offentlig basis-URL",
+			"publicBaseUrlDescription": "Denne apps eksternt tilgængelige adresse, som bruges til at opbygge redirect-URI'en.",
+			"redirectUri": "Redirect-URI",
+			"redirectUriDescription": "Registrér præcis denne URL hos din udbyder.",
+			"copyRedirectUri": "Kopiér redirect-URI",
+			"allowedEmails": "Tilladte e-mails",
+			"allowedEmailsDescription": "Kun disse verificerede e-mailadresser må logge ind, adskilt af kommaer eller linjeskift.",
+			"fallbackNote": "Hvis udbyderen ikke er tilgængelig, kan du stadig logge ind med admin-token, en adgangsnøgle eller TOTP.",
+			"status": {
+				"checking": "Kontrollerer konfigurationen…",
+				"configured": "Aktiveret og konfigureret",
+				"incomplete": "Ufuldstændig konfiguration"
+			}
 		}
 	},
 	"components": {

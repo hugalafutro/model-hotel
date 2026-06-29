@@ -172,7 +172,10 @@
 			"getTokenHint": "Get your admin token from the server logs",
 			"demoTokenHint": "Demo instance. Log in with this admin token:",
 			"copyToken": "Copy token",
-			"totpThrottled": "Too many attempts. Please wait a moment and try again."
+			"totpThrottled": "Too many attempts. Please wait a moment and try again.",
+			"signInWithSSO": "Sign in with SSO",
+			"signInWithSSOProvider": "Sign in with {{provider}}",
+			"ssoFailed": "Single sign-on failed. Try again or use another sign-in method."
 		},
 		"theme": {
 			"switchToLight": "Switch to light mode",
@@ -1923,6 +1926,32 @@
 		"managed": {
 			"sectionNote": "Managed by the fleet primary. Changes here are replaced on the next config sync.",
 			"alertsNote": "Alerting on or off and event routing are managed by the fleet primary. The Apprise delivery settings below stay local to this instance."
+		},
+		"oidc": {
+			"title": "Single sign-on (SSO)",
+			"description": "Let admins sign in through an external OpenID Connect provider. SSO is additive: the admin token, passkey, and TOTP logins keep working.",
+			"enable": "Enable SSO",
+			"enableDescription": "Show a single sign-on button on the login screen.",
+			"issuer": "Issuer URL",
+			"issuerDescription": "The provider's OpenID Connect discovery base URL.",
+			"clientId": "Client ID",
+			"clientSecret": "Client secret",
+			"secretConfigured": "Secret set (leave blank to keep it)",
+			"secretPlaceholder": "Paste the client secret",
+			"clear": "Clear",
+			"publicBaseUrl": "Public base URL",
+			"publicBaseUrlDescription": "This app's externally reachable address, used to build the redirect URI.",
+			"redirectUri": "Redirect URI",
+			"redirectUriDescription": "Register this exact URL with your provider.",
+			"copyRedirectUri": "Copy redirect URI",
+			"allowedEmails": "Allowed emails",
+			"allowedEmailsDescription": "Only these verified email addresses may sign in, comma- or newline-separated.",
+			"fallbackNote": "If the provider is unavailable, you can still sign in with the admin token, a passkey, or TOTP.",
+			"status": {
+				"checking": "Checking configuration…",
+				"configured": "Enabled and configured",
+				"incomplete": "Incomplete configuration"
+			}
 		}
 	},
 	"components": {

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { Eye, EyeOff, Fingerprint } from "@/lib/icons";
+import { Eye, EyeOff, Fingerprint, LogIn } from "@/lib/icons";
 import { api, setAdminToken } from "./api/client";
 import { CopyablePill } from "./components/CopyablePill";
 import { Layout } from "./components/Layout";
@@ -14,6 +14,7 @@ import { SidebarModeProvider } from "./context/SidebarModeContext";
 import { StorageProvider } from "./context/StorageContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
+import { consumeOidcError, consumeOidcToken } from "./utils/oidc";
 import { canUsePasskeyLogin, loginWithPasskey } from "./utils/webauthn";
 
 const Dashboard = lazy(() =>
@@ -56,6 +57,22 @@ function LoginScreen() {
 	const [passkeyAvailable, setPasskeyAvailable] = useState(false);
 	const [totpEnabled, setTotpEnabled] = useState(false);
 	const [totpCode, setTotpCode] = useState("");
+
+	// SSO availability is read unauthenticated; the button only shows when an
+	// IdP is configured. Cached app-wide; config does not change at runtime.
+	const { data: oidcStatus } = useQuery({
+		queryKey: ["oidc-status"],
+		queryFn: () => api.oidc.status(),
+		staleTime: Number.POSITIVE_INFINITY,
+		retry: 1,
+	});
+	const ssoEnabled = oidcStatus?.enabled ?? false;
+	const ssoProvider = oidcStatus?.display_name ?? "";
+
+	// A failed SSO callback redirects back with an error code in the fragment.
+	useEffect(() => {
+		if (consumeOidcError()) setError(t("layout.auth.ssoFailed"));
+	}, [t]);
 
 	// Demo instances may publish the admin token on the login screen so the
 	// operator shares only the URL. Empty unless DEMO_SHOW_TOKEN + DEMO_READONLY
@@ -170,28 +187,43 @@ function LoginScreen() {
 				)}
 
 				<div className="space-y-4">
+					{ssoEnabled && (
+						<a
+							href="/api/auth/oidc/start"
+							className="ui-btn ui-btn-primary ui-btn-lg w-full no-underline"
+							aria-label={t("layout.auth.signInWithSSO")}
+							data-testid="sso-login-button"
+						>
+							<LogIn size={20} />
+							{ssoProvider
+								? t("layout.auth.signInWithSSOProvider", {
+										provider: ssoProvider,
+									})
+								: t("layout.auth.signInWithSSO")}
+						</a>
+					)}
 					{passkeyAvailable && (
-						<>
-							<button
-								type="button"
-								onClick={handlePasskeyLogin}
-								disabled={passkeyLoading}
-								className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
-								aria-label={t("layout.auth.signInWithPasskey")}
-							>
-								<Fingerprint size={20} />
-								{passkeyLoading
-									? t("layout.auth.signingIn")
-									: t("layout.auth.signInWithPasskey")}
-							</button>
-							<div className="flex items-center gap-3">
-								<div className="flex-1 h-px bg-gray-700"></div>
-								<span className="text-xs text-gray-500 uppercase">
-									{t("layout.auth.orDivider")}
-								</span>
-								<div className="flex-1 h-px bg-gray-700"></div>
-							</div>
-						</>
+						<button
+							type="button"
+							onClick={handlePasskeyLogin}
+							disabled={passkeyLoading}
+							className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
+							aria-label={t("layout.auth.signInWithPasskey")}
+						>
+							<Fingerprint size={20} />
+							{passkeyLoading
+								? t("layout.auth.signingIn")
+								: t("layout.auth.signInWithPasskey")}
+						</button>
+					)}
+					{(ssoEnabled || passkeyAvailable) && (
+						<div className="flex items-center gap-3">
+							<div className="flex-1 h-px bg-gray-700"></div>
+							<span className="text-xs text-gray-500 uppercase">
+								{t("layout.auth.orDivider")}
+							</span>
+							<div className="flex-1 h-px bg-gray-700"></div>
+						</div>
 					)}
 					<div>
 						<label
@@ -305,6 +337,9 @@ function PageSuspense({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
+	// An SSO callback hands the session token back in the URL fragment. Consume
+	// it before reading the stored token so the app boots logged in.
+	consumeOidcToken();
 	const token = localStorage.getItem("adminToken");
 	if (token) {
 		setAdminToken(token);
