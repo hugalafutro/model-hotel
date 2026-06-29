@@ -14,6 +14,7 @@ import type {
 	MemberState,
 	MemberTraffic,
 	MemberView,
+	OidcStatus,
 	Settings,
 	SyncResult,
 	TotpEnrollStart,
@@ -197,6 +198,8 @@ export const api = {
 		request<{ enabled: boolean; has_credentials: boolean }>(
 			"/api/webauthn/available",
 		),
+	// OIDC SSO login status (public): drives the "Sign in with SSO" button.
+	oidcStatus: () => request<OidcStatus>("/api/auth/oidc/status"),
 	webauthnLoginStart: () =>
 		request<{
 			session_id: string;

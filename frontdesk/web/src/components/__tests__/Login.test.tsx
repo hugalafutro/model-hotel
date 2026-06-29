@@ -14,6 +14,13 @@ vi.mock("@simplewebauthn/browser", () => ({
 
 beforeEach(() => {
 	startAuthentication.mockReset();
+	// Login polls OIDC status on mount; default it to disabled so tests that do
+	// not care about SSO need not mock it. Per-test server.use overrides this.
+	server.use(
+		http.get("/api/auth/oidc/status", () =>
+			HttpResponse.json({ enabled: false }),
+		),
+	);
 });
 
 describe("Login", () => {
@@ -84,6 +91,38 @@ describe("Login", () => {
 		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "bad");
 		await userEvent.click(screen.getByRole("button", { name: /Sign in/i }));
 		expect(await screen.findByRole("alert")).toHaveTextContent(/not accepted/i);
+	});
+
+	it("shows the SSO button (with provider name) and links to the start route when OIDC is enabled", async () => {
+		server.use(
+			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+			http.get("/api/webauthn/available", () =>
+				HttpResponse.json({ enabled: false }),
+			),
+			http.get("/api/auth/oidc/status", () =>
+				HttpResponse.json({ enabled: true, display_name: "auth.example.com" }),
+			),
+		);
+		render(<Login onAuthenticated={vi.fn()} />);
+
+		const sso = await screen.findByTestId("fd-sso-login-button");
+		expect(sso).toHaveAttribute("href", "/api/auth/oidc/start");
+		expect(sso).toHaveTextContent(/auth\.example\.com/);
+	});
+
+	it("hides the SSO button when OIDC is disabled", async () => {
+		server.use(
+			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+			http.get("/api/webauthn/available", () =>
+				HttpResponse.json({ enabled: false }),
+			),
+			// oidc/status defaults to disabled via beforeEach.
+		);
+		render(<Login onAuthenticated={vi.fn()} />);
+		await screen.findByLabelText(/Front Desk token/i);
+		await waitFor(() => {
+			expect(screen.queryByTestId("fd-sso-login-button")).toBeNull();
+		});
 	});
 
 	it("hides the passkey button when configured but no passkey is registered", async () => {

@@ -24,6 +24,8 @@ if [ -n "$SYNC_BASE" ]; then
 		! printf '%s\n' "$CHANGED" | grep -qx "DOCKERHUB.md"; then
 		if [ "${DOCKERHUB_README_NOT_NEEDED:-}" = "1" ]; then
 			echo "pre-push: README.md changed without DOCKERHUB.md - acknowledged (DOCKERHUB_README_NOT_NEEDED=1)"
+			echo "  -> CI uses a LABEL, not this env var: add the 'dockerhub-readme-not-needed'" >&2
+			echo "     label to the PR or the README/DOCKERHUB.md sync check will re-fail." >&2
 		else
 			echo "pre-push: FAILED - README.md changed but DOCKERHUB.md did not." >&2
 			echo "  Mirror the change into DOCKERHUB.md (the Docker Hub copy), or re-run as" >&2

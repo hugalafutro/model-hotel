@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	gowa "github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
@@ -138,8 +139,12 @@ func NewServer(cfg ServerConfig) *Server {
 	totpHandler := adminauth.NewTotpHandler(
 		totpRepo, cfg.AdminMgr, sessionMgr, cfg.IPLimiter, false, s.totpStatus.Enabled, s.totpStatus.Refresh,
 	)
+	// OIDC SSO: a fourth admin-login path. The shared adminauth handler is reused
+	// as-is; newOIDCSettings adapts Front Desk's typed settings row to its key/value
+	// contract, and the config secret rides the same MasterKey encryption as above.
+	oidcHandler := adminauth.NewOIDCHandler(newOIDCSettings(cfg.Store), sessionMgr, cfg.IPLimiter, cfg.MasterKey)
 
-	s.router = s.buildRouter(webauthnHandler, totpHandler, cfg.UI)
+	s.router = s.buildRouter(webauthnHandler, totpHandler, oidcHandler, cfg.UI)
 	return s
 }
 
@@ -150,7 +155,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.router.Se
 // cleanup of expired sessions).
 func (s *Server) SessionManager() *webauthn.SessionManager { return s.sessionMgr }
 
-func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHandler, ui fs.FS) http.Handler {
+func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHandler, oidc *adminauth.OIDCHandler, ui fs.FS) http.Handler {
 	r := chi.NewRouter()
 
 	// Unauthenticated, compose-internal: Traefik's HTTP provider polls this.
@@ -158,9 +163,20 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 
 	r.Route("/api", func(r chi.Router) {
 		// Login + auth management ceremonies (gating handled inside the handlers:
-		// login is public, register/disable require admin-or-session).
+		// login is public, register/disable require admin-or-session). The OIDC
+		// routes (/auth/oidc/{status,start,callback}) are public because they ARE
+		// the login flow; the email allowlist, not a bearer, gates completion.
 		wa.Register(r)
 		tp.Register(r)
+		// OIDC is the one login path that makes outbound third-party calls
+		// (discovery on fingerprint change, token exchange + UserInfo per login),
+		// so bound it with a per-request timeout so a slow or hostile IdP can't
+		// pin a goroutine open indefinitely. Matches the main dashboard's posture
+		// (the SQLite server sets no WriteTimeout, so this is the actual cap).
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Timeout(60 * time.Second))
+			oidc.Register(r)
+		})
 
 		// Control-plane REST + SSE, behind the admin-or-session gate.
 		r.Group(func(r chi.Router) {
@@ -423,10 +439,13 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	// Never expose the encrypted Apprise target: replace a stored secret with a
-	// mask the UI can echo back unchanged to preserve it.
+	// Never expose the encrypted Apprise target or OIDC client secret: replace a
+	// stored secret with a mask the UI can echo back unchanged to preserve it.
 	if set.AlertAppriseTargets != "" {
 		set.AlertAppriseTargets = alertMaskValue
+	}
+	if set.OidcClientSecret != "" {
+		set.OidcClientSecret = alertMaskValue
 	}
 	writeJSON(w, http.StatusOK, set)
 }
@@ -454,6 +473,9 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	if set.AlertAppriseTargets != "" {
 		set.AlertAppriseTargets = alertMaskValue
 	}
+	if set.OidcClientSecret != "" {
+		set.OidcClientSecret = alertMaskValue
+	}
 	if !decodeJSON(w, r, &set) {
 		return
 	}
@@ -465,6 +487,15 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	set.AlertAppriseTargets = resolved
+	// The OIDC client secret follows the same mask/encrypt/preserve contract.
+	oidcSecret, err := s.resolveSecret(r.Context(), set.OidcClientSecret, func(cur Settings) string {
+		return cur.OidcClientSecret
+	})
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	set.OidcClientSecret = oidcSecret
 
 	if err := s.store.UpdateSettings(r.Context(), set); err != nil {
 		writeError(w, err)
@@ -478,25 +509,34 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 	if set.AlertAppriseTargets != "" {
 		set.AlertAppriseTargets = alertMaskValue
 	}
+	if set.OidcClientSecret != "" {
+		set.OidcClientSecret = alertMaskValue
+	}
 	writeJSON(w, http.StatusOK, set)
 }
 
-// resolveAlertTarget maps a submitted Apprise target field to the value to store:
-// the mask sentinel preserves the stored ciphertext, a blank clears it, and any
-// other value is encrypted at rest with the Front Desk master key.
-func (s *Server) resolveAlertTarget(ctx context.Context, submitted string) (string, error) {
+// resolveSecret maps a submitted masked-secret field to the value to store: the
+// mask sentinel preserves the existing stored ciphertext (read back via current),
+// a blank clears it, and any other value is encrypted at rest with the Front Desk
+// master key. Shared by every settings secret (Apprise target, OIDC client secret).
+func (s *Server) resolveSecret(ctx context.Context, submitted string, current func(Settings) string) (string, error) {
 	switch submitted {
 	case alertMaskValue:
 		cur, err := s.store.GetSettings(ctx)
 		if err != nil {
 			return "", err
 		}
-		return cur.AlertAppriseTargets, nil
+		return current(cur), nil
 	case "":
 		return "", nil
 	default:
 		return auth.EncryptString(submitted, s.masterKey)
 	}
+}
+
+// resolveAlertTarget resolves the Apprise target secret (see resolveSecret).
+func (s *Server) resolveAlertTarget(ctx context.Context, submitted string) (string, error) {
+	return s.resolveSecret(ctx, submitted, func(cur Settings) string { return cur.AlertAppriseTargets })
 }
 
 // getAutoSync returns the automatic config-propagation setup (enabled + the

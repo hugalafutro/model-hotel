@@ -1,4 +1,4 @@
-import { FingerprintIcon } from "@phosphor-icons/react";
+import { FingerprintIcon, SignInIcon } from "@phosphor-icons/react";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { type SyntheticEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,20 +6,28 @@ import { ApiError, api, clearAuthToken, setAuthToken } from "../api/client";
 
 interface LoginProps {
 	onAuthenticated: () => void;
+	// Coarse error code from a failed OIDC SSO callback (consumed from the URL
+	// fragment at boot), shown as a generic message so provider internals do not
+	// leak. null/undefined when the load was not an SSO failure.
+	initialError?: string | null;
 }
 
 // Login covers all three Front Desk auth paths (HTTPS-only ingress, so every
 // method is available): raw FRONTDESK_TOKEN when TOTP is off, token + TOTP code
 // when 2FA is on, and passkey. Each path ends by storing a bearer token the rest
 // of the app sends (raw token or a minted session token).
-export function Login({ onAuthenticated }: LoginProps) {
+export function Login({ onAuthenticated, initialError }: LoginProps) {
 	const { t } = useTranslation();
 	const [token, setToken] = useState("");
 	const [code, setCode] = useState("");
 	const [totpEnabled, setTotpEnabled] = useState(false);
 	const [passkeyEnabled, setPasskeyEnabled] = useState(false);
+	const [ssoEnabled, setSsoEnabled] = useState(false);
+	const [ssoProvider, setSsoProvider] = useState("");
 	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState("");
+	// Seed the error from a failed SSO callback so the message survives the boot
+	// redirect; a coarse generic string (the provider reason is never surfaced).
+	const [error, setError] = useState(initialError ? t("login.ssoFailed") : "");
 
 	useEffect(() => {
 		api
@@ -29,6 +37,13 @@ export function Login({ onAuthenticated }: LoginProps) {
 		api
 			.webauthnAvailable()
 			.then((a) => setPasskeyEnabled(a.enabled && a.has_credentials))
+			.catch(() => {});
+		api
+			.oidcStatus()
+			.then((s) => {
+				setSsoEnabled(s.enabled);
+				setSsoProvider(s.display_name ?? "");
+			})
 			.catch(() => {});
 	}, []);
 
@@ -165,6 +180,27 @@ export function Login({ onAuthenticated }: LoginProps) {
 						<FingerprintIcon size={18} weight="bold" />
 						{t("login.passkey")}
 					</button>
+				)}
+				{ssoEnabled && (
+					// A full navigation (not fetch): the backend redirects to the IdP and
+					// later back to the SPA with the session token in the URL fragment,
+					// which App consumes at boot.
+					<a
+						className="ui-btn ui-btn-ghost"
+						href="/api/auth/oidc/start"
+						aria-label={t("login.sso")}
+						data-testid="fd-sso-login-button"
+						style={{
+							width: "100%",
+							marginTop: "0.6rem",
+							justifyContent: "center",
+						}}
+					>
+						<SignInIcon size={18} weight="bold" />
+						{ssoProvider
+							? t("login.ssoProvider", { provider: ssoProvider })
+							: t("login.sso")}
+					</a>
 				)}
 			</div>
 		</div>

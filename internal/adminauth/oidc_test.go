@@ -309,12 +309,12 @@ func newOIDCTestHandler(t *testing.T, idp *mockIDP, allowed string) (*OIDCHandle
 		t.Fatalf("encrypt secret: %v", err)
 	}
 	fs := newFakeSettings(map[string]string{
-		oidcEnabledKey:       "true",
-		oidcIssuerURLKey:     idp.server.URL,
-		oidcClientIDKey:      oidcTestClientID,
-		oidcClientSecretKey:  enc,
-		oidcAllowedEmailsKey: allowed,
-		oidcPublicBaseURLKey: "https://mh.example.test",
+		OIDCEnabledKey:       "true",
+		OIDCIssuerURLKey:     idp.server.URL,
+		OIDCClientIDKey:      oidcTestClientID,
+		OIDCClientSecretKey:  enc,
+		OIDCAllowedEmailsKey: allowed,
+		OIDCPublicBaseURLKey: "https://mh.example.test",
 	})
 	h := NewOIDCHandler(fs, sessionMgr, mockIPLimiter{}, testMasterKey)
 	return h, fs, sessionMgr
@@ -389,7 +389,7 @@ func TestOIDCStatus(t *testing.T) {
 	}
 
 	// Disabled.
-	fs.set(oidcEnabledKey, "false")
+	fs.set(OIDCEnabledKey, "false")
 	rec = httptest.NewRecorder()
 	h.Status(rec, httptest.NewRequest(http.MethodGet, "/api/auth/oidc/status", http.NoBody))
 	resp = oidcStatusResponse{}
@@ -623,7 +623,7 @@ func TestOIDCCallbackThrottle(t *testing.T) {
 // TestOIDCCallbackDisabled covers the Callback early-out when SSO is off.
 func TestOIDCCallbackDisabled(t *testing.T) {
 	sm := webauthn.NewSessionManager(newMemStore())
-	h := NewOIDCHandler(newFakeSettings(map[string]string{oidcEnabledKey: "false"}), sm, mockIPLimiter{}, testMasterKey)
+	h := NewOIDCHandler(newFakeSettings(map[string]string{OIDCEnabledKey: "false"}), sm, mockIPLimiter{}, testMasterKey)
 	frag := runCallback(t, h, nil, url.Values{"state": {"x"}, "code": {"c"}})
 	if !strings.HasPrefix(frag, "oidc_error=") {
 		t.Fatalf("disabled callback should redirect with an error, got %q", frag)
@@ -660,12 +660,12 @@ func TestOIDCCallbackCreateAuthTokenError(t *testing.T) {
 		t.Fatalf("encrypt: %v", err)
 	}
 	h := NewOIDCHandler(newFakeSettings(map[string]string{
-		oidcEnabledKey:       "true",
-		oidcIssuerURLKey:     idp.server.URL,
-		oidcClientIDKey:      oidcTestClientID,
-		oidcClientSecretKey:  enc,
-		oidcAllowedEmailsKey: "admin@example.com",
-		oidcPublicBaseURLKey: "https://h.example",
+		OIDCEnabledKey:       "true",
+		OIDCIssuerURLKey:     idp.server.URL,
+		OIDCClientIDKey:      oidcTestClientID,
+		OIDCClientSecretKey:  enc,
+		OIDCAllowedEmailsKey: "admin@example.com",
+		OIDCPublicBaseURLKey: "https://h.example",
 	}), sm, mockIPLimiter{}, testMasterKey)
 
 	loc, cookie := runStart(t, h) // CreateLoginState -> CreateSession #1 (ok)
@@ -720,7 +720,7 @@ func TestOIDCProviderCacheRebuild(t *testing.T) {
 	}
 
 	// Edit the allowlist; no handler reconstruction.
-	fs.set(oidcAllowedEmailsKey, "admin@example.com")
+	fs.set(OIDCAllowedEmailsKey, "admin@example.com")
 
 	loc, cookie = runStart(t, h)
 	state = loc.Query().Get("state")
@@ -784,7 +784,7 @@ func TestOIDCStartErrors(t *testing.T) {
 	}
 
 	t.Run("disabled -> 400", func(t *testing.T) {
-		if got := call(newH(testMasterKey, map[string]string{oidcEnabledKey: "false"})); got != http.StatusBadRequest {
+		if got := call(newH(testMasterKey, map[string]string{OIDCEnabledKey: "false"})); got != http.StatusBadRequest {
 			t.Fatalf("status = %d, want 400", got)
 		}
 	})
@@ -792,9 +792,9 @@ func TestOIDCStartErrors(t *testing.T) {
 	t.Run("under-configured -> 400", func(t *testing.T) {
 		// enabled but no issuer -> build returns {enabled:false}.
 		h := newH(testMasterKey, map[string]string{
-			oidcEnabledKey:       "true",
-			oidcClientIDKey:      "x",
-			oidcPublicBaseURLKey: "https://h.example",
+			OIDCEnabledKey:       "true",
+			OIDCClientIDKey:      "x",
+			OIDCPublicBaseURLKey: "https://h.example",
 		})
 		if got := call(h); got != http.StatusBadRequest {
 			t.Fatalf("status = %d, want 400", got)
@@ -804,10 +804,10 @@ func TestOIDCStartErrors(t *testing.T) {
 	t.Run("bad issuer (discovery fails) -> 503", func(t *testing.T) {
 		idp := newMockIDP(t, oidcTestClientID)
 		h := newH(testMasterKey, map[string]string{
-			oidcEnabledKey:       "true",
-			oidcIssuerURLKey:     idp.server.URL + "/nonexistent", // discovery 404s
-			oidcClientIDKey:      "x",
-			oidcPublicBaseURLKey: "https://h.example",
+			OIDCEnabledKey:       "true",
+			OIDCIssuerURLKey:     idp.server.URL + "/nonexistent", // discovery 404s
+			OIDCClientIDKey:      "x",
+			OIDCPublicBaseURLKey: "https://h.example",
 		})
 		if got := call(h); got != http.StatusServiceUnavailable {
 			t.Fatalf("status = %d, want 503", got)
@@ -823,11 +823,11 @@ func TestOIDCStartErrors(t *testing.T) {
 			t.Fatalf("encrypt: %v", err)
 		}
 		h := newH(testMasterKey, map[string]string{
-			oidcEnabledKey:       "true",
-			oidcIssuerURLKey:     idp.server.URL,
-			oidcClientIDKey:      "x",
-			oidcClientSecretKey:  enc,
-			oidcPublicBaseURLKey: "https://h.example",
+			OIDCEnabledKey:       "true",
+			OIDCIssuerURLKey:     idp.server.URL,
+			OIDCClientIDKey:      "x",
+			OIDCClientSecretKey:  enc,
+			OIDCPublicBaseURLKey: "https://h.example",
 		})
 		if got := call(h); got != http.StatusServiceUnavailable {
 			t.Fatalf("status = %d, want 503", got)
@@ -841,11 +841,11 @@ func TestOIDCStartErrors(t *testing.T) {
 			t.Fatalf("encrypt: %v", err)
 		}
 		h := newH("", map[string]string{ // empty master key
-			oidcEnabledKey:       "true",
-			oidcIssuerURLKey:     idp.server.URL,
-			oidcClientIDKey:      "x",
-			oidcClientSecretKey:  enc,
-			oidcPublicBaseURLKey: "https://h.example",
+			OIDCEnabledKey:       "true",
+			OIDCIssuerURLKey:     idp.server.URL,
+			OIDCClientIDKey:      "x",
+			OIDCClientSecretKey:  enc,
+			OIDCPublicBaseURLKey: "https://h.example",
 		})
 		if got := call(h); got != http.StatusServiceUnavailable {
 			t.Fatalf("status = %d, want 503", got)
@@ -862,12 +862,12 @@ func TestOIDCStartErrors(t *testing.T) {
 			t.Fatalf("encrypt: %v", err)
 		}
 		h := NewOIDCHandler(newFakeSettings(map[string]string{
-			oidcEnabledKey:       "true",
-			oidcIssuerURLKey:     idp.server.URL,
-			oidcClientIDKey:      oidcTestClientID,
-			oidcClientSecretKey:  enc,
-			oidcAllowedEmailsKey: "admin@example.com",
-			oidcPublicBaseURLKey: "https://h.example",
+			OIDCEnabledKey:       "true",
+			OIDCIssuerURLKey:     idp.server.URL,
+			OIDCClientIDKey:      oidcTestClientID,
+			OIDCClientSecretKey:  enc,
+			OIDCAllowedEmailsKey: "admin@example.com",
+			OIDCPublicBaseURLKey: "https://h.example",
 		}), sm, mockIPLimiter{}, testMasterKey)
 		if got := call(h); got != http.StatusInternalServerError {
 			t.Fatalf("status = %d, want 500", got)
