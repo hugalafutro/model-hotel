@@ -149,7 +149,7 @@ Login endpoints are IP rate-limited to prevent brute-force probing of passkeys. 
 Time-based one-time passwords (RFC 6238) add a second factor to admin login, independent of passkeys. TOTP needs no environment variable: it is opt-in at runtime from the **Settings** page (scan the QR code with any authenticator app, enter the 6-digit code, and save the one-time recovery codes shown). The TOTP secret is encrypted at rest with AES-256-GCM under `MASTER_KEY`, the same as provider keys, and is never logged.
 
 ![Settings Authentication](screenshots/settings_authentication.png)
-*Settings page - Authentication section: passkey registration and the registered-credential list alongside the authenticator-app (TOTP) enable control, the two admin-login factors managed side by side.*
+*Settings page - Authentication section: passkey registration and the registered-credential list, the authenticator-app (TOTP) enable control, and the single sign-on (OIDC) configuration, the admin-login methods managed together.*
 
 **Enforcement (first-factor downgrade):** When TOTP is enabled, the raw admin token stops being a standalone bearer. It becomes a first factor that, combined with a valid 6-digit code, is exchanged on the login screen for a session token (the same DB-backed session infrastructure passkeys use). Only the session token then authorizes `/api/*` calls, which closes the static-token replay a bare bearer would otherwise allow. The same gate covers passkey management and backup restore.
 
@@ -170,6 +170,26 @@ Time-based one-time passwords (RFC 6238) add a second factor to admin login, ind
 | `/api/totp/disable` | POST | Admin/session token | Disable TOTP (gated on a current code or recovery code) |
 
 The login endpoint is IP rate-limited to throttle brute-force probing of codes. Enroll and disable require admin or session token auth; once TOTP is enabled the raw admin token alone no longer satisfies that gate, so the second factor cannot be bypassed.
+
+### Single Sign-On (OpenID Connect)
+
+Admins can sign in through an external OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket-ID, Okta, Google, Entra, and so on) as a third login path alongside the admin token, passkeys, and TOTP. SSO is configured at runtime from the **Settings** page (issuer URL, client ID, client secret, and the allowlist of verified emails, all visible in the Authentication screenshot above) and needs no environment variable. A "Sign in with SSO" button then appears on the login screen.
+
+**Additive, never a replacement.** A successful SSO login mints the same DB-backed session token that passkey and TOTP logins produce, so nothing downstream changes. Local login is never removed: a misconfigured or unreachable provider cannot lock you out, because the admin token, passkeys, and TOTP all keep working.
+
+**Identity and allowlist.** Logins are gated by an email allowlist that fails closed (an empty allowlist denies everyone) and matches only on the provider's `email_verified` claim. A user is anchored on the stable `(issuer, subject)` pair, which is logged on each successful login (app log, source `oidc`, with a masked email), so an allowlisted address cannot be hijacked through a second provider or a reused email. When the ID token omits the email (as Authelia does), the handler falls back to the OIDC UserInfo endpoint.
+
+**Flow hardening.** The exchange uses PKCE plus a single-use `state` nonce, both bound to a short-lived login-state record (10-minute TTL) carried across the IdP round trip in a cookie. The client secret is AES-256-GCM encrypted at rest under `MASTER_KEY`, like provider keys. The minted session token is handed to the browser in the URL **fragment**, so it is never sent back to the server on later requests (no Referer leak, nothing in request logs). The one place it appears is the callback's `302 Location` header: if your reverse proxy logs response headers, redact `Location` on `/api/auth/oidc/callback`.
+
+Because Model Hotel is self-hosted there is no turnkey "Google login": each operator registers their own OIDC app with the provider and points it at the redirect URI `<oidc_public_base_url>/api/auth/oidc/callback` (shown in Settings). SSO currently covers the main admin dashboard; Front Desk SSO is planned and will reuse this same session seam.
+
+| Route | Method | Auth | Description |
+|-------|--------|------|-------------|
+| `/api/auth/oidc/status` | GET | None (public) | Report whether SSO is enabled and the provider display name (login UI gating) |
+| `/api/auth/oidc/start` | GET | None (public) | Begin login: build PKCE + state, redirect to the provider |
+| `/api/auth/oidc/callback` | GET | None (public) | Provider redirect target: verify state/PKCE/ID token, enforce the allowlist, mint a session token |
+
+Configuration lives entirely in the settings store (no migration): `oidc_enabled`, `oidc_issuer_url`, `oidc_client_id`, `oidc_client_secret` (encrypted), `oidc_public_base_url`, and `oidc_allowed_emails`.
 
 ### Proxy API Authentication (Virtual Keys)
 
