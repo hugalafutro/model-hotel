@@ -191,6 +191,7 @@
 			"requestKind": "Req",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"copyError": "Copy error",
 			"viewDetails": "View details",
 			"acknowledge": "Dismiss"

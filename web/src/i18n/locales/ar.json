@@ -193,6 +193,7 @@
 			"acknowledge": "تجاهل",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "مسح الكل",
 			"copyError": "نسخ الخطأ",
 			"requestKind": "Req",

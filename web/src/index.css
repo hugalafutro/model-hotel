@@ -1140,6 +1140,19 @@ html.light .ui-error-shelf-chip--ha {
 	background: color-mix(in srgb, #6366f1 16%, transparent);
 	border-color: color-mix(in srgb, #6366f1 42%, transparent);
 }
+/* SSO (OIDC admin login) errors take a teal hue, distinct from the error-red,
+   warning-amber, and HA-indigo of the other chips. Teal (#14b8a6) is fixed
+   rather than theme-tokenized; only the text needs a light/dark contrast swap. */
+.ui-error-shelf-chip--sso {
+	color: #5eead4;
+	background: color-mix(in srgb, #14b8a6 22%, transparent);
+	border-color: color-mix(in srgb, #14b8a6 48%, transparent);
+}
+html.light .ui-error-shelf-chip--sso {
+	color: #0f766e;
+	background: color-mix(in srgb, #14b8a6 16%, transparent);
+	border-color: color-mix(in srgb, #14b8a6 42%, transparent);
+}
 
 /* Per-row action buttons reuse the muted→strong error text ramp. */
 .ui-error-shelf-rowbtn {
@@ -1169,6 +1182,9 @@ html.light .ui-error-shelf-chip--ha {
 }
 .ui-error-shelf-row--ha {
 	border-left-color: color-mix(in srgb, #6366f1 70%, transparent);
+}
+.ui-error-shelf-row--sso {
+	border-left-color: color-mix(in srgb, #14b8a6 70%, transparent);
 }
 @keyframes error-shelf-row-in {
 	from {

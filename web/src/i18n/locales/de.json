@@ -193,6 +193,7 @@
 			"acknowledge": "Schließen",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Alle löschen",
 			"copyError": "Kopierfehler",
 			"requestKind": "Req",

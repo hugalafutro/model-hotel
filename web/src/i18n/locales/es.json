@@ -193,6 +193,7 @@
 			"acknowledge": "Descartar",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Borrar todo",
 			"copyError": "Error de copia",
 			"requestKind": "Req",

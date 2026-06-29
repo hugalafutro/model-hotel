@@ -97,6 +97,14 @@ describe("getSourceBadgeClasses", () => {
 		);
 	});
 
+	it("returns a bolder teal for oidc (SSO), distinct from resolve", () => {
+		const result = getSourceBadgeClasses("oidc");
+		expect(result).toContain("bg-teal-500/30");
+		expect(result).toContain("text-teal-200");
+		// Must not collide with the muted teal used for `resolve`.
+		expect(result).not.toBe(getSourceBadgeClasses("resolve"));
+	});
+
 	it("returns violet classes for events", () => {
 		const result = getSourceBadgeClasses("events");
 		expect(result).toContain("bg-violet-900/30");

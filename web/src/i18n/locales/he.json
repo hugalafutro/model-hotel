@@ -193,6 +193,7 @@
 			"acknowledge": "בטל",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "נקה הכל",
 			"copyError": "שגיאת העתקה",
 			"requestKind": "Req",

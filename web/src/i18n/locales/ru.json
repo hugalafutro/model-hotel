@@ -193,6 +193,7 @@
 			"acknowledge": "Отклонить",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Очистить все",
 			"copyError": "Ошибка копирования",
 			"requestKind": "Req",

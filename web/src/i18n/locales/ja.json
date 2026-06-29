@@ -193,6 +193,7 @@
 			"acknowledge": "閉じる",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "すべてクリア",
 			"copyError": "コピーエラー",
 			"requestKind": "Req",

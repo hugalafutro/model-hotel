@@ -29,6 +29,17 @@ export function isHaSource(source: string | undefined): boolean {
 	return source !== undefined && HA_SOURCES.has(source);
 }
 
+/** App-log sources emitted by the OIDC single-sign-on admin-login flow. An app
+ * error from one of these is surfaced as a distinct "SSO" category (an admin
+ * login failing against the identity provider) rather than a generic internal
+ * app error. */
+const SSO_SOURCES = new Set(["oidc"]);
+
+/** True when an app-log source identifies an SSO / OIDC login failure. */
+export function isSsoSource(source: string | undefined): boolean {
+	return source !== undefined && SSO_SOURCES.has(source);
+}
+
 export interface ShelfError {
 	/** Stable id used for acknowledgement + React keys. Mirrors the old
 	 * `${timestamp}:${msg[:50]}` scheme, kind-prefixed so app/request errors

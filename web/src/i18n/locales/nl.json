@@ -193,6 +193,7 @@
 			"acknowledge": "Sluiten",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Alles wissen",
 			"copyError": "Kopieerfout",
 			"requestKind": "Req",

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { ErrorShelf } from "../ErrorShelf";
-import { isHaSource } from "../useErrorShelf";
+import { isHaSource, isSsoSource } from "../useErrorShelf";
 
 describe("isHaSource", () => {
 	it("flags the fleet config-sync sources", () => {
@@ -17,6 +17,19 @@ describe("isHaSource", () => {
 		expect(isHaSource("proxy")).toBe(false);
 		expect(isHaSource(undefined)).toBe(false);
 		expect(isHaSource("")).toBe(false);
+	});
+});
+
+describe("isSsoSource", () => {
+	it("flags the OIDC login source", () => {
+		expect(isSsoSource("oidc")).toBe(true);
+	});
+
+	it("rejects non-OIDC and missing sources", () => {
+		expect(isSsoSource("configsync")).toBe(false);
+		expect(isSsoSource("auth")).toBe(false);
+		expect(isSsoSource(undefined)).toBe(false);
+		expect(isSsoSource("")).toBe(false);
 	});
 });
 
@@ -147,6 +160,28 @@ describe("ErrorShelf", () => {
 		expect(within(rows[0]).getByTestId("error-shelf-chip-ha")).toBeTruthy();
 		expect(within(rows[0]).queryByTestId("error-shelf-chip-app")).toBeNull();
 		expect(within(rows[0]).getByText("apply import failed")).toBeTruthy();
+	});
+
+	it("tags OIDC login app errors with the SSO chip", async () => {
+		seedAppError(
+			"login denied: email not allowlisted",
+			"2024-02-01T09:00:00Z",
+			"oidc",
+		);
+		renderWithProviders(<ErrorShelf />);
+
+		await screen.findByTestId("error-shelf-count");
+		await expand();
+
+		const rows = await screen.findAllByTestId("error-shelf-row");
+		expect(rows).toHaveLength(1);
+		// An OIDC-sourced app error gets the SSO chip, not the generic app chip.
+		expect(within(rows[0]).getByTestId("error-shelf-chip-sso")).toBeTruthy();
+		expect(within(rows[0]).queryByTestId("error-shelf-chip-app")).toBeNull();
+		expect(within(rows[0]).queryByTestId("error-shelf-chip-ha")).toBeNull();
+		expect(
+			within(rows[0]).getByText("login denied: email not allowlisted"),
+		).toBeTruthy();
 	});
 
 	it("opens an HA error in the app log-detail modal", async () => {

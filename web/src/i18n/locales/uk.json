@@ -193,6 +193,7 @@
 			"acknowledge": "Закрити",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Очистити все",
 			"copyError": "Копіювати помилку",
 			"requestKind": "Req",

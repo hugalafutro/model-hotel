@@ -193,6 +193,7 @@
 			"acknowledge": "Ignorați",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Ștergeți tot",
 			"copyError": "Eroare de copiere",
 			"requestKind": "Req",

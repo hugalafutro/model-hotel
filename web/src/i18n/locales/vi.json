@@ -193,6 +193,7 @@
 			"acknowledge": "Bỏ qua",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Xóa tất cả",
 			"copyError": "Lỗi sao chép",
 			"requestKind": "Req",

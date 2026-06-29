@@ -193,6 +193,7 @@
 			"acknowledge": "Afvis",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Ryd alt",
 			"copyError": "Kopieringsfejl",
 			"requestKind": "Req",

@@ -193,6 +193,7 @@
 			"acknowledge": "Elutasítás",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Összes törlése",
 			"copyError": "Másolási hiba",
 			"requestKind": "Req",

@@ -193,6 +193,7 @@
 			"acknowledge": "Zatvoriť",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Vymazať všetko",
 			"copyError": "Chyba kopírovania",
 			"requestKind": "Req",

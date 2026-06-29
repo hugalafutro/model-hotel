@@ -193,6 +193,7 @@
 			"acknowledge": "Hylkää",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Tyhjennä kaikki",
 			"copyError": "Kopioi virhe",
 			"requestKind": "Req",

@@ -193,6 +193,7 @@
 			"acknowledge": "Kapat",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Tümünü temizle",
 			"copyError": "Hata kopyalama",
 			"requestKind": "Req",

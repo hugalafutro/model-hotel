@@ -193,6 +193,7 @@
 			"acknowledge": "Одбаци",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Очисти све",
 			"copyError": "Копирајте грешку",
 			"requestKind": "Req",

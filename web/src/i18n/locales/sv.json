@@ -193,6 +193,7 @@
 			"acknowledge": "Avvisa",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"clearAll": "Rensa allt",
 			"copyError": "Kopiera fel",
 			"requestKind": "Req",
