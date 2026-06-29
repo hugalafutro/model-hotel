@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,6 +26,12 @@ const (
 	memberConfigExportPath = "/api/config/export"
 	memberConfigImportPath = "/api/config/import"
 
+	// fleetSourceGenHeader carries the monotonic source generation (auto_sync_gen)
+	// on a real import so the member's commit fence can refuse an out-of-order
+	// stale push. It must match internal/api.fleetSourceGenHeader. An older member
+	// ignores it, so sending it is always safe.
+	fleetSourceGenHeader = "X-Fleet-Source-Gen"
+
 	// wizardSyncReason is stamped on a member's last-config-sync marker when the
 	// operator drives the sync through the wizard (vs the automatic loop).
 	wizardSyncReason = "manual sync from the wizard"
@@ -41,10 +48,14 @@ type syncResultItem struct {
 // memberImportResult mirrors internal/api.importResponse so Front Desk can read
 // a member's import/dry-run outcome.
 type memberImportResult struct {
-	SchemaVersionOK bool             `json:"schema_version_ok"`
-	MasterKeyOK     bool             `json:"master_key_ok"`
-	Applied         bool             `json:"applied"`
-	Diff            memberConfigDiff `json:"diff"`
+	SchemaVersionOK bool `json:"schema_version_ok"`
+	MasterKeyOK     bool `json:"master_key_ok"`
+	Applied         bool `json:"applied"`
+	// Stale is true when the member's commit fence refused this import because a
+	// newer source generation already applied (a rearm/repoint superseded this
+	// push). It is a benign, expected outcome, not a sync failure.
+	Stale bool             `json:"stale,omitempty"`
+	Diff  memberConfigDiff `json:"diff"`
 }
 
 type memberEntityDiff struct {
@@ -97,6 +108,17 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Stamp this manual sync with the current source generation so it advances the
+	// members' commit fence: a stale auto-sync that was in flight when the operator
+	// ran the wizard cannot regress a member to the older config afterwards. The
+	// generation only increases on a rearm, so it is never older than one a prior
+	// auto-sync applied, and an equal generation still applies (not refused).
+	gen, err := s.store.AutoSyncGen(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
 	results := make([]syncResultItem, 0)
 	for _, m := range members {
 		if m.ID == primary.ID || !m.HasToken {
@@ -114,7 +136,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 			results = append(results, *item)
 			continue
 		}
-		results = append(results, s.applyMemberConfig(r.Context(), m, token, export, wizardSyncReason, true))
+		results = append(results, s.applyMemberConfig(r.Context(), m, token, export, wizardSyncReason, true, gen))
 	}
 	s.recordFleetSyncRun(r.Context(), primary, results)
 	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "results": results})
@@ -140,7 +162,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 // meant to guarantee. This mirrors the auto-syncer, which also skips converged
 // members outright.
 func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string, export []byte) (*syncResultItem, bool) {
-	preview, status, err := s.pushMemberImport(ctx, m, token, export, true)
+	preview, status, err := s.pushMemberImport(ctx, m, token, export, true, 0) // dry-run: gen unused (no fence header)
 	if err != nil || status != http.StatusOK || !preview.SchemaVersionOK || !preview.MasterKeyOK {
 		return nil, true // unreachable or blocked: let applyMemberConfig report the real cause
 	}
@@ -188,9 +210,9 @@ func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, result
 // auto-syncer sets it false and emits a single roll-up instead, so a fleet sync
 // does not toast once per member. Failure events always fire regardless, since a
 // member left behind is worth surfacing in either path.
-func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string, emitSuccessEvent bool) syncResultItem {
+func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string, emitSuccessEvent bool, sourceGen int64) syncResultItem {
 	res := syncResultItem{MemberID: m.ID, Name: m.Name}
-	out, status, err := s.pushMemberImport(ctx, m, token, export, false)
+	out, status, err := s.pushMemberImport(ctx, m, token, export, false, sourceGen)
 	switch {
 	case err != nil && status == 0:
 		res.Error = "could not reach this member"
@@ -204,6 +226,16 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		res.Error = "version mismatch with the primary"
 	case !out.MasterKeyOK:
 		res.Error = "MASTER_KEY does not match the primary"
+	case out.Stale:
+		// The member's commit fence refused this push because a newer source
+		// generation already applied. This is the expected, benign outcome of a
+		// rearm/repoint landing mid-flight: the superseding pass is authoritative,
+		// so do not stamp last-sync, do not count it as converged, and do not emit a
+		// failure event. res.OK stays false (with no Error) so the caller leaves the
+		// member for the newer pass; a soft note documents the disposition.
+		res.Error = "superseded by a newer sync"
+		debuglog.Debug("frontdesk: config sync superseded by a newer generation", "member", m.Name, "source_gen", sourceGen)
+		return res
 	case !out.Applied:
 		res.Error = "this member did not apply the config"
 	default:
@@ -250,16 +282,23 @@ func (s *Server) fetchMemberExport(ctx context.Context, m *Member, token string)
 // (0 on a transport failure where the member never answered), so the caller can
 // tell a genuinely unreachable member from one that answered with a rejecting
 // code (e.g. 401/403 wrong token, 500) and report the real cause.
-func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, export []byte, dryRun bool) (memberImportResult, int, error) {
+func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, export []byte, dryRun bool, sourceGen int64) (memberImportResult, int, error) {
 	path := memberConfigImportPath
+	var headers [][2]string
 	if dryRun {
 		path += "?dryRun=1"
+		// A dry run is read-only and never fenced, so the source-generation header
+		// is deliberately omitted: it carries no meaning for a preview.
+	} else {
+		// Stamp the commit fence on the real import so the member can refuse a
+		// stale, out-of-order push (a primary repoint that lands mid-flight).
+		headers = append(headers, [2]string{fleetSourceGenHeader, strconv.FormatInt(sourceGen, 10)})
 	}
 	// The import client gets a longer deadline than the health probe: a real
 	// import runs model discovery on the member, which routinely exceeds the 4s
 	// probe timeout, and timing out there would mislabel a successful import as
 	// "could not reach this member".
-	status, body, err := s.callMemberWith(ctx, s.syncClient, http.MethodPost, m.URL, path, token, strings.NewReader(string(export)))
+	status, body, err := s.callMemberWith(ctx, s.syncClient, http.MethodPost, m.URL, path, token, strings.NewReader(string(export)), headers...)
 	if err != nil {
 		return memberImportResult{}, 0, err
 	}

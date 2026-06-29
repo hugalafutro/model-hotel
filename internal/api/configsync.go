@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -53,7 +54,31 @@ const (
 	// maxConfigImportBody bounds an import payload. Fleet config is small (a
 	// handful of providers + keys); 8 MiB is generous and caps a hostile body.
 	maxConfigImportBody = 8 << 20
+
+	// fleetSourceGenHeader carries Front Desk's monotonic source generation
+	// (its auto_sync_gen) on a real import. It is the member-side commit fence:
+	// an import whose generation is older than the highest this member has
+	// applied is refused, so a stale push that was already in flight when the
+	// primary was repointed cannot land after the fresh one. The header is
+	// optional: an older Front Desk omits it and the import applies unfenced
+	// (the pre-fence behaviour), and an older member ignores it, so the fence
+	// engages only when both ends understand it. Never set on a dry run.
+	fleetSourceGenHeader = "X-Fleet-Source-Gen"
+
+	// fleetSourceGenLock is the Postgres advisory-lock key that serializes
+	// fenced imports on this member, so the read-current-generation / reject-or-
+	// advance step is atomic against a concurrent import (two pushes whose bytes
+	// both arrived before either committed). It is transaction-scoped, released
+	// when the import's transaction ends. The value is an arbitrary fixed
+	// constant; it only has to be unique within this app's advisory-lock use,
+	// and config sync is the only advisory lock taken.
+	fleetSourceGenLock int64 = 0x4D48_5F46_454E_4331 // "MH_FENC1"
 )
+
+// errStaleSourceGen is returned by apply when the incoming source generation is
+// older than the one this member last applied, so Import answers with a benign
+// "superseded" response instead of a 500.
+var errStaleSourceGen = errors.New("configsync: import source generation is older than last applied")
 
 // ConfigSyncHandler serves the member-side config export/import endpoints. It is
 // mounted inside the admin-authenticated /api group, so every call already
@@ -177,10 +202,15 @@ type configDiff struct {
 
 // importResponse is the body of POST /config/import.
 type importResponse struct {
-	SchemaVersionOK bool       `json:"schema_version_ok"`
-	MasterKeyOK     bool       `json:"master_key_ok"`
-	Applied         bool       `json:"applied"`
-	Diff            configDiff `json:"diff"`
+	SchemaVersionOK bool `json:"schema_version_ok"`
+	MasterKeyOK     bool `json:"master_key_ok"`
+	Applied         bool `json:"applied"`
+	// Stale is true when the import was refused by the commit fence because its
+	// source generation was older than the one already applied. It is a benign,
+	// expected outcome (a newer config won), not a failure: SchemaVersionOK and
+	// MasterKeyOK are still true, Applied is false, and nothing was written.
+	Stale bool       `json:"stale,omitempty"`
+	Diff  configDiff `json:"diff"`
 }
 
 // ---------------------------------------------------------------------------
@@ -488,17 +518,57 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Query().Get("dryRun") != "" {
+		// A dry run is read-only and is never fenced: Front Desk relies on it to
+		// preview the diff before deciding to snapshot and import.
 		writeJSON(w, importResponse{SchemaVersionOK: true, MasterKeyOK: true, Applied: false, Diff: diff})
 		return
 	}
 
-	if err := h.apply(ctx, env); err != nil {
+	// Commit fence: a real import may carry Front Desk's monotonic source
+	// generation. apply rejects one older than this member last applied, and
+	// advances the marker atomically with the write, so an out-of-order push
+	// cannot clobber a newer config. The header is absent for an older Front
+	// Desk, in which case sourceGen is nil and the import applies unfenced.
+	sourceGen := parseSourceGen(r.Header.Get(fleetSourceGenHeader))
+	switch err := h.apply(ctx, env, sourceGen); {
+	case errors.Is(err, errStaleSourceGen):
+		// Benign: a newer generation already won on this member (or an un-versioned
+		// push arrived after one had). Report it as a non-applied, non-error outcome
+		// so Front Desk does not surface a failure.
+		debuglog.Debug("configsync: refused stale import", "source_gen", sourceGenLabel(sourceGen))
+		writeJSON(w, importResponse{SchemaVersionOK: true, MasterKeyOK: true, Applied: false, Stale: true, Diff: diff})
+		return
+	case err != nil:
 		debuglog.Error("configsync: apply import", "error", err)
 		http.Error(w, "could not apply config", http.StatusInternalServerError)
 		return
 	}
 
 	writeJSON(w, importResponse{SchemaVersionOK: true, MasterKeyOK: true, Applied: true, Diff: diff})
+}
+
+// parseSourceGen reads the optional fleet source-generation header. It returns
+// nil when the header is absent or unparseable, so a malformed or missing value
+// degrades to an unfenced import rather than rejecting a legitimate push.
+func parseSourceGen(raw string) *int64 {
+	if raw == "" {
+		return nil
+	}
+	n, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		debuglog.Warn("configsync: ignoring unparseable source-generation header", "value", raw)
+		return nil
+	}
+	return &n
+}
+
+// sourceGenLabel renders an optional source generation for logs without
+// dereferencing a nil (a headerless import has none).
+func sourceGenLabel(gen *int64) string {
+	if gen == nil {
+		return "none"
+	}
+	return strconv.FormatInt(*gen, 10)
 }
 
 // canDecryptSample returns true when there is no encrypted key to check, or the
@@ -617,13 +687,53 @@ func (h *ConfigSyncHandler) computeDiff(ctx context.Context, env ConfigEnvelope)
 	return d, nil
 }
 
-// apply converges this member to the envelope in one transaction.
-func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope) error {
+// apply converges this member to the envelope in one transaction, enforcing the
+// commit fence. Under a transaction-scoped advisory lock (so concurrent imports
+// cannot interleave their read-and-decide), it reads the highest source
+// generation this member has applied and:
+//
+//   - sourceGen present (a fenced push): refuses with errStaleSourceGen if it is
+//     older than the marker, otherwise applies and advances the marker in the same
+//     transaction as the config write;
+//   - sourceGen absent (a pre-fence Front Desk, which sends no header): applies
+//     only while the marker is unset (a member no fenced push has touched), and is
+//     refused once any fenced generation has been recorded. An un-versioned write
+//     must never overwrite versioned config, or it could leave the member on old
+//     config while the marker claims a newer generation already applied.
+//
+// The lock is taken for every import, headed or not, so a headerless push cannot
+// slip past a generation that already committed. That, plus the same-transaction
+// advance, is what makes a newer config win regardless of the order pushes arrive.
+func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourceGen *int64) error {
 	tx, err := h.db.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	// pg_advisory_xact_lock blocks a concurrent import's fence step until this
+	// transaction ends, so the read-current / reject-or-advance below is atomic
+	// even when two pushes' bytes both arrived before either committed. Released
+	// automatically on commit or rollback.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, fleetSourceGenLock); err != nil {
+		return err
+	}
+	last, fenced, err := readAppliedSourceGen(ctx, tx)
+	if err != nil {
+		return err
+	}
+	switch {
+	case sourceGen != nil:
+		if fenced && *sourceGen < last {
+			return errStaleSourceGen // a newer generation already applied; refuse
+		}
+	case fenced:
+		// Headerless (pre-fence) import onto a member any fenced generation already
+		// converged (including generation 0): applying an un-versioned write now
+		// could clobber that config and leave the marker lying. Refuse; the fenced
+		// source reconverges.
+		return errStaleSourceGen
+	}
 
 	if err := upsertProviders(ctx, tx, env.Config.Providers); err != nil {
 		return err
@@ -668,6 +778,17 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope) error
 	}
 	if err := h.settings.DeleteKeysTx(ctx, tx, removedSettings); err != nil {
 		return err
+	}
+
+	if sourceGen != nil {
+		// Advance the fence marker in the same transaction as the config write, so
+		// the commit that applies this generation's config and the record that it
+		// was applied are atomic. A raw upsert (not settings.SetTx) because the
+		// _fleet_* keys are deliberately outside the SetTx allowlist; the value is
+		// monotonic because an older generation was already rejected above.
+		if err := writeAppliedSourceGen(ctx, tx, *sourceGen); err != nil {
+			return err
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -908,6 +1029,45 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 		}
 	}
 	return nil
+}
+
+// readAppliedSourceGen returns the highest Front Desk source generation this
+// member has applied and whether a marker row exists at all, read inside the
+// import transaction. present is the signal the fence keys on: a generation of 0
+// is a real applied generation (the wizard can sync at auto_sync_gen 0), so it
+// must be distinguished from "never fenced" rather than collapsed to the same
+// zero. A missing row reports present=false; an unparseable value reports
+// present=true at a floor of 0, so the corrupt marker still fences out a
+// header-less write yet a fresh fenced import can rewrite a clean value.
+func readAppliedSourceGen(ctx context.Context, tx pgx.Tx) (gen int64, present bool, err error) {
+	var raw string
+	switch scanErr := tx.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, keyFleetLastSourceGen).Scan(&raw); {
+	case errors.Is(scanErr, pgx.ErrNoRows):
+		return 0, false, nil
+	case scanErr != nil:
+		return 0, false, scanErr
+	}
+	n, parseErr := strconv.ParseInt(raw, 10, 64)
+	if parseErr != nil {
+		// Deliberate: a corrupt marker floors to 0 but stays present, so a header-
+		// less write is still refused and a fenced import rewrites a clean value,
+		// rather than wedging the fence on a 500 forever.
+		debuglog.Warn("configsync: unparseable stored source generation, flooring to 0", "value", raw)
+		return 0, true, nil //nolint:nilerr // intentional: corrupt marker floors but stays present
+	}
+	return n, true, nil
+}
+
+// writeAppliedSourceGen records gen as the highest applied source generation,
+// upserting the _fleet_last_source_gen row directly (the key is outside the
+// SetTx allowlist). Called inside the import transaction so the marker advances
+// atomically with the config it certifies.
+func writeAppliedSourceGen(ctx context.Context, tx pgx.Tx, gen int64) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
+		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+		keyFleetLastSourceGen, strconv.FormatInt(gen, 10))
+	return err
 }
 
 func providerNameToID(ctx context.Context, q querier) (map[string]string, error) {

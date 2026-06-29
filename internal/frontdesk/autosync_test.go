@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
 // stubAutoMember plays a member for the auto-sync loop: it answers the config
@@ -17,21 +19,23 @@ import (
 // imports, and the pre-sync backup POST. Each is independently configurable so a
 // single stub can be a primary or a replica in any disposition.
 type stubAutoMember struct {
-	mu          sync.Mutex
-	srv         *httptest.Server
-	token       string
-	versionHash string
-	versionCode int    // status for the version GET (default 200)
-	versionRaw  string // raw version body; overrides the {"version":...} JSON when set
-	exportBody  string
-	exportCode  int    // status for the export GET (default 200)
-	dryDiff     string // diff object returned on a dry-run import
-	importCode  int    // status for the dry-run import (default 200)
-	importBody  string // full dry-run import body; overrides dryDiff when set
-	backupCode  int
-	gotBackup   bool
-	gotRealSync bool
-	onBackup    func() // fired inside the backup handler, to simulate a rearm landing mid-pass
+	mu           sync.Mutex
+	srv          *httptest.Server
+	token        string
+	versionHash  string
+	versionCode  int    // status for the version GET (default 200)
+	versionRaw   string // raw version body; overrides the {"version":...} JSON when set
+	exportBody   string
+	exportCode   int    // status for the export GET (default 200)
+	dryDiff      string // diff object returned on a dry-run import
+	importCode   int    // status for the dry-run import (default 200)
+	importBody   string // full dry-run import body; overrides dryDiff when set
+	backupCode   int
+	gotBackup    bool
+	gotRealSync  bool
+	gotSourceGen string // X-Fleet-Source-Gen seen on the last real (non-dry-run) import
+	staleImport  bool   // when true, the real import answers with the commit-fence "stale" response
+	onBackup     func() // fired inside the backup handler, to simulate a rearm landing mid-pass
 	// onImport fires inside the real (non-dry-run) import handler. It receives the
 	// request context and returns whether the import should be recorded as applied;
 	// returning false models the import being cancelled in flight before it commits.
@@ -78,6 +82,12 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 				_, _ = w.Write([]byte(`{"schema_version_ok":true,"master_key_ok":true,"applied":false,"diff":` + sm.dryDiff + `}`))
 				return
 			}
+			sm.gotSourceGen = r.Header.Get(fleetSourceGenHeader)
+			if sm.staleImport {
+				// Simulate the member's commit fence refusing a stale, out-of-order push.
+				_, _ = w.Write([]byte(`{"schema_version_ok":true,"master_key_ok":true,"applied":false,"stale":true,"diff":` + sm.dryDiff + `}`))
+				return
+			}
 			if sm.onImport != nil && !sm.onImport(r.Context()) {
 				return // import cancelled in flight before commit: record nothing
 			}
@@ -106,6 +116,11 @@ func (sm *stubAutoMember) didRealSync() bool {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	return sm.gotRealSync
+}
+func (sm *stubAutoMember) sourceGen() string {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	return sm.gotSourceGen
 }
 
 const driftDiff = `{"providers":{"added":["anthropic"]},"virtual_keys":{},"settings":{}}`
@@ -990,5 +1005,89 @@ func TestPutAutoSyncDisable(t *testing.T) {
 	cfg, _ := store.GetAutoSync(t.Context())
 	if cfg.Enabled {
 		t.Error("auto-sync still enabled after disable")
+	}
+}
+
+// TestAutoSyncSendsSourceGenHeader: a real auto-sync import carries the current
+// rearm generation in X-Fleet-Source-Gen, the token the member's commit fence
+// uses to refuse a stale, out-of-order push.
+func TestAutoSyncSendsSourceGenHeader(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B" // changed vs the recorded last hash
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff // this member needs the new config
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	_, _ = store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID, "hash-A")
+
+	srv.forceAutoSyncNow(t.Context())
+
+	if !replica.didRealSync() {
+		t.Fatal("replica did not receive the config")
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	want := strconv.FormatInt(cfg.Gen, 10)
+	if got := replica.sourceGen(); got != want {
+		t.Errorf("real import X-Fleet-Source-Gen = %q, want %q (current rearm generation)", got, want)
+	}
+}
+
+// TestAutoSyncStaleImportIsBenign: when a member's commit fence refuses an import
+// as stale (a newer generation already won), Front Desk treats it as a benign
+// supersede: the member is not stamped as converged, the applied hash is not
+// recorded, and no failure event is emitted. The superseding pass is left to
+// converge it.
+func TestAutoSyncStaleImportIsBenign(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff
+	replica.staleImport = true // the member's commit fence refuses the push
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID, "hash-A")
+
+	ch := srv.bus.Subscribe()
+	defer srv.bus.Unsubscribe(ch)
+
+	srv.forceAutoSyncNow(t.Context())
+
+	// The dry-run said it needed the config, so it is snapshotted before the (then
+	// refused) import: the backup is a harmless recoverable snapshot.
+	if !replica.didBackup() {
+		t.Error("replica should still be snapshotted before the refused import")
+	}
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt != nil {
+		t.Error("a stale-refused member must not have its last-sync marker stamped")
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash == "hash-B" {
+		t.Error("the applied hash must not be recorded when a reachable member refused as stale")
+	}
+	if sawSyncFailed(ch) {
+		t.Error("a benign stale fence refusal must not emit a config.sync_failed event")
+	}
+}
+
+// sawSyncFailed drains the bus channel and reports whether a config.sync_failed
+// event was published.
+func sawSyncFailed(ch chan events.Event) bool {
+	for {
+		select {
+		case ev := <-ch:
+			if ev.Type == "config.sync_failed" {
+				return true
+			}
+		default:
+			return false
+		}
 	}
 }

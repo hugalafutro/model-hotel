@@ -624,7 +624,7 @@ func TestConfigSync_HelperDBErrors(t *testing.T) {
 	if _, err := h.syncableSettingsToDelete(cctx, pool, map[string]string{}); err == nil {
 		t.Error("syncableSettingsToDelete should error on cancelled ctx")
 	}
-	if err := h.apply(cctx, env); err == nil {
+	if err := h.apply(cctx, env, nil); err == nil {
 		t.Error("apply should error on cancelled ctx (Begin fails)")
 	}
 }

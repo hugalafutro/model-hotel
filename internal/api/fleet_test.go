@@ -202,6 +202,7 @@ func TestFleetKeysNeverSyncable(t *testing.T) {
 		keyFleetPrimaryName,
 		keyFleetFrontdeskID,
 		keyFleetConfigSyncedAt,
+		keyFleetLastSourceGen,
 	} {
 		if isSyncableSetting(k) {
 			t.Errorf("%q is syncable; _fleet_* keys must never be in the sync envelope", k)
@@ -238,7 +239,7 @@ func TestConfigSyncApplyStampsFleetMarker(t *testing.T) {
 			},
 		},
 	}
-	if err := h.apply(ctx, env); err != nil {
+	if err := h.apply(ctx, env, nil); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 
