@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Introduïu el vostre codi TOTP",
 			"totpFailed": "Token d'administrador o codi TOTP invàlids",
 			"totpStep": "L'autenticació de dos factors està habilitada. Introdueix el codi de 6 dígits de la teva aplicació d'autenticació.",
-			"totpThrottled": "Massa intents. Espereu un moment i torneu-ho a provar."
+			"totpThrottled": "Massa intents. Espereu un moment i torneu-ho a provar.",
+			"signInWithSSO": "Inicia la sessió amb SSO",
+			"signInWithSSOProvider": "Inicia la sessió amb {{provider}}",
+			"ssoFailed": "L'inici de sessió únic ha fallat. Torna-ho a provar o fes servir un altre mètode d'inici de sessió."
 		},
 		"theme": {
 			"switchToLight": "Canvia al mode clar",
@@ -1923,6 +1926,32 @@
 			"title": "Temps d'espera de la sessió",
 			"label": "Tancament de sessió automàtic per inactivitat",
 			"hint": "Tanca la sessió del tauler automàticament després d'aquest període sense activitat. Posa'l a Mai per mantenir la sessió oberta indefinidament."
+		},
+		"oidc": {
+			"title": "Inici de sessió únic (SSO)",
+			"description": "Permet que els administradors iniciïn la sessió mitjançant un proveïdor OpenID Connect extern. L'SSO és addicional: els inicis de sessió amb testimoni d'administrador, clau d'accés i TOTP continuen funcionant.",
+			"enable": "Activa l'SSO",
+			"enableDescription": "Mostra un botó d'inici de sessió únic a la pantalla d'inici de sessió.",
+			"issuer": "URL de l'emissor",
+			"issuerDescription": "L'URL base de descobriment d'OpenID Connect del proveïdor.",
+			"clientId": "ID de client",
+			"clientSecret": "Secret de client",
+			"secretConfigured": "Secret configurat (deixa-ho en blanc per conservar-lo)",
+			"secretPlaceholder": "Enganxa el secret de client",
+			"clear": "Esborra",
+			"publicBaseUrl": "URL base pública",
+			"publicBaseUrlDescription": "L'adreça d'aquesta aplicació accessible des de l'exterior, usada per construir l'URI de redirecció.",
+			"redirectUri": "URI de redirecció",
+			"redirectUriDescription": "Registra aquesta URL exacta al teu proveïdor.",
+			"copyRedirectUri": "Copia l'URI de redirecció",
+			"allowedEmails": "Correus permesos",
+			"allowedEmailsDescription": "Només aquestes adreces de correu verificades poden iniciar la sessió, separades per comes o salts de línia.",
+			"fallbackNote": "Si el proveïdor no està disponible, encara pots iniciar la sessió amb el testimoni d'administrador, una clau d'accés o TOTP.",
+			"status": {
+				"checking": "S'està comprovant la configuració…",
+				"configured": "Activat i configurat",
+				"incomplete": "Configuració incompleta"
+			}
 		}
 	},
 	"components": {

@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Voer asseblief jou TOTP-kode in",
 			"totpFailed": "Ongeldige admin-token of TOTP-kode",
 			"totpStep": "Tweefaktor-verifikasie is geaktiveer. Voer die 6-syfer kode van jou verifikator-app in.",
-			"totpThrottled": "Te veel pogings. Wag asseblief 'n oomblik en probeer weer."
+			"totpThrottled": "Te veel pogings. Wag asseblief 'n oomblik en probeer weer.",
+			"signInWithSSO": "Meld aan met SSO",
+			"signInWithSSOProvider": "Meld aan met {{provider}}",
+			"ssoFailed": "Enkelaanmelding het misluk. Probeer weer of gebruik 'n ander aanmeldmetode."
 		},
 		"theme": {
 			"switchToLight": "Skakel na ligte modus",
@@ -1923,6 +1926,32 @@
 			"title": "Sessie-uittelling",
 			"label": "Outo-afmelding na onaktiwiteit",
 			"hint": "Meld outomaties by die paneelbord af na hierdie tydperk sonder aktiwiteit. Stel op Nooit om die sessie onbepaald oop te hou."
+		},
+		"oidc": {
+			"title": "Enkelaanmelding (SSO)",
+			"description": "Laat administrateurs deur 'n eksterne OpenID Connect-verskaffer aanmeld. SSO is bykomend: aanmelding met admin-token, sleutel en TOTP werk steeds.",
+			"enable": "Aktiveer SSO",
+			"enableDescription": "Wys 'n enkelaanmeldknoppie op die aanmeldskerm.",
+			"issuer": "Uitreiker-URL",
+			"issuerDescription": "Die verskaffer se OpenID Connect-ontdekkingsbasis-URL.",
+			"clientId": "Kliënt-ID",
+			"clientSecret": "Kliëntgeheim",
+			"secretConfigured": "Geheim gestel (laat leeg om dit te behou)",
+			"secretPlaceholder": "Plak die kliëntgeheim",
+			"clear": "Maak skoon",
+			"publicBaseUrl": "Openbare basis-URL",
+			"publicBaseUrlDescription": "Hierdie program se ekstern bereikbare adres, gebruik om die herleidings-URI te bou.",
+			"redirectUri": "Herleidings-URI",
+			"redirectUriDescription": "Registreer presies hierdie URL by jou verskaffer.",
+			"copyRedirectUri": "Kopieer herleidings-URI",
+			"allowedEmails": "Toegelate e-posse",
+			"allowedEmailsDescription": "Net hierdie geverifieerde e-posadresse mag aanmeld, geskei deur kommas of nuwe reëls.",
+			"fallbackNote": "As die verskaffer nie beskikbaar is nie, kan jy steeds met die admin-token, 'n sleutel of TOTP aanmeld.",
+			"status": {
+				"checking": "Konfigurasie word nagegaan…",
+				"configured": "Geaktiveer en gekonfigureer",
+				"incomplete": "Onvolledige konfigurasie"
+			}
 		}
 	},
 	"components": {

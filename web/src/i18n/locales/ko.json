@@ -159,7 +159,10 @@
 			"totpCodeRequired": "TOTP 코드를 입력해 주세요",
 			"totpFailed": "유효하지 않은 관리자 토큰 또는 TOTP 코드",
 			"totpStep": "2단계 인증이 활성화되어 있습니다. 인증 앱에서 표시된 6자리 코드를 입력하세요.",
-			"totpThrottled": "시도 횟수가 너무 많습니다. 잠시 기다린 후 다시 시도하세요."
+			"totpThrottled": "시도 횟수가 너무 많습니다. 잠시 기다린 후 다시 시도하세요.",
+			"signInWithSSO": "SSO로 로그인",
+			"signInWithSSOProvider": "{{provider}}(으)로 로그인",
+			"ssoFailed": "싱글 사인온에 실패했습니다. 다시 시도하거나 다른 로그인 방법을 사용하세요."
 		},
 		"theme": {
 			"switchToLight": "라이트 모드로 전환",
@@ -1923,6 +1926,32 @@
 			"title": "세션 시간 제한",
 			"label": "비활성 시 자동 로그아웃",
 			"hint": "이 시간 동안 활동이 없으면 대시보드에서 자동으로 로그아웃됩니다. 세션을 무기한 열어 두려면 '안 함'으로 설정하세요."
+		},
+		"oidc": {
+			"title": "싱글 사인온(SSO)",
+			"description": "관리자가 외부 OpenID Connect 제공자를 통해 로그인할 수 있게 합니다. SSO는 추가 수단이며 관리자 토큰, 패스키, TOTP 로그인은 계속 사용할 수 있습니다.",
+			"enable": "SSO 사용",
+			"enableDescription": "로그인 화면에 싱글 사인온 버튼을 표시합니다.",
+			"issuer": "발급자 URL",
+			"issuerDescription": "제공자의 OpenID Connect 디스커버리 기본 URL입니다.",
+			"clientId": "클라이언트 ID",
+			"clientSecret": "클라이언트 시크릿",
+			"secretConfigured": "시크릿 설정됨(유지하려면 비워 두세요)",
+			"secretPlaceholder": "클라이언트 시크릿 붙여넣기",
+			"clear": "지우기",
+			"publicBaseUrl": "공개 기본 URL",
+			"publicBaseUrlDescription": "리디렉션 URI를 만드는 데 사용되는, 외부에서 접근 가능한 이 앱의 주소입니다.",
+			"redirectUri": "리디렉션 URI",
+			"redirectUriDescription": "이 URL을 그대로 제공자에 등록하세요.",
+			"copyRedirectUri": "리디렉션 URI 복사",
+			"allowedEmails": "허용된 이메일",
+			"allowedEmailsDescription": "여기에 적힌 확인된 이메일 주소만 로그인할 수 있습니다. 쉼표 또는 줄바꿈으로 구분합니다.",
+			"fallbackNote": "제공자를 사용할 수 없어도 관리자 토큰, 패스키 또는 TOTP로 로그인할 수 있습니다.",
+			"status": {
+				"checking": "구성 확인 중…",
+				"configured": "사용 및 구성됨",
+				"incomplete": "구성이 불완전함"
+			}
 		}
 	},
 	"components": {

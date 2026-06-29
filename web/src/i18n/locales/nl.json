@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Voer uw TOTP-code in",
 			"totpFailed": "Ongeldig beheerders-token of TOTP-code",
 			"totpStep": "Tweefactorauthenticatie is ingeschakeld. Voer de 6-cijferige code uit je authenticator-app in.",
-			"totpThrottled": "Te veel pogingen. Wacht even en probeer het opnieuw."
+			"totpThrottled": "Te veel pogingen. Wacht even en probeer het opnieuw.",
+			"signInWithSSO": "Aanmelden met SSO",
+			"signInWithSSOProvider": "Aanmelden met {{provider}}",
+			"ssoFailed": "Eenmalige aanmelding is mislukt. Probeer het opnieuw of gebruik een andere aanmeldmethode."
 		},
 		"theme": {
 			"switchToLight": "Schakel naar lichte modus",
@@ -1923,6 +1926,32 @@
 			"title": "Sessietime-out",
 			"label": "Automatisch afmelden na inactiviteit",
 			"hint": "Meldt het dashboard automatisch af na deze periode zonder activiteit. Stel in op Nooit om de sessie onbeperkt open te houden."
+		},
+		"oidc": {
+			"title": "Eenmalige aanmelding (SSO)",
+			"description": "Laat beheerders aanmelden via een externe OpenID Connect-provider. SSO is aanvullend: aanmelden met admin-token, passkey en TOTP blijft werken.",
+			"enable": "SSO inschakelen",
+			"enableDescription": "Toont een knop voor eenmalige aanmelding op het aanmeldscherm.",
+			"issuer": "Issuer-URL",
+			"issuerDescription": "De OpenID Connect-discovery-basis-URL van de provider.",
+			"clientId": "Client-ID",
+			"clientSecret": "Clientgeheim",
+			"secretConfigured": "Geheim ingesteld (laat leeg om te behouden)",
+			"secretPlaceholder": "Plak het clientgeheim",
+			"clear": "Wissen",
+			"publicBaseUrl": "Openbare basis-URL",
+			"publicBaseUrlDescription": "Het extern bereikbare adres van deze app, gebruikt om de redirect-URI op te bouwen.",
+			"redirectUri": "Redirect-URI",
+			"redirectUriDescription": "Registreer precies deze URL bij je provider.",
+			"copyRedirectUri": "Redirect-URI kopiëren",
+			"allowedEmails": "Toegestane e-mailadressen",
+			"allowedEmailsDescription": "Alleen deze geverifieerde e-mailadressen mogen aanmelden, gescheiden door komma's of nieuwe regels.",
+			"fallbackNote": "Als de provider niet beschikbaar is, kun je nog steeds aanmelden met het admin-token, een passkey of TOTP.",
+			"status": {
+				"checking": "Configuratie controleren…",
+				"configured": "Ingeschakeld en geconfigureerd",
+				"incomplete": "Onvolledige configuratie"
+			}
 		}
 	},
 	"components": {

@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Ange din TOTP-kod",
 			"totpFailed": "Ogiltig admin-token eller TOTP-kod",
 			"totpStep": "Tvåfaktorsautentisering är aktiverad. Ange den 6-siffriga koden från din autentiseringsapp.",
-			"totpThrottled": "För många försök. Vänta ett ögonblick och försök igen."
+			"totpThrottled": "För många försök. Vänta ett ögonblick och försök igen.",
+			"signInWithSSO": "Logga in med SSO",
+			"signInWithSSOProvider": "Logga in med {{provider}}",
+			"ssoFailed": "Enkel inloggning misslyckades. Försök igen eller använd en annan inloggningsmetod."
 		},
 		"theme": {
 			"switchToLight": "Byt till ljust läge",
@@ -1923,6 +1926,32 @@
 			"title": "Tidsgräns för session",
 			"label": "Automatisk utloggning efter inaktivitet",
 			"hint": "Loggar automatiskt ut från panelen efter denna period utan aktivitet. Ställ in på Aldrig för att hålla sessionen öppen på obestämd tid."
+		},
+		"oidc": {
+			"title": "Enkel inloggning (SSO)",
+			"description": "Låter administratörer logga in via en extern OpenID Connect-leverantör. SSO är ett tillägg: inloggning med admin-token, nyckel och TOTP fungerar fortfarande.",
+			"enable": "Aktivera SSO",
+			"enableDescription": "Visar en knapp för enkel inloggning på inloggningsskärmen.",
+			"issuer": "Utfärdar-URL",
+			"issuerDescription": "Leverantörens OpenID Connect-upptäckts-bas-URL.",
+			"clientId": "Klient-ID",
+			"clientSecret": "Klienthemlighet",
+			"secretConfigured": "Hemlighet angiven (lämna tomt för att behålla den)",
+			"secretPlaceholder": "Klistra in klienthemligheten",
+			"clear": "Rensa",
+			"publicBaseUrl": "Offentlig bas-URL",
+			"publicBaseUrlDescription": "Den här appens externt nåbara adress, som används för att bygga omdirigerings-URI:n.",
+			"redirectUri": "Omdirigerings-URI",
+			"redirectUriDescription": "Registrera exakt den här URL:en hos din leverantör.",
+			"copyRedirectUri": "Kopiera omdirigerings-URI",
+			"allowedEmails": "Tillåtna e-postadresser",
+			"allowedEmailsDescription": "Endast dessa verifierade e-postadresser får logga in, åtskilda med kommatecken eller nya rader.",
+			"fallbackNote": "Om leverantören inte är tillgänglig kan du fortfarande logga in med admin-token, en nyckel eller TOTP.",
+			"status": {
+				"checking": "Kontrollerar konfigurationen…",
+				"configured": "Aktiverad och konfigurerad",
+				"incomplete": "Ofullständig konfiguration"
+			}
 		}
 	},
 	"components": {

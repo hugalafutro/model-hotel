@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Wprowadź swój kod TOTP",
 			"totpFailed": "Nieprawidłowy token administratora lub kod TOTP",
 			"totpStep": "Włączono uwierzytelnianie dwuskładnikowe. Wprowadź 6-cyfrowy kod z aplikacji uwierzytelniającej.",
-			"totpThrottled": "Zbyt wiele prób. Poczekaj chwilę i spróbuj ponownie."
+			"totpThrottled": "Zbyt wiele prób. Poczekaj chwilę i spróbuj ponownie.",
+			"signInWithSSO": "Zaloguj się przez SSO",
+			"signInWithSSOProvider": "Zaloguj się przez {{provider}}",
+			"ssoFailed": "Logowanie jednokrotne nie powiodło się. Spróbuj ponownie lub użyj innej metody logowania."
 		},
 		"theme": {
 			"switchToLight": "Przełącz na tryb jasny",
@@ -1923,6 +1926,32 @@
 			"title": "Limit czasu sesji",
 			"label": "Automatyczne wylogowanie po bezczynności",
 			"hint": "Po tym okresie bezczynności nastąpi automatyczne wylogowanie z panelu. Ustaw na Nigdy, aby sesja pozostała otwarta bez ograniczeń."
+		},
+		"oidc": {
+			"title": "Logowanie jednokrotne (SSO)",
+			"description": "Pozwala administratorom logować się przez zewnętrznego dostawcę OpenID Connect. SSO jest dodatkowe: logowanie tokenem administratora, kluczem dostępu i TOTP nadal działa.",
+			"enable": "Włącz SSO",
+			"enableDescription": "Pokazuje przycisk logowania jednokrotnego na ekranie logowania.",
+			"issuer": "Adres URL wydawcy",
+			"issuerDescription": "Bazowy adres URL wykrywania OpenID Connect dostawcy.",
+			"clientId": "Identyfikator klienta",
+			"clientSecret": "Sekret klienta",
+			"secretConfigured": "Sekret ustawiony (pozostaw puste, aby zachować)",
+			"secretPlaceholder": "Wklej sekret klienta",
+			"clear": "Wyczyść",
+			"publicBaseUrl": "Publiczny bazowy adres URL",
+			"publicBaseUrlDescription": "Zewnętrznie dostępny adres tej aplikacji, używany do zbudowania identyfikatora URI przekierowania.",
+			"redirectUri": "Identyfikator URI przekierowania",
+			"redirectUriDescription": "Zarejestruj dokładnie ten adres URL u swojego dostawcy.",
+			"copyRedirectUri": "Kopiuj identyfikator URI przekierowania",
+			"allowedEmails": "Dozwolone adresy e-mail",
+			"allowedEmailsDescription": "Zalogować się mogą tylko te zweryfikowane adresy e-mail, oddzielone przecinkami lub nowymi wierszami.",
+			"fallbackNote": "Jeśli dostawca jest niedostępny, nadal możesz zalogować się tokenem administratora, kluczem dostępu lub TOTP.",
+			"status": {
+				"checking": "Sprawdzanie konfiguracji…",
+				"configured": "Włączone i skonfigurowane",
+				"incomplete": "Niekompletna konfiguracja"
+			}
 		}
 	},
 	"components": {

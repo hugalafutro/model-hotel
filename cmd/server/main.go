@@ -324,6 +324,13 @@ func main() {
 	apiHandler.SetTotpStatus(totpRepo)
 	totpHandler := adminauth.NewTotpHandler(totpRepo, adminMgr, sessionMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, apiHandler.RefreshTotpEnabled)
 
+	// OIDC single sign-on. A third front-end to the same session token minted by
+	// passkey/TOTP login: after the IdP confirms an allowlisted identity it calls
+	// the same CreateAuthToken, so no downstream gate changes. Config lives in
+	// settings (rebuilt lazily on change), so it is always constructed; the
+	// public status/start/callback endpoints no-op until oidc_enabled is set.
+	oidcHandler := adminauth.NewOIDCHandler(settingsRepo, sessionMgr, ipLimiter, cfg.MasterKey)
+
 	if cfg.WebAuthnRPID != "" {
 		rpOrigins := make([]string, len(cfg.WebAuthnRPOrigins))
 		copy(rpOrigins, cfg.WebAuthnRPOrigins)
@@ -370,6 +377,12 @@ func main() {
 		// the session manager is always wired above.
 		r.Group(func(r chi.Router) {
 			totpHandler.Register(r)
+		})
+
+		// OIDC SSO login endpoints (status/start/callback) — unauthenticated,
+		// same group as the other login routes; they ARE the login.
+		r.Group(func(r chi.Router) {
+			oidcHandler.Register(r)
 		})
 
 		r.Group(func(r chi.Router) {

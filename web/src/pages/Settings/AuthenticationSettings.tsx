@@ -4,6 +4,7 @@ import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { SETTING_DEFAULTS } from "./defaults";
+import { OidcPanel } from "./OidcSettings";
 import { PasskeyPanel } from "./PasskeySettings";
 import { TotpPanel } from "./TotpSettings";
 import { useSettingsMutations } from "./useSettingsMutations";
@@ -73,6 +74,11 @@ export function AuthenticationSettings({
 						/>
 					</SettingsGroup>
 				</div>
+			</div>
+			<div className="mt-5">
+				<SettingsGroup title={t("settings.oidc.title")}>
+					<OidcPanel />
+				</SettingsGroup>
 			</div>
 		</SettingsSection>
 	);

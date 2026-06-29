@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Zadajte prosím svoj kód TOTP",
 			"totpFailed": "Neplatný administrátorský token alebo kód TOTP",
 			"totpStep": "Je zapnutá dvojfaktorová autentifikácia. Zadajte 6-miestny kód z vašej autentifikačnej aplikácie.",
-			"totpThrottled": "Príliš veľa pokusov. Počkajte chvíľu a skúste to znova."
+			"totpThrottled": "Príliš veľa pokusov. Počkajte chvíľu a skúste to znova.",
+			"signInWithSSO": "Prihlásiť sa cez SSO",
+			"signInWithSSOProvider": "Prihlásiť sa cez {{provider}}",
+			"ssoFailed": "Jednotné prihlásenie zlyhalo. Skúste to znova alebo použite iný spôsob prihlásenia."
 		},
 		"theme": {
 			"switchToLight": "Prepnúť na svetlý režim",
@@ -1923,6 +1926,32 @@
 			"title": "Časový limit relácie",
 			"label": "Automatické odhlásenie po nečinnosti",
 			"hint": "Po tomto čase nečinnosti vás z panela systém automaticky odhlási. Nastavte na Nikdy, ak chcete reláciu ponechať trvalo otvorenú."
+		},
+		"oidc": {
+			"title": "Jednotné prihlásenie (SSO)",
+			"description": "Umožní správcom prihlasovať sa cez externého poskytovateľa OpenID Connect. SSO je doplnkové: prihlásenie tokenom správcu, prístupovým kľúčom a TOTP naďalej funguje.",
+			"enable": "Povoliť SSO",
+			"enableDescription": "Zobrazí na prihlasovacej obrazovke tlačidlo jednotného prihlásenia.",
+			"issuer": "URL vydavateľa",
+			"issuerDescription": "Základná URL na zisťovanie OpenID Connect u poskytovateľa.",
+			"clientId": "ID klienta",
+			"clientSecret": "Tajný kľúč klienta",
+			"secretConfigured": "Tajný kľúč nastavený (ponechajte prázdne na zachovanie)",
+			"secretPlaceholder": "Vložte tajný kľúč klienta",
+			"clear": "Vymazať",
+			"publicBaseUrl": "Verejná základná URL",
+			"publicBaseUrlDescription": "Externe dostupná adresa tejto aplikácie, použitá na zostavenie URI presmerovania.",
+			"redirectUri": "URI presmerovania",
+			"redirectUriDescription": "Zaregistrujte presne túto URL u svojho poskytovateľa.",
+			"copyRedirectUri": "Kopírovať URI presmerovania",
+			"allowedEmails": "Povolené e-maily",
+			"allowedEmailsDescription": "Prihlásiť sa môžu len tieto overené e-mailové adresy, oddelené čiarkami alebo novými riadkami.",
+			"fallbackNote": "Ak je poskytovateľ nedostupný, stále sa môžete prihlásiť tokenom správcu, prístupovým kľúčom alebo TOTP.",
+			"status": {
+				"checking": "Kontrola konfigurácie…",
+				"configured": "Povolené a nakonfigurované",
+				"incomplete": "Neúplná konfigurácia"
+			}
 		}
 	},
 	"components": {

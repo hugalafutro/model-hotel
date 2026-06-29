@@ -112,6 +112,7 @@ export const ShieldOff = withId(Ph.ShieldSlash, "ShieldOff");
 export const ShieldAlert = withId(Ph.ShieldWarning, "ShieldAlert");
 export const Shuffle = withId(Ph.Shuffle, "Shuffle");
 export const LogOut = withId(Ph.SignOut, "LogOut");
+export const LogIn = withId(Ph.SignIn, "LogIn");
 export const ArrowDownAZ = withId(Ph.SortAscending, "ArrowDownAZ");
 export const ArrowUpZA = withId(Ph.SortDescending, "ArrowUpZA");
 export const Sparkles = withId(Ph.Sparkle, "Sparkles");

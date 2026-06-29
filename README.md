@@ -182,6 +182,13 @@ When TOTP is enabled the raw admin token no longer authenticates API requests on
 
 If you lose your authenticator, a recovery code signs you in once so you can disable or re-enroll TOTP. Recovery codes are single-use, stored as SHA-256 hashes, and displayed only at enable time (the TOTP secret itself is AES-256-GCM encrypted at rest with `MASTER_KEY`, like provider keys). If you lose both the authenticator and every recovery code, an operator can remove 2FA directly from the database: run `make totp-disable`, or `DELETE FROM admin_totp;` via psql against the stack's Postgres. TOTP is independent of passkeys and needs no environment variable, it is opt-in at runtime from Settings.
 
+### [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Single Sign-On (OIDC)](#-single-sign-on-oidc)
+Let admins sign in through an external OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket-ID, Okta, Google, Entra, and so on). Configure it from the Settings page: paste the issuer URL, client ID, and client secret from an app you register with your provider, then list the verified email addresses allowed to sign in. A "Sign in with SSO" button appears on the login screen.
+
+SSO is a third login path, not a replacement: after the provider confirms an allowlisted, email-verified identity it mints the same session token as passkey and TOTP login, so nothing downstream changes. Logins are gated by the email allowlist (empty allowlist denies everyone) and matched only on verified emails, while the provider's stable `sub` and issuer are recorded in the audit log. The client secret is AES-256-GCM encrypted at rest with `MASTER_KEY`, the flow uses PKCE plus single-use state and nonce, and the minted token is handed to the browser in the URL fragment so it never reaches a server log.
+
+Because it is self-hosted, there is no turnkey "Google login": each operator registers their own OIDC app with their provider and points it at this app's redirect URI (`<public base URL>/api/auth/oidc/callback`, shown in Settings). SSO never removes local login, so a misconfigured or unreachable provider cannot lock you out: the admin token, passkeys, and TOTP all keep working. GitHub (plain OAuth2, no ID token) is not supported in this version. SSO is opt-in at runtime from Settings and needs no environment variable.
+
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
 ```bash
 git clone <repository-url>

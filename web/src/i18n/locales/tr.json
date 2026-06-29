@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Lütfen TOTP kodunuzu girin",
 			"totpFailed": "Geçersiz yönetici jetonu veya TOTP kodu",
 			"totpStep": "İki faktörlü kimlik doğrulama etkin. Kimlik doğrulama uygulamanızdaki 6 haneli kodu girin.",
-			"totpThrottled": "Çok fazla deneme. Lütfen biraz bekleyip tekrar deneyin."
+			"totpThrottled": "Çok fazla deneme. Lütfen biraz bekleyip tekrar deneyin.",
+			"signInWithSSO": "SSO ile oturum aç",
+			"signInWithSSOProvider": "{{provider}} ile oturum aç",
+			"ssoFailed": "Çoklu oturum açma başarısız oldu. Tekrar deneyin veya başka bir oturum açma yöntemi kullanın."
 		},
 		"theme": {
 			"switchToLight": "Açık moda geç",
@@ -1923,6 +1926,32 @@
 			"title": "Oturum zaman aşımı",
 			"label": "Hareketsizlik sonrası otomatik çıkış",
 			"hint": "Bu hareketsizlik süresinin ardından panodan otomatik olarak çıkış yapılır. Oturumu süresiz açık tutmak için Asla olarak ayarlayın."
+		},
+		"oidc": {
+			"title": "Çoklu oturum açma (SSO)",
+			"description": "Yöneticilerin harici bir OpenID Connect sağlayıcısı üzerinden oturum açmasını sağlar. SSO ek bir yöntemdir: yönetici belirteci, geçiş anahtarı ve TOTP ile oturum açma çalışmaya devam eder.",
+			"enable": "SSO'yu etkinleştir",
+			"enableDescription": "Oturum açma ekranında bir çoklu oturum açma düğmesi gösterir.",
+			"issuer": "Veren URL'si",
+			"issuerDescription": "Sağlayıcının OpenID Connect keşif temel URL'si.",
+			"clientId": "İstemci kimliği",
+			"clientSecret": "İstemci gizli anahtarı",
+			"secretConfigured": "Gizli anahtar ayarlandı (korumak için boş bırakın)",
+			"secretPlaceholder": "İstemci gizli anahtarını yapıştırın",
+			"clear": "Temizle",
+			"publicBaseUrl": "Genel temel URL",
+			"publicBaseUrlDescription": "Yönlendirme URI'sini oluşturmak için kullanılan, bu uygulamanın dışarıdan erişilebilen adresi.",
+			"redirectUri": "Yönlendirme URI'si",
+			"redirectUriDescription": "Tam olarak bu URL'yi sağlayıcınıza kaydedin.",
+			"copyRedirectUri": "Yönlendirme URI'sini kopyala",
+			"allowedEmails": "İzin verilen e-postalar",
+			"allowedEmailsDescription": "Yalnızca bu doğrulanmış e-posta adresleri oturum açabilir; virgül veya yeni satırla ayırın.",
+			"fallbackNote": "Sağlayıcı kullanılamıyorsa yine de yönetici belirteci, geçiş anahtarı veya TOTP ile oturum açabilirsiniz.",
+			"status": {
+				"checking": "Yapılandırma denetleniyor…",
+				"configured": "Etkin ve yapılandırılmış",
+				"incomplete": "Eksik yapılandırma"
+			}
 		}
 	},
 	"components": {

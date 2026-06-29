@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Bitte geben Sie Ihren TOTP-Code ein",
 			"totpFailed": "Ungültiges Admin-Token oder TOTP-Code",
 			"totpStep": "Die Zwei-Faktor-Authentifizierung ist aktiviert. Geben Sie den 6-stelligen Code aus Ihrer Authentifizierungs-App ein.",
-			"totpThrottled": "Zu viele Versuche. Bitte warten Sie einen Moment und versuchen Sie es erneut."
+			"totpThrottled": "Zu viele Versuche. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
+			"signInWithSSO": "Mit SSO anmelden",
+			"signInWithSSOProvider": "Mit {{provider}} anmelden",
+			"ssoFailed": "Single Sign-on fehlgeschlagen. Versuche es erneut oder nutze eine andere Anmeldemethode."
 		},
 		"theme": {
 			"switchToLight": "Zum hellen Modus wechseln",
@@ -1923,6 +1926,32 @@
 			"title": "Sitzungs-Timeout",
 			"label": "Automatische Abmeldung bei Inaktivität",
 			"hint": "Nach dieser Zeit ohne Aktivität wird das Dashboard automatisch abgemeldet. Auf Nie setzen, um die Sitzung dauerhaft offen zu halten."
+		},
+		"oidc": {
+			"title": "Single Sign-on (SSO)",
+			"description": "Lass Admins sich über einen externen OpenID-Connect-Anbieter anmelden. SSO ist additiv: Anmeldung per Admin-Token, Passkey und TOTP funktioniert weiterhin.",
+			"enable": "SSO aktivieren",
+			"enableDescription": "Zeigt auf dem Anmeldebildschirm eine Single-Sign-on-Schaltfläche an.",
+			"issuer": "Issuer-URL",
+			"issuerDescription": "Die OpenID-Connect-Discovery-Basis-URL des Anbieters.",
+			"clientId": "Client-ID",
+			"clientSecret": "Client-Secret",
+			"secretConfigured": "Secret gesetzt (zum Beibehalten leer lassen)",
+			"secretPlaceholder": "Client-Secret einfügen",
+			"clear": "Löschen",
+			"publicBaseUrl": "Öffentliche Basis-URL",
+			"publicBaseUrlDescription": "Die extern erreichbare Adresse dieser App, zum Aufbau der Redirect-URI.",
+			"redirectUri": "Redirect-URI",
+			"redirectUriDescription": "Registriere genau diese URL bei deinem Anbieter.",
+			"copyRedirectUri": "Redirect-URI kopieren",
+			"allowedEmails": "Erlaubte E-Mail-Adressen",
+			"allowedEmailsDescription": "Nur diese verifizierten E-Mail-Adressen dürfen sich anmelden, durch Komma oder Zeilenumbruch getrennt.",
+			"fallbackNote": "Ist der Anbieter nicht erreichbar, kannst du dich weiterhin mit Admin-Token, Passkey oder TOTP anmelden.",
+			"status": {
+				"checking": "Konfiguration wird geprüft…",
+				"configured": "Aktiviert und konfiguriert",
+				"incomplete": "Unvollständige Konfiguration"
+			}
 		}
 	},
 	"components": {

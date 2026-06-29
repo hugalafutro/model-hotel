@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Insira seu código TOTP",
 			"totpFailed": "Token de administrador ou código TOTP inválido",
 			"totpStep": "A autenticação de dois fatores está ativada. Digite o código de 6 dígitos do seu aplicativo autenticador.",
-			"totpThrottled": "Demasiadas tentativas. Aguarde um momento e tente novamente."
+			"totpThrottled": "Demasiadas tentativas. Aguarde um momento e tente novamente.",
+			"signInWithSSO": "Entrar com SSO",
+			"signInWithSSOProvider": "Entrar com {{provider}}",
+			"ssoFailed": "Falha no logon único. Tente novamente ou use outro método de login."
 		},
 		"theme": {
 			"switchToLight": "Mudar para modo claro",
@@ -1923,6 +1926,32 @@
 			"title": "Tempo limite da sessão",
 			"label": "Encerramento de sessão automático por inatividade",
 			"hint": "Encerra a sessão do painel automaticamente após este período sem atividade. Defina como Nunca para manter a sessão aberta indefinidamente."
+		},
+		"oidc": {
+			"title": "Logon único (SSO)",
+			"description": "Permite que administradores entrem por um provedor OpenID Connect externo. O SSO é adicional: os logins por token de administrador, chave de acesso e TOTP continuam funcionando.",
+			"enable": "Ativar SSO",
+			"enableDescription": "Mostra um botão de logon único na tela de login.",
+			"issuer": "URL do emissor",
+			"issuerDescription": "A URL base de descoberta OpenID Connect do provedor.",
+			"clientId": "ID do cliente",
+			"clientSecret": "Segredo do cliente",
+			"secretConfigured": "Segredo definido (deixe em branco para mantê-lo)",
+			"secretPlaceholder": "Cole o segredo do cliente",
+			"clear": "Limpar",
+			"publicBaseUrl": "URL base pública",
+			"publicBaseUrlDescription": "O endereço desta aplicação acessível externamente, usado para montar a URI de redirecionamento.",
+			"redirectUri": "URI de redirecionamento",
+			"redirectUriDescription": "Registre exatamente esta URL no seu provedor.",
+			"copyRedirectUri": "Copiar URI de redirecionamento",
+			"allowedEmails": "E-mails permitidos",
+			"allowedEmailsDescription": "Somente estes endereços de e-mail verificados podem entrar, separados por vírgulas ou quebras de linha.",
+			"fallbackNote": "Se o provedor estiver indisponível, você ainda pode entrar com o token de administrador, uma chave de acesso ou TOTP.",
+			"status": {
+				"checking": "Verificando a configuração…",
+				"configured": "Ativado e configurado",
+				"incomplete": "Configuração incompleta"
+			}
 		}
 	},
 	"components": {

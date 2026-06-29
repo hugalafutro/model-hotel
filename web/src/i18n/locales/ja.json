@@ -159,7 +159,10 @@
 			"totpCodeRequired": "TOTPコードを入力してください",
 			"totpFailed": "無効な管理トークンまたはTOTPコード",
 			"totpStep": "二要素認証が有効になっています。認証アプリから表示された6桁のコードを入力してください。",
-			"totpThrottled": "試行回数が多すぎます。少し待ってからもう一度お試しください。"
+			"totpThrottled": "試行回数が多すぎます。少し待ってからもう一度お試しください。",
+			"signInWithSSO": "SSO でサインイン",
+			"signInWithSSOProvider": "{{provider}} でサインイン",
+			"ssoFailed": "シングルサインオンに失敗しました。もう一度試すか、別のサインイン方法を使用してください。"
 		},
 		"theme": {
 			"switchToLight": "ライトモードに切り替え",
@@ -1923,6 +1926,32 @@
 			"title": "セッションのタイムアウト",
 			"label": "無操作時の自動ログアウト",
 			"hint": "この時間操作がないと、ダッシュボードから自動的にログアウトします。セッションを無期限に開いたままにするには「なし」に設定します。"
+		},
+		"oidc": {
+			"title": "シングルサインオン (SSO)",
+			"description": "管理者が外部の OpenID Connect プロバイダー経由でサインインできるようにします。SSO は追加的なもので、管理者トークン、パスキー、TOTP でのログインは引き続き使えます。",
+			"enable": "SSO を有効にする",
+			"enableDescription": "ログイン画面にシングルサインオンのボタンを表示します。",
+			"issuer": "発行者 URL",
+			"issuerDescription": "プロバイダーの OpenID Connect ディスカバリーのベース URL です。",
+			"clientId": "クライアント ID",
+			"clientSecret": "クライアントシークレット",
+			"secretConfigured": "シークレット設定済み（保持するには空のままにします）",
+			"secretPlaceholder": "クライアントシークレットを貼り付け",
+			"clear": "クリア",
+			"publicBaseUrl": "公開ベース URL",
+			"publicBaseUrlDescription": "リダイレクト URI の生成に使う、このアプリの外部からアクセスできるアドレスです。",
+			"redirectUri": "リダイレクト URI",
+			"redirectUriDescription": "この URL をそのままプロバイダーに登録してください。",
+			"copyRedirectUri": "リダイレクト URI をコピー",
+			"allowedEmails": "許可するメールアドレス",
+			"allowedEmailsDescription": "ここに記載した確認済みのメールアドレスのみがサインインできます。カンマまたは改行で区切ります。",
+			"fallbackNote": "プロバイダーが利用できない場合でも、管理者トークン、パスキー、TOTP でサインインできます。",
+			"status": {
+				"checking": "構成を確認しています…",
+				"configured": "有効かつ構成済み",
+				"incomplete": "構成が不完全です"
+			}
 		}
 	},
 	"components": {

@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Vennligst oppgi TOTP-koden din",
 			"totpFailed": "Ugyldig administratortoken eller TOTP-kode",
 			"totpStep": "Tofaktorautentisering er aktivert. Skriv inn den 6-sifrede koden fra autentiseringsappen din.",
-			"totpThrottled": "For mange forsøk. Vent et øyeblikk, og prøv igjen."
+			"totpThrottled": "For mange forsøk. Vent et øyeblikk, og prøv igjen.",
+			"signInWithSSO": "Logg inn med SSO",
+			"signInWithSSOProvider": "Logg inn med {{provider}}",
+			"ssoFailed": "Enkeltpålogging mislyktes. Prøv igjen, eller bruk en annen påloggingsmetode."
 		},
 		"theme": {
 			"switchToLight": "Bytt til lys modus",
@@ -1923,6 +1926,32 @@
 			"title": "Tidsavbrudd for økt",
 			"label": "Automatisk utlogging etter inaktivitet",
 			"hint": "Logger automatisk ut av dashbordet etter denne perioden uten aktivitet. Sett til Aldri for å holde økten åpen på ubestemt tid."
+		},
+		"oidc": {
+			"title": "Enkeltpålogging (SSO)",
+			"description": "Lar administratorer logge inn via en ekstern OpenID Connect-leverandør. SSO kommer i tillegg: innlogging med admin-token, tilgangsnøkkel og TOTP virker fortsatt.",
+			"enable": "Aktiver SSO",
+			"enableDescription": "Viser en enkeltpåloggingsknapp på påloggingsskjermen.",
+			"issuer": "Utsteder-URL",
+			"issuerDescription": "Leverandørens OpenID Connect-oppdagelses-basis-URL.",
+			"clientId": "Klient-ID",
+			"clientSecret": "Klienthemmelighet",
+			"secretConfigured": "Hemmelighet angitt (la stå tom for å beholde den)",
+			"secretPlaceholder": "Lim inn klienthemmeligheten",
+			"clear": "Tøm",
+			"publicBaseUrl": "Offentlig basis-URL",
+			"publicBaseUrlDescription": "Denne appens eksternt tilgjengelige adresse, brukt til å bygge omdirigerings-URI-en.",
+			"redirectUri": "Omdirigerings-URI",
+			"redirectUriDescription": "Registrer nøyaktig denne URL-en hos leverandøren din.",
+			"copyRedirectUri": "Kopier omdirigerings-URI",
+			"allowedEmails": "Tillatte e-poster",
+			"allowedEmailsDescription": "Bare disse verifiserte e-postadressene kan logge inn, atskilt med komma eller linjeskift.",
+			"fallbackNote": "Hvis leverandøren ikke er tilgjengelig, kan du fortsatt logge inn med admin-token, en tilgangsnøkkel eller TOTP.",
+			"status": {
+				"checking": "Kontrollerer konfigurasjonen…",
+				"configured": "Aktivert og konfigurert",
+				"incomplete": "Ufullstendig konfigurasjon"
+			}
 		}
 	},
 	"components": {

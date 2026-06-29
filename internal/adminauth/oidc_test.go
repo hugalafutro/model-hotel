@@ -1,0 +1,563 @@
+package adminauth
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	jose "github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/webauthn"
+)
+
+// --- in-memory SessionStore so the OIDC suite needs no database ---
+
+// errNoSession stands in for any store miss; SessionManager treats every
+// non-nil error from the store as "not found".
+var errNoSession = errors.New("no session")
+
+type memSessionStore struct {
+	mu        sync.Mutex
+	byID      map[uuid.UUID]*webauthn.SessionRecord
+	byHash    map[string]*webauthn.SessionRecord
+	createErr error
+}
+
+func newMemStore() *memSessionStore {
+	return &memSessionStore{
+		byID:   make(map[uuid.UUID]*webauthn.SessionRecord),
+		byHash: make(map[string]*webauthn.SessionRecord),
+	}
+}
+
+func (s *memSessionStore) CreateSession(_ context.Context, rec *webauthn.SessionRecord) error {
+	if s.createErr != nil {
+		return s.createErr
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cp := *rec
+	s.byID[rec.ID] = &cp
+	if rec.TokenHash != nil {
+		s.byHash[*rec.TokenHash] = &cp
+	}
+	return nil
+}
+
+func (s *memSessionStore) GetSession(_ context.Context, id uuid.UUID) (*webauthn.SessionRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rec, ok := s.byID[id]
+	if !ok {
+		return nil, errNoSession
+	}
+	cp := *rec
+	return &cp, nil
+}
+
+func (s *memSessionStore) GetSessionByTokenHash(_ context.Context, hash string) (*webauthn.SessionRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rec, ok := s.byHash[hash]
+	if !ok {
+		return nil, errNoSession
+	}
+	cp := *rec
+	return &cp, nil
+}
+
+func (s *memSessionStore) DeleteSession(_ context.Context, id uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if rec, ok := s.byID[id]; ok && rec.TokenHash != nil {
+		delete(s.byHash, *rec.TokenHash)
+	}
+	delete(s.byID, id)
+	return nil
+}
+
+func (s *memSessionStore) CleanupExpiredSessions(context.Context) (int64, error) { return 0, nil }
+
+// --- fake settings ---
+
+type fakeSettings struct {
+	mu sync.Mutex
+	m  map[string]string
+}
+
+func newFakeSettings(kv map[string]string) *fakeSettings {
+	cp := make(map[string]string, len(kv))
+	for k, v := range kv {
+		cp[k] = v
+	}
+	return &fakeSettings{m: cp}
+}
+
+func (f *fakeSettings) set(k, v string) {
+	f.mu.Lock()
+	f.m[k] = v
+	f.mu.Unlock()
+}
+
+func (f *fakeSettings) GetBool(_ context.Context, key string, def bool) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	switch f.m[key] {
+	case "true":
+		return true
+	case "false":
+		return false
+	default:
+		return def
+	}
+}
+
+func (f *fakeSettings) GetWithDefault(_ context.Context, key, def string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if v, ok := f.m[key]; ok {
+		return v
+	}
+	return def
+}
+
+// --- mock OpenID Connect provider ---
+
+type mockIDP struct {
+	server   *httptest.Server
+	signer   jose.Signer
+	jwks     jose.JSONWebKeySet
+	clientID string
+
+	mu             sync.Mutex
+	nonce          string
+	email          string
+	emailVerified  bool
+	sub            string
+	omitIDToken    bool
+	emailInIDToken bool // when false, email is served only at /userinfo
+}
+
+func newMockIDP(t *testing.T, clientID string) *mockIDP {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("rsa key: %v", err)
+	}
+	const kid = "test-key-1"
+	signer, err := jose.NewSigner(
+		jose.SigningKey{Algorithm: jose.RS256, Key: jose.JSONWebKey{Key: key, KeyID: kid}},
+		(&jose.SignerOptions{}).WithType("JWT"),
+	)
+	if err != nil {
+		t.Fatalf("signer: %v", err)
+	}
+	idp := &mockIDP{
+		signer:   signer,
+		clientID: clientID,
+		jwks: jose.JSONWebKeySet{Keys: []jose.JSONWebKey{
+			{Key: &key.PublicKey, KeyID: kid, Algorithm: "RS256", Use: "sig"},
+		}},
+		sub:            "idp-subject-123",
+		emailInIDToken: true,
+	}
+
+	mux := http.NewServeMux()
+	idp.server = httptest.NewServer(mux)
+
+	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
+		writeTestJSON(w, map[string]any{
+			"issuer":                                idp.server.URL,
+			"authorization_endpoint":                idp.server.URL + "/auth",
+			"token_endpoint":                        idp.server.URL + "/token",
+			"jwks_uri":                              idp.server.URL + "/jwks",
+			"userinfo_endpoint":                     idp.server.URL + "/userinfo",
+			"response_types_supported":              []string{"code"},
+			"subject_types_supported":               []string{"public"},
+			"id_token_signing_alg_values_supported": []string{"RS256"},
+		})
+	})
+	mux.HandleFunc("/jwks", func(w http.ResponseWriter, _ *http.Request) {
+		writeTestJSON(w, idp.jwks)
+	})
+	// UserInfo returns the email + email_verified as plain JSON, mirroring an IdP
+	// (like Authelia by default) that keeps email out of the ID token.
+	mux.HandleFunc("/userinfo", func(w http.ResponseWriter, _ *http.Request) {
+		idp.mu.Lock()
+		defer idp.mu.Unlock()
+		writeTestJSON(w, map[string]any{
+			"sub":            idp.sub,
+			"email":          idp.email,
+			"email_verified": idp.emailVerified,
+		})
+	})
+	mux.HandleFunc("/token", func(w http.ResponseWriter, _ *http.Request) {
+		idp.mu.Lock()
+		defer idp.mu.Unlock()
+		resp := map[string]any{
+			"access_token": "access-token",
+			"token_type":   "Bearer",
+			"expires_in":   3600,
+		}
+		if !idp.omitIDToken {
+			resp["id_token"] = idp.signIDToken(t)
+		}
+		writeTestJSON(w, resp)
+	})
+
+	t.Cleanup(idp.server.Close)
+	return idp
+}
+
+// signIDToken signs an ID token with the currently configured claims. Caller
+// holds idp.mu.
+func (idp *mockIDP) signIDToken(t *testing.T) string {
+	t.Helper()
+	cl := map[string]any{
+		"iss":   idp.server.URL,
+		"aud":   idp.clientID,
+		"sub":   idp.sub,
+		"exp":   time.Now().Add(time.Hour).Unix(),
+		"iat":   time.Now().Unix(),
+		"nonce": idp.nonce,
+	}
+	// Some IdPs omit email from the ID token; the handler then falls back to
+	// the UserInfo endpoint. When emailInIDToken is true, embed it here.
+	if idp.emailInIDToken {
+		cl["email"] = idp.email
+		cl["email_verified"] = idp.emailVerified
+	}
+	raw, err := jwt.Signed(idp.signer).Claims(cl).Serialize()
+	if err != nil {
+		t.Fatalf("sign id_token: %v", err)
+	}
+	return raw
+}
+
+func (idp *mockIDP) configure(nonce, email string, verified bool) {
+	idp.mu.Lock()
+	idp.nonce = nonce
+	idp.email = email
+	idp.emailVerified = verified
+	idp.mu.Unlock()
+}
+
+func writeTestJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+// --- harness ---
+
+const oidcTestClientID = "model-hotel-test"
+
+func newOIDCTestHandler(t *testing.T, idp *mockIDP, allowed string) (*OIDCHandler, *fakeSettings, *webauthn.SessionManager) {
+	t.Helper()
+	store := newMemStore()
+	sessionMgr := webauthn.NewSessionManager(store)
+	enc, err := auth.EncryptString("client-secret-value", testMasterKey)
+	if err != nil {
+		t.Fatalf("encrypt secret: %v", err)
+	}
+	fs := newFakeSettings(map[string]string{
+		oidcEnabledKey:       "true",
+		oidcIssuerURLKey:     idp.server.URL,
+		oidcClientIDKey:      oidcTestClientID,
+		oidcClientSecretKey:  enc,
+		oidcAllowedEmailsKey: allowed,
+		oidcPublicBaseURLKey: "https://mh.example.test",
+	})
+	h := NewOIDCHandler(fs, sessionMgr, mockIPLimiter{}, testMasterKey)
+	return h, fs, sessionMgr
+}
+
+// runStart drives GET /start and returns the auth-redirect URL + the login cookie.
+func runStart(t *testing.T, h *OIDCHandler) (*url.URL, *http.Cookie) {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/oidc/start", http.NoBody)
+	rec := httptest.NewRecorder()
+	h.Start(rec, req)
+	res := rec.Result()
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusFound {
+		t.Fatalf("Start status = %d, want 302", res.StatusCode)
+	}
+	loc, err := url.Parse(res.Header.Get("Location"))
+	if err != nil {
+		t.Fatalf("parse Location: %v", err)
+	}
+	var cookie *http.Cookie
+	for _, c := range res.Cookies() {
+		if c.Name == oidcCookieName {
+			cookie = c
+		}
+	}
+	if cookie == nil {
+		t.Fatal("Start did not set the login-state cookie")
+	}
+	return loc, cookie
+}
+
+// runCallback drives GET /callback with the given cookie + query, returning the
+// fragment of the redirect Location (the part after '#').
+func runCallback(t *testing.T, h *OIDCHandler, cookie *http.Cookie, query url.Values) string {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/oidc/callback?"+query.Encode(), http.NoBody)
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	rec := httptest.NewRecorder()
+	h.Callback(rec, req)
+	res := rec.Result()
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusFound {
+		t.Fatalf("Callback status = %d, want 302 (body=%s)", res.StatusCode, rec.Body.String())
+	}
+	loc := res.Header.Get("Location")
+	if i := strings.IndexByte(loc, '#'); i >= 0 {
+		return loc[i+1:]
+	}
+	return ""
+}
+
+func TestOIDCStatus(t *testing.T) {
+	idp := newMockIDP(t, oidcTestClientID)
+	h, fs, _ := newOIDCTestHandler(t, idp, "admin@example.com")
+
+	// Enabled + configured.
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/oidc/status", http.NoBody)
+	rec := httptest.NewRecorder()
+	h.Status(rec, req)
+	var resp oidcStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode status: %v", err)
+	}
+	if !resp.Enabled {
+		t.Fatal("expected enabled=true when fully configured")
+	}
+	if resp.DisplayName == "" {
+		t.Fatal("expected a display name (IdP host)")
+	}
+
+	// Disabled.
+	fs.set(oidcEnabledKey, "false")
+	rec = httptest.NewRecorder()
+	h.Status(rec, httptest.NewRequest(http.MethodGet, "/api/auth/oidc/status", http.NoBody))
+	resp = oidcStatusResponse{}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Enabled {
+		t.Fatal("expected enabled=false when oidc_enabled=false")
+	}
+}
+
+func TestOIDCLoginRoundTrip(t *testing.T) {
+	idp := newMockIDP(t, oidcTestClientID)
+	h, _, sessionMgr := newOIDCTestHandler(t, idp, "Admin@Example.com")
+
+	loc, cookie := runStart(t, h)
+	state := loc.Query().Get("state")
+	nonce := loc.Query().Get("nonce")
+	if state == "" || nonce == "" {
+		t.Fatalf("auth URL missing state/nonce: %s", loc.String())
+	}
+	if loc.Query().Get("code_challenge") == "" || loc.Query().Get("code_challenge_method") != "S256" {
+		t.Fatal("auth URL missing PKCE S256 challenge")
+	}
+
+	// Allowlist match is case-insensitive: configured "Admin@Example.com",
+	// IdP returns lowercase.
+	idp.configure(nonce, "admin@example.com", true)
+
+	q := url.Values{"state": {state}, "code": {"auth-code"}}
+	frag := runCallback(t, h, cookie, q)
+	const prefix = "oidc_token="
+	if !strings.HasPrefix(frag, prefix) {
+		t.Fatalf("expected token fragment, got %q", frag)
+	}
+	token, err := url.QueryUnescape(strings.TrimPrefix(frag, prefix))
+	if err != nil {
+		t.Fatalf("unescape token: %v", err)
+	}
+	if !sessionMgr.Validate(context.Background(), token) {
+		t.Fatal("minted session token failed Validate")
+	}
+}
+
+// TestOIDCUserInfoFallback covers an IdP (e.g. Authelia 4.38+) that omits email
+// from the ID token: the handler must fall back to the UserInfo endpoint.
+func TestOIDCUserInfoFallback(t *testing.T) {
+	idp := newMockIDP(t, oidcTestClientID)
+	idp.emailInIDToken = false // email only at /userinfo
+	h, _, sessionMgr := newOIDCTestHandler(t, idp, "admin@example.com")
+
+	loc, cookie := runStart(t, h)
+	state := loc.Query().Get("state")
+	idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+
+	frag := runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+	token, err := url.QueryUnescape(strings.TrimPrefix(frag, "oidc_token="))
+	if err != nil || !strings.HasPrefix(frag, "oidc_token=") {
+		t.Fatalf("expected success via userinfo fallback, got %q", frag)
+	}
+	if !sessionMgr.Validate(context.Background(), token) {
+		t.Fatal("token from userinfo-fallback login failed Validate")
+	}
+}
+
+func TestOIDCCallbackRejections(t *testing.T) {
+	tests := []struct {
+		name string
+		// mutate sets up the per-case state and returns (cookie, query).
+		run func(t *testing.T, h *OIDCHandler, idp *mockIDP) string
+	}{
+		{
+			name: "bad state",
+			run: func(t *testing.T, h *OIDCHandler, idp *mockIDP) string {
+				_, cookie := runStart(t, h)
+				idp.configure("whatever", "admin@example.com", true)
+				return runCallback(t, h, cookie, url.Values{"state": {"wrong"}, "code": {"c"}})
+			},
+		},
+		{
+			name: "replayed nonce mismatch",
+			run: func(t *testing.T, h *OIDCHandler, idp *mockIDP) string {
+				loc, cookie := runStart(t, h)
+				state := loc.Query().Get("state")
+				// IdP returns a different nonce than the one we issued.
+				idp.configure("attacker-nonce", "admin@example.com", true)
+				return runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+			},
+		},
+		{
+			name: "missing login state cookie",
+			run: func(t *testing.T, h *OIDCHandler, idp *mockIDP) string {
+				loc, _ := runStart(t, h)
+				state := loc.Query().Get("state")
+				idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+				return runCallback(t, h, nil, url.Values{"state": {state}, "code": {"c"}})
+			},
+		},
+		{
+			name: "single use replay",
+			run: func(t *testing.T, h *OIDCHandler, idp *mockIDP) string {
+				loc, cookie := runStart(t, h)
+				state := loc.Query().Get("state")
+				idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+				_ = runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}}) // consumes
+				// Second use of the same cookie must fail (record deleted).
+				return runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+			},
+		},
+		{
+			name: "unverified email denied",
+			run: func(t *testing.T, h *OIDCHandler, idp *mockIDP) string {
+				loc, cookie := runStart(t, h)
+				state := loc.Query().Get("state")
+				idp.configure(loc.Query().Get("nonce"), "admin@example.com", false)
+				return runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+			},
+		},
+		{
+			name: "idp error param",
+			run: func(t *testing.T, h *OIDCHandler, idp *mockIDP) string {
+				loc, cookie := runStart(t, h)
+				state := loc.Query().Get("state")
+				idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+				return runCallback(t, h, cookie, url.Values{"state": {state}, "error": {"access_denied"}})
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			idp := newMockIDP(t, oidcTestClientID)
+			h, _, _ := newOIDCTestHandler(t, idp, "admin@example.com")
+			frag := tc.run(t, h, idp)
+			if !strings.HasPrefix(frag, "oidc_error=") {
+				t.Fatalf("expected error fragment, got %q", frag)
+			}
+		})
+	}
+}
+
+func TestOIDCAllowlistDenyAndFailClosed(t *testing.T) {
+	t.Run("email not allowlisted", func(t *testing.T) {
+		idp := newMockIDP(t, oidcTestClientID)
+		h, _, _ := newOIDCTestHandler(t, idp, "someone-else@example.com")
+		loc, cookie := runStart(t, h)
+		state := loc.Query().Get("state")
+		idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+		frag := runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+		if !strings.HasPrefix(frag, "oidc_error=") {
+			t.Fatalf("expected denial, got %q", frag)
+		}
+	})
+
+	t.Run("empty allowlist fails closed", func(t *testing.T) {
+		idp := newMockIDP(t, oidcTestClientID)
+		h, _, _ := newOIDCTestHandler(t, idp, "   ") // whitespace only -> empty set
+		loc, cookie := runStart(t, h)
+		state := loc.Query().Get("state")
+		idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+		frag := runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+		if !strings.HasPrefix(frag, "oidc_error=") {
+			t.Fatalf("empty allowlist must deny all, got %q", frag)
+		}
+	})
+}
+
+// TestOIDCProviderCacheRebuild verifies that editing settings (here the
+// allowlist) takes effect without reconstructing the handler: the cached runtime
+// is rebuilt when the config fingerprint changes.
+func TestOIDCProviderCacheRebuild(t *testing.T) {
+	idp := newMockIDP(t, oidcTestClientID)
+	h, fs, sessionMgr := newOIDCTestHandler(t, idp, "nobody@example.com")
+
+	// First attempt: not allowlisted -> denied.
+	loc, cookie := runStart(t, h)
+	state := loc.Query().Get("state")
+	idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+	if frag := runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}}); !strings.HasPrefix(frag, "oidc_error=") {
+		t.Fatalf("expected initial denial, got %q", frag)
+	}
+
+	// Edit the allowlist; no handler reconstruction.
+	fs.set(oidcAllowedEmailsKey, "admin@example.com")
+
+	loc, cookie = runStart(t, h)
+	state = loc.Query().Get("state")
+	idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+	frag := runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+	token, err := url.QueryUnescape(strings.TrimPrefix(frag, "oidc_token="))
+	if err != nil || !strings.HasPrefix(frag, "oidc_token=") {
+		t.Fatalf("expected success after allowlist edit, got %q", frag)
+	}
+	if !sessionMgr.Validate(context.Background(), token) {
+		t.Fatal("token after rebuild failed Validate")
+	}
+}
+
+func TestMaskEmail(t *testing.T) {
+	cases := map[string]string{
+		"alice@example.com": "a***@example.com",
+		"a@example.com":     "*@example.com",
+		"not-an-email":      "***",
+		"":                  "***",
+	}
+	for in, want := range cases {
+		if got := maskEmail(in); got != want {
+			t.Errorf("maskEmail(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

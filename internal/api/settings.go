@@ -19,6 +19,7 @@ import (
 // auth.EncryptString and never returned in plaintext to the dashboard.
 var secretSettingKeys = map[string]bool{
 	"alert_apprise_targets": true,
+	"oidc_client_secret":    true,
 }
 
 // secretMaskValue is returned to clients in place of a configured secret, and
@@ -181,6 +182,12 @@ var allowedSettings = map[string]struct {
 	"alert_apprise_targets":        {typeName: "string"},                // secret: encrypted at rest, masked on read
 	"alert_events":                 {typeName: "string"},                // CSV of enabled event Types (the picker)
 	"session_idle_timeout_minutes": {typeName: "int", min: 0, max: 240}, // dashboard auto-logout window in minutes; 0 = disabled
+	"oidc_enabled":                 {typeName: "string"},                // bool as string
+	"oidc_issuer_url":              {typeName: "string"},                // OIDC discovery base URL
+	"oidc_client_id":               {typeName: "string"},                // OAuth client id
+	"oidc_client_secret":           {typeName: "string"},                // secret: encrypted at rest, masked on read
+	"oidc_allowed_emails":          {typeName: "string"},                // comma/newline-separated allowlist
+	"oidc_public_base_url":         {typeName: "string"},                // app's external origin for the redirect URI
 }
 
 const maxSettingValueLen = 500

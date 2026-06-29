@@ -26,6 +26,9 @@ vi.mock("../api/client", () => ({
 		demoLogin: {
 			get: vi.fn().mockResolvedValue({ token: "" }),
 		},
+		oidc: {
+			status: vi.fn().mockResolvedValue({ enabled: false }),
+		},
 	},
 }));
 

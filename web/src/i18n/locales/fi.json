@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Syötä TOTP-koodisi",
 			"totpFailed": "Virheellinen hallintatunnus tai TOTP-koodi",
 			"totpStep": "Kaksivaiheinen todennus on käytössä. Syötä todennusohjelmasi 6-numeroinen koodi.",
-			"totpThrottled": "Liian monta yritystä. Odota hetki ja yritä uudelleen."
+			"totpThrottled": "Liian monta yritystä. Odota hetki ja yritä uudelleen.",
+			"signInWithSSO": "Kirjaudu SSO:lla",
+			"signInWithSSOProvider": "Kirjaudu palvelulla {{provider}}",
+			"ssoFailed": "Kertakirjautuminen epäonnistui. Yritä uudelleen tai käytä toista kirjautumistapaa."
 		},
 		"theme": {
 			"switchToLight": "Vaihda vaaleaan tilaan",
@@ -1923,6 +1926,32 @@
 			"title": "Istunnon aikakatkaisu",
 			"label": "Automaattinen uloskirjautuminen käyttämättömyyden jälkeen",
 			"hint": "Sinut kirjataan ulos hallintapaneelista automaattisesti tämän käyttämättömyysajan jälkeen. Aseta arvoon Ei koskaan pitääksesi istunnon auki rajattomasti."
+		},
+		"oidc": {
+			"title": "Kertakirjautuminen (SSO)",
+			"description": "Antaa ylläpitäjien kirjautua ulkoisen OpenID Connect -palveluntarjoajan kautta. SSO on lisävaihtoehto: kirjautuminen ylläpitotunnuksella, avainkoodilla ja TOTP:lla toimii edelleen.",
+			"enable": "Ota SSO käyttöön",
+			"enableDescription": "Näyttää kertakirjautumispainikkeen kirjautumisnäytöllä.",
+			"issuer": "Myöntäjän URL-osoite",
+			"issuerDescription": "Palveluntarjoajan OpenID Connect -etsinnän perus-URL-osoite.",
+			"clientId": "Asiakastunnus",
+			"clientSecret": "Asiakassalaisuus",
+			"secretConfigured": "Salaisuus asetettu (säilytä jättämällä tyhjäksi)",
+			"secretPlaceholder": "Liitä asiakassalaisuus",
+			"clear": "Tyhjennä",
+			"publicBaseUrl": "Julkinen perus-URL-osoite",
+			"publicBaseUrlDescription": "Tämän sovelluksen ulkoisesti tavoitettava osoite, jota käytetään uudelleenohjaus-URI:n muodostamiseen.",
+			"redirectUri": "Uudelleenohjaus-URI",
+			"redirectUriDescription": "Rekisteröi täsmälleen tämä URL-osoite palveluntarjoajallesi.",
+			"copyRedirectUri": "Kopioi uudelleenohjaus-URI",
+			"allowedEmails": "Sallitut sähköpostit",
+			"allowedEmailsDescription": "Vain nämä vahvistetut sähköpostiosoitteet voivat kirjautua, eroteltuina pilkuilla tai rivinvaihdoilla.",
+			"fallbackNote": "Jos palveluntarjoaja ei ole käytettävissä, voit silti kirjautua ylläpitotunnuksella, avainkoodilla tai TOTP:lla.",
+			"status": {
+				"checking": "Tarkistetaan määritystä…",
+				"configured": "Käytössä ja määritetty",
+				"incomplete": "Puutteellinen määritys"
+			}
 		}
 	},
 	"components": {

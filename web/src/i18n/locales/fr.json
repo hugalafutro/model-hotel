@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Veuillez saisir votre code TOTP",
 			"totpFailed": "Jeton d'administration ou code TOTP non valide",
 			"totpStep": "L'authentification à deux facteurs est activée. Saisissez le code à 6 chiffres fourni par votre application d'authentification.",
-			"totpThrottled": "Trop de tentatives. Veuillez patienter un instant et réessayer."
+			"totpThrottled": "Trop de tentatives. Veuillez patienter un instant et réessayer.",
+			"signInWithSSO": "Se connecter avec le SSO",
+			"signInWithSSOProvider": "Se connecter avec {{provider}}",
+			"ssoFailed": "Échec de l'authentification unique. Réessayez ou utilisez une autre méthode de connexion."
 		},
 		"theme": {
 			"switchToLight": "Passer en mode clair",
@@ -1923,6 +1926,32 @@
 			"title": "Délai d'expiration de la session",
 			"label": "Déconnexion automatique après inactivité",
 			"hint": "Déconnecte automatiquement le tableau de bord après cette période d'inactivité. Réglez sur Jamais pour garder la session ouverte indéfiniment."
+		},
+		"oidc": {
+			"title": "Authentification unique (SSO)",
+			"description": "Permet aux administrateurs de se connecter via un fournisseur OpenID Connect externe. Le SSO s'ajoute aux autres : la connexion par jeton admin, clé d'accès et TOTP continue de fonctionner.",
+			"enable": "Activer le SSO",
+			"enableDescription": "Affiche un bouton d'authentification unique sur l'écran de connexion.",
+			"issuer": "URL de l'émetteur",
+			"issuerDescription": "L'URL de base de découverte OpenID Connect du fournisseur.",
+			"clientId": "ID client",
+			"clientSecret": "Secret client",
+			"secretConfigured": "Secret défini (laisser vide pour le conserver)",
+			"secretPlaceholder": "Collez le secret client",
+			"clear": "Effacer",
+			"publicBaseUrl": "URL de base publique",
+			"publicBaseUrlDescription": "L'adresse de cette application accessible de l'extérieur, utilisée pour construire l'URI de redirection.",
+			"redirectUri": "URI de redirection",
+			"redirectUriDescription": "Enregistrez cette URL exacte auprès de votre fournisseur.",
+			"copyRedirectUri": "Copier l'URI de redirection",
+			"allowedEmails": "Adresses e-mail autorisées",
+			"allowedEmailsDescription": "Seules ces adresses e-mail vérifiées peuvent se connecter, séparées par des virgules ou des retours à la ligne.",
+			"fallbackNote": "Si le fournisseur est indisponible, vous pouvez toujours vous connecter avec le jeton admin, une clé d'accès ou TOTP.",
+			"status": {
+				"checking": "Vérification de la configuration…",
+				"configured": "Activé et configuré",
+				"incomplete": "Configuration incomplète"
+			}
 		}
 	},
 	"components": {

@@ -32,6 +32,9 @@ vi.mock("../api/client", () => ({
 			status: vi.fn().mockResolvedValue({ enabled: false }),
 			login: vi.fn().mockResolvedValue({ token: "session-token-from-server" }),
 		},
+		oidc: {
+			status: vi.fn().mockResolvedValue({ enabled: false }),
+		},
 	},
 }));
 
@@ -153,6 +156,31 @@ describe("LoginScreen TOTP step", () => {
 		).toBeInTheDocument();
 		expect(localStorage.getItem("adminToken")).toBeNull();
 		expect(setAdminToken).not.toHaveBeenCalled();
+	});
+
+	it("shows the SSO button only when oidc status is enabled", async () => {
+		const { api } = await import("../api/client");
+		vi.mocked(api.oidc.status).mockResolvedValue({
+			enabled: true,
+			display_name: "auth.example.com",
+		});
+
+		renderWithProviders(<App />);
+
+		const sso = await screen.findByTestId("sso-login-button");
+		// Button label includes the provider display name and links to /start.
+		expect(sso).toHaveTextContent("auth.example.com");
+		expect(sso).toHaveAttribute("href", "/api/auth/oidc/start");
+	});
+
+	it("hides the SSO button when oidc is disabled", async () => {
+		const { api } = await import("../api/client");
+		vi.mocked(api.oidc.status).mockResolvedValue({ enabled: false });
+
+		renderWithProviders(<App />);
+
+		await screen.findByRole("button", { name: "Sign In" });
+		expect(screen.queryByTestId("sso-login-button")).not.toBeInTheDocument();
 	});
 
 	it("accepts a full recovery code in the TOTP field (not capped at 6)", async () => {

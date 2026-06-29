@@ -159,7 +159,10 @@
 			"totpCodeRequired": "Vui lòng nhập mã TOTP của bạn",
 			"totpFailed": "Mã thông báo quản trị hoặc mã TOTP không hợp lệ",
 			"totpStep": "Xác thực hai yếu tố đã được bật. Nhập mã gồm 6 chữ số từ ứng dụng xác thực của bạn.",
-			"totpThrottled": "Quá nhiều lần thử. Vui lòng đợi một lát rồi thử lại."
+			"totpThrottled": "Quá nhiều lần thử. Vui lòng đợi một lát rồi thử lại.",
+			"signInWithSSO": "Đăng nhập bằng SSO",
+			"signInWithSSOProvider": "Đăng nhập bằng {{provider}}",
+			"ssoFailed": "Đăng nhập một lần không thành công. Hãy thử lại hoặc dùng phương thức đăng nhập khác."
 		},
 		"theme": {
 			"switchToLight": "Chuyển sang chế độ sáng",
@@ -1923,6 +1926,32 @@
 			"title": "Thời gian chờ phiên",
 			"label": "Tự động đăng xuất sau khi không hoạt động",
 			"hint": "Tự động đăng xuất khỏi bảng điều khiển sau khoảng thời gian không hoạt động này. Đặt thành Không bao giờ để giữ phiên mở vô thời hạn."
+		},
+		"oidc": {
+			"title": "Đăng nhập một lần (SSO)",
+			"description": "Cho phép quản trị viên đăng nhập qua nhà cung cấp OpenID Connect bên ngoài. SSO là bổ sung: đăng nhập bằng mã thông báo quản trị, khóa truy cập và TOTP vẫn hoạt động.",
+			"enable": "Bật SSO",
+			"enableDescription": "Hiển thị nút đăng nhập một lần trên màn hình đăng nhập.",
+			"issuer": "URL của nhà phát hành",
+			"issuerDescription": "URL cơ sở khám phá OpenID Connect của nhà cung cấp.",
+			"clientId": "ID khách hàng",
+			"clientSecret": "Khóa bí mật khách hàng",
+			"secretConfigured": "Đã đặt khóa bí mật (để trống để giữ nguyên)",
+			"secretPlaceholder": "Dán khóa bí mật khách hàng",
+			"clear": "Xóa",
+			"publicBaseUrl": "URL cơ sở công khai",
+			"publicBaseUrlDescription": "Địa chỉ có thể truy cập từ bên ngoài của ứng dụng này, dùng để tạo URI chuyển hướng.",
+			"redirectUri": "URI chuyển hướng",
+			"redirectUriDescription": "Đăng ký chính xác URL này với nhà cung cấp của bạn.",
+			"copyRedirectUri": "Sao chép URI chuyển hướng",
+			"allowedEmails": "Email được phép",
+			"allowedEmailsDescription": "Chỉ những địa chỉ email đã xác minh này mới có thể đăng nhập, phân tách bằng dấu phẩy hoặc dòng mới.",
+			"fallbackNote": "Nếu nhà cung cấp không khả dụng, bạn vẫn có thể đăng nhập bằng mã thông báo quản trị, khóa truy cập hoặc TOTP.",
+			"status": {
+				"checking": "Đang kiểm tra cấu hình…",
+				"configured": "Đã bật và đã cấu hình",
+				"incomplete": "Cấu hình chưa hoàn chỉnh"
+			}
 		}
 	},
 	"components": {
