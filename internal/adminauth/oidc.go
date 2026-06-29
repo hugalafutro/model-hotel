@@ -3,6 +3,7 @@ package adminauth
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -224,11 +225,15 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Per-IP backoff (defense in depth atop the /api per-IP rate limit).
+	// Redirect back to the SPA with an error fragment like every other failure
+	// (Retry-After still set as a hint) rather than a plaintext 429: the callback
+	// is always a browser navigation, so a raw 429 page would strand the user
+	// off the SPA. The throttle still blocks all work before this point.
 	throttleKey := h.ipLimiter.ClientIP(r)
 	if ok, retry := h.loginThrottle.Allowed(throttleKey); !ok {
 		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
 		debuglog.Warn("oidc: callback throttled", "remote_addr", r.RemoteAddr)
-		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
+		h.redirectError(w, r, "throttled")
 		return
 	}
 
@@ -267,8 +272,10 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, throttleKey, "provider declined", nil)
 		return
 	}
-	// CSRF: the returned state must match what we issued.
-	if r.URL.Query().Get("state") != st.State {
+	// CSRF: the returned state must match what we issued. Constant-time compare
+	// for consistency with the rest of the codebase (session.go); the record is
+	// already single-use so this is defense in depth, not load-bearing.
+	if subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("state")), []byte(st.State)) != 1 {
 		h.fail(w, r, throttleKey, "state mismatch", nil)
 		return
 	}
@@ -296,7 +303,7 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Replay defense: the nonce baked into the auth request must come back.
-	if idToken.Nonce != st.Nonce {
+	if subtle.ConstantTimeCompare([]byte(idToken.Nonce), []byte(st.Nonce)) != 1 {
 		h.fail(w, r, throttleKey, "nonce mismatch", nil)
 		return
 	}
@@ -353,9 +360,12 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	debuglog.Info("oidc: login success",
 		"email_masked", maskEmail(email), "sub", idToken.Subject, "iss", idToken.Issuer)
 
-	// Deliver the token in the URL fragment so it is never sent back to the
-	// server (no access log / reverse proxy can capture it). The SPA reads it on
-	// mount, stores it, and scrubs the URL.
+	// Deliver the token in the URL *fragment*: the SPA reads it on mount, stores
+	// it, and scrubs the URL. The fragment is never sent to the server on the
+	// follow-up request (no Referer leak, nothing in our own request logs). It
+	// does, however, appear in this 302's Location response header, so a proxy
+	// that logs response headers would capture it -- operators should redact
+	// `Location` on /api/auth/oidc/callback in their access logs (see README).
 	http.Redirect(w, r, "/#oidc_token="+url.QueryEscape(sessionToken), http.StatusFound)
 }
 

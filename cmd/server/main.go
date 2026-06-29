@@ -380,8 +380,12 @@ func main() {
 		})
 
 		// OIDC SSO login endpoints (status/start/callback) — unauthenticated,
-		// same group as the other login routes; they ARE the login.
+		// same group as the other login routes; they ARE the login. The timeout
+		// matches the API group's posture so a slow or hostile IdP (discovery,
+		// token exchange, or UserInfo) can't pin a goroutine open indefinitely;
+		// the per-IP limiter and request-context cancellation already help.
 		r.Group(func(r chi.Router) {
+			r.Use(middleware.Timeout(60 * time.Second))
 			oidcHandler.Register(r)
 		})
 

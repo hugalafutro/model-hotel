@@ -70,7 +70,7 @@ export function OidcPanel() {
 	const configured = statusQuery.data?.enabled ?? false;
 
 	return (
-		<div className="space-y-5">
+		<div className="space-y-5" data-testid="oidc-panel">
 			<p className="text-gray-400 text-sm">{t("settings.oidc.description")}</p>
 
 			{/* Enable toggle */}

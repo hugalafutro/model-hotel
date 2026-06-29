@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../../test/mocks/server";
@@ -33,9 +33,7 @@ describe("OidcPanel", () => {
 	it("hides config inputs when SSO is disabled", async () => {
 		mockSettings({ oidc_enabled: "false" });
 		renderWithProviders(<OidcPanel />);
-		await waitFor(() => {
-			expect(screen.getByText("Enable SSO")).toBeInTheDocument();
-		});
+		await screen.findByTestId("oidc-panel");
 		expect(screen.queryByTestId("oidc-issuer-input")).not.toBeInTheDocument();
 		expect(
 			screen.queryByTestId("oidc-client-secret-input"),

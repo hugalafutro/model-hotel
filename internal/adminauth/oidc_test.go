@@ -146,8 +146,10 @@ type mockIDP struct {
 	email          string
 	emailVerified  bool
 	sub            string
-	omitIDToken    bool
+	omitIDToken    bool // token response carries no id_token
 	emailInIDToken bool // when false, email is served only at /userinfo
+	tokenError     bool // /token returns an OAuth error (exchange fails)
+	expireIDToken  bool // id_token exp is in the past (Verify must reject)
 }
 
 func newMockIDP(t *testing.T, clientID string) *mockIDP {
@@ -206,6 +208,11 @@ func newMockIDP(t *testing.T, clientID string) *mockIDP {
 	mux.HandleFunc("/token", func(w http.ResponseWriter, _ *http.Request) {
 		idp.mu.Lock()
 		defer idp.mu.Unlock()
+		if idp.tokenError {
+			w.WriteHeader(http.StatusBadRequest)
+			writeTestJSON(w, map[string]any{"error": "invalid_grant"})
+			return
+		}
 		resp := map[string]any{
 			"access_token": "access-token",
 			"token_type":   "Bearer",
@@ -225,12 +232,16 @@ func newMockIDP(t *testing.T, clientID string) *mockIDP {
 // holds idp.mu.
 func (idp *mockIDP) signIDToken(t *testing.T) string {
 	t.Helper()
+	exp := time.Now().Add(time.Hour)
+	if idp.expireIDToken {
+		exp = time.Now().Add(-time.Hour)
+	}
 	cl := map[string]any{
 		"iss":   idp.server.URL,
 		"aud":   idp.clientID,
 		"sub":   idp.sub,
-		"exp":   time.Now().Add(time.Hour).Unix(),
-		"iat":   time.Now().Unix(),
+		"exp":   exp.Unix(),
+		"iat":   time.Now().Add(-2 * time.Hour).Unix(),
 		"nonce": idp.nonce,
 	}
 	// Some IdPs omit email from the ID token; the handler then falls back to
@@ -252,6 +263,15 @@ func (idp *mockIDP) configure(nonce, email string, verified bool) {
 	idp.email = email
 	idp.emailVerified = verified
 	idp.mu.Unlock()
+}
+
+// behavior mutates the response-shaping flags under the lock, so the httptest
+// handler goroutines (which read them under the same lock) never race the test
+// goroutine when -race is enabled.
+func (idp *mockIDP) behavior(fn func(*mockIDP)) {
+	idp.mu.Lock()
+	defer idp.mu.Unlock()
+	fn(idp)
 }
 
 func writeTestJSON(w http.ResponseWriter, v any) {
@@ -399,7 +419,7 @@ func TestOIDCLoginRoundTrip(t *testing.T) {
 // from the ID token: the handler must fall back to the UserInfo endpoint.
 func TestOIDCUserInfoFallback(t *testing.T) {
 	idp := newMockIDP(t, oidcTestClientID)
-	idp.emailInIDToken = false // email only at /userinfo
+	idp.behavior(func(m *mockIDP) { m.emailInIDToken = false }) // email only at /userinfo
 	h, _, sessionMgr := newOIDCTestHandler(t, idp, "admin@example.com")
 
 	loc, cookie := runStart(t, h)
@@ -478,6 +498,36 @@ func TestOIDCCallbackRejections(t *testing.T) {
 				return runCallback(t, h, cookie, url.Values{"state": {state}, "error": {"access_denied"}})
 			},
 		},
+		{
+			name: "code exchange failure",
+			run: func(t *testing.T, h *OIDCHandler, idp *mockIDP) string {
+				loc, cookie := runStart(t, h)
+				state := loc.Query().Get("state")
+				idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+				idp.behavior(func(m *mockIDP) { m.tokenError = true }) // /token returns an OAuth error
+				return runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+			},
+		},
+		{
+			name: "missing id_token in token response",
+			run: func(t *testing.T, h *OIDCHandler, idp *mockIDP) string {
+				loc, cookie := runStart(t, h)
+				state := loc.Query().Get("state")
+				idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+				idp.behavior(func(m *mockIDP) { m.omitIDToken = true }) // no id_token in response
+				return runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+			},
+		},
+		{
+			name: "expired id_token fails verification",
+			run: func(t *testing.T, h *OIDCHandler, idp *mockIDP) string {
+				loc, cookie := runStart(t, h)
+				state := loc.Query().Get("state")
+				idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+				idp.behavior(func(m *mockIDP) { m.expireIDToken = true }) // exp in the past
+				return runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -488,6 +538,28 @@ func TestOIDCCallbackRejections(t *testing.T) {
 				t.Fatalf("expected error fragment, got %q", frag)
 			}
 		})
+	}
+}
+
+// TestOIDCCallbackThrottle verifies the per-IP backoff trips after 5 failures
+// and that the throttled response is a fragment redirect (so the SPA renders
+// the login screen) rather than a plaintext 429.
+func TestOIDCCallbackThrottle(t *testing.T) {
+	idp := newMockIDP(t, oidcTestClientID)
+	h, _, _ := newOIDCTestHandler(t, idp, "admin@example.com")
+
+	// Cookieless callbacks fail ("missing login state") and record failures. With
+	// maxFailures=5 the backoff first applies after the 6th recorded failure
+	// (backoffFor: shift = failures-maxFailures-1), so the 7th attempt is the
+	// first one blocked. All share one IP key (mockIPLimiter returns r.RemoteAddr,
+	// constant across httptest requests); the 1s lock easily outlasts the loop.
+	q := url.Values{"state": {"x"}, "code": {"c"}}
+	var frag string
+	for i := 0; i < 7; i++ {
+		frag = runCallback(t, h, nil, q)
+	}
+	if !strings.HasPrefix(frag, "oidc_error=throttled") {
+		t.Fatalf("seventh attempt should be throttled with a fragment redirect, got %q", frag)
 	}
 }
 
