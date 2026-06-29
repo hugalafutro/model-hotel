@@ -185,9 +185,18 @@ If you lose your authenticator, a recovery code signs you in once so you can dis
 ### [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Single Sign-On (OIDC)](#-single-sign-on-oidc)
 Let admins sign in through an external OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket-ID, Okta, Google, Entra, and so on). Configure it from the Settings page: paste the issuer URL, client ID, and client secret from an app you register with your provider, then list the verified email addresses allowed to sign in. A "Sign in with SSO" button appears on the login screen.
 
+<div align="center">
+<br><img src="docs/screenshots/settings_authentication.png" alt="Authentication settings: single sign-on, passkeys, and TOTP" width="640"><br><br>
+</div>
+
 SSO is a third login path, not a replacement: after the provider confirms an allowlisted, email-verified identity it mints the same session token as passkey and TOTP login, so nothing downstream changes. Logins are gated by the email allowlist (empty allowlist denies everyone) and matched only on verified emails, while the provider's stable `sub` and issuer are recorded in the audit log. The client secret is AES-256-GCM encrypted at rest with `MASTER_KEY`, the flow uses PKCE plus single-use state and nonce, and the minted token is handed to the browser in the URL fragment, so it is never sent back to the server on later requests (no Referer leak, nothing in request logs). The one place it does appear is the callback's `302 Location` response header; if your reverse proxy logs response headers, redact `Location` on `/api/auth/oidc/callback`.
 
-Because it is self-hosted, there is no turnkey "Google login": each operator registers their own OIDC app with their provider and points it at this app's redirect URI (`<public base URL>/api/auth/oidc/callback`, shown in Settings). SSO never removes local login, so a misconfigured or unreachable provider cannot lock you out: the admin token, passkeys, and TOTP all keep working. GitHub (plain OAuth2, no ID token) is not supported in this version. SSO is opt-in at runtime from Settings and needs no environment variable.
+Because it is self-hosted, there is no turnkey "Google login": each operator registers their own OIDC app with their provider and points it at this app's redirect URI (`<public base URL>/api/auth/oidc/callback`, shown in Settings). SSO never removes local login, so a misconfigured or unreachable provider cannot lock you out: the admin token, passkeys, and TOTP all keep working. SSO is opt-in at runtime from Settings and needs no environment variable.
+
+### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> High Availability](#-high-availability)
+One instance keeps its caches and rate-limit counters in memory, so to survive a host going down you run several instances behind a single client endpoint. Model Hotel ships a drop-in HA stack: a **Front Desk** control plane that holds the fleet roster and pushes configuration to every member, and **Traefik** as the load balancer that health-checks each instance and fails traffic over automatically. Members share one `MASTER_KEY` so encrypted provider keys port across the fleet, while each keeps its own admin token. A configuration change made on any member syncs to the rest, so the fleet stays converged without copying anything by hand.
+
+The [High Availability runbook](docs/HA.md) covers the full deployment: what you deploy, the three secrets and the distinct job each one does, the drop-in migration runbook, automatic config sync, the TLS proxy split (the `/v1` proxy API and the admin UI on separate hostnames), and two-machine acceptance checks.
 
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
 ```bash
