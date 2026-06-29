@@ -49,7 +49,10 @@
 		"invalidToken": "That token was not accepted",
 		"invalidCode": "That code was not accepted",
 		"failed": "Sign-in failed, please try again",
-		"tooManyAttempts": "Too many attempts, wait a moment and try again"
+		"tooManyAttempts": "Too many attempts, wait a moment and try again",
+		"sso": "Sign in with SSO",
+		"ssoProvider": "Sign in with {{provider}}",
+		"ssoFailed": "Single sign-on failed. Try again or use another login method."
 	},
 	"members": {
 		"title": "Members",
@@ -149,6 +152,28 @@
 	"settings": {
 		"title": "Settings",
 		"saved": "Settings saved",
+		"oidc": {
+			"title": "Single sign-on (OIDC)",
+			"hint": "Let admins sign in through an external OpenID Connect provider, a fourth login path alongside the Front Desk token, TOTP, and passkeys. Any standards-compliant provider works, as long as it releases the user's verified email. GitHub login is configured on the main dashboard only.",
+			"statusConfigured": "Configured",
+			"statusIncomplete": "Incomplete",
+			"saved": "SSO settings saved",
+			"saveBtn": "Save SSO settings",
+			"enableLabel": "Enable OIDC single sign-on",
+			"issuerLabel": "Issuer URL",
+			"issuerHint": "The provider's base URL. Its discovery document is read from <issuer>/.well-known/openid-configuration.",
+			"clientIdLabel": "Client ID",
+			"clientSecretLabel": "Client secret",
+			"clientSecretHint": "Stored encrypted. Paste the secret from the OAuth client you register with your provider.",
+			"secretStoredNote": "A secret is stored. Leave unchanged to keep it, type a new one to replace it, or clear the field to remove it.",
+			"baseUrlLabel": "Public base URL",
+			"baseUrlHint": "Front Desk's own externally reachable base URL. The redirect URI below is built from it.",
+			"redirectUriLabel": "Redirect URI",
+			"redirectUriHint": "Register this exact URI with your provider as the OAuth client's redirect URI.",
+			"allowedEmailsLabel": "Allowed emails",
+			"allowedEmailsHint": "Comma-separated allowlist of verified email addresses permitted to sign in. Fail-closed: an empty list denies everyone.",
+			"fallbackNote": "SSO is additive: the Front Desk token, TOTP, and passkey logins always keep working, so a misconfigured or unreachable provider cannot lock you out."
+		},
 		"pollSection": "Polling & data plane",
 		"pollSectionHint": "These regenerate the Traefik config that the data plane polls.",
 		"healthPoll": "Health poll interval (seconds)",

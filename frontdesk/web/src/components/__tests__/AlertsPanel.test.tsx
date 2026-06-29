@@ -39,6 +39,12 @@ const settings: Settings = {
 	alert_apprise_api_url: "http://apprise:8000",
 	alert_apprise_targets: "********", // a secret is stored; served masked
 	alert_events: "health.down",
+	oidc_enabled: false,
+	oidc_issuer_url: "",
+	oidc_client_id: "",
+	oidc_client_secret: "",
+	oidc_public_base_url: "",
+	oidc_allowed_emails: "",
 };
 
 const okStatus: AlertStatus = {

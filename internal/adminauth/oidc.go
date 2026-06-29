@@ -27,13 +27,15 @@ import (
 )
 
 // OIDC settings keys (mirrored in settings.AllowedSettings + api.allowedSettings).
+// Exported so callers that store the config elsewhere (e.g. the Front Desk
+// SQLite-backed OIDCSettings adapter) reference the same key strings.
 const (
-	oidcEnabledKey       = "oidc_enabled"
-	oidcIssuerURLKey     = "oidc_issuer_url"
-	oidcClientIDKey      = "oidc_client_id"
-	oidcClientSecretKey  = "oidc_client_secret"
-	oidcAllowedEmailsKey = "oidc_allowed_emails"
-	oidcPublicBaseURLKey = "oidc_public_base_url"
+	OIDCEnabledKey       = "oidc_enabled"
+	OIDCIssuerURLKey     = "oidc_issuer_url"
+	OIDCClientIDKey      = "oidc_client_id"
+	OIDCClientSecretKey  = "oidc_client_secret"
+	OIDCAllowedEmailsKey = "oidc_allowed_emails"
+	OIDCPublicBaseURLKey = "oidc_public_base_url"
 )
 
 // oidcCallbackPath is the fixed redirect-URI path. The operator registers
@@ -142,10 +144,10 @@ type oidcStatusResponse struct {
 // or touches the network, so the polled login screen stays light.
 func (h *OIDCHandler) Status(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	enabled := h.settings.GetBool(ctx, oidcEnabledKey, false)
-	issuer := strings.TrimSpace(h.settings.GetWithDefault(ctx, oidcIssuerURLKey, ""))
-	clientID := strings.TrimSpace(h.settings.GetWithDefault(ctx, oidcClientIDKey, ""))
-	baseURL := strings.TrimSpace(h.settings.GetWithDefault(ctx, oidcPublicBaseURLKey, ""))
+	enabled := h.settings.GetBool(ctx, OIDCEnabledKey, false)
+	issuer := strings.TrimSpace(h.settings.GetWithDefault(ctx, OIDCIssuerURLKey, ""))
+	clientID := strings.TrimSpace(h.settings.GetWithDefault(ctx, OIDCClientIDKey, ""))
+	baseURL := strings.TrimSpace(h.settings.GetWithDefault(ctx, OIDCPublicBaseURLKey, ""))
 
 	resp := oidcStatusResponse{}
 	if enabled && issuer != "" && clientID != "" && baseURL != "" {
@@ -416,12 +418,12 @@ func (h *OIDCHandler) clearCookie(w http.ResponseWriter) {
 // logins don't serialize on a network call; a rare double build is harmless
 // (last writer wins).
 func (h *OIDCHandler) runtime(ctx context.Context) (*oidcRuntime, error) {
-	enabled := h.settings.GetBool(ctx, oidcEnabledKey, false)
-	issuer := strings.TrimSpace(h.settings.GetWithDefault(ctx, oidcIssuerURLKey, ""))
-	clientID := strings.TrimSpace(h.settings.GetWithDefault(ctx, oidcClientIDKey, ""))
-	clientSecretEnc := h.settings.GetWithDefault(ctx, oidcClientSecretKey, "")
-	baseURL := strings.TrimSpace(h.settings.GetWithDefault(ctx, oidcPublicBaseURLKey, ""))
-	allowedRaw := h.settings.GetWithDefault(ctx, oidcAllowedEmailsKey, "")
+	enabled := h.settings.GetBool(ctx, OIDCEnabledKey, false)
+	issuer := strings.TrimSpace(h.settings.GetWithDefault(ctx, OIDCIssuerURLKey, ""))
+	clientID := strings.TrimSpace(h.settings.GetWithDefault(ctx, OIDCClientIDKey, ""))
+	clientSecretEnc := h.settings.GetWithDefault(ctx, OIDCClientSecretKey, "")
+	baseURL := strings.TrimSpace(h.settings.GetWithDefault(ctx, OIDCPublicBaseURLKey, ""))
+	allowedRaw := h.settings.GetWithDefault(ctx, OIDCAllowedEmailsKey, "")
 
 	fp := strings.Join([]string{
 		strconv.FormatBool(enabled), issuer, clientID, clientSecretEnc, baseURL, allowedRaw,

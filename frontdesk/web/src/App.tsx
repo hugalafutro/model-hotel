@@ -20,6 +20,7 @@ import { useIdleLogout } from "./hooks/useIdleLogout";
 import { EventsPage } from "./pages/EventsPage";
 import { MembersPage } from "./pages/MembersPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { consumeOidcError, consumeOidcToken } from "./utils/oidc";
 
 // Traffic carries recharts (the one heavy dependency), so it loads lazily to
 // keep the initial bundle small; the other tabs are cheap and stay eager.
@@ -39,7 +40,13 @@ export default function App() {
 
 function Shell() {
 	const { t } = useTranslation();
-	const [authed, setAuthed] = useState(() => !!getAuthToken());
+	// An OIDC SSO callback hands the session token back in the URL fragment (the
+	// error code likewise). Consume both synchronously at boot, before reading the
+	// stored token, so an SSO redirect lands logged in and a failure surfaces on
+	// the login screen. consumeOidcToken scrubs the token hash; consumeOidcError
+	// only matches/scrubs the error hash, so order is safe either way.
+	const [authed, setAuthed] = useState(() => consumeOidcToken() || !!getAuthToken());
+	const [ssoError] = useState(() => consumeOidcError());
 	const [tab, setTab] = useState<Tab>("members");
 
 	// Any authenticated request that 401s drops us back to login.
@@ -57,7 +64,13 @@ function Shell() {
 	// `authed` so the timer only runs while a session exists.
 	useIdleLogout(authed, logout);
 
-	if (!authed) return <Login onAuthenticated={() => setAuthed(true)} />;
+	if (!authed)
+		return (
+			<Login
+				onAuthenticated={() => setAuthed(true)}
+				initialError={ssoError}
+			/>
+		);
 
 	const tabs: { id: Tab; label: string }[] = [
 		{ id: "members", label: t("tabs.members") },

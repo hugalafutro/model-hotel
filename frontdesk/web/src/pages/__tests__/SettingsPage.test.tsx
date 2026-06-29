@@ -19,6 +19,12 @@ const defaults: Settings = {
 	alert_apprise_api_url: "",
 	alert_apprise_targets: "",
 	alert_events: "",
+	oidc_enabled: false,
+	oidc_issuer_url: "",
+	oidc_client_id: "",
+	oidc_client_secret: "",
+	oidc_public_base_url: "",
+	oidc_allowed_emails: "",
 };
 
 function renderPage() {

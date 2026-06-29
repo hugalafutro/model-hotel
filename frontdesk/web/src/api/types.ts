@@ -65,6 +65,22 @@ export interface Settings {
 	alert_apprise_api_url: string;
 	alert_apprise_targets: string;
 	alert_events: string;
+	// OIDC SSO admin login. oidc_client_secret is masked over the API ("********"
+	// when a secret is stored); echo it back unchanged to preserve the stored
+	// value, send a new value to replace it, or "" to clear it. oidc_allowed_emails
+	// is a CSV verified-email allowlist (fail-closed: empty denies everyone).
+	oidc_enabled: boolean;
+	oidc_issuer_url: string;
+	oidc_client_id: string;
+	oidc_client_secret: string;
+	oidc_public_base_url: string;
+	oidc_allowed_emails: string;
+}
+
+// Public OIDC SSO status (GET /api/auth/oidc/status), gating the login button.
+export interface OidcStatus {
+	enabled: boolean;
+	display_name?: string;
 }
 
 // Running-build identity from GET /api/version, used by the footer to show which

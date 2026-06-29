@@ -92,6 +92,18 @@ type Settings struct {
 	AlertAppriseAPIURL  string `json:"alert_apprise_api_url"`
 	AlertAppriseTargets string `json:"alert_apprise_targets"`
 	AlertEvents         string `json:"alert_events"`
+
+	// OIDC SSO admin login (a fourth login path, reusing the shared adminauth
+	// handler). OidcClientSecret is stored encrypted at rest (auth.EncryptString)
+	// and masked at the API boundary, like AlertAppriseTargets; the store layer
+	// reads/writes the raw column value. The frontdeskOIDCSettings adapter exposes
+	// these to adminauth.OIDCHandler via the GetBool/GetWithDefault contract.
+	OidcEnabled       bool   `json:"oidc_enabled"`
+	OidcIssuerURL     string `json:"oidc_issuer_url"`
+	OidcClientID      string `json:"oidc_client_id"`
+	OidcClientSecret  string `json:"oidc_client_secret"`
+	OidcPublicBaseURL string `json:"oidc_public_base_url"`
+	OidcAllowedEmails string `json:"oidc_allowed_emails"`
 }
 
 // Event is a control-plane fact (membership change, health transition, config
@@ -398,19 +410,23 @@ func (s *Store) GetSettings(ctx context.Context) (Settings, error) {
 	var (
 		set          Settings
 		alertEnabled int
+		oidcEnabled  int
 	)
 	err := s.db.QueryRowContext(ctx,
 		`SELECT health_poll_secs, traefik_poll_secs, traefik_stale_secs, event_retention_days, retry_attempts,
 		        session_idle_timeout_minutes,
-		        alert_enabled, alert_apprise_api_url, alert_apprise_targets, alert_events
+		        alert_enabled, alert_apprise_api_url, alert_apprise_targets, alert_events,
+		        oidc_enabled, oidc_issuer_url, oidc_client_id, oidc_client_secret, oidc_public_base_url, oidc_allowed_emails
 		 FROM settings WHERE id = 1`,
 	).Scan(&set.HealthPollSecs, &set.TraefikPollSecs, &set.TraefikStaleSecs, &set.EventRetentionDays, &set.RetryAttempts,
 		&set.SessionIdleTimeoutMinutes,
-		&alertEnabled, &set.AlertAppriseAPIURL, &set.AlertAppriseTargets, &set.AlertEvents)
+		&alertEnabled, &set.AlertAppriseAPIURL, &set.AlertAppriseTargets, &set.AlertEvents,
+		&oidcEnabled, &set.OidcIssuerURL, &set.OidcClientID, &set.OidcClientSecret, &set.OidcPublicBaseURL, &set.OidcAllowedEmails)
 	if err != nil {
 		return Settings{}, fmt.Errorf("frontdesk: get settings: %w", err)
 	}
 	set.AlertEnabled = alertEnabled != 0
+	set.OidcEnabled = oidcEnabled != 0
 	return set, nil
 }
 
@@ -432,15 +448,24 @@ func (s *Store) UpdateSettings(ctx context.Context, set Settings) error {
 	if set.AlertEnabled {
 		alertEnabled = 1
 	}
-	// AlertAppriseTargets is written as-is: the HTTP layer has already encrypted a
-	// new value or preserved the existing ciphertext for a masked submission.
+	oidcEnabled := 0
+	if set.OidcEnabled {
+		oidcEnabled = 1
+	}
+	// AlertAppriseTargets and OidcClientSecret are written as-is: the HTTP layer has
+	// already encrypted a new value or preserved the existing ciphertext for a
+	// masked submission.
 	_, err := s.db.ExecContext(ctx,
 		`UPDATE settings SET health_poll_secs = ?, traefik_poll_secs = ?, traefik_stale_secs = ?,
 		 event_retention_days = ?, retry_attempts = ?, session_idle_timeout_minutes = ?,
-		 alert_enabled = ?, alert_apprise_api_url = ?, alert_apprise_targets = ?, alert_events = ? WHERE id = 1`,
+		 alert_enabled = ?, alert_apprise_api_url = ?, alert_apprise_targets = ?, alert_events = ?,
+		 oidc_enabled = ?, oidc_issuer_url = ?, oidc_client_id = ?, oidc_client_secret = ?,
+		 oidc_public_base_url = ?, oidc_allowed_emails = ? WHERE id = 1`,
 		set.HealthPollSecs, set.TraefikPollSecs, set.TraefikStaleSecs,
 		set.EventRetentionDays, set.RetryAttempts, set.SessionIdleTimeoutMinutes,
 		alertEnabled, set.AlertAppriseAPIURL, set.AlertAppriseTargets, set.AlertEvents,
+		oidcEnabled, set.OidcIssuerURL, set.OidcClientID, set.OidcClientSecret,
+		set.OidcPublicBaseURL, set.OidcAllowedEmails,
 	)
 	if err != nil {
 		return fmt.Errorf("frontdesk: update settings: %w", err)
