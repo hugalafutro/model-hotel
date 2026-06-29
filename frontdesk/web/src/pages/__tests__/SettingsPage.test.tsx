@@ -51,6 +51,10 @@ beforeEach(() => {
 				healthy: false,
 			}),
 		),
+		// The OIDC panel polls SSO status on mount.
+		http.get("/api/auth/oidc/status", () =>
+			HttpResponse.json({ enabled: false }),
+		),
 	);
 });
 

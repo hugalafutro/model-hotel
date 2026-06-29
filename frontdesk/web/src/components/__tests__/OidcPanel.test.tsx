@@ -39,7 +39,10 @@ function mountWithSettings(s: Settings): { puts: Partial<Settings>[] } {
 	server.use(
 		http.get("/api/settings", () => HttpResponse.json(s)),
 		http.get("/api/auth/oidc/status", () =>
-			HttpResponse.json({ enabled: s.oidc_enabled, display_name: "auth.example.com" }),
+			HttpResponse.json({
+				enabled: s.oidc_enabled,
+				display_name: "auth.example.com",
+			}),
 		),
 		http.put("/api/settings", async ({ request }) => {
 			puts.push((await request.json()) as Partial<Settings>);
@@ -59,7 +62,9 @@ beforeEach(() => {});
 it("populates fields and derives the redirect URI from the base URL", async () => {
 	mountWithSettings(makeSettings());
 
-	expect(await screen.findByDisplayValue("https://auth.example.com")).toBeTruthy();
+	expect(
+		await screen.findByDisplayValue("https://auth.example.com"),
+	).toBeTruthy();
 	expect(screen.getByDisplayValue("frontdesk")).toBeTruthy();
 	expect(screen.getByDisplayValue("admin@example.com")).toBeTruthy();
 	// Redirect URI is built from the public base URL.

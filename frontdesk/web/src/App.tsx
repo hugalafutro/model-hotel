@@ -45,7 +45,9 @@ function Shell() {
 	// stored token, so an SSO redirect lands logged in and a failure surfaces on
 	// the login screen. consumeOidcToken scrubs the token hash; consumeOidcError
 	// only matches/scrubs the error hash, so order is safe either way.
-	const [authed, setAuthed] = useState(() => consumeOidcToken() || !!getAuthToken());
+	const [authed, setAuthed] = useState(
+		() => consumeOidcToken() || !!getAuthToken(),
+	);
 	const [ssoError] = useState(() => consumeOidcError());
 	const [tab, setTab] = useState<Tab>("members");
 
@@ -66,10 +68,7 @@ function Shell() {
 
 	if (!authed)
 		return (
-			<Login
-				onAuthenticated={() => setAuthed(true)}
-				initialError={ssoError}
-			/>
+			<Login onAuthenticated={() => setAuthed(true)} initialError={ssoError} />
 		);
 
 	const tabs: { id: Tab; label: string }[] = [

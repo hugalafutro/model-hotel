@@ -42,11 +42,18 @@ export function OidcPanel() {
 		setEmails(s.oidc_allowed_emails);
 	};
 
+	// Load once on mount. Inlined (not via applySettings) so the effect's only
+	// dependencies are the stable setters and the empty array is honest.
 	useEffect(() => {
 		api
 			.getSettings()
 			.then((s) => {
-				applySettings(s);
+				setEnabled(s.oidc_enabled);
+				setIssuer(s.oidc_issuer_url);
+				setClientId(s.oidc_client_id);
+				setSecret(s.oidc_client_secret);
+				setBaseUrl(s.oidc_public_base_url);
+				setEmails(s.oidc_allowed_emails);
 				setLoaded(true);
 			})
 			.catch(() => setLoadError(true));
@@ -127,7 +134,9 @@ export function OidcPanel() {
 					onChange={(e) => setEnabled(e.target.checked)}
 					data-testid="fd-oidc-enable"
 				/>
-				<span style={{ fontWeight: 500 }}>{t("settings.oidc.enableLabel")}</span>
+				<span style={{ fontWeight: 500 }}>
+					{t("settings.oidc.enableLabel")}
+				</span>
 			</label>
 
 			{enabled && (

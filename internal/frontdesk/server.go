@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	gowa "github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
@@ -167,7 +168,15 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 		// the login flow; the email allowlist, not a bearer, gates completion.
 		wa.Register(r)
 		tp.Register(r)
-		oidc.Register(r)
+		// OIDC is the one login path that makes outbound third-party calls
+		// (discovery on fingerprint change, token exchange + UserInfo per login),
+		// so bound it with a per-request timeout so a slow or hostile IdP can't
+		// pin a goroutine open indefinitely. Matches the main dashboard's posture
+		// (the SQLite server sets no WriteTimeout, so this is the actual cap).
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Timeout(60 * time.Second))
+			oidc.Register(r)
+		})
 
 		// Control-plane REST + SSE, behind the admin-or-session gate.
 		r.Group(func(r chi.Router) {
