@@ -170,7 +170,7 @@ Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is st
 Log into the admin dashboard using a FIDO2/WebAuthn passkey (Touch ID, Windows Hello, YubiKey, etc.) instead of the admin token. Register passkeys from the Settings page and use them on the login screen alongside the traditional admin token.
 
 <div align="center">
-<br><img src="docs/screenshots/login_passkey.png" alt="Passkey Login" width="360"><br><br>
+<br><img src="docs/screenshots/login_passkey.png" alt="Login screen with passkey, SSO, GitHub, and TOTP" width="360"><br><br>
 </div>
 
 Passkey login is disabled by default. Enable it by setting `WEBAUTHN_RP_ID` (your domain) in the environment; `WEBAUTHN_RP_ORIGINS` (your origin URLs) falls back to `CORS_ORIGINS`, then to `http://localhost:<port>`. Session tokens are SHA-256 hashed, never stored in plaintext, and expire after 30 days.
@@ -186,7 +186,15 @@ If you lose your authenticator, a recovery code signs you in once so you can dis
 Let admins sign in through an external OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket-ID, Okta, Google, Entra, and so on). Configure it from the Settings page: paste the issuer URL, client ID, and client secret from an app you register with your provider, then list the verified email addresses allowed to sign in. A "Sign in with SSO" button appears on the login screen.
 
 <div align="center">
-<br><img src="docs/screenshots/settings_authentication.png" alt="Authentication settings: single sign-on, passkeys, and TOTP" width="640"><br><br>
+<br>
+<table>
+<tr>
+<td align="center" valign="top"><a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_local.png" alt="Authentication settings: passkeys and TOTP" width="260"></a><br><sub>Passkeys + 2FA (TOTP)</sub></td>
+<td align="center" valign="top"><a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_oidc.png" alt="Authentication settings: OIDC single sign-on" width="260"></a><br><sub>OIDC single sign-on</sub></td>
+<td align="center" valign="top"><a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_github.png" alt="Authentication settings: GitHub sign-in" width="260"></a><br><sub>GitHub sign-in</sub></td>
+</tr>
+</table>
+<br><sub>The Authentication settings page, split into its three sections. Click any panel for the full view.</sub><br><br>
 </div>
 
 SSO is a third login path, not a replacement: after the provider confirms an allowlisted, email-verified identity it mints the same session token as passkey and TOTP login, so nothing downstream changes. Logins are gated by the email allowlist (empty allowlist denies everyone) and matched only on verified emails, while the provider's stable `sub` and issuer are logged on each login (app log, source `oidc`). The client secret is AES-256-GCM encrypted at rest with `MASTER_KEY`, the flow uses PKCE plus single-use state and nonce, and the minted token is handed to the browser in the URL fragment, so it is never sent back to the server on later requests (no Referer leak, nothing in request logs). The one place it does appear is the callback's `302 Location` response header; if your reverse proxy logs response headers, redact `Location` on `/api/auth/oidc/callback`.
