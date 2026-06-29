@@ -1937,6 +1937,7 @@
 			"issuerDescription": "제공자의 OpenID Connect 디스커버리 기본 URL입니다.",
 			"clientId": "클라이언트 ID",
 			"clientSecret": "클라이언트 시크릿",
+			"toggleSecret": "클라이언트 시크릿 표시 또는 숨기기",
 			"secretConfigured": "시크릿 설정됨(유지하려면 비워 두세요)",
 			"secretPlaceholder": "클라이언트 시크릿 붙여넣기",
 			"clear": "지우기",

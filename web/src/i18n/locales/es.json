@@ -1937,6 +1937,7 @@
 			"issuerDescription": "La URL base de descubrimiento de OpenID Connect del proveedor.",
 			"clientId": "ID de cliente",
 			"clientSecret": "Secreto de cliente",
+			"toggleSecret": "Mostrar u ocultar el secreto de cliente",
 			"secretConfigured": "Secreto configurado (déjalo en blanco para conservarlo)",
 			"secretPlaceholder": "Pega el secreto de cliente",
 			"clear": "Borrar",

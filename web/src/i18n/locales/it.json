@@ -1937,6 +1937,7 @@
 			"issuerDescription": "L'URL di base di discovery OpenID Connect del provider.",
 			"clientId": "ID client",
 			"clientSecret": "Secret client",
+			"toggleSecret": "Mostra o nascondi il client secret",
 			"secretConfigured": "Secret impostato (lascia vuoto per mantenerlo)",
 			"secretPlaceholder": "Incolla il secret client",
 			"clear": "Cancella",

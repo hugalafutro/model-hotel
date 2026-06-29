@@ -1937,6 +1937,7 @@
 			"issuerDescription": "عنوان URL الأساسي لاكتشاف OpenID Connect لدى الموفّر.",
 			"clientId": "معرّف العميل",
 			"clientSecret": "سر العميل",
+			"toggleSecret": "إظهار أو إخفاء سر العميل",
 			"secretConfigured": "تم تعيين السر (اتركه فارغًا للإبقاء عليه)",
 			"secretPlaceholder": "الصق سر العميل",
 			"clear": "مسح",

@@ -1937,6 +1937,7 @@
 			"issuerDescription": "De OpenID Connect-discovery-basis-URL van de provider.",
 			"clientId": "Client-ID",
 			"clientSecret": "Clientgeheim",
+			"toggleSecret": "Clientgeheim tonen of verbergen",
 			"secretConfigured": "Geheim ingesteld (laat leeg om te behouden)",
 			"secretPlaceholder": "Plak het clientgeheim",
 			"clear": "Wissen",

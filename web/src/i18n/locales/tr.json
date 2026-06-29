@@ -1937,6 +1937,7 @@
 			"issuerDescription": "Sağlayıcının OpenID Connect keşif temel URL'si.",
 			"clientId": "İstemci kimliği",
 			"clientSecret": "İstemci gizli anahtarı",
+			"toggleSecret": "İstemci sırrını göster veya gizle",
 			"secretConfigured": "Gizli anahtar ayarlandı (korumak için boş bırakın)",
 			"secretPlaceholder": "İstemci gizli anahtarını yapıştırın",
 			"clear": "Temizle",

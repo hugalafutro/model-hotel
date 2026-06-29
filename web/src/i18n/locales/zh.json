@@ -1937,6 +1937,7 @@
 			"issuerDescription": "提供方的 OpenID Connect 发现基础 URL。",
 			"clientId": "客户端 ID",
 			"clientSecret": "客户端密钥",
+			"toggleSecret": "显示或隐藏客户端密钥",
 			"secretConfigured": "已设置密钥（留空以保留）",
 			"secretPlaceholder": "粘贴客户端密钥",
 			"clear": "清除",

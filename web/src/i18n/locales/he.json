@@ -1937,6 +1937,7 @@
 			"issuerDescription": "כתובת ה-URL הבסיסית לגילוי OpenID Connect של הספק.",
 			"clientId": "מזהה לקוח",
 			"clientSecret": "סוד לקוח",
+			"toggleSecret": "הצג או הסתר את סוד הלקוח",
 			"secretConfigured": "הסוד הוגדר (השאר ריק כדי לשמור עליו)",
 			"secretPlaceholder": "הדבק את סוד הלקוח",
 			"clear": "ניקוי",

@@ -144,6 +144,46 @@ describe("OidcPanel", () => {
 		);
 	});
 
+	it("reveals and hides the secret without committing the draft", async () => {
+		mockSettings({
+			oidc_enabled: "true",
+			oidc_issuer_url: "https://auth.example.com",
+			oidc_public_base_url: "https://hotel.example.com",
+		});
+		mockOidcStatus(false);
+		const puts: Record<string, string>[] = [];
+		server.use(
+			http.put("/api/settings", async ({ request }) => {
+				puts.push((await request.json()) as Record<string, string>);
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(<OidcPanel />);
+
+		const input = (await screen.findByTestId(
+			"oidc-client-secret-input",
+		)) as HTMLInputElement;
+		expect(input.type).toBe("password");
+
+		// Paste a value with a trailing space (the exact case that motivated this).
+		await user.type(input, "s3cr3t ");
+
+		// Revealing must NOT blur-commit: the field keeps focus (mousedown is
+		// prevented), so the draft survives and nothing is saved.
+		const reveal = screen.getByTestId("oidc-client-secret-reveal");
+		await user.click(reveal);
+		expect(input.type).toBe("text");
+		expect(input.value).toBe("s3cr3t ");
+		expect(puts).toHaveLength(0);
+
+		// Toggling again re-masks, still without committing.
+		await user.click(reveal);
+		expect(input.type).toBe("password");
+		expect(input.value).toBe("s3cr3t ");
+		expect(puts).toHaveLength(0);
+	});
+
 	it("toggles enable off", async () => {
 		mockSettings({ oidc_enabled: "true", oidc_issuer_url: "https://a.test" });
 		mockOidcStatus(true);

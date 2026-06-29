@@ -1937,6 +1937,7 @@
 			"issuerDescription": "A szolgáltató OpenID Connect felderítési alap URL-címe.",
 			"clientId": "Ügyfél-azonosító",
 			"clientSecret": "Ügyféltitok",
+			"toggleSecret": "Ügyfél-titok megjelenítése vagy elrejtése",
 			"secretConfigured": "Titok beállítva (hagyd üresen a megtartásához)",
 			"secretPlaceholder": "Illeszd be az ügyféltitkot",
 			"clear": "Törlés",

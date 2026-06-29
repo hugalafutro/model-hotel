@@ -1937,6 +1937,7 @@
 			"issuerDescription": "Bazowy adres URL wykrywania OpenID Connect dostawcy.",
 			"clientId": "Identyfikator klienta",
 			"clientSecret": "Sekret klienta",
+			"toggleSecret": "Pokaż lub ukryj sekret klienta",
 			"secretConfigured": "Sekret ustawiony (pozostaw puste, aby zachować)",
 			"secretPlaceholder": "Wklej sekret klienta",
 			"clear": "Wyczyść",

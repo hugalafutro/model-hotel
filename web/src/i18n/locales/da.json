@@ -1937,6 +1937,7 @@
 			"issuerDescription": "Udbyderens OpenID Connect-discovery-basis-URL.",
 			"clientId": "Klient-id",
 			"clientSecret": "Klienthemmelighed",
+			"toggleSecret": "Vis eller skjul klienthemmeligheden",
 			"secretConfigured": "Hemmelighed angivet (lad stå tom for at beholde den)",
 			"secretPlaceholder": "Indsæt klienthemmeligheden",
 			"clear": "Ryd",
