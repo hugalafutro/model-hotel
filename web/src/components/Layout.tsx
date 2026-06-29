@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
 	AlertTriangle,
 	BookOpen,
@@ -23,7 +23,7 @@ import {
 	Sun,
 	Swords,
 } from "@/lib/icons";
-import { api } from "../api/client";
+import { api, setAdminToken } from "../api/client";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
@@ -657,7 +657,6 @@ function ReadOnlyBanner() {
 export function Layout({ children }: LayoutProps) {
 	const { t } = useTranslation();
 	const location = useLocation();
-	const navigate = useNavigate();
 	const { theme, setTheme, uiStyle } = useTheme();
 	// Separator between paired labels/counts in the sidebar. The terminal theme
 	// keeps a literal "/" (fits its monospace aesthetic); other themes use a
@@ -845,8 +844,16 @@ export function Layout({ children }: LayoutProps) {
 		} catch {
 			// Server-side logout failure is non-fatal.
 		}
+		// Tear down the auth state before the reload. Order matters: clear the
+		// in-memory token (the primary source getAuthHeaders() reads) AND the
+		// localStorage fallback, then cancel any in-flight queries. Without
+		// clearing the in-memory token, queries that refetch in the gap before the
+		// reload would still send the now-revoked token, producing a burst of
+		// 401s server-side (and pointless work client-side). With it cleared,
+		// getAuthHeaders() throws locally and those refetches never hit the wire.
+		setAdminToken("");
 		localStorage.removeItem("adminToken");
-		navigate("/dashboard");
+		queryClient.cancelQueries();
 		window.location.reload();
 	};
 
