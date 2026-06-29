@@ -1,4 +1,4 @@
-import { ArrowSquareOut, Warning } from "@phosphor-icons/react";
+import { ArrowSquareOutIcon, WarningIcon } from "@phosphor-icons/react";
 import {
 	type SyntheticEvent,
 	useCallback,
@@ -200,7 +200,7 @@ function MemberRow({
 						title={t("members.openDashboard")}
 					>
 						{m.name}
-						<ArrowSquareOut
+						<ArrowSquareOutIcon
 							size={13}
 							style={{ marginLeft: 4, verticalAlign: "-1px" }}
 						/>
@@ -253,13 +253,13 @@ function MemberRow({
 								className="ui-badge ui-badge-warn"
 								title={t("members.versionMismatch")}
 							>
-								<Warning size={12} weight="bold" />
+								<WarningIcon size={12} weight="bold" />
 							</span>
 						)}
 					</span>
 				) : (
 					<span className="fd-faint">
-						{m.has_token ? "—" : t("members.noToken")}
+						{m.has_token ? t("members.versionUnknown") : t("members.noToken")}
 					</span>
 				)}
 			</td>
@@ -275,10 +275,12 @@ function MemberRow({
 					>
 						{formatRelative(m.last_config_sync_at)}
 					</span>
-				) : (
-					<span className="fd-faint">
-						{isPrimary ? "—" : t("members.lastSyncNever")}
+				) : isPrimary ? (
+					<span className="fd-faint" title={t("members.lastSyncPrimaryTip")}>
+						{t("members.lastSyncPrimary")}
 					</span>
+				) : (
+					<span className="fd-faint">{t("members.lastSyncNever")}</span>
 				)}
 			</td>
 			<td>

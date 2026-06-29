@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +13,39 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 )
+
+// TestGetNeuralWattQuota_KeyInvalid covers the real-world case that motivated
+// the key-invalid handling: the stored key was revoked upstream, so /quota
+// answers 401 {"detail":"API key is inactive"}. The fetcher must return an
+// ErrProviderKeyInvalid-wrapped error (so the handler can answer 424 + WARN)
+// rather than a generic failure.
+func TestGetNeuralWattQuota_KeyInvalid(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"detail":"API key is inactive"}`))
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	masterKey := "test-master-key-for-testing-only-32bytes!"
+	keyPair, err := auth.Encrypt("revoked-key", masterKey)
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "test-neuralwatt",
+		BaseURL:      server.URL,
+		EncryptedKey: keyPair.Ciphertext,
+		KeyNonce:     keyPair.Nonce,
+		KeySalt:      keyPair.Salt,
+	}
+
+	_, err = service.GetNeuralWattQuota(context.Background(), provider, masterKey)
+	if !errors.Is(err, ErrProviderKeyInvalid) {
+		t.Fatalf("expected ErrProviderKeyInvalid, got %v", err)
+	}
+}
 
 func TestGetNeuralWattQuota_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

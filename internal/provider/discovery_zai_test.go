@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -293,9 +294,12 @@ func TestGetZAICodingQuota_CircuitBreakerOpen(t *testing.T) {
 // would retry it; 403 is non-retryable, so it returns the response and
 // GetZAICodingQuota can check the status code.
 func TestGetZAICodingQuota_Non200Status_ZAI(t *testing.T) {
+	// A non-auth, non-retryable status (400) exercises the generic "unexpected
+	// status code" path. 401/403 are classified separately as key-invalid - see
+	// TestGetZAICodingQuota_KeyInvalid_ZAI.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"error": "forbidden"}`))
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error": "bad request"}`))
 	}))
 	defer server.Close()
 
@@ -329,6 +333,44 @@ func TestGetZAICodingQuota_Non200Status_ZAI(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unexpected status code") {
 		t.Errorf("Expected 'unexpected status code' in error, got: %v", err)
+	}
+}
+
+// TestGetZAICodingQuota_KeyInvalid_ZAI verifies an upstream auth rejection
+// (403) is classified as ErrProviderKeyInvalid, not a generic failure, so the
+// handler can answer 424 + WARN instead of 500 + ERROR.
+func TestGetZAICodingQuota_KeyInvalid_ZAI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"error": "forbidden"}`))
+	}))
+	defer server.Close()
+
+	masterKey := "test-master-key-1234567890123456"
+	kp, err := auth.Encrypt("revoked-key", masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
+
+	service := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+		retryBaseDelay: time.Millisecond,
+	}
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "test-zai-rate",
+		BaseURL:      "https://api.z.ai",
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+
+	_, err = service.GetZAICodingQuota(context.Background(), provider, masterKey)
+	if !errors.Is(err, ErrProviderKeyInvalid) {
+		t.Fatalf("expected ErrProviderKeyInvalid, got %v", err)
 	}
 }
 

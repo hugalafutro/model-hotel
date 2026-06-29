@@ -59,6 +59,11 @@ export const getSourceBadgeClasses = (source: string) => {
 			// but a brighter, bolder shade than the muted indigo `settings` uses, so
 			// the two stay distinguishable when both appear in the source column.
 			return "bg-indigo-500/30 text-indigo-200";
+		case "oidc":
+			// SSO / OIDC admin login — teal to echo the error-shelf SSO chip. A
+			// brighter teal than the muted `resolve` teal so the two stay
+			// distinguishable in the source column, mirroring the HA pattern above.
+			return "bg-teal-500/30 text-teal-200";
 		case "modelsdev":
 			return "bg-rose-900/30 text-rose-400";
 		case "applogs":

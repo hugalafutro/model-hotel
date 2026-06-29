@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,28 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
+
+// ErrProviderKeyInvalid indicates an upstream rejected the provider's stored
+// credential (HTTP 401/403): the key is missing, revoked, or inactive. Quota /
+// usage / balance fetchers return it (wrapped) so API handlers can surface a
+// dead key as a 4xx provider-config condition instead of a 500, and log it at
+// WARN rather than spamming ERROR on every sidebar badge poll.
+var ErrProviderKeyInvalid = errors.New("provider key invalid or inactive")
+
+// quotaAuthError classifies a non-200 quota/usage/balance response. For an
+// upstream auth rejection (401/403) it logs once at WARN and returns an
+// ErrProviderKeyInvalid-wrapped error; for any other status it returns nil so
+// the caller falls through to its existing ERROR-logged handling of a genuinely
+// unexpected status. label is the provider-family tag (e.g. "neuralwatt").
+func quotaAuthError(label string, p *Provider, status int, body []byte) error {
+	if status != http.StatusUnauthorized && status != http.StatusForbidden {
+		return nil
+	}
+	debuglog.Warn("discovery: "+label+" quota rejected: provider key invalid or inactive",
+		"status", status, "provider", p.Name, "provider_id", p.ID,
+		"body", util.SanitizeLogBody(string(body), 2000))
+	return fmt.Errorf("%s: %w for provider %s (status %d)", label, ErrProviderKeyInvalid, p.Name, status)
+}
 
 // fetchQuotaJSON runs the shared decrypt → GET → retry → decode flow used by
 // provider quota/balance endpoints. label is the provider-family tag used in
@@ -41,6 +64,9 @@ func (d *DiscoveryService) fetchQuotaJSON(ctx context.Context, provider *Provide
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		if authErr := quotaAuthError(label, provider, resp.StatusCode, body); authErr != nil {
+			return authErr
+		}
 		debuglog.Error("discovery: "+label+" "+resource+" non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
 		return fmt.Errorf("%s: unexpected status code %d for provider %s", label, resp.StatusCode, provider.Name)
 	}

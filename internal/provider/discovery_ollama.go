@@ -223,6 +223,9 @@ func (d *DiscoveryService) GetOllamaCloudAccount(ctx context.Context, provider *
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		if authErr := quotaAuthError("ollama-cloud", provider, resp.StatusCode, body); authErr != nil {
+			return nil, authErr
+		}
 		debuglog.Error("discovery: ollama cloud account non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
 		return nil, fmt.Errorf("ollama-cloud: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}

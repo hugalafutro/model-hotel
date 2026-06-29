@@ -395,6 +395,14 @@ describe("MembersPage", () => {
 		expect(within(primaryRow).getByText("hotel-2")).toBeInTheDocument();
 		expect(primaryRow).toHaveClass("fd-row-primary");
 
+		// The primary is the config source, so it has no "last config sync" of its
+		// own: the cell reads "n/a" with an explanatory tooltip, never an em dash.
+		const lastSyncCell = within(primaryRow).getByTitle(
+			"This member is the source of config.",
+		);
+		expect(lastSyncCell).toHaveTextContent("n/a");
+		expect(primaryRow.textContent).not.toContain("—");
+
 		// hotel-2 is the recorded primary, so it sorts above hotel-1 even though it
 		// was returned second by the API.
 		const bodyRows = within(screen.getByRole("table")).getAllByRole("row");

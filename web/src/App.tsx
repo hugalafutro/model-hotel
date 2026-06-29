@@ -70,7 +70,12 @@ function LoginScreen() {
 	const ssoProvider = oidcStatus?.display_name ?? "";
 
 	// A failed SSO callback redirects back with an error code in the fragment.
+	// Reading it is a one-shot side effect (consumeOidcError scrubs the hash), so
+	// it can't run during render or a lazy initializer - StrictMode would
+	// double-invoke and double-consume. An on-mount effect is the right home; the
+	// setState fires at most once and can't cascade, which the lint rule can't see.
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot consume of an external URL signal on mount; see comment above
 		if (consumeOidcError()) setError(t("layout.auth.ssoFailed"));
 	}, [t]);
 

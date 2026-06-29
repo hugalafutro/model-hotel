@@ -1,12 +1,12 @@
 import {
-	Check,
-	Copy,
-	DownloadSimple,
-	Fingerprint,
-	PencilSimple,
-	Plus,
-	Trash,
-	X,
+	CheckIcon,
+	CopyIcon,
+	DownloadSimpleIcon,
+	FingerprintIcon,
+	PencilSimpleIcon,
+	PlusIcon,
+	TrashIcon,
+	XIcon,
 } from "@phosphor-icons/react";
 import type { TFunction } from "i18next";
 import QRCode from "qrcode";
@@ -168,7 +168,7 @@ function PasskeyPanel() {
 						onClick={handleRegister}
 						disabled={registering}
 					>
-						<Plus size={16} weight="bold" />
+						<PlusIcon size={16} weight="bold" />
 						{registering
 							? t("settings.passkeys.registering")
 							: t("settings.passkeys.register")}
@@ -262,7 +262,7 @@ function CredentialRow({
 							onClick={save}
 							aria-label={t("common.save")}
 						>
-							<Check size={14} weight="bold" />
+							<CheckIcon size={14} weight="bold" />
 						</button>
 						<button
 							type="button"
@@ -273,7 +273,7 @@ function CredentialRow({
 							}}
 							aria-label={t("common.cancel")}
 						>
-							<X size={14} weight="bold" />
+							<XIcon size={14} weight="bold" />
 						</button>
 					</div>
 				) : (
@@ -296,7 +296,7 @@ function CredentialRow({
 						>
 							{displayName}
 						</span>
-						<PencilSimple size={12} />
+						<PencilSimpleIcon size={12} />
 					</button>
 				)}
 				<p className="fd-faint" style={{ fontSize: "0.75rem" }}>
@@ -311,7 +311,7 @@ function CredentialRow({
 				onClick={() => onDelete(cred)}
 				aria-label={t("settings.passkeys.deleteLabel")}
 			>
-				<Trash size={14} />
+				<TrashIcon size={14} />
 			</button>
 		</div>
 	);
@@ -470,7 +470,7 @@ function TotpPanel() {
 							)
 						}
 					>
-						<Copy size={16} />
+						<CopyIcon size={16} />
 						{t("settings.totp.copyAll")}
 					</button>
 					<button
@@ -478,7 +478,7 @@ function TotpPanel() {
 						className="ui-btn ui-btn-ghost"
 						onClick={downloadCodes}
 					>
-						<DownloadSimple size={16} />
+						<DownloadSimpleIcon size={16} />
 						{t("settings.totp.downloadCodes")}
 					</button>
 					<button
@@ -486,7 +486,7 @@ function TotpPanel() {
 						className="ui-btn ui-btn-primary"
 						onClick={() => setRecoveryCodes([])}
 					>
-						<Check size={16} weight="bold" />
+						<CheckIcon size={16} weight="bold" />
 						{t("settings.totp.saved")}
 					</button>
 				</div>
@@ -540,7 +540,7 @@ function TotpPanel() {
 							}
 							aria-label={t("settings.totp.secret")}
 						>
-							<Copy size={16} />
+							<CopyIcon size={16} />
 						</button>
 					</div>
 				</div>
@@ -578,7 +578,7 @@ function TotpPanel() {
 						className="ui-btn ui-btn-ghost"
 						onClick={resetEnroll}
 					>
-						<X size={16} />
+						<XIcon size={16} />
 						{t("common.cancel")}
 					</button>
 				</div>
@@ -669,7 +669,7 @@ function TotpPanel() {
 				onClick={startEnroll}
 				disabled={working}
 			>
-				<Fingerprint size={16} weight="bold" />
+				<FingerprintIcon size={16} weight="bold" />
 				{t("settings.totp.enable")}
 			</button>
 		</div>

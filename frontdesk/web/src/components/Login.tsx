@@ -1,4 +1,4 @@
-import { Fingerprint } from "@phosphor-icons/react";
+import { FingerprintIcon } from "@phosphor-icons/react";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { type SyntheticEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -162,7 +162,7 @@ export function Login({ onAuthenticated }: LoginProps) {
 						disabled={busy}
 						style={{ width: "100%", marginTop: "0.6rem" }}
 					>
-						<Fingerprint size={18} weight="bold" />
+						<FingerprintIcon size={18} weight="bold" />
 						{t("login.passkey")}
 					</button>
 				)}

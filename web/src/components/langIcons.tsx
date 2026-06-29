@@ -49,19 +49,19 @@ export function LangIcon({ name, size = 14, ...rest }: LangIconProps) {
 		// brand logos where Phosphor has them, a canonical glyph otherwise. No
 		// emoji/UTF-8/hand-drawn SVG mixing.
 		case "telegram":
-			return <Ph.TelegramLogo size={size} {...rest} />;
+			return <Ph.TelegramLogoIcon size={size} {...rest} />;
 		case "discord":
-			return <Ph.DiscordLogo size={size} {...rest} />;
+			return <Ph.DiscordLogoIcon size={size} {...rest} />;
 		case "slack":
-			return <Ph.SlackLogo size={size} {...rest} />;
+			return <Ph.SlackLogoIcon size={size} {...rest} />;
 		case "msteams":
-			return <Ph.MicrosoftTeamsLogo size={size} {...rest} />;
+			return <Ph.MicrosoftTeamsLogoIcon size={size} {...rest} />;
 		case "matrix":
-			return <Ph.MatrixLogo size={size} {...rest} />;
+			return <Ph.MatrixLogoIcon size={size} {...rest} />;
 		case "webhook":
-			return <Ph.WebhooksLogo size={size} {...rest} />;
+			return <Ph.WebhooksLogoIcon size={size} {...rest} />;
 		case "email":
-			return <Ph.EnvelopeSimple size={size} {...rest} />;
+			return <Ph.EnvelopeSimpleIcon size={size} {...rest} />;
 		case "curl":
 			return (
 				<svg

@@ -25,6 +25,19 @@ export function formatRelative(iso: string | undefined): string {
 	return rtf.format(0, "second");
 }
 
+// formatTimeOfDay renders an ISO timestamp as the active locale's wall-clock
+// time only (e.g. "1:45:30 PM"), for "last updated" labels where the date is
+// implied and only the time-of-day matters. Falls back to "never" for an
+// empty/invalid value.
+export function formatTimeOfDay(iso: string | undefined): string {
+	if (!iso) return i18next.t("common.never");
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return i18next.t("common.never");
+	return new Intl.DateTimeFormat(i18next.language, {
+		timeStyle: "medium",
+	}).format(d);
+}
+
 // formatAbsolute renders an ISO timestamp in the active locale's date+time
 // format, for tables where an exact time matters more than recency.
 export function formatAbsolute(iso: string | undefined): string {

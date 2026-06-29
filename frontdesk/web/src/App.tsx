@@ -1,9 +1,9 @@
 import {
-	Broadcast,
-	Gear,
-	ListBullets,
-	SignOut,
-	UsersThree,
+	BroadcastIcon,
+	GearIcon,
+	ListBulletsIcon,
+	SignOutIcon,
+	UsersThreeIcon,
 } from "@phosphor-icons/react";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -83,10 +83,10 @@ function Shell() {
 							className="fd-tab"
 							onClick={() => setTab(tb.id)}
 						>
-							{tb.id === "members" && <UsersThree size={16} />}
-							{tb.id === "traffic" && <Broadcast size={16} />}
-							{tb.id === "events" && <ListBullets size={16} />}
-							{tb.id === "settings" && <Gear size={16} />}
+							{tb.id === "members" && <UsersThreeIcon size={16} />}
+							{tb.id === "traffic" && <BroadcastIcon size={16} />}
+							{tb.id === "events" && <ListBulletsIcon size={16} />}
+							{tb.id === "settings" && <GearIcon size={16} />}
 							{tb.label}
 						</button>
 					))}
@@ -97,7 +97,7 @@ function Shell() {
 						title={t("app.logout")}
 						aria-label={t("app.logout")}
 					>
-						<SignOut size={16} />
+						<SignOutIcon size={16} />
 					</button>
 				</div>
 			</header>

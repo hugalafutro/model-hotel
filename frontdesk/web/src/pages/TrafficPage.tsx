@@ -1,3 +1,4 @@
+import { ArrowsClockwiseIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -12,30 +13,55 @@ import {
 import { api } from "../api/client";
 import type { MemberTraffic, MemberView } from "../api/types";
 import { useMembers } from "../hooks/useMembers";
+import { formatTimeOfDay } from "../utils/time";
 
 function errorRate(tr: MemberTraffic): string {
 	if (tr.total_requests === 0) return "0%";
 	return `${((tr.total_errors / tr.total_requests) * 100).toFixed(1)}%`;
 }
 
-function MemberTrafficCard({ member }: { member: MemberView }) {
+function MemberTrafficCard({
+	member,
+	reloadKey,
+}: {
+	member: MemberView;
+	reloadKey: number;
+}) {
 	const { t } = useTranslation();
 	const [data, setData] = useState<MemberTraffic | null>(null);
 	const [loading, setLoading] = useState(true);
+	// When the displayed data was last fetched (client clock). There is no
+	// server-side "generated at" on the traffic payload, so this is simply the
+	// moment the UI pulled it - which is exactly the freshness the operator wants.
+	const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is a refetch nonce - it isn't read in the body, its only job is to re-run the fetch when the Refresh button bumps it
 	useEffect(() => {
-		// Each card is keyed by member id, so this effect runs once per instance;
-		// loading starts true, so no synchronous setState is needed here.
+		// Re-runs on member id change and whenever reloadKey is bumped by the
+		// page-level Refresh button. Stale data stays on screen during a refetch
+		// (we don't reset to the loading state) so the chart doesn't flash; the
+		// "updated" timestamp moving is the confirmation the refresh landed.
 		let active = true;
 		api
 			.memberTraffic(member.id)
-			.then((d) => active && setData(d))
-			.catch(() => active && setData(null))
+			.then((d) => {
+				if (!active) return;
+				setData(d);
+				setUpdatedAt(new Date().toISOString());
+			})
+			.catch(() => {
+				// Clear the timestamp too: a failed refresh must not leave an old
+				// "Updated ..." stamp next to the "could not read metrics" state,
+				// which would make a failed read look like fresh status.
+				if (!active) return;
+				setData(null);
+				setUpdatedAt(null);
+			})
 			.finally(() => active && setLoading(false));
 		return () => {
 			active = false;
 		};
-	}, [member.id]);
+	}, [member.id, reloadKey]);
 
 	return (
 		<div className="ui-card ui-card-pad">
@@ -112,6 +138,16 @@ function MemberTrafficCard({ member }: { member: MemberView }) {
 					</div>
 				</>
 			)}
+
+			{updatedAt && (
+				<div
+					className="fd-faint"
+					style={{ fontSize: "0.72rem", marginTop: "0.5rem" }}
+					data-testid="traffic-updated"
+				>
+					{t("traffic.updated", { time: formatTimeOfDay(updatedAt) })}
+				</div>
+			)}
 		</div>
 	);
 }
@@ -136,13 +172,36 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 export function TrafficPage() {
 	const { t } = useTranslation();
-	const { members, loading } = useMembers();
+	const { members, loading, refetch } = useMembers();
 	const tokenMembers = members.filter((m) => m.has_token);
 	const hasTokenless = members.some((m) => !m.has_token);
 
+	// Bumped by the Refresh button; threaded into every card's fetch effect so a
+	// single click re-pulls all graphs. The members list is refetched too, in
+	// case membership changed since the page mounted (FD has no URL routing, so a
+	// browser reload drops back to the Members tab - this is the in-page way to
+	// pull fresh numbers without leaving Traffic).
+	const [reloadKey, setReloadKey] = useState(0);
+	const refresh = () => {
+		refetch();
+		setReloadKey((k) => k + 1);
+	};
+
 	return (
 		<div className="fd-stack">
-			<h1 className="fd-page-title">{t("traffic.title")}</h1>
+			<div className="fd-spread">
+				<h1 className="fd-page-title">{t("traffic.title")}</h1>
+				<button
+					type="button"
+					className="ui-btn ui-btn-ghost ui-btn-sm"
+					onClick={refresh}
+					disabled={loading}
+					data-testid="traffic-refresh"
+				>
+					<ArrowsClockwiseIcon size={14} />
+					{t("traffic.refresh")}
+				</button>
+			</div>
 			<p className="fd-muted" style={{ marginTop: "-0.5rem" }}>
 				{t("traffic.intro")}
 			</p>
@@ -158,7 +217,7 @@ export function TrafficPage() {
 			) : (
 				<div className="fd-stack">
 					{tokenMembers.map((m) => (
-						<MemberTrafficCard key={m.id} member={m} />
+						<MemberTrafficCard key={m.id} member={m} reloadKey={reloadKey} />
 					))}
 					{hasTokenless && (
 						<p className="fd-faint" style={{ fontSize: "0.82rem" }}>

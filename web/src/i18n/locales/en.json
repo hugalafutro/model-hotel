@@ -191,6 +191,7 @@
 			"requestKind": "Req",
 			"appKind": "App",
 			"haKind": "HA",
+			"ssoKind": "SSO",
 			"copyError": "Copy error",
 			"viewDetails": "View details",
 			"acknowledge": "Dismiss"
@@ -1936,6 +1937,7 @@
 			"issuerDescription": "The provider's OpenID Connect discovery base URL.",
 			"clientId": "Client ID",
 			"clientSecret": "Client secret",
+			"toggleSecret": "Show or hide the client secret",
 			"secretConfigured": "Secret set (leave blank to keep it)",
 			"secretPlaceholder": "Paste the client secret",
 			"clear": "Clear",

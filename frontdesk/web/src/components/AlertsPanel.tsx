@@ -1,4 +1,4 @@
-import { ArrowSquareOut } from "@phosphor-icons/react";
+import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
@@ -244,7 +244,7 @@ export function AlertsPanel() {
 						rel="noreferrer"
 					>
 						{t("settings.alerts.browseServices")}
-						<ArrowSquareOut
+						<ArrowSquareOutIcon
 							size={12}
 							style={{ marginLeft: 3, verticalAlign: "-1px" }}
 						/>

@@ -13,7 +13,12 @@ import { useToast } from "../../context/ToastContext";
 import { formatRelativeTime, formatTimestamp } from "../../utils/format";
 import { truncateWithEllipsis } from "../../utils/truncate";
 import { LogDetailModal } from "../LogDetailModal";
-import { isHaSource, type ShelfError, useErrorShelf } from "./useErrorShelf";
+import {
+	isHaSource,
+	isSsoSource,
+	type ShelfError,
+	useErrorShelf,
+} from "./useErrorShelf";
 
 /**
  * Sidebar error shelf — a collapsible header that expands into a newest-first,
@@ -175,16 +180,23 @@ export function ErrorShelf() {
 						</div>
 						<ul className="ui-error-shelf-list max-h-[40vh] divide-y divide-[var(--error-border)] overflow-y-auto">
 							{unacked.map((err, i) => {
-								// HA membership failures are app errors whose source is the
-								// fleet config-sync receiver; they get their own chip + accent
-								// while still opening as an "app" log in the detail modal.
-								const category = isHaSource(err.source) ? "ha" : err.kind;
+								// HA membership failures and SSO/OIDC login failures are app
+								// errors whose source identifies the subsystem; each gets its
+								// own chip + accent while still opening as an "app" log in the
+								// detail modal.
+								const category = isHaSource(err.source)
+									? "ha"
+									: isSsoSource(err.source)
+										? "sso"
+										: err.kind;
 								const chipLabel =
 									category === "ha"
 										? t("layout.errorShelf.haKind")
-										: category === "request"
-											? t("layout.errorShelf.requestKind")
-											: t("layout.errorShelf.appKind");
+										: category === "sso"
+											? t("layout.errorShelf.ssoKind")
+											: category === "request"
+												? t("layout.errorShelf.requestKind")
+												: t("layout.errorShelf.appKind");
 								return (
 									<li
 										key={err.key}
