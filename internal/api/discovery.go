@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -556,6 +557,22 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, response)
 }
 
+// respondQuotaError maps a quota/usage/balance fetch error to an HTTP response.
+// A dead upstream credential (provider.ErrProviderKeyInvalid) is a provider
+// configuration problem, not a server fault: respond 424 Failed Dependency - a
+// 4xx, so the access log records it at WARN rather than ERROR - and skip the
+// ERROR line respondError would emit, since the fetch layer already logged the
+// rejection once at WARN. The sidebar badge hides on any non-2xx, so the dead
+// provider simply shows no badge instead of spamming errors on every poll.
+// Anything else stays a logged 500.
+func respondQuotaError(w http.ResponseWriter, providerName, resource string, err error) {
+	if errors.Is(err, provider.ErrProviderKeyInvalid) {
+		http.Error(w, fmt.Sprintf("provider key invalid or inactive for %s", providerName), http.StatusFailedDependency)
+		return
+	}
+	respondError(w, fmt.Sprintf("failed to fetch %s for provider %s", resource, providerName), err, http.StatusInternalServerError)
+}
+
 // GetProviderUsage fetches usage/quota information for a provider.
 func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
@@ -581,7 +598,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	case "zai-coding":
 		quota, err := discovery.GetZAICodingQuota(quotaCtx, prov, h.cfg.MasterKey)
 		if err != nil {
-			respondError(w, fmt.Sprintf("failed to fetch usage for provider %s", prov.Name), err, http.StatusInternalServerError)
+			respondQuotaError(w, prov.Name, "usage", err)
 			return
 		}
 		writeJSON(w, quota)
@@ -589,7 +606,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	case "nanogpt":
 		usage, err := discovery.GetNanoGPTUsage(quotaCtx, prov, h.cfg.MasterKey)
 		if err != nil {
-			respondError(w, fmt.Sprintf("failed to fetch usage for provider %s", prov.Name), err, http.StatusInternalServerError)
+			respondQuotaError(w, prov.Name, "usage", err)
 			return
 		}
 		writeJSON(w, usage)
@@ -597,7 +614,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	case "openrouter":
 		keyBalance, err := discovery.GetOpenRouterBalance(quotaCtx, prov, h.cfg.MasterKey)
 		if err != nil {
-			respondError(w, fmt.Sprintf("failed to fetch key balance for provider %s", prov.Name), err, http.StatusInternalServerError)
+			respondQuotaError(w, prov.Name, "key balance", err)
 			return
 		}
 		writeJSON(w, keyBalance)
@@ -605,7 +622,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	case "neuralwatt":
 		quota, err := discovery.GetNeuralWattQuota(quotaCtx, prov, h.cfg.MasterKey)
 		if err != nil {
-			respondError(w, fmt.Sprintf("failed to fetch quota for provider %s", prov.Name), err, http.StatusInternalServerError)
+			respondQuotaError(w, prov.Name, "quota", err)
 			return
 		}
 		if quota == nil {
@@ -644,7 +661,7 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 	case "deepseek":
 		balance, err := discovery.GetDeepSeekBalance(balanceCtx, prov, h.cfg.MasterKey)
 		if err != nil {
-			respondError(w, fmt.Sprintf("failed to fetch balance for provider %s", prov.Name), err, http.StatusInternalServerError)
+			respondQuotaError(w, prov.Name, "balance", err)
 			return
 		}
 		writeJSON(w, balance)
@@ -681,7 +698,7 @@ func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) 
 
 	account, err := discovery.GetOllamaCloudAccount(accountCtx, prov, h.cfg.MasterKey)
 	if err != nil {
-		respondError(w, fmt.Sprintf("failed to fetch ollama cloud account for provider %s", prov.Name), err, http.StatusInternalServerError)
+		respondQuotaError(w, prov.Name, "ollama cloud account", err)
 		return
 	}
 	writeJSON(w, account)

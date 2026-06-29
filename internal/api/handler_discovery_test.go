@@ -512,9 +512,10 @@ func TestGetProviderUsage_OpenRouter(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 
-	// Should get 500 - OpenRouter API call fails with invalid key
-	if w2.Code != 500 {
-		t.Errorf("expected 500, got %d", w2.Code)
+	// Upstream rejects the key with 401, so we surface 424 Failed Dependency
+	// (a dead credential is a provider-config problem, not a server fault).
+	if w2.Code != http.StatusFailedDependency {
+		t.Errorf("expected 424, got %d", w2.Code)
 	}
 }
 
@@ -574,9 +575,10 @@ func TestGetProviderBalance_DeepSeek(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 
-	// Should get 500 - DeepSeek API call fails with invalid key
-	if w2.Code != 500 {
-		t.Errorf("expected 500, got %d", w2.Code)
+	// Upstream rejects the key with 401, so we surface 424 Failed Dependency
+	// (a dead credential is a provider-config problem, not a server fault).
+	if w2.Code != http.StatusFailedDependency {
+		t.Errorf("expected 424, got %d", w2.Code)
 	}
 }
 
@@ -1123,9 +1125,11 @@ func TestGetProviderUsage_Error(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 
-	// Should get 500 Internal Server Error when discovery fails
-	if w2.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 Internal Server Error, got %d: %s", w2.Code, w2.Body.String())
+	// Upstream rejects the invalid key with 401, so we surface 424 Failed
+	// Dependency rather than 500: a dead credential is a provider-config
+	// problem, not a server fault.
+	if w2.Code != http.StatusFailedDependency {
+		t.Errorf("expected 424 Failed Dependency, got %d: %s", w2.Code, w2.Body.String())
 	}
 }
 
@@ -1156,9 +1160,11 @@ func TestGetProviderBalance_Error(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 
-	// Should get 500 Internal Server Error when discovery fails
-	if w2.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 Internal Server Error, got %d: %s", w2.Code, w2.Body.String())
+	// Upstream rejects the invalid key with 401, so we surface 424 Failed
+	// Dependency rather than 500: a dead credential is a provider-config
+	// problem, not a server fault.
+	if w2.Code != http.StatusFailedDependency {
+		t.Errorf("expected 424 Failed Dependency, got %d: %s", w2.Code, w2.Body.String())
 	}
 }
 
