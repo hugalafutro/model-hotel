@@ -1,7 +1,9 @@
-// Helpers for the OIDC SSO callback hand-off. The backend callback redirects
-// the browser to the SPA with the result in the URL *fragment* (never the
-// query string) so the freshly minted session token is never sent back to the
-// server and so it cannot land in any access log or reverse-proxy trace.
+// Helpers for the OIDC SSO callback hand-off. The backend callback redirects the
+// browser to the SPA with the result in the URL *fragment* (never the query
+// string), so the session token is not sent back to the server on the follow-up
+// request (no Referer leak, nothing in request logs). It does still appear in the
+// callback's 302 Location response header, so operators should redact Location on
+// /api/auth/oidc/callback in proxy access logs.
 
 const TOKEN_PREFIX = "#oidc_token=";
 const ERROR_PREFIX = "#oidc_error=";
@@ -15,6 +17,16 @@ function scrubHash() {
 	);
 }
 
+/** decode percent-encoding but never throw: a malformed fragment (e.g. a bare
+ * `%`) must not crash app boot and strand the local-login fallback. */
+function safeDecode(s: string): string {
+	try {
+		return decodeURIComponent(s);
+	} catch {
+		return "";
+	}
+}
+
 /**
  * consumeOidcToken stores an SSO session token delivered in the URL fragment
  * (the same `adminToken` slot the other login paths use) and scrubs the
@@ -24,7 +36,7 @@ function scrubHash() {
 export function consumeOidcToken(): boolean {
 	const hash = window.location.hash;
 	if (!hash.startsWith(TOKEN_PREFIX)) return false;
-	const token = decodeURIComponent(hash.slice(TOKEN_PREFIX.length));
+	const token = safeDecode(hash.slice(TOKEN_PREFIX.length));
 	scrubHash();
 	if (!token) return false;
 	localStorage.setItem("adminToken", token);
@@ -39,7 +51,7 @@ export function consumeOidcToken(): boolean {
 export function consumeOidcError(): string | null {
 	const hash = window.location.hash;
 	if (!hash.startsWith(ERROR_PREFIX)) return null;
-	const code = decodeURIComponent(hash.slice(ERROR_PREFIX.length));
+	const code = safeDecode(hash.slice(ERROR_PREFIX.length));
 	scrubHash();
 	return code || "unknown";
 }

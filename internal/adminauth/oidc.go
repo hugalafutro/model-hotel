@@ -329,6 +329,13 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 			h.fail(w, r, throttleKey, "userinfo fetch failed", uiErr)
 			return
 		}
+		// OIDC core 5.3.2: the UserInfo subject MUST match the verified ID-token
+		// subject. Without this bind, an access token could surface a different
+		// identity's (possibly allowlisted) email and authorize the wrong user.
+		if ui.Subject != idToken.Subject {
+			h.fail(w, r, throttleKey, "userinfo subject mismatch", nil)
+			return
+		}
 		email = strings.ToLower(strings.TrimSpace(ui.Email))
 		emailVerified = ui.EmailVerified
 	}

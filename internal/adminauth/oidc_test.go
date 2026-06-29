@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	jose "github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/google/uuid"
@@ -81,7 +82,13 @@ func (s *memSessionStore) GetSessionByTokenHash(_ context.Context, hash string) 
 func (s *memSessionStore) DeleteSession(_ context.Context, id uuid.UUID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if rec, ok := s.byID[id]; ok && rec.TokenHash != nil {
+	rec, ok := s.byID[id]
+	if !ok {
+		// Mirror the real stores (Postgres ErrNotFound / SQLite 0-rows): report a
+		// miss so ConsumeLoginState's single-use claim can reject a racing reader.
+		return errNoSession
+	}
+	if rec.TokenHash != nil {
 		delete(s.byHash, *rec.TokenHash)
 	}
 	delete(s.byID, id)
@@ -141,15 +148,17 @@ type mockIDP struct {
 	jwks     jose.JSONWebKeySet
 	clientID string
 
-	mu             sync.Mutex
-	nonce          string
-	email          string
-	emailVerified  bool
-	sub            string
-	omitIDToken    bool // token response carries no id_token
-	emailInIDToken bool // when false, email is served only at /userinfo
-	tokenError     bool // /token returns an OAuth error (exchange fails)
-	expireIDToken  bool // id_token exp is in the past (Verify must reject)
+	mu              sync.Mutex
+	nonce           string
+	email           string
+	emailVerified   bool
+	sub             string
+	omitIDToken     bool   // token response carries no id_token
+	emailInIDToken  bool   // when false, email is served only at /userinfo
+	tokenError      bool   // /token returns an OAuth error (exchange fails)
+	expireIDToken   bool   // id_token exp is in the past (Verify must reject)
+	userinfoError   bool   // /userinfo returns 500 (UserInfo fallback fails)
+	userinfoSubject string // override the /userinfo sub (default: idp.sub)
 }
 
 func newMockIDP(t *testing.T, clientID string) *mockIDP {
@@ -199,8 +208,16 @@ func newMockIDP(t *testing.T, clientID string) *mockIDP {
 	mux.HandleFunc("/userinfo", func(w http.ResponseWriter, _ *http.Request) {
 		idp.mu.Lock()
 		defer idp.mu.Unlock()
+		if idp.userinfoError {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		sub := idp.sub
+		if idp.userinfoSubject != "" {
+			sub = idp.userinfoSubject
+		}
 		writeTestJSON(w, map[string]any{
-			"sub":            idp.sub,
+			"sub":            sub,
 			"email":          idp.email,
 			"email_verified": idp.emailVerified,
 		})
@@ -528,6 +545,29 @@ func TestOIDCCallbackRejections(t *testing.T) {
 				return runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
 			},
 		},
+		{
+			name: "userinfo fetch failure",
+			run: func(t *testing.T, h *OIDCHandler, idp *mockIDP) string {
+				loc, cookie := runStart(t, h)
+				state := loc.Query().Get("state")
+				idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+				// No email in the token -> fallback to /userinfo, which errors.
+				idp.behavior(func(m *mockIDP) { m.emailInIDToken = false; m.userinfoError = true })
+				return runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+			},
+		},
+		{
+			name: "userinfo subject mismatch",
+			run: func(t *testing.T, h *OIDCHandler, idp *mockIDP) string {
+				loc, cookie := runStart(t, h)
+				state := loc.Query().Get("state")
+				idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+				// UserInfo returns a different sub than the verified ID token: the
+				// handler must reject it (OIDC core 5.3.2), not authorize the email.
+				idp.behavior(func(m *mockIDP) { m.emailInIDToken = false; m.userinfoSubject = "someone-else" })
+				return runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -631,5 +671,177 @@ func TestMaskEmail(t *testing.T) {
 		if got := maskEmail(in); got != want {
 			t.Errorf("maskEmail(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// TestOIDCRegisterRoutes mounts the handler on a chi router and confirms the
+// status route is reachable through it (Register wiring).
+func TestOIDCRegisterRoutes(t *testing.T) {
+	idp := newMockIDP(t, oidcTestClientID)
+	h, _, _ := newOIDCTestHandler(t, idp, "admin@example.com")
+	r := chi.NewRouter()
+	h.Register(r)
+
+	req := httptest.NewRequest(http.MethodGet, "/auth/oidc/status", http.NoBody)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status via router = %d, want 200", rec.Code)
+	}
+	var resp oidcStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil || !resp.Enabled {
+		t.Fatalf("expected enabled status via router, got %q", rec.Body.String())
+	}
+}
+
+// TestOIDCStartErrors covers Start's non-happy branches: disabled, under-
+// configured, provider build failures, and a login-state persistence failure.
+func TestOIDCStartErrors(t *testing.T) {
+	newH := func(masterKey string, kv map[string]string) *OIDCHandler {
+		sm := webauthn.NewSessionManager(newMemStore())
+		return NewOIDCHandler(newFakeSettings(kv), sm, mockIPLimiter{}, masterKey)
+	}
+	call := func(h *OIDCHandler) int {
+		req := httptest.NewRequest(http.MethodGet, "/api/auth/oidc/start", http.NoBody)
+		rec := httptest.NewRecorder()
+		h.Start(rec, req)
+		return rec.Code
+	}
+
+	t.Run("disabled -> 400", func(t *testing.T) {
+		if got := call(newH(testMasterKey, map[string]string{oidcEnabledKey: "false"})); got != http.StatusBadRequest {
+			t.Fatalf("status = %d, want 400", got)
+		}
+	})
+
+	t.Run("under-configured -> 400", func(t *testing.T) {
+		// enabled but no issuer -> build returns {enabled:false}.
+		h := newH(testMasterKey, map[string]string{
+			oidcEnabledKey:       "true",
+			oidcClientIDKey:      "x",
+			oidcPublicBaseURLKey: "https://h.example",
+		})
+		if got := call(h); got != http.StatusBadRequest {
+			t.Fatalf("status = %d, want 400", got)
+		}
+	})
+
+	t.Run("bad issuer (discovery fails) -> 503", func(t *testing.T) {
+		idp := newMockIDP(t, oidcTestClientID)
+		h := newH(testMasterKey, map[string]string{
+			oidcEnabledKey:       "true",
+			oidcIssuerURLKey:     idp.server.URL + "/nonexistent", // discovery 404s
+			oidcClientIDKey:      "x",
+			oidcPublicBaseURLKey: "https://h.example",
+		})
+		if got := call(h); got != http.StatusServiceUnavailable {
+			t.Fatalf("status = %d, want 503", got)
+		}
+	})
+
+	t.Run("undecryptable secret -> 503", func(t *testing.T) {
+		idp := newMockIDP(t, oidcTestClientID)
+		// Encrypt under a different key so decrypt with testMasterKey fails (GCM
+		// auth mismatch), exercising build's decrypt-error path.
+		enc, err := auth.EncryptString("s", "some-other-master-key-1234567890")
+		if err != nil {
+			t.Fatalf("encrypt: %v", err)
+		}
+		h := newH(testMasterKey, map[string]string{
+			oidcEnabledKey:       "true",
+			oidcIssuerURLKey:     idp.server.URL,
+			oidcClientIDKey:      "x",
+			oidcClientSecretKey:  enc,
+			oidcPublicBaseURLKey: "https://h.example",
+		})
+		if got := call(h); got != http.StatusServiceUnavailable {
+			t.Fatalf("status = %d, want 503", got)
+		}
+	})
+
+	t.Run("secret set but no master key -> 503", func(t *testing.T) {
+		idp := newMockIDP(t, oidcTestClientID)
+		enc, err := auth.EncryptString("s", testMasterKey)
+		if err != nil {
+			t.Fatalf("encrypt: %v", err)
+		}
+		h := newH("", map[string]string{ // empty master key
+			oidcEnabledKey:       "true",
+			oidcIssuerURLKey:     idp.server.URL,
+			oidcClientIDKey:      "x",
+			oidcClientSecretKey:  enc,
+			oidcPublicBaseURLKey: "https://h.example",
+		})
+		if got := call(h); got != http.StatusServiceUnavailable {
+			t.Fatalf("status = %d, want 503", got)
+		}
+	})
+
+	t.Run("login-state persistence failure -> 500", func(t *testing.T) {
+		idp := newMockIDP(t, oidcTestClientID)
+		store := newMemStore()
+		store.createErr = errNoSession // CreateLoginState fails
+		sm := webauthn.NewSessionManager(store)
+		enc, err := auth.EncryptString("client-secret-value", testMasterKey)
+		if err != nil {
+			t.Fatalf("encrypt: %v", err)
+		}
+		h := NewOIDCHandler(newFakeSettings(map[string]string{
+			oidcEnabledKey:       "true",
+			oidcIssuerURLKey:     idp.server.URL,
+			oidcClientIDKey:      oidcTestClientID,
+			oidcClientSecretKey:  enc,
+			oidcAllowedEmailsKey: "admin@example.com",
+			oidcPublicBaseURLKey: "https://h.example",
+		}), sm, mockIPLimiter{}, testMasterKey)
+		if got := call(h); got != http.StatusInternalServerError {
+			t.Fatalf("status = %d, want 500", got)
+		}
+	})
+}
+
+// claimRaceStore simulates the single-use TOCTOU: GetSession always returns the
+// record (as if two callbacks both read it before either delete), but only the
+// first DeleteSession succeeds. ConsumeLoginState must let only the first caller
+// through.
+type claimRaceStore struct {
+	*memSessionStore
+	rec     *webauthn.SessionRecord
+	deletes int
+}
+
+func (s *claimRaceStore) GetSession(context.Context, uuid.UUID) (*webauthn.SessionRecord, error) {
+	cp := *s.rec
+	return &cp, nil
+}
+
+func (s *claimRaceStore) DeleteSession(context.Context, uuid.UUID) error {
+	s.deletes++
+	if s.deletes == 1 {
+		return nil // first caller's DELETE removes the row
+	}
+	return errNoSession // row already gone for every later caller
+}
+
+func TestConsumeLoginStateSingleUseUnderRace(t *testing.T) {
+	store := &claimRaceStore{
+		memSessionStore: newMemStore(),
+		rec: &webauthn.SessionRecord{
+			Type:        "oidc_login",
+			SessionData: []byte("blob"),
+			ExpiresAt:   time.Now().Add(time.Minute),
+		},
+	}
+	sm := webauthn.NewSessionManager(store)
+	id := uuid.New()
+
+	data, err := sm.ConsumeLoginState(context.Background(), id)
+	if err != nil || string(data) != "blob" {
+		t.Fatalf("first consume: data=%q err=%v, want blob/nil", data, err)
+	}
+	// Second caller saw the same record (GetSession still returns it) but its
+	// DELETE removed nothing, so the single-use guard must reject it.
+	if _, err := sm.ConsumeLoginState(context.Background(), id); err == nil {
+		t.Fatal("second consume should fail (record already claimed)")
 	}
 }

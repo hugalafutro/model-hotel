@@ -166,9 +166,13 @@ func (m *SessionManager) ConsumeLoginState(ctx context.Context, id uuid.UUID) ([
 	if err != nil {
 		return nil, err
 	}
-	// Delete first so the record is single-use even if a later check fails.
+	// The delete is the atomic single-use claim: DeleteSession reports an error
+	// (ErrNotFound / 0 rows affected) when no row was removed, so under a
+	// concurrent replay only the goroutine whose DELETE actually removed the row
+	// proceeds; any other reader that saw the same row before the delete is
+	// rejected here. This closes the read-then-delete TOCTOU on the guard.
 	if delErr := m.store.DeleteSession(ctx, id); delErr != nil {
-		debuglog.Error("webauthn: failed to delete consumed oidc login state", "error", delErr)
+		return nil, errInvalidLoginState
 	}
 	if session.Type != "oidc_login" {
 		return nil, errInvalidLoginState

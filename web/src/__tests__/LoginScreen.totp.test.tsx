@@ -183,6 +183,20 @@ describe("LoginScreen TOTP step", () => {
 		expect(screen.queryByTestId("sso-login-button")).not.toBeInTheDocument();
 	});
 
+	it("surfaces an SSO error from the callback fragment and scrubs it", async () => {
+		const { api } = await import("../api/client");
+		vi.mocked(api.oidc.status).mockResolvedValue({ enabled: false });
+		window.location.hash = "#oidc_error=failed";
+
+		renderWithProviders(<App />);
+
+		expect(
+			await screen.findByText(/single sign-on failed/i),
+		).toBeInTheDocument();
+		// Fragment scrubbed so a refresh doesn't re-trigger the error.
+		expect(window.location.hash).toBe("");
+	});
+
 	it("accepts a full recovery code in the TOTP field (not capped at 6)", async () => {
 		const { api } = await import("../api/client");
 		vi.mocked(api.totp.status).mockResolvedValue({ enabled: true });
