@@ -180,4 +180,21 @@ describe("LangIcon", () => {
 		expect(img).toHaveAttribute("width", "24");
 		expect(img).toHaveAttribute("height", "24");
 	});
+
+	// Apprise service icons all come from the Phosphor family and render as an
+	// inline SVG (no <title>), so assert on the rendered <svg>.
+	it.each([
+		"telegram",
+		"discord",
+		"slack",
+		"msteams",
+		"matrix",
+		"webhook",
+		"email",
+	] as const)("renders the %s apprise icon as an SVG", (name) => {
+		const { container } = renderWithProviders(<LangIcon name={name} />);
+		const svg = container.querySelector("svg");
+		expect(svg).toBeInTheDocument();
+		expect(svg).toHaveAttribute("width", "14");
+	});
 });
