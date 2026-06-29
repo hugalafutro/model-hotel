@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { beforeEach, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import type { Settings } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
 import { server } from "../../test/server";
@@ -56,8 +56,6 @@ function mountWithSettings(s: Settings): { puts: Partial<Settings>[] } {
 	);
 	return { puts };
 }
-
-beforeEach(() => {});
 
 it("populates fields and derives the redirect URI from the base URL", async () => {
 	mountWithSettings(makeSettings());
