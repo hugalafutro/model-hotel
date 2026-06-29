@@ -35,7 +35,7 @@ docker-up:
 
 docker-build:
 	docker compose -f docker-compose.yml -f compose.dev.yml down
-	VERSION=$(VERSION) COMMIT=$(COMMIT) docker compose -f docker-compose.yml -f compose.dev.yml up -d --build
+	VERSION=dev COMMIT=$(COMMIT) docker compose -f docker-compose.yml -f compose.dev.yml up -d --build
 
 docker-down:
 	docker compose -f docker-compose.yml -f compose.dev.yml down
@@ -58,7 +58,7 @@ frontdesk-build:
 	CGO_ENABLED=0 go build -ldflags "-X main.version=$(VERSION) -X github.com/hugalafutro/model-hotel/internal/frontdesk.buildCommit=$(COMMIT)" -o bin/frontdesk ./cmd/frontdesk/
 
 ha-up:
-	VERSION=$(VERSION) COMMIT=$(COMMIT) docker compose -f $(HA_COMPOSE) up -d --build
+	VERSION=dev COMMIT=$(COMMIT) docker compose -f $(HA_COMPOSE) up -d --build
 
 ha-down:
 	docker compose -f $(HA_COMPOSE) down
