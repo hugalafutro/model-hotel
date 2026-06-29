@@ -81,7 +81,7 @@ describe("OidcPanel", () => {
 		).toBeInTheDocument();
 	});
 
-	it("commits the issuer on blur and clears the secret", async () => {
+	it("commits each editable field, sets and clears the secret", async () => {
 		mockSettings({
 			oidc_enabled: "true",
 			oidc_issuer_url: "https://auth.example.com",
@@ -99,18 +99,45 @@ describe("OidcPanel", () => {
 		const user = userEvent.setup();
 		renderWithProviders(<OidcPanel />);
 
-		// Edit issuer, then blur -> commits oidc_issuer_url via the shared commit().
-		const issuer = await screen.findByTestId("oidc-issuer-input");
-		await user.clear(issuer);
-		await user.type(issuer, "https://idp.test");
-		await user.tab();
-		await waitFor(() =>
-			expect(puts.some((p) => p.oidc_issuer_url === "https://idp.test")).toBe(
-				true,
-			),
+		await screen.findByTestId("oidc-panel");
+
+		// Each text field commits its own key on blur via the shared commit().
+		// A per-field waitFor keeps the refetch from one commit from racing the
+		// next field's edit.
+		const commitField = async (testid: string, key: string, value: string) => {
+			const el = await screen.findByTestId(testid);
+			await user.clear(el);
+			await user.type(el, value);
+			await user.tab();
+			await waitFor(() =>
+				expect(puts.some((p) => p[key] === value)).toBe(true),
+			);
+		};
+
+		await commitField(
+			"oidc-issuer-input",
+			"oidc_issuer_url",
+			"https://idp.test",
+		);
+		await commitField("oidc-client-id-input", "oidc_client_id", "my-client");
+		await commitField(
+			"oidc-base-url-input",
+			"oidc_public_base_url",
+			"https://hotel.test",
+		);
+		await commitField(
+			"oidc-allowed-emails-input",
+			"oidc_allowed_emails",
+			"a@b.test",
 		);
 
-		// Clear the configured secret -> commits an empty oidc_client_secret.
+		// Setting a new secret commits its value...
+		await commitField(
+			"oidc-client-secret-input",
+			"oidc_client_secret",
+			"new-secret",
+		);
+		// ...and the clear button commits an empty string.
 		await user.click(screen.getByTestId("oidc-client-secret-clear"));
 		await waitFor(() =>
 			expect(puts.some((p) => p.oidc_client_secret === "")).toBe(true),

@@ -568,6 +568,23 @@ func TestOIDCCallbackRejections(t *testing.T) {
 				return runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
 			},
 		},
+		{
+			name: "bad login-state cookie",
+			run: func(t *testing.T, h *OIDCHandler, _ *mockIDP) string {
+				bad := &http.Cookie{Name: oidcCookieName, Value: "not-a-uuid"}
+				return runCallback(t, h, bad, url.Values{"state": {"x"}, "code": {"c"}})
+			},
+		},
+		{
+			name: "missing code",
+			run: func(t *testing.T, h *OIDCHandler, idp *mockIDP) string {
+				loc, cookie := runStart(t, h)
+				state := loc.Query().Get("state")
+				idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+				// Valid state, no error param, but no code either.
+				return runCallback(t, h, cookie, url.Values{"state": {state}})
+			},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -600,6 +617,64 @@ func TestOIDCCallbackThrottle(t *testing.T) {
 	}
 	if !strings.HasPrefix(frag, "oidc_error=throttled") {
 		t.Fatalf("seventh attempt should be throttled with a fragment redirect, got %q", frag)
+	}
+}
+
+// TestOIDCCallbackDisabled covers the Callback early-out when SSO is off.
+func TestOIDCCallbackDisabled(t *testing.T) {
+	sm := webauthn.NewSessionManager(newMemStore())
+	h := NewOIDCHandler(newFakeSettings(map[string]string{oidcEnabledKey: "false"}), sm, mockIPLimiter{}, testMasterKey)
+	frag := runCallback(t, h, nil, url.Values{"state": {"x"}, "code": {"c"}})
+	if !strings.HasPrefix(frag, "oidc_error=") {
+		t.Fatalf("disabled callback should redirect with an error, got %q", frag)
+	}
+}
+
+// failNthCreateStore fails the Nth CreateSession call, leaving the others to the
+// embedded mem store. Used to drive the CreateAuthToken failure in Callback: the
+// login-state create (Start) succeeds, the auth-token create (Callback) fails.
+type failNthCreateStore struct {
+	*memSessionStore
+	failOn int
+	mu     sync.Mutex
+	n      int
+}
+
+func (s *failNthCreateStore) CreateSession(ctx context.Context, rec *webauthn.SessionRecord) error {
+	s.mu.Lock()
+	s.n++
+	nth := s.n
+	s.mu.Unlock()
+	if nth == s.failOn {
+		return errNoSession
+	}
+	return s.memSessionStore.CreateSession(ctx, rec)
+}
+
+func TestOIDCCallbackCreateAuthTokenError(t *testing.T) {
+	idp := newMockIDP(t, oidcTestClientID)
+	store := &failNthCreateStore{memSessionStore: newMemStore(), failOn: 2}
+	sm := webauthn.NewSessionManager(store)
+	enc, err := auth.EncryptString("client-secret-value", testMasterKey)
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	h := NewOIDCHandler(newFakeSettings(map[string]string{
+		oidcEnabledKey:       "true",
+		oidcIssuerURLKey:     idp.server.URL,
+		oidcClientIDKey:      oidcTestClientID,
+		oidcClientSecretKey:  enc,
+		oidcAllowedEmailsKey: "admin@example.com",
+		oidcPublicBaseURLKey: "https://h.example",
+	}), sm, mockIPLimiter{}, testMasterKey)
+
+	loc, cookie := runStart(t, h) // CreateLoginState -> CreateSession #1 (ok)
+	state := loc.Query().Get("state")
+	idp.configure(loc.Query().Get("nonce"), "admin@example.com", true)
+	// Everything validates; CreateAuthToken -> CreateSession #2 -> fails.
+	frag := runCallback(t, h, cookie, url.Values{"state": {state}, "code": {"c"}})
+	if !strings.HasPrefix(frag, "oidc_error=") {
+		t.Fatalf("expected error fragment on session-create failure, got %q", frag)
 	}
 }
 
