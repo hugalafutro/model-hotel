@@ -397,6 +397,9 @@ func getGitHubJSON(ctx context.Context, client *http.Client, urlStr string, v an
 		return err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
+	// Pin the REST API version (GitHub's recommendation) so a future default-version
+	// bump can't silently change the shape of /user or /user/emails out from under us.
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

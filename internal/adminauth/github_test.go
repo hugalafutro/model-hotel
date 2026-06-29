@@ -61,7 +61,14 @@ func newGitHubMock(t *testing.T) *githubMock {
 			"scope":        "read:user,user:email",
 		})
 	})
-	mux.HandleFunc("/user", func(w http.ResponseWriter, _ *http.Request) {
+	// The handler must pin the REST API version on every identity call.
+	assertAPIVersion := func(r *http.Request) {
+		if got := r.Header.Get("X-GitHub-Api-Version"); got != "2022-11-28" {
+			t.Errorf("%s: X-GitHub-Api-Version = %q, want 2022-11-28", r.URL.Path, got)
+		}
+	}
+	mux.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
+		assertAPIVersion(r)
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		if m.userError {
@@ -70,7 +77,8 @@ func newGitHubMock(t *testing.T) *githubMock {
 		}
 		writeTestJSON(w, githubUser{ID: m.id, Login: m.login})
 	})
-	mux.HandleFunc("/user/emails", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/user/emails", func(w http.ResponseWriter, r *http.Request) {
+		assertAPIVersion(r)
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		if m.emailsForbidden {

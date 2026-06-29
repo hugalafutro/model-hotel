@@ -72,7 +72,11 @@ export function GithubPanel() {
 		enabled,
 		refetchOnWindowFocus: false,
 	});
-	const configured = statusQuery.data?.enabled ?? false;
+	// Status deliberately does not read the client secret (it's an unauthenticated,
+	// login-screen-polled endpoint), so AND in the locally-known secret presence:
+	// without this the pill would show a false-positive green when the secret is
+	// blank, even though Start would then fail to build a usable runtime.
+	const configured = secretConfigured && (statusQuery.data?.enabled ?? false);
 
 	return (
 		<div className="space-y-5" data-testid="github-panel">

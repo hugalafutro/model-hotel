@@ -67,6 +67,25 @@ describe("GithubPanel", () => {
 		).toBeInTheDocument();
 	});
 
+	it("does not show the configured-green indicator when the client secret is blank", async () => {
+		// Status ignores the secret, so it reports enabled=true with id + base URL
+		// set; the panel must still show amber (incomplete) because no secret is set.
+		mockSettings({
+			github_sso_enabled: "true",
+			github_client_id: "Iv1.abc123",
+			github_public_base_url: "https://hotel.example.com",
+			// github_client_secret intentionally absent
+		});
+		mockGithubStatus(true);
+		renderWithProviders(<GithubPanel />);
+
+		const status = await screen.findByTestId("github-status");
+		await waitFor(() => {
+			expect(status.querySelector(".bg-amber-500")).toBeInTheDocument();
+			expect(status.querySelector(".bg-green-500")).not.toBeInTheDocument();
+		});
+	});
+
 	it("derives the callback URL without a doubled slash", async () => {
 		mockSettings({
 			github_sso_enabled: "true",
