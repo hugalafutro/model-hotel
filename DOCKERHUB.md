@@ -128,7 +128,7 @@ SSO is a third login path, not a replacement: it mints the same session token as
 
 ## High Availability
 
-A single instance keeps its caches and rate limiters in memory, so to survive a host failure you run several instances behind one client endpoint. A **Front Desk** control plane holds the fleet roster and pushes configuration to every member, and **Traefik** load-balances them with health checks and automatic failover. Members share one `MASTER_KEY` (so encrypted provider keys port across the fleet) and each keeps its own admin token; a config change on any member syncs to the rest. See the [High Availability guide](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
+A single instance keeps its caches and rate limiters in memory, so to survive a host failure you run several instances behind one client endpoint. A **Front Desk** control plane holds the fleet roster and pushes configuration to every member, and **Traefik** load-balances them with health checks and automatic failover. Members share one `MASTER_KEY` (so encrypted provider keys port across the fleet) and each keeps its own admin token; you configure a designated primary and Front Desk replicates it to the rest (replica-local edits are overwritten on the next sync). See the [High Availability guide](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
 
 ## Quick Start
 
