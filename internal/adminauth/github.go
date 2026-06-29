@@ -144,17 +144,21 @@ type githubStatusResponse struct {
 	Enabled bool `json:"enabled"`
 }
 
-// Status reports whether GitHub SSO is enabled and fully configured. Public and
-// cheap: it never builds the oauth2 config or touches the network.
+// Status reports whether GitHub SSO is enabled and configured enough to show the
+// login button. Public and cheap: it never builds the oauth2 config or touches
+// the network. It deliberately does NOT read the client secret (a secret-bearing
+// settings row): mirroring OIDC's Status, the secret is enforced only on the
+// privileged path, where Start -> runtime() -> build() refuses an empty secret.
+// Keeping the secret out of this unauthenticated, login-screen-polled endpoint
+// avoids both a per-poll secret read and leaking whether a secret is set.
 func (h *GitHubHandler) Status(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	enabled := h.settings.GetBool(ctx, githubEnabledKey, false)
 	clientID := strings.TrimSpace(h.settings.GetWithDefault(ctx, githubClientIDKey, ""))
-	secretConfigured := h.settings.GetWithDefault(ctx, githubClientSecretKey, "") != ""
 	baseURL := strings.TrimSpace(h.settings.GetWithDefault(ctx, githubPublicBaseURLKey, ""))
 
 	resp := githubStatusResponse{
-		Enabled: enabled && clientID != "" && secretConfigured && baseURL != "",
+		Enabled: enabled && clientID != "" && baseURL != "",
 	}
 	writeJSON(w, resp)
 }
@@ -240,15 +244,17 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Clear the single-use login-state cookie on every callback, including the
+	// disabled-runtime short-circuit below, so a stale cookie never lingers.
+	h.clearCookie(w)
+
 	rt, err := h.runtime(ctx)
 	if err != nil || rt == nil || !rt.enabled {
 		h.redirectError(w, r, "unavailable")
 		return
 	}
 
-	// The login-state cookie is consumed (single use) regardless of outcome.
 	cookie, err := r.Cookie(githubCookieName)
-	h.clearCookie(w)
 	if err != nil {
 		h.fail(w, r, throttleKey, "missing login state", nil)
 		return
@@ -349,6 +355,11 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	// server on the follow-up request (no Referer leak, nothing in our own request
 	// logs). It does appear in this 302's Location response header, so operators
 	// should redact `Location` on /api/auth/github/callback in their access logs.
+	//
+	// The `oidc_token`/`oidc_error` fragment keys are the generic SSO hand-off
+	// slot the SPA already consumes, not an OIDC-specific channel. If a third SSO
+	// provider is ever added, rename these to a neutral `sso_*` across the handlers
+	// and the SPA's consume helpers in lockstep.
 	http.Redirect(w, r, "/#oidc_token="+url.QueryEscape(sessionToken), http.StatusFound)
 }
 

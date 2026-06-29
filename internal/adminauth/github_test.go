@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/oauth2"
@@ -220,15 +221,43 @@ func TestGitHubStatus(t *testing.T) {
 	if !get().Enabled {
 		t.Fatal("expected enabled=true when fully configured")
 	}
-	fs.set(githubEnabledKey, "false")
-	if get().Enabled {
-		t.Fatal("expected enabled=false when github_sso_enabled=false")
+
+	// Each term of the AND-chain (enabled && clientID && baseURL) independently
+	// gates the response. The client secret is deliberately NOT read here (it is
+	// enforced on the privileged Start path), so clearing it must NOT flip
+	// enabled to false.
+	for _, tc := range []struct {
+		name string
+		key  string
+		val  string
+	}{
+		{"disabled", githubEnabledKey, "false"},
+		{"no client id", githubClientIDKey, ""},
+		{"no base url", githubPublicBaseURLKey, ""},
+	} {
+		fs := newFakeSettings(map[string]string{
+			githubEnabledKey:       "true",
+			githubClientIDKey:      githubTestClientID,
+			githubClientSecretKey:  "enc-secret",
+			githubPublicBaseURLKey: "https://mh.example.test",
+		})
+		fs.set(tc.key, tc.val)
+		h := NewGitHubHandler(fs, nil, mockIPLimiter{}, testMasterKey)
+		rec := httptest.NewRecorder()
+		h.Status(rec, httptest.NewRequest(http.MethodGet, "/api/auth/github/status", http.NoBody))
+		var resp githubStatusResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("%s: decode status: %v", tc.name, err)
+		}
+		if resp.Enabled {
+			t.Fatalf("%s: expected enabled=false", tc.name)
+		}
 	}
-	// Missing secret -> not configured -> not enabled.
-	fs.set(githubEnabledKey, "true")
+
+	// Clearing only the secret must keep enabled=true (Status does not read it).
 	fs.set(githubClientSecretKey, "")
-	if get().Enabled {
-		t.Fatal("expected enabled=false when client secret is unset")
+	if !get().Enabled {
+		t.Fatal("clearing the client secret must not flip Status enabled (secret is not read here)")
 	}
 }
 
@@ -453,5 +482,94 @@ func TestGitHubCreateAuthTokenError(t *testing.T) {
 	frag := runGitHubCallback(t, h, cookie, url.Values{"state": {loc.Query().Get("state")}, "code": {"c"}})
 	if !strings.HasPrefix(frag, "oidc_error=") {
 		t.Fatalf("expected error fragment on CreateAuthToken failure, got %q", frag)
+	}
+}
+
+// assertCallbackDenied drives the callback with a hand-built cookie and asserts a
+// generic error fragment with no leaked token. Used for the login-state validation
+// branches that can't be reached through a normal Start.
+func assertCallbackDenied(t *testing.T, h *GitHubHandler, cookie *http.Cookie, q url.Values) {
+	t.Helper()
+	frag := runGitHubCallback(t, h, cookie, q)
+	if !strings.HasPrefix(frag, "oidc_error=") {
+		t.Fatalf("expected error fragment, got %q", frag)
+	}
+	if strings.Contains(frag, "oidc_token=") {
+		t.Fatalf("denied callback leaked a token: %q", frag)
+	}
+}
+
+// A login-state record aged past githubLoginTTL is rejected ("expired login
+// state"): ConsumeLoginState returns the record but reports it expired.
+func TestGitHubExpiredLoginState(t *testing.T) {
+	m := newGitHubMock(t)
+	h, _, sessionMgr := newGitHubTestHandler(t, m, "admin@example.com")
+
+	blob, err := json.Marshal(githubLoginState{State: "s1"})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	// Negative TTL => ExpiresAt already in the past.
+	id, err := sessionMgr.CreateLoginState(context.Background(), blob, -time.Minute)
+	if err != nil {
+		t.Fatalf("create login state: %v", err)
+	}
+	cookie := &http.Cookie{Name: githubCookieName, Value: id.String()}
+	assertCallbackDenied(t, h, cookie, url.Values{"state": {"s1"}, "code": {"c"}})
+}
+
+// A cookie whose value is not a UUID is rejected ("bad login state") before any
+// store lookup.
+func TestGitHubBadLoginStateCookie(t *testing.T) {
+	m := newGitHubMock(t)
+	h, _, _ := newGitHubTestHandler(t, m, "admin@example.com")
+
+	cookie := &http.Cookie{Name: githubCookieName, Value: "not-a-uuid"}
+	assertCallbackDenied(t, h, cookie, url.Values{"state": {"s1"}, "code": {"c"}})
+}
+
+// A login-state record whose stored blob is not valid JSON is rejected ("corrupt
+// login state") at the json.Unmarshal step, before any state/token work.
+func TestGitHubCorruptLoginState(t *testing.T) {
+	m := newGitHubMock(t)
+	h, _, sessionMgr := newGitHubTestHandler(t, m, "admin@example.com")
+
+	id, err := sessionMgr.CreateLoginState(context.Background(), []byte("{not-json"), time.Minute)
+	if err != nil {
+		t.Fatalf("create login state: %v", err)
+	}
+	cookie := &http.Cookie{Name: githubCookieName, Value: id.String()}
+	// State value is irrelevant: unmarshal fails before the state compare.
+	assertCallbackDenied(t, h, cookie, url.Values{"state": {"whatever"}, "code": {"c"}})
+}
+
+// A callback that arrives after GitHub SSO is disabled is rejected
+// ("unavailable") and still clears the single-use login-state cookie.
+func TestGitHubCallbackDisabledClearsCookie(t *testing.T) {
+	m := newGitHubMock(t)
+	h, fs, _ := newGitHubTestHandler(t, m, "admin@example.com")
+	fs.set(githubEnabledKey, "false") // runtime() rebuilds to a disabled runtime
+
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/github/callback?code=c&state=s", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: githubCookieName, Value: "stale"})
+	rec := httptest.NewRecorder()
+	h.Callback(rec, req)
+	res := rec.Result()
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusFound {
+		t.Fatalf("status = %d, want 302", res.StatusCode)
+	}
+	if loc := res.Header.Get("Location"); !strings.Contains(loc, "#oidc_error=") {
+		t.Fatalf("expected error fragment, got Location %q", loc)
+	}
+	var cleared bool
+	for _, c := range res.Cookies() {
+		if c.Name == githubCookieName && c.MaxAge < 0 {
+			cleared = true
+		}
+	}
+	if !cleared {
+		t.Fatal("disabled-runtime callback must still clear the login-state cookie")
 	}
 }
