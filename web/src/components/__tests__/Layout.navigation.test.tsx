@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getAdminToken, setAdminToken } from "../../api/client";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import * as webauthnUtils from "../../utils/webauthn";
@@ -12,6 +13,10 @@ describe("Layout", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// The admin token is module-global state (seeded once in setup.ts). The
+		// logout tests now clear it (the in-memory token, not just localStorage),
+		// so re-seed before every test to keep the suite order-independent.
+		setAdminToken("test-admin-token");
 	});
 
 	describe("Sidebar Navigation", () => {
@@ -899,6 +904,42 @@ describe("Layout", () => {
 
 			await waitFor(() => {
 				expect(logoutCalled).toBe(true);
+				expect(localStorage.getItem("adminToken")).toBeNull();
+			});
+
+			localStorage.removeItem("adminToken");
+		});
+
+		// Regression: logout must clear the IN-MEMORY token, not just localStorage.
+		// getAuthHeaders() reads the in-memory token first, so leaving it set let
+		// queries refetch with the just-revoked token in the gap before the reload,
+		// producing a burst of 401s server-side.
+		it("clears the in-memory admin token on logout", async () => {
+			const user = userEvent.setup();
+			vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
+			setAdminToken("test-token");
+			localStorage.setItem("adminToken", "test-token");
+			server.use(
+				http.post("/api/webauthn/logout", () =>
+					HttpResponse.json({ success: true }),
+				),
+			);
+
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const logoutButton = screen.getByText("Logout").closest("button");
+			if (logoutButton) {
+				await user.click(logoutButton);
+			}
+			const confirmButton = screen
+				.getByRole("dialog")
+				.querySelector("button.ui-btn-danger");
+			if (confirmButton) {
+				await user.click(confirmButton as HTMLElement);
+			}
+
+			await waitFor(() => {
+				expect(getAdminToken()).toBe("");
 				expect(localStorage.getItem("adminToken")).toBeNull();
 			});
 
