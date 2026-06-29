@@ -118,7 +118,9 @@
 		"window": "Last {{n}} minutes",
 		"unreachable": "Could not read metrics from this member",
 		"reqPerMin": "req/min",
-		"noData": "No data"
+		"noData": "No data",
+		"refresh": "Refresh",
+		"updated": "Updated {{time}}"
 	},
 	"events": {
 		"title": "Events",

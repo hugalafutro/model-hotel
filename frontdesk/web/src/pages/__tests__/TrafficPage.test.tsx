@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { MemberTraffic, MemberView } from "../../api/types";
@@ -84,6 +85,38 @@ describe("TrafficPage", () => {
 		expect(await screen.findByText("100")).toBeInTheDocument();
 		// 5/100 = 5.0% error rate.
 		expect(screen.getByText("5.0%")).toBeInTheDocument();
+	});
+
+	it("stamps each graph with a last-updated time and refreshes on demand", async () => {
+		let calls = 0;
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+			),
+			http.get("/api/members/1/traffic", () => {
+				calls += 1;
+				return HttpResponse.json(
+					traffic({
+						member_id: "1",
+						total_requests: calls === 1 ? 100 : 250,
+						points: [
+							{ bucket: "b1", requests: calls === 1 ? 100 : 250, errors: 0 },
+						],
+					}),
+				);
+			}),
+		);
+		const user = userEvent.setup();
+		renderPage();
+
+		// First load: the metric plus an "Updated ..." stamp under the graph.
+		expect(await screen.findByText("100")).toBeInTheDocument();
+		expect(screen.getByTestId("traffic-updated")).toHaveTextContent(/Updated/);
+
+		// Refresh re-pulls the traffic endpoint; the new total replaces the old.
+		await user.click(screen.getByTestId("traffic-refresh"));
+		expect(await screen.findByText("250")).toBeInTheDocument();
+		expect(calls).toBeGreaterThanOrEqual(2);
 	});
 
 	it("shows an unreachable note for a member whose stats can't be read", async () => {
