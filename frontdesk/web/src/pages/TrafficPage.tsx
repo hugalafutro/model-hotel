@@ -49,7 +49,14 @@ function MemberTrafficCard({
 				setData(d);
 				setUpdatedAt(new Date().toISOString());
 			})
-			.catch(() => active && setData(null))
+			.catch(() => {
+				// Clear the timestamp too: a failed refresh must not leave an old
+				// "Updated ..." stamp next to the "could not read metrics" state,
+				// which would make a failed read look like fresh status.
+				if (!active) return;
+				setData(null);
+				setUpdatedAt(null);
+			})
 			.finally(() => active && setLoading(false));
 		return () => {
 			active = false;
