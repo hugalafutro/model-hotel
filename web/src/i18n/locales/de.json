@@ -162,7 +162,8 @@
 			"totpThrottled": "Zu viele Versuche. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
 			"signInWithSSO": "Mit SSO anmelden",
 			"signInWithSSOProvider": "Mit {{provider}} anmelden",
-			"ssoFailed": "Single Sign-on fehlgeschlagen. Versuche es erneut oder nutze eine andere Anmeldemethode."
+			"ssoFailed": "Single Sign-on fehlgeschlagen. Versuche es erneut oder nutze eine andere Anmeldemethode.",
+			"signInWithGithub": "Mit GitHub anmelden"
 		},
 		"theme": {
 			"switchToLight": "Zum hellen Modus wechseln",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Redirect-URI kopieren",
 			"allowedEmails": "Erlaubte E-Mail-Adressen",
 			"allowedEmailsDescription": "Nur diese verifizierten E-Mail-Adressen dürfen sich anmelden, durch Komma oder Zeilenumbruch getrennt.",
+			"fallbackNote": "Ist der Anbieter nicht erreichbar, kannst du dich weiterhin mit Admin-Token, Passkey oder TOTP anmelden.",
+			"status": {
+				"checking": "Konfiguration wird geprüft…",
+				"configured": "Aktiviert und konfiguriert",
+				"incomplete": "Unvollständige Konfiguration"
+			}
+		},
+		"github": {
+			"title": "Mit GitHub anmelden",
+			"description": "Lass Admins sich mit ihrem GitHub-Konto anmelden. SSO ist additiv: Anmeldung per Admin-Token, Passkey und TOTP funktioniert weiterhin.",
+			"enable": "GitHub-Anmeldung aktivieren",
+			"enableDescription": "Zeigt auf dem Anmeldebildschirm eine Single-Sign-on-Schaltfläche an.",
+			"clientId": "Client-ID",
+			"clientSecret": "Client-Secret",
+			"toggleSecret": "Client-Secret anzeigen oder verbergen",
+			"secretConfigured": "Secret gesetzt (zum Beibehalten leer lassen)",
+			"secretPlaceholder": "Client-Secret einfügen",
+			"clear": "Löschen",
+			"publicBaseUrl": "Öffentliche Basis-URL",
+			"publicBaseUrlDescription": "Die extern erreichbare Adresse dieser App, zum Aufbau der Redirect-URI.",
+			"callbackUri": "Redirect-URI",
+			"callbackUriDescription": "Registriere genau diese URL bei deinem Anbieter.",
+			"copyCallbackUri": "Redirect-URI kopieren",
+			"allowedEmails": "Erlaubte E-Mail-Adressen",
+			"allowedEmailsDescription": "Nur diese verifizierten E-Mail-Adressen dürfen sich anmelden, durch Komma oder Zeilenumbruch getrennt.",
+			"setupHint": "Erstelle eine OAuth-App unter GitHub Settings → Developer settings und füge dann Client-ID und Secret hier ein.",
 			"fallbackNote": "Ist der Anbieter nicht erreichbar, kannst du dich weiterhin mit Admin-Token, Passkey oder TOTP anmelden.",
 			"status": {
 				"checking": "Konfiguration wird geprüft…",

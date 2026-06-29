@@ -162,7 +162,8 @@
 			"totpThrottled": "Zbyt wiele prób. Poczekaj chwilę i spróbuj ponownie.",
 			"signInWithSSO": "Zaloguj się przez SSO",
 			"signInWithSSOProvider": "Zaloguj się przez {{provider}}",
-			"ssoFailed": "Logowanie jednokrotne nie powiodło się. Spróbuj ponownie lub użyj innej metody logowania."
+			"ssoFailed": "Logowanie jednokrotne nie powiodło się. Spróbuj ponownie lub użyj innej metody logowania.",
+			"signInWithGithub": "Zaloguj się przez GitHub"
 		},
 		"theme": {
 			"switchToLight": "Przełącz na tryb jasny",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Kopiuj identyfikator URI przekierowania",
 			"allowedEmails": "Dozwolone adresy e-mail",
 			"allowedEmailsDescription": "Zalogować się mogą tylko te zweryfikowane adresy e-mail, oddzielone przecinkami lub nowymi wierszami.",
+			"fallbackNote": "Jeśli dostawca jest niedostępny, nadal możesz zalogować się tokenem administratora, kluczem dostępu lub TOTP.",
+			"status": {
+				"checking": "Sprawdzanie konfiguracji…",
+				"configured": "Włączone i skonfigurowane",
+				"incomplete": "Niekompletna konfiguracja"
+			}
+		},
+		"github": {
+			"title": "Zaloguj się przez GitHub",
+			"description": "Pozwala administratorom logować się za pomocą konta GitHub. SSO jest dodatkowe: logowanie tokenem administratora, kluczem dostępu i TOTP nadal działa.",
+			"enable": "Włącz logowanie przez GitHub",
+			"enableDescription": "Pokazuje przycisk logowania jednokrotnego na ekranie logowania.",
+			"clientId": "Identyfikator klienta",
+			"clientSecret": "Sekret klienta",
+			"toggleSecret": "Pokaż lub ukryj sekret klienta",
+			"secretConfigured": "Sekret ustawiony (pozostaw puste, aby zachować)",
+			"secretPlaceholder": "Wklej sekret klienta",
+			"clear": "Wyczyść",
+			"publicBaseUrl": "Publiczny bazowy adres URL",
+			"publicBaseUrlDescription": "Zewnętrznie dostępny adres tej aplikacji, używany do zbudowania identyfikatora URI przekierowania.",
+			"callbackUri": "Identyfikator URI przekierowania",
+			"callbackUriDescription": "Zarejestruj dokładnie ten adres URL u swojego dostawcy.",
+			"copyCallbackUri": "Kopiuj identyfikator URI przekierowania",
+			"allowedEmails": "Dozwolone adresy e-mail",
+			"allowedEmailsDescription": "Zalogować się mogą tylko te zweryfikowane adresy e-mail, oddzielone przecinkami lub nowymi wierszami.",
+			"setupHint": "Utwórz aplikację OAuth w GitHub Settings → Developer settings, a następnie wklej tutaj identyfikator klienta i sekret.",
 			"fallbackNote": "Jeśli dostawca jest niedostępny, nadal możesz zalogować się tokenem administratora, kluczem dostępu lub TOTP.",
 			"status": {
 				"checking": "Sprawdzanie konfiguracji…",

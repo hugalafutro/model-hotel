@@ -702,6 +702,15 @@ export interface OidcStatus {
 	display_name?: string;
 }
 
+/**
+ * Public GitHub SSO status, read unauthenticated on the login screen and in
+ * settings. Reports only whether GitHub SSO is enabled and fully configured;
+ * the button label is fixed ("GitHub"), so there is no display name.
+ */
+export interface GithubStatus {
+	enabled: boolean;
+}
+
 /** Admin-gated detail for the settings panel (not the polled public status). */
 export interface TotpInfo {
 	recovery_remaining: number;

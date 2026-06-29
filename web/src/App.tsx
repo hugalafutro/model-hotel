@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { Eye, EyeOff, Fingerprint, LogIn } from "@/lib/icons";
+import { Eye, EyeOff, Fingerprint, GithubLogo, LogIn } from "@/lib/icons";
 import { api, setAdminToken } from "./api/client";
 import { CopyablePill } from "./components/CopyablePill";
 import { Layout } from "./components/Layout";
@@ -68,6 +68,17 @@ function LoginScreen() {
 	});
 	const ssoEnabled = oidcStatus?.enabled ?? false;
 	const ssoProvider = oidcStatus?.display_name ?? "";
+
+	// GitHub SSO is independent of OIDC: an operator may run either, both, or
+	// neither. It shares the same callback hand-off (token/error in the URL
+	// fragment), so consumeOidcToken/consumeOidcError below cover it too.
+	const { data: githubStatus } = useQuery({
+		queryKey: ["github-status"],
+		queryFn: () => api.github.status(),
+		staleTime: Number.POSITIVE_INFINITY,
+		retry: 1,
+	});
+	const githubEnabled = githubStatus?.enabled ?? false;
 
 	// A failed SSO callback redirects back with an error code in the fragment.
 	// Reading it is a one-shot side effect (consumeOidcError scrubs the hash), so
@@ -207,6 +218,17 @@ function LoginScreen() {
 								: t("layout.auth.signInWithSSO")}
 						</a>
 					)}
+					{githubEnabled && (
+						<a
+							href="/api/auth/github/start"
+							className="ui-btn ui-btn-primary ui-btn-lg w-full no-underline"
+							aria-label={t("layout.auth.signInWithGithub")}
+							data-testid="github-login-button"
+						>
+							<GithubLogo size={20} />
+							{t("layout.auth.signInWithGithub")}
+						</a>
+					)}
 					{passkeyAvailable && (
 						<button
 							type="button"
@@ -221,7 +243,7 @@ function LoginScreen() {
 								: t("layout.auth.signInWithPasskey")}
 						</button>
 					)}
-					{(ssoEnabled || passkeyAvailable) && (
+					{(ssoEnabled || githubEnabled || passkeyAvailable) && (
 						<div className="flex items-center gap-3">
 							<div className="flex-1 h-px bg-gray-700"></div>
 							<span className="text-xs text-gray-500 uppercase">

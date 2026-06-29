@@ -162,7 +162,8 @@
 			"totpThrottled": "Túl sok próbálkozás. Várjon egy pillanatot, és próbálja újra.",
 			"signInWithSSO": "Bejelentkezés SSO-val",
 			"signInWithSSOProvider": "Bejelentkezés ezzel: {{provider}}",
-			"ssoFailed": "Az egyszeri bejelentkezés sikertelen. Próbáld újra, vagy használj másik bejelentkezési módot."
+			"ssoFailed": "Az egyszeri bejelentkezés sikertelen. Próbáld újra, vagy használj másik bejelentkezési módot.",
+			"signInWithGithub": "Bejelentkezés ezzel: GitHub"
 		},
 		"theme": {
 			"switchToLight": "Váltás világos módra",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Átirányítási URI másolása",
 			"allowedEmails": "Engedélyezett e-mailek",
 			"allowedEmailsDescription": "Csak ezek a megerősített e-mail-címek jelentkezhetnek be, vesszővel vagy új sorokkal elválasztva.",
+			"fallbackNote": "Ha a szolgáltató nem érhető el, továbbra is bejelentkezhetsz a rendszergazdai tokennel, hozzáférési kulccsal vagy TOTP-vel.",
+			"status": {
+				"checking": "Konfiguráció ellenőrzése…",
+				"configured": "Engedélyezve és beállítva",
+				"incomplete": "Hiányos konfiguráció"
+			}
+		},
+		"github": {
+			"title": "Bejelentkezés ezzel: GitHub",
+			"description": "Lehetővé teszi, hogy a rendszergazdák a GitHub-fiókjukkal jelentkezzenek be. Az SSO kiegészítő: a rendszergazdai tokennel, hozzáférési kulccsal és TOTP-vel való bejelentkezés továbbra is működik.",
+			"enable": "GitHub-bejelentkezés engedélyezése",
+			"enableDescription": "Egyszeri bejelentkezési gombot jelenít meg a bejelentkezési képernyőn.",
+			"clientId": "Ügyfél-azonosító",
+			"clientSecret": "Ügyféltitok",
+			"toggleSecret": "Ügyfél-titok megjelenítése vagy elrejtése",
+			"secretConfigured": "Titok beállítva (hagyd üresen a megtartásához)",
+			"secretPlaceholder": "Illeszd be az ügyféltitkot",
+			"clear": "Törlés",
+			"publicBaseUrl": "Nyilvános alap URL-cím",
+			"publicBaseUrlDescription": "Ennek az alkalmazásnak a kívülről elérhető címe, amelyből az átirányítási URI felépül.",
+			"callbackUri": "Átirányítási URI",
+			"callbackUriDescription": "Pontosan ezt az URL-címet regisztráld a szolgáltatódnál.",
+			"copyCallbackUri": "Átirányítási URI másolása",
+			"allowedEmails": "Engedélyezett e-mailek",
+			"allowedEmailsDescription": "Csak ezek a megerősített e-mail-címek jelentkezhetnek be, vesszővel vagy új sorokkal elválasztva.",
+			"setupHint": "Hozz létre egy OAuth-alkalmazást a GitHub Settings → Developer settings alatt, majd illeszd be ide a kliensazonosítót és a titkot.",
 			"fallbackNote": "Ha a szolgáltató nem érhető el, továbbra is bejelentkezhetsz a rendszergazdai tokennel, hozzáférési kulccsal vagy TOTP-vel.",
 			"status": {
 				"checking": "Konfiguráció ellenőrzése…",

@@ -162,7 +162,8 @@
 			"totpThrottled": "Te veel pogingen. Wacht even en probeer het opnieuw.",
 			"signInWithSSO": "Aanmelden met SSO",
 			"signInWithSSOProvider": "Aanmelden met {{provider}}",
-			"ssoFailed": "Eenmalige aanmelding is mislukt. Probeer het opnieuw of gebruik een andere aanmeldmethode."
+			"ssoFailed": "Eenmalige aanmelding is mislukt. Probeer het opnieuw of gebruik een andere aanmeldmethode.",
+			"signInWithGithub": "Aanmelden met GitHub"
 		},
 		"theme": {
 			"switchToLight": "Schakel naar lichte modus",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Redirect-URI kopiëren",
 			"allowedEmails": "Toegestane e-mailadressen",
 			"allowedEmailsDescription": "Alleen deze geverifieerde e-mailadressen mogen aanmelden, gescheiden door komma's of nieuwe regels.",
+			"fallbackNote": "Als de provider niet beschikbaar is, kun je nog steeds aanmelden met het admin-token, een passkey of TOTP.",
+			"status": {
+				"checking": "Configuratie controleren…",
+				"configured": "Ingeschakeld en geconfigureerd",
+				"incomplete": "Onvolledige configuratie"
+			}
+		},
+		"github": {
+			"title": "Aanmelden met GitHub",
+			"description": "Laat beheerders aanmelden met hun GitHub-account. SSO is aanvullend: aanmelden met admin-token, passkey en TOTP blijft werken.",
+			"enable": "GitHub-aanmelding inschakelen",
+			"enableDescription": "Toont een knop voor eenmalige aanmelding op het aanmeldscherm.",
+			"clientId": "Client-ID",
+			"clientSecret": "Clientgeheim",
+			"toggleSecret": "Clientgeheim tonen of verbergen",
+			"secretConfigured": "Geheim ingesteld (laat leeg om te behouden)",
+			"secretPlaceholder": "Plak het clientgeheim",
+			"clear": "Wissen",
+			"publicBaseUrl": "Openbare basis-URL",
+			"publicBaseUrlDescription": "Het extern bereikbare adres van deze app, gebruikt om de redirect-URI op te bouwen.",
+			"callbackUri": "Redirect-URI",
+			"callbackUriDescription": "Registreer precies deze URL bij je provider.",
+			"copyCallbackUri": "Redirect-URI kopiëren",
+			"allowedEmails": "Toegestane e-mailadressen",
+			"allowedEmailsDescription": "Alleen deze geverifieerde e-mailadressen mogen aanmelden, gescheiden door komma's of nieuwe regels.",
+			"setupHint": "Maak een OAuth-app aan onder GitHub Settings → Developer settings en plak vervolgens de client-ID en het geheim hier.",
 			"fallbackNote": "Als de provider niet beschikbaar is, kun je nog steeds aanmelden met het admin-token, een passkey of TOTP.",
 			"status": {
 				"checking": "Configuratie controleren…",

@@ -35,6 +35,9 @@ vi.mock("../api/client", () => ({
 		oidc: {
 			status: vi.fn().mockResolvedValue({ enabled: false }),
 		},
+		github: {
+			status: vi.fn().mockResolvedValue({ enabled: false }),
+		},
 	},
 }));
 
@@ -181,6 +184,27 @@ describe("LoginScreen TOTP step", () => {
 
 		await screen.findByRole("button", { name: "Sign In" });
 		expect(screen.queryByTestId("sso-login-button")).not.toBeInTheDocument();
+	});
+
+	it("shows the GitHub button only when github status is enabled", async () => {
+		const { api } = await import("../api/client");
+		vi.mocked(api.github.status).mockResolvedValue({ enabled: true });
+
+		renderWithProviders(<App />);
+
+		const gh = await screen.findByTestId("github-login-button");
+		expect(gh).toHaveTextContent("GitHub");
+		expect(gh).toHaveAttribute("href", "/api/auth/github/start");
+	});
+
+	it("hides the GitHub button when github is disabled", async () => {
+		const { api } = await import("../api/client");
+		vi.mocked(api.github.status).mockResolvedValue({ enabled: false });
+
+		renderWithProviders(<App />);
+
+		await screen.findByRole("button", { name: "Sign In" });
+		expect(screen.queryByTestId("github-login-button")).not.toBeInTheDocument();
 	});
 
 	it("surfaces an SSO error from the callback fragment and scrubs it", async () => {

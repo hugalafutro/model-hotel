@@ -162,7 +162,8 @@
 			"totpThrottled": "For mange forsøk. Vent et øyeblikk, og prøv igjen.",
 			"signInWithSSO": "Logg inn med SSO",
 			"signInWithSSOProvider": "Logg inn med {{provider}}",
-			"ssoFailed": "Enkeltpålogging mislyktes. Prøv igjen, eller bruk en annen påloggingsmetode."
+			"ssoFailed": "Enkeltpålogging mislyktes. Prøv igjen, eller bruk en annen påloggingsmetode.",
+			"signInWithGithub": "Logg inn med GitHub"
 		},
 		"theme": {
 			"switchToLight": "Bytt til lys modus",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Kopier omdirigerings-URI",
 			"allowedEmails": "Tillatte e-poster",
 			"allowedEmailsDescription": "Bare disse verifiserte e-postadressene kan logge inn, atskilt med komma eller linjeskift.",
+			"fallbackNote": "Hvis leverandøren ikke er tilgjengelig, kan du fortsatt logge inn med admin-token, en tilgangsnøkkel eller TOTP.",
+			"status": {
+				"checking": "Kontrollerer konfigurasjonen…",
+				"configured": "Aktivert og konfigurert",
+				"incomplete": "Ufullstendig konfigurasjon"
+			}
+		},
+		"github": {
+			"title": "Logg inn med GitHub",
+			"description": "Lar administratorer logge inn med GitHub-kontoen sin. SSO kommer i tillegg: innlogging med admin-token, tilgangsnøkkel og TOTP virker fortsatt.",
+			"enable": "Aktiver GitHub-innlogging",
+			"enableDescription": "Viser en enkeltpåloggingsknapp på påloggingsskjermen.",
+			"clientId": "Klient-ID",
+			"clientSecret": "Klienthemmelighet",
+			"toggleSecret": "Vis eller skjul klienthemmeligheten",
+			"secretConfigured": "Hemmelighet angitt (la stå tom for å beholde den)",
+			"secretPlaceholder": "Lim inn klienthemmeligheten",
+			"clear": "Tøm",
+			"publicBaseUrl": "Offentlig basis-URL",
+			"publicBaseUrlDescription": "Denne appens eksternt tilgjengelige adresse, brukt til å bygge omdirigerings-URI-en.",
+			"callbackUri": "Omdirigerings-URI",
+			"callbackUriDescription": "Registrer nøyaktig denne URL-en hos leverandøren din.",
+			"copyCallbackUri": "Kopier omdirigerings-URI",
+			"allowedEmails": "Tillatte e-poster",
+			"allowedEmailsDescription": "Bare disse verifiserte e-postadressene kan logge inn, atskilt med komma eller linjeskift.",
+			"setupHint": "Opprett en OAuth-app under GitHub Settings → Developer settings, og lim deretter inn klient-ID og hemmelighet her.",
 			"fallbackNote": "Hvis leverandøren ikke er tilgjengelig, kan du fortsatt logge inn med admin-token, en tilgangsnøkkel eller TOTP.",
 			"status": {
 				"checking": "Kontrollerer konfigurasjonen…",

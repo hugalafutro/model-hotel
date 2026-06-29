@@ -20,6 +20,7 @@ import (
 var secretSettingKeys = map[string]bool{
 	"alert_apprise_targets": true,
 	"oidc_client_secret":    true,
+	"github_client_secret":  true,
 }
 
 // secretMaskValue is returned to clients in place of a configured secret, and
@@ -188,6 +189,11 @@ var allowedSettings = map[string]struct {
 	"oidc_client_secret":           {typeName: "string"},                // secret: encrypted at rest, masked on read
 	"oidc_allowed_emails":          {typeName: "string"},                // comma/newline-separated allowlist
 	"oidc_public_base_url":         {typeName: "string"},                // app's external origin for the redirect URI
+	"github_sso_enabled":           {typeName: "string"},                // bool as string
+	"github_client_id":             {typeName: "string"},                // GitHub OAuth App client id
+	"github_client_secret":         {typeName: "string"},                // secret: encrypted at rest, masked on read
+	"github_allowed_emails":        {typeName: "string"},                // comma/newline-separated allowlist (verified emails)
+	"github_public_base_url":       {typeName: "string"},                // app's external origin for the callback URI
 }
 
 const maxSettingValueLen = 500

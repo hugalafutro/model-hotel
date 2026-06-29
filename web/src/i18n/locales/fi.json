@@ -162,7 +162,8 @@
 			"totpThrottled": "Liian monta yritystä. Odota hetki ja yritä uudelleen.",
 			"signInWithSSO": "Kirjaudu SSO:lla",
 			"signInWithSSOProvider": "Kirjaudu palvelulla {{provider}}",
-			"ssoFailed": "Kertakirjautuminen epäonnistui. Yritä uudelleen tai käytä toista kirjautumistapaa."
+			"ssoFailed": "Kertakirjautuminen epäonnistui. Yritä uudelleen tai käytä toista kirjautumistapaa.",
+			"signInWithGithub": "Kirjaudu palvelulla GitHub"
 		},
 		"theme": {
 			"switchToLight": "Vaihda vaaleaan tilaan",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Kopioi uudelleenohjaus-URI",
 			"allowedEmails": "Sallitut sähköpostit",
 			"allowedEmailsDescription": "Vain nämä vahvistetut sähköpostiosoitteet voivat kirjautua, eroteltuina pilkuilla tai rivinvaihdoilla.",
+			"fallbackNote": "Jos palveluntarjoaja ei ole käytettävissä, voit silti kirjautua ylläpitotunnuksella, avainkoodilla tai TOTP:lla.",
+			"status": {
+				"checking": "Tarkistetaan määritystä…",
+				"configured": "Käytössä ja määritetty",
+				"incomplete": "Puutteellinen määritys"
+			}
+		},
+		"github": {
+			"title": "Kirjaudu palvelulla GitHub",
+			"description": "Antaa ylläpitäjien kirjautua GitHub-tilillään. SSO on lisävaihtoehto: kirjautuminen ylläpitotunnuksella, avainkoodilla ja TOTP:lla toimii edelleen.",
+			"enable": "Ota GitHub-kirjautuminen käyttöön",
+			"enableDescription": "Näyttää kertakirjautumispainikkeen kirjautumisnäytöllä.",
+			"clientId": "Asiakastunnus",
+			"clientSecret": "Asiakassalaisuus",
+			"toggleSecret": "Näytä tai piilota asiakassalaisuus",
+			"secretConfigured": "Salaisuus asetettu (säilytä jättämällä tyhjäksi)",
+			"secretPlaceholder": "Liitä asiakassalaisuus",
+			"clear": "Tyhjennä",
+			"publicBaseUrl": "Julkinen perus-URL-osoite",
+			"publicBaseUrlDescription": "Tämän sovelluksen ulkoisesti tavoitettava osoite, jota käytetään uudelleenohjaus-URI:n muodostamiseen.",
+			"callbackUri": "Uudelleenohjaus-URI",
+			"callbackUriDescription": "Rekisteröi täsmälleen tämä URL-osoite palveluntarjoajallesi.",
+			"copyCallbackUri": "Kopioi uudelleenohjaus-URI",
+			"allowedEmails": "Sallitut sähköpostit",
+			"allowedEmailsDescription": "Vain nämä vahvistetut sähköpostiosoitteet voivat kirjautua, eroteltuina pilkuilla tai rivinvaihdoilla.",
+			"setupHint": "Luo OAuth-sovellus kohdassa GitHub Settings → Developer settings ja liitä sitten asiakastunnus ja salaisuus tähän.",
 			"fallbackNote": "Jos palveluntarjoaja ei ole käytettävissä, voit silti kirjautua ylläpitotunnuksella, avainkoodilla tai TOTP:lla.",
 			"status": {
 				"checking": "Tarkistetaan määritystä…",

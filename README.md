@@ -170,7 +170,7 @@ Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is st
 Log into the admin dashboard using a FIDO2/WebAuthn passkey (Touch ID, Windows Hello, YubiKey, etc.) instead of the admin token. Register passkeys from the Settings page and use them on the login screen alongside the traditional admin token.
 
 <div align="center">
-<br><img src="docs/screenshots/login_passkey.png" alt="Passkey Login" width="360"><br><br>
+<br><img src="docs/screenshots/login_passkey.png" alt="Login screen with passkey, SSO, GitHub, and TOTP" width="360"><br><br>
 </div>
 
 Passkey login is disabled by default. Enable it by setting `WEBAUTHN_RP_ID` (your domain) in the environment; `WEBAUTHN_RP_ORIGINS` (your origin URLs) falls back to `CORS_ORIGINS`, then to `http://localhost:<port>`. Session tokens are SHA-256 hashed, never stored in plaintext, and expire after 30 days.
@@ -186,12 +186,22 @@ If you lose your authenticator, a recovery code signs you in once so you can dis
 Let admins sign in through an external OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket-ID, Okta, Google, Entra, and so on). Configure it from the Settings page: paste the issuer URL, client ID, and client secret from an app you register with your provider, then list the verified email addresses allowed to sign in. A "Sign in with SSO" button appears on the login screen.
 
 <div align="center">
-<br><img src="docs/screenshots/settings_authentication.png" alt="Authentication settings: single sign-on, passkeys, and TOTP" width="640"><br><br>
+<br>
+<table>
+<tr>
+<td align="center" valign="top"><a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_local.png" alt="Authentication settings: passkeys and TOTP" width="260"></a><br><sub>Passkeys + 2FA (TOTP)</sub></td>
+<td align="center" valign="top"><a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_oidc.png" alt="Authentication settings: OIDC single sign-on" width="260"></a><br><sub>OIDC single sign-on</sub></td>
+<td align="center" valign="top"><a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_github.png" alt="Authentication settings: GitHub sign-in" width="260"></a><br><sub>GitHub sign-in</sub></td>
+</tr>
+</table>
+<br><sub>The Authentication settings page, split into its three sections. Click any panel for the full view.</sub><br><br>
 </div>
 
 SSO is a third login path, not a replacement: after the provider confirms an allowlisted, email-verified identity it mints the same session token as passkey and TOTP login, so nothing downstream changes. Logins are gated by the email allowlist (empty allowlist denies everyone) and matched only on verified emails, while the provider's stable `sub` and issuer are logged on each login (app log, source `oidc`). The client secret is AES-256-GCM encrypted at rest with `MASTER_KEY`, the flow uses PKCE plus single-use state and nonce, and the minted token is handed to the browser in the URL fragment, so it is never sent back to the server on later requests (no Referer leak, nothing in request logs). The one place it does appear is the callback's `302 Location` response header; if your reverse proxy logs response headers, redact `Location` on `/api/auth/oidc/callback`.
 
 Because it is self-hosted, there is no turnkey "Google login": each operator registers their own OIDC app with their provider and points it at this app's redirect URI (`<public base URL>/api/auth/oidc/callback`, shown in Settings). SSO never removes local login, so a misconfigured or unreachable provider cannot lock you out: the admin token, passkeys, and TOTP all keep working. SSO is opt-in at runtime from Settings and needs no environment variable.
+
+GitHub works the same way as a separate option. GitHub is OAuth2 only (no OpenID Connect, no ID token), so instead of verifying an ID token it reads the account's verified emails from the GitHub API and matches them against the same kind of allowlist: an unverified address never counts, and the account's stable numeric id and login are logged on each sign-in (source `github`). Register a GitHub OAuth App, set its Authorization callback URL to `<public base URL>/api/auth/github/callback`, and paste the Client ID and secret into Settings. A "Sign in with GitHub" button then appears alongside the SSO button. As with OIDC, redact `Location` on `/api/auth/github/callback` if your reverse proxy logs response headers, and local login always keeps working.
 
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> High Availability](#-high-availability)
 One instance keeps its caches and rate-limit counters in memory, so to survive a host going down you run several instances behind a single client endpoint. Model Hotel ships a drop-in HA stack: a **Front Desk** control plane that holds the fleet roster and pushes configuration to every member, and **Traefik** as the load balancer that health-checks each instance and fails traffic over automatically. Members share one `MASTER_KEY` so encrypted provider keys port across the fleet, while each keeps its own admin token. You manage configuration on a designated **primary** member, and Front Desk replicates its providers, virtual keys, and syncable settings out to the rest (on demand, or automatically), so the fleet stays converged without copying anything by hand. Replica-local edits are not pushed back and are overwritten on the next sync.

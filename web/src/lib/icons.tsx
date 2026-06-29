@@ -113,6 +113,7 @@ export const ShieldAlert = withId(Ph.ShieldWarningIcon, "ShieldAlert");
 export const Shuffle = withId(Ph.ShuffleIcon, "Shuffle");
 export const LogOut = withId(Ph.SignOutIcon, "LogOut");
 export const LogIn = withId(Ph.SignInIcon, "LogIn");
+export const GithubLogo = withId(Ph.GithubLogoIcon, "GithubLogo");
 export const ArrowDownAZ = withId(Ph.SortAscendingIcon, "ArrowDownAZ");
 export const ArrowUpZA = withId(Ph.SortDescendingIcon, "ArrowUpZA");
 export const Sparkles = withId(Ph.SparkleIcon, "Sparkles");

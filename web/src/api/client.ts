@@ -15,6 +15,7 @@ import type {
 	DiscoveryDiff,
 	FailoverGroup,
 	FailoverListResponse,
+	GithubStatus,
 	LogEntry,
 	LogsCursorResponse,
 	LogsResponse,
@@ -1228,5 +1229,11 @@ export const api = {
 	oidc: {
 		status: async (): Promise<OidcStatus> =>
 			fetchJSON<OidcStatus>(`${API_BASE}/api/auth/oidc/status`),
+	},
+	// Unauthenticated: read on the login screen and in settings. The actual
+	// login is a full-page redirect to /api/auth/github/start, not an XHR.
+	github: {
+		status: async (): Promise<GithubStatus> =>
+			fetchJSON<GithubStatus>(`${API_BASE}/api/auth/github/status`),
 	},
 };
