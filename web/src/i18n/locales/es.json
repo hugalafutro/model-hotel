@@ -162,7 +162,8 @@
 			"totpThrottled": "Demasiados intentos. Espera un momento y vuelve a intentarlo.",
 			"signInWithSSO": "Iniciar sesión con SSO",
 			"signInWithSSOProvider": "Iniciar sesión con {{provider}}",
-			"ssoFailed": "Error en el inicio de sesión único. Vuelve a intentarlo o usa otro método de inicio de sesión."
+			"ssoFailed": "Error en el inicio de sesión único. Vuelve a intentarlo o usa otro método de inicio de sesión.",
+			"signInWithGithub": "Iniciar sesión con GitHub"
 		},
 		"theme": {
 			"switchToLight": "Cambiar a modo claro",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Copiar URI de redirección",
 			"allowedEmails": "Correos permitidos",
 			"allowedEmailsDescription": "Solo estas direcciones de correo verificadas pueden iniciar sesión, separadas por comas o saltos de línea.",
+			"fallbackNote": "Si el proveedor no está disponible, aún puedes iniciar sesión con el token de administrador, una llave de acceso o TOTP.",
+			"status": {
+				"checking": "Comprobando la configuración…",
+				"configured": "Activado y configurado",
+				"incomplete": "Configuración incompleta"
+			}
+		},
+		"github": {
+			"title": "Iniciar sesión con GitHub",
+			"description": "Permite que los administradores inicien sesión con su cuenta de GitHub. El SSO es adicional: los inicios de sesión con token de administrador, llave de acceso y TOTP siguen funcionando.",
+			"enable": "Activar inicio de sesión con GitHub",
+			"enableDescription": "Muestra un botón de inicio de sesión único en la pantalla de inicio de sesión.",
+			"clientId": "ID de cliente",
+			"clientSecret": "Secreto de cliente",
+			"toggleSecret": "Mostrar u ocultar el secreto de cliente",
+			"secretConfigured": "Secreto configurado (déjalo en blanco para conservarlo)",
+			"secretPlaceholder": "Pega el secreto de cliente",
+			"clear": "Borrar",
+			"publicBaseUrl": "URL base pública",
+			"publicBaseUrlDescription": "La dirección de esta aplicación accesible desde el exterior, usada para construir la URI de redirección.",
+			"callbackUri": "URI de redirección",
+			"callbackUriDescription": "Registra esta URL exacta en tu proveedor.",
+			"copyCallbackUri": "Copiar URI de redirección",
+			"allowedEmails": "Correos permitidos",
+			"allowedEmailsDescription": "Solo estas direcciones de correo verificadas pueden iniciar sesión, separadas por comas o saltos de línea.",
+			"setupHint": "Crea una aplicación OAuth en GitHub Settings → Developer settings y luego pega aquí el ID de cliente y el secreto.",
 			"fallbackNote": "Si el proveedor no está disponible, aún puedes iniciar sesión con el token de administrador, una llave de acceso o TOTP.",
 			"status": {
 				"checking": "Comprobando la configuración…",

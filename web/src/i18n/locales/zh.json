@@ -162,7 +162,8 @@
 			"totpThrottled": "尝试次数过多。请稍候片刻后重试。",
 			"signInWithSSO": "使用 SSO 登录",
 			"signInWithSSOProvider": "使用 {{provider}} 登录",
-			"ssoFailed": "单点登录失败。请重试或使用其他登录方式。"
+			"ssoFailed": "单点登录失败。请重试或使用其他登录方式。",
+			"signInWithGithub": "使用 GitHub 登录"
 		},
 		"theme": {
 			"switchToLight": "切换到浅色模式",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "复制重定向 URI",
 			"allowedEmails": "允许的邮箱",
 			"allowedEmailsDescription": "只有这些已验证的邮箱地址可以登录，用逗号或换行分隔。",
+			"fallbackNote": "如果提供方不可用，你仍然可以使用管理员令牌、通行密钥或 TOTP 登录。",
+			"status": {
+				"checking": "正在检查配置…",
+				"configured": "已启用并配置",
+				"incomplete": "配置不完整"
+			}
+		},
+		"github": {
+			"title": "使用 GitHub 登录",
+			"description": "让管理员使用他们的 GitHub 账户登录。SSO 是附加方式：管理员令牌、通行密钥和 TOTP 登录仍然可用。",
+			"enable": "启用 GitHub 登录",
+			"enableDescription": "在登录页面显示单点登录按钮。",
+			"clientId": "客户端 ID",
+			"clientSecret": "客户端密钥",
+			"toggleSecret": "显示或隐藏客户端密钥",
+			"secretConfigured": "已设置密钥（留空以保留）",
+			"secretPlaceholder": "粘贴客户端密钥",
+			"clear": "清除",
+			"publicBaseUrl": "公开基础 URL",
+			"publicBaseUrlDescription": "此应用的对外可访问地址，用于构建重定向 URI。",
+			"callbackUri": "重定向 URI",
+			"callbackUriDescription": "请将这个完整的 URL 注册到你的提供方。",
+			"copyCallbackUri": "复制重定向 URI",
+			"allowedEmails": "允许的邮箱",
+			"allowedEmailsDescription": "只有这些已验证的邮箱地址可以登录，用逗号或换行分隔。",
+			"setupHint": "在 GitHub Settings → Developer settings 中创建一个 OAuth 应用，然后将客户端 ID 和密钥粘贴到此处。",
 			"fallbackNote": "如果提供方不可用，你仍然可以使用管理员令牌、通行密钥或 TOTP 登录。",
 			"status": {
 				"checking": "正在检查配置…",

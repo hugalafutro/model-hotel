@@ -162,7 +162,8 @@
 			"totpThrottled": "Massa intents. Espereu un moment i torneu-ho a provar.",
 			"signInWithSSO": "Inicia la sessió amb SSO",
 			"signInWithSSOProvider": "Inicia la sessió amb {{provider}}",
-			"ssoFailed": "L'inici de sessió únic ha fallat. Torna-ho a provar o fes servir un altre mètode d'inici de sessió."
+			"ssoFailed": "L'inici de sessió únic ha fallat. Torna-ho a provar o fes servir un altre mètode d'inici de sessió.",
+			"signInWithGithub": "Inicia la sessió amb GitHub"
 		},
 		"theme": {
 			"switchToLight": "Canvia al mode clar",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Copia l'URI de redirecció",
 			"allowedEmails": "Correus permesos",
 			"allowedEmailsDescription": "Només aquestes adreces de correu verificades poden iniciar la sessió, separades per comes o salts de línia.",
+			"fallbackNote": "Si el proveïdor no està disponible, encara pots iniciar la sessió amb el testimoni d'administrador, una clau d'accés o TOTP.",
+			"status": {
+				"checking": "S'està comprovant la configuració…",
+				"configured": "Activat i configurat",
+				"incomplete": "Configuració incompleta"
+			}
+		},
+		"github": {
+			"title": "Inicia la sessió amb GitHub",
+			"description": "Permet que els administradors iniciïn la sessió amb el seu compte de GitHub. L'SSO és addicional: els inicis de sessió amb testimoni d'administrador, clau d'accés i TOTP continuen funcionant.",
+			"enable": "Activa l'inici de sessió amb GitHub",
+			"enableDescription": "Mostra un botó d'inici de sessió únic a la pantalla d'inici de sessió.",
+			"clientId": "ID de client",
+			"clientSecret": "Secret de client",
+			"toggleSecret": "Mostra o amaga el secret del client",
+			"secretConfigured": "Secret configurat (deixa-ho en blanc per conservar-lo)",
+			"secretPlaceholder": "Enganxa el secret de client",
+			"clear": "Esborra",
+			"publicBaseUrl": "URL base pública",
+			"publicBaseUrlDescription": "L'adreça d'aquesta aplicació accessible des de l'exterior, usada per construir l'URI de redirecció.",
+			"callbackUri": "URI de redirecció",
+			"callbackUriDescription": "Registra aquesta URL exacta al teu proveïdor.",
+			"copyCallbackUri": "Copia l'URI de redirecció",
+			"allowedEmails": "Correus permesos",
+			"allowedEmailsDescription": "Només aquestes adreces de correu verificades poden iniciar la sessió, separades per comes o salts de línia.",
+			"setupHint": "Crea una aplicació OAuth a GitHub Settings → Developer settings i, després, enganxa-hi l'ID de client i el secret.",
 			"fallbackNote": "Si el proveïdor no està disponible, encara pots iniciar la sessió amb el testimoni d'administrador, una clau d'accés o TOTP.",
 			"status": {
 				"checking": "S'està comprovant la configuració…",

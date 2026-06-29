@@ -162,7 +162,8 @@
 			"totpThrottled": "Quá nhiều lần thử. Vui lòng đợi một lát rồi thử lại.",
 			"signInWithSSO": "Đăng nhập bằng SSO",
 			"signInWithSSOProvider": "Đăng nhập bằng {{provider}}",
-			"ssoFailed": "Đăng nhập một lần không thành công. Hãy thử lại hoặc dùng phương thức đăng nhập khác."
+			"ssoFailed": "Đăng nhập một lần không thành công. Hãy thử lại hoặc dùng phương thức đăng nhập khác.",
+			"signInWithGithub": "Đăng nhập bằng GitHub"
 		},
 		"theme": {
 			"switchToLight": "Chuyển sang chế độ sáng",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Sao chép URI chuyển hướng",
 			"allowedEmails": "Email được phép",
 			"allowedEmailsDescription": "Chỉ những địa chỉ email đã xác minh này mới có thể đăng nhập, phân tách bằng dấu phẩy hoặc dòng mới.",
+			"fallbackNote": "Nếu nhà cung cấp không khả dụng, bạn vẫn có thể đăng nhập bằng mã thông báo quản trị, khóa truy cập hoặc TOTP.",
+			"status": {
+				"checking": "Đang kiểm tra cấu hình…",
+				"configured": "Đã bật và đã cấu hình",
+				"incomplete": "Cấu hình chưa hoàn chỉnh"
+			}
+		},
+		"github": {
+			"title": "Đăng nhập bằng GitHub",
+			"description": "Cho phép quản trị viên đăng nhập bằng tài khoản GitHub của họ. SSO là bổ sung: đăng nhập bằng mã thông báo quản trị, khóa truy cập và TOTP vẫn hoạt động.",
+			"enable": "Bật đăng nhập bằng GitHub",
+			"enableDescription": "Hiển thị nút đăng nhập một lần trên màn hình đăng nhập.",
+			"clientId": "ID khách hàng",
+			"clientSecret": "Khóa bí mật khách hàng",
+			"toggleSecret": "Hiện hoặc ẩn client secret",
+			"secretConfigured": "Đã đặt khóa bí mật (để trống để giữ nguyên)",
+			"secretPlaceholder": "Dán khóa bí mật khách hàng",
+			"clear": "Xóa",
+			"publicBaseUrl": "URL cơ sở công khai",
+			"publicBaseUrlDescription": "Địa chỉ có thể truy cập từ bên ngoài của ứng dụng này, dùng để tạo URI chuyển hướng.",
+			"callbackUri": "URI chuyển hướng",
+			"callbackUriDescription": "Đăng ký chính xác URL này với nhà cung cấp của bạn.",
+			"copyCallbackUri": "Sao chép URI chuyển hướng",
+			"allowedEmails": "Email được phép",
+			"allowedEmailsDescription": "Chỉ những địa chỉ email đã xác minh này mới có thể đăng nhập, phân tách bằng dấu phẩy hoặc dòng mới.",
+			"setupHint": "Tạo một ứng dụng OAuth trong GitHub Settings → Developer settings, rồi dán Client ID và khóa bí mật vào đây.",
 			"fallbackNote": "Nếu nhà cung cấp không khả dụng, bạn vẫn có thể đăng nhập bằng mã thông báo quản trị, khóa truy cập hoặc TOTP.",
 			"status": {
 				"checking": "Đang kiểm tra cấu hình…",

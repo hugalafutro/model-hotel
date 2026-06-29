@@ -162,7 +162,8 @@
 			"totpThrottled": "Prea multe încercări. Așteptați un moment și încercați din nou.",
 			"signInWithSSO": "Conectează-te cu SSO",
 			"signInWithSSOProvider": "Conectează-te cu {{provider}}",
-			"ssoFailed": "Autentificarea unică a eșuat. Încearcă din nou sau folosește altă metodă de conectare."
+			"ssoFailed": "Autentificarea unică a eșuat. Încearcă din nou sau folosește altă metodă de conectare.",
+			"signInWithGithub": "Conectează-te cu GitHub"
 		},
 		"theme": {
 			"switchToLight": "Comută la modul luminos",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Copiază URI-ul de redirecționare",
 			"allowedEmails": "E-mailuri permise",
 			"allowedEmailsDescription": "Doar aceste adrese de e-mail verificate se pot conecta, separate prin virgule sau rânduri noi.",
+			"fallbackNote": "Dacă furnizorul nu este disponibil, te poți conecta în continuare cu tokenul de administrator, o cheie de acces sau TOTP.",
+			"status": {
+				"checking": "Se verifică configurația…",
+				"configured": "Activat și configurat",
+				"incomplete": "Configurație incompletă"
+			}
+		},
+		"github": {
+			"title": "Conectează-te cu GitHub",
+			"description": "Permite administratorilor să se conecteze cu contul lor GitHub. SSO este suplimentar: conectarea cu tokenul de administrator, cheia de acces şi TOTP funcționează în continuare.",
+			"enable": "Activează conectarea cu GitHub",
+			"enableDescription": "Afișează un buton de autentificare unică pe ecranul de conectare.",
+			"clientId": "ID client",
+			"clientSecret": "Secret client",
+			"toggleSecret": "Afișează sau ascunde secretul clientului",
+			"secretConfigured": "Secret setat (lasă gol pentru a-l păstra)",
+			"secretPlaceholder": "Lipește secretul clientului",
+			"clear": "Șterge",
+			"publicBaseUrl": "URL de bază public",
+			"publicBaseUrlDescription": "Adresa acestei aplicații accesibilă din exterior, folosită pentru a construi URI-ul de redirecționare.",
+			"callbackUri": "URI de redirecționare",
+			"callbackUriDescription": "Înregistrează exact acest URL la furnizorul tău.",
+			"copyCallbackUri": "Copiază URI-ul de redirecționare",
+			"allowedEmails": "E-mailuri permise",
+			"allowedEmailsDescription": "Doar aceste adrese de e-mail verificate se pot conecta, separate prin virgule sau rânduri noi.",
+			"setupHint": "Creează o aplicație OAuth în GitHub Settings → Developer settings, apoi lipeşte aici ID-ul de client şi secretul.",
 			"fallbackNote": "Dacă furnizorul nu este disponibil, te poți conecta în continuare cu tokenul de administrator, o cheie de acces sau TOTP.",
 			"status": {
 				"checking": "Se verifică configurația…",

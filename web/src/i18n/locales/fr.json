@@ -162,7 +162,8 @@
 			"totpThrottled": "Trop de tentatives. Veuillez patienter un instant et réessayer.",
 			"signInWithSSO": "Se connecter avec le SSO",
 			"signInWithSSOProvider": "Se connecter avec {{provider}}",
-			"ssoFailed": "Échec de l'authentification unique. Réessayez ou utilisez une autre méthode de connexion."
+			"ssoFailed": "Échec de l'authentification unique. Réessayez ou utilisez une autre méthode de connexion.",
+			"signInWithGithub": "Se connecter avec GitHub"
 		},
 		"theme": {
 			"switchToLight": "Passer en mode clair",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Copier l'URI de redirection",
 			"allowedEmails": "Adresses e-mail autorisées",
 			"allowedEmailsDescription": "Seules ces adresses e-mail vérifiées peuvent se connecter, séparées par des virgules ou des retours à la ligne.",
+			"fallbackNote": "Si le fournisseur est indisponible, vous pouvez toujours vous connecter avec le jeton admin, une clé d'accès ou TOTP.",
+			"status": {
+				"checking": "Vérification de la configuration…",
+				"configured": "Activé et configuré",
+				"incomplete": "Configuration incomplète"
+			}
+		},
+		"github": {
+			"title": "Se connecter avec GitHub",
+			"description": "Permet aux administrateurs de se connecter avec leur compte GitHub. Le SSO s'ajoute aux autres : la connexion par jeton admin, clé d'accès et TOTP continue de fonctionner.",
+			"enable": "Activer la connexion avec GitHub",
+			"enableDescription": "Affiche un bouton d'authentification unique sur l'écran de connexion.",
+			"clientId": "ID client",
+			"clientSecret": "Secret client",
+			"toggleSecret": "Afficher ou masquer le secret client",
+			"secretConfigured": "Secret défini (laisser vide pour le conserver)",
+			"secretPlaceholder": "Collez le secret client",
+			"clear": "Effacer",
+			"publicBaseUrl": "URL de base publique",
+			"publicBaseUrlDescription": "L'adresse de cette application accessible de l'extérieur, utilisée pour construire l'URI de redirection.",
+			"callbackUri": "URI de redirection",
+			"callbackUriDescription": "Enregistrez cette URL exacte auprès de votre fournisseur.",
+			"copyCallbackUri": "Copier l'URI de redirection",
+			"allowedEmails": "Adresses e-mail autorisées",
+			"allowedEmailsDescription": "Seules ces adresses e-mail vérifiées peuvent se connecter, séparées par des virgules ou des retours à la ligne.",
+			"setupHint": "Créez une application OAuth dans GitHub Settings → Developer settings, puis collez ici l'ID client et le secret.",
 			"fallbackNote": "Si le fournisseur est indisponible, vous pouvez toujours vous connecter avec le jeton admin, une clé d'accès ou TOTP.",
 			"status": {
 				"checking": "Vérification de la configuration…",

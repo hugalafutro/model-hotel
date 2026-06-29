@@ -29,6 +29,9 @@ vi.mock("../api/client", () => ({
 		oidc: {
 			status: vi.fn().mockResolvedValue({ enabled: false }),
 		},
+		github: {
+			status: vi.fn().mockResolvedValue({ enabled: false }),
+		},
 	},
 }));
 

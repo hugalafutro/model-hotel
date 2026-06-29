@@ -162,7 +162,8 @@
 			"totpThrottled": "יותר מדי ניסיונות. המתן רגע ונסה שוב.",
 			"signInWithSSO": "התחברות באמצעות SSO",
 			"signInWithSSOProvider": "התחברות באמצעות {{provider}}",
-			"ssoFailed": "ההתחברות המאוחדת נכשלה. נסה שוב או השתמש בשיטת התחברות אחרת."
+			"ssoFailed": "ההתחברות המאוחדת נכשלה. נסה שוב או השתמש בשיטת התחברות אחרת.",
+			"signInWithGithub": "התחברות באמצעות GitHub"
 		},
 		"theme": {
 			"switchToLight": "מעבר למצב בהיר",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "העתקת כתובת ה-URI להפניה",
 			"allowedEmails": "כתובות דוא\"ל מורשות",
 			"allowedEmailsDescription": "רק כתובות הדוא\"ל המאומתות האלה רשאיות להתחבר, מופרדות בפסיקים או בשורות חדשות.",
+			"fallbackNote": "אם הספק אינו זמין, עדיין תוכל להתחבר באמצעות אסימון מנהל, מפתח גישה או TOTP.",
+			"status": {
+				"checking": "בודק את התצורה…",
+				"configured": "מופעל ומוגדר",
+				"incomplete": "תצורה לא שלמה"
+			}
+		},
+		"github": {
+			"title": "התחברות באמצעות GitHub",
+			"description": "מאפשר למנהלים להתחבר עם חשבון ה-GitHub שלהם. ה-SSO הוא תוספת: התחברות באמצעות אסימון מנהל, מפתח גישה ו-TOTP ממשיכה לעבוד.",
+			"enable": "הפעלת התחברות באמצעות GitHub",
+			"enableDescription": "מציג כפתור התחברות מאוחדת במסך ההתחברות.",
+			"clientId": "מזהה לקוח",
+			"clientSecret": "סוד לקוח",
+			"toggleSecret": "הצג או הסתר את סוד הלקוח",
+			"secretConfigured": "הסוד הוגדר (השאר ריק כדי לשמור עליו)",
+			"secretPlaceholder": "הדבק את סוד הלקוח",
+			"clear": "ניקוי",
+			"publicBaseUrl": "כתובת URL בסיסית ציבורית",
+			"publicBaseUrlDescription": "הכתובת של אפליקציה זו הנגישה מבחוץ, המשמשת לבניית כתובת ה-URI להפניה.",
+			"callbackUri": "כתובת URI להפניה",
+			"callbackUriDescription": "רשום בדיוק את כתובת ה-URL הזו אצל הספק שלך.",
+			"copyCallbackUri": "העתקת כתובת ה-URI להפניה",
+			"allowedEmails": "כתובות דוא\"ל מורשות",
+			"allowedEmailsDescription": "רק כתובות הדוא\"ל המאומתות האלה רשאיות להתחבר, מופרדות בפסיקים או בשורות חדשות.",
+			"setupHint": "צרו יישום OAuth תחת GitHub Settings ← Developer settings, ואז הדביקו כאן את מזהה הלקוח והסוד.",
 			"fallbackNote": "אם הספק אינו זמין, עדיין תוכל להתחבר באמצעות אסימון מנהל, מפתח גישה או TOTP.",
 			"status": {
 				"checking": "בודק את התצורה…",

@@ -162,7 +162,8 @@
 			"totpThrottled": "For mange forsøg. Vent et øjeblik, og prøv igen.",
 			"signInWithSSO": "Log ind med SSO",
 			"signInWithSSOProvider": "Log ind med {{provider}}",
-			"ssoFailed": "Enkeltlogin mislykkedes. Prøv igen, eller brug en anden loginmetode."
+			"ssoFailed": "Enkeltlogin mislykkedes. Prøv igen, eller brug en anden loginmetode.",
+			"signInWithGithub": "Log ind med GitHub"
 		},
 		"theme": {
 			"switchToLight": "Skift til lys tilstand",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Kopiér redirect-URI",
 			"allowedEmails": "Tilladte e-mails",
 			"allowedEmailsDescription": "Kun disse verificerede e-mailadresser må logge ind, adskilt af kommaer eller linjeskift.",
+			"fallbackNote": "Hvis udbyderen ikke er tilgængelig, kan du stadig logge ind med admin-token, en adgangsnøgle eller TOTP.",
+			"status": {
+				"checking": "Kontrollerer konfigurationen…",
+				"configured": "Aktiveret og konfigureret",
+				"incomplete": "Ufuldstændig konfiguration"
+			}
+		},
+		"github": {
+			"title": "Log ind med GitHub",
+			"description": "Lader administratorer logge ind med deres GitHub-konto. SSO er et supplement: login med admin-token, adgangsnøgle og TOTP virker stadig.",
+			"enable": "Aktivér GitHub-login",
+			"enableDescription": "Viser en enkeltlogin-knap på loginskærmen.",
+			"clientId": "Klient-id",
+			"clientSecret": "Klienthemmelighed",
+			"toggleSecret": "Vis eller skjul klienthemmeligheden",
+			"secretConfigured": "Hemmelighed angivet (lad stå tom for at beholde den)",
+			"secretPlaceholder": "Indsæt klienthemmeligheden",
+			"clear": "Ryd",
+			"publicBaseUrl": "Offentlig basis-URL",
+			"publicBaseUrlDescription": "Denne apps eksternt tilgængelige adresse, som bruges til at opbygge redirect-URI'en.",
+			"callbackUri": "Redirect-URI",
+			"callbackUriDescription": "Registrér præcis denne URL hos din udbyder.",
+			"copyCallbackUri": "Kopiér redirect-URI",
+			"allowedEmails": "Tilladte e-mails",
+			"allowedEmailsDescription": "Kun disse verificerede e-mailadresser må logge ind, adskilt af kommaer eller linjeskift.",
+			"setupHint": "Opret en OAuth-app under GitHub Settings → Developer settings, og indsæt så Client ID og hemmelighed her.",
 			"fallbackNote": "Hvis udbyderen ikke er tilgængelig, kan du stadig logge ind med admin-token, en adgangsnøgle eller TOTP.",
 			"status": {
 				"checking": "Kontrollerer konfigurationen…",

@@ -60,6 +60,11 @@ var AllowedSettings = map[string]bool{
 	"oidc_client_secret":           true,
 	"oidc_allowed_emails":          true,
 	"oidc_public_base_url":         true,
+	"github_sso_enabled":           true,
+	"github_client_id":             true,
+	"github_client_secret":         true,
+	"github_allowed_emails":        true,
+	"github_public_base_url":       true,
 }
 
 type cacheEntry struct {

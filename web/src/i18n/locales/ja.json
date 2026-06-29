@@ -162,7 +162,8 @@
 			"totpThrottled": "試行回数が多すぎます。少し待ってからもう一度お試しください。",
 			"signInWithSSO": "SSO でサインイン",
 			"signInWithSSOProvider": "{{provider}} でサインイン",
-			"ssoFailed": "シングルサインオンに失敗しました。もう一度試すか、別のサインイン方法を使用してください。"
+			"ssoFailed": "シングルサインオンに失敗しました。もう一度試すか、別のサインイン方法を使用してください。",
+			"signInWithGithub": "GitHub でサインイン"
 		},
 		"theme": {
 			"switchToLight": "ライトモードに切り替え",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "リダイレクト URI をコピー",
 			"allowedEmails": "許可するメールアドレス",
 			"allowedEmailsDescription": "ここに記載した確認済みのメールアドレスのみがサインインできます。カンマまたは改行で区切ります。",
+			"fallbackNote": "プロバイダーが利用できない場合でも、管理者トークン、パスキー、TOTP でサインインできます。",
+			"status": {
+				"checking": "構成を確認しています…",
+				"configured": "有効かつ構成済み",
+				"incomplete": "構成が不完全です"
+			}
+		},
+		"github": {
+			"title": "GitHub でサインイン",
+			"description": "管理者が自分の GitHub アカウントでサインインできるようにします。SSO は追加的なもので、管理者トークン、パスキー、TOTP でのログインは引き続き使えます。",
+			"enable": "GitHub サインインを有効にする",
+			"enableDescription": "ログイン画面にシングルサインオンのボタンを表示します。",
+			"clientId": "クライアント ID",
+			"clientSecret": "クライアントシークレット",
+			"toggleSecret": "クライアントシークレットを表示または非表示",
+			"secretConfigured": "シークレット設定済み（保持するには空のままにします）",
+			"secretPlaceholder": "クライアントシークレットを貼り付け",
+			"clear": "クリア",
+			"publicBaseUrl": "公開ベース URL",
+			"publicBaseUrlDescription": "リダイレクト URI の生成に使う、このアプリの外部からアクセスできるアドレスです。",
+			"callbackUri": "リダイレクト URI",
+			"callbackUriDescription": "この URL をそのままプロバイダーに登録してください。",
+			"copyCallbackUri": "リダイレクト URI をコピー",
+			"allowedEmails": "許可するメールアドレス",
+			"allowedEmailsDescription": "ここに記載した確認済みのメールアドレスのみがサインインできます。カンマまたは改行で区切ります。",
+			"setupHint": "GitHub Settings → Developer settings で OAuth アプリを作成し、そのクライアント ID とシークレットをここに貼り付けてください。",
 			"fallbackNote": "プロバイダーが利用できない場合でも、管理者トークン、パスキー、TOTP でサインインできます。",
 			"status": {
 				"checking": "構成を確認しています…",

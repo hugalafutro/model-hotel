@@ -162,7 +162,8 @@
 			"totpThrottled": "시도 횟수가 너무 많습니다. 잠시 기다린 후 다시 시도하세요.",
 			"signInWithSSO": "SSO로 로그인",
 			"signInWithSSOProvider": "{{provider}}(으)로 로그인",
-			"ssoFailed": "싱글 사인온에 실패했습니다. 다시 시도하거나 다른 로그인 방법을 사용하세요."
+			"ssoFailed": "싱글 사인온에 실패했습니다. 다시 시도하거나 다른 로그인 방법을 사용하세요.",
+			"signInWithGithub": "GitHub(으)로 로그인"
 		},
 		"theme": {
 			"switchToLight": "라이트 모드로 전환",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "리디렉션 URI 복사",
 			"allowedEmails": "허용된 이메일",
 			"allowedEmailsDescription": "여기에 적힌 확인된 이메일 주소만 로그인할 수 있습니다. 쉼표 또는 줄바꿈으로 구분합니다.",
+			"fallbackNote": "제공자를 사용할 수 없어도 관리자 토큰, 패스키 또는 TOTP로 로그인할 수 있습니다.",
+			"status": {
+				"checking": "구성 확인 중…",
+				"configured": "사용 및 구성됨",
+				"incomplete": "구성이 불완전함"
+			}
+		},
+		"github": {
+			"title": "GitHub(으)로 로그인",
+			"description": "관리자가 자신의 GitHub 계정으로 로그인할 수 있게 합니다. SSO는 추가 수단이며 관리자 토큰, 패스키, TOTP 로그인은 계속 사용할 수 있습니다.",
+			"enable": "GitHub 로그인 사용",
+			"enableDescription": "로그인 화면에 싱글 사인온 버튼을 표시합니다.",
+			"clientId": "클라이언트 ID",
+			"clientSecret": "클라이언트 시크릿",
+			"toggleSecret": "클라이언트 시크릿 표시 또는 숨기기",
+			"secretConfigured": "시크릿 설정됨(유지하려면 비워 두세요)",
+			"secretPlaceholder": "클라이언트 시크릿 붙여넣기",
+			"clear": "지우기",
+			"publicBaseUrl": "공개 기본 URL",
+			"publicBaseUrlDescription": "리디렉션 URI를 만드는 데 사용되는, 외부에서 접근 가능한 이 앱의 주소입니다.",
+			"callbackUri": "리디렉션 URI",
+			"callbackUriDescription": "이 URL을 그대로 제공자에 등록하세요.",
+			"copyCallbackUri": "리디렉션 URI 복사",
+			"allowedEmails": "허용된 이메일",
+			"allowedEmailsDescription": "여기에 적힌 확인된 이메일 주소만 로그인할 수 있습니다. 쉼표 또는 줄바꿈으로 구분합니다.",
+			"setupHint": "GitHub Settings → Developer settings에서 OAuth 앱을 만든 다음, 클라이언트 ID와 시크릿을 여기에 붙여넣으세요.",
 			"fallbackNote": "제공자를 사용할 수 없어도 관리자 토큰, 패스키 또는 TOTP로 로그인할 수 있습니다.",
 			"status": {
 				"checking": "구성 확인 중…",

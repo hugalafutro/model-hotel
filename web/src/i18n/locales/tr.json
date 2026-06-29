@@ -162,7 +162,8 @@
 			"totpThrottled": "Çok fazla deneme. Lütfen biraz bekleyip tekrar deneyin.",
 			"signInWithSSO": "SSO ile oturum aç",
 			"signInWithSSOProvider": "{{provider}} ile oturum aç",
-			"ssoFailed": "Çoklu oturum açma başarısız oldu. Tekrar deneyin veya başka bir oturum açma yöntemi kullanın."
+			"ssoFailed": "Çoklu oturum açma başarısız oldu. Tekrar deneyin veya başka bir oturum açma yöntemi kullanın.",
+			"signInWithGithub": "GitHub ile oturum aç"
 		},
 		"theme": {
 			"switchToLight": "Açık moda geç",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Yönlendirme URI'sini kopyala",
 			"allowedEmails": "İzin verilen e-postalar",
 			"allowedEmailsDescription": "Yalnızca bu doğrulanmış e-posta adresleri oturum açabilir; virgül veya yeni satırla ayırın.",
+			"fallbackNote": "Sağlayıcı kullanılamıyorsa yine de yönetici belirteci, geçiş anahtarı veya TOTP ile oturum açabilirsiniz.",
+			"status": {
+				"checking": "Yapılandırma denetleniyor…",
+				"configured": "Etkin ve yapılandırılmış",
+				"incomplete": "Eksik yapılandırma"
+			}
+		},
+		"github": {
+			"title": "GitHub ile oturum aç",
+			"description": "Yöneticilerin GitHub hesaplarıyla oturum açmasını sağlar. SSO ek bir yöntemdir: yönetici belirteci, geçiş anahtarı ve TOTP ile oturum açma çalışmaya devam eder.",
+			"enable": "GitHub ile oturum açmayı etkinleştir",
+			"enableDescription": "Oturum açma ekranında bir çoklu oturum açma düğmesi gösterir.",
+			"clientId": "İstemci kimliği",
+			"clientSecret": "İstemci gizli anahtarı",
+			"toggleSecret": "İstemci sırrını göster veya gizle",
+			"secretConfigured": "Gizli anahtar ayarlandı (korumak için boş bırakın)",
+			"secretPlaceholder": "İstemci gizli anahtarını yapıştırın",
+			"clear": "Temizle",
+			"publicBaseUrl": "Genel temel URL",
+			"publicBaseUrlDescription": "Yönlendirme URI'sini oluşturmak için kullanılan, bu uygulamanın dışarıdan erişilebilen adresi.",
+			"callbackUri": "Yönlendirme URI'si",
+			"callbackUriDescription": "Tam olarak bu URL'yi sağlayıcınıza kaydedin.",
+			"copyCallbackUri": "Yönlendirme URI'sini kopyala",
+			"allowedEmails": "İzin verilen e-postalar",
+			"allowedEmailsDescription": "Yalnızca bu doğrulanmış e-posta adresleri oturum açabilir; virgül veya yeni satırla ayırın.",
+			"setupHint": "GitHub Settings → Developer settings altında bir OAuth uygulaması oluşturun, ardından İstemci kimliğini ve gizli anahtarı buraya yapıştırın.",
 			"fallbackNote": "Sağlayıcı kullanılamıyorsa yine de yönetici belirteci, geçiş anahtarı veya TOTP ile oturum açabilirsiniz.",
 			"status": {
 				"checking": "Yapılandırma denetleniyor…",

@@ -162,7 +162,8 @@
 			"totpThrottled": "Příliš mnoho pokusů. Počkejte chvíli a zkuste to znovu.",
 			"signInWithSSO": "Přihlásit se přes SSO",
 			"signInWithSSOProvider": "Přihlásit se přes {{provider}}",
-			"ssoFailed": "Jednotné přihlášení selhalo. Zkuste to znovu nebo použijte jiný způsob přihlášení."
+			"ssoFailed": "Jednotné přihlášení selhalo. Zkuste to znovu nebo použijte jiný způsob přihlášení.",
+			"signInWithGithub": "Přihlásit se přes GitHub"
 		},
 		"theme": {
 			"switchToLight": "Přepnout do světlého režimu",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Kopírovat URI přesměrování",
 			"allowedEmails": "Povolené e-maily",
 			"allowedEmailsDescription": "Přihlásit se mohou jen tyto ověřené e-mailové adresy, oddělené čárkami nebo novými řádky.",
+			"fallbackNote": "Pokud je poskytovatel nedostupný, stále se můžete přihlásit tokenem správce, přístupovým klíčem nebo TOTP.",
+			"status": {
+				"checking": "Kontrola konfigurace…",
+				"configured": "Povoleno a nakonfigurováno",
+				"incomplete": "Neúplná konfigurace"
+			}
+		},
+		"github": {
+			"title": "Přihlásit se přes GitHub",
+			"description": "Umožní správcům přihlašovat se pomocí účtu GitHub. SSO je doplňkové: přihlášení tokenem správce, přístupovým klíčem a TOTP funguje dál.",
+			"enable": "Povolit přihlášení přes GitHub",
+			"enableDescription": "Zobrazí na přihlašovací obrazovce tlačítko jednotného přihlášení.",
+			"clientId": "ID klienta",
+			"clientSecret": "Tajný klíč klienta",
+			"toggleSecret": "Zobrazit nebo skrýt tajný klíč klienta",
+			"secretConfigured": "Tajný klíč nastaven (ponechte prázdné pro zachování)",
+			"secretPlaceholder": "Vložte tajný klíč klienta",
+			"clear": "Vymazat",
+			"publicBaseUrl": "Veřejná základní URL",
+			"publicBaseUrlDescription": "Externě dostupná adresa této aplikace, použitá k sestavení URI přesměrování.",
+			"callbackUri": "URI přesměrování",
+			"callbackUriDescription": "Zaregistrujte přesně tuto URL u svého poskytovatele.",
+			"copyCallbackUri": "Kopírovat URI přesměrování",
+			"allowedEmails": "Povolené e-maily",
+			"allowedEmailsDescription": "Přihlásit se mohou jen tyto ověřené e-mailové adresy, oddělené čárkami nebo novými řádky.",
+			"setupHint": "Vytvořte aplikaci OAuth v GitHub Settings → Developer settings a poté sem vložte Client ID a tajný klíč.",
 			"fallbackNote": "Pokud je poskytovatel nedostupný, stále se můžete přihlásit tokenem správce, přístupovým klíčem nebo TOTP.",
 			"status": {
 				"checking": "Kontrola konfigurace…",

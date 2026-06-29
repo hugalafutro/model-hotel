@@ -162,7 +162,8 @@
 			"totpThrottled": "Troppi tentativi. Attendi un momento e riprova.",
 			"signInWithSSO": "Accedi con SSO",
 			"signInWithSSOProvider": "Accedi con {{provider}}",
-			"ssoFailed": "Accesso unico non riuscito. Riprova o usa un altro metodo di accesso."
+			"ssoFailed": "Accesso unico non riuscito. Riprova o usa un altro metodo di accesso.",
+			"signInWithGithub": "Accedi con GitHub"
 		},
 		"theme": {
 			"switchToLight": "Passa alla modalità chiara",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Copia URI di reindirizzamento",
 			"allowedEmails": "Email consentite",
 			"allowedEmailsDescription": "Solo questi indirizzi email verificati possono accedere, separati da virgole o a capo.",
+			"fallbackNote": "Se il provider non è disponibile, puoi comunque accedere con il token amministratore, una passkey o TOTP.",
+			"status": {
+				"checking": "Verifica della configurazione…",
+				"configured": "Abilitato e configurato",
+				"incomplete": "Configurazione incompleta"
+			}
+		},
+		"github": {
+			"title": "Accedi con GitHub",
+			"description": "Consente agli amministratori di accedere con il proprio account GitHub. L'SSO è aggiuntivo: gli accessi con token amministratore, passkey e TOTP continuano a funzionare.",
+			"enable": "Abilita l'accesso con GitHub",
+			"enableDescription": "Mostra un pulsante di accesso unico nella schermata di accesso.",
+			"clientId": "ID client",
+			"clientSecret": "Secret client",
+			"toggleSecret": "Mostra o nascondi il client secret",
+			"secretConfigured": "Secret impostato (lascia vuoto per mantenerlo)",
+			"secretPlaceholder": "Incolla il secret client",
+			"clear": "Cancella",
+			"publicBaseUrl": "URL di base pubblico",
+			"publicBaseUrlDescription": "L'indirizzo di questa app raggiungibile dall'esterno, usato per costruire l'URI di reindirizzamento.",
+			"callbackUri": "URI di reindirizzamento",
+			"callbackUriDescription": "Registra esattamente questo URL presso il tuo provider.",
+			"copyCallbackUri": "Copia URI di reindirizzamento",
+			"allowedEmails": "Email consentite",
+			"allowedEmailsDescription": "Solo questi indirizzi email verificati possono accedere, separati da virgole o a capo.",
+			"setupHint": "Crea un'app OAuth in GitHub Settings → Developer settings, quindi incolla qui l'ID client e il segreto.",
 			"fallbackNote": "Se il provider non è disponibile, puoi comunque accedere con il token amministratore, una passkey o TOTP.",
 			"status": {
 				"checking": "Verifica della configurazione…",

@@ -162,7 +162,8 @@
 			"totpThrottled": "Te veel pogings. Wag asseblief 'n oomblik en probeer weer.",
 			"signInWithSSO": "Meld aan met SSO",
 			"signInWithSSOProvider": "Meld aan met {{provider}}",
-			"ssoFailed": "Enkelaanmelding het misluk. Probeer weer of gebruik 'n ander aanmeldmetode."
+			"ssoFailed": "Enkelaanmelding het misluk. Probeer weer of gebruik 'n ander aanmeldmetode.",
+			"signInWithGithub": "Meld aan met GitHub"
 		},
 		"theme": {
 			"switchToLight": "Skakel na ligte modus",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Kopieer herleidings-URI",
 			"allowedEmails": "Toegelate e-posse",
 			"allowedEmailsDescription": "Net hierdie geverifieerde e-posadresse mag aanmeld, geskei deur kommas of nuwe reëls.",
+			"fallbackNote": "As die verskaffer nie beskikbaar is nie, kan jy steeds met die admin-token, 'n sleutel of TOTP aanmeld.",
+			"status": {
+				"checking": "Konfigurasie word nagegaan…",
+				"configured": "Geaktiveer en gekonfigureer",
+				"incomplete": "Onvolledige konfigurasie"
+			}
+		},
+		"github": {
+			"title": "Meld aan met GitHub",
+			"description": "Laat administrateurs met hul GitHub-rekening aanmeld. SSO is bykomend: aanmelding met admin-token, sleutel en TOTP werk steeds.",
+			"enable": "Aktiveer GitHub-aanmelding",
+			"enableDescription": "Wys 'n enkelaanmeldknoppie op die aanmeldskerm.",
+			"clientId": "Kliënt-ID",
+			"clientSecret": "Kliëntgeheim",
+			"toggleSecret": "Wys of versteek die kliëntgeheim",
+			"secretConfigured": "Geheim gestel (laat leeg om dit te behou)",
+			"secretPlaceholder": "Plak die kliëntgeheim",
+			"clear": "Maak skoon",
+			"publicBaseUrl": "Openbare basis-URL",
+			"publicBaseUrlDescription": "Hierdie program se ekstern bereikbare adres, gebruik om die herleidings-URI te bou.",
+			"callbackUri": "Herleidings-URI",
+			"callbackUriDescription": "Registreer presies hierdie URL by jou verskaffer.",
+			"copyCallbackUri": "Kopieer herleidings-URI",
+			"allowedEmails": "Toegelate e-posse",
+			"allowedEmailsDescription": "Net hierdie geverifieerde e-posadresse mag aanmeld, geskei deur kommas of nuwe reëls.",
+			"setupHint": "Skep 'n OAuth-toepassing onder GitHub Settings → Developer settings en plak dan die Client ID en geheim hier.",
 			"fallbackNote": "As die verskaffer nie beskikbaar is nie, kan jy steeds met die admin-token, 'n sleutel of TOTP aanmeld.",
 			"status": {
 				"checking": "Konfigurasie word nagegaan…",

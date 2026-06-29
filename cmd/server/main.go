@@ -331,6 +331,13 @@ func main() {
 	// public status/start/callback endpoints no-op until oidc_enabled is set.
 	oidcHandler := adminauth.NewOIDCHandler(settingsRepo, sessionMgr, ipLimiter, cfg.MasterKey)
 
+	// GitHub SSO is a fourth admin-login front-end, alongside OIDC/passkey/TOTP.
+	// GitHub is OAuth2 only (no ID token/discovery), so it has its own handler
+	// that confirms an allowlisted *verified* email via the REST API and then
+	// mints the same CreateAuthToken session. Always constructed; the public
+	// endpoints no-op until github_sso_enabled is set.
+	githubHandler := adminauth.NewGitHubHandler(settingsRepo, sessionMgr, ipLimiter, cfg.MasterKey)
+
 	if cfg.WebAuthnRPID != "" {
 		rpOrigins := make([]string, len(cfg.WebAuthnRPOrigins))
 		copy(rpOrigins, cfg.WebAuthnRPOrigins)
@@ -387,6 +394,7 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Timeout(60 * time.Second))
 			oidcHandler.Register(r)
+			githubHandler.Register(r)
 		})
 
 		r.Group(func(r chi.Router) {

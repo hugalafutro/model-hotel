@@ -162,7 +162,8 @@
 			"totpThrottled": "För många försök. Vänta ett ögonblick och försök igen.",
 			"signInWithSSO": "Logga in med SSO",
 			"signInWithSSOProvider": "Logga in med {{provider}}",
-			"ssoFailed": "Enkel inloggning misslyckades. Försök igen eller använd en annan inloggningsmetod."
+			"ssoFailed": "Enkel inloggning misslyckades. Försök igen eller använd en annan inloggningsmetod.",
+			"signInWithGithub": "Logga in med GitHub"
 		},
 		"theme": {
 			"switchToLight": "Byt till ljust läge",
@@ -1948,6 +1949,32 @@
 			"copyRedirectUri": "Kopiera omdirigerings-URI",
 			"allowedEmails": "Tillåtna e-postadresser",
 			"allowedEmailsDescription": "Endast dessa verifierade e-postadresser får logga in, åtskilda med kommatecken eller nya rader.",
+			"fallbackNote": "Om leverantören inte är tillgänglig kan du fortfarande logga in med admin-token, en nyckel eller TOTP.",
+			"status": {
+				"checking": "Kontrollerar konfigurationen…",
+				"configured": "Aktiverad och konfigurerad",
+				"incomplete": "Ofullständig konfiguration"
+			}
+		},
+		"github": {
+			"title": "Logga in med GitHub",
+			"description": "Låter administratörer logga in med sitt GitHub-konto. SSO är ett tillägg: inloggning med admin-token, nyckel och TOTP fungerar fortfarande.",
+			"enable": "Aktivera GitHub-inloggning",
+			"enableDescription": "Visar en knapp för enkel inloggning på inloggningsskärmen.",
+			"clientId": "Klient-ID",
+			"clientSecret": "Klienthemlighet",
+			"toggleSecret": "Visa eller dölj klienthemligheten",
+			"secretConfigured": "Hemlighet angiven (lämna tomt för att behålla den)",
+			"secretPlaceholder": "Klistra in klienthemligheten",
+			"clear": "Rensa",
+			"publicBaseUrl": "Offentlig bas-URL",
+			"publicBaseUrlDescription": "Den här appens externt nåbara adress, som används för att bygga omdirigerings-URI:n.",
+			"callbackUri": "Omdirigerings-URI",
+			"callbackUriDescription": "Registrera exakt den här URL:en hos din leverantör.",
+			"copyCallbackUri": "Kopiera omdirigerings-URI",
+			"allowedEmails": "Tillåtna e-postadresser",
+			"allowedEmailsDescription": "Endast dessa verifierade e-postadresser får logga in, åtskilda med kommatecken eller nya rader.",
+			"setupHint": "Skapa en OAuth-app under GitHub Settings → Developer settings och klistra sedan in klient-ID och hemlighet här.",
 			"fallbackNote": "Om leverantören inte är tillgänglig kan du fortfarande logga in med admin-token, en nyckel eller TOTP.",
 			"status": {
 				"checking": "Kontrollerar konfigurationen…",
