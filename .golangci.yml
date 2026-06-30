@@ -48,6 +48,15 @@ linters:
           - gosec
           - gocyclo
 
+      # SA5011 (possible nil deref) is noise in tests: constructors that never
+      # return nil are routinely nil-checked then used, and values guarded by a
+      # preceding t.Fatal(f) are safe (staticcheck doesn't always model the
+      # terminating call). Scoped to test files so SA5011 stays active in prod.
+      - path: _test\.go
+        linters:
+          - staticcheck
+        text: "SA5011"
+
       # Front Desk reaches admin-configured member instances (an internal HA
       # fleet) through the guarded probe client (netguard.go): a dial-time block
       # on unspecified/link-local/cloud-metadata IPs - post-resolution, so DNS
