@@ -3,6 +3,7 @@ package anthropic
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // --- Incoming OpenAI non-streaming response shape ---
@@ -20,11 +21,41 @@ type oaiChoice struct {
 }
 
 type oaiRespMessage struct {
-	Role      string            `json:"role"`
-	Content   string            `json:"content"`
+	Role string `json:"role"`
+	// Content is normally a JSON string, but some OpenAI-compatible providers
+	// emit an array of content parts. Decoded via decodeRespContent so a
+	// structured-array response does not fail the whole translation.
+	Content   json.RawMessage   `json:"content"`
 	ToolCalls []oaiRespToolCall `json:"tool_calls"`
 	// reasoning_content is surfaced by some OpenAI-compatible providers; v1
 	// drops it on the translated path (thinking-block mapping is deferred).
+}
+
+// decodeRespContent extracts assistant text from an OpenAI chat-completion
+// message "content": a JSON string (the norm), an array of {type,text} content
+// parts (some providers), or null/absent (-> ""). Non-text parts are ignored.
+func decodeRespContent(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s
+	}
+	var parts []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(raw, &parts) == nil {
+		var b strings.Builder
+		for _, p := range parts {
+			if p.Type == "" || p.Type == "text" {
+				b.WriteString(p.Text)
+			}
+		}
+		return b.String()
+	}
+	return ""
 }
 
 type oaiRespToolCall struct {
@@ -61,10 +92,10 @@ func BuildMessageResponse(body []byte, messageID, model string) ([]byte, error) 
 		choice := resp.Choices[0]
 		finish = choice.FinishReason
 
-		if choice.Message.Content != "" {
+		if text := decodeRespContent(choice.Message.Content); text != "" {
 			msg.Content = append(msg.Content, contentBlock{
 				Type: "text",
-				Text: choice.Message.Content,
+				Text: text,
 			})
 		}
 		for _, tc := range choice.Message.ToolCalls {

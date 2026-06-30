@@ -38,6 +38,37 @@ func TestBuildMessageResponse_Text(t *testing.T) {
 	}
 }
 
+func TestBuildMessageResponse_ArrayContent(t *testing.T) {
+	// Some OpenAI-compatible providers return content as an array of parts
+	// instead of a string; the translation must extract the text, not 502.
+	oai := []byte(`{"choices":[{"message":{"role":"assistant","content":[{"type":"text","text":"Hello "},{"type":"text","text":"world"}]},"finish_reason":"stop"}]}`)
+	out, err := BuildMessageResponse(oai, "msg_a", "m")
+	if err != nil {
+		t.Fatalf("BuildMessageResponse: %v", err)
+	}
+	var m map[string]any
+	_ = json.Unmarshal(out, &m)
+	content := m["content"].([]any)
+	if len(content) != 1 || content[0].(map[string]any)["text"] != "Hello world" {
+		t.Errorf("array content not flattened: %v", content)
+	}
+}
+
+func TestBuildMessageResponse_NullContent(t *testing.T) {
+	// content:null (tool-only assistant turn) must not panic or add an empty block.
+	oai := []byte(`{"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[{"id":"c","type":"function","function":{"name":"f","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}`)
+	out, err := BuildMessageResponse(oai, "msg_n", "m")
+	if err != nil {
+		t.Fatalf("BuildMessageResponse: %v", err)
+	}
+	var m map[string]any
+	_ = json.Unmarshal(out, &m)
+	content := m["content"].([]any)
+	if len(content) != 1 || content[0].(map[string]any)["type"] != "tool_use" {
+		t.Errorf("null content should yield only the tool_use block: %v", content)
+	}
+}
+
 func TestBuildMessageResponse_InvalidToolArgsAndError(t *testing.T) {
 	// Invalid tool-call arguments fall back to an empty object.
 	oai := []byte(`{"choices":[{"message":{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"f","arguments":"not json"}}]},"finish_reason":"tool_calls"}]}`)

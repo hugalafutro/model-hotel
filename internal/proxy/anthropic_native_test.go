@@ -90,6 +90,56 @@ func TestHandleNativeNonStreaming(t *testing.T) {
 	}
 }
 
+// errorReadCloser fails on Read, simulating an upstream body that drops
+// mid-transfer after a 200 header.
+type errorReadCloser struct{}
+
+func (errorReadCloser) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+func (errorReadCloser) Close() error             { return nil }
+
+// A read failure on the native non-streaming 200 body must finalize the log row
+// (state=failed) instead of leaving it orphaned in the in-flight state.
+func TestHandleNativeNonStreaming_ReadErrorFinalizesLog(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	resp := &http.Response{StatusCode: http.StatusOK, Body: errorReadCloser{}, Header: make(http.Header)}
+	rec := httptest.NewRecorder()
+	native := true
+	aw := newAnthropicResponseWriter(rec, "msg_e", "m")
+	aw.bindNativeFlag(&native)
+	req := httptest.NewRequest("POST", "/v1/messages", http.NoBody)
+	logData := &requestLogData{
+		id:             uuid.New().String(),
+		modelID:        "claude-x",
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "streaming",
+	}
+	st := &requestState{startTime: time.Now(), logData: logData}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	outcome := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0)
+	aw.Finalize()
+
+	if outcome != outcomeFatal {
+		t.Errorf("outcome = %v, want outcomeFatal", outcome)
+	}
+	if logData.state != "failed" {
+		t.Errorf("state = %q, want failed (log row must not orphan)", logData.state)
+	}
+	if logData.errorKind != KindProviderError {
+		t.Errorf("errorKind = %v, want KindProviderError", logData.errorKind)
+	}
+	if logData.statusCode != http.StatusBadGateway {
+		t.Errorf("statusCode = %d, want 502", logData.statusCode)
+	}
+	if rec.Code != http.StatusBadGateway {
+		t.Errorf("client status = %d, want 502", rec.Code)
+	}
+}
+
 // runNativeStream drives a complete Anthropic SSE body through the real streaming
 // pipeline with rawPassthrough enabled (the native passthrough path), returning
 // the forwarded client bytes and the finalized log row. It mirrors the harness in
