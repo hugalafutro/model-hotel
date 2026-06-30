@@ -79,7 +79,14 @@ func (a *anthropicResponseWriter) Write(p []byte) (int, error) {
 		a.commit()
 	}
 	if a.verbatim {
-		//nolint:gosec // G705 false positive: native Anthropic response body forwarded verbatim
+		// Native passthrough forwards the upstream Anthropic response (JSON or SSE)
+		// byte-for-byte. Not an XSS sink: the global security-headers middleware
+		// (cmd/server/main.go) sets X-Content-Type-Options: nosniff on every
+		// response, the Content-Type is always application/json or
+		// text/event-stream (never text/html), and the consumer is an API client,
+		// not a browser. CodeQL go/reflected-xss cannot trace the middleware header
+		// through this wrapper, so the alert is dismissed as a false positive.
+		//nolint:gosec // G705: see above — JSON/SSE API body, nosniff set globally, not HTML
 		return a.w.Write(p)
 	}
 	if a.streaming {

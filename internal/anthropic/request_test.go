@@ -184,3 +184,55 @@ func TestTranslateRequest_MissingModel(t *testing.T) {
 		t.Fatal("expected error for missing model")
 	}
 }
+
+func TestTranslateRequest_InvalidBody(t *testing.T) {
+	if _, _, _, err := TranslateRequest([]byte(`not json`)); err == nil {
+		t.Fatal("expected error for invalid body")
+	}
+}
+
+func TestTranslateRequest_SystemAsBlocks(t *testing.T) {
+	// system can be an array of text blocks; they flatten into one system message.
+	body := []byte(`{"model":"p/m","max_tokens":10,"system":[{"type":"text","text":"A"},{"type":"text","text":"B"}],"messages":[{"role":"user","content":"x"}]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	m := decodeOAI(t, out)
+	sys := m["messages"].([]any)[0].(map[string]any)
+	if sys["role"] != "system" || sys["content"] != "AB" {
+		t.Errorf("system flatten = %v, want AB", sys)
+	}
+}
+
+func TestTranslateRequest_ImageURLAndToolChoiceAuto(t *testing.T) {
+	body := []byte(`{"model":"p/m","max_tokens":10,"tool_choice":{"type":"auto"},"messages":[{"role":"user","content":[{"type":"image","source":{"type":"url","url":"https://x/y.png"}}]}]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	m := decodeOAI(t, out)
+	if m["tool_choice"] != "auto" {
+		t.Errorf("tool_choice = %v, want auto", m["tool_choice"])
+	}
+	parts := m["messages"].([]any)[0].(map[string]any)["content"].([]any)
+	url := parts[0].(map[string]any)["image_url"].(map[string]any)["url"]
+	if url != "https://x/y.png" {
+		t.Errorf("image url = %v, want passthrough url", url)
+	}
+}
+
+func TestBuildErrorResponseFromMessage_EmptyDefaults(t *testing.T) {
+	out := BuildErrorResponseFromMessage("", 503)
+	m := map[string]any{}
+	if err := json.Unmarshal(out, &m); err != nil {
+		t.Fatalf("invalid output: %v", err)
+	}
+	e := m["error"].(map[string]any)
+	if e["type"] != "overloaded_error" {
+		t.Errorf("type = %v, want overloaded_error", e["type"])
+	}
+	if e["message"] != "Service Unavailable" {
+		t.Errorf("message = %v, want status text default", e["message"])
+	}
+}

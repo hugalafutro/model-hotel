@@ -67,11 +67,16 @@ func (h *Handler) Messages(w http.ResponseWriter, r *http.Request) {
 
 	debuglog.Debug("anthropic: messages resolved (pre-loop)", "model", st.logData.modelID, "provider", st.logData.providerName, "candidates", len(candidates), "stream", st.isStreaming)
 
-	if st.hedgingEnabled && st.isStreaming && len(candidates) > 1 {
-		h.runHedgedStreaming(aw, r, st, candidates, h.probeStreamingCandidate)
-	} else {
-		h.runFailoverLoop(aw, r, st, candidates, h.attemptCandidate)
-	}
+	// Messages requests never hedge. Hedging probes per-attempt COPIES of
+	// requestState, so a native Anthropic winner would set anthropicNativeAttempt
+	// only on its copy: the flag would never reach this request's response writer
+	// (bound to st below) or the winner's streamOptions, and the native Anthropic
+	// SSE would be mis-parsed as OpenAI chunks and dropped. The sequential
+	// failover loop reads the per-attempt native flag on the same st the writer is
+	// bound to, so it stays correct. (Carrying the winner's native flag through the
+	// hedge result is a possible follow-up; hedging is an off-by-default latency
+	// optimization, so Messages forgoing it is an acceptable tradeoff.)
+	h.runFailoverLoop(aw, r, st, candidates, h.attemptCandidate)
 	aw.Finalize()
 }
 

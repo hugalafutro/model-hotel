@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,7 +10,85 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
+
+// buildNativeAnthropicRequest forwards the original Messages body (model
+// rewritten) to the provider's native /v1/messages with anthropic auth headers.
+func TestBuildNativeAnthropicRequest(t *testing.T) {
+	h := &Handler{}
+	st := &requestState{anthropicRawBody: []byte(`{"model":"hotel/claude-x","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}`)}
+	cand := modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "claude-opus-4-8"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "Anthropic", BaseURL: "https://api.anthropic.com"},
+		apiKey:   "sk-ant-test",
+	}
+	req, ptype, url, err := h.buildNativeAnthropicRequest(context.Background(), st, cand, "anthropic")
+	if err != nil {
+		t.Fatalf("buildNativeAnthropicRequest: %v", err)
+	}
+	if ptype != "anthropic" {
+		t.Errorf("ptype = %q, want anthropic", ptype)
+	}
+	if !strings.HasSuffix(url, "/v1/messages") {
+		t.Errorf("url = %q, want suffix /v1/messages", url)
+	}
+	body, _ := io.ReadAll(req.Body)
+	if !strings.Contains(string(body), `"claude-opus-4-8"`) || strings.Contains(string(body), "hotel/claude-x") {
+		t.Errorf("body model not rewritten: %s", body)
+	}
+	if req.Header.Get("x-api-key") == "" {
+		t.Error("missing x-api-key header")
+	}
+	if req.Header.Get("Content-Type") != "application/json" {
+		t.Errorf("content-type = %q", req.Header.Get("Content-Type"))
+	}
+}
+
+// handleNativeNonStreaming forwards the Anthropic message verbatim and meters
+// from its usage block.
+func TestHandleNativeNonStreaming(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	anthropicBody := `{"id":"msg_up","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":9,"output_tokens":3}}`
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(anthropicBody)), Header: make(http.Header)}
+
+	rec := httptest.NewRecorder()
+	native := true
+	aw := newAnthropicResponseWriter(rec, "msg_ignored", "m")
+	aw.bindNativeFlag(&native)
+
+	req := httptest.NewRequest("POST", "/v1/messages", http.NoBody)
+	logData := &requestLogData{
+		id:             uuid.New().String(),
+		modelID:        "claude-x",
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "streaming",
+	}
+	st := &requestState{startTime: time.Now(), logData: logData}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	outcome := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0)
+	aw.Finalize()
+
+	if outcome != outcomeServed {
+		t.Errorf("outcome = %v, want outcomeServed", outcome)
+	}
+	if logData.state != "completed" {
+		t.Errorf("state = %q, want completed", logData.state)
+	}
+	if logData.tokensPrompt != 9 || logData.tokensCompletion != 3 {
+		t.Errorf("usage = (%d,%d), want (9,3)", logData.tokensPrompt, logData.tokensCompletion)
+	}
+	if rec.Body.String() != anthropicBody {
+		t.Errorf("verbatim body mismatch:\n got %s\nwant %s", rec.Body.String(), anthropicBody)
+	}
+}
 
 // runNativeStream drives a complete Anthropic SSE body through the real streaming
 // pipeline with rawPassthrough enabled (the native passthrough path), returning
