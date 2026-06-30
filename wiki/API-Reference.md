@@ -14,12 +14,15 @@ Authorization: Bearer <virtual-key>
 
 Virtual keys use the `sk-` prefix (e.g. `sk-a1b2c3d4e5f6a7b8`). Keys are created via the Admin API and are shown only once at creation time.
 
+The native Anthropic endpoint `/v1/messages` additionally accepts the virtual key in the `x-api-key` header (what the anthropic SDKs send); `Authorization: Bearer` works on every endpoint.
+
 ### Endpoints
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/v1/models` | GET | Virtual Key | List available models (OpenAI-compatible format) |
 | `/v1/chat/completions` | POST | Virtual Key | Chat completion (streaming and non-streaming) |
+| `/v1/messages` | POST | Virtual Key (`x-api-key` or Bearer) | Anthropic Messages API (translation + native passthrough) |
 | `/v1/embeddings` | POST | Virtual Key | Embeddings (JSON pass-through) |
 | `/v1/images/generations` | POST | Virtual Key | Image generation (JSON; SSE streaming via `partial_images`) |
 | `/v1/images/edits` | POST | Virtual Key | Image edits (multipart upload) |
@@ -93,6 +96,29 @@ data: {"id":"chatcmpl-123","object":"chat.completion.chunk","created":1234567890
 
 data: [DONE]
 ```
+
+### POST `/v1/messages`
+
+The native [Anthropic Messages API](https://docs.anthropic.com/en/api/messages) surface, so Claude Code and the anthropic SDKs can drive the gateway directly and fail over across every provider in a `hotel/` group, not just Claude. Model routing is identical to the rest of the proxy: send `hotel/<group>` or `<provider>/<model>` in the `model` field. Authenticate with `x-api-key` (what Anthropic clients send) or `Authorization: Bearer`.
+
+```bash
+curl -X POST http://localhost:8081/v1/messages \
+  -H "x-api-key: $PROXY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "hotel/claude-sonnet-4-6",
+    "max_tokens": 1024,
+    "stream": true,
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+Two serving modes are chosen automatically, per failover attempt:
+
+- **Native passthrough** when the resolved candidate is an Anthropic-family provider: the original Messages body is forwarded to the provider's own `/v1/messages` and the response is streamed back verbatim, so extended-thinking blocks (`thinking` / `signature_delta`), `cache_control`, and fine-grained tool streaming survive end to end.
+- **Translation** for every other provider: the request is converted to the OpenAI Chat Completions shape (system prompt, text, vision, `tools`, `tool_choice`, and multi-turn `tool_use`/`tool_result`), run through the same pipeline, and the OpenAI response, SSE stream, or error is converted back to the Anthropic wire format on the way out.
+
+Because the choice is per attempt, a single `hotel/claude-*` request served natively by Anthropic transparently fails over to a translated provider (e.g. another vendor offering the same model) if Anthropic is unavailable. The translated path drops `thinking` output (v1); use a provider that serves the model natively to preserve it. Streaming, tool use, multi-turn tool results, vision, and Anthropic-shaped errors are all supported. Token usage is metered the same way as chat and **request/response content is never logged**.
 
 ### Multimodal Endpoints
 
