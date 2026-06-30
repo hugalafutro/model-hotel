@@ -192,7 +192,11 @@ func (t *StreamTranslator) Translate(chunk OAStreamChunk) ([]byte, error) {
 		}
 	}
 
-	// Tool-call deltas.
+	// Tool-call deltas. This assumes OpenAI streams each tool call's fragments
+	// contiguously (it does: the spec streams one call to completion before the
+	// next, keyed by Index). Truly interleaved fragments across two open tool
+	// blocks would emit input_json_delta against a closed Anthropic block; no
+	// known upstream does this, so we rely on the sequential guarantee.
 	for _, tc := range choice.Delta.ToolCalls {
 		if err := t.ensureStarted(&buf); err != nil {
 			return nil, err

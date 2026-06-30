@@ -85,16 +85,29 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 }
 
 // emitRawData forwards one streaming data chunk verbatim (native Anthropic
-// passthrough), mirroring the no-transform branch of handleDataChunk, while
-// scanning the Anthropic usage events for best-effort metering. Returns
+// passthrough), mirroring the no-transform branch of handleDataChunk. From the
+// same decode it (1) meters token usage, (2) records the terminal message_stop
+// so finalizeStream can tell a real completion from a mid-stream truncation, and
+// (3) captures a provider-sent error event into streamState so the request logs
+// as failed (deriveStreamError surfaces st.lastErrMsg) rather than silently
+// "completed" — the error frame is still forwarded to the client too. Returns
 // stop=true on a client write failure.
 func (h *Handler) emitRawData(sink *streamSink, st *streamState, ev sseEvent, chunkCount int, logData *requestLogData) (stop bool) {
-	if in, hasIn, out, hasOut := anthropic.ScanStreamUsage([]byte(ev.payload)); hasIn || hasOut {
-		if hasIn {
-			st.promptTokens = in
-		}
-		if hasOut {
-			st.completionTokens = out
+	info := anthropic.InspectStreamEvent([]byte(ev.payload))
+	if info.HasInput {
+		st.promptTokens = info.InputTokens
+	}
+	if info.HasOutput {
+		st.completionTokens = info.OutputTokens
+	}
+	switch info.Type {
+	case "message_stop":
+		st.sawMessageStop = true
+	case "error":
+		if info.ErrorMessage != "" {
+			st.lastErrMsg = info.ErrorMessage
+			st.errorChunkCount++
+			debuglog.Warn("proxy: native anthropic SSE error event", "error_message", info.ErrorMessage, "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 		}
 	}
 	if err := sink.write(ev.raw); err != nil {

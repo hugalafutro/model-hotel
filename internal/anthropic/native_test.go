@@ -39,20 +39,29 @@ func TestParseResponseUsage(t *testing.T) {
 	}
 }
 
-func TestScanStreamUsage(t *testing.T) {
+func TestInspectStreamEvent(t *testing.T) {
 	// message_start carries input tokens.
-	in, hasIn, _, _ := ScanStreamUsage([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":15,"output_tokens":0}}}`))
-	if !hasIn || in != 15 {
-		t.Errorf("message_start input = (%d,%v), want (15,true)", in, hasIn)
+	if ev := InspectStreamEvent([]byte(`{"type":"message_start","message":{"usage":{"input_tokens":15,"output_tokens":0}}}`)); ev.Type != "message_start" || !ev.HasInput || ev.InputTokens != 15 {
+		t.Errorf("message_start = %+v, want type=message_start input=15", ev)
 	}
 	// message_delta carries cumulative output tokens.
-	_, _, out, hasOut := ScanStreamUsage([]byte(`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":23}}`))
-	if !hasOut || out != 23 {
-		t.Errorf("message_delta output = (%d,%v), want (23,true)", out, hasOut)
+	if ev := InspectStreamEvent([]byte(`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":23}}`)); ev.Type != "message_delta" || !ev.HasOutput || ev.OutputTokens != 23 {
+		t.Errorf("message_delta = %+v, want type=message_delta output=23", ev)
 	}
 	// content_block_delta carries no usage.
-	_, hasIn2, _, hasOut2 := ScanStreamUsage([]byte(`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}`))
-	if hasIn2 || hasOut2 {
-		t.Errorf("content_block_delta should report no usage, got hasIn=%v hasOut=%v", hasIn2, hasOut2)
+	if ev := InspectStreamEvent([]byte(`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}`)); ev.HasInput || ev.HasOutput {
+		t.Errorf("content_block_delta should report no usage, got %+v", ev)
+	}
+	// message_stop is the terminal marker.
+	if ev := InspectStreamEvent([]byte(`{"type":"message_stop"}`)); ev.Type != "message_stop" {
+		t.Errorf("message_stop type = %q, want message_stop", ev.Type)
+	}
+	// error event surfaces the message.
+	if ev := InspectStreamEvent([]byte(`{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}`)); ev.Type != "error" || ev.ErrorMessage != "Overloaded" {
+		t.Errorf("error = %+v, want type=error message=Overloaded", ev)
+	}
+	// garbage parses to a zero value.
+	if ev := InspectStreamEvent([]byte(`not json`)); ev.Type != "" {
+		t.Errorf("garbage = %+v, want zero StreamEvent", ev)
 	}
 }
