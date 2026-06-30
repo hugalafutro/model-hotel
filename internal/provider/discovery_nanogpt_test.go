@@ -543,48 +543,17 @@ func TestDiscoverNanoGPT_EmptyResponse(t *testing.T) {
 }
 
 func TestDiscoverNanoGPT_InvalidJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("{ invalid json "))
-	}))
-	defer server.Close()
-
-	service := &DiscoveryService{
-		httpClient: server.Client(),
-	}
-
-	provider := &Provider{
-		ID:      uuid.New(),
-		Name:    "nanogpt-test",
-		BaseURL: server.URL,
-	}
-
-	_, err := service.discoverNanoGPT(context.Background(), provider, "test-api-key")
-	if err == nil {
-		t.Error("Expected error for invalid JSON, got nil")
-	}
+	assertDiscoverHTTPError(t, "invalid JSON", invalidJSONHandler(),
+		func(svc *DiscoveryService, p *Provider) ([]*model.Model, error) {
+			return svc.discoverNanoGPT(context.Background(), p, "test-api-key")
+		})
 }
 
 func TestDiscoverNanoGPT_HTTPError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	service := &DiscoveryService{
-		httpClient: server.Client(),
-	}
-
-	provider := &Provider{
-		ID:      uuid.New(),
-		Name:    "nanogpt-test",
-		BaseURL: server.URL,
-	}
-
-	_, err := service.discoverNanoGPT(context.Background(), provider, "test-api-key")
-	if err == nil {
-		t.Error("Expected error for HTTP 500, got nil")
-	}
+	assertDiscoverHTTPError(t, "HTTP 500", errorStatusHandler(http.StatusInternalServerError),
+		func(svc *DiscoveryService, p *Provider) ([]*model.Model, error) {
+			return svc.discoverNanoGPT(context.Background(), p, "test-api-key")
+		})
 }
 
 func TestDiscoverNanoGPT_VisionCapability(t *testing.T) {

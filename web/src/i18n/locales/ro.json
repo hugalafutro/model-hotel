@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Sectiune resetare la valorile implicite",
 			"resetAllDone": "Toate setările se resetează la valorile implicite",
 			"resetFailed": "Resetarea setărilor a eșuat: {{message}}",
-			"resetToDefault": "Resetare la valoarea implicită"
+			"resetToDefault": "Resetare la valoarea implicită",
+			"clearSecretConfirmTitle": "Ștergeți secretul clientului?",
+			"clearSecretConfirmMessage": "Aceasta elimină secretul clientului salvat. Va trebui să îl lipiți din nou înainte ca autentificarea SSO să funcționeze."
 		},
 		"colorPicker": {
 			"title": "Alege o culoare",

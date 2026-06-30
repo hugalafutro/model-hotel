@@ -101,48 +101,17 @@ func TestDiscoverOllama_HTTP(t *testing.T) {
 }
 
 func TestDiscoverOllama_Non200Status(t *testing.T) {
-	// Create test server that returns 500 for tags endpoint
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	service := &DiscoveryService{
-		httpClient: server.Client(),
-	}
-
-	provider := &Provider{
-		ID:      uuid.New(),
-		BaseURL: server.URL,
-	}
-
-	_, err := service.discoverOllama(context.Background(), provider, "test-api-key")
-	if err == nil {
-		t.Error("Expected error for non-200 status, got nil")
-	}
+	assertDiscoverHTTPError(t, "non-200 status", errorStatusHandler(http.StatusInternalServerError),
+		func(svc *DiscoveryService, p *Provider) ([]*model.Model, error) {
+			return svc.discoverOllama(context.Background(), p, "test-api-key")
+		})
 }
 
 func TestDiscoverOllama_InvalidJSON(t *testing.T) {
-	// Create test server with invalid JSON response
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("{ invalid json "))
-	}))
-	defer server.Close()
-
-	service := &DiscoveryService{
-		httpClient: server.Client(),
-	}
-
-	provider := &Provider{
-		ID:      uuid.New(),
-		BaseURL: server.URL,
-	}
-
-	_, err := service.discoverOllama(context.Background(), provider, "test-api-key")
-	if err == nil {
-		t.Error("Expected error for invalid JSON, got nil")
-	}
+	assertDiscoverHTTPError(t, "invalid JSON", invalidJSONHandler(),
+		func(svc *DiscoveryService, p *Provider) ([]*model.Model, error) {
+			return svc.discoverOllama(context.Background(), p, "test-api-key")
+		})
 }
 
 func TestDiscoverOllama_ContextCancelled(t *testing.T) {

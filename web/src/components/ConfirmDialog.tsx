@@ -9,6 +9,9 @@ interface ConfirmDialogProps {
 	confirmLabel?: string;
 	onConfirm: () => void;
 	onCancel: () => void;
+	// Optional test id for the confirm (danger) button. Lets callers drive the
+	// confirmation in tests without matching the translated button label.
+	confirmTestId?: string;
 }
 
 export function ConfirmDialog({
@@ -18,6 +21,7 @@ export function ConfirmDialog({
 	confirmLabel,
 	onConfirm,
 	onCancel,
+	confirmTestId,
 }: ConfirmDialogProps) {
 	const { t } = useTranslation();
 	const modalRef = useRef<ModalHandle>(null);
@@ -72,6 +76,7 @@ export function ConfirmDialog({
 					}}
 					className="ui-btn ui-btn-danger"
 					disabled={closing}
+					data-testid={confirmTestId}
 				>
 					{confirmLabel ?? t("common.delete")}
 				</button>

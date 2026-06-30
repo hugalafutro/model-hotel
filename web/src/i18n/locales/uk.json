@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Розділ скинуто на типові",
 			"resetAllDone": "Усі налаштування скидаються до типових",
 			"resetFailed": "Не вдалося скинути параметри: {{message}}",
-			"resetToDefault": "Скинути до типового"
+			"resetToDefault": "Скинути до типового",
+			"clearSecretConfirmTitle": "Очистити секрет клієнта?",
+			"clearSecretConfirmMessage": "Це видалить збережений секрет клієнта. Вам доведеться вставити його знову, перш ніж запрацює вхід через SSO."
 		},
 		"colorPicker": {
 			"title": "Вибрати колір",

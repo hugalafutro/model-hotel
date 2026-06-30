@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Restablecer sección a los valores por defecto",
 			"resetAllDone": "Todos los ajustes se restablecen por defecto",
 			"resetFailed": "Error al restablecer la configuración: {{message}}",
-			"resetToDefault": "Restablecer al valor predeterminado"
+			"resetToDefault": "Restablecer al valor predeterminado",
+			"clearSecretConfirmTitle": "¿Borrar el secreto de cliente?",
+			"clearSecretConfirmMessage": "Esto elimina el secreto de cliente guardado. Tendrás que volver a pegarlo para que funcione el inicio de sesión SSO."
 		},
 		"colorPicker": {
 			"title": "Escoge un color",

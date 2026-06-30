@@ -1827,7 +1827,9 @@
 			"resetSettingDone": "Setting reset to default",
 			"resetSectionDone": "Section reset to defaults",
 			"resetAllDone": "All settings reset to defaults",
-			"resetFailed": "Failed to reset settings: {{message}}"
+			"resetFailed": "Failed to reset settings: {{message}}",
+			"clearSecretConfirmTitle": "Clear client secret?",
+			"clearSecretConfirmMessage": "This removes the saved client secret. You will need to paste it again before SSO login works."
 		},
 		"colorPicker": {
 			"title": "Pick a Color",

@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Sezione reimpostata ai valori predefiniti",
 			"resetAllDone": "Tutte le impostazioni reimpostate ai valori predefiniti",
 			"resetFailed": "Impossibile reimpostare le impostazioni: {{message}}",
-			"resetToDefault": "Ripristina predefinito"
+			"resetToDefault": "Ripristina predefinito",
+			"clearSecretConfirmTitle": "Cancellare il secret del client?",
+			"clearSecretConfirmMessage": "Questo rimuove il secret del client salvato. Dovrai incollarlo di nuovo prima che l'accesso SSO funzioni."
 		},
 		"colorPicker": {
 			"title": "Scegli un colore",

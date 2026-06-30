@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Restaurer la section par défaut",
 			"resetAllDone": "Tous les paramètres sont réinitialisés aux valeurs par défaut",
 			"resetFailed": "Impossible de réinitialiser les paramètres: {{message}}",
-			"resetToDefault": "Réinitialiser par défaut"
+			"resetToDefault": "Réinitialiser par défaut",
+			"clearSecretConfirmTitle": "Effacer le secret client ?",
+			"clearSecretConfirmMessage": "Cela supprime le secret client enregistré. Vous devrez le coller à nouveau pour que la connexion SSO fonctionne."
 		},
 		"colorPicker": {
 			"title": "Choisir une couleur",

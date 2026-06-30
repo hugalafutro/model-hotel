@@ -57,39 +57,11 @@ func TestUpdateModel_InvalidUUID(t *testing.T) {
 // no fields are provided to update.
 func TestUpdateModel_NoFields(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
-
-	// Create a provider
-	providerData := fmt.Sprintf(`{"name": "test-model-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var providerResp struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
-		t.Fatalf("Failed to parse provider response: %v", err)
-	}
-
-	// Insert a model directly via DB
-	modelID := uuid.New().String()
-	pool := h.Pool().Pool()
-	_, err := pool.Exec(context.Background(),
-		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
-		modelID, providerResp.ID, "gpt-4o-mini", "GPT-4o Mini", true)
-	if err != nil {
-		t.Fatalf("Failed to insert model: %v", err)
-	}
+	modelID := createProviderAndModel(t, h, r)
 
 	// Try to update with empty body
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(`{}`))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(`{}`))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(rec, req)
@@ -106,39 +78,11 @@ func TestUpdateModel_NoFields(t *testing.T) {
 // invalid JSON body.
 func TestUpdateModel_InvalidBody(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
-
-	// Create a provider
-	providerData := fmt.Sprintf(`{"name": "test-model-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var providerResp struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
-		t.Fatalf("Failed to parse provider response: %v", err)
-	}
-
-	// Insert a model directly via DB
-	modelID := uuid.New().String()
-	pool := h.Pool().Pool()
-	_, err := pool.Exec(context.Background(),
-		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
-		modelID, providerResp.ID, "gpt-4o-mini", "GPT-4o Mini", true)
-	if err != nil {
-		t.Fatalf("Failed to insert model: %v", err)
-	}
+	modelID := createProviderAndModel(t, h, r)
 
 	// Try to update with invalid JSON
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(`not json`))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(`not json`))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(rec, req)
@@ -205,49 +149,33 @@ func TestUpdateModel_ClearDisplayName(t *testing.T) {
 	}
 }
 
-// TestUpdateModel_InvalidContextLength tests that UpdateModel returns 400 for
-// a negative context length.
-func TestUpdateModel_InvalidContextLength(t *testing.T) {
-	h, r := newTestHandlerWithRouter(t)
-
-	// Create a provider
-	providerData := fmt.Sprintf(`{"name": "test-model-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, uuid.New().String()[:8])
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+// TestUpdateModel_RejectsNegativeNumericFields tests that UpdateModel returns
+// 400 when any numeric field is given a negative value.
+func TestUpdateModel_RejectsNegativeNumericFields(t *testing.T) {
+	cases := []struct {
+		field string
+		body  string
+	}{
+		{"context_length", `{"context_length": -1}`},
+		{"max_output_tokens", `{"max_output_tokens": -1}`},
+		{"input_price_per_million", `{"input_price_per_million": -5}`},
+		{"output_price_per_million", `{"output_price_per_million": -5}`},
 	}
+	for _, tc := range cases {
+		t.Run(tc.field, func(t *testing.T) {
+			h, r := newTestHandlerWithRouter(t)
+			modelID := createProviderAndModel(t, h, r)
 
-	var providerResp struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
-		t.Fatalf("Failed to parse provider response: %v", err)
-	}
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(tc.body))
+			req.Header.Set("Authorization", "Bearer test-admin-token")
+			req.Header.Set("Content-Type", "application/json")
+			r.ServeHTTP(rec, req)
 
-	// Insert a model directly via DB
-	modelID := uuid.New().String()
-	pool := h.Pool().Pool()
-	_, err := pool.Exec(context.Background(),
-		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
-		modelID, providerResp.ID, "gpt-4o-mini", "GPT-4o Mini", true)
-	if err != nil {
-		t.Fatalf("Failed to insert model: %v", err)
-	}
-
-	// Try to update with negative context length
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(`{"context_length": -1}`))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("Expected 400 for negative context length, got %d: %s", rec.Code, rec.Body.String())
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("Expected 400 for negative %s, got %d: %s", tc.field, rec.Code, rec.Body.String())
+			}
+		})
 	}
 }
 
@@ -391,141 +319,6 @@ func TestListModels_EmptyList(t *testing.T) {
 
 	if len(models) != 0 {
 		t.Errorf("Expected empty array, got %d models", len(models))
-	}
-}
-
-// TestUpdateModel_InvalidMaxOutputTokens tests that UpdateModel returns 400 for negative max_output_tokens.
-func TestUpdateModel_InvalidMaxOutputTokens(t *testing.T) {
-	h, r := newTestHandlerWithRouter(t)
-
-	// Create a provider
-	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-key"}`, uuid.New().String()[:8])
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var providerResp struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
-		t.Fatalf("Failed to parse provider response: %v", err)
-	}
-
-	// Insert a model
-	modelID := uuid.New().String()
-	pool := h.Pool().Pool()
-	_, err := pool.Exec(context.Background(),
-		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
-		modelID, providerResp.ID, "gpt-4o", "GPT-4o", true)
-	if err != nil {
-		t.Fatalf("Failed to insert model: %v", err)
-	}
-
-	// Try to update with negative max_output_tokens
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(`{"max_output_tokens": -1}`))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("Expected 400 for negative max_output_tokens, got %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-// TestUpdateModel_InvalidInputPrice tests that UpdateModel returns 400 for negative input_price_per_million.
-func TestUpdateModel_InvalidInputPrice(t *testing.T) {
-	h, r := newTestHandlerWithRouter(t)
-
-	// Create a provider
-	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-key"}`, uuid.New().String()[:8])
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var providerResp struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
-		t.Fatalf("Failed to parse provider response: %v", err)
-	}
-
-	// Insert a model
-	modelID := uuid.New().String()
-	pool := h.Pool().Pool()
-	_, err := pool.Exec(context.Background(),
-		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
-		modelID, providerResp.ID, "gpt-4o", "GPT-4o", true)
-	if err != nil {
-		t.Fatalf("Failed to insert model: %v", err)
-	}
-
-	// Try to update with negative input_price_per_million
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(`{"input_price_per_million": -5}`))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("Expected 400 for negative input_price_per_million, got %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-// TestUpdateModel_InvalidOutputPrice tests that UpdateModel returns 400 for negative output_price_per_million.
-func TestUpdateModel_InvalidOutputPrice(t *testing.T) {
-	h, r := newTestHandlerWithRouter(t)
-
-	// Create a provider
-	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-key"}`, uuid.New().String()[:8])
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var providerResp struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
-		t.Fatalf("Failed to parse provider response: %v", err)
-	}
-
-	// Insert a model
-	modelID := uuid.New().String()
-	pool := h.Pool().Pool()
-	_, err := pool.Exec(context.Background(),
-		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
-		modelID, providerResp.ID, "gpt-4o", "GPT-4o", true)
-	if err != nil {
-		t.Fatalf("Failed to insert model: %v", err)
-	}
-
-	// Try to update with negative output_price_per_million
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(`{"output_price_per_million": -5}`))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("Expected 400 for negative output_price_per_million, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

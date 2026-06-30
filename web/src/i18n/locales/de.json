@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Abschnitt auf Standardwerte zurückgesetzt",
 			"resetAllDone": "Alle Einstellungen auf Standardwerte zurückgesetzt",
 			"resetFailed": "Fehler beim Zurücksetzen der Einstellungen: {{message}}",
-			"resetToDefault": "Auf Standard zurücksetzen"
+			"resetToDefault": "Auf Standard zurücksetzen",
+			"clearSecretConfirmTitle": "Client-Geheimnis löschen?",
+			"clearSecretConfirmMessage": "Dadurch wird das gespeicherte Client-Geheimnis entfernt. Sie müssen es erneut einfügen, bevor die SSO-Anmeldung funktioniert."
 		},
 		"colorPicker": {
 			"title": "Wähle eine Farbe",

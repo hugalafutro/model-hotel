@@ -2,9 +2,12 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +18,41 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
+
+// createProviderAndModel creates a provider via POST /providers and inserts a
+// single enabled model for it directly, returning the model's UUID. The
+// UpdateModel HTTP tests share this setup, which otherwise gets copied per test.
+func createProviderAndModel(t *testing.T, h *Handler, r http.Handler) string {
+	t.Helper()
+
+	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	modelID := uuid.New().String()
+	_, err := h.dbPool.Pool().Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID, providerResp.ID, "gpt-4o", "GPT-4o", true)
+	if err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	return modelID
+}
 
 // ---------------------------------------------------------------------------
 // buildProviderTargetURL

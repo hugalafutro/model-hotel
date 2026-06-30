@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Avsnitt återställt till standardvärden",
 			"resetAllDone": "Alla inställningar återställs till standard",
 			"resetFailed": "Det gick inte att återställa inställningar: {{message}}",
-			"resetToDefault": "Återställ till standard"
+			"resetToDefault": "Återställ till standard",
+			"clearSecretConfirmTitle": "Rensa klienthemlighet?",
+			"clearSecretConfirmMessage": "Detta tar bort den sparade klienthemligheten. Du måste klistra in den igen innan SSO-inloggning fungerar."
 		},
 		"colorPicker": {
 			"title": "Välj en färg",

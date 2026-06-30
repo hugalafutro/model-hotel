@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "إعادة تعيين القسم إلى الافتراضي",
 			"resetAllDone": "إعادة تعيين كافة الإعدادات إلى الإعدادات الافتراضية",
 			"resetFailed": "فشل في إعادة تعيين الإعدادات: {{message}}",
-			"resetToDefault": "إعادة التعيين إلى الافتراضي"
+			"resetToDefault": "إعادة التعيين إلى الافتراضي",
+			"clearSecretConfirmTitle": "مسح سر العميل؟",
+			"clearSecretConfirmMessage": "سيؤدي هذا إلى إزالة سر العميل المحفوظ. ستحتاج إلى لصقه مرة أخرى قبل أن يعمل تسجيل الدخول عبر SSO."
 		},
 		"colorPicker": {
 			"title": "اختيار لون",

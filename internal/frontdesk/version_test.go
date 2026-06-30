@@ -61,19 +61,3 @@ func TestVersionStamped(t *testing.T) {
 		t.Errorf("app_commit = %q, want 0123456789ab (12-char prefix)", v["app_commit"])
 	}
 }
-
-// TestShortCommit checks the SHA normalization used for app_commit: the sentinels
-// pass through, a short value is left alone, and a full SHA is truncated.
-func TestShortCommit(t *testing.T) {
-	cases := []struct{ in, want string }{
-		{"", ""},
-		{"unknown", "unknown"},
-		{"abc1234", "abc1234"},
-		{"0123456789abcdef0123", "0123456789ab"},
-	}
-	for _, c := range cases {
-		if got := shortCommit(c.in); got != c.want {
-			t.Errorf("shortCommit(%q) = %q, want %q", c.in, got, c.want)
-		}
-	}
-}

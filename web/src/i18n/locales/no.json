@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Seksjonen settes tilbake til standard",
 			"resetAllDone": "Alle innstillinger settes til innstillinger",
 			"resetFailed": "Kan ikke tilbakestille innstillingene: {{message}}",
-			"resetToDefault": "Tilbakestill til standard"
+			"resetToDefault": "Tilbakestill til standard",
+			"clearSecretConfirmTitle": "Tøm klienthemmelighet?",
+			"clearSecretConfirmMessage": "Dette fjerner den lagrede klienthemmeligheten. Du må lime den inn igjen før SSO-pålogging fungerer."
 		},
 		"colorPicker": {
 			"title": "Velg en farge",

@@ -720,21 +720,6 @@ func (s *Server) traefikStatus(w http.ResponseWriter, _ *http.Request) {
 // `dev` build corresponds to. Defaults to "unknown" for un-stamped builds.
 var buildCommit = "unknown"
 
-// shortCommit normalizes a stamped commit SHA to a fixed-length short prefix so
-// app_commit reads the same across build paths (a local git SHA vs CI's full
-// github.sha). The "unknown" sentinel and any empty value pass through unchanged.
-// It mirrors internal/api.shortCommit so both surfaces present the same prefix.
-func shortCommit(c string) string {
-	const shortLen = 12
-	if c == "" || c == "unknown" {
-		return c
-	}
-	if len(c) > shortLen {
-		return c[:shortLen]
-	}
-	return c
-}
-
 // getVersion returns the running build's version and source commit so the UI
 // footer can show which Front Desk build is deployed (and link a `dev` build to
 // its commit on GitHub). app_version is "dev" for un-stamped builds; app_commit
@@ -742,7 +727,7 @@ func shortCommit(c string) string {
 func (s *Server) getVersion(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
 		"app_version": s.version,
-		"app_commit":  shortCommit(buildCommit),
+		"app_commit":  util.ShortCommit(buildCommit),
 	})
 }
 

@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Afsnit nulstillet til standardindstillinger",
 			"resetAllDone": "Alle indstillinger nulstilles til standardindstillinger",
 			"resetFailed": "Kunne ikke nulstille indstillinger: {{message}}",
-			"resetToDefault": "Nulstil til standard"
+			"resetToDefault": "Nulstil til standard",
+			"clearSecretConfirmTitle": "Ryd klienthemmelighed?",
+			"clearSecretConfirmMessage": "Dette fjerner den gemte klienthemmelighed. Du skal indsætte den igen, før SSO-login virker."
 		},
 		"colorPicker": {
 			"title": "Vælg en farve",
