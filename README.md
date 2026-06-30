@@ -372,6 +372,13 @@ curl -X POST http://localhost:8081/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "hotel/gpt-4o", "messages": [{"role": "user", "content": "Hello!"}]}'
 
+# Anthropic Messages API (point Claude Code or the anthropic SDK at the gateway;
+# x-api-key is accepted alongside Authorization: Bearer)
+curl -X POST http://localhost:8081/v1/messages \
+  -H "x-api-key: $VIRTUAL_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "hotel/claude-sonnet-4-6", "max_tokens": 1024, "messages": [{"role": "user", "content": "Hello!"}]}'
+
 # Embeddings (multimodal endpoints support the same provider/model and hotel/ routing)
 curl -X POST http://localhost:8081/v1/embeddings \
   -H "Authorization: Bearer $VIRTUAL_KEY" \
@@ -388,6 +395,13 @@ The proxy also serves `/v1/images/generations`, `/v1/images/edits`, `/v1/images/
 `/v1/audio/speech`, and `/v1/audio/translations` as transparent OpenAI-compatible pass-through
 (failover, circuit breaker, and virtual-key access control included; request/response content
 is never logged). See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the full endpoint listing.
+
+A native **Anthropic Messages API** (`POST /v1/messages`) lets Claude Code and the anthropic SDKs
+drive the gateway directly, so an Anthropic client fails over across *every* provider in a `hotel/`
+group, not just Claude. Requests routed to a non-Anthropic provider are translated to and from the
+OpenAI shape (text, vision, tools, and tool results); requests routed to an Anthropic-family provider
+are forwarded natively, so extended-thinking blocks and prompt caching survive end to end. Auth
+accepts `x-api-key` (what Anthropic clients send) as well as `Authorization: Bearer`.
 
 ### Metrics & log shipping
 

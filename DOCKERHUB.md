@@ -26,6 +26,10 @@ Add any OpenAI-compatible provider (Anthropic, DeepSeek, KoboldCPP, LMStudio, Na
 
 Beyond chat, the proxy serves `/v1/embeddings`, `/v1/images/generations`, `/v1/images/edits`, `/v1/images/variations`, `/v1/audio/speech` (TTS, binary or SSE), `/v1/audio/transcriptions`, and `/v1/audio/translations` (multipart STT) as transparent OpenAI-compatible pass-through. Only the `model` field is rewritten to the resolved upstream model; responses (JSON, SSE streams, binary audio) are forwarded verbatim. Every endpoint gets the same `hotel/` failover, virtual-key control, rate limiting, circuit breaker, and token metering as chat - and the same privacy guarantee: content (audio uploads, generated images, embedding inputs) is never inspected or logged.
 
+## Anthropic Messages API
+
+A native `POST /v1/messages` endpoint lets Claude Code and the anthropic SDKs drive the gateway directly, so an Anthropic client fails over across every provider in a `hotel/` group, not just Claude. Requests routed to a non-Anthropic provider are translated to and from the OpenAI shape (text, vision, tools, tool results); requests routed to an Anthropic-family provider are forwarded natively, so extended-thinking blocks and prompt caching survive end to end. Auth accepts `x-api-key` (what Anthropic clients send) as well as `Authorization: Bearer`.
+
 ## Transparent Failover
 
 Requests that fail (server errors, rate limits, auth issues, request and TTFT-probe timeouts) are automatically retried on the next available provider. For streaming, a **TTFT probe** confirms the first token arrives before committing the stream to your client; if none arrives within the timeout (default 60s), it fails over. Once streaming begins, a **stall watchdog** terminates the connection and records a breaker failure if no data arrives within the window (default 30s); after 50 chunks the threshold triples to tolerate tool-call pauses and long reasoning. Both timeouts are configurable in **Settings → Proxy** (`0s` to disable), with retries paced by exponential backoff and jitter.
@@ -199,6 +203,13 @@ curl -X POST http://localhost:8081/v1/chat/completions \
   -H "Authorization: Bearer $VIRTUAL_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model": "hotel/gpt-4o", "messages": [{"role": "user", "content": "Hello!"}]}'
+
+# Anthropic Messages API (point Claude Code or the anthropic SDK at the gateway;
+# x-api-key is accepted alongside Authorization: Bearer)
+curl -X POST http://localhost:8081/v1/messages \
+  -H "x-api-key: $VIRTUAL_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "hotel/claude-sonnet-4-6", "max_tokens": 1024, "messages": [{"role": "user", "content": "Hello!"}]}'
 
 # Speech-to-text (multipart; multimodal endpoints share the same provider/model and hotel/ routing)
 curl -X POST http://localhost:8081/v1/audio/transcriptions \
