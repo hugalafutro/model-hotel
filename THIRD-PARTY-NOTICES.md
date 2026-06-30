@@ -6,7 +6,7 @@ Model Hotel is distributed under the MIT License (see [LICENSE](./LICENSE)).
 It bundles the third-party open-source components listed below; each is the
 property of its respective authors and is used under the terms reproduced here.
 
-_54 Go modules, 238 npm packages (regenerate with `make notices`)._
+_54 Go modules, 239 npm packages (regenerate with `make notices`)._
 
 ## Fonts
 
@@ -79,22 +79,22 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@fontsource-variable/onest](https://fontsource.org/fonts/onest) | 5.2.11 | npm | OFL-1.1 |
 | [@fontsource-variable/schibsted-grotesk](https://fontsource.org/fonts/schibsted-grotesk) | 5.2.8 | npm | OFL-1.1 |
 | [@phosphor-icons/react](https://phosphoricons.com) | 2.1.10 | npm | MIT |
-| [@reduxjs/toolkit](https://redux-toolkit.js.org) | 2.11.2 | npm | MIT |
-| [@shikijs/core](https://github.com/shikijs/shiki#readme) | 4.2.0 | npm | MIT |
-| [@shikijs/engine-javascript](https://github.com/shikijs/shiki#readme) | 4.2.0 | npm | MIT |
-| [@shikijs/engine-oniguruma](https://github.com/shikijs/shiki#readme) | 4.2.0 | npm | MIT |
-| [@shikijs/langs](https://github.com/shikijs/shiki#readme) | 4.2.0 | npm | MIT |
-| [@shikijs/primitive](https://github.com/shikijs/shiki#readme) | 4.2.0 | npm | MIT |
-| [@shikijs/themes](https://github.com/shikijs/shiki#readme) | 4.2.0 | npm | MIT |
-| [@shikijs/types](https://github.com/shikijs/shiki#readme) | 4.2.0 | npm | MIT |
+| [@reduxjs/toolkit](https://redux-toolkit.js.org) | 2.12.0 | npm | MIT |
+| [@shikijs/core](https://github.com/shikijs/shiki#readme) | 4.3.0 | npm | MIT |
+| [@shikijs/engine-javascript](https://github.com/shikijs/shiki#readme) | 4.3.0 | npm | MIT |
+| [@shikijs/engine-oniguruma](https://github.com/shikijs/shiki#readme) | 4.3.0 | npm | MIT |
+| [@shikijs/langs](https://github.com/shikijs/shiki#readme) | 4.3.0 | npm | MIT |
+| [@shikijs/primitive](https://github.com/shikijs/shiki#readme) | 4.3.0 | npm | MIT |
+| [@shikijs/themes](https://github.com/shikijs/shiki#readme) | 4.3.0 | npm | MIT |
+| [@shikijs/types](https://github.com/shikijs/shiki#readme) | 4.3.0 | npm | MIT |
 | [@shikijs/vscode-textmate](https://github.com/shikijs/vscode-textmate#readme) | 10.0.2 | npm | MIT |
 | [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 13.3.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
-| [@tanstack/query-core](https://tanstack.com/query) | 5.101.0 | npm | MIT |
-| [@tanstack/react-query](https://tanstack.com/query) | 5.101.0 | npm | MIT |
-| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.3 | npm | MIT |
-| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.1 | npm | MIT |
+| [@tanstack/query-core](https://tanstack.com/query) | 5.101.2 | npm | MIT |
+| [@tanstack/react-query](https://tanstack.com/query) | 5.101.2 | npm | MIT |
+| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.4 | npm | MIT |
+| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.2 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
 | [@types/d3-color](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-color) | 3.1.3 | npm | MIT |
 | [@types/d3-ease](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-ease) | 3.0.2 | npm | MIT |
@@ -153,7 +153,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [dijkstrajs](https://github.com/tcort/dijkstrajs) | 1.0.3 | npm | MIT |
 | [emoji-regex](https://mths.be/emoji-regex) | 8.0.0 | npm | MIT |
 | [entities](https://github.com/fb55/entities#readme) | 6.0.1 | npm | BSD-2-Clause |
-| [es-toolkit](https://es-toolkit.dev) | 1.46.1 | npm | MIT |
+| [es-toolkit](https://es-toolkit.dev) | 1.49.0 | npm | MIT |
 | [escape-string-regexp](https://github.com/sindresorhus/escape-string-regexp#readme) | 5.0.0 | npm | MIT |
 | [estree-util-is-identifier-name](https://github.com/syntax-tree/estree-util-is-identifier-name#readme) | 3.0.0 | npm | MIT |
 | [eventemitter3](https://github.com/primus/eventemitter3#readme) | 5.0.4 | npm | MIT |
@@ -174,7 +174,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [html-parse-stringify](https://github.com/henrikjoreteg/html-parse-stringify) | 3.0.1 | npm | MIT |
 | [html-url-attributes](https://github.com/rehypejs/rehype-minify/tree/main#readme) | 3.0.1 | npm | MIT |
 | [html-void-elements](https://github.com/wooorm/html-void-elements#readme) | 3.0.0 | npm | MIT |
-| [i18next](https://www.i18next.com) | 26.3.1 | npm | MIT |
+| [i18next](https://www.i18next.com) | 26.3.3 | npm | MIT |
 | [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.2.1 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 10.2.0 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.1.8 | npm | MIT |
@@ -247,6 +247,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [path-exists](https://github.com/sindresorhus/path-exists#readme) | 4.0.0 | npm | MIT |
 | [pngjs](https://github.com/lukeapage/pngjs) | 5.0.0 | npm | MIT |
 | [property-information](https://github.com/wooorm/property-information#readme) | 7.1.0 | npm | MIT |
+| [property-information](https://github.com/wooorm/property-information#readme) | 7.2.0 | npm | MIT |
 | [qrcode](http://github.com/soldair/node-qrcode) | 1.5.4 | npm | MIT |
 | [react](https://react.dev/) | 19.2.7 | npm | MIT |
 | [react-colorful](https://omgovich.github.io/react-colorful) | 5.7.0 | npm | MIT |
@@ -254,10 +255,10 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [react-i18next](https://github.com/i18next/react-i18next) | 17.0.8 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
-| [react-redux](https://github.com/reduxjs/react-redux) | 9.2.0 | npm | MIT |
-| [react-router](https://github.com/remix-run/react-router#readme) | 7.17.0 | npm | MIT |
-| [react-router-dom](https://github.com/remix-run/react-router#readme) | 7.17.0 | npm | MIT |
-| [recharts](https://github.com/recharts/recharts) | 3.8.1 | npm | MIT |
+| [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | npm | MIT |
+| [react-router](https://github.com/remix-run/react-router#readme) | 7.18.1 | npm | MIT |
+| [react-router-dom](https://github.com/remix-run/react-router#readme) | 7.18.1 | npm | MIT |
+| [recharts](https://github.com/recharts/recharts) | 3.9.0 | npm | MIT |
 | [redux](http://redux.js.org) | 5.0.1 | npm | MIT |
 | [redux-thunk](https://github.com/reduxjs/redux-thunk) | 3.1.0 | npm | MIT |
 | [regex](https://github.com/slevithan/regex#readme) | 6.1.0 | npm | MIT |
@@ -271,11 +272,11 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [remark-stringify](https://remark.js.org) | 11.0.0 | npm | MIT |
 | [require-directory](https://github.com/troygoode/node-require-directory/) | 2.1.1 | npm | MIT |
 | [require-main-filename](https://github.com/yargs/require-main-filename#readme) | 2.0.0 | npm | ISC |
-| [reselect](https://github.com/reduxjs/reselect#readme) | 5.1.1 | npm | MIT |
+| [reselect](https://github.com/reduxjs/reselect#readme) | 5.2.0 | npm | MIT |
 | [scheduler](https://react.dev/) | 0.27.0 | npm | MIT |
 | [set-blocking](https://github.com/yargs/set-blocking#readme) | 2.0.0 | npm | ISC |
 | [set-cookie-parser](https://github.com/nfriedly/set-cookie-parser) | 2.7.2 | npm | MIT |
-| [shiki](https://github.com/shikijs/shiki#readme) | 4.2.0 | npm | MIT |
+| [shiki](https://github.com/shikijs/shiki#readme) | 4.3.0 | npm | MIT |
 | [space-separated-tokens](https://github.com/wooorm/space-separated-tokens#readme) | 2.0.2 | npm | MIT |
 | [string-width](https://github.com/sindresorhus/string-width#readme) | 4.2.3 | npm | MIT |
 | [stringify-entities](https://github.com/wooorm/stringify-entities#readme) | 4.0.4 | npm | MIT |
@@ -729,7 +730,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2021 Pine Wu
 
-Applies to: `@shikijs/core@4.2.0`, `@shikijs/engine-javascript@4.2.0`, `@shikijs/engine-oniguruma@4.2.0`, `@shikijs/langs@4.2.0`, `@shikijs/primitive@4.2.0`, `@shikijs/themes@4.2.0`, `@shikijs/types@4.2.0`, `shiki@4.2.0`
+Applies to: `@shikijs/core@4.3.0`, `@shikijs/engine-javascript@4.3.0`, `@shikijs/engine-oniguruma@4.3.0`, `@shikijs/langs@4.3.0`, `@shikijs/primitive@4.3.0`, `@shikijs/themes@4.3.0`, `@shikijs/types@4.3.0`, `shiki@4.3.0`
 
 ```
 MIT License
@@ -1066,7 +1067,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.101.0`, `@tanstack/react-query@5.101.0`, `@tanstack/react-virtual@3.14.3`, `@tanstack/virtual-core@3.17.1`
+Applies to: `@tanstack/query-core@5.101.2`, `@tanstack/react-query@5.101.2`, `@tanstack/react-virtual@3.14.4`, `@tanstack/virtual-core@3.17.2`
 
 ```
 MIT License
@@ -1146,6 +1147,37 @@ Applies to: `longest-streak@3.1.0`, `stringify-entities@4.0.4`, `trim-lines@3.0.
 (The MIT License)
 
 Copyright (c) 2015 Titus Wormer <mailto:tituswormer@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### MIT
+
+Copyright (c) Titus Wormer <mailto:tituswormer@gmail.com>
+
+Applies to: `parse-entities@4.0.2`, `property-information@7.1.0`, `property-information@7.2.0`
+
+```
+(The MIT License)
+
+Copyright (c) Titus Wormer <mailto:tituswormer@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -1270,40 +1302,9 @@ SOFTWARE.
 
 ### MIT
 
-Copyright (c) Titus Wormer <mailto:tituswormer@gmail.com>
-
-Applies to: `parse-entities@4.0.2`, `property-information@7.1.0`
-
-```
-(The MIT License)
-
-Copyright (c) Titus Wormer <mailto:tituswormer@gmail.com>
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-'Software'), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### MIT
-
 Copyright (c) 2015-present Dan Abramov
 
-Applies to: `react-redux@9.2.0`, `redux-thunk@3.1.0`
+Applies to: `react-redux@9.3.0`, `redux@5.0.1`
 
 ```
 The MIT License (MIT)
@@ -1333,7 +1334,7 @@ SOFTWARE.
 
 Copyright (c) React Training LLC 2015-2019
 
-Applies to: `react-router@7.17.0`, `react-router-dom@7.17.0`
+Applies to: `react-router@7.18.1`, `react-router-dom@7.18.1`
 
 ```
 MIT License
@@ -4497,7 +4498,7 @@ SOFTWARE.
 
 Copyright (c) 2018 Mark Erikson
 
-Applies to: `@reduxjs/toolkit@2.11.2`
+Applies to: `@reduxjs/toolkit@2.12.0`
 
 ```
 MIT License
@@ -5174,18 +5175,14 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### MIT
 
-Copyright (c) 2024 Viva Republica, Inc
+Copyright (c) 2024 Viva Republica, Inc.
 
-Applies to: `es-toolkit@1.46.1`
+Applies to: `es-toolkit@1.49.0`
 
 ```
 MIT License
 
-Copyright (c) 2024 Viva Republica, Inc
-
-Copyright OpenJS Foundation and other contributors
-
-Parts of the test suite and compatibility layer in `es-toolkit/compat` are derived from Lodash (https://github.com/lodash/lodash) by the OpenJS Foundation (https://openjsf.org/) and Underscore.js by Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors (http://underscorejs.org/)
+Copyright (c) 2024 Viva Republica, Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -5433,7 +5430,7 @@ THE SOFTWARE.
 
 Copyright (c) 2011-present i18next
 
-Applies to: `i18next@26.3.1`
+Applies to: `i18next@26.3.3`
 
 ```
 The MIT License (MIT)
@@ -5849,7 +5846,7 @@ SOFTWARE.
 
 Copyright (c) 2015-present recharts
 
-Applies to: `recharts@3.8.1`
+Applies to: `recharts@3.9.0`
 
 ```
 The MIT License (MIT)
@@ -5879,7 +5876,7 @@ SOFTWARE.
 
 Copyright (c) 2015-present Dan Abramov
 
-Applies to: `redux@5.0.1`
+Applies to: `redux-thunk@3.1.0`
 
 ```
 The MIT License (MIT)
@@ -5970,7 +5967,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 Copyright (c) 2015-2018 Reselect Contributors
 
-Applies to: `reselect@5.1.1`
+Applies to: `reselect@5.2.0`
 
 ```
 The MIT License (MIT)
