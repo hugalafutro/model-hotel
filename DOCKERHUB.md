@@ -28,7 +28,7 @@ Beyond chat, the proxy serves `/v1/embeddings`, `/v1/images/generations`, `/v1/i
 
 ## Anthropic Messages API
 
-A native `POST /v1/messages` endpoint lets Claude Code and the anthropic SDKs drive the gateway directly, so an Anthropic client fails over across every provider in a `hotel/` group, not just Claude. Requests routed to a non-Anthropic provider are translated to and from the OpenAI shape (text, vision, tools, tool results); requests routed to an Anthropic-family provider are forwarded natively, so extended-thinking blocks and prompt caching survive end to end. Auth accepts `x-api-key` (what Anthropic clients send) as well as `Authorization: Bearer`.
+A native `POST /v1/messages` endpoint lets Claude Code and the anthropic SDKs drive the gateway, failing over across every provider in a `hotel/` group. Non-Anthropic providers are reached via OpenAI translation; Anthropic-family providers are forwarded natively, so thinking blocks and prompt caching survive. Accepts `x-api-key` or `Authorization: Bearer`.
 
 ## Transparent Failover
 
@@ -203,13 +203,6 @@ curl -X POST http://localhost:8081/v1/chat/completions \
   -H "Authorization: Bearer $VIRTUAL_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model": "hotel/gpt-4o", "messages": [{"role": "user", "content": "Hello!"}]}'
-
-# Anthropic Messages API (point Claude Code or the anthropic SDK at the gateway;
-# x-api-key is accepted alongside Authorization: Bearer)
-curl -X POST http://localhost:8081/v1/messages \
-  -H "x-api-key: $VIRTUAL_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model": "hotel/claude-sonnet-4-6", "max_tokens": 1024, "messages": [{"role": "user", "content": "Hello!"}]}'
 
 # Speech-to-text (multipart; multimodal endpoints share the same provider/model and hotel/ routing)
 curl -X POST http://localhost:8081/v1/audio/transcriptions \
