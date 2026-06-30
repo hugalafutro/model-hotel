@@ -37,6 +37,7 @@ import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useWheelPaging } from "../hooks/useWheelPaging";
 import { encodeCursor, formatNumber } from "../utils/format";
 import {
 	formatDurationCell,
@@ -332,6 +333,17 @@ function RequestLogs() {
 	// during refetch, so we only need to check if data has arrived.
 	const displayEntries = logsData?.entries ?? [];
 	const displayTotal = logsData?.total ?? 0;
+	const logsTotalPages = Math.ceil(displayTotal / pageSize);
+	// Clamp before wheel paging so a prev-nudge always snaps back into range if
+	// the page count shrank mid-session (matches AppLogs).
+	const logsSafePage = Math.min(page, Math.max(1, logsTotalPages));
+	const wheelPagingRef = useWheelPaging<HTMLDivElement>({
+		enabled: viewMode === "paginate" && logsTotalPages > 1,
+		canPrev: logsSafePage > 1,
+		canNext: logsSafePage < logsTotalPages,
+		onPrev: () => setPage(logsSafePage - 1),
+		onNext: () => setPage(logsSafePage + 1),
+	});
 
 	// A request stuck in pending/streaming longer than the configured timeout
 	// is almost certainly dead (server crash, unhandled error, etc.) - treat it
@@ -397,7 +409,7 @@ function RequestLogs() {
 						viewMode === "paginate" && displayTotal > 0 ? (
 							<PaginationBar
 								page={page}
-								totalPages={Math.ceil(displayTotal / pageSize)}
+								totalPages={logsTotalPages}
 								totalItems={displayTotal}
 								pageSize={pageSize}
 								onPageChange={setPage}
@@ -532,7 +544,7 @@ function RequestLogs() {
 				)}
 
 				{viewMode === "paginate" && (!isLoading || logsData) && (
-					<div className="ui-card overflow-x-auto">
+					<div ref={wheelPagingRef} className="ui-card overflow-x-auto">
 						<table className="w-full table-fixed ui-table min-w-250">
 							<colgroup>
 								{LOG_COL_WIDTHS.map((col) => (

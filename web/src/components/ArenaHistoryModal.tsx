@@ -15,6 +15,7 @@ import {
 import { PaginationBar } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
+import { useWheelPaging } from "../hooks/useWheelPaging";
 import {
 	type ArenaHistoryEntry,
 	clearArenaHistory,
@@ -115,6 +116,14 @@ export function ArenaHistoryModal({
 		setPage(p);
 		setExpandedId(null);
 	};
+
+	const wheelPagingRef = useWheelPaging<HTMLDivElement>({
+		enabled: totalPages > 1,
+		canPrev: safePage > 1,
+		canNext: safePage < totalPages,
+		onPrev: () => handlePageChange(safePage - 1),
+		onNext: () => handlePageChange(safePage + 1),
+	});
 
 	const handlePageSizeChange = (s: number) => {
 		setPageSize(s);
@@ -414,7 +423,7 @@ export function ArenaHistoryModal({
 					</p>
 				</div>
 			) : (
-				<div className="space-y-2">
+				<div ref={wheelPagingRef} className="space-y-2">
 					{pagedEntries.map((entry) => {
 						const isExpanded = expandedId === entry.id;
 						const preset = findPromptPreset(entry.promptPresetId);

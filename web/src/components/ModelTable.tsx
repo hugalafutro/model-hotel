@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Model, Provider } from "../api/types";
+import { useWheelPaging } from "../hooks/useWheelPaging";
 import { formatDate, formatRelativeTime, formatTokens } from "../utils/format";
 import { parseCapabilities, proxyModelID } from "../utils/model";
 import { CapBadge } from "./CapBadge";
@@ -195,6 +196,13 @@ export function ModelTable({
 		(currentPage - 1) * pageSize,
 		currentPage * pageSize,
 	);
+	const wheelPagingRef = useWheelPaging<HTMLDivElement>({
+		enabled: totalPages > 1,
+		canPrev: currentPage > 1,
+		canNext: currentPage < totalPages,
+		onPrev: () => setCurrentPage(currentPage - 1),
+		onNext: () => setCurrentPage(currentPage + 1),
+	});
 
 	const colSpan = showProviderCol ? 10 : 9;
 
@@ -261,7 +269,7 @@ export function ModelTable({
 				</div>
 			</div>
 
-			<div className="ui-card overflow-hidden">
+			<div ref={wheelPagingRef} className="ui-card overflow-hidden">
 				<table className="min-w-full table-fixed ui-table">
 					<colgroup>
 						{(showProviderCol
