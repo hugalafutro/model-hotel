@@ -222,6 +222,51 @@ func TestTranslateRequest_ImageURLAndToolChoiceAuto(t *testing.T) {
 	}
 }
 
+func TestTranslateRequest_ToolResultArrayAndDroppedBlocks(t *testing.T) {
+	// tool_result with array content flattens to text; document/thinking blocks
+	// and an image with empty base64 data are dropped.
+	body := []byte(`{"model":"p/m","max_tokens":10,"messages":[
+		{"role":"user","content":[
+			{"type":"document","source":{"type":"base64","media_type":"application/pdf","data":"x"}},
+			{"type":"thinking","thinking":"hmm"},
+			{"type":"image","source":{"type":"base64","media_type":"image/png","data":""}},
+			{"type":"tool_result","tool_use_id":"c1","content":[{"type":"text","text":"part1 "},{"type":"text","text":"part2"}]}
+		]}
+	]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	m := decodeOAI(t, out)
+	msgs := m["messages"].([]any)
+	// only the tool message survives (document/thinking/empty-image dropped, no text parts)
+	if len(msgs) != 1 {
+		t.Fatalf("messages = %d, want 1 (tool only): %v", len(msgs), msgs)
+	}
+	tool := msgs[0].(map[string]any)
+	if tool["role"] != "tool" || tool["tool_call_id"] != "c1" || tool["content"] != "part1 part2" {
+		t.Errorf("tool msg = %v", tool)
+	}
+}
+
+func TestTranslateToolChoice_Edges(t *testing.T) {
+	// tool type without a name degrades to "required".
+	body := []byte(`{"model":"p/m","max_tokens":10,"tool_choice":{"type":"tool"},"messages":[{"role":"user","content":"x"}]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	if m := decodeOAI(t, out); m["tool_choice"] != "required" {
+		t.Errorf("tool_choice(tool,no-name) = %v, want required", m["tool_choice"])
+	}
+	// unknown/invalid tool_choice is omitted entirely.
+	body2 := []byte(`{"model":"p/m","max_tokens":10,"tool_choice":{"type":"weird"},"messages":[{"role":"user","content":"x"}]}`)
+	out2, _, _, _ := TranslateRequest(body2)
+	if m := decodeOAI(t, out2); m["tool_choice"] != nil {
+		t.Errorf("unknown tool_choice = %v, want omitted", m["tool_choice"])
+	}
+}
+
 func TestBuildErrorResponseFromMessage_EmptyDefaults(t *testing.T) {
 	out := BuildErrorResponseFromMessage("", 503)
 	m := map[string]any{}

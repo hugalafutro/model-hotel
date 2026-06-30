@@ -13,9 +13,6 @@ import (
 
 func TestNewSPAHandler_ReturnsHandler(t *testing.T) {
 	h := NewSPAHandler()
-	if h == nil {
-		t.Fatal("NewSPAHandler() returned nil")
-	}
 	if h.indexHTML == nil {
 		t.Error("expected non-nil indexHTML")
 	}
@@ -382,9 +379,6 @@ func TestNewSPAHandler_FallbackWhenNoEmbedFS(t *testing.T) {
 	// NewSPAHandler always returns non-nil. When the embedded FS doesn't
 	// have a "static" directory, it falls back to a minimal HTML page.
 	h := NewSPAHandler()
-	if h == nil {
-		t.Fatal("NewSPAHandler() should never return nil")
-	}
 	// indexHTML should always be set (either real embedded or fallback)
 	if len(h.indexHTML) == 0 {
 		t.Error("expected non-empty indexHTML")
@@ -649,9 +643,6 @@ func testStaticFS() fstest.MapFS {
 // supplied filesystem contains valid content (index.html exists, sub FS works).
 func TestNewSPAHandler_WithTestFS(t *testing.T) {
 	h := newSPAHandler(testStaticFS())
-	if h == nil {
-		t.Fatal("NewSPAHandler() returned nil")
-	}
 	if h.fileServer == nil {
 		t.Fatal("expected fileServer to be non-nil with test FS")
 	}

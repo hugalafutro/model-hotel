@@ -1,6 +1,7 @@
 package anthropic
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 )
@@ -36,6 +37,41 @@ func TestParseResponseUsage(t *testing.T) {
 	in, out := ParseResponseUsage(body)
 	if in != 42 || out != 7 {
 		t.Errorf("usage = (%d,%d), want (42,7)", in, out)
+	}
+	// Invalid body yields zeros.
+	if in, out := ParseResponseUsage([]byte(`not json`)); in != 0 || out != 0 {
+		t.Errorf("invalid usage = (%d,%d), want (0,0)", in, out)
+	}
+}
+
+func TestStreamTranslator_ToolWithoutID_AndIdempotentFinish(t *testing.T) {
+	tr := NewStreamTranslator("msg_t", "m")
+	// A tool-call fragment with no id forces id synthesis; arguments stream as
+	// input_json_delta.
+	out, err := tr.Translate(OAStreamChunk{Choices: []OAStreamChoice{{
+		Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{{
+			Index: 0, Function: OAFunctionDelta{Name: "f", Arguments: `{"a":1}`},
+		}}},
+	}}})
+	if err != nil {
+		t.Fatalf("Translate: %v", err)
+	}
+	if !bytes.Contains(out, []byte("toolu_")) {
+		t.Errorf("expected synthesized toolu_ id in output:\n%s", out)
+	}
+	if !bytes.Contains(out, []byte("input_json_delta")) {
+		t.Errorf("expected input_json_delta:\n%s", out)
+	}
+	// Finish is idempotent: the second call emits nothing.
+	if _, err := tr.Finish(); err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+	again, err := tr.Finish()
+	if err != nil {
+		t.Fatalf("Finish (2nd): %v", err)
+	}
+	if len(again) != 0 {
+		t.Errorf("second Finish should emit nothing, got %s", again)
 	}
 }
 

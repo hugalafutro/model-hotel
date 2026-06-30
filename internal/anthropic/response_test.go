@@ -38,6 +38,25 @@ func TestBuildMessageResponse_Text(t *testing.T) {
 	}
 }
 
+func TestBuildMessageResponse_InvalidToolArgsAndError(t *testing.T) {
+	// Invalid tool-call arguments fall back to an empty object.
+	oai := []byte(`{"choices":[{"message":{"role":"assistant","tool_calls":[{"id":"c1","type":"function","function":{"name":"f","arguments":"not json"}}]},"finish_reason":"tool_calls"}]}`)
+	out, err := BuildMessageResponse(oai, "msg_x", "m")
+	if err != nil {
+		t.Fatalf("BuildMessageResponse: %v", err)
+	}
+	var m map[string]any
+	_ = json.Unmarshal(out, &m)
+	input := m["content"].([]any)[0].(map[string]any)["input"].(map[string]any)
+	if len(input) != 0 {
+		t.Errorf("invalid tool args should yield empty input, got %v", input)
+	}
+	// Unparseable upstream body is an error.
+	if _, err := BuildMessageResponse([]byte(`not json`), "x", "m"); err == nil {
+		t.Fatal("expected error for invalid upstream response")
+	}
+}
+
 func TestBuildMessageResponse_ToolUse(t *testing.T) {
 	oai := []byte(`{
 		"choices": [{"message": {"role":"assistant","content":"","tool_calls":[
@@ -77,6 +96,8 @@ func TestBuildErrorResponse_StatusMapping(t *testing.T) {
 		{401, "authentication_error"},
 		{403, "permission_error"},
 		{404, "not_found_error"},
+		{413, "request_too_large"},
+		{418, "invalid_request_error"},
 		{429, "rate_limit_error"},
 		{500, "api_error"},
 		{502, "api_error"},

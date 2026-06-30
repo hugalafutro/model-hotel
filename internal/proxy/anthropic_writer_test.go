@@ -118,6 +118,26 @@ func TestAnthropicWriter_NativeVerbatim200(t *testing.T) {
 	}
 }
 
+func TestAnthropicWriter_NativeVerbatimStreaming(t *testing.T) {
+	rec := httptest.NewRecorder()
+	aw := newAnthropicResponseWriter(rec, "msg_ignored", "ignored")
+	native := true
+	aw.bindNativeFlag(&native)
+
+	// Native streaming: SSE content-type + 200, forwarded byte-for-byte (not
+	// translated), with Flush passing through.
+	aw.Header().Set("Content-Type", "text/event-stream")
+	aw.WriteHeader(http.StatusOK)
+	frame := "event: message_start\ndata: {\"type\":\"message_start\"}\n\n"
+	_, _ = aw.Write([]byte(frame))
+	aw.Flush()
+	aw.Finalize()
+
+	if rec.Body.String() != frame {
+		t.Errorf("verbatim stream mismatch:\n got %q\nwant %q", rec.Body.String(), frame)
+	}
+}
+
 func TestAnthropicWriter_NativeErrorStillTranslated(t *testing.T) {
 	rec := httptest.NewRecorder()
 	aw := newAnthropicResponseWriter(rec, "msg_e", "m")
