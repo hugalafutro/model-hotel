@@ -259,6 +259,16 @@ func TestTranslateToolChoice_Edges(t *testing.T) {
 	if m := decodeOAI(t, out); m["tool_choice"] != "required" {
 		t.Errorf("tool_choice(tool,no-name) = %v, want required", m["tool_choice"])
 	}
+	// none must map to OpenAI "none" (prohibits tool use); dropping it would let
+	// the upstream default to auto and call a tool the caller forbade.
+	bodyNone := []byte(`{"model":"p/m","max_tokens":10,"tool_choice":{"type":"none"},"tools":[{"name":"f","input_schema":{"type":"object"}}],"messages":[{"role":"user","content":"x"}]}`)
+	outNone, _, _, err := TranslateRequest(bodyNone)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	if m := decodeOAI(t, outNone); m["tool_choice"] != "none" {
+		t.Errorf("tool_choice(none) = %v, want none", m["tool_choice"])
+	}
 	// unknown/invalid tool_choice is omitted entirely.
 	body2 := []byte(`{"model":"p/m","max_tokens":10,"tool_choice":{"type":"weird"},"messages":[{"role":"user","content":"x"}]}`)
 	out2, _, _, _ := TranslateRequest(body2)

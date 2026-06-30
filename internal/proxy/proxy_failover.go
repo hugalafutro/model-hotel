@@ -110,7 +110,13 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// are rejected for this model, strip them, and retry once.
 	// Works universally — any LLM API mentioning "temperature" or "top_p"
 	// in a 400 error can only mean the sampling parameter.
-	if resp.StatusCode == 400 {
+	//
+	// Skipped for native Anthropic passthrough: this self-heal rebuilds the
+	// OpenAI-shaped st.bodyBytes via buildUpstreamBody and re-POSTs it, but a
+	// native attempt's targetURL is the provider's /v1/messages (Anthropic wire
+	// format). Stripping OpenAI params off the wrong body and sending it to the
+	// native endpoint would be malformed; a native 400 is forwarded as-is.
+	if resp.StatusCode == 400 && !st.anthropicNativeAttempt {
 		res := h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
 		resp = res.resp
 		streamCancelOrigin = res.streamCancelOrigin

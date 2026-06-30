@@ -357,6 +357,11 @@ func translateToolChoice(raw json.RawMessage) (any, bool) {
 	switch tc.Type {
 	case "auto":
 		return "auto", true
+	case "none":
+		// The caller explicitly prohibits tool use; OpenAI's equivalent is the
+		// literal "none". Dropping this would let the upstream default to "auto"
+		// and call a tool against the caller's intent.
+		return "none", true
 	case "any":
 		return "required", true
 	case "tool":
