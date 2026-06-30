@@ -122,9 +122,7 @@ When TOTP is on, the raw admin token no longer authenticates API requests by its
 
 ## Single Sign-On (OIDC)
 
-Let admins sign in through an external OpenID Connect provider (Authentik, Authelia, Keycloak, Okta, Google, and so on). Configure the issuer URL, client ID, client secret, and an allowlist of verified emails from the Settings page; a "Sign in with SSO" button then appears on the login screen.
-
-SSO is a third login path, not a replacement: it mints the same session token as passkey and TOTP login. The allowlist fails closed, only verified emails match, the client secret is AES-256-GCM encrypted at rest, and the flow uses PKCE plus single-use state and nonce. The minted token is delivered in the URL fragment (never sent back to the server); if your reverse proxy logs response headers, redact `Location` on `/api/auth/oidc/callback`. Each operator registers their own OIDC app and points it at `<public base URL>/api/auth/oidc/callback`. Local login (admin token, passkeys, TOTP) always keeps working, so a misconfigured provider cannot lock you out.
+Let admins sign in through an external OpenID Connect provider (Authentik, Authelia, Keycloak, Okta, Google, and so on) as a third login path alongside the admin token, passkeys, and TOTP. Configure the issuer URL, client ID, client secret, and a verified-email allowlist from the Settings page, then register an app with your provider pointing at `<public base URL>/api/auth/oidc/callback`. Local login always keeps working, so a misconfigured provider cannot lock you out. See the [Security guide](https://github.com/hugalafutro/model-hotel/wiki/Security) for the full setup, including the required scopes and a copy-paste provider client example.
 
 ## High Availability
 

@@ -57,6 +57,31 @@ describe("App auth gating", () => {
 		).not.toBeInTheDocument();
 	});
 
+	it("clears a stale SSO error after an unrelated login then logout", async () => {
+		// A failed SSO callback lands on the SPA with the code in the URL fragment.
+		server.use(...authHandlers("good"));
+		window.location.hash = "#oidc_error=not_allowed";
+		render(<App />);
+		// The failure banner shows on the login screen (and the fragment is scrubbed).
+		expect(screen.getByRole("alert")).toHaveTextContent(
+			/single sign-on failed/i,
+		);
+
+		// Log in by an unrelated path (token), reach the shell, then log out.
+		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
+		await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+		await waitFor(() =>
+			expect(screen.getByRole("tab", { name: /members/i })).toBeInTheDocument(),
+		);
+		await userEvent.click(screen.getByRole("button", { name: /log out/i }));
+
+		// Back on login, the stale SSO banner must NOT reappear.
+		await waitFor(() =>
+			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
+		);
+		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	});
+
 	it("drops back to login when an authed request later 401s", async () => {
 		// First /api/members call (login validation) succeeds; the next one (the
 		// authed shell's own fetch) 401s, which must bounce back to login.
