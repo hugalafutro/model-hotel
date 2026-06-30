@@ -65,6 +65,7 @@ const VirtualKeyHashKey = ctxkeys.VirtualKeyHashKey
 // request log row is tagged with the family it came through.
 const (
 	endpointTypeChat       = "chat"
+	endpointTypeMessages   = "messages"
 	endpointTypeEmbeddings = "embeddings"
 	endpointTypeImage      = "image"
 	endpointTypeTTS        = "tts"
@@ -142,6 +143,18 @@ type requestState struct {
 	makeUpstreamBody func(resolvedModelID string) (body []byte, contentType string, err error)
 	longRunning      bool
 
+	// Native Anthropic /v1/messages passthrough (zero values = translated path).
+	// anthropicIn marks a request that arrived on /v1/messages (so an
+	// Anthropic-family candidate is forwarded its original Messages body
+	// natively instead of the OpenAI translation). anthropicRawBody is that
+	// original body. anthropicNativeAttempt is set per failover attempt by
+	// buildCandidateRequest: true when the current candidate is being served the
+	// native path, read by the response dispatch and the response writer so they
+	// forward Anthropic bytes verbatim instead of translating.
+	anthropicIn            bool
+	anthropicRawBody       []byte
+	anthropicNativeAttempt bool
+
 	// Populated by resolveCandidates (phase B).
 	timings    resolveTimings
 	cacheHits  resolveCacheHits
@@ -212,6 +225,10 @@ type streamOptions struct {
 	vkHash           string
 	attempt          int
 	cancelOrigin     string
+	// rawPassthrough forwards each data chunk verbatim instead of parsing it as
+	// an OpenAI chunk and applying the transforms. Set for the native Anthropic
+	// /v1/messages passthrough path, whose stream is already Anthropic-shaped.
+	rawPassthrough bool
 }
 
 // ChatCompletionRequest is the request body for /v1/chat/completions.
@@ -240,11 +257,32 @@ type Choice struct {
 
 // Message represents a chat message with role and content.
 type Message struct {
-	Role             string            `json:"role"`
-	Content          interface{}       `json:"content"`
+	Role    string      `json:"role"`
+	Content interface{} `json:"content"`
+	// ToolCalls/ToolCallID must round-trip through the non-streaming decode +
+	// re-encode in handleNonStreamingResponse, or function calls are silently
+	// dropped (finish_reason:"tool_calls" with no tool_calls array) for every
+	// non-streaming client. omitempty keeps plain text responses unchanged.
+	ToolCalls        []ToolCall        `json:"tool_calls,omitempty"`
+	ToolCallID       string            `json:"tool_call_id,omitempty"`
 	ReasoningContent string            `json:"reasoning_content,omitempty"`
 	Reasoning        string            `json:"reasoning,omitempty"`         // Ollama, OpenRouter
 	ReasoningDetails []ReasoningDetail `json:"reasoning_details,omitempty"` // OpenRouter, MiniMax
+}
+
+// ToolCall is an OpenAI function tool call on an assistant message. Preserved
+// verbatim through the proxy so non-streaming clients receive the call.
+type ToolCall struct {
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
+	Index    *int         `json:"index,omitempty"`
+	Function ToolCallFunc `json:"function"`
+}
+
+// ToolCallFunc is the function name + raw JSON arguments of a tool call.
+type ToolCallFunc struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
 }
 
 // PromptTokensDetails breaks down prompt tokens into sub-categories.

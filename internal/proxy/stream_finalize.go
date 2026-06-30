@@ -33,6 +33,7 @@ type streamState struct {
 	errorChunkCount       int
 	lastErrMsg            string
 	sawDone               bool
+	sawMessageStop        bool // native Anthropic passthrough: terminal message_stop event seen
 	clientDisconnected    bool
 	stalled               bool
 
@@ -80,7 +81,21 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	}
 
 	errMsg := deriveStreamError(st, scanErr, opts, logData)
-	if errMsg == "" && !st.sawDone {
+	if errMsg == "" && !st.sawDone && opts.rawPassthrough {
+		// Native Anthropic passthrough: the Messages stream ends with a
+		// message_stop event + EOF and never sends a [DONE] sentinel. A clean EOF
+		// *with* message_stop is a real completion; a clean EOF *without* it means
+		// the upstream dropped mid-stream, which must log as truncated (and must
+		// NOT bill the partial output as a complete response). We never inject
+		// [DONE] here — Anthropic clients don't expect it.
+		if st.sawMessageStop {
+			debuglog.Debug("proxy: native anthropic stream completed (message_stop seen)", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
+		} else {
+			errMsg = "stream truncated: upstream closed before message_stop"
+			logData.errorKind = KindProviderError
+			debuglog.Warn("proxy: native anthropic stream ended without message_stop", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
+		}
+	} else if errMsg == "" && !st.sawDone {
 		// Upstream closed without [DONE] sentinel. If we received content and
 		// the scanner didn't error, inject the sentinel for the downstream
 		// client so the frontend knows the stream completed normally.

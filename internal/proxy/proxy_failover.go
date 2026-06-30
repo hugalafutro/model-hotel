@@ -110,7 +110,13 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// are rejected for this model, strip them, and retry once.
 	// Works universally — any LLM API mentioning "temperature" or "top_p"
 	// in a 400 error can only mean the sampling parameter.
-	if resp.StatusCode == 400 {
+	//
+	// Skipped for native Anthropic passthrough: this self-heal rebuilds the
+	// OpenAI-shaped st.bodyBytes via buildUpstreamBody and re-POSTs it, but a
+	// native attempt's targetURL is the provider's /v1/messages (Anthropic wire
+	// format). Stripping OpenAI params off the wrong body and sending it to the
+	// native endpoint would be malformed; a native 400 is forwarded as-is.
+	if resp.StatusCode == 400 && !st.anthropicNativeAttempt {
 		res := h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
 		resp = res.resp
 		streamCancelOrigin = res.streamCancelOrigin
@@ -150,9 +156,13 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
 	}
 
-	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
+	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "native_anthropic", st.anthropicNativeAttempt, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 	if st.isStreaming {
 		return h.dispatchStreaming(w, r, st, candidate, resp, attempt, responseHeaderMs, streamCancelOrigin)
+	}
+
+	if st.anthropicNativeAttempt {
+		return h.handleNativeNonStreaming(w, r, st, resp, attempt, responseHeaderMs)
 	}
 
 	h.handleNonStreamingResponse(w, r, logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings.failoverLookupMs, st.timings.modelLookupMs, st.timings.providerLookupMs, st.timings.keyDecryptMs, st.timings.dialMs, st.timings.settingsReadMs, responseHeaderMs, st.vkHash, attempt)
@@ -211,6 +221,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 		vkHash:             st.vkHash,
 		attempt:            attempt,
 		cancelOrigin:       streamCancelOrigin,
+		rawPassthrough:     st.anthropicNativeAttempt,
 	}
 
 	if ttftTimeout > 0 {
@@ -321,6 +332,19 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	logData := st.logData
 	providerType := provider.DetectProviderType(candidate.provider.BaseURL)
 	debuglog.Debug("proxy: detected provider type", "provider_type", providerType, "base_url", util.SanitizeBaseURL(candidate.provider.BaseURL))
+
+	// Native Anthropic passthrough: an Anthropic-in request resolved to an
+	// Anthropic-family provider forwards the ORIGINAL Messages body to the
+	// provider's native /v1/messages (max fidelity: thinking blocks,
+	// cache_control, fine-grained tool streaming survive). Every non-Anthropic
+	// candidate in the same failover group still goes through translation, so a
+	// single hotel/claude-* request can fail over from native to translated
+	// seamlessly. The flag is read by the response dispatch + writer.
+	st.anthropicNativeAttempt = st.anthropicIn && providerType == "anthropic"
+	if st.anthropicNativeAttempt {
+		return h.buildNativeAnthropicRequest(ctx, st, candidate, providerType)
+	}
+
 	endpoint := st.endpointPath
 	if endpoint == "" {
 		endpoint = "/chat/completions"
