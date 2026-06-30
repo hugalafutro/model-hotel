@@ -66,7 +66,13 @@ export function useWheelPaging<T extends HTMLElement = HTMLDivElement>({
 			// and is ignored, so up/down scrolling keeps working.
 			if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
 
-			const dx = e.deltaMode === 1 ? e.deltaX * LINE_HEIGHT : e.deltaX;
+			// Normalize to ~pixels so the jitter floor and direction hold across
+			// wheel delta modes: line-mode (1) scales by LINE_HEIGHT, page-mode
+			// (2) by the container's visible width (rare hardware, but a raw
+			// page-mode deltaX of 1 would otherwise fall under MIN_DELTA).
+			let dx = e.deltaX;
+			if (e.deltaMode === 1) dx *= LINE_HEIGHT;
+			else if (e.deltaMode === 2) dx *= el.clientWidth || LINE_HEIGHT;
 			if (Math.abs(dx) < MIN_DELTA) return;
 			const forward = dx > 0;
 

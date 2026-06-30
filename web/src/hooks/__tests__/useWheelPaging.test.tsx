@@ -114,6 +114,14 @@ describe("useWheelPaging", () => {
 		expect(onNext).toHaveBeenCalledTimes(1);
 	});
 
+	it("recognizes page-mode deltas (deltaMode 2)", () => {
+		const { container, onNext } = setup();
+		// A page-mode tick has raw deltaX 1; normalization keeps it above the
+		// jitter floor so it still registers as a nudge.
+		fireEvent.wheel(container, { deltaX: 1, deltaY: 0, deltaMode: 2 });
+		expect(onNext).toHaveBeenCalledTimes(1);
+	});
+
 	it("ignores sub-pixel horizontal jitter and lets it scroll natively", () => {
 		const { container, onNext } = setup();
 		const notCanceled = fireEvent.wheel(container, { deltaX: 1, deltaY: 0 });
