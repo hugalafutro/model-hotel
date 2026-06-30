@@ -114,8 +114,14 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			break
 		}
 
-		// ev.kind == sseData — parse, transform, observe, and forward the chunk.
-		if h.handleDataChunk(sink, st, ev, stripReasoning, chunkCount, logData) {
+		// ev.kind == sseData. Native Anthropic passthrough forwards the chunk
+		// verbatim (it is already Anthropic-shaped); the translated/OpenAI path
+		// parses, transforms, observes, and forwards.
+		if opts.rawPassthrough {
+			if h.emitRawData(sink, st, ev, chunkCount, logData) {
+				goto logUpdate
+			}
+		} else if h.handleDataChunk(sink, st, ev, stripReasoning, chunkCount, logData) {
 			goto logUpdate
 		}
 	}

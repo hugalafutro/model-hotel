@@ -96,6 +96,56 @@ func TestAnthropicWriter_NonStreaming(t *testing.T) {
 	}
 }
 
+func TestAnthropicWriter_NativeVerbatim200(t *testing.T) {
+	rec := httptest.NewRecorder()
+	aw := newAnthropicResponseWriter(rec, "msg_ignored", "ignored")
+	native := true
+	aw.bindNativeFlag(&native)
+
+	// Native passthrough: upstream is already an Anthropic message; forward as-is.
+	anthropicBody := `{"id":"msg_upstream","type":"message","role":"assistant","content":[{"type":"text","text":"native"}],"stop_reason":"end_turn"}`
+	aw.Header().Set("Content-Type", "application/json")
+	aw.WriteHeader(http.StatusOK)
+	_, _ = aw.Write([]byte(anthropicBody))
+	aw.Finalize()
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rec.Code)
+	}
+	// Must be byte-identical (the upstream id survives, NOT our generated one).
+	if rec.Body.String() != anthropicBody {
+		t.Errorf("verbatim body mismatch:\n got %s\nwant %s", rec.Body.String(), anthropicBody)
+	}
+}
+
+func TestAnthropicWriter_NativeErrorStillTranslated(t *testing.T) {
+	rec := httptest.NewRecorder()
+	aw := newAnthropicResponseWriter(rec, "msg_e", "m")
+	native := true
+	aw.bindNativeFlag(&native)
+
+	// A native attempt that errors (status != 200) must NOT be forwarded verbatim
+	// blindly; it goes through translation so the client gets a clean envelope.
+	aw.Header().Set("Content-Type", "application/json")
+	aw.WriteHeader(http.StatusInternalServerError)
+	_, _ = aw.Write([]byte(`{"error":{"message":"upstream boom"}}`))
+	aw.Finalize()
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", rec.Code)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &m); err != nil {
+		t.Fatalf("invalid output: %v", err)
+	}
+	if m["type"] != "error" {
+		t.Errorf("type = %v, want error", m["type"])
+	}
+	if m["error"].(map[string]any)["type"] != "api_error" {
+		t.Errorf("error type = %v, want api_error (500)", m["error"])
+	}
+}
+
 func TestAnthropicWriter_Error(t *testing.T) {
 	rec := httptest.NewRecorder()
 	aw := newAnthropicResponseWriter(rec, "msg_e", "p/m")

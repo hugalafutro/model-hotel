@@ -33,7 +33,15 @@ type anthropicResponseWriter struct {
 
 	committed bool // mode decided, headers handled
 	streaming bool // text/event-stream path
+	verbatim  bool // native Anthropic passthrough: forward bytes unchanged
 	status    int  // captured status for buffered mode
+
+	// nativeFlag points at requestState.anthropicNativeAttempt, set per failover
+	// attempt. When the attempt that actually serves a 200 is the native
+	// Anthropic passthrough, the upstream bytes are already Anthropic-shaped and
+	// are forwarded verbatim. Errors (status != 200) always go through
+	// translation so the client still gets a well-formed Anthropic error.
+	nativeFlag *bool
 
 	// streaming-mode state
 	translator *anthropic.StreamTranslator
@@ -47,6 +55,10 @@ type anthropicResponseWriter struct {
 func newAnthropicResponseWriter(w http.ResponseWriter, messageID, model string) *anthropicResponseWriter {
 	return &anthropicResponseWriter{w: w, messageID: messageID, model: model, status: http.StatusOK}
 }
+
+// bindNativeFlag wires the writer to the per-attempt native-passthrough flag on
+// requestState, set once ingest has produced it. Called before the failover loop.
+func (a *anthropicResponseWriter) bindNativeFlag(f *bool) { a.nativeFlag = f }
 
 // Header exposes the underlying header map so the pipeline can set Content-Type
 // etc. before the first write. We read Content-Type from it at commit time to
@@ -66,6 +78,10 @@ func (a *anthropicResponseWriter) Write(p []byte) (int, error) {
 	if !a.committed {
 		a.commit()
 	}
+	if a.verbatim {
+		//nolint:gosec // G705 false positive: native Anthropic response body forwarded verbatim
+		return a.w.Write(p)
+	}
 	if a.streaming {
 		a.consumeStreaming(p)
 		return len(p), nil
@@ -73,24 +89,35 @@ func (a *anthropicResponseWriter) Write(p []byte) (int, error) {
 	return a.body.Write(p)
 }
 
-// Flush flushes the real writer in streaming mode; in buffered mode the response
-// is not emitted until Finalize, so there is nothing to flush.
+// Flush flushes the real writer when output is going out live (streaming
+// translation or native verbatim); in buffered mode there is nothing to flush
+// until Finalize.
 func (a *anthropicResponseWriter) Flush() {
-	if a.streaming {
+	if a.streaming || a.verbatim {
 		if f, ok := a.w.(http.Flusher); ok {
 			f.Flush()
 		}
 	}
 }
 
-// commit decides streaming vs buffered from the Content-Type the pipeline set,
-// runs once. In streaming mode it forwards the status/headers and starts a
-// translator; in buffered mode it withholds output until Finalize.
+// commit decides the output mode once, from the native flag + Content-Type the
+// pipeline set:
+//   - native 200  -> verbatim: forward the already-Anthropic upstream bytes
+//   - event-stream 200 -> streaming translation
+//   - anything else (incl. all errors) -> buffered translation until Finalize
+//
+// Native errors deliberately fall through to buffered translation so the client
+// always gets a well-formed Anthropic error envelope.
 func (a *anthropicResponseWriter) commit() {
 	if a.committed {
 		return
 	}
 	a.committed = true
+	if a.nativeFlag != nil && *a.nativeFlag && a.status == http.StatusOK {
+		a.verbatim = true
+		a.w.WriteHeader(a.status)
+		return
+	}
 	ct := a.w.Header().Get("Content-Type")
 	if a.status == http.StatusOK && strings.Contains(ct, "text/event-stream") {
 		a.streaming = true
@@ -175,6 +202,10 @@ func (a *anthropicResponseWriter) Finalize() {
 	if !a.committed {
 		// Pipeline wrote nothing (e.g. it returned before any response). Nothing
 		// to translate; leave the connection as-is.
+		return
+	}
+	if a.verbatim {
+		// Native passthrough already forwarded the upstream bytes as-is.
 		return
 	}
 	if a.streaming {

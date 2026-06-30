@@ -52,6 +52,12 @@ func (h *Handler) Messages(w http.ResponseWriter, r *http.Request) {
 		aw.Finalize()
 		return
 	}
+	// Mark this as Anthropic-in and stash the original body so an Anthropic-family
+	// candidate can be served the native /v1/messages passthrough; bind the
+	// writer to the per-attempt native flag so it forwards verbatim when so.
+	st.anthropicIn = true
+	st.anthropicRawBody = rawBody
+	aw.bindNativeFlag(&st.anthropicNativeAttempt)
 	candidates, ok := h.resolveCandidates(aw, r, st)
 	if !ok {
 		aw.Finalize()

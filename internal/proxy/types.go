@@ -143,6 +143,18 @@ type requestState struct {
 	makeUpstreamBody func(resolvedModelID string) (body []byte, contentType string, err error)
 	longRunning      bool
 
+	// Native Anthropic /v1/messages passthrough (zero values = translated path).
+	// anthropicIn marks a request that arrived on /v1/messages (so an
+	// Anthropic-family candidate is forwarded its original Messages body
+	// natively instead of the OpenAI translation). anthropicRawBody is that
+	// original body. anthropicNativeAttempt is set per failover attempt by
+	// buildCandidateRequest: true when the current candidate is being served the
+	// native path, read by the response dispatch and the response writer so they
+	// forward Anthropic bytes verbatim instead of translating.
+	anthropicIn            bool
+	anthropicRawBody       []byte
+	anthropicNativeAttempt bool
+
 	// Populated by resolveCandidates (phase B).
 	timings    resolveTimings
 	cacheHits  resolveCacheHits
@@ -213,6 +225,10 @@ type streamOptions struct {
 	vkHash           string
 	attempt          int
 	cancelOrigin     string
+	// rawPassthrough forwards each data chunk verbatim instead of parsing it as
+	// an OpenAI chunk and applying the transforms. Set for the native Anthropic
+	// /v1/messages passthrough path, whose stream is already Anthropic-shaped.
+	rawPassthrough bool
 }
 
 // ChatCompletionRequest is the request body for /v1/chat/completions.
