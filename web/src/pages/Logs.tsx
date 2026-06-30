@@ -334,12 +334,15 @@ function RequestLogs() {
 	const displayEntries = logsData?.entries ?? [];
 	const displayTotal = logsData?.total ?? 0;
 	const logsTotalPages = Math.ceil(displayTotal / pageSize);
+	// Clamp before wheel paging so a prev-nudge always snaps back into range if
+	// the page count shrank mid-session (matches AppLogs).
+	const logsSafePage = Math.min(page, Math.max(1, logsTotalPages));
 	const wheelPagingRef = useWheelPaging<HTMLDivElement>({
 		enabled: viewMode === "paginate" && logsTotalPages > 1,
-		canPrev: page > 1,
-		canNext: page < logsTotalPages,
-		onPrev: () => setPage(page - 1),
-		onNext: () => setPage(page + 1),
+		canPrev: logsSafePage > 1,
+		canNext: logsSafePage < logsTotalPages,
+		onPrev: () => setPage(logsSafePage - 1),
+		onNext: () => setPage(logsSafePage + 1),
 	});
 
 	// A request stuck in pending/streaming longer than the configured timeout
