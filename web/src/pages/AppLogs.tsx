@@ -30,6 +30,7 @@ import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useWheelPaging } from "../hooks/useWheelPaging";
 import { encodeCursor } from "../utils/format";
 import {
 	formatTimestamp,
@@ -231,6 +232,13 @@ export function AppLogs() {
 
 	const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 	const safePage = Math.min(page, totalPages);
+	const wheelPagingRef = useWheelPaging<HTMLDivElement>({
+		enabled: viewMode === "paginate" && totalPages > 1,
+		canPrev: safePage > 1,
+		canNext: safePage < totalPages,
+		onPrev: () => setPage(safePage - 1),
+		onNext: () => setPage(safePage + 1),
+	});
 
 	return (
 		<>
@@ -389,7 +397,7 @@ export function AppLogs() {
 				)}
 
 				{viewMode === "paginate" && (!isLoading || historyData) && (
-					<div className="ui-card overflow-x-auto">
+					<div ref={wheelPagingRef} className="ui-card overflow-x-auto">
 						<table className="w-full table-fixed ui-table">
 							<colgroup>
 								<col className="w-44" />

@@ -19,6 +19,7 @@ import { PageHeader } from "../../components/PageHeader";
 import { useToast } from "../../context/ToastContext";
 import { useManaged } from "../../hooks/useManaged";
 import { useReadOnly } from "../../hooks/useReadOnly";
+import { useWheelPaging } from "../../hooks/useWheelPaging";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
 import { CreateKeyModal } from "./CreateKeyModal";
 import { KeyDetailModal } from "./KeyDetailModal";
@@ -111,6 +112,13 @@ export function VirtualKeys() {
 		(currentPage - 1) * pageSize,
 		currentPage * pageSize,
 	);
+	const wheelPagingRef = useWheelPaging<HTMLDivElement>({
+		enabled: totalPages > 1,
+		canPrev: currentPage > 1,
+		canNext: currentPage < totalPages,
+		onPrev: () => setCurrentPage(currentPage - 1),
+		onNext: () => setCurrentPage(currentPage + 1),
+	});
 
 	if (isLoading) {
 		return <LoadingSpinner />;
@@ -168,7 +176,7 @@ export function VirtualKeys() {
 			)}
 
 			{sortedKeys.length > 0 ? (
-				<div className="ui-card overflow-hidden">
+				<div ref={wheelPagingRef} className="ui-card overflow-hidden">
 					<table className="w-full table-fixed ui-table">
 						<colgroup>
 							<col className="w-[20%]" />

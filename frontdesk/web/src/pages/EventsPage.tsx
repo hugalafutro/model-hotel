@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { FdEvent } from "../api/types";
 import { useMembers } from "../hooks/useMembers";
+import { useWheelPaging } from "../hooks/useWheelPaging";
 import { formatAbsolute } from "../utils/time";
 
 const PAGE_SIZE = 25;
@@ -121,6 +122,13 @@ export function EventsPage() {
 	const from = total === 0 ? 0 : page * PAGE_SIZE + 1;
 	const to = Math.min(total, (page + 1) * PAGE_SIZE);
 	const hasFilters = memberId || type || severity || range !== "all";
+	const wheelPagingRef = useWheelPaging<HTMLDivElement>({
+		enabled: total > PAGE_SIZE,
+		canPrev: page > 0,
+		canNext: to < total,
+		onPrev: () => setPage(Math.max(0, page - 1)),
+		onNext: () => setPage(page + 1),
+	});
 
 	return (
 		<div className="fd-stack">
@@ -195,7 +203,7 @@ export function EventsPage() {
 				</div>
 			</div>
 
-			<div className="ui-card">
+			<div ref={wheelPagingRef} className="ui-card">
 				{loading ? (
 					<div className="fd-empty">{t("common.loading")}</div>
 				) : error ? (
