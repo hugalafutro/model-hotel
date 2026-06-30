@@ -53,6 +53,22 @@ func ParseBearerToken(r *http.Request) (string, bool) {
 	return token, true
 }
 
+// ParseProxyKey extracts the virtual key from a proxy request, accepting either
+// carrier the gateway's two wire formats use: OpenAI clients send
+// `Authorization: Bearer <key>`, Anthropic-SDK clients send `x-api-key: <key>`.
+// Bearer is preferred when both are present. A virtual key is a virtual key
+// regardless of which header carried it, so accepting both router-wide does not
+// change behavior on the OpenAI routes.
+func ParseProxyKey(r *http.Request) (string, bool) {
+	if token, ok := ParseBearerToken(r); ok {
+		return token, true
+	}
+	if key := r.Header.Get("x-api-key"); key != "" {
+		return key, true
+	}
+	return "", false
+}
+
 // ParseUUIDParam extracts and parses a UUID from a chi URL parameter.
 // Returns the parsed UUID or an error.
 func ParseUUIDParam(r *http.Request, key string) (uuid.UUID, error) {

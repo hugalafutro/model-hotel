@@ -28,6 +28,45 @@ func TestParseBearerToken_Valid(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// ParseProxyKey (Bearer or x-api-key)
+// ---------------------------------------------------------------------------
+
+func TestParseProxyKey_Bearer(t *testing.T) {
+	r := httptest.NewRequest("POST", "/v1/messages", http.NoBody)
+	r.Header.Set("Authorization", "Bearer vk-123")
+	token, ok := ParseProxyKey(r)
+	if !ok || token != "vk-123" {
+		t.Fatalf("ParseProxyKey Bearer = %q, %v; want vk-123, true", token, ok)
+	}
+}
+
+func TestParseProxyKey_XAPIKey(t *testing.T) {
+	r := httptest.NewRequest("POST", "/v1/messages", http.NoBody)
+	r.Header.Set("x-api-key", "vk-anthropic")
+	token, ok := ParseProxyKey(r)
+	if !ok || token != "vk-anthropic" {
+		t.Fatalf("ParseProxyKey x-api-key = %q, %v; want vk-anthropic, true", token, ok)
+	}
+}
+
+func TestParseProxyKey_BearerPreferredOverXAPIKey(t *testing.T) {
+	r := httptest.NewRequest("POST", "/v1/messages", http.NoBody)
+	r.Header.Set("Authorization", "Bearer vk-bearer")
+	r.Header.Set("x-api-key", "vk-xapi")
+	token, ok := ParseProxyKey(r)
+	if !ok || token != "vk-bearer" {
+		t.Fatalf("ParseProxyKey both = %q, %v; want vk-bearer (Bearer wins), true", token, ok)
+	}
+}
+
+func TestParseProxyKey_Missing(t *testing.T) {
+	r := httptest.NewRequest("POST", "/v1/messages", http.NoBody)
+	if token, ok := ParseProxyKey(r); ok {
+		t.Fatalf("ParseProxyKey with no auth = %q, true; want \"\", false", token)
+	}
+}
+
 func TestParseBearerToken_ValidWithSkPrefix(t *testing.T) {
 	r := httptest.NewRequest("GET", "/", http.NoBody)
 	r.Header.Set("Authorization", "Bearer sk-abc123def456")

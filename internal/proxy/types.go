@@ -65,6 +65,7 @@ const VirtualKeyHashKey = ctxkeys.VirtualKeyHashKey
 // request log row is tagged with the family it came through.
 const (
 	endpointTypeChat       = "chat"
+	endpointTypeMessages   = "messages"
 	endpointTypeEmbeddings = "embeddings"
 	endpointTypeImage      = "image"
 	endpointTypeTTS        = "tts"
@@ -240,11 +241,32 @@ type Choice struct {
 
 // Message represents a chat message with role and content.
 type Message struct {
-	Role             string            `json:"role"`
-	Content          interface{}       `json:"content"`
+	Role    string      `json:"role"`
+	Content interface{} `json:"content"`
+	// ToolCalls/ToolCallID must round-trip through the non-streaming decode +
+	// re-encode in handleNonStreamingResponse, or function calls are silently
+	// dropped (finish_reason:"tool_calls" with no tool_calls array) for every
+	// non-streaming client. omitempty keeps plain text responses unchanged.
+	ToolCalls        []ToolCall        `json:"tool_calls,omitempty"`
+	ToolCallID       string            `json:"tool_call_id,omitempty"`
 	ReasoningContent string            `json:"reasoning_content,omitempty"`
 	Reasoning        string            `json:"reasoning,omitempty"`         // Ollama, OpenRouter
 	ReasoningDetails []ReasoningDetail `json:"reasoning_details,omitempty"` // OpenRouter, MiniMax
+}
+
+// ToolCall is an OpenAI function tool call on an assistant message. Preserved
+// verbatim through the proxy so non-streaming clients receive the call.
+type ToolCall struct {
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
+	Index    *int         `json:"index,omitempty"`
+	Function ToolCallFunc `json:"function"`
+}
+
+// ToolCallFunc is the function name + raw JSON arguments of a tool call.
+type ToolCallFunc struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
 }
 
 // PromptTokensDetails breaks down prompt tokens into sub-categories.

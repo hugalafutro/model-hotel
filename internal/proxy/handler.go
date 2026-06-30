@@ -191,6 +191,7 @@ func (h *Handler) Register(r chi.Router) {
 
 	r.Get("/models", h.ListModels)
 	r.Post("/chat/completions", h.ChatCompletions)
+	r.Post("/messages", h.Messages) // native Anthropic Messages API surface
 	r.Post("/embeddings", h.Embeddings)
 	r.Post("/images/generations", h.ImageGenerations)
 	r.Post("/images/edits", h.ImageEdits)
@@ -226,12 +227,12 @@ func (h *Handler) RegisterAdminChat(r chi.Router) {
 // ProxyKeyMiddleware validates the virtual API key in the request header.
 func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, ok := util.ParseBearerToken(r)
+		token, ok := util.ParseProxyKey(r)
 		if !ok {
 			// Client error, not a server fault — Warn keeps the Error stream
 			// reserved for things the operator must act on.
 			debuglog.Warn("auth: missing authorization header", "remote_addr", r.RemoteAddr)
-			writeOpenAIError(w, "missing authorization header: expected \"Authorization: Bearer <virtual key>\"", http.StatusUnauthorized)
+			writeOpenAIError(w, "missing authorization header: expected \"Authorization: Bearer <virtual key>\" or \"x-api-key: <virtual key>\"", http.StatusUnauthorized)
 			return
 		}
 
