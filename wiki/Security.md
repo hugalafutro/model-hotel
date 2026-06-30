@@ -183,6 +183,43 @@ Admins can sign in through an external OpenID Connect provider (Authentik, Authe
 
 Because Model Hotel is self-hosted there is no turnkey "Google login": each operator registers their own OIDC app with the provider and points it at the redirect URI `<oidc_public_base_url>/api/auth/oidc/callback` (shown in Settings). OIDC SSO covers both the main admin dashboard and Front Desk: Front Desk reuses the same session seam and is configured independently from its own Settings page (its own issuer, client, allowlist, and public base URL, since it runs as a separate service on its own address), so the operator registers a redirect URI under Front Desk's own base URL. GitHub login is offered on the main dashboard only, by design.
 
+#### Registering the client (avoiding the two first-login pitfalls)
+
+When you register the app with your provider, two values must match what Model Hotel sends, or login fails before it starts:
+
+1. **Redirect URI**: exactly `<oidc_public_base_url>/api/auth/oidc/callback` (Front Desk uses its own base URL, e.g. `https://front-desk.example.com/api/auth/oidc/callback`). Any mismatch is rejected by the provider, not by Model Hotel.
+2. **Allowed scopes**: the client must permit all three of `openid`, `email`, and `profile`. The login request asks for all three; a client that allows fewer is refused with `error=invalid_scope` and the log line `oidc: idp returned error error=invalid_scope`. Only the verified email is actually consumed, but `profile` is still requested, so the client must allow it.
+
+Then, in Model Hotel's own Settings, the **allowlist** must contain the exact verified email of the account that will sign in (lowercased, comma-separated for several). A mismatch is the `oidc: login denied: email not allowlisted` log line. The placeholder you started with is not magic: put the real address the provider returns.
+
+Your provider's own login policy (how many factors it prompts for) is independent of Model Hotel. With Authelia, for example, `authorization_policy: one_factor` gives a one-click sign-in once you have an Authelia session, while `two_factor` makes Authelia prompt for its own second factor (passkey/TOTP) before returning. Neither changes Model Hotel's behaviour; pick the friction you want at the IdP.
+
+Authelia example client (`identity_providers.oidc.clients`):
+
+```yaml
+- client_id: model-hotel-frontdesk
+  client_name: Model Hotel Front Desk
+  client_secret: '$pbkdf2-sha512$...'   # the hashed digest from: authelia crypto hash generate pbkdf2 --variant sha512 --random
+  public: false
+  authorization_policy: one_factor       # or two_factor for an IdP-side second factor
+  redirect_uris:
+    - https://front-desk.example.com/api/auth/oidc/callback
+  scopes:
+    - openid
+    - email
+    - profile                            # required: omitting it causes invalid_scope
+  response_types:
+    - code
+  grant_types:
+    - authorization_code
+  token_endpoint_auth_method: client_secret_basic
+  pkce_challenge_method: S256
+```
+
+Paste the secret's plaintext (the "Random Password" the hash command prints, not the digest) into the client-secret field in Settings; the digest goes in the Authelia config. The issuer URL is the provider's bare origin (e.g. `https://auth.example.com`), not its `.well-known` path: discovery is appended automatically.
+
+The provider's token-signing key (Authelia's `identity_providers.oidc.jwks`, plus the `hmac_secret`) is a one-time, provider-wide bootstrap, not per-client: you generate it once when you first enable OIDC on the IdP, and every client after that (a second app, Front Desk, etc.) reuses it. So if you set up the main dashboard first, registering Front Desk needs only the client block above, no new key. Neither Model Hotel nor Front Desk ever holds that private key; they verify tokens with the IdP's published public key fetched via discovery.
+
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
 | `/api/auth/oidc/status` | GET | None (public) | Report whether SSO is enabled and the provider display name (login UI gating) |

@@ -48,8 +48,17 @@ function Shell() {
 	const [authed, setAuthed] = useState(
 		() => consumeOidcToken() || !!getAuthToken(),
 	);
-	const [ssoError] = useState(() => consumeOidcError());
+	// The SSO error is a one-shot boot signal: it must clear once we leave the
+	// failed-login screen, or it sticks in Shell state and re-seeds Login's banner
+	// on every later logout (Shell never unmounts), showing a stale failure long
+	// after an unrelated successful login.
+	const [ssoError, setSsoError] = useState(() => consumeOidcError());
 	const [tab, setTab] = useState<Tab>("members");
+
+	const authenticate = useCallback(() => {
+		setSsoError(null);
+		setAuthed(true);
+	}, []);
 
 	// Any authenticated request that 401s drops us back to login.
 	useEffect(() => onUnauthorized(() => setAuthed(false)), []);
@@ -59,6 +68,7 @@ function Shell() {
 		// everywhere, not just this tab; failure is non-fatal (we clear locally).
 		void api.logout().catch(() => {});
 		clearAuthToken();
+		setSsoError(null);
 		setAuthed(false);
 	}, []);
 
@@ -67,9 +77,7 @@ function Shell() {
 	useIdleLogout(authed, logout);
 
 	if (!authed)
-		return (
-			<Login onAuthenticated={() => setAuthed(true)} initialError={ssoError} />
-		);
+		return <Login onAuthenticated={authenticate} initialError={ssoError} />;
 
 	const tabs: { id: Tab; label: string }[] = [
 		{ id: "members", label: t("tabs.members") },
