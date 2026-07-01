@@ -29,6 +29,18 @@ export function isHaSource(source: string | undefined): boolean {
 	return source !== undefined && HA_SOURCES.has(source);
 }
 
+/** The HTTP access logger stamps every request line with source "access" and
+ * carries the target path as a `path=/...` field in the message. A 5xx on a
+ * `/api/fleet/*` control-plane endpoint (e.g. the Front Desk announce
+ * heartbeat) is therefore an HA-plane failure that the source alone can't
+ * distinguish from any other request error — this recovers it from the path. */
+export function isHaAccessLog(
+	source: string | undefined,
+	message: string,
+): boolean {
+	return source === "access" && message.includes("path=/api/fleet/");
+}
+
 /** App-log sources emitted by the OIDC single-sign-on admin-login flow. An app
  * error from one of these is surfaced as a distinct "SSO" category (an admin
  * login failing against the identity provider) rather than a generic internal

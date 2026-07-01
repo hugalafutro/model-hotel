@@ -140,6 +140,17 @@ func (m *mockSettingsStore) Set(ctx context.Context, key, value string) error {
 	}
 	return errors.New("mock: Set not implemented")
 }
+func (m *mockSettingsStore) SetMany(ctx context.Context, kvs [][2]string) error {
+	if m.setFn != nil {
+		for _, kv := range kvs {
+			if err := m.setFn(ctx, kv[0], kv[1]); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return errors.New("mock: SetMany not implemented")
+}
 func (m *mockSettingsStore) GetAll(ctx context.Context) (map[string]string, error) {
 	if m.getAllFn != nil {
 		return m.getAllFn(ctx)

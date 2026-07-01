@@ -80,6 +80,11 @@ func TestApplyHealthTransitions(t *testing.T) {
 		}
 	}
 
+	thr := p.healthFailThreshold(ctx)
+	if thr < 2 {
+		t.Fatalf("test assumes a grace window; threshold = %d", thr)
+	}
+
 	// First observation healthy: silent in the event log, but still nudges the UI
 	// so a freshly added healthy member populates without a manual reload.
 	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true})
@@ -91,14 +96,29 @@ func TestApplyHealthTransitions(t *testing.T) {
 		t.Errorf("first healthy should emit a member.status nudge, got %+v", nudge)
 	}
 
-	// healthy -> down: emits health.down (preceded by a member.status nudge).
+	// Below-threshold failures are tolerated: no event, no nudge, and the badge
+	// stays healthy (a rebuild blip must not flip the dashboard red).
+	for i := 1; i < thr; i++ {
+		p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "boom"})
+		select {
+		case ev := <-ch:
+			t.Errorf("failure %d below threshold should be silent, got %+v", i, ev)
+		default:
+		}
+	}
+	if snap := p.Snapshot(); !snap[m.ID].Health.Healthy {
+		t.Errorf("badge should stay healthy during the grace window: %+v", snap[m.ID])
+	}
+
+	// The threshold-th consecutive failure confirms down: one health.down
+	// (preceded by a member.status nudge).
 	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "boom"})
 	ev := nextTransition()
 	if ev.Type != "health.down" || ev.Severity != "error" {
 		t.Errorf("down event: %+v", ev)
 	}
 
-	// down -> up: emits health.up (preceded by a member.status nudge).
+	// Recovery is immediate: the first healthy poll emits health.up.
 	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true, LatencyMs: 12})
 	ev = nextTransition()
 	if ev.Type != "health.up" || ev.Severity != "success" {
@@ -126,15 +146,79 @@ func TestApplyHealthTransitions(t *testing.T) {
 	}
 }
 
-func TestApplyHealthFirstObservationDownEmits(t *testing.T) {
-	p, store, _ := newTestPoller(t, "")
+func TestApplyHealthFirstObservationDownDebounced(t *testing.T) {
+	p, store, bus := newTestPoller(t, "")
 	ctx := context.Background()
 	m, _ := store.CreateMember(ctx, "h", "http://h:8081", "")
+	thr := p.healthFailThreshold(ctx)
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	// A member down from its very first observation is not reported until it has
+	// missed `thr` polls in a row (a rebuild started while Front Desk was down).
+	// The grace-window polls emit no event (the first observation nudges the
+	// badge to "unknown"; below-threshold failures are otherwise silent).
+	for i := 1; i < thr; i++ {
+		p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "down at start"})
+		if _, total, _ := store.ListEvents(ctx, EventFilter{}); total != 0 {
+			t.Fatalf("down before threshold (poll %d) should be silent, got %d events", i, total)
+		}
+	}
+	// Drain the baseline "unknown" nudge from the first observation so the check
+	// below sees only what the confirming poll emits.
+	sawMemberStatus(ch)
 
 	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "down at start"})
 	evs, total, _ := store.ListEvents(ctx, EventFilter{})
 	if total != 1 || evs[0].Type != "health.down" {
-		t.Errorf("first-observation-down should emit health.down, got %d events", total)
+		t.Errorf("threshold-th down should emit health.down, got %d events", total)
+	}
+	// The badge crosses unknown -> down (Known flips, Healthy does not), so the
+	// confirming poll must still nudge connected UIs to refetch.
+	if !sawMemberStatus(ch) {
+		t.Error("confirmed-down should nudge the badge even from an unknown start")
+	}
+}
+
+func TestApplyHealthBlipBelowThresholdIsSilent(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+	m, _ := store.CreateMember(ctx, "h", "http://h:8081", "")
+	thr := p.healthFailThreshold(ctx)
+	if thr < 2 {
+		t.Skip("no grace window at this threshold")
+	}
+
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true})
+	for i := 1; i < thr; i++ { // a rebuild blip, one poll short of the threshold
+		p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "rebuild"})
+	}
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true}) // back before it counts
+
+	if _, total, _ := store.ListEvents(ctx, EventFilter{}); total != 0 {
+		t.Errorf("a sub-threshold blip should persist no events, got %d", total)
+	}
+}
+
+func TestApplyHealthThresholdConfigurable(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+	m, _ := store.CreateMember(ctx, "h", "http://h:8081", "")
+
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("get settings: %v", err)
+	}
+	set.HealthFailThreshold = 1
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatalf("update settings: %v", err)
+	}
+
+	// Threshold 1 restores immediate reporting: the first down emits.
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "boom"})
+	if _, total, _ := store.ListEvents(ctx, EventFilter{}); total != 1 {
+		t.Errorf("threshold=1 should emit on first down, got %d events", total)
 	}
 }
 
@@ -176,6 +260,14 @@ func TestPollTraefikOnceMapsByURL(t *testing.T) {
 	ctx := context.Background()
 	a, _ := store.CreateMember(ctx, "a", "http://a:8081", "")
 	b, _ := store.CreateMember(ctx, "b", "http://b:8081", "")
+
+	// Threshold 1 so a single poll commits DOWN; this test covers URL mapping,
+	// not the down-flip damping (which TestPollTraefikOnceDampsDownFlip covers).
+	set, _ := store.GetSettings(ctx)
+	set.HealthFailThreshold = 1
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
+	}
 
 	p.PollTraefikOnce(ctx)
 	snap := p.Snapshot()

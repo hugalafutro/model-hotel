@@ -63,6 +63,7 @@ type SettingsStore interface {
 	GetDuration(ctx context.Context, key string, defaultValue time.Duration) time.Duration
 	GetInt(ctx context.Context, key string, defaultValue int) int
 	Set(ctx context.Context, key string, value string) error
+	SetMany(ctx context.Context, kvs [][2]string) error
 	SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error
 	DeleteKeysTx(ctx context.Context, tx pgx.Tx, keys []string) error
 	InvalidateCache(key string)

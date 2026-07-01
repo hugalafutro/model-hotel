@@ -14,6 +14,7 @@ import { formatRelativeTime, formatTimestamp } from "../../utils/format";
 import { truncateWithEllipsis } from "../../utils/truncate";
 import { LogDetailModal } from "../LogDetailModal";
 import {
+	isHaAccessLog,
 	isHaSource,
 	isSsoSource,
 	type ShelfError,
@@ -183,12 +184,16 @@ export function ErrorShelf() {
 								// HA membership failures and SSO/OIDC login failures are app
 								// errors whose source identifies the subsystem; each gets its
 								// own chip + accent while still opening as an "app" log in the
-								// detail modal.
-								const category = isHaSource(err.source)
-									? "ha"
-									: isSsoSource(err.source)
-										? "sso"
-										: err.kind;
+								// detail modal. A 5xx access-log line on a /api/fleet/* path is
+								// an HA-plane failure too (e.g. a Front Desk announce the member
+								// couldn't record), so it also takes the HA chip.
+								const category =
+									isHaSource(err.source) ||
+									isHaAccessLog(err.source, err.message)
+										? "ha"
+										: isSsoSource(err.source)
+											? "sso"
+											: err.kind;
 								const chipLabel =
 									category === "ha"
 										? t("layout.errorShelf.haKind")

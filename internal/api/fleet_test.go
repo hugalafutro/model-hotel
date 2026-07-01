@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,9 +16,10 @@ import (
 // fakeFleetSettings is an in-memory fleetSettings for tests: a plain map with a
 // recorded write order so assertions can check exactly what Announce persisted.
 type fakeFleetSettings struct {
-	values  map[string]string
-	setErr  error
-	written []string // keys in the order Set was called
+	values   map[string]string
+	setErr   error
+	written  []string // keys in the order they were persisted
+	setCalls int      // number of SetMany calls
 }
 
 func newFakeFleetSettings() *fakeFleetSettings {
@@ -37,6 +39,20 @@ func (f *fakeFleetSettings) Set(_ context.Context, key, value string) error {
 	}
 	f.values[key] = value
 	f.written = append(f.written, key)
+	return nil
+}
+
+// setCalls counts SetMany invocations so a test can assert the announce writes
+// land in a single round-trip rather than one per key.
+func (f *fakeFleetSettings) SetMany(_ context.Context, kvs [][2]string) error {
+	f.setCalls++
+	if f.setErr != nil {
+		return f.setErr // all-or-nothing, like the real multi-row upsert
+	}
+	for _, kv := range kvs {
+		f.values[kv[0]] = kv[1]
+		f.written = append(f.written, kv[0])
+	}
 	return nil
 }
 
@@ -64,6 +80,33 @@ func TestFleetAnnounce_PersistsContact(t *testing.T) {
 	seen := fs.values[keyFleetManagedSeenAt]
 	if _, err := time.Parse(time.RFC3339, seen); err != nil {
 		t.Errorf("%s = %q, not RFC3339: %v", keyFleetManagedSeenAt, seen, err)
+	}
+	// All four keys must persist in one round-trip so a slow database can't
+	// blow Front Desk's announce timeout partway through.
+	if fs.setCalls != 1 {
+		t.Errorf("SetMany called %d times, want 1 (batched write)", fs.setCalls)
+	}
+	if len(fs.written) != 4 {
+		t.Errorf("persisted %d keys, want 4: %v", len(fs.written), fs.written)
+	}
+}
+
+func TestFleetAnnounce_WriteFailureIs500(t *testing.T) {
+	fs := newFakeFleetSettings()
+	fs.setErr = errors.New("db unavailable")
+	h := NewFleetHandler(fs)
+
+	req := httptest.NewRequest(http.MethodPost, "/fleet/announce",
+		strings.NewReader(`{"is_primary":true}`))
+	rec := httptest.NewRecorder()
+	h.Announce(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
+	}
+	// The batch is all-or-nothing: a failed write leaves nothing persisted.
+	if len(fs.written) != 0 {
+		t.Errorf("persisted %v on failed write; want none", fs.written)
 	}
 }
 

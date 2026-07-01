@@ -75,6 +75,7 @@ const (
 type fleetSettings interface {
 	GetWithDefault(ctx context.Context, key, defaultValue string) string
 	Set(ctx context.Context, key, value string) error
+	SetMany(ctx context.Context, kvs [][2]string) error
 }
 
 // FleetStatus is the member's own view of its fleet membership, surfaced on the
@@ -170,17 +171,19 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	now := time.Now().UTC().Format(time.RFC3339)
+	// One multi-row upsert, not four sequential writes: Front Desk's announce
+	// client gives up after a few seconds, and four round-trips against a
+	// briefly-slow database (e.g. during a simultaneous fleet rebuild) can blow
+	// that budget and surface as a spurious 500 on the member.
 	writes := [][2]string{
 		{keyFleetManagedSeenAt, now},
 		{keyFleetIsPrimary, boolStr(req.IsPrimary)},
 		{keyFleetPrimaryName, req.PrimaryName},
 		{keyFleetFrontdeskID, req.FrontdeskID},
 	}
-	for _, kv := range writes {
-		if err := h.settings.Set(ctx, kv[0], kv[1]); err != nil {
-			respondError(w, "failed to record fleet announce", err, http.StatusInternalServerError)
-			return
-		}
+	if err := h.settings.SetMany(ctx, writes); err != nil {
+		respondError(w, "failed to record fleet announce", err, http.StatusInternalServerError)
+		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -95,6 +95,69 @@ func TestGetWithDefault(t *testing.T) {
 	}
 }
 
+func TestSetMany(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	// Seed one key so the batch exercises both INSERT and ON CONFLICT UPDATE.
+	if err := r.Set(ctx, "k1", "old"); err != nil {
+		t.Fatalf("seed Set failed: %v", err)
+	}
+
+	if err := r.SetMany(ctx, [][2]string{
+		{"k1", "new"},
+		{"k2", "two"},
+		{"k3", "three"},
+	}); err != nil {
+		t.Fatalf("SetMany failed: %v", err)
+	}
+
+	// Read straight from the DB (cache was evicted) to confirm every row landed.
+	want := map[string]string{"k1": "new", "k2": "two", "k3": "three"}
+	for k, v := range want {
+		var got string
+		if err := testPool.QueryRow(ctx,
+			"SELECT value FROM settings WHERE key = $1", k).Scan(&got); err != nil {
+			t.Fatalf("read %s: %v", k, err)
+		}
+		if got != v {
+			t.Errorf("%s = %q, want %q", k, got, v)
+		}
+	}
+
+	// Empty input is a no-op, not an error or a malformed statement.
+	if err := r.SetMany(ctx, nil); err != nil {
+		t.Errorf("SetMany(nil) = %v, want nil", err)
+	}
+}
+
+func TestSetManyNotifiesSubscribers(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	sub := r.Subscribe()
+	defer sub.Unsubscribe()
+
+	if err := r.SetMany(ctx, [][2]string{{"a", "1"}, {"b", "2"}}); err != nil {
+		t.Fatalf("SetMany failed: %v", err)
+	}
+
+	got := map[string]string{}
+	for range 2 {
+		select {
+		case c := <-sub.Events():
+			got[c.Key] = c.Value
+		case <-time.After(time.Second):
+			t.Fatalf("timeout waiting for change events, got %v", got)
+		}
+	}
+	if got["a"] != "1" || got["b"] != "2" {
+		t.Errorf("change events = %v, want a=1 b=2", got)
+	}
+}
+
 func TestSubscribe(t *testing.T) {
 	r := NewRepository(testPool)
 	ctx := context.Background()
