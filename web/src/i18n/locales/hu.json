@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "A szakasz alapértelmezett beállításaira állítása",
 			"resetAllDone": "Minden beállítás visszaáll az alapértelmezett értékre",
 			"resetFailed": "A beállítások visszaállítása nem sikerült: {{message}}",
-			"resetToDefault": "Visszaállítás alapértelmezettre"
+			"resetToDefault": "Visszaállítás alapértelmezettre",
+			"clearSecretConfirmTitle": "Törli az ügyfél titkos kulcsát?",
+			"clearSecretConfirmMessage": "Ez eltávolítja a mentett ügyfél-titkot. Újra be kell illesztenie, mielőtt az SSO-bejelentkezés működne."
 		},
 		"colorPicker": {
 			"title": "Válassz egy színt",

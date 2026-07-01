@@ -164,48 +164,17 @@ func TestDiscoverOpenRouter(t *testing.T) {
 }
 
 func TestDiscoverOpenRouter_Unauthorized(t *testing.T) {
-	// Create test server that returns unauthorized
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-	}))
-	defer server.Close()
-
-	service := &DiscoveryService{
-		httpClient: server.Client(),
-	}
-
-	provider := &Provider{
-		ID:      uuid.New(),
-		BaseURL: server.URL,
-	}
-
-	_, err := service.discoverOpenRouter(context.Background(), provider, "wrong-api-key")
-	if err == nil {
-		t.Error("Expected error for unauthorized request, got nil")
-	}
+	assertDiscoverHTTPError(t, "unauthorized request", errorStatusHandler(http.StatusUnauthorized),
+		func(svc *DiscoveryService, p *Provider) ([]*model.Model, error) {
+			return svc.discoverOpenRouter(context.Background(), p, "wrong-api-key")
+		})
 }
 
 func TestDiscoverOpenRouter_InvalidResponse(t *testing.T) {
-	// Create test server with invalid JSON response
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("{ invalid json "))
-	}))
-	defer server.Close()
-
-	service := &DiscoveryService{
-		httpClient: server.Client(),
-	}
-
-	provider := &Provider{
-		ID:      uuid.New(),
-		BaseURL: server.URL,
-	}
-
-	_, err := service.discoverOpenRouter(context.Background(), provider, "test-api-key")
-	if err == nil {
-		t.Error("Expected error for invalid JSON, got nil")
-	}
+	assertDiscoverHTTPError(t, "invalid JSON", invalidJSONHandler(),
+		func(svc *DiscoveryService, p *Provider) ([]*model.Model, error) {
+			return svc.discoverOpenRouter(context.Background(), p, "test-api-key")
+		})
 }
 
 func TestDiscoverOpenRouter_SkipsAliasPrefix(t *testing.T) {

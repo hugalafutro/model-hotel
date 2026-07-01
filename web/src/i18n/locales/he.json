@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "החזרת הסעיף להגדרות ברירת המחדל",
 			"resetAllDone": "כל ההגדרות הוחזרו להגדרות ברירת המחדל",
 			"resetFailed": "לא הצליח לאפס את ההגדרות: {{message}}",
-			"resetToDefault": "אפס לברירת המחדל"
+			"resetToDefault": "אפס לברירת המחדל",
+			"clearSecretConfirmTitle": "לנקות את סוד הלקוח?",
+			"clearSecretConfirmMessage": "פעולה זו מסירה את סוד הלקוח השמור. יהיה עליך להדביק אותו שוב כדי שכניסת SSO תפעל."
 		},
 		"colorPicker": {
 			"title": "בחר צבע",

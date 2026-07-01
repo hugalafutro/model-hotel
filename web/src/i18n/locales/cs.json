@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Obnovit sekci do výchozího nastavení",
 			"resetAllDone": "Všechna nastavení byla obnovena do výchozího nastavení",
 			"resetFailed": "Obnovení nastavení selhalo: {{message}}",
-			"resetToDefault": "Obnovit výchozí"
+			"resetToDefault": "Obnovit výchozí",
+			"clearSecretConfirmTitle": "Vymazat tajný klíč klienta?",
+			"clearSecretConfirmMessage": "Tím se odebere uložený tajný klíč klienta. Než bude přihlášení přes SSO fungovat, budete jej muset znovu vložit."
 		},
 		"colorPicker": {
 			"title": "Vyberte barvu",

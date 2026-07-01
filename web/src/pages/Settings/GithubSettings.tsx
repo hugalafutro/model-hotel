@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Eye, EyeOff, RefreshCw } from "@/lib/icons";
+import { RefreshCw } from "@/lib/icons";
 import { api } from "../../api/client";
 import { CopyablePill } from "../../components/CopyablePill";
 import { ResetButton } from "../../components/ResetButton";
+import { SecretField } from "../../components/SecretField";
 import { Toggle } from "../../components/Toggle";
 import { useSettingsMutations } from "./useSettingsMutations";
 
@@ -37,10 +38,6 @@ export function GithubPanel() {
 	const [baseUrlDraft, setBaseUrlDraft] = useState<string | null>(null);
 	const [emailsDraft, setEmailsDraft] = useState<string | null>(null);
 	const [secretDraft, setSecretDraft] = useState("");
-	// Reveal toggle for the secret field: the value is entered once and never
-	// shown back (it is masked on read), so an operator pasting a secret has no
-	// other way to confirm exactly what they pasted - e.g. a stray trailing space.
-	const [showSecret, setShowSecret] = useState(false);
 
 	const commit = (key: string, draft: string | null, current: string) => {
 		if (draft !== null && draft !== current) {
@@ -176,52 +173,26 @@ export function GithubPanel() {
 						>
 							{t("settings.github.clientSecret")}
 						</label>
-						<div className="flex items-center gap-2">
-							<input
-								id="github-client-secret"
-								type={showSecret ? "text" : "password"}
-								value={secretDraft}
-								placeholder={
-									secretConfigured
-										? t("settings.github.secretConfigured")
-										: t("settings.github.secretPlaceholder")
-								}
-								spellCheck={false}
-								autoComplete="off"
-								onChange={(e) => setSecretDraft(e.target.value)}
-								onBlur={commitSecret}
-								onKeyDown={(e) => {
-									if (e.key === "Enter") e.currentTarget.blur();
-								}}
-								className="ui-input text-sm w-full font-mono"
-								data-testid="github-client-secret-input"
-							/>
-							<button
-								type="button"
-								className="ui-icon-btn p-1.5"
-								// preventDefault keeps focus in the input: without it the
-								// click blurs the field, firing commitSecret (which saves and
-								// clears the draft) before the reveal can be seen.
-								onMouseDown={(e) => e.preventDefault()}
-								onClick={() => setShowSecret((v) => !v)}
-								aria-label={t("settings.github.toggleSecret")}
-								aria-pressed={showSecret}
-								title={t("settings.github.toggleSecret")}
-								data-testid="github-client-secret-reveal"
-							>
-								{showSecret ? <EyeOff size={16} /> : <Eye size={16} />}
-							</button>
-							{secretConfigured && (
-								<button
-									type="button"
-									className="ui-link-accent text-xs whitespace-nowrap"
-									onClick={clearSecret}
-									data-testid="github-client-secret-clear"
-								>
-									{t("settings.github.clear")}
-								</button>
+						<SecretField
+							id="github-client-secret"
+							testId="github-client-secret"
+							value={secretDraft}
+							configured={secretConfigured}
+							placeholder={
+								secretConfigured
+									? t("settings.github.secretConfigured")
+									: t("settings.github.secretPlaceholder")
+							}
+							onChange={setSecretDraft}
+							onCommit={commitSecret}
+							onClear={clearSecret}
+							toggleLabel={t("settings.github.toggleSecret")}
+							clearLabel={t("settings.github.clear")}
+							clearConfirmTitle={t("settings.common.clearSecretConfirmTitle")}
+							clearConfirmMessage={t(
+								"settings.common.clearSecretConfirmMessage",
 							)}
-						</div>
+						/>
 					</div>
 
 					{/* Public base URL */}

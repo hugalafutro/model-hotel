@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Đặt lại phần này về cài đặt mặc định",
 			"resetAllDone": "Tất cả cài đặt đã được khôi phục về mặc định",
 			"resetFailed": "Không thể khôi phục cài đặt: {{message}}",
-			"resetToDefault": "Đặt lại về mặc định"
+			"resetToDefault": "Đặt lại về mặc định",
+			"clearSecretConfirmTitle": "Xóa client secret?",
+			"clearSecretConfirmMessage": "Thao tác này sẽ xóa client secret đã lưu. Bạn sẽ phải dán lại trước khi đăng nhập SSO hoạt động."
 		},
 		"colorPicker": {
 			"title": "Chọn màu",

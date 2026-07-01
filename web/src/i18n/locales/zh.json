@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "部分重置为默认值",
 			"resetAllDone": "所有设置重置为默认值",
 			"resetFailed": "重置设置失败： {{message}}",
-			"resetToDefault": "重置为默认值"
+			"resetToDefault": "重置为默认值",
+			"clearSecretConfirmTitle": "清除客户端密钥？",
+			"clearSecretConfirmMessage": "这将移除已保存的客户端密钥。需要重新粘贴后，SSO 登录才能正常工作。"
 		},
 		"colorPicker": {
 			"title": "选择颜色",

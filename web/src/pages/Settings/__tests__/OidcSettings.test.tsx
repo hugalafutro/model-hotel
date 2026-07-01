@@ -137,8 +137,9 @@ describe("OidcPanel", () => {
 			"oidc_client_secret",
 			"new-secret",
 		);
-		// ...and the clear button commits an empty string.
+		// ...and clearing (after confirming) commits an empty string.
 		await user.click(screen.getByTestId("oidc-client-secret-clear"));
+		await user.click(screen.getByTestId("oidc-client-secret-confirm"));
 		await waitFor(() =>
 			expect(puts.some((p) => p.oidc_client_secret === "")).toBe(true),
 		);

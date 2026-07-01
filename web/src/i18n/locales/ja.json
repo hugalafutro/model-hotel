@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "セクションが既定にリセットされました",
 			"resetAllDone": "すべての設定が既定にリセットされました",
 			"resetFailed": "設定のリセットに失敗しました: {{message}}",
-			"resetToDefault": "デフォルトに戻す"
+			"resetToDefault": "デフォルトに戻す",
+			"clearSecretConfirmTitle": "クライアントシークレットを消去しますか？",
+			"clearSecretConfirmMessage": "保存されたクライアントシークレットが削除されます。SSO ログインを使うには、もう一度貼り付ける必要があります。"
 		},
 		"colorPicker": {
 			"title": "色を選択",

@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Seção redefinida para os padrões",
 			"resetAllDone": "Todas as configurações redefinidas para os padrões",
 			"resetFailed": "Falha ao redefinir as configurações: {{message}}",
-			"resetToDefault": "Repor predefinição"
+			"resetToDefault": "Repor predefinição",
+			"clearSecretConfirmTitle": "Limpar o segredo do cliente?",
+			"clearSecretConfirmMessage": "Isto remove o segredo do cliente guardado. Terá de o colar novamente antes de o início de sessão SSO funcionar."
 		},
 		"colorPicker": {
 			"title": "Escolha uma cor",

@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Sectie herstellen naar standaardwaarden",
 			"resetAllDone": "Alle instellingen herstellen naar standaardwaarden",
 			"resetFailed": "Instellingen resetten mislukt: {{message}}",
-			"resetToDefault": "Standaardwaarde herstellen"
+			"resetToDefault": "Standaardwaarde herstellen",
+			"clearSecretConfirmTitle": "Clientgeheim wissen?",
+			"clearSecretConfirmMessage": "Hiermee wordt het opgeslagen clientgeheim verwijderd. U moet het opnieuw plakken voordat SSO-aanmelding werkt."
 		},
 		"colorPicker": {
 			"title": "Kies een kleur",

@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Afdeling is na verstekinstellings teruggestel",
 			"resetAllDone": "Alle instellings word na verstekwaarde teruggesit.",
 			"resetFailed": "Het misluk om instellings terug te stel: {{message}}",
-			"resetToDefault": "Stel terug na verstek"
+			"resetToDefault": "Stel terug na verstek",
+			"clearSecretConfirmTitle": "Kliëntgeheim uitvee?",
+			"clearSecretConfirmMessage": "Dit verwyder die gestoorde kliëntgeheim. Jy sal dit weer moet plak voordat SSO-aanmelding werk."
 		},
 		"colorPicker": {
 			"title": "Kies 'n kleur",

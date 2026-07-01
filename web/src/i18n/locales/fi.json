@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Osion nollaus oletuksiksi",
 			"resetAllDone": "Kaikki asetukset nollattu oletuksiin",
 			"resetFailed": "Asetusten nollaaminen epäonnistui: {{message}}",
-			"resetToDefault": "Palauta oletusarvoon"
+			"resetToDefault": "Palauta oletusarvoon",
+			"clearSecretConfirmTitle": "Tyhjennetäänkö asiakassalaisuus?",
+			"clearSecretConfirmMessage": "Tämä poistaa tallennetun asiakassalaisuuden. Sinun on liitettävä se uudelleen, ennen kuin SSO-kirjautuminen toimii."
 		},
 		"colorPicker": {
 			"title": "Valitse väri",

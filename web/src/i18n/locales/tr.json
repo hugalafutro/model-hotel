@@ -1784,7 +1784,9 @@
 			"resetSectionDone": "Bölüm varsayılan ayarlara sıfırlandı",
 			"resetAllDone": "Tüm ayarlar varsayılan değerlere sıfırlandı",
 			"resetFailed": "Ayarlar sıfırlanamadı: {{message}}",
-			"resetToDefault": "Varsayılana sıfırla"
+			"resetToDefault": "Varsayılana sıfırla",
+			"clearSecretConfirmTitle": "İstemci sırrı temizlensin mi?",
+			"clearSecretConfirmMessage": "Bu, kayıtlı istemci sırrını kaldırır. SSO oturum açma çalışmadan önce onu yeniden yapıştırmanız gerekir."
 		},
 		"colorPicker": {
 			"title": "Bir renk seçin",
