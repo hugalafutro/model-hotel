@@ -73,6 +73,7 @@ type Poller struct {
 	staleNotified    bool
 	versionFailures  map[string]int // consecutive version-fetch failures, keyed by member ID
 	healthFailures   map[string]int // consecutive failed health polls, keyed by member ID
+	traefikNonUp     map[string]int // consecutive non-UP Traefik observations, keyed by member ID
 }
 
 // NewPoller builds a Poller. traefikAPI is the base URL of the Traefik API
@@ -91,6 +92,7 @@ func NewPoller(store *Store, bus *events.Bus, traefikAPI string) *Poller {
 		statuses:        make(map[string]MemberStatus),
 		versionFailures: make(map[string]int),
 		healthFailures:  make(map[string]int),
+		traefikNonUp:    make(map[string]int),
 	}
 }
 
@@ -357,11 +359,25 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	if err != nil {
 		return
 	}
+	// Damp the UP->non-UP flip with the same consecutive-miss threshold as health:
+	// Traefik briefly stops listing a member (or marks it DOWN) during a rebuild,
+	// and committing that immediately flaps the badge. "UP" is applied at once
+	// (recovery); a non-UP status is held back until it has been observed
+	// `threshold` polls in a row.
+	threshold := p.healthFailThreshold(ctx)
 	p.mu.Lock()
 	var changed []string
 	for _, m := range members {
 		cur := p.statuses[m.ID]
 		next := statusByURL[m.URL] // "" when Traefik does not list it
+		if next == "UP" {
+			delete(p.traefikNonUp, m.ID)
+		} else {
+			p.traefikNonUp[m.ID]++
+			if p.traefikNonUp[m.ID] < threshold {
+				continue // tolerate a rebuild blink; keep the last reported status
+			}
+		}
 		if cur.TraefikStatus != next {
 			cur.TraefikStatus = next
 			p.statuses[m.ID] = cur

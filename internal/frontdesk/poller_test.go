@@ -247,6 +247,14 @@ func TestPollTraefikOnceMapsByURL(t *testing.T) {
 	a, _ := store.CreateMember(ctx, "a", "http://a:8081", "")
 	b, _ := store.CreateMember(ctx, "b", "http://b:8081", "")
 
+	// Threshold 1 so a single poll commits DOWN; this test covers URL mapping,
+	// not the down-flip damping (which TestPollTraefikOnceDampsDownFlip covers).
+	set, _ := store.GetSettings(ctx)
+	set.HealthFailThreshold = 1
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
+	}
+
 	p.PollTraefikOnce(ctx)
 	snap := p.Snapshot()
 	if snap[a.ID].TraefikStatus != "UP" {

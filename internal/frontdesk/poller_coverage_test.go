@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/events"
@@ -100,5 +101,66 @@ func TestPollTraefikOnceUpdatesStatus(t *testing.T) {
 	p.PollTraefikOnce(ctx)
 	if sawMemberStatus(ch) {
 		t.Error("unchanged Traefik status should not emit a nudge")
+	}
+}
+
+// TestPollTraefikOnceDampsDownFlip covers the rebuild-tolerance path: a member
+// briefly marked DOWN (or unlisted) must not flip the badge until the non-UP
+// status has been seen `health_fail_threshold` polls in a row; recovery to UP
+// is immediate.
+func TestPollTraefikOnceDampsDownFlip(t *testing.T) {
+	ctx := context.Background()
+	store := newTestStore(t)
+	m, err := store.CreateMember(ctx, "m1", "http://m1:8081", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	var status atomic.Value // current serverStatus string, "" = unlisted
+	status.Store("UP")
+	traefik := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != traefikServicesAPI {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		s, _ := status.Load().(string)
+		if s == "" {
+			_, _ = w.Write([]byte(`[]`)) // Traefik no longer lists the member
+			return
+		}
+		_, _ = w.Write([]byte(`[{"name":"hotel@http","serverStatus":{"` + m.URL + `":"` + s + `"}}]`))
+	}))
+	defer traefik.Close()
+
+	p := NewPoller(store, events.NewBus(), traefik.URL)
+	thr := p.healthFailThreshold(ctx)
+	if thr < 2 {
+		t.Skip("no grace window at this threshold")
+	}
+
+	p.PollTraefikOnce(ctx)
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+		t.Fatalf("baseline traefik status = %q, want UP", got)
+	}
+
+	// Below threshold the DOWN status is held back: the badge stays UP.
+	status.Store("DOWN")
+	for i := 1; i < thr; i++ {
+		p.PollTraefikOnce(ctx)
+		if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+			t.Errorf("poll %d: badge should stay UP during grace, got %q", i, got)
+		}
+	}
+	// The threshold-th consecutive non-UP observation commits the flip.
+	p.PollTraefikOnce(ctx)
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "DOWN" {
+		t.Errorf("threshold-th DOWN should commit, got %q", got)
+	}
+
+	// Recovery is immediate.
+	status.Store("UP")
+	p.PollTraefikOnce(ctx)
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+		t.Errorf("recovery to UP should be immediate, got %q", got)
 	}
 }
