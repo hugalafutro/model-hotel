@@ -284,6 +284,48 @@ func (r *Repository) Set(ctx context.Context, key, value string) error {
 	return nil
 }
 
+// SetMany upserts several settings in a single multi-row statement and
+// invalidates their cache entries. It exists so callers that must persist a
+// small fixed group of keys (e.g. the member-side fleet heartbeat) pay one DB
+// round-trip instead of one per key, which keeps them comfortably inside a
+// caller's request timeout even when the database is briefly slow (a
+// simultaneous multi-container restart, say). Semantics otherwise match Set:
+// no allowlist gate, cache evicted before the write, subscribers notified
+// after it commits. An empty slice is a no-op.
+func (r *Repository) SetMany(ctx context.Context, kvs [][2]string) error {
+	if len(kvs) == 0 {
+		return nil
+	}
+
+	// Evict before the write, exactly as Set does, so a read racing the write
+	// falls through to the DB rather than serving a stale cached value.
+	r.mu.Lock()
+	for _, kv := range kvs {
+		delete(r.cache, kv[0])
+	}
+	r.mu.Unlock()
+
+	var sb strings.Builder
+	sb.WriteString("INSERT INTO settings (key, value, updated_at) VALUES ")
+	args := make([]any, 0, len(kvs)*2)
+	for i, kv := range kvs {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		fmt.Fprintf(&sb, "($%d, $%d, now())", i*2+1, i*2+2)
+		args = append(args, kv[0], kv[1])
+	}
+	sb.WriteString(" ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()")
+
+	if _, err := r.pool.Exec(ctx, sb.String(), args...); err != nil {
+		return err
+	}
+	for _, kv := range kvs {
+		r.notifyChange(kv[0], kv[1])
+	}
+	return nil
+}
+
 // SetTx updates a setting within an existing transaction.
 func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key, value string) error {
 	if !AllowedSettings[key] {
