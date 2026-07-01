@@ -4,7 +4,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { ErrorShelf } from "../ErrorShelf";
-import { isHaSource, isSsoSource } from "../useErrorShelf";
+import { isHaAccessLog, isHaSource, isSsoSource } from "../useErrorShelf";
+
+describe("isHaAccessLog", () => {
+	it("flags access-log 5xx lines on a /api/fleet/* path", () => {
+		expect(
+			isHaAccessLog(
+				"access",
+				"request method=POST host=mh1 path=/api/fleet/announce status=500",
+			),
+		).toBe(true);
+	});
+
+	it("rejects non-fleet paths and non-access sources", () => {
+		expect(
+			isHaAccessLog("access", "request path=/api/providers status=500"),
+		).toBe(false);
+		expect(
+			isHaAccessLog("proxy", "request path=/api/fleet/announce status=500"),
+		).toBe(false);
+		expect(isHaAccessLog(undefined, "path=/api/fleet/announce")).toBe(false);
+	});
+});
 
 describe("isHaSource", () => {
 	it("flags the fleet config-sync sources", () => {
@@ -160,6 +181,25 @@ describe("ErrorShelf", () => {
 		expect(within(rows[0]).getByTestId("error-shelf-chip-ha")).toBeTruthy();
 		expect(within(rows[0]).queryByTestId("error-shelf-chip-app")).toBeNull();
 		expect(within(rows[0]).getByText("apply import failed")).toBeTruthy();
+	});
+
+	it("tags fleet-path access-log errors with the HA chip", async () => {
+		// The access logger stamps source "access" for every request; the fleet
+		// control-plane path in the message is what makes this an HA failure.
+		seedAppError(
+			"request method=POST host=mh1 path=/api/fleet/announce status=500",
+			"2024-02-01T09:00:00Z",
+			"access",
+		);
+		renderWithProviders(<ErrorShelf />);
+
+		await screen.findByTestId("error-shelf-count");
+		await expand();
+
+		const rows = await screen.findAllByTestId("error-shelf-row");
+		expect(rows).toHaveLength(1);
+		expect(within(rows[0]).getByTestId("error-shelf-chip-ha")).toBeTruthy();
+		expect(within(rows[0]).queryByTestId("error-shelf-chip-app")).toBeNull();
 	});
 
 	it("tags OIDC login app errors with the SSO chip", async () => {
