@@ -17,6 +17,7 @@ function makeSettings(over: Partial<Settings> = {}): Settings {
 		traefik_stale_secs: 30,
 		event_retention_days: 90,
 		retry_attempts: 2,
+		health_fail_threshold: 3,
 		session_idle_timeout_minutes: 60,
 		alert_enabled: false,
 		alert_apprise_api_url: "",

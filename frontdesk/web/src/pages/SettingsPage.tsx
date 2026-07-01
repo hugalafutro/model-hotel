@@ -116,6 +116,7 @@ export function SettingsPage() {
 				traefik_stale_secs: settings.traefik_stale_secs,
 				event_retention_days: settings.event_retention_days,
 				retry_attempts: settings.retry_attempts,
+				health_fail_threshold: settings.health_fail_threshold,
 				session_idle_timeout_minutes: settings.session_idle_timeout_minutes,
 			});
 			toast(t("settings.saved"), "success");
@@ -201,6 +202,16 @@ export function SettingsPage() {
 							value={settings.retry_attempts}
 							min={0}
 							onChange={(n) => patch({ retry_attempts: n })}
+						/>
+					</div>
+					<div style={{ flex: "1 1 200px" }}>
+						<NumberField
+							id="health-fail-threshold"
+							label={t("settings.healthFailThreshold")}
+							hint={t("settings.healthFailThresholdHint")}
+							value={settings.health_fail_threshold}
+							min={1}
+							onChange={(n) => patch({ health_fail_threshold: n })}
 						/>
 					</div>
 				</div>

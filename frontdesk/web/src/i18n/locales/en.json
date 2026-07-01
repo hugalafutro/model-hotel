@@ -183,6 +183,8 @@
 		"retention": "Event retention (days)",
 		"retryAttempts": "Retry attempts",
 		"retryHint": "Retries that failed before any response byte (safe to retry).",
+		"healthFailThreshold": "Health-fail threshold",
+		"healthFailThresholdHint": "Consecutive failed health checks before a member is reported down and alerted. Higher tolerates longer rebuilds without flapping. Recovery is immediate.",
 		"sessionTimeout": "Auto-logout after inactivity (minutes)",
 		"sessionTimeoutHint": "Sign out of Front Desk automatically after this many minutes with no activity. 0 keeps the session open.",
 		"configSyncConfirmTitle_one": "Replace config on {{count}} member?",

@@ -80,6 +80,13 @@ type Settings struct {
 	EventRetentionDays int `json:"event_retention_days"`
 	RetryAttempts      int `json:"retry_attempts"`
 
+	// HealthFailThreshold is the number of consecutive failed health polls a
+	// member must accrue before Front Desk reports it down (an error event plus,
+	// by default, an Apprise alert). It damps the reachability flap of a routine
+	// container rebuild; recovery is immediate. The same threshold governs the
+	// Traefik UP->DOWN badge flip. Bounded to at least 1.
+	HealthFailThreshold int `json:"health_fail_threshold"`
+
 	// Admin-UI inactivity auto-logout window in minutes; 0 disables it. Consumed
 	// by the frontend (useIdleLogout); the server only stores and bounds it.
 	SessionIdleTimeoutMinutes int `json:"session_idle_timeout_minutes"`
@@ -414,12 +421,12 @@ func (s *Store) GetSettings(ctx context.Context) (Settings, error) {
 	)
 	err := s.db.QueryRowContext(ctx,
 		`SELECT health_poll_secs, traefik_poll_secs, traefik_stale_secs, event_retention_days, retry_attempts,
-		        session_idle_timeout_minutes,
+		        health_fail_threshold, session_idle_timeout_minutes,
 		        alert_enabled, alert_apprise_api_url, alert_apprise_targets, alert_events,
 		        oidc_enabled, oidc_issuer_url, oidc_client_id, oidc_client_secret, oidc_public_base_url, oidc_allowed_emails
 		 FROM settings WHERE id = 1`,
 	).Scan(&set.HealthPollSecs, &set.TraefikPollSecs, &set.TraefikStaleSecs, &set.EventRetentionDays, &set.RetryAttempts,
-		&set.SessionIdleTimeoutMinutes,
+		&set.HealthFailThreshold, &set.SessionIdleTimeoutMinutes,
 		&alertEnabled, &set.AlertAppriseAPIURL, &set.AlertAppriseTargets, &set.AlertEvents,
 		&oidcEnabled, &set.OidcIssuerURL, &set.OidcClientID, &set.OidcClientSecret, &set.OidcPublicBaseURL, &set.OidcAllowedEmails)
 	if err != nil {
@@ -441,6 +448,9 @@ func (s *Store) UpdateSettings(ctx context.Context, set Settings) error {
 	if set.RetryAttempts < 0 {
 		return fmt.Errorf("%w: retry attempts cannot be negative", ErrValidation)
 	}
+	if set.HealthFailThreshold < 1 {
+		return fmt.Errorf("%w: health fail threshold must be at least 1", ErrValidation)
+	}
 	if set.SessionIdleTimeoutMinutes < 0 || set.SessionIdleTimeoutMinutes > 240 {
 		return fmt.Errorf("%w: session idle timeout must be between 0 and 240 minutes", ErrValidation)
 	}
@@ -457,12 +467,12 @@ func (s *Store) UpdateSettings(ctx context.Context, set Settings) error {
 	// masked submission.
 	_, err := s.db.ExecContext(ctx,
 		`UPDATE settings SET health_poll_secs = ?, traefik_poll_secs = ?, traefik_stale_secs = ?,
-		 event_retention_days = ?, retry_attempts = ?, session_idle_timeout_minutes = ?,
+		 event_retention_days = ?, retry_attempts = ?, health_fail_threshold = ?, session_idle_timeout_minutes = ?,
 		 alert_enabled = ?, alert_apprise_api_url = ?, alert_apprise_targets = ?, alert_events = ?,
 		 oidc_enabled = ?, oidc_issuer_url = ?, oidc_client_id = ?, oidc_client_secret = ?,
 		 oidc_public_base_url = ?, oidc_allowed_emails = ? WHERE id = 1`,
 		set.HealthPollSecs, set.TraefikPollSecs, set.TraefikStaleSecs,
-		set.EventRetentionDays, set.RetryAttempts, set.SessionIdleTimeoutMinutes,
+		set.EventRetentionDays, set.RetryAttempts, set.HealthFailThreshold, set.SessionIdleTimeoutMinutes,
 		alertEnabled, set.AlertAppriseAPIURL, set.AlertAppriseTargets, set.AlertEvents,
 		oidcEnabled, set.OidcIssuerURL, set.OidcClientID, set.OidcClientSecret,
 		set.OidcPublicBaseURL, set.OidcAllowedEmails,

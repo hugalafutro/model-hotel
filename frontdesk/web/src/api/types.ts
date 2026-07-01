@@ -54,6 +54,10 @@ export interface Settings {
 	traefik_stale_secs: number;
 	event_retention_days: number;
 	retry_attempts: number;
+	// Consecutive failed health polls before a member is reported down (an error
+	// event plus, by default, an Apprise alert). Damps routine-rebuild flap; also
+	// governs the Traefik UP->DOWN badge flip. Minimum 1.
+	health_fail_threshold: number;
 	// Admin-UI inactivity auto-logout window in minutes; 0 disables it. Consumed
 	// by useIdleLogout to sign the operator out after inactivity.
 	session_idle_timeout_minutes: number;

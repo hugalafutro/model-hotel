@@ -72,6 +72,7 @@ type Poller struct {
 	lastConfigPollAt time.Time
 	staleNotified    bool
 	versionFailures  map[string]int // consecutive version-fetch failures, keyed by member ID
+	healthFailures   map[string]int // consecutive failed health polls, keyed by member ID
 }
 
 // NewPoller builds a Poller. traefikAPI is the base URL of the Traefik API
@@ -89,6 +90,7 @@ func NewPoller(store *Store, bus *events.Bus, traefikAPI string) *Poller {
 		now:             time.Now,
 		statuses:        make(map[string]MemberStatus),
 		versionFailures: make(map[string]int),
+		healthFailures:  make(map[string]int),
 	}
 }
 
@@ -152,9 +154,19 @@ func (p *Poller) settings(ctx context.Context) Settings {
 	set, err := p.store.GetSettings(ctx)
 	if err != nil {
 		debuglog.Warn("frontdesk: poller using default settings", "error", err)
-		return Settings{HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 30}
+		return Settings{HealthPollSecs: 5, TraefikPollSecs: 5, TraefikStaleSecs: 30, HealthFailThreshold: 3}
 	}
 	return set
+}
+
+// healthFailThreshold is the number of consecutive failed polls a member must
+// accrue before it is reported down. It also damps the Traefik UP->DOWN flip.
+// Defaults to 3 when unset or invalid so a bad/zero row never disables damping.
+func (p *Poller) healthFailThreshold(ctx context.Context) int {
+	if t := p.settings(ctx).HealthFailThreshold; t >= 1 {
+		return t
+	}
+	return 3
 }
 
 // PollHealthOnce probes every member's /health and records up/down transitions.
@@ -197,42 +209,67 @@ func (p *Poller) checkHealth(ctx context.Context, baseURL string) HealthStatus {
 	return hs
 }
 
-// applyHealth stores the new status and emits a transition event when the
-// up/down state changed. A first observation that is healthy is recorded
-// silently (baseline); a first observation that is down is reported.
+// applyHealth records a health probe and emits an up/down transition event,
+// debounced so a member must miss `health_fail_threshold` polls in a row before
+// it is reported down (an error event plus, by default, an Apprise alert). This
+// tolerates the brief unreachability of a routine container rebuild without
+// flapping. Recovery is immediate: the first healthy poll clears the count and,
+// if the member had been reported down, announces it back up.
+//
+// The reported badge follows the same rule as the version poller: during the
+// grace window (below threshold) the last known-good status is kept, so the
+// dashboard does not flicker red on every rebuild. A first observation that is
+// healthy is recorded silently (baseline).
 func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus) {
+	threshold := p.healthFailThreshold(ctx)
+
 	p.mu.Lock()
 	prev, had := p.statuses[m.ID]
 	cur := prev
-	cur.Health = hs
+	priorFails := p.healthFailures[m.ID]
+
+	var fails int
+	switch {
+	case hs.Healthy:
+		delete(p.healthFailures, m.ID)
+		cur.Health = hs
+	default:
+		p.healthFailures[m.ID]++
+		fails = p.healthFailures[m.ID]
+		// Only let a "down" reach the badge once it is confirmed; below the
+		// threshold keep the last known status (zero-value "unknown" for a
+		// never-seen member) so a rebuild blip does not render red.
+		if fails >= threshold {
+			cur.Health = hs
+		}
+	}
 	p.statuses[m.ID] = cur
 	p.mu.Unlock()
 
-	changed := !had || prev.Health.Healthy != hs.Healthy
-	if !changed {
-		return
-	}
-	// The rendered health badge changed (first observation, or an up/down flip),
-	// so nudge connected UIs to refetch even when we keep the event log silent.
-	// Without this a freshly added, healthy member shows no status until an
-	// unrelated event fires or the operator reloads the page.
-	p.publishMemberStatus(m.ID)
-
-	if !had && hs.Healthy {
-		return // silent baseline (no event-log entry; UI already nudged above)
+	badgeChanged := !had || prev.Health.Healthy != cur.Health.Healthy
+	if badgeChanged {
+		// Nudge connected UIs to refetch the changed badge. Without this a
+		// freshly added, healthy member shows no status until an unrelated event
+		// fires or the operator reloads.
+		p.publishMemberStatus(m.ID)
 	}
 
-	if hs.Healthy {
+	switch {
+	case hs.Healthy && priorFails >= threshold:
+		// Recovered from a state we had actually reported down.
 		p.recordEvent(ctx, Event{
 			Type: "health.up", Severity: "success", Source: "frontdesk-poller",
 			Message: fmt.Sprintf("%s is healthy", m.Name), MemberID: m.ID,
 			Metadata: map[string]any{"latency_ms": hs.LatencyMs},
 		})
-	} else {
+	case !hs.Healthy && fails == threshold:
+		// Crossed into confirmed-down: emit exactly once, not on every later poll.
+		debuglog.Warn("frontdesk: member health failing",
+			"member", m.Name, "consecutive_failures", fails, "error", hs.Error)
 		p.recordEvent(ctx, Event{
 			Type: "health.down", Severity: "error", Source: "frontdesk-poller",
-			Message: fmt.Sprintf("%s is unreachable", m.Name), MemberID: m.ID,
-			Metadata: map[string]any{"error": hs.Error},
+			Message: fmt.Sprintf("%s is unreachable after %d checks", m.Name, fails), MemberID: m.ID,
+			Metadata: map[string]any{"error": hs.Error, "consecutive_failures": fails},
 		})
 	}
 }

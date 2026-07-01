@@ -71,7 +71,8 @@ func TestPollerPollsHandleStoreErrors(t *testing.T) {
 }
 
 // TestPollHealthOnceReportsDown covers the per-member health loop and the
-// down-transition event path (a first observation that is down is reported).
+// down-transition event path. The threshold is set to 1 so a single poll
+// confirms down (the debounce itself is covered in poller_test.go).
 func TestPollHealthOnceReportsDown(t *testing.T) {
 	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -83,6 +84,15 @@ func TestPollHealthOnceReportsDown(t *testing.T) {
 	m, err := store.CreateMember(ctx, "m1", down.URL, "")
 	if err != nil {
 		t.Fatalf("CreateMember: %v", err)
+	}
+
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("GetSettings: %v", err)
+	}
+	set.HealthFailThreshold = 1
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
 	}
 
 	p.PollHealthOnce(ctx)
