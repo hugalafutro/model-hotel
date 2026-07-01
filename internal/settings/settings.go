@@ -320,6 +320,12 @@ func (r *Repository) SetMany(ctx context.Context, kvs [][2]string) error {
 	if _, err := r.pool.Exec(ctx, sb.String(), args...); err != nil {
 		return err
 	}
+	// The row write is atomic (one statement); the notifications are not. We fan
+	// out one change event per key after the commit succeeds, exactly as a loop
+	// of Set calls would, so a subscriber may observe the keys arrive one at a
+	// time. This is fine for the fleet-heartbeat keys, whose consumers read each
+	// independently; a caller needing an all-or-nothing notification should not
+	// use SetMany.
 	for _, kv := range kvs {
 		r.notifyChange(kv[0], kv[1])
 	}

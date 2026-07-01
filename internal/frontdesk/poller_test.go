@@ -147,23 +147,37 @@ func TestApplyHealthTransitions(t *testing.T) {
 }
 
 func TestApplyHealthFirstObservationDownDebounced(t *testing.T) {
-	p, store, _ := newTestPoller(t, "")
+	p, store, bus := newTestPoller(t, "")
 	ctx := context.Background()
 	m, _ := store.CreateMember(ctx, "h", "http://h:8081", "")
 	thr := p.healthFailThreshold(ctx)
 
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
 	// A member down from its very first observation is not reported until it has
 	// missed `thr` polls in a row (a rebuild started while Front Desk was down).
+	// The grace-window polls emit no event (the first observation nudges the
+	// badge to "unknown"; below-threshold failures are otherwise silent).
 	for i := 1; i < thr; i++ {
 		p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "down at start"})
 		if _, total, _ := store.ListEvents(ctx, EventFilter{}); total != 0 {
 			t.Fatalf("down before threshold (poll %d) should be silent, got %d events", i, total)
 		}
 	}
+	// Drain the baseline "unknown" nudge from the first observation so the check
+	// below sees only what the confirming poll emits.
+	sawMemberStatus(ch)
+
 	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "down at start"})
 	evs, total, _ := store.ListEvents(ctx, EventFilter{})
 	if total != 1 || evs[0].Type != "health.down" {
 		t.Errorf("threshold-th down should emit health.down, got %d events", total)
+	}
+	// The badge crosses unknown -> down (Known flips, Healthy does not), so the
+	// confirming poll must still nudge connected UIs to refetch.
+	if !sawMemberStatus(ch) {
+		t.Error("confirmed-down should nudge the badge even from an unknown start")
 	}
 }
 

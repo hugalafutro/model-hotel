@@ -248,7 +248,13 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus) {
 	p.statuses[m.ID] = cur
 	p.mu.Unlock()
 
-	badgeChanged := !had || prev.Health.Healthy != cur.Health.Healthy
+	// The rendered badge is a function of both Known and Healthy (unknown vs
+	// up vs down), so compare both: a never-seen member that crosses straight
+	// from "unknown" to confirmed-down flips Known without flipping Healthy, and
+	// would otherwise be nudged only by the health.down event, not the badge.
+	badgeChanged := !had ||
+		prev.Health.Healthy != cur.Health.Healthy ||
+		prev.Health.Known != cur.Health.Known
 	if badgeChanged {
 		// Nudge connected UIs to refetch the changed badge. Without this a
 		// freshly added, healthy member shows no status until an unrelated event
