@@ -71,4 +71,11 @@ func TestDeleteSessionsByUserID(t *testing.T) {
 	if n, err := repo.DeleteSessionsByUserID(ctx, []byte(handle)); err != nil || n != 0 {
 		t.Errorf("second delete: n=%d err=%v", n, err)
 	}
+
+	// A failing delete surfaces the error rather than reporting a phantom count.
+	cctx, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := repo.DeleteSessionsByUserID(cctx, []byte(handle)); err == nil {
+		t.Error("DeleteSessionsByUserID(cancelled) err = nil, want error")
+	}
 }

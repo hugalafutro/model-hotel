@@ -48,7 +48,7 @@ func (h *Handler) resolveIdentity(ctx context.Context, sessionUserID []byte) (*u
 		return nil, false
 	}
 	u, err := h.userRepo.Get(ctx, uid)
-	if err != nil || !u.Enabled {
+	if err != nil || u == nil || !u.Enabled {
 		return nil, false
 	}
 	return &user.Identity{

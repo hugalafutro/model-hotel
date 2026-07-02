@@ -2,6 +2,7 @@ package adminauth
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"strings"
 	"testing"
@@ -48,6 +49,31 @@ func TestResolveSSOUser(t *testing.T) {
 	_, disabledRes := boundUser("off@example.com", false)
 	if got := resolveSSOUser(context.Background(), disabledRes, "off@example.com"); got != nil {
 		t.Errorf("disabled user must not bind, got %v", got)
+	}
+}
+
+// errResolver returns a caller-chosen (user, error) pair so the lookup-failure
+// paths of resolveSSOUser can be exercised.
+type errResolver struct {
+	u   *user.User
+	err error
+}
+
+func (e *errResolver) GetByEmail(context.Context, string) (*user.User, error) {
+	return e.u, e.err
+}
+
+// A transient lookup error (e.g. a DB blip during the OIDC/GitHub callback)
+// must deny the login cleanly, never panic dereferencing a nil user.
+func TestResolveSSOUser_LookupErrorDenies(t *testing.T) {
+	res := &errResolver{err: errors.New("db unavailable")}
+	if got := resolveSSOUser(context.Background(), res, "worker@example.com"); got != nil {
+		t.Errorf("lookup error must yield nil, got %v", got)
+	}
+	// Defensive: a resolver that returns (nil, nil) must also be handled without
+	// a panic, regardless of the repository's not-found contract.
+	if got := resolveSSOUser(context.Background(), &errResolver{}, "worker@example.com"); got != nil {
+		t.Errorf("nil user with nil error must yield nil, got %v", got)
 	}
 }
 

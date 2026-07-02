@@ -23,9 +23,14 @@ type fakeUserStore struct {
 	touched    []uuid.UUID
 	hasEnabled bool
 	statusErr  error
+	getErr     error // GetByUsername returns this (non-nil) instead of a lookup
+	touchErr   error // TouchLastLogin returns this
 }
 
 func (s *fakeUserStore) GetByUsername(_ context.Context, username string) (*user.User, error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
 	if u, ok := s.byUsername[username]; ok {
 		return u, nil
 	}
@@ -34,7 +39,7 @@ func (s *fakeUserStore) GetByUsername(_ context.Context, username string) (*user
 
 func (s *fakeUserStore) TouchLastLogin(_ context.Context, id uuid.UUID) error {
 	s.touched = append(s.touched, id)
-	return nil
+	return s.touchErr
 }
 
 func (s *fakeUserStore) HasEnabled(_ context.Context) (bool, error) {
@@ -204,6 +209,50 @@ func TestUserLogin_PerUsernameThrottle(t *testing.T) {
 	// A different username from a fresh IP is unaffected by alice's lock.
 	if w := attempt("172.16.0.2:1234", `{"username":"nobody","password":"whatever1"}`); w.Code != http.StatusUnauthorized {
 		t.Errorf("other username caught by alice's throttle: %d", w.Code)
+	}
+}
+
+func TestUserLogin_LookupErrorIs500(t *testing.T) {
+	// A GetByUsername failure that is not "not found" is an infrastructure
+	// error, distinct from bad credentials: it must surface as 500, not 401.
+	store := &fakeUserStore{byUsername: map[string]*user.User{}, hasEnabled: true, getErr: errors.New("db down")}
+	sm := webauthn.NewSessionManager(newMemStore())
+	h := NewUserLoginHandler(store, sm, mockIPLimiter{})
+	r := chi.NewRouter()
+	h.Register(r)
+
+	w := doLogin(t, r, `{"username":"alice","password":"whatever1"}`)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("lookup error status = %d, want 500", w.Code)
+	}
+}
+
+func TestUserLogin_MalformedStoredHashDenies(t *testing.T) {
+	// A corrupt stored hash (DB tamper / foreign write) must deny the login as
+	// 401, never 500 or a panic, and never authenticate.
+	u := testUser(t, "alice", "correct-horse", true)
+	u.PasswordHash = "not-a-valid-argon2id-hash"
+	_, _, _, r := newLoginFixture(t, u)
+
+	w := doLogin(t, r, `{"username":"alice","password":"correct-horse"}`)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("malformed hash status = %d, want 401", w.Code)
+	}
+}
+
+func TestUserLogin_TouchLastLoginFailureStillSucceeds(t *testing.T) {
+	// Recording the last-login timestamp is best-effort: a failure there must
+	// not break an otherwise-valid login.
+	u := testUser(t, "alice", "correct-horse", true)
+	store := &fakeUserStore{byUsername: map[string]*user.User{"alice": u}, hasEnabled: true, touchErr: errors.New("write failed")}
+	sm := webauthn.NewSessionManager(newMemStore())
+	h := NewUserLoginHandler(store, sm, mockIPLimiter{})
+	r := chi.NewRouter()
+	h.Register(r)
+
+	w := doLogin(t, r, `{"username":"alice","password":"correct-horse"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 despite TouchLastLogin failure", w.Code)
 	}
 }
 

@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"log"
 	"os"
@@ -82,8 +83,12 @@ func TestVerifyPassword_MalformedHash(t *testing.T) {
 		"$argon2i$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA",  // wrong variant
 		"$argon2id$v=18$m=19456,t=2,p=1$c2FsdA$aGFzaA", // wrong version
 		"$argon2id$v=19$m=0,t=0,p=0$c2FsdA$aGFzaA",     // zero params
+		"$argon2id$v=19$notparams$c2FsdA$aGFzaA",       // unparsable param section
 		"$argon2id$v=19$m=19456,t=2,p=1$!!!$aGFzaA",    // bad salt b64
+		"$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$!!!",    // bad key b64
 		"$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$",       // empty key
+		"$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$" +
+			base64.RawStdEncoding.EncodeToString(make([]byte, 513)), // key over 512 bytes
 	} {
 		if _, err := VerifyPassword("x", bad); !errors.Is(err, ErrHashFormat) {
 			t.Errorf("VerifyPassword(%q) err = %v, want ErrHashFormat", bad, err)
@@ -299,5 +304,46 @@ func TestRepository_DuplicateUsername(t *testing.T) {
 	}
 	if _, err := repo.Create(context.Background(), name, "", nil, hash, RoleUser, nil); err == nil {
 		t.Error("duplicate username accepted")
+	}
+}
+
+// TestRepository_CancelledContext drives every repository method's query-error
+// branch by handing it an already-cancelled context, so a DB failure surfaces
+// as an error rather than a nil-deref or a silent success.
+func TestRepository_CancelledContext(t *testing.T) {
+	repo := NewRepository(testDB.Pool())
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	id := uuid.New()
+	if _, err := repo.List(ctx); err == nil {
+		t.Error("List(cancelled) err = nil, want error")
+	}
+	if _, err := repo.Get(ctx, id); err == nil {
+		t.Error("Get(cancelled) err = nil, want error")
+	}
+	if _, err := repo.GetByUsername(ctx, "x"); err == nil {
+		t.Error("GetByUsername(cancelled) err = nil, want error")
+	}
+	if _, err := repo.GetByEmail(ctx, "x@example.com"); err == nil {
+		t.Error("GetByEmail(cancelled) err = nil, want error")
+	}
+	if _, err := repo.Create(ctx, "x", "d", nil, "h", RoleUser, nil); err == nil {
+		t.Error("Create(cancelled) err = nil, want error")
+	}
+	if _, err := repo.Update(ctx, id, "x", "d", nil, RoleUser, nil, true); err == nil {
+		t.Error("Update(cancelled) err = nil, want error")
+	}
+	if err := repo.SetPassword(ctx, id, "h"); err == nil {
+		t.Error("SetPassword(cancelled) err = nil, want error")
+	}
+	if err := repo.Delete(ctx, id); err == nil {
+		t.Error("Delete(cancelled) err = nil, want error")
+	}
+	if err := repo.TouchLastLogin(ctx, id); err == nil {
+		t.Error("TouchLastLogin(cancelled) err = nil, want error")
+	}
+	if _, err := repo.HasEnabled(ctx); err == nil {
+		t.Error("HasEnabled(cancelled) err = nil, want error")
 	}
 }

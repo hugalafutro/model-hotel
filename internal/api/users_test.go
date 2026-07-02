@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -315,5 +317,164 @@ func TestResolveIdentity_UnknownHandleRejected(t *testing.T) {
 		if w := doJSON(t, r, http.MethodGet, "/auth/me", mintUserToken(t, sm, handle), ""); w.Code != http.StatusUnauthorized {
 			t.Errorf("handle %q: %d, want 401", handle, w.Code)
 		}
+	}
+
+	// A well-formed UUID handle whose users row does not exist (deleted account,
+	// or a token that outlived its user) must fail closed, not panic on the nil
+	// user returned by the lookup.
+	ghost := uuid.NewString()
+	if w := doJSON(t, r, http.MethodGet, "/auth/me", mintUserToken(t, sm, ghost), ""); w.Code != http.StatusUnauthorized {
+		t.Errorf("orphaned UUID handle: %d, want 401", w.Code)
+	}
+}
+
+// doJSONCtx is doJSON with a caller-supplied context, so a cancelled context can
+// drive the repository queries into failure and exercise the handlers' generic
+// 500 branches (the env admin token needs no DB, so auth still passes).
+func doJSONCtx(ctx context.Context, t *testing.T, r chi.Router, method, path, token, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	var req *http.Request
+	if body == "" {
+		req = httptest.NewRequestWithContext(ctx, method, path, http.NoBody)
+	} else {
+		req = httptest.NewRequestWithContext(ctx, method, path, bytes.NewReader([]byte(body)))
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
+}
+
+// TestUsersAPI_ErrorPaths walks the validation, malformed-input, not-found, and
+// conflict branches of every user handler so a broken request fails with the
+// right status instead of a 500 or a panic.
+func TestUsersAPI_ErrorPaths(t *testing.T) {
+	r, _, _ := setupUsersTest(t)
+	id := createUserViaAPI(t, r, "erin", "password123", "user", []string{"usage"})
+	other := createUserViaAPI(t, r, "erica", "password123", "user", nil)
+	ghost := uuid.NewString()
+
+	// validate() rejections not already covered by AdminCRUD.
+	badCreate := map[string]string{
+		"whitespace username": `{"username":"a b","password":"password123","role":"user","grants":[]}`,
+		"too-long username":   `{"username":"` + strings.Repeat("x", 65) + `","password":"password123","role":"user","grants":[]}`,
+		"too-long display":    `{"username":"z","display_name":"` + strings.Repeat("d", 129) + `","password":"password123","role":"user","grants":[]}`,
+	}
+	for name, body := range badCreate {
+		if w := doJSON(t, r, http.MethodPost, "/users", envAdminToken, body); w.Code != http.StatusBadRequest {
+			t.Errorf("create %s: %d, want 400", name, w.Code)
+		}
+	}
+
+	// Malformed JSON bodies -> 400 on every writing handler.
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodPost, "/users"},
+		{http.MethodPut, "/users/" + id},
+		{http.MethodPost, "/users/" + id + "/password"},
+	} {
+		if w := doJSON(t, r, tc.method, tc.path, envAdminToken, `{"username":`); w.Code != http.StatusBadRequest {
+			t.Errorf("%s %s malformed body: %d, want 400", tc.method, tc.path, w.Code)
+		}
+	}
+
+	// Non-UUID path param -> 400 before any DB work.
+	for _, tc := range []struct{ method, path, body string }{
+		{http.MethodPut, "/users/not-a-uuid", `{"username":"z","role":"user","grants":[],"enabled":true}`},
+		{http.MethodPost, "/users/not-a-uuid/password", `{"password":"password123"}`},
+		{http.MethodDelete, "/users/not-a-uuid", ""},
+	} {
+		if w := doJSON(t, r, tc.method, tc.path, envAdminToken, tc.body); w.Code != http.StatusBadRequest {
+			t.Errorf("%s %s bad uuid: %d, want 400", tc.method, tc.path, w.Code)
+		}
+	}
+
+	// Update validation error (bad role) -> 400.
+	if w := doJSON(t, r, http.MethodPut, "/users/"+id, envAdminToken,
+		`{"username":"erin","role":"root","grants":[],"enabled":true}`); w.Code != http.StatusBadRequest {
+		t.Errorf("update bad role: %d, want 400", w.Code)
+	}
+
+	// Update / SetPassword against a missing row -> 404.
+	if w := doJSON(t, r, http.MethodPut, "/users/"+ghost, envAdminToken,
+		`{"username":"nobody","role":"user","grants":[],"enabled":true}`); w.Code != http.StatusNotFound {
+		t.Errorf("update missing: %d, want 404", w.Code)
+	}
+	if w := doJSON(t, r, http.MethodPost, "/users/"+ghost+"/password", envAdminToken,
+		`{"password":"password123"}`); w.Code != http.StatusNotFound {
+		t.Errorf("setpassword missing: %d, want 404", w.Code)
+	}
+
+	// Rename erin onto erica's username -> unique violation 409.
+	if w := doJSON(t, r, http.MethodPut, "/users/"+id, envAdminToken,
+		`{"username":"erica","role":"user","grants":[],"enabled":true}`); w.Code != http.StatusConflict {
+		t.Errorf("update dup username: %d, want 409", w.Code)
+	}
+
+	// SetPassword below the minimum length -> 400.
+	if w := doJSON(t, r, http.MethodPost, "/users/"+id+"/password", envAdminToken,
+		`{"password":"short"}`); w.Code != http.StatusBadRequest {
+		t.Errorf("setpassword short: %d, want 400", w.Code)
+	}
+
+	// SetPassword happy path -> 200 (and revokes sessions).
+	if w := doJSON(t, r, http.MethodPost, "/users/"+other+"/password", envAdminToken,
+		`{"password":"brand-new-pass"}`); w.Code != http.StatusOK {
+		t.Errorf("setpassword ok: %d, want 200", w.Code)
+	}
+}
+
+// TestUsersAPI_RepositoryFailures drives each handler's generic 500 branch by
+// cancelling the request context so the underlying query fails.
+func TestUsersAPI_RepositoryFailures(t *testing.T) {
+	r, _, _ := setupUsersTest(t)
+	id := createUserViaAPI(t, r, "gina", "password123", "user", nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // every repo query below observes a cancelled context
+
+	cases := []struct{ name, method, path, body string }{
+		{"list", http.MethodGet, "/users", ""},
+		{"create", http.MethodPost, "/users", `{"username":"hank","password":"password123","role":"user","grants":[]}`},
+		{"update", http.MethodPut, "/users/" + id, `{"username":"gina","role":"user","grants":[],"enabled":true}`},
+		{"setpassword", http.MethodPost, "/users/" + id + "/password", `{"password":"password123"}`},
+		{"delete", http.MethodDelete, "/users/" + id, ""},
+	}
+	for _, tc := range cases {
+		if w := doJSONCtx(ctx, t, r, tc.method, tc.path, envAdminToken, tc.body); w.Code != http.StatusInternalServerError {
+			t.Errorf("%s with cancelled ctx: %d, want 500", tc.name, w.Code)
+		}
+	}
+}
+
+// TestRequireGrant_ExportedGuard exercises the exported RequireGrant wrapper
+// that main.go mounts on the admin-chat group: a caller with the grant passes,
+// one without is refused with 403.
+func TestRequireGrant_ExportedGuard(t *testing.T) {
+	h, apiRouter := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+	if _, err := pool.Exec(context.Background(), `TRUNCATE users, webauthn_sessions CASCADE`); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+	userRepo := user.NewRepository(pool)
+	webauthnRepo := webauthn.NewRepository(pool)
+	sm := webauthn.NewSessionManager(webauthnRepo)
+	h.SetWebAuthnSessionManager(sm)
+	h.SetUserAuth(userRepo, webauthnRepo)
+
+	chatID := createUserViaAPI(t, apiRouter, "cody", "password123", "user", []string{"chat"})
+	usageID := createUserViaAPI(t, apiRouter, "uma", "password123", "user", []string{"usage"})
+
+	gr := chi.NewRouter()
+	gr.Use(h.AuthMiddleware)
+	gr.Group(func(g chi.Router) {
+		g.Use(h.RequireGrant(user.GrantChat))
+		g.Get("/probe", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	})
+
+	if w := doJSON(t, gr, http.MethodGet, "/probe", mintUserToken(t, sm, chatID), ""); w.Code != http.StatusOK {
+		t.Errorf("chat-granted caller: %d, want 200", w.Code)
+	}
+	if w := doJSON(t, gr, http.MethodGet, "/probe", mintUserToken(t, sm, usageID), ""); w.Code != http.StatusForbidden {
+		t.Errorf("ungranted caller: %d, want 403", w.Code)
 	}
 }

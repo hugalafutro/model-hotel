@@ -42,7 +42,7 @@ func cleanConfigTables(t *testing.T) {
 	t.Helper()
 	ctx := context.Background()
 	_, err := apiTestDB.Pool().Exec(ctx,
-		`TRUNCATE request_logs, model_failover_groups, models, virtual_keys, providers, settings CASCADE`)
+		`TRUNCATE request_logs, model_failover_groups, models, virtual_keys, providers, settings, users CASCADE`)
 	if err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
@@ -146,6 +146,13 @@ func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 	if err := settingsRepo.Set(ctx, "hedging_enabled", "true"); err != nil {
 		t.Fatalf("seed setting: %v", err)
 	}
+	const syncedHash = "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHQ$c29tZWhhc2h2YWx1ZQ"
+	if _, err := apiTestDB.Pool().Exec(ctx, `
+		INSERT INTO users (username, display_name, email, password_hash, role, grants, enabled)
+		VALUES ('alice', 'Alice', 'alice@example.com', $1, 'user', $2, true)`,
+		syncedHash, []string{"usage", "logs"}); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
 
 	env := doExport(t, r)
 	if env.SchemaVersion != configSchemaVersion {
@@ -164,6 +171,10 @@ func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 	}
 	if env.Config.Settings["hedging_enabled"] != "true" {
 		t.Fatalf("settings = %+v", env.Config.Settings)
+	}
+	if len(env.Config.Users) != 1 || env.Config.Users[0].Username != "alice" ||
+		env.Config.Users[0].PasswordHash != syncedHash {
+		t.Fatalf("users not exported verbatim: %+v", env.Config.Users)
 	}
 
 	// Fresh replica: wipe and import. Provider UUIDs will be new, so the VK's
@@ -209,6 +220,28 @@ func TestConfigSync_ExportImportRoundTrip(t *testing.T) {
 
 	if got := settings.NewRepository(apiTestDB.Pool()).GetWithDefault(ctx, "hedging_enabled", "false"); got != "true" {
 		t.Fatalf("imported setting = %q", got)
+	}
+
+	// The user row was wiped by cleanConfigTables before import, so its presence
+	// now proves applyUsers recreated it: password hash verbatim, grants intact.
+	var (
+		gotHash, gotRole string
+		gotEmail         *string
+		gotGrants        []string
+	)
+	if err := apiTestDB.Pool().QueryRow(ctx,
+		`SELECT password_hash, role, email, grants FROM users WHERE username = 'alice'`).
+		Scan(&gotHash, &gotRole, &gotEmail, &gotGrants); err != nil {
+		t.Fatalf("imported user missing: %v", err)
+	}
+	if gotHash != syncedHash || gotRole != "user" || gotEmail == nil || *gotEmail != "alice@example.com" {
+		t.Fatalf("user not imported faithfully: hash=%q role=%q email=%v", gotHash, gotRole, gotEmail)
+	}
+	if len(gotGrants) != 2 {
+		t.Fatalf("imported grants = %v, want 2", gotGrants)
+	}
+	if !contains(resp.Diff.Users.Added, "alice") {
+		t.Fatalf("user diff missing alice in Added: %+v", resp.Diff.Users)
 	}
 }
 
@@ -513,6 +546,37 @@ func TestConfigSync_RefusesFailoverOnlyEnvelope(t *testing.T) {
 		`SELECT count(*) FROM providers WHERE id = $1`, provID).Scan(&providers)
 	if providers != 1 {
 		t.Fatalf("provider must survive a refused import, count = %d", providers)
+	}
+}
+
+// A users-only envelope (no providers, VKs, or settings) must be refused by the
+// same empty-config guard: users do not rescue an otherwise-empty envelope, so
+// the declarative provider/VK/settings deletes never run against empty lists and
+// the member's data plane survives. Guards against a fleet-wide wipe triggered
+// by a degenerate users-only push.
+func TestConfigSync_RefusesUsersOnlyEnvelope(t *testing.T) {
+	cleanConfigTables(t)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	env := ConfigEnvelope{SchemaVersion: configSchemaVersion}
+	env.Config.Users = []ExportUser{{
+		Username:     "alice",
+		PasswordHash: "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHQ$c29tZWhhc2g",
+		Role:         "user",
+		Grants:       []string{"usage"},
+		Enabled:      true,
+	}}
+	rec := doImport(t, r, env, "")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("users-only envelope status = %d, want 400", rec.Code)
+	}
+
+	var providers int
+	_ = apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT count(*) FROM providers WHERE id = $1`, provID).Scan(&providers)
+	if providers != 1 {
+		t.Fatalf("provider must survive a refused users-only import, count = %d", providers)
 	}
 }
 

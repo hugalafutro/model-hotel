@@ -23,7 +23,7 @@ func resolveSSOUser(ctx context.Context, users SSOUserResolver, email string) *u
 		return nil
 	}
 	u, err := users.GetByEmail(ctx, email)
-	if err != nil || !u.Enabled {
+	if err != nil || u == nil || !u.Enabled {
 		return nil
 	}
 	return u
