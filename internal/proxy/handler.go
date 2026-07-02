@@ -82,7 +82,7 @@ func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash strin
 	if err != nil {
 		return nil, err
 	}
-	return &VirtualKeyInfo{
+	info := &VirtualKeyInfo{
 		ID:               vk.ID.String(),
 		Name:             vk.Name,
 		KeyHash:          vk.KeyHash,
@@ -93,7 +93,17 @@ func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash strin
 		RateLimitTPM:     vk.RateLimitTPM,
 		AllowedProviders: vk.AllowedProviders,
 		StripReasoning:   vk.StripReasoning,
-	}, nil
+	}
+	if vk.Owner != nil && vk.OwnerUserID != nil {
+		info.Owner = &OwnerInfo{
+			ID:             vk.OwnerUserID.String(),
+			Enabled:        vk.Owner.Enabled,
+			RateLimitRPS:   vk.Owner.RateLimitRPS,
+			RateLimitBurst: vk.Owner.RateLimitBurst,
+			RateLimitTPM:   vk.Owner.RateLimitTPM,
+		}
+	}
+	return info, nil
 }
 
 func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKeyInfo, error) {
@@ -249,6 +259,15 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 			}
 			return
 		}
+		if vk.Owner != nil && !vk.Owner.Enabled {
+			// Owned keys inherit the account's enabled switch: disabling a
+			// user must cut their proxy traffic, not just their dashboard
+			// login. The key itself stays intact for when the account
+			// returns.
+			debuglog.Warn("auth: key owner disabled", "key", vk.Name, "remote_addr", r.RemoteAddr)
+			writeOpenAIError(w, "virtual key disabled: owner account is disabled", http.StatusUnauthorized)
+			return
+		}
 		debuglog.Info("auth: authenticated", "key", vk.Name)
 		ctx := context.WithValue(r.Context(), virtualKeyNameKey, vk.Name)
 		ctx = context.WithValue(ctx, virtualKeyIDKey, vk.ID)
@@ -258,6 +277,12 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitTPMKey, vk.RateLimitTPM)
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyAllowedProvidersKey, vk.AllowedProviders)
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyStripReasoningKey, vk.StripReasoning)
+		if vk.Owner != nil {
+			ctx = context.WithValue(ctx, ctxkeys.VirtualKeyOwnerIDKey, vk.Owner.ID)
+			ctx = context.WithValue(ctx, ctxkeys.UserRateLimitRPSKey, vk.Owner.RateLimitRPS)
+			ctx = context.WithValue(ctx, ctxkeys.UserRateLimitBurstKey, vk.Owner.RateLimitBurst)
+			ctx = context.WithValue(ctx, ctxkeys.UserRateLimitTPMKey, vk.Owner.RateLimitTPM)
+		}
 		debuglog.Debug("proxy: virtual key auth", "key", vk.Name, "strip_reasoning", vk.StripReasoning)
 		// Fire-and-forget touch with a timeout so the goroutine cannot
 		// outlive the server if the DB is slow.

@@ -37,10 +37,19 @@ const defaultTPM = 0
 // replicas behind a load balancer (effective limit is ~N× configured with N
 // replicas). This is the same limitation the RPS limiter has today.
 type TPMLimiter struct {
-	mu       sync.Mutex
-	buckets  map[string]*tpmEntry
+	mu      sync.Mutex
+	buckets map[string]*tpmEntry
+	// assoc maps a key hash to its owner's "user:<uuid>" bucket key so Debit
+	// (which only knows the key hash) can also debit the owner's aggregate
+	// bucket. Refreshed on every admission, evicted alongside idle buckets.
+	assoc    map[string]*assocEntry
 	settings SettingsReader
 	stopCh   chan struct{}
+}
+
+type assocEntry struct {
+	userKey  string
+	lastUsed time.Time
 }
 
 // tpmEntry is a per-key token-budget bucket. The rate.Limiter is configured as
@@ -57,6 +66,7 @@ type tpmEntry struct {
 func NewTPMLimiter(settings SettingsReader) *TPMLimiter {
 	l := &TPMLimiter{
 		buckets:  make(map[string]*tpmEntry),
+		assoc:    make(map[string]*assocEntry),
 		settings: settings,
 		stopCh:   make(chan struct{}),
 	}
@@ -96,6 +106,21 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				return
 			}
 
+			// User-level aggregate stage: all keys owned by one user share a
+			// "user:<uuid>" budget. The key-to-owner association is recorded
+			// (or cleared) on every admission so Debit, which only sees the
+			// key hash, can debit the owner's bucket too.
+			userKey, userTPM := userTPMFromCtx(r.Context())
+			l.setAssoc(keyHash, userKey)
+			if userKey != "" {
+				userEntry := l.getEntry(userKey, userTPM)
+				if userEntry.limiter.Tokens() < 1 {
+					w.Header().Set("Retry-After", strconv.Itoa(tpmRetryAfter(userEntry.limiter)))
+					util.WriteOpenAIError(w, "user token rate limit exceeded", http.StatusTooManyRequests)
+					return
+				}
+			}
+
 			tpm := l.effectiveTPM(r.Context())
 			if tpm <= 0 {
 				next.ServeHTTP(w, r)
@@ -132,8 +157,26 @@ func (l *TPMLimiter) Debit(keyHash string, tokens int) {
 	if tokens <= 0 {
 		return
 	}
+	l.debitBucket(keyHash, tokens)
+	// Also debit the owner's aggregate bucket when the key is associated with
+	// one (recorded at admission).
 	l.mu.Lock()
-	entry, ok := l.buckets[keyHash]
+	a, ok := l.assoc[keyHash]
+	if ok {
+		a.lastUsed = time.Now()
+	}
+	l.mu.Unlock()
+	if ok && a.userKey != "" {
+		l.debitBucket(a.userKey, tokens)
+	}
+}
+
+// debitBucket removes tokens from one bucket. No-op when the bucket does not
+// exist (no cap in effect, or evicted) — admission creates the bucket, so a
+// capped request always has one by completion. Safe for concurrent use.
+func (l *TPMLimiter) debitBucket(bucketKey string, tokens int) {
+	l.mu.Lock()
+	entry, ok := l.buckets[bucketKey]
 	if ok {
 		entry.lastUsed = time.Now()
 	}
@@ -161,6 +204,33 @@ func (l *TPMLimiter) Debit(keyHash string, tokens int) {
 		entry.limiter.ReserveN(now, n)
 		remaining -= n
 	}
+}
+
+// setAssoc records (or clears, when userKey is empty) the key-to-owner bucket
+// association consulted by Debit.
+func (l *TPMLimiter) setAssoc(keyHash, userKey string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if userKey == "" {
+		delete(l.assoc, keyHash)
+		return
+	}
+	l.assoc[keyHash] = &assocEntry{userKey: userKey, lastUsed: time.Now()}
+}
+
+// userTPMFromCtx resolves the owner's aggregate bucket key and TPM cap from
+// the request context. Returns "" when the key is unowned or the owner has no
+// TPM cap (there is no global fallback for user-level caps).
+func userTPMFromCtx(ctx context.Context) (string, int) {
+	uid, ok := ctx.Value(ctxkeys.VirtualKeyOwnerIDKey).(string)
+	if !ok || uid == "" {
+		return "", 0
+	}
+	tpm, ok := ctx.Value(ctxkeys.UserRateLimitTPMKey).(*int)
+	if !ok || tpm == nil || *tpm <= 0 {
+		return "", 0
+	}
+	return "user:" + uid, *tpm
 }
 
 // effectiveTPM resolves the per-minute cap for the current request: the per-key
@@ -236,6 +306,11 @@ func (l *TPMLimiter) cleanup() {
 	for key, entry := range l.buckets {
 		if entry.lastUsed.Before(cutoff) {
 			delete(l.buckets, key)
+		}
+	}
+	for key, a := range l.assoc {
+		if a.lastUsed.Before(cutoff) {
+			delete(l.assoc, key)
 		}
 	}
 }

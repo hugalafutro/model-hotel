@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -1261,5 +1262,103 @@ func TestKeyEntry_IdleEvictionLogsEnded(t *testing.T) {
 	}
 	if _, ok := lim.limiters["idlekey"]; ok {
 		t.Error("idle entry should have been evicted")
+	}
+}
+
+// ownedRPSReq builds a request carrying a virtual-key hash plus owner context
+// (uid + user RPS/burst caps), as ProxyKeyMiddleware would for an owned key.
+func ownedRPSReq(keyHash, uid string, userRPS float64, userBurst int) *http.Request {
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	ctx := context.WithValue(r.Context(), ctxkeys.VirtualKeyHashKey, keyHash)
+	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyOwnerIDKey, uid)
+	ctx = context.WithValue(ctx, ctxkeys.UserRateLimitRPSKey, &userRPS)
+	ctx = context.WithValue(ctx, ctxkeys.UserRateLimitBurstKey, &userBurst)
+	return r.WithContext(ctx)
+}
+
+// TestMiddleware_UserAggregateRPS verifies that keys owned by the same user
+// share one aggregate RPS bucket: exhausting it through one key rejects a
+// different key of the same owner while other traffic passes.
+func TestMiddleware_UserAggregateRPS(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "1000") // generous per-key stage
+	repo.set(settingsKeyBurst, "1000")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Owner allows a burst of exactly 1 request.
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-a", "uid-1", 0.001, 1))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rr.Code)
+	}
+
+	// A second key of the same owner is rejected by the aggregate stage.
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-b", "uid-1", 0.001, 1))
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("same-owner key: expected 429, got %d", rr.Code)
+	}
+	if body := rr.Body.String(); !strings.Contains(body, "user rate limit exceeded") {
+		t.Errorf("expected user-stage message, got %q", body)
+	}
+
+	// Another owner's key passes.
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-c", "uid-2", 0.001, 1))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("other owner's key: expected 200, got %d", rr.Code)
+	}
+
+	// An unowned key passes (only global limits apply).
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	r = r.WithContext(context.WithValue(r.Context(), ctxkeys.VirtualKeyHashKey, "key-plain"))
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, r)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("unowned key: expected 200, got %d", rr.Code)
+	}
+}
+
+// TestMiddleware_UserStageRejectPreservesKeyBudget verifies the ordering
+// contract: a user-stage rejection happens before the per-key reservation, and
+// a per-key rejection cancels the user reservation, so neither stage burns the
+// other's budget on a 429.
+func TestMiddleware_UserStageRejectPreservesKeyBudget(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "0.001")
+	repo.set(settingsKeyBurst, "1")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Owner has a huge budget; the per-key stage (burst 1) is the bottleneck.
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-a", "uid-1", 1000, 1000))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rr.Code)
+	}
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-a", "uid-1", 1000, 1000))
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("second request: expected per-key 429, got %d", rr.Code)
+	}
+
+	// The cancelled user reservation must not have consumed aggregate budget:
+	// a different key of the same owner still passes the user stage (its own
+	// per-key bucket is fresh).
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-b", "uid-1", 1000, 1000))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("sibling key after per-key 429: expected 200, got %d", rr.Code)
 	}
 }

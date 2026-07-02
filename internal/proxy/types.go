@@ -48,6 +48,20 @@ type VirtualKeyInfo struct {
 	RateLimitTPM     *int
 	AllowedProviders *[]string
 	StripReasoning   bool
+	// Owner is set when the key belongs to a dashboard user; nil for unowned
+	// keys. Populated only on the FindByKeyHash auth path.
+	Owner *OwnerInfo
+}
+
+// OwnerInfo is the owning user's proxy-relevant state: identity for the
+// shared "user:<uuid>" limiter bucket, the account enabled switch, and the
+// aggregate per-user limits.
+type OwnerInfo struct {
+	ID             string
+	Enabled        bool
+	RateLimitRPS   *float64
+	RateLimitBurst *int
+	RateLimitTPM   *int
 }
 
 type contextKey string

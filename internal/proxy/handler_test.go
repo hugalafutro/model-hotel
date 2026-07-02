@@ -17,6 +17,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -1638,5 +1639,111 @@ func TestContextErrorsNotCountedAsProviderFailures(t *testing.T) {
 				t.Errorf("errors.Is classification: skipped=%v, want skipped=%v for err=%v", skipped, tc.shouldBeSkipped, tc.err)
 			}
 		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Owned-key middleware behaviour (phase 2 of multi-user)
+// ---------------------------------------------------------------------------
+
+// ownerAwareVKRepo returns a fixed VirtualKeyInfo from FindByKeyHash.
+type ownerAwareVKRepo struct {
+	mockVirtualKeyRepoWithFuncs
+	vk *VirtualKeyInfo
+}
+
+func (m *ownerAwareVKRepo) FindByKeyHash(context.Context, string) (*VirtualKeyInfo, error) {
+	return m.vk, nil
+}
+
+func TestProxyKeyMiddleware_DisabledOwnerRejected(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+	h.virtualKeyRepo = &ownerAwareVKRepo{vk: &VirtualKeyInfo{
+		ID: "vk-1", Name: "owned", KeyHash: "hash-1",
+		Owner: &OwnerInfo{ID: "uid-1", Enabled: false},
+	}}
+
+	called := false
+	handler := h.ProxyKeyMiddleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		called = true
+	}))
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
+	req.Header.Set("Authorization", "Bearer sk-owned-key")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if called {
+		t.Error("next handler must not run for a disabled owner's key")
+	}
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "owner account is disabled") {
+		t.Errorf("unexpected body: %s", rr.Body.String())
+	}
+}
+
+func TestProxyKeyMiddleware_OwnerContextPropagated(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+	rps := 2.0
+	burst := 3
+	tpm := 6000
+	h.virtualKeyRepo = &ownerAwareVKRepo{vk: &VirtualKeyInfo{
+		ID: "vk-1", Name: "owned", KeyHash: "hash-1",
+		Owner: &OwnerInfo{ID: "uid-1", Enabled: true, RateLimitRPS: &rps, RateLimitBurst: &burst, RateLimitTPM: &tpm},
+	}}
+
+	var gotUID string
+	var gotRPS *float64
+	var gotBurst, gotTPM *int
+	handler := h.ProxyKeyMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		gotUID, _ = r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey).(string)
+		gotRPS, _ = r.Context().Value(ctxkeys.UserRateLimitRPSKey).(*float64)
+		gotBurst, _ = r.Context().Value(ctxkeys.UserRateLimitBurstKey).(*int)
+		gotTPM, _ = r.Context().Value(ctxkeys.UserRateLimitTPMKey).(*int)
+	}))
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
+	req.Header.Set("Authorization", "Bearer sk-owned-key")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if gotUID != "uid-1" {
+		t.Errorf("owner id = %q, want uid-1", gotUID)
+	}
+	if gotRPS == nil || *gotRPS != rps {
+		t.Errorf("user rps = %v, want %v", gotRPS, rps)
+	}
+	if gotBurst == nil || *gotBurst != burst {
+		t.Errorf("user burst = %v, want %v", gotBurst, burst)
+	}
+	if gotTPM == nil || *gotTPM != tpm {
+		t.Errorf("user tpm = %v, want %v", gotTPM, tpm)
+	}
+}
+
+func TestProxyKeyMiddleware_UnownedKeyHasNoOwnerContext(t *testing.T) {
+	h := newUnitHandler()
+	defer stopUnitHandler(h)
+	h.virtualKeyRepo = &ownerAwareVKRepo{vk: &VirtualKeyInfo{ID: "vk-1", Name: "plain", KeyHash: "hash-1"}}
+
+	sawOwner := false
+	handler := h.ProxyKeyMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		_, sawOwner = r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey).(string)
+	}))
+	req := httptest.NewRequest("POST", "/chat/completions", http.NoBody)
+	req.Header.Set("Authorization", "Bearer sk-plain-key")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if sawOwner {
+		t.Error("unowned key must not carry owner context")
 	}
 }
