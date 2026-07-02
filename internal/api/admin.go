@@ -256,10 +256,11 @@ func (h *Handler) Register(r chi.Router) {
 	h.systemHandler = sh
 
 	r.Route("/providers", func(r chi.Router) {
-		// Reads are shared with the virtual-keys grant: the VK modal's
-		// allowed-providers picker needs the provider list.
+		// Reads are shared with the virtual-keys grant (the VK modal's
+		// allowed-providers picker) and the usage grant (the Dashboard's
+		// provider count; stats already expose the provider names).
 		r.Group(func(r chi.Router) {
-			r.Use(requireGrant(user.GrantVirtualKeys))
+			r.Use(requireGrant(user.GrantVirtualKeys, user.GrantUsage))
 			r.Get("/", h.ListProviders)
 			r.Get("/{id}", h.GetProvider)
 		})

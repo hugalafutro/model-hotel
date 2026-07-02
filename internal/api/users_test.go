@@ -198,6 +198,21 @@ func TestGrantEnforcement_UserRole(t *testing.T) {
 	if w := doJSON(t, r, http.MethodDelete, "/models/00000000-0000-0000-0000-000000000001", token, ""); w.Code != http.StatusForbidden {
 		t.Errorf("DELETE /models with chat grant: %d, want 403", w.Code)
 	}
+
+	// The usage grant covers the whole Dashboard: stats plus the model and
+	// provider lists its count pills read.
+	obsID := createUserViaAPI(t, r, "dave", "password123", "user", []string{"usage"})
+	obsToken := mintUserToken(t, sm, obsID)
+	for _, path := range []string{"/stats", "/models", "/providers"} {
+		if w := doJSON(t, r, http.MethodGet, path, obsToken, ""); w.Code != http.StatusOK {
+			t.Errorf("GET %s with usage grant: %d, want 200", path, w.Code)
+		}
+	}
+	for _, path := range []string{"/virtual-keys", "/settings", "/users"} {
+		if w := doJSON(t, r, http.MethodGet, path, obsToken, ""); w.Code != http.StatusForbidden {
+			t.Errorf("GET %s with usage grant: %d, want 403", path, w.Code)
+		}
+	}
 }
 
 func TestGrantEnforcement_EnvAdminAndAdminRole(t *testing.T) {

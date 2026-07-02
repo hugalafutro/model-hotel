@@ -125,10 +125,11 @@ type ModelsCursorResponse struct {
 // RegisterModels mounts model management routes.
 func (h *Handler) RegisterModels(r chi.Router) {
 	r.Route("/models", func(r chi.Router) {
-		// Reads serve both the Models page (models grant) and the Chat UI's
-		// model picker (chat grant).
+		// Reads serve the Models page (models grant), the Chat UI's model
+		// picker (chat grant), and the Dashboard's model count and drill-down
+		// (usage grant; stats payloads already expose the model names).
 		r.Group(func(r chi.Router) {
-			r.Use(requireGrant(user.GrantModels, user.GrantChat))
+			r.Use(requireGrant(user.GrantModels, user.GrantChat, user.GrantUsage))
 			r.Get("/", h.ListModels)
 			r.Get("/cursor", h.ListModelsCursor)
 		})
