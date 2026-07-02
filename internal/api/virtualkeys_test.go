@@ -202,7 +202,7 @@ func TestVirtualKeyToResponse_WithKey(t *testing.T) {
 	}
 	rawKey := "sk-abc123rawkey"
 
-	resp := virtualKeyToResponse(vk, true, rawKey)
+	resp := virtualKeyToResponse(vk, true, rawKey, nil)
 
 	if resp.ID != vk.ID.String() {
 		t.Errorf("ID = %q, want %q", resp.ID, vk.ID.String())
@@ -235,7 +235,7 @@ func TestVirtualKeyToResponse_WithoutKey(t *testing.T) {
 		CreatedAt: now,
 	}
 
-	resp := virtualKeyToResponse(vk, false, "sk-raw-key")
+	resp := virtualKeyToResponse(vk, false, "sk-raw-key", nil)
 
 	if resp.Key != "" {
 		t.Errorf("Key = %q, want empty (includeKey=false)", resp.Key)
@@ -250,7 +250,7 @@ func TestVirtualKeyToResponse_NilLastUsedAt(t *testing.T) {
 		CreatedAt:  time.Now(),
 	}
 
-	resp := virtualKeyToResponse(vk, false, "")
+	resp := virtualKeyToResponse(vk, false, "", nil)
 
 	if resp.LastUsedAt != nil {
 		t.Error("LastUsedAt should be nil when vk.LastUsedAt is nil")
@@ -266,7 +266,7 @@ func TestVirtualKeyToResponse_WithLastUsedAt(t *testing.T) {
 		CreatedAt:  time.Now(),
 	}
 
-	resp := virtualKeyToResponse(vk, false, "")
+	resp := virtualKeyToResponse(vk, false, "", nil)
 
 	if resp.LastUsedAt == nil {
 		t.Fatal("LastUsedAt should not be nil")
@@ -871,6 +871,11 @@ func TestUpdateVirtualKeyRequest_UnmarshalJSON_OnlyStripReasoningPresent(t *test
 // the key does not exist in the database.
 func TestUpdateVirtualKey_NotFound(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
+		// The handler now always fetches the existing row first (ownership
+		// check + omitted-field preservation), so the miss surfaces there.
+		getFn: func(ctx context.Context, vid uuid.UUID) (*virtualkey.VirtualKey, error) {
+			return nil, virtualkey.ErrNotFound
+		},
 		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
 			return nil, virtualkey.ErrNotFound
 		},
@@ -878,7 +883,6 @@ func TestUpdateVirtualKey_NotFound(t *testing.T) {
 	h := testHandler(nil, mockVK, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 
 	id := uuid.New()
-	// Include allowed_providers and strip_reasoning in the request to skip the Get call
 	body := bytes.NewReader([]byte(`{"name":"updated-name","allowed_providers":null,"strip_reasoning":false}`))
 	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
 	req = setChiURLParam(req, "id", id.String())

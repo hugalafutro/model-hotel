@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/user"
@@ -23,6 +25,10 @@ type CreateVirtualKeyRequest struct {
 	RateLimitTPM     *int      `json:"rate_limit_tpm,omitempty"`
 	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 	StripReasoning   *bool     `json:"strip_reasoning,omitempty"`
+	// OwnerUserID assigns the key to a dashboard user (admin callers only;
+	// for non-admins the key is always created as their own). Empty string or
+	// null means unowned.
+	OwnerUserID *string `json:"owner_user_id,omitempty"`
 }
 
 // UpdateVirtualKeyRequest is the request body for updating a virtual key.
@@ -33,12 +39,17 @@ type UpdateVirtualKeyRequest struct {
 	RateLimitTPM     *int      `json:"rate_limit_tpm"`
 	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 	StripReasoning   *bool     `json:"strip_reasoning,omitempty"`
+	OwnerUserID      *string   `json:"owner_user_id,omitempty"`
 	// allowedProvidersPresent tracks whether allowed_providers was in the JSON.
 	// Set by UnmarshalJSON; do not set manually.
 	allowedProvidersPresent bool
 	// stripReasoningPresent tracks whether strip_reasoning was in the JSON.
 	// Set by UnmarshalJSON; do not set manually.
 	stripReasoningPresent bool
+	// ownerUserIDPresent tracks whether owner_user_id was in the JSON (an
+	// explicit null counts as present: an admin sending null unassigns the
+	// owner). Set by UnmarshalJSON; do not set manually.
+	ownerUserIDPresent bool
 }
 
 // UnmarshalJSON detects whether allowed_providers was present in the JSON.
@@ -55,6 +66,7 @@ func (r *UpdateVirtualKeyRequest) UnmarshalJSON(data []byte) error {
 	}
 	r.allowedProvidersPresent = raw["allowed_providers"] != nil
 	r.stripReasoningPresent = raw["strip_reasoning"] != nil
+	_, r.ownerUserIDPresent = raw["owner_user_id"]
 	return nil
 }
 
@@ -76,11 +88,16 @@ func (h *Handler) RegisterVirtualKeys(r chi.Router) {
 	})
 }
 
-func virtualKeyToResponse(vk *virtualkey.VirtualKey, includeKey bool, rawKey string) virtualkey.VirtualKeyResponse {
+func virtualKeyToResponse(vk *virtualkey.VirtualKey, includeKey bool, rawKey string, ownerUsername *string) virtualkey.VirtualKeyResponse {
 	var lastUsed *string
 	if vk.LastUsedAt != nil {
 		s := vk.LastUsedAt.Format(time.RFC3339)
 		lastUsed = &s
+	}
+	var ownerID *string
+	if vk.OwnerUserID != nil {
+		s := vk.OwnerUserID.String()
+		ownerID = &s
 	}
 
 	return virtualkey.VirtualKeyResponse{
@@ -96,7 +113,53 @@ func virtualKeyToResponse(vk *virtualkey.VirtualKey, includeKey bool, rawKey str
 		RateLimitTPM:     vk.RateLimitTPM,
 		AllowedProviders: vk.AllowedProviders,
 		StripReasoning:   vk.StripReasoning,
+		OwnerUserID:      ownerID,
+		OwnerUsername:    ownerUsername,
 	}
+}
+
+// ownerUsername resolves a key owner's username for display. Best-effort:
+// nil when the key is unowned, the user store is not wired, or the row is
+// gone (a stale reference must not fail the whole response).
+func (h *Handler) ownerUsername(ctx context.Context, ownerID *uuid.UUID) *string {
+	if ownerID == nil || h.userRepo == nil {
+		return nil
+	}
+	u, err := h.userRepo.Get(ctx, *ownerID)
+	if err != nil || u == nil {
+		return nil
+	}
+	return &u.Username
+}
+
+// resolveWriteOwner decides the owner a create/update writes. Non-admins
+// always write their own id: they can neither assign keys to others nor
+// orphan their own. Admins get what they asked for (requested, which may be
+// nil to unassign); a caller without a users row (the env-token admin)
+// behaves like any admin.
+func resolveWriteOwner(id *user.Identity, requested *string) (*uuid.UUID, error) {
+	if id != nil && !id.IsAdmin() {
+		return id.UserID, nil
+	}
+	if requested == nil || *requested == "" {
+		return nil, nil //nolint:nilnil // nil owner = unowned key, not an error sentinel
+	}
+	uid, err := uuid.Parse(*requested)
+	if err != nil {
+		return nil, fmt.Errorf("invalid owner_user_id: %w", err)
+	}
+	return &uid, nil
+}
+
+// canTouchKey reports whether the caller may see or modify the key: admins
+// always, non-admins only for keys they own. Deny reads as 404 so the key
+// listing and the detail routes tell a consistent story (no existence
+// oracle for other users' keys).
+func canTouchKey(id *user.Identity, vk *virtualkey.VirtualKey) bool {
+	if id == nil || id.IsAdmin() {
+		return true
+	}
+	return id.UserID != nil && vk.OwnerUserID != nil && *vk.OwnerUserID == *id.UserID
 }
 
 func cond(val string, condition bool) string {
@@ -139,6 +202,13 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	caller := user.IdentityFrom(r.Context())
+	owner, err := resolveWriteOwner(caller, req.OwnerUserID)
+	if err != nil {
+		respondBadRequest(w, err.Error(), nil)
+		return
+	}
+
 	rawKey, err := virtualkey.Generate()
 	if err != nil {
 		debuglog.Error("virtual-keys: failed to generate key", "error", err)
@@ -149,29 +219,63 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	keyHash := virtualkey.Hash(rawKey)
 	keyPreview := rawKey[:3] + "..." + rawKey[len(rawKey)-2:]
 
-	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, nil)
+	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, owner)
 	if err != nil {
+		if isForeignKeyViolation(err) {
+			respondBadRequest(w, "owner_user_id does not match any user", nil)
+			return
+		}
 		debuglog.Error("virtual-keys: failed to create key", "name", req.Name, "error", err)
 		respondError(w, fmt.Sprintf("failed to create virtual key %q", req.Name), err, http.StatusInternalServerError)
 		return
 	}
 	debuglog.Info("virtual-keys: created", "name", vk.Name, "id", vk.ID)
 
-	resp := virtualKeyToResponse(vk, true, rawKey)
+	resp := virtualKeyToResponse(vk, true, rawKey, h.ownerUsername(r.Context(), vk.OwnerUserID))
 	writeJSONCreated(w, resp)
 }
 
-// ListVirtualKeys returns all virtual API keys.
+// ListVirtualKeys returns virtual API keys: all of them for admins, only the
+// caller's own for grant-holding users.
 func (h *Handler) ListVirtualKeys(w http.ResponseWriter, r *http.Request) {
-	keys, err := h.virtualKeyRepo.List(r.Context())
+	caller := user.IdentityFrom(r.Context())
+
+	var keys []*virtualkey.VirtualKey
+	var err error
+	if caller != nil && !caller.IsAdmin() {
+		if caller.UserID == nil {
+			// A non-admin identity without a users row cannot own keys.
+			writeJSON(w, []virtualkey.VirtualKeyResponse{})
+			return
+		}
+		keys, err = h.virtualKeyRepo.ListByOwner(r.Context(), *caller.UserID)
+	} else {
+		keys, err = h.virtualKeyRepo.List(r.Context())
+	}
 	if err != nil {
 		respondError(w, "failed to list virtual keys", err, http.StatusInternalServerError)
 		return
 	}
 
+	// Resolve owner usernames in one pass instead of a query per key.
+	usernames := map[uuid.UUID]string{}
+	if h.userRepo != nil {
+		if users, uerr := h.userRepo.List(r.Context()); uerr == nil {
+			for _, u := range users {
+				usernames[u.ID] = u.Username
+			}
+		}
+	}
+
 	responses := make([]virtualkey.VirtualKeyResponse, len(keys))
 	for i, vk := range keys {
-		responses[i] = virtualKeyToResponse(vk, false, "")
+		var ownerName *string
+		if vk.OwnerUserID != nil {
+			if name, ok := usernames[*vk.OwnerUserID]; ok {
+				ownerName = &name
+			}
+		}
+		responses[i] = virtualKeyToResponse(vk, false, "", ownerName)
 	}
 
 	writeJSON(w, responses)
@@ -189,8 +293,12 @@ func (h *Handler) GetVirtualKey(w http.ResponseWriter, r *http.Request) {
 		respondLookupError(w, err, virtualkey.ErrNotFound, "virtual key not found", "failed to load virtual key")
 		return
 	}
+	if !canTouchKey(user.IdentityFrom(r.Context()), vk) {
+		http.Error(w, "virtual key not found", http.StatusNotFound)
+		return
+	}
 
-	resp := virtualKeyToResponse(vk, false, "")
+	resp := virtualKeyToResponse(vk, false, "", h.ownerUsername(r.Context(), vk.OwnerUserID))
 	writeJSON(w, resp)
 }
 
@@ -228,38 +336,57 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// When allowed_providers or strip_reasoning is omitted from the request
-	// body, preserve the existing values instead of clearing them. This
-	// prevents external scripts that update name/rate-limits from
-	// accidentally dropping restrictions or changing reasoning settings.
-	// Use a single DB fetch for both guards to avoid an extra roundtrip.
-	var existingVK *virtualkey.VirtualKey
-	if !req.allowedProvidersPresent || !req.stripReasoningPresent {
-		existing, err := h.virtualKeyRepo.Get(r.Context(), id)
-		if err != nil && !errors.Is(err, virtualkey.ErrNotFound) {
-			debuglog.Error("virtual-keys: failed to fetch key for update", "id", id, "error", err)
-			respondError(w, "failed to update virtual key", err, http.StatusInternalServerError)
-			return
-		}
-		existingVK = existing
-	}
-
-	if !req.allowedProvidersPresent && existingVK != nil {
-		req.AllowedProviders = existingVK.AllowedProviders
-	}
-
-	if !req.stripReasoningPresent && existingVK != nil {
-		req.StripReasoning = &existingVK.StripReasoning
-	}
-
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
 		return
 	}
 
-	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, nil)
+	// The existing row is always fetched: it backs the ownership check, the
+	// omitted-field preservation for allowed_providers/strip_reasoning (so
+	// external scripts that update name/rate-limits do not accidentally drop
+	// restrictions), and owner preservation when owner_user_id is omitted.
+	existingVK, err := h.virtualKeyRepo.Get(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, virtualkey.ErrNotFound) {
 			http.Error(w, "virtual key not found", http.StatusNotFound)
+			return
+		}
+		debuglog.Error("virtual-keys: failed to fetch key for update", "id", id, "error", err)
+		respondError(w, "failed to update virtual key", err, http.StatusInternalServerError)
+		return
+	}
+	caller := user.IdentityFrom(r.Context())
+	if !canTouchKey(caller, existingVK) {
+		http.Error(w, "virtual key not found", http.StatusNotFound)
+		return
+	}
+
+	if !req.allowedProvidersPresent {
+		req.AllowedProviders = existingVK.AllowedProviders
+	}
+
+	if !req.stripReasoningPresent {
+		req.StripReasoning = &existingVK.StripReasoning
+	}
+
+	// Owner: non-admins always keep themselves (resolveWriteOwner); admins
+	// who omit the field keep the current owner, an explicit null clears it.
+	owner := existingVK.OwnerUserID
+	if caller != nil && !caller.IsAdmin() || req.ownerUserIDPresent {
+		owner, err = resolveWriteOwner(caller, req.OwnerUserID)
+		if err != nil {
+			respondBadRequest(w, err.Error(), nil)
+			return
+		}
+	}
+
+	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, owner)
+	if err != nil {
+		if errors.Is(err, virtualkey.ErrNotFound) {
+			http.Error(w, "virtual key not found", http.StatusNotFound)
+			return
+		}
+		if isForeignKeyViolation(err) {
+			respondBadRequest(w, "owner_user_id does not match any user", nil)
 			return
 		}
 		debuglog.Error("virtual-keys: failed to update key", "id", id, "error", err)
@@ -267,7 +394,7 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := virtualKeyToResponse(vk, false, "")
+	resp := virtualKeyToResponse(vk, false, "", h.ownerUsername(r.Context(), vk.OwnerUserID))
 	writeJSON(w, resp)
 }
 
@@ -276,6 +403,21 @@ func (h *Handler) DeleteVirtualKey(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "virtual key ID")
 	if !ok {
 		return
+	}
+
+	// Non-admins may only delete their own keys; the ownership check needs
+	// the row, and a foreign key reads as missing (404) to them.
+	caller := user.IdentityFrom(r.Context())
+	if caller != nil && !caller.IsAdmin() {
+		existing, err := h.virtualKeyRepo.Get(r.Context(), id)
+		if err != nil {
+			respondLookupError(w, err, virtualkey.ErrNotFound, "virtual key not found", "failed to delete virtual key")
+			return
+		}
+		if !canTouchKey(caller, existing) {
+			http.Error(w, "virtual key not found", http.StatusNotFound)
+			return
+		}
 	}
 
 	if err := h.virtualKeyRepo.Delete(r.Context(), id); err != nil {

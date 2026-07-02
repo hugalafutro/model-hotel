@@ -723,3 +723,12 @@ func isUniqueViolation(err error) bool {
 	}
 	return false
 }
+
+// isForeignKeyViolation checks if the error is a PostgreSQL foreign key violation (error code 23503).
+func isForeignKeyViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23503"
+	}
+	return false
+}
