@@ -1,6 +1,17 @@
 import "@testing-library/jest-dom";
+import { configure } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, vi } from "vitest";
 import "../i18n";
+
+// The full-app integration tests render the shell, navigate, and then wait on a
+// page's async-loaded content. testing-library's default 1s asyncUtilTimeout is
+// too tight for that chain on a loaded CI shard (several concurrent MSW queries,
+// including the app-wide /api/auth/me identity fetch), producing intermittent
+// "unable to find text" flakes. Give waitFor/findBy more patience; the per-test
+// budget (vitest testTimeout) stays the real ceiling and assertions are
+// unchanged, so this only tolerates scheduling jitter, it does not hide failures.
+configure({ asyncUtilTimeout: 5000 });
+
 import { setAdminToken } from "../api/client";
 import { resetStore } from "./mocks/handlers";
 import { server } from "./mocks/server";
