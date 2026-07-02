@@ -18,15 +18,24 @@ const minPasswordLen = 8
 
 // RegisterUsers mounts the user management API. Admin-only: users cannot see
 // or edit each other, and grants never unlock this surface.
+//
+// Reads (the roster, the grant catalog) stay open on a managed fleet member:
+// the list matches the primary's, and the operator may browse it. Writes are
+// guarded by managedWriteGuard because the user roster is synced config —
+// applyUsers deletes any account absent from the primary's export on the next
+// sync, so a local create/edit/delete would "succeed" and then be undone.
 func (h *Handler) RegisterUsers(r chi.Router) {
 	r.Route("/users", func(r chi.Router) {
 		r.Use(requireAdmin)
 		r.Get("/", h.ListUsers)
 		r.Get("/grants", h.ListGrantCatalog)
-		r.Post("/", h.CreateUser)
-		r.Put("/{id}", h.UpdateUser)
-		r.Post("/{id}/password", h.SetUserPassword)
-		r.Delete("/{id}", h.DeleteUser)
+		r.Group(func(r chi.Router) {
+			r.Use(managedWriteGuard(h.settingsRepo))
+			r.Post("/", h.CreateUser)
+			r.Put("/{id}", h.UpdateUser)
+			r.Post("/{id}/password", h.SetUserPassword)
+			r.Delete("/{id}", h.DeleteUser)
+		})
 	})
 }
 

@@ -19,11 +19,13 @@ function errMessage(err: unknown, fallback: string): string {
 
 export function UserModal({
 	user,
+	managed = false,
 	onClose,
 	onToast,
 }: {
 	/** null opens the modal in create mode. */
 	user: DashboardUser | null;
+	managed?: boolean;
 	onClose: () => void;
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
@@ -152,6 +154,7 @@ export function UserModal({
 						className="ui-input"
 						maxLength={64}
 						autoComplete="off"
+						disabled={managed}
 					/>
 				</div>
 
@@ -169,6 +172,7 @@ export function UserModal({
 						onChange={(e) => setDisplayName(e.target.value)}
 						className="ui-input"
 						maxLength={128}
+						disabled={managed}
 					/>
 				</div>
 
@@ -186,6 +190,7 @@ export function UserModal({
 						onChange={(e) => setEmail(e.target.value)}
 						className="ui-input"
 						autoComplete="off"
+						disabled={managed}
 					/>
 					<p className="text-xs text-gray-500 mt-1">
 						{t("users.modal.emailHint")}
@@ -208,6 +213,7 @@ export function UserModal({
 							className="ui-input"
 							autoComplete="new-password"
 							placeholder={t("users.modal.passwordPlaceholder")}
+							disabled={managed}
 						/>
 					</div>
 				)}
@@ -224,7 +230,7 @@ export function UserModal({
 						value={role}
 						onChange={(e) => setRole(e.target.value as "admin" | "user")}
 						className="ui-input"
-						disabled={isSelf}
+						disabled={isSelf || managed}
 					>
 						<option value="user">{t("users.role.user")}</option>
 						<option value="admin">{t("users.role.admin")}</option>
@@ -253,6 +259,7 @@ export function UserModal({
 										onChange={() => toggleGrant(g)}
 										className="ui-checkbox"
 										data-testid={`grant-${g}`}
+										disabled={managed}
 									/>
 									{t(`users.grant.${g}`, { defaultValue: g })}
 								</label>
@@ -269,28 +276,36 @@ export function UserModal({
 						<Toggle
 							checked={enabled}
 							onChange={setEnabled}
-							disabled={isSelf}
+							disabled={isSelf || managed}
 							ariaLabel={t("users.modal.enabled")}
 						/>
 					</div>
 				)}
 
 				<div className="flex gap-3 pt-2">
-					<button
-						type="button"
-						onClick={handleSave}
-						disabled={saveMutation.isPending}
-						className="ui-btn ui-btn-primary flex-1 disabled:opacity-50"
-						data-testid="user-modal-save"
-					>
-						{isEdit ? t("users.modal.save") : t("users.modal.create")}
-					</button>
+					{!managed && (
+						<button
+							type="button"
+							onClick={handleSave}
+							disabled={saveMutation.isPending}
+							className="ui-btn ui-btn-primary flex-1 disabled:opacity-50"
+							data-testid="user-modal-save"
+						>
+							{isEdit ? t("users.modal.save") : t("users.modal.create")}
+						</button>
+					)}
 					<button type="button" onClick={onClose} className="ui-btn flex-1">
 						{t("users.modal.cancel")}
 					</button>
 				</div>
 
-				{isEdit && (
+				{managed && isEdit && (
+					<p data-testid="managed-note" className="text-xs text-(--text-muted)">
+						{t("settings.managed.sectionNote")}
+					</p>
+				)}
+
+				{isEdit && !managed && (
 					<div className="border-t border-gray-700 pt-4 space-y-4">
 						<div>
 							<label
