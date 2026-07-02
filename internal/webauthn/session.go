@@ -43,8 +43,17 @@ func NewSessionManager(store SessionStore) *SessionManager {
 // tokens stored) and uses constant-time comparison for the hash match.
 // The ctx parameter propagates request deadlines and tracing.
 func (m *SessionManager) Validate(ctx context.Context, token string) bool {
+	_, ok := m.TokenUser(ctx, token)
+	return ok
+}
+
+// TokenUser validates the token exactly like Validate and additionally returns
+// the UserID the session was minted with: []byte("admin") for legacy admin
+// logins, a user UUID string for multi-user password logins. ok is false when
+// the token is invalid or expired.
+func (m *SessionManager) TokenUser(ctx context.Context, token string) ([]byte, bool) {
 	if token == "" {
-		return false
+		return nil, false
 	}
 
 	// Hash the token first — eliminates the timing oracle between UUID-parse
@@ -55,25 +64,25 @@ func (m *SessionManager) Validate(ctx context.Context, token string) bool {
 
 	session, err := m.store.GetSessionByTokenHash(ctx, tokenHash)
 	if err != nil {
-		return false
+		return nil, false
 	}
 
 	if session.ExpiresAt.Before(time.Now()) {
-		return false
+		return nil, false
 	}
 
 	// Constant-time compare as defense in depth (the DB lookup is already by
 	// hash, but this prevents any theoretical timing leak from the comparison
 	// itself if the DB ever returns multiple rows).
 	if session.TokenHash == nil {
-		return false
+		return nil, false
 	}
 
 	if subtle.ConstantTimeCompare([]byte(tokenHash), []byte(*session.TokenHash)) != 1 {
-		return false
+		return nil, false
 	}
 
-	return true
+	return session.UserID, true
 }
 
 // CreateAuthToken creates a new 30-day admin authentication session.

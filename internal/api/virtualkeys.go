@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
@@ -60,6 +61,8 @@ func (r *UpdateVirtualKeyRequest) UnmarshalJSON(data []byte) error {
 // RegisterVirtualKeys mounts virtual key management routes.
 func (h *Handler) RegisterVirtualKeys(r chi.Router) {
 	r.Route("/virtual-keys", func(r chi.Router) {
+		// The virtual_keys grant covers the whole page, mutations included.
+		r.Use(requireGrant(user.GrantVirtualKeys))
 		r.Get("/", h.ListVirtualKeys)
 		r.Get("/{id}", h.GetVirtualKey)
 		// Virtual keys are synced config: a managed fleet member must not edit them

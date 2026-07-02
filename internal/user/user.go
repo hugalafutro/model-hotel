@@ -131,6 +131,14 @@ func (r *Repository) GetByEmail(ctx context.Context, email string) (*User, error
 	return scanUser(r.pool.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE email = $1`, *e))
 }
 
+// HasEnabled reports whether at least one enabled user exists, so the login
+// UI knows whether to offer the username/password form.
+func (r *Repository) HasEnabled(ctx context.Context) (bool, error) {
+	var exists bool
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE enabled)`).Scan(&exists)
+	return exists, err
+}
+
 // Update rewrites the mutable profile fields (not the password).
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, username, displayName string, email *string, role Role, grants []string, enabled bool) (*User, error) {
 	if grants == nil {

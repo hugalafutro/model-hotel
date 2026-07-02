@@ -265,6 +265,29 @@ func TestRepository_NotFoundAndDelete(t *testing.T) {
 	}
 }
 
+func TestRepository_HasEnabled(t *testing.T) {
+	repo := NewRepository(testDB.Pool())
+	if _, err := testDB.Pool().Exec(context.Background(), `DELETE FROM users`); err != nil {
+		t.Fatalf("clear users: %v", err)
+	}
+
+	if got, err := repo.HasEnabled(context.Background()); err != nil || got {
+		t.Errorf("HasEnabled(empty) = %v, %v; want false", got, err)
+	}
+
+	u := mustCreate(t, repo, "gina-"+uuid.NewString(), nil, RoleUser, nil)
+	if got, err := repo.HasEnabled(context.Background()); err != nil || !got {
+		t.Errorf("HasEnabled(one enabled) = %v, %v; want true", got, err)
+	}
+
+	if _, err := repo.Update(context.Background(), u.ID, u.Username, "", nil, RoleUser, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := repo.HasEnabled(context.Background()); err != nil || got {
+		t.Errorf("HasEnabled(all disabled) = %v, %v; want false", got, err)
+	}
+}
+
 func TestRepository_DuplicateUsername(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	name := "erin-" + uuid.NewString()

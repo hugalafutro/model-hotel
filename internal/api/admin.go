@@ -26,6 +26,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
@@ -85,6 +86,10 @@ type AdminAuthenticator interface {
 // It is implemented by the internal/webauthn.SessionManager.
 type WebAuthnSessionManager interface {
 	Validate(ctx context.Context, token string) bool
+	// TokenUser validates like Validate and returns the session's user handle
+	// ([]byte("admin") for legacy admin logins, a user UUID string for
+	// multi-user password logins).
+	TokenUser(ctx context.Context, token string) ([]byte, bool)
 	RevokeAuthToken(ctx context.Context, token string) bool
 }
 
@@ -102,6 +107,8 @@ type Handler struct {
 	ghReleasesURL          string                                             // injectable for testing; defaults to githubReleasesURL const
 	ghTagsURL              string                                             // injectable for testing; defaults to githubTagsURL const
 	webauthnSessionMgr     WebAuthnSessionManager                             // nil when webAuthn is not configured
+	userRepo               UserStore                                          // nil until SetUserAuth (multi-user identities)
+	sessionRevoker         SessionRevoker                                     // nil until SetUserAuth (revoke on disable/delete)
 	testModelTransport     *http.Transport                                    // SSRF-protected transport for TestModel
 	testModelCheckRedirect func(req *http.Request, via []*http.Request) error // SSRF-protected redirect check for TestModel
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
@@ -145,6 +152,14 @@ func (h *Handler) Pool() *db.DB {
 // token-based authentication fallback in AuthMiddleware.
 func (h *Handler) SetWebAuthnSessionManager(mgr WebAuthnSessionManager) {
 	h.webauthnSessionMgr = mgr
+}
+
+// SetUserAuth wires the multi-user store and session revoker into the auth
+// middleware and users admin API. Without it, sessions carrying user UUIDs
+// fail closed (401) and the Users API is not mounted usefully.
+func (h *Handler) SetUserAuth(users UserStore, revoker SessionRevoker) {
+	h.userRepo = users
+	h.sessionRevoker = revoker
 }
 
 // SetTotpStatus wires the TOTP status source and best-effort seeds the cache.
@@ -231,14 +246,23 @@ func (h *Handler) Register(r chi.Router) {
 		r.Use(readOnlyGuard)
 	}
 
+	// Caller identity for the SPA's navigation gating (any authenticated role).
+	r.Get("/auth/me", h.Me)
+
 	r.Route("/providers", func(r chi.Router) {
-		r.Get("/", h.ListProviders)
-		r.Get("/{id}", h.GetProvider)
+		// Reads are shared with the virtual-keys grant: the VK modal's
+		// allowed-providers picker needs the provider list.
+		r.Group(func(r chi.Router) {
+			r.Use(requireGrant(user.GrantVirtualKeys))
+			r.Get("/", h.ListProviders)
+			r.Get("/{id}", h.GetProvider)
+		})
 		// Provider CRUD is synced config: a managed fleet member must not edit it
 		// locally (the primary owns it and replaces it on the next sync). Discovery
 		// routes under /providers (mounted via RegisterProviderDiscovery) are
 		// deliberately outside this group: models regenerate and are not synced.
 		r.Group(func(r chi.Router) {
+			r.Use(requireAdmin)
 			r.Use(managedWriteGuard(h.settingsRepo))
 			r.Post("/", h.CreateProvider)
 			r.Put("/{id}", h.UpdateProvider)
@@ -247,19 +271,37 @@ func (h *Handler) Register(r chi.Router) {
 	})
 
 	h.RegisterModels(r)
-	h.RegisterProviderDiscovery(r)
 	h.RegisterLogs(r)
+	h.RegisterVirtualKeys(r)
+	h.RegisterVersion(r)
+	h.RegisterUsers(r)
+
+	// Usage dashboards are readable with the usage grant.
+	r.Group(func(r chi.Router) {
+		r.Use(requireGrant(user.GrantUsage))
+		NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
+	})
+
+	// Everything below is admin-only surface: discovery, app logs, settings,
+	// alerts, failover config, system, backup, config-sync, fleet.
+	r.Group(func(r chi.Router) {
+		r.Use(requireAdmin)
+		h.registerAdminOnly(r)
+	})
+}
+
+// registerAdminOnly mounts the route groups only admins may touch. Split out
+// of Register so the requireAdmin guard visibly covers the whole set.
+func (h *Handler) registerAdminOnly(r chi.Router) {
+	h.RegisterProviderDiscovery(r)
 	h.RegisterAppLogs(r)
 	h.RegisterSettings(r)
 	h.RegisterAlerts(r)
-	h.RegisterVirtualKeys(r)
-	h.RegisterVersion(r)
 
 	failoverRepo := failover.NewRepository(h.dbPool.Pool())
 	modelRepo := model.NewRepository(h.dbPool.Pool())
 	NewFailoverHandler(h.dbPool.Pool(), failoverRepo, modelRepo, h.settingsRepo, h.circuitBreaker).Register(r)
 
-	NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
 	sh := NewSystemHandler(h.dbPool.Pool(), h.settingsRepo)
 	sh.Register(r)
 	h.systemHandler = sh
@@ -307,14 +349,21 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 		// /api/totp/login; a bare admin token bearer is rejected so the second
 		// factor cannot be bypassed.
 		if !h.TotpEnabled() && h.adminMgr.Validate(token) {
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(user.WithIdentity(r.Context(), user.AdminIdentity())))
 			return
 		}
 
-		// Fallback: session token (DB-backed SHA-256 hash lookup) -- unchanged.
-		if h.webauthnSessionMgr != nil && h.webauthnSessionMgr.Validate(r.Context(), token) {
-			next.ServeHTTP(w, r)
-			return
+		// Fallback: session token (DB-backed SHA-256 hash lookup). The session's
+		// user handle resolves to an identity: legacy admin sessions stay admin,
+		// UUID handles must match an enabled users row (disabled/deleted users
+		// are rejected here even if their token has not been revoked yet).
+		if h.webauthnSessionMgr != nil {
+			if sessionUserID, ok := h.webauthnSessionMgr.TokenUser(r.Context(), token); ok {
+				if id, ok := h.resolveIdentity(r.Context(), sessionUserID); ok {
+					next.ServeHTTP(w, r.WithContext(user.WithIdentity(r.Context(), id)))
+					return
+				}
+			}
 		}
 
 		debuglog.Warn("auth: admin request with invalid token", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
