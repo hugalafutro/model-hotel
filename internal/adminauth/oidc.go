@@ -69,6 +69,7 @@ type OIDCHandler struct {
 	sessionMgr *webauthn.SessionManager
 	ipLimiter  IPLimiterMiddleware
 	masterKey  string
+	users      SSOUserResolver // nil = no user email binding (admin allowlist only)
 
 	// loginThrottle applies per-IP exponential backoff to the callback, mirroring
 	// the TOTP login defense (5 failures, 1s doubling, capped at 5m).
@@ -98,6 +99,13 @@ func NewOIDCHandler(
 		masterKey:     masterKey,
 		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
 	}
+}
+
+// SetUserResolver enables user email binding: verified emails that miss the
+// admin allowlist are looked up against user accounts, and a match logs in as
+// that user. Optional; nil keeps the historical admin-only behavior.
+func (h *OIDCHandler) SetUserResolver(users SSOUserResolver) {
+	h.users = users
 }
 
 // oidcRuntime is the built, ready-to-use OIDC configuration for one config
@@ -351,16 +359,24 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 	// Allowlist matches on email; we audit on (iss, sub) — the IdP's stable,
 	// opaque per-user id that, unlike email, never changes or gets reassigned.
+	// An email outside the allowlist can still bind to an enabled user account
+	// (multi-user); the allowlist wins so an allowlisted operator is never
+	// downgraded to a user identity by a stray user row.
+	sessionHandle := []byte("admin")
 	if !rt.allowed[email] {
-		debuglog.Warn("oidc: login denied: email not allowlisted",
-			"email_masked", maskEmail(email), "sub", idToken.Subject, "iss", idToken.Issuer)
-		h.fail(w, r, throttleKey, "not allowed", nil)
-		return
+		u := resolveSSOUser(ctx, h.users, email)
+		if u == nil {
+			debuglog.Warn("oidc: login denied: email not allowlisted or user-bound",
+				"email_masked", maskEmail(email), "sub", idToken.Subject, "iss", idToken.Issuer)
+			h.fail(w, r, throttleKey, "not allowed", nil)
+			return
+		}
+		sessionHandle = []byte(u.ID.String())
 	}
 
-	// Mint the same session token as passkey/TOTP login: single admin identity,
-	// no passkey credential to cascade-revoke (nil credentialID).
-	sessionToken, err := h.sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	// Mint the same session token as passkey/TOTP login, carrying the resolved
+	// identity handle; no passkey credential to cascade-revoke (nil credentialID).
+	sessionToken, err := h.sessionMgr.CreateAuthToken(ctx, sessionHandle, nil)
 	if err != nil {
 		h.fail(w, r, throttleKey, "failed to create session", err)
 		return

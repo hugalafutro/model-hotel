@@ -78,6 +78,7 @@ type GitHubHandler struct {
 	sessionMgr *webauthn.SessionManager
 	ipLimiter  IPLimiterMiddleware
 	masterKey  string
+	users      SSOUserResolver // nil = no user email binding (admin allowlist only)
 
 	// loginThrottle applies per-IP exponential backoff to the callback, mirroring
 	// the OIDC/TOTP login defense (5 failures, 1s doubling, capped at 5m).
@@ -107,6 +108,13 @@ func NewGitHubHandler(
 		masterKey:     masterKey,
 		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
 	}
+}
+
+// SetUserResolver enables user email binding: verified emails that miss the
+// admin allowlist are looked up against user accounts, and a match logs in as
+// that user. Optional; nil keeps the historical admin-only behavior.
+func (h *GitHubHandler) SetUserResolver(users SSOUserResolver) {
+	h.users = users
 }
 
 // githubRuntime is the built, ready-to-use GitHub OAuth2 configuration for one
@@ -332,16 +340,29 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+	// No allowlist match: try user email binding against each verified address
+	// (multi-user). The allowlist wins so an allowlisted operator is never
+	// downgraded to a user identity by a stray user row.
+	sessionHandle := []byte("admin")
 	if matched == "" {
-		debuglog.Warn("github: login denied: no allowlisted verified email",
+		for _, e := range verified {
+			if u := resolveSSOUser(ctx, h.users, e); u != nil {
+				matched = e
+				sessionHandle = []byte(u.ID.String())
+				break
+			}
+		}
+	}
+	if matched == "" {
+		debuglog.Warn("github: login denied: no allowlisted or user-bound verified email",
 			"gh_id", user.ID, "gh_login", user.Login)
 		h.fail(w, r, throttleKey, "not allowed", nil)
 		return
 	}
 
-	// Mint the same session token as passkey/TOTP/OIDC login: single admin
-	// identity, no passkey credential to cascade-revoke (nil credentialID).
-	sessionToken, err := h.sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	// Mint the same session token as passkey/TOTP/OIDC login, carrying the
+	// resolved identity handle (nil credentialID: no passkey to cascade-revoke).
+	sessionToken, err := h.sessionMgr.CreateAuthToken(ctx, sessionHandle, nil)
 	if err != nil {
 		h.fail(w, r, throttleKey, "failed to create session", err)
 		return
