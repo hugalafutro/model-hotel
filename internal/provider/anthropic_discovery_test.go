@@ -3,10 +3,8 @@ package provider
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -344,97 +342,4 @@ func TestAnthropicPricingLookupDated(t *testing.T) {
 	}
 }
 
-func TestAnthropicDiscoveryLiveAPI(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping live API test in short mode")
-	}
-	if os.Getenv("LIVE_API_TESTS") == "" {
-		t.Skip("skipping live API test (set LIVE_API_TESTS=1 to enable)")
-	}
-
-	apiKey := os.Getenv("ANTHROPIC_API_KEY")
-	if apiKey == "" {
-		t.Fatal("ANTHROPIC_API_KEY environment variable is required for live API tests")
-	}
-
-	svc := NewDiscoveryService(nil, nil)
-	prov := &Provider{
-		ID:      uuid.New(),
-		BaseURL: "https://api.anthropic.com",
-	}
-
-	ctx := context.Background()
-	models, err := svc.discoverAnthropic(ctx, prov, apiKey)
-	if err != nil {
-		t.Fatalf("discoverAnthropic failed: %v", err)
-	}
-
-	t.Logf("Discovered %d models from Anthropic", len(models))
-
-	pricingMatched := 0
-	for _, m := range models {
-		if m.InputPricePerMillion != nil {
-			pricingMatched++
-		}
-	}
-	t.Logf("  Pricing-matched: %d, No pricing: %d", pricingMatched, len(models)-pricingMatched)
-
-	if pricingMatched == 0 {
-		t.Error("expected at least some pricing-matched models")
-	}
-
-	for _, m := range models {
-		var caps model.Capability
-		//nolint:gosec // test-only
-		json.Unmarshal([]byte(m.Capabilities), &caps)
-		ctxLen := "<nil>"
-		if m.ContextLength != nil {
-			ctxLen = fmt.Sprintf("%d", *m.ContextLength)
-		}
-		maxOut := "<nil>"
-		if m.MaxOutputTokens != nil {
-			maxOut = fmt.Sprintf("%d", *m.MaxOutputTokens)
-		}
-		inPrice := "<nil>"
-		if m.InputPricePerMillion != nil {
-			inPrice = fmt.Sprintf("$%.2f", *m.InputPricePerMillion)
-		}
-		outPrice := "<nil>"
-		if m.OutputPricePerMillion != nil {
-			outPrice = fmt.Sprintf("$%.2f", *m.OutputPricePerMillion)
-		}
-		cachePrice := "<nil>"
-		if m.InputPricePerMillionCacheHit != nil {
-			cachePrice = fmt.Sprintf("$%.2f", *m.InputPricePerMillionCacheHit)
-		}
-		t.Logf("  %s display=%s ctx=%s max_out=%s in=%s out=%s cache=%s vision=%v struct=%v pdf=%v",
-			m.ModelID, m.DisplayName, ctxLen, maxOut,
-			inPrice, outPrice, cachePrice,
-			caps.Vision, caps.StructuredOutput, caps.PDFUpload)
-	}
-
-	for _, m := range models {
-		if m.ModelID == "claude-opus-4-7" || m.ModelID == "claude-opus-4-6" {
-			if m.InputPricePerMillion == nil {
-				t.Errorf("%s should have pricing", m.ModelID)
-			}
-			if m.ContextLength == nil {
-				t.Errorf("%s should have context length from API", m.ModelID)
-			}
-			if m.DisplayName == "" {
-				t.Errorf("%s should have display name from API", m.ModelID)
-			}
-		}
-		if m.ModelID == "claude-opus-4-5-20251101" {
-			if m.InputPricePerMillion == nil {
-				t.Error("claude-opus-4-5-20251101 should have pricing from catalog strip")
-			}
-			if *m.InputPricePerMillion != 5.00 {
-				t.Errorf("claude-opus-4-5-20251101 input price: got %.2f, want 5.00", *m.InputPricePerMillion)
-			}
-			if m.DisplayName != "Claude Opus 4.5" {
-				t.Errorf("claude-opus-4-5-20251101 display name: got %s, want 'Claude Opus 4.5'", m.DisplayName)
-			}
-		}
-	}
-}
+// TestAnthropicDiscoveryLiveAPI moved to discovery_live_test.go (//go:build live).

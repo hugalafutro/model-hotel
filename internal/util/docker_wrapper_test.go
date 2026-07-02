@@ -1174,16 +1174,18 @@ func TestListComposeContainers_NoComposeLabel(t *testing.T) {
 
 // TestIsDockerAvailable_SocketNotExists tests when Docker socket doesn't exist
 func TestIsDockerAvailable_SocketNotExists(t *testing.T) {
+	// Point the socket path at a guaranteed-absent file so the check is
+	// deterministic whether or not the host actually runs Docker (it used to
+	// skip on a dev box where the socket exists).
+	orig := dockerSocketPath
+	dockerSocketPath = filepath.Join(t.TempDir(), "nonexistent-docker.sock")
+	t.Cleanup(func() {
+		dockerSocketPath = orig
+		resetDockerState()
+	})
 	resetDockerState()
 
-	// Check if socket exists - skip if it does (local dev environment)
-	if _, err := os.Stat(dockerSocketPath); err == nil {
-		t.Skip("Docker socket exists in this environment, skipping socket-not-exists test")
-	}
-
-	// In CI/test environment without Docker, this verifies graceful handling
-	result := IsDockerAvailable()
-	if result {
+	if IsDockerAvailable() {
 		t.Error("expected false when socket doesn't exist")
 	}
 }

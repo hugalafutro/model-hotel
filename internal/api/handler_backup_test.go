@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -41,34 +40,9 @@ func TestCreateBackup_AlreadyInProgress(t *testing.T) {
 
 // TestCreateBackup_NoPgDump tests the pg_dump not found path
 
-func TestCreateBackup_NoPgDump(t *testing.T) {
-	h := newTestHandler(t)
-
-	// Create a backup handler with a test directory
-	backupDir := filepath.Join(h.cfg.DataDir, "backups")
-	bh := NewBackupHandler(h.cfg.DatabaseURL, backupDir, h.adminMgr, nil)
-
-	// Register the backup handler on a separate router
-	backupRouter := chi.NewRouter()
-	bh.Register(backupRouter)
-
-	// This test will only pass if pg_dump is NOT installed
-	if _, err := exec.LookPath("pg_dump"); err == nil {
-		t.Skip("pg_dump is installed, cannot test missing binary path")
-	}
-
-	req := httptest.NewRequest("POST", "/backups", http.NoBody)
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	w := httptest.NewRecorder()
-	backupRouter.ServeHTTP(w, req)
-
-	// Should get 412 Precondition Failed
-	if w.Code != http.StatusPreconditionFailed {
-		t.Errorf("expected 412 Precondition Failed, got %d: %s", w.Code, w.Body.String())
-	}
-}
-
-// TestDiscoverProviderModels_DisabledProviderExplicit tests the disabled provider path
+// The pg_dump-missing 412 path is covered deterministically by
+// TestCreateBackup_NoPgDump_ManipulatedPATH; this environment-conditional
+// duplicate that skipped when pg_dump was installed was removed (no skips).
 
 func TestListBackups_EmptyDirectory_Integration(t *testing.T) {
 	h, router := newTestHandlerWithRouter(t)

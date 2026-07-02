@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -213,98 +212,4 @@ func TestOpenAIDiscoveryWithMockServer(t *testing.T) {
 	t.Logf("Mock server discovery test passed - %d models discovered", len(models))
 }
 
-func TestOpenAIDiscoveryLiveAPI(t *testing.T) {
-	// This test is skipped unless explicitly enabled
-	if testing.Short() {
-		t.Skip("skipping live API test in short mode")
-	}
-	if os.Getenv("LIVE_API_TESTS") == "" {
-		t.Skip("skipping live API test (set LIVE_API_TESTS=1 to enable)")
-	}
-
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		t.Fatal("OPENAI_API_KEY environment variable is required for live API tests")
-	}
-
-	svc := NewDiscoveryService(nil, nil)
-	prov := &Provider{
-		ID:      uuid.New(),
-		BaseURL: "https://api.openai.com/v1",
-	}
-
-	ctx := context.Background()
-	models, err := svc.discoverOpenAI(ctx, prov, apiKey)
-	if err != nil {
-		t.Fatalf("discoverOpenAI failed: %v", err)
-	}
-
-	t.Logf("Discovered %d models from OpenAI", len(models))
-
-	catalogMatches := 0
-	minimalEntries := 0
-	for _, m := range models {
-		if m.InputPricePerMillion != nil {
-			catalogMatches++
-		} else {
-			minimalEntries++
-		}
-	}
-
-	t.Logf("  Catalog-matched: %d, Minimal entries: %d", catalogMatches, minimalEntries)
-
-	if catalogMatches == 0 {
-		t.Error("expected at least some catalog-matched models")
-	}
-
-	// Verify specific catalog-matched model
-	for _, m := range models {
-		if m.ModelID == "gpt-5.5" {
-			if m.DisplayName != "GPT 5.5" {
-				t.Errorf("gpt-5.5 display name: got %s", m.DisplayName)
-			}
-			if m.InputPricePerMillion == nil || *m.InputPricePerMillion != 5.00 {
-				t.Errorf("gpt-5.5 input price: got %v", m.InputPricePerMillion)
-			}
-			if m.OutputPricePerMillion == nil || *m.OutputPricePerMillion != 30.00 {
-				t.Errorf("gpt-5.5 output price: got %v", m.OutputPricePerMillion)
-			}
-			if m.ContextLength == nil || *m.ContextLength != 272000 {
-				t.Errorf("gpt-5.5 context: got %v", m.ContextLength)
-			}
-			if m.InputPricePerMillionCacheHit == nil || *m.InputPricePerMillionCacheHit != 0.50 {
-				t.Errorf("gpt-5.5 cache hit: got %v", m.InputPricePerMillionCacheHit)
-			}
-
-			var caps model.Capability
-			json.Unmarshal([]byte(m.Capabilities), &caps)
-			if !caps.Reasoning {
-				t.Error("gpt-5.5 should have Reasoning=true")
-			}
-			if !caps.ToolCalling {
-				t.Error("gpt-5.5 should have ToolCalling=true")
-			}
-			if !caps.StructuredOutput {
-				t.Error("gpt-5.5 should have StructuredOutput=true")
-			}
-
-			t.Logf("OK: gpt-5.5 -> display=%s, ctx=%d, in=$%.2f, out=$%.2f, cache=$%.2f",
-				m.DisplayName, *m.ContextLength, *m.InputPricePerMillion, *m.OutputPricePerMillion, *m.InputPricePerMillionCacheHit)
-			break
-		}
-	}
-
-	// Spot-check an unknown model
-	for _, m := range models {
-		if m.ModelID == "text-embedding-3-small" {
-			if m.InputPricePerMillion != nil {
-				t.Errorf("embedding model should have nil pricing, got %v", m.InputPricePerMillion)
-			}
-			if m.DisplayName != "text-embedding-3-small" {
-				t.Errorf("unknown model should use ID as DisplayName, got %s", m.DisplayName)
-			}
-			t.Logf("OK: unknown model %s -> display=%s, pricing=nil (minimal entry)", m.ModelID, m.DisplayName)
-			break
-		}
-	}
-}
+// TestOpenAIDiscoveryLiveAPI moved to discovery_live_test.go (//go:build live).

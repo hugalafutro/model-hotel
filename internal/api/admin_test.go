@@ -1992,14 +1992,6 @@ func TestListProviders_WithTokenCounts(t *testing.T) {
 	}
 }
 
-// TestListProviders_ModelCountQueryError tests ListProviders when the model count query fails
-// (using closed pool) to cover the model count query error path.
-func TestListProviders_ModelCountQueryError(t *testing.T) {
-	// Skip this test as it requires internal access to db.DB fields
-	// The error path is covered by TestListProviders_CancelledContext in admin_test.go
-	t.Skip("requires internal db.DB manipulation - covered by TestListProviders_CancelledContext")
-}
-
 // TestListProviders_TokenCountScanError tests the token count rows.Scan error
 // path in ListProviders. Uses a cancelled context during the token count query
 // to force a query failure.
