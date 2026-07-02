@@ -103,7 +103,8 @@
 			"settings": "Inställningar",
 			"failoverBadgeExplain": "Failover-leverantörer efter circuit-breaker-status - {{closed}} fungerar / {{halfOpen}} återställs / {{open}} utlöst",
 			"discoveryChangesBadge_one": "{{count}} ändring från bakgrundsupptäckt – klicka för att granska",
-			"discoveryChangesBadge_other": "{{count}} ändringar från bakgrundsdetektering – klicka för att granska"
+			"discoveryChangesBadge_other": "{{count}} ändringar från bakgrundsdetektering – klicka för att granska",
+			"users": "Användare"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Logga in med SSO",
 			"signInWithSSOProvider": "Logga in med {{provider}}",
 			"ssoFailed": "Enkel inloggning misslyckades. Försök igen eller använd en annan inloggningsmetod.",
-			"signInWithGithub": "Logga in med GitHub"
+			"signInWithGithub": "Logga in med GitHub",
+			"username": "Användarnamn",
+			"usernamePlaceholder": "Ange ditt användarnamn",
+			"password": "Lösenord",
+			"signInUser": "Logga in med lösenord",
+			"userCredentialsRequired": "Ange ditt användarnamn och lösenord",
+			"userLoginFailed": "Ogiltigt användarnamn eller lösenord",
+			"userLoginThrottled": "För många misslyckade försök. Försök igen senare."
 		},
 		"theme": {
 			"switchToLight": "Byt till ljust läge",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Stöds inte"
+		}
+	},
+	"users": {
+		"title": "Användare",
+		"description": "Hantera dashboardkonton och vad varje användare har åtkomst till.",
+		"addButton": "Lägg till användare",
+		"emptyState": "Inga användare ännu. Lägg till en för att ge någon begränsad åtkomst till denna dashboard.",
+		"table": {
+			"username": "Användarnamn",
+			"displayName": "Visningsnamn",
+			"email": "E-post",
+			"emailTooltip": "Verifierade SSO-inloggningar med denna e-post loggar in som denna användare.",
+			"role": "Roll",
+			"grants": "Åtkomst",
+			"grantsTooltip": "Funktionerna som denna användare kan öppna.",
+			"status": "Status",
+			"lastLogin": "Senaste inloggning",
+			"allGrants": "Allt",
+			"noGrants": "Ingen"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Användare"
+		},
+		"status": {
+			"enabled": "Aktiverad",
+			"disabled": "Inaktiverad"
+		},
+		"grant": {
+			"chat": "Chatt",
+			"usage": "Användning",
+			"logs": "Loggar",
+			"models": "Modeller",
+			"virtual_keys": "Virtuella nycklar"
+		},
+		"modal": {
+			"addTitle": "Lägg till användare",
+			"editTitle": "Redigera användare",
+			"username": "Användarnamn",
+			"displayName": "Visningsnamn",
+			"email": "E-post (valfritt)",
+			"emailHint": "Koppla en e-postadress så att OIDC- eller GitHub-inloggningar med denna verifierade adress loggar in som denna användare.",
+			"password": "Lösenord",
+			"passwordPlaceholder": "Minst 8 tecken",
+			"role": "Roll",
+			"roleAdminHint": "Admins har åtkomst till allt, inklusive denna sida.",
+			"roleUserHint": "Användare ser bara funktionerna som är ibockade nedan.",
+			"grants": "Åtkomst",
+			"enabled": "Konto aktiverat",
+			"save": "Spara ändringar",
+			"create": "Skapa användare",
+			"cancel": "Avbryt",
+			"deleteButton": "Ta bort användare",
+			"deleteConfirmTitle": "Ta bort användare",
+			"deleteConfirmMessage": "Detta konto och dess sessioner tas bort omedelbart.",
+			"resetPassword": "Återställ lösenord",
+			"resetButton": "Återställ",
+			"resetHint": "Återställningen loggar ut användaren överallt."
+		},
+		"toast": {
+			"created": "Användare skapad",
+			"updated": "Användare uppdaterad",
+			"deleted": "Användare borttagen",
+			"passwordReset": "Lösenord återställt",
+			"saveFailed": "Kunde inte spara användaren",
+			"deleteFailed": "Kunde inte ta bort användaren"
+		},
+		"validation": {
+			"usernameRequired": "Användarnamn krävs",
+			"passwordShort": "Lösenordet måste vara minst 8 tecken"
 		}
 	}
 }

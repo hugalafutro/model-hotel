@@ -103,7 +103,8 @@
 			"settings": "설정",
 			"failoverBadgeExplain": "서킷 브레이커 상태에 따른 페일오버 제공업체 - {{closed}} 정상 / {{halfOpen}} 복구 중 / {{open}} 트립됨",
 			"discoveryChangesBadge_one": "{{count}}: 백그라운드 검색에서 변경됨 - 클릭하여 검토",
-			"discoveryChangesBadge_other": "{{count}}는 백그라운드 검색에서 변경된 사항입니다 - 클릭하여 검토하세요"
+			"discoveryChangesBadge_other": "{{count}}는 백그라운드 검색에서 변경된 사항입니다 - 클릭하여 검토하세요",
+			"users": "사용자"
 		},
 		"status": {
 			"apiStatus": "API 상태",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "SSO로 로그인",
 			"signInWithSSOProvider": "{{provider}}(으)로 로그인",
 			"ssoFailed": "싱글 사인온에 실패했습니다. 다시 시도하거나 다른 로그인 방법을 사용하세요.",
-			"signInWithGithub": "GitHub(으)로 로그인"
+			"signInWithGithub": "GitHub(으)로 로그인",
+			"username": "사용자 이름",
+			"usernamePlaceholder": "사용자 이름을 입력하세요",
+			"password": "비밀번호",
+			"signInUser": "비밀번호로 로그인",
+			"userCredentialsRequired": "사용자 이름과 비밀번호를 입력하세요",
+			"userLoginFailed": "사용자 이름 또는 비밀번호가 올바르지 않습니다",
+			"userLoginThrottled": "실패 횟수가 너무 많습니다. 나중에 다시 시도하세요."
 		},
 		"theme": {
 			"switchToLight": "라이트 모드로 전환",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "지원되지 않음"
+		}
+	},
+	"users": {
+		"title": "사용자",
+		"description": "대시보드 계정과 각 사용자의 접근 범위를 관리합니다.",
+		"addButton": "사용자 추가",
+		"emptyState": "아직 사용자가 없습니다. 사용자를 추가해 이 대시보드에 제한된 접근 권한을 부여하세요.",
+		"table": {
+			"username": "사용자 이름",
+			"displayName": "표시 이름",
+			"email": "이메일",
+			"emailTooltip": "이 이메일로 검증된 SSO 로그인은 이 사용자로 로그인됩니다.",
+			"role": "역할",
+			"grants": "접근 권한",
+			"grantsTooltip": "이 사용자가 열 수 있는 기능입니다.",
+			"status": "상태",
+			"lastLogin": "마지막 로그인",
+			"allGrants": "전체",
+			"noGrants": "없음"
+		},
+		"role": {
+			"admin": "관리자",
+			"user": "사용자"
+		},
+		"status": {
+			"enabled": "활성",
+			"disabled": "비활성"
+		},
+		"grant": {
+			"chat": "채팅",
+			"usage": "사용량",
+			"logs": "로그",
+			"models": "모델",
+			"virtual_keys": "가상 키"
+		},
+		"modal": {
+			"addTitle": "사용자 추가",
+			"editTitle": "사용자 편집",
+			"username": "사용자 이름",
+			"displayName": "표시 이름",
+			"email": "이메일 (선택)",
+			"emailHint": "이메일을 연결하면 이 검증된 주소로 하는 OIDC 또는 GitHub 로그인이 이 사용자로 로그인됩니다.",
+			"password": "비밀번호",
+			"passwordPlaceholder": "8자 이상",
+			"role": "역할",
+			"roleAdminHint": "관리자는 이 페이지를 포함해 모든 것에 접근할 수 있습니다.",
+			"roleUserHint": "사용자에게는 아래에 선택한 기능만 표시됩니다.",
+			"grants": "접근 권한",
+			"enabled": "계정 활성화",
+			"save": "변경 사항 저장",
+			"create": "사용자 생성",
+			"cancel": "취소",
+			"deleteButton": "사용자 삭제",
+			"deleteConfirmTitle": "사용자 삭제",
+			"deleteConfirmMessage": "이 계정과 해당 세션이 즉시 제거됩니다.",
+			"resetPassword": "비밀번호 재설정",
+			"resetButton": "재설정",
+			"resetHint": "재설정하면 이 사용자는 모든 곳에서 로그아웃됩니다."
+		},
+		"toast": {
+			"created": "사용자가 생성되었습니다",
+			"updated": "사용자가 업데이트되었습니다",
+			"deleted": "사용자가 삭제되었습니다",
+			"passwordReset": "비밀번호가 재설정되었습니다",
+			"saveFailed": "사용자를 저장하지 못했습니다",
+			"deleteFailed": "사용자를 삭제하지 못했습니다"
+		},
+		"validation": {
+			"usernameRequired": "사용자 이름은 필수입니다",
+			"passwordShort": "비밀번호는 8자 이상이어야 합니다"
 		}
 	}
 }

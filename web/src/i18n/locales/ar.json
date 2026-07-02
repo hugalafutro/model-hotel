@@ -103,7 +103,8 @@
 			"settings": "الإعدادات",
 			"failoverBadgeExplain": "مزودي التحويل التلقائي حسب حالة قاطع الدائرة - {{closed}} سليم / {{halfOpen}} قيد الاستعادة / {{open}} تعطل",
 			"discoveryChangesBadge_one": "تغيير {{count}} من الاكتشاف في الخلفية - انقر للمراجعة",
-			"discoveryChangesBadge_other": "تغييرات {{count}} من عملية الاكتشاف في الخلفية - انقر للمراجعة"
+			"discoveryChangesBadge_other": "تغييرات {{count}} من عملية الاكتشاف في الخلفية - انقر للمراجعة",
+			"users": "المستخدمون"
 		},
 		"status": {
 			"apiStatus": "حالة API",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "تسجيل الدخول باستخدام SSO",
 			"signInWithSSOProvider": "تسجيل الدخول باستخدام {{provider}}",
 			"ssoFailed": "فشل تسجيل الدخول الموحّد. حاول مرة أخرى أو استخدم طريقة تسجيل دخول أخرى.",
-			"signInWithGithub": "تسجيل الدخول باستخدام GitHub"
+			"signInWithGithub": "تسجيل الدخول باستخدام GitHub",
+			"username": "اسم المستخدم",
+			"usernamePlaceholder": "أدخل اسم المستخدم",
+			"password": "كلمة المرور",
+			"signInUser": "تسجيل الدخول بكلمة المرور",
+			"userCredentialsRequired": "أدخل اسم المستخدم وكلمة المرور",
+			"userLoginFailed": "اسم المستخدم أو كلمة المرور غير صحيحة",
+			"userLoginThrottled": "محاولات فاشلة كثيرة جدًا. حاول مرة أخرى لاحقًا."
 		},
 		"theme": {
 			"switchToLight": "التبديل إلى الوضع الفاتح",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "غير مدعوم"
+		}
+	},
+	"users": {
+		"title": "المستخدمون",
+		"description": "إدارة حسابات لوحة التحكم وما يمكن لكل مستخدم الوصول إليه.",
+		"addButton": "إضافة مستخدم",
+		"emptyState": "لا يوجد مستخدمون بعد. أضف مستخدمًا لمنح شخص ما وصولًا محدودًا إلى لوحة التحكم هذه.",
+		"table": {
+			"username": "اسم المستخدم",
+			"displayName": "الاسم المعروض",
+			"email": "البريد الإلكتروني",
+			"emailTooltip": "تسجيلات الدخول عبر SSO المتحقق منها بهذا البريد تدخل بهوية هذا المستخدم.",
+			"role": "الدور",
+			"grants": "الوصول",
+			"grantsTooltip": "الميزات التي يمكن لهذا المستخدم فتحها.",
+			"status": "الحالة",
+			"lastLogin": "آخر تسجيل دخول",
+			"allGrants": "كل شيء",
+			"noGrants": "لا شيء"
+		},
+		"role": {
+			"admin": "مسؤول",
+			"user": "مستخدم"
+		},
+		"status": {
+			"enabled": "مفعّل",
+			"disabled": "معطّل"
+		},
+		"grant": {
+			"chat": "الدردشة",
+			"usage": "الاستخدام",
+			"logs": "السجلات",
+			"models": "النماذج",
+			"virtual_keys": "المفاتيح الافتراضية"
+		},
+		"modal": {
+			"addTitle": "إضافة مستخدم",
+			"editTitle": "تعديل المستخدم",
+			"username": "اسم المستخدم",
+			"displayName": "الاسم المعروض",
+			"email": "البريد الإلكتروني (اختياري)",
+			"emailHint": "اربط بريدًا إلكترونيًا حتى تدخل تسجيلات OIDC أو GitHub بهذا العنوان المتحقق منه بهوية هذا المستخدم.",
+			"password": "كلمة المرور",
+			"passwordPlaceholder": "8 أحرف على الأقل",
+			"role": "الدور",
+			"roleAdminHint": "يمكن للمسؤولين الوصول إلى كل شيء، بما في ذلك هذه الصفحة.",
+			"roleUserHint": "يرى المستخدمون فقط الميزات المحددة أدناه.",
+			"grants": "الوصول",
+			"enabled": "الحساب مفعّل",
+			"save": "حفظ التغييرات",
+			"create": "إنشاء المستخدم",
+			"cancel": "إلغاء",
+			"deleteButton": "حذف المستخدم",
+			"deleteConfirmTitle": "حذف المستخدم",
+			"deleteConfirmMessage": "سيُزال هذا الحساب وجلساته فورًا.",
+			"resetPassword": "إعادة تعيين كلمة المرور",
+			"resetButton": "إعادة تعيين",
+			"resetHint": "تؤدي إعادة التعيين إلى تسجيل خروج المستخدم من كل مكان."
+		},
+		"toast": {
+			"created": "تم إنشاء المستخدم",
+			"updated": "تم تحديث المستخدم",
+			"deleted": "تم حذف المستخدم",
+			"passwordReset": "تمت إعادة تعيين كلمة المرور",
+			"saveFailed": "تعذر حفظ المستخدم",
+			"deleteFailed": "تعذر حذف المستخدم"
+		},
+		"validation": {
+			"usernameRequired": "اسم المستخدم مطلوب",
+			"passwordShort": "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل"
 		}
 	}
 }

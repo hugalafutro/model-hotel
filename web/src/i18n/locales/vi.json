@@ -103,7 +103,8 @@
 			"settings": "Cài đặt",
 			"failoverBadgeExplain": "Các nhà cung cấp dự phòng theo trạng thái ngắt mạch - {{closed}} hoạt động bình thường / {{halfOpen}} đang phục hồi / {{open}} bị ngắt",
 			"discoveryChangesBadge_one": "Thay đổi {{count}} từ quá trình phát hiện nền - nhấp để xem lại",
-			"discoveryChangesBadge_other": "{{count}} thay đổi từ tính năng phát hiện nền - nhấp để xem lại"
+			"discoveryChangesBadge_other": "{{count}} thay đổi từ tính năng phát hiện nền - nhấp để xem lại",
+			"users": "Người dùng"
 		},
 		"status": {
 			"apiStatus": "Trạng thái API",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Đăng nhập bằng SSO",
 			"signInWithSSOProvider": "Đăng nhập bằng {{provider}}",
 			"ssoFailed": "Đăng nhập một lần không thành công. Hãy thử lại hoặc dùng phương thức đăng nhập khác.",
-			"signInWithGithub": "Đăng nhập bằng GitHub"
+			"signInWithGithub": "Đăng nhập bằng GitHub",
+			"username": "Tên đăng nhập",
+			"usernamePlaceholder": "Nhập tên đăng nhập của bạn",
+			"password": "Mật khẩu",
+			"signInUser": "Đăng nhập bằng mật khẩu",
+			"userCredentialsRequired": "Nhập tên đăng nhập và mật khẩu",
+			"userLoginFailed": "Tên đăng nhập hoặc mật khẩu không hợp lệ",
+			"userLoginThrottled": "Quá nhiều lần thất bại. Vui lòng thử lại sau."
 		},
 		"theme": {
 			"switchToLight": "Chuyển sang chế độ sáng",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Không được hỗ trợ"
+		}
+	},
+	"users": {
+		"title": "Người dùng",
+		"description": "Quản lý tài khoản bảng điều khiển và quyền truy cập của từng người dùng.",
+		"addButton": "Thêm người dùng",
+		"emptyState": "Chưa có người dùng nào. Thêm một người để cấp quyền truy cập hạn chế vào bảng điều khiển này.",
+		"table": {
+			"username": "Tên đăng nhập",
+			"displayName": "Tên hiển thị",
+			"email": "Email",
+			"emailTooltip": "Các lần đăng nhập SSO đã xác minh với email này sẽ đăng nhập với tư cách người dùng này.",
+			"role": "Vai trò",
+			"grants": "Quyền truy cập",
+			"grantsTooltip": "Các tính năng mà người dùng này có thể mở.",
+			"status": "Trạng thái",
+			"lastLogin": "Lần đăng nhập cuối",
+			"allGrants": "Tất cả",
+			"noGrants": "Không có"
+		},
+		"role": {
+			"admin": "Quản trị viên",
+			"user": "Người dùng"
+		},
+		"status": {
+			"enabled": "Đang bật",
+			"disabled": "Đã tắt"
+		},
+		"grant": {
+			"chat": "Trò chuyện",
+			"usage": "Mức sử dụng",
+			"logs": "Nhật ký",
+			"models": "Mô hình",
+			"virtual_keys": "Khóa ảo"
+		},
+		"modal": {
+			"addTitle": "Thêm người dùng",
+			"editTitle": "Chỉnh sửa người dùng",
+			"username": "Tên đăng nhập",
+			"displayName": "Tên hiển thị",
+			"email": "Email (tùy chọn)",
+			"emailHint": "Liên kết email để các lần đăng nhập OIDC hoặc GitHub với địa chỉ đã xác minh này đăng nhập với tư cách người dùng này.",
+			"password": "Mật khẩu",
+			"passwordPlaceholder": "Ít nhất 8 ký tự",
+			"role": "Vai trò",
+			"roleAdminHint": "Quản trị viên có thể truy cập mọi thứ, kể cả trang này.",
+			"roleUserHint": "Người dùng chỉ thấy các tính năng được đánh dấu bên dưới.",
+			"grants": "Quyền truy cập",
+			"enabled": "Tài khoản đang bật",
+			"save": "Lưu thay đổi",
+			"create": "Tạo người dùng",
+			"cancel": "Hủy",
+			"deleteButton": "Xóa người dùng",
+			"deleteConfirmTitle": "Xóa người dùng",
+			"deleteConfirmMessage": "Tài khoản này và các phiên của nó sẽ bị xóa ngay lập tức.",
+			"resetPassword": "Đặt lại mật khẩu",
+			"resetButton": "Đặt lại",
+			"resetHint": "Đặt lại sẽ đăng xuất người dùng ở mọi nơi."
+		},
+		"toast": {
+			"created": "Đã tạo người dùng",
+			"updated": "Đã cập nhật người dùng",
+			"deleted": "Đã xóa người dùng",
+			"passwordReset": "Đã đặt lại mật khẩu",
+			"saveFailed": "Không thể lưu người dùng",
+			"deleteFailed": "Không thể xóa người dùng"
+		},
+		"validation": {
+			"usernameRequired": "Tên đăng nhập là bắt buộc",
+			"passwordShort": "Mật khẩu phải có ít nhất 8 ký tự"
 		}
 	}
 }

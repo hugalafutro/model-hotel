@@ -103,7 +103,8 @@
 			"settings": "設定",
 			"failoverBadgeExplain": "サーキットブレーカーの状態によるフェイルオーバープロバイダー - {{closed}} 正常 / {{halfOpen}} 復旧中 / {{open}} トリップ",
 			"discoveryChangesBadge_one": "{{count}}：バックグラウンド検出からの変更 - クリックして確認",
-			"discoveryChangesBadge_other": "{{count}}はバックグラウンド検出による変更です - クリックして確認してください"
+			"discoveryChangesBadge_other": "{{count}}はバックグラウンド検出による変更です - クリックして確認してください",
+			"users": "ユーザー"
 		},
 		"status": {
 			"apiStatus": "APIステータス",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "SSO でサインイン",
 			"signInWithSSOProvider": "{{provider}} でサインイン",
 			"ssoFailed": "シングルサインオンに失敗しました。もう一度試すか、別のサインイン方法を使用してください。",
-			"signInWithGithub": "GitHub でサインイン"
+			"signInWithGithub": "GitHub でサインイン",
+			"username": "ユーザー名",
+			"usernamePlaceholder": "ユーザー名を入力してください",
+			"password": "パスワード",
+			"signInUser": "パスワードでサインイン",
+			"userCredentialsRequired": "ユーザー名とパスワードを入力してください",
+			"userLoginFailed": "ユーザー名またはパスワードが正しくありません",
+			"userLoginThrottled": "失敗が多すぎます。しばらくしてからもう一度お試しください。"
 		},
 		"theme": {
 			"switchToLight": "ライトモードに切り替え",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "対応していません"
+		}
+	},
+	"users": {
+		"title": "ユーザー",
+		"description": "ダッシュボードのアカウントと各ユーザーのアクセス範囲を管理します。",
+		"addButton": "ユーザーを追加",
+		"emptyState": "まだユーザーがいません。追加すると、このダッシュボードへの限定アクセスを付与できます。",
+		"table": {
+			"username": "ユーザー名",
+			"displayName": "表示名",
+			"email": "メールアドレス",
+			"emailTooltip": "このメールアドレスで検証済みのSSOサインインは、このユーザーとしてログインします。",
+			"role": "ロール",
+			"grants": "アクセス",
+			"grantsTooltip": "このユーザーが開ける機能。",
+			"status": "状態",
+			"lastLogin": "最終ログイン",
+			"allGrants": "すべて",
+			"noGrants": "なし"
+		},
+		"role": {
+			"admin": "管理者",
+			"user": "ユーザー"
+		},
+		"status": {
+			"enabled": "有効",
+			"disabled": "無効"
+		},
+		"grant": {
+			"chat": "チャット",
+			"usage": "利用状況",
+			"logs": "ログ",
+			"models": "モデル",
+			"virtual_keys": "仮想キー"
+		},
+		"modal": {
+			"addTitle": "ユーザーを追加",
+			"editTitle": "ユーザーを編集",
+			"username": "ユーザー名",
+			"displayName": "表示名",
+			"email": "メールアドレス（任意）",
+			"emailHint": "メールアドレスを紐付けると、この検証済みアドレスでのOIDCまたはGitHubサインインがこのユーザーとしてログインします。",
+			"password": "パスワード",
+			"passwordPlaceholder": "8文字以上",
+			"role": "ロール",
+			"roleAdminHint": "管理者はこのページを含むすべてにアクセスできます。",
+			"roleUserHint": "ユーザーには下でチェックした機能だけが表示されます。",
+			"grants": "アクセス",
+			"enabled": "アカウント有効",
+			"save": "変更を保存",
+			"create": "ユーザーを作成",
+			"cancel": "キャンセル",
+			"deleteButton": "ユーザーを削除",
+			"deleteConfirmTitle": "ユーザーを削除",
+			"deleteConfirmMessage": "このアカウントとそのセッションは直ちに削除されます。",
+			"resetPassword": "パスワードをリセット",
+			"resetButton": "リセット",
+			"resetHint": "リセットすると、このユーザーはすべての場所からログアウトされます。"
+		},
+		"toast": {
+			"created": "ユーザーを作成しました",
+			"updated": "ユーザーを更新しました",
+			"deleted": "ユーザーを削除しました",
+			"passwordReset": "パスワードをリセットしました",
+			"saveFailed": "ユーザーを保存できませんでした",
+			"deleteFailed": "ユーザーを削除できませんでした"
+		},
+		"validation": {
+			"usernameRequired": "ユーザー名は必須です",
+			"passwordShort": "パスワードは8文字以上にしてください"
 		}
 	}
 }

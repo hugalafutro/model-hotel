@@ -103,7 +103,8 @@
 			"settings": "Setări",
 			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit - {{closed}} funcțional / {{halfOpen}} în recuperare / {{open}} declanșat",
 			"discoveryChangesBadge_one": "Modificare {{count}} din descoperirea în fundal - faceți clic pentru a revizui",
-			"discoveryChangesBadge_other": "Modificările {{count}} din procesul de descoperire în fundal - faceți clic pentru a le revizui"
+			"discoveryChangesBadge_other": "Modificările {{count}} din procesul de descoperire în fundal - faceți clic pentru a le revizui",
+			"users": "Utilizatori"
 		},
 		"status": {
 			"apiStatus": "Stare API",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Conectează-te cu SSO",
 			"signInWithSSOProvider": "Conectează-te cu {{provider}}",
 			"ssoFailed": "Autentificarea unică a eșuat. Încearcă din nou sau folosește altă metodă de conectare.",
-			"signInWithGithub": "Conectează-te cu GitHub"
+			"signInWithGithub": "Conectează-te cu GitHub",
+			"username": "Nume de utilizator",
+			"usernamePlaceholder": "Introduceți numele de utilizator",
+			"password": "Parolă",
+			"signInUser": "Autentificare cu parolă",
+			"userCredentialsRequired": "Introduceți numele de utilizator și parola",
+			"userLoginFailed": "Nume de utilizator sau parolă nevalide",
+			"userLoginThrottled": "Prea multe încercări eșuate. Încercați din nou mai târziu."
 		},
 		"theme": {
 			"switchToLight": "Comută la modul luminos",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Nu este suportat"
+		}
+	},
+	"users": {
+		"title": "Utilizatori",
+		"description": "Gestionați conturile panoului și la ce are acces fiecare utilizator.",
+		"addButton": "Adaugă utilizator",
+		"emptyState": "Niciun utilizator încă. Adăugați unul pentru a oferi cuiva acces limitat la acest panou.",
+		"table": {
+			"username": "Nume de utilizator",
+			"displayName": "Nume afișat",
+			"email": "E-mail",
+			"emailTooltip": "Autentificările SSO verificate cu acest e-mail intră ca acest utilizator.",
+			"role": "Rol",
+			"grants": "Acces",
+			"grantsTooltip": "Funcțiile pe care acest utilizator le poate deschide.",
+			"status": "Stare",
+			"lastLogin": "Ultima autentificare",
+			"allGrants": "Tot",
+			"noGrants": "Niciunul"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Utilizator"
+		},
+		"status": {
+			"enabled": "Activat",
+			"disabled": "Dezactivat"
+		},
+		"grant": {
+			"chat": "Chat",
+			"usage": "Utilizare",
+			"logs": "Jurnale",
+			"models": "Modele",
+			"virtual_keys": "Chei virtuale"
+		},
+		"modal": {
+			"addTitle": "Adaugă utilizator",
+			"editTitle": "Editează utilizatorul",
+			"username": "Nume de utilizator",
+			"displayName": "Nume afișat",
+			"email": "E-mail (opțional)",
+			"emailHint": "Asociați un e-mail pentru ca autentificările OIDC sau GitHub cu această adresă verificată să intre ca acest utilizator.",
+			"password": "Parolă",
+			"passwordPlaceholder": "Cel puțin 8 caractere",
+			"role": "Rol",
+			"roleAdminHint": "Adminii au acces la tot, inclusiv la această pagină.",
+			"roleUserHint": "Utilizatorii văd doar funcțiile bifate mai jos.",
+			"grants": "Acces",
+			"enabled": "Cont activat",
+			"save": "Salvează modificările",
+			"create": "Creează utilizatorul",
+			"cancel": "Anulează",
+			"deleteButton": "Șterge utilizatorul",
+			"deleteConfirmTitle": "Șterge utilizatorul",
+			"deleteConfirmMessage": "Acest cont și sesiunile sale sunt eliminate imediat.",
+			"resetPassword": "Resetează parola",
+			"resetButton": "Resetează",
+			"resetHint": "Resetarea deconectează utilizatorul de peste tot."
+		},
+		"toast": {
+			"created": "Utilizator creat",
+			"updated": "Utilizator actualizat",
+			"deleted": "Utilizator șters",
+			"passwordReset": "Parolă resetată",
+			"saveFailed": "Utilizatorul nu a putut fi salvat",
+			"deleteFailed": "Utilizatorul nu a putut fi șters"
+		},
+		"validation": {
+			"usernameRequired": "Numele de utilizator este obligatoriu",
+			"passwordShort": "Parola trebuie să aibă cel puțin 8 caractere"
 		}
 	}
 }

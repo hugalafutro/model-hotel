@@ -103,7 +103,8 @@
 			"settings": "Instellings",
 			"failoverBadgeExplain": "Failover-verskaffers volgens circuitbreker-toestand - {{closed}} gesond / {{halfOpen}} besig om te herstel / {{open}} uitgeskakel",
 			"discoveryChangesBadge_one": "{{count}} verandering vanaf agtergrondontdekking - klik om te hersien",
-			"discoveryChangesBadge_other": "{{count}} veranderings vanaf agtergrondontdekking - klik om te hersien"
+			"discoveryChangesBadge_other": "{{count}} veranderings vanaf agtergrondontdekking - klik om te hersien",
+			"users": "Gebruikers"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Meld aan met SSO",
 			"signInWithSSOProvider": "Meld aan met {{provider}}",
 			"ssoFailed": "Enkelaanmelding het misluk. Probeer weer of gebruik 'n ander aanmeldmetode.",
-			"signInWithGithub": "Meld aan met GitHub"
+			"signInWithGithub": "Meld aan met GitHub",
+			"username": "Gebruikersnaam",
+			"usernamePlaceholder": "Voer jou gebruikersnaam in",
+			"password": "Wagwoord",
+			"signInUser": "Meld aan met wagwoord",
+			"userCredentialsRequired": "Voer jou gebruikersnaam en wagwoord in",
+			"userLoginFailed": "Ongeldige gebruikersnaam of wagwoord",
+			"userLoginThrottled": "Te veel mislukte pogings. Probeer later weer."
 		},
 		"theme": {
 			"switchToLight": "Skakel na ligte modus",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Nie ondersteun nie"
+		}
+	},
+	"users": {
+		"title": "Gebruikers",
+		"description": "Bestuur paneelbordrekeninge en waartoe elke gebruiker toegang het.",
+		"addButton": "Voeg gebruiker by",
+		"emptyState": "Nog geen gebruikers nie. Voeg een by om iemand beperkte toegang tot hierdie paneelbord te gee.",
+		"table": {
+			"username": "Gebruikersnaam",
+			"displayName": "Vertoonnaam",
+			"email": "E-pos",
+			"emailTooltip": "Geverifieerde SSO-aanmeldings met hierdie e-pos meld aan as hierdie gebruiker.",
+			"role": "Rol",
+			"grants": "Toegang",
+			"grantsTooltip": "Die funksies wat hierdie gebruiker kan oopmaak.",
+			"status": "Status",
+			"lastLogin": "Laaste aanmelding",
+			"allGrants": "Alles",
+			"noGrants": "Geen"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Gebruiker"
+		},
+		"status": {
+			"enabled": "Geaktiveer",
+			"disabled": "Gedeaktiveer"
+		},
+		"grant": {
+			"chat": "Klets",
+			"usage": "Gebruik",
+			"logs": "Logboeke",
+			"models": "Modelle",
+			"virtual_keys": "Virtuele sleutels"
+		},
+		"modal": {
+			"addTitle": "Voeg gebruiker by",
+			"editTitle": "Wysig gebruiker",
+			"username": "Gebruikersnaam",
+			"displayName": "Vertoonnaam",
+			"email": "E-pos (opsioneel)",
+			"emailHint": "Koppel 'n e-pos sodat OIDC- of GitHub-aanmeldings met hierdie geverifieerde adres as hierdie gebruiker aanmeld.",
+			"password": "Wagwoord",
+			"passwordPlaceholder": "Minstens 8 karakters",
+			"role": "Rol",
+			"roleAdminHint": "Admins het toegang tot alles, insluitend hierdie bladsy.",
+			"roleUserHint": "Gebruikers sien net die funksies wat hieronder gemerk is.",
+			"grants": "Toegang",
+			"enabled": "Rekening geaktiveer",
+			"save": "Stoor veranderinge",
+			"create": "Skep gebruiker",
+			"cancel": "Kanselleer",
+			"deleteButton": "Skrap gebruiker",
+			"deleteConfirmTitle": "Skrap gebruiker",
+			"deleteConfirmMessage": "Hierdie rekening en sy sessies word onmiddellik verwyder.",
+			"resetPassword": "Herstel wagwoord",
+			"resetButton": "Herstel",
+			"resetHint": "Herstel meld die gebruiker oral af."
+		},
+		"toast": {
+			"created": "Gebruiker geskep",
+			"updated": "Gebruiker bygewerk",
+			"deleted": "Gebruiker geskrap",
+			"passwordReset": "Wagwoord herstel",
+			"saveFailed": "Kon nie die gebruiker stoor nie",
+			"deleteFailed": "Kon nie die gebruiker skrap nie"
+		},
+		"validation": {
+			"usernameRequired": "Gebruikersnaam word vereis",
+			"passwordShort": "Die wagwoord moet minstens 8 karakters lank wees"
 		}
 	}
 }

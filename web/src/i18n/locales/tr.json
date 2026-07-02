@@ -103,7 +103,8 @@
 			"settings": "Ayarlar",
 			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları - {{closed}} sağlıklı / {{halfOpen}} kurtarma aşamasında / {{open}} devre dışı",
 			"discoveryChangesBadge_one": "{{count}} arka plan keşfinden yapılan değişiklik - gözden geçirmek için tıklayın",
-			"discoveryChangesBadge_other": "{{count}}, arka plan keşif sürecinden kaynaklanan değişiklikler - gözden geçirmek için tıklayın"
+			"discoveryChangesBadge_other": "{{count}}, arka plan keşif sürecinden kaynaklanan değişiklikler - gözden geçirmek için tıklayın",
+			"users": "Kullanıcılar"
 		},
 		"status": {
 			"apiStatus": "API Durumu",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "SSO ile oturum aç",
 			"signInWithSSOProvider": "{{provider}} ile oturum aç",
 			"ssoFailed": "Çoklu oturum açma başarısız oldu. Tekrar deneyin veya başka bir oturum açma yöntemi kullanın.",
-			"signInWithGithub": "GitHub ile oturum aç"
+			"signInWithGithub": "GitHub ile oturum aç",
+			"username": "Kullanıcı adı",
+			"usernamePlaceholder": "Kullanıcı adınızı girin",
+			"password": "Parola",
+			"signInUser": "Parola ile giriş yap",
+			"userCredentialsRequired": "Kullanıcı adınızı ve parolanızı girin",
+			"userLoginFailed": "Geçersiz kullanıcı adı veya parola",
+			"userLoginThrottled": "Çok fazla başarısız deneme. Daha sonra tekrar deneyin."
 		},
 		"theme": {
 			"switchToLight": "Açık moda geç",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Desteklenmiyor"
+		}
+	},
+	"users": {
+		"title": "Kullanıcılar",
+		"description": "Pano hesaplarını ve her kullanıcının nelere erişebileceğini yönetin.",
+		"addButton": "Kullanıcı ekle",
+		"emptyState": "Henüz kullanıcı yok. Birine bu panoya sınırlı erişim vermek için bir kullanıcı ekleyin.",
+		"table": {
+			"username": "Kullanıcı adı",
+			"displayName": "Görünen ad",
+			"email": "E-posta",
+			"emailTooltip": "Bu e-postayla doğrulanmış SSO girişleri bu kullanıcı olarak oturum açar.",
+			"role": "Rol",
+			"grants": "Erişim",
+			"grantsTooltip": "Bu kullanıcının açabileceği özellikler.",
+			"status": "Durum",
+			"lastLogin": "Son giriş",
+			"allGrants": "Her şey",
+			"noGrants": "Yok"
+		},
+		"role": {
+			"admin": "Yönetici",
+			"user": "Kullanıcı"
+		},
+		"status": {
+			"enabled": "Etkin",
+			"disabled": "Devre dışı"
+		},
+		"grant": {
+			"chat": "Sohbet",
+			"usage": "Kullanım",
+			"logs": "Günlükler",
+			"models": "Modeller",
+			"virtual_keys": "Sanal anahtarlar"
+		},
+		"modal": {
+			"addTitle": "Kullanıcı ekle",
+			"editTitle": "Kullanıcıyı düzenle",
+			"username": "Kullanıcı adı",
+			"displayName": "Görünen ad",
+			"email": "E-posta (isteğe bağlı)",
+			"emailHint": "Bu doğrulanmış adresle yapılan OIDC veya GitHub girişlerinin bu kullanıcı olarak oturum açması için bir e-posta bağlayın.",
+			"password": "Parola",
+			"passwordPlaceholder": "En az 8 karakter",
+			"role": "Rol",
+			"roleAdminHint": "Yöneticiler bu sayfa dahil her şeye erişebilir.",
+			"roleUserHint": "Kullanıcılar yalnızca aşağıda işaretli özellikleri görür.",
+			"grants": "Erişim",
+			"enabled": "Hesap etkin",
+			"save": "Değişiklikleri kaydet",
+			"create": "Kullanıcı oluştur",
+			"cancel": "İptal",
+			"deleteButton": "Kullanıcıyı sil",
+			"deleteConfirmTitle": "Kullanıcıyı sil",
+			"deleteConfirmMessage": "Bu hesap ve oturumları hemen kaldırılır.",
+			"resetPassword": "Parolayı sıfırla",
+			"resetButton": "Sıfırla",
+			"resetHint": "Sıfırlama, kullanıcının tüm oturumlarını kapatır."
+		},
+		"toast": {
+			"created": "Kullanıcı oluşturuldu",
+			"updated": "Kullanıcı güncellendi",
+			"deleted": "Kullanıcı silindi",
+			"passwordReset": "Parola sıfırlandı",
+			"saveFailed": "Kullanıcı kaydedilemedi",
+			"deleteFailed": "Kullanıcı silinemedi"
+		},
+		"validation": {
+			"usernameRequired": "Kullanıcı adı gerekli",
+			"passwordShort": "Parola en az 8 karakter olmalıdır"
 		}
 	}
 }

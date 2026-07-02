@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Eye, EyeOff, Trash2 } from "@/lib/icons";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -52,10 +52,14 @@ export function SecretField({
 	const hasDraft = value.length > 0;
 
 	// The draft is committed and reset to "" by the parent. Re-mask on reset so a
-	// later edit never starts unexpectedly revealed.
-	useEffect(() => {
+	// later edit never starts unexpectedly revealed. Adjusted during render (the
+	// React-sanctioned prev-tracking pattern) instead of an effect, so the
+	// re-mask happens in the same pass with no cascading re-render.
+	const [prevHasDraft, setPrevHasDraft] = useState(hasDraft);
+	if (prevHasDraft !== hasDraft) {
+		setPrevHasDraft(hasDraft);
 		if (!hasDraft) setShowSecret(false);
-	}, [hasDraft]);
+	}
 
 	return (
 		<div className="flex items-center gap-2">

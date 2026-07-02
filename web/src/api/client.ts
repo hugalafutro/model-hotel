@@ -2,12 +2,14 @@ import type {
 	AlertEventDef,
 	AlertStatus,
 	AppLogsCursorResponse,
+	AuthStatus,
 	BackupClassification,
 	BackupEntry,
 	CandidateModel,
 	CircuitBreakerStatus,
 	CreateFailoverGroupRequest,
 	CreateProviderRequest,
+	DashboardUser,
 	DeepSeekBalance,
 	DemoLogin,
 	DiscoverAllResult,
@@ -19,6 +21,7 @@ import type {
 	LogEntry,
 	LogsCursorResponse,
 	LogsResponse,
+	Me,
 	Model,
 	ModelsCursorResponse,
 	NanoGPTUsage,
@@ -40,6 +43,7 @@ import type {
 	TotpStatus,
 	UpdateFailoverGroupRequest,
 	UpdateProviderRequest,
+	UserUpsertRequest,
 	VirtualKey,
 	ZAICodingQuotaResponse,
 } from "./types";
@@ -1235,5 +1239,80 @@ export const api = {
 	github: {
 		status: async (): Promise<GithubStatus> =>
 			fetchJSON<GithubStatus>(`${API_BASE}/api/auth/github/status`),
+	},
+	// Multi-user auth: the status probe and login exchange are unauthenticated
+	// (login-screen surface); me reports the caller's resolved identity.
+	auth: {
+		status: async (): Promise<AuthStatus> =>
+			fetchJSON<AuthStatus>(`${API_BASE}/api/auth/status`),
+		login: async (
+			username: string,
+			password: string,
+		): Promise<{ token: string }> =>
+			fetchJSON<{ token: string }>(
+				`${API_BASE}/api/auth/login`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ username, password }),
+				},
+				"Login failed",
+			),
+		me: async (): Promise<Me> =>
+			fetchJSON<Me>(`${API_BASE}/api/auth/me`, {
+				headers: getAuthHeaders(),
+			}),
+	},
+	// Admin-only user management.
+	users: {
+		list: async (): Promise<DashboardUser[]> =>
+			fetchJSON<DashboardUser[]>(`${API_BASE}/api/users`, {
+				headers: getAuthHeaders(),
+			}),
+		grants: async (): Promise<{ grants: string[] }> =>
+			fetchJSON<{ grants: string[] }>(`${API_BASE}/api/users/grants`, {
+				headers: getAuthHeaders(),
+			}),
+		create: async (req: UserUpsertRequest): Promise<DashboardUser> =>
+			fetchJSON<DashboardUser>(
+				`${API_BASE}/api/users`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify(req),
+				},
+				"Failed to create user",
+			),
+		update: async (
+			id: string,
+			req: UserUpsertRequest,
+		): Promise<DashboardUser> =>
+			fetchJSON<DashboardUser>(
+				`${API_BASE}/api/users/${id}`,
+				{
+					method: "PUT",
+					headers: getAuthHeaders(),
+					body: JSON.stringify(req),
+				},
+				"Failed to update user",
+			),
+		setPassword: async (id: string, password: string): Promise<void> => {
+			await fetchJSON<{ ok: boolean }>(
+				`${API_BASE}/api/users/${id}/password`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({ password }),
+				},
+				"Failed to set password",
+			);
+		},
+		remove: async (id: string): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/users/${id}`,
+				{ method: "DELETE", headers: getAuthHeaders() },
+				"Failed to delete user",
+			);
+		},
 	},
 };

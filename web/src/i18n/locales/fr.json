@@ -103,7 +103,8 @@
 			"settings": "Paramètres",
 			"failoverBadgeExplain": "Fournisseurs de basculement par état du disjoncteur - {{closed}} en bon état / {{halfOpen}} en cours de récupération / {{open}} déclenché",
 			"discoveryChangesBadge_one": "Modification {{count}} issue de la découverte en arrière-plan - cliquer pour consulter",
-			"discoveryChangesBadge_other": "Modifications {{count}} issues de la découverte en arrière-plan - cliquez pour les consulter"
+			"discoveryChangesBadge_other": "Modifications {{count}} issues de la découverte en arrière-plan - cliquez pour les consulter",
+			"users": "Utilisateurs"
 		},
 		"status": {
 			"apiStatus": "État de l'API",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Se connecter avec le SSO",
 			"signInWithSSOProvider": "Se connecter avec {{provider}}",
 			"ssoFailed": "Échec de l'authentification unique. Réessayez ou utilisez une autre méthode de connexion.",
-			"signInWithGithub": "Se connecter avec GitHub"
+			"signInWithGithub": "Se connecter avec GitHub",
+			"username": "Nom d'utilisateur",
+			"usernamePlaceholder": "Saisissez votre nom d'utilisateur",
+			"password": "Mot de passe",
+			"signInUser": "Se connecter avec un mot de passe",
+			"userCredentialsRequired": "Saisissez votre nom d'utilisateur et votre mot de passe",
+			"userLoginFailed": "Nom d'utilisateur ou mot de passe invalide",
+			"userLoginThrottled": "Trop de tentatives échouées. Réessayez plus tard."
 		},
 		"theme": {
 			"switchToLight": "Passer en mode clair",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Non pris en charge"
+		}
+	},
+	"users": {
+		"title": "Utilisateurs",
+		"description": "Gérer les comptes du tableau de bord et ce à quoi chaque utilisateur a accès.",
+		"addButton": "Ajouter un utilisateur",
+		"emptyState": "Aucun utilisateur pour l'instant. Ajoutez-en un pour donner un accès limité à ce tableau de bord.",
+		"table": {
+			"username": "Nom d'utilisateur",
+			"displayName": "Nom affiché",
+			"email": "E-mail",
+			"emailTooltip": "Les connexions SSO vérifiées avec cet e-mail ouvrent la session de cet utilisateur.",
+			"role": "Rôle",
+			"grants": "Accès",
+			"grantsTooltip": "Les fonctionnalités que cet utilisateur peut ouvrir.",
+			"status": "Statut",
+			"lastLogin": "Dernière connexion",
+			"allGrants": "Tout",
+			"noGrants": "Aucun"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Utilisateur"
+		},
+		"status": {
+			"enabled": "Activé",
+			"disabled": "Désactivé"
+		},
+		"grant": {
+			"chat": "Chat",
+			"usage": "Utilisation",
+			"logs": "Journaux",
+			"models": "Modèles",
+			"virtual_keys": "Clés virtuelles"
+		},
+		"modal": {
+			"addTitle": "Ajouter un utilisateur",
+			"editTitle": "Modifier l'utilisateur",
+			"username": "Nom d'utilisateur",
+			"displayName": "Nom affiché",
+			"email": "E-mail (facultatif)",
+			"emailHint": "Associez un e-mail pour que les connexions OIDC ou GitHub avec cette adresse vérifiée ouvrent la session de cet utilisateur.",
+			"password": "Mot de passe",
+			"passwordPlaceholder": "Au moins 8 caractères",
+			"role": "Rôle",
+			"roleAdminHint": "Les admins ont accès à tout, y compris à cette page.",
+			"roleUserHint": "Les utilisateurs ne voient que les fonctionnalités cochées ci-dessous.",
+			"grants": "Accès",
+			"enabled": "Compte activé",
+			"save": "Enregistrer les modifications",
+			"create": "Créer l'utilisateur",
+			"cancel": "Annuler",
+			"deleteButton": "Supprimer l'utilisateur",
+			"deleteConfirmTitle": "Supprimer l'utilisateur",
+			"deleteConfirmMessage": "Ce compte et ses sessions sont supprimés immédiatement.",
+			"resetPassword": "Réinitialiser le mot de passe",
+			"resetButton": "Réinitialiser",
+			"resetHint": "La réinitialisation déconnecte l'utilisateur partout."
+		},
+		"toast": {
+			"created": "Utilisateur créé",
+			"updated": "Utilisateur mis à jour",
+			"deleted": "Utilisateur supprimé",
+			"passwordReset": "Mot de passe réinitialisé",
+			"saveFailed": "Impossible d'enregistrer l'utilisateur",
+			"deleteFailed": "Impossible de supprimer l'utilisateur"
+		},
+		"validation": {
+			"usernameRequired": "Le nom d'utilisateur est requis",
+			"passwordShort": "Le mot de passe doit contenir au moins 8 caractères"
 		}
 	}
 }

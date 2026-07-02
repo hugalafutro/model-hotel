@@ -768,3 +768,46 @@ export interface AlertStatus {
 	healthy: boolean;
 	detail?: string;
 }
+
+// AuthStatus reports whether any enabled user accounts exist, read
+// unauthenticated on the login screen to decide whether to render the
+// username/password form. Served by GET /api/auth/status.
+export interface AuthStatus {
+	enabled: boolean;
+}
+
+// Me is the caller's resolved identity, served by GET /api/auth/me. The
+// sidebar and routes gate on role/grants; the server enforces regardless.
+export interface Me {
+	username: string;
+	display_name?: string;
+	role: "admin" | "user";
+	grants: string[];
+}
+
+// DashboardUser is a managed user account (admin-only Users page). The
+// password hash never leaves the backend.
+export interface DashboardUser {
+	id: string;
+	username: string;
+	display_name: string;
+	email: string | null;
+	role: "admin" | "user";
+	grants: string[];
+	enabled: boolean;
+	created_at: string;
+	updated_at: string;
+	last_login_at: string | null;
+}
+
+// UserUpsertRequest is the create/update body for POST/PUT /api/users.
+// password is create-only; enabled is update-only.
+export interface UserUpsertRequest {
+	username: string;
+	display_name: string;
+	email: string | null;
+	password?: string;
+	role: "admin" | "user";
+	grants: string[];
+	enabled?: boolean;
+}

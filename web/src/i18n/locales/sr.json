@@ -103,7 +103,8 @@
 			"settings": "Подешавања",
 			"failoverBadgeExplain": "Фејловер провајдери по стању циркуитобрејкера - {{closed}} здрав / {{halfOpen}} опоравља се / {{open}} активиран",
 			"discoveryChangesBadge_one": "{{count}} промена из позадинског откривања - кликните да бисте прегледали",
-			"discoveryChangesBadge_other": "{{count}} промене из позадинског откривања - кликните да бисте прегледали"
+			"discoveryChangesBadge_other": "{{count}} промене из позадинског откривања - кликните да бисте прегледали",
+			"users": "Korisnici"
 		},
 		"status": {
 			"apiStatus": "Статус API",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Пријава помоћу SSO",
 			"signInWithSSOProvider": "Пријава помоћу {{provider}}",
 			"ssoFailed": "Јединствена пријава није успела. Покушајте поново или користите други начин пријаве.",
-			"signInWithGithub": "Пријава помоћу GitHub"
+			"signInWithGithub": "Пријава помоћу GitHub",
+			"username": "Korisničko ime",
+			"usernamePlaceholder": "Unesite svoje korisničko ime",
+			"password": "Lozinka",
+			"signInUser": "Prijava lozinkom",
+			"userCredentialsRequired": "Unesite korisničko ime i lozinku",
+			"userLoginFailed": "Neispravno korisničko ime ili lozinka",
+			"userLoginThrottled": "Previše neuspešnih pokušaja. Pokušajte ponovo kasnije."
 		},
 		"theme": {
 			"switchToLight": "Пређи на светли режим",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Није подржано"
+		}
+	},
+	"users": {
+		"title": "Korisnici",
+		"description": "Upravljajte nalozima kontrolne table i time čemu svaki korisnik ima pristup.",
+		"addButton": "Dodaj korisnika",
+		"emptyState": "Još nema korisnika. Dodajte nekoga da mu date ograničen pristup ovoj kontrolnoj tabli.",
+		"table": {
+			"username": "Korisničko ime",
+			"displayName": "Prikazano ime",
+			"email": "Imejl",
+			"emailTooltip": "Verifikovane SSO prijave sa ovim imejlom prijavljuju se kao ovaj korisnik.",
+			"role": "Uloga",
+			"grants": "Pristup",
+			"grantsTooltip": "Funkcije koje ovaj korisnik može da otvori.",
+			"status": "Status",
+			"lastLogin": "Poslednja prijava",
+			"allGrants": "Sve",
+			"noGrants": "Ništa"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Korisnik"
+		},
+		"status": {
+			"enabled": "Omogućen",
+			"disabled": "Onemogućen"
+		},
+		"grant": {
+			"chat": "Ћаскање",
+			"usage": "Potrošnja",
+			"logs": "Записи",
+			"models": "Модели",
+			"virtual_keys": "Виртуелни кључеви"
+		},
+		"modal": {
+			"addTitle": "Dodaj korisnika",
+			"editTitle": "Izmeni korisnika",
+			"username": "Korisničko ime",
+			"displayName": "Prikazano ime",
+			"email": "Imejl (opciono)",
+			"emailHint": "Povežite imejl da bi se OIDC ili GitHub prijave sa ovom verifikovanom adresom prijavljivale kao ovaj korisnik.",
+			"password": "Lozinka",
+			"passwordPlaceholder": "Najmanje 8 znakova",
+			"role": "Uloga",
+			"roleAdminHint": "Admini imaju pristup svemu, uključujući ovu stranicu.",
+			"roleUserHint": "Korisnici vide samo funkcije označene ispod.",
+			"grants": "Pristup",
+			"enabled": "Nalog omogućen",
+			"save": "Sačuvaj izmene",
+			"create": "Napravi korisnika",
+			"cancel": "Otkaži",
+			"deleteButton": "Obriši korisnika",
+			"deleteConfirmTitle": "Obriši korisnika",
+			"deleteConfirmMessage": "Ovaj nalog i njegove sesije se odmah uklanjaju.",
+			"resetPassword": "Resetuj lozinku",
+			"resetButton": "Resetuj",
+			"resetHint": "Resetovanje odjavljuje korisnika svuda."
+		},
+		"toast": {
+			"created": "Korisnik napravljen",
+			"updated": "Korisnik ažuriran",
+			"deleted": "Korisnik obrisan",
+			"passwordReset": "Lozinka resetovana",
+			"saveFailed": "Čuvanje korisnika nije uspelo",
+			"deleteFailed": "Brisanje korisnika nije uspelo"
+		},
+		"validation": {
+			"usernameRequired": "Korisničko ime je obavezno",
+			"passwordShort": "Lozinka mora imati najmanje 8 znakova"
 		}
 	}
 }

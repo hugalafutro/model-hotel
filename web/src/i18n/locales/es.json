@@ -103,7 +103,8 @@
 			"settings": "Ajustes",
 			"failoverBadgeExplain": "Proveedores de conmutación por error según el estado del disyuntor: {{closed}} en buen estado / {{halfOpen}} en recuperación / {{open}} disparado",
 			"discoveryChangesBadge_one": "Cambio {{count}} procedente de la detección en segundo plano: haz clic para revisarlo",
-			"discoveryChangesBadge_other": "Cambios en {{count}} derivados del análisis en segundo plano: haz clic para revisarlos"
+			"discoveryChangesBadge_other": "Cambios en {{count}} derivados del análisis en segundo plano: haz clic para revisarlos",
+			"users": "Usuarios"
 		},
 		"status": {
 			"apiStatus": "Estado de la API",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Iniciar sesión con SSO",
 			"signInWithSSOProvider": "Iniciar sesión con {{provider}}",
 			"ssoFailed": "Error en el inicio de sesión único. Vuelve a intentarlo o usa otro método de inicio de sesión.",
-			"signInWithGithub": "Iniciar sesión con GitHub"
+			"signInWithGithub": "Iniciar sesión con GitHub",
+			"username": "Nombre de usuario",
+			"usernamePlaceholder": "Introduce tu nombre de usuario",
+			"password": "Contraseña",
+			"signInUser": "Iniciar sesión con contraseña",
+			"userCredentialsRequired": "Introduce tu nombre de usuario y contraseña",
+			"userLoginFailed": "Nombre de usuario o contraseña no válidos",
+			"userLoginThrottled": "Demasiados intentos fallidos. Inténtalo de nuevo más tarde."
 		},
 		"theme": {
 			"switchToLight": "Cambiar a modo claro",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "No soportado"
+		}
+	},
+	"users": {
+		"title": "Usuarios",
+		"description": "Gestiona las cuentas del panel y a qué puede acceder cada usuario.",
+		"addButton": "Añadir usuario",
+		"emptyState": "Aún no hay usuarios. Añade uno para dar a alguien acceso limitado a este panel.",
+		"table": {
+			"username": "Nombre de usuario",
+			"displayName": "Nombre visible",
+			"email": "Correo",
+			"emailTooltip": "Los inicios de sesión SSO verificados con este correo entran como este usuario.",
+			"role": "Rol",
+			"grants": "Acceso",
+			"grantsTooltip": "Las funciones que este usuario puede abrir.",
+			"status": "Estado",
+			"lastLogin": "Último acceso",
+			"allGrants": "Todo",
+			"noGrants": "Ninguno"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Usuario"
+		},
+		"status": {
+			"enabled": "Activado",
+			"disabled": "Desactivado"
+		},
+		"grant": {
+			"chat": "Chat",
+			"usage": "Uso",
+			"logs": "Registros",
+			"models": "Modelos",
+			"virtual_keys": "Claves virtuales"
+		},
+		"modal": {
+			"addTitle": "Añadir usuario",
+			"editTitle": "Editar usuario",
+			"username": "Nombre de usuario",
+			"displayName": "Nombre visible",
+			"email": "Correo (opcional)",
+			"emailHint": "Vincula un correo para que los inicios de sesión OIDC o GitHub con esta dirección verificada entren como este usuario.",
+			"password": "Contraseña",
+			"passwordPlaceholder": "Al menos 8 caracteres",
+			"role": "Rol",
+			"roleAdminHint": "Los admins pueden acceder a todo, incluida esta página.",
+			"roleUserHint": "Los usuarios solo ven las funciones marcadas abajo.",
+			"grants": "Acceso",
+			"enabled": "Cuenta activada",
+			"save": "Guardar cambios",
+			"create": "Crear usuario",
+			"cancel": "Cancelar",
+			"deleteButton": "Eliminar usuario",
+			"deleteConfirmTitle": "Eliminar usuario",
+			"deleteConfirmMessage": "Esta cuenta y sus sesiones se eliminan de inmediato.",
+			"resetPassword": "Restablecer contraseña",
+			"resetButton": "Restablecer",
+			"resetHint": "Restablecerla cierra la sesión del usuario en todas partes."
+		},
+		"toast": {
+			"created": "Usuario creado",
+			"updated": "Usuario actualizado",
+			"deleted": "Usuario eliminado",
+			"passwordReset": "Contraseña restablecida",
+			"saveFailed": "No se pudo guardar el usuario",
+			"deleteFailed": "No se pudo eliminar el usuario"
+		},
+		"validation": {
+			"usernameRequired": "El nombre de usuario es obligatorio",
+			"passwordShort": "La contraseña debe tener al menos 8 caracteres"
 		}
 	}
 }

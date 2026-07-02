@@ -2375,6 +2375,9 @@
 		"da",
 		"nl"
 	],
+	"layout.auth.password": [
+		"it"
+	],
 	"layout.errorPill.appError": [
 		"da",
 		"it",
@@ -6062,6 +6065,68 @@
 		"da",
 		"fr",
 		"ro"
+	],
+	"users.grant.chat": [
+		"cs",
+		"da",
+		"de",
+		"es",
+		"fi",
+		"fr",
+		"it",
+		"nl",
+		"no",
+		"pt",
+		"ro",
+		"sk"
+	],
+	"users.grant.models": [
+		"ca"
+	],
+	"users.modal.password": [
+		"it"
+	],
+	"users.modal.role": [
+		"cs"
+	],
+	"users.role.admin": [
+		"af",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"es",
+		"fi",
+		"fr",
+		"hu",
+		"it",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"sk",
+		"sr",
+		"sv"
+	],
+	"users.table.email": [
+		"el",
+		"it",
+		"pt",
+		"vi"
+	],
+	"users.table.role": [
+		"cs"
+	],
+	"users.table.status": [
+		"af",
+		"da",
+		"de",
+		"nl",
+		"no",
+		"pl",
+		"sr",
+		"sv"
 	],
 	"virtualKeys.detail.burst": [
 		"de",

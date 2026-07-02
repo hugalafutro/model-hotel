@@ -103,7 +103,8 @@
 			"settings": "Indstillinger",
 			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus - {{closed}} fungerer / {{halfOpen}} genopretter / {{open}} udløst",
 			"discoveryChangesBadge_one": "{{count}} ændring fra baggrundsdetektering - klik for at gennemgå",
-			"discoveryChangesBadge_other": "{{count}} ændringer fra baggrundsdetektering - klik for at gennemgå"
+			"discoveryChangesBadge_other": "{{count}} ændringer fra baggrundsdetektering - klik for at gennemgå",
+			"users": "Brugere"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Log ind med SSO",
 			"signInWithSSOProvider": "Log ind med {{provider}}",
 			"ssoFailed": "Enkeltlogin mislykkedes. Prøv igen, eller brug en anden loginmetode.",
-			"signInWithGithub": "Log ind med GitHub"
+			"signInWithGithub": "Log ind med GitHub",
+			"username": "Brugernavn",
+			"usernamePlaceholder": "Indtast dit brugernavn",
+			"password": "Adgangskode",
+			"signInUser": "Log ind med adgangskode",
+			"userCredentialsRequired": "Indtast dit brugernavn og din adgangskode",
+			"userLoginFailed": "Ugyldigt brugernavn eller ugyldig adgangskode",
+			"userLoginThrottled": "For mange mislykkede forsøg. Prøv igen senere."
 		},
 		"theme": {
 			"switchToLight": "Skift til lys tilstand",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Ikke understøttet"
+		}
+	},
+	"users": {
+		"title": "Brugere",
+		"description": "Administrer dashboardkonti og hvad hver bruger har adgang til.",
+		"addButton": "Tilføj bruger",
+		"emptyState": "Ingen brugere endnu. Tilføj en for at give nogen begrænset adgang til dette dashboard.",
+		"table": {
+			"username": "Brugernavn",
+			"displayName": "Visningsnavn",
+			"email": "E-mail",
+			"emailTooltip": "Verificerede SSO-logins med denne e-mail logger ind som denne bruger.",
+			"role": "Rolle",
+			"grants": "Adgang",
+			"grantsTooltip": "De funktioner, som denne bruger kan åbne.",
+			"status": "Status",
+			"lastLogin": "Seneste login",
+			"allGrants": "Alt",
+			"noGrants": "Ingen"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Bruger"
+		},
+		"status": {
+			"enabled": "Aktiveret",
+			"disabled": "Deaktiveret"
+		},
+		"grant": {
+			"chat": "Chat",
+			"usage": "Forbrug",
+			"logs": "Logfiler",
+			"models": "Modeller",
+			"virtual_keys": "Virtuelle nøgler"
+		},
+		"modal": {
+			"addTitle": "Tilføj bruger",
+			"editTitle": "Rediger bruger",
+			"username": "Brugernavn",
+			"displayName": "Visningsnavn",
+			"email": "E-mail (valgfri)",
+			"emailHint": "Tilknyt en e-mail, så OIDC- eller GitHub-logins med denne verificerede adresse logger ind som denne bruger.",
+			"password": "Adgangskode",
+			"passwordPlaceholder": "Mindst 8 tegn",
+			"role": "Rolle",
+			"roleAdminHint": "Admins har adgang til alt, inklusive denne side.",
+			"roleUserHint": "Brugere ser kun de funktioner, der er markeret nedenfor.",
+			"grants": "Adgang",
+			"enabled": "Konto aktiveret",
+			"save": "Gem ændringer",
+			"create": "Opret bruger",
+			"cancel": "Annuller",
+			"deleteButton": "Slet bruger",
+			"deleteConfirmTitle": "Slet bruger",
+			"deleteConfirmMessage": "Denne konto og dens sessioner fjernes med det samme.",
+			"resetPassword": "Nulstil adgangskode",
+			"resetButton": "Nulstil",
+			"resetHint": "Nulstilling logger brugeren ud alle steder."
+		},
+		"toast": {
+			"created": "Bruger oprettet",
+			"updated": "Bruger opdateret",
+			"deleted": "Bruger slettet",
+			"passwordReset": "Adgangskode nulstillet",
+			"saveFailed": "Kunne ikke gemme brugeren",
+			"deleteFailed": "Kunne ikke slette brugeren"
+		},
+		"validation": {
+			"usernameRequired": "Brugernavn er påkrævet",
+			"passwordShort": "Adgangskoden skal være på mindst 8 tegn"
 		}
 	}
 }

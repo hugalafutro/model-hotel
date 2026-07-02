@@ -103,7 +103,8 @@
 			"settings": "Innstillinger",
 			"failoverBadgeExplain": "Failover-leverandører etter status på strømbryter - {{closed}} i orden / {{halfOpen}} gjenoppretter / {{open}} utløst",
 			"discoveryChangesBadge_one": "{{count}} endring fra bakgrunnsoppdagelse - klikk for å se gjennom",
-			"discoveryChangesBadge_other": "{{count}} endringer fra bakgrunnsoppdagelse – klikk for å se gjennom"
+			"discoveryChangesBadge_other": "{{count}} endringer fra bakgrunnsoppdagelse – klikk for å se gjennom",
+			"users": "Brukere"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Logg inn med SSO",
 			"signInWithSSOProvider": "Logg inn med {{provider}}",
 			"ssoFailed": "Enkeltpålogging mislyktes. Prøv igjen, eller bruk en annen påloggingsmetode.",
-			"signInWithGithub": "Logg inn med GitHub"
+			"signInWithGithub": "Logg inn med GitHub",
+			"username": "Brukernavn",
+			"usernamePlaceholder": "Skriv inn brukernavnet ditt",
+			"password": "Passord",
+			"signInUser": "Logg inn med passord",
+			"userCredentialsRequired": "Skriv inn brukernavn og passord",
+			"userLoginFailed": "Ugyldig brukernavn eller passord",
+			"userLoginThrottled": "For mange mislykkede forsøk. Prøv igjen senere."
 		},
 		"theme": {
 			"switchToLight": "Bytt til lys modus",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Støttes ikke"
+		}
+	},
+	"users": {
+		"title": "Brukere",
+		"description": "Administrer dashbordkontoer og hva hver bruker har tilgang til.",
+		"addButton": "Legg til bruker",
+		"emptyState": "Ingen brukere ennå. Legg til en for å gi noen begrenset tilgang til dette dashbordet.",
+		"table": {
+			"username": "Brukernavn",
+			"displayName": "Visningsnavn",
+			"email": "E-post",
+			"emailTooltip": "Verifiserte SSO-pålogginger med denne e-posten logger inn som denne brukeren.",
+			"role": "Rolle",
+			"grants": "Tilgang",
+			"grantsTooltip": "Funksjonene denne brukeren kan åpne.",
+			"status": "Status",
+			"lastLogin": "Siste pålogging",
+			"allGrants": "Alt",
+			"noGrants": "Ingen"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Bruker"
+		},
+		"status": {
+			"enabled": "Aktivert",
+			"disabled": "Deaktivert"
+		},
+		"grant": {
+			"chat": "Chat",
+			"usage": "Bruk",
+			"logs": "Logger",
+			"models": "Modeller",
+			"virtual_keys": "Virtuelle nøkler"
+		},
+		"modal": {
+			"addTitle": "Legg til bruker",
+			"editTitle": "Rediger bruker",
+			"username": "Brukernavn",
+			"displayName": "Visningsnavn",
+			"email": "E-post (valgfritt)",
+			"emailHint": "Knytt til en e-post slik at OIDC- eller GitHub-pålogginger med denne verifiserte adressen logger inn som denne brukeren.",
+			"password": "Passord",
+			"passwordPlaceholder": "Minst 8 tegn",
+			"role": "Rolle",
+			"roleAdminHint": "Admins har tilgang til alt, inkludert denne siden.",
+			"roleUserHint": "Brukere ser bare funksjonene som er huket av nedenfor.",
+			"grants": "Tilgang",
+			"enabled": "Konto aktivert",
+			"save": "Lagre endringer",
+			"create": "Opprett bruker",
+			"cancel": "Avbryt",
+			"deleteButton": "Slett bruker",
+			"deleteConfirmTitle": "Slett bruker",
+			"deleteConfirmMessage": "Denne kontoen og dens økter fjernes umiddelbart.",
+			"resetPassword": "Tilbakestill passord",
+			"resetButton": "Tilbakestill",
+			"resetHint": "Tilbakestilling logger brukeren ut overalt."
+		},
+		"toast": {
+			"created": "Bruker opprettet",
+			"updated": "Bruker oppdatert",
+			"deleted": "Bruker slettet",
+			"passwordReset": "Passord tilbakestilt",
+			"saveFailed": "Kunne ikke lagre brukeren",
+			"deleteFailed": "Kunne ikke slette brukeren"
+		},
+		"validation": {
+			"usernameRequired": "Brukernavn er påkrevd",
+			"passwordShort": "Passordet må være på minst 8 tegn"
 		}
 	}
 }

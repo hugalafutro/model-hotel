@@ -720,6 +720,22 @@ export const handlers: RequestHandler[] = [
 		},
 	),
 
+	// ── Multi-user auth defaults ──────────────────────────────────────────
+	// The identity resolves as admin so every existing test sees the full nav
+	// and routes; user-role behavior is exercised by overriding in the
+	// Users/IdentityContext suites. auth/status=false keeps the password form
+	// off the login screen unless a test opts in.
+	http.get("/api/auth/me", () =>
+		HttpResponse.json({ username: "admin", role: "admin", grants: [] }),
+	),
+	http.get("/api/auth/status", () => HttpResponse.json({ enabled: false })),
+	http.get("/api/users", () => HttpResponse.json([])),
+	http.get("/api/users/grants", () =>
+		HttpResponse.json({
+			grants: ["chat", "usage", "logs", "models", "virtual_keys"],
+		}),
+	),
+
 	// ── Catch-all handlers (must be last: MSW is first-match-wins) ────────
 	// These return 503 for chat/arena endpoints when no specific handler is
 	// registered via server.use(). They suppress MSW "unhandled request" warnings.

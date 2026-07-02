@@ -22,8 +22,10 @@ import {
 	Shuffle,
 	Sun,
 	Swords,
+	Users as UsersIcon,
 } from "@/lib/icons";
 import { api, setAdminToken } from "../api/client";
+import { useIdentity } from "../context/IdentityContext";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
@@ -657,6 +659,7 @@ function ReadOnlyBanner() {
 export function Layout({ children }: LayoutProps) {
 	const { t } = useTranslation();
 	const location = useLocation();
+	const { isAdmin, can } = useIdentity();
 	const { theme, setTheme, uiStyle } = useTheme();
 	// Separator between paired labels/counts in the sidebar. The terminal theme
 	// keeps a literal "/" (fits its monospace aesthetic); other themes use a
@@ -761,11 +764,15 @@ export function Layout({ children }: LayoutProps) {
 		setShowDiscoveryChanges(true);
 	};
 
-	const navigation = [
+	// Each item names the access it needs: a grant key checked via can()
+	// (admins pass everything) or "admin" for admin-only surfaces. Cosmetic
+	// gating only; the server enforces per request.
+	const allNavigation = [
 		{
 			name: t("layout.nav.dashboard"),
 			href: "/dashboard",
 			icon: LayoutDashboard,
+			access: "usage",
 		},
 		{
 			name: t("layout.nav.chat"),
@@ -776,6 +783,7 @@ export function Layout({ children }: LayoutProps) {
 				{ label: t("layout.nav.chat"), value: "chat" as const },
 				{ label: t("layout.nav.conversation"), value: "conversation" as const },
 			],
+			access: "chat",
 		},
 		{
 			name: t("layout.nav.arena"),
@@ -785,26 +793,62 @@ export function Layout({ children }: LayoutProps) {
 				{ label: t("layout.nav.arena"), value: "competition" as const },
 				{ label: t("layout.nav.compare"), value: "compare" as const },
 			],
+			access: "chat",
 		},
-		{ name: t("layout.nav.providers"), href: "/providers", icon: PlugZap },
-		{ name: t("layout.nav.models"), href: "/models", icon: Bot },
-		{ name: t("layout.nav.failover"), href: "/failover", icon: Shuffle },
+		{
+			name: t("layout.nav.providers"),
+			href: "/providers",
+			icon: PlugZap,
+			access: "admin",
+		},
+		{
+			name: t("layout.nav.models"),
+			href: "/models",
+			icon: Bot,
+			access: "models",
+		},
+		{
+			name: t("layout.nav.failover"),
+			href: "/failover",
+			icon: Shuffle,
+			access: "admin",
+		},
 		{
 			name: t("layout.nav.virtualKeys"),
 			href: "/virtual-keys",
 			icon: KeyRound,
+			access: "virtual_keys",
 		},
 		{
 			name: t("layout.nav.logs"),
 			href: "/logs",
 			icon: (mode: string) => (mode === "app" ? FileText : ScrollText),
-			subModes: [
-				{ label: t("layout.nav.requests"), value: "request" as const },
-				{ label: t("layout.nav.appLogs"), value: "app" as const },
-			],
+			// App logs are admin-only server-side, so the sub-mode toggle only
+			// shows for admins; grant holders get the requests view alone.
+			subModes: isAdmin
+				? [
+						{ label: t("layout.nav.requests"), value: "request" as const },
+						{ label: t("layout.nav.appLogs"), value: "app" as const },
+					]
+				: undefined,
+			access: "logs",
 		},
-		{ name: t("layout.nav.settings"), href: "/settings", icon: Settings },
+		{
+			name: t("layout.nav.users"),
+			href: "/users",
+			icon: UsersIcon,
+			access: "admin",
+		},
+		{
+			name: t("layout.nav.settings"),
+			href: "/settings",
+			icon: Settings,
+			access: "admin",
+		},
 	];
+	const navigation = allNavigation.filter((item) =>
+		item.access === "admin" ? isAdmin : can(item.access),
+	);
 
 	// Generic sub-mode state: maps each nav href to its current mode and setter.
 	const subModeMap = {

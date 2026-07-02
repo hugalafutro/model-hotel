@@ -103,7 +103,8 @@
 			"settings": "הגדרות",
 			"failoverBadgeExplain": "ספקי מעבר לגיבוי לפי מצב מפסק זרם - {{closed}} תקין / {{halfOpen}} מתאושש / {{open}} הופעל",
 			"discoveryChangesBadge_one": "שינוי {{count}} מגילוי ברקע - לחצו כדי לעיין",
-			"discoveryChangesBadge_other": "שינויים ב-{{count}} כתוצאה מגילוי ברקע - לחצו כדי לעיין"
+			"discoveryChangesBadge_other": "שינויים ב-{{count}} כתוצאה מגילוי ברקע - לחצו כדי לעיין",
+			"users": "משתמשים"
 		},
 		"status": {
 			"apiStatus": "סטטוס API",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "התחברות באמצעות SSO",
 			"signInWithSSOProvider": "התחברות באמצעות {{provider}}",
 			"ssoFailed": "ההתחברות המאוחדת נכשלה. נסה שוב או השתמש בשיטת התחברות אחרת.",
-			"signInWithGithub": "התחברות באמצעות GitHub"
+			"signInWithGithub": "התחברות באמצעות GitHub",
+			"username": "שם משתמש",
+			"usernamePlaceholder": "הזינו את שם המשתמש",
+			"password": "סיסמה",
+			"signInUser": "התחברות עם סיסמה",
+			"userCredentialsRequired": "הזינו שם משתמש וסיסמה",
+			"userLoginFailed": "שם משתמש או סיסמה שגויים",
+			"userLoginThrottled": "יותר מדי ניסיונות כושלים. נסו שוב מאוחר יותר."
 		},
 		"theme": {
 			"switchToLight": "מעבר למצב בהיר",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "לא נתמך"
+		}
+	},
+	"users": {
+		"title": "משתמשים",
+		"description": "ניהול חשבונות לוח הבקרה והרשאות הגישה של כל משתמש.",
+		"addButton": "הוספת משתמש",
+		"emptyState": "אין עדיין משתמשים. הוסיפו משתמש כדי להעניק למישהו גישה מוגבלת ללוח בקרה זה.",
+		"table": {
+			"username": "שם משתמש",
+			"displayName": "שם תצוגה",
+			"email": "אימייל",
+			"emailTooltip": "התחברויות SSO מאומתות עם אימייל זה נכנסות בתור משתמש זה.",
+			"role": "תפקיד",
+			"grants": "גישה",
+			"grantsTooltip": "התכונות שמשתמש זה יכול לפתוח.",
+			"status": "סטטוס",
+			"lastLogin": "התחברות אחרונה",
+			"allGrants": "הכול",
+			"noGrants": "ללא"
+		},
+		"role": {
+			"admin": "מנהל",
+			"user": "משתמש"
+		},
+		"status": {
+			"enabled": "פעיל",
+			"disabled": "מושבת"
+		},
+		"grant": {
+			"chat": "צ'אט",
+			"usage": "שימוש",
+			"logs": "יומנים",
+			"models": "מודלים",
+			"virtual_keys": "מפתחות וירטואליים"
+		},
+		"modal": {
+			"addTitle": "הוספת משתמש",
+			"editTitle": "עריכת משתמש",
+			"username": "שם משתמש",
+			"displayName": "שם תצוגה",
+			"email": "אימייל (אופציונלי)",
+			"emailHint": "קשרו אימייל כדי שהתחברויות OIDC או GitHub עם כתובת מאומתת זו ייכנסו בתור משתמש זה.",
+			"password": "סיסמה",
+			"passwordPlaceholder": "לפחות 8 תווים",
+			"role": "תפקיד",
+			"roleAdminHint": "מנהלים יכולים לגשת לכול, כולל דף זה.",
+			"roleUserHint": "משתמשים רואים רק את התכונות המסומנות למטה.",
+			"grants": "גישה",
+			"enabled": "חשבון פעיל",
+			"save": "שמירת שינויים",
+			"create": "יצירת משתמש",
+			"cancel": "ביטול",
+			"deleteButton": "מחיקת משתמש",
+			"deleteConfirmTitle": "מחיקת משתמש",
+			"deleteConfirmMessage": "חשבון זה וההפעלות שלו יוסרו מיד.",
+			"resetPassword": "איפוס סיסמה",
+			"resetButton": "איפוס",
+			"resetHint": "האיפוס מנתק את המשתמש מכל מקום."
+		},
+		"toast": {
+			"created": "המשתמש נוצר",
+			"updated": "המשתמש עודכן",
+			"deleted": "המשתמש נמחק",
+			"passwordReset": "הסיסמה אופסה",
+			"saveFailed": "לא ניתן לשמור את המשתמש",
+			"deleteFailed": "לא ניתן למחוק את המשתמש"
+		},
+		"validation": {
+			"usernameRequired": "שם משתמש הוא שדה חובה",
+			"passwordShort": "הסיסמה חייבת להכיל לפחות 8 תווים"
 		}
 	}
 }

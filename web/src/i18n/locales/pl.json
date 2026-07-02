@@ -103,7 +103,8 @@
 			"settings": "Ustawienia",
 			"failoverBadgeExplain": "Dostawcy awaryjni według stanu wyłącznika - {{closed}} sprawny / {{halfOpen}} w trakcie przywracania / {{open}} wyłączony",
 			"discoveryChangesBadge_one": "Zmiana {{count}} wynikająca z analizy tła - kliknij, aby przejrzeć",
-			"discoveryChangesBadge_other": "Zmiany {{count}} wynikające z analizy tła - kliknij, aby przejrzeć"
+			"discoveryChangesBadge_other": "Zmiany {{count}} wynikające z analizy tła - kliknij, aby przejrzeć",
+			"users": "Użytkownicy"
 		},
 		"status": {
 			"apiStatus": "Status API",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Zaloguj się przez SSO",
 			"signInWithSSOProvider": "Zaloguj się przez {{provider}}",
 			"ssoFailed": "Logowanie jednokrotne nie powiodło się. Spróbuj ponownie lub użyj innej metody logowania.",
-			"signInWithGithub": "Zaloguj się przez GitHub"
+			"signInWithGithub": "Zaloguj się przez GitHub",
+			"username": "Nazwa użytkownika",
+			"usernamePlaceholder": "Wpisz swoją nazwę użytkownika",
+			"password": "Hasło",
+			"signInUser": "Zaloguj się hasłem",
+			"userCredentialsRequired": "Wpisz nazwę użytkownika i hasło",
+			"userLoginFailed": "Nieprawidłowa nazwa użytkownika lub hasło",
+			"userLoginThrottled": "Zbyt wiele nieudanych prób. Spróbuj ponownie później."
 		},
 		"theme": {
 			"switchToLight": "Przełącz na tryb jasny",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Nie obsługiwane"
+		}
+	},
+	"users": {
+		"title": "Użytkownicy",
+		"description": "Zarządzaj kontami panelu i tym, do czego każdy użytkownik ma dostęp.",
+		"addButton": "Dodaj użytkownika",
+		"emptyState": "Brak użytkowników. Dodaj kogoś, aby dać mu ograniczony dostęp do tego panelu.",
+		"table": {
+			"username": "Nazwa użytkownika",
+			"displayName": "Wyświetlana nazwa",
+			"email": "E-mail",
+			"emailTooltip": "Zweryfikowane logowania SSO z tym adresem e-mail logują się jako ten użytkownik.",
+			"role": "Rola",
+			"grants": "Dostęp",
+			"grantsTooltip": "Funkcje, które ten użytkownik może otwierać.",
+			"status": "Status",
+			"lastLogin": "Ostatnie logowanie",
+			"allGrants": "Wszystko",
+			"noGrants": "Brak"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Użytkownik"
+		},
+		"status": {
+			"enabled": "Włączone",
+			"disabled": "Wyłączone"
+		},
+		"grant": {
+			"chat": "Czat",
+			"usage": "Użycie",
+			"logs": "Logi",
+			"models": "Modele",
+			"virtual_keys": "Klucze wirtualne"
+		},
+		"modal": {
+			"addTitle": "Dodaj użytkownika",
+			"editTitle": "Edytuj użytkownika",
+			"username": "Nazwa użytkownika",
+			"displayName": "Wyświetlana nazwa",
+			"email": "E-mail (opcjonalnie)",
+			"emailHint": "Powiąż adres e-mail, aby logowania OIDC lub GitHub z tym zweryfikowanym adresem logowały się jako ten użytkownik.",
+			"password": "Hasło",
+			"passwordPlaceholder": "Co najmniej 8 znaków",
+			"role": "Rola",
+			"roleAdminHint": "Administratorzy mają dostęp do wszystkiego, łącznie z tą stroną.",
+			"roleUserHint": "Użytkownicy widzą tylko funkcje zaznaczone poniżej.",
+			"grants": "Dostęp",
+			"enabled": "Konto włączone",
+			"save": "Zapisz zmiany",
+			"create": "Utwórz użytkownika",
+			"cancel": "Anuluj",
+			"deleteButton": "Usuń użytkownika",
+			"deleteConfirmTitle": "Usuń użytkownika",
+			"deleteConfirmMessage": "To konto i jego sesje zostaną natychmiast usunięte.",
+			"resetPassword": "Zresetuj hasło",
+			"resetButton": "Resetuj",
+			"resetHint": "Reset wylogowuje użytkownika ze wszystkich urządzeń."
+		},
+		"toast": {
+			"created": "Użytkownik utworzony",
+			"updated": "Użytkownik zaktualizowany",
+			"deleted": "Użytkownik usunięty",
+			"passwordReset": "Hasło zresetowane",
+			"saveFailed": "Nie udało się zapisać użytkownika",
+			"deleteFailed": "Nie udało się usunąć użytkownika"
+		},
+		"validation": {
+			"usernameRequired": "Nazwa użytkownika jest wymagana",
+			"passwordShort": "Hasło musi mieć co najmniej 8 znaków"
 		}
 	}
 }
