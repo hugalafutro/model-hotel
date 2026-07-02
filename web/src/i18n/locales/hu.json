@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Az érvelés kihagyva",
 			"keyHashed": "A kulcs hash-elt, és nem állítható vissza",
 			"tpm": "Percekénti tokenkorlát; a kéréseket 429-es kóddal utasítják el, ha a perces keret kimerült",
-			"id": "Kattintson a kulcsazonosító másolásához"
+			"id": "Kattintson a kulcsazonosító másolásához",
+			"owner": "Tulajdonos: {{name}}"
 		},
 		"emptyState": "Nincs virtuális kulcs. Hozzon létre egyet a proxy használatához.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "A sávos érvelés letiltása",
 				"rateLimitBurst": "Burst (maximális egyidejű)",
 				"rateLimitRps": "RPS (kérések/másodperc)",
-				"rateLimitTpm": "TPM (token/perc)"
+				"rateLimitTpm": "TPM (token/perc)",
+				"owner": "Tulajdonos",
+				"ownerNone": "Nincs tulajdonos (megosztott kulcs)",
+				"ownerHint": "A tulajdonos felhasználói korlátai az összes kulcsára érvényesek. A tulajdonos letiltása ezt a kulcsot is letiltja."
 			},
 			"detailTitle": "A virtuális kulcs adatai",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Felhasznált tokenek",
 				"lastUsed": "Utoljára használt",
 				"created": "Létrehozva",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Tulajdonos"
 			},
 			"noProvidersConfigured": "Nincs beállított szolgáltató.",
 			"discardChanges": "El akarja vetni a mentetlen módosításokat?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Ez a fiók és a munkamenetei azonnal törlődnek.",
 			"resetPassword": "Jelszó visszaállítása",
 			"resetButton": "Visszaállítás",
-			"resetHint": "A visszaállítás mindenhol kijelentkezteti a felhasználót."
+			"resetHint": "A visszaállítás mindenhol kijelentkezteti a felhasználót.",
+			"limits": "Proxykorlátok",
+			"limitsHint": "Összesített korlátok a felhasználó összes virtuális kulcsára. Hagyja üresen, ha nincs korlát.",
+			"limitRps": "Kérés/mp",
+			"limitBurst": "Burst",
+			"limitTpm": "Token/perc",
+			"noCap": "Nincs korlát",
+			"deleteKeysNote": "A fiókhoz tartozó virtuális kulcsok megmaradnak, és gazdátlanná válnak."
 		},
 		"toast": {
 			"created": "Felhasználó létrehozva",

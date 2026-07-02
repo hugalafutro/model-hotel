@@ -151,4 +151,40 @@ describe("UserModal", () => {
 		});
 		expect(newPassword).toBe("newpassword1");
 	});
+
+	it("sends the proxy limits and clears them when emptied", async () => {
+		mockGrants();
+		let body: UserUpsertRequest | undefined;
+		server.use(
+			http.put("/api/users/:id", async ({ request }) => {
+				body = (await request.json()) as UserUpsertRequest;
+				return HttpResponse.json({ ...existing, ...body });
+			}),
+		);
+		const { user } = renderWithProviders(
+			<UserModal
+				user={{ ...existing, rate_limit_rps: 2.5, rate_limit_tpm: 6000 }}
+				onClose={onClose}
+				onToast={onToast}
+			/>,
+		);
+
+		// Prefilled from the user row.
+		expect(screen.getByTestId("user-limit-rps")).toHaveValue(2.5);
+		expect(screen.getByTestId("user-limit-tpm")).toHaveValue(6000);
+
+		// Clear the TPM cap, add a burst cap.
+		await user.clear(screen.getByTestId("user-limit-tpm"));
+		await user.type(screen.getByTestId("user-limit-burst"), "4");
+		await user.click(screen.getByTestId("user-modal-save"));
+
+		await waitFor(() => {
+			expect(onToast).toHaveBeenCalledWith("User updated", "success");
+		});
+		expect(body).toMatchObject({
+			rate_limit_rps: 2.5,
+			rate_limit_burst: 4,
+			rate_limit_tpm: null,
+		});
+	});
 });

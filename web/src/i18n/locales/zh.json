@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "原因已删除",
 			"keyHashed": "密钥已哈希，无法恢复",
 			"tpm": "每分钟请求配额上限；当分钟配额用尽时，请求将被返回 429 状态码",
-			"id": "点击复制密钥 ID"
+			"id": "点击复制密钥 ID",
+			"owner": "所有者：{{name}}"
 		},
 		"emptyState": "没有虚拟密钥。创建一个要开始使用代理的密钥。",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "禁用脱衣原理",
 				"rateLimitBurst": "突发（最大并发数）",
 				"rateLimitRps": "RPS（每秒请求数）",
-				"rateLimitTpm": "TPM（每分钟令牌数）"
+				"rateLimitTpm": "TPM（每分钟令牌数）",
+				"owner": "所有者",
+				"ownerNone": "无所有者（共享密钥）",
+				"ownerHint": "所有者的用户限制作用于其全部密钥。停用所有者也会停用此密钥。"
 			},
 			"detailTitle": "虚拟密钥详细信息",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "已消耗令牌",
 				"lastUsed": "上次使用",
 				"created": "已创建",
-				"id": "ID"
+				"id": "ID",
+				"owner": "所有者"
 			},
 			"noProvidersConfigured": "没有配置提供者。",
 			"discardChanges": "放弃未保存的更改？",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "该账户及其会话将被立即移除。",
 			"resetPassword": "重置密码",
 			"resetButton": "重置",
-			"resetHint": "重置后该用户将在所有设备上退出登录。"
+			"resetHint": "重置后该用户将在所有设备上退出登录。",
+			"limits": "代理限制",
+			"limitsHint": "对该用户所有虚拟密钥生效的合计上限。留空表示不设上限。",
+			"limitRps": "请求/秒",
+			"limitBurst": "突发",
+			"limitTpm": "令牌/分钟",
+			"noCap": "不设上限",
+			"deleteKeysNote": "该账户拥有的虚拟密钥将被保留并变为无归属。"
 		},
 		"toast": {
 			"created": "用户已创建",

@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "추론 생략",
 			"keyHashed": "키가 해시 처리되어 복구할 수 없습니다",
 			"tpm": "분당 토큰 제한; 분당 할당량이 소진되면 요청은 429 오류로 거부됩니다",
-			"id": "키 ID 복사"
+			"id": "키 ID 복사",
+			"owner": "{{name}} 소유"
 		},
 		"emptyState": "가상 키가 없습니다. 프록시를 사용하려면 키를 생성하세요.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "스트립 추론 비활성화",
 				"rateLimitBurst": "버스트(최대 동시 처리량)",
 				"rateLimitRps": "RPS (초당 요청 수)",
-				"rateLimitTpm": "TPM (토큰/분)"
+				"rateLimitTpm": "TPM (토큰/분)",
+				"owner": "소유자",
+				"ownerNone": "소유자 없음(공유 키)",
+				"ownerHint": "소유자의 사용자별 제한은 소유한 모든 키에 적용됩니다. 소유자를 비활성화하면 이 키도 비활성화됩니다."
 			},
 			"detailTitle": "가상 키 세부 정보",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "소모된 토큰",
 				"lastUsed": "마지막 사용일",
 				"created": "작성됨",
-				"id": "ID"
+				"id": "ID",
+				"owner": "소유자"
 			},
 			"noProvidersConfigured": "설정된 공급자가 없습니다.",
 			"discardChanges": "저장되지 않은 변경 사항을 버릴까요?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "이 계정과 해당 세션이 즉시 제거됩니다.",
 			"resetPassword": "비밀번호 재설정",
 			"resetButton": "재설정",
-			"resetHint": "재설정하면 이 사용자는 모든 곳에서 로그아웃됩니다."
+			"resetHint": "재설정하면 이 사용자는 모든 곳에서 로그아웃됩니다.",
+			"limits": "프록시 제한",
+			"limitsHint": "이 사용자가 소유한 모든 가상 키에 적용되는 합산 상한입니다. 비워 두면 상한이 없습니다.",
+			"limitRps": "요청/초",
+			"limitBurst": "버스트",
+			"limitTpm": "토큰/분",
+			"noCap": "상한 없음",
+			"deleteKeysNote": "이 계정이 소유한 가상 키는 유지되며 소유자가 없는 상태가 됩니다."
 		},
 		"toast": {
 			"created": "사용자가 생성되었습니다",

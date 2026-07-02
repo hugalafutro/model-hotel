@@ -1065,7 +1065,8 @@
 			"lastUsed": "When the key was last used for a request",
 			"providerRestricted": "Provider-restricted key",
 			"reasoningStripped": "Reasoning stripped",
-			"keyHashed": "Key is hashed and cannot be recovered"
+			"keyHashed": "Key is hashed and cannot be recovered",
+			"owner": "Owned by {{name}}"
 		},
 		"emptyState": "No virtual keys. Create one to start using the proxy.",
 		"steps": {
@@ -1102,7 +1103,10 @@
 				"stripReasoning": "Strip Reasoning",
 				"stripReasoningDescription": "When enabled, reasoning/thinking tokens are removed from streaming responses for clients that cannot handle them.",
 				"enableStripReasoning": "Enable strip reasoning",
-				"disableStripReasoning": "Disable strip reasoning"
+				"disableStripReasoning": "Disable strip reasoning",
+				"owner": "Owner",
+				"ownerNone": "No owner (shared key)",
+				"ownerHint": "The owner's per-user limits apply across all their keys. Disabling the owner also disables this key."
 			},
 			"detailTitle": "Virtual Key Details",
 			"sections": {
@@ -1117,7 +1121,8 @@
 				"key": "Key",
 				"tokensConsumed": "Tokens Consumed",
 				"lastUsed": "Last Used",
-				"created": "Created"
+				"created": "Created",
+				"owner": "Owner"
 			},
 			"noProvidersConfigured": "No providers configured.",
 			"discardChanges": "Discard unsaved changes?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "This account and its sessions are removed immediately.",
 			"resetPassword": "Reset password",
 			"resetButton": "Reset",
-			"resetHint": "Resetting logs the user out everywhere."
+			"resetHint": "Resetting logs the user out everywhere.",
+			"limits": "Proxy limits",
+			"limitsHint": "Aggregate caps across all virtual keys this user owns. Leave empty for no cap.",
+			"limitRps": "Requests/sec",
+			"limitBurst": "Burst",
+			"limitTpm": "Tokens/min",
+			"noCap": "No cap",
+			"deleteKeysNote": "Virtual keys owned by this account are kept and become unowned."
 		},
 		"toast": {
 			"created": "User created",

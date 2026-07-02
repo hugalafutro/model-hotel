@@ -232,6 +232,8 @@ export interface VirtualKey {
 	rate_limit_tpm?: number | null;
 	allowed_providers?: string[] | null;
 	strip_reasoning: boolean;
+	owner_user_id?: string | null;
+	owner_username?: string | null;
 }
 
 export interface SystemStats {
@@ -798,6 +800,10 @@ export interface DashboardUser {
 	created_at: string;
 	updated_at: string;
 	last_login_at: string | null;
+	// Aggregate proxy limits across the user's owned virtual keys (null = no cap).
+	rate_limit_rps?: number | null;
+	rate_limit_burst?: number | null;
+	rate_limit_tpm?: number | null;
 }
 
 // UserUpsertRequest is the create/update body for POST/PUT /api/users.
@@ -810,4 +816,7 @@ export interface UserUpsertRequest {
 	role: "admin" | "user";
 	grants: string[];
 	enabled?: boolean;
+	rate_limit_rps?: number | null;
+	rate_limit_burst?: number | null;
+	rate_limit_tpm?: number | null;
 }

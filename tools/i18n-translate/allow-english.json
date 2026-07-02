@@ -6083,6 +6083,31 @@
 	"users.grant.models": [
 		"ca"
 	],
+	"users.modal.limitBurst": [
+		"cs",
+		"da",
+		"de",
+		"el",
+		"hu",
+		"it",
+		"nl",
+		"no",
+		"pl",
+		"ro",
+		"ru",
+		"sk",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi"
+	],
+	"users.modal.limitTpm": [
+		"ca",
+		"es",
+		"nl",
+		"pt"
+	],
 	"users.modal.password": [
 		"it"
 	],

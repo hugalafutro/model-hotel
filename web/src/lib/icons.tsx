@@ -135,6 +135,7 @@ export const Trash2 = withId(Ph.TrashIcon, "Trash2");
 export const TrendingUp = withId(Ph.TrendUpIcon, "TrendingUp");
 export const Trophy = withId(Ph.TrophyIcon, "Trophy");
 export const Upload = withId(Ph.UploadIcon, "Upload");
+export const UserRound = withId(Ph.UserIcon, "UserRound");
 export const Users = withId(Ph.UsersIcon, "Users");
 export const AlertTriangle = withId(Ph.WarningIcon, "AlertTriangle");
 export const AlertCircle = withId(Ph.WarningCircleIcon, "AlertCircle");

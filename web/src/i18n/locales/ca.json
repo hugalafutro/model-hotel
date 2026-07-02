@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Racionalitat despullada",
 			"keyHashed": "La clau s'ha xifrat i no es pot recuperar.",
 			"tpm": "Límit de tokens per minut; les sol·licituds es rebutgen amb un 429 un cop s'ha esgotat el pressupost per minut",
-			"id": "Feu clic per copiar l'ID de la clau"
+			"id": "Feu clic per copiar l'ID de la clau",
+			"owner": "Propietat de {{name}}"
 		},
 		"emptyState": "No hi ha claus virtuals. Crea'n una per començar a utilitzar el proxy.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Desactiva el raonament per franges",
 				"rateLimitBurst": "Rafegat (màxim simultani)",
 				"rateLimitRps": "RPS (sol·licituds/s)",
-				"rateLimitTpm": "TPM (tokens/min)"
+				"rateLimitTpm": "TPM (tokens/min)",
+				"owner": "Propietari",
+				"ownerNone": "Sense propietari (clau compartida)",
+				"ownerHint": "Els límits per usuari del propietari s'apliquen a totes les seves claus. Desactivar el propietari també desactiva aquesta clau."
 			},
 			"detailTitle": "Detalls de la clau virtual",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Tòkens consumits",
 				"lastUsed": "Últim ús",
 				"created": "Creat",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Propietari"
 			},
 			"noProvidersConfigured": "No s'ha configurat cap proveïdor.",
 			"discardChanges": "Descartar els canvis no desats?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Aquest compte i les seves sessions s'eliminen immediatament.",
 			"resetPassword": "Restableix la contrasenya",
 			"resetButton": "Restableix",
-			"resetHint": "El restabliment tanca la sessió de l'usuari a tot arreu."
+			"resetHint": "El restabliment tanca la sessió de l'usuari a tot arreu.",
+			"limits": "Límits de proxy",
+			"limitsHint": "Topalls agregats sobre totes les claus virtuals d'aquest usuari. Deixeu-ho buit per no aplicar cap topall.",
+			"limitRps": "Sol·licituds/seg",
+			"limitBurst": "Ràfega",
+			"limitTpm": "Tokens/min",
+			"noCap": "Sense topall",
+			"deleteKeysNote": "Les claus virtuals d'aquest compte es conserven i queden sense propietari."
 		},
 		"toast": {
 			"created": "Usuari creat",

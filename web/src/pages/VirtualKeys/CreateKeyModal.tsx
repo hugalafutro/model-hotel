@@ -7,6 +7,7 @@ import type { VirtualKey } from "../../api/types";
 import { CopyablePill } from "../../components/CopyablePill";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
+import { useIdentity } from "../../context/IdentityContext";
 import { UsageSnippets } from "./UsageSnippets";
 
 function BrainSlashIcon({
@@ -38,7 +39,9 @@ export function CreateKeyModal({
 }) {
 	const queryClient = useQueryClient();
 	const { t } = useTranslation();
+	const { isAdmin } = useIdentity();
 	const [name, setName] = useState("");
+	const [ownerId, setOwnerId] = useState("");
 	const [rateLimitRps, setRateLimitRps] = useState<string>("");
 	const [rateLimitBurst, setRateLimitBurst] = useState<string>("");
 	const [rateLimitTpm, setRateLimitTpm] = useState<string>("");
@@ -51,6 +54,14 @@ export function CreateKeyModal({
 	const { data: providers } = useQuery({
 		queryKey: ["providers"],
 		queryFn: () => api.providers.list(),
+	});
+
+	// Owner assignment is an admin concern: non-admins always create keys as
+	// their own (the server forces it) and cannot read the roster anyway.
+	const { data: users } = useQuery({
+		queryKey: ["users"],
+		queryFn: () => api.users.list(),
+		enabled: isAdmin,
 	});
 
 	const sortedProviders = (providers ?? [])
@@ -75,6 +86,7 @@ export function CreateKeyModal({
 			rate_limit_tpm,
 			allowed_providers,
 			strip_reasoning,
+			owner_user_id,
 		}: {
 			name: string;
 			rate_limit_rps?: number | null;
@@ -82,6 +94,7 @@ export function CreateKeyModal({
 			rate_limit_tpm?: number | null;
 			allowed_providers?: string[] | null;
 			strip_reasoning?: boolean;
+			owner_user_id?: string | null;
 		}) =>
 			api.virtualKeys.create(
 				name,
@@ -90,6 +103,7 @@ export function CreateKeyModal({
 				rate_limit_tpm,
 				allowed_providers,
 				strip_reasoning,
+				owner_user_id,
 			),
 		onSuccess: (vk) => {
 			setCreatedKey(vk);
@@ -125,6 +139,7 @@ export function CreateKeyModal({
 			rate_limit_tpm: rateLimitTpm !== "" ? parseInt(rateLimitTpm, 10) : null,
 			allowed_providers: allowedProviders,
 			strip_reasoning: stripReasoning,
+			owner_user_id: isAdmin && ownerId !== "" ? ownerId : null,
 		});
 	};
 
@@ -213,6 +228,35 @@ export function CreateKeyModal({
 							placeholder={t("virtualkeys.modal.form.namePlaceholder")}
 						/>
 					</div>
+					{isAdmin && (
+						<div>
+							<label
+								htmlFor="vk-owner"
+								className="block text-sm font-medium text-gray-300 mb-1"
+							>
+								{t("virtualkeys.modal.form.owner")}
+							</label>
+							<select
+								id="vk-owner"
+								value={ownerId}
+								onChange={(e) => setOwnerId(e.target.value)}
+								className="ui-input"
+								data-testid="vk-owner-select"
+							>
+								<option value="">
+									{t("virtualkeys.modal.form.ownerNone")}
+								</option>
+								{(users ?? []).map((u) => (
+									<option key={u.id} value={u.id}>
+										{u.username}
+									</option>
+								))}
+							</select>
+							<p className="text-xs text-gray-500 mt-1">
+								{t("virtualkeys.modal.form.ownerHint")}
+							</p>
+						</div>
+					)}
 					<div>
 						<label
 							htmlFor="vk-rate-limit-rps"

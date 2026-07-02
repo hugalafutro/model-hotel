@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Resonemang borttaget",
 			"keyHashed": "Nyckeln är hashad och kan inte återställas",
 			"tpm": "Tak för tokens per minut; förfrågningar avvisas med 429 när minutbudgeten är förbrukad",
-			"id": "Klicka för att kopiera nyckel-ID"
+			"id": "Klicka för att kopiera nyckel-ID",
+			"owner": "Ägs av {{name}}"
 		},
 		"emptyState": "Inga virtuella nycklar. Skapa en för att börja använda proxy.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Inaktivera remsans resonemang",
 				"rateLimitBurst": "Burst (max samtidiga)",
 				"rateLimitRps": "RPS (förfrågningar/sek)",
-				"rateLimitTpm": "TPM (tokens/min)"
+				"rateLimitTpm": "TPM (tokens/min)",
+				"owner": "Ägare",
+				"ownerNone": "Ingen ägare (delad nyckel)",
+				"ownerHint": "Ägarens användargränser gäller över alla dennes nycklar. Inaktiveras ägaren inaktiveras även denna nyckel."
 			},
 			"detailTitle": "Information om virtuell nyckel",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Tokens förbrukade",
 				"lastUsed": "Senast använd",
 				"created": "Skapad",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Ägare"
 			},
 			"noProvidersConfigured": "Inga leverantörer konfigurerade.",
 			"discardChanges": "Ignorera osparade ändringar?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Detta konto och dess sessioner tas bort omedelbart.",
 			"resetPassword": "Återställ lösenord",
 			"resetButton": "Återställ",
-			"resetHint": "Återställningen loggar ut användaren överallt."
+			"resetHint": "Återställningen loggar ut användaren överallt.",
+			"limits": "Proxygränser",
+			"limitsHint": "Sammanlagda gränser över användarens alla virtuella nycklar. Lämna tomt för ingen gräns.",
+			"limitRps": "Förfrågningar/sek",
+			"limitBurst": "Burst",
+			"limitTpm": "Token/min",
+			"noCap": "Ingen gräns",
+			"deleteKeysNote": "Virtuella nycklar som ägs av detta konto behålls och blir ägarlösa."
 		},
 		"toast": {
 			"created": "Användare skapad",

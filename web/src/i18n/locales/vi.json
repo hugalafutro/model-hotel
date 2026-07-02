@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Loại bỏ phần lập luận",
 			"keyHashed": "Khóa đã được băm và không thể khôi phục lại",
 			"tpm": "Giới hạn số token mỗi phút; các yêu cầu sẽ bị từ chối với mã trạng thái 429 khi ngân sách phút đã hết.",
-			"id": "Nhấp để sao chép ID khóa"
+			"id": "Nhấp để sao chép ID khóa",
+			"owner": "Thuộc sở hữu của {{name}}"
 		},
 		"emptyState": "Chưa có khóa ảo nào. Hãy tạo một khóa để bắt đầu sử dụng proxy.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Tắt tính năng suy luận theo dải",
 				"rateLimitBurst": "Burst (tối đa đồng thời)",
 				"rateLimitRps": "RPS (yêu cầu/giây)",
-				"rateLimitTpm": "TPM (token/phút)"
+				"rateLimitTpm": "TPM (token/phút)",
+				"owner": "Chủ sở hữu",
+				"ownerNone": "Không có chủ sở hữu (khóa dùng chung)",
+				"ownerHint": "Giới hạn theo người dùng của chủ sở hữu áp dụng cho tất cả khóa của họ. Vô hiệu hóa chủ sở hữu cũng vô hiệu hóa khóa này."
 			},
 			"detailTitle": "Chi tiết về Khóa ảo",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Số lượng token đã sử dụng",
 				"lastUsed": "Lần sử dụng gần nhất",
 				"created": "Được tạo",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Chủ sở hữu"
 			},
 			"noProvidersConfigured": "Chưa có nhà cung cấp nào được cấu hình.",
 			"discardChanges": "Bạn có muốn hủy bỏ các thay đổi chưa được lưu không?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Tài khoản này và các phiên của nó sẽ bị xóa ngay lập tức.",
 			"resetPassword": "Đặt lại mật khẩu",
 			"resetButton": "Đặt lại",
-			"resetHint": "Đặt lại sẽ đăng xuất người dùng ở mọi nơi."
+			"resetHint": "Đặt lại sẽ đăng xuất người dùng ở mọi nơi.",
+			"limits": "Giới hạn proxy",
+			"limitsHint": "Giới hạn tổng hợp trên tất cả khóa ảo mà người dùng này sở hữu. Để trống nếu không giới hạn.",
+			"limitRps": "Yêu cầu/giây",
+			"limitBurst": "Burst",
+			"limitTpm": "Token/phút",
+			"noCap": "Không giới hạn",
+			"deleteKeysNote": "Các khóa ảo thuộc tài khoản này được giữ lại và trở thành không có chủ sở hữu."
 		},
 		"toast": {
 			"created": "Đã tạo người dùng",

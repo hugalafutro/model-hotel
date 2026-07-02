@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Reasoning strippet",
 			"keyHashed": "Nøglen hashes og kan ikke inddrives",
 			"tpm": "Begrænsning på tokens pr. minut; anmodninger afvises med 429, når minutsbudgettet er opbrugt",
-			"id": "Klik for at kopiere nøgle-ID"
+			"id": "Klik for at kopiere nøgle-ID",
+			"owner": "Ejet af {{name}}"
 		},
 		"emptyState": "Ingen virtuelle nøgler. Opret en for at begynde at bruge proxy.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Deaktiver strimmel ræsonnement",
 				"rateLimitBurst": "Burst (maks. samtidige)",
 				"rateLimitRps": "RPS (anmodninger/sek.)",
-				"rateLimitTpm": "TPM (tokens/min)"
+				"rateLimitTpm": "TPM (tokens/min)",
+				"owner": "Ejer",
+				"ownerNone": "Ingen ejer (delt nøgle)",
+				"ownerHint": "Ejerens brugergrænser gælder på tværs af alle vedkommendes nøgler. Deaktiveres ejeren, deaktiveres denne nøgle også."
 			},
 			"detailTitle": "Virtuel Nøgle Detaljer",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Tokens Indtaget",
 				"lastUsed": "Sidst Brugt",
 				"created": "Oprettet",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Ejer"
 			},
 			"noProvidersConfigured": "Ingen udbydere konfigureret.",
 			"discardChanges": "Kassér ikke-gemte ændringer?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Denne konto og dens sessioner fjernes med det samme.",
 			"resetPassword": "Nulstil adgangskode",
 			"resetButton": "Nulstil",
-			"resetHint": "Nulstilling logger brugeren ud alle steder."
+			"resetHint": "Nulstilling logger brugeren ud alle steder.",
+			"limits": "Proxygrænser",
+			"limitsHint": "Samlede grænser på tværs af alle brugerens virtuelle nøgler. Lad stå tomt for ingen grænse.",
+			"limitRps": "Forespørgsler/sek.",
+			"limitBurst": "Burst",
+			"limitTpm": "Tokens/min.",
+			"noCap": "Ingen grænse",
+			"deleteKeysNote": "Virtuelle nøgler ejet af denne konto bevares og bliver ejerløse."
 		},
 		"toast": {
 			"created": "Bruger oprettet",
