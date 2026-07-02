@@ -18,6 +18,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
 // Use testDB from proxy_test.go
@@ -471,8 +472,6 @@ func TestChatCompletions_HotelModelNoCandidates(t *testing.T) {
 // Covers lines 533-543 in proxy.go.
 
 func TestChatCompletions_UpstreamTimeout(t *testing.T) {
-	t.Skip("skipped: upstream timeout test requires >30s sleep, too slow for CI")
-
 	env := newTestProxyHandler(t)
 	handler := env.Handler
 	keyHash := env.KeyHash
@@ -480,9 +479,20 @@ func TestChatCompletions_UpstreamTimeout(t *testing.T) {
 	modelName := env.ModelName
 	defer handler.Close()
 
-	// Create a slow upstream server that times out
+	// Shrink the non-streaming request timeout so a slow upstream trips it in
+	// well under a second, instead of relying on the 1-minute default (which is
+	// why this test used to be skipped as "too slow for CI").
+	settingsRepo := settings.NewRepository(testDB.Pool())
+	if err := settingsRepo.Set(context.Background(), "request_timeout", "250ms"); err != nil {
+		t.Fatalf("set request_timeout: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = settingsRepo.Set(context.Background(), "request_timeout", "1m")
+	})
+
+	// Create a slow upstream that outlasts the shrunken timeout.
 	slowUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(2 * time.Second) // Longer than default timeout
+		time.Sleep(2 * time.Second) // longer than the 250ms request_timeout
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"id":      "chatcmpl-test",

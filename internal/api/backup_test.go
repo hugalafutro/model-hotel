@@ -227,23 +227,10 @@ func TestBackupHandler_DeleteBackup_NotFound(t *testing.T) {
 	}
 }
 
-func TestBackupHandler_CreateBackup_NoPgDump(t *testing.T) {
-	// Use a temp dir with no pg_dump
-	r, _ := setupBackupRouter(t)
-
-	// This test will fail if pg_dump IS installed, so we skip in that case
-	if _, err := exec.LookPath("pg_dump"); err == nil {
-		t.Skip("pg_dump is installed, cannot test missing binary")
-	}
-
-	req := httptest.NewRequest("POST", "/backups", http.NoBody)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusPreconditionFailed {
-		t.Errorf("expected 412, got %d", w.Code)
-	}
-}
+// The "pg_dump missing -> 412" path is covered deterministically by
+// TestCreateBackup_NoPgDump_ManipulatedPATH (subprocess with empty PATH), so the
+// earlier environment-conditional duplicates that skipped when pg_dump happened
+// to be installed were removed: a test must pass or fail, never skip.
 
 // TestCreateBackup_Success_Integration tests that CreateBackup returns 200 with JSON response
 // when pg_dump is available and database is accessible.

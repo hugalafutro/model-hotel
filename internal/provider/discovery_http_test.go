@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -835,55 +834,7 @@ func TestGetZAICodingQuota_DecryptionFailure(t *testing.T) {
 // Note: GetZAICodingQuota always requires an encrypted API key - ZAI is not a keyless provider.
 // Empty encrypted keys are not a valid use case for this function.
 
-func TestGetZAICodingQuota(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping live API test in short mode")
-	}
-	if os.Getenv("LIVE_API_TESTS") == "" {
-		t.Skip("skipping live API test (set LIVE_API_TESTS=1 to enable)")
-	}
-
-	apiKey := os.Getenv("ZAI_CODING_API_KEY")
-	if apiKey == "" {
-		t.Skip("ZAI_CODING_API_KEY environment variable is required for live API tests")
-	}
-
-	svc := &DiscoveryService{httpClient: http.DefaultClient}
-
-	// Create properly encrypted key for testing
-	masterKey := "test-master-key"
-
-	// Encrypt the API key
-	keyPair, err := auth.Encrypt(apiKey, masterKey)
-	if err != nil {
-		t.Fatalf("failed to encrypt API key: %v", err)
-	}
-
-	provider := &Provider{
-		ID:           uuid.New(),
-		BaseURL:      "https://api.z.ai",
-		EncryptedKey: keyPair.Ciphertext,
-		KeyNonce:     keyPair.Nonce,
-		KeySalt:      keyPair.Salt,
-	}
-
-	ctx := context.Background()
-	quota, err := svc.GetZAICodingQuota(ctx, provider, masterKey)
-	if err != nil {
-		t.Fatalf("GetZAICodingQuota failed: %v", err)
-	}
-
-	if quota == nil {
-		t.Fatal("expected non-nil quota")
-		return
-	}
-
-	if len(quota.Data.Limits) == 0 {
-		t.Error("expected at least one limit in quota response")
-	}
-
-	t.Logf("ZAI Coding quota test passed - %d limits found", len(quota.Data.Limits))
-}
+// TestGetZAICodingQuota (live) moved to discovery_live_test.go (//go:build live).
 
 func TestGetZAICodingQuota_MockServer(t *testing.T) {
 	t.Parallel()

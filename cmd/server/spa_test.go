@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -86,21 +85,10 @@ func TestSPAHandler_ServeHTTP_UnknownPathServesIndexHTML(t *testing.T) {
 	}
 }
 
-func TestSPAHandler_ServeHTTP_StaticFileServedWhenAvailable(t *testing.T) {
-	h := NewSPAHandler()
-	if h.fileServer == nil {
-		t.Skip("skipping: embedded static files not available (need frontend build)")
-	}
-	// Request a JS file that should be served by the file server
-	req := httptest.NewRequest(http.MethodGet, "/assets/test-abc123.js", http.NoBody)
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-	// If the file exists it should be served; if not the fileServer
-	// handles 404 internally. Either way we shouldn't get indexHTML.
-	if w.Header().Get("Content-Type") == "text/html; charset=utf-8" {
-		t.Error("static file request should not return indexHTML")
-	}
-}
+// Note: the deterministic file-serving tests live below as the *_WithTestFS
+// suite (backed by testStaticFS). Earlier duplicates that probed the real
+// embedded FS and skipped when `pnpm build` had not populated it were removed:
+// a test must pass or fail, never skip.
 
 // TestSPAHandler_ServeHTTP_V1PrefixReturns404 tests that /v1-prefixed
 // paths return 404 (not caught by the /v1/ check with trailing slash).
@@ -144,162 +132,6 @@ func TestSPAHandler_ServeHTTP_NonAPIPathNotRootServesFallback(t *testing.T) {
 	cc := w.Header().Get("Cache-Control")
 	if cc != "no-cache" {
 		t.Errorf("expected no-cache for SPA fallback, got %q", cc)
-	}
-}
-
-// TestSPAHandler_ServeHTTP_EmbeddedStaticFileServedWithCacheHeaders tests
-// that hash-named static files (.js, .css) receive long-lived cache headers
-// when the frontend has been built and embedded. This test only exercises
-// the hash-cache-header path when the embedded FS contains the requested file.
-func TestSPAHandler_ServeHTTP_HashNamedJSFileWithCacheHeaders(t *testing.T) {
-	// Check if the embedded FS has a hash-named JS file (requires frontend build)
-	subFS, err := fs.Sub(staticFiles, "static")
-	if err != nil {
-		t.Skip("embedded static files not available")
-	}
-
-	// Look for any hash-named JS file in the assets directory
-	entries, err := fs.ReadDir(subFS, "assets")
-	if err != nil {
-		t.Skip("assets directory not found in embedded FS (need frontend build)")
-	}
-
-	var hashJSFile string
-	for _, e := range entries {
-		name := e.Name()
-		if strings.Contains(name, "-") && strings.HasSuffix(name, ".js") && !e.IsDir() {
-			hashJSFile = "/assets/" + name
-			break
-		}
-	}
-	if hashJSFile == "" {
-		t.Skip("no hash-named JS file found in embedded assets (need frontend build)")
-	}
-
-	h := NewSPAHandler()
-	if h.fileServer == nil {
-		t.Skip("SPAHandler.fileServer is nil (need frontend build)")
-	}
-
-	req := httptest.NewRequest(http.MethodGet, hashJSFile, http.NoBody)
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	cc := w.Header().Get("Cache-Control")
-	if cc != "public, max-age=31536000, immutable" {
-		t.Errorf("expected immutable cache header for hash-named JS file %q, got %q", hashJSFile, cc)
-	}
-}
-
-// TestSPAHandler_ServeHTTP_HashNamedCSSFileWithCacheHeaders tests that
-// hash-named CSS files receive long-lived cache headers when the frontend
-// has been built and embedded.
-func TestSPAHandler_ServeHTTP_HashNamedCSSFileWithCacheHeaders(t *testing.T) {
-	subFS, err := fs.Sub(staticFiles, "static")
-	if err != nil {
-		t.Skip("embedded static files not available")
-	}
-
-	entries, err := fs.ReadDir(subFS, "assets")
-	if err != nil {
-		t.Skip("assets directory not found in embedded FS (need frontend build)")
-	}
-
-	var hashCSSFile string
-	for _, e := range entries {
-		name := e.Name()
-		if strings.Contains(name, "-") && strings.HasSuffix(name, ".css") && !e.IsDir() {
-			hashCSSFile = "/assets/" + name
-			break
-		}
-	}
-	if hashCSSFile == "" {
-		t.Skip("no hash-named CSS file found in embedded assets (need frontend build)")
-	}
-
-	h := NewSPAHandler()
-	if h.fileServer == nil {
-		t.Skip("SPAHandler.fileServer is nil (need frontend build)")
-	}
-
-	req := httptest.NewRequest(http.MethodGet, hashCSSFile, http.NoBody)
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	cc := w.Header().Get("Cache-Control")
-	if cc != "public, max-age=31536000, immutable" {
-		t.Errorf("expected immutable cache header for hash-named CSS file %q, got %q", hashCSSFile, cc)
-	}
-}
-
-// TestSPAHandler_ServeHTTP_NonHashNamedJSFileNoCacheHeaders tests that
-// JS files without a hash in the name do NOT get the long-lived cache header.
-func TestSPAHandler_ServeHTTP_NonHashNamedJSFileNoCacheHeaders(t *testing.T) {
-	subFS, err := fs.Sub(staticFiles, "static")
-	if err != nil {
-		t.Skip("embedded static files not available")
-	}
-
-	// Look for a non-hash JS file (no "-" in name)
-	var plainJSFile string
-	fs.WalkDir(subFS, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		name := d.Name()
-		if strings.HasSuffix(name, ".js") && !strings.Contains(name, "-") {
-			plainJSFile = "/" + path
-		}
-		return nil
-	})
-	if plainJSFile == "" {
-		t.Skip("no non-hash JS file found in embedded FS")
-	}
-
-	h := NewSPAHandler()
-	req := httptest.NewRequest(http.MethodGet, plainJSFile, http.NoBody)
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	cc := w.Header().Get("Cache-Control")
-	if cc == "public, max-age=31536000, immutable" {
-		t.Errorf("non-hash JS file %q should NOT get immutable cache header", plainJSFile)
-	}
-}
-
-// TestSPAHandler_ServeHTTP_EmbeddedIndexHTMLServed tests that the root path
-// serves the embedded index.html (not the fallback) when frontend is built.
-func TestSPAHandler_ServeHTTP_EmbeddedIndexHTMLServed(t *testing.T) {
-	subFS, err := fs.Sub(staticFiles, "static")
-	if err != nil {
-		t.Skip("embedded static files not available")
-	}
-
-	indexContent, err := fs.ReadFile(subFS, "index.html")
-	if err != nil || len(indexContent) == 0 {
-		t.Skip("index.html not in embedded FS (need frontend build)")
-	}
-
-	h := NewSPAHandler()
-	if h.fileServer == nil {
-		t.Skip("SPAHandler.fileServer is nil (need frontend build)")
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", w.Code)
-	}
-
-	// Verify the embedded index.html is served, not the fallback
-	body := w.Body.String()
-	if strings.Contains(body, "Frontend not available") {
-		t.Error("root path should serve embedded index.html, not the fallback")
 	}
 }
 
@@ -550,53 +382,6 @@ func TestSPAHandler_ServeHTTP_CSSFileWithHash_WithCustomFileServer(t *testing.T)
 	// Either way, no crash.
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", w.Code)
-	}
-}
-
-// TestSPAHandler_ServeHTTP_StaticFileInEmbedFS tests serving a real static
-// file from the embedded FS when available (requires frontend build).
-// This exercises the fs.Stat → fileServer.ServeHTTP path in ServeHTTP (L52-57).
-func TestSPAHandler_ServeHTTP_StaticFileInEmbedFS(t *testing.T) {
-	subFS, err := fs.Sub(staticFiles, "static")
-	if err != nil {
-		t.Skip("embedded static files not available (need frontend build)")
-	}
-
-	// Walk the embedded FS to find any real file to request
-	var testFilePath string
-	fs.WalkDir(subFS, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err //nolint:nilerr // walkdir convention: propagate errors
-		}
-		if !strings.Contains(path, "/") && strings.HasSuffix(path, ".html") {
-			// Skip index.html (served specially at root)
-			return nil
-		}
-		testFilePath = "/" + path
-		return fs.SkipAll
-	})
-
-	if testFilePath == "" {
-		t.Skip("no static files found in embedded FS (need frontend build)")
-	}
-
-	h := NewSPAHandler()
-	if h.fileServer == nil {
-		t.Skip("SPAHandler.fileServer is nil (need frontend build)")
-	}
-
-	req := httptest.NewRequest(http.MethodGet, testFilePath, http.NoBody)
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200 for embedded file %q, got %d", testFilePath, w.Code)
-	}
-
-	// Verify the file is served by the fileServer, not as indexHTML
-	ct := w.Header().Get("Content-Type")
-	if ct == "text/html; charset=utf-8" && !strings.HasSuffix(testFilePath, ".html") {
-		t.Errorf("non-HTML file %q should not be served as indexHTML", testFilePath)
 	}
 }
 
