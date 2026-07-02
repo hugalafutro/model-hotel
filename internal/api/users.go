@@ -71,6 +71,16 @@ type userRequest struct {
 	Role        string   `json:"role"`
 	Grants      []string `json:"grants"`
 	Enabled     *bool    `json:"enabled,omitempty"` // update only; create is always enabled
+	// Aggregate proxy limits across the user's owned virtual keys. Null (or
+	// omitted) means no cap; both create and update always write all three,
+	// matching the virtual-key semantics.
+	RateLimitRPS   *float64 `json:"rate_limit_rps"`
+	RateLimitBurst *int     `json:"rate_limit_burst"`
+	RateLimitTPM   *int     `json:"rate_limit_tpm"`
+}
+
+func (req *userRequest) limits() user.Limits {
+	return user.Limits{RPS: req.RateLimitRPS, Burst: req.RateLimitBurst, TPM: req.RateLimitTPM}
 }
 
 // validate normalizes and checks the shared create/update fields.
@@ -107,6 +117,9 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, err.Error(), nil)
 		return
 	}
+	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
+		return
+	}
 	if len(req.Password) < minPasswordLen {
 		respondBadRequest(w, "password must be at least 8 characters", nil)
 		return
@@ -116,7 +129,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to hash password", err, http.StatusInternalServerError)
 		return
 	}
-	u, err := h.userRepo.Create(r.Context(), req.Username, req.DisplayName, req.Email, hash, role, req.Grants)
+	u, err := h.userRepo.Create(r.Context(), req.Username, req.DisplayName, req.Email, hash, role, req.Grants, req.limits())
 	if err != nil {
 		if isUniqueViolation(err) {
 			http.Error(w, "a user with this username or email already exists", http.StatusConflict)
@@ -147,6 +160,9 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, err.Error(), nil)
 		return
 	}
+	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
+		return
+	}
 	enabled := true
 	if req.Enabled != nil {
 		enabled = *req.Enabled
@@ -159,7 +175,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := h.userRepo.Update(r.Context(), id, req.Username, req.DisplayName, req.Email, role, req.Grants, enabled)
+	u, err := h.userRepo.Update(r.Context(), id, req.Username, req.DisplayName, req.Email, role, req.Grants, enabled, req.limits())
 	if err != nil {
 		if errors.Is(err, user.ErrNotFound) {
 			http.Error(w, "user not found", http.StatusNotFound)

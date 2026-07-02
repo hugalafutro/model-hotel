@@ -28,6 +28,20 @@ type VirtualKey struct {
 	RateLimitTPM     *int       `json:"rate_limit_tpm"`
 	AllowedProviders *[]string  `json:"allowed_providers"`
 	StripReasoning   bool       `json:"strip_reasoning"`
+	OwnerUserID      *uuid.UUID `json:"owner_user_id"`
+	// Owner carries the owning user's proxy-relevant state. Populated only by
+	// FindByKeyHash (the proxy auth path); nil everywhere else and always nil
+	// for unowned keys.
+	Owner *Owner `json:"-"`
+}
+
+// Owner is the slice of the owning users row the proxy needs: whether the
+// account is enabled and its aggregate per-user limits.
+type Owner struct {
+	Enabled        bool
+	RateLimitRPS   *float64
+	RateLimitBurst *int
+	RateLimitTPM   *int
 }
 
 // CreateVirtualKeyRequest is the request body for creating a virtual key.
@@ -38,6 +52,7 @@ type CreateVirtualKeyRequest struct {
 	RateLimitTPM     *int      `json:"rate_limit_tpm,omitempty"`
 	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 	StripReasoning   *bool     `json:"strip_reasoning,omitempty"`
+	OwnerUserID      *string   `json:"owner_user_id,omitempty"`
 }
 
 // VirtualKeyResponse is the API response for a virtual key.
@@ -56,18 +71,20 @@ type VirtualKeyResponse struct {
 	RateLimitTPM     *int      `json:"rate_limit_tpm"`
 	AllowedProviders *[]string `json:"allowed_providers"`
 	StripReasoning   bool      `json:"strip_reasoning"`
+	OwnerUserID      *string   `json:"owner_user_id"`
+	OwnerUsername    *string   `json:"owner_username,omitempty"`
 }
 
 // scanner is satisfied by pgx.Row and pgx.Rows.
 type scanner interface{ Scan(dest ...any) error }
 
 // vkColumns is the column list for SELECT queries on virtual_keys.
-const vkColumns = `id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning`
+const vkColumns = `id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning, owner_user_id`
 
 // scanVirtualKey scans a single row into a VirtualKey using the vkColumns order.
 func scanVirtualKey(row scanner) (*VirtualKey, error) {
 	var vk VirtualKey
-	err := row.Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.RateLimitTPM, &vk.AllowedProviders, &vk.StripReasoning)
+	err := row.Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.RateLimitTPM, &vk.AllowedProviders, &vk.StripReasoning, &vk.OwnerUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -85,10 +102,10 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 // Create inserts a new virtual key.
-func (r *Repository) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKey, error) {
+func (r *Repository) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID) (*VirtualKey, error) {
 	vk, err := scanVirtualKey(r.pool.QueryRow(ctx,
-		`INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning) VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, false)) RETURNING `+vkColumns,
-		name, keyHash, keyPreview, rps, burst, tpm, allowedProviders, stripReasoning))
+		`INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning, owner_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, false), $9) RETURNING `+vkColumns,
+		name, keyHash, keyPreview, rps, burst, tpm, allowedProviders, stripReasoning, ownerUserID))
 	if err != nil {
 		return nil, err
 	}
@@ -103,6 +120,22 @@ func (r *Repository) List(ctx context.Context) ([]*VirtualKey, error) {
 		return nil, err
 	}
 	defer rows.Close()
+	return collectKeys(rows)
+}
+
+// ListByOwner returns only the keys owned by the given user, for the
+// ownership-filtered dashboard listing non-admin users get.
+func (r *Repository) ListByOwner(ctx context.Context, ownerUserID uuid.UUID) ([]*VirtualKey, error) {
+	rows, err := r.pool.Query(ctx,
+		`SELECT `+vkColumns+` FROM virtual_keys WHERE owner_user_id = $1 ORDER BY created_at DESC`, ownerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return collectKeys(rows)
+}
+
+func collectKeys(rows pgx.Rows) ([]*VirtualKey, error) {
 
 	var keys []*VirtualKey
 	for rows.Next() {
@@ -160,7 +193,7 @@ func (r *Repository) TouchLastUsed(ctx context.Context, keyHash string) error {
 }
 
 // Update modifies virtual key fields.
-func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKey, error) {
+func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID) (*VirtualKey, error) {
 	// Always include all updatable fields in SET clause so nil/null
 	// values are correctly persisted as NULL (cleared) rather than
 	// silently ignored. The UI sends null when a user clears a field.
@@ -184,6 +217,9 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps 
 	setClauses = append(setClauses, "strip_reasoning = COALESCE($"+fmt.Sprintf("%d", argIdx)+", false)")
 	args = append(args, stripReasoning)
 	argIdx++
+	setClauses = append(setClauses, "owner_user_id = $"+fmt.Sprintf("%d", argIdx))
+	args = append(args, ownerUserID)
+	argIdx++
 
 	args = append(args, id)
 	query := `UPDATE virtual_keys SET ` + strings.Join(setClauses, ", ") + ` WHERE id = $` + fmt.Sprintf("%d", argIdx) + ` RETURNING ` + vkColumns
@@ -198,10 +234,24 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps 
 	return vk, nil
 }
 
-// FindByKeyHash looks up a virtual key by its SHA-256 hash.
+// FindByKeyHash looks up a virtual key by its SHA-256 hash. It joins the
+// owning users row (when any) so the proxy auth path learns the owner's
+// enabled flag and aggregate limits in the same round-trip; vk.Owner is nil
+// for unowned keys.
 func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*VirtualKey, error) {
-	vk, err := scanVirtualKey(r.pool.QueryRow(ctx,
-		`SELECT `+vkColumns+` FROM virtual_keys WHERE key_hash = $1`, keyHash))
+	var vk VirtualKey
+	var ownerEnabled *bool
+	var ownerRPS *float64
+	var ownerBurst, ownerTPM *int
+	err := r.pool.QueryRow(ctx,
+		`SELECT vk.id, vk.name, vk.key_hash, vk.key_preview, vk.tokens_used, vk.last_used_at, vk.created_at,
+		        vk.rate_limit_rps, vk.rate_limit_burst, vk.rate_limit_tpm, vk.allowed_providers, vk.strip_reasoning,
+		        vk.owner_user_id, u.enabled, u.rate_limit_rps, u.rate_limit_burst, u.rate_limit_tpm
+		 FROM virtual_keys vk LEFT JOIN users u ON u.id = vk.owner_user_id
+		 WHERE vk.key_hash = $1`, keyHash).Scan(
+		&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt,
+		&vk.RateLimitRPS, &vk.RateLimitBurst, &vk.RateLimitTPM, &vk.AllowedProviders, &vk.StripReasoning,
+		&vk.OwnerUserID, &ownerEnabled, &ownerRPS, &ownerBurst, &ownerTPM)
 	if err != nil {
 		// Translate a miss into ErrNotFound (like Get/Update) so the proxy returns
 		// a clean "invalid virtual key" 401 instead of surfacing the raw pgx "no
@@ -211,7 +261,15 @@ func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*Virtua
 		}
 		return nil, err
 	}
-	return vk, nil
+	if vk.OwnerUserID != nil && ownerEnabled != nil {
+		vk.Owner = &Owner{
+			Enabled:        *ownerEnabled,
+			RateLimitRPS:   ownerRPS,
+			RateLimitBurst: ownerBurst,
+			RateLimitTPM:   ownerTPM,
+		}
+	}
+	return &vk, nil
 }
 
 // ErrNotFound is returned when a virtual key is not found.

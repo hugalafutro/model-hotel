@@ -97,7 +97,8 @@ func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash strin
 }
 
 func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKeyInfo, error) {
-	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview, rps, burst, tpm, allowedProviders, stripReasoning)
+	// The proxy never creates owned keys; ownership is a dashboard concern.
+	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview, rps, burst, tpm, allowedProviders, stripReasoning, nil)
 	if err != nil {
 		return nil, err
 	}

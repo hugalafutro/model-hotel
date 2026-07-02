@@ -118,7 +118,7 @@ func TestChatCompletions_CircuitBreakerSequence_FailoverThen200(t *testing.T) {
 		t.Fatalf("failed to create failover group: %v", err)
 	}
 
-	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("cbseq-vk"), "sk-tes...", nil, nil, nil, nil, nil)
+	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("cbseq-vk"), "sk-tes...", nil, nil, nil, nil, nil, nil)
 	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
 
 	cb := failover.NewCircuitBreaker(settingsRepo)
