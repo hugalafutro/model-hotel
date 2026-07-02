@@ -192,6 +192,12 @@ type ExportFailoverEntry struct {
 // ExportUser is a dashboard user account, keyed by username. The password
 // hash travels verbatim: it is argon2id-encoded (never plaintext) and the
 // whole envelope only moves between admin-authenticated fleet members.
+// Deliberately NOT wrapped in MASTER_KEY encryption for transit: the envelope
+// uniformly carries what the DB stores (provider keys travel as ciphertext
+// only because they are encrypted at rest), the identical bytes ride the
+// pg_dump backup at the same trust boundary, and argon2id is the one field
+// here actually designed to survive exfiltration (VK sha256 hashes are the
+// weaker neighbours).
 type ExportUser struct {
 	Username     string   `json:"username"`
 	DisplayName  string   `json:"display_name,omitempty"`
