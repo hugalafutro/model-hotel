@@ -166,6 +166,11 @@ type ExportVK struct {
 	RateLimitTPM         *int     `json:"rate_limit_tpm,omitempty"`
 	AllowedProviderNames []string `json:"allowed_provider_names,omitempty"`
 	StripReasoning       bool     `json:"strip_reasoning"`
+	// OwnerUsername carries key ownership by username (user ids are
+	// instance-local; usernames are the users sync key). Nil = unowned. An
+	// owner that does not resolve on the member imports as unowned rather
+	// than failing the sync.
+	OwnerUsername *string `json:"owner_username,omitempty"`
 }
 
 // ExportFailoverGroup is a CUSTOM (non-auto-created) failover group. Its
@@ -206,6 +211,10 @@ type ExportUser struct {
 	Role         string   `json:"role"`
 	Grants       []string `json:"grants"`
 	Enabled      bool     `json:"enabled"`
+	// Aggregate per-user proxy limits (phase 2 of multi-user).
+	RateLimitRPS   *float64 `json:"rate_limit_rps,omitempty"`
+	RateLimitBurst *int     `json:"rate_limit_burst,omitempty"`
+	RateLimitTPM   *int     `json:"rate_limit_tpm,omitempty"`
 }
 
 // entityDiff lists the names changed for one entity kind in a sync.
@@ -452,9 +461,10 @@ func exportProviders(ctx context.Context, q querier) ([]ExportProvider, error) {
 
 func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]string) ([]ExportVK, error) {
 	rows, err := q.Query(ctx, `
-		SELECT name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, rate_limit_tpm,
-		       allowed_providers, strip_reasoning
-		FROM virtual_keys ORDER BY created_at`)
+		SELECT vk.name, vk.key_hash, vk.key_preview, vk.rate_limit_rps, vk.rate_limit_burst, vk.rate_limit_tpm,
+		       vk.allowed_providers, vk.strip_reasoning, u.username
+		FROM virtual_keys vk LEFT JOIN users u ON u.id = vk.owner_user_id
+		ORDER BY vk.created_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -464,7 +474,7 @@ func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]strin
 		var v ExportVK
 		var allowedIDs []string
 		if err := rows.Scan(&v.Name, &v.KeyHash, &v.KeyPreview, &v.RateLimitRPS, &v.RateLimitBurst,
-			&v.RateLimitTPM, &allowedIDs, &v.StripReasoning); err != nil {
+			&v.RateLimitTPM, &allowedIDs, &v.StripReasoning, &v.OwnerUsername); err != nil {
 			return nil, err
 		}
 		// Translate instance-local provider UUIDs to names; drop any that no
@@ -486,7 +496,8 @@ func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]strin
 // credentials; grants and role port as-is (no instance-local IDs involved).
 func exportUsers(ctx context.Context, q querier) ([]ExportUser, error) {
 	rows, err := q.Query(ctx, `
-		SELECT username, display_name, email, password_hash, role, grants, enabled
+		SELECT username, display_name, email, password_hash, role, grants, enabled,
+		       rate_limit_rps, rate_limit_burst, rate_limit_tpm
 		FROM users ORDER BY username`)
 	if err != nil {
 		return nil, err
@@ -496,7 +507,8 @@ func exportUsers(ctx context.Context, q querier) ([]ExportUser, error) {
 	for rows.Next() {
 		var u ExportUser
 		if err := rows.Scan(&u.Username, &u.DisplayName, &u.Email, &u.PasswordHash,
-			&u.Role, &u.Grants, &u.Enabled); err != nil {
+			&u.Role, &u.Grants, &u.Enabled,
+			&u.RateLimitRPS, &u.RateLimitBurst, &u.RateLimitTPM); err != nil {
 			return nil, err
 		}
 		out = append(out, u)
@@ -829,7 +841,16 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	if err != nil {
 		return err
 	}
-	if err := upsertVirtualKeys(ctx, tx, env.Config.VirtualKeys, nameToID); err != nil {
+	// Users converge before virtual keys so key ownership (carried by
+	// username) resolves against the freshly synced roster.
+	if err := applyUsers(ctx, tx, env.Config.Users); err != nil {
+		return err
+	}
+	userNameToID, err := usernameToID(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if err := upsertVirtualKeys(ctx, tx, env.Config.VirtualKeys, nameToID, userNameToID); err != nil {
 		return err
 	}
 	vkHashes := names(env.Config.VirtualKeys, func(v ExportVK) string { return v.KeyHash })
@@ -845,10 +866,6 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 			return err
 		}
 	}
-	if err := applyUsers(ctx, tx, env.Config.Users); err != nil {
-		return err
-	}
-
 	// Declarative replace for settings too: delete any syncable key this member
 	// has that the primary does not, so the replica falls back to the same
 	// built-in default the primary is using. Non-syncable keys (apprise,
@@ -1024,8 +1041,9 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser) error {
 			grants = []string{}
 		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO users (username, display_name, email, password_hash, role, grants, enabled)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO users (username, display_name, email, password_hash, role, grants, enabled,
+			                   rate_limit_rps, rate_limit_burst, rate_limit_tpm)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			ON CONFLICT (username) DO UPDATE SET
 				display_name = EXCLUDED.display_name,
 				email = EXCLUDED.email,
@@ -1033,15 +1051,38 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser) error {
 				role = EXCLUDED.role,
 				grants = EXCLUDED.grants,
 				enabled = EXCLUDED.enabled,
+				rate_limit_rps = EXCLUDED.rate_limit_rps,
+				rate_limit_burst = EXCLUDED.rate_limit_burst,
+				rate_limit_tpm = EXCLUDED.rate_limit_tpm,
 				updated_at = now()`,
-			u.Username, u.DisplayName, u.Email, u.PasswordHash, u.Role, grants, u.Enabled); err != nil {
+			u.Username, u.DisplayName, u.Email, u.PasswordHash, u.Role, grants, u.Enabled,
+			u.RateLimitRPS, u.RateLimitBurst, u.RateLimitTPM); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID map[string]string) error {
+// usernameToID maps this member's usernames to their instance-local user
+// ids, for resolving synced key ownership.
+func usernameToID(ctx context.Context, tx pgx.Tx) (map[string]string, error) {
+	rows, err := tx.Query(ctx, `SELECT username, id::text FROM users`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var name, id string
+		if err := rows.Scan(&name, &id); err != nil {
+			return nil, err
+		}
+		out[name] = id
+	}
+	return out, rows.Err()
+}
+
+func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID, userNameToID map[string]string) error {
 	for _, v := range vks {
 		var allowed []string // target provider UUIDs; nil => all allowed
 		for _, name := range v.AllowedProviderNames {
@@ -1061,9 +1102,20 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID 
 			debuglog.Warn("configsync: skipping virtual key whose allowed_providers do not resolve on this member", "key", v.Name)
 			continue
 		}
+		// Owner rides by username; an owner that does not resolve here (should
+		// not happen: users are applied first in the same transaction) imports
+		// as unowned rather than failing the sync.
+		var ownerID *string
+		if v.OwnerUsername != nil {
+			if id, ok := userNameToID[*v.OwnerUsername]; ok {
+				ownerID = &id
+			} else {
+				debuglog.Warn("configsync: virtual key owner does not resolve on this member, importing unowned", "key", v.Name, "owner", *v.OwnerUsername)
+			}
+		}
 		_, err := tx.Exec(ctx, `
-			INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning, owner_user_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			ON CONFLICT (key_hash) DO UPDATE SET
 				name = EXCLUDED.name,
 				key_preview = EXCLUDED.key_preview,
@@ -1071,8 +1123,9 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID 
 				rate_limit_burst = EXCLUDED.rate_limit_burst,
 				rate_limit_tpm = EXCLUDED.rate_limit_tpm,
 				allowed_providers = EXCLUDED.allowed_providers,
-				strip_reasoning = EXCLUDED.strip_reasoning`,
-			v.Name, v.KeyHash, v.KeyPreview, v.RateLimitRPS, v.RateLimitBurst, v.RateLimitTPM, allowed, v.StripReasoning)
+				strip_reasoning = EXCLUDED.strip_reasoning,
+				owner_user_id = EXCLUDED.owner_user_id`,
+			v.Name, v.KeyHash, v.KeyPreview, v.RateLimitRPS, v.RateLimitBurst, v.RateLimitTPM, allowed, v.StripReasoning, ownerID)
 		if err != nil {
 			return err
 		}
