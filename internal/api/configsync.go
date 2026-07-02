@@ -136,6 +136,10 @@ type ConfigPayload struct {
 	// groups" (present empty array, reconcile to zero) apart from "envelope predates
 	// this field" (key absent, decodes to nil, leave the member's groups alone).
 	FailoverGroups []ExportFailoverGroup `json:"failover_groups"`
+	// Same nil-vs-empty contract as FailoverGroups: always emitted by a member
+	// running this code ([] when there are no accounts), absent in an envelope
+	// from an older primary (decodes to nil, import leaves users alone).
+	Users []ExportUser `json:"users"`
 }
 
 // ExportProvider is a provider with its encrypted key material verbatim.
@@ -185,6 +189,19 @@ type ExportFailoverEntry struct {
 	Enabled      bool   `json:"enabled"`
 }
 
+// ExportUser is a dashboard user account, keyed by username. The password
+// hash travels verbatim: it is argon2id-encoded (never plaintext) and the
+// whole envelope only moves between admin-authenticated fleet members.
+type ExportUser struct {
+	Username     string   `json:"username"`
+	DisplayName  string   `json:"display_name,omitempty"`
+	Email        *string  `json:"email,omitempty"`
+	PasswordHash string   `json:"password_hash"`
+	Role         string   `json:"role"`
+	Grants       []string `json:"grants"`
+	Enabled      bool     `json:"enabled"`
+}
+
 // entityDiff lists the names changed for one entity kind in a sync.
 type entityDiff struct {
 	Added   []string `json:"added"`
@@ -198,6 +215,7 @@ type configDiff struct {
 	VirtualKeys    entityDiff `json:"virtual_keys"`
 	Settings       entityDiff `json:"settings"`
 	FailoverGroups entityDiff `json:"failover_groups"`
+	Users          entityDiff `json:"users"`
 }
 
 // importResponse is the body of POST /config/import.
@@ -233,7 +251,8 @@ func (h *ConfigSyncHandler) Export(w http.ResponseWriter, r *http.Request) {
 // Front Desk's auto-sync poller can cheaply detect that the primary's config
 // changed without pulling and diffing the full export every tick. The hash
 // covers only the Config payload (providers, virtual keys, syncable settings,
-// custom failover groups), never the volatile envelope fields (exported_at), so
+// custom failover groups, users), never the volatile envelope fields
+// (exported_at), so
 // it changes if and only if a synced entity changed. Same auth as Export.
 func (h *ConfigSyncHandler) Version(w http.ResponseWriter, r *http.Request) {
 	env, err := h.buildEnvelope(r.Context())
@@ -285,12 +304,17 @@ func (h *ConfigSyncHandler) buildEnvelope(ctx context.Context) (ConfigEnvelope, 
 	if err != nil {
 		return ConfigEnvelope{}, err
 	}
+	users, err := exportUsers(ctx, pool)
+	if err != nil {
+		return ConfigEnvelope{}, err
+	}
 	return ConfigEnvelope{
 		SchemaVersion: configSchemaVersion,
 		AppVersion:    h.appVersion,
 		ExportedAt:    time.Now().UTC(),
 		Config: ConfigPayload{
 			Providers: providers, VirtualKeys: vks, Settings: set, FailoverGroups: groups,
+			Users: users,
 		},
 	}, nil
 }
@@ -447,6 +471,29 @@ func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]strin
 			}
 		}
 		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// exportUsers carries every dashboard user account, keyed by username. The
+// argon2id password hash rides verbatim so a member can authenticate the same
+// credentials; grants and role port as-is (no instance-local IDs involved).
+func exportUsers(ctx context.Context, q querier) ([]ExportUser, error) {
+	rows, err := q.Query(ctx, `
+		SELECT username, display_name, email, password_hash, role, grants, enabled
+		FROM users ORDER BY username`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []ExportUser{}
+	for rows.Next() {
+		var u ExportUser
+		if err := rows.Scan(&u.Username, &u.DisplayName, &u.Email, &u.PasswordHash,
+			&u.Role, &u.Grants, &u.Enabled); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
 	}
 	return out, rows.Err()
 }
@@ -684,6 +731,30 @@ func (h *ConfigSyncHandler) computeDiff(ctx context.Context, env ConfigEnvelope)
 			}
 		}
 	}
+
+	// Users, keyed by username, with the same nil-guard as failover groups: a
+	// nil slice means the envelope predates the field and apply leaves users
+	// alone, so report no removals either.
+	curUsers, err := nameSet(ctx, pool, `SELECT username FROM users`)
+	if err != nil {
+		return d, err
+	}
+	wantUsers := map[string]struct{}{}
+	for _, u := range env.Config.Users {
+		wantUsers[u.Username] = struct{}{}
+		if _, ok := curUsers[u.Username]; ok {
+			d.Users.Updated = append(d.Users.Updated, u.Username)
+		} else {
+			d.Users.Added = append(d.Users.Added, u.Username)
+		}
+	}
+	if env.Config.Users != nil {
+		for name := range curUsers {
+			if _, ok := wantUsers[name]; !ok {
+				d.Users.Removed = append(d.Users.Removed, name)
+			}
+		}
+	}
 	return d, nil
 }
 
@@ -768,6 +839,10 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 			return err
 		}
 	}
+	if err := applyUsers(ctx, tx, env.Config.Users); err != nil {
+		return err
+	}
+
 	// Declarative replace for settings too: delete any syncable key this member
 	// has that the primary does not, so the replica falls back to the same
 	// built-in default the primary is using. Non-syncable keys (apprise,
@@ -912,6 +987,48 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider)
 				updated_at = now()`,
 			p.Name, p.BaseURL, p.EncryptedKey, p.KeyNonce, p.KeySalt, p.MaskedKey, p.Enabled, p.AutodiscoveryEnabled)
 		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// applyUsers converges the users table to the envelope, keyed by username. A
+// nil slice means the envelope predates the field: leave this member's users
+// alone (same contract as failover groups). Sequence matters: delete absent
+// users first, then blank all remaining emails, then upsert. The blanking step
+// lets an email move between two surviving accounts without tripping the
+// unique index mid-upsert (row-by-row upserts would otherwise 23505 on a
+// swap). Sessions of removed or disabled users die at the auth middleware,
+// which re-checks the users row on every request.
+func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser) error {
+	if users == nil {
+		return nil
+	}
+	usernames := names(users, func(u ExportUser) string { return u.Username })
+	if _, err := tx.Exec(ctx, `DELETE FROM users WHERE username <> ALL($1)`, usernames); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE users SET email = NULL`); err != nil {
+		return err
+	}
+	for _, u := range users {
+		grants := u.Grants
+		if grants == nil {
+			grants = []string{}
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO users (username, display_name, email, password_hash, role, grants, enabled)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			ON CONFLICT (username) DO UPDATE SET
+				display_name = EXCLUDED.display_name,
+				email = EXCLUDED.email,
+				password_hash = EXCLUDED.password_hash,
+				role = EXCLUDED.role,
+				grants = EXCLUDED.grants,
+				enabled = EXCLUDED.enabled,
+				updated_at = now()`,
+			u.Username, u.DisplayName, u.Email, u.PasswordHash, u.Role, grants, u.Enabled); err != nil {
 			return err
 		}
 	}
