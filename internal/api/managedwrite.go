@@ -10,7 +10,7 @@ import (
 // already shows for a managed fleet member. When this instance is an actively
 // managed member (Front Desk in contact, non-primary, fresh heartbeat), its
 // synced entities (providers, virtual keys, custom failover groups, syncable
-// settings) are declaratively replaced on the next config sync. The UI hides the
+// settings, user accounts) are declaratively replaced on the next config sync. The UI hides the
 // create/edit/delete affordances for those (see web/src/hooks/useManaged.ts), but
 // a direct API call, a second tab, or a page loaded before enrollment can still
 // reach the write handlers. Such a write would "succeed" and then be silently
@@ -25,8 +25,9 @@ import (
 // managedWriteMsg is the 403 body returned when a synced-entity write is refused
 // because this instance is a managed fleet member.
 const managedWriteMsg = "this instance is managed by the fleet primary; " +
-	"providers, virtual keys, failover groups, and synced settings are replaced " +
-	"on the next sync and cannot be edited here. Change them on the primary."
+	"providers, virtual keys, failover groups, synced settings, and user " +
+	"accounts are replaced on the next sync and cannot be edited here. " +
+	"Change them on the primary."
 
 // isManagedMember reports whether this instance is an actively managed fleet
 // member: Front Desk is in contact AND this node is a non-primary member with a
@@ -66,8 +67,9 @@ func managedBlocksSyncableSettings(ctx context.Context, fs fleetSettings, keys [
 
 // managedWriteGuard returns middleware that refuses a request with 403 when this
 // instance is a managed fleet member. Mount it ONLY on synced-entity write routes
-// (providers, virtual keys, custom failover group CRUD): every request that
-// reaches it is treated as such a write, so it does no method or path inspection.
+// (providers, virtual keys, custom failover group CRUD, user accounts): every
+// request that reaches it is treated as such a write, so it does no method or
+// path inspection.
 func managedWriteGuard(fs fleetSettings) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

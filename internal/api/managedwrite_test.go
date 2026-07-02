@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/user"
+	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
 // memberFleetSettings seeds a fakeFleetSettings to the "member" state: a fresh
@@ -129,6 +132,11 @@ func TestHandlerRegister_ManagedMember(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Wire the multi-user store so the /users read handlers (ListUsers,
+	// ListGrantCatalog) don't hit a nil userRepo in this harness.
+	pool := h.Pool().Pool()
+	h.SetUserAuth(user.NewRepository(pool), webauthn.NewRepository(pool))
+
 	auth := func(req *http.Request) *http.Request {
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		return req
@@ -149,6 +157,10 @@ func TestHandlerRegister_ManagedMember(t *testing.T) {
 		{"POST /providers", http.MethodPost, "/providers", `{"name":"x","base_url":"http://localhost:1234"}`},
 		{"POST /virtual-keys", http.MethodPost, "/virtual-keys", `{}`},
 		{"POST /failover-groups", http.MethodPost, "/failover-groups", `{}`},
+		{"POST /users", http.MethodPost, "/users", `{"username":"x","password":"password123","role":"user"}`},
+		{"PUT /users/{id}", http.MethodPut, "/users/00000000-0000-0000-0000-000000000001", `{}`},
+		{"POST /users/{id}/password", http.MethodPost, "/users/00000000-0000-0000-0000-000000000001/password", `{}`},
+		{"DELETE /users/{id}", http.MethodDelete, "/users/00000000-0000-0000-0000-000000000001", ""},
 		{"PUT /settings (syncable)", http.MethodPut, "/settings", `{"alert_enabled":"true"}`},
 		{"DELETE /settings (reset all)", http.MethodDelete, "/settings", `{}`},
 	} {
@@ -160,6 +172,13 @@ func TestHandlerRegister_ManagedMember(t *testing.T) {
 	// Reads, failover sync, and instance-local apprise settings stay usable.
 	if code, _ := do(http.MethodGet, "/providers", ""); code != http.StatusOK {
 		t.Errorf("managed GET /providers: expected 200, got %d", code)
+	}
+	// /users reads stay open on a member (writes are guarded above).
+	if code, _ := do(http.MethodGet, "/users", ""); code != http.StatusOK {
+		t.Errorf("managed GET /users: expected 200, got %d", code)
+	}
+	if code, _ := do(http.MethodGet, "/users/grants", ""); code != http.StatusOK {
+		t.Errorf("managed GET /users/grants: expected 200, got %d", code)
 	}
 	if code, _ := do(http.MethodPost, "/failover-groups/sync", ""); code == http.StatusForbidden {
 		t.Errorf("managed POST /failover-groups/sync: must be exempt, got 403")

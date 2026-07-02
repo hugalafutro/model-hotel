@@ -9,8 +9,10 @@ import type { SortState } from "../../components/DataTable";
 import { Row, SortableHeader, StaticHeader } from "../../components/DataTable";
 import { EmptyState } from "../../components/EmptyState";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
+import { ManagedBanner } from "../../components/ManagedBanner";
 import { PageHeader } from "../../components/PageHeader";
 import { useToast } from "../../context/ToastContext";
+import { useManaged } from "../../hooks/useManaged";
 import { useReadOnly } from "../../hooks/useReadOnly";
 import { formatRelativeTime } from "../../utils/format";
 import { UserModal } from "./UserModal";
@@ -21,6 +23,7 @@ export function Users() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const readOnly = useReadOnly();
+	const managed = useManaged();
 	const [showCreate, setShowCreate] = useState(false);
 	const [selected, setSelected] = useState<DashboardUser | null>(null);
 	const [sort, setSort] = useState<SortState<UserSortField>>({
@@ -73,7 +76,8 @@ export function Users() {
 				title={t("users.title")}
 				description={t("users.description")}
 				actions={
-					!readOnly && (
+					!readOnly &&
+					!managed && (
 						<button
 							type="button"
 							onClick={() => setShowCreate(true)}
@@ -85,6 +89,7 @@ export function Users() {
 					)
 				}
 			/>
+			<ManagedBanner />
 
 			{sorted.length > 0 ? (
 				<div className="ui-card overflow-hidden">
@@ -185,6 +190,7 @@ export function Users() {
 			{showCreate && (
 				<UserModal
 					user={null}
+					managed={managed}
 					onClose={() => setShowCreate(false)}
 					onToast={toast}
 				/>
@@ -192,6 +198,7 @@ export function Users() {
 			{selected && (
 				<UserModal
 					user={selected}
+					managed={managed}
 					onClose={() => setSelected(null)}
 					onToast={toast}
 				/>
