@@ -249,6 +249,12 @@ func (h *Handler) Register(r chi.Router) {
 	// Caller identity for the SPA's navigation gating (any authenticated role).
 	r.Get("/auth/me", h.Me)
 
+	// System health stats feed the sidebar widget every role sees: routing
+	// metadata and process gauges only, so any authenticated caller may read it.
+	sh := NewSystemHandler(h.dbPool.Pool(), h.settingsRepo)
+	sh.Register(r)
+	h.systemHandler = sh
+
 	r.Route("/providers", func(r chi.Router) {
 		// Reads are shared with the virtual-keys grant: the VK modal's
 		// allowed-providers picker needs the provider list.
@@ -283,7 +289,7 @@ func (h *Handler) Register(r chi.Router) {
 	})
 
 	// Everything below is admin-only surface: discovery, app logs, settings,
-	// alerts, failover config, system, backup, config-sync, fleet.
+	// alerts, failover config, backup, config-sync, fleet.
 	r.Group(func(r chi.Router) {
 		r.Use(requireAdmin)
 		h.registerAdminOnly(r)
@@ -302,9 +308,6 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 	modelRepo := model.NewRepository(h.dbPool.Pool())
 	NewFailoverHandler(h.dbPool.Pool(), failoverRepo, modelRepo, h.settingsRepo, h.circuitBreaker).Register(r)
 
-	sh := NewSystemHandler(h.dbPool.Pool(), h.settingsRepo)
-	sh.Register(r)
-	h.systemHandler = sh
 	bh := NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups"), h.adminMgr, h.settingsRepo)
 	bh.SetSessionAuth(h.webauthnSessionMgr, h.TotpEnabled)
 	bh.Register(r)

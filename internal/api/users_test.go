@@ -178,6 +178,12 @@ func TestGrantEnforcement_UserRole(t *testing.T) {
 		t.Errorf("unexpected /auth/me: %+v", me)
 	}
 
+	// The sidebar system widget is visible to every role, so /system must be
+	// readable regardless of grants.
+	if w := doJSON(t, r, http.MethodGet, "/system", token, ""); w.Code != http.StatusOK {
+		t.Errorf("GET /system as grant-limited user: %d, want 200", w.Code)
+	}
+
 	// Chat grant unlocks the models list (chat UI's picker)...
 	if w := doJSON(t, r, http.MethodGet, "/models", token, ""); w.Code != http.StatusOK {
 		t.Errorf("GET /models with chat grant: %d, want 200", w.Code)
