@@ -77,8 +77,13 @@ describe("Users managed (fleet member) mode", () => {
 		expect(
 			within(dialog).queryByTestId("user-modal-delete"),
 		).not.toBeInTheDocument();
+		// The reset-password field's label ("Reset password") maps to its input
+		// via htmlFor, so queryByLabelText actually resolves to the element when
+		// present (unlike a testId the field never carried). This makes the
+		// absence assertion non-vacuous: it fails if the !managed gate on the
+		// reset section is ever dropped.
 		expect(
-			within(dialog).queryByTestId("user-reset-password"),
+			within(dialog).queryByLabelText("Reset password"),
 		).not.toBeInTheDocument();
 	});
 
