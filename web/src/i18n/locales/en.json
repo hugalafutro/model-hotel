@@ -103,7 +103,8 @@
 			"appLogs": "Logs",
 			"settings": "Settings",
 			"discoveryChangesBadge_one": "{{count}} change from background discovery - click to review",
-			"discoveryChangesBadge_other": "{{count}} changes from background discovery - click to review"
+			"discoveryChangesBadge_other": "{{count}} changes from background discovery - click to review",
+			"users": "Users"
 		},
 		"status": {
 			"apiStatus": "API Status",
@@ -176,7 +177,14 @@
 			"signInWithSSO": "Sign in with SSO",
 			"signInWithSSOProvider": "Sign in with {{provider}}",
 			"ssoFailed": "Single sign-on failed. Try again or use another sign-in method.",
-			"signInWithGithub": "Sign in with GitHub"
+			"signInWithGithub": "Sign in with GitHub",
+			"username": "Username",
+			"usernamePlaceholder": "Enter your username",
+			"password": "Password",
+			"signInUser": "Sign in with password",
+			"userCredentialsRequired": "Enter your username and password",
+			"userLoginFailed": "Invalid username or password",
+			"userLoginThrottled": "Too many failed attempts. Try again later."
 		},
 		"theme": {
 			"switchToLight": "Switch to light mode",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Not supported"
+		}
+	},
+	"users": {
+		"title": "Users",
+		"description": "Manage dashboard accounts and what each user can access.",
+		"addButton": "Add user",
+		"emptyState": "No users yet. Add one to give someone limited access to this dashboard.",
+		"table": {
+			"username": "Username",
+			"displayName": "Display name",
+			"email": "Email",
+			"emailTooltip": "Verified SSO sign-ins with this email log in as this user.",
+			"role": "Role",
+			"grants": "Access",
+			"grantsTooltip": "The features this user can open.",
+			"status": "Status",
+			"lastLogin": "Last login",
+			"allGrants": "Everything",
+			"noGrants": "None"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "User"
+		},
+		"status": {
+			"enabled": "Enabled",
+			"disabled": "Disabled"
+		},
+		"grant": {
+			"chat": "Chat",
+			"usage": "Usage",
+			"logs": "Request logs",
+			"models": "Models",
+			"virtual_keys": "Virtual keys"
+		},
+		"modal": {
+			"addTitle": "Add user",
+			"editTitle": "Edit user",
+			"username": "Username",
+			"displayName": "Display name",
+			"email": "Email (optional)",
+			"emailHint": "Bind an email so OIDC or GitHub sign-ins with this verified address log in as this user.",
+			"password": "Password",
+			"passwordPlaceholder": "At least 8 characters",
+			"role": "Role",
+			"roleAdminHint": "Admins can access everything, including this page.",
+			"roleUserHint": "Users only see the features checked below.",
+			"grants": "Access",
+			"enabled": "Account enabled",
+			"save": "Save changes",
+			"create": "Create user",
+			"cancel": "Cancel",
+			"deleteButton": "Delete user",
+			"deleteConfirmTitle": "Delete user",
+			"deleteConfirmMessage": "This account and its sessions are removed immediately.",
+			"resetPassword": "Reset password",
+			"resetButton": "Reset",
+			"resetHint": "Resetting logs the user out everywhere."
+		},
+		"toast": {
+			"created": "User created",
+			"updated": "User updated",
+			"deleted": "User deleted",
+			"passwordReset": "Password reset",
+			"saveFailed": "Could not save the user",
+			"deleteFailed": "Could not delete the user"
+		},
+		"validation": {
+			"usernameRequired": "Username is required",
+			"passwordShort": "Password must be at least 8 characters"
 		}
 	}
 }

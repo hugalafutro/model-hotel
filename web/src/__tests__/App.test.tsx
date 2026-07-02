@@ -559,11 +559,16 @@ describe("Route navigation", () => {
 		const providersLink = screen.getByRole("link", { name: "Providers" });
 		await userEvent.click(providersLink);
 
-		await waitFor(() => {
-			expect(
-				screen.getByText("Manage your provider configurations"),
-			).toBeInTheDocument();
-		});
+		// Lazy route chunk + identity resolution can exceed the default 1s under
+		// coverage instrumentation (see the 10s precedent above).
+		await waitFor(
+			() => {
+				expect(
+					screen.getByText("Manage your provider configurations"),
+				).toBeInTheDocument();
+			},
+			{ timeout: 10000 },
+		);
 	});
 
 	it("navigates to Models page", async () => {

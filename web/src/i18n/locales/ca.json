@@ -103,7 +103,8 @@
 			"settings": "Configuració",
 			"failoverBadgeExplain": "Proveïdors de fallada per estat del circuit breaker - {{closed}} saludable / {{halfOpen}} en recuperació / {{open}} disparat",
 			"discoveryChangesBadge_one": "Canvi de {{count}} des del descobriment de fons - fes clic per revisar",
-			"discoveryChangesBadge_other": "Canvis de {{count}} des del descobriment de fons - feu clic per revisar"
+			"discoveryChangesBadge_other": "Canvis de {{count}} des del descobriment de fons - feu clic per revisar",
+			"users": "Usuaris"
 		},
 		"status": {
 			"apiStatus": "Estat de l'API",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Inicia la sessió amb SSO",
 			"signInWithSSOProvider": "Inicia la sessió amb {{provider}}",
 			"ssoFailed": "L'inici de sessió únic ha fallat. Torna-ho a provar o fes servir un altre mètode d'inici de sessió.",
-			"signInWithGithub": "Inicia la sessió amb GitHub"
+			"signInWithGithub": "Inicia la sessió amb GitHub",
+			"username": "Nom d'usuari",
+			"usernamePlaceholder": "Introduïu el vostre nom d'usuari",
+			"password": "Contrasenya",
+			"signInUser": "Inicia la sessió amb contrasenya",
+			"userCredentialsRequired": "Introduïu el nom d'usuari i la contrasenya",
+			"userLoginFailed": "Nom d'usuari o contrasenya no vàlids",
+			"userLoginThrottled": "Massa intents fallits. Torneu-ho a provar més tard."
 		},
 		"theme": {
 			"switchToLight": "Canvia al mode clar",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "No es permet"
+		}
+	},
+	"users": {
+		"title": "Usuaris",
+		"description": "Gestioneu els comptes del tauler i a què pot accedir cada usuari.",
+		"addButton": "Afegeix un usuari",
+		"emptyState": "Encara no hi ha usuaris. Afegiu-ne un per donar a algú accés limitat a aquest tauler.",
+		"table": {
+			"username": "Nom d'usuari",
+			"displayName": "Nom visible",
+			"email": "Correu",
+			"emailTooltip": "Els inicis de sessió SSO verificats amb aquest correu entren com aquest usuari.",
+			"role": "Rol",
+			"grants": "Accés",
+			"grantsTooltip": "Les funcions que aquest usuari pot obrir.",
+			"status": "Estat",
+			"lastLogin": "Últim accés",
+			"allGrants": "Tot",
+			"noGrants": "Cap"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Usuari"
+		},
+		"status": {
+			"enabled": "Activat",
+			"disabled": "Desactivat"
+		},
+		"grant": {
+			"chat": "Xat",
+			"usage": "Ús",
+			"logs": "Registres",
+			"models": "Models",
+			"virtual_keys": "Claus virtuals"
+		},
+		"modal": {
+			"addTitle": "Afegeix un usuari",
+			"editTitle": "Edita l'usuari",
+			"username": "Nom d'usuari",
+			"displayName": "Nom visible",
+			"email": "Correu (opcional)",
+			"emailHint": "Vinculeu un correu perquè els inicis de sessió OIDC o GitHub amb aquesta adreça verificada entrin com aquest usuari.",
+			"password": "Contrasenya",
+			"passwordPlaceholder": "Com a mínim 8 caràcters",
+			"role": "Rol",
+			"roleAdminHint": "Els admins poden accedir a tot, inclosa aquesta pàgina.",
+			"roleUserHint": "Els usuaris només veuen les funcions marcades a sota.",
+			"grants": "Accés",
+			"enabled": "Compte activat",
+			"save": "Desa els canvis",
+			"create": "Crea l'usuari",
+			"cancel": "Cancel·la",
+			"deleteButton": "Suprimeix l'usuari",
+			"deleteConfirmTitle": "Suprimeix l'usuari",
+			"deleteConfirmMessage": "Aquest compte i les seves sessions s'eliminen immediatament.",
+			"resetPassword": "Restableix la contrasenya",
+			"resetButton": "Restableix",
+			"resetHint": "El restabliment tanca la sessió de l'usuari a tot arreu."
+		},
+		"toast": {
+			"created": "Usuari creat",
+			"updated": "Usuari actualitzat",
+			"deleted": "Usuari suprimit",
+			"passwordReset": "Contrasenya restablerta",
+			"saveFailed": "No s'ha pogut desar l'usuari",
+			"deleteFailed": "No s'ha pogut suprimir l'usuari"
+		},
+		"validation": {
+			"usernameRequired": "El nom d'usuari és obligatori",
+			"passwordShort": "La contrasenya ha de tenir com a mínim 8 caràcters"
 		}
 	}
 }

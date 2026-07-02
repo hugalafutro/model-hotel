@@ -22,6 +22,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -124,11 +125,20 @@ type ModelsCursorResponse struct {
 // RegisterModels mounts model management routes.
 func (h *Handler) RegisterModels(r chi.Router) {
 	r.Route("/models", func(r chi.Router) {
-		r.Get("/", h.ListModels)
-		r.Get("/cursor", h.ListModelsCursor)
-		r.Patch("/{id}", h.UpdateModel)
-		r.Delete("/{id}", h.DeleteModel)
-		r.Post("/{id}/test", h.TestModel)
+		// Reads serve the Models page (models grant), the Chat UI's model
+		// picker (chat grant), and the Dashboard's model count and drill-down
+		// (usage grant; stats payloads already expose the model names).
+		r.Group(func(r chi.Router) {
+			r.Use(requireGrant(user.GrantModels, user.GrantChat, user.GrantUsage))
+			r.Get("/", h.ListModels)
+			r.Get("/cursor", h.ListModelsCursor)
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(requireAdmin)
+			r.Patch("/{id}", h.UpdateModel)
+			r.Delete("/{id}", h.DeleteModel)
+			r.Post("/{id}/test", h.TestModel)
+		})
 	})
 }
 

@@ -103,7 +103,8 @@
 			"settings": "Impostazioni",
 			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico - {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato",
 			"discoveryChangesBadge_one": "Modifica {{count}} derivante dal rilevamento in background - clicca per rivedere",
-			"discoveryChangesBadge_other": "Modifiche {{count}} derivanti dal rilevamento in background - clicca per rivedere"
+			"discoveryChangesBadge_other": "Modifiche {{count}} derivanti dal rilevamento in background - clicca per rivedere",
+			"users": "Utenti"
 		},
 		"status": {
 			"apiStatus": "Stato API",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Accedi con SSO",
 			"signInWithSSOProvider": "Accedi con {{provider}}",
 			"ssoFailed": "Accesso unico non riuscito. Riprova o usa un altro metodo di accesso.",
-			"signInWithGithub": "Accedi con GitHub"
+			"signInWithGithub": "Accedi con GitHub",
+			"username": "Nome utente",
+			"usernamePlaceholder": "Inserisci il tuo nome utente",
+			"password": "Password",
+			"signInUser": "Accedi con password",
+			"userCredentialsRequired": "Inserisci nome utente e password",
+			"userLoginFailed": "Nome utente o password non validi",
+			"userLoginThrottled": "Troppi tentativi falliti. Riprova più tardi."
 		},
 		"theme": {
 			"switchToLight": "Passa alla modalità chiara",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Non supportato"
+		}
+	},
+	"users": {
+		"title": "Utenti",
+		"description": "Gestisci gli account della dashboard e a cosa può accedere ogni utente.",
+		"addButton": "Aggiungi utente",
+		"emptyState": "Nessun utente per ora. Aggiungine uno per dare a qualcuno un accesso limitato a questa dashboard.",
+		"table": {
+			"username": "Nome utente",
+			"displayName": "Nome visualizzato",
+			"email": "Email",
+			"emailTooltip": "Gli accessi SSO verificati con questa email entrano come questo utente.",
+			"role": "Ruolo",
+			"grants": "Accesso",
+			"grantsTooltip": "Le funzioni che questo utente può aprire.",
+			"status": "Stato",
+			"lastLogin": "Ultimo accesso",
+			"allGrants": "Tutto",
+			"noGrants": "Nessuno"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Utente"
+		},
+		"status": {
+			"enabled": "Attivo",
+			"disabled": "Disattivato"
+		},
+		"grant": {
+			"chat": "Chat",
+			"usage": "Utilizzo",
+			"logs": "Log",
+			"models": "Modelli",
+			"virtual_keys": "Chiavi virtuali"
+		},
+		"modal": {
+			"addTitle": "Aggiungi utente",
+			"editTitle": "Modifica utente",
+			"username": "Nome utente",
+			"displayName": "Nome visualizzato",
+			"email": "Email (facoltativa)",
+			"emailHint": "Collega un'email così gli accessi OIDC o GitHub con questo indirizzo verificato entrano come questo utente.",
+			"password": "Password",
+			"passwordPlaceholder": "Almeno 8 caratteri",
+			"role": "Ruolo",
+			"roleAdminHint": "Gli admin possono accedere a tutto, inclusa questa pagina.",
+			"roleUserHint": "Gli utenti vedono solo le funzioni selezionate qui sotto.",
+			"grants": "Accesso",
+			"enabled": "Account attivo",
+			"save": "Salva modifiche",
+			"create": "Crea utente",
+			"cancel": "Annulla",
+			"deleteButton": "Elimina utente",
+			"deleteConfirmTitle": "Elimina utente",
+			"deleteConfirmMessage": "Questo account e le sue sessioni vengono rimossi immediatamente.",
+			"resetPassword": "Reimposta password",
+			"resetButton": "Reimposta",
+			"resetHint": "La reimpostazione disconnette l'utente ovunque."
+		},
+		"toast": {
+			"created": "Utente creato",
+			"updated": "Utente aggiornato",
+			"deleted": "Utente eliminato",
+			"passwordReset": "Password reimpostata",
+			"saveFailed": "Impossibile salvare l'utente",
+			"deleteFailed": "Impossibile eliminare l'utente"
+		},
+		"validation": {
+			"usernameRequired": "Il nome utente è obbligatorio",
+			"passwordShort": "La password deve contenere almeno 8 caratteri"
 		}
 	}
 }

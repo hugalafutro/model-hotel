@@ -38,6 +38,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/totp"
+	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -305,6 +306,13 @@ func main() {
 	sessionMgr := webauthn.NewSessionManager(webauthnRepo)
 	apiHandler.SetWebAuthnSessionManager(sessionMgr)
 
+	// Multi-user accounts: the store resolves session user-handles into
+	// role+grant identities in the auth middleware; the webauthn repository
+	// doubles as the session revoker for disable/delete/password-reset.
+	userRepo := user.NewRepository(database.Pool())
+	apiHandler.SetUserAuth(userRepo, webauthnRepo)
+	userLoginHandler := adminauth.NewUserLoginHandler(userRepo, sessionMgr, ipLimiter)
+
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
@@ -330,6 +338,7 @@ func main() {
 	// settings (rebuilt lazily on change), so it is always constructed; the
 	// public status/start/callback endpoints no-op until oidc_enabled is set.
 	oidcHandler := adminauth.NewOIDCHandler(settingsRepo, sessionMgr, ipLimiter, cfg.MasterKey)
+	oidcHandler.SetUserResolver(userRepo)
 
 	// GitHub SSO is a fourth admin-login front-end, alongside OIDC/passkey/TOTP.
 	// GitHub is OAuth2 only (no ID token/discovery), so it has its own handler
@@ -337,6 +346,7 @@ func main() {
 	// mints the same CreateAuthToken session. Always constructed; the public
 	// endpoints no-op until github_sso_enabled is set.
 	githubHandler := adminauth.NewGitHubHandler(settingsRepo, sessionMgr, ipLimiter, cfg.MasterKey)
+	githubHandler.SetUserResolver(userRepo)
 
 	if cfg.WebAuthnRPID != "" {
 		rpOrigins := make([]string, len(cfg.WebAuthnRPOrigins))
@@ -378,6 +388,15 @@ func main() {
 			})
 		}
 
+		// Multi-user password login: public status + login exchange, minting
+		// the same session tokens as every other login front-end. The user
+		// store is also wired into the API auth middleware so those sessions
+		// resolve to role+grant identities.
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Timeout(60 * time.Second))
+			userLoginHandler.Register(r)
+		})
+
 		// TOTP (RFC 6238) second-factor. Mounted unconditionally (not gated
 		// on WebAuthnRPID): the public status/login + admin/session-gated
 		// enroll/verify/disable endpoints work even without passkeys because
@@ -414,6 +433,7 @@ func main() {
 	r.Route("/api/chat", func(r chi.Router) {
 		r.Use(ipLimiter.Middleware)
 		r.Use(apiHandler.AuthMiddleware)
+		r.Use(apiHandler.RequireGrant(user.GrantChat))
 		r.Use(streamingAwareTimeout(5 * time.Minute))
 		proxyHandler.RegisterAdminChat(r)
 	})

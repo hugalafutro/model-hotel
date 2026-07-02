@@ -393,6 +393,19 @@ func (r *Repository) DeleteSession(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// DeleteSessionsByUserID revokes every session minted for the given user
+// handle (a user UUID string for multi-user logins). Called when a user is
+// disabled, deleted, or has their password reset, so stale tokens die
+// immediately instead of living out their 30-day expiry. Postgres-only by
+// design: dashboard users do not exist on Front Desk's SQLite store.
+func (r *Repository) DeleteSessionsByUserID(ctx context.Context, userID []byte) (int64, error) {
+	tag, err := r.pool.Exec(ctx, `DELETE FROM webauthn_sessions WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // CleanupExpiredSessions removes sessions that have passed their expiry time.
 func (r *Repository) CleanupExpiredSessions(ctx context.Context) (int64, error) {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM webauthn_sessions WHERE expires_at < NOW()`)

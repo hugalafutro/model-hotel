@@ -103,7 +103,8 @@
 			"settings": "Beállítások",
 			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint - {{closed}} működőképes / {{halfOpen}} helyreállítási fázisban / {{open}} kioldott",
 			"discoveryChangesBadge_one": "{{count}} módosítás a háttérbeli felderítésből – kattintson a felülvizsgálathoz",
-			"discoveryChangesBadge_other": "Az {{count}} változások a háttérbeli felderítésből származnak – kattintson a felülvizsgálathoz"
+			"discoveryChangesBadge_other": "Az {{count}} változások a háttérbeli felderítésből származnak – kattintson a felülvizsgálathoz",
+			"users": "Felhasználók"
 		},
 		"status": {
 			"apiStatus": "API-állapot",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Bejelentkezés SSO-val",
 			"signInWithSSOProvider": "Bejelentkezés ezzel: {{provider}}",
 			"ssoFailed": "Az egyszeri bejelentkezés sikertelen. Próbáld újra, vagy használj másik bejelentkezési módot.",
-			"signInWithGithub": "Bejelentkezés ezzel: GitHub"
+			"signInWithGithub": "Bejelentkezés ezzel: GitHub",
+			"username": "Felhasználónév",
+			"usernamePlaceholder": "Add meg a felhasználóneved",
+			"password": "Jelszó",
+			"signInUser": "Bejelentkezés jelszóval",
+			"userCredentialsRequired": "Add meg a felhasználónevet és a jelszót",
+			"userLoginFailed": "Érvénytelen felhasználónév vagy jelszó",
+			"userLoginThrottled": "Túl sok sikertelen próbálkozás. Próbáld újra később."
 		},
 		"theme": {
 			"switchToLight": "Váltás világos módra",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Nem támogatott"
+		}
+	},
+	"users": {
+		"title": "Felhasználók",
+		"description": "Kezeld az irányítópult fiókjait és azt, hogy melyik felhasználó mihez fér hozzá.",
+		"addButton": "Felhasználó hozzáadása",
+		"emptyState": "Még nincsenek felhasználók. Adj hozzá egyet, hogy valakinek korlátozott hozzáférést adj ehhez az irányítópulthoz.",
+		"table": {
+			"username": "Felhasználónév",
+			"displayName": "Megjelenített név",
+			"email": "E-mail",
+			"emailTooltip": "Az ezzel az e-maillel történő ellenőrzött SSO-bejelentkezések ezzel a felhasználóval lépnek be.",
+			"role": "Szerepkör",
+			"grants": "Hozzáférés",
+			"grantsTooltip": "A funkciók, amelyeket ez a felhasználó megnyithat.",
+			"status": "Állapot",
+			"lastLogin": "Utolsó bejelentkezés",
+			"allGrants": "Minden",
+			"noGrants": "Nincs"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Felhasználó"
+		},
+		"status": {
+			"enabled": "Engedélyezve",
+			"disabled": "Letiltva"
+		},
+		"grant": {
+			"chat": "Csevegés",
+			"usage": "Használat",
+			"logs": "Naplók",
+			"models": "Modellek",
+			"virtual_keys": "Virtuális kulcsok"
+		},
+		"modal": {
+			"addTitle": "Felhasználó hozzáadása",
+			"editTitle": "Felhasználó szerkesztése",
+			"username": "Felhasználónév",
+			"displayName": "Megjelenített név",
+			"email": "E-mail (nem kötelező)",
+			"emailHint": "Kapcsolj hozzá egy e-mailt, hogy az ezzel az ellenőrzött címmel történő OIDC- vagy GitHub-bejelentkezések ezzel a felhasználóval lépjenek be.",
+			"password": "Jelszó",
+			"passwordPlaceholder": "Legalább 8 karakter",
+			"role": "Szerepkör",
+			"roleAdminHint": "Az adminok mindenhez hozzáférnek, ehhez az oldalhoz is.",
+			"roleUserHint": "A felhasználók csak az alább bejelölt funkciókat látják.",
+			"grants": "Hozzáférés",
+			"enabled": "Fiók engedélyezve",
+			"save": "Változtatások mentése",
+			"create": "Felhasználó létrehozása",
+			"cancel": "Mégse",
+			"deleteButton": "Felhasználó törlése",
+			"deleteConfirmTitle": "Felhasználó törlése",
+			"deleteConfirmMessage": "Ez a fiók és a munkamenetei azonnal törlődnek.",
+			"resetPassword": "Jelszó visszaállítása",
+			"resetButton": "Visszaállítás",
+			"resetHint": "A visszaállítás mindenhol kijelentkezteti a felhasználót."
+		},
+		"toast": {
+			"created": "Felhasználó létrehozva",
+			"updated": "Felhasználó frissítve",
+			"deleted": "Felhasználó törölve",
+			"passwordReset": "Jelszó visszaállítva",
+			"saveFailed": "A felhasználó mentése nem sikerült",
+			"deleteFailed": "A felhasználó törlése nem sikerült"
+		},
+		"validation": {
+			"usernameRequired": "A felhasználónév kötelező",
+			"passwordShort": "A jelszónak legalább 8 karakter hosszúnak kell lennie"
 		}
 	}
 }

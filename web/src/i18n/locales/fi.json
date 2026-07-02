@@ -103,7 +103,8 @@
 			"settings": "Asetukset",
 			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan - {{closed}} toimintakunnossa / {{halfOpen}} palautumassa / {{open}} laukeamassa",
 			"discoveryChangesBadge_one": "{{count}} muutos taustahakutoiminnosta - napsauta tarkistaaksesi",
-			"discoveryChangesBadge_other": "{{count}} muutokset taustahakutoiminnosta - napsauta tarkistaaksesi"
+			"discoveryChangesBadge_other": "{{count}} muutokset taustahakutoiminnosta - napsauta tarkistaaksesi",
+			"users": "Käyttäjät"
 		},
 		"status": {
 			"apiStatus": "API:n tila",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Kirjaudu SSO:lla",
 			"signInWithSSOProvider": "Kirjaudu palvelulla {{provider}}",
 			"ssoFailed": "Kertakirjautuminen epäonnistui. Yritä uudelleen tai käytä toista kirjautumistapaa.",
-			"signInWithGithub": "Kirjaudu palvelulla GitHub"
+			"signInWithGithub": "Kirjaudu palvelulla GitHub",
+			"username": "Käyttäjätunnus",
+			"usernamePlaceholder": "Anna käyttäjätunnuksesi",
+			"password": "Salasana",
+			"signInUser": "Kirjaudu salasanalla",
+			"userCredentialsRequired": "Anna käyttäjätunnus ja salasana",
+			"userLoginFailed": "Virheellinen käyttäjätunnus tai salasana",
+			"userLoginThrottled": "Liian monta epäonnistunutta yritystä. Yritä myöhemmin uudelleen."
 		},
 		"theme": {
 			"switchToLight": "Vaihda vaaleaan tilaan",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Ei tuettu"
+		}
+	},
+	"users": {
+		"title": "Käyttäjät",
+		"description": "Hallitse hallintapaneelin tilejä ja sitä, mihin kukin käyttäjä pääsee.",
+		"addButton": "Lisää käyttäjä",
+		"emptyState": "Ei vielä käyttäjiä. Lisää käyttäjä antaaksesi jollekulle rajatun pääsyn tähän hallintapaneeliin.",
+		"table": {
+			"username": "Käyttäjätunnus",
+			"displayName": "Näyttönimi",
+			"email": "Sähköposti",
+			"emailTooltip": "Vahvistetut SSO-kirjautumiset tällä sähköpostilla kirjautuvat tänä käyttäjänä.",
+			"role": "Rooli",
+			"grants": "Pääsy",
+			"grantsTooltip": "Toiminnot, jotka tämä käyttäjä voi avata.",
+			"status": "Tila",
+			"lastLogin": "Viimeisin kirjautuminen",
+			"allGrants": "Kaikki",
+			"noGrants": "Ei mitään"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Käyttäjä"
+		},
+		"status": {
+			"enabled": "Käytössä",
+			"disabled": "Poistettu käytöstä"
+		},
+		"grant": {
+			"chat": "Chat",
+			"usage": "Käyttö",
+			"logs": "Lokit",
+			"models": "Mallit",
+			"virtual_keys": "Virtuaaliavaimet"
+		},
+		"modal": {
+			"addTitle": "Lisää käyttäjä",
+			"editTitle": "Muokkaa käyttäjää",
+			"username": "Käyttäjätunnus",
+			"displayName": "Näyttönimi",
+			"email": "Sähköposti (valinnainen)",
+			"emailHint": "Liitä sähköposti, jotta OIDC- tai GitHub-kirjautumiset tällä vahvistetulla osoitteella kirjautuvat tänä käyttäjänä.",
+			"password": "Salasana",
+			"passwordPlaceholder": "Vähintään 8 merkkiä",
+			"role": "Rooli",
+			"roleAdminHint": "Adminit pääsevät kaikkeen, myös tälle sivulle.",
+			"roleUserHint": "Käyttäjät näkevät vain alla valitut toiminnot.",
+			"grants": "Pääsy",
+			"enabled": "Tili käytössä",
+			"save": "Tallenna muutokset",
+			"create": "Luo käyttäjä",
+			"cancel": "Peruuta",
+			"deleteButton": "Poista käyttäjä",
+			"deleteConfirmTitle": "Poista käyttäjä",
+			"deleteConfirmMessage": "Tämä tili ja sen istunnot poistetaan välittömästi.",
+			"resetPassword": "Nollaa salasana",
+			"resetButton": "Nollaa",
+			"resetHint": "Nollaus kirjaa käyttäjän ulos kaikkialta."
+		},
+		"toast": {
+			"created": "Käyttäjä luotu",
+			"updated": "Käyttäjä päivitetty",
+			"deleted": "Käyttäjä poistettu",
+			"passwordReset": "Salasana nollattu",
+			"saveFailed": "Käyttäjän tallennus epäonnistui",
+			"deleteFailed": "Käyttäjän poisto epäonnistui"
+		},
+		"validation": {
+			"usernameRequired": "Käyttäjätunnus vaaditaan",
+			"passwordShort": "Salasanan on oltava vähintään 8 merkkiä"
 		}
 	}
 }

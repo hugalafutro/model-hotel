@@ -22,6 +22,15 @@ func (m *mockWebAuthnSessionMgr) Validate(ctx context.Context, token string) boo
 	return false
 }
 
+// TokenUser mirrors Validate and reports the legacy admin handle, matching
+// what pre-multi-user sessions carry.
+func (m *mockWebAuthnSessionMgr) TokenUser(ctx context.Context, token string) ([]byte, bool) {
+	if m.Validate(ctx, token) {
+		return []byte("admin"), true
+	}
+	return nil, false
+}
+
 func (m *mockWebAuthnSessionMgr) RevokeAuthToken(ctx context.Context, token string) bool {
 	if m.revokeFn != nil {
 		return m.revokeFn(ctx, token)

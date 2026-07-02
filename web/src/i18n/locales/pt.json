@@ -103,7 +103,8 @@
 			"settings": "Definições",
 			"failoverBadgeExplain": "Provedores de failover por estado do disjuntor - {{closed}} em bom estado / {{halfOpen}} em recuperação / {{open}} desarmado",
 			"discoveryChangesBadge_one": "Alteração {{count}} proveniente da descoberta em segundo plano - clique para revisar",
-			"discoveryChangesBadge_other": "Alterações no {{count}} decorrentes da descoberta em segundo plano - clique para revisar"
+			"discoveryChangesBadge_other": "Alterações no {{count}} decorrentes da descoberta em segundo plano - clique para revisar",
+			"users": "Utilizadores"
 		},
 		"status": {
 			"apiStatus": "Estado da API",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Entrar com SSO",
 			"signInWithSSOProvider": "Entrar com {{provider}}",
 			"ssoFailed": "Falha no logon único. Tente novamente ou use outro método de login.",
-			"signInWithGithub": "Entrar com GitHub"
+			"signInWithGithub": "Entrar com GitHub",
+			"username": "Nome de utilizador",
+			"usernamePlaceholder": "Introduza o seu nome de utilizador",
+			"password": "Palavra-passe",
+			"signInUser": "Iniciar sessão com palavra-passe",
+			"userCredentialsRequired": "Introduza o nome de utilizador e a palavra-passe",
+			"userLoginFailed": "Nome de utilizador ou palavra-passe inválidos",
+			"userLoginThrottled": "Demasiadas tentativas falhadas. Tente novamente mais tarde."
 		},
 		"theme": {
 			"switchToLight": "Mudar para modo claro",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Não suportado"
+		}
+	},
+	"users": {
+		"title": "Utilizadores",
+		"description": "Gerir as contas do painel e o que cada utilizador pode aceder.",
+		"addButton": "Adicionar utilizador",
+		"emptyState": "Ainda não há utilizadores. Adicione um para dar a alguém acesso limitado a este painel.",
+		"table": {
+			"username": "Nome de utilizador",
+			"displayName": "Nome apresentado",
+			"email": "Email",
+			"emailTooltip": "Inícios de sessão SSO verificados com este email entram como este utilizador.",
+			"role": "Função",
+			"grants": "Acesso",
+			"grantsTooltip": "As funcionalidades que este utilizador pode abrir.",
+			"status": "Estado",
+			"lastLogin": "Último acesso",
+			"allGrants": "Tudo",
+			"noGrants": "Nenhum"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Utilizador"
+		},
+		"status": {
+			"enabled": "Ativado",
+			"disabled": "Desativado"
+		},
+		"grant": {
+			"chat": "Chat",
+			"usage": "Utilização",
+			"logs": "Registos",
+			"models": "Modelos",
+			"virtual_keys": "Chaves virtuais"
+		},
+		"modal": {
+			"addTitle": "Adicionar utilizador",
+			"editTitle": "Editar utilizador",
+			"username": "Nome de utilizador",
+			"displayName": "Nome apresentado",
+			"email": "Email (opcional)",
+			"emailHint": "Associe um email para que inícios de sessão OIDC ou GitHub com este endereço verificado entrem como este utilizador.",
+			"password": "Palavra-passe",
+			"passwordPlaceholder": "Pelo menos 8 caracteres",
+			"role": "Função",
+			"roleAdminHint": "Os admins podem aceder a tudo, incluindo esta página.",
+			"roleUserHint": "Os utilizadores só veem as funcionalidades assinaladas abaixo.",
+			"grants": "Acesso",
+			"enabled": "Conta ativada",
+			"save": "Guardar alterações",
+			"create": "Criar utilizador",
+			"cancel": "Cancelar",
+			"deleteButton": "Eliminar utilizador",
+			"deleteConfirmTitle": "Eliminar utilizador",
+			"deleteConfirmMessage": "Esta conta e as suas sessões são removidas de imediato.",
+			"resetPassword": "Repor palavra-passe",
+			"resetButton": "Repor",
+			"resetHint": "A reposição termina a sessão do utilizador em todo o lado."
+		},
+		"toast": {
+			"created": "Utilizador criado",
+			"updated": "Utilizador atualizado",
+			"deleted": "Utilizador eliminado",
+			"passwordReset": "Palavra-passe reposta",
+			"saveFailed": "Não foi possível guardar o utilizador",
+			"deleteFailed": "Não foi possível eliminar o utilizador"
+		},
+		"validation": {
+			"usernameRequired": "O nome de utilizador é obrigatório",
+			"passwordShort": "A palavra-passe deve ter pelo menos 8 caracteres"
 		}
 	}
 }

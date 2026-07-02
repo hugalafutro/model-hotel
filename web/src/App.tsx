@@ -9,6 +9,7 @@ import { Layout } from "./components/Layout";
 import { Logo } from "./components/Logo";
 import { ThemedIconProvider } from "./components/ThemedIconProvider";
 import { EventProvider } from "./context/EventContext";
+import { IdentityProvider, useIdentity } from "./context/IdentityContext";
 import { QuotaModalProvider } from "./context/QuotaModalContext";
 import { SidebarModeProvider } from "./context/SidebarModeContext";
 import { StorageProvider } from "./context/StorageContext";
@@ -46,6 +47,9 @@ const Chat = lazy(() =>
 const Arena = lazy(() =>
 	import("./pages/Arena").then((m) => ({ default: m.Arena })),
 );
+const Users = lazy(() =>
+	import("./pages/Users").then((m) => ({ default: m.Users })),
+);
 
 function LoginScreen() {
 	const { t } = useTranslation();
@@ -57,6 +61,9 @@ function LoginScreen() {
 	const [passkeyAvailable, setPasskeyAvailable] = useState(false);
 	const [totpEnabled, setTotpEnabled] = useState(false);
 	const [totpCode, setTotpCode] = useState("");
+	const [username, setUsername] = useState("");
+	const [userPassword, setUserPassword] = useState("");
+	const [userLoading, setUserLoading] = useState(false);
 
 	// SSO availability is read unauthenticated; the button only shows when an
 	// IdP is configured. Cached app-wide; config does not change at runtime.
@@ -79,6 +86,44 @@ function LoginScreen() {
 		retry: 1,
 	});
 	const githubEnabled = githubStatus?.enabled ?? false;
+
+	// The username/password form only renders when at least one enabled user
+	// account exists (probed unauthenticated, boolean-only).
+	const { data: authStatus } = useQuery({
+		queryKey: ["auth-status"],
+		queryFn: () => api.auth.status(),
+		staleTime: Number.POSITIVE_INFINITY,
+		retry: 1,
+	});
+	const userLoginEnabled = authStatus?.enabled ?? false;
+
+	const handleUserLogin = async () => {
+		const name = username.trim();
+		if (!name || !userPassword) {
+			setError(t("layout.auth.userCredentialsRequired"));
+			return;
+		}
+		setUserLoading(true);
+		setError(null);
+		try {
+			const res = await api.auth.login(name, userPassword);
+			localStorage.setItem("adminToken", res.token);
+			setAdminToken(res.token);
+			window.location.reload();
+		} catch (err) {
+			const status =
+				err && typeof err === "object" && "status" in err
+					? (err as { status?: number }).status
+					: undefined;
+			setError(
+				status === 429
+					? t("layout.auth.userLoginThrottled")
+					: t("layout.auth.userLoginFailed"),
+			);
+		} finally {
+			setUserLoading(false);
+		}
+	};
 
 	// A failed SSO callback redirects back with an error code in the fragment.
 	// Reading it is a one-shot side effect (consumeOidcError scrubs the hash), so
@@ -243,7 +288,61 @@ function LoginScreen() {
 								: t("layout.auth.signInWithPasskey")}
 						</button>
 					)}
-					{(ssoEnabled || githubEnabled || passkeyAvailable) && (
+					{userLoginEnabled && (
+						<>
+							<div>
+								<label
+									htmlFor="login-username"
+									className="block text-sm font-medium text-gray-300 mb-2"
+								>
+									{t("layout.auth.username")}
+								</label>
+								<input
+									id="login-username"
+									type="text"
+									value={username}
+									onChange={(e) => setUsername(e.target.value)}
+									className="ui-input"
+									autoComplete="username"
+									placeholder={t("layout.auth.usernamePlaceholder")}
+								/>
+							</div>
+							<div>
+								<label
+									htmlFor="login-password"
+									className="block text-sm font-medium text-gray-300 mb-2"
+								>
+									{t("layout.auth.password")}
+								</label>
+								<input
+									id="login-password"
+									type="password"
+									value={userPassword}
+									onChange={(e) => setUserPassword(e.target.value)}
+									onKeyDown={(e) =>
+										e.key === "Enter" && !userLoading && handleUserLogin()
+									}
+									className="ui-input"
+									autoComplete="current-password"
+								/>
+							</div>
+							<button
+								type="button"
+								onClick={() => handleUserLogin()}
+								disabled={userLoading}
+								className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
+								data-testid="user-login-button"
+							>
+								{userLoading
+									? t("layout.auth.signingIn")
+									: t("layout.auth.signInUser")}
+							</button>
+						</>
+					)}
+					{(ssoEnabled ||
+						githubEnabled ||
+						passkeyAvailable ||
+						userLoginEnabled) && (
 						<div className="flex items-center gap-3">
 							<div className="flex-1 h-px bg-gray-700"></div>
 							<span className="text-xs text-gray-500 uppercase">
@@ -349,6 +448,42 @@ function LoginScreen() {
 	);
 }
 
+// Route order for the "/" redirect: the first entry the caller may access
+// wins. Admins take the dashboard like before multi-user.
+const HOME_CANDIDATES: Array<{ href: string; access: string }> = [
+	{ href: "/dashboard", access: "usage" },
+	{ href: "/chat", access: "chat" },
+	{ href: "/models", access: "models" },
+	{ href: "/virtual-keys", access: "virtual_keys" },
+	{ href: "/logs", access: "logs" },
+];
+
+function HomeRedirect() {
+	const { isAdmin, can, isLoading } = useIdentity();
+	if (isLoading) return null;
+	if (isAdmin) return <Navigate to="/dashboard" replace />;
+	const first = HOME_CANDIDATES.find((c) => can(c.access));
+	// A user with no grants at all has nowhere to go; the chat route renders
+	// its own 403 surface, which beats a blank screen or a redirect loop.
+	return <Navigate to={first?.href ?? "/chat"} replace />;
+}
+
+// RequireAccess hides a route from callers without the grant (server-side
+// enforcement 403s the API calls regardless). "admin" means admin-only.
+function RequireAccess({
+	access,
+	children,
+}: {
+	access: string;
+	children: React.ReactNode;
+}) {
+	const { isAdmin, can, isLoading } = useIdentity();
+	if (isLoading) return null;
+	const allowed = access === "admin" ? isAdmin : can(access);
+	if (!allowed) return <HomeRedirect />;
+	return <>{children}</>;
+}
+
 function PageSuspense({ children }: { children: React.ReactNode }) {
 	return (
 		<Suspense
@@ -377,83 +512,113 @@ function AppContent() {
 	}
 
 	return (
-		<Layout>
-			<Routes>
-				<Route path="/" element={<Navigate to="/dashboard" replace />} />
-				<Route
-					path="/dashboard"
-					element={
-						<PageSuspense>
-							<Dashboard />
-						</PageSuspense>
-					}
-				/>
-				<Route
-					path="/chat"
-					element={
-						<PageSuspense>
-							<Chat />
-						</PageSuspense>
-					}
-				/>
-				<Route
-					path="/arena"
-					element={
-						<PageSuspense>
-							<Arena />
-						</PageSuspense>
-					}
-				/>
-				<Route
-					path="/providers"
-					element={
-						<PageSuspense>
-							<Providers />
-						</PageSuspense>
-					}
-				/>
-				<Route
-					path="/models"
-					element={
-						<PageSuspense>
-							<Models />
-						</PageSuspense>
-					}
-				/>
-				<Route
-					path="/failover"
-					element={
-						<PageSuspense>
-							<FailoverGroups />
-						</PageSuspense>
-					}
-				/>
-				<Route
-					path="/virtual-keys"
-					element={
-						<PageSuspense>
-							<VirtualKeys />
-						</PageSuspense>
-					}
-				/>
-				<Route
-					path="/logs"
-					element={
-						<PageSuspense>
-							<Logs />
-						</PageSuspense>
-					}
-				/>
-				<Route
-					path="/settings"
-					element={
-						<PageSuspense>
-							<Settings />
-						</PageSuspense>
-					}
-				/>
-			</Routes>
-		</Layout>
+		<IdentityProvider>
+			<Layout>
+				<Routes>
+					<Route path="/" element={<HomeRedirect />} />
+					<Route
+						path="/dashboard"
+						element={
+							<RequireAccess access="usage">
+								<PageSuspense>
+									<Dashboard />
+								</PageSuspense>
+							</RequireAccess>
+						}
+					/>
+					<Route
+						path="/chat"
+						element={
+							<RequireAccess access="chat">
+								<PageSuspense>
+									<Chat />
+								</PageSuspense>
+							</RequireAccess>
+						}
+					/>
+					<Route
+						path="/arena"
+						element={
+							<RequireAccess access="chat">
+								<PageSuspense>
+									<Arena />
+								</PageSuspense>
+							</RequireAccess>
+						}
+					/>
+					<Route
+						path="/providers"
+						element={
+							<RequireAccess access="admin">
+								<PageSuspense>
+									<Providers />
+								</PageSuspense>
+							</RequireAccess>
+						}
+					/>
+					<Route
+						path="/models"
+						element={
+							<RequireAccess access="models">
+								<PageSuspense>
+									<Models />
+								</PageSuspense>
+							</RequireAccess>
+						}
+					/>
+					<Route
+						path="/failover"
+						element={
+							<RequireAccess access="admin">
+								<PageSuspense>
+									<FailoverGroups />
+								</PageSuspense>
+							</RequireAccess>
+						}
+					/>
+					<Route
+						path="/virtual-keys"
+						element={
+							<RequireAccess access="virtual_keys">
+								<PageSuspense>
+									<VirtualKeys />
+								</PageSuspense>
+							</RequireAccess>
+						}
+					/>
+					<Route
+						path="/logs"
+						element={
+							<RequireAccess access="logs">
+								<PageSuspense>
+									<Logs />
+								</PageSuspense>
+							</RequireAccess>
+						}
+					/>
+					<Route
+						path="/users"
+						element={
+							<RequireAccess access="admin">
+								<PageSuspense>
+									<Users />
+								</PageSuspense>
+							</RequireAccess>
+						}
+					/>
+					<Route
+						path="/settings"
+						element={
+							<RequireAccess access="admin">
+								<PageSuspense>
+									<Settings />
+								</PageSuspense>
+							</RequireAccess>
+						}
+					/>
+				</Routes>
+			</Layout>
+		</IdentityProvider>
 	);
 }
 

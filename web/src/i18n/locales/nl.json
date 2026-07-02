@@ -103,7 +103,8 @@
 			"settings": "Instellingen",
 			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status - {{closed}} gezond / {{halfOpen}} herstellend / {{open}} geactiveerd",
 			"discoveryChangesBadge_one": "{{count}} wijziging vanuit achtergronddetectie - klik om te bekijken",
-			"discoveryChangesBadge_other": "{{count}} wijzigingen als gevolg van achtergronddetectie - klik om te bekijken"
+			"discoveryChangesBadge_other": "{{count}} wijzigingen als gevolg van achtergronddetectie - klik om te bekijken",
+			"users": "Gebruikers"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Aanmelden met SSO",
 			"signInWithSSOProvider": "Aanmelden met {{provider}}",
 			"ssoFailed": "Eenmalige aanmelding is mislukt. Probeer het opnieuw of gebruik een andere aanmeldmethode.",
-			"signInWithGithub": "Aanmelden met GitHub"
+			"signInWithGithub": "Aanmelden met GitHub",
+			"username": "Gebruikersnaam",
+			"usernamePlaceholder": "Voer je gebruikersnaam in",
+			"password": "Wachtwoord",
+			"signInUser": "Inloggen met wachtwoord",
+			"userCredentialsRequired": "Voer je gebruikersnaam en wachtwoord in",
+			"userLoginFailed": "Ongeldige gebruikersnaam of ongeldig wachtwoord",
+			"userLoginThrottled": "Te veel mislukte pogingen. Probeer het later opnieuw."
 		},
 		"theme": {
 			"switchToLight": "Schakel naar lichte modus",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Niet ondersteund"
+		}
+	},
+	"users": {
+		"title": "Gebruikers",
+		"description": "Beheer dashboardaccounts en waar elke gebruiker toegang toe heeft.",
+		"addButton": "Gebruiker toevoegen",
+		"emptyState": "Nog geen gebruikers. Voeg er een toe om iemand beperkte toegang tot dit dashboard te geven.",
+		"table": {
+			"username": "Gebruikersnaam",
+			"displayName": "Weergavenaam",
+			"email": "E-mail",
+			"emailTooltip": "Geverifieerde SSO-aanmeldingen met dit e-mailadres loggen in als deze gebruiker.",
+			"role": "Rol",
+			"grants": "Toegang",
+			"grantsTooltip": "De functies die deze gebruiker kan openen.",
+			"status": "Status",
+			"lastLogin": "Laatste aanmelding",
+			"allGrants": "Alles",
+			"noGrants": "Geen"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Gebruiker"
+		},
+		"status": {
+			"enabled": "Ingeschakeld",
+			"disabled": "Uitgeschakeld"
+		},
+		"grant": {
+			"chat": "Chat",
+			"usage": "Gebruik",
+			"logs": "Logboeken",
+			"models": "Modellen",
+			"virtual_keys": "Virtuele sleutels"
+		},
+		"modal": {
+			"addTitle": "Gebruiker toevoegen",
+			"editTitle": "Gebruiker bewerken",
+			"username": "Gebruikersnaam",
+			"displayName": "Weergavenaam",
+			"email": "E-mail (optioneel)",
+			"emailHint": "Koppel een e-mailadres zodat OIDC- of GitHub-aanmeldingen met dit geverifieerde adres inloggen als deze gebruiker.",
+			"password": "Wachtwoord",
+			"passwordPlaceholder": "Minimaal 8 tekens",
+			"role": "Rol",
+			"roleAdminHint": "Admins hebben toegang tot alles, inclusief deze pagina.",
+			"roleUserHint": "Gebruikers zien alleen de hieronder aangevinkte functies.",
+			"grants": "Toegang",
+			"enabled": "Account ingeschakeld",
+			"save": "Wijzigingen opslaan",
+			"create": "Gebruiker aanmaken",
+			"cancel": "Annuleren",
+			"deleteButton": "Gebruiker verwijderen",
+			"deleteConfirmTitle": "Gebruiker verwijderen",
+			"deleteConfirmMessage": "Dit account en de bijbehorende sessies worden direct verwijderd.",
+			"resetPassword": "Wachtwoord opnieuw instellen",
+			"resetButton": "Opnieuw instellen",
+			"resetHint": "Opnieuw instellen logt de gebruiker overal uit."
+		},
+		"toast": {
+			"created": "Gebruiker aangemaakt",
+			"updated": "Gebruiker bijgewerkt",
+			"deleted": "Gebruiker verwijderd",
+			"passwordReset": "Wachtwoord opnieuw ingesteld",
+			"saveFailed": "Kon de gebruiker niet opslaan",
+			"deleteFailed": "Kon de gebruiker niet verwijderen"
+		},
+		"validation": {
+			"usernameRequired": "Gebruikersnaam is verplicht",
+			"passwordShort": "Het wachtwoord moet minimaal 8 tekens lang zijn"
 		}
 	}
 }

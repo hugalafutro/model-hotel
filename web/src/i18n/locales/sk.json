@@ -103,7 +103,8 @@
 			"settings": "Nastavenia",
 			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa - {{closed}} v poriadku / {{halfOpen}} sa obnovuje / {{open}} vypnutý",
 			"discoveryChangesBadge_one": "Zmena {{count}} z automatického vyhľadávania na pozadí - kliknite na prehliadnutie",
-			"discoveryChangesBadge_other": "Zmeny {{count}} vyplývajúce z automatického vyhľadávania – kliknite na tlačidlo na prehliadnutie"
+			"discoveryChangesBadge_other": "Zmeny {{count}} vyplývajúce z automatického vyhľadávania – kliknite na tlačidlo na prehliadnutie",
+			"users": "Používatelia"
 		},
 		"status": {
 			"apiStatus": "Stav API",
@@ -163,7 +164,14 @@
 			"signInWithSSO": "Prihlásiť sa cez SSO",
 			"signInWithSSOProvider": "Prihlásiť sa cez {{provider}}",
 			"ssoFailed": "Jednotné prihlásenie zlyhalo. Skúste to znova alebo použite iný spôsob prihlásenia.",
-			"signInWithGithub": "Prihlásiť sa cez GitHub"
+			"signInWithGithub": "Prihlásiť sa cez GitHub",
+			"username": "Používateľské meno",
+			"usernamePlaceholder": "Zadajte svoje používateľské meno",
+			"password": "Heslo",
+			"signInUser": "Prihlásiť sa heslom",
+			"userCredentialsRequired": "Zadajte používateľské meno a heslo",
+			"userLoginFailed": "Neplatné používateľské meno alebo heslo",
+			"userLoginThrottled": "Príliš veľa neúspešných pokusov. Skúste to neskôr."
 		},
 		"theme": {
 			"switchToLight": "Prepnúť na svetlý režim",
@@ -2740,6 +2748,76 @@
 		},
 		"custom": {
 			"reasoningEffort": "Nepodporované"
+		}
+	},
+	"users": {
+		"title": "Používatelia",
+		"description": "Spravujte účty nástenky a to, k čomu má každý používateľ prístup.",
+		"addButton": "Pridať používateľa",
+		"emptyState": "Zatiaľ žiadni používatelia. Pridajte niekoho a dajte mu obmedzený prístup k tejto nástenke.",
+		"table": {
+			"username": "Používateľské meno",
+			"displayName": "Zobrazované meno",
+			"email": "E-mail",
+			"emailTooltip": "Overené prihlásenia cez SSO s týmto e-mailom sa prihlásia ako tento používateľ.",
+			"role": "Rola",
+			"grants": "Prístup",
+			"grantsTooltip": "Funkcie, ktoré môže tento používateľ otvoriť.",
+			"status": "Stav",
+			"lastLogin": "Posledné prihlásenie",
+			"allGrants": "Všetko",
+			"noGrants": "Žiadne"
+		},
+		"role": {
+			"admin": "Admin",
+			"user": "Používateľ"
+		},
+		"status": {
+			"enabled": "Povolené",
+			"disabled": "Zakázané"
+		},
+		"grant": {
+			"chat": "Chat",
+			"usage": "Využitie",
+			"logs": "Záznamy",
+			"models": "Modely",
+			"virtual_keys": "Virtuálne kľúče"
+		},
+		"modal": {
+			"addTitle": "Pridať používateľa",
+			"editTitle": "Upraviť používateľa",
+			"username": "Používateľské meno",
+			"displayName": "Zobrazované meno",
+			"email": "E-mail (voliteľné)",
+			"emailHint": "Priraďte e-mail, aby sa prihlásenia cez OIDC alebo GitHub s touto overenou adresou prihlásili ako tento používateľ.",
+			"password": "Heslo",
+			"passwordPlaceholder": "Aspoň 8 znakov",
+			"role": "Rola",
+			"roleAdminHint": "Admini majú prístup ku všetkému vrátane tejto stránky.",
+			"roleUserHint": "Používatelia vidia len funkcie začiarknuté nižšie.",
+			"grants": "Prístup",
+			"enabled": "Účet povolený",
+			"save": "Uložiť zmeny",
+			"create": "Vytvoriť používateľa",
+			"cancel": "Zrušiť",
+			"deleteButton": "Odstrániť používateľa",
+			"deleteConfirmTitle": "Odstrániť používateľa",
+			"deleteConfirmMessage": "Tento účet a jeho relácie budú okamžite odstránené.",
+			"resetPassword": "Obnoviť heslo",
+			"resetButton": "Obnoviť",
+			"resetHint": "Obnovenie odhlási používateľa všade."
+		},
+		"toast": {
+			"created": "Používateľ vytvorený",
+			"updated": "Používateľ aktualizovaný",
+			"deleted": "Používateľ odstránený",
+			"passwordReset": "Heslo obnovené",
+			"saveFailed": "Používateľa sa nepodarilo uložiť",
+			"deleteFailed": "Používateľa sa nepodarilo odstrániť"
+		},
+		"validation": {
+			"usernameRequired": "Používateľské meno je povinné",
+			"passwordShort": "Heslo musí mať aspoň 8 znakov"
 		}
 	}
 }

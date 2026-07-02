@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -75,10 +76,14 @@ type LogsResponse struct {
 // RegisterLogs mounts log management routes.
 func (h *Handler) RegisterLogs(r chi.Router) {
 	r.Route("/logs", func(r chi.Router) {
-		r.Get("/", h.ListLogs)
-		r.Get("/cursor", h.ListLogsCursor)
-		r.Get("/{id}", h.GetLog)
-		r.Delete("/purge", h.PurgeLogs)
+		r.Group(func(r chi.Router) {
+			r.Use(requireGrant(user.GrantLogs))
+			r.Get("/", h.ListLogs)
+			r.Get("/cursor", h.ListLogsCursor)
+			r.Get("/{id}", h.GetLog)
+		})
+		// Purge is destructive and stays admin-only regardless of the grant.
+		r.With(requireAdmin).Delete("/purge", h.PurgeLogs)
 	})
 }
 
