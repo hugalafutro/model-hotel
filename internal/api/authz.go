@@ -28,15 +28,19 @@ type SessionRevoker interface {
 }
 
 // resolveIdentity maps a validated session's user handle to a request
-// identity. Legacy handle "admin" (and any non-UUID) is the single admin
-// identity every pre-multi-user login minted. A UUID handle must resolve to
-// an enabled users row or the whole request is rejected: a deleted or
-// disabled user's surviving tokens die here even if explicit revocation
-// missed them.
+// identity. Only the exact legacy handle "admin" (what every pre-multi-user
+// login minted) is the admin identity; any other non-UUID handle is rejected
+// rather than escalated, so a future session-writing path passing arbitrary
+// bytes cannot silently mint admin. A UUID handle must resolve to an enabled
+// users row or the whole request is rejected: a deleted or disabled user's
+// surviving tokens die here even if explicit revocation missed them.
 func (h *Handler) resolveIdentity(ctx context.Context, sessionUserID []byte) (*user.Identity, bool) {
+	if string(sessionUserID) == "admin" {
+		return user.AdminIdentity(), true
+	}
 	uid, err := uuid.Parse(string(sessionUserID))
 	if err != nil {
-		return user.AdminIdentity(), true
+		return nil, false
 	}
 	if h.userRepo == nil {
 		// Session references a users row but no user store is wired: fail

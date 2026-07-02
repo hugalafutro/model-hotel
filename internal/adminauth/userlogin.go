@@ -37,15 +37,20 @@ type UserLoginHandler struct {
 	ipLimiter  IPLimiterMiddleware
 	// Per-IP exponential backoff on failed logins, same knobs as /totp/login.
 	throttle *totp.Throttle
+	// Per-username backoff so a brute force distributed across source IPs is
+	// still slowed per target account. Backoff only (never a hard lock), so an
+	// attacker hammering a username delays its owner at most maxDelay.
+	userThrottle *totp.Throttle
 }
 
 // NewUserLoginHandler constructs the password-login front-end.
 func NewUserLoginHandler(users UserLoginStore, sessionMgr *webauthn.SessionManager, ipLimiter IPLimiterMiddleware) *UserLoginHandler {
 	return &UserLoginHandler{
-		users:      users,
-		sessionMgr: sessionMgr,
-		ipLimiter:  ipLimiter,
-		throttle:   totp.NewThrottle(5, time.Second, 5*time.Minute),
+		users:        users,
+		sessionMgr:   sessionMgr,
+		ipLimiter:    ipLimiter,
+		throttle:     totp.NewThrottle(5, time.Second, 5*time.Minute),
+		userThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
 	}
 }
 
@@ -85,8 +90,8 @@ var dummyHash = sync.OnceValue(func() string {
 })
 
 // Login exchanges username+password for a session token. Uniform 401 for
-// unknown user, wrong password, and disabled account; per-IP backoff on
-// failures.
+// unknown user, wrong password, and disabled account; per-IP and per-username
+// backoff on failures.
 func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	throttleKey := h.ipLimiter.ClientIP(r)
 	if ok, retry := h.throttle.Allowed(throttleKey); !ok {
@@ -109,6 +114,16 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Per-target-account backoff: without this, a brute force spread across
+	// source IPs never trips the per-IP throttle above.
+	userKey := "user:" + req.Username
+	if ok, retry := h.userThrottle.Allowed(userKey); !ok {
+		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+		debuglog.Warn("userlogin: account throttled", "remote_addr", r.RemoteAddr)
+		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
+		return
+	}
+
 	u, err := h.users.GetByUsername(r.Context(), req.Username)
 	if err != nil && !errors.Is(err, user.ErrNotFound) {
 		respondError(w, "login failed", err, http.StatusInternalServerError)
@@ -126,6 +141,7 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	if u == nil || !ok || !u.Enabled {
 		h.throttle.RecordFailure(throttleKey)
+		h.userThrottle.RecordFailure(userKey)
 		debuglog.Warn("userlogin: login failed", "remote_addr", r.RemoteAddr)
 		http.Error(w, "invalid username or password", http.StatusUnauthorized)
 		return
@@ -138,6 +154,7 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.throttle.RecordSuccess(throttleKey)
+	h.userThrottle.RecordSuccess(userKey)
 	if err := h.users.TouchLastLogin(r.Context(), u.ID); err != nil {
 		debuglog.Warn("userlogin: failed to record last login", "error", err)
 	}

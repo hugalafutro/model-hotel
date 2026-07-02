@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -166,6 +167,43 @@ func TestUserLogin_ThrottleAfterFailures(t *testing.T) {
 	w := doLogin(t, r, `{"username":"alice","password":"correct-horse"}`)
 	if w.Code != http.StatusTooManyRequests {
 		t.Errorf("throttle bypassed by correct password: %d", w.Code)
+	}
+}
+
+func TestUserLogin_PerUsernameThrottle(t *testing.T) {
+	// Failures spread across source IPs never trip the per-IP throttle (one
+	// failure each) but must still lock the targeted account.
+	u := testUser(t, "alice", "correct-horse", true)
+	_, _, _, r := newLoginFixture(t, u)
+
+	attempt := func(ip, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader([]byte(body)))
+		req.RemoteAddr = ip
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w
+	}
+
+	var last *httptest.ResponseRecorder
+	for i := range 10 {
+		last = attempt(fmt.Sprintf("10.0.%d.1:1234", i), `{"username":"alice","password":"wrong"}`)
+		if last.Code == http.StatusTooManyRequests {
+			break
+		}
+	}
+	if last.Code != http.StatusTooManyRequests {
+		t.Fatalf("distributed brute force never throttled, last status = %d", last.Code)
+	}
+	if last.Header().Get("Retry-After") == "" {
+		t.Error("429 without Retry-After header")
+	}
+	// The lock follows the username, not the IP: a fresh IP is refused too.
+	if w := attempt("172.16.0.1:1234", `{"username":"alice","password":"correct-horse"}`); w.Code != http.StatusTooManyRequests {
+		t.Errorf("account throttle bypassed from fresh IP: %d", w.Code)
+	}
+	// A different username from a fresh IP is unaffected by alice's lock.
+	if w := attempt("172.16.0.2:1234", `{"username":"nobody","password":"whatever1"}`); w.Code != http.StatusUnauthorized {
+		t.Errorf("other username caught by alice's throttle: %d", w.Code)
 	}
 }
 

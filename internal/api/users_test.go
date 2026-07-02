@@ -301,3 +301,19 @@ func TestUsersAPI_SelfProtection(t *testing.T) {
 		t.Errorf("env admin demote: %d, want 200", w.Code)
 	}
 }
+
+// TestResolveIdentity_UnknownHandleRejected verifies that only the exact
+// legacy "admin" handle maps to the admin identity; any other non-UUID
+// session handle is rejected instead of silently escalating.
+func TestResolveIdentity_UnknownHandleRejected(t *testing.T) {
+	r, _, sm := setupUsersTest(t)
+
+	if w := doJSON(t, r, http.MethodGet, "/auth/me", mintUserToken(t, sm, "admin"), ""); w.Code != http.StatusOK {
+		t.Errorf("legacy admin handle: %d, want 200", w.Code)
+	}
+	for _, handle := range []string{"Admin", "administrator", "not-a-uuid", ""} {
+		if w := doJSON(t, r, http.MethodGet, "/auth/me", mintUserToken(t, sm, handle), ""); w.Code != http.StatusUnauthorized {
+			t.Errorf("handle %q: %d, want 401", handle, w.Code)
+		}
+	}
+}
