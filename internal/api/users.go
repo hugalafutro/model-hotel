@@ -1,12 +1,14 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/user"
@@ -29,6 +31,9 @@ func (h *Handler) RegisterUsers(r chi.Router) {
 		r.Use(requireAdmin)
 		r.Get("/", h.ListUsers)
 		r.Get("/grants", h.ListGrantCatalog)
+		// TOTP reset is deliberately outside managedWriteGuard: user_totp is
+		// instance-local (never fleet-synced), so a local reset sticks.
+		r.Post("/{id}/totp/reset", h.ResetUserTotp)
 		r.Group(func(r chi.Router) {
 			r.Use(managedWriteGuard(h.settingsRepo))
 			r.Post("/", h.CreateUser)
@@ -60,7 +65,39 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	if users == nil {
 		users = []*user.User{}
 	}
+	h.fillTotpEnabled(r.Context(), users)
 	writeJSON(w, users)
+}
+
+// fillTotpEnabled stamps TotpEnabled from user_totp in one query. Best-effort:
+// on error the flags stay false (the badge is informational; enforcement lives
+// in the login path, which reads its own state).
+func (h *Handler) fillTotpEnabled(ctx context.Context, users []*user.User) {
+	if len(users) == 0 {
+		return
+	}
+	rows, err := h.dbPool.Pool().Query(ctx, `SELECT user_id FROM user_totp WHERE enabled`)
+	if err != nil {
+		debuglog.Error("users: failed to read totp state", "error", err)
+		return
+	}
+	defer rows.Close()
+	enabled := map[uuid.UUID]bool{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			debuglog.Error("users: failed to scan totp state", "error", err)
+			return
+		}
+		enabled[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("users: failed to read totp state", "error", err)
+		return
+	}
+	for _, u := range users {
+		u.TotpEnabled = enabled[u.ID]
+	}
 }
 
 type userRequest struct {

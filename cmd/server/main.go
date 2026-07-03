@@ -319,6 +319,7 @@ func main() {
 		return totp.NewRepositoryWithStore(totp.NewUserPostgresStore(database.Pool(), id), cfg.MasterKey)
 	}
 	userLoginHandler := adminauth.NewUserLoginHandler(userRepo, sessionMgr, ipLimiter, userTotpFactory)
+	apiHandler.SetUserTotp(userTotpFactory)
 
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour)

@@ -110,6 +110,7 @@ type Handler struct {
 	webauthnSessionMgr     WebAuthnSessionManager                             // nil when webAuthn is not configured
 	userRepo               UserStore                                          // nil until SetUserAuth (multi-user identities)
 	sessionRevoker         SessionRevoker                                     // nil until SetUserAuth (revoke on disable/delete)
+	userTotp               UserTotpFactory                                    // nil until SetUserTotp (per-user 2FA endpoints)
 	testModelTransport     *http.Transport                                    // SSRF-protected transport for TestModel
 	testModelCheckRedirect func(req *http.Request, via []*http.Request) error // SSRF-protected redirect check for TestModel
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
@@ -249,6 +250,9 @@ func (h *Handler) Register(r chi.Router) {
 
 	// Caller identity for the SPA's navigation gating (any authenticated role).
 	r.Get("/auth/me", h.Me)
+
+	// Self-service per-user TOTP (any users-row identity manages its own).
+	h.RegisterUserTotp(r)
 
 	// System health stats feed the sidebar widget every role sees: routing
 	// metadata and process gauges only, so any authenticated caller may read it.
