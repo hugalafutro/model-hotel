@@ -185,17 +185,14 @@ If you lose your authenticator, a recovery code signs you in once so you can dis
 ### [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Single Sign-On (OIDC)](#-single-sign-on-oidc)
 Let admins sign in through an external OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket-ID, Okta, Google, Entra, and so on). Configure it from the Settings page: paste the issuer URL, client ID, and client secret from an app you register with your provider, then list the verified email addresses allowed to sign in. A "Sign in with SSO" button appears on the login screen. Any standards-compliant OpenID Connect provider works (the names above are just examples): the login flow uses only standard discovery, PKCE, and ID-token verification, so the single requirement is that the provider releases the signing-in user's verified email (in the ID token, or from its UserInfo endpoint), because the allowlist is email-based and fails closed.
 
-<div align="center">
-<br>
-<table border="0">
-<tr>
-<td align="center" valign="top"><a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_local.png" alt="Authentication settings: passkeys and TOTP" width="260"></a><br><sub>Passkeys + 2FA (TOTP)</sub></td>
-<td align="center" valign="top"><a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_oidc.png" alt="Authentication settings: OIDC single sign-on" width="260"></a><br><sub>OIDC single sign-on</sub></td>
-<td align="center" valign="top"><a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_github.png" alt="Authentication settings: GitHub sign-in" width="260"></a><br><sub>GitHub sign-in</sub></td>
-</tr>
-</table>
-<sub>The Authentication settings page, split into its three sections. Click any panel for the full view.</sub><br><br>
-</div>
+<p align="center">
+  <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_local.png" height="200" alt="Authentication settings: passkeys and TOTP"></a>
+  &nbsp;&nbsp;
+  <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_oidc.png" height="200" alt="Authentication settings: OIDC single sign-on"></a>
+  &nbsp;&nbsp;
+  <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_github.png" height="200" alt="Authentication settings: GitHub sign-in"></a>
+</p>
+<p align="center"><sub>The Authentication settings page, split into its three sections. Click any panel for the full view.</sub></p>
 
 SSO is a third login path, not a replacement: after the provider confirms an allowlisted, email-verified identity it mints the same session token as passkey and TOTP login, so nothing downstream changes. Logins are gated by the email allowlist (empty allowlist denies everyone) and matched only on verified emails, while the provider's stable `sub` and issuer are logged on each login (app log, source `oidc`). The client secret is AES-256-GCM encrypted at rest with `MASTER_KEY`, the flow uses PKCE plus single-use state and nonce, and the minted token is handed to the browser in the URL fragment, so it is never sent back to the server on later requests (no Referer leak, nothing in request logs). The one place it does appear is the callback's `302 Location` response header; if your reverse proxy logs response headers, redact `Location` on `/api/auth/oidc/callback`.
 
