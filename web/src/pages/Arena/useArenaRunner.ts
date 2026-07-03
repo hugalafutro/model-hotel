@@ -17,7 +17,7 @@ import {
 } from "./utils";
 
 export interface ArenaRunnerDeps {
-	arenaModeRef: React.MutableRefObject<ArenaSubMode>;
+	arenaModeRef: React.RefObject<ArenaSubMode>;
 	savedPrompt: string;
 	prompt: string;
 	setRounds: React.Dispatch<React.SetStateAction<BracketRound[]>>;
@@ -28,7 +28,7 @@ export interface ArenaRunnerDeps {
 	>;
 	setRunningModels: React.Dispatch<React.SetStateAction<Set<string>>>;
 	rounds: BracketRound[];
-	roundsRef: React.MutableRefObject<BracketRound[]>;
+	roundsRef: React.RefObject<BracketRound[]>;
 	modelParams: Record<string, GenerationParams>;
 	enabledModels: Array<{ provider_name: string; model_id: string }>;
 	toast: ReturnType<typeof useToast>["toast"];
@@ -63,7 +63,7 @@ export interface ArenaRunner {
 		slotKey: "A" | "B",
 		newModelId: string,
 	) => void;
-	abortMapRef: React.MutableRefObject<Map<string, AbortController>>;
+	abortMapRef: React.RefObject<Map<string, AbortController>>;
 }
 
 export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
