@@ -92,10 +92,13 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 	// streaming body below never dispatches into a dead tree.
 	const mountedRef = useRef(true);
 	useEffect(() => {
+		// abortMapRef.current is stable for the component's lifetime (the Map is
+		// created once), but capture it so the cleanup reads the same instance.
+		const abortMap = abortMapRef.current;
 		return () => {
 			mountedRef.current = false;
-			for (const ctrl of abortMapRef.current.values()) ctrl.abort();
-			abortMapRef.current.clear();
+			for (const ctrl of abortMap.values()) ctrl.abort();
+			abortMap.clear();
 		};
 	}, []);
 
