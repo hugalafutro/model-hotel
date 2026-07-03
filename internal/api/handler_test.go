@@ -94,7 +94,7 @@ func TestVirtualKeyToResponse(t *testing.T) {
 		CreatedAt:  now,
 	}
 
-	resp := virtualKeyToResponse(vk, true, "sk-test-key-12345")
+	resp := virtualKeyToResponse(vk, true, "sk-test-key-12345", nil)
 
 	if resp.Name != "test-key" {
 		t.Errorf("expected name 'test-key', got %q", resp.Name)
@@ -121,7 +121,7 @@ func TestVirtualKeyToResponse_ExcludeKey(t *testing.T) {
 		CreatedAt:  time.Now(),
 	}
 
-	resp := virtualKeyToResponse(vk, false, "sk-test-key")
+	resp := virtualKeyToResponse(vk, false, "sk-test-key", nil)
 
 	if resp.Key != "" {
 		t.Errorf("expected empty key for exclude, got %q", resp.Key)
@@ -139,7 +139,7 @@ func TestVirtualKeyToResponse_NoLastUsed(t *testing.T) {
 		CreatedAt:  time.Now(),
 	}
 
-	resp := virtualKeyToResponse(vk, false, "")
+	resp := virtualKeyToResponse(vk, false, "", nil)
 
 	if resp.LastUsedAt != nil {
 		t.Errorf("expected nil LastUsedAt, got %v", resp.LastUsedAt)

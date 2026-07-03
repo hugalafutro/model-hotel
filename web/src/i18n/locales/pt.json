@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Justificativa removida",
 			"keyHashed": "A chave é hashed e não pode ser recuperada",
 			"tpm": "Limite de tokens por minuto; as solicitações são rejeitadas com o código 429 assim que o limite de tokens por minuto for esgotado",
-			"id": "Clique para copiar o ID da chave"
+			"id": "Clique para copiar o ID da chave",
+			"owner": "Propriedade de {{name}}"
 		},
 		"emptyState": "Não há chaves virtuais. Crie uma para começar a usar o proxy.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Desabilitar raciocínio da faixa",
 				"rateLimitBurst": "Burst (máximo simultâneo)",
 				"rateLimitRps": "RPS (solicitações/segundo)",
-				"rateLimitTpm": "TPM (tokens/min)"
+				"rateLimitTpm": "TPM (tokens/min)",
+				"owner": "Proprietário",
+				"ownerNone": "Sem proprietário (chave partilhada)",
+				"ownerHint": "Os limites por utilizador do proprietário aplicam-se a todas as suas chaves. Desativar o proprietário também desativa esta chave."
 			},
 			"detailTitle": "Detalhes da Chave Virtual",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Tokens Consumidos",
 				"lastUsed": "Último uso",
 				"created": "Criado",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Proprietário"
 			},
 			"noProvidersConfigured": "Nenhum provedor configurado.",
 			"discardChanges": "Descartar alterações não salvas?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Esta conta e as suas sessões são removidas de imediato.",
 			"resetPassword": "Repor palavra-passe",
 			"resetButton": "Repor",
-			"resetHint": "A reposição termina a sessão do utilizador em todo o lado."
+			"resetHint": "A reposição termina a sessão do utilizador em todo o lado.",
+			"limits": "Limites de proxy",
+			"limitsHint": "Limites agregados sobre todas as chaves virtuais deste utilizador. Deixe vazio para não aplicar limite.",
+			"limitRps": "Pedidos/seg",
+			"limitBurst": "Rajada",
+			"limitTpm": "Tokens/min",
+			"noCap": "Sem limite",
+			"deleteKeysNote": "As chaves virtuais desta conta são mantidas e ficam sem proprietário."
 		},
 		"toast": {
 			"created": "Utilizador criado",

@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Dungi de motivare",
 			"keyHashed": "Cheia este hash-uită și nu poate fi recuperată",
 			"tpm": "Limită de tokenuri pe minut; cererile sunt respinse cu codul 429 odată ce bugetul pe minut este epuizat",
-			"id": "Faceți clic pentru a copia ID-ul cheii"
+			"id": "Faceți clic pentru a copia ID-ul cheii",
+			"owner": "Deținută de {{name}}"
 		},
 		"emptyState": "Nu există chei virtuale. Creează una pentru a începe să folosești proxy.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Dezactivează raționamentul benzii",
 				"rateLimitBurst": "Burst (maxim simultan)",
 				"rateLimitRps": "RPS (solicitări/secundă)",
-				"rateLimitTpm": "TPM (tokeni/min)"
+				"rateLimitTpm": "TPM (tokeni/min)",
+				"owner": "Proprietar",
+				"ownerNone": "Fără proprietar (cheie partajată)",
+				"ownerHint": "Limitele per utilizator ale proprietarului se aplică tuturor cheilor sale. Dezactivarea proprietarului dezactivează și această cheie."
 			},
 			"detailTitle": "Detalii cheie virtuală",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Tokene consumate",
 				"lastUsed": "Ultima utilizare",
 				"created": "Creat",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Proprietar"
 			},
 			"noProvidersConfigured": "Niciun furnizor configurat.",
 			"discardChanges": "Renunțați la modificările nesalvate?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Acest cont și sesiunile sale sunt eliminate imediat.",
 			"resetPassword": "Resetează parola",
 			"resetButton": "Resetează",
-			"resetHint": "Resetarea deconectează utilizatorul de peste tot."
+			"resetHint": "Resetarea deconectează utilizatorul de peste tot.",
+			"limits": "Limite proxy",
+			"limitsHint": "Plafoane agregate pentru toate cheile virtuale ale acestui utilizator. Lăsați gol pentru niciun plafon.",
+			"limitRps": "Cereri/sec",
+			"limitBurst": "Burst",
+			"limitTpm": "Tokenuri/min",
+			"noCap": "Fără plafon",
+			"deleteKeysNote": "Cheile virtuale deținute de acest cont sunt păstrate și rămân fără proprietar."
 		},
 		"toast": {
 			"created": "Utilizator creat",

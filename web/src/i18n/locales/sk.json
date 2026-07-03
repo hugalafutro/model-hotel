@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Odôvodnenie vynechané",
 			"keyHashed": "Kľúč je zašifrovaný a nie je možné ho obnoviť",
 			"tpm": "Limit tokenov za minútu; po vyčerpaní minútového limitu sú požiadavky odmietnuté s kódom 429.",
-			"id": "Kliknutím skopírujte ID kľúča"
+			"id": "Kliknutím skopírujte ID kľúča",
+			"owner": "Vlastní {{name}}"
 		},
 		"emptyState": "Žiadne virtuálne kľúče. Vytvorte si jeden, aby ste mohli začať používať proxy.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Zakázať logiku pásov",
 				"rateLimitBurst": "Burst (max. súbežných)",
 				"rateLimitRps": "RPS (požiadavky/sekunda)",
-				"rateLimitTpm": "TPM (tokeny/min)"
+				"rateLimitTpm": "TPM (tokeny/min)",
+				"owner": "Vlastník",
+				"ownerNone": "Bez vlastníka (zdieľaný kľúč)",
+				"ownerHint": "Používateľské limity vlastníka platia naprieč všetkými jeho kľúčmi. Zakázaním vlastníka sa zakáže aj tento kľúč."
 			},
 			"detailTitle": "Podrobnosti o virtuálnom kľúči",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Spotrebované žetóny",
 				"lastUsed": "Naposledy použité",
 				"created": "Vytvorené",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Vlastník"
 			},
 			"noProvidersConfigured": "Nie sú nakonfigurovaní žiadni poskytovatelia.",
 			"discardChanges": "Zrušiť neuložené zmeny?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Tento účet a jeho relácie budú okamžite odstránené.",
 			"resetPassword": "Obnoviť heslo",
 			"resetButton": "Obnoviť",
-			"resetHint": "Obnovenie odhlási používateľa všade."
+			"resetHint": "Obnovenie odhlási používateľa všade.",
+			"limits": "Limity proxy",
+			"limitsHint": "Súhrnné limity naprieč všetkými virtuálnymi kľúčmi tohto používateľa. Ponechajte prázdne pre žiadny limit.",
+			"limitRps": "Požiadavky/s",
+			"limitBurst": "Burst",
+			"limitTpm": "Tokeny/min",
+			"noCap": "Bez limitu",
+			"deleteKeysNote": "Virtuálne kľúče vlastnené týmto účtom zostanú zachované a prídu o vlastníka."
 		},
 		"toast": {
 			"created": "Používateľ vytvorený",

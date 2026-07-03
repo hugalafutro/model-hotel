@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Betalt avbrutt.",
 			"keyHashed": "Nøkkelen er kastet og kan ikke gjenopprettes",
 			"tpm": "Tak på antall tokens per minutt; forespørsler avvises med 429 når minuttbudsjettet er brukt opp",
-			"id": "Klikk for å kopiere nøkkel-ID"
+			"id": "Klikk for å kopiere nøkkel-ID",
+			"owner": "Eid av {{name}}"
 		},
 		"emptyState": "Ingen virtuelle nøkler. Opprett en for å begynne å bruke proxyen.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Deaktiver stripe resonnering",
 				"rateLimitBurst": "Burst (maks. samtidig)",
 				"rateLimitRps": "RPS (forespørsler/sek)",
-				"rateLimitTpm": "TPM (tokens/min)"
+				"rateLimitTpm": "TPM (tokens/min)",
+				"owner": "Eier",
+				"ownerNone": "Ingen eier (delt nøkkel)",
+				"ownerHint": "Eierens brukergrenser gjelder på tvers av alle nøklene deres. Deaktiveres eieren, deaktiveres også denne nøkkelen."
 			},
 			"detailTitle": "Virtuell nøkkel detaljer",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Konsert for symboler",
 				"lastUsed": "Sist brukt",
 				"created": "Opprettet",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Eier"
 			},
 			"noProvidersConfigured": "Ingen leverandører konfigurert.",
 			"discardChanges": "Forkaste ulagrede endringer?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Denne kontoen og dens økter fjernes umiddelbart.",
 			"resetPassword": "Tilbakestill passord",
 			"resetButton": "Tilbakestill",
-			"resetHint": "Tilbakestilling logger brukeren ut overalt."
+			"resetHint": "Tilbakestilling logger brukeren ut overalt.",
+			"limits": "Proxygrenser",
+			"limitsHint": "Samlede grenser på tvers av alle brukerens virtuelle nøkler. La stå tomt for ingen grense.",
+			"limitRps": "Forespørsler/sek.",
+			"limitBurst": "Burst",
+			"limitTpm": "Tokens/min.",
+			"noCap": "Ingen grense",
+			"deleteKeysNote": "Virtuelle nøkler eid av denne kontoen beholdes og blir eierløse."
 		},
 		"toast": {
 			"created": "Bruker opprettet",

@@ -289,6 +289,17 @@ export function VirtualKeys() {
 											<span className="truncate" title={vk.name}>
 												{vk.name}
 											</span>
+											{vk.owner_username && (
+												<span
+													className="ui-badge ui-badge-neutral text-[10px] shrink-0"
+													title={t("virtualkeys.tooltip.owner", {
+														name: vk.owner_username,
+													})}
+													data-testid="vk-owner-chip"
+												>
+													{vk.owner_username}
+												</span>
+											)}
 										</div>
 									</td>
 									<td className="px-4 py-3 text-gray-500 font-mono text-xs">

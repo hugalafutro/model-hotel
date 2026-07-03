@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Redenen ontdaan",
 			"keyHashed": "Sleutel is gehasht en kan niet hersteld worden",
 			"tpm": "Limiet op tokens per minuut; verzoeken worden afgewezen met 429 zodra het budget voor die minuut is opgebruikt",
-			"id": "Klik om de sleutel-ID te kopiëren"
+			"id": "Klik om de sleutel-ID te kopiëren",
+			"owner": "Eigendom van {{name}}"
 		},
 		"emptyState": "Geen virtuele sleutels. Maak er een aan om de proxy te gebruiken.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Uitschakelen strip redenering",
 				"rateLimitBurst": "Burst (max. gelijktijdig)",
 				"rateLimitRps": "RPS (verzoeken/sec)",
-				"rateLimitTpm": "TPM (tokens/min)"
+				"rateLimitTpm": "TPM (tokens/min)",
+				"owner": "Eigenaar",
+				"ownerNone": "Geen eigenaar (gedeelde sleutel)",
+				"ownerHint": "De gebruikerslimieten van de eigenaar gelden voor al zijn sleutels. Het uitschakelen van de eigenaar schakelt ook deze sleutel uit."
 			},
 			"detailTitle": "Details van virtuele sleutel",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Tokens Verbruikt",
 				"lastUsed": "Laatst gebruikt",
 				"created": "Aangemaakt",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Eigenaar"
 			},
 			"noProvidersConfigured": "Geen providers geconfigureerd.",
 			"discardChanges": "Wijzigingen niet opslaan?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Dit account en de bijbehorende sessies worden direct verwijderd.",
 			"resetPassword": "Wachtwoord opnieuw instellen",
 			"resetButton": "Opnieuw instellen",
-			"resetHint": "Opnieuw instellen logt de gebruiker overal uit."
+			"resetHint": "Opnieuw instellen logt de gebruiker overal uit.",
+			"limits": "Proxylimieten",
+			"limitsHint": "Gezamenlijke limieten over alle virtuele sleutels van deze gebruiker. Leeg laten voor geen limiet.",
+			"limitRps": "Verzoeken/sec",
+			"limitBurst": "Burst",
+			"limitTpm": "Tokens/min",
+			"noCap": "Geen limiet",
+			"deleteKeysNote": "Virtuele sleutels van dit account blijven bestaan en worden eigenaarloos."
 		},
 		"toast": {
 			"created": "Gebruiker aangemaakt",

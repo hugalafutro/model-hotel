@@ -155,7 +155,7 @@ func TestRepository_Create(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	vk, err := repo.Create(ctx, "integration-create-"+suffix, "hash-create-"+suffix, "sk-...cr", nil, nil, nil, nil, nil)
+	vk, err := repo.Create(ctx, "integration-create-"+suffix, "hash-create-"+suffix, "sk-...cr", nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
@@ -183,7 +183,7 @@ func TestRepository_List(t *testing.T) {
 	suffix := uuid.New().String()[:8]
 
 	// Create at least one key so the list isn't empty
-	_, err := repo.Create(ctx, "integration-list-"+suffix, "hash-list-"+suffix, "sk-...li", nil, nil, nil, nil, nil)
+	_, err := repo.Create(ctx, "integration-list-"+suffix, "hash-list-"+suffix, "sk-...li", nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestRepository_Get(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	created, err := repo.Create(ctx, "integration-get-"+suffix, "hash-get-"+suffix, "sk-...ge", nil, nil, nil, nil, nil)
+	created, err := repo.Create(ctx, "integration-get-"+suffix, "hash-get-"+suffix, "sk-...ge", nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestRepository_Delete(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	created, err := repo.Create(ctx, "integration-delete-"+suffix, "hash-delete-"+suffix, "sk-...de", nil, nil, nil, nil, nil)
+	created, err := repo.Create(ctx, "integration-delete-"+suffix, "hash-delete-"+suffix, "sk-...de", nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
@@ -274,7 +274,7 @@ func TestRepository_AddTokens(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	created, err := repo.Create(ctx, "integration-addtokens-"+suffix, "hash-addtokens-"+suffix, "sk-...at", nil, nil, nil, nil, nil)
+	created, err := repo.Create(ctx, "integration-addtokens-"+suffix, "hash-addtokens-"+suffix, "sk-...at", nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestRepository_TouchLastUsed(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	created, err := repo.Create(ctx, "integration-touch-"+suffix, "hash-touch-"+suffix, "sk-...to", nil, nil, nil, nil, nil)
+	created, err := repo.Create(ctx, "integration-touch-"+suffix, "hash-touch-"+suffix, "sk-...to", nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
@@ -327,7 +327,7 @@ func TestRepository_FindByKeyHash(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	created, err := repo.Create(ctx, "integration-findbyhash-"+suffix, "hash-findbyhash-"+suffix, "sk-...fh", nil, nil, nil, nil, nil)
+	created, err := repo.Create(ctx, "integration-findbyhash-"+suffix, "hash-findbyhash-"+suffix, "sk-...fh", nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
@@ -364,13 +364,13 @@ func TestRepository_Update(t *testing.T) {
 	suffix := uuid.New().String()[:8]
 
 	// Create a key to update
-	created, err := repo.Create(ctx, "integration-update-"+suffix, "hash-update-"+suffix, "sk-...up", nil, nil, nil, nil, nil)
+	created, err := repo.Create(ctx, "integration-update-"+suffix, "hash-update-"+suffix, "sk-...up", nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
 
 	// Update name only
-	updated, err := repo.Update(ctx, created.ID, "renamed-"+suffix, nil, nil, nil, nil, nil)
+	updated, err := repo.Update(ctx, created.ID, "renamed-"+suffix, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update() name-only failed: %v", err)
 	}
@@ -387,7 +387,7 @@ func TestRepository_Update(t *testing.T) {
 	// Update name + rate limits
 	rps := 10.5
 	burst := 20
-	updated2, err := repo.Update(ctx, created.ID, "limited-"+suffix, &rps, &burst, nil, nil, nil)
+	updated2, err := repo.Update(ctx, created.ID, "limited-"+suffix, &rps, &burst, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update() with limits failed: %v", err)
 	}
@@ -411,7 +411,7 @@ func TestRepository_RateLimitTPM(t *testing.T) {
 
 	// Create with a TPM cap set.
 	tpm := 50000
-	created, err := repo.Create(ctx, "integration-tpm-"+suffix, "hash-tpm-"+suffix, "sk-...tp", nil, nil, &tpm, nil, nil)
+	created, err := repo.Create(ctx, "integration-tpm-"+suffix, "hash-tpm-"+suffix, "sk-...tp", nil, nil, &tpm, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() with tpm failed: %v", err)
 	}
@@ -430,7 +430,7 @@ func TestRepository_RateLimitTPM(t *testing.T) {
 
 	// Update the cap to a new value.
 	newTPM := 12000
-	updated, err := repo.Update(ctx, created.ID, created.Name, nil, nil, &newTPM, nil, nil)
+	updated, err := repo.Update(ctx, created.ID, created.Name, nil, nil, &newTPM, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update() set tpm failed: %v", err)
 	}
@@ -439,7 +439,7 @@ func TestRepository_RateLimitTPM(t *testing.T) {
 	}
 
 	// Clear the cap (nil persists as NULL).
-	cleared, err := repo.Update(ctx, created.ID, created.Name, nil, nil, nil, nil, nil)
+	cleared, err := repo.Update(ctx, created.ID, created.Name, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update() clear tpm failed: %v", err)
 	}
@@ -458,7 +458,7 @@ func TestRepository_CreateWithAllowedProviders(t *testing.T) {
 	suffix := uuid.New().String()[:8]
 	providers := &[]string{"provider-1", "provider-2"}
 
-	vk, err := repo.Create(ctx, "test-allowed-"+suffix, "hash-allowed-"+suffix, "sk-...ap", nil, nil, nil, providers, nil)
+	vk, err := repo.Create(ctx, "test-allowed-"+suffix, "hash-allowed-"+suffix, "sk-...ap", nil, nil, nil, providers, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
@@ -478,7 +478,7 @@ func TestRepository_CreateWithNilAllowedProviders(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
 
-	vk, err := repo.Create(ctx, "test-nil-"+suffix, "hash-nil-"+suffix, "sk-...np", nil, nil, nil, nil, nil)
+	vk, err := repo.Create(ctx, "test-nil-"+suffix, "hash-nil-"+suffix, "sk-...np", nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() failed: %v", err)
 	}
@@ -493,14 +493,14 @@ func TestRepository_UpdateWithAllowedProviders(t *testing.T) {
 	suffix := uuid.New().String()[:8]
 
 	// Create a key without allowed_providers
-	created, err := repo.Create(ctx, "test-update-"+suffix, "hash-update-"+suffix, "sk-...up", nil, nil, nil, nil, nil)
+	created, err := repo.Create(ctx, "test-update-"+suffix, "hash-update-"+suffix, "sk-...up", nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
 
 	// Update to set allowed_providers
 	providers := &[]string{"provider-3"}
-	updated, err := repo.Update(ctx, created.ID, "updated-"+suffix, nil, nil, nil, providers, nil)
+	updated, err := repo.Update(ctx, created.ID, "updated-"+suffix, nil, nil, nil, providers, nil, nil)
 	if err != nil {
 		t.Fatalf("Update() failed: %v", err)
 	}
@@ -522,13 +522,13 @@ func TestRepository_UpdateToClearAllowedProviders(t *testing.T) {
 
 	// Create a key with allowed_providers
 	providers := &[]string{"provider-to-clear"}
-	created, err := repo.Create(ctx, "test-clear-"+suffix, "hash-clear-"+suffix, "sk-...cl", nil, nil, nil, providers, nil)
+	created, err := repo.Create(ctx, "test-clear-"+suffix, "hash-clear-"+suffix, "sk-...cl", nil, nil, nil, providers, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
 
 	// Update to clear allowed_providers (set to nil)
-	updated, err := repo.Update(ctx, created.ID, "cleared-"+suffix, nil, nil, nil, nil, nil)
+	updated, err := repo.Update(ctx, created.ID, "cleared-"+suffix, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update() failed: %v", err)
 	}
@@ -544,7 +544,7 @@ func TestRepository_ListIncludesAllowedProviders(t *testing.T) {
 	providers := &[]string{"provider-list-1", "provider-list-2"}
 
 	// Create a key with allowed_providers
-	created, err := repo.Create(ctx, "test-list-"+suffix, "hash-list-"+suffix, "sk-...li", nil, nil, nil, providers, nil)
+	created, err := repo.Create(ctx, "test-list-"+suffix, "hash-list-"+suffix, "sk-...li", nil, nil, nil, providers, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
@@ -580,7 +580,7 @@ func TestRepository_Update_NotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 
-	_, err := repo.Update(ctx, uuid.New(), "nonexistent", nil, nil, nil, nil, nil)
+	_, err := repo.Update(ctx, uuid.New(), "nonexistent", nil, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Error("expected error for non-existent UUID, got nil")
 	}
@@ -616,13 +616,13 @@ func TestRepository_Create_Duplicate(t *testing.T) {
 	suffix := uuid.New().String()[:8]
 
 	// Create a key with a specific hash
-	_, err := repo.Create(ctx, "duplicate-key-"+suffix, "hash-duplicate-"+suffix, "sk-...du", nil, nil, nil, nil, nil)
+	_, err := repo.Create(ctx, "duplicate-key-"+suffix, "hash-duplicate-"+suffix, "sk-...du", nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}
 
 	// Try to create another key with the same key_hash - should error (unique constraint)
-	_, err = repo.Create(ctx, "duplicate-key-2-"+suffix, "hash-duplicate-"+suffix, "sk-...d2", nil, nil, nil, nil, nil)
+	_, err = repo.Create(ctx, "duplicate-key-2-"+suffix, "hash-duplicate-"+suffix, "sk-...d2", nil, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Error("Create with duplicate key_hash should error")
 	}
@@ -687,7 +687,7 @@ func TestRepository_Update_DBError(t *testing.T) {
 	cancel()
 	repo := NewRepository(testDB.Pool())
 
-	_, err := repo.Update(ctx, uuid.New(), "name", nil, nil, nil, nil, nil)
+	_, err := repo.Update(ctx, uuid.New(), "name", nil, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Error("expected error with canceled context, got nil")
 	}
@@ -723,5 +723,161 @@ func TestRepository_List_Empty(t *testing.T) {
 	}
 	if len(keys) != 0 {
 		t.Errorf("expected 0 keys, got %d", len(keys))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Ownership (phase 2 of multi-user)
+// ---------------------------------------------------------------------------
+
+// seedOwner inserts a users row directly (this package must not import
+// internal/user) and returns its id. Cleaned up with the test.
+func seedOwner(t *testing.T, enabled bool, rps *float64, burst, tpm *int) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	var id uuid.UUID
+	err := testDB.Pool().QueryRow(ctx,
+		`INSERT INTO users (username, password_hash, enabled, rate_limit_rps, rate_limit_burst, rate_limit_tpm)
+		 VALUES ($1, 'x', $2, $3, $4, $5) RETURNING id`,
+		"vk-owner-"+uuid.NewString(), enabled, rps, burst, tpm).Scan(&id)
+	if err != nil {
+		t.Fatalf("seed owner: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = testDB.Pool().Exec(context.Background(), `DELETE FROM users WHERE id = $1`, id)
+	})
+	return id
+}
+
+func TestRepository_Ownership(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testDB.Pool())
+	suffix := uuid.New().String()[:8]
+
+	rps := 2.5
+	burst := 4
+	tpm := 6000
+	owner := seedOwner(t, true, &rps, &burst, &tpm)
+
+	created, err := repo.Create(ctx,
+		"owned-"+suffix, "hash-owned-"+suffix, "sk-...ow",
+		nil, nil, nil, nil, nil, &owner)
+	if err != nil {
+		t.Fatalf("Create() failed: %v", err)
+	}
+	defer func() { _ = repo.Delete(ctx, created.ID) }()
+	if created.OwnerUserID == nil || *created.OwnerUserID != owner {
+		t.Fatalf("Create() OwnerUserID = %v, want %v", created.OwnerUserID, owner)
+	}
+
+	// FindByKeyHash joins the owner and carries enabled + limits.
+	got, err := repo.FindByKeyHash(ctx, "hash-owned-"+suffix)
+	if err != nil {
+		t.Fatalf("FindByKeyHash() failed: %v", err)
+	}
+	if got.Owner == nil {
+		t.Fatal("FindByKeyHash() Owner = nil, want populated")
+	}
+	if !got.Owner.Enabled {
+		t.Error("Owner.Enabled = false, want true")
+	}
+	if got.Owner.RateLimitRPS == nil || *got.Owner.RateLimitRPS != rps {
+		t.Errorf("Owner.RateLimitRPS = %v, want %v", got.Owner.RateLimitRPS, rps)
+	}
+	if got.Owner.RateLimitBurst == nil || *got.Owner.RateLimitBurst != burst {
+		t.Errorf("Owner.RateLimitBurst = %v, want %v", got.Owner.RateLimitBurst, burst)
+	}
+	if got.Owner.RateLimitTPM == nil || *got.Owner.RateLimitTPM != tpm {
+		t.Errorf("Owner.RateLimitTPM = %v, want %v", got.Owner.RateLimitTPM, tpm)
+	}
+
+	// ListByOwner returns only this user's keys.
+	unowned, err := repo.Create(ctx,
+		"unowned-"+suffix, "hash-unowned-"+suffix, "sk-...un",
+		nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Create(unowned) failed: %v", err)
+	}
+	defer func() { _ = repo.Delete(ctx, unowned.ID) }()
+	if unowned.OwnerUserID != nil {
+		t.Errorf("unowned OwnerUserID = %v, want nil", unowned.OwnerUserID)
+	}
+	mine, err := repo.ListByOwner(ctx, owner)
+	if err != nil {
+		t.Fatalf("ListByOwner() failed: %v", err)
+	}
+	if len(mine) != 1 || mine[0].ID != created.ID {
+		t.Errorf("ListByOwner() = %d keys, want exactly the owned key", len(mine))
+	}
+
+	// Update can clear the owner (nil = unassign).
+	cleared, err := repo.Update(ctx, created.ID, created.Name, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Update(clear owner) failed: %v", err)
+	}
+	if cleared.OwnerUserID != nil {
+		t.Errorf("Update(clear) OwnerUserID = %v, want nil", cleared.OwnerUserID)
+	}
+
+	// And set it back.
+	reassigned, err := repo.Update(ctx, created.ID, created.Name, nil, nil, nil, nil, nil, &owner)
+	if err != nil {
+		t.Fatalf("Update(set owner) failed: %v", err)
+	}
+	if reassigned.OwnerUserID == nil || *reassigned.OwnerUserID != owner {
+		t.Errorf("Update(set) OwnerUserID = %v, want %v", reassigned.OwnerUserID, owner)
+	}
+}
+
+func TestRepository_FindByKeyHash_DisabledOwner(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testDB.Pool())
+	suffix := uuid.New().String()[:8]
+
+	owner := seedOwner(t, false, nil, nil, nil)
+	created, err := repo.Create(ctx,
+		"disabled-owner-"+suffix, "hash-dis-"+suffix, "sk-...di",
+		nil, nil, nil, nil, nil, &owner)
+	if err != nil {
+		t.Fatalf("Create() failed: %v", err)
+	}
+	defer func() { _ = repo.Delete(ctx, created.ID) }()
+
+	got, err := repo.FindByKeyHash(ctx, "hash-dis-"+suffix)
+	if err != nil {
+		t.Fatalf("FindByKeyHash() failed: %v", err)
+	}
+	if got.Owner == nil || got.Owner.Enabled {
+		t.Errorf("Owner = %+v, want populated with Enabled=false", got.Owner)
+	}
+	if got.Owner != nil && got.Owner.RateLimitRPS != nil {
+		t.Errorf("Owner.RateLimitRPS = %v, want nil (no cap)", got.Owner.RateLimitRPS)
+	}
+}
+
+func TestRepository_DeleteOwner_OrphansKey(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testDB.Pool())
+	suffix := uuid.New().String()[:8]
+
+	owner := seedOwner(t, true, nil, nil, nil)
+	created, err := repo.Create(ctx,
+		"orphan-"+suffix, "hash-orphan-"+suffix, "sk-...or",
+		nil, nil, nil, nil, nil, &owner)
+	if err != nil {
+		t.Fatalf("Create() failed: %v", err)
+	}
+	defer func() { _ = repo.Delete(ctx, created.ID) }()
+
+	if _, err := testDB.Pool().Exec(ctx, `DELETE FROM users WHERE id = $1`, owner); err != nil {
+		t.Fatalf("delete owner: %v", err)
+	}
+
+	got, err := repo.FindByKeyHash(ctx, "hash-orphan-"+suffix)
+	if err != nil {
+		t.Fatalf("FindByKeyHash() after owner delete failed: %v", err)
+	}
+	if got.OwnerUserID != nil || got.Owner != nil {
+		t.Errorf("key not orphaned: OwnerUserID=%v Owner=%+v", got.OwnerUserID, got.Owner)
 	}
 }

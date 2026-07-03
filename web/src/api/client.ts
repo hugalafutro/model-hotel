@@ -767,6 +767,7 @@ export const api = {
 			rate_limit_tpm?: number | null,
 			allowed_providers?: string[] | null,
 			strip_reasoning?: boolean,
+			owner_user_id?: string | null,
 		): Promise<VirtualKey> => {
 			return fetchJSON<VirtualKey>(
 				`${API_BASE}/api/virtual-keys`,
@@ -780,6 +781,7 @@ export const api = {
 						rate_limit_tpm,
 						allowed_providers,
 						strip_reasoning,
+						owner_user_id,
 					}),
 				},
 				"Failed to create virtual key",
@@ -803,6 +805,8 @@ export const api = {
 				rate_limit_tpm?: number | null;
 				allowed_providers?: string[] | null;
 				strip_reasoning?: boolean;
+				// Omit to preserve the current owner; null clears it (admin only).
+				owner_user_id?: string | null;
 			},
 		): Promise<VirtualKey> => {
 			return fetchJSON<VirtualKey>(

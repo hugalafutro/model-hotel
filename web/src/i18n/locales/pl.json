@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Uzasadnienie usunięte",
 			"keyHashed": "Klucz jest haszowany i nie można go odzyskać",
 			"tpm": "Limit tokenów na minutę; żądania są odrzucane z kodem 429 po wyczerpaniu limitu minutowego",
-			"id": "Kliknij, aby skopiować identyfikator klucza"
+			"id": "Kliknij, aby skopiować identyfikator klucza",
+			"owner": "Należy do {{name}}"
 		},
 		"emptyState": "Brak kluczy wirtualnych. Utwórz jeden, aby rozpocząć korzystanie z proxy.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Wyłącz rozumowanie paska",
 				"rateLimitBurst": "Burst (maksymalna liczba jednoczesnych połączeń)",
 				"rateLimitRps": "RPS (żądania/sek.)",
-				"rateLimitTpm": "TPM (tokeny/min)"
+				"rateLimitTpm": "TPM (tokeny/min)",
+				"owner": "Właściciel",
+				"ownerNone": "Brak właściciela (klucz współdzielony)",
+				"ownerHint": "Limity użytkownika właściciela obowiązują dla wszystkich jego kluczy. Wyłączenie właściciela wyłącza też ten klucz."
 			},
 			"detailTitle": "Szczegóły klucza wirtualnego",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Zużyte tokeny",
 				"lastUsed": "Ostatnio używane",
 				"created": "Utworzono",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Właściciel"
 			},
 			"noProvidersConfigured": "Brak skonfigurowanych dostawców.",
 			"discardChanges": "Odrzucić niezapisane zmiany?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "To konto i jego sesje zostaną natychmiast usunięte.",
 			"resetPassword": "Zresetuj hasło",
 			"resetButton": "Resetuj",
-			"resetHint": "Reset wylogowuje użytkownika ze wszystkich urządzeń."
+			"resetHint": "Reset wylogowuje użytkownika ze wszystkich urządzeń.",
+			"limits": "Limity proxy",
+			"limitsHint": "Łączne limity dla wszystkich kluczy wirtualnych tego użytkownika. Pozostaw puste, aby nie ustawiać limitu.",
+			"limitRps": "Żądania/s",
+			"limitBurst": "Burst",
+			"limitTpm": "Tokeny/min",
+			"noCap": "Bez limitu",
+			"deleteKeysNote": "Klucze wirtualne należące do tego konta zostaną zachowane i stracą właściciela."
 		},
 		"toast": {
 			"created": "Użytkownik utworzony",

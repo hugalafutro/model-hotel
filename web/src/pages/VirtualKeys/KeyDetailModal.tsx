@@ -12,6 +12,7 @@ import {
 	RotateCcw,
 	ShieldCheck,
 	Tag,
+	UserRound,
 	Zap,
 } from "@/lib/icons";
 import { api } from "../../api/client";
@@ -22,6 +23,7 @@ import { InfoHint } from "../../components/InfoHint";
 import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
+import { useIdentity } from "../../context/IdentityContext";
 import { formatNumber } from "../../utils/format";
 
 function SectionHeader({
@@ -80,8 +82,10 @@ export function KeyDetailModal({
 }) {
 	const queryClient = useQueryClient();
 	const { t } = useTranslation();
+	const { isAdmin } = useIdentity();
 	const [editing, setEditing] = useState(false);
 	const [editName, setEditName] = useState(vk.name);
+	const [editOwnerId, setEditOwnerId] = useState(vk.owner_user_id ?? "");
 	const [editRps, setEditRps] = useState(vk.rate_limit_rps?.toString() ?? "");
 	const [editBurst, setEditBurst] = useState(
 		vk.rate_limit_burst?.toString() ?? "",
@@ -97,6 +101,13 @@ export function KeyDetailModal({
 	const { data: providers } = useQuery({
 		queryKey: ["providers"],
 		queryFn: () => api.providers.list(),
+	});
+
+	// Roster for the owner select; admin-only, like the assignment itself.
+	const { data: users } = useQuery({
+		queryKey: ["users"],
+		queryFn: () => api.users.list(),
+		enabled: isAdmin,
 	});
 
 	const sortedProviders = (providers ?? [])
@@ -133,6 +144,7 @@ export function KeyDetailModal({
 			rate_limit_tpm,
 			allowed_providers,
 			strip_reasoning,
+			owner_user_id,
 		}: {
 			name: string;
 			rate_limit_rps?: number | null;
@@ -140,6 +152,7 @@ export function KeyDetailModal({
 			rate_limit_tpm?: number | null;
 			allowed_providers?: string[] | null;
 			strip_reasoning?: boolean;
+			owner_user_id?: string | null;
 		}) =>
 			api.virtualKeys.update(vk.id, {
 				name,
@@ -148,6 +161,7 @@ export function KeyDetailModal({
 				rate_limit_tpm,
 				allowed_providers,
 				strip_reasoning,
+				...(owner_user_id !== undefined ? { owner_user_id } : {}),
 			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["virtualKeys"] });
@@ -189,11 +203,17 @@ export function KeyDetailModal({
 			rate_limit_tpm: editTpm !== "" ? parseInt(editTpm, 10) : null,
 			allowed_providers: allowedProviders,
 			strip_reasoning: editStripReasoning,
+			// Non-admins omit the field entirely; the server preserves the
+			// current owner (and would force self anyway).
+			...(isAdmin
+				? { owner_user_id: editOwnerId !== "" ? editOwnerId : null }
+				: {}),
 		});
 	};
 
 	const handleCancelEdit = () => {
 		setEditName(vk.name);
+		setEditOwnerId(vk.owner_user_id ?? "");
 		setEditRps(vk.rate_limit_rps?.toString() ?? "");
 		setEditBurst(vk.rate_limit_burst?.toString() ?? "");
 		setEditTpm(vk.rate_limit_tpm?.toString() ?? "");
@@ -205,6 +225,7 @@ export function KeyDetailModal({
 
 	const startEditing = () => {
 		setEditName(vk.name);
+		setEditOwnerId(vk.owner_user_id ?? "");
 		setEditRps(vk.rate_limit_rps?.toString() ?? "");
 		setEditBurst(vk.rate_limit_burst?.toString() ?? "");
 		setEditTpm(vk.rate_limit_tpm?.toString() ?? "");
@@ -236,6 +257,7 @@ export function KeyDetailModal({
 
 	const hasChanges =
 		editName !== vk.name ||
+		editOwnerId !== (vk.owner_user_id ?? "") ||
 		editRps !== (vk.rate_limit_rps?.toString() ?? "") ||
 		editBurst !== (vk.rate_limit_burst?.toString() ?? "") ||
 		editTpm !== (vk.rate_limit_tpm?.toString() ?? "") ||
@@ -280,6 +302,36 @@ export function KeyDetailModal({
 								className="ui-input"
 							/>
 						</div>
+
+						{isAdmin && (
+							<div>
+								<label
+									htmlFor="vk-detail-owner"
+									className="block text-sm font-medium text-gray-300 mb-1"
+								>
+									{t("virtualkeys.modal.form.owner")}
+								</label>
+								<select
+									id="vk-detail-owner"
+									value={editOwnerId}
+									onChange={(e) => setEditOwnerId(e.target.value)}
+									className="ui-input"
+									data-testid="vk-detail-owner-select"
+								>
+									<option value="">
+										{t("virtualkeys.modal.form.ownerNone")}
+									</option>
+									{(users ?? []).map((u) => (
+										<option key={u.id} value={u.id}>
+											{u.username}
+										</option>
+									))}
+								</select>
+								<p className="text-xs text-gray-500 mt-1">
+									{t("virtualkeys.modal.form.ownerHint")}
+								</p>
+							</div>
+						)}
 
 						<SectionHeader
 							icon={Gauge}
@@ -430,6 +482,11 @@ export function KeyDetailModal({
 							icon={Tag}
 							label={t("virtualkeys.modal.form.name")}
 							value={vk.name}
+						/>
+						<DetailItem
+							icon={UserRound}
+							label={t("virtualkeys.modal.labels.owner")}
+							value={vk.owner_username ?? t("virtualkeys.modal.form.ownerNone")}
 						/>
 						<DetailItem icon={Key} label={t("virtualkeys.modal.labels.key")}>
 							<div

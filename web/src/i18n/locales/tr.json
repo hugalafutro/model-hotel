@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Mantık kısmı çıkarılmış",
 			"keyHashed": "Anahtar karma işleme tabi tutulmuştur ve geri getirilemez",
 			"tpm": "Dakika başına token sınırı; dakika bütçesi tükendiğinde istekler 429 ile reddedilir",
-			"id": "Anahtar kimliğini kopyalamak için tıklayın"
+			"id": "Anahtar kimliğini kopyalamak için tıklayın",
+			"owner": "Sahibi: {{name}}"
 		},
 		"emptyState": "Sanal anahtar yok. Proxy'yi kullanmaya başlamak için bir tane oluşturun.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Çizgi mantığını devre dışı bırak",
 				"rateLimitBurst": "Burst (maks. eşzamanlı)",
 				"rateLimitRps": "RPS (istek/saniye)",
-				"rateLimitTpm": "TPM (token/dk)"
+				"rateLimitTpm": "TPM (token/dk)",
+				"owner": "Sahip",
+				"ownerNone": "Sahipsiz (paylaşılan anahtar)",
+				"ownerHint": "Sahibin kullanıcı sınırları tüm anahtarları genelinde geçerlidir. Sahibin devre dışı bırakılması bu anahtarı da devre dışı bırakır."
 			},
 			"detailTitle": "Sanal Anahtar Bilgileri",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Kullanılan Jetonlar",
 				"lastUsed": "En Son Kullanım Tarihi",
 				"created": "Oluşturuldu",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Sahip"
 			},
 			"noProvidersConfigured": "Yapılandırılmış sağlayıcı yok.",
 			"discardChanges": "Kaydedilmemiş değişiklikleri silmek istiyor musunuz?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Bu hesap ve oturumları hemen kaldırılır.",
 			"resetPassword": "Parolayı sıfırla",
 			"resetButton": "Sıfırla",
-			"resetHint": "Sıfırlama, kullanıcının tüm oturumlarını kapatır."
+			"resetHint": "Sıfırlama, kullanıcının tüm oturumlarını kapatır.",
+			"limits": "Proxy sınırları",
+			"limitsHint": "Bu kullanıcının sahip olduğu tüm sanal anahtarlar genelinde toplam sınırlar. Sınır olmaması için boş bırakın.",
+			"limitRps": "İstek/sn",
+			"limitBurst": "Burst",
+			"limitTpm": "Token/dk",
+			"noCap": "Sınır yok",
+			"deleteKeysNote": "Bu hesaba ait sanal anahtarlar korunur ve sahipsiz kalır."
 		},
 		"toast": {
 			"created": "Kullanıcı oluşturuldu",

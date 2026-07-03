@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Begründung entfernt",
 			"keyHashed": "Schlüssel ist gehashed und kann nicht wiederhergestellt werden",
 			"tpm": "Obergrenze für Tokens pro Minute; Anfragen werden mit dem Status 429 abgelehnt, sobald das Minutenbudget aufgebraucht ist",
-			"id": "Zum Kopieren der Schlüssel-ID hier klicken"
+			"id": "Zum Kopieren der Schlüssel-ID hier klicken",
+			"owner": "Gehört {{name}}"
 		},
 		"emptyState": "Keine virtuellen Schlüssel. Erstellen Sie einen, um den Proxy zu verwenden.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Strip-Argumentation deaktivieren",
 				"rateLimitBurst": "Burst (max. gleichzeitig)",
 				"rateLimitRps": "RPS (Anfragen/Sek.)",
-				"rateLimitTpm": "TPM (Token/Min.)"
+				"rateLimitTpm": "TPM (Token/Min.)",
+				"owner": "Besitzer",
+				"ownerNone": "Kein Besitzer (gemeinsamer Schlüssel)",
+				"ownerHint": "Die Benutzerlimits des Besitzers gelten über alle seine Schlüssel hinweg. Wird der Besitzer deaktiviert, wird auch dieser Schlüssel deaktiviert."
 			},
 			"detailTitle": "Details der virtuellen Taste",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Konsumierte Token",
 				"lastUsed": "Zuletzt verwendet",
 				"created": "Erstellt",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Besitzer"
 			},
 			"noProvidersConfigured": "Keine Anbieter konfiguriert.",
 			"discardChanges": "Nicht gespeicherte Änderungen verwerfen?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Dieses Konto und seine Sitzungen werden sofort entfernt.",
 			"resetPassword": "Passwort zurücksetzen",
 			"resetButton": "Zurücksetzen",
-			"resetHint": "Das Zurücksetzen meldet den Benutzer überall ab."
+			"resetHint": "Das Zurücksetzen meldet den Benutzer überall ab.",
+			"limits": "Proxy-Limits",
+			"limitsHint": "Gesamtobergrenzen über alle virtuellen Schlüssel dieses Benutzers. Leer lassen für keine Begrenzung.",
+			"limitRps": "Anfragen/Sek.",
+			"limitBurst": "Burst",
+			"limitTpm": "Token/Min.",
+			"noCap": "Keine Begrenzung",
+			"deleteKeysNote": "Virtuelle Schlüssel dieses Kontos bleiben erhalten und werden besitzerlos."
 		},
 		"toast": {
 			"created": "Benutzer angelegt",

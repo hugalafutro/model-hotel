@@ -333,3 +333,128 @@ func TestTPMMiddleware_PerKeyOverridesGlobal(t *testing.T) {
 		t.Fatalf("per-key cap should override the looser global default, got %d", rec.Code)
 	}
 }
+
+// ownedTPMReq builds a request carrying a virtual-key hash plus owner context
+// (uid + user TPM cap), as ProxyKeyMiddleware would for an owned key.
+func ownedTPMReq(keyHash, uid string, userTPM int) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
+	ctx := context.WithValue(req.Context(), ctxkeys.VirtualKeyHashKey, keyHash)
+	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyOwnerIDKey, uid)
+	ctx = context.WithValue(ctx, ctxkeys.UserRateLimitTPMKey, &userTPM)
+	return req.WithContext(ctx)
+}
+
+// TestTPMMiddleware_UserAggregateBudget verifies that two keys owned by the
+// same user share one aggregate budget: draining it through one key rejects
+// the other key's next request even though neither key has a per-key cap.
+func TestTPMMiddleware_UserAggregateBudget(t *testing.T) {
+	l, _ := newTestTPMLimiter(t) // no global TPM: only the user stage is active
+	h := l.Middleware(true)(okHandler())
+
+	userTPM := 600
+	// Admit key A: creates the user bucket and the A->user association.
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, ownedTPMReq("key-a", "uid-1", userTPM))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("first request should pass, got %d", rec.Code)
+	}
+
+	// Debit through key A far past the aggregate budget.
+	l.Debit("key-a", userTPM*2)
+
+	// Key B, same owner, must now be rejected by the user stage.
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, ownedTPMReq("key-b", "uid-1", userTPM))
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("same-owner key should hit the aggregate budget, got %d", rec.Code)
+	}
+	if rec.Header().Get("Retry-After") == "" {
+		t.Error("user-stage 429 should carry Retry-After")
+	}
+
+	// A key owned by a different user is unaffected.
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, ownedTPMReq("key-c", "uid-2", userTPM))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("other owner's key should pass, got %d", rec.Code)
+	}
+
+	// An unowned key is unaffected too (no global cap configured).
+	rec = httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
+	req = req.WithContext(context.WithValue(req.Context(), ctxkeys.VirtualKeyHashKey, "key-plain"))
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unowned key should pass, got %d", rec.Code)
+	}
+}
+
+// TestTPMLimiter_DebitDebitsOwnerBucket verifies the dual debit: the key's own
+// bucket (when capped) and the owner's aggregate bucket both drop.
+func TestTPMLimiter_DebitDebitsOwnerBucket(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyTPM, "1200") // per-key stage active via global default
+	h := l.Middleware(true)(okHandler())
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, ownedTPMReq("key-a", "uid-1", 600))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admission failed: %d", rec.Code)
+	}
+
+	tokensOf := func(bucket string) float64 {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		e, ok := l.buckets[bucket]
+		if !ok {
+			t.Fatalf("bucket %q missing", bucket)
+		}
+		return e.limiter.Tokens()
+	}
+	keyBefore := tokensOf("key-a")
+	userBefore := tokensOf("user:uid-1")
+
+	l.Debit("key-a", 300)
+
+	if after := tokensOf("key-a"); after >= keyBefore {
+		t.Errorf("key bucket not debited: before=%v after=%v", keyBefore, after)
+	}
+	if after := tokensOf("user:uid-1"); after >= userBefore {
+		t.Errorf("owner bucket not debited: before=%v after=%v", userBefore, after)
+	}
+}
+
+// TestTPMLimiter_AssocClearedWhenOwnerRemoved verifies that once a key stops
+// carrying owner context (ownership cleared at runtime), its next admission
+// clears the stale association so Debit no longer charges the old owner.
+func TestTPMLimiter_AssocClearedWhenOwnerRemoved(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyTPM, "1200")
+	h := l.Middleware(true)(okHandler())
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, ownedTPMReq("key-a", "uid-1", 600))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admission failed: %d", rec.Code)
+	}
+
+	// Re-admit without owner context: association must be cleared.
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
+	req = req.WithContext(context.WithValue(req.Context(), ctxkeys.VirtualKeyHashKey, "key-a"))
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("re-admission failed: %d", rec.Code)
+	}
+
+	userTokens := func() float64 {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		return l.buckets["user:uid-1"].limiter.Tokens()
+	}
+	before := userTokens()
+	l.Debit("key-a", 300)
+	if after := userTokens(); after < before {
+		t.Errorf("stale association still debited the old owner: before=%v after=%v", before, after)
+	}
+}

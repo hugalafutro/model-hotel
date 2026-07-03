@@ -15,8 +15,8 @@ import (
 type UserStore interface {
 	Get(ctx context.Context, id uuid.UUID) (*user.User, error)
 	List(ctx context.Context) ([]*user.User, error)
-	Create(ctx context.Context, username, displayName string, email *string, passwordHash string, role user.Role, grants []string) (*user.User, error)
-	Update(ctx context.Context, id uuid.UUID, username, displayName string, email *string, role user.Role, grants []string, enabled bool) (*user.User, error)
+	Create(ctx context.Context, username, displayName string, email *string, passwordHash string, role user.Role, grants []string, limits user.Limits) (*user.User, error)
+	Update(ctx context.Context, id uuid.UUID, username, displayName string, email *string, role user.Role, grants []string, enabled bool, limits user.Limits) (*user.User, error)
 	SetPassword(ctx context.Context, id uuid.UUID, passwordHash string) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }

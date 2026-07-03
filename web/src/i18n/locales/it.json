@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Ragionamento spogliato",
 			"keyHashed": "La chiave è hashed e non può essere recuperata",
 			"tpm": "Limite di token al minuto; le richieste vengono respinte con codice 429 una volta esaurito il budget del minuto",
-			"id": "Clicca per copiare l'ID chiave"
+			"id": "Clicca per copiare l'ID chiave",
+			"owner": "Di proprietà di {{name}}"
 		},
 		"emptyState": "Nessuna chiave virtuale. Creane una per iniziare a usare il proxy.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Disabilita ragionamento striscia",
 				"rateLimitBurst": "Burst (massimo simultaneo)",
 				"rateLimitRps": "RPS (richieste/sec)",
-				"rateLimitTpm": "TPM (token/min)"
+				"rateLimitTpm": "TPM (token/min)",
+				"owner": "Proprietario",
+				"ownerNone": "Nessun proprietario (chiave condivisa)",
+				"ownerHint": "I limiti per utente del proprietario si applicano a tutte le sue chiavi. Disattivare il proprietario disattiva anche questa chiave."
 			},
 			"detailTitle": "Dettagli Chiave Virtuale",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Token Consumati",
 				"lastUsed": "Ultimo Utilizzato",
 				"created": "Creato",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Proprietario"
 			},
 			"noProvidersConfigured": "Nessun provider configurato.",
 			"discardChanges": "Scartare le modifiche non salvate?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Questo account e le sue sessioni vengono rimossi immediatamente.",
 			"resetPassword": "Reimposta password",
 			"resetButton": "Reimposta",
-			"resetHint": "La reimpostazione disconnette l'utente ovunque."
+			"resetHint": "La reimpostazione disconnette l'utente ovunque.",
+			"limits": "Limiti proxy",
+			"limitsHint": "Massimali aggregati su tutte le chiavi virtuali di questo utente. Lasciare vuoto per nessun limite.",
+			"limitRps": "Richieste/sec",
+			"limitBurst": "Burst",
+			"limitTpm": "Token/min",
+			"noCap": "Nessun limite",
+			"deleteKeysNote": "Le chiavi virtuali di questo account vengono conservate e restano senza proprietario."
 		},
 		"toast": {
 			"created": "Utente creato",

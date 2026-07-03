@@ -49,11 +49,12 @@ type ProviderStore interface {
 
 // VirtualKeyStore defines the virtual key repository methods used by the API.
 type VirtualKeyStore interface {
-	Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error)
+	Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID) (*virtualkey.VirtualKey, error)
 	List(ctx context.Context) ([]*virtualkey.VirtualKey, error)
+	ListByOwner(ctx context.Context, ownerUserID uuid.UUID) ([]*virtualkey.VirtualKey, error)
 	Get(ctx context.Context, id uuid.UUID) (*virtualkey.VirtualKey, error)
 	Delete(ctx context.Context, id uuid.UUID) error
-	Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error)
+	Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID) (*virtualkey.VirtualKey, error)
 }
 
 // SettingsStore defines the settings repository methods used by the API.
@@ -719,6 +720,15 @@ func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		return pgErr.Code == "23505"
+	}
+	return false
+}
+
+// isForeignKeyViolation checks if the error is a PostgreSQL foreign key violation (error code 23503).
+func isForeignKeyViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23503"
 	}
 	return false
 }

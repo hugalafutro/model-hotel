@@ -73,6 +73,29 @@ const VirtualKeyRateLimitTPMKey contextKey = "virtual_key_rate_limit_tpm"
 // providers.
 const VirtualKeyAllowedProvidersKey contextKey = "virtual_key_allowed_providers"
 
+// VirtualKeyOwnerIDKey is the context key under which the proxy's
+// ProxyKeyMiddleware stores the owning user's UUID as a string (absent when
+// the key is unowned). The rate-limit middlewares derive the shared
+// "user:<uuid>" bucket key from it so one user's traffic aggregates across
+// every key they own.
+const VirtualKeyOwnerIDKey contextKey = "virtual_key_owner_id"
+
+// UserRateLimitRPSKey is the context key under which the proxy's
+// ProxyKeyMiddleware stores the owning user's aggregate RPS cap (*float64,
+// nil when unset). Unlike the per-key override there is no global-settings
+// fallback: a nil cap simply skips the user-level stage.
+const UserRateLimitRPSKey contextKey = "user_rate_limit_rps"
+
+// UserRateLimitBurstKey is the context key under which the proxy's
+// ProxyKeyMiddleware stores the owning user's burst cap (*int, nil when
+// unset; global burst default applies when only RPS is set).
+const UserRateLimitBurstKey contextKey = "user_rate_limit_burst"
+
+// UserRateLimitTPMKey is the context key under which the proxy's
+// ProxyKeyMiddleware stores the owning user's aggregate tokens-per-minute
+// cap (*int, nil when unset). No global fallback, same as the RPS cap.
+const UserRateLimitTPMKey contextKey = "user_rate_limit_tpm"
+
 // CancelOriginKey is the context key under which the proxy handler stores a
 // string describing why a derived context (failover, retry) was created.
 // When a context cancellation error is caught, this value identifies whether

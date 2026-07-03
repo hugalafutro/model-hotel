@@ -221,3 +221,86 @@ func TestConfigSync_UsersDiffDryRun(t *testing.T) {
 		t.Errorf("dry run wrote users: %v", got)
 	}
 }
+
+// Per-user limits and key ownership ride the round trip: the users carry
+// their aggregate caps, and a key's owner ports by username even though the
+// user id differs on the member.
+func TestConfigSync_UserLimitsAndKeyOwnershipRoundTrip(t *testing.T) {
+	cleanConfigTables(t)
+	cleanUsersTable(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	seedProvider(t, "prov-a", "sk-secret", configSyncMasterKey)
+	seedUser(t, "keyowner", nil, true, []string{"virtual_keys"})
+	if _, err := apiTestDB.Pool().Exec(context.Background(), `
+		UPDATE users SET rate_limit_rps = 2.5, rate_limit_burst = 4, rate_limit_tpm = 6000
+		WHERE username = 'keyowner'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := apiTestDB.Pool().Exec(context.Background(), `
+		INSERT INTO virtual_keys (name, key_hash, key_preview, owner_user_id)
+		VALUES ('owned-key', 'hash-owned-sync', 'sk-...os',
+		        (SELECT id FROM users WHERE username = 'keyowner'))`); err != nil {
+		t.Fatal(err)
+	}
+
+	env := doExport(t, r)
+	if len(env.Config.Users) != 1 || len(env.Config.VirtualKeys) != 1 {
+		t.Fatalf("export carried %d users / %d keys, want 1/1", len(env.Config.Users), len(env.Config.VirtualKeys))
+	}
+	u := env.Config.Users[0]
+	if u.RateLimitRPS == nil || *u.RateLimitRPS != 2.5 ||
+		u.RateLimitBurst == nil || *u.RateLimitBurst != 4 ||
+		u.RateLimitTPM == nil || *u.RateLimitTPM != 6000 {
+		t.Fatalf("export dropped user limits: %+v", u)
+	}
+	vk := env.Config.VirtualKeys[0]
+	if vk.OwnerUsername == nil || *vk.OwnerUsername != "keyowner" {
+		t.Fatalf("export owner_username = %v, want keyowner", vk.OwnerUsername)
+	}
+
+	// Member starts empty; import must recreate the user (fresh local id)
+	// and re-link the key to it.
+	cleanConfigTables(t)
+	cleanUsersTable(t)
+
+	rec := doImport(t, r, env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	var rps *float64
+	var burst, tpm *int
+	var ownerName *string
+	err := apiTestDB.Pool().QueryRow(context.Background(), `
+		SELECT u.rate_limit_rps, u.rate_limit_burst, u.rate_limit_tpm, ou.username
+		FROM virtual_keys vk
+		LEFT JOIN users ou ON ou.id = vk.owner_user_id
+		JOIN users u ON u.username = 'keyowner'
+		WHERE vk.key_hash = 'hash-owned-sync'`).Scan(&rps, &burst, &tpm, &ownerName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rps == nil || *rps != 2.5 || burst == nil || *burst != 4 || tpm == nil || *tpm != 6000 {
+		t.Errorf("member user limits did not converge: rps=%v burst=%v tpm=%v", rps, burst, tpm)
+	}
+	if ownerName == nil || *ownerName != "keyowner" {
+		t.Errorf("key owner did not re-link on member: %v", ownerName)
+	}
+
+	// An owner missing from the envelope's roster imports the key unowned.
+	env2 := doExport(t, r)
+	env2.Config.Users = []ExportUser{}
+	rec = doImport(t, r, env2, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("second import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	var orphanOwner *string
+	if err := apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT owner_user_id::text FROM virtual_keys WHERE key_hash = 'hash-owned-sync'`).Scan(&orphanOwner); err != nil {
+		t.Fatal(err)
+	}
+	if orphanOwner != nil {
+		t.Errorf("unresolvable owner should import as unowned, got %v", orphanOwner)
+	}
+}

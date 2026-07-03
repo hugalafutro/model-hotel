@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Разумношћу одузето",
 			"keyHashed": "Кључ је хашован и не може се повратити",
 			"tpm": "Ограничење токена по минути; захтеви се одбијају кодом 429 када се потроши дневни буџет по минути",
-			"id": "Кликните да копирате ID кључа"
+			"id": "Кликните да копирате ID кључа",
+			"owner": "Власник: {{name}}"
 		},
 		"emptyState": "Нема виртуелних кључева. Креирајте један да бисте почели да користите прокси.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Онемогућите стрип резоновање",
 				"rateLimitBurst": "Налет (макс. истовремено)",
 				"rateLimitRps": "RPS (захтеви/с)",
-				"rateLimitTpm": "TPM (токени/мин)"
+				"rateLimitTpm": "TPM (токени/мин)",
+				"owner": "Власник",
+				"ownerNone": "Без власника (дељени кључ)",
+				"ownerHint": "Кориснички лимити власника важе за све његове кључеве. Онемогућавање власника онемогућава и овај кључ."
 			},
 			"detailTitle": "Детаљи виртуелног кључа",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Потрошени токени",
 				"lastUsed": "Последња употреба",
 				"created": "Креирано",
-				"id": "ИД"
+				"id": "ИД",
+				"owner": "Власник"
 			},
 			"noProvidersConfigured": "Није конфигурисан ниједан провајдер.",
 			"discardChanges": "Одбацити неначуване измене?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Ovaj nalog i njegove sesije se odmah uklanjaju.",
 			"resetPassword": "Resetuj lozinku",
 			"resetButton": "Resetuj",
-			"resetHint": "Resetovanje odjavljuje korisnika svuda."
+			"resetHint": "Resetovanje odjavljuje korisnika svuda.",
+			"limits": "Proksi limiti",
+			"limitsHint": "Zbirni limiti za sve virtuelne ključeve ovog korisnika. Ostavite prazno da ne bude limita.",
+			"limitRps": "Zahtevi/s",
+			"limitBurst": "Burst",
+			"limitTpm": "Tokeni/min",
+			"noCap": "Bez limita",
+			"deleteKeysNote": "Virtuelni ključevi ovog naloga se zadržavaju i ostaju bez vlasnika."
 		},
 		"toast": {
 			"created": "Korisnik napravljen",

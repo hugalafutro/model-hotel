@@ -47,7 +47,7 @@ func TestCreateVirtualKey_InvalidJSON(t *testing.T) {
 
 func TestCreateVirtualKey_DBError(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
 			return nil, errors.New("db connection lost")
 		},
 	}
@@ -202,7 +202,7 @@ func TestVirtualKeyToResponse_WithKey(t *testing.T) {
 	}
 	rawKey := "sk-abc123rawkey"
 
-	resp := virtualKeyToResponse(vk, true, rawKey)
+	resp := virtualKeyToResponse(vk, true, rawKey, nil)
 
 	if resp.ID != vk.ID.String() {
 		t.Errorf("ID = %q, want %q", resp.ID, vk.ID.String())
@@ -235,7 +235,7 @@ func TestVirtualKeyToResponse_WithoutKey(t *testing.T) {
 		CreatedAt: now,
 	}
 
-	resp := virtualKeyToResponse(vk, false, "sk-raw-key")
+	resp := virtualKeyToResponse(vk, false, "sk-raw-key", nil)
 
 	if resp.Key != "" {
 		t.Errorf("Key = %q, want empty (includeKey=false)", resp.Key)
@@ -250,7 +250,7 @@ func TestVirtualKeyToResponse_NilLastUsedAt(t *testing.T) {
 		CreatedAt:  time.Now(),
 	}
 
-	resp := virtualKeyToResponse(vk, false, "")
+	resp := virtualKeyToResponse(vk, false, "", nil)
 
 	if resp.LastUsedAt != nil {
 		t.Error("LastUsedAt should be nil when vk.LastUsedAt is nil")
@@ -266,7 +266,7 @@ func TestVirtualKeyToResponse_WithLastUsedAt(t *testing.T) {
 		CreatedAt:  time.Now(),
 	}
 
-	resp := virtualKeyToResponse(vk, false, "")
+	resp := virtualKeyToResponse(vk, false, "", nil)
 
 	if resp.LastUsedAt == nil {
 		t.Fatal("LastUsedAt should not be nil")
@@ -436,7 +436,7 @@ func TestCond_EmptyStringFalse(t *testing.T) {
 // The unique constraint violation surfaces as a 500 (repo error).
 func TestCreateVirtualKey_DuplicateName(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
 			return nil, &pgconn.PgError{Code: "23505"}
 		},
 	}
@@ -518,7 +518,7 @@ func TestUpdateVirtualKey_MalformedJSON(t *testing.T) {
 // when the database is unavailable.
 func TestUpdateVirtualKey_DBError(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
 			return nil, errors.New("db connection lost")
 		},
 	}
@@ -547,7 +547,7 @@ func TestUpdateVirtualKey_WithAllowedProviders(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
 		getFn: func(ctx context.Context, vid uuid.UUID) (*virtualkey.VirtualKey, error) {
 			return &virtualkey.VirtualKey{ID: vid, Name: "updated-key", KeyHash: "hash123", KeyPreview: "sk-...up", StripReasoning: false}, nil
-		}, updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		}, updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
 			if vid != id {
 				return nil, errors.New("unexpected ID")
 			}
@@ -599,7 +599,7 @@ func TestUpdateVirtualKey_ToClearAllowedProviders(t *testing.T) {
 		getFn: func(ctx context.Context, vid uuid.UUID) (*virtualkey.VirtualKey, error) {
 			return &virtualkey.VirtualKey{ID: vid, Name: "cleared-key", KeyHash: "hash123", KeyPreview: "sk-...cl", StripReasoning: false}, nil
 		},
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
 			if vid != id {
 				return nil, errors.New("unexpected ID")
 			}
@@ -657,7 +657,7 @@ func TestUpdateVirtualKey_OmitAllowedProvidersPreservesExisting(t *testing.T) {
 				AllowedProviders: &existingProviders,
 			}, nil
 		},
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
 			if vid != id {
 				return nil, errors.New("unexpected ID")
 			}
@@ -696,7 +696,7 @@ func TestUpdateVirtualKey_OmitAllowedProvidersPreservesExisting(t *testing.T) {
 // correctly handles the allowed_providers field.
 func TestCreateVirtualKey_WithAllowedProviders(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
 			if name != "test-key-ap" {
 				return nil, errors.New("unexpected name")
 			}
@@ -744,7 +744,7 @@ func TestCreateVirtualKey_WithAllowedProviders(t *testing.T) {
 // rejects an empty allowed_providers array (non-nil but len==0).
 func TestCreateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		createFn: func(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
 			t.Error("create should not be called when allowed_providers is empty array")
 			return nil, nil
 		},
@@ -871,14 +871,18 @@ func TestUpdateVirtualKeyRequest_UnmarshalJSON_OnlyStripReasoningPresent(t *test
 // the key does not exist in the database.
 func TestUpdateVirtualKey_NotFound(t *testing.T) {
 	mockVK := &mockVirtualKeyStore{
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		// The handler now always fetches the existing row first (ownership
+		// check + omitted-field preservation), so the miss surfaces there.
+		getFn: func(ctx context.Context, vid uuid.UUID) (*virtualkey.VirtualKey, error) {
+			return nil, virtualkey.ErrNotFound
+		},
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
 			return nil, virtualkey.ErrNotFound
 		},
 	}
 	h := testHandler(nil, mockVK, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
 
 	id := uuid.New()
-	// Include allowed_providers and strip_reasoning in the request to skip the Get call
 	body := bytes.NewReader([]byte(`{"name":"updated-name","allowed_providers":null,"strip_reasoning":false}`))
 	req, w := newChiRequest(http.MethodPut, "/virtual-keys/"+id.String(), body)
 	req = setChiURLParam(req, "id", id.String())
@@ -908,7 +912,7 @@ func TestUpdateVirtualKey_PartialUpdate_NameOnly(t *testing.T) {
 				StripReasoning:   true,
 			}, nil
 		},
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
 			if name != "new-name" {
 				t.Errorf("expected name 'new-name', got %q", name)
 			}
@@ -1016,7 +1020,7 @@ func TestUpdateVirtualKey_GetKeyError(t *testing.T) {
 func TestUpdateVirtualKey_EmptyAllowedProvidersArray(t *testing.T) {
 	id := uuid.New()
 	mockVK := &mockVirtualKeyStore{
-		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*virtualkey.VirtualKey, error) {
+		updateFn: func(ctx context.Context, vid uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
 			t.Error("update should not be called when allowed_providers is empty array")
 			return nil, nil
 		},

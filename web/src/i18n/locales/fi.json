@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Perustelu poistettu",
 			"keyHashed": "Avain on tiivistetty eikä sitä voi palauttaa",
 			"tpm": "Tunnusmerkkien enimmäismäärä minuutissa; pyynnöt hylätään koodilla 429, kun minuuttikiintiö on käytetty loppuun",
-			"id": "Klikkaa kopioidaksesi avaimen tunnuksen"
+			"id": "Klikkaa kopioidaksesi avaimen tunnuksen",
+			"owner": "Omistaja: {{name}}"
 		},
 		"emptyState": "Ei virtuaalisia avaimia. Luo sellainen, jotta voit aloittaa välityspalvelimen käytön.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Poista strip päättely käytöstä",
 				"rateLimitBurst": "Burst (maks. samanaikaiset)",
 				"rateLimitRps": "RPS (pyynnöt/sekunti)",
-				"rateLimitTpm": "TPM (tokenia/min)"
+				"rateLimitTpm": "TPM (tokenia/min)",
+				"owner": "Omistaja",
+				"ownerNone": "Ei omistajaa (jaettu avain)",
+				"ownerHint": "Omistajan käyttäjäkohtaiset rajat koskevat kaikkia hänen avaimiaan. Omistajan poistaminen käytöstä poistaa myös tämän avaimen käytöstä."
 			},
 			"detailTitle": "Virtuaalisen Avaimen Yksityiskohdat",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Tokenit Kuluvat",
 				"lastUsed": "Viimeksi Käytetty",
 				"created": "Luotu",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Omistaja"
 			},
 			"noProvidersConfigured": "Yhtään tarjoajaa ei ole määritetty.",
 			"discardChanges": "Hylätäänkö tallentamattomat muutokset?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Tämä tili ja sen istunnot poistetaan välittömästi.",
 			"resetPassword": "Nollaa salasana",
 			"resetButton": "Nollaa",
-			"resetHint": "Nollaus kirjaa käyttäjän ulos kaikkialta."
+			"resetHint": "Nollaus kirjaa käyttäjän ulos kaikkialta.",
+			"limits": "Proxyrajat",
+			"limitsHint": "Yhteenlasketut rajat käyttäjän kaikille virtuaaliavaimille. Jätä tyhjäksi, jos rajaa ei haluta.",
+			"limitRps": "Pyyntöä/s",
+			"limitBurst": "Purske",
+			"limitTpm": "Tokenia/min",
+			"noCap": "Ei rajaa",
+			"deleteKeysNote": "Tämän tilin omistamat virtuaaliavaimet säilytetään ja ne jäävät ilman omistajaa."
 		},
 		"toast": {
 			"created": "Käyttäjä luotu",

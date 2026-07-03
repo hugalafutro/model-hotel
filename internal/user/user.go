@@ -40,6 +40,11 @@ type User struct {
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 	LastLoginAt  *time.Time `json:"last_login_at"`
+	// Aggregate proxy limits across every virtual key this user owns.
+	// NULL = no cap; there is no global-settings fallback for these.
+	RateLimitRPS   *float64 `json:"rate_limit_rps"`
+	RateLimitBurst *int     `json:"rate_limit_burst"`
+	RateLimitTPM   *int     `json:"rate_limit_tpm"`
 }
 
 // Repository provides CRUD over the users table.
@@ -52,12 +57,13 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-const userColumns = `id, username, display_name, email, password_hash, role, grants, enabled, created_at, updated_at, last_login_at`
+const userColumns = `id, username, display_name, email, password_hash, role, grants, enabled, created_at, updated_at, last_login_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm`
 
 func scanUser(row pgx.Row) (*User, error) {
 	var u User
 	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Email, &u.PasswordHash,
-		&u.Role, &u.Grants, &u.Enabled, &u.CreatedAt, &u.UpdatedAt, &u.LastLoginAt)
+		&u.Role, &u.Grants, &u.Enabled, &u.CreatedAt, &u.UpdatedAt, &u.LastLoginAt,
+		&u.RateLimitRPS, &u.RateLimitBurst, &u.RateLimitTPM)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -82,15 +88,16 @@ func NormalizeEmail(email *string) *string {
 }
 
 // Create inserts a new user. passwordHash must already be argon2id-encoded.
-func (r *Repository) Create(ctx context.Context, username, displayName string, email *string, passwordHash string, role Role, grants []string) (*User, error) {
+func (r *Repository) Create(ctx context.Context, username, displayName string, email *string, passwordHash string, role Role, grants []string, limits Limits) (*User, error) {
 	if grants == nil {
 		grants = []string{}
 	}
 	return scanUser(r.pool.QueryRow(ctx,
-		`INSERT INTO users (username, display_name, email, password_hash, role, grants)
-		 VALUES ($1, $2, $3, $4, $5, $6)
+		`INSERT INTO users (username, display_name, email, password_hash, role, grants, rate_limit_rps, rate_limit_burst, rate_limit_tpm)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		 RETURNING `+userColumns,
-		username, displayName, NormalizeEmail(email), passwordHash, role, grants))
+		username, displayName, NormalizeEmail(email), passwordHash, role, grants,
+		limits.RPS, limits.Burst, limits.TPM))
 }
 
 // List returns all users, newest first.
@@ -139,17 +146,28 @@ func (r *Repository) HasEnabled(ctx context.Context) (bool, error) {
 	return exists, err
 }
 
-// Update rewrites the mutable profile fields (not the password).
-func (r *Repository) Update(ctx context.Context, id uuid.UUID, username, displayName string, email *string, role Role, grants []string, enabled bool) (*User, error) {
+// Update rewrites the mutable profile fields (not the password). Limits are
+// always written: a nil pointer clears the cap, matching the virtual-key
+// update semantics (the UI sends null when the field is emptied).
+func (r *Repository) Update(ctx context.Context, id uuid.UUID, username, displayName string, email *string, role Role, grants []string, enabled bool, limits Limits) (*User, error) {
 	if grants == nil {
 		grants = []string{}
 	}
 	return scanUser(r.pool.QueryRow(ctx,
 		`UPDATE users
-		 SET username = $2, display_name = $3, email = $4, role = $5, grants = $6, enabled = $7, updated_at = NOW()
+		 SET username = $2, display_name = $3, email = $4, role = $5, grants = $6, enabled = $7,
+		     rate_limit_rps = $8, rate_limit_burst = $9, rate_limit_tpm = $10, updated_at = NOW()
 		 WHERE id = $1
 		 RETURNING `+userColumns,
-		id, username, displayName, NormalizeEmail(email), role, grants, enabled))
+		id, username, displayName, NormalizeEmail(email), role, grants, enabled,
+		limits.RPS, limits.Burst, limits.TPM))
+}
+
+// Limits bundles the per-user aggregate limit fields for Create/Update.
+type Limits struct {
+	RPS   *float64
+	Burst *int
+	TPM   *int
 }
 
 // SetPassword replaces the stored hash (admin reset or user change).

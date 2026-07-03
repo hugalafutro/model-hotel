@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Razonamiento despojado",
 			"keyHashed": "La clave está apresurada y no puede ser recuperada",
 			"tpm": "Límite de tokens por minuto; las solicitudes se rechazan con un 429 una vez agotado el presupuesto por minuto",
-			"id": "Haga clic para copiar el ID de clave"
+			"id": "Haga clic para copiar el ID de clave",
+			"owner": "Propiedad de {{name}}"
 		},
 		"emptyState": "No hay claves virtuales. Crea una para empezar a usar el proxy.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Desactivar razonamiento del clip",
 				"rateLimitBurst": "Ráfaga (máximo simultáneo)",
 				"rateLimitRps": "RPS (solicitudes/segundo)",
-				"rateLimitTpm": "TPM (tokens/min)"
+				"rateLimitTpm": "TPM (tokens/min)",
+				"owner": "Propietario",
+				"ownerNone": "Sin propietario (clave compartida)",
+				"ownerHint": "Los límites por usuario del propietario se aplican a todas sus claves. Desactivar al propietario también desactiva esta clave."
 			},
 			"detailTitle": "Detalles de Clave Virtual",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Tokens consumidos",
 				"lastUsed": "Último uso",
 				"created": "Creado",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Propietario"
 			},
 			"noProvidersConfigured": "No hay proveedores configurados.",
 			"discardChanges": "¿Descartar cambios no guardados?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Esta cuenta y sus sesiones se eliminan de inmediato.",
 			"resetPassword": "Restablecer contraseña",
 			"resetButton": "Restablecer",
-			"resetHint": "Restablecerla cierra la sesión del usuario en todas partes."
+			"resetHint": "Restablecerla cierra la sesión del usuario en todas partes.",
+			"limits": "Límites de proxy",
+			"limitsHint": "Topes agregados sobre todas las claves virtuales de este usuario. Dejar vacío para no aplicar tope.",
+			"limitRps": "Solicitudes/seg",
+			"limitBurst": "Ráfaga",
+			"limitTpm": "Tokens/min",
+			"noCap": "Sin tope",
+			"deleteKeysNote": "Las claves virtuales de esta cuenta se conservan y quedan sin propietario."
 		},
 		"toast": {
 			"created": "Usuario creado",

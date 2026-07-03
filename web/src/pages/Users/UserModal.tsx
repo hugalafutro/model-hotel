@@ -42,6 +42,15 @@ export function UserModal({
 	const [role, setRole] = useState<"admin" | "user">(user?.role ?? "user");
 	const [grants, setGrants] = useState<string[]>(user?.grants ?? []);
 	const [enabled, setEnabled] = useState(user?.enabled ?? true);
+	const [limitRps, setLimitRps] = useState(
+		user?.rate_limit_rps?.toString() ?? "",
+	);
+	const [limitBurst, setLimitBurst] = useState(
+		user?.rate_limit_burst?.toString() ?? "",
+	);
+	const [limitTpm, setLimitTpm] = useState(
+		user?.rate_limit_tpm?.toString() ?? "",
+	);
 	const [error, setError] = useState<string | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const [resetValue, setResetValue] = useState("");
@@ -64,6 +73,9 @@ export function UserModal({
 		email: email.trim() ? email.trim() : null,
 		role,
 		grants: role === "admin" ? [] : grants,
+		rate_limit_rps: limitRps !== "" ? parseFloat(limitRps) : null,
+		rate_limit_burst: limitBurst !== "" ? parseInt(limitBurst, 10) : null,
+		rate_limit_tpm: limitTpm !== "" ? parseInt(limitTpm, 10) : null,
 		...(isEdit ? { enabled } : { password }),
 	});
 
@@ -268,6 +280,74 @@ export function UserModal({
 					</fieldset>
 				)}
 
+				<fieldset>
+					<legend className="block text-sm font-medium text-gray-300 mb-1">
+						{t("users.modal.limits")}
+					</legend>
+					<p className="text-xs text-gray-500 mb-2">
+						{t("users.modal.limitsHint")}
+					</p>
+					<div className="grid grid-cols-3 gap-2">
+						<div>
+							<label
+								htmlFor="user-limit-rps"
+								className="block text-xs text-gray-400 mb-1"
+							>
+								{t("users.modal.limitRps")}
+							</label>
+							<input
+								id="user-limit-rps"
+								type="number"
+								min="0"
+								value={limitRps}
+								onChange={(e) => setLimitRps(e.target.value)}
+								className="ui-input"
+								placeholder={t("users.modal.noCap")}
+								disabled={managed}
+								data-testid="user-limit-rps"
+							/>
+						</div>
+						<div>
+							<label
+								htmlFor="user-limit-burst"
+								className="block text-xs text-gray-400 mb-1"
+							>
+								{t("users.modal.limitBurst")}
+							</label>
+							<input
+								id="user-limit-burst"
+								type="number"
+								min="1"
+								value={limitBurst}
+								onChange={(e) => setLimitBurst(e.target.value)}
+								className="ui-input"
+								placeholder={t("users.modal.noCap")}
+								disabled={managed}
+								data-testid="user-limit-burst"
+							/>
+						</div>
+						<div>
+							<label
+								htmlFor="user-limit-tpm"
+								className="block text-xs text-gray-400 mb-1"
+							>
+								{t("users.modal.limitTpm")}
+							</label>
+							<input
+								id="user-limit-tpm"
+								type="number"
+								min="1"
+								value={limitTpm}
+								onChange={(e) => setLimitTpm(e.target.value)}
+								className="ui-input"
+								placeholder={t("users.modal.noCap")}
+								disabled={managed}
+								data-testid="user-limit-tpm"
+							/>
+						</div>
+					</div>
+				</fieldset>
+
 				{isEdit && (
 					<div className="flex items-center justify-between">
 						<span className="text-sm font-medium text-gray-300">
@@ -362,7 +442,7 @@ export function UserModal({
 			{confirmDelete && (
 				<ConfirmDialog
 					title={t("users.modal.deleteConfirmTitle")}
-					message={t("users.modal.deleteConfirmMessage")}
+					message={`${t("users.modal.deleteConfirmMessage")} ${t("users.modal.deleteKeysNote")}`}
 					fields={[user?.username ?? ""]}
 					onConfirm={() => deleteMutation.mutate()}
 					onCancel={() => setConfirmDelete(false)}

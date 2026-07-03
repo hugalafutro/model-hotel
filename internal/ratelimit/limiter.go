@@ -155,6 +155,23 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 
 			entry := l.getLimiter(r.Context(), keyHash, perKeyRPS, perKeyBurst)
 
+			// User-level aggregate stage: when the key belongs to a user with
+			// an RPS cap, all their keys share one "user:<uuid>" bucket. The
+			// user reservation is taken first and cancelled if the per-key
+			// stage rejects, so a 429 never burns aggregate budget.
+			var userEntry *keyEntry
+			userKey := ""
+			if uid, ok := r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey).(string); ok && uid != "" {
+				if uRPS, ok := r.Context().Value(ctxkeys.UserRateLimitRPSKey).(*float64); ok && uRPS != nil {
+					userKey = "user:" + uid
+					var uBurst *int
+					if b, ok := r.Context().Value(ctxkeys.UserRateLimitBurstKey).(*int); ok {
+						uBurst = b
+					}
+					userEntry = l.getLimiter(r.Context(), userKey, uRPS, uBurst)
+				}
+			}
+
 			// Capture total settings read time (GetBool above + GetFloat/GetInt inside getLimiter).
 			// Use a pointer so downstream handlers (resolve, proxy) can accumulate
 			// additional settings reads via ctxkeys.AddSettingsReadMs.
@@ -164,8 +181,22 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 
 			maxWait := time.Duration(l.settings.GetInt(r.Context(), settingsKeyMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
 
+			var userRes *rate.Reservation
+			if userEntry != nil {
+				userRes = userEntry.limiter.Reserve()
+				if !userRes.OK() {
+					userEntry.noteRejected(userKey)
+					l.writeRateLimitHeaders(w, userEntry.limiter, 0)
+					util.WriteOpenAIError(w, "user rate limit exceeded", http.StatusTooManyRequests)
+					return
+				}
+			}
+
 			reservation := entry.limiter.Reserve()
 			if !reservation.OK() {
+				if userRes != nil {
+					userRes.Cancel()
+				}
 				entry.noteRejected(keyHash)
 				l.writeRateLimitHeaders(w, entry.limiter, 0)
 				util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
@@ -173,6 +204,15 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			}
 
 			delay := reservation.Delay()
+			limitedBy := entry
+			limitedKey := keyHash
+			if userRes != nil {
+				if ud := userRes.Delay(); ud > delay {
+					delay = ud
+					limitedBy = userEntry
+					limitedKey = userKey
+				}
+			}
 			if delay > 0 {
 				// Graceful backpressure: if the wait is within the configured max_wait,
 				// sleep and proceed instead of rejecting immediately. The key is still
@@ -184,17 +224,28 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
-				// Wait exceeds max_wait — cancel the reservation and reject.
+				// Wait exceeds max_wait — cancel the reservations and reject,
+				// reporting whichever stage forced the longer wait.
 				reservation.Cancel()
-				entry.noteRejected(keyHash)
-				l.writeRateLimitHeaders(w, entry.limiter, delay)
-				util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
+				if userRes != nil {
+					userRes.Cancel()
+				}
+				limitedBy.noteRejected(limitedKey)
+				l.writeRateLimitHeaders(w, limitedBy.limiter, delay)
+				msg := "rate limit exceeded"
+				if limitedBy == userEntry {
+					msg = "user rate limit exceeded"
+				}
+				util.WriteOpenAIError(w, msg, http.StatusTooManyRequests)
 				return
 			}
 
 			// Served with no delay — the bucket has recovered, so close any open
-			// throttle episode for this key.
+			// throttle episode for this key (and the owner's aggregate bucket).
 			entry.noteAllowed(keyHash)
+			if userEntry != nil {
+				userEntry.noteAllowed(userKey)
+			}
 			l.writeRateLimitHeaders(w, entry.limiter, 0)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

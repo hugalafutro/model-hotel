@@ -1065,7 +1065,8 @@
 			"reasoningStripped": "Raison dépouillée",
 			"keyHashed": "La clé est hachée et ne peut pas être récupérée",
 			"tpm": "Limite de jetons par minute ; les requêtes sont rejetées avec un code 429 une fois le budget de la minute épuisé",
-			"id": "Cliquez pour copier l'ID de clé"
+			"id": "Cliquez pour copier l'ID de clé",
+			"owner": "Appartient à {{name}}"
 		},
 		"emptyState": "Aucune clé virtuelle. Créez-en une pour commencer à utiliser le proxy.",
 		"steps": {
@@ -1101,7 +1102,10 @@
 				"disableStripReasoning": "Désactiver le raisonnement de la bande",
 				"rateLimitBurst": "Burst (nombre maximal de connexions simultanées)",
 				"rateLimitRps": "RPS (requêtes/seconde)",
-				"rateLimitTpm": "TPM (jetons/min)"
+				"rateLimitTpm": "TPM (jetons/min)",
+				"owner": "Propriétaire",
+				"ownerNone": "Aucun propriétaire (clé partagée)",
+				"ownerHint": "Les limites par utilisateur du propriétaire s'appliquent à toutes ses clés. Désactiver le propriétaire désactive aussi cette clé."
 			},
 			"detailTitle": "Détails de la clé virtuelle",
 			"sections": {
@@ -1116,7 +1120,8 @@
 				"tokensConsumed": "Jetons Consommés",
 				"lastUsed": "Dernière utilisation",
 				"created": "Créé",
-				"id": "ID"
+				"id": "ID",
+				"owner": "Propriétaire"
 			},
 			"noProvidersConfigured": "Aucun fournisseur configuré.",
 			"discardChanges": "Ignorer les modifications non enregistrées ?",
@@ -2805,7 +2810,14 @@
 			"deleteConfirmMessage": "Ce compte et ses sessions sont supprimés immédiatement.",
 			"resetPassword": "Réinitialiser le mot de passe",
 			"resetButton": "Réinitialiser",
-			"resetHint": "La réinitialisation déconnecte l'utilisateur partout."
+			"resetHint": "La réinitialisation déconnecte l'utilisateur partout.",
+			"limits": "Limites proxy",
+			"limitsHint": "Plafonds cumulés sur toutes les clés virtuelles de cet utilisateur. Laisser vide pour aucun plafond.",
+			"limitRps": "Requêtes/sec",
+			"limitBurst": "Rafale",
+			"limitTpm": "Jetons/min",
+			"noCap": "Aucun plafond",
+			"deleteKeysNote": "Les clés virtuelles de ce compte sont conservées et deviennent sans propriétaire."
 		},
 		"toast": {
 			"created": "Utilisateur créé",
