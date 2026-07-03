@@ -50,6 +50,20 @@ func newRecorder(t *testing.T, retention func() int) *Recorder {
 	return New(testDB.Pool(), retention)
 }
 
+// eventually polls cond until it is true or a short deadline elapses, for
+// assertions on rows written by the middleware's background record goroutine.
+func eventually(t *testing.T, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("condition not met within deadline")
+}
+
 func countRows(t *testing.T, where string, args ...any) int {
 	t.Helper()
 	var n int
@@ -93,7 +107,7 @@ func TestMiddlewareRecordsThroughChi(t *testing.T) {
 		_, _ = w.Write([]byte("ok"))
 	})
 	// A handler that writes a body without an explicit WriteHeader must be
-	// recorded as 200 (statusRecorder.Write default).
+	// recorded as 200 (the middleware defaults a 0 status to 200).
 	r.Post("/implicit", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte("created-ish"))
 	})
@@ -112,6 +126,9 @@ func TestMiddlewareRecordsThroughChi(t *testing.T) {
 	do(http.MethodPost, "/implicit")
 	do(http.MethodPut, "/silent")
 
+	// The middleware records on a background goroutine, so wait for the three
+	// mutations to land (the GET must never be recorded).
+	eventually(t, func() bool { return countRows(t, "1=1") == 3 })
 	if n := countRows(t, "1=1"); n != 3 {
 		t.Fatalf("recorded %d rows, want 3 (GET must not be recorded)", n)
 	}

@@ -102,12 +102,11 @@ func (w *statusRecorder) WriteHeader(code int) {
 	w.ResponseWriter.WriteHeader(code)
 }
 
-func (w *statusRecorder) Write(b []byte) (int, error) {
-	if w.status == 0 {
-		w.status = http.StatusOK
-	}
-	return w.ResponseWriter.Write(b)
-}
+// Write is deliberately NOT overridden: the embedded ResponseWriter's Write is
+// inherited unchanged so the wrapper never touches the response body (a body
+// passthrough would be a reflected-XSS sink). A body written without an
+// explicit WriteHeader leaves status at 0; the middleware defaults that to 200
+// when it builds the entry.
 
 // Unwrap lets http.ResponseController reach the underlying writer (flushing
 // SSE etc. keeps working through the wrapper).
@@ -144,7 +143,13 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 		if status == 0 {
 			status = http.StatusOK
 		}
-		rec.record(Entry{
+		// Recorded on a background goroutine: the response is already written,
+		// so the insert (up to 5s under DB pressure) must not hold the handler
+		// goroutine or tie up server concurrency. Best-effort by design.
+		//nolint:gosec // G118: record deliberately uses a background context so a
+		// client disconnect can never drop the audit row; the request context is
+		// the wrong scope here.
+		go rec.record(Entry{
 			Actor:      actor,
 			ActorRole:  role,
 			Method:     r.Method,
@@ -172,11 +177,13 @@ func (rec *Recorder) record(e Entry) {
 		debuglog.Error("audit: failed to record entry", "error", err, "route", e.Route)
 		return
 	}
-	rec.maybePrune(ctx)
+	rec.maybePrune()
 }
 
-// maybePrune runs the retention DELETE at most once per pruneInterval.
-func (rec *Recorder) maybePrune(ctx context.Context) {
+// maybePrune runs the retention DELETE at most once per pruneInterval. It opens
+// its own background context so a slow INSERT cannot eat into the prune's
+// deadline and starve the sweep under sustained DB load.
+func (rec *Recorder) maybePrune() {
 	now := time.Now().Unix()
 	last := rec.lastPruneUnix.Load()
 	if now-last < int64(pruneInterval.Seconds()) {
@@ -192,6 +199,8 @@ func (rec *Recorder) maybePrune(ctx context.Context) {
 		}
 	}
 	cutoff := time.Now().Add(-time.Duration(days) * 24 * time.Hour)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	tag, err := rec.pool.Exec(ctx, `DELETE FROM audit_log WHERE created_at < $1`, cutoff)
 	if err != nil {
 		debuglog.Error("audit: retention prune failed", "error", err)

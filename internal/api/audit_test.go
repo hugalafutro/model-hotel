@@ -78,6 +78,24 @@ func listAudit(t *testing.T, r chi.Router, path, token string) AuditListResponse
 	return resp
 }
 
+// waitAudit polls the audit list until want is satisfied or a short deadline
+// elapses. The middleware records on a background goroutine, so audit rows are
+// eventually consistent with the mutations that produced them.
+func waitAudit(t *testing.T, r chi.Router, path, token string, want func(AuditListResponse) bool) AuditListResponse {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	var resp AuditListResponse
+	for time.Now().Before(deadline) {
+		resp = listAudit(t, r, path, token)
+		if want(resp) {
+			return resp
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("audit list %s never satisfied condition: %+v", path, resp.Entries)
+	return resp
+}
+
 func TestAudit_RecordsMutationsWithActor(t *testing.T) {
 	r, loginAs, mkUser := setupAuditTest(t)
 
@@ -92,10 +110,8 @@ func TestAudit_RecordsMutationsWithActor(t *testing.T) {
 		t.Fatalf("list keys: %d", w.Code)
 	}
 
-	resp := listAudit(t, r, "/audit", envAdminToken)
-	if len(resp.Entries) != 2 {
-		t.Fatalf("entries = %d, want 2 (got %+v)", len(resp.Entries), resp.Entries)
-	}
+	resp := waitAudit(t, r, "/audit", envAdminToken,
+		func(a AuditListResponse) bool { return len(a.Entries) == 2 })
 	// Newest first: the key create by the user, then the user create by the
 	// env-token admin.
 	keyEntry, userEntry := resp.Entries[0], resp.Entries[1]
@@ -122,24 +138,29 @@ func TestAudit_EntityIDAndFailedAttempts(t *testing.T) {
 	if w := doJSON(t, r, http.MethodDelete, "/users/"+uid, "not-a-valid-token", ""); w.Code != http.StatusUnauthorized {
 		t.Fatalf("bogus delete: %d, want 401", w.Code)
 	}
-	if resp := listAudit(t, r, "/audit?method=DELETE", envAdminToken); len(resp.Entries) != 0 {
-		t.Errorf("unauthenticated request reached the trail: %+v", resp.Entries)
+	// Wait for the password mutation to land, then confirm the password itself
+	// never appears in the row.
+	hasEntity := func(a AuditListResponse) bool {
+		for _, e := range a.Entries {
+			if e.EntityID == uid && e.Route == "/users/{id}/password" {
+				return true
+			}
+		}
+		return false
 	}
-
-	resp := listAudit(t, r, "/audit?method=POST", envAdminToken)
-	var found bool
+	resp := waitAudit(t, r, "/audit?method=POST", envAdminToken, hasEntity)
 	for _, e := range resp.Entries {
 		if e.EntityID == uid && e.Route == "/users/{id}/password" {
-			found = true
-			// The password itself must never appear anywhere in the row.
 			raw, _ := json.Marshal(e)
 			if strings.Contains(string(raw), "password456") {
 				t.Errorf("audit row leaked request body: %s", raw)
 			}
 		}
 	}
-	if !found {
-		t.Errorf("no entry with entity id %s: %+v", uid, resp.Entries)
+	// The unauthenticated DELETE died at the auth gate before the recorder, so
+	// it must never appear in the trail.
+	if resp := listAudit(t, r, "/audit?method=DELETE", envAdminToken); len(resp.Entries) != 0 {
+		t.Errorf("unauthenticated request reached the trail: %+v", resp.Entries)
 	}
 }
 
@@ -154,10 +175,8 @@ func TestAudit_AdminOnlyAndFilters(t *testing.T) {
 	}
 
 	// Actor filter narrows to the matching rows.
-	resp := listAudit(t, r, "/audit?actor=admin", envAdminToken)
-	if len(resp.Entries) != 1 {
-		t.Fatalf("actor filter: %d entries, want 1", len(resp.Entries))
-	}
+	waitAudit(t, r, "/audit?actor=admin", envAdminToken,
+		func(a AuditListResponse) bool { return len(a.Entries) == 1 })
 	if resp := listAudit(t, r, "/audit?actor=nobody", envAdminToken); len(resp.Entries) != 0 {
 		t.Fatalf("bogus actor filter: %d entries, want 0", len(resp.Entries))
 	}
@@ -169,8 +188,10 @@ func TestAudit_CursorPagination(t *testing.T) {
 		mkUser(fmt.Sprintf("page-user-%d", i), nil)
 	}
 
-	first := listAudit(t, r, "/audit?limit=2", envAdminToken)
-	if len(first.Entries) != 2 || !first.HasMore || first.NextCursor == "" || first.Total != 5 {
+	// Wait for all five creates to land before paging.
+	first := waitAudit(t, r, "/audit?limit=2", envAdminToken,
+		func(a AuditListResponse) bool { return a.Total == 5 })
+	if len(first.Entries) != 2 || !first.HasMore || first.NextCursor == "" {
 		t.Fatalf("first page: %d entries, has_more=%v, total=%d", len(first.Entries), first.HasMore, first.Total)
 	}
 	seen := map[string]bool{}
@@ -196,16 +217,18 @@ func TestAudit_CursorPagination(t *testing.T) {
 func TestAudit_PurgeLeavesItsOwnTrail(t *testing.T) {
 	r, _, mkUser := setupAuditTest(t)
 	mkUser("purge-fodder", nil)
+	// The create records asynchronously; make sure it has landed so the purge
+	// actually wipes it (and does not race the purge's own row).
+	waitAudit(t, r, "/audit", envAdminToken,
+		func(a AuditListResponse) bool { return len(a.Entries) == 1 })
 
 	if w := doJSON(t, r, http.MethodDelete, "/audit/purge", envAdminToken, `{"older_than":"all"}`); w.Code != http.StatusNoContent {
 		t.Fatalf("purge: %d %s", w.Code, w.Body.String())
 	}
 	// The wipe removed everything before it, and then recorded itself: a
 	// cleared trail always shows who cleared it.
-	resp := listAudit(t, r, "/audit", envAdminToken)
-	if len(resp.Entries) != 1 || resp.Entries[0].Route != "/audit/purge" {
-		t.Fatalf("post-purge trail = %+v", resp.Entries)
-	}
+	waitAudit(t, r, "/audit", envAdminToken,
+		func(a AuditListResponse) bool { return len(a.Entries) == 1 && a.Entries[0].Route == "/audit/purge" })
 	// Bad vocabulary is a 400.
 	if w := doJSON(t, r, http.MethodDelete, "/audit/purge", envAdminToken, `{"older_than":"yesterday"}`); w.Code != http.StatusBadRequest {
 		t.Fatalf("bad purge vocab: %d, want 400", w.Code)
@@ -235,22 +258,27 @@ func TestAudit_RetentionPrune(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})).ServeHTTP(httptest.NewRecorder(), req)
 
-	var oldRows int
-	if err := pool.QueryRow(context.Background(),
-		`SELECT COUNT(*) FROM audit_log WHERE actor = 'old-actor'`).Scan(&oldRows); err != nil {
-		t.Fatalf("count: %v", err)
+	// Recording (and the piggybacked prune) runs on a background goroutine, so
+	// wait for the triggering request's row to appear before asserting.
+	count := func(where string) int {
+		var n int
+		if err := pool.QueryRow(context.Background(),
+			`SELECT COUNT(*) FROM audit_log WHERE `+where).Scan(&n); err != nil {
+			t.Fatalf("count %s: %v", where, err)
+		}
+		return n
 	}
-	if oldRows != 0 {
-		t.Errorf("retention prune left %d old rows", oldRows)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && count(`path = '/prune-trigger'`) != 1 {
+		time.Sleep(10 * time.Millisecond)
 	}
 	// The triggering request itself was recorded and survived the prune.
-	var fresh int
-	if err := pool.QueryRow(context.Background(),
-		`SELECT COUNT(*) FROM audit_log WHERE path = '/prune-trigger'`).Scan(&fresh); err != nil {
-		t.Fatalf("count fresh: %v", err)
-	}
-	if fresh != 1 {
+	if fresh := count(`path = '/prune-trigger'`); fresh != 1 {
 		t.Errorf("trigger row count = %d, want 1", fresh)
+	}
+	// The prune deleted the row past the retention window.
+	if oldRows := count(`actor = 'old-actor'`); oldRows != 0 {
+		t.Errorf("retention prune left %d old rows", oldRows)
 	}
 }
 
@@ -272,6 +300,9 @@ func TestAudit_SurfaceNotWired(t *testing.T) {
 func TestAudit_QueryParamEdges(t *testing.T) {
 	r, _, mkUser := setupAuditTest(t)
 	mkUser("param-user", nil)
+	// Wait for the create to land before the count-sensitive assertions.
+	waitAudit(t, r, "/audit", envAdminToken,
+		func(a AuditListResponse) bool { return len(a.Entries) == 1 })
 
 	// Time-window filters narrow the list.
 	past := time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)

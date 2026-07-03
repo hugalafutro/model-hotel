@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { History } from "@/lib/icons";
@@ -36,16 +36,19 @@ export function Audit() {
 	const [actor, setActor] = useState("");
 	const [method, setMethod] = useState("");
 	const [confirmPurge, setConfirmPurge] = useState(false);
-	// Accumulated pages: cursors[len-1] is the cursor of the last loaded page.
-	const [cursors, setCursors] = useState<string[]>([]);
+	// Pages loaded past the first are appended here; each "Load more" click
+	// fetches exactly one page and merges it, rather than replaying cursors.
+	const [extra, setExtra] = useState<{
+		entries: AuditEntry[];
+		hasMore: boolean;
+		nextCursor: string;
+	} | null>(null);
 	const debouncedActor = useDebounce(actor, 300);
 
-	const resetPaging = () => setCursors([]);
+	const resetPaging = () => setExtra(null);
 
-	// The first page and the accumulated "load more" pages are two queries;
-	// changing a filter resets the stack to the first page only.
 	const { data: firstPage, isLoading } = useQuery({
-		queryKey: ["audit", debouncedActor, method, ""],
+		queryKey: ["audit", debouncedActor, method],
 		queryFn: () =>
 			api.audit.list({
 				actor: debouncedActor || undefined,
@@ -53,41 +56,31 @@ export function Audit() {
 				limit: 50,
 			}),
 	});
-	const { data: extraPages } = useQuery({
-		queryKey: ["audit", debouncedActor, method, cursors],
-		enabled: cursors.length > 0,
-		queryFn: async () => {
-			const pages: AuditEntry[] = [];
-			let hasMore = false;
-			let nextCursor = "";
-			for (const cursor of cursors) {
-				const page = await api.audit.list({
-					actor: debouncedActor || undefined,
-					method: method || undefined,
-					limit: 50,
-					cursor,
-				});
-				pages.push(...page.entries);
-				hasMore = page.has_more;
-				nextCursor = page.next_cursor ?? "";
-			}
-			return { entries: pages, hasMore, nextCursor };
-		},
-	});
 
 	const entries: AuditEntry[] = [
 		...(firstPage?.entries ?? []),
-		...(extraPages?.entries ?? []),
+		...(extra?.entries ?? []),
 	];
-	const hasMore =
-		cursors.length > 0
-			? (extraPages?.hasMore ?? false)
-			: (firstPage?.has_more ?? false);
-	const nextCursor =
-		cursors.length > 0
-			? (extraPages?.nextCursor ?? "")
-			: (firstPage?.next_cursor ?? "");
+	const hasMore = extra ? extra.hasMore : (firstPage?.has_more ?? false);
+	const nextCursor = extra ? extra.nextCursor : (firstPage?.next_cursor ?? "");
 	const total = firstPage?.total ?? 0;
+
+	// One fetch per click: append the returned page to the accumulated list.
+	const loadMore = useMutation({
+		mutationFn: (cursor: string) =>
+			api.audit.list({
+				actor: debouncedActor || undefined,
+				method: method || undefined,
+				limit: 50,
+				cursor,
+			}),
+		onSuccess: (page) =>
+			setExtra((prev) => ({
+				entries: [...(prev?.entries ?? []), ...page.entries],
+				hasMore: page.has_more,
+				nextCursor: page.next_cursor ?? "",
+			})),
+	});
 
 	const handlePurge = async () => {
 		setConfirmPurge(false);
@@ -219,7 +212,8 @@ export function Audit() {
 						{hasMore && nextCursor && (
 							<button
 								type="button"
-								onClick={() => setCursors((prev) => [...prev, nextCursor])}
+								onClick={() => loadMore.mutate(nextCursor)}
+								disabled={loadMore.isPending}
 								className="ui-btn"
 								data-testid="audit-load-more"
 							>

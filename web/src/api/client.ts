@@ -1340,9 +1340,9 @@ export const api = {
 					}),
 				},
 				"Password change failed",
-				);
-			},
+			);
 		},
+	},
 	// Admin-only audit trail of admin actions.
 	audit: {
 		list: async (params?: {
