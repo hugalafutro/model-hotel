@@ -1276,7 +1276,7 @@ func TestListLogsCursor_CancelledContext(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestAppendLogFilters_NoFilters(t *testing.T) {
-	query, args, idx := appendLogFilters("SELECT * FROM t WHERE 1=1", nil, 1, "", "", "", "", "", "")
+	query, args, idx := appendLogFilters("SELECT * FROM t WHERE 1=1", nil, 1, "", "", "", "", "", "", "")
 	if !strings.Contains(query, "WHERE 1=1") {
 		t.Errorf("base query should be preserved, got %q", query)
 	}
@@ -1289,7 +1289,7 @@ func TestAppendLogFilters_NoFilters(t *testing.T) {
 }
 
 func TestAppendLogFilters_ModelID(t *testing.T) {
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "gpt-4", "", "", "", "", "")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "gpt-4", "", "", "", "", "", "")
 	if !strings.Contains(query, `AND rl.model_id ILIKE $1`) {
 		t.Errorf("expected model_id ILIKE filter, got %q", query)
 	}
@@ -1303,7 +1303,7 @@ func TestAppendLogFilters_ModelID(t *testing.T) {
 
 func TestAppendLogFilters_ProviderID_ValidUUID(t *testing.T) {
 	validUUID := uuid.New().String()
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", validUUID, "", "", "", "")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", validUUID, "", "", "", "", "")
 	if !strings.Contains(query, "AND rl.provider_id = $1") {
 		t.Errorf("expected provider_id filter for valid UUID, got %q", query)
 	}
@@ -1316,7 +1316,7 @@ func TestAppendLogFilters_ProviderID_ValidUUID(t *testing.T) {
 }
 
 func TestAppendLogFilters_ProviderID_InvalidUUID(t *testing.T) {
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "not-a-uuid", "", "", "", "")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "not-a-uuid", "", "", "", "", "")
 	if strings.Contains(query, "provider_id") {
 		t.Errorf("invalid UUID should not add provider_id filter, got %q", query)
 	}
@@ -1329,7 +1329,7 @@ func TestAppendLogFilters_ProviderID_InvalidUUID(t *testing.T) {
 }
 
 func TestAppendLogFilters_StatusCode4xx(t *testing.T) {
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "4xx", "", "", "")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "4xx", "", "", "", "")
 	if !strings.Contains(query, "AND rl.status_code >= 400 AND rl.status_code < 500") {
 		t.Errorf("expected 4xx range filter, got %q", query)
 	}
@@ -1342,7 +1342,7 @@ func TestAppendLogFilters_StatusCode4xx(t *testing.T) {
 }
 
 func TestAppendLogFilters_StatusCode5xx(t *testing.T) {
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "5xx", "", "", "")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "5xx", "", "", "", "")
 	if !strings.Contains(query, "AND rl.status_code >= 500") {
 		t.Errorf("expected 5xx range filter, got %q", query)
 	}
@@ -1355,7 +1355,7 @@ func TestAppendLogFilters_StatusCode5xx(t *testing.T) {
 }
 
 func TestAppendLogFilters_StatusCodeSpecific(t *testing.T) {
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "404", "", "", "")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "404", "", "", "", "")
 	if !strings.Contains(query, "AND rl.status_code = $1") {
 		t.Errorf("expected specific status code filter, got %q", query)
 	}
@@ -1368,7 +1368,7 @@ func TestAppendLogFilters_StatusCodeSpecific(t *testing.T) {
 }
 
 func TestAppendLogFilters_StatusCodeZero(t *testing.T) {
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "0", "", "", "")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "0", "", "", "", "")
 	if !strings.Contains(query, "AND (rl.status_code = 0 OR rl.status_code IS NULL)") {
 		t.Errorf("expected status_code=0 or NULL filter, got %q", query)
 	}
@@ -1381,7 +1381,7 @@ func TestAppendLogFilters_StatusCodeZero(t *testing.T) {
 }
 
 func TestAppendLogFilters_StatusCodeNegative(t *testing.T) {
-	query, args, _ := appendLogFilters("WHERE 1=1", nil, 1, "", "", "-1", "", "", "")
+	query, args, _ := appendLogFilters("WHERE 1=1", nil, 1, "", "", "-1", "", "", "", "")
 	if strings.Contains(query, "status_code") {
 		t.Errorf("negative status code should be ignored, got %q", query)
 	}
@@ -1391,7 +1391,7 @@ func TestAppendLogFilters_StatusCodeNegative(t *testing.T) {
 }
 
 func TestAppendLogFilters_StatusCodeNonNumeric(t *testing.T) {
-	query, args, _ := appendLogFilters("WHERE 1=1", nil, 1, "", "", "abc", "", "", "")
+	query, args, _ := appendLogFilters("WHERE 1=1", nil, 1, "", "", "abc", "", "", "", "")
 	if strings.Contains(query, "status_code") {
 		t.Errorf("non-numeric status code should be ignored, got %q", query)
 	}
@@ -1402,7 +1402,7 @@ func TestAppendLogFilters_StatusCodeNonNumeric(t *testing.T) {
 
 func TestAppendLogFilters_FromDate(t *testing.T) {
 	from := "2024-01-01T00:00:00Z"
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", from, "", "")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", from, "", "", "")
 	if !strings.Contains(query, "AND rl.created_at >= $1") {
 		t.Errorf("expected from date filter, got %q", query)
 	}
@@ -1416,7 +1416,7 @@ func TestAppendLogFilters_FromDate(t *testing.T) {
 
 func TestAppendLogFilters_ToDate(t *testing.T) {
 	to := "2024-12-31T23:59:59Z"
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "", to, "")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "", to, "", "")
 	if !strings.Contains(query, "AND rl.created_at <= $1") {
 		t.Errorf("expected to date filter, got %q", query)
 	}
@@ -1429,7 +1429,7 @@ func TestAppendLogFilters_ToDate(t *testing.T) {
 }
 
 func TestAppendLogFilters_InvalidFromDate(t *testing.T) {
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "not-a-date", "", "")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "not-a-date", "", "", "")
 	if strings.Contains(query, "rl.created_at >=") {
 		t.Errorf("invalid from date should be ignored, got %q", query)
 	}
@@ -1442,7 +1442,7 @@ func TestAppendLogFilters_InvalidFromDate(t *testing.T) {
 }
 
 func TestAppendLogFilters_InvalidToDate(t *testing.T) {
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "", "garbage", "")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "", "garbage", "", "")
 	if strings.Contains(query, "rl.created_at <=") {
 		t.Errorf("invalid to date should be ignored, got %q", query)
 	}
@@ -1456,7 +1456,7 @@ func TestAppendLogFilters_InvalidToDate(t *testing.T) {
 
 func TestAppendLogFilters_AllFilters(t *testing.T) {
 	validUUID := uuid.New().String()
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 3, "gpt-4", validUUID, "404", "2024-01-01T00:00:00Z", "2024-12-31T23:59:59Z", "")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 3, "gpt-4", validUUID, "404", "2024-01-01T00:00:00Z", "2024-12-31T23:59:59Z", "", "")
 	if !strings.Contains(query, `AND rl.model_id ILIKE $3`) {
 		t.Errorf("expected model_id filter at $3, got %q", query)
 	}
@@ -1481,7 +1481,7 @@ func TestAppendLogFilters_AllFilters(t *testing.T) {
 }
 
 func TestAppendLogFilters_EndpointType(t *testing.T) {
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "", "", "embeddings")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "", "", "embeddings", "")
 	if !strings.Contains(query, "AND COALESCE(rl.endpoint_type, 'chat') = $1") {
 		t.Errorf("expected endpoint_type filter at $1, got %q", query)
 	}
@@ -1494,7 +1494,7 @@ func TestAppendLogFilters_EndpointType(t *testing.T) {
 }
 
 func TestAppendLogFilters_EndpointTypeInvalidIgnored(t *testing.T) {
-	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "", "", "bogus")
+	query, args, idx := appendLogFilters("WHERE 1=1", nil, 1, "", "", "", "", "", "bogus", "")
 	if strings.Contains(query, "endpoint_type") {
 		t.Errorf("unknown endpoint_type must be ignored, got %q", query)
 	}
