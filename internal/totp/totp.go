@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pquerna/otp/totp"
 
@@ -51,6 +52,13 @@ type Repository struct {
 func NewRepository(pool *pgxpool.Pool, masterKey string) *Repository {
 	return &Repository{store: NewPostgresStore(pool), masterKey: masterKey}
 }
+
+// UserFactory builds a Repository bound to a single user's TOTP rows (a
+// per-user Store keyed by user ID). It lives here, next to Repository, so the
+// login handler and the self-service API reference one signature instead of
+// each re-declaring an identical func type. Implemented in main.go as a
+// closure over the pool and MASTER_KEY; nil when per-user TOTP is not wired.
+type UserFactory func(userID uuid.UUID) *Repository
 
 // NewRepositoryWithStore creates a TOTP repository over an arbitrary Store
 // implementation (e.g. a SQLite store in the HA Front Desk control plane).

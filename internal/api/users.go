@@ -76,7 +76,11 @@ func (h *Handler) fillTotpEnabled(ctx context.Context, users []*user.User) {
 	if len(users) == 0 {
 		return
 	}
-	rows, err := h.dbPool.Pool().Query(ctx, `SELECT user_id FROM user_totp WHERE enabled`)
+	ids := make([]uuid.UUID, len(users))
+	for i, u := range users {
+		ids[i] = u.ID
+	}
+	rows, err := h.dbPool.Pool().Query(ctx, `SELECT user_id FROM user_totp WHERE enabled AND user_id = ANY($1)`, ids)
 	if err != nil {
 		debuglog.Error("users: failed to read totp state", "error", err)
 		return

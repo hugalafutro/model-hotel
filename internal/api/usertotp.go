@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/totp"
@@ -15,7 +14,9 @@ import (
 
 // UserTotpFactory builds a TOTP repository bound to one user's rows
 // (user_totp tables). Wired from main.go; nil disables the whole surface.
-type UserTotpFactory func(userID uuid.UUID) *totp.Repository
+// Aliased to totp.UserFactory so the login handler and this surface share one
+// signature (a change to the factory shape touches a single declaration).
+type UserTotpFactory = totp.UserFactory
 
 // SetUserTotp wires the per-user TOTP factory into the self-service and
 // admin-reset endpoints.

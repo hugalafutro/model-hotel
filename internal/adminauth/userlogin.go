@@ -28,8 +28,9 @@ type UserLoginStore interface {
 
 // UserTotpFactory builds a per-user TOTP repository (Store bound to that
 // user's rows). Implemented in main.go as a closure over the pool and
-// MASTER_KEY; nil when per-user TOTP is not wired (tests).
-type UserTotpFactory func(userID uuid.UUID) *totp.Repository
+// MASTER_KEY; nil when per-user TOTP is not wired (tests). Aliased to
+// totp.UserFactory so both login and the self-service API share one signature.
+type UserTotpFactory = totp.UserFactory
 
 // UserLoginHandler exposes the multi-user password login: a public status
 // endpoint (does the login UI show the username/password form at all?) and
