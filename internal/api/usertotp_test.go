@@ -98,11 +98,29 @@ func enrollUserTotp(t *testing.T, r chi.Router, token string) (string, []string)
 
 func TestUserTotp_EnvAdminRejected(t *testing.T) {
 	r, _ := setupUserTotpTest(t)
-	// The env-token admin has no users row; this surface must point it at
-	// /api/totp instead of silently operating on nothing.
-	w := doJSON(t, r, http.MethodGet, "/auth/totp/status", envAdminToken, "")
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("env admin status = %d, want 400 (body %s)", w.Code, w.Body.String())
+	// The env-token admin has no users row; every self-service surface must
+	// point it at /api/totp instead of silently operating on nothing. Each
+	// handler returns early on the callerTotpRepo !ok result.
+	for _, tc := range []struct {
+		method, path string
+	}{
+		{http.MethodGet, "/auth/totp/status"},
+		{http.MethodPost, "/auth/totp/enroll/start"},
+		{http.MethodPost, "/auth/totp/enroll/verify"},
+		{http.MethodPost, "/auth/totp/disable"},
+	} {
+		w := doJSON(t, r, tc.method, tc.path, envAdminToken, "{}")
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("%s %s = %d, want 400 (body %s)", tc.method, tc.path, w.Code, w.Body.String())
+		}
+	}
+}
+
+func TestUserTotp_ResetInvalidID(t *testing.T) {
+	r, _ := setupUserTotpTest(t)
+	// A malformed id never reaches the store: parseUUIDParam answers 400.
+	if w := doJSON(t, r, http.MethodPost, "/users/not-a-uuid/totp/reset", envAdminToken, ""); w.Code != http.StatusBadRequest {
+		t.Fatalf("reset bad id = %d, want 400 (body %s)", w.Code, w.Body.String())
 	}
 }
 

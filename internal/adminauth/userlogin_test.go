@@ -301,6 +301,11 @@ type fakeTotpStore struct {
 	lastStep *int64
 	recovery map[string]bool // hash -> used
 	err      error           // when set, every method fails with it
+	// Targeted faults for the login enforcement paths: unlike err (which also
+	// breaks IsEnabled), these fail only the code-check reads so a login can
+	// reach the verify/recovery branches with an enabled second factor.
+	loadErr    error // LoadSecret (and thus Verify) fails with this
+	consumeErr error // ConsumeRecoveryCode fails with this
 }
 
 func (s *fakeTotpStore) UpsertEnrollment(_ context.Context, cipher, nonce, salt []byte) error {
@@ -315,6 +320,9 @@ func (s *fakeTotpStore) UpsertEnrollment(_ context.Context, cipher, nonce, salt 
 func (s *fakeTotpStore) LoadSecret(_ context.Context) (totpsvc.EncryptedSecret, bool, error) {
 	if s.err != nil {
 		return totpsvc.EncryptedSecret{}, false, s.err
+	}
+	if s.loadErr != nil {
+		return totpsvc.EncryptedSecret{}, false, s.loadErr
 	}
 	return s.sec, s.enrolled, nil
 }
@@ -419,6 +427,9 @@ func (s *fakeTotpStore) ReplaceRecoveryCodes(_ context.Context, hashes []string)
 func (s *fakeTotpStore) ConsumeRecoveryCode(_ context.Context, hash string) (bool, error) {
 	if s.err != nil {
 		return false, s.err
+	}
+	if s.consumeErr != nil {
+		return false, s.consumeErr
 	}
 	if used, exists := s.recovery[hash]; exists && !used {
 		s.recovery[hash] = true
@@ -541,6 +552,41 @@ func TestUserLogin_TotpStateErrorFailsClosed(t *testing.T) {
 	w := doLogin(t, r, `{"username":"alice","password":"correct-horse","code":"`+validCode(t, secret)+`"}`)
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500 (fail closed)", w.Code)
+	}
+}
+
+// TestUserLogin_TotpWiredButNotEnabled covers the case where the factory is
+// wired but this user never enrolled: checkSecondFactor reads IsEnabled=false
+// and lets the password login through with no code required.
+func TestUserLogin_TotpWiredButNotEnabled(t *testing.T) {
+	u := testUser(t, "alice", "correct-horse", true)
+	store := &fakeUserStore{byUsername: map[string]*user.User{u.Username: u}, hasEnabled: true}
+	fake := &fakeTotpStore{recovery: map[string]bool{}} // never enrolled/enabled
+	repo := totpsvc.NewRepositoryWithStore(fake, testMasterKey)
+	sm := webauthn.NewSessionManager(newMemStore())
+	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, func(uuid.UUID) *totpsvc.Repository { return repo })
+	r := chi.NewRouter()
+	h.Register(r)
+
+	w := doLogin(t, r, `{"username":"alice","password":"correct-horse"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s, want 200 (no second factor enrolled)", w.Code, w.Body.String())
+	}
+}
+
+// TestUserLogin_TotpCodeCheckErrorsDeny covers the branches where the second
+// factor is enabled but both the TOTP verify and the recovery-code check error
+// out at the store: the failures are logged and login falls through to a
+// throttled 401, never a silent pass.
+func TestUserLogin_TotpCodeCheckErrorsDeny(t *testing.T) {
+	u := testUser(t, "alice", "correct-horse", true)
+	fake, _, r := newTotpLoginFixture(t, u)
+	fake.loadErr = errors.New("verify read boom")
+	fake.consumeErr = errors.New("recovery read boom")
+
+	w := doLogin(t, r, `{"username":"alice","password":"correct-horse","code":"123456"}`)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, body = %s, want 401", w.Code, w.Body.String())
 	}
 }
 

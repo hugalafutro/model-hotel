@@ -202,6 +202,57 @@ func TestUserStore_CascadeOnUserDelete(t *testing.T) {
 	assert.Zero(t, recoveryRows)
 }
 
+// TestUserStore_ZeroStateReadBranches covers the "no enrollment" read paths that
+// return the zero value rather than an error: DisableIfAuthorized's ErrNoRows
+// arm, Info's LastUsedStep ErrNoRows arm, and RecoveryCounts on an empty set.
+func TestUserStore_ZeroStateReadBranches(t *testing.T) {
+	repo, id := newUserTestRepo(t, userStoreMasterKey)
+	store := NewUserPostgresStore(testDB.Pool(), id)
+	ctx := context.Background()
+
+	// DisableWithCode on a never-enrolled user: the load hits ErrNoRows and
+	// reports "not authorized" with no error, never touching the authorizer.
+	ok, err := repo.DisableWithCode(ctx, "000000")
+	require.NoError(t, err)
+	assert.False(t, ok)
+
+	// Info on a never-enrolled user: RecoveryCounts is (0,0) and LastUsedStep
+	// hits ErrNoRows, so LastUsed stays the zero time.
+	info, err := repo.Info(ctx)
+	require.NoError(t, err)
+	assert.Zero(t, info.RecoveryTotal)
+	assert.True(t, info.LastUsed.IsZero())
+
+	// EnabledAt on a row that is enabled but has a NULL confirmed_at (an
+	// inconsistent state the normal Enable path never writes) reports ok=false.
+	_, err = testDB.Pool().Exec(ctx,
+		`INSERT INTO user_totp (user_id, secret_cipher, secret_nonce, secret_salt, enabled, confirmed_at)
+		 VALUES ($1, 'c', 'n', 's', TRUE, NULL)`, id)
+	require.NoError(t, err)
+	at, has, err := store.EnabledAt(ctx)
+	require.NoError(t, err)
+	assert.False(t, has)
+	assert.True(t, at.IsZero())
+}
+
+// TestUserStore_ReplaceRecoveryCodesInsertConflict covers the batched-INSERT
+// error arm: two identical hashes collide on the (user_id, code_hash) PK, so
+// the insert fails inside the transaction and the whole replace rolls back.
+func TestUserStore_ReplaceRecoveryCodesInsertConflict(t *testing.T) {
+	_, id := newUserTestRepo(t, userStoreMasterKey)
+	store := NewUserPostgresStore(testDB.Pool(), id)
+	ctx := context.Background()
+
+	err := store.ReplaceRecoveryCodes(ctx, []string{"dup", "dup"})
+	require.Error(t, err)
+
+	// The failed replace left no rows behind (transaction rolled back).
+	var n int
+	require.NoError(t, testDB.Pool().QueryRow(ctx,
+		`SELECT COUNT(*) FROM user_totp_recovery WHERE user_id = $1`, id).Scan(&n))
+	assert.Zero(t, n)
+}
+
 // TestUserPostgresStoreErrorsOnCanceledContext covers the DB-error branches of
 // every UserPostgresStore method, mirroring the admin-store error test: a
 // canceled context makes each query/transaction fail before touching a row.
