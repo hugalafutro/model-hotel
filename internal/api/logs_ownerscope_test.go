@@ -34,8 +34,8 @@ func setupLogScopeTest(t *testing.T) logScopeFixture {
 	globalLogsCache.clear()
 
 	fx := logScopeFixture{router: router}
-	fx.aliceID = mkUser("log-alice", []string{string(user.GrantLogs)})
-	fx.bobID = mkUser("log-bob", []string{string(user.GrantLogs)})
+	fx.aliceID = mkUser("log-alice", []string{string(user.GrantLogs), string(user.GrantUsage)})
+	fx.bobID = mkUser("log-bob", []string{string(user.GrantLogs), string(user.GrantUsage)})
 	fx.aliceToken = loginAs(fx.aliceID)
 	fx.bobToken = loginAs(fx.bobID)
 
@@ -144,5 +144,80 @@ func TestLogs_OwnerScope_CacheDoesNotLeakAcrossIdentities(t *testing.T) {
 	}
 	if got := listLogEntries(t, fx.router, "/logs?per_page=50", fx.aliceToken); len(got) != 2 {
 		t.Fatalf("alice after admin prime: %d entries, want 2 (cache leak?)", len(got))
+	}
+}
+
+func TestStats_OwnerScope(t *testing.T) {
+	fx := setupLogScopeTest(t)
+
+	getStats := func(path, token string) StatsResponse {
+		w := doJSON(t, fx.router, http.MethodGet, path, token, "")
+		if w.Code != http.StatusOK {
+			t.Fatalf("GET %s: %d %s", path, w.Code, w.Body.String())
+		}
+		var s StatsResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &s); err != nil {
+			t.Fatalf("decode stats: %v", err)
+		}
+		return s
+	}
+
+	// Alice sees only her own two requests; the by-key breakdown never names
+	// a foreign key.
+	s := getStats("/stats?period=7d", fx.aliceToken)
+	if s.TotalRequestsLast7d != 2 {
+		t.Errorf("alice total7d = %d, want 2", s.TotalRequestsLast7d)
+	}
+	if _, leaked := s.ByVirtualKey["bob-key"]; leaked {
+		t.Error("alice by_virtual_key leaked bob-key")
+	}
+	if s.ByVirtualKey["alice-key"] != 2 {
+		t.Errorf("alice by_virtual_key[alice-key] = %d, want 2", s.ByVirtualKey["alice-key"])
+	}
+
+	// Admin is unscoped (4 rows incl. the unkeyed one) and can filter.
+	if s := getStats("/stats?period=7d", envAdminToken); s.TotalRequestsLast7d != 4 {
+		t.Errorf("admin total7d = %d, want 4", s.TotalRequestsLast7d)
+	}
+	if s := getStats("/stats?period=7d&owner_user_id="+fx.bobID, envAdminToken); s.TotalRequestsLast7d != 1 {
+		t.Errorf("admin owner-filtered total7d = %d, want 1", s.TotalRequestsLast7d)
+	}
+}
+
+func TestStats_TimeSeries_OwnerScope(t *testing.T) {
+	fx := setupLogScopeTest(t)
+
+	sumCounts := func(token, path string) int {
+		w := doJSON(t, fx.router, http.MethodGet, path, token, "")
+		if w.Code != http.StatusOK {
+			t.Fatalf("GET %s: %d %s", path, w.Code, w.Body.String())
+		}
+		var ts TimeSeriesStats
+		if err := json.Unmarshal(w.Body.Bytes(), &ts); err != nil {
+			t.Fatalf("decode timeseries: %v", err)
+		}
+		total := 0
+		for _, p := range ts.Points {
+			total += p.Count
+		}
+		return total
+	}
+
+	if got := sumCounts(fx.aliceToken, "/stats/timeseries"); got != 2 {
+		t.Errorf("alice timeseries total = %d, want 2", got)
+	}
+	if got := sumCounts(envAdminToken, "/stats/timeseries"); got != 4 {
+		t.Errorf("admin timeseries total = %d, want 4", got)
+	}
+	if got := sumCounts(envAdminToken, "/stats/timeseries?owner_user_id="+fx.aliceID); got != 2 {
+		t.Errorf("admin filtered timeseries total = %d, want 2", got)
+	}
+
+	// The provider-distribution path applies the same scope (fixture rows have
+	// no provider, so everyone sees an empty set; this just exercises the
+	// scoped query shape end to end).
+	w := doJSON(t, fx.router, http.MethodGet, "/stats/provider-distribution", fx.aliceToken, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("provider-distribution: %d %s", w.Code, w.Body.String())
 	}
 }
