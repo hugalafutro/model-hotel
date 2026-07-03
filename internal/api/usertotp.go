@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -149,6 +150,9 @@ func (h *Handler) UserTotpEnrollVerify(w http.ResponseWriter, r *http.Request) {
 // UserTotpDisable turns the caller's second factor off. Requires a valid
 // current TOTP or recovery code (401 on mismatch), consumed atomically with
 // the disable so a transient failure cannot burn the code and leave 2FA on.
+// Failed codes back off per user (shared with the password-change throttle):
+// a hijacked session must not be a free brute-force oracle for the 6-digit
+// window, matching the login and password-change paths.
 func (h *Handler) UserTotpDisable(w http.ResponseWriter, r *http.Request) {
 	repo, id, ok := h.callerTotpRepo(w, r)
 	if !ok {
@@ -161,15 +165,24 @@ func (h *Handler) UserTotpDisable(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, "invalid request body", err)
 		return
 	}
+	key := id.UserID.String()
+	if ok, retry := h.pwThrottle.Allowed(key); !ok {
+		debuglog.Warn("usertotp: disable throttled", "username", id.Username)
+		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
+		return
+	}
 	authorized, err := repo.DisableWithCode(r.Context(), req.Code)
 	if err != nil {
 		respondError(w, "totp: disable failed", err, http.StatusInternalServerError)
 		return
 	}
 	if !authorized {
+		h.pwThrottle.RecordFailure(key)
 		http.Error(w, "invalid TOTP or recovery code", http.StatusUnauthorized)
 		return
 	}
+	h.pwThrottle.RecordSuccess(key)
 	debuglog.Info("usertotp: disabled", "username", id.Username)
 	writeJSON(w, map[string]bool{"ok": true})
 }

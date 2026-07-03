@@ -124,6 +124,33 @@ func TestUserTotp_ResetInvalidID(t *testing.T) {
 	}
 }
 
+func TestUserTotp_DisableThrottlesGuessing(t *testing.T) {
+	r, sm := setupUserTotpTest(t)
+	_, token := userSession(t, r, sm, "totp-throttle")
+	enrollUserTotp(t, r, token)
+
+	// Repeated wrong disable codes must back off (429) before the code is even
+	// checked, so a hijacked session cannot brute-force the 6-digit window and
+	// switch the second factor off.
+	var got429 bool
+	for range 8 {
+		w := doJSON(t, r, http.MethodPost, "/auth/totp/disable", token, `{"code":"000000"}`)
+		if w.Code == http.StatusTooManyRequests {
+			if w.Header().Get("Retry-After") == "" {
+				t.Error("429 without Retry-After header")
+			}
+			got429 = true
+			break
+		}
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("unexpected status %d (body %s)", w.Code, w.Body.String())
+		}
+	}
+	if !got429 {
+		t.Fatal("disable throttle never engaged after repeated wrong codes")
+	}
+}
+
 func TestUserTotp_EnrollFlow(t *testing.T) {
 	r, sm := setupUserTotpTest(t)
 	_, token := userSession(t, r, sm, "alice")
