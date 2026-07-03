@@ -264,6 +264,8 @@ func (h *Handler) ListVirtualKeys(w http.ResponseWriter, r *http.Request) {
 			for _, u := range users {
 				usernames[u.ID] = u.Username
 			}
+		} else {
+			debuglog.Warn("virtual-keys: failed to resolve owner usernames for list", "error", uerr)
 		}
 	}
 
