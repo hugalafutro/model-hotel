@@ -101,6 +101,7 @@
 			"requests": "Anfragen",
 			"appLogs": "Protokolle",
 			"settings": "Einstellungen",
+			"security": "Sicherheit",
 			"failoverBadgeExplain": "Failover-Anbieter nach Circuit-Breaker-Status – {{closed}} intakt / {{halfOpen}} in Wiederherstellung / {{open}} ausgelöst",
 			"discoveryChangesBadge_one": "{{count}} Änderung aus der Hintergrunderkennung – zum Überprüfen anklicken",
 			"discoveryChangesBadge_other": "{{count}} Änderungen aus der Hintergrunderkennung – zum Überprüfen anklicken",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Bitte geben Sie Ihren TOTP-Code ein",
 			"totpFailed": "Ungültiges Admin-Token oder TOTP-Code",
+			"userTotpFailed": "Ungültiger TOTP- oder Wiederherstellungscode",
 			"totpStep": "Die Zwei-Faktor-Authentifizierung ist aktiviert. Geben Sie den 6-stelligen Code aus Ihrer Authentifizierungs-App ein.",
 			"totpThrottled": "Zu viele Versuche. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
 			"signInWithSSO": "Mit SSO anmelden",
@@ -2771,7 +2773,8 @@
 			"status": "Status",
 			"lastLogin": "Letzte Anmeldung",
 			"allGrants": "Alles",
-			"noGrants": "Keine"
+			"noGrants": "Keine",
+			"totpEnabled": "Zwei-Faktor-Authentifizierung aktiviert"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Token/Min.",
 			"noCap": "Keine Begrenzung",
-			"deleteKeysNote": "Virtuelle Schlüssel dieses Kontos bleiben erhalten und werden besitzerlos."
+			"deleteKeysNote": "Virtuelle Schlüssel dieses Kontos bleiben erhalten und werden besitzerlos.",
+			"totpResetButton": "Zwei-Faktor-Authentifizierung zurücksetzen",
+			"totpResetHint": "Entfernt die Authenticator-App und die Wiederherstellungscodes des Benutzers, sodass die Anmeldung nur mit dem Passwort möglich ist.",
+			"totpResetConfirmTitle": "Zwei-Faktor-Authentifizierung zurücksetzen",
+			"totpResetConfirmMessage": "Dies entfernt die Authenticator-App-Bindung und alle Wiederherstellungscodes dieses Benutzers. Das Passwort bleibt unverändert."
 		},
 		"toast": {
 			"created": "Benutzer angelegt",
@@ -2825,11 +2832,16 @@
 			"deleted": "Benutzer gelöscht",
 			"passwordReset": "Passwort zurückgesetzt",
 			"saveFailed": "Benutzer konnte nicht gespeichert werden",
-			"deleteFailed": "Benutzer konnte nicht gelöscht werden"
+			"deleteFailed": "Benutzer konnte nicht gelöscht werden",
+			"totpReset": "Zwei-Faktor-Authentifizierung zurückgesetzt"
 		},
 		"validation": {
 			"usernameRequired": "Benutzername ist erforderlich",
 			"passwordShort": "Das Passwort muss mindestens 8 Zeichen lang sein"
 		}
+	},
+	"security": {
+		"title": "Sicherheit",
+		"description": "Verwalten Sie die Zwei-Faktor-Authentifizierung Ihres Kontos."
 	}
 }

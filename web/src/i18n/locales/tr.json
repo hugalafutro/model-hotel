@@ -101,6 +101,7 @@
 			"requests": "İstekler",
 			"appLogs": "Günlükler",
 			"settings": "Ayarlar",
+			"security": "Güvenlik",
 			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları - {{closed}} sağlıklı / {{halfOpen}} kurtarma aşamasında / {{open}} devre dışı",
 			"discoveryChangesBadge_one": "{{count}} arka plan keşfinden yapılan değişiklik - gözden geçirmek için tıklayın",
 			"discoveryChangesBadge_other": "{{count}}, arka plan keşif sürecinden kaynaklanan değişiklikler - gözden geçirmek için tıklayın",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Lütfen TOTP kodunuzu girin",
 			"totpFailed": "Geçersiz yönetici jetonu veya TOTP kodu",
+			"userTotpFailed": "Geçersiz TOTP veya kurtarma kodu",
 			"totpStep": "İki faktörlü kimlik doğrulama etkin. Kimlik doğrulama uygulamanızdaki 6 haneli kodu girin.",
 			"totpThrottled": "Çok fazla deneme. Lütfen biraz bekleyip tekrar deneyin.",
 			"signInWithSSO": "SSO ile oturum aç",
@@ -2771,7 +2773,8 @@
 			"status": "Durum",
 			"lastLogin": "Son giriş",
 			"allGrants": "Her şey",
-			"noGrants": "Yok"
+			"noGrants": "Yok",
+			"totpEnabled": "İki adımlı doğrulama etkin"
 		},
 		"role": {
 			"admin": "Yönetici",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Token/dk",
 			"noCap": "Sınır yok",
-			"deleteKeysNote": "Bu hesaba ait sanal anahtarlar korunur ve sahipsiz kalır."
+			"deleteKeysNote": "Bu hesaba ait sanal anahtarlar korunur ve sahipsiz kalır.",
+			"totpResetButton": "İki adımlı doğrulamayı sıfırla",
+			"totpResetHint": "Kullanıcının doğrulama uygulamasını ve kurtarma kodlarını kaldırır; yalnızca parolayla giriş yapabilir.",
+			"totpResetConfirmTitle": "İki adımlı doğrulamayı sıfırla",
+			"totpResetConfirmMessage": "Bu işlem, bu kullanıcının doğrulama uygulaması bağlantısını ve tüm kurtarma kodlarını kaldırır. Parola değişmez."
 		},
 		"toast": {
 			"created": "Kullanıcı oluşturuldu",
@@ -2825,11 +2832,16 @@
 			"deleted": "Kullanıcı silindi",
 			"passwordReset": "Parola sıfırlandı",
 			"saveFailed": "Kullanıcı kaydedilemedi",
-			"deleteFailed": "Kullanıcı silinemedi"
+			"deleteFailed": "Kullanıcı silinemedi",
+			"totpReset": "İki adımlı doğrulama sıfırlandı"
 		},
 		"validation": {
 			"usernameRequired": "Kullanıcı adı gerekli",
 			"passwordShort": "Parola en az 8 karakter olmalıdır"
 		}
+	},
+	"security": {
+		"title": "Güvenlik",
+		"description": "Hesabınızın iki adımlı doğrulamasını yönetin."
 	}
 }

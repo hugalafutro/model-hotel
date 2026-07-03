@@ -101,6 +101,7 @@
 			"requests": "Förfrågningar",
 			"appLogs": "Loggar",
 			"settings": "Inställningar",
+			"security": "Säkerhet",
 			"failoverBadgeExplain": "Failover-leverantörer efter circuit-breaker-status - {{closed}} fungerar / {{halfOpen}} återställs / {{open}} utlöst",
 			"discoveryChangesBadge_one": "{{count}} ändring från bakgrundsupptäckt – klicka för att granska",
 			"discoveryChangesBadge_other": "{{count}} ändringar från bakgrundsdetektering – klicka för att granska",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Ange din TOTP-kod",
 			"totpFailed": "Ogiltig admin-token eller TOTP-kod",
+			"userTotpFailed": "Ogiltig TOTP- eller återställningskod",
 			"totpStep": "Tvåfaktorsautentisering är aktiverad. Ange den 6-siffriga koden från din autentiseringsapp.",
 			"totpThrottled": "För många försök. Vänta ett ögonblick och försök igen.",
 			"signInWithSSO": "Logga in med SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Status",
 			"lastLogin": "Senaste inloggning",
 			"allGrants": "Allt",
-			"noGrants": "Ingen"
+			"noGrants": "Ingen",
+			"totpEnabled": "Tvåfaktorsautentisering aktiverad"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Token/min",
 			"noCap": "Ingen gräns",
-			"deleteKeysNote": "Virtuella nycklar som ägs av detta konto behålls och blir ägarlösa."
+			"deleteKeysNote": "Virtuella nycklar som ägs av detta konto behålls och blir ägarlösa.",
+			"totpResetButton": "Återställ tvåfaktorsautentisering",
+			"totpResetHint": "Tar bort användarens autentiseringsapp och återställningskoder så att inloggning sker med enbart lösenordet.",
+			"totpResetConfirmTitle": "Återställ tvåfaktorsautentisering",
+			"totpResetConfirmMessage": "Detta tar bort kopplingen till autentiseringsappen och alla återställningskoder för den här användaren. Lösenordet förblir oförändrat."
 		},
 		"toast": {
 			"created": "Användare skapad",
@@ -2825,11 +2832,16 @@
 			"deleted": "Användare borttagen",
 			"passwordReset": "Lösenord återställt",
 			"saveFailed": "Kunde inte spara användaren",
-			"deleteFailed": "Kunde inte ta bort användaren"
+			"deleteFailed": "Kunde inte ta bort användaren",
+			"totpReset": "Tvåfaktorsautentisering återställd"
 		},
 		"validation": {
 			"usernameRequired": "Användarnamn krävs",
 			"passwordShort": "Lösenordet måste vara minst 8 tecken"
 		}
+	},
+	"security": {
+		"title": "Säkerhet",
+		"description": "Hantera tvåfaktorsautentisering för ditt konto."
 	}
 }

@@ -43,6 +43,7 @@ import type {
 	TotpStatus,
 	UpdateFailoverGroupRequest,
 	UpdateProviderRequest,
+	UserTotpStatus,
 	UserUpsertRequest,
 	VirtualKey,
 	ZAICodingQuotaResponse,
@@ -1252,13 +1253,18 @@ export const api = {
 		login: async (
 			username: string,
 			password: string,
+			code?: string,
 		): Promise<{ token: string }> =>
 			fetchJSON<{ token: string }>(
 				`${API_BASE}/api/auth/login`,
 				{
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ username, password }),
+					// code rides along only when the account has TOTP enabled (the
+					// 401 {"totp_required": true} answer tells the UI to ask for it).
+					body: JSON.stringify(
+						code ? { username, password, code } : { username, password },
+					),
 				},
 				"Login failed",
 			),
@@ -1266,6 +1272,41 @@ export const api = {
 			fetchJSON<Me>(`${API_BASE}/api/auth/me`, {
 				headers: getAuthHeaders(),
 			}),
+	},
+	// Self-service per-user TOTP (users-row identities manage their own 2FA;
+	// the env-token admin uses api.totp instead).
+	userTotp: {
+		status: async (): Promise<UserTotpStatus> =>
+			fetchJSON<UserTotpStatus>(`${API_BASE}/api/auth/totp/status`, {
+				headers: getAuthHeaders(),
+			}),
+		enrollStart: async (): Promise<TotpEnrollStart> =>
+			fetchJSON<TotpEnrollStart>(
+				`${API_BASE}/api/auth/totp/enroll/start`,
+				{ method: "POST", headers: getAuthHeaders() },
+				"TOTP enrollment failed",
+			),
+		enrollVerify: async (code: string): Promise<{ recovery_codes: string[] }> =>
+			fetchJSON<{ recovery_codes: string[] }>(
+				`${API_BASE}/api/auth/totp/enroll/verify`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({ code }),
+				},
+				"TOTP verification failed",
+			),
+		disable: async (code: string): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/auth/totp/disable`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({ code }),
+				},
+				"TOTP disable failed",
+			);
+		},
 	},
 	// Admin-only user management.
 	users: {
@@ -1316,6 +1357,13 @@ export const api = {
 				`${API_BASE}/api/users/${id}`,
 				{ method: "DELETE", headers: getAuthHeaders() },
 				"Failed to delete user",
+			);
+		},
+		resetTotp: async (id: string): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/users/${id}/totp/reset`,
+				{ method: "POST", headers: getAuthHeaders() },
+				"Failed to reset TOTP",
 			);
 		},
 	},

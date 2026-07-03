@@ -101,6 +101,7 @@
 			"requests": "リクエスト",
 			"appLogs": "ログ",
 			"settings": "設定",
+			"security": "セキュリティ",
 			"failoverBadgeExplain": "サーキットブレーカーの状態によるフェイルオーバープロバイダー - {{closed}} 正常 / {{halfOpen}} 復旧中 / {{open}} トリップ",
 			"discoveryChangesBadge_one": "{{count}}：バックグラウンド検出からの変更 - クリックして確認",
 			"discoveryChangesBadge_other": "{{count}}はバックグラウンド検出による変更です - クリックして確認してください",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "TOTPコードを入力してください",
 			"totpFailed": "無効な管理トークンまたはTOTPコード",
+			"userTotpFailed": "TOTPコードまたはリカバリーコードが無効です",
 			"totpStep": "二要素認証が有効になっています。認証アプリから表示された6桁のコードを入力してください。",
 			"totpThrottled": "試行回数が多すぎます。少し待ってからもう一度お試しください。",
 			"signInWithSSO": "SSO でサインイン",
@@ -2771,7 +2773,8 @@
 			"status": "状態",
 			"lastLogin": "最終ログイン",
 			"allGrants": "すべて",
-			"noGrants": "なし"
+			"noGrants": "なし",
+			"totpEnabled": "2要素認証が有効"
 		},
 		"role": {
 			"admin": "管理者",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "バースト",
 			"limitTpm": "トークン/分",
 			"noCap": "上限なし",
-			"deleteKeysNote": "このアカウントが所有する仮想キーは保持され、所有者なしになります。"
+			"deleteKeysNote": "このアカウントが所有する仮想キーは保持され、所有者なしになります。",
+			"totpResetButton": "2要素認証をリセット",
+			"totpResetHint": "このユーザーの認証アプリとリカバリーコードを削除し、パスワードのみでログインできるようにします。",
+			"totpResetConfirmTitle": "2要素認証をリセット",
+			"totpResetConfirmMessage": "このユーザーの認証アプリの紐付けとすべてのリカバリーコードを削除します。パスワードは変更されません。"
 		},
 		"toast": {
 			"created": "ユーザーを作成しました",
@@ -2825,11 +2832,16 @@
 			"deleted": "ユーザーを削除しました",
 			"passwordReset": "パスワードをリセットしました",
 			"saveFailed": "ユーザーを保存できませんでした",
-			"deleteFailed": "ユーザーを削除できませんでした"
+			"deleteFailed": "ユーザーを削除できませんでした",
+			"totpReset": "2要素認証をリセットしました"
 		},
 		"validation": {
 			"usernameRequired": "ユーザー名は必須です",
 			"passwordShort": "パスワードは8文字以上にしてください"
 		}
+	},
+	"security": {
+		"title": "セキュリティ",
+		"description": "アカウントの2要素認証を管理します。"
 	}
 }

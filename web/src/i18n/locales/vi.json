@@ -101,6 +101,7 @@
 			"requests": "Yêu cầu",
 			"appLogs": "Nhật ký",
 			"settings": "Cài đặt",
+			"security": "Bảo mật",
 			"failoverBadgeExplain": "Các nhà cung cấp dự phòng theo trạng thái ngắt mạch - {{closed}} hoạt động bình thường / {{halfOpen}} đang phục hồi / {{open}} bị ngắt",
 			"discoveryChangesBadge_one": "Thay đổi {{count}} từ quá trình phát hiện nền - nhấp để xem lại",
 			"discoveryChangesBadge_other": "{{count}} thay đổi từ tính năng phát hiện nền - nhấp để xem lại",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Vui lòng nhập mã TOTP của bạn",
 			"totpFailed": "Mã thông báo quản trị hoặc mã TOTP không hợp lệ",
+			"userTotpFailed": "Mã TOTP hoặc mã khôi phục không hợp lệ",
 			"totpStep": "Xác thực hai yếu tố đã được bật. Nhập mã gồm 6 chữ số từ ứng dụng xác thực của bạn.",
 			"totpThrottled": "Quá nhiều lần thử. Vui lòng đợi một lát rồi thử lại.",
 			"signInWithSSO": "Đăng nhập bằng SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Trạng thái",
 			"lastLogin": "Lần đăng nhập cuối",
 			"allGrants": "Tất cả",
-			"noGrants": "Không có"
+			"noGrants": "Không có",
+			"totpEnabled": "Đã bật xác thực hai yếu tố"
 		},
 		"role": {
 			"admin": "Quản trị viên",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Token/phút",
 			"noCap": "Không giới hạn",
-			"deleteKeysNote": "Các khóa ảo thuộc tài khoản này được giữ lại và trở thành không có chủ sở hữu."
+			"deleteKeysNote": "Các khóa ảo thuộc tài khoản này được giữ lại và trở thành không có chủ sở hữu.",
+			"totpResetButton": "Đặt lại xác thực hai yếu tố",
+			"totpResetHint": "Xóa ứng dụng xác thực và mã khôi phục của người dùng để họ đăng nhập chỉ bằng mật khẩu.",
+			"totpResetConfirmTitle": "Đặt lại xác thực hai yếu tố",
+			"totpResetConfirmMessage": "Thao tác này xóa liên kết ứng dụng xác thực và tất cả mã khôi phục của người dùng này. Mật khẩu không thay đổi."
 		},
 		"toast": {
 			"created": "Đã tạo người dùng",
@@ -2825,11 +2832,16 @@
 			"deleted": "Đã xóa người dùng",
 			"passwordReset": "Đã đặt lại mật khẩu",
 			"saveFailed": "Không thể lưu người dùng",
-			"deleteFailed": "Không thể xóa người dùng"
+			"deleteFailed": "Không thể xóa người dùng",
+			"totpReset": "Đã đặt lại xác thực hai yếu tố"
 		},
 		"validation": {
 			"usernameRequired": "Tên đăng nhập là bắt buộc",
 			"passwordShort": "Mật khẩu phải có ít nhất 8 ký tự"
 		}
+	},
+	"security": {
+		"title": "Bảo mật",
+		"description": "Quản lý xác thực hai yếu tố cho tài khoản của bạn."
 	}
 }

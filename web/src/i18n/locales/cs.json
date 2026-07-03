@@ -101,6 +101,7 @@
 			"requests": "Požadavky",
 			"appLogs": "Logy appky",
 			"settings": "Nastavení",
+			"security": "Zabezpečení",
 			"failoverBadgeExplain": "Poskytovatelé failoveru podle stavu jističe - {{closed}} v pořádku / {{halfOpen}} se zotavuje / {{open}} vypnutý",
 			"discoveryChangesBadge_one": "Změna {{count}} z automatického vyhledávání na pozadí - klikněte pro kontrolu",
 			"discoveryChangesBadge_other": "Změny {{count}} z automatického vyhledávání na pozadí - kliknutím zobrazíte přehled",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Zadejte prosím svůj kód TOTP",
 			"totpFailed": "Neplatný administrátorský token nebo kód TOTP",
+			"userTotpFailed": "Neplatný TOTP nebo záložní kód",
 			"totpStep": "Je povoleno dvoufaktorové ověřování. Zadejte šestimístný kód z vaší autentizační aplikace.",
 			"totpThrottled": "Příliš mnoho pokusů. Počkejte chvíli a zkuste to znovu.",
 			"signInWithSSO": "Přihlásit se přes SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Stav",
 			"lastLogin": "Poslední přihlášení",
 			"allGrants": "Vše",
-			"noGrants": "Žádné"
+			"noGrants": "Žádné",
+			"totpEnabled": "Dvoufaktorové ověření zapnuto"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Tokeny/min",
 			"noCap": "Bez limitu",
-			"deleteKeysNote": "Virtuální klíče vlastněné tímto účtem zůstanou zachovány a přijdou o vlastníka."
+			"deleteKeysNote": "Virtuální klíče vlastněné tímto účtem zůstanou zachovány a přijdou o vlastníka.",
+			"totpResetButton": "Obnovit dvoufaktorové ověření",
+			"totpResetHint": "Odebere uživateli ověřovací aplikaci a záložní kódy, takže se přihlásí jen heslem.",
+			"totpResetConfirmTitle": "Obnovit dvoufaktorové ověření",
+			"totpResetConfirmMessage": "Tímto se odebere vazba na ověřovací aplikaci a všechny záložní kódy tohoto uživatele. Heslo zůstává beze změny."
 		},
 		"toast": {
 			"created": "Uživatel vytvořen",
@@ -2825,11 +2832,16 @@
 			"deleted": "Uživatel smazán",
 			"passwordReset": "Heslo obnoveno",
 			"saveFailed": "Uživatele se nepodařilo uložit",
-			"deleteFailed": "Uživatele se nepodařilo smazat"
+			"deleteFailed": "Uživatele se nepodařilo smazat",
+			"totpReset": "Dvoufaktorové ověření obnoveno"
 		},
 		"validation": {
 			"usernameRequired": "Uživatelské jméno je povinné",
 			"passwordShort": "Heslo musí mít alespoň 8 znaků"
 		}
+	},
+	"security": {
+		"title": "Zabezpečení",
+		"description": "Spravujte dvoufaktorové ověření svého účtu."
 	}
 }

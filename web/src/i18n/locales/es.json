@@ -101,6 +101,7 @@
 			"requests": "Solicitudes",
 			"appLogs": "Registros",
 			"settings": "Ajustes",
+			"security": "Seguridad",
 			"failoverBadgeExplain": "Proveedores de conmutación por error según el estado del disyuntor: {{closed}} en buen estado / {{halfOpen}} en recuperación / {{open}} disparado",
 			"discoveryChangesBadge_one": "Cambio {{count}} procedente de la detección en segundo plano: haz clic para revisarlo",
 			"discoveryChangesBadge_other": "Cambios en {{count}} derivados del análisis en segundo plano: haz clic para revisarlos",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Introduce tu código TOTP",
 			"totpFailed": "Token de administrador o código TOTP no válido",
+			"userTotpFailed": "Código TOTP o de recuperación no válido",
 			"totpStep": "La autenticación de dos factores está activada. Introduce el código de 6 dígitos de tu aplicación de autenticación.",
 			"totpThrottled": "Demasiados intentos. Espera un momento y vuelve a intentarlo.",
 			"signInWithSSO": "Iniciar sesión con SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Estado",
 			"lastLogin": "Último acceso",
 			"allGrants": "Todo",
-			"noGrants": "Ninguno"
+			"noGrants": "Ninguno",
+			"totpEnabled": "Autenticación en dos pasos activada"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Ráfaga",
 			"limitTpm": "Tokens/min",
 			"noCap": "Sin tope",
-			"deleteKeysNote": "Las claves virtuales de esta cuenta se conservan y quedan sin propietario."
+			"deleteKeysNote": "Las claves virtuales de esta cuenta se conservan y quedan sin propietario.",
+			"totpResetButton": "Restablecer la autenticación en dos pasos",
+			"totpResetHint": "Elimina la aplicación de autenticación y los códigos de recuperación del usuario para que pueda iniciar sesión solo con su contraseña.",
+			"totpResetConfirmTitle": "Restablecer la autenticación en dos pasos",
+			"totpResetConfirmMessage": "Esto elimina la vinculación con la aplicación de autenticación y todos los códigos de recuperación de este usuario. La contraseña no cambia."
 		},
 		"toast": {
 			"created": "Usuario creado",
@@ -2825,11 +2832,16 @@
 			"deleted": "Usuario eliminado",
 			"passwordReset": "Contraseña restablecida",
 			"saveFailed": "No se pudo guardar el usuario",
-			"deleteFailed": "No se pudo eliminar el usuario"
+			"deleteFailed": "No se pudo eliminar el usuario",
+			"totpReset": "Autenticación en dos pasos restablecida"
 		},
 		"validation": {
 			"usernameRequired": "El nombre de usuario es obligatorio",
 			"passwordShort": "La contraseña debe tener al menos 8 caracteres"
 		}
+	},
+	"security": {
+		"title": "Seguridad",
+		"description": "Gestiona la autenticación en dos pasos de tu cuenta."
 	}
 }

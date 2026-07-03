@@ -101,6 +101,7 @@
 			"requests": "Požiadavky",
 			"appLogs": "Záznamy",
 			"settings": "Nastavenia",
+			"security": "Zabezpečenie",
 			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa - {{closed}} v poriadku / {{halfOpen}} sa obnovuje / {{open}} vypnutý",
 			"discoveryChangesBadge_one": "Zmena {{count}} z automatického vyhľadávania na pozadí - kliknite na prehliadnutie",
 			"discoveryChangesBadge_other": "Zmeny {{count}} vyplývajúce z automatického vyhľadávania – kliknite na tlačidlo na prehliadnutie",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Zadajte prosím svoj kód TOTP",
 			"totpFailed": "Neplatný administrátorský token alebo kód TOTP",
+			"userTotpFailed": "Neplatný TOTP alebo záložný kód",
 			"totpStep": "Je zapnutá dvojfaktorová autentifikácia. Zadajte 6-miestny kód z vašej autentifikačnej aplikácie.",
 			"totpThrottled": "Príliš veľa pokusov. Počkajte chvíľu a skúste to znova.",
 			"signInWithSSO": "Prihlásiť sa cez SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Stav",
 			"lastLogin": "Posledné prihlásenie",
 			"allGrants": "Všetko",
-			"noGrants": "Žiadne"
+			"noGrants": "Žiadne",
+			"totpEnabled": "Dvojfaktorové overenie zapnuté"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Tokeny/min",
 			"noCap": "Bez limitu",
-			"deleteKeysNote": "Virtuálne kľúče vlastnené týmto účtom zostanú zachované a prídu o vlastníka."
+			"deleteKeysNote": "Virtuálne kľúče vlastnené týmto účtom zostanú zachované a prídu o vlastníka.",
+			"totpResetButton": "Obnoviť dvojfaktorové overenie",
+			"totpResetHint": "Odstráni používateľovi overovaciu aplikáciu a záložné kódy, takže sa prihlási len heslom.",
+			"totpResetConfirmTitle": "Obnoviť dvojfaktorové overenie",
+			"totpResetConfirmMessage": "Týmto sa odstráni väzba na overovaciu aplikáciu a všetky záložné kódy tohto používateľa. Heslo zostáva bez zmeny."
 		},
 		"toast": {
 			"created": "Používateľ vytvorený",
@@ -2825,11 +2832,16 @@
 			"deleted": "Používateľ odstránený",
 			"passwordReset": "Heslo obnovené",
 			"saveFailed": "Používateľa sa nepodarilo uložiť",
-			"deleteFailed": "Používateľa sa nepodarilo odstrániť"
+			"deleteFailed": "Používateľa sa nepodarilo odstrániť",
+			"totpReset": "Dvojfaktorové overenie obnovené"
 		},
 		"validation": {
 			"usernameRequired": "Používateľské meno je povinné",
 			"passwordShort": "Heslo musí mať aspoň 8 znakov"
 		}
+	},
+	"security": {
+		"title": "Zabezpečenie",
+		"description": "Spravujte dvojfaktorové overenie svojho účtu."
 	}
 }

@@ -101,6 +101,7 @@
 			"requests": "Захтеви",
 			"appLogs": "Записи",
 			"settings": "Подешавања",
+			"security": "Безбедност",
 			"failoverBadgeExplain": "Фејловер провајдери по стању циркуитобрејкера - {{closed}} здрав / {{halfOpen}} опоравља се / {{open}} активиран",
 			"discoveryChangesBadge_one": "{{count}} промена из позадинског откривања - кликните да бисте прегледали",
 			"discoveryChangesBadge_other": "{{count}} промене из позадинског откривања - кликните да бисте прегледали",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Унесите свој TOTP код",
 			"totpFailed": "Неважећи админ токен или TOTP код",
+			"userTotpFailed": "Neispravan TOTP ili kod za oporavak",
 			"totpStep": "Двофакторска аутентификација је омогућена. Унесите шестоцифрени код из апликације за аутентификацију.",
 			"totpThrottled": "Превише покушаја. Сачекајте тренутак и покушајте поново.",
 			"signInWithSSO": "Пријава помоћу SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Status",
 			"lastLogin": "Poslednja prijava",
 			"allGrants": "Sve",
-			"noGrants": "Ništa"
+			"noGrants": "Ništa",
+			"totpEnabled": "Dvofaktorska potvrda identiteta uključena"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Tokeni/min",
 			"noCap": "Bez limita",
-			"deleteKeysNote": "Virtuelni ključevi ovog naloga se zadržavaju i ostaju bez vlasnika."
+			"deleteKeysNote": "Virtuelni ključevi ovog naloga se zadržavaju i ostaju bez vlasnika.",
+			"totpResetButton": "Resetuj dvofaktorsku potvrdu identiteta",
+			"totpResetHint": "Uklanja korisnikovu aplikaciju za potvrdu identiteta i kodove za oporavak, pa se prijavljuje samo lozinkom.",
+			"totpResetConfirmTitle": "Resetuj dvofaktorsku potvrdu identiteta",
+			"totpResetConfirmMessage": "Ovim se uklanja veza sa aplikacijom za potvrdu identiteta i svi kodovi za oporavak ovog korisnika. Lozinka ostaje nepromenjena."
 		},
 		"toast": {
 			"created": "Korisnik napravljen",
@@ -2825,11 +2832,16 @@
 			"deleted": "Korisnik obrisan",
 			"passwordReset": "Lozinka resetovana",
 			"saveFailed": "Čuvanje korisnika nije uspelo",
-			"deleteFailed": "Brisanje korisnika nije uspelo"
+			"deleteFailed": "Brisanje korisnika nije uspelo",
+			"totpReset": "Dvofaktorska potvrda identiteta resetovana"
 		},
 		"validation": {
 			"usernameRequired": "Korisničko ime je obavezno",
 			"passwordShort": "Lozinka mora imati najmanje 8 znakova"
 		}
+	},
+	"security": {
+		"title": "Безбедност",
+		"description": "Управљајте двофакторском потврдом идентитета свог налога."
 	}
 }

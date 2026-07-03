@@ -101,6 +101,7 @@
 			"requests": "Anmodninger",
 			"appLogs": "Logfiler",
 			"settings": "Indstillinger",
+			"security": "Sikkerhed",
 			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus - {{closed}} fungerer / {{halfOpen}} genopretter / {{open}} udløst",
 			"discoveryChangesBadge_one": "{{count}} ændring fra baggrundsdetektering - klik for at gennemgå",
 			"discoveryChangesBadge_other": "{{count}} ændringer fra baggrundsdetektering - klik for at gennemgå",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Indtast venligst din TOTP-kode",
 			"totpFailed": "Ugyldigt administrator-token eller TOTP-kode",
+			"userTotpFailed": "Ugyldig TOTP- eller gendannelseskode",
 			"totpStep": "To-faktor-autentificering er aktiveret. Indtast den 6-cifrede kode fra din autentificeringsapp.",
 			"totpThrottled": "For mange forsøg. Vent et øjeblik, og prøv igen.",
 			"signInWithSSO": "Log ind med SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Status",
 			"lastLogin": "Seneste login",
 			"allGrants": "Alt",
-			"noGrants": "Ingen"
+			"noGrants": "Ingen",
+			"totpEnabled": "Tofaktorgodkendelse aktiveret"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Tokens/min.",
 			"noCap": "Ingen grænse",
-			"deleteKeysNote": "Virtuelle nøgler ejet af denne konto bevares og bliver ejerløse."
+			"deleteKeysNote": "Virtuelle nøgler ejet af denne konto bevares og bliver ejerløse.",
+			"totpResetButton": "Nulstil tofaktorgodkendelse",
+			"totpResetHint": "Fjerner brugerens godkendelsesapp og gendannelseskoder, så de kan logge ind med adgangskoden alene.",
+			"totpResetConfirmTitle": "Nulstil tofaktorgodkendelse",
+			"totpResetConfirmMessage": "Dette fjerner tilknytningen til godkendelsesappen og alle gendannelseskoder for denne bruger. Adgangskoden forbliver uændret."
 		},
 		"toast": {
 			"created": "Bruger oprettet",
@@ -2825,11 +2832,16 @@
 			"deleted": "Bruger slettet",
 			"passwordReset": "Adgangskode nulstillet",
 			"saveFailed": "Kunne ikke gemme brugeren",
-			"deleteFailed": "Kunne ikke slette brugeren"
+			"deleteFailed": "Kunne ikke slette brugeren",
+			"totpReset": "Tofaktorgodkendelse nulstillet"
 		},
 		"validation": {
 			"usernameRequired": "Brugernavn er påkrævet",
 			"passwordShort": "Adgangskoden skal være på mindst 8 tegn"
 		}
+	},
+	"security": {
+		"title": "Sikkerhed",
+		"description": "Administrer tofaktorgodkendelse på din konto."
 	}
 }

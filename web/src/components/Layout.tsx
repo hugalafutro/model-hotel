@@ -19,6 +19,7 @@ import {
 	PlugZap,
 	ScrollText,
 	Settings,
+	ShieldCheck,
 	Shuffle,
 	Sun,
 	Swords,
@@ -659,7 +660,7 @@ function ReadOnlyBanner() {
 export function Layout({ children }: LayoutProps) {
 	const { t } = useTranslation();
 	const location = useLocation();
-	const { isAdmin, can } = useIdentity();
+	const { isAdmin, can, me } = useIdentity();
 	const { theme, setTheme, uiStyle } = useTheme();
 	// Separator between paired labels/counts in the sidebar. The terminal theme
 	// keeps a literal "/" (fits its monospace aesthetic); other themes use a
@@ -840,15 +841,25 @@ export function Layout({ children }: LayoutProps) {
 			access: "admin",
 		},
 		{
+			name: t("layout.nav.security"),
+			href: "/security",
+			icon: ShieldCheck,
+			// Self-service 2FA exists only for users-row identities; the env-token
+			// admin manages TOTP under Settings.
+			access: "user_account",
+		},
+		{
 			name: t("layout.nav.settings"),
 			href: "/settings",
 			icon: Settings,
 			access: "admin",
 		},
 	];
-	const navigation = allNavigation.filter((item) =>
-		item.access === "admin" ? isAdmin : can(item.access),
-	);
+	const navigation = allNavigation.filter((item) => {
+		if (item.access === "admin") return isAdmin;
+		if (item.access === "user_account") return Boolean(me?.user_account);
+		return can(item.access);
+	});
 
 	// Generic sub-mode state: maps each nav href to its current mode and setter.
 	const subModeMap = {

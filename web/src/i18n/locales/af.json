@@ -101,6 +101,7 @@
 			"requests": "Versoeke",
 			"appLogs": "Logboeke",
 			"settings": "Instellings",
+			"security": "Sekuriteit",
 			"failoverBadgeExplain": "Failover-verskaffers volgens circuitbreker-toestand - {{closed}} gesond / {{halfOpen}} besig om te herstel / {{open}} uitgeskakel",
 			"discoveryChangesBadge_one": "{{count}} verandering vanaf agtergrondontdekking - klik om te hersien",
 			"discoveryChangesBadge_other": "{{count}} veranderings vanaf agtergrondontdekking - klik om te hersien",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Voer asseblief jou TOTP-kode in",
 			"totpFailed": "Ongeldige admin-token of TOTP-kode",
+			"userTotpFailed": "Ongeldige TOTP- of herstelkode",
 			"totpStep": "Tweefaktor-verifikasie is geaktiveer. Voer die 6-syfer kode van jou verifikator-app in.",
 			"totpThrottled": "Te veel pogings. Wag asseblief 'n oomblik en probeer weer.",
 			"signInWithSSO": "Meld aan met SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Status",
 			"lastLogin": "Laaste aanmelding",
 			"allGrants": "Alles",
-			"noGrants": "Geen"
+			"noGrants": "Geen",
+			"totpEnabled": "Tweefaktor-verifikasie geaktiveer"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Sarsie",
 			"limitTpm": "Tekens/min",
 			"noCap": "Geen limiet",
-			"deleteKeysNote": "Virtuele sleutels wat aan hierdie rekening behoort, word behou en raak eienaarloos."
+			"deleteKeysNote": "Virtuele sleutels wat aan hierdie rekening behoort, word behou en raak eienaarloos.",
+			"totpResetButton": "Stel tweefaktor-verifikasie terug",
+			"totpResetHint": "Verwyder die gebruiker se verifikasie-app en herstelkodes sodat hulle met net hul wagwoord kan aanmeld.",
+			"totpResetConfirmTitle": "Stel tweefaktor-verifikasie terug",
+			"totpResetConfirmMessage": "Dit verwyder die verifikasie-app-koppeling en alle herstelkodes vir hierdie gebruiker. Die wagwoord bly onveranderd."
 		},
 		"toast": {
 			"created": "Gebruiker geskep",
@@ -2825,11 +2832,16 @@
 			"deleted": "Gebruiker geskrap",
 			"passwordReset": "Wagwoord herstel",
 			"saveFailed": "Kon nie die gebruiker stoor nie",
-			"deleteFailed": "Kon nie die gebruiker skrap nie"
+			"deleteFailed": "Kon nie die gebruiker skrap nie",
+			"totpReset": "Tweefaktor-verifikasie teruggestel"
 		},
 		"validation": {
 			"usernameRequired": "Gebruikersnaam word vereis",
 			"passwordShort": "Die wagwoord moet minstens 8 karakters lank wees"
 		}
+	},
+	"security": {
+		"title": "Sekuriteit",
+		"description": "Bestuur tweefaktor-verifikasie op jou rekening."
 	}
 }

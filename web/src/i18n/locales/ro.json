@@ -101,6 +101,7 @@
 			"requests": "Cereri",
 			"appLogs": "Jurnale",
 			"settings": "Setări",
+			"security": "Securitate",
 			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit - {{closed}} funcțional / {{halfOpen}} în recuperare / {{open}} declanșat",
 			"discoveryChangesBadge_one": "Modificare {{count}} din descoperirea în fundal - faceți clic pentru a revizui",
 			"discoveryChangesBadge_other": "Modificările {{count}} din procesul de descoperire în fundal - faceți clic pentru a le revizui",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Vă rugăm să introduceți codul TOTP",
 			"totpFailed": "Token de administrator sau cod TOTP nevalid",
+			"userTotpFailed": "Cod TOTP sau de recuperare nevalid",
 			"totpStep": "Autentificarea în doi pași este activată. Introduceți codul din 6 cifre din aplicația dvs. de autentificare.",
 			"totpThrottled": "Prea multe încercări. Așteptați un moment și încercați din nou.",
 			"signInWithSSO": "Conectează-te cu SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Stare",
 			"lastLogin": "Ultima autentificare",
 			"allGrants": "Tot",
-			"noGrants": "Niciunul"
+			"noGrants": "Niciunul",
+			"totpEnabled": "Autentificare în doi pași activată"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Tokenuri/min",
 			"noCap": "Fără plafon",
-			"deleteKeysNote": "Cheile virtuale deținute de acest cont sunt păstrate și rămân fără proprietar."
+			"deleteKeysNote": "Cheile virtuale deținute de acest cont sunt păstrate și rămân fără proprietar.",
+			"totpResetButton": "Resetați autentificarea în doi pași",
+			"totpResetHint": "Elimină aplicația de autentificare și codurile de recuperare ale utilizatorului, astfel încât să se poată conecta doar cu parola.",
+			"totpResetConfirmTitle": "Resetați autentificarea în doi pași",
+			"totpResetConfirmMessage": "Aceasta elimină asocierea cu aplicația de autentificare și toate codurile de recuperare ale acestui utilizator. Parola rămâne neschimbată."
 		},
 		"toast": {
 			"created": "Utilizator creat",
@@ -2825,11 +2832,16 @@
 			"deleted": "Utilizator șters",
 			"passwordReset": "Parolă resetată",
 			"saveFailed": "Utilizatorul nu a putut fi salvat",
-			"deleteFailed": "Utilizatorul nu a putut fi șters"
+			"deleteFailed": "Utilizatorul nu a putut fi șters",
+			"totpReset": "Autentificarea în doi pași a fost resetată"
 		},
 		"validation": {
 			"usernameRequired": "Numele de utilizator este obligatoriu",
 			"passwordShort": "Parola trebuie să aibă cel puțin 8 caractere"
 		}
+	},
+	"security": {
+		"title": "Securitate",
+		"description": "Gestionați autentificarea în doi pași a contului dvs."
 	}
 }

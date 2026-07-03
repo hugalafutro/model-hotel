@@ -101,6 +101,7 @@
 			"requests": "Requêtes",
 			"appLogs": "Journaux",
 			"settings": "Paramètres",
+			"security": "Sécurité",
 			"failoverBadgeExplain": "Fournisseurs de basculement par état du disjoncteur - {{closed}} en bon état / {{halfOpen}} en cours de récupération / {{open}} déclenché",
 			"discoveryChangesBadge_one": "Modification {{count}} issue de la découverte en arrière-plan - cliquer pour consulter",
 			"discoveryChangesBadge_other": "Modifications {{count}} issues de la découverte en arrière-plan - cliquez pour les consulter",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Veuillez saisir votre code TOTP",
 			"totpFailed": "Jeton d'administration ou code TOTP non valide",
+			"userTotpFailed": "Code TOTP ou de récupération invalide",
 			"totpStep": "L'authentification à deux facteurs est activée. Saisissez le code à 6 chiffres fourni par votre application d'authentification.",
 			"totpThrottled": "Trop de tentatives. Veuillez patienter un instant et réessayer.",
 			"signInWithSSO": "Se connecter avec le SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Statut",
 			"lastLogin": "Dernière connexion",
 			"allGrants": "Tout",
-			"noGrants": "Aucun"
+			"noGrants": "Aucun",
+			"totpEnabled": "Authentification à deux facteurs activée"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Rafale",
 			"limitTpm": "Jetons/min",
 			"noCap": "Aucun plafond",
-			"deleteKeysNote": "Les clés virtuelles de ce compte sont conservées et deviennent sans propriétaire."
+			"deleteKeysNote": "Les clés virtuelles de ce compte sont conservées et deviennent sans propriétaire.",
+			"totpResetButton": "Réinitialiser l'authentification à deux facteurs",
+			"totpResetHint": "Supprime l'application d'authentification et les codes de récupération de l'utilisateur, qui pourra se connecter avec son seul mot de passe.",
+			"totpResetConfirmTitle": "Réinitialiser l'authentification à deux facteurs",
+			"totpResetConfirmMessage": "Ceci supprime la liaison avec l'application d'authentification et tous les codes de récupération de cet utilisateur. Le mot de passe reste inchangé."
 		},
 		"toast": {
 			"created": "Utilisateur créé",
@@ -2825,11 +2832,16 @@
 			"deleted": "Utilisateur supprimé",
 			"passwordReset": "Mot de passe réinitialisé",
 			"saveFailed": "Impossible d'enregistrer l'utilisateur",
-			"deleteFailed": "Impossible de supprimer l'utilisateur"
+			"deleteFailed": "Impossible de supprimer l'utilisateur",
+			"totpReset": "Authentification à deux facteurs réinitialisée"
 		},
 		"validation": {
 			"usernameRequired": "Le nom d'utilisateur est requis",
 			"passwordShort": "Le mot de passe doit contenir au moins 8 caractères"
 		}
+	},
+	"security": {
+		"title": "Sécurité",
+		"description": "Gérez l'authentification à deux facteurs de votre compte."
 	}
 }

@@ -101,6 +101,7 @@
 			"requests": "Pedidos",
 			"appLogs": "Registos",
 			"settings": "Definições",
+			"security": "Segurança",
 			"failoverBadgeExplain": "Provedores de failover por estado do disjuntor - {{closed}} em bom estado / {{halfOpen}} em recuperação / {{open}} desarmado",
 			"discoveryChangesBadge_one": "Alteração {{count}} proveniente da descoberta em segundo plano - clique para revisar",
 			"discoveryChangesBadge_other": "Alterações no {{count}} decorrentes da descoberta em segundo plano - clique para revisar",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Insira seu código TOTP",
 			"totpFailed": "Token de administrador ou código TOTP inválido",
+			"userTotpFailed": "Código TOTP ou de recuperação inválido",
 			"totpStep": "A autenticação de dois fatores está ativada. Digite o código de 6 dígitos do seu aplicativo autenticador.",
 			"totpThrottled": "Demasiadas tentativas. Aguarde um momento e tente novamente.",
 			"signInWithSSO": "Entrar com SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Estado",
 			"lastLogin": "Último acesso",
 			"allGrants": "Tudo",
-			"noGrants": "Nenhum"
+			"noGrants": "Nenhum",
+			"totpEnabled": "Autenticação de dois fatores ativada"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Rajada",
 			"limitTpm": "Tokens/min",
 			"noCap": "Sem limite",
-			"deleteKeysNote": "As chaves virtuais desta conta são mantidas e ficam sem proprietário."
+			"deleteKeysNote": "As chaves virtuais desta conta são mantidas e ficam sem proprietário.",
+			"totpResetButton": "Redefinir autenticação de dois fatores",
+			"totpResetHint": "Remove o aplicativo autenticador e os códigos de recuperação do usuário, permitindo entrar apenas com a senha.",
+			"totpResetConfirmTitle": "Redefinir autenticação de dois fatores",
+			"totpResetConfirmMessage": "Isso remove o vínculo com o aplicativo autenticador e todos os códigos de recuperação deste usuário. A senha permanece inalterada."
 		},
 		"toast": {
 			"created": "Utilizador criado",
@@ -2825,11 +2832,16 @@
 			"deleted": "Utilizador eliminado",
 			"passwordReset": "Palavra-passe reposta",
 			"saveFailed": "Não foi possível guardar o utilizador",
-			"deleteFailed": "Não foi possível eliminar o utilizador"
+			"deleteFailed": "Não foi possível eliminar o utilizador",
+			"totpReset": "Autenticação de dois fatores redefinida"
 		},
 		"validation": {
 			"usernameRequired": "O nome de utilizador é obrigatório",
 			"passwordShort": "A palavra-passe deve ter pelo menos 8 caracteres"
 		}
+	},
+	"security": {
+		"title": "Segurança",
+		"description": "Gerencie a autenticação de dois fatores da sua conta."
 	}
 }

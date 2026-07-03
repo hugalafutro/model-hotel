@@ -101,6 +101,7 @@
 			"requests": "Kérések",
 			"appLogs": "Naplók",
 			"settings": "Beállítások",
+			"security": "Biztonság",
 			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint - {{closed}} működőképes / {{halfOpen}} helyreállítási fázisban / {{open}} kioldott",
 			"discoveryChangesBadge_one": "{{count}} módosítás a háttérbeli felderítésből – kattintson a felülvizsgálathoz",
 			"discoveryChangesBadge_other": "Az {{count}} változások a háttérbeli felderítésből származnak – kattintson a felülvizsgálathoz",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Kérjük, írja be a TOTP-kódját",
 			"totpFailed": "Érvénytelen adminisztrátori token vagy TOTP-kód",
+			"userTotpFailed": "Érvénytelen TOTP- vagy helyreállítási kód",
 			"totpStep": "A kétfaktoros hitelesítés engedélyezve van. Írja be az azonosítóalkalmazásból kapott 6 számjegyű kódot.",
 			"totpThrottled": "Túl sok próbálkozás. Várjon egy pillanatot, és próbálja újra.",
 			"signInWithSSO": "Bejelentkezés SSO-val",
@@ -2771,7 +2773,8 @@
 			"status": "Állapot",
 			"lastLogin": "Utolsó bejelentkezés",
 			"allGrants": "Minden",
-			"noGrants": "Nincs"
+			"noGrants": "Nincs",
+			"totpEnabled": "Kétlépcsős azonosítás bekapcsolva"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Token/perc",
 			"noCap": "Nincs korlát",
-			"deleteKeysNote": "A fiókhoz tartozó virtuális kulcsok megmaradnak, és gazdátlanná válnak."
+			"deleteKeysNote": "A fiókhoz tartozó virtuális kulcsok megmaradnak, és gazdátlanná válnak.",
+			"totpResetButton": "Kétlépcsős azonosítás visszaállítása",
+			"totpResetHint": "Eltávolítja a felhasználó hitelesítő alkalmazását és helyreállítási kódjait, így csak jelszóval jelentkezhet be.",
+			"totpResetConfirmTitle": "Kétlépcsős azonosítás visszaállítása",
+			"totpResetConfirmMessage": "Ez eltávolítja a hitelesítő alkalmazás hozzárendelését és a felhasználó összes helyreállítási kódját. A jelszó változatlan marad."
 		},
 		"toast": {
 			"created": "Felhasználó létrehozva",
@@ -2825,11 +2832,16 @@
 			"deleted": "Felhasználó törölve",
 			"passwordReset": "Jelszó visszaállítva",
 			"saveFailed": "A felhasználó mentése nem sikerült",
-			"deleteFailed": "A felhasználó törlése nem sikerült"
+			"deleteFailed": "A felhasználó törlése nem sikerült",
+			"totpReset": "Kétlépcsős azonosítás visszaállítva"
 		},
 		"validation": {
 			"usernameRequired": "A felhasználónév kötelező",
 			"passwordShort": "A jelszónak legalább 8 karakter hosszúnak kell lennie"
 		}
+	},
+	"security": {
+		"title": "Biztonság",
+		"description": "Kezelje fiókja kétlépcsős azonosítását."
 	}
 }
