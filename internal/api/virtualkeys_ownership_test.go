@@ -120,6 +120,32 @@ func TestVirtualKeysAPI_CreateRejectsBadOwner(t *testing.T) {
 	}
 }
 
+func TestVirtualKeysAPI_UpdateRejectsBadOwner(t *testing.T) {
+	router, _, _ := setupOwnershipTest(t)
+
+	// A plain unowned key to reassign.
+	w := doJSON(t, router, http.MethodPost, "/virtual-keys", envAdminToken, `{"name":"reassign-me"}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", w.Code, w.Body.String())
+	}
+	id := decodeVK(t, w.Body.Bytes()).ID
+
+	// Reassigning to a malformed UUID is a 400 (resolveWriteOwner parse error).
+	w = doJSON(t, router, http.MethodPut, "/virtual-keys/"+id, envAdminToken,
+		`{"name":"reassign-me","owner_user_id":"not-a-uuid"}`)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("update to non-uuid owner: %d, want 400", w.Code)
+	}
+
+	// Reassigning to a valid-but-unknown UUID is a 400 (FK violation surfaced
+	// from the update statement).
+	w = doJSON(t, router, http.MethodPut, "/virtual-keys/"+id, envAdminToken,
+		`{"name":"reassign-me","owner_user_id":"00000000-0000-0000-0000-000000000001"}`)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("update to ghost owner: %d %s, want 400", w.Code, w.Body.String())
+	}
+}
+
 func TestVirtualKeysAPI_NonAdminScopedToOwnKeys(t *testing.T) {
 	router, loginAs, mkUser := setupOwnershipTest(t)
 	aliceID := mkUser("vk-alice", []string{string(user.GrantVirtualKeys)})
@@ -184,6 +210,13 @@ func TestVirtualKeysAPI_NonAdminScopedToOwnKeys(t *testing.T) {
 	w = doJSON(t, router, http.MethodGet, "/virtual-keys/"+sharedKey.ID, bob, "")
 	if w.Code != http.StatusNotFound {
 		t.Errorf("GET unowned key as bob: %d, want 404", w.Code)
+	}
+
+	// Deleting a key that does not exist at all is also a 404 for a non-admin
+	// (the ownership pre-read reports the absent row as missing).
+	w = doJSON(t, router, http.MethodDelete, "/virtual-keys/00000000-0000-0000-0000-0000000000ff", bob, "")
+	if w.Code != http.StatusNotFound {
+		t.Errorf("DELETE missing key as bob: %d, want 404", w.Code)
 	}
 
 	// Alice can rename her key, and cannot give it away or orphan it.

@@ -1747,3 +1747,54 @@ func TestProxyKeyMiddleware_UnownedKeyHasNoOwnerContext(t *testing.T) {
 		t.Error("unowned key must not carry owner context")
 	}
 }
+
+// TestVirtualKeyRepoAdapter_FindByKeyHashMapsOwner exercises the real
+// adapter (not the mock): a DB-backed owned key must have its owner enabled
+// flag and limits copied into OwnerInfo. This is the seam the proxy trusts to
+// carry per-user enforcement data out of the repository.
+func TestVirtualKeyRepoAdapter_FindByKeyHashMapsOwner(t *testing.T) {
+	ctx := context.Background()
+	pool := testDB.Pool()
+	suffix := uuid.New().String()[:8]
+
+	rps := 3.5
+	burst := 7
+	tpm := 9000
+	var ownerID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO users (username, password_hash, enabled, rate_limit_rps, rate_limit_burst, rate_limit_tpm)
+		 VALUES ($1, 'x', true, $2, $3, $4) RETURNING id`,
+		"adapter-owner-"+suffix, rps, burst, tpm).Scan(&ownerID); err != nil {
+		t.Fatalf("seed owner: %v", err)
+	}
+	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, ownerID) })
+
+	repo := virtualkey.NewRepository(pool)
+	created, err := repo.Create(ctx,
+		"adapter-owned-"+suffix, "hash-adapter-"+suffix, "sk-...ad",
+		nil, nil, nil, nil, nil, &ownerID)
+	if err != nil {
+		t.Fatalf("create owned key: %v", err)
+	}
+	t.Cleanup(func() { _ = repo.Delete(context.Background(), created.ID) })
+
+	adapter := &virtualKeyRepoAdapter{repo: repo}
+	info, err := adapter.FindByKeyHash(ctx, "hash-adapter-"+suffix)
+	if err != nil {
+		t.Fatalf("adapter FindByKeyHash: %v", err)
+	}
+	if info.Owner == nil {
+		t.Fatal("adapter dropped the owner; Owner = nil")
+	}
+	if info.Owner.ID != ownerID.String() {
+		t.Errorf("owner id = %q, want %s", info.Owner.ID, ownerID)
+	}
+	if !info.Owner.Enabled {
+		t.Error("owner enabled flag not carried")
+	}
+	if info.Owner.RateLimitRPS == nil || *info.Owner.RateLimitRPS != rps ||
+		info.Owner.RateLimitBurst == nil || *info.Owner.RateLimitBurst != burst ||
+		info.Owner.RateLimitTPM == nil || *info.Owner.RateLimitTPM != tpm {
+		t.Errorf("owner limits not carried: %+v", info.Owner)
+	}
+}
