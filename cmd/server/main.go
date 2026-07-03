@@ -983,6 +983,11 @@ func main() {
 		debuglog.Error("server: error during shutdown", "error", err)
 	}
 
+	// The server has stopped accepting requests, so no new audit goroutines can
+	// spawn; drain the ones already in flight before the deferred database.Close
+	// so their inserts are not lost.
+	auditRecorder.Wait()
+
 	debuglog.Info("server: stopped")
 }
 

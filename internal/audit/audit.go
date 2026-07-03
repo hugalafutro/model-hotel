@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -66,6 +67,9 @@ type Recorder struct {
 	// settings change applies without restart. Nil means DefaultRetentionDays.
 	retentionDays func() int
 	lastPruneUnix atomic.Int64
+	// wg tracks the in-flight background record goroutines so Wait can drain
+	// them (graceful shutdown, deterministic tests).
+	wg sync.WaitGroup
 }
 
 // New creates a Recorder. retentionDays may be nil (default retention).
@@ -145,11 +149,9 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 		}
 		// Recorded on a background goroutine: the response is already written,
 		// so the insert (up to 5s under DB pressure) must not hold the handler
-		// goroutine or tie up server concurrency. Best-effort by design.
-		//nolint:gosec // G118: record deliberately uses a background context so a
-		// client disconnect can never drop the audit row; the request context is
-		// the wrong scope here.
-		go rec.record(Entry{
+		// goroutine or tie up server concurrency. Best-effort by design. The
+		// goroutine is tracked by rec.wg so Wait can drain it on shutdown.
+		entry := Entry{
 			Actor:      actor,
 			ActorRole:  role,
 			Method:     r.Method,
@@ -158,7 +160,15 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 			EntityID:   entityID,
 			StatusCode: status,
 			RemoteAddr: r.RemoteAddr,
-		})
+		}
+		rec.wg.Add(1)
+		//nolint:gosec // G118: record deliberately uses a background context so a
+		// client disconnect can never drop the audit row; the request context is
+		// the wrong scope here.
+		go func() {
+			defer rec.wg.Done()
+			rec.record(entry)
+		}()
 	})
 }
 
@@ -178,6 +188,14 @@ func (rec *Recorder) record(e Entry) {
 		return
 	}
 	rec.maybePrune()
+}
+
+// Wait blocks until every background record goroutine spawned so far has
+// finished. Call it during graceful shutdown (after the HTTP server has
+// stopped accepting requests) so pending audit rows are flushed before the
+// pool closes, and in tests to make the async trail deterministic.
+func (rec *Recorder) Wait() {
+	rec.wg.Wait()
 }
 
 // maybePrune runs the retention DELETE at most once per pruneInterval. It opens

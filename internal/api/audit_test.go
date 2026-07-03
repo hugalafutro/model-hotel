@@ -34,7 +34,12 @@ func setupAuditTest(t *testing.T) (chi.Router, func(id string) string, func(name
 	sessionMgr := webauthn.NewSessionManager(webauthnRepo)
 	h.SetWebAuthnSessionManager(sessionMgr)
 	h.SetUserAuth(userRepo, webauthnRepo)
-	h.SetAudit(audit.New(pool, nil))
+	rec := audit.New(pool, nil)
+	h.SetAudit(rec)
+	// The middleware records on a background goroutine. Drain them when the test
+	// ends so a lingering insert can't land in the shared table after the next
+	// test truncates it (which would inflate that test's row counts).
+	t.Cleanup(rec.Wait)
 
 	r := chi.NewRouter()
 	r.Use(h.AuthMiddleware)
