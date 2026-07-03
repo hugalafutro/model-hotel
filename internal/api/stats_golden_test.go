@@ -117,7 +117,7 @@ func TestCalculateStats_Golden(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			s, err := handler.calculateStats(ctx, 24*time.Hour, tc.excludeDeleted, tc.metric, true)
+			s, err := handler.calculateStats(ctx, 24*time.Hour, tc.excludeDeleted, tc.metric, true, "")
 			if err != nil {
 				t.Fatalf("calculateStats: %v", err)
 			}
@@ -189,7 +189,7 @@ func TestCalculateStats_CrossFill(t *testing.T) {
 	mustInsert("2 days")
 
 	// period = 24h: primary fills 24h (1 recent), cross-fill fills 7d (both).
-	s24, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", false)
+	s24, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", false, "")
 	if err != nil {
 		t.Fatalf("calculateStats 24h: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestCalculateStats_CrossFill(t *testing.T) {
 	}
 
 	// period = 7d: primary fills 7d (both), cross-fill fills 24h (1 recent).
-	s7, err := handler.calculateStats(ctx, 7*24*time.Hour, false, "requests", false)
+	s7, err := handler.calculateStats(ctx, 7*24*time.Hour, false, "requests", false, "")
 	if err != nil {
 		t.Fatalf("calculateStats 7d: %v", err)
 	}

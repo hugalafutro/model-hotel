@@ -462,6 +462,8 @@ export const api = {
 				to?: string;
 				sort_by?: string;
 				sort_dir?: string;
+				/** Admin-only filter: scope to keys owned by this user. */
+				owner_user_id?: string;
 			} = {},
 		): Promise<LogsResponse> => {
 			return fetchJSON<LogsResponse>(
@@ -476,6 +478,7 @@ export const api = {
 					to: params.to,
 					sort_by: params.sort_by,
 					sort_dir: params.sort_dir,
+					owner_user_id: params.owner_user_id,
 				}),
 				{ headers: getAuthHeaders() },
 				"Failed to fetch logs",
@@ -513,6 +516,8 @@ export const api = {
 			from?: string;
 			to?: string;
 			sort_dir?: string;
+			/** Admin-only filter: scope to keys owned by this user. */
+			owner_user_id?: string;
 		}): Promise<LogsCursorResponse> => {
 			return fetchJSON<LogsCursorResponse>(
 				buildUrl("/api/logs/cursor", {
@@ -526,6 +531,7 @@ export const api = {
 					from: params.from,
 					to: params.to,
 					sort_dir: params.sort_dir,
+					owner_user_id: params.owner_user_id,
 				}),
 				{ headers: getAuthHeaders() },
 				"Failed to fetch logs (cursor)",
@@ -639,6 +645,8 @@ export const api = {
 			excludeDeleted?: boolean;
 			metric?: "requests" | "tokens";
 			includeLatency?: boolean;
+			/** Admin-only filter: scope to keys owned by this user. */
+			ownerUserID?: string;
 		}): Promise<Stats> => {
 			return fetchJSON<Stats>(
 				buildUrl("/api/stats", {
@@ -646,6 +654,7 @@ export const api = {
 					exclude_deleted: opts?.excludeDeleted ? "true" : undefined,
 					metric: opts?.metric,
 					include_latency: opts?.includeLatency ? "true" : undefined,
+					owner_user_id: opts?.ownerUserID,
 				}),
 				{ headers: getAuthHeaders() },
 				"Failed to fetch stats",
@@ -654,11 +663,14 @@ export const api = {
 		getTimeSeries: async (opts?: {
 			period?: string;
 			excludeDeleted?: boolean;
+			/** Admin-only filter: scope to keys owned by this user. */
+			ownerUserID?: string;
 		}): Promise<TimeSeriesStats> => {
 			return fetchJSON<TimeSeriesStats>(
 				buildUrl("/api/stats/timeseries", {
 					period: opts?.period,
 					exclude_deleted: opts?.excludeDeleted ? "true" : undefined,
+					owner_user_id: opts?.ownerUserID,
 				}),
 				{ headers: getAuthHeaders() },
 				"Failed to fetch time-series stats",
@@ -668,12 +680,15 @@ export const api = {
 			period?: string;
 			metric?: string;
 			excludeDeleted?: boolean;
+			/** Admin-only filter: scope to keys owned by this user. */
+			ownerUserID?: string;
 		}): Promise<ProviderDistributionStats> => {
 			return fetchJSON<ProviderDistributionStats>(
 				buildUrl("/api/stats/provider-distribution", {
 					period: opts?.period,
 					metric: opts?.metric,
 					exclude_deleted: opts?.excludeDeleted ? "true" : undefined,
+					owner_user_id: opts?.ownerUserID,
 				}),
 				{ headers: getAuthHeaders() },
 				"Failed to fetch provider distribution",

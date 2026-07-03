@@ -1168,7 +1168,9 @@
 			"source": "Извор",
 			"logsPlaceholder": "Филтрирај логове…",
 			"allStatus": "Сви статуси",
-			"allEndpoints": "Сви модалитети"
+			"allEndpoints": "Сви модалитети",
+			"owner": "Vlasnik",
+			"allOwners": "Svi korisnici"
 		},
 		"endpoint": {
 			"chat": "Чет",

@@ -97,6 +97,15 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
+	// Non-admins can only fetch rows from keys they own; a non-owned id scans
+	// zero rows and answers 404 below, so ownership is not an existence oracle.
+	ownerPredicate := ""
+	ownerArgs := []any{id}
+	if scope := ownerScopeFromIdentity(r); scope != "" {
+		ownerPredicate = " AND rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = $2)"
+		ownerArgs = append(ownerArgs, scope)
+	}
+
 	var entry LogEntry
 	err := h.dbPool.Pool().QueryRow(ctx, `
 		SELECT rl.id, COALESCE(rl.provider_id::text, ''),
@@ -129,8 +138,8 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 			COALESCE(rl.error_kind, '')
 		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
 		LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
-		WHERE rl.id = $1`,
-		id,
+		WHERE rl.id = $1`+ownerPredicate,
+		ownerArgs...,
 	).Scan(
 		&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID,
 		&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
@@ -160,6 +169,38 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, entry)
+}
+
+// ownerScopeFromIdentity returns the forced virtual-key-owner scope for the
+// caller: non-admin identities only ever see traffic from keys they own, so
+// their own user id is returned. Admins are unscoped (""). A non-admin
+// without a users row cannot normally exist (resolveIdentity rejects it), but
+// if one ever appears it scopes to uuid.Nil, which owns no keys - fail closed,
+// not open.
+func ownerScopeFromIdentity(r *http.Request) string {
+	id := user.IdentityFrom(r.Context())
+	if id == nil || id.IsAdmin() {
+		return ""
+	}
+	if id.UserID == nil {
+		return uuid.Nil.String()
+	}
+	return id.UserID.String()
+}
+
+// logOwnerScope resolves the owner filter for a log/stats listing: the forced
+// identity scope for non-admins, or the optional ?owner_user_id=<uuid> filter
+// for admins (ignored when unparseable, matching the other lenient filters).
+func logOwnerScope(r *http.Request) string {
+	if scope := ownerScopeFromIdentity(r); scope != "" {
+		return scope
+	}
+	if v := r.URL.Query().Get("owner_user_id"); v != "" {
+		if u, err := uuid.Parse(v); err == nil {
+			return u.String()
+		}
+	}
+	return ""
 }
 
 // LogsCursorResponse is the cursor-based paginated response for request logs.
@@ -276,7 +317,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 
 	args := []any{}
 	argIndex := 1
-	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate, p.endpointType)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID)
 	if p.cursorStr != "" {
 		query, args, argIndex = appendKeysetPredicate(query, args, argIndex, p.cursor, p.direction, p.sortDir)
 	}
@@ -301,7 +342,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 func (h *Handler) countLogs(ctx context.Context, p logListParams) int {
 	query := "SELECT COUNT(*) FROM request_logs rl WHERE 1=1"
 	args := []any{}
-	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate, p.endpointType)
+	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID)
 	var total int
 	_ = h.dbPool.Pool().QueryRow(ctx, query, args...).Scan(&total)
 	return total
@@ -385,7 +426,16 @@ func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 // count copy lacked the `statusCode >= 0` guard the data copy has; both now use
 // the guard, so an invalid negative status_code is uniformly ignored — a
 // behaviour-neutral fix since status codes are always >= 0).
-func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, statusCodeStr, fromDate, toDate, endpointType string) (string, []any, int) {
+func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, statusCodeStr, fromDate, toDate, endpointType, ownerUserID string) (string, []any, int) {
+	// Owner scope first: for non-admins this is mandatory row-level security
+	// (only traffic from keys they own; rows without a virtual_key_id - admin
+	// chat, arena - are invisible by construction), for admins an optional
+	// dashboard filter.
+	if ownerUserID != "" {
+		query += " AND rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = $" + util.IntToStr(argIndex) + ")"
+		args = append(args, ownerUserID)
+		argIndex++
+	}
 	if modelID != "" {
 		query += " AND rl.model_id ILIKE $" + util.IntToStr(argIndex)
 		args = append(args, "%"+modelID+"%")
@@ -475,6 +525,7 @@ type logListParams struct {
 	cursor       logCursor
 	direction    string
 	sortDir      string
+	ownerUserID  string
 	modelID      string
 	providerID   string
 	statusCode   string
@@ -491,6 +542,7 @@ func parseLogListParams(w http.ResponseWriter, r *http.Request) (logListParams, 
 		cursorStr:    r.URL.Query().Get("cursor"),
 		direction:    r.URL.Query().Get("direction"),
 		sortDir:      r.URL.Query().Get("sort_dir"),
+		ownerUserID:  logOwnerScope(r),
 		modelID:      r.URL.Query().Get("model_id"),
 		providerID:   r.URL.Query().Get("provider_id"),
 		statusCode:   r.URL.Query().Get("status_code"),
@@ -619,7 +671,11 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	if perPage > 200 {
 		perPage = 200
 	}
-	cacheKey := r.URL.RawQuery
+	ownerUserID := logOwnerScope(r)
+	// The response cache is shared across callers, so the key must carry the
+	// owner scope: a non-admin page and the admin's unscoped page for the same
+	// RawQuery are different result sets.
+	cacheKey := ownerUserID + "|" + r.URL.RawQuery
 	modelID := r.URL.Query().Get("model_id")
 	providerID := r.URL.Query().Get("provider_id")
 	statusCodeStr := r.URL.Query().Get("status_code")
@@ -668,7 +724,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	args := []any{}
 	argIndex := 1
-	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, statusCodeStr, fromDate, toDate, endpointType)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, statusCodeStr, fromDate, toDate, endpointType, ownerUserID)
 
 	sd := sortColumns[sortBy]
 	orderClause := " ORDER BY "

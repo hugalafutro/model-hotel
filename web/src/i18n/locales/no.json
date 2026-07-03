@@ -1168,7 +1168,9 @@
 			"source": "Kilde",
 			"logsPlaceholder": "Filtrer logger…",
 			"allStatus": "Alle statuser",
-			"allEndpoints": "Alle modaliteter"
+			"allEndpoints": "Alle modaliteter",
+			"owner": "Eier",
+			"allOwners": "Alle brukere"
 		},
 		"endpoint": {
 			"chat": "Samtale",

@@ -1168,7 +1168,9 @@
 			"source": "출처",
 			"logsPlaceholder": "로그 필터링…",
 			"allStatus": "모든 상태",
-			"allEndpoints": "모든 모달리티"
+			"allEndpoints": "모든 모달리티",
+			"owner": "소유자",
+			"allOwners": "모든 사용자"
 		},
 		"endpoint": {
 			"chat": "채팅",

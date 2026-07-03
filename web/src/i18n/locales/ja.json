@@ -1168,7 +1168,9 @@
 			"source": "ソース",
 			"logsPlaceholder": "ログのフィルタリング…",
 			"allStatus": "すべてのステータス",
-			"allEndpoints": "すべてのモダリティ"
+			"allEndpoints": "すべてのモダリティ",
+			"owner": "所有者",
+			"allOwners": "すべてのユーザー"
 		},
 		"endpoint": {
 			"chat": "チャット",

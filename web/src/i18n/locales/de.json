@@ -1168,7 +1168,9 @@
 			"source": "Quelle",
 			"logsPlaceholder": "Protokolle… filtern",
 			"allStatus": "Alle Status",
-			"allEndpoints": "Alle Modalitäten"
+			"allEndpoints": "Alle Modalitäten",
+			"owner": "Besitzer",
+			"allOwners": "Alle Benutzer"
 		},
 		"endpoint": {
 			"chat": "Chat",

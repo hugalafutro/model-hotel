@@ -1168,7 +1168,9 @@
 			"source": "fonte",
 			"logsPlaceholder": "Filtrar logs…",
 			"allStatus": "Todos os status",
-			"allEndpoints": "Todas as modalidades"
+			"allEndpoints": "Todas as modalidades",
+			"owner": "Proprietário",
+			"allOwners": "Todos os usuários"
 		},
 		"endpoint": {
 			"chat": "Bate-papo",

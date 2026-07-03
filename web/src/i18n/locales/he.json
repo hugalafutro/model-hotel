@@ -1168,7 +1168,9 @@
 			"source": "מקור",
 			"logsPlaceholder": "סינון יומנים…",
 			"allStatus": "כל הסטטוסים",
-			"allEndpoints": "כל המודאליות"
+			"allEndpoints": "כל המודאליות",
+			"owner": "בעלים",
+			"allOwners": "כל המשתמשים"
 		},
 		"endpoint": {
 			"chat": "צ'אט",

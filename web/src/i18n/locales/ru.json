@@ -1168,7 +1168,9 @@
 			"source": "Источник",
 			"logsPlaceholder": "Фильтр журналов…",
 			"allStatus": "Все статусы",
-			"allEndpoints": "Все модальности"
+			"allEndpoints": "Все модальности",
+			"owner": "Владелец",
+			"allOwners": "Все пользователи"
 		},
 		"endpoint": {
 			"chat": "Чат",

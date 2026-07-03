@@ -152,6 +152,18 @@ func vkScope(excludeDeleted bool) (join, filter string) {
 	return "", ""
 }
 
+// ownerFilterFragment returns a WHERE fragment restricting rows to virtual
+// keys owned by ownerID, or "" when unscoped. The id is inlined as a literal:
+// it only ever comes from logOwnerScope (uuid.Parse-validated or an identity
+// UUID), so it cannot inject, and threading an extra bind arg through every
+// stats query would touch a dozen call sites for no gain.
+func ownerFilterFragment(ownerID string) string {
+	if ownerID == "" {
+		return ""
+	}
+	return " AND rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = '" + ownerID + "')"
+}
+
 // metricValueSelect returns the aggregate column expression (aliased "val") for
 // the requested metric: summed tokens vs request count. Single source of truth
 // for the SELECT used by the by-model/provider/virtual-key breakdowns.
@@ -168,7 +180,7 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	excludeDeleted := parseExcludeDeleted(r)
 	metric := parseMetric(r)
 	includeLatency := parseIncludeLatency(r)
-	stats, err := h.calculateStats(r.Context(), period, excludeDeleted, metric, includeLatency)
+	stats, err := h.calculateStats(r.Context(), period, excludeDeleted, metric, includeLatency, logOwnerScope(r))
 	if err != nil {
 		respondError(w, "failed to calculate stats", err, http.StatusInternalServerError)
 		return
@@ -257,12 +269,12 @@ func (h *StatsHandler) statByProvider(ctx context.Context, stats *StatsResponse,
 // excluding deleted keys) and the chat/arena admin routes keyed by
 // virtual_key_name (Q4c). The main query failure is fatal; the two aggregates
 // are best-effort (logged via their nil-error guards, never abort).
-func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsResponse, metric string, since time.Time, excludeDeleted bool) error {
+func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsResponse, metric string, since time.Time, excludeDeleted bool, ownerID string) error {
 	virtualKeyQuery := `
 		SELECT vk.name, ` + metricValueSelect(metric) + `
 		FROM request_logs rl
 		JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
-		WHERE rl.created_at >= $1
+		WHERE rl.created_at >= $1` + ownerFilterFragment(ownerID) + `
 		GROUP BY vk.name
 		ORDER BY val DESC
 		LIMIT 10`
@@ -281,6 +293,12 @@ func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsRespons
 			continue
 		}
 		stats.ByVirtualKey[name] = val
+	}
+
+	// Queries 4b/4c only make sense unscoped: deleted-key rows cannot be
+	// attributed to an owner anymore, and chat/arena rows are admin traffic.
+	if ownerID != "" {
+		return nil
 	}
 
 	// Query 4b: Deleted virtual keys aggregate — only when not excluding deleted keys
@@ -567,7 +585,7 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 	}
 }
 
-func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool) (*StatsResponse, error) {
+func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool, ownerID string) (*StatsResponse, error) {
 	stats := &StatsResponse{
 		ByModel:      make(map[string]int64),
 		ByProvider:   make(map[string]int64),
@@ -575,6 +593,10 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	}
 
 	vkJoin, vkFilter := vkScope(excludeDeleted)
+	// Owner scope rides the same filter seam as the deleted-key toggle: for
+	// non-admins it is mandatory row-level security, for admins an optional
+	// dashboard filter.
+	vkFilter += ownerFilterFragment(ownerID)
 
 	now := time.Now().UTC()
 	since := now.Add(-period)
@@ -591,7 +613,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	if err := h.statByProvider(ctx, stats, vkJoin, vkFilter, metric, since); err != nil {
 		return nil, err
 	}
-	if err := h.statByVirtualKey(ctx, stats, metric, since, excludeDeleted); err != nil {
+	if err := h.statByVirtualKey(ctx, stats, metric, since, excludeDeleted, ownerID); err != nil {
 		return nil, err
 	}
 
@@ -619,6 +641,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		vkJoin = " LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id"
 		vkFilter = " AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
 	}
+	vkFilter += ownerFilterFragment(logOwnerScope(r))
 
 	bucketSize := "5min"
 	expectedBuckets := 288
@@ -767,6 +790,7 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 		vkJoin = " LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id"
 		vkFilter = " AND (rl.virtual_key_id IS NULL OR vk.id IS NOT NULL)"
 	}
+	vkFilter += ownerFilterFragment(logOwnerScope(r))
 
 	var selectCol string
 	var havingClause string

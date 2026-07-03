@@ -1168,7 +1168,9 @@
 			"source": "Lähde",
 			"logsPlaceholder": "Suodata lokit…",
 			"allStatus": "Kaikki tilat",
-			"allEndpoints": "Kaikki modaliteetit"
+			"allEndpoints": "Kaikki modaliteetit",
+			"owner": "Omistaja",
+			"allOwners": "Kaikki käyttäjät"
 		},
 		"endpoint": {
 			"chat": "Keskustelu",

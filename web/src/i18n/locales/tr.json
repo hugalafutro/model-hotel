@@ -1168,7 +1168,9 @@
 			"source": "Kaynak",
 			"logsPlaceholder": "… 'daki günlükleri filtrele",
 			"allStatus": "Tüm Durumlar",
-			"allEndpoints": "Tüm Modaliteler"
+			"allEndpoints": "Tüm Modaliteler",
+			"owner": "Sahip",
+			"allOwners": "Tüm kullanıcılar"
 		},
 		"endpoint": {
 			"chat": "Sohbet",

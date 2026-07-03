@@ -1168,7 +1168,9 @@
 			"source": "Source",
 			"logsPlaceholder": "Filtrer les logs…",
 			"allStatus": "Tous les statuts",
-			"allEndpoints": "Toutes les modalités"
+			"allEndpoints": "Toutes les modalités",
+			"owner": "Propriétaire",
+			"allOwners": "Tous les utilisateurs"
 		},
 		"endpoint": {
 			"chat": "Discuter",

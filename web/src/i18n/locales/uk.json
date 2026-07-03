@@ -1168,7 +1168,9 @@
 			"source": "Джерело",
 			"logsPlaceholder": "Фільтрувати журнали…",
 			"allStatus": "Усі статуси",
-			"allEndpoints": "Усі модальності"
+			"allEndpoints": "Усі модальності",
+			"owner": "Власник",
+			"allOwners": "Усі користувачі"
 		},
 		"endpoint": {
 			"chat": "Чат",

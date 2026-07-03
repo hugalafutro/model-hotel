@@ -35,6 +35,9 @@ export interface UseDashboardReturn {
 	setGlobalMetric: (metric: MetricType) => void;
 	excludeDeleted: boolean;
 	setExcludeDeleted: (exclude: boolean) => void;
+	/** Admin-only owner filter ("" = all users); non-admins are server-scoped. */
+	ownerUserID: string;
+	setOwnerUserID: (id: string) => void;
 
 	// State: per-section range/metric
 	requestsChartRange: Range;
@@ -208,6 +211,9 @@ export function useDashboard(): UseDashboardReturn {
 		{ deserialize: deserializeMetric },
 	);
 	const [excludeDeleted, setExcludeDeleted] = useState(false);
+	// Admin-only owner filter; rides every stats query like excludeDeleted.
+	const [ownerUserID, setOwnerUserID] = useState("");
+	const scoped = { ownerUserID: ownerUserID || undefined };
 
 	// Per-section local states: persisted in localStorage, synced from global
 	// header toggles when those change.
@@ -403,9 +409,13 @@ export function useDashboard(): UseDashboardReturn {
 		isLoading: statsLoading,
 		error: statsError,
 	} = useQuery({
-		queryKey: ["stats", globalRange, excludeDeleted],
+		queryKey: ["stats", globalRange, excludeDeleted, ownerUserID],
 		queryFn: () =>
-			api.stats.get({ period: toApiPeriod(globalRange), excludeDeleted }),
+			api.stats.get({
+				period: toApiPeriod(globalRange),
+				excludeDeleted,
+				...scoped,
+			}),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 		retry: 1,
@@ -432,22 +442,34 @@ export function useDashboard(): UseDashboardReturn {
 	});
 
 	const { data: tsData, isLoading: tsDataLoading } = useQuery({
-		queryKey: ["stats-timeseries", requestsChartRange, excludeDeleted],
+		queryKey: [
+			"stats-timeseries",
+			requestsChartRange,
+			excludeDeleted,
+			ownerUserID,
+		],
 		queryFn: () =>
 			api.stats.getTimeSeries({
 				period: toApiPeriod(requestsChartRange),
 				excludeDeleted,
+				...scoped,
 			}),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: tokenTsData, isLoading: tokenTsDataLoading } = useQuery({
-		queryKey: ["stats-timeseries-tokens", tokensChartRange, excludeDeleted],
+		queryKey: [
+			"stats-timeseries-tokens",
+			tokensChartRange,
+			excludeDeleted,
+			ownerUserID,
+		],
 		queryFn: () =>
 			api.stats.getTimeSeries({
 				period: toApiPeriod(tokensChartRange),
 				excludeDeleted,
+				...scoped,
 			}),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
@@ -459,12 +481,14 @@ export function useDashboard(): UseDashboardReturn {
 			doughnutRange,
 			doughnutMetric,
 			excludeDeleted,
+			ownerUserID,
 		],
 		queryFn: () =>
 			api.stats.getProviderDistribution({
 				period: toApiPeriod(doughnutRange),
 				metric: doughnutMetric,
 				excludeDeleted,
+				...scoped,
 			}),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
@@ -473,24 +497,38 @@ export function useDashboard(): UseDashboardReturn {
 	// Usage bar panels: each panel has independent range/metric controls.
 	// React Query de-dupes by query key, so when params match only 1 request is made.
 	const { data: modelsUsageStats, isLoading: modelsUsageLoading } = useQuery({
-		queryKey: ["stats-usage", modelsRange, modelsMetric, excludeDeleted],
+		queryKey: [
+			"stats-usage",
+			modelsRange,
+			modelsMetric,
+			excludeDeleted,
+			ownerUserID,
+		],
 		queryFn: () =>
 			api.stats.get({
 				period: toApiPeriod(modelsRange),
 				metric: modelsMetric,
 				excludeDeleted,
+				...scoped,
 			}),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: latencyStats, isLoading: latencyStatsLoading } = useQuery({
-		queryKey: ["stats-usage", latencyRange, excludeDeleted, "latency"],
+		queryKey: [
+			"stats-usage",
+			latencyRange,
+			excludeDeleted,
+			ownerUserID,
+			"latency",
+		],
 		queryFn: () =>
 			api.stats.get({
 				period: toApiPeriod(latencyRange),
 				excludeDeleted,
 				includeLatency: true,
+				...scoped,
 			}),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
@@ -502,21 +540,27 @@ export function useDashboard(): UseDashboardReturn {
 			virtualKeysRange,
 			virtualKeysMetric,
 			excludeDeleted,
+			ownerUserID,
 		],
 		queryFn: () =>
 			api.stats.get({
 				period: toApiPeriod(virtualKeysRange),
 				metric: virtualKeysMetric,
 				excludeDeleted,
+				...scoped,
 			}),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
 
 	const { data: tokenStats, isLoading: tokenStatsLoading } = useQuery({
-		queryKey: ["stats-tokens", tokenRange, excludeDeleted],
+		queryKey: ["stats-tokens", tokenRange, excludeDeleted, ownerUserID],
 		queryFn: () =>
-			api.stats.get({ period: toApiPeriod(tokenRange), excludeDeleted }),
+			api.stats.get({
+				period: toApiPeriod(tokenRange),
+				excludeDeleted,
+				...scoped,
+			}),
 		placeholderData: (prev) => prev,
 		refetchInterval: dashboardRefreshMs,
 	});
@@ -700,6 +744,8 @@ export function useDashboard(): UseDashboardReturn {
 		setGlobalMetric,
 		excludeDeleted,
 		setExcludeDeleted,
+		ownerUserID,
+		setOwnerUserID,
 
 		// State: per-section range/metric
 		requestsChartRange,

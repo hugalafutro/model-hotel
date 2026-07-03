@@ -1168,7 +1168,9 @@
 			"source": "Forrás",
 			"logsPlaceholder": "Naplók szűrése:…",
 			"allStatus": "Minden állapot",
-			"allEndpoints": "Minden modalitás"
+			"allEndpoints": "Minden modalitás",
+			"owner": "Tulajdonos",
+			"allOwners": "Minden felhasználó"
 		},
 		"endpoint": {
 			"chat": "Csevegés",

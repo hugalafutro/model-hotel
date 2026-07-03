@@ -39,7 +39,7 @@ func TestStats_QueryErrorPaths(t *testing.T) {
 	if err := handler.statByProvider(ctx, newStats(), "", "", "requests", since); err == nil {
 		t.Error("statByProvider: expected error on cancelled context")
 	}
-	if err := handler.statByVirtualKey(ctx, newStats(), "requests", since, false); err == nil {
+	if err := handler.statByVirtualKey(ctx, newStats(), "requests", since, false, ""); err == nil {
 		t.Error("statByVirtualKey: expected error on cancelled context")
 	}
 
@@ -60,7 +60,7 @@ func TestStats_QueryErrorPaths(t *testing.T) {
 	}
 
 	// calculateStats must propagate the first fatal helper's error.
-	if _, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", true); err == nil {
+	if _, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", true, ""); err == nil {
 		t.Error("calculateStats: expected error on cancelled context")
 	}
 }
@@ -126,7 +126,7 @@ func TestStats_CalculateStats7DayPeriod(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	result, err := handler.calculateStats(ctx, 7*24*time.Hour, false, "requests", true)
+	result, err := handler.calculateStats(ctx, 7*24*time.Hour, false, "requests", true, "")
 	if err != nil {
 		t.Fatalf("calculateStats with 7-day period: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestStats_CalculateStatsWithoutLatency(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	result, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", false)
+	result, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", false, "")
 	if err != nil {
 		t.Fatalf("calculateStats without latency: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestStats_CalculateStatsWithLatency(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	result, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", true)
+	result, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", true, "")
 	if err != nil {
 		t.Fatalf("calculateStats with latency: %v", err)
 	}

@@ -1168,7 +1168,9 @@
 			"source": "Font",
 			"logsPlaceholder": "Filtreu els registres…",
 			"allStatus": "Tots els estats",
-			"allEndpoints": "Totes les modalitats"
+			"allEndpoints": "Totes les modalitats",
+			"owner": "Propietari",
+			"allOwners": "Tots els usuaris"
 		},
 		"endpoint": {
 			"chat": "Xat",

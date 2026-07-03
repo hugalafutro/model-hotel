@@ -1168,7 +1168,9 @@
 			"source": "المصدر",
 			"logsPlaceholder": "تصفية السجلات…",
 			"allStatus": "جميع الحالات",
-			"allEndpoints": "جميع الأنماط"
+			"allEndpoints": "جميع الأنماط",
+			"owner": "المالك",
+			"allOwners": "كل المستخدمين"
 		},
 		"endpoint": {
 			"chat": "الدردشة",
