@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Proveedores de conmutación por error según el estado del disyuntor: {{closed}} en buen estado / {{halfOpen}} en recuperación / {{open}} disparado",
 			"discoveryChangesBadge_one": "Cambio {{count}} procedente de la detección en segundo plano: haz clic para revisarlo",
 			"discoveryChangesBadge_other": "Cambios en {{count}} derivados del análisis en segundo plano: haz clic para revisarlos",
-			"users": "Usuarios"
+			"users": "Usuarios",
+			"audit": "Auditoría"
 		},
 		"status": {
 			"apiStatus": "Estado de la API",
@@ -2856,6 +2857,33 @@
 			"success": "Contraseña cambiada. Inicia sesión de nuevo con tu nueva contraseña.",
 			"wrongCurrent": "La contraseña actual es incorrecta",
 			"failed": "No se pudo cambiar la contraseña"
+		}
+	},
+	"audit": {
+		"title": "Auditoría",
+		"description": "Registro de acciones de administración en esta instancia. El contenido de las peticiones nunca se registra.",
+		"filters": {
+			"actorPlaceholder": "Filtrar por actor…",
+			"method": "Método",
+			"allMethods": "Todos los métodos"
+		},
+		"purgeButton": "Vaciar todo",
+		"purgeConfirmTitle": "Vaciar registro de auditoría",
+		"purgeConfirmMessage": "Esto elimina todas las entradas de auditoría. El vaciado también se registra, así el historial siempre muestra quién lo limpió.",
+		"table": {
+			"time": "Hora",
+			"actor": "Actor",
+			"method": "Método",
+			"action": "Acción",
+			"entity": "Entidad",
+			"status": "Estado"
+		},
+		"showing": "Mostrando {{count}} de {{total}}",
+		"loadMore": "Cargar más",
+		"emptyState": "Aún no hay entradas de auditoría. Las acciones de administración que hacen cambios aparecerán aquí.",
+		"toast": {
+			"purged": "Registro de auditoría vaciado",
+			"purgeFailed": "No se pudo vaciar el registro de auditoría"
 		}
 	}
 }

@@ -9,6 +9,7 @@ import {
 	FileText,
 	GitBranch,
 	GitCompare,
+	History as HistoryIcon,
 	KeyRound,
 	Languages,
 	LayoutDashboard,
@@ -847,6 +848,12 @@ export function Layout({ children }: LayoutProps) {
 			// Self-service 2FA exists only for users-row identities; the env-token
 			// admin manages TOTP under Settings.
 			access: "user_account",
+		},
+		{
+			name: t("layout.nav.audit"),
+			href: "/audit",
+			icon: HistoryIcon,
+			access: "admin",
 		},
 		{
 			name: t("layout.nav.settings"),

@@ -239,6 +239,35 @@
 		"uk",
 		"zh"
 	],
+	"audit.table.action": [
+		"fr"
+	],
+	"audit.table.actor": [
+		"ca",
+		"es",
+		"nl"
+	],
+	"audit.table.status": [
+		"af",
+		"da",
+		"de",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"sr",
+		"sv"
+	],
+	"audit.title": [
+		"cs",
+		"de",
+		"fr",
+		"hu",
+		"it",
+		"nl",
+		"ro",
+		"sk"
+	],
 	"chat.aria.removeImage": [
 		"ar",
 		"da",
@@ -2431,6 +2460,16 @@
 		"sv",
 		"tr",
 		"vi"
+	],
+	"layout.nav.audit": [
+		"cs",
+		"de",
+		"fr",
+		"hu",
+		"it",
+		"nl",
+		"ro",
+		"sk"
 	],
 	"layout.nav.chat": [
 		"cs",

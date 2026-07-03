@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan - {{closed}} toimintakunnossa / {{halfOpen}} palautumassa / {{open}} laukeamassa",
 			"discoveryChangesBadge_one": "{{count}} muutos taustahakutoiminnosta - napsauta tarkistaaksesi",
 			"discoveryChangesBadge_other": "{{count}} muutokset taustahakutoiminnosta - napsauta tarkistaaksesi",
-			"users": "Käyttäjät"
+			"users": "Käyttäjät",
+			"audit": "Auditointi"
 		},
 		"status": {
 			"apiStatus": "API:n tila",
@@ -2856,6 +2857,33 @@
 			"success": "Salasana vaihdettu. Kirjaudu uudelleen uudella salasanalla.",
 			"wrongCurrent": "Nykyinen salasana on väärä",
 			"failed": "Salasanan vaihto epäonnistui"
+		}
+	},
+	"audit": {
+		"title": "Auditointi",
+		"description": "Tämän instanssin ylläpitotoimien jälki. Pyyntöjen sisältöä ei koskaan tallenneta.",
+		"filters": {
+			"actorPlaceholder": "Suodata tekijän mukaan…",
+			"method": "Metodi",
+			"allMethods": "Kaikki metodit"
+		},
+		"purgeButton": "Tyhjennä kaikki",
+		"purgeConfirmTitle": "Tyhjennä auditointijälki",
+		"purgeConfirmMessage": "Tämä poistaa kaikki auditointimerkinnät. Tyhjennys itsessään tallennetaan, joten jälki näyttää aina, kuka sen tyhjensi.",
+		"table": {
+			"time": "Aika",
+			"actor": "Tekijä",
+			"method": "Metodi",
+			"action": "Toiminto",
+			"entity": "Kohde",
+			"status": "Tila"
+		},
+		"showing": "Näytetään {{count}} / {{total}}",
+		"loadMore": "Lataa lisää",
+		"emptyState": "Ei vielä auditointimerkintöjä. Muutoksia tekevät ylläpitotoimet näkyvät täällä.",
+		"toast": {
+			"purged": "Auditointijälki tyhjennetty",
+			"purgeFailed": "Auditointijäljen tyhjennys epäonnistui"
 		}
 	}
 }

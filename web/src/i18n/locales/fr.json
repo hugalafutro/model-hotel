@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Fournisseurs de basculement par état du disjoncteur - {{closed}} en bon état / {{halfOpen}} en cours de récupération / {{open}} déclenché",
 			"discoveryChangesBadge_one": "Modification {{count}} issue de la découverte en arrière-plan - cliquer pour consulter",
 			"discoveryChangesBadge_other": "Modifications {{count}} issues de la découverte en arrière-plan - cliquez pour les consulter",
-			"users": "Utilisateurs"
+			"users": "Utilisateurs",
+			"audit": "Audit"
 		},
 		"status": {
 			"apiStatus": "État de l'API",
@@ -2856,6 +2857,33 @@
 			"success": "Mot de passe modifié. Reconnectez-vous avec votre nouveau mot de passe.",
 			"wrongCurrent": "Le mot de passe actuel est incorrect",
 			"failed": "Échec du changement de mot de passe"
+		}
+	},
+	"audit": {
+		"title": "Audit",
+		"description": "Journal des actions d'administration sur cette instance. Le contenu des requêtes n'est jamais enregistré.",
+		"filters": {
+			"actorPlaceholder": "Filtrer par acteur…",
+			"method": "Méthode",
+			"allMethods": "Toutes les méthodes"
+		},
+		"purgeButton": "Tout purger",
+		"purgeConfirmTitle": "Purger le journal d'audit",
+		"purgeConfirmMessage": "Ceci supprime toutes les entrées d'audit. La purge elle-même est enregistrée, le journal montre donc toujours qui l'a vidé.",
+		"table": {
+			"time": "Heure",
+			"actor": "Acteur",
+			"method": "Méthode",
+			"action": "Action",
+			"entity": "Entité",
+			"status": "Statut"
+		},
+		"showing": "Affichage de {{count}} sur {{total}}",
+		"loadMore": "Charger plus",
+		"emptyState": "Aucune entrée d'audit pour l'instant. Les actions d'administration modifiantes apparaîtront ici.",
+		"toast": {
+			"purged": "Journal d'audit purgé",
+			"purgeFailed": "Impossible de purger le journal d'audit"
 		}
 	}
 }

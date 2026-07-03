@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Các nhà cung cấp dự phòng theo trạng thái ngắt mạch - {{closed}} hoạt động bình thường / {{halfOpen}} đang phục hồi / {{open}} bị ngắt",
 			"discoveryChangesBadge_one": "Thay đổi {{count}} từ quá trình phát hiện nền - nhấp để xem lại",
 			"discoveryChangesBadge_other": "{{count}} thay đổi từ tính năng phát hiện nền - nhấp để xem lại",
-			"users": "Người dùng"
+			"users": "Người dùng",
+			"audit": "Kiểm tra"
 		},
 		"status": {
 			"apiStatus": "Trạng thái API",
@@ -2856,6 +2857,33 @@
 			"success": "Đã đổi mật khẩu. Hãy đăng nhập lại bằng mật khẩu mới.",
 			"wrongCurrent": "Mật khẩu hiện tại không đúng",
 			"failed": "Đổi mật khẩu thất bại"
+		}
+	},
+	"audit": {
+		"title": "Kiểm tra",
+		"description": "Nhật ký các thao tác quản trị trên phiên bản này. Nội dung yêu cầu không bao giờ được ghi lại.",
+		"filters": {
+			"actorPlaceholder": "Lọc theo người thực hiện…",
+			"method": "Phương thức",
+			"allMethods": "Tất cả phương thức"
+		},
+		"purgeButton": "Xóa tất cả",
+		"purgeConfirmTitle": "Xóa nhật ký kiểm tra",
+		"purgeConfirmMessage": "Thao tác này xóa mọi mục kiểm tra. Chính việc xóa cũng được ghi lại, nên nhật ký luôn cho biết ai đã dọn nó.",
+		"table": {
+			"time": "Thời gian",
+			"actor": "Người thực hiện",
+			"method": "Phương thức",
+			"action": "Thao tác",
+			"entity": "Đối tượng",
+			"status": "Trạng thái"
+		},
+		"showing": "Đang hiển thị {{count}} / {{total}}",
+		"loadMore": "Tải thêm",
+		"emptyState": "Chưa có mục kiểm tra nào. Các thao tác quản trị tạo thay đổi sẽ xuất hiện ở đây.",
+		"toast": {
+			"purged": "Đã xóa nhật ký kiểm tra",
+			"purgeFailed": "Không thể xóa nhật ký kiểm tra"
 		}
 	}
 }

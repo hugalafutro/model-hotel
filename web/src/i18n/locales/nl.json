@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status - {{closed}} gezond / {{halfOpen}} herstellend / {{open}} geactiveerd",
 			"discoveryChangesBadge_one": "{{count}} wijziging vanuit achtergronddetectie - klik om te bekijken",
 			"discoveryChangesBadge_other": "{{count}} wijzigingen als gevolg van achtergronddetectie - klik om te bekijken",
-			"users": "Gebruikers"
+			"users": "Gebruikers",
+			"audit": "Audit"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -2856,6 +2857,33 @@
 			"success": "Wachtwoord gewijzigd. Log opnieuw in met je nieuwe wachtwoord.",
 			"wrongCurrent": "Het huidige wachtwoord is onjuist",
 			"failed": "Wachtwoord wijzigen mislukt"
+		}
+	},
+	"audit": {
+		"title": "Audit",
+		"description": "Logboek van beheeracties op deze instantie. De inhoud van verzoeken wordt nooit vastgelegd.",
+		"filters": {
+			"actorPlaceholder": "Filter op actor…",
+			"method": "Methode",
+			"allMethods": "Alle methoden"
+		},
+		"purgeButton": "Alles wissen",
+		"purgeConfirmTitle": "Auditlogboek wissen",
+		"purgeConfirmMessage": "Dit verwijdert alle auditvermeldingen. Het wissen zelf wordt vastgelegd, zodat het logboek altijd toont wie het leegde.",
+		"table": {
+			"time": "Tijd",
+			"actor": "Actor",
+			"method": "Methode",
+			"action": "Actie",
+			"entity": "Entiteit",
+			"status": "Status"
+		},
+		"showing": "{{count}} van {{total}} weergegeven",
+		"loadMore": "Meer laden",
+		"emptyState": "Nog geen auditvermeldingen. Wijzigende beheeracties verschijnen hier.",
+		"toast": {
+			"purged": "Auditlogboek gewist",
+			"purgeFailed": "Kon het auditlogboek niet wissen"
 		}
 	}
 }

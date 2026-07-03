@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Фејловер провајдери по стању циркуитобрејкера - {{closed}} здрав / {{halfOpen}} опоравља се / {{open}} активиран",
 			"discoveryChangesBadge_one": "{{count}} промена из позадинског откривања - кликните да бисте прегледали",
 			"discoveryChangesBadge_other": "{{count}} промене из позадинског откривања - кликните да бисте прегледали",
-			"users": "Korisnici"
+			"users": "Korisnici",
+			"audit": "Ревизија"
 		},
 		"status": {
 			"apiStatus": "Статус API",
@@ -2856,6 +2857,33 @@
 			"success": "Лозинка је промењена. Пријавите се поново новом лозинком.",
 			"wrongCurrent": "Тренутна лозинка није тачна",
 			"failed": "Промена лозинке није успела"
+		}
+	},
+	"audit": {
+		"title": "Ревизија",
+		"description": "Траг административних радњи на овој инстанци. Садржај захтева се никада не бележи.",
+		"filters": {
+			"actorPlaceholder": "Filtriraj po izvršiocu…",
+			"method": "Metoda",
+			"allMethods": "Sve metode"
+		},
+		"purgeButton": "Obriši sve",
+		"purgeConfirmTitle": "Obriši revizijski trag",
+		"purgeConfirmMessage": "Ovim se brišu svi revizijski zapisi. Samo brisanje se beleži, pa trag uvek pokazuje ko ga je očistio.",
+		"table": {
+			"time": "Vreme",
+			"actor": "Izvršilac",
+			"method": "Metoda",
+			"action": "Radnja",
+			"entity": "Entitet",
+			"status": "Status"
+		},
+		"showing": "Prikazano {{count}} od {{total}}",
+		"loadMore": "Učitaj još",
+		"emptyState": "Još nema revizijskih zapisa. Administrativne radnje koje prave izmene pojaviće se ovde.",
+		"toast": {
+			"purged": "Revizijski trag obrisan",
+			"purgeFailed": "Brisanje revizijskog traga nije uspelo"
 		}
 	}
 }

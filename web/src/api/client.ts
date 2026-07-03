@@ -2,6 +2,7 @@ import type {
 	AlertEventDef,
 	AlertStatus,
 	AppLogsCursorResponse,
+	AuditListResponse,
 	AuthStatus,
 	BackupClassification,
 	BackupEntry,
@@ -1339,6 +1340,40 @@ export const api = {
 					}),
 				},
 				"Password change failed",
+				);
+			},
+		},
+	// Admin-only audit trail of admin actions.
+	audit: {
+		list: async (params?: {
+			cursor?: string;
+			limit?: number;
+			actor?: string;
+			method?: string;
+			from?: string;
+			to?: string;
+		}): Promise<AuditListResponse> =>
+			fetchJSON<AuditListResponse>(
+				buildUrl("/api/audit", {
+					cursor: params?.cursor,
+					limit: params?.limit,
+					actor: params?.actor,
+					method: params?.method,
+					from: params?.from,
+					to: params?.to,
+				}),
+				{ headers: getAuthHeaders() },
+				"Failed to fetch audit entries",
+			),
+		purge: async (olderThan: string): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/audit/purge`,
+				{
+					method: "DELETE",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({ older_than: olderThan }),
+				},
+				"Failed to purge audit entries",
 			);
 		},
 	},

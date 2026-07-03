@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "サーキットブレーカーの状態によるフェイルオーバープロバイダー - {{closed}} 正常 / {{halfOpen}} 復旧中 / {{open}} トリップ",
 			"discoveryChangesBadge_one": "{{count}}：バックグラウンド検出からの変更 - クリックして確認",
 			"discoveryChangesBadge_other": "{{count}}はバックグラウンド検出による変更です - クリックして確認してください",
-			"users": "ユーザー"
+			"users": "ユーザー",
+			"audit": "監査"
 		},
 		"status": {
 			"apiStatus": "APIステータス",
@@ -2856,6 +2857,33 @@
 			"success": "パスワードを変更しました。新しいパスワードで再度サインインしてください。",
 			"wrongCurrent": "現在のパスワードが正しくありません",
 			"failed": "パスワードの変更に失敗しました"
+		}
+	},
+	"audit": {
+		"title": "監査",
+		"description": "このインスタンスでの管理操作の記録です。リクエストの内容が記録されることはありません。",
+		"filters": {
+			"actorPlaceholder": "実行者で絞り込み…",
+			"method": "メソッド",
+			"allMethods": "すべてのメソッド"
+		},
+		"purgeButton": "すべて削除",
+		"purgeConfirmTitle": "監査ログを削除",
+		"purgeConfirmMessage": "すべての監査エントリを削除します。削除操作自体も記録されるため、誰がクリアしたかは常に残ります。",
+		"table": {
+			"time": "時刻",
+			"actor": "実行者",
+			"method": "メソッド",
+			"action": "操作",
+			"entity": "対象",
+			"status": "ステータス"
+		},
+		"showing": "{{total}} 件中 {{count}} 件を表示",
+		"loadMore": "さらに読み込む",
+		"emptyState": "監査エントリはまだありません。変更を伴う管理操作がここに表示されます。",
+		"toast": {
+			"purged": "監査ログを削除しました",
+			"purgeFailed": "監査ログを削除できませんでした"
 		}
 	}
 }

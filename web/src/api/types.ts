@@ -781,6 +781,29 @@ export interface AlertStatus {
 	detail?: string;
 }
 
+// AuditEntry is one recorded admin action, served by GET /api/audit
+// (admin-only). Request bodies are never recorded server-side.
+export interface AuditEntry {
+	id: string;
+	created_at: string;
+	actor: string;
+	actor_role: string;
+	method: string;
+	route: string;
+	path: string;
+	entity_id?: string;
+	status_code: number;
+	remote_addr: string;
+}
+
+// AuditListResponse is the cursor-paginated audit page.
+export interface AuditListResponse {
+	entries: AuditEntry[];
+	total: number;
+	has_more: boolean;
+	next_cursor?: string;
+}
+
 // AuthStatus reports whether any enabled user accounts exist, read
 // unauthenticated on the login screen to decide whether to render the
 // username/password form. Served by GET /api/auth/status.

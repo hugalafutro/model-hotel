@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit - {{closed}} funcțional / {{halfOpen}} în recuperare / {{open}} declanșat",
 			"discoveryChangesBadge_one": "Modificare {{count}} din descoperirea în fundal - faceți clic pentru a revizui",
 			"discoveryChangesBadge_other": "Modificările {{count}} din procesul de descoperire în fundal - faceți clic pentru a le revizui",
-			"users": "Utilizatori"
+			"users": "Utilizatori",
+			"audit": "Audit"
 		},
 		"status": {
 			"apiStatus": "Stare API",
@@ -2856,6 +2857,33 @@
 			"success": "Parola a fost schimbată. Autentificați-vă din nou cu parola nouă.",
 			"wrongCurrent": "Parola actuală este incorectă",
 			"failed": "Parola nu a putut fi schimbată"
+		}
+	},
+	"audit": {
+		"title": "Audit",
+		"description": "Istoricul acțiunilor de administrare pe această instanță. Conținutul cererilor nu este niciodată înregistrat.",
+		"filters": {
+			"actorPlaceholder": "Filtrați după autor…",
+			"method": "Metodă",
+			"allMethods": "Toate metodele"
+		},
+		"purgeButton": "Șterge tot",
+		"purgeConfirmTitle": "Șterge istoricul de audit",
+		"purgeConfirmMessage": "Aceasta șterge toate intrările de audit. Ștergerea în sine este înregistrată, astfel istoricul arată întotdeauna cine l-a golit.",
+		"table": {
+			"time": "Ora",
+			"actor": "Autor",
+			"method": "Metodă",
+			"action": "Acțiune",
+			"entity": "Entitate",
+			"status": "Stare"
+		},
+		"showing": "Se afișează {{count}} din {{total}}",
+		"loadMore": "Încarcă mai multe",
+		"emptyState": "Nu există încă intrări de audit. Acțiunile de administrare care fac modificări vor apărea aici.",
+		"toast": {
+			"purged": "Istoric de audit șters",
+			"purgeFailed": "Istoricul de audit nu a putut fi șters"
 		}
 	}
 }

@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico - {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato",
 			"discoveryChangesBadge_one": "Modifica {{count}} derivante dal rilevamento in background - clicca per rivedere",
 			"discoveryChangesBadge_other": "Modifiche {{count}} derivanti dal rilevamento in background - clicca per rivedere",
-			"users": "Utenti"
+			"users": "Utenti",
+			"audit": "Audit"
 		},
 		"status": {
 			"apiStatus": "Stato API",
@@ -2856,6 +2857,33 @@
 			"success": "Password modificata. Accedi di nuovo con la nuova password.",
 			"wrongCurrent": "La password attuale non è corretta",
 			"failed": "Impossibile cambiare la password"
+		}
+	},
+	"audit": {
+		"title": "Audit",
+		"description": "Registro delle azioni di amministrazione su questa istanza. Il contenuto delle richieste non viene mai registrato.",
+		"filters": {
+			"actorPlaceholder": "Filtra per attore…",
+			"method": "Metodo",
+			"allMethods": "Tutti i metodi"
+		},
+		"purgeButton": "Svuota tutto",
+		"purgeConfirmTitle": "Svuota il registro di audit",
+		"purgeConfirmMessage": "Questo elimina tutte le voci di audit. Lo svuotamento stesso viene registrato, così il registro mostra sempre chi lo ha ripulito.",
+		"table": {
+			"time": "Ora",
+			"actor": "Attore",
+			"method": "Metodo",
+			"action": "Azione",
+			"entity": "Entità",
+			"status": "Stato"
+		},
+		"showing": "Visualizzate {{count}} di {{total}}",
+		"loadMore": "Carica altro",
+		"emptyState": "Nessuna voce di audit per ora. Le azioni di amministrazione che apportano modifiche appariranno qui.",
+		"toast": {
+			"purged": "Registro di audit svuotato",
+			"purgeFailed": "Impossibile svuotare il registro di audit"
 		}
 	}
 }

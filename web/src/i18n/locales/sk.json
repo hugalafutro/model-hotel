@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa - {{closed}} v poriadku / {{halfOpen}} sa obnovuje / {{open}} vypnutý",
 			"discoveryChangesBadge_one": "Zmena {{count}} z automatického vyhľadávania na pozadí - kliknite na prehliadnutie",
 			"discoveryChangesBadge_other": "Zmeny {{count}} vyplývajúce z automatického vyhľadávania – kliknite na tlačidlo na prehliadnutie",
-			"users": "Používatelia"
+			"users": "Používatelia",
+			"audit": "Audit"
 		},
 		"status": {
 			"apiStatus": "Stav API",
@@ -2856,6 +2857,33 @@
 			"success": "Heslo zmenené. Prihláste sa znova novým heslom.",
 			"wrongCurrent": "Súčasné heslo nie je správne",
 			"failed": "Heslo sa nepodarilo zmeniť"
+		}
+	},
+	"audit": {
+		"title": "Audit",
+		"description": "Záznam administrátorských akcií na tejto inštancii. Obsah požiadaviek sa nikdy nezaznamenáva.",
+		"filters": {
+			"actorPlaceholder": "Filtrovať podľa aktéra…",
+			"method": "Metóda",
+			"allMethods": "Všetky metódy"
+		},
+		"purgeButton": "Vymazať všetko",
+		"purgeConfirmTitle": "Vymazať auditný záznam",
+		"purgeConfirmMessage": "Týmto sa vymažú všetky auditné záznamy. Samotné vymazanie sa zaznamená, takže záznam vždy ukazuje, kto ho vyčistil.",
+		"table": {
+			"time": "Čas",
+			"actor": "Aktér",
+			"method": "Metóda",
+			"action": "Akcia",
+			"entity": "Entita",
+			"status": "Stav"
+		},
+		"showing": "Zobrazené {{count}} z {{total}}",
+		"loadMore": "Načítať ďalšie",
+		"emptyState": "Zatiaľ žiadne auditné záznamy. Administrátorské akcie vykonávajúce zmeny sa zobrazia tu.",
+		"toast": {
+			"purged": "Auditný záznam vymazaný",
+			"purgeFailed": "Auditný záznam sa nepodarilo vymazať"
 		}
 	}
 }

@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Failover-Anbieter nach Circuit-Breaker-Status – {{closed}} intakt / {{halfOpen}} in Wiederherstellung / {{open}} ausgelöst",
 			"discoveryChangesBadge_one": "{{count}} Änderung aus der Hintergrunderkennung – zum Überprüfen anklicken",
 			"discoveryChangesBadge_other": "{{count}} Änderungen aus der Hintergrunderkennung – zum Überprüfen anklicken",
-			"users": "Benutzer"
+			"users": "Benutzer",
+			"audit": "Audit"
 		},
 		"status": {
 			"apiStatus": "API-Status",
@@ -2856,6 +2857,33 @@
 			"success": "Passwort geändert. Melden Sie sich mit dem neuen Passwort erneut an.",
 			"wrongCurrent": "Das aktuelle Passwort ist falsch",
 			"failed": "Passwort konnte nicht geändert werden"
+		}
+	},
+	"audit": {
+		"title": "Audit",
+		"description": "Protokoll der Admin-Aktionen auf dieser Instanz. Anfrageinhalte werden nie aufgezeichnet.",
+		"filters": {
+			"actorPlaceholder": "Nach Akteur filtern…",
+			"method": "Methode",
+			"allMethods": "Alle Methoden"
+		},
+		"purgeButton": "Alles löschen",
+		"purgeConfirmTitle": "Audit-Protokoll löschen",
+		"purgeConfirmMessage": "Dies löscht alle Audit-Einträge. Das Löschen selbst wird aufgezeichnet, das Protokoll zeigt also immer, wer es geleert hat.",
+		"table": {
+			"time": "Zeit",
+			"actor": "Akteur",
+			"method": "Methode",
+			"action": "Aktion",
+			"entity": "Entität",
+			"status": "Status"
+		},
+		"showing": "{{count}} von {{total}} angezeigt",
+		"loadMore": "Mehr laden",
+		"emptyState": "Noch keine Audit-Einträge. Ändernde Admin-Aktionen erscheinen hier.",
+		"toast": {
+			"purged": "Audit-Protokoll gelöscht",
+			"purgeFailed": "Audit-Protokoll konnte nicht gelöscht werden"
 		}
 	}
 }

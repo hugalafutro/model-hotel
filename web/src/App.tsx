@@ -53,6 +53,9 @@ const Users = lazy(() =>
 const Security = lazy(() =>
 	import("./pages/Security").then((m) => ({ default: m.Security })),
 );
+const Audit = lazy(() =>
+	import("./pages/Audit").then((m) => ({ default: m.Audit })),
+);
 
 function LoginScreen() {
 	const { t } = useTranslation();
@@ -678,6 +681,16 @@ function AppContent() {
 									<Security />
 								</PageSuspense>
 							</RequireUserAccount>
+						}
+					/>
+					<Route
+						path="/audit"
+						element={
+							<RequireAccess access="admin">
+								<PageSuspense>
+									<Audit />
+								</PageSuspense>
+							</RequireAccess>
 						}
 					/>
 					<Route

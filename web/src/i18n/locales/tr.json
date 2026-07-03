@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları - {{closed}} sağlıklı / {{halfOpen}} kurtarma aşamasında / {{open}} devre dışı",
 			"discoveryChangesBadge_one": "{{count}} arka plan keşfinden yapılan değişiklik - gözden geçirmek için tıklayın",
 			"discoveryChangesBadge_other": "{{count}}, arka plan keşif sürecinden kaynaklanan değişiklikler - gözden geçirmek için tıklayın",
-			"users": "Kullanıcılar"
+			"users": "Kullanıcılar",
+			"audit": "Denetim"
 		},
 		"status": {
 			"apiStatus": "API Durumu",
@@ -2856,6 +2857,33 @@
 			"success": "Parola değiştirildi. Yeni parolanızla yeniden giriş yapın.",
 			"wrongCurrent": "Mevcut parola yanlış",
 			"failed": "Parola değiştirilemedi"
+		}
+	},
+	"audit": {
+		"title": "Denetim",
+		"description": "Bu örnekteki yönetici işlemlerinin kaydı. İstek içerikleri asla kaydedilmez.",
+		"filters": {
+			"actorPlaceholder": "Yapana göre filtrele…",
+			"method": "Yöntem",
+			"allMethods": "Tüm yöntemler"
+		},
+		"purgeButton": "Tümünü temizle",
+		"purgeConfirmTitle": "Denetim kaydını temizle",
+		"purgeConfirmMessage": "Bu, tüm denetim girdilerini siler. Temizleme işleminin kendisi de kaydedilir; kayıt her zaman kimin temizlediğini gösterir.",
+		"table": {
+			"time": "Zaman",
+			"actor": "Yapan",
+			"method": "Yöntem",
+			"action": "İşlem",
+			"entity": "Varlık",
+			"status": "Durum"
+		},
+		"showing": "{{total}} kayıttan {{count}} tanesi gösteriliyor",
+		"loadMore": "Daha fazla yükle",
+		"emptyState": "Henüz denetim girdisi yok. Değişiklik yapan yönetici işlemleri burada görünecek.",
+		"toast": {
+			"purged": "Denetim kaydı temizlendi",
+			"purgeFailed": "Denetim kaydı temizlenemedi"
 		}
 	}
 }
