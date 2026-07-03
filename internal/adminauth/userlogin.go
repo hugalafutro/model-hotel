@@ -26,6 +26,11 @@ type UserLoginStore interface {
 	HasEnabled(ctx context.Context) (bool, error)
 }
 
+// UserTotpFactory builds a per-user TOTP repository (Store bound to that
+// user's rows). Implemented in main.go as a closure over the pool and
+// MASTER_KEY; nil when per-user TOTP is not wired (tests).
+type UserTotpFactory func(userID uuid.UUID) *totp.Repository
+
 // UserLoginHandler exposes the multi-user password login: a public status
 // endpoint (does the login UI show the username/password form at all?) and
 // the login exchange itself, which mints the same session tokens as every
@@ -35,6 +40,7 @@ type UserLoginHandler struct {
 	users      UserLoginStore
 	sessionMgr *webauthn.SessionManager
 	ipLimiter  IPLimiterMiddleware
+	userTotp   UserTotpFactory
 	// Per-IP exponential backoff on failed logins, same knobs as /totp/login.
 	throttle *totp.Throttle
 	// Per-username backoff so a brute force distributed across source IPs is
@@ -43,12 +49,14 @@ type UserLoginHandler struct {
 	userThrottle *totp.Throttle
 }
 
-// NewUserLoginHandler constructs the password-login front-end.
-func NewUserLoginHandler(users UserLoginStore, sessionMgr *webauthn.SessionManager, ipLimiter IPLimiterMiddleware) *UserLoginHandler {
+// NewUserLoginHandler constructs the password-login front-end. userTotp may
+// be nil (no second factor is ever required then).
+func NewUserLoginHandler(users UserLoginStore, sessionMgr *webauthn.SessionManager, ipLimiter IPLimiterMiddleware, userTotp UserTotpFactory) *UserLoginHandler {
 	return &UserLoginHandler{
 		users:        users,
 		sessionMgr:   sessionMgr,
 		ipLimiter:    ipLimiter,
+		userTotp:     userTotp,
 		throttle:     totp.NewThrottle(5, time.Second, 5*time.Minute),
 		userThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
 	}
@@ -104,6 +112,9 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
+		// TOTP or recovery code; required only when the account has 2FA
+		// enabled (the missing-code response tells the login UI to ask).
+		Code string `json:"code"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondBadRequest(w, "invalid request body", err)
@@ -147,6 +158,10 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if proceed := h.checkSecondFactor(w, r, u, req.Code, throttleKey, userKey); !proceed {
+		return
+	}
+
 	token, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte(u.ID.String()), nil)
 	if err != nil {
 		debuglog.Error("userlogin: session creation failed", "error", err, "remote_addr", r.RemoteAddr)
@@ -159,4 +174,50 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		debuglog.Warn("userlogin: failed to record last login", "error", err)
 	}
 	writeJSON(w, map[string]string{"token": token})
+}
+
+// checkSecondFactor enforces per-user TOTP after the password has verified.
+// Returns true when login may proceed (no TOTP wired, not enabled, or a valid
+// TOTP/recovery code). A missing code answers 401 {"totp_required": true} —
+// revealed only behind a correct password, so it leaks nothing to guessers —
+// without recording a throttle failure (the password was right; the UI is
+// just being told to ask for the code). A wrong code counts against both
+// throttles like any other failed attempt. Verification consumes the matched
+// step (single-use); a recovery code is the atomic fallback.
+func (h *UserLoginHandler) checkSecondFactor(w http.ResponseWriter, r *http.Request, u *user.User, code, throttleKey, userKey string) bool {
+	if h.userTotp == nil {
+		return true
+	}
+	repo := h.userTotp(u.ID)
+	enabled, err := repo.IsEnabled(r.Context())
+	if err != nil {
+		// Fail closed: an unreadable TOTP state must not skip the second factor.
+		respondError(w, "login failed", err, http.StatusInternalServerError)
+		return false
+	}
+	if !enabled {
+		return true
+	}
+	if code == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]bool{"totp_required": true})
+		return false
+	}
+	if ok, verr := repo.Verify(r.Context(), code); verr == nil && ok {
+		return true
+	} else if verr != nil {
+		debuglog.Error("userlogin: totp verify failed", "error", verr)
+	}
+	if ok, cerr := repo.ConsumeRecoveryCode(r.Context(), code); cerr == nil && ok {
+		debuglog.Info("userlogin: recovery code used", "username", u.Username)
+		return true
+	} else if cerr != nil {
+		debuglog.Error("userlogin: recovery code check failed", "error", cerr)
+	}
+	h.throttle.RecordFailure(throttleKey)
+	h.userThrottle.RecordFailure(userKey)
+	debuglog.Warn("userlogin: invalid TOTP code", "remote_addr", r.RemoteAddr)
+	http.Error(w, "invalid TOTP code", http.StatusUnauthorized)
+	return false
 }
