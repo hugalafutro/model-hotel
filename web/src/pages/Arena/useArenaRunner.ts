@@ -1,5 +1,5 @@
 import { produce } from "immer";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { API_BASE, getAuthHeaders } from "../../api/client";
 import type { GenerationParams } from "../../api/types";
@@ -71,9 +71,9 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 		arenaModeRef,
 		savedPrompt,
 		prompt,
-		setRounds,
-		setPhase,
-		setRunningModels,
+		setRounds: setRoundsRaw,
+		setPhase: setPhaseRaw,
+		setRunningModels: setRunningModelsRaw,
 		rounds,
 		roundsRef,
 		modelParams,
@@ -84,6 +84,39 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 	const { t } = useTranslation();
 
 	const abortMapRef = useRef<Map<string, AbortController>>(new Map());
+
+	// Once the Arena unmounts, any still-in-flight stream must stop touching
+	// React state: a late setState throws under jsdom teardown ("window is not
+	// defined") and leaks work in production. Flip a mounted flag on unmount,
+	// abort every in-flight request, and gate the setters through it so the
+	// streaming body below never dispatches into a dead tree.
+	const mountedRef = useRef(true);
+	useEffect(() => {
+		return () => {
+			mountedRef.current = false;
+			for (const ctrl of abortMapRef.current.values()) ctrl.abort();
+			abortMapRef.current.clear();
+		};
+	}, []);
+
+	const setRounds = useCallback<typeof setRoundsRaw>(
+		(update) => {
+			if (mountedRef.current) setRoundsRaw(update);
+		},
+		[setRoundsRaw],
+	);
+	const setPhase = useCallback<typeof setPhaseRaw>(
+		(update) => {
+			if (mountedRef.current) setPhaseRaw(update);
+		},
+		[setPhaseRaw],
+	);
+	const setRunningModels = useCallback<typeof setRunningModelsRaw>(
+		(update) => {
+			if (mountedRef.current) setRunningModelsRaw(update);
+		},
+		[setRunningModelsRaw],
+	);
 
 	const streamModel = useCallback(
 		(
@@ -264,10 +297,12 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 							}
 						}),
 					);
-					toast(
-						t("hooks.useArenaRunner.generationError", { model, error: msg }),
-						"error",
-					);
+					if (mountedRef.current) {
+						toast(
+							t("hooks.useArenaRunner.generationError", { model, error: msg }),
+							"error",
+						);
+					}
 				} finally {
 					setRunningModels((prev) => {
 						const next = new Set(prev);
