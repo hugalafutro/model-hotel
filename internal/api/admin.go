@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"github.com/hugalafutro/model-hotel/internal/audit"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
@@ -118,8 +119,9 @@ type Handler struct {
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
 	discoveryCheckRedirect func(req *http.Request, via []*http.Request) error
 	circuitBreaker         CircuitBreakerReader
-	totpStatus             TotpStatus  // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
-	totpEnabled            atomic.Bool // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
+	audit                  *audit.Recorder // nil until SetAudit (audit trail of admin actions)
+	totpStatus             TotpStatus      // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
+	totpEnabled            atomic.Bool     // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
@@ -246,6 +248,13 @@ func (h *Handler) StopBackupScheduler() {
 func (h *Handler) Register(r chi.Router) {
 	r.Use(h.AuthMiddleware)
 
+	// Audit trail: records every mutating request on this surface, including
+	// ones the demo read-only guard below refuses (mounted before it on
+	// purpose, so refused attempts appear with their 403).
+	if h.audit != nil {
+		r.Use(h.audit.Middleware)
+	}
+
 	// Demo hardening: in read-only mode every mutating request to the admin
 	// CRUD surface is refused (see readOnlyGuard). Mounted here only, so the
 	// admin chat and public proxy stay usable against the seeded providers.
@@ -314,6 +323,7 @@ func (h *Handler) Register(r chi.Router) {
 // of Register so the requireAdmin guard visibly covers the whole set.
 func (h *Handler) registerAdminOnly(r chi.Router) {
 	h.RegisterProviderDiscovery(r)
+	h.RegisterAudit(r)
 	h.RegisterAppLogs(r)
 	h.RegisterSettings(r)
 	h.RegisterAlerts(r)

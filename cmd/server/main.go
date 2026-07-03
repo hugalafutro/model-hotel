@@ -25,6 +25,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/adminauth"
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/api"
+	"github.com/hugalafutro/model-hotel/internal/audit"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
@@ -320,6 +321,14 @@ func main() {
 	}
 	userLoginHandler := adminauth.NewUserLoginHandler(userRepo, sessionMgr, ipLimiter, userTotpFactory)
 	apiHandler.SetUserTotp(userTotpFactory)
+
+	// Audit trail of admin actions: middleware-recorded mutating requests on
+	// the dashboard API, pruned against the audit_retention_days setting
+	// (read per sweep, so changes apply without a restart).
+	auditRecorder := audit.New(database.Pool(), func() int {
+		return settingsRepo.GetInt(context.Background(), "audit_retention_days", audit.DefaultRetentionDays)
+	})
+	apiHandler.SetAudit(auditRecorder)
 
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour)
