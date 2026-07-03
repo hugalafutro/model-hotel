@@ -243,6 +243,7 @@ function RequestLogs() {
 				provider_id: params.provider_id as string | undefined,
 				status_code: params.status_code as string | undefined,
 				endpoint_type: params.endpoint_type as string | undefined,
+				owner_user_id: params.owner_user_id as string | undefined,
 				from: params.from as string | undefined,
 				to: params.to as string | undefined,
 			}),

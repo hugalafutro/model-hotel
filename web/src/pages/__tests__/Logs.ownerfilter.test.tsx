@@ -67,6 +67,43 @@ describe("Logs owner filter", () => {
 		expect(screen.queryByText("everyone-model")).not.toBeInTheDocument();
 	});
 
+	it("forwards the selected owner to the cursor fetch in scroll mode", async () => {
+		localStorage.setItem("requestLogsViewMode", "scroll");
+		const cursorOwners: (string | null)[] = [];
+		server.use(
+			http.get("/api/users", () => HttpResponse.json(usersFixture)),
+			http.get("/api/logs/cursor", ({ request }) => {
+				const owner = new URL(request.url).searchParams.get("owner_user_id");
+				cursorOwners.push(owner);
+				return HttpResponse.json({
+					entries: [
+						createMockLogEntry({
+							model_id:
+								owner === usersFixture[0].id ? "alice-model" : "everyone-model",
+						}),
+					],
+					total: 1,
+					has_before: false,
+					has_after: false,
+				});
+			}),
+		);
+
+		const { user } = renderWithProviders(<Logs />);
+
+		await waitFor(() => {
+			expect(cursorOwners.length).toBeGreaterThan(0);
+		});
+
+		const ownerButton = await screen.findByRole("button", { name: /Owner/ });
+		await user.click(ownerButton);
+		await user.click(await screen.findByText("alice"));
+
+		await waitFor(() => {
+			expect(cursorOwners).toContain(usersFixture[0].id);
+		});
+	});
+
 	it("hides the owner dropdown when the roster is empty", async () => {
 		const seen = createMockLogs([
 			createMockLogEntry({ model_id: "solo-model" }),
