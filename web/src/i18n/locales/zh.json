@@ -1168,7 +1168,9 @@
 			"source": "来源",
 			"logsPlaceholder": "过滤日志…",
 			"allStatus": "所有状态",
-			"allEndpoints": "所有模态"
+			"allEndpoints": "所有模态",
+			"owner": "所有者",
+			"allOwners": "所有用户"
 		},
 		"endpoint": {
 			"chat": "聊天",

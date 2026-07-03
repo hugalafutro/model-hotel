@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
 	Activity,
@@ -14,8 +15,11 @@ import {
 	Target,
 	Timer,
 } from "@/lib/icons";
+import { api } from "../api/client";
+import { FilterDropdown } from "../components/FilterDropdown";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { PageHeader } from "../components/PageHeader";
+import { useIdentity } from "../context/IdentityContext";
 import { formatCompact, formatTokens, formatWithCommas } from "../utils/format";
 import { Gauge } from "./Dashboard/Gauge";
 import { GaugeModal } from "./Dashboard/GaugeModal";
@@ -34,6 +38,15 @@ import { ModelDetailModal } from "./Models/ModelDetailModal";
    ===================================================== */
 export function Dashboard() {
 	const { t } = useTranslation();
+	// Owner filter is admin-only: non-admins are already server-scoped to
+	// their own keys.
+	const { isAdmin } = useIdentity();
+	const { data: ownerOptions } = useQuery({
+		queryKey: ["users"],
+		queryFn: () => api.users.list(),
+		enabled: isAdmin,
+		staleTime: 60_000,
+	});
 	const {
 		// Global state
 		globalRange,
@@ -42,6 +55,8 @@ export function Dashboard() {
 		setGlobalMetric,
 		excludeDeleted,
 		setExcludeDeleted,
+		ownerUserID,
+		setOwnerUserID,
 
 		// Per-section state
 		requestsChartRange,
@@ -178,6 +193,19 @@ export function Dashboard() {
 						<div className="flex items-center gap-1 ml-1.5">
 							<RangeToggle value={globalRange} onChange={setGlobalRange} />
 							<MetricToggle value={globalMetric} onChange={setGlobalMetric} />
+							{isAdmin && (ownerOptions?.length ?? 0) > 0 && (
+								<FilterDropdown
+									value={ownerUserID}
+									onChange={setOwnerUserID}
+									placeholder={t("logs.filters.owner")}
+									allLabel={t("logs.filters.allOwners")}
+									options={(ownerOptions ?? []).map((u) => ({
+										value: u.id,
+										label: u.username,
+									}))}
+									className="w-32"
+								/>
+							)}
 						</div>
 						{!hideManualRefresh && (
 							<button

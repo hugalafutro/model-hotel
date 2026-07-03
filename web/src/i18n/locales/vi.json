@@ -1168,7 +1168,9 @@
 			"source": "Nguồn",
 			"logsPlaceholder": "Lọc nhật ký…",
 			"allStatus": "Tất cả trạng thái",
-			"allEndpoints": "Tất cả các phương thức"
+			"allEndpoints": "Tất cả các phương thức",
+			"owner": "Chủ sở hữu",
+			"allOwners": "Tất cả người dùng"
 		},
 		"endpoint": {
 			"chat": "Trò chuyện",

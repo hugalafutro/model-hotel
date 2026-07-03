@@ -1168,7 +1168,9 @@
 			"level": "Level",
 			"levelAll": "All",
 			"source": "Source",
-			"logsPlaceholder": "Filter logs…"
+			"logsPlaceholder": "Filter logs…",
+			"owner": "Owner",
+			"allOwners": "All users"
 		},
 		"endpoint": {
 			"chat": "Chat",

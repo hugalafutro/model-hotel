@@ -1168,7 +1168,9 @@
 			"source": "Källa",
 			"logsPlaceholder": "Filtrera loggar…",
 			"allStatus": "Alla statusar",
-			"allEndpoints": "Alla modaliteter"
+			"allEndpoints": "Alla modaliteter",
+			"owner": "Ägare",
+			"allOwners": "Alla användare"
 		},
 		"endpoint": {
 			"chat": "Chatt",

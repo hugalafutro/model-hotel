@@ -1168,7 +1168,9 @@
 			"source": "Zdroj",
 			"logsPlaceholder": "Filtrovanie protokolov…",
 			"allStatus": "Všetky stavy",
-			"allEndpoints": "Všetky modality"
+			"allEndpoints": "Všetky modality",
+			"owner": "Vlastník",
+			"allOwners": "Všetci používatelia"
 		},
 		"endpoint": {
 			"chat": "Chat",

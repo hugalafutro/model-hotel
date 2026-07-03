@@ -32,6 +32,7 @@ import {
 import { LOG_COL_WIDTHS } from "../components/logTableWidths";
 import { PageHeader } from "../components/PageHeader";
 import { VirtualLogTable } from "../components/VirtualLogTable";
+import { useIdentity } from "../context/IdentityContext";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import { useDateRangePicker } from "../hooks/useDateRangePicker";
@@ -76,6 +77,17 @@ function RequestLogs() {
 		provider_id: "",
 		status_code: "",
 		endpoint_type: "",
+		owner_user_id: "",
+	});
+
+	// Owner filter is admin-only: non-admins are already server-scoped to
+	// their own keys, so the dropdown would be dead weight for them.
+	const { isAdmin } = useIdentity();
+	const { data: ownerOptions } = useQuery({
+		queryKey: ["users"],
+		queryFn: () => api.users.list(),
+		enabled: isAdmin,
+		staleTime: 60_000,
 	});
 	const debouncedModelId = useDebounce(filters.model_id, 300);
 	const debouncedProviderId = useDebounce(filters.provider_id, 300);
@@ -158,6 +170,7 @@ function RequestLogs() {
 			debouncedProviderId,
 			filters.status_code,
 			filters.endpoint_type,
+			filters.owner_user_id,
 			dateFrom,
 			dateTo,
 			sort,
@@ -170,6 +183,7 @@ function RequestLogs() {
 				provider_id: debouncedProviderId || undefined,
 				status_code: filters.status_code || undefined,
 				endpoint_type: filters.endpoint_type || undefined,
+				owner_user_id: filters.owner_user_id || undefined,
 				from: dateFrom || undefined,
 				to: dateTo || undefined,
 				sort_by: sort.field,
@@ -191,6 +205,7 @@ function RequestLogs() {
 			provider_id: debouncedProviderId || undefined,
 			status_code: filters.status_code || undefined,
 			endpoint_type: filters.endpoint_type || undefined,
+			owner_user_id: filters.owner_user_id || undefined,
 			from: dateFrom || undefined,
 			to: dateTo || undefined,
 		}),
@@ -199,6 +214,7 @@ function RequestLogs() {
 			debouncedProviderId,
 			filters.status_code,
 			filters.endpoint_type,
+			filters.owner_user_id,
 			dateFrom,
 			dateTo,
 		],
@@ -503,6 +519,23 @@ function RequestLogs() {
 								}))}
 								className="w-36"
 							/>
+
+							{isAdmin && (ownerOptions?.length ?? 0) > 0 && (
+								<FilterDropdown
+									value={filters.owner_user_id}
+									onChange={(v) => {
+										setFilters({ ...filters, owner_user_id: v });
+										setPage(1);
+									}}
+									placeholder={t("logs.filters.owner")}
+									allLabel={t("logs.filters.allOwners")}
+									options={(ownerOptions ?? []).map((u) => ({
+										value: u.id,
+										label: u.username,
+									}))}
+									className="w-36"
+								/>
+							)}
 
 							<div className="relative" ref={datePickerRef}>
 								<DateFilterButton

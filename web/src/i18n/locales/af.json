@@ -1168,7 +1168,9 @@
 			"source": "Bron",
 			"logsPlaceholder": "Filtreer logboeke…",
 			"allStatus": "Alle statusse",
-			"allEndpoints": "Alle modaliteite"
+			"allEndpoints": "Alle modaliteite",
+			"owner": "Eienaar",
+			"allOwners": "Alle gebruikers"
 		},
 		"endpoint": {
 			"chat": "Klets",

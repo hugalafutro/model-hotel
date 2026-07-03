@@ -1168,7 +1168,9 @@
 			"source": "Sursa",
 			"logsPlaceholder": "Filtrează jurnalele…",
 			"allStatus": "Toate stările",
-			"allEndpoints": "Toate modalitățile"
+			"allEndpoints": "Toate modalitățile",
+			"owner": "Proprietar",
+			"allOwners": "Toți utilizatorii"
 		},
 		"endpoint": {
 			"chat": "Chat",
