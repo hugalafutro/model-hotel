@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -249,5 +251,50 @@ func TestAudit_RetentionPrune(t *testing.T) {
 	}
 	if fresh != 1 {
 		t.Errorf("trigger row count = %d, want 1", fresh)
+	}
+}
+
+func TestAudit_SurfaceNotWired(t *testing.T) {
+	// A handler without SetAudit answers 404 on both endpoints instead of
+	// nil-panicking.
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	r.Use(h.AuthMiddleware)
+	h.Register(r)
+	if w := doJSON(t, r, http.MethodGet, "/audit", envAdminToken, ""); w.Code != http.StatusNotFound {
+		t.Errorf("unwired list: %d, want 404", w.Code)
+	}
+	if w := doJSON(t, r, http.MethodDelete, "/audit/purge", envAdminToken, `{"older_than":"all"}`); w.Code != http.StatusNotFound {
+		t.Errorf("unwired purge: %d, want 404", w.Code)
+	}
+}
+
+func TestAudit_QueryParamEdges(t *testing.T) {
+	r, _, mkUser := setupAuditTest(t)
+	mkUser("param-user", nil)
+
+	// Time-window filters narrow the list.
+	past := time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)
+	future := time.Now().Add(time.Minute).UTC().Format(time.RFC3339)
+	if resp := listAudit(t, r, "/audit?from="+url.QueryEscape(past)+"&to="+url.QueryEscape(future), envAdminToken); len(resp.Entries) != 1 {
+		t.Errorf("window filter: %d entries, want 1", len(resp.Entries))
+	}
+	if resp := listAudit(t, r, "/audit?to="+url.QueryEscape(past), envAdminToken); len(resp.Entries) != 0 {
+		t.Errorf("past window: %d entries, want 0", len(resp.Entries))
+	}
+	// Out-of-range limits are clamped rather than refused.
+	if resp := listAudit(t, r, "/audit?limit=0", envAdminToken); len(resp.Entries) != 1 {
+		t.Errorf("limit=0: %d entries", len(resp.Entries))
+	}
+	if resp := listAudit(t, r, "/audit?limit=9999", envAdminToken); len(resp.Entries) != 1 {
+		t.Errorf("limit=9999: %d entries", len(resp.Entries))
+	}
+	// A garbage cursor is a 400.
+	if w := doJSON(t, r, http.MethodGet, "/audit?cursor=%25%25not-base64", envAdminToken, ""); w.Code != http.StatusBadRequest {
+		t.Errorf("bad cursor: %d, want 400", w.Code)
+	}
+	// A malformed purge body is a 400.
+	if w := doJSON(t, r, http.MethodDelete, "/audit/purge", envAdminToken, `{not json`); w.Code != http.StatusBadRequest {
+		t.Errorf("bad purge body: %d, want 400", w.Code)
 	}
 }
