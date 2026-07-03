@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Proveïdors de fallada per estat del circuit breaker - {{closed}} saludable / {{halfOpen}} en recuperació / {{open}} disparat",
 			"discoveryChangesBadge_one": "Canvi de {{count}} des del descobriment de fons - fes clic per revisar",
 			"discoveryChangesBadge_other": "Canvis de {{count}} des del descobriment de fons - feu clic per revisar",
-			"users": "Usuaris"
+			"users": "Usuaris",
+			"audit": "Auditoria"
 		},
 		"status": {
 			"apiStatus": "Estat de l'API",
@@ -2856,6 +2857,33 @@
 			"success": "S'ha canviat la contrasenya. Torneu a iniciar la sessió amb la contrasenya nova.",
 			"wrongCurrent": "La contrasenya actual no és correcta",
 			"failed": "No s'ha pogut canviar la contrasenya"
+		}
+	},
+	"audit": {
+		"title": "Auditoria",
+		"description": "Registre d'accions d'administració en aquesta instància. El contingut de les peticions no es registra mai.",
+		"filters": {
+			"actorPlaceholder": "Filtra per actor…",
+			"method": "Mètode",
+			"allMethods": "Tots els mètodes"
+		},
+		"purgeButton": "Buida-ho tot",
+		"purgeConfirmTitle": "Buida el registre d'auditoria",
+		"purgeConfirmMessage": "Això elimina totes les entrades d'auditoria. El buidatge també queda registrat, de manera que el registre sempre mostra qui l'ha netejat.",
+		"table": {
+			"time": "Hora",
+			"actor": "Actor",
+			"method": "Mètode",
+			"action": "Acció",
+			"entity": "Entitat",
+			"status": "Estat"
+		},
+		"showing": "Es mostren {{count}} de {{total}}",
+		"loadMore": "Carrega'n més",
+		"emptyState": "Encara no hi ha entrades d'auditoria. Les accions d'administració que fan canvis apareixeran aquí.",
+		"toast": {
+			"purged": "Registre d'auditoria buidat",
+			"purgeFailed": "No s'ha pogut buidar el registre d'auditoria"
 		}
 	}
 }

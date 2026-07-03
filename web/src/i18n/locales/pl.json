@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Dostawcy awaryjni według stanu wyłącznika - {{closed}} sprawny / {{halfOpen}} w trakcie przywracania / {{open}} wyłączony",
 			"discoveryChangesBadge_one": "Zmiana {{count}} wynikająca z analizy tła - kliknij, aby przejrzeć",
 			"discoveryChangesBadge_other": "Zmiany {{count}} wynikające z analizy tła - kliknij, aby przejrzeć",
-			"users": "Użytkownicy"
+			"users": "Użytkownicy",
+			"audit": "Audyt"
 		},
 		"status": {
 			"apiStatus": "Status API",
@@ -2856,6 +2857,33 @@
 			"success": "Hasło zmienione. Zaloguj się ponownie nowym hasłem.",
 			"wrongCurrent": "Obecne hasło jest nieprawidłowe",
 			"failed": "Nie udało się zmienić hasła"
+		}
+	},
+	"audit": {
+		"title": "Audyt",
+		"description": "Zapis działań administracyjnych w tej instancji. Treść żądań nigdy nie jest rejestrowana.",
+		"filters": {
+			"actorPlaceholder": "Filtruj według wykonawcy…",
+			"method": "Metoda",
+			"allMethods": "Wszystkie metody"
+		},
+		"purgeButton": "Wyczyść wszystko",
+		"purgeConfirmTitle": "Wyczyść dziennik audytu",
+		"purgeConfirmMessage": "Spowoduje to usunięcie wszystkich wpisów audytu. Samo czyszczenie też jest rejestrowane, więc dziennik zawsze pokazuje, kto go wyczyścił.",
+		"table": {
+			"time": "Czas",
+			"actor": "Wykonawca",
+			"method": "Metoda",
+			"action": "Działanie",
+			"entity": "Obiekt",
+			"status": "Status"
+		},
+		"showing": "Wyświetlono {{count}} z {{total}}",
+		"loadMore": "Wczytaj więcej",
+		"emptyState": "Brak wpisów audytu. Działania administracyjne wprowadzające zmiany pojawią się tutaj.",
+		"toast": {
+			"purged": "Dziennik audytu wyczyszczony",
+			"purgeFailed": "Nie udało się wyczyścić dziennika audytu"
 		}
 	}
 }

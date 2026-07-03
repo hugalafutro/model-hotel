@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Failover-verskaffers volgens circuitbreker-toestand - {{closed}} gesond / {{halfOpen}} besig om te herstel / {{open}} uitgeskakel",
 			"discoveryChangesBadge_one": "{{count}} verandering vanaf agtergrondontdekking - klik om te hersien",
 			"discoveryChangesBadge_other": "{{count}} veranderings vanaf agtergrondontdekking - klik om te hersien",
-			"users": "Gebruikers"
+			"users": "Gebruikers",
+			"audit": "Oudit"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -2856,6 +2857,33 @@
 			"success": "Wagwoord verander. Meld weer aan met jou nuwe wagwoord.",
 			"wrongCurrent": "Die huidige wagwoord is verkeerd",
 			"failed": "Kon nie die wagwoord verander nie"
+		}
+	},
+	"audit": {
+		"title": "Oudit",
+		"description": "Spoor van admin-aksies op hierdie instansie. Versoekinhoud word nooit aangeteken nie.",
+		"filters": {
+			"actorPlaceholder": "Filtreer volgens akteur…",
+			"method": "Metode",
+			"allMethods": "Alle metodes"
+		},
+		"purgeButton": "Vee alles uit",
+		"purgeConfirmTitle": "Vee ouditspoor uit",
+		"purgeConfirmMessage": "Dit verwyder elke ouditinskrywing. Die uitvee self word aangeteken, sodat die spoor altyd wys wie dit skoongemaak het.",
+		"table": {
+			"time": "Tyd",
+			"actor": "Akteur",
+			"method": "Metode",
+			"action": "Aksie",
+			"entity": "Entiteit",
+			"status": "Status"
+		},
+		"showing": "Wys {{count}} van {{total}}",
+		"loadMore": "Laai meer",
+		"emptyState": "Nog geen ouditinskrywings nie. Muterende admin-aksies sal hier verskyn.",
+		"toast": {
+			"purged": "Ouditspoor uitgevee",
+			"purgeFailed": "Kon nie die ouditspoor uitvee nie"
 		}
 	}
 }

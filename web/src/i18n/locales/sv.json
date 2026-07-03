@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Failover-leverantörer efter circuit-breaker-status - {{closed}} fungerar / {{halfOpen}} återställs / {{open}} utlöst",
 			"discoveryChangesBadge_one": "{{count}} ändring från bakgrundsupptäckt – klicka för att granska",
 			"discoveryChangesBadge_other": "{{count}} ändringar från bakgrundsdetektering – klicka för att granska",
-			"users": "Användare"
+			"users": "Användare",
+			"audit": "Granskning"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -2856,6 +2857,33 @@
 			"success": "Lösenordet har bytts. Logga in igen med ditt nya lösenord.",
 			"wrongCurrent": "Det nuvarande lösenordet är fel",
 			"failed": "Det gick inte att byta lösenord"
+		}
+	},
+	"audit": {
+		"title": "Granskning",
+		"description": "Spår av admin-åtgärder på den här instansen. Innehållet i förfrågningar registreras aldrig.",
+		"filters": {
+			"actorPlaceholder": "Filtrera på aktör…",
+			"method": "Metod",
+			"allMethods": "Alla metoder"
+		},
+		"purgeButton": "Rensa allt",
+		"purgeConfirmTitle": "Rensa granskningsspår",
+		"purgeConfirmMessage": "Detta raderar alla granskningsposter. Själva rensningen registreras, så spåret visar alltid vem som tömde det.",
+		"table": {
+			"time": "Tid",
+			"actor": "Aktör",
+			"method": "Metod",
+			"action": "Åtgärd",
+			"entity": "Entitet",
+			"status": "Status"
+		},
+		"showing": "Visar {{count}} av {{total}}",
+		"loadMore": "Ladda fler",
+		"emptyState": "Inga granskningsposter ännu. Admin-åtgärder som gör ändringar visas här.",
+		"toast": {
+			"purged": "Granskningsspår rensat",
+			"purgeFailed": "Kunde inte rensa granskningsspåret"
 		}
 	}
 }

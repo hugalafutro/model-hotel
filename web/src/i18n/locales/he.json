@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "ספקי מעבר לגיבוי לפי מצב מפסק זרם - {{closed}} תקין / {{halfOpen}} מתאושש / {{open}} הופעל",
 			"discoveryChangesBadge_one": "שינוי {{count}} מגילוי ברקע - לחצו כדי לעיין",
 			"discoveryChangesBadge_other": "שינויים ב-{{count}} כתוצאה מגילוי ברקע - לחצו כדי לעיין",
-			"users": "משתמשים"
+			"users": "משתמשים",
+			"audit": "ביקורת"
 		},
 		"status": {
 			"apiStatus": "סטטוס API",
@@ -2856,6 +2857,33 @@
 			"success": "הסיסמה שונתה. התחבר מחדש עם הסיסמה החדשה.",
 			"wrongCurrent": "הסיסמה הנוכחית שגויה",
 			"failed": "שינוי הסיסמה נכשל"
+		}
+	},
+	"audit": {
+		"title": "ביקורת",
+		"description": "יומן פעולות ניהול במופע זה. תוכן הבקשות לעולם אינו נשמר.",
+		"filters": {
+			"actorPlaceholder": "סינון לפי מבצע…",
+			"method": "שיטה",
+			"allMethods": "כל השיטות"
+		},
+		"purgeButton": "מחיקת הכול",
+		"purgeConfirmTitle": "מחיקת יומן הביקורת",
+		"purgeConfirmMessage": "פעולה זו מוחקת את כל רשומות הביקורת. המחיקה עצמה נרשמת, כך שהיומן תמיד מראה מי ניקה אותו.",
+		"table": {
+			"time": "זמן",
+			"actor": "מבצע",
+			"method": "שיטה",
+			"action": "פעולה",
+			"entity": "ישות",
+			"status": "סטטוס"
+		},
+		"showing": "מוצגות {{count}} מתוך {{total}}",
+		"loadMore": "טעינת עוד",
+		"emptyState": "אין עדיין רשומות ביקורת. פעולות ניהול משנות יופיעו כאן.",
+		"toast": {
+			"purged": "יומן הביקורת נמחק",
+			"purgeFailed": "לא ניתן היה למחוק את יומן הביקורת"
 		}
 	}
 }

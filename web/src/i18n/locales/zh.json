@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "按断路器状态切换提供商 - {{closed}} 正常 / {{halfOpen}} 恢复中 / {{open}} 已跳闸",
 			"discoveryChangesBadge_one": "{{count}} 来自后台发现的变更 - 点击查看",
 			"discoveryChangesBadge_other": "{{count}} 来自后台发现的变更 - 点击查看",
-			"users": "用户"
+			"users": "用户",
+			"audit": "审计"
 		},
 		"status": {
 			"apiStatus": "API 状态",
@@ -2856,6 +2857,33 @@
 			"success": "密码已修改。请使用新密码重新登录。",
 			"wrongCurrent": "当前密码不正确",
 			"failed": "修改密码失败"
+		}
+	},
+	"audit": {
+		"title": "审计",
+		"description": "此实例上管理操作的记录。请求内容绝不会被记录。",
+		"filters": {
+			"actorPlaceholder": "按操作者筛选…",
+			"method": "方法",
+			"allMethods": "所有方法"
+		},
+		"purgeButton": "全部清除",
+		"purgeConfirmTitle": "清除审计记录",
+		"purgeConfirmMessage": "这将删除所有审计条目。清除操作本身也会被记录，因此记录始终显示是谁清空的。",
+		"table": {
+			"time": "时间",
+			"actor": "操作者",
+			"method": "方法",
+			"action": "操作",
+			"entity": "对象",
+			"status": "状态"
+		},
+		"showing": "显示 {{count}} / {{total}} 条",
+		"loadMore": "加载更多",
+		"emptyState": "暂无审计条目。产生变更的管理操作将显示在这里。",
+		"toast": {
+			"purged": "审计记录已清除",
+			"purgeFailed": "无法清除审计记录"
 		}
 	}
 }

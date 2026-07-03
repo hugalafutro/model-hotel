@@ -105,7 +105,8 @@
 			"security": "Security",
 			"discoveryChangesBadge_one": "{{count}} change from background discovery - click to review",
 			"discoveryChangesBadge_other": "{{count}} changes from background discovery - click to review",
-			"users": "Users"
+			"users": "Users",
+			"audit": "Audit"
 		},
 		"status": {
 			"apiStatus": "API Status",
@@ -2856,6 +2857,33 @@
 			"success": "Password changed. Sign in again with your new password.",
 			"wrongCurrent": "Current password is incorrect",
 			"failed": "Failed to change password"
+		}
+	},
+	"audit": {
+		"title": "Audit",
+		"description": "Trail of admin actions on this instance. Request contents are never recorded.",
+		"filters": {
+			"actorPlaceholder": "Filter by actor…",
+			"method": "Method",
+			"allMethods": "All methods"
+		},
+		"purgeButton": "Purge all",
+		"purgeConfirmTitle": "Purge audit trail",
+		"purgeConfirmMessage": "This deletes every audit entry. The purge itself is recorded, so the trail always shows who cleared it.",
+		"table": {
+			"time": "Time",
+			"actor": "Actor",
+			"method": "Method",
+			"action": "Action",
+			"entity": "Entity",
+			"status": "Status"
+		},
+		"showing": "Showing {{count}} of {{total}}",
+		"loadMore": "Load more",
+		"emptyState": "No audit entries yet. Mutating admin actions will appear here.",
+		"toast": {
+			"purged": "Audit trail purged",
+			"purgeFailed": "Could not purge the audit trail"
 		}
 	}
 }

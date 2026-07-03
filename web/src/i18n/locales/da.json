@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus - {{closed}} fungerer / {{halfOpen}} genopretter / {{open}} udløst",
 			"discoveryChangesBadge_one": "{{count}} ændring fra baggrundsdetektering - klik for at gennemgå",
 			"discoveryChangesBadge_other": "{{count}} ændringer fra baggrundsdetektering - klik for at gennemgå",
-			"users": "Brugere"
+			"users": "Brugere",
+			"audit": "Revision"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -2856,6 +2857,33 @@
 			"success": "Adgangskoden er ændret. Log ind igen med din nye adgangskode.",
 			"wrongCurrent": "Den nuværende adgangskode er forkert",
 			"failed": "Kunne ikke ændre adgangskoden"
+		}
+	},
+	"audit": {
+		"title": "Revision",
+		"description": "Spor af admin-handlinger på denne instans. Forespørgslers indhold registreres aldrig.",
+		"filters": {
+			"actorPlaceholder": "Filtrér efter aktør…",
+			"method": "Metode",
+			"allMethods": "Alle metoder"
+		},
+		"purgeButton": "Ryd alt",
+		"purgeConfirmTitle": "Ryd revisionsspor",
+		"purgeConfirmMessage": "Dette sletter alle revisionsposter. Selve rydningen registreres, så sporet altid viser, hvem der ryddede det.",
+		"table": {
+			"time": "Tid",
+			"actor": "Aktør",
+			"method": "Metode",
+			"action": "Handling",
+			"entity": "Entitet",
+			"status": "Status"
+		},
+		"showing": "Viser {{count}} af {{total}}",
+		"loadMore": "Indlæs flere",
+		"emptyState": "Ingen revisionsposter endnu. Admin-handlinger med ændringer vises her.",
+		"toast": {
+			"purged": "Revisionsspor ryddet",
+			"purgeFailed": "Kunne ikke rydde revisionssporet"
 		}
 	}
 }

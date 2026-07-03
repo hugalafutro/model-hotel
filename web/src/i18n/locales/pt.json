@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Provedores de failover por estado do disjuntor - {{closed}} em bom estado / {{halfOpen}} em recuperação / {{open}} desarmado",
 			"discoveryChangesBadge_one": "Alteração {{count}} proveniente da descoberta em segundo plano - clique para revisar",
 			"discoveryChangesBadge_other": "Alterações no {{count}} decorrentes da descoberta em segundo plano - clique para revisar",
-			"users": "Utilizadores"
+			"users": "Utilizadores",
+			"audit": "Auditoria"
 		},
 		"status": {
 			"apiStatus": "Estado da API",
@@ -2856,6 +2857,33 @@
 			"success": "Senha alterada. Entre novamente com a nova senha.",
 			"wrongCurrent": "A senha atual está incorreta",
 			"failed": "Falha ao alterar a senha"
+		}
+	},
+	"audit": {
+		"title": "Auditoria",
+		"description": "Registro das ações de administração nesta instância. O conteúdo das requisições nunca é gravado.",
+		"filters": {
+			"actorPlaceholder": "Filtrar por autor…",
+			"method": "Método",
+			"allMethods": "Todos os métodos"
+		},
+		"purgeButton": "Limpar tudo",
+		"purgeConfirmTitle": "Limpar registro de auditoria",
+		"purgeConfirmMessage": "Isso exclui todas as entradas de auditoria. A limpeza em si é registrada, então o registro sempre mostra quem o limpou.",
+		"table": {
+			"time": "Hora",
+			"actor": "Autor",
+			"method": "Método",
+			"action": "Ação",
+			"entity": "Entidade",
+			"status": "Status"
+		},
+		"showing": "Exibindo {{count}} de {{total}}",
+		"loadMore": "Carregar mais",
+		"emptyState": "Ainda não há entradas de auditoria. Ações de administração que fazem alterações aparecerão aqui.",
+		"toast": {
+			"purged": "Registro de auditoria limpo",
+			"purgeFailed": "Não foi possível limpar o registro de auditoria"
 		}
 	}
 }

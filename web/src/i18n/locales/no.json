@@ -105,7 +105,8 @@
 			"failoverBadgeExplain": "Failover-leverandører etter status på strømbryter - {{closed}} i orden / {{halfOpen}} gjenoppretter / {{open}} utløst",
 			"discoveryChangesBadge_one": "{{count}} endring fra bakgrunnsoppdagelse - klikk for å se gjennom",
 			"discoveryChangesBadge_other": "{{count}} endringer fra bakgrunnsoppdagelse – klikk for å se gjennom",
-			"users": "Brukere"
+			"users": "Brukere",
+			"audit": "Revisjon"
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -2856,6 +2857,33 @@
 			"success": "Passordet er byttet. Logg inn på nytt med det nye passordet.",
 			"wrongCurrent": "Det nåværende passordet er feil",
 			"failed": "Kunne ikke bytte passord"
+		}
+	},
+	"audit": {
+		"title": "Revisjon",
+		"description": "Spor av admin-handlinger på denne instansen. Innholdet i forespørsler registreres aldri.",
+		"filters": {
+			"actorPlaceholder": "Filtrer etter aktør…",
+			"method": "Metode",
+			"allMethods": "Alle metoder"
+		},
+		"purgeButton": "Tøm alt",
+		"purgeConfirmTitle": "Tøm revisjonsspor",
+		"purgeConfirmMessage": "Dette sletter alle revisjonsoppføringer. Selve tømmingen registreres, så sporet viser alltid hvem som tømte det.",
+		"table": {
+			"time": "Tid",
+			"actor": "Aktør",
+			"method": "Metode",
+			"action": "Handling",
+			"entity": "Entitet",
+			"status": "Status"
+		},
+		"showing": "Viser {{count}} av {{total}}",
+		"loadMore": "Last inn flere",
+		"emptyState": "Ingen revisjonsoppføringer ennå. Admin-handlinger som gjør endringer vises her.",
+		"toast": {
+			"purged": "Revisjonsspor tømt",
+			"purgeFailed": "Kunne ikke tømme revisjonssporet"
 		}
 	}
 }
