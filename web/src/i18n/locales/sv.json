@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Säkerhet",
-		"description": "Hantera tvåfaktorsautentisering för ditt konto."
+		"description": "Hantera tvåfaktorsautentisering och lösenordet för ditt konto.",
+		"password": {
+			"title": "Byt lösenord",
+			"description": "Välj ett nytt lösenord för ditt konto. Du loggas ut överallt och måste logga in igen.",
+			"current": "Nuvarande lösenord",
+			"new": "Nytt lösenord",
+			"confirm": "Bekräfta det nya lösenordet",
+			"mismatch": "De nya lösenorden stämmer inte överens",
+			"submit": "Byt lösenord",
+			"success": "Lösenordet har bytts. Logga in igen med ditt nya lösenord.",
+			"wrongCurrent": "Det nuvarande lösenordet är fel",
+			"failed": "Det gick inte att byta lösenord"
+		}
 	}
 }

@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Zabezpečení",
-		"description": "Spravujte dvoufaktorové ověření svého účtu."
+		"description": "Spravujte dvoufaktorové ověření a heslo svého účtu.",
+		"password": {
+			"title": "Změnit heslo",
+			"description": "Zvolte si nové heslo k účtu. Budete všude odhlášeni a musíte se přihlásit znovu.",
+			"current": "Současné heslo",
+			"new": "Nové heslo",
+			"confirm": "Potvrďte nové heslo",
+			"mismatch": "Nová hesla se neshodují",
+			"submit": "Změnit heslo",
+			"success": "Heslo změněno. Přihlaste se znovu novým heslem.",
+			"wrongCurrent": "Současné heslo není správné",
+			"failed": "Heslo se nepodařilo změnit"
+		}
 	}
 }

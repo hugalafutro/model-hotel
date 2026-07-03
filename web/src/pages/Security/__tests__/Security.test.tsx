@@ -82,6 +82,81 @@ describe("Security page", () => {
 		});
 	});
 
+	it("submits a password change with both passwords", async () => {
+		mockStatus({ enabled: false });
+		let payload: { current_password: string; new_password: string } | null =
+			null;
+		server.use(
+			http.post("/api/auth/password", async ({ request }) => {
+				payload = (await request.json()) as typeof payload;
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+		const { user } = renderWithProviders(<Security />);
+
+		const submit = await screen.findByTestId("security-password-submit");
+		expect(submit).toBeDisabled();
+
+		await user.type(
+			screen.getByTestId("security-current-password"),
+			"old-password",
+		);
+		await user.type(
+			screen.getByTestId("security-new-password"),
+			"new-password-1",
+		);
+		// A mismatching confirmation keeps the submit disabled.
+		await user.type(
+			screen.getByTestId("security-confirm-password"),
+			"new-password-X",
+		);
+		expect(submit).toBeDisabled();
+
+		await user.clear(screen.getByTestId("security-confirm-password"));
+		await user.type(
+			screen.getByTestId("security-confirm-password"),
+			"new-password-1",
+		);
+		expect(submit).toBeEnabled();
+		await user.click(submit);
+
+		await waitFor(() => {
+			expect(payload).toEqual({
+				current_password: "old-password",
+				new_password: "new-password-1",
+			});
+		});
+	});
+
+	it("keeps the session on a rejected current password", async () => {
+		mockStatus({ enabled: false });
+		server.use(
+			http.post("/api/auth/password", () =>
+				HttpResponse.text("current password is incorrect", { status: 401 }),
+			),
+		);
+		const { user } = renderWithProviders(<Security />);
+
+		await user.type(
+			await screen.findByTestId("security-current-password"),
+			"wrong-guess",
+		);
+		await user.type(
+			screen.getByTestId("security-new-password"),
+			"new-password-1",
+		);
+		await user.type(
+			screen.getByTestId("security-confirm-password"),
+			"new-password-1",
+		);
+		await user.click(screen.getByTestId("security-password-submit"));
+
+		// The form stays usable for another attempt (no teardown happened).
+		await waitFor(() => {
+			expect(screen.getByTestId("security-password-submit")).toBeEnabled();
+		});
+	});
+
 	it("shows the enable button when TOTP is off", async () => {
 		mockStatus({ enabled: false });
 		renderWithProviders(<Security />);

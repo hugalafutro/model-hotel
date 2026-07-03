@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Sicherheit",
-		"description": "Verwalten Sie die Zwei-Faktor-Authentifizierung Ihres Kontos."
+		"description": "Verwalten Sie die Zwei-Faktor-Authentifizierung und das Passwort Ihres Kontos.",
+		"password": {
+			"title": "Passwort ändern",
+			"description": "Wählen Sie ein neues Passwort für Ihr Konto. Sie werden überall abgemeldet und müssen sich erneut anmelden.",
+			"current": "Aktuelles Passwort",
+			"new": "Neues Passwort",
+			"confirm": "Neues Passwort bestätigen",
+			"mismatch": "Die neuen Passwörter stimmen nicht überein",
+			"submit": "Passwort ändern",
+			"success": "Passwort geändert. Melden Sie sich mit dem neuen Passwort erneut an.",
+			"wrongCurrent": "Das aktuelle Passwort ist falsch",
+			"failed": "Passwort konnte nicht geändert werden"
+		}
 	}
 }

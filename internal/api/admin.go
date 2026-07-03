@@ -26,6 +26,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
@@ -111,6 +112,7 @@ type Handler struct {
 	userRepo               UserStore                                          // nil until SetUserAuth (multi-user identities)
 	sessionRevoker         SessionRevoker                                     // nil until SetUserAuth (revoke on disable/delete)
 	userTotp               UserTotpFactory                                    // nil until SetUserTotp (per-user 2FA endpoints)
+	pwThrottle             *totp.Throttle                                     // per-user backoff on failed current-password checks
 	testModelTransport     *http.Transport                                    // SSRF-protected transport for TestModel
 	testModelCheckRedirect func(req *http.Request, via []*http.Request) error // SSRF-protected redirect check for TestModel
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
@@ -136,6 +138,9 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 		testModelCheckRedirect: testModelCheckRedirect,
 		discoveryDialCtx:       discoveryDialCtx,
 		discoveryCheckRedirect: discoveryCheckRedirect,
+		// Same profile as the login throttles: an authenticated session must
+		// not be a free brute-force oracle for the account's current password.
+		pwThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
 	}
 	// Wire the discovery service factory to use the SSRF-protected dial/redirect
 	// functions so admin-API discovery endpoints are also protected.
@@ -253,6 +258,9 @@ func (h *Handler) Register(r chi.Router) {
 
 	// Self-service per-user TOTP (any users-row identity manages its own).
 	h.RegisterUserTotp(r)
+
+	// Self-service password rotation for users-row identities.
+	r.Post("/auth/password", h.ChangeOwnPassword)
 
 	// System health stats feed the sidebar widget every role sees: routing
 	// metadata and process gauges only, so any authenticated caller may read it.

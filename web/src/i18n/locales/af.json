@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Sekuriteit",
-		"description": "Bestuur tweefaktor-verifikasie op jou rekening."
+		"description": "Bestuur tweefaktor-verifikasie en die wagwoord op jou rekening.",
+		"password": {
+			"title": "Verander wagwoord",
+			"description": "Kies 'n nuwe wagwoord vir jou rekening. Jy word oral afgemeld en moet weer aanmeld.",
+			"current": "Huidige wagwoord",
+			"new": "Nuwe wagwoord",
+			"confirm": "Bevestig die nuwe wagwoord",
+			"mismatch": "Die nuwe wagwoorde stem nie ooreen nie",
+			"submit": "Verander wagwoord",
+			"success": "Wagwoord verander. Meld weer aan met jou nuwe wagwoord.",
+			"wrongCurrent": "Die huidige wagwoord is verkeerd",
+			"failed": "Kon nie die wagwoord verander nie"
+		}
 	}
 }

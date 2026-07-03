@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Sikkerhet",
-		"description": "Administrer totrinnsverifisering på kontoen din."
+		"description": "Administrer totrinnsverifisering og passordet på kontoen din.",
+		"password": {
+			"title": "Bytt passord",
+			"description": "Velg et nytt passord for kontoen din. Du blir logget ut overalt og må logge inn på nytt.",
+			"current": "Nåværende passord",
+			"new": "Nytt passord",
+			"confirm": "Bekreft det nye passordet",
+			"mismatch": "De nye passordene stemmer ikke overens",
+			"submit": "Bytt passord",
+			"success": "Passordet er byttet. Logg inn på nytt med det nye passordet.",
+			"wrongCurrent": "Det nåværende passordet er feil",
+			"failed": "Kunne ikke bytte passord"
+		}
 	}
 }

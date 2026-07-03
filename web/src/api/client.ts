@@ -1307,6 +1307,25 @@ export const api = {
 				"TOTP disable failed",
 			);
 		},
+		// Rotates the caller's own password; the server revokes every session
+		// of the account on success, this one included.
+		changePassword: async (
+			currentPassword: string,
+			newPassword: string,
+		): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/auth/password`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({
+						current_password: currentPassword,
+						new_password: newPassword,
+					}),
+				},
+				"Password change failed",
+			);
+		},
 	},
 	// Admin-only user management.
 	users: {

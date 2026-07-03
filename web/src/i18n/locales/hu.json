@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Biztonság",
-		"description": "Kezelje fiókja kétlépcsős azonosítását."
+		"description": "Kezelje fiókja kétlépcsős azonosítását és jelszavát.",
+		"password": {
+			"title": "Jelszó módosítása",
+			"description": "Válasszon új jelszót a fiókjához. Mindenhol kijelentkeztetjük, és újra be kell jelentkeznie.",
+			"current": "Jelenlegi jelszó",
+			"new": "Új jelszó",
+			"confirm": "Új jelszó megerősítése",
+			"mismatch": "Az új jelszavak nem egyeznek",
+			"submit": "Jelszó módosítása",
+			"success": "A jelszó módosítva. Jelentkezzen be újra az új jelszóval.",
+			"wrongCurrent": "A jelenlegi jelszó helytelen",
+			"failed": "Nem sikerült módosítani a jelszót"
+		}
 	}
 }

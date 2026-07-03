@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Sécurité",
-		"description": "Gérez l'authentification à deux facteurs de votre compte."
+		"description": "Gérez l'authentification à deux facteurs et le mot de passe de votre compte.",
+		"password": {
+			"title": "Changer le mot de passe",
+			"description": "Choisissez un nouveau mot de passe pour votre compte. Vous serez déconnecté partout et devrez vous reconnecter.",
+			"current": "Mot de passe actuel",
+			"new": "Nouveau mot de passe",
+			"confirm": "Confirmer le nouveau mot de passe",
+			"mismatch": "Les nouveaux mots de passe ne correspondent pas",
+			"submit": "Changer le mot de passe",
+			"success": "Mot de passe modifié. Reconnectez-vous avec votre nouveau mot de passe.",
+			"wrongCurrent": "Le mot de passe actuel est incorrect",
+			"failed": "Échec du changement de mot de passe"
+		}
 	}
 }

@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Beveiliging",
-		"description": "Beheer de tweestapsverificatie van je account."
+		"description": "Beheer de tweestapsverificatie en het wachtwoord van je account.",
+		"password": {
+			"title": "Wachtwoord wijzigen",
+			"description": "Kies een nieuw wachtwoord voor je account. Je wordt overal afgemeld en moet opnieuw inloggen.",
+			"current": "Huidig wachtwoord",
+			"new": "Nieuw wachtwoord",
+			"confirm": "Bevestig het nieuwe wachtwoord",
+			"mismatch": "De nieuwe wachtwoorden komen niet overeen",
+			"submit": "Wachtwoord wijzigen",
+			"success": "Wachtwoord gewijzigd. Log opnieuw in met je nieuwe wachtwoord.",
+			"wrongCurrent": "Het huidige wachtwoord is onjuist",
+			"failed": "Wachtwoord wijzigen mislukt"
+		}
 	}
 }

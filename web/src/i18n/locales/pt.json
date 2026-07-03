@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Segurança",
-		"description": "Gerencie a autenticação de dois fatores da sua conta."
+		"description": "Gerencie a autenticação de dois fatores e a senha da sua conta.",
+		"password": {
+			"title": "Alterar senha",
+			"description": "Escolha uma nova senha para a sua conta. Você será desconectado em todos os lugares e precisará entrar novamente.",
+			"current": "Senha atual",
+			"new": "Nova senha",
+			"confirm": "Confirmar a nova senha",
+			"mismatch": "As novas senhas não coincidem",
+			"submit": "Alterar senha",
+			"success": "Senha alterada. Entre novamente com a nova senha.",
+			"wrongCurrent": "A senha atual está incorreta",
+			"failed": "Falha ao alterar a senha"
+		}
 	}
 }

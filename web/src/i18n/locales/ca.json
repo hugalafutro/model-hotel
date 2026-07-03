@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Seguretat",
-		"description": "Gestioneu l'autenticació de dos factors del vostre compte."
+		"description": "Gestioneu l'autenticació de dos factors i la contrasenya del vostre compte.",
+		"password": {
+			"title": "Canvia la contrasenya",
+			"description": "Trieu una contrasenya nova per al compte. Es tancarà la sessió a tot arreu i haureu de tornar a iniciar-la.",
+			"current": "Contrasenya actual",
+			"new": "Contrasenya nova",
+			"confirm": "Confirmeu la contrasenya nova",
+			"mismatch": "Les contrasenyes noves no coincideixen",
+			"submit": "Canvia la contrasenya",
+			"success": "S'ha canviat la contrasenya. Torneu a iniciar la sessió amb la contrasenya nova.",
+			"wrongCurrent": "La contrasenya actual no és correcta",
+			"failed": "No s'ha pogut canviar la contrasenya"
+		}
 	}
 }

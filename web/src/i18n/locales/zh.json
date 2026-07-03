@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "安全",
-		"description": "管理您账户的两步验证。"
+		"description": "管理您账户的两步验证和密码。",
+		"password": {
+			"title": "修改密码",
+			"description": "为账户设置新密码。所有设备都会被登出,需要重新登录。",
+			"current": "当前密码",
+			"new": "新密码",
+			"confirm": "确认新密码",
+			"mismatch": "两次输入的新密码不一致",
+			"submit": "修改密码",
+			"success": "密码已修改。请使用新密码重新登录。",
+			"wrongCurrent": "当前密码不正确",
+			"failed": "修改密码失败"
+		}
 	}
 }

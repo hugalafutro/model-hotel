@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Security",
-		"description": "Manage two-factor authentication on your account."
+		"description": "Manage two-factor authentication and the password on your account.",
+		"password": {
+			"title": "Change password",
+			"description": "Choose a new password for your account. You will be signed out everywhere and must sign in again.",
+			"current": "Current password",
+			"new": "New password",
+			"confirm": "Confirm new password",
+			"mismatch": "New passwords do not match",
+			"submit": "Change password",
+			"success": "Password changed. Sign in again with your new password.",
+			"wrongCurrent": "Current password is incorrect",
+			"failed": "Failed to change password"
+		}
 	}
 }

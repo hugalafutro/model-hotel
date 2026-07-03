@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Güvenlik",
-		"description": "Hesabınızın iki adımlı doğrulamasını yönetin."
+		"description": "Hesabınızın iki adımlı doğrulamasını ve parolasını yönetin.",
+		"password": {
+			"title": "Parolayı değiştir",
+			"description": "Hesabınız için yeni bir parola seçin. Her yerde oturumunuz kapatılacak ve yeniden giriş yapmanız gerekecek.",
+			"current": "Mevcut parola",
+			"new": "Yeni parola",
+			"confirm": "Yeni parolayı onayla",
+			"mismatch": "Yeni parolalar eşleşmiyor",
+			"submit": "Parolayı değiştir",
+			"success": "Parola değiştirildi. Yeni parolanızla yeniden giriş yapın.",
+			"wrongCurrent": "Mevcut parola yanlış",
+			"failed": "Parola değiştirilemedi"
+		}
 	}
 }

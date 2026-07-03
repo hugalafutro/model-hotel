@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Turvallisuus",
-		"description": "Hallitse tilisi kaksivaiheista todennusta."
+		"description": "Hallitse tilisi kaksivaiheista todennusta ja salasanaa.",
+		"password": {
+			"title": "Vaihda salasana",
+			"description": "Valitse tilillesi uusi salasana. Sinut kirjataan ulos kaikkialta ja sinun on kirjauduttava uudelleen.",
+			"current": "Nykyinen salasana",
+			"new": "Uusi salasana",
+			"confirm": "Vahvista uusi salasana",
+			"mismatch": "Uudet salasanat eivät täsmää",
+			"submit": "Vaihda salasana",
+			"success": "Salasana vaihdettu. Kirjaudu uudelleen uudella salasanalla.",
+			"wrongCurrent": "Nykyinen salasana on väärä",
+			"failed": "Salasanan vaihto epäonnistui"
+		}
 	}
 }

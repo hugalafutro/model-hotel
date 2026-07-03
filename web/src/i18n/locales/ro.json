@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Securitate",
-		"description": "Gestionați autentificarea în doi pași a contului dvs."
+		"description": "Gestionați autentificarea în doi pași și parola contului dvs.",
+		"password": {
+			"title": "Schimbați parola",
+			"description": "Alegeți o parolă nouă pentru cont. Veți fi deconectat de peste tot și va trebui să vă autentificați din nou.",
+			"current": "Parola actuală",
+			"new": "Parola nouă",
+			"confirm": "Confirmați parola nouă",
+			"mismatch": "Parolele noi nu se potrivesc",
+			"submit": "Schimbați parola",
+			"success": "Parola a fost schimbată. Autentificați-vă din nou cu parola nouă.",
+			"wrongCurrent": "Parola actuală este incorectă",
+			"failed": "Parola nu a putut fi schimbată"
+		}
 	}
 }

@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Zabezpečenie",
-		"description": "Spravujte dvojfaktorové overenie svojho účtu."
+		"description": "Spravujte dvojfaktorové overenie a heslo svojho účtu.",
+		"password": {
+			"title": "Zmeniť heslo",
+			"description": "Zvoľte si nové heslo k účtu. Budete všade odhlásení a musíte sa prihlásiť znova.",
+			"current": "Súčasné heslo",
+			"new": "Nové heslo",
+			"confirm": "Potvrďte nové heslo",
+			"mismatch": "Nové heslá sa nezhodujú",
+			"submit": "Zmeniť heslo",
+			"success": "Heslo zmenené. Prihláste sa znova novým heslom.",
+			"wrongCurrent": "Súčasné heslo nie je správne",
+			"failed": "Heslo sa nepodarilo zmeniť"
+		}
 	}
 }

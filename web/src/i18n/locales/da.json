@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Sikkerhed",
-		"description": "Administrer tofaktorgodkendelse på din konto."
+		"description": "Administrer tofaktorgodkendelse og adgangskoden på din konto.",
+		"password": {
+			"title": "Skift adgangskode",
+			"description": "Vælg en ny adgangskode til din konto. Du bliver logget ud overalt og skal logge ind igen.",
+			"current": "Nuværende adgangskode",
+			"new": "Ny adgangskode",
+			"confirm": "Bekræft den nye adgangskode",
+			"mismatch": "De nye adgangskoder stemmer ikke overens",
+			"submit": "Skift adgangskode",
+			"success": "Adgangskoden er ændret. Log ind igen med din nye adgangskode.",
+			"wrongCurrent": "Den nuværende adgangskode er forkert",
+			"failed": "Kunne ikke ændre adgangskoden"
+		}
 	}
 }

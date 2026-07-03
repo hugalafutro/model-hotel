@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Seguridad",
-		"description": "Gestiona la autenticación en dos pasos de tu cuenta."
+		"description": "Gestiona la autenticación en dos pasos y la contraseña de tu cuenta.",
+		"password": {
+			"title": "Cambiar contraseña",
+			"description": "Elige una nueva contraseña para tu cuenta. Se cerrará la sesión en todas partes y deberás iniciar sesión de nuevo.",
+			"current": "Contraseña actual",
+			"new": "Nueva contraseña",
+			"confirm": "Confirmar la nueva contraseña",
+			"mismatch": "Las contraseñas nuevas no coinciden",
+			"submit": "Cambiar contraseña",
+			"success": "Contraseña cambiada. Inicia sesión de nuevo con tu nueva contraseña.",
+			"wrongCurrent": "La contraseña actual es incorrecta",
+			"failed": "No se pudo cambiar la contraseña"
+		}
 	}
 }

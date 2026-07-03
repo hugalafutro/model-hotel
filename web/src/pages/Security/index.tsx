@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Copy, Download, ShieldCheck, X } from "@/lib/icons";
-import { api } from "../../api/client";
+import { ApiError, api, setAdminToken } from "../../api/client";
 import { CopyButton } from "../../components/CopyButton";
 import { PageHeader } from "../../components/PageHeader";
 import { useToast } from "../../context/ToastContext";
@@ -30,6 +30,9 @@ export function Security() {
 	const [disabling, setDisabling] = useState(false);
 	const [disableCode, setDisableCode] = useState("");
 	const [qrDataUrl, setQrDataUrl] = useState("");
+	const [currentPassword, setCurrentPassword] = useState("");
+	const [newPassword, setNewPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
 
 	const { data: status } = useQuery({
 		queryKey: ["user-totp", "status"],
@@ -145,6 +148,46 @@ export function Security() {
 		a.click();
 		a.remove();
 		URL.revokeObjectURL(url);
+	};
+
+	const passwordMutation = useMutation({
+		mutationFn: () => api.userTotp.changePassword(currentPassword, newPassword),
+		onSuccess: () => {
+			// The server revoked every session of the account, this one included.
+			// Give the toast a moment, then tear down auth state the same way the
+			// logout button does and land on the login screen.
+			toast(t("security.password.success"), "success");
+			setTimeout(() => {
+				setAdminToken("");
+				localStorage.removeItem("adminToken");
+				queryClient.cancelQueries();
+				window.location.reload();
+			}, 1500);
+		},
+		onError: (err: Error) => {
+			if (err instanceof ApiError && err.status === 401) {
+				toast(t("security.password.wrongCurrent"), "error");
+				return;
+			}
+			toast(t("security.password.failed"), "error");
+		},
+	});
+
+	const passwordFormValid =
+		currentPassword.length > 0 &&
+		newPassword.length >= 8 &&
+		newPassword === confirmPassword;
+
+	const handleChangePassword = () => {
+		if (newPassword !== confirmPassword) {
+			toast(t("security.password.mismatch"), "error");
+			return;
+		}
+		if (newPassword.length < 8) {
+			toast(t("users.validation.passwordShort"), "error");
+			return;
+		}
+		passwordMutation.mutate();
 	};
 
 	const handleSavedRecoveryCodes = () => {
@@ -397,6 +440,96 @@ export function Security() {
 					{t("settings.totp.title")}
 				</h2>
 				{body}
+			</div>
+			<div className="ui-card p-6 max-w-2xl">
+				<h2 className="text-base font-semibold text-(--text-primary) mb-1">
+					{t("security.password.title")}
+				</h2>
+				<p className="text-(--text-secondary) text-sm mb-4">
+					{t("security.password.description")}
+				</p>
+				<form
+					className="space-y-3"
+					onSubmit={(e) => {
+						e.preventDefault();
+						handleChangePassword();
+					}}
+				>
+					{/* Hidden username field helps password managers bind the entry. */}
+					<input
+						type="text"
+						autoComplete="username"
+						className="hidden"
+						tabIndex={-1}
+						aria-hidden="true"
+						readOnly
+					/>
+					<div>
+						<label
+							htmlFor="security-current-password"
+							className="block text-sm font-medium text-(--text-primary) mb-2"
+						>
+							{t("security.password.current")}
+						</label>
+						<input
+							id="security-current-password"
+							type="password"
+							value={currentPassword}
+							onChange={(e) => setCurrentPassword(e.target.value)}
+							autoComplete="current-password"
+							className="ui-input"
+							data-testid="security-current-password"
+						/>
+					</div>
+					<div>
+						<label
+							htmlFor="security-new-password"
+							className="block text-sm font-medium text-(--text-primary) mb-2"
+						>
+							{t("security.password.new")}
+						</label>
+						<input
+							id="security-new-password"
+							type="password"
+							value={newPassword}
+							onChange={(e) => setNewPassword(e.target.value)}
+							autoComplete="new-password"
+							placeholder={t("users.modal.passwordPlaceholder")}
+							className="ui-input"
+							data-testid="security-new-password"
+						/>
+					</div>
+					<div>
+						<label
+							htmlFor="security-confirm-password"
+							className="block text-sm font-medium text-(--text-primary) mb-2"
+						>
+							{t("security.password.confirm")}
+						</label>
+						<input
+							id="security-confirm-password"
+							type="password"
+							value={confirmPassword}
+							onChange={(e) => setConfirmPassword(e.target.value)}
+							autoComplete="new-password"
+							className="ui-input"
+							data-testid="security-confirm-password"
+						/>
+						{confirmPassword.length > 0 && newPassword !== confirmPassword && (
+							<p className="text-sm text-red-400 mt-1">
+								{t("security.password.mismatch")}
+							</p>
+						)}
+					</div>
+					<button
+						type="submit"
+						disabled={passwordMutation.isPending || !passwordFormValid}
+						className="ui-btn ui-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+						data-testid="security-password-submit"
+					>
+						{t("security.password.submit")}
+					</button>
+				</form>
 			</div>
 		</div>
 	);

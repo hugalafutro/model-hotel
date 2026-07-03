@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Sicurezza",
-		"description": "Gestisci l'autenticazione a due fattori del tuo account."
+		"description": "Gestisci l'autenticazione a due fattori e la password del tuo account.",
+		"password": {
+			"title": "Cambia password",
+			"description": "Scegli una nuova password per il tuo account. Verrai disconnesso ovunque e dovrai accedere di nuovo.",
+			"current": "Password attuale",
+			"new": "Nuova password",
+			"confirm": "Conferma la nuova password",
+			"mismatch": "Le nuove password non coincidono",
+			"submit": "Cambia password",
+			"success": "Password modificata. Accedi di nuovo con la nuova password.",
+			"wrongCurrent": "La password attuale non è corretta",
+			"failed": "Impossibile cambiare la password"
+		}
 	}
 }

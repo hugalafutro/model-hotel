@@ -2842,6 +2842,18 @@
 	},
 	"security": {
 		"title": "Bezpieczeństwo",
-		"description": "Zarządzaj uwierzytelnianiem dwuskładnikowym swojego konta."
+		"description": "Zarządzaj uwierzytelnianiem dwuskładnikowym i hasłem swojego konta.",
+		"password": {
+			"title": "Zmień hasło",
+			"description": "Wybierz nowe hasło do konta. Zostaniesz wylogowany wszędzie i musisz zalogować się ponownie.",
+			"current": "Obecne hasło",
+			"new": "Nowe hasło",
+			"confirm": "Potwierdź nowe hasło",
+			"mismatch": "Nowe hasła nie są zgodne",
+			"submit": "Zmień hasło",
+			"success": "Hasło zmienione. Zaloguj się ponownie nowym hasłem.",
+			"wrongCurrent": "Obecne hasło jest nieprawidłowe",
+			"failed": "Nie udało się zmienić hasła"
+		}
 	}
 }
