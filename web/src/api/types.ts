@@ -738,6 +738,16 @@ export interface TotpLoginResponse {
 	token: string;
 }
 
+// UserTotpStatus is the caller's own second-factor state, served by
+// GET /api/auth/totp/status (users-row identities only).
+export interface UserTotpStatus {
+	enabled: boolean;
+	/** RFC3339 confirmation time; absent when disabled. */
+	enabled_at?: string;
+	recovery_remaining?: number;
+	recovery_total?: number;
+}
+
 // PublicConfig is the unauthenticated subset of server config the SPA reads to
 // render correctly (e.g. hide mutation controls in a read-only demo).
 export interface PublicConfig {
@@ -785,6 +795,8 @@ export interface Me {
 	display_name?: string;
 	role: "admin" | "user";
 	grants: string[];
+	/** True for users-row identities (not the env-token admin); gates the Security page. */
+	user_account?: boolean;
 }
 
 // DashboardUser is a managed user account (admin-only Users page). The
@@ -804,6 +816,8 @@ export interface DashboardUser {
 	rate_limit_rps?: number | null;
 	rate_limit_burst?: number | null;
 	rate_limit_tpm?: number | null;
+	/** Whether the account has a confirmed TOTP second factor. */
+	totp_enabled?: boolean;
 }
 
 // UserUpsertRequest is the create/update body for POST/PUT /api/users.

@@ -53,6 +53,7 @@ export function UserModal({
 	);
 	const [error, setError] = useState<string | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [confirmTotpReset, setConfirmTotpReset] = useState(false);
 	const [resetValue, setResetValue] = useState("");
 
 	// The checkbox list renders from the backend catalog, so a new grant kind
@@ -115,6 +116,19 @@ export function UserModal({
 			onToast(t("users.toast.passwordReset"), "success");
 		},
 		onError: (err) => setError(errMessage(err, t("users.toast.saveFailed"))),
+	});
+
+	const totpResetMutation = useMutation({
+		mutationFn: () => api.users.resetTotp(user?.id ?? ""),
+		onSuccess: () => {
+			setConfirmTotpReset(false);
+			invalidate();
+			onToast(t("users.toast.totpReset"), "success");
+		},
+		onError: (err) => {
+			setConfirmTotpReset(false);
+			setError(errMessage(err, t("users.toast.saveFailed")));
+		},
 	});
 
 	const handleSave = () => {
@@ -425,6 +439,23 @@ export function UserModal({
 							</p>
 						</div>
 
+						{user.totp_enabled && (
+							<div>
+								<button
+									type="button"
+									onClick={() => setConfirmTotpReset(true)}
+									disabled={totpResetMutation.isPending}
+									className="ui-btn w-full disabled:opacity-50"
+									data-testid="user-modal-totp-reset"
+								>
+									{t("users.modal.totpResetButton")}
+								</button>
+								<p className="text-xs text-gray-500 mt-1">
+									{t("users.modal.totpResetHint")}
+								</p>
+							</div>
+						)}
+
 						{!isSelf && (
 							<button
 								type="button"
@@ -447,6 +478,16 @@ export function UserModal({
 					onConfirm={() => deleteMutation.mutate()}
 					onCancel={() => setConfirmDelete(false)}
 					confirmTestId="user-delete-confirm"
+				/>
+			)}
+			{confirmTotpReset && (
+				<ConfirmDialog
+					title={t("users.modal.totpResetConfirmTitle")}
+					message={t("users.modal.totpResetConfirmMessage")}
+					fields={[user?.username ?? ""]}
+					onConfirm={() => totpResetMutation.mutate()}
+					onCancel={() => setConfirmTotpReset(false)}
+					confirmTestId="user-totp-reset-confirm"
 				/>
 			)}
 		</Modal>

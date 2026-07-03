@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pquerna/otp/totp"
 
@@ -52,6 +53,13 @@ func NewRepository(pool *pgxpool.Pool, masterKey string) *Repository {
 	return &Repository{store: NewPostgresStore(pool), masterKey: masterKey}
 }
 
+// UserFactory builds a Repository bound to a single user's TOTP rows (a
+// per-user Store keyed by user ID). It lives here, next to Repository, so the
+// login handler and the self-service API reference one signature instead of
+// each re-declaring an identical func type. Implemented in main.go as a
+// closure over the pool and MASTER_KEY; nil when per-user TOTP is not wired.
+type UserFactory func(userID uuid.UUID) *Repository
+
 // NewRepositoryWithStore creates a TOTP repository over an arbitrary Store
 // implementation (e.g. a SQLite store in the HA Front Desk control plane).
 func NewRepositoryWithStore(store Store, masterKey string) *Repository {
@@ -60,15 +68,22 @@ func NewRepositoryWithStore(store Store, masterKey string) *Repository {
 
 // Enroll generates a new TOTP secret, encrypts it with MASTER_KEY, and stores a
 // provisional row (enabled=false, confirmed_at=NULL). It returns the otpauth
-// URI (for QR rendering) and the base32 secret (for manual entry).
+// URI (for QR rendering) and the base32 secret (for manual entry). The admin
+// flow labels the QR "admin"; per-user enrollments use EnrollAs directly.
 //
 // Re-enrolling overwrites any prior provisional or enabled secret, so a
 // half-finished enrollment cleanly restarts and a live enrollment requires
 // re-verification (the Store's upsert resets enabled/confirmed_at/last_used_step).
 func (r *Repository) Enroll(ctx context.Context) (uri, secret string, err error) {
+	return r.EnrollAs(ctx, "admin")
+}
+
+// EnrollAs is Enroll with a caller-chosen otpauth account label (the username
+// shown in the authenticator app for per-user enrollments).
+func (r *Repository) EnrollAs(ctx context.Context, accountName string) (uri, secret string, err error) {
 	key, err := totp.Generate(totp.GenerateOpts{
 		Issuer:      "Model Hotel",
-		AccountName: "admin",
+		AccountName: accountName,
 	})
 	if err != nil {
 		return "", "", fmt.Errorf("totp: generate secret: %w", err)

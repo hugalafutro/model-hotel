@@ -101,6 +101,7 @@
 			"requests": "Forespørsler",
 			"appLogs": "Logger",
 			"settings": "Innstillinger",
+			"security": "Sikkerhet",
 			"failoverBadgeExplain": "Failover-leverandører etter status på strømbryter - {{closed}} i orden / {{halfOpen}} gjenoppretter / {{open}} utløst",
 			"discoveryChangesBadge_one": "{{count}} endring fra bakgrunnsoppdagelse - klikk for å se gjennom",
 			"discoveryChangesBadge_other": "{{count}} endringer fra bakgrunnsoppdagelse – klikk for å se gjennom",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Vennligst oppgi TOTP-koden din",
 			"totpFailed": "Ugyldig administratortoken eller TOTP-kode",
+			"userTotpFailed": "Ugyldig TOTP- eller gjenopprettingskode",
 			"totpStep": "Tofaktorautentisering er aktivert. Skriv inn den 6-sifrede koden fra autentiseringsappen din.",
 			"totpThrottled": "For mange forsøk. Vent et øyeblikk, og prøv igjen.",
 			"signInWithSSO": "Logg inn med SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Status",
 			"lastLogin": "Siste pålogging",
 			"allGrants": "Alt",
-			"noGrants": "Ingen"
+			"noGrants": "Ingen",
+			"totpEnabled": "Totrinnsverifisering aktivert"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Tokens/min.",
 			"noCap": "Ingen grense",
-			"deleteKeysNote": "Virtuelle nøkler eid av denne kontoen beholdes og blir eierløse."
+			"deleteKeysNote": "Virtuelle nøkler eid av denne kontoen beholdes og blir eierløse.",
+			"totpResetButton": "Tilbakestill totrinnsverifisering",
+			"totpResetHint": "Fjerner brukerens autentiseringsapp og gjenopprettingskoder, slik at de kan logge inn med bare passordet.",
+			"totpResetConfirmTitle": "Tilbakestill totrinnsverifisering",
+			"totpResetConfirmMessage": "Dette fjerner koblingen til autentiseringsappen og alle gjenopprettingskoder for denne brukeren. Passordet forblir uendret."
 		},
 		"toast": {
 			"created": "Bruker opprettet",
@@ -2825,11 +2832,28 @@
 			"deleted": "Bruker slettet",
 			"passwordReset": "Passord tilbakestilt",
 			"saveFailed": "Kunne ikke lagre brukeren",
-			"deleteFailed": "Kunne ikke slette brukeren"
+			"deleteFailed": "Kunne ikke slette brukeren",
+			"totpReset": "Totrinnsverifisering tilbakestilt"
 		},
 		"validation": {
 			"usernameRequired": "Brukernavn er påkrevd",
 			"passwordShort": "Passordet må være på minst 8 tegn"
+		}
+	},
+	"security": {
+		"title": "Sikkerhet",
+		"description": "Administrer totrinnsverifisering og passordet på kontoen din.",
+		"password": {
+			"title": "Bytt passord",
+			"description": "Velg et nytt passord for kontoen din. Du blir logget ut overalt og må logge inn på nytt.",
+			"current": "Nåværende passord",
+			"new": "Nytt passord",
+			"confirm": "Bekreft det nye passordet",
+			"mismatch": "De nye passordene stemmer ikke overens",
+			"submit": "Bytt passord",
+			"success": "Passordet er byttet. Logg inn på nytt med det nye passordet.",
+			"wrongCurrent": "Det nåværende passordet er feil",
+			"failed": "Kunne ikke bytte passord"
 		}
 	}
 }

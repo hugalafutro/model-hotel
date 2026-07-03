@@ -45,6 +45,10 @@ type User struct {
 	RateLimitRPS   *float64 `json:"rate_limit_rps"`
 	RateLimitBurst *int     `json:"rate_limit_burst"`
 	RateLimitTPM   *int     `json:"rate_limit_tpm"`
+	// TotpEnabled reports whether the user has a confirmed second factor.
+	// Derived from user_totp by the API layer (ListUsers), never scanned from
+	// the users table; false in Create/Update responses (the UI refetches).
+	TotpEnabled bool `json:"totp_enabled"`
 }
 
 // Repository provides CRUD over the users table.

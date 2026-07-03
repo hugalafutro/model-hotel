@@ -75,14 +75,14 @@ export interface ArenaStateAndActions {
 	arenaMode: ArenaSubMode;
 	setArenaMode: (mode: ArenaSubMode) => void;
 	// Refs
-	abortMapRef: React.MutableRefObject<Map<string, AbortController>>;
-	lastExtractLenRef: React.MutableRefObject<Map<string, number>>;
-	currentRoundRef: React.MutableRefObject<number>;
-	roundsLengthRef: React.MutableRefObject<number>;
-	roundsRef: React.MutableRefObject<BracketRound[]>;
-	activePromptIdRef: React.MutableRefObject<string | null>;
-	comparePersonaIdRef: React.MutableRefObject<string | null>;
-	arenaModeRef: React.MutableRefObject<ArenaSubMode>;
+	abortMapRef: React.RefObject<Map<string, AbortController>>;
+	lastExtractLenRef: React.RefObject<Map<string, number>>;
+	currentRoundRef: React.RefObject<number>;
+	roundsLengthRef: React.RefObject<number>;
+	roundsRef: React.RefObject<BracketRound[]>;
+	activePromptIdRef: React.RefObject<string | null>;
+	comparePersonaIdRef: React.RefObject<string | null>;
+	arenaModeRef: React.RefObject<ArenaSubMode>;
 	// Computed values
 	canRun: boolean;
 	disabledReason: string;

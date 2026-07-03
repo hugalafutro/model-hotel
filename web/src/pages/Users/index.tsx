@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Users as UsersIcon } from "@/lib/icons";
+import { ShieldCheck, Users as UsersIcon } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { DashboardUser } from "../../api/types";
 import { Badge } from "../../components/Badge";
@@ -169,11 +169,21 @@ export function Users() {
 												: t("users.table.noGrants")}
 									</td>
 									<td className="px-4 py-3">
-										<Badge variant={u.enabled ? "success" : "error"}>
-											{u.enabled
-												? t("users.status.enabled")
-												: t("users.status.disabled")}
-										</Badge>
+										<span className="inline-flex items-center gap-1.5">
+											<Badge variant={u.enabled ? "success" : "error"}>
+												{u.enabled
+													? t("users.status.enabled")
+													: t("users.status.disabled")}
+											</Badge>
+											{u.totp_enabled && (
+												<ShieldCheck
+													size={16}
+													className="text-(--accent) shrink-0"
+													aria-label={t("users.table.totpEnabled")}
+													data-testid={`totp-badge-${u.username}`}
+												/>
+											)}
+										</span>
 									</td>
 									<td className="px-4 py-3 text-sm text-gray-400">
 										{formatRelativeTime(u.last_login_at)}

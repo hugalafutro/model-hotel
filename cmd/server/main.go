@@ -19,6 +19,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
 	"github.com/hugalafutro/model-hotel/internal/adminauth"
@@ -311,7 +312,14 @@ func main() {
 	// doubles as the session revoker for disable/delete/password-reset.
 	userRepo := user.NewRepository(database.Pool())
 	apiHandler.SetUserAuth(userRepo, webauthnRepo)
-	userLoginHandler := adminauth.NewUserLoginHandler(userRepo, sessionMgr, ipLimiter)
+	// Per-user TOTP second factor: the factory binds the shared crypto/policy
+	// repository to one user's rows (user_totp tables), so login enforcement
+	// and the self-service endpoints reuse the admin TOTP machinery verbatim.
+	userTotpFactory := func(id uuid.UUID) *totp.Repository {
+		return totp.NewRepositoryWithStore(totp.NewUserPostgresStore(database.Pool(), id), cfg.MasterKey)
+	}
+	userLoginHandler := adminauth.NewUserLoginHandler(userRepo, sessionMgr, ipLimiter, userTotpFactory)
+	apiHandler.SetUserTotp(userTotpFactory)
 
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour)

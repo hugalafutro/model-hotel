@@ -102,6 +102,7 @@
 			"requests": "Requests",
 			"appLogs": "Logs",
 			"settings": "Settings",
+			"security": "Security",
 			"discoveryChangesBadge_one": "{{count}} change from background discovery - click to review",
 			"discoveryChangesBadge_other": "{{count}} changes from background discovery - click to review",
 			"users": "Users"
@@ -168,6 +169,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Please enter your TOTP code",
 			"totpFailed": "Invalid admin token or TOTP code",
+			"userTotpFailed": "Invalid TOTP or recovery code",
 			"hideToken": "Hide token",
 			"showToken": "Show token",
 			"getTokenHint": "Get your admin token from the server logs",
@@ -2771,7 +2773,8 @@
 			"status": "Status",
 			"lastLogin": "Last login",
 			"allGrants": "Everything",
-			"noGrants": "None"
+			"noGrants": "None",
+			"totpEnabled": "Two-factor authentication enabled"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Tokens/min",
 			"noCap": "No cap",
-			"deleteKeysNote": "Virtual keys owned by this account are kept and become unowned."
+			"deleteKeysNote": "Virtual keys owned by this account are kept and become unowned.",
+			"totpResetButton": "Reset two-factor authentication",
+			"totpResetHint": "Removes the user's authenticator app and recovery codes so they can sign in with their password alone.",
+			"totpResetConfirmTitle": "Reset two-factor authentication",
+			"totpResetConfirmMessage": "This removes the authenticator app binding and all recovery codes for this user. Their password stays unchanged."
 		},
 		"toast": {
 			"created": "User created",
@@ -2825,11 +2832,28 @@
 			"deleted": "User deleted",
 			"passwordReset": "Password reset",
 			"saveFailed": "Could not save the user",
-			"deleteFailed": "Could not delete the user"
+			"deleteFailed": "Could not delete the user",
+			"totpReset": "Two-factor authentication reset"
 		},
 		"validation": {
 			"usernameRequired": "Username is required",
 			"passwordShort": "Password must be at least 8 characters"
+		}
+	},
+	"security": {
+		"title": "Security",
+		"description": "Manage two-factor authentication and the password on your account.",
+		"password": {
+			"title": "Change password",
+			"description": "Choose a new password for your account. You will be signed out everywhere and must sign in again.",
+			"current": "Current password",
+			"new": "New password",
+			"confirm": "Confirm new password",
+			"mismatch": "New passwords do not match",
+			"submit": "Change password",
+			"success": "Password changed. Sign in again with your new password.",
+			"wrongCurrent": "Current password is incorrect",
+			"failed": "Failed to change password"
 		}
 	}
 }

@@ -101,6 +101,7 @@
 			"requests": "Pyynnöt",
 			"appLogs": "Lokit",
 			"settings": "Asetukset",
+			"security": "Turvallisuus",
 			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan - {{closed}} toimintakunnossa / {{halfOpen}} palautumassa / {{open}} laukeamassa",
 			"discoveryChangesBadge_one": "{{count}} muutos taustahakutoiminnosta - napsauta tarkistaaksesi",
 			"discoveryChangesBadge_other": "{{count}} muutokset taustahakutoiminnosta - napsauta tarkistaaksesi",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Syötä TOTP-koodisi",
 			"totpFailed": "Virheellinen hallintatunnus tai TOTP-koodi",
+			"userTotpFailed": "Virheellinen TOTP- tai palautuskoodi",
 			"totpStep": "Kaksivaiheinen todennus on käytössä. Syötä todennusohjelmasi 6-numeroinen koodi.",
 			"totpThrottled": "Liian monta yritystä. Odota hetki ja yritä uudelleen.",
 			"signInWithSSO": "Kirjaudu SSO:lla",
@@ -2771,7 +2773,8 @@
 			"status": "Tila",
 			"lastLogin": "Viimeisin kirjautuminen",
 			"allGrants": "Kaikki",
-			"noGrants": "Ei mitään"
+			"noGrants": "Ei mitään",
+			"totpEnabled": "Kaksivaiheinen todennus käytössä"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Purske",
 			"limitTpm": "Tokenia/min",
 			"noCap": "Ei rajaa",
-			"deleteKeysNote": "Tämän tilin omistamat virtuaaliavaimet säilytetään ja ne jäävät ilman omistajaa."
+			"deleteKeysNote": "Tämän tilin omistamat virtuaaliavaimet säilytetään ja ne jäävät ilman omistajaa.",
+			"totpResetButton": "Nollaa kaksivaiheinen todennus",
+			"totpResetHint": "Poistaa käyttäjän todennussovelluksen ja palautuskoodit, jolloin kirjautuminen onnistuu pelkällä salasanalla.",
+			"totpResetConfirmTitle": "Nollaa kaksivaiheinen todennus",
+			"totpResetConfirmMessage": "Tämä poistaa todennussovelluksen sidonnan ja kaikki tämän käyttäjän palautuskoodit. Salasana pysyy ennallaan."
 		},
 		"toast": {
 			"created": "Käyttäjä luotu",
@@ -2825,11 +2832,28 @@
 			"deleted": "Käyttäjä poistettu",
 			"passwordReset": "Salasana nollattu",
 			"saveFailed": "Käyttäjän tallennus epäonnistui",
-			"deleteFailed": "Käyttäjän poisto epäonnistui"
+			"deleteFailed": "Käyttäjän poisto epäonnistui",
+			"totpReset": "Kaksivaiheinen todennus nollattu"
 		},
 		"validation": {
 			"usernameRequired": "Käyttäjätunnus vaaditaan",
 			"passwordShort": "Salasanan on oltava vähintään 8 merkkiä"
+		}
+	},
+	"security": {
+		"title": "Turvallisuus",
+		"description": "Hallitse tilisi kaksivaiheista todennusta ja salasanaa.",
+		"password": {
+			"title": "Vaihda salasana",
+			"description": "Valitse tilillesi uusi salasana. Sinut kirjataan ulos kaikkialta ja sinun on kirjauduttava uudelleen.",
+			"current": "Nykyinen salasana",
+			"new": "Uusi salasana",
+			"confirm": "Vahvista uusi salasana",
+			"mismatch": "Uudet salasanat eivät täsmää",
+			"submit": "Vaihda salasana",
+			"success": "Salasana vaihdettu. Kirjaudu uudelleen uudella salasanalla.",
+			"wrongCurrent": "Nykyinen salasana on väärä",
+			"failed": "Salasanan vaihto epäonnistui"
 		}
 	}
 }

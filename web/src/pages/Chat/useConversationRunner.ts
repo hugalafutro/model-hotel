@@ -1,4 +1,4 @@
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import type { ChatMessage, GenerationParams } from "../../api/types";
@@ -24,12 +24,12 @@ interface UseConversationRunnerParams {
 	conversationState: ConversationState;
 	toast: (msg: string, type?: "success" | "error" | "info" | "warning") => void;
 	// Refs
-	conversationAbortRef: MutableRefObject<AbortController | null>;
-	cleanupConvAbortRef: MutableRefObject<AbortController | null>;
-	conversationRunningRef: MutableRefObject<boolean>;
-	capturedModelARef: MutableRefObject<string>;
-	capturedModelBRef: MutableRefObject<string>;
-	lastPromptRef: MutableRefObject<string>;
+	conversationAbortRef: RefObject<AbortController | null>;
+	cleanupConvAbortRef: RefObject<AbortController | null>;
+	conversationRunningRef: RefObject<boolean>;
+	capturedModelARef: RefObject<string>;
+	capturedModelBRef: RefObject<string>;
+	lastPromptRef: RefObject<string>;
 	// State setters
 	setMessages: Dispatch<SetStateAction<ChatMessage[]>>;
 	setInput: (v: string) => void;

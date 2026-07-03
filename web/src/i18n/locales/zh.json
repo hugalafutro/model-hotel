@@ -101,6 +101,7 @@
 			"requests": "请求",
 			"appLogs": "日志",
 			"settings": "设置",
+			"security": "安全",
 			"failoverBadgeExplain": "按断路器状态切换提供商 - {{closed}} 正常 / {{halfOpen}} 恢复中 / {{open}} 已跳闸",
 			"discoveryChangesBadge_one": "{{count}} 来自后台发现的变更 - 点击查看",
 			"discoveryChangesBadge_other": "{{count}} 来自后台发现的变更 - 点击查看",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "请输入您的 TOTP 代码",
 			"totpFailed": "管理令牌或 TOTP 代码无效",
+			"userTotpFailed": "TOTP 或恢复代码无效",
 			"totpStep": "已启用双重身份验证。请输入您的身份验证器应用中的 6 位数字代码。",
 			"totpThrottled": "尝试次数过多。请稍候片刻后重试。",
 			"signInWithSSO": "使用 SSO 登录",
@@ -2771,7 +2773,8 @@
 			"status": "状态",
 			"lastLogin": "上次登录",
 			"allGrants": "全部",
-			"noGrants": "无"
+			"noGrants": "无",
+			"totpEnabled": "已启用两步验证"
 		},
 		"role": {
 			"admin": "管理员",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "突发",
 			"limitTpm": "令牌/分钟",
 			"noCap": "不设上限",
-			"deleteKeysNote": "该账户拥有的虚拟密钥将被保留并变为无归属。"
+			"deleteKeysNote": "该账户拥有的虚拟密钥将被保留并变为无归属。",
+			"totpResetButton": "重置两步验证",
+			"totpResetHint": "移除该用户的验证器应用和恢复代码，之后仅凭密码即可登录。",
+			"totpResetConfirmTitle": "重置两步验证",
+			"totpResetConfirmMessage": "这将移除该用户的验证器应用绑定和所有恢复代码。密码保持不变。"
 		},
 		"toast": {
 			"created": "用户已创建",
@@ -2825,11 +2832,28 @@
 			"deleted": "用户已删除",
 			"passwordReset": "密码已重置",
 			"saveFailed": "无法保存用户",
-			"deleteFailed": "无法删除用户"
+			"deleteFailed": "无法删除用户",
+			"totpReset": "两步验证已重置"
 		},
 		"validation": {
 			"usernameRequired": "用户名为必填项",
 			"passwordShort": "密码至少需要 8 个字符"
+		}
+	},
+	"security": {
+		"title": "安全",
+		"description": "管理您账户的两步验证和密码。",
+		"password": {
+			"title": "修改密码",
+			"description": "为账户设置新密码。所有设备都会被登出,需要重新登录。",
+			"current": "当前密码",
+			"new": "新密码",
+			"confirm": "确认新密码",
+			"mismatch": "两次输入的新密码不一致",
+			"submit": "修改密码",
+			"success": "密码已修改。请使用新密码重新登录。",
+			"wrongCurrent": "当前密码不正确",
+			"failed": "修改密码失败"
 		}
 	}
 }

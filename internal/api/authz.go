@@ -113,6 +113,9 @@ type meResponse struct {
 	DisplayName string   `json:"display_name,omitempty"`
 	Role        string   `json:"role"`
 	Grants      []string `json:"grants"`
+	// UserAccount is true for users-row identities (not the env-token admin),
+	// gating the self-service Security surface in the SPA.
+	UserAccount bool `json:"user_account"`
 }
 
 // Me reports the caller's resolved identity. Mounted inside the
@@ -123,7 +126,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no identity", http.StatusUnauthorized)
 		return
 	}
-	resp := meResponse{Username: id.Username, Role: string(id.Role), Grants: id.Grants}
+	resp := meResponse{Username: id.Username, Role: string(id.Role), Grants: id.Grants, UserAccount: id.UserID != nil}
 	if resp.Grants == nil {
 		resp.Grants = []string{}
 	}

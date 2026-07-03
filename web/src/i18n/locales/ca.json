@@ -101,6 +101,7 @@
 			"requests": "Sol·licituds",
 			"appLogs": "Registres",
 			"settings": "Configuració",
+			"security": "Seguretat",
 			"failoverBadgeExplain": "Proveïdors de fallada per estat del circuit breaker - {{closed}} saludable / {{halfOpen}} en recuperació / {{open}} disparat",
 			"discoveryChangesBadge_one": "Canvi de {{count}} des del descobriment de fons - fes clic per revisar",
 			"discoveryChangesBadge_other": "Canvis de {{count}} des del descobriment de fons - feu clic per revisar",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Introduïu el vostre codi TOTP",
 			"totpFailed": "Token d'administrador o codi TOTP invàlids",
+			"userTotpFailed": "Codi TOTP o de recuperació no vàlid",
 			"totpStep": "L'autenticació de dos factors està habilitada. Introdueix el codi de 6 dígits de la teva aplicació d'autenticació.",
 			"totpThrottled": "Massa intents. Espereu un moment i torneu-ho a provar.",
 			"signInWithSSO": "Inicia la sessió amb SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Estat",
 			"lastLogin": "Últim accés",
 			"allGrants": "Tot",
-			"noGrants": "Cap"
+			"noGrants": "Cap",
+			"totpEnabled": "Autenticació de dos factors activada"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Ràfega",
 			"limitTpm": "Tokens/min",
 			"noCap": "Sense topall",
-			"deleteKeysNote": "Les claus virtuals d'aquest compte es conserven i queden sense propietari."
+			"deleteKeysNote": "Les claus virtuals d'aquest compte es conserven i queden sense propietari.",
+			"totpResetButton": "Restableix l'autenticació de dos factors",
+			"totpResetHint": "Elimina l'aplicació d'autenticació i els codis de recuperació de l'usuari perquè pugui iniciar sessió només amb la contrasenya.",
+			"totpResetConfirmTitle": "Restableix l'autenticació de dos factors",
+			"totpResetConfirmMessage": "Això elimina la vinculació de l'aplicació d'autenticació i tots els codis de recuperació d'aquest usuari. La contrasenya no canvia."
 		},
 		"toast": {
 			"created": "Usuari creat",
@@ -2825,11 +2832,28 @@
 			"deleted": "Usuari suprimit",
 			"passwordReset": "Contrasenya restablerta",
 			"saveFailed": "No s'ha pogut desar l'usuari",
-			"deleteFailed": "No s'ha pogut suprimir l'usuari"
+			"deleteFailed": "No s'ha pogut suprimir l'usuari",
+			"totpReset": "Autenticació de dos factors restablerta"
 		},
 		"validation": {
 			"usernameRequired": "El nom d'usuari és obligatori",
 			"passwordShort": "La contrasenya ha de tenir com a mínim 8 caràcters"
+		}
+	},
+	"security": {
+		"title": "Seguretat",
+		"description": "Gestioneu l'autenticació de dos factors i la contrasenya del vostre compte.",
+		"password": {
+			"title": "Canvia la contrasenya",
+			"description": "Trieu una contrasenya nova per al compte. Es tancarà la sessió a tot arreu i haureu de tornar a iniciar-la.",
+			"current": "Contrasenya actual",
+			"new": "Contrasenya nova",
+			"confirm": "Confirmeu la contrasenya nova",
+			"mismatch": "Les contrasenyes noves no coincideixen",
+			"submit": "Canvia la contrasenya",
+			"success": "S'ha canviat la contrasenya. Torneu a iniciar la sessió amb la contrasenya nova.",
+			"wrongCurrent": "La contrasenya actual no és correcta",
+			"failed": "No s'ha pogut canviar la contrasenya"
 		}
 	}
 }

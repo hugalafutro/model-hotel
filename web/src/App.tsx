@@ -50,6 +50,9 @@ const Arena = lazy(() =>
 const Users = lazy(() =>
 	import("./pages/Users").then((m) => ({ default: m.Users })),
 );
+const Security = lazy(() =>
+	import("./pages/Security").then((m) => ({ default: m.Security })),
+);
 
 function LoginScreen() {
 	const { t } = useTranslation();
@@ -64,6 +67,10 @@ function LoginScreen() {
 	const [username, setUsername] = useState("");
 	const [userPassword, setUserPassword] = useState("");
 	const [userLoading, setUserLoading] = useState(false);
+	// Set when the server answers 401 {"totp_required": true}: the account has
+	// a second factor, so the form grows a code field and resubmits with it.
+	const [userTotpNeeded, setUserTotpNeeded] = useState(false);
+	const [userTotpCode, setUserTotpCode] = useState("");
 
 	// SSO availability is read unauthenticated; the button only shows when an
 	// IdP is configured. Cached app-wide; config does not change at runtime.
@@ -103,10 +110,18 @@ function LoginScreen() {
 			setError(t("layout.auth.userCredentialsRequired"));
 			return;
 		}
+		if (userTotpNeeded && !userTotpCode.trim()) {
+			setError(t("layout.auth.totpCodeRequired"));
+			return;
+		}
 		setUserLoading(true);
 		setError(null);
 		try {
-			const res = await api.auth.login(name, userPassword);
+			const res = await api.auth.login(
+				name,
+				userPassword,
+				userTotpNeeded ? userTotpCode.trim() : undefined,
+			);
 			localStorage.setItem("adminToken", res.token);
 			setAdminToken(res.token);
 			window.location.reload();
@@ -115,11 +130,22 @@ function LoginScreen() {
 				err && typeof err === "object" && "status" in err
 					? (err as { status?: number }).status
 					: undefined;
-			setError(
-				status === 429
-					? t("layout.auth.userLoginThrottled")
-					: t("layout.auth.userLoginFailed"),
-			);
+			// The ApiError message carries the response body, so the
+			// totp_required marker survives duck-typing across bundles.
+			const message =
+				err && typeof err === "object" && "message" in err
+					? String((err as { message?: unknown }).message ?? "")
+					: "";
+			if (status === 401 && message.includes("totp_required")) {
+				setUserTotpNeeded(true);
+				setError(null);
+			} else if (status === 429) {
+				setError(t("layout.auth.userLoginThrottled"));
+			} else if (userTotpNeeded && status === 401) {
+				setError(t("layout.auth.userTotpFailed"));
+			} else {
+				setError(t("layout.auth.userLoginFailed"));
+			}
 		} finally {
 			setUserLoading(false);
 		}
@@ -326,6 +352,34 @@ function LoginScreen() {
 									autoComplete="current-password"
 								/>
 							</div>
+							{userTotpNeeded && (
+								<div>
+									<label
+										htmlFor="user-totp-code"
+										className="block text-sm font-medium text-gray-300 mb-2"
+									>
+										{t("layout.auth.totpStep")}
+									</label>
+									<input
+										id="user-totp-code"
+										type="text"
+										value={userTotpCode}
+										onChange={(e) => setUserTotpCode(e.target.value)}
+										onKeyDown={(e) =>
+											e.key === "Enter" && !userLoading && handleUserLogin()
+										}
+										inputMode="text"
+										maxLength={19}
+										autoComplete="one-time-code"
+										placeholder={t("layout.auth.totpCodePlaceholder")}
+										className="ui-input"
+										aria-label={t("layout.auth.totpCodeLabel")}
+										data-testid="user-totp-code"
+										// biome-ignore lint/a11y/noAutofocus: the field appears in response to the user's own submit; focusing it is the expected next step
+										autoFocus
+									/>
+								</div>
+							)}
 							<button
 								type="button"
 								onClick={() => handleUserLogin()}
@@ -468,6 +522,16 @@ function HomeRedirect() {
 	return <Navigate to={first?.href ?? "/chat"} replace />;
 }
 
+// RequireUserAccount gates the self-service Security page: only users-row
+// identities have a second factor to manage (the env-token admin manages TOTP
+// under Settings).
+function RequireUserAccount({ children }: { children: React.ReactNode }) {
+	const { me, isLoading } = useIdentity();
+	if (isLoading) return null;
+	if (!me?.user_account) return <HomeRedirect />;
+	return <>{children}</>;
+}
+
 // RequireAccess hides a route from callers without the grant (server-side
 // enforcement 403s the API calls regardless). "admin" means admin-only.
 function RequireAccess({
@@ -604,6 +668,16 @@ function AppContent() {
 									<Users />
 								</PageSuspense>
 							</RequireAccess>
+						}
+					/>
+					<Route
+						path="/security"
+						element={
+							<RequireUserAccount>
+								<PageSuspense>
+									<Security />
+								</PageSuspense>
+							</RequireUserAccount>
 						}
 					/>
 					<Route

@@ -101,6 +101,7 @@
 			"requests": "Richieste",
 			"appLogs": "Log",
 			"settings": "Impostazioni",
+			"security": "Sicurezza",
 			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico - {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato",
 			"discoveryChangesBadge_one": "Modifica {{count}} derivante dal rilevamento in background - clicca per rivedere",
 			"discoveryChangesBadge_other": "Modifiche {{count}} derivanti dal rilevamento in background - clicca per rivedere",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Inserisci il tuo codice TOTP",
 			"totpFailed": "Token di amministrazione o codice TOTP non valido",
+			"userTotpFailed": "Codice TOTP o di recupero non valido",
 			"totpStep": "L'autenticazione a due fattori è abilitata. Inserisci il codice a 6 cifre generato dalla tua app di autenticazione.",
 			"totpThrottled": "Troppi tentativi. Attendi un momento e riprova.",
 			"signInWithSSO": "Accedi con SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Stato",
 			"lastLogin": "Ultimo accesso",
 			"allGrants": "Tutto",
-			"noGrants": "Nessuno"
+			"noGrants": "Nessuno",
+			"totpEnabled": "Autenticazione a due fattori attiva"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Token/min",
 			"noCap": "Nessun limite",
-			"deleteKeysNote": "Le chiavi virtuali di questo account vengono conservate e restano senza proprietario."
+			"deleteKeysNote": "Le chiavi virtuali di questo account vengono conservate e restano senza proprietario.",
+			"totpResetButton": "Reimposta l'autenticazione a due fattori",
+			"totpResetHint": "Rimuove l'app di autenticazione e i codici di recupero dell'utente, che potrà accedere con la sola password.",
+			"totpResetConfirmTitle": "Reimposta l'autenticazione a due fattori",
+			"totpResetConfirmMessage": "Questo rimuove l'associazione con l'app di autenticazione e tutti i codici di recupero di questo utente. La password resta invariata."
 		},
 		"toast": {
 			"created": "Utente creato",
@@ -2825,11 +2832,28 @@
 			"deleted": "Utente eliminato",
 			"passwordReset": "Password reimpostata",
 			"saveFailed": "Impossibile salvare l'utente",
-			"deleteFailed": "Impossibile eliminare l'utente"
+			"deleteFailed": "Impossibile eliminare l'utente",
+			"totpReset": "Autenticazione a due fattori reimpostata"
 		},
 		"validation": {
 			"usernameRequired": "Il nome utente è obbligatorio",
 			"passwordShort": "La password deve contenere almeno 8 caratteri"
+		}
+	},
+	"security": {
+		"title": "Sicurezza",
+		"description": "Gestisci l'autenticazione a due fattori e la password del tuo account.",
+		"password": {
+			"title": "Cambia password",
+			"description": "Scegli una nuova password per il tuo account. Verrai disconnesso ovunque e dovrai accedere di nuovo.",
+			"current": "Password attuale",
+			"new": "Nuova password",
+			"confirm": "Conferma la nuova password",
+			"mismatch": "Le nuove password non coincidono",
+			"submit": "Cambia password",
+			"success": "Password modificata. Accedi di nuovo con la nuova password.",
+			"wrongCurrent": "La password attuale non è corretta",
+			"failed": "Impossibile cambiare la password"
 		}
 	}
 }

@@ -1,5 +1,5 @@
 import { produce } from "immer";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { API_BASE, getAuthHeaders } from "../../api/client";
 import type { GenerationParams } from "../../api/types";
@@ -17,7 +17,7 @@ import {
 } from "./utils";
 
 export interface ArenaRunnerDeps {
-	arenaModeRef: React.MutableRefObject<ArenaSubMode>;
+	arenaModeRef: React.RefObject<ArenaSubMode>;
 	savedPrompt: string;
 	prompt: string;
 	setRounds: React.Dispatch<React.SetStateAction<BracketRound[]>>;
@@ -28,7 +28,7 @@ export interface ArenaRunnerDeps {
 	>;
 	setRunningModels: React.Dispatch<React.SetStateAction<Set<string>>>;
 	rounds: BracketRound[];
-	roundsRef: React.MutableRefObject<BracketRound[]>;
+	roundsRef: React.RefObject<BracketRound[]>;
 	modelParams: Record<string, GenerationParams>;
 	enabledModels: Array<{ provider_name: string; model_id: string }>;
 	toast: ReturnType<typeof useToast>["toast"];
@@ -63,7 +63,7 @@ export interface ArenaRunner {
 		slotKey: "A" | "B",
 		newModelId: string,
 	) => void;
-	abortMapRef: React.MutableRefObject<Map<string, AbortController>>;
+	abortMapRef: React.RefObject<Map<string, AbortController>>;
 }
 
 export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
@@ -71,9 +71,9 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 		arenaModeRef,
 		savedPrompt,
 		prompt,
-		setRounds,
-		setPhase,
-		setRunningModels,
+		setRounds: setRoundsRaw,
+		setPhase: setPhaseRaw,
+		setRunningModels: setRunningModelsRaw,
 		rounds,
 		roundsRef,
 		modelParams,
@@ -84,6 +84,42 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 	const { t } = useTranslation();
 
 	const abortMapRef = useRef<Map<string, AbortController>>(new Map());
+
+	// Once the Arena unmounts, any still-in-flight stream must stop touching
+	// React state: a late setState throws under jsdom teardown ("window is not
+	// defined") and leaks work in production. Flip a mounted flag on unmount,
+	// abort every in-flight request, and gate the setters through it so the
+	// streaming body below never dispatches into a dead tree.
+	const mountedRef = useRef(true);
+	useEffect(() => {
+		// abortMapRef.current is stable for the component's lifetime (the Map is
+		// created once), but capture it so the cleanup reads the same instance.
+		const abortMap = abortMapRef.current;
+		return () => {
+			mountedRef.current = false;
+			for (const ctrl of abortMap.values()) ctrl.abort();
+			abortMap.clear();
+		};
+	}, []);
+
+	const setRounds = useCallback<typeof setRoundsRaw>(
+		(update) => {
+			if (mountedRef.current) setRoundsRaw(update);
+		},
+		[setRoundsRaw],
+	);
+	const setPhase = useCallback<typeof setPhaseRaw>(
+		(update) => {
+			if (mountedRef.current) setPhaseRaw(update);
+		},
+		[setPhaseRaw],
+	);
+	const setRunningModels = useCallback<typeof setRunningModelsRaw>(
+		(update) => {
+			if (mountedRef.current) setRunningModelsRaw(update);
+		},
+		[setRunningModelsRaw],
+	);
 
 	const streamModel = useCallback(
 		(
@@ -264,10 +300,12 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 							}
 						}),
 					);
-					toast(
-						t("hooks.useArenaRunner.generationError", { model, error: msg }),
-						"error",
-					);
+					if (mountedRef.current) {
+						toast(
+							t("hooks.useArenaRunner.generationError", { model, error: msg }),
+							"error",
+						);
+					}
 				} finally {
 					setRunningModels((prev) => {
 						const next = new Set(prev);

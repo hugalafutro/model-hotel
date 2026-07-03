@@ -101,6 +101,7 @@
 			"requests": "Żądania",
 			"appLogs": "Logi",
 			"settings": "Ustawienia",
+			"security": "Bezpieczeństwo",
 			"failoverBadgeExplain": "Dostawcy awaryjni według stanu wyłącznika - {{closed}} sprawny / {{halfOpen}} w trakcie przywracania / {{open}} wyłączony",
 			"discoveryChangesBadge_one": "Zmiana {{count}} wynikająca z analizy tła - kliknij, aby przejrzeć",
 			"discoveryChangesBadge_other": "Zmiany {{count}} wynikające z analizy tła - kliknij, aby przejrzeć",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Wprowadź swój kod TOTP",
 			"totpFailed": "Nieprawidłowy token administratora lub kod TOTP",
+			"userTotpFailed": "Nieprawidłowy kod TOTP lub kod odzyskiwania",
 			"totpStep": "Włączono uwierzytelnianie dwuskładnikowe. Wprowadź 6-cyfrowy kod z aplikacji uwierzytelniającej.",
 			"totpThrottled": "Zbyt wiele prób. Poczekaj chwilę i spróbuj ponownie.",
 			"signInWithSSO": "Zaloguj się przez SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Status",
 			"lastLogin": "Ostatnie logowanie",
 			"allGrants": "Wszystko",
-			"noGrants": "Brak"
+			"noGrants": "Brak",
+			"totpEnabled": "Uwierzytelnianie dwuskładnikowe włączone"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Tokeny/min",
 			"noCap": "Bez limitu",
-			"deleteKeysNote": "Klucze wirtualne należące do tego konta zostaną zachowane i stracą właściciela."
+			"deleteKeysNote": "Klucze wirtualne należące do tego konta zostaną zachowane i stracą właściciela.",
+			"totpResetButton": "Zresetuj uwierzytelnianie dwuskładnikowe",
+			"totpResetHint": "Usuwa aplikację uwierzytelniającą i kody odzyskiwania użytkownika, aby mógł logować się samym hasłem.",
+			"totpResetConfirmTitle": "Zresetuj uwierzytelnianie dwuskładnikowe",
+			"totpResetConfirmMessage": "Spowoduje to usunięcie powiązania z aplikacją uwierzytelniającą i wszystkich kodów odzyskiwania tego użytkownika. Hasło pozostaje bez zmian."
 		},
 		"toast": {
 			"created": "Użytkownik utworzony",
@@ -2825,11 +2832,28 @@
 			"deleted": "Użytkownik usunięty",
 			"passwordReset": "Hasło zresetowane",
 			"saveFailed": "Nie udało się zapisać użytkownika",
-			"deleteFailed": "Nie udało się usunąć użytkownika"
+			"deleteFailed": "Nie udało się usunąć użytkownika",
+			"totpReset": "Uwierzytelnianie dwuskładnikowe zresetowane"
 		},
 		"validation": {
 			"usernameRequired": "Nazwa użytkownika jest wymagana",
 			"passwordShort": "Hasło musi mieć co najmniej 8 znaków"
+		}
+	},
+	"security": {
+		"title": "Bezpieczeństwo",
+		"description": "Zarządzaj uwierzytelnianiem dwuskładnikowym i hasłem swojego konta.",
+		"password": {
+			"title": "Zmień hasło",
+			"description": "Wybierz nowe hasło do konta. Zostaniesz wylogowany wszędzie i musisz zalogować się ponownie.",
+			"current": "Obecne hasło",
+			"new": "Nowe hasło",
+			"confirm": "Potwierdź nowe hasło",
+			"mismatch": "Nowe hasła nie są zgodne",
+			"submit": "Zmień hasło",
+			"success": "Hasło zmienione. Zaloguj się ponownie nowym hasłem.",
+			"wrongCurrent": "Obecne hasło jest nieprawidłowe",
+			"failed": "Nie udało się zmienić hasła"
 		}
 	}
 }

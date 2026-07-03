@@ -101,6 +101,7 @@
 			"requests": "Verzoeken",
 			"appLogs": "Logboeken",
 			"settings": "Instellingen",
+			"security": "Beveiliging",
 			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status - {{closed}} gezond / {{halfOpen}} herstellend / {{open}} geactiveerd",
 			"discoveryChangesBadge_one": "{{count}} wijziging vanuit achtergronddetectie - klik om te bekijken",
 			"discoveryChangesBadge_other": "{{count}} wijzigingen als gevolg van achtergronddetectie - klik om te bekijken",
@@ -159,6 +160,7 @@
 			"totpCodePlaceholder": "123456",
 			"totpCodeRequired": "Voer uw TOTP-code in",
 			"totpFailed": "Ongeldig beheerders-token of TOTP-code",
+			"userTotpFailed": "Ongeldige TOTP- of herstelcode",
 			"totpStep": "Tweefactorauthenticatie is ingeschakeld. Voer de 6-cijferige code uit je authenticator-app in.",
 			"totpThrottled": "Te veel pogingen. Wacht even en probeer het opnieuw.",
 			"signInWithSSO": "Aanmelden met SSO",
@@ -2771,7 +2773,8 @@
 			"status": "Status",
 			"lastLogin": "Laatste aanmelding",
 			"allGrants": "Alles",
-			"noGrants": "Geen"
+			"noGrants": "Geen",
+			"totpEnabled": "Tweestapsverificatie ingeschakeld"
 		},
 		"role": {
 			"admin": "Admin",
@@ -2817,7 +2820,11 @@
 			"limitBurst": "Burst",
 			"limitTpm": "Tokens/min",
 			"noCap": "Geen limiet",
-			"deleteKeysNote": "Virtuele sleutels van dit account blijven bestaan en worden eigenaarloos."
+			"deleteKeysNote": "Virtuele sleutels van dit account blijven bestaan en worden eigenaarloos.",
+			"totpResetButton": "Tweestapsverificatie opnieuw instellen",
+			"totpResetHint": "Verwijdert de authenticator-app en herstelcodes van de gebruiker, zodat inloggen weer met alleen het wachtwoord kan.",
+			"totpResetConfirmTitle": "Tweestapsverificatie opnieuw instellen",
+			"totpResetConfirmMessage": "Dit verwijdert de koppeling met de authenticator-app en alle herstelcodes van deze gebruiker. Het wachtwoord blijft ongewijzigd."
 		},
 		"toast": {
 			"created": "Gebruiker aangemaakt",
@@ -2825,11 +2832,28 @@
 			"deleted": "Gebruiker verwijderd",
 			"passwordReset": "Wachtwoord opnieuw ingesteld",
 			"saveFailed": "Kon de gebruiker niet opslaan",
-			"deleteFailed": "Kon de gebruiker niet verwijderen"
+			"deleteFailed": "Kon de gebruiker niet verwijderen",
+			"totpReset": "Tweestapsverificatie opnieuw ingesteld"
 		},
 		"validation": {
 			"usernameRequired": "Gebruikersnaam is verplicht",
 			"passwordShort": "Het wachtwoord moet minimaal 8 tekens lang zijn"
+		}
+	},
+	"security": {
+		"title": "Beveiliging",
+		"description": "Beheer de tweestapsverificatie en het wachtwoord van je account.",
+		"password": {
+			"title": "Wachtwoord wijzigen",
+			"description": "Kies een nieuw wachtwoord voor je account. Je wordt overal afgemeld en moet opnieuw inloggen.",
+			"current": "Huidig wachtwoord",
+			"new": "Nieuw wachtwoord",
+			"confirm": "Bevestig het nieuwe wachtwoord",
+			"mismatch": "De nieuwe wachtwoorden komen niet overeen",
+			"submit": "Wachtwoord wijzigen",
+			"success": "Wachtwoord gewijzigd. Log opnieuw in met je nieuwe wachtwoord.",
+			"wrongCurrent": "Het huidige wachtwoord is onjuist",
+			"failed": "Wachtwoord wijzigen mislukt"
 		}
 	}
 }
