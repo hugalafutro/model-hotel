@@ -233,6 +233,7 @@ export function Security() {
 						onClick={handleDownloadCodes}
 						className="ui-btn ui-btn-secondary"
 						aria-label={t("settings.totp.downloadCodesAriaLabel")}
+						data-testid="security-download-codes"
 					>
 						<Download size={16} />
 						{t("settings.totp.downloadCodes")}
@@ -242,6 +243,7 @@ export function Security() {
 						onClick={handleSavedRecoveryCodes}
 						className="ui-btn ui-btn-primary"
 						aria-label={t("settings.totp.savedAriaLabel")}
+						data-testid="security-saved-codes"
 					>
 						<Check size={16} />
 						{t("settings.totp.saved")}
@@ -283,6 +285,7 @@ export function Security() {
 							onClick={handleCopySecret}
 							className="ui-icon-btn shrink-0"
 							aria-label={t("settings.totp.copySecretAriaLabel")}
+							data-testid="security-copy-secret"
 						>
 							<Copy size={16} />
 						</button>
@@ -331,6 +334,7 @@ export function Security() {
 						onClick={handleCancelEnroll}
 						className="ui-btn ui-btn-secondary"
 						aria-label={t("settings.totp.cancelEnrollAriaLabel")}
+						data-testid="security-cancel-enroll"
 					>
 						<X size={16} />
 						{t("common.cancel")}

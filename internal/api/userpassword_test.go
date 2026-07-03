@@ -84,3 +84,31 @@ func TestChangeOwnPassword_ThrottlesGuessing(t *testing.T) {
 		t.Fatal("throttle never engaged after repeated failures")
 	}
 }
+
+func TestChangeOwnPassword_SurfaceNotWired(t *testing.T) {
+	// A handler without the multi-user stack must refuse the surface rather
+	// than nil-panic.
+	_, r := newTestHandlerWithRouter(t)
+	if code := changePassword(t, r, envAdminToken, "x", "password456"); code != http.StatusNotFound {
+		t.Errorf("unwired handler: %d, want 404", code)
+	}
+}
+
+func TestChangeOwnPassword_BadBodyAndCorruptHash(t *testing.T) {
+	r, sm := setupUserTotpTest(t)
+	uid, token := userSession(t, r, sm, "pw-edge")
+
+	if w := doJSON(t, r, http.MethodPost, "/auth/password", token, `{not json`); w.Code != http.StatusBadRequest {
+		t.Errorf("bad body: %d, want 400", w.Code)
+	}
+
+	// A hash that cannot be parsed is a server error, never a silent accept.
+	pool := apiTestDB.Pool()
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE users SET password_hash = 'not-an-argon2-hash' WHERE id = $1`, uid); err != nil {
+		t.Fatalf("corrupt hash: %v", err)
+	}
+	if code := changePassword(t, r, token, "password123", "password456"); code != http.StatusInternalServerError {
+		t.Errorf("corrupt hash change: %d, want 500", code)
+	}
+}

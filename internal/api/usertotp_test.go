@@ -199,3 +199,41 @@ func TestUserTotp_AdminReset(t *testing.T) {
 		t.Fatalf("post-reset status: %s", w.Body.String())
 	}
 }
+
+func TestUserTotp_SurfaceNotWiredAnd404s(t *testing.T) {
+	// Handler without SetUserTotp: both the self-service surface and the
+	// admin reset answer 404 instead of nil-panicking.
+	_, r := newTestHandlerWithRouter(t)
+	if w := doJSON(t, r, http.MethodGet, "/auth/totp/status", envAdminToken, ""); w.Code != http.StatusNotFound {
+		t.Errorf("unwired status: %d, want 404", w.Code)
+	}
+	if w := doJSON(t, r, http.MethodPost, "/users/"+uuid.NewString()+"/totp/reset", envAdminToken, ""); w.Code != http.StatusNotFound {
+		t.Errorf("unwired reset: %d, want 404", w.Code)
+	}
+}
+
+func TestUserTotp_EdgeResponses(t *testing.T) {
+	r, sm := setupUserTotpTest(t)
+	_, token := userSession(t, r, sm, "totp-edges")
+	enrollUserTotp(t, r, token)
+
+	// Re-enrolling over a live second factor is refused.
+	if w := doJSON(t, r, http.MethodPost, "/auth/totp/enroll/start", token, ""); w.Code != http.StatusConflict {
+		t.Errorf("enroll while enabled: %d, want 409", w.Code)
+	}
+	// Malformed bodies are 400s.
+	if w := doJSON(t, r, http.MethodPost, "/auth/totp/enroll/verify", token, `{not json`); w.Code != http.StatusBadRequest {
+		t.Errorf("verify bad body: %d, want 400", w.Code)
+	}
+	if w := doJSON(t, r, http.MethodPost, "/auth/totp/disable", token, `{not json`); w.Code != http.StatusBadRequest {
+		t.Errorf("disable bad body: %d, want 400", w.Code)
+	}
+	// A wrong disable code is a 401 and leaves 2FA on.
+	if w := doJSON(t, r, http.MethodPost, "/auth/totp/disable", token, `{"code":"000000"}`); w.Code != http.StatusUnauthorized {
+		t.Errorf("disable wrong code: %d, want 401", w.Code)
+	}
+	// Admin reset of a nonexistent user is a 404, not a silent no-op.
+	if w := doJSON(t, r, http.MethodPost, "/users/"+uuid.NewString()+"/totp/reset", envAdminToken, ""); w.Code != http.StatusNotFound {
+		t.Errorf("reset unknown user: %d, want 404", w.Code)
+	}
+}
