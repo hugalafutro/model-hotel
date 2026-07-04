@@ -524,6 +524,9 @@ func TestSilentLogger_NoisyEndpoints(t *testing.T) {
 		{"api providers GET", "/api/providers", "GET"},
 		{"fleet announce POST", "/api/fleet/announce", "POST"},
 		{"api settings GET (fleet version poll)", "/api/settings", "GET"},
+		// Trailing slashes must not defeat the exact-path noise match.
+		{"fleet announce POST trailing slash", "/api/fleet/announce/", "POST"},
+		{"api settings GET trailing slash", "/api/settings/", "GET"},
 	}
 
 	for _, tc := range tests {

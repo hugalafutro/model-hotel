@@ -1002,22 +1002,29 @@ func silentLogger(next http.Handler) http.Handler {
 
 		path := r.URL.Path
 		isStatic := strings.HasPrefix(path, "/assets/") || strings.HasPrefix(path, "/favicon")
-		isNoisy := path == "/health" ||
-			strings.HasPrefix(path, "/api/logs/app") ||
-			(path == "/api/logs" && r.Method == "GET") ||
-			(path == "/api/system" && r.Method == "GET") ||
-			(path == "/api/events" && r.Method == "GET") ||
-			(path == "/api/stats" && r.Method == "GET") ||
-			(path == "/api/stats/timeseries" && r.Method == "GET") ||
-			(path == "/api/stats/provider-distribution" && r.Method == "GET") ||
-			(path == "/api/models" && r.Method == "GET") ||
-			(path == "/api/providers" && r.Method == "GET") ||
+		// Match the noise allowlist against a slash-normalized path so a trailing
+		// slash (from a client or a reverse proxy) can't defeat an exact match and
+		// leak the request back to Info. Root "/" is preserved.
+		np := path
+		if len(np) > 1 {
+			np = strings.TrimRight(np, "/")
+		}
+		isNoisy := np == "/health" ||
+			strings.HasPrefix(np, "/api/logs/app") ||
+			(np == "/api/logs" && r.Method == "GET") ||
+			(np == "/api/system" && r.Method == "GET") ||
+			(np == "/api/events" && r.Method == "GET") ||
+			(np == "/api/stats" && r.Method == "GET") ||
+			(np == "/api/stats/timeseries" && r.Method == "GET") ||
+			(np == "/api/stats/provider-distribution" && r.Method == "GET") ||
+			(np == "/api/models" && r.Method == "GET") ||
+			(np == "/api/providers" && r.Method == "GET") ||
 			// Fleet heartbeat: Front Desk pings every member ~every 2.5s with an
 			// announce POST and polls its version via GET /api/settings. Both are
 			// machine-to-machine liveness traffic, not human activity, and at
 			// ~24/min/member they otherwise flood app_logs (the App Logs page).
-			path == "/api/fleet/announce" ||
-			(path == "/api/settings" && r.Method == "GET")
+			np == "/api/fleet/announce" ||
+			(np == "/api/settings" && r.Method == "GET")
 		if isStatic && ww.Status() < 400 {
 			return
 		}
