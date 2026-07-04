@@ -83,9 +83,7 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 	outputMods := `["text"]`
 	if mod := inferNonChatModality(modelID); mod != "" {
 		modality = mod
-		if mod == "embedding" {
-			outputMods = `["embedding"]`
-		}
+		_, outputMods = nonChatModalityArrays(mod)
 	}
 
 	m := &model.Model{

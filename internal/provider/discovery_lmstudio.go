@@ -215,9 +215,7 @@ func (d *DiscoveryService) discoverLMStudioOpenAI(ctx context.Context, provider 
 		// by name to keep them out of the chat picker.
 		if mod := inferNonChatModality(m.ID); mod != "" {
 			modality = mod
-			if mod == "embedding" {
-				outputMods = `["embedding"]`
-			}
+			_, outputMods = nonChatModalityArrays(mod)
 		}
 
 		//nolint:gocritic // model variable shadows import but context makes it clear

@@ -176,10 +176,11 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 		switch {
 		case hasEmbedding:
 			modality = "embedding"
-			outputMods = `["embedding"]`
+			_, outputMods = nonChatModalityArrays(modality)
 		default:
 			if inferred := inferNonChatModality(modelID); inferred != "" {
 				modality = inferred
+				_, outputMods = nonChatModalityArrays(inferred)
 			}
 		}
 	}

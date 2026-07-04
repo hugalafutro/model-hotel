@@ -191,11 +191,19 @@ func TestDiscoverLMStudio_Fallback_EmbeddingByName(t *testing.T) {
 	if got := byID["llama-3-8b"].Modality; got != "text" {
 		t.Errorf("chat model modality: got %q, want text", got)
 	}
-	if got := byID["nomic-embed-text-v1.5"].Modality; got != "embedding" {
-		t.Errorf("embedding modality: got %q, want embedding", got)
+	emb := byID["nomic-embed-text-v1.5"]
+	if emb.Modality != "embedding" {
+		t.Errorf("embedding modality: got %q, want embedding", emb.Modality)
 	}
-	if got := byID["bge-reranker-v2-m3"].Modality; got != "rerank" {
-		t.Errorf("reranker modality: got %q, want rerank", got)
+	if emb.OutputModalities != `["embedding"]` {
+		t.Errorf("embedding output modalities: got %q, want [\"embedding\"]", emb.OutputModalities)
+	}
+	rer := byID["bge-reranker-v2-m3"]
+	if rer.Modality != "rerank" {
+		t.Errorf("reranker modality: got %q, want rerank", rer.Modality)
+	}
+	if rer.OutputModalities != `["rerank"]` {
+		t.Errorf("reranker output modalities: got %q, want [\"rerank\"]", rer.OutputModalities)
 	}
 }
 

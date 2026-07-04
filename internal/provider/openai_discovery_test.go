@@ -240,8 +240,16 @@ func TestOpenAIDiscovery_EmbeddingClassifiedByName(t *testing.T) {
 	}
 	if emb, ok := byID["text-embedding-3-small"]; !ok {
 		t.Fatal("text-embedding-3-small missing from results")
-	} else if emb.Modality != "embedding" {
-		t.Errorf("embedding modality: got %q, want embedding", emb.Modality)
+	} else {
+		if emb.Modality != "embedding" {
+			t.Errorf("embedding modality: got %q, want embedding", emb.Modality)
+		}
+		if emb.InputModalities != `["text"]` {
+			t.Errorf("embedding input modalities: got %q, want [\"text\"]", emb.InputModalities)
+		}
+		if emb.OutputModalities != `["embedding"]` {
+			t.Errorf("embedding output modalities: got %q, want [\"embedding\"]", emb.OutputModalities)
+		}
 	}
 	if chat, ok := byID["my-local-chat-7b"]; !ok {
 		t.Fatal("my-local-chat-7b missing from results")

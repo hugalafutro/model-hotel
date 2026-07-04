@@ -44,6 +44,7 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 		// models.dev enrichment, which only fills empty/"text" modalities.
 		if mod := inferNonChatModality(m.ID); mod != "" {
 			stub.Modality = mod
+			stub.InputModalities, stub.OutputModalities = nonChatModalityArrays(mod)
 		}
 		live = append(live, stub)
 	}

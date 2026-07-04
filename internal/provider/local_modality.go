@@ -45,6 +45,15 @@ func inferNonChatModality(modelID string) string {
 	return ""
 }
 
+// nonChatModalityArrays returns the input/output modality JSON arrays to store
+// for a non-chat modality (as returned by inferNonChatModality). Embedding and
+// reranker models both take text input and produce their own output type, so
+// the output_modalities advertised on /v1/models matches the classification
+// instead of defaulting to text or empty.
+func nonChatModalityArrays(modality string) (input, output string) {
+	return `["text"]`, `["` + modality + `"]`
+}
+
 // splitModelIDSegments splits a lower-cased model ID on the separators commonly
 // found in HuggingFace-style IDs (org/name-with-parts).
 func splitModelIDSegments(id string) []string {
