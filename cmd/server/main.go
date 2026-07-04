@@ -1011,7 +1011,13 @@ func silentLogger(next http.Handler) http.Handler {
 			(path == "/api/stats/timeseries" && r.Method == "GET") ||
 			(path == "/api/stats/provider-distribution" && r.Method == "GET") ||
 			(path == "/api/models" && r.Method == "GET") ||
-			(path == "/api/providers" && r.Method == "GET")
+			(path == "/api/providers" && r.Method == "GET") ||
+			// Fleet heartbeat: Front Desk pings every member ~every 2.5s with an
+			// announce POST and polls its version via GET /api/settings. Both are
+			// machine-to-machine liveness traffic, not human activity, and at
+			// ~24/min/member they otherwise flood app_logs (the App Logs page).
+			path == "/api/fleet/announce" ||
+			(path == "/api/settings" && r.Method == "GET")
 		if isStatic && ww.Status() < 400 {
 			return
 		}

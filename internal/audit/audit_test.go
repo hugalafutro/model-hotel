@@ -143,6 +143,60 @@ func TestMiddlewareRecordsThroughChi(t *testing.T) {
 	}
 }
 
+func TestMiddlewareSkipsFleetHeartbeat(t *testing.T) {
+	rec := newRecorder(t, nil)
+	r := chi.NewRouter()
+	r.Use(rec.Middleware)
+	// Mount under /api so the resolved route pattern is /api/fleet/announce,
+	// exactly as the server wires the member-side fleet handler.
+	r.Route("/api", func(r chi.Router) {
+		r.Post("/fleet/announce", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		})
+		// A non-heartbeat mutation under the same prefix must still be audited.
+		r.Post("/settings", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+	})
+
+	ident := &user.Identity{Role: user.RoleAdmin}
+	do := func(path string) {
+		req := httptest.NewRequest(http.MethodPost, path, http.NoBody)
+		req = req.WithContext(user.WithIdentity(req.Context(), ident))
+		r.ServeHTTP(httptest.NewRecorder(), req)
+	}
+	// Fire the heartbeat several times; none of them may be recorded.
+	for range 5 {
+		do("/api/fleet/announce")
+	}
+	do("/api/settings")
+
+	// Only the settings mutation lands. Wait first so a would-be announce row
+	// has time to appear (proving absence, not just a timing race).
+	eventually(t, func() bool { return countRows(t, `path = '/api/settings'`) == 1 })
+	if n := countRows(t, `path = '/api/fleet/announce'`); n != 0 {
+		t.Errorf("fleet announce was audited (%d rows), want 0", n)
+	}
+	if n := countRows(t, "1=1"); n != 1 {
+		t.Errorf("total audit rows = %d, want 1 (only /api/settings)", n)
+	}
+}
+
+func TestIsFleetHeartbeat(t *testing.T) {
+	cases := map[string]bool{
+		"/api/fleet/announce": true,
+		"/api/settings":       false,
+		"/fleet/announce":     false, // unmounted pattern is not the real route
+		"/api/fleet/members":  false,
+		"":                    false,
+	}
+	for route, want := range cases {
+		if got := isFleetHeartbeat(route); got != want {
+			t.Errorf("isFleetHeartbeat(%q) = %v, want %v", route, got, want)
+		}
+	}
+}
+
 func TestWaitDrainsBackgroundRecords(t *testing.T) {
 	rec := newRecorder(t, nil)
 	r := chi.NewRouter()
