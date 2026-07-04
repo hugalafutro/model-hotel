@@ -81,6 +81,7 @@ const (
 	endpointTypeChat       = "chat"
 	endpointTypeMessages   = "messages"
 	endpointTypeEmbeddings = "embeddings"
+	endpointTypeRerank     = "rerank"
 	endpointTypeImage      = "image"
 	endpointTypeTTS        = "tts"
 	endpointTypeSTT        = "stt"
@@ -120,7 +121,7 @@ type requestLogData struct {
 	failoverAttempt           int
 	state                     string
 	resolvedModelID           string
-	endpointType              string         // endpoint family: chat, embeddings, image, tts, stt
+	endpointType              string         // endpoint family: chat, embeddings, rerank, image, tts, stt
 	insertWg                  sync.WaitGroup // signals when the async INSERT has completed
 }
 

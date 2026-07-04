@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "聊天",
 			"embeddings": "嵌入",
+			"rerank": "重排序",
 			"image": "图片",
 			"tts": "TTS",
 			"stt": "STT"

@@ -24,6 +24,7 @@ The native Anthropic endpoint `/v1/messages` additionally accepts the virtual ke
 | `/v1/chat/completions` | POST | Virtual Key | Chat completion (streaming and non-streaming) |
 | `/v1/messages` | POST | Virtual Key (`x-api-key` or Bearer) | Anthropic Messages API (translation + native passthrough) |
 | `/v1/embeddings` | POST | Virtual Key | Embeddings (JSON pass-through) |
+| `/v1/rerank` | POST | Virtual Key | Document rerank (JSON pass-through, Cohere-style body) |
 | `/v1/images/generations` | POST | Virtual Key | Image generation (JSON; SSE streaming via `partial_images`) |
 | `/v1/images/edits` | POST | Virtual Key | Image edits (multipart upload) |
 | `/v1/images/variations` | POST | Virtual Key | Image variations (multipart upload) |
@@ -136,6 +137,17 @@ curl -X POST http://localhost:8081/v1/embeddings \
 ```
 
 Standard OpenAI body (`input`, `dimensions`, `encoding_format`); response is the provider's embeddings list with `usage.prompt_tokens` metered.
+
+#### POST `/v1/rerank`
+
+```bash
+curl -X POST http://localhost:8081/v1/rerank \
+  -H "Authorization: Bearer $PROXY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "Cohere/rerank-v3.5", "query": "what is a capybara", "documents": ["The capybara is a giant rodent.", "Paris is the capital of France."], "top_n": 2}'
+```
+
+Cohere-style rerank body (`query`, `documents`, `top_n`), the de-facto standard shape also served by Jina, Voyage, and local TEI servers; the response (`results` with `index` and `relevance_score`) is returned verbatim. Cohere providers are routed to the native `https://api.cohere.com/v2/rerank` endpoint automatically (rerank is not part of Cohere's OpenAI-compatibility surface); any other provider receives the request at `<base URL>/rerank`. Cohere rerank models are auto-discovered alongside chat models. Token metering is best-effort: providers reporting `usage.total_tokens` (Jina, Voyage) are metered, Cohere's search-unit billing meters as zero tokens.
 
 #### POST `/v1/images/generations`
 

@@ -237,49 +237,6 @@ func TestIsOpenRouterChatModel(t *testing.T) {
 	}
 }
 
-// Test toCohereNativeURL
-func TestToCohereNativeURL(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{
-			name:  "compatibility URL",
-			input: "https://api.cohere.ai/compatibility/v1",
-			want:  "https://api.cohere.com",
-		},
-		{
-			input: "https://api.cohere.ai/compatibility/v1/",
-			want:  "https://api.cohere.com",
-		},
-		{
-			name:  "native URL",
-			input: "https://api.cohere.com",
-			want:  "https://api.cohere.com",
-		},
-		{
-			name:  "custom URL",
-			input: "https://custom.cohere.example.com",
-			want:  "https://custom.cohere.example.com",
-		},
-		{
-			name:  "with trailing slash",
-			input: "https://api.cohere.com/",
-			want:  "https://api.cohere.com",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := toCohereNativeURL(tt.input)
-			if got != tt.want {
-				t.Errorf("toCohereNativeURL(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
-	}
-}
-
 // Test cohereFeaturesToCapabilities
 func TestCohereFeaturesToCapabilities(t *testing.T) {
 	tests := []struct {

@@ -1841,7 +1841,12 @@ func TestDiscoverCohere_ModelWithPricing(t *testing.T) {
 	t.Parallel()
 
 	// Create test server with a model that matches the pricing catalog
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("endpoint") != "chat" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(CohereModelsResponse{})
+			return
+		}
 		response := CohereModelsResponse{
 			Models: []CohereNativeModel{
 				{

@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "チャット",
 			"embeddings": "埋め込み",
+			"rerank": "再ランク付け",
 			"image": "画像",
 			"tts": "TTS",
 			"stt": "STT"

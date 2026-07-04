@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "Klets",
 			"embeddings": "Inbeddings",
+			"rerank": "Herrangskikking",
 			"image": "Beeld",
 			"tts": "TTS",
 			"stt": "STT"

@@ -33,6 +33,15 @@ func (h *Handler) Embeddings(w http.ResponseWriter, r *http.Request) {
 	h.serveJSONPassthrough(w, r, "/embeddings", endpointTypeEmbeddings)
 }
 
+// Rerank proxies POST /v1/rerank requests (Cohere-style rerank API, the
+// de-facto standard shape also served by Jina, Voyage, and TEI). The body
+// (query + documents) passes through verbatim; Cohere-family providers are
+// routed to the native /v2/rerank endpoint since rerank is not part of
+// their OpenAI-compatibility surface.
+func (h *Handler) Rerank(w http.ResponseWriter, r *http.Request) {
+	h.serveJSONPassthrough(w, r, "/rerank", endpointTypeRerank)
+}
+
 // ImageGenerations proxies OpenAI-compatible POST /v1/images/generations
 // requests, including SSE streaming via the partial_images parameter.
 func (h *Handler) ImageGenerations(w http.ResponseWriter, r *http.Request) {
@@ -611,8 +620,10 @@ func (h *Handler) finalizePassthroughLog(st *requestState, statusCode, attempt i
 
 // extractPassthroughUsage reads token counts from a multimodal JSON response.
 // Embeddings use prompt_tokens/total_tokens; the images and audio APIs use
-// input_tokens/output_tokens. Only the usage object is decoded; the response
-// content itself is never inspected.
+// input_tokens/output_tokens; rerank providers (Jina, Voyage) report only
+// usage.total_tokens, used as a last-resort prompt count (Cohere's native
+// rerank bills in search units, not tokens, and meters as zero). Only the
+// usage object is decoded; the response content itself is never inspected.
 func extractPassthroughUsage(body []byte) (promptTokens, completionTokens int) {
 	var resp struct {
 		Usage *struct {
@@ -620,6 +631,7 @@ func extractPassthroughUsage(body []byte) (promptTokens, completionTokens int) {
 			CompletionTokens int `json:"completion_tokens"`
 			InputTokens      int `json:"input_tokens"`
 			OutputTokens     int `json:"output_tokens"`
+			TotalTokens      int `json:"total_tokens"`
 		} `json:"usage"`
 	}
 	if json.Unmarshal(body, &resp) != nil || resp.Usage == nil {
@@ -628,6 +640,9 @@ func extractPassthroughUsage(body []byte) (promptTokens, completionTokens int) {
 	promptTokens = resp.Usage.PromptTokens
 	if promptTokens == 0 {
 		promptTokens = resp.Usage.InputTokens
+	}
+	if promptTokens == 0 {
+		promptTokens = resp.Usage.TotalTokens
 	}
 	completionTokens = resp.Usage.CompletionTokens
 	if completionTokens == 0 {

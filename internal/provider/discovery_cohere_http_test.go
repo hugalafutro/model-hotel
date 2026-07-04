@@ -259,6 +259,11 @@ func TestDiscoverCohere_FiltersDeprecatedModels(t *testing.T) {
 	// Create test server with mix of deprecated and active models
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
+			if r.URL.Query().Get("endpoint") != "chat" {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(CohereModelsResponse{})
+				return
+			}
 			response := CohereModelsResponse{
 				Models: []CohereNativeModel{
 					{
@@ -315,6 +320,11 @@ func TestDiscoverCohere_Pagination(t *testing.T) {
 	// Create test server that returns paginated results
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
+			if r.URL.Query().Get("endpoint") != "chat" {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(CohereModelsResponse{})
+				return
+			}
 			callCount.Add(1)
 			pageToken := r.URL.Query().Get("page_token")
 
@@ -387,6 +397,11 @@ func TestDiscoverCohere_ModelNotInPricingCatalog(t *testing.T) {
 	// Create test server with a model not in pricing catalog
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
+			if r.URL.Query().Get("endpoint") != "chat" {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(CohereModelsResponse{})
+				return
+			}
 			response := CohereModelsResponse{
 				Models: []CohereNativeModel{
 					{
@@ -431,5 +446,107 @@ func TestDiscoverCohere_ModelNotInPricingCatalog(t *testing.T) {
 	// Should not have pricing set
 	if models[0].InputPricePerMillion != nil {
 		t.Error("Expected InputPricePerMillion to be nil for unknown model")
+	}
+}
+
+func TestDiscoverCohere_RerankModels(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/models" {
+			http.NotFound(w, r)
+			return
+		}
+		var response CohereModelsResponse
+		switch r.URL.Query().Get("endpoint") {
+		case "chat":
+			response = CohereModelsResponse{
+				Models: []CohereNativeModel{
+					{Name: "command-r-plus", Endpoints: []string{"chat"}, ContextLength: 128000, Features: []string{"tools"}},
+				},
+			}
+		case "rerank":
+			response = CohereModelsResponse{
+				Models: []CohereNativeModel{
+					{Name: "rerank-v3.5", Endpoints: []string{"rerank"}, ContextLength: 4096},
+					{Name: "rerank-english-v2.0", Endpoints: []string{"rerank"}, ContextLength: 512, IsDeprecated: true},
+				},
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
+
+	models, err := service.discoverCohere(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverCohere failed: %v", err)
+	}
+
+	// One chat model + one non-deprecated rerank model.
+	if len(models) != 2 {
+		t.Fatalf("Expected 2 models, got %d", len(models))
+	}
+
+	rr := models[1]
+	if rr.ModelID != "rerank-v3.5" {
+		t.Fatalf("Expected rerank-v3.5 second, got %s", rr.ModelID)
+	}
+	if rr.Modality != "rerank" {
+		t.Errorf("Expected modality rerank, got %q", rr.Modality)
+	}
+	if *rr.ContextLength != 4096 {
+		t.Errorf("Expected context length 4096, got %d", *rr.ContextLength)
+	}
+	// Search-unit billing: no per-token prices.
+	if rr.InputPricePerMillion != nil || rr.OutputPricePerMillion != nil {
+		t.Error("Expected nil per-token prices for a rerank model")
+	}
+	var caps model.Capability
+	if err := json.Unmarshal([]byte(rr.Capabilities), &caps); err != nil {
+		t.Errorf("Failed to unmarshal capabilities: %v", err)
+	} else if caps.Streaming || caps.ToolCalling || caps.Vision {
+		t.Errorf("Expected empty capabilities for a rerank model, got %+v", caps)
+	}
+	if rr.OwnedBy != "cohere" || !rr.Enabled {
+		t.Errorf("Expected enabled cohere-owned model, got owned_by=%q enabled=%v", rr.OwnedBy, rr.Enabled)
+	}
+
+	// Chat model construction is unchanged.
+	if models[0].ModelID != "command-r-plus" || models[0].Modality != "text" {
+		t.Errorf("Chat model unexpectedly altered: %s / %s", models[0].ModelID, models[0].Modality)
+	}
+}
+
+func TestDiscoverCohere_RerankFetchFailureKeepsChatModels(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("endpoint") != "chat" {
+			http.Error(w, "boom", http.StatusInternalServerError)
+			return
+		}
+		response := CohereModelsResponse{
+			Models: []CohereNativeModel{
+				{Name: "command-r", Endpoints: []string{"chat"}, ContextLength: 128000},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
+
+	models, err := service.discoverCohere(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverCohere must not fail when only the rerank fetch fails: %v", err)
+	}
+	if len(models) != 1 || models[0].ModelID != "command-r" {
+		t.Fatalf("Expected the chat model to survive, got %v", models)
 	}
 }

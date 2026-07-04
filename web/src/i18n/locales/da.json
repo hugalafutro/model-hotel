@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "Chat",
 			"embeddings": "Indlejringer",
+			"rerank": "Omrangering",
 			"image": "Billede",
 			"tts": "TTS",
 			"stt": "STT"

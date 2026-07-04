@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "Csevegés",
 			"embeddings": "Beágyazások",
+			"rerank": "Újrarangsorolás",
 			"image": "Kép",
 			"tts": "TTS",
 			"stt": "STT"

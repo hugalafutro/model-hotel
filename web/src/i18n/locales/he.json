@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "צ'אט",
 			"embeddings": "הטמעות",
+			"rerank": "דירוג מחדש",
 			"image": "תמונה",
 			"tts": "TTS",
 			"stt": "STT"

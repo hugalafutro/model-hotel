@@ -124,6 +124,9 @@ func WriteOpenAIError(w http.ResponseWriter, message string, statusCode int) {
 // Defensive: if the base URL already ends with /v1, don't double-append it.
 func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 	sanitized := SanitizeBaseURL(baseURL)
+	if providerType == "cohere" && endpoint == "/rerank" {
+		return CohereNativeBaseURL(sanitized) + "/v2/rerank"
+	}
 	switch providerType {
 	case "anthropic", "ollama", "lmstudio", "koboldcpp":
 		// These providers expose their OpenAI-compatible API under /v1: Ollama,
@@ -148,6 +151,23 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		// Custom providers must be configured with the full path by the user.
 		return sanitized + endpoint
 	}
+}
+
+// CohereNativeBaseURL converts a Cohere base URL to the native API base. It is
+// the single source of truth for the compat->native mapping, shared by the
+// proxy (rerank target URL) and discovery (native /v1/models fetch).
+//
+// Rerank and the models API are not part of Cohere's OpenAI-compatibility
+// surface, so the stored compat base (https://api.cohere.ai/compatibility/v1)
+// must be mapped to the native host (https://api.cohere.com). Custom/self-hosted
+// URLs keep their host and only lose a /compatibility/v1 suffix.
+func CohereNativeBaseURL(sanitized string) string {
+	base := strings.TrimSuffix(strings.TrimRight(sanitized, "/"), "/compatibility/v1")
+	base = strings.TrimRight(base, "/")
+	if strings.HasPrefix(base, "https://api.cohere.ai") {
+		return "https://api.cohere.com"
+	}
+	return base
 }
 
 // SetProviderAuthHeaders sets the correct authentication headers for each provider type.

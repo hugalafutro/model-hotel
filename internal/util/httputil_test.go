@@ -819,6 +819,41 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "https://api.anthropic.com/v1/embeddings",
 		},
 		{
+			name:         "Cohere rerank routes to native /v2/rerank from compat base",
+			baseURL:      "https://api.cohere.ai/compatibility/v1",
+			providerType: "cohere",
+			endpoint:     "/rerank",
+			expected:     "https://api.cohere.com/v2/rerank",
+		},
+		{
+			name:         "Cohere rerank from native base",
+			baseURL:      "https://api.cohere.com",
+			providerType: "cohere",
+			endpoint:     "/rerank",
+			expected:     "https://api.cohere.com/v2/rerank",
+		},
+		{
+			name:         "Cohere rerank keeps custom host, strips compat suffix",
+			baseURL:      "https://cohere.internal.example/compatibility/v1",
+			providerType: "cohere",
+			endpoint:     "/rerank",
+			expected:     "https://cohere.internal.example/v2/rerank",
+		},
+		{
+			name:         "Cohere chat still uses the stored compat base",
+			baseURL:      "https://api.cohere.ai/compatibility/v1",
+			providerType: "cohere",
+			endpoint:     "/chat/completions",
+			expected:     "https://api.cohere.ai/compatibility/v1/chat/completions",
+		},
+		{
+			name:         "Non-Cohere rerank appends to base",
+			baseURL:      "https://api.jina.ai/v1",
+			providerType: "openai",
+			endpoint:     "/rerank",
+			expected:     "https://api.jina.ai/v1/rerank",
+		},
+		{
 			name:         "Wafer AI without /v1 (user must include it)",
 			baseURL:      "https://pass.wafer.ai",
 			providerType: "openai",
@@ -938,6 +973,33 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			result := BuildProviderTargetURL(tc.baseURL, tc.providerType, endpoint)
 			if result != tc.expected {
 				t.Errorf("BuildProviderTargetURL(%q, %q, %q) = %q, want %q", tc.baseURL, tc.providerType, endpoint, result, tc.expected)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// CohereNativeBaseURL
+// ---------------------------------------------------------------------------
+
+func TestCohereNativeBaseURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"compat base maps to native host", "https://api.cohere.ai/compatibility/v1", "https://api.cohere.com"},
+		{"compat base with trailing slash", "https://api.cohere.ai/compatibility/v1/", "https://api.cohere.com"},
+		{"already native", "https://api.cohere.com", "https://api.cohere.com"},
+		{"native with trailing slash", "https://api.cohere.com/", "https://api.cohere.com"},
+		{"bare native host", "https://api.cohere.ai", "https://api.cohere.com"},
+		{"custom host strips compat suffix", "https://cohere.internal.example/compatibility/v1", "https://cohere.internal.example"},
+		{"custom host without suffix kept as-is", "https://cohere.internal.example", "https://cohere.internal.example"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CohereNativeBaseURL(tt.input); got != tt.want {
+				t.Errorf("CohereNativeBaseURL(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
