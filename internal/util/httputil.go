@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -164,7 +165,11 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 func CohereNativeBaseURL(sanitized string) string {
 	base := strings.TrimSuffix(strings.TrimRight(sanitized, "/"), "/compatibility/v1")
 	base = strings.TrimRight(base, "/")
-	if strings.HasPrefix(base, "https://api.cohere.ai") {
+	// Only Cohere's own host is remapped to the native API. Match the host
+	// exactly (not a string prefix): a custom provider on a look-alike host such
+	// as https://api.cohere.ai.evil.example must NOT be rewritten to the public
+	// Cohere host, which would send the user's rerank query/documents there.
+	if u, err := url.Parse(base); err == nil && u.Hostname() == "api.cohere.ai" {
 		return "https://api.cohere.com"
 	}
 	return base

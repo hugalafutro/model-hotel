@@ -847,6 +847,13 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "https://api.cohere.ai/compatibility/v1/chat/completions",
 		},
 		{
+			name:         "Cohere rerank on look-alike host stays on configured host",
+			baseURL:      "https://api.cohere.ai.evil.example/compatibility/v1",
+			providerType: "cohere",
+			endpoint:     "/rerank",
+			expected:     "https://api.cohere.ai.evil.example/v2/rerank",
+		},
+		{
 			name:         "Non-Cohere rerank appends to base",
 			baseURL:      "https://api.jina.ai/v1",
 			providerType: "openai",
@@ -995,6 +1002,8 @@ func TestCohereNativeBaseURL(t *testing.T) {
 		{"bare native host", "https://api.cohere.ai", "https://api.cohere.com"},
 		{"custom host strips compat suffix", "https://cohere.internal.example/compatibility/v1", "https://cohere.internal.example"},
 		{"custom host without suffix kept as-is", "https://cohere.internal.example", "https://cohere.internal.example"},
+		{"look-alike host is not rewritten", "https://api.cohere.ai.evil.example/compatibility/v1", "https://api.cohere.ai.evil.example"},
+		{"look-alike subdomain is not rewritten", "https://api.cohere.ai.attacker.test", "https://api.cohere.ai.attacker.test"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
