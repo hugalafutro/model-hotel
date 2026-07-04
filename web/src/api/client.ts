@@ -98,6 +98,30 @@ async function fetchJSON<T>(
 	return response.json();
 }
 
+/** Server wall-clock (epoch ms) parsed from a response's `Date` header, or null
+ * when it is absent or unparseable. The embedded dashboard is same-origin, so
+ * every response exposes `Date`; it lets time-sensitive UI reason on the
+ * server's clock instead of a possibly-skewed browser clock. */
+export function serverNowFromResponse(response: Response): number | null {
+	const raw = response.headers.get("Date");
+	if (!raw) return null;
+	const ms = Date.parse(raw);
+	return Number.isNaN(ms) ? null : ms;
+}
+
+/** Like fetchJSON, but also returns the server's wall-clock from the response's
+ * `Date` header (null when unavailable, e.g. under a mock without the header).
+ * Used where the browser clock cannot be trusted as "now". */
+export async function fetchJSONWithServerNow<T>(
+	url: string,
+	options?: RequestInit,
+	errorPrefix = "Request failed",
+): Promise<{ data: T; serverNowMs: number | null }> {
+	const response = await fetchOK(url, options, errorPrefix);
+	const serverNowMs = serverNowFromResponse(response);
+	return { data: (await response.json()) as T, serverNowMs };
+}
+
 export function buildQueryString(
 	params: Record<string, string | number | boolean | undefined>,
 ): string {

@@ -10,6 +10,8 @@
     "build:docker": "vite build",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
     "lint": "eslint ${@:-.}",
+    "format": "biome check",
+    "format:fix": "biome check --write",
     "preview": "vite preview",
     "test": "NODE_OPTIONS='--disable-warning=ExperimentalWarning --disable-warning=DEP0205' vitest run",
     "test:watch": "vitest"

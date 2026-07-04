@@ -1,12 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
-import { api } from "../../api/client";
-import type { AppLogEntry, LogEntry } from "../../api/types";
+import {
+	buildUrl,
+	fetchJSONWithServerNow,
+	getAuthHeaders,
+} from "../../api/client";
+import type { AppLogEntry, LogEntry, LogsResponse } from "../../api/types";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 
 /** How many recent errors of each kind to fetch, and the cap on the merged
  * list the shelf renders. */
 export const ERROR_SHELF_LIMIT = 15;
+
+/** Only surface errors this recent. Anything older is stale noise (e.g. a
+ * request error from before the last rebuild) that the user should not have to
+ * keep dismissing. */
+export const ERROR_SHELF_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const ACKED_KEYS_STORAGE = "ackedErrorKeys";
 /** Bound localStorage growth — keep only the most-recently acked keys. */
@@ -72,6 +81,18 @@ function makeKey(kind: ShelfErrorKind, timestamp: string, message: string) {
 	return `${kind}:${timestamp}:${message.slice(0, 50)}`;
 }
 
+/** Matches a trailing timezone designator (`Z` or `±HH:MM`/`±HHMM`). */
+const HAS_TZ = /([zZ]|[+-]\d{2}:?\d{2})$/;
+
+/** Parse a log timestamp to epoch millis, treating a zone-less string as UTC.
+ * The backend emits RFC3339Nano (always zoned), but a bare
+ * `YYYY-MM-DDTHH:MM:SS` would otherwise be parsed in the viewer's local
+ * timezone, shifting its apparent age by the browser's offset. Returns NaN for
+ * anything unparseable, which callers treat as "keep, don't drop". */
+function parseTs(timestamp: string): number {
+	return Date.parse(HAS_TZ.test(timestamp) ? timestamp : `${timestamp}Z`);
+}
+
 function parseAckedKeys(stored: string, fallback: string[]): string[] {
 	try {
 		const parsed = JSON.parse(stored);
@@ -123,16 +144,22 @@ export function useErrorShelf(): UseErrorShelf {
 		return () => window.removeEventListener("dismissedErrorsReset", handler);
 	}, [setAckedKeys]);
 
+	// Both queries capture the server's `Date` header alongside the rows so the
+	// recency window can anchor on the server clock (see the errors memo) rather
+	// than a possibly-skewed browser clock.
 	const { data: reqLogData, isLoading: reqLoading } = useQuery({
 		queryKey: ["logs", "errorShelf", ERROR_SHELF_LIMIT],
 		queryFn: () =>
-			api.logs.list({
-				page: 1,
-				per_page: ERROR_SHELF_LIMIT,
-				status_code: "5xx",
-				sort_by: "time",
-				sort_dir: "desc",
-			}),
+			fetchJSONWithServerNow<LogsResponse>(
+				buildUrl("/api/logs", {
+					page: 1,
+					per_page: ERROR_SHELF_LIMIT,
+					status_code: "5xx",
+					sort_by: "time",
+					sort_dir: "desc",
+				}),
+				{ headers: getAuthHeaders() },
+			),
 		refetchInterval: 15000,
 		staleTime: 10000,
 	});
@@ -140,13 +167,17 @@ export function useErrorShelf(): UseErrorShelf {
 	const { data: appLogData, isLoading: appLoading } = useQuery({
 		queryKey: ["appLogHistory", "errorShelf", ERROR_SHELF_LIMIT],
 		queryFn: () =>
-			api.appLogs.history({
-				page: 1,
-				per_page: ERROR_SHELF_LIMIT,
-				level: "error",
-				sort_by: "time",
-				sort_dir: "desc",
-			}),
+			fetchJSONWithServerNow<{ entries: AppLogEntry[] }>(
+				buildUrl("/api/logs/app", {
+					history: "true",
+					page: 1,
+					per_page: ERROR_SHELF_LIMIT,
+					level: "error",
+					sort_by: "time",
+					sort_dir: "desc",
+				}),
+				{ headers: getAuthHeaders() },
+			),
 		refetchInterval: 15000,
 		staleTime: 10000,
 	});
@@ -162,9 +193,52 @@ export function useErrorShelf(): UseErrorShelf {
 	const errors = useMemo<ShelfError[]>(() => {
 		if (!ready) return [];
 		const merged: ShelfError[] = [];
+		const reqEntries = reqLogData?.data.entries ?? [];
+		const appEntries = appLogData?.data.entries ?? [];
 
-		for (const entry of reqLogData?.entries ?? []) {
+		// Newest served timestamp. Every row is server-stamped, so this is both a
+		// lower bound on the server's "now" and the freshest error we must never
+		// hide.
+		let newest = 0;
+		for (const entry of reqEntries) {
+			const t = parseTs(entry.created_at ?? "");
+			if (!Number.isNaN(t) && t > newest) newest = t;
+		}
+		for (const entry of appEntries) {
+			const t = parseTs(entry.timestamp ?? "");
+			if (!Number.isNaN(t) && t > newest) newest = t;
+		}
+
+		// Anchor "now" on a trusted server clock, never the browser clock (which
+		// may be skewed either way). Priority:
+		//   1. the `Date` response header — authoritative server wall-clock;
+		//      clamped up to `newest` in case the sample is a poll interval stale.
+		//   2. otherwise the newest served timestamp — itself server-stamped, so a
+		//      fast/slow browser clock still can't age a served error out of view.
+		//   3. the browser clock only when there is nothing to filter (no rows),
+		//      where its value cannot hide anything.
+		// So a skewed client clock can never wrongly drop a row the server just
+		// returned; in production the header path always wins (same-origin Go
+		// responses always carry `Date`). Anything older than the window is stale
+		// noise (e.g. an error from before the last rebuild); an unparseable
+		// timestamp is kept rather than silently dropped.
+		const serverNowMs =
+			reqLogData?.serverNowMs ?? appLogData?.serverNowMs ?? null;
+		const anchor =
+			serverNowMs !== null
+				? Math.max(serverNowMs, newest)
+				: newest > 0
+					? newest
+					: Date.now();
+		const cutoff = anchor - ERROR_SHELF_MAX_AGE_MS;
+		const isRecent = (timestamp: string) => {
+			const t = parseTs(timestamp);
+			return Number.isNaN(t) || t >= cutoff;
+		};
+
+		for (const entry of reqEntries) {
 			if (!entry.error_message || !entry.created_at) continue;
+			if (!isRecent(entry.created_at)) continue;
 			merged.push({
 				key: makeKey("request", entry.created_at, entry.error_message),
 				kind: "request",
@@ -175,8 +249,9 @@ export function useErrorShelf(): UseErrorShelf {
 			});
 		}
 
-		for (const entry of appLogData?.entries ?? []) {
+		for (const entry of appEntries) {
 			if (!entry.message || !entry.timestamp) continue;
+			if (!isRecent(entry.timestamp)) continue;
 			merged.push({
 				key: makeKey("app", entry.timestamp, entry.message),
 				kind: "app",

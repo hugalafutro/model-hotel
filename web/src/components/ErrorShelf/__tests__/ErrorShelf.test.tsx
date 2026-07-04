@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { delay, HttpResponse, http } from "msw";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { ErrorShelf } from "../ErrorShelf";
@@ -110,6 +110,16 @@ describe("ErrorShelf", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		localStorage.removeItem("ackedErrorKeys");
+		// Freeze the clock just after the newest seeded row (12:00:00Z) so every
+		// fixture timestamp lands inside the shelf's 24h recency window. Only
+		// Date.now() is stubbed, leaving react-query's real timers untouched.
+		vi.spyOn(Date, "now").mockReturnValue(
+			new Date("2024-02-01T12:00:30Z").getTime(),
+		);
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
 	});
 
 	it("renders nothing when there are no errors", async () => {
@@ -146,6 +156,113 @@ describe("ErrorShelf", () => {
 		renderWithProviders(<ErrorShelf />);
 		const count = await screen.findByTestId("error-shelf-count");
 		expect(count).toHaveTextContent("1");
+	});
+
+	it("hides errors older than the 24h recency window", async () => {
+		// Newest seeded row is 12:00:00Z and the clock is frozen at 12:00:30Z,
+		// so a row from the previous day is well outside the 24h window.
+		seedRequestError("fresh boom", "2024-02-01T10:00:00Z");
+		seedAppError("stale boom", "2024-01-31T09:00:00Z");
+		renderWithProviders(<ErrorShelf />);
+
+		const count = await screen.findByTestId("error-shelf-count");
+		expect(count).toHaveTextContent("1");
+		await expand();
+
+		const rows = await screen.findAllByTestId("error-shelf-row");
+		expect(rows).toHaveLength(1);
+		expect(within(rows[0]).getByText("fresh boom")).toBeTruthy();
+		expect(screen.queryByText("stale boom")).toBeNull();
+	});
+
+	it("treats a zone-less app timestamp as UTC, not browser-local time", async () => {
+		// A bare RFC3339 stamp (no Z / offset) one hour before the frozen clock
+		// must count as ~1h old, not be shifted by the runner's local offset.
+		// If it were parsed as local time in a negative-offset zone it would look
+		// hours in the future; in a positive-offset zone, hours older. Either way
+		// it stays comfortably inside the 24h window and remains visible.
+		seedAppError("zoneless boom", "2024-02-01T11:00:00");
+		renderWithProviders(<ErrorShelf />);
+
+		const count = await screen.findByTestId("error-shelf-count");
+		expect(count).toHaveTextContent("1");
+		await expand();
+		const rows = await screen.findAllByTestId("error-shelf-row");
+		expect(within(rows[0]).getByText("zoneless boom")).toBeTruthy();
+	});
+
+	it("clamps to the newest served error when no server clock is available", async () => {
+		// The mock responses carry no `Date` header, so the hook falls back to the
+		// browser clock, which here lags a week behind. Without the newest-served
+		// clamp that would filter everything out; the clamp keeps the fresh rows.
+		vi.spyOn(Date, "now").mockReturnValue(
+			new Date("2024-01-25T12:00:30Z").getTime(),
+		);
+		seedRequestError("fresh boom", "2024-02-01T12:00:00Z");
+		seedAppError("also fresh", "2024-02-01T11:00:00Z");
+		renderWithProviders(<ErrorShelf />);
+
+		const count = await screen.findByTestId("error-shelf-count");
+		expect(count).toHaveTextContent("2");
+	});
+
+	it("never hides a served error to a fast browser clock without a Date header", async () => {
+		// Greptile P1 repro: no server `Date` header, browser clock 48h ahead.
+		// The one error is fresh by the newest-served anchor; a Date.now() anchor
+		// would age it past the cutoff and render the shelf empty. The browser
+		// clock must not drop a served error even on the header-less fallback.
+		vi.spyOn(Date, "now").mockReturnValue(
+			new Date("2024-02-03T12:00:00Z").getTime(),
+		);
+		seedRequestError("still fresh", "2024-02-01T12:00:00Z");
+		renderWithProviders(<ErrorShelf />);
+
+		const count = await screen.findByTestId("error-shelf-count");
+		expect(count).toHaveTextContent("1");
+		await expand();
+		const rows = await screen.findAllByTestId("error-shelf-row");
+		expect(within(rows[0]).getByText("still fresh")).toBeTruthy();
+	});
+
+	it("anchors the window on the server clock, not a fast browser clock", async () => {
+		// Browser clock runs 21h ahead of the server. An error 10h old by the
+		// server's clock is 31h old by the browser's. Anchoring on the server
+		// `Date` header keeps it inside the 24h window; a browser-clock anchor
+		// would wrongly hide it. Proves fast-clock skew can't drop fresh errors.
+		vi.spyOn(Date, "now").mockReturnValue(
+			new Date("2024-02-02T09:00:00Z").getTime(),
+		);
+		server.use(
+			http.get("/api/logs", () =>
+				HttpResponse.json(
+					{
+						entries: [
+							{
+								id: "req-1",
+								provider_id: "p1",
+								provider_name: "Prov",
+								model_id: "m1",
+								status_code: 502,
+								error_message: "server-fresh boom",
+								error_kind: "upstream_5xx",
+								created_at: "2024-02-01T02:00:00Z",
+							},
+						],
+						total: 1,
+						page: 1,
+						per_page: 15,
+					},
+					{ headers: { Date: new Date("2024-02-01T12:00:00Z").toUTCString() } },
+				),
+			),
+		);
+		renderWithProviders(<ErrorShelf />);
+
+		const count = await screen.findByTestId("error-shelf-count");
+		expect(count).toHaveTextContent("1");
+		await expand();
+		const rows = await screen.findAllByTestId("error-shelf-row");
+		expect(within(rows[0]).getByText("server-fresh boom")).toBeTruthy();
 	});
 
 	it("interleaves app + request errors newest-first when expanded", async () => {
