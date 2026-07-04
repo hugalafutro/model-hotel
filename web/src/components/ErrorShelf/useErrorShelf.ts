@@ -77,6 +77,18 @@ function makeKey(kind: ShelfErrorKind, timestamp: string, message: string) {
 	return `${kind}:${timestamp}:${message.slice(0, 50)}`;
 }
 
+/** Matches a trailing timezone designator (`Z` or `±HH:MM`/`±HHMM`). */
+const HAS_TZ = /([zZ]|[+-]\d{2}:?\d{2})$/;
+
+/** Parse a log timestamp to epoch millis, treating a zone-less string as UTC.
+ * The backend emits RFC3339Nano (always zoned), but a bare
+ * `YYYY-MM-DDTHH:MM:SS` would otherwise be parsed in the viewer's local
+ * timezone, shifting its apparent age by the browser's offset. Returns NaN for
+ * anything unparseable, which callers treat as "keep, don't drop". */
+function parseTs(timestamp: string): number {
+	return Date.parse(HAS_TZ.test(timestamp) ? timestamp : `${timestamp}Z`);
+}
+
 function parseAckedKeys(stored: string, fallback: string[]): string[] {
 	try {
 		const parsed = JSON.parse(stored);
@@ -167,16 +179,35 @@ export function useErrorShelf(): UseErrorShelf {
 	const errors = useMemo<ShelfError[]>(() => {
 		if (!ready) return [];
 		const merged: ShelfError[] = [];
+		const reqEntries = reqLogData?.entries ?? [];
+		const appEntries = appLogData?.entries ?? [];
+
+		// Anchor "now" on the later of the browser clock and the newest error we
+		// were actually served. A browser clock running behind server time would
+		// otherwise slide the 24h window into the past and hide genuinely fresh
+		// errors; clamping up to the newest server timestamp keeps recent rows
+		// visible regardless of client skew. (A clock running ahead can't be
+		// corrected without a server-time reference, which the list endpoints
+		// don't return.)
+		let newest = 0;
+		for (const entry of reqEntries) {
+			const t = parseTs(entry.created_at ?? "");
+			if (!Number.isNaN(t) && t > newest) newest = t;
+		}
+		for (const entry of appEntries) {
+			const t = parseTs(entry.timestamp ?? "");
+			if (!Number.isNaN(t) && t > newest) newest = t;
+		}
 		// Anything older than the window is stale noise (e.g. a request error
 		// from before the last rebuild). A malformed/unparseable timestamp is
 		// kept rather than silently dropped.
-		const cutoff = Date.now() - ERROR_SHELF_MAX_AGE_MS;
+		const cutoff = Math.max(Date.now(), newest) - ERROR_SHELF_MAX_AGE_MS;
 		const isRecent = (timestamp: string) => {
-			const t = Date.parse(timestamp);
+			const t = parseTs(timestamp);
 			return Number.isNaN(t) || t >= cutoff;
 		};
 
-		for (const entry of reqLogData?.entries ?? []) {
+		for (const entry of reqEntries) {
 			if (!entry.error_message || !entry.created_at) continue;
 			if (!isRecent(entry.created_at)) continue;
 			merged.push({
@@ -189,7 +220,7 @@ export function useErrorShelf(): UseErrorShelf {
 			});
 		}
 
-		for (const entry of appLogData?.entries ?? []) {
+		for (const entry of appEntries) {
 			if (!entry.message || !entry.timestamp) continue;
 			if (!isRecent(entry.timestamp)) continue;
 			merged.push({

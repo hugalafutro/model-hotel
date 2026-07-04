@@ -175,6 +175,38 @@ describe("ErrorShelf", () => {
 		expect(screen.queryByText("stale boom")).toBeNull();
 	});
 
+	it("treats a zone-less app timestamp as UTC, not browser-local time", async () => {
+		// A bare RFC3339 stamp (no Z / offset) one hour before the frozen clock
+		// must count as ~1h old, not be shifted by the runner's local offset.
+		// If it were parsed as local time in a negative-offset zone it would look
+		// hours in the future; in a positive-offset zone, hours older. Either way
+		// it stays comfortably inside the 24h window and remains visible.
+		seedAppError("zoneless boom", "2024-02-01T11:00:00");
+		renderWithProviders(<ErrorShelf />);
+
+		const count = await screen.findByTestId("error-shelf-count");
+		expect(count).toHaveTextContent("1");
+		await expand();
+		const rows = await screen.findAllByTestId("error-shelf-row");
+		expect(within(rows[0]).getByText("zoneless boom")).toBeTruthy();
+	});
+
+	it("clamps the window to the newest served error when the clock lags", async () => {
+		// Simulate a browser clock running a week behind server time: the only
+		// errors were emitted "now" by the server but sit in the client's future.
+		// Anchoring on the newest served timestamp keeps them visible instead of
+		// filtering everything out.
+		vi.spyOn(Date, "now").mockReturnValue(
+			new Date("2024-01-25T12:00:30Z").getTime(),
+		);
+		seedRequestError("fresh boom", "2024-02-01T12:00:00Z");
+		seedAppError("also fresh", "2024-02-01T11:00:00Z");
+		renderWithProviders(<ErrorShelf />);
+
+		const count = await screen.findByTestId("error-shelf-count");
+		expect(count).toHaveTextContent("2");
+	});
+
 	it("interleaves app + request errors newest-first when expanded", async () => {
 		// request error is newer than the app error
 		seedRequestError("req boom", "2024-02-01T12:00:00Z");
