@@ -45,6 +45,7 @@ const onClose = () => {};
 describe("RequestLogDetail endpoint badge", () => {
 	it.each([
 		["embeddings", "Embeddings"],
+		["rerank", "Rerank"],
 		["image", "Image"],
 		["tts", "TTS"],
 		["stt", "STT"],

@@ -1,5 +1,5 @@
 import type { LucideIcon } from "@/lib/icons";
-import { Braces, Image, Mic, Volume2 } from "@/lib/icons";
+import { Braces, Image, ListOrdered, Mic, Volume2 } from "@/lib/icons";
 
 // Single source of truth for the endpoint families and their i18n label
 // keys on the frontend; the badge and the Logs filter dropdown both derive
@@ -7,6 +7,7 @@ import { Braces, Image, Mic, Volume2 } from "@/lib/icons";
 export const ENDPOINT_LABEL_KEYS: Record<string, string> = {
 	chat: "logs.endpoint.chat",
 	embeddings: "logs.endpoint.embeddings",
+	rerank: "logs.endpoint.rerank",
 	image: "logs.endpoint.image",
 	tts: "logs.endpoint.tts",
 	stt: "logs.endpoint.stt",
@@ -14,6 +15,7 @@ export const ENDPOINT_LABEL_KEYS: Record<string, string> = {
 
 export const ENDPOINT_ICONS: Record<string, LucideIcon> = {
 	embeddings: Braces,
+	rerank: ListOrdered,
 	image: Image,
 	tts: Volume2,
 	stt: Mic,

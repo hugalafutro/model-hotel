@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "Sohbet",
 			"embeddings": "Gömülmeler",
+			"rerank": "Yeniden sıralama",
 			"image": "Resim",
 			"tts": "TTS",
 			"stt": "STT"

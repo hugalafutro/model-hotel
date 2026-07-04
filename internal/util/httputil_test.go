@@ -819,6 +819,78 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "https://api.anthropic.com/v1/embeddings",
 		},
 		{
+			name:         "Cohere rerank routes to native /v2/rerank from compat base",
+			baseURL:      "https://api.cohere.ai/compatibility/v1",
+			providerType: "cohere",
+			endpoint:     "/rerank",
+			expected:     "https://api.cohere.com/v2/rerank",
+		},
+		{
+			name:         "Cohere rerank from native base",
+			baseURL:      "https://api.cohere.com",
+			providerType: "cohere",
+			endpoint:     "/rerank",
+			expected:     "https://api.cohere.com/v2/rerank",
+		},
+		{
+			name:         "Cohere rerank keeps custom host, strips compat suffix",
+			baseURL:      "https://cohere.internal.example/compatibility/v1",
+			providerType: "cohere",
+			endpoint:     "/rerank",
+			expected:     "https://cohere.internal.example/v2/rerank",
+		},
+		{
+			name:         "Cohere chat still uses the stored compat base",
+			baseURL:      "https://api.cohere.ai/compatibility/v1",
+			providerType: "cohere",
+			endpoint:     "/chat/completions",
+			expected:     "https://api.cohere.ai/compatibility/v1/chat/completions",
+		},
+		{
+			name:         "Cohere rerank on look-alike host stays on configured host",
+			baseURL:      "https://api.cohere.ai.evil.example/compatibility/v1",
+			providerType: "cohere",
+			endpoint:     "/rerank",
+			expected:     "https://api.cohere.ai.evil.example/v2/rerank",
+		},
+		{
+			// An explicit port means a custom upstream on the cohere hostname;
+			// rerank must stay on that host:port, not redirect to public Cohere.
+			name:         "Cohere rerank on ported host stays on configured host",
+			baseURL:      "https://api.cohere.ai:8443/compatibility/v1",
+			providerType: "cohere",
+			endpoint:     "/rerank",
+			expected:     "https://api.cohere.ai:8443/v2/rerank",
+		},
+		{
+			name:         "Non-Cohere rerank appends to base",
+			baseURL:      "https://api.jina.ai/v1",
+			providerType: "openai",
+			endpoint:     "/rerank",
+			expected:     "https://api.jina.ai/v1/rerank",
+		},
+		{
+			// A self-hosted Cohere-compatible gateway on a custom domain is
+			// detected as a generic "openai" provider, but its compat base can
+			// never serve rerank; the /compatibility/v1 marker must still route
+			// to native /v2/rerank on the same host.
+			name:         "custom Cohere-compat host detected as openai still routes rerank to native",
+			baseURL:      "https://cohere.internal.example/compatibility/v1",
+			providerType: "openai",
+			endpoint:     "/rerank",
+			expected:     "https://cohere.internal.example/v2/rerank",
+		},
+		{
+			// The compat-suffix override must not leak into non-rerank
+			// endpoints: chat on that same custom compat base stays on the
+			// compat surface.
+			name:         "custom Cohere-compat host chat stays on compat base",
+			baseURL:      "https://cohere.internal.example/compatibility/v1",
+			providerType: "openai",
+			endpoint:     "/chat/completions",
+			expected:     "https://cohere.internal.example/compatibility/v1/chat/completions",
+		},
+		{
 			name:         "Wafer AI without /v1 (user must include it)",
 			baseURL:      "https://pass.wafer.ai",
 			providerType: "openai",
@@ -938,6 +1010,37 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			result := BuildProviderTargetURL(tc.baseURL, tc.providerType, endpoint)
 			if result != tc.expected {
 				t.Errorf("BuildProviderTargetURL(%q, %q, %q) = %q, want %q", tc.baseURL, tc.providerType, endpoint, result, tc.expected)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// CohereNativeBaseURL
+// ---------------------------------------------------------------------------
+
+func TestCohereNativeBaseURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"compat base maps to native host", "https://api.cohere.ai/compatibility/v1", "https://api.cohere.com"},
+		{"compat base with trailing slash", "https://api.cohere.ai/compatibility/v1/", "https://api.cohere.com"},
+		{"already native", "https://api.cohere.com", "https://api.cohere.com"},
+		{"native with trailing slash", "https://api.cohere.com/", "https://api.cohere.com"},
+		{"bare native host", "https://api.cohere.ai", "https://api.cohere.com"},
+		{"custom host strips compat suffix", "https://cohere.internal.example/compatibility/v1", "https://cohere.internal.example"},
+		{"custom host without suffix kept as-is", "https://cohere.internal.example", "https://cohere.internal.example"},
+		{"look-alike host is not rewritten", "https://api.cohere.ai.evil.example/compatibility/v1", "https://api.cohere.ai.evil.example"},
+		{"look-alike subdomain is not rewritten", "https://api.cohere.ai.attacker.test", "https://api.cohere.ai.attacker.test"},
+		{"explicit port on cohere host is preserved, not redirected", "https://api.cohere.ai:8443/compatibility/v1", "https://api.cohere.ai:8443"},
+		{"explicit default port on cohere host is preserved", "https://api.cohere.ai:443", "https://api.cohere.ai:443"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := CohereNativeBaseURL(tt.input); got != tt.want {
+				t.Errorf("CohereNativeBaseURL(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}

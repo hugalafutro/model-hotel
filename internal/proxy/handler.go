@@ -204,6 +204,7 @@ func (h *Handler) Register(r chi.Router) {
 	r.Post("/chat/completions", h.ChatCompletions)
 	r.Post("/messages", h.Messages) // native Anthropic Messages API surface
 	r.Post("/embeddings", h.Embeddings)
+	r.Post("/rerank", h.Rerank)
 	r.Post("/images/generations", h.ImageGenerations)
 	r.Post("/images/edits", h.ImageEdits)
 	r.Post("/images/variations", h.ImageVariations)

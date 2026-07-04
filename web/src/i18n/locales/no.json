@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "Samtale",
 			"embeddings": "Forankringer",
+			"rerank": "Omrangering",
 			"image": "Bilde",
 			"tts": "TTS",
 			"stt": "STT"

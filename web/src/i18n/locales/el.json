@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "Συνομιλία",
 			"embeddings": "Ενσωμάτωση",
+			"rerank": "Ανακατάταξη",
 			"image": "Εικόνα",
 			"tts": "TTS",
 			"stt": "STT"

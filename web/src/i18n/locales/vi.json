@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "Trò chuyện",
 			"embeddings": "Mô hình nhúng",
+			"rerank": "Xếp hạng lại",
 			"image": "Hình ảnh",
 			"tts": "TTS",
 			"stt": "Số thứ tự"

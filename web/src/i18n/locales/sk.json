@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "Chat",
 			"embeddings": "Vloženia",
+			"rerank": "Preradenie",
 			"image": "Obrázok",
 			"tts": "TTS",
 			"stt": "STT"

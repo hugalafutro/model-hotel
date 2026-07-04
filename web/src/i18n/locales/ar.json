@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "الدردشة",
 			"embeddings": "المضمنات",
+			"rerank": "إعادة الترتيب",
 			"image": "صورة",
 			"tts": "TTS",
 			"stt": "STT"

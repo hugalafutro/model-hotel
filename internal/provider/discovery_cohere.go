@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"slices"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -22,15 +21,39 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 	// Derive native API URL from compat URL.
 	// Stored base URL will be "https://api.cohere.ai/compatibility/v1"
 	// Native API base is "https://api.cohere.com"
-	nativeBaseURL := toCohereNativeURL(baseURL)
+	nativeBaseURL := util.CohereNativeBaseURL(baseURL)
 
+	// Fetch the pricing catalog once and thread it through both endpoint fetches.
 	pricingCatalog := GetCoherePricingCatalog()
+
+	models, err := d.fetchCohereModels(ctx, provider, apiKey, nativeBaseURL, "chat", pricingCatalog)
+	if err != nil {
+		return nil, err
+	}
+
+	// Rerank models live behind the same models API under a separate endpoint
+	// filter and are served by the proxy's /v1/rerank passthrough. A failure
+	// here degrades gracefully: chat discovery already succeeded, so keep it.
+	rerankModels, err := d.fetchCohereModels(ctx, provider, apiKey, nativeBaseURL, "rerank", pricingCatalog)
+	if err != nil {
+		debuglog.Warn("discovery: cohere rerank model fetch failed, keeping chat models", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+	} else {
+		models = append(models, rerankModels...)
+	}
+
+	debuglog.Info("discovery: cohere discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
+	return models, nil
+}
+
+// fetchCohereModels pages through the native /v1/models API filtered to one
+// endpoint family ("chat" or "rerank") and builds model rows for it.
+func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Provider, apiKey, nativeBaseURL, endpoint string, pricingCatalog []CoherePricingEntry) ([]*model.Model, error) {
 	models := make([]*model.Model, 0)
 
 	// Paginate through all model pages
 	pageToken := ""
 	for {
-		url := fmt.Sprintf("%s/v1/models?endpoint=chat&page_size=100", nativeBaseURL)
+		url := fmt.Sprintf("%s/v1/models?endpoint=%s&page_size=100", nativeBaseURL, endpoint)
 		if pageToken != "" {
 			url += "&page_token=" + pageToken
 		}
@@ -44,7 +67,7 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 
 		resp, err := d.httpClient.Do(req)
 		if err != nil {
-			debuglog.Error("discovery: cohere http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+			debuglog.Error("discovery: cohere http request failed", "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "error", err)
 			return nil, fmt.Errorf("failed to fetch models: %w", err)
 		}
 
@@ -55,13 +78,13 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			debuglog.Error("discovery: cohere non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
+			debuglog.Error("discovery: cohere non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "body", util.SanitizeLogBody(string(bodyBytes), 2000))
 			return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
 		}
 
 		var cohereResp CohereModelsResponse
 		if err := json.Unmarshal(bodyBytes, &cohereResp); err != nil {
-			debuglog.Error("discovery: cohere failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+			debuglog.Error("discovery: cohere failed to decode response", "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "error", err)
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
@@ -71,54 +94,7 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 				debuglog.Info("discovery: cohere skipping deprecated model", "model", cm.Name)
 				continue
 			}
-
-			pricing := LookupCoherePricing(pricingCatalog, cm.Name)
-
-			// Build capabilities from API features array
-			caps := cohereFeaturesToCapabilities(cm.Features)
-			capJSON, _ := json.Marshal(caps)
-
-			// Determine modality from features
-			hasVision := slices.Contains(cm.Features, "vision")
-			modality := "text"
-			inputMods := `["text"]`
-			outputMods := `["text"]`
-			if hasVision {
-				inputMods = `["text","image"]`
-			}
-
-			// Build model entry
-			modelEntry := &model.Model{
-				ID:               uuid.New(),
-				ProviderID:       provider.ID,
-				ModelID:          cm.Name,
-				Name:             cm.Name,
-				Capabilities:     string(capJSON),
-				Params:           "{}",
-				Modality:         modality,
-				InputModalities:  inputMods,
-				OutputModalities: outputMods,
-				ContextLength:    &cm.ContextLength,
-				OwnedBy:          "cohere",
-				Enabled:          true,
-			}
-
-			if pricing != nil {
-				modelEntry.DisplayName = pricing.DisplayName
-				modelEntry.Description = pricing.Description
-				maxOutput := pricing.MaxOutputTokens
-				modelEntry.MaxOutputTokens = &maxOutput
-				inPrice := pricing.InputPricePerMillion
-				outPrice := pricing.OutputPricePerMillion
-				modelEntry.InputPricePerMillion = &inPrice
-				modelEntry.OutputPricePerMillion = &outPrice
-			} else {
-				// Minimal entry for models not in pricing catalog
-				modelEntry.DisplayName = cm.Name
-				debuglog.Warn("discovery: cohere model not in pricing catalog", "model", cm.Name)
-			}
-
-			models = append(models, modelEntry)
+			models = append(models, buildCohereModel(provider, pricingCatalog, cm, endpoint))
 		}
 
 		// Check for next page
@@ -128,21 +104,65 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 		pageToken = cohereResp.NextPageToken
 	}
 
-	debuglog.Info("discovery: cohere discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
 	return models, nil
 }
 
-// toCohereNativeURL converts a compatibility API base URL to the native API base URL.
-// Input:  "https://api.cohere.ai/compatibility/v1" or "https://api.cohere.com"
-// Output: "https://api.cohere.com"
-func toCohereNativeURL(baseURL string) string {
-	u := strings.TrimSuffix(baseURL, "/")
-	// If the base URL points to the compatibility endpoint, switch to native
-	if strings.HasPrefix(u, "https://api.cohere.ai") {
-		return "https://api.cohere.com"
+// buildCohereModel converts one Cohere API model entry into a model row.
+// Rerank models carry no chat capabilities and are billed per search rather
+// than per token, so their price pointers stay nil (unknown).
+func buildCohereModel(provider *Provider, pricingCatalog []CoherePricingEntry, cm CohereNativeModel, endpoint string) *model.Model {
+	caps := model.Capability{}
+	modality := "text"
+	inputMods := `["text"]`
+	outputMods := `["text"]`
+
+	if endpoint == "rerank" {
+		modality = "rerank"
+	} else {
+		// Build capabilities from API features array
+		caps = cohereFeaturesToCapabilities(cm.Features)
+		// Determine modality from features
+		if slices.Contains(cm.Features, "vision") {
+			inputMods = `["text","image"]`
+		}
 	}
-	// Already pointing at native API or a custom URL
-	return u
+	capJSON, _ := json.Marshal(caps)
+
+	modelEntry := &model.Model{
+		ID:               uuid.New(),
+		ProviderID:       provider.ID,
+		ModelID:          cm.Name,
+		Name:             cm.Name,
+		Capabilities:     string(capJSON),
+		Params:           "{}",
+		Modality:         modality,
+		InputModalities:  inputMods,
+		OutputModalities: outputMods,
+		ContextLength:    &cm.ContextLength,
+		OwnedBy:          "cohere",
+		Enabled:          true,
+	}
+
+	pricing := LookupCoherePricing(pricingCatalog, cm.Name)
+	if pricing != nil {
+		modelEntry.DisplayName = pricing.DisplayName
+		modelEntry.Description = pricing.Description
+		maxOutput := pricing.MaxOutputTokens
+		modelEntry.MaxOutputTokens = &maxOutput
+		inPrice := pricing.InputPricePerMillion
+		outPrice := pricing.OutputPricePerMillion
+		modelEntry.InputPricePerMillion = &inPrice
+		modelEntry.OutputPricePerMillion = &outPrice
+	} else {
+		// Minimal entry for models not in pricing catalog. Expected for
+		// rerank models (search-unit billing has no per-token price).
+		modelEntry.DisplayName = cm.Name
+		if endpoint != "rerank" {
+			debuglog.Warn("discovery: cohere model not in pricing catalog", "model", cm.Name)
+		}
+	}
+
+	return modelEntry
 }
 
 // cohereFeaturesToCapabilities converts a Cohere features array to our Capability struct.

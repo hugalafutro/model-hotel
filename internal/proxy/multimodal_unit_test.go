@@ -261,6 +261,11 @@ func TestExtractPassthroughUsage(t *testing.T) {
 			wantPrompt:     3,
 			wantCompletion: 7,
 		},
+		{
+			name:       "rerank shape (total only, Jina/Voyage)",
+			body:       `{"model":"rr","results":[],"usage":{"total_tokens":42}}`,
+			wantPrompt: 42,
+		},
 		{name: "no usage", body: `{"object":"list","data":[]}`},
 		{name: "null usage", body: `{"usage":null}`},
 		{name: "invalid JSON", body: `{nope`},

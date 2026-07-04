@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -124,6 +125,9 @@ func WriteOpenAIError(w http.ResponseWriter, message string, statusCode int) {
 // Defensive: if the base URL already ends with /v1, don't double-append it.
 func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 	sanitized := SanitizeBaseURL(baseURL)
+	if endpoint == "/rerank" && isCohereRerankBase(providerType, sanitized) {
+		return CohereNativeBaseURL(sanitized) + "/v2/rerank"
+	}
 	switch providerType {
 	case "anthropic", "ollama", "lmstudio", "koboldcpp":
 		// These providers expose their OpenAI-compatible API under /v1: Ollama,
@@ -148,6 +152,49 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		// Custom providers must be configured with the full path by the user.
 		return sanitized + endpoint
 	}
+}
+
+// isCohereRerankBase reports whether a /rerank request must be redirected to
+// the Cohere-native /v2/rerank surface. Rerank is not part of Cohere's
+// OpenAI-compatibility API, so the compat base can never serve it.
+//
+// The detected provider type alone is not enough: DetectProviderType only
+// classifies *.cohere.ai/*.cohere.com hosts as "cohere", so a self-hosted
+// Cohere-compatible gateway on a custom domain is seen as a generic "openai"
+// provider. Its base still carries the tell-tale /compatibility/v1 suffix
+// (a Cohere-specific shape; Jina/Voyage/TEI use a bare /v1), so match on that
+// too — otherwise the default path would build <host>/compatibility/v1/rerank
+// and 404.
+func isCohereRerankBase(providerType, sanitized string) bool {
+	if providerType == "cohere" {
+		return true
+	}
+	return strings.HasSuffix(strings.TrimRight(sanitized, "/"), "/compatibility/v1")
+}
+
+// CohereNativeBaseURL converts a Cohere base URL to the native API base. It is
+// the single source of truth for the compat->native mapping, shared by the
+// proxy (rerank target URL) and discovery (native /v1/models fetch).
+//
+// Rerank and the models API are not part of Cohere's OpenAI-compatibility
+// surface, so the stored compat base (https://api.cohere.ai/compatibility/v1)
+// must be mapped to the native host (https://api.cohere.com). Custom/self-hosted
+// URLs keep their host and only lose a /compatibility/v1 suffix.
+func CohereNativeBaseURL(sanitized string) string {
+	base := strings.TrimSuffix(strings.TrimRight(sanitized, "/"), "/compatibility/v1")
+	base = strings.TrimRight(base, "/")
+	// Only Cohere's own canonical public host is remapped to the native API.
+	// Two guards, both security-relevant:
+	//   - Match the host exactly (not a string prefix): a look-alike host such
+	//     as https://api.cohere.ai.evil.example must NOT be rewritten to the
+	//     public Cohere host, which would send the user's rerank query there.
+	//   - Require the default port: an explicit port (e.g. api.cohere.ai:8443)
+	//     means the user pointed at a custom upstream on that hostname, so keep
+	//     host+port instead of silently redirecting to public Cohere on :443.
+	if u, err := url.Parse(base); err == nil && u.Hostname() == "api.cohere.ai" && u.Port() == "" {
+		return "https://api.cohere.com"
+	}
+	return base
 }
 
 // SetProviderAuthHeaders sets the correct authentication headers for each provider type.

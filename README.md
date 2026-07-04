@@ -389,7 +389,8 @@ curl -X POST http://localhost:8081/v1/audio/transcriptions \
   -F model="OpenAI/whisper-1" -F file=@speech.mp3
 ```
 
-The proxy also serves `/v1/images/generations`, `/v1/images/edits`, `/v1/images/variations`,
+The proxy also serves `/v1/rerank` (Cohere-style document rerank, common in RAG stacks),
+`/v1/images/generations`, `/v1/images/edits`, `/v1/images/variations`,
 `/v1/audio/speech`, and `/v1/audio/translations` as transparent OpenAI-compatible pass-through
 (failover, circuit breaker, and virtual-key access control included; request/response content
 is never logged). See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the full endpoint listing.

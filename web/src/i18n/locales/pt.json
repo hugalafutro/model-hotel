@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "Bate-papo",
 			"embeddings": "Embutidos",
+			"rerank": "Reordenação",
 			"image": "Imagem",
 			"tts": "TTS",
 			"stt": "STT"

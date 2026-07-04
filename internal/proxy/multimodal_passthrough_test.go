@@ -265,6 +265,108 @@ func TestEmbeddings_UpstreamErrorReturnsOpenAIError(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Rerank
+// ---------------------------------------------------------------------------
+
+func TestRerank_PassthroughAndModelRewrite(t *testing.T) {
+	upstreamBody := `{"model":"resolved","results":[{"index":1,"relevance_score":0.98},{"index":0,"relevance_score":0.12}],"usage":{"total_tokens":17}}`
+	var gotPath, gotModel, gotAuth atomic.Value
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath.Store(r.URL.Path)
+		gotAuth.Store(r.Header.Get("Authorization"))
+		var req map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if m, ok := req["model"].(string); ok {
+			gotModel.Store(m)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, upstreamBody)
+	}))
+
+	body := fmt.Sprintf(`{"model":"%s/%s","query":"what is a capybara","documents":["a rodent","a river"],"top_n":2}`, env.providerName, env.modelName)
+	req := env.request("/v1/rerank", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	env.handler.Rerank(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body: %s)", w.Code, w.Body.String())
+	}
+	if got := strings.TrimSpace(w.Body.String()); got != upstreamBody {
+		t.Errorf("response body not passed through verbatim:\ngot  %s\nwant %s", got, upstreamBody)
+	}
+	if p, _ := gotPath.Load().(string); p != "/rerank" {
+		t.Errorf("upstream path = %q, want /rerank", p)
+	}
+	if m, _ := gotModel.Load().(string); m != env.modelName {
+		t.Errorf("upstream model = %q, want %q (model must be rewritten)", m, env.modelName)
+	}
+	if a, _ := gotAuth.Load().(string); a != "Bearer test-api-key" {
+		t.Errorf("upstream auth = %q, want Bearer test-api-key", a)
+	}
+}
+
+func TestRerank_ModelRequired(t *testing.T) {
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("upstream must not be called for a request without a model")
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := env.request("/v1/rerank", "application/json", strings.NewReader(`{"query":"q","documents":["d"]}`))
+	w := httptest.NewRecorder()
+	env.handler.Rerank(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "model is required") {
+		t.Errorf("body = %q, want model-is-required error", w.Body.String())
+	}
+}
+
+func TestRerank_FailoverToNextProvider(t *testing.T) {
+	var badCalls, goodCalls atomic.Int32
+	envBad := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		badCalls.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	goodUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		goodCalls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"results":[{"index":0,"relevance_score":0.5}],"usage":{"total_tokens":3}}`)
+	}))
+	t.Cleanup(goodUpstream.Close)
+	_, _, goodModelUUID, _ := createMultimodalProvider(t, goodUpstream.URL)
+
+	// Failover group: bad provider first, good provider second.
+	groupName := envBad.modelName
+	failoverRepo := failover.NewRepository(testDB.Pool())
+	if _, err := failoverRepo.UpsertWithConfig(context.Background(), groupName,
+		[]uuid.UUID{envBad.modelUUID, goodModelUUID},
+		map[string]bool{envBad.modelUUID.String(): true, goodModelUUID.String(): true},
+		nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+
+	body := fmt.Sprintf(`{"model":"hotel/%s","query":"q","documents":["d1","d2"]}`, groupName)
+	req := envBad.request("/v1/rerank", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	envBad.handler.Rerank(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 after failover (body: %s)", w.Code, w.Body.String())
+	}
+	if badCalls.Load() != 1 {
+		t.Errorf("bad provider calls = %d, want 1", badCalls.Load())
+	}
+	if goodCalls.Load() != 1 {
+		t.Errorf("good provider calls = %d, want 1", goodCalls.Load())
+	}
+	if !strings.Contains(w.Body.String(), `"relevance_score"`) {
+		t.Errorf("body = %q, want the good provider's response", w.Body.String())
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Audio speech (binary passthrough)
 // ---------------------------------------------------------------------------
 

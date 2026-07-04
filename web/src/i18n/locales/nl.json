@@ -1176,6 +1176,7 @@
 		"endpoint": {
 			"chat": "Chatten",
 			"embeddings": "Insluiten",
+			"rerank": "Herrangschikking",
 			"image": "Afbeelding",
 			"tts": "TTS",
 			"stt": "STT"
