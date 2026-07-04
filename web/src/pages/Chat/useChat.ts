@@ -186,10 +186,11 @@ export function useChat() {
 	// completion to a model that can't serve it. Only runs once the list has
 	// loaded so a transient empty fetch never wipes a valid selection.
 	useEffect(() => {
-		// Reconcile once the list has models to check against. The loading window
-		// itself is covered by the modelsReady guards on send/regenerate/conversation
-		// start, which refuse to dispatch a selection until the list has settled.
-		if (enabledModels.length === 0) return;
+		// Reconcile once the list has settled (loaded, success or error). An empty
+		// or failed list clears every selection so a stale (now non-chat) id can't
+		// be dispatched to a chat endpoint; the loading window itself is covered by
+		// the modelsReady guards on send/regenerate/conversation start.
+		if (!modelsReady) return;
 		const valid = new Set(
 			enabledModels.map((m) => proxyModelID(m.provider_name, m.model_id)),
 		);
@@ -199,6 +200,7 @@ export function useChat() {
 			setConversationModelA("");
 		if (selectedModelB && !valid.has(selectedModelB)) setSelectedModelB("");
 	}, [
+		modelsReady,
 		enabledModels,
 		chatSelectedModel,
 		conversationModelA,

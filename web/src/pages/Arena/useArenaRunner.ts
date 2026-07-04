@@ -149,19 +149,19 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			// A persisted competition can reload (outside setup phase, so array
 			// reconciliation is skipped) with a round slot pointing at a model that
 			// is no longer a valid chat target. Never stream a chat request to a
-			// non-chat endpoint. Two cases while the id is unrecognised:
-			//   - list still loading: we can't classify yet, so undo the pending
-			//     response and clear the running marker so the run can be retried
-			//     once the list loads (no permanent failure of a maybe-valid model).
-			//   - list loaded: the id is a genuine non-chat model, so stamp the slot
-			//     as errored.
+			// non-chat endpoint. Only stamp a permanent error when we have a usable
+			// allowlist to judge against (loaded AND non-empty) and the model isn't
+			// in it. While the list is still loading, or came back empty / failed,
+			// undo the pending response so the run can be retried once a real
+			// allowlist arrives instead of permanently failing a maybe-valid model.
 			if (!validModelIds.has(model)) {
 				const respKey = slotKey === "A" ? "responseA" : "responseB";
+				const isGenuineNonChat = modelsReady && validModelIds.size > 0;
 				setRounds(
 					produce((draft) => {
 						const mu = draft[roundIdx]?.matchups[matchupIdx];
 						if (mu) {
-							mu[respKey] = modelsReady
+							mu[respKey] = isGenuineNonChat
 								? {
 										model,
 										rawContent: "",

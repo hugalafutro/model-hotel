@@ -435,10 +435,11 @@ describe("useArenaRunner", () => {
 			expect(setPhaseMock).toHaveBeenCalledWith("voting");
 		});
 
-		it("blocks a persisted model while the chat list is empty", async () => {
-			// An empty enabledModels (nothing recognised as a chat model) must not
-			// leave the bypass open: a persisted slot model is stamped as errored
-			// rather than dispatched to /api/chat/arena.
+		it("defers (does not error) a persisted model while the chat list is empty", async () => {
+			// An empty enabledModels is not an authoritative allowlist (transient
+			// empty/failed response): the slot must not be dispatched, but it must
+			// also not be permanently failed. The pending response is cleared so the
+			// run can be retried once a real allowlist arrives.
 			let hit = false;
 			server.use(
 				http.post("/api/chat/arena", () => {
@@ -500,8 +501,8 @@ describe("useArenaRunner", () => {
 			});
 
 			expect(hit).toBe(false);
-			expect(roundsRef.current[0].matchups[0].responseA?.done).toBe(true);
-			expect(roundsRef.current[0].matchups[0].responseA?.error).toBeTruthy();
+			// Pending response cleared (retryable), not permanently failed.
+			expect(roundsRef.current[0].matchups[0].responseA).toBeNull();
 		});
 
 		it("tolerates an out-of-range matchup and a non-empty running set", () => {

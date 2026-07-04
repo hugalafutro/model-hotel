@@ -223,6 +223,17 @@ describe("useChat", () => {
 		vi.clearAllMocks();
 		localStorage.clear();
 		mockChatModelsList.length = 0;
+		// Back the model ids the send/regenerate/error tests select, so stale-
+		// selection reconciliation (which now clears ids absent from the list once
+		// loaded) leaves those selections intact. "embedding-model" is deliberately
+		// absent so the reconciliation tests can still exercise the clear path.
+		mockChatModelsList.push(
+			{ provider_name: "Provider", model_id: "model", enabled: true },
+			{ provider_name: "Provider", model_id: "current-model", enabled: true },
+			{ provider_name: "Provider", model_id: "same-model", enabled: true },
+			{ provider_name: "test", model_id: "model", enabled: true },
+			{ provider_name: "Ollama", model_id: "llama3", enabled: true },
+		);
 		mockModelsState.isLoading = false;
 		mockToast.mockClear();
 		mockSetConversationState.mockClear();
@@ -416,6 +427,22 @@ describe("useChat", () => {
 			);
 			renderHook(() => useChat());
 			expect(setSelectedModelB).toHaveBeenCalledWith("");
+		});
+
+		it("clears a stale selection when the loaded list has no chat models", async () => {
+			// Loaded but empty (or a failed models request) is authoritative: the
+			// persisted selection is dropped so it can't be sent to a chat endpoint.
+			mockChatModelsList.length = 0;
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setChatSelectedModel("Provider/embedding-model");
+				result.current.setInput("hello");
+			});
+			await act(async () => {
+				await result.current.handleSend();
+			});
+			expect(result.current.chatSelectedModel).toBe("");
+			expect(mockStreamModelResponse).not.toHaveBeenCalled();
 		});
 
 		it("does not send while the model list is still loading", async () => {
