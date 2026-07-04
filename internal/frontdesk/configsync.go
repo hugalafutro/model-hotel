@@ -171,8 +171,10 @@ func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string,
 		// Already in sync: no backup, no import. Still stamp the last-sync marker
 		// so the Members table reflects this reconciliation, matching the auto-sync
 		// path (a converged member is confirmed against the primary, just not written).
-		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), verifiedInSyncReason); err != nil {
-			debuglog.Warn("frontdesk: wizard sync: stamp verified-in-sync marker", "member", m.Name, "error", err)
+		// If the stamp fails, report the member as not fully synced rather than
+		// claiming OK for a reconciliation whose marker did not persist.
+		if err := s.stampVerifiedInSync(ctx, m.ID, m.Name); err != nil {
+			return &syncResultItem{MemberID: m.ID, Name: m.Name, Error: "in sync with the primary, but recording the last-sync marker failed"}, false
 		}
 		return &syncResultItem{MemberID: m.ID, Name: m.Name, OK: true}, false
 	}

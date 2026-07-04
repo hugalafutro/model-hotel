@@ -194,6 +194,21 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 	}
 }
 
+// stampVerifiedInSync records that a propagation pass confirmed a member already
+// matches the primary, so the Members table "Last Config Sync" column advances on
+// a reconciliation even when no write was needed. Both the auto-sync and wizard
+// paths funnel their converged-member case here. It returns the store error (also
+// logged) so callers can treat a failed stamp as a member that did not fully
+// reconcile: a converged member whose marker did not persist must be retried, or
+// the column stays stale, which is exactly what this whole path exists to prevent.
+func (s *Server) stampVerifiedInSync(ctx context.Context, memberID, memberName string) error {
+	if err := s.store.SetMemberLastSync(ctx, memberID, time.Now().UTC(), verifiedInSyncReason); err != nil {
+		debuglog.Warn("frontdesk: stamp verified-in-sync marker", "member", memberName, "error", err)
+		return err
+	}
+	return nil
+}
+
 // applyAutoSync pushes the primary's config to every other tokened member that
 // needs it. It returns how many members it actually re-synced and whether every
 // reachable member ended up converged (the signal autoSyncOnce uses to decide
@@ -303,9 +318,11 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			// a prior pass wrote it). This is still a successful reconciliation
 			// against the primary, so stamp the last-sync marker even though no
 			// write is needed. No backup, no import, not counted as applied, and no
-			// per-member event: only the timestamp/reason move.
-			if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), verifiedInSyncReason); err != nil {
-				debuglog.Warn("frontdesk: auto-sync: stamp verified-in-sync marker", "member", m.Name, "error", err)
+			// per-member event: only the timestamp/reason move. If the stamp itself
+			// fails, hold the fleet hash back (like every other per-member failure
+			// above) so the next tick retries rather than leaving the column stale.
+			if err := s.stampVerifiedInSync(ctx, m.ID, m.Name); err != nil {
+				allConverged = false
 			}
 			continue
 		}

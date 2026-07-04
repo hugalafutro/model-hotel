@@ -259,6 +259,35 @@ func TestConfigSyncConvergedMemberNotBackedUp(t *testing.T) {
 	}
 }
 
+// TestConfigSyncConvergedStampFailureReportsError: if a converged member's
+// verified-in-sync stamp cannot persist, the wizard must report the member as not
+// fully synced rather than claiming OK for a reconciliation whose marker was lost.
+func TestConfigSyncConvergedStampFailureReportsError(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	converged := newStubConfigMember(t, "ctoken")
+	converged.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{}}`
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "converged", converged.srv.URL, "ctoken") //nolint:errcheck // presence is the point
+	failLastSyncStamp(t, store)
+
+	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sync = %d", rec.Code)
+	}
+	var resp struct {
+		Results []syncResultItem `json:"results"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Results) != 1 || resp.Results[0].OK || resp.Results[0].Error == "" {
+		t.Fatalf("stamp failure should report member not OK with an error, got %+v", resp.Results)
+	}
+	if converged.gotBackup {
+		t.Error("a converged member must not be snapshotted even when the stamp fails")
+	}
+}
+
 func TestConfigSyncUnknownPrimary(t *testing.T) {
 	srv, _ := newTestServer(t)
 	const missing = "00000000-0000-0000-0000-000000000000"

@@ -432,6 +432,74 @@ func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 	}
 }
 
+// TestStampVerifiedInSync covers the shared helper both call sites use: a real
+// member gets the verified-in-sync marker, and a stamp against a missing member
+// is swallowed (logged, not fatal) so a propagation pass is never aborted by a
+// display-only write failing.
+func TestStampVerifiedInSync(t *testing.T) {
+	srv, store := newTestServer(t)
+	m, _ := store.CreateMember(t.Context(), "member", "http://127.0.0.1:9", "tok")
+
+	if err := srv.stampVerifiedInSync(t.Context(), m.ID, m.Name); err != nil {
+		t.Fatalf("stamp existing member: %v", err)
+	}
+
+	got, err := store.GetMember(t.Context(), m.ID)
+	if err != nil {
+		t.Fatalf("get member: %v", err)
+	}
+	if got.LastConfigSyncAt == nil {
+		t.Error("LastConfigSyncAt = nil, want stamped")
+	}
+	if got.LastConfigSyncReason != verifiedInSyncReason {
+		t.Errorf("reason = %q, want %q", got.LastConfigSyncReason, verifiedInSyncReason)
+	}
+
+	// Missing member: SetMemberLastSync errors; the helper logs it and returns the
+	// error so callers can hold the member back rather than claim a reconciliation.
+	if err := srv.stampVerifiedInSync(t.Context(), "no-such-member", "ghost"); err == nil {
+		t.Error("stamp of a missing member returned nil, want an error")
+	}
+}
+
+// failLastSyncStamp installs a SQLite trigger that makes any write to
+// members.last_config_sync_at fail, so a test can exercise the stamp-failure
+// branches without racing a real DB fault.
+func failLastSyncStamp(t *testing.T, store *Store) {
+	t.Helper()
+	if _, err := store.db.ExecContext(t.Context(),
+		`CREATE TRIGGER fail_last_sync BEFORE UPDATE OF last_config_sync_at ON members
+		 BEGIN SELECT RAISE(FAIL, 'stamp blocked by test'); END`,
+	); err != nil {
+		t.Fatalf("install fail trigger: %v", err)
+	}
+}
+
+// TestAutoSyncStampFailureHoldsHash: if stamping a converged member's verified
+// marker fails, the fleet hash must NOT be recorded, so the next tick retries
+// rather than leaving the Members column stale.
+func TestAutoSyncStampFailureHoldsHash(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken") // empty dryDiff: converged
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	enableAutoSync(t, store, pm.ID, "hash-A")
+	failLastSyncStamp(t, store)
+
+	srv.autoSyncOnce(t.Context(), "hash-B")
+
+	if replica.didBackup() || replica.didRealSync() {
+		t.Error("a converged member must not be backed up or re-imported")
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash != "hash-A" {
+		t.Errorf("applied hash = %q, want it left at hash-A so the next tick retries the failed stamp", cfg.LastHash)
+	}
+}
+
 // TestAutoSyncBackupFailureSkipsMember: if a member's pre-sync backup fails, its
 // config is NOT overwritten, the fleet is not marked converged, and the applied
 // hash is left stale so the next tick retries.
