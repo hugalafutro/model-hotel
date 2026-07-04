@@ -3,6 +3,7 @@ import { startAuthentication } from "@simplewebauthn/browser";
 import { type SyntheticEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api, clearAuthToken, setAuthToken } from "../api/client";
+import { Logo } from "./Logo";
 
 interface LoginProps {
 	onAuthenticated: () => void;
@@ -106,9 +107,16 @@ export function Login({ onAuthenticated, initialError }: LoginProps) {
 	return (
 		<div className="fd-login">
 			<div className="ui-card ui-card-pad">
-				<div className="fd-brand" style={{ marginBottom: "1rem" }}>
-					<span className="fd-dot" />
-					{t("login.title")}
+				<div
+					role="img"
+					aria-label={t("login.title")}
+					style={{
+						display: "flex",
+						justifyContent: "center",
+						marginBottom: "1rem",
+					}}
+				>
+					<Logo className="fd-logo" />
 				</div>
 				<form onSubmit={submitToken}>
 					<div className="ui-field">
