@@ -21,7 +21,11 @@ import { useConversationRunner } from "./useConversationRunner";
 import { useMultimodalAttachments } from "./useMultimodalAttachments";
 
 export function useChat() {
-	const { data: enabledModels } = useChatModels();
+	const { data: enabledModels, isLoading: modelsLoading } = useChatModels();
+	// False while the chat model list is doing its first load. Actions that would
+	// dispatch a selected model wait for this so a persisted stale (now non-chat)
+	// selection can't slip through the pre-reconciliation window.
+	const modelsReady = !modelsLoading;
 	const { chatSubMode, setChatSubMode } = useSidebarMode();
 	const { persistChat, persistConversation } = useStorage();
 
@@ -182,6 +186,9 @@ export function useChat() {
 	// completion to a model that can't serve it. Only runs once the list has
 	// loaded so a transient empty fetch never wipes a valid selection.
 	useEffect(() => {
+		// Reconcile once the list has models to check against. The loading window
+		// itself is covered by the modelsReady guards on send/regenerate/conversation
+		// start, which refuse to dispatch a selection until the list has settled.
 		if (enabledModels.length === 0) return;
 		const valid = new Set(
 			enabledModels.map((m) => proxyModelID(m.provider_name, m.model_id)),
@@ -370,7 +377,14 @@ export function useChat() {
 
 	const handleSend = useCallback(async () => {
 		const hasAttachment = pendingImage || pendingAudio;
-		if ((!input.trim() && !hasAttachment) || !selectedModel || isStreaming)
+		// Wait for the model list to settle so a persisted stale selection is
+		// reconciled away before it could be sent to a non-chat endpoint.
+		if (
+			!modelsReady ||
+			(!input.trim() && !hasAttachment) ||
+			!selectedModel ||
+			isStreaming
+		)
 			return;
 		if (sendingRef.current) return;
 
@@ -423,6 +437,7 @@ export function useChat() {
 		}
 	}, [
 		input,
+		modelsReady,
 		selectedModel,
 		isStreaming,
 		messages,
@@ -444,10 +459,10 @@ export function useChat() {
 
 	const handleRegenerate = useCallback(async () => {
 		if (isStreaming) return;
-		// Same guard as handleSend: without a selected model (e.g. a stale non-chat
-		// selection was just reconciled away) regenerate would stream with an empty
-		// model id. Bail rather than send a request that can only fail.
-		if (!selectedModel) return;
+		// Wait for the model list to settle so a persisted stale selection is
+		// reconciled away first; same guard as handleSend: without a selected model
+		// regenerate would stream with an empty model id.
+		if (!modelsReady || !selectedModel) return;
 		let lastUserIdx = -1;
 		for (let i = messages.length - 1; i >= 0; i--) {
 			if (messages[i].role === "user") {
@@ -504,6 +519,7 @@ export function useChat() {
 		}
 	}, [
 		isStreaming,
+		modelsReady,
 		messages,
 		selectedModel,
 		systemPrompt,
@@ -518,6 +534,7 @@ export function useChat() {
 		handleRetryConversation,
 		clearConversationAbort,
 	} = useConversationRunner({
+		modelsReady,
 		selectedModel,
 		selectedModelB,
 		input,

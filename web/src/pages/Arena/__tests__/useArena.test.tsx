@@ -98,6 +98,7 @@ const createMockArenaState = (
 		previewPairs: null,
 		// Dependencies
 		enabledModels: [] as Model[],
+		modelsReady: true,
 		toast: vi.fn() as ReturnType<typeof useToast>["toast"],
 		...overrides,
 	};

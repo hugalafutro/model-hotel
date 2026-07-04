@@ -82,6 +82,7 @@ export function useArena() {
 		previewPairs,
 		// Dependencies
 		enabledModels,
+		modelsReady,
 		toast,
 	} = useArenaState();
 
@@ -104,6 +105,7 @@ export function useArena() {
 		roundsRef,
 		modelParams,
 		enabledModels,
+		modelsReady,
 		toast,
 	});
 

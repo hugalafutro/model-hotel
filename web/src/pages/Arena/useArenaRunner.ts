@@ -32,6 +32,8 @@ export interface ArenaRunnerDeps {
 	roundsRef: React.RefObject<BracketRound[]>;
 	modelParams: Record<string, GenerationParams>;
 	enabledModels: Array<{ provider_name: string; model_id: string }>;
+	/** False while the chat model list is still doing its first load. */
+	modelsReady: boolean;
 	toast: ReturnType<typeof useToast>["toast"];
 }
 
@@ -79,6 +81,7 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 		roundsRef,
 		modelParams,
 		enabledModels,
+		modelsReady,
 		toast,
 	} = deps;
 
@@ -145,27 +148,31 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 		) => {
 			// A persisted competition can reload (outside setup phase, so array
 			// reconciliation is skipped) with a round slot pointing at a model that
-			// is no longer a valid chat target. Surface it in the slot instead of
-			// streaming a chat request to a non-chat endpoint. Runs are user
-			// initiated after the page (and its app-wide-cached model list) has
-			// rendered, so an unrecognised id here is a genuine non-chat model, not
-			// a load race; block rather than leave the bypass open while loading.
+			// is no longer a valid chat target. Never stream a chat request to a
+			// non-chat endpoint. Two cases while the id is unrecognised:
+			//   - list still loading: we can't classify yet, so undo the pending
+			//     response and clear the running marker so the run can be retried
+			//     once the list loads (no permanent failure of a maybe-valid model).
+			//   - list loaded: the id is a genuine non-chat model, so stamp the slot
+			//     as errored.
 			if (!validModelIds.has(model)) {
 				const respKey = slotKey === "A" ? "responseA" : "responseB";
 				setRounds(
 					produce((draft) => {
 						const mu = draft[roundIdx]?.matchups[matchupIdx];
 						if (mu) {
-							mu[respKey] = {
-								model,
-								rawContent: "",
-								content: "",
-								thinkingContent: "",
-								startTimeMs: Date.now(),
-								done: true,
-								error: t("hooks.useArenaRunner.nonChatModel"),
-								metrics: null,
-							};
+							mu[respKey] = modelsReady
+								? {
+										model,
+										rawContent: "",
+										content: "",
+										thinkingContent: "",
+										startTimeMs: Date.now(),
+										done: true,
+										error: t("hooks.useArenaRunner.nonChatModel"),
+										metrics: null,
+									}
+								: null;
 						}
 					}),
 				);
@@ -382,6 +389,7 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			setRounds,
 			arenaModeRef,
 			validModelIds,
+			modelsReady,
 		],
 	);
 

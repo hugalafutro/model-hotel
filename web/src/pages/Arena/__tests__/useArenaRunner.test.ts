@@ -40,6 +40,7 @@ const createMockDeps = (
 			{ provider_name: "P", model_id: "model-b" },
 			{ provider_name: "P", model_id: "new-model" },
 		],
+		modelsReady: true,
 		toast: vi.fn() as ReturnType<typeof useToast>["toast"],
 		...overrides,
 	};
@@ -312,6 +313,70 @@ describe("useArenaRunner", () => {
 			expect(response?.error).toBeTruthy();
 			// compare mode empties the running set -> back to "finished".
 			expect(setPhaseMock).toHaveBeenCalledWith("finished");
+		});
+
+		it("defers (does not error) an unrecognised slot while models load", async () => {
+			// While the chat list is still loading we can't classify the model, so
+			// the pending response is cleared for retry rather than permanently
+			// failed, and nothing is dispatched.
+			let hit = false;
+			server.use(
+				http.post("/api/chat/arena", () => {
+					hit = true;
+					return new Response("data: [DONE]\n\n", {
+						headers: { "Content-Type": "text/event-stream" },
+					});
+				}),
+			);
+
+			const now = Date.now();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "P/model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: {
+								model: "P/model-a",
+								rawContent: "",
+								content: "",
+								thinkingContent: "",
+								startTimeMs: now,
+								done: false,
+								error: null,
+								metrics: null,
+							},
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const roundsRef = { current: rounds };
+			const deps = createMockDeps({
+				// Not loaded yet, and no ids to validate against.
+				modelsReady: false,
+				enabledModels: [],
+				rounds,
+				roundsRef,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			await act(async () => {
+				result.current.streamModel("P/model-a", "", "prompt", 0, "A", 0);
+			});
+
+			expect(hit).toBe(false);
+			// Pending response cleared (retryable), not stamped as an error.
+			expect(roundsRef.current[0].matchups[0].responseA).toBeNull();
 		});
 
 		it("stamps a non-chat slot B and returns to voting in competition mode", () => {

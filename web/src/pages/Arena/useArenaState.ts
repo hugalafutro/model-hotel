@@ -98,11 +98,13 @@ export interface ArenaStateAndActions {
 	previewPairs: ReturnType<typeof getPreviewPairs>;
 	// Dependencies
 	enabledModels: ReturnType<typeof useChatModels>["data"];
+	modelsReady: boolean;
 	toast: ReturnType<typeof useToast>["toast"];
 }
 
 export function useArenaState(): ArenaStateAndActions {
-	const { data: enabledModels } = useChatModels();
+	const { data: enabledModels, isLoading: modelsLoading } = useChatModels();
+	const modelsReady = !modelsLoading;
 	const { toast } = useToast();
 	const { persistArena } = useStorage();
 	const { arenaSubMode, setArenaSubMode } = useSidebarMode();
@@ -604,6 +606,7 @@ export function useArenaState(): ArenaStateAndActions {
 		previewPairs,
 		// Dependencies
 		enabledModels,
+		modelsReady,
 		toast,
 	};
 }

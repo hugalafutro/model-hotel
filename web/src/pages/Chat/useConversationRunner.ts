@@ -10,6 +10,8 @@ import {
 } from "./chatStreaming";
 
 interface UseConversationRunnerParams {
+	/** False while the chat model list is still doing its first load. */
+	modelsReady: boolean;
 	selectedModel: string;
 	selectedModelB: string;
 	input: string;
@@ -41,6 +43,7 @@ interface UseConversationRunnerParams {
 
 export function useConversationRunner(params: UseConversationRunnerParams) {
 	const {
+		modelsReady,
 		selectedModel,
 		selectedModelB,
 		input,
@@ -75,6 +78,9 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 			if (conversationRunningRef.current) return;
 
 			const canStart =
+				// Wait for the model list to settle so persisted stale (now non-chat)
+				// A/B selections are reconciled away before a conversation can start.
+				modelsReady &&
 				selectedModel &&
 				selectedModelB &&
 				(resume || input.trim()) &&
@@ -293,6 +299,7 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 			conversationRunningRef.current = false;
 		},
 		[
+			modelsReady,
 			selectedModel,
 			selectedModelB,
 			input,

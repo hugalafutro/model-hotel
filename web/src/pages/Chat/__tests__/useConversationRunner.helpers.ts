@@ -19,6 +19,7 @@ export const createMockParams = (
 	const baseParams: Parameters<
 		typeof import("../useConversationRunner").useConversationRunner
 	>[0] = {
+		modelsReady: true,
 		selectedModel: "provider-a/model-a",
 		selectedModelB: "provider-b/model-b",
 		input: "Test prompt",

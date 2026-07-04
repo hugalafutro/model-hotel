@@ -62,10 +62,14 @@ const mockChatModelsList: Array<{
 	enabled: boolean;
 }> = [];
 
+// Mutable loading flag for the useChatModels mock (mock-prefixed for the hoisted
+// factory). Defaults to loaded; a test flips it to exercise the load-window guard.
+const mockModelsState = { isLoading: false };
+
 vi.mock("../../../hooks/useModels", () => ({
 	useChatModels: vi.fn(() => ({
 		data: mockChatModelsList,
-		isLoading: false,
+		isLoading: mockModelsState.isLoading,
 		isError: false,
 		error: null,
 		isSuccess: true,
@@ -219,6 +223,7 @@ describe("useChat", () => {
 		vi.clearAllMocks();
 		localStorage.clear();
 		mockChatModelsList.length = 0;
+		mockModelsState.isLoading = false;
 		mockToast.mockClear();
 		mockSetConversationState.mockClear();
 		mockSetCurrentTurn.mockClear();
@@ -411,6 +416,46 @@ describe("useChat", () => {
 			);
 			renderHook(() => useChat());
 			expect(setSelectedModelB).toHaveBeenCalledWith("");
+		});
+
+		it("does not send while the model list is still loading", async () => {
+			// A persisted selection can't be validated yet, so send waits rather
+			// than risk routing to a now-non-chat model.
+			mockModelsState.isLoading = true;
+			mockChatModelsList.push({
+				provider_name: "Provider",
+				model_id: "model",
+				enabled: true,
+			});
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setChatSelectedModel("Provider/model");
+				result.current.setInput("hello");
+			});
+			await act(async () => {
+				await result.current.handleSend();
+			});
+			expect(mockStreamModelResponse).not.toHaveBeenCalled();
+		});
+
+		it("does not regenerate while the model list is still loading", async () => {
+			mockModelsState.isLoading = true;
+			mockChatModelsList.push({
+				provider_name: "Provider",
+				model_id: "model",
+				enabled: true,
+			});
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setChatSelectedModel("Provider/model");
+				result.current.setMessages([
+					{ role: "user", content: "hi", timestamp: 1 },
+				]);
+			});
+			await act(async () => {
+				await result.current.handleRegenerate();
+			});
+			expect(mockStreamModelResponse).not.toHaveBeenCalled();
 		});
 
 		it("does not regenerate when no model is selected", async () => {
