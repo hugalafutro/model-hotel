@@ -146,10 +146,11 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			// A persisted competition can reload (outside setup phase, so array
 			// reconciliation is skipped) with a round slot pointing at a model that
 			// is no longer a valid chat target. Surface it in the slot instead of
-			// streaming a chat request to a non-chat endpoint. Skip while the list
-			// is still empty (loading) so a transient empty fetch never errors a
-			// valid competition.
-			if (validModelIds.size > 0 && !validModelIds.has(model)) {
+			// streaming a chat request to a non-chat endpoint. Runs are user
+			// initiated after the page (and its app-wide-cached model list) has
+			// rendered, so an unrecognised id here is a genuine non-chat model, not
+			// a load race; block rather than leave the bypass open while loading.
+			if (!validModelIds.has(model)) {
 				const respKey = slotKey === "A" ? "responseA" : "responseB";
 				setRounds(
 					produce((draft) => {

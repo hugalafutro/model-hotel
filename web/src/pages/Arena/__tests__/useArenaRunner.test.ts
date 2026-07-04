@@ -278,11 +278,17 @@ describe("useArenaRunner", () => {
 				},
 			];
 			const roundsRef = { current: rounds };
+			const setPhaseMock = vi.fn();
 			// enabledModels (default) does not include "P/embedding-model".
 			const deps = createMockDeps({
 				rounds,
 				roundsRef,
-				setRunningModels: vi.fn(),
+				setPhase: setPhaseMock,
+				// Invoke the updater with the model still present so the guard's
+				// running-set cleanup (delete + empty-set phase transition) runs.
+				setRunningModels: vi.fn((fn) => {
+					if (typeof fn === "function") fn(new Set(["P/embedding-model"]));
+				}),
 			});
 
 			const { result } = renderHook(() => useArenaRunner(deps), {
@@ -304,6 +310,172 @@ describe("useArenaRunner", () => {
 			const response = roundsRef.current[0].matchups[0].responseA;
 			expect(response?.done).toBe(true);
 			expect(response?.error).toBeTruthy();
+			// compare mode empties the running set -> back to "finished".
+			expect(setPhaseMock).toHaveBeenCalledWith("finished");
+		});
+
+		it("stamps a non-chat slot B and returns to voting in competition mode", () => {
+			const setPhaseMock = vi.fn();
+			const now = Date.now();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: null,
+							slotB: {
+								modelId: "P/rerank-model",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							responseA: null,
+							responseB: {
+								model: "P/rerank-model",
+								rawContent: "",
+								content: "",
+								thinkingContent: "",
+								startTimeMs: now,
+								done: false,
+								error: null,
+								metrics: null,
+							},
+							vote: null,
+						},
+					],
+				},
+			];
+			const roundsRef = { current: rounds };
+			const deps = createMockDeps({
+				arenaModeRef: { current: "competition" as ArenaSubMode },
+				rounds,
+				roundsRef,
+				setPhase: setPhaseMock,
+				setRunningModels: vi.fn((fn) => {
+					if (typeof fn === "function") fn(new Set(["P/rerank-model"]));
+				}),
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.streamModel("P/rerank-model", "", "prompt", 0, "B", 0);
+			});
+
+			const response = roundsRef.current[0].matchups[0].responseB;
+			expect(response?.done).toBe(true);
+			expect(response?.error).toBeTruthy();
+			// competition mode empties the running set -> back to "voting".
+			expect(setPhaseMock).toHaveBeenCalledWith("voting");
+		});
+
+		it("blocks a persisted model while the chat list is empty", async () => {
+			// An empty enabledModels (nothing recognised as a chat model) must not
+			// leave the bypass open: a persisted slot model is stamped as errored
+			// rather than dispatched to /api/chat/arena.
+			let hit = false;
+			server.use(
+				http.post("/api/chat/arena", () => {
+					hit = true;
+					return new Response("data: [DONE]\n\n", {
+						headers: { "Content-Type": "text/event-stream" },
+					});
+				}),
+			);
+
+			const now = Date.now();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "P/embedding-model",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: {
+								model: "P/embedding-model",
+								rawContent: "",
+								content: "",
+								thinkingContent: "",
+								startTimeMs: now,
+								done: false,
+								error: null,
+								metrics: null,
+							},
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const roundsRef = { current: rounds };
+			const deps = createMockDeps({
+				enabledModels: [],
+				rounds,
+				roundsRef,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			await act(async () => {
+				result.current.streamModel(
+					"P/embedding-model",
+					"",
+					"prompt",
+					0,
+					"A",
+					0,
+				);
+			});
+
+			expect(hit).toBe(false);
+			expect(roundsRef.current[0].matchups[0].responseA?.done).toBe(true);
+			expect(roundsRef.current[0].matchups[0].responseA?.error).toBeTruthy();
+		});
+
+		it("tolerates an out-of-range matchup and a non-empty running set", () => {
+			// Defensive edges of the guard: an unresolvable matchup index leaves the
+			// rounds untouched, and while other models are still running the phase
+			// is not flipped.
+			const setPhaseMock = vi.fn();
+			const rounds: BracketRound[] = [{ matchups: [] }];
+			const roundsRef = { current: rounds };
+			const deps = createMockDeps({
+				rounds,
+				roundsRef,
+				setPhase: setPhaseMock,
+				setRunningModels: vi.fn((fn) => {
+					if (typeof fn === "function") {
+						fn(new Set(["P/embedding-model", "P/model-a"]));
+					}
+				}),
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.streamModel(
+					"P/embedding-model",
+					"",
+					"prompt",
+					0,
+					"A",
+					5,
+				);
+			});
+
+			// Non-existent matchup -> no response written.
+			expect(roundsRef.current[0].matchups[5]).toBeUndefined();
+			// Another model still running -> phase untouched.
+			expect(setPhaseMock).not.toHaveBeenCalled();
 		});
 
 		it("streamModel updates response content in rounds", async () => {

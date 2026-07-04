@@ -379,6 +379,40 @@ describe("useChat", () => {
 			expect(result.current.chatSelectedModel).toBe("Provider/model");
 		});
 
+		it("clears a stale conversation model A absent from the chat list", () => {
+			mockChatModelsList.push({
+				provider_name: "Provider",
+				model_id: "model",
+				enabled: true,
+			});
+			const setConversationModelA = vi.fn();
+			vi.mocked(ChatConversationState.useChatConversationState).mockReturnValue(
+				createMockConversationState({
+					conversationModelA: "Provider/embedding-model",
+					setConversationModelA,
+				}),
+			);
+			renderHook(() => useChat());
+			expect(setConversationModelA).toHaveBeenCalledWith("");
+		});
+
+		it("clears a stale conversation model B absent from the chat list", () => {
+			mockChatModelsList.push({
+				provider_name: "Provider",
+				model_id: "model",
+				enabled: true,
+			});
+			const setSelectedModelB = vi.fn();
+			vi.mocked(ChatConversationState.useChatConversationState).mockReturnValue(
+				createMockConversationState({
+					selectedModelB: "Provider/rerank-model",
+					setSelectedModelB,
+				}),
+			);
+			renderHook(() => useChat());
+			expect(setSelectedModelB).toHaveBeenCalledWith("");
+		});
+
 		it("does not regenerate when no model is selected", async () => {
 			// Even with prior messages, a cleared selection (e.g. a stale non-chat
 			// model just reconciled away) must not stream a request with an empty
