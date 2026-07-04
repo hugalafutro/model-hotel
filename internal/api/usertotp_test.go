@@ -79,8 +79,16 @@ func enrollUserTotp(t *testing.T, r chi.Router, token string) (string, []string)
 	if err := json.Unmarshal(w.Body.Bytes(), &start); err != nil {
 		t.Fatalf("bad start body: %v", err)
 	}
+	// Verify with the current-step code (offset 0), not the previous step. The
+	// server (totp.matchStep) accepts a skew=1 window, so a current-step code is
+	// still valid whether the server's clock is in the same step or has ticked
+	// one forward between this generation and validation. A previous-step (-1)
+	// code sits at the trailing edge of that window and 400s whenever a 30s
+	// boundary is crossed in between, which flakes under CI load. Later chained
+	// ops (e.g. disable) use a strictly newer step, so the single-use guard is
+	// unaffected: real time advances across the intervening HTTP calls.
 	w = doJSON(t, r, http.MethodPost, "/auth/totp/enroll/verify", token,
-		`{"code":"`+totpCodeAt(t, start.Secret, -1)+`"}`)
+		`{"code":"`+totpCodeAt(t, start.Secret, 0)+`"}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("enroll/verify: %d %s", w.Code, w.Body.String())
 	}
