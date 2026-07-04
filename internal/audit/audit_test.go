@@ -143,6 +143,31 @@ func TestMiddlewareRecordsThroughChi(t *testing.T) {
 	}
 }
 
+func TestWaitDrainsBackgroundRecords(t *testing.T) {
+	rec := newRecorder(t, nil)
+	r := chi.NewRouter()
+	r.Use(rec.Middleware)
+	r.Post("/things", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	ident := &user.Identity{Role: user.RoleAdmin}
+	const n = 5
+	for i := 0; i < n; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/things", http.NoBody)
+		req = req.WithContext(user.WithIdentity(req.Context(), ident))
+		r.ServeHTTP(httptest.NewRecorder(), req)
+	}
+
+	// Wait drains the in-flight record goroutines: every row is present
+	// afterwards with no polling, which is the shutdown-flush contract.
+	rec.Wait()
+
+	if got := countRows(t, "1=1"); got != n {
+		t.Errorf("after Wait: %d rows, want %d", got, n)
+	}
+}
+
 func TestListFiltersCursorAndLimits(t *testing.T) {
 	rec := newRecorder(t, nil)
 	for range 5 {

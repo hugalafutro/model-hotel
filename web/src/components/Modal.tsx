@@ -167,7 +167,11 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 					)
 				)}
 				{scrollable ? (
-					<div className="min-h-0 overflow-y-auto">{children}</div>
+					// pr-2 insets the content from the right edge so the scrollbar
+					// can't draw over full-width content (chevrons, divider rules).
+					// No negative margin: .ui-card clips to its rounded shape
+					// (clip-path) in some themes, which would eat a bled-out gutter.
+					<div className="min-h-0 overflow-y-auto pr-2">{children}</div>
 				) : (
 					children
 				)}

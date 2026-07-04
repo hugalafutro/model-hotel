@@ -10,9 +10,18 @@ interface UseMembers {
 	refetch: () => void;
 }
 
+// Fallback refresh cadence (ms). SSE events refresh the list immediately, but a
+// dropped/reconnected stream can miss one (e.g. the config.auto_synced that
+// stamps a member's last-sync time). Re-reading the list on a slow interval lets
+// the "Last Sync" column and health badges self-heal from the stored timestamps
+// without depending on any single event arriving, and keeps relative times ("5m
+// ago") advancing as the row re-renders.
+const FALLBACK_REFRESH_MS = 20_000;
+
 // useMembers loads the member list (with live poller status) and keeps it fresh:
-// it refetches whenever a membership or health/version event arrives on the SSE
-// stream, so badges update within a poll interval without manual reloads.
+// it refetches whenever a membership, config, or health/version event arrives on
+// the SSE stream, and on a slow fallback interval, so badges and last-sync times
+// update without manual reloads even if an event is missed.
 //
 // It owns the page's single SSE subscription. A consumer that also needs to react
 // to events (e.g. the Events page refetching its log) passes `onEvent` instead of
@@ -51,11 +60,20 @@ export function useMembers(onEvent?: (e: FdEvent) => void): UseMembers {
 
 	useEffect(refetch, [refetch]);
 
+	// Fallback poll: refresh from the stored timestamps even when no SSE event
+	// arrives, so a missed config.auto_synced can't leave the last-sync column
+	// stuck. Cheap (a single member-list read) and keeps relative times ticking.
+	useEffect(() => {
+		const id = setInterval(refetch, FALLBACK_REFRESH_MS);
+		return () => clearInterval(id);
+	}, [refetch]);
+
 	useSSE(
 		useCallback(
 			(e) => {
 				if (
 					e.type.startsWith("member.") ||
+					e.type.startsWith("config.") ||
 					e.type.startsWith("health.") ||
 					e.type.startsWith("version.")
 				) {
