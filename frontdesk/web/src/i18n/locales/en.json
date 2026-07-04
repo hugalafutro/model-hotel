@@ -152,6 +152,24 @@
 	"settings": {
 		"title": "Settings",
 		"saved": "Settings saved",
+		"observability": {
+			"title": "Observability",
+			"description": "Log-export integrations, each enabled by an environment variable and reflected here read-only.",
+			"loadError": "Could not load observability status.",
+			"enabled": "Enabled",
+			"disabled": "Disabled",
+			"copy": "Copy to clipboard",
+			"json": {
+				"name": "JSON logs",
+				"description": "Emit one JSON object per log line for external collectors.",
+				"instructions": "Set this environment variable and restart Front Desk to switch stdout logs to JSON."
+			},
+			"otel": {
+				"name": "OTLP log export",
+				"description": "Ship structured log records to an OpenTelemetry collector.",
+				"instructions": "Point Front Desk at your collector with the standard OTEL_EXPORTER_OTLP_* variables and restart."
+			}
+		},
 		"oidc": {
 			"title": "Single sign-on (OIDC)",
 			"hint": "Let admins sign in through an external OpenID Connect provider, a fourth login path alongside the Front Desk token, TOTP, and passkeys. Any standards-compliant provider works, as long as it releases the user's verified email. GitHub login is configured on the main dashboard only.",

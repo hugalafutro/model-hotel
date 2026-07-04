@@ -23,6 +23,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/otelexport"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -201,6 +202,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Get("/settings", s.getSettings)
 			r.Put("/settings", s.putSettings)
 			r.Get("/version", s.getVersion)
+			r.Get("/observability", s.getObservability)
 			r.Get("/alert/events", s.alertEvents)
 			r.Get("/alert/status", s.alertStatus)
 			r.Post("/alert/test", s.alertTest)
@@ -741,6 +743,20 @@ func (s *Server) getVersion(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
 		"app_version": s.version,
 		"app_commit":  util.ShortCommit(buildCommit),
+	})
+}
+
+// getObservability reports which log-export integrations are active, derived
+// read-only from the process environment (LOG_FORMAT, OTEL_EXPORTER_OTLP_*).
+// It mirrors the main server's log_export_* status keys so the Front Desk
+// Observability panel can reflect the same state. Nothing here is runtime-
+// changeable; each integration is enabled by its own environment variable.
+// (Prometheus /metrics — log_export_metrics — is a planned follow-up; see
+// plans/frontdesk-prometheus-metrics.md.)
+func (s *Server) getObservability(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]bool{
+		"log_export_json": debuglog.JSONFormat(),
+		"log_export_otel": otelexport.LogsEnabled(),
 	})
 }
 

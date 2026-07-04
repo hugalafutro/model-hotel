@@ -27,6 +27,30 @@ func newCaptureHandler(level slog.Level) *captureHandler {
 	return &captureHandler{level: level}
 }
 
+func TestStdoutHandler(t *testing.T) {
+	t.Run("text handler when LOG_FORMAT unset", func(t *testing.T) {
+		t.Setenv("LOG_FORMAT", "")
+		if _, ok := StdoutHandler().(*slog.TextHandler); !ok {
+			t.Errorf("StdoutHandler() = %T, want *slog.TextHandler", StdoutHandler())
+		}
+	})
+
+	t.Run("json handler when LOG_FORMAT=json", func(t *testing.T) {
+		t.Setenv("LOG_FORMAT", "json")
+		if _, ok := StdoutHandler().(*slog.JSONHandler); !ok {
+			t.Errorf("StdoutHandler() = %T, want *slog.JSONHandler", StdoutHandler())
+		}
+	})
+
+	t.Run("honours the level set by Init", func(t *testing.T) {
+		t.Setenv("DEBUG_LOG", "")
+		Init(true)
+		if !StdoutHandler().Enabled(context.Background(), slog.LevelDebug) {
+			t.Errorf("StdoutHandler() should accept Debug after Init(true)")
+		}
+	})
+}
+
 func TestInit(t *testing.T) {
 	t.Run("debug true sets LevelDebug", func(t *testing.T) {
 		Init(true)

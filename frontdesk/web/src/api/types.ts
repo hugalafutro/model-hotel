@@ -95,6 +95,16 @@ export interface VersionInfo {
 	app_commit: string;
 }
 
+// Read-only log-export integration status from GET /api/observability, derived
+// server-side from the process environment. Each integration is enabled by its
+// own environment variable and is not runtime-changeable; the Observability
+// panel only reflects this state. (A Prometheus metrics flag is a planned
+// follow-up; see plans/frontdesk-prometheus-metrics.md.)
+export interface ObservabilityStatus {
+	log_export_json: boolean;
+	log_export_otel: boolean;
+}
+
 // One alertable event in the Front Desk catalog (GET /api/alert/events), mirroring
 // alert.EventDef. The picker is rendered from this list, grouped by category.
 export interface AlertEventDef {

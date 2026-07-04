@@ -14,6 +14,7 @@ import type {
 	MemberState,
 	MemberTraffic,
 	MemberView,
+	ObservabilityStatus,
 	OidcStatus,
 	Settings,
 	SyncResult,
@@ -140,6 +141,9 @@ export const api = {
 	logout: () => request<void>("/api/logout", { method: "POST" }),
 	// Running-build identity for the footer (version + short commit SHA).
 	getVersion: () => request<VersionInfo>("/api/version"),
+	// Read-only log-export integration status for the Observability panel,
+	// derived server-side from the process environment.
+	getObservability: () => request<ObservabilityStatus>("/api/observability"),
 	// Partial body: the server merges onto the stored row, so each panel PUTs only
 	// the fields it owns and never clobbers the other's (or erases the secret).
 	putSettings: (s: Partial<Settings>) =>
