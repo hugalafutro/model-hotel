@@ -861,6 +861,27 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "https://api.jina.ai/v1/rerank",
 		},
 		{
+			// A self-hosted Cohere-compatible gateway on a custom domain is
+			// detected as a generic "openai" provider, but its compat base can
+			// never serve rerank; the /compatibility/v1 marker must still route
+			// to native /v2/rerank on the same host.
+			name:         "custom Cohere-compat host detected as openai still routes rerank to native",
+			baseURL:      "https://cohere.internal.example/compatibility/v1",
+			providerType: "openai",
+			endpoint:     "/rerank",
+			expected:     "https://cohere.internal.example/v2/rerank",
+		},
+		{
+			// The compat-suffix override must not leak into non-rerank
+			// endpoints: chat on that same custom compat base stays on the
+			// compat surface.
+			name:         "custom Cohere-compat host chat stays on compat base",
+			baseURL:      "https://cohere.internal.example/compatibility/v1",
+			providerType: "openai",
+			endpoint:     "/chat/completions",
+			expected:     "https://cohere.internal.example/compatibility/v1/chat/completions",
+		},
+		{
 			name:         "Wafer AI without /v1 (user must include it)",
 			baseURL:      "https://pass.wafer.ai",
 			providerType: "openai",
