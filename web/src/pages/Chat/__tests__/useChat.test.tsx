@@ -53,9 +53,18 @@ vi.mock("../../../context/ToastContext", () => ({
 	})),
 }));
 
+// Mutable chat-model list the useChatModels mock returns. Named with a `mock`
+// prefix so vitest allows referencing it from the hoisted vi.mock factory.
+// Defaults to empty; individual tests push entries and reset it in beforeEach.
+const mockChatModelsList: Array<{
+	provider_name: string;
+	model_id: string;
+	enabled: boolean;
+}> = [];
+
 vi.mock("../../../hooks/useModels", () => ({
 	useChatModels: vi.fn(() => ({
-		data: [],
+		data: mockChatModelsList,
 		isLoading: false,
 		isError: false,
 		error: null,
@@ -209,6 +218,7 @@ describe("useChat", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		localStorage.clear();
+		mockChatModelsList.length = 0;
 		mockToast.mockClear();
 		mockSetConversationState.mockClear();
 		mockSetCurrentTurn.mockClear();
@@ -335,6 +345,38 @@ describe("useChat", () => {
 			});
 			expect(result.current.isStreaming).toBe(true);
 			expect(result.current.messages).toEqual([]);
+		});
+	});
+
+	describe("stale-selection reconciliation", () => {
+		// A persisted selection can point at a model that is no longer a valid
+		// chat model (e.g. it became an embedding/rerank model, or got disabled).
+		// Once the chat list has loaded, such a selection is cleared so send
+		// can't route a chat completion to a model that can't serve it.
+		it("clears a selected model absent from the chat list", () => {
+			mockChatModelsList.push({
+				provider_name: "Provider",
+				model_id: "model",
+				enabled: true,
+			});
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setChatSelectedModel("Provider/embedding-model");
+			});
+			expect(result.current.chatSelectedModel).toBe("");
+		});
+
+		it("keeps a selected model present in the chat list", () => {
+			mockChatModelsList.push({
+				provider_name: "Provider",
+				model_id: "model",
+				enabled: true,
+			});
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setChatSelectedModel("Provider/model");
+			});
+			expect(result.current.chatSelectedModel).toBe("Provider/model");
 		});
 	});
 

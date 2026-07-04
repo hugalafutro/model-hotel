@@ -11,11 +11,13 @@ import {
 // Mock the dependencies
 vi.mock("../../../hooks/useModels", () => ({
 	useChatModels: vi.fn(() => ({
-		data: [
-			{ provider_name: "TestProvider", model_id: "model-1", enabled: true },
-			{ provider_name: "TestProvider", model_id: "model-2", enabled: true },
-			{ provider_name: "TestProvider", model_id: "model-3", enabled: true },
-		],
+		// proxyModelID("TestProvider", "model-N") === "TestProvider/model-N",
+		// which is the id form the set*/assert calls below use.
+		data: Array.from({ length: 8 }, (_, i) => ({
+			provider_name: "TestProvider",
+			model_id: `model-${i + 1}`,
+			enabled: true,
+		})),
 	})),
 }));
 
@@ -70,7 +72,10 @@ describe("useArenaState", () => {
 
 		if (isCompareMode) {
 			act(() => {
-				result.current.setCompareModels(["model-1", "model-2"]);
+				result.current.setCompareModels([
+					"TestProvider/model-1",
+					"TestProvider/model-2",
+				]);
 				result.current.setPrompt("Test prompt");
 			});
 
@@ -85,7 +90,10 @@ describe("useArenaState", () => {
 			expect(result.current.canRun).toBe(false);
 		} else {
 			act(() => {
-				result.current.setBracketModels(["model-1", "model-2"]);
+				result.current.setBracketModels([
+					"TestProvider/model-1",
+					"TestProvider/model-2",
+				]);
 				result.current.setPrompt("Test prompt");
 			});
 
@@ -106,14 +114,17 @@ describe("useArenaState", () => {
 			expect(result.current.disabledReason).toContain("Select");
 
 			act(() => {
-				result.current.setCompareModels(["model-1"]);
+				result.current.setCompareModels(["TestProvider/model-1"]);
 			});
 
 			// Should show reason when only 1 model
 			expect(result.current.disabledReason).toContain("more");
 
 			act(() => {
-				result.current.setCompareModels(["model-1", "model-2"]);
+				result.current.setCompareModels([
+					"TestProvider/model-1",
+					"TestProvider/model-2",
+				]);
 			});
 
 			// Should show reason when no prompt
@@ -137,7 +148,7 @@ describe("useArenaState", () => {
 		});
 
 		const rounds = result.current.buildCompareRoundWithParams(
-			["model-1", "model-2"],
+			["TestProvider/model-1", "TestProvider/model-2"],
 			null,
 			"",
 		);
@@ -152,10 +163,10 @@ describe("useArenaState", () => {
 		});
 
 		const rounds = result.current.buildInitialRoundsWithParams([
-			"model-1",
-			"model-2",
-			"model-3",
-			"model-4",
+			"TestProvider/model-1",
+			"TestProvider/model-2",
+			"TestProvider/model-3",
+			"TestProvider/model-4",
 		]);
 
 		expect(rounds.length).toBeGreaterThan(0);
@@ -247,7 +258,7 @@ describe("useArenaState", () => {
 				matchups: [
 					{
 						slotA: {
-							modelId: "model-1",
+							modelId: "TestProvider/model-1",
 							personaId: null,
 							personaPrompt: "",
 							params: {},

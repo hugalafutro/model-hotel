@@ -175,6 +175,32 @@ export function useChat() {
 		(m) => proxyModelID(m.provider_name, m.model_id) === selectedModelB,
 	);
 
+	// Drop persisted selections that are no longer valid chat models (e.g. a
+	// previously-picked model that became an embedding/rerank model, or one
+	// that got disabled). Without this a stale localStorage id would stay
+	// selected while hidden from the picker, and send/start would route a chat
+	// completion to a model that can't serve it. Only runs once the list has
+	// loaded so a transient empty fetch never wipes a valid selection.
+	useEffect(() => {
+		if (enabledModels.length === 0) return;
+		const valid = new Set(
+			enabledModels.map((m) => proxyModelID(m.provider_name, m.model_id)),
+		);
+		if (chatSelectedModel && !valid.has(chatSelectedModel))
+			setChatSelectedModel("");
+		if (conversationModelA && !valid.has(conversationModelA))
+			setConversationModelA("");
+		if (selectedModelB && !valid.has(selectedModelB)) setSelectedModelB("");
+	}, [
+		enabledModels,
+		chatSelectedModel,
+		conversationModelA,
+		selectedModelB,
+		setChatSelectedModel,
+		setConversationModelA,
+		setSelectedModelB,
+	]);
+
 	// ── Model capabilities for attachment icon visibility ──
 	const modelCaps = selectedModelObj
 		? parseCapabilities(selectedModelObj.capabilities)
