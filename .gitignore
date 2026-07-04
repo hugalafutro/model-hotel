@@ -85,6 +85,8 @@ web/.pnpm-store/
 
 # Local-only agent tooling (omo-slim / opencode implementation harness)
 .slim/
+# Serena MCP project state (project.yml + local cache/memories; regenerated locally)
+.serena/
 /.ignore
 
 # Python bytecode cache (i18n tooling under tools/)
