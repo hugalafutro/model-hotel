@@ -375,8 +375,10 @@ describe("useArenaRunner", () => {
 			});
 
 			expect(hit).toBe(false);
-			// Pending response cleared (retryable), not stamped as an error.
-			expect(roundsRef.current[0].matchups[0].responseA).toBeNull();
+			// Slot left untouched (retryable), not stamped as an error.
+			const response = roundsRef.current[0].matchups[0].responseA;
+			expect(response?.done).toBe(false);
+			expect(response?.error).toBeNull();
 		});
 
 		it("stamps a non-chat slot B and returns to voting in competition mode", () => {
@@ -501,8 +503,10 @@ describe("useArenaRunner", () => {
 			});
 
 			expect(hit).toBe(false);
-			// Pending response cleared (retryable), not permanently failed.
-			expect(roundsRef.current[0].matchups[0].responseA).toBeNull();
+			// Slot left untouched (retryable), not permanently failed and not erased.
+			const response = roundsRef.current[0].matchups[0].responseA;
+			expect(response?.done).toBe(false);
+			expect(response?.error).toBeNull();
 		});
 
 		it("tolerates an out-of-range matchup and a non-empty running set", () => {
@@ -953,6 +957,47 @@ describe("useArenaRunner", () => {
 			expect(setPhaseMock).toHaveBeenCalledWith("running");
 		});
 
+		it("handleRetry does nothing without a usable allowlist", () => {
+			const setRoundsMock = vi.fn();
+			const setPhaseMock = vi.fn();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "P/model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const deps = createMockDeps({
+				enabledModels: [],
+				rounds,
+				roundsRef: { current: rounds },
+				setRounds: setRoundsMock,
+				setPhase: setPhaseMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.handleRetry(0, 0, "A");
+			});
+
+			expect(setRoundsMock).not.toHaveBeenCalled();
+			expect(setPhaseMock).not.toHaveBeenCalled();
+		});
+
 		it("handleRetry resets response to empty", () => {
 			const setRunningModelsMock = vi.fn();
 			const setPhaseMock = vi.fn();
@@ -1197,6 +1242,47 @@ describe("useArenaRunner", () => {
 			expect(setPhaseMock).toHaveBeenCalledWith("running");
 		});
 
+		it("handleSwapComplete does nothing without a usable allowlist", () => {
+			const setRoundsMock = vi.fn();
+			const setPhaseMock = vi.fn();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "P/model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const deps = createMockDeps({
+				enabledModels: [],
+				rounds,
+				roundsRef: { current: rounds },
+				setRounds: setRoundsMock,
+				setPhase: setPhaseMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.handleSwapComplete(0, 0, "A", "P/new-model");
+			});
+
+			expect(setRoundsMock).not.toHaveBeenCalled();
+			expect(setPhaseMock).not.toHaveBeenCalled();
+		});
+
 		it("handleSwapComplete replaces slot model and resets response", () => {
 			const setRunningModelsMock = vi.fn();
 			const setPhaseMock = vi.fn();
@@ -1310,6 +1396,53 @@ describe("useArenaRunner", () => {
 			expect(setPhaseMock).toHaveBeenCalledWith("running");
 			expect(setRunningModelsMock).toHaveBeenCalled();
 			expect(setRoundsMock).toHaveBeenCalled();
+		});
+
+		it("does not start a round without a usable allowlist", () => {
+			// An empty / not-yet-loaded list must not start the round: doing so would
+			// defer every slot and could erase a valid persisted competition. State
+			// is left untouched so it can be run once a real list arrives.
+			const setRoundsMock = vi.fn();
+			const setPhaseMock = vi.fn();
+			const setRunningModelsMock = vi.fn();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "P/model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const deps = createMockDeps({
+				enabledModels: [],
+				rounds,
+				roundsRef: { current: rounds },
+				setRounds: setRoundsMock,
+				setPhase: setPhaseMock,
+				setRunningModels: setRunningModelsMock,
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.runRound(0);
+			});
+
+			expect(setPhaseMock).not.toHaveBeenCalled();
+			expect(setRunningModelsMock).not.toHaveBeenCalled();
+			expect(setRoundsMock).not.toHaveBeenCalled();
 		});
 
 		it("initializes the round's matchup responses before streaming", async () => {
