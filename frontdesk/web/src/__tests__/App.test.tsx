@@ -82,6 +82,29 @@ describe("App auth gating", () => {
 		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 	});
 
+	it("returns to the Members tab when the brand logo is clicked", async () => {
+		server.use(...authHandlers("good"));
+		render(<App />);
+		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
+		await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+		await waitFor(() =>
+			expect(screen.getByRole("tab", { name: /members/i })).toBeInTheDocument(),
+		);
+
+		// Move off the default tab, then click the top-left brand logo.
+		await userEvent.click(screen.getByRole("tab", { name: /settings/i }));
+		expect(screen.getByRole("tab", { name: /settings/i })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		await userEvent.click(screen.getByRole("button", { name: /front desk/i }));
+
+		expect(screen.getByRole("tab", { name: /members/i })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+	});
+
 	it("drops back to login when an authed request later 401s", async () => {
 		// First /api/members call (login validation) succeeds; the next one (the
 		// authed shell's own fetch) 401s, which must bounce back to login.

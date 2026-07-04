@@ -14,6 +14,7 @@ import {
 	onUnauthorized,
 } from "./api/client";
 import { Login } from "./components/Login";
+import { Logo } from "./components/Logo";
 import { VersionFooter } from "./components/VersionFooter";
 import { ToastProvider } from "./context/ToastContext";
 import { useIdleLogout } from "./hooks/useIdleLogout";
@@ -89,10 +90,15 @@ function Shell() {
 	return (
 		<div className="fd-shell">
 			<header className="fd-header">
-				<div className="fd-brand">
-					<span className="fd-dot" />
-					{t("app.title")}
-				</div>
+				<button
+					type="button"
+					className="fd-brand"
+					onClick={() => setTab("members")}
+					aria-label={t("app.title")}
+					title={t("app.title")}
+				>
+					<Logo className="fd-logo" />
+				</button>
 				<div className="fd-tabs" role="tablist">
 					{tabs.map((tb) => (
 						<button

@@ -168,4 +168,38 @@ describe("TrafficPage", () => {
 			await screen.findByText(/Could not read metrics/i),
 		).toBeInTheDocument();
 	});
+
+	it("retries a single unreachable member from its own Refresh button", async () => {
+		let call = 0;
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+			),
+			http.get("/api/members/1/traffic", () => {
+				call += 1;
+				// Unreachable on first read, recovers on the retry.
+				return HttpResponse.json(
+					call === 1
+						? traffic({ member_id: "1", reachable: false })
+						: traffic({
+								member_id: "1",
+								reachable: true,
+								total_requests: 100,
+							}),
+				);
+			}),
+		);
+		const user = userEvent.setup();
+		renderPage();
+
+		await screen.findByText(/Could not read metrics/i);
+		// The refresh sits inside the unreachable card, next to the reason
+		// (distinct from the page-level refresh in the header).
+		await user.click(screen.getByTestId("traffic-member-refresh"));
+
+		expect(await screen.findByText("100")).toBeInTheDocument();
+		expect(
+			screen.queryByText(/Could not read metrics/i),
+		).not.toBeInTheDocument();
+	});
 });
