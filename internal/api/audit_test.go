@@ -21,7 +21,7 @@ import (
 // setupAuditTest wires the full handler with an audit recorder mounted (must
 // happen before Register, which installs the middleware) plus the multi-user
 // stack, over clean audit/users/keys tables.
-func setupAuditTest(t *testing.T) (chi.Router, func(id string) string, func(name string, grants []string) string) {
+func setupAuditTest(t *testing.T) (r chi.Router, loginAs func(id string) string, mkUser func(name string, grants []string) string, drain func()) {
 	t.Helper()
 	h := newTestHandler(t)
 	pool := h.Pool().Pool()
@@ -36,23 +36,26 @@ func setupAuditTest(t *testing.T) (chi.Router, func(id string) string, func(name
 	h.SetUserAuth(userRepo, webauthnRepo)
 	rec := audit.New(pool, nil)
 	h.SetAudit(rec)
-	// The middleware records on a background goroutine. Drain them when the test
-	// ends so a lingering insert can't land in the shared table after the next
-	// test truncates it (which would inflate that test's row counts).
+	// The middleware records on a background goroutine. drain() blocks until
+	// every spawned insert has committed: tests call it after their mutations so
+	// the trail is read deterministically instead of polled. The cleanup drains
+	// again so any post-assertion mutation can't land in the shared table after
+	// the next test truncates it (which would inflate that test's row counts).
+	drain = rec.Wait
 	t.Cleanup(rec.Wait)
 
-	r := chi.NewRouter()
+	r = chi.NewRouter()
 	r.Use(h.AuthMiddleware)
 	h.Register(r)
 
-	loginAs := func(id string) string {
+	loginAs = func(id string) string {
 		token, err := sessionMgr.CreateAuthToken(context.Background(), []byte(id), nil)
 		if err != nil {
 			t.Fatalf("CreateAuthToken: %v", err)
 		}
 		return token
 	}
-	mkUser := func(name string, grants []string) string {
+	mkUser = func(name string, grants []string) string {
 		g, _ := json.Marshal(grants)
 		w := doJSON(t, r, http.MethodPost, "/users", envAdminToken,
 			fmt.Sprintf(`{"username":%q,"password":"password123","role":"user","grants":%s}`, name, g))
@@ -67,7 +70,7 @@ func setupAuditTest(t *testing.T) (chi.Router, func(id string) string, func(name
 		}
 		return resp.ID
 	}
-	return r, loginAs, mkUser
+	return r, loginAs, mkUser, drain
 }
 
 func listAudit(t *testing.T, r chi.Router, path, token string) AuditListResponse {
@@ -83,26 +86,8 @@ func listAudit(t *testing.T, r chi.Router, path, token string) AuditListResponse
 	return resp
 }
 
-// waitAudit polls the audit list until want is satisfied or a short deadline
-// elapses. The middleware records on a background goroutine, so audit rows are
-// eventually consistent with the mutations that produced them.
-func waitAudit(t *testing.T, r chi.Router, path, token string, want func(AuditListResponse) bool) AuditListResponse {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	var resp AuditListResponse
-	for time.Now().Before(deadline) {
-		resp = listAudit(t, r, path, token)
-		if want(resp) {
-			return resp
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatalf("audit list %s never satisfied condition: %+v", path, resp.Entries)
-	return resp
-}
-
 func TestAudit_RecordsMutationsWithActor(t *testing.T) {
-	r, loginAs, mkUser := setupAuditTest(t)
+	r, loginAs, mkUser, drain := setupAuditTest(t)
 
 	// One admin mutation (the user create) and one non-admin mutation.
 	uid := mkUser("audited-user", []string{string(user.GrantVirtualKeys)})
@@ -115,8 +100,11 @@ func TestAudit_RecordsMutationsWithActor(t *testing.T) {
 		t.Fatalf("list keys: %d", w.Code)
 	}
 
-	resp := waitAudit(t, r, "/audit", envAdminToken,
-		func(a AuditListResponse) bool { return len(a.Entries) == 2 })
+	drain()
+	resp := listAudit(t, r, "/audit", envAdminToken)
+	if len(resp.Entries) != 2 {
+		t.Fatalf("audit trail: %d entries, want 2", len(resp.Entries))
+	}
 	// Newest first: the key create by the user, then the user create by the
 	// env-token admin.
 	keyEntry, userEntry := resp.Entries[0], resp.Entries[1]
@@ -131,7 +119,7 @@ func TestAudit_RecordsMutationsWithActor(t *testing.T) {
 }
 
 func TestAudit_EntityIDAndFailedAttempts(t *testing.T) {
-	r, _, mkUser := setupAuditTest(t)
+	r, _, mkUser, drain := setupAuditTest(t)
 	uid := mkUser("entity-user", nil)
 
 	// A mutation on a specific entity records its id.
@@ -143,24 +131,22 @@ func TestAudit_EntityIDAndFailedAttempts(t *testing.T) {
 	if w := doJSON(t, r, http.MethodDelete, "/users/"+uid, "not-a-valid-token", ""); w.Code != http.StatusUnauthorized {
 		t.Fatalf("bogus delete: %d, want 401", w.Code)
 	}
-	// Wait for the password mutation to land, then confirm the password itself
-	// never appears in the row.
-	hasEntity := func(a AuditListResponse) bool {
-		for _, e := range a.Entries {
-			if e.EntityID == uid && e.Route == "/users/{id}/password" {
-				return true
-			}
-		}
-		return false
-	}
-	resp := waitAudit(t, r, "/audit?method=POST", envAdminToken, hasEntity)
+	// Drain the async writes, then confirm the entity id was recorded and the
+	// password itself never appears in the row.
+	drain()
+	resp := listAudit(t, r, "/audit?method=POST", envAdminToken)
+	found := false
 	for _, e := range resp.Entries {
 		if e.EntityID == uid && e.Route == "/users/{id}/password" {
+			found = true
 			raw, _ := json.Marshal(e)
 			if strings.Contains(string(raw), "password456") {
 				t.Errorf("audit row leaked request body: %s", raw)
 			}
 		}
+	}
+	if !found {
+		t.Fatalf("password mutation not recorded with entity id %s", uid)
 	}
 	// The unauthenticated DELETE died at the auth gate before the recorder, so
 	// it must never appear in the trail.
@@ -170,7 +156,7 @@ func TestAudit_EntityIDAndFailedAttempts(t *testing.T) {
 }
 
 func TestAudit_AdminOnlyAndFilters(t *testing.T) {
-	r, loginAs, mkUser := setupAuditTest(t)
+	r, loginAs, mkUser, drain := setupAuditTest(t)
 	uid := mkUser("no-peek", []string{string(user.GrantLogs)})
 	userToken := loginAs(uid)
 
@@ -179,23 +165,28 @@ func TestAudit_AdminOnlyAndFilters(t *testing.T) {
 		t.Fatalf("non-admin audit read: %d, want 403", w.Code)
 	}
 
+	drain()
 	// Actor filter narrows to the matching rows.
-	waitAudit(t, r, "/audit?actor=admin", envAdminToken,
-		func(a AuditListResponse) bool { return len(a.Entries) == 1 })
+	if resp := listAudit(t, r, "/audit?actor=admin", envAdminToken); len(resp.Entries) != 1 {
+		t.Fatalf("actor filter: %d entries, want 1", len(resp.Entries))
+	}
 	if resp := listAudit(t, r, "/audit?actor=nobody", envAdminToken); len(resp.Entries) != 0 {
 		t.Fatalf("bogus actor filter: %d entries, want 0", len(resp.Entries))
 	}
 }
 
 func TestAudit_CursorPagination(t *testing.T) {
-	r, _, mkUser := setupAuditTest(t)
+	r, _, mkUser, drain := setupAuditTest(t)
 	for i := range 5 {
 		mkUser(fmt.Sprintf("page-user-%d", i), nil)
 	}
 
-	// Wait for all five creates to land before paging.
-	first := waitAudit(t, r, "/audit?limit=2", envAdminToken,
-		func(a AuditListResponse) bool { return a.Total == 5 })
+	// Drain all five creates so the table holds exactly them before paging.
+	drain()
+	first := listAudit(t, r, "/audit?limit=2", envAdminToken)
+	if first.Total != 5 {
+		t.Fatalf("total after 5 creates: %d, want 5", first.Total)
+	}
 	if len(first.Entries) != 2 || !first.HasMore || first.NextCursor == "" {
 		t.Fatalf("first page: %d entries, has_more=%v, total=%d", len(first.Entries), first.HasMore, first.Total)
 	}
@@ -220,20 +211,29 @@ func TestAudit_CursorPagination(t *testing.T) {
 }
 
 func TestAudit_PurgeLeavesItsOwnTrail(t *testing.T) {
-	r, _, mkUser := setupAuditTest(t)
+	r, _, mkUser, drain := setupAuditTest(t)
 	mkUser("purge-fodder", nil)
-	// The create records asynchronously; make sure it has landed so the purge
-	// actually wipes it (and does not race the purge's own row).
-	waitAudit(t, r, "/audit", envAdminToken,
-		func(a AuditListResponse) bool { return len(a.Entries) == 1 })
+	// The create records asynchronously; drain it so the purge actually wipes it
+	// (and does not race the purge's own row).
+	drain()
+	if resp := listAudit(t, r, "/audit", envAdminToken); len(resp.Entries) != 1 {
+		t.Fatalf("pre-purge trail: %d entries, want 1", len(resp.Entries))
+	}
 
 	if w := doJSON(t, r, http.MethodDelete, "/audit/purge", envAdminToken, `{"older_than":"all"}`); w.Code != http.StatusNoContent {
 		t.Fatalf("purge: %d %s", w.Code, w.Body.String())
 	}
 	// The wipe removed everything before it, and then recorded itself: a
 	// cleared trail always shows who cleared it.
-	waitAudit(t, r, "/audit", envAdminToken,
-		func(a AuditListResponse) bool { return len(a.Entries) == 1 && a.Entries[0].Route == "/audit/purge" })
+	drain()
+	if resp := listAudit(t, r, "/audit", envAdminToken); len(resp.Entries) != 1 || resp.Entries[0].Route != "/audit/purge" {
+		t.Fatalf("post-purge trail: %d entries, first route %q", len(resp.Entries), func() string {
+			if len(resp.Entries) > 0 {
+				return resp.Entries[0].Route
+			}
+			return ""
+		}())
+	}
 	// Bad vocabulary is a 400.
 	if w := doJSON(t, r, http.MethodDelete, "/audit/purge", envAdminToken, `{"older_than":"yesterday"}`); w.Code != http.StatusBadRequest {
 		t.Fatalf("bad purge vocab: %d, want 400", w.Code)
@@ -263,8 +263,11 @@ func TestAudit_RetentionPrune(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})).ServeHTTP(httptest.NewRecorder(), req)
 
-	// Recording (and the piggybacked prune) runs on a background goroutine, so
-	// wait for the triggering request's row to appear before asserting.
+	// Recording and the piggybacked prune run on one background goroutine.
+	// Draining it waits for both the insert AND the delete to commit, so the
+	// counts below are deterministic instead of racing the prune under load.
+	rec.Wait()
+
 	count := func(where string) int {
 		var n int
 		if err := pool.QueryRow(context.Background(),
@@ -272,10 +275,6 @@ func TestAudit_RetentionPrune(t *testing.T) {
 			t.Fatalf("count %s: %v", where, err)
 		}
 		return n
-	}
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) && count(`path = '/prune-trigger'`) != 1 {
-		time.Sleep(10 * time.Millisecond)
 	}
 	// The triggering request itself was recorded and survived the prune.
 	if fresh := count(`path = '/prune-trigger'`); fresh != 1 {
@@ -303,11 +302,13 @@ func TestAudit_SurfaceNotWired(t *testing.T) {
 }
 
 func TestAudit_QueryParamEdges(t *testing.T) {
-	r, _, mkUser := setupAuditTest(t)
+	r, _, mkUser, drain := setupAuditTest(t)
 	mkUser("param-user", nil)
-	// Wait for the create to land before the count-sensitive assertions.
-	waitAudit(t, r, "/audit", envAdminToken,
-		func(a AuditListResponse) bool { return len(a.Entries) == 1 })
+	// Drain the create so the count-sensitive assertions are deterministic.
+	drain()
+	if resp := listAudit(t, r, "/audit", envAdminToken); len(resp.Entries) != 1 {
+		t.Fatalf("setup: %d entries, want 1", len(resp.Entries))
+	}
 
 	// Time-window filters narrow the list.
 	past := time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)
