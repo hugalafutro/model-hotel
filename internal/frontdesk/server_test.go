@@ -41,6 +41,10 @@ func newTestServer(t *testing.T) (*Server, *Store) {
 		RelyingParty: rp,
 		IPLimiter:    ratelimit.NewIPLimiter(1000, 1000, nil, nil),
 	})
+	// Drain any detached background goroutine (e.g. an auto-sync kick) before
+	// the store and its temp dir are torn down. Registered here so it runs
+	// (LIFO) ahead of the store.Close / TempDir cleanups queued earlier.
+	t.Cleanup(srv.Wait)
 	return srv, store
 }
 

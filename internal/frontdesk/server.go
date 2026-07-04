@@ -79,6 +79,11 @@ type Server struct {
 	rearmMu sync.Mutex
 	rearmCh chan struct{}
 	router  http.Handler
+	// bgWG tracks detached background goroutines (e.g. the auto-sync kick) so
+	// callers can drain them on shutdown. Without it, a kick fired by an enable
+	// keeps writing to the store after a caller (or a test) has moved on, which
+	// races store teardown.
+	bgWG sync.WaitGroup
 }
 
 // defaultLBPort is the load-balancer host port assumed when FLEET_LB_PORT is
@@ -150,6 +155,12 @@ func NewServer(cfg ServerConfig) *Server {
 
 // ServeHTTP implements http.Handler.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) { s.router.ServeHTTP(w, r) }
+
+// Wait blocks until every detached background goroutine the server has spawned
+// (currently the auto-sync kick) has returned. Use it on graceful shutdown, or
+// in tests before tearing down the backing store, so a still-running kick can't
+// write into a store or temp dir that is being removed.
+func (s *Server) Wait() { s.bgWG.Wait() }
 
 // SessionManager exposes the session manager (used by callers wiring background
 // cleanup of expired sessions).
@@ -630,7 +641,9 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	// steady-state watch. Disabling (or no primary) never kicks.
 	if cfg.Enabled && cfg.PrimaryID != "" {
 		kickCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), autoSyncKickTimeout)
+		s.bgWG.Add(1)
 		go func() {
+			defer s.bgWG.Done()
 			defer cancel()
 			s.forceAutoSyncNow(kickCtx)
 		}()
