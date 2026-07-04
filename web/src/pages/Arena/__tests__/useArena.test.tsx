@@ -470,6 +470,23 @@ describe("useArena", () => {
 			expect(runRoundMock).toHaveBeenCalledWith(0);
 		});
 
+		it("re-dispatches on mount when a saved running round reloads with a warm cache", () => {
+			// Warm model cache: the allowlist is usable on the very first render, so
+			// there is no false->true transition to observe. A persisted "running"
+			// round with pending slots and no active stream must still be recovered.
+			const runRoundMock = vi.fn();
+			const rounds = pendingRounds();
+			setState(runRoundMock, {
+				rounds,
+				modelsReady: true,
+				enabledModels: [{ provider_name: "P", model_id: "model-a" } as Model],
+			});
+
+			renderHook(() => useArena(), { wrapper: createWrapper() });
+
+			expect(runRoundMock).toHaveBeenCalledWith(0);
+		});
+
 		it("does not re-dispatch while streams are in flight", () => {
 			const runRoundMock = vi.fn();
 			const rounds = pendingRounds();

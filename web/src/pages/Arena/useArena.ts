@@ -192,11 +192,16 @@ export function useArena() {
 	//
 	// The re-dispatch fires only on the not-usable -> usable transition (not on
 	// every render while usable) so it never races the normal staggered
-	// dispatch. The setup fallback is condition-gated (an empty list may already
-	// be settled on mount, with no transition to observe) and self-limits: once
-	// the phase leaves "running" it can't fire again.
+	// dispatch. The "previous" ref starts at false (not the current value) so the
+	// first eligible render counts as such a transition: a saved "running" round
+	// reloaded with a warm model cache (usable on the very first render) is
+	// recovered too, not only a later false->true transition. A normal in-session
+	// run start happens after mount, by which point the ref is already true, so it
+	// is still not double-dispatched. The setup fallback is condition-gated (an
+	// empty list may already be settled on mount, with no transition to observe)
+	// and self-limits: once the phase leaves "running" it can't fire again.
 	const hasUsableAllowlist = modelsReady && enabledModels.length > 0;
-	const prevUsableAllowlistRef = useRef(hasUsableAllowlist);
+	const prevUsableAllowlistRef = useRef(false);
 	useEffect(() => {
 		const wasUsable = prevUsableAllowlistRef.current;
 		prevUsableAllowlistRef.current = hasUsableAllowlist;
