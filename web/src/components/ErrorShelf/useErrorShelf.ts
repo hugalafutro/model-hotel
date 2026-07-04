@@ -1,7 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
-import { api } from "../../api/client";
-import type { AppLogEntry, LogEntry } from "../../api/types";
+import {
+	buildUrl,
+	fetchJSONWithServerNow,
+	getAuthHeaders,
+} from "../../api/client";
+import type { AppLogEntry, LogEntry, LogsResponse } from "../../api/types";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 
 /** How many recent errors of each kind to fetch, and the cap on the merged
@@ -140,16 +144,22 @@ export function useErrorShelf(): UseErrorShelf {
 		return () => window.removeEventListener("dismissedErrorsReset", handler);
 	}, [setAckedKeys]);
 
+	// Both queries capture the server's `Date` header alongside the rows so the
+	// recency window can anchor on the server clock (see the errors memo) rather
+	// than a possibly-skewed browser clock.
 	const { data: reqLogData, isLoading: reqLoading } = useQuery({
 		queryKey: ["logs", "errorShelf", ERROR_SHELF_LIMIT],
 		queryFn: () =>
-			api.logs.list({
-				page: 1,
-				per_page: ERROR_SHELF_LIMIT,
-				status_code: "5xx",
-				sort_by: "time",
-				sort_dir: "desc",
-			}),
+			fetchJSONWithServerNow<LogsResponse>(
+				buildUrl("/api/logs", {
+					page: 1,
+					per_page: ERROR_SHELF_LIMIT,
+					status_code: "5xx",
+					sort_by: "time",
+					sort_dir: "desc",
+				}),
+				{ headers: getAuthHeaders() },
+			),
 		refetchInterval: 15000,
 		staleTime: 10000,
 	});
@@ -157,13 +167,17 @@ export function useErrorShelf(): UseErrorShelf {
 	const { data: appLogData, isLoading: appLoading } = useQuery({
 		queryKey: ["appLogHistory", "errorShelf", ERROR_SHELF_LIMIT],
 		queryFn: () =>
-			api.appLogs.history({
-				page: 1,
-				per_page: ERROR_SHELF_LIMIT,
-				level: "error",
-				sort_by: "time",
-				sort_dir: "desc",
-			}),
+			fetchJSONWithServerNow<{ entries: AppLogEntry[] }>(
+				buildUrl("/api/logs/app", {
+					history: "true",
+					page: 1,
+					per_page: ERROR_SHELF_LIMIT,
+					level: "error",
+					sort_by: "time",
+					sort_dir: "desc",
+				}),
+				{ headers: getAuthHeaders() },
+			),
 		refetchInterval: 15000,
 		staleTime: 10000,
 	});
@@ -179,16 +193,20 @@ export function useErrorShelf(): UseErrorShelf {
 	const errors = useMemo<ShelfError[]>(() => {
 		if (!ready) return [];
 		const merged: ShelfError[] = [];
-		const reqEntries = reqLogData?.entries ?? [];
-		const appEntries = appLogData?.entries ?? [];
+		const reqEntries = reqLogData?.data.entries ?? [];
+		const appEntries = appLogData?.data.entries ?? [];
 
-		// Anchor "now" on the later of the browser clock and the newest error we
-		// were actually served. A browser clock running behind server time would
-		// otherwise slide the 24h window into the past and hide genuinely fresh
-		// errors; clamping up to the newest server timestamp keeps recent rows
-		// visible regardless of client skew. (A clock running ahead can't be
-		// corrected without a server-time reference, which the list endpoints
-		// don't return.)
+		// Anchor "now" on the server's clock, sampled from the `Date` response
+		// header, so the 24h window is immune to a skewed browser clock (a fast
+		// client clock would otherwise slide the cutoff forward and hide
+		// server-recent errors; a slow one would resurface stale ones). Fall back
+		// to the browser clock only when no sample is available (e.g. under a test
+		// mock without the header). Clamp up to the newest served timestamp as a
+		// final guard: a served error is by definition <= server-now, so this
+		// never hides a row the server just logged even if the sample is briefly
+		// stale.
+		const serverNow =
+			reqLogData?.serverNowMs ?? appLogData?.serverNowMs ?? Date.now();
 		let newest = 0;
 		for (const entry of reqEntries) {
 			const t = parseTs(entry.created_at ?? "");
@@ -201,7 +219,7 @@ export function useErrorShelf(): UseErrorShelf {
 		// Anything older than the window is stale noise (e.g. a request error
 		// from before the last rebuild). A malformed/unparseable timestamp is
 		// kept rather than silently dropped.
-		const cutoff = Math.max(Date.now(), newest) - ERROR_SHELF_MAX_AGE_MS;
+		const cutoff = Math.max(serverNow, newest) - ERROR_SHELF_MAX_AGE_MS;
 		const isRecent = (timestamp: string) => {
 			const t = parseTs(timestamp);
 			return Number.isNaN(t) || t >= cutoff;

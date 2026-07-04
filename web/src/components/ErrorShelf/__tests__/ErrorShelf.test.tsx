@@ -191,11 +191,10 @@ describe("ErrorShelf", () => {
 		expect(within(rows[0]).getByText("zoneless boom")).toBeTruthy();
 	});
 
-	it("clamps the window to the newest served error when the clock lags", async () => {
-		// Simulate a browser clock running a week behind server time: the only
-		// errors were emitted "now" by the server but sit in the client's future.
-		// Anchoring on the newest served timestamp keeps them visible instead of
-		// filtering everything out.
+	it("clamps to the newest served error when no server clock is available", async () => {
+		// The mock responses carry no `Date` header, so the hook falls back to the
+		// browser clock, which here lags a week behind. Without the newest-served
+		// clamp that would filter everything out; the clamp keeps the fresh rows.
 		vi.spyOn(Date, "now").mockReturnValue(
 			new Date("2024-01-25T12:00:30Z").getTime(),
 		);
@@ -205,6 +204,47 @@ describe("ErrorShelf", () => {
 
 		const count = await screen.findByTestId("error-shelf-count");
 		expect(count).toHaveTextContent("2");
+	});
+
+	it("anchors the window on the server clock, not a fast browser clock", async () => {
+		// Browser clock runs 21h ahead of the server. An error 10h old by the
+		// server's clock is 31h old by the browser's. Anchoring on the server
+		// `Date` header keeps it inside the 24h window; a browser-clock anchor
+		// would wrongly hide it. Proves fast-clock skew can't drop fresh errors.
+		vi.spyOn(Date, "now").mockReturnValue(
+			new Date("2024-02-02T09:00:00Z").getTime(),
+		);
+		server.use(
+			http.get("/api/logs", () =>
+				HttpResponse.json(
+					{
+						entries: [
+							{
+								id: "req-1",
+								provider_id: "p1",
+								provider_name: "Prov",
+								model_id: "m1",
+								status_code: 502,
+								error_message: "server-fresh boom",
+								error_kind: "upstream_5xx",
+								created_at: "2024-02-01T02:00:00Z",
+							},
+						],
+						total: 1,
+						page: 1,
+						per_page: 15,
+					},
+					{ headers: { Date: new Date("2024-02-01T12:00:00Z").toUTCString() } },
+				),
+			),
+		);
+		renderWithProviders(<ErrorShelf />);
+
+		const count = await screen.findByTestId("error-shelf-count");
+		expect(count).toHaveTextContent("1");
+		await expand();
+		const rows = await screen.findAllByTestId("error-shelf-row");
+		expect(within(rows[0]).getByText("server-fresh boom")).toBeTruthy();
 	});
 
 	it("interleaves app + request errors newest-first when expanded", async () => {
