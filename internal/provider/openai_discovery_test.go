@@ -212,4 +212,50 @@ func TestOpenAIDiscoveryWithMockServer(t *testing.T) {
 	t.Logf("Mock server discovery test passed - %d models discovered", len(models))
 }
 
+func TestOpenAIDiscovery_EmbeddingClassifiedByName(t *testing.T) {
+	// A generic OpenAI-compatible server (or OpenAI itself) lists embedding
+	// models with no type. Discovery must classify them as modality:"embedding"
+	// by name so they stay out of the chat picker, while chat models remain text.
+	apiResponse := `{"object":"list","data":[` +
+		`{"id":"text-embedding-3-small","object":"model","owned_by":"openai"},` +
+		`{"id":"my-local-chat-7b","object":"model","owned_by":"local"}]}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(apiResponse))
+	}))
+	defer server.Close()
+
+	svc := NewDiscoveryService(nil, nil)
+	prov := &Provider{ID: uuid.New(), BaseURL: server.URL + "/v1"}
+
+	models, err := svc.discoverOpenAI(context.Background(), prov, "test-key")
+	if err != nil {
+		t.Fatalf("discoverOpenAI failed: %v", err)
+	}
+
+	byID := make(map[string]*model.Model, len(models))
+	for _, m := range models {
+		byID[m.ModelID] = m
+	}
+	if emb, ok := byID["text-embedding-3-small"]; !ok {
+		t.Fatal("text-embedding-3-small missing from results")
+	} else {
+		if emb.Modality != "embedding" {
+			t.Errorf("embedding modality: got %q, want embedding", emb.Modality)
+		}
+		if emb.InputModalities != `["text"]` {
+			t.Errorf("embedding input modalities: got %q, want [\"text\"]", emb.InputModalities)
+		}
+		if emb.OutputModalities != `["embedding"]` {
+			t.Errorf("embedding output modalities: got %q, want [\"embedding\"]", emb.OutputModalities)
+		}
+	}
+	if chat, ok := byID["my-local-chat-7b"]; !ok {
+		t.Fatal("my-local-chat-7b missing from results")
+	} else if chat.Modality == "embedding" || chat.Modality == "rerank" {
+		t.Errorf("chat model wrongly classified as %q", chat.Modality)
+	}
+}
+
 // TestOpenAIDiscoveryLiveAPI moved to discovery_live_test.go (//go:build live).
