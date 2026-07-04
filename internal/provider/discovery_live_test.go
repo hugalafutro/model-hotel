@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -198,6 +199,62 @@ func TestOpenAIDiscoveryLiveAPI(t *testing.T) {
 			}
 			t.Logf("OK: unknown model %s -> display=%s, pricing=nil (minimal entry)", m.ModelID, m.DisplayName)
 			break
+		}
+	}
+}
+
+// TestOllamaEmbeddingModalityLiveAPI runs the real Ollama discoverer against a
+// local Ollama server and verifies an embedding model is classified as
+// modality:"embedding" (hidden from the chat picker) while a chat model stays
+// "text". Point OLLAMA_LIVE_URL at the server, e.g.:
+//
+//	OLLAMA_LIVE_URL=http://localhost:11434 go test -tags live \
+//	    ./internal/provider/ -run OllamaEmbeddingModalityLiveAPI -v
+//
+// with `all-minilm` (embedding) and a small chat model (e.g. qwen2.5:0.5b)
+// pulled beforehand.
+func TestOllamaEmbeddingModalityLiveAPI(t *testing.T) {
+	baseURL := os.Getenv("OLLAMA_LIVE_URL")
+	if baseURL == "" {
+		t.Fatal("OLLAMA_LIVE_URL environment variable is required for live API tests")
+	}
+
+	svc := NewDiscoveryService(nil, nil)
+	// Keyless local provider: empty EncryptedKey routes through the no-decrypt
+	// path in DiscoverModels, and DetectProviderType maps :11434 to "ollama".
+	prov := &Provider{ID: uuid.New(), BaseURL: baseURL}
+
+	models, err := svc.DiscoverModels(context.Background(), prov, "unused-master-key")
+	if err != nil {
+		t.Fatalf("DiscoverModels failed: %v", err)
+	}
+
+	t.Logf("Discovered %d models from live Ollama:", len(models))
+	byID := make(map[string]*model.Model, len(models))
+	for _, m := range models {
+		byID[m.ModelID] = m
+		t.Logf("  %-28s modality=%-10s output_modalities=%s", m.ModelID, m.Modality, m.OutputModalities)
+	}
+
+	// The embedding model must be classified as embedding (matches the frontend
+	// NON_CHAT_MODALITIES set so it's hidden from the chat/arena pickers).
+	embFound := false
+	for id, m := range byID {
+		if strings.Contains(id, "all-minilm") || strings.Contains(id, "embed") {
+			embFound = true
+			if m.Modality != "embedding" {
+				t.Errorf("%s: modality = %q, want embedding", id, m.Modality)
+			}
+		}
+	}
+	if !embFound {
+		t.Error("no embedding model found; pull `all-minilm` before running")
+	}
+
+	// Any model reporting the completion capability must stay a chat model.
+	for id, m := range byID {
+		if strings.Contains(id, "qwen") && m.Modality != "text" {
+			t.Errorf("%s: chat model modality = %q, want text", id, m.Modality)
 		}
 	}
 }

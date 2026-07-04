@@ -145,7 +145,9 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 	caps := model.Capability{Streaming: true}
 	modality := "text"
 	inputMods := `["text"]`
+	outputMods := "[]"
 
+	hasCompletion, hasEmbedding := false, false
 	for _, c := range show.Capabilities {
 		switch c {
 		case "tools":
@@ -156,9 +158,31 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 			caps.Vision = true
 			modality = "vision"
 			inputMods = `["text","image"]`
+		case "completion":
+			hasCompletion = true
+		case "embedding":
+			hasEmbedding = true
 		}
 	}
 	capJSON, _ := json.Marshal(caps)
+
+	// Ollama reports capabilities authoritatively: an embedding-only model lists
+	// "embedding" and not "completion", so it must be hidden from the chat
+	// picker. Applies equally to local Ollama and Ollama Cloud (same code path).
+	// If a model reports no completion capability at all (older Ollama returns an
+	// empty list), fall back to a name heuristic so embed/rerank models are still
+	// caught without misclassifying a normal chat model.
+	if !hasCompletion && modality == "text" {
+		switch {
+		case hasEmbedding:
+			modality = "embedding"
+			outputMods = `["embedding"]`
+		default:
+			if inferred := inferNonChatModality(modelID); inferred != "" {
+				modality = inferred
+			}
+		}
+	}
 
 	var contextLength *int
 	for k, v := range show.ModelInfo {
@@ -188,7 +212,7 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 		Params:           "{}",
 		Modality:         modality,
 		InputModalities:  inputMods,
-		OutputModalities: "[]",
+		OutputModalities: outputMods,
 		ContextLength:    contextLength,
 		OwnedBy:          ownedBy,
 		Enabled:          true,

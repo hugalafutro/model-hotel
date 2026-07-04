@@ -77,6 +77,17 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 	}
 	capJSON, _ := json.Marshal(caps)
 
+	// KoboldCPP's /models has no type; if an embedding/reranker model is what's
+	// loaded, classify it by name so it stays out of the chat picker.
+	modality := "text"
+	outputMods := `["text"]`
+	if mod := inferNonChatModality(modelID); mod != "" {
+		modality = mod
+		if mod == "embedding" {
+			outputMods = `["embedding"]`
+		}
+	}
+
 	m := &model.Model{
 		ID:               uuid.New(),
 		ProviderID:       provider.ID,
@@ -86,9 +97,9 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 		Description:      fmt.Sprintf("KoboldCPP %s model", version),
 		Capabilities:     string(capJSON),
 		Params:           "{}",
-		Modality:         "text",
+		Modality:         modality,
 		InputModalities:  `["text"]`,
-		OutputModalities: `["text"]`,
+		OutputModalities: outputMods,
 		ContextLength:    contextLength,
 		OwnedBy:          "koboldcpp",
 		Enabled:          true,

@@ -623,6 +623,62 @@ func TestBuildOllamaModel_ThinkingCapabilityHTTP(t *testing.T) {
 	}
 }
 
+func TestBuildOllamaModel_EmbeddingCapabilityHTTP(t *testing.T) {
+	service := &DiscoveryService{}
+	// Ollama reports an embedding-only model as capabilities:["embedding"] with
+	// no "completion" — it must be classified as embedding, not text, so it is
+	// hidden from the chat picker.
+	show := &OllamaShowResponse{
+		Capabilities: []string{"embedding"},
+		ModelInfo:    map[string]interface{}{},
+		Details:      OllamaShowDetails{Family: "nomic-bert"},
+	}
+	provider := &Provider{ID: uuid.New()}
+
+	m := service.buildOllamaModel(provider, "nomic-embed-text", show)
+	if m.Modality != "embedding" {
+		t.Errorf("Expected Modality 'embedding', got '%s'", m.Modality)
+	}
+	if m.OutputModalities != `["embedding"]` {
+		t.Errorf("Expected OutputModalities '[\"embedding\"]', got '%s'", m.OutputModalities)
+	}
+}
+
+func TestBuildOllamaModel_CompletionStaysTextHTTP(t *testing.T) {
+	service := &DiscoveryService{}
+	// A normal chat model reports "completion"; even if its name happened to
+	// contain an embedding-ish token, an authoritative completion capability
+	// keeps it as a chat model.
+	show := &OllamaShowResponse{
+		Capabilities: []string{"completion", "tools"},
+		ModelInfo:    map[string]interface{}{},
+		Details:      OllamaShowDetails{Family: "llama"},
+	}
+	provider := &Provider{ID: uuid.New()}
+
+	m := service.buildOllamaModel(provider, "llama3-embed-tutor", show)
+	if m.Modality != "text" {
+		t.Errorf("Expected Modality 'text' for a completion model, got '%s'", m.Modality)
+	}
+}
+
+func TestBuildOllamaModel_EmbeddingByNameFallbackHTTP(t *testing.T) {
+	service := &DiscoveryService{}
+	// Older Ollama returns no capabilities at all; fall back to the name
+	// heuristic so an embedding model is still caught.
+	show := &OllamaShowResponse{
+		Capabilities: []string{},
+		ModelInfo:    map[string]interface{}{},
+		Details:      OllamaShowDetails{Family: "bert"},
+	}
+	provider := &Provider{ID: uuid.New()}
+
+	m := service.buildOllamaModel(provider, "mxbai-embed-large", show)
+	if m.Modality != "embedding" {
+		t.Errorf("Expected Modality 'embedding' from name fallback, got '%s'", m.Modality)
+	}
+}
+
 func TestGetOllamaCloudAccount_ContextCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(50 * time.Millisecond)
