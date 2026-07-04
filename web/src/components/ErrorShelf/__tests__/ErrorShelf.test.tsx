@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { delay, HttpResponse, http } from "msw";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { ErrorShelf } from "../ErrorShelf";
@@ -110,6 +110,16 @@ describe("ErrorShelf", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		localStorage.removeItem("ackedErrorKeys");
+		// Freeze the clock just after the newest seeded row (12:00:00Z) so every
+		// fixture timestamp lands inside the shelf's 24h recency window. Only
+		// Date.now() is stubbed, leaving react-query's real timers untouched.
+		vi.spyOn(Date, "now").mockReturnValue(
+			new Date("2024-02-01T12:00:30Z").getTime(),
+		);
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
 	});
 
 	it("renders nothing when there are no errors", async () => {
@@ -146,6 +156,23 @@ describe("ErrorShelf", () => {
 		renderWithProviders(<ErrorShelf />);
 		const count = await screen.findByTestId("error-shelf-count");
 		expect(count).toHaveTextContent("1");
+	});
+
+	it("hides errors older than the 24h recency window", async () => {
+		// Newest seeded row is 12:00:00Z and the clock is frozen at 12:00:30Z,
+		// so a row from the previous day is well outside the 24h window.
+		seedRequestError("fresh boom", "2024-02-01T10:00:00Z");
+		seedAppError("stale boom", "2024-01-31T09:00:00Z");
+		renderWithProviders(<ErrorShelf />);
+
+		const count = await screen.findByTestId("error-shelf-count");
+		expect(count).toHaveTextContent("1");
+		await expand();
+
+		const rows = await screen.findAllByTestId("error-shelf-row");
+		expect(rows).toHaveLength(1);
+		expect(within(rows[0]).getByText("fresh boom")).toBeTruthy();
+		expect(screen.queryByText("stale boom")).toBeNull();
 	});
 
 	it("interleaves app + request errors newest-first when expanded", async () => {

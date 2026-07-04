@@ -8,6 +8,11 @@ import { useLocalStorage } from "../../hooks/useLocalStorage";
  * list the shelf renders. */
 export const ERROR_SHELF_LIMIT = 15;
 
+/** Only surface errors this recent. Anything older is stale noise (e.g. a
+ * request error from before the last rebuild) that the user should not have to
+ * keep dismissing. */
+export const ERROR_SHELF_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 const ACKED_KEYS_STORAGE = "ackedErrorKeys";
 /** Bound localStorage growth — keep only the most-recently acked keys. */
 const ACKED_KEYS_CAP = 200;
@@ -162,9 +167,18 @@ export function useErrorShelf(): UseErrorShelf {
 	const errors = useMemo<ShelfError[]>(() => {
 		if (!ready) return [];
 		const merged: ShelfError[] = [];
+		// Anything older than the window is stale noise (e.g. a request error
+		// from before the last rebuild). A malformed/unparseable timestamp is
+		// kept rather than silently dropped.
+		const cutoff = Date.now() - ERROR_SHELF_MAX_AGE_MS;
+		const isRecent = (timestamp: string) => {
+			const t = Date.parse(timestamp);
+			return Number.isNaN(t) || t >= cutoff;
+		};
 
 		for (const entry of reqLogData?.entries ?? []) {
 			if (!entry.error_message || !entry.created_at) continue;
+			if (!isRecent(entry.created_at)) continue;
 			merged.push({
 				key: makeKey("request", entry.created_at, entry.error_message),
 				kind: "request",
@@ -177,6 +191,7 @@ export function useErrorShelf(): UseErrorShelf {
 
 		for (const entry of appLogData?.entries ?? []) {
 			if (!entry.message || !entry.timestamp) continue;
+			if (!isRecent(entry.timestamp)) continue;
 			merged.push({
 				key: makeKey("app", entry.timestamp, entry.message),
 				kind: "app",
