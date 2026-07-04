@@ -183,19 +183,23 @@ export function useArena() {
 	// Resume a run that was deferred because the chat model list wasn't usable
 	// yet. A run can be marked "running" (initial dispatch or a vote-advanced
 	// round) while the allowlist is still loading or empty, in which case the
-	// runner defers every slot and nothing is actually streaming. When the
-	// allowlist becomes usable we re-dispatch the current round so those slots
-	// don't stay stuck at done:false forever.
+	// runner defers every slot and nothing is actually streaming. Once the list
+	// settles we un-stick the round so it can't stay in "running" with
+	// done:false slots and no active stream forever:
+	//   - list settled with chat models -> re-dispatch the current round;
+	//   - list settled with NO chat models -> the run can't proceed, so drop it
+	//     back to "setup" (the user has to add a provider before it can run).
 	//
-	// Fires only on the not-usable -> usable transition (not on every render
-	// while usable) so it never races the normal staggered dispatch, which
-	// already runs with a usable allowlist and would otherwise double-fire.
+	// The re-dispatch fires only on the not-usable -> usable transition (not on
+	// every render while usable) so it never races the normal staggered
+	// dispatch. The setup fallback is condition-gated (an empty list may already
+	// be settled on mount, with no transition to observe) and self-limits: once
+	// the phase leaves "running" it can't fire again.
 	const hasUsableAllowlist = modelsReady && enabledModels.length > 0;
 	const prevUsableAllowlistRef = useRef(hasUsableAllowlist);
 	useEffect(() => {
 		const wasUsable = prevUsableAllowlistRef.current;
 		prevUsableAllowlistRef.current = hasUsableAllowlist;
-		if (wasUsable || !hasUsableAllowlist) return;
 		if (phase !== "running") return;
 		// Something is genuinely streaming -> not a deferred run.
 		if (abortMapRef.current.size > 0) return;
@@ -205,8 +209,27 @@ export function useArena() {
 			(m: Matchup) =>
 				(m.slotA && !m.responseA?.done) || (m.slotB && !m.responseB?.done),
 		);
-		if (hasPendingSlot) runRound(currentRound);
-	}, [hasUsableAllowlist, phase, rounds, currentRound, runRound, abortMapRef]);
+		if (!hasPendingSlot) return;
+
+		if (modelsReady && enabledModels.length === 0) {
+			// Settled with no chat-capable models: the run can't proceed.
+			setPhase("setup");
+			return;
+		}
+		if (!wasUsable && hasUsableAllowlist) {
+			runRound(currentRound);
+		}
+	}, [
+		hasUsableAllowlist,
+		modelsReady,
+		enabledModels,
+		phase,
+		rounds,
+		currentRound,
+		runRound,
+		setPhase,
+		abortMapRef,
+	]);
 
 	// Tracks which model is being swapped out so bracketModels can be updated
 	const swapOutMapRef = useRef<Map<string, string>>(new Map());

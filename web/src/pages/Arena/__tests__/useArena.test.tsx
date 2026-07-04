@@ -566,6 +566,37 @@ describe("useArena", () => {
 			expect(runRoundMock).toHaveBeenCalledWith(0);
 		});
 
+		it("drops a stuck running round to setup when no chat models exist", () => {
+			const runRoundMock = vi.fn();
+			const setPhaseMock = vi.fn();
+			const rounds = pendingRounds();
+			// Settled (modelsReady) but empty list, still "running" with a pending
+			// slot: the run can't proceed, so it must leave the running phase.
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					phase: "running",
+					rounds,
+					currentRound: 0,
+					roundsRef: { current: rounds },
+					currentRoundRef: { current: 0 },
+					modelsReady: true,
+					enabledModels: [],
+					setPhase: setPhaseMock,
+				}),
+			);
+			vi.mocked(useArenaRunner).mockReturnValue(
+				createMockArenaRunner({
+					runRound: runRoundMock,
+					abortMapRef: { current: new Map() },
+				}),
+			);
+
+			renderHook(() => useArena(), { wrapper: createWrapper() });
+
+			expect(setPhaseMock).toHaveBeenCalledWith("setup");
+			expect(runRoundMock).not.toHaveBeenCalled();
+		});
+
 		it("does not re-dispatch when the current round is missing", () => {
 			const runRoundMock = vi.fn();
 			setState(runRoundMock, {
