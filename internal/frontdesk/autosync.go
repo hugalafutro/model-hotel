@@ -53,6 +53,14 @@ const (
 	// reflects the deliberate enable rather than a primary edit.
 	autoSyncKickReason = "auto-sync was enabled"
 
+	// verifiedInSyncReason is stamped when a propagation pass confirms a member
+	// already matches the primary (typically because it self-converged via its
+	// own discovery) and so needs no write. Stamping it keeps the Members table
+	// "Last Config Sync" column reflecting the last reconciliation against the
+	// primary, not just the last actual write, which would otherwise leave the
+	// column stale for as long as members happened to converge on their own.
+	verifiedInSyncReason = "verified in sync with the primary"
+
 	// autoSyncKickTimeout caps the detached convergence pass fired when auto-sync
 	// is enabled, so a stuck member cannot leak the goroutine. Generous: a pass
 	// snapshots and imports config on every drifted member in turn.
@@ -291,7 +299,15 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		}
 		added, updated, removed := res.Diff.counts()
 		if added+updated+removed == 0 {
-			continue // already converged: no backup, no import
+			// Already in sync (the member self-converged via its own discovery, or
+			// a prior pass wrote it). This is still a successful reconciliation
+			// against the primary, so stamp the last-sync marker even though no
+			// write is needed. No backup, no import, not counted as applied, and no
+			// per-member event: only the timestamp/reason move.
+			if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), verifiedInSyncReason); err != nil {
+				debuglog.Warn("frontdesk: auto-sync: stamp verified-in-sync marker", "member", m.Name, "error", err)
+			}
+			continue
 		}
 
 		// Snapshot before overwriting so a bad propagation is recoverable. A failed

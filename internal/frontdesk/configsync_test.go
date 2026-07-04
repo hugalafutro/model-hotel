@@ -223,7 +223,7 @@ func TestConfigSyncConvergedMemberNotBackedUp(t *testing.T) {
 	converged.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{}}`
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	store.CreateMember(t.Context(), "converged", converged.srv.URL, "ctoken")
+	cm, _ := store.CreateMember(t.Context(), "converged", converged.srv.URL, "ctoken")
 
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
 	if rec.Code != http.StatusOK {
@@ -244,6 +244,18 @@ func TestConfigSyncConvergedMemberNotBackedUp(t *testing.T) {
 	// dry-run, so gotDryRun stays true.
 	if !converged.gotDryRun {
 		t.Error("a converged member must not be imported into; only the dry-run should run")
+	}
+	// Even without a write, the reconciliation must stamp the last-sync marker so
+	// the Members table reflects that the wizard confirmed this member in sync.
+	m, err := store.GetMember(t.Context(), cm.ID)
+	if err != nil {
+		t.Fatalf("get converged member: %v", err)
+	}
+	if m.LastConfigSyncAt == nil {
+		t.Error("converged member LastConfigSyncAt = nil, want stamped by the wizard sync")
+	}
+	if m.LastConfigSyncReason != verifiedInSyncReason {
+		t.Errorf("converged member reason = %q, want %q", m.LastConfigSyncReason, verifiedInSyncReason)
 	}
 }
 

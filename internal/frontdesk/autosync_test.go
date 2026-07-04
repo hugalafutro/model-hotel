@@ -401,7 +401,7 @@ func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 	replica := newStubAutoMember(t, "rtoken") // default dryDiff is empty (converged)
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	replicaMember, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	// A tokenless member is present too: it must be skipped without blocking the
 	// fleet from being recorded as converged.
 	store.CreateMember(t.Context(), "tokenless", "http://127.0.0.1:9", "") //nolint:errcheck // presence is the point
@@ -415,6 +415,20 @@ func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 	cfg, _ := store.GetAutoSync(t.Context())
 	if cfg.LastHash != "hash-B" {
 		t.Errorf("applied hash = %q, want hash-B (fleet converged)", cfg.LastHash)
+	}
+	// A converged member is still reconciled against the primary, so its last-sync
+	// marker must advance (with the verified-in-sync reason) even without a write:
+	// this is what keeps the Members table "Last Config Sync" column from going stale
+	// when members self-converge via their own discovery.
+	rm, err := store.GetMember(t.Context(), replicaMember.ID)
+	if err != nil {
+		t.Fatalf("get replica: %v", err)
+	}
+	if rm.LastConfigSyncAt == nil {
+		t.Error("converged member LastConfigSyncAt = nil, want stamped after a propagation pass")
+	}
+	if rm.LastConfigSyncReason != verifiedInSyncReason {
+		t.Errorf("converged member reason = %q, want %q", rm.LastConfigSyncReason, verifiedInSyncReason)
 	}
 }
 

@@ -168,7 +168,13 @@ func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string,
 		return nil, true // unreachable or blocked: let applyMemberConfig report the real cause
 	}
 	if added, updated, removed := preview.Diff.counts(); added+updated+removed == 0 {
-		return &syncResultItem{MemberID: m.ID, Name: m.Name, OK: true}, false // already in sync: no backup, no import
+		// Already in sync: no backup, no import. Still stamp the last-sync marker
+		// so the Members table reflects this reconciliation, matching the auto-sync
+		// path (a converged member is confirmed against the primary, just not written).
+		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), verifiedInSyncReason); err != nil {
+			debuglog.Warn("frontdesk: wizard sync: stamp verified-in-sync marker", "member", m.Name, "error", err)
+		}
+		return &syncResultItem{MemberID: m.ID, Name: m.Name, OK: true}, false
 	}
 	if err := s.backupMember(ctx, m, token); err != nil {
 		debuglog.Warn("frontdesk: wizard sync: pre-sync backup failed, skipping member", "member", m.Name, "error", err)
