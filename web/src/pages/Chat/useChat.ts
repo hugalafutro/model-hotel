@@ -10,7 +10,7 @@ import { useSidebarMode } from "../../context/SidebarModeContext";
 import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
-import { useEnabledModels } from "../../hooks/useModels";
+import { useChatModels } from "../../hooks/useModels";
 import { parseCapabilities, proxyModelID } from "../../utils/model";
 import { hasAnyParam } from "../../utils/params";
 import { getApiMessagesForModel, streamModelResponse } from "./chatStreaming";
@@ -21,7 +21,7 @@ import { useConversationRunner } from "./useConversationRunner";
 import { useMultimodalAttachments } from "./useMultimodalAttachments";
 
 export function useChat() {
-	const { data: enabledModels } = useEnabledModels();
+	const { data: enabledModels } = useChatModels();
 	const { chatSubMode, setChatSubMode } = useSidebarMode();
 	const { persistChat, persistConversation } = useStorage();
 

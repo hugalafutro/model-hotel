@@ -7,7 +7,7 @@ import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
 import { CHAT_PERSONAS } from "../../data/presets";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
-import { useEnabledModels } from "../../hooks/useModels";
+import { useChatModels } from "../../hooks/useModels";
 import {
 	getArenaHistoryEnabled,
 	saveCompareToHistory,
@@ -97,12 +97,12 @@ export interface ArenaStateAndActions {
 	handleRandomCompareModel: () => void;
 	previewPairs: ReturnType<typeof getPreviewPairs>;
 	// Dependencies
-	enabledModels: ReturnType<typeof useEnabledModels>["data"];
+	enabledModels: ReturnType<typeof useChatModels>["data"];
 	toast: ReturnType<typeof useToast>["toast"];
 }
 
 export function useArenaState(): ArenaStateAndActions {
-	const { data: enabledModels } = useEnabledModels();
+	const { data: enabledModels } = useChatModels();
 	const { toast } = useToast();
 	const { persistArena } = useStorage();
 	const { arenaSubMode, setArenaSubMode } = useSidebarMode();

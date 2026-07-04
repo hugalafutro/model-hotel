@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { api } from "../api/client";
 import type { Model } from "../api/types";
+import { isChatModel } from "../utils/model";
 
 /**
  * Fetch all models. React Query deduplicates by queryKey - multiple
@@ -28,7 +29,8 @@ export function useProviders() {
 
 /**
  * Enabled models only - filters to models that are both enabled and
- * have a provider assigned. Used by Chat and Arena for model pickers.
+ * have a provider assigned. Base list for the chat surfaces, which layer
+ * useChatModels on top to also drop non-chat modalities.
  */
 export function useEnabledModels() {
 	const { data: models, ...rest } = useModels();
@@ -37,6 +39,18 @@ export function useEnabledModels() {
 		[models],
 	);
 	return { ...rest, data: enabledModels };
+}
+
+/**
+ * Enabled, chat-capable models. Excludes embedding/rerank (and other non-chat)
+ * modalities so they don't appear in the Chat and Arena pickers, where they
+ * could never be used. The failover group editor and /v1/models keep listing
+ * every model.
+ */
+export function useChatModels() {
+	const { data: models, ...rest } = useEnabledModels();
+	const chatModels = useMemo(() => models.filter(isChatModel), [models]);
+	return { ...rest, data: chatModels };
 }
 
 /**

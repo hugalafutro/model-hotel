@@ -54,7 +54,7 @@ vi.mock("../../../context/ToastContext", () => ({
 }));
 
 vi.mock("../../../hooks/useModels", () => ({
-	useEnabledModels: vi.fn(() => ({
+	useChatModels: vi.fn(() => ({
 		data: [],
 		isLoading: false,
 		isError: false,

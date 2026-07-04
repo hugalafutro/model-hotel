@@ -6,6 +6,7 @@ import type { Model, Provider } from "../../api/types";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
 import {
+	useChatModels,
 	useEnabledModels,
 	useModels,
 	useProviderData,
@@ -189,6 +190,42 @@ describe("useEnabledModels", () => {
 
 		expect(result.current.data).toHaveLength(1);
 		expect(result.current.data?.[0].provider_name).toBe(mockProvider.name);
+	});
+});
+
+describe("useChatModels", () => {
+	it("excludes non-chat modalities (embedding, rerank)", async () => {
+		const embeddingModel: Model = {
+			...mockModel,
+			id: "model-embedding",
+			model_id: "text-embedding-v1",
+			modality: "embedding",
+		};
+		const rerankModel: Model = {
+			...mockModel,
+			id: "model-rerank",
+			model_id: "rerank-v1",
+			modality: "rerank",
+		};
+
+		server.use(
+			http.get("/api/models", () =>
+				HttpResponse.json([mockModel, embeddingModel, rerankModel], {
+					status: 200,
+				}),
+			),
+		);
+
+		const { result } = renderHook(() => useChatModels(), {
+			wrapper: createWrapper(),
+		});
+
+		await waitFor(() => {
+			expect(result.current.isSuccess).toBe(true);
+		});
+
+		expect(result.current.data).toHaveLength(1);
+		expect(result.current.data?.[0].id).toBe(mockModel.id);
 	});
 });
 
