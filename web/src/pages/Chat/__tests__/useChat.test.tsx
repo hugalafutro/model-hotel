@@ -53,10 +53,23 @@ vi.mock("../../../context/ToastContext", () => ({
 	})),
 }));
 
+// Mutable chat-model list the useChatModels mock returns. Named with a `mock`
+// prefix so vitest allows referencing it from the hoisted vi.mock factory.
+// Defaults to empty; individual tests push entries and reset it in beforeEach.
+const mockChatModelsList: Array<{
+	provider_name: string;
+	model_id: string;
+	enabled: boolean;
+}> = [];
+
+// Mutable loading flag for the useChatModels mock (mock-prefixed for the hoisted
+// factory). Defaults to loaded; a test flips it to exercise the load-window guard.
+const mockModelsState = { isLoading: false };
+
 vi.mock("../../../hooks/useModels", () => ({
-	useEnabledModels: vi.fn(() => ({
-		data: [],
-		isLoading: false,
+	useChatModels: vi.fn(() => ({
+		data: mockChatModelsList,
+		isLoading: mockModelsState.isLoading,
 		isError: false,
 		error: null,
 		isSuccess: true,
@@ -209,6 +222,19 @@ describe("useChat", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		localStorage.clear();
+		mockChatModelsList.length = 0;
+		// Back the model ids the send/regenerate/error tests select, so stale-
+		// selection reconciliation (which now clears ids absent from the list once
+		// loaded) leaves those selections intact. "embedding-model" is deliberately
+		// absent so the reconciliation tests can still exercise the clear path.
+		mockChatModelsList.push(
+			{ provider_name: "Provider", model_id: "model", enabled: true },
+			{ provider_name: "Provider", model_id: "current-model", enabled: true },
+			{ provider_name: "Provider", model_id: "same-model", enabled: true },
+			{ provider_name: "test", model_id: "model", enabled: true },
+			{ provider_name: "Ollama", model_id: "llama3", enabled: true },
+		);
+		mockModelsState.isLoading = false;
 		mockToast.mockClear();
 		mockSetConversationState.mockClear();
 		mockSetCurrentTurn.mockClear();
@@ -335,6 +361,145 @@ describe("useChat", () => {
 			});
 			expect(result.current.isStreaming).toBe(true);
 			expect(result.current.messages).toEqual([]);
+		});
+	});
+
+	describe("stale-selection reconciliation", () => {
+		// A persisted selection can point at a model that is no longer a valid
+		// chat model (e.g. it became an embedding/rerank model, or got disabled).
+		// Once the chat list has loaded, such a selection is cleared so send
+		// can't route a chat completion to a model that can't serve it.
+		it("clears a selected model absent from the chat list", () => {
+			mockChatModelsList.push({
+				provider_name: "Provider",
+				model_id: "model",
+				enabled: true,
+			});
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setChatSelectedModel("Provider/embedding-model");
+			});
+			expect(result.current.chatSelectedModel).toBe("");
+		});
+
+		it("keeps a selected model present in the chat list", () => {
+			mockChatModelsList.push({
+				provider_name: "Provider",
+				model_id: "model",
+				enabled: true,
+			});
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setChatSelectedModel("Provider/model");
+			});
+			expect(result.current.chatSelectedModel).toBe("Provider/model");
+		});
+
+		it("clears a stale conversation model A absent from the chat list", () => {
+			mockChatModelsList.push({
+				provider_name: "Provider",
+				model_id: "model",
+				enabled: true,
+			});
+			const setConversationModelA = vi.fn();
+			vi.mocked(ChatConversationState.useChatConversationState).mockReturnValue(
+				createMockConversationState({
+					conversationModelA: "Provider/embedding-model",
+					setConversationModelA,
+				}),
+			);
+			renderHook(() => useChat());
+			expect(setConversationModelA).toHaveBeenCalledWith("");
+		});
+
+		it("clears a stale conversation model B absent from the chat list", () => {
+			mockChatModelsList.push({
+				provider_name: "Provider",
+				model_id: "model",
+				enabled: true,
+			});
+			const setSelectedModelB = vi.fn();
+			vi.mocked(ChatConversationState.useChatConversationState).mockReturnValue(
+				createMockConversationState({
+					selectedModelB: "Provider/rerank-model",
+					setSelectedModelB,
+				}),
+			);
+			renderHook(() => useChat());
+			expect(setSelectedModelB).toHaveBeenCalledWith("");
+		});
+
+		it("clears a stale selection when the loaded list has no chat models", async () => {
+			// Loaded but empty (or a failed models request) is authoritative: the
+			// persisted selection is dropped so it can't be sent to a chat endpoint.
+			mockChatModelsList.length = 0;
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setChatSelectedModel("Provider/embedding-model");
+				result.current.setInput("hello");
+			});
+			await act(async () => {
+				await result.current.handleSend();
+			});
+			expect(result.current.chatSelectedModel).toBe("");
+			expect(mockStreamModelResponse).not.toHaveBeenCalled();
+		});
+
+		it("does not send while the model list is still loading", async () => {
+			// A persisted selection can't be validated yet, so send waits rather
+			// than risk routing to a now-non-chat model.
+			mockModelsState.isLoading = true;
+			mockChatModelsList.push({
+				provider_name: "Provider",
+				model_id: "model",
+				enabled: true,
+			});
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setChatSelectedModel("Provider/model");
+				result.current.setInput("hello");
+			});
+			await act(async () => {
+				await result.current.handleSend();
+			});
+			expect(mockStreamModelResponse).not.toHaveBeenCalled();
+		});
+
+		it("does not regenerate while the model list is still loading", async () => {
+			mockModelsState.isLoading = true;
+			mockChatModelsList.push({
+				provider_name: "Provider",
+				model_id: "model",
+				enabled: true,
+			});
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setChatSelectedModel("Provider/model");
+				result.current.setMessages([
+					{ role: "user", content: "hi", timestamp: 1 },
+				]);
+			});
+			await act(async () => {
+				await result.current.handleRegenerate();
+			});
+			expect(mockStreamModelResponse).not.toHaveBeenCalled();
+		});
+
+		it("does not regenerate when no model is selected", async () => {
+			// Even with prior messages, a cleared selection (e.g. a stale non-chat
+			// model just reconciled away) must not stream a request with an empty
+			// model id.
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setMessages([
+					{ role: "user", content: "hi", timestamp: 1 },
+				]);
+			});
+			await act(async () => {
+				await result.current.handleRegenerate();
+			});
+			expect(result.current.chatSelectedModel).toBe("");
+			expect(mockStreamModelResponse).not.toHaveBeenCalled();
 		});
 	});
 

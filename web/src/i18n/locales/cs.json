@@ -2651,7 +2651,8 @@
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
 			"retry": "{{model}}: {{status}} – zkusit znovu {{attempt}} v {{delay}}…",
-			"networkError": "chyba sítě"
+			"networkError": "chyba sítě",
+			"nonChatModel": "Není chatovací model"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "Nepodařilo se načíst kvótu využití NanoGPT",

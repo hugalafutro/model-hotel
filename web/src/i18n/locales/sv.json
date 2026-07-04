@@ -2651,7 +2651,8 @@
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
 			"retry": "{{model}}: {{status}} - försök igen {{attempt}} i {{delay}}s…",
-			"networkError": "nätverksfel"
+			"networkError": "nätverksfel",
+			"nonChatModel": "Inte en chattmodell"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "Det gick inte att hämta NanoGPT-användningskvoten",

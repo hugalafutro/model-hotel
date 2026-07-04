@@ -10,11 +10,21 @@ import {
 
 // Mock the dependencies
 vi.mock("../../../hooks/useModels", () => ({
-	useEnabledModels: vi.fn(() => ({
+	useChatModels: vi.fn(() => ({
+		// Cover every id the persistence tests seed so stale-selection
+		// reconciliation (which drops ids absent from the chat list) leaves the
+		// loaded line-up intact. proxyModelID(provider, model) === "provider/model".
 		data: [
-			{ provider_name: "TestProvider", model_id: "model-1", enabled: true },
-			{ provider_name: "TestProvider", model_id: "model-2", enabled: true },
-			{ provider_name: "TestProvider", model_id: "model-3", enabled: true },
+			...Array.from({ length: 8 }, (_, i) => ({
+				provider_name: "TestProvider",
+				model_id: `model-${i + 1}`,
+				enabled: true,
+			})),
+			...Array.from({ length: 4 }, (_, i) => ({
+				provider_name: `P${i + 1}`,
+				model_id: `M${i + 1}`,
+				enabled: true,
+			})),
 		],
 	})),
 }));
@@ -153,7 +163,7 @@ describe("useArenaState", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-1",
+								modelId: "TestProvider/model-1",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
@@ -234,7 +244,7 @@ describe("useArenaState", () => {
 				"arenaState",
 				JSON.stringify({
 					modelParams: {
-						"model-1": { temperature: 0.8, max_tokens: 200 },
+						"TestProvider/model-1": { temperature: 0.8, max_tokens: 200 },
 					},
 				}),
 			);
@@ -244,7 +254,7 @@ describe("useArenaState", () => {
 			});
 
 			expect(result.current.modelParams).toEqual({
-				"model-1": { temperature: 0.8, max_tokens: 200 },
+				"TestProvider/model-1": { temperature: 0.8, max_tokens: 200 },
 			});
 		});
 

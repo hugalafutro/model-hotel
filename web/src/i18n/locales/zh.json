@@ -2651,7 +2651,8 @@
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
 			"retry": "{{model}}: {{status}} - 重试 {{attempt}} 在 {{delay}}秒内…",
-			"networkError": "网络错误"
+			"networkError": "网络错误",
+			"nonChatModel": "非聊天模型"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "获取 NanoGPT 使用配额失败",

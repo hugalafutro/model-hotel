@@ -45,6 +45,21 @@ describe("useConversationRunner", () => {
 		expect(params.setConversationState).not.toHaveBeenCalled();
 	});
 
+	it("does not start while the model list is still loading", () => {
+		// Persisted A/B selections can't be validated yet, so a conversation waits
+		// rather than risk routing to a now-non-chat model.
+		const params = createMockParams({ modelsReady: false });
+		const { result } = renderHook(() => useConversationRunner(params), {
+			wrapper: createWrapper(),
+		});
+
+		act(() => {
+			void result.current.runConversation();
+		});
+
+		expect(params.setConversationState).not.toHaveBeenCalled();
+	});
+
 	it("does not start if no selected models", () => {
 		const params = createMockParams({
 			selectedModel: "",

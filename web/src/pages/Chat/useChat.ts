@@ -10,7 +10,7 @@ import { useSidebarMode } from "../../context/SidebarModeContext";
 import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
-import { useEnabledModels } from "../../hooks/useModels";
+import { useChatModels } from "../../hooks/useModels";
 import { parseCapabilities, proxyModelID } from "../../utils/model";
 import { hasAnyParam } from "../../utils/params";
 import { getApiMessagesForModel, streamModelResponse } from "./chatStreaming";
@@ -21,7 +21,11 @@ import { useConversationRunner } from "./useConversationRunner";
 import { useMultimodalAttachments } from "./useMultimodalAttachments";
 
 export function useChat() {
-	const { data: enabledModels } = useEnabledModels();
+	const { data: enabledModels, isLoading: modelsLoading } = useChatModels();
+	// False while the chat model list is doing its first load. Actions that would
+	// dispatch a selected model wait for this so a persisted stale (now non-chat)
+	// selection can't slip through the pre-reconciliation window.
+	const modelsReady = !modelsLoading;
 	const { chatSubMode, setChatSubMode } = useSidebarMode();
 	const { persistChat, persistConversation } = useStorage();
 
@@ -174,6 +178,37 @@ export function useChat() {
 	const selectedModelObjB = enabledModels.find(
 		(m) => proxyModelID(m.provider_name, m.model_id) === selectedModelB,
 	);
+
+	// Drop persisted selections that are no longer valid chat models (e.g. a
+	// previously-picked model that became an embedding/rerank model, or one
+	// that got disabled). Without this a stale localStorage id would stay
+	// selected while hidden from the picker, and send/start would route a chat
+	// completion to a model that can't serve it. Only runs once the list has
+	// loaded so a transient empty fetch never wipes a valid selection.
+	useEffect(() => {
+		// Reconcile once the list has settled (loaded, success or error). An empty
+		// or failed list clears every selection so a stale (now non-chat) id can't
+		// be dispatched to a chat endpoint; the loading window itself is covered by
+		// the modelsReady guards on send/regenerate/conversation start.
+		if (!modelsReady) return;
+		const valid = new Set(
+			enabledModels.map((m) => proxyModelID(m.provider_name, m.model_id)),
+		);
+		if (chatSelectedModel && !valid.has(chatSelectedModel))
+			setChatSelectedModel("");
+		if (conversationModelA && !valid.has(conversationModelA))
+			setConversationModelA("");
+		if (selectedModelB && !valid.has(selectedModelB)) setSelectedModelB("");
+	}, [
+		modelsReady,
+		enabledModels,
+		chatSelectedModel,
+		conversationModelA,
+		selectedModelB,
+		setChatSelectedModel,
+		setConversationModelA,
+		setSelectedModelB,
+	]);
 
 	// ── Model capabilities for attachment icon visibility ──
 	const modelCaps = selectedModelObj
@@ -344,7 +379,14 @@ export function useChat() {
 
 	const handleSend = useCallback(async () => {
 		const hasAttachment = pendingImage || pendingAudio;
-		if ((!input.trim() && !hasAttachment) || !selectedModel || isStreaming)
+		// Wait for the model list to settle so a persisted stale selection is
+		// reconciled away before it could be sent to a non-chat endpoint.
+		if (
+			!modelsReady ||
+			(!input.trim() && !hasAttachment) ||
+			!selectedModel ||
+			isStreaming
+		)
 			return;
 		if (sendingRef.current) return;
 
@@ -397,6 +439,7 @@ export function useChat() {
 		}
 	}, [
 		input,
+		modelsReady,
 		selectedModel,
 		isStreaming,
 		messages,
@@ -418,6 +461,10 @@ export function useChat() {
 
 	const handleRegenerate = useCallback(async () => {
 		if (isStreaming) return;
+		// Wait for the model list to settle so a persisted stale selection is
+		// reconciled away first; same guard as handleSend: without a selected model
+		// regenerate would stream with an empty model id.
+		if (!modelsReady || !selectedModel) return;
 		let lastUserIdx = -1;
 		for (let i = messages.length - 1; i >= 0; i--) {
 			if (messages[i].role === "user") {
@@ -474,6 +521,7 @@ export function useChat() {
 		}
 	}, [
 		isStreaming,
+		modelsReady,
 		messages,
 		selectedModel,
 		systemPrompt,
@@ -488,6 +536,7 @@ export function useChat() {
 		handleRetryConversation,
 		clearConversationAbort,
 	} = useConversationRunner({
+		modelsReady,
 		selectedModel,
 		selectedModelB,
 		input,

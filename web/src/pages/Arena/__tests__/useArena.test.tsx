@@ -98,6 +98,7 @@ const createMockArenaState = (
 		previewPairs: null,
 		// Dependencies
 		enabledModels: [] as Model[],
+		modelsReady: true,
 		toast: vi.fn() as ReturnType<typeof useToast>["toast"],
 		...overrides,
 	};
@@ -385,6 +386,301 @@ describe("useArena", () => {
 				winner: "model-b",
 				rounds,
 			});
+		});
+	});
+
+	describe("deferred run recovery effect", () => {
+		const pendingRounds = (): BracketRound[] => [
+			{
+				matchups: [
+					{
+						slotA: {
+							modelId: "P/model-a",
+							personaId: null,
+							personaPrompt: "",
+							params: {},
+						},
+						slotB: null,
+						responseA: {
+							model: "P/model-a",
+							rawContent: "",
+							content: "",
+							thinkingContent: "",
+							startTimeMs: 0,
+							done: false,
+							error: null,
+							metrics: null,
+						},
+						responseB: null,
+						vote: null,
+					},
+				],
+			},
+		];
+
+		const setState = (
+			runRoundMock: (roundIdx: number) => void,
+			opts: {
+				rounds: BracketRound[];
+				modelsReady: boolean;
+				enabledModels: Model[];
+				phase?: "running" | "setup";
+				abortMap?: Map<string, AbortController>;
+			},
+		) => {
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					phase: opts.phase ?? "running",
+					rounds: opts.rounds,
+					currentRound: 0,
+					roundsRef: { current: opts.rounds },
+					currentRoundRef: { current: 0 },
+					modelsReady: opts.modelsReady,
+					enabledModels: opts.enabledModels,
+				}),
+			);
+			vi.mocked(useArenaRunner).mockReturnValue(
+				createMockArenaRunner({
+					runRound: runRoundMock,
+					abortMapRef: { current: opts.abortMap ?? new Map() },
+				}),
+			);
+		};
+
+		it("re-dispatches the current round when the allowlist becomes usable", () => {
+			const runRoundMock = vi.fn();
+			const rounds = pendingRounds();
+			setState(runRoundMock, {
+				rounds,
+				modelsReady: false,
+				enabledModels: [],
+			});
+			const { rerender } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+			expect(runRoundMock).not.toHaveBeenCalled();
+
+			setState(runRoundMock, {
+				rounds,
+				modelsReady: true,
+				enabledModels: [{ provider_name: "P", model_id: "model-a" } as Model],
+			});
+			rerender();
+
+			expect(runRoundMock).toHaveBeenCalledWith(0);
+		});
+
+		it("re-dispatches on mount when a saved running round reloads with a warm cache", () => {
+			// Warm model cache: the allowlist is usable on the very first render, so
+			// there is no false->true transition to observe. A persisted "running"
+			// round with pending slots and no active stream must still be recovered.
+			const runRoundMock = vi.fn();
+			const rounds = pendingRounds();
+			setState(runRoundMock, {
+				rounds,
+				modelsReady: true,
+				enabledModels: [{ provider_name: "P", model_id: "model-a" } as Model],
+			});
+
+			renderHook(() => useArena(), { wrapper: createWrapper() });
+
+			expect(runRoundMock).toHaveBeenCalledWith(0);
+		});
+
+		it("does not re-dispatch while streams are in flight", () => {
+			const runRoundMock = vi.fn();
+			const rounds = pendingRounds();
+			setState(runRoundMock, {
+				rounds,
+				modelsReady: false,
+				enabledModels: [],
+			});
+			const { rerender } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+
+			// Allowlist becomes usable but a stream is already active.
+			setState(runRoundMock, {
+				rounds,
+				modelsReady: true,
+				enabledModels: [{ provider_name: "P", model_id: "model-a" } as Model],
+				abortMap: new Map([["P/model-a", new AbortController()]]),
+			});
+			rerender();
+
+			expect(runRoundMock).not.toHaveBeenCalled();
+		});
+
+		it("does not re-dispatch when not in the running phase", () => {
+			const runRoundMock = vi.fn();
+			const rounds = pendingRounds();
+			setState(runRoundMock, {
+				rounds,
+				modelsReady: false,
+				enabledModels: [],
+				phase: "setup",
+			});
+			const { rerender } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+
+			setState(runRoundMock, {
+				rounds,
+				modelsReady: true,
+				enabledModels: [{ provider_name: "P", model_id: "model-a" } as Model],
+				phase: "setup",
+			});
+			rerender();
+
+			expect(runRoundMock).not.toHaveBeenCalled();
+		});
+
+		it("re-dispatches for a pending slot B", () => {
+			const runRoundMock = vi.fn();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: null,
+							slotB: {
+								modelId: "P/model-b",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							responseA: null,
+							responseB: {
+								model: "P/model-b",
+								rawContent: "",
+								content: "",
+								thinkingContent: "",
+								startTimeMs: 0,
+								done: false,
+								error: null,
+								metrics: null,
+							},
+							vote: null,
+						},
+					],
+				},
+			];
+			setState(runRoundMock, {
+				rounds,
+				modelsReady: false,
+				enabledModels: [],
+			});
+			const { rerender } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+
+			setState(runRoundMock, {
+				rounds,
+				modelsReady: true,
+				enabledModels: [{ provider_name: "P", model_id: "model-b" } as Model],
+			});
+			rerender();
+
+			expect(runRoundMock).toHaveBeenCalledWith(0);
+		});
+
+		it("drops a stuck running round to setup when no chat models exist", () => {
+			const runRoundMock = vi.fn();
+			const setPhaseMock = vi.fn();
+			const rounds = pendingRounds();
+			// Settled (modelsReady) but empty list, still "running" with a pending
+			// slot: the run can't proceed, so it must leave the running phase.
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					phase: "running",
+					rounds,
+					currentRound: 0,
+					roundsRef: { current: rounds },
+					currentRoundRef: { current: 0 },
+					modelsReady: true,
+					enabledModels: [],
+					setPhase: setPhaseMock,
+				}),
+			);
+			vi.mocked(useArenaRunner).mockReturnValue(
+				createMockArenaRunner({
+					runRound: runRoundMock,
+					abortMapRef: { current: new Map() },
+				}),
+			);
+
+			renderHook(() => useArena(), { wrapper: createWrapper() });
+
+			expect(setPhaseMock).toHaveBeenCalledWith("setup");
+			expect(runRoundMock).not.toHaveBeenCalled();
+		});
+
+		it("does not re-dispatch when the current round is missing", () => {
+			const runRoundMock = vi.fn();
+			setState(runRoundMock, {
+				rounds: [],
+				modelsReady: false,
+				enabledModels: [],
+			});
+			const { rerender } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+
+			setState(runRoundMock, {
+				rounds: [],
+				modelsReady: true,
+				enabledModels: [{ provider_name: "P", model_id: "model-a" } as Model],
+			});
+			rerender();
+
+			expect(runRoundMock).not.toHaveBeenCalled();
+		});
+
+		it("does not re-dispatch when every slot is already done", () => {
+			const runRoundMock = vi.fn();
+			const doneRounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "P/model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: {
+								model: "P/model-a",
+								rawContent: "hi",
+								content: "hi",
+								thinkingContent: "",
+								startTimeMs: 0,
+								done: true,
+								error: null,
+								metrics: null,
+							},
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			setState(runRoundMock, {
+				rounds: doneRounds,
+				modelsReady: false,
+				enabledModels: [],
+			});
+			const { rerender } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+
+			setState(runRoundMock, {
+				rounds: doneRounds,
+				modelsReady: true,
+				enabledModels: [{ provider_name: "P", model_id: "model-a" } as Model],
+			});
+			rerender();
+
+			expect(runRoundMock).not.toHaveBeenCalled();
 		});
 	});
 

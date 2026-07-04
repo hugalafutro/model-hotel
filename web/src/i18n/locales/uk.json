@@ -2651,7 +2651,8 @@
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
 			"retry": "{{model}}: {{status}} - спробуйте {{attempt}} в {{delay}}s…",
-			"networkError": "помилка мережі"
+			"networkError": "помилка мережі",
+			"nonChatModel": "Не чат-модель"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "Не вдалося отримати NanoGPT квоту використання",

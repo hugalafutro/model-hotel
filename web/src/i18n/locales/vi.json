@@ -2651,7 +2651,8 @@
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
 			"retry": "{{model}}: {{status}} - thử lại {{attempt}} trong {{delay}}s…",
-			"networkError": "Lỗi mạng"
+			"networkError": "Lỗi mạng",
+			"nonChatModel": "Không phải mô hình trò chuyện"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "Không thể truy xuất hạn mức sử dụng NanoGPT",

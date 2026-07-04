@@ -2651,7 +2651,8 @@
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
 			"retry": "{{model}}: {{status}} - yeniden dene {{attempt}} adresinde {{delay}}'un…",
-			"networkError": "ağ hatası"
+			"networkError": "ağ hatası",
+			"nonChatModel": "Sohbet modeli değil"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "NanoGPT kullanım kotası alınamadı",

@@ -3,6 +3,7 @@ import {
 	formatPrice,
 	formatPriceInput,
 	is5xxError,
+	isChatModel,
 	normalizeProviderName,
 	parseCapabilities,
 	providerFromModelID,
@@ -275,5 +276,30 @@ describe("is5xxError", () => {
 		expect(is5xxError("Error 599")).toBe(true);
 		expect(is5xxError("Error 499")).toBe(false);
 		expect(is5xxError("Error 600")).toBe(false);
+	});
+});
+
+describe("isChatModel", () => {
+	it("returns true for chat-capable modalities", () => {
+		for (const modality of ["text", "vision", "audio", "multimodal", "video"]) {
+			expect(isChatModel({ modality })).toBe(true);
+		}
+	});
+
+	it("returns false for non-chat modalities", () => {
+		for (const modality of ["embedding", "rerank", "image", "tts", "stt"]) {
+			expect(isChatModel({ modality })).toBe(false);
+		}
+	});
+
+	it("is case-insensitive", () => {
+		expect(isChatModel({ modality: "Embedding" })).toBe(false);
+		expect(isChatModel({ modality: "RERANK" })).toBe(false);
+	});
+
+	it("default-allows unknown or missing modalities", () => {
+		expect(isChatModel({ modality: "future-modality" })).toBe(true);
+		expect(isChatModel({ modality: "" })).toBe(true);
+		expect(isChatModel({})).toBe(true);
 	});
 });

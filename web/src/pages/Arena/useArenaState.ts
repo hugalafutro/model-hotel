@@ -7,7 +7,7 @@ import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
 import { CHAT_PERSONAS } from "../../data/presets";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
-import { useEnabledModels } from "../../hooks/useModels";
+import { useChatModels } from "../../hooks/useModels";
 import {
 	getArenaHistoryEnabled,
 	saveCompareToHistory,
@@ -97,12 +97,14 @@ export interface ArenaStateAndActions {
 	handleRandomCompareModel: () => void;
 	previewPairs: ReturnType<typeof getPreviewPairs>;
 	// Dependencies
-	enabledModels: ReturnType<typeof useEnabledModels>["data"];
+	enabledModels: ReturnType<typeof useChatModels>["data"];
+	modelsReady: boolean;
 	toast: ReturnType<typeof useToast>["toast"];
 }
 
 export function useArenaState(): ArenaStateAndActions {
-	const { data: enabledModels } = useEnabledModels();
+	const { data: enabledModels, isLoading: modelsLoading } = useChatModels();
+	const modelsReady = !modelsLoading;
 	const { toast } = useToast();
 	const { persistArena } = useStorage();
 	const { arenaSubMode, setArenaSubMode } = useSidebarMode();
@@ -345,6 +347,31 @@ export function useArenaState(): ArenaStateAndActions {
 		comparePersonaIdRef.current = comparePersonaId;
 	}, [comparePersonaId]);
 
+	// Drop persisted model ids that are no longer valid chat models (e.g. one
+	// that became an embedding/rerank model, or got disabled) so a stale
+	// localStorage entry can't make a run start against a model that can't
+	// serve chat. Only in setup phase, so a running competition's captured
+	// line-up is never mutated; only once the list has loaded so a transient
+	// empty fetch never wipes valid selections.
+	useEffect(() => {
+		if (phase !== "setup" || enabledModels.length === 0) return;
+		const valid = new Set(
+			enabledModels.map((m) => proxyModelID(m.provider_name, m.model_id)),
+		);
+		// Reconciling persisted state against freshly-loaded data; the functional
+		// updates return the same reference when nothing changes, so this settles
+		// in one pass without an update loop.
+		// eslint-disable-next-line react-hooks/set-state-in-effect
+		setBracketModels((prev) => {
+			const next = prev.filter((id) => valid.has(id));
+			return next.length === prev.length ? prev : next;
+		});
+		setCompareModels((prev) => {
+			const next = prev.filter((id) => valid.has(id));
+			return next.length === prev.length ? prev : next;
+		});
+	}, [phase, enabledModels]);
+
 	useEffect(() => {
 		roundsRef.current = rounds;
 	}, [rounds]);
@@ -579,6 +606,7 @@ export function useArenaState(): ArenaStateAndActions {
 		previewPairs,
 		// Dependencies
 		enabledModels,
+		modelsReady,
 		toast,
 	};
 }

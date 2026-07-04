@@ -10,12 +10,14 @@ import {
 
 // Mock the dependencies
 vi.mock("../../../hooks/useModels", () => ({
-	useEnabledModels: vi.fn(() => ({
-		data: [
-			{ provider_name: "TestProvider", model_id: "model-1", enabled: true },
-			{ provider_name: "TestProvider", model_id: "model-2", enabled: true },
-			{ provider_name: "TestProvider", model_id: "model-3", enabled: true },
-		],
+	useChatModels: vi.fn(() => ({
+		// proxyModelID("TestProvider", "model-N") === "TestProvider/model-N",
+		// which is the id form the set*/assert calls below use.
+		data: Array.from({ length: 8 }, (_, i) => ({
+			provider_name: "TestProvider",
+			model_id: `model-${i + 1}`,
+			enabled: true,
+		})),
 	})),
 }));
 
@@ -64,10 +66,16 @@ describe("useArenaState", () => {
 		});
 
 		act(() => {
-			result.current.setCompareModels(["model-1", "model-2"]);
+			result.current.setCompareModels([
+				"TestProvider/model-1",
+				"TestProvider/model-2",
+			]);
 		});
 
-		expect(result.current.compareModels).toEqual(["model-1", "model-2"]);
+		expect(result.current.compareModels).toEqual([
+			"TestProvider/model-1",
+			"TestProvider/model-2",
+		]);
 	});
 
 	it("updates bracketModels via setter", () => {
@@ -77,18 +85,18 @@ describe("useArenaState", () => {
 
 		act(() => {
 			result.current.setBracketModels([
-				"model-1",
-				"model-2",
-				"model-3",
-				"model-4",
+				"TestProvider/model-1",
+				"TestProvider/model-2",
+				"TestProvider/model-3",
+				"TestProvider/model-4",
 			]);
 		});
 
 		expect(result.current.bracketModels).toEqual([
-			"model-1",
-			"model-2",
-			"model-3",
-			"model-4",
+			"TestProvider/model-1",
+			"TestProvider/model-2",
+			"TestProvider/model-3",
+			"TestProvider/model-4",
 		]);
 	});
 
@@ -258,7 +266,7 @@ describe("useArenaState", () => {
 				matchups: [
 					{
 						slotA: {
-							modelId: "model-1",
+							modelId: "TestProvider/model-1",
 							personaId: null,
 							personaPrompt: "",
 							params: {},
@@ -315,11 +323,13 @@ describe("useArenaState", () => {
 		});
 
 		act(() => {
-			result.current.setRunningModels(new Set(["model-1", "model-2"]));
+			result.current.setRunningModels(
+				new Set(["TestProvider/model-1", "TestProvider/model-2"]),
+			);
 		});
 
 		expect(result.current.runningModels).toEqual(
-			new Set(["model-1", "model-2"]),
+			new Set(["TestProvider/model-1", "TestProvider/model-2"]),
 		);
 	});
 
@@ -329,7 +339,7 @@ describe("useArenaState", () => {
 		});
 
 		const winnerModal = {
-			winner: "model-1",
+			winner: "TestProvider/model-1",
 			rounds: [],
 		};
 
@@ -352,10 +362,12 @@ describe("useArenaState", () => {
 		});
 
 		act(() => {
-			result.current.setDisabledModels(new Set(["model-1"]));
+			result.current.setDisabledModels(new Set(["TestProvider/model-1"]));
 		});
 
-		expect(result.current.disabledModels).toEqual(new Set(["model-1"]));
+		expect(result.current.disabledModels).toEqual(
+			new Set(["TestProvider/model-1"]),
+		);
 	});
 
 	it("updates arenaCollapsed via setter", () => {
@@ -401,12 +413,12 @@ describe("useArenaState", () => {
 
 		act(() => {
 			result.current.setModelParams({
-				"model-1": { temperature: 0.7, max_tokens: 100 },
+				"TestProvider/model-1": { temperature: 0.7, max_tokens: 100 },
 			});
 		});
 
 		expect(result.current.modelParams).toEqual({
-			"model-1": { temperature: 0.7, max_tokens: 100 },
+			"TestProvider/model-1": { temperature: 0.7, max_tokens: 100 },
 		});
 	});
 
@@ -416,10 +428,10 @@ describe("useArenaState", () => {
 		});
 
 		act(() => {
-			result.current.setParamEditorModel("model-1");
+			result.current.setParamEditorModel("TestProvider/model-1");
 		});
 
-		expect(result.current.paramEditorModel).toBe("model-1");
+		expect(result.current.paramEditorModel).toBe("TestProvider/model-1");
 
 		act(() => {
 			result.current.setParamEditorModel(null);
@@ -434,7 +446,10 @@ describe("useArenaState", () => {
 		});
 
 		act(() => {
-			result.current.abortMapRef.current.set("model-1", new AbortController());
+			result.current.abortMapRef.current.set(
+				"TestProvider/model-1",
+				new AbortController(),
+			);
 		});
 
 		expect(result.current.abortMapRef.current.size).toBe(1);

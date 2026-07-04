@@ -10,12 +10,14 @@ import {
 
 // Mock the dependencies
 vi.mock("../../../hooks/useModels", () => ({
-	useEnabledModels: vi.fn(() => ({
-		data: [
-			{ provider_name: "TestProvider", model_id: "model-1", enabled: true },
-			{ provider_name: "TestProvider", model_id: "model-2", enabled: true },
-			{ provider_name: "TestProvider", model_id: "model-3", enabled: true },
-		],
+	useChatModels: vi.fn(() => ({
+		// proxyModelID("TestProvider", "model-N") === "TestProvider/model-N",
+		// which is the id the setCompare/setBracket calls below use.
+		data: Array.from({ length: 8 }, (_, i) => ({
+			provider_name: "TestProvider",
+			model_id: `model-${i + 1}`,
+			enabled: true,
+		})),
 	})),
 }));
 
@@ -77,7 +79,7 @@ describe("useArenaState", () => {
 			});
 
 			act(() => {
-				result.current.setCompareModels(["model-1"]);
+				result.current.setCompareModels(["TestProvider/model-1"]);
 				result.current.setPrompt("Test prompt");
 			});
 
@@ -90,7 +92,10 @@ describe("useArenaState", () => {
 			});
 
 			act(() => {
-				result.current.setCompareModels(["model-1", "model-1"]);
+				result.current.setCompareModels([
+					"TestProvider/model-1",
+					"TestProvider/model-1",
+				]);
 				result.current.setPrompt("Test prompt");
 			});
 
@@ -103,7 +108,10 @@ describe("useArenaState", () => {
 			});
 
 			act(() => {
-				result.current.setCompareModels(["model-1", "model-2"]);
+				result.current.setCompareModels([
+					"TestProvider/model-1",
+					"TestProvider/model-2",
+				]);
 				result.current.setPrompt("Test prompt");
 			});
 
@@ -116,7 +124,10 @@ describe("useArenaState", () => {
 			});
 
 			act(() => {
-				result.current.setCompareModels(["model-1", "model-2"]);
+				result.current.setCompareModels([
+					"TestProvider/model-1",
+					"TestProvider/model-2",
+				]);
 				result.current.setPrompt("");
 			});
 
@@ -129,7 +140,10 @@ describe("useArenaState", () => {
 			});
 
 			act(() => {
-				result.current.setCompareModels(["model-1", "model-2"]);
+				result.current.setCompareModels([
+					"TestProvider/model-1",
+					"TestProvider/model-2",
+				]);
 				result.current.setPrompt("   ");
 			});
 
@@ -156,7 +170,7 @@ describe("useArenaState", () => {
 			});
 
 			act(() => {
-				result.current.setBracketModels(["model-1"]);
+				result.current.setBracketModels(["TestProvider/model-1"]);
 				result.current.setPrompt("Test prompt");
 			});
 
@@ -169,7 +183,11 @@ describe("useArenaState", () => {
 			});
 
 			act(() => {
-				result.current.setBracketModels(["model-1", "model-2", "model-3"]);
+				result.current.setBracketModels([
+					"TestProvider/model-1",
+					"TestProvider/model-2",
+					"TestProvider/model-3",
+				]);
 				result.current.setPrompt("Test prompt");
 			});
 
@@ -183,11 +201,11 @@ describe("useArenaState", () => {
 
 			act(() => {
 				result.current.setBracketModels([
-					"model-1",
-					"model-2",
-					"model-3",
-					"model-4",
-					"model-5",
+					"TestProvider/model-1",
+					"TestProvider/model-2",
+					"TestProvider/model-3",
+					"TestProvider/model-4",
+					"TestProvider/model-5",
 				]);
 				result.current.setPrompt("Test prompt");
 			});
@@ -201,7 +219,10 @@ describe("useArenaState", () => {
 			});
 
 			act(() => {
-				result.current.setBracketModels(["model-1", "model-2"]);
+				result.current.setBracketModels([
+					"TestProvider/model-1",
+					"TestProvider/model-2",
+				]);
 				result.current.setPrompt("Test prompt");
 			});
 
@@ -215,10 +236,10 @@ describe("useArenaState", () => {
 
 			act(() => {
 				result.current.setBracketModels([
-					"model-1",
-					"model-2",
-					"model-3",
-					"model-4",
+					"TestProvider/model-1",
+					"TestProvider/model-2",
+					"TestProvider/model-3",
+					"TestProvider/model-4",
 				]);
 				result.current.setPrompt("Test prompt");
 			});
@@ -233,14 +254,14 @@ describe("useArenaState", () => {
 
 			act(() => {
 				result.current.setBracketModels([
-					"model-1",
-					"model-2",
-					"model-3",
-					"model-4",
-					"model-5",
-					"model-6",
-					"model-7",
-					"model-8",
+					"TestProvider/model-1",
+					"TestProvider/model-2",
+					"TestProvider/model-3",
+					"TestProvider/model-4",
+					"TestProvider/model-5",
+					"TestProvider/model-6",
+					"TestProvider/model-7",
+					"TestProvider/model-8",
 				]);
 				result.current.setPrompt("Test prompt");
 			});
@@ -254,11 +275,55 @@ describe("useArenaState", () => {
 			});
 
 			act(() => {
-				result.current.setBracketModels(["model-1", "model-1"]);
+				result.current.setBracketModels([
+					"TestProvider/model-1",
+					"TestProvider/model-1",
+				]);
 				result.current.setPrompt("Test prompt");
 			});
 
 			expect(result.current.canRun).toBe(false);
+		});
+	});
+
+	describe("stale-selection reconciliation", () => {
+		// A persisted line-up can contain an id that is no longer a valid chat
+		// model (e.g. it became an embedding/rerank model, or got disabled).
+		// Once the chat list loads, those ids are dropped so a run can't start
+		// against a model that can't serve chat.
+		it("drops persisted compare models absent from the chat list on load", () => {
+			localStorage.setItem("persistArena", "true");
+			localStorage.setItem(
+				"arenaState",
+				JSON.stringify({
+					phase: "setup",
+					compareModels: ["TestProvider/model-1", "TestProvider/model-99"],
+				}),
+			);
+
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			// model-99 is not in the mocked 8-model chat list.
+			expect(result.current.compareModels).toEqual(["TestProvider/model-1"]);
+		});
+
+		it("drops persisted bracket models absent from the chat list on load", () => {
+			localStorage.setItem("persistArena", "true");
+			localStorage.setItem(
+				"arenaState",
+				JSON.stringify({
+					phase: "setup",
+					bracketModels: ["TestProvider/model-1", "TestProvider/model-99"],
+				}),
+			);
+
+			const { result } = renderHook(() => useArenaState(), {
+				wrapper: createWrapper(),
+			});
+
+			expect(result.current.bracketModels).toEqual(["TestProvider/model-1"]);
 		});
 	});
 });

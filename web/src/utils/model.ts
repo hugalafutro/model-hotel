@@ -36,6 +36,28 @@ export function parseCapabilities(capStr: string): Record<string, boolean> {
 	}
 }
 
+/**
+ * Modalities served by non-chat endpoints (embeddings, rerank, etc.). Models
+ * with one of these are hidden from the chat/arena pickers, where they could
+ * never work, but stay visible in /v1/models and the failover group editor.
+ */
+export const NON_CHAT_MODALITIES = new Set([
+	"embedding",
+	"rerank",
+	"image",
+	"tts",
+	"stt",
+]);
+
+/**
+ * True when a model can serve /v1/chat/completions. Default-allow: unknown or
+ * empty modalities are treated as chat so a new modality never silently
+ * disappears from the picker.
+ */
+export function isChatModel(m: { modality?: string }): boolean {
+	return !NON_CHAT_MODALITIES.has((m.modality ?? "").toLowerCase());
+}
+
 export function formatPrice(n: number | null | undefined): string {
 	if (n == null) return "-";
 	const rounded = Math.round(n * 10000) / 10000;

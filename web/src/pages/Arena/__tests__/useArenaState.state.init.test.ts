@@ -10,7 +10,7 @@ import {
 
 // Mock the dependencies
 vi.mock("../../../hooks/useModels", () => ({
-	useEnabledModels: vi.fn(() => ({
+	useChatModels: vi.fn(() => ({
 		data: [
 			{ provider_name: "TestProvider", model_id: "model-1", enabled: true },
 			{ provider_name: "TestProvider", model_id: "model-2", enabled: true },

@@ -2651,7 +2651,8 @@
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
 			"retry": "{{model}}: {{status}} - spróbuj ponownie {{attempt}} w {{delay}}s…",
-			"networkError": "błąd sieci"
+			"networkError": "błąd sieci",
+			"nonChatModel": "To nie jest model czatu"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "Nie udało się pobrać limitu użycia NanoGPT",

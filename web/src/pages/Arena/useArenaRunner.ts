@@ -1,10 +1,11 @@
 import { produce } from "immer";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { API_BASE, getAuthHeaders } from "../../api/client";
 import type { GenerationParams } from "../../api/types";
 import type { ArenaSubMode } from "../../context/SidebarModeContext";
 import type { useToast } from "../../context/ToastContext";
+import { proxyModelID } from "../../utils/model";
 import { hasAnyParam } from "../../utils/params";
 import { readSSEStream, type StreamChunk } from "../../utils/sse";
 import { fetchWithRetry } from "../../utils/stagger";
@@ -31,6 +32,8 @@ export interface ArenaRunnerDeps {
 	roundsRef: React.RefObject<BracketRound[]>;
 	modelParams: Record<string, GenerationParams>;
 	enabledModels: Array<{ provider_name: string; model_id: string }>;
+	/** False while the chat model list is still doing its first load. */
+	modelsReady: boolean;
 	toast: ReturnType<typeof useToast>["toast"];
 }
 
@@ -78,6 +81,7 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 		roundsRef,
 		modelParams,
 		enabledModels,
+		modelsReady,
 		toast,
 	} = deps;
 
@@ -121,6 +125,23 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 		[setRunningModelsRaw],
 	);
 
+	// The ids the picker/random actions can currently produce. enabledModels is
+	// already the chat-filtered list, so anything outside it is a non-chat model
+	// (reclassified to embedding/rerank, or disabled) that must not be dispatched.
+	const validModelIds = useMemo(
+		() =>
+			new Set(
+				enabledModels.map((m) => proxyModelID(m.provider_name, m.model_id)),
+			),
+		[enabledModels],
+	);
+
+	// A usable allowlist means the list has settled AND has at least one chat
+	// model to judge against. An empty / failed list is not authoritative, so we
+	// neither dispatch nor mutate round state against it (that would erase a
+	// maybe-valid persisted competition); we wait for a real list instead.
+	const hasUsableAllowlist = modelsReady && validModelIds.size > 0;
+
 	const streamModel = useCallback(
 		(
 			model: string,
@@ -131,6 +152,48 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			matchupIdx: number,
 			slotParams?: GenerationParams,
 		) => {
+			// A persisted competition can reload (outside setup phase, so array
+			// reconciliation is skipped) with a round slot pointing at a model that
+			// is no longer a valid chat target. Never stream a chat request to a
+			// non-chat endpoint.
+			if (!validModelIds.has(model)) {
+				// No usable allowlist to classify against: bail without touching the
+				// response, running set, or phase, so a maybe-valid persisted round is
+				// never erased (the run initiators also refuse to start without one).
+				if (!hasUsableAllowlist) return;
+				// Genuine non-chat model: stamp the slot errored and clear it from the
+				// run.
+				const respKey = slotKey === "A" ? "responseA" : "responseB";
+				setRounds(
+					produce((draft) => {
+						const mu = draft[roundIdx]?.matchups[matchupIdx];
+						if (mu) {
+							mu[respKey] = {
+								model,
+								rawContent: "",
+								content: "",
+								thinkingContent: "",
+								startTimeMs: Date.now(),
+								done: true,
+								error: t("hooks.useArenaRunner.nonChatModel"),
+								metrics: null,
+							};
+						}
+					}),
+				);
+				setRunningModels((prev) => {
+					const next = new Set(prev);
+					next.delete(model);
+					if (next.size === 0) {
+						setPhase(
+							arenaModeRef.current === "compare" ? "finished" : "voting",
+						);
+					}
+					return next;
+				});
+				return;
+			}
+
 			const abortCtrl = new AbortController();
 			abortMapRef.current.set(model, abortCtrl);
 
@@ -323,13 +386,26 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 
 			run();
 		},
-		[t, toast, setRunningModels, setPhase, setRounds, arenaModeRef],
+		[
+			t,
+			toast,
+			setRunningModels,
+			setPhase,
+			setRounds,
+			arenaModeRef,
+			validModelIds,
+			hasUsableAllowlist,
+		],
 	);
 
 	const runRound = useCallback(
 		(roundIdx: number) => {
 			const round = roundsRef.current[roundIdx];
 			if (!round) return;
+			// Don't start a round without a usable allowlist: an empty / not-yet-
+			// loaded list would defer every slot and could erase the round. Leave
+			// state untouched so it can be started once a real list arrives.
+			if (!hasUsableAllowlist) return;
 
 			const currentPrompt = savedPrompt || prompt.trim();
 
@@ -375,6 +451,7 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			setPhase,
 			setRunningModels,
 			roundsRef,
+			hasUsableAllowlist,
 		],
 	);
 
@@ -412,6 +489,8 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			if (!mu) return;
 			const slot = slotKey === "A" ? mu.slotA : mu.slotB;
 			if (!slot) return;
+			// Same as runRound: don't retry a slot without a usable allowlist.
+			if (!hasUsableAllowlist) return;
 
 			const respKey = slotKey === "A" ? "responseA" : "responseB";
 			setRounds(
@@ -443,7 +522,15 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 				slot.params,
 			);
 		},
-		[rounds, savedPrompt, streamModel, setRounds, setRunningModels, setPhase],
+		[
+			rounds,
+			savedPrompt,
+			streamModel,
+			setRounds,
+			setRunningModels,
+			setPhase,
+			hasUsableAllowlist,
+		],
 	);
 
 	const handleCancelSlot = useCallback(
@@ -488,6 +575,9 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			slotKey: "A" | "B",
 			newModelId: string,
 		) => {
+			// The swap picker only offers loaded chat models, but guard anyway so a
+			// swap during an empty/loading window doesn't wedge the slot.
+			if (!hasUsableAllowlist) return;
 			setRounds(
 				produce((draft) => {
 					const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
@@ -532,6 +622,7 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			setRunningModels,
 			setRounds,
 			setPhase,
+			hasUsableAllowlist,
 		],
 	);
 
