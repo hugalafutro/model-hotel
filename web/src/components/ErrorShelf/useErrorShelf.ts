@@ -196,17 +196,9 @@ export function useErrorShelf(): UseErrorShelf {
 		const reqEntries = reqLogData?.data.entries ?? [];
 		const appEntries = appLogData?.data.entries ?? [];
 
-		// Anchor "now" on the server's clock, sampled from the `Date` response
-		// header, so the 24h window is immune to a skewed browser clock (a fast
-		// client clock would otherwise slide the cutoff forward and hide
-		// server-recent errors; a slow one would resurface stale ones). Fall back
-		// to the browser clock only when no sample is available (e.g. under a test
-		// mock without the header). Clamp up to the newest served timestamp as a
-		// final guard: a served error is by definition <= server-now, so this
-		// never hides a row the server just logged even if the sample is briefly
-		// stale.
-		const serverNow =
-			reqLogData?.serverNowMs ?? appLogData?.serverNowMs ?? Date.now();
+		// Newest served timestamp. Every row is server-stamped, so this is both a
+		// lower bound on the server's "now" and the freshest error we must never
+		// hide.
 		let newest = 0;
 		for (const entry of reqEntries) {
 			const t = parseTs(entry.created_at ?? "");
@@ -216,10 +208,29 @@ export function useErrorShelf(): UseErrorShelf {
 			const t = parseTs(entry.timestamp ?? "");
 			if (!Number.isNaN(t) && t > newest) newest = t;
 		}
-		// Anything older than the window is stale noise (e.g. a request error
-		// from before the last rebuild). A malformed/unparseable timestamp is
-		// kept rather than silently dropped.
-		const cutoff = Math.max(serverNow, newest) - ERROR_SHELF_MAX_AGE_MS;
+
+		// Anchor "now" on a trusted server clock, never the browser clock (which
+		// may be skewed either way). Priority:
+		//   1. the `Date` response header — authoritative server wall-clock;
+		//      clamped up to `newest` in case the sample is a poll interval stale.
+		//   2. otherwise the newest served timestamp — itself server-stamped, so a
+		//      fast/slow browser clock still can't age a served error out of view.
+		//   3. the browser clock only when there is nothing to filter (no rows),
+		//      where its value cannot hide anything.
+		// So a skewed client clock can never wrongly drop a row the server just
+		// returned; in production the header path always wins (same-origin Go
+		// responses always carry `Date`). Anything older than the window is stale
+		// noise (e.g. an error from before the last rebuild); an unparseable
+		// timestamp is kept rather than silently dropped.
+		const serverNowMs =
+			reqLogData?.serverNowMs ?? appLogData?.serverNowMs ?? null;
+		const anchor =
+			serverNowMs !== null
+				? Math.max(serverNowMs, newest)
+				: newest > 0
+					? newest
+					: Date.now();
+		const cutoff = anchor - ERROR_SHELF_MAX_AGE_MS;
 		const isRecent = (timestamp: string) => {
 			const t = parseTs(timestamp);
 			return Number.isNaN(t) || t >= cutoff;

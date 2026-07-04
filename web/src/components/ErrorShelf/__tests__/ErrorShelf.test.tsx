@@ -206,6 +206,24 @@ describe("ErrorShelf", () => {
 		expect(count).toHaveTextContent("2");
 	});
 
+	it("never hides a served error to a fast browser clock without a Date header", async () => {
+		// Greptile P1 repro: no server `Date` header, browser clock 48h ahead.
+		// The one error is fresh by the newest-served anchor; a Date.now() anchor
+		// would age it past the cutoff and render the shelf empty. The browser
+		// clock must not drop a served error even on the header-less fallback.
+		vi.spyOn(Date, "now").mockReturnValue(
+			new Date("2024-02-03T12:00:00Z").getTime(),
+		);
+		seedRequestError("still fresh", "2024-02-01T12:00:00Z");
+		renderWithProviders(<ErrorShelf />);
+
+		const count = await screen.findByTestId("error-shelf-count");
+		expect(count).toHaveTextContent("1");
+		await expand();
+		const rows = await screen.findAllByTestId("error-shelf-row");
+		expect(within(rows[0]).getByText("still fresh")).toBeTruthy();
+	});
+
 	it("anchors the window on the server clock, not a fast browser clock", async () => {
 		// Browser clock runs 21h ahead of the server. An error 10h old by the
 		// server's clock is 31h old by the browser's. Anchoring on the server
