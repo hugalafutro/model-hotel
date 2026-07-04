@@ -444,6 +444,10 @@ export function useChat() {
 
 	const handleRegenerate = useCallback(async () => {
 		if (isStreaming) return;
+		// Same guard as handleSend: without a selected model (e.g. a stale non-chat
+		// selection was just reconciled away) regenerate would stream with an empty
+		// model id. Bail rather than send a request that can only fail.
+		if (!selectedModel) return;
 		let lastUserIdx = -1;
 		for (let i = messages.length - 1; i >= 0; i--) {
 			if (messages[i].role === "user") {

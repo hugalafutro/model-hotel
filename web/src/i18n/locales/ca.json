@@ -2651,7 +2651,8 @@
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
 			"retry": "{{model}} {{status}} - tornar a provar {{attempt}} en {{delay}}s…",
-			"networkError": "error de xarxa"
+			"networkError": "error de xarxa",
+			"nonChatModel": "No és un model de xat"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "Impossible de recuperar la quota d'ús de NanoGPT",

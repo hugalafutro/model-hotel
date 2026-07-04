@@ -378,6 +378,23 @@ describe("useChat", () => {
 			});
 			expect(result.current.chatSelectedModel).toBe("Provider/model");
 		});
+
+		it("does not regenerate when no model is selected", async () => {
+			// Even with prior messages, a cleared selection (e.g. a stale non-chat
+			// model just reconciled away) must not stream a request with an empty
+			// model id.
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setMessages([
+					{ role: "user", content: "hi", timestamp: 1 },
+				]);
+			});
+			await act(async () => {
+				await result.current.handleRegenerate();
+			});
+			expect(result.current.chatSelectedModel).toBe("");
+			expect(mockStreamModelResponse).not.toHaveBeenCalled();
+		});
 	});
 
 	describe("failedConversationModel", () => {

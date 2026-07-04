@@ -2651,7 +2651,8 @@
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
 			"retry": "{{model}}: {{status}} - {{attempt}} in {{delay}}s… wiederholen",
-			"networkError": "Netzwerkfehler"
+			"networkError": "Netzwerkfehler",
+			"nonChatModel": "Kein Chat-Modell"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "NanoGPT Nutzungsvolumen konnte nicht abgerufen werden",

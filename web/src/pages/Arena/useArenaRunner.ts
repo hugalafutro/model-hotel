@@ -1,10 +1,11 @@
 import { produce } from "immer";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { API_BASE, getAuthHeaders } from "../../api/client";
 import type { GenerationParams } from "../../api/types";
 import type { ArenaSubMode } from "../../context/SidebarModeContext";
 import type { useToast } from "../../context/ToastContext";
+import { proxyModelID } from "../../utils/model";
 import { hasAnyParam } from "../../utils/params";
 import { readSSEStream, type StreamChunk } from "../../utils/sse";
 import { fetchWithRetry } from "../../utils/stagger";
@@ -121,6 +122,17 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 		[setRunningModelsRaw],
 	);
 
+	// The ids the picker/random actions can currently produce. enabledModels is
+	// already the chat-filtered list, so anything outside it is a non-chat model
+	// (reclassified to embedding/rerank, or disabled) that must not be dispatched.
+	const validModelIds = useMemo(
+		() =>
+			new Set(
+				enabledModels.map((m) => proxyModelID(m.provider_name, m.model_id)),
+			),
+		[enabledModels],
+	);
+
 	const streamModel = useCallback(
 		(
 			model: string,
@@ -131,6 +143,44 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			matchupIdx: number,
 			slotParams?: GenerationParams,
 		) => {
+			// A persisted competition can reload (outside setup phase, so array
+			// reconciliation is skipped) with a round slot pointing at a model that
+			// is no longer a valid chat target. Surface it in the slot instead of
+			// streaming a chat request to a non-chat endpoint. Skip while the list
+			// is still empty (loading) so a transient empty fetch never errors a
+			// valid competition.
+			if (validModelIds.size > 0 && !validModelIds.has(model)) {
+				const respKey = slotKey === "A" ? "responseA" : "responseB";
+				setRounds(
+					produce((draft) => {
+						const mu = draft[roundIdx]?.matchups[matchupIdx];
+						if (mu) {
+							mu[respKey] = {
+								model,
+								rawContent: "",
+								content: "",
+								thinkingContent: "",
+								startTimeMs: Date.now(),
+								done: true,
+								error: t("hooks.useArenaRunner.nonChatModel"),
+								metrics: null,
+							};
+						}
+					}),
+				);
+				setRunningModels((prev) => {
+					const next = new Set(prev);
+					next.delete(model);
+					if (next.size === 0) {
+						setPhase(
+							arenaModeRef.current === "compare" ? "finished" : "voting",
+						);
+					}
+					return next;
+				});
+				return;
+			}
+
 			const abortCtrl = new AbortController();
 			abortMapRef.current.set(model, abortCtrl);
 
@@ -323,7 +373,15 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 
 			run();
 		},
-		[t, toast, setRunningModels, setPhase, setRounds, arenaModeRef],
+		[
+			t,
+			toast,
+			setRunningModels,
+			setPhase,
+			setRounds,
+			arenaModeRef,
+			validModelIds,
+		],
 	);
 
 	const runRound = useCallback(

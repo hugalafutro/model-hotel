@@ -2651,7 +2651,8 @@
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
 			"retry": "{{model}}: {{status}} - {{attempt}} in {{delay}}s…",
-			"networkError": "ネットワークエラー"
+			"networkError": "ネットワークエラー",
+			"nonChatModel": "チャットモデルではありません"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "NanoGPT使用量の取得に失敗しました",

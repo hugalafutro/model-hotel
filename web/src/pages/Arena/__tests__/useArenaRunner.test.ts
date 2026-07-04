@@ -35,7 +35,11 @@ const createMockDeps = (
 		rounds: [],
 		roundsRef,
 		modelParams: {},
-		enabledModels: [],
+		enabledModels: [
+			{ provider_name: "P", model_id: "model-a" },
+			{ provider_name: "P", model_id: "model-b" },
+			{ provider_name: "P", model_id: "new-model" },
+		],
 		toast: vi.fn() as ReturnType<typeof useToast>["toast"],
 		...overrides,
 	};
@@ -92,7 +96,7 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
@@ -128,7 +132,7 @@ describe("useArenaRunner", () => {
 
 			await act(async () => {
 				result.current.streamModel(
-					"model-a",
+					"P/model-a",
 					"system prompt",
 					"user prompt",
 					0,
@@ -164,7 +168,7 @@ describe("useArenaRunner", () => {
 			});
 
 			await act(async () => {
-				result.current.streamModel("model-a", "", "prompt", 0, "A", 0);
+				result.current.streamModel("P/model-a", "", "prompt", 0, "A", 0);
 			});
 
 			expect(toastMock).toHaveBeenCalled();
@@ -187,14 +191,14 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							slotB: null,
 							responseA: {
-								model: "model-a",
+								model: "P/model-a",
 								rawContent: "",
 								content: "",
 								thinkingContent: "",
@@ -223,11 +227,83 @@ describe("useArenaRunner", () => {
 			});
 
 			await act(async () => {
-				result.current.streamModel("model-a", "", "prompt", 0, "A", 0);
+				result.current.streamModel("P/model-a", "", "prompt", 0, "A", 0);
 			});
 
 			expect(roundsRef.current[0].matchups[0].responseA?.done).toBe(true);
 			expect(roundsRef.current[0].matchups[0].responseA?.error).toBeTruthy();
+		});
+
+		it("does not dispatch a slot model absent from the chat list", async () => {
+			// A persisted competition can reload with a round slot pointing at a
+			// model that is no longer a valid chat target. It must be stamped as an
+			// errored slot instead of streaming a request to a non-chat endpoint.
+			let hit = false;
+			server.use(
+				http.post("/api/chat/arena", () => {
+					hit = true;
+					return HttpResponse.json(
+						{ error: "should not run" },
+						{ status: 500 },
+					);
+				}),
+			);
+
+			const now = Date.now();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "P/embedding-model",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: null,
+							responseA: {
+								model: "P/embedding-model",
+								rawContent: "",
+								content: "",
+								thinkingContent: "",
+								startTimeMs: now,
+								done: false,
+								error: null,
+								metrics: null,
+							},
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+			const roundsRef = { current: rounds };
+			// enabledModels (default) does not include "P/embedding-model".
+			const deps = createMockDeps({
+				rounds,
+				roundsRef,
+				setRunningModels: vi.fn(),
+			});
+
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			await act(async () => {
+				result.current.streamModel(
+					"P/embedding-model",
+					"",
+					"prompt",
+					0,
+					"A",
+					0,
+				);
+			});
+
+			expect(hit).toBe(false);
+			const response = roundsRef.current[0].matchups[0].responseA;
+			expect(response?.done).toBe(true);
+			expect(response?.error).toBeTruthy();
 		});
 
 		it("streamModel updates response content in rounds", async () => {
@@ -262,14 +338,14 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							slotB: null,
 							responseA: {
-								model: "model-a",
+								model: "P/model-a",
 								rawContent: "",
 								content: "",
 								thinkingContent: "",
@@ -303,7 +379,7 @@ describe("useArenaRunner", () => {
 
 			await act(async () => {
 				result.current.streamModel(
-					"model-a",
+					"P/model-a",
 					"system prompt",
 					"user prompt",
 					0,
@@ -361,14 +437,14 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							slotB: null,
 							responseA: {
-								model: "model-a",
+								model: "P/model-a",
 								rawContent: "",
 								content: "",
 								thinkingContent: "",
@@ -397,7 +473,7 @@ describe("useArenaRunner", () => {
 			});
 
 			await act(async () => {
-				result.current.streamModel("model-a", "", "prompt", 0, "A", 0);
+				result.current.streamModel("P/model-a", "", "prompt", 0, "A", 0);
 			});
 
 			expect(roundsRef.current[0].matchups[0].responseA?.thinkingContent).toBe(
@@ -434,7 +510,7 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
@@ -465,7 +541,7 @@ describe("useArenaRunner", () => {
 			});
 
 			await act(async () => {
-				result.current.streamModel("model-a", "", "prompt", 0, "A", 0);
+				result.current.streamModel("P/model-a", "", "prompt", 0, "A", 0);
 			});
 
 			// Verify truncation error was set when stream ended without [DONE]
@@ -512,14 +588,14 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							slotB: null,
 							responseA: {
-								model: "model-a",
+								model: "P/model-a",
 								rawContent: "",
 								content: "",
 								thinkingContent: "",
@@ -552,7 +628,7 @@ describe("useArenaRunner", () => {
 			});
 
 			await act(async () => {
-				result.current.streamModel("model-a", "", "prompt", 0, "A", 0);
+				result.current.streamModel("P/model-a", "", "prompt", 0, "A", 0);
 			});
 
 			// Verify metrics were recorded in the response
@@ -574,7 +650,7 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.abortMapRef.current.set("model-a", abortCtrl);
+				result.current.abortMapRef.current.set("P/model-a", abortCtrl);
 			});
 
 			act(() => {
@@ -594,14 +670,14 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							slotB: null,
 							responseA: {
-								model: "model-a",
+								model: "P/model-a",
 								rawContent: "",
 								content: "",
 								thinkingContent: "",
@@ -647,14 +723,14 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							slotB: null,
 							responseA: {
-								model: "model-a",
+								model: "P/model-a",
 								rawContent: "old content",
 								content: "old content",
 								thinkingContent: "old thinking",
@@ -700,7 +776,7 @@ describe("useArenaRunner", () => {
 		it("handles cancel for a slot", () => {
 			const abortCtrl = new AbortController();
 			const setRoundsMock = vi.fn();
-			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["model-a"])));
+			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["P/model-a"])));
 
 			const deps = createMockDeps({
 				setRounds: setRoundsMock,
@@ -712,11 +788,11 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.abortMapRef.current.set("model-a", abortCtrl);
+				result.current.abortMapRef.current.set("P/model-a", abortCtrl);
 			});
 
 			act(() => {
-				result.current.handleCancelSlot(0, 0, "A", "model-a");
+				result.current.handleCancelSlot(0, 0, "A", "P/model-a");
 			});
 
 			expect(abortCtrl.signal.aborted).toBe(true);
@@ -727,13 +803,13 @@ describe("useArenaRunner", () => {
 			const abortCtrl = new AbortController();
 			const setPhaseMock = vi.fn();
 			// Simulate cancelling the only running model (set becomes empty after delete)
-			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["model-a"])));
+			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["P/model-a"])));
 			const rounds: BracketRound[] = [
 				{
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
@@ -759,11 +835,11 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.abortMapRef.current.set("model-a", abortCtrl);
+				result.current.abortMapRef.current.set("P/model-a", abortCtrl);
 			});
 
 			act(() => {
-				result.current.handleCancelSlot(0, 0, "A", "model-a");
+				result.current.handleCancelSlot(0, 0, "A", "P/model-a");
 			});
 
 			// Phase should transition because runningModels becomes empty
@@ -775,7 +851,7 @@ describe("useArenaRunner", () => {
 			const setPhaseMock = vi.fn();
 			// Simulate cancelling one model while another is still running
 			const setRunningModelsMock = vi.fn((fn) =>
-				fn(new Set(["model-a", "model-b"])),
+				fn(new Set(["P/model-a", "P/model-b"])),
 			);
 
 			const deps = createMockDeps({
@@ -788,11 +864,11 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.abortMapRef.current.set("model-a", abortCtrl);
+				result.current.abortMapRef.current.set("P/model-a", abortCtrl);
 			});
 
 			act(() => {
-				result.current.handleCancelSlot(0, 0, "A", "model-a");
+				result.current.handleCancelSlot(0, 0, "A", "P/model-a");
 			});
 
 			// Phase should NOT transition because model-b is still running
@@ -801,20 +877,20 @@ describe("useArenaRunner", () => {
 
 		it("handleCancelSlot nulls slot and response", () => {
 			const abortCtrl = new AbortController();
-			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["model-a"])));
+			const setRunningModelsMock = vi.fn((fn) => fn(new Set(["P/model-a"])));
 			const rounds: BracketRound[] = [
 				{
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							slotB: null,
 							responseA: {
-								model: "model-a",
+								model: "P/model-a",
 								rawContent: "content",
 								content: "content",
 								thinkingContent: "",
@@ -842,11 +918,11 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.abortMapRef.current.set("model-a", abortCtrl);
+				result.current.abortMapRef.current.set("P/model-a", abortCtrl);
 			});
 
 			act(() => {
-				result.current.handleCancelSlot(0, 0, "A", "model-a");
+				result.current.handleCancelSlot(0, 0, "A", "P/model-a");
 			});
 
 			// Verify the immer produce() path was exercised - slot and response were nulled
@@ -859,7 +935,7 @@ describe("useArenaRunner", () => {
 			const setRunningModelsMock = vi.fn();
 			const setPhaseMock = vi.fn();
 			const modelParams: Record<string, GenerationParams> = {
-				"new-model": { temperature: 0.7 },
+				"P/new-model": { temperature: 0.7 },
 			};
 
 			const deps = createMockDeps({
@@ -875,7 +951,7 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.handleSwapComplete(0, 0, "A", "new-model");
+				result.current.handleSwapComplete(0, 0, "A", "P/new-model");
 			});
 
 			expect(setRoundsMock).toHaveBeenCalled();
@@ -887,21 +963,21 @@ describe("useArenaRunner", () => {
 			const setRunningModelsMock = vi.fn();
 			const setPhaseMock = vi.fn();
 			const modelParams: Record<string, GenerationParams> = {
-				"new-model": { temperature: 0.7, max_tokens: 100 },
+				"P/new-model": { temperature: 0.7, max_tokens: 100 },
 			};
 			const rounds: BracketRound[] = [
 				{
 					matchups: [
 						{
 							slotA: {
-								modelId: "old-model",
+								modelId: "P/old-model",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							slotB: null,
 							responseA: {
-								model: "old-model",
+								model: "P/old-model",
 								rawContent: "old content",
 								content: "old content",
 								thinkingContent: "",
@@ -932,14 +1008,16 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.handleSwapComplete(0, 0, "A", "new-model");
+				result.current.handleSwapComplete(0, 0, "A", "P/new-model");
 			});
 
 			// Verify the immer produce() path was exercised - slot model replaced and response reset
-			expect(roundsRef.current[0].matchups[0].slotA?.modelId).toBe("new-model");
+			expect(roundsRef.current[0].matchups[0].slotA?.modelId).toBe(
+				"P/new-model",
+			);
 			const response = roundsRef.current[0].matchups[0].responseA;
 			expect(response).toBeDefined();
-			expect(response?.model).toBe("new-model");
+			expect(response?.model).toBe("P/new-model");
 			expect(response?.content).toBe("");
 			expect(response?.done).toBe(false);
 			expect(response?.error).toBeNull();
@@ -956,13 +1034,13 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							slotB: {
-								modelId: "model-b",
+								modelId: "P/model-b",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
@@ -1020,13 +1098,13 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							slotB: {
-								modelId: "model-b",
+								modelId: "P/model-b",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
@@ -1089,7 +1167,7 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
@@ -1142,8 +1220,8 @@ describe("useArenaRunner", () => {
 			});
 
 			act(() => {
-				result.current.abortMapRef.current.set("model-a", abortCtrlA);
-				result.current.abortMapRef.current.set("model-b", abortCtrlB);
+				result.current.abortMapRef.current.set("P/model-a", abortCtrlA);
+				result.current.abortMapRef.current.set("P/model-b", abortCtrlB);
 			});
 
 			act(() => {
@@ -1164,14 +1242,14 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							slotB: null,
 							responseA: {
-								model: "model-a",
+								model: "P/model-a",
 								rawContent: "partial",
 								content: "partial",
 								thinkingContent: "",
@@ -1210,19 +1288,19 @@ describe("useArenaRunner", () => {
 					matchups: [
 						{
 							slotA: {
-								modelId: "model-a",
+								modelId: "P/model-a",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							slotB: {
-								modelId: "model-b",
+								modelId: "P/model-b",
 								personaId: null,
 								personaPrompt: "",
 								params: {},
 							},
 							responseA: {
-								model: "model-a",
+								model: "P/model-a",
 								rawContent: "partial content",
 								content: "partial content",
 								thinkingContent: "",
@@ -1232,7 +1310,7 @@ describe("useArenaRunner", () => {
 								metrics: null,
 							},
 							responseB: {
-								model: "model-b",
+								model: "P/model-b",
 								rawContent: "partial B",
 								content: "partial B",
 								thinkingContent: "",
@@ -1330,7 +1408,7 @@ describe("useArenaRunner", () => {
 			});
 
 			await act(async () => {
-				result.current.streamModel("model-a", "", "test prompt", 0, "A", 0);
+				result.current.streamModel("P/model-a", "", "test prompt", 0, "A", 0);
 			});
 
 			expect(toastMock).not.toHaveBeenCalled();
@@ -1359,7 +1437,7 @@ describe("useArenaRunner", () => {
 			);
 
 			const modelParams: Record<string, GenerationParams> = {
-				"model-a": { temperature: 0.8, max_tokens: 500 },
+				"P/model-a": { temperature: 0.8, max_tokens: 500 },
 			};
 			const deps = createMockDeps({
 				modelParams,
@@ -1370,7 +1448,7 @@ describe("useArenaRunner", () => {
 			});
 
 			await act(async () => {
-				result.current.streamModel("model-a", "", "prompt", 0, "A", 0, {
+				result.current.streamModel("P/model-a", "", "prompt", 0, "A", 0, {
 					temperature: 0.8,
 					max_tokens: 500,
 				});
@@ -1419,7 +1497,7 @@ describe("useArenaRunner", () => {
 			});
 
 			await act(async () => {
-				result.current.streamModel("model-a", "", "prompt", 0, "A", 0);
+				result.current.streamModel("P/model-a", "", "prompt", 0, "A", 0);
 			});
 
 			expect(setRoundsMock).toHaveBeenCalled();

@@ -2651,7 +2651,8 @@
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
 			"retry": "{{model}}: {{status}} - yritä uudelleen {{attempt}} osoitteessa {{delay}}s…",
-			"networkError": "verkkovirhe"
+			"networkError": "verkkovirhe",
+			"nonChatModel": "Ei ole keskustelumalli"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "NanoGPT käyttökiintiön nouto epäonnistui",

@@ -2651,7 +2651,8 @@
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
 			"retry": "{{model}}: {{status}} - retry {{attempt}} in {{delay}}s…",
-			"networkError": "σφάλμα δικτύου"
+			"networkError": "σφάλμα δικτύου",
+			"nonChatModel": "Δεν είναι μοντέλο συνομιλίας"
 		},
 		"useQuotaData": {
 			"nanoGPTError": "Αποτυχία λήψης ποσοστού χρήσης NanoGPT",
