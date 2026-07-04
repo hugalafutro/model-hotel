@@ -187,12 +187,13 @@ Let admins sign in through an external OpenID Connect provider (Authentik, Authe
 
 <p align="center">
   <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_local.png" height="200" alt="Authentication settings: passkeys and TOTP"></a>
-  &nbsp;&nbsp;
+<br><br>
   <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_oidc.png" height="200" alt="Authentication settings: OIDC single sign-on"></a>
   &nbsp;&nbsp;
   <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_github.png" height="200" alt="Authentication settings: GitHub sign-in"></a>
 </p>
 <p align="center"><sub>The Authentication settings page, split into its three sections. Click any panel for the full view.</sub></p>
+<br>
 
 SSO is a third login path, not a replacement: after the provider confirms an allowlisted, email-verified identity it mints the same session token as passkey and TOTP login, so nothing downstream changes. Logins are gated by the email allowlist (empty allowlist denies everyone) and matched only on verified emails, while the provider's stable `sub` and issuer are logged on each login (app log, source `oidc`). The client secret is AES-256-GCM encrypted at rest with `MASTER_KEY`, the flow uses PKCE plus single-use state and nonce, and the minted token is handed to the browser in the URL fragment, so it is never sent back to the server on later requests (no Referer leak, nothing in request logs). The one place it does appear is the callback's `302 Location` response header; if your reverse proxy logs response headers, redact `Location` on `/api/auth/oidc/callback`.
 
