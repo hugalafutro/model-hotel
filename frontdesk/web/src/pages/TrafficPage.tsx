@@ -34,8 +34,12 @@ function MemberTrafficCard({
 	// server-side "generated at" on the traffic payload, so this is simply the
 	// moment the UI pulled it - which is exactly the freshness the operator wants.
 	const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+	// Per-card refetch nonce. The page-level Refresh reloads every card via
+	// reloadKey; this lets a single unreachable member be retried on its own,
+	// right where the "could not read metrics" message appears.
+	const [localReload, setLocalReload] = useState(0);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is a refetch nonce - it isn't read in the body, its only job is to re-run the fetch when the Refresh button bumps it
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey and localReload are refetch nonces - they aren't read in the body, their only job is to re-run the fetch when a Refresh button bumps them
 	useEffect(() => {
 		// Re-runs on member id change and whenever reloadKey is bumped by the
 		// page-level Refresh button. Stale data stays on screen during a refetch
@@ -61,7 +65,7 @@ function MemberTrafficCard({
 		return () => {
 			active = false;
 		};
-	}, [member.id, reloadKey]);
+	}, [member.id, reloadKey, localReload]);
 
 	return (
 		<div className="ui-card ui-card-pad">
@@ -77,7 +81,25 @@ function MemberTrafficCard({
 			{loading ? (
 				<div className="fd-empty">{t("common.loading")}</div>
 			) : !data?.reachable ? (
-				<div className="fd-empty fd-faint">{t("traffic.unreachable")}</div>
+				<div
+					className="fd-empty fd-faint"
+					style={{
+						display: "flex",
+						flexDirection: "column",
+						alignItems: "center",
+						gap: "0.75rem",
+					}}
+				>
+					<span>{t("traffic.unreachable")}</span>
+					<button
+						type="button"
+						className="ui-btn ui-btn-ghost ui-btn-sm"
+						onClick={() => setLocalReload((n) => n + 1)}
+						data-testid="traffic-member-refresh"
+					>
+						{t("traffic.refresh")}
+					</button>
+				</div>
 			) : data.total_requests === 0 ? (
 				<div className="fd-empty fd-faint">{t("traffic.noData")}</div>
 			) : (

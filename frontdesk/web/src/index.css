@@ -114,18 +114,28 @@ h3 {
 	z-index: 10;
 }
 .fd-brand {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
-	gap: 0.6rem;
-	font-weight: 600;
-	font-size: 1.05rem;
+	padding: 0.15rem 0.25rem;
+	margin: -0.15rem -0.25rem;
+	background: none;
+	border: 0;
+	border-radius: 0.5rem;
+	color: inherit;
+	cursor: pointer;
+	transition: opacity 0.15s ease;
 }
-.fd-brand .fd-dot {
-	width: 0.6rem;
-	height: 0.6rem;
-	border-radius: 50%;
-	background: var(--accent);
-	box-shadow: 0 0 0 3px rgba(194, 112, 61, 0.2);
+.fd-brand:hover {
+	opacity: 0.85;
+}
+.fd-brand:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+.fd-logo {
+	height: 2.4rem;
+	width: auto;
+	display: block;
 }
 .fd-tabs {
 	display: flex;
