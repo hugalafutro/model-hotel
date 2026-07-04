@@ -369,8 +369,10 @@ func TestSilentLogger_NoisyEndpointsAtDebugLevel(t *testing.T) {
 	req.Host = "test"
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 
-	// Request to normal endpoint (not in noisy list)
-	req2 := httptest.NewRequest(http.MethodGet, "/api/settings", http.NoBody)
+	// Request to normal endpoint (not in noisy list). A settings *mutation*
+	// is a real admin action: only GET /api/settings is demoted (the fleet
+	// version poll), so POST stays at Info.
+	req2 := httptest.NewRequest(http.MethodPost, "/api/settings", http.NoBody)
 	req2.Host = "test"
 	handler.ServeHTTP(httptest.NewRecorder(), req2)
 
@@ -520,6 +522,11 @@ func TestSilentLogger_NoisyEndpoints(t *testing.T) {
 		{"api stats provider-distribution GET", "/api/stats/provider-distribution", "GET"},
 		{"api models GET", "/api/models", "GET"},
 		{"api providers GET", "/api/providers", "GET"},
+		{"fleet announce POST", "/api/fleet/announce", "POST"},
+		{"api settings GET (fleet version poll)", "/api/settings", "GET"},
+		// Trailing slashes must not defeat the exact-path noise match.
+		{"fleet announce POST trailing slash", "/api/fleet/announce/", "POST"},
+		{"api settings GET trailing slash", "/api/settings/", "GET"},
 	}
 
 	for _, tc := range tests {

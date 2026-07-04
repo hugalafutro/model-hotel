@@ -142,6 +142,14 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 			}
 			entityID = rctx.URLParam("id")
 		}
+		// Fleet heartbeat announces are machine-to-machine liveness pings, not
+		// human admin actions. Front Desk POSTs one to every member ~every 2.5s;
+		// auditing them adds ~24 rows/min/member that bury real mutations (a live
+		// instance was 99.99% announce rows). They carry no entity and no state
+		// change worth an audit trail, so skip them.
+		if isFleetHeartbeat(route) {
+			return
+		}
 		actor, role := actorOf(user.IdentityFrom(r.Context()))
 		status := sw.status
 		if status == 0 {
@@ -170,6 +178,14 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 			rec.record(entry)
 		}()
 	})
+}
+
+// isFleetHeartbeat reports whether a resolved route is a fleet liveness ping
+// that should be excluded from the audit trail. Only the member-side announce
+// endpoint qualifies today; it is matched on the router's route pattern so a
+// literal path check cannot be fooled by trailing slashes or query strings.
+func isFleetHeartbeat(route string) bool {
+	return route == "/api/fleet/announce"
 }
 
 // record inserts one entry, best-effort: an audit failure never fails the
