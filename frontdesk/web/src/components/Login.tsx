@@ -107,10 +107,16 @@ export function Login({ onAuthenticated, initialError }: LoginProps) {
 	return (
 		<div className="fd-login">
 			<div className="ui-card ui-card-pad">
-				<div style={{ textAlign: "center", marginBottom: "1rem" }}>
-					<div className="fd-brand" role="img" aria-label={t("login.title")}>
-						<Logo className="fd-logo" />
-					</div>
+				<div
+					role="img"
+					aria-label={t("login.title")}
+					style={{
+						display: "flex",
+						justifyContent: "center",
+						marginBottom: "1rem",
+					}}
+				>
+					<Logo className="fd-logo" />
 				</div>
 				<form onSubmit={submitToken}>
 					<div className="ui-field">
