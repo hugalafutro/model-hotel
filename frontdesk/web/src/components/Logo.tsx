@@ -1,24 +1,27 @@
 import { memo } from "react";
-import { useTranslation } from "react-i18next";
 
 // Front Desk wordmark: the app's favicon (the service-bell mark on its dark
 // badge, kept in the favicon's own colours so the header logo matches the
 // browser-tab icon exactly) followed by a two-tone wordmark. "Front" is
 // neutral, "Desk" picks up the accent, mirroring the Model / Hotel split on the
 // main dashboard logo.
+//
+// Purely decorative: the graphic is always rendered inside the header brand
+// button, which carries the accessible name. Labelling the SVG too would make
+// assistive tech announce "Front Desk" twice for one control.
 export const Logo = memo(function Logo({
 	className = "",
 }: {
 	className?: string;
 }) {
-	const { t } = useTranslation();
 	return (
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			viewBox="0 0 176 48"
 			className={className}
 			fill="none"
-			aria-label={t("app.title")}
+			aria-hidden="true"
+			focusable="false"
 		>
 			{/* Favicon mark (public/favicon.svg), scaled to the 48-tall canvas and
 			    nudged in so it reads as an app icon beside the wordmark. */}
