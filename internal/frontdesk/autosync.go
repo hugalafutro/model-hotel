@@ -200,9 +200,6 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 // which honestly says "not verified right now" while the red health badge
 // explains why. In-memory only, no DB write, so it is cheap to run every tick.
 func (s *Server) markFleetVerified(ctx context.Context, primaryID string) {
-	if s.poller == nil {
-		return
-	}
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {
 		debuglog.Debug("frontdesk: auto-sync: list members for verify heartbeat", "error", err)
@@ -331,9 +328,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			// stays put (it means a real config write); only advance the live
 			// "verified in sync" heartbeat so the Members table shows this member
 			// was just confirmed against the primary.
-			if s.poller != nil {
-				s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
-			}
+			s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 			continue
 		}
 

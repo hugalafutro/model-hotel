@@ -433,12 +433,12 @@ func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 }
 
 // setMemberHealth seeds the poller's in-memory health for a member so tests that
-// gate on reachability (the quiet verify tick) can drive both the up and down
-// paths without a live /health probe.
-func setMemberHealth(srv *Server, memberID string, healthy bool) {
+// gate on reachability (the quiet verify tick) can drive the up, down, and
+// never-probed paths without a live /health probe.
+func setMemberHealth(srv *Server, memberID string, known, healthy bool) {
 	srv.poller.mu.Lock()
 	st := srv.poller.statuses[memberID]
-	st.Health = HealthStatus{Known: true, Healthy: healthy}
+	st.Health = HealthStatus{Known: known, Healthy: healthy}
 	srv.poller.statuses[memberID] = st
 	srv.poller.mu.Unlock()
 }
@@ -456,9 +456,13 @@ func TestAutoSyncQuietTickPingsHealthyMembers(t *testing.T) {
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	up, _ := store.CreateMember(t.Context(), "up", "http://127.0.0.1:9", "utok")
 	down, _ := store.CreateMember(t.Context(), "down", "http://127.0.0.1:10", "dtok")
+	unknown, _ := store.CreateMember(t.Context(), "unknown", "http://127.0.0.1:11", "ktok")
+	// "neverProbed" gets no poller entry at all, exercising the snapshot-miss path.
+	neverProbed, _ := store.CreateMember(t.Context(), "never", "http://127.0.0.1:12", "ntok")
 	enableAutoSync(t, store, pm.ID, "hash-A")
-	setMemberHealth(srv, up.ID, true)
-	setMemberHealth(srv, down.ID, false)
+	setMemberHealth(srv, up.ID, true, true)
+	setMemberHealth(srv, down.ID, true, false)
+	setMemberHealth(srv, unknown.ID, false, false) // reachable status not yet known
 
 	srv.autoSyncOnce(t.Context(), "hash-A") // hash == LastHash: quiet verify tick
 
@@ -469,12 +473,35 @@ func TestAutoSyncQuietTickPingsHealthyMembers(t *testing.T) {
 	if snap[down.ID].AutoSyncVerifiedAt != nil {
 		t.Error("unreachable member AutoSyncVerifiedAt was stamped; want it frozen")
 	}
+	if snap[unknown.ID].AutoSyncVerifiedAt != nil {
+		t.Error("unknown-health member AutoSyncVerifiedAt was stamped; want it frozen until a health probe confirms it")
+	}
+	if snap[neverProbed.ID].AutoSyncVerifiedAt != nil {
+		t.Error("never-probed member AutoSyncVerifiedAt was stamped; want it frozen with no health entry")
+	}
 	if snap[pm.ID].AutoSyncVerifiedAt != nil {
 		t.Error("primary AutoSyncVerifiedAt was stamped; the primary is the source, not a synced member")
 	}
 	// A quiet tick writes nothing to the DB.
 	if rm, _ := store.GetMember(t.Context(), up.ID); rm.LastConfigSyncAt != nil {
 		t.Error("quiet tick stamped last_config_sync_at; want it left for real writes only")
+	}
+}
+
+// TestMarkFleetVerifiedListErrorIsSafe: if the member list cannot be read, the
+// verify heartbeat pass logs and returns without panicking or stamping anything.
+func TestMarkFleetVerifiedListErrorIsSafe(t *testing.T) {
+	srv, store := newTestServer(t)
+	m, _ := store.CreateMember(t.Context(), "m", "http://127.0.0.1:9", "tok")
+	setMemberHealth(srv, m.ID, true, true)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel() // a cancelled context makes ListMembers error before returning rows
+
+	srv.markFleetVerified(ctx, "")
+
+	if snap := srv.poller.Snapshot(); snap[m.ID].AutoSyncVerifiedAt != nil {
+		t.Error("heartbeat was stamped despite the member list read failing")
 	}
 }
 

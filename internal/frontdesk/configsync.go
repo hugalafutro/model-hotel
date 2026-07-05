@@ -172,9 +172,7 @@ func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string,
 		// (nothing was written; that column means a real config write). Advance the
 		// live "verified in sync" heartbeat so the Members table shows the wizard
 		// just confirmed this member matches the primary, matching the auto path.
-		if s.poller != nil {
-			s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
-		}
+		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 		return &syncResultItem{MemberID: m.ID, Name: m.Name, OK: true}, false
 	}
 	if err := s.backupMember(ctx, m, token); err != nil {
@@ -251,15 +249,12 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	}
 
 	if res.OK {
-		now := time.Now().UTC()
-		if err := s.store.SetMemberLastSync(ctx, m.ID, now, reason); err != nil {
+		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
 			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
 		}
 		// A real write also confirms the member is in sync now: advance the live
 		// heartbeat alongside the persisted last_config_sync_at stamp.
-		if s.poller != nil {
-			s.poller.SetAutoSyncVerified(m.ID, now)
-		}
+		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 		if emitSuccessEvent {
 			s.emit(ctx, Event{
 				Type: "config.synced", Severity: "info", Source: "frontdesk",
