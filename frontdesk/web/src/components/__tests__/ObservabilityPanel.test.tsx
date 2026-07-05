@@ -13,6 +13,37 @@ function mockStatus(json: boolean, otel: boolean) {
 	);
 }
 
+it("shows a loading state and no badges until status resolves", async () => {
+	let resolve: (() => void) | undefined;
+	const gate = new Promise<void>((r) => {
+		resolve = r;
+	});
+	server.use(
+		http.get("/api/observability", async () => {
+			await gate;
+			return HttpResponse.json({
+				log_export_json: true,
+				log_export_otel: false,
+			});
+		}),
+	);
+	render(<ObservabilityPanel />);
+
+	// Before the response lands, no status badge is rendered (so an enabled
+	// exporter can't flash as "Disabled").
+	expect(
+		screen.queryByTestId("observability-status-json"),
+	).not.toBeInTheDocument();
+
+	resolve?.();
+	await waitFor(() =>
+		expect(screen.getByTestId("observability-status-json")).toHaveAttribute(
+			"data-enabled",
+			"true",
+		),
+	);
+});
+
 it("shows enabled badges and no enable instructions when both are on", async () => {
 	mockStatus(true, true);
 	render(<ObservabilityPanel />);

@@ -152,9 +152,14 @@ func main() {
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		debuglog.Error("frontdesk: graceful shutdown failed", "error", err)
 	}
-	// Flush and close the OTLP log exporter so batched records aren't lost.
+	// Flush and close the OTLP log exporter so batched records aren't lost. Use a
+	// fresh context, not shutdownCtx: a slow HTTP drain can consume most or all of
+	// that budget, leaving the exporter no time to flush (or an already-expired
+	// context). Mirrors the main server's dedicated flush deadline.
 	if otelLogShutdown != nil {
-		if err := otelLogShutdown(shutdownCtx); err != nil {
+		flushCtx, flushCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer flushCancel()
+		if err := otelLogShutdown(flushCtx); err != nil {
 			debuglog.Error("frontdesk: OTLP log export shutdown failed", "error", err)
 		}
 	}

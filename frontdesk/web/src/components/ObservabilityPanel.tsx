@@ -120,6 +120,13 @@ export function ObservabilityPanel() {
 				<div className="fd-faint" style={{ fontSize: "0.82rem" }}>
 					{t("settings.observability.loadError")}
 				</div>
+			) : status === null ? (
+				// Until the status resolves, render nothing rather than defaulting to
+				// "disabled": an enabled exporter would otherwise flash a wrong badge
+				// and misleading enable instructions before the response lands.
+				<div className="fd-faint" style={{ fontSize: "0.82rem" }}>
+					{t("common.loading")}
+				</div>
 			) : (
 				<div className="fd-stack" style={{ gap: "1.1rem" }}>
 					{exporters.map((exp) => {
