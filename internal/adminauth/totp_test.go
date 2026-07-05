@@ -90,11 +90,17 @@ func validCode(t *testing.T, secret string) string {
 // skew=1 window: enroll -1, login 0 (validCode), disable +1.
 func codeForStep(t *testing.T, secret string, steps int) string {
 	t.Helper()
-	// Anchor to the middle of the current 30s window before stepping, so a code
-	// generated close to a window boundary can't roll into an adjacent step
-	// between generation here and validation on the server (skew=1). Mid-window
-	// leaves ~15s of margin on both sides, which keeps even step -1 inside the
-	// accepted window regardless of when in the second the test runs.
+	// The server validates against its own clock, read microseconds after this
+	// helper runs. If that read crosses a 30s window boundary, the skew=1 window
+	// shifts by one step and an edge step (-1 or +1) falls just out of range. Wait
+	// out the final sliver of the current window so generation and validation land
+	// in the same window with full margin on both sides.
+	if rem := time.Until(time.Now().Truncate(30 * time.Second).Add(30 * time.Second)); rem < time.Second {
+		time.Sleep(rem + 50*time.Millisecond)
+	}
+	// Anchor to the middle of the (now safely non-boundary) 30s window before
+	// stepping, so a code generated close to a window edge can't roll into an
+	// adjacent step; mid-window leaves ~15s of margin on both sides.
 	midWindow := time.Now().Truncate(30 * time.Second).Add(15 * time.Second)
 	c, err := otptotp.GenerateCode(secret, midWindow.Add(time.Duration(steps)*30*time.Second))
 	if err != nil {
