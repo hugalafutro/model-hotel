@@ -128,7 +128,7 @@ func NewServer(cfg ServerConfig) *Server {
 		lbPort:       lbPort,
 		version:      version,
 		masterKey:    cfg.MasterKey,
-		metricsToken: cfg.MetricsToken,
+		metricsToken: strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
 		rearmCh:      make(chan struct{}),
 	}
 

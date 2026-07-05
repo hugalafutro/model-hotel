@@ -252,14 +252,14 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	}
 
 	if res.OK {
-		recordConfigSync("ok")
-	} else {
-		recordConfigSync("err")
-	}
-
-	if res.OK {
+		// Count "ok" only once the last-sync stamp is durably written: a failed stamp
+		// leaves the member showing unsynced in the store/UI, so a premature "ok" here
+		// would make the metric disagree with reality. A stamp failure counts as "err".
 		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
 			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
+			recordConfigSync("err")
+		} else {
+			recordConfigSync("ok")
 		}
 		// A real write also confirms the member is in sync now: advance the live
 		// heartbeat alongside the persisted last_config_sync_at stamp.
@@ -271,6 +271,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 			})
 		}
 	} else {
+		recordConfigSync("err")
 		debuglog.Warn("frontdesk: config sync failed", "member", m.Name, "error", res.Error)
 		s.emit(ctx, Event{
 			Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",

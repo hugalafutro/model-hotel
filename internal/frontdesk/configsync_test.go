@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -371,5 +372,56 @@ func TestConfigSyncApplyVariants(t *testing.T) {
 	// "backup failed" skip.
 	if got := byID[um.ID].Error; !strings.Contains(got, "reach") || strings.Contains(got, "backup") {
 		t.Errorf("unreachable error = %q, want a reach failure and not a backup failure", got)
+	}
+}
+
+// configSyncCount scrapes /metrics and returns the current value of the
+// frontdesk_config_sync_total counter for the given result label (0 if the
+// series has not been emitted yet).
+func configSyncCount(t *testing.T, srv *Server, result string) float64 {
+	t.Helper()
+	prefix := `frontdesk_config_sync_total{result="` + result + `"} `
+	body := scrape(t, srv, testFrontdeskToken).Body.String()
+	for _, line := range strings.Split(body, "\n") {
+		if rest, ok := strings.CutPrefix(line, prefix); ok {
+			v, err := strconv.ParseFloat(strings.TrimSpace(rest), 64)
+			if err != nil {
+				t.Fatalf("parse %q: %v", line, err)
+			}
+			return v
+		}
+	}
+	return 0
+}
+
+// TestConfigSyncStampFailureCountsAsErr: when a member applies the config but the
+// durable last-sync stamp write fails, the metric must record "err", not "ok". A
+// premature "ok" (counted before the stamp) would disagree with the store/UI,
+// which still show the member as unsynced. Regression guard for that ordering.
+func TestConfigSyncStampFailureCountsAsErr(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubConfigMember(t, "rtoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	// Delete the row so the in-memory member still resolves (URL, ID) for the
+	// pure-HTTP apply, but SetMemberLastSync affects zero rows and errors. The DB
+	// stays open so /metrics can be scraped for the counter values.
+	if err := store.DeleteMember(t.Context(), rm.ID); err != nil {
+		t.Fatalf("delete member: %v", err)
+	}
+
+	okBefore := configSyncCount(t, srv, "ok")
+	errBefore := configSyncCount(t, srv, "err")
+
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 1)
+	if !res.OK {
+		t.Fatalf("member applied config but result not OK: %+v", res)
+	}
+
+	if moved := configSyncCount(t, srv, "ok") - okBefore; moved != 0 {
+		t.Errorf("ok counter moved by %v on a failed stamp, want 0", moved)
+	}
+	if moved := configSyncCount(t, srv, "err") - errBefore; moved != 1 {
+		t.Errorf("err counter moved by %v, want 1", moved)
 	}
 }

@@ -101,6 +101,24 @@ func TestMetricsTokenAuth(t *testing.T) {
 	}
 }
 
+// TestMetricsWhitespaceTokenFallsBackToAdmin guards against a blank-looking
+// FRONTDESK_METRICS_TOKEN (only spaces) being stored as a live bearer: the value
+// is normalized to unset, so the endpoint keeps the admin-or-session gate and the
+// whitespace string is not itself a valid credential.
+func TestMetricsWhitespaceTokenFallsBackToAdmin(t *testing.T) {
+	srv, _ := newMetricsTestServer(t, "   ")
+
+	if rec := scrape(t, srv, "   "); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("whitespace bearer = %d, want 401", rec.Code)
+	}
+	if rec := scrape(t, srv, ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("no bearer = %d, want 401", rec.Code)
+	}
+	if rec := scrape(t, srv, testFrontdeskToken); rec.Code != http.StatusOK {
+		t.Fatalf("admin bearer with whitespace token = %d (%s), want 200", rec.Code, rec.Body.String())
+	}
+}
+
 // TestMetricsScrapeMemberSeries seeds a member with live poller health and a
 // persisted last-sync stamp and asserts the scrape-time collector reports the
 // fleet gauges from current state.
