@@ -61,14 +61,7 @@ func Init(debug bool) {
 		currentLevel = slog.LevelInfo
 	}
 
-	opts := &slog.HandlerOptions{Level: currentLevel}
-	var handler slog.Handler
-	if JSONFormat() {
-		handler = slog.NewJSONHandler(os.Stdout, opts)
-	} else {
-		handler = slog.NewTextHandler(os.Stdout, opts)
-	}
-	slog.SetDefault(slog.New(maybeScopeFilter(handler)))
+	slog.SetDefault(slog.New(maybeScopeFilter(StdoutHandler())))
 
 	// Confirm scoped debug at startup so the operator sees it took effect. Log
 	// the parsed/normalized scopes (not the raw env string) so a tainted value
@@ -81,6 +74,20 @@ func Init(debug bool) {
 		sort.Strings(scopeList)
 		slog.Info("debuglog: per-scope debug enabled", "scopes", scopeList)
 	}
+}
+
+// StdoutHandler builds the base slog handler that writes to os.Stdout, honouring
+// LOG_FORMAT (JSON vs text) and the level chosen by Init. It is the single
+// source of truth for the stdout log sink, so callers that install their own
+// fan-out (e.g. Front Desk fanning stdout out to an OTLP exporter) start from
+// the exact handler Init would have installed. Call after Init so the level is
+// set; before Init it uses the zero value (Info).
+func StdoutHandler() slog.Handler {
+	opts := &slog.HandlerOptions{Level: currentLevel}
+	if JSONFormat() {
+		return slog.NewJSONHandler(os.Stdout, opts)
+	}
+	return slog.NewTextHandler(os.Stdout, opts)
 }
 
 // maybeScopeFilter wraps h with per-scope Debug filtering, but only when

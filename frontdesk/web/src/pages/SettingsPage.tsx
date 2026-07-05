@@ -5,6 +5,7 @@ import type { Settings } from "../api/types";
 import { AlertsPanel } from "../components/AlertsPanel";
 import { AutoSyncPanel } from "../components/AutoSyncPanel";
 import { FleetSyncWizard } from "../components/FleetSyncWizard";
+import { ObservabilityPanel } from "../components/ObservabilityPanel";
 import { OidcPanel } from "../components/OidcPanel";
 import { SecurityPanels } from "../components/SecurityPanels";
 import { useToast } from "../context/ToastContext";
@@ -255,6 +256,8 @@ export function SettingsPage() {
 			<SecurityPanels />
 
 			<OidcPanel />
+
+			<ObservabilityPanel />
 		</div>
 	);
 }

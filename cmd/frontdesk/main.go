@@ -27,6 +27,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/frontdesk"
+	"github.com/hugalafutro/model-hotel/internal/otelexport"
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
@@ -40,6 +41,29 @@ var version = "dev"
 func main() {
 	dbg := os.Getenv("DEBUG_LOG")
 	debuglog.Init(strings.EqualFold(dbg, "true") || dbg == "1")
+
+	// Root context for process-lifetime background work and log-exporter shutdown.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// OTLP log export: when the standard OTEL_EXPORTER_OTLP_* endpoint vars are
+	// set, fan the same structured records Front Desk already logs out to an
+	// OpenTelemetry collector, mirroring the main server. Logs only — no spans,
+	// no OTLP metrics (Prometheus stays the metrics path). Front Desk has no
+	// app-log ring buffer, so the fan-out base is the plain stdout handler.
+	var otelLogShutdown func(context.Context) error
+	if otelexport.LogsEnabled() {
+		otelHandler, shutdown, oerr := otelexport.NewSlogHandler(ctx, "front-desk", debuglog.Level())
+		if oerr != nil {
+			debuglog.Error("frontdesk: OTLP log export init failed; continuing without it", "error", oerr)
+		} else {
+			debuglog.SetHandler(debuglog.NewFanout(debuglog.StdoutHandler(), otelHandler))
+			otelLogShutdown = shutdown
+			// Logged after SetHandler installs the fan-out so the confirmation
+			// itself is also exported to the OTLP collector.
+			debuglog.Info("frontdesk: OTLP log export enabled")
+		}
+	}
 
 	port := envOr("PORT", ":8090")
 	if !strings.HasPrefix(port, ":") {
@@ -104,9 +128,6 @@ func main() {
 		Version:      version,
 	})
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
 	go poller.Run(ctx)
 	go srv.RunAutoSync(ctx)
 	go srv.RunAlerts(ctx)
@@ -130,6 +151,17 @@ func main() {
 	defer cancel()
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		debuglog.Error("frontdesk: graceful shutdown failed", "error", err)
+	}
+	// Flush and close the OTLP log exporter so batched records aren't lost. Use a
+	// fresh context, not shutdownCtx: a slow HTTP drain can consume most or all of
+	// that budget, leaving the exporter no time to flush (or an already-expired
+	// context). Mirrors the main server's dedicated flush deadline.
+	if otelLogShutdown != nil {
+		flushCtx, flushCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer flushCancel()
+		if err := otelLogShutdown(flushCtx); err != nil {
+			debuglog.Error("frontdesk: OTLP log export shutdown failed", "error", err)
+		}
 	}
 }
 
