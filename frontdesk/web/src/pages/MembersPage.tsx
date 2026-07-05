@@ -13,7 +13,7 @@ import { ConfirmModal } from "../components/ConfirmModal";
 import { Notice } from "../components/Notice";
 import { useToast } from "../context/ToastContext";
 import { useMembers } from "../hooks/useMembers";
-import { formatRelative } from "../utils/time";
+import { formatRelative, formatTimeOfDay } from "../utils/time";
 
 // majorityVersion returns the most common non-empty version across members, used
 // to flag the odd one(s) out only when the group actually disagrees.
@@ -58,7 +58,7 @@ export function MembersPage() {
 	// useMembers owns the page's single SSE subscription; piggyback on it to
 	// refresh the primary when membership or a sync changes, rather than opening
 	// a second stream to /api/sse.
-	const { members, loading, error, refetch } = useMembers(
+	const { members, loading, error, refetch, lastUpdatedAt } = useMembers(
 		useCallback(
 			(e) => {
 				if (e.type.startsWith("member.") || e.type.startsWith("config.")) {
@@ -128,6 +128,7 @@ export function MembersPage() {
 								<th>{t("members.colFrontdesk")}</th>
 								<th>{t("members.colTraefik")}</th>
 								<th>{t("members.colVersion")}</th>
+								<th>{t("members.colVerified")}</th>
 								<th>{t("members.colLastSync")}</th>
 								<th>{t("members.colState")}</th>
 								<th />
@@ -146,6 +147,21 @@ export function MembersPage() {
 							))}
 						</tbody>
 					</table>
+				)}
+				{lastUpdatedAt && !loading && !error && (
+					<div
+						className="fd-faint"
+						style={{
+							fontSize: "0.8rem",
+							textAlign: "right",
+							marginTop: "0.5rem",
+						}}
+						data-testid="members-last-updated"
+					>
+						{t("members.lastUpdated", {
+							when: formatTimeOfDay(lastUpdatedAt),
+						})}
+					</div>
 				)}
 			</div>
 
@@ -260,6 +276,28 @@ function MemberRow({
 				) : (
 					<span className="fd-faint">
 						{m.has_token ? t("members.versionUnknown") : t("members.noToken")}
+					</span>
+				)}
+			</td>
+			<td data-testid="member-verified">
+				{isPrimary ? (
+					<span className="fd-faint" title={t("members.verifiedPrimaryTip")}>
+						{t("members.verifiedPrimary")}
+					</span>
+				) : m.status.auto_sync_verified_at ? (
+					<span
+						className="fd-faint"
+						title={t("members.verifiedTip", {
+							when: formatRelative(m.status.auto_sync_verified_at),
+						})}
+					>
+						{t("members.verifiedWhen", {
+							when: formatRelative(m.status.auto_sync_verified_at),
+						})}
+					</span>
+				) : (
+					<span className="fd-faint" title={t("members.verifiedNeverTip")}>
+						{t("members.verifiedNever")}
 					</span>
 				)}
 			</td>

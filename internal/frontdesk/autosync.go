@@ -53,14 +53,6 @@ const (
 	// reflects the deliberate enable rather than a primary edit.
 	autoSyncKickReason = "auto-sync was enabled"
 
-	// verifiedInSyncReason is stamped when a propagation pass confirms a member
-	// already matches the primary (typically because it self-converged via its
-	// own discovery) and so needs no write. Stamping it keeps the Members table
-	// "Last Config Sync" column reflecting the last reconciliation against the
-	// primary, not just the last actual write, which would otherwise leave the
-	// column stale for as long as members happened to converge on their own.
-	verifiedInSyncReason = "verified in sync with the primary"
-
 	// autoSyncKickTimeout caps the detached convergence pass fired when auto-sync
 	// is enabled, so a stuck member cannot leak the goroutine. Generous: a pass
 	// snapshots and imports config on every drifted member in turn.
@@ -104,8 +96,14 @@ func (s *Server) autoSyncOnce(ctx context.Context, prev string) string {
 		return ""
 	}
 
-	// Unchanged since the last fleet-wide apply: nothing to propagate.
+	// Unchanged since the last fleet-wide apply: nothing to propagate. The fleet
+	// is already converged (LastHash is recorded only once every reachable member
+	// matched it, and the primary still reports it), so this is the quiet steady
+	// state. Advance each reachable member's live "verified in sync" heartbeat so
+	// the Members table shows auto-sync is running even when there is nothing to
+	// write. No DB write, no event: last_config_sync_at moves only on a real sync.
 	if hash == cfg.LastHash {
+		s.markFleetVerified(ctx, cfg.PrimaryID)
 		return hash
 	}
 	// Coalesce: only act once the primary's config has settled (the same hash two
@@ -194,19 +192,26 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 	}
 }
 
-// stampVerifiedInSync records that a propagation pass confirmed a member already
-// matches the primary, so the Members table "Last Config Sync" column advances on
-// a reconciliation even when no write was needed. Both the auto-sync and wizard
-// paths funnel their converged-member case here. It returns the store error (also
-// logged) so callers can treat a failed stamp as a member that did not fully
-// reconcile: a converged member whose marker did not persist must be retried, or
-// the column stays stale, which is exactly what this whole path exists to prevent.
-func (s *Server) stampVerifiedInSync(ctx context.Context, memberID, memberName string) error {
-	if err := s.store.SetMemberLastSync(ctx, memberID, time.Now().UTC(), verifiedInSyncReason); err != nil {
-		debuglog.Warn("frontdesk: stamp verified-in-sync marker", "member", memberName, "error", err)
-		return err
+// markFleetVerified advances the live "verified in sync" heartbeat for every
+// reachable, non-primary member. It is called on the quiet auto-sync tick (the
+// fleet is already converged and the primary has not drifted), so the Members
+// table shows auto-sync is running even when nothing needs writing. Members the
+// health poller does not currently see up are skipped: their heartbeat freezes,
+// which honestly says "not verified right now" while the red health badge
+// explains why. In-memory only, no DB write, so it is cheap to run every tick.
+func (s *Server) markFleetVerified(ctx context.Context, primaryID string) {
+	members, err := s.store.ListMembers(ctx)
+	if err != nil {
+		debuglog.Debug("frontdesk: auto-sync: list members for verify heartbeat", "error", err)
+		return
 	}
-	return nil
+	now := time.Now().UTC()
+	for _, m := range members {
+		if m.ID == primaryID {
+			continue // the primary is the source; it is not "in sync with" itself
+		}
+		s.poller.SetAutoSyncVerifiedIfReachable(m.ID, now)
+	}
 }
 
 // applyAutoSync pushes the primary's config to every other tokened member that
@@ -315,15 +320,12 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		added, updated, removed := res.Diff.counts()
 		if added+updated+removed == 0 {
 			// Already in sync (the member self-converged via its own discovery, or
-			// a prior pass wrote it). This is still a successful reconciliation
-			// against the primary, so stamp the last-sync marker even though no
-			// write is needed. No backup, no import, not counted as applied, and no
-			// per-member event: only the timestamp/reason move. If the stamp itself
-			// fails, hold the fleet hash back (like every other per-member failure
-			// above) so the next tick retries rather than leaving the column stale.
-			if err := s.stampVerifiedInSync(ctx, m.ID, m.Name); err != nil {
-				allConverged = false
-			}
+			// a prior pass wrote it). No backup, no import, not counted as applied,
+			// and no per-member event. Nothing was written, so last_config_sync_at
+			// stays put (it means a real config write); only advance the live
+			// "verified in sync" heartbeat so the Members table shows this member
+			// was just confirmed against the primary.
+			s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 			continue
 		}
 

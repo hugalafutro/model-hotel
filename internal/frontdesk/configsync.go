@@ -168,14 +168,11 @@ func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string,
 		return nil, true // unreachable or blocked: let applyMemberConfig report the real cause
 	}
 	if added, updated, removed := preview.Diff.counts(); added+updated+removed == 0 {
-		// Already in sync: no backup, no import. Still stamp the last-sync marker
-		// so the Members table reflects this reconciliation, matching the auto-sync
-		// path (a converged member is confirmed against the primary, just not written).
-		// If the stamp fails, report the member as not fully synced rather than
-		// claiming OK for a reconciliation whose marker did not persist.
-		if err := s.stampVerifiedInSync(ctx, m.ID, m.Name); err != nil {
-			return &syncResultItem{MemberID: m.ID, Name: m.Name, Error: "in sync with the primary, but recording the last-sync marker failed"}, false
-		}
+		// Already in sync: no backup, no import, and no last_config_sync_at stamp
+		// (nothing was written; that column means a real config write). Advance the
+		// live "verified in sync" heartbeat so the Members table shows the wizard
+		// just confirmed this member matches the primary, matching the auto path.
+		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 		return &syncResultItem{MemberID: m.ID, Name: m.Name, OK: true}, false
 	}
 	if err := s.backupMember(ctx, m, token); err != nil {
@@ -255,6 +252,9 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
 			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
 		}
+		// A real write also confirms the member is in sync now: advance the live
+		// heartbeat alongside the persisted last_config_sync_at stamp.
+		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 		if emitSuccessEvent {
 			s.emit(ctx, Event{
 				Type: "config.synced", Severity: "info", Source: "frontdesk",

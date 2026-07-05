@@ -57,6 +57,13 @@ type MemberStatus struct {
 	Health        HealthStatus `json:"health"`
 	TraefikStatus string       `json:"traefik_status,omitempty"` // "UP" / "DOWN" / "" (unknown)
 	Version       string       `json:"version,omitempty"`
+	// AutoSyncVerifiedAt is the last time the auto-syncer confirmed this member
+	// matches the primary (a real write, a self-converged empty diff, or a quiet
+	// verify tick on an already-converged fleet). It is the live "auto-sync is
+	// running" heartbeat that advances ~every tick while the member is reachable,
+	// distinct from last_config_sync_at, which moves only on a real config write.
+	// A pointer so a never-verified member serializes as absent, not a zero time.
+	AutoSyncVerifiedAt *time.Time `json:"auto_sync_verified_at,omitempty"`
 }
 
 // Poller probes members and Traefik on intervals taken from settings.
@@ -114,6 +121,43 @@ func (p *Poller) Snapshot() map[string]MemberStatus {
 		out[k] = v
 	}
 	return out
+}
+
+// SetAutoSyncVerified records that the auto-syncer just confirmed the member is
+// in sync with the primary, advancing the live "auto-sync is running" heartbeat
+// the Members tab renders. It read-modify-writes under the same lock the health
+// loop uses, so a concurrent health probe (which copies the whole MemberStatus)
+// cannot drop the marker. In-memory only: it resets on restart and repopulates
+// within a tick, which is exactly what a liveness signal should do.
+func (p *Poller) SetAutoSyncVerified(memberID string, at time.Time) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	st := p.statuses[memberID]
+	st.AutoSyncVerifiedAt = &at
+	p.statuses[memberID] = st
+}
+
+// SetAutoSyncVerifiedIfReachable advances the verify heartbeat only when the
+// member's most recent health probe actually succeeded, performing the check and
+// the stamp under a single write lock so a concurrent health probe cannot slip
+// in between and let a just-failed member get stamped. Returns whether it stamped.
+//
+// The reachability test is stricter than the rendered badge: the badge holds the
+// last known-good status through the fail-threshold grace window (so a routine
+// rebuild blip does not flash red), but a member mid-outage is not "verified in
+// sync". A non-zero consecutive-failure count means the last probe failed even
+// while the badge still reads healthy, so require both a healthy badge and zero
+// pending failures.
+func (p *Poller) SetAutoSyncVerifiedIfReachable(memberID string, at time.Time) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	st, ok := p.statuses[memberID]
+	if !ok || !st.Health.Known || !st.Health.Healthy || p.healthFailures[memberID] != 0 {
+		return false
+	}
+	st.AutoSyncVerifiedAt = &at
+	p.statuses[memberID] = st
+	return true
 }
 
 // Run starts the poll loops and blocks until ctx is cancelled. Each loop reads

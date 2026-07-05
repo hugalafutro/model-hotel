@@ -41,6 +41,12 @@ export interface MemberStatus {
 	health: HealthStatus;
 	traefik_status?: string; // "UP" | "DOWN" | ""
 	version?: string;
+	// Live "auto-sync is running" heartbeat: the last time the auto-syncer
+	// confirmed this member matches the primary (a real write, a self-converged
+	// empty diff, or a quiet verify tick). RFC3339; absent until first verified,
+	// and frozen while the member is unreachable. Distinct from
+	// last_config_sync_at, which moves only on a real config write.
+	auto_sync_verified_at?: string;
 }
 
 // memberView from listMembers: a Member plus its live poller status.
