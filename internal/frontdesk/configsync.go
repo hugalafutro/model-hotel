@@ -241,6 +241,9 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// member for the newer pass; a soft note documents the disposition.
 		res.Error = "superseded by a newer sync"
 		debuglog.Debug("frontdesk: config sync superseded by a newer generation", "member", m.Name, "source_gen", sourceGen)
+		// Counted under its own label: a fence supersede is benign, and folding it
+		// into "err" would make routine rearms look like sync failures on a graph.
+		recordConfigSync("superseded")
 		return res
 	case !out.Applied:
 		res.Error = "this member did not apply the config"
@@ -248,10 +251,21 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		res.OK = true
 	}
 
+	// A member that applied the config is only truly converged once its durable
+	// last-sync stamp is written. If that write fails, fail the whole result: the
+	// store and UI still show the member unsynced, so the caller must not mark it
+	// converged (it is retried next pass) and neither the success event nor the
+	// verified heartbeat may fire. The metric and event then agree with res.OK.
 	if res.OK {
 		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
 			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
+			res.OK = false
+			res.Error = "applied but could not record the sync stamp"
 		}
+	}
+
+	if res.OK {
+		recordConfigSync("ok")
 		// A real write also confirms the member is in sync now: advance the live
 		// heartbeat alongside the persisted last_config_sync_at stamp.
 		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
@@ -262,6 +276,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 			})
 		}
 	} else {
+		recordConfigSync("err")
 		debuglog.Warn("frontdesk: config sync failed", "member", m.Name, "error", res.Error)
 		s.emit(ctx, Event{
 			Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",

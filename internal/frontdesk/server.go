@@ -2,6 +2,7 @@ package frontdesk
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,6 +53,7 @@ type ServerConfig struct {
 	RelyingParty *gowa.WebAuthn                // WebAuthn RP (from PUBLIC_ORIGIN); nil disables passkeys
 	IPLimiter    adminauth.IPLimiterMiddleware // per-IP limit on login routes
 	UI           fs.FS                         // embedded SPA; nil disables the UI mount
+	MetricsToken string                        // FRONTDESK_METRICS_TOKEN; bearer for /metrics scrapes (falls back to admin auth when empty)
 	LBPort       string                        // host port of the LB (Traefik "web"); shown in the wizard's Done step. Defaults to 8080.
 	Version      string                        // running build, stamped via ldflags; surfaced read-only over GET /api/version. Defaults to "dev".
 }
@@ -72,6 +74,7 @@ type Server struct {
 	lbPort       string       // host port of the data-plane load balancer, surfaced to the wizard
 	version      string       // running build, surfaced read-only over GET /api/version
 	masterKey    string       // encrypts the Apprise target secret at rest
+	metricsToken string       // dedicated bearer for Prometheus /metrics scrapes; empty falls back to admin auth
 	alertDisp    *alert.Dispatcher
 	settingsMu   sync.Mutex // serializes the settings-row read-merge-write
 	// rearmMu guards rearmCh, the in-process rearm broadcast. rearmCh is closed (and
@@ -125,8 +128,14 @@ func NewServer(cfg ServerConfig) *Server {
 		lbPort:       lbPort,
 		version:      version,
 		masterKey:    cfg.MasterKey,
+		metricsToken: strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
 		rearmCh:      make(chan struct{}),
 	}
+
+	// Bind the scrape-time member-fleet collector to this server's store and
+	// poller so /metrics always reflects current state (one server per process
+	// in production; tests rebind freely).
+	setMemberMetricsSource(s.collectMemberMetrics)
 
 	// Outbound Apprise alerting: one consumer of the Front Desk event bus, gated by
 	// the HA event catalog and the operator's picker. Built here so the settings
@@ -137,6 +146,7 @@ func NewServer(cfg ServerConfig) *Server {
 		alert.WithCatalog(fdCatalog),
 		alert.WithTitlePrefix("Front Desk"),
 		alert.WithDebounceKeys([]string{"member_id"}),
+		alert.WithResultHook(recordAlertDispatch),
 	)
 
 	webauthnHandler := adminauth.NewWebAuthnHandler(
@@ -172,6 +182,11 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 
 	// Unauthenticated, compose-internal: Traefik's HTTP provider polls this.
 	r.Get("/traefik/config", s.handleTraefikConfig)
+
+	// Prometheus scrape endpoint. Outside /api (matching the main server's
+	// mount) and never rate-limited by IP so scrapers aren't throttled; auth
+	// is FRONTDESK_METRICS_TOKEN or, without one, the admin-or-session gate.
+	r.Handle("/metrics", s.metricsAuth(metricsHTTPHandler()))
 
 	r.Route("/api", func(r chi.Router) {
 		// Login + auth management ceremonies (gating handled inside the handlers:
@@ -228,6 +243,34 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 // token (when TOTP is on, the raw token is a first factor only).
 func (s *Server) requireAuth(next http.Handler) http.Handler {
 	return adminauth.RequireAdminOrSession(s.adminMgr, s.sessionMgr, s.totpStatus.Enabled, next)
+}
+
+// metricsAuth gates the Prometheus scrape endpoint, mirroring the main
+// server's metricsAuth. A dedicated FRONTDESK_METRICS_TOKEN (so the scrape
+// config need not hold the admin token) takes precedence; without one, the
+// standard admin-or-session auth applies. The token must be presented as an
+// Authorization: Bearer header — not a query parameter — so it does not leak
+// into reverse-proxy access logs, browser history, or referrers. The endpoint
+// is never served unauthenticated.
+func (s *Server) metricsAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.metricsToken != "" {
+			tok, ok := util.ParseBearerToken(r)
+			if subtle.ConstantTimeCompare([]byte(tok), []byte(s.metricsToken)) == 1 {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if !ok || tok == "" {
+				debuglog.Warn("frontdesk: metrics scrape missing bearer token", "remote_addr", r.RemoteAddr)
+			} else {
+				debuglog.Warn("frontdesk: metrics scrape with invalid token", "remote_addr", r.RemoteAddr)
+			}
+			http.Error(w, "invalid metrics token", http.StatusUnauthorized)
+			return
+		}
+		// No dedicated token configured — fall back to admin auth.
+		s.requireAuth(next).ServeHTTP(w, r)
+	})
 }
 
 // logout revokes the caller's server-side session so a manual or idle auto-logout
@@ -751,12 +794,14 @@ func (s *Server) getVersion(w http.ResponseWriter, _ *http.Request) {
 // It mirrors the main server's log_export_* status keys so the Front Desk
 // Observability panel can reflect the same state. Nothing here is runtime-
 // changeable; each integration is enabled by its own environment variable.
-// (Prometheus /metrics — log_export_metrics — is a planned follow-up; see
-// plans/frontdesk-prometheus-metrics.md.)
+// log_export_metrics reports whether a dedicated scrape token is configured
+// (the /metrics endpoint itself always exists, gated by admin auth otherwise),
+// matching the main server's semantics.
 func (s *Server) getObservability(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{
-		"log_export_json": debuglog.JSONFormat(),
-		"log_export_otel": otelexport.LogsEnabled(),
+		"log_export_json":    debuglog.JSONFormat(),
+		"log_export_otel":    otelexport.LogsEnabled(),
+		"log_export_metrics": s.metricsToken != "",
 	})
 }
 

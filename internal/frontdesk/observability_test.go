@@ -29,6 +29,27 @@ func TestGetObservability(t *testing.T) {
 	if v["log_export_otel"] {
 		t.Errorf("log_export_otel = true, want false")
 	}
+	if v["log_export_metrics"] {
+		t.Errorf("log_export_metrics = true, want false (no scrape token configured)")
+	}
+}
+
+// TestGetObservabilityMetricsFlag confirms log_export_metrics flips on when a
+// dedicated scrape token is configured.
+func TestGetObservabilityMetricsFlag(t *testing.T) {
+	srv, _ := newMetricsTestServer(t, "scrape-secret")
+
+	rec := do(t, srv, http.MethodGet, "/api/observability", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/observability = %d (%s)", rec.Code, rec.Body.String())
+	}
+	var v map[string]bool
+	if err := json.Unmarshal(rec.Body.Bytes(), &v); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !v["log_export_metrics"] {
+		t.Errorf("log_export_metrics = false, want true")
+	}
 }
 
 // TestGetObservabilityReflectsEnv confirms the flags flip on when the enabling

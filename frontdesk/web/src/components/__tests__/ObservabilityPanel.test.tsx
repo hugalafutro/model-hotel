@@ -5,10 +5,14 @@ import { expect, it, vi } from "vitest";
 import { server } from "../../test/server";
 import { ObservabilityPanel } from "../ObservabilityPanel";
 
-function mockStatus(json: boolean, otel: boolean) {
+function mockStatus(json: boolean, otel: boolean, metrics = false) {
 	server.use(
 		http.get("/api/observability", () =>
-			HttpResponse.json({ log_export_json: json, log_export_otel: otel }),
+			HttpResponse.json({
+				log_export_json: json,
+				log_export_otel: otel,
+				log_export_metrics: metrics,
+			}),
 		),
 	);
 }
@@ -44,8 +48,8 @@ it("shows a loading state and no badges until status resolves", async () => {
 	);
 });
 
-it("shows enabled badges and no enable instructions when both are on", async () => {
-	mockStatus(true, true);
+it("shows enabled badges and no enable instructions when all are on", async () => {
+	mockStatus(true, true, true);
 	render(<ObservabilityPanel />);
 
 	await waitFor(() =>
@@ -58,12 +62,19 @@ it("shows enabled badges and no enable instructions when both are on", async () 
 		"data-enabled",
 		"true",
 	);
+	expect(screen.getByTestId("observability-status-metrics")).toHaveAttribute(
+		"data-enabled",
+		"true",
+	);
 	// Enabled exporters hide the env-var instructions.
 	expect(
 		screen.queryByTestId("observability-instructions-json"),
 	).not.toBeInTheDocument();
 	expect(
 		screen.queryByTestId("observability-instructions-otel"),
+	).not.toBeInTheDocument();
+	expect(
+		screen.queryByTestId("observability-instructions-metrics"),
 	).not.toBeInTheDocument();
 });
 
@@ -83,6 +94,9 @@ it("shows disabled badges with copyable env vars when both are off", async () =>
 	expect(
 		screen.getByTestId("observability-instructions-otel"),
 	).toHaveTextContent("OTEL_EXPORTER_OTLP_ENDPOINT=<collector-url>");
+	expect(
+		screen.getByTestId("observability-instructions-metrics"),
+	).toHaveTextContent("FRONTDESK_METRICS_TOKEN=<token>");
 });
 
 it("copies the env var to the clipboard when the pill is clicked", async () => {

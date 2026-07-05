@@ -340,6 +340,37 @@ health transitions tagged by source, config lifecycle, and a warning when
 **Traefik has not polled for too long** (the one silent failure mode of the
 HTTP-provider design). No request or prompt content is ever logged.
 
+Front Desk also serves **Prometheus metrics** at `/metrics` on the admin port,
+covering the control-plane domain (Front Desk is never in the request path, so
+there are no request or token metrics here): member counts by state
+(`frontdesk_members_total`), per-member health and probe latency
+(`frontdesk_member_up`, `frontdesk_member_health_latency_seconds`), the last
+applied config sync per member
+(`frontdesk_last_config_sync_timestamp_seconds`), poll-loop timing
+(`frontdesk_poll_duration_seconds`), and config-sync plus alert-dispatch
+outcome counters (`frontdesk_config_sync_total`,
+`frontdesk_alerts_dispatched_total`), alongside the standard Go process
+metrics. Member names appear as labels; member secrets never do.
+
+The endpoint is never unauthenticated: set `FRONTDESK_METRICS_TOKEN` in `.env`
+to give Prometheus its own bearer (so the scrape config does not hold the admin
+token), or leave it unset and scrape with the admin login. Example scrape
+config:
+
+```yaml
+scrape_configs:
+    - job_name: frontdesk
+      metrics_path: /metrics
+      scheme: https
+      authorization:
+          credentials: <FRONTDESK_METRICS_TOKEN>
+      static_configs:
+          - targets: ["frontdesk.example.com"]
+```
+
+The Settings page's Observability panel shows whether a dedicated scrape token
+is configured, next to the JSON-logs and OTLP log-export status.
+
 ---
 
 ## Alerting

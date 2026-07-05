@@ -60,6 +60,7 @@ type Dispatcher struct {
 	titlePrefix  string
 	debounceKeys []string
 	cooldown     time.Duration
+	resultHook   func(ok bool) // observes each send attempt's outcome; nil disables
 
 	mu       sync.Mutex
 	lastSent map[string]time.Time
@@ -87,6 +88,14 @@ func WithTitlePrefix(p string) Option { return func(d *Dispatcher) { d.titlePref
 // slice is copied so a later mutation by the caller cannot change debounce behavior.
 func WithDebounceKeys(keys []string) Option {
 	return func(d *Dispatcher) { d.debounceKeys = append([]string(nil), keys...) }
+}
+
+// WithResultHook observes the outcome of every dispatched notification attempt
+// (true on a successful POST, false on failure). It is called from the send
+// goroutine, so it must be cheap and non-blocking; embedders use it to feed
+// metrics without the dispatcher depending on a metrics package.
+func WithResultHook(hook func(ok bool)) Option {
+	return func(d *Dispatcher) { d.resultHook = hook }
 }
 
 // New constructs a Dispatcher. A nil client gets a sensible default. With no
@@ -168,7 +177,11 @@ func (d *Dispatcher) handle(ctx context.Context, ev events.Event) bool {
 	// the goroutine rate is naturally limited.
 	payload := payloadFor(ev, d.titlePrefix)
 	go func() {
-		if err := d.post(ctx, cfg, payload); err != nil {
+		err := d.post(ctx, cfg, payload)
+		if d.resultHook != nil {
+			d.resultHook(err == nil)
+		}
+		if err != nil {
 			debuglog.Warn("alert: notify failed", "type", ev.Type, "error", err.Error())
 			return
 		}

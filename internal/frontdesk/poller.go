@@ -217,6 +217,8 @@ func (p *Poller) healthFailThreshold(ctx context.Context) int {
 
 // PollHealthOnce probes every member's /health and records up/down transitions.
 func (p *Poller) PollHealthOnce(ctx context.Context) {
+	start := p.now()
+	defer func() { observePollDuration("health", p.now().Sub(start)) }()
 	members, err := p.store.ListMembers(ctx)
 	if err != nil {
 		debuglog.Warn("frontdesk: poll health: list members", "error", err)
@@ -400,6 +402,8 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	if p.traefikAPI == "" {
 		return
 	}
+	start := p.now()
+	defer func() { observePollDuration("traefik", p.now().Sub(start)) }()
 	statusByURL, err := p.fetchTraefikServerStatus(ctx)
 	if err != nil {
 		debuglog.Debug("frontdesk: poll traefik status", "error", err)

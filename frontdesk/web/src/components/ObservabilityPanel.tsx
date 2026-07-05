@@ -3,6 +3,7 @@ import {
 	BroadcastIcon,
 	CheckIcon,
 	CopyIcon,
+	GaugeIcon,
 	type Icon,
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
@@ -68,7 +69,6 @@ function CopyEnvVar({ text }: { text: string }) {
 // environment variable and resolved server-side; this panel only REFLECTS that
 // state, showing an enabled/disabled badge plus copyable enable instructions
 // when off. It mirrors the main dashboard's ObservabilitySettings section.
-// Prometheus /metrics is a planned follow-up (plans/frontdesk-prometheus-metrics.md).
 export function ObservabilityPanel() {
 	const { t } = useTranslation();
 	const [status, setStatus] = useState<ObservabilityStatus | null>(null);
@@ -99,6 +99,15 @@ export function ObservabilityPanel() {
 			description: t("settings.observability.otel.description"),
 			envVar: "OTEL_EXPORTER_OTLP_ENDPOINT=<collector-url>",
 			instructions: t("settings.observability.otel.instructions"),
+		},
+		{
+			id: "metrics",
+			icon: GaugeIcon,
+			enabled: status?.log_export_metrics ?? false,
+			name: t("settings.observability.metrics.name"),
+			description: t("settings.observability.metrics.description"),
+			envVar: "FRONTDESK_METRICS_TOKEN=<token>",
+			instructions: t("settings.observability.metrics.instructions"),
 		},
 	];
 

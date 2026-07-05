@@ -124,6 +124,9 @@ func main() {
 		RelyingParty: rp,
 		IPLimiter:    ipLimiter,
 		UI:           frontdesk.EmbeddedUI(),
+		// Dedicated Prometheus scrape bearer; when unset, /metrics falls back to
+		// the admin-or-session gate (never unauthenticated).
+		MetricsToken: os.Getenv("FRONTDESK_METRICS_TOKEN"),
 		LBPort:       lbPort,
 		Version:      version,
 	})

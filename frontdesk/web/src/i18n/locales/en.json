@@ -176,6 +176,11 @@
 				"name": "OTLP log export",
 				"description": "Ship structured log records to an OpenTelemetry collector.",
 				"instructions": "Point Front Desk at your collector with the standard OTEL_EXPORTER_OTLP_* variables and restart."
+			},
+			"metrics": {
+				"name": "Prometheus metrics",
+				"description": "Serve fleet, poller, and sync metrics for Prometheus at /metrics.",
+				"instructions": "Set a dedicated scrape token and restart Front Desk, then point your Prometheus scrape config at /metrics with that bearer token. Without a token the endpoint still works behind the admin login."
 			}
 		},
 		"oidc": {
