@@ -394,11 +394,13 @@ func configSyncCount(t *testing.T, srv *Server, result string) float64 {
 	return 0
 }
 
-// TestConfigSyncStampFailureCountsAsErr: when a member applies the config but the
-// durable last-sync stamp write fails, the metric must record "err", not "ok". A
-// premature "ok" (counted before the stamp) would disagree with the store/UI,
-// which still show the member as unsynced. Regression guard for that ordering.
-func TestConfigSyncStampFailureCountsAsErr(t *testing.T) {
+// TestConfigSyncStampFailureFailsResult: when a member applies the config but the
+// durable last-sync stamp write fails, the whole result must fail, not just the
+// metric label. A premature success would let the wizard report the member synced
+// and auto-sync mark it converged while the store/UI still show it unsynced, so it
+// would never be retried. The result flips to not-OK with an error, the counter
+// records "err" (never "ok"), and a config.sync_failed event is emitted.
+func TestConfigSyncStampFailureFailsResult(t *testing.T) {
 	srv, store := newTestServer(t)
 	replica := newStubConfigMember(t, "rtoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
@@ -413,9 +415,9 @@ func TestConfigSyncStampFailureCountsAsErr(t *testing.T) {
 	okBefore := configSyncCount(t, srv, "ok")
 	errBefore := configSyncCount(t, srv, "err")
 
-	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", false, 1)
-	if !res.OK {
-		t.Fatalf("member applied config but result not OK: %+v", res)
+	res := srv.applyMemberConfig(t.Context(), rm, "rtoken", []byte(fleetExportWithKey), "test", true, 1)
+	if res.OK || res.Error == "" {
+		t.Fatalf("stamp failure must fail the result, got OK=%v err=%q", res.OK, res.Error)
 	}
 
 	if moved := configSyncCount(t, srv, "ok") - okBefore; moved != 0 {
@@ -423,5 +425,25 @@ func TestConfigSyncStampFailureCountsAsErr(t *testing.T) {
 	}
 	if moved := configSyncCount(t, srv, "err") - errBefore; moved != 1 {
 		t.Errorf("err counter moved by %v, want 1", moved)
+	}
+
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{})
+	if err != nil {
+		t.Fatalf("list events: %v", err)
+	}
+	var sawFail, sawSynced bool
+	for _, e := range evs {
+		switch e.Type {
+		case "config.sync_failed":
+			sawFail = true
+		case "config.synced":
+			sawSynced = true
+		}
+	}
+	if !sawFail {
+		t.Error("expected a config.sync_failed event on stamp failure")
+	}
+	if sawSynced {
+		t.Error("a config.synced event must not fire when the stamp failed")
 	}
 }

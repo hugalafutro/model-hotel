@@ -251,16 +251,21 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		res.OK = true
 	}
 
+	// A member that applied the config is only truly converged once its durable
+	// last-sync stamp is written. If that write fails, fail the whole result: the
+	// store and UI still show the member unsynced, so the caller must not mark it
+	// converged (it is retried next pass) and neither the success event nor the
+	// verified heartbeat may fire. The metric and event then agree with res.OK.
 	if res.OK {
-		// Count "ok" only once the last-sync stamp is durably written: a failed stamp
-		// leaves the member showing unsynced in the store/UI, so a premature "ok" here
-		// would make the metric disagree with reality. A stamp failure counts as "err".
 		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
 			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
-			recordConfigSync("err")
-		} else {
-			recordConfigSync("ok")
+			res.OK = false
+			res.Error = "applied but could not record the sync stamp"
 		}
+	}
+
+	if res.OK {
+		recordConfigSync("ok")
 		// A real write also confirms the member is in sync now: advance the live
 		// heartbeat alongside the persisted last_config_sync_at stamp.
 		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
