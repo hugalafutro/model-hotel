@@ -210,9 +210,7 @@ func (s *Server) markFleetVerified(ctx context.Context, primaryID string) {
 		if m.ID == primaryID {
 			continue // the primary is the source; it is not "in sync with" itself
 		}
-		if s.poller.reachableNow(m.ID) {
-			s.poller.SetAutoSyncVerified(m.ID, now)
-		}
+		s.poller.SetAutoSyncVerifiedIfReachable(m.ID, now)
 	}
 }
 
