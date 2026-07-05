@@ -205,13 +205,12 @@ func (s *Server) markFleetVerified(ctx context.Context, primaryID string) {
 		debuglog.Debug("frontdesk: auto-sync: list members for verify heartbeat", "error", err)
 		return
 	}
-	snap := s.poller.Snapshot()
 	now := time.Now().UTC()
 	for _, m := range members {
 		if m.ID == primaryID {
 			continue // the primary is the source; it is not "in sync with" itself
 		}
-		if st, ok := snap[m.ID]; ok && st.Health.Known && st.Health.Healthy {
+		if s.poller.reachableNow(m.ID) {
 			s.poller.SetAutoSyncVerified(m.ID, now)
 		}
 	}

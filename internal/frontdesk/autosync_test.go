@@ -443,6 +443,15 @@ func setMemberHealth(srv *Server, memberID string, known, healthy bool) {
 	srv.poller.mu.Unlock()
 }
 
+// setMemberHealthFailures seeds the poller's consecutive-failure count, so a test
+// can model a member inside the fail-threshold grace window: its badge still
+// reads healthy (last known good) while its latest probe is actually failing.
+func setMemberHealthFailures(srv *Server, memberID string, fails int) {
+	srv.poller.mu.Lock()
+	srv.poller.healthFailures[memberID] = fails
+	srv.poller.mu.Unlock()
+}
+
 // TestAutoSyncQuietTickPingsHealthyMembers: on a converged fleet (primary hash
 // unchanged) the loop writes nothing, but it must advance the "verified in sync"
 // heartbeat for each reachable member so the Members table shows it is running.
@@ -459,10 +468,15 @@ func TestAutoSyncQuietTickPingsHealthyMembers(t *testing.T) {
 	unknown, _ := store.CreateMember(t.Context(), "unknown", "http://127.0.0.1:11", "ktok")
 	// "neverProbed" gets no poller entry at all, exercising the snapshot-miss path.
 	neverProbed, _ := store.CreateMember(t.Context(), "never", "http://127.0.0.1:12", "ntok")
+	// "grace" is inside the fail-threshold window: badge still healthy, but its
+	// latest probe failed, so it must not be stamped as verified.
+	grace, _ := store.CreateMember(t.Context(), "grace", "http://127.0.0.1:13", "gtok")
 	enableAutoSync(t, store, pm.ID, "hash-A")
 	setMemberHealth(srv, up.ID, true, true)
 	setMemberHealth(srv, down.ID, true, false)
 	setMemberHealth(srv, unknown.ID, false, false) // reachable status not yet known
+	setMemberHealth(srv, grace.ID, true, true)
+	setMemberHealthFailures(srv, grace.ID, 1) // one missed probe, still in grace window
 
 	srv.autoSyncOnce(t.Context(), "hash-A") // hash == LastHash: quiet verify tick
 
@@ -478,6 +492,9 @@ func TestAutoSyncQuietTickPingsHealthyMembers(t *testing.T) {
 	}
 	if snap[neverProbed.ID].AutoSyncVerifiedAt != nil {
 		t.Error("never-probed member AutoSyncVerifiedAt was stamped; want it frozen with no health entry")
+	}
+	if snap[grace.ID].AutoSyncVerifiedAt != nil {
+		t.Error("grace-window member AutoSyncVerifiedAt was stamped; want it frozen while a probe is failing")
 	}
 	if snap[pm.ID].AutoSyncVerifiedAt != nil {
 		t.Error("primary AutoSyncVerifiedAt was stamped; the primary is the source, not a synced member")

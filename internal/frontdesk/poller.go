@@ -137,6 +137,20 @@ func (p *Poller) SetAutoSyncVerified(memberID string, at time.Time) {
 	p.statuses[memberID] = st
 }
 
+// reachableNow reports whether the member's most recent health probe actually
+// succeeded, used to gate the verify heartbeat. It is stricter than the rendered
+// badge: the badge holds the last known-good status through the fail-threshold
+// grace window (so a routine rebuild blip does not flash red), but a member
+// mid-outage is not "verified in sync". A non-zero consecutive-failure count
+// means the last probe failed even while the badge still reads healthy, so
+// require both a healthy badge and zero pending failures.
+func (p *Poller) reachableNow(memberID string) bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	st, ok := p.statuses[memberID]
+	return ok && st.Health.Known && st.Health.Healthy && p.healthFailures[memberID] == 0
+}
+
 // Run starts the poll loops and blocks until ctx is cancelled. Each loop reads
 // the current settings every tick so interval changes take effect live.
 func (p *Poller) Run(ctx context.Context) {
