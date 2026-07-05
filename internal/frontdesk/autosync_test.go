@@ -416,87 +416,65 @@ func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 	if cfg.LastHash != "hash-B" {
 		t.Errorf("applied hash = %q, want hash-B (fleet converged)", cfg.LastHash)
 	}
-	// A converged member is still reconciled against the primary, so its last-sync
-	// marker must advance (with the verified-in-sync reason) even without a write:
-	// this is what keeps the Members table "Last Config Sync" column from going stale
-	// when members self-converge via their own discovery.
+	// Nothing was written to the converged member, so its persisted
+	// last_config_sync_at must NOT move: that column means a real config write.
 	rm, err := store.GetMember(t.Context(), replicaMember.ID)
 	if err != nil {
 		t.Fatalf("get replica: %v", err)
 	}
-	if rm.LastConfigSyncAt == nil {
-		t.Error("converged member LastConfigSyncAt = nil, want stamped after a propagation pass")
+	if rm.LastConfigSyncAt != nil {
+		t.Error("converged member LastConfigSyncAt was stamped; want untouched (no write happened)")
 	}
-	if rm.LastConfigSyncReason != verifiedInSyncReason {
-		t.Errorf("converged member reason = %q, want %q", rm.LastConfigSyncReason, verifiedInSyncReason)
-	}
-}
-
-// TestStampVerifiedInSync covers the shared helper both call sites use: a real
-// member gets the verified-in-sync marker, and a stamp against a missing member
-// is swallowed (logged, not fatal) so a propagation pass is never aborted by a
-// display-only write failing.
-func TestStampVerifiedInSync(t *testing.T) {
-	srv, store := newTestServer(t)
-	m, _ := store.CreateMember(t.Context(), "member", "http://127.0.0.1:9", "tok")
-
-	if err := srv.stampVerifiedInSync(t.Context(), m.ID, m.Name); err != nil {
-		t.Fatalf("stamp existing member: %v", err)
-	}
-
-	got, err := store.GetMember(t.Context(), m.ID)
-	if err != nil {
-		t.Fatalf("get member: %v", err)
-	}
-	if got.LastConfigSyncAt == nil {
-		t.Error("LastConfigSyncAt = nil, want stamped")
-	}
-	if got.LastConfigSyncReason != verifiedInSyncReason {
-		t.Errorf("reason = %q, want %q", got.LastConfigSyncReason, verifiedInSyncReason)
-	}
-
-	// Missing member: SetMemberLastSync errors; the helper logs it and returns the
-	// error so callers can hold the member back rather than claim a reconciliation.
-	if err := srv.stampVerifiedInSync(t.Context(), "no-such-member", "ghost"); err == nil {
-		t.Error("stamp of a missing member returned nil, want an error")
+	// Instead, the live "verified in sync" heartbeat advances so the Members table
+	// shows auto-sync confirmed the member against the primary.
+	if snap := srv.poller.Snapshot(); snap[replicaMember.ID].AutoSyncVerifiedAt == nil {
+		t.Error("converged member AutoSyncVerifiedAt = nil, want the verify heartbeat stamped")
 	}
 }
 
-// failLastSyncStamp installs a SQLite trigger that makes any write to
-// members.last_config_sync_at fail, so a test can exercise the stamp-failure
-// branches without racing a real DB fault.
-func failLastSyncStamp(t *testing.T, store *Store) {
-	t.Helper()
-	if _, err := store.db.ExecContext(t.Context(),
-		`CREATE TRIGGER fail_last_sync BEFORE UPDATE OF last_config_sync_at ON members
-		 BEGIN SELECT RAISE(FAIL, 'stamp blocked by test'); END`,
-	); err != nil {
-		t.Fatalf("install fail trigger: %v", err)
-	}
+// setMemberHealth seeds the poller's in-memory health for a member so tests that
+// gate on reachability (the quiet verify tick) can drive both the up and down
+// paths without a live /health probe.
+func setMemberHealth(srv *Server, memberID string, healthy bool) {
+	srv.poller.mu.Lock()
+	st := srv.poller.statuses[memberID]
+	st.Health = HealthStatus{Known: true, Healthy: healthy}
+	srv.poller.statuses[memberID] = st
+	srv.poller.mu.Unlock()
 }
 
-// TestAutoSyncStampFailureHoldsHash: if stamping a converged member's verified
-// marker fails, the fleet hash must NOT be recorded, so the next tick retries
-// rather than leaving the Members column stale.
-func TestAutoSyncStampFailureHoldsHash(t *testing.T) {
+// TestAutoSyncQuietTickPingsHealthyMembers: on a converged fleet (primary hash
+// unchanged) the loop writes nothing, but it must advance the "verified in sync"
+// heartbeat for each reachable member so the Members table shows it is running.
+// A member Front Desk cannot reach is left frozen, and last_config_sync_at never
+// moves on a quiet tick.
+func TestAutoSyncQuietTickPingsHealthyMembers(t *testing.T) {
 	srv, store := newTestServer(t)
 	primary := newStubAutoMember(t, "ptoken")
-	primary.versionHash = "hash-B"
-	replica := newStubAutoMember(t, "rtoken") // empty dryDiff: converged
+	primary.versionHash = "hash-A" // matches LastHash below: nothing to propagate
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	up, _ := store.CreateMember(t.Context(), "up", "http://127.0.0.1:9", "utok")
+	down, _ := store.CreateMember(t.Context(), "down", "http://127.0.0.1:10", "dtok")
 	enableAutoSync(t, store, pm.ID, "hash-A")
-	failLastSyncStamp(t, store)
+	setMemberHealth(srv, up.ID, true)
+	setMemberHealth(srv, down.ID, false)
 
-	srv.autoSyncOnce(t.Context(), "hash-B")
+	srv.autoSyncOnce(t.Context(), "hash-A") // hash == LastHash: quiet verify tick
 
-	if replica.didBackup() || replica.didRealSync() {
-		t.Error("a converged member must not be backed up or re-imported")
+	snap := srv.poller.Snapshot()
+	if snap[up.ID].AutoSyncVerifiedAt == nil {
+		t.Error("healthy member AutoSyncVerifiedAt = nil, want the quiet tick to ping it")
 	}
-	cfg, _ := store.GetAutoSync(t.Context())
-	if cfg.LastHash != "hash-A" {
-		t.Errorf("applied hash = %q, want it left at hash-A so the next tick retries the failed stamp", cfg.LastHash)
+	if snap[down.ID].AutoSyncVerifiedAt != nil {
+		t.Error("unreachable member AutoSyncVerifiedAt was stamped; want it frozen")
+	}
+	if snap[pm.ID].AutoSyncVerifiedAt != nil {
+		t.Error("primary AutoSyncVerifiedAt was stamped; the primary is the source, not a synced member")
+	}
+	// A quiet tick writes nothing to the DB.
+	if rm, _ := store.GetMember(t.Context(), up.ID); rm.LastConfigSyncAt != nil {
+		t.Error("quiet tick stamped last_config_sync_at; want it left for real writes only")
 	}
 }
 
