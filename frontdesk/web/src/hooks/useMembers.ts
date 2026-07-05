@@ -8,15 +8,17 @@ interface UseMembers {
 	loading: boolean;
 	error: boolean;
 	refetch: () => void;
+	// ISO timestamp of the last successful list refresh, for a "last updated"
+	// footer. null until the first response applies.
+	lastUpdatedAt: string | null;
 }
 
-// Fallback refresh cadence (ms). SSE events refresh the list immediately, but a
-// dropped/reconnected stream can miss one (e.g. the config.auto_synced that
-// stamps a member's last-sync time). Re-reading the list on a slow interval lets
-// the "Last Sync" column and health badges self-heal from the stored timestamps
-// without depending on any single event arriving, and keeps relative times ("5m
-// ago") advancing as the row re-renders.
-const FALLBACK_REFRESH_MS = 20_000;
+// Live refresh cadence (ms). SSE events still refresh the list immediately; this
+// short interval keeps the dashboard "live" so health badges, the verified-in-sync
+// heartbeat, and relative times advance on their own, and it doubles as the
+// safety net for a missed SSE event (e.g. a dropped/reconnected stream). A member
+// list read is a single cheap GET, so a 5s cadence is fine for a control plane.
+const FALLBACK_REFRESH_MS = 5_000;
 
 // useMembers loads the member list (with live poller status) and keeps it fresh:
 // it refetches whenever a membership, config, or health/version event arrives on
@@ -30,6 +32,7 @@ export function useMembers(onEvent?: (e: FdEvent) => void): UseMembers {
 	const [members, setMembers] = useState<MemberView[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(false);
+	const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
 	// Monotonic request id: SSE events can fire refetch faster than the network
 	// responds, so only the newest in-flight request is allowed to apply, keeping
 	// the list from flipping back to a stale snapshot.
@@ -49,6 +52,7 @@ export function useMembers(onEvent?: (e: FdEvent) => void): UseMembers {
 				if (seq !== seqRef.current) return;
 				setMembers(m);
 				setError(false);
+				setLastUpdatedAt(new Date().toISOString());
 			})
 			.catch(() => {
 				if (seq === seqRef.current) setError(true);
@@ -86,5 +90,5 @@ export function useMembers(onEvent?: (e: FdEvent) => void): UseMembers {
 		true,
 	);
 
-	return { members, loading, error, refetch };
+	return { members, loading, error, refetch, lastUpdatedAt };
 }

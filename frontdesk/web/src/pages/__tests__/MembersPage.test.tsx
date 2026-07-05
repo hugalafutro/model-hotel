@@ -110,6 +110,57 @@ describe("MembersPage", () => {
 		expect(within(row2).getAllByText(/Down/i)).toHaveLength(2);
 	});
 
+	it("shows the auto-sync verified-in-sync heartbeat per member", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					// Verified recently: the heartbeat time renders.
+					member({
+						id: "1",
+						name: "hotel-1",
+						status: {
+							health: {
+								known: true,
+								healthy: true,
+								latency_ms: 9,
+								checked_at: "",
+							},
+							auto_sync_verified_at: new Date().toISOString(),
+						},
+					}),
+					// Never verified (or unreachable): the cell falls back to "Not yet".
+					member({ id: "2", name: "hotel-2" }),
+				]),
+			),
+		);
+		renderPage();
+		const row1 = (await screen.findByText("hotel-1")).closest(
+			"tr",
+		) as HTMLElement;
+		// A relative-time string, not the "not yet" fallback.
+		const verified1 = within(row1).getByTestId("member-verified");
+		expect(verified1).toHaveTextContent(/ago|now/i);
+		expect(verified1).not.toHaveTextContent(/not yet/i);
+
+		const row2 = screen.getByText("hotel-2").closest("tr") as HTMLElement;
+		expect(within(row2).getByTestId("member-verified")).toHaveTextContent(
+			/not yet/i,
+		);
+	});
+
+	it("shows a last-updated footer under the table", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+			),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+		expect(screen.getByTestId("members-last-updated")).toHaveTextContent(
+			/last updated/i,
+		);
+	});
+
 	it("shows the empty state and first-member primary notice", async () => {
 		server.use(http.get("/api/members", () => HttpResponse.json([])));
 		renderPage();
