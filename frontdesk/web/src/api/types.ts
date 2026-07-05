@@ -104,11 +104,13 @@ export interface VersionInfo {
 // Read-only log-export integration status from GET /api/observability, derived
 // server-side from the process environment. Each integration is enabled by its
 // own environment variable and is not runtime-changeable; the Observability
-// panel only reflects this state. (A Prometheus metrics flag is a planned
-// follow-up; see plans/frontdesk-prometheus-metrics.md.)
+// panel only reflects this state. log_export_metrics reports whether a
+// dedicated Prometheus scrape token is configured (the /metrics endpoint
+// itself always exists, gated by admin auth otherwise).
 export interface ObservabilityStatus {
 	log_export_json: boolean;
 	log_export_otel: boolean;
+	log_export_metrics: boolean;
 }
 
 // One alertable event in the Front Desk catalog (GET /api/alert/events), mirroring

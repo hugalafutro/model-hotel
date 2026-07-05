@@ -87,6 +87,9 @@ services:
             # trusted for real client IPs and HTTPS detection.
             - TRUSTED_PROXIES=${FRONTDESK_TRUSTED_PROXIES:-}
             - DEBUG_LOG=${FRONTDESK_DEBUG_LOG:-false}
+            # Dedicated bearer for Prometheus /metrics scrapes; empty keeps the
+            # endpoint behind the admin login.
+            - FRONTDESK_METRICS_TOKEN=${FRONTDESK_METRICS_TOKEN:-}
         ports:
             # Front Desk admin UI. Front the external TLS proxy at this port on a
             # separate hostname. Do NOT expose /traefik/config publicly through

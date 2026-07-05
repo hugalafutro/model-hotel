@@ -241,11 +241,20 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// member for the newer pass; a soft note documents the disposition.
 		res.Error = "superseded by a newer sync"
 		debuglog.Debug("frontdesk: config sync superseded by a newer generation", "member", m.Name, "source_gen", sourceGen)
+		// Counted under its own label: a fence supersede is benign, and folding it
+		// into "err" would make routine rearms look like sync failures on a graph.
+		recordConfigSync("superseded")
 		return res
 	case !out.Applied:
 		res.Error = "this member did not apply the config"
 	default:
 		res.OK = true
+	}
+
+	if res.OK {
+		recordConfigSync("ok")
+	} else {
+		recordConfigSync("err")
 	}
 
 	if res.OK {
