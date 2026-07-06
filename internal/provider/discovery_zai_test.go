@@ -123,7 +123,7 @@ func TestDiscoverZAICoding_VisionModelCapabilities(t *testing.T) {
 
 // TestDiscoverZAICoding_LiveFailureAborts verifies that when the live /models
 // endpoint errors, discovery aborts (returns an error) rather than falling back
-// to the catalog — so DisableMissingModels never runs and existing models are
+// to the catalog — so RecordMissingModels never runs and existing models are
 // preserved instead of having live-only models disabled.
 func TestDiscoverZAICoding_LiveFailureAborts(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

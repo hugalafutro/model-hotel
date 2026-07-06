@@ -40,7 +40,7 @@ func (d *DiscoveryService) discoverDeepSeek(ctx context.Context, provider *Provi
 		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
 	}
 	// Empty-but-successful listing: return empty rather than the catalog so
-	// DisableMissingModels stays a no-op instead of disabling live-only models.
+	// RecordMissingModels stays a no-op instead of disabling live-only models.
 	if len(live) == 0 {
 		debuglog.Warn("discovery: deepseek /models returned no models, skipping", "provider", provider.Name, "provider_id", provider.ID)
 		return live, nil

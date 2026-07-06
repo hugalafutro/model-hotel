@@ -22,7 +22,7 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
 		debuglog.Error("discovery: opencode-go http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 		return nil, fmt.Errorf("opencode-go: failed to fetch models for provider %s: %w", provider.Name, err)
@@ -62,7 +62,7 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
 	}
 	// Empty-but-successful listing: return empty rather than the catalog so
-	// DisableMissingModels stays a no-op instead of disabling live-only models.
+	// RecordMissingModels stays a no-op instead of disabling live-only models.
 	if len(live) == 0 {
 		debuglog.Warn("discovery: opencode-go /models returned no models, skipping", "provider", provider.Name, "provider_id", provider.ID)
 		return live, nil

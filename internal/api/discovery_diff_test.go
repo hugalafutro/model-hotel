@@ -16,6 +16,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 func TestBuildDiscoveryDiff(t *testing.T) {
@@ -367,6 +368,21 @@ func TestDiscoverProviderModels_RenameScenario(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
+	// Providers 2 and 3 serve model B unconditionally so its failover group
+	// survives provider 1's rename with two members. They are pointed at this
+	// mock (not api.example.com) because the scan now runs through
+	// discoverAllProviders, which lists every enabled provider.
+	mockB := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/v1/models" {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": []map[string]interface{}{{"id": "rename-model-b", "owned_by": "test", "object": "model"}},
+		})
+	}))
+	defer mockB.Close()
+
 	// Provider 1 is the one being rediscovered.
 	providerData := fmt.Sprintf(`{"name":"rename-scenario-p1","base_url":"%s/v1","api_key":"sk-test"}`, mockServer.URL)
 	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
@@ -388,7 +404,7 @@ func TestDiscoverProviderModels_RenameScenario(t *testing.T) {
 	// provider 1's rename with two members (updated, not deleted).
 	for i, name := range []string{"rename-scenario-p2", "rename-scenario-p3"} {
 		req = httptest.NewRequest(http.MethodPost, "/providers",
-			strings.NewReader(fmt.Sprintf(`{"name":"%s","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, name)))
+			strings.NewReader(fmt.Sprintf(`{"name":"%s","base_url":"%s/v1","api_key":"sk-test"}`, name, mockB.URL)))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		req.Header.Set("Content-Type", "application/json")
 		w = httptest.NewRecorder()
@@ -411,16 +427,23 @@ func TestDiscoverProviderModels_RenameScenario(t *testing.T) {
 	}
 	model.InvalidateModelCache()
 
-	discover := func() *httptest.ResponseRecorder {
+	// Miss-recording and disabling live on the background sweep, not the
+	// interactive handler, so drive the real disabling path directly. Providers
+	// 2 and 3 keep serving B, so scanning all three leaves B's group intact
+	// while provider 1's rename is reconciled.
+	discover := func() *DiscoveryDiff {
 		t.Helper()
-		req := httptest.NewRequest(http.MethodPost, "/providers/"+provider1.ID+"/discover", http.NoBody)
-		req.Header.Set("Authorization", "Bearer test-admin-token")
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Fatalf("discover: expected 200, got %d: %s", w.Code, w.Body.String())
+		results, _, _, _, err := h.discoverAllProviders(ctx, true)
+		if err != nil {
+			t.Fatalf("discoverAllProviders: %v", err)
 		}
-		return w
+		for i := range results {
+			if results[i].ProviderName == "rename-scenario-p1" {
+				return results[i].Diff
+			}
+		}
+		t.Fatalf("no diff for rename-scenario-p1 in results %+v", results)
+		return nil
 	}
 
 	// First scan: provider 1 lists A and B; the model-b group forms with 3 members.
@@ -444,30 +467,31 @@ func TestDiscoverProviderModels_RenameScenario(t *testing.T) {
 		t.Fatalf("expected provider1 model-b %s in group order %s", modelBUUID, groupOrder)
 	}
 
-	// Second scan: B is renamed to C.
+	// Second scan: B is renamed to C. C shows up as added, but B is only a
+	// first confirmed miss (pending) — nothing is disabled yet.
 	listingMu.Lock()
 	listing = []string{"rename-model-a", "rename-model-c"}
 	listingMu.Unlock()
-	w = discover()
+	diff := discover()
 
-	var resp struct {
-		Diff DiscoveryDiff `json:"diff"`
+	if len(diff.Added) != 1 || diff.Added[0].ModelID != "rename-model-c" || diff.Added[0].Reason != changeReasonNewModel {
+		t.Errorf("expected added=[rename-model-c/new_model], got %+v", diff.Added)
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode discover response: %v", err)
+	if len(diff.Disabled) != 0 {
+		t.Errorf("expected no disabled models on the first missing scan, got %+v", diff.Disabled)
 	}
 
-	if len(resp.Diff.Added) != 1 || resp.Diff.Added[0].ModelID != "rename-model-c" || resp.Diff.Added[0].Reason != changeReasonNewModel {
-		t.Errorf("expected added=[rename-model-c/new_model], got %+v", resp.Diff.Added)
+	// Third scan: B misses a second consecutive time and is now disabled.
+	diff = discover()
+
+	if len(diff.Disabled) != 1 || diff.Disabled[0].ModelID != "rename-model-b" || diff.Disabled[0].Reason != changeReasonNotListed {
+		t.Errorf("expected disabled=[rename-model-b/not_listed], got %+v", diff.Disabled)
 	}
-	if len(resp.Diff.Disabled) != 1 || resp.Diff.Disabled[0].ModelID != "rename-model-b" || resp.Diff.Disabled[0].Reason != changeReasonNotListed {
-		t.Errorf("expected disabled=[rename-model-b/not_listed], got %+v", resp.Diff.Disabled)
-	}
-	if len(resp.Diff.Reenabled) != 0 {
-		t.Errorf("expected no reenabled models, got %+v", resp.Diff.Reenabled)
+	if len(diff.Reenabled) != 0 {
+		t.Errorf("expected no reenabled models, got %+v", diff.Reenabled)
 	}
 	foundUpdate := false
-	for _, ug := range resp.Diff.FailoverUpdatedGroups {
+	for _, ug := range diff.FailoverUpdatedGroups {
 		if ug.DisplayModel == "rename-model-b" {
 			foundUpdate = true
 			if len(ug.RemovedModelIDs) != 1 || ug.RemovedModelIDs[0] != modelBUUID.String() {
@@ -476,7 +500,7 @@ func TestDiscoverProviderModels_RenameScenario(t *testing.T) {
 		}
 	}
 	if !foundUpdate {
-		t.Errorf("expected failover_updated_groups entry for rename-model-b, got %+v", resp.Diff.FailoverUpdatedGroups)
+		t.Errorf("expected failover_updated_groups entry for rename-model-b, got %+v", diff.FailoverUpdatedGroups)
 	}
 
 	// DB state: B disabled (not manually), C present, B's UUID pruned from the group.
@@ -513,8 +537,32 @@ func TestDiscoverProviderModels_RenameScenario(t *testing.T) {
 
 // TestDiscoverProviderModels_DisabledSyncError verifies that a failover sync
 // failure for a model that just left the listing fails the request.
-func TestDiscoverProviderModels_DisabledSyncError(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+// sweepProviderDiff runs the background discovery sweep (the only path that
+// records misses and disables models) and returns the diff for the named
+// provider. Miss-recording moved off the interactive handlers so their
+// confirmation-probe backoff cannot overrun the 60s route timeout, so tests of
+// disable/suspect behavior drive this seam directly.
+func sweepProviderDiff(t *testing.T, h *Handler, providerName string) *DiscoveryDiff {
+	t.Helper()
+	results, _, _, _, err := h.discoverAllProviders(context.Background(), true)
+	if err != nil {
+		t.Fatalf("discoverAllProviders: %v", err)
+	}
+	for i := range results {
+		if results[i].ProviderName == providerName {
+			return results[i].Diff
+		}
+	}
+	t.Fatalf("no result for provider %q in %+v", providerName, results)
+	return nil
+}
+
+// TestDiscoverSweep_DisabledModelSyncErrorTolerated verifies that when the
+// background sweep disables a model whose failover-group sync then fails, the
+// error is logged and skipped: the scan still completes and the disable is still
+// reported in the diff.
+func TestDiscoverSweep_DisabledModelSyncErrorTolerated(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
 
 	var listingMu sync.Mutex
 	listing := []string{"dse-model-a", "dse-model-b"}
@@ -549,19 +597,10 @@ func TestDiscoverProviderModels_DisabledSyncError(t *testing.T) {
 		t.Fatalf("decode created provider: %v", err)
 	}
 
-	discover := func() *httptest.ResponseRecorder {
-		t.Helper()
-		req := httptest.NewRequest(http.MethodPost, "/providers/"+created.ID+"/discover", http.NoBody)
-		req.Header.Set("Authorization", "Bearer test-admin-token")
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		return w
-	}
+	_ = created // provider is discovered via the sweep, not by ID
 
-	// First scan succeeds and imports both models.
-	if w := discover(); w.Code != http.StatusOK {
-		t.Fatalf("first discover: expected 200, got %d: %s", w.Code, w.Body.String())
-	}
+	// First scan imports both models.
+	sweepProviderDiff(t, h, "disabled-sync-error-test")
 
 	// Fail the sync only for the model that leaves the listing, so the
 	// discovered-models sync loop passes and the disabled-refs loop errors.
@@ -578,20 +617,25 @@ func TestDiscoverProviderModels_DisabledSyncError(t *testing.T) {
 	listing = []string{"dse-model-a"}
 	listingMu.Unlock()
 
-	w = discover()
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("expected status 500, got %d: %s", w.Code, w.Body.String())
+	// First missing scan only records a pending miss (nothing disabled yet).
+	if diff := sweepProviderDiff(t, h, "disabled-sync-error-test"); len(diff.Disabled) != 0 {
+		t.Errorf("first missing scan must not disable, got %+v", diff.Disabled)
 	}
-	if !strings.Contains(w.Body.String(), "failed to sync failover group for disabled model") {
-		t.Errorf("expected error about disabled-model sync, got %q", w.Body.String())
+
+	// Second consecutive miss disables dse-model-b and hits the sync error. The
+	// error is tolerated: the scan completes and still reports the disable.
+	diff := sweepProviderDiff(t, h, "disabled-sync-error-test")
+	if len(diff.Disabled) != 1 || diff.Disabled[0].ModelID != "dse-model-b" {
+		t.Errorf("expected dse-model-b disabled despite its sync error, got %+v", diff.Disabled)
 	}
 }
 
-// TestDiscoverProviderModels_RevalidationErrorIsBestEffort verifies that a
-// custom-group revalidation failure during a scan that disabled a model is
-// logged but does NOT abort the scan (unlike a per-model sync error).
-func TestDiscoverProviderModels_RevalidationErrorIsBestEffort(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+// TestDiscoverSweep_RevalidationErrorIsBestEffort verifies that a custom-group
+// revalidation failure during a sweep that disabled a model is logged but does
+// NOT abort the scan (unlike a per-model sync error, revalidation is
+// best-effort).
+func TestDiscoverSweep_RevalidationErrorIsBestEffort(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
 
 	var listingMu sync.Mutex
 	listing := []string{"rev-model-a", "rev-model-b"}
@@ -626,18 +670,9 @@ func TestDiscoverProviderModels_RevalidationErrorIsBestEffort(t *testing.T) {
 		t.Fatalf("decode created provider: %v", err)
 	}
 
-	discover := func() *httptest.ResponseRecorder {
-		t.Helper()
-		req := httptest.NewRequest(http.MethodPost, "/providers/"+created.ID+"/discover", http.NoBody)
-		req.Header.Set("Authorization", "Bearer test-admin-token")
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		return w
-	}
+	_ = created // discovered via the sweep, not by ID
 
-	if w := discover(); w.Code != http.StatusOK {
-		t.Fatalf("first discover: expected 200, got %d: %s", w.Code, w.Body.String())
-	}
+	sweepProviderDiff(t, h, "revalidation-error-test")
 
 	// Force revalidation to error; dropping a model makes disabledRefs non-empty
 	// so the revalidation branch runs.
@@ -651,16 +686,20 @@ func TestDiscoverProviderModels_RevalidationErrorIsBestEffort(t *testing.T) {
 	listing = []string{"rev-model-a"}
 	listingMu.Unlock()
 
-	if w := discover(); w.Code != http.StatusOK {
-		t.Errorf("expected scan to survive a revalidation error (200), got %d: %s", w.Code, w.Body.String())
+	// First missing scan records a pending miss; the second disables rev-model-b,
+	// which makes disabledRefs non-empty and triggers the failing revalidation.
+	sweepProviderDiff(t, h, "revalidation-error-test")
+	diff := sweepProviderDiff(t, h, "revalidation-error-test")
+	if len(diff.Disabled) != 1 || diff.Disabled[0].ModelID != "rev-model-b" {
+		t.Errorf("expected rev-model-b disabled despite the revalidation error, got %+v", diff.Disabled)
 	}
 }
 
-// TestDiscoverAllModels_DisabledSyncError verifies that in discover-all a
-// failover sync failure for a newly disabled model is logged and skipped
-// without failing the scan, and the rest of the diff is still reported.
+// TestDiscoverAllModels_DisabledSyncError verifies that in the sweep a failover
+// sync failure for a newly disabled model is logged and skipped without failing
+// the scan, and the rest of the diff is still reported.
 func TestDiscoverAllModels_DisabledSyncError(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
 	var listingMu sync.Mutex
 	listing := []string{"dase-model-a", "dase-model-b"}
@@ -689,18 +728,7 @@ func TestDiscoverAllModels_DisabledSyncError(t *testing.T) {
 		t.Fatalf("create provider: expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	discoverAll := func() *httptest.ResponseRecorder {
-		t.Helper()
-		req := httptest.NewRequest(http.MethodPost, "/providers/discover-all", http.NoBody)
-		req.Header.Set("Authorization", "Bearer test-admin-token")
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		return w
-	}
-
-	if w := discoverAll(); w.Code != http.StatusOK {
-		t.Fatalf("first discover-all: expected 200, got %d: %s", w.Code, w.Body.String())
-	}
+	sweepProviderDiff(t, h, "dase-test")
 
 	origFailoverRepoSyncForModel := failoverRepoSyncForModel
 	defer func() { failoverRepoSyncForModel = origFailoverRepoSyncForModel }()
@@ -715,28 +743,93 @@ func TestDiscoverAllModels_DisabledSyncError(t *testing.T) {
 	listing = []string{"dase-model-a"}
 	listingMu.Unlock()
 
-	w = discoverAll()
-	if w.Code != http.StatusOK {
-		t.Fatalf("second discover-all: expected 200, got %d: %s", w.Code, w.Body.String())
+	// First missing scan is pending-only; the second consecutive miss disables
+	// dase-model-b and exercises the disabled-model sync error path, which the
+	// sweep must log and skip while still reporting the disable in the diff.
+	sweepProviderDiff(t, h, "dase-test")
+	diff := sweepProviderDiff(t, h, "dase-test")
+	if diff == nil {
+		t.Fatal("expected diff for dase-test")
+	}
+	if len(diff.Disabled) != 1 || diff.Disabled[0].ModelID != "dase-model-b" {
+		t.Errorf("expected disabled=[dase-model-b] despite sync error, got %+v", diff.Disabled)
+	}
+}
+
+// TestDiscoverSweep_SuspectScanSkipsDisable verifies that when the confirmation
+// probe cannot re-list the provider (a flapping upstream), the sweep treats the
+// scan as suspect: nothing is disabled, nothing appears in the diff, and the
+// dropped model keeps a zero miss streak so it cannot drift toward a disable.
+func TestDiscoverSweep_SuspectScanSkipsDisable(t *testing.T) {
+	handler, r := newTestHandlerWithRouter(t)
+	pool := handler.dbPool.Pool()
+	ctx := context.Background()
+
+	var listingMu sync.Mutex
+	listing := []string{"sus-model-a", "sus-model-b"}
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != "/v1/models" {
+			return
+		}
+		listingMu.Lock()
+		defer listingMu.Unlock()
+		data := make([]map[string]interface{}, 0, len(listing))
+		for _, id := range listing {
+			data = append(data, map[string]interface{}{"id": id, "owned_by": "test", "object": "model"})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"data": data})
+	}))
+	defer mockServer.Close()
+
+	providerData := fmt.Sprintf(`{"name":"suspect-scan-test","base_url":"%s/v1","api_key":"sk-test"}`, mockServer.URL)
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create provider: expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created provider: %v", err)
 	}
 
-	var resp struct {
-		Results []DiscoverAllResult `json:"results"`
+	_ = created.ID // discovered via the sweep, not by ID
+
+	sweepProviderDiff(t, handler, "suspect-scan-test")
+
+	// Drop a model from the listing AND fail the confirmation probe, so the
+	// scan cannot get its second opinion and must record nothing.
+	origDiscoverForConfirm := discoverModelsForConfirm
+	defer func() { discoverModelsForConfirm = origDiscoverForConfirm }()
+	discoverModelsForConfirm = func(ctx context.Context, svc *provider.DiscoveryService, prov *provider.Provider, masterKey string) ([]*model.Model, error) {
+		return nil, errors.New("probe flake")
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode discover-all response: %v", err)
+	listingMu.Lock()
+	listing = []string{"sus-model-a"}
+	listingMu.Unlock()
+
+	diff := sweepProviderDiff(t, handler, "suspect-scan-test")
+	if len(diff.Disabled) != 0 {
+		t.Errorf("expected no disabled models on a suspect scan, got %+v", diff.Disabled)
 	}
-	if len(resp.Results) != 1 {
-		t.Fatalf("expected 1 result, got %+v", resp.Results)
+
+	// The suspect exit must record nothing: the dropped model stays enabled with
+	// a zero miss streak, so the flapping upstream cannot advance it toward a
+	// disable.
+	var enabled bool
+	var streak int
+	if err := pool.QueryRow(ctx,
+		`SELECT enabled, missing_scans FROM models WHERE provider_id = $1 AND model_id = 'sus-model-b'`,
+		created.ID,
+	).Scan(&enabled, &streak); err != nil {
+		t.Fatalf("lookup sus-model-b: %v", err)
 	}
-	result := resp.Results[0]
-	if result.Error != "" {
-		t.Errorf("expected scan to succeed despite sync error, got error %q", result.Error)
-	}
-	if result.Diff == nil {
-		t.Fatal("expected diff in result")
-	}
-	if len(result.Diff.Disabled) != 1 || result.Diff.Disabled[0].ModelID != "dase-model-b" {
-		t.Errorf("expected disabled=[dase-model-b], got %+v", result.Diff.Disabled)
+	if !enabled || streak != 0 {
+		t.Errorf("expected sus-model-b untouched by suspect scan, got enabled=%v missing_scans=%d", enabled, streak)
 	}
 }

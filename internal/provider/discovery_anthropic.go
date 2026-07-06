@@ -36,7 +36,7 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 		req.Header.Set("anthropic-version", "2023-06-01")
 		req.Header.Set("Content-Type", "application/json")
 
-		resp, err := d.httpClient.Do(req)
+		resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 		if err != nil {
 			debuglog.Error("discovery: anthropic fetch models failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 			return nil, fmt.Errorf("failed to fetch models: %w", err)

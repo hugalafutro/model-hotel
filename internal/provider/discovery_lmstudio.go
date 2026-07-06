@@ -74,7 +74,7 @@ func (d *DiscoveryService) discoverLMStudioNative(ctx context.Context, provider 
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("lmstudio: native request failed for provider %s: %w", provider.Name, err)
 	}
@@ -177,7 +177,7 @@ func (d *DiscoveryService) discoverLMStudioOpenAI(ctx context.Context, provider 
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
 		debuglog.Error("discovery: lmstudio http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 		return nil, fmt.Errorf("lmstudio: failed to fetch models for provider %s: %w", provider.Name, err)

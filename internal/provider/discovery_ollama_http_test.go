@@ -508,12 +508,28 @@ func TestDiscoverOllama_ShowModelFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverOllama should not fail when show fails for individual models: %v", err)
 	}
-	// Only the good model should be returned
-	if len(models) != 1 {
-		t.Errorf("Expected 1 model (bad-model skipped), got %d", len(models))
+	// Both models must be returned: bad-model is listed by /api/tags, so a
+	// failed detail probe keeps it with default metadata instead of dropping
+	// it (a dropped model would be disabled as "missing" by the scan).
+	if len(models) != 2 {
+		t.Fatalf("Expected 2 models (bad-model kept with default metadata), got %d", len(models))
 	}
-	if models[0].ModelID != "good-model" {
-		t.Errorf("Expected ModelID 'good-model', got '%s'", models[0].ModelID)
+	byID := map[string]*model.Model{}
+	for _, m := range models {
+		byID[m.ModelID] = m
+	}
+	good, bad := byID["good-model"], byID["bad-model"]
+	if good == nil || bad == nil {
+		t.Fatalf("expected good-model and bad-model, got %v", models)
+	}
+	if good.ContextLength == nil || *good.ContextLength != 8192 {
+		t.Errorf("expected good-model context length 8192, got %v", good.ContextLength)
+	}
+	if bad.ContextLength != nil {
+		t.Errorf("expected bad-model context length nil (fill-only), got %v", *bad.ContextLength)
+	}
+	if !bad.Enabled {
+		t.Error("expected bad-model to stay enabled")
 	}
 }
 
