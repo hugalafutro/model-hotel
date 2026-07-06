@@ -121,7 +121,7 @@ export function MembersPage() {
 				) : members.length === 0 ? (
 					<div className="fd-empty">{t("members.empty")}</div>
 				) : (
-					<table className="ui-table">
+					<table className="ui-table ui-table--nowrap">
 						<thead>
 							<tr>
 								<th>{t("members.colName")}</th>
@@ -131,6 +131,7 @@ export function MembersPage() {
 								<th>{t("members.colVerified")}</th>
 								<th>{t("members.colLastSync")}</th>
 								<th>{t("members.colState")}</th>
+								<th>{t("members.colUpdated")}</th>
 								<th />
 							</tr>
 						</thead>
@@ -148,22 +149,22 @@ export function MembersPage() {
 						</tbody>
 					</table>
 				)}
-				{lastUpdatedAt && !loading && !error && (
-					<div
-						className="fd-faint"
-						style={{
-							fontSize: "0.8rem",
-							textAlign: "right",
-							marginTop: "0.5rem",
-						}}
-						data-testid="members-last-updated"
-					>
-						{t("members.lastUpdated", {
-							when: formatTimeOfDay(lastUpdatedAt),
-						})}
-					</div>
-				)}
 			</div>
+			{lastUpdatedAt && !loading && !error && (
+				<div
+					className="fd-faint"
+					style={{
+						fontSize: "0.8rem",
+						textAlign: "right",
+						marginTop: "-1rem",
+					}}
+					data-testid="members-last-updated"
+				>
+					{t("members.lastUpdated", {
+						when: formatTimeOfDay(lastUpdatedAt),
+					})}
+				</div>
+			)}
 
 			<AddMemberForm
 				firstMember={!loading && members.length === 0}
@@ -332,6 +333,7 @@ function MemberRow({
 					</span>
 				)}
 			</td>
+			<td className="fd-faint">{formatRelative(m.updated_at)}</td>
 			<td>
 				<div className="fd-row" style={{ justifyContent: "flex-end" }}>
 					{m.state === "active" ? (
@@ -361,12 +363,6 @@ function MemberRow({
 					>
 						{t("common.remove")}
 					</button>
-				</div>
-				<div
-					className="fd-faint"
-					style={{ fontSize: "0.72rem", textAlign: "right", marginTop: 2 }}
-				>
-					{formatRelative(m.updated_at)}
 				</div>
 			</td>
 		</tr>

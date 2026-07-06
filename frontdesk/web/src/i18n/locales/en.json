@@ -64,6 +64,7 @@
 		"colTraefik": "Traefik",
 		"colVersion": "Version",
 		"colLastSync": "Last Config Sync",
+		"colUpdated": "Updated",
 		"lastSyncNever": "Never",
 		"lastSyncPrimary": "n/a",
 		"lastSyncPrimaryTip": "This member is the source of config.",
