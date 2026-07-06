@@ -344,7 +344,11 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 	// member has providers but no models until discovery runs).
 	NewConfigSyncHandler(h.dbPool, h.settingsRepo, h.cfg.MasterKey, h.appVersion,
 		func(ctx context.Context) error {
-			_, _, _, _, err := h.discoverAllProviders(ctx)
+			// Request-bound (runs inside the config-sync import HTTP handler):
+			// skip miss-recording so the confirmation-probe backoff cannot
+			// overrun the 60s route timeout and make the sync look failed. The
+			// synced member's own scheduled sweep owns disabling.
+			_, _, _, _, err := h.discoverAllProviders(ctx, false)
 			return err
 		}).Register(r)
 

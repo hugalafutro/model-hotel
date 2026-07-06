@@ -541,7 +541,7 @@ func main() {
 			// model.MissingScanThreshold consecutive confirmed-missing scans.
 			var disabledRefs []model.DisabledModelRef
 			if snapErr == nil && !upsertFailed {
-				confirmedIDs, suspect := api.ConfirmMissingModels(ctx, discoverySvc, p, cfg.MasterKey, existingModelIDs, snapshot)
+				confirmedIDs, suspect := api.ConfirmMissingModels(ctx, discoverySvc, p, cfg.MasterKey, existingModelIDs, snapshot, api.NewSuspectStreak(database.Pool()))
 				if suspect {
 					debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", p.Name)
 				} else {

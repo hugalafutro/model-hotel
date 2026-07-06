@@ -3,15 +3,55 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+// cancelOnFirstTransport returns a transient network error on the first call
+// (driving doDiscoveryRequest into its backoff) and cancels ctx as it does, so
+// the retry's backoff select must take the ctx.Done() arm rather than sleeping.
+type cancelOnFirstTransport struct {
+	calls  atomic.Int32
+	cancel context.CancelFunc
+}
+
+func (c *cancelOnFirstTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	if c.calls.Add(1) == 1 {
+		c.cancel()
+		return nil, &net.OpError{Op: "dial", Err: errors.New("transient flap")}
+	}
+	return nil, errors.New("second attempt must never be dialed")
+}
+
+func TestDoDiscoveryRequest_ContextCancelledDuringBackoff(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	tr := &cancelOnFirstTransport{cancel: cancel}
+	// A long base delay guarantees the select would block on time.After, so a
+	// prompt return proves the ctx.Done() arm fired rather than the timer.
+	d := &DiscoveryService{httpClient: &http.Client{Transport: tr}, retryBaseDelay: time.Hour}
+
+	_, err := d.doDiscoveryRequest(ctx, func() (*http.Request, error) {
+		return http.NewRequestWithContext(ctx, "GET", "http://example.invalid", http.NoBody)
+	})
+	if err == nil {
+		t.Fatal("expected an error when the context is cancelled during backoff")
+	}
+	if !strings.Contains(err.Error(), "context cancelled during discovery retry") {
+		t.Fatalf("expected the backoff-cancel error, got %v", err)
+	}
+	if got := tr.calls.Load(); got != 1 {
+		t.Errorf("expected exactly one attempt before the cancelled backoff, got %d", got)
+	}
+}
 
 // ---------------------------------------------------------------------------
 // doDiscoveryRequest — retry behavior for discovery fetches. All services are

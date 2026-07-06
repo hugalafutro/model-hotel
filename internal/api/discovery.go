@@ -268,6 +268,79 @@ const (
 	suspectMissingRatio = 0.5
 )
 
+// suspectStreakThreshold is how many consecutive mass-vanish scans a provider
+// must trip before discovery escalates from the quiet per-scan warning to a
+// distinct, actionable "this looks like a real bulk removal" alert. Kept well
+// above MissingScanThreshold so a brief upstream outage never reaches it: a
+// transient broken listing recovers within a scan or two and resets the streak,
+// whereas a genuine catalog sunset stays missing every scan. We never
+// auto-disable on this signal (disabling half a provider's catalog propagates
+// fleet-wide through HA); the alert asks an operator to disable by hand.
+const suspectStreakThreshold = 3
+
+// shouldEscalateSuspect reports whether a just-incremented consecutive
+// mass-vanish count should raise the escalation alert. It fires on the crossing
+// scan and then re-fires once every suspectStreakThreshold scans, so a
+// persistent condition re-pings periodically without alerting on every scan.
+func shouldEscalateSuspect(streak int) bool {
+	return streak >= suspectStreakThreshold && streak%suspectStreakThreshold == 0
+}
+
+// SuspectStreak persists the per-provider consecutive-mass-vanish counter. It is
+// nil on paths that must not touch the counter (unit tests, and any future
+// caller without a pool); ConfirmMissingModels guards every use.
+type SuspectStreak struct {
+	exec func(pool *pgxpool.Pool, ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	pool *pgxpool.Pool
+}
+
+// NewSuspectStreak builds a pool-backed SuspectStreak for the discovery sweep.
+func NewSuspectStreak(pool *pgxpool.Pool) *SuspectStreak {
+	return &SuspectStreak{exec: dbExec, pool: pool}
+}
+
+// bump increments the provider's consecutive mass-vanish counter and, every
+// suspectStreakThreshold consecutive scans, emits the louder escalation event.
+// Counter errors are logged, not fatal: a missed escalation must never abort a
+// scan.
+func (s *SuspectStreak) bump(ctx context.Context, prov *provider.Provider, missing, enabled int) {
+	if s == nil {
+		return
+	}
+	var streak int
+	if err := s.pool.QueryRow(ctx,
+		`UPDATE providers SET suspect_scans = suspect_scans + 1 WHERE id = $1 RETURNING suspect_scans`,
+		prov.ID,
+	).Scan(&streak); err != nil {
+		debuglog.Warn("discovery: failed to bump provider suspect streak", "provider", prov.Name, "error", err)
+		return
+	}
+	if shouldEscalateSuspect(streak) {
+		debuglog.Warn("discovery: provider suspected of bulk-removing models",
+			"provider", prov.Name, "provider_id", prov.ID, "missing", missing, "enabled", enabled, "consecutive_scans", streak)
+		events.Publish(events.Event{
+			Type:     "discovery.bulk_removal_suspected",
+			Severity: "error",
+			Source:   "discovery",
+			Message:  fmt.Sprintf("Provider '%s' has been missing %d of %d enabled models for %d consecutive scans. This looks like a real bulk removal rather than a broken listing; discovery will not auto-disable them. Review and disable the retired models by hand.", prov.Name, missing, enabled, streak),
+			Metadata: map[string]interface{}{"provider": prov.Name, "provider_id": prov.ID, "missing": missing, "enabled": enabled, "consecutive_scans": streak},
+		})
+	}
+}
+
+// reset clears the counter after a healthy scan (listing recovered). It is a
+// no-op write when the counter is already zero, so the common healthy scan does
+// not churn the row.
+func (s *SuspectStreak) reset(ctx context.Context, prov *provider.Provider) {
+	if s == nil {
+		return
+	}
+	if _, err := s.exec(s.pool, ctx,
+		`UPDATE providers SET suspect_scans = 0 WHERE id = $1 AND suspect_scans <> 0`, prov.ID); err != nil {
+		debuglog.Warn("discovery: failed to reset provider suspect streak", "provider", prov.Name, "error", err)
+	}
+}
+
 // confirmProbeSleep waits for the probe backoff, honouring ctx cancellation.
 // Injectable for tests (which also exercise sleepWithContext directly).
 var confirmProbeSleep = sleepWithContext
@@ -293,7 +366,12 @@ func sleepWithContext(ctx context.Context, d time.Duration) error {
 // cancelled, or the mass-vanish guard tripped) and the caller must skip miss
 // recording entirely. Probes affect membership only; metadata still comes
 // exclusively from the initial listing's upserts.
-func ConfirmMissingModels(ctx context.Context, svc *provider.DiscoveryService, prov *provider.Provider, masterKey string, presentIDs []string, snapshot map[string]ModelSnapshot) (confirmedPresent []string, suspect bool) {
+// streak, when non-nil, tracks consecutive mass-vanish scans per provider: it is
+// reset on any healthy scan and bumped (with escalation) when the mass-vanish
+// guard trips, so a genuine bulk removal eventually raises a loud alert while a
+// one-off broken listing does not. It is nil on paths that must not touch the
+// counter (unit tests).
+func ConfirmMissingModels(ctx context.Context, svc *provider.DiscoveryService, prov *provider.Provider, masterKey string, presentIDs []string, snapshot map[string]ModelSnapshot, streak *SuspectStreak) (confirmedPresent []string, suspect bool) {
 	present := make(map[string]bool, len(presentIDs))
 	for _, id := range presentIDs {
 		present[id] = true
@@ -311,6 +389,7 @@ func ConfirmMissingModels(ctx context.Context, svc *provider.DiscoveryService, p
 	confirmedPresent = presentIDs
 	missing := countMissing()
 	if missing == 0 {
+		streak.reset(ctx, prov)
 		return confirmedPresent, false
 	}
 
@@ -341,6 +420,7 @@ func ConfirmMissingModels(ctx context.Context, svc *provider.DiscoveryService, p
 		if missing == 0 {
 			debuglog.Info("discovery: confirmation probe found all absent models, no misses recorded",
 				"provider", prov.Name, "provider_id", prov.ID, "probe", probe+1)
+			streak.reset(ctx, prov)
 			return confirmedPresent, false
 		}
 	}
@@ -361,9 +441,13 @@ func ConfirmMissingModels(ctx context.Context, svc *provider.DiscoveryService, p
 			Message:  fmt.Sprintf("Discovery scan for %s is missing %d of %d enabled models even after confirmation probes; treating the listing as broken and disabling nothing", prov.Name, missing, enabledCount),
 			Metadata: map[string]interface{}{"provider": prov.Name, "provider_id": prov.ID, "missing": missing, "enabled": enabledCount},
 		})
+		// A recovered listing resets the streak; a persistent one crosses the
+		// escalation threshold and raises the louder bulk-removal alert.
+		streak.bump(ctx, prov, missing, enabledCount)
 		return confirmedPresent, true
 	}
 
+	streak.reset(ctx, prov)
 	return confirmedPresent, false
 }
 
@@ -643,25 +727,16 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		upsertedModels = append(upsertedModels, m)
 	}
 
-	// Second opinion before any model is counted missing: re-probe the listing
-	// with backoff, and only feed confirmed membership into the miss recorder.
-	// A model is disabled only after MissingScanThreshold consecutive scans
-	// confirm it missing, so one flaky scan can never disable anything.
-	confirmedIDs, suspect := ConfirmMissingModels(provCtx, discovery, prov, h.cfg.MasterKey, existingModelIDs, snapshot)
-	var disabledRefs, pendingRefs []model.DisabledModelRef
-	if suspect {
-		debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", prov.Name, "provider_id", providerID)
-	} else {
-		disabledRefs, pendingRefs, err = modelRepoRecordMissing(modelRepo, provCtx, providerID, prov.Name, confirmedIDs)
-		if err != nil {
-			respondError(w, fmt.Sprintf("failed to record missing models for provider %s", prov.Name), err, http.StatusInternalServerError)
-			return
-		}
-	}
-	if len(pendingRefs) > 0 {
-		debuglog.Info("discovery: models confirmed missing but below disable threshold",
-			"provider", prov.Name, "provider_id", providerID, "pending", len(pendingRefs), "threshold", model.MissingScanThreshold)
-	}
+	// An interactive Discover never disables models. Disabling requires
+	// MissingScanThreshold consecutive confirmed-missing scans, so a single
+	// on-demand scan can never reach the threshold on its own; the only thing
+	// running the confirmation probes here would achieve is stalling this
+	// request for the full probe backoff (~70s), which overruns the 60s HTTP
+	// timeout on this route and, for the HA config-sync import path, makes the
+	// initiating member's sync appear to fail. The scheduled/background sweep
+	// (cmd/server/main.go) owns miss-recording and disabling; this handler just
+	// fetches, upserts, and syncs failover for the models it did see.
+	var disabledRefs []model.DisabledModelRef
 
 	diff := BuildDiscoveryDiff(snapshot, upsertedModels, disabledRefs)
 
@@ -851,7 +926,9 @@ type DiscoverAllResult struct {
 
 // DiscoverAllModels discovers and imports models from all enabled providers.
 func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
-	results, succeeded, failed, totalDiscovered, err := h.discoverAllProviders(r.Context())
+	// Request-bound: skip miss-recording so the confirmation-probe backoff
+	// cannot overrun this route's 60s timeout. The scheduled sweep disables.
+	results, succeeded, failed, totalDiscovered, err := h.discoverAllProviders(r.Context(), false)
 	if err != nil {
 		respondError(w, "failed to list providers", nil, http.StatusInternalServerError)
 		return
@@ -872,7 +949,16 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 // failures are recorded in the results. ctx governs cancellation; each provider
 // runs under its own detached timeout so one client disconnect does not abort
 // the sweep.
-func (h *Handler) discoverAllProviders(ctx context.Context) (results []DiscoverAllResult, succeeded, failed, totalDiscovered int, err error) {
+//
+// recordMisses gates the confirmation-probe + miss-recording layer. It must be
+// false on any caller that runs under an HTTP request deadline (the manual
+// "Discover All" button and the HA config-sync import), because the probes can
+// sleep for the full backoff (~70s) and overrun the 60s route timeout, writing
+// the response to a dead connection and making a config sync look like it
+// failed. A single on-demand scan can never disable a model anyway (that needs
+// MissingScanThreshold consecutive confirmed scans), so the scheduled/background
+// sweep is the only path that records misses.
+func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (results []DiscoverAllResult, succeeded, failed, totalDiscovered int, err error) {
 	providers, err := h.providerRepo.List(ctx)
 	if err != nil {
 		return nil, 0, 0, 0, err
@@ -967,9 +1053,11 @@ func (h *Handler) discoverAllProviders(ctx context.Context) (results []DiscoverA
 		// failed (a DB error must not count a listed model as missing), or when
 		// the confirmation probes flag the scan as suspect. Disabling happens
 		// only after MissingScanThreshold consecutive confirmed-missing scans.
+		// recordMisses is false on request-bound callers so the ~70s probe
+		// backoff never overruns their HTTP timeout (see the doc comment).
 		var disabledRefs []model.DisabledModelRef
-		if snapErr == nil && !upsertFailed {
-			confirmedIDs, suspect := ConfirmMissingModels(provCtx, discovery, prov, h.cfg.MasterKey, existingModelIDs, snapshot)
+		if recordMisses && snapErr == nil && !upsertFailed {
+			confirmedIDs, suspect := ConfirmMissingModels(provCtx, discovery, prov, h.cfg.MasterKey, existingModelIDs, snapshot, NewSuspectStreak(h.dbPool.Pool()))
 			if suspect {
 				debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", prov.Name, "provider_id", prov.ID)
 			} else {

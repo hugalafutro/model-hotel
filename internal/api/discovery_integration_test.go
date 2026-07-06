@@ -1732,7 +1732,13 @@ func TestDiscoverProviderModels_UpsertError(t *testing.T) {
 	}
 }
 
-func TestDiscoverProviderModels_DisableMissingError(t *testing.T) {
+// TestDiscoverProviderModels_DoesNotRecordMisses guards the contract that the
+// interactive single-provider handler never records misses (that moved to the
+// background sweep so the confirmation-probe backoff cannot overrun the route's
+// 60s timeout). modelRepoRecordMissing is forced to error: if the handler were
+// to start recording again it would surface as a 500, so a green 200 here proves
+// the handler bypasses recording entirely.
+func TestDiscoverProviderModels_DoesNotRecordMisses(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a mock OpenAI-compatible server
@@ -1775,17 +1781,16 @@ func TestDiscoverProviderModels_DisableMissingError(t *testing.T) {
 		return nil, nil, errors.New("record missing models error")
 	}
 
-	// Call discover endpoint
+	// Call discover endpoint. The interactive handler must not touch the miss
+	// recorder, so the forced record error is never reached and the scan returns
+	// 200. A 500 here would mean recording crept back onto the request path.
 	req = httptest.NewRequest(http.MethodPost, "/providers/"+created.ID+"/discover", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("expected status 500, got %d: %s", w.Code, w.Body.String())
-	}
-	if !strings.Contains(w.Body.String(), "failed to record missing models") {
-		t.Errorf("expected error about record missing models, got %q", w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200 (handler bypasses miss recording), got %d: %s", w.Code, w.Body.String())
 	}
 }
 
@@ -2405,8 +2410,14 @@ func TestDiscoverAllModels_UpsertError(t *testing.T) {
 	}
 }
 
+// TestDiscoverAllModels_DisableMissingError drives the background sweep
+// (recordMisses=true) with the miss recorder forced to error, and asserts the
+// sweep tolerates it: a per-provider DB hiccup must be logged and skipped, never
+// abort the scan. This is the path that actually records misses now, so it is
+// driven directly rather than through the interactive discover-all handler
+// (which passes recordMisses=false).
 func TestDiscoverAllModels_DisableMissingError(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
 	// Create a mock OpenAI-compatible server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -2441,14 +2452,19 @@ func TestDiscoverAllModels_DisableMissingError(t *testing.T) {
 		return nil, nil, errors.New("record missing models error")
 	}
 
-	// Call discover-all endpoint (should still return 200, just log debug)
-	req = httptest.NewRequest(http.MethodPost, "/providers/discover-all", http.NoBody)
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	w = httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
+	// Drive the recording path directly; a per-provider record error must be
+	// swallowed (logged at debug) rather than abort the sweep.
+	results, _, _, _, err := h.discoverAllProviders(context.Background(), true)
+	if err != nil {
+		t.Fatalf("sweep must tolerate a record-missing error, got %v", err)
+	}
+	if len(results) == 0 {
+		t.Fatalf("expected at least one provider result despite the record error")
+	}
+	for i := range results {
+		if results[i].Error != "" {
+			t.Errorf("provider %s: scan must complete despite record error, got %q", results[i].ProviderName, results[i].Error)
+		}
 	}
 }
 

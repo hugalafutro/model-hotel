@@ -80,12 +80,12 @@ Two manual discovery endpoints are available:
 
 | Endpoint | Method | Scope | Description |
 |----------|--------|-------|-------------|
-| `/api/providers/{id}/discover` | POST | Single provider | Discover models for one provider; disables models no longer present |
-| `/api/providers/discover-all` | POST | All providers | Discover models for every enabled provider; skips disabled providers |
+| `/api/providers/{id}/discover` | POST | Single provider | Discover and import models for one provider |
+| `/api/providers/discover-all` | POST | All providers | Discover and import models for every enabled provider; skips disabled providers |
 
-Both endpoints upsert discovered models and feed the confirmed listing into `RecordMissingModels`, which disables a model only after two consecutive scans (each with in-scan confirmation probes) fail to list it - see [Missing models: three layers of proof before a disable](#missing-models-three-layers-of-proof-before-a-disable). The failover groups of newly disabled models are re-synced in the same scan, so a model that leaves a provider's listing is also pruned from its group instead of lingering as a stale entry (the same cleanup a manual failover sync performs).
+Both endpoints upsert discovered models and re-sync failover groups for what they saw. They do **not** disable missing models: disabling requires two consecutive confirmed-missing scans, so a single on-demand click can never reach that threshold, and running the in-scan confirmation probes (up to ~70s of backoff) on a request would overrun the route's 60s HTTP timeout - which also made the HA config-sync import look like it failed. Miss-recording and disabling are therefore owned exclusively by the scheduled/startup background sweep - see [Missing models: three layers of proof before a disable](#missing-models-three-layers-of-proof-before-a-disable). When the background sweep does disable a model, its failover group is re-synced in the same scan so the model is pruned instead of lingering as a stale entry.
 
-Both endpoints also return a `diff` describing what the scan changed - models added, re-enabled, or disabled (with machine-readable reason codes `new_model`, `reappeared`, `not_listed`) plus any failover groups updated or deleted as a result. It also reports `updated` models whose live pricing or context-length metadata moved since the previous scan: each entry carries per-field `changes` (codes `input_price`, `output_price`, `input_price_cache`, `context_length`, each with `old`/`new` numbers). Only fields the provider's own live API supplied this scan are compared (tracked via transient per-field live provenance), so catalog/models.dev backfills, flaky probes, and manual price edits never surface as spurious changes. The dashboard renders this diff as a post-scan summary modal after manual Discover / Discover All runs; an all-empty diff still confirms "scanned, nothing changed".
+Both endpoints also return a `diff` describing what the scan changed - models added or re-enabled (with machine-readable reason codes `new_model`, `reappeared`) plus any failover groups updated as a result. (The background sweep's diff can also carry `disabled` entries with reason `not_listed`; manual scans never disable, so theirs will not.) It also reports `updated` models whose live pricing or context-length metadata moved since the previous scan: each entry carries per-field `changes` (codes `input_price`, `output_price`, `input_price_cache`, `context_length`, each with `old`/`new` numbers). Only fields the provider's own live API supplied this scan are compared (tracked via transient per-field live provenance), so catalog/models.dev backfills, flaky probes, and manual price edits never surface as spurious changes. The dashboard renders this diff as a post-scan summary modal after manual Discover / Discover All runs; an all-empty diff still confirms "scanned, nothing changed".
 
 Scheduled/startup background discovery does not pop the modal (SSE events cover it). Instead, any changes it records are persisted to a `discovery_changes` store (migration `047`) and surfaced as a count badge on the **Models** sidebar item; clicking the badge opens a summary modal of the recorded changes and acks the unseen rows server-side (clearing the badge). A `discovery.changes_pending` SSE event fires when a background scan records changes. See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the `GET /api/discovery/changes` and `POST /api/discovery/changes/ack` endpoints.
 
@@ -796,7 +796,9 @@ enabled = CASE WHEN models.disabled_manually = false THEN true ELSE models.enabl
 A model absent from one listing is **never** disabled immediately. Discovery
 requires three independent layers of evidence, so one DNS flap, transient 5xx,
 or partial upstream listing cannot disable models (which, in an HA fleet,
-would then propagate to every member):
+would then propagate to every member). Only the scheduled/startup background
+sweep applies these layers and disables; manual `Discover` scans just import
+what they see (see [Manual Discovery](#manual-discovery)).
 
 1. **Transport retries.** Every discovery HTTP call (listings and per-model
    detail probes) retries transient network errors and 429/5xx responses up to
@@ -811,7 +813,15 @@ would then propagate to every member):
    probe itself fails, or if the confirmed-missing set is implausibly large
    (more than 5 models AND more than half the provider's enabled models - the
    *mass-vanish guard*, which emits a `discovery.suspect_scan` warning event),
-   the whole scan is treated as suspect and records no misses at all.
+   the whole scan is treated as suspect and records no misses at all. A provider
+   that genuinely retires that many models would otherwise trip the guard on
+   every scan and stay stale forever, so a per-provider `suspect_scans` counter
+   tracks consecutive mass-vanish scans; once it reaches 3 (and every 3 after),
+   discovery raises a distinct high-severity `discovery.bulk_removal_suspected`
+   event asking an operator to review and disable the retired models by hand. It
+   never auto-disables on this signal - disabling half a provider's catalog is
+   too destructive to do unattended when it fans out across an HA fleet. A
+   healthy scan (the listing recovered) resets the counter to 0.
 3. **Cross-scan miss streak (`RecordMissingModels`).** A confirmed miss
    increments the model's `missing_scans` counter. Only when the streak
    reaches 2 consecutive scans is the model disabled (`enabled = false`). Any

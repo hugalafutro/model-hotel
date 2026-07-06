@@ -67,7 +67,7 @@ func TestConfirmMissingModels_NothingMissing_NoProbes(t *testing.T) {
 	calls := overrideConfirmDiscover(t, nil, nil)
 
 	present := []string{"m1", "m2"}
-	confirmed, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", present, confirmTestSnapshot("m1", "m2"))
+	confirmed, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", present, confirmTestSnapshot("m1", "m2"), nil)
 	if suspect {
 		t.Fatal("expected suspect=false")
 	}
@@ -84,7 +84,7 @@ func TestConfirmMissingModels_DisabledSnapshotModelIgnored(t *testing.T) {
 
 	snapshot := confirmTestSnapshot("m1")
 	snapshot["already-off"] = ModelSnapshot{enabled: false}
-	_, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m1"}, snapshot)
+	_, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m1"}, snapshot, nil)
 	if suspect || *calls != 0 {
 		t.Fatalf("disabled snapshot model must not trigger probes: suspect=%v calls=%d", suspect, *calls)
 	}
@@ -94,7 +94,7 @@ func TestConfirmMissingModels_ReappearsOnProbe(t *testing.T) {
 	// Initial listing dropped m2; the first probe lists it again.
 	calls := overrideConfirmDiscover(t, [][]*model.Model{modelsForIDs("m1", "m2")}, nil)
 
-	confirmed, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m1"}, confirmTestSnapshot("m1", "m2"))
+	confirmed, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m1"}, confirmTestSnapshot("m1", "m2"), nil)
 	if suspect {
 		t.Fatal("expected suspect=false")
 	}
@@ -116,7 +116,7 @@ func TestConfirmMissingModels_ReappearsOnSecondProbe(t *testing.T) {
 		modelsForIDs("m1", "m2"),
 	}, nil)
 
-	confirmed, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m1"}, confirmTestSnapshot("m1", "m2"))
+	confirmed, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m1"}, confirmTestSnapshot("m1", "m2"), nil)
 	if suspect {
 		t.Fatal("expected suspect=false")
 	}
@@ -135,7 +135,7 @@ func TestConfirmMissingModels_ReappearsOnSecondProbe(t *testing.T) {
 func TestConfirmMissingModels_ConfirmedMissingAfterAllProbes(t *testing.T) {
 	calls := overrideConfirmDiscover(t, [][]*model.Model{modelsForIDs("m1")}, nil)
 
-	confirmed, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m1"}, confirmTestSnapshot("m1", "m2"))
+	confirmed, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m1"}, confirmTestSnapshot("m1", "m2"), nil)
 	if suspect {
 		t.Fatal("expected suspect=false: a single confirmed-missing model is a legitimate miss")
 	}
@@ -152,7 +152,7 @@ func TestConfirmMissingModels_ConfirmedMissingAfterAllProbes(t *testing.T) {
 func TestConfirmMissingModels_ProbeErrorMarksSuspect(t *testing.T) {
 	overrideConfirmDiscover(t, nil, []error{errors.New("dns flake")})
 
-	_, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m1"}, confirmTestSnapshot("m1", "m2"))
+	_, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m1"}, confirmTestSnapshot("m1", "m2"), nil)
 	if !suspect {
 		t.Fatal("expected suspect=true when a confirmation probe fails")
 	}
@@ -165,7 +165,7 @@ func TestConfirmMissingModels_CancelledContextMarksSuspect(t *testing.T) {
 
 	calls := overrideConfirmDiscover(t, [][]*model.Model{modelsForIDs("m1", "m2")}, nil)
 
-	_, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m1"}, confirmTestSnapshot("m1", "m2"))
+	_, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m1"}, confirmTestSnapshot("m1", "m2"), nil)
 	if !suspect {
 		t.Fatal("expected suspect=true on cancelled backoff")
 	}
@@ -183,9 +183,48 @@ func TestConfirmMissingModels_MassVanishGuard(t *testing.T) {
 	}
 	overrideConfirmDiscover(t, [][]*model.Model{modelsForIDs("m0", "m1")}, nil)
 
-	_, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m0", "m1"}, confirmTestSnapshot(enabled...))
+	_, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m0", "m1"}, confirmTestSnapshot(enabled...), nil)
 	if !suspect {
 		t.Fatal("expected suspect=true from mass-vanish guard")
+	}
+}
+
+func TestConfirmMissingModels_MassVanishFloorBoundary(t *testing.T) {
+	enabled := make([]string, 10)
+	for i := range enabled {
+		enabled[i] = fmt.Sprintf("m%d", i)
+	}
+
+	// Exactly at the floor: 5 of 10 missing. The guard uses a strict `>` on both
+	// the floor (5 > 5 is false) and the ratio (5 > 5.0 is false), so this must
+	// NOT trip: it is a confirmable miss, not a suspect scan.
+	present5 := []string{"m0", "m1", "m2", "m3", "m4"}
+	overrideConfirmDiscover(t, [][]*model.Model{modelsForIDs(present5...)}, nil)
+	if _, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", present5, confirmTestSnapshot(enabled...), nil); suspect {
+		t.Fatal("5 of 10 missing sits exactly on the floor; expected suspect=false")
+	}
+
+	// One past the floor: 6 of 10 missing clears both `>` checks and trips.
+	present4 := []string{"m0", "m1", "m2", "m3"}
+	overrideConfirmDiscover(t, [][]*model.Model{modelsForIDs(present4...)}, nil)
+	if _, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", present4, confirmTestSnapshot(enabled...), nil); !suspect {
+		t.Fatal("6 of 10 missing clears the floor; expected suspect=true")
+	}
+}
+
+func TestShouldEscalateSuspect(t *testing.T) {
+	// Fires on the crossing scan and once every threshold thereafter; silent
+	// below the threshold and between multiples.
+	cases := map[int]bool{
+		0: false, 1: false, 2: false,
+		3: true, 4: false, 5: false,
+		6: true, 7: false,
+		9: true,
+	}
+	for streak, want := range cases {
+		if got := shouldEscalateSuspect(streak); got != want {
+			t.Errorf("shouldEscalateSuspect(%d) = %v, want %v", streak, got, want)
+		}
 	}
 }
 
@@ -209,7 +248,7 @@ func TestConfirmMissingModels_SmallMissBelowFloorNotSuspect(t *testing.T) {
 	overrideConfirmDiscover(t, [][]*model.Model{modelsForIDs("m0", "m1")}, nil)
 
 	_, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", []string{"m0", "m1"},
-		confirmTestSnapshot("m0", "m1", "m2", "m3", "m4", "m5"))
+		confirmTestSnapshot("m0", "m1", "m2", "m3", "m4", "m5"), nil)
 	if suspect {
 		t.Fatal("expected suspect=false below the mass-vanish floor")
 	}
