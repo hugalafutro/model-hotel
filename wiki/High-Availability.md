@@ -32,13 +32,7 @@ with the last config it fetched; only membership changes pause until it returns.
 
 ## Architecture Overview
 
-```
-        clients ─▶ TLS proxy (https) ─▶ Traefik :8080 ─┬─▶ hotel-1 (ip1:8081)
-                                                        └─▶ hotel-2 (ip2:8081)
-                                          ▲ polls /traefik/config every ~5s
-                                          │
-                                    Front Desk :8090  ◀── you, in a browser
-```
+![High Availability Architecture](ha-architecture.svg)
 
 - **Traefik (data plane)** carries all client traffic and load-balances across
   members. It pulls its routing config from Front Desk over the internal compose
