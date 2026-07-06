@@ -212,6 +212,38 @@ func TestConfirmMissingModels_MassVanishFloorBoundary(t *testing.T) {
 	}
 }
 
+func TestConfirmMissingModels_TotalBlackoutBelowFloorIsSuspect(t *testing.T) {
+	// A small provider (3 enabled) whose initial listing and every probe return
+	// nothing at all. 3 missing sits at/below the floor of 5, so the mass-vanish
+	// floor+ratio guard would leave it suspect=false and RecordMissingModels's
+	// empty-list no-op would then silently keep every stale model enabled. The
+	// total-blackout branch must catch it instead: disable nothing, but mark the
+	// scan suspect so it escalates for an operator.
+	overrideConfirmDiscover(t, nil, nil) // every probe returns an empty listing
+
+	confirmed, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", nil,
+		confirmTestSnapshot("m0", "m1", "m2"), nil)
+	if !suspect {
+		t.Fatal("total blackout on a small provider must be suspect, not a silent no-op")
+	}
+	if len(confirmed) != 0 {
+		t.Fatalf("expected empty confirmed membership, got %v", confirmed)
+	}
+}
+
+func TestConfirmMissingModels_NoEnabledModelsNotSuspect(t *testing.T) {
+	// Empty present list AND no enabled models (e.g. a brand-new provider with an
+	// empty listing): nothing is missing, so this is not a blackout and must not
+	// be flagged suspect.
+	overrideConfirmDiscover(t, nil, nil)
+
+	_, suspect := ConfirmMissingModels(context.Background(), nil, confirmTestProvider(), "", nil,
+		confirmTestSnapshot(), nil)
+	if suspect {
+		t.Fatal("no enabled models means nothing missing; expected suspect=false")
+	}
+}
+
 func TestShouldEscalateSuspect(t *testing.T) {
 	// Fires on the crossing scan and once every threshold thereafter; silent
 	// below the threshold and between multiples.

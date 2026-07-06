@@ -431,9 +431,21 @@ func ConfirmMissingModels(ctx context.Context, svc *provider.DiscoveryService, p
 			enabledCount++
 		}
 	}
-	if missing > suspectMissingFloor && float64(missing) > suspectMissingRatio*float64(enabledCount) {
+	// A total blackout - the initial listing and every confirmation probe
+	// returned no models at all while the provider still has enabled models - is
+	// the strongest broken-listing signal there is, so treat it as suspect
+	// regardless of the mass-vanish floor. A small provider (enabled <=
+	// suspectMissingFloor) otherwise slips past the floor+ratio guard below with
+	// suspect=false; RecordMissingModels's empty-list no-op then records nothing,
+	// leaving every stale model enabled indefinitely with no operator signal. An
+	// empty listing is a common provider quirk (see the discovery_*.go
+	// empty-listing guards), so we still disable nothing here; the suspect event
+	// and its escalation surface the condition for an operator instead.
+	blackout := len(confirmedPresent) == 0 && enabledCount > 0
+	massVanish := missing > suspectMissingFloor && float64(missing) > suspectMissingRatio*float64(enabledCount)
+	if blackout || massVanish {
 		debuglog.Warn("discovery: mass-vanish guard tripped, treating scan as suspect",
-			"provider", prov.Name, "provider_id", prov.ID, "missing", missing, "enabled", enabledCount)
+			"provider", prov.Name, "provider_id", prov.ID, "missing", missing, "enabled", enabledCount, "blackout", blackout)
 		events.Publish(events.Event{
 			Type:     "discovery.suspect_scan",
 			Severity: "warning",
