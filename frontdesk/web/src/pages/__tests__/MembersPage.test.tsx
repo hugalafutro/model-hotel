@@ -148,7 +148,7 @@ describe("MembersPage", () => {
 		);
 	});
 
-	it("shows a last-updated footer under the table", async () => {
+	it("shows a last-updated footer below the members card", async () => {
 		server.use(
 			http.get("/api/members", () =>
 				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),

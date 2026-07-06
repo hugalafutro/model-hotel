@@ -121,7 +121,7 @@ export function MembersPage() {
 				) : members.length === 0 ? (
 					<div className="fd-empty">{t("members.empty")}</div>
 				) : (
-					<table className="ui-table">
+					<table className="ui-table ui-table--nowrap">
 						<thead>
 							<tr>
 								<th>{t("members.colName")}</th>
