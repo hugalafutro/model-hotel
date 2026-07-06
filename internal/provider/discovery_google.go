@@ -32,7 +32,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
 		debuglog.Error("discovery: google http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %w", provider.Name, err)

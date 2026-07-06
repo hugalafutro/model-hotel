@@ -1444,10 +1444,10 @@ func TestRepository_GetByModelID_NotFound(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TestDisableMissingModels edge cases
+// TestRecordMissingModels edge cases
 // ---------------------------------------------------------------------------
 
-func TestRepository_DisableMissingModels_WithProviderAndModel(t *testing.T) {
+func TestRepository_RecordMissingModels_WithProviderAndModel(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
@@ -1472,13 +1472,21 @@ func TestRepository_DisableMissingModels_WithProviderAndModel(t *testing.T) {
 		t.Fatalf("insert model2 failed: %v", err)
 	}
 
-	// Call DisableMissingModels with only modelID1 in the list - should disable modelID2
-	refs, err := repo.DisableMissingModels(ctx, providerID, "test-provider", []string{"keep-this-model"})
+	// Two consecutive scans missing modelID2 disable it: the first records a
+	// pending miss, the second reaches MissingScanThreshold.
+	disabled, pending, err := repo.RecordMissingModels(ctx, providerID, "test-provider", []string{"keep-this-model"})
 	if err != nil {
-		t.Fatalf("DisableMissingModels failed: %v", err)
+		t.Fatalf("RecordMissingModels first scan failed: %v", err)
 	}
-	if len(refs) != 1 || refs[0].ModelID != "remove-this-model" || refs[0].ID != modelID2 {
-		t.Errorf("expected single ref for remove-this-model (%s), got %v", modelID2, refs)
+	if len(disabled) != 0 || len(pending) != 1 || pending[0].ModelID != "remove-this-model" {
+		t.Errorf("expected pending ref for remove-this-model, got disabled=%v pending=%v", disabled, pending)
+	}
+	disabled, _, err = repo.RecordMissingModels(ctx, providerID, "test-provider", []string{"keep-this-model"})
+	if err != nil {
+		t.Fatalf("RecordMissingModels second scan failed: %v", err)
+	}
+	if len(disabled) != 1 || disabled[0].ModelID != "remove-this-model" || disabled[0].ID != modelID2 {
+		t.Errorf("expected single disabled ref for remove-this-model (%s), got %v", modelID2, disabled)
 	}
 
 	// Verify modelID1 is still enabled
@@ -1498,7 +1506,7 @@ func TestRepository_DisableMissingModels_WithProviderAndModel(t *testing.T) {
 		t.Fatalf("failed to query model2: %v", err)
 	}
 	if enabled2 {
-		t.Error("model2 should be disabled after DisableMissingModels")
+		t.Error("model2 should be disabled after two consecutive missing scans")
 	}
 }
 
@@ -1630,12 +1638,12 @@ func TestGetByProviderAndModelID_CancelledContext(t *testing.T) {
 	}
 }
 
-func TestDisableMissingModels_CancelledContext(t *testing.T) {
+func TestRecordMissingModels_CancelledContext(t *testing.T) {
 	repo := NewRepository(testPool)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := repo.DisableMissingModels(ctx, uuid.New(), "test-provider", []string{"some-model"})
+	_, _, err := repo.RecordMissingModels(ctx, uuid.New(), "test-provider", []string{"some-model"})
 	if err == nil {
 		t.Error("expected error with cancelled context, got nil")
 	}

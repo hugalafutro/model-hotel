@@ -1767,12 +1767,12 @@ func TestDiscoverProviderModels_DisableMissingError(t *testing.T) {
 		t.Fatalf("decode created provider: %v", err)
 	}
 
-	// Override modelRepoDisableMissing to return error
-	origModelRepoDisableMissing := modelRepoDisableMissing
-	defer func() { modelRepoDisableMissing = origModelRepoDisableMissing }()
+	// Override modelRepoRecordMissing to return error
+	origModelRepoRecordMissing := modelRepoRecordMissing
+	defer func() { modelRepoRecordMissing = origModelRepoRecordMissing }()
 
-	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) ([]model.DisabledModelRef, error) {
-		return nil, errors.New("disable missing models error")
+	modelRepoRecordMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) ([]model.DisabledModelRef, []model.DisabledModelRef, error) {
+		return nil, nil, errors.New("record missing models error")
 	}
 
 	// Call discover endpoint
@@ -1784,8 +1784,8 @@ func TestDiscoverProviderModels_DisableMissingError(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected status 500, got %d: %s", w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "failed to disable missing models") {
-		t.Errorf("expected error about disable missing models, got %q", w.Body.String())
+	if !strings.Contains(w.Body.String(), "failed to record missing models") {
+		t.Errorf("expected error about record missing models, got %q", w.Body.String())
 	}
 }
 
@@ -2433,12 +2433,12 @@ func TestDiscoverAllModels_DisableMissingError(t *testing.T) {
 		t.Fatalf("create provider: expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	// Override modelRepoDisableMissing to return error
-	origModelRepoDisableMissing := modelRepoDisableMissing
-	defer func() { modelRepoDisableMissing = origModelRepoDisableMissing }()
+	// Override modelRepoRecordMissing to return error
+	origModelRepoRecordMissing := modelRepoRecordMissing
+	defer func() { modelRepoRecordMissing = origModelRepoRecordMissing }()
 
-	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) ([]model.DisabledModelRef, error) {
-		return nil, errors.New("disable missing models error")
+	modelRepoRecordMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) ([]model.DisabledModelRef, []model.DisabledModelRef, error) {
+		return nil, nil, errors.New("record missing models error")
 	}
 
 	// Call discover-all endpoint (should still return 200, just log debug)

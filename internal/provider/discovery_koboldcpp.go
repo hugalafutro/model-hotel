@@ -119,7 +119,7 @@ func (d *DiscoveryService) koboldcppVersion(ctx context.Context, apiBase string)
 		return "", err
 	}
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
 		return "", fmt.Errorf("http request failed: %w", err)
 	}
@@ -151,7 +151,7 @@ func (d *DiscoveryService) koboldcppLoadedModel(ctx context.Context, baseURL, ap
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
 		return "", fmt.Errorf("http request failed: %w", err)
 	}
@@ -181,7 +181,7 @@ func (d *DiscoveryService) koboldcppPerf(ctx context.Context, apiBase string) (*
 		return nil, err
 	}
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("http request failed: %w", err)
 	}

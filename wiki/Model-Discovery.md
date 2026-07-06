@@ -83,7 +83,7 @@ Two manual discovery endpoints are available:
 | `/api/providers/{id}/discover` | POST | Single provider | Discover models for one provider; disables models no longer present |
 | `/api/providers/discover-all` | POST | All providers | Discover models for every enabled provider; skips disabled providers |
 
-Both endpoints upsert discovered models and call `DisableMissingModels` to disable any models that were previously known but are no longer returned by the provider API. The failover groups of newly disabled models are re-synced in the same scan, so a model that leaves a provider's listing is also pruned from its group instead of lingering as a stale entry (the same cleanup a manual failover sync performs).
+Both endpoints upsert discovered models and feed the confirmed listing into `RecordMissingModels`, which disables a model only after two consecutive scans (each with in-scan confirmation probes) fail to list it - see [Missing models: three layers of proof before a disable](#missing-models-three-layers-of-proof-before-a-disable). The failover groups of newly disabled models are re-synced in the same scan, so a model that leaves a provider's listing is also pruned from its group instead of lingering as a stale entry (the same cleanup a manual failover sync performs).
 
 Both endpoints also return a `diff` describing what the scan changed - models added, re-enabled, or disabled (with machine-readable reason codes `new_model`, `reappeared`, `not_listed`) plus any failover groups updated or deleted as a result. It also reports `updated` models whose live pricing or context-length metadata moved since the previous scan: each entry carries per-field `changes` (codes `input_price`, `output_price`, `input_price_cache`, `context_length`, each with `old`/`new` numbers). Only fields the provider's own live API supplied this scan are compared (tracked via transient per-field live provenance), so catalog/models.dev backfills, flaky probes, and manual price edits never surface as spurious changes. The dashboard renders this diff as a post-scan summary modal after manual Discover / Discover All runs; an all-empty diff still confirms "scanned, nothing changed".
 
@@ -707,6 +707,7 @@ CREATE TABLE IF NOT EXISTS models (
     owned_by    TEXT,
     enabled     BOOLEAN DEFAULT true,
     disabled_manually BOOLEAN DEFAULT false,
+    missing_scans INTEGER NOT NULL DEFAULT 0,
     created_at  TIMESTAMPTZ DEFAULT now(),
     last_seen_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(provider_id, model_id)
@@ -722,6 +723,7 @@ CREATE TABLE IF NOT EXISTS models (
 - `002_model_seen_and_settings.sql` - Added `last_seen_at`, `owned_by`, `context_length`, `input_price_per_million`, `output_price_per_million`
 - `003_model_details.sql` - Added `name`, `description`, `max_output_tokens`, `modality`, `input_modalities`, `output_modalities`
 - `021_model_disabled_manually.sql` - Added `disabled_manually` column
+- `054_model_missing_scans.sql` - Added `missing_scans` consecutive-miss counter
 
 ### Settings Table (Discovery Configuration)
 
@@ -781,7 +783,7 @@ When discovery upserts a model, it uses an `ON CONFLICT` strategy:
 
 - **New models** are inserted with `enabled = true`.
 - **Existing models** (matched by `provider_id + model_id` unique constraint) are updated with all new metadata. The `enabled` flag is set based on the `disabled_manually` flag:
-  - If `disabled_manually = false`, the model is **re-enabled** (it may have been previously disabled by `DisableMissingModels` but is now back).
+  - If `disabled_manually = false`, the model is **re-enabled** (it may have been previously disabled by `RecordMissingModels` but is now back).
   - If `disabled_manually = true`, the model **stays disabled** - the user's manual override is respected even if the model reappears in the provider API.
 - `last_seen_at` is always updated to `now()`.
 
@@ -789,13 +791,42 @@ When discovery upserts a model, it uses an `ON CONFLICT` strategy:
 enabled = CASE WHEN models.disabled_manually = false THEN true ELSE models.enabled END
 ```
 
-### DisableMissingModels
+### Missing models: three layers of proof before a disable
 
-After each discovery run, `DisableMissingModels` is called. This sets `enabled = false` for any model belonging to the provider that was **not** in the discovered set (and was still enabled - already-disabled rows are not touched again on repeat scans). It returns the list of newly disabled models, which the discovery handlers use to (a) re-sync the failover groups those models belonged to, pruning their stale entries, and (b) report them in the scan's `diff` with reason `not_listed`.
+A model absent from one listing is **never** disabled immediately. Discovery
+requires three independent layers of evidence, so one DNS flap, transient 5xx,
+or partial upstream listing cannot disable models (which, in an HA fleet,
+would then propagate to every member):
 
-Note: `DisableMissingModels` sets `enabled = false` but does **not** set `disabled_manually = true`. This means the model will be automatically re-enabled on the next discovery run if it reappears. On the Models page, discovery-disabled models (`enabled = false`, `disabled_manually = false`) show a tooltip on the status badge: "Not listed by the provider since {date}" (based on `last_seen_at`).
+1. **Transport retries.** Every discovery HTTP call (listings and per-model
+   detail probes) retries transient network errors and 429/5xx responses up to
+   3 attempts with linear backoff and jitter. Ollama-family per-model
+   `/api/show` failures no longer drop the model from the results either: the
+   model was listed by `/api/tags`, so it is kept with default metadata.
+2. **In-scan confirmation probes (`ConfirmMissingModels`).** If the listing is
+   missing any previously enabled model, discovery re-runs the full listing up
+   to 2 more times (after ~15s and ~45s backoff plus jitter) and takes the
+   union of all probes' model IDs as the scan's membership. A model only
+   counts as *missing this scan* if every probe missed it. If a confirmation
+   probe itself fails, or if the confirmed-missing set is implausibly large
+   (more than 5 models AND more than half the provider's enabled models - the
+   *mass-vanish guard*, which emits a `discovery.suspect_scan` warning event),
+   the whole scan is treated as suspect and records no misses at all.
+3. **Cross-scan miss streak (`RecordMissingModels`).** A confirmed miss
+   increments the model's `missing_scans` counter. Only when the streak
+   reaches 2 consecutive scans is the model disabled (`enabled = false`). Any
+   sighting - a scheduled scan, a manual re-test, even a confirmation probe -
+   resets the streak to 0.
 
-`DisableMissingModels` can only run after a **successful** listing, and it early-returns when the discovered list is empty - a provider outage or auth error aborts the scan before anything is disabled, so "disabled by discovery" always means *"the provider responded and did not list this model"*.
+`RecordMissingModels` returns the newly disabled models, which the discovery
+handlers use to (a) re-sync the failover groups those models belonged to,
+pruning their stale entries, and (b) report them in the scan's `diff` with
+reason `not_listed`. Models missing but below the threshold are only logged
+("pending"); they appear nowhere in the diff and stay fully routable.
+
+Note: `RecordMissingModels` sets `enabled = false` but does **not** set `disabled_manually = true`. This means the model will be automatically re-enabled on the next discovery run if it reappears. On the Models page, discovery-disabled models (`enabled = false`, `disabled_manually = false`) show a tooltip on the status badge: "Not listed by the provider since {date}" (based on `last_seen_at`).
+
+Miss recording can only run after a **successful** listing, and it is skipped entirely when the discovered list is empty, when the pre-scan snapshot could not be read, or when any model upsert failed - a provider outage, auth error, or DB hiccup aborts the scan before anything is counted missing, so "disabled by discovery" always means *"the provider repeatedly responded and did not list this model"*.
 
 In summary:
 - **Auto-disabled** models (removed from the provider API) have `disabled_manually = false` and are re-enabled if they reappear.
@@ -959,7 +990,7 @@ The cache is **invalidated on every write operation**:
 - `SetEnabled()` - Manual enable/disable
 - `Update()` - Partial updates
 - `DeleteByID()` - Model deletion
-- `DisableMissingModels()` - Bulk disable
+- `RecordMissingModels()` - Miss-streak recording / threshold disable
 
 This ensures cache consistency at the cost of cache hit rate during active discovery runs.
 

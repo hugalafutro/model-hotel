@@ -270,7 +270,7 @@ func TestDiscoverOpenCodeGo_EmptyResponse(t *testing.T) {
 		t.Fatalf("discoverOpenCodeGo failed: %v", err)
 	}
 	// Empty-but-successful listing returns empty (no catalog union), so the
-	// discovered set stays empty and DisableMissingModels is a no-op.
+	// discovered set stays empty and RecordMissingModels is a no-op.
 	if len(models) != 0 {
 		t.Errorf("expected 0 models for empty live response, got %d", len(models))
 	}

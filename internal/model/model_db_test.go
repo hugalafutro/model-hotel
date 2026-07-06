@@ -90,235 +90,286 @@ func cleanupProvider(ctx context.Context, t *testing.T, providerID uuid.UUID) {
 }
 
 // ---------------------------------------------------------------------------
-// TestDisableMissingModels
+// TestRecordMissingModels
 // ---------------------------------------------------------------------------
 
-func TestDisableMissingModels_EmptyList(t *testing.T) {
+func TestRecordMissingModels_EmptyList(t *testing.T) {
 	ctx := context.Background()
-
 	repo := NewRepository(testPool)
 
-	// Empty list should return (nil, nil) without executing any query.
-	refs, err := repo.DisableMissingModels(ctx, uuid.New(), "test-provider", nil)
+	// Empty list should return (nil, nil, nil) without executing any query: an
+	// empty listing is far more likely a broken scan than a real full removal.
+	disabled, pending, err := repo.RecordMissingModels(ctx, uuid.New(), "test-provider", nil)
 	if err != nil {
-		t.Fatalf("DisableMissingModels with nil list: %v", err)
+		t.Fatalf("RecordMissingModels nil list: %v", err)
 	}
-	if len(refs) != 0 {
-		t.Errorf("expected 0 disabled refs, got %d", len(refs))
+	if len(disabled) != 0 || len(pending) != 0 {
+		t.Errorf("expected no refs, got disabled=%v pending=%v", disabled, pending)
 	}
 
-	refs, err = repo.DisableMissingModels(ctx, uuid.New(), "test-provider", []string{})
+	disabled, pending, err = repo.RecordMissingModels(ctx, uuid.New(), "test-provider", []string{})
 	if err != nil {
-		t.Fatalf("DisableMissingModels with empty list: %v", err)
+		t.Fatalf("RecordMissingModels empty list: %v", err)
 	}
-	if len(refs) != 0 {
-		t.Errorf("expected 0 disabled refs, got %d", len(refs))
+	if len(disabled) != 0 || len(pending) != 0 {
+		t.Errorf("expected no refs, got disabled=%v pending=%v", disabled, pending)
 	}
 }
 
-func TestDisableMissingModels_DisablesMissing(t *testing.T) {
+func TestRecordMissingModels_FirstMissIsPendingOnly(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-disable-missing-disables")
+	providerID := insertTestProvider(ctx, t, "test-record-missing-pending")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
-	// Create 4 models for this provider.
 	insertTestModel(ctx, t, providerID, "model-a")
 	insertTestModel(ctx, t, providerID, "model-b")
 	insertTestModel(ctx, t, providerID, "model-c")
 	insertTestModel(ctx, t, providerID, "model-d")
 
-	// Mark "model-b" and "model-d" as still existing. "model-a" and "model-c" are missing.
+	// First scan missing model-a and model-c: nothing may be disabled yet.
 	existing := []string{"model-b", "model-d"}
-
-	refs, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
+	disabled, pending, err := repo.RecordMissingModels(ctx, providerID, "test-provider", existing)
 	if err != nil {
-		t.Fatalf("DisableMissingModels: %v", err)
+		t.Fatalf("RecordMissingModels: %v", err)
 	}
-
-	// 2 models (model-a, model-c) should be disabled and returned.
-	if len(refs) != 2 {
-		t.Fatalf("expected 2 disabled refs, got %d", len(refs))
+	if len(disabled) != 0 {
+		t.Fatalf("expected 0 disabled refs on first miss, got %v", disabled)
 	}
-	disabledIDs := map[string]bool{}
-	for _, ref := range refs {
+	if len(pending) != 2 {
+		t.Fatalf("expected 2 pending refs, got %v", pending)
+	}
+	pendingIDs := map[string]bool{}
+	for _, ref := range pending {
 		if ref.ID == uuid.Nil {
-			t.Errorf("expected non-nil UUID for disabled ref %q", ref.ModelID)
+			t.Errorf("expected non-nil UUID for %s", ref.ModelID)
 		}
-		disabledIDs[ref.ModelID] = true
+		pendingIDs[ref.ModelID] = true
 	}
-	if !disabledIDs["model-a"] || !disabledIDs["model-c"] {
-		t.Errorf("expected refs for model-a and model-c, got %v", disabledIDs)
+	if !pendingIDs["model-a"] || !pendingIDs["model-c"] {
+		t.Errorf("expected model-a and model-c pending, got %v", pendingIDs)
 	}
 
-	// Verify: only model-b and model-d remain enabled.
-	enabled := countEnabledModels(ctx, t, providerID)
-	if enabled != 2 {
+	// All 4 models must still be enabled after a single miss.
+	if enabled := countEnabledModels(ctx, t, providerID); enabled != 4 {
+		t.Errorf("expected 4 enabled models after first miss, got %d", enabled)
+	}
+}
+
+func TestRecordMissingModels_SecondConsecutiveMissDisables(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-record-missing-disables")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	insertTestModel(ctx, t, providerID, "model-a")
+	insertTestModel(ctx, t, providerID, "model-b")
+
+	existing := []string{"model-b"}
+	if _, _, err := repo.RecordMissingModels(ctx, providerID, "test-provider", existing); err != nil {
+		t.Fatalf("RecordMissingModels first scan: %v", err)
+	}
+	disabled, pending, err := repo.RecordMissingModels(ctx, providerID, "test-provider", existing)
+	if err != nil {
+		t.Fatalf("RecordMissingModels second scan: %v", err)
+	}
+	if len(disabled) != 1 || disabled[0].ModelID != "model-a" {
+		t.Fatalf("expected model-a disabled on second consecutive miss, got %v", disabled)
+	}
+	if len(pending) != 0 {
+		t.Errorf("expected 0 pending refs, got %v", pending)
+	}
+	if enabled := countEnabledModels(ctx, t, providerID); enabled != 1 {
+		t.Errorf("expected 1 enabled model, got %d", enabled)
+	}
+
+	// The disabled row's streak must be reset so a later reappearance does not
+	// sit one flaky scan away from another disable.
+	var streak int
+	if err := testPool.QueryRow(ctx, `SELECT missing_scans FROM models WHERE id = $1`, disabled[0].ID).Scan(&streak); err != nil {
+		t.Fatalf("query streak: %v", err)
+	}
+	if streak != 0 {
+		t.Errorf("expected missing_scans reset to 0 after disable, got %d", streak)
+	}
+}
+
+func TestRecordMissingModels_SightingResetsStreak(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-record-missing-reset")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	insertTestModel(ctx, t, providerID, "flappy-model")
+	insertTestModel(ctx, t, providerID, "stable-model")
+
+	// Scan 1: flappy-model missing (streak 1).
+	if _, _, err := repo.RecordMissingModels(ctx, providerID, "test-provider", []string{"stable-model"}); err != nil {
+		t.Fatalf("scan 1: %v", err)
+	}
+	// Scan 2: flappy-model listed again — streak must reset.
+	if _, _, err := repo.RecordMissingModels(ctx, providerID, "test-provider", []string{"stable-model", "flappy-model"}); err != nil {
+		t.Fatalf("scan 2: %v", err)
+	}
+	// Scan 3: flappy-model missing again — still only pending, not disabled.
+	disabled, pending, err := repo.RecordMissingModels(ctx, providerID, "test-provider", []string{"stable-model"})
+	if err != nil {
+		t.Fatalf("scan 3: %v", err)
+	}
+	if len(disabled) != 0 {
+		t.Fatalf("expected no disable after streak reset, got %v", disabled)
+	}
+	if len(pending) != 1 || pending[0].ModelID != "flappy-model" {
+		t.Fatalf("expected flappy-model pending, got %v", pending)
+	}
+	if enabled := countEnabledModels(ctx, t, providerID); enabled != 2 {
 		t.Errorf("expected 2 enabled models, got %d", enabled)
 	}
 }
 
-func TestDisableMissingModels_AllPresent(t *testing.T) {
+func TestRecordMissingModels_AllPresent(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-disable-missing-all-present")
+	providerID := insertTestProvider(ctx, t, "test-record-missing-all-present")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
-	// Create 3 models.
-	insertTestModel(ctx, t, providerID, "alpha")
-	insertTestModel(ctx, t, providerID, "beta")
-	insertTestModel(ctx, t, providerID, "gamma")
+	insertTestModel(ctx, t, providerID, "model-a")
+	insertTestModel(ctx, t, providerID, "model-b")
+	insertTestModel(ctx, t, providerID, "model-c")
 
-	// All models are "still existing".
-	existing := []string{"alpha", "beta", "gamma"}
-
-	refs, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
+	disabled, pending, err := repo.RecordMissingModels(ctx, providerID, "test-provider", []string{"model-a", "model-b", "model-c"})
 	if err != nil {
-		t.Fatalf("DisableMissingModels: %v", err)
+		t.Fatalf("RecordMissingModels: %v", err)
 	}
-
-	// 0 models should be disabled.
-	if len(refs) != 0 {
-		t.Errorf("expected 0 disabled refs, got %d", len(refs))
+	if len(disabled) != 0 || len(pending) != 0 {
+		t.Errorf("expected no refs, got disabled=%v pending=%v", disabled, pending)
 	}
-
-	// All models should still be enabled.
-	enabled := countEnabledModels(ctx, t, providerID)
-	if enabled != 3 {
+	if enabled := countEnabledModels(ctx, t, providerID); enabled != 3 {
 		t.Errorf("expected 3 enabled models, got %d", enabled)
 	}
 }
 
-func TestDisableMissingModels_IgnoresOtherProviders(t *testing.T) {
+func TestRecordMissingModels_IgnoresOtherProviders(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerA := insertTestProvider(ctx, t, "test-disable-missing-provider-a")
-	providerB := insertTestProvider(ctx, t, "test-disable-missing-provider-b")
+	providerA := insertTestProvider(ctx, t, "test-record-missing-provider-a")
+	providerB := insertTestProvider(ctx, t, "test-record-missing-provider-b")
 	t.Cleanup(func() {
 		cleanupProvider(ctx, t, providerA)
 		cleanupProvider(ctx, t, providerB)
 	})
 
-	// Provider A: model-a1, model-a2
 	insertTestModel(ctx, t, providerA, "model-a1")
 	insertTestModel(ctx, t, providerA, "model-a2")
-
-	// Provider B: model-b1, model-b2
 	insertTestModel(ctx, t, providerB, "model-b1")
 	insertTestModel(ctx, t, providerB, "model-b2")
 
-	// Disable missing on provider A, saying only model-a1 still exists.
-	refs, err := repo.DisableMissingModels(ctx, providerA, "test-provider-a", []string{"model-a1"})
+	// Two consecutive misses of model-a2 on provider A disable it.
+	if _, _, err := repo.RecordMissingModels(ctx, providerA, "test-provider-a", []string{"model-a1"}); err != nil {
+		t.Fatalf("scan 1: %v", err)
+	}
+	disabled, _, err := repo.RecordMissingModels(ctx, providerA, "test-provider-a", []string{"model-a1"})
 	if err != nil {
-		t.Fatalf("DisableMissingModels: %v", err)
+		t.Fatalf("scan 2: %v", err)
+	}
+	if len(disabled) != 1 || disabled[0].ModelID != "model-a2" {
+		t.Errorf("expected single ref for model-a2, got %v", disabled)
 	}
 
-	// Only model-a2 should be disabled.
-	if len(refs) != 1 || refs[0].ModelID != "model-a2" {
-		t.Errorf("expected single ref for model-a2, got %v", refs)
-	}
-
-	// Provider B should be untouched — both models still enabled.
-	enabledB := countEnabledModels(ctx, t, providerB)
-	if enabledB != 2 {
+	// Provider B untouched — both models still enabled with zero streak.
+	if enabledB := countEnabledModels(ctx, t, providerB); enabledB != 2 {
 		t.Errorf("expected 2 enabled models for provider B, got %d", enabledB)
 	}
 }
 
-func TestDisableMissingModels_AlreadyDisabledUnaffected(t *testing.T) {
+func TestRecordMissingModels_AlreadyDisabledUnaffected(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-disable-missing-already-disabled")
+	providerID := insertTestProvider(ctx, t, "test-record-missing-already-disabled")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
-	// Create 3 models, then manually disable one.
 	insertTestModel(ctx, t, providerID, "active-1")
 	insertTestModel(ctx, t, providerID, "active-2")
 	insertTestModel(ctx, t, providerID, "already-off")
-
-	_, err := testPool.Exec(ctx,
-		`UPDATE models SET enabled = false WHERE provider_id = $1 AND model_id = $2`,
-		providerID, "already-off",
-	)
-	if err != nil {
-		t.Fatalf("pre-disable model: %v", err)
+	if _, err := testPool.Exec(ctx, `UPDATE models SET enabled = false WHERE provider_id = $1 AND model_id = $2`, providerID, "already-off"); err != nil {
+		t.Fatalf("pre-disable failed: %v", err)
 	}
 
-	// Only "active-1" and "active-2" are in the existing list.
-	// "already-off" is not in the list, but it was already disabled — the
-	// AND enabled = true guard means it is NOT reported as newly disabled.
+	// Two scans listing both active models: already-off is never returned as
+	// disabled or pending (it is not enabled, so it accrues no misses).
 	existing := []string{"active-1", "active-2"}
-
-	refs, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
-	if err != nil {
-		t.Fatalf("DisableMissingModels: %v", err)
-	}
-
-	if len(refs) != 0 {
-		t.Errorf("expected 0 disabled refs (already-off was disabled before), got %v", refs)
+	for i := range 2 {
+		disabled, pending, err := repo.RecordMissingModels(ctx, providerID, "test-provider", existing)
+		if err != nil {
+			t.Fatalf("scan %d: %v", i+1, err)
+		}
+		if len(disabled) != 0 || len(pending) != 0 {
+			t.Errorf("scan %d: expected no refs, got disabled=%v pending=%v", i+1, disabled, pending)
+		}
 	}
 }
 
-func TestDisableMissingModels_SecondScanReturnsNothing(t *testing.T) {
+func TestRecordMissingModels_DisabledModelNotReturnedAgain(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-disable-missing-second-scan")
+	providerID := insertTestProvider(ctx, t, "test-record-missing-third-scan")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	insertTestModel(ctx, t, providerID, "kept-model")
 	insertTestModel(ctx, t, providerID, "gone-model")
 
 	existing := []string{"kept-model"}
-
-	// First scan: "gone-model" is newly disabled and returned.
-	refs, err := repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
+	if _, _, err := repo.RecordMissingModels(ctx, providerID, "test-provider", existing); err != nil {
+		t.Fatalf("first scan: %v", err)
+	}
+	disabled, _, err := repo.RecordMissingModels(ctx, providerID, "test-provider", existing)
 	if err != nil {
-		t.Fatalf("DisableMissingModels first scan: %v", err)
+		t.Fatalf("second scan: %v", err)
 	}
-	if len(refs) != 1 || refs[0].ModelID != "gone-model" {
-		t.Fatalf("expected single ref for gone-model on first scan, got %v", refs)
+	if len(disabled) != 1 || disabled[0].ModelID != "gone-model" {
+		t.Fatalf("expected single ref for gone-model on second scan, got %v", disabled)
 	}
 
-	// Second scan with the same listing: gone-model is already disabled and
-	// must not be returned again.
-	refs, err = repo.DisableMissingModels(ctx, providerID, "test-provider", existing)
+	// Third scan with the same listing: gone-model is already disabled and must
+	// not be returned again.
+	disabled, pending, err := repo.RecordMissingModels(ctx, providerID, "test-provider", existing)
 	if err != nil {
-		t.Fatalf("DisableMissingModels second scan: %v", err)
+		t.Fatalf("third scan: %v", err)
 	}
-	if len(refs) != 0 {
-		t.Errorf("expected 0 disabled refs on second scan, got %v", refs)
+	if len(disabled) != 0 || len(pending) != 0 {
+		t.Errorf("expected no refs on third scan, got disabled=%v pending=%v", disabled, pending)
 	}
 }
 
-func TestDisableMissingModels_NonExistentProvider(t *testing.T) {
+func TestRecordMissingModels_NonExistentProvider(t *testing.T) {
 	ctx := context.Background()
-
 	repo := NewRepository(testPool)
 
-	// A provider UUID that does not exist should result in no disabled refs.
-	refs, err := repo.DisableMissingModels(ctx, uuid.New(), "test-provider", []string{"some-model"})
+	disabled, pending, err := repo.RecordMissingModels(ctx, uuid.New(), "test-provider", []string{"some-model"})
 	if err != nil {
-		t.Fatalf("DisableMissingModels with non-existent provider: %v", err)
+		t.Fatalf("RecordMissingModels with non-existent provider: %v", err)
 	}
-	if len(refs) != 0 {
-		t.Errorf("expected 0 disabled refs, got %d", len(refs))
+	if len(disabled) != 0 || len(pending) != 0 {
+		t.Errorf("expected no refs, got disabled=%v pending=%v", disabled, pending)
 	}
 }
 
-func TestDisableMissingModels_InvalidatesCache(t *testing.T) {
-	// Verify that InvalidateModelCache is called by checking that cached entries
-	// are cleared after the operation.
+func TestRecordMissingModels_InvalidatesCache(t *testing.T) {
+	// Verify InvalidateModelCache is called by checking cached entries are
+	// cleared by the operation.
 	InvalidateModelCache()
 
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-disable-missing-cache")
+	providerID := insertTestProvider(ctx, t, "test-record-missing-cache")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	insertTestModel(ctx, t, providerID, "cache-model-a")
@@ -336,15 +387,15 @@ func TestDisableMissingModels_InvalidatesCache(t *testing.T) {
 		t.Fatal("expected model to be cached after GetByProviderAndModelID")
 	}
 
-	// Now run DisableMissingModels — should invalidate the cache.
-	_, err = repo.DisableMissingModels(ctx, providerID, "test-provider", []string{"cache-model-a"})
+	// Now run RecordMissingModels — should invalidate the cache.
+	_, _, err = repo.RecordMissingModels(ctx, providerID, "test-provider", []string{"cache-model-a"})
 	if err != nil {
-		t.Fatalf("DisableMissingModels: %v", err)
+		t.Fatalf("RecordMissingModels: %v", err)
 	}
 
 	// The cached entry should be gone.
 	_, ok = GetCachedByUUID(m.ID)
 	if ok {
-		t.Error("expected cache to be invalidated after DisableMissingModels")
+		t.Error("expected cache to be invalidated after RecordMissingModels")
 	}
 }

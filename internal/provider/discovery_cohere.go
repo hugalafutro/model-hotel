@@ -65,7 +65,7 @@ func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Prov
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 		req.Header.Set("Content-Type", "application/json")
 
-		resp, err := d.httpClient.Do(req)
+		resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 		if err != nil {
 			debuglog.Error("discovery: cohere http request failed", "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "error", err)
 			return nil, fmt.Errorf("failed to fetch models: %w", err)

@@ -135,6 +135,10 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			output_price_per_million = CASE WHEN $23 THEN COALESCE(EXCLUDED.output_price_per_million, models.output_price_per_million) ELSE COALESCE(models.output_price_per_million, EXCLUDED.output_price_per_million) END,
 			owned_by = EXCLUDED.owned_by,
 			enabled = CASE WHEN models.disabled_manually = false THEN true ELSE models.enabled END,
+			-- Any sighting resets the consecutive-miss streak used by
+			-- RecordMissingModels, so a model that reappears (even via a manual
+			-- re-test between scheduled scans) starts over from zero misses.
+			missing_scans = 0,
 			last_seen_at = now()
 		RETURNING ` + upsertColumns
 
@@ -338,42 +342,75 @@ type DisabledModelRef struct {
 	ModelID string
 }
 
-// DisableMissingModels disables models not present in the current discovery
-// result. Returns only the models that were enabled before this call.
-func (r *Repository) DisableMissingModels(ctx context.Context, providerID uuid.UUID, providerName string, existingModelIDs []string) ([]DisabledModelRef, error) {
-	if len(existingModelIDs) == 0 {
-		return nil, nil
-	}
-	query := `
-		UPDATE models
-		SET enabled = false
-		WHERE provider_id = $1 AND model_id != ALL($2) AND enabled = true
-		RETURNING id, model_id
-	`
+// MissingScanThreshold is how many consecutive confirmed-missing discovery
+// scans it takes before a model is disabled. Each scan-level miss is already
+// triple-checked by in-scan confirmation probes (api.ConfirmMissingModels), so
+// two independent scans missing the same model is strong evidence it is gone,
+// while a single flaky scan (DNS flap, partial upstream listing) never
+// disables anything.
+const MissingScanThreshold = 2
 
-	rows, err := r.pool.Query(ctx, query, providerID, existingModelIDs)
+// RecordMissingModels applies one scan's membership verdict: enabled models
+// absent from presentModelIDs get their consecutive-miss streak incremented,
+// and only those whose streak reaches MissingScanThreshold are disabled (the
+// streak resets so a later reappearance starts clean). Present models have any
+// streak cleared. Returns the newly disabled models and the still-enabled
+// pending ones (streak below threshold). An empty presentModelIDs list is a
+// no-op guard: an empty listing is far more likely a broken scan than a
+// provider that removed every model.
+func (r *Repository) RecordMissingModels(ctx context.Context, providerID uuid.UUID, providerName string, presentModelIDs []string) (disabled, pending []DisabledModelRef, err error) {
+	if len(presentModelIDs) == 0 {
+		return nil, nil, nil
+	}
+
+	// One atomic statement: the CTE clears the streak of every present model
+	// (Upsert also does this, but "present" here includes reappeared models a
+	// confirmation probe found that the caller did not re-upsert), while the
+	// main UPDATE records one confirmed miss for every enabled model the scan
+	// did not list. Rows that reach the threshold are disabled with their
+	// streak reset (a later reappearance must not sit one flaky scan away
+	// from another disable); the rest keep counting into the next scan.
+	rows, err := r.pool.Query(ctx, `
+		WITH reset AS (
+			UPDATE models SET missing_scans = 0
+			WHERE provider_id = $1 AND model_id = ANY($2) AND missing_scans > 0
+		)
+		UPDATE models
+		SET missing_scans = CASE WHEN missing_scans + 1 >= $3 THEN 0 ELSE missing_scans + 1 END,
+		    enabled = CASE WHEN missing_scans + 1 >= $3 THEN false ELSE enabled END
+		WHERE provider_id = $1 AND model_id != ALL($2) AND enabled = true
+		RETURNING id, model_id, NOT enabled
+	`, providerID, presentModelIDs, MissingScanThreshold)
 	if err != nil {
-		debuglog.Error("model: disable missing failed", "provider", providerName, "provider_id", providerID, "error", err)
-		return nil, err
+		debuglog.Error("model: record missing failed", "provider", providerName, "provider_id", providerID, "error", err)
+		return nil, nil, err
 	}
 	defer rows.Close()
-
-	var refs []DisabledModelRef
 	for rows.Next() {
 		var ref DisabledModelRef
-		if err := rows.Scan(&ref.ID, &ref.ModelID); err != nil {
-			debuglog.Error("model: disable missing scan failed", "provider", providerName, "provider_id", providerID, "error", err)
-			return nil, err
+		var wasDisabled bool
+		if err := rows.Scan(&ref.ID, &ref.ModelID, &wasDisabled); err != nil {
+			debuglog.Error("model: record missing scan failed", "provider", providerName, "provider_id", providerID, "error", err)
+			return nil, nil, err
 		}
-		refs = append(refs, ref)
+		if wasDisabled {
+			disabled = append(disabled, ref)
+		} else {
+			pending = append(pending, ref)
+		}
 	}
 	if err := rows.Err(); err != nil {
-		debuglog.Error("model: disable missing failed", "provider", providerName, "provider_id", providerID, "error", err)
-		return nil, err
+		debuglog.Error("model: record missing failed", "provider", providerName, "provider_id", providerID, "error", err)
+		return nil, nil, err
 	}
-	debuglog.Info("model: disabled missing models", "provider", providerName, "provider_id", providerID, "count", len(refs))
+
+	if len(disabled) > 0 || len(pending) > 0 {
+		debuglog.Info("model: recorded missing models",
+			"provider", providerName, "provider_id", providerID,
+			"disabled", len(disabled), "pending", len(pending), "threshold", MissingScanThreshold)
+	}
 	InvalidateModelCache()
-	return refs, nil
+	return disabled, pending, nil
 }
 
 // SetEnabled enables or disables a model by its UUID.

@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -33,6 +34,11 @@ var apiTestDB *db.DB
 var apiTestDBURL string
 
 func TestMain(m *testing.M) {
+	// Zero the confirmation-probe backoff so any test whose mock listing drops
+	// a model exercises the probe logic without real 15/45-second sleeps.
+	confirmProbeDelays = []time.Duration{0, 0}
+	confirmProbeSleep = func(context.Context, time.Duration) error { return nil }
+
 	ctx := context.Background()
 	var err error
 	var setupErr error

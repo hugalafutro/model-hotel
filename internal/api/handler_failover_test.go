@@ -1601,7 +1601,7 @@ func TestFailoverGroupResponse_EffectiveState(t *testing.T) {
 
 	// Disable model 2 directly (discovery-style). The raw SQL bypasses the
 	// repository, so invalidate manually exactly like the production
-	// discovery path (DisableMissingModels) does.
+	// discovery path (RecordMissingModels) does.
 	if _, err := pool.Exec(ctx, `UPDATE models SET enabled = false WHERE id = $1`, modelUUIDs[1]); err != nil {
 		t.Fatalf("disable model 2: %v", err)
 	}

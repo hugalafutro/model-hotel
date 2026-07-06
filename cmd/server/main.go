@@ -523,18 +523,40 @@ func main() {
 
 			existingModelIDs := make([]string, 0, len(models))
 			upsertedModels := make([]*model.Model, 0, len(models))
+			upsertFailed := false
 			for _, m := range models {
 				if err := modelRepo.Upsert(ctx, m); err != nil {
 					debuglog.Error("discovery: failed to upsert model", "model_id", m.ModelID, "error", err)
+					upsertFailed = true
 				} else {
 					existingModelIDs = append(existingModelIDs, m.ModelID)
 					upsertedModels = append(upsertedModels, m)
 				}
 			}
-			disabledRefs, err := modelRepo.DisableMissingModels(ctx, p.ID, p.Name, existingModelIDs)
-			if err != nil {
-				debuglog.Error("discovery: failed to disable missing models", "provider", p.Name, "error", err)
-			} else if len(disabledRefs) > 0 {
+			// Miss recording needs a trustworthy membership picture: skip it
+			// when the snapshot is unavailable (absentees cannot be confirmed)
+			// or any upsert failed (a DB error must not count a listed model
+			// as missing). Absent models get a second opinion via confirmation
+			// probes, and a model is disabled only after
+			// model.MissingScanThreshold consecutive confirmed-missing scans.
+			var disabledRefs []model.DisabledModelRef
+			if snapErr == nil && !upsertFailed {
+				confirmedIDs, suspect := api.ConfirmMissingModels(ctx, discoverySvc, p, cfg.MasterKey, existingModelIDs, snapshot)
+				if suspect {
+					debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", p.Name)
+				} else {
+					var pendingRefs []model.DisabledModelRef
+					disabledRefs, pendingRefs, err = modelRepo.RecordMissingModels(ctx, p.ID, p.Name, confirmedIDs)
+					if err != nil {
+						debuglog.Error("discovery: failed to record missing models", "provider", p.Name, "error", err)
+					}
+					if len(pendingRefs) > 0 {
+						debuglog.Info("discovery: models confirmed missing but below disable threshold",
+							"provider", p.Name, "pending", len(pendingRefs), "threshold", model.MissingScanThreshold)
+					}
+				}
+			}
+			if len(disabledRefs) > 0 {
 				result.ModelsDisabled += len(disabledRefs)
 				events.Publish(events.Event{
 					Type:     "discovery.models_disabled",

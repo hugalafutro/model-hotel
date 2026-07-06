@@ -28,7 +28,7 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 	}
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
 		debuglog.Error("discovery: ollama http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 		return nil, fmt.Errorf("ollama: failed to fetch models for provider %s: %w", provider.Name, err)
@@ -87,13 +87,19 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 	models := make([]*model.Model, 0, len(tagsResp.Models))
 	skipped := 0
 	for _, r := range results {
+		show := r.show
 		if r.err != nil {
-			debuglog.Warn("discovery: ollama show model failed", "provider", provider.Name, "provider_id", provider.ID, "model", r.modelID, "error", r.err)
+			// The model IS listed by /api/tags; a failed detail probe must not
+			// drop it from the results, or RecordMissingModels would disable a
+			// model that merely had a flaky metadata fetch. Emit it with an
+			// empty show response: capabilities default to streaming-only and
+			// context length stays nil (fill-only, preserved at upsert).
+			debuglog.Warn("discovery: ollama show model failed, keeping model with default metadata", "provider", provider.Name, "provider_id", provider.ID, "model", r.modelID, "error", r.err)
 			skipped++
-			continue
+			show = &OllamaShowResponse{}
 		}
 
-		m := d.buildOllamaModel(provider, r.modelID, r.show)
+		m := d.buildOllamaModel(provider, r.modelID, show)
 		models = append(models, m)
 	}
 
@@ -115,14 +121,16 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 	showURL := apiBase + "/api/show"
 	body := fmt.Sprintf(`{"model":%q}`, modelName)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", showURL, strings.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := d.httpClient.Do(req)
+	// Rebuild the request per attempt so the POST body replays on retry.
+	resp, err := d.doDiscoveryRequest(ctx, func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, "POST", showURL, strings.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Content-Type", "application/json")
+		return req, nil
+	})
 	if err != nil {
 		return nil, err
 	}

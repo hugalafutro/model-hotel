@@ -1963,9 +1963,16 @@ func TestDiscoverOllama_ShowModelFailure(t *testing.T) {
 		t.Fatalf("discoverOllama failed: %v", err)
 	}
 
-	// Should have 2 models (1 skipped due to show failure)
-	if len(models) != 2 {
-		t.Errorf("Expected 2 models (1 skipped), got %d", len(models))
+	// All 3 models must be returned: failing-model is listed by /api/tags, so
+	// its failed detail probe keeps it with default metadata instead of
+	// dropping it (which would get it disabled as "missing").
+	if len(models) != 3 {
+		t.Fatalf("Expected 3 models (failing-model kept with default metadata), got %d", len(models))
+	}
+	for _, m := range models {
+		if m.ModelID == "failing-model" && m.ContextLength != nil {
+			t.Errorf("expected failing-model context length nil, got %v", *m.ContextLength)
+		}
 	}
 }
 

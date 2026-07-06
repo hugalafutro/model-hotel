@@ -67,22 +67,82 @@ func (d *DiscoveryService) SetRetryBaseDelay(dur time.Duration) {
 	d.retryBaseDelay = dur
 }
 
+// maxDiscoveryRetries bounds attempts for a single discovery HTTP call.
+const maxDiscoveryRetries = 3
+
+// doDiscoveryRequest executes a discovery HTTP request with retries for
+// transient network errors (DNS flaps, timeouts, connection resets) and
+// retryable HTTP statuses (429, 5xx), so one network hiccup cannot turn into
+// a failed or partial model listing. newReq rebuilds the request for each
+// attempt so request bodies (e.g. the ollama /api/show POST) replay correctly.
+// A response with a non-retryable status is returned as-is for the caller to
+// interpret; only the request host is logged (query strings can carry keys).
+func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func() (*http.Request, error)) (*http.Response, error) {
+	var lastErr error
+	for attempt := range maxDiscoveryRetries {
+		req, err := newReq()
+		if err != nil {
+			return nil, err
+		}
+		if attempt > 0 {
+			backoff := retryBackoff(d.retryBaseDelay, attempt)
+			debuglog.Info("discovery: retrying fetch",
+				"host", req.URL.Host, "backoff", backoff, "attempt", attempt+1, "max_attempts", maxDiscoveryRetries)
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("context cancelled during discovery retry: %w", lastErr)
+			case <-time.After(backoff):
+			}
+		}
+
+		resp, err := d.httpClient.Do(req)
+		if err != nil {
+			if isTransientNetworkError(err) {
+				lastErr = err
+				debuglog.Info("discovery: transient fetch error, will retry",
+					"host", req.URL.Host, "attempt", attempt+1, "error", err)
+				continue
+			}
+			return nil, err
+		}
+		if isRetryableStatus(resp.StatusCode) {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			lastErr = fmt.Errorf("retryable HTTP status %d: %s", resp.StatusCode, util.SanitizeLogBody(string(body), 200))
+			debuglog.Info("discovery: retryable fetch status, will retry",
+				"host", req.URL.Host, "status", resp.StatusCode, "attempt", attempt+1)
+			continue
+		}
+		return resp, nil
+	}
+	return nil, fmt.Errorf("discovery fetch failed after %d attempts: %w", maxDiscoveryRetries, lastErr)
+}
+
+// doDiscoveryRequestPrebuilt retries a prebuilt body-less request (GETs).
+// Requests carrying a body must go through doDiscoveryRequest with a factory
+// so the body replays on retry.
+func (d *DiscoveryService) doDiscoveryRequestPrebuilt(ctx context.Context, req *http.Request) (*http.Response, error) {
+	return d.doDiscoveryRequest(ctx, func() (*http.Request, error) { return req, nil })
+}
+
 // fetchURL makes an HTTP request with the given headers, reads the full
 // response body, and checks for a 200 OK status. Returns the response body
 // bytes on success. The caller is responsible for unmarshaling the result.
+// Transient network errors and 429/5xx are retried via doDiscoveryRequest.
 func (d *DiscoveryService) fetchURL(ctx context.Context, method, url string, headers http.Header) ([]byte, error) {
 	//nolint:gocritic // url variable shadows import but context makes it clear
-	req, err := http.NewRequestWithContext(ctx, method, url, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	for k, vs := range headers {
-		for _, v := range vs {
-			req.Header.Add(k, v)
+	resp, err := d.doDiscoveryRequest(ctx, func() (*http.Request, error) {
+		req, err := http.NewRequestWithContext(ctx, method, url, http.NoBody)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
-	}
-
-	resp, err := d.httpClient.Do(req)
+		for k, vs := range headers {
+			for _, v := range vs {
+				req.Header.Add(k, v)
+			}
+		}
+		return req, nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("http request failed: %w", err)
 	}

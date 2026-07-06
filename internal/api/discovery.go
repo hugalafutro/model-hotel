@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"net/http"
 	"time"
 
@@ -35,8 +36,11 @@ var (
 	dbExec          = func(pool *pgxpool.Pool, ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error) {
 		return pool.Exec(ctx, sql, args...)
 	}
-	modelRepoDisableMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) ([]model.DisabledModelRef, error) {
-		return repo.DisableMissingModels(ctx, providerID, providerName, modelIDs)
+	modelRepoRecordMissing = func(repo *model.Repository, ctx context.Context, providerID uuid.UUID, providerName string, modelIDs []string) (disabled, pending []model.DisabledModelRef, err error) {
+		return repo.RecordMissingModels(ctx, providerID, providerName, modelIDs)
+	}
+	discoverModelsForConfirm = func(ctx context.Context, svc *provider.DiscoveryService, prov *provider.Provider, masterKey string) ([]*model.Model, error) {
+		return svc.DiscoverModels(ctx, prov, masterKey)
 	}
 	failoverRepoSyncForModel = func(repo *failover.Repository, ctx context.Context, modelID string) (*failover.SyncResult, error) {
 		return repo.SyncForModel(ctx, modelID)
@@ -242,6 +246,125 @@ func BuildDiscoveryDiff(snapshot map[string]ModelSnapshot, upserted []*model.Mod
 		diff.Disabled = append(diff.Disabled, ModelChange{ModelID: ref.ModelID, Reason: changeReasonNotListed})
 	}
 	return diff
+}
+
+// Confirmation-probe schedule for ConfirmMissingModels: a model absent from
+// the initial listing is only counted missing after these many extra listings,
+// each preceded by the given delay (plus up to confirmProbeJitter of random
+// jitter so fleet members and parallel providers don't probe in lockstep).
+// Injectable so tests can zero the delays.
+var confirmProbeDelays = []time.Duration{15 * time.Second, 45 * time.Second}
+
+const confirmProbeJitter = 5 * time.Second
+
+// suspectMissingFloor and suspectMissingRatio form the mass-vanish guard: a
+// scan whose confirmed-missing set exceeds the floor AND the ratio of the
+// provider's enabled models is treated as a broken listing, not a real
+// removal, and records no misses. False-disabling dozens of models (which HA
+// then propagates fleet-wide) is far worse than keeping a stale model enabled
+// until an operator looks at the warning event.
+const (
+	suspectMissingFloor = 5
+	suspectMissingRatio = 0.5
+)
+
+// confirmProbeSleep waits for the probe backoff, honouring ctx cancellation.
+// Injectable for tests (which also exercise sleepWithContext directly).
+var confirmProbeSleep = sleepWithContext
+
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(d):
+		return nil
+	}
+}
+
+// ConfirmMissingModels gives absent models a second opinion before any miss is
+// recorded. presentIDs is the initial listing's membership; every snapshot
+// model that is enabled but unlisted triggers up to len(confirmProbeDelays)
+// fresh listings with backoff, and the union of all probes' model IDs is
+// returned as the confirmed membership. suspect=true means this scan's
+// membership cannot be trusted (a confirmation probe failed, ctx was
+// cancelled, or the mass-vanish guard tripped) and the caller must skip miss
+// recording entirely. Probes affect membership only; metadata still comes
+// exclusively from the initial listing's upserts.
+func ConfirmMissingModels(ctx context.Context, svc *provider.DiscoveryService, prov *provider.Provider, masterKey string, presentIDs []string, snapshot map[string]ModelSnapshot) (confirmedPresent []string, suspect bool) {
+	present := make(map[string]bool, len(presentIDs))
+	for _, id := range presentIDs {
+		present[id] = true
+	}
+	countMissing := func() int {
+		n := 0
+		for id, snap := range snapshot {
+			if snap.enabled && !present[id] {
+				n++
+			}
+		}
+		return n
+	}
+
+	confirmedPresent = presentIDs
+	missing := countMissing()
+	if missing == 0 {
+		return confirmedPresent, false
+	}
+
+	for probe, delay := range confirmProbeDelays {
+		//nolint:gosec // jitter, not crypto
+		wait := delay + time.Duration(rand.Int64N(int64(confirmProbeJitter)))
+		debuglog.Info("discovery: models absent from listing, running confirmation probe",
+			"provider", prov.Name, "provider_id", prov.ID, "missing", missing,
+			"probe", probe+1, "max_probes", len(confirmProbeDelays), "delay", wait)
+		if err := confirmProbeSleep(ctx, wait); err != nil {
+			return confirmedPresent, true
+		}
+		models, err := discoverModelsForConfirm(ctx, svc, prov, masterKey)
+		if err != nil {
+			// The provider answered the initial listing but not the probe: the
+			// upstream is flapping, so this scan's membership proves nothing.
+			debuglog.Warn("discovery: confirmation probe failed, treating scan as suspect",
+				"provider", prov.Name, "provider_id", prov.ID, "probe", probe+1, "error", err)
+			return confirmedPresent, true
+		}
+		for _, m := range models {
+			if !present[m.ModelID] {
+				present[m.ModelID] = true
+				confirmedPresent = append(confirmedPresent, m.ModelID)
+			}
+		}
+		missing = countMissing()
+		if missing == 0 {
+			debuglog.Info("discovery: confirmation probe found all absent models, no misses recorded",
+				"provider", prov.Name, "provider_id", prov.ID, "probe", probe+1)
+			return confirmedPresent, false
+		}
+	}
+
+	enabledCount := 0
+	for _, snap := range snapshot {
+		if snap.enabled {
+			enabledCount++
+		}
+	}
+	if missing > suspectMissingFloor && float64(missing) > suspectMissingRatio*float64(enabledCount) {
+		debuglog.Warn("discovery: mass-vanish guard tripped, treating scan as suspect",
+			"provider", prov.Name, "provider_id", prov.ID, "missing", missing, "enabled", enabledCount)
+		events.Publish(events.Event{
+			Type:     "discovery.suspect_scan",
+			Severity: "warning",
+			Source:   "discovery",
+			Message:  fmt.Sprintf("Discovery scan for %s is missing %d of %d enabled models even after confirmation probes; treating the listing as broken and disabling nothing", prov.Name, missing, enabledCount),
+			Metadata: map[string]interface{}{"provider": prov.Name, "provider_id": prov.ID, "missing": missing, "enabled": enabledCount},
+		})
+		return confirmedPresent, true
+	}
+
+	return confirmedPresent, false
 }
 
 // diffModelFields compares the pricing/context fields of an existing model's
@@ -520,10 +643,24 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		upsertedModels = append(upsertedModels, m)
 	}
 
-	disabledRefs, err := modelRepoDisableMissing(modelRepo, provCtx, providerID, prov.Name, existingModelIDs)
-	if err != nil {
-		respondError(w, fmt.Sprintf("failed to disable missing models for provider %s", prov.Name), err, http.StatusInternalServerError)
-		return
+	// Second opinion before any model is counted missing: re-probe the listing
+	// with backoff, and only feed confirmed membership into the miss recorder.
+	// A model is disabled only after MissingScanThreshold consecutive scans
+	// confirm it missing, so one flaky scan can never disable anything.
+	confirmedIDs, suspect := ConfirmMissingModels(provCtx, discovery, prov, h.cfg.MasterKey, existingModelIDs, snapshot)
+	var disabledRefs, pendingRefs []model.DisabledModelRef
+	if suspect {
+		debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", prov.Name, "provider_id", providerID)
+	} else {
+		disabledRefs, pendingRefs, err = modelRepoRecordMissing(modelRepo, provCtx, providerID, prov.Name, confirmedIDs)
+		if err != nil {
+			respondError(w, fmt.Sprintf("failed to record missing models for provider %s", prov.Name), err, http.StatusInternalServerError)
+			return
+		}
+	}
+	if len(pendingRefs) > 0 {
+		debuglog.Info("discovery: models confirmed missing but below disable threshold",
+			"provider", prov.Name, "provider_id", providerID, "pending", len(pendingRefs), "threshold", model.MissingScanThreshold)
 	}
 
 	diff := BuildDiscoveryDiff(snapshot, upsertedModels, disabledRefs)
@@ -814,18 +951,38 @@ func (h *Handler) discoverAllProviders(ctx context.Context) (results []DiscoverA
 
 		existingModelIDs := make([]string, 0, len(models))
 		upsertedModels := make([]*model.Model, 0, len(models))
+		upsertFailed := false
 		for _, m := range models {
 			if err := modelRepo.Upsert(provCtx, m); err != nil {
 				debuglog.Warn("discovery: failed to upsert model", "model", m.ModelID, "provider", prov.Name, "error", err)
+				upsertFailed = true
 				continue
 			}
 			existingModelIDs = append(existingModelIDs, m.ModelID)
 			upsertedModels = append(upsertedModels, m)
 		}
 
-		disabledRefs, err := modelRepoDisableMissing(modelRepo, provCtx, prov.ID, prov.Name, existingModelIDs)
-		if err != nil {
-			debuglog.Debug("discovery: failed to disable missing models", "provider", prov.Name, "error", err)
+		// Miss recording needs a trustworthy membership picture: skip it when a
+		// snapshot is unavailable (cannot confirm absentees), when any upsert
+		// failed (a DB error must not count a listed model as missing), or when
+		// the confirmation probes flag the scan as suspect. Disabling happens
+		// only after MissingScanThreshold consecutive confirmed-missing scans.
+		var disabledRefs []model.DisabledModelRef
+		if snapErr == nil && !upsertFailed {
+			confirmedIDs, suspect := ConfirmMissingModels(provCtx, discovery, prov, h.cfg.MasterKey, existingModelIDs, snapshot)
+			if suspect {
+				debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", prov.Name, "provider_id", prov.ID)
+			} else {
+				var pendingRefs []model.DisabledModelRef
+				disabledRefs, pendingRefs, err = modelRepoRecordMissing(modelRepo, provCtx, prov.ID, prov.Name, confirmedIDs)
+				if err != nil {
+					debuglog.Debug("discovery: failed to record missing models", "provider", prov.Name, "error", err)
+				}
+				if len(pendingRefs) > 0 {
+					debuglog.Info("discovery: models confirmed missing but below disable threshold",
+						"provider", prov.Name, "provider_id", prov.ID, "pending", len(pendingRefs), "threshold", model.MissingScanThreshold)
+				}
+			}
 		}
 
 		// Without the before-snapshot the diff cannot be classified; the scan

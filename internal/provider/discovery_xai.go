@@ -53,7 +53,7 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 
 	// Both endpoints succeeded but listed no models (distinct from the no-access
 	// 403/429 path above, which intentionally returns the catalog). Return empty
-	// rather than unioning the catalog, so DisableMissingModels stays a no-op
+	// rather than unioning the catalog, so RecordMissingModels stays a no-op
 	// instead of disabling every live-only model.
 	if len(live) == 0 {
 		debuglog.Warn("discovery: xai endpoints returned no models, skipping", "provider", provider.Name, "provider_id", provider.ID)
@@ -77,7 +77,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, err)
 	}
@@ -166,7 +166,7 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := d.httpClient.Do(req)
+	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, err)
 	}
