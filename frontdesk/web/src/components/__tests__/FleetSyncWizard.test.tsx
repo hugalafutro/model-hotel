@@ -24,10 +24,10 @@ function member(id: string, name: string): MemberView {
 
 const members = [member("1", "hotel-1"), member("2", "hotel-2")];
 
-function primaryRow(): FleetMemberStatus {
+function primaryRow(id = "1", name = "hotel-1"): FleetMemberStatus {
 	return {
-		member_id: "1",
-		name: "hotel-1",
+		member_id: id,
+		name,
 		reachable: true,
 		has_token: true,
 		master_key_matches: true,
@@ -39,6 +39,9 @@ function primaryRow(): FleetMemberStatus {
 	};
 }
 
+// Records every PUT /api/fleet/autosync body so tests can assert the token gate.
+let autosyncPuts: Array<Record<string, unknown>>;
+
 function renderWizard() {
 	render(
 		<ToastProvider>
@@ -47,25 +50,37 @@ function renderWizard() {
 	);
 }
 
+// The merged component reads the persisted designation and the last-run marker on
+// mount. Default to "no primary set" (fresh wizard) + "never run"; individual
+// tests override with their own server.use, which takes precedence.
 beforeEach(() => {
 	localStorage.setItem("fdAuthToken", "tok");
-	// The wizard probes the last-run marker on mount. Default to "never run" (204);
-	// individual tests that care override this with their own server.use, which
-	// takes precedence over this one.
+	autosyncPuts = [];
 	server.use(
+		http.get("/api/fleet/autosync", () =>
+			HttpResponse.json({ enabled: false, primary_id: "" }),
+		),
 		http.get(
 			"/api/fleet/last-sync",
 			() => new HttpResponse(null, { status: 204 }),
 		),
+		http.put("/api/fleet/autosync", async ({ request }) => {
+			const body = (await request.json()) as Record<string, unknown>;
+			autosyncPuts.push(body);
+			return HttpResponse.json({
+				enabled: body.enabled ?? true,
+				primary_id: body.primary_id ?? "",
+			});
+		}),
 	);
 });
 
-async function pickPrimary() {
-	await userEvent.selectOptions(screen.getByLabelText(/Primary/i), "1");
+async function pickPrimary(id = "1") {
+	await userEvent.selectOptions(await screen.findByLabelText(/Primary/i), id);
 }
 
 describe("FleetSyncWizard", () => {
-	it("shows a last-run banner on step 1 when the fleet was synced before", async () => {
+	it("shows the last-run banner in step 1 when the wizard has run before", async () => {
 		server.use(
 			http.get("/api/fleet/last-sync", () =>
 				HttpResponse.json({
@@ -77,17 +92,8 @@ describe("FleetSyncWizard", () => {
 		);
 		renderWizard();
 		expect(
-			await screen.findByText(/You last synced this fleet.*primary: hotel-1/i),
+			await screen.findByText(/You last synced this fleet/i),
 		).toBeInTheDocument();
-	});
-
-	it("shows no last-run banner when the fleet has never been synced", async () => {
-		// Default 204 from beforeEach means "never run".
-		renderWizard();
-		// Step 1 has rendered (the primary picker is present)...
-		expect(await screen.findByLabelText(/Primary/i)).toBeInTheDocument();
-		// ...but there is no last-run banner.
-		expect(screen.queryByText(/You last synced this fleet/i)).toBeNull();
 	});
 
 	it("blocks the config step until MASTER_KEY matches on every member", async () => {
@@ -122,7 +128,6 @@ describe("FleetSyncWizard", () => {
 		await userEvent.click(next); // -> step 2 (MASTER_KEY)
 
 		expect(await screen.findByText(/Set the same MASTER_KEY/i)).toBeVisible();
-		// The mismatch must keep the config step locked.
 		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 	});
 
@@ -142,7 +147,7 @@ describe("FleetSyncWizard", () => {
 							// Schema skew: the member checks its schema before the MASTER_KEY
 							// canary, so master_key_matches is unevaluated (null) and diff
 							// counts are zero. Without the schema gate this member would slip
-							// through every step to Done, where config sync then fails for it.
+							// through to the config step, where config sync then fails for it.
 							master_key_matches: null,
 							schema_ok: false,
 							added: 0,
@@ -178,7 +183,6 @@ describe("FleetSyncWizard", () => {
 		);
 		renderWizard();
 		await pickPrimary();
-		// Must not crash on the null member list; shows the reason and stays on step 1.
 		expect(
 			await screen.findByText(/cannot be the primary/i),
 		).toBeInTheDocument();
@@ -193,136 +197,12 @@ describe("FleetSyncWizard", () => {
 		);
 		renderWizard();
 		await pickPrimary();
-		// The real backend message, not "Something went wrong".
 		expect(
 			await screen.findByText("the primary is on fire"),
 		).toBeInTheDocument();
 	});
 
-	it("re-locks the Done step when the primary changes after a config sync", async () => {
-		// Both members are key-converged, but each has one pending config change, so
-		// step 4 (Done) is only reachable once config has been synced for the CURRENT
-		// primary. The handler echoes whichever primary is asked about.
-		server.use(
-			http.get("/api/fleet/status", ({ request }) => {
-				const id = new URL(request.url).searchParams.get("primary") ?? "1";
-				const other = id === "1" ? "2" : "1";
-				return HttpResponse.json({
-					primary_id: id,
-					primary_reachable: true,
-					members: [
-						{ ...primaryRow(), member_id: id, name: `hotel-${id}` },
-						{
-							member_id: other,
-							name: `hotel-${other}`,
-							reachable: true,
-							has_token: true,
-							master_key_matches: true,
-							schema_ok: true,
-							added: 1,
-							updated: 0,
-							removed: 0,
-						},
-					],
-				});
-			}),
-			http.post("/api/config/sync", () =>
-				HttpResponse.json({ results: [{ member_id: "2", ok: true }] }),
-			),
-		);
-		renderWizard();
-		await pickPrimary(); // primary "1"
-
-		// Walk to the config step (step 3) and sync it, which lands on Done (step 4).
-		await waitFor(() =>
-			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
-		);
-		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
-		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
-		await userEvent.click(
-			await screen.findByRole("button", { name: /Sync configuration now/i }),
-		);
-		const dialog = await screen.findByRole("dialog");
-		await userEvent.click(within(dialog).getByRole("checkbox"));
-		await userEvent.click(
-			within(dialog).getByRole("button", {
-				name: /Replace config on 1 member now/i,
-			}),
-		);
-		// configDone is set for primary "1": we land on the Done step.
-		expect(await screen.findByText("Step 4: Done")).toBeInTheDocument();
-
-		// Walk back to step 1 and switch to a primary whose config was never synced.
-		for (let i = 0; i < 3; i++) {
-			await userEvent.click(screen.getByRole("button", { name: "Back" }));
-		}
-		await userEvent.selectOptions(screen.getByLabelText(/Primary/i), "2");
-
-		// configDone must have been reset, so the Done step is gated again: the
-		// step-3 Next button (which advances to step 4) stays disabled until the new
-		// primary's config is synced.
-		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
-		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
-		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
-	});
-
-	it("reaches Done through the config step when there is nothing to sync", async () => {
-		// Every peer already matches the primary, so the config step has no changes
-		// to push. Done must still be reached *through* the config step (via its
-		// Continue button), never by jumping past it: the step-3 Next button stays
-		// disabled until Continue is clicked.
-		let syncCalled = false;
-		server.use(
-			http.get("/api/fleet/status", () =>
-				HttpResponse.json({
-					primary_id: "1",
-					primary_reachable: true,
-					members: [
-						primaryRow(),
-						{
-							member_id: "2",
-							name: "hotel-2",
-							reachable: true,
-							has_token: true,
-							master_key_matches: true,
-							schema_ok: true,
-							added: 0,
-							updated: 0,
-							removed: 0,
-						},
-					],
-				}),
-			),
-			http.post("/api/config/sync", () => {
-				syncCalled = true;
-				return HttpResponse.json({ results: [] });
-			}),
-		);
-		renderWizard();
-		await pickPrimary();
-
-		// Step 1 -> 2 -> 3.
-		await waitFor(() =>
-			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
-		);
-		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
-		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
-
-		// On the config step with no changes, the nav Next (which advances to Done)
-		// is gated until the config step itself hands off via Continue.
-		expect(
-			await screen.findByText(/already matches the primary's configuration/i),
-		).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
-
-		await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-		// We land on Done without ever calling the sync endpoint (nothing to push).
-		expect(await screen.findByText("Step 4: Done")).toBeInTheDocument();
-		expect(syncCalled).toBe(false);
-	});
-
-	it("walks every step, syncs config, and reports the summary", async () => {
+	it("walks every step, persists the primary, syncs, and lands on the resting screen", async () => {
 		let configSynced = false;
 		server.use(
 			http.get("/api/fleet/status", () =>
@@ -356,42 +236,225 @@ describe("FleetSyncWizard", () => {
 		renderWizard();
 		await pickPrimary();
 
-		// Step 1 -> 2 (MASTER_KEY ok).
-		const toStep2 = screen.getByRole("button", { name: "Next" });
-		await waitFor(() => expect(toStep2).toBeEnabled());
-		await userEvent.click(toStep2);
-		expect(
-			await screen.findByText(/shares the primary's MASTER_KEY/i),
-		).toBeVisible();
+		const next = screen.getByRole("button", { name: "Next" });
+		await waitFor(() => expect(next).toBeEnabled());
+		await userEvent.click(next); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
 
-		// Step 2 -> 3 (config).
-		await userEvent.click(screen.getByRole("button", { name: "Next" }));
 		await userEvent.click(
 			await screen.findByRole("button", { name: /Sync configuration now/i }),
 		);
-		const configDialog = await screen.findByRole("dialog");
-		await userEvent.click(within(configDialog).getByRole("checkbox"));
+		const dialog = await screen.findByRole("dialog");
+		// A first setup does not change the primary, so no admin token is asked for.
+		expect(
+			within(dialog).queryByLabelText(/Admin token/i),
+		).not.toBeInTheDocument();
+		await userEvent.click(within(dialog).getByRole("checkbox"));
 		await userEvent.click(
-			within(configDialog).getByRole("button", {
+			within(dialog).getByRole("button", {
 				name: /Replace config on 1 member now/i,
 			}),
 		);
 
-		// Step 4 (Done) summary names the primary and the synced count.
-		expect(
-			await screen.findByText(/1 instance is now synced to hotel-1/i),
-		).toBeInTheDocument();
+		// Designation was persisted with auto-sync on, then the fleet was synced.
+		await waitFor(() =>
+			expect(autosyncPuts).toEqual([{ enabled: true, primary_id: "1" }]),
+		);
 		expect(configSynced).toBe(true);
 
-		// The Done step tells the operator where to send traffic: the configured
-		// lb_port (9090) paired with the current host, both the direct /v1 URL and
-		// the reverse-proxy forward target, plus the http/https guidance.
+		// Resting screen: source of truth + usage URLs from the configured lb_port.
+		expect(await screen.findByText("Auto-sync on")).toBeInTheDocument();
 		expect(screen.getByText("http://localhost:9090/v1")).toBeInTheDocument();
-		expect(screen.getByText("http://localhost:9090")).toBeInTheDocument();
-		expect(
-			screen.getByText(/data plane works over plain http/i),
-		).toBeInTheDocument();
-		// The load-balancer pool lists the active member backends.
 		expect(screen.getByText("https://hotel-2.example.com")).toBeInTheDocument();
+	});
+
+	it("reaches the resting screen through the config step when there is nothing to sync", async () => {
+		let syncCalled = false;
+		server.use(
+			http.get("/api/fleet/status", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_reachable: true,
+					members: [
+						primaryRow(),
+						{
+							member_id: "2",
+							name: "hotel-2",
+							reachable: true,
+							has_token: true,
+							master_key_matches: true,
+							schema_ok: true,
+							added: 0,
+							updated: 0,
+							removed: 0,
+						},
+					],
+				}),
+			),
+			http.post("/api/config/sync", () => {
+				syncCalled = true;
+				return HttpResponse.json({ results: [] });
+			}),
+		);
+		renderWizard();
+		await pickPrimary();
+
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+		);
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
+
+		expect(
+			await screen.findByText(/already matches the primary/i),
+		).toBeInTheDocument();
+		await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+		// Primary persisted, but no destructive push happened.
+		await waitFor(() =>
+			expect(autosyncPuts).toEqual([{ enabled: true, primary_id: "1" }]),
+		);
+		expect(syncCalled).toBe(false);
+		expect(await screen.findByText("Auto-sync on")).toBeInTheDocument();
+	});
+
+	it("opens on the resting screen when a primary is already designated", async () => {
+		server.use(
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: true, primary_id: "1" }),
+			),
+			http.get("/api/fleet/status", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_reachable: true,
+					lb_port: "9090",
+					members: [primaryRow()],
+				}),
+			),
+		);
+		renderWizard();
+		expect(await screen.findByText("Auto-sync on")).toBeInTheDocument();
+		expect(screen.getByText("hotel-1")).toBeInTheDocument();
+		expect(screen.getByText("Auto-sync on")).toBeInTheDocument();
+		// No wizard picker is shown while resting.
+		expect(screen.queryByLabelText(/Select the primary/i)).toBeNull();
+	});
+
+	it("pauses and resumes auto-sync without a token", async () => {
+		let enabled = true;
+		server.use(
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled, primary_id: "1" }),
+			),
+			http.put("/api/fleet/autosync", async ({ request }) => {
+				const body = (await request.json()) as Record<string, unknown>;
+				autosyncPuts.push(body);
+				enabled = Boolean(body.enabled);
+				return HttpResponse.json({ enabled, primary_id: "1" });
+			}),
+			http.get("/api/fleet/status", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_reachable: true,
+					members: [primaryRow()],
+				}),
+			),
+		);
+		renderWizard();
+
+		await userEvent.click(await screen.findByRole("button", { name: "Pause" }));
+		expect(await screen.findByText("Auto-sync paused")).toBeInTheDocument();
+		// Pausing flips only the enabled flag; the backend is never sent a token.
+		expect(autosyncPuts).toEqual([{ enabled: false, primary_id: "1" }]);
+	});
+
+	it("keeps auto-sync paused when re-running the wizard for the same primary", async () => {
+		server.use(
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: false, primary_id: "1" }),
+			),
+			http.get("/api/fleet/status", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_reachable: true,
+					members: [primaryRow()],
+				}),
+			),
+		);
+		renderWizard();
+		// Opens on the resting screen with auto-sync paused.
+		expect(await screen.findByText("Auto-sync paused")).toBeInTheDocument();
+
+		// Re-run the wizard and re-select the same primary.
+		await userEvent.click(
+			screen.getByRole("button", { name: "Re-run wizard" }),
+		);
+		await pickPrimary("1");
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+		);
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
+
+		// Nothing to push: Continue commits straight through.
+		await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+		// A manual re-sync for the same primary must preserve the paused state:
+		// the PUT must not flip enabled back on.
+		await waitFor(() =>
+			expect(autosyncPuts).toEqual([{ enabled: false, primary_id: "1" }]),
+		);
+		expect(await screen.findByText("Auto-sync paused")).toBeInTheDocument();
+	});
+
+	it("gates a re-run that changes the primary behind the admin token", async () => {
+		server.use(
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: true, primary_id: "1" }),
+			),
+			// Whichever member is probed comes back fully converged, so the re-run
+			// reaches the config step with nothing to push.
+			http.get("/api/fleet/status", ({ request }) => {
+				const id = new URL(request.url).searchParams.get("primary") ?? "1";
+				return HttpResponse.json({
+					primary_id: id,
+					primary_reachable: true,
+					members: [primaryRow(id, `hotel-${id}`)],
+				});
+			}),
+		);
+		renderWizard();
+
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Re-run wizard" }),
+		);
+		await pickPrimary("2");
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+		);
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
+
+		// Changing an existing primary needs the token before it will commit.
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Set as primary" }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		const confirm = within(dialog).getByRole("button", {
+			name: "Change primary",
+		});
+		expect(confirm).toBeDisabled();
+		await userEvent.type(
+			within(dialog).getByLabelText(/Admin token/i),
+			"secret-admin-token",
+		);
+		expect(confirm).toBeEnabled();
+		await userEvent.click(confirm);
+
+		await waitFor(() =>
+			expect(autosyncPuts).toEqual([
+				{ enabled: true, primary_id: "2", confirm_token: "secret-admin-token" },
+			]),
+		);
 	});
 });

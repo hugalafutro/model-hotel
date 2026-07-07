@@ -34,8 +34,8 @@ function parseCsv(csv: string): Set<string> {
 
 // AlertsPanel is the Settings -> Alerts control: point Front Desk at an apprise-api
 // container, choose which HA events to be notified about, and send a test. It is
-// self-contained (loads and saves its own copy of Settings) like AutoSyncPanel;
-// on every save it re-reads the freshest Settings before writing so it never
+// self-contained (loads and saves its own copy of Settings); on every save it
+// re-reads the freshest Settings before writing so it never
 // clobbers edits made in the polling form above it (and that form does the same).
 // It stays quiet (renders nothing) if it cannot load, so the rest of the page
 // still works.

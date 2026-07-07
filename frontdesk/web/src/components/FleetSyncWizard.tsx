@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type {
+	AutoSyncConfig,
 	FleetMemberStatus,
 	FleetStatus,
 	FleetSyncState,
@@ -13,15 +14,30 @@ import { formatRelative } from "../utils/time";
 import { ConfirmModal } from "./ConfirmModal";
 import { Notice } from "./Notice";
 
-// FleetSyncWizard walks the operator through converging a fleet onto one primary,
-// one gated step at a time: choose the primary, verify MASTER_KEY, then sync the
-// configuration. A step unlocks only once the previous one is satisfied (for every
-// reachable member), so config sync can never be reached before MASTER_KEY is
-// verified. A single probe (GET /api/fleet/status) drives every gate, and every
-// failure surfaces the real backend message rather than a generic toast.
+// FleetSyncWizard is the single control for designating a source-of-truth member
+// and keeping the fleet converged on it. It has two faces:
+//
+//   - Resting screen (a primary is already designated): shows which member is
+//     primary, the automatic-sync state with a Pause/Resume switch, where to send
+//     traffic, and a red, token-gated "Re-run" that re-designates the primary and
+//     overwrites the fleet.
+//   - Wizard (no primary yet, or a re-run): the gated flow choose -> verify
+//     MASTER_KEY -> sync. A step unlocks only once the previous one is satisfied
+//     for every reachable member, so config can never be pushed before MASTER_KEY
+//     is verified. A single probe (GET /api/fleet/status) drives every gate.
+//
+// Completing the wizard persists {enabled: true, primary_id} so "a primary is
+// set" means "the wizard converged the fleet at least once", and auto-sync then
+// keeps the fleet matched. The one exception is a re-run that re-selects the
+// same primary: that is a manual re-sync and preserves the operator's paused
+// state rather than silently resuming auto-sync. The token gate on a *change*
+// runs before the destructive push, so a wrong token fails with nothing
+// overwritten.
 
-type Step = 1 | 2 | 3 | 4;
-const STEPS: Step[] = [1, 2, 3, 4];
+type Step = 1 | 2 | 3;
+const STEPS: Step[] = [1, 2, 3];
+type View = "loading" | "wizard" | "resting";
+type ConfirmKind = "config" | "change" | null;
 
 // Reachable members other than the primary: the ones a step can actually act on.
 function reachablePeers(s: FleetStatus): FleetMemberStatus[] {
@@ -35,8 +51,8 @@ function masterKeyBlockers(s: FleetStatus): FleetMemberStatus[] {
 // Schema blockers: reachable members whose app is too old to receive the
 // primary's config. The member checks its schema before the MASTER_KEY canary,
 // so a skewed member reports master_key_matches=null and zero diff counts and
-// would otherwise slip through every gate to Done, where config sync then fails
-// for it. They can only be fixed by upgrading the member, so they hard-block.
+// would otherwise slip through every gate, where config sync then fails for it.
+// They can only be fixed by upgrading the member, so they hard-block.
 function schemaBlockers(s: FleetStatus): FleetMemberStatus[] {
 	return reachablePeers(s).filter((m) => !m.schema_ok);
 }
@@ -56,29 +72,40 @@ export function FleetSyncWizard({
 }) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
+	const [view, setView] = useState<View>("loading");
+	// The persisted designation. primary_id === "" means none is set yet.
+	const [autoSync, setAutoSync] = useState<AutoSyncConfig>({
+		enabled: false,
+		primary_id: "",
+	});
 	const [step, setStep] = useState<Step>(1);
 	const [primaryId, setPrimaryId] = useState("");
 	const [status, setStatus] = useState<FleetStatus | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [busy, setBusy] = useState(false);
-	const [confirm, setConfirm] = useState<"config" | null>(null);
-	const [configDone, setConfigDone] = useState(false);
+	const [confirm, setConfirm] = useState<ConfirmKind>(null);
+	const [commitToken, setCommitToken] = useState("");
+	const [commitError, setCommitError] = useState("");
 	const [lastSync, setLastSync] = useState<FleetSyncState | null>(null);
 
 	const nameOf = (id: string) => members.find((m) => m.id === id)?.name ?? id;
 
-	// Surface that the wizard has run before (and against which primary) so a
-	// fresh-looking step 1 after a container rebuild does not read as "never set
-	// up". 204 (never run) resolves to null and shows nothing.
+	// Changing an already-designated primary to a different member is the gated,
+	// destructive case; the very first designation applies without a token.
+	const changingPrimary =
+		autoSync.primary_id !== "" && autoSync.primary_id !== primaryId;
+	// A re-run that re-selects the *same* primary is a manual re-sync, not a
+	// fresh designation: commit preserves the operator's enabled (paused) state
+	// instead of silently resuming auto-sync.
+	const samePrimaryRerun =
+		autoSync.primary_id !== "" && autoSync.primary_id === primaryId;
+
 	const loadLastSync = useCallback(() => {
 		api
 			.fleetLastSync()
 			.then((s) => setLastSync(s ?? null))
 			.catch(() => {});
 	}, []);
-	useEffect(() => {
-		loadLastSync();
-	}, [loadLastSync]);
 
 	const refresh = useCallback(
 		async (id: string) => {
@@ -98,14 +125,31 @@ export function FleetSyncWizard({
 		[toast, t],
 	);
 
+	// On mount, decide which face to show from the persisted designation. A set
+	// primary lands on the resting screen and probes once for the usage details
+	// (lb_port, pool); no primary opens the wizard. A failed read degrades to the
+	// wizard rather than dead-ending.
+	useEffect(() => {
+		loadLastSync();
+		api
+			.getAutoSync()
+			.then((cfg) => {
+				setAutoSync(cfg);
+				if (cfg.primary_id) {
+					setPrimaryId(cfg.primary_id);
+					setView("resting");
+					void refresh(cfg.primary_id);
+				} else {
+					setView("wizard");
+				}
+			})
+			.catch(() => setView("wizard"));
+	}, [loadLastSync, refresh]);
+
 	// Pick (or change) the primary, then re-probe. Driven from the pick event
 	// rather than an effect on primaryId, since the primary only ever changes
-	// through this handler. Clearing configDone matters: it records that *the
-	// previous* primary's config was synced, and letting it carry over would
-	// unlock step 4 for a new primary whose config was never pushed (canStep4
-	// keys off configDone).
+	// through this handler.
 	const pickPrimary = (id: string) => {
-		setConfigDone(false);
 		setPrimaryId(id);
 		if (id) void refresh(id);
 	};
@@ -118,12 +162,6 @@ export function FleetSyncWizard({
 		canStep2 &&
 		masterKeyBlockers(status as FleetStatus).length === 0 &&
 		schemaBlockers(status as FleetStatus).length === 0;
-	// Step 4 (done) unlocks only once the config step has been completed, either by
-	// running the sync or, when there is nothing to push, by acknowledging it on the
-	// config step (configDone). Gating on configDone alone keeps the config step the
-	// sole owner of the transition to Done, so Done can never be reached by jumping
-	// past the config review.
-	const canStep4 = canStep3 && configDone;
 
 	const unlocked = (s: Step): boolean => {
 		switch (s) {
@@ -133,8 +171,6 @@ export function FleetSyncWizard({
 				return canStep2;
 			case 3:
 				return canStep3;
-			case 4:
-				return canStep4;
 		}
 	};
 
@@ -142,42 +178,140 @@ export function FleetSyncWizard({
 		if (unlocked(s)) setStep(s);
 	};
 
-	const doConfigSync = async () => {
+	const overwrites = status ? configChanges(status) : [];
+	const totalRemoved = overwrites.reduce((n, i) => n + i.removed, 0);
+
+	const closeConfirm = () => {
+		setConfirm(null);
+		setCommitToken("");
+		setCommitError("");
+	};
+
+	// commit persists the designation (+ auto-sync on) and then, when there is
+	// anything to push, syncs the fleet. Order matters: the token-gated persist
+	// runs first, so a rejected token fails before a single member is overwritten.
+	const commit = async () => {
 		setBusy(true);
+		setCommitError("");
+		let saved: AutoSyncConfig;
 		try {
-			const res = await api.configSync(primaryId);
-			const ok = res.results.filter((r) => r.ok).length;
-			reportResults(res.results, toast, t);
-			toast(
-				t("settings.configSyncDone", {
-					ok,
-					total: res.results.length,
-					count: res.results.length,
-				}),
-				ok === res.results.length ? "success" : "error",
+			saved = await api.putAutoSync(
+				{
+					enabled: samePrimaryRerun ? autoSync.enabled : true,
+					primary_id: primaryId,
+				},
+				changingPrimary ? commitToken.trim() : undefined,
 			);
+		} catch (e) {
+			// Designation rejected (bad token, or the primary changed under us).
+			// Nothing was pushed; keep the modal open so the operator can retry.
+			setCommitError(
+				e instanceof ApiError && (e.status === 400 || e.status === 403)
+					? e.message
+					: t("errors.generic"),
+			);
+			setBusy(false);
+			return;
+		}
+		setAutoSync(saved);
+		closeConfirm();
+		try {
+			if (overwrites.length > 0) {
+				const res = await api.configSync(primaryId);
+				const ok = res.results.filter((r) => r.ok).length;
+				reportResults(res.results, toast, t);
+				toast(
+					t("settings.configSyncDone", {
+						ok,
+						total: res.results.length,
+						count: res.results.length,
+					}),
+					ok === res.results.length ? "success" : "error",
+				);
+			} else {
+				toast(t("settings.wizard.savedToast"), "success");
+			}
 			onChanged();
-			setConfigDone(true);
 			loadLastSync();
 			await refresh(primaryId);
-			setStep(4);
+			setView("resting");
 		} catch (e) {
+			// The designation is saved and auto-sync is on, so the loop will still
+			// converge; surface the push failure but stay on the config step to retry.
 			toast(e instanceof ApiError ? e.message : t("errors.generic"), "error");
+			await refresh(primaryId);
 		} finally {
 			setBusy(false);
-			setConfirm(null);
 		}
 	};
 
-	const restart = () => {
-		setStep(1);
-		setPrimaryId("");
-		setStatus(null);
-		setConfigDone(false);
+	// Step 3's single "proceed" action. With changes to push (or a primary change
+	// needing a token) it routes through a confirmation; a first, clean setup with
+	// nothing to push commits straight through.
+	const proceed = () => {
+		setCommitToken("");
+		setCommitError("");
+		if (overwrites.length > 0) setConfirm("config");
+		else if (changingPrimary) setConfirm("change");
+		else void commit();
 	};
 
-	const overwrites = status ? configChanges(status) : [];
-	const totalRemoved = overwrites.reduce((n, i) => n + i.removed, 0);
+	// Pause / resume auto-sync without touching the primary. Flipping only the
+	// enabled flag never needs the token (the backend gates primary changes only).
+	const toggleEnabled = async () => {
+		const next = { ...autoSync, enabled: !autoSync.enabled };
+		try {
+			setAutoSync(await api.putAutoSync(next));
+			toast(t("settings.wizard.savedToast"), "success");
+		} catch (e) {
+			toast(e instanceof ApiError ? e.message : t("errors.generic"), "error");
+		}
+	};
+
+	// Enter the wizard to re-designate the primary. The saved designation is left
+	// in place until the re-run commits, so `changingPrimary` still gates the
+	// token and a cancelled re-run changes nothing.
+	const startRerun = () => {
+		setPrimaryId("");
+		setStatus(null);
+		setStep(1);
+		closeConfirm();
+		setView("wizard");
+	};
+
+	// Return to the resting screen from a re-run without committing.
+	const cancelRerun = () => {
+		setPrimaryId(autoSync.primary_id);
+		setStatus(null);
+		closeConfirm();
+		setView("resting");
+		void refresh(autoSync.primary_id);
+	};
+
+	if (view === "loading")
+		return (
+			<div className="ui-card ui-card-pad">
+				<div className="fd-faint">{t("common.loading")}</div>
+			</div>
+		);
+
+	if (view === "resting")
+		return (
+			<div className="ui-card ui-card-pad">
+				<h2 style={{ fontSize: "1rem" }}>
+					{t("settings.wizard.restingTitle")}
+				</h2>
+				<StepResting
+					status={status}
+					members={members}
+					primaryName={nameOf(autoSync.primary_id)}
+					enabled={autoSync.enabled}
+					lastSync={lastSync}
+					onToggleEnabled={() => void toggleEnabled()}
+					onRerun={startRerun}
+				/>
+			</div>
+		);
 
 	return (
 		<div className="ui-card ui-card-pad">
@@ -207,18 +341,8 @@ export function FleetSyncWizard({
 					status={status}
 					overwrites={overwrites}
 					busy={busy}
-					onSync={() => setConfirm("config")}
-					onContinue={() => {
-						setConfigDone(true);
-						setStep(4);
-					}}
-				/>
-			)}
-			{step === 4 && status && (
-				<StepDone
-					status={status}
-					members={members}
-					primaryName={nameOf(status.primary_id)}
+					changingPrimary={changingPrimary}
+					onProceed={proceed}
 				/>
 			)}
 
@@ -227,7 +351,7 @@ export function FleetSyncWizard({
 				unlocked={unlocked}
 				loading={loading}
 				onGo={go}
-				onRestart={restart}
+				onCancel={autoSync.primary_id ? cancelRerun : undefined}
 			/>
 
 			{confirm === "config" && (
@@ -238,11 +362,12 @@ export function FleetSyncWizard({
 					confirmLabel={t("settings.configSyncDo", {
 						count: overwrites.length,
 					})}
+					confirmDisabled={changingPrimary && !commitToken.trim()}
 					busy={busy}
 					busyLabel={t("settings.configSyncDoing")}
 					ackLabel={t("settings.configSyncAck")}
-					onConfirm={doConfigSync}
-					onClose={() => setConfirm(null)}
+					onConfirm={() => void commit()}
+					onClose={closeConfirm}
 				>
 					<p className="fd-muted">{t("settings.configSyncConfirmBody")}</p>
 					{busy && (
@@ -290,13 +415,235 @@ export function FleetSyncWizard({
 						))}
 					</ul>
 					<ConfigLegend />
+					{changingPrimary && (
+						<TokenField
+							value={commitToken}
+							error={commitError}
+							note={t("settings.wizard.changeTokenNote")}
+							onChange={setCommitToken}
+						/>
+					)}
+				</ConfirmModal>
+			)}
+
+			{confirm === "change" && (
+				<ConfirmModal
+					title={t("settings.wizard.changeTitle")}
+					confirmLabel={t("settings.wizard.changeConfirm")}
+					confirmDisabled={!commitToken.trim()}
+					busy={busy}
+					onConfirm={() => void commit()}
+					onClose={closeConfirm}
+				>
+					<p className="fd-muted">
+						{t("settings.wizard.changeBody", { name: nameOf(primaryId) })}
+					</p>
+					<TokenField
+						value={commitToken}
+						error={commitError}
+						onChange={setCommitToken}
+					/>
 				</ConfirmModal>
 			)}
 		</div>
 	);
 }
 
-// --- Steps -----------------------------------------------------------------
+// --- Resting screen ---------------------------------------------------------
+
+function StepResting({
+	status,
+	members,
+	primaryName,
+	enabled,
+	lastSync,
+	onToggleEnabled,
+	onRerun,
+}: {
+	status: FleetStatus | null;
+	members: MemberView[];
+	primaryName: string;
+	enabled: boolean;
+	lastSync: FleetSyncState | null;
+	onToggleEnabled: () => void;
+	onRerun: () => void;
+}) {
+	const { t } = useTranslation();
+	return (
+		<div className="fd-stack">
+			<Notice variant="info" style={{ marginTop: "0.2rem" }}>
+				<strong>{t("settings.wizard.restingPrimaryLabel")}:</strong>{" "}
+				{primaryName}
+				<div
+					className="fd-faint"
+					style={{ fontSize: "0.82rem", marginTop: "0.3rem" }}
+				>
+					{lastSync
+						? t("settings.wizard.restingLastRun", {
+								when: formatRelative(lastSync.last_run_at),
+							})
+						: t("settings.wizard.restingNeverRun")}
+				</div>
+			</Notice>
+
+			{status && offlinePeers(status).length > 0 && (
+				<Notice variant="warn">
+					{t("settings.wizard.skippedOffline")}
+					<ul style={{ margin: "0.4rem 0 0" }}>
+						{offlinePeers(status).map((m) => (
+							<li key={m.member_id}>{m.name}</li>
+						))}
+					</ul>
+				</Notice>
+			)}
+
+			<div className="fd-row" style={{ gap: "0.6rem", alignItems: "center" }}>
+				<span
+					className={`ui-badge ${enabled ? "ui-badge-ok" : "ui-badge-warn"}`}
+				>
+					{t(
+						enabled
+							? "settings.wizard.autoSyncOn"
+							: "settings.wizard.autoSyncOff",
+					)}
+				</span>
+				<button
+					type="button"
+					className="ui-btn ui-btn-sm"
+					onClick={onToggleEnabled}
+				>
+					{t(
+						enabled ? "settings.wizard.pauseBtn" : "settings.wizard.resumeBtn",
+					)}
+				</button>
+			</div>
+			<p className="fd-faint" style={{ fontSize: "0.8rem", margin: 0 }}>
+				{t(
+					enabled
+						? "settings.wizard.autoSyncOnHint"
+						: "settings.wizard.autoSyncOffHint",
+				)}
+			</p>
+
+			{status && <UsageSection status={status} members={members} />}
+
+			<div
+				className="fd-stack"
+				style={{
+					marginTop: "0.6rem",
+					paddingTop: "0.8rem",
+					borderTop: "1px solid var(--border, rgba(128,128,128,0.25))",
+				}}
+			>
+				<h4 style={{ fontSize: "0.95rem", margin: 0 }}>
+					{t("settings.wizard.rerunHeading")}
+				</h4>
+				<Notice variant="warn">{t("settings.wizard.rerunWarning")}</Notice>
+				<div>
+					<button
+						type="button"
+						className="ui-btn ui-btn-danger"
+						onClick={onRerun}
+					>
+						{t("settings.wizard.rerunBtn")}
+					</button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+// UsageSection tells the operator where to send traffic once the fleet is
+// converged: the direct /v1 URL, the reverse-proxy forward target, and the
+// active-member pool behind the load balancer.
+function UsageSection({
+	status,
+	members,
+}: {
+	status: FleetStatus;
+	members: MemberView[];
+}) {
+	const { t } = useTranslation();
+	// The load balancer's pool is exactly the active members (BuildTraefikConfig
+	// drops drained ones), so list those as the instances behind it.
+	const pool = members.filter((m) => m.state === "active");
+	// Front Desk knows the LB port (LB_PORT) but not the operator's public host,
+	// so pair the port with the host they reached this UI on: in the single-stack
+	// HA compose that is the same machine the load balancer runs on.
+	const port = status.lb_port ?? "8080";
+	const host =
+		typeof window !== "undefined" ? window.location.hostname : "your-host";
+	const directURL = `http://${host}:${port}/v1`;
+	const forwardURL = `http://${host}:${port}`;
+
+	return (
+		<div>
+			<h4 style={{ fontSize: "0.95rem", margin: "0 0 0.3rem" }}>
+				{t("settings.wizard.doneUseTitle")}
+			</h4>
+			<p className="fd-faint" style={{ fontSize: "0.83rem", margin: 0 }}>
+				{t("settings.wizard.doneUseIntro")}
+			</p>
+
+			<div style={{ marginTop: "0.8rem" }}>
+				<div style={{ fontSize: "0.85rem", marginBottom: "0.3rem" }}>
+					{t("settings.wizard.doneDirectTitle")}
+				</div>
+				<CopyRow value={directURL} />
+			</div>
+
+			<div style={{ marginTop: "0.9rem" }}>
+				<div style={{ fontSize: "0.85rem", marginBottom: "0.3rem" }}>
+					{t("settings.wizard.doneProxyTitle")}
+				</div>
+				<div
+					className="fd-faint"
+					style={{ fontSize: "0.82rem", marginBottom: "0.3rem" }}
+				>
+					{t("settings.wizard.doneProxyForward")}
+				</div>
+				<CopyRow value={forwardURL} />
+				<div
+					className="fd-faint"
+					style={{ fontSize: "0.82rem", marginTop: "0.4rem" }}
+				>
+					{t("settings.wizard.doneProxyClients")}
+				</div>
+			</div>
+
+			<p
+				className="fd-faint"
+				style={{ fontSize: "0.78rem", marginTop: "0.7rem" }}
+			>
+				{t("settings.wizard.donePortNote", { port })}
+			</p>
+
+			<div style={{ marginTop: "0.9rem" }}>
+				<div style={{ fontSize: "0.85rem", marginBottom: "0.3rem" }}>
+					{t("settings.wizard.donePoolTitle")}
+				</div>
+				{pool.length === 0 ? (
+					<div className="fd-faint" style={{ fontSize: "0.82rem" }}>
+						{t("settings.wizard.donePoolEmpty")}
+					</div>
+				) : (
+					<ul className="fd-mono" style={{ margin: 0, fontSize: "0.82rem" }}>
+						{pool.map((m) => (
+							<li key={m.id}>{m.url}</li>
+						))}
+					</ul>
+				)}
+			</div>
+
+			<Notice variant="info" style={{ marginTop: "1rem" }}>
+				<strong>{t("settings.wizard.doneHttpsTitle")}</strong>{" "}
+				{t("settings.wizard.doneHttpsNote")}
+			</Notice>
+		</div>
+	);
+}
+
+// --- Wizard steps -----------------------------------------------------------
 
 function StepChoosePrimary({
 	members,
@@ -411,14 +758,14 @@ function StepConfig({
 	status,
 	overwrites,
 	busy,
-	onSync,
-	onContinue,
+	changingPrimary,
+	onProceed,
 }: {
 	status: FleetStatus;
 	overwrites: FleetMemberStatus[];
 	busy: boolean;
-	onSync: () => void;
-	onContinue: () => void;
+	changingPrimary: boolean;
+	onProceed: () => void;
 }) {
 	const { t } = useTranslation();
 	return (
@@ -435,9 +782,14 @@ function StepConfig({
 						type="button"
 						className="ui-btn ui-btn-primary"
 						style={{ marginTop: "0.8rem" }}
-						onClick={onContinue}
+						disabled={busy}
+						onClick={onProceed}
 					>
-						{t("settings.wizard.continueNoChanges")}
+						{t(
+							changingPrimary
+								? "settings.wizard.setPrimaryBtn"
+								: "settings.wizard.continueNoChanges",
+						)}
 					</button>
 				</div>
 			) : (
@@ -447,124 +799,12 @@ function StepConfig({
 						type="button"
 						className="ui-btn"
 						disabled={busy}
-						onClick={onSync}
+						onClick={onProceed}
 					>
 						{t("settings.wizard.syncConfigBtn")}
 					</button>
 				</div>
 			)}
-		</div>
-	);
-}
-
-function StepDone({
-	status,
-	members,
-	primaryName,
-}: {
-	status: FleetStatus;
-	members: MemberView[];
-	primaryName: string;
-}) {
-	const { t } = useTranslation();
-	const synced = reachablePeers(status).length;
-	const offline = offlinePeers(status);
-
-	// The load balancer's pool is exactly the active members (BuildTraefikConfig
-	// drops drained ones), so list those as the instances behind it.
-	const pool = members.filter((m) => m.state === "active");
-	// Front Desk knows the LB port (LB_PORT) but not the operator's public host,
-	// so pair the port with the host they reached this UI on: in the single-stack
-	// HA compose that is the same machine the load balancer runs on.
-	const port = status.lb_port ?? "8080";
-	const host =
-		typeof window !== "undefined" ? window.location.hostname : "your-host";
-	const directURL = `http://${host}:${port}/v1`;
-	const forwardURL = `http://${host}:${port}`;
-
-	return (
-		<div>
-			<h3 className="fd-step-title">{t("settings.wizard.step4Title")}</h3>
-			<Notice variant="info" style={{ marginTop: "0.2rem" }}>
-				{t("settings.wizard.doneSummary", {
-					count: synced,
-					primary: primaryName,
-				})}
-			</Notice>
-			{offline.length > 0 && (
-				<Notice variant="warn" style={{ marginTop: "0.7rem" }}>
-					{t("settings.wizard.skippedOffline")}
-					<ul style={{ margin: "0.4rem 0 0" }}>
-						{offline.map((m) => (
-							<li key={m.member_id}>{m.name}</li>
-						))}
-					</ul>
-				</Notice>
-			)}
-
-			<div style={{ marginTop: "1.1rem" }}>
-				<h4 style={{ fontSize: "0.95rem", margin: "0 0 0.3rem" }}>
-					{t("settings.wizard.doneUseTitle")}
-				</h4>
-				<p className="fd-faint" style={{ fontSize: "0.83rem", margin: 0 }}>
-					{t("settings.wizard.doneUseIntro")}
-				</p>
-
-				<div style={{ marginTop: "0.8rem" }}>
-					<div style={{ fontSize: "0.85rem", marginBottom: "0.3rem" }}>
-						{t("settings.wizard.doneDirectTitle")}
-					</div>
-					<CopyRow value={directURL} />
-				</div>
-
-				<div style={{ marginTop: "0.9rem" }}>
-					<div style={{ fontSize: "0.85rem", marginBottom: "0.3rem" }}>
-						{t("settings.wizard.doneProxyTitle")}
-					</div>
-					<div
-						className="fd-faint"
-						style={{ fontSize: "0.82rem", marginBottom: "0.3rem" }}
-					>
-						{t("settings.wizard.doneProxyForward")}
-					</div>
-					<CopyRow value={forwardURL} />
-					<div
-						className="fd-faint"
-						style={{ fontSize: "0.82rem", marginTop: "0.4rem" }}
-					>
-						{t("settings.wizard.doneProxyClients")}
-					</div>
-				</div>
-
-				<p
-					className="fd-faint"
-					style={{ fontSize: "0.78rem", marginTop: "0.7rem" }}
-				>
-					{t("settings.wizard.donePortNote", { port })}
-				</p>
-
-				<div style={{ marginTop: "0.9rem" }}>
-					<div style={{ fontSize: "0.85rem", marginBottom: "0.3rem" }}>
-						{t("settings.wizard.donePoolTitle")}
-					</div>
-					{pool.length === 0 ? (
-						<div className="fd-faint" style={{ fontSize: "0.82rem" }}>
-							{t("settings.wizard.donePoolEmpty")}
-						</div>
-					) : (
-						<ul className="fd-mono" style={{ margin: 0, fontSize: "0.82rem" }}>
-							{pool.map((m) => (
-								<li key={m.id}>{m.url}</li>
-							))}
-						</ul>
-					)}
-				</div>
-
-				<Notice variant="info" style={{ marginTop: "1rem" }}>
-					<strong>{t("settings.wizard.doneHttpsTitle")}</strong>{" "}
-					{t("settings.wizard.doneHttpsNote")}
-				</Notice>
-			</div>
 		</div>
 	);
 }
@@ -604,6 +844,55 @@ function CopyRow({ value }: { value: string }) {
 }
 
 // --- Shared bits ------------------------------------------------------------
+
+// TokenField is the admin-token input shown in a confirm modal when the action
+// re-designates an existing primary (the backend gates that change on the token).
+function TokenField({
+	value,
+	error,
+	note,
+	onChange,
+}: {
+	value: string;
+	error: string;
+	note?: string;
+	onChange: (v: string) => void;
+}) {
+	const { t } = useTranslation();
+	return (
+		<div className="ui-field" style={{ marginTop: "0.4rem" }}>
+			{note && (
+				<div
+					className="fd-faint"
+					style={{ fontSize: "0.8rem", marginBottom: "0.3rem" }}
+				>
+					{note}
+				</div>
+			)}
+			<label className="ui-label" htmlFor="fd-wizard-confirm-token">
+				{t("settings.wizard.confirmTokenLabel")}
+			</label>
+			<input
+				id="fd-wizard-confirm-token"
+				className="ui-input"
+				type="password"
+				autoComplete="current-password"
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				placeholder={t("settings.wizard.confirmTokenPlaceholder")}
+			/>
+			{error && (
+				<div
+					className="fd-error-text"
+					role="alert"
+					style={{ marginTop: "0.3rem" }}
+				>
+					{error}
+				</div>
+			)}
+		</div>
+	);
+}
 
 // ConfigLegend explains the +added / ~updated / -removed badges, which are
 // otherwise bare numbers with no hint at what they count.
@@ -777,25 +1066,31 @@ function MemberBadge({
 
 // WizardNav: Back / Next plus the dotted step indicator at the bottom. A dot is
 // clickable only when that step is unlocked, so the operator can review earlier
-// steps but never skip a gate.
+// steps but never skip a gate. onCancel (present only on a re-run) returns to the
+// resting screen without committing.
 function WizardNav({
 	step,
 	unlocked,
 	loading,
 	onGo,
-	onRestart,
+	onCancel,
 }: {
 	step: Step;
 	unlocked: (s: Step) => boolean;
 	loading: boolean;
 	onGo: (s: Step) => void;
-	onRestart: () => void;
+	onCancel?: () => void;
 }) {
 	const { t } = useTranslation();
 	const next = (step + 1) as Step;
 	return (
 		<div className="fd-wizard-nav">
 			<div className="fd-row" style={{ gap: "0.5rem" }}>
+				{onCancel && (
+					<button type="button" className="ui-btn" onClick={onCancel}>
+						{t("settings.wizard.cancelRerun")}
+					</button>
+				)}
 				{step > 1 && (
 					<button
 						type="button"
@@ -805,7 +1100,7 @@ function WizardNav({
 						{t("settings.wizard.back")}
 					</button>
 				)}
-				{step < 4 && (
+				{step < 3 && (
 					<button
 						type="button"
 						className="ui-btn ui-btn-primary"
@@ -813,11 +1108,6 @@ function WizardNav({
 						onClick={() => onGo(next)}
 					>
 						{t("settings.wizard.next")}
-					</button>
-				)}
-				{step === 4 && (
-					<button type="button" className="ui-btn" onClick={onRestart}>
-						{t("settings.wizard.runAgain")}
 					</button>
 				)}
 			</div>

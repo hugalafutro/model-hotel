@@ -43,6 +43,14 @@ beforeEach(() => {
 	server.use(
 		sseHandler(),
 		http.get("/api/members", () => HttpResponse.json([])),
+		// The fleet sync wizard reads the designation + last-run marker on mount.
+		http.get("/api/fleet/autosync", () =>
+			HttpResponse.json({ enabled: false, primary_id: "" }),
+		),
+		http.get(
+			"/api/fleet/last-sync",
+			() => new HttpResponse(null, { status: 204 }),
+		),
 		// The Alerts panel loads its catalog + reachability on mount.
 		http.get("/api/alert/events", () => HttpResponse.json([])),
 		http.get("/api/alert/status", () =>
