@@ -6,7 +6,7 @@
 
 **Multi-Provider AI Gateway**
 
-![Github CI](https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg) ![Go Version](https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel) ![Go Report](https://goreportcard.com/badge/github.com/hugalafutro/model-hotel) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white) ![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)  ![Coverage](https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg) ![GitHub Repo stars](https://img.shields.io/github/stars/hugalafutro/model-hotel)
+![Github CI](https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg) ![Go Version](https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel) [![golangci-lint](https://img.shields.io/badge/lint-golangci--lint-00ACD7?logo=go&logoColor=white)](https://golangci-lint.run) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white) ![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)  ![Coverage](https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg) ![GitHub Repo stars](https://img.shields.io/github/stars/hugalafutro/model-hotel)
 
 
 > **AI-Assisted Project Disclaimer:**
