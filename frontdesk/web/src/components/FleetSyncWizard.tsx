@@ -28,9 +28,11 @@ import { Notice } from "./Notice";
 //
 // Completing the wizard persists {enabled: true, primary_id} so "a primary is
 // set" means "the wizard converged the fleet at least once", and auto-sync then
-// keeps the fleet matched. Designating a primary is the whole switch: there is no
-// separate on/off to forget. The token gate on a *change* runs before the
-// destructive push, so a wrong token fails with nothing overwritten.
+// keeps the fleet matched. The one exception is a re-run that re-selects the
+// same primary: that is a manual re-sync and preserves the operator's paused
+// state rather than silently resuming auto-sync. The token gate on a *change*
+// runs before the destructive push, so a wrong token fails with nothing
+// overwritten.
 
 type Step = 1 | 2 | 3;
 const STEPS: Step[] = [1, 2, 3];
@@ -92,6 +94,11 @@ export function FleetSyncWizard({
 	// destructive case; the very first designation applies without a token.
 	const changingPrimary =
 		autoSync.primary_id !== "" && autoSync.primary_id !== primaryId;
+	// A re-run that re-selects the *same* primary is a manual re-sync, not a
+	// fresh designation: commit preserves the operator's enabled (paused) state
+	// instead of silently resuming auto-sync.
+	const samePrimaryRerun =
+		autoSync.primary_id !== "" && autoSync.primary_id === primaryId;
 
 	const loadLastSync = useCallback(() => {
 		api
@@ -189,7 +196,10 @@ export function FleetSyncWizard({
 		let saved: AutoSyncConfig;
 		try {
 			saved = await api.putAutoSync(
-				{ enabled: true, primary_id: primaryId },
+				{
+					enabled: samePrimaryRerun ? autoSync.enabled : true,
+					primary_id: primaryId,
+				},
 				changingPrimary ? commitToken.trim() : undefined,
 			);
 		} catch (e) {

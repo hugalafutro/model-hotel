@@ -368,6 +368,45 @@ describe("FleetSyncWizard", () => {
 		expect(autosyncPuts).toEqual([{ enabled: false, primary_id: "1" }]);
 	});
 
+	it("keeps auto-sync paused when re-running the wizard for the same primary", async () => {
+		server.use(
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: false, primary_id: "1" }),
+			),
+			http.get("/api/fleet/status", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_reachable: true,
+					members: [primaryRow()],
+				}),
+			),
+		);
+		renderWizard();
+		// Opens on the resting screen with auto-sync paused.
+		expect(await screen.findByText("Auto-sync paused")).toBeInTheDocument();
+
+		// Re-run the wizard and re-select the same primary.
+		await userEvent.click(
+			screen.getByRole("button", { name: "Re-run wizard" }),
+		);
+		await pickPrimary("1");
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+		);
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
+
+		// Nothing to push: Continue commits straight through.
+		await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+		// A manual re-sync for the same primary must preserve the paused state:
+		// the PUT must not flip enabled back on.
+		await waitFor(() =>
+			expect(autosyncPuts).toEqual([{ enabled: false, primary_id: "1" }]),
+		);
+		expect(await screen.findByText("Auto-sync paused")).toBeInTheDocument();
+	});
+
 	it("gates a re-run that changes the primary behind the admin token", async () => {
 		server.use(
 			http.get("/api/fleet/autosync", () =>
