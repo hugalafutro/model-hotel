@@ -1,5 +1,4 @@
 import { TranslateIcon } from "@phosphor-icons/react";
-import i18next from "i18next";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LANGUAGE_STORAGE_KEY } from "../i18n";
@@ -7,7 +6,8 @@ import { LANGUAGE_STORAGE_KEY } from "../i18n";
 // Language names are autonyms (each language in its own script), shown
 // identically in every UI locale — the industry standard for language pickers,
 // so a user stranded in the wrong language can still recognize their own.
-// English is intentionally last so it sits at the bottom of the menu.
+// English is last in the base ordering; the active language is pinned to the
+// top at render time (see below).
 const SUPPORTED_LANGUAGES = [
 	{ code: "cs", label: "Čeština" },
 	{ code: "de", label: "Deutsch" },
@@ -29,8 +29,9 @@ const SUPPORTED_LANGUAGES = [
 export function LanguageSelector() {
 	const { t, i18n } = useTranslation();
 	const [open, setOpen] = useState(false);
-	const ref = useRef<HTMLDivElement>(null);
-	const scrollRef = useRef<HTMLDivElement>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	const listboxRef = useRef<HTMLDivElement>(null);
 
 	// The dropdown opens downward from the header, so pin the active language
 	// to the top (nearest the trigger). This is the opposite of the main
@@ -45,7 +46,10 @@ export function LanguageSelector() {
 	// Close the dropdown when clicking outside it.
 	useEffect(() => {
 		function handleClickOutside(e: MouseEvent) {
-			if (ref.current && !ref.current.contains(e.target as Node)) {
+			if (
+				containerRef.current &&
+				!containerRef.current.contains(e.target as Node)
+			) {
 				setOpen(false);
 			}
 		}
@@ -56,19 +60,47 @@ export function LanguageSelector() {
 		}
 	}, [open]);
 
-	// Scroll the active language into view when the dropdown opens.
+	// When the dropdown opens, move keyboard focus to the active (top) option
+	// so arrow-key navigation starts there immediately.
 	useEffect(() => {
-		if (open && scrollRef.current) {
-			const active = scrollRef.current.querySelector("[aria-selected='true']");
-			active?.scrollIntoView({ block: "nearest" });
+		if (open && listboxRef.current) {
+			const first =
+				listboxRef.current.querySelector<HTMLButtonElement>("[role='option']");
+			first?.focus();
 		}
 	}, [open]);
 
 	if (SUPPORTED_LANGUAGES.length <= 1) return null;
 
+	function handleListboxKeyDown(e: React.KeyboardEvent) {
+		const opts = Array.from(
+			listboxRef.current?.querySelectorAll<HTMLButtonElement>(
+				"[role='option']",
+			) ?? [],
+		);
+		if (opts.length === 0) return;
+		const current = opts.indexOf(document.activeElement as HTMLButtonElement);
+		switch (e.key) {
+			case "ArrowDown":
+				e.preventDefault();
+				opts[(current + 1) % opts.length]?.focus();
+				break;
+			case "ArrowUp":
+				e.preventDefault();
+				opts[(current - 1 + opts.length) % opts.length]?.focus();
+				break;
+			case "Escape":
+				e.preventDefault();
+				setOpen(false);
+				triggerRef.current?.focus();
+				break;
+		}
+	}
+
 	return (
-		<div ref={ref} className="fd-lang">
+		<div ref={containerRef} className="fd-lang">
 			<button
+				ref={triggerRef}
 				type="button"
 				className="fd-tab"
 				onClick={() => setOpen((v) => !v)}
@@ -80,8 +112,13 @@ export function LanguageSelector() {
 				<TranslateIcon size={16} />
 			</button>
 			{open && (
-				<div className="fd-lang-menu" role="listbox">
-					<div ref={scrollRef} className="fd-lang-menu-scroll">
+				<div
+					ref={listboxRef}
+					className="fd-lang-menu"
+					role="listbox"
+					onKeyDown={handleListboxKeyDown}
+				>
+					<div className="fd-lang-menu-scroll">
 						{languages.map((lang) => (
 							<button
 								key={lang.code}
@@ -89,7 +126,7 @@ export function LanguageSelector() {
 								role="option"
 								aria-selected={activeLang === lang.code}
 								onClick={() => {
-									i18next.changeLanguage(lang.code);
+									i18n.changeLanguage(lang.code);
 									// Persist every deliberate choice — including English —
 									// so the effective priority is strictly
 									// user choice > system locale > English. The browser

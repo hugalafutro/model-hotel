@@ -91,4 +91,43 @@ describe("LanguageSelector", () => {
 		await user.click(screen.getByRole("heading", { name: "Elsewhere" }));
 		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 	});
+
+	it("moves focus to the active option when the dropdown opens", async () => {
+		const user = userEvent.setup();
+		render(<LanguageSelector />);
+		await user.click(screen.getByRole("button", { name: "Language" }));
+
+		// English is active and pinned to the top; it receives keyboard focus.
+		expect(screen.getByRole("option", { name: "English" })).toHaveFocus();
+	});
+
+	it("navigates options with arrow keys", async () => {
+		const user = userEvent.setup();
+		render(<LanguageSelector />);
+		await user.click(screen.getByRole("button", { name: "Language" }));
+
+		const options = screen.getAllByRole("option");
+		expect(options[0]).toHaveFocus();
+
+		await user.keyboard("{ArrowDown}");
+		expect(options[1]).toHaveFocus();
+		await user.keyboard("{ArrowDown}");
+		expect(options[2]).toHaveFocus();
+		// ArrowUp walks back up.
+		await user.keyboard("{ArrowUp}");
+		expect(options[1]).toHaveFocus();
+	});
+
+	it("closes on Escape and returns focus to the trigger", async () => {
+		const user = userEvent.setup();
+		render(<LanguageSelector />);
+		const trigger = screen.getByRole("button", { name: "Language" });
+
+		await user.click(trigger);
+		expect(screen.getByRole("listbox")).toBeInTheDocument();
+
+		await user.keyboard("{Escape}");
+		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		expect(trigger).toHaveFocus();
+	});
 });
