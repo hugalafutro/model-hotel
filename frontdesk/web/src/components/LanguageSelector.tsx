@@ -94,6 +94,11 @@ export function LanguageSelector() {
 				setOpen(false);
 				triggerRef.current?.focus();
 				break;
+			case "Tab":
+				// Let the browser move focus, then close so the open menu
+				// never lingers with focus elsewhere.
+				setOpen(false);
+				break;
 		}
 	}
 
@@ -126,15 +131,18 @@ export function LanguageSelector() {
 								role="option"
 								aria-selected={activeLang === lang.code}
 								onClick={() => {
-									i18n.changeLanguage(lang.code);
-									// Persist every deliberate choice — including English —
-									// so the effective priority is strictly
-									// user choice > system locale > English. The browser
-									// locale is never auto-cached (caches: [] in
-									// i18n/index.ts), so an explicit pick always wins on
-									// the next visit until the user changes it again.
-									localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
-									setOpen(false);
+									// Only persist after the lazy catalog load succeeds.
+									// If the chunk fails to load (network error, deploy
+									// mismatch), i18next rejects and falls back to the
+									// current language — saving the failed code would
+									// retry and fail on every reload.
+									i18n
+										.changeLanguage(lang.code)
+										.then(() => {
+											localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
+										})
+										.catch(() => {})
+										.finally(() => setOpen(false));
 								}}
 								className="fd-lang-option"
 							>

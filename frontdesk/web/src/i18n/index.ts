@@ -67,6 +67,11 @@ i18next
 		// Catalogs are per-language, never per-region: "de-AT" → "de".
 		load: "languageOnly",
 		supportedLngs: SUPPORTED_LANGUAGES,
+		// Treat regional variants as supported when their base language is.
+		// Without this, a browser locale like "de-DE" is rejected by
+		// supportedLngs (which has bare "de") before load:"languageOnly"
+		// can reduce it, causing a false fallback to English.
+		nonExplicitSupportedLngs: true,
 		returnEmptyString: false,
 		detection: {
 			// Priority: explicit user choice (localStorage) > browser/system

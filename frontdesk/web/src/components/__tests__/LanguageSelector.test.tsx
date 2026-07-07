@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import i18next from "i18next";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -70,9 +70,29 @@ describe("LanguageSelector", () => {
 		await user.click(screen.getByRole("option", { name: "Deutsch" }));
 
 		expect(changeSpy).toHaveBeenCalledWith("de");
-		expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("de");
-		// Dropdown closes after a selection.
+		// Persistence happens in the .then() after the catalog loads.
+		await waitFor(() => {
+			expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("de");
+		});
 		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+	});
+
+	it("does not persist a failed language load", async () => {
+		// Simulate a lazy catalog load failure (network error, chunk mismatch).
+		vi.spyOn(i18next, "changeLanguage").mockRejectedValue(
+			new Error("chunk load failed"),
+		);
+		const user = userEvent.setup();
+		render(<LanguageSelector />);
+
+		await user.click(screen.getByRole("button", { name: "Language" }));
+		await user.click(screen.getByRole("option", { name: "Deutsch" }));
+
+		// The dropdown still closes, but the broken preference is NOT saved.
+		await waitFor(() => {
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		});
+		expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBeNull();
 	});
 
 	it("closes the dropdown when clicking outside", async () => {
@@ -129,5 +149,21 @@ describe("LanguageSelector", () => {
 		await user.keyboard("{Escape}");
 		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 		expect(trigger).toHaveFocus();
+	});
+
+	it("closes on Tab so the menu does not linger with focus elsewhere", async () => {
+		const user = userEvent.setup();
+		render(
+			<div>
+				<LanguageSelector />
+				<button type="button">Next focusable</button>
+			</div>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Language" }));
+		expect(screen.getByRole("listbox")).toBeInTheDocument();
+
+		await user.tab();
+		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 	});
 });
