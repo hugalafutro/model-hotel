@@ -474,12 +474,13 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 
 [MIT](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor license agreement.
 
+
 <div align="center">
-<a href="https://www.star-history.com/?repos=hugalafutro%2Fmodel-hotel&type=timeline&legend=bottom-right">
+<a href="https://www.star-history.com/?repos=hugalafutro%2Fmodel-hotel&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=timeline&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=timeline&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=timeline&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=date&theme=dark&legend=bottom-right&sealed_token=CeXdzA3_3AG25QKJhkdMpt9TNMPP8ROJ5EfhDc8yhHBJ8ATCAyb4OyQFZT52LEX6ZV7zoJKJ0nwxj08XPDjcIeBT8C7fM_UxXpn6wuIZNIy0NUP8_9DzdbN91ISA1fPefB7BVii2tfUIW9PGI4R61ROlUFX05ZO1SaG-GLnMO15M82qVHSmpUsgOJkXg" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=date&legend=bottom-right&sealed_token=CeXdzA3_3AG25QKJhkdMpt9TNMPP8ROJ5EfhDc8yhHBJ8ATCAyb4OyQFZT52LEX6ZV7zoJKJ0nwxj08XPDjcIeBT8C7fM_UxXpn6wuIZNIy0NUP8_9DzdbN91ISA1fPefB7BVii2tfUIW9PGI4R61ROlUFX05ZO1SaG-GLnMO15M82qVHSmpUsgOJkXg" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=date&legend=bottom-right&sealed_token=CeXdzA3_3AG25QKJhkdMpt9TNMPP8ROJ5EfhDc8yhHBJ8ATCAyb4OyQFZT52LEX6ZV7zoJKJ0nwxj08XPDjcIeBT8C7fM_UxXpn6wuIZNIy0NUP8_9DzdbN91ISA1fPefB7BVii2tfUIW9PGI4R61ROlUFX05ZO1SaG-GLnMO15M82qVHSmpUsgOJkXg" />
  </picture>
-</a>
-</div>
+</a></div>
+<br>
