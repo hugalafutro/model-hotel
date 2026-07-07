@@ -1,0 +1,92 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import i18next from "i18next";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LANGUAGE_STORAGE_KEY } from "../../i18n";
+import { LanguageSelector } from "../LanguageSelector";
+
+describe("LanguageSelector", () => {
+	beforeEach(() => {
+		localStorage.clear();
+		// jsdom does not implement scrollIntoView; stub it so the dropdown-open
+		// effect (which scrolls the active option into view) does not throw.
+		Element.prototype.scrollIntoView = vi.fn();
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("renders a button labelled 'Language'", () => {
+		render(<LanguageSelector />);
+		expect(
+			screen.getByRole("button", { name: "Language" }),
+		).toBeInTheDocument();
+	});
+
+	it("hides the dropdown until the trigger is clicked", () => {
+		render(<LanguageSelector />);
+		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+	});
+
+	it("opens a dropdown with all 9 languages on click", async () => {
+		const user = userEvent.setup();
+		render(<LanguageSelector />);
+		await user.click(screen.getByRole("button", { name: "Language" }));
+
+		expect(screen.getByRole("listbox")).toBeInTheDocument();
+		expect(screen.getAllByRole("option")).toHaveLength(9);
+		// Autonyms appear in their own scripts (spot-check across scripts).
+		expect(screen.getByRole("option", { name: "Deutsch" })).toBeInTheDocument();
+		expect(screen.getByRole("option", { name: "日本語" })).toBeInTheDocument();
+		expect(screen.getByRole("option", { name: "中文" })).toBeInTheDocument();
+		// English is intentionally last so it sits nearest the trigger.
+		expect(screen.getByRole("option", { name: "English" })).toBeInTheDocument();
+	});
+
+	it("marks the active language (English) as selected", async () => {
+		const user = userEvent.setup();
+		render(<LanguageSelector />);
+		await user.click(screen.getByRole("button", { name: "Language" }));
+
+		expect(screen.getByRole("option", { name: "English" })).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+	});
+
+	it("switches language, persists the choice, and closes the dropdown", async () => {
+		// Mock changeLanguage so the test does not trigger an async lazy locale
+		// load (the lazy backend's dynamic import is not relevant here).
+		const changeSpy = vi
+			.spyOn(i18next, "changeLanguage")
+			.mockImplementation(() => Promise.resolve(i18next.t));
+		const user = userEvent.setup();
+		render(<LanguageSelector />);
+
+		await user.click(screen.getByRole("button", { name: "Language" }));
+		await user.click(screen.getByRole("option", { name: "Deutsch" }));
+
+		expect(changeSpy).toHaveBeenCalledWith("de");
+		expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("de");
+		// Dropdown closes after a selection.
+		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+	});
+
+	it("closes the dropdown when clicking outside", async () => {
+		const user = userEvent.setup();
+		render(
+			<div>
+				<h1>Elsewhere</h1>
+				<LanguageSelector />
+			</div>,
+		);
+
+		await user.click(screen.getByRole("button", { name: "Language" }));
+		expect(screen.getByRole("listbox")).toBeInTheDocument();
+
+		// Click a sibling outside the selector's ref boundary.
+		await user.click(screen.getByRole("heading", { name: "Elsewhere" }));
+		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+	});
+});
