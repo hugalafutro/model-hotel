@@ -467,7 +467,7 @@ jobs:
       # between that job and this rebuild.
       - name: Build :dev candidate (load for scan)
         if: steps.head.outputs.skip == 'false'
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           load: true
@@ -496,7 +496,7 @@ jobs:
       # on the same HEAD re-check so both images publish together or not at all.
       - name: Build :dev Front Desk candidate (load for scan)
         if: steps.head.outputs.skip == 'false'
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: Dockerfile.frontdesk
