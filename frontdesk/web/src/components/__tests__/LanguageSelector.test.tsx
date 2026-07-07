@@ -29,14 +29,15 @@ describe("LanguageSelector", () => {
 		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 	});
 
-	it("opens a dropdown with all 9 languages on click", async () => {
+	it("opens a dropdown with all 11 languages on click", async () => {
 		const user = userEvent.setup();
 		render(<LanguageSelector />);
 		await user.click(screen.getByRole("button", { name: "Language" }));
 
 		expect(screen.getByRole("listbox")).toBeInTheDocument();
-		expect(screen.getAllByRole("option")).toHaveLength(9);
+		expect(screen.getAllByRole("option")).toHaveLength(11);
 		// Autonyms appear in their own scripts (spot-check across scripts).
+		expect(screen.getByRole("option", { name: "Čeština" })).toBeInTheDocument();
 		expect(screen.getByRole("option", { name: "Deutsch" })).toBeInTheDocument();
 		expect(screen.getByRole("option", { name: "日本語" })).toBeInTheDocument();
 		expect(screen.getByRole("option", { name: "中文" })).toBeInTheDocument();
@@ -44,15 +45,16 @@ describe("LanguageSelector", () => {
 		expect(screen.getByRole("option", { name: "English" })).toBeInTheDocument();
 	});
 
-	it("marks the active language (English) as selected", async () => {
+	it("marks the active language (English) as selected and pins it to the top", async () => {
 		const user = userEvent.setup();
 		render(<LanguageSelector />);
 		await user.click(screen.getByRole("button", { name: "Language" }));
 
-		expect(screen.getByRole("option", { name: "English" })).toHaveAttribute(
-			"aria-selected",
-			"true",
-		);
+		const options = screen.getAllByRole("option");
+		const en = screen.getByRole("option", { name: "English" });
+		expect(en).toHaveAttribute("aria-selected", "true");
+		// The dropdown opens downward, so the active language sits at the top.
+		expect(options[0]).toBe(en);
 	});
 
 	it("switches language, persists the choice, and closes the dropdown", async () => {

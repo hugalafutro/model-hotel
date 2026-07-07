@@ -1,7 +1,7 @@
 import { TranslateIcon } from "@phosphor-icons/react";
+import i18next from "i18next";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import i18next from "i18next";
 import { LANGUAGE_STORAGE_KEY } from "../i18n";
 
 // Language names are autonyms (each language in its own script), shown
@@ -9,6 +9,7 @@ import { LANGUAGE_STORAGE_KEY } from "../i18n";
 // so a user stranded in the wrong language can still recognize their own.
 // English is intentionally last so it sits at the bottom of the menu.
 const SUPPORTED_LANGUAGES = [
+	{ code: "cs", label: "Čeština" },
 	{ code: "de", label: "Deutsch" },
 	{ code: "es", label: "Español" },
 	{ code: "fr", label: "Français" },
@@ -16,6 +17,7 @@ const SUPPORTED_LANGUAGES = [
 	{ code: "nl", label: "Nederlands" },
 	{ code: "pl", label: "Polski" },
 	{ code: "ru", label: "Русский" },
+	{ code: "sk", label: "Slovenčina" },
 	{ code: "zh", label: "中文" },
 	{ code: "en", label: "English" },
 ] as const;
@@ -29,6 +31,16 @@ export function LanguageSelector() {
 	const [open, setOpen] = useState(false);
 	const ref = useRef<HTMLDivElement>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
+
+	// The dropdown opens downward from the header, so pin the active language
+	// to the top (nearest the trigger). This is the opposite of the main
+	// app's sidebar selector, which opens upward and pins the active language
+	// at the bottom nearest its trigger.
+	const activeLang = i18n.resolvedLanguage ?? i18n.language;
+	const languages = [
+		...SUPPORTED_LANGUAGES.filter((l) => l.code === activeLang),
+		...SUPPORTED_LANGUAGES.filter((l) => l.code !== activeLang),
+	];
 
 	// Close the dropdown when clicking outside it.
 	useEffect(() => {
@@ -70,14 +82,12 @@ export function LanguageSelector() {
 			{open && (
 				<div className="fd-lang-menu" role="listbox">
 					<div ref={scrollRef} className="fd-lang-menu-scroll">
-						{SUPPORTED_LANGUAGES.map((lang) => (
+						{languages.map((lang) => (
 							<button
 								key={lang.code}
 								type="button"
 								role="option"
-								aria-selected={
-									(i18n.resolvedLanguage ?? i18n.language) === lang.code
-								}
+								aria-selected={activeLang === lang.code}
 								onClick={() => {
 									i18next.changeLanguage(lang.code);
 									// Persist every deliberate choice — including English —
