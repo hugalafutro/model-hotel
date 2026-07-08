@@ -45,6 +45,14 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install pg_dump / pg_restore for backup tests
+        # The backup integration tests (internal/api/backup_test.go) exec
+        # pg_dump and pg_restore; without these binaries ~26 tests t.Skip and
+        # the backup/restore round-trip goes entirely untested. ubuntu-latest's
+        # postgresql-client meta-package ships v16, matching the postgres:16
+        # service container.
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
       - name: Run tests
         env:
           TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
