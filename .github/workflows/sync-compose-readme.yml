@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Sync docker-compose.yml into README
+      - name: Sync docker-compose.yml into README and DOCKERHUB
         run: |
           # Read the compose file and indent each line by 4 spaces for the yaml code block
           COMPOSE_CONTENT=$(sed 's/^/    /' docker-compose.yml)
@@ -44,28 +44,27 @@ jobs:
           python3 -c '
           import sys, re
 
-          with open("README.md", "r") as f:
-              readme = f.read()
-
           start_marker = "<!-- AUTO-SYNC: docker-compose.yml start -->"
           end_marker = "<!-- AUTO-SYNC: docker-compose.yml end -->"
-
           pattern = re.escape(start_marker) + r".*?" + re.escape(end_marker)
 
-          # Read the replacement from stdin
-          replacement = sys.stdin.read()
-
-          new_readme = re.sub(pattern, replacement.strip(), readme, flags=re.DOTALL)
-
-          with open("README.md", "w") as f:
-              f.write(new_readme)
+          # Read the replacement from stdin; apply to both README surfaces
+          # (GitHub README and DockerHub) so the collapsible compose block
+          # never drifts between them.
+          replacement = sys.stdin.read().strip()
+          for path in ("README.md", "DOCKERHUB.md"):
+              with open(path, "r") as f:
+                  txt = f.read()
+              new = re.sub(pattern, replacement, txt, flags=re.DOTALL)
+              with open(path, "w") as f:
+                  f.write(new)
           ' <<< "$REPLACEMENT"
 
       - name: Commit if changed
         run: |
-          git diff --quiet README.md && echo "No changes" && exit 0
+          git diff --quiet README.md DOCKERHUB.md && echo "No changes" && exit 0
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md
-          git commit -m "docs: sync docker-compose.yml to README"
+          git add README.md DOCKERHUB.md
+          git commit -m "docs: sync docker-compose.yml to README and DOCKERHUB"
           git push
