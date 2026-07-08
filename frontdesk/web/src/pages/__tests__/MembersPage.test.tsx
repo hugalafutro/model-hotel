@@ -543,4 +543,42 @@ describe("MembersPage", () => {
 			expect(screen.getByText(/No members yet/i)).toBeInTheDocument(),
 		);
 	});
+
+	it("shows an error in the modal when the primary token is rejected", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "2", name: "hotel-2" })]),
+			),
+			http.get("/api/fleet/last-sync", () =>
+				HttpResponse.json({
+					last_run_at: new Date().toISOString(),
+					primary_id: "2",
+					primary_name: "hotel-2",
+				}),
+			),
+			http.delete(
+				"/api/members/2",
+				() => new HttpResponse(null, { status: 403 }),
+			),
+		);
+		renderPage();
+		await screen.findByText("hotel-2");
+
+		await userEvent.click(screen.getByRole("button", { name: /^Remove$/i }));
+		const dialog = await screen.findByRole("dialog");
+
+		await userEvent.type(
+			within(dialog).getByLabelText(/Admin token/i),
+			"wrong-token",
+		);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: /^Remove$/i }),
+		);
+
+		// The error appears inline; the modal stays open so the user can retry.
+		await waitFor(() =>
+			expect(within(dialog).getByText(/not accepted/i)).toBeInTheDocument(),
+		);
+		expect(dialog).toBeInTheDocument();
+	});
 });

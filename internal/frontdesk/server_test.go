@@ -327,6 +327,10 @@ func TestServerDeletePrimaryRequiresToken(t *testing.T) {
 	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, `{"confirm_token":"nope"}`, true); rec.Code != http.StatusForbidden {
 		t.Errorf("delete primary wrong token = %d, want 403", rec.Code)
 	}
+	// A malformed body on a primary delete -> 400 (bad request, not a token refusal).
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, `{not json}`, true); rec.Code != http.StatusBadRequest {
+		t.Errorf("delete primary malformed body = %d, want 400", rec.Code)
+	}
 
 	// The member is still there (the refused deletes did not proceed).
 	if _, err := store.GetMember(ctx, pm.ID); err != nil {

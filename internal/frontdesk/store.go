@@ -362,6 +362,44 @@ func (s *Store) DeleteMember(ctx context.Context, id string) error {
 	return nil
 }
 
+// DeleteMemberGuarded removes a member by id, but refuses if the member is the
+// configured fleet primary and the caller did not supply a valid admin token.
+// The primary-status check and the delete are a single atomic SQL statement, so
+// a concurrent primary reassignment cannot slip between the check and the delete
+// (the TOCTOU window a two-step GetAutoSync + DeleteMember would have). Returns
+// applied=false when the member is the primary and the token was not valid; the
+// caller should respond 403 in that case.
+func (s *Store) DeleteMemberGuarded(ctx context.Context, id string, tokenValid bool) (applied bool, err error) {
+	var (
+		res     sql.Result
+		execErr error
+	)
+	if tokenValid {
+		// Valid token: the operator confirmed, so delete unconditionally.
+		res, execErr = s.db.ExecContext(ctx, `DELETE FROM members WHERE id = ?`, id)
+	} else {
+		// No valid token: delete only if the member is NOT the fleet primary.
+		// The sub-query makes the check and the delete a single atomic statement.
+		res, execErr = s.db.ExecContext(ctx, `
+			DELETE FROM members
+			WHERE id = ?
+			  AND id NOT IN (SELECT auto_sync_primary_id FROM settings WHERE id = 1)`,
+			id)
+	}
+	if execErr != nil {
+		return false, execErr
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	if n == 0 {
+		return false, nil
+	}
+	_, _ = s.db.ExecContext(ctx, `UPDATE settings SET auto_sync_primary_id = '' WHERE auto_sync_primary_id = ?`, id)
+	return true, nil
+}
+
 // MemberToken decrypts and returns a member's stored admin token. ok is false
 // when no token is stored for the member.
 func (s *Store) MemberToken(ctx context.Context, id string) (token string, ok bool, err error) {

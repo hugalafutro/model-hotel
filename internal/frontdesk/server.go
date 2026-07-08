@@ -443,37 +443,26 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	// Deleting the fleet's configured primary is high-impact: the fleet loses
-	// its config source and auto-sync stops propagating to the remaining
-	// members. Gate it on a fresh admin-token confirmation, mirroring the
-	// auto-sync primary-change guard (putAutoSync). The bearer may be a
-	// passkey/TOTP session token rather than the raw FRONTDESK_TOKEN, so the
-	// operator re-supplies the token in the body and we check it against
-	// AdminMgr. Non-primary members delete without confirmation.
-	cfg, err := s.store.GetAutoSync(r.Context())
+	// The primary-status check and the delete run as one atomic SQL statement
+	// inside DeleteMemberGuarded, so a concurrent primary reassignment cannot
+	// race past the check. tokenValid is computed up-front from the request
+	// body; the store re-checks the primary status atomically with the delete.
+	var req struct {
+		ConfirmToken string `json:"confirm_token"`
+	}
+	if r.ContentLength != 0 {
+		if !decodeJSON(w, r, &req) {
+			return
+		}
+	}
+	tokenValid := s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken))
+	applied, err := s.store.DeleteMemberGuarded(r.Context(), id, tokenValid)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	if cfg.PrimaryID == id {
-		var req struct {
-			ConfirmToken string `json:"confirm_token"`
-		}
-		// The DELETE may arrive with no body (the frontend only sends
-		// confirm_token for primaries); an empty body is treated as a
-		// missing token, which Validate rejects with 403 below.
-		if r.ContentLength != 0 {
-			if !decodeJSON(w, r, &req) {
-				return
-			}
-		}
-		if !s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken)) {
-			http.Error(w, "confirm the admin token to remove the fleet primary", http.StatusForbidden)
-			return
-		}
-	}
-	if err := s.store.DeleteMember(r.Context(), id); err != nil {
-		writeError(w, err)
+	if !applied {
+		http.Error(w, "confirm the admin token to remove the fleet primary", http.StatusForbidden)
 		return
 	}
 	s.emit(r.Context(), Event{
