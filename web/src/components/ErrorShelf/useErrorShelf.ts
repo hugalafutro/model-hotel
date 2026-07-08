@@ -215,21 +215,18 @@ export function useErrorShelf(): UseErrorShelf {
 		//      clamped up to `newest` in case the sample is a poll interval stale.
 		//   2. otherwise the newest served timestamp — itself server-stamped, so a
 		//      fast/slow browser clock still can't age a served error out of view.
-		//   3. the browser clock only when there is nothing to filter (no rows),
-		//      where its value cannot hide anything.
-		// So a skewed client clock can never wrongly drop a row the server just
-		// returned; in production the header path always wins (same-origin Go
+		// When neither is available `newest` is 0 (no row had a parseable
+		// timestamp), so `cutoff` goes negative and `isRecent` keeps everything
+		// (NaN timestamps are kept unconditionally). A skewed client clock can
+		// never wrongly drop a row, and the browser clock is never read during
+		// render. In production the header path always wins (same-origin Go
 		// responses always carry `Date`). Anything older than the window is stale
 		// noise (e.g. an error from before the last rebuild); an unparseable
 		// timestamp is kept rather than silently dropped.
 		const serverNowMs =
 			reqLogData?.serverNowMs ?? appLogData?.serverNowMs ?? null;
 		const anchor =
-			serverNowMs !== null
-				? Math.max(serverNowMs, newest)
-				: newest > 0
-					? newest
-					: Date.now();
+			serverNowMs !== null ? Math.max(serverNowMs, newest) : newest;
 		const cutoff = anchor - ERROR_SHELF_MAX_AGE_MS;
 		const isRecent = (timestamp: string) => {
 			const t = parseTs(timestamp);
