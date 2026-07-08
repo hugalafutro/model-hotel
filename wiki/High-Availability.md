@@ -8,10 +8,14 @@ control-plane app where you manage membership in a browser.
 Front Desk is **never in the request path**. If it stops, Traefik keeps serving
 with the last config it fetched; only membership changes pause until it returns.
 
-<p align="center"><img src="screenshots/frontdesk_members.png" width="800" alt="Front Desk Members tab with two healthy members"></p>
+<p align="center"><a href="screenshots/frontdesk_members.png"><img src="screenshots/frontdesk_members.png" width="800" alt="Front Desk Members tab with two healthy members"></a></p>
 
-<p align="center"><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_security_thumb.png" width="200" alt="Security (passkeys + TOTP)"></a><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_configsync_thumb.png" width="200" alt="Fleet config sync"></a><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_alerts_thumb.png" width="200" alt="Alerts"></a><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_observability_thumb.png" width="200" alt="Observability"></a></p>
-<p align="center"><sub>Front Desk settings — security, fleet config sync, alerting, observability. Click any panel for the full page.</sub></p>
+<p align="center"><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_security_thumb.png" width="395" alt="Security (passkeys + TOTP)"></a>&nbsp;&nbsp;<a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_configsync_thumb.png" width="395" alt="Fleet config sync"></a></p>
+<p align="center"><sub>Security (passkeys + TOTP)&nbsp;&nbsp;·&nbsp;&nbsp;Fleet config sync</sub></p>
+
+<p align="center"><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_alerts_thumb.png" width="395" alt="Alerts"></a>&nbsp;&nbsp;<a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_observability_thumb.png" width="395" alt="Observability"></a></p>
+<p align="center"><sub>Alerts&nbsp;&nbsp;·&nbsp;&nbsp;Observability</sub></p>
+<p align="center"><sub><em>Click any panel for the full settings page.</em></sub></p>
 
 ---
 
@@ -121,7 +125,7 @@ You have one instance at `ip1:8080`. Move it aside and let the HA stack take ove
 7. Maintenance: drain a member in Front Desk, rebuild it, re-activate. Re-run the
    config sync after any provider/key/settings change on the primary.
 
-![Front Desk — add a member](screenshots/frontdesk_addmember.png)
+[![Front Desk — add a member](screenshots/frontdesk_addmember.png)](screenshots/frontdesk_addmember.png)
 
 ---
 
@@ -193,7 +197,7 @@ Two things are worth understanding about authentication in an HA deployment:
   button, because no credential is registered yet. Register one under Settings →
   Security and the button appears on the next login.
 
-![Front Desk Settings — Security (passkeys + TOTP)](screenshots/frontdesk_settings_security.png)
+[![Front Desk Settings — Security (passkeys + TOTP)](screenshots/frontdesk_settings_security.png)](screenshots/frontdesk_settings_security.png)
 
 ---
 
@@ -240,7 +244,7 @@ provider IDs.
    reported. Each member is independent, and re-running retries any left behind.
    Request logs and metering are never touched.
 
-![Front Desk Settings — Fleet config sync (preview with diff)](screenshots/frontdesk_settings_configsync.png)
+[![Front Desk Settings — Fleet config sync (preview with diff)](screenshots/frontdesk_settings_configsync.png)](screenshots/frontdesk_settings_configsync.png)
 
 ### Automatic config sync (set and forget)
 
