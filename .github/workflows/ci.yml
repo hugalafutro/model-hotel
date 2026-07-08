@@ -434,6 +434,8 @@ jobs:
       DOCKERHUB_FRONTDESK_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel-frontdesk
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
 
       # Early bail-out: if this commit is already behind master HEAD, skip the
       # whole build/scan. This is only an optimization — the authoritative guard
@@ -457,15 +459,61 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Log in to Docker Hub
+      - name: Skip if only non-image files changed
+        id: changes
         if: steps.head.outputs.skip == 'false'
+        env:
+          BASE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # The :dev image carries the compiled Go binary (cmd/ + internal/)
+          # and the built+embedded frontend (web/src, web/public, configs, deps).
+          # Changes to docs, screenshots, wiki, AGENTS.md, CI workflows, the
+          # Makefile, and test files cannot affect it — skip the expensive
+          # build/scan/push when none of the changed files touch that surface.
+          # Fail closed: if the diff can't be computed, build rather than risk a
+          # stale :dev.
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "no base commit (first push or force-push); building to be safe"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || true)
+          if [ -z "$changed" ]; then
+            echo "could not compute diff; building to be safe"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Drop test files — they are not compiled into the binary or bundled.
+          src=$(printf '%s\n' "$changed" | grep -vE '(_test\.go|\.test\.tsx?|\.spec\.tsx?)$' || true)
+          # Image-affecting surface = everything the Dockerfiles COPY into a
+          # build stage that the Go/Vite builds actually consume: backend source
+          # (internal/, cmd/), both frontends (web/, frontdesk/web/ — each is
+          # COPYed wholesale), the Dockerfiles + entrypoint scripts, .dockerignore,
+          # and the Go module files. Kept broad on purpose: a wasted build is
+          # cheap, a stale :dev is not. A genuinely new top-level build input
+          # (another COPY source) must be added here.
+          code=$(printf '%s\n' "$src" | grep -E '^(internal/|cmd/|web/|frontdesk/web/|Dockerfile|docker-entrypoint|\.dockerignore|go\.mod|go\.sum)' || true)
+          if [ -n "$code" ]; then
+            echo "image-affecting changes; building :dev:"
+            printf '%s\n' "$code"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "no image-affecting changes; skipping :dev build. All changed files:"
+            printf '%s\n' "$changed"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to Docker Hub
+        if: steps.changes.outputs.skip == 'false'
         uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        if: steps.head.outputs.skip == 'false'
+        if: steps.changes.outputs.skip == 'false'
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       # Build the candidate and load it into the local daemon so the very image
@@ -473,7 +521,7 @@ jobs:
       # docker-build's separate artifact would not cover base-image/Alpine drift
       # between that job and this rebuild.
       - name: Build :dev candidate (load for scan)
-        if: steps.head.outputs.skip == 'false'
+        if: steps.changes.outputs.skip == 'false'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
@@ -488,7 +536,7 @@ jobs:
           provenance: false
 
       - name: Scan :dev candidate for fixable HIGH/CRITICAL vulnerabilities
-        if: steps.head.outputs.skip == 'false'
+        if: steps.changes.outputs.skip == 'false'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
@@ -502,7 +550,7 @@ jobs:
       # cache scope keeps it off the main image's cache; the push below is gated
       # on the same HEAD re-check so both images publish together or not at all.
       - name: Build :dev Front Desk candidate (load for scan)
-        if: steps.head.outputs.skip == 'false'
+        if: steps.changes.outputs.skip == 'false'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
@@ -518,7 +566,7 @@ jobs:
           provenance: false
 
       - name: Scan :dev Front Desk candidate for fixable HIGH/CRITICAL vulnerabilities
-        if: steps.head.outputs.skip == 'false'
+        if: steps.changes.outputs.skip == 'false'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
@@ -531,7 +579,7 @@ jobs:
       # while this job was building/scanning, that newer run will publish its own
       # image, so this (now-stale) run must not overwrite :dev with an older one.
       - name: Push the scanned images as :dev (only if still HEAD)
-        if: steps.head.outputs.skip == 'false'
+        if: steps.changes.outputs.skip == 'false'
         env:
           COMMIT_SHA: ${{ github.sha }}
         run: |
