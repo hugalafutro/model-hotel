@@ -41,6 +41,13 @@ vi.mock("../api/client", () => ({
 	},
 }));
 
+// canUsePasskeyLogin/loginWithPasskey are mocked so the passkey button can
+// render and enter its loading state without a real WebAuthn API (jsdom).
+vi.mock("../utils/webauthn", () => ({
+	canUsePasskeyLogin: vi.fn().mockResolvedValue(true),
+	loginWithPasskey: vi.fn().mockReturnValue(new Promise(() => {})),
+}));
+
 describe("LoginScreen loading indicators", () => {
 	beforeEach(() => {
 		localStorage.clear();
@@ -95,5 +102,25 @@ describe("LoginScreen loading indicators", () => {
 		expect(await screen.findByTestId("spinner")).toBeInTheDocument();
 		expect(btn).toBeDisabled();
 		expect(btn).toHaveTextContent("Signing in");
+	});
+
+	it("shows the spinner on the passkey sign-in button while logging in", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<App />);
+
+		// The passkey button renders because canUsePasskeyLogin is mocked true.
+		const passkeyBtn = await screen.findByRole("button", {
+			name: /sign in with passkey/i,
+		});
+
+		expect(screen.queryByTestId("spinner")).not.toBeInTheDocument();
+		await user.click(passkeyBtn);
+
+		// loginWithPasskey never resolves, keeping passkeyLoading true.
+		expect(await screen.findByTestId("spinner")).toBeInTheDocument();
+		expect(passkeyBtn).toBeDisabled();
+		// Accessible name reflects loading (dynamic aria-label); the decorative
+		// spinner glyph does not pollute it (aria-hidden on the Spinner span).
+		expect(passkeyBtn).toHaveAccessibleName("Signing in\u2026");
 	});
 });

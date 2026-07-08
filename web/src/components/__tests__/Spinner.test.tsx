@@ -21,6 +21,7 @@ describe("Spinner", () => {
 		expect(spinner).toHaveClass("border-current/30");
 		expect(spinner).toHaveClass("border-t-current");
 		expect(spinner).toHaveClass("rounded-full");
+		expect(spinner).toHaveAttribute("aria-hidden", "true");
 	});
 
 	it("renders with custom className", () => {
@@ -73,6 +74,7 @@ describe("cyber-terminal mode", () => {
 		expect(spinner).toHaveTextContent("⠋");
 		expect(spinner).not.toHaveClass("animate-spin");
 		expect(spinner).toHaveClass("w-[1ch]");
+		expect(spinner).toHaveAttribute("aria-hidden", "true");
 	});
 
 	it("displays braille character that changes over time", () => {

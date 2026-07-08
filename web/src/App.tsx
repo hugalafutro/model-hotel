@@ -310,7 +310,11 @@ function LoginScreen() {
 							onClick={handlePasskeyLogin}
 							disabled={passkeyLoading}
 							className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
-							aria-label={t("layout.auth.signInWithPasskey")}
+							aria-label={
+								passkeyLoading
+									? t("layout.auth.signingIn")
+									: t("layout.auth.signInWithPasskey")
+							}
 						>
 							{passkeyLoading ? (
 								<>
