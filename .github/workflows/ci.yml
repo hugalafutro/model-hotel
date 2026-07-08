@@ -487,9 +487,14 @@ jobs:
           fi
           # Drop test files — they are not compiled into the binary or bundled.
           src=$(printf '%s\n' "$changed" | grep -vE '(_test\.go|\.test\.tsx?|\.spec\.tsx?)$' || true)
-          # Image-affecting surface. A new top-level code dir must be added here
-          # or its changes won't trigger a :dev rebuild.
-          code=$(printf '%s\n' "$src" | grep -E '^(internal/|cmd/|web/src/|web/public/|web/index\.html|Dockerfile|\.dockerignore|go\.mod|go\.sum|web/package\.json|web/pnpm-lock\.yaml|web/vite\.config|web/postcss\.config|web/tailwind\.config|web/tsconfig)' || true)
+          # Image-affecting surface = everything the Dockerfiles COPY into a
+          # build stage that the Go/Vite builds actually consume: backend source
+          # (internal/, cmd/), both frontends (web/, frontdesk/web/ — each is
+          # COPYed wholesale), the Dockerfiles + entrypoint scripts, .dockerignore,
+          # and the Go module files. Kept broad on purpose: a wasted build is
+          # cheap, a stale :dev is not. A genuinely new top-level build input
+          # (another COPY source) must be added here.
+          code=$(printf '%s\n' "$src" | grep -E '^(internal/|cmd/|web/|frontdesk/web/|Dockerfile|docker-entrypoint|\.dockerignore|go\.mod|go\.sum)' || true)
           if [ -n "$code" ]; then
             echo "image-affecting changes; building :dev:"
             printf '%s\n' "$code"
