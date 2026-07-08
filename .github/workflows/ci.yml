@@ -84,11 +84,12 @@ jobs:
       # test-results endpoint accepts.
       - name: Upload Go test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1.2.1
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: go-test-report.junit.xml
           flags: backend
+          report_type: test_results
 
   go-lint:
     name: Go Lint
@@ -250,11 +251,12 @@ jobs:
 
       - name: Upload frontend test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1.2.1
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: web/vitest-${{ matrix.shard }}.junit.xml
           flags: frontend
+          report_type: test_results
 
   frontend-coverage:
     name: Frontend Coverage Gate
