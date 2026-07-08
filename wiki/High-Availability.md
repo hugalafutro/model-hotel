@@ -8,16 +8,10 @@ control-plane app where you manage membership in a browser.
 Front Desk is **never in the request path**. If it stops, Traefik keeps serving
 with the last config it fetched; only membership changes pause until it returns.
 
-![Front Desk Members](screenshots/frontdesk_members.png)
+<p align="center"><img src="screenshots/frontdesk_members.png" width="800" alt="Front Desk Members tab with two healthy members"></p>
 
-<p align="center">
-  <a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_security.png" height="200" alt="Front Desk Security settings (passkeys + TOTP)"></a>
-  &nbsp;&nbsp;
-  <a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_configsync.png" height="200" alt="Front Desk fleet config sync (preview with diff)"></a>
-  &nbsp;&nbsp;
-  <a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_alerts.png" height="200" alt="Front Desk alerts"></a>
-</p>
-<p align="center"><sub>Front Desk settings at a glance — security, fleet config sync, and alerting. Click any panel for the full settings page.</sub></p>
+<p align="center"><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_security_thumb.png" width="200" alt="Security (passkeys + TOTP)"></a><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_configsync_thumb.png" width="200" alt="Fleet config sync"></a><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_alerts_thumb.png" width="200" alt="Alerts"></a><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_observability_thumb.png" width="200" alt="Observability"></a></p>
+<p align="center"><sub>Front Desk settings — security, fleet config sync, alerting, observability. Click any panel for the full page.</sub></p>
 
 ---
 

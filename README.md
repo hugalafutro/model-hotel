@@ -39,7 +39,7 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> High Availability](#-high-availability)
 Run several instances behind one client endpoint with no client-side change: a **Front Desk** control plane manages the fleet and replicates config to every member, while **Traefik** load-balances them with health checks and automatic failover. Members share one `MASTER_KEY` (so encrypted provider keys port across the fleet) and each keeps its own admin token.
 
-<a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members.png" width="720" alt="Front Desk control plane — fleet members"></a>
+<p align="center"><a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members_pills.png" width="720" alt="Front Desk control plane — two healthy fleet members"></a></p>
 
 Full deployment in the [High Availability wiki](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
 
