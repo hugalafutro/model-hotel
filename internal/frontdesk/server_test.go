@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -17,6 +18,13 @@ import (
 )
 
 const testFrontdeskToken = "test-frontdesk-token"
+
+// failingReader is an io.Reader whose Read always returns an error, used to
+// exercise the body-read failure path in deleteMember (a 400 before the
+// token guard runs).
+type failingReader struct{}
+
+func (*failingReader) Read([]byte) (int, error) { return 0, errors.New("simulated read failure") }
 
 func newTestServer(t *testing.T) (*Server, *Store) {
 	t.Helper()
@@ -330,6 +338,14 @@ func TestServerDeletePrimaryRequiresToken(t *testing.T) {
 	// A malformed body on a primary delete -> 400 (bad request, not a token refusal).
 	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, `{not json}`, true); rec.Code != http.StatusBadRequest {
 		t.Errorf("delete primary malformed body = %d, want 400", rec.Code)
+	}
+	// A body-read failure (e.g. broken connection) -> 400 before the token guard.
+	failReq := httptest.NewRequest(http.MethodDelete, "/api/members/"+pm.ID, &failingReader{})
+	failReq.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
+	failRec := httptest.NewRecorder()
+	srv.ServeHTTP(failRec, failReq)
+	if failRec.Code != http.StatusBadRequest {
+		t.Errorf("delete with unreadable body = %d, want 400", failRec.Code)
 	}
 
 	// The member is still there (the refused deletes did not proceed).
