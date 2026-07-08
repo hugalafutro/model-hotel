@@ -20,6 +20,7 @@ export const Spinner = memo(function Spinner({
 		return (
 			<span
 				data-testid="spinner"
+				aria-hidden="true"
 				className={`inline-block w-[1ch] text-center ${className}`}
 			>
 				{BRAILLE[frame]}
@@ -30,6 +31,7 @@ export const Spinner = memo(function Spinner({
 	return (
 		<span
 			data-testid="spinner"
+			aria-hidden="true"
 			className={`inline-block w-3 h-3 border-2 border-current/30 border-t-current rounded-full animate-spin ${className}`}
 		/>
 	);

@@ -7,6 +7,7 @@ import { api, setAdminToken } from "./api/client";
 import { CopyablePill } from "./components/CopyablePill";
 import { Layout } from "./components/Layout";
 import { Logo } from "./components/Logo";
+import { Spinner } from "./components/Spinner";
 import { ThemedIconProvider } from "./components/ThemedIconProvider";
 import { EventProvider } from "./context/EventContext";
 import { IdentityProvider, useIdentity } from "./context/IdentityContext";
@@ -309,12 +310,21 @@ function LoginScreen() {
 							onClick={handlePasskeyLogin}
 							disabled={passkeyLoading}
 							className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
-							aria-label={t("layout.auth.signInWithPasskey")}
+							aria-label={
+								passkeyLoading
+									? t("layout.auth.signingIn")
+									: t("layout.auth.signInWithPasskey")
+							}
 						>
-							<Fingerprint size={20} />
-							{passkeyLoading
-								? t("layout.auth.signingIn")
-								: t("layout.auth.signInWithPasskey")}
+							{passkeyLoading ? (
+								<>
+									<Spinner /> {t("layout.auth.signingIn")}
+								</>
+							) : (
+								<>
+									<Fingerprint size={20} /> {t("layout.auth.signInWithPasskey")}
+								</>
+							)}
 						</button>
 					)}
 					{userLoginEnabled && (
@@ -390,9 +400,13 @@ function LoginScreen() {
 								className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
 								data-testid="user-login-button"
 							>
-								{userLoading
-									? t("layout.auth.signingIn")
-									: t("layout.auth.signInUser")}
+								{userLoading ? (
+									<>
+										<Spinner /> {t("layout.auth.signingIn")}
+									</>
+								) : (
+									t("layout.auth.signInUser")
+								)}
 							</button>
 						</>
 					)}
@@ -473,7 +487,13 @@ function LoginScreen() {
 						disabled={loading}
 						className="ui-btn ui-btn-primary ui-btn-lg w-full disabled:opacity-50 disabled:cursor-not-allowed"
 					>
-						{loading ? t("layout.auth.signingIn") : t("layout.auth.signIn")}
+						{loading ? (
+							<>
+								<Spinner /> {t("layout.auth.signingIn")}
+							</>
+						) : (
+							t("layout.auth.signIn")
+						)}
 					</button>
 					{demoToken ? (
 						<div
