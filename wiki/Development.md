@@ -210,6 +210,8 @@ The test database uses `docker-compose.test.yml` which creates an isolated `test
 - Integration tests: Use `internal/db/testdb.go` helpers
 - Handler tests: Use `newTestHandler()` from `internal/api/handler_integration_test.go`
 
+> **⚠️ No skipped tests:** Tests must pass or fail — never `t.Skip`/`it.skip`/`describe.skip`/`.only`/`it.todo`, and no environment-gated skips that silently no-op in CI. If a test needs an external dependency (PostgreSQL, `pg_dump`, docker), CI must provide it rather than skip it. (Policy: PR #340.)
+
 Example test structure:
 
 ```go
