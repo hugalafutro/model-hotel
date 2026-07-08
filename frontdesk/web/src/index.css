@@ -197,6 +197,56 @@ h3 {
 	color: var(--text-faint);
 }
 
+/* --- language selector (header dropdown) --- */
+.fd-lang {
+	position: relative;
+	display: inline-flex;
+}
+.fd-lang-menu {
+	position: absolute;
+	top: calc(100% + 0.3rem);
+	right: 0;
+	min-width: 130px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	box-shadow: var(--shadow);
+	z-index: 50;
+	overflow: hidden;
+}
+.fd-lang-menu-scroll {
+	padding: 0.25rem 0;
+	max-height: 50vh;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+.fd-lang-option {
+	appearance: none;
+	border: 0;
+	background: transparent;
+	color: var(--text-muted);
+	font: inherit;
+	font-size: 0.85rem;
+	text-align: left;
+	width: 100%;
+	padding: 0.4rem 0.8rem;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	transition:
+		background 0.1s ease,
+		color 0.1s ease;
+}
+.fd-lang-option:hover {
+	background: var(--surface-2);
+	color: var(--text);
+}
+.fd-lang-option[aria-selected="true"] {
+	background: var(--surface-2);
+	color: var(--accent-strong);
+}
+
 /* --- card --- */
 .ui-card {
 	background: var(--surface);

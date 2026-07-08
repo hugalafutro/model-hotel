@@ -14,6 +14,7 @@ import {
 	onUnauthorized,
 } from "./api/client";
 import { Login } from "./components/Login";
+import { LanguageSelector } from "./components/LanguageSelector";
 import { Logo } from "./components/Logo";
 import { VersionFooter } from "./components/VersionFooter";
 import { ToastProvider } from "./context/ToastContext";
@@ -123,10 +124,11 @@ function Shell() {
 						title={t("app.logout")}
 						aria-label={t("app.logout")}
 					>
-						<SignOutIcon size={16} />
-					</button>
-				</div>
-			</header>
+					<SignOutIcon size={16} />
+				</button>
+			</div>
+			<LanguageSelector />
+		</header>
 			<main className="fd-main">
 				<Suspense
 					fallback={<div className="fd-empty">{t("common.loading")}</div>}
