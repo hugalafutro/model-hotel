@@ -121,7 +121,13 @@
 		"added": "{{name}} を追加しました",
 		"removed": "{{name}} を削除しました",
 		"drained": "{{name}} をドレイン状態にしました",
-		"activated": "{{name}} をアクティブにしました"
+		"activated": "{{name}} をアクティブにしました",
+		"removePrimaryTitle": "プライマリ {{name}} を削除しますか?",
+		"removePrimaryWarning": "{{name}} はフリートの真実の来源です。これを削除すると設定同期が止まり、他のメンバーは {{name}} からの更新を受け取らなくなります。フリートの同期を継続させたい場合は、まずフリート同期ウィザードでプライマリを再割り当てしてください。",
+		"removePrimaryTokenNote": "プライマリの削除には Front Desk 管理トークンが必要です。",
+		"confirmTokenLabel": "管理トークン",
+		"confirmTokenPlaceholder": "Front Desk 管理トークンを入力してください",
+		"removePrimaryTokenError": "このトークンは受理されませんでした"
 	},
 	"traffic": {
 		"title": "トラフィック",

@@ -121,7 +121,13 @@
 		"added": "Dodano: {{name}}",
 		"removed": "Usunięto: {{name}}",
 		"drained": "{{name}} odłączony od ruchu",
-		"activated": "{{name}} ustawiony jako aktywny"
+		"activated": "{{name}} ustawiony jako aktywny",
+		"removePrimaryTitle": "Usunąć głównego {{name}}?",
+		"removePrimaryWarning": "{{name}} jest źródłem prawdy floty. Jego usunięcie zatrzymuje synchronizację konfiguracji: pozostali członkowie przestają otrzymywać od niego aktualizacje. Jeśli chcesz, aby flota nadal się synchronizowała, najpierw przypisz głównego w Kreatorze synchronizacji floty.",
+		"removePrimaryTokenNote": "Usunięcie głównego wymaga tokenu administratora Front Desk.",
+		"confirmTokenLabel": "Token administratora",
+		"confirmTokenPlaceholder": "Wpisz token administratora Front Desk",
+		"removePrimaryTokenError": "Ten token nie został zaakceptowany"
 	},
 	"traffic": {
 		"title": "Ruch",

@@ -121,7 +121,13 @@
 		"added": "{{name}} hinzugefügt",
 		"removed": "{{name}} entfernt",
 		"drained": "{{name}} aus dem Verkehr gezogen",
-		"activated": "{{name}} auf aktiv gesetzt"
+		"activated": "{{name}} auf aktiv gesetzt",
+		"removePrimaryTitle": "Primär {{name}} entfernen?",
+		"removePrimaryWarning": "{{name}} ist die Wahrheitsquelle der Flotte. Das Entfernen beendet den Config-Sync: kein anderes Mitglied erhält weiterhin Updates davon. Soll die Flotte weiter synchron bleiben, weisen Sie den Primär zuerst im Flotten-Sync-Assistenten neu zu.",
+		"removePrimaryTokenNote": "Das Entfernen des Primärs erfordert das Front Desk-Admin-Token.",
+		"confirmTokenLabel": "Admin-Token",
+		"confirmTokenPlaceholder": "Front Desk-Admin-Token eingeben",
+		"removePrimaryTokenError": "Dieses Token wurde nicht akzeptiert"
 	},
 	"traffic": {
 		"title": "Traffic",

@@ -293,6 +293,58 @@ func TestServerAutoSyncPrimaryGate(t *testing.T) {
 	}
 }
 
+func TestServerDeletePrimaryRequiresToken(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	pm, err := store.CreateMember(ctx, "primary", "https://p.example.com", "ptok")
+	if err != nil {
+		t.Fatalf("create primary: %v", err)
+	}
+	om, err := store.CreateMember(ctx, "other", "https://o.example.com", "")
+	if err != nil {
+		t.Fatalf("create other: %v", err)
+	}
+
+	// Designate pm as the fleet primary (first selection needs no token).
+	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
+		`{"enabled":false,"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("designate primary = %d; body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Deleting the non-primary member needs no token.
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+om.ID, "", true); rec.Code != http.StatusNoContent {
+		t.Errorf("delete non-primary = %d, want 204", rec.Code)
+	}
+
+	// Deleting the primary without a confirm token -> 403.
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, "", true); rec.Code != http.StatusForbidden {
+		t.Errorf("delete primary without token = %d, want 403", rec.Code)
+	}
+
+	// A wrong token is equally refused.
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, `{"confirm_token":"nope"}`, true); rec.Code != http.StatusForbidden {
+		t.Errorf("delete primary wrong token = %d, want 403", rec.Code)
+	}
+
+	// The member is still there (the refused deletes did not proceed).
+	if _, err := store.GetMember(ctx, pm.ID); err != nil {
+		t.Errorf("primary member should still exist after refused deletes: err=%v", err)
+	}
+
+	// The correct admin token lets the deletion through.
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, `{"confirm_token":"`+testFrontdeskToken+`"}`, true); rec.Code != http.StatusNoContent {
+		t.Errorf("delete primary valid token = %d, want 204; body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Deleting the primary clears the auto-sync primary pointer.
+	cfg, _ := store.GetAutoSync(ctx)
+	if cfg.PrimaryID != "" {
+		t.Errorf("primary_id = %q after deleting primary, want cleared", cfg.PrimaryID)
+	}
+}
+
 func TestServerEventsAndStatus(t *testing.T) {
 	srv, _ := newTestServer(t)
 

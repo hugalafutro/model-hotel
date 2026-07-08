@@ -121,7 +121,13 @@
 		"added": "已添加 {{name}}",
 		"removed": "已移除 {{name}}",
 		"drained": "{{name}} 已设为排空",
-		"activated": "{{name}} 已设为活跃"
+		"activated": "{{name}} 已设为活跃",
+		"removePrimaryTitle": "移除主节点 {{name}}？",
+		"removePrimaryWarning": "{{name}} 是集群的事实来源。移除它将停止配置同步：其他所有成员将不再从它接收更新。如需让集群继续保持同步，请先在集群同步向导中重新指派主节点。",
+		"removePrimaryTokenNote": "移除主节点需要 Front Desk 管理员令牌。",
+		"confirmTokenLabel": "管理员令牌",
+		"confirmTokenPlaceholder": "输入 Front Desk 管理员令牌",
+		"removePrimaryTokenError": "该令牌未被接受"
 	},
 	"traffic": {
 		"title": "流量",

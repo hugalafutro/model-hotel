@@ -121,7 +121,13 @@
 		"added": "{{name}} ajouté",
 		"removed": "{{name}} retiré",
 		"drained": "{{name}} mis en drainage",
-		"activated": "{{name}} activé"
+		"activated": "{{name}} activé",
+		"removePrimaryTitle": "Retirer le primaire {{name}} ?",
+		"removePrimaryWarning": "{{name}} est la source de vérité de la flotte. Le retirer arrête la synchronisation de configuration : aucun autre membre ne reçoit plus de mises à jour de sa part. Si vous souhaitez que la flotte continue à se synchroniser, réassignez d'abord le primaire dans l'Assistant de synchronisation de flotte.",
+		"removePrimaryTokenNote": "Retirer le primaire nécessite le jeton d'administration Front Desk.",
+		"confirmTokenLabel": "Jeton d'administration",
+		"confirmTokenPlaceholder": "Saisissez le jeton d'administration Front Desk",
+		"removePrimaryTokenError": "Ce jeton n'a pas été accepté"
 	},
 	"traffic": {
 		"title": "Trafic",

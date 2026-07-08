@@ -471,4 +471,76 @@ describe("MembersPage", () => {
 		await screen.findByText("hotel-1");
 		expect(screen.queryByTestId("primary-badge")).not.toBeInTheDocument();
 	});
+
+	it("gates primary removal behind a token and shows a warning", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "2", name: "hotel-2" })]),
+			),
+			http.get("/api/fleet/last-sync", () =>
+				HttpResponse.json({
+					last_run_at: new Date().toISOString(),
+					primary_id: "2",
+					primary_name: "hotel-2",
+				}),
+			),
+		);
+		renderPage();
+		await screen.findByText("hotel-2");
+
+		await userEvent.click(screen.getByRole("button", { name: /^Remove$/i }));
+		const dialog = await screen.findByRole("dialog");
+
+		// The source-of-truth warning is visible inside the modal.
+		expect(within(dialog).getByText(/source of truth/i)).toBeInTheDocument();
+		// The token field is present.
+		expect(within(dialog).getByLabelText(/Admin token/i)).toBeInTheDocument();
+		// Confirm is disabled until a token is entered.
+		expect(
+			within(dialog).getByRole("button", { name: /^Remove$/i }),
+		).toBeDisabled();
+	});
+
+	it("removes the primary after entering the admin token", async () => {
+		let deleteBody = "";
+		let deleted = false;
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json(
+					deleted ? [] : [member({ id: "2", name: "hotel-2" })],
+				),
+			),
+			http.get("/api/fleet/last-sync", () =>
+				HttpResponse.json({
+					last_run_at: new Date().toISOString(),
+					primary_id: "2",
+					primary_name: "hotel-2",
+				}),
+			),
+			http.delete("/api/members/2", async ({ request }) => {
+				deleteBody = await request.text();
+				deleted = true;
+				return new HttpResponse(null, { status: 204 });
+			}),
+		);
+		renderPage();
+		await screen.findByText("hotel-2");
+
+		await userEvent.click(screen.getByRole("button", { name: /^Remove$/i }));
+		const dialog = await screen.findByRole("dialog");
+
+		await userEvent.type(
+			within(dialog).getByLabelText(/Admin token/i),
+			"test-token",
+		);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: /^Remove$/i }),
+		);
+
+		// The delete request carried the confirm_token in the body.
+		await waitFor(() => expect(deleteBody).toContain("confirm_token"));
+		await waitFor(() =>
+			expect(screen.getByText(/No members yet/i)).toBeInTheDocument(),
+		);
+	});
 });

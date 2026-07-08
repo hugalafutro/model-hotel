@@ -70,6 +70,9 @@ export function MembersPage() {
 	);
 	const { toast } = useToast();
 	const [removing, setRemoving] = useState<MemberView | null>(null);
+	const [removeToken, setRemoveToken] = useState("");
+	const [removeError, setRemoveError] = useState("");
+	const [removeBusy, setRemoveBusy] = useState(false);
 	useEffect(refreshPrimary, [refreshPrimary]);
 
 	const groupVersion = majorityVersion(members);
@@ -99,13 +102,35 @@ export function MembersPage() {
 	const confirmRemove = async () => {
 		if (!removing) return;
 		const m = removing;
-		setRemoving(null);
+		// Non-primary members delete without extra confirmation.
+		if (m.id !== primaryId) {
+			setRemoving(null);
+			try {
+				await api.deleteMember(m.id);
+				toast(t("members.removed", { name: m.name }), "info");
+				refetch();
+			} catch {
+				toast(t("errors.generic"), "error");
+			}
+			return;
+		}
+		// Primary: keep the modal open to show busy/error, require the token.
+		setRemoveBusy(true);
+		setRemoveError("");
 		try {
-			await api.deleteMember(m.id);
+			await api.deleteMember(m.id, removeToken);
+			setRemoving(null);
+			setRemoveToken("");
 			toast(t("members.removed", { name: m.name }), "info");
 			refetch();
-		} catch {
-			toast(t("errors.generic"), "error");
+		} catch (err) {
+			setRemoveError(
+				err instanceof ApiError && err.status === 403
+					? t("members.removePrimaryTokenError")
+					: t("errors.generic"),
+			);
+		} finally {
+			setRemoveBusy(false);
 		}
 	};
 
@@ -173,14 +198,60 @@ export function MembersPage() {
 
 			{removing && (
 				<ConfirmModal
-					title={t("members.removeTitle", { name: removing.name })}
+					title={
+						removing.id === primaryId
+							? t("members.removePrimaryTitle", { name: removing.name })
+							: t("members.removeTitle", { name: removing.name })
+					}
 					confirmLabel={t("common.remove")}
+					confirmDisabled={removing.id === primaryId && !removeToken.trim()}
+					busy={removeBusy}
 					onConfirm={confirmRemove}
-					onClose={() => setRemoving(null)}
+					onClose={() => {
+						setRemoving(null);
+						setRemoveToken("");
+						setRemoveError("");
+					}}
 				>
 					<p className="fd-muted">
 						{t("members.removeBody", { name: removing.name })}
 					</p>
+					{removing.id === primaryId && (
+						<>
+							<Notice variant="warn" style={{ marginTop: "0.6rem" }}>
+								{t("members.removePrimaryWarning", { name: removing.name })}
+							</Notice>
+							<div className="ui-field" style={{ marginTop: "0.6rem" }}>
+								<div
+									className="fd-faint"
+									style={{ fontSize: "0.8rem", marginBottom: "0.3rem" }}
+								>
+									{t("members.removePrimaryTokenNote")}
+								</div>
+								<label className="ui-label" htmlFor="fd-remove-primary-token">
+									{t("members.confirmTokenLabel")}
+								</label>
+								<input
+									id="fd-remove-primary-token"
+									className="ui-input"
+									type="password"
+									autoComplete="current-password"
+									value={removeToken}
+									onChange={(e) => setRemoveToken(e.target.value)}
+									placeholder={t("members.confirmTokenPlaceholder")}
+								/>
+								{removeError && (
+									<div
+										className="fd-error-text"
+										role="alert"
+										style={{ marginTop: "0.3rem" }}
+									>
+										{removeError}
+									</div>
+								)}
+							</div>
+						</>
+					)}
 				</ConfirmModal>
 			)}
 		</div>

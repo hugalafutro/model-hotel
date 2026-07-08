@@ -125,10 +125,13 @@ export const api = {
 			`/api/members/${encodeURIComponent(id)}`,
 			jsonInit("PATCH", patch),
 		),
-	deleteMember: (id: string) =>
-		request<void>(`/api/members/${encodeURIComponent(id)}`, {
-			method: "DELETE",
-		}),
+	deleteMember: (id: string, confirmToken?: string) =>
+		request<void>(
+			`/api/members/${encodeURIComponent(id)}`,
+			confirmToken
+				? jsonInit("DELETE", { confirm_token: confirmToken })
+				: { method: "DELETE" },
+		),
 	setMemberState: (id: string, state: MemberState) =>
 		request<Member>(
 			`/api/members/${encodeURIComponent(id)}/state`,

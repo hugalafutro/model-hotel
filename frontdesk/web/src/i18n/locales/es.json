@@ -121,7 +121,13 @@
 		"added": "{{name}} añadido",
 		"removed": "{{name}} eliminado",
 		"drained": "{{name}} establecido como retirado",
-		"activated": "{{name}} establecido como activo"
+		"activated": "{{name}} establecido como activo",
+		"removePrimaryTitle": "¿Eliminar el principal {{name}}?",
+		"removePrimaryWarning": "{{name}} es la fuente de verdad de la flota. Eliminarlo detiene la sincronización de configuración: ningún otro miembro seguirá recibiendo actualizaciones de él. Si quieres que la flota siga sincronizándose, reasigna antes el principal en el Asistente de sincronización de flota.",
+		"removePrimaryTokenNote": "Eliminar el principal requiere el token de administrador de Front Desk.",
+		"confirmTokenLabel": "Token de administrador",
+		"confirmTokenPlaceholder": "Introduce el token de administrador de Front Desk",
+		"removePrimaryTokenError": "Ese token no fue aceptado"
 	},
 	"traffic": {
 		"title": "Tráfico",
