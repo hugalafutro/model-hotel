@@ -121,7 +121,13 @@
 		"added": "{{name}} added",
 		"removed": "{{name}} removed",
 		"drained": "{{name}} set to drained",
-		"activated": "{{name}} set to active"
+		"activated": "{{name}} set to active",
+		"removePrimaryTitle": "Remove primary {{name}}?",
+		"removePrimaryWarning": "{{name}} is the fleet's source of truth. Removing it stops config sync: every other member stops receiving updates from it. If you want the fleet to keep syncing, reassign the primary in the Fleet Sync Wizard first.",
+		"removePrimaryTokenNote": "Removing the primary requires the Front Desk admin token.",
+		"confirmTokenLabel": "Admin token",
+		"confirmTokenPlaceholder": "Enter the Front Desk admin token",
+		"removePrimaryTokenError": "That token was not accepted"
 	},
 	"traffic": {
 		"title": "Traffic",

@@ -121,7 +121,13 @@
 		"added": "{{name}} přidán",
 		"removed": "{{name}} odebrán",
 		"drained": "{{name}} vyřazen z provozu",
-		"activated": "{{name}} nastaven jako aktivní"
+		"activated": "{{name}} nastaven jako aktivní",
+		"removePrimaryTitle": "Odebrat primární instanci {{name}}?",
+		"removePrimaryWarning": "{{name}} je zdrojem pravdy flotily. Jeho odebrání zastaví synchronizaci konfigurace: žádný další člen již nebude přijímat aktualizace z něj. Pokud chcete, aby flotila i nadále synchronizovala, přeřaďte nejprve primární instanci v Průvodci synchronizací flotily.",
+		"removePrimaryTokenNote": "Odebrání primární instance vyžaduje Admin token Front Desk.",
+		"confirmTokenLabel": "Admin token",
+		"confirmTokenPlaceholder": "Zadejte Admin token Front Desk",
+		"removePrimaryTokenError": "Tento token nebyl přijat"
 	},
 	"traffic": {
 		"title": "Provoz",

@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -17,6 +18,13 @@ import (
 )
 
 const testFrontdeskToken = "test-frontdesk-token"
+
+// failingReader is an io.Reader whose Read always returns an error, used to
+// exercise the body-read failure path in deleteMember (a 400 before the
+// token guard runs).
+type failingReader struct{}
+
+func (*failingReader) Read([]byte) (int, error) { return 0, errors.New("simulated read failure") }
 
 func newTestServer(t *testing.T) (*Server, *Store) {
 	t.Helper()
@@ -290,6 +298,70 @@ func TestServerAutoSyncPrimaryGate(t *testing.T) {
 	}
 	if got := primaryNow(); got != "" {
 		t.Errorf("primary after confirmed clear: got %q, want empty", got)
+	}
+}
+
+func TestServerDeletePrimaryRequiresToken(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	pm, err := store.CreateMember(ctx, "primary", "https://p.example.com", "ptok")
+	if err != nil {
+		t.Fatalf("create primary: %v", err)
+	}
+	om, err := store.CreateMember(ctx, "other", "https://o.example.com", "")
+	if err != nil {
+		t.Fatalf("create other: %v", err)
+	}
+
+	// Designate pm as the fleet primary (first selection needs no token).
+	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
+		`{"enabled":false,"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("designate primary = %d; body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Deleting the non-primary member needs no token.
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+om.ID, "", true); rec.Code != http.StatusNoContent {
+		t.Errorf("delete non-primary = %d, want 204", rec.Code)
+	}
+
+	// Deleting the primary without a confirm token -> 403.
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, "", true); rec.Code != http.StatusForbidden {
+		t.Errorf("delete primary without token = %d, want 403", rec.Code)
+	}
+
+	// A wrong token is equally refused.
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, `{"confirm_token":"nope"}`, true); rec.Code != http.StatusForbidden {
+		t.Errorf("delete primary wrong token = %d, want 403", rec.Code)
+	}
+	// A malformed body on a primary delete -> 400 (bad request, not a token refusal).
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, `{not json}`, true); rec.Code != http.StatusBadRequest {
+		t.Errorf("delete primary malformed body = %d, want 400", rec.Code)
+	}
+	// A body-read failure (e.g. broken connection) -> 400 before the token guard.
+	failReq := httptest.NewRequest(http.MethodDelete, "/api/members/"+pm.ID, &failingReader{})
+	failReq.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
+	failRec := httptest.NewRecorder()
+	srv.ServeHTTP(failRec, failReq)
+	if failRec.Code != http.StatusBadRequest {
+		t.Errorf("delete with unreadable body = %d, want 400", failRec.Code)
+	}
+
+	// The member is still there (the refused deletes did not proceed).
+	if _, err := store.GetMember(ctx, pm.ID); err != nil {
+		t.Errorf("primary member should still exist after refused deletes: err=%v", err)
+	}
+
+	// The correct admin token lets the deletion through.
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, `{"confirm_token":"`+testFrontdeskToken+`"}`, true); rec.Code != http.StatusNoContent {
+		t.Errorf("delete primary valid token = %d, want 204; body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Deleting the primary clears the auto-sync primary pointer.
+	cfg, _ := store.GetAutoSync(ctx)
+	if cfg.PrimaryID != "" {
+		t.Errorf("primary_id = %q after deleting primary, want cleared", cfg.PrimaryID)
 	}
 }
 

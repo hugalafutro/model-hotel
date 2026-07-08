@@ -40,5 +40,6 @@
 	"settings.primaryTag": ["ja"],
 	"settings.oidc.redirectUriLabel": ["cs"],
 	"settings.wizard.confirmTokenLabel": ["cs", "sk"],
-	"login.tokenLabel": ["sk"]
+	"login.tokenLabel": ["sk"],
+	"members.confirmTokenLabel": ["cs", "sk"]
 }

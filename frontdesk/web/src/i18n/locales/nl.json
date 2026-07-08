@@ -121,7 +121,13 @@
 		"added": "{{name}} toegevoegd",
 		"removed": "{{name}} verwijderd",
 		"drained": "{{name}} ingesteld op gedrained",
-		"activated": "{{name}} ingesteld op actief"
+		"activated": "{{name}} ingesteld op actief",
+		"removePrimaryTitle": "Primaire {{name}} verwijderen?",
+		"removePrimaryWarning": "{{name}} is de bron van waarheid van de vloot. Het verwijderen stopt de config-sync: geen enkele andere member ontvangt nog updates ervan. Als je wilt dat de vloot blijft synchroniseren, wijs dan eerst de primaire opnieuw toe in de Vloot-sync-wizard.",
+		"removePrimaryTokenNote": "Het verwijderen van de primaire vereist het Front Desk Admin-token.",
+		"confirmTokenLabel": "Admin-token",
+		"confirmTokenPlaceholder": "Voer het Front Desk Admin-token in",
+		"removePrimaryTokenError": "Dit token is niet geaccepteerd"
 	},
 	"traffic": {
 		"title": "Verkeer",

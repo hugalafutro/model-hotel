@@ -121,7 +121,13 @@
 		"added": "{{name}} pridaný",
 		"removed": "{{name}} odstránený",
 		"drained": "{{name}} vybraný z prevádzky",
-		"activated": "{{name}} nastavený ako aktívny"
+		"activated": "{{name}} nastavený ako aktívny",
+		"removePrimaryTitle": "Odstrániť primárneho {{name}}?",
+		"removePrimaryWarning": "{{name}} je zdrojom pravdy flotily. Jeho odstránenie zastaví synchronizáciu konfigurácie: žiadny ďalší člen už nebude prijímať aktualizácie z neho. Ak chcete, aby flotila naďalej synchronizovala, priraďte najprv primárneho v Sprievodcovi synchronizáciou flotily.",
+		"removePrimaryTokenNote": "Odstránenie primárneho vyžaduje Admin token Front Desk.",
+		"confirmTokenLabel": "Admin token",
+		"confirmTokenPlaceholder": "Zadajte Admin token Front Desk",
+		"removePrimaryTokenError": "Tento token nebol prijatý"
 	},
 	"traffic": {
 		"title": "Prevádzka",
