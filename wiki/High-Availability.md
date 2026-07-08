@@ -10,15 +10,6 @@ with the last config it fetched; only membership changes pause until it returns.
 
 <p align="center"><a href="screenshots/frontdesk_members.png"><img src="screenshots/frontdesk_members.png" width="800" alt="Front Desk Members tab with two healthy members"></a></p>
 
-<p align="center"><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_security_thumb.png" width="395" alt="Security (passkeys + TOTP)"></a>&nbsp;&nbsp;<a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_configsync_thumb.png" width="395" alt="Fleet config sync"></a></p>
-<p align="center"><sub>Security (passkeys + TOTP)&nbsp;&nbsp;·&nbsp;&nbsp;Fleet config sync</sub></p>
-
-<p align="center"><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_alerts_thumb.png" width="395" alt="Alerts"></a>&nbsp;&nbsp;<a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_observability_thumb.png" width="395" alt="Observability"></a></p>
-<p align="center"><sub>Alerts&nbsp;&nbsp;·&nbsp;&nbsp;Observability</sub></p>
-<p align="center"><sub><em>Click any panel for the full settings page.</em></sub></p>
-
----
-
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)
