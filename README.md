@@ -13,7 +13,7 @@
  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
  <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
- <a href="https://golangci-lint.run"><img src="https://img.shields.io/badge/lint-golangci--lint-00ACD7?logo=go&logoColor=white" alt="golangci-lint"></a>
+ <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml/badge.svg" alt="golangci-lint"></a>
  <a href="https://codecov.io/github/hugalafutro/model-hotel"><img src="https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg" alt="Coverage"></a><br>
 </p>
 
