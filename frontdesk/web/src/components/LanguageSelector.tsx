@@ -131,15 +131,18 @@ export function LanguageSelector() {
 								role="option"
 								aria-selected={activeLang === lang.code}
 								onClick={() => {
-									// Only persist after the lazy catalog load succeeds.
-									// If the chunk fails to load (network error, deploy
-									// mismatch), i18next rejects and falls back to the
-									// current language — saving the failed code would
-									// retry and fail on every reload.
+									// partialBundledLanguages means changeLanguage can
+									// resolve even if the lazy catalog failed to load
+									// (i18next silently falls back to English). Verify
+									// the language's own catalog is present before
+									// persisting — a broken preference would retry and
+									// fail on every reload.
 									i18n
 										.changeLanguage(lang.code)
 										.then(() => {
-											localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
+											if (i18n.getResourceBundle(lang.code, "translation")) {
+												localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
+											}
 										})
 										.catch(() => {})
 										.finally(() => setOpen(false));

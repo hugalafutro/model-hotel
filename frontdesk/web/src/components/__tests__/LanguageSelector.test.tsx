@@ -63,6 +63,10 @@ describe("LanguageSelector", () => {
 		const changeSpy = vi
 			.spyOn(i18next, "changeLanguage")
 			.mockImplementation(() => Promise.resolve(i18next.t));
+		// The component verifies the catalog loaded before persisting.
+		vi.spyOn(i18next, "getResourceBundle").mockReturnValue({
+			common: { cancel: "Abbrechen" },
+		});
 		const user = userEvent.setup();
 		render(<LanguageSelector />);
 
@@ -77,10 +81,27 @@ describe("LanguageSelector", () => {
 		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 	});
 
-	it("does not persist a failed language load", async () => {
-		// Simulate a lazy catalog load failure (network error, chunk mismatch).
+	it("does not persist when the catalog falls back silently", async () => {
+		// partialBundledLanguages: changeLanguage resolves even if the lazy
+		// catalog failed — i18next falls back to English. The component must
+		// detect this (no resource bundle) and skip persisting.
+		vi.spyOn(i18next, "changeLanguage").mockResolvedValue(i18next.t);
+		vi.spyOn(i18next, "getResourceBundle").mockReturnValue(undefined);
+		const user = userEvent.setup();
+		render(<LanguageSelector />);
+
+		await user.click(screen.getByRole("button", { name: "Language" }));
+		await user.click(screen.getByRole("option", { name: "Deutsch" }));
+
+		await waitFor(() => {
+			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		});
+		expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBeNull();
+	});
+
+	it("does not persist when changeLanguage rejects", async () => {
 		vi.spyOn(i18next, "changeLanguage").mockRejectedValue(
-			new Error("chunk load failed"),
+			new Error("network error"),
 		);
 		const user = userEvent.setup();
 		render(<LanguageSelector />);
@@ -88,7 +109,6 @@ describe("LanguageSelector", () => {
 		await user.click(screen.getByRole("button", { name: "Language" }));
 		await user.click(screen.getByRole("option", { name: "Deutsch" }));
 
-		// The dropdown still closes, but the broken preference is NOT saved.
 		await waitFor(() => {
 			expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 		});
