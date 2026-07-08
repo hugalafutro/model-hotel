@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"strconv"
@@ -450,9 +451,22 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ConfirmToken string `json:"confirm_token"`
 	}
-	if r.ContentLength != 0 {
-		if !decodeJSON(w, r, &req) {
+	// Read the body and only parse if non-empty. Checking ContentLength alone
+	// is not enough: a chunked-transfer DELETE (Content-Length: -1) with an
+	// empty body passes a "!= 0" guard but fails JSON decoding with a 400
+	// before the token guard runs. An empty body means no token was supplied,
+	// which the guarded delete rejects with 403 for primaries.
+	if r.Body != nil {
+		bodyBytes, readErr := io.ReadAll(r.Body)
+		if readErr != nil {
+			http.Error(w, "failed to read request body", http.StatusBadRequest)
 			return
+		}
+		if len(bodyBytes) > 0 {
+			if err := json.Unmarshal(bodyBytes, &req); err != nil {
+				http.Error(w, "invalid request body", http.StatusBadRequest)
+				return
+			}
 		}
 	}
 	tokenValid := s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken))
