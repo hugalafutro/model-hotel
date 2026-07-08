@@ -13,7 +13,7 @@
 #
 # HTTPS-ONLY INGRESS: this stack speaks plain HTTP. A TLS-terminating reverse
 # proxy (e.g. nginx with a real cert) MUST sit in front of both published ports
-# so browsers and clients only ever reach the stack over HTTPS. See docs/HA.md.
+# so browsers and clients only ever reach the stack over HTTPS. See the HA wiki.
 #
 # Front Desk is NEVER in the request path: if it dies, Traefik keeps the last
 # config it fetched and keeps serving traffic.
@@ -38,7 +38,7 @@ services:
             # HTTP provider: poll Front Desk for the dynamic config every ~5s.
             - "--providers.http.endpoint=http://frontdesk:8090/traefik/config"
             - "--providers.http.pollInterval=5s"
-            # Access log stays off by default (see docs/HA.md "Observability").
+            # Access log stays off by default (see the HA wiki, "Observability").
             - "--accesslog=false"
             - "--log.level=INFO"
         ports:
@@ -93,7 +93,7 @@ services:
         ports:
             # Front Desk admin UI. Front the external TLS proxy at this port on a
             # separate hostname. Do NOT expose /traefik/config publicly through
-            # that proxy (see docs/HA.md).
+            # that proxy (see the HA wiki).
             - "${FRONTDESK_PORT:-8090}:8090"
         volumes:
             - ./.data:/data

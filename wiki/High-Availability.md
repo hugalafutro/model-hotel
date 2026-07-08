@@ -8,7 +8,16 @@ control-plane app where you manage membership in a browser.
 Front Desk is **never in the request path**. If it stops, Traefik keeps serving
 with the last config it fetched; only membership changes pause until it returns.
 
-<!-- TODO screenshot: Front Desk Members tab with two healthy members -->
+![Front Desk Members](screenshots/frontdesk_members.png)
+
+<p align="center">
+  <a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_security.png" height="200" alt="Front Desk Security settings (passkeys + TOTP)"></a>
+  &nbsp;&nbsp;
+  <a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_configsync.png" height="200" alt="Front Desk fleet config sync (preview with diff)"></a>
+  &nbsp;&nbsp;
+  <a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings_alerts.png" height="200" alt="Front Desk alerts"></a>
+</p>
+<p align="center"><sub>Front Desk settings at a glance — security, fleet config sync, and alerting. Click any panel for the full settings page.</sub></p>
 
 ---
 
@@ -56,9 +65,6 @@ Everything lives in
 
 - `docker-compose.yml` - Traefik + Front Desk, two containers.
 - `.env.example` - copy to `.env` and fill in the secrets.
-
-The repo also ships [`docs/HA.md`](https://github.com/hugalafutro/model-hotel/blob/master/docs/HA.md)
-with the same runbook in source form.
 
 ---
 
@@ -121,7 +127,7 @@ You have one instance at `ip1:8080`. Move it aside and let the HA stack take ove
 7. Maintenance: drain a member in Front Desk, rebuild it, re-activate. Re-run the
    config sync after any provider/key/settings change on the primary.
 
-<!-- TODO screenshot: add-member dialog / sync preview modal -->
+![Front Desk — add a member](screenshots/frontdesk_addmember.png)
 
 ---
 
@@ -193,7 +199,7 @@ Two things are worth understanding about authentication in an HA deployment:
   button, because no credential is registered yet. Register one under Settings →
   Security and the button appears on the next login.
 
-<!-- TODO screenshot: Front Desk Settings → Security (passkeys + TOTP) -->
+![Front Desk Settings — Security (passkeys + TOTP)](screenshots/frontdesk_settings_security.png)
 
 ---
 
@@ -240,7 +246,7 @@ provider IDs.
    reported. Each member is independent, and re-running retries any left behind.
    Request logs and metering are never touched.
 
-<!-- TODO screenshot: Front Desk Settings → Config sync (preview with diff) -->
+![Front Desk Settings — Fleet config sync (preview with diff)](screenshots/frontdesk_settings_configsync.png)
 
 ### Automatic config sync (set and forget)
 

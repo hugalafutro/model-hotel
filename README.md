@@ -36,6 +36,13 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 <br><img src="docs/screenshots/dashboard_themes.webp" alt="Dashboard cycling through the Clean SaaS, Cyber Terminal, and Glassmorphism UI styles" width="720"><br>
 </div>
 
+### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> High Availability](#-high-availability)
+Run several instances behind one client endpoint with no client-side change: a **Front Desk** control plane manages the fleet and replicates config to every member, while **Traefik** load-balances them with health checks and automatic failover. Members share one `MASTER_KEY` (so encrypted provider keys port across the fleet) and each keeps its own admin token.
+
+<a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members.png" width="720" alt="Front Desk control plane — fleet members"></a>
+
+Full deployment in the [High Availability wiki](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
+
 ### [<img src="docs/icons/providers.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> One Endpoint, Many Providers](#-one-endpoint-many-providers)
 Add any OpenAI-compatible provider ([Anthropic](https://claude.ai/), [DeepSeek](https://deepseek.com/), [KoboldCPP](https://koboldcpp.com/), [LMStudio](https://lmstudio.ai/), [NanoGPT](https://docs.nano-gpt.com/), [OpenRouter](https://openrouter.ai/), [Z.AI](https://z.ai/), [x.ai](https://x.ai/), [Google AI Studio](https://aistudio.google.com/), [Cohere](https://cohere.com/), [Ollama](https://github.com/ollama/ollama), [Ollama Cloud](https://ollama.com), [OpenCode Go](https://opencode.ai), [OpenCode Zen](https://opencode.ai), [OpenAI](https://openai.com/), or your own), and call them all through the same `/v1/chat/completions` endpoint. The proxy handles model ID mapping and failover transparently. Provider API keys are encrypted with AES-256-GCM at rest using your `MASTER_KEY`; only the proxy ever sees the decrypted credentials. Keyless providers (e.g. OpenCode Zen free models, local Ollama) are also supported (no API key required).
 
@@ -200,11 +207,6 @@ SSO is a third login path, not a replacement: after the provider confirms an all
 Because it is self-hosted, there is no turnkey "Google login": each operator registers their own OIDC app with their provider and points it at this app's redirect URI (`<public base URL>/api/auth/oidc/callback`, shown in Settings). The client must allow the `openid`, `email`, and `profile` scopes (all three are requested; a client permitting fewer fails with `invalid_scope`), and the Settings allowlist must hold the signing-in account's exact verified email. SSO never removes local login, so a misconfigured or unreachable provider cannot lock you out: the admin token, passkeys, and TOTP all keep working. SSO is opt-in at runtime from Settings and needs no environment variable. The [Security wiki page](https://github.com/hugalafutro/model-hotel/wiki/Security) has a copy-paste provider client example.
 
 GitHub works the same way as a separate option. GitHub is OAuth2 only (no OpenID Connect, no ID token), so instead of verifying an ID token it reads the account's verified emails from the GitHub API and matches them against the same kind of allowlist: an unverified address never counts, and the account's stable numeric id and login are logged on each sign-in (source `github`). Register a GitHub OAuth App, set its Authorization callback URL to `<public base URL>/api/auth/github/callback`, and paste the Client ID and secret into Settings. A "Sign in with GitHub" button then appears alongside the SSO button. As with OIDC, redact `Location` on `/api/auth/github/callback` if your reverse proxy logs response headers, and local login always keeps working.
-
-### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> High Availability](#-high-availability)
-One instance keeps its caches and rate-limit counters in memory, so to survive a host going down you run several instances behind a single client endpoint. Model Hotel ships a drop-in HA stack: a **Front Desk** control plane that holds the fleet roster and pushes configuration to every member, and **Traefik** as the load balancer that health-checks each instance and fails traffic over automatically. Members share one `MASTER_KEY` so encrypted provider keys port across the fleet, while each keeps its own admin token. You manage configuration on a designated **primary** member, and Front Desk replicates its providers, virtual keys, and syncable settings out to the rest (on demand, or automatically), so the fleet stays converged without copying anything by hand. Replica-local edits are not pushed back and are overwritten on the next sync.
-
-The [High Availability runbook](docs/HA.md) covers the full deployment: what you deploy, the three secrets and the distinct job each one does, the drop-in migration runbook, automatic config sync, the TLS proxy split (the `/v1` proxy API and the admin UI on separate hostnames), and two-machine acceptance checks.
 
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
 ```bash
@@ -440,7 +442,7 @@ and how to enable the rest. See the [Configuration wiki](https://github.com/huga
 - [Virtual Keys](https://github.com/hugalafutro/model-hotel/wiki/Virtual-Keys): Creating, using, and deleting client keys
 - [Request Logging](https://github.com/hugalafutro/model-hotel/wiki/Request-Logging): Log fields, overhead breakdown, retention
 - [Backup & Restore](#-backup--restore): Creating backups, restoring, critical requirements
-- [High Availability](docs/HA.md): Front Desk control plane + Traefik, drop-in HA across multiple instances
+- [High Availability](https://github.com/hugalafutro/model-hotel/wiki/High-Availability): Front Desk control plane + Traefik, drop-in HA across multiple instances
 - [Development](https://github.com/hugalafutro/model-hotel/wiki/Development): Local setup, build commands, contributing
 
 ### [<img src="docs/icons/backup.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Backup & Restore](#-backup--restore)
@@ -468,7 +470,7 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 **Not included** (filesystem only): `DATA_DIR/admin-token` (admin token hash), `DATA_DIR/backups/` (the backup files themselves), `MASTER_KEY` (environment variable).
 
 ### Known Limitations
-- **Single-instance only**: Caches and rate limiters are in-memory, not horizontally scalable within one instance. To run several instances behind one client endpoint with automatic failover, use the [Front Desk + Traefik HA stack](docs/HA.md).
+- **Single-instance only**: Caches and rate limiters are in-memory, not horizontally scalable within one instance. To run several instances behind one client endpoint with automatic failover, use the [Front Desk + Traefik HA stack](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
 
 ### [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
 
