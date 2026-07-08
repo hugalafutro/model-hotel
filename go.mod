@@ -1,6 +1,6 @@
 module github.com/hugalafutro/model-hotel
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.53.0
