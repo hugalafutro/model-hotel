@@ -190,6 +190,11 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
+      - name: Format check (biome)
+        # `biome check` (no --write) fails on any formatter/linter/assist drift,
+        # so formatting + import-order + lint regressions are caught at PR time.
+        run: pnpm run format
+
       - name: Build
         # CODECOV_TOKEN enables the bundle-analysis plugin's upload (gated on the
         # var being set, so only CI uploads — local/Docker builds stay silent).
