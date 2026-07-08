@@ -39,7 +39,7 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> High Availability](#-high-availability)
 Run several instances behind one client endpoint with no client-side change: a **Front Desk** control plane manages the fleet and replicates config to every member, while **Traefik** load-balances them with health checks and automatic failover. Members share one `MASTER_KEY` (so encrypted provider keys port across the fleet) and each keeps its own admin token.
 
-<p align="center"><a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members_pills.png" width="720" alt="Front Desk control plane — two healthy fleet members"></a></p>
+<p align="center"><a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members_pills.png" width="720" alt="Front Desk control plane: two healthy fleet members"></a></p>
 
 Full deployment in the [High Availability wiki](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
 
@@ -177,7 +177,7 @@ Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is st
 Log into the admin dashboard using a FIDO2/WebAuthn passkey (Touch ID, Windows Hello, YubiKey, etc.) instead of the admin token. Register passkeys from the Settings page and use them on the login screen alongside the traditional admin token.
 
 <div align="center">
-<br><img src="docs/screenshots/login_passkey.png" alt="Login screen with passkey, SSO, GitHub, and TOTP" width="360"><br><br>
+<br><img src="docs/screenshots/login_passkey.png" alt="Login screen with passkey, SSO, GitHub, username/password, and TOTP" width="360"><br><br>
 </div>
 
 Passkey login is disabled by default. Enable it by setting `WEBAUTHN_RP_ID` (your domain) in the environment; `WEBAUTHN_RP_ORIGINS` (your origin URLs) falls back to `CORS_ORIGINS`, then to `http://localhost:<port>`. Session tokens are SHA-256 hashed, never stored in plaintext, and expire after 30 days.
@@ -193,11 +193,11 @@ If you lose your authenticator, a recovery code signs you in once so you can dis
 Let admins sign in through an external OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket-ID, Okta, Google, Entra, and so on). Configure it from the Settings page: paste the issuer URL, client ID, and client secret from an app you register with your provider, then list the verified email addresses allowed to sign in. A "Sign in with SSO" button appears on the login screen. Any standards-compliant OpenID Connect provider works (the names above are just examples): the login flow uses only standard discovery, PKCE, and ID-token verification, so the single requirement is that the provider releases the signing-in user's verified email (in the ID token, or from its UserInfo endpoint), because the allowlist is email-based and fails closed.
 
 <p align="center">
-  <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_local.png" height="200" alt="Authentication settings: passkeys and TOTP"></a>
+  <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_local.png" width="800" alt="Authentication settings: passkeys and TOTP"></a>
 <br><br>
-  <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_oidc.png" height="200" alt="Authentication settings: OIDC single sign-on"></a>
+  <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_oidc.png" width="390" alt="Authentication settings: OIDC single sign-on"></a>
   &nbsp;&nbsp;
-  <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_github.png" height="200" alt="Authentication settings: GitHub sign-in"></a>
+  <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_github.png" width="390" alt="Authentication settings: GitHub sign-in"></a>
 </p>
 <p align="center"><sub>The Authentication settings page, split into its three sections. Click any panel for the full view.</sub></p>
 <br>
@@ -207,6 +207,13 @@ SSO is a third login path, not a replacement: after the provider confirms an all
 Because it is self-hosted, there is no turnkey "Google login": each operator registers their own OIDC app with their provider and points it at this app's redirect URI (`<public base URL>/api/auth/oidc/callback`, shown in Settings). The client must allow the `openid`, `email`, and `profile` scopes (all three are requested; a client permitting fewer fails with `invalid_scope`), and the Settings allowlist must hold the signing-in account's exact verified email. SSO never removes local login, so a misconfigured or unreachable provider cannot lock you out: the admin token, passkeys, and TOTP all keep working. SSO is opt-in at runtime from Settings and needs no environment variable. The [Security wiki page](https://github.com/hugalafutro/model-hotel/wiki/Security) has a copy-paste provider client example.
 
 GitHub works the same way as a separate option. GitHub is OAuth2 only (no OpenID Connect, no ID token), so instead of verifying an ID token it reads the account's verified emails from the GitHub API and matches them against the same kind of allowlist: an unverified address never counts, and the account's stable numeric id and login are logged on each sign-in (source `github`). Register a GitHub OAuth App, set its Authorization callback URL to `<public base URL>/api/auth/github/callback`, and paste the Client ID and secret into Settings. A "Sign in with GitHub" button then appears alongside the SSO button. As with OIDC, redact `Location` on `/api/auth/github/callback` if your reverse proxy logs response headers, and local login always keeps working.
+
+### [<img src="docs/icons/users.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Multi-User Access](#-multi-user-access)
+Beyond the shared admin token, you can provision named dashboard accounts that sign in with a username and password (plus their own optional TOTP second factor) on the same login screen. Two roles: **admin** sees and does everything, while **user** accounts are scoped by granular grants (Chat/Arena, Usage dashboards, Request Logs, Models, Virtual Keys) so a teammate gets exactly the access they need and nothing more. Virtual keys belong to a user, and per-account rate limits (RPS/burst/TPM) aggregate across the keys that user owns.
+
+<br><img src="docs/screenshots/users.png" alt="Users page" width="720"><br>
+
+Manage accounts from the Users page (admin only): create a user, assign grants, set an initial password, reset a password or second factor, enable or disable, and read last-login and TOTP status at a glance. The username/password form appears on the login screen only once at least one user exists, so a fresh install keeps the single admin-token flow, and local token login is never removed so you cannot lock yourself out. See the [Multi-User wiki page](https://github.com/hugalafutro/model-hotel/wiki/Multi-User) for roles, grants, and the per-user rate-limit model.
 
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
 ```bash
