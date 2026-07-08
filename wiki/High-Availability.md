@@ -30,7 +30,7 @@ with the last config it fetched; only membership changes pause until it returns.
 
 ## Architecture Overview
 
-![High Availability Architecture](ha-architecture.svg)
+<p align="center"><a href="ha-architecture.svg"><img src="ha-architecture.svg" width="800" alt="High Availability Architecture"></a></p>
 
 - **Traefik (data plane)** carries all client traffic and load-balances across
   members. It pulls its routing config from Front Desk over the internal compose
@@ -116,7 +116,7 @@ You have one instance at `ip1:8080`. Move it aside and let the HA stack take ove
 7. Maintenance: drain a member in Front Desk, rebuild it, re-activate. Re-run the
    config sync after any provider/key/settings change on the primary.
 
-[![Front Desk — add a member](screenshots/frontdesk_addmember.png)](screenshots/frontdesk_addmember.png)
+<p align="center"><a href="screenshots/frontdesk_addmember.png"><img src="screenshots/frontdesk_addmember.png" width="800" alt="Front Desk — add a member"></a></p>
 
 ---
 
@@ -188,9 +188,16 @@ Two things are worth understanding about authentication in an HA deployment:
   button, because no credential is registered yet. Register one under Settings →
   Security and the button appears on the next login.
 
-[![Front Desk Settings — Security (passkeys + TOTP)](screenshots/frontdesk_settings_security.png)](screenshots/frontdesk_settings_security.png)
+<p align="center"><a href="screenshots/frontdesk_settings_security.png"><img src="screenshots/frontdesk_settings_security.png" width="800" alt="Front Desk Settings — Security (passkeys + TOTP)"></a></p>
 
----
+### Single Sign-On (OIDC)
+
+Front Desk's admin login also accepts **OpenID Connect single sign-on** as a third path alongside the token, passkey, and TOTP — useful when you already operate an OIDC provider (Authentik, Authelia, Keycloak, Pocket ID, Okta, Google, …) for the rest of your infra. Configure it under **Settings → Single sign-on (OIDC)**: paste the issuer URL, client ID, and client secret from an app you register with your provider, point the provider's redirect URI at `<Front Desk public origin>/api/auth/oidc/callback`, and list the verified emails allowed to sign in. A **Sign in with SSO** button then appears on the Front Desk login screen.
+
+This is Front Desk's *own* login — independent of each member's admin login and of the main gateway's SSO — and lives in Front Desk's SQLite, the client secret encrypted at rest with `FRONTDESK_MASTER_KEY`. Local login (token / passkey / TOTP) never goes away, so a misconfigured or unreachable provider cannot lock you out.
+
+<p align="center"><a href="screenshots/frontdesk_settings_oidc.png"><img src="screenshots/frontdesk_settings_oidc.png" width="800" alt="Front Desk Settings — Single sign-on (OIDC)"></a></p>
+
 
 ## Replicating Config Across the Fleet
 
@@ -235,7 +242,7 @@ provider IDs.
    reported. Each member is independent, and re-running retries any left behind.
    Request logs and metering are never touched.
 
-[![Front Desk Settings — Fleet config sync (preview with diff)](screenshots/frontdesk_settings_configsync.png)](screenshots/frontdesk_settings_configsync.png)
+<p align="center"><a href="screenshots/frontdesk_settings_configsync.png"><img src="screenshots/frontdesk_settings_configsync.png" width="800" alt="Front Desk Settings — Fleet config sync (preview with diff)"></a></p>
 
 ### Automatic config sync (set and forget)
 
