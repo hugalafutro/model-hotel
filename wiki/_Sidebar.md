@@ -9,6 +9,7 @@
 ### Using
 
 - 🔑 [[Virtual Keys]]
+- 👥 [[Multi-User]]
 - 🔗 [[API Reference]]
 - 📜 [[Request Logging]]
 

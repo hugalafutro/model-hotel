@@ -191,6 +191,10 @@ The proxy also serves `/v1/embeddings`, `/v1/rerank`, `/v1/images/generations|ed
 
 Provider keys: AES-256-GCM at rest (`MASTER_KEY`, Argon2id-derived). Virtual keys and the admin token: SHA-256 hashed. Outbound SSRF/DNS-rebinding protection. Optional login: WebAuthn passkey, TOTP, and OIDC/GitHub SSO. Details in the [Security guide](https://github.com/hugalafutro/model-hotel/wiki/Security). **No prompt or request content is ever logged** - see [Privacy](https://github.com/hugalafutro/model-hotel/wiki/Privacy).
 
+## Multi-User Access
+
+Beyond the shared admin token, provision named dashboard accounts (username + password, optional per-user TOTP) with two roles: **admin** (full access) or **user** (scoped by grants: Chat, Usage, Logs, Models, Virtual Keys). Virtual keys belong to a user and per-account rate limits aggregate across their keys. See the [Multi-User wiki page](https://github.com/hugalafutro/model-hotel/wiki/Multi-User).
+
 ## Metrics & log shipping
 
 Prometheus at `/metrics` (set `METRICS_TOKEN` so the scrape config carries no admin token). `LOG_FORMAT=json` emits structured stdout logs for Fluent Bit / Vector / Promtail / Datadog; `OTEL_EXPORTER_OTLP_ENDPOINT` pushes them to an OTel collector. `DEBUG_LOG=true` for verbose, `DEBUG_LOG_SCOPES=failover,ratelimit` to scope it. See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration).
@@ -218,6 +222,7 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 - [Failover and Hotel Routing](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing) - failover groups, circuit breaker, backoff
 - [Model Discovery](https://github.com/hugalafutro/model-hotel/wiki/Model-Discovery) - automatic sync, provider enrichment
 - [Virtual Keys](https://github.com/hugalafutro/model-hotel/wiki/Virtual-Keys) - client key management
+- [Multi-User](https://github.com/hugalafutro/model-hotel/wiki/Multi-User) - dashboard accounts, roles, and grants
 - [Request Logging](https://github.com/hugalafutro/model-hotel/wiki/Request-Logging) - log fields, overhead breakdown
 - [High Availability](https://github.com/hugalafutro/model-hotel/wiki/High-Availability) - Front Desk + Traefik multi-instance HA
 - [Development](https://github.com/hugalafutro/model-hotel/wiki/Development) - local setup, build, contributing
