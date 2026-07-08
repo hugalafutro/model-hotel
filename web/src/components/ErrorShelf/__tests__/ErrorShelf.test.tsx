@@ -192,9 +192,10 @@ describe("ErrorShelf", () => {
 	});
 
 	it("clamps to the newest served error when no server clock is available", async () => {
-		// The mock responses carry no `Date` header, so the hook falls back to the
-		// browser clock, which here lags a week behind. Without the newest-served
-		// clamp that would filter everything out; the clamp keeps the fresh rows.
+		// The mock responses carry no `Date` header, so the hook anchors on the
+		// newest served timestamp rather than the server wall-clock. The browser
+		// clock here lags a week behind, but it is never consulted; anchoring on
+		// the newest served time keeps the fresh rows regardless.
 		vi.spyOn(Date, "now").mockReturnValue(
 			new Date("2024-01-25T12:00:30Z").getTime(),
 		);
