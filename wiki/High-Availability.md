@@ -338,9 +338,7 @@ HTTP-provider design). No request or prompt content is ever logged.
 
 The **Traffic** tab charts each member's recent request and error volume as a
 live time series, proxied from the member's own stats endpoint: green for
-requests, red for errors. It is a quick at-a-glance per-member health read —
-a flat green line means clean traffic, a red spike pinpoints which member
-struggled and when.
+requests, red for errors.
 
 <p align="center"><a href="screenshots/frontdesk_traffic.png"><img src="screenshots/frontdesk_traffic.png" width="800" alt="Front Desk Traffic tab: per-member request (green) and error (red) time-series charts"></a></p>
 
