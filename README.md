@@ -476,9 +476,6 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 
 **Not included** (filesystem only): `DATA_DIR/admin-token` (admin token hash), `DATA_DIR/backups/` (the backup files themselves), `MASTER_KEY` (environment variable).
 
-### Known Limitations
-- **Single-instance only**: Caches and rate limiters are in-memory, not horizontally scalable within one instance. To run several instances behind one client endpoint with automatic failover, use the [Front Desk + Traefik HA stack](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
-
 ### [<img src="docs/icons/license.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> License](#-license)
 
 [MIT](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor license agreement.

@@ -227,10 +227,6 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 - [High Availability](https://github.com/hugalafutro/model-hotel/wiki/High-Availability) - Front Desk + Traefik multi-instance HA
 - [Development](https://github.com/hugalafutro/model-hotel/wiki/Development) - local setup, build, contributing
 
-## Known Limitations
-
-- **Single-instance only**: caches and rate limiters are in-memory. For multi-instance automatic failover, use the [Front Desk + Traefik HA stack](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
-
 ## License
 
 [MIT](https://github.com/hugalafutro/model-hotel/blob/master/LICENSE). See [CONTRIBUTING.md](https://github.com/hugalafutro/model-hotel/blob/master/CONTRIBUTING.md) for the contributor license agreement.
