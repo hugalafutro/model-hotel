@@ -87,6 +87,32 @@ describe("TrafficPage", () => {
 		expect(screen.getByText("5.0%")).toBeInTheDocument();
 	});
 
+	it("renders with a multi-bucket error spike without crashing", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+			),
+			http.get("/api/members/1/traffic", () =>
+				HttpResponse.json(
+					traffic({
+						member_id: "1",
+						total_requests: 300,
+						total_errors: 7,
+						points: [
+							{ bucket: "b1", requests: 100, errors: 0 },
+							{ bucket: "b2", requests: 100, errors: 7 },
+							{ bucket: "b3", requests: 100, errors: 0 },
+						],
+					}),
+				),
+			),
+		);
+		renderPage();
+		expect(await screen.findByText("300")).toBeInTheDocument();
+		// 7/300 ≈ 2.3% error rate.
+		expect(screen.getByText("2.3%")).toBeInTheDocument();
+	});
+
 	it("stamps each graph with a last-updated time and refreshes on demand", async () => {
 		let calls = 0;
 		server.use(

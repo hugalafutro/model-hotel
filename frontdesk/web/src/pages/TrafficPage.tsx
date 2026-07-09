@@ -143,8 +143,8 @@ function MemberTrafficCard({
 									type="monotone"
 									dataKey="requests"
 									name={t("traffic.requests")}
-									stroke="var(--accent)"
-									fill="var(--accent)"
+									stroke="var(--ok)"
+									fill="var(--ok)"
 									fillOpacity={0.18}
 								/>
 								<Area

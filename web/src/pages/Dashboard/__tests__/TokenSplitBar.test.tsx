@@ -58,6 +58,26 @@ describe("TokenSplitBar", () => {
 		expect(within(cacheHitEntry!).getByText("300")).toBeInTheDocument();
 	});
 
+	it("splits the legend into two rows: cache hit alone, prompt and completion paired", () => {
+		render(<TokenSplitBar {...defaultProps} cacheHit={100} />);
+
+		const legend = screen.getByTestId("legend");
+		const rows = legend.children;
+		expect(rows).toHaveLength(2);
+
+		// Row 1: cache hit entry (left-aligned, alone).
+		const cacheHitRow = rows[0] as HTMLElement;
+		expect(within(cacheHitRow).getByText("Cache hit")).toBeInTheDocument();
+
+		// Row 2: prompt (left) + completion (right) in a justify-between wrapper.
+		const promptCompletionRow = rows[1] as HTMLElement;
+		expect(promptCompletionRow).toHaveClass("justify-between");
+		expect(within(promptCompletionRow).getByText("Prompt")).toBeInTheDocument();
+		expect(
+			within(promptCompletionRow).getByText("Completion"),
+		).toBeInTheDocument();
+	});
+
 	it("shows uncached prompt count (prompt minus cache hit)", () => {
 		render(<TokenSplitBar {...defaultProps} prompt={600} cacheHit={300} />);
 
