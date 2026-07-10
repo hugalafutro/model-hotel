@@ -368,7 +368,7 @@ describe("FleetSyncWizard", () => {
 		expect(autosyncPuts).toEqual([{ enabled: false, primary_id: "1" }]);
 	});
 
-	it("keeps auto-sync paused when re-running the wizard for the same primary", async () => {
+	it("rejects re-selecting the current primary as the new primary", async () => {
 		server.use(
 			http.get("/api/fleet/autosync", () =>
 				HttpResponse.json({ enabled: false, primary_id: "1" }),
@@ -382,10 +382,10 @@ describe("FleetSyncWizard", () => {
 			),
 		);
 		renderWizard();
-		// Opens on the resting screen with auto-sync paused.
 		expect(await screen.findByText("Auto-sync paused")).toBeInTheDocument();
 
-		// Re-run the wizard and re-select the same primary.
+		// Re-run the wizard and re-select the SAME primary: this is not a valid
+		// change (the source of truth cannot be replaced with itself).
 		await userEvent.click(
 			screen.getByRole("button", { name: "Re-run wizard" }),
 		);
@@ -396,15 +396,60 @@ describe("FleetSyncWizard", () => {
 		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
 		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
 
-		// Nothing to push: Continue commits straight through.
-		await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+		// The proceed action is disabled and the same-host reason is shown; no PUT
+		// is made.
+		expect(
+			await screen.findByText(/cannot replace the primary with the same host/i),
+		).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+		expect(autosyncPuts).toEqual([]);
+	});
 
-		// A manual re-sync for the same primary must preserve the paused state:
-		// the PUT must not flip enabled back on.
-		await waitFor(() =>
-			expect(autosyncPuts).toEqual([{ enabled: false, primary_id: "1" }]),
+	it("surfaces the backend 409 when repointing onto the same host", async () => {
+		server.use(
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: true, primary_id: "1" }),
+			),
+			http.get("/api/fleet/status", ({ request }) => {
+				const id = new URL(request.url).searchParams.get("primary") ?? "1";
+				return HttpResponse.json({
+					primary_id: id,
+					primary_reachable: true,
+					members: [primaryRow(id, `hotel-${id}`)],
+				});
+			}),
+			// The backend detects member 2 is the same physical host as the current
+			// primary (self-reports is_primary) and rejects the repoint with 409.
+			http.put("/api/fleet/autosync", () =>
+				HttpResponse.json({ error: "same host" }, { status: 409 }),
+			),
 		);
-		expect(await screen.findByText("Auto-sync paused")).toBeInTheDocument();
+		renderWizard();
+		await userEvent.click(
+			await screen.findByRole("button", { name: "Re-run wizard" }),
+		);
+		await pickPrimary("2");
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+		);
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
+		await userEvent.click(
+			screen.getByRole("button", { name: "Set as primary" }),
+		);
+		// Confirm the token-gated change.
+		const dialog = await screen.findByRole("dialog");
+		await userEvent.type(
+			within(dialog).getByLabelText(/Admin token/i),
+			"test-token",
+		);
+		await userEvent.click(
+			within(dialog).getByRole("button", { name: /Change primary/i }),
+		);
+
+		expect(
+			await screen.findByText(/cannot replace the primary with the same host/i),
+		).toBeInTheDocument();
 	});
 
 	it("gates a re-run that changes the primary behind the admin token", async () => {

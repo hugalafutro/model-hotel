@@ -70,6 +70,11 @@ type SystemStats struct {
 	// Fleet is this instance's HA fleet membership, or nil/omitted for a
 	// standalone instance Front Desk has never contacted (see fleet.go).
 	Fleet *FleetStatus `json:"fleet,omitempty"`
+	// InstanceID is this instance's stable identity (migration 056). Front Desk
+	// uses it to recognise the same instance reached under a different URL, so it
+	// can refuse to add a host that is already the primary or already a member.
+	// Omitted only on a pre-056 build that never generated one.
+	InstanceID string `json:"instance_id,omitempty"`
 }
 
 // AppStats contains application-level metrics (memory, CPU, network, disk).
@@ -289,9 +294,21 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 	stats.Docker = h.dockerStatsCollector(util.DetectContainerFilter())
 
 	// HA fleet membership (nil/omitted for a standalone instance). Cheap reads
-	// off the settings repo; the whole payload is response-cached for 3s.
+	// off the settings repo; the whole payload is response-cached for 3s. A read
+	// failure (e.g. the client canceled this request mid-flight) is returned as
+	// an error so GetSystem responds 500 and, crucially, does NOT cache the
+	// half-read payload: a canceled request can no longer poison the 3s cache and
+	// report the primary as a demoted member to everyone.
 	if h.settings != nil {
-		stats.Fleet = computeFleetStatus(ctx, h.settings, time.Now())
+		fleet, err := computeFleetStatus(ctx, h.settings, time.Now())
+		if err != nil {
+			return stats, fmt.Errorf("compute fleet status: %w", err)
+		}
+		stats.Fleet = fleet
+		// Stable instance identity. A read miss leaves it empty (an older instance
+		// that never generated one); it is display/identity metadata, not a gate,
+		// so unlike the fleet role a transient miss need not fail the whole payload.
+		stats.InstanceID = h.settings.GetWithDefault(ctx, "instance_id", "")
 	}
 
 	return stats, nil

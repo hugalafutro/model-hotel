@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Udbyder under test (afbryder halvåben)",
 				"circuit_breaker_open": "Udbyder nede (afbryder udløst)",
 				"discovery_provider_failed": "Udbyderen fejlede under opdagelsen",
+				"fleet_conflict": "Front Desk-ejerskabskonflikt",
 				"failover_sync_error": "Synkronisering af failover-gruppe mislykkedes"
 			},
 			"events": {

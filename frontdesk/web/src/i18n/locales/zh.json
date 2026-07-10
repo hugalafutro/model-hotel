@@ -110,8 +110,8 @@
 		"namePlaceholder": "hotel-1",
 		"urlLabel": "基础 URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
-		"tokenLabel": "管理员令牌（可选）",
-		"tokenHint": "加密存储。读取版本和流量数据以及管理员令牌同步时需要。",
+		"tokenLabel": "管理员令牌",
+		"tokenHint": "必填。加密存储。Front Desk 在添加时用它验证主机，并用于读取版本和流量数据以及管理员令牌同步。",
 		"tokenPlaceholder": "此成员当前的 ADMIN_TOKEN",
 		"removeTitle": "移除 {{name}}？",
 		"removeBody": "Front Desk 将停止跟踪 {{name}} 并将其从 Traefik 后端池中移除。实例本身不受影响。此操作不会排空进行中的请求；如需零丢失移除，请先执行排空。",
@@ -122,12 +122,11 @@
 		"removed": "已移除 {{name}}",
 		"drained": "{{name}} 已设为排空",
 		"activated": "{{name}} 已设为活跃",
-		"removePrimaryTitle": "移除主节点 {{name}}？",
-		"removePrimaryWarning": "{{name}} 是集群的事实来源。移除它将停止配置同步：其他所有成员将不再从它接收更新。如需让集群继续保持同步，请先在集群同步向导中重新指派主节点。",
-		"removePrimaryTokenNote": "移除主节点需要 Front Desk 管理员令牌。",
 		"confirmTokenLabel": "管理员令牌",
 		"confirmTokenPlaceholder": "输入 Front Desk 管理员令牌",
-		"removePrimaryTokenError": "该令牌未被接受"
+		"errAlreadyPrimary": "该主机已经是机群的主节点，无法再作为成员添加。请改用 Fleet Sync 向导更改主节点。",
+		"errUnreachable": "Front Desk 无法连接到该主机进行验证。请检查 URL 和管理员令牌，以及主机是否在运行。",
+		"errAlreadyMember": "该主机已经是成员（以其他地址添加）。如需重新添加，请先删除现有条目。"
 	},
 	"traffic": {
 		"title": "流量",
@@ -347,7 +346,8 @@
 			"changeTokenNote": "更改主节点会替换集群的事实来源，因此需要管理员令牌。",
 			"confirmTokenLabel": "管理员令牌",
 			"confirmTokenPlaceholder": "输入 Front Desk 管理员令牌",
-			"stepN": "第 {{n}} 步"
+			"stepN": "第 {{n}} 步",
+			"sameHostError": "无法用同一主机替换主节点：该主机已经是机群的主节点。"
 		},
 		"primaryTag": "主节点",
 		"memberResultOk": "{{name}} ✓",

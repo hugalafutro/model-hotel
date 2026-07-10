@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Furnizorul este testat (disjunctorul este pe jumătate deschis)",
 				"circuit_breaker_open": "Furnizor inactiv (disjunctor deschis)",
 				"discovery_provider_failed": "Furnizorul a eșuat în timpul procesului de descoperire",
+				"fleet_conflict": "Conflict de proprietate Front Desk",
 				"failover_sync_error": "Sincronizarea grupului de failover a eșuat"
 			},
 			"events": {

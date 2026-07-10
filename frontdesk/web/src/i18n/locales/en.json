@@ -110,8 +110,8 @@
 		"namePlaceholder": "hotel-1",
 		"urlLabel": "Base URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
-		"tokenLabel": "Admin token (optional)",
-		"tokenHint": "Stored encrypted. Needed for version and traffic readings, and for admin-token sync.",
+		"tokenLabel": "Admin token",
+		"tokenHint": "Required. Stored encrypted. Front Desk verifies the host with it on add, and uses it for version and traffic readings and admin-token sync.",
 		"tokenPlaceholder": "This member's current ADMIN_TOKEN",
 		"removeTitle": "Remove {{name}}?",
 		"removeBody": "Front Desk stops tracking {{name}} and removes it from the Traefik backend pool. The instance itself is not touched. This does not drain in-flight requests; drain first for zero-loss removal.",
@@ -122,12 +122,11 @@
 		"removed": "{{name}} removed",
 		"drained": "{{name}} set to drained",
 		"activated": "{{name}} set to active",
-		"removePrimaryTitle": "Remove primary {{name}}?",
-		"removePrimaryWarning": "{{name}} is the fleet's source of truth. Removing it stops config sync: every other member stops receiving updates from it. If you want the fleet to keep syncing, reassign the primary in the Fleet Sync Wizard first.",
-		"removePrimaryTokenNote": "Removing the primary requires the Front Desk admin token.",
 		"confirmTokenLabel": "Admin token",
 		"confirmTokenPlaceholder": "Enter the Front Desk admin token",
-		"removePrimaryTokenError": "That token was not accepted"
+		"errAlreadyPrimary": "This host is already the fleet primary and cannot be added as a member. Change the primary from the Fleet Sync wizard instead.",
+		"errUnreachable": "Front Desk could not reach this host to verify it. Check the URL and admin token, and that the host is running.",
+		"errAlreadyMember": "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it."
 	},
 	"traffic": {
 		"title": "Traffic",
@@ -347,7 +346,8 @@
 			"changeTokenNote": "Changing the primary replaces the fleet's source of truth, so it needs the admin token.",
 			"confirmTokenLabel": "Admin token",
 			"confirmTokenPlaceholder": "Enter the Front Desk admin token",
-			"stepN": "Step {{n}}"
+			"stepN": "Step {{n}}",
+			"sameHostError": "You cannot replace the primary with the same host: it is already the fleet primary."
 		},
 		"primaryTag": "primary",
 		"memberResultOk": "{{name}} ✓",

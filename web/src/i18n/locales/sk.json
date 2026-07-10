@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Poskytovateľ sa testuje (istič je polootvorený)",
 				"circuit_breaker_open": "Poskytovateľ mimo prevádzky (otvorený istič)",
 				"discovery_provider_failed": "Poskytovateľ zlyhal počas vyhľadávania",
+				"fleet_conflict": "Konflikt vlastníctva Front Desku",
 				"failover_sync_error": "Synchronizácia skupiny pre prevzatie pri výpadku zlyhala"
 			},
 			"events": {

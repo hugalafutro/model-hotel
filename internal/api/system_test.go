@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -367,8 +368,11 @@ func TestGetSystem_ValidSince(t *testing.T) {
 
 func TestGetSystem_CancelledContext(t *testing.T) {
 	// Do NOT use t.Parallel() — mutates package-level cache.
-	// Tests that DB query errors (from cancelled context) are handled gracefully
-	// by returning zero values instead of failing.
+	// A canceled request now surfaces the settings read failure (from computing
+	// fleet status) as a 500 rather than a gracefully-degraded 200. This is the
+	// cache-poisoning fix: a half-read payload must never be cached and served to
+	// other clients as authoritative. The DB-stat queries still degrade to zero
+	// on cancellation; it is specifically the fleet read that must not be guessed.
 	resetSystemCache()
 	_, r := newTestHandlerWithRouter(t)
 
@@ -381,39 +385,35 @@ func TestGetSystem_CancelledContext(t *testing.T) {
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	// Handler returns 200 with zeroed DB values (error handling is graceful)
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected 200 (graceful error handling), got %d", rec.Code)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 (canceled fleet read must not be cached), got %d", rec.Code)
 	}
 
-	var response SystemStats
-	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
-		t.Fatalf("failed to parse response: %v", err)
-	}
-
-	// DB stats should be zeroed due to cancelled context
-	if response.DB.SizeMB != 0 {
-		t.Errorf("expected DB.SizeMB=0 (cancelled context), got %f", response.DB.SizeMB)
-	}
-	if response.DB.Connections != 0 {
-		t.Errorf("expected DB.Connections=0 (cancelled context), got %d", response.DB.Connections)
+	// Nothing may have been cached: a follow-up healthy request returns fresh 200.
+	req2 := httptest.NewRequest(http.MethodGet, "/system/", http.NoBody)
+	req2.Header.Set("Authorization", "Bearer test-admin-token")
+	rec2 := httptest.NewRecorder()
+	r.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusOK {
+		t.Errorf("follow-up request: expected 200 (no poisoned cache), got %d", rec2.Code)
 	}
 }
 
 func TestCollect_CancelledContext(t *testing.T) {
-	// Test collect() directly with cancelled context to cover all DB query error paths.
-	// collect() handles errors gracefully by returning zero values, not errors.
+	// collect() zeroes DB stats gracefully under a cancelled context, but the
+	// fleet-status read propagates the cancellation as an error so the caller
+	// (GetSystem) can refuse to cache a half-read payload.
 	h, _ := newTestHandlerWithRouter(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	stats, err := h.systemHandler.collect(ctx, "")
-	if err != nil {
-		t.Errorf("unexpected error from collect with cancelled context: %v", err)
+	if err == nil {
+		t.Fatal("expected an error from collect with cancelled context (fleet read), got nil")
 	}
 
-	// All DB stats should be zeroed due to cancelled context
+	// The partially-collected DB stats are still zeroed (graceful degradation).
 	if stats.DB.SizeMB != 0 {
 		t.Errorf("expected DB.SizeMB=0 (cancelled context), got %f", stats.DB.SizeMB)
 	}
@@ -455,5 +455,75 @@ func TestCollect_TxPerSecNegative(t *testing.T) {
 	// txPerSec should be 0 (reset from negative)
 	if stats.DB.TxPerSec < 0 {
 		t.Errorf("expected txPerSec >= 0, got %f", stats.DB.TxPerSec)
+	}
+}
+
+// TestGetSystem_FleetReadErrorNotCached is the regression guard for the
+// cache-poisoning incident: a settings read failure while computing fleet
+// status must make GetSystem respond 500 and must NOT store the half-read
+// payload in the 3s response cache. A follow-up request with healthy settings
+// must then get fresh, correct data rather than a cached bad payload.
+func TestGetSystem_ExposesInstanceID(t *testing.T) {
+	// Do NOT use t.Parallel(): mutates the package-level system cache.
+	resetSystemCache()
+	h, _ := newTestHandlerWithRouter(t)
+	ctx := context.Background()
+
+	// In production migration 056 seeds instance_id once; the test harness clears
+	// the settings table, so seed it here to exercise the collect() wiring that
+	// surfaces it on /api/system for Front Desk's same-instance detection.
+	if err := h.settingsRepo.Set(ctx, "instance_id", "iid-abc-123"); err != nil {
+		t.Fatalf("seed instance_id: %v", err)
+	}
+
+	stats, err := h.systemHandler.collect(ctx, "")
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if stats.InstanceID != "iid-abc-123" {
+		t.Fatalf("instance_id = %q, want %q", stats.InstanceID, "iid-abc-123")
+	}
+}
+
+func TestGetSystem_FleetReadErrorNotCached(t *testing.T) {
+	// Do NOT use t.Parallel(): mutates the package-level system cache.
+	resetSystemCache()
+	h, _ := newTestHandlerWithRouter(t)
+
+	seen := time.Now().UTC().Format(time.RFC3339)
+	fake := &fakeFleetSettings{
+		values: map[string]string{
+			keyFleetManagedSeenAt: seen,
+			keyFleetIsPrimary:     "true",
+		},
+		getErr: map[string]error{keyFleetIsPrimary: errors.New("db read failed")},
+	}
+	h.systemHandler.settings = fake
+
+	// First request: the fleet read errors -> 500, nothing cached.
+	req1 := httptest.NewRequest(http.MethodGet, "/system/", http.NoBody)
+	req1.Header.Set("Authorization", "Bearer test-admin-token")
+	w1 := httptest.NewRecorder()
+	h.systemHandler.GetSystem(w1, req1)
+	if w1.Code != http.StatusInternalServerError {
+		t.Fatalf("errored fleet read: expected 500, got %d: %s", w1.Code, w1.Body.String())
+	}
+
+	// Heal the settings; the next request must return fresh 200 data, proving the
+	// bad payload was never cached.
+	fake.getErr = nil
+	req2 := httptest.NewRequest(http.MethodGet, "/system/", http.NoBody)
+	req2.Header.Set("Authorization", "Bearer test-admin-token")
+	w2 := httptest.NewRecorder()
+	h.systemHandler.GetSystem(w2, req2)
+	if w2.Code != http.StatusOK {
+		t.Fatalf("healed fleet read: expected 200, got %d: %s", w2.Code, w2.Body.String())
+	}
+	var resp SystemStats
+	if err := json.NewDecoder(w2.Body).Decode(&resp); err != nil {
+		t.Fatalf("healed request: failed to decode: %v", err)
+	}
+	if resp.Fleet == nil || resp.Fleet.State != "primary" {
+		t.Fatalf("healed request: fleet = %+v, want state \"primary\"", resp.Fleet)
 	}
 }

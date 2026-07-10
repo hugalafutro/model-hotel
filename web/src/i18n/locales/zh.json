@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "正在检测服务提供商（断路器处于半开启状态）",
 				"circuit_breaker_open": "提供商故障（断路器已打开）",
 				"discovery_provider_failed": "提供商在发现过程中失败",
+				"fleet_conflict": "Front Desk 归属冲突",
 				"failover_sync_error": "故障转移组同步失败"
 			},
 			"events": {

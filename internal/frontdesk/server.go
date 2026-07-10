@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"net/http"
 	"strconv"
@@ -350,39 +349,102 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	m, err := s.store.CreateMember(r.Context(), req.Name, req.URL, req.Token)
-	if err != nil {
-		writeError(w, err)
+	// A member is only added once it replies and verifies: the admin token is
+	// required (there is no way to confirm the host's identity or fleet role
+	// without it), the host must answer the authenticated probe, and it must not
+	// already be the fleet primary reached under a different URL. This keeps the
+	// member list to genuine, distinct model-hotel instances and stops the primary
+	// (the config source of truth) from being re-added as an ordinary member.
+	if strings.TrimSpace(req.Token) == "" {
+		writeCodedError(w, http.StatusBadRequest, "token_required",
+			"an admin token is required to add a member: Front Desk uses it to verify the host and confirm its fleet role before adding it")
 		return
 	}
-	// Verify the token against the (now canonical) member URL before announcing
-	// the add. A token the member refuses is a typo: roll the add back so the
-	// operator fixes it now instead of discovering a dead member later.
-	var tokenWarning string
-	if req.Token != "" {
-		p := s.probeMemberToken(r.Context(), m.URL, req.Token)
-		if p.rejected() {
-			if delErr := s.store.DeleteMember(r.Context(), m.ID); delErr != nil {
-				// Rollback failed: the member is stranded with the rejected token, so a
-				// retry would hit the duplicate-URL constraint. Tell the operator to
-				// remove it by hand rather than leaving a silent inconsistency.
-				http.Error(w, fmt.Sprintf("This member rejected the admin token (HTTP %d) and rolling back the add failed (%v). Remove it from the Members list and try again.", p.status, delErr), http.StatusInternalServerError)
-				return
-			}
-			http.Error(w, fmt.Sprintf("This member rejected the admin token (HTTP %d). Double-check the token and try again.", p.status), http.StatusBadRequest)
+	m, err := s.store.CreateMember(r.Context(), req.Name, req.URL, req.Token)
+	if err != nil {
+		// Map the two validation failures the add form routes on to stable codes;
+		// everything else falls back to the shared plain-text writeError.
+		switch {
+		case errors.Is(err, ErrDuplicateURL):
+			writeCodedError(w, http.StatusBadRequest, "duplicate", err.Error())
+		case errors.Is(err, ErrInsecureURL):
+			writeCodedError(w, http.StatusBadRequest, "insecure_url", err.Error())
+		default:
+			writeError(w, err)
+		}
+		return
+	}
+	// rollback removes the just-created row when a verification step fails, so a
+	// rejected add leaves no half-added member (and no duplicate-URL wall on retry).
+	rollback := func(code, userMsg string, status int) {
+		if delErr := s.store.DeleteMember(r.Context(), m.ID); delErr != nil {
+			writeCodedError(w, http.StatusInternalServerError, "rollback_failed",
+				fmt.Sprintf("%s Rolling back the add also failed (%v); remove it from the Members list and try again.", userMsg, delErr))
 			return
 		}
-		tokenWarning = p.warning()
-		// A newly added member with a valid token is stale relative to the primary;
-		// re-arm auto-sync so the next tick brings it in line (no-op when disabled).
-		s.rearmAutoSync(r.Context())
+		writeCodedError(w, status, code, userMsg)
 	}
+
+	// Verify the token against the (now canonical) member URL. Unlike an edit, an
+	// add requires a positive reply: an unreachable host or a refused/unexpected
+	// response blocks the add rather than warning, so only live, verified members
+	// enter the list.
+	p := s.probeMemberToken(r.Context(), m.URL, req.Token)
+	if !p.valid {
+		switch {
+		case !p.reached:
+			rollback("unreachable", "Front Desk could not reach this member to verify it. Check the URL and that the host is running, then try again.", http.StatusBadRequest)
+		case p.rejected():
+			rollback("token_rejected", fmt.Sprintf("This member rejected the admin token (HTTP %d). Double-check the token and try again.", p.status), http.StatusBadRequest)
+		default:
+			rollback("unverified", fmt.Sprintf("This host did not verify as a Front Desk member (HTTP %d). Check the URL points at a model-hotel instance and the token is correct.", p.status), http.StatusBadRequest)
+		}
+		return
+	}
+	// Read the host's identity once: whether it self-reports as the fleet primary,
+	// and its stable instance_id. Both are URL-independent, so they catch the same
+	// physical instance reached under a different address.
+	isPrimary, instanceID, identOK := s.memberIdentity(r.Context(), m.URL, req.Token)
+	// Reject the fleet primary re-added under a different URL. (Only a positive
+	// is_primary blocks; a standalone or momentarily-unreadable /api/system is
+	// treated as not-primary, since the token probe above already confirmed the
+	// host is live and genuine.)
+	if identOK && isPrimary {
+		rollback("already_primary", "This host is already the fleet primary (the config source of truth), reached under a different address. It cannot also be added as a member.", http.StatusConflict)
+		return
+	}
+	// Reject a host that is already a member under a different URL: compare its
+	// instance_id against every other member. Any member whose id we do not yet
+	// know is probed once and backfilled, so this stays correct even for members
+	// added before instance identity existed.
+	if identOK && instanceID != "" {
+		dup, derr := s.instanceAlreadyMember(r.Context(), m.ID, instanceID)
+		if derr != nil {
+			rollback("verify_failed", "Front Desk could not verify whether this host is already a member. Try again.", http.StatusInternalServerError)
+			return
+		}
+		if dup {
+			rollback("already_member", "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.", http.StatusConflict)
+			return
+		}
+	}
+	// Record the learned identity so future adds can dedup against this member
+	// without re-probing it.
+	if instanceID != "" {
+		if err := s.store.SetMemberInstanceID(r.Context(), m.ID, instanceID); err != nil {
+			debuglog.Warn("frontdesk: could not store member instance id", "member", m.ID, "error", err)
+		}
+	}
+
+	// A newly added member with a valid token is stale relative to the primary;
+	// re-arm auto-sync so the next tick brings it in line (no-op when disabled).
+	s.rearmAutoSync(r.Context())
 	s.emit(r.Context(), Event{
 		Type: "member.added", Severity: "info", Source: "frontdesk",
 		Message: m.Name + " added", MemberID: m.ID,
 		Metadata: map[string]any{"url": m.URL},
 	})
-	writeJSON(w, http.StatusCreated, memberResponse{Member: m, TokenWarning: tokenWarning})
+	writeJSON(w, http.StatusCreated, memberResponse{Member: m})
 }
 
 type patchMemberRequest struct {
@@ -444,39 +506,18 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	// The primary-status check and the delete run as one atomic SQL statement
-	// inside DeleteMemberGuarded, so a concurrent primary reassignment cannot
-	// race past the check. tokenValid is computed up-front from the request
-	// body; the store re-checks the primary status atomically with the delete.
-	var req struct {
-		ConfirmToken string `json:"confirm_token"`
-	}
-	// Read the body and only parse if non-empty. Checking ContentLength alone
-	// is not enough: a chunked-transfer DELETE (Content-Length: -1) with an
-	// empty body passes a "!= 0" guard but fails JSON decoding with a 400
-	// before the token guard runs. An empty body means no token was supplied,
-	// which the guarded delete rejects with 403 for primaries.
-	if r.Body != nil {
-		bodyBytes, readErr := io.ReadAll(r.Body)
-		if readErr != nil {
-			http.Error(w, "failed to read request body", http.StatusBadRequest)
-			return
-		}
-		if len(bodyBytes) > 0 {
-			if err := json.Unmarshal(bodyBytes, &req); err != nil {
-				http.Error(w, "invalid request body", http.StatusBadRequest)
-				return
-			}
-		}
-	}
-	tokenValid := s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken))
-	applied, err := s.store.DeleteMemberGuarded(r.Context(), id, tokenValid)
+	// The fleet primary is the config source of truth and cannot be removed here
+	// at all: changing it goes through the Fleet Sync wizard (a token-gated
+	// repoint). The primary-status check and the delete run as one atomic SQL
+	// statement inside DeleteMemberIfNotPrimary, so a concurrent repoint cannot
+	// race past the check.
+	applied, err := s.store.DeleteMemberIfNotPrimary(r.Context(), id)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 	if !applied {
-		http.Error(w, "confirm the admin token to remove the fleet primary", http.StatusForbidden)
+		http.Error(w, "this host is the fleet primary (the config source of truth); change the primary from the Fleet Sync wizard before removing it", http.StatusConflict)
 		return
 	}
 	s.emit(r.Context(), Event{
@@ -650,6 +691,77 @@ func (s *Server) getAutoSync(w http.ResponseWriter, r *http.Request) {
 // rather than client-side. The first primary selection (none configured yet) and
 // changes that leave the primary untouched (e.g. just toggling enabled) need no
 // confirmation.
+// repointTargetsCurrentPrimary reports whether repointing the fleet primary to
+// candidateID would land on the same physical host that is already the primary,
+// reached under a different URL. It asks the candidate host's own HA self-report
+// (see memberReportsPrimary), so the answer is independent of the member id or
+// URL string. Returns false on the first designation (no current primary), on a
+// same-member-row re-select (a no-op), and it fails open (false) when the
+// candidate cannot be probed, since the admin-token gate still protects the
+// repoint and blocking a legitimate change on a transient read is worse.
+func (s *Server) repointTargetsCurrentPrimary(ctx context.Context, candidateID string) (bool, error) {
+	cur, err := s.store.GetAutoSync(ctx)
+	if err != nil {
+		return false, err
+	}
+	if cur.PrimaryID == "" || cur.PrimaryID == candidateID {
+		return false, nil
+	}
+	m, err := s.store.GetMember(ctx, candidateID)
+	if err != nil {
+		return false, err
+	}
+	token, ok, err := s.store.MemberToken(ctx, candidateID)
+	if err != nil {
+		return false, err
+	}
+	if !ok {
+		return false, nil
+	}
+	isPrimary, _, determined := s.memberIdentity(ctx, m.URL, token)
+	return determined && isPrimary, nil
+}
+
+// instanceAlreadyMember reports whether instanceID belongs to a member other
+// than excludeID. It compares against each member's stored instance_id; for a
+// member whose identity is not yet known (empty stored id, e.g. added before
+// instance identity existed) it probes /api/system once and backfills the
+// learned id, so the check is correct without a separate migration pass. A
+// member that cannot be probed is skipped (it simply cannot be deduped yet); a
+// store read failure is surfaced so the caller can refuse rather than guess.
+//
+// Two simultaneous adds of the same physical instance under different URLs can
+// both create a row before either records its instance_id, so each dedup pass
+// sees the other and both roll back. That resolves toward the safe outcome
+// (neither added, no duplicate persisted); the operator simply retries once.
+func (s *Server) instanceAlreadyMember(ctx context.Context, excludeID, instanceID string) (bool, error) {
+	members, err := s.store.ListMembers(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, m := range members {
+		if m.ID == excludeID {
+			continue
+		}
+		known := m.InstanceID
+		if known == "" && m.HasToken {
+			token, ok, terr := s.store.MemberToken(ctx, m.ID)
+			if terr == nil && ok {
+				if _, id, identOK := s.memberIdentity(ctx, m.URL, token); identOK && id != "" {
+					known = id
+					if serr := s.store.SetMemberInstanceID(ctx, m.ID, id); serr != nil {
+						debuglog.Warn("frontdesk: could not backfill member instance id", "member", m.ID, "error", serr)
+					}
+				}
+			}
+		}
+		if known == instanceID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Enabled      bool   `json:"enabled"`
@@ -685,6 +797,24 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	// the same UPDATE that writes (SetAutoSyncGuarded), so there is no
 	// read-modify-write window for a concurrent repoint to slip through.
 	tokenValid := s.adminMgr.Validate(strings.TrimSpace(req.ConfirmToken))
+	// Same-host guard: a valid token authorises changing the primary, but if the
+	// newly-selected host is the same physical instance as the current primary
+	// reached under a different URL (public DNS vs a LAN address), the "change" is
+	// a no-op replacement of the source of truth with itself. Ask the candidate
+	// host its own HA self-report (id/URL-independent) and refuse if it already is
+	// the primary. Only checked on an authorised repoint, so no/wrong-token
+	// attempts short-circuit at the token gate below without probing a member.
+	if tokenValid && req.PrimaryID != "" {
+		same, serr := s.repointTargetsCurrentPrimary(r.Context(), req.PrimaryID)
+		if serr != nil {
+			writeError(w, serr)
+			return
+		}
+		if same {
+			http.Error(w, "you cannot replace the primary with the same host: the selected host is already the fleet primary (reached under a different address)", http.StatusConflict)
+			return
+		}
+	}
 	applied, err := s.store.SetAutoSyncGuarded(r.Context(), req.Enabled, req.PrimaryID, tokenValid)
 	if err != nil {
 		writeError(w, err)
@@ -1020,11 +1150,19 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 // writeError maps store errors to HTTP status codes.
+// writeCodedError writes a JSON error body carrying a stable machine-readable
+// code alongside the human message, so the frontend can route on the code rather
+// than matching translatable English text. Plain-text writeError is kept for the
+// many endpoints that need no client-side discrimination.
+func writeCodedError(w http.ResponseWriter, status int, code, msg string) {
+	writeJSON(w, status, map[string]string{"code": code, "error": msg})
+}
+
 func writeError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):
 		http.Error(w, err.Error(), http.StatusNotFound)
-	case errors.Is(err, ErrValidation), errors.Is(err, ErrDuplicateURL):
+	case errors.Is(err, ErrValidation), errors.Is(err, ErrDuplicateURL), errors.Is(err, ErrInsecureURL):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	default:
 		debuglog.Error("frontdesk: request failed", "error", err)

@@ -110,8 +110,8 @@
 		"namePlaceholder": "hotel-1",
 		"urlLabel": "ベース URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
-		"tokenLabel": "管理トークン (任意)",
-		"tokenHint": "暗号化して保存されます。バージョンやトラフィックの読み取り、管理トークンの同期に必要です。",
+		"tokenLabel": "管理トークン",
+		"tokenHint": "必須。暗号化して保存されます。Front Desk は追加時にこれでホストを検証し、バージョンやトラフィックの読み取り、管理トークンの同期にも使用します。",
 		"tokenPlaceholder": "このメンバーの現在の ADMIN_TOKEN",
 		"removeTitle": "{{name}} を削除しますか?",
 		"removeBody": "Front Desk は {{name}} の追跡を停止し、Traefik バックエンドプールから削除します。インスタンス自体は変更されません。処理中のリクエストはドレインされません。損失なく除去するには先にドレインしてください。",
@@ -122,12 +122,11 @@
 		"removed": "{{name}} を削除しました",
 		"drained": "{{name}} をドレイン状態にしました",
 		"activated": "{{name}} をアクティブにしました",
-		"removePrimaryTitle": "プライマリ {{name}} を削除しますか?",
-		"removePrimaryWarning": "{{name}} はフリートの真実の来源です。これを削除すると設定同期が止まり、他のメンバーは {{name}} からの更新を受け取らなくなります。フリートの同期を継続させたい場合は、まずフリート同期ウィザードでプライマリを再割り当てしてください。",
-		"removePrimaryTokenNote": "プライマリの削除には Front Desk 管理トークンが必要です。",
 		"confirmTokenLabel": "管理トークン",
 		"confirmTokenPlaceholder": "Front Desk 管理トークンを入力してください",
-		"removePrimaryTokenError": "このトークンは受理されませんでした"
+		"errAlreadyPrimary": "このホストはすでにフリートのプライマリであり、メンバーとして追加できません。代わりに Fleet Sync ウィザードでプライマリを変更してください。",
+		"errUnreachable": "Front Desk はこのホストに到達して検証できませんでした。URL と管理トークン、ホストが稼働しているかを確認してください。",
+		"errAlreadyMember": "このホストはすでにメンバーです（別のアドレスで追加済み）。再追加するには、まず既存のエントリを削除してください。"
 	},
 	"traffic": {
 		"title": "トラフィック",
@@ -347,7 +346,8 @@
 			"changeTokenNote": "プライマリの変更はフリートの真実の来源を置き換えるため、管理トークンが必要です。",
 			"confirmTokenLabel": "管理トークン",
 			"confirmTokenPlaceholder": "Front Desk 管理トークンを入力",
-			"stepN": "ステップ {{n}}"
+			"stepN": "ステップ {{n}}",
+			"sameHostError": "プライマリを同じホストに置き換えることはできません。そのホストはすでにフリートのプライマリです。"
 		},
 		"primaryTag": "primary",
 		"memberResultOk": "{{name}} ✓",

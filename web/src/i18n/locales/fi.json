@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Palveluntarjoajaa testataan (katkaisija puoliksi auki)",
 				"circuit_breaker_open": "Palveluntarjoaja poissa käytöstä (katkaisija auki)",
 				"discovery_provider_failed": "Palveluntarjoaja epäonnistui tunnistuksen aikana",
+				"fleet_conflict": "Front Deskin omistuskonflikti",
 				"failover_sync_error": "Failover-ryhmän synkronointi epäonnistui"
 			},
 			"events": {

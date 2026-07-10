@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Anbieter wird geprüft (Circuit Breaker halb geöffnet)",
 				"circuit_breaker_open": "Anbieter ausgefallen (Circuit Breaker ausgelöst)",
 				"discovery_provider_failed": "Anbieter ist bei der Erkennung fehlgeschlagen",
+				"fleet_conflict": "Front-Desk-Besitzkonflikt",
 				"failover_sync_error": "Synchronisierung der Failover-Gruppe fehlgeschlagen"
 			},
 			"events": {

@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Nhà cung cấp đang được kiểm tra (cơ chế ngắt mạch ở trạng thái nửa mở)",
 				"circuit_breaker_open": "Nhà cung cấp ngừng hoạt động (cầu dao ngắt mạch đã mở)",
 				"discovery_provider_failed": "Nhà cung cấp gặp sự cố trong quá trình phát hiện",
+				"fleet_conflict": "Xung đột quyền sở hữu Front Desk",
 				"failover_sync_error": "Đồng bộ hóa nhóm dự phòng không thành công"
 			},
 			"events": {

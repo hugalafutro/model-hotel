@@ -59,9 +59,14 @@ export function clearAuthToken() {
 
 export class ApiError extends Error {
 	status: number;
-	constructor(status: number, message: string) {
+	// Stable machine-readable code from a JSON error body ({code, error}), when the
+	// endpoint provides one. Lets callers route on the code instead of matching
+	// translatable English text. Undefined for plain-text error responses.
+	code?: string;
+	constructor(status: number, message: string, code?: string) {
 		super(message);
 		this.status = status;
+		this.code = code;
 		this.name = "ApiError";
 	}
 }
@@ -102,7 +107,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	}
 	if (!resp.ok) {
 		const text = (await resp.text().catch(() => "")).trim();
-		throw new ApiError(resp.status, text || `HTTP ${resp.status}`);
+		// Some endpoints return a JSON {code, error} body so the caller can route on
+		// a stable code; others return plain text. Parse the coded form when present,
+		// otherwise fall back to the raw text as the message.
+		let message = text || `HTTP ${resp.status}`;
+		let code: string | undefined;
+		if (text.startsWith("{")) {
+			try {
+				const body = JSON.parse(text) as { code?: unknown; error?: unknown };
+				if (typeof body.error === "string" && body.error) message = body.error;
+				if (typeof body.code === "string") code = body.code;
+			} catch {
+				// Not JSON after all; keep the raw text as the message.
+			}
+		}
+		throw new ApiError(resp.status, message, code);
 	}
 	if (resp.status === 204) return undefined as T;
 	const ct = resp.headers.get("content-type") ?? "";
@@ -125,13 +144,12 @@ export const api = {
 			`/api/members/${encodeURIComponent(id)}`,
 			jsonInit("PATCH", patch),
 		),
-	deleteMember: (id: string, confirmToken?: string) =>
-		request<void>(
-			`/api/members/${encodeURIComponent(id)}`,
-			confirmToken
-				? jsonInit("DELETE", { confirm_token: confirmToken })
-				: { method: "DELETE" },
-		),
+	// Only non-primary members can be deleted; the backend refuses a primary with
+	// 409 (change it via the Fleet Sync wizard instead), so no token is sent here.
+	deleteMember: (id: string) =>
+		request<void>(`/api/members/${encodeURIComponent(id)}`, {
+			method: "DELETE",
+		}),
 	setMemberState: (id: string, state: MemberState) =>
 		request<Member>(
 			`/api/members/${encodeURIComponent(id)}/state`,

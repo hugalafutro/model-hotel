@@ -63,6 +63,7 @@ type VirtualKeyStore interface {
 type SettingsStore interface {
 	GetAll(ctx context.Context) (map[string]string, error)
 	GetWithDefault(ctx context.Context, key string, defaultValue string) string
+	GetChecked(ctx context.Context, key string) (value string, found bool, err error)
 	GetBool(ctx context.Context, key string, defaultValue bool) bool
 	GetDuration(ctx context.Context, key string, defaultValue time.Duration) time.Duration
 	GetInt(ctx context.Context, key string, defaultValue int) int

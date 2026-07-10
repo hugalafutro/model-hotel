@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Leverantör som testas (kretsbrytare halvöppen)",
 				"circuit_breaker_open": "Leverantören är nere (strömavbrytaren har löst ut)",
 				"discovery_provider_failed": "Leverantören misslyckades under upptäckten",
+				"fleet_conflict": "Front Desk-ägarskapskonflikt",
 				"failover_sync_error": "Synkroniseringen av failover-gruppen misslyckades"
 			},
 			"events": {

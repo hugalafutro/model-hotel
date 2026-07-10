@@ -44,14 +44,18 @@ export function MembersPage() {
 	// example, restore the badge on a primary that was just removed. Mirrors the
 	// seqRef pattern useMembers already uses for its own refetch.
 	const primarySeqRef = useRef(0);
-	// The recorded fleet primary (GET /api/fleet/last-sync). Null when no sync has
-	// ever run; refreshed below on the events that can change it.
+	// The designated fleet primary (GET /api/fleet/autosync -> auto_sync_primary_id)
+	// is the single source of truth for "who is primary": the same value the
+	// backend delete-guard and the Fleet Sync wizard use. Null/"" when none is set.
+	// Refreshed below on the events that can change it. (This deliberately does NOT
+	// read /api/fleet/last-sync, whose primary_id is only a cosmetic "last run"
+	// marker and could name a since-removed host.)
 	const refreshPrimary = useCallback(() => {
 		const seq = ++primarySeqRef.current;
 		api
-			.fleetLastSync()
-			.then((s) => {
-				if (seq === primarySeqRef.current) setPrimaryId(s?.primary_id ?? null);
+			.getAutoSync()
+			.then((cfg) => {
+				if (seq === primarySeqRef.current) setPrimaryId(cfg.primary_id || null);
 			})
 			.catch(() => {});
 	}, []);
@@ -70,9 +74,6 @@ export function MembersPage() {
 	);
 	const { toast } = useToast();
 	const [removing, setRemoving] = useState<MemberView | null>(null);
-	const [removeToken, setRemoveToken] = useState("");
-	const [removeError, setRemoveError] = useState("");
-	const [removeBusy, setRemoveBusy] = useState(false);
 	useEffect(refreshPrimary, [refreshPrimary]);
 
 	const groupVersion = majorityVersion(members);
@@ -99,38 +100,20 @@ export function MembersPage() {
 		}
 	};
 
+	// Only non-primary members are removable (the primary row has no Remove
+	// button, and the backend refuses a primary delete with 409). The primary is
+	// the config source of truth; it is changed only by re-running the Fleet Sync
+	// wizard.
 	const confirmRemove = async () => {
 		if (!removing) return;
 		const m = removing;
-		// Non-primary members delete without extra confirmation.
-		if (m.id !== primaryId) {
-			setRemoving(null);
-			try {
-				await api.deleteMember(m.id);
-				toast(t("members.removed", { name: m.name }), "info");
-				refetch();
-			} catch {
-				toast(t("errors.generic"), "error");
-			}
-			return;
-		}
-		// Primary: keep the modal open to show busy/error, require the token.
-		setRemoveBusy(true);
-		setRemoveError("");
+		setRemoving(null);
 		try {
-			await api.deleteMember(m.id, removeToken);
-			setRemoving(null);
-			setRemoveToken("");
+			await api.deleteMember(m.id);
 			toast(t("members.removed", { name: m.name }), "info");
 			refetch();
-		} catch (err) {
-			setRemoveError(
-				err instanceof ApiError && err.status === 403
-					? t("members.removePrimaryTokenError")
-					: t("errors.generic"),
-			);
-		} finally {
-			setRemoveBusy(false);
+		} catch {
+			toast(t("errors.generic"), "error");
 		}
 	};
 
@@ -198,60 +181,14 @@ export function MembersPage() {
 
 			{removing && (
 				<ConfirmModal
-					title={
-						removing.id === primaryId
-							? t("members.removePrimaryTitle", { name: removing.name })
-							: t("members.removeTitle", { name: removing.name })
-					}
+					title={t("members.removeTitle", { name: removing.name })}
 					confirmLabel={t("common.remove")}
-					confirmDisabled={removing.id === primaryId && !removeToken.trim()}
-					busy={removeBusy}
 					onConfirm={confirmRemove}
-					onClose={() => {
-						setRemoving(null);
-						setRemoveToken("");
-						setRemoveError("");
-					}}
+					onClose={() => setRemoving(null)}
 				>
 					<p className="fd-muted">
 						{t("members.removeBody", { name: removing.name })}
 					</p>
-					{removing.id === primaryId && (
-						<>
-							<Notice variant="warn" style={{ marginTop: "0.6rem" }}>
-								{t("members.removePrimaryWarning", { name: removing.name })}
-							</Notice>
-							<div className="ui-field" style={{ marginTop: "0.6rem" }}>
-								<div
-									className="fd-faint"
-									style={{ fontSize: "0.8rem", marginBottom: "0.3rem" }}
-								>
-									{t("members.removePrimaryTokenNote")}
-								</div>
-								<label className="ui-label" htmlFor="fd-remove-primary-token">
-									{t("members.confirmTokenLabel")}
-								</label>
-								<input
-									id="fd-remove-primary-token"
-									className="ui-input"
-									type="password"
-									autoComplete="current-password"
-									value={removeToken}
-									onChange={(e) => setRemoveToken(e.target.value)}
-									placeholder={t("members.confirmTokenPlaceholder")}
-								/>
-								{removeError && (
-									<div
-										className="fd-error-text"
-										role="alert"
-										style={{ marginTop: "0.3rem" }}
-									>
-										{removeError}
-									</div>
-								)}
-							</div>
-						</>
-					)}
 				</ConfirmModal>
 			)}
 		</div>
@@ -426,14 +363,18 @@ function MemberRow({
 							{t("members.activate")}
 						</button>
 					)}
-					<button
-						type="button"
-						className="ui-btn ui-btn-sm ui-btn-danger"
-						title={t("members.removeTip")}
-						onClick={onRemove}
-					>
-						{t("common.remove")}
-					</button>
+					{/* The primary is the config source of truth and cannot be removed
+					    here; it is changed only by re-running the Fleet Sync wizard. */}
+					{!isPrimary && (
+						<button
+							type="button"
+							className="ui-btn ui-btn-sm ui-btn-danger"
+							title={t("members.removeTip")}
+							onClick={onRemove}
+						>
+							{t("common.remove")}
+						</button>
+					)}
 				</div>
 			</td>
 		</tr>
@@ -460,20 +401,39 @@ function AddMemberForm({
 		setError("");
 		setBusy(true);
 		try {
+			// An add now succeeds only once the host replied and verified (token
+			// accepted, not the fleet primary), so there is no "saved but unconfirmed"
+			// warning path here anymore: a failure throws and is shown below.
 			const created = await api.createMember(name.trim(), url.trim(), token);
 			toast(t("members.added", { name: created.name }), "success");
-			// The member saved, but the token could not be confirmed: tell the
-			// operator now rather than leaving them to wonder why it shows degraded.
-			if (created.token_warning) toast(created.token_warning, "info");
 			setName("");
 			setUrl("");
 			setToken("");
 			onAdded();
 		} catch (err) {
-			if (err instanceof ApiError && err.status === 400) {
-				if (/https/i.test(err.message)) setError(t("members.errHttpsRequired"));
-				else if (/already exists/i.test(err.message))
+			if (
+				err instanceof ApiError &&
+				(err.status === 400 || err.status === 409)
+			) {
+				// Prefer the stable machine code the backend now sends; fall back to
+				// matching the message text for any response that predates the code.
+				const c = err.code;
+				if (c === "insecure_url" || /https/i.test(err.message))
+					setError(t("members.errHttpsRequired"));
+				else if (c === "duplicate" || /already exists/i.test(err.message))
 					setError(t("members.errDuplicate"));
+				else if (
+					c === "already_primary" ||
+					/already the fleet primary/i.test(err.message)
+				)
+					setError(t("members.errAlreadyPrimary"));
+				else if (
+					c === "already_member" ||
+					/already a member/i.test(err.message)
+				)
+					setError(t("members.errAlreadyMember"));
+				else if (c === "unreachable" || /could not reach/i.test(err.message))
+					setError(t("members.errUnreachable"));
 				else setError(err.message);
 			} else {
 				setError(t("errors.generic"));
@@ -545,6 +505,7 @@ function AddMemberForm({
 					value={token}
 					onChange={(e) => setToken(e.target.value)}
 					placeholder={t("members.tokenPlaceholder")}
+					required
 				/>
 				<div
 					className="fd-faint"
@@ -566,7 +527,7 @@ function AddMemberForm({
 				<button
 					type="submit"
 					className="ui-btn ui-btn-primary"
-					disabled={busy || !name.trim() || !url.trim()}
+					disabled={busy || !name.trim() || !url.trim() || !token.trim()}
 				>
 					{busy ? t("common.adding") : t("common.add")}
 				</button>

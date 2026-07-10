@@ -110,8 +110,8 @@
 		"namePlaceholder": "hotel-1",
 		"urlLabel": "Basis-URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
-		"tokenLabel": "Admin-Token (optional)",
-		"tokenHint": "Verschlüsselt gespeichert. Benötigt für Versions- und Traffic-Auslesung sowie für Admin-Token-Sync.",
+		"tokenLabel": "Admin-Token",
+		"tokenHint": "Erforderlich. Verschlüsselt gespeichert. Front Desk verifiziert den Host damit beim Hinzufügen und nutzt es für Versions- und Traffic-Auslesung sowie Admin-Token-Sync.",
 		"tokenPlaceholder": "Der aktuelle ADMIN_TOKEN dieses Mitglieds",
 		"removeTitle": "{{name}} entfernen?",
 		"removeBody": "Front Desk hört auf, {{name}} zu überwachen, und entfernt es aus dem Traefik-Backend-Pool. Die Instanz selbst wird nicht angetastet. Laufende Anfragen werden nicht abgeschlossen; drainen Sie zuerst für eine verlustfreie Entfernung.",
@@ -122,12 +122,11 @@
 		"removed": "{{name}} entfernt",
 		"drained": "{{name}} aus dem Verkehr gezogen",
 		"activated": "{{name}} auf aktiv gesetzt",
-		"removePrimaryTitle": "Primär {{name}} entfernen?",
-		"removePrimaryWarning": "{{name}} ist die Wahrheitsquelle der Flotte. Das Entfernen beendet den Config-Sync: kein anderes Mitglied erhält weiterhin Updates davon. Soll die Flotte weiter synchron bleiben, weisen Sie den Primär zuerst im Flotten-Sync-Assistenten neu zu.",
-		"removePrimaryTokenNote": "Das Entfernen des Primärs erfordert das Front Desk-Admin-Token.",
 		"confirmTokenLabel": "Admin-Token",
 		"confirmTokenPlaceholder": "Front Desk-Admin-Token eingeben",
-		"removePrimaryTokenError": "Dieses Token wurde nicht akzeptiert"
+		"errAlreadyPrimary": "Dieser Host ist bereits der Fleet-Primary und kann nicht als Mitglied hinzugefügt werden. Ändern Sie den Primary stattdessen im Fleet-Sync-Assistenten.",
+		"errUnreachable": "Front Desk konnte diesen Host nicht zur Verifizierung erreichen. Prüfen Sie URL und Admin-Token und ob der Host läuft.",
+		"errAlreadyMember": "Dieser Host ist bereits ein Mitglied (unter einer anderen Adresse hinzugefügt). Entfernen Sie zuerst den vorhandenen Eintrag, wenn Sie ihn erneut hinzufügen möchten."
 	},
 	"traffic": {
 		"title": "Traffic",
@@ -347,7 +346,8 @@
 			"changeTokenNote": "Das Ändern des Primärs ersetzt die Wahrheitsquelle der Flotte und erfordert daher das Admin-Token.",
 			"confirmTokenLabel": "Admin-Token",
 			"confirmTokenPlaceholder": "Front Desk-Admin-Token eingeben",
-			"stepN": "Schritt {{n}}"
+			"stepN": "Schritt {{n}}",
+			"sameHostError": "Sie können den Primary nicht durch denselben Host ersetzen: dieser Host ist bereits der Primary der Flotte."
 		},
 		"primaryTag": "Primär",
 		"memberResultOk": "{{name}} ✓",

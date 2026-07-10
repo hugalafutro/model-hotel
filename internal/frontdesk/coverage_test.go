@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -115,8 +116,11 @@ func TestPollHealthOnceReportsDown(t *testing.T) {
 func TestServerSettingsEventsAndMemberMutations(t *testing.T) {
 	srv, _ := newTestServer(t)
 
+	// An add now requires a verified reply: point it at a stand-in that answers
+	// the token probe and self-reports is_primary=false.
+	host := systemMemberServer(t, false)
 	rec := do(t, srv, http.MethodPost, "/api/members",
-		`{"name":"m1","url":"http://m1:8081","token":""}`, true)
+		fmt.Sprintf(`{"name":"m1","url":%q,"token":"tok"}`, host.URL), true)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create member = %d: %s", rec.Code, rec.Body.String())
 	}
@@ -218,7 +222,9 @@ func TestServerHandlersErrorWhenStoreClosed(t *testing.T) {
 		auth               bool
 	}{
 		{http.MethodGet, "/api/members", "", true},
-		{http.MethodPost, "/api/members", `{"name":"x","url":"http://x:8081"}`, true},
+		// Token present so the handler passes the token-required check and reaches
+		// the (dead) store, exercising createMember's writeError branch.
+		{http.MethodPost, "/api/members", `{"name":"x","url":"http://x:8081","token":"tok"}`, true},
 		{http.MethodPatch, "/api/members/" + m.ID, `{"name":"y"}`, true},
 		{http.MethodPost, "/api/members/" + m.ID + "/state", `{"state":"drained"}`, true},
 		{http.MethodDelete, "/api/members/" + m.ID, "", true},

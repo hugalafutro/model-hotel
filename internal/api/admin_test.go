@@ -125,6 +125,7 @@ func (m *mockVirtualKeyStore) Update(ctx context.Context, id uuid.UUID, name str
 
 type mockSettingsStore struct {
 	getWithDefaultFn  func(ctx context.Context, key string, defaultValue string) string
+	getCheckedFn      func(ctx context.Context, key string) (string, bool, error)
 	setFn             func(ctx context.Context, key string, value string) error
 	getAllFn          func(ctx context.Context) (map[string]string, error)
 	setTxFn           func(ctx context.Context, tx pgx.Tx, key, value string) error
@@ -140,6 +141,12 @@ func (m *mockSettingsStore) GetWithDefault(ctx context.Context, key, defaultValu
 		return m.getWithDefaultFn(ctx, key, defaultValue)
 	}
 	return defaultValue
+}
+func (m *mockSettingsStore) GetChecked(ctx context.Context, key string) (string, bool, error) {
+	if m.getCheckedFn != nil {
+		return m.getCheckedFn(ctx, key)
+	}
+	return "", false, nil
 }
 func (m *mockSettingsStore) Set(ctx context.Context, key, value string) error {
 	if m.setFn != nil {

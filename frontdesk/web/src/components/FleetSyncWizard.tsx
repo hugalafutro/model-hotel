@@ -94,10 +94,12 @@ export function FleetSyncWizard({
 	// destructive case; the very first designation applies without a token.
 	const changingPrimary =
 		autoSync.primary_id !== "" && autoSync.primary_id !== primaryId;
-	// A re-run that re-selects the *same* primary is a manual re-sync, not a
-	// fresh designation: commit preserves the operator's enabled (paused) state
-	// instead of silently resuming auto-sync.
-	const samePrimaryRerun =
+	// Re-selecting the current primary as the "new" primary is not a valid change:
+	// the primary is the source of truth and cannot be replaced with itself. The
+	// backend also rejects the same physical host reached under a different URL
+	// (409); here we block the trivial same-member-row case in the UI. (There is no
+	// manual re-sync path: pause/resume the auto-syncer instead.)
+	const sameHostReselected =
 		autoSync.primary_id !== "" && autoSync.primary_id === primaryId;
 
 	const loadLastSync = useCallback(() => {
@@ -196,19 +198,19 @@ export function FleetSyncWizard({
 		let saved: AutoSyncConfig;
 		try {
 			saved = await api.putAutoSync(
-				{
-					enabled: samePrimaryRerun ? autoSync.enabled : true,
-					primary_id: primaryId,
-				},
+				{ enabled: true, primary_id: primaryId },
 				changingPrimary ? commitToken.trim() : undefined,
 			);
 		} catch (e) {
-			// Designation rejected (bad token, or the primary changed under us).
-			// Nothing was pushed; keep the modal open so the operator can retry.
+			// Designation rejected. Nothing was pushed; keep the modal open so the
+			// operator can retry. A 409 is the same-host guard: the selected host is
+			// already the primary, reached under a different address.
 			setCommitError(
-				e instanceof ApiError && (e.status === 400 || e.status === 403)
-					? e.message
-					: t("errors.generic"),
+				e instanceof ApiError && e.status === 409
+					? t("settings.wizard.sameHostError")
+					: e instanceof ApiError && (e.status === 400 || e.status === 403)
+						? e.message
+						: t("errors.generic"),
 			);
 			setBusy(false);
 			return;
@@ -249,6 +251,10 @@ export function FleetSyncWizard({
 	// needing a token) it routes through a confirmation; a first, clean setup with
 	// nothing to push commits straight through.
 	const proceed = () => {
+		// Re-selecting the current primary is not a valid change (the source of
+		// truth cannot be replaced with itself). The proceed button is disabled in
+		// this case; this is a belt-and-suspenders guard.
+		if (sameHostReselected) return;
 		setCommitToken("");
 		setCommitError("");
 		if (overwrites.length > 0) setConfirm("config");
@@ -342,6 +348,9 @@ export function FleetSyncWizard({
 					overwrites={overwrites}
 					busy={busy}
 					changingPrimary={changingPrimary}
+					blockedReason={
+						sameHostReselected ? t("settings.wizard.sameHostError") : ""
+					}
 					onProceed={proceed}
 				/>
 			)}
@@ -759,15 +768,20 @@ function StepConfig({
 	overwrites,
 	busy,
 	changingPrimary,
+	blockedReason,
 	onProceed,
 }: {
 	status: FleetStatus;
 	overwrites: FleetMemberStatus[];
 	busy: boolean;
 	changingPrimary: boolean;
+	// Non-empty when the selected host cannot be set as primary (re-selecting the
+	// current primary). Shows the reason and disables the proceed action.
+	blockedReason: string;
 	onProceed: () => void;
 }) {
 	const { t } = useTranslation();
+	const blocked = blockedReason !== "";
 	return (
 		<div>
 			<h3 className="fd-step-title">{t("settings.wizard.step3Title")}</h3>
@@ -775,6 +789,11 @@ function StepConfig({
 				{t("settings.wizard.step3Intro")}
 			</p>
 			<MemberTable status={status} kind="config" />
+			{blocked && (
+				<Notice variant="warn" style={{ marginTop: "0.7rem" }}>
+					{blockedReason}
+				</Notice>
+			)}
 			{overwrites.length === 0 ? (
 				<div style={{ marginTop: "0.7rem" }}>
 					<Notice variant="info">{t("settings.wizard.step3NoChanges")}</Notice>
@@ -782,7 +801,7 @@ function StepConfig({
 						type="button"
 						className="ui-btn ui-btn-primary"
 						style={{ marginTop: "0.8rem" }}
-						disabled={busy}
+						disabled={busy || blocked}
 						onClick={onProceed}
 					>
 						{t(
@@ -798,7 +817,7 @@ function StepConfig({
 					<button
 						type="button"
 						className="ui-btn"
-						disabled={busy}
+						disabled={busy || blocked}
 						onClick={onProceed}
 					>
 						{t("settings.wizard.syncConfigBtn")}

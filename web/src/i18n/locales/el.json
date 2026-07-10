@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Ο πάροχος βρίσκεται υπό έλεγχο (ο διακόπτης κυκλώματος είναι μισάνοιχτος)",
 				"circuit_breaker_open": "Διακοπή λειτουργίας παρόχου (ανοιχτός διακόπτης κυκλώματος)",
 				"discovery_provider_failed": "Ο πάροχος απέτυχε κατά τη διαδικασία ανίχνευσης",
+				"fleet_conflict": "Διένεξη κυριότητας του Front Desk",
 				"failover_sync_error": "Αποτυχία συγχρονισμού ομάδας failover"
 			},
 			"events": {

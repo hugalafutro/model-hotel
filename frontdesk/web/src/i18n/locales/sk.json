@@ -110,8 +110,8 @@
 		"namePlaceholder": "hotel-1",
 		"urlLabel": "Základná URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
-		"tokenLabel": "Admin token (voliteľné)",
-		"tokenHint": "Uložené šifrovane. Potrebné na čítanie verzií a prevádzky a na synchronizáciu cez admin token.",
+		"tokenLabel": "Token správcu",
+		"tokenHint": "Povinné. Uložené šifrovane. Front Desk ním pri pridaní overí hostiteľa a používa ho na čítanie verzií a prevádzky a na synchronizáciu cez admin token.",
 		"tokenPlaceholder": "Aktuálny ADMIN_TOKEN tohto člena",
 		"removeTitle": "Odstrániť {{name}}?",
 		"removeBody": "Front Desk prestane sledovať {{name}} a odoberie ho z poolu backendov Traefik. Samotná inštancia zostane nedotknutá. Toto nevyberie prebiehajúce požiadavky z prevádzky; pre bezstratové odstránenie najprv vyberte člena z prevádzky.",
@@ -122,12 +122,11 @@
 		"removed": "{{name}} odstránený",
 		"drained": "{{name}} vybraný z prevádzky",
 		"activated": "{{name}} nastavený ako aktívny",
-		"removePrimaryTitle": "Odstrániť primárneho {{name}}?",
-		"removePrimaryWarning": "{{name}} je zdrojom pravdy flotily. Jeho odstránenie zastaví synchronizáciu konfigurácie: žiadny ďalší člen už nebude prijímať aktualizácie z neho. Ak chcete, aby flotila naďalej synchronizovala, priraďte najprv primárneho v Sprievodcovi synchronizáciou flotily.",
-		"removePrimaryTokenNote": "Odstránenie primárneho vyžaduje Admin token Front Desk.",
 		"confirmTokenLabel": "Admin token",
 		"confirmTokenPlaceholder": "Zadajte Admin token Front Desk",
-		"removePrimaryTokenError": "Tento token nebol prijatý"
+		"errAlreadyPrimary": "Tento hostiteľ už je primárnym uzlom flotily a nemožno ho pridať ako člena. Zmeňte primárny uzol v sprievodcovi synchronizáciou flotily.",
+		"errUnreachable": "Front Desk sa k tomuto hostiteľovi nedokázal pripojiť kvôli overeniu. Skontrolujte URL, admin token a či hostiteľ beží.",
+		"errAlreadyMember": "Tento hostiteľ už je členom (pridaný pod inou adresou). Ak ho chcete pridať znova, najprv odstráňte existujúci záznam."
 	},
 	"traffic": {
 		"title": "Prevádzka",
@@ -347,7 +346,8 @@
 			"changeTokenNote": "Zmena primárneho nahradí zdroj pravdy flotily, takže vyžaduje admin token.",
 			"confirmTokenLabel": "Admin token",
 			"confirmTokenPlaceholder": "Zadajte admin token Front Desk",
-			"stepN": "Krok {{n}}"
+			"stepN": "Krok {{n}}",
+			"sameHostError": "Primárny uzol nemožno nahradiť rovnakým hostiteľom: tento hostiteľ už je primárnym uzlom flotily."
 		},
 		"primaryTag": "primárny",
 		"memberResultOk": "{{name}} ✓",

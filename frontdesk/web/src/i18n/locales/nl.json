@@ -110,8 +110,8 @@
 		"namePlaceholder": "hotel-1",
 		"urlLabel": "Basis-URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
-		"tokenLabel": "Admin-token (optioneel)",
-		"tokenHint": "Versleuteld opgeslagen. Nodig voor versie- en verkeerstatistieken, en voor admin-token-sync.",
+		"tokenLabel": "Admin-token",
+		"tokenHint": "Vereist. Versleuteld opgeslagen. Front Desk verifieert de host ermee bij het toevoegen en gebruikt het voor versie- en verkeerstatistieken en admin-token-sync.",
 		"tokenPlaceholder": "De huidige ADMIN_TOKEN van deze member",
 		"removeTitle": "{{name}} verwijderen?",
 		"removeBody": "Front Desk stopt met het volgen van {{name}} en verwijdert het uit de Traefik-backend-pool. Het exemplaar zelf wordt niet aangeraakt. Dit draint geen lopende verzoeken; drain eerst voor verwijdering zonder verlies.",
@@ -122,12 +122,11 @@
 		"removed": "{{name}} verwijderd",
 		"drained": "{{name}} ingesteld op gedrained",
 		"activated": "{{name}} ingesteld op actief",
-		"removePrimaryTitle": "Primaire {{name}} verwijderen?",
-		"removePrimaryWarning": "{{name}} is de bron van waarheid van de vloot. Het verwijderen stopt de config-sync: geen enkele andere member ontvangt nog updates ervan. Als je wilt dat de vloot blijft synchroniseren, wijs dan eerst de primaire opnieuw toe in de Vloot-sync-wizard.",
-		"removePrimaryTokenNote": "Het verwijderen van de primaire vereist het Front Desk Admin-token.",
 		"confirmTokenLabel": "Admin-token",
 		"confirmTokenPlaceholder": "Voer het Front Desk Admin-token in",
-		"removePrimaryTokenError": "Dit token is niet geaccepteerd"
+		"errAlreadyPrimary": "Deze host is al de primary van de fleet en kan niet als lid worden toegevoegd. Wijzig de primary via de Fleet Sync-wizard.",
+		"errUnreachable": "Front Desk kon deze host niet bereiken om te verifiëren. Controleer de URL, het admin-token en of de host draait.",
+		"errAlreadyMember": "Deze host is al een lid (toegevoegd onder een ander adres). Verwijder eerst het bestaande item als je het opnieuw wilt toevoegen."
 	},
 	"traffic": {
 		"title": "Verkeer",
@@ -347,7 +346,8 @@
 			"changeTokenNote": "Het wijzigen van de primaire vervangt de bron van waarheid van de vloot, dus het admin-token is vereist.",
 			"confirmTokenLabel": "Admin-token",
 			"confirmTokenPlaceholder": "Voer het Front Desk-admin-token in",
-			"stepN": "Stap {{n}}"
+			"stepN": "Stap {{n}}",
+			"sameHostError": "Je kunt de primary niet vervangen door dezelfde host: die host is al de primary van de fleet."
 		},
 		"primaryTag": "primaire",
 		"memberResultOk": "{{name}} ✓",

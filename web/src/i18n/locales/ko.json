@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "프로바이더 상태 확인 중 (서킷 브레이커 반개 상태)",
 				"circuit_breaker_open": "프로바이더 다운 (서킷 브레이커 개방)",
 				"discovery_provider_failed": "프로바이더 검색 중 오류 발생",
+				"fleet_conflict": "Front Desk 소유권 충돌",
 				"failover_sync_error": "페일오버 그룹 동기화 실패"
 			},
 			"events": {

@@ -110,8 +110,8 @@
 		"namePlaceholder": "hotel-1",
 		"urlLabel": "URL base",
 		"urlPlaceholder": "https://hotel-1.example.com",
-		"tokenLabel": "Token de administrador (opcional)",
-		"tokenHint": "Se almacena cifrado. Necesario para lecturas de versión y tráfico, y para la sincronización del token de administrador.",
+		"tokenLabel": "Token de administrador",
+		"tokenHint": "Obligatorio. Se almacena cifrado. Front Desk verifica el host con al añadirlo y lo usa para lecturas de versión y tráfico y la sincronización del token de administrador.",
 		"tokenPlaceholder": "El ADMIN_TOKEN actual de este miembro",
 		"removeTitle": "¿Eliminar {{name}}?",
 		"removeBody": "Front Desk deja de rastrear {{name}} y lo elimina del conjunto de backends de Traefik. La instancia en sí no se modifica. Esto no retira las peticiones en curso; retíralo antes para una eliminación sin pérdida.",
@@ -122,12 +122,11 @@
 		"removed": "{{name}} eliminado",
 		"drained": "{{name}} establecido como retirado",
 		"activated": "{{name}} establecido como activo",
-		"removePrimaryTitle": "¿Eliminar el principal {{name}}?",
-		"removePrimaryWarning": "{{name}} es la fuente de verdad de la flota. Eliminarlo detiene la sincronización de configuración: ningún otro miembro seguirá recibiendo actualizaciones de él. Si quieres que la flota siga sincronizándose, reasigna antes el principal en el Asistente de sincronización de flota.",
-		"removePrimaryTokenNote": "Eliminar el principal requiere el token de administrador de Front Desk.",
 		"confirmTokenLabel": "Token de administrador",
 		"confirmTokenPlaceholder": "Introduce el token de administrador de Front Desk",
-		"removePrimaryTokenError": "Ese token no fue aceptado"
+		"errAlreadyPrimary": "Este host ya es el primario de la flota y no puede añadirse como miembro. Cambia el primario desde el asistente de sincronización de flota.",
+		"errUnreachable": "Front Desk no pudo alcanzar este host para verificarlo. Comprueba la URL, el token de administrador y que el host esté en ejecución.",
+		"errAlreadyMember": "Este host ya es un miembro (añadido con otra dirección). Elimina primero la entrada existente si quieres volver a añadirlo."
 	},
 	"traffic": {
 		"title": "Tráfico",
@@ -347,7 +346,8 @@
 			"changeTokenNote": "Cambiar el principal reemplaza la fuente de verdad de la flota, por lo que requiere el token de administrador.",
 			"confirmTokenLabel": "Token de administrador",
 			"confirmTokenPlaceholder": "Introduce el token de administrador de Front Desk",
-			"stepN": "Paso {{n}}"
+			"stepN": "Paso {{n}}",
+			"sameHostError": "No puedes reemplazar el primario por el mismo host: ese host ya es el primario de la flota."
 		},
 		"primaryTag": "principal",
 		"memberResultOk": "{{name}} ✓",

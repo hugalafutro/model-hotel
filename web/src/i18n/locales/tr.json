@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Sağlayıcı kontrol ediliyor (devre kesici yarı açık)",
 				"circuit_breaker_open": "Sağlayıcı devre dışı (devre kesici açıldı)",
 				"discovery_provider_failed": "Sağlayıcı, keşif sırasında hata verdi",
+				"fleet_conflict": "Front Desk sahiplik çakışması",
 				"failover_sync_error": "Yedekleme grubu senkronizasyonu başarısız oldu"
 			},
 			"events": {

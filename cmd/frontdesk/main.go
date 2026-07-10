@@ -113,6 +113,15 @@ func main() {
 
 	bus := events.NewBus()
 	poller := frontdesk.NewPoller(store, bus, traefikAPI)
+	// Resolve this Front Desk's persistent identity once and stamp it onto every
+	// announce. Members now reject announces without an id (it is how they know
+	// which control plane owns them), so a Front Desk that cannot establish its
+	// identity cannot manage any members: fail fast rather than run degraded.
+	fdID, err := store.EnsureFrontdeskID(ctx)
+	if err != nil {
+		debuglog.Fatal("frontdesk: could not resolve Front Desk identity", "error", err)
+	}
+	poller.SetFrontdeskID(fdID)
 	ipLimiter := ratelimit.NewIPLimiter(defaultIPRPS, defaultIPBurst, config.LoadTrustedProxies(), nil)
 
 	srv := frontdesk.NewServer(frontdesk.ServerConfig{

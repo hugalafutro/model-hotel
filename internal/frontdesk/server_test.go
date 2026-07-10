@@ -3,11 +3,13 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,12 +21,36 @@ import (
 
 const testFrontdeskToken = "test-frontdesk-token"
 
-// failingReader is an io.Reader whose Read always returns an error, used to
-// exercise the body-read failure path in deleteMember (a 400 before the
-// token guard runs).
-type failingReader struct{}
+var memberServerSeq int32
 
-func (*failingReader) Read([]byte) (int, error) { return 0, errors.New("simulated read failure") }
+// systemMemberServer stands in for a member instance: it answers GET
+// /api/system/ with a fleet block reporting the given is_primary plus a unique
+// instance_id, which is what Front Desk's same-host repoint guard and add-time
+// dedup query. Other paths return 200 empty so unrelated probes (health/
+// settings) do not error. Each call gets a distinct instance_id, so two servers
+// look like two different hosts unless you use systemMemberServerID.
+func systemMemberServer(t *testing.T, selfReportsPrimary bool) *httptest.Server {
+	t.Helper()
+	id := fmt.Sprintf("iid-%d", atomic.AddInt32(&memberServerSeq, 1))
+	return systemMemberServerID(t, selfReportsPrimary, id)
+}
+
+// systemMemberServerID is systemMemberServer with an explicit instance_id, so
+// two stand-ins can be made to look like the same physical host.
+func systemMemberServerID(t *testing.T, selfReportsPrimary bool, instanceID string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/system") {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprintf(w, `{"fleet":{"is_primary":%s},"instance_id":%q}`,
+				strconv.FormatBool(selfReportsPrimary), instanceID)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
 
 func newTestServer(t *testing.T) (*Server, *Store) {
 	t.Helper()
@@ -128,9 +154,16 @@ func TestServerTraefikConfigUnauthenticatedAndRecordsPoll(t *testing.T) {
 
 func TestServerMemberCRUD(t *testing.T) {
 	srv, _ := newTestServer(t)
+	// A member is only added once it replies and verifies (token accepted, not the
+	// primary), so point the add at a stand-in that answers 200 and self-reports
+	// is_primary=false.
+	host := systemMemberServer(t, false)
+	body := func(name, url string) string {
+		return fmt.Sprintf(`{"name":%q,"url":%q,"token":"tok"}`, name, url)
+	}
 
 	// Create.
-	rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"hotel-1","url":"http://h1:8081"}`, true)
+	rec := do(t, srv, http.MethodPost, "/api/members", body("hotel-1", host.URL), true)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create = %d, want 201; body=%s", rec.Code, rec.Body.String())
 	}
@@ -141,12 +174,16 @@ func TestServerMemberCRUD(t *testing.T) {
 	}
 
 	// Duplicate URL -> 400.
-	if rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"dup","url":"http://h1:8081"}`, true); rec.Code != http.StatusBadRequest {
+	if rec := do(t, srv, http.MethodPost, "/api/members", body("dup", host.URL), true); rec.Code != http.StatusBadRequest {
 		t.Errorf("duplicate = %d, want 400", rec.Code)
 	}
 	// Bad URL -> 400.
-	if rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"x","url":"ftp://nope"}`, true); rec.Code != http.StatusBadRequest {
+	if rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"x","url":"ftp://nope","token":"tok"}`, true); rec.Code != http.StatusBadRequest {
 		t.Errorf("bad url = %d, want 400", rec.Code)
+	}
+	// Missing token -> 400 (a member must verify before it is added).
+	if rec := do(t, srv, http.MethodPost, "/api/members", fmt.Sprintf(`{"name":"y","url":%q}`, host.URL), true); rec.Code != http.StatusBadRequest {
+		t.Errorf("missing token = %d, want 400", rec.Code)
 	}
 
 	// List shows it with a status field.
@@ -244,11 +281,16 @@ func TestServerLogout(t *testing.T) {
 func TestServerAutoSyncPrimaryGate(t *testing.T) {
 	srv, store := newTestServer(t)
 	ctx := context.Background()
-	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example.com", "tok1")
+	// Members point at stand-in servers that self-report is_primary=false, so the
+	// authorised repoint below passes the same-host guard (they are genuinely
+	// different hosts) and the test never touches the real network.
+	s1 := systemMemberServer(t, false)
+	s2 := systemMemberServer(t, false)
+	m1, err := store.CreateMember(ctx, "hotel-1", s1.URL, "tok1")
 	if err != nil {
 		t.Fatalf("create m1: %v", err)
 	}
-	m2, err := store.CreateMember(ctx, "hotel-2", "https://h2.example.com", "tok2")
+	m2, err := store.CreateMember(ctx, "hotel-2", s2.URL, "tok2")
 	if err != nil {
 		t.Fatalf("create m2: %v", err)
 	}
@@ -289,6 +331,16 @@ func TestServerAutoSyncPrimaryGate(t *testing.T) {
 		t.Errorf("primary after confirmed repoint: got %q, want %q", got, m2.ID)
 	}
 
+	// Re-selecting the same primary row with a valid token is a harmless no-op
+	// server-side (the wizard blocks it client-side): the same-host guard returns
+	// early without probing the host, and the primary is unchanged.
+	if rec := put(`{"enabled":false,"primary_id":"` + m2.ID + `","confirm_token":"` + testFrontdeskToken + `"}`); rec.Code != http.StatusOK {
+		t.Fatalf("same-row re-select = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if got := primaryNow(); got != m2.ID {
+		t.Errorf("primary after same-row re-select: got %q, want %q", got, m2.ID)
+	}
+
 	// Clearing the primary is gated the same way.
 	if rec := put(`{"enabled":false,"primary_id":""}`); rec.Code != http.StatusForbidden {
 		t.Errorf("clear without token = %d, want 403", rec.Code)
@@ -301,7 +353,45 @@ func TestServerAutoSyncPrimaryGate(t *testing.T) {
 	}
 }
 
-func TestServerDeletePrimaryRequiresToken(t *testing.T) {
+// TestServerRepointSameHostRejected covers the same-host guard: repointing the
+// primary onto a member row that is actually the same physical host (it
+// self-reports is_primary=true) is refused with 409 even with a valid token, so
+// the source of truth cannot be "changed" to itself under a different URL.
+func TestServerRepointSameHostRejected(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	// m1 is the designated primary. m2 is a second member row whose host reports
+	// itself as already-primary, i.e. the same instance reached under another URL.
+	s1 := systemMemberServer(t, false)
+	sameHost := systemMemberServer(t, true)
+	m1, err := store.CreateMember(ctx, "hotel-1", s1.URL, "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	m2, err := store.CreateMember(ctx, "hotel-1-lan", sameHost.URL, "tok2")
+	if err != nil {
+		t.Fatalf("create m2: %v", err)
+	}
+
+	if rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
+		`{"enabled":false,"primary_id":"`+m1.ID+`"}`, true); rec.Code != http.StatusOK {
+		t.Fatalf("designate primary = %d; body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Authorised repoint onto the same host -> 409, primary unchanged.
+	rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
+		`{"enabled":false,"primary_id":"`+m2.ID+`","confirm_token":"`+testFrontdeskToken+`"}`, true)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("repoint to same host = %d, want 409; body=%s", rec.Code, rec.Body.String())
+	}
+	cfg, _ := store.GetAutoSync(ctx)
+	if cfg.PrimaryID != m1.ID {
+		t.Errorf("primary changed to %q despite same-host rejection, want %q", cfg.PrimaryID, m1.ID)
+	}
+}
+
+func TestServerCannotDeletePrimary(t *testing.T) {
 	srv, store := newTestServer(t)
 	ctx := context.Background()
 
@@ -321,55 +411,39 @@ func TestServerDeletePrimaryRequiresToken(t *testing.T) {
 		t.Fatalf("designate primary = %d; body=%s", rec.Code, rec.Body.String())
 	}
 
-	// Deleting the non-primary member needs no token.
+	// Deleting the non-primary member needs no token and succeeds.
 	if rec := do(t, srv, http.MethodDelete, "/api/members/"+om.ID, "", true); rec.Code != http.StatusNoContent {
 		t.Errorf("delete non-primary = %d, want 204", rec.Code)
 	}
 
-	// Deleting the primary without a confirm token -> 403.
-	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, "", true); rec.Code != http.StatusForbidden {
-		t.Errorf("delete primary without token = %d, want 403", rec.Code)
+	// The primary is the config source of truth and cannot be removed here at all:
+	// there is no token that unlocks it. It must be changed via the Fleet Sync
+	// wizard (a repoint) first. Every removal attempt is refused with 409.
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, "", true); rec.Code != http.StatusConflict {
+		t.Errorf("delete primary (no body) = %d, want 409", rec.Code)
+	}
+	// Even the valid admin token does not unlock a primary deletion anymore.
+	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, `{"confirm_token":"`+testFrontdeskToken+`"}`, true); rec.Code != http.StatusConflict {
+		t.Errorf("delete primary (valid token) = %d, want 409", rec.Code)
 	}
 
-	// A wrong token is equally refused.
-	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, `{"confirm_token":"nope"}`, true); rec.Code != http.StatusForbidden {
-		t.Errorf("delete primary wrong token = %d, want 403", rec.Code)
-	}
-	// A malformed body on a primary delete -> 400 (bad request, not a token refusal).
-	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, `{not json}`, true); rec.Code != http.StatusBadRequest {
-		t.Errorf("delete primary malformed body = %d, want 400", rec.Code)
-	}
-	// A body-read failure (e.g. broken connection) -> 400 before the token guard.
-	failReq := httptest.NewRequest(http.MethodDelete, "/api/members/"+pm.ID, &failingReader{})
-	failReq.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
-	failRec := httptest.NewRecorder()
-	srv.ServeHTTP(failRec, failReq)
-	if failRec.Code != http.StatusBadRequest {
-		t.Errorf("delete with unreadable body = %d, want 400", failRec.Code)
-	}
-
-	// The member is still there (the refused deletes did not proceed).
+	// The primary is still there and still designated after the refused deletes.
 	if _, err := store.GetMember(ctx, pm.ID); err != nil {
-		t.Errorf("primary member should still exist after refused deletes: err=%v", err)
+		t.Errorf("primary member should still exist: err=%v", err)
 	}
-
-	// The correct admin token lets the deletion through.
-	if rec := do(t, srv, http.MethodDelete, "/api/members/"+pm.ID, `{"confirm_token":"`+testFrontdeskToken+`"}`, true); rec.Code != http.StatusNoContent {
-		t.Errorf("delete primary valid token = %d, want 204; body=%s", rec.Code, rec.Body.String())
-	}
-
-	// Deleting the primary clears the auto-sync primary pointer.
 	cfg, _ := store.GetAutoSync(ctx)
-	if cfg.PrimaryID != "" {
-		t.Errorf("primary_id = %q after deleting primary, want cleared", cfg.PrimaryID)
+	if cfg.PrimaryID != pm.ID {
+		t.Errorf("primary_id = %q after refused deletes, want %q", cfg.PrimaryID, pm.ID)
 	}
 }
 
 func TestServerEventsAndStatus(t *testing.T) {
 	srv, _ := newTestServer(t)
 
-	// Creating a member emits an event.
-	_ = do(t, srv, http.MethodPost, "/api/members", `{"name":"h","url":"http://h:8081"}`, true)
+	// Creating a member emits an event (a verified add against a live stand-in).
+	host := systemMemberServer(t, false)
+	_ = do(t, srv, http.MethodPost, "/api/members",
+		fmt.Sprintf(`{"name":"h","url":%q,"token":"tok"}`, host.URL), true)
 
 	rec := do(t, srv, http.MethodGet, "/api/events", "", true)
 	if rec.Code != http.StatusOK {
@@ -409,8 +483,10 @@ func TestClampEventsLimit(t *testing.T) {
 
 func TestServerEventsTimeFilter(t *testing.T) {
 	srv, _ := newTestServer(t)
-	// Creating a member emits one event "now".
-	_ = do(t, srv, http.MethodPost, "/api/members", `{"name":"h","url":"http://h:8081"}`, true)
+	// Creating a member emits one event "now" (a verified add against a stand-in).
+	host := systemMemberServer(t, false)
+	_ = do(t, srv, http.MethodPost, "/api/members",
+		fmt.Sprintf(`{"name":"h","url":%q,"token":"tok"}`, host.URL), true)
 
 	count := func(query string) int {
 		rec := do(t, srv, http.MethodGet, "/api/events?"+query, "", true)

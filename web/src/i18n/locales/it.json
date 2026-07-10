@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Provider in fase di verifica (interruttore automatico semiaperto)",
 				"circuit_breaker_open": "Provider inattivo (interruttore di sicurezza aperto)",
 				"discovery_provider_failed": "Errore del provider durante la fase di individuazione",
+				"fleet_conflict": "Conflitto di proprietà del Front Desk",
 				"failover_sync_error": "Sincronizzazione del gruppo di failover non riuscita"
 			},
 			"events": {

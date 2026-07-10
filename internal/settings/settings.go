@@ -267,6 +267,36 @@ func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue strin
 	return value
 }
 
+// GetChecked retrieves a setting from cache or database. Unlike GetWithDefault
+// it distinguishes "key not set" (found=false, err=nil) from a real read
+// failure (err != nil), so callers that change behaviour on a value (fleet
+// role, write locks) can refuse to guess when the read failed. On a real DB
+// error it does NOT emit the debuglog fallback warning that GetWithDefault
+// does: the caller now sees the error and decides how to log it.
+func (r *Repository) GetChecked(ctx context.Context, key string) (value string, found bool, err error) {
+	r.mu.RLock()
+	if entry, ok := r.cache[key]; ok && time.Now().Before(entry.expiresAt) {
+		r.mu.RUnlock()
+		return entry.value, true, nil
+	}
+	r.mu.RUnlock()
+
+	var v string
+	err = r.pool.QueryRow(ctx, "SELECT value FROM settings WHERE key = $1", key).Scan(&v)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", false, nil // key not set: the normal "unset" path
+		}
+		return "", false, err // real read failure: let the caller decide
+	}
+
+	r.mu.Lock()
+	r.cache[key] = cacheEntry{value: v, expiresAt: time.Now().Add(r.cacheTTL)}
+	r.mu.Unlock()
+
+	return v, true, nil
+}
+
 // Set updates a setting and invalidates the cache.
 func (r *Repository) Set(ctx context.Context, key, value string) error {
 	r.mu.Lock()
