@@ -126,6 +126,7 @@
 		"confirmTokenPlaceholder": "Voer het Front Desk Admin-token in",
 		"errAlreadyPrimary": "Deze host is al de primary van de fleet en kan niet als lid worden toegevoegd. Wijzig de primary via de Fleet Sync-wizard.",
 		"errUnreachable": "Front Desk kon deze host niet bereiken om te verifiëren. Controleer de URL, het admin-token en of de host draait.",
+		"errIdentityUnverified": "Front Desk heeft het admin-token geverifieerd, maar kon de fleet-identiteit van deze host niet uitlezen om te bevestigen dat het niet de primaire host of een bestaand lid is. Controleer de host en probeer het opnieuw.",
 		"errAlreadyMember": "Deze host is al een lid (toegevoegd onder een ander adres). Verwijder eerst het bestaande item als je het opnieuw wilt toevoegen."
 	},
 	"traffic": {

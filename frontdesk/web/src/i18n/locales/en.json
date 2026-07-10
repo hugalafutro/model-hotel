@@ -126,6 +126,7 @@
 		"confirmTokenPlaceholder": "Enter the Front Desk admin token",
 		"errAlreadyPrimary": "This host is already the fleet primary and cannot be added as a member. Change the primary from the Fleet Sync wizard instead.",
 		"errUnreachable": "Front Desk could not reach this host to verify it. Check the URL and admin token, and that the host is running.",
+		"errIdentityUnverified": "Front Desk verified the admin token but could not read this host's fleet identity to confirm it is not the primary or an existing member. Check the host and try again.",
 		"errAlreadyMember": "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it."
 	},
 	"traffic": {

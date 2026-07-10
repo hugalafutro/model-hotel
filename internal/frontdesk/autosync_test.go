@@ -3,10 +3,13 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,6 +25,7 @@ type stubAutoMember struct {
 	mu           sync.Mutex
 	srv          *httptest.Server
 	token        string
+	instanceID   string
 	versionHash  string
 	versionCode  int    // status for the version GET (default 200)
 	versionRaw   string // raw version body; overrides the {"version":...} JSON when set
@@ -46,6 +50,7 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 	t.Helper()
 	sm := &stubAutoMember{
 		token:       token,
+		instanceID:  fmt.Sprintf("iid-auto-%d", atomic.AddInt32(&memberServerSeq, 1)),
 		versionHash: "hash-A",
 		exportBody:  fleetExportWithKey,
 		dryDiff:     `{"providers":{},"virtual_keys":{},"settings":{}}`, // converged
@@ -96,6 +101,10 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/settings":
 			// The token probe (createMember/patchMember) hits this; 200 = accepted.
 			_, _ = w.Write([]byte(`{}`))
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/system"):
+			// The fleet-identity self-report the add path reads: a faithful member
+			// stub answers a non-primary box with a unique instance_id.
+			_, _ = w.Write([]byte(`{"fleet":{"is_primary":false},"instance_id":"` + sm.instanceID + `"}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/backups":
 			sm.gotBackup = true
 			if sm.onBackup != nil {

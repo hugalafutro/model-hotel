@@ -434,6 +434,8 @@ function AddMemberForm({
 					setError(t("members.errAlreadyMember"));
 				else if (c === "unreachable" || /could not reach/i.test(err.message))
 					setError(t("members.errUnreachable"));
+				else if (c === "identity_unverified")
+					setError(t("members.errIdentityUnverified"));
 				else setError(err.message);
 			} else {
 				setError(t("errors.generic"));

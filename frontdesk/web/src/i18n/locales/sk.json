@@ -126,6 +126,7 @@
 		"confirmTokenPlaceholder": "Zadajte Admin token Front Desk",
 		"errAlreadyPrimary": "Tento hostiteľ už je primárnym uzlom flotily a nemožno ho pridať ako člena. Zmeňte primárny uzol v sprievodcovi synchronizáciou flotily.",
 		"errUnreachable": "Front Desk sa k tomuto hostiteľovi nedokázal pripojiť kvôli overeniu. Skontrolujte URL, admin token a či hostiteľ beží.",
+		"errIdentityUnverified": "Front Desk overil admin token, ale nepodarilo sa mu načítať identitu tohto hostiteľa vo flotile, aby potvrdil, že nie je primárny ani existujúci člen. Skontrolujte hostiteľa a skúste to znova.",
 		"errAlreadyMember": "Tento hostiteľ už je členom (pridaný pod inou adresou). Ak ho chcete pridať znova, najprv odstráňte existujúci záznam."
 	},
 	"traffic": {

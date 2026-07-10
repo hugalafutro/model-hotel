@@ -126,6 +126,7 @@
 		"confirmTokenPlaceholder": "输入 Front Desk 管理员令牌",
 		"errAlreadyPrimary": "该主机已经是机群的主节点，无法再作为成员添加。请改用 Fleet Sync 向导更改主节点。",
 		"errUnreachable": "Front Desk 无法连接到该主机进行验证。请检查 URL 和管理员令牌，以及主机是否在运行。",
+		"errIdentityUnverified": "Front Desk 已验证管理员令牌，但无法读取该主机的集群身份，以确认它不是主节点或现有成员。请检查该主机并重试。",
 		"errAlreadyMember": "该主机已经是成员（以其他地址添加）。如需重新添加，请先删除现有条目。"
 	},
 	"traffic": {

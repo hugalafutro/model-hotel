@@ -126,6 +126,7 @@
 		"confirmTokenPlaceholder": "Front Desk 管理トークンを入力してください",
 		"errAlreadyPrimary": "このホストはすでにフリートのプライマリであり、メンバーとして追加できません。代わりに Fleet Sync ウィザードでプライマリを変更してください。",
 		"errUnreachable": "Front Desk はこのホストに到達して検証できませんでした。URL と管理トークン、ホストが稼働しているかを確認してください。",
+		"errIdentityUnverified": "Front Desk は管理トークンを検証しましたが、このホストのフリート ID を読み取れず、プライマリや既存メンバーでないことを確認できませんでした。ホストを確認して再試行してください。",
 		"errAlreadyMember": "このホストはすでにメンバーです（別のアドレスで追加済み）。再追加するには、まず既存のエントリを削除してください。"
 	},
 	"traffic": {

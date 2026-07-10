@@ -126,6 +126,7 @@
 		"confirmTokenPlaceholder": "Saisissez le jeton d'administration Front Desk",
 		"errAlreadyPrimary": "Cet hôte est déjà le primaire de la flotte et ne peut pas être ajouté comme membre. Changez le primaire depuis l'assistant de synchronisation de flotte.",
 		"errUnreachable": "Front Desk n'a pas pu joindre cet hôte pour le vérifier. Vérifiez l'URL, le jeton d'administration et que l'hôte fonctionne.",
+		"errIdentityUnverified": "Front Desk a vérifié le jeton d'administration mais n'a pas pu lire l'identité de flotte de cet hôte pour confirmer qu'il n'est pas le primaire ni un membre existant. Vérifiez l'hôte et réessayez.",
 		"errAlreadyMember": "Cet hôte est déjà un membre (ajouté sous une autre adresse). Supprimez d'abord l'entrée existante si vous voulez le rajouter."
 	},
 	"traffic": {

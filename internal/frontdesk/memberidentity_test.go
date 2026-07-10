@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -79,6 +80,39 @@ func TestCreateMemberErrorsCarryCodes(t *testing.T) {
 			t.Fatalf("got %d code=%q, want 409 already_member", rec.Code, codeOf(t, rec))
 		}
 	})
+}
+
+// TestCreateMemberRejectsUnreadableIdentity covers the fail-closed identity
+// path: the token probe succeeds (the host answers /api/settings with 200) but
+// the fleet-identity read (/api/system) fails, so Front Desk cannot confirm the
+// host is not the fleet primary or an already-registered member. Rather than
+// fail open and admit it, the add is rejected with a stable identity_unverified
+// code and the just-created row is rolled back.
+func TestCreateMemberRejectsUnreadableIdentity(t *testing.T) {
+	srv, store := newTestServer(t)
+	host := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/system") {
+			http.Error(w, "boom", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK) // token probe (/api/settings) passes
+	}))
+	t.Cleanup(host.Close)
+
+	rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"m","url":"`+host.URL+`","token":"tok"}`, true)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("create with unreadable /api/system = %d, want 400 (%s)", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body.Code != "identity_unverified" {
+		t.Fatalf("code = %q, want identity_unverified (%s)", body.Code, rec.Body.String())
+	}
+	if members, _ := store.ListMembers(t.Context()); len(members) != 0 {
+		t.Errorf("members = %d after rejected add, want 0 (rollback)", len(members))
+	}
 }
 
 // TestCreateMemberRejectsUnexpectedStatus covers the add's default rollback

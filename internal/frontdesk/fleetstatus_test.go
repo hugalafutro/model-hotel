@@ -2,10 +2,12 @@ package frontdesk
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -17,6 +19,7 @@ type stubFleetMember struct {
 	mu         sync.Mutex
 	srv        *httptest.Server
 	token      string
+	instanceID string
 	exportBody string
 	importCode int
 	importBody string
@@ -34,6 +37,7 @@ func newStubFleetMember(t *testing.T, token string) *stubFleetMember {
 	t.Helper()
 	sm := &stubFleetMember{
 		token:      token,
+		instanceID: fmt.Sprintf("iid-stub-%d", atomic.AddInt32(&memberServerSeq, 1)),
 		exportBody: fleetExportWithKey,
 		importCode: http.StatusOK,
 		importBody: importOK,
@@ -50,6 +54,11 @@ func newStubFleetMember(t *testing.T, token string) *stubFleetMember {
 			// The lightweight admin-authenticated endpoint the add/edit token probe
 			// hits; app_version doubles for the version poller.
 			_ = json.NewEncoder(w).Encode(map[string]string{"app_version": "v1"})
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/system"):
+			// The fleet-identity self-report the add path reads to confirm the host
+			// is not the primary and not an already-registered instance. A faithful
+			// member stub answers it: a non-primary box with a unique instance_id.
+			_, _ = fmt.Fprintf(w, `{"fleet":{"is_primary":false},"instance_id":%q}`, sm.instanceID)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/config/export":
 			_, _ = w.Write([]byte(sm.exportBody))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/import":

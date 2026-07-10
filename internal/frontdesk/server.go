@@ -403,21 +403,30 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	}
 	// Read the host's identity once: whether it self-reports as the fleet primary,
 	// and its stable instance_id. Both are URL-independent, so they catch the same
-	// physical instance reached under a different address.
+	// physical instance reached under a different address. The token probe above
+	// already confirmed the host is live and genuine, so a failure to read its
+	// identity here is anomalous: rather than fail open (which could admit the
+	// primary or a duplicate under a new URL), block the add and let the operator
+	// retry once the host answers /api/system cleanly.
 	isPrimary, instanceID, identOK := s.memberIdentity(r.Context(), m.URL, req.Token)
-	// Reject the fleet primary re-added under a different URL. (Only a positive
-	// is_primary blocks; a standalone or momentarily-unreadable /api/system is
-	// treated as not-primary, since the token probe above already confirmed the
-	// host is live and genuine.)
-	if identOK && isPrimary {
+	if !identOK {
+		rollback("identity_unverified", "Front Desk verified the admin token but could not read this host's fleet identity (/api/system) to confirm it is not the fleet primary or an existing member. Check the host and try again.", http.StatusBadRequest)
+		return
+	}
+	// Reject the fleet primary re-added under a different URL. Only one primary
+	// exists, so a host self-reporting is_primary is that primary reached under
+	// another address.
+	if isPrimary {
 		rollback("already_primary", "This host is already the fleet primary (the config source of truth), reached under a different address. It cannot also be added as a member.", http.StatusConflict)
 		return
 	}
 	// Reject a host that is already a member under a different URL: compare its
 	// instance_id against every other member. Any member whose id we do not yet
 	// know is probed once and backfilled, so this stays correct even for members
-	// added before instance identity existed.
-	if identOK && instanceID != "" {
+	// added before instance identity existed. A pre-056 host that exposes no
+	// instance_id skips dedup (there is nothing to compare); it is the one
+	// residual gap, and adds now require a token anyway.
+	if instanceID != "" {
 		dup, derr := s.instanceAlreadyMember(r.Context(), m.ID, instanceID)
 		if derr != nil {
 			rollback("verify_failed", "Front Desk could not verify whether this host is already a member. Try again.", http.StatusInternalServerError)
@@ -427,12 +436,14 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 			rollback("already_member", "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.", http.StatusConflict)
 			return
 		}
-	}
-	// Record the learned identity so future adds can dedup against this member
-	// without re-probing it.
-	if instanceID != "" {
+		// Persist the learned identity so future adds can dedup against this
+		// member without re-probing it. A failure to record it would leave the
+		// member half-registered (present but un-deduplicable), so roll the add
+		// back rather than let a duplicate slip in under a different URL later.
 		if err := s.store.SetMemberInstanceID(r.Context(), m.ID, instanceID); err != nil {
 			debuglog.Warn("frontdesk: could not store member instance id", "member", m.ID, "error", err)
+			rollback("verify_failed", "Front Desk verified this host but could not record its identity. Try again.", http.StatusInternalServerError)
+			return
 		}
 	}
 
