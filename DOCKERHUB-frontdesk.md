@@ -19,7 +19,7 @@ Front Desk generates Traefik's dynamic config and serves an admin dashboard. It 
 
 ## What it does
 
-- **Member management** - register each Model Hotel instance by URL and admin token, then drain or remove it from the dashboard. Draining stops new traffic without dropping in-flight requests.
+- **Member management** - register each Model Hotel instance by URL and admin token (verified on add, and de-duplicated so the same instance can't join twice), then drain or remove it from the dashboard. Draining stops new traffic without dropping in-flight requests; the config-sync primary is protected and can't be removed.
 - **Traefik dynamic config** - publishes an HTTP-provider endpoint Traefik polls every few seconds, so backend changes apply gracefully (in-flight SSE and streams survive a reload).
 - **Health and version polling** - continuously checks each member's health, latency, Traefik backend status, and version, flagging the odd version out when the fleet disagrees.
 - **Admin-token sync and reset** - push one instance's admin token to every member, or rotate the whole fleet's token at once, with a preview and double-confirm before any overwrite.
