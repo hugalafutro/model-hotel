@@ -212,6 +212,28 @@ describe("DiscoverySummaryModal", () => {
 		expect(unchanged).toHaveTextContent("1");
 	});
 
+	it("collapses failover-fallback entries sharing the same label", () => {
+		// Background failover-group changes have no provider name and all render
+		// under the shared "Failover" fallback label. Since an unchanged chip has
+		// no per-entry detail, several such entries must collapse to one chip
+		// rather than repeat "Failover" — the same noise the dedupe removes for
+		// real providers.
+		renderWithProviders(
+			<DiscoverySummaryModal
+				results={[
+					{ providerName: "Failover", entryKey: "fo-1", diff: {} },
+					{ providerName: "Failover", entryKey: "fo-2", diff: {} },
+					{ providerName: "Failover", entryKey: "fo-3", diff: {} },
+				]}
+				onClose={vi.fn()}
+			/>,
+		);
+
+		const unchanged = screen.getByTestId("discovery-summary-unchanged");
+		expect(within(unchanged).getAllByText("Failover")).toHaveLength(1);
+		expect(unchanged).toHaveTextContent("1");
+	});
+
 	it("hides the provider header for a single-provider summary", () => {
 		renderWithProviders(
 			<DiscoverySummaryModal
