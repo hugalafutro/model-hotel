@@ -340,6 +340,7 @@ func breakerRecordAction(statusCode int) breakerAction {
 //  5. Universal param stripping (providerUnsupportedParams)
 //  6. Learned param stripping (deprecationCache)
 //  7. Extra param stripping (additional rejected params, e.g. from 400 auto-retry)
+//  8. Message sanitization (drop empty tool_calls arrays)
 //
 // Injection (step 3) runs before all stripping (steps 5-7) so that a param a
 // provider injects but the upstream then rejects (learned into the deprecation
@@ -418,8 +419,34 @@ func buildUpstreamBody(
 		delete(raw, param)
 	}
 
+	// 8. Message sanitization
+	stripEmptyToolCalls(raw)
+
 	if b, err := json.Marshal(raw); err == nil {
 		return b
 	}
 	return proxyReqBody
+}
+
+// stripEmptyToolCalls removes "tool_calls": [] from every message in the
+// request. Some clients serialize an assistant turn whose tool calls were
+// aborted or filtered out as an empty array instead of omitting the field;
+// the OpenAI spec requires min length 1 and strict providers (DeepSeek,
+// OpenCode Zen) reject the whole request with a 400, permanently bricking any
+// conversation that has such a turn in its history. No provider needs the
+// empty array, so dropping it is always safe.
+func stripEmptyToolCalls(raw map[string]interface{}) {
+	msgs, ok := raw["messages"].([]interface{})
+	if !ok {
+		return
+	}
+	for _, m := range msgs {
+		msg, ok := m.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if tc, ok := msg["tool_calls"].([]interface{}); ok && len(tc) == 0 {
+			delete(msg, "tool_calls")
+		}
+	}
 }
