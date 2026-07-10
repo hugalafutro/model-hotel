@@ -169,27 +169,29 @@ export function TokenSplitBar({
 					/>
 				))}
 			</div>
-			<div className="flex flex-col gap-1.5 mt-3 text-sm" data-testid="legend">
-				<div className="flex items-center gap-1.5">
-					<span
-						className="w-2 h-2 rounded-full"
-						style={{ backgroundColor: CACHE_HIT_COLOR }}
-					/>
-					<span className="text-(--text-tertiary)">
-						{t("dashboard.tokens.cacheHit")}
-					</span>
-					<span
-						className="font-medium text-(--text-primary) ml-1"
-						title={formatWithCommas(cacheHit)}
-					>
-						{formatTokens(cacheHit)}
-					</span>
-					<span className="text-(--text-muted) text-xs ml-1">
-						{formatPercent(cacheHitPct)}
-					</span>
-				</div>
-				<div className="flex justify-between">
-					<div className="flex items-center gap-1.5">
+			<div className="flex justify-between mt-3 text-sm" data-testid="legend">
+				{/* Cache hit + Prompt stack: token values share a left-aligned
+				    column and percents a right-aligned column via the grid. */}
+				<div className="grid grid-cols-[auto_auto_auto_auto] items-center gap-x-1.5 gap-y-1.5">
+					<div className="contents">
+						<span
+							className="w-2 h-2 rounded-full"
+							style={{ backgroundColor: CACHE_HIT_COLOR }}
+						/>
+						<span className="text-(--text-tertiary)">
+							{t("dashboard.tokens.cacheHit")}
+						</span>
+						<span
+							className="font-medium text-(--text-primary)"
+							title={formatWithCommas(cacheHit)}
+						>
+							{formatTokens(cacheHit)}
+						</span>
+						<span className="text-(--text-muted) text-xs tabular-nums justify-self-end">
+							{formatPercent(cacheHitPct)}
+						</span>
+					</div>
+					<div className="contents">
 						<span
 							className="w-2 h-2 rounded-full"
 							style={{ backgroundColor: PROMPT_COLOR }}
@@ -198,33 +200,33 @@ export function TokenSplitBar({
 							{t("dashboard.tokens.prompt")}
 						</span>
 						<span
-							className="font-medium text-(--text-primary) ml-1"
+							className="font-medium text-(--text-primary)"
 							title={formatWithCommas(uncachedPrompt)}
 						>
 							{formatTokens(uncachedPrompt)}
 						</span>
-						<span className="text-(--text-muted) text-xs ml-1">
+						<span className="text-(--text-muted) text-xs tabular-nums justify-self-end">
 							{formatPercent(uncachedPct)}
 						</span>
 					</div>
-					<div className="flex items-center gap-1.5">
-						<span
-							className="w-2 h-2 rounded-full"
-							style={{ backgroundColor: COMPLETION_COLOR }}
-						/>
-						<span className="text-(--text-tertiary)">
-							{t("dashboard.tokens.completion")}
-						</span>
-						<span
-							className="font-medium text-(--text-primary) ml-1"
-							title={formatWithCommas(completion)}
-						>
-							{formatTokens(completion)}
-						</span>
-						<span className="text-(--text-muted) text-xs ml-1">
-							{formatPercent(completionPct)}
-						</span>
-					</div>
+				</div>
+				<div className="flex items-center gap-1.5 self-end">
+					<span
+						className="w-2 h-2 rounded-full"
+						style={{ backgroundColor: COMPLETION_COLOR }}
+					/>
+					<span className="text-(--text-tertiary)">
+						{t("dashboard.tokens.completion")}
+					</span>
+					<span
+						className="font-medium text-(--text-primary) ml-1"
+						title={formatWithCommas(completion)}
+					>
+						{formatTokens(completion)}
+					</span>
+					<span className="text-(--text-muted) text-xs ml-1 tabular-nums">
+						{formatPercent(completionPct)}
+					</span>
 				</div>
 			</div>
 		</div>

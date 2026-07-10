@@ -58,24 +58,23 @@ describe("TokenSplitBar", () => {
 		expect(within(cacheHitEntry!).getByText("300")).toBeInTheDocument();
 	});
 
-	it("splits the legend into two rows: cache hit alone, prompt and completion paired", () => {
+	it("groups cache hit and prompt in a left column, completion on the right", () => {
 		render(<TokenSplitBar {...defaultProps} cacheHit={100} />);
 
 		const legend = screen.getByTestId("legend");
-		const rows = legend.children;
-		expect(rows).toHaveLength(2);
+		const groups = legend.children;
+		expect(groups).toHaveLength(2);
 
-		// Row 1: cache hit entry (left-aligned, alone).
-		const cacheHitRow = rows[0] as HTMLElement;
-		expect(within(cacheHitRow).getByText("Cache hit")).toBeInTheDocument();
+		// Left group: cache hit + prompt share an aligned grid so their token
+		// values and percentages line up in columns.
+		const leftGroup = groups[0] as HTMLElement;
+		expect(leftGroup).toHaveClass("grid");
+		expect(within(leftGroup).getByText("Cache hit")).toBeInTheDocument();
+		expect(within(leftGroup).getByText("Prompt")).toBeInTheDocument();
 
-		// Row 2: prompt (left) + completion (right) in a justify-between wrapper.
-		const promptCompletionRow = rows[1] as HTMLElement;
-		expect(promptCompletionRow).toHaveClass("justify-between");
-		expect(within(promptCompletionRow).getByText("Prompt")).toBeInTheDocument();
-		expect(
-			within(promptCompletionRow).getByText("Completion"),
-		).toBeInTheDocument();
+		// Right group: completion, standalone.
+		const completionGroup = groups[1] as HTMLElement;
+		expect(within(completionGroup).getByText("Completion")).toBeInTheDocument();
 	});
 
 	it("shows uncached prompt count (prompt minus cache hit)", () => {
