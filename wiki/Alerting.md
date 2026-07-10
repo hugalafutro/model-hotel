@@ -65,7 +65,7 @@ Current events:
 | Provider being probed (half-open) | Failover | ⬜ off | the breaker enters its probe state (noisy) |
 | Failover group sync failed | Failover | ✅ on | a failover group fails to sync |
 | Provider failed during discovery | Discovery | ⬜ off | a provider errors during model discovery |
-| Fleet ownership conflict | High Availability | ✅ on | a second Front Desk tries to claim a member that another Front Desk already owns (debounced per member, once/hour) |
+| Fleet ownership conflict | High Availability | ✅ on | a second Front Desk tries to claim a member that another Front Desk already owns (debounced to once/hour per rejected Front Desk id) |
 
 On first run the default-on events are pre-selected. Deselecting everything means nothing fires.
 
