@@ -171,6 +171,47 @@ describe("DiscoverySummaryModal", () => {
 		).not.toBeInTheDocument();
 	});
 
+	it("lists an unchanged provider only once even with multiple entries", () => {
+		renderWithProviders(
+			<DiscoverySummaryModal
+				results={[
+					// Same provider recorded twice (e.g. one price run, one model run),
+					// both resolving to no net change.
+					{ providerName: "Provider A", entryKey: "a-1", diff: {} },
+					{ providerName: "Provider A", entryKey: "a-2", diff: {} },
+					{ providerName: "Provider B", entryKey: "b-1", diff: {} },
+				]}
+				onClose={vi.fn()}
+			/>,
+		);
+
+		const unchanged = screen.getByTestId("discovery-summary-unchanged");
+		expect(within(unchanged).getAllByText("Provider A")).toHaveLength(1);
+		expect(within(unchanged).getByText("Provider B")).toBeInTheDocument();
+		// Two distinct providers, not three entries.
+		expect(unchanged).toHaveTextContent("2");
+	});
+
+	it("omits a provider from Unchanged when it also has a changed entry", () => {
+		renderWithProviders(
+			<DiscoverySummaryModal
+				results={[
+					{ providerName: "Provider A", entryKey: "a-1", diff: fullDiff },
+					// A second entry for the same provider that has no net change must
+					// not resurface below as "unchanged".
+					{ providerName: "Provider A", entryKey: "a-2", diff: {} },
+					{ providerName: "Provider B", entryKey: "b-1", diff: {} },
+				]}
+				onClose={vi.fn()}
+			/>,
+		);
+
+		const unchanged = screen.getByTestId("discovery-summary-unchanged");
+		expect(within(unchanged).queryByText("Provider A")).not.toBeInTheDocument();
+		expect(within(unchanged).getByText("Provider B")).toBeInTheDocument();
+		expect(unchanged).toHaveTextContent("1");
+	});
+
 	it("hides the provider header for a single-provider summary", () => {
 		renderWithProviders(
 			<DiscoverySummaryModal
