@@ -700,7 +700,7 @@ function StepChoosePrimary({
 					{members.map((m) => (
 						<option key={m.id} value={m.id} disabled={!isOnline(m)}>
 							{m.name}
-							{isOnline(m) ? "" : ` — ${t("settings.wizard.offline")}`}
+							{isOnline(m) ? "" : ` (${t("settings.wizard.offline")})`}
 						</option>
 					))}
 				</select>

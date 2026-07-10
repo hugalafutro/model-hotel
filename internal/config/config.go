@@ -376,7 +376,7 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 	if err == nil {
 		for _, ip := range ips {
 			if util.IsBlockedIP(ip) {
-				return fmt.Errorf("host %q resolves to private/reserved address %s — not allowed as provider URL (add to ALLOWED_PROVIDER_HOSTS to permit)", host, ip)
+				return fmt.Errorf("host %q resolves to private/reserved address %s: not allowed as provider URL (add to ALLOWED_PROVIDER_HOSTS to permit)", host, ip)
 			}
 		}
 	}
