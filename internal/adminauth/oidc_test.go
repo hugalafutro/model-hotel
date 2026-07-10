@@ -678,6 +678,30 @@ func TestOIDCCallbackCreateAuthTokenError(t *testing.T) {
 	}
 }
 
+// TestOIDCDiscoverySSRFBlocked confirms the SSRF-guarded HTTP client refuses
+// OIDC discovery against a cloud-metadata / link-local issuer URL: the dial is
+// rejected before connect, so runtime() surfaces a discovery error rather than
+// letting the server fetch an internal endpoint.
+func TestOIDCDiscoverySSRFBlocked(t *testing.T) {
+	for _, issuer := range []string{"http://169.254.169.254", "http://169.254.0.1:8080"} {
+		h := NewOIDCHandler(newFakeSettings(map[string]string{
+			OIDCEnabledKey:       "true",
+			OIDCIssuerURLKey:     issuer,
+			OIDCClientIDKey:      oidcTestClientID,
+			OIDCAllowedEmailsKey: "admin@example.com",
+			OIDCPublicBaseURLKey: "https://h.example",
+		}), webauthn.NewSessionManager(newMemStore()), mockIPLimiter{}, testMasterKey)
+
+		_, err := h.runtime(context.Background())
+		if err == nil {
+			t.Fatalf("issuer %q: expected discovery to be refused by SSRF guard, got nil error", issuer)
+		}
+		if !strings.Contains(err.Error(), "blocked address") {
+			t.Errorf("issuer %q: expected blocked-address error, got: %v", issuer, err)
+		}
+	}
+}
+
 func TestOIDCAllowlistDenyAndFailClosed(t *testing.T) {
 	t.Run("email not allowlisted", func(t *testing.T) {
 		idp := newMockIDP(t, oidcTestClientID)

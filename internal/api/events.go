@@ -21,14 +21,31 @@ import (
 // toasts; it is discovery progress, so it stays on the admin side. Default
 // deny: an event type added later is invisible to limited users until someone
 // deliberately maps it to a grant here.
-func eventVisible(id *user.Identity, eventType string) bool {
+func eventVisible(id *user.Identity, ev events.Event) bool {
 	if id.IsAdmin() {
 		return true
 	}
-	if strings.HasPrefix(eventType, "request.") && !strings.HasPrefix(eventType, "request.discovery.") {
-		return id.Can(user.GrantLogs)
+	if strings.HasPrefix(ev.Type, "request.") && !strings.HasPrefix(ev.Type, "request.discovery.") {
+		// The logs grant is necessary but not sufficient: a non-admin may only see
+		// request events for keys they own, matching the owner-scoping the logs
+		// REST API applies (ownerScopeFromIdentity). Without this, any logs-granted
+		// user could tail every other user's live request metadata over SSE.
+		return id.Can(user.GrantLogs) && eventOwnedBy(id, ev)
 	}
 	return false
+}
+
+// eventOwnedBy reports whether a request lifecycle event belongs to the caller's
+// own virtual keys. It compares the event's owner_user_id metadata (the owning
+// dashboard user's UUID, "" for unowned keys) against the caller's user id. A
+// caller with no user id, or an event carrying no owner, is denied — unowned-key
+// activity stays admin-only, exactly as the logs REST API scopes it.
+func eventOwnedBy(id *user.Identity, ev events.Event) bool {
+	if id.UserID == nil {
+		return false
+	}
+	owner, _ := ev.Metadata["owner_user_id"].(string)
+	return owner != "" && owner == id.UserID.String()
 }
 
 // StreamEvents handles server-sent events for real-time dashboard updates.
@@ -60,7 +77,7 @@ func (h *Handler) StreamEvents(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case event := <-ch:
-			if !eventVisible(identity, event.Type) {
+			if !eventVisible(identity, event) {
 				continue
 			}
 			data, err := json.Marshal(event)

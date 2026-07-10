@@ -12,6 +12,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/netguard"
 )
 
 // defaultCooldown is the per-(event-type, provider) debounce window: repeat
@@ -102,7 +103,11 @@ func WithResultHook(hook func(ok bool)) Option {
 // options it is the main-app dispatcher; pass options to embed it elsewhere.
 func New(cfg ConfigProvider, client *http.Client, opts ...Option) *Dispatcher {
 	if client == nil {
-		client = &http.Client{Timeout: defaultTimeout}
+		// SSRF-guarded client: the apprise-api base URL is admin-configured, so a
+		// hostile value must not reach cloud-metadata/link-local. It allows
+		// private/loopback because apprise-api normally runs on the internal
+		// docker network (e.g. http://apprise:8000).
+		client = netguard.NewClient(defaultTimeout)
 	}
 	d := &Dispatcher{
 		cfg:          cfg,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/netguard"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
@@ -235,6 +237,13 @@ func (h *ConfigSyncHandler) syncableSettingsToDelete(ctx context.Context, q quer
 
 func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider) error {
 	for _, p := range providers {
+		// Defense in depth on the import path: a compromised primary must not be
+		// able to write a provider base_url that points at a link-local/metadata
+		// address. The runtime proxy SafeDialer still blocks it at dial time, but
+		// rejecting it here keeps the poisoned value out of the database entirely.
+		if err := netguard.ValidateURL(p.BaseURL); err != nil {
+			return fmt.Errorf("provider %q has an invalid base_url: %w", p.Name, err)
+		}
 		_, err := tx.Exec(ctx, `
 			INSERT INTO providers (name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())

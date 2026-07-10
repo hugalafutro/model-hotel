@@ -100,10 +100,11 @@ func publishRequestStartedEvent(logEntry *requestLogData) {
 		Source:   "proxy",
 		Message:  fmt.Sprintf("Request started: %s", logEntry.modelID),
 		Metadata: map[string]interface{}{
-			"request_id": logEntry.id,
-			"model_id":   logEntry.modelID,
-			"streaming":  logEntry.streaming,
-			"state":      logEntry.state,
+			"request_id":    logEntry.id,
+			"model_id":      logEntry.modelID,
+			"streaming":     logEntry.streaming,
+			"state":         logEntry.state,
+			"owner_user_id": logEntry.ownerUserID,
 		},
 	})
 }
@@ -128,6 +129,7 @@ func publishRequestStreamingEvent(logEntry *requestLogData) {
 			"model_id":      logEntry.modelID,
 			"provider_name": logEntry.providerName,
 			"state":         logEntry.state,
+			"owner_user_id": logEntry.ownerUserID,
 		},
 	})
 }
@@ -296,6 +298,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 				"provider_name": logEntry.providerName,
 				"state":         logEntry.state,
 				"status_code":   logEntry.statusCode,
+				"owner_user_id": logEntry.ownerUserID,
 			},
 		})
 	}

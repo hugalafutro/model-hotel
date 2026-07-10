@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"syscall"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/netguard"
 )
 
 // newProbeClient builds the HTTP client the pollers use to reach members and
@@ -66,9 +68,8 @@ func checkProbeRedirect(req *http.Request, via []*http.Request) error {
 // isProbeBlockedIP reports addresses that are never a legitimate member and are
 // the classic SSRF targets: the unspecified address, and link-local unicast
 // (which includes the 169.254.169.254 cloud-metadata endpoint) and multicast.
-// Private and loopback ranges are intentionally NOT blocked here.
+// Private and loopback ranges are intentionally NOT blocked here. It delegates
+// to netguard.BlockedIP so Front Desk, OIDC, and alerting share one predicate.
 func isProbeBlockedIP(ip net.IP) bool {
-	return ip.IsUnspecified() ||
-		ip.IsLinkLocalUnicast() ||
-		ip.IsLinkLocalMulticast()
+	return netguard.BlockedIP(ip)
 }

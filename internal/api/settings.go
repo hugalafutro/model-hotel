@@ -11,6 +11,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/netguard"
 	"github.com/hugalafutro/model-hotel/internal/otelexport"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -166,21 +167,21 @@ var allowedSettings = map[string]struct {
 	"backup_father_retention":      {typeName: "int", min: 0, max: 52},
 	"backup_grandfather_retention": {typeName: "int", min: 0, max: 120},
 	"alert_enabled":                {typeName: "string"},                // bool as string
-	"alert_apprise_api_url":        {typeName: "string"},                // base URL of the apprise-api container
+	"alert_apprise_api_url":        {typeName: "url"},                   // base URL of the apprise-api container (SSRF-validated)
 	"alert_apprise_targets":        {typeName: "string"},                // secret: encrypted at rest, masked on read
 	"alert_events":                 {typeName: "string"},                // CSV of enabled event Types (the picker)
 	"session_idle_timeout_minutes": {typeName: "int", min: 0, max: 240}, // dashboard auto-logout window in minutes; 0 = disabled
 	"oidc_enabled":                 {typeName: "string"},                // bool as string
-	"oidc_issuer_url":              {typeName: "string"},                // OIDC discovery base URL
+	"oidc_issuer_url":              {typeName: "url"},                   // OIDC discovery base URL (SSRF-validated)
 	"oidc_client_id":               {typeName: "string"},                // OAuth client id
 	"oidc_client_secret":           {typeName: "string"},                // secret: encrypted at rest, masked on read
 	"oidc_allowed_emails":          {typeName: "string"},                // comma/newline-separated allowlist
-	"oidc_public_base_url":         {typeName: "string"},                // app's external origin for the redirect URI
+	"oidc_public_base_url":         {typeName: "url_public"},            // app's external origin for the redirect URI
 	"github_sso_enabled":           {typeName: "string"},                // bool as string
 	"github_client_id":             {typeName: "string"},                // GitHub OAuth App client id
 	"github_client_secret":         {typeName: "string"},                // secret: encrypted at rest, masked on read
 	"github_allowed_emails":        {typeName: "string"},                // comma/newline-separated allowlist (verified emails)
-	"github_public_base_url":       {typeName: "string"},                // app's external origin for the callback URI
+	"github_public_base_url":       {typeName: "url_public"},            // app's external origin for the callback URI
 }
 
 const maxSettingValueLen = 500
@@ -235,6 +236,22 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 			}
 			if v < rule.min || v > rule.max {
 				respondBadRequest(w, fmt.Sprintf("%s must be between %g and %g", key, rule.min, rule.max), nil)
+				return
+			}
+		case "url":
+			// Server-fetched URLs (OIDC issuer, apprise-api base): reject a scheme
+			// other than http/https, a missing host, or a literal link-local/
+			// metadata IP. The runtime netguard client is the DNS-rebinding defense.
+			if err := netguard.ValidateURL(value); err != nil {
+				respondBadRequest(w, fmt.Sprintf("%s is not a valid URL: %s", key, err.Error()), err)
+				return
+			}
+		case "url_public":
+			// Public base URLs (reflected into redirect URIs, never fetched): only
+			// require structural http/https validity so a malformed origin cannot
+			// produce a broken redirect_uri.
+			if err := netguard.ValidatePublicURL(value); err != nil {
+				respondBadRequest(w, fmt.Sprintf("%s is not a valid URL: %s", key, err.Error()), err)
 				return
 			}
 		}
