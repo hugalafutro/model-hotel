@@ -22,9 +22,14 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/netguard"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
+
+// oidcHTTPTimeout bounds each outbound OIDC request (discovery, token exchange,
+// UserInfo).
+const oidcHTTPTimeout = 15 * time.Second
 
 // OIDC settings keys (mirrored in settings.AllowedSettings + api.allowedSettings).
 // Exported so callers that store the config elsewhere (e.g. the Front Desk
@@ -71,6 +76,13 @@ type OIDCHandler struct {
 	masterKey  string
 	users      SSOUserResolver // nil = no user email binding (admin allowlist only)
 
+	// httpClient is an SSRF-guarded client used for every outbound OIDC request
+	// (discovery, token exchange, UserInfo). Without it go-oidc/oauth2 fall back
+	// to http.DefaultClient, letting an admin-configured (or fleet-synced) issuer
+	// URL reach cloud-metadata/link-local addresses. It allows private/loopback
+	// so an internal IdP (e.g. Authelia on the docker network) still works.
+	httpClient *http.Client
+
 	// loginThrottle applies per-IP exponential backoff to the callback, mirroring
 	// the TOTP login defense (5 failures, 1s doubling, capped at 5m).
 	loginThrottle *totp.Throttle
@@ -98,6 +110,7 @@ func NewOIDCHandler(
 		ipLimiter:     ipLimiter,
 		masterKey:     masterKey,
 		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
+		httpClient:    netguard.NewClient(oidcHTTPTimeout),
 	}
 }
 
@@ -295,6 +308,10 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Route the token exchange and the UserInfo fallback through the same
+	// SSRF-guarded client as discovery (go-oidc/oauth2 read it from the context).
+	ctx = oidc.ClientContext(ctx, h.httpClient)
+
 	// Exchange the code (with the PKCE verifier) for tokens.
 	token, err := rt.oauth2Config.Exchange(ctx, code, oauth2.VerifierOption(st.Verifier))
 	if err != nil {
@@ -485,7 +502,9 @@ func (h *OIDCHandler) build(ctx context.Context, enabled bool, issuer, clientID,
 		clientSecret = dec
 	}
 
-	provider, err := oidc.NewProvider(ctx, issuer)
+	// Run discovery through the SSRF-guarded client so a hostile issuer URL
+	// cannot make the server fetch a cloud-metadata/link-local endpoint.
+	provider, err := oidc.NewProvider(oidc.ClientContext(ctx, h.httpClient), issuer)
 	if err != nil {
 		return nil, fmt.Errorf("oidc discovery: %w", err)
 	}

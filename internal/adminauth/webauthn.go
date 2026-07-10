@@ -212,8 +212,14 @@ func (h *WebAuthnHandler) RegisterFinish(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Consume the session atomically: DeleteSession is the single-use claim. If it
+	// fails (0 rows because a concurrent request or replay already deleted it),
+	// abort instead of continuing to validate the same assertion — mirrors
+	// webauthn.SessionManager.ConsumeLoginState so no ceremony can be replayed.
 	if err := h.webauthnRepo.DeleteSession(r.Context(), sessionID); err != nil {
-		debuglog.Info("webauthn: failed to delete registration session", "session_id", sessionID, "error", err)
+		debuglog.Info("webauthn: registration session already consumed", "session_id", sessionID, "error", err)
+		respondError(w, "session not found", err, http.StatusBadRequest)
+		return
 	}
 
 	var session webauthnx.SessionData
@@ -342,8 +348,14 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Consume the session atomically: DeleteSession is the single-use claim. If it
+	// fails (0 rows because a concurrent request or replay already deleted it),
+	// abort instead of continuing to validate the same assertion — mirrors
+	// webauthn.SessionManager.ConsumeLoginState so no ceremony can be replayed.
 	if err := h.webauthnRepo.DeleteSession(r.Context(), sessionID); err != nil {
-		debuglog.Info("webauthn: failed to delete login session", "session_id", sessionID, "error", err)
+		debuglog.Info("webauthn: login session already consumed", "session_id", sessionID, "error", err)
+		respondError(w, "session not found", err, http.StatusBadRequest)
+		return
 	}
 
 	var session webauthnx.SessionData

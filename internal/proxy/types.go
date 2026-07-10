@@ -116,6 +116,7 @@ type requestLogData struct {
 	streaming                 bool
 	virtualKeyName            string
 	virtualKeyID              string
+	ownerUserID               string // owning dashboard user's UUID; "" for unowned keys (admin-only visibility)
 	errorMessage              string
 	errorKind                 ErrorKind // machine-readable classification; "" = unclassified (NULL in DB)
 	failoverAttempt           int

@@ -135,12 +135,19 @@ func (h *Handler) newPendingRequestLog(r *http.Request, endpointType, modelID st
 	if v := r.Context().Value(VirtualKeyHashKey); v != nil {
 		vkHash, _ = v.(string)
 	}
+	// The owning user's UUID (empty for unowned keys) scopes the SSE request
+	// events to that user, matching the owner-scoping the logs REST API applies.
+	var ownerUserID string
+	if v := r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey); v != nil {
+		ownerUserID, _ = v.(string)
+	}
 
 	logData = &requestLogData{
 		modelID:         modelID,
 		streaming:       isStreaming,
 		virtualKeyName:  vkName,
 		virtualKeyID:    vkID,
+		ownerUserID:     ownerUserID,
 		failoverAttempt: 0,
 		state:           "pending",
 		endpointType:    endpointType,

@@ -256,6 +256,41 @@ func TestUpdateSettings_Integration_MultipleKeys(t *testing.T) {
 	}
 }
 
+// TestUpdateSettings_URLValidation rejects SSRF-bait and malformed values for
+// URL-typed settings, and accepts a legitimate internal endpoint.
+func TestUpdateSettings_URLValidation(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Fatal("test database not available")
+	}
+	cases := []struct {
+		name     string
+		body     string
+		wantCode int
+	}{
+		{"issuer metadata literal", `{"oidc_issuer_url": "http://169.254.169.254/latest"}`, http.StatusBadRequest},
+		{"apprise metadata literal", `{"alert_apprise_api_url": "http://169.254.169.254"}`, http.StatusBadRequest},
+		{"issuer wrong scheme", `{"oidc_issuer_url": "ftp://idp.example.com"}`, http.StatusBadRequest},
+		{"public base malformed", `{"oidc_public_base_url": "notaurl"}`, http.StatusBadRequest},
+		{"issuer internal host ok", `{"oidc_issuer_url": "http://authelia:9091"}`, http.StatusOK},
+		{"apprise internal ok", `{"alert_apprise_api_url": "http://apprise:8000"}`, http.StatusOK},
+		{"public base ok", `{"oidc_public_base_url": "https://app.example.com"}`, http.StatusOK},
+		{"clear issuer ok", `{"oidc_issuer_url": ""}`, http.StatusOK},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, r := newTestHandlerWithRouter(t)
+			req := httptest.NewRequest(http.MethodPut, "/settings", strings.NewReader(tc.body))
+			req.Header.Set("Authorization", "Bearer test-admin-token")
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code != tc.wantCode {
+				t.Errorf("body %s: expected %d, got %d: %s", tc.body, tc.wantCode, w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
 // TestUpdateSettings_FloatValue tests updating a float-type setting.
 func TestUpdateSettings_FloatValue(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
