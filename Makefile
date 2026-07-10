@@ -69,9 +69,10 @@ ha-logs:
 # -- Bellhop Android companion app (android/, see plans/android-companion-app.md) --
 # Gradle needs JDK 21 (the system default java may be newer and unsupported) and
 # the Android SDK location, so every target pins both explicitly rather than
-# relying on the caller's environment.
+# relying on the caller's environment. Both are overridable:
+#   make android-build ANDROID_JAVA_HOME=/path/to/jdk21 ANDROID_SDK_HOME=/path/to/sdk
 
-ANDROID_JAVA_HOME := /usr/lib/jvm/java-21-openjdk
+ANDROID_JAVA_HOME ?= /usr/lib/jvm/java-21-openjdk
 ANDROID_SDK_HOME ?= /opt/android-sdk
 
 android-build:
@@ -84,7 +85,7 @@ android-lint:
 	cd android && JAVA_HOME=$(ANDROID_JAVA_HOME) ANDROID_HOME=$(ANDROID_SDK_HOME) ./gradlew lint
 
 android-install: android-build
-	adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+	$(ANDROID_SDK_HOME)/platform-tools/adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 
 # -- TOTP 2FA emergency escape hatch (operator; deletes the admin_totp row) --
 
