@@ -84,6 +84,8 @@ curl -X POST http://localhost:8081/v1/chat/completions \
 | `stop` | array/string | No | Stop sequences |
 | `stream_options` | object | No | Streaming options (e.g. `include_usage: true`). **Note:** The proxy automatically injects `stream_options: {include_usage: true}` for all streaming requests to ensure token usage is reported. |
 
+**Message normalization:** if a message in `messages` carries `tool_calls: []` (an empty array), the proxy removes the field before forwarding. Some clients serialize aborted or filtered tool-call turns this way, and strict providers reject the whole request with a 400 (`Invalid 'messages[N].tool_calls': empty array`), which permanently breaks any conversation carrying such a turn in its history. Non-empty `tool_calls` and all other message content pass through untouched.
+
 **Model Routing:**
 
 - `hotel/<model>` - Failover routing (tries all providers that offer the model, with automatic failover on 5xx and optionally on 429)

@@ -290,3 +290,56 @@ func TestBuildUpstreamBody_UnparseableInput(t *testing.T) {
 		t.Errorf("unparseable input should be returned as-is, got %q", string(result))
 	}
 }
+
+func TestBuildUpstreamBody_StripsEmptyToolCalls(t *testing.T) {
+	t.Parallel()
+
+	inputBody := `{"model":"gpt-4","messages":[` +
+		`{"role":"user","content":"hi"},` +
+		`{"role":"assistant","content":"aborted turn","tool_calls":[]},` +
+		`{"role":"assistant","content":null,"tool_calls":[{"id":"c1","type":"function","function":{"name":"f","arguments":"{}"}}]},` +
+		`{"role":"tool","tool_call_id":"c1","content":"ok"}]}`
+
+	result := buildUpstreamBody([]byte(inputBody), "openai", "gpt-4o", "gpt-4", false, &sync.Map{}, &sync.Map{}, nil)
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(result, &raw); err != nil {
+		t.Fatalf("result is not valid JSON: %v", err)
+	}
+	msgs, ok := raw["messages"].([]interface{})
+	if !ok || len(msgs) != 4 {
+		t.Fatalf("messages = %v, want 4 entries", raw["messages"])
+	}
+
+	empty := msgs[1].(map[string]interface{})
+	if _, exists := empty["tool_calls"]; exists {
+		t.Error("empty tool_calls array should be stripped")
+	}
+	if empty["content"] != "aborted turn" {
+		t.Errorf("stripped message content = %v, want unchanged", empty["content"])
+	}
+
+	withCalls := msgs[2].(map[string]interface{})
+	tc, ok := withCalls["tool_calls"].([]interface{})
+	if !ok || len(tc) != 1 {
+		t.Errorf("non-empty tool_calls must be preserved, got %v", withCalls["tool_calls"])
+	}
+}
+
+func TestBuildUpstreamBody_StripEmptyToolCallsTolerantOfShapes(t *testing.T) {
+	t.Parallel()
+
+	// No messages key, messages not an array, and a non-object message must
+	// all pass through without panicking or being altered.
+	for _, body := range []string{
+		`{"model":"gpt-4"}`,
+		`{"model":"gpt-4","messages":"weird"}`,
+		`{"model":"gpt-4","messages":[42,{"role":"user","content":"hi","tool_calls":"nope"}]}`,
+	} {
+		result := buildUpstreamBody([]byte(body), "openai", "gpt-4", "gpt-4", false, &sync.Map{}, &sync.Map{}, nil)
+		var raw map[string]interface{}
+		if err := json.Unmarshal(result, &raw); err != nil {
+			t.Fatalf("result is not valid JSON for input %s: %v", body, err)
+		}
+	}
+}
