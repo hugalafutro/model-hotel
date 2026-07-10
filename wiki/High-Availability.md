@@ -38,6 +38,11 @@ with the last config it fetched; only membership changes pause until it returns.
 - **Front Desk (control plane)** is a small Go binary with an embedded SQLite
   database and its own web UI. You add, drain, and remove members here, replicate
   config across the fleet, and watch health. It is **never** in the request path.
+  Adding a member requires its admin token **and a verified reply**: an
+  unreachable host, a wrong token, or a host that is already in the fleet (matched
+  by a stable per-instance id, so the same instance can't be added twice under two
+  URLs) is rejected outright rather than saved with a warning. The current primary
+  can never be removed.
 - **Members** are normal, independent Model Hotel installs (app + their own
   Postgres), each on its own host and update schedule. The HA stack does not
   touch them beyond reading health/version and pushing config when you sync.
@@ -209,6 +214,13 @@ You pick a **primary** (the config source of truth); Front Desk pulls its config
 and pushes it to every other member so the fleet converges. Because replacing
 config can remove providers or keys on a replica, the wizard shows a per-member
 diff (added / overwritten / removed) and double-confirms before it writes.
+
+The primary is the fleet's single source of truth, so Front Desk protects it: the
+**primary can never be deleted** (its row has no remove button and no token can
+bypass the guard), and it is changed only by re-running this wizard behind the
+admin token. Re-selecting the same host is caught even when it is added under a
+second URL (public DNS vs a LAN address): Front Desk asks each candidate for its
+own HA self-report and refuses a host that already is the primary.
 
 **What replicates, and what does not:**
 
