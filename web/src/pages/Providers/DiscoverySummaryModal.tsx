@@ -430,7 +430,25 @@ export function DiscoverySummaryModal({
 
 	const showHeaders = results.length > 1;
 	const visible = results.filter((r) => !entryIsUnchanged(r));
-	const unchanged = results.filter(entryIsUnchanged);
+	// The Unchanged section is a flat name cloud, so it dedupes by the *displayed
+	// label* (providerName): the same provider can produce several summary entries
+	// (e.g. separate background runs recorded for a price change and a model
+	// change), and once they resolve to no net change they'd otherwise list the
+	// same name twice. Names already shown above as Changed are dropped too, so a
+	// name never appears in both places at once.
+	//
+	// Collapsing by label is deliberate, including for failover-group entries that
+	// share the "Failover" fallback label: an unchanged chip carries no per-entry
+	// detail (its diff is empty by definition), so two entries that render the
+	// identical chip are indistinguishable and merging them only removes noise.
+	const changedNames = new Set(visible.map((r) => r.providerName));
+	const seenUnchanged = new Set<string>();
+	const unchanged = results.filter((r) => {
+		if (!entryIsUnchanged(r) || changedNames.has(r.providerName)) return false;
+		if (seenUnchanged.has(r.providerName)) return false;
+		seenUnchanged.add(r.providerName);
+		return true;
+	});
 	// A lone unchanged provider keeps the full reassuring sentence; in a batch,
 	// the unchanged providers collapse into one line so they don't drown the
 	// providers that actually changed.
