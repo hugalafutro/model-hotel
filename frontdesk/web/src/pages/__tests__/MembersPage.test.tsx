@@ -40,9 +40,14 @@ function renderPage() {
 beforeEach(() => {
 	localStorage.setItem("fdAuthToken", "tok");
 	server.use(sseHandler());
-	// Default: no fleet sync has run, so no member is the primary. Tests that
-	// care override this with a 200 carrying a primary_id.
+	// Default: no primary designated. The page derives the primary from
+	// /api/fleet/autosync (auto_sync_primary_id), the single source of truth;
+	// tests that care override this with a non-empty primary_id. The last-sync
+	// endpoint is left mocked for any other consumer but no longer drives the badge.
 	server.use(
+		http.get("/api/fleet/autosync", () =>
+			HttpResponse.json({ enabled: false, primary_id: "" }),
+		),
 		http.get(
 			"/api/fleet/last-sync",
 			() => new HttpResponse(null, { status: 204 }),
@@ -192,8 +197,25 @@ describe("MembersPage", () => {
 			screen.getByLabelText(/Base URL/i),
 			"https://hotel-1.example.com",
 		);
+		// A token is required to add: the host is verified before it is saved.
+		await userEvent.type(screen.getByLabelText(/Admin token/i), "tok");
 		await userEvent.click(screen.getByRole("button", { name: /^Add$/i }));
 		expect(await screen.findByText("hotel-1")).toBeInTheDocument();
+	});
+
+	it("disables Add until an admin token is entered", async () => {
+		server.use(http.get("/api/members", () => HttpResponse.json([])));
+		renderPage();
+		await screen.findByText(/No members yet/i);
+		await userEvent.type(screen.getByLabelText(/Display name/i), "hotel-1");
+		await userEvent.type(
+			screen.getByLabelText(/Base URL/i),
+			"https://hotel-1.example.com",
+		);
+		// No token yet: Add stays disabled (the host cannot be verified without it).
+		expect(screen.getByRole("button", { name: /^Add$/i })).toBeDisabled();
+		await userEvent.type(screen.getByLabelText(/Admin token/i), "tok");
+		expect(screen.getByRole("button", { name: /^Add$/i })).toBeEnabled();
 	});
 
 	it("surfaces the https-required validation error", async () => {
@@ -212,39 +234,63 @@ describe("MembersPage", () => {
 		await screen.findByText(/No members yet/i);
 		await userEvent.type(screen.getByLabelText(/Display name/i), "h1");
 		await userEvent.type(screen.getByLabelText(/Base URL/i), "http://h1.local");
+		await userEvent.type(screen.getByLabelText(/Admin token/i), "tok");
 		await userEvent.click(screen.getByRole("button", { name: /^Add$/i }));
 		expect(await screen.findByRole("alert")).toHaveTextContent(
 			/must use https/i,
 		);
 	});
 
-	it("warns when a saved member's token could not be confirmed", async () => {
+	it("surfaces the already-a-member rejection when adding a duplicate host", async () => {
 		server.use(
 			http.get("/api/members", () => HttpResponse.json([])),
-			http.post("/api/members", () =>
-				HttpResponse.json(
-					member({
-						id: "1",
-						name: "hotel-1",
-						token_warning:
-							"Saved, but Front Desk could not reach this member to verify the token yet.",
-					}),
-					{ status: 201 },
-				),
+			http.post(
+				"/api/members",
+				() =>
+					new HttpResponse(
+						"This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.",
+						{ status: 409 },
+					),
 			),
 		);
 		renderPage();
 		await screen.findByText(/No members yet/i);
-		await userEvent.type(screen.getByLabelText(/Display name/i), "hotel-1");
+		await userEvent.type(screen.getByLabelText(/Display name/i), "hotel-1-lan");
 		await userEvent.type(
 			screen.getByLabelText(/Base URL/i),
-			"https://hotel-1.example.com",
+			"https://hotel-1.lan.example.com",
 		);
 		await userEvent.type(screen.getByLabelText(/Admin token/i), "tok");
 		await userEvent.click(screen.getByRole("button", { name: /^Add$/i }));
-		expect(
-			await screen.findByText(/could not reach this member to verify/i),
-		).toBeInTheDocument();
+		expect(await screen.findByRole("alert")).toHaveTextContent(
+			/already a member/i,
+		);
+	});
+
+	it("surfaces the already-primary rejection when adding the primary's host", async () => {
+		server.use(
+			http.get("/api/members", () => HttpResponse.json([])),
+			http.post(
+				"/api/members",
+				() =>
+					new HttpResponse(
+						"This host is already the fleet primary (the config source of truth), reached under a different address. It cannot also be added as a member.",
+						{ status: 409 },
+					),
+			),
+		);
+		renderPage();
+		await screen.findByText(/No members yet/i);
+		await userEvent.type(screen.getByLabelText(/Display name/i), "hotel-1-lan");
+		await userEvent.type(
+			screen.getByLabelText(/Base URL/i),
+			"https://hotel-1.lan.example.com",
+		);
+		await userEvent.type(screen.getByLabelText(/Admin token/i), "tok");
+		await userEvent.click(screen.getByRole("button", { name: /^Add$/i }));
+		expect(await screen.findByRole("alert")).toHaveTextContent(
+			/already the fleet primary/i,
+		);
 	});
 
 	it("shows the backend message when the member refuses the token", async () => {
@@ -431,12 +477,8 @@ describe("MembersPage", () => {
 					member({ id: "2", name: "hotel-2" }),
 				]),
 			),
-			http.get("/api/fleet/last-sync", () =>
-				HttpResponse.json({
-					last_run_at: new Date().toISOString(),
-					primary_id: "2",
-					primary_name: "hotel-2",
-				}),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: true, primary_id: "2" }),
 			),
 		);
 		renderPage();
@@ -472,51 +514,44 @@ describe("MembersPage", () => {
 		expect(screen.queryByTestId("primary-badge")).not.toBeInTheDocument();
 	});
 
-	it("gates primary removal behind a token and shows a warning", async () => {
+	it("gives the primary no Remove button (it can only change via the wizard)", async () => {
 		server.use(
 			http.get("/api/members", () =>
-				HttpResponse.json([member({ id: "2", name: "hotel-2" })]),
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+				]),
 			),
-			http.get("/api/fleet/last-sync", () =>
-				HttpResponse.json({
-					last_run_at: new Date().toISOString(),
-					primary_id: "2",
-					primary_name: "hotel-2",
-				}),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: true, primary_id: "2" }),
 			),
 		);
 		renderPage();
-		await screen.findByText("hotel-2");
 
-		await userEvent.click(screen.getByRole("button", { name: /^Remove$/i }));
-		const dialog = await screen.findByRole("dialog");
-
-		// The source-of-truth warning is visible inside the modal.
-		expect(within(dialog).getByText(/source of truth/i)).toBeInTheDocument();
-		// The token field is present.
-		expect(within(dialog).getByLabelText(/Admin token/i)).toBeInTheDocument();
-		// Confirm is disabled until a token is entered.
+		const badge = await screen.findByTestId("primary-badge");
+		const primaryRow = badge.closest("tr") as HTMLElement;
+		// The primary is the config source of truth: no Remove button on its row.
 		expect(
-			within(dialog).getByRole("button", { name: /^Remove$/i }),
-		).toBeDisabled();
+			within(primaryRow).queryByRole("button", { name: /^Remove$/i }),
+		).not.toBeInTheDocument();
+
+		// A non-primary member still has its Remove button.
+		const otherRow = screen.getByText("hotel-1").closest("tr") as HTMLElement;
+		expect(
+			within(otherRow).getByRole("button", { name: /^Remove$/i }),
+		).toBeInTheDocument();
 	});
 
-	it("removes the primary after entering the admin token", async () => {
-		let deleteBody = "";
+	it("removes a non-primary member with no token, one click", async () => {
 		let deleted = false;
+		let deleteBody = "unset";
 		server.use(
 			http.get("/api/members", () =>
 				HttpResponse.json(
 					deleted ? [] : [member({ id: "2", name: "hotel-2" })],
 				),
 			),
-			http.get("/api/fleet/last-sync", () =>
-				HttpResponse.json({
-					last_run_at: new Date().toISOString(),
-					primary_id: "2",
-					primary_name: "hotel-2",
-				}),
-			),
+			// hotel-2 is NOT the primary (default autosync primary_id: "").
 			http.delete("/api/members/2", async ({ request }) => {
 				deleteBody = await request.text();
 				deleted = true;
@@ -528,57 +563,18 @@ describe("MembersPage", () => {
 
 		await userEvent.click(screen.getByRole("button", { name: /^Remove$/i }));
 		const dialog = await screen.findByRole("dialog");
-
-		await userEvent.type(
-			within(dialog).getByLabelText(/Admin token/i),
-			"test-token",
-		);
+		// No token field: non-primary removal is a plain confirm.
+		expect(
+			within(dialog).queryByLabelText(/Admin token/i),
+		).not.toBeInTheDocument();
 		await userEvent.click(
 			within(dialog).getByRole("button", { name: /^Remove$/i }),
 		);
 
-		// The delete request carried the confirm_token in the body.
-		await waitFor(() => expect(deleteBody).toContain("confirm_token"));
+		// The delete request carried no confirm_token.
+		await waitFor(() => expect(deleteBody).not.toContain("confirm_token"));
 		await waitFor(() =>
 			expect(screen.getByText(/No members yet/i)).toBeInTheDocument(),
 		);
-	});
-
-	it("shows an error in the modal when the primary token is rejected", async () => {
-		server.use(
-			http.get("/api/members", () =>
-				HttpResponse.json([member({ id: "2", name: "hotel-2" })]),
-			),
-			http.get("/api/fleet/last-sync", () =>
-				HttpResponse.json({
-					last_run_at: new Date().toISOString(),
-					primary_id: "2",
-					primary_name: "hotel-2",
-				}),
-			),
-			http.delete(
-				"/api/members/2",
-				() => new HttpResponse(null, { status: 403 }),
-			),
-		);
-		renderPage();
-		await screen.findByText("hotel-2");
-
-		await userEvent.click(screen.getByRole("button", { name: /^Remove$/i }));
-		const dialog = await screen.findByRole("dialog");
-
-		await userEvent.type(
-			within(dialog).getByLabelText(/Admin token/i),
-			"wrong-token",
-		);
-		await userEvent.click(
-			within(dialog).getByRole("button", { name: /^Remove$/i }),
-		);
-
-		// The error appears inline; the modal stays open so the user can retry.
-		await waitFor(() =>
-			expect(within(dialog).getByText(/not accepted/i)).toBeInTheDocument(),
-		);
-		expect(dialog).toBeInTheDocument();
 	});
 });

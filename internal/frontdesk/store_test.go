@@ -344,3 +344,111 @@ func TestPruneEvents(t *testing.T) {
 		t.Errorf("remaining %d, want 1", total)
 	}
 }
+
+func TestEnsureFrontdeskID(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	id, err := s.EnsureFrontdeskID(ctx)
+	if err != nil {
+		t.Fatalf("EnsureFrontdeskID: %v", err)
+	}
+	if id == "" {
+		t.Fatal("EnsureFrontdeskID returned empty id")
+	}
+
+	// Idempotent: a second call returns the same value, not a fresh UUID.
+	id2, err := s.EnsureFrontdeskID(ctx)
+	if err != nil {
+		t.Fatalf("EnsureFrontdeskID (second call): %v", err)
+	}
+	if id2 != id {
+		t.Errorf("second call returned %q, want stable %q", id2, id)
+	}
+}
+
+func TestEnsureFrontdeskIDPersists(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "frontdesk.db")
+	s1, err := Open(path, testMasterKey, true)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	ctx := context.Background()
+	id, err := s1.EnsureFrontdeskID(ctx)
+	if err != nil {
+		t.Fatalf("EnsureFrontdeskID: %v", err)
+	}
+	_ = s1.Close()
+
+	// Reopen the same file: the ID survives a restart.
+	s2, err := Open(path, testMasterKey, true)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer func() { _ = s2.Close() }()
+	got, err := s2.EnsureFrontdeskID(ctx)
+	if err != nil {
+		t.Fatalf("EnsureFrontdeskID after reopen: %v", err)
+	}
+	if got != id {
+		t.Errorf("after reopen got %q, want persisted %q", got, id)
+	}
+}
+
+func TestDeleteMemberIfNotPrimary(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	pm, err := s.CreateMember(ctx, "primary", "https://p.example.com", "ptok")
+	if err != nil {
+		t.Fatalf("create primary: %v", err)
+	}
+	om, err := s.CreateMember(ctx, "other", "https://o.example.com", "")
+	if err != nil {
+		t.Fatalf("create other: %v", err)
+	}
+	// Designate pm as the auto-sync primary.
+	if _, err := s.SetAutoSyncGuarded(ctx, false, pm.ID, true); err != nil {
+		t.Fatalf("set primary: %v", err)
+	}
+
+	// The primary cannot be deleted (no token bypass exists anymore).
+	if applied, err := s.DeleteMemberIfNotPrimary(ctx, pm.ID); err != nil || applied {
+		t.Fatalf("delete primary: applied=%v err=%v, want applied=false", applied, err)
+	}
+	if _, err := s.GetMember(ctx, pm.ID); err != nil {
+		t.Errorf("primary should still exist: %v", err)
+	}
+
+	// A non-primary member deletes.
+	if applied, err := s.DeleteMemberIfNotPrimary(ctx, om.ID); err != nil || !applied {
+		t.Fatalf("delete non-primary: applied=%v err=%v, want applied=true", applied, err)
+	}
+}
+
+func TestDeleteMemberClearsGhostFleetState(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	// A non-primary member that a stale fleet_sync_state still names as the last
+	// primary (the ghost that used to make the badge misreport who was primary).
+	gm, err := s.CreateMember(ctx, "ghost", "https://g.example.com", "")
+	if err != nil {
+		t.Fatalf("create ghost: %v", err)
+	}
+	if err := s.SetFleetSyncState(ctx, gm.ID, "ghost", time.Now()); err != nil {
+		t.Fatalf("seed fleet sync state: %v", err)
+	}
+
+	if applied, err := s.DeleteMemberIfNotPrimary(ctx, gm.ID); err != nil || !applied {
+		t.Fatalf("delete ghost: applied=%v err=%v", applied, err)
+	}
+
+	st, found, err := s.GetFleetSyncState(ctx)
+	if err != nil {
+		t.Fatalf("get fleet sync state: %v", err)
+	}
+	if found && st.PrimaryID == gm.ID {
+		t.Errorf("fleet_sync_state still names deleted member %q", gm.ID)
+	}
+}

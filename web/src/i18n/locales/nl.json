@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Provider wordt getest (circuitbreaker halfopen)",
 				"circuit_breaker_open": "Provider offline (circuitbreaker geopend)",
 				"discovery_provider_failed": "De provider is mislukt tijdens het opsporen",
+				"fleet_conflict": "Front Desk-eigendomsconflict",
 				"failover_sync_error": "Synchronisatie van de failovergroep is mislukt"
 			},
 			"events": {

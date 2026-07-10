@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Провајдер се тестира (кружни прекидач полуотворен)",
 				"circuit_breaker_open": "Провајдер неактиван (кружни прекидач отворен)",
 				"discovery_provider_failed": "Провајдер је пропао током откривања",
+				"fleet_conflict": "Сукоб власништва над Front Desk-ом",
 				"failover_sync_error": "Синхронизација резервне групе је неуспела"
 			},
 			"events": {

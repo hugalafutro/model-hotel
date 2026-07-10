@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Fournisseur en cours de test (disjoncteur à demi ouvert)",
 				"circuit_breaker_open": "Fournisseur hors service (disjoncteur ouvert)",
 				"discovery_provider_failed": "Échec de la détection du fournisseur",
+				"fleet_conflict": "Conflit de propriété Front Desk",
 				"failover_sync_error": "Échec de la synchronisation du groupe de basculement"
 			},
 			"events": {

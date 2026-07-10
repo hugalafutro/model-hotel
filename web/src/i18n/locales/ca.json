@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Proveïdor en proves (desactivador de circuit mig obert)",
 				"circuit_breaker_open": "Proveïdor fora de servei (disjuntor obert)",
 				"discovery_provider_failed": "El proveïdor ha fallat durant el descobriment",
+				"fleet_conflict": "Conflicte de propietat de Front Desk",
 				"failover_sync_error": "La sincronització del grup de fallada ha fallat"
 			},
 			"events": {

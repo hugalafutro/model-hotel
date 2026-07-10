@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Se está comprobando el proveedor (disyuntor medio abierto)",
 				"circuit_breaker_open": "Proveedor inactivo (disyuntor abierto)",
 				"discovery_provider_failed": "El proveedor ha fallado durante la detección",
+				"fleet_conflict": "Conflicto de propiedad de Front Desk",
 				"failover_sync_error": "Error en la sincronización del grupo de conmutación por error"
 			},
 			"events": {

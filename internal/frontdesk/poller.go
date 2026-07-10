@@ -29,6 +29,7 @@ import (
 const (
 	memberHealthPath   = "/health"
 	memberSettingsPath = "/api/settings"
+	memberSystemPath   = "/api/system/"
 	memberAnnouncePath = "/api/fleet/announce"
 	traefikServicesAPI = "/api/http/services"
 
@@ -74,13 +75,20 @@ type Poller struct {
 	traefikAPI string
 	now        func() time.Time
 
+	// frontdeskID is this Front Desk's persistent identity, stamped onto every
+	// announce so a member can tell which Front Desk owns its fleet role. Set
+	// once at startup via SetFrontdeskID; empty means a legacy build (a member
+	// then accepts our announces unconditionally, preserving old behaviour).
+	frontdeskID string
+
 	mu               sync.RWMutex
 	statuses         map[string]MemberStatus // keyed by member ID
 	lastConfigPollAt time.Time
 	staleNotified    bool
-	versionFailures  map[string]int // consecutive version-fetch failures, keyed by member ID
-	healthFailures   map[string]int // consecutive failed health polls, keyed by member ID
-	traefikNonUp     map[string]int // consecutive non-UP Traefik observations, keyed by member ID
+	versionFailures  map[string]int  // consecutive version-fetch failures, keyed by member ID
+	healthFailures   map[string]int  // consecutive failed health polls, keyed by member ID
+	traefikNonUp     map[string]int  // consecutive non-UP Traefik observations, keyed by member ID
+	conflictNotified map[string]bool // members that rejected our announce (409), keyed by member ID
 }
 
 // NewPoller builds a Poller. traefikAPI is the base URL of the Traefik API
@@ -91,16 +99,24 @@ func NewPoller(store *Store, bus *events.Bus, traefikAPI string) *Poller {
 		bus = events.DefaultBus
 	}
 	return &Poller{
-		store:           store,
-		bus:             bus,
-		client:          newProbeClient(httpProbeTimeout),
-		traefikAPI:      strings.TrimRight(traefikAPI, "/"),
-		now:             time.Now,
-		statuses:        make(map[string]MemberStatus),
-		versionFailures: make(map[string]int),
-		healthFailures:  make(map[string]int),
-		traefikNonUp:    make(map[string]int),
+		store:            store,
+		bus:              bus,
+		client:           newProbeClient(httpProbeTimeout),
+		traefikAPI:       strings.TrimRight(traefikAPI, "/"),
+		now:              time.Now,
+		statuses:         make(map[string]MemberStatus),
+		versionFailures:  make(map[string]int),
+		healthFailures:   make(map[string]int),
+		traefikNonUp:     make(map[string]int),
+		conflictNotified: make(map[string]bool),
 	}
+}
+
+// SetFrontdeskID records this Front Desk's persistent identity, stamped onto
+// every subsequent announce. Called once at startup after the ID is resolved
+// from the store. An empty ID leaves announces behaving like a legacy build.
+func (p *Poller) SetFrontdeskID(id string) {
+	p.frontdeskID = id
 }
 
 // RecordConfigPoll marks that Traefik just fetched the dynamic config. The
@@ -334,7 +350,16 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus) {
 type memberAnnounce struct {
 	IsPrimary   bool   `json:"is_primary"`
 	PrimaryName string `json:"primary_name,omitempty"`
+	// FrontdeskID is this Front Desk's persistent identity. A member records the
+	// first ID-bearing announcer as the owner of its fleet role and rejects
+	// announces from any other Front Desk while that owner is live. Empty on a
+	// legacy Front Desk build (the member then accepts unconditionally).
+	FrontdeskID string `json:"frontdesk_id,omitempty"`
 }
+
+// errAnnounceConflict is returned by announceToMember when a member rejects the
+// announce with 409: another Front Desk currently owns that member's fleet role.
+var errAnnounceConflict = errors.New("frontdesk: announce rejected (managed by another Front Desk)")
 
 // PollAnnounceOnce tells every reachable, tokened member that Front Desk is in
 // contact, and which member is the fleet primary. It is the producing half of
@@ -361,11 +386,30 @@ func (p *Poller) PollAnnounceOnce(ctx context.Context) {
 		if err != nil || !ok {
 			continue // no stored token: the announce endpoint needs admin auth
 		}
-		ann := memberAnnounce{IsPrimary: hasPrimary && m.ID == state.PrimaryID}
+		ann := memberAnnounce{
+			IsPrimary:   hasPrimary && m.ID == state.PrimaryID,
+			FrontdeskID: p.frontdeskID,
+		}
 		if hasPrimary {
 			ann.PrimaryName = state.PrimaryName
 		}
 		if err := p.announceToMember(ctx, m.URL, token, ann); err != nil {
+			if errors.Is(err, errAnnounceConflict) {
+				// Another Front Desk owns this member. Warn once per member per
+				// process run (announces fire every ~5s; without the latch this
+				// would be a log line every poll). The latch is never reset: the
+				// conflict is a persistent misconfiguration the operator resolves.
+				p.mu.Lock()
+				already := p.conflictNotified[m.ID]
+				if !already {
+					p.conflictNotified[m.ID] = true
+				}
+				p.mu.Unlock()
+				if !already {
+					debuglog.Warn("frontdesk: member is managed by another Front Desk; announce rejected", "member", m.ID)
+				}
+				continue
+			}
 			debuglog.Debug("frontdesk: announce to member failed", "member", m.ID, "error", err)
 		}
 	}
@@ -391,6 +435,11 @@ func (p *Poller) announceToMember(ctx context.Context, baseURL, token string, an
 	}
 	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<10))
+	if resp.StatusCode == http.StatusConflict {
+		// The member is owned by another Front Desk. Distinguish this from a
+		// generic failure so the caller can surface it once, not spam Debug.
+		return errAnnounceConflict
+	}
 	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("announce returned %d", resp.StatusCode)
 	}

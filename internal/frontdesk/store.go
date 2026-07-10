@@ -41,6 +41,10 @@ var (
 	ErrDuplicateURL = errors.New("frontdesk: a member with this URL already exists")
 	// ErrValidation wraps input validation failures.
 	ErrValidation = errors.New("frontdesk: validation failed")
+	// ErrInsecureURL is returned when a member URL uses plain http and plain http
+	// is not allowed. It is a distinct sentinel (not plain ErrValidation) so the
+	// server can hand the frontend a stable machine code instead of English text.
+	ErrInsecureURL = errors.New("frontdesk: member url must use https")
 )
 
 // MemberState is the operational state of a member as the control plane sees it.
@@ -69,6 +73,10 @@ type Member struct {
 	// table "Last Config Sync" column.
 	LastConfigSyncAt     *time.Time `json:"last_config_sync_at,omitempty"`
 	LastConfigSyncReason string     `json:"last_config_sync_reason,omitempty"`
+	// InstanceID is the stable identity of the model-hotel instance behind this
+	// member (from its /api/system). Empty until Front Desk has verified the
+	// member at least once. Used to detect the same instance under another URL.
+	InstanceID string `json:"instance_id,omitempty"`
 }
 
 // Settings shape the generated Traefik config and the pollers. The single row
@@ -284,7 +292,7 @@ func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*
 // ListMembers returns all members ordered by creation time.
 func (s *Store) ListMembers(ctx context.Context) ([]*Member, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, url, state, token_cipher, created_at, updated_at, last_config_sync_at, last_config_sync_reason FROM members ORDER BY created_at ASC`,
+		`SELECT id, name, url, state, token_cipher, created_at, updated_at, last_config_sync_at, last_config_sync_reason, instance_id FROM members ORDER BY created_at ASC`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("frontdesk: list members: %w", err)
@@ -305,7 +313,7 @@ func (s *Store) ListMembers(ctx context.Context) ([]*Member, error) {
 // GetMember returns one member by id, or ErrNotFound.
 func (s *Store) GetMember(ctx context.Context, id string) (*Member, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, name, url, state, token_cipher, created_at, updated_at, last_config_sync_at, last_config_sync_reason FROM members WHERE id = ?`, id,
+		`SELECT id, name, url, state, token_cipher, created_at, updated_at, last_config_sync_at, last_config_sync_reason, instance_id FROM members WHERE id = ?`, id,
 	)
 	m, err := scanMember(row)
 	if err != nil {
@@ -362,32 +370,44 @@ func (s *Store) DeleteMember(ctx context.Context, id string) error {
 	return nil
 }
 
-// DeleteMemberGuarded removes a member by id, but refuses if the member is the
-// configured fleet primary and the caller did not supply a valid admin token.
-// The primary-status check and the delete are a single atomic SQL statement, so
-// a concurrent primary reassignment cannot slip between the check and the delete
+// SetMemberInstanceID records the stable identity Front Desk learned for a
+// member from its /api/system. Idempotent; a no-op if the row is gone.
+func (s *Store) SetMemberInstanceID(ctx context.Context, id, instanceID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE members SET instance_id = ? WHERE id = ?`, instanceID, id)
+	return err
+}
+
+// DeleteMemberIfNotPrimary removes a member by id, but never the configured
+// fleet primary. The primary is the config source of truth and can only be
+// changed by re-running the Fleet Sync wizard (a token-gated repoint), so there
+// is deliberately no way to delete it directly, with or without a token. The
+// primary-status check and the delete are a single atomic SQL statement, so a
+// concurrent primary reassignment cannot slip between the check and the delete
 // (the TOCTOU window a two-step GetAutoSync + DeleteMember would have). Returns
-// applied=false when the member is the primary and the token was not valid; the
-// caller should respond 403 in that case.
-func (s *Store) DeleteMemberGuarded(ctx context.Context, id string, tokenValid bool) (applied bool, err error) {
-	var (
-		res     sql.Result
-		execErr error
-	)
-	if tokenValid {
-		// Valid token: the operator confirmed, so delete unconditionally.
-		res, execErr = s.db.ExecContext(ctx, `DELETE FROM members WHERE id = ?`, id)
-	} else {
-		// No valid token: delete only if the member is NOT the fleet primary.
-		// The sub-query makes the check and the delete a single atomic statement.
-		res, execErr = s.db.ExecContext(ctx, `
-			DELETE FROM members
-			WHERE id = ?
-			  AND id NOT IN (SELECT auto_sync_primary_id FROM settings WHERE id = 1)`,
-			id)
+// applied=false when the member is the current primary; the caller should
+// respond 409 and point the operator at the wizard.
+func (s *Store) DeleteMemberIfNotPrimary(ctx context.Context, id string) (applied bool, err error) {
+	// The delete and its ghost-state cleanup run in one transaction, so a crash
+	// mid-way can never leave a fleet_sync_state row naming a member that was
+	// already removed (exactly the ghost that made the old badge misreport who the
+	// primary was).
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("frontdesk: begin delete member: %w", err)
 	}
-	if execErr != nil {
-		return false, execErr
+	defer tx.Rollback() //nolint:errcheck // rollback after a successful commit is a no-op
+
+	// Delete only if the member is NOT the fleet primary. The sub-query makes the
+	// check and the delete a single atomic statement, so a concurrent primary
+	// reassignment cannot slip between the check and the delete.
+	res, err := tx.ExecContext(ctx, `
+		DELETE FROM members
+		WHERE id = ?
+		  AND id NOT IN (SELECT auto_sync_primary_id FROM settings WHERE id = 1)`,
+		id)
+	if err != nil {
+		return false, fmt.Errorf("frontdesk: delete member: %w", err)
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
@@ -396,7 +416,17 @@ func (s *Store) DeleteMemberGuarded(ctx context.Context, id string, tokenValid b
 	if n == 0 {
 		return false, nil
 	}
-	_, _ = s.db.ExecContext(ctx, `UPDATE settings SET auto_sync_primary_id = '' WHERE auto_sync_primary_id = ?`, id)
+	// A removed non-primary member must not linger as the auto-sync primary (it
+	// never should, but stay defensive) nor as the stale "last run" marker.
+	if _, err := tx.ExecContext(ctx, `UPDATE settings SET auto_sync_primary_id = '' WHERE auto_sync_primary_id = ?`, id); err != nil {
+		return false, fmt.Errorf("frontdesk: clear auto-sync primary: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE fleet_sync_state SET primary_id = '', primary_name = '' WHERE id = 1 AND primary_id = ?`, id); err != nil {
+		return false, fmt.Errorf("frontdesk: clear ghost fleet state: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("frontdesk: commit delete member: %w", err)
+	}
 	return true, nil
 }
 
@@ -726,6 +756,40 @@ func (s *Store) SetFleetSyncState(ctx context.Context, primaryID, primaryName st
 	return nil
 }
 
+// EnsureFrontdeskID returns this Front Desk's persistent identity, generating
+// and storing a UUID on first use. It reads the frontdesk_id column from the
+// singleton settings row (id = 1); if empty, it generates a UUID, persists it,
+// and returns it. Idempotent: a second call returns the same value. This ID is
+// stamped onto every announce so a member can tell which Front Desk owns its
+// fleet role (see internal/api/fleet.go Announce).
+func (s *Store) EnsureFrontdeskID(ctx context.Context) (string, error) {
+	var id string
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT frontdesk_id FROM settings WHERE id = 1`,
+	).Scan(&id); err != nil {
+		return "", fmt.Errorf("frontdesk: read frontdesk_id: %w", err)
+	}
+	if id != "" {
+		return id, nil
+	}
+	id = uuid.NewString()
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE settings SET frontdesk_id = ? WHERE id = 1 AND frontdesk_id = ''`,
+		id,
+	); err != nil {
+		return "", fmt.Errorf("frontdesk: persist frontdesk_id: %w", err)
+	}
+	// Re-read: a concurrent first-caller may have won the guarded UPDATE, in
+	// which case our write was a no-op and the stored value is theirs. Either
+	// way the row now holds the single agreed-upon ID.
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT frontdesk_id FROM settings WHERE id = 1`,
+	).Scan(&id); err != nil {
+		return "", fmt.Errorf("frontdesk: reread frontdesk_id: %w", err)
+	}
+	return id, nil
+}
+
 // ---------------------------------------------------------------------------
 // Events
 // ---------------------------------------------------------------------------
@@ -857,7 +921,7 @@ func scanMember(sc scanner) (*Member, error) {
 		lastSyncAt sql.NullInt64
 		syncReason string
 	)
-	if err := sc.Scan(&m.ID, &m.Name, &m.URL, &state, &cipher, &createdAt, &updatedAt, &lastSyncAt, &syncReason); err != nil {
+	if err := sc.Scan(&m.ID, &m.Name, &m.URL, &state, &cipher, &createdAt, &updatedAt, &lastSyncAt, &syncReason, &m.InstanceID); err != nil {
 		return nil, err
 	}
 	m.State = MemberState(state)
@@ -910,7 +974,7 @@ func normalizeMemberURL(raw string, allowHTTP bool) (string, error) {
 		return "", fmt.Errorf("%w: url must use http or https", ErrValidation)
 	}
 	if u.Scheme == "http" && !allowHTTP {
-		return "", fmt.Errorf("%w: url must use https; set FRONTDESK_ALLOW_HTTP_MEMBERS=true to allow plain http on a trusted internal network", ErrValidation)
+		return "", fmt.Errorf("%w; set FRONTDESK_ALLOW_HTTP_MEMBERS=true to allow plain http on a trusted internal network", ErrInsecureURL)
 	}
 	if u.Host == "" {
 		return "", fmt.Errorf("%w: url must include a host", ErrValidation)

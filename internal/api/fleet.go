@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
 // maxAnnounceBody bounds the announce request body. The payload is a handful of
@@ -74,6 +77,9 @@ const (
 // Both are satisfied by *settings.Repository (via the SettingsStore interface).
 type fleetSettings interface {
 	GetWithDefault(ctx context.Context, key, defaultValue string) string
+	// GetChecked distinguishes an unset key from a real read failure, so fleet
+	// role decisions can refuse to guess "member" when the DB read errors.
+	GetChecked(ctx context.Context, key string) (value string, found bool, err error)
 	Set(ctx context.Context, key, value string) error
 	SetMany(ctx context.Context, kvs [][2]string) error
 }
@@ -93,30 +99,57 @@ type FleetStatus struct {
 }
 
 // computeFleetStatus derives the member's fleet state from the persisted
-// _fleet_* settings and the liveness windows. It returns nil for a standalone
-// instance (no recorded contact, or contact older than fleetForgetTTL) so the
-// dashboard renders nothing. now is injectable for tests.
-func computeFleetStatus(ctx context.Context, s fleetSettings, now time.Time) *FleetStatus {
-	seen := s.GetWithDefault(ctx, keyFleetManagedSeenAt, "")
-	if seen == "" {
-		return nil // never contacted: standalone
-	}
-	seenAt, err := time.Parse(time.RFC3339, seen)
+// _fleet_* settings and the liveness windows. It returns (nil, nil) for a
+// standalone instance (no recorded contact, or contact older than
+// fleetForgetTTL) so the dashboard renders nothing. A non-nil error means a
+// setting read failed: the caller must treat the fleet role as unknown and
+// never fall back to "member" (a canceled /api/system read must not report the
+// primary as a demoted member, nor poison the response cache). now is
+// injectable for tests.
+func computeFleetStatus(ctx context.Context, s fleetSettings, now time.Time) (*FleetStatus, error) {
+	seen, found, err := s.GetChecked(ctx, keyFleetManagedSeenAt)
 	if err != nil {
+		return nil, err
+	}
+	if !found || seen == "" {
+		return nil, nil // never contacted: standalone
+	}
+	seenAt, perr := time.Parse(time.RFC3339, seen)
+	if perr != nil {
+		// A corrupt stored timestamp is not a read failure: treat the instance as
+		// standalone (unmanaged), never as a hard error. Returning (nil, nil) is
+		// deliberate here, not a swallowed error.
 		debuglog.Warn("fleet: unparseable managed-seen-at; treating as standalone", "value", seen)
-		return nil
+		return nil, nil //nolint:nilerr // corrupt value means standalone, not error
 	}
 	age := now.Sub(seenAt)
 	if age >= fleetForgetTTL {
-		return nil // long gone: forget the fleet, behave as standalone again
+		return nil, nil // long gone: forget the fleet, behave as standalone again
+	}
+
+	isPrimary, err := fleetGetOr(ctx, s, keyFleetIsPrimary, "false")
+	if err != nil {
+		return nil, err
+	}
+	primaryName, err := fleetGetOr(ctx, s, keyFleetPrimaryName, "")
+	if err != nil {
+		return nil, err
+	}
+	frontdeskID, err := fleetGetOr(ctx, s, keyFleetFrontdeskID, "")
+	if err != nil {
+		return nil, err
+	}
+	configSyncedAt, err := fleetGetOr(ctx, s, keyFleetConfigSyncedAt, "")
+	if err != nil {
+		return nil, err
 	}
 
 	fs := &FleetStatus{
-		IsPrimary:      s.GetWithDefault(ctx, keyFleetIsPrimary, "false") == "true",
-		PrimaryName:    s.GetWithDefault(ctx, keyFleetPrimaryName, ""),
-		FrontdeskID:    s.GetWithDefault(ctx, keyFleetFrontdeskID, ""),
+		IsPrimary:      isPrimary == "true",
+		PrimaryName:    primaryName,
+		FrontdeskID:    frontdeskID,
 		ManagedSeenAt:  seen,
-		ConfigSyncedAt: s.GetWithDefault(ctx, keyFleetConfigSyncedAt, ""),
+		ConfigSyncedAt: configSyncedAt,
 	}
 	switch {
 	case age >= fleetManagedTTL:
@@ -128,7 +161,20 @@ func computeFleetStatus(ctx context.Context, s fleetSettings, now time.Time) *Fl
 	default:
 		fs.State = "member"
 	}
-	return fs
+	return fs, nil
+}
+
+// fleetGetOr reads a fleet key via GetChecked, returning def when the key is
+// unset and propagating any real read failure so the caller can refuse to guess.
+func fleetGetOr(ctx context.Context, s fleetSettings, key, def string) (string, error) {
+	v, found, err := s.GetChecked(ctx, key)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return def, nil
+	}
+	return v, nil
 }
 
 // FleetHandler serves POST /fleet/announce, the admin-authenticated heartbeat
@@ -137,11 +183,22 @@ func computeFleetStatus(ctx context.Context, s fleetSettings, now time.Time) *Fl
 // a member's fleet state.
 type FleetHandler struct {
 	settings fleetSettings
+
+	// conflictMu guards conflictSeen, the per-rejected-ID debounce for the
+	// conflict event + Warn. Announces from a losing Front Desk arrive every ~5s;
+	// without this the member would emit ~720 events/hour per offending ID.
+	conflictMu   sync.Mutex
+	conflictSeen map[string]time.Time // rejected frontdesk_id -> last time we emitted
 }
+
+// conflictNotifyInterval bounds how often a rejected Front Desk's ownership
+// conflict is surfaced (event + Warn) on the member. One per hour per ID is
+// enough to make a persistent misconfiguration visible without flooding.
+const conflictNotifyInterval = time.Hour
 
 // NewFleetHandler builds the member-side fleet handler.
 func NewFleetHandler(settings fleetSettings) *FleetHandler {
-	return &FleetHandler{settings: settings}
+	return &FleetHandler{settings: settings, conflictSeen: map[string]time.Time{}}
 }
 
 // Register mounts POST /fleet/announce. The parent router must apply admin auth.
@@ -170,11 +227,49 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+
+	// Every announce must identify its Front Desk. The id is how a member knows
+	// which control plane owns it, so an anonymous announce cannot be trusted to
+	// write fleet state at all: it would let anyone holding the admin token demote
+	// a member out from under its real owner. A correctly-built Front Desk always
+	// sends one (see store.EnsureFrontdeskID); an announce without it is rejected.
+	if strings.TrimSpace(req.FrontdeskID) == "" {
+		http.Error(w, "frontdesk_id is required", http.StatusBadRequest)
+		return
+	}
+
+	// Ownership check: decide whether this announcer is allowed to write. A read
+	// failure means unknown, so respond 500 and let the announcer retry in ~5s
+	// rather than guessing. Evaluated BEFORE any write so a rejected announce
+	// touches nothing.
+	storedID, _, err := h.settings.GetChecked(ctx, keyFleetFrontdeskID)
+	if err != nil {
+		respondError(w, "failed to read fleet ownership", err, http.StatusInternalServerError)
+		return
+	}
+	// Accept when there is no owner yet or the same owner is re-announcing. A
+	// different owner is only displaced if its heartbeat has gone stale (it was
+	// replaced); otherwise reject so a rogue second Front Desk cannot demote a
+	// live member.
+	if storedID != "" && storedID != req.FrontdeskID {
+		seen, _, serr := h.settings.GetChecked(ctx, keyFleetManagedSeenAt)
+		if serr != nil {
+			respondError(w, "failed to read fleet heartbeat", serr, http.StatusInternalServerError)
+			return
+		}
+		if !ownerStale(seen, time.Now()) {
+			h.rejectConflict(ctx, storedID, req.FrontdeskID)
+			http.Error(w, "another Front Desk currently manages this instance", http.StatusConflict)
+			return
+		}
+		// Stale owner: legitimate FD-replacement path, adopt the new ID.
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339)
-	// One multi-row upsert, not four sequential writes: Front Desk's announce
-	// client gives up after a few seconds, and four round-trips against a
-	// briefly-slow database (e.g. during a simultaneous fleet rebuild) can blow
-	// that budget and surface as a spurious 500 on the member.
+	// One multi-row upsert, not sequential writes: Front Desk's announce client
+	// gives up after a few seconds, and multiple round-trips against a briefly-slow
+	// database (e.g. during a simultaneous fleet rebuild) can blow that budget and
+	// surface as a spurious 500 on the member.
 	writes := [][2]string{
 		{keyFleetManagedSeenAt, now},
 		{keyFleetIsPrimary, boolStr(req.IsPrimary)},
@@ -186,6 +281,51 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ownerStale reports whether the current owner's last-heartbeat timestamp is
+// older than fleetManagedTTL (or absent/unparseable), meaning the owning Front
+// Desk is gone and its member may be adopted by a new one.
+func ownerStale(seen string, now time.Time) bool {
+	if seen == "" {
+		return true
+	}
+	seenAt, err := time.Parse(time.RFC3339, seen)
+	if err != nil {
+		return true
+	}
+	return now.Sub(seenAt) >= fleetManagedTTL
+}
+
+// rejectConflict surfaces a rejected ownership claim: a debounced Warn plus a
+// dashboard event (Events page + SSE), at most once per hour per rejected ID.
+func (h *FleetHandler) rejectConflict(_ context.Context, storedID, rejectedID string) {
+	now := time.Now()
+	h.conflictMu.Lock()
+	if h.conflictSeen == nil {
+		h.conflictSeen = map[string]time.Time{}
+	}
+	last, seen := h.conflictSeen[rejectedID]
+	shouldEmit := !seen || now.Sub(last) >= conflictNotifyInterval
+	if shouldEmit {
+		h.conflictSeen[rejectedID] = now
+	}
+	h.conflictMu.Unlock()
+	if !shouldEmit {
+		return
+	}
+	debuglog.Warn("fleet: rejected announce from unowned Front Desk",
+		"stored_frontdesk_id", storedID, "rejected_frontdesk_id", rejectedID)
+	events.Publish(events.Event{
+		Type:     "fleet.conflict",
+		Severity: "warning",
+		Source:   "fleet",
+		Message:  "Rejected a fleet announce from a Front Desk that does not own this instance",
+		Metadata: map[string]interface{}{
+			"stored_frontdesk_id":   storedID,
+			"rejected_frontdesk_id": rejectedID,
+		},
+	})
 }
 
 func boolStr(b bool) string {

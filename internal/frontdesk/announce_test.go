@@ -118,3 +118,75 @@ func TestPollAnnounceOnce_SkipsTokenlessAndToleratesErrors(t *testing.T) {
 		t.Errorf("ok member: hits=%d is_primary=%v, want 1/false", hits, ann.IsPrimary)
 	}
 }
+
+func TestPollAnnounceOnce_SendsFrontdeskID(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	p.SetFrontdeskID("fd-abc-123")
+	ctx := context.Background()
+
+	srv := newAnnounceRecorder(t, http.StatusNoContent)
+	if _, err := store.CreateMember(ctx, "m", srv.srv.URL, "tok"); err != nil {
+		t.Fatalf("create member: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := srv.snapshot(); ann.FrontdeskID != "fd-abc-123" {
+		t.Errorf("announce frontdesk_id = %q, want %q", ann.FrontdeskID, "fd-abc-123")
+	}
+}
+
+func TestPollAnnounceOnce_ConflictWarnsOnceDoesNotAbort(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	p.SetFrontdeskID("fd-second")
+	ctx := context.Background()
+
+	// A member owned by another Front Desk replies 409 to every announce.
+	conflictSrv := newAnnounceRecorder(t, http.StatusConflict)
+	if _, err := store.CreateMember(ctx, "conflict", conflictSrv.srv.URL, "tok"); err != nil {
+		t.Fatalf("create conflict member: %v", err)
+	}
+	okSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	if _, err := store.CreateMember(ctx, "ok", okSrv.srv.URL, "tok"); err != nil {
+		t.Fatalf("create ok member: %v", err)
+	}
+
+	// Two sweeps: the 409 must not abort the sweep (the ok member is still
+	// announced) and the conflict latch must be recorded after the first hit.
+	p.PollAnnounceOnce(ctx)
+	if hits, _, _ := conflictSrv.snapshot(); hits != 1 {
+		t.Errorf("conflict member hits after first sweep = %d, want 1", hits)
+	}
+	if hits, _, _ := okSrv.snapshot(); hits != 1 {
+		t.Errorf("ok member hits after first sweep = %d, want 1 (409 must not abort)", hits)
+	}
+
+	p.mu.RLock()
+	latched := p.conflictNotified[memberIDByName(ctx, t, store, "conflict")]
+	p.mu.RUnlock()
+	if !latched {
+		t.Error("conflict was not latched after a 409 announce")
+	}
+
+	// Second sweep still announces (retried every poll) without crashing.
+	p.PollAnnounceOnce(ctx)
+	if hits, _, _ := conflictSrv.snapshot(); hits != 2 {
+		t.Errorf("conflict member hits after second sweep = %d, want 2", hits)
+	}
+}
+
+// memberIDByName resolves a member's generated ID from its name for assertions.
+func memberIDByName(ctx context.Context, t *testing.T, store *Store, name string) string {
+	t.Helper()
+	members, err := store.ListMembers(ctx)
+	if err != nil {
+		t.Fatalf("list members: %v", err)
+	}
+	for _, m := range members {
+		if m.Name == name {
+			return m.ID
+		}
+	}
+	t.Fatalf("member %q not found", name)
+	return ""
+}

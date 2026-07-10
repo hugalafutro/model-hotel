@@ -113,8 +113,8 @@ func TestNormalizeMemberURLRejectsBlockedIP(t *testing.T) {
 // always accepted.
 func TestNormalizeMemberURLHTTPSGate(t *testing.T) {
 	// Default (allowHTTP=false): http rejected, https accepted.
-	if _, err := normalizeMemberURL("http://mh1:8080", false); !errors.Is(err, ErrValidation) {
-		t.Errorf("http with allowHTTP=false: got %v, want ErrValidation", err)
+	if _, err := normalizeMemberURL("http://mh1:8080", false); !errors.Is(err, ErrInsecureURL) {
+		t.Errorf("http with allowHTTP=false: got %v, want ErrInsecureURL", err)
 	}
 	if _, err := normalizeMemberURL("https://mh1:8080", false); err != nil {
 		t.Errorf("https with allowHTTP=false: unexpected error %v", err)

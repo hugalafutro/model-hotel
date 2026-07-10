@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // This file enforces, on the server, the same read-only contract the dashboard
@@ -42,8 +44,16 @@ const managedWriteMsg = "this instance is managed by the fleet primary; " +
 // a bug. The enforcement is defense-in-depth for the read-only UI, not a
 // consistency boundary, and any write that slips through is reconciled by the
 // next config sync (the primary remains the source of truth).
+//
+// A read error is handled the same way: fail open (return false). The guard must
+// never lock an operator out on a transient DB read failure, matching the
+// documented fail-open posture above.
 func isManagedMember(ctx context.Context, fs fleetSettings) bool {
-	st := computeFleetStatus(ctx, fs, time.Now())
+	st, err := computeFleetStatus(ctx, fs, time.Now())
+	if err != nil {
+		debuglog.Warn("fleet: managed-member check read failed; treating as unmanaged", "error", err)
+		return false
+	}
 	return st != nil && st.State == "member"
 }
 

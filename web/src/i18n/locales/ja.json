@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "プロバイダーの検知中（サーキットブレーカーが半開状態）",
 				"circuit_breaker_open": "プロバイダーダウン（サーキットブレーカーが作動）",
 				"discovery_provider_failed": "プロバイダーの検出中にエラーが発生しました",
+				"fleet_conflict": "Front Desk の所有権競合",
 				"failover_sync_error": "フェイルオーバーグループの同期に失敗しました"
 			},
 			"events": {

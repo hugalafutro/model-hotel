@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
@@ -18,8 +19,9 @@ import (
 type fakeFleetSettings struct {
 	values   map[string]string
 	setErr   error
-	written  []string // keys in the order they were persisted
-	setCalls int      // number of SetMany calls
+	getErr   map[string]error // per-key GetChecked read failure
+	written  []string         // keys in the order they were persisted
+	setCalls int              // number of SetMany calls
 }
 
 func newFakeFleetSettings() *fakeFleetSettings {
@@ -31,6 +33,18 @@ func (f *fakeFleetSettings) GetWithDefault(_ context.Context, key, def string) s
 		return v
 	}
 	return def
+}
+
+func (f *fakeFleetSettings) GetChecked(_ context.Context, key string) (string, bool, error) {
+	if f.getErr != nil {
+		if err := f.getErr[key]; err != nil {
+			return "", false, err
+		}
+	}
+	if v, ok := f.values[key]; ok {
+		return v, true, nil
+	}
+	return "", false, nil
 }
 
 func (f *fakeFleetSettings) Set(_ context.Context, key, value string) error {
@@ -97,7 +111,7 @@ func TestFleetAnnounce_WriteFailureIs500(t *testing.T) {
 	h := NewFleetHandler(fs)
 
 	req := httptest.NewRequest(http.MethodPost, "/fleet/announce",
-		strings.NewReader(`{"is_primary":true}`))
+		strings.NewReader(`{"is_primary":true,"frontdesk_id":"fd-1"}`))
 	rec := httptest.NewRecorder()
 	h.Announce(rec, req)
 
@@ -115,7 +129,7 @@ func TestFleetAnnounce_NonPrimaryWritesFalse(t *testing.T) {
 	h := NewFleetHandler(fs)
 
 	req := httptest.NewRequest(http.MethodPost, "/fleet/announce",
-		strings.NewReader(`{"is_primary":false}`))
+		strings.NewReader(`{"is_primary":false,"frontdesk_id":"fd-1"}`))
 	rec := httptest.NewRecorder()
 	h.Announce(rec, req)
 
@@ -140,6 +154,135 @@ func TestFleetAnnounce_RejectsBadJSON(t *testing.T) {
 	}
 	if len(fs.written) != 0 {
 		t.Errorf("wrote %v on bad body; want no writes", fs.written)
+	}
+}
+
+func TestFleetAnnounce_Ownership(t *testing.T) {
+	fresh := time.Now().Add(-time.Second).UTC().Format(time.RFC3339)
+	stale := time.Now().Add(-2 * fleetManagedTTL).UTC().Format(time.RFC3339)
+
+	tests := []struct {
+		name        string
+		stored      map[string]string // seeded _fleet_* values
+		body        string
+		wantStatus  int
+		wantOwnerID string // expected _fleet_frontdesk_id after the call
+	}{
+		{
+			name:        "no owner yet: adopt incoming id",
+			stored:      map[string]string{},
+			body:        `{"is_primary":false,"frontdesk_id":"fd-1"}`,
+			wantStatus:  http.StatusNoContent,
+			wantOwnerID: "fd-1",
+		},
+		{
+			name:        "same owner re-announces: accepted",
+			stored:      map[string]string{keyFleetFrontdeskID: "fd-1", keyFleetManagedSeenAt: fresh},
+			body:        `{"is_primary":true,"frontdesk_id":"fd-1"}`,
+			wantStatus:  http.StatusNoContent,
+			wantOwnerID: "fd-1",
+		},
+		{
+			name:        "different owner, live heartbeat: rejected 409, id untouched",
+			stored:      map[string]string{keyFleetFrontdeskID: "fd-1", keyFleetManagedSeenAt: fresh},
+			body:        `{"is_primary":false,"frontdesk_id":"fd-2"}`,
+			wantStatus:  http.StatusConflict,
+			wantOwnerID: "fd-1",
+		},
+		{
+			name:        "different owner, stale heartbeat: adopted",
+			stored:      map[string]string{keyFleetFrontdeskID: "fd-1", keyFleetManagedSeenAt: stale},
+			body:        `{"is_primary":false,"frontdesk_id":"fd-2"}`,
+			wantStatus:  http.StatusNoContent,
+			wantOwnerID: "fd-2",
+		},
+		{
+			name:        "empty-id announce: rejected 400, nothing written",
+			stored:      map[string]string{keyFleetFrontdeskID: "fd-1", keyFleetManagedSeenAt: fresh},
+			body:        `{"is_primary":true}`,
+			wantStatus:  http.StatusBadRequest,
+			wantOwnerID: "fd-1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &fakeFleetSettings{values: map[string]string{}}
+			for k, v := range tt.stored {
+				fs.values[k] = v
+			}
+			h := NewFleetHandler(fs)
+			req := httptest.NewRequest(http.MethodPost, "/fleet/announce", strings.NewReader(tt.body))
+			rec := httptest.NewRecorder()
+			h.Announce(rec, req)
+
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d; body=%q", rec.Code, tt.wantStatus, rec.Body.String())
+			}
+			if got := fs.values[keyFleetFrontdeskID]; got != tt.wantOwnerID {
+				t.Errorf("%s = %q, want %q", keyFleetFrontdeskID, got, tt.wantOwnerID)
+			}
+			if tt.wantStatus != http.StatusNoContent && fs.setCalls != 0 {
+				t.Errorf("rejected announce wrote to settings (%d SetMany calls); want 0", fs.setCalls)
+			}
+		})
+	}
+}
+
+func TestFleetAnnounce_ReadErrorIs500(t *testing.T) {
+	fs := &fakeFleetSettings{
+		values: map[string]string{},
+		getErr: map[string]error{keyFleetFrontdeskID: errors.New("db unavailable")},
+	}
+	h := NewFleetHandler(fs)
+	req := httptest.NewRequest(http.MethodPost, "/fleet/announce",
+		strings.NewReader(`{"is_primary":true,"frontdesk_id":"fd-1"}`))
+	rec := httptest.NewRecorder()
+	h.Announce(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
+	}
+	if fs.setCalls != 0 {
+		t.Errorf("wrote to settings on read error; want no writes")
+	}
+}
+
+func TestFleetAnnounce_ConflictDebounced(t *testing.T) {
+	fresh := time.Now().Add(-time.Second).UTC().Format(time.RFC3339)
+	fs := &fakeFleetSettings{values: map[string]string{
+		keyFleetFrontdeskID:   "fd-1",
+		keyFleetManagedSeenAt: fresh,
+	}}
+	h := NewFleetHandler(fs)
+
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	// Two back-to-back rejections from the same rogue FD: exactly one event.
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/fleet/announce",
+			strings.NewReader(`{"is_primary":false,"frontdesk_id":"fd-2"}`))
+		rec := httptest.NewRecorder()
+		h.Announce(rec, req)
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("rejection %d: status = %d, want 409", i, rec.Code)
+		}
+	}
+
+	got := 0
+	for draining := true; draining; {
+		select {
+		case ev := <-sub:
+			if ev.Type == "fleet.conflict" {
+				got++
+			}
+		case <-time.After(200 * time.Millisecond):
+			draining = false
+		}
+	}
+	if got != 1 {
+		t.Errorf("emitted %d fleet.conflict events for two rejections, want 1 (debounced)", got)
 	}
 }
 
@@ -212,7 +355,10 @@ func TestComputeFleetStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := &fakeFleetSettings{values: tt.values}
-			got := computeFleetStatus(context.Background(), fs, now)
+			got, err := computeFleetStatus(context.Background(), fs, now)
+			if err != nil {
+				t.Fatalf("computeFleetStatus returned unexpected error: %v", err)
+			}
 			if tt.wantNil {
 				if got != nil {
 					t.Fatalf("computeFleetStatus = %+v, want nil", got)
@@ -229,6 +375,68 @@ func TestComputeFleetStatus(t *testing.T) {
 				t.Errorf("IsPrimary = %v, want %v", got.IsPrimary, tt.wantPrim)
 			}
 		})
+	}
+}
+
+// TestComputeFleetStatus_ReadError asserts a real settings read failure
+// propagates as an error (never a silent "member" fallback), so a canceled
+// /api/system read cannot demote the primary or poison the response cache.
+func TestComputeFleetStatus_ReadError(t *testing.T) {
+	now := time.Now()
+	rfc := func(ago time.Duration) string { return now.Add(-ago).UTC().Format(time.RFC3339) }
+	wantErr := errors.New("db read failed")
+
+	tests := []struct {
+		name   string
+		values map[string]string
+		errKey string
+	}{
+		{
+			name:   "seen-at read fails",
+			values: map[string]string{keyFleetManagedSeenAt: rfc(time.Second)},
+			errKey: keyFleetManagedSeenAt,
+		},
+		{
+			name: "is-primary read fails",
+			values: map[string]string{
+				keyFleetManagedSeenAt: rfc(time.Second),
+				keyFleetIsPrimary:     "true",
+			},
+			errKey: keyFleetIsPrimary,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := &fakeFleetSettings{
+				values: tt.values,
+				getErr: map[string]error{tt.errKey: wantErr},
+			}
+			got, err := computeFleetStatus(context.Background(), fs, now)
+			if !errors.Is(err, wantErr) {
+				t.Fatalf("err = %v, want %v", err, wantErr)
+			}
+			if got != nil {
+				t.Fatalf("status = %+v, want nil on read error", got)
+			}
+		})
+	}
+}
+
+// TestIsManagedMember_ReadErrorFailsOpen asserts the managed-write guard treats
+// a settings read failure as unmanaged (fail open), so a transient DB error
+// never locks an operator out of their own instance.
+func TestIsManagedMember_ReadErrorFailsOpen(t *testing.T) {
+	now := time.Now()
+	fs := &fakeFleetSettings{
+		values: map[string]string{
+			keyFleetManagedSeenAt: now.Add(-time.Second).UTC().Format(time.RFC3339),
+			keyFleetIsPrimary:     "false",
+		},
+		getErr: map[string]error{keyFleetIsPrimary: errors.New("boom")},
+	}
+	if isManagedMember(context.Background(), fs) {
+		t.Fatal("isManagedMember = true on read error, want false (fail open)")
 	}
 }
 

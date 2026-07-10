@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Leverandør blir testet (strømbryter halvåpen)",
 				"circuit_breaker_open": "Leverandør nede (strømbryter åpnet)",
 				"discovery_provider_failed": "Leverandøren mislyktes under oppdagelsen",
+				"fleet_conflict": "Front Desk-eierskapskonflikt",
 				"failover_sync_error": "Synkronisering av failover-gruppe mislyktes"
 			},
 			"events": {

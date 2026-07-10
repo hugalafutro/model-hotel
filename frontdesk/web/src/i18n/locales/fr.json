@@ -110,8 +110,8 @@
 		"namePlaceholder": "hotel-1",
 		"urlLabel": "URL de base",
 		"urlPlaceholder": "https://hotel-1.example.com",
-		"tokenLabel": "Jeton d'administration (facultatif)",
-		"tokenHint": "Stocké chiffré. Nécessaire pour les lectures de version et de trafic, et pour la synchronisation du jeton d'administration.",
+		"tokenLabel": "Jeton d'administration",
+		"tokenHint": "Requis. Stocké chiffré. Front Desk vérifie l'hôte avec lors de l'ajout et l'utilise pour les lectures de version et de trafic et la synchronisation du jeton d'administration.",
 		"tokenPlaceholder": "ADMIN_TOKEN actuel de ce membre",
 		"removeTitle": "Retirer {{name}} ?",
 		"removeBody": "Front Desk cesse de suivre {{name}} et le retire du pool de backends Traefik. L'instance elle-même n'est pas touchée. Cela ne draine pas les requêtes en cours ; drainez d'abord pour un retrait sans perte.",
@@ -122,12 +122,12 @@
 		"removed": "{{name}} retiré",
 		"drained": "{{name}} mis en drainage",
 		"activated": "{{name}} activé",
-		"removePrimaryTitle": "Retirer le primaire {{name}} ?",
-		"removePrimaryWarning": "{{name}} est la source de vérité de la flotte. Le retirer arrête la synchronisation de configuration : aucun autre membre ne reçoit plus de mises à jour de sa part. Si vous souhaitez que la flotte continue à se synchroniser, réassignez d'abord le primaire dans l'Assistant de synchronisation de flotte.",
-		"removePrimaryTokenNote": "Retirer le primaire nécessite le jeton d'administration Front Desk.",
 		"confirmTokenLabel": "Jeton d'administration",
 		"confirmTokenPlaceholder": "Saisissez le jeton d'administration Front Desk",
-		"removePrimaryTokenError": "Ce jeton n'a pas été accepté"
+		"errAlreadyPrimary": "Cet hôte est déjà le primaire de la flotte et ne peut pas être ajouté comme membre. Changez le primaire depuis l'assistant de synchronisation de flotte.",
+		"errUnreachable": "Front Desk n'a pas pu joindre cet hôte pour le vérifier. Vérifiez l'URL, le jeton d'administration et que l'hôte fonctionne.",
+		"errIdentityUnverified": "Front Desk a vérifié le jeton d'administration mais n'a pas pu lire l'identité de flotte de cet hôte pour confirmer qu'il n'est pas le primaire ni un membre existant. Vérifiez l'hôte et réessayez.",
+		"errAlreadyMember": "Cet hôte est déjà un membre (ajouté sous une autre adresse). Supprimez d'abord l'entrée existante si vous voulez le rajouter."
 	},
 	"traffic": {
 		"title": "Trafic",
@@ -347,7 +347,8 @@
 			"changeTokenNote": "Le changement de primaire remplace la source de vérité de la flotte et nécessite donc le jeton d'administration.",
 			"confirmTokenLabel": "Jeton d'administration",
 			"confirmTokenPlaceholder": "Saisissez le jeton d'administration Front Desk",
-			"stepN": "Étape {{n}}"
+			"stepN": "Étape {{n}}",
+			"sameHostError": "Vous ne pouvez pas remplacer le primaire par le même hôte : cet hôte est déjà le primaire de la flotte."
 		},
 		"primaryTag": "primaire",
 		"memberResultOk": "{{name}} ✓",

@@ -110,8 +110,8 @@
 		"namePlaceholder": "hotel-1",
 		"urlLabel": "Bazowy adres URL",
 		"urlPlaceholder": "https://hotel-1.example.com",
-		"tokenLabel": "Token administratora (opcjonalnie)",
-		"tokenHint": "Przechowywany w formie zaszyfrowanej. Wymagany do odczytu wersji i ruchu oraz do synchronizacji tokenu administratora.",
+		"tokenLabel": "Token administratora",
+		"tokenHint": "Wymagany. Przechowywany w formie zaszyfrowanej. Front Desk weryfikuje nim hosta przy dodawaniu oraz używa go do odczytu wersji i ruchu i synchronizacji tokenu administratora.",
 		"tokenPlaceholder": "Obecny ADMIN_TOKEN tego członka",
 		"removeTitle": "Usunąć {{name}}?",
 		"removeBody": "Front Desk przestanie monitorować {{name}} i usunie go z puli backendów Traefik. Sama instancja nie zostanie dotknięta. Nie powoduje to opróżnienia żądań w toku; dla usuwania bez strat najpierw odłącz członka.",
@@ -122,12 +122,12 @@
 		"removed": "Usunięto: {{name}}",
 		"drained": "{{name}} odłączony od ruchu",
 		"activated": "{{name}} ustawiony jako aktywny",
-		"removePrimaryTitle": "Usunąć głównego {{name}}?",
-		"removePrimaryWarning": "{{name}} jest źródłem prawdy floty. Jego usunięcie zatrzymuje synchronizację konfiguracji: pozostali członkowie przestają otrzymywać od niego aktualizacje. Jeśli chcesz, aby flota nadal się synchronizowała, najpierw przypisz głównego w Kreatorze synchronizacji floty.",
-		"removePrimaryTokenNote": "Usunięcie głównego wymaga tokenu administratora Front Desk.",
 		"confirmTokenLabel": "Token administratora",
 		"confirmTokenPlaceholder": "Wpisz token administratora Front Desk",
-		"removePrimaryTokenError": "Ten token nie został zaakceptowany"
+		"errAlreadyPrimary": "Ten host jest już podstawowym we flocie i nie można go dodać jako członka. Zmień podstawowy w kreatorze synchronizacji floty.",
+		"errUnreachable": "Front Desk nie mógł połączyć się z tym hostem, aby go zweryfikować. Sprawdź URL, token administratora i czy host działa.",
+		"errIdentityUnverified": "Front Desk zweryfikował token administratora, ale nie mógł odczytać tożsamości tego hosta we flocie, aby potwierdzić, że nie jest hostem podstawowym ani istniejącym członkiem. Sprawdź hosta i spróbuj ponownie.",
+		"errAlreadyMember": "Ten host jest już członkiem (dodany pod innym adresem). Najpierw usuń istniejący wpis, jeśli chcesz dodać go ponownie."
 	},
 	"traffic": {
 		"title": "Ruch",
@@ -347,7 +347,8 @@
 			"changeTokenNote": "Zmiana głównego zastępuje źródło prawdy floty, dlatego wymaga tokenu administratora.",
 			"confirmTokenLabel": "Token administratora",
 			"confirmTokenPlaceholder": "Wpisz token administratora Front Desk",
-			"stepN": "Krok {{n}}"
+			"stepN": "Krok {{n}}",
+			"sameHostError": "Nie można zastąpić podstawowego tym samym hostem: ten host jest już podstawowym we flocie."
 		},
 		"primaryTag": "główny",
 		"memberResultOk": "{{name}} ✓",

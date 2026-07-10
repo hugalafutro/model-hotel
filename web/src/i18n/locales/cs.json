@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Probíhá testování poskytovatele (jistič je částečně otevřený)",
 				"circuit_breaker_open": "Výpadek poskytovatele (otevřený jistič)",
 				"discovery_provider_failed": "Došlo k selhání poskytovatele během vyhledávání",
+				"fleet_conflict": "Konflikt vlastnictví Front Desku",
 				"failover_sync_error": "Synchronizace skupiny pro převzetí služeb při výpadku selhala"
 			},
 			"events": {

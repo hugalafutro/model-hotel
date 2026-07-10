@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Verskaffer word ondersoek (kringbreker half-oop)",
 				"circuit_breaker_open": "Verskaffer onbeskikbaar (kringbreker oopgemaak)",
 				"discovery_provider_failed": "Verskaffer het tydens ontdekking misluk",
+				"fleet_conflict": "Front Desk-eienaarskapkonflik",
 				"failover_sync_error": "Failover-groep-sinkronisering het misluk"
 			},
 			"events": {

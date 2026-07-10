@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "يتم فحص المزود (قاطع الدائرة نصف مفتوح)",
 				"circuit_breaker_open": "تعطل المزود (فتح قاطع الدائرة)",
 				"discovery_provider_failed": "فشل المزود أثناء عملية الاكتشاف",
+				"fleet_conflict": "تعارض ملكية Front Desk",
 				"failover_sync_error": "فشلت مزامنة مجموعة التحويل التلقائي"
 			},
 			"events": {

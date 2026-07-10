@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Provedor sendo testado (disjuntor semiaberto)",
 				"circuit_breaker_open": "Provedor inoperante (disjuntor aberto)",
 				"discovery_provider_failed": "Falha do provedor durante a descoberta",
+				"fleet_conflict": "Conflito de propriedade do Front Desk",
 				"failover_sync_error": "Falha na sincronização do grupo de failover"
 			},
 			"events": {

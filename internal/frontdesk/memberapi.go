@@ -2,6 +2,7 @@ package frontdesk
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -125,6 +126,32 @@ func (s *Server) probeMemberToken(ctx context.Context, url, token string) tokenP
 		return tokenProbe{}
 	}
 	return tokenProbe{reached: true, valid: status == http.StatusOK, status: status}
+}
+
+// memberIdentity reads a member's /api/system self-report: whether it currently
+// considers itself the fleet primary, and its stable instance_id. The host is
+// queried directly, so both are independent of the member id or URL string
+// (public DNS vs a LAN address resolve to the same instance, which answers the
+// same). ok=false means the report could not be obtained (unreachable, non-200,
+// unparseable); callers fail open. instanceID is "" on a pre-056 member that
+// does not expose one yet.
+func (s *Server) memberIdentity(ctx context.Context, url, token string) (isPrimary bool, instanceID string, ok bool) {
+	ctx, cancel := context.WithTimeout(ctx, memberProbeTimeout)
+	defer cancel()
+	status, body, err := s.callMember(ctx, http.MethodGet, url, memberSystemPath, token, nil)
+	if err != nil || status != http.StatusOK {
+		return false, "", false
+	}
+	var payload struct {
+		Fleet *struct {
+			IsPrimary bool `json:"is_primary"`
+		} `json:"fleet"`
+		InstanceID string `json:"instance_id"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return false, "", false
+	}
+	return payload.Fleet != nil && payload.Fleet.IsPrimary, payload.InstanceID, true
 }
 
 // memberTokenOrErr loads a member and its decrypted admin token, returning a

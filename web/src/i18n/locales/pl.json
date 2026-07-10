@@ -1866,6 +1866,7 @@
 				"circuit_breaker_half_open": "Dostawca jest sprawdzany (wyłącznik automatyczny częściowo otwarty)",
 				"circuit_breaker_open": "Awaria dostawcy (wyłączony wyłącznik automatyczny)",
 				"discovery_provider_failed": "Wystąpił błąd dostawcy podczas wykrywania",
+				"fleet_conflict": "Konflikt własności Front Desk",
 				"failover_sync_error": "Nie udało się zsynchronizować grupy awaryjnej"
 			},
 			"events": {

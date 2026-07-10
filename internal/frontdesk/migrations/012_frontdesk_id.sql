@@ -1,0 +1,12 @@
+-- Persistent Front Desk identity. Each Front Desk stamps this opaque ID onto
+-- every announce it POSTs to a member (POST /api/fleet/announce). The member
+-- records the first ID-bearing announcer as the owner of its fleet role and
+-- rejects announces from any other Front Desk while that owner's heartbeat is
+-- fresh. This stops a second (e.g. dev) Front Desk that happens to list the
+-- same instance as a member from silently demoting it by overwriting its
+-- primary flag every poll. The ID is an ownership claim carried in cleartext,
+-- not a secret; it is generated once (a UUID) and reused for the process's and
+-- every future process's lifetime.
+--
+-- frontdesk_id : opaque per-Front-Desk identity, empty until first generated.
+ALTER TABLE settings ADD COLUMN frontdesk_id TEXT NOT NULL DEFAULT '';

@@ -95,6 +95,72 @@ func TestGetWithDefault(t *testing.T) {
 	}
 }
 
+func TestGetChecked(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	key := "checked_key"
+
+	// Absent key: found=false, no error, no value.
+	val, found, err := r.GetChecked(ctx, key)
+	if err != nil || found || val != "" {
+		t.Fatalf("absent key: got (%q, %v, %v), want (\"\", false, nil)", val, found, err)
+	}
+
+	if err := r.Set(ctx, key, "present"); err != nil {
+		t.Fatalf("Set failed: %v", err)
+	}
+
+	// Present key read from DB (cache was evicted by Set): found=true.
+	val, found, err = r.GetChecked(ctx, key)
+	if err != nil || !found || val != "present" {
+		t.Fatalf("present key: got (%q, %v, %v), want (\"present\", true, nil)", val, found, err)
+	}
+
+	// Cache hit: change the row via raw SQL; within TTL the cached value wins.
+	if _, err := testPool.Exec(ctx,
+		"UPDATE settings SET value = 'changed' WHERE key = $1", key); err != nil {
+		t.Fatalf("raw update failed: %v", err)
+	}
+	val, found, err = r.GetChecked(ctx, key)
+	if err != nil || !found || val != "present" {
+		t.Fatalf("cache hit: got (%q, %v, %v), want (\"present\", true, nil)", val, found, err)
+	}
+
+	// After invalidation the fresh DB value is read.
+	r.InvalidateCache(key)
+	val, found, err = r.GetChecked(ctx, key)
+	if err != nil || !found || val != "changed" {
+		t.Fatalf("post-invalidate: got (%q, %v, %v), want (\"changed\", true, nil)", val, found, err)
+	}
+
+	// A canceled context returns a non-nil error and must not cache anything.
+	// Use a fresh key that was never read (so the read must hit the DB, where
+	// the canceled context surfaces); Set evicts it from the cache without
+	// populating it, and unlike InvalidateCache does not best-effort re-read it.
+	coldKey := "checked_cold_key"
+	if err := r.Set(ctx, coldKey, "x"); err != nil {
+		t.Fatalf("Set cold key failed: %v", err)
+	}
+	r.InvalidateCache(coldKey) // may repopulate; drop it again just before the read
+	r.mu.Lock()
+	delete(r.cache, coldKey)
+	r.mu.Unlock()
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	val, found, err = r.GetChecked(canceled, coldKey)
+	if err == nil {
+		t.Fatalf("canceled context: want non-nil error, got (%q, %v, nil)", val, found)
+	}
+	if found || val != "" {
+		t.Errorf("canceled context: got (%q, %v), want (\"\", false)", val, found)
+	}
+	if r.IsCached(coldKey) {
+		t.Errorf("canceled read must not populate the cache")
+	}
+}
+
 func TestSetMany(t *testing.T) {
 	r := NewRepository(testPool)
 	ctx := context.Background()
