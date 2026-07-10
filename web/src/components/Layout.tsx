@@ -13,11 +13,11 @@ import {
 	KeyRound,
 	Languages,
 	LayoutDashboard,
-	LogOut,
 	MessageSquare,
 	MessagesSquare,
 	Moon,
 	PlugZap,
+	PowerOff,
 	ScrollText,
 	Settings,
 	ShieldCheck,
@@ -1155,10 +1155,15 @@ export function Layout({ children }: LayoutProps) {
 					<button
 						type="button"
 						onClick={() => setShowLogoutConfirm(true)}
-						className="w-full sidebar-logout"
+						className="w-full sidebar-logout min-w-0"
+						aria-label={t("layout.auth.logout")}
+						title={t("layout.auth.logout")}
+						data-testid="logout-button"
 					>
-						<LogOut size={14} strokeWidth={2} />
-						{t("layout.auth.logout")}
+						<PowerOff size={14} strokeWidth={2} />
+						<span className="truncate">
+							{me?.display_name || me?.username || t("layout.auth.logout")}
+						</span>
 					</button>
 					<SystemStatus />
 					{showLogoutConfirm && (

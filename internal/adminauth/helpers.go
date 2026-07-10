@@ -96,7 +96,7 @@ func readOnlyGuard(next http.Handler) http.Handler {
 			}
 			fallthrough
 		default:
-			respondError(w, "this is a read-only demo — creating, editing, and deleting are disabled", nil, http.StatusForbidden)
+			respondError(w, "this is a read-only demo: creating, editing, and deleting are disabled", nil, http.StatusForbidden)
 		}
 	})
 }

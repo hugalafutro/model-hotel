@@ -218,22 +218,26 @@ describe("Layout", () => {
 			expect(screen.getByTitle("Switch to dark mode")).toBeInTheDocument();
 		});
 
-		it("renders logout button", () => {
+		it("renders the logout button with its accessible Logout name", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			expect(screen.getByText("Logout")).toBeInTheDocument();
+			// The button keeps its accessible "Logout" name (aria-label) even though
+			// its visible label is the logged-in user's name. Identity rendering is
+			// locked separately in Layout.identity.test.tsx (this harness has no
+			// IdentityProvider, so `me` is null and the label falls back to "Logout").
+			expect(
+				screen.getByRole("button", { name: "Logout" }),
+			).toBeInTheDocument();
 		});
 
 		it("opens logout confirmation dialog on logout click", async () => {
 			const user = userEvent.setup();
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const logoutButton = screen.getByText("Logout").closest("button");
+			const logoutButton = screen.getByRole("button", { name: "Logout" });
 			expect(logoutButton).toBeInTheDocument();
 
-			if (logoutButton) {
-				await user.click(logoutButton);
-			}
+			await user.click(logoutButton);
 
 			expect(screen.getByText("Log out?")).toBeInTheDocument();
 			expect(
@@ -245,7 +249,7 @@ describe("Layout", () => {
 			const user = userEvent.setup();
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const logoutButton = screen.getByText("Logout").closest("button");
+			const logoutButton = screen.getByRole("button", { name: "Logout" });
 			expect(logoutButton).toBeInTheDocument();
 
 			if (logoutButton) {
@@ -267,7 +271,7 @@ describe("Layout", () => {
 
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const logoutButton = screen.getByText("Logout").closest("button");
+			const logoutButton = screen.getByRole("button", { name: "Logout" });
 			expect(logoutButton).toBeInTheDocument();
 
 			if (logoutButton) {
@@ -477,7 +481,7 @@ describe("Layout", () => {
 				initialEntries: ["/dashboard"],
 			});
 
-			const logoutButton = screen.getByText("Logout").closest("button");
+			const logoutButton = screen.getByRole("button", { name: "Logout" });
 			expect(logoutButton).toBeInTheDocument();
 
 			if (logoutButton) {
@@ -508,7 +512,7 @@ describe("Layout", () => {
 			const user = userEvent.setup();
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const logoutButton = screen.getByText("Logout").closest("button");
+			const logoutButton = screen.getByRole("button", { name: "Logout" });
 			expect(logoutButton).toBeInTheDocument();
 
 			if (logoutButton) {
@@ -889,7 +893,7 @@ describe("Layout", () => {
 
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const logoutButton = screen.getByText("Logout").closest("button");
+			const logoutButton = screen.getByRole("button", { name: "Logout" });
 			expect(logoutButton).toBeInTheDocument();
 			if (logoutButton) {
 				await user.click(logoutButton);
@@ -927,7 +931,7 @@ describe("Layout", () => {
 
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const logoutButton = screen.getByText("Logout").closest("button");
+			const logoutButton = screen.getByRole("button", { name: "Logout" });
 			if (logoutButton) {
 				await user.click(logoutButton);
 			}

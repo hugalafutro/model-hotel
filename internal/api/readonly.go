@@ -34,7 +34,7 @@ func readOnlyGuard(next http.Handler) http.Handler {
 		default:
 			// nil err + a 4xx code: respondError does not log this (it is a
 			// client-facing policy rejection, not a server fault).
-			respondError(w, "this is a read-only demo — creating, editing, and deleting are disabled", nil, http.StatusForbidden)
+			respondError(w, "this is a read-only demo: creating, editing, and deleting are disabled", nil, http.StatusForbidden)
 		}
 	})
 }
