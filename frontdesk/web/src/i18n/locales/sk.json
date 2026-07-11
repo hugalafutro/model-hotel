@@ -276,7 +276,13 @@
 			"statusOk": "apprise-api dostupný",
 			"statusUnreachable": "apprise-api nedostupný",
 			"statusUnhealthy": "apprise-api nezdravý",
-			"statusNotConfigured": "Nenakonfigurované"
+			"statusNotConfigured": "Nenakonfigurované",
+			"ntfyTitle": "Push na telefón cez ntfy",
+			"ntfyHint": "Dostávajte upozornenia flotily na telefón: nasmerujte cieľ na ntfy tému (vlastný server alebo ntfy.sh s tajnou témou) a rovnakú tému odoberajte v aplikácii ntfy alebo Bellhop.",
+			"ntfyServerLabel": "Server ntfy",
+			"ntfyTopicLabel": "Téma ntfy",
+			"ntfyTopicPlaceholder": "moja-tajna-tema",
+			"ntfyUse": "Nastaviť ako cieľ"
 		},
 		"wizard": {
 			"title": "Sprievodca synchronizáciou flotily",
@@ -413,6 +419,33 @@
 			"codesCopied": "Recovery kódy skopírované",
 			"downloadCodes": "Stiahnuť",
 			"saved": "Mám ich uložené"
+		},
+		"devices": {
+			"title": "Spárované zariadenia",
+			"description": "Spárujte telefónnu aplikáciu Bellhop (alebo iné zariadenie) jednorazovým kódom. Naskenujte QR alebo vložte párovací reťazec; kód funguje raz a o pár minút vyprší. Každé zariadenie dostane vlastný odvolateľný token.",
+			"role": "Rola",
+			"roleOperator": "Operátor",
+			"roleMonitor": "Monitor",
+			"roleOperatorHint": "Zariadenia s rolou operátor môžu navyše odstaviť alebo aktivovať členov, spustiť synchronizáciu konfigurácie a prepínať automatickú synchronizáciu.",
+			"roleMonitorHint": "Zariadenia s rolou monitor sú len na čítanie: členovia, zdravie, prevádzka, udalosti a upozornenia.",
+			"generate": "Spárovať zariadenie",
+			"regenerate": "Nový kód",
+			"expired": "Platnosť párovacieho kódu vypršala. Vygenerujte nový.",
+			"qrAlt": "Párovací QR kód",
+			"pairingString": "Párovací reťazec",
+			"copy": "Kopírovať párovací reťazec",
+			"copied": "Párovací reťazec skopírovaný",
+			"codeHint": "Jednorazový kód, platný do {{time}}.",
+			"empty": "Zatiaľ nie sú spárované žiadne zariadenia.",
+			"colLabel": "Zariadenie",
+			"colRole": "Rola",
+			"colPaired": "Spárované",
+			"colLastSeen": "Naposledy videné",
+			"neverSeen": "Nikdy",
+			"revoke": "Odvolať",
+			"revoked": "Zariadenie odvolané",
+			"revokeTitle": "Odvolať zariadenie?",
+			"revokeBody": "„{{label}}“ okamžite stratí prístup. Na obnovenie ho spárujte znova."
 		}
 	},
 	"errors": {

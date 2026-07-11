@@ -49,6 +49,25 @@ export interface MemberStatus {
 	auto_sync_verified_at?: string;
 }
 
+// Bellhop device pairing. A PairedDevice is one linked phone; its bearer token
+// is never exposed after the pairing exchange. PairStart is the one-time code
+// the Paired devices panel renders as a QR / pairing string.
+export type DeviceRole = "monitor" | "operator";
+
+export interface PairedDevice {
+	id: string;
+	label: string;
+	role: DeviceRole;
+	created_at: string;
+	last_seen_at?: string;
+}
+
+export interface PairStart {
+	code: string;
+	role: DeviceRole;
+	expires_at: string;
+}
+
 // memberView from listMembers: a Member plus its live poller status.
 export interface MemberView extends Member {
 	status: MemberStatus;

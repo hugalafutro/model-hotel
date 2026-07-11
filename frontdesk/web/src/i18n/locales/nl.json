@@ -276,7 +276,13 @@
 			"statusOk": "apprise-api bereikbaar",
 			"statusUnreachable": "apprise-api onbereikbaar",
 			"statusUnhealthy": "apprise-api niet gezond",
-			"statusNotConfigured": "Niet geconfigureerd"
+			"statusNotConfigured": "Niet geconfigureerd",
+			"ntfyTitle": "Telefoonpush via ntfy",
+			"ntfyHint": "Ontvang vlootmeldingen op uw telefoon: richt een doel op een ntfy-onderwerp (zelf gehost of ntfy.sh met een geheim onderwerp) en abonneer u op hetzelfde onderwerp in de ntfy- of Bellhop-app.",
+			"ntfyServerLabel": "ntfy-server",
+			"ntfyTopicLabel": "ntfy-onderwerp",
+			"ntfyTopicPlaceholder": "mijn-geheime-onderwerp",
+			"ntfyUse": "Instellen als doel"
 		},
 		"wizard": {
 			"title": "Vloot-sync-wizard",
@@ -413,6 +419,33 @@
 			"codesCopied": "Herstelcodes gekopieerd",
 			"downloadCodes": "Downloaden",
 			"saved": "Ik heb deze opgeslagen"
+		},
+		"devices": {
+			"title": "Gekoppelde apparaten",
+			"description": "Koppel de Bellhop-app (of een ander apparaat) met een eenmalige code. Scan de QR of plak de koppelreeks; de code werkt één keer en verloopt na enkele minuten. Elk apparaat krijgt zijn eigen intrekbare token.",
+			"role": "Rol",
+			"roleOperator": "Operator",
+			"roleMonitor": "Monitor",
+			"roleOperatorHint": "Operator-apparaten kunnen ook leden draineren of activeren, een configuratiesynchronisatie starten en automatische synchronisatie omschakelen.",
+			"roleMonitorHint": "Monitor-apparaten zijn alleen-lezen: leden, gezondheid, verkeer, gebeurtenissen en meldingen.",
+			"generate": "Apparaat koppelen",
+			"regenerate": "Nieuwe code",
+			"expired": "Deze koppelcode is verlopen. Genereer een nieuwe.",
+			"qrAlt": "Koppel-QR-code",
+			"pairingString": "Koppelreeks",
+			"copy": "Koppelreeks kopiëren",
+			"copied": "Koppelreeks gekopieerd",
+			"codeHint": "Eenmalige code, geldig tot {{time}}.",
+			"empty": "Nog geen apparaten gekoppeld.",
+			"colLabel": "Apparaat",
+			"colRole": "Rol",
+			"colPaired": "Gekoppeld",
+			"colLastSeen": "Laatst gezien",
+			"neverSeen": "Nooit",
+			"revoke": "Intrekken",
+			"revoked": "Apparaat ingetrokken",
+			"revokeTitle": "Apparaat intrekken?",
+			"revokeBody": "“{{label}}” verliest onmiddellijk de toegang. Koppel het opnieuw om het te herstellen."
 		}
 	},
 	"errors": {

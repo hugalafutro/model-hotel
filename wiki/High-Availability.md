@@ -23,8 +23,9 @@ with the last config it fetched; only membership changes pause until it returns.
 9. [TLS Proxy](#tls-proxy)
 10. [Observability](#observability)
 11. [Alerting](#alerting)
-12. [What This Does and Does Not Give You](#what-this-does-and-does-not-give-you)
-13. [Acceptance Checks](#acceptance-checks)
+12. [Paired Devices (Bellhop)](#paired-devices-bellhop)
+13. [What This Does and Does Not Give You](#what-this-does-and-does-not-give-you)
+14. [Acceptance Checks](#acceptance-checks)
 
 ---
 
@@ -406,6 +407,44 @@ available but off by default. The target is encrypted at rest with
 `FRONTDESK_MASTER_KEY`, and a **Send test** button confirms delivery end to end.
 This is the same `apprise-api` the main gateway uses, so one container can serve
 both.
+
+### Phone push via ntfy
+
+For real-time alerts on a phone with no Google/Firebase dependency, point an
+Apprise target at an [ntfy](https://ntfy.sh) topic. Either self-host an `ntfy`
+container next to the stack, or use ntfy.sh with a hard-to-guess secret topic
+(the topic name is the only access control on the public server, so treat it
+like a password).
+
+The Alerts panel has a convenience block for exactly this: enter the ntfy
+server and topic, and it pre-formats the Apprise URL
+(`ntfys://your-server/your-topic`, or `ntfy://` for plain-http servers) and sets
+it as the target. Then subscribe to the same topic in the
+[ntfy app](https://ntfy.sh) on the phone (or, later, the Bellhop companion app,
+which reuses this channel as its opt-in real-time push layer). Every enabled
+fleet event then lands on the phone the moment it fires.
+
+---
+
+## Paired Devices (Bellhop)
+
+**Settings -> Paired devices** links the Bellhop Android companion app (or any
+API client) to Front Desk without ever sharing the `FRONTDESK_TOKEN`:
+
+1. Choose a role and click **Pair device**. **Monitor** tokens are read-only
+   (members, health, traffic, events, alerts, SSE); **Operator** tokens add
+   drain/activate, config sync, and the auto-sync toggle. Neither role can add
+   or remove members, change settings, or manage pairing; those stay with the
+   admin login.
+2. Front Desk shows a QR code and the same payload as a copyable pairing
+   string. Both carry a one-time code that expires after a few minutes, so a
+   photographed QR is worthless shortly after.
+3. The device exchanges the code at `POST /api/pair` for its own bearer token.
+   The token is returned to the device once and stored only as a hash.
+
+Each device appears in the list with its role and last-seen time, and can be
+revoked there at any time (remote unlink of a lost phone); revocation takes
+effect on the device's next request.
 
 ---
 

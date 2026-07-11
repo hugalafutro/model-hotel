@@ -276,7 +276,13 @@
 			"statusOk": "apprise-api accesible",
 			"statusUnreachable": "apprise-api inalcanzable",
 			"statusUnhealthy": "apprise-api en mal estado",
-			"statusNotConfigured": "No configurado"
+			"statusNotConfigured": "No configurado",
+			"ntfyTitle": "Push al teléfono vía ntfy",
+			"ntfyHint": "Reciba alertas de la flota en su teléfono: apunte un destino a un tema de ntfy (autoalojado o ntfy.sh con un tema secreto) y suscríbase al mismo tema en la aplicación ntfy o Bellhop.",
+			"ntfyServerLabel": "Servidor ntfy",
+			"ntfyTopicLabel": "Tema ntfy",
+			"ntfyTopicPlaceholder": "mi-tema-secreto",
+			"ntfyUse": "Establecer como destino"
 		},
 		"wizard": {
 			"title": "Asistente de sincronización de flota",
@@ -413,6 +419,33 @@
 			"codesCopied": "Códigos de recuperación copiados",
 			"downloadCodes": "Descargar",
 			"saved": "Ya los he guardado"
+		},
+		"devices": {
+			"title": "Dispositivos emparejados",
+			"description": "Empareje la aplicación Bellhop (u otro dispositivo) con un código de un solo uso. Escanee el QR o pegue la cadena de emparejamiento; el código funciona una vez y caduca en unos minutos. Cada dispositivo recibe su propio token revocable.",
+			"role": "Rol",
+			"roleOperator": "Operador",
+			"roleMonitor": "Monitor",
+			"roleOperatorHint": "Los dispositivos operador también pueden drenar o activar miembros, lanzar una sincronización de configuración y alternar la sincronización automática.",
+			"roleMonitorHint": "Los dispositivos monitor son de solo lectura: miembros, salud, tráfico, eventos y alertas.",
+			"generate": "Emparejar dispositivo",
+			"regenerate": "Nuevo código",
+			"expired": "Este código de emparejamiento caducó. Genere uno nuevo.",
+			"qrAlt": "Código QR de emparejamiento",
+			"pairingString": "Cadena de emparejamiento",
+			"copy": "Copiar cadena de emparejamiento",
+			"copied": "Cadena de emparejamiento copiada",
+			"codeHint": "Código de un solo uso, válido hasta {{time}}.",
+			"empty": "Aún no hay dispositivos emparejados.",
+			"colLabel": "Dispositivo",
+			"colRole": "Rol",
+			"colPaired": "Emparejado",
+			"colLastSeen": "Visto por última vez",
+			"neverSeen": "Nunca",
+			"revoke": "Revocar",
+			"revoked": "Dispositivo revocado",
+			"revokeTitle": "¿Revocar dispositivo?",
+			"revokeBody": "“{{label}}” perderá el acceso de inmediato. Vuelva a emparejarlo para restaurarlo."
 		}
 	},
 	"errors": {

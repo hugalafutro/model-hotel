@@ -6,6 +6,7 @@ import type {
 	AlertEventDef,
 	AlertStatus,
 	AutoSyncConfig,
+	DeviceRole,
 	EventsPage,
 	FdEvent,
 	FleetStatus,
@@ -16,6 +17,8 @@ import type {
 	MemberView,
 	ObservabilityStatus,
 	OidcStatus,
+	PairedDevice,
+	PairStart,
 	Settings,
 	SyncResult,
 	TotpEnrollStart,
@@ -180,6 +183,17 @@ export const api = {
 
 	memberTraffic: (id: string) =>
 		request<MemberTraffic>(`/api/members/${encodeURIComponent(id)}/traffic`),
+
+	// Bellhop device pairing (Settings -> Paired devices panel). pairStart mints
+	// a one-time short-TTL pairing code (admin only); the phone exchanges it at
+	// the public POST /api/pair. Devices are listed and revoked here.
+	pairStart: (role: DeviceRole) =>
+		request<PairStart>("/api/pair/start", jsonInit("POST", { role })),
+	getDevices: () => request<PairedDevice[]>("/api/devices"),
+	revokeDevice: (id: string) =>
+		request<{ success: boolean }>(`/api/devices/${encodeURIComponent(id)}`, {
+			method: "DELETE",
+		}),
 
 	// One probe powers the whole sync wizard: per-member reachability, MASTER_KEY
 	// match, and the config diff against the chosen primary.

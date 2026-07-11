@@ -276,7 +276,13 @@
 			"statusOk": "apprise-api に到達できます",
 			"statusUnreachable": "apprise-api に到達できません",
 			"statusUnhealthy": "apprise-api が異常です",
-			"statusNotConfigured": "未設定"
+			"statusNotConfigured": "未設定",
+			"ntfyTitle": "ntfy によるスマホプッシュ通知",
+			"ntfyHint": "フリートのアラートをスマホで受け取ります：ターゲットを ntfy のトピック（セルフホストまたは秘密トピックの ntfy.sh）に向け、ntfy または Bellhop アプリで同じトピックを購読してください。",
+			"ntfyServerLabel": "ntfy サーバー",
+			"ntfyTopicLabel": "ntfy トピック",
+			"ntfyTopicPlaceholder": "my-secret-topic",
+			"ntfyUse": "ターゲットに設定"
 		},
 		"wizard": {
 			"title": "フリート同期ウィザード",
@@ -413,6 +419,33 @@
 			"codesCopied": "リカバリーコードをコピーしました",
 			"downloadCodes": "ダウンロード",
 			"saved": "保存しました"
+		},
+		"devices": {
+			"title": "ペアリング済みデバイス",
+			"description": "ワンタイムコードで Bellhop アプリ（または任意のデバイス）をペアリングします。QR をスキャンするかペアリング文字列を貼り付けてください。コードは一度だけ有効で、数分で期限切れになります。各デバイスには個別に失効できるトークンが発行されます。",
+			"role": "ロール",
+			"roleOperator": "オペレーター",
+			"roleMonitor": "モニター",
+			"roleOperatorHint": "オペレーターのデバイスはさらにメンバーのドレイン／有効化、設定同期の実行、自動同期の切り替えができます。",
+			"roleMonitorHint": "モニターのデバイスは読み取り専用です：メンバー、ヘルス、トラフィック、イベント、アラート。",
+			"generate": "デバイスをペアリング",
+			"regenerate": "新しいコード",
+			"expired": "このペアリングコードは期限切れです。新しく生成してください。",
+			"qrAlt": "ペアリング用 QR コード",
+			"pairingString": "ペアリング文字列",
+			"copy": "ペアリング文字列をコピー",
+			"copied": "ペアリング文字列をコピーしました",
+			"codeHint": "ワンタイムコード、{{time}} まで有効。",
+			"empty": "ペアリング済みのデバイスはまだありません。",
+			"colLabel": "デバイス",
+			"colRole": "ロール",
+			"colPaired": "ペアリング日時",
+			"colLastSeen": "最終確認",
+			"neverSeen": "なし",
+			"revoke": "失効",
+			"revoked": "デバイスを失効しました",
+			"revokeTitle": "デバイスを失効しますか？",
+			"revokeBody": "「{{label}}」は直ちにアクセスできなくなります。復旧するには再度ペアリングしてください。"
 		}
 	},
 	"errors": {
