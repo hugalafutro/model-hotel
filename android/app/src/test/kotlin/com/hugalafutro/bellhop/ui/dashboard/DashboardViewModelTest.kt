@@ -4,16 +4,25 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.hugalafutro.bellhop.data.AutoSyncConfig
 import com.hugalafutro.bellhop.data.FakeCipher
 import com.hugalafutro.bellhop.data.FetchResult
+import com.hugalafutro.bellhop.data.FleetEvent
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.PairedDevice
+import com.hugalafutro.bellhop.data.SseMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -30,19 +39,29 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 
 /** FakeFleetClient serves canned read-tier results without touching the network. */
 private class FakeFleetClient(
     var membersResult: FetchResult<List<FleetMember>>,
     var autoSyncResult: FetchResult<AutoSyncConfig> = FetchResult.Failure("no autosync"),
+    // Default stream stays open and quiet so activating the loops does not spin
+    // on reconnect; tests that exercise SSE pass their own flow.
+    var sseFlow: Flow<SseMessage> = flow { awaitCancellation() },
 ) : FrontDeskClient() {
     var lastToken: String? = null
+    var memberCalls = 0
+
+    // Counts stream subscriptions; the reconnect loop calls streamEvents once per
+    // attempt, so this is how the disconnect→reconnect test observes it retrying.
+    val streamCalls = AtomicInteger(0)
 
     override suspend fun members(
         fdUrl: String,
         token: String,
     ): FetchResult<List<FleetMember>> {
         lastToken = token
+        memberCalls++
         return membersResult
     }
 
@@ -50,6 +69,14 @@ private class FakeFleetClient(
         fdUrl: String,
         token: String,
     ): FetchResult<AutoSyncConfig> = autoSyncResult
+
+    override fun streamEvents(
+        fdUrl: String,
+        token: String,
+    ): Flow<SseMessage> {
+        streamCalls.incrementAndGet()
+        return sseFlow
+    }
 }
 
 @RunWith(RobolectricTestRunner::class)
@@ -183,5 +210,85 @@ class DashboardViewModelTest {
 
             val s = withTimeout(5_000) { vm.state.first { !it.loading } }
             assertEquals(listOf(member), s.members)
+        }
+
+    @Test
+    fun sseRefreshEventRefetchesMembers() =
+        runBlocking {
+            // A relevant event on the stream must refetch and push the change
+            // through without waiting for the slow fallback poll.
+            val events = MutableSharedFlow<SseMessage>(extraBufferCapacity = 8)
+            val client = FakeFleetClient(FetchResult.Success(emptyList()), sseFlow = events)
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+
+            val job = launch { vm.state.collect {} }
+            withTimeout(5_000) { vm.state.first { !it.loading } }
+            assertEquals(emptyList<FleetMember>(), vm.state.value.members)
+
+            // Newer data appears at Front Desk; a health event announces it.
+            client.membersResult = FetchResult.Success(listOf(member))
+            withTimeout(5_000) { events.subscriptionCount.first { it > 0 } }
+            events.emit(SseMessage.Event(FleetEvent(type = "health.up")))
+
+            val s = withTimeout(5_000) { vm.state.first { it.members == listOf(member) } }
+            assertEquals(listOf(member), s.members)
+            job.cancel()
+        }
+
+    @Test
+    fun sseIrrelevantEventDoesNotRefetch() =
+        runBlocking {
+            // Events the dashboard doesn't render (e.g. alerts) ride the same
+            // stream but must not trigger a members refetch.
+            val events = MutableSharedFlow<SseMessage>(extraBufferCapacity = 8)
+            val client = FakeFleetClient(FetchResult.Success(emptyList()), sseFlow = events)
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+
+            val job = launch { vm.state.collect {} }
+            withTimeout(5_000) { vm.state.first { !it.loading } }
+            val callsAfterInitialLoad = client.memberCalls
+
+            withTimeout(5_000) { events.subscriptionCount.first { it > 0 } }
+            events.emit(SseMessage.Event(FleetEvent(type = "alert.fired")))
+
+            // A filtered event never refetches no matter how long we wait; the
+            // 15s fallback poll is far outside this window, so the count is stable.
+            delay(300)
+            assertEquals(callsAfterInitialLoad, client.memberCalls)
+            job.cancel()
+        }
+
+    @Test
+    fun sseReconnectsAfterDisconnect() =
+        runBlocking {
+            // A stream that completes at once models a dropped connection; the loop
+            // must back off and reconnect (subscribe again), not give up after one.
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)), sseFlow = flowOf())
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+
+            val job = launch { vm.state.collect {} }
+            withTimeout(5_000) {
+                while (client.streamCalls.get() < 2) delay(50)
+            }
+            assertTrue(client.streamCalls.get() >= 2)
+            job.cancel()
+        }
+
+    @Test
+    fun sseUnauthorizedFlagsRevoked() =
+        runBlocking {
+            // A 401 on the stream means the device token is dead; surface it the
+            // same way a 401 on the poll does.
+            val client =
+                FakeFleetClient(
+                    FetchResult.Success(listOf(member)),
+                    sseFlow = flowOf(SseMessage.Unauthorized),
+                )
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+
+            val job = launch { vm.state.collect {} }
+            val s = withTimeout(5_000) { vm.state.first { it.revoked } }
+            assertTrue(s.revoked)
+            job.cancel()
         }
 }

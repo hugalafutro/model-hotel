@@ -2,6 +2,9 @@ package com.hugalafutro.bellhop.data
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -9,6 +12,11 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import okhttp3.sse.EventSource
+import okhttp3.sse.EventSourceListener
+import okhttp3.sse.EventSources
+import java.util.concurrent.TimeUnit
 
 /**
  * PairResult distinguishes the outcomes the pairing screen reacts to: a bad or
@@ -42,14 +50,40 @@ sealed interface FetchResult<out T> {
 }
 
 /**
+ * SseMessage is what [FrontDeskClient.streamEvents] emits: a connection opened,
+ * a decoded control-plane event, or a 401 meaning the device token is dead. The
+ * flow completes on any disconnect (heartbeat gap, network drop, clean close),
+ * so reconnection with backoff is the caller's job.
+ */
+sealed interface SseMessage {
+    data object Open : SseMessage
+
+    data class Event(
+        val event: FleetEvent,
+    ) : SseMessage
+
+    data object Unauthorized : SseMessage
+}
+
+/**
  * FrontDeskClient is Bellhop's one HTTP entry point to a Front Desk: the public
- * pairing exchange, self-unlink, and the authenticated read tier (members,
- * auto-sync). The SSE client arrives in a later slice on the same OkHttp stack.
+ * pairing exchange, self-unlink, the authenticated read tier (members,
+ * auto-sync), and the SSE event stream, all on the same OkHttp stack.
  */
 open class FrontDeskClient(
     private val http: OkHttpClient = OkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
+    // The SSE stream is idle between events (Front Desk sends a comment heartbeat
+    // every 25s), so it needs a client with no read timeout; the default 10s
+    // would tear a quiet connection down before the first heartbeat. Derived from
+    // the injected client so it inherits any test/prod wiring.
+    private val sseFactory: EventSource.Factory by lazy {
+        EventSources.createFactory(
+            http.newBuilder().readTimeout(0, TimeUnit.MILLISECONDS).build(),
+        )
+    }
+
     /**
      * pair exchanges a one-time code for a device token at
      * POST {fdUrl}/api/pair. On success the token is returned exactly once.
@@ -125,6 +159,73 @@ open class FrontDeskClient(
         fdUrl: String,
         token: String,
     ): FetchResult<AutoSyncConfig> = get(fdUrl, "/api/fleet/autosync", token)
+
+    /**
+     * streamEvents subscribes to GET {fdUrl}/api/sse and emits each frame as an
+     * [SseMessage]. Comment heartbeats are swallowed by the SSE parser, so only
+     * real events surface. The flow completes on disconnect; a 401 first emits
+     * [SseMessage.Unauthorized] so the caller can stop reconnecting on a dead
+     * token instead of looping. A malformed fdUrl completes immediately.
+     */
+    open fun streamEvents(
+        fdUrl: String,
+        token: String,
+    ): Flow<SseMessage> =
+        callbackFlow {
+            val request =
+                runCatching {
+                    Request
+                        .Builder()
+                        .url("${base(fdUrl)}/api/sse")
+                        .header("Authorization", "Bearer $token")
+                        .build()
+                }.getOrElse {
+                    // A bad URL can never stream; complete so the reconnect loop
+                    // backs off rather than tight-looping on an unbuildable request.
+                    close()
+                    return@callbackFlow
+                }
+            val listener =
+                object : EventSourceListener() {
+                    override fun onOpen(
+                        eventSource: EventSource,
+                        response: Response,
+                    ) {
+                        trySend(SseMessage.Open)
+                    }
+
+                    override fun onEvent(
+                        eventSource: EventSource,
+                        id: String?,
+                        type: String?,
+                        data: String,
+                    ) {
+                        // A malformed frame is dropped, not fatal: the stream stays
+                        // open for the next good event.
+                        runCatching { json.decodeFromString<FleetEvent>(data) }
+                            .getOrNull()
+                            ?.let { trySend(SseMessage.Event(it)) }
+                    }
+
+                    override fun onClosed(eventSource: EventSource) {
+                        close()
+                    }
+
+                    override fun onFailure(
+                        eventSource: EventSource,
+                        t: Throwable?,
+                        response: Response?,
+                    ) {
+                        if (response?.code == 401) trySend(SseMessage.Unauthorized)
+                        // Complete normally (not close(t)): a network drop is
+                        // expected and handled by the caller's reconnect, not an
+                        // error that should crash the collector.
+                        close()
+                    }
+                }
+            val source = sseFactory.newEventSource(request, listener)
+            awaitClose { source.cancel() }
+        }
 
     // get is the shared authenticated GET: bearer token, decode the 2xx body as
     // T, map 401 to Unauthorized (dead token), and keep every other throwable
