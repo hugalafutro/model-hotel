@@ -38,8 +38,48 @@ fun DashboardScreen(
     onUnlink: () -> Unit,
     unlinking: Boolean,
     modifier: Modifier = Modifier,
+    unlinkFailed: Boolean = false,
+    onDismissUnlinkError: () -> Unit = {},
+    onForceUnlink: () -> Unit = {},
 ) {
     var confirmUnlink by remember { mutableStateOf(false) }
+
+    // The remote revoke couldn't reach Front Desk (or the token can't be read to
+    // revoke at all). The device is still linked and nothing was cleared, so
+    // offer a retry AND an "unlink anyway" escape: with a dead/unreachable token a
+    // retry can loop forever, so the operator needs a way to clear locally (and is
+    // told to revoke on Front Desk) rather than being stranded on this screen.
+    if (unlinkFailed) {
+        AlertDialog(
+            onDismissRequest = onDismissUnlinkError,
+            title = { Text(stringResource(R.string.dashboard_unlink_failed_title)) },
+            text = { Text(stringResource(R.string.dashboard_unlink_failed_body)) },
+            confirmButton = {
+                TextButton(
+                    enabled = !unlinking,
+                    onClick = {
+                        onDismissUnlinkError()
+                        onUnlink()
+                    },
+                    modifier = Modifier.testTag("dashboard-unlink-retry"),
+                ) {
+                    Text(stringResource(R.string.dashboard_unlink_retry))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !unlinking,
+                    onClick = {
+                        onDismissUnlinkError()
+                        onForceUnlink()
+                    },
+                    modifier = Modifier.testTag("dashboard-unlink-force"),
+                ) {
+                    Text(stringResource(R.string.dashboard_unlink_force))
+                }
+            },
+        )
+    }
 
     if (confirmUnlink) {
         AlertDialog(

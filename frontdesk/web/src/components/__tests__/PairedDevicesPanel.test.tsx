@@ -171,6 +171,26 @@ it("keeps the code when another operator's device pairs concurrently", async () 
 	expect(screen.getByLabelText("Pairing string")).toBeInTheDocument();
 }, 10000);
 
+it("drops a device that unlinks itself, without a manual reload", async () => {
+	// The phone self-unlinks: the backing list goes empty with no action in the
+	// panel. The steady poll must pick it up so the row disappears on its own.
+	let list: PairedDevice[] = [device];
+	server.use(
+		http.get("/api/devices", () => HttpResponse.json(list)),
+		http.post("/api/pair/start", () => HttpResponse.json(pairStart)),
+	);
+	renderPanel();
+	await screen.findByText("Pixel 8");
+
+	list = [];
+	await waitFor(
+		() => {
+			expect(screen.getByText("No devices paired yet.")).toBeInTheDocument();
+		},
+		{ timeout: 7000 },
+	);
+}, 10000);
+
 it("copies the pairing string to the clipboard", async () => {
 	server.use(...handlers([]));
 	const writeText = vi.fn().mockResolvedValue(undefined);

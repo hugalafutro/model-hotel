@@ -56,4 +56,49 @@ class DashboardScreenTest {
         composeTestRule.onNodeWithTag("dashboard-unlink-confirm").performClick()
         assertTrue(clicked)
     }
+
+    @Test
+    fun failedUnlinkOffersRetryThatRefiresUnlink() {
+        var retries = 0
+        var dismissed = false
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    onUnlink = { retries++ },
+                    unlinking = false,
+                    unlinkFailed = true,
+                    onDismissUnlinkError = { dismissed = true },
+                )
+            }
+        }
+        // A failed remote revoke surfaces the error dialog; "Try again" dismisses
+        // it and re-fires the unlink so the orphaned row can still be cleared.
+        composeTestRule.onNodeWithTag("dashboard-unlink-retry").performClick()
+        assertTrue(dismissed)
+        assertTrue(retries == 1)
+    }
+
+    @Test
+    fun failedUnlinkOffersForceUnlinkEscapeHatch() {
+        var forced = 0
+        var dismissed = false
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    onUnlink = {},
+                    unlinking = false,
+                    unlinkFailed = true,
+                    onDismissUnlinkError = { dismissed = true },
+                    onForceUnlink = { forced++ },
+                )
+            }
+        }
+        // When a revoke is impossible (dead/unreadable token), "Unlink anyway"
+        // clears locally so the operator is never stranded on the dashboard.
+        composeTestRule.onNodeWithTag("dashboard-unlink-force").performClick()
+        assertTrue(dismissed)
+        assertTrue(forced == 1)
+    }
 }

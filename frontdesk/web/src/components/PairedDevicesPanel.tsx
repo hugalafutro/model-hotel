@@ -24,9 +24,11 @@ function pairingPayload(code: string): string {
 	});
 }
 
-// pairListPollMs is how often the device list refreshes while a pairing code
-// is displayed, so the freshly paired phone shows up on its own.
-const PAIR_LIST_POLL_MS = 5000;
+// deviceListPollMs is how often the device list refreshes. A phone can pair or
+// unlink itself at any time (not just while a code is on screen), so the list
+// polls steadily and rows appear/disappear on their own without a manual reload.
+// A single cheap GET on the same cadence the members dashboard uses.
+const DEVICE_LIST_POLL_MS = 5000;
 
 export function PairedDevicesPanel() {
 	const { t } = useTranslation();
@@ -59,14 +61,20 @@ export function PairedDevicesPanel() {
 		refresh();
 	}, [refresh]);
 
-	// While a live code is displayed: poll the list (the new phone appears on
-	// its own), poll whether THIS code is still outstanding, and flip to the
-	// expired notice when the TTL runs out.
+	// Keep the list live at all times: a phone that pairs or unlinks itself shows
+	// up (or drops off) on its own, so the operator never has to reload the page.
+	useEffect(() => {
+		const id = setInterval(refresh, DEVICE_LIST_POLL_MS);
+		return () => clearInterval(id);
+	}, [refresh]);
+
+	// While a live code is displayed, poll whether THIS code is still outstanding
+	// (the steady poll above already keeps the list fresh) and flip to the expired
+	// notice when the TTL runs out.
 	useEffect(() => {
 		if (!pair || expired) return;
 		let cancelled = false;
 		const tick = () => {
-			refresh();
 			// A consumed code stops being outstanding; another operator pairing a
 			// different device does NOT touch it, so this is the correct signal.
 			api
@@ -76,7 +84,7 @@ export function PairedDevicesPanel() {
 				})
 				.catch(() => {});
 		};
-		const poll = setInterval(tick, PAIR_LIST_POLL_MS);
+		const poll = setInterval(tick, DEVICE_LIST_POLL_MS);
 		// Clamp into setTimeout's signed-32-bit delay range: a delay past ~24.8
 		// days would overflow and fire immediately.
 		const untilExpiry = Math.min(
@@ -89,7 +97,7 @@ export function PairedDevicesPanel() {
 			clearInterval(poll);
 			clearTimeout(expiry);
 		};
-	}, [pair, expired, refresh]);
+	}, [pair, expired]);
 
 	// Render the QR whenever a code is minted. The stale-QR reset happens in
 	// generate() (not here) so the effect never sets state synchronously.
