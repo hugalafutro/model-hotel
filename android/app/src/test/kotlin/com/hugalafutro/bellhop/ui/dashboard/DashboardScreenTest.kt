@@ -78,4 +78,27 @@ class DashboardScreenTest {
         assertTrue(dismissed)
         assertTrue(retries == 1)
     }
+
+    @Test
+    fun failedUnlinkOffersForceUnlinkEscapeHatch() {
+        var forced = 0
+        var dismissed = false
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    onUnlink = {},
+                    unlinking = false,
+                    unlinkFailed = true,
+                    onDismissUnlinkError = { dismissed = true },
+                    onForceUnlink = { forced++ },
+                )
+            }
+        }
+        // When a revoke is impossible (dead/unreadable token), "Unlink anyway"
+        // clears locally so the operator is never stranded on the dashboard.
+        composeTestRule.onNodeWithTag("dashboard-unlink-force").performClick()
+        assertTrue(dismissed)
+        assertTrue(forced == 1)
+    }
 }

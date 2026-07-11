@@ -111,6 +111,30 @@ fun BellhopApp() {
         }
     }
 
+    // Operator escape hatch from the failure dialog: when the token can't be read
+    // or Front Desk can't be reached, a revoke is impossible and a retry can loop
+    // forever, so clear the link locally on request. The dialog already warns that
+    // Front Desk may still list the device and to revoke it there, so this is an
+    // informed choice, not a silent orphan.
+    fun forceUnlink() {
+        if (unlinking) return
+        unlinking = true
+        unlinkFailed = false
+        scope.launch {
+            try {
+                linkStore.clear()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // Even the local clear failed (broken DataStore); re-surface the
+                // dialog so the operator can try once more.
+                unlinkFailed = true
+            } finally {
+                unlinking = false
+            }
+        }
+    }
+
     when (val state = linkState) {
         LinkState.Loading -> Unit
         LinkState.Unlinked -> {
@@ -139,6 +163,7 @@ fun BellhopApp() {
                 unlinkFailed = unlinkFailed,
                 onUnlink = { runUnlink(state.fdUrl) },
                 onDismissUnlinkError = { unlinkFailed = false },
+                onForceUnlink = { forceUnlink() },
             )
     }
 }
