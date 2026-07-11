@@ -47,6 +47,7 @@ See [[Development]] for local setup details.
 - [[Model Discovery]] - Automatic model synchronization with per-provider metadata
 - [[Failover and Hotel Routing]] - Transparent failover, hotel routing, circuit breaker
 - [[High Availability]] - Front Desk control plane + Traefik for drop-in multi-instance HA
+- [[Bellhop]] - Android companion app: pair a phone with Front Desk and monitor the fleet
 
 ### Reference
 
