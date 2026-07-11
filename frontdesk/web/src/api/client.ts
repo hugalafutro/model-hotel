@@ -189,6 +189,13 @@ export const api = {
 	// the public POST /api/pair. Devices are listed and revoked here.
 	pairStart: (role: DeviceRole) =>
 		request<PairStart>("/api/pair/start", jsonInit("POST", { role })),
+	// Is this specific code still live? Lets the panel tell "my code was used"
+	// apart from "some other device paired" so it dismisses the right QR.
+	pairStatus: (code: string) =>
+		request<{ outstanding: boolean }>(
+			"/api/pair/status",
+			jsonInit("POST", { code }),
+		),
 	getDevices: () => request<PairedDevice[]>("/api/devices"),
 	revokeDevice: (id: string) =>
 		request<{ success: boolean }>(`/api/devices/${encodeURIComponent(id)}`, {

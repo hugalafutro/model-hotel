@@ -444,6 +444,7 @@
 			"neverSeen": "Jamais",
 			"revoke": "Révoquer",
 			"revoked": "Appareil révoqué",
+			"paired": "Appareil associé",
 			"revokeTitle": "Révoquer l'appareil ?",
 			"revokeBody": "« {{label}} » perdra immédiatement l'accès. Appairez-le à nouveau pour le rétablir."
 		}

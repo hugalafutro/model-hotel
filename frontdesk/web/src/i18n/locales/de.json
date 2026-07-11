@@ -444,6 +444,7 @@
 			"neverSeen": "Nie",
 			"revoke": "Widerrufen",
 			"revoked": "Gerät widerrufen",
+			"paired": "Gerät gekoppelt",
 			"revokeTitle": "Gerät widerrufen?",
 			"revokeBody": "„{{label}}“ verliert sofort den Zugriff. Zum Wiederherstellen erneut koppeln."
 		}

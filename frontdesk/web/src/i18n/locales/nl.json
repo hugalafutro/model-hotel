@@ -444,6 +444,7 @@
 			"neverSeen": "Nooit",
 			"revoke": "Intrekken",
 			"revoked": "Apparaat ingetrokken",
+			"paired": "Apparaat gekoppeld",
 			"revokeTitle": "Apparaat intrekken?",
 			"revokeBody": "“{{label}}” verliest onmiddellijk de toegang. Koppel het opnieuw om het te herstellen."
 		}

@@ -106,6 +106,17 @@ func (p *pairingCodes) restore(code string, pc pairingCode) {
 	p.codes[code] = pc
 }
 
+// outstanding reports whether a code is still live (minted, unexpired, and not
+// yet consumed). It lets the admin UI tell "my code was used" apart from "some
+// other device paired", so a concurrent pairing does not dismiss the wrong QR.
+func (p *pairingCodes) outstanding(code string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.prune()
+	_, ok := p.codes[code]
+	return ok
+}
+
 func (p *pairingCodes) prune() {
 	now := p.now()
 	for c, pc := range p.codes {
@@ -232,6 +243,20 @@ func (s *Server) pairStart(w http.ResponseWriter, r *http.Request) {
 		"role":       req.Role,
 		"expires_at": expiresAt.UTC().Format(time.RFC3339),
 	})
+}
+
+// pairStatus (POST /api/pair/status, admin-only) reports whether a specific
+// still-displayed code is outstanding. The Paired-devices panel polls it so it
+// dismisses its QR/string exactly when its own code is consumed (or expires),
+// not when any unrelated device happens to pair.
+func (s *Server) pairStatus(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Code string `json:"code"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"outstanding": s.pairing.outstanding(req.Code)})
 }
 
 // handlePair (POST /api/pair, public, IP-rate-limited) exchanges a one-time
