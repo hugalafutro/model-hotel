@@ -78,18 +78,32 @@ func (p *pairingCodes) mint(role DeviceRole) (code string, expiresAt time.Time, 
 	return code, expiresAt, nil
 }
 
-// consume validates and burns a code, returning its role. A code can only ever
+// consume validates and burns a code, returning it. A code can only ever
 // succeed once; expired and unknown codes are indistinguishable to the caller.
-func (p *pairingCodes) consume(code string) (DeviceRole, bool) {
+// If the caller then fails to finish pairing it should restore the code so a
+// transient backend error does not force the operator to mint a fresh one.
+func (p *pairingCodes) consume(code string) (pairingCode, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.prune()
 	pc, ok := p.codes[code]
 	if !ok {
-		return "", false
+		return pairingCode{}, false
 	}
 	delete(p.codes, code)
-	return pc.role, true
+	return pc, true
+}
+
+// restore re-inserts a code burned by consume when pairing could not be
+// completed, so the same still-valid pairing string can be retried. A code that
+// expired in the interim is dropped rather than resurrected.
+func (p *pairingCodes) restore(code string, pc pairingCode) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.now().After(pc.expiresAt) {
+		return
+	}
+	p.codes[code] = pc
 }
 
 func (p *pairingCodes) prune() {
@@ -151,9 +165,12 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 				return
 			}
 			if !errors.Is(err, ErrNotFound) {
+				// A device-lookup failure (missing/corrupt table, transient DB
+				// blip) must not take down the whole control plane. Fall through
+				// to the admin/session gate, which never reads paired_devices, so
+				// an admin token still authenticates; a real device token simply
+				// fails auth here and the phone retries.
 				debuglog.Error("frontdesk: device token lookup", "error", err)
-				http.Error(w, "internal error", http.StatusInternalServerError)
-				return
 			}
 		}
 		adminGate.ServeHTTP(w, r)
@@ -228,19 +245,23 @@ func (s *Server) handlePair(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	role, ok := s.pairing.consume(req.Code)
+	pc, ok := s.pairing.consume(req.Code)
 	if !ok {
 		writeCodedError(w, http.StatusUnauthorized, "invalid_pairing_code",
 			"invalid or expired pairing code")
 		return
 	}
+	// The code is burned by consume; restore it on any failure below so the same
+	// pairing string can be retried instead of forcing the operator to re-mint.
 	token, tokenHash, err := mintDeviceToken()
 	if err != nil {
+		s.pairing.restore(req.Code, pc)
 		writeError(w, err)
 		return
 	}
-	dev, err := s.store.CreatePairedDevice(r.Context(), req.Label, tokenHash, role)
+	dev, err := s.store.CreatePairedDevice(r.Context(), req.Label, tokenHash, pc.role)
 	if err != nil {
+		s.pairing.restore(req.Code, pc)
 		writeError(w, err)
 		return
 	}

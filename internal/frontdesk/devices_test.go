@@ -137,13 +137,24 @@ func TestPairingCodesSingleUseAndExpiry(t *testing.T) {
 	if _, ok := p.consume("bogus"); ok {
 		t.Error("bogus code consumed")
 	}
-	role, ok := p.consume(code)
-	if !ok || role != RoleOperator {
-		t.Fatalf("consume = %q, %v", role, ok)
+	pc, ok := p.consume(code)
+	if !ok || pc.role != RoleOperator {
+		t.Fatalf("consume = %q, %v", pc.role, ok)
 	}
 	// Single-use: the same code never works twice.
 	if _, ok := p.consume(code); ok {
 		t.Error("code consumed twice")
+	}
+
+	// restore puts a burned code back so a failed pairing can be retried, but
+	// only while it is still within its TTL.
+	p.restore(code, pc)
+	if got, ok := p.consume(code); !ok || got.role != RoleOperator {
+		t.Errorf("restored code consume = %q, %v; want operator, true", got.role, ok)
+	}
+	p.restore(code, pairingCode{role: RoleMonitor, expiresAt: now.Add(-time.Second)})
+	if _, ok := p.consume(code); ok {
+		t.Error("expired code restored")
 	}
 
 	// Expired codes are pruned and refused.
@@ -413,11 +424,13 @@ func TestDeviceEndpointsSurfaceStoreErrors(t *testing.T) {
 	if rec := do(t, srv, http.MethodGet, "/api/devices", "", true); rec.Code != http.StatusInternalServerError {
 		t.Errorf("devices with dead store = %d, want 500", rec.Code)
 	}
-	// A device-token bearer whose lookup errors (not merely misses) is a 500,
-	// never a silent fall-through to the admin gate.
+	// A device-token bearer whose lookup errors (not merely misses) falls
+	// through to the admin/session gate rather than 500-ing: a broken
+	// paired_devices table must not take down the whole control plane. The
+	// bogus bearer then simply fails admin auth with 401.
 	rec = doDevice(t, srv, http.MethodGet, "/api/members", "", "sometoken")
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("device lookup with dead store = %d, want 500", rec.Code)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("device lookup with dead store = %d, want 401 (fall through to admin gate)", rec.Code)
 	}
 }
 
