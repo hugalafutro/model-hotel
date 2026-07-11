@@ -50,6 +50,11 @@ fun BellhopApp() {
     val scope = rememberCoroutineScope()
     var unlinking by remember { mutableStateOf(false) }
     var unlinkFailed by remember { mutableStateOf(false) }
+    // Fence: the remote revoke for this link already succeeded and only the local
+    // clear is still pending (a rare clear() failure). A retry must then SKIP
+    // Front Desk (the token is now revoked, so a second DELETE would 401 and fail
+    // forever) and just re-attempt the clear. Reset on return to Unlinked.
+    var revokedRemotely by remember { mutableStateOf(false) }
 
     // Revoke the device token on Front Desk, THEN clear the local link. Only a
     // confirmed remote revoke clears locally: if the DELETE can't reach Front
@@ -61,25 +66,34 @@ fun BellhopApp() {
         unlinkFailed = false
         scope.launch {
             try {
-                val token = linkStore.token()
                 val revoked =
-                    if (token == null) {
-                        // Still Linked but the stored token can't be read (e.g. the
-                        // Keystore key is gone): the Front Desk row is still live and
-                        // we have no way to revoke it, so treat this as a failed
-                        // unlink and surface the retry path rather than clearing
-                        // locally and orphaning the row.
-                        false
+                    if (revokedRemotely) {
+                        // Already gone from Front Desk on a prior attempt; don't
+                        // re-hit it with the dead token, just fall through to clear.
+                        true
                     } else {
-                        try {
-                            client.unlink(fdUrl, token)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Throwable) {
+                        val token = linkStore.token()
+                        if (token == null) {
+                            // Still Linked but the stored token can't be read (e.g. the
+                            // Keystore key is gone): the Front Desk row is still live and
+                            // we have no way to revoke it, so treat this as a failed
+                            // unlink and surface the retry path rather than clearing
+                            // locally and orphaning the row.
                             false
+                        } else {
+                            try {
+                                client.unlink(fdUrl, token)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Throwable) {
+                                false
+                            }
                         }
                     }
                 if (revoked) {
+                    // Fence the remote side before clearing: if clear() throws, the
+                    // retry skips the now-dead Front Desk call and only re-clears.
+                    revokedRemotely = true
                     linkStore.clear()
                 } else {
                     unlinkFailed = true
@@ -107,6 +121,7 @@ fun BellhopApp() {
             LaunchedEffect(Unit) {
                 unlinking = false
                 unlinkFailed = false
+                revokedRemotely = false
                 vm.reset()
             }
             val ui by vm.state.collectAsStateWithLifecycle()
