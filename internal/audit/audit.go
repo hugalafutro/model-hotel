@@ -160,6 +160,11 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 		// goroutine or tie up server concurrency. Best-effort by design. The
 		// goroutine is tracked by rec.wg so Wait can drain it on shutdown.
 		entry := Entry{
+			// Stamped here, at request completion, so the trail's order reflects
+			// when actions happened. The insert runs on a background goroutine, so
+			// leaving created_at to the DB default would let two rapid mutations
+			// race and land out of request order.
+			CreatedAt:  time.Now(),
 			Actor:      actor,
 			ActorRole:  role,
 			Method:     r.Method,
@@ -193,12 +198,18 @@ func isFleetHeartbeat(route string) bool {
 // disconnect cannot lose the row, and piggybacks the throttled retention
 // sweep.
 func (rec *Recorder) record(e Entry) {
+	// The middleware stamps CreatedAt at request completion so the trail keeps
+	// request order despite the async insert. Fall back to now for any direct
+	// caller that left it zero, so no row lands with a year-0001 timestamp.
+	if e.CreatedAt.IsZero() {
+		e.CreatedAt = time.Now()
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, err := rec.pool.Exec(ctx,
-		`INSERT INTO audit_log (actor, actor_role, method, route, path, entity_id, status_code, remote_addr)
-		 VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''), $7, $8)`,
-		e.Actor, e.ActorRole, e.Method, e.Route, e.Path, e.EntityID, e.StatusCode, e.RemoteAddr)
+		`INSERT INTO audit_log (created_at, actor, actor_role, method, route, path, entity_id, status_code, remote_addr)
+		 VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8, $9)`,
+		e.CreatedAt, e.Actor, e.ActorRole, e.Method, e.Route, e.Path, e.EntityID, e.StatusCode, e.RemoteAddr)
 	if err != nil {
 		debuglog.Error("audit: failed to record entry", "error", err, "route", e.Route)
 		return
