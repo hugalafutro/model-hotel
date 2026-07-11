@@ -144,6 +144,20 @@ class PairingViewModelTest {
         }
 
     @Test
+    fun resetClearsStaleFormState() {
+        // Regression: after a successful pair the Activity-scoped VM keeps busy
+        // + pasteText; reset must clear them so re-entering pairing is clean.
+        val vm = PairingViewModel(FakeClient(PairResult.InvalidCode), newLinkStore())
+        vm.onPastePayload("""{"fd_url":"http://h:1","pairing_code":"ABC","fd_name":"H"}""")
+        vm.reset()
+        val s = vm.state.value
+        assertFalse(s.busy)
+        assertFalse(s.parsed)
+        assertEquals("", s.pasteText)
+        assertEquals("", s.code)
+    }
+
+    @Test
     fun blankStateBlocksSubmit() {
         val vm = PairingViewModel(FakeClient(PairResult.InvalidCode), newLinkStore())
         assertFalse(vm.state.value.canSubmit)

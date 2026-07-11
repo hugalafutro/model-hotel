@@ -17,4 +17,7 @@
     <string name="dashboard_linked">Linked to %1$s</string>
     <string name="dashboard_role">Role: %1$s</string>
     <string name="dashboard_unlink">Unlink this device</string>
+    <string name="dashboard_unlink_confirm_title">Unlink this device?</string>
+    <string name="dashboard_unlink_confirm_body">This device will stop monitoring %1$s and its token will be revoked. You can pair again anytime with a new code.</string>
+    <string name="common_cancel">Cancel</string>
 </resources>

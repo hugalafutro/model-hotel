@@ -98,6 +98,16 @@ class PairingViewModel(
 
     fun onLabelChange(value: String) = _state.update { it.copy(label = value) }
 
+    /**
+     * reset returns the form to a clean slate. This ViewModel is Activity-scoped
+     * and outlives a link, so it must be reset whenever the pairing screen is
+     * re-entered (e.g. after an unlink) or a stale pasted string and a frozen
+     * busy spinner from the previous session would linger.
+     */
+    fun reset() {
+        _state.value = PairingUiState()
+    }
+
     // A valid pairing string is JSON carrying both a URL and a code; require both
     // so a half-formed paste doesn't enable Pair.
     private fun parsePayload(raw: String): PairPayload? {

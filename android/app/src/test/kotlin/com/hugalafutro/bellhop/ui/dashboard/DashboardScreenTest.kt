@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -41,14 +42,18 @@ class DashboardScreenTest {
     }
 
     @Test
-    fun unlinkButtonFiresCallback() {
+    fun unlinkAsksForConfirmationBeforeFiring() {
         var clicked = false
         composeTestRule.setContent {
             BellhopTheme {
                 DashboardScreen(link = link, onUnlink = { clicked = true }, unlinking = false)
             }
         }
+        // Tapping Unlink only opens the confirm dialog; the callback must not
+        // fire until the dialog is confirmed.
         composeTestRule.onNodeWithTag("dashboard-unlink").performClick()
+        assertFalse(clicked)
+        composeTestRule.onNodeWithTag("dashboard-unlink-confirm").performClick()
         assertTrue(clicked)
     }
 }

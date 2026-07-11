@@ -52,11 +52,14 @@ fun BellhopApp() {
     when (val state = linkState) {
         LinkState.Loading -> Unit
         LinkState.Unlinked -> {
-            // Reset the unlink flag once we are back on the pairing screen so a
-            // future link starts clean.
-            LaunchedEffect(Unit) { unlinking = false }
             val vm: PairingViewModel =
                 viewModel(factory = PairingViewModel.Factory(client, linkStore))
+            // The Activity-scoped ViewModel outlives a link; clear the unlink
+            // flag and any stale form state each time we land back here.
+            LaunchedEffect(Unit) {
+                unlinking = false
+                vm.reset()
+            }
             val ui by vm.state.collectAsStateWithLifecycle()
             PairingScreen(
                 state = ui,
