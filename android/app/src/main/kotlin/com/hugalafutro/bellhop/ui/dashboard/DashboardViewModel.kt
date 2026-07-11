@@ -159,16 +159,6 @@ class DashboardViewModel(
         }
     }
 
-    // triggersRefresh mirrors the Front Desk web dashboard: only membership,
-    // config, health, and version events change what a member card shows, so
-    // only those warrant a refetch. Other events (alerts, traefik notices) ride
-    // the same stream but the dashboard ignores them here.
-    private fun triggersRefresh(type: String): Boolean =
-        type.startsWith("member.") ||
-            type.startsWith("config.") ||
-            type.startsWith("health.") ||
-            type.startsWith("version.")
-
     class Factory(
         private val client: FrontDeskClient,
         private val linkStore: LinkStore,
@@ -186,5 +176,16 @@ class DashboardViewModel(
         // SSE reconnect backoff, mirroring the web dashboard's 1s..30s range.
         const val SSE_BACKOFF_MIN_MS = 1_000L
         const val SSE_BACKOFF_MAX_MS = 30_000L
+
+        // triggersRefresh mirrors the Front Desk web dashboard: only membership,
+        // config, health, and version events change what a member card shows, so
+        // only those warrant a refetch. Other events (alerts, traefik notices) ride
+        // the same stream but the dashboard ignores them. internal so the filter can
+        // be unit-tested directly without driving the whole stream.
+        internal fun triggersRefresh(type: String): Boolean =
+            type.startsWith("member.") ||
+                type.startsWith("config.") ||
+                type.startsWith("health.") ||
+                type.startsWith("version.")
     }
 }

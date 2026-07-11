@@ -239,32 +239,16 @@ class DashboardViewModelTest {
         }
 
     @Test
-    fun sseIrrelevantEventDoesNotRefetch() =
-        runBlocking {
-            // Events the dashboard doesn't render (e.g. alerts) ride the same stream
-            // but must not trigger a members refetch. One completing stream delivers
-            // the alert then an Unauthorized, in order; once revoked is observed the
-            // alert has definitely been processed — and must have left the fetch
-            // count untouched. Deterministic: no wall-clock waiting.
-            val client =
-                FakeFleetClient(
-                    FetchResult.Success(emptyList()),
-                    sseFlow =
-                        flowOf(
-                            SseMessage.Event(FleetEvent(type = "alert.fired")),
-                            SseMessage.Unauthorized,
-                        ),
-                )
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
-
-            val job = launch { vm.state.collect {} }
-            withTimeout(5_000) { vm.state.first { !it.loading } }
-            val callsAfterInitialLoad = client.memberCalls.get()
-
-            withTimeout(5_000) { vm.state.first { it.revoked } }
-            assertEquals(callsAfterInitialLoad, client.memberCalls.get())
-            job.cancel()
-        }
+    fun triggersRefreshOnlyForRenderedEventFamilies() {
+        // Only membership/config/health/version events change a member card; alerts
+        // and traefik notices ride the same stream but must not trigger a refetch.
+        assertTrue(DashboardViewModel.triggersRefresh("member.added"))
+        assertTrue(DashboardViewModel.triggersRefresh("config.auto_synced"))
+        assertTrue(DashboardViewModel.triggersRefresh("health.down"))
+        assertTrue(DashboardViewModel.triggersRefresh("version.fetch_failed"))
+        assertFalse(DashboardViewModel.triggersRefresh("alert.fired"))
+        assertFalse(DashboardViewModel.triggersRefresh("traefik.stale"))
+    }
 
     @Test
     fun sseReconnectsAfterDisconnect() =
