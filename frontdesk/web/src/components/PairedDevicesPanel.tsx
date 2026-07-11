@@ -141,7 +141,9 @@ export function PairedDevicesPanel() {
 			</p>
 
 			<div className="fd-row" style={{ flexWrap: "wrap", gap: "0.8rem" }}>
-				<div className="ui-field">
+				{/* Drop the field's stacked-layout bottom margin: in this horizontal
+				    row it would push the flex-end button below the select. */}
+				<div className="ui-field" style={{ marginBottom: 0 }}>
 					<label className="ui-label" htmlFor="pair-role">
 						{t("settings.devices.role")}
 					</label>
