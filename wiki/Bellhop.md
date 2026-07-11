@@ -4,7 +4,7 @@ Bellhop is the Android companion app for [[High Availability|Front Desk]]: pair 
 
 ## Linking a device
 
-Linking starts on the Front Desk side. Open Settings, then Paired devices, pick the device's role (Monitor is read-only; Operator can also drain or activate members, trigger a config sync, and toggle auto-sync) and generate a pairing code. The code renders as a QR and as a copyable pairing string carrying the same payload: the Front Desk URL, the one-time code, and a display name. Codes are single-use and expire after a few minutes, and the panel dismisses the code on its own once your device pairs with it.
+Linking starts on the Front Desk side. Open Settings, then Paired devices, pick the device's role and generate a pairing code. The role sets the permission ceiling Front Desk enforces for that device's token: Monitor is read-only, while Operator will additionally be able to drain or activate members, trigger a config sync, and toggle auto-sync once operator actions arrive in the app. The code renders as a QR and as a copyable pairing string carrying the same payload: the Front Desk URL, the one-time code, and a display name. Codes are single-use and expire after a few minutes, and the panel dismisses the code on its own once your device pairs with it.
 
 <p align="center"><a href="screenshots/frontdesk_settings_devices_pairing.png"><img src="screenshots/frontdesk_settings_devices_pairing.png" width="800" alt="Front Desk Settings, Paired devices: pairing QR and copyable pairing string"></a></p>
 
