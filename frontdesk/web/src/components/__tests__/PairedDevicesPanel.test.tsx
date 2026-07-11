@@ -111,11 +111,15 @@ it("mints a pairing code and renders QR plus copyable pairing string", async () 
 });
 
 it("dismisses the pairing code once a device pairs with it", async () => {
-	// Empty until the phone pairs; then the poll picks up the new device.
+	// Empty until the phone pairs; then the poll picks up the new device AND the
+	// code stops being outstanding.
 	let paired = false;
 	server.use(
 		http.get("/api/devices", () => HttpResponse.json(paired ? [device] : [])),
 		http.post("/api/pair/start", () => HttpResponse.json(pairStart)),
+		http.post("/api/pair/status", () =>
+			HttpResponse.json({ outstanding: !paired }),
+		),
 	);
 	renderPanel();
 	await screen.findByText("No devices paired yet.");
@@ -123,8 +127,8 @@ it("dismisses the pairing code once a device pairs with it", async () => {
 	await userEvent.click(screen.getByRole("button", { name: "Pair device" }));
 	await screen.findByLabelText("Pairing string");
 
-	// Phone redeems the code: the device now appears on the next poll, and the
-	// QR/string block dismisses itself.
+	// Phone redeems the code: the device appears and the code is now spent, so
+	// the QR/string block dismisses itself.
 	paired = true;
 	await waitFor(
 		() => {
@@ -140,6 +144,31 @@ it("dismisses the pairing code once a device pairs with it", async () => {
 	expect(
 		screen.getByRole("button", { name: "Pair device" }),
 	).toBeInTheDocument();
+}, 10000);
+
+it("keeps the code when another operator's device pairs concurrently", async () => {
+	// A different device appears after our code is shown, but OUR code stays
+	// outstanding: the string must not be stolen.
+	let others: PairedDevice[] = [];
+	server.use(
+		http.get("/api/devices", () => HttpResponse.json(others)),
+		http.post("/api/pair/start", () => HttpResponse.json(pairStart)),
+		http.post("/api/pair/status", () =>
+			HttpResponse.json({ outstanding: true }),
+		),
+	);
+	renderPanel();
+	await screen.findByText("No devices paired yet.");
+
+	await userEvent.click(screen.getByRole("button", { name: "Pair device" }));
+	await screen.findByLabelText("Pairing string");
+
+	// Someone else pairs their device; the next poll surfaces it.
+	others = [monitorDevice];
+	await screen.findByText("Kitchen tablet", undefined, { timeout: 7000 });
+
+	// Our code is still outstanding, so the pairing string stays.
+	expect(screen.getByLabelText("Pairing string")).toBeInTheDocument();
 }, 10000);
 
 it("copies the pairing string to the clipboard", async () => {

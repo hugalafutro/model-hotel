@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.data
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -8,7 +9,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.IOException
 
 /**
  * PairResult distinguishes the outcomes the pairing screen reacts to: a bad or
@@ -42,17 +42,21 @@ open class FrontDeskClient(
         label: String,
     ): PairResult =
         withContext(Dispatchers.IO) {
-            val body =
-                json
-                    .encodeToString(PairRequest(code = code, label = label))
-                    .toRequestBody(JSON_MEDIA)
-            val request =
-                Request
-                    .Builder()
-                    .url("${base(fdUrl)}/api/pair")
-                    .post(body)
-                    .build()
+            // Everything that can throw on bad input lives inside runCatching: a
+            // malformed fdUrl (IllegalArgumentException from url()) and a 2xx body
+            // that is not a PairResponse (SerializationException) must both become
+            // a Failure, not an escaped throwable that strands the busy spinner.
             runCatching {
+                val body =
+                    json
+                        .encodeToString(PairRequest(code = code, label = label))
+                        .toRequestBody(JSON_MEDIA)
+                val request =
+                    Request
+                        .Builder()
+                        .url("${base(fdUrl)}/api/pair")
+                        .post(body)
+                        .build()
                 http.newCall(request).execute().use { resp ->
                     val text = resp.body?.string().orEmpty()
                     when {
@@ -62,7 +66,8 @@ open class FrontDeskClient(
                     }
                 }
             }.getOrElse { e ->
-                if (e is IOException) PairResult.Failure(e.message ?: "network error") else throw e
+                if (e is CancellationException) throw e
+                PairResult.Failure(e.message ?: "could not reach the Front Desk")
             }
         }
 
@@ -76,15 +81,19 @@ open class FrontDeskClient(
         token: String,
     ): Boolean =
         withContext(Dispatchers.IO) {
-            val request =
-                Request
-                    .Builder()
-                    .url("${base(fdUrl)}/api/devices/self")
-                    .header("Authorization", "Bearer $token")
-                    .delete()
-                    .build()
-            runCatching { http.newCall(request).execute().use { it.isSuccessful } }
-                .getOrDefault(false)
+            runCatching {
+                val request =
+                    Request
+                        .Builder()
+                        .url("${base(fdUrl)}/api/devices/self")
+                        .header("Authorization", "Bearer $token")
+                        .delete()
+                        .build()
+                http.newCall(request).execute().use { it.isSuccessful }
+            }.getOrElse { e ->
+                if (e is CancellationException) throw e
+                false
+            }
         }
 
     private fun errorMessage(

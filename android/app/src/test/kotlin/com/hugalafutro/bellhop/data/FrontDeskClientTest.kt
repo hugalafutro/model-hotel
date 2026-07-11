@@ -5,6 +5,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -74,6 +75,31 @@ class FrontDeskClientTest {
             val result = client.pair(server.url("/").toString(), "X", "Pixel")
             assertTrue(result is PairResult.Failure)
             assertEquals("kaboom", (result as PairResult.Failure).message)
+        }
+
+    @Test
+    fun pairMalformedUrlIsFailureNotThrow() =
+        runBlocking {
+            // A non-blank but invalid fd_url throws while building the request; it
+            // must surface as Failure, not escape and strand the busy spinner.
+            val result = client.pair("not a url", "CODE", "label")
+            assertTrue(result is PairResult.Failure)
+        }
+
+    @Test
+    fun pairUnexpectedSuccessBodyIsFailure() =
+        runBlocking {
+            // 2xx with a body that is not a PairResponse must not throw out of the
+            // modeled result set.
+            server.enqueue(MockResponse().setBody("<html>not json</html>"))
+            val result = client.pair(server.url("/").toString(), "CODE", "label")
+            assertTrue(result is PairResult.Failure)
+        }
+
+    @Test
+    fun unlinkMalformedUrlIsFalseNotThrow() =
+        runBlocking {
+            assertFalse(client.unlink("not a url", "tok"))
         }
 
     @Test

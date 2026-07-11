@@ -162,9 +162,32 @@ func TestPairingCodesSingleUseAndExpiry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mint: %v", err)
 	}
+	// outstanding tracks a code's live/consumed/expired state.
+	if !p.outstanding(code2) {
+		t.Error("freshly minted code not outstanding")
+	}
 	now = now.Add(pairingCodeTTL + time.Second)
+	if p.outstanding(code2) {
+		t.Error("expired code still outstanding")
+	}
 	if _, ok := p.consume(code2); ok {
 		t.Error("expired code consumed")
+	}
+
+	// A consumed code is no longer outstanding.
+	now = time.Now()
+	code3, _, err := p.mint(RoleOperator)
+	if err != nil {
+		t.Fatalf("mint: %v", err)
+	}
+	if _, ok := p.consume(code3); !ok {
+		t.Fatal("mint/consume code3")
+	}
+	if p.outstanding(code3) {
+		t.Error("consumed code still outstanding")
+	}
+	if p.outstanding("never-minted") {
+		t.Error("unknown code reported outstanding")
 	}
 }
 
@@ -258,6 +281,50 @@ func TestPairStartValidation(t *testing.T) {
 	}
 	if rec := do(t, srv, http.MethodPost, "/api/pair/start", `not json`, true); rec.Code != http.StatusBadRequest {
 		t.Errorf("bad json = %d, want 400", rec.Code)
+	}
+}
+
+func TestPairStatusEndpoint(t *testing.T) {
+	srv, _ := newTestServer(t)
+	// Status is admin-only.
+	if rec := do(t, srv, http.MethodPost, "/api/pair/status", `{"code":"x"}`, false); rec.Code != http.StatusUnauthorized {
+		t.Errorf("unauth pair/status = %d, want 401", rec.Code)
+	}
+
+	// Mint a code; it reports outstanding.
+	rec := do(t, srv, http.MethodPost, "/api/pair/start", `{"role":"monitor"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("pair/start = %d: %s", rec.Code, rec.Body.String())
+	}
+	var mint struct {
+		Code string `json:"code"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &mint); err != nil {
+		t.Fatalf("decode mint: %v", err)
+	}
+	outstanding := func() bool {
+		r := do(t, srv, http.MethodPost, "/api/pair/status", `{"code":"`+mint.Code+`"}`, true)
+		if r.Code != http.StatusOK {
+			t.Fatalf("pair/status = %d: %s", r.Code, r.Body.String())
+		}
+		var out struct {
+			Outstanding bool `json:"outstanding"`
+		}
+		if err := json.Unmarshal(r.Body.Bytes(), &out); err != nil {
+			t.Fatalf("decode status: %v", err)
+		}
+		return out.Outstanding
+	}
+	if !outstanding() {
+		t.Error("freshly minted code not outstanding via endpoint")
+	}
+
+	// Consuming it (public exchange) flips it to not outstanding.
+	if r := do(t, srv, http.MethodPost, "/api/pair", `{"code":"`+mint.Code+`","label":"x"}`, false); r.Code != http.StatusOK {
+		t.Fatalf("pair = %d: %s", r.Code, r.Body.String())
+	}
+	if outstanding() {
+		t.Error("consumed code still outstanding via endpoint")
 	}
 }
 

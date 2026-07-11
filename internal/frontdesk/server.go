@@ -248,6 +248,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 				r.Put("/settings", s.putSettings)
 				r.Post("/alert/test", s.alertTest)
 				r.Post("/pair/start", s.pairStart)
+				r.Post("/pair/status", s.pairStatus)
 				r.Get("/devices", s.listDevices)
 				r.Delete("/devices/{id}", s.revokeDevice)
 			})

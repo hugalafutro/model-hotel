@@ -39,10 +39,11 @@ export function PairedDevicesPanel() {
 	const [working, setWorking] = useState(false);
 	const [revoking, setRevoking] = useState<PairedDevice | null>(null);
 	const [revokeBusy, setRevokeBusy] = useState(false);
-	// Device IDs present when the current code was minted. A polled list that
-	// contains an ID not in this set means the code was just used to pair, so the
-	// QR/string can be dismissed.
+	// Device IDs present when the current code was minted, plus whether that code
+	// has since been consumed. A new device ID AND our own code no longer being
+	// outstanding together mean THIS code paired, so the QR/string can go.
 	const pairedBaselineRef = useRef<Set<string>>(new Set());
+	const [codeSpent, setCodeSpent] = useState(false);
 
 	// A failed refresh keeps the last known list; a failed initial load leaves
 	// devices null, and the panel stays quiet (renders nothing) like the other
@@ -59,10 +60,23 @@ export function PairedDevicesPanel() {
 	}, [refresh]);
 
 	// While a live code is displayed: poll the list (the new phone appears on
-	// its own) and flip to the expired notice when the TTL runs out.
+	// its own), poll whether THIS code is still outstanding, and flip to the
+	// expired notice when the TTL runs out.
 	useEffect(() => {
 		if (!pair || expired) return;
-		const poll = setInterval(refresh, PAIR_LIST_POLL_MS);
+		let cancelled = false;
+		const tick = () => {
+			refresh();
+			// A consumed code stops being outstanding; another operator pairing a
+			// different device does NOT touch it, so this is the correct signal.
+			api
+				.pairStatus(pair.code)
+				.then(({ outstanding }) => {
+					if (!cancelled && !outstanding) setCodeSpent(true);
+				})
+				.catch(() => {});
+		};
+		const poll = setInterval(tick, PAIR_LIST_POLL_MS);
 		// Clamp into setTimeout's signed-32-bit delay range: a delay past ~24.8
 		// days would overflow and fire immediately.
 		const untilExpiry = Math.min(
@@ -71,6 +85,7 @@ export function PairedDevicesPanel() {
 		);
 		const expiry = setTimeout(() => setExpired(true), untilExpiry);
 		return () => {
+			cancelled = true;
 			clearInterval(poll);
 			clearTimeout(expiry);
 		};
@@ -93,19 +108,21 @@ export function PairedDevicesPanel() {
 		};
 	}, [pair]);
 
-	// Once a device pairs with the live code it shows up in the polled list; the
-	// code is single-use and now spent, so dismiss the QR/string automatically
-	// instead of leaving a dead "link me" block above an already-linked device.
+	// Dismiss the QR/string only when THIS code paired a device: a new device ID
+	// appeared AND our own code is no longer outstanding. Requiring both means a
+	// concurrent pairing by another operator (which leaves our code live) never
+	// steals our still-valid string.
 	useEffect(() => {
-		if (!pair) return;
+		if (!pair || !codeSpent) return;
 		const paired = devices?.some((d) => !pairedBaselineRef.current.has(d.id));
 		if (paired) {
 			setPair(null);
 			setExpired(false);
 			setQrDataUrl("");
+			setCodeSpent(false);
 			toast(t("settings.devices.paired"), "success");
 		}
-	}, [pair, devices, toast, t]);
+	}, [pair, codeSpent, devices, toast, t]);
 
 	const generate = async () => {
 		setWorking(true);
@@ -114,6 +131,7 @@ export function PairedDevicesPanel() {
 			// Snapshot the devices already paired so the poll below can tell when
 			// THIS code produces a new one and dismiss itself.
 			pairedBaselineRef.current = new Set((devices ?? []).map((d) => d.id));
+			setCodeSpent(false);
 			setQrDataUrl(""); // drop the previous code's QR until the new one renders
 			setExpired(false);
 			setPair(p);

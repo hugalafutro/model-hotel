@@ -76,11 +76,14 @@ fun BellhopApp() {
                     if (unlinking) return@DashboardScreen
                     unlinking = true
                     scope.launch {
-                        // Best-effort remote revoke, then always clear locally:
-                        // a link we can no longer reach is better dropped than
-                        // stuck on the phone.
-                        linkStore.token()?.let { client.unlink(state.fdUrl, it) }
-                        linkStore.clear()
+                        // Best-effort remote revoke, then ALWAYS clear locally so a
+                        // throwing revoke (e.g. malformed stored fdUrl) can't strand
+                        // the user on the linked dashboard after they confirmed.
+                        try {
+                            linkStore.token()?.let { client.unlink(state.fdUrl, it) }
+                        } finally {
+                            linkStore.clear()
+                        }
                     }
                 },
             )
