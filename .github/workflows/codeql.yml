@@ -1,0 +1,90 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    # Weekly, off-peak, deliberately off the :00 mark.
+    - cron: "37 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cancel superseded runs on PR branches, but never cancel in-flight runs on master.
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: go
+            build-mode: autobuild
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+          # Pure-Kotlin (Bellhop) cannot be extracted with build-mode: none;
+          # it needs a real Gradle build (build-mode: manual).
+          - language: java-kotlin
+            build-mode: manual
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # Toolchain for the Kotlin/Gradle build (java-kotlin leg only).
+      - if: matrix.language == 'java-kotlin'
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - if: matrix.language == 'java-kotlin'
+        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/master' }}
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      # Manual build for java-kotlin: compiling the Kotlin is what the CodeQL
+      # extractor consumes (via the LD_PRELOAD build tracer set up by init).
+      # The tracer only sees compilation that happens as a child of THIS step, so
+      # the build must run fully in-process with no daemons and no cached outputs:
+      #   --no-daemon                              Gradle work runs in the traced foreground JVM
+      #   --no-build-cache / --no-configuration-cache  override org.gradle.caching /
+      #                                            configuration-cache in gradle.properties so
+      #                                            compile tasks actually re-run and are traced
+      #   -Pkotlin.compiler.execution.strategy=in-process  run kotlinc inside the Gradle JVM
+      #                                            instead of the (untraced) Kotlin daemon
+      # `clean` guarantees a from-scratch compile. Without these, the extractor reports
+      # "no source code seen during build" and the analysis fails.
+      - if: matrix.language == 'java-kotlin'
+        name: Build Bellhop (Gradle, traced)
+        working-directory: android
+        run: >-
+          ./gradlew --no-daemon --no-build-cache --no-configuration-cache
+          -Pkotlin.compiler.execution.strategy=in-process
+          clean assembleDebug
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
+        with:
+          category: "/language:${{ matrix.language }}"
