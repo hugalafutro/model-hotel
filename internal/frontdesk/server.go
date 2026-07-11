@@ -68,7 +68,9 @@ type Server struct {
 	masterKey    string       // encrypts the Apprise target secret at rest
 	metricsToken string       // dedicated bearer for Prometheus /metrics scrapes; empty falls back to admin auth
 	alertDisp    *alert.Dispatcher
-	settingsMu   sync.Mutex // serializes the settings-row read-merge-write
+	pairing      *pairingCodes                 // one-time Bellhop pairing codes (in-memory)
+	ipLimiter    adminauth.IPLimiterMiddleware // per-IP limit reused on the public /api/pair exchange
+	settingsMu   sync.Mutex                    // serializes the settings-row read-merge-write
 	// rearmMu guards rearmCh, the in-process rearm broadcast. rearmCh is closed (and
 	// replaced) whenever a rearm/repoint bumps the auto-sync generation, so an
 	// in-flight convergence pass cancels synchronously instead of waiting on a poll.
@@ -121,6 +123,8 @@ func NewServer(cfg ServerConfig) *Server {
 		version:      version,
 		masterKey:    cfg.MasterKey,
 		metricsToken: strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
+		pairing:      newPairingCodes(),
+		ipLimiter:    cfg.IPLimiter,
 		rearmCh:      make(chan struct{}),
 	}
 
@@ -197,31 +201,56 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			oidc.Register(r)
 		})
 
-		// Control-plane REST + SSE, behind the admin-or-session gate.
+		// Public pairing exchange (Bellhop): validates a one-time code and mints
+		// a device token. Login-like and unauthenticated, so it rides the same
+		// per-IP limiter as the login ceremonies.
+		r.Group(func(r chi.Router) {
+			if s.ipLimiter != nil {
+				r.Use(s.ipLimiter.Middleware)
+			}
+			r.Post("/pair", s.handlePair)
+		})
+
+		// Control-plane REST + SSE, behind the admin-or-session-or-device gate.
+		// Three tiers: reads (any bearer incl. monitor devices), the whitelisted
+		// mutations (operator devices and up), and admin-only administration
+		// (never a device token, regardless of role).
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireAuth)
 			r.Get("/members", s.listMembers)
-			r.Post("/members", s.createMember)
-			r.Patch("/members/{id}", s.patchMember)
-			r.Delete("/members/{id}", s.deleteMember)
-			r.Post("/members/{id}/state", s.setMemberState)
 			r.Get("/members/{id}/traffic", s.memberTraffic)
-			r.Get("/settings", s.getSettings)
-			r.Put("/settings", s.putSettings)
 			r.Get("/version", s.getVersion)
 			r.Get("/observability", s.getObservability)
 			r.Get("/alert/events", s.alertEvents)
 			r.Get("/alert/status", s.alertStatus)
-			r.Post("/alert/test", s.alertTest)
 			r.Get("/events", s.listEvents)
 			r.Get("/traefik-status", s.traefikStatus)
 			r.Get("/fleet/status", s.fleetStatus)
 			r.Get("/fleet/last-sync", s.fleetLastSync)
 			r.Get("/fleet/autosync", s.getAutoSync)
-			r.Put("/fleet/autosync", s.putAutoSync)
-			r.Post("/config/sync", s.configSync)
 			r.Post("/logout", s.logout)
 			r.Get("/sse", s.sse)
+			r.Delete("/devices/self", s.revokeSelf)
+
+			r.Group(func(r chi.Router) {
+				r.Use(s.requireOperator)
+				r.Post("/members/{id}/state", s.setMemberState)
+				r.Put("/fleet/autosync", s.putAutoSync)
+				r.Post("/config/sync", s.configSync)
+			})
+
+			r.Group(func(r chi.Router) {
+				r.Use(s.requireAdmin)
+				r.Post("/members", s.createMember)
+				r.Patch("/members/{id}", s.patchMember)
+				r.Delete("/members/{id}", s.deleteMember)
+				r.Get("/settings", s.getSettings)
+				r.Put("/settings", s.putSettings)
+				r.Post("/alert/test", s.alertTest)
+				r.Post("/pair/start", s.pairStart)
+				r.Get("/devices", s.listDevices)
+				r.Delete("/devices/{id}", s.revokeDevice)
+			})
 		})
 	})
 
@@ -229,12 +258,6 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 		r.Handle("/*", spaHandler(ui))
 	}
 	return r
-}
-
-// requireAuth gates control-plane endpoints on the FRONTDESK_TOKEN or a session
-// token (when TOTP is on, the raw token is a first factor only).
-func (s *Server) requireAuth(next http.Handler) http.Handler {
-	return adminauth.RequireAdminOrSession(s.adminMgr, s.sessionMgr, s.totpStatus.Enabled, next)
 }
 
 // metricsAuth gates the Prometheus scrape endpoint, mirroring the main

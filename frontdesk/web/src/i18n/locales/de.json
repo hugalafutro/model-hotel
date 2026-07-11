@@ -276,7 +276,13 @@
 			"statusOk": "apprise-api erreichbar",
 			"statusUnreachable": "apprise-api nicht erreichbar",
 			"statusUnhealthy": "apprise-api fehlerhaft",
-			"statusNotConfigured": "Nicht konfiguriert"
+			"statusNotConfigured": "Nicht konfiguriert",
+			"ntfyTitle": "Telefon-Push über ntfy",
+			"ntfyHint": "Flottenbenachrichtigungen auf dem Telefon erhalten: Richten Sie ein Ziel auf ein ntfy-Thema (selbst gehostet oder ntfy.sh mit geheimem Thema) und abonnieren Sie dasselbe Thema in der ntfy- oder Bellhop-App.",
+			"ntfyServerLabel": "ntfy-Server",
+			"ntfyTopicLabel": "ntfy-Thema",
+			"ntfyTopicPlaceholder": "mein-geheimes-thema",
+			"ntfyUse": "Als Ziel setzen"
 		},
 		"wizard": {
 			"title": "Flotten-Sync-Assistent",
@@ -413,6 +419,33 @@
 			"codesCopied": "Wiederherstellungscodes kopiert",
 			"downloadCodes": "Herunterladen",
 			"saved": "Ich habe sie gespeichert"
+		},
+		"devices": {
+			"title": "Gekoppelte Geräte",
+			"description": "Koppeln Sie die Bellhop-App (oder ein anderes Gerät) mit einem Einmalcode. QR-Code scannen oder Kopplungszeichenfolge einfügen; der Code funktioniert einmal und läuft nach wenigen Minuten ab. Jedes Gerät erhält ein eigenes widerrufbares Token.",
+			"role": "Rolle",
+			"roleOperator": "Operator",
+			"roleMonitor": "Monitor",
+			"roleOperatorHint": "Operator-Geräte können zusätzlich Mitglieder entleeren oder aktivieren, eine Konfigurationssynchronisierung auslösen und die automatische Synchronisierung umschalten.",
+			"roleMonitorHint": "Monitor-Geräte sind schreibgeschützt: Mitglieder, Zustand, Datenverkehr, Ereignisse und Benachrichtigungen.",
+			"generate": "Gerät koppeln",
+			"regenerate": "Neuer Code",
+			"expired": "Dieser Kopplungscode ist abgelaufen. Erzeugen Sie einen neuen.",
+			"qrAlt": "Kopplungs-QR-Code",
+			"pairingString": "Kopplungszeichenfolge",
+			"copy": "Kopplungszeichenfolge kopieren",
+			"copied": "Kopplungszeichenfolge kopiert",
+			"codeHint": "Einmalcode, gültig bis {{time}}.",
+			"empty": "Noch keine Geräte gekoppelt.",
+			"colLabel": "Gerät",
+			"colRole": "Rolle",
+			"colPaired": "Gekoppelt",
+			"colLastSeen": "Zuletzt gesehen",
+			"neverSeen": "Nie",
+			"revoke": "Widerrufen",
+			"revoked": "Gerät widerrufen",
+			"revokeTitle": "Gerät widerrufen?",
+			"revokeBody": "„{{label}}“ verliert sofort den Zugriff. Zum Wiederherstellen erneut koppeln."
 		}
 	},
 	"errors": {

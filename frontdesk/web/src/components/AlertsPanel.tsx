@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { AlertEventDef, AlertStatus, Settings } from "../api/types";
 import { useToast } from "../context/ToastContext";
+import { ntfyAppriseURL } from "../utils/ntfy";
 
 // The mask the API returns in place of a stored Apprise target. Echoing it back
 // unchanged preserves the stored secret; any other value replaces it. Must match
@@ -252,6 +253,8 @@ export function AlertsPanel() {
 				</div>
 			</div>
 
+			<NtfyHelper disabled={busy} onUse={(apprise) => setTarget(apprise)} />
+
 			<fieldset
 				style={{ border: "none", padding: 0, margin: 0 }}
 				disabled={busy}
@@ -327,6 +330,74 @@ export function AlertsPanel() {
 						: t("settings.alerts.testBtn")}
 				</button>
 			</div>
+		</div>
+	);
+}
+
+// NtfyHelper is the phone-push convenience block (Bellhop plan section 4.3):
+// it pre-formats the Apprise URL for an ntfy topic so pointing fleet alerts at
+// a phone is a copy-free two-field job. Self-hosted ntfy and ntfy.sh with a
+// secret topic both work; the composed URL still goes through the ordinary
+// target field and save flow.
+function NtfyHelper({
+	disabled,
+	onUse,
+}: {
+	disabled: boolean;
+	onUse: (appriseURL: string) => void;
+}) {
+	const { t } = useTranslation();
+	const [server, setServer] = useState("https://ntfy.sh");
+	const [topic, setTopic] = useState("");
+	const composed = ntfyAppriseURL(server, topic);
+
+	return (
+		<div className="ui-field">
+			<span className="ui-label">{t("settings.alerts.ntfyTitle")}</span>
+			<div
+				className="fd-faint"
+				style={{ fontSize: "0.78rem", margin: "0.1rem 0 0.4rem" }}
+			>
+				{t("settings.alerts.ntfyHint")}
+			</div>
+			<div className="fd-row" style={{ flexWrap: "wrap", gap: "0.6rem" }}>
+				<input
+					className="ui-input"
+					type="url"
+					aria-label={t("settings.alerts.ntfyServerLabel")}
+					placeholder="https://ntfy.sh"
+					value={server}
+					disabled={disabled}
+					onChange={(e) => setServer(e.target.value)}
+					style={{ flex: "1 1 180px" }}
+				/>
+				<input
+					className="ui-input"
+					type="text"
+					aria-label={t("settings.alerts.ntfyTopicLabel")}
+					placeholder={t("settings.alerts.ntfyTopicPlaceholder")}
+					value={topic}
+					disabled={disabled}
+					onChange={(e) => setTopic(e.target.value)}
+					style={{ flex: "1 1 180px" }}
+				/>
+				<button
+					type="button"
+					className="ui-btn"
+					disabled={disabled || !composed}
+					onClick={() => onUse(composed)}
+				>
+					{t("settings.alerts.ntfyUse")}
+				</button>
+			</div>
+			{composed && (
+				<div
+					className="fd-faint"
+					style={{ fontSize: "0.78rem", marginTop: "0.3rem" }}
+				>
+					<code>{composed}</code>
+				</div>
+			)}
 		</div>
 	);
 }

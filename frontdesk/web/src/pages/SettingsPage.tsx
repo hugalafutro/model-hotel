@@ -6,6 +6,7 @@ import { AlertsPanel } from "../components/AlertsPanel";
 import { FleetSyncWizard } from "../components/FleetSyncWizard";
 import { ObservabilityPanel } from "../components/ObservabilityPanel";
 import { OidcPanel } from "../components/OidcPanel";
+import { PairedDevicesPanel } from "../components/PairedDevicesPanel";
 import { SecurityPanels } from "../components/SecurityPanels";
 import { useToast } from "../context/ToastContext";
 import { useMembers } from "../hooks/useMembers";
@@ -251,6 +252,8 @@ export function SettingsPage() {
 			<AlertsPanel />
 
 			<SecurityPanels />
+
+			<PairedDevicesPanel />
 
 			<OidcPanel />
 

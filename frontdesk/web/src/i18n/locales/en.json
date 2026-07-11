@@ -276,7 +276,13 @@
 			"statusOk": "apprise-api reachable",
 			"statusUnreachable": "apprise-api unreachable",
 			"statusUnhealthy": "apprise-api unhealthy",
-			"statusNotConfigured": "Not configured"
+			"statusNotConfigured": "Not configured",
+			"ntfyTitle": "Phone push via ntfy",
+			"ntfyHint": "Get fleet alerts on your phone: point a target at an ntfy topic (self-hosted or ntfy.sh with a secret topic) and subscribe to the same topic in the ntfy or Bellhop app.",
+			"ntfyServerLabel": "ntfy server",
+			"ntfyTopicLabel": "ntfy topic",
+			"ntfyTopicPlaceholder": "my-secret-topic",
+			"ntfyUse": "Set as target"
 		},
 		"wizard": {
 			"title": "Fleet sync wizard",
@@ -413,6 +419,33 @@
 			"codesCopied": "Recovery codes copied",
 			"downloadCodes": "Download",
 			"saved": "I have saved these"
+		},
+		"devices": {
+			"title": "Paired devices",
+			"description": "Pair the Bellhop phone app (or any device) with a one-time code. Scan the QR or paste the pairing string; the code works once and expires in a few minutes. Each device gets its own revocable token.",
+			"role": "Role",
+			"roleOperator": "Operator",
+			"roleMonitor": "Monitor",
+			"roleOperatorHint": "Operator devices can also drain or activate members, trigger a config sync, and toggle auto-sync.",
+			"roleMonitorHint": "Monitor devices are read-only: members, health, traffic, events, and alerts.",
+			"generate": "Pair device",
+			"regenerate": "New code",
+			"expired": "This pairing code expired. Generate a new one.",
+			"qrAlt": "Pairing QR code",
+			"pairingString": "Pairing string",
+			"copy": "Copy pairing string",
+			"copied": "Pairing string copied",
+			"codeHint": "One-time code, valid until {{time}}.",
+			"empty": "No devices paired yet.",
+			"colLabel": "Device",
+			"colRole": "Role",
+			"colPaired": "Paired",
+			"colLastSeen": "Last seen",
+			"neverSeen": "Never",
+			"revoke": "Revoke",
+			"revoked": "Device revoked",
+			"revokeTitle": "Revoke device?",
+			"revokeBody": "“{{label}}” will immediately lose access. Pair it again to restore it."
 		}
 	},
 	"errors": {

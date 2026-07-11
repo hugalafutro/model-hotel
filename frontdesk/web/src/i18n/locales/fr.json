@@ -276,7 +276,13 @@
 			"statusOk": "apprise-api accessible",
 			"statusUnreachable": "apprise-api injoignable",
 			"statusUnhealthy": "apprise-api défaillant",
-			"statusNotConfigured": "Non configuré"
+			"statusNotConfigured": "Non configuré",
+			"ntfyTitle": "Notifications téléphone via ntfy",
+			"ntfyHint": "Recevez les alertes de la flotte sur votre téléphone : pointez une cible vers un sujet ntfy (auto-hébergé ou ntfy.sh avec un sujet secret) et abonnez-vous au même sujet dans l'application ntfy ou Bellhop.",
+			"ntfyServerLabel": "Serveur ntfy",
+			"ntfyTopicLabel": "Sujet ntfy",
+			"ntfyTopicPlaceholder": "mon-sujet-secret",
+			"ntfyUse": "Définir comme cible"
 		},
 		"wizard": {
 			"title": "Assistant de synchronisation de flotte",
@@ -413,6 +419,33 @@
 			"codesCopied": "Codes de récupération copiés",
 			"downloadCodes": "Télécharger",
 			"saved": "Je les ai enregistrés"
+		},
+		"devices": {
+			"title": "Appareils appairés",
+			"description": "Appairez l'application Bellhop (ou tout autre appareil) avec un code à usage unique. Scannez le QR ou collez la chaîne d'appairage ; le code fonctionne une seule fois et expire en quelques minutes. Chaque appareil reçoit son propre jeton révocable.",
+			"role": "Rôle",
+			"roleOperator": "Opérateur",
+			"roleMonitor": "Moniteur",
+			"roleOperatorHint": "Les appareils opérateur peuvent aussi drainer ou activer des membres, déclencher une synchronisation de configuration et basculer la synchronisation automatique.",
+			"roleMonitorHint": "Les appareils moniteur sont en lecture seule : membres, santé, trafic, événements et alertes.",
+			"generate": "Appairer un appareil",
+			"regenerate": "Nouveau code",
+			"expired": "Ce code d'appairage a expiré. Générez-en un nouveau.",
+			"qrAlt": "QR code d'appairage",
+			"pairingString": "Chaîne d'appairage",
+			"copy": "Copier la chaîne d'appairage",
+			"copied": "Chaîne d'appairage copiée",
+			"codeHint": "Code à usage unique, valable jusqu'à {{time}}.",
+			"empty": "Aucun appareil appairé pour l'instant.",
+			"colLabel": "Appareil",
+			"colRole": "Rôle",
+			"colPaired": "Appairé",
+			"colLastSeen": "Vu pour la dernière fois",
+			"neverSeen": "Jamais",
+			"revoke": "Révoquer",
+			"revoked": "Appareil révoqué",
+			"revokeTitle": "Révoquer l'appareil ?",
+			"revokeBody": "« {{label}} » perdra immédiatement l'accès. Appairez-le à nouveau pour le rétablir."
 		}
 	},
 	"errors": {

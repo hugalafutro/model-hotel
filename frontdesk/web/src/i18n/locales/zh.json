@@ -276,7 +276,13 @@
 			"statusOk": "apprise-api 可达",
 			"statusUnreachable": "apprise-api 不可达",
 			"statusUnhealthy": "apprise-api 不健康",
-			"statusNotConfigured": "未配置"
+			"statusNotConfigured": "未配置",
+			"ntfyTitle": "通过 ntfy 推送到手机",
+			"ntfyHint": "在手机上接收集群警报：将目标指向一个 ntfy 主题（自建服务器或使用秘密主题的 ntfy.sh），并在 ntfy 或 Bellhop 应用中订阅同一主题。",
+			"ntfyServerLabel": "ntfy 服务器",
+			"ntfyTopicLabel": "ntfy 主题",
+			"ntfyTopicPlaceholder": "my-secret-topic",
+			"ntfyUse": "设为目标"
 		},
 		"wizard": {
 			"title": "集群同步向导",
@@ -413,6 +419,33 @@
 			"codesCopied": "恢复码已复制",
 			"downloadCodes": "下载",
 			"saved": "我已保存这些恢复码"
+		},
+		"devices": {
+			"title": "已配对设备",
+			"description": "使用一次性代码配对 Bellhop 手机应用（或任意设备）。扫描二维码或粘贴配对字符串；代码仅可使用一次，几分钟后过期。每台设备都会获得可单独吊销的令牌。",
+			"role": "角色",
+			"roleOperator": "操作员",
+			"roleMonitor": "监控",
+			"roleOperatorHint": "操作员设备还可以排空或激活成员、触发配置同步并切换自动同步。",
+			"roleMonitorHint": "监控设备为只读：成员、健康状态、流量、事件和警报。",
+			"generate": "配对设备",
+			"regenerate": "新代码",
+			"expired": "此配对代码已过期，请生成新代码。",
+			"qrAlt": "配对二维码",
+			"pairingString": "配对字符串",
+			"copy": "复制配对字符串",
+			"copied": "已复制配对字符串",
+			"codeHint": "一次性代码，有效期至 {{time}}。",
+			"empty": "尚未配对任何设备。",
+			"colLabel": "设备",
+			"colRole": "角色",
+			"colPaired": "配对时间",
+			"colLastSeen": "最后活动",
+			"neverSeen": "从未",
+			"revoke": "吊销",
+			"revoked": "设备已吊销",
+			"revokeTitle": "吊销设备？",
+			"revokeBody": "“{{label}}”将立即失去访问权限。如需恢复，请重新配对。"
 		}
 	},
 	"errors": {

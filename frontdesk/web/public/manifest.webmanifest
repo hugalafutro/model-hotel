@@ -1,0 +1,18 @@
+{
+	"name": "Front Desk (Model Hotel)",
+	"short_name": "Front Desk",
+	"description": "HA control plane for a Model Hotel fleet: members, health, traffic, events, and config sync.",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"background_color": "#0b0c0f",
+	"theme_color": "#0b0c0f",
+	"icons": [
+		{
+			"src": "/favicon.svg",
+			"sizes": "any",
+			"type": "image/svg+xml",
+			"purpose": "any"
+		}
+	]
+}

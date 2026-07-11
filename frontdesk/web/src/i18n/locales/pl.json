@@ -276,7 +276,13 @@
 			"statusOk": "apprise-api osiągalne",
 			"statusUnreachable": "apprise-api nieosiągalne",
 			"statusUnhealthy": "apprise-api w złym stanie",
-			"statusNotConfigured": "Nie skonfigurowano"
+			"statusNotConfigured": "Nie skonfigurowano",
+			"ntfyTitle": "Powiadomienia push przez ntfy",
+			"ntfyHint": "Otrzymuj alerty floty na telefonie: skieruj cel na temat ntfy (własny serwer lub ntfy.sh z tajnym tematem) i subskrybuj ten sam temat w aplikacji ntfy lub Bellhop.",
+			"ntfyServerLabel": "Serwer ntfy",
+			"ntfyTopicLabel": "Temat ntfy",
+			"ntfyTopicPlaceholder": "moj-tajny-temat",
+			"ntfyUse": "Ustaw jako cel"
 		},
 		"wizard": {
 			"title": "Kreator synchronizacji floty",
@@ -413,6 +419,33 @@
 			"codesCopied": "Kody odzyskiwania skopiowane",
 			"downloadCodes": "Pobierz",
 			"saved": "Zapisałem te kody"
+		},
+		"devices": {
+			"title": "Sparowane urządzenia",
+			"description": "Sparuj aplikację Bellhop (lub inne urządzenie) jednorazowym kodem. Zeskanuj kod QR lub wklej ciąg parowania; kod działa raz i wygasa po kilku minutach. Każde urządzenie otrzymuje własny odwoływalny token.",
+			"role": "Rola",
+			"roleOperator": "Operator",
+			"roleMonitor": "Monitor",
+			"roleOperatorHint": "Urządzenia operatora mogą dodatkowo odstawiać lub aktywować członków, uruchamiać synchronizację konfiguracji i przełączać automatyczną synchronizację.",
+			"roleMonitorHint": "Urządzenia monitora są tylko do odczytu: członkowie, stan, ruch, zdarzenia i alerty.",
+			"generate": "Sparuj urządzenie",
+			"regenerate": "Nowy kod",
+			"expired": "Ten kod parowania wygasł. Wygeneruj nowy.",
+			"qrAlt": "Kod QR parowania",
+			"pairingString": "Ciąg parowania",
+			"copy": "Kopiuj ciąg parowania",
+			"copied": "Ciąg parowania skopiowany",
+			"codeHint": "Kod jednorazowy, ważny do {{time}}.",
+			"empty": "Nie sparowano jeszcze żadnych urządzeń.",
+			"colLabel": "Urządzenie",
+			"colRole": "Rola",
+			"colPaired": "Sparowano",
+			"colLastSeen": "Ostatnio widziane",
+			"neverSeen": "Nigdy",
+			"revoke": "Odwołaj",
+			"revoked": "Urządzenie odwołane",
+			"revokeTitle": "Odwołać urządzenie?",
+			"revokeBody": "„{{label}}” natychmiast straci dostęp. Aby je przywrócić, sparuj je ponownie."
 		}
 	},
 	"errors": {
