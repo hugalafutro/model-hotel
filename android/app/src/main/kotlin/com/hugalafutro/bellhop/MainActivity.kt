@@ -18,6 +18,7 @@ import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.ui.dashboard.DashboardScreen
+import com.hugalafutro.bellhop.ui.dashboard.DashboardViewModel
 import com.hugalafutro.bellhop.ui.pairing.PairingScreen
 import com.hugalafutro.bellhop.ui.pairing.PairingViewModel
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
@@ -156,14 +157,27 @@ fun BellhopApp() {
                 onSubmit = vm::pair,
             )
         }
-        is LinkState.Linked ->
+        is LinkState.Linked -> {
+            // Keyed by the full pairing (FD URL + deviceId): the Activity-scoped
+            // ViewModel would otherwise survive an unlink and keep polling the OLD
+            // Front Desk after a relink (same trap PairingViewModel.reset fixes).
+            // deviceId alone is a UUID minted by the FD, but including the URL
+            // costs nothing and holds even if some FD echoes a chosen id back.
+            val dashVm: DashboardViewModel =
+                viewModel(
+                    key = "dashboard-${state.fdUrl}|${state.deviceId}",
+                    factory = DashboardViewModel.Factory(client, linkStore, state.fdUrl),
+                )
+            val ui by dashVm.state.collectAsStateWithLifecycle()
             DashboardScreen(
                 link = state,
+                ui = ui,
                 unlinking = unlinking,
                 unlinkFailed = unlinkFailed,
                 onUnlink = { runUnlink(state.fdUrl) },
                 onDismissUnlinkError = { unlinkFailed = false },
                 onForceUnlink = { forceUnlink() },
             )
+        }
     }
 }

@@ -40,6 +40,16 @@ android {
     }
 }
 
+androidComponents {
+    // Compose UI tests launch ui-test-manifest's ComponentActivity, which is a
+    // debugImplementation dependency, so the release-variant unit tests can
+    // never pass (CI runs testDebugUnitTest only). Disable them so a plain
+    // `./gradlew build` stays green instead of failing on a variant nobody runs.
+    beforeVariants(selector().withBuildType("release")) { variant ->
+        variant.hostTests[com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE]?.enable = false
+    }
+}
+
 kotlin {
     jvmToolchain(21)
 }

@@ -97,6 +97,78 @@ class FrontDeskClientTest {
         }
 
     @Test
+    fun membersParsesFleetAndSendsBearer() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """[{"id":"m1","name":"hotel-1","url":"http://h1:8080","state":"drained","has_token":true,""" +
+                        """"status":{"health":{"known":true,"healthy":true,"latency_ms":12,"checked_at":"t"},""" +
+                        """"traefik_status":"UP","version":"0.31.0"}}]""",
+                ),
+            )
+
+            val result = client.members(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            val member = result.data.single()
+            assertEquals("m1", member.id)
+            assertTrue(member.drained)
+            assertTrue(member.status.health.healthy)
+            assertEquals(12L, member.status.health.latencyMs)
+            assertEquals("UP", member.status.traefikStatus)
+            assertEquals("0.31.0", member.status.version)
+
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertEquals("/api/members", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+        }
+
+    @Test
+    fun membersMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            // 401 means the device token is dead (revoked), not a transient
+            // failure; it must be distinguishable so the dashboard can say so.
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.members(server.url("/").toString(), "dead")
+            assertEquals(FetchResult.Unauthorized, result)
+        }
+
+    @Test
+    fun membersUnexpectedSuccessBodyIsFailure() =
+        runBlocking {
+            server.enqueue(MockResponse().setBody("<html>not json</html>"))
+            val result = client.members(server.url("/").toString(), "tok")
+            assertTrue(result is FetchResult.Failure)
+        }
+
+    @Test
+    fun membersMalformedUrlIsFailureNotThrow() =
+        runBlocking {
+            val result = client.members("not a url", "tok")
+            assertTrue(result is FetchResult.Failure)
+        }
+
+    @Test
+    fun autoSyncParsesPrimary() =
+        runBlocking {
+            server.enqueue(MockResponse().setBody("""{"enabled":true,"primary_id":"m2"}"""))
+
+            val result = client.autoSync(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            assertTrue(result.data.enabled)
+            assertEquals("m2", result.data.primaryId)
+            assertEquals("/api/fleet/autosync", server.takeRequest().path)
+        }
+
+    @Test
     fun unlinkMalformedUrlIsFalseNotThrow() =
         runBlocking {
             assertFalse(client.unlink("not a url", "tok"))
