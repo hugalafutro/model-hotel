@@ -13,6 +13,7 @@ import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.PairedDevice
 import com.hugalafutro.bellhop.data.SseMessage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
@@ -276,7 +277,12 @@ class DashboardViewModelTest {
             val client = FakeFleetClient(FetchResult.Unauthorized, sseFlow = events)
             val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
 
-            val job = launch { vm.state.collect {} }
+            // UNDISPATCHED so this keep-alive collector subscribes before the
+            // transient first{} collectors below; otherwise the subscription
+            // count can bounce through zero between them, restarting the
+            // collector-gated loops, whose initial refresh is deliberately
+            // ungated and would bump the counter after `calls` was sampled.
+            val job = launch(start = CoroutineStart.UNDISPATCHED) { vm.state.collect {} }
             withTimeout(5_000) { vm.state.first { it.revoked } }
             val calls = client.memberCalls.get()
 

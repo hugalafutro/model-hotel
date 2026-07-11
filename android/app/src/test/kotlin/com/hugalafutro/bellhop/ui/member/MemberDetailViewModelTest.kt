@@ -9,6 +9,7 @@ import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.PairedDevice
 import com.hugalafutro.bellhop.data.TrafficPoint
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -173,7 +174,12 @@ class MemberDetailViewModelTest {
                     pollIntervalMs = 10,
                 )
 
-            val job = launch { vm.state.collect {} }
+            // UNDISPATCHED so this keep-alive collector subscribes before the
+            // transient first{} collector below; a subscription count bouncing
+            // through zero would restart the poll loop, whose initial refresh
+            // runs before the revoked gate and would bump the counter after
+            // `calls` was sampled.
+            val job = launch(start = CoroutineStart.UNDISPATCHED) { vm.state.collect {} }
             withTimeout(5_000) { vm.state.first { it.revoked } }
             val calls = client.trafficCalls.get()
             delay(200)
