@@ -19,5 +19,8 @@
     <string name="dashboard_unlink">Unlink this device</string>
     <string name="dashboard_unlink_confirm_title">Unlink this device?</string>
     <string name="dashboard_unlink_confirm_body">This device will stop monitoring %1$s and its token will be revoked. You can pair again anytime with a new code.</string>
+    <string name="dashboard_unlink_failed_title">Couldn\'t reach Front Desk</string>
+    <string name="dashboard_unlink_failed_body">This device is still linked. Front Desk may still list it, so nothing was revoked. Check your connection and try again, or revoke this device from Front Desk → Settings → Paired devices.</string>
+    <string name="dashboard_unlink_retry">Try again</string>
     <string name="common_cancel">Cancel</string>
 </resources>

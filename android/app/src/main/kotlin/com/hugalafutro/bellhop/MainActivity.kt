@@ -21,6 +21,7 @@ import com.hugalafutro.bellhop.ui.dashboard.DashboardScreen
 import com.hugalafutro.bellhop.ui.pairing.PairingScreen
 import com.hugalafutro.bellhop.ui.pairing.PairingViewModel
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -48,6 +49,35 @@ fun BellhopApp() {
     val linkState by linkStore.state.collectAsStateWithLifecycle(initialValue = LinkState.Loading)
     val scope = rememberCoroutineScope()
     var unlinking by remember { mutableStateOf(false) }
+    var unlinkFailed by remember { mutableStateOf(false) }
+
+    // Revoke the device token on Front Desk, THEN clear the local link. Only a
+    // confirmed remote revoke clears locally: if the DELETE can't reach Front
+    // Desk (or is refused) we keep the link and surface a retry, so a dropped
+    // request can't silently orphan the device row on Front Desk.
+    fun runUnlink(fdUrl: String) {
+        if (unlinking) return
+        unlinking = true
+        unlinkFailed = false
+        scope.launch {
+            val revoked =
+                try {
+                    // A missing token means nothing is registered to revoke, so the
+                    // local clear below is the whole unlink.
+                    linkStore.token()?.let { client.unlink(fdUrl, it) } ?: true
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    false
+                }
+            if (revoked) {
+                linkStore.clear()
+            } else {
+                unlinkFailed = true
+            }
+            unlinking = false
+        }
+    }
 
     when (val state = linkState) {
         LinkState.Loading -> Unit
@@ -58,6 +88,7 @@ fun BellhopApp() {
             // flag and any stale form state each time we land back here.
             LaunchedEffect(Unit) {
                 unlinking = false
+                unlinkFailed = false
                 vm.reset()
             }
             val ui by vm.state.collectAsStateWithLifecycle()
@@ -72,20 +103,9 @@ fun BellhopApp() {
             DashboardScreen(
                 link = state,
                 unlinking = unlinking,
-                onUnlink = {
-                    if (unlinking) return@DashboardScreen
-                    unlinking = true
-                    scope.launch {
-                        // Best-effort remote revoke, then ALWAYS clear locally so a
-                        // throwing revoke (e.g. malformed stored fdUrl) can't strand
-                        // the user on the linked dashboard after they confirmed.
-                        try {
-                            linkStore.token()?.let { client.unlink(state.fdUrl, it) }
-                        } finally {
-                            linkStore.clear()
-                        }
-                    }
-                },
+                unlinkFailed = unlinkFailed,
+                onUnlink = { runUnlink(state.fdUrl) },
+                onDismissUnlinkError = { unlinkFailed = false },
             )
     }
 }

@@ -56,4 +56,26 @@ class DashboardScreenTest {
         composeTestRule.onNodeWithTag("dashboard-unlink-confirm").performClick()
         assertTrue(clicked)
     }
+
+    @Test
+    fun failedUnlinkOffersRetryThatRefiresUnlink() {
+        var retries = 0
+        var dismissed = false
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    onUnlink = { retries++ },
+                    unlinking = false,
+                    unlinkFailed = true,
+                    onDismissUnlinkError = { dismissed = true },
+                )
+            }
+        }
+        // A failed remote revoke surfaces the error dialog; "Try again" dismisses
+        // it and re-fires the unlink so the orphaned row can still be cleared.
+        composeTestRule.onNodeWithTag("dashboard-unlink-retry").performClick()
+        assertTrue(dismissed)
+        assertTrue(retries == 1)
+    }
 }
