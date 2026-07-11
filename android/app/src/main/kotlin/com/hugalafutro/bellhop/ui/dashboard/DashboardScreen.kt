@@ -207,7 +207,11 @@ fun DashboardScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(bottom = 24.dp),
                     ) {
-                        items(ui.members, key = { it.id }) { member ->
+                        // Deliberately unkeyed: member ids are FD database primary
+                        // keys so duplicates shouldn't happen, but a buggy response
+                        // with duplicate ids would crash a keyed LazyColumn outright.
+                        // Positional identity is fine for a small stateless list.
+                        items(ui.members) { member ->
                             MemberCard(member = member, isPrimary = member.id == ui.primaryId)
                         }
                     }

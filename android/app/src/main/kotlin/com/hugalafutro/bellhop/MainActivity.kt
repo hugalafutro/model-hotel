@@ -158,12 +158,14 @@ fun BellhopApp() {
             )
         }
         is LinkState.Linked -> {
-            // Keyed by the pairing (deviceId): the Activity-scoped ViewModel would
-            // otherwise survive an unlink and keep polling the OLD Front Desk after
-            // a relink to a different one (same trap PairingViewModel.reset fixes).
+            // Keyed by the full pairing (FD URL + deviceId): the Activity-scoped
+            // ViewModel would otherwise survive an unlink and keep polling the OLD
+            // Front Desk after a relink (same trap PairingViewModel.reset fixes).
+            // deviceId alone is a UUID minted by the FD, but including the URL
+            // costs nothing and holds even if some FD echoes a chosen id back.
             val dashVm: DashboardViewModel =
                 viewModel(
-                    key = "dashboard-${state.deviceId}",
+                    key = "dashboard-${state.fdUrl}|${state.deviceId}",
                     factory = DashboardViewModel.Factory(client, linkStore, state.fdUrl),
                 )
             val ui by dashVm.state.collectAsStateWithLifecycle()
