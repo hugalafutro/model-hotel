@@ -60,22 +60,40 @@ fun BellhopApp() {
         unlinking = true
         unlinkFailed = false
         scope.launch {
-            val revoked =
-                try {
-                    // A missing token means nothing is registered to revoke, so the
-                    // local clear below is the whole unlink.
-                    linkStore.token()?.let { client.unlink(fdUrl, it) } ?: true
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Throwable) {
-                    false
+            try {
+                val token = linkStore.token()
+                val revoked =
+                    if (token == null) {
+                        // Still Linked but the stored token can't be read (e.g. the
+                        // Keystore key is gone): the Front Desk row is still live and
+                        // we have no way to revoke it, so treat this as a failed
+                        // unlink and surface the retry path rather than clearing
+                        // locally and orphaning the row.
+                        false
+                    } else {
+                        try {
+                            client.unlink(fdUrl, token)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Throwable) {
+                            false
+                        }
+                    }
+                if (revoked) {
+                    linkStore.clear()
+                } else {
+                    unlinkFailed = true
                 }
-            if (revoked) {
-                linkStore.clear()
-            } else {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // A clear() failure after a confirmed revoke must not strand the
+                // dashboard mid-unlink; surface the retry path (the finally below
+                // always re-enables the controls).
                 unlinkFailed = true
+            } finally {
+                unlinking = false
             }
-            unlinking = false
         }
     }
 
