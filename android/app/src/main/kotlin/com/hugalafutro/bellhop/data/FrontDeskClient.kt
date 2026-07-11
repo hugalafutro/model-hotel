@@ -2,8 +2,10 @@ package com.hugalafutro.bellhop.data
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -74,13 +76,16 @@ open class FrontDeskClient(
     private val http: OkHttpClient = OkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
 ) {
-    // The SSE stream is idle between events (Front Desk sends a comment heartbeat
-    // every 25s), so it needs a client with no read timeout; the default 10s
-    // would tear a quiet connection down before the first heartbeat. Derived from
-    // the injected client so it inherits any test/prod wiring.
+    // Front Desk sends a comment heartbeat every 25s, so the SSE read timeout has
+    // to clear that interval (the default 10s would tear a quiet connection down
+    // before the first heartbeat). It stays finite and above the heartbeat rather
+    // than 0: a silently half-open socket (a proxy or cellular drop that never
+    // sends a FIN) would make a 0 read wait forever, so onFailure never fires and
+    // streamLoop never reconnects; a finite timeout trips it and reconnects.
+    // Derived from the injected client so it inherits any test/prod wiring.
     private val sseFactory: EventSource.Factory by lazy {
         EventSources.createFactory(
-            http.newBuilder().readTimeout(0, TimeUnit.MILLISECONDS).build(),
+            http.newBuilder().readTimeout(SSE_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS).build(),
         )
     }
 
@@ -226,6 +231,10 @@ open class FrontDeskClient(
             val source = sseFactory.newEventSource(request, listener)
             awaitClose { source.cancel() }
         }
+            // UNLIMITED, fused into the callbackFlow's own channel, so a burst of
+            // events can never backpressure trySend into silently dropping a frame
+            // (in the worst case the lone Unauthorized that stops the reconnect).
+            .buffer(Channel.UNLIMITED)
 
     // get is the shared authenticated GET: bearer token, decode the 2xx body as
     // T, map 401 to Unauthorized (dead token), and keep every other throwable
@@ -270,5 +279,9 @@ open class FrontDeskClient(
 
     companion object {
         private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
+
+        // Above Front Desk's 25s SSE heartbeat, so a healthy quiet stream never
+        // times out but a half-open socket is detected within a heartbeat or two.
+        private const val SSE_READ_TIMEOUT_SECONDS = 60L
     }
 }
