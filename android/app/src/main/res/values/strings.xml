@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Bellhop</string>
-    <string name="dashboard_placeholder">Not linked to a Front Desk yet.</string>
+
+    <!-- Pairing (unlinked state) -->
+    <string name="pairing_title">Link a Front Desk</string>
+    <string name="pairing_subtitle">In Front Desk, open Settings → Paired devices, generate a code, and copy the pairing string. Paste it below (QR scanning is coming soon).</string>
+    <string name="pairing_paste_label">Pairing string</string>
+    <string name="pairing_paste_hint">Paste the copied pairing string here</string>
+    <string name="pairing_target">Front Desk: %1$s\n%2$s</string>
+    <string name="pairing_label_label">This device\'s name</string>
+    <string name="pairing_submit">Pair</string>
+    <string name="pairing_error_bad_string">That doesn\'t look like a pairing string. Copy it again from Front Desk → Settings → Paired devices.</string>
+    <string name="pairing_error_invalid_code">Invalid or expired pairing code. Generate a new one in Front Desk and paste the fresh string.</string>
+
+    <!-- Dashboard (linked state) -->
+    <string name="dashboard_linked">Linked to %1$s</string>
+    <string name="dashboard_role">Role: %1$s</string>
+    <string name="dashboard_unlink">Unlink this device</string>
 </resources>

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,20 +18,28 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.hugalafutro.bellhop.R
+import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 
 /**
- * Placeholder dashboard for Phase A1. Phase A2 replaces this with the
- * real member-card list fed by the Front Desk API.
+ * DashboardScreen is the linked-state home. For the A2 pairing slice it just
+ * confirms the link (Front Desk name + role) and offers Unlink; the read-only
+ * member list, events, and alerts land in the next slice.
  */
 @Composable
-fun DashboardScreen(modifier: Modifier = Modifier) {
+fun DashboardScreen(
+    link: LinkState.Linked,
+    onUnlink: () -> Unit,
+    unlinking: Boolean,
+    modifier: Modifier = Modifier,
+) {
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(innerPadding)
+                    .padding(24.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -42,11 +51,24 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = stringResource(R.string.dashboard_placeholder),
+                text = stringResource(R.string.dashboard_linked, link.fdName.ifBlank { link.fdUrl }),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.testTag("dashboard-linked"),
+            )
+            Text(
+                text = stringResource(R.string.dashboard_role, link.role),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("dashboard-unlinked-placeholder"),
             )
+            Spacer(modifier = Modifier.height(24.dp))
+            OutlinedButton(
+                onClick = onUnlink,
+                enabled = !unlinking,
+                modifier = Modifier.testTag("dashboard-unlink"),
+            ) {
+                Text(stringResource(R.string.dashboard_unlink))
+            }
         }
     }
 }
@@ -55,6 +77,17 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
 @Composable
 private fun DashboardScreenPreview() {
     BellhopTheme {
-        DashboardScreen()
+        DashboardScreen(
+            link =
+                LinkState.Linked(
+                    fdUrl = "http://10.0.2.2:8080",
+                    fdName = "Home Front Desk",
+                    role = "operator",
+                    deviceId = "dev-1",
+                    label = "Pixel 8",
+                ),
+            onUnlink = {},
+            unlinking = false,
+        )
     }
 }
