@@ -444,6 +444,7 @@
 			"neverSeen": "从未",
 			"revoke": "吊销",
 			"revoked": "设备已吊销",
+			"paired": "设备已配对",
 			"revokeTitle": "吊销设备？",
 			"revokeBody": "“{{label}}”将立即失去访问权限。如需恢复，请重新配对。"
 		}

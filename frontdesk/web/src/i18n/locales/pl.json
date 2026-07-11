@@ -444,6 +444,7 @@
 			"neverSeen": "Nigdy",
 			"revoke": "Odwołaj",
 			"revoked": "Urządzenie odwołane",
+			"paired": "Urządzenie sparowane",
 			"revokeTitle": "Odwołać urządzenie?",
 			"revokeBody": "„{{label}}” natychmiast straci dostęp. Aby je przywrócić, sparuj je ponownie."
 		}

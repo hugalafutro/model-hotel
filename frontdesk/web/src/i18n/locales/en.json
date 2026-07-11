@@ -444,6 +444,7 @@
 			"neverSeen": "Never",
 			"revoke": "Revoke",
 			"revoked": "Device revoked",
+			"paired": "Device paired",
 			"revokeTitle": "Revoke device?",
 			"revokeBody": "“{{label}}” will immediately lose access. Pair it again to restore it."
 		}

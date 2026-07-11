@@ -444,6 +444,7 @@
 			"neverSeen": "Nunca",
 			"revoke": "Revocar",
 			"revoked": "Dispositivo revocado",
+			"paired": "Dispositivo emparejado",
 			"revokeTitle": "¿Revocar dispositivo?",
 			"revokeBody": "“{{label}}” perderá el acceso de inmediato. Vuelva a emparejarlo para restaurarlo."
 		}

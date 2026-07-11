@@ -1,5 +1,5 @@
 import QRCode from "qrcode";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { DeviceRole, PairedDevice, PairStart } from "../api/types";
@@ -39,6 +39,10 @@ export function PairedDevicesPanel() {
 	const [working, setWorking] = useState(false);
 	const [revoking, setRevoking] = useState<PairedDevice | null>(null);
 	const [revokeBusy, setRevokeBusy] = useState(false);
+	// Device IDs present when the current code was minted. A polled list that
+	// contains an ID not in this set means the code was just used to pair, so the
+	// QR/string can be dismissed.
+	const pairedBaselineRef = useRef<Set<string>>(new Set());
 
 	// A failed refresh keeps the last known list; a failed initial load leaves
 	// devices null, and the panel stays quiet (renders nothing) like the other
@@ -89,10 +93,27 @@ export function PairedDevicesPanel() {
 		};
 	}, [pair]);
 
+	// Once a device pairs with the live code it shows up in the polled list; the
+	// code is single-use and now spent, so dismiss the QR/string automatically
+	// instead of leaving a dead "link me" block above an already-linked device.
+	useEffect(() => {
+		if (!pair) return;
+		const paired = devices?.some((d) => !pairedBaselineRef.current.has(d.id));
+		if (paired) {
+			setPair(null);
+			setExpired(false);
+			setQrDataUrl("");
+			toast(t("settings.devices.paired"), "success");
+		}
+	}, [pair, devices, toast, t]);
+
 	const generate = async () => {
 		setWorking(true);
 		try {
 			const p = await api.pairStart(role);
+			// Snapshot the devices already paired so the poll below can tell when
+			// THIS code produces a new one and dismiss itself.
+			pairedBaselineRef.current = new Set((devices ?? []).map((d) => d.id));
 			setQrDataUrl(""); // drop the previous code's QR until the new one renders
 			setExpired(false);
 			setPair(p);

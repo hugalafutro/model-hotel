@@ -444,6 +444,7 @@
 			"neverSeen": "Nikdy",
 			"revoke": "Odvolať",
 			"revoked": "Zariadenie odvolané",
+			"paired": "Zariadenie spárované",
 			"revokeTitle": "Odvolať zariadenie?",
 			"revokeBody": "„{{label}}“ okamžite stratí prístup. Na obnovenie ho spárujte znova."
 		}
