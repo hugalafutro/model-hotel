@@ -84,6 +84,10 @@ class DashboardViewModel(
     private suspend fun runRefreshes() {
         refreshOnce()
         for (ignored in refreshTrigger) {
+            // A revoked (or unreadable) token can never authenticate again;
+            // only unlinking fixes it, and relinking rebuilds this ViewModel.
+            // Swallow the nudges instead of hitting Front Desk forever.
+            if (_state.value.revoked) continue
             refreshOnce()
         }
     }

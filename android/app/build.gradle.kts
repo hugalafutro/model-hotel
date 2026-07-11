@@ -62,6 +62,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
+    // The back-arrow vector. material3 currently drags this in transitively,
+    // but the icons the app uses must not ride on someone else's dependency.
+    implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.okhttp)
     implementation(libs.okhttp.sse)

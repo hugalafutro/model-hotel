@@ -56,6 +56,10 @@ class MemberDetailViewModel(
                     if (active) {
                         while (true) {
                             refreshOnce()
+                            // A revoked (or unreadable) token can never
+                            // authenticate again; only unlinking fixes it, so
+                            // stop the radio instead of retrying forever.
+                            if (_state.value.revoked) break
                             delay(pollIntervalMs)
                         }
                     }

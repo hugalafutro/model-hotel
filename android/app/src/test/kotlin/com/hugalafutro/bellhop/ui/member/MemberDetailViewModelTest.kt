@@ -11,7 +11,9 @@ import com.hugalafutro.bellhop.data.TrafficPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -154,6 +156,29 @@ class MemberDetailViewModelTest {
             assertTrue(vm.state.value.revoked)
             assertNull(client.lastToken)
             assertEquals(0, client.trafficCalls.get())
+        }
+
+    @Test
+    fun revokedTokenStopsThePoll() =
+        runBlocking {
+            // Revocation is terminal (only unlink fixes it), so the loop must
+            // not keep hitting Front Desk with a token that can never work.
+            val client = FakeTrafficClient(FetchResult.Unauthorized)
+            val vm =
+                MemberDetailViewModel(
+                    client,
+                    linkedStore(),
+                    "http://fd:1",
+                    "m1",
+                    pollIntervalMs = 10,
+                )
+
+            val job = launch { vm.state.collect {} }
+            withTimeout(5_000) { vm.state.first { it.revoked } }
+            val calls = client.trafficCalls.get()
+            delay(200)
+            assertEquals(calls, client.trafficCalls.get())
+            job.cancel()
         }
 
     @Test
