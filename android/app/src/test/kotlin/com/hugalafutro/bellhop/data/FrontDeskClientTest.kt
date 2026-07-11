@@ -158,6 +158,63 @@ class FrontDeskClientTest {
         }
 
     @Test
+    fun memberTrafficParsesSeries() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"member_id":"m1","reachable":true,"window_minutes":60,"total_requests":42,""" +
+                        """"total_errors":3,"points":[{"bucket":"2026-07-11T10:00:00Z","requests":40,"errors":3},""" +
+                        """{"bucket":"2026-07-11T10:05:00Z","requests":2,"errors":0}]}""",
+                ),
+            )
+
+            val result = client.memberTraffic(server.url("/").toString(), "tok-1", "m1")
+
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            assertTrue(result.data.reachable)
+            assertEquals(42, result.data.totalRequests)
+            assertEquals(3, result.data.totalErrors)
+            assertEquals(2, result.data.points.size)
+            assertEquals(40, result.data.points[0].requests)
+
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertEquals("/api/members/m1/traffic", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+        }
+
+    @Test
+    fun memberTrafficUnreachableIsStillSuccess() =
+        runBlocking {
+            // No stored admin token on the FD side answers 200 with
+            // reachable=false; that's a renderable state, not a Failure.
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"member_id":"m1","reachable":false,"window_minutes":60,"total_requests":0,""" +
+                        """"total_errors":0,"points":[]}""",
+                ),
+            )
+            val result = client.memberTraffic(server.url("/").toString(), "tok-1", "m1")
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            assertFalse(result.data.reachable)
+            assertTrue(result.data.points.isEmpty())
+        }
+
+    @Test
+    fun memberTrafficMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.memberTraffic(server.url("/").toString(), "dead", "m1")
+            assertEquals(FetchResult.Unauthorized, result)
+        }
+
+    @Test
     fun autoSyncParsesPrimary() =
         runBlocking {
             server.enqueue(MockResponse().setBody("""{"enabled":true,"primary_id":"m2"}"""))

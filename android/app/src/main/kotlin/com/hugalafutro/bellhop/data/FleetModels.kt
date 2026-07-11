@@ -57,6 +57,31 @@ data class AutoSyncConfig(
 )
 
 /**
+ * MemberTraffic is GET /api/members/{id}/traffic (internal/frontdesk/
+ * membertraffic.go memberTrafficResponse): the member's last-hour request and
+ * error series in 5-minute buckets, proxied by Front Desk from the member's
+ * admin stats API. reachable=false is a normal state (FD has no admin token
+ * for the member, or the member didn't answer), not an error.
+ */
+@Serializable
+data class MemberTraffic(
+    @SerialName("member_id") val memberId: String = "",
+    val reachable: Boolean = false,
+    @SerialName("window_minutes") val windowMinutes: Int = 60,
+    @SerialName("total_requests") val totalRequests: Int = 0,
+    @SerialName("total_errors") val totalErrors: Int = 0,
+    val points: List<TrafficPoint> = emptyList(),
+)
+
+/** TrafficPoint is one time bucket: total requests and the error subset. */
+@Serializable
+data class TrafficPoint(
+    val bucket: String = "",
+    val requests: Int = 0,
+    val errors: Int = 0,
+)
+
+/**
  * FleetEvent is one control-plane event off the GET /api/sse stream, mirroring
  * the backend's events.Event envelope (internal/events/bus.go). The dashboard
  * only reads [type] (to decide whether the change warrants a member refetch);

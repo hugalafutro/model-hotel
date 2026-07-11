@@ -2,6 +2,7 @@ package com.hugalafutro.bellhop
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
@@ -10,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -19,6 +21,8 @@ import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.ui.dashboard.DashboardScreen
 import com.hugalafutro.bellhop.ui.dashboard.DashboardViewModel
+import com.hugalafutro.bellhop.ui.member.MemberDetailScreen
+import com.hugalafutro.bellhop.ui.member.MemberDetailViewModel
 import com.hugalafutro.bellhop.ui.pairing.PairingScreen
 import com.hugalafutro.bellhop.ui.pairing.PairingViewModel
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
@@ -169,15 +173,51 @@ fun BellhopApp() {
                     factory = DashboardViewModel.Factory(client, linkStore, state.fdUrl),
                 )
             val ui by dashVm.state.collectAsStateWithLifecycle()
-            DashboardScreen(
-                link = state,
-                ui = ui,
-                unlinking = unlinking,
-                unlinkFailed = unlinkFailed,
-                onUnlink = { runUnlink(state.fdUrl) },
-                onDismissUnlinkError = { unlinkFailed = false },
-                onForceUnlink = { forceUnlink() },
-            )
+
+            // Which member's detail is open, if any. Saveable so it survives
+            // rotation/process death; keyed on the pairing so a relink lands
+            // back on the new Front Desk's dashboard, not a stale detail.
+            var selectedMemberId by rememberSaveable(state.fdUrl, state.deviceId) {
+                mutableStateOf<String?>(null)
+            }
+            val selected = ui.members.find { it.id == selectedMemberId }
+            // The member left the fleet while its detail was open: drop the
+            // selection (once the list has actually loaded) so the detail
+            // doesn't silently reopen if the same id ever reappears.
+            LaunchedEffect(selectedMemberId, selected, ui.loading) {
+                if (selectedMemberId != null && selected == null && !ui.loading) {
+                    selectedMemberId = null
+                }
+            }
+
+            if (selected != null) {
+                BackHandler { selectedMemberId = null }
+                // Keyed like the dashboard VM, plus the member id, so flipping
+                // between members never shows another member's series.
+                val detailVm: MemberDetailViewModel =
+                    viewModel(
+                        key = "member-${state.fdUrl}|${state.deviceId}|${selected.id}",
+                        factory = MemberDetailViewModel.Factory(client, linkStore, state.fdUrl, selected.id),
+                    )
+                val detailUi by detailVm.state.collectAsStateWithLifecycle()
+                MemberDetailScreen(
+                    member = selected,
+                    isPrimary = selected.id == ui.primaryId,
+                    ui = detailUi,
+                    onBack = { selectedMemberId = null },
+                )
+            } else {
+                DashboardScreen(
+                    link = state,
+                    ui = ui,
+                    unlinking = unlinking,
+                    unlinkFailed = unlinkFailed,
+                    onUnlink = { runUnlink(state.fdUrl) },
+                    onDismissUnlinkError = { unlinkFailed = false },
+                    onForceUnlink = { forceUnlink() },
+                    onMemberClick = { selectedMemberId = it },
+                )
+            }
         }
     }
 }

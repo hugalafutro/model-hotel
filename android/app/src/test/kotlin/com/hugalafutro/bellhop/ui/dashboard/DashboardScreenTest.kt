@@ -127,6 +127,24 @@ class DashboardScreenTest {
     }
 
     @Test
+    fun clickingMemberCardFiresCallbackWithId() {
+        var clicked: String? = null
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    onUnlink = {},
+                    unlinking = false,
+                    ui = DashboardUiState(loading = false, members = members),
+                    onMemberClick = { clicked = it },
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("member-card-beta").performClick()
+        assertTrue(clicked == "m2")
+    }
+
+    @Test
     fun firstLoadShowsSpinnerThenEmptyStateWithoutMembers() {
         composeTestRule.setContent {
             BellhopTheme {
