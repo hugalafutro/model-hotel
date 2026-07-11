@@ -65,11 +65,24 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
 
       # Manual build for java-kotlin: compiling the Kotlin is what the CodeQL
-      # extractor consumes. assembleDebug is the same task the Android workflow builds.
+      # extractor consumes (via the LD_PRELOAD build tracer set up by init).
+      # The tracer only sees compilation that happens as a child of THIS step, so
+      # the build must run fully in-process with no daemons and no cached outputs:
+      #   --no-daemon                              Gradle work runs in the traced foreground JVM
+      #   --no-build-cache / --no-configuration-cache  override org.gradle.caching /
+      #                                            configuration-cache in gradle.properties so
+      #                                            compile tasks actually re-run and are traced
+      #   -Pkotlin.compiler.execution.strategy=in-process  run kotlinc inside the Gradle JVM
+      #                                            instead of the (untraced) Kotlin daemon
+      # `clean` guarantees a from-scratch compile. Without these, the extractor reports
+      # "no source code seen during build" and the analysis fails.
       - if: matrix.language == 'java-kotlin'
-        name: Build Bellhop (Gradle)
+        name: Build Bellhop (Gradle, traced)
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: >-
+          ./gradlew --no-daemon --no-build-cache --no-configuration-cache
+          -Pkotlin.compiler.execution.strategy=in-process
+          clean assembleDebug
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
