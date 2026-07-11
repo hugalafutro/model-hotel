@@ -1,6 +1,9 @@
 package com.hugalafutro.bellhop.data
 
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
@@ -186,5 +189,60 @@ class FrontDeskClientTest {
             assertEquals("DELETE", request.method)
             assertEquals("/api/devices/self", request.path)
             assertEquals("Bearer tok-123", request.getHeader("Authorization"))
+        }
+
+    @Test
+    fun streamEmitsOpenThenEventWithBearer() =
+        runBlocking {
+            server.enqueue(
+                MockResponse()
+                    .setHeader("Content-Type", "text/event-stream")
+                    .setBody(
+                        "data: {\"id\":\"e1\",\"type\":\"health.down\"," +
+                            "\"severity\":\"error\",\"message\":\"down\"}\n\n",
+                    ),
+            )
+
+            val messages =
+                withTimeout(5_000) {
+                    client.streamEvents(server.url("/").toString(), "tok-1").take(2).toList()
+                }
+
+            assertEquals(SseMessage.Open, messages[0])
+            val event = messages[1] as SseMessage.Event
+            assertEquals("health.down", event.event.type)
+            assertEquals("down", event.event.message)
+
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertEquals("/api/sse", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+        }
+
+    @Test
+    fun streamMapsUnauthorizedToItsOwnMessage() =
+        runBlocking {
+            // A dead token on the stream must be distinguishable so the caller can
+            // stop reconnecting instead of looping on a token that will never work.
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+
+            val messages =
+                withTimeout(5_000) {
+                    client.streamEvents(server.url("/").toString(), "dead").take(1).toList()
+                }
+            assertEquals(listOf(SseMessage.Unauthorized), messages)
+        }
+
+    @Test
+    fun streamMalformedUrlCompletesEmpty() =
+        runBlocking {
+            // A bad fd_url can't stream; it must complete quietly, not throw, so
+            // the caller's reconnect loop just backs off.
+            val messages = client.streamEvents("not a url", "tok").toList()
+            assertTrue(messages.isEmpty())
         }
 }

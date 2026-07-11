@@ -55,3 +55,21 @@ data class AutoSyncConfig(
     val enabled: Boolean = false,
     @SerialName("primary_id") val primaryId: String = "",
 )
+
+/**
+ * FleetEvent is one control-plane event off the GET /api/sse stream, mirroring
+ * the backend's events.Event envelope (internal/events/bus.go). The dashboard
+ * only reads [type] (to decide whether the change warrants a member refetch);
+ * the other fields are carried for the Events/Alerts screens in later slices.
+ * Metadata is deliberately not modeled: kotlinx.serialization has no natural
+ * map<String, Any> and nothing on screen needs it yet.
+ */
+@Serializable
+data class FleetEvent(
+    val id: String = "",
+    val type: String = "",
+    val severity: String = "",
+    val source: String = "",
+    val message: String = "",
+    val timestamp: String = "",
+)
