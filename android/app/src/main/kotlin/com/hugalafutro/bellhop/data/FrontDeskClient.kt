@@ -24,9 +24,27 @@ sealed interface PairResult {
 }
 
 /**
- * FrontDeskClient is Bellhop's one HTTP entry point to a Front Desk. This slice
- * only needs the public pairing exchange and self-unlink; the SSE/members
- * client arrives in a later slice on the same OkHttp stack.
+ * FetchResult is the outcome of an authenticated read. Unauthorized is its own
+ * arm because it means the device token itself no longer works (revoked on
+ * Front Desk, most likely), which the dashboard surfaces very differently from
+ * a transient network failure.
+ */
+sealed interface FetchResult<out T> {
+    data class Success<T>(
+        val data: T,
+    ) : FetchResult<T>
+
+    data object Unauthorized : FetchResult<Nothing>
+
+    data class Failure(
+        val message: String,
+    ) : FetchResult<Nothing>
+}
+
+/**
+ * FrontDeskClient is Bellhop's one HTTP entry point to a Front Desk: the public
+ * pairing exchange, self-unlink, and the authenticated read tier (members,
+ * auto-sync). The SSE client arrives in a later slice on the same OkHttp stack.
  */
 open class FrontDeskClient(
     private val http: OkHttpClient = OkHttpClient(),
@@ -93,6 +111,48 @@ open class FrontDeskClient(
             }.getOrElse { e ->
                 if (e is CancellationException) throw e
                 false
+            }
+        }
+
+    /** members fetches the fleet: every member plus its live poller status. */
+    open suspend fun members(
+        fdUrl: String,
+        token: String,
+    ): FetchResult<List<FleetMember>> = get(fdUrl, "/api/members", token)
+
+    /** autoSync fetches the auto-sync config; the dashboard badges its primary. */
+    open suspend fun autoSync(
+        fdUrl: String,
+        token: String,
+    ): FetchResult<AutoSyncConfig> = get(fdUrl, "/api/fleet/autosync", token)
+
+    // get is the shared authenticated GET: bearer token, decode the 2xx body as
+    // T, map 401 to Unauthorized (dead token), and keep every other throwable
+    // inside the modeled result set exactly like pair() does.
+    private suspend inline fun <reified T> get(
+        fdUrl: String,
+        path: String,
+        token: String,
+    ): FetchResult<T> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val request =
+                    Request
+                        .Builder()
+                        .url("${base(fdUrl)}$path")
+                        .header("Authorization", "Bearer $token")
+                        .build()
+                http.newCall(request).execute().use { resp ->
+                    val text = resp.body?.string().orEmpty()
+                    when {
+                        resp.isSuccessful -> FetchResult.Success(json.decodeFromString<T>(text))
+                        resp.code == 401 -> FetchResult.Unauthorized
+                        else -> FetchResult.Failure(errorMessage(text, resp.code))
+                    }
+                }
+            }.getOrElse { e ->
+                if (e is CancellationException) throw e
+                FetchResult.Failure(e.message ?: "could not reach the Front Desk")
             }
         }
 

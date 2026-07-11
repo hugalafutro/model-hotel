@@ -4,7 +4,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import com.hugalafutro.bellhop.data.FleetMember
+import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkState
+import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -77,6 +80,106 @@ class DashboardScreenTest {
         composeTestRule.onNodeWithTag("dashboard-unlink-retry").performClick()
         assertTrue(dismissed)
         assertTrue(retries == 1)
+    }
+
+    private val members =
+        listOf(
+            FleetMember(
+                id = "m1",
+                name = "alpha",
+                url = "http://a:8080",
+                status =
+                    MemberStatus(
+                        health = HealthStatus(known = true, healthy = true, latencyMs = 3),
+                        traefikStatus = "UP",
+                        version = "1.0.0",
+                    ),
+            ),
+            FleetMember(
+                id = "m2",
+                name = "beta",
+                url = "http://b:8080",
+                state = "drained",
+                status =
+                    MemberStatus(
+                        health = HealthStatus(known = true, healthy = false, error = "connection refused"),
+                    ),
+            ),
+        )
+
+    @Test
+    fun rendersMemberCardsWithPrimaryAndDrainedBadges() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    onUnlink = {},
+                    unlinking = false,
+                    ui = DashboardUiState(loading = false, members = members, primaryId = "m1"),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("dashboard-summary").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-card-alpha").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-card-beta").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-primary", useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-drained", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun firstLoadShowsSpinnerThenEmptyStateWithoutMembers() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(link = link, onUnlink = {}, unlinking = false)
+            }
+        }
+        composeTestRule.onNodeWithTag("dashboard-loading").assertIsDisplayed()
+    }
+
+    @Test
+    fun emptyFleetShowsEmptyState() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    onUnlink = {},
+                    unlinking = false,
+                    ui = DashboardUiState(loading = false),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("dashboard-empty").assertIsDisplayed()
+    }
+
+    @Test
+    fun refreshErrorShowsBannerAndKeepsStaleList() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    onUnlink = {},
+                    unlinking = false,
+                    ui = DashboardUiState(loading = false, members = members, error = "boom"),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("dashboard-error").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-card-alpha").assertIsDisplayed()
+    }
+
+    @Test
+    fun revokedTokenShowsRevokedBanner() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    onUnlink = {},
+                    unlinking = false,
+                    ui = DashboardUiState(loading = false, members = members, revoked = true),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("dashboard-revoked").assertIsDisplayed()
     }
 
     @Test
