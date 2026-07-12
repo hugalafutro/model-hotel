@@ -41,7 +41,7 @@ enum class EventRange(val ms: Long) {
  * the last good page on screen (stale beats blank on a phone) and raises
  * [error]; [revoked] means the device token itself no longer authenticates,
  * same remedy as the dashboard's flag: unlink and re-pair. [total] counts all
- * rows matching the filters, so `events.size < total` means more to load.
+ * rows matching the filters.
  */
 data class EventsUiState(
     val loading: Boolean = true,
@@ -53,7 +53,15 @@ data class EventsUiState(
     val loadingMore: Boolean = false,
     val error: String? = null,
     val revoked: Boolean = false,
-)
+) {
+    // More rows match server-side AND the loaded window hasn't hit the cap.
+    // The window reloads from offset 0, so it can't page past MAX_WINDOW
+    // without re-fetching the same rows; stop offering load-more there rather
+    // than spin on the same first page. (500 is more log than anyone scrolls
+    // through on a phone.)
+    val canLoadMore: Boolean
+        get() = events.size < total && events.size < EventsViewModel.MAX_WINDOW
+}
 
 /**
  * EventsViewModel keeps the Front Desk event log fresh while its screen is on
@@ -143,7 +151,7 @@ class EventsViewModel(
     /** loadMore appends the next page; a no-op while one is in flight or at the end. */
     fun loadMore() {
         val s = _state.value
-        if (s.loadingMore || s.loading || s.revoked || s.events.size >= s.total) return
+        if (s.loadingMore || s.loading || s.revoked || !s.canLoadMore) return
         _state.update { it.copy(loadingMore = true) }
         viewModelScope.launch { loadMoreOnce() }
     }

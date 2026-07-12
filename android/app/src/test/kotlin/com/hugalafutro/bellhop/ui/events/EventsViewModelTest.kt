@@ -219,6 +219,26 @@ class EventsViewModelTest {
         }
 
     @Test
+    fun loadMoreStopsAtWindowCap() =
+        runBlocking {
+            // The window reloads from offset 0, so it can't page past the cap
+            // without re-fetching the same rows. Load-more must go quiet at the
+            // cap even though the server still reports more matches.
+            val ids = (1..EventsViewModel.MAX_WINDOW).map { "e$it" }.toTypedArray()
+            val client = FakeEventsClient(page(*ids, total = EventsViewModel.MAX_WINDOW + 100))
+            val vm = newVm(client, linkedStore())
+            vm.refreshOnce()
+            assertEquals(EventsViewModel.MAX_WINDOW, vm.state.value.events.size)
+            assertFalse(vm.state.value.canLoadMore)
+
+            val calls = client.calls.get()
+            vm.loadMore()
+            delay(100)
+            assertEquals(calls, client.calls.get())
+            assertFalse(vm.state.value.loadingMore)
+        }
+
+    @Test
     fun loadMoreIsNoopWhenAllRowsLoaded() =
         runBlocking {
             val client = FakeEventsClient(page("e1", "e2"))

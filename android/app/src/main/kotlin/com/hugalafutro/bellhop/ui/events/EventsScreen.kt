@@ -142,7 +142,7 @@ fun EventsScreen(
                         items(ui.events) { event ->
                             EventCard(event = event, memberName = memberNames[event.memberId])
                         }
-                        if (ui.events.size < ui.total) {
+                        if (ui.canLoadMore) {
                             item {
                                 Box(
                                     modifier = Modifier.fillMaxWidth(),
