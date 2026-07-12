@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -64,26 +65,22 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
  * DashboardScreen is the linked-state home: the fleet's members with their live
- * health, plus Unlink. Member data arrives via [DashboardViewModel]'s poll; a
- * refresh failure keeps the stale list visible under an error banner.
+ * health. Member data arrives via [DashboardViewModel]'s poll; a refresh failure
+ * keeps the stale list visible under an error banner. Settings (link status, app
+ * lock, Unlink) lives behind the gear; the bell into Alerts appears only when a
+ * member is down.
  */
 @Composable
 fun DashboardScreen(
     link: LinkState.Linked,
-    onUnlink: () -> Unit,
-    unlinking: Boolean,
     modifier: Modifier = Modifier,
     ui: DashboardUiState = DashboardUiState(),
-    unlinkFailed: Boolean = false,
-    onDismissUnlinkError: () -> Unit = {},
-    onForceUnlink: () -> Unit = {},
     onMemberClick: (String) -> Unit = {},
     onEventsClick: () -> Unit = {},
     onAlertsClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
     onVisibleMembers: (List<String>) -> Unit = {},
 ) {
-    var confirmUnlink by remember { mutableStateOf(false) }
-
     // Which member's URL the "open externally" popup is showing, if any. Tapping
     // a card's address opens this confirm dialog rather than firing an intent on
     // the same tap that could also be a mis-tap on the card itself.
@@ -127,75 +124,6 @@ fun DashboardScreen(
         )
     }
 
-    // The remote revoke couldn't reach Front Desk (or the token can't be read to
-    // revoke at all). The device is still linked and nothing was cleared, so
-    // offer a retry AND an "unlink anyway" escape: with a dead/unreachable token a
-    // retry can loop forever, so the operator needs a way to clear locally (and is
-    // told to revoke on Front Desk) rather than being stranded on this screen.
-    if (unlinkFailed) {
-        AlertDialog(
-            onDismissRequest = onDismissUnlinkError,
-            title = { Text(stringResource(R.string.dashboard_unlink_failed_title)) },
-            text = { Text(stringResource(R.string.dashboard_unlink_failed_body)) },
-            confirmButton = {
-                TextButton(
-                    enabled = !unlinking,
-                    onClick = {
-                        onDismissUnlinkError()
-                        onUnlink()
-                    },
-                    modifier = Modifier.testTag("dashboard-unlink-retry"),
-                ) {
-                    Text(stringResource(R.string.dashboard_unlink_retry))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    enabled = !unlinking,
-                    onClick = {
-                        onDismissUnlinkError()
-                        onForceUnlink()
-                    },
-                    modifier = Modifier.testTag("dashboard-unlink-force"),
-                ) {
-                    Text(stringResource(R.string.dashboard_unlink_force))
-                }
-            },
-        )
-    }
-
-    if (confirmUnlink) {
-        AlertDialog(
-            onDismissRequest = { confirmUnlink = false },
-            title = { Text(stringResource(R.string.dashboard_unlink_confirm_title)) },
-            text = {
-                Text(
-                    stringResource(
-                        R.string.dashboard_unlink_confirm_body,
-                        link.fdName.ifBlank { link.fdUrl },
-                    ),
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = !unlinking,
-                    onClick = {
-                        confirmUnlink = false
-                        onUnlink()
-                    },
-                    modifier = Modifier.testTag("dashboard-unlink-confirm"),
-                ) {
-                    Text(stringResource(R.string.dashboard_unlink))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmUnlink = false }) {
-                    Text(stringResource(R.string.common_cancel))
-                }
-            },
-        )
-    }
-
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         Column(
             modifier =
@@ -205,23 +133,19 @@ fun DashboardScreen(
                     .padding(horizontal = 16.dp),
         ) {
             Spacer(modifier = Modifier.height(8.dp))
+            // A member being down is the "something needs attention" signal, so the
+            // bell into Alerts appears only then; the event log and the gear
+            // (Settings, which also reaches Alerts when all is green) are always on.
+            val hasAlert = ui.members.any { it.status.health.known && !it.status.health.healthy }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = link.fdName.ifBlank { link.fdUrl },
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.testTag("dashboard-title"),
-                    )
-                    Text(
-                        text = stringResource(R.string.dashboard_linked_as, link.label, link.role),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.testTag("dashboard-linked"),
-                    )
-                }
+                Text(
+                    text = link.fdName.ifBlank { link.fdUrl },
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).testTag("dashboard-title"),
+                )
                 IconButton(
                     onClick = onEventsClick,
                     modifier = Modifier.testTag("dashboard-events"),
@@ -231,21 +155,26 @@ fun DashboardScreen(
                         contentDescription = stringResource(R.string.events_open),
                     )
                 }
+                if (hasAlert) {
+                    IconButton(
+                        onClick = onAlertsClick,
+                        modifier = Modifier.testTag("dashboard-alerts"),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Notifications,
+                            contentDescription = stringResource(R.string.alerts_open),
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
                 IconButton(
-                    onClick = onAlertsClick,
-                    modifier = Modifier.testTag("dashboard-alerts"),
+                    onClick = onSettingsClick,
+                    modifier = Modifier.testTag("dashboard-settings"),
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Notifications,
-                        contentDescription = stringResource(R.string.alerts_open),
+                        imageVector = Icons.Filled.Settings,
+                        contentDescription = stringResource(R.string.settings_open),
                     )
-                }
-                TextButton(
-                    onClick = { confirmUnlink = true },
-                    enabled = !unlinking,
-                    modifier = Modifier.testTag("dashboard-unlink"),
-                ) {
-                    Text(stringResource(R.string.dashboard_unlink))
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -477,8 +406,6 @@ private fun DashboardScreenPreview() {
                     deviceId = "dev-1",
                     label = "Pixel 8",
                 ),
-            onUnlink = {},
-            unlinking = false,
             ui =
                 DashboardUiState(
                     loading = false,

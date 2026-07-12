@@ -65,6 +65,9 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    // ProcessLifecycleOwner drives the app-lock idle timer off the whole
+    // process's foreground, not any single Activity's (plan section 3.1).
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
     // The back-arrow vector. material3 currently drags this in transitively,
@@ -75,6 +78,11 @@ dependencies {
     implementation(libs.okhttp.sse)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
+    // BiometricPrompt gates local access to the stored token; its device-credential
+    // fallback (pattern/PIN) needs no fingerprint sensor. It requires a
+    // FragmentActivity host, hence the explicit fragment dependency (plan 3.1/5.4).
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.fragment)
     // QR scan for pairing: ZXing (Apache-2.0, no Google Play Services / Firebase),
     // in keeping with the plan's FOSS stance. Its CaptureActivity requests the
     // CAMERA permission at runtime, so nothing is asked until Scan is tapped.

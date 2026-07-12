@@ -9,6 +9,11 @@
          never a hard requirement). Declared not-required so devices without a
          camera can still install and pair by pasting. -->
     <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- USE_BIOMETRIC backs the optional app lock (plan section 3.1). The lock
+         is a local access gate the user turns on in Settings; when no biometric
+         or device credential is enrolled the gate simply can't engage. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
