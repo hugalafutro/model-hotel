@@ -381,6 +381,44 @@ func TestTotpEnrollStart_DemoReadOnly(t *testing.T) {
 	}
 }
 
+// TestTotpEnrollStart_RejectsUserSession is a regression test for the
+// RequireAdminOrSession privilege-escalation bug (CWE-863). A multi-user /
+// SSO user login mints a valid session on the same SessionManager but carries
+// a user UUID, not the []byte("admin") sentinel. That session must NOT unlock
+// the admin-only TOTP enroll routes, or a regular user could enroll admin TOTP
+// and mint a full admin session. An admin-sentinel session must still pass.
+func TestTotpEnrollStart_RejectsUserSession(t *testing.T) {
+	shim, th := newTotpTestHandler(t)
+	ctx := context.Background()
+
+	// Minted exactly like userlogin.Login: UserID is a user UUID string.
+	userToken, err := shim.sessionMgr.CreateAuthToken(ctx, []byte("11111111-1111-1111-1111-111111111111"), nil)
+	if err != nil {
+		t.Fatalf("CreateAuthToken(user): %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+userToken)
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("user session reached admin TOTP enroll: got %d, want 401: %s", w.Code, w.Body.String())
+	}
+
+	// The admin sentinel every admin login front-end mints must still pass, so
+	// the fix does not lock legitimate passkey/TOTP/SSO-admin sessions out.
+	adminToken, err := shim.sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil)
+	if err != nil {
+		t.Fatalf("CreateAuthToken(admin): %v", err)
+	}
+	req = httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	w = httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("admin session rejected from TOTP enroll: got %d, want 200: %s", w.Code, w.Body.String())
+	}
+}
+
 // --- EnrollVerify tests ---
 
 func TestTotpEnrollVerify_HappyPath(t *testing.T) {
