@@ -101,6 +101,11 @@ private fun FragmentActivity.promptAppUnlock(
             ContextCompat.getMainExecutor(this),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    // No CryptoObject is bound to the result on purpose: this is a
+                    // UI-only gate. The token at rest is Keystore-wrapped regardless
+                    // and the gate degrades open when no credential is enrolled, so
+                    // tying decryption to the biometric result would misstate the
+                    // security model. (CodeQL java/android/insecure-local-authentication.)
                     onSuccess()
                 }
             },
