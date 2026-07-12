@@ -82,11 +82,14 @@ class DashboardViewModel(
     // runRefreshes is the sole refresher: one refresh on subscribe, then one per
     // nudge. Serial by construction, so the poll and the stream never overlap.
     private suspend fun runRefreshes() {
-        refreshOnce()
+        // A revoked (or unreadable) token can never authenticate again; only
+        // unlinking fixes it, and relinking rebuilds this ViewModel. Swallow
+        // the initial refresh and the nudges instead of hitting Front Desk
+        // forever; gating the initial one also keeps a collector restart
+        // (backgrounding and reopening the app) from firing one more doomed
+        // request per restart.
+        if (!_state.value.revoked) refreshOnce()
         for (ignored in refreshTrigger) {
-            // A revoked (or unreadable) token can never authenticate again;
-            // only unlinking fixes it, and relinking rebuilds this ViewModel.
-            // Swallow the nudges instead of hitting Front Desk forever.
             if (_state.value.revoked) continue
             refreshOnce()
         }

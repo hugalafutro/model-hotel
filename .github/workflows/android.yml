@@ -25,6 +25,9 @@ jobs:
   android:
     name: Bellhop (lint + test + build)
     runs-on: ubuntu-latest
+    # The whole job normally finishes in ~5 min; a deadlocked test JVM once
+    # sat silent for hours, so cap it well above normal and far below never.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: android

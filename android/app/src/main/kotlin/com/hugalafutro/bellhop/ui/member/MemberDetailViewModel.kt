@@ -54,11 +54,14 @@ class MemberDetailViewModel(
                 .distinctUntilChanged()
                 .collectLatest { active ->
                     if (active) {
-                        while (true) {
+                        // A revoked (or unreadable) token can never
+                        // authenticate again; only unlinking fixes it, so stop
+                        // the radio instead of retrying forever. The entry
+                        // check keeps a collector restart (backgrounding and
+                        // reopening the screen) from firing one more doomed
+                        // request per restart.
+                        while (!_state.value.revoked) {
                             refreshOnce()
-                            // A revoked (or unreadable) token can never
-                            // authenticate again; only unlinking fixes it, so
-                            // stop the radio instead of retrying forever.
                             if (_state.value.revoked) break
                             delay(pollIntervalMs)
                         }

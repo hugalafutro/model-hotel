@@ -9,7 +9,6 @@ import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.PairedDevice
 import com.hugalafutro.bellhop.data.TrafficPoint
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -164,27 +163,34 @@ class MemberDetailViewModelTest {
         runBlocking {
             // Revocation is terminal (only unlink fixes it), so the loop must
             // not keep hitting Front Desk with a token that can never work.
-            val client = FakeTrafficClient(FetchResult.Unauthorized)
-            val vm =
-                MemberDetailViewModel(
-                    client,
-                    linkedStore(),
-                    "http://fd:1",
-                    "m1",
-                    pollIntervalMs = 10,
-                )
+            // The outer timeout turns any future deadlock in this loop
+            // machinery into a fast failure instead of a hung CI job.
+            withTimeout(30_000) {
+                val client = FakeTrafficClient(FetchResult.Unauthorized)
+                val vm =
+                    MemberDetailViewModel(
+                        client,
+                        linkedStore(),
+                        "http://fd:1",
+                        "m1",
+                        pollIntervalMs = 10,
+                    )
 
-            // UNDISPATCHED so this keep-alive collector subscribes before the
-            // transient first{} collector below; a subscription count bouncing
-            // through zero would restart the poll loop, whose initial refresh
-            // runs before the revoked gate and would bump the counter after
-            // `calls` was sampled.
-            val job = launch(start = CoroutineStart.UNDISPATCHED) { vm.state.collect {} }
-            withTimeout(5_000) { vm.state.first { it.revoked } }
-            val calls = client.trafficCalls.get()
-            delay(200)
-            assertEquals(calls, client.trafficCalls.get())
-            job.cancel()
+                val job = launch { vm.state.collect {} }
+                withTimeout(5_000) { vm.state.first { it.revoked } }
+                val calls = client.trafficCalls.get()
+                delay(200)
+                assertEquals(calls, client.trafficCalls.get())
+                job.cancel()
+
+                // A collector restart with the flag already set (backgrounding
+                // and reopening the screen) must not fire one more doomed
+                // request: the loop's entry check has to catch it.
+                val restarted = launch { vm.state.collect {} }
+                delay(200)
+                assertEquals(calls, client.trafficCalls.get())
+                restarted.cancel()
+            }
         }
 
     @Test

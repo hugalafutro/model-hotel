@@ -13,7 +13,6 @@ import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.PairedDevice
 import com.hugalafutro.bellhop.data.SseMessage
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
@@ -272,25 +271,32 @@ class DashboardViewModelTest {
         runBlocking {
             // Revocation is terminal (only unlink fixes it, and relinking
             // rebuilds the ViewModel), so stream/poll nudges after it must not
-            // keep hitting Front Desk with a token that can never work.
-            val events = MutableSharedFlow<SseMessage>(extraBufferCapacity = 8)
-            val client = FakeFleetClient(FetchResult.Unauthorized, sseFlow = events)
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            // keep hitting Front Desk with a token that can never work. The
+            // outer timeout turns any future deadlock in this loop machinery
+            // into a fast failure instead of a hung CI job.
+            withTimeout(30_000) {
+                val events = MutableSharedFlow<SseMessage>(extraBufferCapacity = 8)
+                val client = FakeFleetClient(FetchResult.Unauthorized, sseFlow = events)
+                val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
 
-            // UNDISPATCHED so this keep-alive collector subscribes before the
-            // transient first{} collectors below; otherwise the subscription
-            // count can bounce through zero between them, restarting the
-            // collector-gated loops, whose initial refresh is deliberately
-            // ungated and would bump the counter after `calls` was sampled.
-            val job = launch(start = CoroutineStart.UNDISPATCHED) { vm.state.collect {} }
-            withTimeout(5_000) { vm.state.first { it.revoked } }
-            val calls = client.memberCalls.get()
+                val job = launch { vm.state.collect {} }
+                withTimeout(5_000) { vm.state.first { it.revoked } }
+                val calls = client.memberCalls.get()
 
-            withTimeout(5_000) { events.subscriptionCount.first { it > 0 } }
-            events.emit(SseMessage.Event(FleetEvent(type = "health.down")))
-            delay(200)
-            assertEquals(calls, client.memberCalls.get())
-            job.cancel()
+                withTimeout(5_000) { events.subscriptionCount.first { it > 0 } }
+                events.emit(SseMessage.Event(FleetEvent(type = "health.down")))
+                delay(200)
+                assertEquals(calls, client.memberCalls.get())
+                job.cancel()
+
+                // A collector restart with the flag already set (backgrounding
+                // and reopening the app) must not fire one more doomed
+                // request: runRefreshes' initial refresh has to be gated too.
+                val restarted = launch { vm.state.collect {} }
+                delay(200)
+                assertEquals(calls, client.memberCalls.get())
+                restarted.cancel()
+            }
         }
 
     @Test
