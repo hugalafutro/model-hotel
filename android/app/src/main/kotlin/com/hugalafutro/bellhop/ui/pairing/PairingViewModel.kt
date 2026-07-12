@@ -17,8 +17,9 @@ import kotlinx.serialization.json.Json
 
 /**
  * PairingError is what the pairing screen renders: an unreadable string, a
- * bad/expired code, a scan that could not open the camera (all fixed localized
- * strings), or a transport failure that carries the upstream message.
+ * bad/expired code, a scan that could not open the camera (denied permission or
+ * no camera; all fixed localized strings), or a transport failure that carries
+ * the upstream message.
  */
 sealed interface PairingError {
     data object BadString : PairingError
@@ -101,10 +102,10 @@ class PairingViewModel(
     fun onLabelChange(value: String) = _state.update { it.copy(label = value) }
 
     /**
-     * onScanUnavailable is invoked when ZXing finishes the scan without a decoded
-     * value because the CAMERA permission was denied. It leaves any already-parsed
-     * fields intact and just posts a hint so the failure does not look like a
-     * deliberate cancel and the paste fallback is offered.
+     * onScanUnavailable is invoked when a scan can't open the camera — the CAMERA
+     * permission was denied or the device has no usable camera. It leaves any
+     * already-parsed fields intact and just posts a hint so the failure does not
+     * look like a deliberate cancel and the paste fallback is offered.
      */
     fun onScanUnavailable() = _state.update { it.copy(error = PairingError.ScanUnavailable) }
 

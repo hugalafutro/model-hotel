@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.ui.pairing
 
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,8 +17,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -61,6 +64,14 @@ fun PairingScreen(
                 ) == true -> onScanUnavailable()
             }
         }
+    // A device with no camera hardware can't be handled from the result: ZXing
+    // just shows a framework dialog and finishes with an empty, cancel-shaped
+    // result, so guard the launch itself and route straight to the paste hint.
+    val context = LocalContext.current
+    val hasCamera =
+        remember(context) {
+            context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+        }
     val scanPrompt = stringResource(R.string.pairing_scan_prompt)
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         Column(
@@ -87,6 +98,10 @@ fun PairingScreen(
 
             OutlinedButton(
                 onClick = {
+                    if (!hasCamera) {
+                        onScanUnavailable()
+                        return@OutlinedButton
+                    }
                     scanLauncher.launch(
                         ScanOptions().apply {
                             setDesiredBarcodeFormats(ScanOptions.QR_CODE)

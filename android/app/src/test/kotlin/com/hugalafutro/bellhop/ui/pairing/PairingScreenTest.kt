@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.ui.pairing
 
+import android.content.pm.PackageManager
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -13,6 +14,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 
 @RunWith(RobolectricTestRunner::class)
 class PairingScreenTest {
@@ -22,6 +25,7 @@ class PairingScreenTest {
     private fun render(
         state: PairingUiState,
         onSubmit: () -> Unit = {},
+        onScanUnavailable: () -> Unit = {},
     ) {
         composeTestRule.setContent {
             BellhopTheme {
@@ -30,7 +34,7 @@ class PairingScreenTest {
                     onPastePayload = {},
                     onLabelChange = {},
                     onSubmit = onSubmit,
-                    onScanUnavailable = {},
+                    onScanUnavailable = onScanUnavailable,
                 )
             }
         }
@@ -118,5 +122,18 @@ class PairingScreenTest {
         // silent no-op, so the operator is pointed at the paste fallback.
         render(PairingUiState(error = PairingError.ScanUnavailable))
         composeTestRule.onNodeWithTag("pairing-error").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun scanShortCircuitsWhenNoCamera() {
+        // A device with no camera can't be handled from the scan result (ZXing
+        // finishes cancel-shaped), so tapping Scan must route straight to the
+        // paste hint instead of launching a scanner that can't open.
+        shadowOf(RuntimeEnvironment.getApplication().packageManager)
+            .setSystemFeature(PackageManager.FEATURE_CAMERA_ANY, false)
+        var scanUnavailable = false
+        render(PairingUiState(), onScanUnavailable = { scanUnavailable = true })
+        composeTestRule.onNodeWithTag("pairing-scan").performClick()
+        assertTrue(scanUnavailable)
     }
 }

@@ -15,7 +15,7 @@
     <string name="pairing_submit">Pair</string>
     <string name="pairing_error_bad_string">That doesn\'t look like a pairing string. Copy it again from Front Desk → Settings → Paired devices.</string>
     <string name="pairing_error_invalid_code">Invalid or expired pairing code. Generate a new one in Front Desk and paste the fresh string.</string>
-    <string name="pairing_error_scan_unavailable">Camera access was denied, so the scanner could not open. Grant the camera permission, or paste the pairing string below instead.</string>
+    <string name="pairing_error_scan_unavailable">The camera could not be opened, so scanning is unavailable. Grant camera access, or paste the pairing string below instead.</string>
 
     <!-- Dashboard (linked state) -->
     <string name="dashboard_linked_as">Linked as %1$s (%2$s)</string>
