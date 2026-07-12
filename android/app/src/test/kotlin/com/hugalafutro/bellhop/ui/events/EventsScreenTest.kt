@@ -72,6 +72,45 @@ class EventsScreenTest {
     }
 
     @Test
+    fun clipboardTextJoinsHeaderMessageAndWho() {
+        val text =
+            eventClipboardText(
+                ev("e1", severity = "error", memberId = "m1").copy(message = "boom"),
+                memberName = "alpha",
+            )
+        val lines = text.split("\n")
+        assertEquals(3, lines.size)
+        assertTrue(lines[0].contains("[error]"))
+        assertTrue(lines[0].contains("health.down"))
+        assertEquals("boom", lines[1])
+        assertTrue(lines[2].contains("alpha"))
+    }
+
+    @Test
+    fun clipboardTextDropsBlankMemberLineTail() {
+        // A system event with no source and no member must not trail a dangling
+        // separator: only the header and message remain.
+        val bare =
+            ev("e2").copy(source = "", memberId = "", message = "just a message")
+        val lines = eventClipboardText(bare, memberName = null).split("\n")
+        assertEquals(2, lines.size)
+        assertEquals("just a message", lines[1])
+    }
+
+    @Test
+    fun copyPillTapDoesNotCrash() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                EventsScreen(onBack = {}, ui = loaded)
+            }
+        }
+        // The severity pill is the copy affordance; tapping it must stay on the
+        // event log (clipboard + toast are side effects we don't assert here).
+        composeTestRule.onNodeWithTag("event-sev-error", useUnmergedTree = true).performClick()
+        composeTestRule.onNodeWithTag("events-list").assertIsDisplayed()
+    }
+
+    @Test
     fun severityChipFiresCallback() {
         var picked = ""
         composeTestRule.setContent {

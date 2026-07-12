@@ -51,3 +51,17 @@ val Ember300 = Color(0xFFE89A8A)
 val Ember600 = Color(0xFFB3402B)
 val EmberContainerDark = Color(0xFF44201A)
 val EmberContainerLight = Color(0xFFF6DDD6)
+
+// Semantic severity badges (event / alert levels). Deliberately conventional
+// red/orange/blue/green rather than brass-tinted: a status level must read
+// unambiguously at a glance, so these override the brand's warm palette for
+// badges only. Saturated mid-tones with the paired text colour stay legible on
+// both the ink (dark) and paper (light) surfaces, so one value serves both.
+val SeverityErrorBg = Color(0xFFC62828) // red
+val SeverityErrorFg = Color(0xFFFFFFFF)
+val SeverityWarnBg = Color(0xFFE8820C) // orange
+val SeverityWarnFg = Color(0xFF241100) // near-black: higher contrast on orange than white
+val SeverityInfoBg = Color(0xFF1E6FD9) // blue
+val SeverityInfoFg = Color(0xFFFFFFFF)
+val SeveritySuccessBg = Color(0xFF2E7D32) // green
+val SeveritySuccessFg = Color(0xFFFFFFFF)
