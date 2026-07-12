@@ -78,6 +78,10 @@ dependencies {
     implementation(libs.okhttp.sse)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
+    // WorkManager runs the Layer-2 background poll (plan section 5.2): a periodic
+    // worker that diffs fleet health while Bellhop is backgrounded and posts a
+    // local notification on a member going down or recovering. No push infra.
+    implementation(libs.androidx.work.runtime)
     // BiometricPrompt gates local access to the stored token; its device-credential
     // fallback (pattern/PIN) needs no fingerprint sensor. It requires a
     // FragmentActivity host, hence the explicit fragment dependency (plan 3.1/5.4).

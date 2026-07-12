@@ -1,11 +1,15 @@
 package com.hugalafutro.bellhop
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.runtime.Composable
@@ -32,7 +36,9 @@ import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.LockConfig
 import com.hugalafutro.bellhop.data.LockStore
 import com.hugalafutro.bellhop.data.LockTimeout
+import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.shouldLock
+import com.hugalafutro.bellhop.notify.FleetNotifier
 import com.hugalafutro.bellhop.ui.alerts.AlertsScreen
 import com.hugalafutro.bellhop.ui.alerts.AlertsViewModel
 import com.hugalafutro.bellhop.ui.dashboard.DashboardScreen
@@ -46,6 +52,7 @@ import com.hugalafutro.bellhop.ui.pairing.PairingScreen
 import com.hugalafutro.bellhop.ui.pairing.PairingViewModel
 import com.hugalafutro.bellhop.ui.settings.SettingsScreen
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import com.hugalafutro.bellhop.work.FleetPollWorker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -55,6 +62,9 @@ import kotlinx.coroutines.launch
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Register the background-backstop notification channels up front so a
+        // poll that fires while the app is dead has channels to post into.
+        FleetNotifier.ensureChannels(this)
         enableEdgeToEdge()
         setContent {
             BellhopTheme {
@@ -77,6 +87,14 @@ private fun appLockAuthenticators(): Int =
 /** canAppLock reports whether a biometric or device credential can gate the app. */
 private fun canAppLock(context: Context): Boolean =
     BiometricManager.from(context).canAuthenticate(appLockAuthenticators()) == BiometricManager.BIOMETRIC_SUCCESS
+
+// hasPostNotificationPermission reports whether Bellhop may post notifications.
+// POST_NOTIFICATIONS is a runtime permission from API 33; below that it is granted
+// at install, so the backstop can always post.
+private fun hasPostNotificationPermission(context: Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
 
 /**
  * promptAppUnlock shows the BiometricPrompt for the ambient app lock. It only
@@ -132,6 +150,7 @@ fun BellhopApp() {
     val activity = context as? FragmentActivity
     val linkStore = remember { LinkStore.create(context) }
     val lockStore = remember { LockStore.create(context) }
+    val monitorStore = remember { MonitorStore.create(context) }
     val client = remember { FrontDeskClient() }
     val linkState by linkStore.state.collectAsStateWithLifecycle(initialValue = LinkState.Loading)
     val lockConfig by
@@ -139,7 +158,30 @@ fun BellhopApp() {
             initialValue = LockConfig(enabled = false, timeoutMs = LockTimeout.DEFAULT.millis),
         )
     val lockAvailable = remember(activity) { activity != null && canAppLock(activity) }
+    val monitorEnabled by monitorStore.enabled.collectAsStateWithLifecycle(initialValue = false)
     val scope = rememberCoroutineScope()
+    // Whether Bellhop may post notifications. Tracked so Settings can be honest
+    // when monitoring is on but the permission was denied (or later revoked from
+    // system settings); refreshed on the permission result and on every return to
+    // the foreground below.
+    var notificationsGranted by remember { mutableStateOf(hasPostNotificationPermission(context)) }
+    // Launcher for the POST_NOTIFICATIONS runtime permission (API 33+), fired when
+    // the user turns background monitoring on. A denial is fine: the backstop still
+    // polls, and Settings flags that the alerts won't reach them until it's granted.
+    val notificationPermission =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            notificationsGranted = granted
+        }
+
+    // toggleMonitor persists the opt-in and, on enable, asks for the notification
+    // permission. Scheduling the actual poll is left to LinkedContent's effect so
+    // the DataStore flag stays the single source of truth for whether it runs.
+    fun toggleMonitor(enabled: Boolean) {
+        scope.launch { monitorStore.setEnabled(enabled) }
+        if (enabled && !hasPostNotificationPermission(context)) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     var unlinking by remember { mutableStateOf(false) }
     var unlinkFailed by remember { mutableStateOf(false) }
     // Fence: the remote revoke for this link already succeeded and only the local
@@ -183,13 +225,16 @@ fun BellhopApp() {
             LifecycleEventObserver { _, event ->
                 when (event) {
                     Lifecycle.Event.ON_STOP -> scope.launch { lockStore.stampExit(System.currentTimeMillis()) }
-                    Lifecycle.Event.ON_START ->
+                    Lifecycle.Event.ON_START -> {
+                        // Catch a grant/revoke made in system settings while away.
+                        notificationsGranted = hasPostNotificationPermission(context)
                         scope.launch {
                             val snap = lockStore.snapshot()
                             if (shouldLock(snap.config, snap.lastForegroundExit, System.currentTimeMillis())) {
                                 locked = true
                             }
                         }
+                    }
                     else -> Unit
                 }
             }
@@ -238,6 +283,11 @@ fun BellhopApp() {
                     revokedRemotely = true
                     linkStore.clear()
                     lockStore.clear()
+                    // Stop the backstop and wipe the last-seen fleet so a re-pair
+                    // (possibly to a different Front Desk) starts from a clean
+                    // baseline rather than diffing against the old fleet.
+                    monitorStore.clear()
+                    FleetPollWorker.cancel(context)
                 } else {
                     unlinkFailed = true
                 }
@@ -267,6 +317,8 @@ fun BellhopApp() {
             try {
                 linkStore.clear()
                 lockStore.clear()
+                monitorStore.clear()
+                FleetPollWorker.cancel(context)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -316,10 +368,13 @@ fun BellhopApp() {
                         lockStore = lockStore,
                         lockConfig = lockConfig,
                         lockAvailable = lockAvailable,
+                        monitorEnabled = monitorEnabled,
+                        notificationsBlocked = monitorEnabled && !notificationsGranted,
                         scope = scope,
                         unlinking = unlinking,
                         unlinkFailed = unlinkFailed,
                         onDismissUnlinkError = { unlinkFailed = false },
+                        onToggleMonitor = { toggleMonitor(it) },
                         onUnlink = { runUnlink(state.fdUrl) },
                         onForceUnlink = { forceUnlink() },
                     )
@@ -341,13 +396,27 @@ private fun LinkedContent(
     lockStore: LockStore,
     lockConfig: LockConfig,
     lockAvailable: Boolean,
+    monitorEnabled: Boolean,
+    notificationsBlocked: Boolean,
     scope: CoroutineScope,
     unlinking: Boolean,
     unlinkFailed: Boolean,
     onDismissUnlinkError: () -> Unit,
+    onToggleMonitor: (Boolean) -> Unit,
     onUnlink: () -> Unit,
     onForceUnlink: () -> Unit,
 ) {
+    // Self-heal the Layer-2 poll: periodic work persists in WorkManager on its
+    // own, but re-asserting the schedule here (KEEP policy, so no interval reset)
+    // recovers it after a reinstall and stops it if monitoring was turned off.
+    val monitorContext = LocalContext.current
+    LaunchedEffect(monitorEnabled) {
+        if (monitorEnabled) {
+            FleetPollWorker.schedule(monitorContext)
+        } else {
+            FleetPollWorker.cancel(monitorContext)
+        }
+    }
     // Keyed by the full pairing (FD URL + deviceId): the Activity-scoped
     // ViewModel would otherwise survive an unlink and keep polling the OLD
     // Front Desk after a relink (same trap PairingViewModel.reset fixes).
@@ -425,9 +494,12 @@ private fun LinkedContent(
             link = state,
             lockConfig = lockConfig,
             lockAvailable = lockAvailable,
+            monitorEnabled = monitorEnabled,
+            notificationsBlocked = notificationsBlocked,
             onBack = { showSettings = false },
             onToggleLock = { enabled -> scope.launch { lockStore.setEnabled(enabled) } },
             onSelectTimeout = { option -> scope.launch { lockStore.setTimeout(option.millis) } },
+            onToggleMonitor = onToggleMonitor,
             onAlertsClick = { showAlerts = true },
             onUnlink = onUnlink,
             unlinking = unlinking,
