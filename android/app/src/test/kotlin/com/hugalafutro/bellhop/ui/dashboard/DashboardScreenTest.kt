@@ -145,6 +145,24 @@ class DashboardScreenTest {
     }
 
     @Test
+    fun eventsButtonFiresCallback() {
+        var opened = 0
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    onUnlink = {},
+                    unlinking = false,
+                    ui = DashboardUiState(loading = false, members = members),
+                    onEventsClick = { opened++ },
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("dashboard-events").performClick()
+        assertTrue(opened == 1)
+    }
+
+    @Test
     fun firstLoadShowsSpinnerThenEmptyStateWithoutMembers() {
         composeTestRule.setContent {
             BellhopTheme {

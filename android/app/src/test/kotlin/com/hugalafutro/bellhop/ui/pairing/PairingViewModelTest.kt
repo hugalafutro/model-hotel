@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -61,7 +62,12 @@ class PairingViewModelTest {
     }
 
     private fun newLinkStore(): LinkStore {
-        val scope = CoroutineScope(Dispatchers.IO + Job())
+        // Unconfined (not IO) so the DataStore write runs inline on the test's
+        // Unconfined Main: pair() launches save() fire-and-forget, so a real IO
+        // round-trip would let the assertion race the persist and, under CI
+        // load, miss the emission entirely (wedging the shared JVM). Inline
+        // execution makes the save complete before pair() returns.
+        val scope = CoroutineScope(Dispatchers.Unconfined + Job())
         val ds =
             PreferenceDataStoreFactory.create(scope = scope) {
                 File(tmp.newFolder(), "link.preferences_pb")
@@ -123,8 +129,9 @@ class PairingViewModelTest {
             vm.pair()
 
             // viewModelScope work completes; the link is persisted with the
-            // trailing slash trimmed.
-            val state = store.state.first { it is LinkState.Linked }
+            // trailing slash trimmed. Bounded so a lost emission fails fast
+            // instead of wedging the shared test JVM forever.
+            val state = withTimeout(5_000) { store.state.first { it is LinkState.Linked } }
             state as LinkState.Linked
             assertEquals("http://10.0.2.2:8080", state.fdUrl)
             assertEquals("operator", state.role)
@@ -138,7 +145,7 @@ class PairingViewModelTest {
             vm.onPastePayload("""{"fd_url":"http://h:1","pairing_code":"BAD","fd_name":"H"}""")
 
             vm.pair()
-            val s = vm.state.first { it.error == PairingError.InvalidCode }
+            val s = withTimeout(5_000) { vm.state.first { it.error == PairingError.InvalidCode } }
 
             assertFalse(s.busy)
         }

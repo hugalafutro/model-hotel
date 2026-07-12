@@ -18,6 +18,7 @@ import okhttp3.Response
 import okhttp3.sse.EventSource
 import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 /**
@@ -170,6 +171,16 @@ open class FrontDeskClient(
         memberId: String,
     ): FetchResult<MemberTraffic> = get(fdUrl, "/api/members/$memberId/traffic", token)
 
+    /**
+     * events fetches one page of the Front Desk event log (newest first) with
+     * the query's filters applied server-side. Monitor tier, like [members].
+     */
+    open suspend fun events(
+        fdUrl: String,
+        token: String,
+        query: EventQuery = EventQuery(),
+    ): FetchResult<EventsResponse> = get(fdUrl, "/api/events${eventQueryString(query)}", token)
+
     /** autoSync fetches the auto-sync config; the dashboard badges its primary. */
     open suspend fun autoSync(
         fdUrl: String,
@@ -294,5 +305,25 @@ open class FrontDeskClient(
         // Above Front Desk's 25s SSE heartbeat, so a healthy quiet stream never
         // times out but a half-open socket is detected within a heartbeat or two.
         private const val SSE_READ_TIMEOUT_SECONDS = 60L
+
+        // eventQueryString renders an EventQuery as an encoded query string
+        // ("" when every field is unset). Internal so the omission and encoding
+        // rules can be unit-tested without a server round-trip.
+        internal fun eventQueryString(q: EventQuery): String {
+            val params =
+                buildList {
+                    if (q.memberId.isNotEmpty()) add("member_id" to q.memberId)
+                    if (q.type.isNotEmpty()) add("type" to q.type)
+                    if (q.severity.isNotEmpty()) add("severity" to q.severity)
+                    if (q.since.isNotEmpty()) add("since" to q.since)
+                    if (q.limit > 0) add("limit" to q.limit.toString())
+                    if (q.offset > 0) add("offset" to q.offset.toString())
+                }
+            if (params.isEmpty()) return ""
+            return "?" +
+                params.joinToString("&") { (k, v) ->
+                    "$k=${URLEncoder.encode(v, "UTF-8")}"
+                }
+        }
     }
 }

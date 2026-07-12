@@ -82,6 +82,50 @@ data class TrafficPoint(
 )
 
 /**
+ * FdEvent is one stored control-plane event row of GET /api/events
+ * (internal/frontdesk/store.go Event). Distinct from [FleetEvent]: the stored
+ * row spells its time as created_at where the SSE envelope says timestamp.
+ * Metadata is deliberately not modeled (same reasoning as [FleetEvent]).
+ */
+@Serializable
+data class FdEvent(
+    val id: String = "",
+    val type: String = "",
+    val severity: String = "",
+    val source: String = "",
+    val message: String = "",
+    @SerialName("member_id") val memberId: String = "",
+    @SerialName("created_at") val createdAt: String = "",
+)
+
+/**
+ * EventsResponse is the GET /api/events envelope: one page of matching events
+ * (newest first) plus the total match count for pagination. The list is
+ * nullable because Go marshals an empty result as `"events": null`.
+ */
+@Serializable
+data class EventsResponse(
+    val events: List<FdEvent>? = null,
+    val total: Int = 0,
+)
+
+/**
+ * EventQuery mirrors the GET /api/events filter params (internal/frontdesk/
+ * server_status.go listEvents). Empty/zero fields are omitted from the query
+ * string and mean "no constraint"; the server clamps limit into [1, 500] and
+ * defaults it to 100 when absent.
+ */
+data class EventQuery(
+    val memberId: String = "",
+    val type: String = "",
+    val severity: String = "",
+    // RFC3339; empty = no lower bound.
+    val since: String = "",
+    val limit: Int = 0,
+    val offset: Int = 0,
+)
+
+/**
  * FleetEvent is one control-plane event off the GET /api/sse stream, mirroring
  * the backend's events.Event envelope (internal/events/bus.go). The dashboard
  * only reads [type] (to decide whether the change warrants a member refetch);
