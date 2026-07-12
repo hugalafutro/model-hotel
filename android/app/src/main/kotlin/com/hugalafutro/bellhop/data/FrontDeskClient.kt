@@ -188,6 +188,26 @@ open class FrontDeskClient(
     ): FetchResult<AutoSyncConfig> = get(fdUrl, "/api/fleet/autosync", token)
 
     /**
+     * alertStatus reports whether Front Desk's outbound notifier is reachable
+     * and delivering. Monitor tier, like [members]; the Alerts screen renders it
+     * as a delivery-health pill.
+     */
+    open suspend fun alertStatus(
+        fdUrl: String,
+        token: String,
+    ): FetchResult<AlertStatus> = get(fdUrl, "/api/alert/status", token)
+
+    /**
+     * alertCatalog fetches Front Desk's alertable-event catalog (what it can
+     * notify on, grouped by category). Monitor tier; the enabled subset lives in
+     * admin settings and is not readable here, so the screen shows this read-only.
+     */
+    open suspend fun alertCatalog(
+        fdUrl: String,
+        token: String,
+    ): FetchResult<List<AlertEventDef>> = get(fdUrl, "/api/alert/events", token)
+
+    /**
      * streamEvents subscribes to GET {fdUrl}/api/sse and emits each frame as an
      * [SseMessage]. Comment heartbeats are swallowed by the SSE parser, so only
      * real events surface. The flow completes on disconnect; a 401 first emits

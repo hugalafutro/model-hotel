@@ -18,6 +18,12 @@ data class FleetMember(
     val name: String = "",
     val url: String = "",
     val state: String = "active",
+    @SerialName("has_token") val hasToken: Boolean = false,
+    @SerialName("created_at") val createdAt: String = "",
+    // Set only on a non-primary member Front Desk has actually synced; empty
+    // otherwise. The detail screen surfaces both (when and why config was pushed).
+    @SerialName("last_config_sync_at") val lastConfigSyncAt: String = "",
+    @SerialName("last_config_sync_reason") val lastConfigSyncReason: String = "",
     val status: MemberStatus = MemberStatus(),
 ) {
     val drained: Boolean get() = state == "drained"
@@ -29,6 +35,10 @@ data class MemberStatus(
     val health: HealthStatus = HealthStatus(),
     @SerialName("traefik_status") val traefikStatus: String = "",
     val version: String = "",
+    // The auto-syncer's "still in sync with the primary" heartbeat: advances
+    // ~every tick while the member is reachable, distinct from lastConfigSyncAt
+    // (which only moves on a real config write). Empty until first verified.
+    @SerialName("auto_sync_verified_at") val autoSyncVerifiedAt: String = "",
 )
 
 /**
@@ -141,4 +151,36 @@ data class FleetEvent(
     val source: String = "",
     val message: String = "",
     val timestamp: String = "",
+)
+
+/**
+ * AlertStatus is the reachability of Front Desk's outbound notifier (GET
+ * /api/alert/status), mirroring the backend's alert.Status. [configured] is
+ * false when no apprise-api URL is set (nothing can deliver); when configured,
+ * [reachable] then [healthy] narrow down where a green pill turns amber or red,
+ * and [detail] carries the human reason ("no notification target configured",
+ * "master key rotated?") so Bellhop shows a cause, not just a colour.
+ */
+@Serializable
+data class AlertStatus(
+    val configured: Boolean = false,
+    val reachable: Boolean = false,
+    val healthy: Boolean = false,
+    val detail: String = "",
+)
+
+/**
+ * AlertEventDef is one row of Front Desk's alertable-event catalog (GET
+ * /api/alert/events), mirroring alert.EventDef. Bellhop renders it read-only:
+ * which events are actually enabled lives in Front Desk's admin settings (not
+ * readable by a device token), so [defaultOn] is shown as the first-run default,
+ * not the current selection. [severity] is the display dot; [category] groups
+ * the list.
+ */
+@Serializable
+data class AlertEventDef(
+    val type: String = "",
+    val category: String = "",
+    val severity: String = "",
+    val defaultOn: Boolean = false,
 )
