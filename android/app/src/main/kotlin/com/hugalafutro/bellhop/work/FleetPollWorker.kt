@@ -52,17 +52,22 @@ suspend fun pollFleet(
     fdUrl: String,
     token: String,
     monitorStore: MonitorStore,
-): PollResult =
-    when (val result = client.members(fdUrl, token)) {
+): PollResult {
+    // Capture the session epoch before the fetch: if an unlink + re-enable churns
+    // the store while this poll is in flight, saveSnapshot drops our now-stale
+    // write instead of poisoning the new session's baseline.
+    val epoch = monitorStore.epoch()
+    return when (val result = client.members(fdUrl, token)) {
         is FetchResult.Success -> {
             val previous = monitorStore.snapshot()
             val transitions = diffFleet(previous, result.data)
-            monitorStore.saveSnapshot(FleetSnapshot.of(result.data))
+            monitorStore.saveSnapshot(FleetSnapshot.of(result.data), epoch)
             PollResult.Changed(transitions)
         }
         FetchResult.Unauthorized -> PollResult.Unauthorized
         is FetchResult.Failure -> PollResult.Failed
     }
+}
 
 /**
  * runBackstop is the guarded dispatch [FleetPollWorker.doWork] performs each run,

@@ -146,7 +146,7 @@ class FleetBackstopTest {
             val monitor =
                 monitorStore().apply {
                     setEnabled(true)
-                    saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)))
+                    saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), epoch())
                 }
             // With no way to deliver, polling would only advance the baseline over a
             // change the operator can't see; freeze instead so it fires once granted.
@@ -164,7 +164,7 @@ class FleetBackstopTest {
             val monitor =
                 monitorStore().apply {
                     setEnabled(true)
-                    saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)))
+                    saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), epoch())
                 }
             server.enqueue(MockResponse().setBody(memberBody(healthy = false)))
 

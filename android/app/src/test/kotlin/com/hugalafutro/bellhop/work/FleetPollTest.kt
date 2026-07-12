@@ -84,7 +84,7 @@ class FleetPollTest {
         runBlocking {
             val store = newStore()
             store.setEnabled(true)
-            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)))
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), store.epoch())
             server.enqueue(MockResponse().setBody(memberBody(healthy = false)))
 
             val result = poll(store)
@@ -101,7 +101,7 @@ class FleetPollTest {
         runBlocking {
             val store = newStore()
             store.setEnabled(true)
-            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)))
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), store.epoch())
             server.enqueue(
                 MockResponse().setResponseCode(401).setBody(
                     """{"error":{"code":"unauthorized","message":"bad token"}}""",
@@ -118,7 +118,7 @@ class FleetPollTest {
         runBlocking {
             val store = newStore()
             store.setEnabled(true)
-            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)))
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), store.epoch())
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
 
             assertEquals(PollResult.Failed, poll(store))

@@ -64,7 +64,7 @@ class MonitorStoreTest {
                         "m2" to MemberHealthState.DOWN.name,
                     ),
                 )
-            store.saveSnapshot(snapshot)
+            store.saveSnapshot(snapshot, store.epoch())
             val read = store.snapshot()
             assertEquals(MemberHealthState.UP, read?.stateOf("m1"))
             assertEquals(MemberHealthState.DOWN, read?.stateOf("m2"))
@@ -77,7 +77,7 @@ class MonitorStoreTest {
             // crash the diff; stateOf returns null so it's treated as "no baseline".
             val store = newStore()
             store.setEnabled(true)
-            store.saveSnapshot(FleetSnapshot(mapOf("m1" to "FROM_THE_FUTURE")))
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to "FROM_THE_FUTURE")), store.epoch())
             assertNull(store.snapshot()?.stateOf("m1"))
         }
 
@@ -87,7 +87,23 @@ class MonitorStoreTest {
             // A poll finishing after unlink cleared the store must not resurrect a
             // baseline: with monitoring off, saveSnapshot is a no-op.
             val store = newStore()
-            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)))
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), store.epoch())
+            assertNull(store.snapshot())
+        }
+
+    @Test
+    fun snapshotSaveFromAStaleSessionIsDropped() =
+        runBlocking {
+            // An in-flight poll captured this session's epoch...
+            val store = newStore()
+            store.setEnabled(true)
+            val staleEpoch = store.epoch()
+            // ...then the operator unlinked and re-enabled, starting a new session.
+            store.clear()
+            store.setEnabled(true)
+            // The old poll now tries to persist against the stale epoch: it must be
+            // dropped so it can't poison the new session's baseline.
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), staleEpoch)
             assertNull(store.snapshot())
         }
 
@@ -96,7 +112,7 @@ class MonitorStoreTest {
         runBlocking {
             val store = newStore()
             store.setEnabled(true)
-            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)))
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), store.epoch())
             store.clear()
             assertFalse(store.enabled.first())
             assertNull(store.snapshot())
