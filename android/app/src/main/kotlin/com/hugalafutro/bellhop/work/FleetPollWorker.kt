@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ListenableWorker.Result
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -64,12 +65,49 @@ suspend fun pollFleet(
     }
 
 /**
+ * runBackstop is the guarded dispatch [FleetPollWorker.doWork] performs each run,
+ * extracted from the worker runtime so its short-circuits are unit-testable (the
+ * same reason [pollFleet] is a free function). It bails to success in the three
+ * steady states the foreground UI already handles — monitoring turned off, the
+ * device unlinked, or the token unreadable — and otherwise polls, notifies on any
+ * health edges, and maps the poll outcome onto a worker [Result].
+ */
+suspend fun runBackstop(
+    monitorStore: MonitorStore,
+    linkStore: LinkStore,
+    client: FrontDeskClient,
+    notify: (MemberTransition) -> Unit,
+): Result {
+    // Disabled or already unscheduled: nothing to do. A stale run can outlive the
+    // toggle being turned off, so re-check rather than trust scheduling.
+    if (!monitorStore.enabled.first()) return Result.success()
+
+    val link = linkStore.state.first()
+    if (link !is LinkState.Linked) return Result.success()
+    // No readable token (unlinked mid-run, or the Keystore key is gone): the
+    // foreground UI surfaces the revoke; the backstop just stops quietly.
+    val token = linkStore.token() ?: return Result.success()
+
+    return when (val result = pollFleet(client, link.fdUrl, token, monitorStore)) {
+        is PollResult.Changed -> {
+            result.transitions.forEach(notify)
+            Result.success()
+        }
+        // A revoked token can never succeed again; retrying would just hammer
+        // Front Desk. The foreground UI flags the revoke, so end quietly.
+        PollResult.Unauthorized -> Result.success()
+        PollResult.Failed -> Result.retry()
+    }
+}
+
+/**
  * FleetPollWorker is the Layer-2 background backstop (plan section 5.2): a periodic
  * poll that, while Bellhop is backgrounded or killed, diffs fleet health against
  * the last poll and posts a local notification on a member going down or
  * recovering. It needs no push infrastructure and no Google dependency; the
  * trade-off is the 15-minute WorkManager floor, so a change is learned up to a
- * poll late.
+ * poll late. The run logic lives in [runBackstop]; this shell only supplies the
+ * real stores, client, and notifier.
  */
 class FleetPollWorker(
     appContext: Context,
@@ -77,28 +115,12 @@ class FleetPollWorker(
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
         val context = applicationContext
-        val monitorStore = MonitorStore.create(context)
-        // Disabled or already unscheduled: nothing to do. A stale run can outlive
-        // the toggle being turned off, so re-check rather than trust scheduling.
-        if (!monitorStore.enabled.first()) return Result.success()
-
-        val linkStore = LinkStore.create(context)
-        val link = linkStore.state.first()
-        if (link !is LinkState.Linked) return Result.success()
-        // No readable token (unlinked mid-run, or the Keystore key is gone): the
-        // foreground UI surfaces the revoke; the backstop just stops quietly.
-        val token = linkStore.token() ?: return Result.success()
-
-        return when (val result = pollFleet(FrontDeskClient(), link.fdUrl, token, monitorStore)) {
-            is PollResult.Changed -> {
-                result.transitions.forEach { FleetNotifier.notify(context, it) }
-                Result.success()
-            }
-            // A revoked token can never succeed again; retrying would just hammer
-            // Front Desk. The foreground UI flags the revoke, so end quietly.
-            PollResult.Unauthorized -> Result.success()
-            PollResult.Failed -> Result.retry()
-        }
+        return runBackstop(
+            monitorStore = MonitorStore.create(context),
+            linkStore = LinkStore.create(context),
+            client = FrontDeskClient(),
+            notify = { FleetNotifier.notify(context, it) },
+        )
     }
 
     companion object {

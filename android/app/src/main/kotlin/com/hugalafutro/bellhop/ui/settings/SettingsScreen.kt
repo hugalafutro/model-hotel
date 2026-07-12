@@ -65,6 +65,7 @@ fun SettingsScreen(
     onAlertsClick: () -> Unit,
     onUnlink: () -> Unit,
     modifier: Modifier = Modifier,
+    notificationsBlocked: Boolean = false,
     unlinking: Boolean = false,
     unlinkFailed: Boolean = false,
     onDismissUnlinkError: () -> Unit = {},
@@ -301,6 +302,18 @@ fun SettingsScreen(
                         )
                     }
                     if (monitorEnabled) {
+                        if (notificationsBlocked) {
+                            // Monitoring polls regardless, but with
+                            // POST_NOTIFICATIONS denied nothing reaches the
+                            // operator, so say so rather than let the switch
+                            // imply working alerts.
+                            Text(
+                                text = stringResource(R.string.settings_monitor_blocked),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.testTag("settings-monitor-blocked"),
+                            )
+                        }
                         Text(
                             text = stringResource(R.string.settings_monitor_note),
                             style = MaterialTheme.typography.bodySmall,

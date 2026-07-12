@@ -39,6 +39,7 @@ class SettingsScreenTest {
         lockConfig: LockConfig = LockConfig(enabled = false, timeoutMs = LockTimeout.THIRTY_MINUTES.millis),
         lockAvailable: Boolean = true,
         monitorEnabled: Boolean = false,
+        notificationsBlocked: Boolean = false,
         unlinkFailed: Boolean = false,
         onToggleLock: (Boolean) -> Unit = {},
         onSelectTimeout: (LockTimeout) -> Unit = {},
@@ -55,6 +56,7 @@ class SettingsScreenTest {
                     lockConfig = lockConfig,
                     lockAvailable = lockAvailable,
                     monitorEnabled = monitorEnabled,
+                    notificationsBlocked = notificationsBlocked,
                     onBack = {},
                     onToggleLock = onToggleLock,
                     onSelectTimeout = onSelectTimeout,
@@ -126,6 +128,18 @@ class SettingsScreenTest {
     fun monitorNoteShownWhenEnabled() {
         content(monitorEnabled = true)
         composeTestRule.onNodeWithTag("settings-monitor-note").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun monitorBlockedHintShownWhenEnabledButNotificationsDenied() {
+        content(monitorEnabled = true, notificationsBlocked = true)
+        composeTestRule.onNodeWithTag("settings-monitor-blocked").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun monitorBlockedHintHiddenWhenNotificationsAllowed() {
+        content(monitorEnabled = true, notificationsBlocked = false)
+        composeTestRule.onNodeWithTag("settings-monitor-blocked").assertDoesNotExist()
     }
 
     @Test

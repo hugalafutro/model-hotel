@@ -88,6 +88,14 @@ private fun appLockAuthenticators(): Int =
 private fun canAppLock(context: Context): Boolean =
     BiometricManager.from(context).canAuthenticate(appLockAuthenticators()) == BiometricManager.BIOMETRIC_SUCCESS
 
+// hasPostNotificationPermission reports whether Bellhop may post notifications.
+// POST_NOTIFICATIONS is a runtime permission from API 33; below that it is granted
+// at install, so the backstop can always post.
+private fun hasPostNotificationPermission(context: Context): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
+
 /**
  * promptAppUnlock shows the BiometricPrompt for the ambient app lock. It only
  * gates local access (the token at rest is Keystore-wrapped regardless), so if
@@ -152,22 +160,25 @@ fun BellhopApp() {
     val lockAvailable = remember(activity) { activity != null && canAppLock(activity) }
     val monitorEnabled by monitorStore.enabled.collectAsStateWithLifecycle(initialValue = false)
     val scope = rememberCoroutineScope()
+    // Whether Bellhop may post notifications. Tracked so Settings can be honest
+    // when monitoring is on but the permission was denied (or later revoked from
+    // system settings); refreshed on the permission result and on every return to
+    // the foreground below.
+    var notificationsGranted by remember { mutableStateOf(hasPostNotificationPermission(context)) }
     // Launcher for the POST_NOTIFICATIONS runtime permission (API 33+), fired when
-    // the user turns background monitoring on. A denial is fine: the backstop then
-    // polls silently until the permission is granted from system settings.
+    // the user turns background monitoring on. A denial is fine: the backstop still
+    // polls, and Settings flags that the alerts won't reach them until it's granted.
     val notificationPermission =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            notificationsGranted = granted
+        }
 
     // toggleMonitor persists the opt-in and, on enable, asks for the notification
     // permission. Scheduling the actual poll is left to LinkedContent's effect so
     // the DataStore flag stays the single source of truth for whether it runs.
     fun toggleMonitor(enabled: Boolean) {
         scope.launch { monitorStore.setEnabled(enabled) }
-        if (enabled &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
+        if (enabled && !hasPostNotificationPermission(context)) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
@@ -214,13 +225,16 @@ fun BellhopApp() {
             LifecycleEventObserver { _, event ->
                 when (event) {
                     Lifecycle.Event.ON_STOP -> scope.launch { lockStore.stampExit(System.currentTimeMillis()) }
-                    Lifecycle.Event.ON_START ->
+                    Lifecycle.Event.ON_START -> {
+                        // Catch a grant/revoke made in system settings while away.
+                        notificationsGranted = hasPostNotificationPermission(context)
                         scope.launch {
                             val snap = lockStore.snapshot()
                             if (shouldLock(snap.config, snap.lastForegroundExit, System.currentTimeMillis())) {
                                 locked = true
                             }
                         }
+                    }
                     else -> Unit
                 }
             }
@@ -355,6 +369,7 @@ fun BellhopApp() {
                         lockConfig = lockConfig,
                         lockAvailable = lockAvailable,
                         monitorEnabled = monitorEnabled,
+                        notificationsBlocked = monitorEnabled && !notificationsGranted,
                         scope = scope,
                         unlinking = unlinking,
                         unlinkFailed = unlinkFailed,
@@ -382,6 +397,7 @@ private fun LinkedContent(
     lockConfig: LockConfig,
     lockAvailable: Boolean,
     monitorEnabled: Boolean,
+    notificationsBlocked: Boolean,
     scope: CoroutineScope,
     unlinking: Boolean,
     unlinkFailed: Boolean,
@@ -479,6 +495,7 @@ private fun LinkedContent(
             lockConfig = lockConfig,
             lockAvailable = lockAvailable,
             monitorEnabled = monitorEnabled,
+            notificationsBlocked = notificationsBlocked,
             onBack = { showSettings = false },
             onToggleLock = { enabled -> scope.launch { lockStore.setEnabled(enabled) } },
             onSelectTimeout = { option -> scope.launch { lockStore.setTimeout(option.millis) } },

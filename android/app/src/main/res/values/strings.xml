@@ -119,6 +119,7 @@
     <string name="settings_monitor_title">Background monitoring</string>
     <string name="settings_monitor_subtitle">Check the fleet every 15 minutes and notify you here when a member goes down or recovers, even when Bellhop is closed.</string>
     <string name="settings_monitor_note">Front Desk\'s own alerts are faster; this is a backstop for when Bellhop is your only view. It checks roughly every 15 minutes, so a change can be up to that late.</string>
+    <string name="settings_monitor_blocked">Notifications are turned off for Bellhop, so these alerts won\'t reach you. Turn them on in system settings.</string>
 
     <!-- Background-monitoring notifications (Layer 2 backstop) -->
     <string name="notif_channel_down">Member down</string>
