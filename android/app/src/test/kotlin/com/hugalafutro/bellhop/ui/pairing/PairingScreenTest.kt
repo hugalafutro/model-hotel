@@ -44,6 +44,30 @@ class PairingScreenTest {
     }
 
     @Test
+    fun offersScanAlongsidePaste() {
+        // The scan path is a first-class equal to paste (plan 3.2): its button
+        // is present and usable from the clean unlinked state.
+        render(PairingUiState())
+        composeTestRule.onNodeWithTag("pairing-scan").assertIsDisplayed().assertIsEnabled()
+    }
+
+    @Test
+    fun disablesScanWhilePairing() {
+        // A scan mid-pair would race the in-flight POST, so it is disabled while
+        // busy, matching the paste field's frozen-form behaviour.
+        render(
+            PairingUiState(
+                pasteText = "{...}",
+                fdUrl = "https://h",
+                code = "ABC",
+                parsed = true,
+                busy = true,
+            ),
+        )
+        composeTestRule.onNodeWithTag("pairing-scan").assertIsNotEnabled()
+    }
+
+    @Test
     fun showsTargetAndEnablesSubmitWhenParsed() {
         var submitted = false
         render(

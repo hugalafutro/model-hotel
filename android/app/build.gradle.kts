@@ -75,6 +75,10 @@ dependencies {
     implementation(libs.okhttp.sse)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
+    // QR scan for pairing: ZXing (Apache-2.0, no Google Play Services / Firebase),
+    // in keeping with the plan's FOSS stance. Its CaptureActivity requests the
+    // CAMERA permission at runtime, so nothing is asked until Scan is tapped.
+    implementation(libs.zxing.android.embedded)
     debugImplementation(libs.androidx.compose.ui.tooling)
     // Provides the empty ComponentActivity that createComposeRule() launches;
     // must be on the debug manifest (Robolectric merges the app's debug

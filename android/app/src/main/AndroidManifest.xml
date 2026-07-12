@@ -3,6 +3,16 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- CAMERA is only for the optional QR-scan pairing path; ZXing's
+         CaptureActivity requests it at runtime the first time Scan is tapped
+         (plan section 3.2: paste stays a first-class equal, so the camera is
+         never a hard requirement). Declared not-required so devices without a
+         camera can still install and pair by pasting. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
     <!-- usesCleartextTraffic: plan section 3.6 assumes plain HTTP on the LAN
          (remote access is the user's VPN), and targetSdk 28+ blocks cleartext
          by default, which would make every http:// Front Desk unpairable. -->

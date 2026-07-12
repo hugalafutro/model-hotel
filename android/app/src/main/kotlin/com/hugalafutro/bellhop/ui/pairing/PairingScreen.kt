@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.ui.pairing
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,21 +11,27 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hugalafutro.bellhop.R
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 
 /**
- * PairingScreen is the unlinked-state entry point (plan A2). The pairing string
- * from the Front Desk "Paired devices" panel carries the URL, code, and name, so
- * it is the only thing asked for: paste it (QR scanning arrives in a later
- * slice) and the Front Desk it points at is shown for confirmation before Pair.
+ * PairingScreen is the unlinked-state entry point (plan A2). The single Front
+ * Desk pairing string carries the URL, code, and name, so that is the only thing
+ * asked for — supplied two equal ways (plan section 3.2): scan the QR shown in
+ * the "Paired devices" panel, or paste the copyable string beside it. Both feed
+ * the same parser, after which the Front Desk it points at is shown for
+ * confirmation before Pair.
  */
 @Composable
 fun PairingScreen(
@@ -34,6 +41,15 @@ fun PairingScreen(
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // ZXing's CaptureActivity handles the camera preview and requests the CAMERA
+    // permission itself, so the launch is inert until Scan is tapped. A decoded
+    // QR is the same JSON string the user would paste, so it just feeds
+    // onPastePayload; a cancelled scan yields null contents and is a no-op.
+    val scanLauncher =
+        rememberLauncherForActivityResult(ScanContract()) { result ->
+            result.contents?.let(onPastePayload)
+        }
+    val scanPrompt = stringResource(R.string.pairing_scan_prompt)
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         Column(
             modifier =
@@ -55,6 +71,30 @@ fun PairingScreen(
                 text = stringResource(R.string.pairing_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            OutlinedButton(
+                onClick = {
+                    scanLauncher.launch(
+                        ScanOptions().apply {
+                            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                            setPrompt(scanPrompt)
+                            setBeepEnabled(false)
+                            setOrientationLocked(false)
+                        },
+                    )
+                },
+                enabled = !state.busy,
+                modifier = Modifier.fillMaxWidth().testTag("pairing-scan"),
+            ) {
+                Text(stringResource(R.string.pairing_scan))
+            }
+
+            Text(
+                text = stringResource(R.string.pairing_or),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
             )
 
             OutlinedTextField(
