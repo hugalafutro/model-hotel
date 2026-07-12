@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -123,8 +124,9 @@ class PairingViewModelTest {
             vm.pair()
 
             // viewModelScope work completes; the link is persisted with the
-            // trailing slash trimmed.
-            val state = store.state.first { it is LinkState.Linked }
+            // trailing slash trimmed. Bounded so a lost emission fails fast
+            // instead of wedging the shared test JVM forever.
+            val state = withTimeout(5_000) { store.state.first { it is LinkState.Linked } }
             state as LinkState.Linked
             assertEquals("http://10.0.2.2:8080", state.fdUrl)
             assertEquals("operator", state.role)
@@ -138,7 +140,7 @@ class PairingViewModelTest {
             vm.onPastePayload("""{"fd_url":"http://h:1","pairing_code":"BAD","fd_name":"H"}""")
 
             vm.pair()
-            val s = vm.state.first { it.error == PairingError.InvalidCode }
+            val s = withTimeout(5_000) { vm.state.first { it.error == PairingError.InvalidCode } }
 
             assertFalse(s.busy)
         }
