@@ -1,17 +1,25 @@
 #!/usr/bin/env bash
-# reference-transaction: run tokensave branch add on new branch creation
+# reference-transaction: keep tokensave branch DBs in sync with git branches
+#   new branch     (old_rev == 0) -> tokensave branch add
+#   deleted branch (new_rev == 0) -> tokensave branch gc
+# Fires for any tool that goes through git, not just Claude Code.
 set -uo pipefail
 
 state="$1"
 
 if [ "$state" = "committed" ]; then
+	zero="0000000000000000000000000000000000000000"
 	while read -r old_rev new_rev ref_name; do
-		zero="0000000000000000000000000000000000000000"
-		if [ "$old_rev" = "$zero" ]; then
-			branch="${ref_name#refs/heads/}"
-			if [ "$ref_name" != "$branch" ]; then
-				tokensave branch add "$branch" || true
-			fi
+		branch="${ref_name#refs/heads/}"
+		# only local branch refs (skip tags, remotes, etc.)
+		[ "$ref_name" != "$branch" ] || continue
+		# Check delete first: git reports a deletion as new_rev == 0
+		# (and old_rev == 0 too in the committed txn), so an old_rev
+		# test alone would misfire as a create.
+		if [ "$new_rev" = "$zero" ]; then
+			tokensave branch gc || true
+		elif [ "$old_rev" = "$zero" ]; then
+			tokensave branch add "$branch" || true
 		fi
 	done
 fi
