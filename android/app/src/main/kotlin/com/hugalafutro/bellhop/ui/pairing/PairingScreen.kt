@@ -1,6 +1,7 @@
 package com.hugalafutro.bellhop.ui.pairing
 
 import android.content.pm.PackageManager
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,24 +51,35 @@ fun PairingScreen(
     // ZXing's CaptureActivity handles the camera preview and requests the CAMERA
     // permission itself, so the launch is inert until Scan is tapped. A decoded
     // QR is the same JSON string the user would paste, so it just feeds
-    // onPastePayload. A null result is either a user cancel (no-op) or a denied
-    // CAMERA permission: ZXing finishes the latter with a MISSING_CAMERA_PERMISSION
-    // extra rather than a decoded value, so surface it as a hint toward the paste
-    // fallback instead of letting the failure look like a deliberate cancel.
+    // onPastePayload. An empty (null-contents) result is ambiguous: a denied
+    // permission carries a MISSING_CAMERA_PERMISSION extra, but a camera that
+    // could not be opened at runtime returns the same cancel-shaped result as a
+    // deliberate back-press. They are told apart by timing — a failure returns
+    // almost immediately, a real cancel means the user was in the scanner UI
+    // first — so [emptyScanIsFailure] routes a fast empty result to the paste
+    // hint and leaves a later one a no-op. The launch timestamp feeds that check.
+    val scanLaunchedAt = remember { mutableLongStateOf(0L) }
     val scanLauncher =
         rememberLauncherForActivityResult(ScanContract()) { result ->
             val contents = result.contents
-            when {
-                contents != null -> onPastePayload(contents)
-                result.originalIntent?.getBooleanExtra(
-                    Intents.Scan.MISSING_CAMERA_PERMISSION,
-                    false,
-                ) == true -> onScanUnavailable()
+            if (contents != null) {
+                onPastePayload(contents)
+            } else if (
+                emptyScanIsFailure(
+                    missingPermission =
+                        result.originalIntent?.getBooleanExtra(
+                            Intents.Scan.MISSING_CAMERA_PERMISSION,
+                            false,
+                        ) == true,
+                    elapsedSinceLaunchMs = SystemClock.elapsedRealtime() - scanLaunchedAt.longValue,
+                )
+            ) {
+                onScanUnavailable()
             }
         }
-    // A device with no camera hardware can't be handled from the result: ZXing
-    // just shows a framework dialog and finishes with an empty, cancel-shaped
-    // result, so guard the launch itself and route straight to the paste hint.
+    // A device with no camera hardware can't be handled from the result at all:
+    // ZXing just shows a framework dialog and finishes cancel-shaped, so guard
+    // the launch itself and route straight to the paste hint without opening it.
     val context = LocalContext.current
     val hasCamera =
         remember(context) {
@@ -102,6 +115,7 @@ fun PairingScreen(
                         onScanUnavailable()
                         return@OutlinedButton
                     }
+                    scanLaunchedAt.longValue = SystemClock.elapsedRealtime()
                     scanLauncher.launch(
                         ScanOptions().apply {
                             setDesiredBarcodeFormats(ScanOptions.QR_CODE)
@@ -185,3 +199,25 @@ fun PairingScreen(
         }
     }
 }
+
+/**
+ * A camera that can't be opened returns to the caller almost instantly, so any
+ * empty scan result within this window of launch is treated as a failure rather
+ * than a cancel. It is generous relative to a camera-open failure (sub-second)
+ * yet shorter than the time a user spends framing or dismissing a live preview,
+ * so a deliberate cancel lands past it. Worst case a very fast deliberate cancel
+ * shows a dismissible hint that also points at the paste field — harmless.
+ */
+internal const val SCAN_OPEN_FAILURE_WINDOW_MS = 1500L
+
+/**
+ * emptyScanIsFailure decides whether a null-contents scan result should surface
+ * the paste hint. ZXing flags a denied permission with [missingPermission]; a
+ * camera it could not open is inferred from [elapsedSinceLaunchMs] being inside
+ * [SCAN_OPEN_FAILURE_WINDOW_MS]. Anything else is a genuine cancel (no-op). It is
+ * pure so the classification can be unit-tested without driving the scanner.
+ */
+internal fun emptyScanIsFailure(
+    missingPermission: Boolean,
+    elapsedSinceLaunchMs: Long,
+): Boolean = missingPermission || elapsedSinceLaunchMs < SCAN_OPEN_FAILURE_WINDOW_MS

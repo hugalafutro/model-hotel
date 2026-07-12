@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -135,5 +136,29 @@ class PairingScreenTest {
         render(PairingUiState(), onScanUnavailable = { scanUnavailable = true })
         composeTestRule.onNodeWithTag("pairing-scan").performClick()
         assertTrue(scanUnavailable)
+    }
+
+    @Test
+    fun deniedPermissionEmptyScanIsFailure() {
+        assertTrue(emptyScanIsFailure(missingPermission = true, elapsedSinceLaunchMs = 60_000))
+    }
+
+    @Test
+    fun fastEmptyScanIsCameraOpenFailure() {
+        // A camera that could not open returns almost immediately with no extra;
+        // treat that as a failure so it surfaces the paste hint.
+        assertTrue(emptyScanIsFailure(missingPermission = false, elapsedSinceLaunchMs = 200))
+    }
+
+    @Test
+    fun slowEmptyScanIsCancelNotFailure() {
+        // Time spent in the scanner UI before an empty result is a deliberate
+        // cancel, which stays a silent no-op.
+        assertFalse(
+            emptyScanIsFailure(
+                missingPermission = false,
+                elapsedSinceLaunchMs = SCAN_OPEN_FAILURE_WINDOW_MS + 1,
+            ),
+        )
     }
 }
