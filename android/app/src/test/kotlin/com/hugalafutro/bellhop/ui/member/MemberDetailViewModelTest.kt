@@ -1,7 +1,10 @@
 package com.hugalafutro.bellhop.ui.member
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.hugalafutro.bellhop.data.EventQuery
+import com.hugalafutro.bellhop.data.EventsResponse
 import com.hugalafutro.bellhop.data.FakeCipher
+import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
@@ -32,13 +35,20 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
-// FakeTrafficClient stubs the one read the detail ViewModel makes.
+// FakeTrafficClient stubs the two reads the detail ViewModel makes (traffic +
+// the member's recent events). Events default to a successful empty page so a
+// traffic-focused test needn't set them.
 private class FakeTrafficClient(
     var trafficResult: FetchResult<MemberTraffic>,
+    var eventsResult: FetchResult<EventsResponse> =
+        FetchResult.Success(
+            EventsResponse(events = emptyList(), total = 0),
+        ),
 ) : FrontDeskClient() {
     val trafficCalls = AtomicInteger(0)
     var lastToken: String? = null
     var lastMemberId: String? = null
+    var lastEventQuery: EventQuery? = null
 
     override suspend fun memberTraffic(
         fdUrl: String,
@@ -49,6 +59,15 @@ private class FakeTrafficClient(
         lastToken = token
         lastMemberId = memberId
         return trafficResult
+    }
+
+    override suspend fun events(
+        fdUrl: String,
+        token: String,
+        query: EventQuery,
+    ): FetchResult<EventsResponse> {
+        lastEventQuery = query
+        return eventsResult
     }
 }
 
@@ -111,6 +130,44 @@ class MemberDetailViewModelTest {
             assertFalse(s.revoked)
             assertEquals("tok-1", client.lastToken)
             assertEquals("m1", client.lastMemberId)
+        }
+
+    @Test
+    fun refreshPopulatesMemberEventsFilteredToTheMember() =
+        runBlocking {
+            val client =
+                FakeTrafficClient(
+                    FetchResult.Success(traffic),
+                    eventsResult =
+                        FetchResult.Success(
+                            EventsResponse(
+                                events =
+                                    listOf(
+                                        FdEvent(id = "e1", severity = "error", message = "down", memberId = "m1"),
+                                    ),
+                                total = 1,
+                            ),
+                        ),
+                )
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.refreshOnce()
+
+            assertEquals(listOf("e1"), vm.state.value.events.map { it.id })
+            // The events read is scoped to this member so the detail shows only
+            // its own history, not the whole fleet's log.
+            assertEquals("m1", client.lastEventQuery?.memberId)
+            assertEquals(MemberDetailViewModel.EVENTS_LIMIT, client.lastEventQuery?.limit)
+        }
+
+    @Test
+    fun eventsUnauthorizedFlagsRevoked() =
+        runBlocking {
+            val client =
+                FakeTrafficClient(FetchResult.Success(traffic), eventsResult = FetchResult.Unauthorized)
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+            vm.refreshOnce()
+            assertTrue(vm.state.value.revoked)
         }
 
     @Test

@@ -10,6 +10,7 @@ import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberStatus
+import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.PairedDevice
 import com.hugalafutro.bellhop.data.SseMessage
 import kotlinx.coroutines.CoroutineScope
@@ -72,6 +73,20 @@ private class FakeFleetClient(
         fdUrl: String,
         token: String,
     ): FetchResult<AutoSyncConfig> = autoSyncResult
+
+    // Per-member traffic for the viewport-lazy sparkline. Records every id
+    // fetched so a test can prove only the visible members were requested.
+    var trafficResults: Map<String, FetchResult<MemberTraffic>> = emptyMap()
+    val trafficFetched = java.util.concurrent.CopyOnWriteArrayList<String>()
+
+    override suspend fun memberTraffic(
+        fdUrl: String,
+        token: String,
+        memberId: String,
+    ): FetchResult<MemberTraffic> {
+        trafficFetched.add(memberId)
+        return trafficResults[memberId] ?: FetchResult.Failure("no traffic for $memberId")
+    }
 
     override fun streamEvents(
         fdUrl: String,
@@ -163,6 +178,34 @@ class DashboardViewModelTest {
             client.membersResult = FetchResult.Success(listOf(member))
             vm.refreshOnce()
             assertNull(vm.state.value.error)
+        }
+
+    @Test
+    fun onlyVisibleMembersGetTrafficFetched() =
+        runBlocking {
+            // Two members, but only m1 is reported visible: the off-screen m2
+            // must never have its traffic requested (the whole point of the
+            // viewport-lazy fetch that keeps a big fleet cheap).
+            val m1 = member
+            val m2 = member.copy(id = "m2", name = "beta")
+            val client = FakeFleetClient(FetchResult.Success(listOf(m1, m2)))
+            client.trafficResults =
+                mapOf(
+                    "m1" to
+                        FetchResult.Success(
+                            MemberTraffic(memberId = "m1", reachable = true, totalRequests = 5),
+                        ),
+                )
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val job = launch { vm.state.collect {} }
+            withTimeout(5_000) { vm.state.first { it.members.size == 2 } }
+
+            vm.setVisibleMembers(listOf("m1"))
+            withTimeout(5_000) { vm.state.first { it.traffic.containsKey("m1") } }
+
+            assertTrue(client.trafficFetched.contains("m1"))
+            assertFalse(client.trafficFetched.contains("m2"))
+            job.cancel()
         }
 
     @Test

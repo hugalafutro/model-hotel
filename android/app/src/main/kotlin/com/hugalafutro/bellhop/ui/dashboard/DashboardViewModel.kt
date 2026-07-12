@@ -7,6 +7,7 @@ import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
+import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.SseMessage
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
@@ -31,6 +32,11 @@ data class DashboardUiState(
     val loading: Boolean = true,
     val members: List<FleetMember> = emptyList(),
     val primaryId: String = "",
+    // Per-member traffic for the inline card sparkline, keyed by member id and
+    // filled lazily for whichever members are currently on screen (see
+    // [DashboardViewModel.setVisibleMembers]). A member absent from the map just
+    // renders without a sparkline yet.
+    val traffic: Map<String, MemberTraffic> = emptyMap(),
     val error: String? = null,
     val revoked: Boolean = false,
 )
@@ -54,6 +60,8 @@ class DashboardViewModel(
     private val linkStore: LinkStore,
     private val fdUrl: String,
     private val pollIntervalMs: Long = POLL_INTERVAL_MS,
+    private val trafficPollMs: Long = TRAFFIC_POLL_MS,
+    private val now: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
     private val _state = MutableStateFlow(DashboardUiState())
     val state: StateFlow<DashboardUiState> = _state.asStateFlow()
@@ -61,6 +69,18 @@ class DashboardViewModel(
     // Conflated: rapid nudges from the poll and the event stream coalesce into at
     // most one queued refresh instead of stacking sequential fetches.
     private val refreshTrigger = Channel<Unit>(Channel.CONFLATED)
+
+    // The member ids currently visible in the list, reported by the screen. Only
+    // these get their traffic sparkline fetched, so the per-member fan-out is
+    // bounded by what's on screen (~a handful) rather than the fleet size — a
+    // 100-member fleet never triggers 100 traffic calls. When Front Desk grows a
+    // single /api/fleet/usage rollup, this loop swaps its source for that one call.
+    private val visibleIds = MutableStateFlow<List<String>>(emptyList())
+
+    // When each member's traffic was last fetched, so a re-tick or a re-scroll
+    // past an already-fresh member doesn't refetch within the TTL. Only touched
+    // from viewModelScope coroutines (single-threaded Main), so a plain map is safe.
+    private val trafficFetchedAt = mutableMapOf<String, Long>()
 
     init {
         viewModelScope.launch {
@@ -73,6 +93,7 @@ class DashboardViewModel(
                             launch { runRefreshes() }
                             launch { pollLoop() }
                             launch { streamLoop() }
+                            launch { trafficLoop() }
                         }
                     }
                 }
@@ -134,6 +155,69 @@ class DashboardViewModel(
     }
 
     /**
+     * setVisibleMembers is called by the screen with the member ids currently
+     * scrolled into view. Only these have their traffic sparkline fetched, so the
+     * per-member fan-out never exceeds a viewport regardless of fleet size.
+     */
+    fun setVisibleMembers(ids: List<String>) {
+        visibleIds.value = ids
+    }
+
+    // trafficLoop keeps the on-screen members' sparklines fresh on two triggers:
+    // the visible set changing (scroll), debounced so a fast scroll doesn't fetch
+    // every row it flies past; and a slow tick so the current view's sparklines
+    // keep moving. Both go through fetchVisibleTraffic, which skips members still
+    // within the TTL, so overlap is cheap.
+    private suspend fun trafficLoop() =
+        coroutineScope {
+            launch {
+                visibleIds.collectLatest { ids ->
+                    // collectLatest cancels this delay if the visible set changes
+                    // again, so only a settled viewport triggers a fetch.
+                    delay(TRAFFIC_DEBOUNCE_MS)
+                    fetchVisibleTraffic(ids, force = false)
+                }
+            }
+            launch {
+                while (true) {
+                    delay(trafficPollMs)
+                    fetchVisibleTraffic(visibleIds.value, force = true)
+                }
+            }
+        }
+
+    // fetchVisibleTraffic fetches traffic for the given members whose cache is
+    // stale (or all of them when [force]), concurrently — the set is viewport-
+    // bounded, so this is a handful of calls at most. A per-member failure just
+    // leaves that sparkline stale; only a 401 escalates to revoked. Runs on the
+    // Main-confined viewModelScope, so the plain fetched-at map needs no lock.
+    private suspend fun fetchVisibleTraffic(
+        ids: List<String>,
+        force: Boolean,
+    ) {
+        if (_state.value.revoked) return
+        val token = linkStore.token() ?: return
+        val at = now()
+        val due = ids.filter { force || at - (trafficFetchedAt[it] ?: 0L) >= TRAFFIC_TTL_MS }
+        if (due.isEmpty()) return
+        coroutineScope {
+            due.forEach { id ->
+                launch {
+                    when (val result = client.memberTraffic(fdUrl, token, id)) {
+                        is FetchResult.Success -> {
+                            trafficFetchedAt[id] = at
+                            _state.update { it.copy(traffic = it.traffic + (id to result.data)) }
+                        }
+                        FetchResult.Unauthorized -> _state.update { it.copy(revoked = true) }
+                        // A stale sparkline is fine; the card's health still shows.
+                        is FetchResult.Failure -> Unit
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * refreshOnce performs one members fetch. The auto-sync fetch is best-effort:
      * the Primary badge going stale must not fail an otherwise good refresh.
      */
@@ -149,15 +233,20 @@ class DashboardViewModel(
         when (val result = client.members(fdUrl, token)) {
             is FetchResult.Success -> {
                 val autoSync = client.autoSync(fdUrl, token) as? FetchResult.Success
+                val liveIds = result.data.mapTo(HashSet()) { it.id }
                 _state.update {
                     it.copy(
                         loading = false,
                         members = result.data,
                         primaryId = autoSync?.data?.primaryId ?: it.primaryId,
+                        // Drop cached traffic for members that left the fleet so
+                        // the map can't grow without bound as members churn.
+                        traffic = it.traffic.filterKeys { id -> id in liveIds },
                         error = null,
                         revoked = false,
                     )
                 }
+                trafficFetchedAt.keys.retainAll(liveIds)
             }
             FetchResult.Unauthorized ->
                 _state.update { it.copy(loading = false, revoked = true) }
@@ -179,6 +268,19 @@ class DashboardViewModel(
         // Fallback cadence now that the SSE stream carries live changes: slow
         // enough to be polite from a phone, fast enough to backstop a missed event.
         const val POLL_INTERVAL_MS = 15_000L
+
+        // Traffic sparklines refresh slower than the health poll: the series is
+        // 5-minute buckets, so a per-minute tick keeps the current bucket moving
+        // without a per-member fan-out on every health refresh.
+        const val TRAFFIC_POLL_MS = 60_000L
+
+        // Don't refetch a member's traffic more than once per this window when the
+        // visible set changes (scroll back and forth); the tick force-refreshes.
+        const val TRAFFIC_TTL_MS = 30_000L
+
+        // Settle time before fetching a changed viewport, so a fast scroll doesn't
+        // fetch every row it passes — only where it comes to rest.
+        const val TRAFFIC_DEBOUNCE_MS = 300L
 
         // SSE reconnect backoff, mirroring the web dashboard's 1s..30s range.
         const val SSE_BACKOFF_MIN_MS = 1_000L

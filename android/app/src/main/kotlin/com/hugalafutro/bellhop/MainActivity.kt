@@ -19,6 +19,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LinkStore
+import com.hugalafutro.bellhop.ui.alerts.AlertsScreen
+import com.hugalafutro.bellhop.ui.alerts.AlertsViewModel
 import com.hugalafutro.bellhop.ui.dashboard.DashboardScreen
 import com.hugalafutro.bellhop.ui.dashboard.DashboardViewModel
 import com.hugalafutro.bellhop.ui.events.EventsScreen
@@ -186,6 +188,10 @@ fun BellhopApp() {
             var showEvents by rememberSaveable(state.fdUrl, state.deviceId) {
                 mutableStateOf(false)
             }
+            // Whether the alerts screen is open. Same saveable/keying rationale.
+            var showAlerts by rememberSaveable(state.fdUrl, state.deviceId) {
+                mutableStateOf(false)
+            }
             val selected = ui.members.find { it.id == selectedMemberId }
             // The member left the fleet while its detail was open: drop the
             // selection (once the list has actually loaded) so the detail
@@ -215,6 +221,16 @@ fun BellhopApp() {
                     onRange = eventsVm::setRange,
                     onLoadMore = eventsVm::loadMore,
                 )
+            } else if (showAlerts) {
+                BackHandler { showAlerts = false }
+                // Keyed like the dashboard VM so a relink gets a fresh status.
+                val alertsVm: AlertsViewModel =
+                    viewModel(
+                        key = "alerts-${state.fdUrl}|${state.deviceId}",
+                        factory = AlertsViewModel.Factory(client, linkStore, state.fdUrl),
+                    )
+                val alertsUi by alertsVm.state.collectAsStateWithLifecycle()
+                AlertsScreen(onBack = { showAlerts = false }, ui = alertsUi)
             } else if (selected != null) {
                 BackHandler { selectedMemberId = null }
                 // Keyed like the dashboard VM, plus the member id, so flipping
@@ -242,6 +258,8 @@ fun BellhopApp() {
                     onForceUnlink = { forceUnlink() },
                     onMemberClick = { selectedMemberId = it },
                     onEventsClick = { showEvents = true },
+                    onAlertsClick = { showAlerts = true },
+                    onVisibleMembers = dashVm::setVisibleMembers,
                 )
             }
         }

@@ -1,6 +1,9 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,9 +17,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,13 +32,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,11 +52,14 @@ import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.MemberStatus
+import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.StatusBanner
+import com.hugalafutro.bellhop.ui.common.TrafficChart
 import com.hugalafutro.bellhop.ui.common.healthColor
 import com.hugalafutro.bellhop.ui.common.healthLabel
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
  * DashboardScreen is the linked-state home: the fleet's members with their live
@@ -67,8 +78,53 @@ fun DashboardScreen(
     onForceUnlink: () -> Unit = {},
     onMemberClick: (String) -> Unit = {},
     onEventsClick: () -> Unit = {},
+    onAlertsClick: () -> Unit = {},
+    onVisibleMembers: (List<String>) -> Unit = {},
 ) {
     var confirmUnlink by remember { mutableStateOf(false) }
+
+    // Which member's URL the "open externally" popup is showing, if any. Tapping
+    // a card's address opens this confirm dialog rather than firing an intent on
+    // the same tap that could also be a mis-tap on the card itself.
+    var urlDialogFor by remember { mutableStateOf<FleetMember?>(null) }
+    val context = LocalContext.current
+    urlDialogFor?.let { member ->
+        AlertDialog(
+            onDismissRequest = { urlDialogFor = null },
+            title = { Text(stringResource(R.string.member_url_title)) },
+            text = {
+                Text(
+                    text = member.url,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.testTag("member-url-dialog-text"),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // ACTION_VIEW lets Android resolve the URL (browser or a
+                        // matching app), showing its own chooser when several match.
+                        // runCatching: a device with nothing that can open it must
+                        // not crash the app.
+                        runCatching {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse(member.url)),
+                            )
+                        }
+                        urlDialogFor = null
+                    },
+                    modifier = Modifier.testTag("member-url-open"),
+                ) {
+                    Text(stringResource(R.string.member_url_open))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { urlDialogFor = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
 
     // The remote revoke couldn't reach Front Desk (or the token can't be read to
     // revoke at all). The device is still linked and nothing was cleared, so
@@ -174,6 +230,15 @@ fun DashboardScreen(
                         contentDescription = stringResource(R.string.events_open),
                     )
                 }
+                IconButton(
+                    onClick = onAlertsClick,
+                    modifier = Modifier.testTag("dashboard-alerts"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Notifications,
+                        contentDescription = stringResource(R.string.alerts_open),
+                    )
+                }
                 TextButton(
                     onClick = { confirmUnlink = true },
                     enabled = !unlinking,
@@ -218,7 +283,20 @@ fun DashboardScreen(
                     }
                 else -> {
                     FleetSummary(members = ui.members)
+                    val listState = rememberLazyListState()
+                    // Report which members are on screen so the ViewModel fetches
+                    // traffic only for them (viewport-bounded fan-out; a big fleet
+                    // never triggers a call per member). Recomputed as the visible
+                    // index set settles or the list changes.
+                    LaunchedEffect(listState, ui.members) {
+                        snapshotFlow { listState.layoutInfo.visibleItemsInfo.map { it.index } }
+                            .distinctUntilChanged()
+                            .collect { indices ->
+                                onVisibleMembers(indices.mapNotNull { ui.members.getOrNull(it)?.id })
+                            }
+                    }
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(bottom = 24.dp),
@@ -231,7 +309,9 @@ fun DashboardScreen(
                             MemberCard(
                                 member = member,
                                 isPrimary = member.id == ui.primaryId,
+                                traffic = ui.traffic[member.id],
                                 onClick = { onMemberClick(member.id) },
+                                onUrlClick = { urlDialogFor = member },
                             )
                         }
                     }
@@ -273,7 +353,9 @@ private fun FleetSummary(
 private fun MemberCard(
     member: FleetMember,
     isPrimary: Boolean,
+    traffic: MemberTraffic?,
     onClick: () -> Unit,
+    onUrlClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val health = member.status.health
@@ -318,12 +400,18 @@ private fun MemberCard(
                     )
                 }
             }
+            // The URL is its own tap target (opens the "open externally" popup),
+            // separate from the card tap that drills into the member.
             Text(
                 text = member.url,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier =
+                    Modifier
+                        .clickable(onClick = onUrlClick)
+                        .testTag("member-url-${member.name}"),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
@@ -353,6 +441,17 @@ private fun MemberCard(
                     color = MaterialTheme.colorScheme.error,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+            // Inline last-hour sparkline: shown once its (viewport-lazy) traffic
+            // has arrived and there is something to draw. Absent/empty just leaves
+            // the card compact rather than reserving blank space. Tapping the card
+            // (including here) opens the detail with the full graph + event log.
+            traffic?.points?.takeIf { traffic.reachable && it.isNotEmpty() }?.let { points ->
+                Spacer(modifier = Modifier.height(2.dp))
+                TrafficChart(
+                    points = points,
+                    modifier = Modifier.height(28.dp).testTag("member-sparkline-${member.name}"),
                 )
             }
         }

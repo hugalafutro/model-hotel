@@ -1,9 +1,13 @@
 package com.hugalafutro.bellhop.ui.member
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
+import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.MemberStatus
@@ -67,18 +71,90 @@ class MemberDetailScreenTest {
     }
 
     @Test
-    fun drainedMemberShowsDrainedPill() {
+    fun downMemberShowsProbeErrorAndSyncMetadata() {
         composeTestRule.setContent {
             BellhopTheme {
                 MemberDetailScreen(
-                    member = member.copy(state = "drained"),
+                    member =
+                        member.copy(
+                            createdAt = "2026-06-28T17:53:27Z",
+                            lastConfigSyncAt = "2026-07-10T20:26:40Z",
+                            lastConfigSyncReason = "the primary's config changed",
+                            status =
+                                member.status.copy(
+                                    health =
+                                        HealthStatus(known = true, healthy = false, error = "connection refused"),
+                                    autoSyncVerifiedAt = "2026-07-12T13:42:17Z",
+                                ),
+                        ),
                     isPrimary = false,
                     onBack = {},
                     ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
                 )
             }
         }
-        composeTestRule.onNodeWithTag("member-detail-drained", useUnmergedTree = true).assertIsDisplayed()
+        // The detail surfaces the info the card can't: full probe error + sync
+        // provenance + in-sync heartbeat + when it was added. All four sit in the
+        // meta card, a LazyColumn item that may start below the fold — scroll it in.
+        for (
+        tag in
+        listOf(
+            "member-detail-down-reason",
+            "member-detail-synced",
+            "member-detail-verified",
+            "member-detail-created",
+        )
+        ) {
+            composeTestRule.onNodeWithTag("member-detail-list").performScrollToNode(hasTestTag(tag))
+            composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun rendersMemberEventRows() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            events =
+                                listOf(
+                                    FdEvent(id = "e1", severity = "error", message = "down", memberId = "m1"),
+                                    FdEvent(id = "e2", severity = "success", message = "up", memberId = "m1"),
+                                ),
+                        ),
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-event-row"))
+        assertTrue(
+            composeTestRule.onAllNodesWithTag("member-event-row").fetchSemanticsNodes().isNotEmpty(),
+        )
+    }
+
+    @Test
+    fun emptyEventsShowsEmptyState() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic, events = emptyList()),
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-detail-no-events"))
+        composeTestRule.onNodeWithTag("member-detail-no-events").assertIsDisplayed()
     }
 
     @Test

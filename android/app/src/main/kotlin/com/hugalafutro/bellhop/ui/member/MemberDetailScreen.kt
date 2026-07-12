@@ -1,20 +1,19 @@
 package com.hugalafutro.bellhop.ui.member
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
@@ -28,14 +27,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.hugalafutro.bellhop.R
+import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.MemberStatus
@@ -43,15 +41,20 @@ import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.TrafficPoint
 import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.StatusBanner
+import com.hugalafutro.bellhop.ui.common.TrafficChart
 import com.hugalafutro.bellhop.ui.common.healthColor
-import com.hugalafutro.bellhop.ui.common.healthLabel
+import com.hugalafutro.bellhop.ui.common.severityColors
+import com.hugalafutro.bellhop.ui.events.formatEventTime
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 
 /**
- * MemberDetailScreen is one member up close: the same identity and health the
- * dashboard card shows (the [member] arrives live from the dashboard's poll,
- * so badges keep moving here too) plus the last hour of request/error traffic
- * from [MemberDetailViewModel]. Read-only; operator actions are a later phase.
+ * MemberDetailScreen is one member up close — deliberately *not* a repeat of the
+ * dashboard card. A minimal header (name + live health dot) sits above the last
+ * hour of traffic (the full graph the card only sparklines) and the info the
+ * card has no room for: the probe error when down, config-sync provenance, the
+ * in-sync heartbeat, when it was added, and the member's recent event log.
+ * [member] arrives live from the dashboard's poll; [ui] carries the graph +
+ * events from [MemberDetailViewModel].
  */
 @Composable
 fun MemberDetailScreen(
@@ -68,8 +71,7 @@ fun MemberDetailScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(horizontal = 16.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .padding(horizontal = 16.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -105,14 +107,6 @@ fun MemberDetailScreen(
                         tag = "member-detail-primary",
                     )
                 }
-                if (member.drained) {
-                    Pill(
-                        text = stringResource(R.string.member_state_drained),
-                        container = MaterialTheme.colorScheme.errorContainer,
-                        content = MaterialTheme.colorScheme.onErrorContainer,
-                        tag = "member-detail-drained",
-                    )
-                }
             }
 
             if (ui.revoked) {
@@ -124,60 +118,128 @@ fun MemberDetailScreen(
                 )
             }
 
-            Card(modifier = Modifier.fillMaxWidth().testTag("member-detail-meta")) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
+            LazyColumn(
+                modifier = Modifier.weight(1f).testTag("member-detail-list"),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
+            ) {
+                item { TrafficCard(ui = ui) }
+                item { MetaCard(member = member) }
+                item {
                     Text(
-                        text = member.url,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = stringResource(R.string.member_detail_events_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.testTag("member-detail-events-title"),
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            text = healthLabel(health),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = healthColor(health),
-                        )
-                        if (health.known && member.status.traefikStatus.isNotBlank()) {
+                }
+                when {
+                    ui.loading && ui.events.isEmpty() ->
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.testTag("member-detail-events-loading"))
+                            }
+                        }
+                    ui.events.isEmpty() ->
+                        item {
                             Text(
-                                text = stringResource(R.string.member_traefik, member.status.traefikStatus),
-                                style = MaterialTheme.typography.bodySmall,
+                                text = stringResource(R.string.member_detail_no_events),
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("member-detail-no-events"),
                             )
                         }
-                        if (member.status.version.isNotBlank()) {
-                            Text(
-                                text = member.status.version,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    // The card truncates this; up close the operator wants the
-                    // whole probe error.
-                    if (health.known && !health.healthy && health.error.isNotBlank()) {
-                        Text(
-                            text = health.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    }
+                    else -> items(ui.events) { event -> MemberEventRow(event = event) }
                 }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            TrafficCard(ui = ui)
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
 
 /**
- * TrafficCard renders the last-hour series. Unreachable is a normal, explained
- * state, not an error: Front Desk may hold no admin token for this member, or
- * the member didn't answer its stats API.
+ * MetaCard is the info the dashboard card has no room for: the full probe error
+ * when down, config-sync provenance, the in-sync heartbeat, and when the member
+ * was added. Each line only shows when it has a value, so a healthy never-synced
+ * member stays terse.
+ */
+@Composable
+private fun MetaCard(
+    member: FleetMember,
+    modifier: Modifier = Modifier,
+) {
+    val health = member.status.health
+    Card(modifier = modifier.fillMaxWidth().testTag("member-detail-meta")) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = member.url,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (health.known && !health.healthy && health.error.isNotBlank()) {
+                Text(
+                    text = health.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("member-detail-down-reason"),
+                )
+            }
+            if (member.lastConfigSyncAt.isNotBlank()) {
+                MetaLine(
+                    text = stringResource(R.string.member_detail_synced, formatEventTime(member.lastConfigSyncAt)),
+                    tag = "member-detail-synced",
+                )
+                if (member.lastConfigSyncReason.isNotBlank()) {
+                    Text(
+                        text = member.lastConfigSyncReason,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (member.status.autoSyncVerifiedAt.isNotBlank()) {
+                MetaLine(
+                    text =
+                        stringResource(
+                            R.string.member_detail_verified,
+                            formatEventTime(member.status.autoSyncVerifiedAt),
+                        ),
+                    tag = "member-detail-verified",
+                )
+            }
+            if (member.createdAt.isNotBlank()) {
+                MetaLine(
+                    text = stringResource(R.string.member_detail_created, formatEventTime(member.createdAt)),
+                    tag = "member-detail-created",
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetaLine(
+    text: String,
+    tag: String,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.testTag(tag),
+    )
+}
+
+/**
+ * TrafficCard renders the last-hour series bigger than the card sparkline.
+ * Unreachable is a normal, explained state, not an error: Front Desk may hold no
+ * admin token for this member, or the member didn't answer its stats API.
  */
 @Composable
 private fun TrafficCard(
@@ -229,54 +291,47 @@ private fun TrafficCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.testTag("member-traffic-totals"),
                     )
-                    TrafficChart(points = traffic.points)
+                    TrafficChart(
+                        points = traffic.points,
+                        modifier = Modifier.height(140.dp).testTag("member-traffic-chart"),
+                    )
                 }
             }
         }
     }
 }
 
-/**
- * TrafficChart is a plain Canvas bar chart, one bar per 5-minute bucket oldest
- * to newest: bar height is that bucket's requests against the window maximum,
- * with the error subset overlaid from the baseline in the error color. No
- * chart library by design (plan section 5.4).
- */
+/** MemberEventRow is one compact event under the graph: severity pill, message, time. */
 @Composable
-private fun TrafficChart(
-    points: List<TrafficPoint>,
+private fun MemberEventRow(
+    event: FdEvent,
     modifier: Modifier = Modifier,
 ) {
-    val barColor = MaterialTheme.colorScheme.primary
-    val errorColor = MaterialTheme.colorScheme.error
-    val idleColor = MaterialTheme.colorScheme.outlineVariant
-    Canvas(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .height(96.dp)
-                .testTag("member-traffic-chart"),
-    ) {
-        val max = points.maxOf { it.requests }.coerceAtLeast(1)
-        val gap = 3.dp.toPx()
-        val barWidth = (size.width - gap * (points.size - 1)) / points.size
-        val stub = 2.dp.toPx()
-        points.forEachIndexed { i, p ->
-            val x = i * (barWidth + gap)
-            if (p.requests <= 0) {
-                // Zero bucket: a faint stub so the timeline stays readable
-                // instead of leaving holes.
-                drawRect(idleColor, Offset(x, size.height - stub), Size(barWidth, stub))
-                return@forEachIndexed
-            }
-            val h = (size.height * p.requests / max).coerceAtLeast(stub)
-            drawRect(barColor, Offset(x, size.height - h), Size(barWidth, h))
-            if (p.errors > 0) {
-                // Errors are a subset of requests, so the overlay shares the
-                // scale and can never outgrow its bar.
-                val eh = (size.height * p.errors / max).coerceAtLeast(stub)
-                drawRect(errorColor, Offset(x, size.height - eh), Size(barWidth, eh))
-            }
+    val (container, content) = severityColors(event.severity)
+    Card(modifier = modifier.fillMaxWidth().testTag("member-event-row")) {
+        Row(
+            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Pill(
+                text = event.severity,
+                container = container,
+                content = content,
+                tag = "member-event-sev-${event.severity}",
+            )
+            Text(
+                text = event.message,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = formatEventTime(event.createdAt),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -291,11 +346,15 @@ private fun MemberDetailScreenPreview() {
                     id = "m1",
                     name = "hotel-prime",
                     url = "http://192.168.1.10:8080",
+                    createdAt = "2026-06-28T17:53:27Z",
+                    lastConfigSyncAt = "2026-07-10T20:26:40Z",
+                    lastConfigSyncReason = "the primary's config changed",
                     status =
                         MemberStatus(
                             health = HealthStatus(known = true, healthy = true, latencyMs = 12),
                             traefikStatus = "UP",
                             version = "0.33.0",
+                            autoSyncVerifiedAt = "2026-07-12T13:42:17Z",
                         ),
                 ),
             isPrimary = true,
@@ -317,6 +376,18 @@ private fun MemberDetailScreenPreview() {
                                         errors = if (it % 5 == 0) 2 else 0,
                                     )
                                 },
+                        ),
+                    events =
+                        listOf(
+                            FdEvent(
+                                id = "e1",
+                                type = "health.down",
+                                severity = "error",
+                                source = "frontdesk-poller",
+                                message = "hotel-prime is unreachable after 3 checks",
+                                memberId = "m1",
+                                createdAt = "2026-07-12T10:15:00Z",
+                            ),
                         ),
                 ),
         )
