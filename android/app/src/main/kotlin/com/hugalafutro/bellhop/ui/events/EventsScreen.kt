@@ -308,7 +308,7 @@ private fun rangeLabel(range: EventRange): String =
     }
 
 private val EVENT_TIME_FORMAT =
-    DateTimeFormatter.ofPattern("MMM d · HH:mm", Locale.getDefault())
+    DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm", Locale.getDefault())
 
 // formatEventTime renders the stored RFC3339 timestamp in local time, falling
 // back to the raw string on anything unparseable (garbage in, garbage shown —
