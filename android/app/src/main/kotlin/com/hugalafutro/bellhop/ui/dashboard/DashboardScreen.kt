@@ -15,9 +15,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -62,6 +66,7 @@ fun DashboardScreen(
     onDismissUnlinkError: () -> Unit = {},
     onForceUnlink: () -> Unit = {},
     onMemberClick: (String) -> Unit = {},
+    onEventsClick: () -> Unit = {},
 ) {
     var confirmUnlink by remember { mutableStateOf(false) }
 
@@ -158,6 +163,15 @@ fun DashboardScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.testTag("dashboard-linked"),
+                    )
+                }
+                IconButton(
+                    onClick = onEventsClick,
+                    modifier = Modifier.testTag("dashboard-events"),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.List,
+                        contentDescription = stringResource(R.string.events_open),
                     )
                 }
                 TextButton(

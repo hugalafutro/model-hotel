@@ -215,6 +215,107 @@ class FrontDeskClientTest {
         }
 
     @Test
+    fun eventsParsesPageAndSendsBearer() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"events":[{"id":"e1","type":"health.down","severity":"error","source":"poller",""" +
+                        """"message":"hotel-2 unreachable","member_id":"m2","created_at":"2026-07-12T10:00:00Z"},""" +
+                        """{"id":"e2","type":"config.synced","severity":"success","source":"autosync",""" +
+                        """"message":"synced","created_at":"2026-07-12T09:00:00Z"}],"total":40}""",
+                ),
+            )
+
+            val result = client.events(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            assertEquals(40, result.data.total)
+            val events = result.data.events.orEmpty()
+            assertEquals(2, events.size)
+            assertEquals("health.down", events[0].type)
+            assertEquals("m2", events[0].memberId)
+            assertEquals("", events[1].memberId)
+
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertEquals("/api/events", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+        }
+
+    @Test
+    fun eventsSendsFilterQueryParams() =
+        runBlocking {
+            server.enqueue(MockResponse().setBody("""{"events":[],"total":0}"""))
+
+            val result =
+                client.events(
+                    server.url("/").toString(),
+                    "tok-1",
+                    EventQuery(
+                        severity = "error",
+                        since = "2026-07-12T09:00:00Z",
+                        limit = 25,
+                        offset = 50,
+                    ),
+                )
+            assertTrue(result is FetchResult.Success)
+
+            val request = server.takeRequest()
+            val url = request.requestUrl!!
+            assertEquals("/api/events", url.encodedPath)
+            assertEquals("error", url.queryParameter("severity"))
+            assertEquals("2026-07-12T09:00:00Z", url.queryParameter("since"))
+            assertEquals("25", url.queryParameter("limit"))
+            assertEquals("50", url.queryParameter("offset"))
+            // Unset filters must be omitted, not sent empty: the server filters
+            // by equality, so an empty member_id would match nothing.
+            assertEquals(null, url.queryParameter("member_id"))
+            assertEquals(null, url.queryParameter("type"))
+        }
+
+    @Test
+    fun eventsNullListIsSuccessWithEmptyPage() =
+        runBlocking {
+            // Go marshals an empty result as "events": null; that's a
+            // renderable empty log, not a Failure.
+            server.enqueue(MockResponse().setBody("""{"events":null,"total":0}"""))
+            val result = client.events(server.url("/").toString(), "tok-1")
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            assertTrue(result.data.events.orEmpty().isEmpty())
+        }
+
+    @Test
+    fun eventsMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.events(server.url("/").toString(), "dead")
+            assertEquals(FetchResult.Unauthorized, result)
+        }
+
+    @Test
+    fun eventQueryStringOmitsUnsetAndEncodesValues() {
+        assertEquals("", FrontDeskClient.eventQueryString(EventQuery()))
+        assertEquals(
+            "?member_id=m+1&severity=error&since=2026-07-12T09%3A00%3A00Z&limit=25&offset=50",
+            FrontDeskClient.eventQueryString(
+                EventQuery(
+                    memberId = "m 1",
+                    severity = "error",
+                    since = "2026-07-12T09:00:00Z",
+                    limit = 25,
+                    offset = 50,
+                ),
+            ),
+        )
+    }
+
+    @Test
     fun autoSyncParsesPrimary() =
         runBlocking {
             server.enqueue(MockResponse().setBody("""{"enabled":true,"primary_id":"m2"}"""))

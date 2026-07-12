@@ -21,6 +21,8 @@ import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.ui.dashboard.DashboardScreen
 import com.hugalafutro.bellhop.ui.dashboard.DashboardViewModel
+import com.hugalafutro.bellhop.ui.events.EventsScreen
+import com.hugalafutro.bellhop.ui.events.EventsViewModel
 import com.hugalafutro.bellhop.ui.member.MemberDetailScreen
 import com.hugalafutro.bellhop.ui.member.MemberDetailViewModel
 import com.hugalafutro.bellhop.ui.pairing.PairingScreen
@@ -180,6 +182,10 @@ fun BellhopApp() {
             var selectedMemberId by rememberSaveable(state.fdUrl, state.deviceId) {
                 mutableStateOf<String?>(null)
             }
+            // Whether the event log is open. Same saveable/keying rationale.
+            var showEvents by rememberSaveable(state.fdUrl, state.deviceId) {
+                mutableStateOf(false)
+            }
             val selected = ui.members.find { it.id == selectedMemberId }
             // The member left the fleet while its detail was open: drop the
             // selection (once the list has actually loaded) so the detail
@@ -190,7 +196,26 @@ fun BellhopApp() {
                 }
             }
 
-            if (selected != null) {
+            if (showEvents) {
+                BackHandler { showEvents = false }
+                // Keyed like the dashboard VM so a relink gets a fresh log.
+                val eventsVm: EventsViewModel =
+                    viewModel(
+                        key = "events-${state.fdUrl}|${state.deviceId}",
+                        factory = EventsViewModel.Factory(client, linkStore, state.fdUrl),
+                    )
+                val eventsUi by eventsVm.state.collectAsStateWithLifecycle()
+                EventsScreen(
+                    onBack = { showEvents = false },
+                    ui = eventsUi,
+                    // Member names ride the dashboard's live state; an unknown
+                    // id (member since removed) falls back to the raw id.
+                    memberNames = ui.members.associate { it.id to it.name },
+                    onSeverity = eventsVm::setSeverity,
+                    onRange = eventsVm::setRange,
+                    onLoadMore = eventsVm::loadMore,
+                )
+            } else if (selected != null) {
                 BackHandler { selectedMemberId = null }
                 // Keyed like the dashboard VM, plus the member id, so flipping
                 // between members never shows another member's series.
@@ -216,6 +241,7 @@ fun BellhopApp() {
                     onDismissUnlinkError = { unlinkFailed = false },
                     onForceUnlink = { forceUnlink() },
                     onMemberClick = { selectedMemberId = it },
+                    onEventsClick = { showEvents = true },
                 )
             }
         }
