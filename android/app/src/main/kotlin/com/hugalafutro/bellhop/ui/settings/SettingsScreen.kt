@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -217,6 +218,17 @@ fun SettingsScreen(
                             checked = lockConfig.enabled,
                             onCheckedChange = onToggleLock,
                             enabled = lockAvailable,
+                            // The default unchecked track is surfaceContainerHighest
+                            // (the Card's own colour) with an outline thumb/border, so
+                            // an off switch blends into the card. Give the off state a
+                            // light thumb + border over a surface track so it stays
+                            // legible on both the ink and paper schemes.
+                            colors =
+                                SwitchDefaults.colors(
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.surface,
+                                    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
                             modifier = Modifier.testTag("settings-lock-toggle"),
                         )
                     }
