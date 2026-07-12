@@ -17,13 +17,16 @@ import kotlinx.serialization.json.Json
 
 /**
  * PairingError is what the pairing screen renders: an unreadable string, a
- * bad/expired code (both fixed localized strings), or a transport failure that
- * carries the upstream message.
+ * bad/expired code, a scan that could not open the camera (denied permission or
+ * no camera; all fixed localized strings), or a transport failure that carries
+ * the upstream message.
  */
 sealed interface PairingError {
     data object BadString : PairingError
 
     data object InvalidCode : PairingError
+
+    data object ScanUnavailable : PairingError
 
     data class Message(
         val text: String,
@@ -97,6 +100,15 @@ class PairingViewModel(
     }
 
     fun onLabelChange(value: String) = _state.update { it.copy(label = value) }
+
+    /**
+     * onScanUnavailable is invoked when a scan can't open the camera — a denied
+     * CAMERA permission, no usable camera, or a camera the preview could not open
+     * at runtime. It leaves any already-parsed fields intact and just posts a hint
+     * so the failure does not look like a deliberate cancel and the paste fallback
+     * is offered.
+     */
+    fun onScanUnavailable() = _state.update { it.copy(error = PairingError.ScanUnavailable) }
 
     /**
      * reset returns the form to a clean slate. This ViewModel is Activity-scoped

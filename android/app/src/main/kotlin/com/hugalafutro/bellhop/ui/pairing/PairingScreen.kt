@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.ui.pairing
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,10 +11,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -21,10 +28,16 @@ import androidx.compose.ui.unit.dp
 import com.hugalafutro.bellhop.R
 
 /**
- * PairingScreen is the unlinked-state entry point (plan A2). The pairing string
- * from the Front Desk "Paired devices" panel carries the URL, code, and name, so
- * it is the only thing asked for: paste it (QR scanning arrives in a later
- * slice) and the Front Desk it points at is shown for confirmation before Pair.
+ * PairingScreen is the unlinked-state entry point (plan A2). The single Front
+ * Desk pairing string carries the URL, code, and name, so that is the only thing
+ * asked for — supplied two equal ways (plan section 3.2): scan the QR shown in
+ * the "Paired devices" panel, or paste the copyable string beside it. Both feed
+ * the same parser, after which the Front Desk it points at is shown for
+ * confirmation before Pair.
+ *
+ * The [scanner] slot hosts the camera preview ([QrScanner] by default) and is
+ * injectable so the pairing wiring — scan success feeds the same parser, a
+ * camera failure surfaces the paste hint — can be tested without a real camera.
  */
 @Composable
 fun PairingScreen(
@@ -32,8 +45,39 @@ fun PairingScreen(
     onPastePayload: (String) -> Unit,
     onLabelChange: (String) -> Unit,
     onSubmit: () -> Unit,
+    onScanUnavailable: () -> Unit,
     modifier: Modifier = Modifier,
+    scanner: @Composable (onScanned: (String) -> Unit, onCameraError: () -> Unit) -> Unit =
+        { onScanned, onCameraError ->
+            QrScanner(
+                onScanned = onScanned,
+                onCameraError = onCameraError,
+                modifier = Modifier.fillMaxSize().testTag("pairing-scanner"),
+            )
+        },
 ) {
+    // Scanning replaces the form with a full-screen preview. Hosting the preview
+    // ourselves (rather than launching ZXing's opaque CaptureActivity) makes the
+    // outcomes deterministic: a decoded QR feeds the same parser as paste, and a
+    // camera that can't be opened — no hardware, service down, denied permission
+    // — reports through onCameraError, which surfaces the paste hint. Back is the
+    // only other exit and is a plain cancel: it drops the preview, no-op.
+    var scanning by remember { mutableStateOf(false) }
+    if (scanning) {
+        BackHandler { scanning = false }
+        scanner(
+            { decoded ->
+                scanning = false
+                onPastePayload(decoded)
+            },
+            {
+                scanning = false
+                onScanUnavailable()
+            },
+        )
+        return
+    }
+
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         Column(
             modifier =
@@ -55,6 +99,21 @@ fun PairingScreen(
                 text = stringResource(R.string.pairing_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            OutlinedButton(
+                onClick = { scanning = true },
+                enabled = !state.busy,
+                modifier = Modifier.fillMaxWidth().testTag("pairing-scan"),
+            ) {
+                Text(stringResource(R.string.pairing_scan))
+            }
+
+            Text(
+                text = stringResource(R.string.pairing_or),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
             )
 
             OutlinedTextField(
@@ -90,6 +149,7 @@ fun PairingScreen(
                     when (err) {
                         PairingError.BadString -> stringResource(R.string.pairing_error_bad_string)
                         PairingError.InvalidCode -> stringResource(R.string.pairing_error_invalid_code)
+                        PairingError.ScanUnavailable -> stringResource(R.string.pairing_error_scan_unavailable)
                         is PairingError.Message -> err.text
                     }
                 Text(

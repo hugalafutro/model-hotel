@@ -4,7 +4,10 @@
 
     <!-- Pairing (unlinked state) -->
     <string name="pairing_title">Link a Front Desk</string>
-    <string name="pairing_subtitle">In Front Desk, open Settings → Paired devices, generate a code, and copy the pairing string. Paste it below (QR scanning is coming soon).</string>
+    <string name="pairing_subtitle">In Front Desk, open Settings → Paired devices and generate a code. Scan the QR it shows, or copy the pairing string beside it and paste it below.</string>
+    <string name="pairing_scan">Scan QR code</string>
+    <string name="pairing_scan_prompt">Point at the pairing QR in Front Desk → Settings → Paired devices</string>
+    <string name="pairing_or">or paste it</string>
     <string name="pairing_paste_label">Pairing string</string>
     <string name="pairing_paste_hint">Paste the copied pairing string here</string>
     <string name="pairing_target">Front Desk: %1$s\n%2$s</string>
@@ -12,6 +15,7 @@
     <string name="pairing_submit">Pair</string>
     <string name="pairing_error_bad_string">That doesn\'t look like a pairing string. Copy it again from Front Desk → Settings → Paired devices.</string>
     <string name="pairing_error_invalid_code">Invalid or expired pairing code. Generate a new one in Front Desk and paste the fresh string.</string>
+    <string name="pairing_error_scan_unavailable">The camera could not be opened, so scanning is unavailable. Grant camera access, or paste the pairing string below instead.</string>
 
     <!-- Dashboard (linked state) -->
     <string name="dashboard_linked_as">Linked as %1$s (%2$s)</string>
