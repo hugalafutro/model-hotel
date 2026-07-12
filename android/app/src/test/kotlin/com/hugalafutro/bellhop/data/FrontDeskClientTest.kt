@@ -403,4 +403,92 @@ class FrontDeskClientTest {
             val messages = client.streamEvents("not a url", "tok").toList()
             assertTrue(messages.isEmpty())
         }
+
+    @Test
+    fun alertStatusParsesAndSendsBearer() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"configured":true,"reachable":true,"healthy":false,""" +
+                        """"detail":"apprise-api returned status 417"}""",
+                ),
+            )
+
+            val result = client.alertStatus(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            assertTrue(result.data.configured)
+            assertTrue(result.data.reachable)
+            assertFalse(result.data.healthy)
+            assertEquals("apprise-api returned status 417", result.data.detail)
+
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertEquals("/api/alert/status", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+        }
+
+    @Test
+    fun alertStatusMissingDetailDefaultsEmpty() =
+        runBlocking {
+            // A healthy notifier omits detail (omitempty on the server); it must
+            // decode to "" not fail on the missing field.
+            server.enqueue(
+                MockResponse().setBody("""{"configured":true,"reachable":true,"healthy":true}"""),
+            )
+            val result = client.alertStatus(server.url("/").toString(), "tok-1")
+            assertTrue(result is FetchResult.Success)
+            assertEquals("", (result as FetchResult.Success).data.detail)
+        }
+
+    @Test
+    fun alertStatusMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.alertStatus(server.url("/").toString(), "dead")
+            assertEquals(FetchResult.Unauthorized, result)
+        }
+
+    @Test
+    fun alertCatalogParsesGroupsAndSendsBearer() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """[{"type":"health.down","category":"Health","severity":"error","defaultOn":true},""" +
+                        """{"type":"config.synced","category":"Config Sync","severity":"info","defaultOn":false}]""",
+                ),
+            )
+
+            val result = client.alertCatalog(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            assertEquals(2, result.data.size)
+            assertEquals("health.down", result.data[0].type)
+            assertEquals("Health", result.data[0].category)
+            assertTrue(result.data[0].defaultOn)
+            assertFalse(result.data[1].defaultOn)
+
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertEquals("/api/alert/events", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+        }
+
+    @Test
+    fun alertCatalogMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.alertCatalog(server.url("/").toString(), "dead")
+            assertEquals(FetchResult.Unauthorized, result)
+        }
 }

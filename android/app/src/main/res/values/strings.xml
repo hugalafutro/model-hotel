@@ -33,6 +33,13 @@
     <string name="member_detail_traffic_totals">%1$d requests · %2$d errors</string>
     <string name="member_detail_traffic_unreachable">Traffic isn\'t available. Front Desk may hold no admin token for this member, or the member didn\'t answer.</string>
     <string name="member_detail_traffic_empty">No requests in this window.</string>
+    <string name="member_detail_events_title">Recent events</string>
+    <string name="member_detail_no_events">No recent events for this member.</string>
+    <string name="member_detail_synced">Config synced %1$s</string>
+    <string name="member_detail_verified">Verified in sync %1$s</string>
+    <string name="member_detail_created">Added %1$s</string>
+    <string name="member_url_title">Open member address</string>
+    <string name="member_url_open">Open</string>
 
     <!-- Events -->
     <string name="events_title">Events</string>
@@ -40,6 +47,7 @@
     <string name="events_back">Back</string>
     <string name="events_empty">No events match.</string>
     <string name="events_load_more">Load more</string>
+    <string name="events_copied">Event copied to clipboard</string>
     <plurals name="events_total">
         <item quantity="one">%1$d event</item>
         <item quantity="other">%1$d events</item>
@@ -54,6 +62,31 @@
     <string name="events_range_24h">24h</string>
     <string name="events_range_7d">7d</string>
     <string name="events_range_30d">30d</string>
+
+    <!-- Alerts -->
+    <string name="alerts_title">Alerts</string>
+    <string name="alerts_open">Alerts</string>
+    <string name="alerts_back">Back</string>
+    <string name="alerts_delivery_title">Notification delivery</string>
+    <string name="alerts_status_not_configured">Not configured</string>
+    <string name="alerts_status_unreachable">Notifier unreachable</string>
+    <string name="alerts_status_unhealthy">Notifier unhealthy</string>
+    <string name="alerts_status_delivering">Delivering</string>
+    <string name="alerts_catalog_title">What Front Desk alerts on</string>
+    <string name="alerts_catalog_note">Enable or mute specific alerts in Front Desk → Settings → Alerts. This list shows every event Front Desk can notify on and its first-run default.</string>
+    <string name="alerts_default_on">On by default</string>
+    <string name="alerts_default_off">Off by default</string>
+    <string name="alerts_event_health_down">Member went down</string>
+    <string name="alerts_event_health_up">Member recovered</string>
+    <string name="alerts_event_config_sync_failed">Config sync failed</string>
+    <string name="alerts_event_config_synced">Config synced</string>
+    <string name="alerts_event_config_auto_synced">Config auto-synced</string>
+    <string name="alerts_event_version_fetch_failed">Version read failed</string>
+    <string name="alerts_event_version_fetch_recovered">Version read recovered</string>
+    <string name="alerts_event_traefik_stale">Traefik config stale</string>
+    <string name="alerts_event_member_added">Member added</string>
+    <string name="alerts_event_member_removed">Member removed</string>
+    <string name="alerts_event_member_state_changed">Member drained or activated</string>
 
     <string name="dashboard_unlink">Unlink</string>
     <string name="dashboard_unlink_confirm_title">Unlink this device?</string>

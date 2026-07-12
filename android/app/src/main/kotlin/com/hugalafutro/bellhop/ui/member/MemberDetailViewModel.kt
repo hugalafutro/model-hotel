@@ -3,10 +3,14 @@ package com.hugalafutro.bellhop.ui.member
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.hugalafutro.bellhop.data.EventQuery
+import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberTraffic
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +30,10 @@ import kotlinx.coroutines.launch
 data class MemberDetailUiState(
     val loading: Boolean = true,
     val traffic: MemberTraffic? = null,
+    // The member's own recent events (newest first), from GET /api/events filtered
+    // to this member. Read-only and unpaged: the full log with filters lives on
+    // the Events screen; here it's just "what happened to this box lately".
+    val events: List<FdEvent> = emptyList(),
     val error: String? = null,
     val revoked: Boolean = false,
 )
@@ -70,7 +78,12 @@ class MemberDetailViewModel(
         }
     }
 
-    /** refreshOnce performs one traffic fetch and folds it into the state. */
+    /**
+     * refreshOnce fetches this member's traffic and its recent events together
+     * (they don't depend on each other) and folds both in. Either 401 means the
+     * token is dead, so revoked wins; a failure on either keeps the last-good
+     * slice and raises the error; both succeeding clears it.
+     */
     suspend fun refreshOnce() {
         val token = linkStore.token()
         if (token == null) {
@@ -80,15 +93,32 @@ class MemberDetailViewModel(
             _state.update { it.copy(loading = false, revoked = true) }
             return
         }
-        when (val result = client.memberTraffic(fdUrl, token, memberId)) {
-            is FetchResult.Success ->
-                _state.update {
-                    it.copy(loading = false, traffic = result.data, error = null, revoked = false)
-                }
-            FetchResult.Unauthorized ->
-                _state.update { it.copy(loading = false, revoked = true) }
-            is FetchResult.Failure ->
-                _state.update { it.copy(loading = false, error = result.message) }
+        val (traffic, events) =
+            coroutineScope {
+                val t = async { client.memberTraffic(fdUrl, token, memberId) }
+                val e = async { client.events(fdUrl, token, EventQuery(memberId = memberId, limit = EVENTS_LIMIT)) }
+                t.await() to e.await()
+            }
+        if (traffic is FetchResult.Unauthorized || events is FetchResult.Unauthorized) {
+            _state.update { it.copy(loading = false, revoked = true) }
+            return
+        }
+        _state.update { st ->
+            val failure =
+                (traffic as? FetchResult.Failure)?.message
+                    ?: (events as? FetchResult.Failure)?.message
+            st.copy(
+                loading = false,
+                traffic = (traffic as? FetchResult.Success)?.data ?: st.traffic,
+                events =
+                    (events as? FetchResult.Success)?.data?.events.orEmpty().ifEmpty {
+                        // Keep the last-good list only when the events fetch itself
+                        // failed; a genuine empty page (success) must clear it.
+                        if (events is FetchResult.Success) emptyList() else st.events
+                    },
+                error = failure,
+                revoked = false,
+            )
         }
     }
 
@@ -107,5 +137,9 @@ class MemberDetailViewModel(
         // The chart's buckets are 5 minutes wide; a minute-ish poll keeps the
         // current bucket moving without hammering the member's stats API.
         const val POLL_INTERVAL_MS = 60_000L
+
+        // Recent events shown under the graph. Enough to see the member's recent
+        // story; the Events screen owns the full, filterable, paged log.
+        const val EVENTS_LIMIT = 25
     }
 }

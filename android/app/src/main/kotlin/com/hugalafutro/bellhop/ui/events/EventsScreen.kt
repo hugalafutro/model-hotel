@@ -1,6 +1,6 @@
 package com.hugalafutro.bellhop.ui.events
 
-import androidx.compose.foundation.horizontalScroll
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,12 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,17 +26,21 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.hugalafutro.bellhop.R
 import com.hugalafutro.bellhop.data.FdEvent
+import com.hugalafutro.bellhop.ui.common.FilterPill
 import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.StatusBanner
+import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import java.time.Instant
 import java.time.ZoneId
@@ -61,6 +63,15 @@ fun EventsScreen(
     onLoadMore: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    // Tapping an event's severity pill copies the whole event as text (handy for
+    // pasting into a bug report), with a toast to confirm the otherwise-silent act.
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val copiedMsg = stringResource(R.string.events_copied)
+    val onCopy: (FdEvent) -> Unit = { event ->
+        clipboard.setText(AnnotatedString(eventClipboardText(event, memberNames[event.memberId])))
+        Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+    }
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         Column(
             modifier =
@@ -140,7 +151,11 @@ fun EventsScreen(
                         // primary keys server-side, but a buggy duplicate must
                         // degrade to a double row, not a crash.
                         items(ui.events) { event ->
-                            EventCard(event = event, memberName = memberNames[event.memberId])
+                            EventCard(
+                                event = event,
+                                memberName = memberNames[event.memberId],
+                                onCopy = { onCopy(event) },
+                            )
                         }
                         if (ui.canLoadMore) {
                             item {
@@ -173,6 +188,9 @@ fun EventsScreen(
 // SEVERITIES list (frontdesk/web/src/pages/EventsPage.tsx).
 private val SEVERITIES = listOf("", "info", "success", "warning", "error")
 
+// Both filter rows are equal-weight Rows, not wrapping FlowRows: a fixed small
+// set of options reads as a segmented control that always fits one line on a
+// phone (each pill takes 1/N of the width, label centered and ellipsized).
 @Composable
 private fun SeverityChips(
     selected: String,
@@ -180,15 +198,16 @@ private fun SeverityChips(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier.fillMaxWidth(),
     ) {
         SEVERITIES.forEach { sev ->
-            FilterChip(
+            FilterPill(
+                text = severityLabel(sev),
                 selected = selected == sev,
                 onClick = { onSeverity(sev) },
-                label = { Text(severityLabel(sev)) },
-                modifier = Modifier.testTag("events-sev-${sev.ifEmpty { "all" }}"),
+                tag = "events-sev-${sev.ifEmpty { "all" }}",
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -201,15 +220,16 @@ private fun RangeChips(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier.fillMaxWidth(),
     ) {
         EventRange.entries.forEach { range ->
-            FilterChip(
+            FilterPill(
+                text = rangeLabel(range),
                 selected = selected == range,
                 onClick = { onRange(range) },
-                label = { Text(rangeLabel(range)) },
-                modifier = Modifier.testTag("events-range-${range.name.lowercase()}"),
+                tag = "events-range-${range.name.lowercase()}",
+                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -219,6 +239,7 @@ private fun RangeChips(
 private fun EventCard(
     event: FdEvent,
     memberName: String?,
+    onCopy: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val (container, content) = severityColors(event.severity)
@@ -236,6 +257,7 @@ private fun EventCard(
                     container = container,
                     content = content,
                     tag = "event-sev-${event.severity}",
+                    onClick = onCopy,
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
@@ -285,24 +307,6 @@ private fun rangeLabel(range: EventRange): String =
         EventRange.D30 -> stringResource(R.string.events_range_30d)
     }
 
-/** severityColors maps a severity onto the badge palette FD web uses (ok/warn/danger/info). */
-@Composable
-private fun severityColors(severity: String): Pair<Color, Color> =
-    when (severity) {
-        "success" ->
-            MaterialTheme.colorScheme.tertiaryContainer to
-                MaterialTheme.colorScheme.onTertiaryContainer
-        "warning" ->
-            MaterialTheme.colorScheme.secondaryContainer to
-                MaterialTheme.colorScheme.onSecondaryContainer
-        "error" ->
-            MaterialTheme.colorScheme.errorContainer to
-                MaterialTheme.colorScheme.onErrorContainer
-        else ->
-            MaterialTheme.colorScheme.surfaceVariant to
-                MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
 private val EVENT_TIME_FORMAT =
     DateTimeFormatter.ofPattern("MMM d · HH:mm", Locale.getDefault())
 
@@ -315,6 +319,22 @@ internal fun formatEventTime(createdAt: String): String =
     } catch (e: Exception) {
         createdAt
     }
+
+// eventClipboardText renders one event as a plain-text block for the clipboard:
+// a header (time · severity · type), the message, then a source/member line —
+// blank parts dropped so a memberless system event doesn't trail a dangling dot.
+internal fun eventClipboardText(
+    event: FdEvent,
+    memberName: String?,
+): String {
+    val header = "${formatEventTime(event.createdAt)} · [${event.severity}] ${event.type}"
+    val who =
+        listOfNotNull(
+            event.source.ifEmpty { null },
+            memberName ?: event.memberId.ifEmpty { null },
+        ).joinToString(" · ")
+    return listOf(header, event.message, who).filter { it.isNotEmpty() }.joinToString("\n")
+}
 
 @Preview(showBackground = true)
 @Composable
