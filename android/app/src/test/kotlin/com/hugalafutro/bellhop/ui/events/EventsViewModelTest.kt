@@ -213,26 +213,27 @@ class EventsViewModelTest {
         }
 
     @Test
-    fun loadMoreAppendsNextPageAndDedups() =
+    fun loadMoreGrowsWindowFromTop() =
         runBlocking {
             val client = FakeEventsClient(page("e1", "e2", total = 4))
             val vm = newVm(client, linkedStore())
             vm.refreshOnce()
 
-            // The next page overlaps by one row (a new event shifted offsets
-            // between fetches); the duplicate must not render twice.
-            client.result = page("e2", "e3", total = 4)
+            // Load-more re-reads the whole window from offset 0 one page larger,
+            // so a new event that shifted offsets between fetches can't skip a
+            // row and no id can appear twice.
+            client.result = page("e1", "e2", "e3", "e4", total = 4)
             vm.loadMore()
 
             // Spin on state.value instead of collecting: a collector would
             // wake the gated refresh loop, whose full-window reload with the
             // swapped fake result would fight this assertion.
             withTimeout(5_000) {
-                while (vm.state.value.loadingMore || vm.state.value.events.size != 3) delay(10)
+                while (vm.state.value.loadingMore || vm.state.value.events.size != 4) delay(10)
             }
-            assertEquals(listOf("e1", "e2", "e3"), vm.state.value.events.map { it.id })
-            assertEquals(2, client.lastQuery!!.offset)
-            assertEquals(EventsViewModel.PAGE_SIZE, client.lastQuery!!.limit)
+            assertEquals(listOf("e1", "e2", "e3", "e4"), vm.state.value.events.map { it.id })
+            assertEquals(0, client.lastQuery!!.offset)
+            assertEquals(2 + EventsViewModel.PAGE_SIZE, client.lastQuery!!.limit)
         }
 
     @Test

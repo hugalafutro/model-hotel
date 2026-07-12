@@ -61,10 +61,13 @@ data class EventsUiState(
  * stream: the dashboard already owns the app's one live stream, and a control-
  * plane log that trails reality by a poll interval is fine on a phone.
  *
- * Refreshes reload the whole loaded window (offset 0, limit = however many
- * rows the user has paged in) rather than just the first page, so new events
- * prepend without truncating a scrolled-back list. The server caps a page at
- * 500 rows, which is more log than anyone scrolls through on a phone.
+ * Both refresh and load-more reload the whole loaded window from offset 0
+ * (refresh at the current size, load-more one page larger) rather than paging
+ * by offset. On a newest-first list any event that lands between fetches shifts
+ * every offset by one, so an offset-based next-page fetch would skip a row;
+ * re-reading the window from the top is drift-proof. New events prepend without
+ * truncating a scrolled-back list. The server caps a page at 500 rows, which is
+ * more log than anyone scrolls through on a phone.
  */
 class EventsViewModel(
     private val client: FrontDeskClient,
@@ -164,12 +167,15 @@ class EventsViewModel(
     private suspend fun loadMoreOnce() =
         fetchMutex.withLock {
             val before = _state.value
-            fetch(before, query(before, limit = PAGE_SIZE, offset = before.events.size)) { st, resp ->
-                // New events may have shifted offsets between pages; dedup by
-                // id so a row straddling the boundary doesn't render twice.
-                val seen = st.events.mapTo(HashSet()) { it.id }
+            // Grow the window by a page and reload it from the top rather than
+            // fetching at offset = events.size: on a newest-first list an event
+            // arriving between pages shifts every offset by one, so an offset
+            // fetch would skip the row that slid past the old boundary. Reading
+            // the whole window from offset 0 is drift-proof (and dedup-free).
+            val limit = (before.events.size + PAGE_SIZE).coerceAtMost(MAX_WINDOW)
+            fetch(before, query(before, limit = limit, offset = 0)) { st, resp ->
                 st.copy(
-                    events = st.events + resp.events.orEmpty().filter { it.id !in seen },
+                    events = resp.events.orEmpty(),
                     total = resp.total,
                     error = null,
                     revoked = false,
