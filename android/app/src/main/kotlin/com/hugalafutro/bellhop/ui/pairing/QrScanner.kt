@@ -95,6 +95,14 @@ fun QrScanner(
                 }
             }
         lifecycleOwner.lifecycle.addObserver(observer)
+        // A freshly added observer is not sent the state the lifecycle is already
+        // in, so when the scanner opens from the normal resumed Activity (the user
+        // just tapped Scan) the ON_RESUME that would start the preview has already
+        // passed. Start it here; the observer then only handles later background
+        // and foreground transitions, so resume() is never called twice.
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            barcodeView.resume()
+        }
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             barcodeView.pause()
