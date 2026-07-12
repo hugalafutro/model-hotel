@@ -1,7 +1,6 @@
 package com.hugalafutro.bellhop.ui.events
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
-import androidx.lifecycle.viewModelScope
 import com.hugalafutro.bellhop.data.EventQuery
 import com.hugalafutro.bellhop.data.EventsResponse
 import com.hugalafutro.bellhop.data.FakeCipher
@@ -15,7 +14,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -80,21 +78,12 @@ class EventsViewModelTest {
     @get:Rule
     val tmp = TemporaryFolder()
 
-    // Every ViewModel built in a test, so tearDown can drain its scope: a VM's
-    // collector-gated loops outlive the test method (nothing clears the VM),
-    // and a leftover dispatch on the test Main dispatcher can collide with a
-    // later test class's Dispatchers.setMain ("Dispatchers.Main is used
-    // concurrently with setting it").
-    private val vms = mutableListOf<EventsViewModel>()
-
     private fun newVm(
         client: FrontDeskClient,
         linkStore: LinkStore,
         pollIntervalMs: Long = EventsViewModel.POLL_INTERVAL_MS,
         now: () -> Long = System::currentTimeMillis,
-    ): EventsViewModel =
-        EventsViewModel(client, linkStore, "http://fd:1", pollIntervalMs, now)
-            .also { vms += it }
+    ): EventsViewModel = EventsViewModel(client, linkStore, "http://fd:1", pollIntervalMs, now)
 
     @Before
     fun setUp() {
@@ -102,14 +91,7 @@ class EventsViewModelTest {
     }
 
     @After
-    fun tearDown() {
-        runBlocking {
-            vms.forEach { vm ->
-                vm.viewModelScope.cancel()
-                vm.viewModelScope.coroutineContext[Job]?.join()
-            }
-        }
-        vms.clear()
+    fun tearDownMain() {
         Dispatchers.resetMain()
     }
 
