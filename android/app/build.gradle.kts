@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -43,7 +45,7 @@ android {
                 test.testLogging.events("started", "failed", "skipped")
                 // And kill a wedged test task long before the CI job cap: the
                 // whole suite runs in well under a minute.
-                test.timeout.set(java.time.Duration.ofMinutes(10))
+                test.timeout.set(Duration.ofMinutes(10))
             }
         }
     }
