@@ -1,22 +1,27 @@
 package com.hugalafutro.bellhop.ui.events
 
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,10 +43,10 @@ import androidx.compose.ui.unit.dp
 import com.hugalafutro.bellhop.R
 import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.ui.common.FilterPill
-import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.StatusBanner
 import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import com.hugalafutro.bellhop.ui.theme.MonoFamily
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -144,18 +149,18 @@ fun EventsScreen(
                 else ->
                     LazyColumn(
                         modifier = Modifier.weight(1f).testTag("events-list"),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(bottom = 24.dp),
                     ) {
                         // Unkeyed on purpose, like the dashboard list: ids are
                         // primary keys server-side, but a buggy duplicate must
                         // degrade to a double row, not a crash.
                         items(ui.events) { event ->
-                            EventCard(
+                            EventRow(
                                 event = event,
                                 memberName = memberNames[event.memberId],
                                 onCopy = { onCopy(event) },
                             )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
                         if (ui.canLoadMore) {
                             item {
@@ -236,33 +241,53 @@ private fun RangeChips(
 }
 
 @Composable
-private fun EventCard(
+private fun EventRow(
     event: FdEvent,
     memberName: String?,
     onCopy: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val (container, content) = severityColors(event.severity)
-    Card(modifier = modifier.fillMaxWidth().testTag("event-card")) {
+    // A log line, not a card: a colour-coded severity rail down the left edge and
+    // a faint tint of the same colour, so severity reads at a glance without a
+    // pill. The whole row taps to copy (the rail carries the severity test tag).
+    val accent = severityColors(event.severity).first
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clickable(onClick = onCopy)
+                .background(accent.copy(alpha = 0.06f))
+                .height(IntrinsicSize.Min)
+                .testTag("event-card"),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .background(accent)
+                    .testTag("event-sev-${event.severity}"),
+        )
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Pill(
-                    text = severityLabel(event.severity),
-                    container = container,
-                    content = content,
-                    tag = "event-sev-${event.severity}",
-                    onClick = onCopy,
+                Text(
+                    text = event.type,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
-                Spacer(modifier = Modifier.weight(1f))
+                // Time in the brand mono so the column aligns and reads as a metric.
                 Text(
                     text = formatEventTime(event.createdAt),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontFamily = MonoFamily,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -270,17 +295,21 @@ private fun EventCard(
                 text = event.message,
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Text(
-                text =
-                    listOfNotNull(
-                        event.source.ifEmpty { null },
-                        memberName ?: event.memberId.ifEmpty { null },
-                    ).joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            val who =
+                listOfNotNull(
+                    event.source.ifEmpty { null },
+                    memberName ?: event.memberId.ifEmpty { null },
+                ).joinToString(" · ")
+            if (who.isNotEmpty()) {
+                Text(
+                    text = who,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = MonoFamily,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

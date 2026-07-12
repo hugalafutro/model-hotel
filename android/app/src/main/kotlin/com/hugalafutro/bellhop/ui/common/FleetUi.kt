@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.ui.common
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -100,8 +101,12 @@ internal fun FilterPill(
     tag: String,
     modifier: Modifier = Modifier,
 ) {
-    val container =
-        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    // Selected fills with the brass accent; unselected is an outlined toggle
+    // (transparent with a hairline border) rather than a grey fill, so the set
+    // reads as an interactive segmented control instead of another static badge —
+    // the severity badges on log rows are rails, not pills, so pills now always
+    // mean "tap me".
+    val container = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
     val content =
         if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
@@ -109,6 +114,7 @@ internal fun FilterPill(
         color = container,
         contentColor = content,
         shape = RoundedCornerShape(999.dp),
+        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         modifier = modifier.testTag(tag),
     ) {
         Text(
