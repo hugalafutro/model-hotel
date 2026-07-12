@@ -82,6 +82,13 @@ class DashboardViewModel(
     // from viewModelScope coroutines (single-threaded Main), so a plain map is safe.
     private val trafficFetchedAt = mutableMapOf<String, Long>()
 
+    // Members with a traffic fetch currently in flight, so the debounce path and
+    // the periodic tick can't both request the same member at once (the TTL only
+    // dedupes sequential fetches, since fetchedAt is stamped on completion). Kept
+    // separate from trafficFetchedAt so a failed fetch still retries immediately
+    // rather than being blocked for a TTL. Main-confined, so a plain set is safe.
+    private val trafficInFlight = mutableSetOf<String>()
+
     init {
         viewModelScope.launch {
             _state.subscriptionCount
@@ -181,6 +188,9 @@ class DashboardViewModel(
             launch {
                 while (true) {
                     delay(trafficPollMs)
+                    // A dead token can't authenticate; stop ticking like the
+                    // other loops rather than spinning on a no-op fetch.
+                    if (_state.value.revoked) return@launch
                     fetchVisibleTraffic(visibleIds.value, force = true)
                 }
             }
@@ -198,19 +208,31 @@ class DashboardViewModel(
         if (_state.value.revoked) return
         val token = linkStore.token() ?: return
         val at = now()
-        val due = ids.filter { force || at - (trafficFetchedAt[it] ?: 0L) >= TRAFFIC_TTL_MS }
+        val due =
+            ids.filter {
+                it !in trafficInFlight && (force || at - (trafficFetchedAt[it] ?: 0L) >= TRAFFIC_TTL_MS)
+            }
         if (due.isEmpty()) return
         coroutineScope {
             due.forEach { id ->
+                // Marked before the launch (synchronously, on Main) so a
+                // concurrent call sees it in flight and skips it.
+                trafficInFlight += id
                 launch {
-                    when (val result = client.memberTraffic(fdUrl, token, id)) {
-                        is FetchResult.Success -> {
-                            trafficFetchedAt[id] = at
-                            _state.update { it.copy(traffic = it.traffic + (id to result.data)) }
+                    try {
+                        when (val result = client.memberTraffic(fdUrl, token, id)) {
+                            is FetchResult.Success -> {
+                                trafficFetchedAt[id] = at
+                                _state.update { it.copy(traffic = it.traffic + (id to result.data)) }
+                            }
+                            FetchResult.Unauthorized -> _state.update { it.copy(revoked = true) }
+                            // A stale sparkline is fine; the card's health still shows.
+                            is FetchResult.Failure -> Unit
                         }
-                        FetchResult.Unauthorized -> _state.update { it.copy(revoked = true) }
-                        // A stale sparkline is fine; the card's health still shows.
-                        is FetchResult.Failure -> Unit
+                    } finally {
+                        // Runs on success, failure, or cancellation, so a member
+                        // is never stuck marked-in-flight after its fetch ends.
+                        trafficInFlight -= id
                     }
                 }
             }

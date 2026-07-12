@@ -36,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -286,14 +287,19 @@ fun DashboardScreen(
                     val listState = rememberLazyListState()
                     // Report which members are on screen so the ViewModel fetches
                     // traffic only for them (viewport-bounded fan-out; a big fleet
-                    // never triggers a call per member). Recomputed as the visible
-                    // index set settles or the list changes.
-                    LaunchedEffect(listState, ui.members) {
-                        snapshotFlow { listState.layoutInfo.visibleItemsInfo.map { it.index } }
+                    // never triggers a call per member). Keyed on listState only so
+                    // the collector isn't torn down every health poll; members are
+                    // read live via rememberUpdatedState, and mapping index->id
+                    // inside snapshotFlow means a roster change with the same
+                    // visible indices still re-reports the (now different) ids.
+                    val liveMembers = rememberUpdatedState(ui.members)
+                    LaunchedEffect(listState) {
+                        snapshotFlow {
+                            listState.layoutInfo.visibleItemsInfo
+                                .mapNotNull { liveMembers.value.getOrNull(it.index)?.id }
+                        }
                             .distinctUntilChanged()
-                            .collect { indices ->
-                                onVisibleMembers(indices.mapNotNull { ui.members.getOrNull(it)?.id })
-                            }
+                            .collect(onVisibleMembers)
                     }
                     LazyColumn(
                         state = listState,
