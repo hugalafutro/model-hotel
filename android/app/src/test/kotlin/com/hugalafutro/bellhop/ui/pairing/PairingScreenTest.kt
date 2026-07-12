@@ -30,6 +30,7 @@ class PairingScreenTest {
                     onPastePayload = {},
                     onLabelChange = {},
                     onSubmit = onSubmit,
+                    onScanUnavailable = {},
                 )
             }
         }
@@ -109,5 +110,13 @@ class PairingScreenTest {
         render(PairingUiState(pasteText = "junk", error = PairingError.BadString))
         composeTestRule.onNodeWithTag("pairing-error").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("pairing-submit").assertIsNotEnabled()
+    }
+
+    @Test
+    fun showsScanUnavailableError() {
+        // A denied camera permission surfaces as an error hint rather than a
+        // silent no-op, so the operator is pointed at the paste fallback.
+        render(PairingUiState(error = PairingError.ScanUnavailable))
+        composeTestRule.onNodeWithTag("pairing-error").performScrollTo().assertIsDisplayed()
     }
 }

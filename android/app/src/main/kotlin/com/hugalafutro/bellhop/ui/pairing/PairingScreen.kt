@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.google.zxing.client.android.Intents
 import com.hugalafutro.bellhop.R
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
@@ -39,15 +40,26 @@ fun PairingScreen(
     onPastePayload: (String) -> Unit,
     onLabelChange: (String) -> Unit,
     onSubmit: () -> Unit,
+    onScanUnavailable: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // ZXing's CaptureActivity handles the camera preview and requests the CAMERA
     // permission itself, so the launch is inert until Scan is tapped. A decoded
     // QR is the same JSON string the user would paste, so it just feeds
-    // onPastePayload; a cancelled scan yields null contents and is a no-op.
+    // onPastePayload. A null result is either a user cancel (no-op) or a denied
+    // CAMERA permission: ZXing finishes the latter with a MISSING_CAMERA_PERMISSION
+    // extra rather than a decoded value, so surface it as a hint toward the paste
+    // fallback instead of letting the failure look like a deliberate cancel.
     val scanLauncher =
         rememberLauncherForActivityResult(ScanContract()) { result ->
-            result.contents?.let(onPastePayload)
+            val contents = result.contents
+            when {
+                contents != null -> onPastePayload(contents)
+                result.originalIntent?.getBooleanExtra(
+                    Intents.Scan.MISSING_CAMERA_PERMISSION,
+                    false,
+                ) == true -> onScanUnavailable()
+            }
         }
     val scanPrompt = stringResource(R.string.pairing_scan_prompt)
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
@@ -130,6 +142,7 @@ fun PairingScreen(
                     when (err) {
                         PairingError.BadString -> stringResource(R.string.pairing_error_bad_string)
                         PairingError.InvalidCode -> stringResource(R.string.pairing_error_invalid_code)
+                        PairingError.ScanUnavailable -> stringResource(R.string.pairing_error_scan_unavailable)
                         is PairingError.Message -> err.text
                     }
                 Text(

@@ -163,6 +163,7 @@ fun BellhopApp() {
                 onPastePayload = vm::onPastePayload,
                 onLabelChange = vm::onLabelChange,
                 onSubmit = vm::pair,
+                onScanUnavailable = vm::onScanUnavailable,
             )
         }
         is LinkState.Linked -> {
