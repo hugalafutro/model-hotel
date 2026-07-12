@@ -36,6 +36,15 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            all { test ->
+                // Print each test as it starts, not just failures: when the
+                // test JVM wedges, the CI log then ends at the culprit's name
+                // instead of going silent for the whole job timeout.
+                test.testLogging.events("started", "failed", "skipped")
+                // And kill a wedged test task long before the CI job cap: the
+                // whole suite runs in well under a minute.
+                test.timeout.set(java.time.Duration.ofMinutes(10))
+            }
         }
     }
 }
