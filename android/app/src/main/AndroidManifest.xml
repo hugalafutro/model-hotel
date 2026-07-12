@@ -14,6 +14,13 @@
          is a local access gate the user turns on in Settings; when no biometric
          or device credential is enrolled the gate simply can't engage. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <!-- POST_NOTIFICATIONS backs the optional background-monitoring backstop
+         (plan section 5.2): the periodic fleet poll posts a local notification
+         when a member goes down or recovers. It is a runtime permission from API
+         33, requested when the user turns the backstop on in Settings; below 33
+         notifications post without it. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />

@@ -57,9 +57,11 @@ fun SettingsScreen(
     link: LinkState.Linked,
     lockConfig: LockConfig,
     lockAvailable: Boolean,
+    monitorEnabled: Boolean,
     onBack: () -> Unit,
     onToggleLock: (Boolean) -> Unit,
     onSelectTimeout: (LockTimeout) -> Unit,
+    onToggleMonitor: (Boolean) -> Unit,
     onAlertsClick: () -> Unit,
     onUnlink: () -> Unit,
     modifier: Modifier = Modifier,
@@ -267,6 +269,50 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Background monitoring: the Layer-2 backstop (plan section 5.2). Off
+            // by default; turning it on schedules the periodic poll and prompts
+            // for the notification permission.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_monitor_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_monitor_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = monitorEnabled,
+                            onCheckedChange = onToggleMonitor,
+                            // Same off-state colours as the lock switch so an off
+                            // toggle stays legible on the card (see note above).
+                            colors =
+                                SwitchDefaults.colors(
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.surface,
+                                    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
+                            modifier = Modifier.testTag("settings-monitor-toggle"),
+                        )
+                    }
+                    if (monitorEnabled) {
+                        Text(
+                            text = stringResource(R.string.settings_monitor_note),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("settings-monitor-note"),
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Alerts stays reachable here even when all is green (the dashboard bell
             // only appears when a member is down).
             Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onAlertsClick).testTag("settings-alerts")) {
@@ -322,9 +368,11 @@ private fun SettingsScreenPreview() {
                 ),
             lockConfig = LockConfig(enabled = true, timeoutMs = LockTimeout.THIRTY_MINUTES.millis),
             lockAvailable = true,
+            monitorEnabled = true,
             onBack = {},
             onToggleLock = {},
             onSelectTimeout = {},
+            onToggleMonitor = {},
             onAlertsClick = {},
             onUnlink = {},
         )
