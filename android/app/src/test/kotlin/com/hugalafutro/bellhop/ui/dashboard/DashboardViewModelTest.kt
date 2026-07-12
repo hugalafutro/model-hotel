@@ -267,6 +267,39 @@ class DashboardViewModelTest {
         }
 
     @Test
+    fun revokedTokenSwallowsFurtherRefreshNudges() =
+        runBlocking {
+            // Revocation is terminal (only unlink fixes it, and relinking
+            // rebuilds the ViewModel), so stream/poll nudges after it must not
+            // keep hitting Front Desk with a token that can never work. The
+            // outer timeout turns any future deadlock in this loop machinery
+            // into a fast failure instead of a hung CI job.
+            withTimeout(30_000) {
+                val events = MutableSharedFlow<SseMessage>(extraBufferCapacity = 8)
+                val client = FakeFleetClient(FetchResult.Unauthorized, sseFlow = events)
+                val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+
+                val job = launch { vm.state.collect {} }
+                withTimeout(5_000) { vm.state.first { it.revoked } }
+                val calls = client.memberCalls.get()
+
+                withTimeout(5_000) { events.subscriptionCount.first { it > 0 } }
+                events.emit(SseMessage.Event(FleetEvent(type = "health.down")))
+                delay(200)
+                assertEquals(calls, client.memberCalls.get())
+                job.cancel()
+
+                // A collector restart with the flag already set (backgrounding
+                // and reopening the app) must not fire one more doomed
+                // request: runRefreshes' initial refresh has to be gated too.
+                val restarted = launch { vm.state.collect {} }
+                delay(200)
+                assertEquals(calls, client.memberCalls.get())
+                restarted.cancel()
+            }
+        }
+
+    @Test
     fun sseUnauthorizedFlagsRevoked() =
         runBlocking {
             // A 401 on the stream means the device token is dead; surface it the

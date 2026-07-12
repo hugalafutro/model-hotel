@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -36,6 +38,15 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            all { test ->
+                // Print each test as it starts, not just failures: when the
+                // test JVM wedges, the CI log then ends at the culprit's name
+                // instead of going silent for the whole job timeout.
+                test.testLogging.events("started", "failed", "skipped")
+                // And kill a wedged test task long before the CI job cap: the
+                // whole suite runs in well under a minute.
+                test.timeout.set(Duration.ofMinutes(10))
+            }
         }
     }
 }
@@ -62,6 +73,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
+    // The back-arrow vector. material3 currently drags this in transitively,
+    // but the icons the app uses must not ride on someone else's dependency.
+    implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.okhttp)
     implementation(libs.okhttp.sse)

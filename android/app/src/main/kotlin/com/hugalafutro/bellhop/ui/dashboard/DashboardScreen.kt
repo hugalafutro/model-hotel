@@ -15,13 +15,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -32,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +40,10 @@ import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.MemberStatus
+import com.hugalafutro.bellhop.ui.common.Pill
+import com.hugalafutro.bellhop.ui.common.StatusBanner
+import com.hugalafutro.bellhop.ui.common.healthColor
+import com.hugalafutro.bellhop.ui.common.healthLabel
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 
 /**
@@ -60,6 +61,7 @@ fun DashboardScreen(
     unlinkFailed: Boolean = false,
     onDismissUnlinkError: () -> Unit = {},
     onForceUnlink: () -> Unit = {},
+    onMemberClick: (String) -> Unit = {},
 ) {
     var confirmUnlink by remember { mutableStateOf(false) }
 
@@ -212,7 +214,11 @@ fun DashboardScreen(
                         // with duplicate ids would crash a keyed LazyColumn outright.
                         // Positional identity is fine for a small stateless list.
                         items(ui.members) { member ->
-                            MemberCard(member = member, isPrimary = member.id == ui.primaryId)
+                            MemberCard(
+                                member = member,
+                                isPrimary = member.id == ui.primaryId,
+                                onClick = { onMemberClick(member.id) },
+                            )
                         }
                     }
                 }
@@ -253,16 +259,12 @@ private fun FleetSummary(
 private fun MemberCard(
     member: FleetMember,
     isPrimary: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val health = member.status.health
-    val healthColor =
-        when {
-            !health.known -> MaterialTheme.colorScheme.outline
-            health.healthy -> MaterialTheme.colorScheme.tertiary
-            else -> MaterialTheme.colorScheme.error
-        }
-    Card(modifier = modifier.fillMaxWidth().testTag("member-card-${member.name}")) {
+    val healthColor = healthColor(health)
+    Card(onClick = onClick, modifier = modifier.fillMaxWidth().testTag("member-card-${member.name}")) {
         Column(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -340,57 +342,6 @@ private fun MemberCard(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun healthLabel(health: HealthStatus): String =
-    when {
-        !health.known -> stringResource(R.string.member_health_unknown)
-        health.healthy -> stringResource(R.string.member_health_up, health.latencyMs)
-        else -> stringResource(R.string.member_health_down)
-    }
-
-@Composable
-private fun Pill(
-    text: String,
-    container: Color,
-    content: Color,
-    tag: String,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        color = container,
-        contentColor = content,
-        shape = RoundedCornerShape(999.dp),
-        modifier = modifier.testTag(tag),
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-        )
-    }
-}
-
-/** StatusBanner is the stale-data warning strip: refresh failed or token dead. */
-@Composable
-private fun StatusBanner(
-    text: String,
-    tag: String,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        color = MaterialTheme.colorScheme.errorContainer,
-        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        shape = MaterialTheme.shapes.medium,
-        modifier = modifier.fillMaxWidth().padding(bottom = 12.dp).testTag(tag),
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(12.dp),
-        )
     }
 }
 

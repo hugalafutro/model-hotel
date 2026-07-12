@@ -27,6 +27,13 @@
     <string name="member_traefik">Traefik %1$s</string>
     <string name="member_state_drained">Drained</string>
     <string name="member_primary">Primary</string>
+    <!-- Member detail -->
+    <string name="member_detail_back">Back</string>
+    <string name="member_detail_traffic_title">Traffic · last %1$d min</string>
+    <string name="member_detail_traffic_totals">%1$d requests · %2$d errors</string>
+    <string name="member_detail_traffic_unreachable">Traffic isn\'t available. Front Desk may hold no admin token for this member, or the member didn\'t answer.</string>
+    <string name="member_detail_traffic_empty">No requests in this window.</string>
+
     <string name="dashboard_unlink">Unlink</string>
     <string name="dashboard_unlink_confirm_title">Unlink this device?</string>
     <string name="dashboard_unlink_confirm_body">This device will stop monitoring %1$s and its token will be revoked. You can pair again anytime with a new code.</string>
