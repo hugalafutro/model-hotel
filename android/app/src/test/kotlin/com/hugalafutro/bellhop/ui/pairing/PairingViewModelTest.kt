@@ -62,7 +62,12 @@ class PairingViewModelTest {
     }
 
     private fun newLinkStore(): LinkStore {
-        val scope = CoroutineScope(Dispatchers.IO + Job())
+        // Unconfined (not IO) so the DataStore write runs inline on the test's
+        // Unconfined Main: pair() launches save() fire-and-forget, so a real IO
+        // round-trip would let the assertion race the persist and, under CI
+        // load, miss the emission entirely (wedging the shared JVM). Inline
+        // execution makes the save complete before pair() returns.
+        val scope = CoroutineScope(Dispatchers.Unconfined + Job())
         val ds =
             PreferenceDataStoreFactory.create(scope = scope) {
                 File(tmp.newFolder(), "link.preferences_pb")
