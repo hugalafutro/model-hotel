@@ -92,6 +92,31 @@
     <string name="alerts_event_member_removed">Member removed</string>
     <string name="alerts_event_member_state_changed">Member drained or activated</string>
 
+    <!-- App lock -->
+    <string name="lock_title">Bellhop is locked</string>
+    <string name="lock_subtitle">Unlock to see the fleet.</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="lock_prompt_title">Unlock Bellhop</string>
+    <string name="lock_prompt_subtitle">Confirm it\'s you to see the fleet.</string>
+
+    <!-- Settings -->
+    <string name="settings_open">Settings</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_fd_title">Linked Front Desk</string>
+    <string name="settings_lock_title">App lock</string>
+    <string name="settings_lock_subtitle">Require a fingerprint or device PIN to open Bellhop.</string>
+    <string name="settings_lock_unavailable">Set up a fingerprint or a screen lock on this device to enable the app lock.</string>
+    <string name="settings_lock_window">Lock after inactivity</string>
+    <string name="settings_lock_now">Now</string>
+    <string name="settings_lock_1m">1 min</string>
+    <string name="settings_lock_5m">5 min</string>
+    <string name="settings_lock_15m">15 min</string>
+    <string name="settings_lock_30m">30 min</string>
+    <string name="settings_lock_1h">1 hr</string>
+    <string name="settings_alerts_title">Alerts</string>
+    <string name="settings_alerts_subtitle">Notification delivery and what Front Desk alerts on.</string>
+
     <string name="dashboard_unlink">Unlink</string>
     <string name="dashboard_unlink_confirm_title">Unlink this device?</string>
     <string name="dashboard_unlink_confirm_body">This device will stop monitoring %1$s and its token will be revoked. You can pair again anytime with a new code.</string>

@@ -1,0 +1,320 @@
+package com.hugalafutro.bellhop.ui.settings
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.hugalafutro.bellhop.R
+import com.hugalafutro.bellhop.data.LinkState
+import com.hugalafutro.bellhop.data.LockConfig
+import com.hugalafutro.bellhop.data.LockTimeout
+import com.hugalafutro.bellhop.ui.common.FilterPill
+import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+
+/**
+ * SettingsScreen is where the link's status and the two things the dashboard
+ * shouldn't clutter itself with live: the app lock and Unlink. It renders the
+ * linked Front Desk (name, address, this device's label and role), the app-lock
+ * policy (toggle + idle window), a shortcut into Alerts, and the Unlink flow —
+ * confirm, plus the failure/force-unlink escape moved here from the dashboard.
+ * It holds only the confirm-dialog visibility locally; the unlink work and its
+ * failure state are the host's, so the same revoke-first guarantees apply.
+ */
+@Composable
+fun SettingsScreen(
+    link: LinkState.Linked,
+    lockConfig: LockConfig,
+    lockAvailable: Boolean,
+    onBack: () -> Unit,
+    onToggleLock: (Boolean) -> Unit,
+    onSelectTimeout: (LockTimeout) -> Unit,
+    onAlertsClick: () -> Unit,
+    onUnlink: () -> Unit,
+    modifier: Modifier = Modifier,
+    unlinking: Boolean = false,
+    unlinkFailed: Boolean = false,
+    onDismissUnlinkError: () -> Unit = {},
+    onForceUnlink: () -> Unit = {},
+) {
+    var confirmUnlink by remember { mutableStateOf(false) }
+
+    if (unlinkFailed) {
+        AlertDialog(
+            onDismissRequest = onDismissUnlinkError,
+            title = { Text(stringResource(R.string.dashboard_unlink_failed_title)) },
+            text = { Text(stringResource(R.string.dashboard_unlink_failed_body)) },
+            confirmButton = {
+                TextButton(
+                    enabled = !unlinking,
+                    onClick = {
+                        onDismissUnlinkError()
+                        onUnlink()
+                    },
+                    modifier = Modifier.testTag("settings-unlink-retry"),
+                ) {
+                    Text(stringResource(R.string.dashboard_unlink_retry))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !unlinking,
+                    onClick = {
+                        onDismissUnlinkError()
+                        onForceUnlink()
+                    },
+                    modifier = Modifier.testTag("settings-unlink-force"),
+                ) {
+                    Text(stringResource(R.string.dashboard_unlink_force))
+                }
+            },
+        )
+    }
+
+    if (confirmUnlink) {
+        AlertDialog(
+            onDismissRequest = { confirmUnlink = false },
+            title = { Text(stringResource(R.string.dashboard_unlink_confirm_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.dashboard_unlink_confirm_body,
+                        link.fdName.ifBlank { link.fdUrl },
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !unlinking,
+                    onClick = {
+                        confirmUnlink = false
+                        onUnlink()
+                    },
+                    modifier = Modifier.testTag("settings-unlink-confirm"),
+                ) {
+                    Text(stringResource(R.string.dashboard_unlink))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmUnlink = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
+
+    Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState()),
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            ) {
+                IconButton(onClick = onBack, modifier = Modifier.testTag("settings-back")) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.settings_back),
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.settings_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f).testTag("settings-title"),
+                )
+            }
+
+            // Front Desk link status (moved off the dashboard toolbar).
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_fd_title),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = link.fdName.ifBlank { link.fdUrl },
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag("settings-fd-name"),
+                    )
+                    Text(
+                        text = link.fdUrl,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = stringResource(R.string.dashboard_linked_as, link.label, link.role),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("settings-linked"),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // App lock: on/off plus the idle window it measures from foreground exit.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_lock_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_lock_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = lockConfig.enabled,
+                            onCheckedChange = onToggleLock,
+                            enabled = lockAvailable,
+                            modifier = Modifier.testTag("settings-lock-toggle"),
+                        )
+                    }
+                    if (!lockAvailable) {
+                        // No biometric or device credential enrolled: the gate can't
+                        // engage, so say why the toggle is inert rather than failing
+                        // silently when it's flipped on.
+                        Text(
+                            text = stringResource(R.string.settings_lock_unavailable),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.testTag("settings-lock-unavailable"),
+                        )
+                    }
+                    if (lockConfig.enabled && lockAvailable) {
+                        Text(
+                            text = stringResource(R.string.settings_lock_window),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        val selected = LockTimeout.fromMillis(lockConfig.timeoutMs)
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                            LockTimeout.entries.forEach { option ->
+                                FilterPill(
+                                    text = stringResource(timeoutLabel(option)),
+                                    selected = option == selected,
+                                    onClick = { onSelectTimeout(option) },
+                                    tag = "settings-lock-timeout-${option.name}",
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Alerts stays reachable here even when all is green (the dashboard bell
+            // only appears when a member is down).
+            Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onAlertsClick).testTag("settings-alerts")) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = stringResource(R.string.settings_alerts_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_alerts_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            OutlinedButton(
+                onClick = { confirmUnlink = true },
+                enabled = !unlinking,
+                modifier = Modifier.fillMaxWidth().testTag("settings-unlink"),
+            ) {
+                Text(stringResource(R.string.dashboard_unlink))
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+private fun timeoutLabel(option: LockTimeout): Int =
+    when (option) {
+        LockTimeout.IMMEDIATELY -> R.string.settings_lock_now
+        LockTimeout.ONE_MINUTE -> R.string.settings_lock_1m
+        LockTimeout.FIVE_MINUTES -> R.string.settings_lock_5m
+        LockTimeout.FIFTEEN_MINUTES -> R.string.settings_lock_15m
+        LockTimeout.THIRTY_MINUTES -> R.string.settings_lock_30m
+        LockTimeout.ONE_HOUR -> R.string.settings_lock_1h
+    }
+
+@Preview(showBackground = true)
+@Composable
+private fun SettingsScreenPreview() {
+    BellhopTheme {
+        SettingsScreen(
+            link =
+                LinkState.Linked(
+                    fdUrl = "http://10.0.2.2:8080",
+                    fdName = "Home Front Desk",
+                    role = "operator",
+                    deviceId = "dev-1",
+                    label = "Pixel 8",
+                ),
+            lockConfig = LockConfig(enabled = true, timeoutMs = LockTimeout.THIRTY_MINUTES.millis),
+            lockAvailable = true,
+            onBack = {},
+            onToggleLock = {},
+            onSelectTimeout = {},
+            onAlertsClick = {},
+            onUnlink = {},
+        )
+    }
+}

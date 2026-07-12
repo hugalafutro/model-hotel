@@ -9,7 +9,6 @@ import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -17,8 +16,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * Linked-state dashboard: confirms the link summary renders and Unlink fires.
- * Asserts on test tags, not display text, so English copy never breaks tests.
+ * Linked-state dashboard, post toolbar-trim: the title plus the events and
+ * settings icons are always present, the Alerts bell only when a member is down,
+ * and Unlink/status now live in Settings. Asserts on test tags, not display
+ * text, so English copy never breaks tests.
  */
 @RunWith(RobolectricTestRunner::class)
 class DashboardScreenTest {
@@ -34,60 +35,13 @@ class DashboardScreenTest {
             label = "Pixel 8",
         )
 
-    @Test
-    fun showsLinkSummary() {
-        composeTestRule.setContent {
-            BellhopTheme { DashboardScreen(link = link, onUnlink = {}, unlinking = false) }
-        }
-        composeTestRule.onNodeWithTag("dashboard-title").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("dashboard-linked").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("dashboard-unlink").assertIsDisplayed()
-    }
-
-    @Test
-    fun unlinkAsksForConfirmationBeforeFiring() {
-        var clicked = false
-        composeTestRule.setContent {
-            BellhopTheme {
-                DashboardScreen(link = link, onUnlink = { clicked = true }, unlinking = false)
-            }
-        }
-        // Tapping Unlink only opens the confirm dialog; the callback must not
-        // fire until the dialog is confirmed.
-        composeTestRule.onNodeWithTag("dashboard-unlink").performClick()
-        assertFalse(clicked)
-        composeTestRule.onNodeWithTag("dashboard-unlink-confirm").performClick()
-        assertTrue(clicked)
-    }
-
-    @Test
-    fun failedUnlinkOffersRetryThatRefiresUnlink() {
-        var retries = 0
-        var dismissed = false
-        composeTestRule.setContent {
-            BellhopTheme {
-                DashboardScreen(
-                    link = link,
-                    onUnlink = { retries++ },
-                    unlinking = false,
-                    unlinkFailed = true,
-                    onDismissUnlinkError = { dismissed = true },
-                )
-            }
-        }
-        // A failed remote revoke surfaces the error dialog; "Try again" dismisses
-        // it and re-fires the unlink so the orphaned row can still be cleared.
-        composeTestRule.onNodeWithTag("dashboard-unlink-retry").performClick()
-        assertTrue(dismissed)
-        assertTrue(retries == 1)
-    }
-
     private val members =
         listOf(
             FleetMember(
                 id = "m1",
                 name = "alpha",
                 url = "http://a:8080",
+                state = "active",
                 status =
                     MemberStatus(
                         health = HealthStatus(known = true, healthy = true, latencyMs = 3),
@@ -107,14 +61,61 @@ class DashboardScreenTest {
             ),
         )
 
+    private val allUp = listOf(members[0])
+
+    @Test
+    fun showsTitleAndToolbar() {
+        composeTestRule.setContent {
+            BellhopTheme { DashboardScreen(link = link) }
+        }
+        composeTestRule.onNodeWithTag("dashboard-title").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("dashboard-events").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("dashboard-settings").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsButtonFiresCallback() {
+        var opened = 0
+        composeTestRule.setContent {
+            BellhopTheme { DashboardScreen(link = link, onSettingsClick = { opened++ }) }
+        }
+        composeTestRule.onNodeWithTag("dashboard-settings").performClick()
+        assertTrue(opened == 1)
+    }
+
+    @Test
+    fun bellShownAndFiresWhenAMemberIsDown() {
+        var opened = 0
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui = DashboardUiState(loading = false, members = members),
+                    onAlertsClick = { opened++ },
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("dashboard-alerts").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("dashboard-alerts").performClick()
+        assertTrue(opened == 1)
+    }
+
+    @Test
+    fun bellHiddenWhenAllMembersUp() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(link = link, ui = DashboardUiState(loading = false, members = allUp))
+            }
+        }
+        composeTestRule.onNodeWithTag("dashboard-alerts").assertDoesNotExist()
+    }
+
     @Test
     fun rendersMemberCardsWithPrimaryAndDrainedBadges() {
         composeTestRule.setContent {
             BellhopTheme {
                 DashboardScreen(
                     link = link,
-                    onUnlink = {},
-                    unlinking = false,
                     ui = DashboardUiState(loading = false, members = members, primaryId = "m1"),
                 )
             }
@@ -133,8 +134,6 @@ class DashboardScreenTest {
             BellhopTheme {
                 DashboardScreen(
                     link = link,
-                    onUnlink = {},
-                    unlinking = false,
                     ui = DashboardUiState(loading = false, members = members),
                     onMemberClick = { clicked = it },
                 )
@@ -151,8 +150,6 @@ class DashboardScreenTest {
             BellhopTheme {
                 DashboardScreen(
                     link = link,
-                    onUnlink = {},
-                    unlinking = false,
                     ui = DashboardUiState(loading = false, members = members),
                     onEventsClick = { opened++ },
                 )
@@ -163,38 +160,29 @@ class DashboardScreenTest {
     }
 
     @Test
-    fun firstLoadShowsSpinnerThenEmptyStateWithoutMembers() {
+    fun loadingShowsSpinner() {
         composeTestRule.setContent {
-            BellhopTheme {
-                DashboardScreen(link = link, onUnlink = {}, unlinking = false)
-            }
+            BellhopTheme { DashboardScreen(link = link, ui = DashboardUiState(loading = true)) }
         }
         composeTestRule.onNodeWithTag("dashboard-loading").assertIsDisplayed()
     }
 
     @Test
-    fun emptyFleetShowsEmptyState() {
+    fun emptyShowsMessage() {
         composeTestRule.setContent {
             BellhopTheme {
-                DashboardScreen(
-                    link = link,
-                    onUnlink = {},
-                    unlinking = false,
-                    ui = DashboardUiState(loading = false),
-                )
+                DashboardScreen(link = link, ui = DashboardUiState(loading = false, members = emptyList()))
             }
         }
         composeTestRule.onNodeWithTag("dashboard-empty").assertIsDisplayed()
     }
 
     @Test
-    fun refreshErrorShowsBannerAndKeepsStaleList() {
+    fun errorShowsBannerOverStaleList() {
         composeTestRule.setContent {
             BellhopTheme {
                 DashboardScreen(
                     link = link,
-                    onUnlink = {},
-                    unlinking = false,
                     ui = DashboardUiState(loading = false, members = members, error = "boom"),
                 )
             }
@@ -209,35 +197,10 @@ class DashboardScreenTest {
             BellhopTheme {
                 DashboardScreen(
                     link = link,
-                    onUnlink = {},
-                    unlinking = false,
                     ui = DashboardUiState(loading = false, members = members, revoked = true),
                 )
             }
         }
         composeTestRule.onNodeWithTag("dashboard-revoked").assertIsDisplayed()
-    }
-
-    @Test
-    fun failedUnlinkOffersForceUnlinkEscapeHatch() {
-        var forced = 0
-        var dismissed = false
-        composeTestRule.setContent {
-            BellhopTheme {
-                DashboardScreen(
-                    link = link,
-                    onUnlink = {},
-                    unlinking = false,
-                    unlinkFailed = true,
-                    onDismissUnlinkError = { dismissed = true },
-                    onForceUnlink = { forced++ },
-                )
-            }
-        }
-        // When a revoke is impossible (dead/unreadable token), "Unlink anyway"
-        // clears locally so the operator is never stranded on the dashboard.
-        composeTestRule.onNodeWithTag("dashboard-unlink-force").performClick()
-        assertTrue(dismissed)
-        assertTrue(forced == 1)
     }
 }
