@@ -52,7 +52,17 @@ class MonitorStore(
     }
 
     suspend fun saveSnapshot(snapshot: FleetSnapshot) {
-        dataStore.edit { it[SNAPSHOT] = json.encodeToString(snapshot) }
+        dataStore.edit { prefs ->
+            // Persist only while monitoring is on. A poll started before unlink can
+            // finish after clear() has run; without this guard that late write
+            // would repopulate a cleared store with the old fleet and poison the
+            // next pairing's baseline. The enabled check and the write share one
+            // atomic edit, so a concurrent clear either precedes it (enabled is
+            // gone, we skip) or follows it (and wipes what we wrote).
+            if (prefs[ENABLED] == true) {
+                prefs[SNAPSHOT] = json.encodeToString(snapshot)
+            }
+        }
     }
 
     suspend fun clear() {

@@ -68,6 +68,7 @@ class FleetPollTest {
     fun firstPollSavesBaselineWithNoTransitions() =
         runBlocking {
             val store = newStore()
+            store.setEnabled(true)
             server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
 
             val result = poll(store)
@@ -82,6 +83,7 @@ class FleetPollTest {
     fun memberGoingDownAcrossPollsIsNotified() =
         runBlocking {
             val store = newStore()
+            store.setEnabled(true)
             store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)))
             server.enqueue(MockResponse().setBody(memberBody(healthy = false)))
 
@@ -98,6 +100,7 @@ class FleetPollTest {
     fun deadTokenReportsUnauthorizedAndLeavesBaseline() =
         runBlocking {
             val store = newStore()
+            store.setEnabled(true)
             store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)))
             server.enqueue(
                 MockResponse().setResponseCode(401).setBody(
@@ -114,6 +117,7 @@ class FleetPollTest {
     fun transientFailureReportsFailedAndLeavesBaseline() =
         runBlocking {
             val store = newStore()
+            store.setEnabled(true)
             store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)))
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
 

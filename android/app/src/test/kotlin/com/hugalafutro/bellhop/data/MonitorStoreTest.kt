@@ -56,6 +56,7 @@ class MonitorStoreTest {
     fun snapshotRoundTrips() =
         runBlocking {
             val store = newStore()
+            store.setEnabled(true)
             val snapshot =
                 FleetSnapshot(
                     mapOf(
@@ -75,8 +76,19 @@ class MonitorStoreTest {
             // A state name a future build wrote but this one doesn't know must not
             // crash the diff; stateOf returns null so it's treated as "no baseline".
             val store = newStore()
+            store.setEnabled(true)
             store.saveSnapshot(FleetSnapshot(mapOf("m1" to "FROM_THE_FUTURE")))
             assertNull(store.snapshot()?.stateOf("m1"))
+        }
+
+    @Test
+    fun snapshotSaveIsIgnoredWhileMonitoringOff() =
+        runBlocking {
+            // A poll finishing after unlink cleared the store must not resurrect a
+            // baseline: with monitoring off, saveSnapshot is a no-op.
+            val store = newStore()
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)))
+            assertNull(store.snapshot())
         }
 
     @Test

@@ -30,6 +30,11 @@ object FleetNotifier {
     const val CHANNEL_DOWN = "member_down"
     const val CHANNEL_UP = "member_up"
 
+    // A constant numeric id: the member id is carried as the notification tag
+    // instead, so two members whose ids collide under String.hashCode() (an int id
+    // would fold them onto one row and drop an alert) still get separate rows.
+    private const val NOTIFICATION_ID = 1
+
     /**
      * ensureChannels registers both notification channels. Safe to call
      * repeatedly (createNotificationChannel is idempotent) and cheap, so it runs
@@ -85,13 +90,14 @@ object FleetNotifier {
                 .setCategory(NotificationCompat.CATEGORY_STATUS)
                 .build()
 
-        // Keyed on the member id so a member flapping down->up->down updates its
-        // one notification in place rather than stacking a fresh row each poll.
-        // canPost checked the permission, but it can be revoked between that check
-        // and here, so swallow the resulting SecurityException rather than crash a
-        // background worker over a lost notification.
+        // Tagged with the member id so a member flapping down->up->down updates its
+        // one notification in place rather than stacking a fresh row each poll, and
+        // so distinct members never share a row. canPost checked the permission,
+        // but it can be revoked between that check and here, so swallow the
+        // resulting SecurityException rather than crash a background worker over a
+        // lost notification.
         try {
-            NotificationManagerCompat.from(context).notify(notificationId(transition.id), notification)
+            NotificationManagerCompat.from(context).notify(transition.id, NOTIFICATION_ID, notification)
         } catch (_: SecurityException) {
         }
     }
@@ -99,10 +105,12 @@ object FleetNotifier {
     // Deep-linking to the specific member's detail is a later slice; for now the
     // tap just brings Bellhop to the front on its current screen.
     private fun openAppIntent(context: Context): android.app.PendingIntent {
-        val intent =
-            Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
+        // Explicit target (component + package) so this can only ever launch our
+        // own activity, and immutable so a holder can't rewrite it: an implicit or
+        // mutable PendingIntent could be hijacked by another app (CWE-927).
+        val intent = Intent(context, MainActivity::class.java)
+        intent.setPackage(context.packageName)
+        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         return android.app.PendingIntent.getActivity(
             context,
             0,
@@ -111,11 +119,10 @@ object FleetNotifier {
         )
     }
 
-    private fun notificationId(memberId: String): Int = memberId.hashCode()
-
     // POST_NOTIFICATIONS is a runtime permission from API 33; below that a channel
-    // notification always posts. Guarding here keeps the worker unconditional.
-    private fun canPost(context: Context): Boolean =
+    // notification always posts. Exposed so the worker can skip a poll it could
+    // never deliver rather than silently advance its baseline.
+    fun canPost(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
             PackageManager.PERMISSION_GRANTED

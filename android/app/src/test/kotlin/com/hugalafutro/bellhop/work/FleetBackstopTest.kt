@@ -101,7 +101,8 @@ class FleetBackstopTest {
     private suspend fun run(
         monitor: MonitorStore,
         link: LinkStore,
-    ): Result = runBackstop(monitor, link, client, notify = { fired += it })
+        canNotify: Boolean = true,
+    ): Result = runBackstop(monitor, link, client, canNotify, notify = { fired += it })
 
     @Test
     fun disabledMonitoringSucceedsWithoutPolling() =
@@ -137,6 +138,24 @@ class FleetBackstopTest {
 
             assertEquals(Result.success(), result)
             assertEquals(0, server.requestCount)
+        }
+
+    @Test
+    fun blockedNotificationsSkipPollAndFreezeBaseline() =
+        runBlocking {
+            val monitor =
+                monitorStore().apply {
+                    setEnabled(true)
+                    saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)))
+                }
+            // With no way to deliver, polling would only advance the baseline over a
+            // change the operator can't see; freeze instead so it fires once granted.
+            val result = run(monitor, linkedTo(server.url("/").toString()), canNotify = false)
+
+            assertEquals(Result.success(), result)
+            assertEquals(0, server.requestCount)
+            assertEquals(MemberHealthState.UP, monitor.snapshot()?.stateOf("m1"))
+            assertTrue(fired.isEmpty())
         }
 
     @Test

@@ -67,20 +67,25 @@ suspend fun pollFleet(
 /**
  * runBackstop is the guarded dispatch [FleetPollWorker.doWork] performs each run,
  * extracted from the worker runtime so its short-circuits are unit-testable (the
- * same reason [pollFleet] is a free function). It bails to success in the three
- * steady states the foreground UI already handles — monitoring turned off, the
- * device unlinked, or the token unreadable — and otherwise polls, notifies on any
- * health edges, and maps the poll outcome onto a worker [Result].
+ * same reason [pollFleet] is a free function). It bails to success in the steady
+ * states the foreground UI already handles — monitoring turned off, notifications
+ * blocked, the device unlinked, or the token unreadable — and otherwise polls,
+ * notifies on any health edges, and maps the poll outcome onto a worker [Result].
  */
 suspend fun runBackstop(
     monitorStore: MonitorStore,
     linkStore: LinkStore,
     client: FrontDeskClient,
+    canNotify: Boolean,
     notify: (MemberTransition) -> Unit,
 ): Result {
     // Disabled or already unscheduled: nothing to do. A stale run can outlive the
     // toggle being turned off, so re-check rather than trust scheduling.
     if (!monitorStore.enabled.first()) return Result.success()
+    // Can't post? Don't poll. Advancing the baseline while alerts are silently
+    // dropped would swallow the very down->up change the operator needs to see
+    // once they grant the permission, so freeze until then (Settings flags it).
+    if (!canNotify) return Result.success()
 
     val link = linkStore.state.first()
     if (link !is LinkState.Linked) return Result.success()
@@ -119,6 +124,7 @@ class FleetPollWorker(
             monitorStore = MonitorStore.create(context),
             linkStore = LinkStore.create(context),
             client = FrontDeskClient(),
+            canNotify = FleetNotifier.canPost(context),
             notify = { FleetNotifier.notify(context, it) },
         )
     }
