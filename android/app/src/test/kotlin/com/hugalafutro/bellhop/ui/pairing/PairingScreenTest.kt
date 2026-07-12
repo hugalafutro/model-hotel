@@ -1,6 +1,11 @@
 package com.hugalafutro.bellhop.ui.pairing
 
-import android.content.pm.PackageManager
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -9,33 +14,51 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.Shadows.shadowOf
 
 @RunWith(RobolectricTestRunner::class)
 class PairingScreenTest {
     @get:Rule
     val composeTestRule = createComposeRule()
 
+    // A stand-in for the camera preview: two buttons that fire the same
+    // callbacks the real QrScanner does, so the pairing wiring can be driven
+    // deterministically without a camera.
+    private val fakeScanner: @Composable (onScanned: (String) -> Unit, onCameraError: () -> Unit) -> Unit =
+        { onScanned, onCameraError ->
+            Column {
+                Button(
+                    onClick = { onScanned("PAIR_PAYLOAD") },
+                    modifier = Modifier.testTag("fake-scan-ok"),
+                ) { Text("scanned") }
+                Button(
+                    onClick = onCameraError,
+                    modifier = Modifier.testTag("fake-scan-error"),
+                ) { Text("camera error") }
+            }
+        }
+
     private fun render(
         state: PairingUiState,
         onSubmit: () -> Unit = {},
         onScanUnavailable: () -> Unit = {},
+        onPastePayload: (String) -> Unit = {},
+        scanner: @Composable (onScanned: (String) -> Unit, onCameraError: () -> Unit) -> Unit = { _, _ -> },
     ) {
         composeTestRule.setContent {
             BellhopTheme {
                 PairingScreen(
                     state = state,
-                    onPastePayload = {},
+                    onPastePayload = onPastePayload,
                     onLabelChange = {},
                     onSubmit = onSubmit,
                     onScanUnavailable = onScanUnavailable,
+                    scanner = scanner,
                 )
             }
         }
@@ -119,46 +142,40 @@ class PairingScreenTest {
 
     @Test
     fun showsScanUnavailableError() {
-        // A denied camera permission surfaces as an error hint rather than a
-        // silent no-op, so the operator is pointed at the paste fallback.
+        // A camera that could not be opened surfaces as an error hint rather than
+        // a silent no-op, so the operator is pointed at the paste fallback.
         render(PairingUiState(error = PairingError.ScanUnavailable))
         composeTestRule.onNodeWithTag("pairing-error").performScrollTo().assertIsDisplayed()
     }
 
     @Test
-    fun scanShortCircuitsWhenNoCamera() {
-        // A device with no camera can't be handled from the scan result (ZXing
-        // finishes cancel-shaped), so tapping Scan must route straight to the
-        // paste hint instead of launching a scanner that can't open.
-        shadowOf(RuntimeEnvironment.getApplication().packageManager)
-            .setSystemFeature(PackageManager.FEATURE_CAMERA_ANY, false)
-        var scanUnavailable = false
-        render(PairingUiState(), onScanUnavailable = { scanUnavailable = true })
+    fun tappingScanOpensScanner() {
+        render(PairingUiState(), scanner = fakeScanner)
         composeTestRule.onNodeWithTag("pairing-scan").performClick()
+        composeTestRule.onNodeWithTag("fake-scan-ok").assertIsDisplayed()
+    }
+
+    @Test
+    fun scannedQrFeedsTheSameParserAsPaste() {
+        // A decoded QR is routed through onPastePayload, exactly as pasting the
+        // string would be, and the form returns.
+        var pasted: String? = null
+        render(PairingUiState(), onPastePayload = { pasted = it }, scanner = fakeScanner)
+        composeTestRule.onNodeWithTag("pairing-scan").performClick()
+        composeTestRule.onNodeWithTag("fake-scan-ok").performClick()
+        assertEquals("PAIR_PAYLOAD", pasted)
+        composeTestRule.onNodeWithTag("pairing-scan").assertIsDisplayed()
+    }
+
+    @Test
+    fun cameraErrorSurfacesScanUnavailable() {
+        // A camera the preview could not open reports through onCameraError, which
+        // the screen turns into the paste hint rather than a silent return.
+        var scanUnavailable = false
+        render(PairingUiState(), onScanUnavailable = { scanUnavailable = true }, scanner = fakeScanner)
+        composeTestRule.onNodeWithTag("pairing-scan").performClick()
+        composeTestRule.onNodeWithTag("fake-scan-error").performClick()
         assertTrue(scanUnavailable)
-    }
-
-    @Test
-    fun deniedPermissionEmptyScanIsFailure() {
-        assertTrue(emptyScanIsFailure(missingPermission = true, elapsedSinceLaunchMs = 60_000))
-    }
-
-    @Test
-    fun fastEmptyScanIsCameraOpenFailure() {
-        // A camera that could not open returns almost immediately with no extra;
-        // treat that as a failure so it surfaces the paste hint.
-        assertTrue(emptyScanIsFailure(missingPermission = false, elapsedSinceLaunchMs = 200))
-    }
-
-    @Test
-    fun slowEmptyScanIsCancelNotFailure() {
-        // Time spent in the scanner UI before an empty result is a deliberate
-        // cancel, which stays a silent no-op.
-        assertFalse(
-            emptyScanIsFailure(
-                missingPermission = false,
-                elapsedSinceLaunchMs = SCAN_OPEN_FAILURE_WINDOW_MS + 1,
-            ),
-        )
+        composeTestRule.onNodeWithTag("pairing-scan").assertIsDisplayed()
     }
 }
