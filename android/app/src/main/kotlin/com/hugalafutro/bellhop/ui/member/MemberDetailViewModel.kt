@@ -50,7 +50,9 @@ data class MemberDetailUiState(
  * [MemberDetailViewModel.reconcile]); [forbidden] is Front Desk's 403 — the
  * device's role may not mutate, the authoritative guard behind the hidden UI;
  * [error] is the last action failure; [syncSummary] is a completed config sync's
- * per-member tally.
+ * per-member tally; [busy] flags a tap that arrived while another mutation was
+ * still in flight (dropped, not queued) so the screen can say so rather than the
+ * tap vanishing silently.
  */
 data class ActionUiState(
     val inProgress: Boolean = false,
@@ -58,6 +60,7 @@ data class ActionUiState(
     val forbidden: Boolean = false,
     val error: String? = null,
     val syncSummary: SyncSummary? = null,
+    val busy: Boolean = false,
 )
 
 /** SyncSummary is a finished config sync's tally: how many members, how many failed. */
@@ -168,10 +171,10 @@ class MemberDetailViewModel(
      * a 401 is a dead token, the same revoked remedy as the reads.
      */
     fun setMemberState(target: String) {
-        if (_state.value.action.inProgress) return
+        if (rejectWhileInFlight()) return
         viewModelScope.launch {
             _state.update {
-                it.copy(action = it.action.copy(inProgress = true, error = null, syncSummary = null))
+                it.copy(action = it.action.copy(inProgress = true, error = null, syncSummary = null, busy = false))
             }
             val token = linkStore.token()
             if (token == null) {
@@ -196,10 +199,10 @@ class MemberDetailViewModel(
      * "last config sync" afterwards.
      */
     fun syncFleet(primaryId: String) {
-        if (_state.value.action.inProgress) return
+        if (rejectWhileInFlight()) return
         viewModelScope.launch {
             _state.update {
-                it.copy(action = it.action.copy(inProgress = true, error = null, syncSummary = null))
+                it.copy(action = it.action.copy(inProgress = true, error = null, syncSummary = null, busy = false))
             }
             val token = linkStore.token()
             if (token == null) {
@@ -218,8 +221,18 @@ class MemberDetailViewModel(
         }
     }
 
+    // A single mutation runs at a time. A tap that lands while one is in flight is
+    // dropped rather than queued (set-state is idempotent, so nothing is lost) but
+    // flagged [ActionUiState.busy] so the screen can nudge the operator instead of
+    // the tap vanishing silently. Returns true when the caller should bail out.
+    private fun rejectWhileInFlight(): Boolean {
+        if (!_state.value.action.inProgress) return false
+        _state.update { it.copy(action = it.action.copy(busy = true)) }
+        return true
+    }
+
     // applyActionResult folds an operator ActionResult into the ui state with the
-    // shared arm handling (clear inProgress; 403 -> forbidden, 401 -> revoked,
+    // shared arm handling (clear inProgress/busy; 403 -> forbidden, 401 -> revoked,
     // failure -> error), delegating only the success shaping to [onSuccess] so
     // drain/activate and sync each stamp their own success field.
     private fun <T> applyActionResult(
@@ -227,7 +240,7 @@ class MemberDetailViewModel(
         onSuccess: (MemberDetailUiState, T) -> MemberDetailUiState,
     ) {
         _state.update { st ->
-            val cleared = st.copy(action = st.action.copy(inProgress = false))
+            val cleared = st.copy(action = st.action.copy(inProgress = false, busy = false))
             when (result) {
                 is ActionResult.Success -> onSuccess(cleared, result.data)
                 ActionResult.Forbidden -> cleared.copy(action = cleared.action.copy(forbidden = true))

@@ -492,4 +492,28 @@ class MemberDetailScreenTest {
         composeTestRule.onNodeWithTag("member-op-dismiss").performClick()
         assertTrue(dismissed)
     }
+
+    @Test
+    fun busyNoticeRendersWhenATapIsDropped() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            action = ActionUiState(inProgress = true, busy = true),
+                        ),
+                    canOperate = true,
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-op-busy"))
+        composeTestRule.onNodeWithTag("member-op-busy").assertIsDisplayed()
+    }
 }

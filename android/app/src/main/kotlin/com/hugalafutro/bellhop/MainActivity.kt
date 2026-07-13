@@ -253,10 +253,11 @@ fun BellhopApp() {
         }
         val act = activity
         if (act == null) {
-            // No host activity to present the prompt (not expected during normal
-            // composition): fall open, same rationale as the no-credential
-            // degrade — Front Desk's 403 is the authoritative guard on the mutation.
-            action()
+            // No host activity to present the presence check (not expected during
+            // normal composition). This gate is a security control, so fail closed:
+            // drop the mutation rather than run it un-gated. This differs from the
+            // no-enrolled-credential case inside promptAppUnlock, which degrades
+            // open by design — here we can't prove owner presence at all.
             return
         }
         act.promptAppUnlock(operatorTitle, operatorSubtitle) {

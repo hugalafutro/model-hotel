@@ -15,6 +15,7 @@ import com.hugalafutro.bellhop.data.PairedDevice
 import com.hugalafutro.bellhop.data.SyncResponse
 import com.hugalafutro.bellhop.data.SyncResultItem
 import com.hugalafutro.bellhop.data.TrafficPoint
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -61,6 +62,10 @@ private class FakeTrafficClient(
     var lastStateTarget: String? = null
     var lastSyncPrimaryId: String? = null
 
+    // Optional latch to hold setMemberState in flight so a test can fire a second
+    // action while the first is still running.
+    var stateGate: CompletableDeferred<Unit>? = null
+
     override suspend fun memberTraffic(
         fdUrl: String,
         token: String,
@@ -90,6 +95,7 @@ private class FakeTrafficClient(
         lastToken = token
         lastMemberId = memberId
         lastStateTarget = state
+        stateGate?.await()
         return stateResult
     }
 
@@ -506,5 +512,30 @@ class MemberDetailViewModelTest {
             val action = withTimeout(5_000) { vm.state.first { !it.action.inProgress } }.action
             assertNull(action.pendingState)
             assertEquals("drained", client.lastStateTarget)
+        }
+
+    @Test
+    fun secondActionWhileInFlightIsDroppedButFlaggedBusy() =
+        runBlocking {
+            // A tap that lands while a mutation is still running is dropped (not
+            // queued), but must surface a busy flag instead of vanishing silently.
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            val gate = CompletableDeferred<Unit>()
+            client.stateGate = gate
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.setMemberState("drained")
+            withTimeout(5_000) { vm.state.first { it.action.inProgress } }
+
+            // Second tap on the sync button while the drain POST is still open.
+            vm.syncFleet("m1")
+            val busy = withTimeout(5_000) { vm.state.first { it.action.busy } }.action
+            assertTrue(busy.inProgress)
+            assertNull(client.lastSyncPrimaryId)
+
+            // Once the first action completes the busy nudge clears.
+            gate.complete(Unit)
+            val done = withTimeout(5_000) { vm.state.first { !it.action.inProgress } }.action
+            assertFalse(done.busy)
         }
 }

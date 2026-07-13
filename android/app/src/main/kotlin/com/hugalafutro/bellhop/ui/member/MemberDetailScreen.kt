@@ -353,6 +353,16 @@ private fun OperatorCard(
                     Text(text = stringResource(R.string.member_op_sync))
                 }
             }
+            if (action.busy) {
+                // A tap arrived mid-flight and was dropped: say so rather than
+                // leaving the operator wondering why nothing happened.
+                Text(
+                    text = stringResource(R.string.member_op_busy),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("member-op-busy"),
+                )
+            }
             action.syncSummary?.let { summary ->
                 Text(
                     text =
