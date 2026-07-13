@@ -429,4 +429,82 @@ class MemberDetailViewModelTest {
             assertNull(vm.state.value.action.error)
             assertNull(vm.state.value.action.syncSummary)
         }
+
+    @Test
+    fun syncFleetForbiddenSurfacesTheGuard() =
+        runBlocking {
+            // Same authority split as setMemberState: a monitor-role sync is a
+            // 403 guard, not a revoke.
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.syncResult = ActionResult.Forbidden
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.syncFleet("m1")
+
+            val s = withTimeout(5_000) { vm.state.first { it.action.forbidden } }
+            assertFalse(s.revoked)
+            assertNull(s.action.syncSummary)
+        }
+
+    @Test
+    fun syncFleetUnauthorizedFlagsRevoked() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.syncResult = ActionResult.Unauthorized
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.syncFleet("m1")
+
+            val s = withTimeout(5_000) { vm.state.first { it.revoked } }
+            assertFalse(s.action.forbidden)
+        }
+
+    @Test
+    fun syncFleetFailureSurfacesError() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.syncResult = ActionResult.Failure("boom")
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.syncFleet("m1")
+
+            val s = withTimeout(5_000) { vm.state.first { it.action.error != null } }
+            assertEquals("boom", s.action.error)
+            assertFalse(s.action.inProgress)
+        }
+
+    @Test
+    fun syncFleetOnUnreadableTokenFlagsRevokedWithoutCall() =
+        runBlocking {
+            // Linked in name only: surface the revoked flag, never hit Front Desk.
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            val vm = MemberDetailViewModel(client, newLinkStore(), "http://fd:1", "m1")
+
+            vm.syncFleet("m1")
+
+            withTimeout(5_000) { vm.state.first { it.revoked } }
+            assertNull(client.lastSyncPrimaryId)
+        }
+
+    @Test
+    fun liveStateBeforeAckSkipsThePendingHint() =
+        runBlocking {
+            // Race: the dashboard's SSE refetch shows the target before our POST
+            // 200 lands. reconcile sees the live state first (pending still null),
+            // then the ack arrives — it must not strand a pending hint that can
+            // never clear, since member.state won't change again to re-fire it.
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.stateResult = ActionResult.Success(FleetMember(id = "m1", state = "drained"))
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            // Live state has already converged to the target before we ack.
+            vm.reconcile("drained")
+            vm.setMemberState("drained")
+
+            // The action completes (in-flight flag clears) but leaves no pending
+            // hint: the live state already matched the accepted target.
+            val action = withTimeout(5_000) { vm.state.first { !it.action.inProgress } }.action
+            assertNull(action.pendingState)
+            assertEquals("drained", client.lastStateTarget)
+        }
 }

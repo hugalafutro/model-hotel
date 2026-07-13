@@ -253,6 +253,9 @@ fun BellhopApp() {
         }
         val act = activity
         if (act == null) {
+            // No host activity to present the prompt (not expected during normal
+            // composition): fall open, same rationale as the no-credential
+            // degrade — Front Desk's 403 is the authoritative guard on the mutation.
             action()
             return
         }

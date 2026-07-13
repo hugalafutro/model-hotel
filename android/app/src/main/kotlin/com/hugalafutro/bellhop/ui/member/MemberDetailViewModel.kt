@@ -83,6 +83,13 @@ class MemberDetailViewModel(
     private val _state = MutableStateFlow(MemberDetailUiState())
     val state: StateFlow<MemberDetailUiState> = _state.asStateFlow()
 
+    // The last live member state seen from the dashboard (via [reconcile]). An
+    // accepted action whose target already matches this needs no optimistic
+    // pending hint: the dashboard's SSE refetch beat our ack, so there is nothing
+    // left to reconcile and a pending hint would strand (member.state won't change
+    // again to re-fire the reconcile effect).
+    private var lastLiveState: String? = null
+
     init {
         viewModelScope.launch {
             _state.subscriptionCount
@@ -172,7 +179,11 @@ class MemberDetailViewModel(
                 return@launch
             }
             applyActionResult(client.setMemberState(fdUrl, token, memberId, target)) { st, ok ->
-                st.copy(action = st.action.copy(pendingState = ok.state, forbidden = false))
+                // If the live state already shows the accepted target (an SSE
+                // refetch landed it before our 200), skip the optimistic hint so
+                // it can't strand: there is nothing left for [reconcile] to clear.
+                val pending = ok.state.takeUnless { it == lastLiveState }
+                st.copy(action = st.action.copy(pendingState = pending, forbidden = false))
             }
         }
     }
@@ -234,6 +245,7 @@ class MemberDetailViewModel(
      * change made elsewhere isn't masked by a stale pending value.
      */
     fun reconcile(liveState: String) {
+        lastLiveState = liveState
         _state.update { st ->
             if (st.action.pendingState != null && st.action.pendingState == liveState) {
                 st.copy(action = st.action.copy(pendingState = null))
@@ -245,7 +257,7 @@ class MemberDetailViewModel(
 
     /** dismissActionError clears the last action failure banner. */
     fun dismissActionError() {
-        _state.update { it.copy(action = it.action.copy(error = null, syncSummary = null)) }
+        _state.update { it.copy(action = it.action.copy(error = null)) }
     }
 
     class Factory(

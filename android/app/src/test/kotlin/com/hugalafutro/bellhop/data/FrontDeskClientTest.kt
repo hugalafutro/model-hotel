@@ -593,4 +593,43 @@ class FrontDeskClientTest {
             val result = client.syncFleet(server.url("/").toString(), "tok-1", "m1")
             assertEquals(ActionResult.Forbidden, result)
         }
+
+    @Test
+    fun syncFleetMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            // A dead device token on sync is a revoke, distinct from the role 403.
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.syncFleet(server.url("/").toString(), "dead", "m1")
+            assertEquals(ActionResult.Unauthorized, result)
+        }
+
+    @Test
+    fun syncFleetServerErrorIsFailure() =
+        runBlocking {
+            server.enqueue(MockResponse().setResponseCode(500).setBody("boom"))
+            val result = client.syncFleet(server.url("/").toString(), "tok-1", "m1")
+            assertTrue(result is ActionResult.Failure)
+        }
+
+    @Test
+    fun syncFleetMalformedUrlIsFailureNotThrow() =
+        runBlocking {
+            val result = client.syncFleet("not a url", "tok", "m1")
+            assertTrue(result is ActionResult.Failure)
+        }
+
+    @Test
+    fun syncFleetEmptyResultsIsSuccessWithEmptyTally() =
+        runBlocking {
+            // A single-node fleet has nobody to propagate to: Front Desk still
+            // answers 200 with an empty results list, which must parse cleanly.
+            server.enqueue(MockResponse().setBody("""{"primary_id":"m1","results":[]}"""))
+            val result = client.syncFleet(server.url("/").toString(), "tok-1", "m1")
+            assertTrue(result is ActionResult.Success)
+            assertTrue((result as ActionResult.Success).data.results.isEmpty())
+        }
 }

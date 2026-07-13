@@ -198,7 +198,7 @@ data class AlertEventDef(
  * no-op.
  */
 @Serializable
-class MemberStateRequest(
+data class MemberStateRequest(
     val state: String,
 )
 
@@ -220,7 +220,7 @@ object MemberState {
  * later slice), so this is a "sync now from primary" trigger, not a wizard.
  */
 @Serializable
-class ConfigSyncRequest(
+data class ConfigSyncRequest(
     @SerialName("primary_id") val primaryId: String,
 )
 
