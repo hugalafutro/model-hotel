@@ -60,7 +60,7 @@
   <text x="100" y="517" fill="#34d399" font-size="12" font-weight="700">4. Sequential Failover Loop</text>
   <text x="100" y="537" fill="#cbd5e1" font-size="11">• Try #1 → retriable error → #2 → error → #3</text>
   <text x="100" y="553" fill="#cbd5e1" font-size="11">• Exponential backoff (100ms → 200ms → 400ms...)</text>
-  <text x="100" y="569" fill="#cbd5e1" font-size="11">• RecordFailure on 5xx / 429 / 401 / 403 / 404</text>
+  <text x="100" y="569" fill="#cbd5e1" font-size="11">• RecordFailure on 5xx / 429 / 401 / 403  (404 / 499 fail over, breaker no-op)</text>
   <text x="100" y="585" fill="#cbd5e1" font-size="11">• RecordSuccess on any non-failover (incl. 400)</text>
   <text x="100" y="601" fill="#cbd5e1" font-size="11">• TTFT probe + stall watchdog protection</text>
 
