@@ -217,4 +217,28 @@ class FleetBackstopTest {
             assertEquals(Result.retry(), result)
             assertTrue(fired.isEmpty())
         }
+
+    @Test
+    fun pushOneShotTransientFailureSucceedsWithoutRetry() =
+        runBlocking {
+            // The push one-shot passes retryOnFailure = false: a retrying one-shot
+            // would hold the KEEP unique-work slot through its backoff and drop
+            // pushes that land during that window, so it ends in success and frees
+            // the slot for the next wake instead.
+            val monitor = monitorStore().apply { setPushEnabled(true) }
+            server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
+
+            val result =
+                runBackstop(
+                    monitor,
+                    linkedTo(server.url("/").toString()),
+                    client,
+                    canNotify = true,
+                    notify = { fired += it },
+                    retryOnFailure = false,
+                )
+
+            assertEquals(Result.success(), result)
+            assertTrue(fired.isEmpty())
+        }
 }

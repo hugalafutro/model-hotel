@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.util.UUID
 import kotlin.random.Random
 
 // Separate DataStore from the link and lock records so background-monitoring
@@ -73,6 +74,14 @@ class MonitorStore(
         dataStore.edit { prefs ->
             val wasActive = prefs[ENABLED] == true || prefs[PUSH_ENABLED] == true
             prefs[PUSH_ENABLED] = enabled
+            // Mint a fresh registration id on every enable so endpoint callbacks can
+            // be attributed to the registration that produced them: a late
+            // onNewEndpoint (or onUnregistered) from a superseded registration
+            // carries the OLD id and is dropped rather than overwriting the current
+            // topic (see [saveEndpoint]/[clearEndpoint]). The id is retained on
+            // disable so the pending unregister can still target the right instance;
+            // the next enable overwrites it and clear() wipes it.
+            if (enabled) prefs[PUSH_INSTANCE] = UUID.randomUUID().toString()
             // Turning push off drops the stale endpoint: it names a distributor
             // topic we're about to unregister, so leaving it in Settings would be a
             // lie. A fresh onNewEndpoint repopulates it if push comes back on.
@@ -81,20 +90,38 @@ class MonitorStore(
         }
     }
 
+    /** pushInstance is the id of the current push registration, or null if none. */
+    suspend fun pushInstance(): String? = dataStore.data.first()[PUSH_INSTANCE]
+
     /**
      * saveEndpoint records the distributor's endpoint URL, but only while push is
-     * still on: a late onNewEndpoint arriving after the user turned Layer 3 off (or
-     * unlinked) must not resurrect an endpoint Settings would then display.
+     * still on AND the callback belongs to the current registration [instance]: a
+     * late onNewEndpoint arriving after the user turned Layer 3 off (or unlinked)
+     * must not resurrect an endpoint Settings would then display, and one from a
+     * superseded registration (push toggled off/on, or unlink + re-pair) must not
+     * overwrite the live topic with a stale one the distributor no longer routes.
      */
-    suspend fun saveEndpoint(url: String) {
+    suspend fun saveEndpoint(
+        url: String,
+        instance: String,
+    ) {
         dataStore.edit { prefs ->
-            if (prefs[PUSH_ENABLED] == true) prefs[PUSH_ENDPOINT] = url
+            if (prefs[PUSH_ENABLED] == true && prefs[PUSH_INSTANCE] == instance) {
+                prefs[PUSH_ENDPOINT] = url
+            }
         }
     }
 
-    /** clearEndpoint drops the endpoint on unregister or a registration failure. */
-    suspend fun clearEndpoint() {
-        dataStore.edit { it.remove(PUSH_ENDPOINT) }
+    /**
+     * clearEndpoint drops the endpoint on unregister or a registration failure, but
+     * only when the callback's [instance] is the current registration: an
+     * onUnregistered/onRegistrationFailed for a superseded registration must not wipe
+     * the endpoint a newer registration just published.
+     */
+    suspend fun clearEndpoint(instance: String) {
+        dataStore.edit { prefs ->
+            if (prefs[PUSH_INSTANCE] == instance) prefs.remove(PUSH_ENDPOINT)
+        }
     }
 
     // stampSessionIfNewlyActive rotates the session epoch on the inactive -> active
@@ -158,6 +185,7 @@ class MonitorStore(
         private val ENABLED = booleanPreferencesKey("enabled")
         private val PUSH_ENABLED = booleanPreferencesKey("push_enabled")
         private val PUSH_ENDPOINT = stringPreferencesKey("push_endpoint")
+        private val PUSH_INSTANCE = stringPreferencesKey("push_instance")
         private val EPOCH = longPreferencesKey("epoch")
         private val SNAPSHOT = stringPreferencesKey("fleet_snapshot")
     }

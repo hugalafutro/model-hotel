@@ -302,6 +302,9 @@ fun BellhopApp() {
                     // Fence the remote side before clearing: if clear() throws, the
                     // retry skips the now-dead Front Desk call and only re-clears.
                     revokedRemotely = true
+                    // Capture the push registration id before clear() wipes it, so
+                    // the unregister below tears down the exact UnifiedPush instance.
+                    val pushInstance = monitorStore.pushInstance()
                     linkStore.clear()
                     lockStore.clear()
                     // Stop both backstop layers and wipe the last-seen fleet so a
@@ -311,7 +314,7 @@ fun BellhopApp() {
                     // before its LaunchedEffect can unregister, so do it here too.
                     monitorStore.clear()
                     FleetPollWorker.cancel(context)
-                    BellhopPush.unregister(context)
+                    BellhopPush.unregister(context, pushInstance)
                 } else {
                     unlinkFailed = true
                 }
@@ -339,11 +342,14 @@ fun BellhopApp() {
         unlinkFailed = false
         scope.launch {
             try {
+                // Capture the push registration id before clear() wipes it, so the
+                // unregister below tears down the exact UnifiedPush instance.
+                val pushInstance = monitorStore.pushInstance()
                 linkStore.clear()
                 lockStore.clear()
                 monitorStore.clear()
                 FleetPollWorker.cancel(context)
-                BellhopPush.unregister(context)
+                BellhopPush.unregister(context, pushInstance)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -460,10 +466,16 @@ private fun LinkedContent(
     // picker), so it's a no-op if we aren't hosted by one.
     val pushActivity = monitorContext as? FragmentActivity
     LaunchedEffect(pushEnabled, pushDistributorAvailable) {
+        // Read the registration id fresh here rather than through a recomposed
+        // param: setPushEnabled writes the flag and a new id in one edit, so by the
+        // time this effect keys off pushEnabled the id is already the current one,
+        // and register/unregister target the same instance the callbacks compare.
+        val store = MonitorStore.create(monitorContext)
         if (pushEnabled) {
-            if (pushActivity != null) BellhopPush.register(pushActivity)
+            val instance = store.pushInstance()
+            if (pushActivity != null && instance != null) BellhopPush.register(pushActivity, instance)
         } else {
-            BellhopPush.unregister(monitorContext)
+            BellhopPush.unregister(monitorContext, store.pushInstance())
         }
     }
     // Keyed by the full pairing (FD URL + deviceId): the Activity-scoped

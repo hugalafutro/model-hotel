@@ -17,18 +17,30 @@ object BellhopPush {
 
     /**
      * register picks the saved distributor (or the sole/default one) and registers
-     * Bellhop with it; the resulting endpoint arrives asynchronously in
+     * Bellhop with it under [instance] (a per-registration id minted by MonitorStore
+     * so endpoint callbacks can be attributed to the registration that produced
+     * them); the resulting endpoint arrives asynchronously in
      * [BellhopPushService.onNewEndpoint]. Needs an Activity because choosing a
      * distributor may surface a picker. A no-op when no distributor can be chosen.
      */
-    fun register(activity: Activity) {
+    fun register(
+        activity: Activity,
+        instance: String,
+    ) {
         UnifiedPush.tryUseCurrentOrDefaultDistributor(activity) { chosen ->
-            if (chosen) UnifiedPush.register(activity.applicationContext)
+            if (chosen) UnifiedPush.register(activity.applicationContext, instance)
         }
     }
 
-    /** unregister tears down the registration; the distributor stops waking us. */
-    fun unregister(context: Context) {
-        UnifiedPush.unregister(context.applicationContext)
+    /**
+     * unregister tears down the registration for [instance] so the distributor stops
+     * waking us. A null instance means nothing was ever registered (push never
+     * enabled), so there is nothing to tear down.
+     */
+    fun unregister(
+        context: Context,
+        instance: String?,
+    ) {
+        if (instance != null) UnifiedPush.unregister(context.applicationContext, instance)
     }
 }
