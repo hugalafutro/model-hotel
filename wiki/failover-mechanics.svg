@@ -48,16 +48,17 @@
   <line x1="245" y1="284" x2="95" y2="284" stroke="#fb7185" stroke-width="1.5"/>
   <text x="240" y="277" text-anchor="end" fill="#fb7185" font-size="10.5" font-weight="600">timeout</text>
 
-  <!-- token arrives -> down -->
+  <!-- first token confirmed: RecordSuccess is recorded HERE, then the stream commits -->
   <line x1="410" y1="330" x2="410" y2="354" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-green)"/>
-  <text x="422" y="347" fill="#34d399" font-size="10.5" font-weight="600">token arrives &#8594; commit stream</text>
+  <text x="420" y="341" fill="#34d399" font-size="10.5" font-weight="600">first token &#8594; RecordSuccess</text>
+  <text x="420" y="352" fill="#34d399" font-size="9.5">commit + stream to client</text>
 
   <!-- Stall watchdog -->
   <rect x="245" y="354" width="330" height="122" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
   <rect x="245" y="354" width="330" height="26" rx="8" fill="#10b981" opacity="0.15"/>
-  <text x="410" y="371" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">Stall watchdog (streaming in progress)</text>
+  <text x="410" y="371" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">Stall watchdog (committed stream)</text>
   <text x="262" y="393" fill="#cbd5e1" font-size="11">&#8226; Silence &gt; configured window (default 30s) &#8594; terminate</text>
-  <text x="262" y="411" fill="#cbd5e1" font-size="11">&#8226; Circuit breaker records a failure</text>
+  <text x="262" y="411" fill="#cbd5e1" font-size="11">&#8226; RecordFailure (on top of the earlier TTFT success)</text>
   <text x="262" y="429" fill="#cbd5e1" font-size="11">&#8226; After 50 chunks, stall threshold &#215; 3</text>
   <text x="278" y="444" fill="#94a3b8" font-size="10">(tolerates tool-call pauses &amp; long reasoning chains)</text>
   <text x="262" y="463" fill="#cbd5e1" font-size="11">&#8226; Both timeouts in Settings &#8594; Proxy (0s to disable)</text>
@@ -77,22 +78,23 @@
   <text x="145" y="141" text-anchor="middle" fill="#94a3b8" font-size="9.5">100ms &#8594; 200ms &#8594; 400ms &#8230;</text>
   <line x1="145" y1="146" x2="145" y2="171" stroke="#fb7185" stroke-width="1.2" stroke-dasharray="4,3"/>
 
-  <!-- Retriable failures (what counts as a failure) -->
-  <rect x="600" y="238" width="200" height="200" rx="8" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
+  <!-- Retriable failures (what counts as a failover trigger) -->
+  <rect x="600" y="238" width="200" height="212" rx="8" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
   <rect x="600" y="238" width="200" height="26" rx="8" fill="#f43f5e" opacity="0.15"/>
   <text x="616" y="255" fill="#fb7185" font-size="12" font-weight="700">Retriable failures</text>
   <text x="616" y="283" fill="#cbd5e1" font-size="11">&#8226; Server errors (5xx)</text>
   <text x="616" y="303" fill="#cbd5e1" font-size="11">&#8226; Rate limits (429)</text>
   <text x="616" y="323" fill="#cbd5e1" font-size="11">&#8226; Auth issues (401 / 403)</text>
-  <text x="616" y="343" fill="#cbd5e1" font-size="11">&#8226; Request timeouts</text>
-  <text x="616" y="363" fill="#cbd5e1" font-size="11">&#8226; TTFT probe timeouts</text>
-  <text x="616" y="393" fill="#94a3b8" font-size="10" font-style="italic">each one fails over to</text>
-  <text x="616" y="407" fill="#94a3b8" font-size="10" font-style="italic">the next provider (left)</text>
+  <text x="616" y="343" fill="#cbd5e1" font-size="11">&#8226; Model not found (404)</text>
+  <text x="616" y="363" fill="#cbd5e1" font-size="11">&#8226; Request timeouts</text>
+  <text x="616" y="383" fill="#cbd5e1" font-size="11">&#8226; TTFT probe timeouts</text>
+  <text x="616" y="411" fill="#94a3b8" font-size="10" font-style="italic">each one fails over to</text>
+  <text x="616" y="425" fill="#94a3b8" font-size="10" font-style="italic">the next provider (left)</text>
 
-  <!-- healthy stream -> served -->
+  <!-- healthy stream completes -> served -->
   <line x1="410" y1="476" x2="410" y2="560" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-green)"/>
-  <rect x="412" y="500" width="176" height="24" rx="6" fill="#0f172a" stroke="#10b981" stroke-width="1" opacity="0.9"/>
-  <text x="500" y="516" text-anchor="middle" fill="#34d399" font-size="10.5" font-weight="600">RecordSuccess &#8594; stream to client</text>
+  <rect x="418" y="500" width="164" height="24" rx="6" fill="#0f172a" stroke="#10b981" stroke-width="1" opacity="0.9"/>
+  <text x="500" y="516" text-anchor="middle" fill="#34d399" font-size="10.5" font-weight="600">stream completes &#8594; [DONE]</text>
 
   <!-- Upstream / served box -->
   <rect x="260" y="560" width="300" height="70" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
