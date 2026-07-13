@@ -1,0 +1,17 @@
+# Trivy vulnerability ignore list.
+#
+# Each entry MUST document why the finding is not actionable. Keep this list
+# minimal: it hides findings from BOTH the CI gate and the Security-tab SARIF
+# report, so only suppress verified false positives or permanently-unfixable
+# advisories.
+
+# GO-2026-5932 — "golang.org/x/crypto/openpgp is unmaintained".
+# A module-level advisory with NO fixed version: it flags every release of
+# golang.org/x/crypto because the openpgp subpackage lives in that module,
+# regardless of whether the binary links it. We never import openpgp
+# (`go mod why golang.org/x/crypto/openpgp` => "main module does not need
+# package"; govulncheck's call-graph analysis is green). We only use
+# golang.org/x/crypto/argon2, which is why the module is in the binary's
+# buildinfo at all. Trivy's binary scan matches on module+version and cannot
+# see that openpgp is never linked, hence the false positive.
+GO-2026-5932
