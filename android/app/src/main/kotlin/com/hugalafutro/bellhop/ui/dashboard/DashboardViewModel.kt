@@ -278,7 +278,12 @@ class DashboardViewModel(
                 val autoSync = client.autoSync(fdUrl, token) as? FetchResult.Success
                 val liveIds = result.data.mapTo(HashSet()) { it.id }
                 _state.update {
-                    val liveEnabled = autoSync?.data?.enabled ?: it.autoSyncEnabled
+                    val pending = it.autoSync.pendingEnabled
+                    // When the auto-sync read fails but the rest of the refresh
+                    // succeeds, fall back to the optimistic pending value (already
+                    // applied per the PUT's 200 echo) rather than the stale baseline,
+                    // so clearing the hint below doesn't revert the toggle on screen.
+                    val liveEnabled = autoSync?.data?.enabled ?: pending ?: it.autoSyncEnabled
                     it.copy(
                         loading = false,
                         members = result.data,
@@ -289,11 +294,14 @@ class DashboardViewModel(
                         traffic = it.traffic.filterKeys { id -> id in liveIds },
                         error = null,
                         revoked = false,
-                        // Reconcile the pause/resume control: once a live read shows
-                        // the toggle caught up to the optimistic pending value, drop
-                        // the hint so a change made elsewhere isn't masked by it.
+                        // Reconcile the pause/resume control: drop the optimistic hint
+                        // once it's resolved. Either a live read shows the toggle
+                        // caught up (so a change made elsewhere isn't masked by it), or
+                        // the confirming endpoint is down and we've promoted the
+                        // PUT-acked value to the baseline above instead of stranding a
+                        // perpetual "pending" against a read that keeps failing.
                         autoSync =
-                            if (autoSync != null && it.autoSync.pendingEnabled == liveEnabled) {
+                            if (pending != null && (autoSync == null || pending == liveEnabled)) {
                                 it.autoSync.copy(pendingEnabled = null)
                             } else {
                                 it.autoSync

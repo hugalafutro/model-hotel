@@ -210,6 +210,27 @@ class DashboardViewModelTest {
         }
 
     @Test
+    fun setAutoSyncReadFailurePromotesPendingInsteadOfStranding() =
+        runBlocking {
+            val client = autoSyncClient(enabled = true)
+            client.setAutoSyncResult = ActionResult.Success(AutoSyncConfig(enabled = false, primaryId = "m1"))
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            vm.refreshOnce()
+
+            vm.setAutoSync(false)
+            withTimeout(5_000) { vm.state.first { !it.autoSync.inProgress && it.autoSync.pendingEnabled != null } }
+
+            // The confirming endpoint goes dark while members still read fine. The
+            // pending hint must not linger forever: the PUT's 200 echo already
+            // applied the paused value, so it's promoted to the baseline and the
+            // hint clears rather than showing "pausing…" against a dead read.
+            client.autoSyncResult = FetchResult.Failure("autosync down")
+            vm.refreshOnce()
+            assertNull(vm.state.value.autoSync.pendingEnabled)
+            assertFalse(vm.state.value.autoSyncEnabled)
+        }
+
+    @Test
     fun setAutoSyncForbiddenSetsFlag() =
         runBlocking {
             val client = autoSyncClient()
