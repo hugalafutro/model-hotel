@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#34d399"/>
+    </marker>
+    <filter id="shadow" x="-2%" y="-2%" width="104%" height="104%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background (transparent) -->
+  <rect width="820" height="700" fill="none" rx="8"/>
+
+  <!-- Title -->
+  <text x="410" y="34" text-anchor="middle" fill="#e2e8f0" font-size="16" font-weight="700" letter-spacing="0.5">Transparent Failover</text>
+  <text x="410" y="54" text-anchor="middle" fill="#64748b" font-size="11">Retry the next available provider &#8226; TTFT probe &#8226; stall watchdog &#8226; backoff + jitter</text>
+
+  <!-- Client Request Box -->
+  <rect x="260" y="74" width="300" height="58" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="410" y="99" text-anchor="middle" fill="#93c5fd" font-size="13" font-weight="600">CLIENT REQUEST</text>
+  <text x="410" y="117" text-anchor="middle" fill="#94a3b8" font-size="11">POST /v1/chat/completions</text>
+
+  <line x1="410" y1="132" x2="410" y2="156" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Attempt provider node -->
+  <rect x="260" y="156" width="300" height="58" rx="8" fill="#1e293b" stroke="#a78bfa" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="260" y="156" width="300" height="26" rx="8" fill="#a78bfa" opacity="0.15"/>
+  <text x="410" y="173" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="700">Attempt next available provider</text>
+  <text x="410" y="201" text-anchor="middle" fill="#cbd5e1" font-size="11">in priority order &#8226; skip disabled / breaker-open</text>
+
+  <line x1="410" y1="214" x2="410" y2="238" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- TTFT probe -->
+  <rect x="245" y="238" width="330" height="92" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="245" y="238" width="330" height="26" rx="8" fill="#f59e0b" opacity="0.15"/>
+  <text x="410" y="255" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">TTFT probe (streaming)</text>
+  <text x="410" y="277" text-anchor="middle" fill="#cbd5e1" font-size="11">Reads ahead: does the first token arrive</text>
+  <text x="410" y="293" text-anchor="middle" fill="#cbd5e1" font-size="11">within the configured timeout (default 60s)?</text>
+  <text x="410" y="315" text-anchor="middle" fill="#64748b" font-size="10.5" font-style="italic">stream is not committed to the client until this passes</text>
+
+  <!-- TTFT timeout -> left return channel -->
+  <line x1="245" y1="284" x2="95" y2="284" stroke="#fb7185" stroke-width="1.5"/>
+  <text x="240" y="277" text-anchor="end" fill="#fb7185" font-size="10.5" font-weight="600">timeout</text>
+
+  <!-- token arrives -> down -->
+  <line x1="410" y1="330" x2="410" y2="354" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="422" y="347" fill="#34d399" font-size="10.5" font-weight="600">token arrives &#8594; commit stream</text>
+
+  <!-- Stall watchdog -->
+  <rect x="245" y="354" width="330" height="122" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="245" y="354" width="330" height="26" rx="8" fill="#10b981" opacity="0.15"/>
+  <text x="410" y="371" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">Stall watchdog (streaming in progress)</text>
+  <text x="262" y="393" fill="#cbd5e1" font-size="11">&#8226; Silence &gt; configured window (default 30s) &#8594; terminate</text>
+  <text x="262" y="411" fill="#cbd5e1" font-size="11">&#8226; Circuit breaker records a failure</text>
+  <text x="262" y="429" fill="#cbd5e1" font-size="11">&#8226; After 50 chunks, stall threshold &#215; 3</text>
+  <text x="278" y="444" fill="#94a3b8" font-size="10">(tolerates tool-call pauses &amp; long reasoning chains)</text>
+  <text x="262" y="463" fill="#cbd5e1" font-size="11">&#8226; Both timeouts in Settings &#8594; Proxy (0s to disable)</text>
+
+  <!-- Stall -> left return channel -->
+  <line x1="245" y1="415" x2="95" y2="415" stroke="#fb7185" stroke-width="1.5"/>
+  <text x="240" y="408" text-anchor="end" fill="#fb7185" font-size="10.5" font-weight="600">stall</text>
+
+  <!-- Left return channel (single, clear of every box edge) -->
+  <line x1="95" y1="415" x2="95" y2="175" stroke="#fb7185" stroke-width="1.5"/>
+  <line x1="95" y1="175" x2="258" y2="175" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+
+  <!-- Backoff / jitter label sitting on the return line, where the retry happens -->
+  <rect x="70" y="94" width="150" height="52" rx="8" fill="#0f172a" stroke="#fb7185" stroke-width="1.2" filter="url(#shadow)"/>
+  <text x="145" y="112" text-anchor="middle" fill="#fb7185" font-size="10.5" font-weight="700">retry next provider</text>
+  <text x="145" y="128" text-anchor="middle" fill="#cbd5e1" font-size="10">exp. backoff + jitter</text>
+  <text x="145" y="141" text-anchor="middle" fill="#94a3b8" font-size="9.5">100ms &#8594; 200ms &#8594; 400ms &#8230;</text>
+  <line x1="145" y1="146" x2="145" y2="171" stroke="#fb7185" stroke-width="1.2" stroke-dasharray="4,3"/>
+
+  <!-- Retriable failures (what counts as a failure) -->
+  <rect x="600" y="238" width="200" height="200" rx="8" fill="#1e293b" stroke="#f43f5e" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="600" y="238" width="200" height="26" rx="8" fill="#f43f5e" opacity="0.15"/>
+  <text x="616" y="255" fill="#fb7185" font-size="12" font-weight="700">Retriable failures</text>
+  <text x="616" y="283" fill="#cbd5e1" font-size="11">&#8226; Server errors (5xx)</text>
+  <text x="616" y="303" fill="#cbd5e1" font-size="11">&#8226; Rate limits (429)</text>
+  <text x="616" y="323" fill="#cbd5e1" font-size="11">&#8226; Auth issues (401 / 403)</text>
+  <text x="616" y="343" fill="#cbd5e1" font-size="11">&#8226; Request timeouts</text>
+  <text x="616" y="363" fill="#cbd5e1" font-size="11">&#8226; TTFT probe timeouts</text>
+  <text x="616" y="393" fill="#94a3b8" font-size="10" font-style="italic">each one fails over to</text>
+  <text x="616" y="407" fill="#94a3b8" font-size="10" font-style="italic">the next provider (left)</text>
+
+  <!-- healthy stream -> served -->
+  <line x1="410" y1="476" x2="410" y2="560" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <rect x="412" y="500" width="176" height="24" rx="6" fill="#0f172a" stroke="#10b981" stroke-width="1" opacity="0.9"/>
+  <text x="500" y="516" text-anchor="middle" fill="#34d399" font-size="10.5" font-weight="600">RecordSuccess &#8594; stream to client</text>
+
+  <!-- Upstream / served box -->
+  <rect x="260" y="560" width="300" height="70" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="410" y="585" text-anchor="middle" fill="#34d399" font-size="13" font-weight="600">SERVED FROM HEALTHY PROVIDER</text>
+  <text x="410" y="603" text-anchor="middle" fill="#94a3b8" font-size="11">OpenAI &#8226; Anthropic &#8226; Ollama &#8226; &#8230;</text>
+
+  <!-- Legend -->
+  <line x1="290" y1="672" x2="320" y2="672" stroke="#34d399" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="326" y="676" fill="#94a3b8" font-size="10.5">success path</text>
+  <line x1="430" y1="672" x2="460" y2="672" stroke="#fb7185" stroke-width="1.5" marker-end="url(#arrow-red)"/>
+  <text x="466" y="676" fill="#94a3b8" font-size="10.5">failure &#8594; fail over</text>
+</svg>
