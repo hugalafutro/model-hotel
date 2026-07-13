@@ -313,7 +313,7 @@ fun BellhopApp() {
                     // clear() drops the pushEnabled flag, but LinkedContent unmounts
                     // before its LaunchedEffect can unregister, so do it here too.
                     monitorStore.clear()
-                    FleetPollWorker.cancel(context)
+                    FleetPollWorker.cancelAll(context)
                     BellhopPush.unregister(context, pushInstance)
                 } else {
                     unlinkFailed = true
@@ -348,7 +348,7 @@ fun BellhopApp() {
                 linkStore.clear()
                 lockStore.clear()
                 monitorStore.clear()
-                FleetPollWorker.cancel(context)
+                FleetPollWorker.cancelAll(context)
                 BellhopPush.unregister(context, pushInstance)
             } catch (e: CancellationException) {
                 throw e

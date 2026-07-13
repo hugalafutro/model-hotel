@@ -208,12 +208,26 @@ class FleetPollWorker(
                 .enqueueUniqueWork(ONESHOT_NAME, ExistingWorkPolicy.KEEP, request)
         }
 
+        /**
+         * cancel stops ONLY the periodic poll, used when Layer-2 monitoring is
+         * turned off. It deliberately leaves the push one-shot alone: push-only mode
+         * (Layer 2 off, Layer 3 on) is supported, so cancelling a queued or running
+         * push wake here would drop the very Front Desk transition Layer 3 exists to
+         * deliver. Full teardown on unlink uses [cancelAll].
+         */
         fun cancel(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_NAME)
+        }
+
+        /**
+         * cancelAll tears down both the periodic poll and any queued push one-shot,
+         * used on unlink where neither layer should survive: a pending push wake left
+         * behind would bail in runBackstop once active is false, but cancelling closes
+         * the window rather than relying on that guard.
+         */
+        fun cancelAll(context: Context) {
             val wm = WorkManager.getInstance(context)
             wm.cancelUniqueWork(UNIQUE_NAME)
-            // Also drop any queued push one-shot so a pending wake can't outlive an
-            // unlink (it would bail in runBackstop anyway once active is false, but
-            // cancelling closes the window and mirrors the periodic teardown).
             wm.cancelUniqueWork(ONESHOT_NAME)
         }
     }
