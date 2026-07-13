@@ -25,6 +25,15 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
+    <!-- UnifiedPush (Layer-3 opt-in push, plan section 5.2) discovers distributor
+         apps by querying for the REGISTER action; Android 11+ package visibility
+         needs it declared explicitly for getDistributors to see anything. -->
+    <queries>
+        <intent>
+            <action android:name="org.unifiedpush.android.distributor.REGISTER" />
+        </intent>
+    </queries>
+
     <!-- usesCleartextTraffic: plan section 3.6 assumes plain HTTP on the LAN
          (remote access is the user's VPN), and targetSdk 28+ blocks cleartext
          by default, which would make every http:// Front Desk unpairable. -->
@@ -43,6 +52,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- UnifiedPush (Layer-3 opt-in push): the connector delivers endpoint and
+             message events to this PushService via the PUSH_EVENT action. Not
+             exported; only the on-device distributor, brokered by the connector
+             library, ever reaches it. -->
+        <service
+            android:name=".push.BellhopPushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.unifiedpush.android.connector.PUSH_EVENT" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

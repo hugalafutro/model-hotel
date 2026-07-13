@@ -82,6 +82,11 @@ dependencies {
     // worker that diffs fleet health while Bellhop is backgrounded and posts a
     // local notification on a member going down or recovering. No push infra.
     implementation(libs.androidx.work.runtime)
+    // UnifiedPush is the Layer-3 real-time wake (plan section 5.2): an opt-in,
+    // Google-free replacement for FCM. A distributor (ntfy) holds the socket and
+    // wakes Bellhop the moment Front Desk's Apprise pipeline pushes to its topic;
+    // the push is only a trigger, the fleet truth is re-fetched from Front Desk.
+    implementation(libs.unifiedpush.connector)
     // BiometricPrompt gates local access to the stored token; its device-credential
     // fallback (pattern/PIN) needs no fingerprint sensor. It requires a
     // FragmentActivity host, hence the explicit fragment dependency (plan 3.1/5.4).

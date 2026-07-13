@@ -16,6 +16,10 @@ zxingEmbedded = "4.3.0"
 biometric = "1.1.0"
 fragment = "1.8.5"
 work = "2.9.1"
+# Pinned to the newest 3.x built with Kotlin <= 2.1.0 (this project's compiler):
+# 3.1.0+ ship Kotlin 2.2/2.3 metadata the 2.1.0 compiler can't read. 3.0.10 has
+# the full PushService API we use and stdlib 2.0.21, which resolves cleanly here.
+unifiedpush = "3.0.10"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -43,6 +47,7 @@ zxing-android-embedded = { group = "com.journeyapps", name = "zxing-android-embe
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 androidx-fragment = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragment" }
 androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
+unifiedpush-connector = { group = "org.unifiedpush.android", name = "connector", version.ref = "unifiedpush" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

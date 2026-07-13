@@ -120,6 +120,15 @@
     <string name="settings_monitor_subtitle">Check the fleet every 15 minutes and notify you here when a member goes down or recovers, even when Bellhop is closed.</string>
     <string name="settings_monitor_note">Front Desk\'s own alerts are faster; this is a backstop for when Bellhop is your only view. It checks roughly every 15 minutes, so a change can be up to that late.</string>
     <string name="settings_monitor_blocked">Notifications are turned off for Bellhop, so these alerts won\'t reach you. Turn them on in system settings.</string>
+    <string name="settings_push_title">Real-time push</string>
+    <string name="settings_push_subtitle">Wake Bellhop the instant Front Desk pushes an alert, via UnifiedPush and ntfy. No Google, no polling delay, opt-in.</string>
+    <string name="settings_push_no_distributor">Install a UnifiedPush distributor such as ntfy to receive pushes. Without one, this stays idle until you add it.</string>
+    <string name="settings_push_endpoint_label">Push topic for Front Desk</string>
+    <string name="settings_push_endpoint_waiting">Waiting for the distributor to hand back a push topic…</string>
+    <string name="settings_push_endpoint_note">Paste this into Front Desk → Settings → Alerts as the phone topic, so its alerts wake Bellhop.</string>
+    <string name="settings_push_copy">Copy push topic</string>
+    <string name="settings_push_copied">Push topic copied</string>
+    <string name="settings_push_blocked">Notifications are off for Bellhop, so pushes can\'t reach you. Turn them on in system settings.</string>
 
     <!-- Background-monitoring notifications (Layer 2 backstop) -->
     <string name="notif_channel_down">Member down</string>

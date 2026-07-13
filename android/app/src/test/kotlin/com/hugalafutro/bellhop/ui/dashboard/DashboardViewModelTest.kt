@@ -355,7 +355,13 @@ class DashboardViewModelTest {
             val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
 
             val job = launch { vm.state.collect {} }
-            val s = withTimeout(5_000) { vm.state.first { it.revoked } }
+            // revoked here is reached only through streamLoop (the poll succeeds), so
+            // it hangs off the stream subscription's one IO hop with no polling slack.
+            // The wait is a failsafe against a genuine hang, not an expected latency —
+            // it normally completes in milliseconds — so give it the same generous
+            // bound as revokedTokenSwallowsFurtherRefreshNudges rather than a tight 5s
+            // window a loaded CI runner can starve past.
+            val s = withTimeout(30_000) { vm.state.first { it.revoked } }
             assertTrue(s.revoked)
             job.cancel()
         }

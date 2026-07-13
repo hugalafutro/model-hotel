@@ -117,4 +117,129 @@ class MonitorStoreTest {
             assertFalse(store.enabled.first())
             assertNull(store.snapshot())
         }
+
+    @Test
+    fun pushDefaultsToDisabled() =
+        runBlocking {
+            assertFalse(newStore().pushEnabled.first())
+        }
+
+    @Test
+    fun activeIsTrueWhenEitherLayerOn() =
+        runBlocking {
+            // The shared snapshot machinery keys off active, so push alone must
+            // count: a Layer-3-only user still needs the baseline maintained.
+            val store = newStore()
+            assertFalse(store.active.first())
+            store.setPushEnabled(true)
+            assertTrue(store.active.first())
+            store.setPushEnabled(false)
+            store.setEnabled(true)
+            assertTrue(store.active.first())
+        }
+
+    @Test
+    fun pushOnlySessionStampsFreshEpoch() =
+        runBlocking {
+            val store = newStore()
+            assertEquals(0L, store.epoch())
+            store.setPushEnabled(true)
+            assertTrue(store.epoch() != 0L)
+        }
+
+    @Test
+    fun enablingSecondLayerKeepsSessionEpoch() =
+        runBlocking {
+            // Turning push on mid-session must not rotate the epoch, or an in-flight
+            // Layer-2 poll's snapshot save would be dropped for no reason.
+            val store = newStore()
+            store.setEnabled(true)
+            val session = store.epoch()
+            store.setPushEnabled(true)
+            assertEquals(session, store.epoch())
+        }
+
+    @Test
+    fun snapshotPersistsWhenOnlyPushEnabled() =
+        runBlocking {
+            val store = newStore()
+            store.setPushEnabled(true)
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), store.epoch())
+            assertEquals(MemberHealthState.UP, store.snapshot()?.stateOf("m1"))
+        }
+
+    @Test
+    fun endpointRoundTripsWhilePushEnabled() =
+        runBlocking {
+            val store = newStore()
+            store.setPushEnabled(true)
+            store.saveEndpoint("https://ntfy.sh/upABC123", store.pushInstance()!!)
+            assertEquals("https://ntfy.sh/upABC123", store.endpoint.first())
+        }
+
+    @Test
+    fun endpointIgnoredWhenPushDisabled() =
+        runBlocking {
+            // A late onNewEndpoint arriving after push was turned off (or before it
+            // was ever on) must not resurrect a topic Settings would then display.
+            val store = newStore()
+            store.saveEndpoint("https://ntfy.sh/upABC123", "any-instance")
+            assertNull(store.endpoint.first())
+        }
+
+    @Test
+    fun endpointFromSupersededRegistrationIgnored() =
+        runBlocking {
+            // A late onNewEndpoint from a registration that was already replaced
+            // (push toggled off/on, or unlink + re-pair) carries the old instance id
+            // and must not overwrite the live topic with a stale one the distributor
+            // no longer routes.
+            val store = newStore()
+            store.setPushEnabled(true)
+            val stale = store.pushInstance()!!
+            store.setPushEnabled(false)
+            store.setPushEnabled(true)
+            val current = store.pushInstance()!!
+            store.saveEndpoint("https://ntfy.sh/upOLD", stale)
+            assertNull(store.endpoint.first())
+            store.saveEndpoint("https://ntfy.sh/upNEW", current)
+            assertEquals("https://ntfy.sh/upNEW", store.endpoint.first())
+        }
+
+    @Test
+    fun clearEndpointFromSupersededRegistrationIgnored() =
+        runBlocking {
+            // An onUnregistered/onRegistrationFailed for a superseded registration
+            // must not wipe the endpoint a newer registration just published.
+            val store = newStore()
+            store.setPushEnabled(true)
+            val current = store.pushInstance()!!
+            store.saveEndpoint("https://ntfy.sh/upABC123", current)
+            store.clearEndpoint("stale-instance")
+            assertEquals("https://ntfy.sh/upABC123", store.endpoint.first())
+            store.clearEndpoint(current)
+            assertNull(store.endpoint.first())
+        }
+
+    @Test
+    fun disablingPushClearsEndpoint() =
+        runBlocking {
+            val store = newStore()
+            store.setPushEnabled(true)
+            store.saveEndpoint("https://ntfy.sh/upABC123", store.pushInstance()!!)
+            store.setPushEnabled(false)
+            assertNull(store.endpoint.first())
+        }
+
+    @Test
+    fun clearWipesPushState() =
+        runBlocking {
+            val store = newStore()
+            store.setPushEnabled(true)
+            store.saveEndpoint("https://ntfy.sh/upABC123", store.pushInstance()!!)
+            store.clear()
+            assertFalse(store.pushEnabled.first())
+            assertNull(store.endpoint.first())
+            assertNull(store.pushInstance())
+        }
 }

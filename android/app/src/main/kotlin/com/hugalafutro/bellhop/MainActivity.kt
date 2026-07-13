@@ -39,6 +39,7 @@ import com.hugalafutro.bellhop.data.LockTimeout
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.shouldLock
 import com.hugalafutro.bellhop.notify.FleetNotifier
+import com.hugalafutro.bellhop.push.BellhopPush
 import com.hugalafutro.bellhop.ui.alerts.AlertsScreen
 import com.hugalafutro.bellhop.ui.alerts.AlertsViewModel
 import com.hugalafutro.bellhop.ui.dashboard.DashboardScreen
@@ -159,12 +160,19 @@ fun BellhopApp() {
         )
     val lockAvailable = remember(activity) { activity != null && canAppLock(activity) }
     val monitorEnabled by monitorStore.enabled.collectAsStateWithLifecycle(initialValue = false)
+    val pushEnabled by monitorStore.pushEnabled.collectAsStateWithLifecycle(initialValue = false)
+    val pushEndpoint by monitorStore.endpoint.collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
     // Whether Bellhop may post notifications. Tracked so Settings can be honest
     // when monitoring is on but the permission was denied (or later revoked from
     // system settings); refreshed on the permission result and on every return to
     // the foreground below.
     var notificationsGranted by remember { mutableStateOf(hasPostNotificationPermission(context)) }
+    // Whether any UnifiedPush distributor (ntfy) is installed, so Settings can point
+    // the user at installing one rather than a push toggle that silently never
+    // fires. Refreshed on every return to the foreground, since one may be installed
+    // while Bellhop is away.
+    var pushDistributorAvailable by remember { mutableStateOf(BellhopPush.hasDistributor(context)) }
     // Launcher for the POST_NOTIFICATIONS runtime permission (API 33+), fired when
     // the user turns background monitoring on. A denial is fine: the backstop still
     // polls, and Settings flags that the alerts won't reach them until it's granted.
@@ -178,6 +186,17 @@ fun BellhopApp() {
     // the DataStore flag stays the single source of truth for whether it runs.
     fun toggleMonitor(enabled: Boolean) {
         scope.launch { monitorStore.setEnabled(enabled) }
+        if (enabled && !hasPostNotificationPermission(context)) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    // togglePush persists the Layer-3 opt-in and, on enable, asks for the
+    // notification permission (the push wake posts a notification too). The actual
+    // UnifiedPush register/unregister is left to LinkedContent's effect so the
+    // DataStore flag stays the single source of truth, mirroring toggleMonitor.
+    fun togglePush(enabled: Boolean) {
+        scope.launch { monitorStore.setPushEnabled(enabled) }
         if (enabled && !hasPostNotificationPermission(context)) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -226,8 +245,10 @@ fun BellhopApp() {
                 when (event) {
                     Lifecycle.Event.ON_STOP -> scope.launch { lockStore.stampExit(System.currentTimeMillis()) }
                     Lifecycle.Event.ON_START -> {
-                        // Catch a grant/revoke made in system settings while away.
+                        // Catch a grant/revoke, or a distributor install/removal,
+                        // made in system settings while away.
                         notificationsGranted = hasPostNotificationPermission(context)
+                        pushDistributorAvailable = BellhopPush.hasDistributor(context)
                         scope.launch {
                             val snap = lockStore.snapshot()
                             if (shouldLock(snap.config, snap.lastForegroundExit, System.currentTimeMillis())) {
@@ -281,13 +302,19 @@ fun BellhopApp() {
                     // Fence the remote side before clearing: if clear() throws, the
                     // retry skips the now-dead Front Desk call and only re-clears.
                     revokedRemotely = true
+                    // Capture the push registration id before clear() wipes it, so
+                    // the unregister below tears down the exact UnifiedPush instance.
+                    val pushInstance = monitorStore.pushInstance()
                     linkStore.clear()
                     lockStore.clear()
-                    // Stop the backstop and wipe the last-seen fleet so a re-pair
-                    // (possibly to a different Front Desk) starts from a clean
-                    // baseline rather than diffing against the old fleet.
+                    // Stop both backstop layers and wipe the last-seen fleet so a
+                    // re-pair (possibly to a different Front Desk) starts from a
+                    // clean baseline rather than diffing against the old fleet.
+                    // clear() drops the pushEnabled flag, but LinkedContent unmounts
+                    // before its LaunchedEffect can unregister, so do it here too.
                     monitorStore.clear()
-                    FleetPollWorker.cancel(context)
+                    FleetPollWorker.cancelAll(context)
+                    BellhopPush.unregister(context, pushInstance)
                 } else {
                     unlinkFailed = true
                 }
@@ -315,10 +342,14 @@ fun BellhopApp() {
         unlinkFailed = false
         scope.launch {
             try {
+                // Capture the push registration id before clear() wipes it, so the
+                // unregister below tears down the exact UnifiedPush instance.
+                val pushInstance = monitorStore.pushInstance()
                 linkStore.clear()
                 lockStore.clear()
                 monitorStore.clear()
-                FleetPollWorker.cancel(context)
+                FleetPollWorker.cancelAll(context)
+                BellhopPush.unregister(context, pushInstance)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -370,11 +401,16 @@ fun BellhopApp() {
                         lockAvailable = lockAvailable,
                         monitorEnabled = monitorEnabled,
                         notificationsBlocked = monitorEnabled && !notificationsGranted,
+                        pushEnabled = pushEnabled,
+                        pushEndpoint = pushEndpoint,
+                        pushDistributorAvailable = pushDistributorAvailable,
+                        pushNotificationsBlocked = pushEnabled && !notificationsGranted,
                         scope = scope,
                         unlinking = unlinking,
                         unlinkFailed = unlinkFailed,
                         onDismissUnlinkError = { unlinkFailed = false },
                         onToggleMonitor = { toggleMonitor(it) },
+                        onTogglePush = { togglePush(it) },
                         onUnlink = { runUnlink(state.fdUrl) },
                         onForceUnlink = { forceUnlink() },
                     )
@@ -398,11 +434,16 @@ private fun LinkedContent(
     lockAvailable: Boolean,
     monitorEnabled: Boolean,
     notificationsBlocked: Boolean,
+    pushEnabled: Boolean,
+    pushEndpoint: String?,
+    pushDistributorAvailable: Boolean,
+    pushNotificationsBlocked: Boolean,
     scope: CoroutineScope,
     unlinking: Boolean,
     unlinkFailed: Boolean,
     onDismissUnlinkError: () -> Unit,
     onToggleMonitor: (Boolean) -> Unit,
+    onTogglePush: (Boolean) -> Unit,
     onUnlink: () -> Unit,
     onForceUnlink: () -> Unit,
 ) {
@@ -415,6 +456,26 @@ private fun LinkedContent(
             FleetPollWorker.schedule(monitorContext)
         } else {
             FleetPollWorker.cancel(monitorContext)
+        }
+    }
+    // Self-heal the Layer-3 push: UnifiedPush registration is persistent, but
+    // re-registering here refreshes the endpoint and recovers it after a reinstall;
+    // unregister if push was turned off. Also keyed on distributor availability so
+    // installing a distributor while push is already on registers without a manual
+    // off/on. Registration needs an Activity (choosing a distributor may show a
+    // picker), so it's a no-op if we aren't hosted by one.
+    val pushActivity = monitorContext as? FragmentActivity
+    LaunchedEffect(pushEnabled, pushDistributorAvailable) {
+        // Read the registration id fresh here rather than through a recomposed
+        // param: setPushEnabled writes the flag and a new id in one edit, so by the
+        // time this effect keys off pushEnabled the id is already the current one,
+        // and register/unregister target the same instance the callbacks compare.
+        val store = MonitorStore.create(monitorContext)
+        if (pushEnabled) {
+            val instance = store.pushInstance()
+            if (pushActivity != null && instance != null) BellhopPush.register(pushActivity, instance)
+        } else {
+            BellhopPush.unregister(monitorContext, store.pushInstance())
         }
     }
     // Keyed by the full pairing (FD URL + deviceId): the Activity-scoped
@@ -496,10 +557,15 @@ private fun LinkedContent(
             lockAvailable = lockAvailable,
             monitorEnabled = monitorEnabled,
             notificationsBlocked = notificationsBlocked,
+            pushEnabled = pushEnabled,
+            pushEndpoint = pushEndpoint,
+            pushDistributorAvailable = pushDistributorAvailable,
+            pushNotificationsBlocked = pushNotificationsBlocked,
             onBack = { showSettings = false },
             onToggleLock = { enabled -> scope.launch { lockStore.setEnabled(enabled) } },
             onSelectTimeout = { option -> scope.launch { lockStore.setTimeout(option.millis) } },
             onToggleMonitor = onToggleMonitor,
+            onTogglePush = onTogglePush,
             onAlertsClick = { showAlerts = true },
             onUnlink = onUnlink,
             unlinking = unlinking,

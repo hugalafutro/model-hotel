@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.ui.settings
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,8 +32,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -62,16 +66,24 @@ fun SettingsScreen(
     onToggleLock: (Boolean) -> Unit,
     onSelectTimeout: (LockTimeout) -> Unit,
     onToggleMonitor: (Boolean) -> Unit,
+    onTogglePush: (Boolean) -> Unit,
     onAlertsClick: () -> Unit,
     onUnlink: () -> Unit,
     modifier: Modifier = Modifier,
     notificationsBlocked: Boolean = false,
+    pushEnabled: Boolean = false,
+    pushEndpoint: String? = null,
+    pushDistributorAvailable: Boolean = false,
+    pushNotificationsBlocked: Boolean = false,
     unlinking: Boolean = false,
     unlinkFailed: Boolean = false,
     onDismissUnlinkError: () -> Unit = {},
     onForceUnlink: () -> Unit = {},
 ) {
     var confirmUnlink by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val pushCopied = stringResource(R.string.settings_push_copied)
 
     if (unlinkFailed) {
         AlertDialog(
@@ -326,6 +338,107 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Real-time push: Layer-3 opt-in (plan section 5.2). Off by default like
+            // monitoring; turning it on registers with a UnifiedPush distributor and
+            // (on API 33+) prompts for the notification permission.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_push_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_push_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = pushEnabled,
+                            onCheckedChange = onTogglePush,
+                            // Same off-state colours as the other switches so an off
+                            // toggle stays legible on the card (see note above).
+                            colors =
+                                SwitchDefaults.colors(
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.surface,
+                                    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
+                            modifier = Modifier.testTag("settings-push-toggle"),
+                        )
+                    }
+                    if (!pushDistributorAvailable) {
+                        // No distributor app installed: registration can't complete,
+                        // so nothing will ever wake Bellhop. Say so rather than let
+                        // an enabled switch imply working push.
+                        Text(
+                            text = stringResource(R.string.settings_push_no_distributor),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.testTag("settings-push-no-distributor"),
+                        )
+                    }
+                    if (pushEnabled) {
+                        if (pushNotificationsBlocked) {
+                            Text(
+                                text = stringResource(R.string.settings_push_blocked),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.testTag("settings-push-blocked"),
+                            )
+                        }
+                        if (pushDistributorAvailable) {
+                            Text(
+                                text = stringResource(R.string.settings_push_endpoint_label),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            val endpoint = pushEndpoint
+                            if (endpoint != null) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(
+                                        text = endpoint,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f).testTag("settings-push-endpoint"),
+                                    )
+                                    TextButton(
+                                        onClick = {
+                                            clipboard.setText(AnnotatedString(endpoint))
+                                            Toast.makeText(context, pushCopied, Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.testTag("settings-push-copy"),
+                                    ) {
+                                        Text(stringResource(R.string.settings_push_copy))
+                                    }
+                                }
+                                Text(
+                                    text = stringResource(R.string.settings_push_endpoint_note),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                Text(
+                                    text = stringResource(R.string.settings_push_endpoint_waiting),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.testTag("settings-push-waiting"),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Alerts stays reachable here even when all is green (the dashboard bell
             // only appears when a member is down).
             Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onAlertsClick).testTag("settings-alerts")) {
@@ -382,10 +495,14 @@ private fun SettingsScreenPreview() {
             lockConfig = LockConfig(enabled = true, timeoutMs = LockTimeout.THIRTY_MINUTES.millis),
             lockAvailable = true,
             monitorEnabled = true,
+            pushEnabled = true,
+            pushEndpoint = "https://ntfy.sh/upExample123",
+            pushDistributorAvailable = true,
             onBack = {},
             onToggleLock = {},
             onSelectTimeout = {},
             onToggleMonitor = {},
+            onTogglePush = {},
             onAlertsClick = {},
             onUnlink = {},
         )

@@ -40,10 +40,15 @@ class SettingsScreenTest {
         lockAvailable: Boolean = true,
         monitorEnabled: Boolean = false,
         notificationsBlocked: Boolean = false,
+        pushEnabled: Boolean = false,
+        pushEndpoint: String? = null,
+        pushDistributorAvailable: Boolean = true,
+        pushNotificationsBlocked: Boolean = false,
         unlinkFailed: Boolean = false,
         onToggleLock: (Boolean) -> Unit = {},
         onSelectTimeout: (LockTimeout) -> Unit = {},
         onToggleMonitor: (Boolean) -> Unit = {},
+        onTogglePush: (Boolean) -> Unit = {},
         onAlertsClick: () -> Unit = {},
         onUnlink: () -> Unit = {},
         onForceUnlink: () -> Unit = {},
@@ -57,10 +62,15 @@ class SettingsScreenTest {
                     lockAvailable = lockAvailable,
                     monitorEnabled = monitorEnabled,
                     notificationsBlocked = notificationsBlocked,
+                    pushEnabled = pushEnabled,
+                    pushEndpoint = pushEndpoint,
+                    pushDistributorAvailable = pushDistributorAvailable,
+                    pushNotificationsBlocked = pushNotificationsBlocked,
                     onBack = {},
                     onToggleLock = onToggleLock,
                     onSelectTimeout = onSelectTimeout,
                     onToggleMonitor = onToggleMonitor,
+                    onTogglePush = onTogglePush,
                     onAlertsClick = onAlertsClick,
                     onUnlink = onUnlink,
                     unlinkFailed = unlinkFailed,
@@ -140,6 +150,44 @@ class SettingsScreenTest {
     fun monitorBlockedHintHiddenWhenNotificationsAllowed() {
         content(monitorEnabled = true, notificationsBlocked = false)
         composeTestRule.onNodeWithTag("settings-monitor-blocked").assertDoesNotExist()
+    }
+
+    @Test
+    fun togglingPushFiresCallback() {
+        var toggledTo: Boolean? = null
+        content(onTogglePush = { toggledTo = it })
+        composeTestRule.onNodeWithTag("settings-push-toggle").performScrollTo().performClick()
+        assertEquals(true, toggledTo)
+    }
+
+    @Test
+    fun pushEndpointShownWhenEnabledAndAssigned() {
+        content(pushEnabled = true, pushEndpoint = "https://ntfy.sh/upABC123")
+        composeTestRule.onNodeWithTag("settings-push-endpoint").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun pushWaitingHintShownWhenEnabledButNoEndpointYet() {
+        content(pushEnabled = true, pushEndpoint = null)
+        composeTestRule.onNodeWithTag("settings-push-waiting").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun pushEndpointHiddenWhenDisabled() {
+        content(pushEnabled = false, pushEndpoint = "https://ntfy.sh/upABC123")
+        composeTestRule.onNodeWithTag("settings-push-endpoint").assertDoesNotExist()
+    }
+
+    @Test
+    fun noDistributorHintShownWhenNoneInstalled() {
+        content(pushDistributorAvailable = false)
+        composeTestRule.onNodeWithTag("settings-push-no-distributor").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun pushBlockedHintShownWhenEnabledButNotificationsDenied() {
+        content(pushEnabled = true, pushNotificationsBlocked = true)
+        composeTestRule.onNodeWithTag("settings-push-blocked").performScrollTo().assertIsDisplayed()
     }
 
     @Test

@@ -4,11 +4,15 @@ import android.content.Context
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.ListenableWorker.Result
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FleetSnapshot
 import com.hugalafutro.bellhop.data.FrontDeskClient
@@ -83,10 +87,13 @@ suspend fun runBackstop(
     client: FrontDeskClient,
     canNotify: Boolean,
     notify: (MemberTransition) -> Unit,
+    retryOnFailure: Boolean = true,
 ): Result {
-    // Disabled or already unscheduled: nothing to do. A stale run can outlive the
-    // toggle being turned off, so re-check rather than trust scheduling.
-    if (!monitorStore.enabled.first()) return Result.success()
+    // Neither layer active: nothing to do. A stale periodic run can outlive the
+    // Layer-2 toggle, and a push-triggered one-shot can land just after Layer 3
+    // was turned off, so re-check the shared active flag rather than trust
+    // scheduling. Push and periodic share this guard because they share the poll.
+    if (!monitorStore.active.first()) return Result.success()
     // Can't post? Don't poll. Advancing the baseline while alerts are silently
     // dropped would swallow the very down->up change the operator needs to see
     // once they grant the permission, so freeze until then (Settings flags it).
@@ -106,7 +113,13 @@ suspend fun runBackstop(
         // A revoked token can never succeed again; retrying would just hammer
         // Front Desk. The foreground UI flags the revoke, so end quietly.
         PollResult.Unauthorized -> Result.success()
-        PollResult.Failed -> Result.retry()
+        // A transient failure retries for the periodic backstop, but NOT for a push
+        // one-shot: a retrying one-shot would hold the unique-work slot through its
+        // backoff, and the KEEP policy would then drop every push that arrived during
+        // that window. Ending in success frees the slot immediately, so the next push
+        // (or the periodic poll) schedules a fresh wake instead of being coalesced
+        // onto a poll that is only sitting in backoff.
+        PollResult.Failed -> if (retryOnFailure) Result.retry() else Result.success()
     }
 }
 
@@ -131,11 +144,16 @@ class FleetPollWorker(
             client = FrontDeskClient(),
             canNotify = FleetNotifier.canPost(context),
             notify = { FleetNotifier.notify(context, it) },
+            // The push one-shot must not retry (see runBackstop): a backing-off
+            // one-shot would block later push wakes under the KEEP policy.
+            retryOnFailure = !inputData.getBoolean(KEY_ONESHOT, false),
         )
     }
 
     companion object {
         private const val UNIQUE_NAME = "fleet-poll"
+        private const val ONESHOT_NAME = "fleet-poll-now"
+        private const val KEY_ONESHOT = "oneshot"
 
         // The 15-minute WorkManager floor is the shortest periodic interval Android
         // allows; the backstop is explicitly not real-time (plan section 5.2).
@@ -160,8 +178,57 @@ class FleetPollWorker(
                 .enqueueUniquePeriodicWork(UNIQUE_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
         }
 
+        /**
+         * runNow fires a single immediate poll off the same worker, used as the
+         * Layer-3 wake when a UnifiedPush message arrives (plan section 5.2): the
+         * push is only a trigger, so it runs [runBackstop] to re-fetch fleet truth
+         * from Front Desk rather than trusting the push payload. Expedited so it
+         * runs promptly, but falling back to a normal request when the app is out of
+         * expedited quota (no foreground-service notification needed for a poll).
+         * KEEP coalesces a burst of pushes onto one in-flight poll rather than
+         * fanning out one network call per push; the periodic backstop and the
+         * push's own re-fetch cover anything a coalesced burst would miss. The
+         * one-shot is tagged so [runBackstop] ends a transient failure in success
+         * rather than retry, so a backing-off poll can't hold the KEEP slot and drop
+         * pushes that arrive during its backoff.
+         */
+        fun runNow(context: Context) {
+            val request =
+                OneTimeWorkRequestBuilder<FleetPollWorker>()
+                    .setConstraints(
+                        Constraints
+                            .Builder()
+                            .setRequiredNetworkType(NetworkType.CONNECTED)
+                            .build(),
+                    ).setInputData(workDataOf(KEY_ONESHOT to true))
+                    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                    .build()
+            WorkManager
+                .getInstance(context)
+                .enqueueUniqueWork(ONESHOT_NAME, ExistingWorkPolicy.KEEP, request)
+        }
+
+        /**
+         * cancel stops ONLY the periodic poll, used when Layer-2 monitoring is
+         * turned off. It deliberately leaves the push one-shot alone: push-only mode
+         * (Layer 2 off, Layer 3 on) is supported, so cancelling a queued or running
+         * push wake here would drop the very Front Desk transition Layer 3 exists to
+         * deliver. Full teardown on unlink uses [cancelAll].
+         */
         fun cancel(context: Context) {
             WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_NAME)
+        }
+
+        /**
+         * cancelAll tears down both the periodic poll and any queued push one-shot,
+         * used on unlink where neither layer should survive: a pending push wake left
+         * behind would bail in runBackstop once active is false, but cancelling closes
+         * the window rather than relying on that guard.
+         */
+        fun cancelAll(context: Context) {
+            val wm = WorkManager.getInstance(context)
+            wm.cancelUniqueWork(UNIQUE_NAME)
+            wm.cancelUniqueWork(ONESHOT_NAME)
         }
     }
 }
