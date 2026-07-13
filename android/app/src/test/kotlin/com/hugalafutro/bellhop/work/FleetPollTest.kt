@@ -3,6 +3,7 @@ package com.hugalafutro.bellhop.work
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import com.hugalafutro.bellhop.data.AutoSyncAlert
 import com.hugalafutro.bellhop.data.FleetSnapshot
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.MemberHealthState
@@ -61,6 +62,17 @@ class FleetPollTest {
         """[{"id":"m1","name":"hotel-1","state":"active",""" +
             """"status":{"health":{"known":true,"healthy":$healthy}}}]"""
 
+    private fun autoSyncBody(stale: Boolean): String = """{"enabled":false,"primary_id":"m1","stale":$stale}"""
+
+    // A successful poll fetches members then auto-sync, so enqueue both.
+    private fun enqueuePoll(
+        healthy: Boolean,
+        stale: Boolean = false,
+    ) {
+        server.enqueue(MockResponse().setBody(memberBody(healthy)))
+        server.enqueue(MockResponse().setBody(autoSyncBody(stale)))
+    }
+
     private suspend fun poll(store: MonitorStore): PollResult =
         pollFleet(client, server.url("/").toString(), "tok-1", store)
 
@@ -69,12 +81,12 @@ class FleetPollTest {
         runBlocking {
             val store = newStore()
             store.setEnabled(true)
-            server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
+            enqueuePoll(healthy = true)
 
             val result = poll(store)
 
             assertTrue(result is PollResult.Changed)
-            assertTrue((result as PollResult.Changed).transitions.isEmpty())
+            assertTrue((result as PollResult.Changed).alerts.isEmpty())
             // The baseline now exists for the next poll to diff against.
             assertEquals(MemberHealthState.UP, store.snapshot()?.stateOf("m1"))
         }
@@ -85,15 +97,53 @@ class FleetPollTest {
             val store = newStore()
             store.setEnabled(true)
             store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), store.epoch())
-            server.enqueue(MockResponse().setBody(memberBody(healthy = false)))
+            enqueuePoll(healthy = false)
 
             val result = poll(store)
 
             assertEquals(
                 listOf(MemberTransition.WentDown("m1", "hotel-1")),
-                (result as PollResult.Changed).transitions,
+                (result as PollResult.Changed).alerts,
             )
             assertEquals(MemberHealthState.DOWN, store.snapshot()?.stateOf("m1"))
+        }
+
+    @Test
+    fun autoSyncGoingStaleAcrossPollsIsNotified() =
+        runBlocking {
+            val store = newStore()
+            store.setEnabled(true)
+            // Baseline is healthy and not stale; this poll reports stale.
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), store.epoch())
+            enqueuePoll(healthy = true, stale = true)
+
+            val result = poll(store)
+
+            assertEquals(listOf(AutoSyncAlert.WentStale), (result as PollResult.Changed).alerts)
+            assertEquals(true, store.snapshot()?.autosyncStale)
+        }
+
+    @Test
+    fun autoSyncReadFailureFallsBackWithoutLosingHealthPoll() =
+        runBlocking {
+            val store = newStore()
+            store.setEnabled(true)
+            // Prior stale flag set; the health edge must still fire and the stale
+            // value must be kept (no phantom edge) when the auto-sync read fails.
+            store.saveSnapshot(
+                FleetSnapshot(states = mapOf("m1" to MemberHealthState.UP.name), autosyncStale = true),
+                store.epoch(),
+            )
+            server.enqueue(MockResponse().setBody(memberBody(healthy = false)))
+            server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
+
+            val result = poll(store)
+
+            assertEquals(
+                listOf(MemberTransition.WentDown("m1", "hotel-1")),
+                (result as PollResult.Changed).alerts,
+            )
+            assertEquals(true, store.snapshot()?.autosyncStale)
         }
 
     @Test

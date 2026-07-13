@@ -14,12 +14,13 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.hugalafutro.bellhop.data.FetchResult
+import com.hugalafutro.bellhop.data.FleetAlert
 import com.hugalafutro.bellhop.data.FleetSnapshot
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LinkStore
-import com.hugalafutro.bellhop.data.MemberTransition
 import com.hugalafutro.bellhop.data.MonitorStore
+import com.hugalafutro.bellhop.data.diffAutoSync
 import com.hugalafutro.bellhop.data.diffFleet
 import com.hugalafutro.bellhop.notify.FleetNotifier
 import kotlinx.coroutines.flow.first
@@ -34,7 +35,7 @@ import java.util.concurrent.TimeUnit
  */
 sealed interface PollResult {
     data class Changed(
-        val transitions: List<MemberTransition>,
+        val alerts: List<FleetAlert>,
     ) : PollResult
 
     data object Unauthorized : PollResult
@@ -64,9 +65,19 @@ suspend fun pollFleet(
     return when (val result = client.members(fdUrl, token)) {
         is FetchResult.Success -> {
             val previous = monitorStore.snapshot()
-            val transitions = diffFleet(previous, result.data)
-            monitorStore.saveSnapshot(FleetSnapshot.of(result.data), epoch)
-            PollResult.Changed(transitions)
+            // Auto-sync staleness is a fleet-wide flag on a separate endpoint. A
+            // failure to read it must not lose the health poll, so fall back to the
+            // last-known value: no phantom drift edge, and the health diff/save still
+            // happens. Only read it after members succeeded, so a dead token still
+            // reports Unauthorized off the first call and never double-fetches.
+            val stale =
+                when (val autoSync = client.autoSync(fdUrl, token)) {
+                    is FetchResult.Success -> autoSync.data.stale
+                    else -> previous?.autosyncStale ?: false
+                }
+            val alerts = diffFleet(previous, result.data) + listOfNotNull(diffAutoSync(previous, stale))
+            monitorStore.saveSnapshot(FleetSnapshot.of(result.data, stale), epoch)
+            PollResult.Changed(alerts)
         }
         FetchResult.Unauthorized -> PollResult.Unauthorized
         is FetchResult.Failure -> PollResult.Failed
@@ -86,7 +97,7 @@ suspend fun runBackstop(
     linkStore: LinkStore,
     client: FrontDeskClient,
     canNotify: Boolean,
-    notify: (MemberTransition) -> Unit,
+    notify: (FleetAlert) -> Unit,
     retryOnFailure: Boolean = true,
 ): Result {
     // Neither layer active: nothing to do. A stale periodic run can outlive the
@@ -107,7 +118,7 @@ suspend fun runBackstop(
 
     return when (val result = pollFleet(client, link.fdUrl, token, monitorStore)) {
         is PollResult.Changed -> {
-            result.transitions.forEach(notify)
+            result.alerts.forEach(notify)
             Result.success()
         }
         // A revoked token can never succeed again; retrying would just hammer

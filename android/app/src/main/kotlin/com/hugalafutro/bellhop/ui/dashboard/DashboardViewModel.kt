@@ -3,6 +3,7 @@ package com.hugalafutro.bellhop.ui.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.hugalafutro.bellhop.data.ActionResult
 import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.FrontDeskClient
@@ -32,6 +33,9 @@ data class DashboardUiState(
     val loading: Boolean = true,
     val members: List<FleetMember> = emptyList(),
     val primaryId: String = "",
+    // Auto-sync master toggle, from GET /api/fleet/autosync. Drives the pause/
+    // resume operator control, which is only shown once a primary is configured.
+    val autoSyncEnabled: Boolean = false,
     // Per-member traffic for the inline card sparkline, keyed by member id and
     // filled lazily for whichever members are currently on screen (see
     // [DashboardViewModel.setVisibleMembers]). A member absent from the map just
@@ -39,6 +43,23 @@ data class DashboardUiState(
     val traffic: Map<String, MemberTraffic> = emptyMap(),
     val error: String? = null,
     val revoked: Boolean = false,
+    // Pause/resume operator action state (same shape as the member-detail card).
+    val autoSync: AutoSyncAction = AutoSyncAction(),
+)
+
+/**
+ * AutoSyncAction is the pause/resume operator control's UI state, the fleet-wide
+ * twin of the member-detail operator card: pessimistic-accept Front Desk's 200,
+ * show [pendingEnabled] optimistically until a refresh reconciles the live value,
+ * collapse to a guard note on a 403 ([forbidden]), and surface a failure in
+ * [error]. [busy] flags a tap dropped because one is already in flight.
+ */
+data class AutoSyncAction(
+    val inProgress: Boolean = false,
+    val pendingEnabled: Boolean? = null,
+    val forbidden: Boolean = false,
+    val error: String? = null,
+    val busy: Boolean = false,
 )
 
 /**
@@ -257,15 +278,26 @@ class DashboardViewModel(
                 val autoSync = client.autoSync(fdUrl, token) as? FetchResult.Success
                 val liveIds = result.data.mapTo(HashSet()) { it.id }
                 _state.update {
+                    val liveEnabled = autoSync?.data?.enabled ?: it.autoSyncEnabled
                     it.copy(
                         loading = false,
                         members = result.data,
                         primaryId = autoSync?.data?.primaryId ?: it.primaryId,
+                        autoSyncEnabled = liveEnabled,
                         // Drop cached traffic for members that left the fleet so
                         // the map can't grow without bound as members churn.
                         traffic = it.traffic.filterKeys { id -> id in liveIds },
                         error = null,
                         revoked = false,
+                        // Reconcile the pause/resume control: once a live read shows
+                        // the toggle caught up to the optimistic pending value, drop
+                        // the hint so a change made elsewhere isn't masked by it.
+                        autoSync =
+                            if (autoSync != null && it.autoSync.pendingEnabled == liveEnabled) {
+                                it.autoSync.copy(pendingEnabled = null)
+                            } else {
+                                it.autoSync
+                            },
                     )
                 }
                 trafficFetchedAt.keys.retainAll(liveIds)
@@ -275,6 +307,60 @@ class DashboardViewModel(
             is FetchResult.Failure ->
                 _state.update { it.copy(loading = false, error = result.message) }
         }
+    }
+
+    /**
+     * setAutoSync pauses or resumes auto-sync, the fleet-wide operator action. Same
+     * pessimistic-accept/optimistic-reconcile shape as the member-detail card: wait
+     * for Front Desk's 200 (its echo is the ack), show the applied value
+     * optimistically via [AutoSyncAction.pendingEnabled] until [refreshOnce]
+     * reconciles it, never blocking on physical convergence. A 403 means this
+     * device's role may not mutate (surfaced as [AutoSyncAction.forbidden]); a 401
+     * is a dead token, same revoked remedy as reads. It only ever toggles the
+     * already-configured primary — choosing or repointing one stays a web action.
+     */
+    fun setAutoSync(enabled: Boolean) {
+        // One toggle at a time: a tap while one is in flight is dropped (idempotent
+        // set, so nothing is lost) but flagged busy so the screen can nudge instead
+        // of the tap vanishing silently.
+        if (_state.value.autoSync.inProgress) {
+            _state.update { it.copy(autoSync = it.autoSync.copy(busy = true)) }
+            return
+        }
+        // The control is only shown with a primary configured; guard anyway so a
+        // stray call can't send an empty primary that Front Desk would reject.
+        val primaryId = _state.value.primaryId
+        if (primaryId.isEmpty()) return
+        viewModelScope.launch {
+            _state.update { it.copy(autoSync = it.autoSync.copy(inProgress = true, error = null, busy = false)) }
+            val token = linkStore.token()
+            if (token == null) {
+                _state.update { it.copy(revoked = true, autoSync = it.autoSync.copy(inProgress = false)) }
+                return@launch
+            }
+            val result = client.setAutoSync(fdUrl, token, enabled, primaryId)
+            _state.update { st ->
+                val cleared = st.copy(autoSync = st.autoSync.copy(inProgress = false, busy = false))
+                when (result) {
+                    is ActionResult.Success -> {
+                        // If a live read already shows the applied state (it beat our
+                        // 200), skip the optimistic hint so nothing is left for a
+                        // reconcile to strand.
+                        val applied = result.data.enabled
+                        val pending = applied.takeUnless { it == cleared.autoSyncEnabled }
+                        cleared.copy(autoSync = cleared.autoSync.copy(pendingEnabled = pending, forbidden = false))
+                    }
+                    ActionResult.Forbidden -> cleared.copy(autoSync = cleared.autoSync.copy(forbidden = true))
+                    ActionResult.Unauthorized -> cleared.copy(revoked = true)
+                    is ActionResult.Failure -> cleared.copy(autoSync = cleared.autoSync.copy(error = result.message))
+                }
+            }
+        }
+    }
+
+    /** dismissAutoSyncError clears a failed pause/resume so its notice can be tapped away. */
+    fun dismissAutoSyncError() {
+        _state.update { it.copy(autoSync = it.autoSync.copy(error = null)) }
     }
 
     class Factory(

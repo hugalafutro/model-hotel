@@ -38,16 +38,34 @@ fun healthStateOf(member: FleetMember): MemberHealthState =
 @Serializable
 data class FleetSnapshot(
     val states: Map<String, String> = emptyMap(),
+    // Fleet-wide: Front Desk's auto-sync-stale flag (auto-sync off and the fleet
+    // unsynced for over a day). Persisted alongside member health so the same
+    // snapshot-diff that pages on health edges also notifies on drift onset.
+    val autosyncStale: Boolean = false,
 ) {
     /** stateOf returns the stored state for a member, or null if it wasn't seen. */
     fun stateOf(id: String): MemberHealthState? =
         states[id]?.let { name -> runCatching { MemberHealthState.valueOf(name) }.getOrNull() }
 
     companion object {
-        fun of(members: List<FleetMember>): FleetSnapshot =
-            FleetSnapshot(members.associate { it.id to healthStateOf(it).name })
+        fun of(
+            members: List<FleetMember>,
+            autosyncStale: Boolean = false,
+        ): FleetSnapshot =
+            FleetSnapshot(
+                states = members.associate { it.id to healthStateOf(it).name },
+                autosyncStale = autosyncStale,
+            )
     }
 }
+
+/**
+ * FleetAlert is one thing worth a background notification, the unit the notifier
+ * renders. It spans member health edges ([MemberTransition]) and the fleet-wide
+ * auto-sync drift signal ([AutoSyncAlert]), so a single diff pass can hand both to
+ * the same notify path.
+ */
+sealed interface FleetAlert
 
 /**
  * MemberTransition is a health edge worth a notification. Only the two edges that
@@ -55,7 +73,7 @@ data class FleetSnapshot(
  * recovered. Drain/activate is an operator action (not an alert), and moves
  * to/from UNKNOWN are noise (a reconnecting poller), so neither is a transition.
  */
-sealed interface MemberTransition {
+sealed interface MemberTransition : FleetAlert {
     val id: String
     val name: String
 
@@ -68,6 +86,18 @@ sealed interface MemberTransition {
         override val id: String,
         override val name: String,
     ) : MemberTransition
+}
+
+/**
+ * AutoSyncAlert is the fleet-wide config-drift edge: [WentStale] when Front Desk
+ * flips its auto-sync-stale flag on (auto-sync off and unsynced for over a day),
+ * [Resumed] when it clears. It mirrors [MemberTransition]'s down/recovered shape
+ * for a single boolean instead of per-member health.
+ */
+sealed interface AutoSyncAlert : FleetAlert {
+    data object WentStale : AutoSyncAlert
+
+    data object Resumed : AutoSyncAlert
 }
 
 /**
@@ -98,4 +128,23 @@ fun diffFleet(
         }
     }
     return transitions
+}
+
+/**
+ * diffAutoSync is the fleet-wide counterpart to [diffFleet]: given the previously
+ * persisted snapshot and the auto-sync-stale flag just read, return the drift edge
+ * to notify on, or null if nothing crossed. Like diffFleet it stays silent on the
+ * first ever poll ([previous] is null) so a phone that opens onto an
+ * already-stale fleet doesn't buzz for a state it never saw change.
+ */
+fun diffAutoSync(
+    previous: FleetSnapshot?,
+    current: Boolean,
+): AutoSyncAlert? {
+    if (previous == null) return null
+    return when {
+        !previous.autosyncStale && current -> AutoSyncAlert.WentStale
+        previous.autosyncStale && !current -> AutoSyncAlert.Resumed
+        else -> null
+    }
 }

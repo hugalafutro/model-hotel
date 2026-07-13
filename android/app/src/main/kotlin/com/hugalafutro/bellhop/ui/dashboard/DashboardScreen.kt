@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -75,10 +76,13 @@ fun DashboardScreen(
     link: LinkState.Linked,
     modifier: Modifier = Modifier,
     ui: DashboardUiState = DashboardUiState(),
+    canOperate: Boolean = false,
     onMemberClick: (String) -> Unit = {},
     onEventsClick: () -> Unit = {},
     onAlertsClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
+    onSetAutoSync: (Boolean) -> Unit = {},
+    onDismissAutoSyncError: () -> Unit = {},
     onVisibleMembers: (List<String>) -> Unit = {},
 ) {
     // Which member's URL the "open externally" popup is showing, if any. Tapping
@@ -191,6 +195,20 @@ fun DashboardScreen(
                 )
             }
 
+            // Pause/resume auto-sync: an operator lever, shown only once a primary
+            // is configured (choosing one stays a web action) and only to an
+            // operator device. Front Desk's 403 is still the real guard, collapsing
+            // the card to a note if the role hint is wrong.
+            if (canOperate && ui.primaryId.isNotEmpty()) {
+                AutoSyncControl(
+                    action = ui.autoSync,
+                    enabled = ui.autoSyncEnabled,
+                    onSetAutoSync = onSetAutoSync,
+                    onDismissError = onDismissAutoSyncError,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
             when {
                 ui.loading ->
                     Box(
@@ -249,6 +267,96 @@ fun DashboardScreen(
                                 onUrlClick = { urlDialogFor = member },
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * AutoSyncControl is the pause/resume operator lever. It shows the effective state
+ * optimistically ([AutoSyncAction.pendingEnabled] over the live value) so the
+ * toggle reflects a just-sent change while it reconciles, collapses to a guard
+ * note when Front Desk returns 403, and surfaces a failure with a dismiss.
+ */
+@Composable
+private fun AutoSyncControl(
+    action: AutoSyncAction,
+    enabled: Boolean,
+    onSetAutoSync: (Boolean) -> Unit,
+    onDismissError: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val effective = action.pendingEnabled ?: enabled
+    Card(modifier = modifier.fillMaxWidth().testTag("autosync-card")) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (action.forbidden) {
+                // Front Desk's 403 is the authoritative guard: drop the toggle and
+                // show why, the same collapse the member-detail operator card does.
+                Text(
+                    text = stringResource(R.string.autosync_forbidden),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("autosync-forbidden"),
+                )
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.autosync_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(if (effective) R.string.autosync_on else R.string.autosync_off),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("autosync-status"),
+                        )
+                    }
+                    Switch(
+                        checked = effective,
+                        onCheckedChange = onSetAutoSync,
+                        enabled = !action.inProgress,
+                        modifier = Modifier.testTag("autosync-toggle"),
+                    )
+                }
+                if (action.pendingEnabled != null) {
+                    Text(
+                        text =
+                            stringResource(
+                                if (action.pendingEnabled) R.string.autosync_resuming else R.string.autosync_pausing,
+                            ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("autosync-pending"),
+                    )
+                }
+                if (action.busy) {
+                    Text(
+                        text = stringResource(R.string.autosync_busy),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("autosync-busy"),
+                    )
+                }
+            }
+            if (action.error != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.autosync_error, action.error),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f).testTag("autosync-error"),
+                    )
+                    TextButton(onClick = onDismissError) {
+                        Text(stringResource(R.string.member_op_dismiss))
                     }
                 }
             }

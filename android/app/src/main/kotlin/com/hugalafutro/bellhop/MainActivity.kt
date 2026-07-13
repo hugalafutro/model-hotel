@@ -643,10 +643,16 @@ private fun LinkedContent(
         DashboardScreen(
             link = state,
             ui = ui,
+            // Role-hint UI, same as the member-detail card: an operator device gets
+            // the pause/resume toggle, a monitor doesn't. Front Desk's 403 is still
+            // the real guard. The toggle goes through the biometric operator gate.
+            canOperate = state.role == OPERATOR_ROLE,
             onMemberClick = { selectedMemberId = it },
             onEventsClick = { showEvents = true },
             onAlertsClick = { showAlerts = true },
             onSettingsClick = { showSettings = true },
+            onSetAutoSync = { enabled -> requireOperatorAuth { dashVm.setAutoSync(enabled) } },
+            onDismissAutoSyncError = { dashVm.dismissAutoSyncError() },
             onVisibleMembers = dashVm::setVisibleMembers,
         )
     }

@@ -81,14 +81,15 @@ type Poller struct {
 	// then accepts our announces unconditionally, preserving old behaviour).
 	frontdeskID string
 
-	mu               sync.RWMutex
-	statuses         map[string]MemberStatus // keyed by member ID
-	lastConfigPollAt time.Time
-	staleNotified    bool
-	versionFailures  map[string]int  // consecutive version-fetch failures, keyed by member ID
-	healthFailures   map[string]int  // consecutive failed health polls, keyed by member ID
-	traefikNonUp     map[string]int  // consecutive non-UP Traefik observations, keyed by member ID
-	conflictNotified map[string]bool // members that rejected our announce (409), keyed by member ID
+	mu                    sync.RWMutex
+	statuses              map[string]MemberStatus // keyed by member ID
+	lastConfigPollAt      time.Time
+	staleNotified         bool
+	autoSyncStaleNotified bool
+	versionFailures       map[string]int  // consecutive version-fetch failures, keyed by member ID
+	healthFailures        map[string]int  // consecutive failed health polls, keyed by member ID
+	traefikNonUp          map[string]int  // consecutive non-UP Traefik observations, keyed by member ID
+	conflictNotified      map[string]bool // members that rejected our announce (409), keyed by member ID
 }
 
 // NewPoller builds a Poller. traefikAPI is the base URL of the Traefik API
@@ -188,6 +189,7 @@ func (p *Poller) Run(ctx context.Context) {
 		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.PollTraefikOnce},
 		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollVersionsOnce},
 		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.checkConfigStaleness},
+		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.checkAutoSyncStale},
 		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollAnnounceOnce},
 	}
 	for _, l := range loops {
@@ -667,6 +669,42 @@ func (p *Poller) checkConfigStaleness(ctx context.Context) {
 		p.recordEvent(ctx, Event{
 			Type: "traefik.stale", Severity: "warning", Source: "frontdesk-poller",
 			Message: fmt.Sprintf("Traefik has not fetched the config for over %s", threshold),
+		})
+	}
+}
+
+// checkAutoSyncStale emits a single warning when auto-sync is off and the fleet
+// has not been synced within autoSyncStaleThreshold (see autoSyncStale for the
+// exact rule). Like checkConfigStaleness it de-dups on an in-memory flag so it
+// fires once per stale episode, not every tick; the flag disarms silently when
+// the condition clears (auto-sync re-enabled, or a fresh sync recorded), so a
+// later stale episode alerts again. On a restart the flag resets, so a fleet that
+// is already stale re-alerts once — the same best-effort trade-off as the health
+// and Traefik-staleness checks.
+func (p *Poller) checkAutoSyncStale(ctx context.Context) {
+	cfg, err := p.store.GetAutoSync(ctx)
+	if err != nil {
+		debuglog.Warn("frontdesk: auto-sync staleness: read config", "error", err)
+		return
+	}
+	state, found, err := p.store.GetFleetSyncState(ctx)
+	if err != nil {
+		debuglog.Warn("frontdesk: auto-sync staleness: read fleet sync state", "error", err)
+		return
+	}
+	stale := autoSyncStale(cfg, state.LastRunAt, found, p.now())
+
+	p.mu.Lock()
+	notified := p.autoSyncStaleNotified
+	if stale != notified {
+		p.autoSyncStaleNotified = stale
+	}
+	p.mu.Unlock()
+
+	if stale && !notified {
+		p.recordEvent(ctx, Event{
+			Type: "config.autosync_stale", Severity: "warning", Source: "frontdesk-poller",
+			Message: "Auto-sync is off and the fleet has not been synced in over a day; replicas may be drifting from the primary",
 		})
 	}
 }

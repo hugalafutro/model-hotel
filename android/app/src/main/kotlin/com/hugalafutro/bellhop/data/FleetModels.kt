@@ -56,14 +56,33 @@ data class HealthStatus(
 )
 
 /**
- * AutoSyncConfig is GET /api/fleet/autosync: the auto-sync toggle plus the
- * designated primary member (empty when none is chosen). The dashboard only
- * uses primaryId, for the Primary badge.
+ * AutoSyncConfig is GET/PUT /api/fleet/autosync: the auto-sync toggle, the
+ * designated primary member (empty when none is chosen), and Front Desk's
+ * computed [stale] flag (auto-sync off and the fleet unsynced for over a day, so
+ * the replicas may be drifting). The dashboard uses primaryId for the Primary
+ * badge and enabled for the pause/unpause control; the background monitor reads
+ * stale to raise a drift notification.
  */
 @Serializable
 data class AutoSyncConfig(
     val enabled: Boolean = false,
     @SerialName("primary_id") val primaryId: String = "",
+    val stale: Boolean = false,
+)
+
+/**
+ * AutoSyncRequest is the PUT /api/fleet/autosync body (operator tier). Bellhop
+ * only ever toggles [enabled] on the already-designated [primaryId] and so sends
+ * an empty [confirmToken]: repointing or clearing the primary needs the raw Front
+ * Desk admin token (which a phone never holds) and stays a web-only action, but
+ * toggling an unchanged primary is applied without one. Choosing a primary is
+ * deliberately not a phone capability.
+ */
+@Serializable
+data class AutoSyncRequest(
+    val enabled: Boolean,
+    @SerialName("primary_id") val primaryId: String,
+    @SerialName("confirm_token") val confirmToken: String = "",
 )
 
 /**

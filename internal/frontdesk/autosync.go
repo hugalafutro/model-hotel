@@ -57,7 +57,31 @@ const (
 	// is enabled, so a stuck member cannot leak the goroutine. Generous: a pass
 	// snapshots and imports config on every drifted member in turn.
 	autoSyncKickTimeout = 5 * time.Minute
+
+	// autoSyncStaleThreshold is how long the fleet may go unsynced, with auto-sync
+	// off, before Front Desk warns that the replicas may be drifting from the
+	// primary. A day is long enough that a brief manual-sync gap never trips it,
+	// short enough that a fleet left un-synced surfaces within the same day.
+	autoSyncStaleThreshold = 24 * time.Hour
 )
+
+// autoSyncStale reports whether the fleet's config is at risk of silent drift: a
+// primary is designated but auto-sync is off, and the last successful fleet sync
+// is older than autoSyncStaleThreshold (or never ran). It is deliberately false
+// when auto-sync is on (the loop keeps the fleet fresh and reports its own
+// failures via config.sync_failed) and when no primary is configured — the
+// operator never opted into the sync model, so "stale" would be meaningless and,
+// since auto-sync is off by default, would otherwise fire on every fresh install.
+// haveSync is false when no successful sync has ever been recorded.
+func autoSyncStale(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, now time.Time) bool {
+	if cfg.Enabled || cfg.PrimaryID == "" {
+		return false
+	}
+	if !haveSync {
+		return true
+	}
+	return now.Sub(lastSync) > autoSyncStaleThreshold
+}
 
 // RunAutoSync samples the designated primary on a fixed tick and propagates its
 // config to the fleet when it changes. It blocks until ctx is cancelled and is

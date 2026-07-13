@@ -100,4 +100,33 @@ class FleetSnapshotTest {
         val transitions = diffFleet(previous, listOf(member("m1", name = "", healthy = false)))
         assertEquals(listOf(MemberTransition.WentDown("m1", "m1")), transitions)
     }
+
+    @Test
+    fun autoSyncFirstPollHasNoBaselineSoStaysSilent() {
+        assertEquals(null, diffAutoSync(null, current = true))
+    }
+
+    @Test
+    fun autoSyncNotStaleToStaleIsWentStale() {
+        val previous = FleetSnapshot(autosyncStale = false)
+        assertEquals(AutoSyncAlert.WentStale, diffAutoSync(previous, current = true))
+    }
+
+    @Test
+    fun autoSyncStaleToNotStaleIsResumed() {
+        val previous = FleetSnapshot(autosyncStale = true)
+        assertEquals(AutoSyncAlert.Resumed, diffAutoSync(previous, current = false))
+    }
+
+    @Test
+    fun autoSyncSteadyStateProducesNoAlert() {
+        assertEquals(null, diffAutoSync(FleetSnapshot(autosyncStale = true), current = true))
+        assertEquals(null, diffAutoSync(FleetSnapshot(autosyncStale = false), current = false))
+    }
+
+    @Test
+    fun ofCarriesAutoSyncStaleIntoSnapshot() {
+        assertTrue(FleetSnapshot.of(emptyList(), autosyncStale = true).autosyncStale)
+        assertTrue(!FleetSnapshot.of(emptyList()).autosyncStale)
+    }
 }

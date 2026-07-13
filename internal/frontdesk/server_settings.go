@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -123,13 +124,42 @@ func (s *Server) resolveAlertTarget(ctx context.Context, submitted string) (stri
 
 // getAutoSync returns the automatic config-propagation setup (enabled + the
 // designated primary). The internal drift hash is never included.
+// autoSyncStatus is the GET/PUT /api/fleet/autosync body: the stored config plus
+// a computed Stale flag. Stale is the same drift signal the poller alerts on
+// (see autoSyncStale), surfaced here so a device that only polls this endpoint
+// (Bellhop's background monitor) can raise its own notification without consuming
+// the event stream. Embeds AutoSyncConfig so the wire shape stays a superset of
+// the old one (enabled, primary_id, then stale).
+type autoSyncStatus struct {
+	AutoSyncConfig
+	Stale bool `json:"stale"`
+}
+
+// autoSyncStatusNow reads the auto-sync config and last-sync marker and folds in
+// the computed staleness, so getAutoSync and putAutoSync return an identical
+// shape.
+func (s *Server) autoSyncStatusNow(ctx context.Context) (autoSyncStatus, error) {
+	cfg, err := s.store.GetAutoSync(ctx)
+	if err != nil {
+		return autoSyncStatus{}, err
+	}
+	state, found, err := s.store.GetFleetSyncState(ctx)
+	if err != nil {
+		return autoSyncStatus{}, err
+	}
+	return autoSyncStatus{
+		AutoSyncConfig: cfg,
+		Stale:          autoSyncStale(cfg, state.LastRunAt, found, time.Now().UTC()),
+	}, nil
+}
+
 func (s *Server) getAutoSync(w http.ResponseWriter, r *http.Request) {
-	cfg, err := s.store.GetAutoSync(r.Context())
+	status, err := s.autoSyncStatusNow(r.Context())
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, cfg)
+	writeJSON(w, http.StatusOK, status)
 }
 
 // putAutoSync sets the auto-sync toggle and designated primary. Enabling without
@@ -288,7 +318,7 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 		Type: "settings.changed", Severity: "info", Source: "frontdesk",
 		Message: fmt.Sprintf("Auto-sync %s", enabledWord(req.Enabled)),
 	})
-	cfg, err := s.store.GetAutoSync(r.Context())
+	status, err := s.autoSyncStatusNow(r.Context())
 	if err != nil {
 		writeError(w, err)
 		return
@@ -299,7 +329,7 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	// context (which ends when we respond) but time-bounded so a stuck pass cannot
 	// leak the goroutine. A no-op when nothing has drifted; the loop still owns the
 	// steady-state watch. Disabling (or no primary) never kicks.
-	if cfg.Enabled && cfg.PrimaryID != "" {
+	if status.Enabled && status.PrimaryID != "" {
 		kickCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), autoSyncKickTimeout)
 		s.bgWG.Add(1)
 		go func() {
@@ -308,7 +338,7 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 			s.forceAutoSyncNow(kickCtx)
 		}()
 	}
-	writeJSON(w, http.StatusOK, cfg)
+	writeJSON(w, http.StatusOK, status)
 }
 
 func enabledWord(b bool) string {

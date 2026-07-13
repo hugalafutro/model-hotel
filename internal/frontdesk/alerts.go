@@ -32,6 +32,9 @@ var fdCatalog = []alert.EventDef{
 	{Type: "config.sync_failed", Category: "Config Sync", Severity: "warning", DefaultOn: true},
 	{Type: "config.synced", Category: "Config Sync", Severity: "info", DefaultOn: false},
 	{Type: "config.auto_synced", Category: "Config Sync", Severity: "info", DefaultOn: false},
+	// Auto-sync is off and the fleet has not been synced in a day: the replicas
+	// are drifting silently, with nothing pushing the primary's config out.
+	{Type: "config.autosync_stale", Category: "Config Sync", Severity: "warning", DefaultOn: true},
 	// Version reads: a persistently failing member URL is surfaced here.
 	{Type: "version.fetch_failed", Category: "Member Reads", Severity: "warning", DefaultOn: true},
 	{Type: "version.fetch_recovered", Category: "Member Reads", Severity: "success", DefaultOn: false},
