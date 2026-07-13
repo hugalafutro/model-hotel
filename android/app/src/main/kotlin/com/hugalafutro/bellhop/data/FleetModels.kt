@@ -184,3 +184,63 @@ data class AlertEventDef(
     val severity: String = "",
     val defaultOn: Boolean = false,
 )
+
+// Wire models for the Front Desk operator tier a device token with the operator
+// role can reach: POST /api/members/{id}/state (drain/activate) and POST
+// /api/config/sync (propagate the primary's config). These mirror the FD
+// contract (internal/frontdesk/server_members.go setMemberState and
+// internal/frontdesk/configsync.go configSync); do not rename JSON fields.
+
+/**
+ * MemberStateRequest is the POST /api/members/{id}/state body. [state] is
+ * "active" or "drained" (see [MemberState]); Front Desk records it and returns
+ * the updated member. Set-state, not toggle, so a retry or double-tap is a safe
+ * no-op.
+ */
+@Serializable
+class MemberStateRequest(
+    val state: String,
+)
+
+/**
+ * MemberState is the two states a member can be set to. Drained excludes a
+ * member from new traffic while in-flight streams finish (the physical drain is
+ * asynchronous; Front Desk records the intent immediately). Kept as the exact
+ * strings Front Desk stores so they round-trip through the wire untouched.
+ */
+object MemberState {
+    const val ACTIVE = "active"
+    const val DRAINED = "drained"
+}
+
+/**
+ * ConfigSyncRequest is the POST /api/config/sync body: the id of the primary
+ * whose config is propagated to the rest of the fleet. Bellhop only ever sends
+ * the already-designated auto-sync primary (choosing a primary is a separate,
+ * later slice), so this is a "sync now from primary" trigger, not a wizard.
+ */
+@Serializable
+class ConfigSyncRequest(
+    @SerialName("primary_id") val primaryId: String,
+)
+
+/**
+ * SyncResponse is the POST /api/config/sync result: the source primary and the
+ * per-member outcomes. Front Desk runs the whole sync before answering 200, so a
+ * success here means the run finished; the phone summarizes [results] rather than
+ * blocking on physical convergence, which the dashboard reconciles afterwards.
+ */
+@Serializable
+data class SyncResponse(
+    @SerialName("primary_id") val primaryId: String = "",
+    val results: List<SyncResultItem> = emptyList(),
+)
+
+/** SyncResultItem is one member's config-sync outcome (frontdesk syncResultItem). */
+@Serializable
+data class SyncResultItem(
+    @SerialName("member_id") val memberId: String = "",
+    val name: String = "",
+    val ok: Boolean = false,
+    val error: String = "",
+)

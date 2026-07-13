@@ -19,14 +19,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +43,7 @@ import com.hugalafutro.bellhop.R
 import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
+import com.hugalafutro.bellhop.data.MemberState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.TrafficPoint
@@ -67,8 +72,19 @@ fun MemberDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     ui: MemberDetailUiState = MemberDetailUiState(),
+    // Whether this paired device holds the operator role (from the link). UX only:
+    // Front Desk's 403 is the real guard (surfaced via [ui.action.forbidden]), but
+    // hiding the controls on a monitor device avoids a pointless denied tap.
+    canOperate: Boolean = false,
+    onSetState: (String) -> Unit = {},
+    onSyncFleet: () -> Unit = {},
+    onReconcile: (String) -> Unit = {},
+    onDismissActionError: () -> Unit = {},
 ) {
     val health = member.status.health
+    // Clear the optimistic pending state once the dashboard's live state (member
+    // arrives live from its poll/SSE) has caught up to the accepted target.
+    LaunchedEffect(member.state) { onReconcile(member.state) }
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         Column(
             modifier =
@@ -129,6 +145,18 @@ fun MemberDetailScreen(
             ) {
                 item { TrafficCard(ui = ui) }
                 item { MetaCard(member = member) }
+                if (canOperate) {
+                    item {
+                        OperatorCard(
+                            member = member,
+                            isPrimary = isPrimary,
+                            action = ui.action,
+                            onSetState = onSetState,
+                            onSyncFleet = onSyncFleet,
+                            onDismissActionError = onDismissActionError,
+                        )
+                    }
+                }
                 item {
                     Text(
                         text = stringResource(R.string.member_detail_events_title),
@@ -238,6 +266,127 @@ private fun MetaLine(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.testTag(tag),
     )
+}
+
+/**
+ * OperatorCard is the drain/activate (and, on the primary, fleet-sync) surface,
+ * shown only to an operator device. The button reflects the effective state:
+ * Front Desk's live state, or the optimistic pending target once an action was
+ * accepted and until the dashboard reconciles it. A 403 from Front Desk collapses
+ * the card to the guard note — the authoritative role check overriding the
+ * role-hint UI. Actions are set-state, so a double-tap is a safe no-op; the
+ * biometric prompt gating them lives in the host (MainActivity).
+ */
+@Composable
+private fun OperatorCard(
+    member: FleetMember,
+    isPrimary: Boolean,
+    action: ActionUiState,
+    onSetState: (String) -> Unit,
+    onSyncFleet: () -> Unit,
+    onDismissActionError: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(modifier = modifier.fillMaxWidth().testTag("member-operator-card")) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.member_op_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            if (action.forbidden) {
+                // Front Desk refused the device's role: the real guard. Drop the
+                // controls entirely so the note is the only thing left.
+                Text(
+                    text = stringResource(R.string.member_op_forbidden),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("member-op-forbidden"),
+                )
+                return@Column
+            }
+
+            // Optimistic pending target beats the live state until reconciled, so
+            // a fresh tap flips the button immediately even before the fleet moves.
+            val effectiveState = action.pendingState ?: member.state
+            val drained = effectiveState == MemberState.DRAINED
+            Button(
+                onClick = { onSetState(if (drained) MemberState.ACTIVE else MemberState.DRAINED) },
+                enabled = !action.inProgress,
+                modifier = Modifier.fillMaxWidth().testTag("member-op-state"),
+            ) {
+                if (action.inProgress) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(16.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                } else {
+                    Text(
+                        text =
+                            stringResource(
+                                if (drained) R.string.member_op_activate else R.string.member_op_drain,
+                            ),
+                    )
+                }
+            }
+            if (action.pendingState != null) {
+                Text(
+                    text =
+                        stringResource(
+                            if (drained) R.string.member_op_draining else R.string.member_op_activating,
+                        ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("member-op-pending"),
+                )
+            }
+
+            if (isPrimary) {
+                OutlinedButton(
+                    onClick = onSyncFleet,
+                    enabled = !action.inProgress,
+                    modifier = Modifier.fillMaxWidth().testTag("member-op-sync"),
+                ) {
+                    Text(text = stringResource(R.string.member_op_sync))
+                }
+            }
+            action.syncSummary?.let { summary ->
+                Text(
+                    text =
+                        if (summary.failed == 0) {
+                            stringResource(R.string.member_op_synced, summary.total)
+                        } else {
+                            stringResource(R.string.member_op_sync_failed, summary.failed, summary.total)
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color =
+                        if (summary.failed == 0) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
+                    modifier = Modifier.testTag("member-op-sync-result"),
+                )
+            }
+            action.error?.let { message ->
+                Text(
+                    text = stringResource(R.string.member_op_error, message),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("member-op-error"),
+                )
+                TextButton(
+                    onClick = onDismissActionError,
+                    modifier = Modifier.testTag("member-op-dismiss"),
+                ) {
+                    Text(text = stringResource(R.string.member_op_dismiss))
+                }
+            }
+        }
+    }
 }
 
 /**
