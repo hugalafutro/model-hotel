@@ -327,12 +327,20 @@ private fun AutoSyncControl(
                         enabled = !action.inProgress,
                         // Same off-state colours as the Settings toggles so a paused
                         // (unchecked) switch stays legible instead of a grey blob that
-                        // blends into the card.
+                        // blends into the card. The disabled-unchecked trio mirrors it
+                        // (dimmed) because the switch is disabled while a pause/resume
+                        // is in flight, and Material's default disabled-unchecked grey
+                        // would otherwise reintroduce the very blend this fixes.
                         colors =
                             SwitchDefaults.colors(
                                 uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 uncheckedTrackColor = MaterialTheme.colorScheme.surface,
                                 uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledUncheckedThumbColor =
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                disabledUncheckedTrackColor = MaterialTheme.colorScheme.surface,
+                                disabledUncheckedBorderColor =
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             ),
                         modifier = Modifier.testTag("autosync-toggle"),
                     )
