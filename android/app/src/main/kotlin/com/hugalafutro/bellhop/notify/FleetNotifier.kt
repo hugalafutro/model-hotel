@@ -12,6 +12,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.hugalafutro.bellhop.MainActivity
 import com.hugalafutro.bellhop.R
+import com.hugalafutro.bellhop.data.AutoSyncAlert
+import com.hugalafutro.bellhop.data.FleetAlert
 import com.hugalafutro.bellhop.data.MemberTransition
 
 /**
@@ -29,11 +31,17 @@ import com.hugalafutro.bellhop.data.MemberTransition
 object FleetNotifier {
     const val CHANNEL_DOWN = "member_down"
     const val CHANNEL_UP = "member_up"
+    const val CHANNEL_STALE = "config_stale"
 
     // A constant numeric id: the member id is carried as the notification tag
     // instead, so two members whose ids collide under String.hashCode() (an int id
     // would fold them onto one row and drop an alert) still get separate rows.
     private const val NOTIFICATION_ID = 1
+
+    // The auto-sync drift alert is fleet-wide, not per-member, so it uses one fixed
+    // tag: WentStale and Resumed share it, so the resume updates the stale row in
+    // place instead of stacking a second notification.
+    private const val AUTOSYNC_TAG = "autosync-stale"
 
     /**
      * ensureChannels registers both notification channels. Safe to call
@@ -56,27 +64,60 @@ object FleetNotifier {
                 NotificationManager.IMPORTANCE_LOW,
             ),
         )
+        // The drift warning is a nudge, not a page: default importance so it shows
+        // and can chime, but never heads-up like a member going down.
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_STALE,
+                context.getString(R.string.notif_channel_stale),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
+        )
     }
 
-    /** notify posts one health-edge notification, or does nothing if it can't. */
+    /** notify posts one fleet-alert notification, or does nothing if it can't. */
     fun notify(
         context: Context,
-        transition: MemberTransition,
+        alert: FleetAlert,
     ) {
         if (!canPost(context)) return
         ensureChannels(context)
 
-        val (channel, title) =
-            when (transition) {
+        // Each alert maps to a channel (which drives importance/muting), a title +
+        // body, and a tag. Member alerts tag by member id so distinct members never
+        // share a row and one flapping member updates in place; the fleet-wide
+        // drift alert uses one fixed tag so its resume replaces its stale row.
+        val (channel, title, body) =
+            when (alert) {
                 is MemberTransition.WentDown ->
-                    CHANNEL_DOWN to context.getString(R.string.notif_down_title, transition.name)
+                    Triple(
+                        CHANNEL_DOWN,
+                        context.getString(R.string.notif_down_title, alert.name),
+                        context.getString(R.string.notif_down_body),
+                    )
                 is MemberTransition.Recovered ->
-                    CHANNEL_UP to context.getString(R.string.notif_up_title, transition.name)
+                    Triple(
+                        CHANNEL_UP,
+                        context.getString(R.string.notif_up_title, alert.name),
+                        context.getString(R.string.notif_up_body),
+                    )
+                AutoSyncAlert.WentStale ->
+                    Triple(
+                        CHANNEL_STALE,
+                        context.getString(R.string.notif_stale_title),
+                        context.getString(R.string.notif_stale_body),
+                    )
+                AutoSyncAlert.Resumed ->
+                    Triple(
+                        CHANNEL_STALE,
+                        context.getString(R.string.notif_stale_resumed_title),
+                        context.getString(R.string.notif_stale_resumed_body),
+                    )
             }
-        val body =
-            when (transition) {
-                is MemberTransition.WentDown -> context.getString(R.string.notif_down_body)
-                is MemberTransition.Recovered -> context.getString(R.string.notif_up_body)
+        val tag =
+            when (alert) {
+                is MemberTransition -> alert.id
+                is AutoSyncAlert -> AUTOSYNC_TAG
             }
 
         val notification =
@@ -90,14 +131,11 @@ object FleetNotifier {
                 .setCategory(NotificationCompat.CATEGORY_STATUS)
                 .build()
 
-        // Tagged with the member id so a member flapping down->up->down updates its
-        // one notification in place rather than stacking a fresh row each poll, and
-        // so distinct members never share a row. canPost checked the permission,
-        // but it can be revoked between that check and here, so swallow the
-        // resulting SecurityException rather than crash a background worker over a
-        // lost notification.
+        // canPost checked the permission, but it can be revoked between that check
+        // and here, so swallow the resulting SecurityException rather than crash a
+        // background worker over a lost notification.
         try {
-            NotificationManagerCompat.from(context).notify(transition.id, NOTIFICATION_ID, notification)
+            NotificationManagerCompat.from(context).notify(tag, NOTIFICATION_ID, notification)
         } catch (_: SecurityException) {
         }
     }

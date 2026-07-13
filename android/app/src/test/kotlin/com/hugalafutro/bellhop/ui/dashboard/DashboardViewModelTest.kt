@@ -1,6 +1,7 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.hugalafutro.bellhop.data.ActionResult
 import com.hugalafutro.bellhop.data.AutoSyncConfig
 import com.hugalafutro.bellhop.data.FakeCipher
 import com.hugalafutro.bellhop.data.FetchResult
@@ -73,6 +74,23 @@ private class FakeFleetClient(
         fdUrl: String,
         token: String,
     ): FetchResult<AutoSyncConfig> = autoSyncResult
+
+    // Pause/resume operator action: canned result plus captured args so a test can
+    // prove the toggle sends the unchanged primary.
+    var setAutoSyncResult: ActionResult<AutoSyncConfig> = ActionResult.Failure("no setAutoSync")
+    var lastSetAutoSyncEnabled: Boolean? = null
+    var lastSetAutoSyncPrimary: String? = null
+
+    override suspend fun setAutoSync(
+        fdUrl: String,
+        token: String,
+        enabled: Boolean,
+        primaryId: String,
+    ): ActionResult<AutoSyncConfig> {
+        lastSetAutoSyncEnabled = enabled
+        lastSetAutoSyncPrimary = primaryId
+        return setAutoSyncResult
+    }
 
     // Per-member traffic for the viewport-lazy sparkline. Records every id
     // fetched so a test can prove only the visible members were requested.
@@ -159,6 +177,114 @@ class DashboardViewModelTest {
             assertNull(s.error)
             assertFalse(s.revoked)
             assertEquals("tok-1", client.lastToken)
+        }
+
+    private fun autoSyncClient(enabled: Boolean = true) =
+        FakeFleetClient(
+            membersResult = FetchResult.Success(listOf(member)),
+            autoSyncResult = FetchResult.Success(AutoSyncConfig(enabled = enabled, primaryId = "m1")),
+        )
+
+    @Test
+    fun setAutoSyncAcceptsAndShowsPendingUntilReconciled() =
+        runBlocking {
+            val client = autoSyncClient(enabled = true)
+            client.setAutoSyncResult = ActionResult.Success(AutoSyncConfig(enabled = false, primaryId = "m1"))
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            vm.refreshOnce()
+            assertTrue(vm.state.value.autoSyncEnabled)
+
+            vm.setAutoSync(false)
+            val pending =
+                withTimeout(5_000) { vm.state.first { !it.autoSync.inProgress && it.autoSync.pendingEnabled != null } }
+            assertEquals(false, pending.autoSync.pendingEnabled)
+            // Toggling the unchanged primary sends it back verbatim.
+            assertEquals(false, client.lastSetAutoSyncEnabled)
+            assertEquals("m1", client.lastSetAutoSyncPrimary)
+
+            // A live read reflecting the paused state reconciles the hint away.
+            client.autoSyncResult = FetchResult.Success(AutoSyncConfig(enabled = false, primaryId = "m1"))
+            vm.refreshOnce()
+            assertNull(vm.state.value.autoSync.pendingEnabled)
+            assertFalse(vm.state.value.autoSyncEnabled)
+        }
+
+    @Test
+    fun setAutoSyncReadFailurePromotesPendingInsteadOfStranding() =
+        runBlocking {
+            val client = autoSyncClient(enabled = true)
+            client.setAutoSyncResult = ActionResult.Success(AutoSyncConfig(enabled = false, primaryId = "m1"))
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            vm.refreshOnce()
+
+            vm.setAutoSync(false)
+            withTimeout(5_000) { vm.state.first { !it.autoSync.inProgress && it.autoSync.pendingEnabled != null } }
+
+            // The confirming endpoint goes dark while members still read fine. The
+            // pending hint must not linger forever: the PUT's 200 echo already
+            // applied the paused value, so it's promoted to the baseline and the
+            // hint clears rather than showing "pausing…" against a dead read.
+            client.autoSyncResult = FetchResult.Failure("autosync down")
+            vm.refreshOnce()
+            assertNull(vm.state.value.autoSync.pendingEnabled)
+            assertFalse(vm.state.value.autoSyncEnabled)
+        }
+
+    @Test
+    fun setAutoSyncForbiddenSetsFlag() =
+        runBlocking {
+            val client = autoSyncClient()
+            client.setAutoSyncResult = ActionResult.Forbidden
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            vm.refreshOnce()
+
+            vm.setAutoSync(false)
+            val s = withTimeout(5_000) { vm.state.first { it.autoSync.forbidden } }
+            assertTrue(s.autoSync.forbidden)
+        }
+
+    @Test
+    fun setAutoSyncUnauthorizedRevokes() =
+        runBlocking {
+            val client = autoSyncClient()
+            client.setAutoSyncResult = ActionResult.Unauthorized
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            vm.refreshOnce()
+
+            vm.setAutoSync(false)
+            val s = withTimeout(5_000) { vm.state.first { it.revoked } }
+            assertTrue(s.revoked)
+        }
+
+    @Test
+    fun setAutoSyncFailureSurfacesErrorThenDismisses() =
+        runBlocking {
+            val client = autoSyncClient()
+            client.setAutoSyncResult = ActionResult.Failure("boom")
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            vm.refreshOnce()
+
+            vm.setAutoSync(false)
+            val s = withTimeout(5_000) { vm.state.first { it.autoSync.error != null } }
+            assertEquals("boom", s.autoSync.error)
+
+            vm.dismissAutoSyncError()
+            assertNull(vm.state.value.autoSync.error)
+        }
+
+    @Test
+    fun setAutoSyncWithoutAPrimaryIsDroppedBeforeTheClient() =
+        runBlocking {
+            val client =
+                FakeFleetClient(
+                    membersResult = FetchResult.Success(listOf(member)),
+                    autoSyncResult = FetchResult.Success(AutoSyncConfig(enabled = false, primaryId = "")),
+                )
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            vm.refreshOnce()
+
+            vm.setAutoSync(true)
+            assertNull(client.lastSetAutoSyncEnabled)
         }
 
     @Test

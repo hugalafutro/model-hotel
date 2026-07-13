@@ -1,6 +1,7 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -189,6 +190,96 @@ class DashboardScreenTest {
         }
         composeTestRule.onNodeWithTag("dashboard-error").assertIsDisplayed()
         composeTestRule.onNodeWithTag("member-card-alpha").assertIsDisplayed()
+    }
+
+    @Test
+    fun autoSyncControlShownForOperatorAndToggleFires() {
+        var requested: Boolean? = null
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui = DashboardUiState(loading = false, members = allUp, primaryId = "m1", autoSyncEnabled = true),
+                    canOperate = true,
+                    onSetAutoSync = { requested = it },
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("autosync-card").assertIsDisplayed()
+        // Effective state is on; toggling asks to turn it off.
+        composeTestRule.onNodeWithTag("autosync-toggle").performClick()
+        assertTrue(requested == false)
+    }
+
+    @Test
+    fun autoSyncControlHiddenForMonitor() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui = DashboardUiState(loading = false, members = allUp, primaryId = "m1"),
+                    canOperate = false,
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("autosync-card").assertDoesNotExist()
+    }
+
+    @Test
+    fun autoSyncControlHiddenWithoutAPrimary() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui = DashboardUiState(loading = false, members = allUp, primaryId = ""),
+                    canOperate = true,
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("autosync-card").assertDoesNotExist()
+    }
+
+    @Test
+    fun autoSyncForbiddenCollapsesToNoteWithoutToggle() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui =
+                        DashboardUiState(
+                            loading = false,
+                            members = allUp,
+                            primaryId = "m1",
+                            autoSync = AutoSyncAction(forbidden = true),
+                        ),
+                    canOperate = true,
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("autosync-forbidden").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("autosync-toggle").assertDoesNotExist()
+    }
+
+    @Test
+    fun autoSyncPendingHintShownAndToggleDisabledWhileInFlight() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui =
+                        DashboardUiState(
+                            loading = false,
+                            members = allUp,
+                            primaryId = "m1",
+                            autoSyncEnabled = true,
+                            autoSync = AutoSyncAction(inProgress = true, pendingEnabled = false),
+                        ),
+                    canOperate = true,
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("autosync-pending").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("autosync-toggle").assertIsNotEnabled()
     }
 
     @Test

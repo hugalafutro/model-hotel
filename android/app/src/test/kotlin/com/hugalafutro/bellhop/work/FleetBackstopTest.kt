@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.work.ListenableWorker.Result
+import com.hugalafutro.bellhop.data.FleetAlert
 import com.hugalafutro.bellhop.data.FleetSnapshot
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
@@ -41,7 +42,7 @@ class FleetBackstopTest {
 
     private lateinit var server: MockWebServer
     private val client = FrontDeskClient()
-    private val fired = mutableListOf<MemberTransition>()
+    private val fired = mutableListOf<FleetAlert>()
 
     @Before
     fun setUp() {
@@ -97,6 +98,12 @@ class FleetBackstopTest {
     private fun memberBody(healthy: Boolean): String =
         """[{"id":"m1","name":"hotel-1","state":"active",""" +
             """"status":{"health":{"known":true,"healthy":$healthy}}}]"""
+
+    // A successful poll reads members then auto-sync; enqueue both.
+    private fun enqueuePoll(healthy: Boolean) {
+        server.enqueue(MockResponse().setBody(memberBody(healthy)))
+        server.enqueue(MockResponse().setBody("""{"enabled":true,"primary_id":"m1","stale":false}"""))
+    }
 
     private suspend fun run(
         monitor: MonitorStore,
@@ -166,7 +173,7 @@ class FleetBackstopTest {
                     setEnabled(true)
                     saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), epoch())
                 }
-            server.enqueue(MockResponse().setBody(memberBody(healthy = false)))
+            enqueuePoll(healthy = false)
 
             val result = run(monitor, linkedTo(server.url("/").toString()))
 
@@ -185,7 +192,7 @@ class FleetBackstopTest {
                     setPushEnabled(true)
                     saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), epoch())
                 }
-            server.enqueue(MockResponse().setBody(memberBody(healthy = false)))
+            enqueuePoll(healthy = false)
 
             val result = run(monitor, linkedTo(server.url("/").toString()))
 

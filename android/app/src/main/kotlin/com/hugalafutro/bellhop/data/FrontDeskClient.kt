@@ -258,6 +258,21 @@ open class FrontDeskClient(
     ): ActionResult<SyncResponse> = post(fdUrl, "/api/config/sync", token, ConfigSyncRequest(primaryId))
 
     /**
+     * setAutoSync pauses or resumes auto-sync via PUT /api/fleet/autosync.
+     * Operator tier: Front Desk enforces the role. Bellhop only ever toggles
+     * [enabled] on the unchanged [primaryId] (empty confirm token), which Front
+     * Desk applies without an admin confirmation; repointing the primary stays a
+     * web-only action. Front Desk echoes the applied config back, so a 200 is the
+     * ack the dashboard reconciles against.
+     */
+    open suspend fun setAutoSync(
+        fdUrl: String,
+        token: String,
+        enabled: Boolean,
+        primaryId: String,
+    ): ActionResult<AutoSyncConfig> = put(fdUrl, "/api/fleet/autosync", token, AutoSyncRequest(enabled, primaryId))
+
+    /**
      * streamEvents subscribes to GET {fdUrl}/api/sse and emits each frame as an
      * [SseMessage]. Comment heartbeats are swallowed by the SSE parser, so only
      * real events surface. The flow completes on disconnect; a 401 first emits
@@ -358,15 +373,32 @@ open class FrontDeskClient(
             }
         }
 
-    // post is the shared authenticated operator POST: bearer token, a JSON body,
-    // decode the 2xx body as T. It maps 403 to Forbidden (this device's role may
-    // not mutate) and 401 to Unauthorized (dead token) as distinct arms, and keeps
-    // every other throwable inside the modeled result set exactly like get() does.
+    // post/put are the shared authenticated operator mutations (POST for actions,
+    // PUT for the auto-sync toggle); both delegate to mutate with the HTTP method.
     private suspend inline fun <reified B, reified T> post(
         fdUrl: String,
         path: String,
         token: String,
         body: B,
+    ): ActionResult<T> = mutate(fdUrl, path, token, body, "POST")
+
+    private suspend inline fun <reified B, reified T> put(
+        fdUrl: String,
+        path: String,
+        token: String,
+        body: B,
+    ): ActionResult<T> = mutate(fdUrl, path, token, body, "PUT")
+
+    // mutate sends a JSON body with a bearer token and decodes the 2xx body as T.
+    // It maps 403 to Forbidden (this device's role may not mutate) and 401 to
+    // Unauthorized (dead token) as distinct arms, and keeps every other throwable
+    // inside the modeled result set exactly like get() does.
+    private suspend inline fun <reified B, reified T> mutate(
+        fdUrl: String,
+        path: String,
+        token: String,
+        body: B,
+        method: String,
     ): ActionResult<T> =
         withContext(Dispatchers.IO) {
             runCatching {
@@ -376,7 +408,7 @@ open class FrontDeskClient(
                         .Builder()
                         .url("${base(fdUrl)}$path")
                         .header("Authorization", "Bearer $token")
-                        .post(requestBody)
+                        .method(method, requestBody)
                         .build()
                 http.newCall(request).execute().use { resp ->
                     val text = resp.body?.string().orEmpty()

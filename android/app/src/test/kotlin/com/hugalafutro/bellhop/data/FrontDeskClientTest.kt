@@ -632,4 +632,66 @@ class FrontDeskClientTest {
             assertTrue(result is ActionResult.Success)
             assertTrue((result as ActionResult.Success).data.results.isEmpty())
         }
+
+    @Test
+    fun setAutoSyncPutsBodyAndParsesEcho() =
+        runBlocking {
+            // Front Desk echoes the applied config back; that 200 is the ack.
+            server.enqueue(MockResponse().setBody("""{"enabled":false,"primary_id":"m1","stale":false}"""))
+
+            val result = client.setAutoSync(server.url("/").toString(), "tok-1", enabled = false, primaryId = "m1")
+
+            assertTrue(result is ActionResult.Success)
+            assertEquals(false, (result as ActionResult.Success).data.enabled)
+
+            val request = server.takeRequest()
+            assertEquals("PUT", request.method)
+            assertEquals("/api/fleet/autosync", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+            val body = request.body.readUtf8()
+            assertTrue(body.contains("\"enabled\":false"))
+            assertTrue(body.contains("\"primary_id\":\"m1\""))
+            // Toggling an unchanged primary carries no confirm token: the empty
+            // default is dropped from the body and Front Desk treats absence as "".
+            assertTrue(!body.contains("confirm_token"))
+        }
+
+    @Test
+    fun setAutoSyncMapsForbiddenToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(403).setBody(
+                    """{"error":{"code":"device_role_forbidden","message":"nope"}}""",
+                ),
+            )
+            val result = client.setAutoSync(server.url("/").toString(), "tok-1", enabled = true, primaryId = "m1")
+            assertEquals(ActionResult.Forbidden, result)
+        }
+
+    @Test
+    fun setAutoSyncMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.setAutoSync(server.url("/").toString(), "dead", enabled = true, primaryId = "m1")
+            assertEquals(ActionResult.Unauthorized, result)
+        }
+
+    @Test
+    fun setAutoSyncServerErrorIsFailure() =
+        runBlocking {
+            server.enqueue(MockResponse().setResponseCode(500).setBody("boom"))
+            val result = client.setAutoSync(server.url("/").toString(), "tok-1", enabled = true, primaryId = "m1")
+            assertTrue(result is ActionResult.Failure)
+        }
+
+    @Test
+    fun setAutoSyncMalformedUrlIsFailureNotThrow() =
+        runBlocking {
+            val result = client.setAutoSync("not a url", "tok", enabled = true, primaryId = "m1")
+            assertTrue(result is ActionResult.Failure)
+        }
 }

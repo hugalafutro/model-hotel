@@ -371,3 +371,50 @@ func TestConfigStalenessWatchdog(t *testing.T) {
 		t.Errorf("after re-arm should warn again: %+v", ev)
 	}
 }
+
+func TestAutoSyncStalenessWatchdog(t *testing.T) {
+	p, store, bus := newTestPoller(t, "")
+	ctx := context.Background()
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	// Off with a designated primary and no sync ever recorded: one warning.
+	if err := store.SetAutoSync(ctx, false, "m1"); err != nil {
+		t.Fatal(err)
+	}
+	p.checkAutoSyncStale(ctx)
+	ev := <-ch
+	if ev.Type != "config.autosync_stale" || ev.Severity != "warning" {
+		t.Fatalf("stale event: %+v", ev)
+	}
+
+	// Still stale: no duplicate warning.
+	p.checkAutoSyncStale(ctx)
+	select {
+	case ev := <-ch:
+		t.Errorf("should not warn twice, got %+v", ev)
+	default:
+	}
+
+	// Enabling auto-sync clears the condition and disarms silently.
+	if err := store.SetAutoSync(ctx, true, "m1"); err != nil {
+		t.Fatal(err)
+	}
+	p.checkAutoSyncStale(ctx)
+	select {
+	case ev := <-ch:
+		t.Errorf("enabling should not emit, got %+v", ev)
+	default:
+	}
+
+	// Disabling again re-arms and re-alerts on the next stale episode.
+	if err := store.SetAutoSync(ctx, false, "m1"); err != nil {
+		t.Fatal(err)
+	}
+	p.checkAutoSyncStale(ctx)
+	ev = <-ch
+	if ev.Type != "config.autosync_stale" {
+		t.Errorf("after re-arm should warn again: %+v", ev)
+	}
+}

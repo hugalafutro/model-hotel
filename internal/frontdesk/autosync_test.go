@@ -635,6 +635,71 @@ func TestPutAutoSyncValidation(t *testing.T) {
 	}
 }
 
+// TestAutoSyncStale pins the drift rule: off + a designated primary + no (or a
+// stale) recorded sync is stale; an enabled loop, an absent primary, or a recent
+// sync is not.
+func TestAutoSyncStale(t *testing.T) {
+	now := time.Now()
+	cases := []struct {
+		name     string
+		cfg      AutoSyncConfig
+		lastSync time.Time
+		haveSync bool
+		want     bool
+	}{
+		{"enabled is never stale", AutoSyncConfig{Enabled: true, PrimaryID: "m1"}, time.Time{}, false, false},
+		{"no primary is never stale", AutoSyncConfig{Enabled: false, PrimaryID: ""}, time.Time{}, false, false},
+		{"off, primary, never synced", AutoSyncConfig{Enabled: false, PrimaryID: "m1"}, time.Time{}, false, true},
+		{"off, primary, synced recently", AutoSyncConfig{Enabled: false, PrimaryID: "m1"}, now.Add(-time.Hour), true, false},
+		{"off, primary, synced long ago", AutoSyncConfig{Enabled: false, PrimaryID: "m1"}, now.Add(-25 * time.Hour), true, true},
+		{"off, primary, exactly at threshold", AutoSyncConfig{Enabled: false, PrimaryID: "m1"}, now.Add(-24 * time.Hour), true, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := autoSyncStale(tc.cfg, tc.lastSync, tc.haveSync, now); got != tc.want {
+				t.Errorf("autoSyncStale = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestGetAutoSyncReportsStale: the read endpoint folds in the computed staleness
+// so a device that only polls it (Bellhop's background monitor) can raise its own
+// notification.
+func TestGetAutoSyncReportsStale(t *testing.T) {
+	srv, store := newTestServer(t)
+	pm, _ := store.CreateMember(t.Context(), "primary", "http://127.0.0.1:9", "tok")
+
+	read := func() autoSyncStatus {
+		t.Helper()
+		rec := do(t, srv, http.MethodGet, "/api/fleet/autosync", "", true)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("get autosync = %d (%s)", rec.Code, rec.Body.String())
+		}
+		var got autoSyncStatus
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return got
+	}
+
+	// Off with a designated primary and no sync ever recorded: stale.
+	if err := store.SetAutoSync(t.Context(), false, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	if got := read(); !got.Stale || got.Enabled || got.PrimaryID != pm.ID {
+		t.Errorf("disabled+never-synced = %+v, want stale", got)
+	}
+
+	// Enabling clears it.
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	if got := read(); got.Stale || !got.Enabled {
+		t.Errorf("enabled = %+v, want not stale", got)
+	}
+}
+
 // TestDeleteMemberClearsPrimary: removing the designated primary clears the
 // pointer so the auto-sync loop stops treating a gone member as the source.
 func TestDeleteMemberClearsPrimary(t *testing.T) {

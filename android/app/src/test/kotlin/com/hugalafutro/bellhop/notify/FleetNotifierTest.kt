@@ -3,8 +3,10 @@ package com.hugalafutro.bellhop.notify
 import android.Manifest
 import android.app.Application
 import android.app.NotificationManager
+import com.hugalafutro.bellhop.data.AutoSyncAlert
 import com.hugalafutro.bellhop.data.MemberTransition
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -40,5 +42,26 @@ class FleetNotifierTest {
         shadowOf(app).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
         FleetNotifier.notify(app, MemberTransition.WentDown("m1", "One"))
         assertEquals(0, shadowOf(notifications).size())
+    }
+
+    @Test
+    fun autoSyncAlertPostsOnTheStaleChannel() {
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        FleetNotifier.notify(app, AutoSyncAlert.WentStale)
+        val posted = shadowOf(notifications).size()
+        assertEquals(1, posted)
+        assertTrue(
+            shadowOf(notifications).allNotifications.any { it.channelId == FleetNotifier.CHANNEL_STALE },
+        )
+    }
+
+    @Test
+    fun autoSyncResumeReplacesTheStaleRowInPlace() {
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        // Stale then Resumed share one fixed tag, so the resume updates the row
+        // rather than stacking a second notification.
+        FleetNotifier.notify(app, AutoSyncAlert.WentStale)
+        FleetNotifier.notify(app, AutoSyncAlert.Resumed)
+        assertEquals(1, shadowOf(notifications).size())
     }
 }
