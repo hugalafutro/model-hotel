@@ -366,6 +366,10 @@ Transparent failover happens automatically when an upstream provider request fai
 
 Failover applies to **all** `/v1` endpoints, not just chat completions - the multimodal endpoints (embeddings, images, audio) share the same candidate-resolution and failover loop. For streaming or binary responses, failover is only possible before the first response byte has been forwarded to the client; once a stream is committed, the proxy stays with that provider.
 
+The diagram below focuses on the streaming safeguards - the **TTFT probe** that gates commit, the **stall watchdog** that guards a committed stream, and the backoff-paced retry loop. The [Architecture Overview](#architecture-overview) diagram above shows the complementary resolution-to-selection pipeline.
+
+![Transparent Failover Mechanics](failover-mechanics.svg)
+
 ### How It Works
 
 Failover is **sequential** - providers are tried one at a time, in order:
