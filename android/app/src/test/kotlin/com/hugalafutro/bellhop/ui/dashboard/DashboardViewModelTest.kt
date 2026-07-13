@@ -1,6 +1,5 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.hugalafutro.bellhop.data.ActionResult
 import com.hugalafutro.bellhop.data.AutoSyncConfig
 import com.hugalafutro.bellhop.data.FakeCipher
@@ -9,14 +8,13 @@ import com.hugalafutro.bellhop.data.FleetEvent
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.HealthStatus
+import com.hugalafutro.bellhop.data.InMemoryPreferencesDataStore
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.PairedDevice
 import com.hugalafutro.bellhop.data.SseMessage
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -40,7 +38,6 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
 /** FakeFleetClient serves canned read-tier results without touching the network. */
@@ -131,14 +128,10 @@ class DashboardViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun newLinkStore(): LinkStore {
-        val scope = CoroutineScope(Dispatchers.IO + Job())
-        val ds =
-            PreferenceDataStoreFactory.create(scope = scope) {
-                File(tmp.newFolder(), "link.preferences_pb")
-            }
-        return LinkStore(ds, FakeCipher)
-    }
+    // An in-memory DataStore (no disk, no Dispatchers.IO hop) keeps the token
+    // read synchronous, so these Unconfined + runBlocking + withTimeout tests
+    // can't flake on IO latency starving past the wall-clock bound.
+    private fun newLinkStore(): LinkStore = LinkStore(InMemoryPreferencesDataStore(), FakeCipher)
 
     private suspend fun linkedStore(): LinkStore =
         newLinkStore().also {

@@ -1,16 +1,14 @@
 package com.hugalafutro.bellhop.ui.alerts
 
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import com.hugalafutro.bellhop.data.AlertEventDef
 import com.hugalafutro.bellhop.data.AlertStatus
 import com.hugalafutro.bellhop.data.FakeCipher
 import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FrontDeskClient
+import com.hugalafutro.bellhop.data.InMemoryPreferencesDataStore
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.PairedDevice
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -25,7 +23,6 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
 // FakeAlertsClient stubs the two reads the alerts ViewModel makes; each result
@@ -77,14 +74,10 @@ class AlertsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun newLinkStore(): LinkStore {
-        val scope = CoroutineScope(Dispatchers.IO + Job())
-        val ds =
-            PreferenceDataStoreFactory.create(scope = scope) {
-                File(tmp.newFolder(), "link.preferences_pb")
-            }
-        return LinkStore(ds, FakeCipher)
-    }
+    // An in-memory DataStore (no disk, no Dispatchers.IO hop) keeps the token
+    // read synchronous, so these Unconfined + runBlocking + withTimeout tests
+    // can't flake on IO latency starving past the wall-clock bound.
+    private fun newLinkStore(): LinkStore = LinkStore(InMemoryPreferencesDataStore(), FakeCipher)
 
     private fun linkedStore(): LinkStore =
         newLinkStore().also {
