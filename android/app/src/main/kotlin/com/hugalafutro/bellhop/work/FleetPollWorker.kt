@@ -4,8 +4,11 @@ import android.content.Context
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.ListenableWorker.Result
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -84,9 +87,11 @@ suspend fun runBackstop(
     canNotify: Boolean,
     notify: (MemberTransition) -> Unit,
 ): Result {
-    // Disabled or already unscheduled: nothing to do. A stale run can outlive the
-    // toggle being turned off, so re-check rather than trust scheduling.
-    if (!monitorStore.enabled.first()) return Result.success()
+    // Neither layer active: nothing to do. A stale periodic run can outlive the
+    // Layer-2 toggle, and a push-triggered one-shot can land just after Layer 3
+    // was turned off, so re-check the shared active flag rather than trust
+    // scheduling. Push and periodic share this guard because they share the poll.
+    if (!monitorStore.active.first()) return Result.success()
     // Can't post? Don't poll. Advancing the baseline while alerts are silently
     // dropped would swallow the very down->up change the operator needs to see
     // once they grant the permission, so freeze until then (Settings flags it).
@@ -136,6 +141,7 @@ class FleetPollWorker(
 
     companion object {
         private const val UNIQUE_NAME = "fleet-poll"
+        private const val ONESHOT_NAME = "fleet-poll-now"
 
         // The 15-minute WorkManager floor is the shortest periodic interval Android
         // allows; the backstop is explicitly not real-time (plan section 5.2).
@@ -158,6 +164,32 @@ class FleetPollWorker(
             WorkManager
                 .getInstance(context)
                 .enqueueUniquePeriodicWork(UNIQUE_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+        }
+
+        /**
+         * runNow fires a single immediate poll off the same worker, used as the
+         * Layer-3 wake when a UnifiedPush message arrives (plan section 5.2): the
+         * push is only a trigger, so it runs [runBackstop] to re-fetch fleet truth
+         * from Front Desk rather than trusting the push payload. Expedited so it
+         * runs promptly, but falling back to a normal request when the app is out of
+         * expedited quota (no foreground-service notification needed for a poll).
+         * KEEP coalesces a burst of pushes onto one in-flight poll rather than
+         * fanning out one network call per push; the periodic backstop and the
+         * push's own re-fetch cover anything a coalesced burst would miss.
+         */
+        fun runNow(context: Context) {
+            val request =
+                OneTimeWorkRequestBuilder<FleetPollWorker>()
+                    .setConstraints(
+                        Constraints
+                            .Builder()
+                            .setRequiredNetworkType(NetworkType.CONNECTED)
+                            .build(),
+                    ).setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                    .build()
+            WorkManager
+                .getInstance(context)
+                .enqueueUniqueWork(ONESHOT_NAME, ExistingWorkPolicy.KEEP, request)
         }
 
         fun cancel(context: Context) {

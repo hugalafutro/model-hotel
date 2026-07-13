@@ -175,6 +175,25 @@ class FleetBackstopTest {
         }
 
     @Test
+    fun pushOnlyEnabledStillPollsAndNotifies() =
+        runBlocking {
+            // Layer 2 (periodic) off but Layer 3 (push) on: a push-triggered
+            // one-shot must still fetch/diff/notify, so the guard keys off the
+            // shared active flag, not the Layer-2 enabled flag alone.
+            val monitor =
+                monitorStore().apply {
+                    setPushEnabled(true)
+                    saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), epoch())
+                }
+            server.enqueue(MockResponse().setBody(memberBody(healthy = false)))
+
+            val result = run(monitor, linkedTo(server.url("/").toString()))
+
+            assertEquals(Result.success(), result)
+            assertEquals(listOf(MemberTransition.WentDown("m1", "hotel-1")), fired)
+        }
+
+    @Test
     fun revokedTokenSucceedsWithoutRetryOrNotification() =
         runBlocking {
             val monitor = monitorStore().apply { setEnabled(true) }
