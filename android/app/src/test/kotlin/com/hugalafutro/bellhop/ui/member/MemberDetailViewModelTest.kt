@@ -1,16 +1,21 @@
 package com.hugalafutro.bellhop.ui.member
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import com.hugalafutro.bellhop.data.ActionResult
 import com.hugalafutro.bellhop.data.EventQuery
 import com.hugalafutro.bellhop.data.EventsResponse
 import com.hugalafutro.bellhop.data.FakeCipher
 import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FetchResult
+import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.PairedDevice
+import com.hugalafutro.bellhop.data.SyncResponse
+import com.hugalafutro.bellhop.data.SyncResultItem
 import com.hugalafutro.bellhop.data.TrafficPoint
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -50,6 +55,17 @@ private class FakeTrafficClient(
     var lastMemberId: String? = null
     var lastEventQuery: EventQuery? = null
 
+    // Operator-action stubs: what setMemberState/syncFleet return, and what the
+    // ViewModel last sent, so the action tests can assert both directions.
+    var stateResult: ActionResult<FleetMember> = ActionResult.Success(FleetMember(id = "m1", state = "drained"))
+    var syncResult: ActionResult<SyncResponse> = ActionResult.Success(SyncResponse())
+    var lastStateTarget: String? = null
+    var lastSyncPrimaryId: String? = null
+
+    // Optional latch to hold setMemberState in flight so a test can fire a second
+    // action while the first is still running.
+    var stateGate: CompletableDeferred<Unit>? = null
+
     override suspend fun memberTraffic(
         fdUrl: String,
         token: String,
@@ -68,6 +84,29 @@ private class FakeTrafficClient(
     ): FetchResult<EventsResponse> {
         lastEventQuery = query
         return eventsResult
+    }
+
+    override suspend fun setMemberState(
+        fdUrl: String,
+        token: String,
+        memberId: String,
+        state: String,
+    ): ActionResult<FleetMember> {
+        lastToken = token
+        lastMemberId = memberId
+        lastStateTarget = state
+        stateGate?.await()
+        return stateResult
+    }
+
+    override suspend fun syncFleet(
+        fdUrl: String,
+        token: String,
+        primaryId: String,
+    ): ActionResult<SyncResponse> {
+        lastToken = token
+        lastSyncPrimaryId = primaryId
+        return syncResult
     }
 }
 
@@ -260,5 +299,243 @@ class MemberDetailViewModelTest {
 
             val s = withTimeout(5_000) { vm.state.first { !it.loading } }
             assertEquals(traffic, s.traffic)
+        }
+
+    @Test
+    fun setMemberStateAcceptsAndFlipsToPending() =
+        runBlocking {
+            // Pessimistic-accept: on Front Desk's 200 the recorded state becomes the
+            // optimistic pending target, and the action clears its in-flight flag.
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.stateResult = ActionResult.Success(FleetMember(id = "m1", state = "drained"))
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.setMemberState("drained")
+
+            val action = withTimeout(5_000) { vm.state.first { it.action.pendingState != null } }.action
+            assertEquals("drained", action.pendingState)
+            assertFalse(action.inProgress)
+            assertFalse(action.forbidden)
+            assertNull(action.error)
+            assertEquals("drained", client.lastStateTarget)
+            assertEquals("tok-1", client.lastToken)
+        }
+
+    @Test
+    fun setMemberStateForbiddenSurfacesTheGuard() =
+        runBlocking {
+            // A monitor-role token's 403 is the real guard, distinct from revoked.
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.stateResult = ActionResult.Forbidden
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.setMemberState("drained")
+
+            val s = withTimeout(5_000) { vm.state.first { it.action.forbidden } }
+            assertFalse(s.revoked)
+            assertNull(s.action.pendingState)
+        }
+
+    @Test
+    fun setMemberStateUnauthorizedFlagsRevoked() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.stateResult = ActionResult.Unauthorized
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.setMemberState("active")
+
+            val s = withTimeout(5_000) { vm.state.first { it.revoked } }
+            assertFalse(s.action.forbidden)
+        }
+
+    @Test
+    fun setMemberStateFailureSurfacesError() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.stateResult = ActionResult.Failure("boom")
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.setMemberState("active")
+
+            val s = withTimeout(5_000) { vm.state.first { it.action.error != null } }
+            assertEquals("boom", s.action.error)
+            assertFalse(s.action.inProgress)
+        }
+
+    @Test
+    fun setMemberStateOnUnreadableTokenFlagsRevokedWithoutCall() =
+        runBlocking {
+            // Linked in name only (Keystore key gone): no request can ever succeed,
+            // so surface the revoked flag and never touch Front Desk.
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            val vm = MemberDetailViewModel(client, newLinkStore(), "http://fd:1", "m1")
+
+            vm.setMemberState("drained")
+
+            withTimeout(5_000) { vm.state.first { it.revoked } }
+            assertNull(client.lastStateTarget)
+        }
+
+    @Test
+    fun reconcileClearsPendingOnceLiveCatchesUp() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.stateResult = ActionResult.Success(FleetMember(id = "m1", state = "drained"))
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.setMemberState("drained")
+            withTimeout(5_000) { vm.state.first { it.action.pendingState == "drained" } }
+
+            // A live state that hasn't caught up leaves the pending target intact.
+            vm.reconcile("active")
+            assertEquals("drained", vm.state.value.action.pendingState)
+
+            // Once the live state matches the accepted target the optimism is done.
+            vm.reconcile("drained")
+            assertNull(vm.state.value.action.pendingState)
+        }
+
+    @Test
+    fun syncFleetTalliesResults() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.syncResult =
+                ActionResult.Success(
+                    SyncResponse(
+                        primaryId = "m1",
+                        results =
+                            listOf(
+                                SyncResultItem(memberId = "m2", ok = true),
+                                SyncResultItem(memberId = "m3", ok = false, error = "unreachable"),
+                            ),
+                    ),
+                )
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.syncFleet("m1")
+
+            val summary = withTimeout(5_000) { vm.state.first { it.action.syncSummary != null } }.action.syncSummary
+            assertEquals(2, summary?.total)
+            assertEquals(1, summary?.failed)
+            assertEquals("m1", client.lastSyncPrimaryId)
+        }
+
+    @Test
+    fun dismissActionErrorClearsBanners() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.stateResult = ActionResult.Failure("boom")
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.setMemberState("active")
+            withTimeout(5_000) { vm.state.first { it.action.error == "boom" } }
+
+            vm.dismissActionError()
+            assertNull(vm.state.value.action.error)
+            assertNull(vm.state.value.action.syncSummary)
+        }
+
+    @Test
+    fun syncFleetForbiddenSurfacesTheGuard() =
+        runBlocking {
+            // Same authority split as setMemberState: a monitor-role sync is a
+            // 403 guard, not a revoke.
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.syncResult = ActionResult.Forbidden
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.syncFleet("m1")
+
+            val s = withTimeout(5_000) { vm.state.first { it.action.forbidden } }
+            assertFalse(s.revoked)
+            assertNull(s.action.syncSummary)
+        }
+
+    @Test
+    fun syncFleetUnauthorizedFlagsRevoked() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.syncResult = ActionResult.Unauthorized
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.syncFleet("m1")
+
+            val s = withTimeout(5_000) { vm.state.first { it.revoked } }
+            assertFalse(s.action.forbidden)
+        }
+
+    @Test
+    fun syncFleetFailureSurfacesError() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.syncResult = ActionResult.Failure("boom")
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.syncFleet("m1")
+
+            val s = withTimeout(5_000) { vm.state.first { it.action.error != null } }
+            assertEquals("boom", s.action.error)
+            assertFalse(s.action.inProgress)
+        }
+
+    @Test
+    fun syncFleetOnUnreadableTokenFlagsRevokedWithoutCall() =
+        runBlocking {
+            // Linked in name only: surface the revoked flag, never hit Front Desk.
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            val vm = MemberDetailViewModel(client, newLinkStore(), "http://fd:1", "m1")
+
+            vm.syncFleet("m1")
+
+            withTimeout(5_000) { vm.state.first { it.revoked } }
+            assertNull(client.lastSyncPrimaryId)
+        }
+
+    @Test
+    fun liveStateBeforeAckSkipsThePendingHint() =
+        runBlocking {
+            // Race: the dashboard's SSE refetch shows the target before our POST
+            // 200 lands. reconcile sees the live state first (pending still null),
+            // then the ack arrives — it must not strand a pending hint that can
+            // never clear, since member.state won't change again to re-fire it.
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.stateResult = ActionResult.Success(FleetMember(id = "m1", state = "drained"))
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            // Live state has already converged to the target before we ack.
+            vm.reconcile("drained")
+            vm.setMemberState("drained")
+
+            // The action completes (in-flight flag clears) but leaves no pending
+            // hint: the live state already matched the accepted target.
+            val action = withTimeout(5_000) { vm.state.first { !it.action.inProgress } }.action
+            assertNull(action.pendingState)
+            assertEquals("drained", client.lastStateTarget)
+        }
+
+    @Test
+    fun secondActionWhileInFlightIsDroppedButFlaggedBusy() =
+        runBlocking {
+            // A tap that lands while a mutation is still running is dropped (not
+            // queued), but must surface a busy flag instead of vanishing silently.
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            val gate = CompletableDeferred<Unit>()
+            client.stateGate = gate
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.setMemberState("drained")
+            withTimeout(5_000) { vm.state.first { it.action.inProgress } }
+
+            // Second tap on the sync button while the drain POST is still open.
+            vm.syncFleet("m1")
+            val busy = withTimeout(5_000) { vm.state.first { it.action.busy } }.action
+            assertTrue(busy.inProgress)
+            assertNull(client.lastSyncPrimaryId)
+
+            // Once the first action completes the busy nudge clears.
+            gate.complete(Unit)
+            val done = withTimeout(5_000) { vm.state.first { !it.action.inProgress } }.action
+            assertFalse(done.busy)
         }
 }

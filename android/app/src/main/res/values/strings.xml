@@ -44,6 +44,19 @@
     <string name="member_detail_created">Added %1$s</string>
     <string name="member_url_title">Open member address</string>
     <string name="member_url_open">Open</string>
+    <!-- Operator actions -->
+    <string name="member_op_title">Operator controls</string>
+    <string name="member_op_drain">Drain</string>
+    <string name="member_op_activate">Activate</string>
+    <string name="member_op_draining">Draining… waiting for the fleet to catch up.</string>
+    <string name="member_op_activating">Activating… waiting for the fleet to catch up.</string>
+    <string name="member_op_sync">Sync fleet from primary</string>
+    <string name="member_op_synced">Synced %1$d members from the primary.</string>
+    <string name="member_op_sync_failed">Sync finished with %1$d of %2$d members failing.</string>
+    <string name="member_op_error">Couldn\'t apply: %1$s</string>
+    <string name="member_op_dismiss">Dismiss</string>
+    <string name="member_op_busy">Another action is still running. Wait for it to finish, then try again.</string>
+    <string name="member_op_forbidden">This device is paired as a monitor and can\'t change the fleet. Re-pair with an operator code in Front Desk to drain, activate, or sync.</string>
 
     <!-- Events -->
     <string name="events_title">Events</string>
@@ -98,6 +111,8 @@
     <string name="lock_unlock">Unlock</string>
     <string name="lock_prompt_title">Unlock Bellhop</string>
     <string name="lock_prompt_subtitle">Confirm it\'s you to see the fleet.</string>
+    <string name="operator_prompt_title">Confirm operator action</string>
+    <string name="operator_prompt_subtitle">Confirm it\'s you before changing the fleet.</string>
 
     <!-- Settings -->
     <string name="settings_open">Settings</string>

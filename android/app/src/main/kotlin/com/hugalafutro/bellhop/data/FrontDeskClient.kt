@@ -53,6 +53,30 @@ sealed interface FetchResult<out T> {
 }
 
 /**
+ * ActionResult is the outcome of an operator mutation (drain/activate, config
+ * sync). It has one arm the reads don't: [Forbidden] is Front Desk's 403
+ * device_role_forbidden, meaning this paired device holds the monitor role and
+ * may never mutate. That is the authoritative guard (Bellhop also hides operator
+ * controls on a monitor device, but that is only UX); it is distinct from
+ * [Unauthorized], which is a dead token that even reads can't use, and from a
+ * transient [Failure]. Modeled separately from [FetchResult] so the read call
+ * sites don't have to grow a role branch they can never hit.
+ */
+sealed interface ActionResult<out T> {
+    data class Success<T>(
+        val data: T,
+    ) : ActionResult<T>
+
+    data object Forbidden : ActionResult<Nothing>
+
+    data object Unauthorized : ActionResult<Nothing>
+
+    data class Failure(
+        val message: String,
+    ) : ActionResult<Nothing>
+}
+
+/**
  * SseMessage is what [FrontDeskClient.streamEvents] emits: a connection opened,
  * a decoded control-plane event, or a 401 meaning the device token is dead. The
  * flow completes on any disconnect (heartbeat gap, network drop, clean close),
@@ -208,6 +232,32 @@ open class FrontDeskClient(
     ): FetchResult<List<AlertEventDef>> = get(fdUrl, "/api/alert/events", token)
 
     /**
+     * setMemberState drains or activates a member via POST
+     * /api/members/{id}/state. Operator tier: Front Desk enforces the role and
+     * returns the member with its recorded new state (the ack), so a 200 means
+     * the intent is recorded; the physical drain converges asynchronously and the
+     * dashboard reconciles it. Set-state, not toggle, so a retry is a safe no-op.
+     */
+    open suspend fun setMemberState(
+        fdUrl: String,
+        token: String,
+        memberId: String,
+        state: String,
+    ): ActionResult<FleetMember> = post(fdUrl, "/api/members/$memberId/state", token, MemberStateRequest(state))
+
+    /**
+     * syncFleet propagates [primaryId]'s config to the rest of the fleet via POST
+     * /api/config/sync. Operator tier. Front Desk runs the whole sync before it
+     * answers 200, so a success carries the per-member [SyncResponse.results]; the
+     * phone summarizes them rather than blocking on convergence.
+     */
+    open suspend fun syncFleet(
+        fdUrl: String,
+        token: String,
+        primaryId: String,
+    ): ActionResult<SyncResponse> = post(fdUrl, "/api/config/sync", token, ConfigSyncRequest(primaryId))
+
+    /**
      * streamEvents subscribes to GET {fdUrl}/api/sse and emits each frame as an
      * [SseMessage]. Comment heartbeats are swallowed by the SSE parser, so only
      * real events surface. The flow completes on disconnect; a 401 first emits
@@ -305,6 +355,41 @@ open class FrontDeskClient(
             }.getOrElse { e ->
                 if (e is CancellationException) throw e
                 FetchResult.Failure(e.message ?: "could not reach the Front Desk")
+            }
+        }
+
+    // post is the shared authenticated operator POST: bearer token, a JSON body,
+    // decode the 2xx body as T. It maps 403 to Forbidden (this device's role may
+    // not mutate) and 401 to Unauthorized (dead token) as distinct arms, and keeps
+    // every other throwable inside the modeled result set exactly like get() does.
+    private suspend inline fun <reified B, reified T> post(
+        fdUrl: String,
+        path: String,
+        token: String,
+        body: B,
+    ): ActionResult<T> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val requestBody = json.encodeToString(body).toRequestBody(JSON_MEDIA)
+                val request =
+                    Request
+                        .Builder()
+                        .url("${base(fdUrl)}$path")
+                        .header("Authorization", "Bearer $token")
+                        .post(requestBody)
+                        .build()
+                http.newCall(request).execute().use { resp ->
+                    val text = resp.body?.string().orEmpty()
+                    when {
+                        resp.isSuccessful -> ActionResult.Success(json.decodeFromString<T>(text))
+                        resp.code == 403 -> ActionResult.Forbidden
+                        resp.code == 401 -> ActionResult.Unauthorized
+                        else -> ActionResult.Failure(errorMessage(text, resp.code))
+                    }
+                }
+            }.getOrElse { e ->
+                if (e is CancellationException) throw e
+                ActionResult.Failure(e.message ?: "could not reach the Front Desk")
             }
         }
 

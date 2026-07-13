@@ -3,6 +3,7 @@ package com.hugalafutro.bellhop.ui.member
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.hugalafutro.bellhop.data.ActionResult
 import com.hugalafutro.bellhop.data.EventQuery
 import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FetchResult
@@ -36,6 +37,36 @@ data class MemberDetailUiState(
     val events: List<FdEvent> = emptyList(),
     val error: String? = null,
     val revoked: Boolean = false,
+    // Operator-action overlay (drain/activate, config sync). Orthogonal to the
+    // read state above, which keeps polling regardless.
+    val action: ActionUiState = ActionUiState(),
+)
+
+/**
+ * ActionUiState is the operator-action overlay on the detail screen. [inProgress]
+ * disables the controls and shows a spinner while a mutation is in flight;
+ * [pendingState] is the optimistic drain/activate target shown once Front Desk
+ * has accepted it (the ack), until the dashboard's live state reconciles it (see
+ * [MemberDetailViewModel.reconcile]); [forbidden] is Front Desk's 403 — the
+ * device's role may not mutate, the authoritative guard behind the hidden UI;
+ * [error] is the last action failure; [syncSummary] is a completed config sync's
+ * per-member tally; [busy] flags a tap that arrived while another mutation was
+ * still in flight (dropped, not queued) so the screen can say so rather than the
+ * tap vanishing silently.
+ */
+data class ActionUiState(
+    val inProgress: Boolean = false,
+    val pendingState: String? = null,
+    val forbidden: Boolean = false,
+    val error: String? = null,
+    val syncSummary: SyncSummary? = null,
+    val busy: Boolean = false,
+)
+
+/** SyncSummary is a finished config sync's tally: how many members, how many failed. */
+data class SyncSummary(
+    val total: Int,
+    val failed: Int,
 )
 
 /**
@@ -54,6 +85,13 @@ class MemberDetailViewModel(
 ) : ViewModel() {
     private val _state = MutableStateFlow(MemberDetailUiState())
     val state: StateFlow<MemberDetailUiState> = _state.asStateFlow()
+
+    // The last live member state seen from the dashboard (via [reconcile]). An
+    // accepted action whose target already matches this needs no optimistic
+    // pending hint: the dashboard's SSE refetch beat our ack, so there is nothing
+    // left to reconcile and a pending hint would strand (member.state won't change
+    // again to re-fire the reconcile effect).
+    private var lastLiveState: String? = null
 
     init {
         viewModelScope.launch {
@@ -120,6 +158,119 @@ class MemberDetailViewModel(
                 revoked = false,
             )
         }
+    }
+
+    /**
+     * setMemberState drains or activates this member. Pessimistic-accept,
+     * optimistic-reconcile: it waits for Front Desk's 200 (the recorded state is
+     * the ack) and then flips [ActionUiState.pendingState] so the screen shows the
+     * target optimistically; the dashboard's live state reconciles it through
+     * [reconcile], never blocking on physical fleet convergence. Set-state, not
+     * toggle, so a double-tap or retry is a safe no-op. A 403 means the device's
+     * role may not mutate (the real guard, surfaced as [ActionUiState.forbidden]);
+     * a 401 is a dead token, the same revoked remedy as the reads.
+     */
+    fun setMemberState(target: String) {
+        if (rejectWhileInFlight()) return
+        viewModelScope.launch {
+            _state.update {
+                it.copy(action = it.action.copy(inProgress = true, error = null, syncSummary = null, busy = false))
+            }
+            val token = linkStore.token()
+            if (token == null) {
+                _state.update { it.copy(revoked = true, action = it.action.copy(inProgress = false)) }
+                return@launch
+            }
+            applyActionResult(client.setMemberState(fdUrl, token, memberId, target)) { st, ok ->
+                // If the live state already shows the accepted target (an SSE
+                // refetch landed it before our 200), skip the optimistic hint so
+                // it can't strand: there is nothing left for [reconcile] to clear.
+                val pending = ok.state.takeUnless { it == lastLiveState }
+                st.copy(action = st.action.copy(pendingState = pending, forbidden = false))
+            }
+        }
+    }
+
+    /**
+     * syncFleet propagates [primaryId]'s config to the rest of the fleet. Only the
+     * designated primary is ever passed (choosing a primary is a later slice). The
+     * ack is Front Desk's 200, which carries the per-member outcomes summarized
+     * into [ActionUiState.syncSummary]; the dashboard reconciles the members'
+     * "last config sync" afterwards.
+     */
+    fun syncFleet(primaryId: String) {
+        if (rejectWhileInFlight()) return
+        viewModelScope.launch {
+            _state.update {
+                it.copy(action = it.action.copy(inProgress = true, error = null, syncSummary = null, busy = false))
+            }
+            val token = linkStore.token()
+            if (token == null) {
+                _state.update { it.copy(revoked = true, action = it.action.copy(inProgress = false)) }
+                return@launch
+            }
+            applyActionResult(client.syncFleet(fdUrl, token, primaryId)) { st, ok ->
+                st.copy(
+                    action =
+                        st.action.copy(
+                            forbidden = false,
+                            syncSummary = SyncSummary(total = ok.results.size, failed = ok.results.count { !it.ok }),
+                        ),
+                )
+            }
+        }
+    }
+
+    // A single mutation runs at a time. A tap that lands while one is in flight is
+    // dropped rather than queued (set-state is idempotent, so nothing is lost) but
+    // flagged [ActionUiState.busy] so the screen can nudge the operator instead of
+    // the tap vanishing silently. Returns true when the caller should bail out.
+    private fun rejectWhileInFlight(): Boolean {
+        if (!_state.value.action.inProgress) return false
+        _state.update { it.copy(action = it.action.copy(busy = true)) }
+        return true
+    }
+
+    // applyActionResult folds an operator ActionResult into the ui state with the
+    // shared arm handling (clear inProgress/busy; 403 -> forbidden, 401 -> revoked,
+    // failure -> error), delegating only the success shaping to [onSuccess] so
+    // drain/activate and sync each stamp their own success field.
+    private fun <T> applyActionResult(
+        result: ActionResult<T>,
+        onSuccess: (MemberDetailUiState, T) -> MemberDetailUiState,
+    ) {
+        _state.update { st ->
+            val cleared = st.copy(action = st.action.copy(inProgress = false, busy = false))
+            when (result) {
+                is ActionResult.Success -> onSuccess(cleared, result.data)
+                ActionResult.Forbidden -> cleared.copy(action = cleared.action.copy(forbidden = true))
+                ActionResult.Unauthorized -> cleared.copy(revoked = true)
+                is ActionResult.Failure -> cleared.copy(action = cleared.action.copy(error = result.message))
+            }
+        }
+    }
+
+    /**
+     * reconcile clears the optimistic [ActionUiState.pendingState] once the live
+     * member state (from the dashboard's SSE/poll refresher, passed down by the
+     * screen) has caught up to the accepted target. Until then the screen shows
+     * the pending target; afterwards it shows the live state directly, so a later
+     * change made elsewhere isn't masked by a stale pending value.
+     */
+    fun reconcile(liveState: String) {
+        lastLiveState = liveState
+        _state.update { st ->
+            if (st.action.pendingState != null && st.action.pendingState == liveState) {
+                st.copy(action = st.action.copy(pendingState = null))
+            } else {
+                st
+            }
+        }
+    }
+
+    /** dismissActionError clears the last action failure banner. */
+    fun dismissActionError() {
+        _state.update { it.copy(action = it.action.copy(error = null)) }
     }
 
     class Factory(

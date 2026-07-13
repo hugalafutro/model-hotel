@@ -491,4 +491,145 @@ class FrontDeskClientTest {
             val result = client.alertCatalog(server.url("/").toString(), "dead")
             assertEquals(FetchResult.Unauthorized, result)
         }
+
+    @Test
+    fun setMemberStateParsesRecordedStateAndPostsBody() =
+        runBlocking {
+            // Front Desk answers with the member carrying its recorded new state:
+            // that is the ack the phone waits on.
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"id":"m1","name":"hotel-1","url":"http://h1:8080","state":"drained","has_token":true}""",
+                ),
+            )
+
+            val result = client.setMemberState(server.url("/").toString(), "tok-1", "m1", "drained")
+
+            assertTrue(result is ActionResult.Success)
+            assertEquals("drained", (result as ActionResult.Success).data.state)
+
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/members/m1/state", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+            assertTrue(request.body.readUtf8().contains("\"state\":\"drained\""))
+        }
+
+    @Test
+    fun setMemberStateMapsForbiddenToItsOwnArm() =
+        runBlocking {
+            // 403 device_role_forbidden: a monitor-role device may never mutate.
+            // Distinct from a dead token so the UI can say "wrong role", not "relink".
+            server.enqueue(
+                MockResponse().setResponseCode(403).setBody(
+                    """{"error":{"code":"device_role_forbidden","message":"nope"}}""",
+                ),
+            )
+            val result = client.setMemberState(server.url("/").toString(), "tok-1", "m1", "drained")
+            assertEquals(ActionResult.Forbidden, result)
+        }
+
+    @Test
+    fun setMemberStateMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.setMemberState(server.url("/").toString(), "dead", "m1", "active")
+            assertEquals(ActionResult.Unauthorized, result)
+        }
+
+    @Test
+    fun setMemberStateServerErrorIsFailure() =
+        runBlocking {
+            server.enqueue(MockResponse().setResponseCode(500).setBody("boom"))
+            val result = client.setMemberState(server.url("/").toString(), "tok-1", "m1", "active")
+            assertTrue(result is ActionResult.Failure)
+        }
+
+    @Test
+    fun setMemberStateMalformedUrlIsFailureNotThrow() =
+        runBlocking {
+            val result = client.setMemberState("not a url", "tok", "m1", "active")
+            assertTrue(result is ActionResult.Failure)
+        }
+
+    @Test
+    fun syncFleetParsesResultsAndPostsPrimary() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"primary_id":"m1","results":[{"member_id":"m2","name":"hotel-2","ok":true},""" +
+                        """{"member_id":"m3","name":"hotel-3","ok":false,"error":"unreachable"}]}""",
+                ),
+            )
+
+            val result = client.syncFleet(server.url("/").toString(), "tok-1", "m1")
+
+            assertTrue(result is ActionResult.Success)
+            val data = (result as ActionResult.Success).data
+            assertEquals("m1", data.primaryId)
+            assertEquals(2, data.results.size)
+            assertTrue(data.results[0].ok)
+            assertFalse(data.results[1].ok)
+
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/config/sync", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+            assertTrue(request.body.readUtf8().contains("\"primary_id\":\"m1\""))
+        }
+
+    @Test
+    fun syncFleetMapsForbiddenToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(403).setBody(
+                    """{"error":{"code":"device_role_forbidden","message":"nope"}}""",
+                ),
+            )
+            val result = client.syncFleet(server.url("/").toString(), "tok-1", "m1")
+            assertEquals(ActionResult.Forbidden, result)
+        }
+
+    @Test
+    fun syncFleetMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            // A dead device token on sync is a revoke, distinct from the role 403.
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.syncFleet(server.url("/").toString(), "dead", "m1")
+            assertEquals(ActionResult.Unauthorized, result)
+        }
+
+    @Test
+    fun syncFleetServerErrorIsFailure() =
+        runBlocking {
+            server.enqueue(MockResponse().setResponseCode(500).setBody("boom"))
+            val result = client.syncFleet(server.url("/").toString(), "tok-1", "m1")
+            assertTrue(result is ActionResult.Failure)
+        }
+
+    @Test
+    fun syncFleetMalformedUrlIsFailureNotThrow() =
+        runBlocking {
+            val result = client.syncFleet("not a url", "tok", "m1")
+            assertTrue(result is ActionResult.Failure)
+        }
+
+    @Test
+    fun syncFleetEmptyResultsIsSuccessWithEmptyTally() =
+        runBlocking {
+            // A single-node fleet has nobody to propagate to: Front Desk still
+            // answers 200 with an empty results list, which must parse cleanly.
+            server.enqueue(MockResponse().setBody("""{"primary_id":"m1","results":[]}"""))
+            val result = client.syncFleet(server.url("/").toString(), "tok-1", "m1")
+            assertTrue(result is ActionResult.Success)
+            assertTrue((result as ActionResult.Success).data.results.isEmpty())
+        }
 }

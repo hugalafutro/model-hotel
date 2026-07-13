@@ -14,6 +14,7 @@ import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.TrafficPoint
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -256,5 +257,263 @@ class MemberDetailScreenTest {
             }
         }
         composeTestRule.onNodeWithTag("member-detail-revoked").assertIsDisplayed()
+    }
+
+    @Test
+    fun operatorCardHiddenForMonitorDevice() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                    canOperate = false,
+                )
+            }
+        }
+        assertTrue(
+            composeTestRule.onAllNodesWithTag("member-operator-card").fetchSemanticsNodes().isEmpty(),
+        )
+    }
+
+    @Test
+    fun operatorDrainButtonFiresTargetForActiveMember() {
+        var target: String? = null
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                    canOperate = true,
+                    onSetState = { target = it },
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-op-state"))
+        composeTestRule.onNodeWithTag("member-op-state").performClick()
+        assertTrue(target == "drained")
+    }
+
+    @Test
+    fun operatorButtonFiresActivateForDrainedMember() {
+        var target: String? = null
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member.copy(state = "drained"),
+                    isPrimary = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                    canOperate = true,
+                    onSetState = { target = it },
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-op-state"))
+        composeTestRule.onNodeWithTag("member-op-state").performClick()
+        assertTrue(target == "active")
+    }
+
+    @Test
+    fun pendingStateShowsPendingHint() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            action = ActionUiState(pendingState = "drained"),
+                        ),
+                    canOperate = true,
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-op-pending"))
+        composeTestRule.onNodeWithTag("member-op-pending").assertIsDisplayed()
+    }
+
+    @Test
+    fun forbiddenActionCollapsesToGuardNote() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            action = ActionUiState(forbidden = true),
+                        ),
+                    canOperate = true,
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-op-forbidden"))
+        composeTestRule.onNodeWithTag("member-op-forbidden").assertIsDisplayed()
+        // The guard overrides the role-hint UI: the mutate button is gone.
+        assertTrue(
+            composeTestRule.onAllNodesWithTag("member-op-state").fetchSemanticsNodes().isEmpty(),
+        )
+    }
+
+    @Test
+    fun syncButtonShownOnPrimaryAndFires() {
+        var synced = false
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = true,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                    canOperate = true,
+                    onSyncFleet = { synced = true },
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-op-sync"))
+        composeTestRule.onNodeWithTag("member-op-sync").performClick()
+        assertTrue(synced)
+    }
+
+    @Test
+    fun syncButtonAbsentOnNonPrimary() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                    canOperate = true,
+                )
+            }
+        }
+        assertTrue(
+            composeTestRule.onAllNodesWithTag("member-op-sync").fetchSemanticsNodes().isEmpty(),
+        )
+    }
+
+    @Test
+    fun inProgressActionDisablesTheStateButton() {
+        var fired = false
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            action = ActionUiState(inProgress = true),
+                        ),
+                    canOperate = true,
+                    onSetState = { fired = true },
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-op-state"))
+        // Disabled while in flight: a tap must not re-issue the action.
+        composeTestRule.onNodeWithTag("member-op-state").performClick()
+        assertFalse(fired)
+    }
+
+    @Test
+    fun syncSummaryRendersTheTally() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = true,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            action = ActionUiState(syncSummary = SyncSummary(total = 3, failed = 1)),
+                        ),
+                    canOperate = true,
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-op-sync-result"))
+        composeTestRule.onNodeWithTag("member-op-sync-result").assertIsDisplayed()
+    }
+
+    @Test
+    fun errorBannerRendersAndDismissFires() {
+        var dismissed = false
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            action = ActionUiState(error = "boom"),
+                        ),
+                    canOperate = true,
+                    onDismissActionError = { dismissed = true },
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-op-error"))
+        composeTestRule.onNodeWithTag("member-op-error").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-op-dismiss").performClick()
+        assertTrue(dismissed)
+    }
+
+    @Test
+    fun busyNoticeRendersWhenATapIsDropped() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            action = ActionUiState(inProgress = true, busy = true),
+                        ),
+                    canOperate = true,
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-op-busy"))
+        composeTestRule.onNodeWithTag("member-op-busy").assertIsDisplayed()
     }
 }

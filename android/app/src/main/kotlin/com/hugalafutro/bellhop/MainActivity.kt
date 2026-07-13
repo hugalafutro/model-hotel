@@ -58,6 +58,15 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
+// The paired-device role that may mutate the fleet (Front Desk's RoleOperator).
+// A monitor device hides the operator controls; the 403 is still the real guard.
+private const val OPERATOR_ROLE = "operator"
+
+// How long one operator biometric check authorizes further operator actions
+// before the next one re-prompts. Deliberately short (a burst window) and tighter
+// than the app-lock's default view window, and in-memory so it resets on a kill.
+private const val OPERATOR_AUTH_WINDOW_MS = 60_000L
+
 // FragmentActivity (not plain ComponentActivity) because BiometricPrompt hosts
 // its sheet on a FragmentManager; Compose still drives the whole UI.
 class MainActivity : FragmentActivity() {
@@ -223,6 +232,37 @@ fun BellhopApp() {
             locked = false
         } else {
             act.promptAppUnlock(unlockTitle, unlockSubtitle) { locked = false }
+        }
+    }
+
+    // Operator-action gate: a per-session biometric check on its own short timer,
+    // tighter than the app-lock's view window and orthogonal to Front Desk's role
+    // check (this proves the phone's owner is here; the token's role is what may
+    // mutate — both are needed). One prompt authorizes a brief burst of operator
+    // taps; after the window lapses the next action re-prompts. Degrades open with
+    // no enrolled credential, like the app lock, since the token at rest is
+    // Keystore-wrapped regardless and Front Desk's 403 is the authoritative guard.
+    var operatorAuthorizedUntil by remember { mutableStateOf(0L) }
+    val operatorTitle = stringResource(R.string.operator_prompt_title)
+    val operatorSubtitle = stringResource(R.string.operator_prompt_subtitle)
+
+    fun requireOperatorAuth(action: () -> Unit) {
+        if (System.currentTimeMillis() < operatorAuthorizedUntil) {
+            action()
+            return
+        }
+        val act = activity
+        if (act == null) {
+            // No host activity to present the presence check (not expected during
+            // normal composition). This gate is a security control, so fail closed:
+            // drop the mutation rather than run it un-gated. This differs from the
+            // no-enrolled-credential case inside promptAppUnlock, which degrades
+            // open by design — here we can't prove owner presence at all.
+            return
+        }
+        act.promptAppUnlock(operatorTitle, operatorSubtitle) {
+            operatorAuthorizedUntil = System.currentTimeMillis() + OPERATOR_AUTH_WINDOW_MS
+            action()
         }
     }
 
@@ -413,6 +453,7 @@ fun BellhopApp() {
                         onTogglePush = { togglePush(it) },
                         onUnlink = { runUnlink(state.fdUrl) },
                         onForceUnlink = { forceUnlink() },
+                        requireOperatorAuth = { action -> requireOperatorAuth(action) },
                     )
             }
         }
@@ -446,6 +487,7 @@ private fun LinkedContent(
     onTogglePush: (Boolean) -> Unit,
     onUnlink: () -> Unit,
     onForceUnlink: () -> Unit,
+    requireOperatorAuth: (() -> Unit) -> Unit,
 ) {
     // Self-heal the Layer-2 poll: periodic work persists in WorkManager on its
     // own, but re-asserting the schedule here (KEEP policy, so no interval reset)
@@ -588,6 +630,14 @@ private fun LinkedContent(
             isPrimary = selected.id == ui.primaryId,
             ui = detailUi,
             onBack = { selectedMemberId = null },
+            // Role-hint UI: an operator device gets the controls, a monitor
+            // doesn't. Front Desk's 403 is still the real guard (surfaced in the
+            // card). Each action goes through the biometric operator gate.
+            canOperate = state.role == OPERATOR_ROLE,
+            onSetState = { target -> requireOperatorAuth { detailVm.setMemberState(target) } },
+            onSyncFleet = { requireOperatorAuth { detailVm.syncFleet(ui.primaryId) } },
+            onReconcile = { liveState -> detailVm.reconcile(liveState) },
+            onDismissActionError = { detailVm.dismissActionError() },
         )
     } else {
         DashboardScreen(
