@@ -383,7 +383,7 @@ fun SettingsScreen(
                     if (pushEnabled) {
                         if (pushNotificationsBlocked) {
                             Text(
-                                text = stringResource(R.string.settings_monitor_blocked),
+                                text = stringResource(R.string.settings_push_blocked),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.testTag("settings-push-blocked"),

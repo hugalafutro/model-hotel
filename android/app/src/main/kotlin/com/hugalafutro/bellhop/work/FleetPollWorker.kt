@@ -193,7 +193,12 @@ class FleetPollWorker(
         }
 
         fun cancel(context: Context) {
-            WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_NAME)
+            val wm = WorkManager.getInstance(context)
+            wm.cancelUniqueWork(UNIQUE_NAME)
+            // Also drop any queued push one-shot so a pending wake can't outlive an
+            // unlink (it would bail in runBackstop anyway once active is false, but
+            // cancelling closes the window and mirrors the periodic teardown).
+            wm.cancelUniqueWork(ONESHOT_NAME)
         }
     }
 }

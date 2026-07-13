@@ -128,6 +128,7 @@
     <string name="settings_push_endpoint_note">Paste this into Front Desk → Settings → Alerts as the phone topic, so its alerts wake Bellhop.</string>
     <string name="settings_push_copy">Copy push topic</string>
     <string name="settings_push_copied">Push topic copied</string>
+    <string name="settings_push_blocked">Notifications are off for Bellhop, so pushes can\'t reach you. Turn them on in system settings.</string>
 
     <!-- Background-monitoring notifications (Layer 2 backstop) -->
     <string name="notif_channel_down">Member down</string>

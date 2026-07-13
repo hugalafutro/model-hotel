@@ -304,11 +304,14 @@ fun BellhopApp() {
                     revokedRemotely = true
                     linkStore.clear()
                     lockStore.clear()
-                    // Stop the backstop and wipe the last-seen fleet so a re-pair
-                    // (possibly to a different Front Desk) starts from a clean
-                    // baseline rather than diffing against the old fleet.
+                    // Stop both backstop layers and wipe the last-seen fleet so a
+                    // re-pair (possibly to a different Front Desk) starts from a
+                    // clean baseline rather than diffing against the old fleet.
+                    // clear() drops the pushEnabled flag, but LinkedContent unmounts
+                    // before its LaunchedEffect can unregister, so do it here too.
                     monitorStore.clear()
                     FleetPollWorker.cancel(context)
+                    BellhopPush.unregister(context)
                 } else {
                     unlinkFailed = true
                 }
@@ -340,6 +343,7 @@ fun BellhopApp() {
                 lockStore.clear()
                 monitorStore.clear()
                 FleetPollWorker.cancel(context)
+                BellhopPush.unregister(context)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -450,10 +454,12 @@ private fun LinkedContent(
     }
     // Self-heal the Layer-3 push: UnifiedPush registration is persistent, but
     // re-registering here refreshes the endpoint and recovers it after a reinstall;
-    // unregister if push was turned off. Registration needs an Activity (choosing a
-    // distributor may show a picker), so it's a no-op if we aren't hosted by one.
+    // unregister if push was turned off. Also keyed on distributor availability so
+    // installing a distributor while push is already on registers without a manual
+    // off/on. Registration needs an Activity (choosing a distributor may show a
+    // picker), so it's a no-op if we aren't hosted by one.
     val pushActivity = monitorContext as? FragmentActivity
-    LaunchedEffect(pushEnabled) {
+    LaunchedEffect(pushEnabled, pushDistributorAvailable) {
         if (pushEnabled) {
             if (pushActivity != null) BellhopPush.register(pushActivity)
         } else {
