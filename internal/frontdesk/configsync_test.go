@@ -1,6 +1,7 @@
 package frontdesk
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -445,5 +446,115 @@ func TestConfigSyncStampFailureFailsResult(t *testing.T) {
 	}
 	if sawSynced {
 		t.Error("a config.synced event must not fire when the stamp failed")
+	}
+}
+
+// A client that hangs up mid-run (Bellhop's HTTP timeout, an impatient reverse
+// proxy) must not abort a sync in flight: the run is detached from the request
+// context, so the import still applies, the config.synced event is recorded and
+// the member's last-sync stamp moves. Without the detach, the cancel aborted
+// all three, leaving no trace of the run at all. The primary's export stub
+// cancels the request context to simulate the disconnect at the earliest
+// mid-run moment, so everything after it runs under a cancelled parent.
+func TestConfigSyncSurvivesClientDisconnect(t *testing.T) {
+	srv, store := newTestServer(t)
+	replica := newStubConfigMember(t, "rtoken")
+
+	ctx, cancel := context.WithCancel(t.Context())
+	primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer ptoken" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if r.Method == http.MethodGet && r.URL.Path == "/api/config/export" {
+			cancel() // the requester is gone; the sync must keep going
+			_, _ = w.Write([]byte(`{"schema_version":1,"app_version":"v-test","config":{"providers":[{"name":"openai","base_url":"https://o"}]}}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(primary.Close)
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/config/sync", strings.NewReader(`{"primary_id":"`+pm.ID+`"}`)).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sync = %d (%s), want 200 despite the disconnect", rec.Code, rec.Body.String())
+	}
+	if !replica.gotImport {
+		t.Fatal("the replica import must run to completion after the client disconnected")
+	}
+	members, err := store.ListMembers(t.Context())
+	if err != nil {
+		t.Fatalf("list members: %v", err)
+	}
+	for _, m := range members {
+		if m.ID == rm.ID && m.LastConfigSyncAt == nil {
+			t.Error("the replica's last-sync stamp must move even though the client hung up")
+		}
+	}
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{})
+	if err != nil {
+		t.Fatalf("list events: %v", err)
+	}
+	var sawSynced bool
+	for _, e := range evs {
+		if e.Type == "config.synced" && e.MemberID == rm.ID {
+			sawSynced = true
+		}
+	}
+	if !sawSynced {
+		t.Error("expected a config.synced event despite the disconnect")
+	}
+}
+
+// The autosync status carries last_sync_at: when a sync (manual or automatic)
+// last actually wrote config to any member — the max of the per-member stamps,
+// not when a sync was last attempted. Empty until a sync really changes a
+// member; Bellhop renders it under its sync action.
+func TestAutoSyncStatusReportsLastSyncAt(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	replica := newStubConfigMember(t, "rtoken")
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	_, _ = store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	read := func() autoSyncStatus {
+		t.Helper()
+		rec := do(t, srv, http.MethodGet, "/api/fleet/autosync", "", true)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("autosync status = %d (%s)", rec.Code, rec.Body.String())
+		}
+		var got autoSyncStatus
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatalf("decode status: %v", err)
+		}
+		return got
+	}
+
+	if got := read(); got.LastSyncAt != "" {
+		t.Fatalf("last_sync_at before any sync = %q, want empty", got.LastSyncAt)
+	}
+
+	if rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true); rec.Code != http.StatusOK {
+		t.Fatalf("sync = %d (%s)", rec.Code, rec.Body.String())
+	}
+
+	got := read()
+	if got.LastSyncAt == "" {
+		t.Fatal("last_sync_at must be set after a sync wrote config")
+	}
+	at, err := time.Parse(time.RFC3339Nano, got.LastSyncAt)
+	if err != nil {
+		t.Fatalf("last_sync_at %q is not RFC3339: %v", got.LastSyncAt, err)
+	}
+	if time.Since(at) > time.Minute {
+		t.Errorf("last_sync_at %v is stale, want ~now", at)
 	}
 }

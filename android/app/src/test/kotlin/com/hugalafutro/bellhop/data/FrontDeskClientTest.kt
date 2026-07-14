@@ -313,6 +313,13 @@ class FrontDeskClientTest {
                 ),
             ),
         )
+        // The calendar range's upper bound rides along as until.
+        assertEquals(
+            "?since=2026-07-01T00%3A00%3A00Z&until=2026-07-15T00%3A00%3A00Z",
+            FrontDeskClient.eventQueryString(
+                EventQuery(since = "2026-07-01T00:00:00Z", until = "2026-07-15T00:00:00Z"),
+            ),
+        )
     }
 
     @Test

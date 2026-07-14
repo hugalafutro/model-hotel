@@ -577,6 +577,7 @@ private fun LinkedContent(
             memberNames = ui.members.associate { it.id to it.name },
             onSeverity = eventsVm::setSeverity,
             onRange = eventsVm::setRange,
+            onCustomRange = eventsVm::setCustomRange,
             onLoadMore = eventsVm::loadMore,
         )
     } else if (showAlerts) {
@@ -638,6 +639,9 @@ private fun LinkedContent(
             onSyncFleet = { requireOperatorAuth { detailVm.syncFleet(ui.primaryId) } },
             onReconcile = { liveState -> detailVm.reconcile(liveState) },
             onDismissActionError = { detailVm.dismissActionError() },
+            onRange = detailVm::setRange,
+            onCustomRange = detailVm::setCustomRange,
+            onLoadMoreEvents = detailVm::loadMore,
         )
     } else {
         DashboardScreen(

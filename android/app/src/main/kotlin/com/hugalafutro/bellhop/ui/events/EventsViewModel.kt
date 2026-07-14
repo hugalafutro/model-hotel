@@ -9,6 +9,8 @@ import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
+import com.hugalafutro.bellhop.ui.common.CustomDateRange
+import com.hugalafutro.bellhop.ui.common.EventRange
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -25,18 +27,6 @@ import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 
 /**
- * EventRange is the relative "since" presets offered as time filters,
- * mirroring the Front Desk web Events page (0 = no lower bound).
- */
-enum class EventRange(val ms: Long) {
-    ALL(0),
-    H1(3_600_000),
-    H24(86_400_000),
-    D7(604_800_000),
-    D30(2_592_000_000),
-}
-
-/**
  * EventsUiState is what the event-log screen renders. A failed refresh keeps
  * the last good page on screen (stale beats blank on a phone) and raises
  * [error]; [revoked] means the device token itself no longer authenticates,
@@ -50,6 +40,8 @@ data class EventsUiState(
     // "" = all severities.
     val severity: String = "",
     val range: EventRange = EventRange.ALL,
+    // Absolute calendar range from the picker; non-null overrides [range].
+    val custom: CustomDateRange? = null,
     val loadingMore: Boolean = false,
     val error: String? = null,
     val revoked: Boolean = false,
@@ -139,11 +131,21 @@ class EventsViewModel(
         refreshTrigger.trySend(Unit)
     }
 
-    /** setRange swaps the time-range filter and reloads from scratch. */
+    /** setRange swaps the time-range preset (clearing any calendar range) and reloads. */
     fun setRange(range: EventRange) {
-        if (range == _state.value.range) return
+        val s = _state.value
+        if (range == s.range && s.custom == null) return
         _state.update {
-            it.copy(range = range, loading = true, events = emptyList(), total = 0)
+            it.copy(range = range, custom = null, loading = true, events = emptyList(), total = 0)
+        }
+        refreshTrigger.trySend(Unit)
+    }
+
+    /** setCustomRange swaps the calendar range (null falls back to the preset) and reloads. */
+    fun setCustomRange(range: CustomDateRange?) {
+        if (range == _state.value.custom) return
+        _state.update {
+            it.copy(custom = range, loading = true, events = emptyList(), total = 0)
         }
         refreshTrigger.trySend(Unit)
     }
@@ -211,7 +213,7 @@ class EventsViewModel(
         }
         val result = client.events(fdUrl, token, query)
         _state.update { st ->
-            if (st.severity != before.severity || st.range != before.range) {
+            if (st.severity != before.severity || st.range != before.range || st.custom != before.custom) {
                 return@update st.copy(loadingMore = false)
             }
             when (result) {
@@ -232,11 +234,12 @@ class EventsViewModel(
         EventQuery(
             severity = st.severity,
             since =
-                if (st.range.ms > 0) {
-                    Instant.ofEpochMilli(now() - st.range.ms).toString()
-                } else {
-                    ""
+                when {
+                    st.custom != null -> st.custom.sinceRfc3339()
+                    st.range.ms > 0 -> Instant.ofEpochMilli(now() - st.range.ms).toString()
+                    else -> ""
                 },
+            until = st.custom?.untilRfc3339() ?: "",
             limit = limit,
             offset = offset,
         )

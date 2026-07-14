@@ -114,6 +114,16 @@ open class FrontDeskClient(
         )
     }
 
+    // Front Desk runs the whole fleet sync (export, per-member dry-run, backup,
+    // import with member-side model discovery) before answering POST
+    // /api/config/sync, which routinely outlives OkHttp's default 10s read
+    // timeout. A premature client hang-up used to abort the run mid-flight
+    // server-side, so syncFleet gets its own patient client. Derived from the
+    // injected client so it inherits any test/prod wiring.
+    private val slowSyncHttp: OkHttpClient by lazy {
+        http.newBuilder().readTimeout(SYNC_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS).build()
+    }
+
     /**
      * pair exchanges a one-time code for a device token at
      * POST {fdUrl}/api/pair. On success the token is returned exactly once.
@@ -255,7 +265,7 @@ open class FrontDeskClient(
         fdUrl: String,
         token: String,
         primaryId: String,
-    ): ActionResult<SyncResponse> = post(fdUrl, "/api/config/sync", token, ConfigSyncRequest(primaryId))
+    ): ActionResult<SyncResponse> = post(fdUrl, "/api/config/sync", token, ConfigSyncRequest(primaryId), slowSyncHttp)
 
     /**
      * setAutoSync pauses or resumes auto-sync via PUT /api/fleet/autosync.
@@ -380,7 +390,8 @@ open class FrontDeskClient(
         path: String,
         token: String,
         body: B,
-    ): ActionResult<T> = mutate(fdUrl, path, token, body, "POST")
+        client: OkHttpClient = http,
+    ): ActionResult<T> = mutate(fdUrl, path, token, body, "POST", client)
 
     private suspend inline fun <reified B, reified T> put(
         fdUrl: String,
@@ -399,6 +410,7 @@ open class FrontDeskClient(
         token: String,
         body: B,
         method: String,
+        client: OkHttpClient = http,
     ): ActionResult<T> =
         withContext(Dispatchers.IO) {
             runCatching {
@@ -410,7 +422,7 @@ open class FrontDeskClient(
                         .header("Authorization", "Bearer $token")
                         .method(method, requestBody)
                         .build()
-                http.newCall(request).execute().use { resp ->
+                client.newCall(request).execute().use { resp ->
                     val text = resp.body?.string().orEmpty()
                     when {
                         resp.isSuccessful -> ActionResult.Success(json.decodeFromString<T>(text))
@@ -443,6 +455,13 @@ open class FrontDeskClient(
         // times out but a half-open socket is detected within a heartbeat or two.
         private const val SSE_READ_TIMEOUT_SECONDS = 60L
 
+        // Generous ceiling for the synchronous fleet sync: per-member imports
+        // run model discovery and Front Desk answers only after every member is
+        // done, so this must comfortably cover a few slow members. Front Desk
+        // also detaches the run from the connection, so even tripping this
+        // no longer aborts the sync — it only stops the phone waiting.
+        private const val SYNC_READ_TIMEOUT_SECONDS = 180L
+
         // eventQueryString renders an EventQuery as an encoded query string
         // ("" when every field is unset). Internal so the omission and encoding
         // rules can be unit-tested without a server round-trip.
@@ -453,6 +472,7 @@ open class FrontDeskClient(
                     if (q.type.isNotEmpty()) add("type" to q.type)
                     if (q.severity.isNotEmpty()) add("severity" to q.severity)
                     if (q.since.isNotEmpty()) add("since" to q.since)
+                    if (q.until.isNotEmpty()) add("until" to q.until)
                     if (q.limit > 0) add("limit" to q.limit.toString())
                     if (q.offset > 0) add("offset" to q.offset.toString())
                 }

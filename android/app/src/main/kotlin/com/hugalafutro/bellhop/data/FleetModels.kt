@@ -68,6 +68,10 @@ data class AutoSyncConfig(
     val enabled: Boolean = false,
     @SerialName("primary_id") val primaryId: String = "",
     val stale: Boolean = false,
+    // When a sync (manual or automatic) last actually wrote config to any
+    // member; empty until one has. Member detail shows it under the fleet-sync
+    // action so the operator sees when the fleet truly last synced.
+    @SerialName("last_sync_at") val lastSyncAt: String = "",
 )
 
 /**
@@ -150,6 +154,9 @@ data class EventQuery(
     val severity: String = "",
     // RFC3339; empty = no lower bound.
     val since: String = "",
+    // RFC3339; empty = no upper bound. With [since] this carries the calendar
+    // date-range filter.
+    val until: String = "",
     val limit: Int = 0,
     val offset: Int = 0,
 )
