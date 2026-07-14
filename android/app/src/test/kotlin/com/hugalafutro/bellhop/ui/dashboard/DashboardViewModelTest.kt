@@ -80,11 +80,16 @@ private class FakeFleetClient(
     // member fetch returns that member's own newest event; empty by default.
     var eventsByMember: Map<String, List<FdEvent>> = emptyMap()
 
+    // When set, every events() call returns this instead of the canned per-member
+    // page — lets a test revoke the token on the pill fetch after members succeeds.
+    var eventsResult: FetchResult<EventsResponse>? = null
+
     override suspend fun events(
         fdUrl: String,
         token: String,
         query: EventQuery,
     ): FetchResult<EventsResponse> {
+        eventsResult?.let { return it }
         val forMember = eventsByMember[query.memberId].orEmpty()
         val page = if (query.limit > 0) forMember.take(query.limit) else forMember
         return FetchResult.Success(EventsResponse(events = page, total = forMember.size))
@@ -395,6 +400,22 @@ class DashboardViewModelTest {
     fun unauthorizedFlagsRevoked() =
         runBlocking {
             val vm = DashboardViewModel(FakeFleetClient(FetchResult.Unauthorized), linkedStore(), "http://fd:1")
+            vm.refreshOnce()
+            assertTrue(vm.state.value.revoked)
+            assertFalse(vm.state.value.loading)
+        }
+
+    @Test
+    fun eventsUnauthorizedMidRefreshFlagsRevoked() =
+        runBlocking {
+            // Token revoked between the members read (still Success) and the per-
+            // member pill fetch: the pill's 401 must trip the same revoked state,
+            // not be swallowed into a healthy refresh that keeps polling.
+            val client =
+                FakeFleetClient(membersResult = FetchResult.Success(listOf(member))).apply {
+                    eventsResult = FetchResult.Unauthorized
+                }
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
             vm.refreshOnce()
             assertTrue(vm.state.value.revoked)
             assertFalse(vm.state.value.loading)

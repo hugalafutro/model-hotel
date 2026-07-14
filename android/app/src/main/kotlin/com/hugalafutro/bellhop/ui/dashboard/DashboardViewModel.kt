@@ -291,13 +291,24 @@ class DashboardViewModel(
                 // handful of members and it keeps refreshOnce a simple linear path. A
                 // member whose read fails or has no events keeps its previous pill via
                 // the merge below rather than blanking.
-                val recentMap =
-                    buildMap {
-                        for (m in result.data) {
-                            val res = client.events(fdUrl, token, EventQuery(memberId = m.id, limit = 1))
-                            (res as? FetchResult.Success)?.data?.events?.firstOrNull()?.let { put(m.id, it) }
+                val recentMap = mutableMapOf<String, FdEvent>()
+                for (m in result.data) {
+                    when (val res = client.events(fdUrl, token, EventQuery(memberId = m.id, limit = 1))) {
+                        is FetchResult.Success ->
+                            res.data.events?.firstOrNull()?.let { recentMap[m.id] = it }
+                        // A token revoked mid-refresh (members succeeded, then this
+                        // authenticated call is rejected) must land in the same
+                        // revoked-unlink recovery state as a members 401, not be
+                        // swallowed into a "healthy" refresh that keeps polling a
+                        // dead token.
+                        FetchResult.Unauthorized -> {
+                            _state.update { it.copy(loading = false, revoked = true) }
+                            return
                         }
+                        // A stale pill is fine; the card's health still shows.
+                        is FetchResult.Failure -> Unit
                     }
+                }
                 _state.update {
                     val pending = it.autoSync.pendingEnabled
                     // When the auto-sync read fails but the rest of the refresh
