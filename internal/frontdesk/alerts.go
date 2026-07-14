@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/auth"
@@ -84,4 +85,29 @@ func (p alertConfigProvider) APIBaseURL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return set.AlertAppriseAPIURL, nil
+}
+
+// fdCatalogHas reports whether t is a known alertable Type. A single-event toggle
+// rejects anything not in the catalog rather than persist config for an event
+// Front Desk never emits.
+func fdCatalogHas(t string) bool {
+	for _, def := range fdCatalog {
+		if def.Type == t {
+			return true
+		}
+	}
+	return false
+}
+
+// enabledCSV serializes an enabled-event set back to the stored alert_events CSV
+// in catalog order, dropping any Type not in fdCatalog so a stale row self-heals
+// on the next write.
+func enabledCSV(enabled map[string]bool) string {
+	on := make([]string, 0, len(fdCatalog))
+	for _, def := range fdCatalog {
+		if enabled[def.Type] {
+			on = append(on, def.Type)
+		}
+	}
+	return strings.Join(on, ",")
 }

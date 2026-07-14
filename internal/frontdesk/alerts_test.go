@@ -397,3 +397,125 @@ func TestAlertTestEndpointFailsWithoutConfig(t *testing.T) {
 		t.Fatalf("POST /api/alert/test (unconfigured) = %d, want 502", rec.Code)
 	}
 }
+
+// selectionResp is the wire shape of GET/POST /api/alert/selection in tests.
+type selectionResp struct {
+	Events []struct {
+		Type    string `json:"type"`
+		Enabled bool   `json:"enabled"`
+	} `json:"events"`
+}
+
+func decodeSelection(t *testing.T, rec *httptest.ResponseRecorder) selectionResp {
+	t.Helper()
+	var out selectionResp
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode selection: %v", err)
+	}
+	return out
+}
+
+func (s selectionResp) enabledOf(typ string) (on, found bool) {
+	for _, e := range s.Events {
+		if e.Type == typ {
+			return e.Enabled, true
+		}
+	}
+	return false, false
+}
+
+// TestAlertSelectionEndpoint covers the operator-facing picker: a monitor may
+// read the selection but not flip it, an operator flips events on and off, the
+// stored CSV follows, and an unknown event Type is rejected.
+func TestAlertSelectionEndpoint(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+	opToken, _ := pairDevice(t, srv, RoleOperator, "Pixel")
+	monToken, _ := pairDevice(t, srv, RoleMonitor, "Tablet")
+
+	// A monitor device can read the selection; it mirrors the seeded catalog
+	// defaults (health.down is default-on, member.added default-off).
+	rec := doDevice(t, srv, http.MethodGet, "/api/alert/selection", "", monToken)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("monitor GET selection = %d: %s", rec.Code, rec.Body.String())
+	}
+	sel := decodeSelection(t, rec)
+	if len(sel.Events) != len(fdCatalog) {
+		t.Fatalf("selection has %d events, want %d", len(sel.Events), len(fdCatalog))
+	}
+	if on, ok := sel.enabledOf("health.down"); !ok || !on {
+		t.Errorf("health.down should be enabled by default (on=%v ok=%v)", on, ok)
+	}
+	if on, ok := sel.enabledOf("member.added"); !ok || on {
+		t.Errorf("member.added should be default-off (on=%v ok=%v)", on, ok)
+	}
+
+	// A monitor may not flip it.
+	if rec := doDevice(t, srv, http.MethodPost, "/api/alert/selection",
+		`{"type":"health.down","enabled":false}`, monToken); rec.Code != http.StatusForbidden {
+		t.Fatalf("monitor POST selection = %d, want 403", rec.Code)
+	}
+
+	// An operator turns health.down off; the response and the stored CSV both follow.
+	rec = doDevice(t, srv, http.MethodPost, "/api/alert/selection",
+		`{"type":"health.down","enabled":false}`, opToken)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("operator disable = %d: %s", rec.Code, rec.Body.String())
+	}
+	if on, _ := decodeSelection(t, rec).enabledOf("health.down"); on {
+		t.Error("health.down still enabled in POST response")
+	}
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if alert.ParseEnabled(set.AlertEvents)["health.down"] {
+		t.Errorf("health.down still enabled in stored CSV %q", set.AlertEvents)
+	}
+
+	// An operator turns a default-off event on.
+	rec = doDevice(t, srv, http.MethodPost, "/api/alert/selection",
+		`{"type":"member.added","enabled":true}`, opToken)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("operator enable = %d: %s", rec.Code, rec.Body.String())
+	}
+	if on, _ := decodeSelection(t, rec).enabledOf("member.added"); !on {
+		t.Error("member.added not enabled after toggle-on")
+	}
+
+	// An unknown event Type is rejected, not silently persisted.
+	if rec := doDevice(t, srv, http.MethodPost, "/api/alert/selection",
+		`{"type":"not.real","enabled":true}`, opToken); rec.Code != http.StatusBadRequest {
+		t.Fatalf("unknown event POST = %d, want 400", rec.Code)
+	}
+}
+
+// TestAlertSelectionPreservesSecret proves flipping an event via the operator
+// endpoint rewrites only alert_events and never round-trips (and so never
+// clobbers) the encrypted Apprise target sharing the settings row.
+func TestAlertSelectionPreservesSecret(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+	opToken, _ := pairDevice(t, srv, RoleOperator, "Pixel")
+
+	// Admin stores an encrypted target.
+	if rec := do(t, srv, http.MethodPut, "/api/settings",
+		`{"alert_apprise_targets":"tgram://tok/chat"}`, true); rec.Code != http.StatusOK {
+		t.Fatalf("PUT settings = %d: %s", rec.Code, rec.Body.String())
+	}
+	// Operator flips an event.
+	if rec := doDevice(t, srv, http.MethodPost, "/api/alert/selection",
+		`{"type":"config.synced","enabled":true}`, opToken); rec.Code != http.StatusOK {
+		t.Fatalf("operator toggle = %d: %s", rec.Code, rec.Body.String())
+	}
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := auth.DecryptString(set.AlertAppriseTargets, testMasterKey); got != "tgram://tok/chat" {
+		t.Errorf("toggle clobbered target: %q", got)
+	}
+	if !alert.ParseEnabled(set.AlertEvents)["config.synced"] {
+		t.Error("config.synced not enabled after toggle")
+	}
+}
