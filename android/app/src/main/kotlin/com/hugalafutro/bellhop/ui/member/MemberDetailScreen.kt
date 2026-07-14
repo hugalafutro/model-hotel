@@ -5,11 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -60,10 +58,10 @@ import com.hugalafutro.bellhop.ui.common.CustomDateRange
 import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.common.EventRangeRow
 import com.hugalafutro.bellhop.ui.common.Pill
+import com.hugalafutro.bellhop.ui.common.SeverityRailRow
 import com.hugalafutro.bellhop.ui.common.StatusBanner
 import com.hugalafutro.bellhop.ui.common.TrafficChart
 import com.hugalafutro.bellhop.ui.common.healthColor
-import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.events.formatEventTime
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
@@ -624,67 +622,51 @@ private fun MemberEventRow(
     event: FdEvent,
     modifier: Modifier = Modifier,
 ) {
-    val (accent, typeColor) = severityColors(event.severity)
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .background(accent.copy(alpha = 0.06f))
-                .height(IntrinsicSize.Min)
-                .testTag("member-event-row"),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .width(3.dp)
-                    .fillMaxHeight()
-                    .background(accent)
-                    .testTag("member-event-sev-${event.severity}"),
-        )
-        Column(
-            modifier = Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+    SeverityRailRow(
+        severity = event.severity,
+        rowTag = "member-event-row",
+        railTag = "member-event-sev-${event.severity}",
+        modifier = modifier,
+    ) { typeColor ->
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                // Machine event type in mono + the severity colour, so the code
-                // token reads apart from the human message on the next line.
-                Text(
-                    text = event.type,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontFamily = MonoFamily,
-                    color = typeColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = formatEventTime(event.createdAt),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontFamily = MonoFamily,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            // Machine event type in mono + the severity colour, so the code
+            // token reads apart from the human message on the next line.
             Text(
-                text = event.message,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2,
+                text = event.type,
+                style = MaterialTheme.typography.titleSmall,
+                fontFamily = MonoFamily,
+                color = typeColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = formatEventTime(event.createdAt),
+                style = MaterialTheme.typography.labelSmall,
+                fontFamily = MonoFamily,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = event.message,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        // The emitting subsystem (poller, autosync…) in muted mono, a third
+        // visual register below the coloured type and the plain message.
+        if (event.source.isNotBlank()) {
+            Text(
+                text = event.source,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = MonoFamily,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            // The emitting subsystem (poller, autosync…) in muted mono, a third
-            // visual register below the coloured type and the plain message.
-            if (event.source.isNotBlank()) {
-                Text(
-                    text = event.source,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = MonoFamily,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
     }
 }
