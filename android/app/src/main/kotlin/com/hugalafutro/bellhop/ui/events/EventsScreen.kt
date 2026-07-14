@@ -1,21 +1,16 @@
 package com.hugalafutro.bellhop.ui.events
 
 import android.widget.Toast
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -46,8 +41,8 @@ import com.hugalafutro.bellhop.ui.common.CustomDateRange
 import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.common.EventRangeRow
 import com.hugalafutro.bellhop.ui.common.FilterPill
+import com.hugalafutro.bellhop.ui.common.SeverityRailRow
 import com.hugalafutro.bellhop.ui.common.StatusBanner
-import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
 import java.time.Instant
@@ -238,70 +233,54 @@ private fun EventRow(
     // A log line, not a card: a colour-coded severity rail down the left edge and
     // a faint tint of the same colour, so severity reads at a glance without a
     // pill. The whole row taps to copy (the rail carries the severity test tag).
-    val (accent, typeColor) = severityColors(event.severity)
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clickable(onClick = onCopy)
-                .background(accent.copy(alpha = 0.06f))
-                .height(IntrinsicSize.Min)
-                .testTag("event-card"),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .width(3.dp)
-                    .fillMaxHeight()
-                    .background(accent)
-                    .testTag("event-sev-${event.severity}"),
-        )
-        Column(
-            modifier = Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+    SeverityRailRow(
+        severity = event.severity,
+        rowTag = "event-card",
+        railTag = "event-sev-${event.severity}",
+        modifier = modifier,
+        onClick = onCopy,
+    ) { typeColor ->
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                // Machine event type in mono + the severity colour, so the code
-                // token reads apart from the human message on the next line.
-                Text(
-                    text = event.type,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontFamily = MonoFamily,
-                    color = typeColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                // Time in the brand mono so the column aligns and reads as a metric.
-                Text(
-                    text = formatEventTime(event.createdAt),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontFamily = MonoFamily,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            // Machine event type in mono + the severity colour, so the code
+            // token reads apart from the human message on the next line.
             Text(
-                text = event.message,
-                style = MaterialTheme.typography.bodyMedium,
+                text = event.type,
+                style = MaterialTheme.typography.titleSmall,
+                fontFamily = MonoFamily,
+                color = typeColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
-            val who =
-                listOfNotNull(
-                    event.source.ifEmpty { null },
-                    memberName ?: event.memberId.ifEmpty { null },
-                ).joinToString(" · ")
-            if (who.isNotEmpty()) {
-                Text(
-                    text = who,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = MonoFamily,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            // Time in the brand mono so the column aligns and reads as a metric.
+            Text(
+                text = formatEventTime(event.createdAt),
+                style = MaterialTheme.typography.labelSmall,
+                fontFamily = MonoFamily,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = event.message,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        val who =
+            listOfNotNull(
+                event.source.ifEmpty { null },
+                memberName ?: event.memberId.ifEmpty { null },
+            ).joinToString(" · ")
+        if (who.isNotEmpty()) {
+            Text(
+                text = who,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = MonoFamily,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
