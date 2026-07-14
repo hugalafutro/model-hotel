@@ -6,6 +6,26 @@ plugins {
     alias(libs.plugins.ktlint)
 }
 
+// gitCommit stamps the build with the short HEAD sha (plus a "-dirty" marker when
+// the tree has uncommitted changes), mirroring the Go binaries' `-X …buildCommit`
+// ldflag. Uses providers.exec so it stays compatible with the configuration cache;
+// falls back to "unknown" when git isn't available so a source-tarball build still
+// succeeds. The footer deep-links to this commit on GitHub.
+fun gitOutput(vararg args: String): String? =
+    try {
+        providers
+            .exec { commandLine("git", "-C", rootDir.absolutePath, *args) }
+            .standardOutput.asText.get().trim()
+    } catch (e: Exception) {
+        null
+    }
+
+fun gitCommit(): String {
+    val sha = gitOutput("rev-parse", "--short", "HEAD")?.takeIf { it.isNotEmpty() } ?: return "unknown"
+    val dirty = gitOutput("status", "--porcelain")?.isNotBlank() ?: false
+    return if (dirty) "$sha-dirty" else sha
+}
+
 android {
     namespace = "com.hugalafutro.bellhop"
     compileSdk = 35
@@ -16,6 +36,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "GIT_COMMIT", "\"${gitCommit()}\"")
     }
 
     buildTypes {
@@ -31,6 +52,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {

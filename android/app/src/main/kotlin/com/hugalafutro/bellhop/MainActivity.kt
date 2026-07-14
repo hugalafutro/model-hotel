@@ -37,6 +37,7 @@ import com.hugalafutro.bellhop.data.LockConfig
 import com.hugalafutro.bellhop.data.LockStore
 import com.hugalafutro.bellhop.data.LockTimeout
 import com.hugalafutro.bellhop.data.MonitorStore
+import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.shouldLock
 import com.hugalafutro.bellhop.notify.FleetNotifier
 import com.hugalafutro.bellhop.push.BellhopPush
@@ -161,6 +162,7 @@ fun BellhopApp() {
     val linkStore = remember { LinkStore.create(context) }
     val lockStore = remember { LockStore.create(context) }
     val monitorStore = remember { MonitorStore.create(context) }
+    val prefsStore = remember { PrefsStore.create(context) }
     val client = remember { FrontDeskClient() }
     val linkState by linkStore.state.collectAsStateWithLifecycle(initialValue = LinkState.Loading)
     val lockConfig by
@@ -171,6 +173,7 @@ fun BellhopApp() {
     val monitorEnabled by monitorStore.enabled.collectAsStateWithLifecycle(initialValue = false)
     val pushEnabled by monitorStore.pushEnabled.collectAsStateWithLifecycle(initialValue = false)
     val pushEndpoint by monitorStore.endpoint.collectAsStateWithLifecycle(initialValue = null)
+    val holdToCopy by prefsStore.holdToCopy.collectAsStateWithLifecycle(initialValue = true)
     val scope = rememberCoroutineScope()
     // Whether Bellhop may post notifications. Tracked so Settings can be honest
     // when monitoring is on but the permission was denied (or later revoked from
@@ -448,9 +451,11 @@ fun BellhopApp() {
                         scope = scope,
                         unlinking = unlinking,
                         unlinkFailed = unlinkFailed,
+                        holdToCopy = holdToCopy,
                         onDismissUnlinkError = { unlinkFailed = false },
                         onToggleMonitor = { toggleMonitor(it) },
                         onTogglePush = { togglePush(it) },
+                        onToggleHoldToCopy = { scope.launch { prefsStore.setHoldToCopy(it) } },
                         onUnlink = { runUnlink(state.fdUrl) },
                         onForceUnlink = { forceUnlink() },
                         requireOperatorAuth = { action -> requireOperatorAuth(action) },
@@ -482,9 +487,11 @@ private fun LinkedContent(
     scope: CoroutineScope,
     unlinking: Boolean,
     unlinkFailed: Boolean,
+    holdToCopy: Boolean,
     onDismissUnlinkError: () -> Unit,
     onToggleMonitor: (Boolean) -> Unit,
     onTogglePush: (Boolean) -> Unit,
+    onToggleHoldToCopy: (Boolean) -> Unit,
     onUnlink: () -> Unit,
     onForceUnlink: () -> Unit,
     requireOperatorAuth: (() -> Unit) -> Unit,
@@ -579,6 +586,7 @@ private fun LinkedContent(
             onRange = eventsVm::setRange,
             onCustomRange = eventsVm::setCustomRange,
             onLoadMore = eventsVm::loadMore,
+            holdToCopy = holdToCopy,
         )
     } else if (showAlerts) {
         // Alerts can be reached from the dashboard bell or from Settings; back
@@ -615,6 +623,8 @@ private fun LinkedContent(
             unlinkFailed = unlinkFailed,
             onDismissUnlinkError = onDismissUnlinkError,
             onForceUnlink = onForceUnlink,
+            holdToCopy = holdToCopy,
+            onToggleHoldToCopy = onToggleHoldToCopy,
         )
     } else if (selected != null) {
         BackHandler { selectedMemberId = null }
@@ -642,6 +652,7 @@ private fun LinkedContent(
             onRange = detailVm::setRange,
             onCustomRange = detailVm::setCustomRange,
             onLoadMoreEvents = detailVm::loadMore,
+            holdToCopy = holdToCopy,
         )
     } else {
         DashboardScreen(
@@ -658,6 +669,7 @@ private fun LinkedContent(
             onSetAutoSync = { enabled -> requireOperatorAuth { dashVm.setAutoSync(enabled) } },
             onDismissAutoSyncError = { dashVm.dismissAutoSyncError() },
             onVisibleMembers = dashVm::setVisibleMembers,
+            holdToCopy = holdToCopy,
         )
     }
 }

@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -46,6 +47,10 @@ import com.hugalafutro.bellhop.data.LockConfig
 import com.hugalafutro.bellhop.data.LockTimeout
 import com.hugalafutro.bellhop.ui.common.FilterPill
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 /**
  * SettingsScreen is where the link's status and the two things the dashboard
@@ -79,11 +84,15 @@ fun SettingsScreen(
     unlinkFailed: Boolean = false,
     onDismissUnlinkError: () -> Unit = {},
     onForceUnlink: () -> Unit = {},
+    holdToCopy: Boolean = false,
+    onToggleHoldToCopy: (Boolean) -> Unit = {},
 ) {
     var confirmUnlink by remember { mutableStateOf(false) }
+    var confirmCopyAddress by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val pushCopied = stringResource(R.string.settings_push_copied)
+    val addressCopied = stringResource(R.string.settings_fd_copied)
 
     if (unlinkFailed) {
         AlertDialog(
@@ -149,6 +158,32 @@ fun SettingsScreen(
         )
     }
 
+    if (confirmCopyAddress) {
+        val address = link.fdUrl
+        AlertDialog(
+            onDismissRequest = { confirmCopyAddress = false },
+            title = { Text(stringResource(R.string.settings_fd_copy_title)) },
+            text = { Text(stringResource(R.string.settings_fd_copy_body, address)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmCopyAddress = false
+                        clipboard.setText(AnnotatedString(address))
+                        Toast.makeText(context, addressCopied, Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.testTag("settings-fd-copy-confirm"),
+                ) {
+                    Text(stringResource(R.string.common_copy))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmCopyAddress = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
+
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         Column(
             modifier =
@@ -189,26 +224,70 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    // A Front Desk has no separate name — the pairing string only
+                    // carries its address — so the bold line is its URL, and there
+                    // is no redundant subtext beneath it. Tapping it offers to copy
+                    // the address (confirmed, since a stray tap here is easy).
                     Text(
                         text = link.fdName.ifBlank { link.fdUrl },
                         style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.testTag("settings-fd-name"),
+                        modifier =
+                            Modifier
+                                .clickable { confirmCopyAddress = true }
+                                .testTag("settings-fd-name"),
                     )
-                    Text(
-                        text = link.fdUrl,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    linkedOnLabel(link.linkedAt)?.let { date ->
+                        Text(
+                            text = stringResource(R.string.settings_fd_linked_on, date),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("settings-fd-linked-on"),
+                        )
+                    }
                     Text(
                         text = stringResource(R.string.dashboard_linked_as, link.label, link.role),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.testTag("settings-linked"),
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Copy gesture: whether a tap or a long-press copies a log/member cell.
+            // Hold (the default) guards against stray copies while scrolling a list.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_hold_copy_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_hold_copy_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = holdToCopy,
+                            onCheckedChange = onToggleHoldToCopy,
+                            // Same off-state colours as the other switches so an off
+                            // toggle stays legible on the card.
+                            colors =
+                                SwitchDefaults.colors(
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.surface,
+                                    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
+                            modifier = Modifier.testTag("settings-hold-copy-toggle"),
+                        )
+                    }
                 }
             }
 
@@ -273,6 +352,10 @@ fun SettingsScreen(
                                     onClick = { onSelectTimeout(option) },
                                     tag = "settings-lock-timeout-${option.name}",
                                     modifier = Modifier.weight(1f),
+                                    // These pills sit inside a Card, where the default
+                                    // `outline` border nearly vanishes; use the higher-
+                                    // contrast onSurfaceVariant so the unselected pills read.
+                                    borderColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
@@ -468,6 +551,14 @@ fun SettingsScreen(
         }
     }
 }
+
+// A localized "Jul 14, 2026"-style date for when the link was paired, or null
+// when the stamp is absent (links saved before linkedAt existed) so the row hides.
+private val linkedOnFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withZone(ZoneId.systemDefault())
+
+private fun linkedOnLabel(linkedAt: Long): String? =
+    if (linkedAt <= 0L) null else linkedOnFormatter.format(Instant.ofEpochMilli(linkedAt))
 
 private fun timeoutLabel(option: LockTimeout): Int =
     when (option) {

@@ -2,7 +2,10 @@ package com.hugalafutro.bellhop.ui.dashboard
 
 import com.hugalafutro.bellhop.data.ActionResult
 import com.hugalafutro.bellhop.data.AutoSyncConfig
+import com.hugalafutro.bellhop.data.EventQuery
+import com.hugalafutro.bellhop.data.EventsResponse
 import com.hugalafutro.bellhop.data.FakeCipher
+import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FleetEvent
 import com.hugalafutro.bellhop.data.FleetMember
@@ -71,6 +74,26 @@ private class FakeFleetClient(
         fdUrl: String,
         token: String,
     ): FetchResult<AutoSyncConfig> = autoSyncResult
+
+    // Per-member event log for the cards' pills, keyed by member id (newest first).
+    // events() honours query.memberId and limit, so the dashboard's one-read-per-
+    // member fetch returns that member's own newest event; empty by default.
+    var eventsByMember: Map<String, List<FdEvent>> = emptyMap()
+
+    // When set, every events() call returns this instead of the canned per-member
+    // page — lets a test revoke the token on the pill fetch after members succeeds.
+    var eventsResult: FetchResult<EventsResponse>? = null
+
+    override suspend fun events(
+        fdUrl: String,
+        token: String,
+        query: EventQuery,
+    ): FetchResult<EventsResponse> {
+        eventsResult?.let { return it }
+        val forMember = eventsByMember[query.memberId].orEmpty()
+        val page = if (query.limit > 0) forMember.take(query.limit) else forMember
+        return FetchResult.Success(EventsResponse(events = page, total = forMember.size))
+    }
 
     // Pause/resume operator action: canned result plus captured args so a test can
     // prove the toggle sends the unchanged primary.
@@ -170,6 +193,52 @@ class DashboardViewModelTest {
             assertNull(s.error)
             assertFalse(s.revoked)
             assertEquals("tok-1", client.lastToken)
+        }
+
+    @Test
+    fun eachCardGetsItsOwnMembersNewestEvent() =
+        runBlocking {
+            val m2 = member.copy(id = "m2", name = "hotel-2")
+            val client =
+                FakeFleetClient(
+                    membersResult = FetchResult.Success(listOf(member, m2)),
+                    autoSyncResult = FetchResult.Success(AutoSyncConfig(enabled = true, primaryId = "m1")),
+                )
+            // Per-member logs (newest first). The dashboard's limit=1 read must pick
+            // each member's own newest, even the primary (m1) whose events are old.
+            client.eventsByMember =
+                mapOf(
+                    "m1" to
+                        listOf(
+                            FdEvent(id = "e4", memberId = "m1", message = "newest m1"),
+                            FdEvent(id = "e3", memberId = "m1", message = "older m1"),
+                        ),
+                    "m2" to listOf(FdEvent(id = "e2", memberId = "m2", message = "only m2")),
+                )
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+
+            vm.refreshOnce()
+
+            val recent = vm.state.value.recentEvents
+            assertEquals("newest m1", recent["m1"]?.message)
+            assertEquals("only m2", recent["m2"]?.message)
+            assertEquals(2, recent.size)
+        }
+
+    @Test
+    fun memberWithNoEventsGetsNoPill() =
+        runBlocking {
+            val client =
+                FakeFleetClient(
+                    membersResult = FetchResult.Success(listOf(member)),
+                    autoSyncResult = FetchResult.Success(AutoSyncConfig(enabled = true, primaryId = "m1")),
+                )
+            // No per-member events configured, so the map stays empty (no pill).
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+
+            vm.refreshOnce()
+
+            assertTrue(vm.state.value.recentEvents.isEmpty())
         }
 
     private fun autoSyncClient(enabled: Boolean = true) =
@@ -331,6 +400,22 @@ class DashboardViewModelTest {
     fun unauthorizedFlagsRevoked() =
         runBlocking {
             val vm = DashboardViewModel(FakeFleetClient(FetchResult.Unauthorized), linkedStore(), "http://fd:1")
+            vm.refreshOnce()
+            assertTrue(vm.state.value.revoked)
+            assertFalse(vm.state.value.loading)
+        }
+
+    @Test
+    fun eventsUnauthorizedMidRefreshFlagsRevoked() =
+        runBlocking {
+            // Token revoked between the members read (still Success) and the per-
+            // member pill fetch: the pill's 401 must trip the same revoked state,
+            // not be swallowed into a healthy refresh that keeps polling.
+            val client =
+                FakeFleetClient(membersResult = FetchResult.Success(listOf(member))).apply {
+                    eventsResult = FetchResult.Unauthorized
+                }
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
             vm.refreshOnce()
             assertTrue(vm.state.value.revoked)
             assertFalse(vm.state.value.loading)

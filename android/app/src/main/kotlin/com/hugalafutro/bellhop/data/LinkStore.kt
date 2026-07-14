@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -54,6 +55,7 @@ class LinkStore(
                     role = prefs[ROLE].orEmpty(),
                     deviceId = prefs[DEVICE_ID].orEmpty(),
                     label = prefs[LABEL].orEmpty(),
+                    linkedAt = prefs[LINKED_AT] ?: 0L,
                 )
             }
         }
@@ -63,6 +65,8 @@ class LinkStore(
         fdName: String,
         token: String,
         device: PairedDevice,
+        // Injectable so persistence tests get a deterministic stamp.
+        now: Long = System.currentTimeMillis(),
     ) {
         val encrypted = cipher.encrypt(token)
         dataStore.edit { prefs ->
@@ -72,6 +76,7 @@ class LinkStore(
             prefs[ROLE] = device.role
             prefs[DEVICE_ID] = device.id
             prefs[LABEL] = device.label
+            prefs[LINKED_AT] = now
         }
     }
 
@@ -94,5 +99,6 @@ class LinkStore(
         private val ROLE = stringPreferencesKey("role")
         private val DEVICE_ID = stringPreferencesKey("device_id")
         private val LABEL = stringPreferencesKey("label")
+        private val LINKED_AT = longPreferencesKey("linked_at")
     }
 }

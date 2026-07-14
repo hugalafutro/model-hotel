@@ -23,11 +23,14 @@ import com.hugalafutro.bellhop.R
 fun ConfirmOpenUrlDialog(
     url: String,
     onDismiss: () -> Unit,
+    // Dialog title; defaults to the member-address wording. The footer's GitHub
+    // link passes a generic "Open link" instead.
+    title: String = stringResource(R.string.member_url_title),
 ) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.member_url_title)) },
+        title = { Text(title) },
         text = {
             Text(
                 text = url,

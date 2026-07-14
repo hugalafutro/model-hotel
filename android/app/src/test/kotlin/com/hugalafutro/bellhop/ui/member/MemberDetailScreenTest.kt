@@ -3,10 +3,13 @@ package com.hugalafutro.bellhop.ui.member
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTouchInput
 import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
@@ -15,12 +18,14 @@ import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.TrafficPoint
 import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.shadows.ShadowToast
 
 /**
  * Member detail: identity header, traffic states, and the back affordance.
@@ -139,6 +144,65 @@ class MemberDetailScreenTest {
         assertTrue(
             composeTestRule.onAllNodesWithTag("member-event-row").fetchSemanticsNodes().isNotEmpty(),
         )
+    }
+
+    @Test
+    fun holdToCopyLongPressCopiesEventRow() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    holdToCopy = true,
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            events = listOf(FdEvent(id = "e1", severity = "error", message = "down", memberId = "m1")),
+                        ),
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-event-row"))
+        val rail = composeTestRule.onNodeWithTag("member-event-sev-error", useUnmergedTree = true)
+        // A stray tap is inert; only the long-press copies (confirmed by the toast).
+        rail.performClick()
+        composeTestRule.waitForIdle()
+        assertEquals(0, ShadowToast.shownToastCount())
+        rail.performTouchInput { longClick() }
+        composeTestRule.waitForIdle()
+        assertEquals(1, ShadowToast.shownToastCount())
+    }
+
+    @Test
+    fun copyDisabledLeavesEventRowInert() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    holdToCopy = false,
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            events = listOf(FdEvent(id = "e1", severity = "error", message = "down", memberId = "m1")),
+                        ),
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-event-row"))
+        val rail = composeTestRule.onNodeWithTag("member-event-sev-error", useUnmergedTree = true)
+        rail.performClick()
+        rail.performTouchInput { longClick() }
+        composeTestRule.waitForIdle()
+        assertEquals(0, ShadowToast.shownToastCount())
     }
 
     @Test
@@ -507,6 +571,35 @@ class MemberDetailScreenTest {
             .performScrollToNode(hasTestTag("member-events-range-h24"))
         composeTestRule.onNodeWithTag("member-events-range-h24").performClick()
         assertTrue(picked == EventRange.H24)
+    }
+
+    @Test
+    fun scrollToTopButtonAppearsOnTheMemberListAndReturnsToTop() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            events =
+                                List(30) {
+                                    FdEvent(id = "e$it", severity = "info", message = "row $it", memberId = "m1")
+                                },
+                            eventsTotal = 30,
+                        ),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("scroll-to-top").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("member-detail-list").performScrollToIndex(25)
+        composeTestRule.onNodeWithTag("scroll-to-top").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("scroll-to-top").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("scroll-to-top").assertDoesNotExist()
     }
 
     @Test

@@ -1,7 +1,9 @@
 package com.hugalafutro.bellhop.ui.common
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +32,7 @@ private val RAIL_WIDTH = 3.dp
  * long event lists stutter while flinging on device. The overlay still fills the
  * row and carries [railTag], so the tests that assert / tap the rail keep working.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SeverityRailRow(
     severity: String,
@@ -37,6 +40,10 @@ fun SeverityRailRow(
     railTag: String,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    // Long-press handler, used when copy is gated behind a hold gesture so a
+    // stray tap while scrolling the log doesn't copy. When set, the row wires
+    // combinedClickable; a plain [onClick] alone still uses clickable.
+    onLongClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.(typeColor: Color) -> Unit,
 ) {
     val (accent, typeColor) = severityColors(severity)
@@ -44,7 +51,17 @@ fun SeverityRailRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .then(
+                    when {
+                        onLongClick != null ->
+                            Modifier.combinedClickable(
+                                onClick = onClick ?: {},
+                                onLongClick = onLongClick,
+                            )
+                        onClick != null -> Modifier.clickable(onClick = onClick)
+                        else -> Modifier
+                    },
+                )
                 .background(accent.copy(alpha = 0.06f))
                 .testTag(rowTag),
     ) {

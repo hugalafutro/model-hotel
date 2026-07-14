@@ -36,6 +36,7 @@ class SettingsScreenTest {
         )
 
     private fun content(
+        link: LinkState.Linked = this.link,
         lockConfig: LockConfig = LockConfig(enabled = false, timeoutMs = LockTimeout.THIRTY_MINUTES.millis),
         lockAvailable: Boolean = true,
         monitorEnabled: Boolean = false,
@@ -45,10 +46,12 @@ class SettingsScreenTest {
         pushDistributorAvailable: Boolean = true,
         pushNotificationsBlocked: Boolean = false,
         unlinkFailed: Boolean = false,
+        holdToCopy: Boolean = false,
         onToggleLock: (Boolean) -> Unit = {},
         onSelectTimeout: (LockTimeout) -> Unit = {},
         onToggleMonitor: (Boolean) -> Unit = {},
         onTogglePush: (Boolean) -> Unit = {},
+        onToggleHoldToCopy: (Boolean) -> Unit = {},
         onAlertsClick: () -> Unit = {},
         onUnlink: () -> Unit = {},
         onForceUnlink: () -> Unit = {},
@@ -76,6 +79,8 @@ class SettingsScreenTest {
                     unlinkFailed = unlinkFailed,
                     onDismissUnlinkError = onDismissUnlinkError,
                     onForceUnlink = onForceUnlink,
+                    holdToCopy = holdToCopy,
+                    onToggleHoldToCopy = onToggleHoldToCopy,
                 )
             }
         }
@@ -87,6 +92,36 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithTag("settings-title").assertIsDisplayed()
         composeTestRule.onNodeWithTag("settings-fd-name").assertIsDisplayed()
         composeTestRule.onNodeWithTag("settings-linked").assertIsDisplayed()
+    }
+
+    @Test
+    fun linkedOnRowHiddenWithoutStamp() {
+        // A link saved before linkedAt existed carries no stamp, so the date row hides.
+        content()
+        composeTestRule.onNodeWithTag("settings-fd-linked-on").assertDoesNotExist()
+    }
+
+    @Test
+    fun linkedOnRowShownWithStamp() {
+        content(link = link.copy(linkedAt = 1_700_000_000_000L))
+        composeTestRule.onNodeWithTag("settings-fd-linked-on").assertIsDisplayed()
+    }
+
+    @Test
+    fun tappingFdNameAsksBeforeCopyingAddress() {
+        content()
+        // The name only opens the confirm dialog on tap; the copy is the second step.
+        composeTestRule.onNodeWithTag("settings-fd-copy-confirm").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("settings-fd-name").performClick()
+        composeTestRule.onNodeWithTag("settings-fd-copy-confirm").assertIsDisplayed()
+    }
+
+    @Test
+    fun togglingHoldToCopyFiresCallback() {
+        var toggledTo: Boolean? = null
+        content(holdToCopy = false, onToggleHoldToCopy = { toggledTo = it })
+        composeTestRule.onNodeWithTag("settings-hold-copy-toggle").performScrollTo().performClick()
+        assertEquals(true, toggledTo)
     }
 
     @Test
@@ -110,7 +145,7 @@ class SettingsScreenTest {
             lockConfig = LockConfig(enabled = true, timeoutMs = LockTimeout.THIRTY_MINUTES.millis),
             onSelectTimeout = { picked = it },
         )
-        composeTestRule.onNodeWithTag("settings-lock-timeout-FIVE_MINUTES").performClick()
+        composeTestRule.onNodeWithTag("settings-lock-timeout-FIVE_MINUTES").performScrollTo().performClick()
         assertEquals(LockTimeout.FIVE_MINUTES, picked)
     }
 

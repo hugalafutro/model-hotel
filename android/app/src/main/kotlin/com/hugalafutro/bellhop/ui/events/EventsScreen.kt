@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
@@ -22,7 +23,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,8 +41,10 @@ import com.hugalafutro.bellhop.ui.common.CustomDateRange
 import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.common.EventRangeRow
 import com.hugalafutro.bellhop.ui.common.FilterPill
+import com.hugalafutro.bellhop.ui.common.ScrollToTopButton
 import com.hugalafutro.bellhop.ui.common.SeverityRailRow
 import com.hugalafutro.bellhop.ui.common.StatusBanner
+import com.hugalafutro.bellhop.ui.common.loadMoreSentinel
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
 import java.time.Instant
@@ -66,9 +68,14 @@ fun EventsScreen(
     onCustomRange: (CustomDateRange?) -> Unit = {},
     onLoadMore: () -> Unit = {},
     modifier: Modifier = Modifier,
+    // When true, long-press a row to copy it to the clipboard; when false the row
+    // can't be copied at all, so a stray touch while scrolling never does
+    // (Settings > Hold to copy).
+    holdToCopy: Boolean = false,
 ) {
-    // Tapping an event's severity pill copies the whole event as text (handy for
-    // pasting into a bug report), with a toast to confirm the otherwise-silent act.
+    // A row copies the whole event as text (handy for pasting into a bug report),
+    // with a toast to confirm the otherwise-silent act. Copy is long-press only
+    // and gated on [holdToCopy].
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val copiedMsg = stringResource(R.string.events_copied)
@@ -151,44 +158,41 @@ fun EventsScreen(
                             modifier = Modifier.testTag("events-empty"),
                         )
                     }
-                else ->
-                    LazyColumn(
-                        modifier = Modifier.weight(1f).testTag("events-list"),
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                    ) {
-                        // Unkeyed on purpose, like the dashboard list: ids are
-                        // primary keys server-side, but a buggy duplicate must
-                        // degrade to a double row, not a crash.
-                        items(ui.events) { event ->
-                            EventRow(
-                                event = event,
-                                memberName = memberNames[event.memberId],
-                                onCopy = { onCopy(event) },
-                            )
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        }
-                        if (ui.canLoadMore) {
-                            item {
-                                Box(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    if (ui.loadingMore) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.padding(8.dp).testTag("events-loading-more"),
-                                        )
-                                    } else {
-                                        TextButton(
-                                            onClick = onLoadMore,
-                                            modifier = Modifier.testTag("events-load-more"),
-                                        ) {
-                                            Text(stringResource(R.string.events_load_more))
-                                        }
-                                    }
-                                }
+                else -> {
+                    val listState = rememberLazyListState()
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize().testTag("events-list"),
+                            contentPadding = PaddingValues(bottom = 24.dp),
+                        ) {
+                            // Unkeyed on purpose, like the dashboard list: ids are
+                            // primary keys server-side, but a buggy duplicate must
+                            // degrade to a double row, not a crash.
+                            items(ui.events) { event ->
+                                EventRow(
+                                    event = event,
+                                    memberName = memberNames[event.memberId],
+                                    onCopy = { onCopy(event) },
+                                    holdToCopy = holdToCopy,
+                                )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             }
+                            // Infinite scroll: the same shared sentinel the member-detail
+                            // log uses. [onLoadMore] fires when the user bottoms out; the
+                            // VM already no-ops in flight / at the end and backs off failures.
+                            loadMoreSentinel(
+                                canLoadMore = ui.canLoadMore,
+                                loadingMore = ui.loadingMore,
+                                itemCount = ui.events.size,
+                                onLoadMore = onLoadMore,
+                                loadingTag = "events-loading-more",
+                                sentinelTag = "events-load-more-sentinel",
+                            )
                         }
+                        ScrollToTopButton(listState = listState)
                     }
+                }
             }
         }
     }
@@ -229,16 +233,18 @@ private fun EventRow(
     memberName: String?,
     onCopy: () -> Unit,
     modifier: Modifier = Modifier,
+    holdToCopy: Boolean = false,
 ) {
     // A log line, not a card: a colour-coded severity rail down the left edge and
     // a faint tint of the same colour, so severity reads at a glance without a
-    // pill. The whole row taps to copy (the rail carries the severity test tag).
+    // pill. Copy is long-press only and opt-in: the row copies when [holdToCopy]
+    // is on, and is otherwise inert (a tap never copies, so scrolling can't).
     SeverityRailRow(
         severity = event.severity,
         rowTag = "event-card",
         railTag = "event-sev-${event.severity}",
         modifier = modifier,
-        onClick = onCopy,
+        onLongClick = if (holdToCopy) onCopy else null,
     ) { typeColor ->
         Row(
             verticalAlignment = Alignment.CenterVertically,

@@ -1,7 +1,10 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
+import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,26 +16,31 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,12 +50,20 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.hugalafutro.bellhop.BuildConfig
 import com.hugalafutro.bellhop.R
+import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkState
@@ -55,12 +71,16 @@ import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.ui.common.ConfirmOpenUrlDialog
 import com.hugalafutro.bellhop.ui.common.Pill
+import com.hugalafutro.bellhop.ui.common.ScrollToTopButton
 import com.hugalafutro.bellhop.ui.common.StatusBanner
 import com.hugalafutro.bellhop.ui.common.TrafficChart
 import com.hugalafutro.bellhop.ui.common.healthColor
 import com.hugalafutro.bellhop.ui.common.healthLabel
+import com.hugalafutro.bellhop.ui.common.relativeAgo
+import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
+import java.time.Instant
 
 /**
  * DashboardScreen is the linked-state home: the fleet's members with their live
@@ -82,13 +102,33 @@ fun DashboardScreen(
     onSetAutoSync: (Boolean) -> Unit = {},
     onDismissAutoSyncError: () -> Unit = {},
     onVisibleMembers: (List<String>) -> Unit = {},
+    // When true, a long-press on a member card copies it to the clipboard (tap
+    // still opens the member). Off leaves the card tap-only (Settings > Hold to copy).
+    holdToCopy: Boolean = false,
 ) {
+    // Long-press copies a member row as text, with a toast to confirm the
+    // otherwise-silent act. Gated on [holdToCopy] so it never fires by accident.
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val memberCopiedMsg = stringResource(R.string.dashboard_member_copied)
+
     // Which member's URL the "open externally" popup is showing, if any. Tapping
     // a card's address opens this confirm dialog rather than firing an intent on
     // the same tap that could also be a mis-tap on the card itself.
     var urlDialogFor by remember { mutableStateOf<FleetMember?>(null) }
     urlDialogFor?.let { member ->
         ConfirmOpenUrlDialog(url = member.url, onDismiss = { urlDialogFor = null })
+    }
+
+    // Build footer: tapping it confirms before leaving for GitHub. Stamped builds
+    // deep-link the exact commit; an unstamped (source-tarball) build links the repo.
+    var showBuildInfoUrl by remember { mutableStateOf(false) }
+    if (showBuildInfoUrl) {
+        ConfirmOpenUrlDialog(
+            url = buildInfoUrl(),
+            title = stringResource(R.string.open_url_title),
+            onDismiss = { showBuildInfoUrl = false },
+        )
     }
 
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
@@ -211,25 +251,63 @@ fun DashboardScreen(
                             .distinctUntilChanged()
                             .collect(onVisibleMembers)
                     }
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                    ) {
-                        // Deliberately unkeyed: member ids are FD database primary
-                        // keys so duplicates shouldn't happen, but a buggy response
-                        // with duplicate ids would crash a keyed LazyColumn outright.
-                        // Positional identity is fine for a small stateless list.
-                        items(ui.members) { member ->
-                            MemberCard(
-                                member = member,
-                                isPrimary = member.id == ui.primaryId,
-                                traffic = ui.traffic[member.id],
-                                onClick = { onMemberClick(member.id) },
-                                onUrlClick = { urlDialogFor = member },
+                    // Footer placement: when the list overflows the viewport the
+                    // footer rides along as the last item and scrolls off; when it
+                    // fits, the footer is overlaid pinned to the bottom of the screen
+                    // instead. The bottom content padding reserves the footer's height
+                    // so a nearly-full list never hides its last card under the overlay.
+                    val footerScrolls by remember {
+                        derivedStateOf { listState.canScrollForward || listState.canScrollBackward }
+                    }
+                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(bottom = 56.dp),
+                        ) {
+                            // Deliberately unkeyed: member ids are FD database primary
+                            // keys so duplicates shouldn't happen, but a buggy response
+                            // with duplicate ids would crash a keyed LazyColumn outright.
+                            // Positional identity is fine for a small stateless list.
+                            items(ui.members) { member ->
+                                MemberCard(
+                                    member = member,
+                                    isPrimary = member.id == ui.primaryId,
+                                    traffic = ui.traffic[member.id],
+                                    recentEvent = ui.recentEvents[member.id],
+                                    onClick = { onMemberClick(member.id) },
+                                    onUrlClick = { urlDialogFor = member },
+                                    onLongClick =
+                                        if (holdToCopy) {
+                                            {
+                                                clipboard.setText(AnnotatedString(memberClipboardText(member)))
+                                                Toast.makeText(context, memberCopiedMsg, Toast.LENGTH_SHORT).show()
+                                            }
+                                        } else {
+                                            null
+                                        },
+                                )
+                            }
+                            // Version/build footer, mimicking Front Desk's: a divider then
+                            // a centered, tappable "Bellhop <version> · <commit>" that opens
+                            // GitHub (the exact commit when stamped) behind the confirm modal.
+                            // It rides the list (and scrolls off) only when the list scrolls.
+                            if (footerScrolls) {
+                                item {
+                                    DashboardFooter(onClick = { showBuildInfoUrl = true })
+                                }
+                            }
+                        }
+                        // Otherwise it's pinned to the bottom of the screen, over the
+                        // empty space the reserved bottom padding leaves below the list.
+                        if (!footerScrolls) {
+                            DashboardFooter(
+                                onClick = { showBuildInfoUrl = true },
+                                modifier = Modifier.align(Alignment.BottomCenter),
                             )
                         }
+                        ScrollToTopButton(listState = listState)
                     }
                 }
             }
@@ -372,6 +450,18 @@ private fun FleetSummary(
     )
 }
 
+// The plain-text a long-press copies for a member: its name and, when known, its
+// URL on the next line, so it pastes cleanly into a note or bug report.
+private fun memberClipboardText(member: FleetMember): String =
+    buildString {
+        append(member.name)
+        if (member.url.isNotBlank()) {
+            append('\n')
+            append(member.url)
+        }
+    }
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MemberCard(
     member: FleetMember,
@@ -380,10 +470,28 @@ private fun MemberCard(
     onClick: () -> Unit,
     onUrlClick: () -> Unit,
     modifier: Modifier = Modifier,
+    // This member's most recent event, shown as a severity-tinted pill under the
+    // sparkline; null hides it. Tapping the pill opens the member (its detail log
+    // is newest-first, so this event sits at the top).
+    recentEvent: FdEvent? = null,
+    // When set, a long-press copies the member; a tap still opens it. Uses
+    // combinedClickable on the Card's own modifier (Card's onClick overload has
+    // no long-press hook).
+    onLongClick: (() -> Unit)? = null,
 ) {
     val health = member.status.health
     val healthColor = healthColor(health)
-    Card(onClick = onClick, modifier = modifier.fillMaxWidth().testTag("member-card-${member.name}")) {
+    Card(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag("member-card-${member.name}")
+                .combinedClickable(
+                    role = Role.Button,
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                ),
+    ) {
         Column(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -477,9 +585,121 @@ private fun MemberCard(
                     modifier = Modifier.height(28.dp).testTag("member-sparkline-${member.name}"),
                 )
             }
+            // Recent-event pill: a severity-tinted, one-line preview of this
+            // member's latest event with its age right-aligned, tappable straight
+            // into the member.
+            recentEvent?.let { ev ->
+                val (evContainer, evContent) = severityColors(ev.severity)
+                Spacer(modifier = Modifier.height(4.dp))
+                Surface(
+                    onClick = onClick,
+                    color = evContainer,
+                    contentColor = evContent,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("member-recent-event-${member.name}"),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            text = ev.message.ifBlank { ev.type },
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        remember(ev.createdAt) { eventAgo(ev.createdAt) }?.let { ago ->
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = ago,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
+
+// DashboardFooter mimics Front Desk's footer: a divider, then a centered, tappable
+// "Bellhop <version> · <commit>" build stamp. The tap is handled by the caller
+// (a confirm-before-leaving dialog); this only renders the label.
+@Composable
+private fun DashboardFooter(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+        // Only the version/commit is the link, so brass it; the "Bellhop" label
+        // stays the standard body colour.
+        val label = buildInfoLabel()
+        val full = stringResource(R.string.dashboard_footer, label)
+        val text =
+            buildAnnotatedString {
+                append(full)
+                val start = full.indexOf(label)
+                if (start >= 0) {
+                    addStyle(SpanStyle(color = MaterialTheme.colorScheme.primary), start, start + label.length)
+                }
+            }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier =
+                Modifier
+                    .clickable(onClick = onClick)
+                    .padding(bottom = 8.dp)
+                    .testTag("dashboard-footer"),
+        )
+    }
+}
+
+// eventAgo turns an event's RFC3339 timestamp into a terse "3 days ago"-style age
+// for the recent-event pill, or null when it can't be parsed (the pill then just
+// omits the age rather than showing a raw string).
+private fun eventAgo(
+    createdAt: String,
+    now: Long = System.currentTimeMillis(),
+): String? =
+    try {
+        relativeAgo((now - Instant.parse(createdAt).toEpochMilli()).coerceAtLeast(0L))
+    } catch (e: Exception) {
+        null
+    }
+
+private const val REPO_URL = "https://github.com/hugalafutro/model-hotel"
+
+// hasCommit is true for a stamped build (any real short sha), false for a source
+// build where GIT_COMMIT fell back to "unknown".
+private fun hasCommit(): Boolean = BuildConfig.GIT_COMMIT.isNotBlank() && BuildConfig.GIT_COMMIT != "unknown"
+
+// buildInfoLabel is the version span: "v0.1.0" plus the commit when stamped.
+private fun buildInfoLabel(): String =
+    buildString {
+        append('v')
+        append(BuildConfig.VERSION_NAME)
+        if (hasCommit()) {
+            append(" · ")
+            append(BuildConfig.GIT_COMMIT)
+        }
+    }
+
+// buildInfoUrl deep-links the exact commit on a stamped build (dropping any
+// "-dirty" marker, which isn't part of a real sha), else the repo root.
+private fun buildInfoUrl(): String =
+    if (hasCommit()) {
+        "$REPO_URL/commit/${BuildConfig.GIT_COMMIT.removeSuffix("-dirty")}"
+    } else {
+        REPO_URL
+    }
 
 @Preview(showBackground = true)
 @Composable
