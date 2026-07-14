@@ -1,6 +1,7 @@
 package com.hugalafutro.bellhop.ui.member
 
 import com.hugalafutro.bellhop.data.ActionResult
+import com.hugalafutro.bellhop.data.AutoSyncConfig
 import com.hugalafutro.bellhop.data.EventQuery
 import com.hugalafutro.bellhop.data.EventsResponse
 import com.hugalafutro.bellhop.data.FakeCipher
@@ -15,6 +16,8 @@ import com.hugalafutro.bellhop.data.PairedDevice
 import com.hugalafutro.bellhop.data.SyncResponse
 import com.hugalafutro.bellhop.data.SyncResultItem
 import com.hugalafutro.bellhop.data.TrafficPoint
+import com.hugalafutro.bellhop.ui.common.CustomDateRange
+import com.hugalafutro.bellhop.ui.common.EventRange
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -48,9 +51,11 @@ private class FakeTrafficClient(
         ),
 ) : FrontDeskClient() {
     val trafficCalls = AtomicInteger(0)
+    val eventsCalls = AtomicInteger(0)
     var lastToken: String? = null
     var lastMemberId: String? = null
     var lastEventQuery: EventQuery? = null
+    var autoSyncResult: FetchResult<AutoSyncConfig> = FetchResult.Success(AutoSyncConfig())
 
     // Operator-action stubs: what setMemberState/syncFleet return, and what the
     // ViewModel last sent, so the action tests can assert both directions.
@@ -79,9 +84,15 @@ private class FakeTrafficClient(
         token: String,
         query: EventQuery,
     ): FetchResult<EventsResponse> {
+        eventsCalls.incrementAndGet()
         lastEventQuery = query
         return eventsResult
     }
+
+    override suspend fun autoSync(
+        fdUrl: String,
+        token: String,
+    ): FetchResult<AutoSyncConfig> = autoSyncResult
 
     override suspend fun setMemberState(
         fdUrl: String,
@@ -189,7 +200,116 @@ class MemberDetailViewModelTest {
             // The events read is scoped to this member so the detail shows only
             // its own history, not the whole fleet's log.
             assertEquals("m1", client.lastEventQuery?.memberId)
-            assertEquals(MemberDetailViewModel.EVENTS_LIMIT, client.lastEventQuery?.limit)
+            assertEquals(MemberDetailViewModel.EVENTS_PAGE, client.lastEventQuery?.limit)
+        }
+
+    @Test
+    fun rangePresetBoundsTheEventsQuery() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            val nowMs = 1_752_500_000_000L
+            val vm =
+                MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1", now = { nowMs })
+
+            vm.setRange(EventRange.H24)
+
+            assertEquals(EventRange.H24, vm.state.value.range)
+            assertEquals(
+                java.time.Instant.ofEpochMilli(nowMs - EventRange.H24.ms).toString(),
+                client.lastEventQuery?.since,
+            )
+            assertEquals("", client.lastEventQuery?.until)
+        }
+
+    @Test
+    fun customRangeWinsOverPresetAndSetsBothBounds() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+            val range = CustomDateRange(startMs = 1_752_000_000_000L, endMs = 1_752_400_000_000L)
+
+            vm.setCustomRange(range)
+
+            assertEquals(range, vm.state.value.custom)
+            assertEquals(range.sinceRfc3339(), client.lastEventQuery?.since)
+            assertEquals(range.untilRfc3339(), client.lastEventQuery?.until)
+        }
+
+    @Test
+    fun loadMoreGrowsTheWindowAndStopsAtTotal() =
+        runBlocking {
+            val page = (1..25).map { FdEvent(id = "e$it", severity = "info", message = "m", memberId = "m1") }
+            val client =
+                FakeTrafficClient(
+                    FetchResult.Success(traffic),
+                    eventsResult = FetchResult.Success(EventsResponse(events = page, total = 30)),
+                )
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+            vm.refreshOnce()
+            assertTrue(vm.state.value.canLoadMore)
+
+            // The grown window re-requests offset 0 with a bigger limit
+            // (drift-proof reload), and the response's total ends paging.
+            val grown = page + (26..30).map { FdEvent(id = "e$it", severity = "info", message = "m", memberId = "m1") }
+            client.eventsResult = FetchResult.Success(EventsResponse(events = grown, total = 30))
+            vm.loadMore()
+
+            val s = vm.state.value
+            assertEquals(50, client.lastEventQuery?.limit)
+            assertEquals(0, client.lastEventQuery?.offset)
+            assertEquals(30, s.events.size)
+            assertFalse(s.loadingMore)
+            assertFalse(s.canLoadMore)
+        }
+
+    @Test
+    fun loadMoreBacksOffAfterFailureInsteadOfHammering() =
+        runBlocking {
+            val page = (1..25).map { FdEvent(id = "e$it", severity = "info", message = "m", memberId = "m1") }
+            val client =
+                FakeTrafficClient(
+                    FetchResult.Success(traffic),
+                    eventsResult = FetchResult.Success(EventsResponse(events = page, total = 100)),
+                )
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+            vm.refreshOnce()
+            assertTrue(vm.state.value.canLoadMore)
+            val callsBeforeFailure = client.eventsCalls.get()
+
+            // First page fails: the first attempt has no backoff, so it hits the
+            // client once and surfaces the error while the window stays growable.
+            client.eventsResult = FetchResult.Failure("boom")
+            vm.loadMore()
+            assertEquals("boom", vm.state.value.error)
+            assertTrue(vm.state.value.canLoadMore)
+            assertEquals(callsBeforeFailure + 1, client.eventsCalls.get())
+
+            // The scroll sentinel re-fires loadMore the instant loadingMore
+            // clears; the backoff must park the retry on its delay rather than
+            // hammering the client a second time in the same tick.
+            vm.loadMore()
+            assertEquals(callsBeforeFailure + 1, client.eventsCalls.get())
+        }
+
+    @Test
+    fun refreshCarriesLastFleetSyncStamp() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            client.autoSyncResult =
+                FetchResult.Success(
+                    AutoSyncConfig(enabled = true, primaryId = "m1", lastSyncAt = "2026-07-13T22:59:49Z"),
+                )
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.refreshOnce()
+            assertEquals("2026-07-13T22:59:49Z", vm.state.value.lastFleetSyncAt)
+
+            // A later autosync read failing must not blank the stamp (best-effort
+            // garnish, never a screen degradation).
+            client.autoSyncResult = FetchResult.Failure("boom")
+            vm.refreshOnce()
+            assertEquals("2026-07-13T22:59:49Z", vm.state.value.lastFleetSyncAt)
+            assertNull(vm.state.value.error)
         }
 
     @Test
