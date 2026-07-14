@@ -1,7 +1,5 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -45,7 +42,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +53,7 @@ import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
+import com.hugalafutro.bellhop.ui.common.ConfirmOpenUrlDialog
 import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.StatusBanner
 import com.hugalafutro.bellhop.ui.common.TrafficChart
@@ -90,43 +87,8 @@ fun DashboardScreen(
     // a card's address opens this confirm dialog rather than firing an intent on
     // the same tap that could also be a mis-tap on the card itself.
     var urlDialogFor by remember { mutableStateOf<FleetMember?>(null) }
-    val context = LocalContext.current
     urlDialogFor?.let { member ->
-        AlertDialog(
-            onDismissRequest = { urlDialogFor = null },
-            title = { Text(stringResource(R.string.member_url_title)) },
-            text = {
-                Text(
-                    text = member.url,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.testTag("member-url-dialog-text"),
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        // ACTION_VIEW lets Android resolve the URL (browser or a
-                        // matching app), showing its own chooser when several match.
-                        // runCatching: a device with nothing that can open it must
-                        // not crash the app.
-                        runCatching {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse(member.url)),
-                            )
-                        }
-                        urlDialogFor = null
-                    },
-                    modifier = Modifier.testTag("member-url-open"),
-                ) {
-                    Text(stringResource(R.string.member_url_open))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { urlDialogFor = null }) {
-                    Text(stringResource(R.string.common_cancel))
-                }
-            },
-        )
+        ConfirmOpenUrlDialog(url = member.url, onDismiss = { urlDialogFor = null })
     }
 
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->

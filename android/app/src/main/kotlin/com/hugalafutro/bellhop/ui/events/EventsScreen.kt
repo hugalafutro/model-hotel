@@ -42,6 +42,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.hugalafutro.bellhop.R
 import com.hugalafutro.bellhop.data.FdEvent
+import com.hugalafutro.bellhop.ui.common.CustomDateRange
+import com.hugalafutro.bellhop.ui.common.EventRange
+import com.hugalafutro.bellhop.ui.common.EventRangeRow
 import com.hugalafutro.bellhop.ui.common.FilterPill
 import com.hugalafutro.bellhop.ui.common.StatusBanner
 import com.hugalafutro.bellhop.ui.common.severityColors
@@ -65,6 +68,7 @@ fun EventsScreen(
     memberNames: Map<String, String> = emptyMap(),
     onSeverity: (String) -> Unit = {},
     onRange: (EventRange) -> Unit = {},
+    onCustomRange: (CustomDateRange?) -> Unit = {},
     onLoadMore: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -114,7 +118,13 @@ fun EventsScreen(
             }
 
             SeverityChips(selected = ui.severity, onSeverity = onSeverity)
-            RangeChips(selected = ui.range, onRange = onRange)
+            EventRangeRow(
+                selected = ui.range,
+                custom = ui.custom,
+                onRange = onRange,
+                onCustomRange = onCustomRange,
+                tagPrefix = "events-range",
+            )
             Spacer(modifier = Modifier.height(8.dp))
 
             if (ui.revoked) {
@@ -219,28 +229,6 @@ private fun SeverityChips(
 }
 
 @Composable
-private fun RangeChips(
-    selected: EventRange,
-    onRange: (EventRange) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        EventRange.entries.forEach { range ->
-            FilterPill(
-                text = rangeLabel(range),
-                selected = selected == range,
-                onClick = { onRange(range) },
-                tag = "events-range-${range.name.lowercase()}",
-                modifier = Modifier.weight(1f),
-            )
-        }
-    }
-}
-
-@Composable
 private fun EventRow(
     event: FdEvent,
     memberName: String?,
@@ -324,16 +312,6 @@ private fun severityLabel(severity: String): String =
         "warning" -> stringResource(R.string.events_sev_warning)
         "error" -> stringResource(R.string.events_sev_error)
         else -> severity
-    }
-
-@Composable
-private fun rangeLabel(range: EventRange): String =
-    when (range) {
-        EventRange.ALL -> stringResource(R.string.events_range_all)
-        EventRange.H1 -> stringResource(R.string.events_range_1h)
-        EventRange.H24 -> stringResource(R.string.events_range_24h)
-        EventRange.D7 -> stringResource(R.string.events_range_7d)
-        EventRange.D30 -> stringResource(R.string.events_range_30d)
     }
 
 private val EVENT_TIME_FORMAT =

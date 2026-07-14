@@ -13,6 +13,7 @@ import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.TrafficPoint
+import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -439,6 +440,163 @@ class MemberDetailScreenTest {
         // Disabled while in flight: a tap must not re-issue the action.
         composeTestRule.onNodeWithTag("member-op-state").performClick()
         assertFalse(fired)
+    }
+
+    @Test
+    fun addressRowOpensConfirmDialog() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-detail-url"))
+        composeTestRule.onNodeWithTag("member-detail-url").performClick()
+        // Same confirm dialog as the dashboard card: tap never fires an intent
+        // directly.
+        composeTestRule.onNodeWithTag("member-url-dialog-text").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-url-open").assertIsDisplayed()
+    }
+
+    @Test
+    fun lastFleetSyncLineRendersUnderTheSyncButton() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = true,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            lastFleetSyncAt = "2026-07-13T22:59:49Z",
+                        ),
+                    canOperate = true,
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-op-last-sync"))
+        composeTestRule.onNodeWithTag("member-op-last-sync").assertIsDisplayed()
+    }
+
+    @Test
+    fun rangePillsRenderAndFireCallback() {
+        var picked: EventRange? = null
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                    onRange = { picked = it },
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-events-range-h24"))
+        composeTestRule.onNodeWithTag("member-events-range-h24").performClick()
+        assertTrue(picked == EventRange.H24)
+    }
+
+    @Test
+    fun bottomingOutAsksForMoreEvents() {
+        // Scrolling to the end composes the load-more sentinel (lazy items only
+        // compose near the viewport), which asks for the next page; the
+        // ViewModel is the one that no-ops when nothing more exists.
+        var asked = false
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            events =
+                                listOf(
+                                    FdEvent(id = "e1", severity = "info", message = "up", memberId = "m1"),
+                                ),
+                            // More rows exist server-side, so the sentinel arms.
+                            eventsTotal = 10,
+                        ),
+                    onLoadMoreEvents = { asked = true },
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-events-load-more-sentinel"))
+        composeTestRule.waitUntil(timeoutMillis = 5_000) { asked }
+        assertTrue(asked)
+    }
+
+    @Test
+    fun exhaustedWindowDoesNotAskForMore() {
+        // events.size == eventsTotal: no sentinel, no phantom page requests.
+        var asked = false
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            events =
+                                listOf(
+                                    FdEvent(id = "e1", severity = "info", message = "up", memberId = "m1"),
+                                ),
+                            eventsTotal = 1,
+                        ),
+                    onLoadMoreEvents = { asked = true },
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("member-events-load-more-sentinel").assertDoesNotExist()
+        assertFalse(asked)
+    }
+
+    @Test
+    fun loadingMoreShowsFooterSpinner() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            events =
+                                listOf(
+                                    FdEvent(id = "e1", severity = "info", message = "up", memberId = "m1"),
+                                ),
+                            loadingMore = true,
+                        ),
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-events-loading-more"))
+        composeTestRule.onNodeWithTag("member-events-loading-more").assertIsDisplayed()
     }
 
     @Test
