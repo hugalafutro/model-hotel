@@ -9,6 +9,9 @@ import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
+import com.hugalafutro.bellhop.ui.common.CustomDateRange
+import com.hugalafutro.bellhop.ui.common.EventRange
+import com.hugalafutro.bellhop.ui.common.loadMoreBackoffMillis
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -25,18 +28,6 @@ import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 
 /**
- * EventRange is the relative "since" presets offered as time filters,
- * mirroring the Front Desk web Events page (0 = no lower bound).
- */
-enum class EventRange(val ms: Long) {
-    ALL(0),
-    H1(3_600_000),
-    H24(86_400_000),
-    D7(604_800_000),
-    D30(2_592_000_000),
-}
-
-/**
  * EventsUiState is what the event-log screen renders. A failed refresh keeps
  * the last good page on screen (stale beats blank on a phone) and raises
  * [error]; [revoked] means the device token itself no longer authenticates,
@@ -50,6 +41,8 @@ data class EventsUiState(
     // "" = all severities.
     val severity: String = "",
     val range: EventRange = EventRange.ALL,
+    // Absolute calendar range from the picker; non-null overrides [range].
+    val custom: CustomDateRange? = null,
     val loadingMore: Boolean = false,
     val error: String? = null,
     val revoked: Boolean = false,
@@ -96,6 +89,10 @@ class EventsViewModel(
     // and truncate the list the user just paged in.
     private val fetchMutex = Mutex()
 
+    // Consecutive loadMore failures, driving the infinite-scroll retry backoff
+    // ([loadMoreBackoffMillis]); reset to 0 on the first successful page.
+    private var loadMoreFailures = 0
+
     init {
         viewModelScope.launch {
             _state.subscriptionCount
@@ -133,17 +130,30 @@ class EventsViewModel(
     /** setSeverity swaps the severity filter ("" = all) and reloads from scratch. */
     fun setSeverity(severity: String) {
         if (severity == _state.value.severity) return
+        loadMoreFailures = 0
         _state.update {
             it.copy(severity = severity, loading = true, events = emptyList(), total = 0)
         }
         refreshTrigger.trySend(Unit)
     }
 
-    /** setRange swaps the time-range filter and reloads from scratch. */
+    /** setRange swaps the time-range preset (clearing any calendar range) and reloads. */
     fun setRange(range: EventRange) {
-        if (range == _state.value.range) return
+        val s = _state.value
+        if (range == s.range && s.custom == null) return
+        loadMoreFailures = 0
         _state.update {
-            it.copy(range = range, loading = true, events = emptyList(), total = 0)
+            it.copy(range = range, custom = null, loading = true, events = emptyList(), total = 0)
+        }
+        refreshTrigger.trySend(Unit)
+    }
+
+    /** setCustomRange swaps the calendar range (null falls back to the preset) and reloads. */
+    fun setCustomRange(range: CustomDateRange?) {
+        if (range == _state.value.custom) return
+        loadMoreFailures = 0
+        _state.update {
+            it.copy(custom = range, loading = true, events = emptyList(), total = 0)
         }
         refreshTrigger.trySend(Unit)
     }
@@ -172,7 +182,12 @@ class EventsViewModel(
             }
         }
 
-    private suspend fun loadMoreOnce() =
+    private suspend fun loadMoreOnce() {
+        // Back off before retrying a failed page: the scroll sentinel re-arms
+        // the instant loadingMore clears, so a persistent error would otherwise
+        // hammer Front Desk. Delay outside the lock so the poll refresh isn't
+        // stalled behind the backoff.
+        if (loadMoreFailures > 0) delay(loadMoreBackoffMillis(loadMoreFailures))
         fetchMutex.withLock {
             val before = _state.value
             // Grow the window by a page and reload it from the top rather than
@@ -181,15 +196,24 @@ class EventsViewModel(
             // fetch would skip the row that slid past the old boundary. Reading
             // the whole window from offset 0 is drift-proof (and dedup-free).
             val limit = (before.events.size + PAGE_SIZE).coerceAtMost(MAX_WINDOW)
-            fetch(before, query(before, limit = limit, offset = 0)) { st, resp ->
-                st.copy(
-                    events = resp.events.orEmpty(),
-                    total = resp.total,
-                    error = null,
-                    revoked = false,
-                )
+            val result =
+                fetch(before, query(before, limit = limit, offset = 0)) { st, resp ->
+                    st.copy(
+                        events = resp.events.orEmpty(),
+                        total = resp.total,
+                        error = null,
+                        revoked = false,
+                    )
+                }
+            when (result) {
+                is FetchResult.Success -> loadMoreFailures = 0
+                is FetchResult.Failure -> loadMoreFailures++
+                // Unauthorized stops paging outright; null is a stale drop.
+                // Neither should touch the backoff.
+                FetchResult.Unauthorized, null -> Unit
             }
         }
+    }
 
     // fetch runs one events call and folds a success into the state via
     // [onSuccess] — unless the filters changed while it was in flight, in
@@ -200,18 +224,25 @@ class EventsViewModel(
         before: EventsUiState,
         query: EventQuery,
         onSuccess: (EventsUiState, EventsResponse) -> EventsUiState,
-    ) {
+    ): FetchResult<EventsResponse>? {
         val token = linkStore.token()
         if (token == null) {
             // Still linked but the token can't be read back (e.g. the Keystore
             // key is gone): no request can ever succeed, same operator remedy
             // as a remote revoke, so surface it through the same flag.
             _state.update { it.copy(loading = false, loadingMore = false, revoked = true) }
-            return
+            return FetchResult.Unauthorized
         }
         val result = client.events(fdUrl, token, query)
+        // A filter change while this fetch was in flight makes the result
+        // stale; report that to the caller (null) so a dropped page can't move
+        // the load-more backoff. No suspension between here and the update.
+        val stale =
+            _state.value.let {
+                it.severity != before.severity || it.range != before.range || it.custom != before.custom
+            }
         _state.update { st ->
-            if (st.severity != before.severity || st.range != before.range) {
+            if (st.severity != before.severity || st.range != before.range || st.custom != before.custom) {
                 return@update st.copy(loadingMore = false)
             }
             when (result) {
@@ -222,6 +253,7 @@ class EventsViewModel(
                     st.copy(loading = false, loadingMore = false, error = result.message)
             }
         }
+        return if (stale) null else result
     }
 
     private fun query(
@@ -232,11 +264,12 @@ class EventsViewModel(
         EventQuery(
             severity = st.severity,
             since =
-                if (st.range.ms > 0) {
-                    Instant.ofEpochMilli(now() - st.range.ms).toString()
-                } else {
-                    ""
+                when {
+                    st.custom != null -> st.custom.sinceRfc3339()
+                    st.range.ms > 0 -> Instant.ofEpochMilli(now() - st.range.ms).toString()
+                    else -> ""
                 },
+            until = st.custom?.untilRfc3339() ?: "",
             limit = limit,
             offset = offset,
         )

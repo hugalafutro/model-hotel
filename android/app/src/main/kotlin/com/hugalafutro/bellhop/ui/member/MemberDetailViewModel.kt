@@ -10,6 +10,9 @@ import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberTraffic
+import com.hugalafutro.bellhop.ui.common.CustomDateRange
+import com.hugalafutro.bellhop.ui.common.EventRange
+import com.hugalafutro.bellhop.ui.common.loadMoreBackoffMillis
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -21,6 +24,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.time.Instant
 
 /**
  * MemberDetailUiState is what the member-detail traffic card renders. A failed
@@ -32,15 +38,29 @@ data class MemberDetailUiState(
     val loading: Boolean = true,
     val traffic: MemberTraffic? = null,
     // The member's own recent events (newest first), from GET /api/events filtered
-    // to this member. Read-only and unpaged: the full log with filters lives on
-    // the Events screen; here it's just "what happened to this box lately".
+    // to this member. Time-filterable (preset or calendar range) and paged:
+    // bottoming out the list grows the window ([MemberDetailViewModel.loadMore]).
     val events: List<FdEvent> = emptyList(),
+    // Total matching rows server-side; drives [canLoadMore].
+    val eventsTotal: Int = 0,
+    val range: EventRange = EventRange.ALL,
+    // Absolute calendar range from the picker; non-null overrides [range].
+    val custom: CustomDateRange? = null,
+    val loadingMore: Boolean = false,
+    // When a sync last actually wrote config to any member (from
+    // GET /api/fleet/autosync); "" until one has. Shown under the fleet-sync
+    // action on the primary.
+    val lastFleetSyncAt: String = "",
     val error: String? = null,
     val revoked: Boolean = false,
     // Operator-action overlay (drain/activate, config sync). Orthogonal to the
     // read state above, which keeps polling regardless.
     val action: ActionUiState = ActionUiState(),
-)
+) {
+    // More rows exist server-side and the drift-proof window can still grow.
+    val canLoadMore: Boolean
+        get() = events.size < eventsTotal && events.size < MemberDetailViewModel.MAX_EVENTS_WINDOW
+}
 
 /**
  * ActionUiState is the operator-action overlay on the detail screen. [inProgress]
@@ -82,6 +102,8 @@ class MemberDetailViewModel(
     private val fdUrl: String,
     private val memberId: String,
     private val pollIntervalMs: Long = POLL_INTERVAL_MS,
+    // Injectable clock so tests can pin the preset-range "since" bound.
+    private val now: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
     private val _state = MutableStateFlow(MemberDetailUiState())
     val state: StateFlow<MemberDetailUiState> = _state.asStateFlow()
@@ -92,6 +114,14 @@ class MemberDetailViewModel(
     // left to reconcile and a pending hint would strand (member.state won't change
     // again to re-fire the reconcile effect).
     private var lastLiveState: String? = null
+
+    // Serializes the poll refresh, filter-change reloads and loadMore so two
+    // window fetches can't interleave and fold out of order.
+    private val fetchMutex = Mutex()
+
+    // Consecutive loadMore failures, driving the infinite-scroll retry backoff
+    // ([loadMoreBackoffMillis]); reset to 0 on the first successful page.
+    private var loadMoreFailures = 0
 
     init {
         viewModelScope.launch {
@@ -117,10 +147,14 @@ class MemberDetailViewModel(
     }
 
     /**
-     * refreshOnce fetches this member's traffic and its recent events together
-     * (they don't depend on each other) and folds both in. Either 401 means the
-     * token is dead, so revoked wins; a failure on either keeps the last-good
-     * slice and raises the error; both succeeding clears it.
+     * refreshOnce fetches this member's traffic, its recent events and the
+     * fleet's autosync status (for the last-actual-sync stamp) together (none
+     * depend on each other) and folds them in. The events fetch reloads the
+     * whole already-paged window at offset 0 (the same drift-proof shape the
+     * Events screen uses) so a poll can't shear a grown list. A 401 on the
+     * member reads means the token is dead, so revoked wins; a failure keeps
+     * the last-good slice and raises the error. The autosync read is
+     * best-effort garnish: its failure never degrades the screen.
      */
     suspend fun refreshOnce() {
         val token = linkStore.token()
@@ -131,34 +165,143 @@ class MemberDetailViewModel(
             _state.update { it.copy(loading = false, revoked = true) }
             return
         }
-        val (traffic, events) =
-            coroutineScope {
-                val t = async { client.memberTraffic(fdUrl, token, memberId) }
-                val e = async { client.events(fdUrl, token, EventQuery(memberId = memberId, limit = EVENTS_LIMIT)) }
-                t.await() to e.await()
+        fetchMutex.withLock {
+            val before = _state.value
+            val query = eventsQuery(before, limit = before.events.size.coerceIn(EVENTS_PAGE, MAX_EVENTS_WINDOW))
+            val (traffic, events, autoSync) =
+                coroutineScope {
+                    val t = async { client.memberTraffic(fdUrl, token, memberId) }
+                    val e = async { client.events(fdUrl, token, query) }
+                    val a = async { client.autoSync(fdUrl, token) }
+                    Triple(t.await(), e.await(), a.await())
+                }
+            if (traffic is FetchResult.Unauthorized || events is FetchResult.Unauthorized) {
+                _state.update { it.copy(loading = false, revoked = true) }
+                return
             }
-        if (traffic is FetchResult.Unauthorized || events is FetchResult.Unauthorized) {
-            _state.update { it.copy(loading = false, revoked = true) }
-            return
-        }
-        _state.update { st ->
-            val failure =
-                (traffic as? FetchResult.Failure)?.message
-                    ?: (events as? FetchResult.Failure)?.message
-            st.copy(
-                loading = false,
-                traffic = (traffic as? FetchResult.Success)?.data ?: st.traffic,
-                events =
-                    (events as? FetchResult.Success)?.data?.events.orEmpty().ifEmpty {
-                        // Keep the last-good list only when the events fetch itself
-                        // failed; a genuine empty page (success) must clear it.
-                        if (events is FetchResult.Success) emptyList() else st.events
-                    },
-                error = failure,
-                revoked = false,
-            )
+            _state.update { st ->
+                val failure =
+                    (traffic as? FetchResult.Failure)?.message
+                        ?: (events as? FetchResult.Failure)?.message
+                // A filter that changed while this fetch was in flight makes the
+                // events slice stale; keep whatever the newer reload produced.
+                val filtersLive = st.range == before.range && st.custom == before.custom
+                val eventsPage = (events as? FetchResult.Success)?.data
+                st.copy(
+                    loading = false,
+                    traffic = (traffic as? FetchResult.Success)?.data ?: st.traffic,
+                    events =
+                        if (filtersLive && eventsPage != null) {
+                            eventsPage.events.orEmpty()
+                        } else {
+                            st.events
+                        },
+                    eventsTotal =
+                        if (filtersLive && eventsPage != null) eventsPage.total else st.eventsTotal,
+                    lastFleetSyncAt =
+                        (autoSync as? FetchResult.Success)?.data?.lastSyncAt ?: st.lastFleetSyncAt,
+                    error = failure,
+                    revoked = false,
+                )
+            }
         }
     }
+
+    /** setRange swaps the time-range preset (clearing any calendar range) and reloads. */
+    fun setRange(range: EventRange) {
+        val s = _state.value
+        if (range == s.range && s.custom == null) return
+        loadMoreFailures = 0
+        _state.update {
+            it.copy(range = range, custom = null, loading = true, events = emptyList(), eventsTotal = 0)
+        }
+        viewModelScope.launch { refreshOnce() }
+    }
+
+    /** setCustomRange swaps the calendar range (null falls back to the preset) and reloads. */
+    fun setCustomRange(range: CustomDateRange?) {
+        if (range == _state.value.custom) return
+        loadMoreFailures = 0
+        _state.update {
+            it.copy(custom = range, loading = true, events = emptyList(), eventsTotal = 0)
+        }
+        viewModelScope.launch { refreshOnce() }
+    }
+
+    /**
+     * loadMore grows the events window by one page when the list bottoms out
+     * (the screen's infinite scroll). Same drift-proof shape as the Events
+     * screen: re-request offset 0 with a bigger limit instead of paging by
+     * offset, so a new event arriving mid-scroll can't duplicate or skip rows.
+     */
+    fun loadMore() {
+        val s = _state.value
+        if (s.loadingMore || s.loading || s.revoked || !s.canLoadMore) return
+        _state.update { it.copy(loadingMore = true) }
+        viewModelScope.launch {
+            val token = linkStore.token()
+            if (token == null) {
+                _state.update { it.copy(loadingMore = false, revoked = true) }
+                return@launch
+            }
+            // Back off before retrying a failed page: the scroll sentinel
+            // re-arms the instant loadingMore clears, so a persistent error
+            // would otherwise hammer Front Desk. Delay outside the lock so the
+            // poll refresh isn't stalled behind the backoff.
+            if (loadMoreFailures > 0) delay(loadMoreBackoffMillis(loadMoreFailures))
+            fetchMutex.withLock {
+                val before = _state.value
+                val limit = (before.events.size + EVENTS_PAGE).coerceAtMost(MAX_EVENTS_WINDOW)
+                val result = client.events(fdUrl, token, eventsQuery(before, limit))
+                // A filter change while this page was in flight makes the
+                // result stale: it's dropped below, and it must not move the
+                // backoff either (setRange/setCustomRange already reset it for
+                // the new filter). No suspension between this read and the
+                // update, so the staleness verdict can't shift under us.
+                val stale = _state.value.let { it.range != before.range || it.custom != before.custom }
+                if (!stale) {
+                    when (result) {
+                        is FetchResult.Success -> loadMoreFailures = 0
+                        is FetchResult.Failure -> loadMoreFailures++
+                        FetchResult.Unauthorized -> Unit
+                    }
+                }
+                _state.update { st ->
+                    if (st.range != before.range || st.custom != before.custom) {
+                        return@update st.copy(loadingMore = false)
+                    }
+                    when (result) {
+                        is FetchResult.Success ->
+                            st.copy(
+                                loadingMore = false,
+                                events = result.data.events.orEmpty(),
+                                eventsTotal = result.data.total,
+                            )
+                        FetchResult.Unauthorized -> st.copy(loadingMore = false, revoked = true)
+                        is FetchResult.Failure -> st.copy(loadingMore = false, error = result.message)
+                    }
+                }
+            }
+        }
+    }
+
+    // eventsQuery builds this member's events query for the current filters:
+    // the calendar range wins over a preset; ALL means no time bounds.
+    private fun eventsQuery(
+        st: MemberDetailUiState,
+        limit: Int,
+    ): EventQuery =
+        EventQuery(
+            memberId = memberId,
+            since =
+                when {
+                    st.custom != null -> st.custom.sinceRfc3339()
+                    st.range.ms > 0 -> Instant.ofEpochMilli(now() - st.range.ms).toString()
+                    else -> ""
+                },
+            until = st.custom?.untilRfc3339() ?: "",
+            limit = limit,
+        )
 
     /**
      * setMemberState drains or activates this member. Pessimistic-accept,
@@ -289,8 +432,12 @@ class MemberDetailViewModel(
         // current bucket moving without hammering the member's stats API.
         const val POLL_INTERVAL_MS = 60_000L
 
-        // Recent events shown under the graph. Enough to see the member's recent
-        // story; the Events screen owns the full, filterable, paged log.
-        const val EVENTS_LIMIT = 25
+        // One page of recent events under the graph; infinite scroll grows the
+        // window a page at a time.
+        const val EVENTS_PAGE = 25
+
+        // Ceiling on the drift-proof reload window, mirroring the Events
+        // screen (and the server's own clamp).
+        const val MAX_EVENTS_WINDOW = 500
     }
 }

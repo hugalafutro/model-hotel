@@ -9,6 +9,8 @@ import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.InMemoryPreferencesDataStore
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.PairedDevice
+import com.hugalafutro.bellhop.ui.common.CustomDateRange
+import com.hugalafutro.bellhop.ui.common.EventRange
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -302,6 +304,28 @@ class EventsViewModelTest {
             val expected = Instant.ofEpochMilli(nowMs - EventRange.H1.ms).toString()
             withTimeout(5_000) { vm.state.first { !it.loading && it.range == EventRange.H1 } }
             assertEquals(expected, client.lastQuery!!.since)
+            collector.cancel()
+        }
+
+    @Test
+    fun customRangeOverridesPresetAndClears() =
+        runBlocking {
+            val client = FakeEventsClient(page("e1", total = 1))
+            val vm = newVm(client, linkedStore())
+            val collector = launch(start = CoroutineStart.UNDISPATCHED) { vm.state.collect {} }
+            withTimeout(5_000) { vm.state.first { !it.loading } }
+
+            // The calendar range carries both bounds (end day inclusive).
+            val range = CustomDateRange(startMs = 1_751_328_000_000L, endMs = 1_752_451_200_000L)
+            vm.setCustomRange(range)
+            withTimeout(5_000) { vm.state.first { !it.loading && it.custom == range } }
+            assertEquals(range.sinceRfc3339(), client.lastQuery!!.since)
+            assertEquals(range.untilRfc3339(), client.lastQuery!!.until)
+
+            // Picking a preset clears the calendar range again.
+            vm.setRange(EventRange.ALL)
+            withTimeout(5_000) { vm.state.first { !it.loading && it.custom == null } }
+            assertEquals("", client.lastQuery!!.until)
             collector.cancel()
         }
 

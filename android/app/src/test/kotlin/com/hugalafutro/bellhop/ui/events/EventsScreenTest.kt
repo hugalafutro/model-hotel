@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import com.hugalafutro.bellhop.data.FdEvent
+import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
