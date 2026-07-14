@@ -319,7 +319,7 @@ private fun MetaLedger(
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_synced),
                 value = formatEventTime(member.lastConfigSyncAt),
-                trailing = ageParenthetical(member.lastConfigSyncAt),
+                trailing = remember(member.lastConfigSyncAt) { ageParenthetical(member.lastConfigSyncAt) },
                 trailingColor = syncAgeColorFor(member.lastConfigSyncAt),
                 tag = "member-detail-synced",
             )
@@ -337,7 +337,10 @@ private fun MetaLedger(
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_verified),
                 value = formatEventTime(member.status.autoSyncVerifiedAt),
-                trailing = ageParenthetical(member.status.autoSyncVerifiedAt),
+                trailing =
+                    remember(member.status.autoSyncVerifiedAt) {
+                        ageParenthetical(member.status.autoSyncVerifiedAt)
+                    },
                 tag = "member-detail-verified",
             )
         }
@@ -345,7 +348,7 @@ private fun MetaLedger(
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_added),
                 value = formatEventTime(member.createdAt),
-                trailing = ageParenthetical(member.createdAt),
+                trailing = remember(member.createdAt) { ageParenthetical(member.createdAt) },
                 tag = "member-detail-created",
             )
         }

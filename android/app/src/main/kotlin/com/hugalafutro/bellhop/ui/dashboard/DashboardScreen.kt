@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -485,7 +486,11 @@ private fun MemberCard(
             modifier
                 .fillMaxWidth()
                 .testTag("member-card-${member.name}")
-                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+                .combinedClickable(
+                    role = Role.Button,
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                ),
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -604,7 +609,7 @@ private fun MemberCard(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
                         )
-                        eventAgo(ev.createdAt)?.let { ago ->
+                        remember(ev.createdAt) { eventAgo(ev.createdAt) }?.let { ago ->
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = ago,
