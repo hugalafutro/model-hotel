@@ -652,6 +652,7 @@ private fun LinkedContent(
             onRange = detailVm::setRange,
             onCustomRange = detailVm::setCustomRange,
             onLoadMoreEvents = detailVm::loadMore,
+            holdToCopy = holdToCopy,
         )
     } else {
         DashboardScreen(

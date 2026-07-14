@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.ui.member
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -42,8 +43,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -67,6 +71,7 @@ import com.hugalafutro.bellhop.ui.common.TrafficChart
 import com.hugalafutro.bellhop.ui.common.healthColor
 import com.hugalafutro.bellhop.ui.common.loadMoreSentinel
 import com.hugalafutro.bellhop.ui.common.relativeAgo
+import com.hugalafutro.bellhop.ui.events.eventClipboardText
 import com.hugalafutro.bellhop.ui.events.formatEventTime
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
@@ -101,8 +106,22 @@ fun MemberDetailScreen(
     onRange: (EventRange) -> Unit = {},
     onCustomRange: (CustomDateRange?) -> Unit = {},
     onLoadMoreEvents: () -> Unit = {},
+    // When true, long-press an event row to copy it — same gesture as the Events
+    // screen, so a log cell behaves identically wherever it's shown
+    // (Settings > Hold to copy). When false the row can't be copied at all.
+    holdToCopy: Boolean = false,
 ) {
     val health = member.status.health
+    // A row copies the whole event as text, with a toast to confirm the otherwise-
+    // silent act — the same affordance as the Events screen's log.
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val copiedMsg = stringResource(R.string.events_copied)
+    val onCopyEvent: (FdEvent) -> Unit = { event ->
+        val name = member.name.takeIf { event.memberId == member.id }
+        clipboard.setText(AnnotatedString(eventClipboardText(event, name)))
+        Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
+    }
     // Clear the optimistic pending state once the dashboard's live state (member
     // arrives live from its poll/SSE) has caught up to the accepted target.
     LaunchedEffect(member.state) { onReconcile(member.state) }
@@ -232,7 +251,10 @@ fun MemberDetailScreen(
                             }
                         else ->
                             itemsIndexed(ui.events) { index, event ->
-                                MemberEventRow(event = event)
+                                MemberEventRow(
+                                    event = event,
+                                    onCopy = if (holdToCopy) ({ onCopyEvent(event) }) else null,
+                                )
                                 if (index < ui.events.lastIndex) {
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                 }
@@ -689,11 +711,14 @@ private fun TrafficCard(
 private fun MemberEventRow(
     event: FdEvent,
     modifier: Modifier = Modifier,
+    // Long-press to copy, or null when hold-to-copy is off (the row is inert).
+    onCopy: (() -> Unit)? = null,
 ) {
     SeverityRailRow(
         severity = event.severity,
         rowTag = "member-event-row",
         railTag = "member-event-sev-${event.severity}",
+        onLongClick = onCopy,
         modifier = modifier,
     ) { typeColor ->
         Row(
