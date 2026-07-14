@@ -333,13 +333,12 @@ private fun MetaLedger(
                 tag = "member-detail-synced",
             )
             if (member.lastConfigSyncReason.isNotBlank()) {
-                // Why the last sync ran, indented to the value column (label
-                // width + gap) so it hangs off the SYNCED entry.
-                Text(
-                    text = member.lastConfigSyncReason,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 88.dp),
+                // Why the last sync ran, on its own ledger line under SYNCED so
+                // the label column reads REASON rather than a hanging sentence.
+                LedgerRow(
+                    label = stringResource(R.string.member_detail_label_reason),
+                    value = member.lastConfigSyncReason,
+                    tag = "member-detail-sync-reason",
                 )
             }
         }
@@ -625,7 +624,7 @@ private fun MemberEventRow(
     event: FdEvent,
     modifier: Modifier = Modifier,
 ) {
-    val accent = severityColors(event.severity).first
+    val (accent, typeColor) = severityColors(event.severity)
     Row(
         modifier =
             modifier
@@ -650,9 +649,13 @@ private fun MemberEventRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                // Machine event type in mono + the severity colour, so the code
+                // token reads apart from the human message on the next line.
                 Text(
                     text = event.type,
                     style = MaterialTheme.typography.titleSmall,
+                    fontFamily = MonoFamily,
+                    color = typeColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -670,6 +673,18 @@ private fun MemberEventRow(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
+            // The emitting subsystem (poller, autosync…) in muted mono, a third
+            // visual register below the coloured type and the plain message.
+            if (event.source.isNotBlank()) {
+                Text(
+                    text = event.source,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = MonoFamily,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

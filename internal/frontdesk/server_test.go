@@ -204,6 +204,20 @@ func TestServerMemberCRUD(t *testing.T) {
 		t.Fatalf("state = %d, want 200; body=%s", rec.Code, rec.Body.String())
 	}
 
+	// The state change is attributed in its audit event. An admin bearer carries
+	// no paired device, so it is recorded as the dashboard.
+	rec = do(t, srv, http.MethodGet, "/api/events?type=member.state_changed", "", true)
+	var stateEvents struct {
+		Events []Event `json:"events"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &stateEvents)
+	if len(stateEvents.Events) == 0 {
+		t.Fatal("expected a member.state_changed event")
+	}
+	if got := stateEvents.Events[0].Metadata["initiated_by"]; got != "the dashboard" {
+		t.Errorf("state_changed initiated_by = %v, want %q", got, "the dashboard")
+	}
+
 	// Delete.
 	if rec := do(t, srv, http.MethodDelete, "/api/members/"+created.ID, "", true); rec.Code != http.StatusNoContent {
 		t.Fatalf("delete = %d, want 204", rec.Code)

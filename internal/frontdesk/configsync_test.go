@@ -113,6 +113,67 @@ func TestConfigSyncApplies(t *testing.T) {
 	}
 }
 
+// TestConfigSyncAttributesInitiator proves a manual sync stamps who ran it on
+// both the member's sync-reason marker (surfaced in the Members table / member
+// detail) and the audit event's metadata, so the log can tell an admin-driven
+// run from a phone-driven one. An admin bearer carries no paired device, so it
+// is attributed to the dashboard.
+func TestConfigSyncAttributesInitiator(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	replica := newStubConfigMember(t, "rtoken")
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sync = %d (%s)", rec.Code, rec.Body.String())
+	}
+
+	want := manualSyncReason("the dashboard")
+
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("get member: %v", err)
+	}
+	if got.LastConfigSyncReason != want {
+		t.Errorf("member sync reason = %q, want %q", got.LastConfigSyncReason, want)
+	}
+
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{})
+	if err != nil {
+		t.Fatalf("list events: %v", err)
+	}
+	var eventReason any
+	for _, e := range evs {
+		if e.Type == "config.synced" && e.MemberID == rm.ID {
+			eventReason = e.Metadata["reason"]
+		}
+	}
+	if eventReason != want {
+		t.Errorf("config.synced reason metadata = %v, want %q", eventReason, want)
+	}
+}
+
+// TestActorFromContext covers the three attribution branches: no device (admin
+// or dashboard session), a labelled device, and the defensive blank-label path.
+func TestActorFromContext(t *testing.T) {
+	if got := actorFromContext(t.Context()); got != "the dashboard" {
+		t.Errorf("no-device actor = %q, want %q", got, "the dashboard")
+	}
+
+	withDevice := context.WithValue(t.Context(), deviceCtxKey{}, &PairedDevice{Label: "Pixel", Role: RoleOperator})
+	if got := actorFromContext(withDevice); got != "Pixel (operator)" {
+		t.Errorf("device actor = %q, want %q", got, "Pixel (operator)")
+	}
+
+	blankLabel := context.WithValue(t.Context(), deviceCtxKey{}, &PairedDevice{Role: RoleMonitor})
+	if got := actorFromContext(blankLabel); got != "a paired device (monitor)" {
+		t.Errorf("blank-label actor = %q, want %q", got, "a paired device (monitor)")
+	}
+}
+
 // A slow import (the member runs model discovery on apply, which routinely
 // exceeds the fast health-probe timeout) must still be reported as applied: the
 // import relay uses a separate client with a far longer deadline. Here the probe
@@ -209,10 +270,19 @@ func TestConfigSyncBackupFailureSkipsMember(t *testing.T) {
 		t.Error("the destructive import must be skipped when the backup fails")
 	}
 	evs, _, _ := store.ListEvents(t.Context(), EventFilter{})
+	var failReason any
 	for _, e := range evs {
 		if e.Type == "config.synced" && e.MemberID == rm.ID {
 			t.Error("a member left unchanged must not emit config.synced")
 		}
+		if e.Type == "config.sync_failed" && e.MemberID == rm.ID {
+			failReason = e.Metadata["reason"]
+		}
+	}
+	// The backup-failure skip is attributed like every other sync outcome, so the
+	// log distinguishes who triggered the run that could not back up.
+	if want := manualSyncReason("the dashboard"); failReason != want {
+		t.Errorf("config.sync_failed reason metadata = %v, want %q", failReason, want)
 	}
 }
 

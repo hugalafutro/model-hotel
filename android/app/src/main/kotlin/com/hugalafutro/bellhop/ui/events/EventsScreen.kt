@@ -238,7 +238,7 @@ private fun EventRow(
     // A log line, not a card: a colour-coded severity rail down the left edge and
     // a faint tint of the same colour, so severity reads at a glance without a
     // pill. The whole row taps to copy (the rail carries the severity test tag).
-    val accent = severityColors(event.severity).first
+    val (accent, typeColor) = severityColors(event.severity)
     Row(
         modifier =
             modifier
@@ -264,9 +264,13 @@ private fun EventRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                // Machine event type in mono + the severity colour, so the code
+                // token reads apart from the human message on the next line.
                 Text(
                     text = event.type,
                     style = MaterialTheme.typography.titleSmall,
+                    fontFamily = MonoFamily,
+                    color = typeColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),

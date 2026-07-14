@@ -31,11 +31,16 @@ const (
 	// stale push. It must match internal/api.fleetSourceGenHeader. An older member
 	// ignores it, so sending it is always safe.
 	fleetSourceGenHeader = "X-Fleet-Source-Gen"
-
-	// wizardSyncReason is stamped on a member's last-config-sync marker when the
-	// operator drives the sync through the wizard (vs the automatic loop).
-	wizardSyncReason = "manual sync from the wizard"
 )
+
+// manualSyncReason is stamped on a member's last-config-sync marker (and the
+// audit event) when an operator drives the sync (vs the automatic loop). It
+// names who triggered it — a paired device or the dashboard — so the Members
+// table and event log attribute the run instead of the old anonymous "from the
+// wizard" phrasing, which read wrongly for a phone-initiated sync.
+func manualSyncReason(actor string) string {
+	return "manual sync by " + actor
+}
 
 // syncResultItem is one member's outcome from a fleet sync action.
 type syncResultItem struct {
@@ -98,6 +103,10 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 	// member imports, event emits and sync stamps half-way, leaving no trace
 	// of the run at all.
 	ctx := context.WithoutCancel(r.Context())
+	// Attribute the run to whoever authenticated it (a paired device or the
+	// dashboard). WithoutCancel keeps the context values, so the device is still
+	// resolvable off ctx. Stamped on each member and carried in the audit event.
+	reason := manualSyncReason(actorFromContext(ctx))
 	primary, primaryToken, err := s.memberTokenOrErr(ctx, req.PrimaryID)
 	if err != nil {
 		writeError(w, err)
@@ -139,11 +148,11 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		// change is snapshotted first (the same recoverability guarantee the
 		// auto-syncer gives), an already-converged member is reported without an
 		// import, and a member whose backup fails is left untouched and reported.
-		if item, proceed := s.prepareMemberSync(ctx, m, token, export); !proceed {
+		if item, proceed := s.prepareMemberSync(ctx, m, token, export, reason); !proceed {
 			results = append(results, *item)
 			continue
 		}
-		results = append(results, s.applyMemberConfig(ctx, m, token, export, wizardSyncReason, true, gen))
+		results = append(results, s.applyMemberConfig(ctx, m, token, export, reason, true, gen))
 	}
 	s.recordFleetSyncRun(ctx, primary, results)
 	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "results": results})
@@ -168,7 +177,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 // dry-run and the real import gets overwritten without the snapshot this gate is
 // meant to guarantee. This mirrors the auto-syncer, which also skips converged
 // members outright.
-func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string, export []byte) (*syncResultItem, bool) {
+func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string, export []byte, reason string) (*syncResultItem, bool) {
 	preview, status, err := s.pushMemberImport(ctx, m, token, export, true, 0) // dry-run: gen unused (no fence header)
 	if err != nil || status != http.StatusOK || !preview.SchemaVersionOK || !preview.MasterKeyOK {
 		return nil, true // unreachable or blocked: let applyMemberConfig report the real cause
@@ -186,6 +195,7 @@ func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string,
 		s.emit(ctx, Event{
 			Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",
 			Message: fmt.Sprintf("Skipped %s: pre-sync backup failed", m.Name), MemberID: m.ID,
+			Metadata: map[string]any{"reason": reason},
 		})
 		return &syncResultItem{MemberID: m.ID, Name: m.Name, Error: "pre-sync backup failed; this member was left unchanged"}, false
 	}
@@ -279,6 +289,9 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 			s.emit(ctx, Event{
 				Type: "config.synced", Severity: "info", Source: "frontdesk",
 				Message: fmt.Sprintf("Config synced to %s", m.Name), MemberID: m.ID,
+				// reason carries who/why (e.g. "manual sync by Pixel (operator)" or
+				// "the primary's config changed"), so the event log attributes the run.
+				Metadata: map[string]any{"reason": reason},
 			})
 		}
 	} else {
@@ -287,6 +300,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		s.emit(ctx, Event{
 			Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",
 			Message: fmt.Sprintf("Failed to sync config to %s", m.Name), MemberID: m.ID,
+			Metadata: map[string]any{"reason": reason},
 		})
 	}
 	return res
