@@ -20,7 +20,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/boombuler/barcode](https://github.com/boombuler/barcode) | v1.0.1-0.20190219062509-6c824513bacc | Go | MIT |
 | [github.com/cenkalti/backoff/v5](https://github.com/cenkalti/backoff/v5) | v5.0.3 | Go | MIT |
 | [github.com/cespare/xxhash/v2](https://github.com/cespare/xxhash/v2) | v2.3.0 | Go | MIT |
-| [github.com/coreos/go-oidc/v3](https://github.com/coreos/go-oidc/v3) | v3.19.0 | Go | Apache-2.0 |
+| [github.com/coreos/go-oidc/v3](https://github.com/coreos/go-oidc/v3) | v3.20.0 | Go | Apache-2.0 |
 | [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.9.2 | Go | MIT |
 | [github.com/go-chi/chi/v5](https://github.com/go-chi/chi/v5) | v5.3.1 | Go | MIT |
 | [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.4 | Go | Apache-2.0 |
@@ -59,12 +59,12 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [go.opentelemetry.io/otel/trace](https://go.opentelemetry.io/otel/trace) | v1.44.0 | Go | Apache-2.0 |
 | [go.opentelemetry.io/proto/otlp](https://go.opentelemetry.io/proto/otlp) | v1.10.0 | Go | Apache-2.0 |
 | [go.yaml.in/yaml/v2](https://go.yaml.in/yaml/v2) | v2.4.4 | Go | Apache-2.0 |
-| [golang.org/x/crypto](https://golang.org/x/crypto) | v0.53.0 | Go | BSD-3-Clause |
-| [golang.org/x/net](https://golang.org/x/net) | v0.55.0 | Go | BSD-3-Clause |
+| [golang.org/x/crypto](https://golang.org/x/crypto) | v0.54.0 | Go | BSD-3-Clause |
+| [golang.org/x/net](https://golang.org/x/net) | v0.56.0 | Go | BSD-3-Clause |
 | [golang.org/x/oauth2](https://golang.org/x/oauth2) | v0.36.0 | Go | BSD-3-Clause |
-| [golang.org/x/sync](https://golang.org/x/sync) | v0.21.0 | Go | BSD-3-Clause |
-| [golang.org/x/sys](https://golang.org/x/sys) | v0.46.0 | Go | BSD-3-Clause |
-| [golang.org/x/text](https://golang.org/x/text) | v0.38.0 | Go | BSD-3-Clause |
+| [golang.org/x/sync](https://golang.org/x/sync) | v0.22.0 | Go | BSD-3-Clause |
+| [golang.org/x/sys](https://golang.org/x/sys) | v0.47.0 | Go | BSD-3-Clause |
+| [golang.org/x/text](https://golang.org/x/text) | v0.40.0 | Go | BSD-3-Clause |
 | [golang.org/x/time](https://golang.org/x/time) | v0.15.0 | Go | BSD-3-Clause |
 | [google.golang.org/genproto/googleapis/api](https://google.golang.org/genproto/googleapis/api) | v0.0.0-20260526163538-3dc84a4a5aaa | Go | Apache-2.0 |
 | [google.golang.org/genproto/googleapis/rpc](https://google.golang.org/genproto/googleapis/rpc) | v0.0.0-20260526163538-3dc84a4a5aaa | Go | Apache-2.0 |
@@ -93,8 +93,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
 | [@tanstack/query-core](https://tanstack.com/query) | 5.101.2 | npm | MIT |
 | [@tanstack/react-query](https://tanstack.com/query) | 5.101.2 | npm | MIT |
-| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.5 | npm | MIT |
-| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.3 | npm | MIT |
+| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.6 | npm | MIT |
+| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.4 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
 | [@types/d3-color](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-color) | 3.1.3 | npm | MIT |
 | [@types/d3-ease](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-ease) | 3.0.2 | npm | MIT |
@@ -174,7 +174,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [html-parse-stringify](https://github.com/henrikjoreteg/html-parse-stringify) | 3.0.1 | npm | MIT |
 | [html-url-attributes](https://github.com/rehypejs/rehype-minify/tree/main#readme) | 3.0.1 | npm | MIT |
 | [html-void-elements](https://github.com/wooorm/html-void-elements#readme) | 3.0.0 | npm | MIT |
-| [i18next](https://www.i18next.com) | 26.3.4 | npm | MIT |
+| [i18next](https://www.i18next.com) | 26.3.6 | npm | MIT |
 | [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.2.1 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.1.11 | npm | MIT |
 | [inline-style-parser](https://github.com/remarkablemark/inline-style-parser#readme) | 0.2.7 | npm | MIT |
@@ -249,9 +249,9 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [property-information](https://github.com/wooorm/property-information#readme) | 7.2.0 | npm | MIT |
 | [qrcode](http://github.com/soldair/node-qrcode) | 1.5.4 | npm | MIT |
 | [react](https://react.dev/) | 19.2.7 | npm | MIT |
-| [react-colorful](https://omgovich.github.io/react-colorful) | 5.7.0 | npm | MIT |
+| [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.0 | npm | MIT |
 | [react-dom](https://react.dev/) | 19.2.7 | npm | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.8 | npm | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.9 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | npm | MIT |
@@ -970,7 +970,7 @@ Apache License
 
 Copyright 2009 The Go Authors.
 
-Applies to: `golang.org/x/crypto@v0.53.0`, `golang.org/x/net@v0.55.0`, `golang.org/x/oauth2@v0.36.0`, `golang.org/x/sync@v0.21.0`, `golang.org/x/sys@v0.46.0`, `golang.org/x/text@v0.38.0`, `golang.org/x/time@v0.15.0`
+Applies to: `golang.org/x/crypto@v0.54.0`, `golang.org/x/net@v0.56.0`, `golang.org/x/oauth2@v0.36.0`, `golang.org/x/sync@v0.22.0`, `golang.org/x/sys@v0.47.0`, `golang.org/x/text@v0.40.0`, `golang.org/x/time@v0.15.0`
 
 ```
 Copyright 2009 The Go Authors.
@@ -1066,7 +1066,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.101.2`, `@tanstack/react-query@5.101.2`, `@tanstack/react-virtual@3.14.5`, `@tanstack/virtual-core@3.17.3`
+Applies to: `@tanstack/query-core@5.101.2`, `@tanstack/react-query@5.101.2`, `@tanstack/react-virtual@3.14.6`, `@tanstack/virtual-core@3.17.4`
 
 ```
 MIT License
@@ -1544,7 +1544,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `github.com/coreos/go-oidc/v3@v3.19.0`
+Applies to: `github.com/coreos/go-oidc/v3@v3.20.0`
 
 ```
 Apache License
@@ -5399,7 +5399,7 @@ THE SOFTWARE.
 
 Copyright (c) 2011-present i18next
 
-Applies to: `i18next@26.3.4`
+Applies to: `i18next@26.3.6`
 
 ```
 The MIT License (MIT)
@@ -5755,7 +5755,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 Copyright (c) 2020-present Vlad Shilov <omgovich@ya.ru>
 
-Applies to: `react-colorful@5.7.0`
+Applies to: `react-colorful@5.8.0`
 
 ```
 MIT License
@@ -5785,7 +5785,7 @@ SOFTWARE.
 
 Copyright (c) 2015-present i18next
 
-Applies to: `react-i18next@17.0.8`
+Applies to: `react-i18next@17.0.9`
 
 ```
 The MIT License (MIT)
