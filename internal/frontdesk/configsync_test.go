@@ -270,10 +270,19 @@ func TestConfigSyncBackupFailureSkipsMember(t *testing.T) {
 		t.Error("the destructive import must be skipped when the backup fails")
 	}
 	evs, _, _ := store.ListEvents(t.Context(), EventFilter{})
+	var failReason any
 	for _, e := range evs {
 		if e.Type == "config.synced" && e.MemberID == rm.ID {
 			t.Error("a member left unchanged must not emit config.synced")
 		}
+		if e.Type == "config.sync_failed" && e.MemberID == rm.ID {
+			failReason = e.Metadata["reason"]
+		}
+	}
+	// The backup-failure skip is attributed like every other sync outcome, so the
+	// log distinguishes who triggered the run that could not back up.
+	if want := manualSyncReason("the dashboard"); failReason != want {
+		t.Errorf("config.sync_failed reason metadata = %v, want %q", failReason, want)
 	}
 }
 

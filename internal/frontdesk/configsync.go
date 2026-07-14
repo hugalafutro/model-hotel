@@ -148,7 +148,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		// change is snapshotted first (the same recoverability guarantee the
 		// auto-syncer gives), an already-converged member is reported without an
 		// import, and a member whose backup fails is left untouched and reported.
-		if item, proceed := s.prepareMemberSync(ctx, m, token, export); !proceed {
+		if item, proceed := s.prepareMemberSync(ctx, m, token, export, reason); !proceed {
 			results = append(results, *item)
 			continue
 		}
@@ -177,7 +177,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 // dry-run and the real import gets overwritten without the snapshot this gate is
 // meant to guarantee. This mirrors the auto-syncer, which also skips converged
 // members outright.
-func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string, export []byte) (*syncResultItem, bool) {
+func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string, export []byte, reason string) (*syncResultItem, bool) {
 	preview, status, err := s.pushMemberImport(ctx, m, token, export, true, 0) // dry-run: gen unused (no fence header)
 	if err != nil || status != http.StatusOK || !preview.SchemaVersionOK || !preview.MasterKeyOK {
 		return nil, true // unreachable or blocked: let applyMemberConfig report the real cause
@@ -195,6 +195,7 @@ func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string,
 		s.emit(ctx, Event{
 			Type: "config.sync_failed", Severity: "warning", Source: "frontdesk",
 			Message: fmt.Sprintf("Skipped %s: pre-sync backup failed", m.Name), MemberID: m.ID,
+			Metadata: map[string]any{"reason": reason},
 		})
 		return &syncResultItem{MemberID: m.ID, Name: m.Name, Error: "pre-sync backup failed; this member was left unchanged"}, false
 	}
