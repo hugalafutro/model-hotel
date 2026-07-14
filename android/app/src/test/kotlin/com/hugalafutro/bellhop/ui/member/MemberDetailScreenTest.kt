@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToNode
 import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FleetMember
@@ -507,6 +508,35 @@ class MemberDetailScreenTest {
             .performScrollToNode(hasTestTag("member-events-range-h24"))
         composeTestRule.onNodeWithTag("member-events-range-h24").performClick()
         assertTrue(picked == EventRange.H24)
+    }
+
+    @Test
+    fun scrollToTopButtonAppearsOnTheMemberListAndReturnsToTop() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic = reachableTraffic,
+                            events =
+                                List(30) {
+                                    FdEvent(id = "e$it", severity = "info", message = "row $it", memberId = "m1")
+                                },
+                            eventsTotal = 30,
+                        ),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("scroll-to-top").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("member-detail-list").performScrollToIndex(25)
+        composeTestRule.onNodeWithTag("scroll-to-top").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("scroll-to-top").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("scroll-to-top").assertDoesNotExist()
     }
 
     @Test

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -40,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,13 +60,17 @@ import com.hugalafutro.bellhop.ui.common.CustomDateRange
 import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.common.EventRangeRow
 import com.hugalafutro.bellhop.ui.common.Pill
+import com.hugalafutro.bellhop.ui.common.ScrollToTopButton
 import com.hugalafutro.bellhop.ui.common.SeverityRailRow
 import com.hugalafutro.bellhop.ui.common.StatusBanner
 import com.hugalafutro.bellhop.ui.common.TrafficChart
 import com.hugalafutro.bellhop.ui.common.healthColor
+import com.hugalafutro.bellhop.ui.common.loadMoreSentinel
+import com.hugalafutro.bellhop.ui.common.relativeAgo
 import com.hugalafutro.bellhop.ui.events.formatEventTime
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
+import java.time.Instant
 
 /**
  * MemberDetailScreen is one member up close — deliberately *not* a repeat of the
@@ -157,107 +163,92 @@ fun MemberDetailScreen(
                 )
             }
 
-            LazyColumn(
-                modifier = Modifier.weight(1f).testTag("member-detail-list"),
-                contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
-            ) {
-                item { TrafficCard(ui = ui, modifier = Modifier.padding(bottom = 20.dp)) }
-                item {
-                    MetaLedger(
-                        member = member,
-                        onOpenUrl = { showUrlDialog = true },
-                        modifier = Modifier.padding(bottom = 20.dp),
-                    )
-                }
-                if (canOperate) {
+            val listState = rememberLazyListState()
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().testTag("member-detail-list"),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp),
+                ) {
+                    item { TrafficCard(ui = ui, modifier = Modifier.padding(bottom = 20.dp)) }
                     item {
-                        OperatorControls(
+                        MetaLedger(
                             member = member,
-                            isPrimary = isPrimary,
-                            action = ui.action,
-                            lastFleetSyncAt = ui.lastFleetSyncAt,
-                            onSetState = onSetState,
-                            onSyncFleet = onSyncFleet,
-                            onDismissActionError = onDismissActionError,
+                            onOpenUrl = { showUrlDialog = true },
                             modifier = Modifier.padding(bottom = 20.dp),
                         )
                     }
-                }
-                item {
-                    SectionHeader(
-                        text = stringResource(R.string.member_detail_events_title),
-                        tag = "member-detail-events-title",
-                        modifier = Modifier.padding(bottom = 6.dp),
-                    )
-                }
-                item {
-                    EventRangeRow(
-                        selected = ui.range,
-                        custom = ui.custom,
-                        onRange = onRange,
-                        onCustomRange = onCustomRange,
-                        tagPrefix = "member-events-range",
-                        modifier = Modifier.padding(bottom = 6.dp),
-                    )
-                }
-                when {
-                    ui.loading && ui.events.isEmpty() ->
+                    if (canOperate) {
                         item {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                CircularProgressIndicator(modifier = Modifier.testTag("member-detail-events-loading"))
-                            }
-                        }
-                    ui.events.isEmpty() ->
-                        item {
-                            Text(
-                                text = stringResource(R.string.member_detail_no_events),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.testTag("member-detail-no-events"),
-                            )
-                        }
-                    else ->
-                        itemsIndexed(ui.events) { index, event ->
-                            MemberEventRow(event = event)
-                            if (index < ui.events.lastIndex) {
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            }
-                        }
-                }
-                if (ui.loadingMore) {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator(
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(20.dp).testTag("member-events-loading-more"),
+                            OperatorControls(
+                                member = member,
+                                isPrimary = isPrimary,
+                                action = ui.action,
+                                lastFleetSyncAt = ui.lastFleetSyncAt,
+                                onSetState = onSetState,
+                                onSyncFleet = onSyncFleet,
+                                onDismissActionError = onDismissActionError,
+                                modifier = Modifier.padding(bottom = 20.dp),
                             )
                         }
                     }
-                } else if (ui.canLoadMore) {
-                    // Infinite scroll: lazy items only compose near the
-                    // viewport, so this sentinel composing at all means the
-                    // user bottomed out — ask for the next page. The key
-                    // changes with the window size, so a fresh sentinel arms
-                    // after each page (and a short first page auto-fills the
-                    // screen). The VM still no-ops when nothing more exists.
-                    // The 1dp spacer gives it a semantics node (tests scroll
-                    // to it); visually it's nothing.
-                    item(key = "member-events-load-more-${ui.events.size}") {
-                        LaunchedEffect(Unit) { onLoadMoreEvents() }
-                        Spacer(
-                            modifier =
-                                Modifier
-                                    .height(1.dp)
-                                    .testTag("member-events-load-more-sentinel"),
+                    item {
+                        SectionHeader(
+                            text = stringResource(R.string.member_detail_events_title),
+                            tag = "member-detail-events-title",
+                            modifier = Modifier.padding(bottom = 6.dp),
                         )
                     }
+                    item {
+                        EventRangeRow(
+                            selected = ui.range,
+                            custom = ui.custom,
+                            onRange = onRange,
+                            onCustomRange = onCustomRange,
+                            tagPrefix = "member-events-range",
+                            modifier = Modifier.padding(bottom = 6.dp),
+                        )
+                    }
+                    when {
+                        ui.loading && ui.events.isEmpty() ->
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.testTag("member-detail-events-loading"),
+                                    )
+                                }
+                            }
+                        ui.events.isEmpty() ->
+                            item {
+                                Text(
+                                    text = stringResource(R.string.member_detail_no_events),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.testTag("member-detail-no-events"),
+                                )
+                            }
+                        else ->
+                            itemsIndexed(ui.events) { index, event ->
+                                MemberEventRow(event = event)
+                                if (index < ui.events.lastIndex) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                }
+                            }
+                    }
+                    // Infinite scroll via the shared sentinel (also used by the events log).
+                    loadMoreSentinel(
+                        canLoadMore = ui.canLoadMore,
+                        loadingMore = ui.loadingMore,
+                        itemCount = ui.events.size,
+                        onLoadMore = onLoadMoreEvents,
+                        loadingTag = "member-events-loading-more",
+                        sentinelTag = "member-events-load-more-sentinel",
+                    )
                 }
+                ScrollToTopButton(listState = listState)
             }
         }
     }
@@ -328,6 +319,8 @@ private fun MetaLedger(
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_synced),
                 value = formatEventTime(member.lastConfigSyncAt),
+                trailing = ageParenthetical(member.lastConfigSyncAt),
+                trailingColor = syncAgeColorFor(member.lastConfigSyncAt),
                 tag = "member-detail-synced",
             )
             if (member.lastConfigSyncReason.isNotBlank()) {
@@ -344,6 +337,7 @@ private fun MetaLedger(
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_verified),
                 value = formatEventTime(member.status.autoSyncVerifiedAt),
+                trailing = ageParenthetical(member.status.autoSyncVerifiedAt),
                 tag = "member-detail-verified",
             )
         }
@@ -351,6 +345,7 @@ private fun MetaLedger(
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_added),
                 value = formatEventTime(member.createdAt),
+                trailing = ageParenthetical(member.createdAt),
                 tag = "member-detail-created",
             )
         }
@@ -370,6 +365,12 @@ private fun LedgerRow(
     valueColor: Color = MaterialTheme.colorScheme.onSurface,
     tag: String? = null,
     onClick: (() -> Unit)? = null,
+    // Right-aligned relative-age suffix (e.g. "(3 days ago)") for the date rows;
+    // null omits it. The value keeps the left, weight(1f) pushes this to the right
+    // edge, so the suffixes line up in their own column. [trailingColor] tints it —
+    // the SYNCED row grades it by staleness, the others use the muted default.
+    trailing: String? = null,
+    trailingColor: Color? = null,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -392,6 +393,70 @@ private fun LedgerRow(
             color = valueColor,
             modifier = Modifier.weight(1f),
         )
+        trailing?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = trailingColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+// Age-suffix colour stops: warm from the normal text colour through amber to
+// orange as a sync ages toward a week, then red once it is a week or more stale.
+private val SyncAgeYellow = Color(0xFFFBC02D)
+private val SyncAgeOrange = Color(0xFFF57C00)
+private val SyncAgeRed = Color(0xFFC62828)
+
+// ageParenthetical is the right-aligned relative-age suffix a date row shows,
+// e.g. "(3 days ago)", or null when the timestamp can't be parsed (the row then
+// just shows the date). Shared by the SYNCED, VERIFIED and ADDED rows.
+private fun ageParenthetical(
+    timestamp: String,
+    now: Long = System.currentTimeMillis(),
+): String? {
+    val ts =
+        try {
+            Instant.parse(timestamp).toEpochMilli()
+        } catch (e: Exception) {
+            return null
+        }
+    return "(" + relativeAgo((now - ts).coerceAtLeast(0L)) + ")"
+}
+
+// syncAgeColorFor grades the SYNCED row's age suffix by staleness (see
+// [syncAgeColor]); the other date rows leave [trailingColor] null (muted default).
+// Falls back to the muted colour on an unparseable stamp, though the suffix is
+// then absent anyway.
+@Composable
+private fun syncAgeColorFor(
+    timestamp: String,
+    now: Long = System.currentTimeMillis(),
+): Color {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val ts =
+        try {
+            Instant.parse(timestamp).toEpochMilli()
+        } catch (e: Exception) {
+            return muted
+        }
+    return syncAgeColor((now - ts).coerceAtLeast(0L), MaterialTheme.colorScheme.onSurface)
+}
+
+// syncAgeColor grades the age suffix from [base] (fresh) through amber to orange
+// as it nears a week, then red at a week or older.
+internal fun syncAgeColor(
+    elapsedMs: Long,
+    base: Color,
+): Color {
+    val days = elapsedMs / 86_400_000.0
+    if (days >= 7.0) return SyncAgeRed
+    val f = (days / 7.0).coerceIn(0.0, 1.0).toFloat()
+    return if (f < 0.5f) {
+        lerp(base, SyncAgeYellow, f / 0.5f)
+    } else {
+        lerp(SyncAgeYellow, SyncAgeOrange, (f - 0.5f) / 0.5f)
     }
 }
 

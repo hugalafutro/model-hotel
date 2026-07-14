@@ -61,4 +61,19 @@ class LinkStoreTest {
             assertEquals(LinkState.Unlinked, store.state.first())
             assertNull(store.token())
         }
+
+    @Test
+    fun saveStampsLinkedAt() =
+        runBlocking {
+            val store = newStore()
+            store.save(
+                fdUrl = "http://10.0.2.2:8080",
+                fdName = "Home Front Desk",
+                token = "device-token",
+                device = PairedDevice(id = "dev-1", label = "Pixel 8", role = "operator"),
+                now = 1_700_000_000_000L,
+            )
+            val state = store.state.first() as LinkState.Linked
+            assertEquals(1_700_000_000_000L, state.linkedAt)
+        }
 }

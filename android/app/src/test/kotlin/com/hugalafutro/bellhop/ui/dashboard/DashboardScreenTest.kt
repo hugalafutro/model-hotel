@@ -3,18 +3,23 @@ package com.hugalafutro.bellhop.ui.dashboard
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.shadows.ShadowToast
 
 /**
  * Linked-state dashboard, post toolbar-trim: the title plus the events and
@@ -99,6 +104,77 @@ class DashboardScreenTest {
         composeTestRule.onNodeWithTag("dashboard-alerts").assertIsDisplayed()
         composeTestRule.onNodeWithTag("dashboard-alerts").performClick()
         assertTrue(opened == 1)
+    }
+
+    @Test
+    fun recentEventPillShowsAndOpensMember() {
+        var opened = ""
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui =
+                        DashboardUiState(
+                            loading = false,
+                            members = allUp,
+                            recentEvents =
+                                mapOf("m1" to FdEvent(id = "e1", severity = "error", message = "health check failed")),
+                        ),
+                    onMemberClick = { opened = it },
+                )
+            }
+        }
+        val pill = composeTestRule.onNodeWithTag("member-recent-event-alpha")
+        pill.assertIsDisplayed()
+        pill.performClick()
+        assertEquals("m1", opened)
+    }
+
+    @Test
+    fun footerOpensGithubBehindConfirm() {
+        // One member: the list doesn't scroll, so the footer is pinned to the
+        // bottom of the screen (not a list item) and is reachable without scrolling.
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(link = link, ui = DashboardUiState(loading = false, members = allUp))
+            }
+        }
+        composeTestRule.onNodeWithTag("dashboard-footer").performClick()
+        // The confirm-before-leaving dialog appears (its URL text carries this tag).
+        composeTestRule.onNodeWithTag("member-url-dialog-text").assertIsDisplayed()
+    }
+
+    @Test
+    fun holdToCopyLongPressCopiesMember() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui = DashboardUiState(loading = false, members = allUp),
+                    holdToCopy = true,
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("member-card-alpha").performTouchInput { longClick() }
+        composeTestRule.waitForIdle()
+        assertEquals(1, ShadowToast.shownToastCount())
+    }
+
+    @Test
+    fun memberTapStillOpensMemberUnderHoldToCopy() {
+        var opened = ""
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui = DashboardUiState(loading = false, members = allUp),
+                    holdToCopy = true,
+                    onMemberClick = { opened = it },
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("member-card-alpha").performClick()
+        assertEquals("m1", opened)
     }
 
     @Test

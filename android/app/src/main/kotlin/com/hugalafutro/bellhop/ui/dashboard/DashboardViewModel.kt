@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.hugalafutro.bellhop.data.ActionResult
+import com.hugalafutro.bellhop.data.EventQuery
+import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.FrontDeskClient
@@ -41,6 +43,10 @@ data class DashboardUiState(
     // [DashboardViewModel.setVisibleMembers]). A member absent from the map just
     // renders without a sparkline yet.
     val traffic: Map<String, MemberTraffic> = emptyMap(),
+    // Each member's single most recent event, keyed by member id, for the card's
+    // recent-event pill. Built from one member_id-filtered GET /api/events read per
+    // member per refresh; a member with no events is simply absent from the map.
+    val recentEvents: Map<String, FdEvent> = emptyMap(),
     val error: String? = null,
     val revoked: Boolean = false,
     // Pause/resume operator action state (same shape as the member-detail card).
@@ -277,6 +283,21 @@ class DashboardViewModel(
             is FetchResult.Success -> {
                 val autoSync = client.autoSync(fdUrl, token) as? FetchResult.Success
                 val liveIds = result.data.mapTo(HashSet()) { it.id }
+                // Each card's pill shows that member's newest event, exactly what the
+                // member-detail log's first row shows: one member_id-filtered read per
+                // member (limit 1). This works uniformly for the primary too (its
+                // events are just older than the fleet-wide feed's top, so a single
+                // unfiltered read would miss them). Read sequentially — a fleet is a
+                // handful of members and it keeps refreshOnce a simple linear path. A
+                // member whose read fails or has no events keeps its previous pill via
+                // the merge below rather than blanking.
+                val recentMap =
+                    buildMap {
+                        for (m in result.data) {
+                            val res = client.events(fdUrl, token, EventQuery(memberId = m.id, limit = 1))
+                            (res as? FetchResult.Success)?.data?.events?.firstOrNull()?.let { put(m.id, it) }
+                        }
+                    }
                 _state.update {
                     val pending = it.autoSync.pendingEnabled
                     // When the auto-sync read fails but the rest of the refresh
@@ -292,6 +313,10 @@ class DashboardViewModel(
                         // Drop cached traffic for members that left the fleet so
                         // the map can't grow without bound as members churn.
                         traffic = it.traffic.filterKeys { id -> id in liveIds },
+                        // Churn-drop departed members, then overlay this refresh's
+                        // fresh pills; members whose per-member read failed keep their
+                        // prior entry (they're simply absent from recentMap).
+                        recentEvents = it.recentEvents.filterKeys { id -> id in liveIds } + recentMap,
                         error = null,
                         revoked = false,
                         // Reconcile the pause/resume control: drop the optimistic hint

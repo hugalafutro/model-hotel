@@ -22,5 +22,8 @@ sealed interface LinkState {
         val role: String,
         val deviceId: String,
         val label: String,
+        // Epoch millis of when this link was paired, for display only. 0 means
+        // unknown (links saved before this field existed carry no stamp).
+        val linkedAt: Long = 0L,
     ) : LinkState
 }

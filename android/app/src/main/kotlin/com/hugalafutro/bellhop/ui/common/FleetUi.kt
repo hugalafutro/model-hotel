@@ -100,6 +100,11 @@ internal fun FilterPill(
     onClick: () -> Unit,
     tag: String,
     modifier: Modifier = Modifier,
+    // Unselected border colour. Defaults to `outline`, which reads fine on the
+    // base surface (events/dashboard filter rows). Callers that sit these pills
+    // inside a Card pass `onSurfaceVariant` instead, since `outline` is close
+    // enough to the card's tonal fill to nearly vanish against it.
+    borderColor: Color = MaterialTheme.colorScheme.outline,
 ) {
     // Selected fills with the brass accent; unselected is an outlined toggle
     // (transparent with a hairline border) rather than a grey fill, so the set
@@ -114,7 +119,7 @@ internal fun FilterPill(
         color = container,
         contentColor = content,
         shape = RoundedCornerShape(999.dp),
-        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        border = if (selected) null else BorderStroke(1.dp, borderColor),
         modifier = modifier.testTag(tag),
     ) {
         Text(
