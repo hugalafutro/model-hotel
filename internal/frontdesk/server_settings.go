@@ -154,22 +154,24 @@ func (s *Server) autoSyncStatusNow(ctx context.Context) (autoSyncStatus, error) 
 	if err != nil {
 		return autoSyncStatus{}, err
 	}
-	members, err := s.store.ListMembers(ctx)
-	if err != nil {
-		return autoSyncStatus{}, err
-	}
-	var lastSync time.Time
-	for _, m := range members {
-		if m.LastConfigSyncAt != nil && m.LastConfigSyncAt.After(lastSync) {
-			lastSync = *m.LastConfigSyncAt
-		}
-	}
 	status := autoSyncStatus{
 		AutoSyncConfig: cfg,
 		Stale:          autoSyncStale(cfg, state.LastRunAt, found, time.Now().UTC()),
 	}
-	if !lastSync.IsZero() {
-		status.LastSyncAt = lastSync.UTC().Format(time.RFC3339Nano)
+	// last_sync_at is best-effort garnish: the max of members' real-write
+	// stamps. A failed members read must not fail the status itself, or the
+	// PUT /api/fleet/autosync response would report a failure for a toggle that
+	// already persisted. Degrade to an empty stamp instead.
+	if members, err := s.store.ListMembers(ctx); err == nil {
+		var lastSync time.Time
+		for _, m := range members {
+			if m.LastConfigSyncAt != nil && m.LastConfigSyncAt.After(lastSync) {
+				lastSync = *m.LastConfigSyncAt
+			}
+		}
+		if !lastSync.IsZero() {
+			status.LastSyncAt = lastSync.UTC().Format(time.RFC3339Nano)
+		}
 	}
 	return status, nil
 }
