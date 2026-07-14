@@ -133,6 +133,13 @@ func (s *Server) resolveAlertTarget(ctx context.Context, submitted string) (stri
 type autoSyncStatus struct {
 	AutoSyncConfig
 	Stale bool `json:"stale"`
+	// LastSyncAt is when any member's config was last actually written by a
+	// sync (manual wizard run or the automatic loop): the max of the members'
+	// last_config_sync_at stamps, which only move on a real write. Empty when
+	// no sync has ever changed a member. Bellhop shows this under its
+	// "Sync fleet from primary" action so the operator sees when the fleet
+	// truly last synced, not when a button was last pressed.
+	LastSyncAt string `json:"last_sync_at,omitempty"`
 }
 
 // autoSyncStatusNow reads the auto-sync config and last-sync marker and folds in
@@ -147,10 +154,26 @@ func (s *Server) autoSyncStatusNow(ctx context.Context) (autoSyncStatus, error) 
 	if err != nil {
 		return autoSyncStatus{}, err
 	}
-	return autoSyncStatus{
+	status := autoSyncStatus{
 		AutoSyncConfig: cfg,
 		Stale:          autoSyncStale(cfg, state.LastRunAt, found, time.Now().UTC()),
-	}, nil
+	}
+	// last_sync_at is best-effort garnish: the max of members' real-write
+	// stamps. A failed members read must not fail the status itself, or the
+	// PUT /api/fleet/autosync response would report a failure for a toggle that
+	// already persisted. Degrade to an empty stamp instead.
+	if members, err := s.store.ListMembers(ctx); err == nil {
+		var lastSync time.Time
+		for _, m := range members {
+			if m.LastConfigSyncAt != nil && m.LastConfigSyncAt.After(lastSync) {
+				lastSync = *m.LastConfigSyncAt
+			}
+		}
+		if !lastSync.IsZero() {
+			status.LastSyncAt = lastSync.UTC().Format(time.RFC3339Nano)
+		}
+	}
+	return status, nil
 }
 
 func (s *Server) getAutoSync(w http.ResponseWriter, r *http.Request) {
