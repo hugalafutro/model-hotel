@@ -51,6 +51,7 @@ private class FakeTrafficClient(
         ),
 ) : FrontDeskClient() {
     val trafficCalls = AtomicInteger(0)
+    val eventsCalls = AtomicInteger(0)
     var lastToken: String? = null
     var lastMemberId: String? = null
     var lastEventQuery: EventQuery? = null
@@ -83,6 +84,7 @@ private class FakeTrafficClient(
         token: String,
         query: EventQuery,
     ): FetchResult<EventsResponse> {
+        eventsCalls.incrementAndGet()
         lastEventQuery = query
         return eventsResult
     }
@@ -258,6 +260,35 @@ class MemberDetailViewModelTest {
             assertEquals(30, s.events.size)
             assertFalse(s.loadingMore)
             assertFalse(s.canLoadMore)
+        }
+
+    @Test
+    fun loadMoreBacksOffAfterFailureInsteadOfHammering() =
+        runBlocking {
+            val page = (1..25).map { FdEvent(id = "e$it", severity = "info", message = "m", memberId = "m1") }
+            val client =
+                FakeTrafficClient(
+                    FetchResult.Success(traffic),
+                    eventsResult = FetchResult.Success(EventsResponse(events = page, total = 100)),
+                )
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+            vm.refreshOnce()
+            assertTrue(vm.state.value.canLoadMore)
+            val callsBeforeFailure = client.eventsCalls.get()
+
+            // First page fails: the first attempt has no backoff, so it hits the
+            // client once and surfaces the error while the window stays growable.
+            client.eventsResult = FetchResult.Failure("boom")
+            vm.loadMore()
+            assertEquals("boom", vm.state.value.error)
+            assertTrue(vm.state.value.canLoadMore)
+            assertEquals(callsBeforeFailure + 1, client.eventsCalls.get())
+
+            // The scroll sentinel re-fires loadMore the instant loadingMore
+            // clears; the backoff must park the retry on its delay rather than
+            // hammering the client a second time in the same tick.
+            vm.loadMore()
+            assertEquals(callsBeforeFailure + 1, client.eventsCalls.get())
         }
 
     @Test

@@ -12,6 +12,7 @@ import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.ui.common.CustomDateRange
 import com.hugalafutro.bellhop.ui.common.EventRange
+import com.hugalafutro.bellhop.ui.common.loadMoreBackoffMillis
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -117,6 +118,10 @@ class MemberDetailViewModel(
     // Serializes the poll refresh, filter-change reloads and loadMore so two
     // window fetches can't interleave and fold out of order.
     private val fetchMutex = Mutex()
+
+    // Consecutive loadMore failures, driving the infinite-scroll retry backoff
+    // ([loadMoreBackoffMillis]); reset to 0 on the first successful page.
+    private var loadMoreFailures = 0
 
     init {
         viewModelScope.launch {
@@ -237,10 +242,20 @@ class MemberDetailViewModel(
                 _state.update { it.copy(loadingMore = false, revoked = true) }
                 return@launch
             }
+            // Back off before retrying a failed page: the scroll sentinel
+            // re-arms the instant loadingMore clears, so a persistent error
+            // would otherwise hammer Front Desk. Delay outside the lock so the
+            // poll refresh isn't stalled behind the backoff.
+            if (loadMoreFailures > 0) delay(loadMoreBackoffMillis(loadMoreFailures))
             fetchMutex.withLock {
                 val before = _state.value
                 val limit = (before.events.size + EVENTS_PAGE).coerceAtMost(MAX_EVENTS_WINDOW)
                 val result = client.events(fdUrl, token, eventsQuery(before, limit))
+                when (result) {
+                    is FetchResult.Success -> loadMoreFailures = 0
+                    is FetchResult.Failure -> loadMoreFailures++
+                    FetchResult.Unauthorized -> Unit
+                }
                 _state.update { st ->
                     if (st.range != before.range || st.custom != before.custom) {
                         return@update st.copy(loadingMore = false)

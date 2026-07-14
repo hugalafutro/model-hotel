@@ -13,6 +13,7 @@ import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.TrafficPoint
+import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -489,7 +490,7 @@ class MemberDetailScreenTest {
 
     @Test
     fun rangePillsRenderAndFireCallback() {
-        var picked: com.hugalafutro.bellhop.ui.common.EventRange? = null
+        var picked: EventRange? = null
         composeTestRule.setContent {
             BellhopTheme {
                 MemberDetailScreen(
@@ -505,7 +506,7 @@ class MemberDetailScreenTest {
             .onNodeWithTag("member-detail-list")
             .performScrollToNode(hasTestTag("member-events-range-h24"))
         composeTestRule.onNodeWithTag("member-events-range-h24").performClick()
-        assertTrue(picked == com.hugalafutro.bellhop.ui.common.EventRange.H24)
+        assertTrue(picked == EventRange.H24)
     }
 
     @Test

@@ -11,6 +11,7 @@ import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.ui.common.CustomDateRange
 import com.hugalafutro.bellhop.ui.common.EventRange
+import com.hugalafutro.bellhop.ui.common.loadMoreBackoffMillis
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -87,6 +88,10 @@ class EventsViewModel(
     // window size before a concurrent append landed would reload too few rows
     // and truncate the list the user just paged in.
     private val fetchMutex = Mutex()
+
+    // Consecutive loadMore failures, driving the infinite-scroll retry backoff
+    // ([loadMoreBackoffMillis]); reset to 0 on the first successful page.
+    private var loadMoreFailures = 0
 
     init {
         viewModelScope.launch {
@@ -174,7 +179,12 @@ class EventsViewModel(
             }
         }
 
-    private suspend fun loadMoreOnce() =
+    private suspend fun loadMoreOnce() {
+        // Back off before retrying a failed page: the scroll sentinel re-arms
+        // the instant loadingMore clears, so a persistent error would otherwise
+        // hammer Front Desk. Delay outside the lock so the poll refresh isn't
+        // stalled behind the backoff.
+        if (loadMoreFailures > 0) delay(loadMoreBackoffMillis(loadMoreFailures))
         fetchMutex.withLock {
             val before = _state.value
             // Grow the window by a page and reload it from the top rather than
@@ -183,15 +193,22 @@ class EventsViewModel(
             // fetch would skip the row that slid past the old boundary. Reading
             // the whole window from offset 0 is drift-proof (and dedup-free).
             val limit = (before.events.size + PAGE_SIZE).coerceAtMost(MAX_WINDOW)
-            fetch(before, query(before, limit = limit, offset = 0)) { st, resp ->
-                st.copy(
-                    events = resp.events.orEmpty(),
-                    total = resp.total,
-                    error = null,
-                    revoked = false,
-                )
+            val result =
+                fetch(before, query(before, limit = limit, offset = 0)) { st, resp ->
+                    st.copy(
+                        events = resp.events.orEmpty(),
+                        total = resp.total,
+                        error = null,
+                        revoked = false,
+                    )
+                }
+            when (result) {
+                is FetchResult.Success -> loadMoreFailures = 0
+                is FetchResult.Failure -> loadMoreFailures++
+                FetchResult.Unauthorized -> Unit
             }
         }
+    }
 
     // fetch runs one events call and folds a success into the state via
     // [onSuccess] — unless the filters changed while it was in flight, in
@@ -202,14 +219,14 @@ class EventsViewModel(
         before: EventsUiState,
         query: EventQuery,
         onSuccess: (EventsUiState, EventsResponse) -> EventsUiState,
-    ) {
+    ): FetchResult<EventsResponse> {
         val token = linkStore.token()
         if (token == null) {
             // Still linked but the token can't be read back (e.g. the Keystore
             // key is gone): no request can ever succeed, same operator remedy
             // as a remote revoke, so surface it through the same flag.
             _state.update { it.copy(loading = false, loadingMore = false, revoked = true) }
-            return
+            return FetchResult.Unauthorized
         }
         val result = client.events(fdUrl, token, query)
         _state.update { st ->
@@ -224,6 +241,7 @@ class EventsViewModel(
                     st.copy(loading = false, loadingMore = false, error = result.message)
             }
         }
+        return result
     }
 
     private fun query(

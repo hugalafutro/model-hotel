@@ -54,7 +54,8 @@ enum class EventRange(val ms: Long) {
 /**
  * CustomDateRange is an absolute calendar range from the date picker: UTC
  * midnights of the first and last selected day. [untilRfc3339] extends past the
- * end day so it stays inclusive against the server's exclusive upper bound.
+ * end day's midnight so the whole final day is covered by the server's
+ * inclusive (created_at <= ?) upper bound.
  */
 data class CustomDateRange(
     val startMs: Long,

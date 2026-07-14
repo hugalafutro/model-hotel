@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -222,9 +222,11 @@ fun MemberDetailScreen(
                             )
                         }
                     else ->
-                        items(ui.events) { event ->
+                        itemsIndexed(ui.events) { index, event ->
                             MemberEventRow(event = event)
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            if (index < ui.events.lastIndex) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            }
                         }
                 }
                 if (ui.loadingMore) {
