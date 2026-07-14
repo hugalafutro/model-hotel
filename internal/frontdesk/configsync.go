@@ -92,18 +92,24 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	primary, primaryToken, err := s.memberTokenOrErr(r.Context(), req.PrimaryID)
+	// Once the sync is requested it runs to completion detached from the
+	// client's connection: a caller with a short HTTP timeout (Bellhop, a
+	// proxy) hanging up would otherwise cancel r.Context() mid-run and abort
+	// member imports, event emits and sync stamps half-way, leaving no trace
+	// of the run at all.
+	ctx := context.WithoutCancel(r.Context())
+	primary, primaryToken, err := s.memberTokenOrErr(ctx, req.PrimaryID)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	export, err := s.fetchMemberExport(r.Context(), primary, primaryToken)
+	export, err := s.fetchMemberExport(ctx, primary, primaryToken)
 	if err != nil {
 		http.Error(w, "could not read the primary's config", http.StatusBadGateway)
 		return
 	}
 
-	members, err := s.store.ListMembers(r.Context())
+	members, err := s.store.ListMembers(ctx)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -114,7 +120,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 	// ran the wizard cannot regress a member to the older config afterwards. The
 	// generation only increases on a rearm, so it is never older than one a prior
 	// auto-sync applied, and an equal generation still applies (not refused).
-	gen, err := s.store.AutoSyncGen(r.Context())
+	gen, err := s.store.AutoSyncGen(ctx)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -125,7 +131,7 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		if m.ID == primary.ID || !m.HasToken {
 			continue // the source, and token-less members (flagged in preview), are skipped
 		}
-		token, ok, err := s.store.MemberToken(r.Context(), m.ID)
+		token, ok, err := s.store.MemberToken(ctx, m.ID)
 		if err != nil || !ok {
 			continue
 		}
@@ -133,13 +139,13 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		// change is snapshotted first (the same recoverability guarantee the
 		// auto-syncer gives), an already-converged member is reported without an
 		// import, and a member whose backup fails is left untouched and reported.
-		if item, proceed := s.prepareMemberSync(r.Context(), m, token, export); !proceed {
+		if item, proceed := s.prepareMemberSync(ctx, m, token, export); !proceed {
 			results = append(results, *item)
 			continue
 		}
-		results = append(results, s.applyMemberConfig(r.Context(), m, token, export, wizardSyncReason, true, gen))
+		results = append(results, s.applyMemberConfig(ctx, m, token, export, wizardSyncReason, true, gen))
 	}
-	s.recordFleetSyncRun(r.Context(), primary, results)
+	s.recordFleetSyncRun(ctx, primary, results)
 	writeJSON(w, http.StatusOK, map[string]any{"primary_id": primary.ID, "results": results})
 }
 

@@ -133,6 +133,13 @@ func (s *Server) resolveAlertTarget(ctx context.Context, submitted string) (stri
 type autoSyncStatus struct {
 	AutoSyncConfig
 	Stale bool `json:"stale"`
+	// LastSyncAt is when any member's config was last actually written by a
+	// sync (manual wizard run or the automatic loop): the max of the members'
+	// last_config_sync_at stamps, which only move on a real write. Empty when
+	// no sync has ever changed a member. Bellhop shows this under its
+	// "Sync fleet from primary" action so the operator sees when the fleet
+	// truly last synced, not when a button was last pressed.
+	LastSyncAt string `json:"last_sync_at,omitempty"`
 }
 
 // autoSyncStatusNow reads the auto-sync config and last-sync marker and folds in
@@ -147,10 +154,24 @@ func (s *Server) autoSyncStatusNow(ctx context.Context) (autoSyncStatus, error) 
 	if err != nil {
 		return autoSyncStatus{}, err
 	}
-	return autoSyncStatus{
+	members, err := s.store.ListMembers(ctx)
+	if err != nil {
+		return autoSyncStatus{}, err
+	}
+	var lastSync time.Time
+	for _, m := range members {
+		if m.LastConfigSyncAt != nil && m.LastConfigSyncAt.After(lastSync) {
+			lastSync = *m.LastConfigSyncAt
+		}
+	}
+	status := autoSyncStatus{
 		AutoSyncConfig: cfg,
 		Stale:          autoSyncStale(cfg, state.LastRunAt, found, time.Now().UTC()),
-	}, nil
+	}
+	if !lastSync.IsZero() {
+		status.LastSyncAt = lastSync.UTC().Format(time.RFC3339Nano)
+	}
+	return status, nil
 }
 
 func (s *Server) getAutoSync(w http.ResponseWriter, r *http.Request) {
