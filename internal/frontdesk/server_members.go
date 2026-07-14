@@ -270,7 +270,7 @@ func (s *Server) setMemberState(w http.ResponseWriter, r *http.Request) {
 	s.emit(r.Context(), Event{
 		Type: "member.state_changed", Severity: severity, Source: "frontdesk",
 		Message: m.Name + " set to " + string(req.State), MemberID: m.ID,
-		Metadata: map[string]any{"state": string(req.State)},
+		Metadata: map[string]any{"state": string(req.State), "initiated_by": actorFromContext(r.Context())},
 	})
 	writeJSON(w, http.StatusOK, m)
 }

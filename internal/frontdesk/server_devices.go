@@ -159,6 +159,24 @@ func deviceFromContext(ctx context.Context) *PairedDevice {
 	return d
 }
 
+// actorFromContext names who initiated a control-plane mutation, for the audit
+// event log. A device token resolves to its pairing label and role (e.g.
+// "Pixel (operator)"); an admin token or dashboard session carries no device
+// and is recorded as "the dashboard". Kept human-readable because it is
+// surfaced verbatim in event metadata and the member sync-reason stamp, never
+// parsed. A blank label (shouldn't happen — pairing requires one) degrades to a
+// generic phrase rather than an empty parenthetical.
+func actorFromContext(ctx context.Context) string {
+	d := deviceFromContext(ctx)
+	if d == nil {
+		return "the dashboard"
+	}
+	if d.Label == "" {
+		return fmt.Sprintf("a paired device (%s)", d.Role)
+	}
+	return fmt.Sprintf("%s (%s)", d.Label, d.Role)
+}
+
 // requireAuth gates control-plane endpoints. The bearer is accepted when it is
 // (in order) a valid, unrevoked device token (role ceiling applied downstream
 // by requireOperator/requireAdmin), the raw FRONTDESK_TOKEN, or a
