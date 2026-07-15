@@ -54,6 +54,9 @@ func TestStoreMethodsErrorWhenDBClosed(t *testing.T) {
 	if _, _, err := s.ListEvents(ctx, EventFilter{Limit: 10}); err == nil {
 		t.Error("ListEvents: want error")
 	}
+	if _, err := s.NewestEventPerMember(ctx); err == nil {
+		t.Error("NewestEventPerMember: want error")
+	}
 	if _, err := s.PruneEvents(ctx, 30); err == nil {
 		t.Error("PruneEvents: want error")
 	}
