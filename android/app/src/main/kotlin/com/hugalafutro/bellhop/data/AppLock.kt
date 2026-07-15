@@ -47,3 +47,14 @@ fun shouldLock(
     lastForegroundExit: Long,
     now: Long,
 ): Boolean = config.enabled && now - lastForegroundExit > config.timeoutMs
+
+// shouldLockOnEntry is the gate when Bellhop is (re)entered and evaluates the lock.
+// A cold start (a fresh process, e.g. after a force-kill) always re-locks when the
+// lock is enabled: restarting the app must require re-auth, not silently reuse a
+// still-open session. Otherwise it falls back to the idle-window rule [shouldLock].
+fun shouldLockOnEntry(
+    config: LockConfig,
+    lastForegroundExit: Long,
+    now: Long,
+    coldStart: Boolean,
+): Boolean = config.enabled && (coldStart || shouldLock(config, lastForegroundExit, now))
