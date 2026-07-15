@@ -42,7 +42,7 @@
     <string name="member_detail_label_address">Address</string>
     <string name="member_detail_label_synced">Synced</string>
     <string name="member_detail_label_reason">Reason</string>
-    <string name="member_detail_label_verified">In sync</string>
+    <string name="member_detail_label_verified">Verified</string>
     <string name="member_detail_label_added">Added</string>
     <string name="member_url_title">Open member address</string>
     <string name="member_url_open">Open</string>
