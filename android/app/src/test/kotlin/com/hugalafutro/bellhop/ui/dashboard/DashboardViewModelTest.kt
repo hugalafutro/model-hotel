@@ -17,6 +17,7 @@ import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.PairedDevice
 import com.hugalafutro.bellhop.data.SseMessage
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
@@ -120,6 +121,10 @@ private class FakeFleetClient(
     @Volatile
     var lastTrafficWindow: Int = -1
 
+    // When set, the initial (default-window) traffic fetch parks here so a test can
+    // hold it "in flight" while it changes the range.
+    var firstTrafficGate: CompletableDeferred<Unit>? = null
+
     override suspend fun memberTraffic(
         fdUrl: String,
         token: String,
@@ -128,6 +133,7 @@ private class FakeFleetClient(
     ): FetchResult<MemberTraffic> {
         lastTrafficWindow = windowMinutes
         trafficFetched.add(memberId)
+        if (windowMinutes == 60) firstTrafficGate?.await()
         return trafficResults[memberId] ?: FetchResult.Failure("no traffic for $memberId")
     }
 
@@ -417,6 +423,32 @@ class DashboardViewModelTest {
             assertEquals(60, client.lastTrafficWindow)
 
             // Changing the range force-refetches the visible sparklines at the new span.
+            vm.setGraphRange(360)
+            withTimeout(5_000) { while (client.lastTrafficWindow != 360) delay(20) }
+            assertEquals(360, client.lastTrafficWindow)
+            job.cancel()
+        }
+
+    @Test
+    fun rangeChangeMidFetchRefetchesInsteadOfLeavingStale() =
+        runBlocking {
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.trafficResults =
+                mapOf("m1" to FetchResult.Success(MemberTraffic(memberId = "m1", reachable = true)))
+            // Park the initial default-window fetch so it stays in flight.
+            client.firstTrafficGate = CompletableDeferred()
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val job = launch { vm.state.collect {} }
+            withTimeout(5_000) { vm.state.first { it.members.size == 1 } }
+
+            vm.setVisibleMembers(listOf("m1"))
+            // Wait until the default-window fetch has entered and parked in flight.
+            withTimeout(5_000) { while (!client.trafficFetched.contains("m1")) delay(20) }
+            assertEquals(60, client.lastTrafficWindow)
+
+            // Change range while that fetch is still parked. The old-window fetch must
+            // be cancelled and m1 refetched at the new span, not skipped as in-flight
+            // (which used to leave the sparkline stale until the next poll).
             vm.setGraphRange(360)
             withTimeout(5_000) { while (client.lastTrafficWindow != 360) delay(20) }
             assertEquals(360, client.lastTrafficWindow)
