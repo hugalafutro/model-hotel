@@ -25,6 +25,11 @@ data class FleetMember(
     @SerialName("last_config_sync_at") val lastConfigSyncAt: String = "",
     @SerialName("last_config_sync_reason") val lastConfigSyncReason: String = "",
     val status: MemberStatus = MemberStatus(),
+    // This member's newest event, attached inline by Front Desk so the card's
+    // latest-event pill needs no per-member events fetch. Null when the member has
+    // no events, and also when Front Desk predates the field (an older FD omits
+    // it) — the dashboard falls back to a per-member fetch in that case.
+    @SerialName("newest_event") val newestEvent: FdEvent? = null,
 ) {
     val drained: Boolean get() = state == "drained"
 }
