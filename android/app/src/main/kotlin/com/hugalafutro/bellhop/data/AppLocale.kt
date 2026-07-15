@@ -63,7 +63,17 @@ object AppLocale {
      */
     fun wrap(base: Context): Context {
         val tag = stored(base)
-        if (tag == SYSTEM) return base
+        if (tag == SYSTEM) {
+            // Reverting to system default within the same process: the JVM default may
+            // still hold a previously-chosen in-app language (set below on an earlier
+            // wrap), which the per-call date formatters read via Locale.getDefault().
+            // Restore it to the device locale so dates match the (system-language)
+            // resources again. base is the untouched system context, so its
+            // configuration carries the real device locale.
+            val locales = base.resources.configuration.locales
+            if (!locales.isEmpty) Locale.setDefault(locales[0])
+            return base
+        }
         val locale = Locale.forLanguageTag(tag)
         Locale.setDefault(locale)
         val config = Configuration(base.resources.configuration)
