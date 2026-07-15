@@ -260,6 +260,7 @@
 				"config_sync_failed": "Config-sync mislukt",
 				"config_synced": "Configuratie gesynchroniseerd naar een member",
 				"config_auto_synced": "Auto-sync toegepast op de vloot",
+				"config_autosync_stale": "Auto-sync uit, vloot niet gesynchroniseerd",
 				"version_fetch_failed": "Member-versie niet leesbaar",
 				"version_fetch_recovered": "Member-versie weer leesbaar",
 				"traefik_stale": "Traefik-configuratie verouderd",

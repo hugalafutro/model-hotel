@@ -260,6 +260,7 @@
 				"config_sync_failed": "Synchronizácia konfigurácie zlyhala",
 				"config_synced": "Konfigurácia synchronizovaná k členovi",
 				"config_auto_synced": "Automatická synchronizácia aplikovaná na flotilu",
+				"config_autosync_stale": "Automatická synchronizácia vypnutá, flotila nesynchronizovaná",
 				"version_fetch_failed": "Verzia člena nečitateľná",
 				"version_fetch_recovered": "Verzia člena opäť čitateľná",
 				"traefik_stale": "Konfigurácia Traefik zastaraná",

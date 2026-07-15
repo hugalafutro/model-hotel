@@ -260,6 +260,7 @@
 				"config_sync_failed": "設定同期が失敗しました",
 				"config_synced": "メンバーに設定を同期しました",
 				"config_auto_synced": "自動同期がフリートに適用されました",
+				"config_autosync_stale": "自動同期オフ、フリート未同期",
 				"version_fetch_failed": "メンバーバージョンを読み取れません",
 				"version_fetch_recovered": "メンバーバージョンが読み取り可能になりました",
 				"traefik_stale": "Traefik 設定が古くなりました",
