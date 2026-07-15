@@ -85,11 +85,16 @@ private class FakeFleetClient(
     // page — lets a test revoke the token on the pill fetch after members succeeds.
     var eventsResult: FetchResult<EventsResponse>? = null
 
+    // Counts per-member events() calls so a test can prove the inline-event path
+    // makes none (and the fallback path still does).
+    val eventsCalls = AtomicInteger(0)
+
     override suspend fun events(
         fdUrl: String,
         token: String,
         query: EventQuery,
     ): FetchResult<EventsResponse> {
+        eventsCalls.incrementAndGet()
         eventsResult?.let { return it }
         val forMember = eventsByMember[query.memberId].orEmpty()
         val page = if (query.limit > 0) forMember.take(query.limit) else forMember
@@ -250,6 +255,52 @@ class DashboardViewModelTest {
             vm.refreshOnce()
 
             assertTrue(vm.state.value.recentEvents.isEmpty())
+        }
+
+    @Test
+    fun inlineNewestEventSkipsThePerMemberFetch() =
+        runBlocking {
+            // Front Desk attaches each member's newest event inline on the members
+            // read, so the dashboard renders every pill without a per-member fetch.
+            val m1 = member.copy(newestEvent = FdEvent(id = "e1", memberId = "m1", message = "inline m1"))
+            val m2 =
+                member.copy(
+                    id = "m2",
+                    name = "hotel-2",
+                    newestEvent = FdEvent(id = "e2", memberId = "m2", message = "inline m2"),
+                )
+            val client =
+                FakeFleetClient(
+                    membersResult = FetchResult.Success(listOf(m1, m2)),
+                    autoSyncResult = FetchResult.Success(AutoSyncConfig(enabled = true, primaryId = "m1")),
+                )
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+
+            vm.refreshOnce()
+
+            val recent = vm.state.value.recentEvents
+            assertEquals("inline m1", recent["m1"]?.message)
+            assertEquals("inline m2", recent["m2"]?.message)
+            assertEquals(0, client.eventsCalls.get())
+        }
+
+    @Test
+    fun fallsBackToPerMemberFetchWhenFrontDeskOmitsInlineEvents() =
+        runBlocking {
+            // An older Front Desk sends no inline newestEvent, so the dashboard must
+            // fall back to the per-member events fetch to fill the pills.
+            val client =
+                FakeFleetClient(
+                    membersResult = FetchResult.Success(listOf(member)),
+                    autoSyncResult = FetchResult.Success(AutoSyncConfig(enabled = true, primaryId = "m1")),
+                )
+            client.eventsByMember = mapOf("m1" to listOf(FdEvent(id = "e1", memberId = "m1", message = "fetched m1")))
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+
+            vm.refreshOnce()
+
+            assertEquals("fetched m1", vm.state.value.recentEvents["m1"]?.message)
+            assertTrue(client.eventsCalls.get() > 0)
         }
 
     private fun autoSyncClient(enabled: Boolean = true) =

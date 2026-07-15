@@ -47,8 +47,9 @@ data class DashboardUiState(
     // renders without a sparkline yet.
     val traffic: Map<String, MemberTraffic> = emptyMap(),
     // Each member's single most recent event, keyed by member id, for the card's
-    // recent-event pill. Built from one member_id-filtered GET /api/events read per
-    // member per refresh; a member with no events is simply absent from the map.
+    // recent-event pill. Taken from the members read's inline newest_event; against
+    // a Front Desk too old to send it, filled by a per-member GET /api/events read
+    // instead. A member with no events is simply absent from the map.
     val recentEvents: Map<String, FdEvent> = emptyMap(),
     val error: String? = null,
     val revoked: Boolean = false,
@@ -359,32 +360,44 @@ class DashboardViewModel(
             is FetchResult.Success -> {
                 val autoSync = client.autoSync(fdUrl, token) as? FetchResult.Success
                 val liveIds = result.data.mapTo(HashSet()) { it.id }
-                // Each card's pill shows that member's newest event, exactly what the
-                // member-detail log's first row shows: one member_id-filtered read per
-                // member (limit 1). This works uniformly for the primary too (its
-                // events are just older than the fleet-wide feed's top, so a single
-                // unfiltered read would miss them). Read sequentially — a fleet is a
-                // handful of members and it keeps refreshOnce a simple linear path. A
-                // member whose read fails or has no events keeps its previous pill via
-                // the merge below rather than blanking.
-                val recentMap = mutableMapOf<String, FdEvent>()
-                for (m in result.data) {
-                    when (val res = client.events(fdUrl, token, EventQuery(memberId = m.id, limit = 1))) {
-                        is FetchResult.Success ->
-                            res.data.events?.firstOrNull()?.let { recentMap[m.id] = it }
-                        // A token revoked mid-refresh (members succeeded, then this
-                        // authenticated call is rejected) must land in the same
-                        // revoked-unlink recovery state as a members 401, not be
-                        // swallowed into a "healthy" refresh that keeps polling a
-                        // dead token.
-                        FetchResult.Unauthorized -> {
-                            _state.update { it.copy(loading = false, revoked = true) }
-                            return
+                // Each card's pill shows that member's newest event. Front Desk
+                // attaches it inline on the members read (newestEvent), so the common
+                // path needs no per-member request at all. A member with no events
+                // simply carries none and keeps any previous pill via the merge below
+                // rather than blanking.
+                val inline = result.data.mapNotNull { m -> m.newestEvent?.let { m.id to it } }.toMap()
+                val recentMap: Map<String, FdEvent> =
+                    if (inline.isNotEmpty()) {
+                        inline
+                    } else {
+                        // No inline events across the whole fleet means either a
+                        // genuinely event-free fleet or a Front Desk that predates the
+                        // inline field. Fall back to the per-member fetch (one
+                        // member_id-filtered read, limit 1) so pills still work against
+                        // an un-upgraded Front Desk; an event-free fleet just pays a few
+                        // empty reads until it has some. This works uniformly for the
+                        // primary too (its events are older than the fleet-wide feed's
+                        // top, so a single unfiltered read would miss them).
+                        val fallback = mutableMapOf<String, FdEvent>()
+                        for (m in result.data) {
+                            when (val res = client.events(fdUrl, token, EventQuery(memberId = m.id, limit = 1))) {
+                                is FetchResult.Success ->
+                                    res.data.events?.firstOrNull()?.let { fallback[m.id] = it }
+                                // A token revoked mid-refresh (members succeeded, then
+                                // this authenticated call is rejected) must land in the
+                                // same revoked-unlink recovery state as a members 401,
+                                // not be swallowed into a "healthy" refresh that keeps
+                                // polling a dead token.
+                                FetchResult.Unauthorized -> {
+                                    _state.update { it.copy(loading = false, revoked = true) }
+                                    return
+                                }
+                                // A stale pill is fine; the card's health still shows.
+                                is FetchResult.Failure -> Unit
+                            }
                         }
-                        // A stale pill is fine; the card's health still shows.
-                        is FetchResult.Failure -> Unit
+                        fallback
                     }
-                }
                 _state.update {
                     val pending = it.autoSync.pendingEnabled
                     // When the auto-sync read fails but the rest of the refresh
