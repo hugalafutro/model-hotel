@@ -145,3 +145,98 @@ func TestMemberTrafficUnreadableIsUnreachable(t *testing.T) {
 		})
 	}
 }
+
+// A ?window=<minutes> filter trims the member's ~24h series to the requested
+// tail: buckets older than the window are dropped and totals count only the
+// kept ones, so window_minutes matches what's charted.
+func TestMemberTrafficWindowTrimsToRequestedSpan(t *testing.T) {
+	srv, store := newTestServer(t)
+	now := time.Now().UTC()
+	inWindow := now.Add(-10 * time.Minute).Format(time.RFC3339)
+	outWindow := now.Add(-90 * time.Minute).Format(time.RFC3339)
+	member := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/stats/timeseries" {
+			_, _ = w.Write([]byte(`{"points":[` +
+				`{"bucket":"` + outWindow + `","count":7,"errors":3},` +
+				`{"bucket":"` + inWindow + `","count":4,"errors":1}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer member.Close()
+
+	m, err := store.CreateMember(t.Context(), "hotel", member.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	rec := do(t, srv, http.MethodGet, "/api/members/"+m.ID+"/traffic?window=60", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("traffic = %d", rec.Code)
+	}
+	var resp memberTrafficResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.WindowMinutes != 60 {
+		t.Errorf("window_minutes = %d, want 60", resp.WindowMinutes)
+	}
+	if len(resp.Points) != 1 {
+		t.Fatalf("points = %d, want 1 (out-of-window bucket trimmed)", len(resp.Points))
+	}
+	if resp.TotalRequests != 4 || resp.TotalErrors != 1 {
+		t.Errorf("totals = %d/%d, want 4/1 (only the in-window bucket counted)", resp.TotalRequests, resp.TotalErrors)
+	}
+}
+
+// No ?window= keeps the legacy full series and window_minutes=60, even for
+// buckets whose labels aren't timestamps: Front Desk's own Traffic page, which
+// never sends the param, must be unaffected.
+func TestMemberTrafficNoWindowKeepsFullSeries(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/stats/timeseries" {
+			_, _ = w.Write([]byte(`{"points":[{"bucket":"b1","count":10,"errors":2},{"bucket":"b2","count":5,"errors":0}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer member.Close()
+
+	m, err := store.CreateMember(t.Context(), "hotel", member.URL, "tok")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	rec := do(t, srv, http.MethodGet, "/api/members/"+m.ID+"/traffic", "", true)
+	var resp memberTrafficResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Points) != 2 || resp.WindowMinutes != 60 || resp.TotalRequests != 15 {
+		t.Errorf("no-window = %d points / window %d / %d req, want 2/60/15",
+			len(resp.Points), resp.WindowMinutes, resp.TotalRequests)
+	}
+}
+
+func TestParseTrafficWindowClampsAndDefaults(t *testing.T) {
+	cases := []struct {
+		query string
+		want  int
+	}{
+		{"", 0},          // absent -> legacy full series
+		{"abc", 0},       // non-numeric -> legacy
+		{"0", 0},         // non-positive -> legacy
+		{"-30", 0},       // negative -> legacy
+		{"1", 5},         // below the floor -> clamped up
+		{"60", 60},       // in range -> kept
+		{"1440", 1440},   // ceiling -> kept
+		{"100000", 1440}, // above ceiling -> clamped down
+	}
+	for _, c := range cases {
+		target := "/api/members/x/traffic"
+		if c.query != "" {
+			target += "?window=" + c.query
+		}
+		r := httptest.NewRequest(http.MethodGet, target, http.NoBody)
+		if got := parseTrafficWindow(r); got != c.want {
+			t.Errorf("window=%q -> %d, want %d", c.query, got, c.want)
+		}
+	}
+}
