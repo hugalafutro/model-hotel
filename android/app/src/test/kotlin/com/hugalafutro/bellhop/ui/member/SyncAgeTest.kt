@@ -1,30 +1,25 @@
 package com.hugalafutro.bellhop.ui.member
 
 import androidx.compose.ui.graphics.Color
-import com.hugalafutro.bellhop.ui.common.relativeAgo
+import com.hugalafutro.bellhop.ui.common.Ago
+import com.hugalafutro.bellhop.ui.common.agoBucket
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 
-@RunWith(RobolectricTestRunner::class)
 class SyncAgeTest {
     private val minute = 60_000L
     private val hour = 3_600_000L
     private val day = 86_400_000L
 
-    // Robolectric's default locale is English, so relativeAgo resolves the English
-    // strings here; the localized forms are covered by the lint parity gate.
-    private val context = RuntimeEnvironment.getApplication()
-
     @Test
-    fun relativeAgoReadsHumanAtEachScale() {
-        assertEquals("just now", relativeAgo(context, 30_000L))
-        assertEquals("5 min ago", relativeAgo(context, 5 * minute))
-        assertEquals("3 hr ago", relativeAgo(context, 3 * hour))
-        assertEquals("1 day ago", relativeAgo(context, day))
-        assertEquals("3 days ago", relativeAgo(context, 3 * day))
+    fun agoBucketPicksTheRightUnitAtEachScale() {
+        // Pure bucketing (no resources): the localized wording is a thin wrapper in
+        // relativeAgo, and locale parity is enforced by lint.
+        assertEquals(Ago.JustNow, agoBucket(30_000L))
+        assertEquals(Ago.Minutes(5), agoBucket(5 * minute))
+        assertEquals(Ago.Hours(3), agoBucket(3 * hour))
+        assertEquals(Ago.Days(1), agoBucket(day))
+        assertEquals(Ago.Days(3), agoBucket(3 * day))
     }
 
     @Test
