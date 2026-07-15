@@ -91,6 +91,7 @@ class DashboardViewModel(
     private val linkStore: LinkStore,
     private val fdUrl: String,
     private val pollIntervalMs: Long = POLL_INTERVAL_MS,
+    private val sseHealthyPollIntervalMs: Long = SSE_HEALTHY_POLL_INTERVAL_MS,
     private val trafficPollMs: Long = TRAFFIC_POLL_MS,
     private val now: () -> Long = System::currentTimeMillis,
 ) : ViewModel() {
@@ -100,6 +101,13 @@ class DashboardViewModel(
     // Conflated: rapid nudges from the poll and the event stream coalesce into at
     // most one queued refresh instead of stacking sequential fetches.
     private val refreshTrigger = Channel<Unit>(Channel.CONFLATED)
+
+    // Whether the SSE stream is currently connected. It drives the fallback poll
+    // cadence: while the stream is live it carries changes, so [pollLoop] slackens
+    // to save the radio; while it's down the poll tightens to stay the sole
+    // freshness source. A StateFlow so pollLoop reacts the instant it flips (via
+    // collectLatest) instead of waiting out a slow delay. [streamLoop] owns it.
+    private val sseConnected = MutableStateFlow(false)
 
     // The member ids currently visible in the list, reported by the screen. Only
     // these get their traffic sparkline fetched, so the per-member fan-out is
@@ -163,40 +171,67 @@ class DashboardViewModel(
     }
 
     // pollLoop is the fallback safety net: with the stream carrying live changes,
-    // this only has to catch a missed event and keep the view from going stale.
+    // this only has to catch a missed event and keep the view from going stale. It
+    // runs slack while the stream is healthy (the radio can idle between ticks) and
+    // tight while the stream is down (the poll is then the only freshness source).
+    // Keyed on [sseConnected] via collectLatest so a disconnect re-tightens the
+    // cadence at once — the pending slack delay is cancelled, not waited out.
     private suspend fun pollLoop() {
-        while (true) {
-            delay(pollIntervalMs)
-            refreshTrigger.trySend(Unit)
+        sseConnected.collectLatest { connected ->
+            val interval = if (connected) sseHealthyPollIntervalMs else pollIntervalMs
+            while (true) {
+                delay(interval)
+                refreshTrigger.trySend(Unit)
+            }
         }
     }
 
     // streamLoop holds a live SSE subscription while the dashboard is shown,
     // reconnecting with capped exponential backoff. It nudges a refresh on any
-    // event that changes what the list shows and stops for good on a dead token.
+    // event that changes what the list shows, resyncs on every reconnect (a gap
+    // may have dropped events the slack poll hasn't caught yet), and stops for good
+    // on a dead token.
     private suspend fun streamLoop() {
+        // A fresh active-collector cycle starts disconnected until Open fires, so
+        // pollLoop doesn't inherit a stale "connected" from a prior cycle.
+        sseConnected.value = false
         // No readable token means no request can ever succeed; the poll's
         // refreshOnce already flags this as revoked, so just stay off the stream.
         val token = linkStore.token() ?: return
         var backoff = SSE_BACKOFF_MIN_MS
+        // The first Open is the initial connect, which runRefreshes already
+        // covered with its startup read; only subsequent Opens are reconnects that
+        // need a resync. Tracks across reconnects within this loop, not per socket.
+        var firstConnect = true
         while (true) {
             var revoked = false
+            var connectedAt: Long? = null
             client.streamEvents(fdUrl, token).collect { msg ->
                 when (msg) {
-                    // A fresh connection: reset backoff so the next drop reconnects
-                    // fast even after a long, quiet, healthy stream.
-                    SseMessage.Open -> backoff = SSE_BACKOFF_MIN_MS
+                    SseMessage.Open -> {
+                        connectedAt = now()
+                        sseConnected.value = true
+                        if (!firstConnect) refreshTrigger.trySend(Unit)
+                        firstConnect = false
+                    }
                     is SseMessage.Event ->
                         if (triggersRefresh(msg.event.type)) refreshTrigger.trySend(Unit)
                     SseMessage.Unauthorized -> revoked = true
                 }
             }
+            sseConnected.value = false
             if (revoked) {
                 _state.update { it.copy(revoked = true) }
                 return
             }
+            // Reset the backoff only when the connection proved durable. If Open
+            // alone reset it, a server (or proxy) that accepts the stream then
+            // drops it immediately would spin a ~1s reconnect loop forever; keying
+            // the reset on how long the connection lasted keeps a flapping endpoint
+            // backing off instead.
+            val lasted = connectedAt?.let { now() - it } ?: 0L
+            backoff = nextBackoff(backoff, lasted)
             delay(backoff)
-            backoff = (backoff * 2).coerceAtMost(SSE_BACKOFF_MAX_MS)
         }
     }
 
@@ -471,9 +506,17 @@ class DashboardViewModel(
     }
 
     companion object {
-        // Fallback cadence now that the SSE stream carries live changes: slow
-        // enough to be polite from a phone, fast enough to backstop a missed event.
+        // Fallback cadence while the SSE stream is DOWN: the poll is then the only
+        // freshness source, so it stays tight. Once the stream is live, pollLoop
+        // switches to [SSE_HEALTHY_POLL_INTERVAL_MS] instead.
         const val POLL_INTERVAL_MS = 15_000L
+
+        // Fallback cadence while the SSE stream is healthy: the stream carries live
+        // changes, so the poll only has to backstop a rare missed event and keep
+        // relative times honest. Four times slacker than the disconnected cadence,
+        // which is what lets the radio idle between ticks instead of waking every
+        // 15s for the whole time the dashboard is open.
+        const val SSE_HEALTHY_POLL_INTERVAL_MS = 60_000L
 
         // Traffic sparklines refresh slower than the health poll: the series is
         // 5-minute buckets, so a per-minute tick keeps the current bucket moving
@@ -491,6 +534,29 @@ class DashboardViewModel(
         // SSE reconnect backoff, mirroring the web dashboard's 1s..30s range.
         const val SSE_BACKOFF_MIN_MS = 1_000L
         const val SSE_BACKOFF_MAX_MS = 30_000L
+
+        // A stream must stay connected at least this long to count as durable and
+        // earn a fast reconnect (see [nextBackoff]). Above the 25s server heartbeat
+        // so a genuinely live stream qualifies, while an accept-then-drop (which
+        // fails in well under a second) never does.
+        const val SSE_STABLE_MS = 30_000L
+
+        // nextBackoff picks the wait before the next SSE reconnect. A connection
+        // that lasted at least [SSE_STABLE_MS] is healthy and resets to the floor
+        // for a prompt reconnect; a shorter-lived one (including one that never
+        // opened, or a server that accepts then drops at once) doubles the backoff
+        // up to the cap, so a flapping endpoint can't spin a tight reconnect loop.
+        // internal so the decision is unit-testable without driving the stream in
+        // real time.
+        internal fun nextBackoff(
+            current: Long,
+            connectedMs: Long,
+        ): Long =
+            if (connectedMs >= SSE_STABLE_MS) {
+                SSE_BACKOFF_MIN_MS
+            } else {
+                (current * 2).coerceAtMost(SSE_BACKOFF_MAX_MS)
+            }
 
         // triggersRefresh mirrors the Front Desk web dashboard: only membership,
         // config, health, and version events change what a member card shows, so

@@ -79,6 +79,37 @@ func (s *Store) ListEvents(ctx context.Context, f EventFilter) ([]Event, int, er
 	return events, total, rows.Err()
 }
 
+// NewestEventPerMember returns each member's most recent member-scoped event,
+// keyed by member id. Fleet-wide events (those with no member_id) are excluded,
+// matching a per-member events read. It backs the members list's inline newest
+// event so a monitor client can render every card's latest-event pill from one
+// read instead of a per-member fan-out. A member with no events is simply absent
+// from the map. The id tiebreak keeps the pick deterministic when two events
+// share a timestamp.
+func (s *Store) NewestEventPerMember(ctx context.Context) (map[string]Event, error) {
+	const query = `SELECT id, type, severity, source, message, metadata, member_id, created_at FROM (
+		SELECT id, type, severity, source, message, metadata, member_id, created_at,
+		       ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY created_at DESC, id DESC) AS rn
+		FROM events
+		WHERE member_id IS NOT NULL AND member_id <> ''
+	) WHERE rn = 1`
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("frontdesk: newest event per member: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	out := make(map[string]Event)
+	for rows.Next() {
+		e, err := scanEvent(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[e.MemberID] = e
+	}
+	return out, rows.Err()
+}
+
 // PruneEvents deletes events older than retentionDays and returns the count
 // removed.
 func (s *Store) PruneEvents(ctx context.Context, retentionDays int) (int64, error) {

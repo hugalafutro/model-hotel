@@ -227,6 +227,47 @@ func TestServerMemberCRUD(t *testing.T) {
 	}
 }
 
+func TestListMembersAttachesNewestEvent(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	withEvents, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	noEvents, err := store.CreateMember(ctx, "hotel-2", "https://h2.example", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	if _, err := store.InsertEvent(ctx, Event{
+		Type: "health.up", Severity: "success", Source: "poller", Message: "up", MemberID: withEvents.ID,
+	}); err != nil {
+		t.Fatalf("InsertEvent: %v", err)
+	}
+
+	rec := do(t, srv, http.MethodGet, "/api/members", "", true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/members = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var views []memberView
+	if err := json.Unmarshal(rec.Body.Bytes(), &views); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	byID := make(map[string]memberView, len(views))
+	for _, v := range views {
+		byID[v.ID] = v
+	}
+	if got := byID[withEvents.ID].NewestEvent; got == nil || got.Type != "health.up" {
+		t.Errorf("member with events: newest_event = %+v, want type health.up", got)
+	}
+	// A member with no events omits the field entirely (omitempty), so a client
+	// can tell a genuinely event-free member from an older Front Desk that never
+	// sends it.
+	if byID[noEvents.ID].NewestEvent != nil {
+		t.Errorf("member with no events should omit newest_event, got %+v", byID[noEvents.ID].NewestEvent)
+	}
+}
+
 func TestServerSettings(t *testing.T) {
 	srv, _ := newTestServer(t)
 

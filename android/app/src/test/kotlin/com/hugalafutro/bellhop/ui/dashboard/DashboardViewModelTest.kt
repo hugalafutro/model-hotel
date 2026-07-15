@@ -679,4 +679,91 @@ class DashboardViewModelTest {
             assertTrue(s.revoked)
             job.cancel()
         }
+
+    @Test
+    fun nextBackoffResetsOnlyForDurableConnections() {
+        // A connection that outlived the stable threshold is healthy: reset to the
+        // floor so the next reconnect is prompt.
+        assertEquals(
+            DashboardViewModel.SSE_BACKOFF_MIN_MS,
+            DashboardViewModel.nextBackoff(current = 8_000L, connectedMs = DashboardViewModel.SSE_STABLE_MS),
+        )
+        // A short-lived connection (accept-then-drop) doubles the backoff...
+        assertEquals(2_000L, DashboardViewModel.nextBackoff(current = 1_000L, connectedMs = 200L))
+        // ...capped at the ceiling so a flapping endpoint can't spin faster.
+        assertEquals(
+            DashboardViewModel.SSE_BACKOFF_MAX_MS,
+            DashboardViewModel.nextBackoff(current = 20_000L, connectedMs = 200L),
+        )
+        // A connection that never opened (0ms) counts as short-lived, not durable.
+        assertEquals(2_000L, DashboardViewModel.nextBackoff(current = 1_000L, connectedMs = 0L))
+    }
+
+    @Test
+    fun liveStreamSlackensTheFallbackPoll() =
+        runBlocking {
+            // While the stream is Open it carries live changes, so the fallback poll
+            // must back off to the slack cadence. With a tight base poll and a slack
+            // healthy poll, an open stream means the members read stops climbing.
+            val events = MutableSharedFlow<SseMessage>(extraBufferCapacity = 8)
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)), sseFlow = events)
+            val vm =
+                DashboardViewModel(
+                    client,
+                    linkedStore(),
+                    "http://fd:1",
+                    pollIntervalMs = 30,
+                    sseHealthyPollIntervalMs = 10_000,
+                )
+
+            val job = launch { vm.state.collect {} }
+            // Disconnected, the tight base poll fires repeatedly.
+            withTimeout(5_000) { while (client.memberCalls.get() < 3) delay(20) }
+
+            // The stream connects: pollLoop switches to the slack cadence and quiesces.
+            withTimeout(5_000) { events.subscriptionCount.first { it > 0 } }
+            events.emit(SseMessage.Open)
+            delay(200)
+            val settled = client.memberCalls.get()
+            delay(400)
+            // At the 10s healthy cadence, no further poll fires in this window.
+            assertEquals(settled, client.memberCalls.get())
+            job.cancel()
+        }
+
+    @Test
+    fun reconnectResyncsButTheFirstConnectDoesNot() =
+        runBlocking {
+            // The first Open is the initial connect, already covered by the startup
+            // read, so it must not double it. A later Open is a reconnect whose gap
+            // may have dropped events, so it must resync without waiting for the poll.
+            val events = MutableSharedFlow<SseMessage>(extraBufferCapacity = 8)
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)), sseFlow = events)
+            val vm =
+                DashboardViewModel(
+                    client,
+                    linkedStore(),
+                    "http://fd:1",
+                    // Both poll cadences are held out of the window so only the
+                    // reconnect nudge can move the members read.
+                    pollIntervalMs = 10_000,
+                    sseHealthyPollIntervalMs = 10_000,
+                )
+
+            val job = launch { vm.state.collect {} }
+            withTimeout(5_000) { vm.state.first { !it.loading } }
+            withTimeout(5_000) { events.subscriptionCount.first { it > 0 } }
+            val afterInitial = client.memberCalls.get()
+
+            // First Open: no extra read.
+            events.emit(SseMessage.Open)
+            delay(200)
+            assertEquals(afterInitial, client.memberCalls.get())
+
+            // Second Open (a reconnect): resyncs.
+            events.emit(SseMessage.Open)
+            withTimeout(5_000) { while (client.memberCalls.get() == afterInitial) delay(20) }
+            assertTrue(client.memberCalls.get() > afterInitial)
+            job.cancel()
+        }
 }

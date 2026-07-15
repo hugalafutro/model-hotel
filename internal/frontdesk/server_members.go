@@ -19,6 +19,10 @@ import (
 type memberView struct {
 	*Member
 	Status MemberStatus `json:"status"`
+	// NewestEvent is this member's most recent member-scoped event, attached so a
+	// monitor client renders its latest-event pill without a per-member events
+	// fetch. Omitted when the member has no events yet.
+	NewestEvent *Event `json:"newest_event,omitempty"`
 }
 
 func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
@@ -28,9 +32,23 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	snap := s.poller.Snapshot()
+	// Each member's newest event is read in one grouped query and attached inline
+	// so a monitor client can render every card's latest-event pill without a
+	// per-member events fetch. This read is best-effort: a failure must not fail
+	// the members list, so it degrades to no inline pills (clients then fall back
+	// to their own per-member fetch) rather than 500ing the whole tab.
+	newest, err := s.store.NewestEventPerMember(r.Context())
+	if err != nil {
+		debuglog.Warn("frontdesk: could not read newest events for members list", "error", err)
+		newest = nil
+	}
 	views := make([]memberView, len(members))
 	for i, m := range members {
 		views[i] = memberView{Member: m, Status: snap[m.ID]}
+		if e, ok := newest[m.ID]; ok {
+			ev := e
+			views[i].NewestEvent = &ev
+		}
 	}
 	writeJSON(w, http.StatusOK, views)
 }

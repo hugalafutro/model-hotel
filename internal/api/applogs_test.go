@@ -789,14 +789,21 @@ func TestDBLogWriter_BatchSizeFlush(t *testing.T) {
 		}
 	}
 
-	// Give the goroutine time to process
-	time.Sleep(200 * time.Millisecond)
-
-	// Verify entries were written to DB
+	// Poll until the batch-size flush lands in the DB or we time out. A fixed
+	// sleep is flaky: the writer goroutine's schedule plus the 50-row INSERT can
+	// exceed a short sleep under CI load, so a single check races the flush (this
+	// mirrors TestDBLogWriter_TickerFlush).
+	deadline := time.Now().Add(5 * time.Second)
 	var count int
-	err = pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM app_logs WHERE source = 'test'").Scan(&count)
-	if err != nil {
-		t.Fatalf("failed to query app_logs: %v", err)
+	for time.Now().Before(deadline) {
+		err = pool.QueryRow(context.Background(), "SELECT COUNT(*) FROM app_logs WHERE source = 'test'").Scan(&count)
+		if err != nil {
+			t.Fatalf("failed to query app_logs: %v", err)
+		}
+		if count >= 50 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
 	if count < 50 {
 		t.Errorf("expected at least 50 entries in DB, got %d", count)
