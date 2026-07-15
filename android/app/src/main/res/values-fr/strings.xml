@@ -170,6 +170,11 @@
     <string name="settings_monitor_note">Les alertes propres à Front Desk sont plus rapides ; ceci est un filet de sécurité quand Bellhop est votre seule vue. Il vérifie environ toutes les 15 minutes, un changement peut donc arriver avec ce délai.</string>
     <string name="settings_monitor_blocked">Les notifications sont désactivées pour Bellhop, ces alertes ne vous parviendront donc pas. Activez-les dans les paramètres système.</string>
     <string name="settings_push_title">Push en temps réel</string>
+    <string name="settings_battery_title">Batterie</string>
+    <string name="settings_battery_subtitle">Les alertes en arrière-plan nécessitent que Bellhop soit exempté de l\'optimisation de la batterie. Sur certains téléphones (OnePlus, Xiaomi et autres), vous devez aussi l\'autoriser dans les réglages de batterie par appli et de démarrage automatique du téléphone, sinon le système peut quand même arrêter les alertes.</string>
+    <string name="settings_battery_unrestricted">L\'optimisation de la batterie est désactivée pour Bellhop.</string>
+    <string name="settings_battery_optimized">Optimisé. Les alertes en arrière-plan peuvent être retardées ou perdues.</string>
+    <string name="settings_battery_action">Autoriser la batterie sans restriction</string>
     <string name="settings_push_subtitle">Réveille Bellhop à l\'instant où Front Desk envoie une alerte, via UnifiedPush et ntfy. Sans Google, sans délai de sondage, sur activation.</string>
     <string name="settings_push_no_distributor">Installez un distributeur UnifiedPush tel que ntfy pour recevoir les pushs. Sans lui, ceci reste inactif jusqu\'à ce que vous en ajoutiez un.</string>
     <string name="settings_push_endpoint_label">Sujet push pour Front Desk</string>

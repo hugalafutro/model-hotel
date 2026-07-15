@@ -172,6 +172,11 @@
     <string name="settings_monitor_note">Własne alerty Front Desk są szybsze; to zabezpieczenie na wypadek, gdy Bellhop jest Twoim jedynym widokiem. Sprawdza mniej więcej co 15 minut, więc zmiana może przyjść z takim opóźnieniem.</string>
     <string name="settings_monitor_blocked">Powiadomienia dla Bellhop są wyłączone, więc te alerty do Ciebie nie dotrą. Włącz je w ustawieniach systemu.</string>
     <string name="settings_push_title">Push w czasie rzeczywistym</string>
+    <string name="settings_battery_title">Bateria</string>
+    <string name="settings_battery_subtitle">Alerty w tle wymagają wyłączenia Bellhop z optymalizacji baterii. W niektórych telefonach (OnePlus, Xiaomi i innych) trzeba też zezwolić na to we własnych ustawieniach baterii dla aplikacji i autostartu, w przeciwnym razie system może zatrzymać alerty.</string>
+    <string name="settings_battery_unrestricted">Optymalizacja baterii jest wyłączona dla Bellhop.</string>
+    <string name="settings_battery_optimized">Zoptymalizowano. Alerty w tle mogą być opóźnione lub pominięte.</string>
+    <string name="settings_battery_action">Zezwól na nieograniczoną baterię</string>
     <string name="settings_push_subtitle">Budzi Bellhop w chwili, gdy Front Desk wyśle alert, przez UnifiedPush i ntfy. Bez Google, bez opóźnienia odpytywania, opcjonalne.</string>
     <string name="settings_push_no_distributor">Zainstaluj dystrybutor UnifiedPush, taki jak ntfy, aby odbierać pushe. Bez niego pozostanie to nieaktywne, dopóki go nie dodasz.</string>
     <string name="settings_push_endpoint_label">Temat push dla Front Desk</string>

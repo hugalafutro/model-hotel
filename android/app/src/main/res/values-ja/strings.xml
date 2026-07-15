@@ -169,6 +169,11 @@
     <string name="settings_monitor_note">Front Desk 自身のアラートの方が速いです。これは Bellhop が唯一の表示手段である場合の予備です。約 15 分ごとに確認するため、変更は最大でその程度遅れることがあります。</string>
     <string name="settings_monitor_blocked">Bellhop の通知がオフのため、これらのアラートは届きません。システム設定でオンにしてください。</string>
     <string name="settings_push_title">リアルタイム プッシュ</string>
+    <string name="settings_battery_title">バッテリー</string>
+    <string name="settings_battery_subtitle">バックグラウンド通知には、Bellhop をバッテリー最適化の対象外にする必要があります。一部の端末（OnePlus、Xiaomi など）では、端末独自のアプリ別バッテリー設定と自動起動設定でも許可しないと、通知が停止されることがあります。</string>
+    <string name="settings_battery_unrestricted">Bellhop のバッテリー最適化はオフです。</string>
+    <string name="settings_battery_optimized">最適化あり。バックグラウンド通知が遅延または破棄される場合があります。</string>
+    <string name="settings_battery_action">バッテリー制限を解除</string>
     <string name="settings_push_subtitle">Front Desk がアラートを送信した瞬間に、UnifiedPush と ntfy を通じて Bellhop を起こします。Google 不要、ポーリング遅延なし、任意です。</string>
     <string name="settings_push_no_distributor">プッシュを受け取るには、ntfy などの UnifiedPush ディストリビューターをインストールしてください。ない場合、追加するまでこれは非アクティブのままです。</string>
     <string name="settings_push_endpoint_label">Front Desk 用のプッシュトピック</string>

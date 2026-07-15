@@ -185,6 +185,11 @@
     <string name="settings_monitor_note">Front Desk\'s own alerts are faster; this is a backstop for when Bellhop is your only view. It checks roughly every 15 minutes, so a change can be up to that late.</string>
     <string name="settings_monitor_blocked">Notifications are turned off for Bellhop, so these alerts won\'t reach you. Turn them on in system settings.</string>
     <string name="settings_push_title">Real-time push</string>
+    <string name="settings_battery_title">Battery</string>
+    <string name="settings_battery_subtitle">Background alerts need Bellhop exempt from battery optimization. On some phones (OnePlus, Xiaomi and others) you must also allow it in the phone\'s own per-app battery and auto-start settings, or the system can still stop alerts.</string>
+    <string name="settings_battery_unrestricted">Battery optimization is off for Bellhop.</string>
+    <string name="settings_battery_optimized">Optimized. Background alerts may be delayed or dropped.</string>
+    <string name="settings_battery_action">Allow unrestricted battery</string>
     <string name="settings_push_subtitle">Wake Bellhop the instant Front Desk pushes an alert, via UnifiedPush and ntfy. No Google, no polling delay, opt-in.</string>
     <string name="settings_push_no_distributor">Install a UnifiedPush distributor such as ntfy to receive pushes. Without one, this stays idle until you add it.</string>
     <string name="settings_push_endpoint_label">Push topic for Front Desk</string>

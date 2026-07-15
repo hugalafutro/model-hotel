@@ -172,6 +172,11 @@
     <string name="settings_monitor_note">Vlastné upozornenia Front Desku sú rýchlejšie; toto je záloha pre prípad, že je Bellhop vaším jediným pohľadom. Kontroluje zhruba každých 15 minút, takže zmena môže prísť až s týmto oneskorením.</string>
     <string name="settings_monitor_blocked">Oznámenia pre Bellhop sú vypnuté, takže sa k vám tieto upozornenia nedostanú. Zapnite ich v nastaveniach systému.</string>
     <string name="settings_push_title">Push v reálnom čase</string>
+    <string name="settings_battery_title">Batéria</string>
+    <string name="settings_battery_subtitle">Upozornenia na pozadí vyžadujú, aby bol Bellhop vyňatý z optimalizácie batérie. Na niektorých telefónoch (OnePlus, Xiaomi a ďalších) to musíte navyše povoliť vo vlastných nastaveniach batérie pre aplikáciu a automatického spustenia, inak systém môže upozornenia zastaviť.</string>
+    <string name="settings_battery_unrestricted">Optimalizácia batérie je pre Bellhop vypnutá.</string>
+    <string name="settings_battery_optimized">Optimalizované. Upozornenia na pozadí môžu byť oneskorené alebo zahodené.</string>
+    <string name="settings_battery_action">Povoliť neobmedzenú batériu</string>
     <string name="settings_push_subtitle">Zobudí Bellhop v okamihu, keď Front Desk odošle upozornenie, cez UnifiedPush a ntfy. Bez Googlu, bez oneskorenia dopytovania, dobrovoľné.</string>
     <string name="settings_push_no_distributor">Nainštalujte distribútora UnifiedPush, napríklad ntfy, na príjem pushov. Bez neho zostane toto nečinné, kým ho nepridáte.</string>
     <string name="settings_push_endpoint_label">Push téma pre Front Desk</string>

@@ -2,6 +2,7 @@ package com.hugalafutro.bellhop.ui.settings
 
 import android.app.Activity
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -93,6 +94,8 @@ fun SettingsScreen(
     pushEndpoint: String? = null,
     pushDistributorAvailable: Boolean = false,
     pushNotificationsBlocked: Boolean = false,
+    batteryUnrestricted: Boolean = true,
+    onRequestBatteryExemption: () -> Unit = {},
     unlinking: Boolean = false,
     unlinkFailed: Boolean = false,
     onDismissUnlinkError: () -> Unit = {},
@@ -591,6 +594,54 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Battery: background alert delivery (the poll + push wake) is only
+            // reliable if Bellhop is exempt from battery optimisation. Shown once
+            // monitoring or push is on, since it's irrelevant otherwise.
+            if (monitorEnabled || pushEnabled) {
+                Card(modifier = Modifier.fillMaxWidth().testTag("settings-battery")) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_battery_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_battery_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (batteryUnrestricted) {
+                            Text(
+                                text = stringResource(R.string.settings_battery_unrestricted),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.testTag("settings-battery-ok"),
+                            )
+                        } else {
+                            Text(
+                                text = stringResource(R.string.settings_battery_optimized),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                            OutlinedButton(
+                                onClick = onRequestBatteryExemption,
+                                // The default outline colour vanishes on the card; use
+                                // primary to match the button's own text and read as an
+                                // action, like the pills' higher-contrast borders.
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.testTag("settings-battery-request"),
+                            ) {
+                                Text(stringResource(R.string.settings_battery_action))
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // Alerts stays reachable here even when all is green (the dashboard bell
             // only appears when a member is down). The severity badges tally what
