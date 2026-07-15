@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.ui.settings
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -20,6 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -35,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -44,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.hugalafutro.bellhop.R
+import com.hugalafutro.bellhop.data.AppLocale
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LockConfig
 import com.hugalafutro.bellhop.data.LockTimeout
@@ -57,6 +62,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Locale
 
 /**
  * SettingsScreen is where the link's status and the two things the dashboard
@@ -99,8 +105,12 @@ fun SettingsScreen(
 ) {
     var confirmUnlink by remember { mutableStateOf(false) }
     var confirmCopyAddress by remember { mutableStateOf(false) }
+    var showLanguagePicker by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    // Read once: choosing a different language recreates the activity, so this
+    // never needs to react to a live change.
+    val currentLanguage = remember { AppLocale.stored(context) }
     val pushCopied = stringResource(R.string.settings_push_copied)
     val addressCopied = stringResource(R.string.settings_fd_copied)
 
@@ -194,6 +204,22 @@ fun SettingsScreen(
         )
     }
 
+    if (showLanguagePicker) {
+        LanguagePickerDialog(
+            current = currentLanguage,
+            onSelect = { tag ->
+                showLanguagePicker = false
+                // A no-op pick avoids a pointless recreate; a real change persists
+                // then recreates the activity, which re-reads the tag in the new locale.
+                if (tag != currentLanguage) {
+                    AppLocale.store(context, tag)
+                    (context as? Activity)?.recreate()
+                }
+            },
+            onDismiss = { showLanguagePicker = false },
+        )
+    }
+
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         Column(
             modifier =
@@ -221,6 +247,19 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f).testTag("settings-title"),
                 )
+                // Language lives up here, not on the dashboard: the settings cog is a
+                // universal-enough entry point that the picker needn't sit on the main
+                // screen. The globe/translate glyph reads across languages.
+                IconButton(
+                    onClick = { showLanguagePicker = true },
+                    modifier = Modifier.testTag("settings-language"),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_translate),
+                        contentDescription = stringResource(R.string.settings_language),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
 
             // Front Desk link status (moved off the dashboard toolbar).
@@ -573,6 +612,67 @@ fun SettingsScreen(
 }
 
 /**
+ * LanguagePickerDialog lists the system-default option plus every supported
+ * language by its own name (endonym), with the active one selected. Choosing one
+ * bubbles the tag up; the caller persists it and recreates the activity. The list
+ * scrolls within a capped height so it fits on a short screen.
+ */
+@Composable
+private fun LanguagePickerDialog(
+    current: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.testTag("language-cancel")) {
+                Text(text = stringResource(R.string.common_cancel))
+            }
+        },
+        title = { Text(text = stringResource(R.string.settings_language)) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                LanguageRow(
+                    label = stringResource(R.string.language_system_default),
+                    selected = current == AppLocale.SYSTEM,
+                    onClick = { onSelect(AppLocale.SYSTEM) },
+                    tag = "language-option-system",
+                )
+                AppLocale.SUPPORTED.forEach { tag ->
+                    LanguageRow(
+                        label = AppLocale.endonyms[tag] ?: tag,
+                        selected = current == tag,
+                        onClick = { onSelect(tag) },
+                        tag = "language-option-$tag",
+                    )
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun LanguageRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    tag: String,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp).testTag(tag),
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(start = 8.dp),
+        )
+    }
+}
+
+/**
  * AlertSeverityBadges renders one small coloured badge per severity (error,
  * warning, info, success), each carrying the count of currently-enabled events of
  * that severity. All four are always shown, even at 0, so the pill reads as a live
@@ -614,13 +714,20 @@ private fun severityBadgeLabel(severity: String): String =
         else -> stringResource(R.string.events_sev_info)
     }
 
-// A localized "Jul 14, 2026"-style date for when the link was paired, or null
-// when the stamp is absent (links saved before linkedAt existed) so the row hides.
-private val linkedOnFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withZone(ZoneId.systemDefault())
-
-private fun linkedOnLabel(linkedAt: Long): String? =
-    if (linkedAt <= 0L) null else linkedOnFormatter.format(Instant.ofEpochMilli(linkedAt))
+// linkedOnLabel is a localized "Jul 14, 2026"-style date for when the link was
+// paired, or null when the stamp is absent (links saved before linkedAt existed)
+// so the row hides. The formatter is built per call from the current default
+// locale (kept in step with the in-app language by AppLocale), so the date follows
+// a language switch instead of freezing at process start.
+private fun linkedOnLabel(linkedAt: Long): String? {
+    if (linkedAt <= 0L) return null
+    val formatter =
+        DateTimeFormatter
+            .ofLocalizedDate(FormatStyle.MEDIUM)
+            .withLocale(Locale.getDefault())
+            .withZone(ZoneId.systemDefault())
+    return formatter.format(Instant.ofEpochMilli(linkedAt))
+}
 
 private fun timeoutLabel(option: LockTimeout): Int =
     when (option) {

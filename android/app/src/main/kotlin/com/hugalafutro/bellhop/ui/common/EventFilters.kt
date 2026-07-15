@@ -67,16 +67,18 @@ data class CustomDateRange(
 
     /** label renders "Jul 1 – Jul 14" for the active-filter line. */
     fun label(): String =
-        "${DAY_FORMAT.format(
-            Instant.ofEpochMilli(startMs),
-        )} – ${DAY_FORMAT.format(Instant.ofEpochMilli(endMs))}"
+        dayFormat().let { fmt ->
+            "${fmt.format(Instant.ofEpochMilli(startMs))} – ${fmt.format(Instant.ofEpochMilli(endMs))}"
+        }
 
     private companion object {
         const val DAY_MS = 86_400_000L
 
-        // The picker hands out UTC midnights, so format in UTC too: a zoned
-        // format would shift the labelled day for anyone east of Greenwich.
-        val DAY_FORMAT: DateTimeFormatter =
+        // dayFormat is built per call from the current default locale (kept in step
+        // with the in-app language by AppLocale) so the month abbreviation follows a
+        // language switch. The picker hands out UTC midnights, so format in UTC too:
+        // a zoned format would shift the labelled day for anyone east of Greenwich.
+        fun dayFormat(): DateTimeFormatter =
             DateTimeFormatter.ofPattern("MMM d", Locale.getDefault()).withZone(ZoneOffset.UTC)
     }
 }

@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Pairing (unlinked state) -->
+    <string name="pairing_title">Front Desk verknüpfen</string>
+    <string name="pairing_subtitle">Öffne in Front Desk Einstellungen → Gekoppelte Geräte und erzeuge einen Code. Scanne den angezeigten QR-Code oder kopiere die Kopplungszeichenfolge daneben und füge sie unten ein.</string>
+    <string name="pairing_scan">QR-Code scannen</string>
+    <string name="pairing_scan_prompt">Auf den Kopplungs-QR in Front Desk richten\n→ Einstellungen → Gekoppelte Geräte</string>
+    <string name="pairing_or">oder einfügen</string>
+    <string name="pairing_paste_label">Kopplungszeichenfolge</string>
+    <string name="pairing_paste_hint">Kopierte Kopplungszeichenfolge hier einfügen</string>
+    <string name="pairing_target">Front Desk: %1$s\n%2$s</string>
+    <string name="pairing_label_label">Name dieses Geräts</string>
+    <string name="pairing_submit">Koppeln</string>
+    <string name="pairing_error_bad_string">Das sieht nicht nach einer Kopplungszeichenfolge aus. Kopiere sie in Front Desk → Einstellungen → Gekoppelte Geräte erneut.</string>
+    <string name="pairing_error_invalid_code">Ungültiger oder abgelaufener Kopplungscode. Erzeuge in Front Desk einen neuen und füge die frische Zeichenfolge ein.</string>
+    <string name="pairing_error_scan_unavailable">Die Kamera konnte nicht geöffnet werden, daher ist das Scannen nicht verfügbar. Erlaube den Kamerazugriff oder füge stattdessen unten die Kopplungszeichenfolge ein.</string>
+
+    <!-- Dashboard (linked state) -->
+    <string name="dashboard_linked_as">Verknüpft als %1$s (%2$s)</string>
+    <string name="dashboard_summary_all_up">Alle Mitglieder aktiv</string>
+    <string name="dashboard_summary_down">%1$d von %2$d Mitgliedern ausgefallen</string>
+    <string name="dashboard_summary_checking">Mitglieder werden geprüft…</string>
+    <string name="dashboard_empty">Noch keine Mitglieder. Füge sie in Front Desk hinzu.</string>
+    <string name="dashboard_refresh_failed">Aktualisieren fehlgeschlagen: %1$s</string>
+    <string name="dashboard_revoked">Dieses Gerät kann sich nicht mehr bei Front Desk authentifizieren. Sein Zugriff wurde möglicherweise widerrufen; Verknüpfung aufheben und mit einem neuen Code erneut koppeln.</string>
+    <string name="member_health_up">Aktiv · %1$d ms</string>
+    <string name="member_health_down">Ausgefallen</string>
+    <string name="member_health_unknown">Noch nicht geprüft</string>
+    <string name="member_traefik">Traefik %1$s</string>
+    <string name="member_state_drained">Stillgelegt</string>
+    <string name="member_primary">Primär</string>
+    <!-- Member detail -->
+    <string name="member_detail_back">Zurück</string>
+    <string name="member_detail_traffic_title">Traffic · letzte %1$d Min</string>
+    <string name="member_detail_traffic_totals">%1$d Anfragen · %2$d Fehler</string>
+    <string name="member_detail_traffic_unreachable">Traffic ist nicht verfügbar. Front Desk hat für dieses Mitglied möglicherweise kein Admin-Token, oder das Mitglied hat nicht geantwortet.</string>
+    <string name="member_detail_traffic_empty">Keine Anfragen in diesem Zeitraum.</string>
+    <string name="member_detail_events_title">Letzte Ereignisse</string>
+    <string name="member_detail_no_events">Keine aktuellen Ereignisse für dieses Mitglied.</string>
+    <string name="member_detail_label_address">Adresse</string>
+    <string name="member_detail_label_synced">Synchronisiert</string>
+    <string name="member_detail_label_reason">Grund</string>
+    <string name="member_detail_label_verified">Verifiziert</string>
+    <string name="member_detail_label_added">Hinzugefügt</string>
+    <string name="member_url_title">Mitgliedsadresse öffnen</string>
+    <string name="member_url_open">Öffnen</string>
+    <string name="open_url_title">Link öffnen</string>
+    <!-- Operator actions -->
+    <string name="member_op_title">Operator-Steuerung</string>
+    <string name="member_op_drain">Entleeren</string>
+    <string name="member_op_activate">Aktivieren</string>
+    <string name="member_op_draining">Wird entleert… warten, bis die Flotte aufgeholt hat.</string>
+    <string name="member_op_activating">Wird aktiviert… warten, bis die Flotte aufgeholt hat.</string>
+    <string name="member_op_sync">Flotten-Konfiguration synchronisieren</string>
+    <string name="member_op_synced">%1$d Mitglieder vom Primärknoten synchronisiert.</string>
+    <string name="member_op_sync_failed">Synchronisierung mit %1$d von %2$d fehlgeschlagenen Mitgliedern beendet.</string>
+    <string name="member_op_error">Anwenden fehlgeschlagen: %1$s</string>
+    <string name="member_op_dismiss">Schließen</string>
+    <string name="member_op_last_sync">Letzte Konfigurationsänderung synchronisiert %1$s</string>
+    <string name="member_op_busy">Eine andere Aktion läuft noch. Warte, bis sie abgeschlossen ist, und versuche es erneut.</string>
+    <string name="member_op_forbidden">Dieses Gerät ist als Monitor gekoppelt und kann die Flotte nicht ändern. Koppele es in Front Desk mit einem Operator-Code neu, um zu entleeren, zu aktivieren oder zu synchronisieren.</string>
+
+    <!-- Pause/resume auto-sync (dashboard operator control) -->
+    <string name="autosync_title">Auto-Sync</string>
+    <string name="autosync_on">Die Flotte bleibt mit dem Primärknoten synchron.</string>
+    <string name="autosync_off">Die Flotte synchronisiert erst wieder, wenn du fortsetzt.</string>
+    <string name="autosync_pausing">Wird pausiert…</string>
+    <string name="autosync_resuming">Wird fortgesetzt…</string>
+    <string name="autosync_busy">Eine andere Aktion läuft noch. Warte, bis sie abgeschlossen ist, und versuche es erneut.</string>
+    <string name="autosync_error">Anwenden fehlgeschlagen: %1$s</string>
+    <string name="autosync_forbidden">Dieses Gerät ist als Monitor gekoppelt und kann Auto-Sync nicht ändern. Koppele es in Front Desk mit einem Operator-Code neu.</string>
+
+    <!-- Events -->
+    <string name="events_title">Ereignisse</string>
+    <string name="events_open">Ereignisse</string>
+    <string name="events_back">Zurück</string>
+    <string name="events_empty">Keine passenden Ereignisse.</string>
+    <string name="events_copied">Ereignis in die Zwischenablage kopiert</string>
+    <string name="dashboard_member_copied">Mitglied in die Zwischenablage kopiert</string>
+    <string name="scroll_to_top">Nach oben scrollen</string>
+    <plurals name="events_total">
+        <item quantity="one">%1$d Ereignis</item>
+        <item quantity="other">%1$d Ereignisse</item>
+    </plurals>
+    <string name="events_sev_all">Alle</string>
+    <string name="events_sev_info">Info</string>
+    <string name="events_sev_success">Erfolg</string>
+    <string name="events_sev_warning">Warnung</string>
+    <string name="events_sev_error">Fehler</string>
+    <string name="events_range_all">Gesamter Zeitraum</string>
+    <string name="events_range_1h">1 Std</string>
+    <string name="events_range_24h">24 Std</string>
+    <string name="events_range_7d">7 T</string>
+    <string name="events_range_30d">30 T</string>
+    <string name="events_range_calendar">Datumsbereich wählen</string>
+    <string name="events_range_clear">Datumsbereich löschen</string>
+    <string name="events_range_apply">Anwenden</string>
+
+    <!-- Alerts -->
+    <string name="alerts_title">Warnungen</string>
+    <string name="alerts_open">Warnungen</string>
+    <string name="alerts_back">Zurück</string>
+    <string name="alerts_delivery_title">Benachrichtigungszustellung</string>
+    <string name="alerts_status_not_configured">Nicht konfiguriert</string>
+    <string name="alerts_status_unreachable">Notifier nicht erreichbar</string>
+    <string name="alerts_status_unhealthy">Notifier fehlerhaft</string>
+    <string name="alerts_status_delivering">Wird zugestellt</string>
+    <string name="alerts_catalog_title">Worüber Front Desk warnt</string>
+    <string name="alerts_catalog_note">Lege den Schalter um, um eine Warnung zu aktivieren oder stummzuschalten. Änderungen werden sofort auf Front Desk angewendet.</string>
+    <string name="alerts_flip_forbidden">Dieses Gerät ist als Monitor gekoppelt und kann Warnungen nicht ändern. Koppele es in Front Desk mit einem Operator-Code neu.</string>
+    <string name="alerts_flip_failed">Warnung konnte nicht geändert werden: %1$s</string>
+    <string name="alerts_event_health_down">Mitglied ausgefallen</string>
+    <string name="alerts_event_health_up">Mitglied wiederhergestellt</string>
+    <string name="alerts_event_config_sync_failed">Konfigurationssynchronisierung fehlgeschlagen</string>
+    <string name="alerts_event_config_synced">Konfiguration synchronisiert</string>
+    <string name="alerts_event_config_auto_synced">Konfiguration automatisch synchronisiert</string>
+    <string name="alerts_event_version_fetch_failed">Versionsabruf fehlgeschlagen</string>
+    <string name="alerts_event_version_fetch_recovered">Versionsabruf wiederhergestellt</string>
+    <string name="alerts_event_traefik_stale">Traefik-Konfiguration veraltet</string>
+    <string name="alerts_event_member_added">Mitglied hinzugefügt</string>
+    <string name="alerts_event_member_removed">Mitglied entfernt</string>
+    <string name="alerts_event_member_state_changed">Mitglied stillgelegt oder aktiviert</string>
+
+    <!-- App lock -->
+    <string name="lock_title">Bellhop ist gesperrt</string>
+    <string name="lock_subtitle">Entsperren, um die Flotte zu sehen.</string>
+    <string name="lock_unlock">Entsperren</string>
+    <string name="lock_prompt_title">Bellhop entsperren</string>
+    <string name="lock_prompt_subtitle">Bestätige, dass du es bist, um die Flotte zu sehen.</string>
+    <string name="operator_prompt_title">Operator-Aktion bestätigen</string>
+    <string name="operator_prompt_subtitle">Bestätige, dass du es bist, bevor du die Flotte änderst.</string>
+
+    <!-- Settings -->
+    <string name="settings_open">Einstellungen</string>
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_back">Zurück</string>
+    <string name="settings_language">Sprache</string>
+    <string name="language_system_default">Systemstandard</string>
+    <string name="settings_fd_title">Verknüpftes Front Desk</string>
+    <string name="settings_fd_linked_on">Verknüpft am %1$s</string>
+    <string name="settings_fd_copy_title">Adresse kopieren?</string>
+    <string name="settings_fd_copy_body">%1$s in die Zwischenablage kopieren?</string>
+    <string name="settings_fd_copied">Adresse in die Zwischenablage kopiert</string>
+    <string name="common_copy">Kopieren</string>
+    <string name="settings_hold_copy_title">Zum Kopieren halten</string>
+    <string name="settings_hold_copy_subtitle">Wenn aktiviert, kopiert ein langer Druck auf ein Ereignis oder eine Mitgliedszelle diese in die Zwischenablage. Wenn deaktiviert, können Zellen nicht kopiert werden.</string>
+    <string name="settings_lock_title">App-Sperre</string>
+    <string name="settings_lock_subtitle">Fingerabdruck oder Geräte-PIN erforderlich, um Bellhop zu öffnen.</string>
+    <string name="settings_lock_unavailable">Richte auf diesem Gerät einen Fingerabdruck oder eine Bildschirmsperre ein, um die App-Sperre zu aktivieren.</string>
+    <string name="settings_lock_window">Sperren nach Inaktivität</string>
+    <string name="settings_lock_now">Sofort</string>
+    <string name="settings_lock_1m">1 Min</string>
+    <string name="settings_lock_5m">5 Min</string>
+    <string name="settings_lock_15m">15 Min</string>
+    <string name="settings_lock_30m">30 Min</string>
+    <string name="settings_lock_1h">1 Std</string>
+    <string name="settings_alerts_title">Warnungen</string>
+    <string name="settings_alerts_subtitle">Benachrichtigungszustellung und worüber Front Desk warnt.</string>
+    <!-- Accessibility label for a severity count badge on the Alerts pill, e.g. "2 error enabled". -->
+    <string name="settings_alerts_badge_desc">%1$d %2$s aktiviert</string>
+    <string name="settings_monitor_title">Hintergrundüberwachung</string>
+    <string name="settings_monitor_subtitle">Prüft die Flotte alle 15 Minuten und benachrichtigt dich hier, wenn ein Mitglied ausfällt oder sich erholt, selbst wenn Bellhop geschlossen ist.</string>
+    <string name="settings_monitor_note">Die eigenen Warnungen von Front Desk sind schneller; dies ist eine Absicherung, wenn Bellhop deine einzige Ansicht ist. Es prüft etwa alle 15 Minuten, eine Änderung kann also bis zu so lange verzögert sein.</string>
+    <string name="settings_monitor_blocked">Benachrichtigungen für Bellhop sind ausgeschaltet, daher erreichen dich diese Warnungen nicht. Schalte sie in den Systemeinstellungen ein.</string>
+    <string name="settings_push_title">Echtzeit-Push</string>
+    <string name="settings_push_subtitle">Weckt Bellhop in dem Moment, in dem Front Desk eine Warnung sendet, über UnifiedPush und ntfy. Kein Google, keine Abrufverzögerung, optional.</string>
+    <string name="settings_push_no_distributor">Installiere einen UnifiedPush-Distributor wie ntfy, um Pushes zu empfangen. Ohne einen bleibt dies inaktiv, bis du einen hinzufügst.</string>
+    <string name="settings_push_endpoint_label">Push-Thema für Front Desk</string>
+    <string name="settings_push_endpoint_waiting">Warten, bis der Distributor ein Push-Thema zurückgibt…</string>
+    <string name="settings_push_endpoint_note">Füge dies in Front Desk → Einstellungen → Warnungen als Telefon-Thema ein, damit dessen Warnungen Bellhop wecken.</string>
+    <string name="settings_push_copy">Push-Thema kopieren</string>
+    <string name="settings_push_copied">Push-Thema kopiert</string>
+    <string name="settings_push_blocked">Benachrichtigungen für Bellhop sind aus, daher können Pushes dich nicht erreichen. Schalte sie in den Systemeinstellungen ein.</string>
+
+    <!-- Background-monitoring notifications (Layer 2 backstop) -->
+    <string name="notif_channel_down">Mitglied ausgefallen</string>
+    <string name="notif_channel_up">Mitglied wiederhergestellt</string>
+    <string name="notif_down_title">%1$s ist ausgefallen</string>
+    <string name="notif_down_body">Ein Mitglied antwortet nicht mehr. Tippe, um Bellhop zu öffnen.</string>
+    <string name="notif_up_title">%1$s wiederhergestellt</string>
+    <string name="notif_up_body">Ein Mitglied antwortet wieder.</string>
+    <string name="notif_channel_stale">Konfigurationsabweichung</string>
+    <string name="notif_stale_title">Flotte weicht möglicherweise ab</string>
+    <string name="notif_stale_body">Auto-Sync ist aus und die Flotte hat sich seit über einem Tag nicht synchronisiert. Tippe, um Bellhop zu öffnen.</string>
+    <string name="notif_stale_resumed_title">Auto-Sync fortgesetzt</string>
+    <string name="notif_stale_resumed_body">Die Flotte wird wieder synchron gehalten.</string>
+
+    <string name="dashboard_footer">Bellhop %1$s</string>
+    <string name="dashboard_unlink">Verknüpfung aufheben</string>
+    <string name="dashboard_unlink_confirm_title">Verknüpfung dieses Geräts aufheben?</string>
+    <string name="dashboard_unlink_confirm_body">Dieses Gerät hört auf, %1$s zu überwachen, und sein Token wird widerrufen. Du kannst jederzeit mit einem neuen Code erneut koppeln.</string>
+    <string name="dashboard_unlink_failed_title">Front Desk nicht erreichbar</string>
+    <string name="dashboard_unlink_failed_body">Dieses Gerät ist noch verknüpft und nichts wurde widerrufen. Prüfe deine Verbindung und versuche es erneut. Du kannst die Verknüpfung hier trotzdem aufheben, aber Front Desk listet dieses Gerät möglicherweise weiterhin auf; widerrufe es daher unter Front Desk → Einstellungen → Gekoppelte Geräte.</string>
+    <string name="dashboard_unlink_retry">Erneut versuchen</string>
+    <string name="dashboard_unlink_force">Trotzdem Verknüpfung aufheben</string>
+    <string name="common_cancel">Abbrechen</string>
+    <string name="time_just_now">gerade eben</string>
+    <plurals name="time_min_ago">
+        <item quantity="one">vor %d Min.</item>
+        <item quantity="other">vor %d Min.</item>
+    </plurals>
+    <plurals name="time_hr_ago">
+        <item quantity="one">vor %d Std.</item>
+        <item quantity="other">vor %d Std.</item>
+    </plurals>
+    <plurals name="time_day_ago">
+        <item quantity="one">vor %d Tag</item>
+        <item quantity="other">vor %d Tagen</item>
+    </plurals>
+</resources>
