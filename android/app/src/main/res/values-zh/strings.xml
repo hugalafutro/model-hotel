@@ -147,6 +147,9 @@
     <string name="common_copy">复制</string>
     <string name="settings_hold_copy_title">长按以复制</string>
     <string name="settings_hold_copy_subtitle">开启时，长按事件或成员单元格可将其复制到剪贴板。关闭时，单元格无法复制。</string>
+    <string name="settings_graph_range_title">流量图表范围</string>
+    <string name="settings_graph_range_subtitle">请求图表回溯的时间范围。</string>
+    <string name="settings_graph_range_hours">%1$d 小时</string>
     <string name="settings_lock_title">应用锁</string>
     <string name="settings_lock_subtitle">打开 Bellhop 时需要指纹或设备 PIN。</string>
     <string name="settings_lock_unavailable">请在此设备上设置指纹或屏幕锁，以启用应用锁。</string>

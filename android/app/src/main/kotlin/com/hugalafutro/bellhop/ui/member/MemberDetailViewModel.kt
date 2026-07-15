@@ -10,6 +10,7 @@ import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberTraffic
+import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.ui.common.CustomDateRange
 import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.common.loadMoreBackoffMillis
@@ -123,6 +124,9 @@ class MemberDetailViewModel(
     // ([loadMoreBackoffMillis]); reset to 0 on the first successful page.
     private var loadMoreFailures = 0
 
+    // Traffic-graph range (minutes) from the Settings pref, via [setGraphRange].
+    private val graphWindow = MutableStateFlow(PrefsStore.DEFAULT_GRAPH_RANGE_MINUTES)
+
     init {
         viewModelScope.launch {
             _state.subscriptionCount
@@ -144,6 +148,17 @@ class MemberDetailViewModel(
                     }
                 }
         }
+    }
+
+    /**
+     * setGraphRange updates the traffic-graph span (minutes) from the Settings
+     * pref and refetches so the chart redraws at the new range. No-op if the
+     * range is unchanged.
+     */
+    fun setGraphRange(minutes: Int) {
+        if (graphWindow.value == minutes) return
+        graphWindow.value = minutes
+        viewModelScope.launch { refreshOnce() }
     }
 
     /**
@@ -170,7 +185,7 @@ class MemberDetailViewModel(
             val query = eventsQuery(before, limit = before.events.size.coerceIn(EVENTS_PAGE, MAX_EVENTS_WINDOW))
             val (traffic, events, autoSync) =
                 coroutineScope {
-                    val t = async { client.memberTraffic(fdUrl, token, memberId) }
+                    val t = async { client.memberTraffic(fdUrl, token, memberId, graphWindow.value) }
                     val e = async { client.events(fdUrl, token, query) }
                     val a = async { client.autoSync(fdUrl, token) }
                     Triple(t.await(), e.await(), a.await())

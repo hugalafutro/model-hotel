@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +53,7 @@ import com.hugalafutro.bellhop.data.AppLocale
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LockConfig
 import com.hugalafutro.bellhop.data.LockTimeout
+import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.ui.alerts.ALERT_SEVERITIES
 import com.hugalafutro.bellhop.ui.common.FilterPill
 import com.hugalafutro.bellhop.ui.common.NavChevron
@@ -98,6 +100,8 @@ fun SettingsScreen(
     onForceUnlink: () -> Unit = {},
     holdToCopy: Boolean = false,
     onToggleHoldToCopy: (Boolean) -> Unit = {},
+    graphRangeMinutes: Int = PrefsStore.DEFAULT_GRAPH_RANGE_MINUTES,
+    onSetGraphRange: (Int) -> Unit = {},
     // Enabled-alert counts per severity (error/warning/info/success), sourced from
     // Front Desk's live selection. Always rendered as badges on the Alerts pill,
     // even at 0, so the pill reads as a live, tappable destination.
@@ -336,6 +340,39 @@ fun SettingsScreen(
                                 ),
                             modifier = Modifier.testTag("settings-hold-copy-toggle"),
                         )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Traffic graph range: how far back the request charts (the dashboard
+            // sparklines and the member-detail graph) reach. Coarse presets only.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = stringResource(R.string.settings_graph_range_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_graph_range_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        PrefsStore.GRAPH_RANGE_OPTIONS.forEach { minutes ->
+                            FilterChip(
+                                selected = graphRangeMinutes == minutes,
+                                onClick = { onSetGraphRange(minutes) },
+                                label = {
+                                    Text(stringResource(R.string.settings_graph_range_hours, minutes / 60))
+                                },
+                                modifier = Modifier.testTag("settings-graph-range-$minutes"),
+                            )
+                        }
                     }
                 }
             }

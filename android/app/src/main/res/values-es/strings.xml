@@ -148,6 +148,9 @@
     <string name="common_copy">Copiar</string>
     <string name="settings_hold_copy_title">Mantener para copiar</string>
     <string name="settings_hold_copy_subtitle">Cuando está activado, mantén pulsada una celda de evento o de miembro para copiarla al portapapeles. Cuando está desactivado, las celdas no se pueden copiar.</string>
+    <string name="settings_graph_range_title">Rango del gráfico de tráfico</string>
+    <string name="settings_graph_range_subtitle">Hasta dónde se remontan los gráficos de solicitudes.</string>
+    <string name="settings_graph_range_hours">%1$d h</string>
     <string name="settings_lock_title">Bloqueo de la app</string>
     <string name="settings_lock_subtitle">Requiere una huella o el PIN del dispositivo para abrir Bellhop.</string>
     <string name="settings_lock_unavailable">Configura una huella o un bloqueo de pantalla en este dispositivo para activar el bloqueo de la app.</string>

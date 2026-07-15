@@ -148,6 +148,9 @@
     <string name="common_copy">Kopiëren</string>
     <string name="settings_hold_copy_title">Ingedrukt houden om te kopiëren</string>
     <string name="settings_hold_copy_subtitle">Wanneer aan, houd een gebeurtenis- of ledencel ingedrukt om die naar het klembord te kopiëren. Wanneer uit, kunnen cellen niet worden gekopieerd.</string>
+    <string name="settings_graph_range_title">Bereik van verkeersgrafiek</string>
+    <string name="settings_graph_range_subtitle">Hoe ver de verzoekgrafieken teruggaan.</string>
+    <string name="settings_graph_range_hours">%1$d u</string>
     <string name="settings_lock_title">App-vergrendeling</string>
     <string name="settings_lock_subtitle">Vereis een vingerafdruk of apparaat-pincode om Bellhop te openen.</string>
     <string name="settings_lock_unavailable">Stel een vingerafdruk of schermvergrendeling in op dit apparaat om de app-vergrendeling in te schakelen.</string>

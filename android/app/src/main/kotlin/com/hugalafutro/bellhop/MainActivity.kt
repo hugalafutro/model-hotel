@@ -183,6 +183,10 @@ fun BellhopApp() {
     val pushEnabled by monitorStore.pushEnabled.collectAsStateWithLifecycle(initialValue = false)
     val pushEndpoint by monitorStore.endpoint.collectAsStateWithLifecycle(initialValue = null)
     val holdToCopy by prefsStore.holdToCopy.collectAsStateWithLifecycle(initialValue = true)
+    val graphRangeMinutes by
+        prefsStore.graphRangeMinutes.collectAsStateWithLifecycle(
+            initialValue = PrefsStore.DEFAULT_GRAPH_RANGE_MINUTES,
+        )
     val scope = rememberCoroutineScope()
     // Whether Bellhop may post notifications. Tracked so Settings can be honest
     // when monitoring is on but the permission was denied (or later revoked from
@@ -465,6 +469,8 @@ fun BellhopApp() {
                         onToggleMonitor = { toggleMonitor(it) },
                         onTogglePush = { togglePush(it) },
                         onToggleHoldToCopy = { scope.launch { prefsStore.setHoldToCopy(it) } },
+                        graphRangeMinutes = graphRangeMinutes,
+                        onSetGraphRange = { scope.launch { prefsStore.setGraphRangeMinutes(it) } },
                         onUnlink = { runUnlink(state.fdUrl) },
                         onForceUnlink = { forceUnlink() },
                         requireOperatorAuth = { action -> requireOperatorAuth(action) },
@@ -502,6 +508,8 @@ private fun LinkedContent(
     onToggleMonitor: (Boolean) -> Unit,
     onTogglePush: (Boolean) -> Unit,
     onToggleHoldToCopy: (Boolean) -> Unit,
+    graphRangeMinutes: Int,
+    onSetGraphRange: (Int) -> Unit,
     onUnlink: () -> Unit,
     onForceUnlink: () -> Unit,
     requireOperatorAuth: (() -> Unit) -> Unit,
@@ -549,6 +557,9 @@ private fun LinkedContent(
             factory = DashboardViewModel.Factory(client, linkStore, state.fdUrl),
         )
     val ui by dashVm.state.collectAsStateWithLifecycle()
+    // Feed the Settings graph-range pref into the dashboard VM; a change
+    // re-triggers the sparkline fetch at the new span.
+    LaunchedEffect(graphRangeMinutes) { dashVm.setGraphRange(graphRangeMinutes) }
 
     // Alerts VM is hoisted so both the Settings pill (its severity-count badges)
     // and the Alerts screen share one instance. Created eagerly but only polls
@@ -654,6 +665,8 @@ private fun LinkedContent(
             onForceUnlink = onForceUnlink,
             holdToCopy = holdToCopy,
             onToggleHoldToCopy = onToggleHoldToCopy,
+            graphRangeMinutes = graphRangeMinutes,
+            onSetGraphRange = onSetGraphRange,
             alertCounts = alertCounts,
         )
     } else if (selected != null) {
@@ -666,6 +679,7 @@ private fun LinkedContent(
                 factory = MemberDetailViewModel.Factory(client, linkStore, state.fdUrl, selected.id),
             )
         val detailUi by detailVm.state.collectAsStateWithLifecycle()
+        LaunchedEffect(graphRangeMinutes) { detailVm.setGraphRange(graphRangeMinutes) }
         MemberDetailScreen(
             member = selected,
             isPrimary = selected.id == ui.primaryId,

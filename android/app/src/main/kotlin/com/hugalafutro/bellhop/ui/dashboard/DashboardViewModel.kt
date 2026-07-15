@@ -11,6 +11,7 @@ import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberTraffic
+import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.SseMessage
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -103,6 +105,11 @@ class DashboardViewModel(
     // 100-member fleet never triggers 100 traffic calls. When Front Desk grows a
     // single /api/fleet/usage rollup, this loop swaps its source for that one call.
     private val visibleIds = MutableStateFlow<List<String>>(emptyList())
+
+    // The traffic-graph range (minutes) the sparklines request, driven by the
+    // Settings pref via [setGraphRange]. Changing it force-refetches so the
+    // charts redraw at the new span.
+    private val graphWindow = MutableStateFlow(PrefsStore.DEFAULT_GRAPH_RANGE_MINUTES)
 
     // When each member's traffic was last fetched, so a re-tick or a re-scroll
     // past an already-fresh member doesn't refetch within the TTL. Only touched
@@ -197,6 +204,15 @@ class DashboardViewModel(
         visibleIds.value = ids
     }
 
+    /**
+     * setGraphRange updates the traffic-graph span (minutes) from the Settings
+     * pref. The traffic loop watches [graphWindow] and force-refetches the
+     * visible sparklines when it changes, so the charts follow the new range.
+     */
+    fun setGraphRange(minutes: Int) {
+        graphWindow.value = minutes
+    }
+
     // trafficLoop keeps the on-screen members' sparklines fresh on two triggers:
     // the visible set changing (scroll), debounced so a fast scroll doesn't fetch
     // every row it flies past; and a slow tick so the current view's sparklines
@@ -218,6 +234,15 @@ class DashboardViewModel(
                     // A dead token can't authenticate; stop ticking like the
                     // other loops rather than spinning on a no-op fetch.
                     if (_state.value.revoked) return@launch
+                    fetchVisibleTraffic(visibleIds.value, force = true)
+                }
+            }
+            launch {
+                // A range change invalidates every cached sparkline (they cover
+                // the old span), so force-refetch the current viewport. drop(1)
+                // skips the initial value the first fetch already used.
+                graphWindow.drop(1).collectLatest {
+                    if (_state.value.revoked) return@collectLatest
                     fetchVisibleTraffic(visibleIds.value, force = true)
                 }
             }
@@ -247,7 +272,7 @@ class DashboardViewModel(
                 trafficInFlight += id
                 launch {
                     try {
-                        when (val result = client.memberTraffic(fdUrl, token, id)) {
+                        when (val result = client.memberTraffic(fdUrl, token, id, graphWindow.value)) {
                             is FetchResult.Success -> {
                                 trafficFetchedAt[id] = at
                                 _state.update { it.copy(traffic = it.traffic + (id to result.data)) }

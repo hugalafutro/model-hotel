@@ -68,14 +68,19 @@ private class FakeTrafficClient(
     // action while the first is still running.
     var stateGate: CompletableDeferred<Unit>? = null
 
+    @Volatile
+    var lastTrafficWindow: Int = -1
+
     override suspend fun memberTraffic(
         fdUrl: String,
         token: String,
         memberId: String,
+        windowMinutes: Int,
     ): FetchResult<MemberTraffic> {
         trafficCalls.incrementAndGet()
         lastToken = token
         lastMemberId = memberId
+        lastTrafficWindow = windowMinutes
         return trafficResult
     }
 
@@ -173,6 +178,21 @@ class MemberDetailViewModelTest {
             assertFalse(s.revoked)
             assertEquals("tok-1", client.lastToken)
             assertEquals("m1", client.lastMemberId)
+        }
+
+    @Test
+    fun graphRangeChangeRefetchesTrafficWithTheNewWindow() =
+        runBlocking {
+            val client = FakeTrafficClient(FetchResult.Success(traffic))
+            val vm = MemberDetailViewModel(client, linkedStore(), "http://fd:1", "m1")
+
+            vm.refreshOnce()
+            assertEquals(60, client.lastTrafficWindow) // default one hour
+
+            // Picking a new range refetches this member's chart at the new span.
+            vm.setGraphRange(360)
+            withTimeout(5_000) { while (client.lastTrafficWindow != 360) delay(20) }
+            assertEquals(360, client.lastTrafficWindow)
         }
 
     @Test

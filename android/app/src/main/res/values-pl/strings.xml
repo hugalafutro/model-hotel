@@ -150,6 +150,9 @@
     <string name="common_copy">Kopiuj</string>
     <string name="settings_hold_copy_title">Przytrzymaj, aby skopiować</string>
     <string name="settings_hold_copy_subtitle">Gdy włączone, przytrzymaj komórkę zdarzenia lub węzła, aby skopiować ją do schowka. Gdy wyłączone, komórek nie można kopiować.</string>
+    <string name="settings_graph_range_title">Zakres wykresu ruchu</string>
+    <string name="settings_graph_range_subtitle">Jak daleko wstecz sięgają wykresy żądań.</string>
+    <string name="settings_graph_range_hours">%1$d godz.</string>
     <string name="settings_lock_title">Blokada aplikacji</string>
     <string name="settings_lock_subtitle">Wymagaj odcisku palca lub kodu PIN urządzenia, aby otworzyć Bellhop.</string>
     <string name="settings_lock_unavailable">Skonfiguruj odcisk palca lub blokadę ekranu na tym urządzeniu, aby włączyć blokadę aplikacji.</string>

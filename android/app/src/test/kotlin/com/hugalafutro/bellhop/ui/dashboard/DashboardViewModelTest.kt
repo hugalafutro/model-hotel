@@ -117,11 +117,16 @@ private class FakeFleetClient(
     var trafficResults: Map<String, FetchResult<MemberTraffic>> = emptyMap()
     val trafficFetched = java.util.concurrent.CopyOnWriteArrayList<String>()
 
+    @Volatile
+    var lastTrafficWindow: Int = -1
+
     override suspend fun memberTraffic(
         fdUrl: String,
         token: String,
         memberId: String,
+        windowMinutes: Int,
     ): FetchResult<MemberTraffic> {
+        lastTrafficWindow = windowMinutes
         trafficFetched.add(memberId)
         return trafficResults[memberId] ?: FetchResult.Failure("no traffic for $memberId")
     }
@@ -393,6 +398,28 @@ class DashboardViewModelTest {
 
             assertTrue(client.trafficFetched.contains("m1"))
             assertFalse(client.trafficFetched.contains("m2"))
+            job.cancel()
+        }
+
+    @Test
+    fun graphRangeChangeRefetchesVisibleTrafficWithNewWindow() =
+        runBlocking {
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.trafficResults =
+                mapOf("m1" to FetchResult.Success(MemberTraffic(memberId = "m1", reachable = true)))
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val job = launch { vm.state.collect {} }
+            withTimeout(5_000) { vm.state.first { it.members.size == 1 } }
+
+            vm.setVisibleMembers(listOf("m1"))
+            withTimeout(5_000) { vm.state.first { it.traffic.containsKey("m1") } }
+            // The first fetch used the default one-hour window.
+            assertEquals(60, client.lastTrafficWindow)
+
+            // Changing the range force-refetches the visible sparklines at the new span.
+            vm.setGraphRange(360)
+            withTimeout(5_000) { while (client.lastTrafficWindow != 360) delay(20) }
+            assertEquals(360, client.lastTrafficWindow)
             job.cancel()
         }
 

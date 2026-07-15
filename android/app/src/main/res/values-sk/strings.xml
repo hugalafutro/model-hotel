@@ -150,6 +150,9 @@
     <string name="common_copy">Kopírovať</string>
     <string name="settings_hold_copy_title">Podržať pre kopírovanie</string>
     <string name="settings_hold_copy_subtitle">Keď je zapnuté, dlhým stlačením bunky udalosti alebo člena ju skopírujete do schránky. Keď je vypnuté, bunky nemožno kopírovať.</string>
+    <string name="settings_graph_range_title">Rozsah grafu prevádzky</string>
+    <string name="settings_graph_range_subtitle">Ako ďaleko do minulosti siahajú grafy požiadaviek.</string>
+    <string name="settings_graph_range_hours">%1$d h</string>
     <string name="settings_lock_title">Zámok aplikácie</string>
     <string name="settings_lock_subtitle">Vyžadovať odtlačok prsta alebo PIN zariadenia na otvorenie Bellhopu.</string>
     <string name="settings_lock_unavailable">Nastavte na tomto zariadení odtlačok prsta alebo zámku obrazovky, aby ste povolili zámok aplikácie.</string>
