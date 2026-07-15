@@ -43,6 +43,7 @@
     <string name="member_detail_label_reason">Motivo</string>
     <string name="member_detail_label_verified">Verificado</string>
     <string name="member_detail_label_added">Añadido</string>
+    <string name="member_detail_label_version">Versión</string>
     <string name="member_url_title">Abrir dirección del miembro</string>
     <string name="member_url_open">Abrir</string>
     <string name="open_url_title">Abrir enlace</string>
@@ -79,6 +80,8 @@
     <string name="events_copied">Evento copiado al portapapeles</string>
     <string name="dashboard_member_copied">Miembro copiado al portapapeles</string>
     <string name="scroll_to_top">Desplazar arriba</string>
+    <string name="lock_fab_label">Bloquear la app</string>
+    <string name="lock_fab_hold_hint">Mantén pulsado para bloquear</string>
     <plurals name="events_total">
         <item quantity="one">%1$d evento</item>
         <item quantity="other">%1$d eventos</item>

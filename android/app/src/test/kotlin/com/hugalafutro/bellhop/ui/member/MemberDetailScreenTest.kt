@@ -289,6 +289,58 @@ class MemberDetailScreenTest {
     }
 
     @Test
+    fun allZeroBucketsShowEmptyStateNotFlatChart() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            // Buckets exist but every one is zero: this used to draw a
+                            // flat idle stub along the bottom; it must read as the empty
+                            // state, not a chart.
+                            traffic =
+                                MemberTraffic(
+                                    memberId = "m1",
+                                    reachable = true,
+                                    totalRequests = 0,
+                                    totalErrors = 0,
+                                    points =
+                                        listOf(
+                                            TrafficPoint(bucket = "b0", requests = 0, errors = 0),
+                                            TrafficPoint(bucket = "b1", requests = 0, errors = 0),
+                                        ),
+                                ),
+                        ),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("member-traffic-empty").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-traffic-chart").assertDoesNotExist()
+    }
+
+    @Test
+    fun memberDetailShowsVersion() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui = MemberDetailUiState(loading = false, traffic = reachableTraffic),
+                )
+            }
+        }
+        composeTestRule
+            .onNodeWithTag("member-detail-list")
+            .performScrollToNode(hasTestTag("member-detail-version"))
+        composeTestRule.onNodeWithTag("member-detail-version").assertIsDisplayed()
+    }
+
+    @Test
     fun refreshErrorShowsBannerAndKeepsStaleChart() {
         composeTestRule.setContent {
             BellhopTheme {

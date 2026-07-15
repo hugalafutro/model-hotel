@@ -43,7 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -303,10 +302,11 @@ private fun SectionHeader(
 }
 
 /**
- * MetaLedger is the info the dashboard card has no room for: the full probe
- * error when down, config-sync provenance, the in-sync heartbeat, and when the
- * member was added. Flat label/value register lines under the graph — not a
- * card — with the values in mono so timestamps and the address align. Each
+ * MetaLedger is the info the dashboard card has no room for, in read order:
+ * when the member was added, config-sync provenance, and the in-sync heartbeat
+ * — plus the full probe error when down. Flat label/value register lines under
+ * the graph — not a card — with the values in mono so timestamps and the
+ * address align. Each
  * line only shows when it has a value, so a healthy never-synced member stays
  * terse.
  */
@@ -339,7 +339,28 @@ private fun MetaLedger(
                 tag = "member-detail-down-reason",
             )
         }
+        if (member.status.version.isNotBlank()) {
+            // Build the member reports running — the dashboard card shows it, so the
+            // detail screen carries it too. Static identity, no age suffix.
+            LedgerRow(
+                label = stringResource(R.string.member_detail_label_version),
+                value = member.status.version,
+                tag = "member-detail-version",
+            )
+        }
+        if (member.createdAt.isNotBlank()) {
+            LedgerRow(
+                label = stringResource(R.string.member_detail_label_added),
+                value = formatEventTime(member.createdAt),
+                trailing = remember(member.createdAt, context) { ageParenthetical(context, member.createdAt) },
+                tag = "member-detail-created",
+            )
+        }
         if (member.lastConfigSyncAt.isNotBlank()) {
+            // Provenance, not health: the SYNCED stamp only moves on a real config
+            // write, so a member whose config has simply been stable legitimately
+            // reads old here. Kept muted — staleness that actually means something
+            // lives on VERIFIED below, where a frozen heartbeat signals drift.
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_synced),
                 value = formatEventTime(member.lastConfigSyncAt),
@@ -348,7 +369,6 @@ private fun MetaLedger(
                         member.lastConfigSyncAt,
                         context,
                     ) { ageParenthetical(context, member.lastConfigSyncAt) },
-                trailingColor = syncAgeColorFor(member.lastConfigSyncAt),
                 tag = "member-detail-synced",
             )
             if (member.lastConfigSyncReason.isNotBlank()) {
@@ -362,6 +382,11 @@ private fun MetaLedger(
             }
         }
         if (member.status.autoSyncVerifiedAt.isNotBlank()) {
+            // The live in-sync heartbeat: it advances on every auto-sync tick while
+            // the member is reachable and freezes the moment it isn't — or auto-sync
+            // is paused/left off. That makes its age the honest drift signal, so this
+            // is the row whose suffix grades toward red: a stale VERIFIED is the cue
+            // the fleet MIGHT have drifted, not a week-old config that never changed.
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_verified),
                 value = formatEventTime(member.status.autoSyncVerifiedAt),
@@ -369,15 +394,8 @@ private fun MetaLedger(
                     remember(member.status.autoSyncVerifiedAt, context) {
                         ageParenthetical(context, member.status.autoSyncVerifiedAt)
                     },
+                trailingColor = syncAgeColorFor(member.status.autoSyncVerifiedAt),
                 tag = "member-detail-verified",
-            )
-        }
-        if (member.createdAt.isNotBlank()) {
-            LedgerRow(
-                label = stringResource(R.string.member_detail_label_added),
-                value = formatEventTime(member.createdAt),
-                trailing = remember(member.createdAt, context) { ageParenthetical(context, member.createdAt) },
-                tag = "member-detail-created",
             )
         }
     }
@@ -399,7 +417,7 @@ private fun LedgerRow(
     // Right-aligned relative-age suffix (e.g. "(3 days ago)") for the date rows;
     // null omits it. The value keeps the left, weight(1f) pushes this to the right
     // edge, so the suffixes line up in their own column. [trailingColor] tints it —
-    // the SYNCED row grades it by staleness, the others use the muted default.
+    // the VERIFIED row grades it by staleness, the others use the muted default.
     trailing: String? = null,
     trailingColor: Color? = null,
 ) {
@@ -442,7 +460,8 @@ private val SyncAgeRed = Color(0xFFC62828)
 
 // ageParenthetical is the right-aligned relative-age suffix a date row shows,
 // e.g. "(3 days ago)", or null when the timestamp can't be parsed (the row then
-// just shows the date). Shared by the SYNCED, VERIFIED and ADDED rows.
+// just shows the date). Shared by the SYNCED, VERIFIED and ADDED rows and the
+// operator "last config change synced" line.
 private fun ageParenthetical(
     context: Context,
     timestamp: String,
@@ -457,7 +476,7 @@ private fun ageParenthetical(
     return "(" + relativeAgo(context, (now - ts).coerceAtLeast(0L)) + ")"
 }
 
-// syncAgeColorFor grades the SYNCED row's age suffix by staleness (see
+// syncAgeColorFor grades the VERIFIED row's age suffix by staleness (see
 // [syncAgeColor]); the other date rows leave [trailingColor] null (muted default).
 // Falls back to the muted colour on an unparseable stamp, though the suffix is
 // then absent anyway.
@@ -476,19 +495,20 @@ private fun syncAgeColorFor(
     return syncAgeColor((now - ts).coerceAtLeast(0L), MaterialTheme.colorScheme.onSurface)
 }
 
-// syncAgeColor grades the age suffix from [base] (fresh) through amber to orange
-// as it nears a week, then red at a week or older.
+// syncAgeColor bands the age suffix by how long the verify heartbeat has been
+// frozen: [base] while it is fresh (under an hour, still ticking), amber past an
+// hour, orange from the 2nd day, red from the 3rd day on. Discrete stops, not a
+// gradient — the point is to snap to a band the moment auto-sync stops ticking.
 internal fun syncAgeColor(
     elapsedMs: Long,
     base: Color,
 ): Color {
-    val days = elapsedMs / 86_400_000.0
-    if (days >= 7.0) return SyncAgeRed
-    val f = (days / 7.0).coerceIn(0.0, 1.0).toFloat()
-    return if (f < 0.5f) {
-        lerp(base, SyncAgeYellow, f / 0.5f)
-    } else {
-        lerp(SyncAgeYellow, SyncAgeOrange, (f - 0.5f) / 0.5f)
+    val hours = elapsedMs / 3_600_000.0
+    return when {
+        hours >= 72.0 -> SyncAgeRed // 3+ days without a verified tick
+        hours >= 48.0 -> SyncAgeOrange // into the 2nd day
+        hours >= 1.0 -> SyncAgeYellow // more than an hour stale
+        else -> base // fresh — heartbeat is ticking
     }
 }
 
@@ -514,6 +534,7 @@ private fun OperatorControls(
     onDismissActionError: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     Column(
         modifier = modifier.fillMaxWidth().testTag("member-operator-card"),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -574,12 +595,27 @@ private fun OperatorControls(
         if (isPrimary && lastFleetSyncAt.isNotBlank()) {
             // When a sync last actually wrote config somewhere, not when the
             // button was last pressed; a run that changed nothing doesn't move it.
-            Text(
-                text = stringResource(R.string.member_op_last_sync, formatEventTime(lastFleetSyncAt)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("member-op-last-sync"),
-            )
+            // The relative age sits right-aligned in its own column, matching the
+            // ledger's ADDED row, so "how long ago" reads without decoding the date.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().testTag("member-op-last-sync"),
+            ) {
+                Text(
+                    text = stringResource(R.string.member_op_last_sync, formatEventTime(lastFleetSyncAt)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                ageParenthetical(context, lastFleetSyncAt)?.let { age ->
+                    Text(
+                        text = age,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
         }
         if (action.pendingState != null) {
             Text(
@@ -678,13 +714,21 @@ private fun TrafficCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.testTag("member-traffic-unreachable"),
                     )
-                traffic.points.isEmpty() ->
-                    Text(
-                        text = stringResource(R.string.member_detail_traffic_empty),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.testTag("member-traffic-empty"),
-                    )
+                traffic.points.isEmpty() || traffic.totalRequests == 0 ->
+                    // No buckets at all, or buckets that are all zero: the bar chart
+                    // would just be a flat idle stub along the bottom, which reads as
+                    // "broken" rather than "quiet". Show a dimmed label centred in the
+                    // same graph-height box instead, so the empty state is unmistakable.
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(140.dp).testTag("member-traffic-empty"),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.member_detail_traffic_empty),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 else -> {
                     Text(
                         text =

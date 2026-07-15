@@ -43,6 +43,7 @@
     <string name="member_detail_label_reason">Reden</string>
     <string name="member_detail_label_verified">Geverifieerd</string>
     <string name="member_detail_label_added">Toegevoegd</string>
+    <string name="member_detail_label_version">Versie</string>
     <string name="member_url_title">Lidadres openen</string>
     <string name="member_url_open">Openen</string>
     <string name="open_url_title">Link openen</string>
@@ -79,6 +80,8 @@
     <string name="events_copied">Gebeurtenis gekopieerd naar klembord</string>
     <string name="dashboard_member_copied">Lid gekopieerd naar klembord</string>
     <string name="scroll_to_top">Naar boven scrollen</string>
+    <string name="lock_fab_label">App vergrendelen</string>
+    <string name="lock_fab_hold_hint">Ingedrukt houden om te vergrendelen</string>
     <plurals name="events_total">
         <item quantity="one">%1$d gebeurtenis</item>
         <item quantity="other">%1$d gebeurtenissen</item>

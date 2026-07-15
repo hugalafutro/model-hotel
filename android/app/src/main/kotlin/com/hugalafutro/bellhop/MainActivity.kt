@@ -468,6 +468,7 @@ fun BellhopApp() {
                         onUnlink = { runUnlink(state.fdUrl) },
                         onForceUnlink = { forceUnlink() },
                         requireOperatorAuth = { action -> requireOperatorAuth(action) },
+                        onLock = { locked = true },
                     )
             }
         }
@@ -504,6 +505,7 @@ private fun LinkedContent(
     onUnlink: () -> Unit,
     onForceUnlink: () -> Unit,
     requireOperatorAuth: (() -> Unit) -> Unit,
+    onLock: () -> Unit,
 ) {
     // Self-heal the Layer-2 poll: periodic work persists in WorkManager on its
     // own, but re-asserting the schedule here (KEEP policy, so no interval reset)
@@ -698,6 +700,8 @@ private fun LinkedContent(
             onDismissAutoSyncError = { dashVm.dismissAutoSyncError() },
             onVisibleMembers = dashVm::setVisibleMembers,
             holdToCopy = holdToCopy,
+            lockEnabled = lockConfig.enabled,
+            onLock = onLock,
         )
     }
 }

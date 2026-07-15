@@ -14,6 +14,7 @@ import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -234,6 +235,40 @@ class DashboardScreenTest {
         }
         composeTestRule.onNodeWithTag("dashboard-events").performClick()
         assertTrue(opened == 1)
+    }
+
+    @Test
+    fun lockFabHiddenWhenLockDisabled() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(link = link, ui = DashboardUiState(loading = false, members = members))
+            }
+        }
+        composeTestRule.onNodeWithTag("lock-fab").assertDoesNotExist()
+    }
+
+    @Test
+    fun lockFabTapHintsAndLongPressLocks() {
+        var locked = false
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui = DashboardUiState(loading = false, members = members),
+                    lockEnabled = true,
+                    onLock = { locked = true },
+                )
+            }
+        }
+        val fab = composeTestRule.onNodeWithTag("lock-fab")
+        fab.assertIsDisplayed()
+        // A tap must not lock: it only hints via a toast, so a stray touch is safe.
+        fab.performClick()
+        assertEquals(1, ShadowToast.shownToastCount())
+        assertFalse(locked)
+        // A long-press is the deliberate gesture that actually locks.
+        fab.performTouchInput { longClick() }
+        assertTrue(locked)
     }
 
     @Test

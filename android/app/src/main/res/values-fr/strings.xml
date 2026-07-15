@@ -43,6 +43,7 @@
     <string name="member_detail_label_reason">Raison</string>
     <string name="member_detail_label_verified">Vérifié</string>
     <string name="member_detail_label_added">Ajouté</string>
+    <string name="member_detail_label_version">Version</string>
     <string name="member_url_title">Ouvrir l\'adresse du membre</string>
     <string name="member_url_open">Ouvrir</string>
     <string name="open_url_title">Ouvrir le lien</string>
@@ -79,6 +80,8 @@
     <string name="events_copied">Événement copié dans le presse-papiers</string>
     <string name="dashboard_member_copied">Membre copié dans le presse-papiers</string>
     <string name="scroll_to_top">Défiler vers le haut</string>
+    <string name="lock_fab_label">Verrouiller l\'appli</string>
+    <string name="lock_fab_hold_hint">Maintenir pour verrouiller</string>
     <plurals name="events_total">
         <item quantity="one">%1$d événement</item>
         <item quantity="other">%1$d événements</item>
