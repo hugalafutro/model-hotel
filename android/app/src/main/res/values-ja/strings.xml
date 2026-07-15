@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Pairing (unlinked state) -->
+    <string name="pairing_title">Front Desk をリンク</string>
+    <string name="pairing_subtitle">Front Desk で 設定 → ペア設定済みデバイス を開いてコードを生成します。表示された QR コードをスキャンするか、横にあるペアリング文字列をコピーして下に貼り付けてください。</string>
+    <string name="pairing_scan">QR コードをスキャン</string>
+    <string name="pairing_scan_prompt">Front Desk のペアリング QR に向けてください\n→ 設定 → ペア設定済みデバイス</string>
+    <string name="pairing_or">または貼り付け</string>
+    <string name="pairing_paste_label">ペアリング文字列</string>
+    <string name="pairing_paste_hint">コピーしたペアリング文字列をここに貼り付け</string>
+    <string name="pairing_target">Front Desk: %1$s\n%2$s</string>
+    <string name="pairing_label_label">このデバイスの名前</string>
+    <string name="pairing_submit">ペア設定</string>
+    <string name="pairing_error_bad_string">ペアリング文字列ではないようです。Front Desk → 設定 → ペア設定済みデバイス からもう一度コピーしてください。</string>
+    <string name="pairing_error_invalid_code">無効または期限切れのペアリングコードです。Front Desk で新しいコードを生成し、新しい文字列を貼り付けてください。</string>
+    <string name="pairing_error_scan_unavailable">カメラを開けなかったため、スキャンを利用できません。カメラへのアクセスを許可するか、代わりに下にペアリング文字列を貼り付けてください。</string>
+
+    <!-- Dashboard (linked state) -->
+    <string name="dashboard_linked_as">%1$s (%2$s) としてリンク済み</string>
+    <string name="dashboard_summary_all_up">すべてのメンバーが稼働中</string>
+    <string name="dashboard_summary_down">%2$d 台中 %1$d 台のメンバーがダウン</string>
+    <string name="dashboard_summary_checking">メンバーを確認中…</string>
+    <string name="dashboard_empty">メンバーはまだありません。Front Desk で追加してください。</string>
+    <string name="dashboard_refresh_failed">更新に失敗しました: %1$s</string>
+    <string name="dashboard_revoked">このデバイスは Front Desk に認証できなくなりました。アクセスが取り消された可能性があります。リンクを解除し、新しいコードで再ペア設定してください。</string>
+    <string name="member_health_up">稼働中 · %1$d ms</string>
+    <string name="member_health_down">ダウン</string>
+    <string name="member_health_unknown">未確認</string>
+    <string name="member_traefik">Traefik %1$s</string>
+    <string name="member_state_drained">ドレイン済み</string>
+    <string name="member_primary">プライマリ</string>
+    <!-- Member detail -->
+    <string name="member_detail_back">戻る</string>
+    <string name="member_detail_traffic_title">トラフィック · 直近 %1$d 分</string>
+    <string name="member_detail_traffic_totals">%1$d リクエスト · %2$d エラー</string>
+    <string name="member_detail_traffic_unreachable">トラフィックを利用できません。Front Desk がこのメンバーの管理者トークンを持っていないか、メンバーが応答しなかった可能性があります。</string>
+    <string name="member_detail_traffic_empty">この期間にリクエストはありません。</string>
+    <string name="member_detail_events_title">最近のイベント</string>
+    <string name="member_detail_no_events">このメンバーの最近のイベントはありません。</string>
+    <string name="member_detail_label_address">アドレス</string>
+    <string name="member_detail_label_synced">同期済み</string>
+    <string name="member_detail_label_reason">理由</string>
+    <string name="member_detail_label_verified">検証済み</string>
+    <string name="member_detail_label_added">追加</string>
+    <string name="member_url_title">メンバーのアドレスを開く</string>
+    <string name="member_url_open">開く</string>
+    <string name="open_url_title">リンクを開く</string>
+    <!-- Operator actions -->
+    <string name="member_op_title">オペレーター操作</string>
+    <string name="member_op_drain">ドレイン</string>
+    <string name="member_op_activate">有効化</string>
+    <string name="member_op_draining">ドレイン中… フリートが追いつくのを待っています。</string>
+    <string name="member_op_activating">有効化中… フリートが追いつくのを待っています。</string>
+    <string name="member_op_sync">フリートの設定を同期</string>
+    <string name="member_op_synced">プライマリから %1$d 台のメンバーを同期しました。</string>
+    <string name="member_op_sync_failed">同期が完了しました。%2$d 台中 %1$d 台のメンバーが失敗しました。</string>
+    <string name="member_op_error">適用できませんでした: %1$s</string>
+    <string name="member_op_dismiss">閉じる</string>
+    <string name="member_op_last_sync">最後の設定変更を同期: %1$s</string>
+    <string name="member_op_busy">別の操作がまだ実行中です。完了するまで待ってから、もう一度お試しください。</string>
+    <string name="member_op_forbidden">このデバイスはモニターとしてペア設定されており、フリートを変更できません。ドレイン、有効化、同期を行うには、Front Desk でオペレーターコードを使って再ペア設定してください。</string>
+
+    <!-- Pause/resume auto-sync (dashboard operator control) -->
+    <string name="autosync_title">自動同期</string>
+    <string name="autosync_on">フリートはプライマリと同期を保ちます。</string>
+    <string name="autosync_off">再開するまでフリートは同期されません。</string>
+    <string name="autosync_pausing">一時停止中…</string>
+    <string name="autosync_resuming">再開中…</string>
+    <string name="autosync_busy">別の操作がまだ実行中です。完了するまで待ってから、もう一度お試しください。</string>
+    <string name="autosync_error">適用できませんでした: %1$s</string>
+    <string name="autosync_forbidden">このデバイスはモニターとしてペア設定されており、自動同期を変更できません。Front Desk でオペレーターコードを使って再ペア設定してください。</string>
+
+    <!-- Events -->
+    <string name="events_title">イベント</string>
+    <string name="events_open">イベント</string>
+    <string name="events_back">戻る</string>
+    <string name="events_empty">一致するイベントはありません。</string>
+    <string name="events_copied">イベントをクリップボードにコピーしました</string>
+    <string name="dashboard_member_copied">メンバーをクリップボードにコピーしました</string>
+    <string name="scroll_to_top">上にスクロール</string>
+    <plurals name="events_total">
+        <item quantity="other">%1$d 件のイベント</item>
+    </plurals>
+    <string name="events_sev_all">すべて</string>
+    <string name="events_sev_info">情報</string>
+    <string name="events_sev_success">成功</string>
+    <string name="events_sev_warning">警告</string>
+    <string name="events_sev_error">エラー</string>
+    <string name="events_range_all">全期間</string>
+    <string name="events_range_1h">1 時間</string>
+    <string name="events_range_24h">24 時間</string>
+    <string name="events_range_7d">7 日</string>
+    <string name="events_range_30d">30 日</string>
+    <string name="events_range_calendar">日付範囲を選択</string>
+    <string name="events_range_clear">日付範囲をクリア</string>
+    <string name="events_range_apply">適用</string>
+
+    <!-- Alerts -->
+    <string name="alerts_title">アラート</string>
+    <string name="alerts_open">アラート</string>
+    <string name="alerts_back">戻る</string>
+    <string name="alerts_delivery_title">通知の配信</string>
+    <string name="alerts_status_not_configured">未設定</string>
+    <string name="alerts_status_unreachable">通知先に到達不能</string>
+    <string name="alerts_status_unhealthy">通知先が異常</string>
+    <string name="alerts_status_delivering">配信中</string>
+    <string name="alerts_catalog_title">Front Desk がアラートする対象</string>
+    <string name="alerts_catalog_note">スイッチを切り替えてアラートを有効化またはミュートします。変更は Front Desk にすぐに適用されます。</string>
+    <string name="alerts_flip_forbidden">このデバイスはモニターとしてペア設定されており、アラートを変更できません。Front Desk でオペレーターコードを使って再ペア設定してください。</string>
+    <string name="alerts_flip_failed">そのアラートを変更できませんでした: %1$s</string>
+    <string name="alerts_event_health_down">メンバーがダウン</string>
+    <string name="alerts_event_health_up">メンバーが復旧</string>
+    <string name="alerts_event_config_sync_failed">設定の同期に失敗</string>
+    <string name="alerts_event_config_synced">設定を同期</string>
+    <string name="alerts_event_config_auto_synced">設定を自動同期</string>
+    <string name="alerts_event_version_fetch_failed">バージョン取得に失敗</string>
+    <string name="alerts_event_version_fetch_recovered">バージョン取得が復旧</string>
+    <string name="alerts_event_traefik_stale">Traefik 設定が古い</string>
+    <string name="alerts_event_member_added">メンバーを追加</string>
+    <string name="alerts_event_member_removed">メンバーを削除</string>
+    <string name="alerts_event_member_state_changed">メンバーをドレインまたは有効化</string>
+
+    <!-- App lock -->
+    <string name="lock_title">Bellhop はロックされています</string>
+    <string name="lock_subtitle">ロックを解除してフリートを表示します。</string>
+    <string name="lock_unlock">ロック解除</string>
+    <string name="lock_prompt_title">Bellhop のロックを解除</string>
+    <string name="lock_prompt_subtitle">フリートを表示するために本人確認をしてください。</string>
+    <string name="operator_prompt_title">オペレーター操作を確認</string>
+    <string name="operator_prompt_subtitle">フリートを変更する前に本人確認をしてください。</string>
+
+    <!-- Settings -->
+    <string name="settings_open">設定</string>
+    <string name="settings_title">設定</string>
+    <string name="settings_back">戻る</string>
+    <string name="settings_language">言語</string>
+    <string name="language_system_default">システムの既定</string>
+    <string name="settings_fd_title">リンク済みの Front Desk</string>
+    <string name="settings_fd_linked_on">%1$s にリンク</string>
+    <string name="settings_fd_copy_title">アドレスをコピーしますか？</string>
+    <string name="settings_fd_copy_body">%1$s をクリップボードにコピーしますか？</string>
+    <string name="settings_fd_copied">アドレスをクリップボードにコピーしました</string>
+    <string name="common_copy">コピー</string>
+    <string name="settings_hold_copy_title">長押しでコピー</string>
+    <string name="settings_hold_copy_subtitle">オンのとき、イベントまたはメンバーのセルを長押しするとクリップボードにコピーします。オフのとき、セルはコピーできません。</string>
+    <string name="settings_lock_title">アプリロック</string>
+    <string name="settings_lock_subtitle">Bellhop を開くのに指紋またはデバイスの PIN を要求します。</string>
+    <string name="settings_lock_unavailable">アプリロックを有効にするには、このデバイスに指紋または画面ロックを設定してください。</string>
+    <string name="settings_lock_window">無操作後にロック</string>
+    <string name="settings_lock_now">今すぐ</string>
+    <string name="settings_lock_1m">1 分</string>
+    <string name="settings_lock_5m">5 分</string>
+    <string name="settings_lock_15m">15 分</string>
+    <string name="settings_lock_30m">30 分</string>
+    <string name="settings_lock_1h">1 時間</string>
+    <string name="settings_alerts_title">アラート</string>
+    <string name="settings_alerts_subtitle">通知の配信と、Front Desk がアラートする対象。</string>
+    <!-- Accessibility label for a severity count badge on the Alerts pill, e.g. "2 error enabled". -->
+    <string name="settings_alerts_badge_desc">%2$s %1$d 件が有効</string>
+    <string name="settings_monitor_title">バックグラウンド監視</string>
+    <string name="settings_monitor_subtitle">15 分ごとにフリートを確認し、Bellhop を閉じていてもメンバーがダウンまたは復旧したときにここで通知します。</string>
+    <string name="settings_monitor_note">Front Desk 自身のアラートの方が速いです。これは Bellhop が唯一の表示手段である場合の予備です。約 15 分ごとに確認するため、変更は最大でその程度遅れることがあります。</string>
+    <string name="settings_monitor_blocked">Bellhop の通知がオフのため、これらのアラートは届きません。システム設定でオンにしてください。</string>
+    <string name="settings_push_title">リアルタイム プッシュ</string>
+    <string name="settings_push_subtitle">Front Desk がアラートを送信した瞬間に、UnifiedPush と ntfy を通じて Bellhop を起こします。Google 不要、ポーリング遅延なし、任意です。</string>
+    <string name="settings_push_no_distributor">プッシュを受け取るには、ntfy などの UnifiedPush ディストリビューターをインストールしてください。ない場合、追加するまでこれは非アクティブのままです。</string>
+    <string name="settings_push_endpoint_label">Front Desk 用のプッシュトピック</string>
+    <string name="settings_push_endpoint_waiting">ディストリビューターがプッシュトピックを返すのを待っています…</string>
+    <string name="settings_push_endpoint_note">Front Desk → 設定 → アラート に電話トピックとしてこれを貼り付けると、そのアラートが Bellhop を起こします。</string>
+    <string name="settings_push_copy">プッシュトピックをコピー</string>
+    <string name="settings_push_copied">プッシュトピックをコピーしました</string>
+    <string name="settings_push_blocked">Bellhop の通知がオフのため、プッシュは届きません。システム設定でオンにしてください。</string>
+
+    <!-- Background-monitoring notifications (Layer 2 backstop) -->
+    <string name="notif_channel_down">メンバーがダウン</string>
+    <string name="notif_channel_up">メンバーが復旧</string>
+    <string name="notif_down_title">%1$s がダウンしています</string>
+    <string name="notif_down_body">メンバーが応答しなくなりました。タップして Bellhop を開きます。</string>
+    <string name="notif_up_title">%1$s が復旧</string>
+    <string name="notif_up_body">メンバーが再び応答しています。</string>
+    <string name="notif_channel_stale">設定のずれ</string>
+    <string name="notif_stale_title">フリートがずれている可能性があります</string>
+    <string name="notif_stale_body">自動同期がオフで、フリートは 1 日以上同期されていません。タップして Bellhop を開きます。</string>
+    <string name="notif_stale_resumed_title">自動同期を再開</string>
+    <string name="notif_stale_resumed_body">フリートは再び同期が保たれています。</string>
+
+    <string name="dashboard_footer">Bellhop %1$s</string>
+    <string name="dashboard_unlink">リンク解除</string>
+    <string name="dashboard_unlink_confirm_title">このデバイスのリンクを解除しますか？</string>
+    <string name="dashboard_unlink_confirm_body">このデバイスは %1$s の監視を停止し、そのトークンは取り消されます。いつでも新しいコードで再ペア設定できます。</string>
+    <string name="dashboard_unlink_failed_title">Front Desk に接続できませんでした</string>
+    <string name="dashboard_unlink_failed_body">このデバイスはまだリンクされており、何も取り消されていません。接続を確認して、もう一度お試しください。ここでリンク解除することもできますが、Front Desk はこのデバイスをまだ一覧表示している可能性があるため、Front Desk → 設定 → ペア設定済みデバイス で取り消してください。</string>
+    <string name="dashboard_unlink_retry">再試行</string>
+    <string name="dashboard_unlink_force">それでもリンク解除</string>
+    <string name="common_cancel">キャンセル</string>
+</resources>

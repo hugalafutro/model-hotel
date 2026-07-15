@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Bellhop</string>
+    <string name="app_name" translatable="false">Bellhop</string>
 
     <!-- Pairing (unlinked state) -->
     <string name="pairing_title">Link a Front Desk</string>
@@ -136,6 +136,8 @@
     <string name="settings_open">Settings</string>
     <string name="settings_title">Settings</string>
     <string name="settings_back">Back</string>
+    <string name="settings_language">Language</string>
+    <string name="language_system_default">System default</string>
     <string name="settings_fd_title">Linked Front Desk</string>
     <string name="settings_fd_linked_on">Linked on %1$s</string>
     <string name="settings_fd_copy_title">Copy address?</string>

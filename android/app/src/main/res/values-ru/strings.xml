@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Pairing (unlinked state) -->
+    <string name="pairing_title">Связать Front Desk</string>
+    <string name="pairing_subtitle">В Front Desk откройте Настройки → Связанные устройства и создайте код. Отсканируйте показанный QR-код или скопируйте строку связывания рядом и вставьте её ниже.</string>
+    <string name="pairing_scan">Сканировать QR-код</string>
+    <string name="pairing_scan_prompt">Наведите на QR-код связывания в Front Desk\n→ Настройки → Связанные устройства</string>
+    <string name="pairing_or">или вставьте</string>
+    <string name="pairing_paste_label">Строка связывания</string>
+    <string name="pairing_paste_hint">Вставьте сюда скопированную строку связывания</string>
+    <string name="pairing_target">Front Desk: %1$s\n%2$s</string>
+    <string name="pairing_label_label">Имя этого устройства</string>
+    <string name="pairing_submit">Связать</string>
+    <string name="pairing_error_bad_string">Это не похоже на строку связывания. Скопируйте её заново из Front Desk → Настройки → Связанные устройства.</string>
+    <string name="pairing_error_invalid_code">Недействительный или просроченный код связывания. Создайте новый в Front Desk и вставьте свежую строку.</string>
+    <string name="pairing_error_scan_unavailable">Не удалось открыть камеру, поэтому сканирование недоступно. Разрешите доступ к камере или вставьте строку связывания ниже.</string>
+
+    <!-- Dashboard (linked state) -->
+    <string name="dashboard_linked_as">Связано как %1$s (%2$s)</string>
+    <string name="dashboard_summary_all_up">Все узлы работают</string>
+    <string name="dashboard_summary_down">%1$d из %2$d узлов недоступны</string>
+    <string name="dashboard_summary_checking">Проверка узлов…</string>
+    <string name="dashboard_empty">Пока нет узлов. Добавьте их в Front Desk.</string>
+    <string name="dashboard_refresh_failed">Не удалось обновить: %1$s</string>
+    <string name="dashboard_revoked">Это устройство больше не может пройти аутентификацию в Front Desk. Его доступ мог быть отозван; отвяжите и свяжите заново с новым кодом.</string>
+    <string name="member_health_up">Работает · %1$d мс</string>
+    <string name="member_health_down">Недоступен</string>
+    <string name="member_health_unknown">Ещё не проверено</string>
+    <string name="member_traefik">Traefik %1$s</string>
+    <string name="member_state_drained">Выведен</string>
+    <string name="member_primary">Основной</string>
+    <!-- Member detail -->
+    <string name="member_detail_back">Назад</string>
+    <string name="member_detail_traffic_title">Трафик · последние %1$d мин</string>
+    <string name="member_detail_traffic_totals">%1$d запросов · %2$d ошибок</string>
+    <string name="member_detail_traffic_unreachable">Трафик недоступен. Возможно, у Front Desk нет токена администратора для этого узла, или узел не ответил.</string>
+    <string name="member_detail_traffic_empty">Нет запросов в этом окне.</string>
+    <string name="member_detail_events_title">Недавние события</string>
+    <string name="member_detail_no_events">Нет недавних событий для этого узла.</string>
+    <string name="member_detail_label_address">Адрес</string>
+    <string name="member_detail_label_synced">Синхронизировано</string>
+    <string name="member_detail_label_reason">Причина</string>
+    <string name="member_detail_label_verified">Проверено</string>
+    <string name="member_detail_label_added">Добавлено</string>
+    <string name="member_url_title">Открыть адрес узла</string>
+    <string name="member_url_open">Открыть</string>
+    <string name="open_url_title">Открыть ссылку</string>
+    <!-- Operator actions -->
+    <string name="member_op_title">Управление оператора</string>
+    <string name="member_op_drain">Вывести</string>
+    <string name="member_op_activate">Активировать</string>
+    <string name="member_op_draining">Вывод… ожидание, пока флот догонит.</string>
+    <string name="member_op_activating">Активация… ожидание, пока флот догонит.</string>
+    <string name="member_op_sync">Синхронизировать конфигурацию флота</string>
+    <string name="member_op_synced">Синхронизировано %1$d узлов с основного.</string>
+    <string name="member_op_sync_failed">Синхронизация завершена с %1$d из %2$d узлов с ошибкой.</string>
+    <string name="member_op_error">Не удалось применить: %1$s</string>
+    <string name="member_op_dismiss">Закрыть</string>
+    <string name="member_op_last_sync">Последнее изменение конфигурации синхронизировано %1$s</string>
+    <string name="member_op_busy">Другое действие ещё выполняется. Дождитесь его завершения и повторите попытку.</string>
+    <string name="member_op_forbidden">Это устройство связано как монитор и не может менять флот. Свяжите его заново кодом оператора в Front Desk, чтобы выводить, активировать или синхронизировать.</string>
+
+    <!-- Pause/resume auto-sync (dashboard operator control) -->
+    <string name="autosync_title">Автосинхронизация</string>
+    <string name="autosync_on">Флот остаётся синхронизированным с основным.</string>
+    <string name="autosync_off">Флот не будет синхронизироваться, пока вы не возобновите.</string>
+    <string name="autosync_pausing">Приостановка…</string>
+    <string name="autosync_resuming">Возобновление…</string>
+    <string name="autosync_busy">Другое действие ещё выполняется. Дождитесь его завершения и повторите попытку.</string>
+    <string name="autosync_error">Не удалось применить: %1$s</string>
+    <string name="autosync_forbidden">Это устройство связано как монитор и не может менять автосинхронизацию. Свяжите его заново кодом оператора в Front Desk.</string>
+
+    <!-- Events -->
+    <string name="events_title">События</string>
+    <string name="events_open">События</string>
+    <string name="events_back">Назад</string>
+    <string name="events_empty">Нет подходящих событий.</string>
+    <string name="events_copied">Событие скопировано в буфер обмена</string>
+    <string name="dashboard_member_copied">Узел скопирован в буфер обмена</string>
+    <string name="scroll_to_top">Прокрутить вверх</string>
+    <plurals name="events_total">
+        <item quantity="one">%1$d событие</item>
+        <item quantity="few">%1$d события</item>
+        <item quantity="many">%1$d событий</item>
+        <item quantity="other">%1$d события</item>
+    </plurals>
+    <string name="events_sev_all">Все</string>
+    <string name="events_sev_info">Инфо</string>
+    <string name="events_sev_success">Успех</string>
+    <string name="events_sev_warning">Предупреждение</string>
+    <string name="events_sev_error">Ошибка</string>
+    <string name="events_range_all">За всё время</string>
+    <string name="events_range_1h">1 ч</string>
+    <string name="events_range_24h">24 ч</string>
+    <string name="events_range_7d">7 д</string>
+    <string name="events_range_30d">30 д</string>
+    <string name="events_range_calendar">Выбрать диапазон дат</string>
+    <string name="events_range_clear">Очистить диапазон дат</string>
+    <string name="events_range_apply">Применить</string>
+
+    <!-- Alerts -->
+    <string name="alerts_title">Оповещения</string>
+    <string name="alerts_open">Оповещения</string>
+    <string name="alerts_back">Назад</string>
+    <string name="alerts_delivery_title">Доставка уведомлений</string>
+    <string name="alerts_status_not_configured">Не настроено</string>
+    <string name="alerts_status_unreachable">Уведомитель недоступен</string>
+    <string name="alerts_status_unhealthy">Уведомитель неисправен</string>
+    <string name="alerts_status_delivering">Доставка</string>
+    <string name="alerts_catalog_title">О чём оповещает Front Desk</string>
+    <string name="alerts_catalog_note">Переключите тумблер, чтобы включить или отключить оповещение. Изменения применяются во Front Desk сразу.</string>
+    <string name="alerts_flip_forbidden">Это устройство связано как монитор и не может менять оповещения. Свяжите его заново кодом оператора в Front Desk.</string>
+    <string name="alerts_flip_failed">Не удалось изменить это оповещение: %1$s</string>
+    <string name="alerts_event_health_down">Узел недоступен</string>
+    <string name="alerts_event_health_up">Узел восстановлен</string>
+    <string name="alerts_event_config_sync_failed">Сбой синхронизации конфигурации</string>
+    <string name="alerts_event_config_synced">Конфигурация синхронизирована</string>
+    <string name="alerts_event_config_auto_synced">Конфигурация синхронизирована автоматически</string>
+    <string name="alerts_event_version_fetch_failed">Сбой чтения версии</string>
+    <string name="alerts_event_version_fetch_recovered">Чтение версии восстановлено</string>
+    <string name="alerts_event_traefik_stale">Конфигурация Traefik устарела</string>
+    <string name="alerts_event_member_added">Узел добавлен</string>
+    <string name="alerts_event_member_removed">Узел удалён</string>
+    <string name="alerts_event_member_state_changed">Узел выведен или активирован</string>
+
+    <!-- App lock -->
+    <string name="lock_title">Bellhop заблокирован</string>
+    <string name="lock_subtitle">Разблокируйте, чтобы увидеть флот.</string>
+    <string name="lock_unlock">Разблокировать</string>
+    <string name="lock_prompt_title">Разблокировать Bellhop</string>
+    <string name="lock_prompt_subtitle">Подтвердите, что это вы, чтобы увидеть флот.</string>
+    <string name="operator_prompt_title">Подтвердите действие оператора</string>
+    <string name="operator_prompt_subtitle">Подтвердите, что это вы, прежде чем менять флот.</string>
+
+    <!-- Settings -->
+    <string name="settings_open">Настройки</string>
+    <string name="settings_title">Настройки</string>
+    <string name="settings_back">Назад</string>
+    <string name="settings_language">Язык</string>
+    <string name="language_system_default">Системный по умолчанию</string>
+    <string name="settings_fd_title">Связанный Front Desk</string>
+    <string name="settings_fd_linked_on">Связано %1$s</string>
+    <string name="settings_fd_copy_title">Скопировать адрес?</string>
+    <string name="settings_fd_copy_body">Скопировать %1$s в буфер обмена?</string>
+    <string name="settings_fd_copied">Адрес скопирован в буфер обмена</string>
+    <string name="common_copy">Копировать</string>
+    <string name="settings_hold_copy_title">Удерживать для копирования</string>
+    <string name="settings_hold_copy_subtitle">Когда включено, удерживайте ячейку события или узла, чтобы скопировать её в буфер обмена. Когда выключено, ячейки нельзя копировать.</string>
+    <string name="settings_lock_title">Блокировка приложения</string>
+    <string name="settings_lock_subtitle">Требовать отпечаток пальца или PIN устройства для открытия Bellhop.</string>
+    <string name="settings_lock_unavailable">Настройте отпечаток пальца или блокировку экрана на этом устройстве, чтобы включить блокировку приложения.</string>
+    <string name="settings_lock_window">Блокировать после бездействия</string>
+    <string name="settings_lock_now">Сейчас</string>
+    <string name="settings_lock_1m">1 мин</string>
+    <string name="settings_lock_5m">5 мин</string>
+    <string name="settings_lock_15m">15 мин</string>
+    <string name="settings_lock_30m">30 мин</string>
+    <string name="settings_lock_1h">1 ч</string>
+    <string name="settings_alerts_title">Оповещения</string>
+    <string name="settings_alerts_subtitle">Доставка уведомлений и о чём оповещает Front Desk.</string>
+    <!-- Accessibility label for a severity count badge on the Alerts pill, e.g. "2 error enabled". -->
+    <string name="settings_alerts_badge_desc">%1$d %2$s включено</string>
+    <string name="settings_monitor_title">Фоновый мониторинг</string>
+    <string name="settings_monitor_subtitle">Проверяет флот каждые 15 минут и уведомляет вас здесь, когда узел падает или восстанавливается, даже когда Bellhop закрыт.</string>
+    <string name="settings_monitor_note">Собственные оповещения Front Desk быстрее; это подстраховка на случай, когда Bellhop — ваш единственный обзор. Проверка примерно каждые 15 минут, поэтому изменение может прийти с такой задержкой.</string>
+    <string name="settings_monitor_blocked">Уведомления для Bellhop отключены, поэтому эти оповещения до вас не дойдут. Включите их в системных настройках.</string>
+    <string name="settings_push_title">Push в реальном времени</string>
+    <string name="settings_push_subtitle">Будит Bellhop в момент, когда Front Desk отправляет оповещение, через UnifiedPush и ntfy. Без Google, без задержки опроса, по желанию.</string>
+    <string name="settings_push_no_distributor">Установите распространитель UnifiedPush, например ntfy, чтобы получать push-уведомления. Без него это остаётся неактивным, пока вы его не добавите.</string>
+    <string name="settings_push_endpoint_label">Push-тема для Front Desk</string>
+    <string name="settings_push_endpoint_waiting">Ожидание, пока распространитель вернёт push-тему…</string>
+    <string name="settings_push_endpoint_note">Вставьте это в Front Desk → Настройки → Оповещения как тему телефона, чтобы его оповещения будили Bellhop.</string>
+    <string name="settings_push_copy">Копировать push-тему</string>
+    <string name="settings_push_copied">Push-тема скопирована</string>
+    <string name="settings_push_blocked">Уведомления для Bellhop отключены, поэтому push-уведомления не могут до вас дойти. Включите их в системных настройках.</string>
+
+    <!-- Background-monitoring notifications (Layer 2 backstop) -->
+    <string name="notif_channel_down">Узел недоступен</string>
+    <string name="notif_channel_up">Узел восстановлен</string>
+    <string name="notif_down_title">%1$s недоступен</string>
+    <string name="notif_down_body">Узел перестал отвечать. Нажмите, чтобы открыть Bellhop.</string>
+    <string name="notif_up_title">%1$s восстановлен</string>
+    <string name="notif_up_body">Узел снова отвечает.</string>
+    <string name="notif_channel_stale">Расхождение конфигурации</string>
+    <string name="notif_stale_title">Флот может расходиться</string>
+    <string name="notif_stale_body">Автосинхронизация отключена, и флот не синхронизировался больше суток. Нажмите, чтобы открыть Bellhop.</string>
+    <string name="notif_stale_resumed_title">Автосинхронизация возобновлена</string>
+    <string name="notif_stale_resumed_body">Флот снова поддерживается в синхронизации.</string>
+
+    <string name="dashboard_footer">Bellhop %1$s</string>
+    <string name="dashboard_unlink">Отвязать</string>
+    <string name="dashboard_unlink_confirm_title">Отвязать это устройство?</string>
+    <string name="dashboard_unlink_confirm_body">Это устройство перестанет отслеживать %1$s, и его токен будет отозван. Вы можете связать заново в любое время с новым кодом.</string>
+    <string name="dashboard_unlink_failed_title">Не удалось связаться с Front Desk</string>
+    <string name="dashboard_unlink_failed_body">Это устройство всё ещё связано, и ничего не было отозвано. Проверьте соединение и повторите попытку. Вы всё равно можете отвязать здесь, но Front Desk может по-прежнему показывать это устройство, поэтому отзовите его в Front Desk → Настройки → Связанные устройства.</string>
+    <string name="dashboard_unlink_retry">Повторить</string>
+    <string name="dashboard_unlink_force">Всё равно отвязать</string>
+    <string name="common_cancel">Отмена</string>
+</resources>

@@ -236,6 +236,17 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun languageIconOpensPickerWithSystemAndLanguageOptions() {
+        content()
+        composeTestRule.onNodeWithTag("settings-language").performScrollTo().performClick()
+        // The dialog offers the system default plus every supported language.
+        composeTestRule.onNodeWithTag("language-option-system").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("language-option-de").assertExists()
+        composeTestRule.onNodeWithTag("language-option-ja").assertExists()
+        composeTestRule.onNodeWithTag("language-cancel").assertExists()
+    }
+
+    @Test
     fun alertSeverityBadgesShowAllFourEvenAtZero() {
         // Only error and warning enabled; info and success still render (at 0) so the
         // pill reads as a live, tappable destination.

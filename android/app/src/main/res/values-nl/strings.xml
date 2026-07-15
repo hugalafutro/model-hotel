@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Pairing (unlinked state) -->
+    <string name="pairing_title">Een Front Desk koppelen</string>
+    <string name="pairing_subtitle">Open in Front Desk Instellingen → Gekoppelde apparaten en genereer een code. Scan de getoonde QR, of kopieer de koppelreeks ernaast en plak die hieronder.</string>
+    <string name="pairing_scan">QR-code scannen</string>
+    <string name="pairing_scan_prompt">Richt op de koppel-QR in Front Desk\n→ Instellingen → Gekoppelde apparaten</string>
+    <string name="pairing_or">of plak de reeks</string>
+    <string name="pairing_paste_label">Koppelreeks</string>
+    <string name="pairing_paste_hint">Plak hier de gekopieerde koppelreeks</string>
+    <string name="pairing_target">Front Desk: %1$s\n%2$s</string>
+    <string name="pairing_label_label">Naam van dit apparaat</string>
+    <string name="pairing_submit">Koppelen</string>
+    <string name="pairing_error_bad_string">Dat lijkt geen koppelreeks. Kopieer die opnieuw vanuit Front Desk → Instellingen → Gekoppelde apparaten.</string>
+    <string name="pairing_error_invalid_code">Ongeldige of verlopen koppelcode. Genereer een nieuwe in Front Desk en plak de verse reeks.</string>
+    <string name="pairing_error_scan_unavailable">De camera kon niet worden geopend, dus scannen is niet beschikbaar. Verleen cameratoegang, of plak in plaats daarvan de koppelreeks hieronder.</string>
+
+    <!-- Dashboard (linked state) -->
+    <string name="dashboard_linked_as">Gekoppeld als %1$s (%2$s)</string>
+    <string name="dashboard_summary_all_up">Alle leden actief</string>
+    <string name="dashboard_summary_down">%1$d van %2$d leden offline</string>
+    <string name="dashboard_summary_checking">Leden controleren…</string>
+    <string name="dashboard_empty">Nog geen leden. Voeg ze toe in Front Desk.</string>
+    <string name="dashboard_refresh_failed">Vernieuwen mislukt: %1$s</string>
+    <string name="dashboard_revoked">Dit apparaat kan zich niet meer bij Front Desk authenticeren. De toegang is mogelijk ingetrokken; ontkoppel en koppel opnieuw met een nieuwe code.</string>
+    <string name="member_health_up">Actief · %1$d ms</string>
+    <string name="member_health_down">Offline</string>
+    <string name="member_health_unknown">Nog niet gecontroleerd</string>
+    <string name="member_traefik">Traefik %1$s</string>
+    <string name="member_state_drained">Gedraineerd</string>
+    <string name="member_primary">Primair</string>
+    <!-- Member detail -->
+    <string name="member_detail_back">Terug</string>
+    <string name="member_detail_traffic_title">Verkeer · laatste %1$d min</string>
+    <string name="member_detail_traffic_totals">%1$d verzoeken · %2$d fouten</string>
+    <string name="member_detail_traffic_unreachable">Verkeer is niet beschikbaar. Front Desk heeft mogelijk geen admin-token voor dit lid, of het lid antwoordde niet.</string>
+    <string name="member_detail_traffic_empty">Geen verzoeken in dit venster.</string>
+    <string name="member_detail_events_title">Recente gebeurtenissen</string>
+    <string name="member_detail_no_events">Geen recente gebeurtenissen voor dit lid.</string>
+    <string name="member_detail_label_address">Adres</string>
+    <string name="member_detail_label_synced">Gesynchroniseerd</string>
+    <string name="member_detail_label_reason">Reden</string>
+    <string name="member_detail_label_verified">Geverifieerd</string>
+    <string name="member_detail_label_added">Toegevoegd</string>
+    <string name="member_url_title">Lidadres openen</string>
+    <string name="member_url_open">Openen</string>
+    <string name="open_url_title">Link openen</string>
+    <!-- Operator actions -->
+    <string name="member_op_title">Operatorbediening</string>
+    <string name="member_op_drain">Draineren</string>
+    <string name="member_op_activate">Activeren</string>
+    <string name="member_op_draining">Draineren… wachten tot de vloot is bijgewerkt.</string>
+    <string name="member_op_activating">Activeren… wachten tot de vloot is bijgewerkt.</string>
+    <string name="member_op_sync">Vlootconfiguratie synchroniseren</string>
+    <string name="member_op_synced">%1$d leden gesynchroniseerd vanaf de primaire.</string>
+    <string name="member_op_sync_failed">Synchronisatie voltooid met %1$d van %2$d leden mislukt.</string>
+    <string name="member_op_error">Kon niet toepassen: %1$s</string>
+    <string name="member_op_dismiss">Sluiten</string>
+    <string name="member_op_last_sync">Laatste configuratiewijziging gesynchroniseerd %1$s</string>
+    <string name="member_op_busy">Er loopt nog een andere actie. Wacht tot die klaar is en probeer het opnieuw.</string>
+    <string name="member_op_forbidden">Dit apparaat is gekoppeld als monitor en kan de vloot niet wijzigen. Koppel het opnieuw met een operatorcode in Front Desk om te draineren, activeren of synchroniseren.</string>
+
+    <!-- Pause/resume auto-sync (dashboard operator control) -->
+    <string name="autosync_title">Auto-sync</string>
+    <string name="autosync_on">De vloot blijft synchroon met de primaire.</string>
+    <string name="autosync_off">De vloot synchroniseert pas weer als je hervat.</string>
+    <string name="autosync_pausing">Pauzeren…</string>
+    <string name="autosync_resuming">Hervatten…</string>
+    <string name="autosync_busy">Er loopt nog een andere actie. Wacht tot die klaar is en probeer het opnieuw.</string>
+    <string name="autosync_error">Kon niet toepassen: %1$s</string>
+    <string name="autosync_forbidden">Dit apparaat is gekoppeld als monitor en kan auto-sync niet wijzigen. Koppel het opnieuw met een operatorcode in Front Desk.</string>
+
+    <!-- Events -->
+    <string name="events_title">Gebeurtenissen</string>
+    <string name="events_open">Gebeurtenissen</string>
+    <string name="events_back">Terug</string>
+    <string name="events_empty">Geen gebeurtenissen komen overeen.</string>
+    <string name="events_copied">Gebeurtenis gekopieerd naar klembord</string>
+    <string name="dashboard_member_copied">Lid gekopieerd naar klembord</string>
+    <string name="scroll_to_top">Naar boven scrollen</string>
+    <plurals name="events_total">
+        <item quantity="one">%1$d gebeurtenis</item>
+        <item quantity="other">%1$d gebeurtenissen</item>
+    </plurals>
+    <string name="events_sev_all">Alle</string>
+    <string name="events_sev_info">Info</string>
+    <string name="events_sev_success">Succes</string>
+    <string name="events_sev_warning">Waarschuwing</string>
+    <string name="events_sev_error">Fout</string>
+    <string name="events_range_all">Alle tijd</string>
+    <string name="events_range_1h">1 u</string>
+    <string name="events_range_24h">24 u</string>
+    <string name="events_range_7d">7 d</string>
+    <string name="events_range_30d">30 d</string>
+    <string name="events_range_calendar">Datumbereik kiezen</string>
+    <string name="events_range_clear">Datumbereik wissen</string>
+    <string name="events_range_apply">Toepassen</string>
+
+    <!-- Alerts -->
+    <string name="alerts_title">Waarschuwingen</string>
+    <string name="alerts_open">Waarschuwingen</string>
+    <string name="alerts_back">Terug</string>
+    <string name="alerts_delivery_title">Bezorging van meldingen</string>
+    <string name="alerts_status_not_configured">Niet geconfigureerd</string>
+    <string name="alerts_status_unreachable">Notifier onbereikbaar</string>
+    <string name="alerts_status_unhealthy">Notifier ongezond</string>
+    <string name="alerts_status_delivering">Bezorgen</string>
+    <string name="alerts_catalog_title">Waarvoor Front Desk waarschuwt</string>
+    <string name="alerts_catalog_note">Zet de schakelaar om om een waarschuwing in of uit te schakelen. Wijzigingen worden direct op Front Desk toegepast.</string>
+    <string name="alerts_flip_forbidden">Dit apparaat is gekoppeld als monitor en kan waarschuwingen niet wijzigen. Koppel het opnieuw met een operatorcode in Front Desk.</string>
+    <string name="alerts_flip_failed">Kon die waarschuwing niet wijzigen: %1$s</string>
+    <string name="alerts_event_health_down">Lid ging offline</string>
+    <string name="alerts_event_health_up">Lid hersteld</string>
+    <string name="alerts_event_config_sync_failed">Configuratiesynchronisatie mislukt</string>
+    <string name="alerts_event_config_synced">Configuratie gesynchroniseerd</string>
+    <string name="alerts_event_config_auto_synced">Configuratie automatisch gesynchroniseerd</string>
+    <string name="alerts_event_version_fetch_failed">Versie lezen mislukt</string>
+    <string name="alerts_event_version_fetch_recovered">Versie lezen hersteld</string>
+    <string name="alerts_event_traefik_stale">Traefik-configuratie verouderd</string>
+    <string name="alerts_event_member_added">Lid toegevoegd</string>
+    <string name="alerts_event_member_removed">Lid verwijderd</string>
+    <string name="alerts_event_member_state_changed">Lid gedraineerd of geactiveerd</string>
+
+    <!-- App lock -->
+    <string name="lock_title">Bellhop is vergrendeld</string>
+    <string name="lock_subtitle">Ontgrendel om de vloot te zien.</string>
+    <string name="lock_unlock">Ontgrendelen</string>
+    <string name="lock_prompt_title">Bellhop ontgrendelen</string>
+    <string name="lock_prompt_subtitle">Bevestig dat jij het bent om de vloot te zien.</string>
+    <string name="operator_prompt_title">Operatoractie bevestigen</string>
+    <string name="operator_prompt_subtitle">Bevestig dat jij het bent voordat je de vloot wijzigt.</string>
+
+    <!-- Settings -->
+    <string name="settings_open">Instellingen</string>
+    <string name="settings_title">Instellingen</string>
+    <string name="settings_back">Terug</string>
+    <string name="settings_language">Taal</string>
+    <string name="language_system_default">Systeemstandaard</string>
+    <string name="settings_fd_title">Gekoppelde Front Desk</string>
+    <string name="settings_fd_linked_on">Gekoppeld op %1$s</string>
+    <string name="settings_fd_copy_title">Adres kopiëren?</string>
+    <string name="settings_fd_copy_body">%1$s naar klembord kopiëren?</string>
+    <string name="settings_fd_copied">Adres gekopieerd naar klembord</string>
+    <string name="common_copy">Kopiëren</string>
+    <string name="settings_hold_copy_title">Ingedrukt houden om te kopiëren</string>
+    <string name="settings_hold_copy_subtitle">Wanneer aan, houd een gebeurtenis- of ledencel ingedrukt om die naar het klembord te kopiëren. Wanneer uit, kunnen cellen niet worden gekopieerd.</string>
+    <string name="settings_lock_title">App-vergrendeling</string>
+    <string name="settings_lock_subtitle">Vereis een vingerafdruk of apparaat-pincode om Bellhop te openen.</string>
+    <string name="settings_lock_unavailable">Stel een vingerafdruk of schermvergrendeling in op dit apparaat om de app-vergrendeling in te schakelen.</string>
+    <string name="settings_lock_window">Vergrendelen na inactiviteit</string>
+    <string name="settings_lock_now">Nu</string>
+    <string name="settings_lock_1m">1 min</string>
+    <string name="settings_lock_5m">5 min</string>
+    <string name="settings_lock_15m">15 min</string>
+    <string name="settings_lock_30m">30 min</string>
+    <string name="settings_lock_1h">1 u</string>
+    <string name="settings_alerts_title">Waarschuwingen</string>
+    <string name="settings_alerts_subtitle">Bezorging van meldingen en waarvoor Front Desk waarschuwt.</string>
+    <!-- Accessibility label for a severity count badge on the Alerts pill, e.g. "2 error enabled". -->
+    <string name="settings_alerts_badge_desc">%1$d %2$s ingeschakeld</string>
+    <string name="settings_monitor_title">Achtergrondbewaking</string>
+    <string name="settings_monitor_subtitle">Controleert de vloot elke 15 minuten en waarschuwt je hier wanneer een lid offline gaat of herstelt, zelfs als Bellhop gesloten is.</string>
+    <string name="settings_monitor_note">De eigen waarschuwingen van Front Desk zijn sneller; dit is een vangnet voor wanneer Bellhop je enige zicht is. Het controleert ongeveer elke 15 minuten, dus een wijziging kan tot zo lang later komen.</string>
+    <string name="settings_monitor_blocked">Meldingen staan uit voor Bellhop, dus deze waarschuwingen bereiken je niet. Zet ze aan in de systeeminstellingen.</string>
+    <string name="settings_push_title">Realtime push</string>
+    <string name="settings_push_subtitle">Wekt Bellhop op het moment dat Front Desk een waarschuwing pusht, via UnifiedPush en ntfy. Geen Google, geen pollvertraging, opt-in.</string>
+    <string name="settings_push_no_distributor">Installeer een UnifiedPush-distributeur zoals ntfy om pushes te ontvangen. Zonder een blijft dit inactief tot je er een toevoegt.</string>
+    <string name="settings_push_endpoint_label">Push-onderwerp voor Front Desk</string>
+    <string name="settings_push_endpoint_waiting">Wachten tot de distributeur een push-onderwerp teruggeeft…</string>
+    <string name="settings_push_endpoint_note">Plak dit in Front Desk → Instellingen → Waarschuwingen als het telefoononderwerp, zodat zijn waarschuwingen Bellhop wekken.</string>
+    <string name="settings_push_copy">Push-onderwerp kopiëren</string>
+    <string name="settings_push_copied">Push-onderwerp gekopieerd</string>
+    <string name="settings_push_blocked">Meldingen staan uit voor Bellhop, dus pushes kunnen je niet bereiken. Zet ze aan in de systeeminstellingen.</string>
+
+    <!-- Background-monitoring notifications (Layer 2 backstop) -->
+    <string name="notif_channel_down">Lid offline</string>
+    <string name="notif_channel_up">Lid hersteld</string>
+    <string name="notif_down_title">%1$s is offline</string>
+    <string name="notif_down_body">Een lid reageert niet meer. Tik om Bellhop te openen.</string>
+    <string name="notif_up_title">%1$s hersteld</string>
+    <string name="notif_up_body">Een lid reageert weer.</string>
+    <string name="notif_channel_stale">Configuratieafwijking</string>
+    <string name="notif_stale_title">Vloot wijkt mogelijk af</string>
+    <string name="notif_stale_body">Auto-sync staat uit en de vloot is al meer dan een dag niet gesynchroniseerd. Tik om Bellhop te openen.</string>
+    <string name="notif_stale_resumed_title">Auto-sync hervat</string>
+    <string name="notif_stale_resumed_body">De vloot wordt weer synchroon gehouden.</string>
+
+    <string name="dashboard_footer">Bellhop %1$s</string>
+    <string name="dashboard_unlink">Ontkoppelen</string>
+    <string name="dashboard_unlink_confirm_title">Dit apparaat ontkoppelen?</string>
+    <string name="dashboard_unlink_confirm_body">Dit apparaat stopt met het bewaken van %1$s en het token wordt ingetrokken. Je kunt op elk moment opnieuw koppelen met een nieuwe code.</string>
+    <string name="dashboard_unlink_failed_title">Kon Front Desk niet bereiken</string>
+    <string name="dashboard_unlink_failed_body">Dit apparaat is nog gekoppeld en er is niets ingetrokken. Controleer je verbinding en probeer het opnieuw. Je kunt hier toch ontkoppelen, maar Front Desk kan dit apparaat nog steeds tonen; trek het daarom in via Front Desk → Instellingen → Gekoppelde apparaten.</string>
+    <string name="dashboard_unlink_retry">Opnieuw proberen</string>
+    <string name="dashboard_unlink_force">Toch ontkoppelen</string>
+    <string name="common_cancel">Annuleren</string>
+</resources>

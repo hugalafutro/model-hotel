@@ -30,6 +30,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hugalafutro.bellhop.data.AppLocale
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LinkStore
@@ -72,6 +73,13 @@ private const val OPERATOR_AUTH_WINDOW_MS = 60_000L
 // FragmentActivity (not plain ComponentActivity) because BiometricPrompt hosts
 // its sheet on a FragmentManager; Compose still drives the whole UI.
 class MainActivity : FragmentActivity() {
+    // Apply the in-app language override before any resource resolves. A change
+    // from the Settings picker persists the tag and recreates the activity, which
+    // re-enters here in the new locale.
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Register the background-backstop notification channels up front so a

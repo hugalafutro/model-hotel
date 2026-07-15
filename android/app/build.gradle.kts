@@ -55,6 +55,15 @@ android {
         buildConfig = true
     }
 
+    lint {
+        // Locale parity is enforced here, in the existing Bellhop lint job: the
+        // repo's web "i18n Check" only covers the JS/JSON frontends, not Android
+        // resources. A values-<lang>/ that is missing a base key (MissingTranslation)
+        // or supplies one the base lacks (ExtraTranslation) fails the build, so a
+        // half-translated locale can't merge.
+        error += listOf("MissingTranslation", "ExtraTranslation")
+    }
+
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
