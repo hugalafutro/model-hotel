@@ -304,6 +304,48 @@ func TestEventsInsertListFilter(t *testing.T) {
 	}
 }
 
+func TestNewestEventPerMember(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	a, _ := s.CreateMember(ctx, "a", "http://a:8081", "")
+	b, _ := s.CreateMember(ctx, "b", "http://b:8081", "")
+
+	base := time.Now().UTC()
+	// a has two events; the newer one (health.up) must win. Explicit timestamps
+	// keep the pick deterministic rather than leaning on insert-time spacing.
+	_, _ = s.InsertEvent(ctx, Event{Type: "member.added", Severity: "info", Source: "frontdesk", Message: "added", MemberID: a.ID, CreatedAt: base})
+	_, _ = s.InsertEvent(ctx, Event{Type: "health.up", Severity: "success", Source: "poller", Message: "up", MemberID: a.ID, CreatedAt: base.Add(time.Minute)})
+	// b has one event.
+	_, _ = s.InsertEvent(ctx, Event{Type: "health.down", Severity: "error", Source: "poller", Message: "down", MemberID: b.ID, CreatedAt: base})
+	// A fleet-wide event (no member_id) must never appear in the map.
+	_, _ = s.InsertEvent(ctx, Event{Type: "config.regenerated", Severity: "info", Source: "frontdesk", Message: "regen", CreatedAt: base})
+
+	got, err := s.NewestEventPerMember(ctx)
+	if err != nil {
+		t.Fatalf("NewestEventPerMember: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d members, want 2 (fleet-wide event must be excluded): %+v", len(got), got)
+	}
+	if got[a.ID].Type != "health.up" {
+		t.Errorf("member a newest = %q, want health.up", got[a.ID].Type)
+	}
+	if got[b.ID].Type != "health.down" {
+		t.Errorf("member b newest = %q, want health.down", got[b.ID].Type)
+	}
+
+	// A fleet with no member-scoped events yields an empty (non-nil) map.
+	empty := newTestStore(t)
+	m, err := empty.NewestEventPerMember(ctx)
+	if err != nil {
+		t.Fatalf("NewestEventPerMember (empty): %v", err)
+	}
+	if len(m) != 0 {
+		t.Errorf("empty store: got %d, want 0", len(m))
+	}
+}
+
 func TestEventsPagination(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
