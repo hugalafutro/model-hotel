@@ -5,6 +5,8 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -75,6 +77,7 @@ import java.util.Locale
  * It holds only the confirm-dialog visibility locally; the unlink work and its
  * failure state are the host's, so the same revoke-first guarantees apply.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     link: LinkState.Linked,
@@ -359,8 +362,11 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Row(
+                    // FlowRow so the five chips wrap to a second line instead of
+                    // clipping the later ranges on narrow screens or long-label locales.
+                    FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         PrefsStore.GRAPH_RANGE_OPTIONS.forEach { minutes ->
