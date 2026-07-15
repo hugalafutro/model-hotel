@@ -172,6 +172,11 @@
     <string name="settings_monitor_note">Собственные оповещения Front Desk быстрее; это подстраховка на случай, когда Bellhop — ваш единственный обзор. Проверка примерно каждые 15 минут, поэтому изменение может прийти с такой задержкой.</string>
     <string name="settings_monitor_blocked">Уведомления для Bellhop отключены, поэтому эти оповещения до вас не дойдут. Включите их в системных настройках.</string>
     <string name="settings_push_title">Push в реальном времени</string>
+    <string name="settings_battery_title">Батарея</string>
+    <string name="settings_battery_subtitle">Фоновые оповещения надёжны только если Bellhop исключён из оптимизации батареи. На некоторых телефонах также нужно разрешить автозапуск.</string>
+    <string name="settings_battery_unrestricted">Без ограничений. Оповещения могут работать в фоне.</string>
+    <string name="settings_battery_optimized">Оптимизировано. Фоновые оповещения могут задерживаться или теряться.</string>
+    <string name="settings_battery_action">Разрешить работу без ограничений батареи</string>
     <string name="settings_push_subtitle">Будит Bellhop в момент, когда Front Desk отправляет оповещение, через UnifiedPush и ntfy. Без Google, без задержки опроса, по желанию.</string>
     <string name="settings_push_no_distributor">Установите распространитель UnifiedPush, например ntfy, чтобы получать push-уведомления. Без него это остаётся неактивным, пока вы его не добавите.</string>
     <string name="settings_push_endpoint_label">Push-тема для Front Desk</string>

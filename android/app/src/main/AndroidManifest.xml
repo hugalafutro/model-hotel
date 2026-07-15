@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -21,6 +22,11 @@
          33, requested when the user turns the backstop on in Settings; below 33
          notifications post without it. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Lets the Settings "Battery" row open the direct "allow unrestricted
+         battery" prompt so background alert delivery isn't deferred or killed by
+         Doze. Flagged by Play policy; Bellhop is side-loaded, so it's fine here. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        tools:ignore="BatteryLife" />
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />

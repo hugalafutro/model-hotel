@@ -1,10 +1,15 @@
 package com.hugalafutro.bellhop
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -108,6 +113,26 @@ private fun appLockAuthenticators(): Int =
 private fun canAppLock(context: Context): Boolean =
     BiometricManager.from(context).canAuthenticate(appLockAuthenticators()) == BiometricManager.BIOMETRIC_SUCCESS
 
+// isBatteryUnrestricted reports whether Bellhop is exempt from Doze battery
+// optimisation, so background alert delivery (the Layer-2 poll and Layer-3 push
+// wake) isn't deferred or killed by the OS.
+private fun isBatteryUnrestricted(context: Context): Boolean =
+    (context.getSystemService(Context.POWER_SERVICE) as PowerManager)
+        .isIgnoringBatteryOptimizations(context.packageName)
+
+// requestBatteryExemption opens the system "allow unrestricted battery" prompt for
+// Bellhop. Side-loaded, so the Play-flagged direct-request intent is fine here;
+// aggressive OEM auto-start killers have no reliable deep link and aren't covered.
+@SuppressLint("BatteryLife")
+private fun requestBatteryExemption(context: Context) {
+    context.startActivity(
+        Intent(
+            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            Uri.parse("package:${context.packageName}"),
+        ),
+    )
+}
+
 // hasPostNotificationPermission reports whether Bellhop may post notifications.
 // POST_NOTIFICATIONS is a runtime permission from API 33; below that it is granted
 // at install, so the backstop can always post.
@@ -198,6 +223,10 @@ fun BellhopApp() {
     // fires. Refreshed on every return to the foreground, since one may be installed
     // while Bellhop is away.
     var pushDistributorAvailable by remember { mutableStateOf(BellhopPush.hasDistributor(context)) }
+    // Whether Bellhop is exempt from battery optimisation, so background alerts
+    // aren't deferred or killed. Refreshed on every return to the foreground, since
+    // the user may grant it at the system prompt and come back.
+    var batteryUnrestricted by remember { mutableStateOf(isBatteryUnrestricted(context)) }
     // Launcher for the POST_NOTIFICATIONS runtime permission (API 33+), fired when
     // the user turns background monitoring on. A denial is fine: the backstop still
     // polls, and Settings flags that the alerts won't reach them until it's granted.
@@ -305,6 +334,7 @@ fun BellhopApp() {
                         // made in system settings while away.
                         notificationsGranted = hasPostNotificationPermission(context)
                         pushDistributorAvailable = BellhopPush.hasDistributor(context)
+                        batteryUnrestricted = isBatteryUnrestricted(context)
                         // Already locked when we return (e.g. the lock FAB minimised the
                         // app): re-fire the prompt so unlocking is one glance, not a tap
                         // on the lock screen. When the gate below is what flips locked on,
@@ -466,6 +496,8 @@ fun BellhopApp() {
                         pushEndpoint = pushEndpoint,
                         pushDistributorAvailable = pushDistributorAvailable,
                         pushNotificationsBlocked = pushEnabled && !notificationsGranted,
+                        batteryUnrestricted = batteryUnrestricted,
+                        onRequestBatteryExemption = { requestBatteryExemption(context) },
                         scope = scope,
                         unlinking = unlinking,
                         unlinkFailed = unlinkFailed,
@@ -511,6 +543,8 @@ private fun LinkedContent(
     pushEndpoint: String?,
     pushDistributorAvailable: Boolean,
     pushNotificationsBlocked: Boolean,
+    batteryUnrestricted: Boolean,
+    onRequestBatteryExemption: () -> Unit,
     scope: CoroutineScope,
     unlinking: Boolean,
     unlinkFailed: Boolean,
@@ -663,6 +697,8 @@ private fun LinkedContent(
             pushEndpoint = pushEndpoint,
             pushDistributorAvailable = pushDistributorAvailable,
             pushNotificationsBlocked = pushNotificationsBlocked,
+            batteryUnrestricted = batteryUnrestricted,
+            onRequestBatteryExemption = onRequestBatteryExemption,
             onBack = { showSettings = false },
             onToggleLock = { enabled -> scope.launch { lockStore.setEnabled(enabled) } },
             onSelectTimeout = { option -> scope.launch { lockStore.setTimeout(option.millis) } },

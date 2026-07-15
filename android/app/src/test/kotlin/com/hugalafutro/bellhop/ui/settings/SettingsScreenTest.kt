@@ -55,6 +55,8 @@ class SettingsScreenTest {
         onToggleHoldToCopy: (Boolean) -> Unit = {},
         graphRangeMinutes: Int = 60,
         onSetGraphRange: (Int) -> Unit = {},
+        batteryUnrestricted: Boolean = true,
+        onRequestBatteryExemption: () -> Unit = {},
         onAlertsClick: () -> Unit = {},
         onUnlink: () -> Unit = {},
         onForceUnlink: () -> Unit = {},
@@ -72,6 +74,8 @@ class SettingsScreenTest {
                     pushEndpoint = pushEndpoint,
                     pushDistributorAvailable = pushDistributorAvailable,
                     pushNotificationsBlocked = pushNotificationsBlocked,
+                    batteryUnrestricted = batteryUnrestricted,
+                    onRequestBatteryExemption = onRequestBatteryExemption,
                     onBack = {},
                     onToggleLock = onToggleLock,
                     onSelectTimeout = onSelectTimeout,
@@ -136,6 +140,24 @@ class SettingsScreenTest {
         content(graphRangeMinutes = 60, onSetGraphRange = { picked = it })
         composeTestRule.onNodeWithTag("settings-graph-range-360").performScrollTo().performClick()
         assertEquals(360, picked)
+    }
+
+    @Test
+    fun batteryRowHiddenWhenBackgroundOff() {
+        content(monitorEnabled = false, pushEnabled = false)
+        composeTestRule.onNodeWithTag("settings-battery").assertDoesNotExist()
+    }
+
+    @Test
+    fun optimizedBatteryOffersRequestThatFires() {
+        var requested = false
+        content(
+            monitorEnabled = true,
+            batteryUnrestricted = false,
+            onRequestBatteryExemption = { requested = true },
+        )
+        composeTestRule.onNodeWithTag("settings-battery-request").performScrollTo().performClick()
+        assertTrue(requested)
     }
 
     @Test

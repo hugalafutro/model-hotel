@@ -170,6 +170,11 @@
     <string name="settings_monitor_note">De eigen waarschuwingen van Front Desk zijn sneller; dit is een vangnet voor wanneer Bellhop je enige zicht is. Het controleert ongeveer elke 15 minuten, dus een wijziging kan tot zo lang later komen.</string>
     <string name="settings_monitor_blocked">Meldingen staan uit voor Bellhop, dus deze waarschuwingen bereiken je niet. Zet ze aan in de systeeminstellingen.</string>
     <string name="settings_push_title">Realtime push</string>
+    <string name="settings_battery_title">Batterij</string>
+    <string name="settings_battery_subtitle">Achtergrondmeldingen zijn alleen betrouwbaar als Bellhop is uitgezonderd van batterijoptimalisatie. Sommige telefoons vereisen ook dat automatisch starten is toegestaan.</string>
+    <string name="settings_battery_unrestricted">Onbeperkt. Meldingen kunnen op de achtergrond draaien.</string>
+    <string name="settings_battery_optimized">Geoptimaliseerd. Achtergrondmeldingen kunnen worden vertraagd of gemist.</string>
+    <string name="settings_battery_action">Onbeperkte batterij toestaan</string>
     <string name="settings_push_subtitle">Wekt Bellhop op het moment dat Front Desk een waarschuwing pusht, via UnifiedPush en ntfy. Geen Google, geen pollvertraging, opt-in.</string>
     <string name="settings_push_no_distributor">Installeer een UnifiedPush-distributeur zoals ntfy om pushes te ontvangen. Zonder een blijft dit inactief tot je er een toevoegt.</string>
     <string name="settings_push_endpoint_label">Push-onderwerp voor Front Desk</string>

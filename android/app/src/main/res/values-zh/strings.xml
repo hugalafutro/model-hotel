@@ -169,6 +169,11 @@
     <string name="settings_monitor_note">Front Desk 自身的警报更快；这是在 Bellhop 是你唯一视图时的兜底。它大约每 15 分钟检查一次，因此变更最多可能延迟这么久。</string>
     <string name="settings_monitor_blocked">Bellhop 的通知已关闭，因此这些警报无法送达。请在系统设置中开启。</string>
     <string name="settings_push_title">实时推送</string>
+    <string name="settings_battery_title">电池</string>
+    <string name="settings_battery_subtitle">只有当 Bellhop 不受电池优化限制时，后台提醒才可靠。部分手机还需允许自启动。</string>
+    <string name="settings_battery_unrestricted">不受限制。提醒可在后台运行。</string>
+    <string name="settings_battery_optimized">已优化。后台提醒可能被延迟或丢弃。</string>
+    <string name="settings_battery_action">允许不受限制的电池</string>
     <string name="settings_push_subtitle">在 Front Desk 发送警报的那一刻，通过 UnifiedPush 和 ntfy 唤醒 Bellhop。无需 Google，无轮询延迟，可选启用。</string>
     <string name="settings_push_no_distributor">安装 UnifiedPush 分发器（如 ntfy）以接收推送。没有分发器时，此项在你添加之前保持未激活。</string>
     <string name="settings_push_endpoint_label">用于 Front Desk 的推送主题</string>
