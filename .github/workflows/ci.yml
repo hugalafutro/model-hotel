@@ -5,6 +5,13 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  # Manual :dev republish. Force-rebuilds and pushes the :dev images from the
+  # current master HEAD, bypassing the change-gate. Use it when an automatic
+  # publish was missed: a transient CI flake failed the run that carried an
+  # image change, or the follow-up commits only touched non-image files so the
+  # gate skipped them. The gate below also self-heals such strands on the next
+  # push, so this is the belt to that suspenders.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -417,7 +424,9 @@ jobs:
   publish-dev:
     name: Publish :dev image
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/master')
+      || github.event_name == 'workflow_dispatch'
     needs:
       - go-test
       - go-lint
@@ -436,7 +445,10 @@ jobs:
     # push step re-checks HEAD, so only the run that is still master HEAD at push
     # time publishes (newest-wins, never a rollback).
     permissions:
-      contents: read
+      # write: after publishing, the push step moves the dev-published marker ref
+      # to the commit it just pushed, so the change-gate can diff future pushes
+      # against what is actually live on :dev (self-healing a stranded change).
+      contents: write
     env:
       DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel
       DOCKERHUB_FRONTDESK_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel-frontdesk
@@ -467,48 +479,52 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Skip if only non-image files changed
+      - name: Skip if only non-image files changed since the last published :dev
         id: changes
         if: steps.head.outputs.skip == 'false'
         env:
-          BASE_SHA: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
           HEAD_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # The :dev image carries the compiled Go binary (cmd/ + internal/)
-          # and the built+embedded frontend (web/src, web/public, configs, deps).
-          # Changes to docs, screenshots, wiki, AGENTS.md, CI workflows, the
-          # Makefile, and test files cannot affect it — skip the expensive
-          # build/scan/push when none of the changed files touch that surface.
-          # Fail closed: if the diff can't be computed, build rather than risk a
-          # stale :dev.
-          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
-            echo "no base commit (first push or force-push); building to be safe"
+          # A manual dispatch is an explicit "rebuild :dev now" — always build.
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "manual dispatch; building :dev unconditionally"
             echo "skip=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || true)
-          if [ -z "$changed" ]; then
-            echo "could not compute diff; building to be safe"
+          # Diff against the commit the CURRENTLY-LIVE :dev image was built from —
+          # the dev-published marker ref the push step moves — not just this push's
+          # immediate parent. That self-heals a stranded image change: if the run
+          # that carried it never published (a flake failed the run, or it was
+          # superseded while building), the diff from what is actually live still
+          # sees the change, so the next master push rebuilds instead of leaving
+          # :dev silently stale. Fail closed: any doubt about the base builds.
+          base=$( { git ls-remote origin refs/tags/dev-published || true; } | cut -f1)
+          if [ -z "$base" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "no usable dev-published marker; building to be safe"
             echo "skip=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Drop test files — they are not compiled into the binary or bundled.
+          # A failed diff exits the step (set -e) rather than being swallowed into
+          # an empty result: a loud failure beats a silent skip. An empty diff
+          # (base == HEAD) legitimately means nothing new to publish.
+          changed=$(git diff --name-only "$base" "$HEAD_SHA")
+          # The :dev image carries the compiled Go binary (cmd/ + internal/) and
+          # the built+embedded frontend (web/, frontdesk/web/). Docs, screenshots,
+          # wiki, AGENTS.md, CI workflows, the Makefile, and test files cannot
+          # affect it. Drop test files first (not compiled or bundled), then match
+          # the image-affecting surface the Dockerfiles COPY wholesale. Kept broad
+          # on purpose: a wasted build is cheap, a stale :dev is not — a genuinely
+          # new top-level COPY source must be added here.
           src=$(printf '%s\n' "$changed" | grep -vE '(_test\.go|\.test\.tsx?|\.spec\.tsx?)$' || true)
-          # Image-affecting surface = everything the Dockerfiles COPY into a
-          # build stage that the Go/Vite builds actually consume: backend source
-          # (internal/, cmd/), both frontends (web/, frontdesk/web/ — each is
-          # COPYed wholesale), the Dockerfiles + entrypoint scripts, .dockerignore,
-          # and the Go module files. Kept broad on purpose: a wasted build is
-          # cheap, a stale :dev is not. A genuinely new top-level build input
-          # (another COPY source) must be added here.
           code=$(printf '%s\n' "$src" | grep -E '^(internal/|cmd/|web/|frontdesk/web/|Dockerfile|docker-entrypoint|\.dockerignore|go\.mod|go\.sum)' || true)
           if [ -n "$code" ]; then
-            echo "image-affecting changes; building :dev:"
+            echo "image-affecting changes since last published :dev ($base); building:"
             printf '%s\n' "$code"
             echo "skip=false" >> "$GITHUB_OUTPUT"
           else
-            echo "no image-affecting changes; skipping :dev build. All changed files:"
+            echo "no image-affecting changes since last published :dev ($base); skipping. Changed:"
             printf '%s\n' "$changed"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
@@ -587,6 +603,7 @@ jobs:
       # while this job was building/scanning, that newer run will publish its own
       # image, so this (now-stale) run must not overwrite :dev with an older one.
       - name: Push the scanned images as :dev (only if still HEAD)
+        id: push
         if: steps.changes.outputs.skip == 'false'
         env:
           COMMIT_SHA: ${{ github.sha }}
@@ -599,9 +616,25 @@ jobs:
           fi
           if [ "$remote_head" != "$COMMIT_SHA" ]; then
             echo "master HEAD moved to $remote_head; skipping stale :dev push for $COMMIT_SHA"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           docker tag model-hotel:dev-candidate "${DOCKERHUB_IMAGE}:dev"
           docker push "${DOCKERHUB_IMAGE}:dev"
           docker tag model-hotel-frontdesk:dev-candidate "${DOCKERHUB_FRONTDESK_IMAGE}:dev"
           docker push "${DOCKERHUB_FRONTDESK_IMAGE}:dev"
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      # Move the dev-published marker to the commit we just published so the next
+      # push's change-gate diffs against what is actually live on :dev. Best-effort:
+      # if the ref write is blocked, the images are already pushed, so never fail
+      # the job over it — the gate just over-builds the next run (harmless) until
+      # the marker catches up.
+      - name: Record the published commit (move dev-published marker)
+        if: steps.push.outputs.pushed == 'true'
+        continue-on-error: true
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git push --force origin "${COMMIT_SHA}:refs/tags/dev-published"
