@@ -43,6 +43,7 @@
     <string name="member_detail_label_reason">Dôvod</string>
     <string name="member_detail_label_verified">Overené</string>
     <string name="member_detail_label_added">Pridané</string>
+    <string name="member_detail_label_version">Verzia</string>
     <string name="member_url_title">Otvoriť adresu člena</string>
     <string name="member_url_open">Otvoriť</string>
     <string name="open_url_title">Otvoriť odkaz</string>
@@ -79,6 +80,8 @@
     <string name="events_copied">Udalosť skopírovaná do schránky</string>
     <string name="dashboard_member_copied">Člen skopírovaný do schránky</string>
     <string name="scroll_to_top">Prejsť nahor</string>
+    <string name="lock_fab_label">Uzamknúť aplikáciu</string>
+    <string name="lock_fab_hold_hint">Podržaním uzamknete</string>
     <plurals name="events_total">
         <item quantity="one">%1$d udalosť</item>
         <item quantity="few">%1$d udalosti</item>

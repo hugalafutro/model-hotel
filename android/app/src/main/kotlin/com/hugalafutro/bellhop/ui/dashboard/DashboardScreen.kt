@@ -71,6 +71,7 @@ import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.ui.common.ConfirmOpenUrlDialog
+import com.hugalafutro.bellhop.ui.common.LockFab
 import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.ScrollToTopButton
 import com.hugalafutro.bellhop.ui.common.StatusBanner
@@ -106,6 +107,10 @@ fun DashboardScreen(
     // When true, a long-press on a member card copies it to the clipboard (tap
     // still opens the member). Off leaves the card tap-only (Settings > Hold to copy).
     holdToCopy: Boolean = false,
+    // When the app lock is enabled in Settings, a bottom-right lock FAB appears;
+    // long-pressing it fires [onLock] (a tap only hints, so a stray touch can't lock).
+    lockEnabled: Boolean = false,
+    onLock: () -> Unit = {},
 ) {
     // Long-press copies a member row as text, with a toast to confirm the
     // otherwise-silent act. Gated on [holdToCopy] so it never fires by accident.
@@ -132,7 +137,12 @@ fun DashboardScreen(
         )
     }
 
-    Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        // Lives in the Scaffold FAB slot so it stays bottom-right across every
+        // dashboard state (loading, empty, populated), not just the member list.
+        floatingActionButton = { if (lockEnabled) LockFab(onLock = onLock) },
+    ) { innerPadding ->
         Column(
             modifier =
                 Modifier
@@ -308,7 +318,12 @@ fun DashboardScreen(
                                 modifier = Modifier.align(Alignment.BottomCenter),
                             )
                         }
-                        ScrollToTopButton(listState = listState)
+                        ScrollToTopButton(
+                            listState = listState,
+                            // Lifted clear of the lock FAB when it's present, so the
+                            // two never stack on the same bottom-right corner.
+                            modifier = if (lockEnabled) Modifier.padding(bottom = 52.dp) else Modifier,
+                        )
                     }
                 }
             }

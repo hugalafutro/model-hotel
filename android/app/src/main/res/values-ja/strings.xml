@@ -43,6 +43,7 @@
     <string name="member_detail_label_reason">理由</string>
     <string name="member_detail_label_verified">検証済み</string>
     <string name="member_detail_label_added">追加</string>
+    <string name="member_detail_label_version">バージョン</string>
     <string name="member_url_title">メンバーのアドレスを開く</string>
     <string name="member_url_open">開く</string>
     <string name="open_url_title">リンクを開く</string>
@@ -79,6 +80,8 @@
     <string name="events_copied">イベントをクリップボードにコピーしました</string>
     <string name="dashboard_member_copied">メンバーをクリップボードにコピーしました</string>
     <string name="scroll_to_top">上にスクロール</string>
+    <string name="lock_fab_label">アプリをロック</string>
+    <string name="lock_fab_hold_hint">長押しでロック</string>
     <plurals name="events_total">
         <item quantity="other">%1$d 件のイベント</item>
     </plurals>

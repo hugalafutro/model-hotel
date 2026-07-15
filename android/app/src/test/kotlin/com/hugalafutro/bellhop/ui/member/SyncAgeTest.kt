@@ -23,23 +23,34 @@ class SyncAgeTest {
     }
 
     @Test
-    fun freshSyncKeepsTheBaseColour() {
+    fun freshTickUnderAnHourKeepsTheBaseColour() {
+        // While the heartbeat is still ticking (under an hour) the suffix stays muted.
         val base = Color(0xFF102030)
         assertEquals(base, syncAgeColor(0L, base))
+        assertEquals(base, syncAgeColor(59 * minute, base))
     }
 
     @Test
-    fun weekOldOrOlderTurnsRed() {
+    fun pastAnHourTurnsYellow() {
+        val base = Color(0xFF102030)
+        val yellow = Color(0xFFFBC02D)
+        assertEquals(yellow, syncAgeColor(hour, base))
+        assertEquals(yellow, syncAgeColor(25 * hour, base)) // still under 2 days
+    }
+
+    @Test
+    fun secondDayTurnsOrange() {
+        val base = Color(0xFF102030)
+        val orange = Color(0xFFF57C00)
+        assertEquals(orange, syncAgeColor(2 * day, base))
+        assertEquals(orange, syncAgeColor((2.5 * day).toLong(), base))
+    }
+
+    @Test
+    fun thirdDayOrOlderTurnsRed() {
         val base = Color(0xFF102030)
         val red = Color(0xFFC62828)
-        assertEquals(red, syncAgeColor(7 * day, base))
+        assertEquals(red, syncAgeColor(3 * day, base))
         assertEquals(red, syncAgeColor(30 * day, base))
-    }
-
-    @Test
-    fun halfwayHitsTheAmberStop() {
-        // At 3.5 days (half of the 7-day window) the grade reaches the amber stop.
-        val base = Color(0xFF102030)
-        assertEquals(Color(0xFFFBC02D), syncAgeColor((3.5 * day).toLong(), base))
     }
 }
