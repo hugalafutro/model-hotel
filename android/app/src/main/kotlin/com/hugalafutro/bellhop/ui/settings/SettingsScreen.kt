@@ -25,7 +25,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -57,6 +56,7 @@ import com.hugalafutro.bellhop.ui.alerts.ALERT_SEVERITIES
 import com.hugalafutro.bellhop.ui.common.FilterPill
 import com.hugalafutro.bellhop.ui.common.NavChevron
 import com.hugalafutro.bellhop.ui.common.Pill
+import com.hugalafutro.bellhop.ui.common.bellhopSwitchColors
 import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import java.time.Instant
@@ -331,12 +331,7 @@ fun SettingsScreen(
                             onCheckedChange = onToggleHoldToCopy,
                             // Same off-state colours as the other switches so an off
                             // toggle stays legible on the card.
-                            colors =
-                                SwitchDefaults.colors(
-                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    uncheckedTrackColor = MaterialTheme.colorScheme.surface,
-                                    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                ),
+                            colors = bellhopSwitchColors(),
                             modifier = Modifier.testTag("settings-hold-copy-toggle"),
                         )
                     }
@@ -407,12 +402,7 @@ fun SettingsScreen(
                             // an off switch blends into the card. Give the off state a
                             // light thumb + border over a surface track so it stays
                             // legible on both the ink and paper schemes.
-                            colors =
-                                SwitchDefaults.colors(
-                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    uncheckedTrackColor = MaterialTheme.colorScheme.surface,
-                                    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                ),
+                            colors = bellhopSwitchColors(),
                             modifier = Modifier.testTag("settings-lock-toggle"),
                         )
                     }
@@ -477,12 +467,7 @@ fun SettingsScreen(
                             onCheckedChange = onToggleMonitor,
                             // Same off-state colours as the lock switch so an off
                             // toggle stays legible on the card (see note above).
-                            colors =
-                                SwitchDefaults.colors(
-                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    uncheckedTrackColor = MaterialTheme.colorScheme.surface,
-                                    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                ),
+                            colors = bellhopSwitchColors(),
                             modifier = Modifier.testTag("settings-monitor-toggle"),
                         )
                     }
@@ -533,12 +518,7 @@ fun SettingsScreen(
                             onCheckedChange = onTogglePush,
                             // Same off-state colours as the other switches so an off
                             // toggle stays legible on the card (see note above).
-                            colors =
-                                SwitchDefaults.colors(
-                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    uncheckedTrackColor = MaterialTheme.colorScheme.surface,
-                                    uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                ),
+                            colors = bellhopSwitchColors(),
                             modifier = Modifier.testTag("settings-push-toggle"),
                         )
                     }

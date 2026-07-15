@@ -36,7 +36,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -76,6 +75,7 @@ import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.ScrollToTopButton
 import com.hugalafutro.bellhop.ui.common.StatusBanner
 import com.hugalafutro.bellhop.ui.common.TrafficChart
+import com.hugalafutro.bellhop.ui.common.bellhopSwitchColors
 import com.hugalafutro.bellhop.ui.common.healthColor
 import com.hugalafutro.bellhop.ui.common.healthLabel
 import com.hugalafutro.bellhop.ui.common.relativeAgo
@@ -381,23 +381,7 @@ private fun AutoSyncControl(
                         checked = effective,
                         onCheckedChange = onSetAutoSync,
                         enabled = !action.inProgress,
-                        // Same off-state colours as the Settings toggles so a paused
-                        // (unchecked) switch stays legible instead of a grey blob that
-                        // blends into the card. The disabled-unchecked trio mirrors it
-                        // (dimmed) because the switch is disabled while a pause/resume
-                        // is in flight, and Material's default disabled-unchecked grey
-                        // would otherwise reintroduce the very blend this fixes.
-                        colors =
-                            SwitchDefaults.colors(
-                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                uncheckedTrackColor = MaterialTheme.colorScheme.surface,
-                                uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                disabledUncheckedThumbColor =
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                disabledUncheckedTrackColor = MaterialTheme.colorScheme.surface,
-                                disabledUncheckedBorderColor =
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            ),
+                        colors = bellhopSwitchColors(),
                         modifier = Modifier.testTag("autosync-toggle"),
                     )
                 }
