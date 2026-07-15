@@ -260,6 +260,7 @@
 				"config_sync_failed": "Échec de la synchronisation de configuration",
 				"config_synced": "Configuration synchronisée vers un membre",
 				"config_auto_synced": "Synchronisation automatique appliquée à la flotte",
+				"config_autosync_stale": "Synchronisation automatique désactivée, flotte non synchronisée",
 				"version_fetch_failed": "Version du membre illisible",
 				"version_fetch_recovered": "Version du membre à nouveau lisible",
 				"traefik_stale": "Configuration Traefik obsolète",

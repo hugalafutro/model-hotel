@@ -260,6 +260,7 @@
 				"config_sync_failed": "Config-Sync fehlgeschlagen",
 				"config_synced": "Konfiguration an ein Mitglied synchronisiert",
 				"config_auto_synced": "Auto-Sync auf die Flotte angewendet",
+				"config_autosync_stale": "Auto-Sync aus, Flotte nicht synchronisiert",
 				"version_fetch_failed": "Mitgliedsversion nicht lesbar",
 				"version_fetch_recovered": "Mitgliedsversion wieder lesbar",
 				"traefik_stale": "Traefik-Konfiguration veraltet",

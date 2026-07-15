@@ -260,6 +260,7 @@
 				"config_sync_failed": "配置同步失败",
 				"config_synced": "配置已同步到成员",
 				"config_auto_synced": "自动同步已应用到集群",
+				"config_autosync_stale": "自动同步已关闭，集群未同步",
 				"version_fetch_failed": "成员版本无法读取",
 				"version_fetch_recovered": "成员版本恢复可读",
 				"traefik_stale": "Traefik 配置过时",

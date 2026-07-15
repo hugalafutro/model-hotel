@@ -260,6 +260,7 @@
 				"config_sync_failed": "Config sync failed",
 				"config_synced": "Config synced to a member",
 				"config_auto_synced": "Auto-sync applied to the fleet",
+				"config_autosync_stale": "Auto-sync off, fleet not synced",
 				"version_fetch_failed": "Member version unreadable",
 				"version_fetch_recovered": "Member version readable again",
 				"traefik_stale": "Traefik config stale",

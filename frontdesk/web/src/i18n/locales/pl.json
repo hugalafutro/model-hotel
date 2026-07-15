@@ -260,6 +260,7 @@
 				"config_sync_failed": "Synchronizacja konfiguracji nie powiodła się",
 				"config_synced": "Synchronizacja konfiguracji do członka",
 				"config_auto_synced": "Auto-synchronizacja zastosowana we flocie",
+				"config_autosync_stale": "Auto-synchronizacja wyłączona, flota niezsynchronizowana",
 				"version_fetch_failed": "Wersja członka nieczytelna",
 				"version_fetch_recovered": "Wersja członka ponownie czytelna",
 				"traefik_stale": "Konfiguracja Traefik nieświeża",
