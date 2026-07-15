@@ -5,9 +5,9 @@ from your phone. It links to exactly one Front Desk (FD) instance and only ever 
 to that FD; it never holds a member Model Hotel token. The full design lives in
 [`plans/android-companion-app.md`](../plans/android-companion-app.md).
 
-Current status: Phase A1 (project scaffold). The app builds, shows a placeholder
-dashboard, and has the unit-test and CI plumbing in place. Pairing, the real
-dashboard, notifications, and operator actions arrive in later phases.
+Current status: in active use. Pairing (QR/code), the live dashboard and member
+detail, background monitoring, push notifications, operator actions, an app lock,
+alerts, an event log, a settings screen, and full internationalisation have shipped.
 
 ## Stack
 

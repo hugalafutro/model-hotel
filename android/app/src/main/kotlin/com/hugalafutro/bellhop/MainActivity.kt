@@ -45,6 +45,7 @@ import com.hugalafutro.bellhop.data.LockTimeout
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.shouldLock
+import com.hugalafutro.bellhop.data.shouldLockOnEntry
 import com.hugalafutro.bellhop.notify.FleetNotifier
 import com.hugalafutro.bellhop.push.BellhopPush
 import com.hugalafutro.bellhop.ui.alerts.AlertsScreen
@@ -108,6 +109,13 @@ private fun appLockAuthenticators(): Int =
     } else {
         BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
     }
+
+// Process-scoped: false only on the first BellhopApp composition of a fresh process
+// (a cold start, e.g. after a force-kill or a system kill), true thereafter. A
+// config-change recreation keeps the same process, so it stays true and is not
+// treated as a restart; the process dying resets it. Drives the always-relock on a
+// genuine app restart, distinct from the idle-window relock within a session.
+private var lockColdStartHandled = false
 
 /** canAppLock reports whether a biometric or device credential can gate the app. */
 private fun canAppLock(context: Context): Boolean =
@@ -316,7 +324,16 @@ fun BellhopApp() {
     // the first gate check has to happen here rather than on ON_START.
     LaunchedEffect(Unit) {
         val snap = lockStore.snapshot()
-        if (shouldLock(snap.config, snap.lastForegroundExit, System.currentTimeMillis())) locked = true
+        // A cold start (fresh process, e.g. a force-kill and relaunch) always
+        // re-locks when the lock is enabled: restarting the app must require re-auth,
+        // not silently reuse a still-open session. A config-change recreation keeps
+        // the same process, so it isn't a restart and falls through to the idle-window
+        // check instead.
+        val coldStart = !lockColdStartHandled
+        lockColdStartHandled = true
+        if (shouldLockOnEntry(snap.config, snap.lastForegroundExit, System.currentTimeMillis(), coldStart)) {
+            locked = true
+        }
         lockEvaluated = true
     }
 
