@@ -195,4 +195,17 @@
     <string name="dashboard_unlink_retry">Opnieuw proberen</string>
     <string name="dashboard_unlink_force">Toch ontkoppelen</string>
     <string name="common_cancel">Annuleren</string>
+    <string name="time_just_now">zojuist</string>
+    <plurals name="time_min_ago">
+        <item quantity="one">%d min geleden</item>
+        <item quantity="other">%d min geleden</item>
+    </plurals>
+    <plurals name="time_hr_ago">
+        <item quantity="one">%d u geleden</item>
+        <item quantity="other">%d u geleden</item>
+    </plurals>
+    <plurals name="time_day_ago">
+        <item quantity="one">%d dag geleden</item>
+        <item quantity="other">%d dagen geleden</item>
+    </plurals>
 </resources>

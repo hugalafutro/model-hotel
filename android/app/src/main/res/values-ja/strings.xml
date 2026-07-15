@@ -194,4 +194,14 @@
     <string name="dashboard_unlink_retry">再試行</string>
     <string name="dashboard_unlink_force">それでもリンク解除</string>
     <string name="common_cancel">キャンセル</string>
+    <string name="time_just_now">たった今</string>
+    <plurals name="time_min_ago">
+        <item quantity="other">%d 分前</item>
+    </plurals>
+    <plurals name="time_hr_ago">
+        <item quantity="other">%d 時間前</item>
+    </plurals>
+    <plurals name="time_day_ago">
+        <item quantity="other">%d 日前</item>
+    </plurals>
 </resources>

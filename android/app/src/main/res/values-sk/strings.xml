@@ -197,4 +197,23 @@
     <string name="dashboard_unlink_retry">Skúsiť znova</string>
     <string name="dashboard_unlink_force">Napriek tomu zrušiť prepojenie</string>
     <string name="common_cancel">Zrušiť</string>
+    <string name="time_just_now">práve teraz</string>
+    <plurals name="time_min_ago">
+        <item quantity="one">pred %d min</item>
+        <item quantity="few">pred %d min</item>
+        <item quantity="many">pred %d min</item>
+        <item quantity="other">pred %d min</item>
+    </plurals>
+    <plurals name="time_hr_ago">
+        <item quantity="one">pred %d h</item>
+        <item quantity="few">pred %d h</item>
+        <item quantity="many">pred %d h</item>
+        <item quantity="other">pred %d h</item>
+    </plurals>
+    <plurals name="time_day_ago">
+        <item quantity="one">pred %d dňom</item>
+        <item quantity="few">pred %d dňami</item>
+        <item quantity="many">pred %d dňa</item>
+        <item quantity="other">pred %d dňami</item>
+    </plurals>
 </resources>

@@ -195,4 +195,17 @@
     <string name="dashboard_unlink_retry">Reintentar</string>
     <string name="dashboard_unlink_force">Desvincular de todos modos</string>
     <string name="common_cancel">Cancelar</string>
+    <string name="time_just_now">justo ahora</string>
+    <plurals name="time_min_ago">
+        <item quantity="one">hace %d min</item>
+        <item quantity="other">hace %d min</item>
+    </plurals>
+    <plurals name="time_hr_ago">
+        <item quantity="one">hace %d h</item>
+        <item quantity="other">hace %d h</item>
+    </plurals>
+    <plurals name="time_day_ago">
+        <item quantity="one">hace %d día</item>
+        <item quantity="other">hace %d días</item>
+    </plurals>
 </resources>

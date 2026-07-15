@@ -194,4 +194,14 @@
     <string name="dashboard_unlink_retry">重试</string>
     <string name="dashboard_unlink_force">仍然取消关联</string>
     <string name="common_cancel">取消</string>
+    <string name="time_just_now">刚刚</string>
+    <plurals name="time_min_ago">
+        <item quantity="other">%d 分钟前</item>
+    </plurals>
+    <plurals name="time_hr_ago">
+        <item quantity="other">%d 小时前</item>
+    </plurals>
+    <plurals name="time_day_ago">
+        <item quantity="other">%d 天前</item>
+    </plurals>
 </resources>

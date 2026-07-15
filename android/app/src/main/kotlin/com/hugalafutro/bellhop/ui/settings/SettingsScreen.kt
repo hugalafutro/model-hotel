@@ -62,6 +62,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Locale
 
 /**
  * SettingsScreen is where the link's status and the two things the dashboard
@@ -713,13 +714,20 @@ private fun severityBadgeLabel(severity: String): String =
         else -> stringResource(R.string.events_sev_info)
     }
 
-// A localized "Jul 14, 2026"-style date for when the link was paired, or null
-// when the stamp is absent (links saved before linkedAt existed) so the row hides.
-private val linkedOnFormatter: DateTimeFormatter =
-    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withZone(ZoneId.systemDefault())
-
-private fun linkedOnLabel(linkedAt: Long): String? =
-    if (linkedAt <= 0L) null else linkedOnFormatter.format(Instant.ofEpochMilli(linkedAt))
+// linkedOnLabel is a localized "Jul 14, 2026"-style date for when the link was
+// paired, or null when the stamp is absent (links saved before linkedAt existed)
+// so the row hides. The formatter is built per call from the current default
+// locale (kept in step with the in-app language by AppLocale), so the date follows
+// a language switch instead of freezing at process start.
+private fun linkedOnLabel(linkedAt: Long): String? {
+    if (linkedAt <= 0L) return null
+    val formatter =
+        DateTimeFormatter
+            .ofLocalizedDate(FormatStyle.MEDIUM)
+            .withLocale(Locale.getDefault())
+            .withZone(ZoneId.systemDefault())
+    return formatter.format(Instant.ofEpochMilli(linkedAt))
+}
 
 private fun timeoutLabel(option: LockTimeout): Int =
     when (option) {

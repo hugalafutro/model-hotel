@@ -195,4 +195,17 @@
     <string name="dashboard_unlink_retry">Réessayer</string>
     <string name="dashboard_unlink_force">Dissocier quand même</string>
     <string name="common_cancel">Annuler</string>
+    <string name="time_just_now">il y a un instant</string>
+    <plurals name="time_min_ago">
+        <item quantity="one">il y a %d min</item>
+        <item quantity="other">il y a %d min</item>
+    </plurals>
+    <plurals name="time_hr_ago">
+        <item quantity="one">il y a %d h</item>
+        <item quantity="other">il y a %d h</item>
+    </plurals>
+    <plurals name="time_day_ago">
+        <item quantity="one">il y a %d jour</item>
+        <item quantity="other">il y a %d jours</item>
+    </plurals>
 </resources>

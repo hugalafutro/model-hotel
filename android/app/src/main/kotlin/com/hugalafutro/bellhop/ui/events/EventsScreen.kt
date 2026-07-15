@@ -303,15 +303,15 @@ private fun severityLabel(severity: String): String =
         else -> severity
     }
 
-private val EVENT_TIME_FORMAT =
-    DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm", Locale.getDefault())
-
 // formatEventTime renders the stored RFC3339 timestamp in local time, falling
 // back to the raw string on anything unparseable (garbage in, garbage shown —
-// better than a crash or a blank cell).
+// better than a crash or a blank cell). The formatter is built per call from the
+// current default locale (kept in step with the in-app language by AppLocale), so
+// month names follow a language switch instead of freezing at process start.
 internal fun formatEventTime(createdAt: String): String =
     try {
-        Instant.parse(createdAt).atZone(ZoneId.systemDefault()).format(EVENT_TIME_FORMAT)
+        val format = DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm", Locale.getDefault())
+        Instant.parse(createdAt).atZone(ZoneId.systemDefault()).format(format)
     } catch (e: Exception) {
         createdAt
     }

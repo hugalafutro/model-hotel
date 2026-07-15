@@ -195,4 +195,17 @@
     <string name="dashboard_unlink_retry">Erneut versuchen</string>
     <string name="dashboard_unlink_force">Trotzdem Verknüpfung aufheben</string>
     <string name="common_cancel">Abbrechen</string>
+    <string name="time_just_now">gerade eben</string>
+    <plurals name="time_min_ago">
+        <item quantity="one">vor %d Min.</item>
+        <item quantity="other">vor %d Min.</item>
+    </plurals>
+    <plurals name="time_hr_ago">
+        <item quantity="one">vor %d Std.</item>
+        <item quantity="other">vor %d Std.</item>
+    </plurals>
+    <plurals name="time_day_ago">
+        <item quantity="one">vor %d Tag</item>
+        <item quantity="other">vor %d Tagen</item>
+    </plurals>
 </resources>

@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -609,7 +610,8 @@ private fun MemberCard(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
                         )
-                        remember(ev.createdAt) { eventAgo(ev.createdAt) }?.let { ago ->
+                        val context = LocalContext.current
+                        remember(ev.createdAt, context) { eventAgo(context, ev.createdAt) }?.let { ago ->
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = ago,
@@ -666,11 +668,12 @@ private fun DashboardFooter(
 // for the recent-event pill, or null when it can't be parsed (the pill then just
 // omits the age rather than showing a raw string).
 private fun eventAgo(
+    context: Context,
     createdAt: String,
     now: Long = System.currentTimeMillis(),
 ): String? =
     try {
-        relativeAgo((now - Instant.parse(createdAt).toEpochMilli()).coerceAtLeast(0L))
+        relativeAgo(context, (now - Instant.parse(createdAt).toEpochMilli()).coerceAtLeast(0L))
     } catch (e: Exception) {
         null
     }

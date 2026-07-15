@@ -80,6 +80,20 @@
     <string name="events_copied">Event copied to clipboard</string>
     <string name="dashboard_member_copied">Member copied to clipboard</string>
     <string name="scroll_to_top">Scroll to top</string>
+    <!-- Relative age shown on member sync/verified/added rows and recent-event pills -->
+    <string name="time_just_now">just now</string>
+    <plurals name="time_min_ago">
+        <item quantity="one">%d min ago</item>
+        <item quantity="other">%d min ago</item>
+    </plurals>
+    <plurals name="time_hr_ago">
+        <item quantity="one">%d hr ago</item>
+        <item quantity="other">%d hr ago</item>
+    </plurals>
+    <plurals name="time_day_ago">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
     <plurals name="events_total">
         <item quantity="one">%1$d event</item>
         <item quantity="other">%1$d events</item>

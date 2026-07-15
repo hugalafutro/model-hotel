@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.ui.member
 
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -316,6 +317,7 @@ private fun MetaLedger(
     modifier: Modifier = Modifier,
 ) {
     val health = member.status.health
+    val context = LocalContext.current
     Column(
         modifier = modifier.fillMaxWidth().testTag("member-detail-meta"),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -341,7 +343,11 @@ private fun MetaLedger(
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_synced),
                 value = formatEventTime(member.lastConfigSyncAt),
-                trailing = remember(member.lastConfigSyncAt) { ageParenthetical(member.lastConfigSyncAt) },
+                trailing =
+                    remember(
+                        member.lastConfigSyncAt,
+                        context,
+                    ) { ageParenthetical(context, member.lastConfigSyncAt) },
                 trailingColor = syncAgeColorFor(member.lastConfigSyncAt),
                 tag = "member-detail-synced",
             )
@@ -360,8 +366,8 @@ private fun MetaLedger(
                 label = stringResource(R.string.member_detail_label_verified),
                 value = formatEventTime(member.status.autoSyncVerifiedAt),
                 trailing =
-                    remember(member.status.autoSyncVerifiedAt) {
-                        ageParenthetical(member.status.autoSyncVerifiedAt)
+                    remember(member.status.autoSyncVerifiedAt, context) {
+                        ageParenthetical(context, member.status.autoSyncVerifiedAt)
                     },
                 tag = "member-detail-verified",
             )
@@ -370,7 +376,7 @@ private fun MetaLedger(
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_added),
                 value = formatEventTime(member.createdAt),
-                trailing = remember(member.createdAt) { ageParenthetical(member.createdAt) },
+                trailing = remember(member.createdAt, context) { ageParenthetical(context, member.createdAt) },
                 tag = "member-detail-created",
             )
         }
@@ -438,6 +444,7 @@ private val SyncAgeRed = Color(0xFFC62828)
 // e.g. "(3 days ago)", or null when the timestamp can't be parsed (the row then
 // just shows the date). Shared by the SYNCED, VERIFIED and ADDED rows.
 private fun ageParenthetical(
+    context: Context,
     timestamp: String,
     now: Long = System.currentTimeMillis(),
 ): String? {
@@ -447,7 +454,7 @@ private fun ageParenthetical(
         } catch (e: Exception) {
             return null
         }
-    return "(" + relativeAgo((now - ts).coerceAtLeast(0L)) + ")"
+    return "(" + relativeAgo(context, (now - ts).coerceAtLeast(0L)) + ")"
 }
 
 // syncAgeColorFor grades the SYNCED row's age suffix by staleness (see
