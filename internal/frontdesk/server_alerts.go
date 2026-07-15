@@ -73,12 +73,18 @@ func (s *Server) alertSelection(ctx context.Context) ([]alertEventState, error) 
 	if err != nil {
 		return nil, err
 	}
-	enabled := alert.ParseEnabled(set.AlertEvents)
+	return selectionFrom(alert.ParseEnabled(set.AlertEvents)), nil
+}
+
+// selectionFrom projects an enabled-event set onto the catalog, in catalog order,
+// so both the read handler and a just-applied toggle render the same shape without
+// a second settings read.
+func selectionFrom(enabled map[string]bool) []alertEventState {
 	out := make([]alertEventState, len(fdCatalog))
 	for i, def := range fdCatalog {
 		out[i] = alertEventState{EventDef: def, Enabled: enabled[def.Type]}
 	}
-	return out, nil
+	return out
 }
 
 // getAlertSelection (GET /api/alert/selection) returns the catalog with each
@@ -133,10 +139,5 @@ func (s *Server) putAlertSelection(w http.ResponseWriter, r *http.Request) {
 		Type: "settings.changed", Severity: "info", Source: "frontdesk",
 		Message: fmt.Sprintf("Alerting for %s %s by %s", req.Type, enabledWord(req.Enabled), actorFromContext(r.Context())),
 	})
-	sel, err := s.alertSelection(r.Context())
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"events": sel})
+	writeJSON(w, http.StatusOK, map[string]any{"events": selectionFrom(enabled)})
 }

@@ -488,6 +488,12 @@ func TestAlertSelectionEndpoint(t *testing.T) {
 		`{"type":"not.real","enabled":true}`, opToken); rec.Code != http.StatusBadRequest {
 		t.Fatalf("unknown event POST = %d, want 400", rec.Code)
 	}
+
+	// A malformed body is rejected before any settings read.
+	if rec := doDevice(t, srv, http.MethodPost, "/api/alert/selection",
+		`not json`, opToken); rec.Code != http.StatusBadRequest {
+		t.Fatalf("malformed POST = %d, want 400", rec.Code)
+	}
 }
 
 // TestAlertSelectionPreservesSecret proves flipping an event via the operator
@@ -517,5 +523,50 @@ func TestAlertSelectionPreservesSecret(t *testing.T) {
 	}
 	if !alert.ParseEnabled(set.AlertEvents)["config.synced"] {
 		t.Error("config.synced not enabled after toggle")
+	}
+}
+
+// TestAlertSelectionStoreErrors covers the store-failure branches. It drives the
+// endpoints with the admin bearer (its auth never touches the DB, so a broken
+// store still reaches the handler): a closed DB fails the settings read on both
+// verbs, and a read-only (query_only) DB fails only the alert_events write.
+func TestAlertSelectionStoreErrors(t *testing.T) {
+	t.Run("read failure", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		if err := store.Close(); err != nil {
+			t.Fatalf("close store: %v", err)
+		}
+		if rec := do(t, srv, http.MethodGet, "/api/alert/selection", "", true); rec.Code != http.StatusInternalServerError {
+			t.Errorf("GET on closed store = %d, want 500", rec.Code)
+		}
+		if rec := do(t, srv, http.MethodPost, "/api/alert/selection",
+			`{"type":"health.down","enabled":false}`, true); rec.Code != http.StatusInternalServerError {
+			t.Errorf("POST on closed store = %d, want 500", rec.Code)
+		}
+	})
+
+	t.Run("write failure", func(t *testing.T) {
+		srv, store := newTestServer(t)
+		// Pin to a single connection so the read-only pragma sticks, then make that
+		// connection reject writes: GetSettings still reads, SetAlertEvents fails.
+		store.DB().SetMaxOpenConns(1)
+		if _, err := store.DB().Exec("PRAGMA query_only = ON"); err != nil {
+			t.Fatalf("query_only: %v", err)
+		}
+		if rec := do(t, srv, http.MethodPost, "/api/alert/selection",
+			`{"type":"health.down","enabled":false}`, true); rec.Code != http.StatusInternalServerError {
+			t.Errorf("POST on read-only store = %d, want 500: %s", rec.Code, rec.Body.String())
+		}
+	})
+}
+
+// TestSetAlertEventsClosedStore exercises the store method's own error path.
+func TestSetAlertEventsClosedStore(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+	if err := store.SetAlertEvents(context.Background(), "health.down"); err == nil {
+		t.Error("SetAlertEvents on closed store returned nil error")
 	}
 }
