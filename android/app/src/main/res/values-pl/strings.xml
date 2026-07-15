@@ -32,7 +32,7 @@
     <string name="member_primary">Podstawowy</string>
     <!-- Member detail -->
     <string name="member_detail_back">Wstecz</string>
-    <string name="member_detail_traffic_title">Ruch · ostatnie %1$d min</string>
+    <string name="member_detail_traffic_title">Ruch · ostatnie %1$d godz.</string>
     <string name="member_detail_traffic_totals">%1$d żądań · %2$d błędów</string>
     <string name="member_detail_traffic_unreachable">Ruch jest niedostępny. Front Desk może nie mieć tokena administratora dla tego węzła lub węzeł nie odpowiedział.</string>
     <string name="member_detail_traffic_empty">Brak żądań w tym oknie.</string>

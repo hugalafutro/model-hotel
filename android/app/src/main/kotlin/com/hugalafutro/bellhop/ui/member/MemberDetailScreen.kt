@@ -695,7 +695,9 @@ private fun TrafficCard(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = stringResource(R.string.member_detail_traffic_title, traffic?.windowMinutes ?: 60),
+                // The window is always a whole number of hours (the range presets), so
+                // show hours to match the Settings picker instead of "1440 min".
+                text = stringResource(R.string.member_detail_traffic_title, (traffic?.windowMinutes ?: 60) / 60),
                 style = MaterialTheme.typography.titleMedium,
             )
             when {

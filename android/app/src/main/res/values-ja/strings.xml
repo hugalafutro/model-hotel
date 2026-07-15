@@ -32,7 +32,7 @@
     <string name="member_primary">プライマリ</string>
     <!-- Member detail -->
     <string name="member_detail_back">戻る</string>
-    <string name="member_detail_traffic_title">トラフィック · 直近 %1$d 分</string>
+    <string name="member_detail_traffic_title">トラフィック · 直近 %1$d 時間</string>
     <string name="member_detail_traffic_totals">%1$d リクエスト · %2$d エラー</string>
     <string name="member_detail_traffic_unreachable">トラフィックを利用できません。Front Desk がこのメンバーの管理者トークンを持っていないか、メンバーが応答しなかった可能性があります。</string>
     <string name="member_detail_traffic_empty">この期間にリクエストはありません。</string>

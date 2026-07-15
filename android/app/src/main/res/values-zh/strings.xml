@@ -32,7 +32,7 @@
     <string name="member_primary">主节点</string>
     <!-- Member detail -->
     <string name="member_detail_back">返回</string>
-    <string name="member_detail_traffic_title">流量 · 最近 %1$d 分钟</string>
+    <string name="member_detail_traffic_title">流量 · 最近 %1$d 小时</string>
     <string name="member_detail_traffic_totals">%1$d 个请求 · %2$d 个错误</string>
     <string name="member_detail_traffic_unreachable">流量不可用。Front Desk 可能没有此成员的管理员令牌，或该成员未响应。</string>
     <string name="member_detail_traffic_empty">此时段内没有请求。</string>

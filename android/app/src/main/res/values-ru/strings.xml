@@ -32,7 +32,7 @@
     <string name="member_primary">Основной</string>
     <!-- Member detail -->
     <string name="member_detail_back">Назад</string>
-    <string name="member_detail_traffic_title">Трафик · последние %1$d мин</string>
+    <string name="member_detail_traffic_title">Трафик · последние %1$d ч</string>
     <string name="member_detail_traffic_totals">%1$d запросов · %2$d ошибок</string>
     <string name="member_detail_traffic_unreachable">Трафик недоступен. Возможно, у Front Desk нет токена администратора для этого узла, или узел не ответил.</string>
     <string name="member_detail_traffic_empty">Нет запросов в этом окне.</string>

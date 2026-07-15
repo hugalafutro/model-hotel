@@ -33,7 +33,7 @@
     <string name="member_primary">Primary</string>
     <!-- Member detail -->
     <string name="member_detail_back">Back</string>
-    <string name="member_detail_traffic_title">Traffic · last %1$d min</string>
+    <string name="member_detail_traffic_title">Traffic · last %1$d h</string>
     <string name="member_detail_traffic_totals">%1$d requests · %2$d errors</string>
     <string name="member_detail_traffic_unreachable">Traffic isn\'t available. Front Desk may hold no admin token for this member, or the member didn\'t answer.</string>
     <string name="member_detail_traffic_empty">No requests in this window.</string>

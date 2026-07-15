@@ -305,6 +305,11 @@ fun BellhopApp() {
                         // made in system settings while away.
                         notificationsGranted = hasPostNotificationPermission(context)
                         pushDistributorAvailable = BellhopPush.hasDistributor(context)
+                        // Already locked when we return (e.g. the lock FAB minimised the
+                        // app): re-fire the prompt so unlocking is one glance, not a tap
+                        // on the lock screen. When the gate below is what flips locked on,
+                        // LockScreen's own auto-prompt covers it, so this avoids a double.
+                        if (locked) requestUnlock()
                         scope.launch {
                             val snap = lockStore.snapshot()
                             if (shouldLock(snap.config, snap.lastForegroundExit, System.currentTimeMillis())) {
@@ -474,7 +479,13 @@ fun BellhopApp() {
                         onUnlink = { runUnlink(state.fdUrl) },
                         onForceUnlink = { forceUnlink() },
                         requireOperatorAuth = { action -> requireOperatorAuth(action) },
-                        onLock = { locked = true },
+                        onLock = {
+                            // Lock, then send Bellhop to the background so the fleet is
+                            // off-screen immediately; the ON_START handler re-fires the
+                            // unlock prompt the next time it's foregrounded.
+                            locked = true
+                            activity?.moveTaskToBack(true)
+                        },
                     )
             }
         }

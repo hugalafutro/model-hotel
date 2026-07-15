@@ -32,7 +32,7 @@
     <string name="member_primary">Primair</string>
     <!-- Member detail -->
     <string name="member_detail_back">Terug</string>
-    <string name="member_detail_traffic_title">Verkeer · laatste %1$d min</string>
+    <string name="member_detail_traffic_title">Verkeer · laatste %1$d u</string>
     <string name="member_detail_traffic_totals">%1$d verzoeken · %2$d fouten</string>
     <string name="member_detail_traffic_unreachable">Verkeer is niet beschikbaar. Front Desk heeft mogelijk geen admin-token voor dit lid, of het lid antwoordde niet.</string>
     <string name="member_detail_traffic_empty">Geen verzoeken in dit venster.</string>

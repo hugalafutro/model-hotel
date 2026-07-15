@@ -32,7 +32,7 @@
     <string name="member_primary">Primaire</string>
     <!-- Member detail -->
     <string name="member_detail_back">Retour</string>
-    <string name="member_detail_traffic_title">Trafic · %1$d dernières min</string>
+    <string name="member_detail_traffic_title">Trafic · %1$d dernières h</string>
     <string name="member_detail_traffic_totals">%1$d requêtes · %2$d erreurs</string>
     <string name="member_detail_traffic_unreachable">Le trafic n\'est pas disponible. Front Desk ne possède peut-être aucun jeton admin pour ce membre, ou le membre n\'a pas répondu.</string>
     <string name="member_detail_traffic_empty">Aucune requête sur cette période.</string>
