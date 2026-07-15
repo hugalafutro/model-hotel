@@ -170,8 +170,8 @@
     <string name="settings_monitor_blocked">Bellhop の通知がオフのため、これらのアラートは届きません。システム設定でオンにしてください。</string>
     <string name="settings_push_title">リアルタイム プッシュ</string>
     <string name="settings_battery_title">バッテリー</string>
-    <string name="settings_battery_subtitle">バックグラウンド通知は、Bellhop がバッテリー最適化の対象外の場合のみ確実に届きます。一部の端末では自動起動の許可も必要です。</string>
-    <string name="settings_battery_unrestricted">制限なし。通知はバックグラウンドで動作できます。</string>
+    <string name="settings_battery_subtitle">バックグラウンド通知には、Bellhop をバッテリー最適化の対象外にする必要があります。一部の端末（OnePlus、Xiaomi など）では、端末独自のアプリ別バッテリー設定と自動起動設定でも許可しないと、通知が停止されることがあります。</string>
+    <string name="settings_battery_unrestricted">Bellhop のバッテリー最適化はオフです。</string>
     <string name="settings_battery_optimized">最適化あり。バックグラウンド通知が遅延または破棄される場合があります。</string>
     <string name="settings_battery_action">バッテリー制限を解除</string>
     <string name="settings_push_subtitle">Front Desk がアラートを送信した瞬間に、UnifiedPush と ntfy を通じて Bellhop を起こします。Google 不要、ポーリング遅延なし、任意です。</string>

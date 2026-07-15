@@ -173,8 +173,8 @@
     <string name="settings_monitor_blocked">Oznámení pro Bellhop jsou vypnutá, takže se k vám tato upozornění nedostanou. Zapněte je v nastavení systému.</string>
     <string name="settings_push_title">Push v reálném čase</string>
     <string name="settings_battery_title">Baterie</string>
-    <string name="settings_battery_subtitle">Upozornění na pozadí jsou spolehlivá jen tehdy, když je Bellhop vyňat z optimalizace baterie. Některé telefony také vyžadují povolení automatického spuštění.</string>
-    <string name="settings_battery_unrestricted">Neomezeno. Upozornění mohou běžet na pozadí.</string>
+    <string name="settings_battery_subtitle">Upozornění na pozadí vyžadují, aby byl Bellhop vyňat z optimalizace baterie. Na některých telefonech (OnePlus, Xiaomi a další) to musíte navíc povolit ve vlastním nastavení baterie a automatického spuštění dané aplikace, jinak systém může upozornění zastavit.</string>
+    <string name="settings_battery_unrestricted">Optimalizace baterie je pro Bellhop vypnutá.</string>
     <string name="settings_battery_optimized">Optimalizováno. Upozornění na pozadí mohou být opožděná nebo zahozená.</string>
     <string name="settings_battery_action">Povolit neomezenou baterii</string>
     <string name="settings_push_subtitle">Probudí Bellhop v okamžiku, kdy Front Desk odešle upozornění, přes UnifiedPush a ntfy. Bez Googlu, bez zpoždění dotazování, dobrovolné.</string>

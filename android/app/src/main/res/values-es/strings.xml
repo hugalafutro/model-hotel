@@ -171,8 +171,8 @@
     <string name="settings_monitor_blocked">Las notificaciones de Bellhop están desactivadas, así que estas alertas no te llegarán. Actívalas en los ajustes del sistema.</string>
     <string name="settings_push_title">Push en tiempo real</string>
     <string name="settings_battery_title">Batería</string>
-    <string name="settings_battery_subtitle">Las alertas en segundo plano solo son fiables si Bellhop está exento de la optimización de batería. Algunos teléfonos también necesitan permitir el inicio automático.</string>
-    <string name="settings_battery_unrestricted">Sin restricciones. Las alertas pueden ejecutarse en segundo plano.</string>
+    <string name="settings_battery_subtitle">Las alertas en segundo plano requieren que Bellhop esté exento de la optimización de batería. En algunos teléfonos (OnePlus, Xiaomi y otros) también debes permitirlo en los ajustes de batería por app y de inicio automático del teléfono, o el sistema puede seguir deteniendo las alertas.</string>
+    <string name="settings_battery_unrestricted">La optimización de batería está desactivada para Bellhop.</string>
     <string name="settings_battery_optimized">Optimizado. Las alertas en segundo plano pueden retrasarse o perderse.</string>
     <string name="settings_battery_action">Permitir batería sin restricciones</string>
     <string name="settings_push_subtitle">Despierta Bellhop en el instante en que Front Desk envía una alerta, mediante UnifiedPush y ntfy. Sin Google, sin retardo de sondeo, opcional.</string>

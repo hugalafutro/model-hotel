@@ -173,8 +173,8 @@
     <string name="settings_monitor_blocked">Уведомления для Bellhop отключены, поэтому эти оповещения до вас не дойдут. Включите их в системных настройках.</string>
     <string name="settings_push_title">Push в реальном времени</string>
     <string name="settings_battery_title">Батарея</string>
-    <string name="settings_battery_subtitle">Фоновые оповещения надёжны только если Bellhop исключён из оптимизации батареи. На некоторых телефонах также нужно разрешить автозапуск.</string>
-    <string name="settings_battery_unrestricted">Без ограничений. Оповещения могут работать в фоне.</string>
+    <string name="settings_battery_subtitle">Для фоновых оповещений Bellhop должен быть исключён из оптимизации батареи. На некоторых телефонах (OnePlus, Xiaomi и других) это также нужно разрешить в собственных настройках батареи и автозапуска для приложения, иначе система всё равно может останавливать оповещения.</string>
+    <string name="settings_battery_unrestricted">Оптимизация батареи для Bellhop отключена.</string>
     <string name="settings_battery_optimized">Оптимизировано. Фоновые оповещения могут задерживаться или теряться.</string>
     <string name="settings_battery_action">Разрешить работу без ограничений батареи</string>
     <string name="settings_push_subtitle">Будит Bellhop в момент, когда Front Desk отправляет оповещение, через UnifiedPush и ntfy. Без Google, без задержки опроса, по желанию.</string>

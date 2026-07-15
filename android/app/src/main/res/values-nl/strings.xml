@@ -171,8 +171,8 @@
     <string name="settings_monitor_blocked">Meldingen staan uit voor Bellhop, dus deze waarschuwingen bereiken je niet. Zet ze aan in de systeeminstellingen.</string>
     <string name="settings_push_title">Realtime push</string>
     <string name="settings_battery_title">Batterij</string>
-    <string name="settings_battery_subtitle">Achtergrondmeldingen zijn alleen betrouwbaar als Bellhop is uitgezonderd van batterijoptimalisatie. Sommige telefoons vereisen ook dat automatisch starten is toegestaan.</string>
-    <string name="settings_battery_unrestricted">Onbeperkt. Meldingen kunnen op de achtergrond draaien.</string>
+    <string name="settings_battery_subtitle">Achtergrondmeldingen vereisen dat Bellhop is uitgezonderd van batterijoptimalisatie. Op sommige telefoons (OnePlus, Xiaomi e.a.) moet je het ook toestaan in de eigen per-app batterij- en automatisch-startinstellingen van de telefoon, anders kan het systeem meldingen alsnog stoppen.</string>
+    <string name="settings_battery_unrestricted">Batterijoptimalisatie is uit voor Bellhop.</string>
     <string name="settings_battery_optimized">Geoptimaliseerd. Achtergrondmeldingen kunnen worden vertraagd of gemist.</string>
     <string name="settings_battery_action">Onbeperkte batterij toestaan</string>
     <string name="settings_push_subtitle">Wekt Bellhop op het moment dat Front Desk een waarschuwing pusht, via UnifiedPush en ntfy. Geen Google, geen pollvertraging, opt-in.</string>

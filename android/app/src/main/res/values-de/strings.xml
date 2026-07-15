@@ -171,8 +171,8 @@
     <string name="settings_monitor_blocked">Benachrichtigungen für Bellhop sind ausgeschaltet, daher erreichen dich diese Warnungen nicht. Schalte sie in den Systemeinstellungen ein.</string>
     <string name="settings_push_title">Echtzeit-Push</string>
     <string name="settings_battery_title">Akku</string>
-    <string name="settings_battery_subtitle">Hintergrund-Benachrichtigungen sind nur zuverlässig, wenn Bellhop von der Akku-Optimierung ausgenommen ist. Manche Telefone müssen den Autostart zusätzlich erlauben.</string>
-    <string name="settings_battery_unrestricted">Uneingeschränkt. Benachrichtigungen können im Hintergrund laufen.</string>
+    <string name="settings_battery_subtitle">Hintergrund-Benachrichtigungen erfordern, dass Bellhop von der Akku-Optimierung ausgenommen ist. Auf manchen Telefonen (OnePlus, Xiaomi u.a.) musst du es zusätzlich in den eigenen App-Akku- und Autostart-Einstellungen des Telefons erlauben, sonst kann das System Benachrichtigungen weiterhin stoppen.</string>
+    <string name="settings_battery_unrestricted">Akku-Optimierung ist für Bellhop deaktiviert.</string>
     <string name="settings_battery_optimized">Optimiert. Hintergrund-Benachrichtigungen können verzögert oder verworfen werden.</string>
     <string name="settings_battery_action">Uneingeschränkten Akku erlauben</string>
     <string name="settings_push_subtitle">Weckt Bellhop in dem Moment, in dem Front Desk eine Warnung sendet, über UnifiedPush und ntfy. Kein Google, keine Abrufverzögerung, optional.</string>

@@ -2,6 +2,7 @@ package com.hugalafutro.bellhop.ui.settings
 
 import android.app.Activity
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -627,6 +628,10 @@ fun SettingsScreen(
                             )
                             OutlinedButton(
                                 onClick = onRequestBatteryExemption,
+                                // The default outline colour vanishes on the card; use
+                                // primary to match the button's own text and read as an
+                                // action, like the pills' higher-contrast borders.
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                                 modifier = Modifier.testTag("settings-battery-request"),
                             ) {
                                 Text(stringResource(R.string.settings_battery_action))
