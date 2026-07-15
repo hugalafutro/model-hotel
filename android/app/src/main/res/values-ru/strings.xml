@@ -120,6 +120,7 @@
     <string name="alerts_event_config_sync_failed">Сбой синхронизации конфигурации</string>
     <string name="alerts_event_config_synced">Конфигурация синхронизирована</string>
     <string name="alerts_event_config_auto_synced">Конфигурация синхронизирована автоматически</string>
+    <string name="alerts_event_config_autosync_stale">Автосинхронизация выключена, флот не синхронизирован</string>
     <string name="alerts_event_version_fetch_failed">Сбой чтения версии</string>
     <string name="alerts_event_version_fetch_recovered">Чтение версии восстановлено</string>
     <string name="alerts_event_traefik_stale">Конфигурация Traefik устарела</string>

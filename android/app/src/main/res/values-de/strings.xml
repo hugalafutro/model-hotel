@@ -118,6 +118,7 @@
     <string name="alerts_event_config_sync_failed">Konfigurationssynchronisierung fehlgeschlagen</string>
     <string name="alerts_event_config_synced">Konfiguration synchronisiert</string>
     <string name="alerts_event_config_auto_synced">Konfiguration automatisch synchronisiert</string>
+    <string name="alerts_event_config_autosync_stale">Auto-Sync aus, Flotte nicht synchronisiert</string>
     <string name="alerts_event_version_fetch_failed">Versionsabruf fehlgeschlagen</string>
     <string name="alerts_event_version_fetch_recovered">Versionsabruf wiederhergestellt</string>
     <string name="alerts_event_traefik_stale">Traefik-Konfiguration veraltet</string>

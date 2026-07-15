@@ -120,6 +120,7 @@
     <string name="alerts_event_config_sync_failed">Synchronizace konfigurace selhala</string>
     <string name="alerts_event_config_synced">Konfigurace synchronizována</string>
     <string name="alerts_event_config_auto_synced">Konfigurace automaticky synchronizována</string>
+    <string name="alerts_event_config_autosync_stale">Automatická synchronizace vypnutá, flotila nesynchronizovaná</string>
     <string name="alerts_event_version_fetch_failed">Čtení verze selhalo</string>
     <string name="alerts_event_version_fetch_recovered">Čtení verze obnoveno</string>
     <string name="alerts_event_traefik_stale">Konfigurace Traefiku zastaralá</string>

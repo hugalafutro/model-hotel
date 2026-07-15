@@ -118,6 +118,7 @@
     <string name="alerts_event_config_sync_failed">Fallo al sincronizar la configuración</string>
     <string name="alerts_event_config_synced">Configuración sincronizada</string>
     <string name="alerts_event_config_auto_synced">Configuración sincronizada automáticamente</string>
+    <string name="alerts_event_config_autosync_stale">Sincronización automática desactivada, flota sin sincronizar</string>
     <string name="alerts_event_version_fetch_failed">Fallo al leer la versión</string>
     <string name="alerts_event_version_fetch_recovered">Lectura de versión recuperada</string>
     <string name="alerts_event_traefik_stale">Configuración de Traefik obsoleta</string>
