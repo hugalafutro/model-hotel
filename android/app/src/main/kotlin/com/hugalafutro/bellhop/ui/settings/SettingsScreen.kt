@@ -5,8 +5,6 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -77,7 +74,6 @@ import java.util.Locale
  * It holds only the confirm-dialog visibility locally; the unlink work and its
  * failure state are the host's, so the same revoke-first guarantees apply.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     link: LinkState.Linked,
@@ -362,21 +358,23 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    // FlowRow so the five chips wrap to a second line instead of
-                    // clipping the later ranges on narrow screens or long-label locales.
-                    FlowRow(
+                    // The same FilterPill row as the app-lock window pills, so the two
+                    // pickers read identically. weight(1f) shares the width evenly, so
+                    // the five ranges fit without overflowing the card.
+                    Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         PrefsStore.GRAPH_RANGE_OPTIONS.forEach { minutes ->
-                            FilterChip(
+                            FilterPill(
+                                text = stringResource(R.string.settings_graph_range_hours, minutes / 60),
                                 selected = graphRangeMinutes == minutes,
                                 onClick = { onSetGraphRange(minutes) },
-                                label = {
-                                    Text(stringResource(R.string.settings_graph_range_hours, minutes / 60))
-                                },
-                                modifier = Modifier.testTag("settings-graph-range-$minutes"),
+                                tag = "settings-graph-range-$minutes",
+                                modifier = Modifier.weight(1f),
+                                // In a Card the default outline nearly vanishes; match the
+                                // lock pills and use the higher-contrast onSurfaceVariant.
+                                borderColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
