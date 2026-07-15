@@ -232,14 +232,52 @@ open class FrontDeskClient(
     ): FetchResult<AlertStatus> = get(fdUrl, "/api/alert/status", token)
 
     /**
-     * alertCatalog fetches Front Desk's alertable-event catalog (what it can
-     * notify on, grouped by category). Monitor tier; the enabled subset lives in
-     * admin settings and is not readable here, so the screen shows this read-only.
+     * alertSelection fetches Front Desk's alertable-event catalog enriched with
+     * each event's current enabled state (GET /api/alert/selection). Readable by
+     * any paired device (monitor included), so the Alerts screen can show what
+     * Front Desk alerts on; flipping an event needs the operator role
+     * ([setAlertEvent]). The wire envelope is {"events": [...]}; callers get the
+     * unwrapped list.
      */
-    open suspend fun alertCatalog(
+    open suspend fun alertSelection(
         fdUrl: String,
         token: String,
-    ): FetchResult<List<AlertEventDef>> = get(fdUrl, "/api/alert/events", token)
+    ): FetchResult<List<AlertEventDef>> =
+        when (val r = get<AlertSelectionResponse>(fdUrl, "/api/alert/selection", token)) {
+            is FetchResult.Success -> FetchResult.Success(r.data.events)
+            FetchResult.Unauthorized -> FetchResult.Unauthorized
+            is FetchResult.Failure -> r
+        }
+
+    /**
+     * setAlertEvent flips one alert event on or off via POST /api/alert/selection.
+     * Operator tier: Front Desk enforces the role and echoes back the whole
+     * refreshed selection (the ack doubles as the re-read), so the phone reconciles
+     * from Front Desk's own truth rather than an optimistic guess. A per-event
+     * toggle is atomic on Front Desk, so a dropped request never leaves the
+     * selection half-applied; a retry is a safe no-op. A 403 is [ActionResult.Forbidden]
+     * (a monitor device may not flip it), a 401 is [ActionResult.Unauthorized].
+     */
+    open suspend fun setAlertEvent(
+        fdUrl: String,
+        token: String,
+        type: String,
+        enabled: Boolean,
+    ): ActionResult<List<AlertEventDef>> =
+        when (
+            val r =
+                post<AlertSelectionRequest, AlertSelectionResponse>(
+                    fdUrl,
+                    "/api/alert/selection",
+                    token,
+                    AlertSelectionRequest(type, enabled),
+                )
+        ) {
+            is ActionResult.Success -> ActionResult.Success(r.data.events)
+            ActionResult.Forbidden -> ActionResult.Forbidden
+            ActionResult.Unauthorized -> ActionResult.Unauthorized
+            is ActionResult.Failure -> r
+        }
 
     /**
      * setMemberState drains or activates a member via POST

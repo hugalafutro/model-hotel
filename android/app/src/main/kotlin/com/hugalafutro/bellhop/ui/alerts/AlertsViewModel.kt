@@ -3,6 +3,7 @@ package com.hugalafutro.bellhop.ui.alerts
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.hugalafutro.bellhop.data.ActionResult
 import com.hugalafutro.bellhop.data.AlertEventDef
 import com.hugalafutro.bellhop.data.AlertStatus
 import com.hugalafutro.bellhop.data.FetchResult
@@ -23,11 +24,12 @@ import kotlinx.coroutines.launch
 
 /**
  * AlertsUiState is what the Alerts screen renders: Front Desk's outbound-notifier
- * delivery health ([status]) and its alertable-event catalog ([catalog], grouped
- * by category in the screen). A failed refresh keeps the last good data on screen
- * (stale beats blank on a phone) and raises [error]; [revoked] means the device
- * token itself no longer authenticates, same remedy as the dashboard: unlink and
- * re-pair.
+ * delivery health ([status]) and its alertable-event catalog enriched with the
+ * live enabled state ([catalog], grouped by category in the screen). A failed
+ * refresh keeps the last good data on screen (stale beats blank on a phone) and
+ * raises [error]; [revoked] means the device token itself no longer authenticates,
+ * same remedy as the dashboard: unlink and re-pair. [action] tracks an in-flight
+ * operator flip.
  */
 data class AlertsUiState(
     val loading: Boolean = true,
@@ -35,7 +37,36 @@ data class AlertsUiState(
     val catalog: List<AlertEventDef> = emptyList(),
     val error: String? = null,
     val revoked: Boolean = false,
+    val action: AlertActionState = AlertActionState(),
 )
+
+/**
+ * AlertActionState is the overlay for an operator flipping an event on or off.
+ * [togglingType] is the event whose POST is in flight (its row shows a spinner
+ * and is disabled); [forbidden] is Front Desk's 403 (this device paired as
+ * monitor may not flip); [busy] flags a tap that arrived while another flip was
+ * still in flight (dropped, not queued); [error] is the last flip failure.
+ */
+data class AlertActionState(
+    val togglingType: String? = null,
+    val forbidden: Boolean = false,
+    val busy: Boolean = false,
+    val error: String? = null,
+)
+
+/**
+ * ALERT_SEVERITIES is the fixed pill order for the enabled-count badges, most
+ * severe first, matching the severity-dot palette.
+ */
+val ALERT_SEVERITIES = listOf("error", "warning", "info", "success")
+
+/**
+ * enabledSeverityCounts tallies how many currently-enabled events fall under each
+ * severity, always returning all four keys (0 when none) so the Settings pill can
+ * render a full badge row regardless of the selection.
+ */
+fun enabledSeverityCounts(catalog: List<AlertEventDef>): Map<String, Int> =
+    ALERT_SEVERITIES.associateWith { severity -> catalog.count { it.enabled && it.severity == severity } }
 
 /**
  * AlertsViewModel keeps Front Desk's alert delivery status fresh while the
@@ -45,9 +76,9 @@ data class AlertsUiState(
  * catalog (static per Front Desk version). Both are read on every refresh for
  * simplicity; the catalog re-read is cheap and picks up a Front Desk upgrade.
  *
- * The catalog is a *reference* of what Front Desk can alert on, not which events
- * are currently enabled: the enabled subset lives in admin settings, which a
- * device token cannot read. The screen labels it accordingly.
+ * The catalog now carries each event's live enabled state (read from Front Desk's
+ * /api/alert/selection), so an operator can flip events straight from the phone
+ * ([toggleEvent]); a monitor device sees them read-only.
  */
 class AlertsViewModel(
     private val client: FrontDeskClient,
@@ -112,8 +143,8 @@ class AlertsViewModel(
         }
         coroutineScope {
             val statusDeferred = async { client.alertStatus(fdUrl, token) }
-            val catalogDeferred = async { client.alertCatalog(fdUrl, token) }
-            fold(statusDeferred.await(), catalogDeferred.await())
+            val selectionDeferred = async { client.alertSelection(fdUrl, token) }
+            fold(statusDeferred.await(), selectionDeferred.await())
         }
     }
 
@@ -133,14 +164,69 @@ class AlertsViewModel(
             val failure =
                 (status as? FetchResult.Failure)?.message
                     ?: (catalog as? FetchResult.Failure)?.message
+            // A poll landing mid-flip must not clobber the catalog with a pre-flip
+            // read; the toggle's own ack (which carries Front Desk's authoritative
+            // selection) owns the catalog until it clears togglingType.
+            val nextCatalog =
+                if (st.action.togglingType == null) {
+                    (catalog as? FetchResult.Success)?.data ?: st.catalog
+                } else {
+                    st.catalog
+                }
             st.copy(
                 loading = false,
                 status = (status as? FetchResult.Success)?.data ?: st.status,
-                catalog = (catalog as? FetchResult.Success)?.data ?: st.catalog,
+                catalog = nextCatalog,
                 error = failure,
                 revoked = false,
             )
         }
+    }
+
+    /**
+     * toggleEvent flips one alert event on or off. It follows the same operator-action
+     * idiom as member drain/activate: one flip at a time (a tap arriving mid-flight is
+     * dropped and flagged [AlertActionState.busy], never queued), and rather than guess
+     * optimistically it adopts the selection Front Desk echoes back — so if the phone
+     * dies mid-request the next refresh simply re-reads Front Desk's truth and nothing is
+     * left half-applied. A 403 surfaces as [AlertActionState.forbidden] (a monitor device
+     * may not flip); a 401 is the revoked remedy.
+     */
+    fun toggleEvent(
+        type: String,
+        enabled: Boolean,
+    ) {
+        val current = _state.value
+        if (current.action.togglingType != null) {
+            _state.update { it.copy(action = it.action.copy(busy = true)) }
+            return
+        }
+        if (current.revoked) return
+        _state.update { it.copy(action = it.action.copy(togglingType = type, error = null, busy = false)) }
+        viewModelScope.launch {
+            val token = linkStore.token()
+            if (token == null) {
+                _state.update { it.copy(revoked = true, action = it.action.copy(togglingType = null)) }
+                return@launch
+            }
+            val result = client.setAlertEvent(fdUrl, token, type, enabled)
+            _state.update { st ->
+                val cleared = st.copy(action = st.action.copy(togglingType = null))
+                when (result) {
+                    is ActionResult.Success ->
+                        // Adopt Front Desk's echoed selection wholesale: the ack is the re-read.
+                        cleared.copy(catalog = result.data, action = cleared.action.copy(forbidden = false))
+                    ActionResult.Forbidden -> cleared.copy(action = cleared.action.copy(forbidden = true))
+                    ActionResult.Unauthorized -> cleared.copy(revoked = true)
+                    is ActionResult.Failure -> cleared.copy(action = cleared.action.copy(error = result.message))
+                }
+            }
+        }
+    }
+
+    /** dismissActionError clears the last flip-failure banner. */
+    fun dismissActionError() {
+        _state.update { it.copy(action = it.action.copy(error = null)) }
     }
 
     class Factory(

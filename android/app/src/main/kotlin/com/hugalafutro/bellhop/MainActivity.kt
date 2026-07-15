@@ -43,6 +43,7 @@ import com.hugalafutro.bellhop.notify.FleetNotifier
 import com.hugalafutro.bellhop.push.BellhopPush
 import com.hugalafutro.bellhop.ui.alerts.AlertsScreen
 import com.hugalafutro.bellhop.ui.alerts.AlertsViewModel
+import com.hugalafutro.bellhop.ui.alerts.enabledSeverityCounts
 import com.hugalafutro.bellhop.ui.dashboard.DashboardScreen
 import com.hugalafutro.bellhop.ui.dashboard.DashboardViewModel
 import com.hugalafutro.bellhop.ui.events.EventsScreen
@@ -539,6 +540,16 @@ private fun LinkedContent(
         )
     val ui by dashVm.state.collectAsStateWithLifecycle()
 
+    // Alerts VM is hoisted so both the Settings pill (its severity-count badges)
+    // and the Alerts screen share one instance. Created eagerly but only polls
+    // while a branch below actually collects its state (subscription-gated), so it
+    // stays idle on the dashboard. Keyed like dashVm so a relink gets fresh status.
+    val alertsVm: AlertsViewModel =
+        viewModel(
+            key = "alerts-${state.fdUrl}|${state.deviceId}",
+            factory = AlertsViewModel.Factory(client, linkStore, state.fdUrl),
+        )
+
     // Which member's detail is open, if any. Saveable so it survives
     // rotation/process death; keyed on the pairing so a relink lands
     // back on the new Front Desk's dashboard, not a stale detail.
@@ -592,16 +603,24 @@ private fun LinkedContent(
         // Alerts can be reached from the dashboard bell or from Settings; back
         // returns to whichever is still open underneath (Settings if it was).
         BackHandler { showAlerts = false }
-        // Keyed like the dashboard VM so a relink gets a fresh status.
-        val alertsVm: AlertsViewModel =
-            viewModel(
-                key = "alerts-${state.fdUrl}|${state.deviceId}",
-                factory = AlertsViewModel.Factory(client, linkStore, state.fdUrl),
-            )
         val alertsUi by alertsVm.state.collectAsStateWithLifecycle()
-        AlertsScreen(onBack = { showAlerts = false }, ui = alertsUi)
+        AlertsScreen(
+            onBack = { showAlerts = false },
+            ui = alertsUi,
+            // Role-hint UI, same as the member-detail card: an operator gets live
+            // switches, a monitor sees them read-only. Front Desk's 403 is still the
+            // real guard. Each flip goes through the biometric operator gate.
+            canOperate = state.role == OPERATOR_ROLE,
+            onToggleEvent = { type, enabled -> requireOperatorAuth { alertsVm.toggleEvent(type, enabled) } },
+            onDismissActionError = { alertsVm.dismissActionError() },
+        )
     } else if (showSettings) {
         BackHandler { showSettings = false }
+        // Collecting the hoisted alerts VM here subscribes it, so its selection is
+        // fetched while Settings is open and the pill badges stay live (including
+        // right after an operator flips events on the Alerts screen and returns).
+        val alertsUi by alertsVm.state.collectAsStateWithLifecycle()
+        val alertCounts = remember(alertsUi.catalog) { enabledSeverityCounts(alertsUi.catalog) }
         SettingsScreen(
             link = state,
             lockConfig = lockConfig,
@@ -625,6 +644,7 @@ private fun LinkedContent(
             onForceUnlink = onForceUnlink,
             holdToCopy = holdToCopy,
             onToggleHoldToCopy = onToggleHoldToCopy,
+            alertCounts = alertCounts,
         )
     } else if (selected != null) {
         BackHandler { selectedMemberId = null }
