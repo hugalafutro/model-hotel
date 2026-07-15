@@ -195,15 +195,17 @@ open class FrontDeskClient(
     ): FetchResult<List<FleetMember>> = get(fdUrl, "/api/members", token)
 
     /**
-     * memberTraffic fetches one member's last-hour request/error series (the
-     * member-detail chart). Front Desk answers 200 with reachable=false when
-     * the series can't be read, so failures here are FD-transport ones.
+     * memberTraffic fetches one member's request/error series for the charts.
+     * [windowMinutes] is the graph range: Front Desk trims the member series to
+     * that span (default one hour). FD answers 200 with reachable=false when the
+     * series can't be read, so failures here are FD-transport ones.
      */
     open suspend fun memberTraffic(
         fdUrl: String,
         token: String,
         memberId: String,
-    ): FetchResult<MemberTraffic> = get(fdUrl, "/api/members/$memberId/traffic", token)
+        windowMinutes: Int = PrefsStore.DEFAULT_GRAPH_RANGE_MINUTES,
+    ): FetchResult<MemberTraffic> = get(fdUrl, "/api/members/$memberId/traffic?window=$windowMinutes", token)
 
     /**
      * events fetches one page of the Front Desk event log (newest first) with

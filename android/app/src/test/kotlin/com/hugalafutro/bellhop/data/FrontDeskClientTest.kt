@@ -180,8 +180,25 @@ class FrontDeskClientTest {
 
             val request = server.takeRequest()
             assertEquals("GET", request.method)
-            assertEquals("/api/members/m1/traffic", request.path)
+            // The default window (one hour) is sent even when the caller omits it.
+            assertEquals("/api/members/m1/traffic?window=60", request.path)
             assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+        }
+
+    @Test
+    fun memberTrafficSendsRequestedWindow() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"member_id":"m1","reachable":true,"window_minutes":360,""" +
+                        """"total_requests":0,"total_errors":0,"points":[]}""",
+                ),
+            )
+
+            client.memberTraffic(server.url("/").toString(), "tok-1", "m1", windowMinutes = 360)
+
+            val request = server.takeRequest()
+            assertEquals("/api/members/m1/traffic?window=360", request.path)
         }
 
     @Test

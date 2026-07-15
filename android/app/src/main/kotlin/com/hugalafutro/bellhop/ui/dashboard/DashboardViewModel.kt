@@ -11,7 +11,9 @@ import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberTraffic
+import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.SseMessage
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -104,17 +107,25 @@ class DashboardViewModel(
     // single /api/fleet/usage rollup, this loop swaps its source for that one call.
     private val visibleIds = MutableStateFlow<List<String>>(emptyList())
 
+    // The traffic-graph range (minutes) the sparklines request, driven by the
+    // Settings pref via [setGraphRange]. Changing it force-refetches so the
+    // charts redraw at the new span.
+    private val graphWindow = MutableStateFlow(PrefsStore.DEFAULT_GRAPH_RANGE_MINUTES)
+
     // When each member's traffic was last fetched, so a re-tick or a re-scroll
     // past an already-fresh member doesn't refetch within the TTL. Only touched
     // from viewModelScope coroutines (single-threaded Main), so a plain map is safe.
     private val trafficFetchedAt = mutableMapOf<String, Long>()
 
-    // Members with a traffic fetch currently in flight, so the debounce path and
-    // the periodic tick can't both request the same member at once (the TTL only
-    // dedupes sequential fetches, since fetchedAt is stamped on completion). Kept
-    // separate from trafficFetchedAt so a failed fetch still retries immediately
-    // rather than being blocked for a TTL. Main-confined, so a plain set is safe.
-    private val trafficInFlight = mutableSetOf<String>()
+    // The in-flight traffic fetch per member, keyed by id. Doubles as the
+    // "currently fetching" set (so the debounce path and the periodic tick can't
+    // both request the same member at once; the TTL only dedupes sequential
+    // fetches) and as cancellable handles: a graph-range change cancels these
+    // old-window fetches and refetches the viewport at the new span, so a late
+    // old-window response can't overwrite the chart and freeze it until the next
+    // tick. Kept separate from trafficFetchedAt so a failed fetch still retries
+    // immediately. Main-confined, so a plain map is safe.
+    private val trafficJobs = mutableMapOf<String, Job>()
 
     init {
         viewModelScope.launch {
@@ -197,6 +208,15 @@ class DashboardViewModel(
         visibleIds.value = ids
     }
 
+    /**
+     * setGraphRange updates the traffic-graph span (minutes) from the Settings
+     * pref. The traffic loop watches [graphWindow] and force-refetches the
+     * visible sparklines when it changes, so the charts follow the new range.
+     */
+    fun setGraphRange(minutes: Int) {
+        graphWindow.value = minutes
+    }
+
     // trafficLoop keeps the on-screen members' sparklines fresh on two triggers:
     // the visible set changing (scroll), debounced so a fast scroll doesn't fetch
     // every row it flies past; and a slow tick so the current view's sparklines
@@ -221,6 +241,21 @@ class DashboardViewModel(
                     fetchVisibleTraffic(visibleIds.value, force = true)
                 }
             }
+            launch {
+                // A range change invalidates every in-flight and cached sparkline
+                // (they cover the old span). Cancel the old-window fetches so a late
+                // response can't overwrite the chart, drop their stamps, then
+                // force-refetch the viewport at the new span so it redraws now
+                // instead of on the next tick. drop(1) skips the initial value the
+                // first fetch already used.
+                graphWindow.drop(1).collectLatest {
+                    if (_state.value.revoked) return@collectLatest
+                    trafficJobs.values.forEach { it.cancel() }
+                    trafficJobs.clear()
+                    trafficFetchedAt.clear()
+                    fetchVisibleTraffic(visibleIds.value, force = true)
+                }
+            }
         }
 
     // fetchVisibleTraffic fetches traffic for the given members whose cache is
@@ -237,31 +272,37 @@ class DashboardViewModel(
         val at = now()
         val due =
             ids.filter {
-                it !in trafficInFlight && (force || at - (trafficFetchedAt[it] ?: 0L) >= TRAFFIC_TTL_MS)
+                it !in trafficJobs && (force || at - (trafficFetchedAt[it] ?: 0L) >= TRAFFIC_TTL_MS)
             }
         if (due.isEmpty()) return
+        // Capture the window for this batch so the request stays aimed at the span
+        // that was current when it was decided, even if the range changes mid-flight
+        // (the observer below cancels these jobs on such a change).
+        val window = graphWindow.value
         coroutineScope {
             due.forEach { id ->
-                // Marked before the launch (synchronously, on Main) so a
-                // concurrent call sees it in flight and skips it.
-                trafficInFlight += id
-                launch {
-                    try {
-                        when (val result = client.memberTraffic(fdUrl, token, id)) {
-                            is FetchResult.Success -> {
-                                trafficFetchedAt[id] = at
-                                _state.update { it.copy(traffic = it.traffic + (id to result.data)) }
+                val job =
+                    launch {
+                        try {
+                            when (val result = client.memberTraffic(fdUrl, token, id, window)) {
+                                is FetchResult.Success -> {
+                                    trafficFetchedAt[id] = at
+                                    _state.update { it.copy(traffic = it.traffic + (id to result.data)) }
+                                }
+                                FetchResult.Unauthorized -> _state.update { it.copy(revoked = true) }
+                                // A stale sparkline is fine; the card's health still shows.
+                                is FetchResult.Failure -> Unit
                             }
-                            FetchResult.Unauthorized -> _state.update { it.copy(revoked = true) }
-                            // A stale sparkline is fine; the card's health still shows.
-                            is FetchResult.Failure -> Unit
+                        } finally {
+                            // Runs on success, failure, or cancellation, so a member
+                            // is never stuck marked-in-flight after its fetch ends.
+                            trafficJobs -= id
                         }
-                    } finally {
-                        // Runs on success, failure, or cancellation, so a member
-                        // is never stuck marked-in-flight after its fetch ends.
-                        trafficInFlight -= id
                     }
-                }
+                // Registered right after launch (still synchronous on Main; the body
+                // is dispatched, not run inline) so a concurrent call sees it in
+                // flight and a range change can cancel it.
+                trafficJobs[id] = job
             }
         }
     }

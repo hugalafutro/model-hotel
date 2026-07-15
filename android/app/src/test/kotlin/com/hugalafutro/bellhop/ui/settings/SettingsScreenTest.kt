@@ -53,6 +53,8 @@ class SettingsScreenTest {
         onToggleMonitor: (Boolean) -> Unit = {},
         onTogglePush: (Boolean) -> Unit = {},
         onToggleHoldToCopy: (Boolean) -> Unit = {},
+        graphRangeMinutes: Int = 60,
+        onSetGraphRange: (Int) -> Unit = {},
         onAlertsClick: () -> Unit = {},
         onUnlink: () -> Unit = {},
         onForceUnlink: () -> Unit = {},
@@ -82,6 +84,8 @@ class SettingsScreenTest {
                     onForceUnlink = onForceUnlink,
                     holdToCopy = holdToCopy,
                     onToggleHoldToCopy = onToggleHoldToCopy,
+                    graphRangeMinutes = graphRangeMinutes,
+                    onSetGraphRange = onSetGraphRange,
                     alertCounts = alertCounts,
                 )
             }
@@ -127,17 +131,25 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun pickingGraphRangeFiresCallback() {
+        var picked: Int? = null
+        content(graphRangeMinutes = 60, onSetGraphRange = { picked = it })
+        composeTestRule.onNodeWithTag("settings-graph-range-360").performScrollTo().performClick()
+        assertEquals(360, picked)
+    }
+
+    @Test
     fun togglingLockFiresCallback() {
         var toggledTo: Boolean? = null
         content(onToggleLock = { toggledTo = it })
-        composeTestRule.onNodeWithTag("settings-lock-toggle").performClick()
+        composeTestRule.onNodeWithTag("settings-lock-toggle").performScrollTo().performClick()
         assertEquals(true, toggledTo)
     }
 
     @Test
     fun unavailableLockShowsHint() {
         content(lockAvailable = false)
-        composeTestRule.onNodeWithTag("settings-lock-unavailable").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("settings-lock-unavailable").performScrollTo().assertIsDisplayed()
     }
 
     @Test

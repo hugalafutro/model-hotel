@@ -32,7 +32,7 @@
     <string name="member_primary">Primär</string>
     <!-- Member detail -->
     <string name="member_detail_back">Zurück</string>
-    <string name="member_detail_traffic_title">Traffic · letzte %1$d Min</string>
+    <string name="member_detail_traffic_title">Traffic · letzte %1$d h</string>
     <string name="member_detail_traffic_totals">%1$d Anfragen · %2$d Fehler</string>
     <string name="member_detail_traffic_unreachable">Traffic ist nicht verfügbar. Front Desk hat für dieses Mitglied möglicherweise kein Admin-Token, oder das Mitglied hat nicht geantwortet.</string>
     <string name="member_detail_traffic_empty">Keine Anfragen in diesem Zeitraum.</string>
@@ -148,6 +148,9 @@
     <string name="common_copy">Kopieren</string>
     <string name="settings_hold_copy_title">Zum Kopieren halten</string>
     <string name="settings_hold_copy_subtitle">Wenn aktiviert, kopiert ein langer Druck auf ein Ereignis oder eine Mitgliedszelle diese in die Zwischenablage. Wenn deaktiviert, können Zellen nicht kopiert werden.</string>
+    <string name="settings_graph_range_title">Zeitraum des Traffic-Diagramms</string>
+    <string name="settings_graph_range_subtitle">Wie weit die Anfrage-Diagramme zurückreichen.</string>
+    <string name="settings_graph_range_hours">%1$d h</string>
     <string name="settings_lock_title">App-Sperre</string>
     <string name="settings_lock_subtitle">Fingerabdruck oder Geräte-PIN erforderlich, um Bellhop zu öffnen.</string>
     <string name="settings_lock_unavailable">Richte auf diesem Gerät einen Fingerabdruck oder eine Bildschirmsperre ein, um die App-Sperre zu aktivieren.</string>

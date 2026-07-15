@@ -37,6 +37,7 @@ import com.hugalafutro.bellhop.data.AlertEventDef
 import com.hugalafutro.bellhop.data.AlertStatus
 import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.StatusBanner
+import com.hugalafutro.bellhop.ui.common.bellhopSwitchColors
 import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 
@@ -263,6 +264,7 @@ private fun AlertRow(
                     checked = def.enabled,
                     onCheckedChange = onToggle,
                     enabled = canOperate,
+                    colors = bellhopSwitchColors(),
                     modifier = Modifier.testTag("alert-toggle-${def.type}"),
                 )
             }

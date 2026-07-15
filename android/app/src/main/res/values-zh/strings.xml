@@ -32,7 +32,7 @@
     <string name="member_primary">主节点</string>
     <!-- Member detail -->
     <string name="member_detail_back">返回</string>
-    <string name="member_detail_traffic_title">流量 · 最近 %1$d 分钟</string>
+    <string name="member_detail_traffic_title">流量 · 最近 %1$d 小时</string>
     <string name="member_detail_traffic_totals">%1$d 个请求 · %2$d 个错误</string>
     <string name="member_detail_traffic_unreachable">流量不可用。Front Desk 可能没有此成员的管理员令牌，或该成员未响应。</string>
     <string name="member_detail_traffic_empty">此时段内没有请求。</string>
@@ -147,6 +147,9 @@
     <string name="common_copy">复制</string>
     <string name="settings_hold_copy_title">长按以复制</string>
     <string name="settings_hold_copy_subtitle">开启时，长按事件或成员单元格可将其复制到剪贴板。关闭时，单元格无法复制。</string>
+    <string name="settings_graph_range_title">流量图表范围</string>
+    <string name="settings_graph_range_subtitle">请求图表回溯的时间范围。</string>
+    <string name="settings_graph_range_hours">%1$d 小时</string>
     <string name="settings_lock_title">应用锁</string>
     <string name="settings_lock_subtitle">打开 Bellhop 时需要指纹或设备 PIN。</string>
     <string name="settings_lock_unavailable">请在此设备上设置指纹或屏幕锁，以启用应用锁。</string>

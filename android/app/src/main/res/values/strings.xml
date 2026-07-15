@@ -33,7 +33,7 @@
     <string name="member_primary">Primary</string>
     <!-- Member detail -->
     <string name="member_detail_back">Back</string>
-    <string name="member_detail_traffic_title">Traffic · last %1$d min</string>
+    <string name="member_detail_traffic_title">Traffic · last %1$d h</string>
     <string name="member_detail_traffic_totals">%1$d requests · %2$d errors</string>
     <string name="member_detail_traffic_unreachable">Traffic isn\'t available. Front Desk may hold no admin token for this member, or the member didn\'t answer.</string>
     <string name="member_detail_traffic_empty">No requests in this window.</string>
@@ -163,6 +163,9 @@
     <string name="common_copy">Copy</string>
     <string name="settings_hold_copy_title">Hold to copy</string>
     <string name="settings_hold_copy_subtitle">When on, long-press an event or member cell to copy it to the clipboard. When off, cells can\'t be copied.</string>
+    <string name="settings_graph_range_title">Traffic graph range</string>
+    <string name="settings_graph_range_subtitle">How far back the request charts reach.</string>
+    <string name="settings_graph_range_hours">%1$d h</string>
     <string name="settings_lock_title">App lock</string>
     <string name="settings_lock_subtitle">Require a fingerprint or device PIN to open Bellhop.</string>
     <string name="settings_lock_unavailable">Set up a fingerprint or a screen lock on this device to enable the app lock.</string>
