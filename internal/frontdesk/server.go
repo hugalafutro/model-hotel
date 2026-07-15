@@ -223,6 +223,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 			r.Get("/observability", s.getObservability)
 			r.Get("/alert/events", s.alertEvents)
 			r.Get("/alert/status", s.alertStatus)
+			r.Get("/alert/selection", s.getAlertSelection)
 			r.Get("/events", s.listEvents)
 			r.Get("/traefik-status", s.traefikStatus)
 			r.Get("/fleet/status", s.fleetStatus)
@@ -237,6 +238,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 				r.Post("/members/{id}/state", s.setMemberState)
 				r.Put("/fleet/autosync", s.putAutoSync)
 				r.Post("/config/sync", s.configSync)
+				r.Post("/alert/selection", s.putAlertSelection)
 			})
 
 			r.Group(func(r chi.Router) {

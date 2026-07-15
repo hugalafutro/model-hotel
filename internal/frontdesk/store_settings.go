@@ -82,6 +82,20 @@ func (s *Store) UpdateSettings(ctx context.Context, set Settings) error {
 	return nil
 }
 
+// SetAlertEvents rewrites only the enabled-events CSV, leaving every other
+// settings column (including the encrypted Apprise target and the OIDC client
+// secret) untouched. The operator alert picker uses this so flipping one event
+// never round-trips a stored secret through GET/UpdateSettings. Callers hold
+// settingsMu to serialize with putSettings' read-merge-write.
+func (s *Store) SetAlertEvents(ctx context.Context, csv string) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE settings SET alert_events = ? WHERE id = 1`, csv)
+	if err != nil {
+		return fmt.Errorf("frontdesk: set alert events: %w", err)
+	}
+	return nil
+}
+
 // AutoSyncConfig is the operator's automatic config-propagation setup: a master
 // on/off plus the designated source-of-truth member. LastHash is the internal
 // drift marker (the primary config hash last applied to the fleet) and is never
