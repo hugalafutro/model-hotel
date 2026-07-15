@@ -36,6 +36,8 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,7 +47,11 @@ import com.hugalafutro.bellhop.R
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LockConfig
 import com.hugalafutro.bellhop.data.LockTimeout
+import com.hugalafutro.bellhop.ui.alerts.ALERT_SEVERITIES
 import com.hugalafutro.bellhop.ui.common.FilterPill
+import com.hugalafutro.bellhop.ui.common.NavChevron
+import com.hugalafutro.bellhop.ui.common.Pill
+import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import java.time.Instant
 import java.time.ZoneId
@@ -86,6 +92,10 @@ fun SettingsScreen(
     onForceUnlink: () -> Unit = {},
     holdToCopy: Boolean = false,
     onToggleHoldToCopy: (Boolean) -> Unit = {},
+    // Enabled-alert counts per severity (error/warning/info/success), sourced from
+    // Front Desk's live selection. Always rendered as badges on the Alerts pill,
+    // even at 0, so the pill reads as a live, tappable destination.
+    alertCounts: Map<String, Int> = emptyMap(),
 ) {
     var confirmUnlink by remember { mutableStateOf(false) }
     var confirmCopyAddress by remember { mutableStateOf(false) }
@@ -523,18 +533,28 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Alerts stays reachable here even when all is green (the dashboard bell
-            // only appears when a member is down).
+            // only appears when a member is down). The severity badges tally what
+            // Front Desk currently alerts on; the brass chevron marks the tap as a
+            // jump to the Alerts screen (where an operator can flip them).
             Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onAlertsClick).testTag("settings-alerts")) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = stringResource(R.string.settings_alerts_title),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_alerts_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                Row(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = stringResource(R.string.settings_alerts_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_alerts_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        AlertSeverityBadges(counts = alertCounts)
+                    }
+                    NavChevron(contentDescription = stringResource(R.string.settings_alerts_title))
                 }
             }
 
@@ -551,6 +571,48 @@ fun SettingsScreen(
         }
     }
 }
+
+/**
+ * AlertSeverityBadges renders one small coloured badge per severity (error,
+ * warning, info, success), each carrying the count of currently-enabled events of
+ * that severity. All four are always shown, even at 0, so the pill reads as a live
+ * summary and a tappable destination rather than an inert label. Colour encodes
+ * severity (matching the log-rail palette); the count and a per-badge content
+ * description carry the meaning for screen readers.
+ */
+@Composable
+private fun AlertSeverityBadges(
+    counts: Map<String, Int>,
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier = modifier.testTag("settings-alert-badges"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        ALERT_SEVERITIES.forEach { severity ->
+            val (container, content) = severityColors(severity)
+            val count = counts[severity] ?: 0
+            val label = severityBadgeLabel(severity)
+            // Resolve the description here: the semantics lambda is not composable.
+            val desc = stringResource(R.string.settings_alerts_badge_desc, count, label)
+            Pill(
+                text = count.toString(),
+                container = container,
+                content = content,
+                tag = "settings-alert-badge-$severity",
+                modifier = Modifier.semantics { contentDescription = desc },
+            )
+        }
+    }
+}
+
+// severityBadgeLabel names a severity for the badge's accessibility description,
+// reusing the shared event-severity strings.
+@Composable
+private fun severityBadgeLabel(severity: String): String =
+    when (severity) {
+        "success" -> stringResource(R.string.events_sev_success)
+        "warning" -> stringResource(R.string.events_sev_warning)
+        "error" -> stringResource(R.string.events_sev_error)
+        else -> stringResource(R.string.events_sev_info)
+    }
 
 // A localized "Jul 14, 2026"-style date for when the link was paired, or null
 // when the stamp is absent (links saved before linkedAt existed) so the row hides.

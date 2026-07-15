@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -20,7 +21,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,18 +41,23 @@ import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 
 /**
- * AlertsScreen renders Front Desk's outbound-alert subsystem, read-only: a
- * delivery-health pill (is the apprise-api reachable and delivering?) and the
- * catalog of events Front Desk can notify on, grouped by category with a
- * severity dot. Which events are actually enabled lives in Front Desk's admin
- * settings, which a device token cannot read, so the catalog is a reference, not
- * a set of live toggles — the footer note says so. State comes from
- * [AlertsViewModel].
+ * AlertsScreen renders Front Desk's outbound-alert subsystem: a delivery-health
+ * pill (is the apprise-api reachable and delivering?) and the events Front Desk
+ * can notify on, grouped by category with a severity dot and a per-event switch
+ * showing its live enabled state. An operator flips a switch (routed through the
+ * biometric operator gate); a monitor sees the switches read-only. State and the
+ * flip action come from [AlertsViewModel].
  */
 @Composable
 fun AlertsScreen(
     onBack: () -> Unit,
     ui: AlertsUiState = AlertsUiState(),
+    // Whether this device is paired as an operator. A monitor sees each event's
+    // state read-only (a disabled switch); an operator can flip it, which routes
+    // through the biometric operator gate in the host before [onToggleEvent] fires.
+    canOperate: Boolean = false,
+    onToggleEvent: (type: String, enabled: Boolean) -> Unit = { _, _ -> },
+    onDismissActionError: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
@@ -87,6 +95,29 @@ fun AlertsScreen(
                     text = stringResource(R.string.dashboard_refresh_failed, ui.error),
                     tag = "alerts-error",
                 )
+            }
+            // Operator-flip feedback: a 403 means this monitor device may not flip
+            // (the switch is disabled, but a mid-session role change can still land
+            // one here), and a failed flip surfaces so a tap never vanishes silently.
+            if (ui.action.forbidden) {
+                StatusBanner(text = stringResource(R.string.alerts_flip_forbidden), tag = "alerts-flip-forbidden")
+            }
+            ui.action.error?.let { message ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(bottom = 8.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.alerts_flip_failed, message),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f).testTag("alerts-flip-error"),
+                    )
+                    TextButton(onClick = onDismissActionError, modifier = Modifier.testTag("alerts-flip-dismiss")) {
+                        Text(text = stringResource(R.string.member_op_dismiss))
+                    }
+                }
             }
 
             if (ui.loading) {
@@ -131,7 +162,14 @@ fun AlertsScreen(
                                     modifier = Modifier.padding(top = 8.dp),
                                 )
                             }
-                            items(defs) { def -> AlertRow(def = def) }
+                            items(defs) { def ->
+                                AlertRow(
+                                    def = def,
+                                    canOperate = canOperate,
+                                    toggling = ui.action.togglingType == def.type,
+                                    onToggle = { enabled -> onToggleEvent(def.type, enabled) },
+                                )
+                            }
                         }
                 }
             }
@@ -184,6 +222,9 @@ private fun DeliveryStatusCard(
 @Composable
 private fun AlertRow(
     def: AlertEventDef,
+    canOperate: Boolean,
+    toggling: Boolean,
+    onToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val (container, content) = severityColors(def.severity)
@@ -206,14 +247,25 @@ private fun AlertRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Text(
-                text =
-                    stringResource(
-                        if (def.defaultOn) R.string.alerts_default_on else R.string.alerts_default_off,
-                    ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // A flip in flight shows a spinner in the switch's place so a double-tap
+            // can't fire a second request. A monitor device gets a disabled switch that
+            // still reflects the true on/off state (read-only); an operator can flip it.
+            if (toggling) {
+                CircularProgressIndicator(
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(24.dp).testTag("alert-toggle-spinner-${def.type}"),
+                )
+            } else {
+                // Keep onCheckedChange non-null even for a monitor so the switch keeps
+                // its toggleable semantics (and reads as disabled, not merely inert);
+                // enabled=false blocks the tap, and Front Desk's 403 is the real guard.
+                Switch(
+                    checked = def.enabled,
+                    onCheckedChange = onToggle,
+                    enabled = canOperate,
+                    modifier = Modifier.testTag("alert-toggle-${def.type}"),
+                )
+            }
         }
     }
 }

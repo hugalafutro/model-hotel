@@ -196,12 +196,12 @@ data class AlertStatus(
 )
 
 /**
- * AlertEventDef is one row of Front Desk's alertable-event catalog (GET
- * /api/alert/events), mirroring alert.EventDef. Bellhop renders it read-only:
- * which events are actually enabled lives in Front Desk's admin settings (not
- * readable by a device token), so [defaultOn] is shown as the first-run default,
- * not the current selection. [severity] is the display dot; [category] groups
- * the list.
+ * AlertEventDef is one row of Front Desk's alertable-event catalog, mirroring
+ * alert.EventDef. Bellhop reads it from GET /api/alert/selection, which enriches
+ * the catalog with [enabled] — whether Front Desk currently alerts on this event.
+ * An operator device flips [enabled] via POST /api/alert/selection; a monitor
+ * sees it read-only. [defaultOn] is the first-run seed (a reference, not the live
+ * state); [severity] is the display dot; [category] groups the list.
  */
 @Serializable
 data class AlertEventDef(
@@ -209,6 +209,29 @@ data class AlertEventDef(
     val category: String = "",
     val severity: String = "",
     val defaultOn: Boolean = false,
+    val enabled: Boolean = false,
+)
+
+/**
+ * AlertSelectionResponse is the GET/POST /api/alert/selection envelope: the
+ * catalog enriched with each event's current [AlertEventDef.enabled] state.
+ * Mirrors the Front Desk handler, which returns {"events": [...]}.
+ */
+@Serializable
+data class AlertSelectionResponse(
+    val events: List<AlertEventDef> = emptyList(),
+)
+
+/**
+ * AlertSelectionRequest is the POST /api/alert/selection body: flip one event
+ * [type] on or off. A per-event toggle (not a full-set replace) is atomic on
+ * Front Desk and version-skew safe, so a dropped request never leaves the
+ * selection half-applied. Do not rename JSON fields.
+ */
+@Serializable
+data class AlertSelectionRequest(
+    val type: String,
+    val enabled: Boolean,
 )
 
 // Wire models for the Front Desk operator tier a device token with the operator

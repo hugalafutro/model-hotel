@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.ui.alerts
 
+import com.hugalafutro.bellhop.data.ActionResult
 import com.hugalafutro.bellhop.data.AlertEventDef
 import com.hugalafutro.bellhop.data.AlertStatus
 import com.hugalafutro.bellhop.data.FakeCipher
@@ -25,15 +26,18 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.util.concurrent.atomic.AtomicInteger
 
-// FakeAlertsClient stubs the two reads the alerts ViewModel makes; each result
-// is swappable so a test can flip a call from success to failure between refreshes.
+// FakeAlertsClient stubs the reads the alerts ViewModel makes plus the flip
+// action; each result is swappable so a test can move a call from success to
+// failure between refreshes.
 private class FakeAlertsClient(
     var status: FetchResult<AlertStatus>,
     var catalog: FetchResult<List<AlertEventDef>>,
+    var toggleResult: ActionResult<List<AlertEventDef>> = ActionResult.Failure("unset"),
 ) : FrontDeskClient() {
     val statusCalls = AtomicInteger(0)
     val catalogCalls = AtomicInteger(0)
     var lastToken: String? = null
+    var lastToggle: Pair<String, Boolean>? = null
 
     override suspend fun alertStatus(
         fdUrl: String,
@@ -44,13 +48,24 @@ private class FakeAlertsClient(
         return status
     }
 
-    override suspend fun alertCatalog(
+    override suspend fun alertSelection(
         fdUrl: String,
         token: String,
     ): FetchResult<List<AlertEventDef>> {
         catalogCalls.incrementAndGet()
         lastToken = token
         return catalog
+    }
+
+    override suspend fun setAlertEvent(
+        fdUrl: String,
+        token: String,
+        type: String,
+        enabled: Boolean,
+    ): ActionResult<List<AlertEventDef>> {
+        lastToggle = type to enabled
+        lastToken = token
+        return toggleResult
     }
 }
 
@@ -177,4 +192,100 @@ class AlertsViewModelTest {
             assertEquals(0, client.statusCalls.get())
             assertEquals(0, client.catalogCalls.get())
         }
+
+    @Test
+    fun toggleAdoptsEchoedSelection() =
+        runBlocking {
+            // Front Desk echoes the whole refreshed selection; the VM adopts it
+            // wholesale (the ack doubles as the re-read) rather than guessing.
+            val echoed = listOf(AlertEventDef("health.down", "Health", "error", defaultOn = true, enabled = true))
+            val client =
+                FakeAlertsClient(
+                    FetchResult.Success(okStatus),
+                    FetchResult.Success(okCatalog),
+                    toggleResult = ActionResult.Success(echoed),
+                )
+            val vm = newVm(client, linkedStore())
+            vm.refreshOnce()
+
+            vm.toggleEvent("health.down", true)
+
+            assertEquals("health.down" to true, client.lastToggle)
+            assertEquals(echoed, vm.state.value.catalog)
+            assertNull(vm.state.value.action.togglingType)
+            assertFalse(vm.state.value.action.forbidden)
+        }
+
+    @Test
+    fun toggleForbiddenSetsFlagAndKeepsCatalog() =
+        runBlocking {
+            val client =
+                FakeAlertsClient(
+                    FetchResult.Success(okStatus),
+                    FetchResult.Success(okCatalog),
+                    toggleResult = ActionResult.Forbidden,
+                )
+            val vm = newVm(client, linkedStore())
+            vm.refreshOnce()
+
+            vm.toggleEvent("health.down", false)
+
+            assertTrue(vm.state.value.action.forbidden)
+            assertEquals(okCatalog, vm.state.value.catalog)
+            assertNull(vm.state.value.action.togglingType)
+        }
+
+    @Test
+    fun toggleUnauthorizedRevokes() =
+        runBlocking {
+            val client =
+                FakeAlertsClient(
+                    FetchResult.Success(okStatus),
+                    FetchResult.Success(okCatalog),
+                    toggleResult = ActionResult.Unauthorized,
+                )
+            val vm = newVm(client, linkedStore())
+            vm.refreshOnce()
+
+            vm.toggleEvent("health.down", true)
+
+            assertTrue(vm.state.value.revoked)
+        }
+
+    @Test
+    fun toggleFailureSurfacesErrorThenDismiss() =
+        runBlocking {
+            val client =
+                FakeAlertsClient(
+                    FetchResult.Success(okStatus),
+                    FetchResult.Success(okCatalog),
+                    toggleResult = ActionResult.Failure("nope"),
+                )
+            val vm = newVm(client, linkedStore())
+            vm.refreshOnce()
+
+            vm.toggleEvent("health.down", true)
+            assertEquals("nope", vm.state.value.action.error)
+
+            vm.dismissActionError()
+            assertNull(vm.state.value.action.error)
+        }
+
+    @Test
+    fun enabledSeverityCountsAlwaysReturnsAllFourKeys() {
+        val catalog =
+            listOf(
+                AlertEventDef("health.down", "Health", "error", enabled = true),
+                AlertEventDef("config.sync_failed", "Config", "warning", enabled = true),
+                AlertEventDef("config.synced", "Config", "info", enabled = false),
+                AlertEventDef("health.up", "Health", "success", enabled = true),
+                AlertEventDef("member.added", "Membership", "warning", enabled = true),
+            )
+        val counts = enabledSeverityCounts(catalog)
+        assertEquals(setOf("error", "warning", "info", "success"), counts.keys)
+        assertEquals(1, counts["error"])
+        assertEquals(2, counts["warning"]) // enabled warnings only
+        assertEquals(0, counts["info"]) // present as 0 even though nothing enabled
+        assertEquals(1, counts["success"])
+    }
 }

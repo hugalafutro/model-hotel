@@ -462,41 +462,97 @@ class FrontDeskClientTest {
         }
 
     @Test
-    fun alertCatalogParsesGroupsAndSendsBearer() =
+    fun alertSelectionUnwrapsEnvelopeAndSendsBearer() =
         runBlocking {
+            // GET /api/alert/selection returns {"events":[...]} with each event's
+            // live enabled state; the client unwraps to the bare list.
             server.enqueue(
                 MockResponse().setBody(
-                    """[{"type":"health.down","category":"Health","severity":"error","defaultOn":true},""" +
-                        """{"type":"config.synced","category":"Config Sync","severity":"info","defaultOn":false}]""",
+                    """{"events":[{"type":"health.down","category":"Health",""" +
+                        """"severity":"error","defaultOn":true,"enabled":true},""" +
+                        """{"type":"config.synced","category":"Config Sync",""" +
+                        """"severity":"info","defaultOn":false,"enabled":false}]}""",
                 ),
             )
 
-            val result = client.alertCatalog(server.url("/").toString(), "tok-1")
+            val result = client.alertSelection(server.url("/").toString(), "tok-1")
 
             assertTrue(result is FetchResult.Success)
             result as FetchResult.Success
             assertEquals(2, result.data.size)
             assertEquals("health.down", result.data[0].type)
-            assertEquals("Health", result.data[0].category)
-            assertTrue(result.data[0].defaultOn)
-            assertFalse(result.data[1].defaultOn)
+            assertTrue(result.data[0].enabled)
+            assertFalse(result.data[1].enabled)
 
             val request = server.takeRequest()
             assertEquals("GET", request.method)
-            assertEquals("/api/alert/events", request.path)
+            assertEquals("/api/alert/selection", request.path)
             assertEquals("Bearer tok-1", request.getHeader("Authorization"))
         }
 
     @Test
-    fun alertCatalogMapsUnauthorizedToItsOwnArm() =
+    fun alertSelectionMapsUnauthorizedToItsOwnArm() =
         runBlocking {
             server.enqueue(
                 MockResponse().setResponseCode(401).setBody(
                     """{"error":{"code":"unauthorized","message":"bad token"}}""",
                 ),
             )
-            val result = client.alertCatalog(server.url("/").toString(), "dead")
+            val result = client.alertSelection(server.url("/").toString(), "dead")
             assertEquals(FetchResult.Unauthorized, result)
+        }
+
+    @Test
+    fun setAlertEventPostsBodyAndAdoptsEchoedSelection() =
+        runBlocking {
+            // The POST echoes the whole refreshed selection: that echo is the ack
+            // the phone reconciles from, so a dropped request is never half-applied.
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"events":[{"type":"health.down","category":"Health",""" +
+                        """"severity":"error","defaultOn":true,"enabled":false}]}""",
+                ),
+            )
+
+            val result = client.setAlertEvent(server.url("/").toString(), "tok-1", "health.down", false)
+
+            assertTrue(result is ActionResult.Success)
+            result as ActionResult.Success
+            assertEquals(1, result.data.size)
+            assertFalse(result.data[0].enabled)
+
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/alert/selection", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+            val body = request.body.readUtf8()
+            assertTrue(body.contains("\"type\":\"health.down\""))
+            assertTrue(body.contains("\"enabled\":false"))
+        }
+
+    @Test
+    fun setAlertEventMapsForbiddenToItsOwnArm() =
+        runBlocking {
+            // 403 device_role_forbidden: a monitor device may not flip an alert.
+            server.enqueue(
+                MockResponse().setResponseCode(403).setBody(
+                    """{"code":"device_role_forbidden","error":"nope"}""",
+                ),
+            )
+            val result = client.setAlertEvent(server.url("/").toString(), "dead", "health.down", true)
+            assertEquals(ActionResult.Forbidden, result)
+        }
+
+    @Test
+    fun setAlertEventMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.setAlertEvent(server.url("/").toString(), "dead", "health.down", true)
+            assertEquals(ActionResult.Unauthorized, result)
         }
 
     @Test

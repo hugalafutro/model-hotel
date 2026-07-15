@@ -47,6 +47,7 @@ class SettingsScreenTest {
         pushNotificationsBlocked: Boolean = false,
         unlinkFailed: Boolean = false,
         holdToCopy: Boolean = false,
+        alertCounts: Map<String, Int> = emptyMap(),
         onToggleLock: (Boolean) -> Unit = {},
         onSelectTimeout: (LockTimeout) -> Unit = {},
         onToggleMonitor: (Boolean) -> Unit = {},
@@ -81,6 +82,7 @@ class SettingsScreenTest {
                     onForceUnlink = onForceUnlink,
                     holdToCopy = holdToCopy,
                     onToggleHoldToCopy = onToggleHoldToCopy,
+                    alertCounts = alertCounts,
                 )
             }
         }
@@ -231,6 +233,21 @@ class SettingsScreenTest {
         content(onAlertsClick = { opened++ })
         composeTestRule.onNodeWithTag("settings-alerts").performScrollTo().performClick()
         assertTrue(opened == 1)
+    }
+
+    @Test
+    fun alertSeverityBadgesShowAllFourEvenAtZero() {
+        // Only error and warning enabled; info and success still render (at 0) so the
+        // pill reads as a live, tappable destination.
+        content(alertCounts = mapOf("error" to 2, "warning" to 1, "info" to 0, "success" to 0))
+        // The clickable Alerts card merges its descendants' semantics, so the badge
+        // and chevron tags live in the unmerged tree; scroll the card into view first.
+        composeTestRule.onNodeWithTag("settings-alerts").performScrollTo()
+        for (sev in listOf("error", "warning", "info", "success")) {
+            composeTestRule.onNodeWithTag("settings-alert-badge-$sev", useUnmergedTree = true).assertExists()
+        }
+        // The nav chevron marks the pill as a jump to another screen.
+        composeTestRule.onNodeWithTag("nav-chevron", useUnmergedTree = true).assertExists()
     }
 
     @Test

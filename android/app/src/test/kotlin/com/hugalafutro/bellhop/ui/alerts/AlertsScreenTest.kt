@@ -1,6 +1,7 @@
 package com.hugalafutro.bellhop.ui.alerts
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -127,5 +128,60 @@ class AlertsScreenTest {
         }
         composeTestRule.onNodeWithTag("alerts-back").performClick()
         assertEquals(1, backs)
+    }
+
+    @Test
+    fun operatorFlipFiresToggleWithNewState() {
+        var toggled: Pair<String, Boolean>? = null
+        val ui = loaded.copy(catalog = listOf(AlertEventDef("health.down", "Health", "error", enabled = false)))
+        composeTestRule.setContent {
+            BellhopTheme {
+                AlertsScreen(onBack = {}, ui = ui, canOperate = true, onToggleEvent = { t, e -> toggled = t to e })
+            }
+        }
+        composeTestRule.onNodeWithTag("alerts-list").performScrollToNode(hasTestTag("alert-toggle-health.down"))
+        composeTestRule.onNodeWithTag("alert-toggle-health.down").performClick()
+        // A disabled event flipped on: the switch reports the new target, not the old state.
+        assertEquals("health.down" to true, toggled)
+    }
+
+    @Test
+    fun monitorTogglesAreDisabled() {
+        val ui = loaded.copy(catalog = listOf(AlertEventDef("health.down", "Health", "error", enabled = true)))
+        composeTestRule.setContent {
+            BellhopTheme {
+                AlertsScreen(onBack = {}, ui = ui, canOperate = false)
+            }
+        }
+        composeTestRule.onNodeWithTag("alerts-list").performScrollToNode(hasTestTag("alert-toggle-health.down"))
+        composeTestRule.onNodeWithTag("alert-toggle-health.down").assertIsNotEnabled()
+    }
+
+    @Test
+    fun flipInFlightShowsSpinnerInPlaceOfSwitch() {
+        val ui =
+            loaded.copy(
+                catalog = listOf(AlertEventDef("health.down", "Health", "error", enabled = false)),
+                action = AlertActionState(togglingType = "health.down"),
+            )
+        composeTestRule.setContent {
+            BellhopTheme {
+                AlertsScreen(onBack = {}, ui = ui, canOperate = true)
+            }
+        }
+        composeTestRule.onNodeWithTag("alerts-list").performScrollToNode(hasTestTag("alert-toggle-spinner-health.down"))
+        composeTestRule.onNodeWithTag("alert-toggle-spinner-health.down", useUnmergedTree = true).assertIsDisplayed()
+        // The switch is replaced by the spinner, so a double-tap can't fire a second request.
+        assertTrue(composeTestRule.onAllNodesWithTag("alert-toggle-health.down").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun forbiddenFlipShowsBanner() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                AlertsScreen(onBack = {}, ui = loaded.copy(action = AlertActionState(forbidden = true)))
+            }
+        }
+        composeTestRule.onNodeWithTag("alerts-flip-forbidden").assertIsDisplayed()
     }
 }
