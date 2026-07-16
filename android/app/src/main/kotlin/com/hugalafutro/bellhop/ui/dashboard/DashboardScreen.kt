@@ -43,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -81,6 +82,7 @@ import com.hugalafutro.bellhop.ui.common.healthLabel
 import com.hugalafutro.bellhop.ui.common.relativeAgo
 import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.Instant
 
@@ -590,6 +592,17 @@ private fun MemberCard(
             // into the member.
             recentEvent?.let { ev ->
                 val (evContainer, evContent) = severityColors(ev.severity)
+                // Tick a local clock so the "3 min ago" age recomputes on its own.
+                // Without it the age is frozen: eventAgo is memoized on the event's
+                // timestamp, which doesn't change between refreshes, so a stationary
+                // event's label would never advance. Scoped to cards that actually
+                // show an event, and disposed with the dashboard when it's covered.
+                val now by produceState(System.currentTimeMillis()) {
+                    while (true) {
+                        delay(RELATIVE_TIME_TICK_MS)
+                        value = System.currentTimeMillis()
+                    }
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Surface(
                     onClick = onClick,
@@ -610,7 +623,7 @@ private fun MemberCard(
                             modifier = Modifier.weight(1f),
                         )
                         val context = LocalContext.current
-                        remember(ev.createdAt, context) { eventAgo(context, ev.createdAt) }?.let { ago ->
+                        remember(ev.createdAt, now, context) { eventAgo(context, ev.createdAt, now) }?.let { ago ->
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = ago,
@@ -676,6 +689,11 @@ private fun eventAgo(
     } catch (e: Exception) {
         null
     }
+
+// How often the recent-event pill re-evaluates its relative age. 30s keeps the
+// "N min ago" label honest to within half a minute without waking often; it is a
+// CPU-only recomposition of a couple of Text nodes, no network.
+private const val RELATIVE_TIME_TICK_MS = 30_000L
 
 private const val REPO_URL = "https://github.com/hugalafutro/model-hotel"
 

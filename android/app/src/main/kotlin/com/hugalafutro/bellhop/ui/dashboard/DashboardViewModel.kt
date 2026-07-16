@@ -116,6 +116,13 @@ class DashboardViewModel(
     // single /api/fleet/usage rollup, this loop swaps its source for that one call.
     private val visibleIds = MutableStateFlow<List<String>>(emptyList())
 
+    // Whether the dashboard is hidden behind another screen (member detail,
+    // settings, alerts, events). The dashboard ViewModel keeps running under those
+    // overlays so its state stays warm, but the traffic sparklines aren't on screen
+    // then, so [trafficLoop] pauses the per-member fan-out while covered and catches
+    // up when shown again. Reported by the screen via [setCovered].
+    private val covered = MutableStateFlow(false)
+
     // The traffic-graph range (minutes) the sparklines request, driven by the
     // Settings pref via [setGraphRange]. Changing it force-refetches so the
     // charts redraw at the new span.
@@ -245,6 +252,17 @@ class DashboardViewModel(
     }
 
     /**
+     * setCovered tells the ViewModel whether the dashboard is hidden behind another
+     * screen. While covered, [trafficLoop] stops the per-member sparkline fan-out
+     * (those charts aren't on screen, so fetching them just wakes the radio for
+     * nothing); it resumes with an immediate catch-up fetch when shown again. The
+     * health poll and SSE keep running so the list is fresh the moment it reappears.
+     */
+    fun setCovered(value: Boolean) {
+        covered.value = value
+    }
+
+    /**
      * setGraphRange updates the traffic-graph span (minutes) from the Settings
      * pref. The traffic loop watches [graphWindow] and force-refetches the
      * visible sparklines when it changes, so the charts follow the new range.
@@ -269,12 +287,22 @@ class DashboardViewModel(
                 }
             }
             launch {
-                while (true) {
-                    delay(trafficPollMs)
-                    // A dead token can't authenticate; stop ticking like the
-                    // other loops rather than spinning on a no-op fetch.
-                    if (_state.value.revoked) return@launch
-                    fetchVisibleTraffic(visibleIds.value, force = true)
+                // Pause the periodic fan-out while the dashboard is covered — its
+                // sparklines aren't on screen, so fetching them is pure radio waste.
+                // collectLatest cancels the loop the instant it's covered and, when
+                // shown again, restarts with an immediate catch-up fetch before
+                // resuming the tick. Uncovered from the start, the first fetch runs
+                // against the still-empty viewport (a no-op) until the list reports
+                // its visible ids, which the debounce launch above fetches.
+                covered.collectLatest { isCovered ->
+                    if (isCovered) return@collectLatest
+                    while (true) {
+                        // A dead token can't authenticate; stop ticking like the
+                        // other loops rather than spinning on a no-op fetch.
+                        if (_state.value.revoked) return@collectLatest
+                        fetchVisibleTraffic(visibleIds.value, force = true)
+                        delay(trafficPollMs)
+                    }
                 }
             }
             launch {
