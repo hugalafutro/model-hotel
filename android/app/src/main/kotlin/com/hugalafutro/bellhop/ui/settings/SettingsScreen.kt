@@ -412,11 +412,13 @@ fun SettingsScreen(
                     if (!lockAvailable) {
                         // No biometric or device credential enrolled: the gate can't
                         // engage, so say why the toggle is inert rather than failing
-                        // silently when it's flipped on.
+                        // silently when it's flipped on. Muted, not red: this is
+                        // guidance about a precondition, unlike the monitor/push
+                        // "delivery is blocked" notes where something is broken.
                         Text(
                             text = stringResource(R.string.settings_lock_unavailable),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.testTag("settings-lock-unavailable"),
                         )
                     }

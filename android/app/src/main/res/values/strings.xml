@@ -11,6 +11,8 @@
     <string name="pairing_paste_label">Pairing string</string>
     <string name="pairing_paste_hint">Paste the copied pairing string here</string>
     <string name="pairing_target">Front Desk: %1$s\n%2$s</string>
+    <!-- Used instead of pairing_target when the Front Desk name is just its host, so the address isn't shown twice. -->
+    <string name="pairing_target_short">Front Desk: %1$s</string>
     <string name="pairing_label_label">This device\'s name</string>
     <string name="pairing_submit">Pair</string>
     <string name="pairing_error_bad_string">That doesn\'t look like a pairing string. Copy it again from Front Desk → Settings → Paired devices.</string>
@@ -34,7 +36,14 @@
     <!-- Member detail -->
     <string name="member_detail_back">Back</string>
     <string name="member_detail_traffic_title">Traffic · last %1$d h</string>
-    <string name="member_detail_traffic_totals">%1$d requests · %2$d errors</string>
+    <plurals name="member_detail_traffic_requests">
+        <item quantity="one">%1$d request</item>
+        <item quantity="other">%1$d requests</item>
+    </plurals>
+    <plurals name="member_detail_traffic_errors">
+        <item quantity="one">%1$d error</item>
+        <item quantity="other">%1$d errors</item>
+    </plurals>
     <string name="member_detail_traffic_unreachable">Traffic isn\'t available. Front Desk may hold no admin token for this member, or the member didn\'t answer.</string>
     <string name="member_detail_traffic_empty">No requests in this window.</string>
     <string name="member_detail_events_title">Recent events</string>
@@ -140,6 +149,11 @@
     <string name="alerts_event_member_added">Member added</string>
     <string name="alerts_event_member_removed">Member removed</string>
     <string name="alerts_event_member_state_changed">Member drained or activated</string>
+    <!-- Event-log-only types (not in the alert catalog), used by the shared event-title map. -->
+    <string name="event_device_paired">Device paired</string>
+    <string name="event_device_revoked">Device revoked</string>
+    <string name="event_settings_changed">Settings changed</string>
+    <string name="event_config_regenerated">Routing config regenerated</string>
 
     <!-- App lock -->
     <string name="lock_title">Bellhop is locked</string>

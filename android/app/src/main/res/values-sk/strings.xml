@@ -10,6 +10,7 @@
     <string name="pairing_paste_label">Párovací reťazec</string>
     <string name="pairing_paste_hint">Sem vložte skopírovaný párovací reťazec</string>
     <string name="pairing_target">Front Desk: %1$s\n%2$s</string>
+    <string name="pairing_target_short">Front Desk: %1$s</string>
     <string name="pairing_label_label">Názov tohto zariadenia</string>
     <string name="pairing_submit">Spárovať</string>
     <string name="pairing_error_bad_string">Toto nevyzerá ako párovací reťazec. Skopírujte ho znova z Front Desku → Nastavenia → Spárované zariadenia.</string>
@@ -33,7 +34,18 @@
     <!-- Member detail -->
     <string name="member_detail_back">Späť</string>
     <string name="member_detail_traffic_title">Prevádzka · posledných %1$d h</string>
-    <string name="member_detail_traffic_totals">%1$d požiadaviek · %2$d chýb</string>
+    <plurals name="member_detail_traffic_requests">
+        <item quantity="one">%1$d požiadavka</item>
+        <item quantity="few">%1$d požiadavky</item>
+        <item quantity="many">%1$d požiadavky</item>
+        <item quantity="other">%1$d požiadaviek</item>
+    </plurals>
+    <plurals name="member_detail_traffic_errors">
+        <item quantity="one">%1$d chyba</item>
+        <item quantity="few">%1$d chyby</item>
+        <item quantity="many">%1$d chyby</item>
+        <item quantity="other">%1$d chýb</item>
+    </plurals>
     <string name="member_detail_traffic_unreachable">Prevádzka nie je dostupná. Front Desk možno nemá pre tohto člena admin token, alebo člen neodpovedal.</string>
     <string name="member_detail_traffic_empty">V tomto okne žiadne požiadavky.</string>
     <string name="member_detail_events_title">Nedávne udalosti</string>
@@ -127,6 +139,10 @@
     <string name="alerts_event_member_added">Člen pridaný</string>
     <string name="alerts_event_member_removed">Člen odstránený</string>
     <string name="alerts_event_member_state_changed">Člen odstavený alebo aktivovaný</string>
+    <string name="event_device_paired">Zariadenie spárované</string>
+    <string name="event_device_revoked">Spárovanie zariadenia zrušené</string>
+    <string name="event_settings_changed">Nastavenia zmenené</string>
+    <string name="event_config_regenerated">Konfigurácia smerovania znovu vygenerovaná</string>
 
     <!-- App lock -->
     <string name="lock_title">Bellhop je uzamknutý</string>

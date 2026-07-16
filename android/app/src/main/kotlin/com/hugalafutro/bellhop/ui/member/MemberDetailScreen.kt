@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,7 +68,9 @@ import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.ScrollToTopButton
 import com.hugalafutro.bellhop.ui.common.SeverityRailRow
 import com.hugalafutro.bellhop.ui.common.StatusBanner
+import com.hugalafutro.bellhop.ui.common.TightTouchTarget
 import com.hugalafutro.bellhop.ui.common.TrafficChart
+import com.hugalafutro.bellhop.ui.common.eventTypeLabel
 import com.hugalafutro.bellhop.ui.common.healthColor
 import com.hugalafutro.bellhop.ui.common.loadMoreSentinel
 import com.hugalafutro.bellhop.ui.common.relativeAgo
@@ -76,6 +79,9 @@ import com.hugalafutro.bellhop.ui.events.formatEventTime
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
 import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * MemberDetailScreen is one member up close — deliberately *not* a repeat of the
@@ -421,33 +427,38 @@ private fun LedgerRow(
     trailing: String? = null,
     trailingColor: Color? = null,
 ) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .then(if (tag != null) Modifier.testTag(tag) else Modifier)
-                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-    ) {
-        Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(76.dp),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            fontFamily = MonoFamily,
-            color = valueColor,
-            modifier = Modifier.weight(1f),
-        )
-        trailing?.let {
+    // The clickable rows keep their touch target at the row's own bounds: the
+    // default 48dp minimum would spill over the ledger rows above and below
+    // (they sit ~17dp apart), sending taps on VERSION into the ADDRESS popup.
+    TightTouchTarget {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier =
+                modifier
+                    .fillMaxWidth()
+                    .then(if (tag != null) Modifier.testTag(tag) else Modifier)
+                    .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        ) {
             Text(
-                text = it,
-                style = MaterialTheme.typography.bodySmall,
-                color = trailingColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(76.dp),
             )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = MonoFamily,
+                color = valueColor,
+                modifier = Modifier.weight(1f),
+            )
+            trailing?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = trailingColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -732,33 +743,103 @@ private fun TrafficCard(
                         )
                     }
                 else -> {
-                    Text(
-                        text =
-                            stringResource(
-                                R.string.member_detail_traffic_totals,
-                                traffic.totalRequests,
-                                traffic.totalErrors,
-                            ),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = MonoFamily,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    // The totals double as the chart legend: each count sits behind
+                    // a dot in the colour its bars are drawn in, so the red error
+                    // overlay is explained right where the numbers are. Counts go
+                    // through plurals so one error never reads "1 errors".
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.testTag("member-traffic-totals"),
-                    )
+                    ) {
+                        LegendDot(color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            text =
+                                pluralStringResource(
+                                    R.plurals.member_detail_traffic_requests,
+                                    traffic.totalRequests,
+                                    traffic.totalRequests,
+                                ),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = MonoFamily,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        LegendDot(color = MaterialTheme.colorScheme.error)
+                        Text(
+                            text =
+                                pluralStringResource(
+                                    R.plurals.member_detail_traffic_errors,
+                                    traffic.totalErrors,
+                                    traffic.totalErrors,
+                                ),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = MonoFamily,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     TrafficChart(
                         points = traffic.points,
                         modifier = Modifier.height(140.dp).testTag("member-traffic-chart"),
                     )
+                    // Wall-clock times under the chart edges, so the bars are
+                    // anchored in time instead of floating unlabeled. Omitted when
+                    // the bucket timestamps don't parse.
+                    trafficAxisLabels(traffic.points)?.let { (start, end) ->
+                        Row(modifier = Modifier.fillMaxWidth().testTag("member-traffic-axis")) {
+                            Text(
+                                text = start,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = MonoFamily,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            Text(
+                                text = end,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = MonoFamily,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+/** LegendDot is a small colour swatch keying a legend entry to its bars. */
+@Composable
+private fun LegendDot(
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.size(8.dp).clip(CircleShape).background(color))
+}
+
+/**
+ * trafficAxisLabels turns the first and last bucket timestamps into local
+ * wall-clock "HH:mm" labels for the chart's time axis, or null when the buckets
+ * don't parse (the axis row is then omitted rather than showing raw strings).
+ * The formatter is built per call, not held in a static, so an in-app language
+ * switch is picked up.
+ */
+private fun trafficAxisLabels(points: List<TrafficPoint>): Pair<String, String>? =
+    try {
+        val fmt =
+            DateTimeFormatter
+                .ofPattern("HH:mm", Locale.getDefault())
+                .withZone(ZoneId.systemDefault())
+        fmt.format(Instant.parse(points.first().bucket)) to fmt.format(Instant.parse(points.last().bucket))
+    } catch (e: Exception) {
+        null
+    }
+
 /**
  * MemberEventRow is one event under the graph, in the same log language as the
  * Events screen: a flat line — no card — with a severity-coloured rail down the
- * left edge and a faint tint of the same colour, the type as the heading with a
- * mono timestamp, then the message.
+ * left edge and a faint tint of the same colour, the event's human name as the
+ * heading with a mono timestamp, then the message, then the raw type + source
+ * in the mono meta line.
  */
 @Composable
 private fun MemberEventRow(
@@ -773,18 +854,17 @@ private fun MemberEventRow(
         railTag = "member-event-sev-${event.severity}",
         onLongClick = onCopy,
         modifier = modifier,
-    ) { typeColor ->
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Machine event type in mono + the severity colour, so the code
-            // token reads apart from the human message on the next line.
+            // The human name leads in full-contrast text (the rail + tint carry
+            // severity); the machine code is demoted to the mono meta line below,
+            // so the title never truncates mid-code.
             Text(
-                text = event.type,
+                text = eventTypeLabel(event.type),
                 style = MaterialTheme.typography.titleSmall,
-                fontFamily = MonoFamily,
-                color = typeColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -802,11 +882,16 @@ private fun MemberEventRow(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        // The emitting subsystem (poller, autosync…) in muted mono, a third
-        // visual register below the coloured type and the plain message.
-        if (event.source.isNotBlank()) {
+        // The raw event code and the emitting subsystem (poller, autosync…) in
+        // muted mono, a third visual register below the name and the message.
+        val who =
+            listOfNotNull(
+                event.type.ifEmpty { null },
+                event.source.ifEmpty { null },
+            ).joinToString(" · ")
+        if (who.isNotEmpty()) {
             Text(
-                text = event.source,
+                text = who,
                 style = MaterialTheme.typography.bodySmall,
                 fontFamily = MonoFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

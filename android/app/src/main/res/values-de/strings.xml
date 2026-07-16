@@ -10,6 +10,7 @@
     <string name="pairing_paste_label">Kopplungszeichenfolge</string>
     <string name="pairing_paste_hint">Kopierte Kopplungszeichenfolge hier einfügen</string>
     <string name="pairing_target">Front Desk: %1$s\n%2$s</string>
+    <string name="pairing_target_short">Front Desk: %1$s</string>
     <string name="pairing_label_label">Name dieses Geräts</string>
     <string name="pairing_submit">Koppeln</string>
     <string name="pairing_error_bad_string">Das sieht nicht nach einer Kopplungszeichenfolge aus. Kopiere sie in Front Desk → Einstellungen → Gekoppelte Geräte erneut.</string>
@@ -33,7 +34,14 @@
     <!-- Member detail -->
     <string name="member_detail_back">Zurück</string>
     <string name="member_detail_traffic_title">Traffic · letzte %1$d h</string>
-    <string name="member_detail_traffic_totals">%1$d Anfragen · %2$d Fehler</string>
+    <plurals name="member_detail_traffic_requests">
+        <item quantity="one">%1$d Anfrage</item>
+        <item quantity="other">%1$d Anfragen</item>
+    </plurals>
+    <plurals name="member_detail_traffic_errors">
+        <item quantity="one">%1$d Fehler</item>
+        <item quantity="other">%1$d Fehler</item>
+    </plurals>
     <string name="member_detail_traffic_unreachable">Traffic ist nicht verfügbar. Front Desk hat für dieses Mitglied möglicherweise kein Admin-Token, oder das Mitglied hat nicht geantwortet.</string>
     <string name="member_detail_traffic_empty">Keine Anfragen in diesem Zeitraum.</string>
     <string name="member_detail_events_title">Letzte Ereignisse</string>
@@ -125,6 +133,10 @@
     <string name="alerts_event_member_added">Mitglied hinzugefügt</string>
     <string name="alerts_event_member_removed">Mitglied entfernt</string>
     <string name="alerts_event_member_state_changed">Mitglied stillgelegt oder aktiviert</string>
+    <string name="event_device_paired">Gerät gekoppelt</string>
+    <string name="event_device_revoked">Gerätekopplung widerrufen</string>
+    <string name="event_settings_changed">Einstellungen geändert</string>
+    <string name="event_config_regenerated">Routing-Konfiguration neu generiert</string>
 
     <!-- App lock -->
     <string name="lock_title">Bellhop ist gesperrt</string>

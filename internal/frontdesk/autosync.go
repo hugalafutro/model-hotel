@@ -209,9 +209,13 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 		}
 	}
 	if applied > 0 {
+		noun := "members"
+		if applied == 1 {
+			noun = "member"
+		}
 		s.emit(ctx, Event{
 			Type: "config.auto_synced", Severity: "info", Source: "frontdesk",
-			Message: fmt.Sprintf("Auto-synced %d member(s): %s", applied, reason),
+			Message: fmt.Sprintf("Auto-synced %d %s: %s", applied, noun, reason),
 		})
 	}
 }

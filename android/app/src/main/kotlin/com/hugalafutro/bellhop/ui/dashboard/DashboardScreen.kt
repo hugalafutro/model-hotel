@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -75,6 +74,7 @@ import com.hugalafutro.bellhop.ui.common.LockFab
 import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.ScrollToTopButton
 import com.hugalafutro.bellhop.ui.common.StatusBanner
+import com.hugalafutro.bellhop.ui.common.TightTouchTarget
 import com.hugalafutro.bellhop.ui.common.TrafficChart
 import com.hugalafutro.bellhop.ui.common.bellhopSwitchColors
 import com.hugalafutro.bellhop.ui.common.healthColor
@@ -534,18 +534,24 @@ private fun MemberCard(
                 }
             }
             // The URL is its own tap target (opens the "open externally" popup),
-            // separate from the card tap that drills into the member.
-            Text(
-                text = member.url,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier =
-                    Modifier
-                        .clickable(onClick = onUrlClick)
-                        .testTag("member-url-${member.name}"),
-            )
+            // separate from the card tap that drills into the member. Its touch
+            // target is capped to the text bounds: the default 48dp minimum
+            // spills over the name row above and the health row below, so taps
+            // meant to open the member land on the link instead. The card around
+            // it stays the big target.
+            TightTouchTarget {
+                Text(
+                    text = member.url,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier =
+                        Modifier
+                            .clickable(onClick = onUrlClick)
+                            .testTag("member-url-${member.name}"),
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     text = healthLabel(health),
@@ -603,11 +609,13 @@ private fun MemberCard(
                     }
                 }
             }
-            // Recent-event pill: a severity-tinted, one-line preview of this
-            // member's latest event with its age right-aligned, tappable straight
-            // into the member.
+            // Recent-event line: a quiet, one-line preview of this member's
+            // latest event with its age right-aligned, tappable straight into
+            // the member. A small dot plus a faint tint carry severity (the
+            // saturated palette is badges-only); the line itself stays
+            // surface-toned so it reads as a log line, not a button.
             recentEvent?.let { ev ->
-                val (evContainer, evContent) = severityColors(ev.severity)
+                val (evAccent, _) = severityColors(ev.severity)
                 // Tick a local clock so the "3 min ago" age recomputes on its own.
                 // Without it the age is frozen: eventAgo is memoized on the event's
                 // timestamp, which doesn't change between refreshes, so a stationary
@@ -622,15 +630,23 @@ private fun MemberCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 Surface(
                     onClick = onClick,
-                    color = evContainer,
-                    contentColor = evContent,
+                    color = evAccent.copy(alpha = 0.06f),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth().testTag("member-recent-event-${member.name}"),
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(evAccent),
+                        )
                         Text(
                             text = ev.message.ifBlank { ev.type },
                             style = MaterialTheme.typography.bodySmall,
@@ -640,10 +656,10 @@ private fun MemberCard(
                         )
                         val context = LocalContext.current
                         remember(ev.createdAt, now, context) { eventAgo(context, ev.createdAt, now) }?.let { ago ->
-                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = ago,
                                 style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                             )
                         }

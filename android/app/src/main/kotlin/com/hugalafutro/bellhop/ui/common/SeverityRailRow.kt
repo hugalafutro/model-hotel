@@ -14,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
@@ -24,7 +23,7 @@ private val RAIL_WIDTH = 3.dp
 /**
  * SeverityRailRow is the shared "log line" chrome for both event lists: a
  * severity-coloured rail down the left edge plus a faint tint of the same
- * colour, wrapping caller [content] (which receives the matching type colour).
+ * colour, wrapping caller [content].
  *
  * The rail is painted with drawBehind on a matchParentSize overlay instead of
  * being a fillMaxHeight sibling. That removes the per-row height(IntrinsicSize.Min)
@@ -44,9 +43,9 @@ fun SeverityRailRow(
     // stray tap while scrolling the log doesn't copy. When set, the row wires
     // combinedClickable; a plain [onClick] alone still uses clickable.
     onLongClick: (() -> Unit)? = null,
-    content: @Composable ColumnScope.(typeColor: Color) -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
-    val (accent, typeColor) = severityColors(severity)
+    val (accent, _) = severityColors(severity)
     Box(
         modifier =
             modifier
@@ -83,7 +82,7 @@ fun SeverityRailRow(
             modifier = Modifier.fillMaxWidth().padding(start = 15.dp, end = 12.dp, top = 10.dp, bottom = 10.dp),
             verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            content(typeColor)
+            content()
         }
     }
 }

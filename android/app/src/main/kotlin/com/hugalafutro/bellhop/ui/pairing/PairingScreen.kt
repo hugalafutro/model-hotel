@@ -127,10 +127,18 @@ fun PairingScreen(
             )
 
             // Once the string is read, confirm which Front Desk it points at and
-            // let the operator name this device before pairing.
+            // let the operator name this device before pairing. Most pairing
+            // strings carry the host as the name, so the two-line form (name +
+            // address) collapses to just the address instead of repeating it.
             if (state.parsed) {
+                val host = state.fdUrl.substringAfter("://").trimEnd('/')
                 Text(
-                    text = stringResource(R.string.pairing_target, state.fdName, state.fdUrl),
+                    text =
+                        if (state.fdName.isBlank() || state.fdName == host) {
+                            stringResource(R.string.pairing_target_short, state.fdUrl)
+                        } else {
+                            stringResource(R.string.pairing_target, state.fdName, state.fdUrl)
+                        },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.testTag("pairing-target"),

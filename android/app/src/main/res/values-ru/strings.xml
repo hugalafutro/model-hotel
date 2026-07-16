@@ -10,6 +10,7 @@
     <string name="pairing_paste_label">Строка связывания</string>
     <string name="pairing_paste_hint">Вставьте сюда скопированную строку связывания</string>
     <string name="pairing_target">Front Desk: %1$s\n%2$s</string>
+    <string name="pairing_target_short">Front Desk: %1$s</string>
     <string name="pairing_label_label">Имя этого устройства</string>
     <string name="pairing_submit">Связать</string>
     <string name="pairing_error_bad_string">Это не похоже на строку связывания. Скопируйте её заново из Front Desk → Настройки → Связанные устройства.</string>
@@ -33,7 +34,18 @@
     <!-- Member detail -->
     <string name="member_detail_back">Назад</string>
     <string name="member_detail_traffic_title">Трафик · последние %1$d ч</string>
-    <string name="member_detail_traffic_totals">%1$d запросов · %2$d ошибок</string>
+    <plurals name="member_detail_traffic_requests">
+        <item quantity="one">%1$d запрос</item>
+        <item quantity="few">%1$d запроса</item>
+        <item quantity="many">%1$d запросов</item>
+        <item quantity="other">%1$d запроса</item>
+    </plurals>
+    <plurals name="member_detail_traffic_errors">
+        <item quantity="one">%1$d ошибка</item>
+        <item quantity="few">%1$d ошибки</item>
+        <item quantity="many">%1$d ошибок</item>
+        <item quantity="other">%1$d ошибки</item>
+    </plurals>
     <string name="member_detail_traffic_unreachable">Трафик недоступен. Возможно, у Front Desk нет токена администратора для этого узла, или узел не ответил.</string>
     <string name="member_detail_traffic_empty">Нет запросов в этом окне.</string>
     <string name="member_detail_events_title">Недавние события</string>
@@ -127,6 +139,10 @@
     <string name="alerts_event_member_added">Узел добавлен</string>
     <string name="alerts_event_member_removed">Узел удалён</string>
     <string name="alerts_event_member_state_changed">Узел выведен или активирован</string>
+    <string name="event_device_paired">Устройство сопряжено</string>
+    <string name="event_device_revoked">Сопряжение устройства отозвано</string>
+    <string name="event_settings_changed">Настройки изменены</string>
+    <string name="event_config_regenerated">Конфигурация маршрутизации создана заново</string>
 
     <!-- App lock -->
     <string name="lock_title">Bellhop заблокирован</string>

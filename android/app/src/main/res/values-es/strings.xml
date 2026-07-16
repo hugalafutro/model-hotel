@@ -10,6 +10,7 @@
     <string name="pairing_paste_label">Cadena de vinculación</string>
     <string name="pairing_paste_hint">Pega aquí la cadena de vinculación copiada</string>
     <string name="pairing_target">Front Desk: %1$s\n%2$s</string>
+    <string name="pairing_target_short">Front Desk: %1$s</string>
     <string name="pairing_label_label">Nombre de este dispositivo</string>
     <string name="pairing_submit">Vincular</string>
     <string name="pairing_error_bad_string">Eso no parece una cadena de vinculación. Cópiala de nuevo desde Front Desk → Configuración → Dispositivos vinculados.</string>
@@ -33,7 +34,14 @@
     <!-- Member detail -->
     <string name="member_detail_back">Atrás</string>
     <string name="member_detail_traffic_title">Tráfico · últimos %1$d h</string>
-    <string name="member_detail_traffic_totals">%1$d solicitudes · %2$d errores</string>
+    <plurals name="member_detail_traffic_requests">
+        <item quantity="one">%1$d solicitud</item>
+        <item quantity="other">%1$d solicitudes</item>
+    </plurals>
+    <plurals name="member_detail_traffic_errors">
+        <item quantity="one">%1$d error</item>
+        <item quantity="other">%1$d errores</item>
+    </plurals>
     <string name="member_detail_traffic_unreachable">El tráfico no está disponible. Puede que Front Desk no tenga un token de administrador para este miembro, o que el miembro no respondiera.</string>
     <string name="member_detail_traffic_empty">Sin solicitudes en este intervalo.</string>
     <string name="member_detail_events_title">Eventos recientes</string>
@@ -125,6 +133,10 @@
     <string name="alerts_event_member_added">Miembro añadido</string>
     <string name="alerts_event_member_removed">Miembro eliminado</string>
     <string name="alerts_event_member_state_changed">Miembro drenado o activado</string>
+    <string name="event_device_paired">Dispositivo emparejado</string>
+    <string name="event_device_revoked">Dispositivo revocado</string>
+    <string name="event_settings_changed">Ajustes modificados</string>
+    <string name="event_config_regenerated">Configuración de enrutamiento regenerada</string>
 
     <!-- App lock -->
     <string name="lock_title">Bellhop está bloqueado</string>
