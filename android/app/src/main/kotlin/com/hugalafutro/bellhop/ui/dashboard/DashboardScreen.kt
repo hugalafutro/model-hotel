@@ -577,15 +577,31 @@ private fun MemberCard(
                 )
             }
             // Inline last-hour sparkline: shown once its (viewport-lazy) traffic
-            // has arrived and there is something to draw. Absent/empty just leaves
-            // the card compact rather than reserving blank space. Tapping the card
-            // (including here) opens the detail with the full graph + event log.
-            traffic?.points?.takeIf { traffic.reachable && it.isNotEmpty() }?.let { points ->
+            // has arrived and is reachable. A quiet window (buckets present but no
+            // requests) draws the idle sparkline with the same "No requests in this
+            // window." label the detail screen uses centred over it, so the flat
+            // line is explained here rather than looking broken. Absent/unreachable
+            // still leaves the card compact. Tapping the card (including here) opens
+            // the detail with the full graph + event log.
+            traffic?.takeIf { it.reachable && it.points.isNotEmpty() }?.let { t ->
                 Spacer(modifier = Modifier.height(2.dp))
-                TrafficChart(
-                    points = points,
-                    modifier = Modifier.height(28.dp).testTag("member-sparkline-${member.name}"),
-                )
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    TrafficChart(
+                        points = t.points,
+                        modifier = Modifier.height(28.dp).testTag("member-sparkline-${member.name}"),
+                    )
+                    if (t.totalRequests == 0) {
+                        Text(
+                            text = stringResource(R.string.member_detail_traffic_empty),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier =
+                                Modifier
+                                    .align(Alignment.Center)
+                                    .testTag("member-sparkline-empty-${member.name}"),
+                        )
+                    }
+                }
             }
             // Recent-event pill: a severity-tinted, one-line preview of this
             // member's latest event with its age right-aligned, tappable straight
