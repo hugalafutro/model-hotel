@@ -73,6 +73,12 @@ const (
 // "superseded" response instead of a 500.
 var errStaleSourceGen = errors.New("configsync: import source generation is older than last applied")
 
+// errWouldWipeProviders is returned by apply when the envelope carries zero
+// providers but this member currently has providers: applying the declarative
+// replace would delete every provider (and, via the users replace, is the
+// reported backdoor-wipe vector). Import maps it to a 400 refusal.
+var errWouldWipeProviders = errors.New("configsync: refusing to wipe every provider off a populated member")
+
 // ConfigSyncHandler serves the member-side config export/import endpoints. It is
 // mounted inside the admin-authenticated /api group, so every call already
 // requires the admin token (or a session when TOTP is on): a caller able to

@@ -79,6 +79,37 @@ func TestNewClient_AllowsInternal(t *testing.T) {
 	_ = resp.Body.Close()
 }
 
+// TestCheckRedirect confirms the redirect guard refuses a redirect to a literal
+// metadata address, caps the chain length, and lets a normal (private/public)
+// redirect target through so legitimate IdP/notification redirects still work.
+func TestCheckRedirect(t *testing.T) {
+	mk := func(rawURL string) *http.Request {
+		req, err := http.NewRequest(http.MethodGet, rawURL, http.NoBody)
+		if err != nil {
+			t.Fatalf("build request %q: %v", rawURL, err)
+		}
+		return req
+	}
+
+	if err := checkRedirect(mk("http://169.254.169.254/latest/"), nil); err == nil {
+		t.Error("checkRedirect allowed a redirect to a metadata literal")
+	}
+	if err := checkRedirect(mk("http://0.0.0.0/"), nil); err == nil {
+		t.Error("checkRedirect allowed a redirect to the unspecified address")
+	}
+	if err := checkRedirect(mk("https://auth.example.com/callback"), nil); err != nil {
+		t.Errorf("checkRedirect blocked a legitimate hostname redirect: %v", err)
+	}
+	if err := checkRedirect(mk("http://10.0.0.5:9091/"), nil); err != nil {
+		t.Errorf("checkRedirect blocked a private-address redirect: %v", err)
+	}
+
+	via := make([]*http.Request, maxRedirects)
+	if err := checkRedirect(mk("https://auth.example.com/"), via); err == nil {
+		t.Errorf("checkRedirect allowed redirect #%d, want cap at %d", maxRedirects+1, maxRedirects)
+	}
+}
+
 func TestValidateURL(t *testing.T) {
 	cases := []struct {
 		url     string

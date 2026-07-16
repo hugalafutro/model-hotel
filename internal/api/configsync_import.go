@@ -33,13 +33,15 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(env.Config.Providers) == 0 && len(env.Config.VirtualKeys) == 0 &&
 		len(env.Config.Settings) == 0 {
-		// A config with no providers, virtual keys, or settings is almost always a
-		// mistake, and applying it would delete everything on the target. Refuse
-		// rather than wipe. Note we deliberately do NOT let a non-empty
-		// failover_groups rescue such an envelope from this guard: groups reference
-		// models which reference providers, so zero providers means the groups are
-		// unresolvable, yet apply would still run the declarative provider/VK
-		// deletes against empty lists and wipe the member clean.
+		// Structural guard: an envelope with no providers, no virtual keys, and no
+		// syncable settings has nothing meaningful to sync (a bare users or
+		// failover-groups list cannot stand on its own, since those reference a
+		// data plane that isn't here). Applying it would only run the declarative
+		// deletes and wipe the member, so refuse rather than write. This is the
+		// "obvious mistake" rail; the destructive-wipe rail that can't be dressed
+		// around lives in apply() (errWouldWipeProviders), which refuses any
+		// envelope whose empty provider list would delete providers this member
+		// actually has, whatever settings/keys/users decorate it.
 		http.Error(w, "refusing to import an empty config", http.StatusBadRequest)
 		return
 	}
@@ -79,6 +81,13 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		// so Front Desk does not surface a failure.
 		debuglog.Debug("configsync: refused stale import", "source_gen", sourceGenLabel(sourceGen))
 		writeJSON(w, importResponse{SchemaVersionOK: true, MasterKeyOK: true, Applied: false, Stale: true, Diff: diff})
+		return
+	case errors.Is(err, errWouldWipeProviders):
+		// The envelope carries no providers but this member has some: applying it
+		// would delete every provider (the reported backdoor-wipe vector). Refuse
+		// with a 400 so the caller sees a deliberate rejection, not a server error.
+		debuglog.Warn("configsync: refused provider-wiping import")
+		http.Error(w, "refusing to import a config that would delete every provider on this member", http.StatusBadRequest)
 		return
 	case err != nil:
 		debuglog.Error("configsync: apply import", "error", err)

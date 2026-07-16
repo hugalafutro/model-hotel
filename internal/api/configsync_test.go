@@ -580,6 +580,79 @@ func TestConfigSync_RefusesUsersOnlyEnvelope(t *testing.T) {
 	}
 }
 
+// TestConfigSync_RefusesProviderWipeBackdoorInjection reproduces the reported
+// critical bypass (CWE-284) AND the one-line variant of it. The declarative
+// replace in apply() deletes every provider absent from the envelope, so an
+// envelope with zero providers wipes the provider set and (via the users
+// declarative replace) injects an attacker-controlled backdoor admin. The
+// original three-field empty-config guard was dodged with one throwaway
+// setting; a providers+virtual_keys guard is dodged just as easily with one
+// throwaway virtual key. The provider-only guard refuses BOTH shapes: any
+// import with no providers is rejected regardless of what settings, keys, or
+// users decorate it, so every existing provider and account survives.
+func TestConfigSync_RefusesProviderWipeBackdoorInjection(t *testing.T) {
+	backdoor := ExportUser{
+		Username:     "backdoor_admin",
+		PasswordHash: "$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHQ$c29tZWhhc2g",
+		Role:         "admin",
+		Grants:       []string{},
+		Enabled:      true,
+	}
+	cases := []struct {
+		name string
+		mut  func(*ConfigEnvelope)
+	}{
+		{
+			// The exact PoC: one trivial setting dresses up the empty envelope.
+			name: "setting-dressed",
+			mut: func(e *ConfigEnvelope) {
+				e.Config.Settings = map[string]string{"log_retention": "30"}
+				e.Config.Users = []ExportUser{backdoor}
+			},
+		},
+		{
+			// The one-line variant: a single junk virtual key dodges any guard
+			// that also inspects the virtual-key count, yet providers==0 still
+			// wipes every provider and still injects the backdoor.
+			name: "virtual-key-dressed",
+			mut: func(e *ConfigEnvelope) {
+				e.Config.VirtualKeys = []ExportVK{{Name: "junk", KeyHash: "deadbeef", KeyPreview: "sk-…"}}
+				e.Config.Users = []ExportUser{backdoor}
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cleanConfigTables(t)
+			cleanUsersTable(t)
+			provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+			seedUser(t, "real-admin", nil, true, []string{"usage"})
+			r := newConfigSyncRouter(t, configSyncMasterKey)
+
+			env := ConfigEnvelope{SchemaVersion: configSchemaVersion}
+			tc.mut(&env)
+			rec := doImport(t, r, env, "")
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("wipe envelope status = %d, want 400", rec.Code)
+			}
+
+			ctx := context.Background()
+			var providers int
+			_ = apiTestDB.Pool().QueryRow(ctx, `SELECT count(*) FROM providers WHERE id = $1`, provID).Scan(&providers)
+			if providers != 1 {
+				t.Fatalf("provider must survive the refused wipe, count = %d", providers)
+			}
+			users := listUsernames(t)
+			if !users["real-admin"] {
+				t.Fatal("existing admin must survive the refused wipe")
+			}
+			if users["backdoor_admin"] {
+				t.Fatal("backdoor admin must not be injected by a refused import")
+			}
+		})
+	}
+}
+
 func TestConfigSync_RejectsWrongSchemaVersion(t *testing.T) {
 	cleanConfigTables(t)
 	r := newConfigSyncRouter(t, configSyncMasterKey)

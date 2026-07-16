@@ -65,6 +65,27 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 		return errStaleSourceGen
 	}
 
+	// Destructive-wipe rail. The declarative delete below removes every provider
+	// absent from the envelope, so an envelope with zero providers would delete
+	// the member's entire provider set (cascading to discovered models) and,
+	// paired with the users replace further down, is the reported backdoor-wipe
+	// vector. buildEnvelope always ships the full config, so a functioning primary
+	// never legitimately pushes zero providers onto a member that has some.
+	// Refuse here, inside the transaction and before any delete, so the check and
+	// the delete it guards are atomic and no throwaway setting or virtual key can
+	// dress the envelope past it. An empty-provider envelope onto a member that
+	// also has no providers is a harmless no-op and is allowed (fleet bootstrap /
+	// keys-only sync onto an empty member).
+	if len(env.Config.Providers) == 0 {
+		var existing int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM providers`).Scan(&existing); err != nil {
+			return err
+		}
+		if existing > 0 {
+			return errWouldWipeProviders
+		}
+	}
+
 	if err := upsertProviders(ctx, tx, env.Config.Providers); err != nil {
 		return err
 	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -153,15 +154,25 @@ func vkScope(excludeDeleted bool) (join, filter string) {
 }
 
 // ownerFilterFragment returns a WHERE fragment restricting rows to virtual
-// keys owned by ownerID, or "" when unscoped. The id is inlined as a literal:
-// it only ever comes from logOwnerScope (uuid.Parse-validated or an identity
-// UUID), so it cannot inject, and threading an extra bind arg through every
-// stats query would touch a dozen call sites for no gain.
+// keys owned by ownerID, or "" when unscoped (empty ownerID). The id is inlined
+// as a literal because threading an extra bind arg through every stats query
+// would touch a dozen call sites, so this is the one place that must guarantee
+// the value can never carry SQL. Today the only caller feeds logOwnerScope,
+// which is already uuid.Parse-validated, but this function re-parses defensively
+// so a future caller cannot reintroduce an injection: a non-empty id that is not
+// a valid UUID fails CLOSED to a no-match fragment (" AND 1=0"), never to "" —
+// dropping the filter there would silently widen a scoped query to every owner's
+// rows, an authorization leak. The canonical uuid.String() form is inlined, so
+// only the 36-char hex/hyphen shape ever reaches the query.
 func ownerFilterFragment(ownerID string) string {
 	if ownerID == "" {
 		return ""
 	}
-	return " AND rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = '" + ownerID + "')"
+	u, err := uuid.Parse(ownerID)
+	if err != nil {
+		return " AND 1=0"
+	}
+	return " AND rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = '" + u.String() + "')"
 }
 
 // metricValueSelect returns the aggregate column expression (aliased "val") for
