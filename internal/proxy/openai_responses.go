@@ -9,6 +9,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/metrics"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -55,6 +56,7 @@ func (h *Handler) buildResponsesRequest(ctx context.Context, st *requestState, c
 		return nil, providerType, targetURL, err
 	}
 	debuglog.Info("proxy: routing via responses api", "target_url", targetURL, "model", candidate.model.ModelID, "provider", candidate.provider.Name, "stream", st.isStreaming)
+	metrics.RecordResponsesReroute(candidate.provider.Name, candidate.model.ModelID, "preemptive")
 
 	proxyReq, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
 	if err != nil {
@@ -153,6 +155,7 @@ func (h *Handler) retryWithResponses(
 	res.retryCancel = rc
 	res.retried = true
 	debuglog.Info("proxy: responses api retry succeeded", "model", candidate.model.ModelID, "status", retryResp.StatusCode)
+	metrics.RecordResponsesReroute(candidate.provider.Name, candidate.model.ModelID, "learned")
 	return res, true
 }
 
