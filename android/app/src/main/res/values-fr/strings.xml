@@ -10,6 +10,7 @@
     <string name="pairing_paste_label">Chaîne d\'association</string>
     <string name="pairing_paste_hint">Collez ici la chaîne d\'association copiée</string>
     <string name="pairing_target">Front Desk : %1$s\n%2$s</string>
+    <string name="pairing_target_short">Front Desk : %1$s</string>
     <string name="pairing_label_label">Nom de cet appareil</string>
     <string name="pairing_submit">Associer</string>
     <string name="pairing_error_bad_string">Cela ne ressemble pas à une chaîne d\'association. Copiez-la à nouveau depuis Front Desk → Paramètres → Appareils associés.</string>
@@ -33,7 +34,14 @@
     <!-- Member detail -->
     <string name="member_detail_back">Retour</string>
     <string name="member_detail_traffic_title">Trafic · %1$d dernières h</string>
-    <string name="member_detail_traffic_totals">%1$d requêtes · %2$d erreurs</string>
+    <plurals name="member_detail_traffic_requests">
+        <item quantity="one">%1$d requête</item>
+        <item quantity="other">%1$d requêtes</item>
+    </plurals>
+    <plurals name="member_detail_traffic_errors">
+        <item quantity="one">%1$d erreur</item>
+        <item quantity="other">%1$d erreurs</item>
+    </plurals>
     <string name="member_detail_traffic_unreachable">Le trafic n\'est pas disponible. Front Desk ne possède peut-être aucun jeton admin pour ce membre, ou le membre n\'a pas répondu.</string>
     <string name="member_detail_traffic_empty">Aucune requête sur cette période.</string>
     <string name="member_detail_events_title">Événements récents</string>
@@ -125,6 +133,10 @@
     <string name="alerts_event_member_added">Membre ajouté</string>
     <string name="alerts_event_member_removed">Membre supprimé</string>
     <string name="alerts_event_member_state_changed">Membre drainé ou activé</string>
+    <string name="event_device_paired">Appareil appairé</string>
+    <string name="event_device_revoked">Appareil révoqué</string>
+    <string name="event_settings_changed">Paramètres modifiés</string>
+    <string name="event_config_regenerated">Configuration de routage régénérée</string>
 
     <!-- App lock -->
     <string name="lock_title">Bellhop est verrouillé</string>

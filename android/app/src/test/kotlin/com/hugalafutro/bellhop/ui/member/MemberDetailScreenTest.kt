@@ -75,6 +75,35 @@ class MemberDetailScreenTest {
         composeTestRule.onNodeWithTag("member-detail-meta").assertIsDisplayed()
         composeTestRule.onNodeWithTag("member-traffic-totals").assertIsDisplayed()
         composeTestRule.onNodeWithTag("member-traffic-chart").assertIsDisplayed()
+        // Unparseable fixture buckets: the time axis stays off rather than
+        // rendering raw strings.
+        composeTestRule.onNodeWithTag("member-traffic-axis").assertDoesNotExist()
+    }
+
+    @Test
+    fun trafficAxisShownWhenBucketsParse() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                MemberDetailScreen(
+                    member = member,
+                    isPrimary = false,
+                    onBack = {},
+                    ui =
+                        MemberDetailUiState(
+                            loading = false,
+                            traffic =
+                                reachableTraffic.copy(
+                                    points =
+                                        listOf(
+                                            TrafficPoint(bucket = "2026-07-16T12:00:00Z", requests = 5, errors = 0),
+                                            TrafficPoint(bucket = "2026-07-16T12:55:00Z", requests = 7, errors = 2),
+                                        ),
+                                ),
+                        ),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("member-traffic-axis").assertIsDisplayed()
     }
 
     @Test

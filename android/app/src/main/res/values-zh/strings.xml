@@ -10,6 +10,7 @@
     <string name="pairing_paste_label">配对字符串</string>
     <string name="pairing_paste_hint">在此粘贴复制的配对字符串</string>
     <string name="pairing_target">Front Desk：%1$s\n%2$s</string>
+    <string name="pairing_target_short">Front Desk：%1$s</string>
     <string name="pairing_label_label">此设备的名称</string>
     <string name="pairing_submit">配对</string>
     <string name="pairing_error_bad_string">这看起来不像配对字符串。请从 Front Desk → 设置 → 已配对设备 重新复制。</string>
@@ -33,7 +34,12 @@
     <!-- Member detail -->
     <string name="member_detail_back">返回</string>
     <string name="member_detail_traffic_title">流量 · 最近 %1$d 小时</string>
-    <string name="member_detail_traffic_totals">%1$d 个请求 · %2$d 个错误</string>
+    <plurals name="member_detail_traffic_requests">
+        <item quantity="other">%1$d 个请求</item>
+    </plurals>
+    <plurals name="member_detail_traffic_errors">
+        <item quantity="other">%1$d 个错误</item>
+    </plurals>
     <string name="member_detail_traffic_unreachable">流量不可用。Front Desk 可能没有此成员的管理员令牌，或该成员未响应。</string>
     <string name="member_detail_traffic_empty">此时段内没有请求。</string>
     <string name="member_detail_events_title">近期事件</string>
@@ -124,6 +130,10 @@
     <string name="alerts_event_member_added">成员已添加</string>
     <string name="alerts_event_member_removed">成员已移除</string>
     <string name="alerts_event_member_state_changed">成员已排空或激活</string>
+    <string name="event_device_paired">设备已配对</string>
+    <string name="event_device_revoked">设备配对已撤销</string>
+    <string name="event_settings_changed">设置已更改</string>
+    <string name="event_config_regenerated">路由配置已重新生成</string>
 
     <!-- App lock -->
     <string name="lock_title">Bellhop 已锁定</string>

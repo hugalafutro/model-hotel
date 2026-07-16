@@ -38,6 +38,7 @@ import com.hugalafutro.bellhop.data.AlertStatus
 import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.StatusBanner
 import com.hugalafutro.bellhop.ui.common.bellhopSwitchColors
+import com.hugalafutro.bellhop.ui.common.eventTypeLabel
 import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 
@@ -292,27 +293,6 @@ private fun severityLabel(severity: String): String =
         "warning" -> stringResource(R.string.events_sev_warning)
         "error" -> stringResource(R.string.events_sev_error)
         else -> severity
-    }
-
-// eventTypeLabel gives a readable name for a catalog event type, falling back to
-// the raw type so a brand-new server-side event still renders before a string is
-// added (matches the Front Desk web picker's defaultValue behaviour).
-@Composable
-private fun eventTypeLabel(type: String): String =
-    when (type) {
-        "health.down" -> stringResource(R.string.alerts_event_health_down)
-        "health.up" -> stringResource(R.string.alerts_event_health_up)
-        "config.sync_failed" -> stringResource(R.string.alerts_event_config_sync_failed)
-        "config.synced" -> stringResource(R.string.alerts_event_config_synced)
-        "config.auto_synced" -> stringResource(R.string.alerts_event_config_auto_synced)
-        "config.autosync_stale" -> stringResource(R.string.alerts_event_config_autosync_stale)
-        "version.fetch_failed" -> stringResource(R.string.alerts_event_version_fetch_failed)
-        "version.fetch_recovered" -> stringResource(R.string.alerts_event_version_fetch_recovered)
-        "traefik.stale" -> stringResource(R.string.alerts_event_traefik_stale)
-        "member.added" -> stringResource(R.string.alerts_event_member_added)
-        "member.removed" -> stringResource(R.string.alerts_event_member_removed)
-        "member.state_changed" -> stringResource(R.string.alerts_event_member_state_changed)
-        else -> type
     }
 
 @Preview(showBackground = true)

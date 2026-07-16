@@ -44,6 +44,7 @@ import com.hugalafutro.bellhop.ui.common.FilterPill
 import com.hugalafutro.bellhop.ui.common.ScrollToTopButton
 import com.hugalafutro.bellhop.ui.common.SeverityRailRow
 import com.hugalafutro.bellhop.ui.common.StatusBanner
+import com.hugalafutro.bellhop.ui.common.eventTypeLabel
 import com.hugalafutro.bellhop.ui.common.loadMoreSentinel
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.ui.theme.MonoFamily
@@ -245,18 +246,17 @@ private fun EventRow(
         railTag = "event-sev-${event.severity}",
         modifier = modifier,
         onLongClick = if (holdToCopy) onCopy else null,
-    ) { typeColor ->
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Machine event type in mono + the severity colour, so the code
-            // token reads apart from the human message on the next line.
+            // The human name leads in full-contrast text (the rail + tint carry
+            // severity); the machine code is demoted to the mono meta line below,
+            // so the title never truncates mid-code.
             Text(
-                text = event.type,
+                text = eventTypeLabel(event.type),
                 style = MaterialTheme.typography.titleSmall,
-                fontFamily = MonoFamily,
-                color = typeColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -275,6 +275,7 @@ private fun EventRow(
         )
         val who =
             listOfNotNull(
+                event.type.ifEmpty { null },
                 event.source.ifEmpty { null },
                 memberName ?: event.memberId.ifEmpty { null },
             ).joinToString(" · ")

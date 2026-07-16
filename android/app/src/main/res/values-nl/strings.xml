@@ -10,6 +10,7 @@
     <string name="pairing_paste_label">Koppelreeks</string>
     <string name="pairing_paste_hint">Plak hier de gekopieerde koppelreeks</string>
     <string name="pairing_target">Front Desk: %1$s\n%2$s</string>
+    <string name="pairing_target_short">Front Desk: %1$s</string>
     <string name="pairing_label_label">Naam van dit apparaat</string>
     <string name="pairing_submit">Koppelen</string>
     <string name="pairing_error_bad_string">Dat lijkt geen koppelreeks. Kopieer die opnieuw vanuit Front Desk → Instellingen → Gekoppelde apparaten.</string>
@@ -33,7 +34,14 @@
     <!-- Member detail -->
     <string name="member_detail_back">Terug</string>
     <string name="member_detail_traffic_title">Verkeer · laatste %1$d u</string>
-    <string name="member_detail_traffic_totals">%1$d verzoeken · %2$d fouten</string>
+    <plurals name="member_detail_traffic_requests">
+        <item quantity="one">%1$d verzoek</item>
+        <item quantity="other">%1$d verzoeken</item>
+    </plurals>
+    <plurals name="member_detail_traffic_errors">
+        <item quantity="one">%1$d fout</item>
+        <item quantity="other">%1$d fouten</item>
+    </plurals>
     <string name="member_detail_traffic_unreachable">Verkeer is niet beschikbaar. Front Desk heeft mogelijk geen admin-token voor dit lid, of het lid antwoordde niet.</string>
     <string name="member_detail_traffic_empty">Geen verzoeken in dit venster.</string>
     <string name="member_detail_events_title">Recente gebeurtenissen</string>
@@ -125,6 +133,10 @@
     <string name="alerts_event_member_added">Lid toegevoegd</string>
     <string name="alerts_event_member_removed">Lid verwijderd</string>
     <string name="alerts_event_member_state_changed">Lid gedraineerd of geactiveerd</string>
+    <string name="event_device_paired">Apparaat gekoppeld</string>
+    <string name="event_device_revoked">Apparaatkoppeling ingetrokken</string>
+    <string name="event_settings_changed">Instellingen gewijzigd</string>
+    <string name="event_config_regenerated">Routeringsconfiguratie opnieuw gegenereerd</string>
 
     <!-- App lock -->
     <string name="lock_title">Bellhop is vergrendeld</string>
