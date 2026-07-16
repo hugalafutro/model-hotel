@@ -140,6 +140,16 @@ func (p *Poller) Snapshot() map[string]MemberStatus {
 	return out
 }
 
+// MemberVersion returns the last successfully polled app_version for a member,
+// or "" when the member has never been polled or its last version fetch failed.
+// It is the read the config-sync version gate consults; an empty result means
+// "cannot confirm", which the gate treats as skewed (fail closed).
+func (p *Poller) MemberVersion(id string) string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.statuses[id].Version
+}
+
 // SetAutoSyncVerified records that the auto-syncer just confirmed the member is
 // in sync with the primary, advancing the live "auto-sync is running" heartbeat
 // the Members tab renders. It read-modify-writes under the same lock the health

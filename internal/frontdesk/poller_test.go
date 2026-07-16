@@ -418,3 +418,16 @@ func TestAutoSyncStalenessWatchdog(t *testing.T) {
 		t.Errorf("after re-arm should warn again: %+v", ev)
 	}
 }
+
+func TestMemberVersion(t *testing.T) {
+	p := NewPoller(nil, nil, "")
+	if v := p.MemberVersion("m1"); v != "" {
+		t.Errorf("unpolled member version = %q, want empty", v)
+	}
+	p.mu.Lock()
+	p.statuses["m1"] = MemberStatus{Version: "v1.2.3"}
+	p.mu.Unlock()
+	if v := p.MemberVersion("m1"); v != "v1.2.3" {
+		t.Errorf("MemberVersion = %q, want v1.2.3", v)
+	}
+}
