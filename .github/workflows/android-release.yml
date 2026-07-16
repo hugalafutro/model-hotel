@@ -133,7 +133,10 @@ jobs:
               echo "First public release of Bellhop, the Model Hotel fleet companion app."
             else
               echo "## Changes"
-              git log --first-parent --format='%s%x1f%b%x1e' "${prev}..HEAD" -- android \
+              # :/ anchors the pathspec at the repo root: this step runs with
+              # working-directory android/, where a bare "android" pathspec
+              # would mean android/android and match nothing.
+              git log --first-parent --format='%s%x1f%b%x1e' "${prev}..HEAD" -- ':/android' \
                 | awk 'BEGIN { RS="\x1e"; FS="\x1f" }
                   NF {
                     subj = $1; sub(/^\n+/, "", subj)
