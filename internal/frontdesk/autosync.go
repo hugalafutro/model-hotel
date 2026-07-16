@@ -296,6 +296,7 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		return 0, false
 	}
 
+	primaryVer := s.poller.MemberVersion(primary.ID)
 	allConverged = true
 	for _, m := range members {
 		if m.ID == primary.ID {
@@ -329,6 +330,19 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			allConverged = false
 			continue
 		}
+		// Version gate: never push the primary's config onto a member running a
+		// different app version. An older primary's export omits settings the newer
+		// member legitimately has, and the member-side converge-delete would drop
+		// them. Hold the member (no push), do not count it converged, and emit
+		// config.sync_held once on the transition into held. Fails closed on an
+		// unknown version. Re-evaluated every pass, so it resumes automatically.
+		memberVer := s.poller.MemberVersion(m.ID)
+		if versionSkew(primaryVer, memberVer) {
+			s.holdMemberForSkew(ctx, m, primaryVer, memberVer)
+			allConverged = false
+			continue
+		}
+		s.clearSyncHold(m.ID)
 		// Decide whether this member needs the new config from its own dry-run
 		// diff, which compares by name and so is valid across instances. The dry-run
 		// is never fenced, so the generation is not sent on it.
@@ -401,6 +415,37 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 		applied++
 	}
 	return applied, allConverged
+}
+
+// holdMemberForSkew marks a member as held for version skew and emits
+// config.sync_held once on the transition into held (edge-triggered, mirroring
+// the poller's versionFailures pattern), so a member that stays skewed does not
+// re-alert every pass. The hold itself is enforced by the caller skipping the
+// push; this only tracks and reports it.
+func (s *Server) holdMemberForSkew(ctx context.Context, m *Member, primaryVer, memberVer string) {
+	s.syncHeldMu.Lock()
+	already := s.syncHeld[m.ID]
+	s.syncHeld[m.ID] = true
+	s.syncHeldMu.Unlock()
+	if already {
+		return
+	}
+	debuglog.Debug("frontdesk: auto-sync: holding member for version skew",
+		"member", m.Name, "primary_version", primaryVer, "member_version", memberVer)
+	s.emit(ctx, Event{
+		Type: "config.sync_held", Severity: "warning", Source: "frontdesk",
+		Message:  fmt.Sprintf("Held sync to %s: its app version differs from the primary's", m.Name),
+		MemberID: m.ID,
+		Metadata: map[string]any{"primary_version": primaryVer, "member_version": memberVer},
+	})
+}
+
+// clearSyncHold forgets a member's held-for-skew state so a future divergence
+// re-emits config.sync_held. Called whenever the member is not skewed on a pass.
+func (s *Server) clearSyncHold(memberID string) {
+	s.syncHeldMu.Lock()
+	delete(s.syncHeld, memberID)
+	s.syncHeldMu.Unlock()
 }
 
 // watchRearm cancels a convergence pass the moment its rearm generation goes

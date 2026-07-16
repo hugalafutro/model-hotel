@@ -36,6 +36,10 @@ var fdCatalog = []alert.EventDef{
 	// Auto-sync is off and the fleet has not been synced in a day: the replicas
 	// are drifting silently, with nothing pushing the primary's config out.
 	{Type: "config.autosync_stale", Category: "Config Sync", Severity: "warning", DefaultOn: true},
+	// A config sync was withheld because the member's app version differs from
+	// the primary's: pushing an older primary's config could delete settings the
+	// newer member legitimately has, so autosync holds the member until versions align.
+	{Type: "config.sync_held", Category: "Config Sync", Severity: "warning", DefaultOn: true},
 	// Version reads: a persistently failing member URL is surfaced here.
 	{Type: "version.fetch_failed", Category: "Member Reads", Severity: "warning", DefaultOn: true},
 	{Type: "version.fetch_recovered", Category: "Member Reads", Severity: "success", DefaultOn: false},
