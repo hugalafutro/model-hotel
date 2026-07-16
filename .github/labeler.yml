@@ -1,0 +1,8 @@
+# Config for actions/labeler (labeler.yml workflow). A PR is labeled `bellhop`
+# only when EVERY changed file is Bellhop-related (single brace glob +
+# any-glob-to-all-files = "one glob matches all files"): release.yml excludes
+# that label from the MH/FD release notes, and a mixed PR that also touches
+# server code must keep appearing there.
+bellhop:
+  - changed-files:
+      - any-glob-to-all-files: "{android/**,.github/workflows/android*.yml}"

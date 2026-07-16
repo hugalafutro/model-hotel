@@ -1,0 +1,23 @@
+name: Label PRs
+
+# Auto-labels pure-Bellhop PRs (see .github/labeler.yml) so the MH/FD release
+# notes can exclude them via release.yml. pull_request_target runs the workflow
+# definition from master, so a PR cannot alter its own labeling rules; the
+# labeler only reads the PR's changed-file list and never checks out PR code.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/labeler@b8dd2d9be0f68b860e7dae5dae7d772984eacd6d # v6.2.0
+        with:
+          sync-labels: true

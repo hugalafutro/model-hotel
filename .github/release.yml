@@ -7,6 +7,10 @@
 # Bot-authored PRs are excluded to keep the notes signal-only.
 changelog:
   exclude:
+    # Pure-Bellhop PRs (auto-labeled by labeler.yml) have their own changelog
+    # on the bellhop-vX.Y.Z releases; keep them out of the MH/FD notes.
+    labels:
+      - bellhop
     authors:
       - dependabot
       - dependabot[bot]

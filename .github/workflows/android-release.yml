@@ -57,6 +57,10 @@ jobs:
       DRY_RUN: ${{ !(github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)) }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Full history + tags: the changelog is generated from the commits
+          # since the previous bellhop-v* tag.
+          fetch-depth: 0
 
       - name: Resolve version and guard against re-release
         id: version
@@ -114,6 +118,46 @@ jobs:
           path: android/bellhop-${{ steps.version.outputs.ver }}.apk
           retention-days: 14
 
+      # Bellhop's changelog can't come from --generate-notes: GitHub would list
+      # every PR since the previous bellhop-v* tag, server ones included. So it
+      # is generated from the first-parent commits since that tag that touch
+      # android/, mirroring the label-based exclusion release.yml applies in
+      # the other direction. Dependabot merges are skipped like release.yml
+      # excludes bot authors.
+      - name: Generate changelog
+        if: steps.version.outputs.skip_existing == 'false' && env.DRY_RUN != 'true'
+        run: |
+          prev=$(git describe --tags --abbrev=0 --match 'bellhop-v*' HEAD^ 2>/dev/null || true)
+          {
+            if [ -z "$prev" ]; then
+              echo "First public release of Bellhop, the Model Hotel fleet companion app."
+            else
+              echo "## Changes"
+              git log --first-parent --format='%s%x1f%b%x1e' "${prev}..HEAD" -- android \
+                | awk 'BEGIN { RS="\x1e"; FS="\x1f" }
+                  NF {
+                    subj = $1; sub(/^\n+/, "", subj)
+                    if (subj == "" || subj ~ /dependabot/) next
+                    if (match(subj, /^Merge pull request #[0-9]+/)) {
+                      num = subj
+                      sub(/^Merge pull request #/, "", num); sub(/ .*/, "", num)
+                      title = $2; sub(/\n.*/, "", title)
+                      if (title == "") title = subj
+                      print "- " title " (#" num ")"
+                    } else {
+                      print "- " subj
+                    }
+                  }'
+              echo ""
+              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${prev}...${{ steps.version.outputs.tag }}"
+            fi
+            echo ""
+            echo "---"
+            echo ""
+            echo "Sideload the attached APK directly or add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) for automatic updates. All releases are signed with the same key, so updates install over previous versions."
+          } > "$RUNNER_TEMP/release-notes.md"
+          cat "$RUNNER_TEMP/release-notes.md"
+
       - name: Tag and publish GitHub release
         if: steps.version.outputs.skip_existing == 'false' && env.DRY_RUN != 'true'
         env:
@@ -124,4 +168,4 @@ jobs:
           gh release create "${{ steps.version.outputs.tag }}" \
             "bellhop-${{ steps.version.outputs.ver }}.apk" \
             --title "Bellhop ${{ steps.version.outputs.ver }}" \
-            --notes "Signed Bellhop APK. Sideload it directly or add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) for automatic updates. All releases are signed with the same key, so updates install over previous versions."
+            --notes-file "$RUNNER_TEMP/release-notes.md"
