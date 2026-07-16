@@ -1,0 +1,127 @@
+name: Bellhop Release
+
+# Publishes a signed Bellhop APK as a GitHub Release, mirroring how the root
+# .version drives docker-publish.yml: bump android/.version on master and this
+# workflow tags bellhop-vX.Y.Z and attaches bellhop-X.Y.Z.apk to a release.
+# The bellhop- tag prefix keeps Bellhop releases out of the server images'
+# vX.Y.Z tag namespace.
+#
+# Signing: the release keystore never lives in the repo. It is decoded from
+# the BELLHOP_KEYSTORE_BASE64 secret at build time and handed to gradle via
+# env vars (see app/build.gradle.kts). Local builds stay unsigned.
+#
+# Everything except a master push (or an explicit dispatch with dry_run=false)
+# is a dry run: build + sign + verify, upload the APK as a workflow artifact,
+# but skip the tag and release. PRs touching this workflow or android/.version
+# run the dry run pre-merge; fork PRs are excluded (no access to the signing
+# secrets).
+#
+# Like docker-publish, a re-push of an android/.version that already has its
+# tag concludes success without publishing anything (skip_existing).
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - android/.version
+  pull_request:
+    branches: [master]
+    paths:
+      - android/.version
+      - .github/workflows/android-release.yml
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build, sign and verify only; upload APK as artifact, no tag/release"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+# Never run two releases at once; a queued bump waits for the previous one.
+concurrency:
+  group: bellhop-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, sign and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    defaults:
+      run:
+        working-directory: android
+    env:
+      DRY_RUN: ${{ !(github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)) }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Resolve version and guard against re-release
+        id: version
+        run: |
+          ver=$(tr -d '[:space:]' < .version)
+          tag="bellhop-v${ver}"
+          echo "ver=${ver}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "Tag ${tag} already exists; nothing to publish." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "skip_existing=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip_existing=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        if: steps.version.outputs.skip_existing == 'false'
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        if: steps.version.outputs.skip_existing == 'false'
+        with:
+          cache-read-only: true
+
+      - name: Decode release keystore
+        if: steps.version.outputs.skip_existing == 'false'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.BELLHOP_KEYSTORE_BASE64 }}
+        run: printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/bellhop-release.jks"
+
+      - name: Assemble signed release APK
+        if: steps.version.outputs.skip_existing == 'false'
+        env:
+          BELLHOP_KEYSTORE: ${{ runner.temp }}/bellhop-release.jks
+          BELLHOP_KEYSTORE_PASSWORD: ${{ secrets.BELLHOP_KEYSTORE_PASSWORD }}
+          BELLHOP_KEY_ALIAS: ${{ secrets.BELLHOP_KEY_ALIAS }}
+          BELLHOP_KEY_PASSWORD: ${{ secrets.BELLHOP_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
+
+      - name: Verify APK signature
+        if: steps.version.outputs.skip_existing == 'false'
+        run: |
+          apk="app/build/outputs/apk/release/app-release.apk"
+          tools="$ANDROID_HOME/build-tools/$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort -V | tail -1)"
+          "$tools/apksigner" verify --print-certs "$apk"
+          mv "$apk" "bellhop-${{ steps.version.outputs.ver }}.apk"
+
+      - name: Upload dry-run APK artifact
+        if: steps.version.outputs.skip_existing == 'false' && env.DRY_RUN == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bellhop-release-apk-dryrun
+          path: android/bellhop-${{ steps.version.outputs.ver }}.apk
+          retention-days: 14
+
+      - name: Tag and publish GitHub release
+        if: steps.version.outputs.skip_existing == 'false' && env.DRY_RUN != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+          gh release create "${{ steps.version.outputs.tag }}" \
+            "bellhop-${{ steps.version.outputs.ver }}.apk" \
+            --title "Bellhop ${{ steps.version.outputs.ver }}" \
+            --notes "Signed Bellhop APK. Sideload it directly or add this repository to [Obtainium](https://github.com/ImranR98/Obtainium) for automatic updates. All releases are signed with the same key, so updates install over previous versions."

@@ -26,6 +26,24 @@ fun gitCommit(): String {
     return if (dirty) "$sha-dirty" else sha
 }
 
+// Bellhop's version lives in android/.version, mirroring the root .version that
+// releases the Go services: bumping the file on master triggers the Bellhop
+// Release workflow. versionCode is derived from it (major*10000 + minor*100 +
+// patch) so it stays monotonic without a second field to bump; minor and patch
+// must therefore stay below 100.
+val bellhopVersion = rootProject.file(".version").readText().trim().removePrefix("v")
+val bellhopVersionCode =
+    bellhopVersion.split(".").map { it.toInt() }.let { (major, minor, patch) ->
+        require(minor < 100 && patch < 100) { "minor/patch must be < 100 to keep versionCode monotonic" }
+        major * 10000 + minor * 100 + patch
+    }
+
+// Release signing is CI-only: android-release.yml decodes the keystore from a
+// repo secret and hands its path plus credentials over in these env vars. When
+// BELLHOP_KEYSTORE is unset (every local build) the release APK is produced
+// unsigned, exactly as before.
+val releaseKeystore: String? = System.getenv("BELLHOP_KEYSTORE")
+
 android {
     namespace = "com.hugalafutro.bellhop"
     compileSdk = 35
@@ -34,9 +52,20 @@ android {
         applicationId = "com.hugalafutro.bellhop"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = bellhopVersionCode
+        versionName = bellhopVersion
         buildConfigField("String", "GIT_COMMIT", "\"${gitCommit()}\"")
+    }
+
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("BELLHOP_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("BELLHOP_KEY_ALIAS")
+                keyPassword = System.getenv("BELLHOP_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -47,6 +76,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (releaseKeystore != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
