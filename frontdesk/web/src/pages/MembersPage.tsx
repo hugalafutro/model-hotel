@@ -223,12 +223,14 @@ function MemberRow({
 	const health = m.status.health;
 	const mismatch =
 		!!m.status.version && !!groupVersion && m.status.version !== groupVersion;
-	// Mirrors the backend gate: config sync (autosync and the wizard) holds this
-	// member while its version differs from the primary's.
+	// Mirrors the backend gate: config sync (autosync and the wizard) holds a
+	// tokened member while its version differs from the primary's, including an
+	// unknown version (the gate fails closed). Tokenless members are skipped by
+	// sync entirely, never held.
 	const heldForSkew =
 		!isPrimary &&
+		m.has_token &&
 		!!primaryVersion &&
-		!!m.status.version &&
 		m.status.version !== primaryVersion;
 
 	return (
@@ -288,32 +290,34 @@ function MemberRow({
 				)}
 			</td>
 			<td>
-				{m.status.version ? (
-					<span className="fd-row">
+				<span className="fd-row">
+					{m.status.version ? (
 						<span className="fd-mono">{m.status.version}</span>
-						{mismatch && (
-							<span
-								className="ui-badge ui-badge-warn"
-								title={t("members.versionMismatch")}
-							>
-								<WarningIcon size={12} weight="bold" />
-							</span>
-						)}
-						{heldForSkew && (
-							<span
-								className="ui-badge ui-badge-warn"
-								data-testid="member-sync-held"
-								title={t("members.syncHeldTip")}
-							>
-								{t("members.syncHeld")}
-							</span>
-						)}
-					</span>
-				) : (
-					<span className="fd-faint">
-						{m.has_token ? t("members.versionUnknown") : t("members.noToken")}
-					</span>
-				)}
+					) : (
+						<span className="fd-faint">
+							{m.has_token ? t("members.versionUnknown") : t("members.noToken")}
+						</span>
+					)}
+					{mismatch && (
+						<span
+							className="ui-badge ui-badge-warn"
+							title={t("members.versionMismatch")}
+						>
+							<WarningIcon size={12} weight="bold" />
+						</span>
+					)}
+					{/* Rendered for unknown versions too: the gate fails closed, so a
+					    tokened member we cannot read is held and must show as held. */}
+					{heldForSkew && (
+						<span
+							className="ui-badge ui-badge-warn"
+							data-testid="member-sync-held"
+							title={t("members.syncHeldTip")}
+						>
+							{t("members.syncHeld")}
+						</span>
+					)}
+				</span>
 			</td>
 			<td data-testid="member-verified">
 				{isPrimary ? (

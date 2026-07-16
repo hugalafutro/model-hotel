@@ -515,17 +515,34 @@ describe("MembersPage", () => {
 					member({
 						id: "1",
 						name: "hotel-1",
+						has_token: true,
 						status: { health, version: "v1.0.0" },
 					}),
 					member({
 						id: "2",
 						name: "hotel-2",
+						has_token: true,
 						status: { health, version: "v0.9.0" },
 					}),
 					member({
 						id: "3",
 						name: "hotel-3",
+						has_token: true,
 						status: { health, version: "v1.0.0" },
+					}),
+					// Tokened but its version is unreadable: the backend gate fails
+					// closed and holds it, so the badge must show.
+					member({
+						id: "4",
+						name: "hotel-4",
+						has_token: true,
+						status: { health },
+					}),
+					// Tokenless members are skipped by sync entirely (never held).
+					member({
+						id: "5",
+						name: "hotel-5",
+						status: { health },
 					}),
 				]),
 			),
@@ -548,6 +565,13 @@ describe("MembersPage", () => {
 		expect(within(row1).queryByTestId("member-sync-held")).toBeNull();
 		const row3 = screen.getByText("hotel-3").closest("tr") as HTMLElement;
 		expect(within(row3).queryByTestId("member-sync-held")).toBeNull();
+
+		// Unknown version on a tokened member is held (fail closed): badge shows.
+		const row4 = screen.getByText("hotel-4").closest("tr") as HTMLElement;
+		expect(within(row4).getByTestId("member-sync-held")).toBeInTheDocument();
+		// A tokenless member is skipped by sync, not held: no badge.
+		const row5 = screen.getByText("hotel-5").closest("tr") as HTMLElement;
+		expect(within(row5).queryByTestId("member-sync-held")).toBeNull();
 	});
 
 	it("marks no primary when no fleet sync has run", async () => {
