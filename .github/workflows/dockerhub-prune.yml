@@ -3,9 +3,9 @@ name: Prune Docker Hub Tags
 # Keeps the Docker Hub repositories tidy after a release. Both the server image
 # (model-hotel) and the Front Desk control-plane image (model-hotel-frontdesk)
 # are released together under the same tag scheme, so both are pruned here with
-# identical retention. Retains the newest KEEP version tags (vX.Y.Z) plus every
+# identical retention. Retains the newest KEEP version tags (X.Y.Z) plus every
 # protected moving tag (latest, X.Y), and deletes older releases. Each release
-# pushes a vX.Y.Z tag *and* a sha- tag at the same image digest, so a sha- tag
+# pushes an X.Y.Z tag *and* a sha- tag at the same image digest, so a sha- tag
 # is pruned only when no retained tag still points at its digest — this drops a
 # release's sha- tag together with the release, without parsing commit SHAs.
 #
@@ -103,7 +103,9 @@ jobs:
           # Delete:     version tags beyond KEEP, and sha- tags whose digest is
           #             not shared by any retained tag. Unknown tags are left alone.
           to_delete=$(jq -rs --argjson keep "$KEEP" '
-            def isVersion: test("^v[0-9]+\\.[0-9]+\\.[0-9]+$");
+            # Docker Hub release tags carry no v prefix (docker/metadata-action
+            # type=semver strips it; only the git tag is vX.Y.Z), so accept both.
+            def isVersion: test("^v?[0-9]+\\.[0-9]+\\.[0-9]+$");
             def isProtected: (. == "latest") or test("^[0-9]+\\.[0-9]+$");
             def isSha: startswith("sha-");
 
