@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -53,6 +54,12 @@ func resetSystemCache() {
 	cachedSystemTime = time.Time{}
 	cachedSystemSince = ""
 	cachedSystemMu.Unlock()
+
+	reqTodayMu.Lock()
+	reqTodayVal = 0
+	reqTodayTime = time.Time{}
+	reqTodaySince = ""
+	reqTodayMu.Unlock()
 }
 
 // Register mounts system API routes.
@@ -120,38 +127,117 @@ var (
 
 const systemCacheTTL = 3 * time.Second
 
+// systemCollectTimeout bounds a single detached collect so a wedged query or
+// docker call cannot pin a background collect open indefinitely.
+const systemCollectTimeout = 15 * time.Second
+
+// systemCollectGroup coalesces concurrent cold collects for the same `since`, so
+// a burst of pollers hitting an expired cache triggers one collect, not a herd.
+var systemCollectGroup singleflight.Group
+
+// requestsTodayTTL caches the requests-today COUNT apart from the 3s system
+// payload. That COUNT is a live aggregate over request_logs which, on a freshly
+// restarted instance whose planner stats are stale, can seq-scan the whole table
+// and dominate the collect (the same heap-scan trap documented in applogs.go). A
+// status widget tolerates a slightly stale count, so run the query at most once
+// per this window instead of on every collect.
+const requestsTodayTTL = 30 * time.Second
+
+var (
+	reqTodayVal   int64
+	reqTodayTime  time.Time
+	reqTodaySince string
+	reqTodayMu    sync.Mutex
+)
+
 // GetSystem returns system health metrics (app, database, Docker).
 func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 	since := r.URL.Query().Get("since")
 
-	cachedSystemMu.Lock()
-	if cachedSystem != nil && cachedSystemSince == since && time.Since(cachedSystemTime) < systemCacheTTL {
-		result := *cachedSystem
-		cachedSystemMu.Unlock()
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(result); err != nil {
-			respondError(w, "failed to encode response", err, http.StatusInternalServerError)
-		}
+	if stats, ok := cachedSystemFor(since); ok {
+		writeSystemJSON(w, stats)
 		return
 	}
-	cachedSystemMu.Unlock()
 
-	stats, err := h.collect(r.Context(), since)
+	// Cold miss. Coalesce concurrent collects for the same `since`, and run the
+	// shared collect on a context detached from THIS request's cancellation. A
+	// caller that gives up early (e.g. Front Desk's 4s probe timing out while a
+	// freshly restarted, still-slow instance collects) must not abort the collect:
+	// if it did, the 3s cache would never be written and the instance would stay
+	// stuck cold on every poll. Detached, the collect still finishes and warms the
+	// cache, so the next poll is served from it instantly.
+	v, err, _ := systemCollectGroup.Do(since, func() (any, error) {
+		// A concurrent collect may have filled the cache while callers coalesced.
+		if stats, ok := cachedSystemFor(since); ok {
+			return stats, nil
+		}
+		cctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), systemCollectTimeout)
+		defer cancel()
+		stats, err := h.collect(cctx, since)
+		if err != nil {
+			return nil, err
+		}
+		cachedSystemMu.Lock()
+		cachedSystem = stats
+		cachedSystemTime = time.Now()
+		cachedSystemSince = since
+		cachedSystemMu.Unlock()
+		return stats, nil
+	})
 	if err != nil {
 		respondError(w, "failed to collect system stats", err, http.StatusInternalServerError)
 		return
 	}
+	writeSystemJSON(w, v.(*SystemStats))
+}
 
+// cachedSystemFor returns a copy of the cached payload for `since` when it is
+// still within the TTL, so callers never share the cached pointer.
+func cachedSystemFor(since string) (*SystemStats, bool) {
 	cachedSystemMu.Lock()
-	cachedSystem = stats
-	cachedSystemTime = time.Now()
-	cachedSystemSince = since
-	cachedSystemMu.Unlock()
+	defer cachedSystemMu.Unlock()
+	if cachedSystem != nil && cachedSystemSince == since && time.Since(cachedSystemTime) < systemCacheTTL {
+		result := *cachedSystem
+		return &result, true
+	}
+	return nil, false
+}
 
+func writeSystemJSON(w http.ResponseWriter, stats *SystemStats) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(stats); err != nil {
 		respondError(w, "failed to encode response", err, http.StatusInternalServerError)
 	}
+}
+
+// requestsSince returns the number of request_logs rows at or after `since`,
+// cached for requestsTodayTTL under sinceKey. A query error yields 0 and is not
+// cached, so a transient failure is retried on the next collect rather than
+// pinned. Keeping this COUNT off every collect is what stops a stale-planner-stats
+// seq-scan on a freshly restarted primary from tipping the whole status endpoint
+// past a caller's timeout.
+func (h *SystemHandler) requestsSince(ctx context.Context, since time.Time, sinceKey string) int64 {
+	reqTodayMu.Lock()
+	if reqTodaySince == sinceKey && time.Since(reqTodayTime) < requestsTodayTTL {
+		v := reqTodayVal
+		reqTodayMu.Unlock()
+		return v
+	}
+	reqTodayMu.Unlock()
+
+	var n int64
+	if err := h.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM request_logs WHERE created_at >= $1`, since).Scan(&n); err != nil {
+		debuglog.Error("system: query failed", "query", "requestsToday", "error", err)
+		return 0
+	}
+
+	reqTodayMu.Lock()
+	reqTodayVal = n
+	reqTodayTime = time.Now()
+	reqTodaySince = sinceKey
+	reqTodayMu.Unlock()
+	return n
 }
 
 func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*SystemStats, error) {
@@ -174,8 +260,6 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 	diskReadPerSec, diskWritePerSec := util.ReadCgroupDiskIO()
 	procs := util.ReadCgroupProcs()
 
-	var requestsToday int64
-
 	since := time.Now().Truncate(24 * time.Hour) // fallback: UTC midnight
 	if sinceParam != "" {
 		parsed, err := time.Parse(time.RFC3339, sinceParam)
@@ -184,12 +268,7 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 		}
 		since = parsed
 	}
-
-	err := h.pool.QueryRow(ctx, `SELECT COUNT(*) FROM request_logs WHERE created_at >= $1`, since).Scan(&requestsToday)
-	if err != nil {
-		debuglog.Error("system: query failed", "query", "requestsToday", "error", err)
-		requestsToday = 0
-	}
+	requestsToday := h.requestsSince(ctx, since, sinceParam)
 
 	stats.App = AppStats{
 		HeapAllocMB:       float64(heapAlloc) / 1024 / 1024,
@@ -210,7 +289,7 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 	}
 
 	var dbSize int64
-	err = h.pool.QueryRow(ctx, `SELECT pg_database_size(current_database())`).Scan(&dbSize)
+	err := h.pool.QueryRow(ctx, `SELECT pg_database_size(current_database())`).Scan(&dbSize)
 	if err != nil {
 		debuglog.Error("system: query failed", "query", "dbSize", "error", err)
 		dbSize = 0

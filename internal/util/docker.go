@@ -345,12 +345,31 @@ func CollectDockerStatsWithFilter(filter ContainerFilter) AggregatedDockerStats 
 	var totalBlkRead, totalBlkWrite int64
 	var totalProcs int
 
-	for _, c := range containers {
+	// Fetch each container's stats concurrently. GetContainerStats blocks ~1s on
+	// the daemon's stats?stream=false sampling window, so N sequential calls cost
+	// ~N seconds; this runs on the /api/system hot path, so fan the calls out and
+	// aggregate their results below. Each goroutine writes only its own slot, so
+	// no lock is needed for the collection itself.
+	perContainer := make([]*ContainerStats, len(containers))
+	var wg sync.WaitGroup
+	for i, c := range containers {
 		if c.State != "running" {
 			continue
 		}
-		stats, err := GetContainerStats(c.ID)
-		if err != nil {
+		wg.Add(1)
+		go func(i int, id string) {
+			defer wg.Done()
+			stats, err := GetContainerStats(id)
+			if err != nil {
+				return // leave the slot nil; a failed container is skipped
+			}
+			perContainer[i] = stats
+		}(i, c.ID)
+	}
+	wg.Wait()
+
+	for _, stats := range perContainer {
+		if stats == nil {
 			continue
 		}
 		totalCPU += stats.CPUPercent
