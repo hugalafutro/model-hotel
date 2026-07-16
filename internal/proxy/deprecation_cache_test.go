@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 )
 
 // TestDeprecationCache_ConcurrentMerges tests the race-free CAS loop that merges
@@ -222,7 +223,7 @@ func TestDeprecationCache_DirectGetCachedRejectedParams(t *testing.T) {
 	cacheKey := "cohere:command-r"
 
 	// Nothing cached yet
-	got := getCachedRejectedParams(&cache, cacheKey)
+	got := paramrewrite.CachedRejectedParams(&cache, cacheKey)
 	if got != nil {
 		t.Errorf("expected nil for missing key, got %v", got)
 	}
@@ -232,7 +233,7 @@ func TestDeprecationCache_DirectGetCachedRejectedParams(t *testing.T) {
 	cache.Store(cacheKey, &expected)
 
 	// Retrieve it
-	got = getCachedRejectedParams(&cache, cacheKey)
+	got = paramrewrite.CachedRejectedParams(&cache, cacheKey)
 	if got == nil {
 		t.Fatal("unexpected nil for cached key")
 		return

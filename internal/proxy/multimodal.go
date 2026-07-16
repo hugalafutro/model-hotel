@@ -141,13 +141,13 @@ func (h *Handler) servePassthroughPipeline(w http.ResponseWriter, r *http.Reques
 // everything else untouched. Numbers are decoded as json.Number so large
 // integers (e.g. 64-bit seeds beyond 2^53) survive the round-trip without
 // float64 precision loss. An unparseable body is forwarded as-is, mirroring
-// chat's buildUpstreamBody behavior.
+// chat's paramrewrite.BuildUpstreamBody behavior.
 func makeJSONModelRewriter(body []byte, requestModel string) func(string) ([]byte, string, error) {
 	return func(resolvedModelID string) ([]byte, string, error) {
 		out := body
 		if requestModel != resolvedModelID {
 			// Best-effort rewrite: an unparseable body is forwarded as-is
-			// (mirrors buildUpstreamBody).
+			// (mirrors paramrewrite.BuildUpstreamBody).
 			dec := json.NewDecoder(bytes.NewReader(body))
 			dec.UseNumber()
 			var raw map[string]interface{}

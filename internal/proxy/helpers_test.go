@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 )
 
 // ---------------------------------------------------------------------------
@@ -639,8 +641,8 @@ func TestProviderSupportsStreamOptions(t *testing.T) {
 	// Providers with non-OpenAI APIs that reject stream_options.
 	for _, pt := range []string{"anthropic", "google", "cohere", "opencode-go", "opencode-zen"} {
 		t.Run(pt+"_unsupported", func(t *testing.T) {
-			if providerSupportsStreamOptions(pt) {
-				t.Errorf("providerSupportsStreamOptions(%q) = true, want false", pt)
+			if paramrewrite.ProviderSupportsStreamOptions(pt) {
+				t.Errorf("paramrewrite.ProviderSupportsStreamOptions(%q) = true, want false", pt)
 			}
 		})
 	}
@@ -652,15 +654,15 @@ func TestProviderSupportsStreamOptions(t *testing.T) {
 		"lmstudio", "koboldcpp", "neuralwatt",
 	} {
 		t.Run(pt+"_supported", func(t *testing.T) {
-			if !providerSupportsStreamOptions(pt) {
-				t.Errorf("providerSupportsStreamOptions(%q) = false, want true", pt)
+			if !paramrewrite.ProviderSupportsStreamOptions(pt) {
+				t.Errorf("paramrewrite.ProviderSupportsStreamOptions(%q) = false, want true", pt)
 			}
 		})
 	}
 
 	// Unknown provider types default to supported (OpenAI-compatible assumption).
 	t.Run("unknown_supported", func(t *testing.T) {
-		if !providerSupportsStreamOptions("some-new-provider") {
+		if !paramrewrite.ProviderSupportsStreamOptions("some-new-provider") {
 			t.Error("unknown provider type should default to supported=true")
 		}
 	})

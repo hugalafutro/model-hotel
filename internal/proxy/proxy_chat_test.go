@@ -496,7 +496,7 @@ func TestChatCompletions_DeprecationCacheFirstEntry(t *testing.T) {
 	defer stopUnitHandlerIntegration(handler)
 
 	// Configure upstream to return 400 with a param rejection for "top_p".
-	// The backtick-wrapped param name is recognized by parseProviderParamError.
+	// The backtick-wrapped param name is recognized by paramrewrite.ParseProviderParamError.
 	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(`{"error":{"message":"` + "`top_p`" + ` is not supported for this model"}}`))

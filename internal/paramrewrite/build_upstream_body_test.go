@@ -1,4 +1,4 @@
-package proxy
+package paramrewrite
 
 import (
 	"encoding/json"
@@ -70,7 +70,7 @@ func TestBuildUpstreamBody(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildUpstreamBody([]byte(inputBody), tt.providerType, tt.wantModel, "gpt-4", tt.isStreaming, cache, &sync.Map{}, tt.extraStrip)
+			result := BuildUpstreamBody([]byte(inputBody), tt.providerType, tt.wantModel, "gpt-4", tt.isStreaming, cache, &sync.Map{}, tt.extraStrip)
 
 			var raw map[string]interface{}
 			if err := json.Unmarshal(result, &raw); err != nil {
@@ -114,7 +114,7 @@ func TestBuildUpstreamBody_ExtraStripOnRetry(t *testing.T) {
 	inputBody := `{"model":"gpt-4","messages":[{"role":"user","content":"hi"}],"stream":true,"min_p":0.8}`
 	cache := &sync.Map{}
 
-	result := buildUpstreamBody(
+	result := BuildUpstreamBody(
 		[]byte(inputBody), "openai", "gpt-4o", "gpt-4",
 		true, cache, &sync.Map{},
 		map[string]bool{"min_p": true}, // extra strip from 400 auto-retry
@@ -151,7 +151,7 @@ func TestBuildUpstreamBody_OpenCodeInjectsChatTemplateArgs(t *testing.T) {
 	inputBody := `{"model":"glm-5.2","messages":[{"role":"user","content":"hi"}],"stream":false}`
 	cache := &sync.Map{}
 
-	result := buildUpstreamBody([]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, &sync.Map{}, nil)
+	result := BuildUpstreamBody([]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, &sync.Map{}, nil)
 
 	var raw map[string]interface{}
 	if err := json.Unmarshal(result, &raw); err != nil {
@@ -174,7 +174,7 @@ func TestBuildUpstreamBody_LearnedChatTemplateArgsRejectionStays(t *testing.T) {
 	rejected := map[string]bool{"chat_template_args": true}
 	cache.Store("opencode-go:glm-5.2", &rejected)
 
-	result := buildUpstreamBody([]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, &sync.Map{}, nil)
+	result := BuildUpstreamBody([]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, &sync.Map{}, nil)
 
 	var raw map[string]interface{}
 	if err := json.Unmarshal(result, &raw); err != nil {
@@ -193,7 +193,7 @@ func TestBuildUpstreamBody_ExtraStripChatTemplateArgsOnRetry(t *testing.T) {
 	inputBody := `{"model":"glm-5.2","messages":[{"role":"user","content":"hi"}],"stream":false}`
 	cache := &sync.Map{}
 
-	result := buildUpstreamBody(
+	result := BuildUpstreamBody(
 		[]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, &sync.Map{},
 		map[string]bool{"chat_template_args": true},
 	)
@@ -220,7 +220,7 @@ func TestBuildUpstreamBody_LearnedRenameMovesValue(t *testing.T) {
 	renames := map[string]string{"max_tokens": "max_completion_tokens"}
 	renameCache.Store("openai:gpt-5-nano", &renames)
 
-	result := buildUpstreamBody([]byte(inputBody), "openai", "gpt-5-nano", "gpt-5-nano", false, &sync.Map{}, renameCache, nil)
+	result := BuildUpstreamBody([]byte(inputBody), "openai", "gpt-5-nano", "gpt-5-nano", false, &sync.Map{}, renameCache, nil)
 
 	var raw map[string]interface{}
 	if err := json.Unmarshal(result, &raw); err != nil {
@@ -246,7 +246,7 @@ func TestBuildUpstreamBody_RenameDoesNotOverwriteExplicitTarget(t *testing.T) {
 	renames := map[string]string{"max_tokens": "max_completion_tokens"}
 	renameCache.Store("openai:gpt-5-nano", &renames)
 
-	result := buildUpstreamBody([]byte(inputBody), "openai", "gpt-5-nano", "gpt-5-nano", false, &sync.Map{}, renameCache, nil)
+	result := BuildUpstreamBody([]byte(inputBody), "openai", "gpt-5-nano", "gpt-5-nano", false, &sync.Map{}, renameCache, nil)
 
 	var raw map[string]interface{}
 	if err := json.Unmarshal(result, &raw); err != nil {
@@ -270,7 +270,7 @@ func TestBuildUpstreamBody_NoRenameWhenSourceAbsent(t *testing.T) {
 	renames := map[string]string{"max_tokens": "max_completion_tokens"}
 	renameCache.Store("openai:gpt-5-nano", &renames)
 
-	result := buildUpstreamBody([]byte(inputBody), "openai", "gpt-5-nano", "gpt-5-nano", false, &sync.Map{}, renameCache, nil)
+	result := BuildUpstreamBody([]byte(inputBody), "openai", "gpt-5-nano", "gpt-5-nano", false, &sync.Map{}, renameCache, nil)
 
 	var raw map[string]interface{}
 	if err := json.Unmarshal(result, &raw); err != nil {
@@ -285,7 +285,7 @@ func TestBuildUpstreamBody_UnparseableInput(t *testing.T) {
 	t.Parallel()
 
 	cache := &sync.Map{}
-	result := buildUpstreamBody([]byte("not json"), "openai", "gpt-4o", "gpt-4", true, cache, &sync.Map{}, nil)
+	result := BuildUpstreamBody([]byte("not json"), "openai", "gpt-4o", "gpt-4", true, cache, &sync.Map{}, nil)
 	if string(result) != "not json" {
 		t.Errorf("unparseable input should be returned as-is, got %q", string(result))
 	}
@@ -300,7 +300,7 @@ func TestBuildUpstreamBody_StripsEmptyToolCalls(t *testing.T) {
 		`{"role":"assistant","content":null,"tool_calls":[{"id":"c1","type":"function","function":{"name":"f","arguments":"{}"}}]},` +
 		`{"role":"tool","tool_call_id":"c1","content":"ok"}]}`
 
-	result := buildUpstreamBody([]byte(inputBody), "openai", "gpt-4o", "gpt-4", false, &sync.Map{}, &sync.Map{}, nil)
+	result := BuildUpstreamBody([]byte(inputBody), "openai", "gpt-4o", "gpt-4", false, &sync.Map{}, &sync.Map{}, nil)
 
 	var raw map[string]interface{}
 	if err := json.Unmarshal(result, &raw); err != nil {
@@ -336,7 +336,7 @@ func TestBuildUpstreamBody_StripEmptyToolCallsTolerantOfShapes(t *testing.T) {
 		`{"model":"gpt-4","messages":"weird"}`,
 		`{"model":"gpt-4","messages":[42,{"role":"user","content":"hi","tool_calls":"nope"}]}`,
 	} {
-		result := buildUpstreamBody([]byte(body), "openai", "gpt-4", "gpt-4", false, &sync.Map{}, &sync.Map{}, nil)
+		result := BuildUpstreamBody([]byte(body), "openai", "gpt-4", "gpt-4", false, &sync.Map{}, &sync.Map{}, nil)
 		var raw map[string]interface{}
 		if err := json.Unmarshal(result, &raw); err != nil {
 			t.Fatalf("result is not valid JSON for input %s: %v", body, err)
