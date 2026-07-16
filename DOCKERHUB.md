@@ -166,7 +166,7 @@ docker compose up -d
 
 A single instance keeps its caches and rate limiters in memory, so to survive a host failure you run several instances behind one client endpoint. A **Front Desk** control plane holds the fleet roster and replicates config to every member, and **Traefik** load-balances them with health checks and automatic failover; members share one `MASTER_KEY` so encrypted provider keys port across the fleet. Full runbook in the [High Availability guide](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
 
-**Bellhop**, the Android companion app, pairs with Front Desk for a pocket view of fleet health, traffic, and events, plus operator controls behind a biometric prompt. See the [Bellhop guide](https://github.com/hugalafutro/model-hotel/wiki/Bellhop). APK download: [![Latest Bellhop release](https://img.shields.io/github/v/release/hugalafutro/model-hotel?filter=bellhop-v*&label=Bellhop%20APK&color=3ddc84)](https://github.com/hugalafutro/model-hotel/releases?q=bellhop&expanded=true) (signed; [Obtainium](https://github.com/ImranR98/Obtainium)-compatible).
+**Bellhop**, the Android companion app, pairs with Front Desk for a pocket view of fleet health, traffic, and events, plus operator controls behind a biometric prompt. See the [Bellhop guide](https://github.com/hugalafutro/model-hotel/wiki/Bellhop). APK download: [![Latest Bellhop release](https://img.shields.io/github/v/release/hugalafutro/model-hotel?filter=bellhop-v*&label=Bellhop%20APK&color=3ddc84)](https://github.com/hugalafutro/model-hotel/releases/tag/bellhop-latest) (signed; [Obtainium](https://github.com/ImranR98/Obtainium)-compatible).
 
 ## API Example
 
