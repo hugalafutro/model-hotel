@@ -166,6 +166,8 @@ docker compose up -d
 
 A single instance keeps its caches and rate limiters in memory, so to survive a host failure you run several instances behind one client endpoint. A **Front Desk** control plane holds the fleet roster and replicates config to every member, and **Traefik** load-balances them with health checks and automatic failover; members share one `MASTER_KEY` so encrypted provider keys port across the fleet. Full runbook in the [High Availability guide](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
 
+**Bellhop**, the Android companion app, pairs with Front Desk for a pocket view of fleet health, traffic, and events, plus operator controls behind a biometric prompt. See the [Bellhop guide](https://github.com/hugalafutro/model-hotel/wiki/Bellhop).
+
 ## API Example
 
 ```bash
@@ -225,6 +227,7 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 - [Multi-User](https://github.com/hugalafutro/model-hotel/wiki/Multi-User) - dashboard accounts, roles, and grants
 - [Request Logging](https://github.com/hugalafutro/model-hotel/wiki/Request-Logging) - log fields, overhead breakdown
 - [High Availability](https://github.com/hugalafutro/model-hotel/wiki/High-Availability) - Front Desk + Traefik multi-instance HA
+- [Bellhop](https://github.com/hugalafutro/model-hotel/wiki/Bellhop) - Android companion app for Front Desk
 - [Development](https://github.com/hugalafutro/model-hotel/wiki/Development) - local setup, build, contributing
 
 ## License
