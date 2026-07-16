@@ -281,9 +281,12 @@ class DashboardViewModel(
             launch {
                 visibleIds.collectLatest { ids ->
                     // collectLatest cancels this delay if the visible set changes
-                    // again, so only a settled viewport triggers a fetch.
+                    // again, so only a settled viewport triggers a fetch. Skip while
+                    // covered (the list is hidden, so nothing needs its sparkline):
+                    // in practice the screen is torn down then and reports no
+                    // changes, but this keeps the fetch honest regardless of caller.
                     delay(TRAFFIC_DEBOUNCE_MS)
-                    fetchVisibleTraffic(ids, force = false)
+                    if (!covered.value) fetchVisibleTraffic(ids, force = false)
                 }
             }
             launch {
@@ -308,16 +311,21 @@ class DashboardViewModel(
             launch {
                 // A range change invalidates every in-flight and cached sparkline
                 // (they cover the old span). Cancel the old-window fetches so a late
-                // response can't overwrite the chart, drop their stamps, then
-                // force-refetch the viewport at the new span so it redraws now
-                // instead of on the next tick. drop(1) skips the initial value the
-                // first fetch already used.
+                // response can't overwrite the chart and drop their stamps
+                // regardless. Only refetch now if the dashboard is actually on
+                // screen: while it's covered there is nothing to redraw, so the
+                // refetch would just wake the radio — the catch-up fetch when it's
+                // uncovered picks up the new span (fetchVisibleTraffic reads the
+                // current window). drop(1) skips the initial value the first fetch
+                // already used.
                 graphWindow.drop(1).collectLatest {
                     if (_state.value.revoked) return@collectLatest
                     trafficJobs.values.forEach { it.cancel() }
                     trafficJobs.clear()
                     trafficFetchedAt.clear()
-                    fetchVisibleTraffic(visibleIds.value, force = true)
+                    if (!covered.value) {
+                        fetchVisibleTraffic(visibleIds.value, force = true)
+                    }
                 }
             }
         }

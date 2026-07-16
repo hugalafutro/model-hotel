@@ -488,6 +488,33 @@ class DashboardViewModelTest {
         }
 
     @Test
+    fun graphRangeChangeWhileCoveredDoesNotFetch() =
+        runBlocking {
+            // Changing the graph range from Settings (which covers the dashboard)
+            // must not fan out traffic; the new span is picked up by the catch-up
+            // fetch when the dashboard is shown again.
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.trafficResults =
+                mapOf("m1" to FetchResult.Success(MemberTraffic(memberId = "m1", reachable = true)))
+            // A long poll keeps the periodic tick out of the window so only the
+            // range change could move the count.
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1", trafficPollMs = 10_000)
+            val job = launch { vm.state.collect {} }
+            vm.setVisibleMembers(listOf("m1"))
+            withTimeout(5_000) { while (client.trafficFetched.isEmpty()) delay(20) }
+
+            vm.setCovered(true)
+            delay(200)
+            val settled = client.trafficFetched.size
+
+            // Range change while covered: no fetch.
+            vm.setGraphRange(30)
+            delay(400)
+            assertEquals(settled, client.trafficFetched.size)
+            job.cancel()
+        }
+
+    @Test
     fun graphRangeChangeRefetchesVisibleTrafficWithNewWindow() =
         runBlocking {
             val client = FakeFleetClient(FetchResult.Success(listOf(member)))
