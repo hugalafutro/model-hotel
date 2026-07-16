@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -671,5 +672,31 @@ func TestNewStatsHandler_Constructor(t *testing.T) {
 	if handler == nil {
 		t.Fatal("Expected handler to be non-nil")
 		return
+	}
+}
+
+// TestOwnerFilterFragment covers the SQL-injection-defense hardening of the
+// owner scope fragment: empty scope stays unscoped, a valid UUID is inlined in
+// canonical form, and a non-empty-but-invalid id fails CLOSED to a no-match
+// fragment (never to unscoped, which would leak every owner's rows).
+func TestOwnerFilterFragment(t *testing.T) {
+	if got := ownerFilterFragment(""); got != "" {
+		t.Errorf("empty owner should be unscoped, got %q", got)
+	}
+
+	id := uuid.New().String()
+	got := ownerFilterFragment(id)
+	if !strings.Contains(got, "'"+id+"'") {
+		t.Errorf("valid owner id not inlined: %q", got)
+	}
+	if strings.Contains(got, " AND 1=0") {
+		t.Errorf("valid owner id must not fail closed: %q", got)
+	}
+
+	for _, bad := range []string{"' OR '1'='1", "not-a-uuid", "123"} {
+		got := ownerFilterFragment(bad)
+		if got != " AND 1=0" {
+			t.Errorf("invalid owner id %q must fail closed to no-match, got %q", bad, got)
+		}
 	}
 }

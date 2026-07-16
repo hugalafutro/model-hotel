@@ -67,9 +67,35 @@ func dialControl(_, address string, _ syscall.RawConn) error {
 	return nil
 }
 
+// maxRedirects caps redirect chains, matching net/http's own default. A hostile
+// endpoint that answers every hop with a 3xx cannot pin the server in an
+// unbounded fetch loop.
+const maxRedirects = 10
+
+// checkRedirect is the http.Client.CheckRedirect hook. It rejects a redirect
+// whose target host is a literal blocked IP before the connection is attempted,
+// and caps the chain length. This is defense in depth: dialControl already
+// refuses a blocked address at dial time (covering hostnames that resolve to
+// metadata), but rejecting literal-IP metadata targets here gives an earlier,
+// clearer failure and keeps the guard from depending on the dial hook alone.
+// Hostname targets are intentionally NOT resolved here: netguard resolves at
+// dial time on purpose (avoiding a check-then-dial TOCTOU window), and
+// dialControl remains the resolver-based guard for them.
+func checkRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= maxRedirects {
+		return fmt.Errorf("netguard: stopped after %d redirects", maxRedirects)
+	}
+	if ip := net.ParseIP(req.URL.Hostname()); ip != nil && BlockedIP(ip) {
+		return fmt.Errorf("netguard: refusing redirect to blocked address %s", req.URL.Hostname())
+	}
+	return nil
+}
+
 // NewClient builds an http.Client whose dialer refuses blocked post-resolution
 // IPs. The dial guard also covers redirect targets (each hop is dialled through
-// the same Control hook), so a 3xx to a metadata address fails at connect time.
+// the same Control hook), so a 3xx to a metadata address fails at connect time;
+// checkRedirect adds an earlier, explicit rejection of literal-IP metadata
+// redirects and bounds the redirect chain.
 func NewClient(timeout time.Duration) *http.Client {
 	dialer := &net.Dialer{
 		Timeout:   timeout,
@@ -77,7 +103,8 @@ func NewClient(timeout time.Duration) *http.Client {
 		Control:   dialControl,
 	}
 	return &http.Client{
-		Timeout: timeout,
+		Timeout:       timeout,
+		CheckRedirect: checkRedirect,
 		Transport: &http.Transport{
 			// Honor HTTP(S)_PROXY like http.DefaultTransport so a deployment that
 			// reaches an external IdP through an egress proxy keeps working; the
