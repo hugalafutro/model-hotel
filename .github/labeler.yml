@@ -2,7 +2,9 @@
 # only when EVERY changed file is Bellhop-related (single brace glob +
 # any-glob-to-all-files = "one glob matches all files"): release.yml excludes
 # that label from the MH/FD release notes, and a mixed PR that also touches
-# server code must keep appearing there.
+# server code or shared docs (README, DOCKERHUB) must keep appearing there.
+# Bellhop-only docs count as Bellhop: the wiki page and bellhop-named
+# screenshot/icon assets.
 bellhop:
   - changed-files:
-      - any-glob-to-all-files: "{android/**,.github/workflows/android*.yml}"
+      - any-glob-to-all-files: "{android/**,.github/workflows/android*.yml,wiki/Bellhop*,docs/screenshots/bellhop*,docs/icons/bellhop*}"
