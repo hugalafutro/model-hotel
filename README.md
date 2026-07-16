@@ -43,6 +43,8 @@ Run several instances behind one client endpoint with no client-side change: a *
 
 Full deployment in the [High Availability wiki](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
 
+### [<img src="docs/icons/bellhop.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Bellhop Companion App](#-bellhop-companion-app)
+
 **Bellhop**, the native Android companion app for Front Desk, turns a paired phone into a pocket view of the fleet: live member health, request traffic, the event log, and, for operator devices, one-tap drain, activate, and config-sync behind a biometric prompt. It talks only to Front Desk, holds no provider credentials, and authenticates with a device token you can revoke from either side.
 
 <p align="center">
@@ -460,6 +462,7 @@ and how to enable the rest. See the [Configuration wiki](https://github.com/huga
 - [Request Logging](https://github.com/hugalafutro/model-hotel/wiki/Request-Logging): Log fields, overhead breakdown, retention
 - [Backup & Restore](#-backup--restore): Creating backups, restoring, critical requirements
 - [High Availability](https://github.com/hugalafutro/model-hotel/wiki/High-Availability): Front Desk control plane + Traefik, drop-in HA across multiple instances
+- [Bellhop](https://github.com/hugalafutro/model-hotel/wiki/Bellhop): Android companion app, pairing, roles, monitoring and operator controls
 - [Development](https://github.com/hugalafutro/model-hotel/wiki/Development): Local setup, build commands, contributing
 
 ### [<img src="docs/icons/backup.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Backup & Restore](#-backup--restore)
