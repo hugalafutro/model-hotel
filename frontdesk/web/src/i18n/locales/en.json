@@ -105,6 +105,8 @@
 		"removeTip": "Stop tracking this instance and drop it from the pool. The instance itself is left running and untouched.",
 		"latencyMs": "{{ms}} ms",
 		"versionMismatch": "Version differs from the group",
+		"syncHeld": "Sync held",
+		"syncHeldTip": "This member runs a different app version than the primary, so config sync is held to avoid overwriting its settings.",
 		"addTitle": "Add a member",
 		"nameLabel": "Display name",
 		"namePlaceholder": "hotel-1",

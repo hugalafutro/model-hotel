@@ -77,6 +77,12 @@ export function MembersPage() {
 	useEffect(refreshPrimary, [refreshPrimary]);
 
 	const groupVersion = majorityVersion(members);
+	// With a designated primary, version divergence is anchored to it (that is
+	// what holds config sync); the majority "odd one out" flag only fills in
+	// when no primary is set and there is nothing else to anchor to.
+	const primaryVersion = primaryId
+		? (members.find((m) => m.id === primaryId)?.status.version ?? null)
+		: null;
 	// Pin the fleet primary to the top; every other member keeps its order.
 	const orderedMembers = primaryId
 		? [
@@ -148,7 +154,8 @@ export function MembersPage() {
 								<MemberRow
 									key={m.id}
 									member={m}
-									groupVersion={groupVersion}
+									groupVersion={primaryId ? null : groupVersion}
+									primaryVersion={primaryVersion}
 									isPrimary={m.id === primaryId}
 									onSetState={setState}
 									onRemove={() => setRemoving(m)}
@@ -198,12 +205,16 @@ export function MembersPage() {
 function MemberRow({
 	member: m,
 	groupVersion,
+	primaryVersion,
 	isPrimary,
 	onSetState,
 	onRemove,
 }: {
 	member: MemberView;
 	groupVersion: string | null;
+	// The designated primary's version, or null when no primary is set (or its
+	// version is unknown). Non-null anchors the "sync held" badge.
+	primaryVersion: string | null;
 	isPrimary: boolean;
 	onSetState: (m: MemberView, state: "active" | "drained") => void;
 	onRemove: () => void;
@@ -212,6 +223,13 @@ function MemberRow({
 	const health = m.status.health;
 	const mismatch =
 		!!m.status.version && !!groupVersion && m.status.version !== groupVersion;
+	// Mirrors the backend gate: config sync (autosync and the wizard) holds this
+	// member while its version differs from the primary's.
+	const heldForSkew =
+		!isPrimary &&
+		!!primaryVersion &&
+		!!m.status.version &&
+		m.status.version !== primaryVersion;
 
 	return (
 		<tr className={isPrimary ? "fd-row-primary" : undefined}>
@@ -279,6 +297,15 @@ function MemberRow({
 								title={t("members.versionMismatch")}
 							>
 								<WarningIcon size={12} weight="bold" />
+							</span>
+						)}
+						{heldForSkew && (
+							<span
+								className="ui-badge ui-badge-warn"
+								data-testid="member-sync-held"
+								title={t("members.syncHeldTip")}
+							>
+								{t("members.syncHeld")}
 							</span>
 						)}
 					</span>
