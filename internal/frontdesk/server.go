@@ -245,6 +245,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 				r.Post("/members/{id}/state", s.setMemberState)
 				r.Put("/fleet/autosync", s.putAutoSync)
 				r.Post("/config/sync", s.configSync)
+				r.Post("/fleet/version-check", s.fleetVersionCheck)
 				r.Post("/alert/selection", s.putAlertSelection)
 			})
 
