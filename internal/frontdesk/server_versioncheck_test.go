@@ -71,3 +71,11 @@ func TestFleetVersionCheckUnknownPrimary(t *testing.T) {
 		t.Fatalf("version-check with unknown primary = %d, want an error status", rec.Code)
 	}
 }
+
+func TestFleetVersionCheckBadBody(t *testing.T) {
+	srv, _ := newTestServer(t)
+	rec := do(t, srv, http.MethodPost, "/api/fleet/version-check", `{`, true)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("version-check with malformed body = %d, want 400", rec.Code)
+	}
+}
