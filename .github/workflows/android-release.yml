@@ -168,7 +168,11 @@ jobs:
         run: |
           git tag "${{ steps.version.outputs.tag }}"
           git push origin "${{ steps.version.outputs.tag }}"
+          # --latest=false: the repo's Latest badge belongs to the MH/FD
+          # releases (docker-publish passes --latest); without this a Bellhop
+          # release would steal it until the next server release.
           gh release create "${{ steps.version.outputs.tag }}" \
             "bellhop-${{ steps.version.outputs.ver }}.apk" \
             --title "Bellhop ${{ steps.version.outputs.ver }}" \
+            --latest=false \
             --notes-file "$RUNNER_TEMP/release-notes.md"
