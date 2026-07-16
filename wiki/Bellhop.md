@@ -1,6 +1,6 @@
 # Bellhop (Android Companion App)
 
-Bellhop is the Android companion app for [[High Availability|Front Desk]]. Pair a phone once and it becomes a pocket view of your fleet: live member health, request traffic, the fleet event log, and, for operator devices, the controls to drain a member, activate it again, or push a config sync, all from a lock screen notification tap. Bellhop talks only to Front Desk, never to Model Hotel members directly, so it holds no provider credentials and no member admin tokens. It authenticates with its own device token that either side can revoke at any time, and like the rest of Model Hotel it moves only routing and metering metadata, never prompt or response content.
+Bellhop is the Android companion app for [[Front Desk|High Availability]]. Pair a phone once and it becomes a pocket view of your fleet: live member health, request traffic, the fleet event log, and, for operator devices, the controls to drain a member, activate it again, or push a config sync, all from a lock screen notification tap. Bellhop talks only to Front Desk, never to Model Hotel members directly, so it holds no provider credentials and no member admin tokens. It authenticates with its own device token that either side can revoke at any time, and like the rest of Model Hotel it moves only routing and metering metadata, never prompt or response content.
 
 ## The app at a glance
 
