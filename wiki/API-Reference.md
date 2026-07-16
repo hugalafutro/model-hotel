@@ -86,6 +86,13 @@ curl -X POST http://localhost:8081/v1/chat/completions \
 
 **Message normalization:** if a message in `messages` carries `tool_calls: []` (an empty array), the proxy removes the field before forwarding. Some clients serialize aborted or filtered tool-call turns this way, and strict providers reject the whole request with a 400 (`Invalid 'messages[N].tool_calls': empty array`), which permanently breaks any conversation carrying such a turn in its history. Non-empty `tool_calls` and all other message content pass through untouched.
 
+**OpenAI Responses API re-route:** OpenAI's newest models (gpt-5.4 and later, including the gpt-5.6 family) reject function tools combined with reasoning on `/v1/chat/completions` (`"Function tools with reasoning_effort are not supported... use the /v1/responses endpoint"`). When a direct OpenAI candidate answers with that 400, the proxy retries the same request once against the provider's `/v1/responses`, translated in both directions, and caches the requirement per model, so subsequent tools+reasoning requests for that model go to `/v1/responses` immediately with no extra round-trip. This is invisible to the client: you keep sending and receiving ordinary Chat Completions, streaming included.
+
+- The re-route applies only when the request actually carries the forcing combination: `tools` present and `reasoning_effort` not `"none"`. Tools-free or reasoning-off requests keep the ordinary Chat Completions path even for flagged models.
+- The model's reasoning summary is requested (`reasoning: {summary: "auto"}`) and surfaced as `reasoning_content` on the message (or streamed as `reasoning_content` deltas), the same field the proxy already normalizes for other reasoning providers.
+- The gateway stays stateless: every `/v1/responses` call sends `store: false`, so OpenAI retains no conversation state, and each turn re-sends the full transcript. Reasoning items from prior turns are not replayed; each turn reasons fresh, matching Chat Completions behavior.
+- Token usage is metered identically (prompt/completion counts plus reasoning and cached-token details), and as everywhere else, **request/response content is never logged**.
+
 **Model Routing:**
 
 - `hotel/<model>` - Failover routing (tries all providers that offer the model, with automatic failover on 5xx and optionally on 429)

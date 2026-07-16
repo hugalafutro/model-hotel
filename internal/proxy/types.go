@@ -171,6 +171,14 @@ type requestState struct {
 	anthropicRawBody       []byte
 	anthropicNativeAttempt bool
 
+	// OpenAI Responses re-route (zero value = plain chat-completions).
+	// responsesAttempt is set per failover attempt by buildCandidateRequest
+	// (preemptive, cache-driven) or retryWithResponses (learn-from-400): true
+	// when the current candidate is being served via /v1/responses, read by
+	// the response dispatch so it translates the Responses body/stream back to
+	// the chat-completions shape the pipeline and client expect.
+	responsesAttempt bool
+
 	// Populated by resolveCandidates (phase B).
 	timings    resolveTimings
 	cacheHits  resolveCacheHits
