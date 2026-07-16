@@ -661,6 +661,14 @@ private fun LinkedContent(
         }
     }
 
+    // Pause the dashboard's traffic sparkline fan-out while any full-screen overlay
+    // (member detail, events, alerts, settings) is on top: those charts aren't
+    // visible, so fetching them just wakes the radio. The list stays warm via the
+    // health poll and SSE, and the fan-out resumes the moment the dashboard shows.
+    LaunchedEffect(showEvents, showAlerts, showSettings, selectedMemberId) {
+        dashVm.setCovered(showEvents || showAlerts || showSettings || selectedMemberId != null)
+    }
+
     if (showEvents) {
         BackHandler { showEvents = false }
         // Keyed like the dashboard VM so a relink gets a fresh log.

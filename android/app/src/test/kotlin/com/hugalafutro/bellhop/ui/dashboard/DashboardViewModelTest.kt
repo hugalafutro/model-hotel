@@ -459,6 +459,62 @@ class DashboardViewModelTest {
         }
 
     @Test
+    fun coveringTheDashboardPausesTrafficThenResumes() =
+        runBlocking {
+            // While the dashboard is covered by another screen its sparklines aren't
+            // visible, so the periodic traffic fan-out must stop; uncovering resumes
+            // it with an immediate catch-up fetch.
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.trafficResults =
+                mapOf("m1" to FetchResult.Success(MemberTraffic(memberId = "m1", reachable = true)))
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1", trafficPollMs = 40)
+            val job = launch { vm.state.collect {} }
+            vm.setVisibleMembers(listOf("m1"))
+            // The periodic fetch ticks while the dashboard is shown.
+            withTimeout(5_000) { while (client.trafficFetched.size < 2) delay(20) }
+
+            // Cover it: the fan-out quiesces.
+            vm.setCovered(true)
+            delay(200)
+            val settled = client.trafficFetched.size
+            delay(300)
+            assertEquals(settled, client.trafficFetched.size)
+
+            // Uncover: it resumes with an immediate catch-up fetch.
+            vm.setCovered(false)
+            withTimeout(5_000) { while (client.trafficFetched.size == settled) delay(20) }
+            assertTrue(client.trafficFetched.size > settled)
+            job.cancel()
+        }
+
+    @Test
+    fun graphRangeChangeWhileCoveredDoesNotFetch() =
+        runBlocking {
+            // Changing the graph range from Settings (which covers the dashboard)
+            // must not fan out traffic; the new span is picked up by the catch-up
+            // fetch when the dashboard is shown again.
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.trafficResults =
+                mapOf("m1" to FetchResult.Success(MemberTraffic(memberId = "m1", reachable = true)))
+            // A long poll keeps the periodic tick out of the window so only the
+            // range change could move the count.
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1", trafficPollMs = 10_000)
+            val job = launch { vm.state.collect {} }
+            vm.setVisibleMembers(listOf("m1"))
+            withTimeout(5_000) { while (client.trafficFetched.isEmpty()) delay(20) }
+
+            vm.setCovered(true)
+            delay(200)
+            val settled = client.trafficFetched.size
+
+            // Range change while covered: no fetch.
+            vm.setGraphRange(30)
+            delay(400)
+            assertEquals(settled, client.trafficFetched.size)
+            job.cancel()
+        }
+
+    @Test
     fun graphRangeChangeRefetchesVisibleTrafficWithNewWindow() =
         runBlocking {
             val client = FakeFleetClient(FetchResult.Success(listOf(member)))

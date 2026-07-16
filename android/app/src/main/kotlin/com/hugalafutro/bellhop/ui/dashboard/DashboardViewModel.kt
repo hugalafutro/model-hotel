@@ -116,6 +116,13 @@ class DashboardViewModel(
     // single /api/fleet/usage rollup, this loop swaps its source for that one call.
     private val visibleIds = MutableStateFlow<List<String>>(emptyList())
 
+    // Whether the dashboard is hidden behind another screen (member detail,
+    // settings, alerts, events). The dashboard ViewModel keeps running under those
+    // overlays so its state stays warm, but the traffic sparklines aren't on screen
+    // then, so [trafficLoop] pauses the per-member fan-out while covered and catches
+    // up when shown again. Reported by the screen via [setCovered].
+    private val covered = MutableStateFlow(false)
+
     // The traffic-graph range (minutes) the sparklines request, driven by the
     // Settings pref via [setGraphRange]. Changing it force-refetches so the
     // charts redraw at the new span.
@@ -245,6 +252,17 @@ class DashboardViewModel(
     }
 
     /**
+     * setCovered tells the ViewModel whether the dashboard is hidden behind another
+     * screen. While covered, [trafficLoop] stops the per-member sparkline fan-out
+     * (those charts aren't on screen, so fetching them just wakes the radio for
+     * nothing); it resumes with an immediate catch-up fetch when shown again. The
+     * health poll and SSE keep running so the list is fresh the moment it reappears.
+     */
+    fun setCovered(value: Boolean) {
+        covered.value = value
+    }
+
+    /**
      * setGraphRange updates the traffic-graph span (minutes) from the Settings
      * pref. The traffic loop watches [graphWindow] and force-refetches the
      * visible sparklines when it changes, so the charts follow the new range.
@@ -263,33 +281,51 @@ class DashboardViewModel(
             launch {
                 visibleIds.collectLatest { ids ->
                     // collectLatest cancels this delay if the visible set changes
-                    // again, so only a settled viewport triggers a fetch.
+                    // again, so only a settled viewport triggers a fetch. Skip while
+                    // covered (the list is hidden, so nothing needs its sparkline):
+                    // in practice the screen is torn down then and reports no
+                    // changes, but this keeps the fetch honest regardless of caller.
                     delay(TRAFFIC_DEBOUNCE_MS)
-                    fetchVisibleTraffic(ids, force = false)
+                    if (!covered.value) fetchVisibleTraffic(ids, force = false)
                 }
             }
             launch {
-                while (true) {
-                    delay(trafficPollMs)
-                    // A dead token can't authenticate; stop ticking like the
-                    // other loops rather than spinning on a no-op fetch.
-                    if (_state.value.revoked) return@launch
-                    fetchVisibleTraffic(visibleIds.value, force = true)
+                // Pause the periodic fan-out while the dashboard is covered — its
+                // sparklines aren't on screen, so fetching them is pure radio waste.
+                // collectLatest cancels the loop the instant it's covered and, when
+                // shown again, restarts with an immediate catch-up fetch before
+                // resuming the tick. Uncovered from the start, the first fetch runs
+                // against the still-empty viewport (a no-op) until the list reports
+                // its visible ids, which the debounce launch above fetches.
+                covered.collectLatest { isCovered ->
+                    if (isCovered) return@collectLatest
+                    while (true) {
+                        // A dead token can't authenticate; stop ticking like the
+                        // other loops rather than spinning on a no-op fetch.
+                        if (_state.value.revoked) return@collectLatest
+                        fetchVisibleTraffic(visibleIds.value, force = true)
+                        delay(trafficPollMs)
+                    }
                 }
             }
             launch {
                 // A range change invalidates every in-flight and cached sparkline
                 // (they cover the old span). Cancel the old-window fetches so a late
-                // response can't overwrite the chart, drop their stamps, then
-                // force-refetch the viewport at the new span so it redraws now
-                // instead of on the next tick. drop(1) skips the initial value the
-                // first fetch already used.
+                // response can't overwrite the chart and drop their stamps
+                // regardless. Only refetch now if the dashboard is actually on
+                // screen: while it's covered there is nothing to redraw, so the
+                // refetch would just wake the radio — the catch-up fetch when it's
+                // uncovered picks up the new span (fetchVisibleTraffic reads the
+                // current window). drop(1) skips the initial value the first fetch
+                // already used.
                 graphWindow.drop(1).collectLatest {
                     if (_state.value.revoked) return@collectLatest
                     trafficJobs.values.forEach { it.cancel() }
                     trafficJobs.clear()
                     trafficFetchedAt.clear()
-                    fetchVisibleTraffic(visibleIds.value, force = true)
+                    if (!covered.value) {
+                        fetchVisibleTraffic(visibleIds.value, force = true)
+                    }
                 }
             }
         }
