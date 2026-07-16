@@ -72,6 +72,15 @@ beforeEach(() => {
 				primary_id: body.primary_id ?? "",
 			});
 		}),
+		// Default to an aligned, tagged fleet so the version gate passes silently;
+		// gate tests override with their own skewed / dev responses.
+		http.post("/api/fleet/version-check", () =>
+			HttpResponse.json({
+				primary_id: "1",
+				primary_version: "v1.0.0",
+				skewed: [],
+			}),
+		),
 	);
 });
 
@@ -501,5 +510,149 @@ describe("FleetSyncWizard", () => {
 				{ enabled: true, primary_id: "2", confirm_token: "secret-admin-token" },
 			]),
 		);
+	});
+
+	// Converged two-member fleet status: the config step renders with nothing to
+	// push, so the version-gate tests exercise the gate itself, not the diff UI.
+	function convergedStatus() {
+		return http.get("/api/fleet/status", () =>
+			HttpResponse.json({
+				primary_id: "1",
+				primary_reachable: true,
+				members: [
+					primaryRow(),
+					{
+						member_id: "2",
+						name: "hotel-2",
+						reachable: true,
+						has_token: true,
+						master_key_matches: true,
+						schema_ok: true,
+						added: 0,
+						updated: 0,
+						removed: 0,
+					},
+				],
+			}),
+		);
+	}
+
+	async function walkToStep3(id = "1") {
+		renderWizard();
+		await pickPrimary(id);
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+		);
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
+	}
+
+	it("blocks the config step on version skew and refuses to sync", async () => {
+		let syncCalled = false;
+		server.use(
+			convergedStatus(),
+			http.post("/api/config/sync", () => {
+				syncCalled = true;
+				return HttpResponse.json({ results: [] });
+			}),
+			http.post("/api/fleet/version-check", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_version: "v1.2.4",
+					skewed: [{ member_id: "2", name: "hotel-2", version: "v1.2.3" }],
+				}),
+			),
+		);
+		await walkToStep3();
+
+		const block = await screen.findByTestId("version-skew-block");
+		expect(block).toHaveTextContent("hotel-2");
+		expect(block).toHaveTextContent("v1.2.3");
+		const proceed = screen.getByRole("button", { name: "Continue" });
+		expect(proceed).toBeDisabled();
+		await userEvent.click(proceed);
+		expect(screen.queryByRole("dialog")).toBeNull();
+		expect(syncCalled).toBe(false);
+		expect(autosyncPuts).toEqual([]);
+	});
+
+	it("clears the block when Refresh finds the versions aligned again", async () => {
+		let checks = 0;
+		server.use(
+			convergedStatus(),
+			http.post("/api/fleet/version-check", () => {
+				checks += 1;
+				return HttpResponse.json({
+					primary_id: "1",
+					primary_version: "v1.2.4",
+					// First check: one member unreadable (unknown fails closed). The
+					// re-check after the operator aligned it comes back clean.
+					skewed:
+						checks === 1
+							? [{ member_id: "2", name: "hotel-2", version: "" }]
+							: [],
+				});
+			}),
+		);
+		await walkToStep3();
+
+		await screen.findByTestId("version-skew-block");
+		await userEvent.click(screen.getByTestId("version-skew-refresh"));
+		await waitFor(() =>
+			expect(screen.queryByTestId("version-skew-block")).toBeNull(),
+		);
+		expect(checks).toBe(2);
+		expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+	});
+
+	it("asks for a one-click acknowledgment before syncing an all-dev fleet", async () => {
+		server.use(
+			convergedStatus(),
+			http.post("/api/fleet/version-check", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_version: "dev",
+					skewed: [],
+				}),
+			),
+		);
+		await walkToStep3();
+
+		const proceed = screen.getByRole("button", { name: "Continue" });
+		await waitFor(() => expect(proceed).toBeEnabled());
+		await userEvent.click(proceed);
+
+		// Cancelling the acknowledgment commits nothing.
+		expect(await screen.findByTestId("dev-sync-ack-modal")).toBeInTheDocument();
+		await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+		await waitFor(() =>
+			expect(screen.queryByTestId("dev-sync-ack-modal")).toBeNull(),
+		);
+		expect(autosyncPuts).toEqual([]);
+
+		// Acknowledging continues into the normal commit path.
+		await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+		await screen.findByTestId("dev-sync-ack-modal");
+		await userEvent.click(screen.getByRole("button", { name: "Proceed" }));
+		await waitFor(() =>
+			expect(autosyncPuts).toEqual([{ enabled: true, primary_id: "1" }]),
+		);
+		expect(await screen.findByText("Auto-sync on")).toBeInTheDocument();
+	});
+
+	it("shows no dev acknowledgment on a clean tagged fleet", async () => {
+		// The beforeEach default version-check reports an aligned v1.0.0 fleet.
+		server.use(convergedStatus());
+		await walkToStep3();
+
+		const proceed = screen.getByRole("button", { name: "Continue" });
+		await waitFor(() => expect(proceed).toBeEnabled());
+		await userEvent.click(proceed);
+
+		expect(screen.queryByTestId("dev-sync-ack-modal")).toBeNull();
+		await waitFor(() =>
+			expect(autosyncPuts).toEqual([{ enabled: true, primary_id: "1" }]),
+		);
+		expect(await screen.findByText("Auto-sync on")).toBeInTheDocument();
 	});
 });

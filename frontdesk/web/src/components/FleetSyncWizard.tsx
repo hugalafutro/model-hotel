@@ -6,6 +6,7 @@ import type {
 	FleetMemberStatus,
 	FleetStatus,
 	FleetSyncState,
+	FleetVersionCheck,
 	MemberView,
 } from "../api/types";
 import { useToast } from "../context/ToastContext";
@@ -87,6 +88,12 @@ export function FleetSyncWizard({
 	const [commitToken, setCommitToken] = useState("");
 	const [commitError, setCommitError] = useState("");
 	const [lastSync, setLastSync] = useState<FleetSyncState | null>(null);
+	// Version-alignment gate on the sync step. `skew` holds the latest check
+	// result (null until one lands: proceed stays blocked, failing closed);
+	// `devAck` opens the all-dev-fleet acknowledgment modal.
+	const [skew, setSkew] = useState<FleetVersionCheck | null>(null);
+	const [checkingSkew, setCheckingSkew] = useState(false);
+	const [devAck, setDevAck] = useState(false);
 
 	const nameOf = (id: string) => members.find((m) => m.id === id)?.name ?? id;
 
@@ -126,6 +133,35 @@ export function FleetSyncWizard({
 		},
 		[toast, t],
 	);
+
+	// Re-poll the fleet's versions and compare against the primary. The endpoint
+	// probes members on demand, so an operator who just aligned a member sees
+	// the block clear on Refresh instead of waiting for the poll interval.
+	const runSkewCheck = useCallback(
+		async (id: string) => {
+			if (!id) return;
+			setCheckingSkew(true);
+			// A stale result must not vouch for the fleet while the fresh check is
+			// in flight (the primary may have changed since it landed).
+			setSkew(null);
+			try {
+				setSkew(await api.fleetVersionCheck(id));
+			} catch (e) {
+				// No result keeps the sync action blocked (fail closed).
+				setSkew(null);
+				toast(e instanceof ApiError ? e.message : t("errors.generic"), "error");
+			} finally {
+				setCheckingSkew(false);
+			}
+		},
+		[toast, t],
+	);
+
+	const hasSkew = (skew?.skewed.length ?? 0) > 0;
+	// The whole aligned fleet reports the "dev" placeholder version: string
+	// equality cannot vouch for the actual builds, so syncing needs an explicit
+	// operator acknowledgment (wizard-only; autosync never prompts).
+	const isDevFleet = !hasSkew && skew?.primary_version === "dev";
 
 	// On mount, decide which face to show from the persisted designation. A set
 	// primary lands on the resting screen and probes once for the usage details
@@ -177,7 +213,11 @@ export function FleetSyncWizard({
 	};
 
 	const go = (s: Step) => {
-		if (unlocked(s)) setStep(s);
+		if (!unlocked(s)) return;
+		setStep(s);
+		// Entering the sync step re-checks version alignment: versions may have
+		// moved since the wizard was opened, and a stale pass would defeat the gate.
+		if (s === 3) void runSkewCheck(primaryId);
 	};
 
 	const overwrites = status ? configChanges(status) : [];
@@ -255,6 +295,14 @@ export function FleetSyncWizard({
 		// truth cannot be replaced with itself). The proceed button is disabled in
 		// this case; this is a belt-and-suspenders guard.
 		if (sameHostReselected) return;
+		// Version gate: no successful check, a check in flight, or a skewed member
+		// all block the sync. The proceed button is disabled too; StepConfig shows
+		// the skewed members and the Refresh action.
+		if (hasSkew || checkingSkew || !skew) return;
+		if (isDevFleet && !devAck) {
+			setDevAck(true); // open the dev-fleet acknowledgment modal
+			return;
+		}
 		setCommitToken("");
 		setCommitError("");
 		if (overwrites.length > 0) setConfirm("config");
@@ -351,6 +399,9 @@ export function FleetSyncWizard({
 					blockedReason={
 						sameHostReselected ? t("settings.wizard.sameHostError") : ""
 					}
+					skew={skew}
+					checkingSkew={checkingSkew}
+					onRefreshSkew={() => void runSkewCheck(primaryId)}
 					onProceed={proceed}
 				/>
 			)}
@@ -452,6 +503,27 @@ export function FleetSyncWizard({
 						error={commitError}
 						onChange={setCommitToken}
 					/>
+				</ConfirmModal>
+			)}
+
+			{devAck && (
+				<ConfirmModal
+					title={t("settings.wizard.devAckTitle")}
+					confirmLabel={t("settings.wizard.devAckConfirm")}
+					onConfirm={() => {
+						setDevAck(false);
+						// Past the dev gate: re-enter the normal confirm/commit path.
+						setCommitToken("");
+						setCommitError("");
+						if (overwrites.length > 0) setConfirm("config");
+						else if (changingPrimary) setConfirm("change");
+						else void commit();
+					}}
+					onClose={() => setDevAck(false)}
+				>
+					<p className="fd-muted" data-testid="dev-sync-ack-modal">
+						{t("settings.wizard.devAckBody")}
+					</p>
 				</ConfirmModal>
 			)}
 		</div>
@@ -769,6 +841,9 @@ function StepConfig({
 	busy,
 	changingPrimary,
 	blockedReason,
+	skew,
+	checkingSkew,
+	onRefreshSkew,
 	onProceed,
 }: {
 	status: FleetStatus;
@@ -778,10 +853,16 @@ function StepConfig({
 	// Non-empty when the selected host cannot be set as primary (re-selecting the
 	// current primary). Shows the reason and disables the proceed action.
 	blockedReason: string;
+	// Latest version-alignment check; null while none has landed (blocks the
+	// sync action, failing closed) or after a failed check.
+	skew: FleetVersionCheck | null;
+	checkingSkew: boolean;
+	onRefreshSkew: () => void;
 	onProceed: () => void;
 }) {
 	const { t } = useTranslation();
-	const blocked = blockedReason !== "";
+	const hasSkew = (skew?.skewed.length ?? 0) > 0;
+	const blocked = blockedReason !== "" || hasSkew || checkingSkew || !skew;
 	return (
 		<div>
 			<h3 className="fd-step-title">{t("settings.wizard.step3Title")}</h3>
@@ -789,9 +870,38 @@ function StepConfig({
 				{t("settings.wizard.step3Intro")}
 			</p>
 			<MemberTable status={status} kind="config" />
-			{blocked && (
+			{blockedReason !== "" && (
 				<Notice variant="warn" style={{ marginTop: "0.7rem" }}>
 					{blockedReason}
+				</Notice>
+			)}
+			{hasSkew && skew && (
+				<Notice variant="warn" style={{ marginTop: "0.7rem" }}>
+					<div data-testid="version-skew-block">
+						<p style={{ margin: 0 }}>
+							{t("settings.wizard.versionSkewBlock", {
+								count: skew.skewed.length,
+							})}
+						</p>
+						<ul className="fd-mono" style={{ margin: "0.4rem 0 0.5rem" }}>
+							{skew.skewed.map((m) => (
+								<li key={m.member_id}>
+									{m.name} ({m.version || t("members.versionUnknown")})
+								</li>
+							))}
+						</ul>
+						<button
+							type="button"
+							className="ui-btn ui-btn-sm"
+							data-testid="version-skew-refresh"
+							disabled={checkingSkew}
+							onClick={onRefreshSkew}
+						>
+							{checkingSkew
+								? t("common.loading")
+								: t("settings.wizard.versionSkewRefresh")}
+						</button>
+					</div>
 				</Notice>
 			)}
 			{overwrites.length === 0 ? (
