@@ -12,6 +12,8 @@ import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.MemberStatus
+import com.hugalafutro.bellhop.data.MemberTraffic
+import com.hugalafutro.bellhop.data.TrafficPoint
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -129,6 +131,65 @@ class DashboardScreenTest {
         pill.assertIsDisplayed()
         pill.performClick()
         assertEquals("m1", opened)
+    }
+
+    @Test
+    fun quietTrafficWindowLabelsTheSparklineEmpty() {
+        // Buckets present but no requests: the idle sparkline still draws, with the
+        // same "No requests in this window." label the detail screen uses centred
+        // over it, so the flat line reads as quiet rather than broken.
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui =
+                        DashboardUiState(
+                            loading = false,
+                            members = allUp,
+                            traffic =
+                                mapOf(
+                                    "m1" to
+                                        MemberTraffic(
+                                            memberId = "m1",
+                                            reachable = true,
+                                            totalRequests = 0,
+                                            points = listOf(TrafficPoint(bucket = "t0", requests = 0)),
+                                        ),
+                                ),
+                        ),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("member-sparkline-alpha", useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-sparkline-empty-alpha", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun busyTrafficWindowDrawsSparklineWithoutEmptyLabel() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui =
+                        DashboardUiState(
+                            loading = false,
+                            members = allUp,
+                            traffic =
+                                mapOf(
+                                    "m1" to
+                                        MemberTraffic(
+                                            memberId = "m1",
+                                            reachable = true,
+                                            totalRequests = 5,
+                                            points = listOf(TrafficPoint(bucket = "t0", requests = 5, errors = 1)),
+                                        ),
+                                ),
+                        ),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("member-sparkline-alpha", useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag("member-sparkline-empty-alpha", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
