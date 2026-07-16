@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -416,6 +417,37 @@ func TestAutoSyncStalenessWatchdog(t *testing.T) {
 	ev = <-ch
 	if ev.Type != "config.autosync_stale" {
 		t.Errorf("after re-arm should warn again: %+v", ev)
+	}
+}
+
+// TestPollVersionsOnceClearsVersionOnFailedFetch: a version we can no longer
+// read is unknown, and the sync gates treat unknown as skewed (fail closed).
+// Keeping the last good value would let a sync proceed on stale data while a
+// member is mid-upgrade, so a failed fetch clears the cached version.
+func TestPollVersionsOnceClearsVersionOnFailedFetch(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	var fail atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if fail.Load() {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		_, _ = w.Write([]byte(`{"app_version":"v1.2.3"}`))
+	}))
+	defer srv.Close()
+
+	m, _ := store.CreateMember(ctx, "m", srv.URL, "tok")
+	p.PollVersionsOnce(ctx)
+	if v := p.MemberVersion(m.ID); v != "v1.2.3" {
+		t.Fatalf("seed version = %q, want v1.2.3", v)
+	}
+
+	fail.Store(true)
+	p.PollVersionsOnce(ctx)
+	if v := p.MemberVersion(m.ID); v != "" {
+		t.Errorf("version after a failed fetch = %q, want empty (fail closed)", v)
 	}
 }
 

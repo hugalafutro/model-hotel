@@ -568,6 +568,19 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 		version, err := p.fetchMemberVersion(ctx, m.URL, token)
 		if err != nil {
 			p.noteVersionFetchFailure(ctx, m, err)
+			// A version we can no longer read is unknown, and the config-sync
+			// gates treat unknown as skewed (fail closed). Keeping the last good
+			// value would let a sync proceed on stale data while the member is
+			// mid-upgrade, which is exactly the window the gate exists for.
+			p.mu.Lock()
+			cur := p.statuses[m.ID]
+			hadVersion := cur.Version != ""
+			cur.Version = ""
+			p.statuses[m.ID] = cur
+			p.mu.Unlock()
+			if hadVersion {
+				p.publishMemberStatus(m.ID)
+			}
 			continue
 		}
 		p.mu.Lock()
