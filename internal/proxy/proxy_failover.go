@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -112,7 +112,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// in a 400 error can only mean the sampling parameter.
 	//
 	// Skipped for native Anthropic passthrough: this self-heal rebuilds the
-	// OpenAI-shaped st.bodyBytes via buildUpstreamBody and re-POSTs it, but a
+	// OpenAI-shaped st.bodyBytes via paramrewrite.BuildUpstreamBody and re-POSTs it, but a
 	// native attempt's targetURL is the provider's /v1/messages (Anthropic wire
 	// format). Stripping OpenAI params off the wrong body and sending it to the
 	// native endpoint would be malformed; a native 400 is forwarded as-is.
@@ -325,7 +325,7 @@ func (h *Handler) touchProviderLastUsed(pid uuid.UUID) {
 // can thread them into the 400 auto-retry path.
 //
 // Chat requests (st.makeUpstreamBody == nil) go through the chat-specific
-// rewrite (buildUpstreamBody: model rename, stream_options, param stripping).
+// rewrite (paramrewrite.BuildUpstreamBody: model rename, stream_options, param stripping).
 // Multimodal requests provide st.makeUpstreamBody, which owns the body rewrite
 // and its Content-Type (JSON model rename, or multipart reconstruction).
 func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, candidate modelCandidate) (*http.Request, string, string, error) {
@@ -361,10 +361,10 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 			return nil, providerType, targetURL, err
 		}
 	} else {
-		needsRewrite := st.reqModel != candidate.model.ModelID || providerType == "anthropic" || NeedsProviderInjection(providerType) || st.isStreaming
+		needsRewrite := st.reqModel != candidate.model.ModelID || providerType == "anthropic" || paramrewrite.NeedsProviderInjection(providerType) || st.isStreaming
 		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {
-			upstreamBody = buildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, nil)
+			upstreamBody = paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, nil)
 		}
 		// Log the actual model name in the upstream body for debugging rewrite
 		// issues. Chat-only: multipart bodies must never reach debug logs.
@@ -644,8 +644,8 @@ func (h *Handler) retryWithStrippedParams(
 	// A 400 can ask us to drop a param (rejected → strip) and/or move a param to
 	// a new name (rename → preserve value). Both feed the same self-heal: learn,
 	// cache for future preemptive application, and retry once.
-	rejected := parseProviderParamError(body)
-	renames := parseProviderParamRename(body)
+	rejected := paramrewrite.ParseProviderParamError(body)
+	renames := paramrewrite.ParseProviderParamRename(body)
 	if rejected == nil && renames == nil {
 		return res
 	}
@@ -655,10 +655,10 @@ func (h *Handler) retryWithStrippedParams(
 	// data races from concurrent goroutines mutating the same map.
 	cacheKey := fmt.Sprintf("%s:%s", providerType, candidate.model.ModelID)
 	if rejected != nil {
-		mergeLearnedParamCache(&h.deprecationCache, cacheKey, rejected)
+		paramrewrite.MergeLearnedParamCache(&h.deprecationCache, cacheKey, rejected)
 	}
 	if renames != nil {
-		mergeLearnedParamCache(&h.paramRenameCache, cacheKey, renames)
+		paramrewrite.MergeLearnedParamCache(&h.paramRenameCache, cacheKey, renames)
 	}
 
 	// Rebuild the request body using the shared rewrite path. This ensures
@@ -667,7 +667,7 @@ func (h *Handler) retryWithStrippedParams(
 	// from the initial attempt path. The renames just cached are picked up from
 	// paramRenameCache; the freshly-rejected params are also passed as extraStrip
 	// so the immediate retry strips them even before the cache write is observed.
-	rebuilt := buildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, rejected)
+	rebuilt := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, rejected)
 	retryCtx, rc := context.WithTimeout(r.Context(), st.failoverTimeout)
 	retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
 	retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, dialMs)
@@ -713,35 +713,6 @@ func (h *Handler) retryWithStrippedParams(
 	res.retried = true
 	debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rejected_params", mapKeys(rejected), "renamed_params", renameKeys(renames))
 	return res
-}
-
-// mergeLearnedParamCache merges newly-learned per-model param metadata into a
-// sync.Map cache keyed by "providerType:modelID", race-free under concurrent
-// goroutines via CompareAndSwap. Values are stored as *map[string]V (pointers,
-// because maps are not comparable and CompareAndSwap requires comparable values).
-func mergeLearnedParamCache[V any](cache *sync.Map, key string, learned map[string]V) {
-	for {
-		existing, loaded := cache.LoadOrStore(key, &learned)
-		if !loaded {
-			return // first entry for this key — we just stored 'learned'
-		}
-		existingMap, ok := existing.(*map[string]V)
-		if !ok {
-			debuglog.Error("learned param cache: unexpected type", "key", key, "type", fmt.Sprintf("%T", existing))
-			return
-		}
-		merged := make(map[string]V, len(*existingMap)+len(learned))
-		for k, v := range *existingMap {
-			merged[k] = v
-		}
-		for k, v := range learned {
-			merged[k] = v
-		}
-		if cache.CompareAndSwap(key, existing, &merged) {
-			return
-		}
-		// CompareAndSwap failed — another goroutine updated it, retry.
-	}
 }
 
 // renameKeys returns the old param names from a rename map, for log fields.

@@ -1,4 +1,12 @@
-package proxy
+// Package paramrewrite is the single shared implementation of model-hotel's
+// request/response parameter self-healing: rewriting an OpenAI-style chat
+// completion body for a specific provider (model rename, stream_options and
+// provider-specific injection, universal + learned param stripping, learned
+// param renaming) and parsing upstream 400 bodies to learn which params a
+// provider rejects or wants renamed. Both the streaming proxy failover loop and
+// the admin "Test model" probe build their upstream bodies and self-heal 400s
+// through this package so the two paths can never drift.
+package paramrewrite
 
 import (
 	"encoding/json"
@@ -6,11 +14,11 @@ import (
 	"sync"
 )
 
-// providerUnsupportedParams lists OpenAI Chat Completions parameters that are
+// ProviderUnsupportedParams lists OpenAI Chat Completions parameters that are
 // universally unsupported (cause 400 errors) per provider type. These are
 // preemptively stripped from requests to avoid a wasted round-trip.
 // Sources: official provider docs + empirical testing.
-var providerUnsupportedParams = map[string][]string{
+var ProviderUnsupportedParams = map[string][]string{
 	"anthropic": {
 		"top_p",             // deprecated on all current Anthropic models
 		"frequency_penalty", // Anthropic uses a single penalties param, not separate freq/presence
@@ -76,11 +84,11 @@ var providerUnsupportedParams = map[string][]string{
 	},
 }
 
-// getCachedRejectedParams returns params known to be rejected for a provider+model,
+// CachedRejectedParams returns params known to be rejected for a provider+model,
 // learned from previous 400 responses.
 // NOTE: Values are stored as *map[string]bool in sync.Map to support CompareAndSwap
 // (maps are not comparable, so pointers are required).
-func getCachedRejectedParams(cache *sync.Map, cacheKey string) map[string]bool {
+func CachedRejectedParams(cache *sync.Map, cacheKey string) map[string]bool {
 	if v, ok := cache.Load(cacheKey); ok {
 		if ptr, ok := v.(*map[string]bool); ok {
 			return *ptr
@@ -93,12 +101,12 @@ func getCachedRejectedParams(cache *sync.Map, cacheKey string) map[string]bool {
 	return nil
 }
 
-// getCachedRenames returns param renames known to be required for a
+// cachedRenames returns param renames known to be required for a
 // provider+model, learned from previous 400 responses (e.g. an OpenAI gpt-5/o
 // model that rejects max_tokens and demands max_completion_tokens).
 // NOTE: Values are stored as *map[string]string in sync.Map to support
 // CompareAndSwap (maps are not comparable, so pointers are required).
-func getCachedRenames(cache *sync.Map, cacheKey string) map[string]string {
+func cachedRenames(cache *sync.Map, cacheKey string) map[string]string {
 	if v, ok := cache.Load(cacheKey); ok {
 		if ptr, ok := v.(*map[string]string); ok {
 			return *ptr
@@ -107,7 +115,7 @@ func getCachedRenames(cache *sync.Map, cacheKey string) map[string]string {
 	return nil
 }
 
-// parseProviderParamRename parses 400 error bodies for params the upstream wants
+// ParseProviderParamRename parses 400 error bodies for params the upstream wants
 // renamed rather than dropped. Unlike a rejected param (which we strip), a
 // renamed param carries a value we must preserve under the new name — stripping
 // it would silently discard the caller's intent (e.g. their token budget).
@@ -117,7 +125,7 @@ func getCachedRenames(cache *sync.Map, cacheKey string) map[string]string {
 // ("Unsupported parameter: 'max_tokens' is not supported with this model. Use
 // 'max_completion_tokens' instead."). These reach model-hotel directly via the
 // openai provider and indirectly via passthrough gateways (e.g. OpenCode Zen).
-func parseProviderParamRename(body []byte) map[string]string {
+func ParseProviderParamRename(body []byte) map[string]string {
 	var errResp struct {
 		Error struct {
 			Message string `json:"message"`
@@ -148,11 +156,11 @@ func parseProviderParamRename(body []byte) map[string]string {
 	return renames
 }
 
-// parseProviderParamError parses 400 error bodies for rejected sampling/param names.
+// ParseProviderParamError parses 400 error bodies for rejected sampling/param names.
 // Any LLM API mentioning these param names in a 400 error can only be referring
 // to the request parameter — there is no other meaning in this context.
 // This works universally across all providers, not just Anthropic.
-func parseProviderParamError(body []byte) map[string]bool {
+func ParseProviderParamError(body []byte) map[string]bool {
 	var errResp struct {
 		Error struct {
 			Message string `json:"message"`

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -21,6 +20,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -304,10 +304,10 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	keyDecryptMs := float64(time.Since(keyDecryptStart).Microseconds()) / 1000.0
 	proxyOverheadMs := float64(time.Since(start).Microseconds()) / 1000.0
 
-	proxyReq, reqHash := buildTestModelRequest(r.Context(), m, prov, apiKey)
+	baseBody, providerType, targetURL, reqHash := buildTestModelRequest(m, prov)
 
 	startRequest := time.Now()
-	resp, err := h.doTestModelRequest(proxyReq)
+	resp, err := h.doTestModelRequest(r.Context(), providerType, targetURL, m.ModelID, apiKey, baseBody)
 	if err != nil {
 		durationMs := float64(time.Since(start).Milliseconds())
 		h.logTestModelRequestError(r.Context(), m, reqHash, durationMs, proxyOverheadMs, keyDecryptMs, err.Error())
@@ -387,15 +387,21 @@ func (h *Handler) decryptTestModelKey(w http.ResponseWriter, prov *provider.Prov
 	return apiKey, true
 }
 
-// buildTestModelRequest constructs the upstream chat-completions probe request
-// (a short "Respond only with `Hi`" prompt) with provider-appropriate auth
-// headers, and returns it alongside a fresh random request hash for logging.
+// buildTestModelRequest constructs the OpenAI-shaped chat-completions probe
+// body (a short "Respond only with `Hi`" prompt) and resolves the provider type
+// and target URL, returning them alongside a fresh random request hash for
+// logging. The body is left un-rewritten here: doTestModelRequest sends it
+// through paramrewrite.BuildUpstreamBody so the probe applies the exact same
+// provider rewrites (param injection/stripping, learned renames) as live proxy
+// traffic instead of maintaining a second, drift-prone body.
 //
 // max_tokens is kept small: the test only confirms the model responds. A
 // reasoning model may spend the whole budget on reasoning and return empty
 // content — that still counts as success, and the UI omits the response text
-// when it's empty rather than paying for a full reasoning generation.
-func buildTestModelRequest(ctx context.Context, m *model.Model, prov *provider.Provider, apiKey string) (*http.Request, string) {
+// when it's empty rather than paying for a full reasoning generation. For
+// OpenAI gpt-5/o-series models that reject max_tokens, the shared self-heal
+// renames it to max_completion_tokens and retries, so the probe succeeds.
+func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []byte, providerType, targetURL, reqHash string) {
 	body := map[string]interface{}{
 		"model": m.ModelID,
 		"messages": []map[string]string{
@@ -403,25 +409,24 @@ func buildTestModelRequest(ctx context.Context, m *model.Model, prov *provider.P
 		},
 		"max_tokens": 10,
 	}
-	bodyBytes, _ := json.Marshal(body)
+	baseBody, _ = json.Marshal(body)
 
-	providerType := provider.DetectProviderType(prov.BaseURL)
-	targetURL := util.BuildProviderTargetURL(prov.BaseURL, providerType, "/chat/completions")
-	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
-	proxyReq, _ := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(bodyBytes))
-	util.SetProviderAuthHeaders(proxyReq, providerType, apiKey)
-	proxyReq.Header.Set("Content-Type", "application/json")
+	providerType = provider.DetectProviderType(prov.BaseURL)
+	targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType, "/chat/completions")
 
 	reqHashBytes := make([]byte, 8)
 	rand.Read(reqHashBytes)
-	reqHash := hex.EncodeToString(reqHashBytes)
+	reqHash = hex.EncodeToString(reqHashBytes)
 
-	return proxyReq, reqHash
+	return baseBody, providerType, targetURL, reqHash
 }
 
-// doTestModelRequest executes the probe request with a 30s-timeout client,
-// honoring the test-only transport/redirect hooks when set.
-func (h *Handler) doTestModelRequest(proxyReq *http.Request) (*http.Response, error) {
+// doTestModelRequest sends the probe through the shared self-heal executor with
+// a 30s-timeout client, honoring the test-only transport/redirect hooks when
+// set. Routing through paramrewrite.SelfHealChatCompletion means the probe uses
+// the same body-rewrite and 400 param-retry (e.g. max_tokens ->
+// max_completion_tokens) that the proxy failover loop uses for live traffic.
+func (h *Handler) doTestModelRequest(ctx context.Context, providerType, targetURL, modelID, apiKey string, baseBody []byte) (*http.Response, error) {
 	testClient := &http.Client{Timeout: 30 * time.Second}
 	if h.testModelTransport != nil {
 		testClient.Transport = h.testModelTransport
@@ -429,8 +434,10 @@ func (h *Handler) doTestModelRequest(proxyReq *http.Request) (*http.Response, er
 	if h.testModelCheckRedirect != nil {
 		testClient.CheckRedirect = h.testModelCheckRedirect
 	}
-	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
-	return testClient.Do(proxyReq)
+	return paramrewrite.SelfHealChatCompletion(ctx, testClient, targetURL, providerType, modelID, baseBody, func(req *http.Request) {
+		util.SetProviderAuthHeaders(req, providerType, apiKey)
+		req.Header.Set("Content-Type", "application/json")
+	})
 }
 
 // parseTestModelResponse extracts the assistant content and computes

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -103,12 +104,12 @@ func TestBuildProviderTargetURL(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// getCachedRejectedParams
+// paramrewrite.CachedRejectedParams
 // ---------------------------------------------------------------------------
 
 func TestGetCachedRejectedParams_EmptyCache(t *testing.T) {
 	var cache sync.Map
-	got := getCachedRejectedParams(&cache, "nonexistent")
+	got := paramrewrite.CachedRejectedParams(&cache, "nonexistent")
 	if got != nil {
 		t.Errorf("expected nil for empty cache, got %v", got)
 	}
@@ -119,7 +120,7 @@ func TestGetCachedRejectedParams_KeyExists(t *testing.T) {
 	expected := map[string]bool{"top_p": true, "temperature": true}
 	cache.Store("anthropic:claude-3-opus", expected)
 
-	got := getCachedRejectedParams(&cache, "anthropic:claude-3-opus")
+	got := paramrewrite.CachedRejectedParams(&cache, "anthropic:claude-3-opus")
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
 	}
@@ -129,7 +130,7 @@ func TestGetCachedRejectedParams_WrongType(t *testing.T) {
 	var cache sync.Map
 	cache.Store("key", "not a map")
 
-	got := getCachedRejectedParams(&cache, "key")
+	got := paramrewrite.CachedRejectedParams(&cache, "key")
 	if got != nil {
 		t.Errorf("expected nil for wrong type value, got %v", got)
 	}
@@ -139,12 +140,12 @@ func TestGetCachedRejectedParams_NilMapValue(t *testing.T) {
 	var cache sync.Map
 	cache.Store("key", map[string]bool(nil))
 
-	got := getCachedRejectedParams(&cache, "key")
+	got := paramrewrite.CachedRejectedParams(&cache, "key")
 	// A nil map[string]bool passes the type assertion in Load, but the
 	// returned value is still nil (a nil map is nil in Go). Verify the
 	// function returns nil rather than a sentinel or empty map.
 	if got != nil {
-		t.Errorf("getCachedRejectedParams should return nil for nil map value, got %v", got)
+		t.Errorf("paramrewrite.CachedRejectedParams should return nil for nil map value, got %v", got)
 	}
 }
 
@@ -153,7 +154,7 @@ func TestGetCachedRejectedParams_MultipleKeys(t *testing.T) {
 	cache.Store("provider-a:model-1", map[string]bool{"top_p": true})
 	cache.Store("provider-b:model-2", map[string]bool{"temperature": true, "top_k": true})
 
-	got := getCachedRejectedParams(&cache, "provider-b:model-2")
+	got := paramrewrite.CachedRejectedParams(&cache, "provider-b:model-2")
 	expected := map[string]bool{"temperature": true, "top_k": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -161,25 +162,25 @@ func TestGetCachedRejectedParams_MultipleKeys(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// parseProviderParamError
+// paramrewrite.ParseProviderParamError
 // ---------------------------------------------------------------------------
 
 func TestParseProviderParamError_InvalidJSON(t *testing.T) {
-	got := parseProviderParamError([]byte(`{invalid json`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{invalid json`))
 	if got != nil {
 		t.Errorf("expected nil for invalid JSON, got %v", got)
 	}
 }
 
 func TestParseProviderParamError_ValidJSONNoMatch(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error": {"message": "some unrelated error"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error": {"message": "some unrelated error"}}`))
 	if got != nil {
 		t.Errorf("expected nil for unrelated error, got %v", got)
 	}
 }
 
 func TestParseProviderParamError_TemperatureBacktick(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"` + "`temperature`" + ` is deprecated for this model"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"` + "`temperature`" + ` is deprecated for this model"}}`))
 	expected := map[string]bool{"temperature": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -187,7 +188,7 @@ func TestParseProviderParamError_TemperatureBacktick(t *testing.T) {
 }
 
 func TestParseProviderParamError_TopPQuoted(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"\"top_p\" is not supported"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"\"top_p\" is not supported"}}`))
 	expected := map[string]bool{"top_p": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -195,7 +196,7 @@ func TestParseProviderParamError_TopPQuoted(t *testing.T) {
 }
 
 func TestParseProviderParamError_TopKBacktick(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"` + "`top_k`" + ` is not supported on this endpoint"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"` + "`top_k`" + ` is not supported on this endpoint"}}`))
 	expected := map[string]bool{"top_k": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -203,7 +204,7 @@ func TestParseProviderParamError_TopKBacktick(t *testing.T) {
 }
 
 func TestParseProviderParamError_CannotBothBeSpecified(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"cannot both be specified"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"cannot both be specified"}}`))
 	expected := map[string]bool{"top_p": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -211,7 +212,7 @@ func TestParseProviderParamError_CannotBothBeSpecified(t *testing.T) {
 }
 
 func TestParseProviderParamError_TemperatureAndTopP(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"` + "`temperature` and `top_p`" + ` cannot both be specified"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"` + "`temperature` and `top_p`" + ` cannot both be specified"}}`))
 	expected := map[string]bool{"temperature": true, "top_p": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -219,14 +220,14 @@ func TestParseProviderParamError_TemperatureAndTopP(t *testing.T) {
 }
 
 func TestParseProviderParamError_TemperatureNotWrapped(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"invalid request for temperature value"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"invalid request for temperature value"}}`))
 	if got != nil {
 		t.Errorf("expected nil when temperature is not backtick/quote-wrapped, got %v", got)
 	}
 }
 
 func TestParseProviderParamError_ShortParamN(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"` + "`n`" + ` must be exactly 1"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"` + "`n`" + ` must be exactly 1"}}`))
 	expected := map[string]bool{"n": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -234,14 +235,14 @@ func TestParseProviderParamError_ShortParamN(t *testing.T) {
 }
 
 func TestParseProviderParamError_ShortParamNNotWrapped(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"n completions not supported"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"n completions not supported"}}`))
 	if got != nil {
 		t.Errorf("expected nil when n is not wrapped, got %v", got)
 	}
 }
 
 func TestParseProviderParamError_TopABacktick(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"` + "`top_a`" + ` is not supported"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"` + "`top_a`" + ` is not supported"}}`))
 	expected := map[string]bool{"top_a": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -249,7 +250,7 @@ func TestParseProviderParamError_TopABacktick(t *testing.T) {
 }
 
 func TestParseProviderParamError_TopZQuoted(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"\"top_z\" is unsupported"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"\"top_z\" is unsupported"}}`))
 	expected := map[string]bool{"top_z": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -257,7 +258,7 @@ func TestParseProviderParamError_TopZQuoted(t *testing.T) {
 }
 
 func TestParseProviderParamError_EmptyMessage(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":""}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":""}}`))
 	if got != nil {
 		t.Errorf("expected nil for empty message, got %v", got)
 	}
@@ -265,7 +266,7 @@ func TestParseProviderParamError_EmptyMessage(t *testing.T) {
 
 func TestParseProviderParamError_BacktickBoundary(t *testing.T) {
 	// Message ending right at the closing backtick
-	got := parseProviderParamError([]byte(`{"error":{"message":"` + "`top_p`" + `"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"` + "`top_p`" + `"}}`))
 	expected := map[string]bool{"top_p": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -274,14 +275,14 @@ func TestParseProviderParamError_BacktickBoundary(t *testing.T) {
 
 func TestParseProviderParamError_TopNotWrapped(t *testing.T) {
 	// Message contains top_ but NOT backtick/quote-wrapped
-	got := parseProviderParamError([]byte(`{"error":{"message":"the top_p parameter is not supported"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"the top_p parameter is not supported"}}`))
 	if got != nil {
 		t.Errorf("expected nil when top_ is not wrapped, got %v", got)
 	}
 }
 
 func TestParseProviderParamError_FrequencyPenalty(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"` + "`frequency_penalty`" + ` not supported by this model"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"` + "`frequency_penalty`" + ` not supported by this model"}}`))
 	expected := map[string]bool{"frequency_penalty": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -289,7 +290,7 @@ func TestParseProviderParamError_FrequencyPenalty(t *testing.T) {
 }
 
 func TestParseProviderParamError_PresencePenalty(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"\"presence_penalty\" is invalid for this endpoint"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"\"presence_penalty\" is invalid for this endpoint"}}`))
 	expected := map[string]bool{"presence_penalty": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -297,7 +298,7 @@ func TestParseProviderParamError_PresencePenalty(t *testing.T) {
 }
 
 func TestParseProviderParamError_MultipleParams(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"` +
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"` +
 		"`temperature`, `top_p`, `top_k`" +
 		` are not allowed with this model"}}`))
 	expected := map[string]bool{"temperature": true, "top_p": true, "top_k": true}
@@ -307,14 +308,14 @@ func TestParseProviderParamError_MultipleParams(t *testing.T) {
 }
 
 func TestParseProviderParamError_NoErrorField(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"id": "123"}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"id": "123"}`))
 	if got != nil {
 		t.Errorf("expected nil when no error field, got %v", got)
 	}
 }
 
 func TestParseProviderParamError_StopBacktick(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"` + "`stop`" + ` is not supported"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"` + "`stop`" + ` is not supported"}}`))
 	expected := map[string]bool{"stop": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -322,7 +323,7 @@ func TestParseProviderParamError_StopBacktick(t *testing.T) {
 }
 
 func TestParseProviderParamError_SeedBacktick(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"` + "`seed`" + ` cannot be set on this endpoint"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"` + "`seed`" + ` cannot be set on this endpoint"}}`))
 	expected := map[string]bool{"seed": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -330,7 +331,7 @@ func TestParseProviderParamError_SeedBacktick(t *testing.T) {
 }
 
 func TestParseProviderParamError_MaxTokensBacktick(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"` + "`max_tokens`" + ` exceeds model limit"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"` + "`max_tokens`" + ` exceeds model limit"}}`))
 	expected := map[string]bool{"max_tokens": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -338,7 +339,7 @@ func TestParseProviderParamError_MaxTokensBacktick(t *testing.T) {
 }
 
 func TestParseProviderParamError_LogprobsQuoted(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"\"logprobs\" is not available"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"\"logprobs\" is not available"}}`))
 	expected := map[string]bool{"logprobs": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -346,7 +347,7 @@ func TestParseProviderParamError_LogprobsQuoted(t *testing.T) {
 }
 
 func TestParseProviderParamError_ReasoningEffortBacktick(t *testing.T) {
-	got := parseProviderParamError([]byte(`{"error":{"message":"` + "`reasoning_effort`" + ` is not supported"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"` + "`reasoning_effort`" + ` is not supported"}}`))
 	expected := map[string]bool{"reasoning_effort": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -358,7 +359,7 @@ func TestParseProviderParamError_ReasoningEffortBacktick(t *testing.T) {
 
 func TestParseProviderParamError_ChatTemplateArgsVLLMSingleQuote(t *testing.T) {
 	// vLLM/pydantic format (e.g. opencode-go/glm-5.2): single-quoted field name.
-	got := parseProviderParamError([]byte(`{"error":{"message":"Error from provider: Extra inputs are not permitted, field: 'chat_template_args'"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"Error from provider: Extra inputs are not permitted, field: 'chat_template_args'"}}`))
 	expected := map[string]bool{"chat_template_args": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -367,7 +368,7 @@ func TestParseProviderParamError_ChatTemplateArgsVLLMSingleQuote(t *testing.T) {
 
 func TestParseProviderParamError_ChatTemplateArgsBare(t *testing.T) {
 	// OpenAI-style passthrough (e.g. opencode-zen/gpt-5-nano): bare field name.
-	got := parseProviderParamError([]byte(`{"error":{"message":"Unrecognized request argument supplied: chat_template_args"}}`))
+	got := paramrewrite.ParseProviderParamError([]byte(`{"error":{"message":"Unrecognized request argument supplied: chat_template_args"}}`))
 	expected := map[string]bool{"chat_template_args": true}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -375,14 +376,14 @@ func TestParseProviderParamError_ChatTemplateArgsBare(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// parseProviderParamRename
+// paramrewrite.ParseProviderParamRename
 // ---------------------------------------------------------------------------
 
 func TestParseProviderParamRename_MaxCompletionTokens(t *testing.T) {
 	// OpenAI gpt-5/o-series deprecation (also reaches us via OpenCode Zen
 	// passthrough): max_tokens must be renamed to max_completion_tokens, not
 	// dropped — dropping would silently discard the caller's token budget.
-	got := parseProviderParamRename([]byte(`{"error":{"message":"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.","type":"invalid_request_error","param":"max_tokens","code":"unsupported_parameter"}}`))
+	got := paramrewrite.ParseProviderParamRename([]byte(`{"error":{"message":"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.","type":"invalid_request_error","param":"max_tokens","code":"unsupported_parameter"}}`))
 	expected := map[string]string{"max_tokens": "max_completion_tokens"}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("got %v, want %v", got, expected)
@@ -392,7 +393,7 @@ func TestParseProviderParamRename_MaxCompletionTokens(t *testing.T) {
 func TestParseProviderParamRename_NoRenameSignal(t *testing.T) {
 	// An ordinary rejection that doesn't mention max_completion_tokens must not
 	// trigger a rename.
-	got := parseProviderParamRename([]byte(`{"error":{"message":"Unrecognized request argument supplied: chat_template_args"}}`))
+	got := paramrewrite.ParseProviderParamRename([]byte(`{"error":{"message":"Unrecognized request argument supplied: chat_template_args"}}`))
 	if got != nil {
 		t.Errorf("expected nil (no rename), got %v", got)
 	}
@@ -409,14 +410,14 @@ func TestParseProviderParamRename_ValidationErrorNotRename(t *testing.T) {
 		`{"error":{"message":"Only one of max_tokens or max_completion_tokens may be specified."}}`,
 	}
 	for _, body := range cases {
-		if got := parseProviderParamRename([]byte(body)); got != nil {
+		if got := paramrewrite.ParseProviderParamRename([]byte(body)); got != nil {
 			t.Errorf("expected nil (not a rename directive) for %q, got %v", body, got)
 		}
 	}
 }
 
 func TestParseProviderParamRename_Unparseable(t *testing.T) {
-	if got := parseProviderParamRename([]byte("not json")); got != nil {
+	if got := paramrewrite.ParseProviderParamRename([]byte("not json")); got != nil {
 		t.Errorf("expected nil for unparseable body, got %v", got)
 	}
 }
@@ -702,9 +703,9 @@ func TestProviderUnsupportedParams_ReasoningEffort(t *testing.T) {
 	}
 
 	for _, provider := range providersWithReasoningEffort {
-		params, ok := providerUnsupportedParams[provider]
+		params, ok := paramrewrite.ProviderUnsupportedParams[provider]
 		if !ok {
-			t.Errorf("provider %q: missing from providerUnsupportedParams", provider)
+			t.Errorf("provider %q: missing from paramrewrite.ProviderUnsupportedParams", provider)
 			continue
 		}
 		found := false
@@ -723,7 +724,7 @@ func TestProviderUnsupportedParams_ReasoningEffort(t *testing.T) {
 func TestProviderUnsupportedParams_OpenAISupportsReasoningEffort(t *testing.T) {
 	// OpenAI and xAI support reasoning_effort — it should NOT be in their unsupported list
 	for _, provider := range []string{"openai", "xai"} {
-		params, ok := providerUnsupportedParams[provider]
+		params, ok := paramrewrite.ProviderUnsupportedParams[provider]
 		if !ok {
 			continue // no entry is fine (means nothing is unsupported)
 		}
@@ -756,7 +757,7 @@ func TestProviderUnsupportedParams_StripsFromRequestBody(t *testing.T) {
 	}
 
 	// Strip anthropic-unsupported params (includes reasoning_effort)
-	if params, ok := providerUnsupportedParams["anthropic"]; ok {
+	if params, ok := paramrewrite.ProviderUnsupportedParams["anthropic"]; ok {
 		for _, p := range params {
 			delete(rawMap, p)
 		}
