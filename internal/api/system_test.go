@@ -368,11 +368,12 @@ func TestGetSystem_ValidSince(t *testing.T) {
 
 func TestGetSystem_CancelledContext(t *testing.T) {
 	// Do NOT use t.Parallel() — mutates package-level cache.
-	// A canceled request now surfaces the settings read failure (from computing
-	// fleet status) as a 500 rather than a gracefully-degraded 200. This is the
-	// cache-poisoning fix: a half-read payload must never be cached and served to
-	// other clients as authoritative. The DB-stat queries still degrade to zero
-	// on cancellation; it is specifically the fleet read that must not be guessed.
+	// A caller that cancels mid-flight must NOT abort the collect. GetSystem runs
+	// the collect on a context detached from the request, so a poller that gives
+	// up early (e.g. Front Desk's 4s probe timing out on a freshly restarted, slow
+	// instance) still lets the collect finish and warm the 3s cache. Without this
+	// the instance stays stuck cold on every poll. So an immediately-canceled
+	// request still returns 200, and — the key property — it warms the cache.
 	resetSystemCache()
 	_, r := newTestHandlerWithRouter(t)
 
@@ -385,17 +386,57 @@ func TestGetSystem_CancelledContext(t *testing.T) {
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500 (canceled fleet read must not be cached), got %d", rec.Code)
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 (detached collect ignores request cancellation), got %d: %s",
+			rec.Code, rec.Body.String())
 	}
 
-	// Nothing may have been cached: a follow-up healthy request returns fresh 200.
+	// The detached collect must have populated the cache despite the cancellation.
+	cachedSystemMu.Lock()
+	warmed := cachedSystem != nil
+	cachedSystemMu.Unlock()
+	if !warmed {
+		t.Error("canceled request should still warm the cache via the detached collect")
+	}
+
+	// Follow-up healthy request is served (from the warmed cache) as 200.
 	req2 := httptest.NewRequest(http.MethodGet, "/system/", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	rec2 := httptest.NewRecorder()
 	r.ServeHTTP(rec2, req2)
 	if rec2.Code != http.StatusOK {
-		t.Errorf("follow-up request: expected 200 (no poisoned cache), got %d", rec2.Code)
+		t.Errorf("follow-up request: expected 200, got %d", rec2.Code)
+	}
+}
+
+func TestRequestsSince_CachesWithinTTL(t *testing.T) {
+	// Do NOT use t.Parallel() — mutates the package-level requestsToday cache and
+	// inserts into the shared request_logs table.
+	resetSystemCache()
+	h, _ := newTestHandlerWithRouter(t)
+	sh := h.systemHandler
+	ctx := context.Background()
+
+	const key = "cache-test-window"
+	since := time.Now().Add(-time.Hour)
+
+	baseline := sh.requestsSince(ctx, since, key)
+
+	// Insert a row inside the window AFTER the value was cached. Within the TTL the
+	// cached baseline must come back: the COUNT is not re-run on every collect,
+	// which is what keeps a stale-stats seq-scan off the hot status path.
+	if _, err := sh.pool.Exec(ctx,
+		`INSERT INTO request_logs (created_at) VALUES ($1)`, time.Now()); err != nil {
+		t.Fatalf("insert request_log: %v", err)
+	}
+	if got := sh.requestsSince(ctx, since, key); got != baseline {
+		t.Errorf("within TTL expected cached %d, got %d (COUNT re-ran)", baseline, got)
+	}
+
+	// After a cache reset the fresh COUNT sees the inserted row.
+	resetSystemCache()
+	if got := sh.requestsSince(ctx, since, key); got != baseline+1 {
+		t.Errorf("after reset expected fresh %d, got %d", baseline+1, got)
 	}
 }
 
