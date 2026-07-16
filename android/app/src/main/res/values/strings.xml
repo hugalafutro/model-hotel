@@ -133,6 +133,7 @@
     <string name="alerts_event_config_sync_failed">Config sync failed</string>
     <string name="alerts_event_config_synced">Config synced</string>
     <string name="alerts_event_config_auto_synced">Config auto-synced</string>
+    <string name="alerts_event_config_autosync_stale">Auto-sync off, fleet not synced</string>
     <string name="alerts_event_version_fetch_failed">Version read failed</string>
     <string name="alerts_event_version_fetch_recovered">Version read recovered</string>
     <string name="alerts_event_traefik_stale">Traefik config stale</string>

@@ -118,6 +118,7 @@
     <string name="alerts_event_config_sync_failed">Configuratiesynchronisatie mislukt</string>
     <string name="alerts_event_config_synced">Configuratie gesynchroniseerd</string>
     <string name="alerts_event_config_auto_synced">Configuratie automatisch gesynchroniseerd</string>
+    <string name="alerts_event_config_autosync_stale">Auto-sync uit, vloot niet gesynchroniseerd</string>
     <string name="alerts_event_version_fetch_failed">Versie lezen mislukt</string>
     <string name="alerts_event_version_fetch_recovered">Versie lezen hersteld</string>
     <string name="alerts_event_traefik_stale">Traefik-configuratie verouderd</string>

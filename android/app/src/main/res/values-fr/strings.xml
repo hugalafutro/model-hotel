@@ -118,6 +118,7 @@
     <string name="alerts_event_config_sync_failed">Échec de la synchro de config</string>
     <string name="alerts_event_config_synced">Config synchronisée</string>
     <string name="alerts_event_config_auto_synced">Config synchronisée automatiquement</string>
+    <string name="alerts_event_config_autosync_stale">Synchronisation automatique désactivée, flotte non synchronisée</string>
     <string name="alerts_event_version_fetch_failed">Échec de lecture de la version</string>
     <string name="alerts_event_version_fetch_recovered">Lecture de la version rétablie</string>
     <string name="alerts_event_traefik_stale">Config Traefik obsolète</string>

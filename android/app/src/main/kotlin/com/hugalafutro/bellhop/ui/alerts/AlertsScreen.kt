@@ -305,6 +305,7 @@ private fun eventTypeLabel(type: String): String =
         "config.sync_failed" -> stringResource(R.string.alerts_event_config_sync_failed)
         "config.synced" -> stringResource(R.string.alerts_event_config_synced)
         "config.auto_synced" -> stringResource(R.string.alerts_event_config_auto_synced)
+        "config.autosync_stale" -> stringResource(R.string.alerts_event_config_autosync_stale)
         "version.fetch_failed" -> stringResource(R.string.alerts_event_version_fetch_failed)
         "version.fetch_recovered" -> stringResource(R.string.alerts_event_version_fetch_recovered)
         "traefik.stale" -> stringResource(R.string.alerts_event_traefik_stale)
