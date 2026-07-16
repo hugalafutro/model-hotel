@@ -133,6 +133,7 @@
     <string name="alerts_event_config_synced">Konfiguracja zsynchronizowana</string>
     <string name="alerts_event_config_auto_synced">Konfiguracja zsynchronizowana automatycznie</string>
     <string name="alerts_event_config_autosync_stale">Auto-synchronizacja wyłączona, flota niezsynchronizowana</string>
+    <string name="alerts_event_config_sync_held">Synchronizacja wstrzymana (rozbieżność wersji)</string>
     <string name="alerts_event_version_fetch_failed">Odczyt wersji nie powiódł się</string>
     <string name="alerts_event_version_fetch_recovered">Odczyt wersji przywrócony</string>
     <string name="alerts_event_traefik_stale">Konfiguracja Traefik nieaktualna</string>
