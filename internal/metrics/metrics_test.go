@@ -90,6 +90,25 @@ func TestRecordSkipsZeroTokensAndNonStreamingTTFT(t *testing.T) {
 	}
 }
 
+// TestRecordResponsesReroute verifies the OpenAI Responses re-route counter
+// tracks learned and preemptive attempts as separate series.
+func TestRecordResponsesReroute(t *testing.T) {
+	const prov = "test-prov-responses"
+	RecordResponsesReroute(prov, "gpt-5.6-sol", "learned")
+	RecordResponsesReroute(prov, "gpt-5.6-sol", "preemptive")
+	RecordResponsesReroute(prov, "gpt-5.6-sol", "preemptive")
+	out := scrape(t)
+	wantSubstrings := []string{
+		`modelhotel_responses_reroute_total{mode="learned",model="gpt-5.6-sol",provider="test-prov-responses"} 1`,
+		`modelhotel_responses_reroute_total{mode="preemptive",model="gpt-5.6-sol",provider="test-prov-responses"} 2`,
+	}
+	for _, w := range wantSubstrings {
+		if !strings.Contains(out, w) {
+			t.Errorf("scrape output missing %q", w)
+		}
+	}
+}
+
 func TestBreakerCollector(t *testing.T) {
 	RegisterBreakerCollector(func() []BreakerState {
 		return []BreakerState{

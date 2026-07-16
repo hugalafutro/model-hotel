@@ -423,6 +423,14 @@ OpenAI shape (text, vision, tools, and tool results); requests routed to an Anth
 are forwarded natively, so extended-thinking blocks and prompt caching survive end to end. Auth
 accepts `x-api-key` (what Anthropic clients send) as well as `Authorization: Bearer`.
 
+OpenAI's newest models (the gpt-5.4+ and gpt-5.6 families) reject tool calling combined with
+reasoning on `/v1/chat/completions` and demand OpenAI's Responses API instead. The gateway heals
+this transparently: the first such request gets the upstream 400, is retried against
+`/v1/responses` on the spot, and the requirement is remembered per model so every later
+tools+reasoning request routes there directly. Clients keep speaking plain Chat Completions in
+both directions (streaming included); reasoning summaries come back as `reasoning_content`, and
+the gateway always sends `store: false` so OpenAI keeps no conversation state.
+
 ### Metrics & log shipping
 
 A Prometheus endpoint is exposed at `/metrics` (request rates by provider/model/status,

@@ -10,6 +10,8 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/openairesponses"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 // hedgeResult is the outcome of probing one candidate in a hedged streaming race.
@@ -217,10 +219,26 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	if resp.StatusCode != http.StatusOK {
 		// Any non-200 drops this candidate. The orchestrator owns the terminal
 		// write if every candidate fails; drain so the connection can be reused.
-		_, _ = io.ReadAll(resp.Body)
+		errBody, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusBadRequest {
+			// A hedged probe cannot retry in-race (a second upstream round-trip
+			// inside one race slot would skew the TTFT contest), but it can
+			// still LEARN the /v1/responses requirement from the 400 so every
+			// subsequent request — hedged or sequential — routes preemptively.
+			h.learnResponsesRequirement(st, candidate, provider.DetectProviderType(candidate.provider.BaseURL), errBody)
+		}
 		res.reqErr = reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}
 		return res
+	}
+
+	if st.responsesAttempt {
+		// Preemptive /v1/responses attempt (learned earlier on the sequential
+		// path): translate the upstream stream back to chat chunks before the
+		// TTFT probe so the whole hedged pipeline sees chat-completions SSE.
+		// st is this attempt's private snapshot, so the flag set by
+		// buildCandidateRequest is visible right here — no shared-state race.
+		resp.Body = openairesponses.NewStreamAdapter(resp.Body, st.reqModel)
 	}
 
 	if ttftTimeout <= 0 {

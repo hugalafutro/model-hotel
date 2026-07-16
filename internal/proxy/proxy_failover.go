@@ -17,6 +17,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -116,8 +117,16 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// native attempt's targetURL is the provider's /v1/messages (Anthropic wire
 	// format). Stripping OpenAI params off the wrong body and sending it to the
 	// native endpoint would be malformed; a native 400 is forwarded as-is.
-	if resp.StatusCode == 400 && !st.anthropicNativeAttempt {
-		res := h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
+	// Also skipped when the attempt already went to /v1/responses: rebuilding
+	// a chat-completions body and re-POSTing it there would be malformed, and
+	// a Responses-required 400 must run BEFORE the param retry — its error
+	// message names reasoning_effort, which the param parser would otherwise
+	// learn as a strip (useless on reason-by-default models).
+	if resp.StatusCode == 400 && !st.anthropicNativeAttempt && !st.responsesAttempt {
+		res, handled := h.retryWithResponses(r, st, candidate, providerType, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
+		if !handled {
+			res = h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
+		}
 		resp = res.resp
 		streamCancelOrigin = res.streamCancelOrigin
 		retryCancel = res.retryCancel
@@ -156,7 +165,23 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
 	}
 
-	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "native_anthropic", st.anthropicNativeAttempt, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
+	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "native_anthropic", st.anthropicNativeAttempt, "responses_api", st.responsesAttempt, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
+	if st.responsesAttempt {
+		// Translate the /v1/responses answer back to the chat-completions
+		// shape on the UPSTREAM side, so the streaming pipeline (TTFT probe,
+		// stall watchdog, transforms, metering) and the non-streaming handler
+		// below run unchanged on what they already understand.
+		if st.isStreaming {
+			resp.Body = openairesponses.NewStreamAdapter(resp.Body, st.reqModel)
+		} else if err := translateResponsesResponseBody(resp, st.reqModel); err != nil {
+			// A 200 whose body cannot be read or is not a Responses object is
+			// a provider fault; fail over like any other malformed upstream.
+			debuglog.Warn("proxy: responses api translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
+			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
+			logData.failoverAttempt = attempt
+			return outcomeFailover
+		}
+	}
 	if st.isStreaming {
 		return h.dispatchStreaming(w, r, st, candidate, resp, attempt, responseHeaderMs, streamCancelOrigin)
 	}
@@ -341,8 +366,21 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	// single hotel/claude-* request can fail over from native to translated
 	// seamlessly. The flag is read by the response dispatch + writer.
 	st.anthropicNativeAttempt = st.anthropicIn && providerType == "anthropic"
+	// Per-attempt flags: a failover group can mix an OpenAI candidate that
+	// needs /v1/responses with providers that don't, so both flags reset on
+	// every candidate.
+	st.responsesAttempt = false
 	if st.anthropicNativeAttempt {
 		return h.buildNativeAnthropicRequest(ctx, st, candidate, providerType)
+	}
+
+	// OpenAI Responses re-route: a model learned (from a prior 400) to reject
+	// tools+reasoning over chat-completions is served via /v1/responses, with
+	// the request translated out and the response translated back by the
+	// dispatch (see openai_responses.go).
+	if h.shouldUseResponsesAttempt(st, candidate, providerType) {
+		st.responsesAttempt = true
+		return h.buildResponsesRequest(ctx, st, candidate, providerType)
 	}
 
 	endpoint := st.endpointPath

@@ -47,6 +47,11 @@ var (
 		Name: "modelhotel_failover_attempts_total",
 		Help: "Total failover attempts beyond the first try, by model (or hotel group).",
 	}, []string{"model"})
+
+	responsesRerouteTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "modelhotel_responses_reroute_total",
+		Help: "Attempts routed via the OpenAI Responses API instead of chat completions, by provider, model, and mode (learned = healed from a live 400, preemptive = cache-driven).",
+	}, []string{"provider", "model", "mode"})
 )
 
 func init() {
@@ -56,6 +61,7 @@ func init() {
 		ttftSeconds,
 		tokensTotal,
 		failoverAttemptsTotal,
+		responsesRerouteTotal,
 		collectors.NewGoCollector(),
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
@@ -101,6 +107,13 @@ func Record(o Observation) {
 	if o.FailoverAttempt > 0 {
 		failoverAttemptsTotal.WithLabelValues(model).Add(float64(o.FailoverAttempt))
 	}
+}
+
+// RecordResponsesReroute counts one attempt routed to /v1/responses. mode is
+// "learned" when the route was discovered by healing a live 400, "preemptive"
+// when the cached requirement redirected the attempt up front.
+func RecordResponsesReroute(provider, model, mode string) {
+	responsesRerouteTotal.WithLabelValues(labelOrUnknown(provider), labelOrUnknown(model), mode).Inc()
 }
 
 // Handler returns the HTTP handler that serves the metrics in Prometheus text
