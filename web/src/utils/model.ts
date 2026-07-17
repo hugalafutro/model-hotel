@@ -49,13 +49,37 @@ export const NON_CHAT_MODALITIES = new Set([
 	"stt",
 ]);
 
+/** Parse a model's output_modalities (a JSON array string) to a lowercased list. */
+function parseOutputModalities(raw: string | undefined): string[] {
+	if (!raw) return [];
+	try {
+		const arr = JSON.parse(raw);
+		if (Array.isArray(arr)) return arr.map((s) => String(s).toLowerCase());
+	} catch {
+		// Not a JSON array — treat as unknown (default-allow below).
+	}
+	return [];
+}
+
 /**
  * True when a model can serve /v1/chat/completions. Default-allow: unknown or
  * empty modalities are treated as chat so a new modality never silently
  * disappears from the picker.
+ *
+ * Two exclusions: an explicit non-chat modality (embedding/rerank/image/tts/stt),
+ * or an output that is non-text media only. The latter catches generation models
+ * (e.g. video output) whose modality string is a misleading chat label — an
+ * image->video model reported as "vision" from its image input — since a model
+ * that cannot emit text can never serve chat.
  */
-export function isChatModel(m: { modality?: string }): boolean {
-	return !NON_CHAT_MODALITIES.has((m.modality ?? "").toLowerCase());
+export function isChatModel(m: {
+	modality?: string;
+	output_modalities?: string;
+}): boolean {
+	if (NON_CHAT_MODALITIES.has((m.modality ?? "").toLowerCase())) return false;
+	const output = parseOutputModalities(m.output_modalities);
+	if (output.length > 0 && !output.includes("text")) return false;
+	return true;
 }
 
 export function formatPrice(n: number | null | undefined): string {
