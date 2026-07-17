@@ -17,11 +17,7 @@ import {
 	formatNumber,
 	formatRelativeTime,
 } from "../utils/format";
-import {
-	nonTextOutputs,
-	parseCapabilities,
-	proxyModelID,
-} from "../utils/model";
+import { parseCapabilities, proxyModelID } from "../utils/model";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CopyablePill } from "./CopyablePill";
 import { CAP_META, type CapKey, hasCap } from "./capMeta";
@@ -236,14 +232,6 @@ export function VirtualModelTable({
 			});
 		});
 		return caps;
-	}, [entries]);
-
-	const existingOutputs = useMemo(() => {
-		const outputs = new Set<string>();
-		entries.forEach((m) => {
-			for (const o of nonTextOutputs(m)) outputs.add(o);
-		});
-		return outputs;
 	}, [entries]);
 
 	const disabledModels = useMemo(
@@ -580,10 +568,10 @@ export function VirtualModelTable({
 											</button>
 										);
 									})}
-									{OUTPUT_META.filter(
-										(m) =>
-											existingOutputs.has(m.key) || outputFilter.has(m.key),
-									).map((m) => {
+									{/* All output pills render unconditionally: filtering is
+									    server-side, so a matching model may exist outside the
+									    loaded window and the pill must stay reachable. */}
+									{OUTPUT_META.map((m) => {
 										const isActive = outputFilter.has(m.key);
 										return (
 											<button

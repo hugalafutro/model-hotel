@@ -391,6 +391,30 @@ describe("VirtualModelTable", () => {
 			expect(screen.getByText("✕")).toBeInTheDocument();
 		});
 
+		it("offers output filter pills even when no loaded row has that output", () => {
+			// Server-side pagination: an image generator may exist outside the
+			// loaded window, so the pill must render regardless of entries.
+			const entries = [
+				createModel({
+					id: "model-chat",
+					model_id: "gpt-4o",
+					output_modalities: '["text"]',
+				}),
+			];
+			setupWithEntries(entries);
+			renderWithProviders(<VirtualModelTable />);
+
+			const imageOut = screen.getByText("Image out");
+			expect(imageOut.tagName).toBe("BUTTON");
+			fireEvent.click(imageOut);
+
+			const lastCall =
+				mockUseBidirectionalFetch.mock.calls[
+					mockUseBidirectionalFetch.mock.calls.length - 1
+				][0];
+			expect(lastCall.filters.outputs).toBe("image");
+		});
+
 		it("offers an output filter pill and sends the outputs filter", () => {
 			const entries = [
 				createModel({
