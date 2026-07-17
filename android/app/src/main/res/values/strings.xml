@@ -24,6 +24,15 @@
     <string name="dashboard_summary_all_up">All members up</string>
     <string name="dashboard_summary_down">%1$d of %2$d members down</string>
     <string name="dashboard_summary_checking">Checking members…</string>
+    <string name="dashboard_state_degraded">Fleet degraded</string>
+    <string name="dashboard_state_faulty">Fleet faulty</string>
+    <string name="fleet_reason_member_down">member down</string>
+    <string name="fleet_reason_all_members_down">all members down</string>
+    <string name="fleet_reason_sync_held">sync held</string>
+    <string name="fleet_reason_all_sync_held">sync held fleet-wide</string>
+    <string name="fleet_reason_autosync_stale">unsynced for over a day</string>
+    <string name="fleet_reason_autosync_stale_long">unsynced for over three days</string>
+    <string name="fleet_reason_traefik_config_stale">Traefik not fetching config</string>
     <string name="dashboard_empty">No members yet. Add them in Front Desk.</string>
     <string name="dashboard_refresh_failed">Couldn\'t refresh: %1$s</string>
     <string name="dashboard_revoked">This device can no longer authenticate to Front Desk. Its access may have been revoked; unlink and pair again with a new code.</string>
@@ -147,6 +156,7 @@
     <string name="alerts_event_version_fetch_failed">Version read failed</string>
     <string name="alerts_event_version_fetch_recovered">Version read recovered</string>
     <string name="alerts_event_traefik_stale">Traefik config stale</string>
+    <string name="alerts_event_fleet_state_changed">Fleet state changed</string>
     <string name="alerts_event_member_added">Member added</string>
     <string name="alerts_event_member_removed">Member removed</string>
     <string name="alerts_event_member_state_changed">Member drained or activated</string>

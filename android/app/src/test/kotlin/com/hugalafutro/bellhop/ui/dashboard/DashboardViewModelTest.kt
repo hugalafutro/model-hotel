@@ -431,6 +431,59 @@ class DashboardViewModelTest {
         }
 
     @Test
+    fun refreshExposesServerFleetStateAndReasons() =
+        runBlocking {
+            val client =
+                FakeFleetClient(
+                    membersResult = FetchResult.Success(listOf(member)),
+                    autoSyncResult =
+                        FetchResult.Success(
+                            AutoSyncConfig(
+                                enabled = true,
+                                primaryId = "m1",
+                                fleetState = "faulty",
+                                fleetStateReasons = listOf("all_members_down"),
+                            ),
+                        ),
+                )
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+
+            vm.refreshOnce()
+
+            val s = vm.state.value
+            assertEquals("faulty", s.fleetState)
+            assertEquals(listOf("all_members_down"), s.fleetStateReasons)
+        }
+
+    @Test
+    fun failedAutoSyncFetchKeepsPreviousFleetState() =
+        runBlocking {
+            val client =
+                FakeFleetClient(
+                    membersResult = FetchResult.Success(listOf(member)),
+                    autoSyncResult =
+                        FetchResult.Success(
+                            AutoSyncConfig(
+                                enabled = true,
+                                primaryId = "m1",
+                                fleetState = "degraded",
+                                fleetStateReasons = listOf("member_down"),
+                            ),
+                        ),
+                )
+            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            vm.refreshOnce()
+            assertEquals("degraded", vm.state.value.fleetState)
+
+            // A failed autosync read must leave the last good verdict in place,
+            // exactly as primaryId survives the same failure.
+            client.autoSyncResult = FetchResult.Failure("autosync down")
+            vm.refreshOnce()
+            assertEquals("degraded", vm.state.value.fleetState)
+            assertEquals(listOf("member_down"), vm.state.value.fleetStateReasons)
+        }
+
+    @Test
     fun onlyVisibleMembersGetTrafficFetched() =
         runBlocking {
             // Two members, but only m1 is reported visible: the off-screen m2

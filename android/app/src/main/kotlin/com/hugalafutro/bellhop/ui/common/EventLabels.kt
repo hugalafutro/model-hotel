@@ -25,6 +25,7 @@ internal fun eventTypeLabel(type: String): String =
         "version.fetch_failed" -> stringResource(R.string.alerts_event_version_fetch_failed)
         "version.fetch_recovered" -> stringResource(R.string.alerts_event_version_fetch_recovered)
         "traefik.stale" -> stringResource(R.string.alerts_event_traefik_stale)
+        "fleet.state_changed" -> stringResource(R.string.alerts_event_fleet_state_changed)
         "member.added" -> stringResource(R.string.alerts_event_member_added)
         "member.removed" -> stringResource(R.string.alerts_event_member_removed)
         "member.state_changed" -> stringResource(R.string.alerts_event_member_state_changed)
