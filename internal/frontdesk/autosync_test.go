@@ -1355,3 +1355,30 @@ func TestAutoSyncHoldsVersionSkew(t *testing.T) {
 		t.Error("aligned member was not synced once the hold cleared")
 	}
 }
+
+func TestAutoSyncStaleTier(t *testing.T) {
+	now := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
+	off := AutoSyncConfig{Enabled: false, PrimaryID: "p1"}
+	cases := []struct {
+		name     string
+		cfg      AutoSyncConfig
+		lastSync time.Time
+		haveSync bool
+		want     int
+	}{
+		{"enabled is never stale", AutoSyncConfig{Enabled: true, PrimaryID: "p1"}, now.Add(-100 * time.Hour), true, 0},
+		{"no primary is never stale", AutoSyncConfig{}, now.Add(-100 * time.Hour), true, 0},
+		{"fresh sync", off, now.Add(-1 * time.Hour), true, 0},
+		{"never synced caps at tier 1", off, time.Time{}, false, 1},
+		{"just over a day", off, now.Add(-25 * time.Hour), true, 1},
+		{"just under three days", off, now.Add(-71 * time.Hour), true, 1},
+		{"over three days", off, now.Add(-73 * time.Hour), true, 2},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := autoSyncStaleTier(tc.cfg, tc.lastSync, tc.haveSync, now); got != tc.want {
+				t.Errorf("tier = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}

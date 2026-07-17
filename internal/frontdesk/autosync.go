@@ -63,24 +63,48 @@ const (
 	// primary. A day is long enough that a brief manual-sync gap never trips it,
 	// short enough that a fleet left un-synced surfaces within the same day.
 	autoSyncStaleThreshold = 24 * time.Hour
+
+	// autoSyncFaultyThreshold is the second staleness tier: with auto-sync off, a
+	// fleet unsynced this long is treated as faulty by the fleet state machine
+	// (fleetstate.go), not merely degraded. Three days: long enough that a weekend
+	// gap alone never trips it, short enough that a forgotten fleet escalates
+	// within the working week.
+	autoSyncFaultyThreshold = 72 * time.Hour
 )
 
-// autoSyncStale reports whether the fleet's config is at risk of silent drift: a
-// primary is designated but auto-sync is off, and the last successful fleet sync
-// is older than autoSyncStaleThreshold (or never ran). It is deliberately false
-// when auto-sync is on (the loop keeps the fleet fresh and reports its own
-// failures via config.sync_failed) and when no primary is configured — the
-// operator never opted into the sync model, so "stale" would be meaningless and,
-// since auto-sync is off by default, would otherwise fire on every fresh install.
-// haveSync is false when no successful sync has ever been recorded.
-func autoSyncStale(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, now time.Time) bool {
+// autoSyncStaleTier grades the fleet's silent-drift risk: 0 fresh (or auto-sync
+// on / no primary designated, where staleness is meaningless), 1 unsynced beyond
+// autoSyncStaleThreshold (degraded), 2 beyond autoSyncFaultyThreshold (faulty).
+// A fleet with no recorded sync at all is tier 1: there is no timestamp to age
+// against, so it cannot honestly escalate to tier 2. haveSync is false when no
+// successful sync has ever been recorded.
+func autoSyncStaleTier(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, now time.Time) int {
 	if cfg.Enabled || cfg.PrimaryID == "" {
-		return false
+		return 0
 	}
 	if !haveSync {
-		return true
+		return 1
 	}
-	return now.Sub(lastSync) > autoSyncStaleThreshold
+	switch age := now.Sub(lastSync); {
+	case age > autoSyncFaultyThreshold:
+		return 2
+	case age > autoSyncStaleThreshold:
+		return 1
+	}
+	return 0
+}
+
+// autoSyncStale reports whether the fleet's config is at risk of silent drift. It
+// delegates to autoSyncStaleTier and is true for tier >= 1: a primary is
+// designated but auto-sync is off, and the last successful fleet sync is older
+// than autoSyncStaleThreshold (or never ran). It is deliberately false when
+// auto-sync is on (the loop keeps the fleet fresh and reports its own failures
+// via config.sync_failed) and when no primary is configured — the operator never
+// opted into the sync model, so "stale" would be meaningless and, since auto-sync
+// is off by default, would otherwise fire on every fresh install. haveSync is
+// false when no successful sync has ever been recorded.
+func autoSyncStale(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, now time.Time) bool {
+	return autoSyncStaleTier(cfg, lastSync, haveSync, now) >= 1
 }
 
 // RunAutoSync samples the designated primary on a fixed tick and propagates its
