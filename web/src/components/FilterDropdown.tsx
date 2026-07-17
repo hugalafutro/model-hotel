@@ -63,9 +63,11 @@ export function FilterDropdown({
 	const compact = variant === "compact";
 	// Compact avoids ui-input (whose themed base font/padding beat Tailwind
 	// utilities) so it can shrink to the 10px, py-px scale of the ui-tab toggles
-	// it sits beside; the default keeps the form-field look.
+	// it sits beside; the default keeps the form-field look. w-full lets the
+	// button fill (and so truncate within) a width-capped wrapper such as the
+	// dashboard's max-w-32 rather than growing to a long owner label.
 	const triggerClass = compact
-		? "text-[10px] leading-[1.6] font-semibold py-px px-1.5 rounded-(--radius-button) border border-(--border-input) bg-(--surface-input) hover:border-(--accent) transition-colors flex items-center justify-between gap-1"
+		? "text-[10px] leading-[1.6] font-semibold py-px px-1.5 rounded-(--radius-button) border border-(--border-input) bg-(--surface-input) hover:border-(--accent) transition-colors flex items-center justify-between gap-1 w-full"
 		: "ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2";
 	const iconSize = compact ? 12 : 14;
 
