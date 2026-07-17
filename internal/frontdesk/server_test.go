@@ -417,6 +417,69 @@ func TestServerAutoSyncPrimaryGate(t *testing.T) {
 	}
 }
 
+// TestGetAutoSyncFleetState confirms the fleet state machine's verdict rides on
+// the GET /api/fleet/autosync payload (the one endpoint Bellhop already polls):
+// a confirmed-down member surfaces fleet_state=="degraded" with a "member_down"
+// reason code, while an all-healthy fleet is "ok" and omits the reasons key
+// entirely (omitempty).
+func TestGetAutoSyncFleetState(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	m2, err := store.CreateMember(ctx, "hotel-2", "https://h2.example", "tok2")
+	if err != nil {
+		t.Fatalf("create m2: %v", err)
+	}
+
+	getBody := func() map[string]any {
+		t.Helper()
+		rec := do(t, srv, http.MethodGet, "/api/fleet/autosync", "", true)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET /api/fleet/autosync = %d; body=%s", rec.Code, rec.Body.String())
+		}
+		var body map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		return body
+	}
+
+	// One member confirmed down -> degraded with a member_down reason code.
+	setHealth(srv, m1.ID, false)
+	setHealth(srv, m2.ID, true)
+	body := getBody()
+	if got := body["fleet_state"]; got != "degraded" {
+		t.Errorf("fleet_state = %v, want degraded", got)
+	}
+	reasons, ok := body["fleet_state_reasons"].([]any)
+	if !ok {
+		t.Fatalf("fleet_state_reasons missing or wrong type: %#v", body["fleet_state_reasons"])
+	}
+	found := false
+	for _, r := range reasons {
+		if s, _ := r.(string); s == "member_down" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("fleet_state_reasons = %v, want to contain member_down", reasons)
+	}
+
+	// All members healthy -> ok, and the reasons key is omitted entirely.
+	setHealth(srv, m1.ID, true)
+	body = getBody()
+	if got := body["fleet_state"]; got != "ok" {
+		t.Errorf("fleet_state = %v, want ok", got)
+	}
+	if _, present := body["fleet_state_reasons"]; present {
+		t.Errorf("fleet_state_reasons should be absent when ok, got %v", body["fleet_state_reasons"])
+	}
+}
+
 // TestServerRepointSameHostRejected covers the same-host guard: repointing the
 // primary onto a member row that is actually the same physical host (it
 // self-reports is_primary=true) is refused with 409 even with a valid token, so

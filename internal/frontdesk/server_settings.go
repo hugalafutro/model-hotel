@@ -140,6 +140,13 @@ type autoSyncStatus struct {
 	// "Sync fleet from primary" action so the operator sees when the fleet
 	// truly last synced, not when a button was last pressed.
 	LastSyncAt string `json:"last_sync_at,omitempty"`
+	// FleetState / FleetStateReasons are the fleet state machine's verdict
+	// (fleetstate.go), ridden on this payload because it is the one endpoint
+	// Bellhop's background monitor already polls. Reason codes are wire
+	// constants the clients translate. Optional: an older client ignores them,
+	// and an internal error omits them rather than failing the status read.
+	FleetState        FleetState `json:"fleet_state,omitempty"`
+	FleetStateReasons []string   `json:"fleet_state_reasons,omitempty"`
 }
 
 // autoSyncStatusNow reads the auto-sync config and last-sync marker and folds in
@@ -158,11 +165,13 @@ func (s *Server) autoSyncStatusNow(ctx context.Context) (autoSyncStatus, error) 
 		AutoSyncConfig: cfg,
 		Stale:          autoSyncStale(cfg, state.LastRunAt, found, time.Now().UTC()),
 	}
-	// last_sync_at is best-effort garnish: the max of members' real-write
-	// stamps. A failed members read must not fail the status itself, or the
-	// PUT /api/fleet/autosync response would report a failure for a toggle that
-	// already persisted. Degrade to an empty stamp instead.
+	// The member list feeds both the fleet-state fields and the last_sync_at
+	// garnish, so it is read once here and reused for both (and both then see one
+	// consistent snapshot). Best-effort, like Stale above: a failed read must not
+	// fail the status endpoint (the PUT toggle already persisted by the time this
+	// runs), so both derived fields degrade to absent instead.
 	if members, err := s.store.ListMembers(ctx); err == nil {
+		status.FleetState, status.FleetStateReasons = s.fleetStateFrom(ctx, members, cfg, state.LastRunAt, found)
 		var lastSync time.Time
 		for _, m := range members {
 			if m.LastConfigSyncAt != nil && m.LastConfigSyncAt.After(lastSync) {

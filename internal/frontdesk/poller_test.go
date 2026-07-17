@@ -463,3 +463,24 @@ func TestMemberVersion(t *testing.T) {
 		t.Errorf("MemberVersion = %q, want v1.2.3", v)
 	}
 }
+
+func TestConfigPollStaleAccessor(t *testing.T) {
+	store := newTestStore(t)       // reuse this file's existing store fixture helper
+	p := NewPoller(store, nil, "") // nil bus falls back to events.DefaultBus
+	base := time.Date(2026, 7, 17, 12, 0, 0, 0, time.UTC)
+	now := base
+	p.now = func() time.Time { return now }
+
+	// Never polled: not stale (unarmed), matching checkConfigStaleness.
+	if p.ConfigPollStale(context.Background()) {
+		t.Fatal("unarmed poller reported stale")
+	}
+	p.RecordConfigPoll()
+	if p.ConfigPollStale(context.Background()) {
+		t.Fatal("fresh poll reported stale")
+	}
+	now = base.Add(10 * time.Minute) // default threshold is 30s
+	if !p.ConfigPollStale(context.Background()) {
+		t.Fatal("10-minute-old poll not reported stale")
+	}
+}

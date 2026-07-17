@@ -89,6 +89,8 @@ type Poller struct {
 	versionFailures       map[string]int  // consecutive version-fetch failures, keyed by member ID
 	healthFailures        map[string]int  // consecutive failed health polls, keyed by member ID
 	traefikNonUp          map[string]int  // consecutive non-UP Traefik observations, keyed by member ID
+	traefikAPIFails       int             // consecutive failed Traefik API polls (whole-API, not per member)
+	traefikBlanked        bool            // true once a Traefik outage has blanked all badges; skips re-blank + member re-reads until recovery
 	conflictNotified      map[string]bool // members that rejected our announce (409), keyed by member ID
 }
 
@@ -468,6 +470,7 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	statusByURL, err := p.fetchTraefikServerStatus(ctx)
 	if err != nil {
 		debuglog.Debug("frontdesk: poll traefik status", "error", err)
+		p.noteTraefikAPIFailure(ctx)
 		return
 	}
 	members, err := p.store.ListMembers(ctx)
@@ -481,6 +484,8 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	// `threshold` polls in a row.
 	threshold := p.healthFailThreshold(ctx)
 	p.mu.Lock()
+	p.traefikAPIFails = 0
+	p.traefikBlanked = false
 	var changed []string
 	for _, m := range members {
 		cur := p.statuses[m.ID]
@@ -502,6 +507,47 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	p.mu.Unlock()
 	// Traefik's view caught up to a new/changed member (it needs to re-poll the
 	// config before it lists one), so refresh the UI without a manual reload.
+	for _, id := range changed {
+		p.publishMemberStatus(id)
+	}
+}
+
+// noteTraefikAPIFailure counts consecutive failed polls of Traefik's own API
+// and, once they cross the health-fail threshold, blanks every member's
+// TraefikStatus. Without this the badges freeze at their last value while the
+// API is down, painting a live-looking status from a dead data source; blank
+// renders as the existing faint "unknown". Damped by the same threshold as the
+// UP->DOWN flip so a restart blip of Traefik does not blank the column.
+func (p *Poller) noteTraefikAPIFailure(ctx context.Context) {
+	threshold := p.healthFailThreshold(ctx)
+	p.mu.Lock()
+	if p.traefikBlanked {
+		// Already blanked by an earlier poll in this outage: nothing left to blank,
+		// so stop advancing the counter. A successful poll (which resets both
+		// flags) re-arms this.
+		p.mu.Unlock()
+		return
+	}
+	p.traefikAPIFails++
+	if p.traefikAPIFails < threshold {
+		p.mu.Unlock()
+		return
+	}
+	// Crossed the threshold: blank every live badge. Only members that were
+	// actually polled hold a non-empty TraefikStatus, so iterate the in-memory
+	// statuses directly rather than re-reading the store (a member absent from
+	// this map already renders as "unknown"). Publishing happens after unlock.
+	var changed []string
+	for id, cur := range p.statuses {
+		if cur.TraefikStatus != "" {
+			cur.TraefikStatus = ""
+			p.statuses[id] = cur
+			changed = append(changed, id)
+		}
+		delete(p.traefikNonUp, id)
+	}
+	p.traefikBlanked = true
+	p.mu.Unlock()
 	for _, id := range changed {
 		p.publishMemberStatus(id)
 	}
@@ -694,6 +740,19 @@ func (p *Poller) checkConfigStaleness(ctx context.Context) {
 			Message: fmt.Sprintf("Traefik has not fetched the config for over %s", threshold),
 		})
 	}
+}
+
+// ConfigPollStale reports whether Traefik has stopped fetching the dynamic
+// config past the configured threshold: the same rule checkConfigStaleness
+// alerts on, exposed side-effect-free for the fleet state machine
+// (fleetstate.go). False while unarmed (nothing has ever polled), matching the
+// watchdog's fresh-start grace.
+func (p *Poller) ConfigPollStale(ctx context.Context) bool {
+	threshold := secs(p.settings(ctx).TraefikStaleSecs, 30)
+	p.mu.RLock()
+	last := p.lastConfigPollAt
+	p.mu.RUnlock()
+	return !last.IsZero() && p.now().Sub(last) > threshold
 }
 
 // checkAutoSyncStale emits a single warning when auto-sync is off and the fleet
