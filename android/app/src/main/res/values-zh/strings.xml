@@ -22,6 +22,15 @@
     <string name="dashboard_summary_all_up">所有成员均在运行</string>
     <string name="dashboard_summary_down">%2$d 个成员中有 %1$d 个已宕机</string>
     <string name="dashboard_summary_checking">正在检查成员…</string>
+    <string name="dashboard_state_degraded">集群已降级</string>
+    <string name="dashboard_state_faulty">集群故障</string>
+    <string name="fleet_reason_member_down">成员宕机</string>
+    <string name="fleet_reason_all_members_down">所有成员宕机</string>
+    <string name="fleet_reason_sync_held">同步已暂停</string>
+    <string name="fleet_reason_all_sync_held">整个集群同步已暂停</string>
+    <string name="fleet_reason_autosync_stale">超过一天未同步</string>
+    <string name="fleet_reason_autosync_stale_long">超过三天未同步</string>
+    <string name="fleet_reason_traefik_config_stale">Traefik 未获取配置</string>
     <string name="dashboard_empty">还没有成员。请在 Front Desk 中添加。</string>
     <string name="dashboard_refresh_failed">刷新失败：%1$s</string>
     <string name="dashboard_revoked">此设备无法再向 Front Desk 进行身份验证。其访问权限可能已被撤销；请取消关联并使用新代码重新配对。</string>
@@ -128,6 +137,7 @@
     <string name="alerts_event_version_fetch_failed">版本读取失败</string>
     <string name="alerts_event_version_fetch_recovered">版本读取已恢复</string>
     <string name="alerts_event_traefik_stale">Traefik 配置已过时</string>
+    <string name="alerts_event_fleet_state_changed">集群状态已更改</string>
     <string name="alerts_event_member_added">成员已添加</string>
     <string name="alerts_event_member_removed">成员已移除</string>
     <string name="alerts_event_member_state_changed">成员已排空或激活</string>

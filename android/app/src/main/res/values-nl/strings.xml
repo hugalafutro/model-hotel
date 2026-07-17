@@ -22,6 +22,15 @@
     <string name="dashboard_summary_all_up">Alle leden actief</string>
     <string name="dashboard_summary_down">%1$d van %2$d leden offline</string>
     <string name="dashboard_summary_checking">Leden controleren…</string>
+    <string name="dashboard_state_degraded">Vloot verslechterd</string>
+    <string name="dashboard_state_faulty">Vloot defect</string>
+    <string name="fleet_reason_member_down">lid offline</string>
+    <string name="fleet_reason_all_members_down">alle leden offline</string>
+    <string name="fleet_reason_sync_held">sync aangehouden</string>
+    <string name="fleet_reason_all_sync_held">sync vlootbreed aangehouden</string>
+    <string name="fleet_reason_autosync_stale">meer dan een dag niet gesynchroniseerd</string>
+    <string name="fleet_reason_autosync_stale_long">meer dan drie dagen niet gesynchroniseerd</string>
+    <string name="fleet_reason_traefik_config_stale">Traefik haalt configuratie niet op</string>
     <string name="dashboard_empty">Nog geen leden. Voeg ze toe in Front Desk.</string>
     <string name="dashboard_refresh_failed">Vernieuwen mislukt: %1$s</string>
     <string name="dashboard_revoked">Dit apparaat kan zich niet meer bij Front Desk authenticeren. De toegang is mogelijk ingetrokken; ontkoppel en koppel opnieuw met een nieuwe code.</string>
@@ -131,6 +140,7 @@
     <string name="alerts_event_version_fetch_failed">Versie lezen mislukt</string>
     <string name="alerts_event_version_fetch_recovered">Versie lezen hersteld</string>
     <string name="alerts_event_traefik_stale">Traefik-configuratie verouderd</string>
+    <string name="alerts_event_fleet_state_changed">Vlootstatus gewijzigd</string>
     <string name="alerts_event_member_added">Lid toegevoegd</string>
     <string name="alerts_event_member_removed">Lid verwijderd</string>
     <string name="alerts_event_member_state_changed">Lid gedraineerd of geactiveerd</string>

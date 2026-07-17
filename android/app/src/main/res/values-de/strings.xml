@@ -22,6 +22,15 @@
     <string name="dashboard_summary_all_up">Alle Mitglieder aktiv</string>
     <string name="dashboard_summary_down">%1$d von %2$d Mitgliedern ausgefallen</string>
     <string name="dashboard_summary_checking">Mitglieder werden geprüft…</string>
+    <string name="dashboard_state_degraded">Flotte beeinträchtigt</string>
+    <string name="dashboard_state_faulty">Flotte fehlerhaft</string>
+    <string name="fleet_reason_member_down">Mitglied ausgefallen</string>
+    <string name="fleet_reason_all_members_down">alle Mitglieder ausgefallen</string>
+    <string name="fleet_reason_sync_held">Sync angehalten</string>
+    <string name="fleet_reason_all_sync_held">Sync flottenweit angehalten</string>
+    <string name="fleet_reason_autosync_stale">seit über einem Tag nicht synchronisiert</string>
+    <string name="fleet_reason_autosync_stale_long">seit über drei Tagen nicht synchronisiert</string>
+    <string name="fleet_reason_traefik_config_stale">Traefik ruft Konfiguration nicht ab</string>
     <string name="dashboard_empty">Noch keine Mitglieder. Füge sie in Front Desk hinzu.</string>
     <string name="dashboard_refresh_failed">Aktualisieren fehlgeschlagen: %1$s</string>
     <string name="dashboard_revoked">Dieses Gerät kann sich nicht mehr bei Front Desk authentifizieren. Sein Zugriff wurde möglicherweise widerrufen; Verknüpfung aufheben und mit einem neuen Code erneut koppeln.</string>
@@ -131,6 +140,7 @@
     <string name="alerts_event_version_fetch_failed">Versionsabruf fehlgeschlagen</string>
     <string name="alerts_event_version_fetch_recovered">Versionsabruf wiederhergestellt</string>
     <string name="alerts_event_traefik_stale">Traefik-Konfiguration veraltet</string>
+    <string name="alerts_event_fleet_state_changed">Flottenstatus geändert</string>
     <string name="alerts_event_member_added">Mitglied hinzugefügt</string>
     <string name="alerts_event_member_removed">Mitglied entfernt</string>
     <string name="alerts_event_member_state_changed">Mitglied stillgelegt oder aktiviert</string>

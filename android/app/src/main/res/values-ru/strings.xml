@@ -22,6 +22,15 @@
     <string name="dashboard_summary_all_up">Все узлы работают</string>
     <string name="dashboard_summary_down">%1$d из %2$d узлов недоступны</string>
     <string name="dashboard_summary_checking">Проверка узлов…</string>
+    <string name="dashboard_state_degraded">Флот деградировал</string>
+    <string name="dashboard_state_faulty">Флот неисправен</string>
+    <string name="fleet_reason_member_down">узел недоступен</string>
+    <string name="fleet_reason_all_members_down">все узлы недоступны</string>
+    <string name="fleet_reason_sync_held">синхронизация приостановлена</string>
+    <string name="fleet_reason_all_sync_held">синхронизация приостановлена во всём флоте</string>
+    <string name="fleet_reason_autosync_stale">не синхронизирован более суток</string>
+    <string name="fleet_reason_autosync_stale_long">не синхронизирован более трёх суток</string>
+    <string name="fleet_reason_traefik_config_stale">Traefik не получает конфигурацию</string>
     <string name="dashboard_empty">Пока нет узлов. Добавьте их в Front Desk.</string>
     <string name="dashboard_refresh_failed">Не удалось обновить: %1$s</string>
     <string name="dashboard_revoked">Это устройство больше не может пройти аутентификацию в Front Desk. Его доступ мог быть отозван; отвяжите и свяжите заново с новым кодом.</string>
@@ -137,6 +146,7 @@
     <string name="alerts_event_version_fetch_failed">Сбой чтения версии</string>
     <string name="alerts_event_version_fetch_recovered">Чтение версии восстановлено</string>
     <string name="alerts_event_traefik_stale">Конфигурация Traefik устарела</string>
+    <string name="alerts_event_fleet_state_changed">Состояние флота изменилось</string>
     <string name="alerts_event_member_added">Узел добавлен</string>
     <string name="alerts_event_member_removed">Узел удалён</string>
     <string name="alerts_event_member_state_changed">Узел выведен или активирован</string>

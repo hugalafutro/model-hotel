@@ -22,6 +22,15 @@
     <string name="dashboard_summary_all_up">Všetci členovia bežia</string>
     <string name="dashboard_summary_down">%1$d z %2$d členov je mimo prevádzky</string>
     <string name="dashboard_summary_checking">Kontrola členov…</string>
+    <string name="dashboard_state_degraded">Flotila oslabená</string>
+    <string name="dashboard_state_faulty">Flotila chybná</string>
+    <string name="fleet_reason_member_down">člen mimo prevádzky</string>
+    <string name="fleet_reason_all_members_down">všetci členovia mimo prevádzky</string>
+    <string name="fleet_reason_sync_held">synchronizácia pozastavená</string>
+    <string name="fleet_reason_all_sync_held">synchronizácia pozastavená v celej flotile</string>
+    <string name="fleet_reason_autosync_stale">nesynchronizované viac ako deň</string>
+    <string name="fleet_reason_autosync_stale_long">nesynchronizované viac ako tri dni</string>
+    <string name="fleet_reason_traefik_config_stale">Traefik nenačítava konfiguráciu</string>
     <string name="dashboard_empty">Zatiaľ žiadni členovia. Pridajte ich vo Front Desku.</string>
     <string name="dashboard_refresh_failed">Nepodarilo sa obnoviť: %1$s</string>
     <string name="dashboard_revoked">Toto zariadenie sa už nemôže overiť u Front Desku. Jeho prístup mohol byť odvolaný; zrušte prepojenie a spárujte znova s novým kódom.</string>
@@ -137,6 +146,7 @@
     <string name="alerts_event_version_fetch_failed">Čítanie verzie zlyhalo</string>
     <string name="alerts_event_version_fetch_recovered">Čítanie verzie obnovené</string>
     <string name="alerts_event_traefik_stale">Konfigurácia Traefiku zastaraná</string>
+    <string name="alerts_event_fleet_state_changed">Stav flotily sa zmenil</string>
     <string name="alerts_event_member_added">Člen pridaný</string>
     <string name="alerts_event_member_removed">Člen odstránený</string>
     <string name="alerts_event_member_state_changed">Člen odstavený alebo aktivovaný</string>

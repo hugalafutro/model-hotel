@@ -22,6 +22,15 @@
     <string name="dashboard_summary_all_up">Wszystkie węzły działają</string>
     <string name="dashboard_summary_down">%1$d z %2$d węzłów nie działa</string>
     <string name="dashboard_summary_checking">Sprawdzanie węzłów…</string>
+    <string name="dashboard_state_degraded">Flota osłabiona</string>
+    <string name="dashboard_state_faulty">Flota wadliwa</string>
+    <string name="fleet_reason_member_down">węzeł nie działa</string>
+    <string name="fleet_reason_all_members_down">wszystkie węzły nie działają</string>
+    <string name="fleet_reason_sync_held">synchronizacja wstrzymana</string>
+    <string name="fleet_reason_all_sync_held">synchronizacja wstrzymana w całej flocie</string>
+    <string name="fleet_reason_autosync_stale">niezsynchronizowana ponad dobę</string>
+    <string name="fleet_reason_autosync_stale_long">niezsynchronizowana ponad trzy dni</string>
+    <string name="fleet_reason_traefik_config_stale">Traefik nie pobiera konfiguracji</string>
     <string name="dashboard_empty">Brak węzłów. Dodaj je w Front Desk.</string>
     <string name="dashboard_refresh_failed">Nie udało się odświeżyć: %1$s</string>
     <string name="dashboard_revoked">To urządzenie nie może już uwierzytelnić się w Front Desk. Jego dostęp mógł zostać cofnięty; rozłącz i sparuj ponownie z nowym kodem.</string>
@@ -137,6 +146,7 @@
     <string name="alerts_event_version_fetch_failed">Odczyt wersji nie powiódł się</string>
     <string name="alerts_event_version_fetch_recovered">Odczyt wersji przywrócony</string>
     <string name="alerts_event_traefik_stale">Konfiguracja Traefik nieaktualna</string>
+    <string name="alerts_event_fleet_state_changed">Stan floty zmieniony</string>
     <string name="alerts_event_member_added">Węzeł dodany</string>
     <string name="alerts_event_member_removed">Węzeł usunięty</string>
     <string name="alerts_event_member_state_changed">Węzeł wygaszony lub aktywowany</string>
