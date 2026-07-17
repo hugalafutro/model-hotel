@@ -129,7 +129,21 @@
 		"errAlreadyPrimary": "Ten host jest już podstawowym we flocie i nie można go dodać jako członka. Zmień podstawowy w kreatorze synchronizacji floty.",
 		"errUnreachable": "Front Desk nie mógł połączyć się z tym hostem, aby go zweryfikować. Sprawdź URL, token administratora i czy host działa.",
 		"errIdentityUnverified": "Front Desk zweryfikował token administratora, ale nie mógł odczytać tożsamości tego hosta we flocie, aby potwierdzić, że nie jest hostem podstawowym ani istniejącym członkiem. Sprawdź hosta i spróbuj ponownie.",
-		"errAlreadyMember": "Ten host jest już członkiem (dodany pod innym adresem). Najpierw usuń istniejący wpis, jeśli chcesz dodać go ponownie."
+		"errAlreadyMember": "Ten host jest już członkiem (dodany pod innym adresem). Najpierw usuń istniejący wpis, jeśli chcesz dodać go ponownie.",
+		"fleetState": {
+			"ok": "Sprawna",
+			"degraded": "Pogorszona",
+			"faulty": "Wadliwa"
+		},
+		"fleetReason": {
+			"member_down": "członek nie działa",
+			"all_members_down": "wszyscy członkowie nie działają",
+			"sync_held": "synchronizacja konfiguracji jest wstrzymana dla członka (rozbieżność wersji)",
+			"all_sync_held": "synchronizacja konfiguracji jest wstrzymana dla każdego członka; główny jest wyjątkiem",
+			"autosync_stale": "auto-synchronizacja jest wyłączona, a flota nie była synchronizowana od ponad dnia",
+			"autosync_stale_long": "auto-synchronizacja jest wyłączona, a flota nie była synchronizowana od ponad trzech dni",
+			"traefik_config_stale": "Traefik przestał pobierać konfigurację routingu"
+		}
 	},
 	"traffic": {
 		"title": "Ruch",
@@ -269,7 +283,8 @@
 				"traefik_stale": "Konfiguracja Traefik nieświeża",
 				"member_added": "Członek dodany",
 				"member_removed": "Członek usunięty",
-				"member_state_changed": "Członek aktywowany lub odłączony"
+				"member_state_changed": "Członek aktywowany lub odłączony",
+				"fleet_state_changed": "Stan floty zmieniony"
 			},
 			"saveBtn": "Zapisz ustawienia alertów",
 			"testBtn": "Wyślij test",

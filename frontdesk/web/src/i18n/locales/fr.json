@@ -129,7 +129,21 @@
 		"errAlreadyPrimary": "Cet hôte est déjà le primaire de la flotte et ne peut pas être ajouté comme membre. Changez le primaire depuis l'assistant de synchronisation de flotte.",
 		"errUnreachable": "Front Desk n'a pas pu joindre cet hôte pour le vérifier. Vérifiez l'URL, le jeton d'administration et que l'hôte fonctionne.",
 		"errIdentityUnverified": "Front Desk a vérifié le jeton d'administration mais n'a pas pu lire l'identité de flotte de cet hôte pour confirmer qu'il n'est pas le primaire ni un membre existant. Vérifiez l'hôte et réessayez.",
-		"errAlreadyMember": "Cet hôte est déjà un membre (ajouté sous une autre adresse). Supprimez d'abord l'entrée existante si vous voulez le rajouter."
+		"errAlreadyMember": "Cet hôte est déjà un membre (ajouté sous une autre adresse). Supprimez d'abord l'entrée existante si vous voulez le rajouter.",
+		"fleetState": {
+			"ok": "Sain",
+			"degraded": "Dégradé",
+			"faulty": "Défaillant"
+		},
+		"fleetReason": {
+			"member_down": "un membre est hors ligne",
+			"all_members_down": "tous les membres sont hors ligne",
+			"sync_held": "la synchronisation de configuration est suspendue pour un membre (écart de version)",
+			"all_sync_held": "la synchronisation de configuration est suspendue pour chaque membre ; le primaire fait exception",
+			"autosync_stale": "la synchronisation automatique est désactivée et la flotte n'a pas été synchronisée depuis plus d'un jour",
+			"autosync_stale_long": "la synchronisation automatique est désactivée et la flotte n'a pas été synchronisée depuis plus de trois jours",
+			"traefik_config_stale": "Traefik ne récupère plus la configuration de routage"
+		}
 	},
 	"traffic": {
 		"title": "Trafic",
@@ -269,7 +283,8 @@
 				"traefik_stale": "Configuration Traefik obsolète",
 				"member_added": "Membre ajouté",
 				"member_removed": "Membre retiré",
-				"member_state_changed": "Membre activé ou drainé"
+				"member_state_changed": "Membre activé ou drainé",
+				"fleet_state_changed": "État de la flotte modifié"
 			},
 			"saveBtn": "Enregistrer les paramètres d'alerte",
 			"testBtn": "Envoyer un test",

@@ -129,7 +129,21 @@
 		"errAlreadyPrimary": "该主机已经是机群的主节点，无法再作为成员添加。请改用 Fleet Sync 向导更改主节点。",
 		"errUnreachable": "Front Desk 无法连接到该主机进行验证。请检查 URL 和管理员令牌，以及主机是否在运行。",
 		"errIdentityUnverified": "Front Desk 已验证管理员令牌，但无法读取该主机的集群身份，以确认它不是主节点或现有成员。请检查该主机并重试。",
-		"errAlreadyMember": "该主机已经是成员（以其他地址添加）。如需重新添加，请先删除现有条目。"
+		"errAlreadyMember": "该主机已经是成员（以其他地址添加）。如需重新添加，请先删除现有条目。",
+		"fleetState": {
+			"ok": "健康",
+			"degraded": "降级",
+			"faulty": "故障"
+		},
+		"fleetReason": {
+			"member_down": "一个成员离线",
+			"all_members_down": "所有成员均离线",
+			"sync_held": "某个成员的配置同步已暂停（版本不一致）",
+			"all_sync_held": "每个成员的配置同步均已暂停；仅主节点例外",
+			"autosync_stale": "自动同步已关闭，且集群超过一天未同步",
+			"autosync_stale_long": "自动同步已关闭，且集群超过三天未同步",
+			"traefik_config_stale": "Traefik 已停止获取路由配置"
+		}
 	},
 	"traffic": {
 		"title": "流量",
@@ -269,7 +283,8 @@
 				"traefik_stale": "Traefik 配置过时",
 				"member_added": "成员已添加",
 				"member_removed": "成员已移除",
-				"member_state_changed": "成员已激活或排空"
+				"member_state_changed": "成员已激活或排空",
+				"fleet_state_changed": "集群状态已更改"
 			},
 			"saveBtn": "保存告警设置",
 			"testBtn": "发送测试",

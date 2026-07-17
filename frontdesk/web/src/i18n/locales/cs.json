@@ -129,7 +129,21 @@
 		"errAlreadyPrimary": "Tento hostitel už je primárním uzlem flotily a nelze jej přidat jako člena. Změňte primární uzel v průvodci synchronizací flotily.",
 		"errUnreachable": "Front Desk se k tomuto hostiteli nedokázal připojit kvůli ověření. Zkontrolujte URL, admin token a zda hostitel běží.",
 		"errIdentityUnverified": "Front Desk ověřil admin token, ale nepodařilo se mu načíst identitu tohoto hostitele ve flotile, aby potvrdil, že není primární ani stávající člen. Zkontrolujte hostitele a zkuste to znovu.",
-		"errAlreadyMember": "Tento hostitel už je členem (přidán pod jinou adresou). Chcete-li jej přidat znovu, nejprve odeberte stávající záznam."
+		"errAlreadyMember": "Tento hostitel už je členem (přidán pod jinou adresou). Chcete-li jej přidat znovu, nejprve odeberte stávající záznam.",
+		"fleetState": {
+			"ok": "V pořádku",
+			"degraded": "Zhoršený",
+			"faulty": "Poruchový"
+		},
+		"fleetReason": {
+			"member_down": "člen je nedostupný",
+			"all_members_down": "všichni členové jsou nedostupní",
+			"sync_held": "synchronizace konfigurace je pozastavena pro člena (rozdílné verze)",
+			"all_sync_held": "synchronizace konfigurace je pozastavena u každého člena; primární instance je výjimkou",
+			"autosync_stale": "automatická synchronizace je vypnutá a flotila nebyla synchronizována více než den",
+			"autosync_stale_long": "automatická synchronizace je vypnutá a flotila nebyla synchronizována více než tři dny",
+			"traefik_config_stale": "Traefik přestal načítat konfiguraci směrování"
+		}
 	},
 	"traffic": {
 		"title": "Provoz",
@@ -269,7 +283,8 @@
 				"traefik_stale": "Konfigurace Traefik zastaralá",
 				"member_added": "Člen přidán",
 				"member_removed": "Člen odebrán",
-				"member_state_changed": "Člen aktivován nebo vyřazen z provozu"
+				"member_state_changed": "Člen aktivován nebo vyřazen z provozu",
+				"fleet_state_changed": "Stav flotily se změnil"
 			},
 			"saveBtn": "Uložit nastavení upozornění",
 			"testBtn": "Odeslat test",
