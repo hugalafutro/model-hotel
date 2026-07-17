@@ -82,7 +82,13 @@ type Server struct {
 	// bounded by fleet size; a restart re-emits at most once per still-held member.
 	syncHeldMu sync.Mutex
 	syncHeld   map[string]bool
-	router     http.Handler
+	// fleetStatePrev is the last state checkFleetState saw, guarding the
+	// edge-triggered fleet.state_changed emission. Empty until the first check
+	// (treated as ok, so a fleet that starts unhealthy alerts once on startup,
+	// the same restart trade-off as the staleness watchdogs).
+	fleetStateMu   sync.Mutex
+	fleetStatePrev FleetState
+	router         http.Handler
 	// bgWG tracks detached background goroutines (e.g. the auto-sync kick) so
 	// callers can drain them on shutdown. Without it, a kick fired by an enable
 	// keeps writing to the store after a caller (or a test) has moved on, which

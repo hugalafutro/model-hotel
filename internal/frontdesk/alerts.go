@@ -45,6 +45,9 @@ var fdCatalog = []alert.EventDef{
 	{Type: "version.fetch_recovered", Category: "Member Reads", Severity: "success", DefaultOn: false},
 	// Traefik dynamic-config staleness.
 	{Type: "traefik.stale", Category: "Routing", Severity: "warning", DefaultOn: false},
+	// The fleet state machine crossed a boundary (ok/degraded/faulty). Reason
+	// codes ride the event metadata; severity mirrors the state entered.
+	{Type: "fleet.state_changed", Category: "Health", Severity: "warning", DefaultOn: false},
 	// Fleet roster + drain/active changes.
 	{Type: "member.added", Category: "Membership", Severity: "info", DefaultOn: false},
 	{Type: "member.removed", Category: "Membership", Severity: "info", DefaultOn: false},

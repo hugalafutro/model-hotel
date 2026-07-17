@@ -1,5 +1,14 @@
 package frontdesk
 
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
+)
+
 // This file computes the fleet-wide state machine: one server-side judgment of
 // "how is the fleet doing" (ok / degraded / faulty) with machine-readable
 // reason codes, so every client (Front Desk web, Bellhop) translates the same
@@ -116,4 +125,112 @@ func computeFleetState(in fleetStateInput) (FleetState, []string) {
 		}
 	}
 	return state, reasons
+}
+
+// fleetStateInterval is how often RunFleetState re-judges the fleet. Matches
+// the default poll cadence; the inputs are in-memory snapshots plus three
+// cheap settings reads, so a tight tick costs little.
+const fleetStateInterval = 5 * time.Second
+
+// heldSnapshot copies the autosync version-skew hold set under its lock.
+func (s *Server) heldSnapshot() map[string]bool {
+	s.syncHeldMu.Lock()
+	defer s.syncHeldMu.Unlock()
+	out := make(map[string]bool, len(s.syncHeld))
+	for k, v := range s.syncHeld {
+		out[k] = v
+	}
+	return out
+}
+
+// fleetStateNow gathers the live inputs and computes the current fleet state.
+func (s *Server) fleetStateNow(ctx context.Context) (FleetState, []string, error) {
+	members, err := s.store.ListMembers(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	cfg, err := s.store.GetAutoSync(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	syncState, haveSync, err := s.store.GetFleetSyncState(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	statuses := s.poller.Snapshot()
+	held := s.heldSnapshot()
+	facts := make([]memberFleetFacts, 0, len(members))
+	for _, m := range members {
+		st := statuses[m.ID]
+		facts = append(facts, memberFleetFacts{
+			Known:    st.Health.Known,
+			Healthy:  st.Health.Healthy,
+			Syncable: m.HasToken && m.ID != cfg.PrimaryID,
+			Held:     held[m.ID],
+		})
+	}
+	state, reasons := computeFleetState(fleetStateInput{
+		Members:      facts,
+		AutoSyncTier: autoSyncStaleTier(cfg, syncState.LastRunAt, haveSync, time.Now().UTC()),
+		TraefikStale: s.poller.ConfigPollStale(ctx),
+	})
+	return state, reasons, nil
+}
+
+// checkFleetState computes the state and emits fleet.state_changed exactly on
+// transitions. Split from RunFleetState so tests drive ticks directly.
+func (s *Server) checkFleetState(ctx context.Context) {
+	cur, reasons, err := s.fleetStateNow(ctx)
+	if err != nil {
+		debuglog.Warn("frontdesk: fleet state", "error", err)
+		return
+	}
+	s.fleetStateMu.Lock()
+	prev := s.fleetStatePrev
+	if prev == "" {
+		prev = FleetOK
+	}
+	changed := cur != prev
+	s.fleetStatePrev = cur
+	s.fleetStateMu.Unlock()
+	if changed {
+		s.emit(ctx, fleetStateEvent(prev, cur, reasons))
+	}
+}
+
+// fleetStateEvent shapes the edge-triggered transition event. The message is
+// operator-log prose; clients translate from the metadata reason codes, never
+// from this string.
+func fleetStateEvent(from, to FleetState, reasons []string) Event {
+	sev := "success"
+	switch to {
+	case FleetDegraded:
+		sev = "warning"
+	case FleetFaulty:
+		sev = "error"
+	}
+	msg := fmt.Sprintf("Fleet state changed: %s to %s", from, to)
+	if len(reasons) > 0 {
+		msg += " (" + strings.Join(reasons, ", ") + ")"
+	}
+	return Event{
+		Type: "fleet.state_changed", Severity: sev, Source: "frontdesk",
+		Message:  msg,
+		Metadata: map[string]any{"from": string(from), "to": string(to), "reasons": reasons},
+	}
+}
+
+// RunFleetState re-judges the fleet on a fixed tick until ctx is cancelled.
+// Started once at startup, alongside RunAutoSync.
+func (s *Server) RunFleetState(ctx context.Context) {
+	ticker := time.NewTicker(fleetStateInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.checkFleetState(ctx)
+		}
+	}
 }

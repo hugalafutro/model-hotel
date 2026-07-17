@@ -142,6 +142,7 @@ func main() {
 
 	go poller.Run(ctx)
 	go srv.RunAutoSync(ctx)
+	go srv.RunFleetState(ctx)
 	go srv.RunAlerts(ctx)
 
 	httpServer := &http.Server{
