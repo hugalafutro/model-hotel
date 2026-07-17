@@ -89,6 +89,7 @@ type Poller struct {
 	versionFailures       map[string]int  // consecutive version-fetch failures, keyed by member ID
 	healthFailures        map[string]int  // consecutive failed health polls, keyed by member ID
 	traefikNonUp          map[string]int  // consecutive non-UP Traefik observations, keyed by member ID
+	traefikAPIFails       int             // consecutive failed Traefik API polls (whole-API, not per member)
 	conflictNotified      map[string]bool // members that rejected our announce (409), keyed by member ID
 }
 
@@ -468,6 +469,7 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	statusByURL, err := p.fetchTraefikServerStatus(ctx)
 	if err != nil {
 		debuglog.Debug("frontdesk: poll traefik status", "error", err)
+		p.noteTraefikAPIFailure(ctx)
 		return
 	}
 	members, err := p.store.ListMembers(ctx)
@@ -481,6 +483,7 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	// `threshold` polls in a row.
 	threshold := p.healthFailThreshold(ctx)
 	p.mu.Lock()
+	p.traefikAPIFails = 0
 	var changed []string
 	for _, m := range members {
 		cur := p.statuses[m.ID]
@@ -502,6 +505,40 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	p.mu.Unlock()
 	// Traefik's view caught up to a new/changed member (it needs to re-poll the
 	// config before it lists one), so refresh the UI without a manual reload.
+	for _, id := range changed {
+		p.publishMemberStatus(id)
+	}
+}
+
+// noteTraefikAPIFailure counts consecutive failed polls of Traefik's own API
+// and, once they cross the health-fail threshold, blanks every member's
+// TraefikStatus. Without this the badges freeze at their last value while the
+// API is down, painting a live-looking status from a dead data source; blank
+// renders as the existing faint "unknown". Damped by the same threshold as the
+// UP->DOWN flip so a restart blip of Traefik does not blank the column.
+func (p *Poller) noteTraefikAPIFailure(ctx context.Context) {
+	threshold := p.healthFailThreshold(ctx)
+	members, err := p.store.ListMembers(ctx)
+	if err != nil {
+		return
+	}
+	p.mu.Lock()
+	p.traefikAPIFails++
+	if p.traefikAPIFails < threshold {
+		p.mu.Unlock()
+		return
+	}
+	var changed []string
+	for _, m := range members {
+		cur := p.statuses[m.ID]
+		if cur.TraefikStatus != "" {
+			cur.TraefikStatus = ""
+			p.statuses[m.ID] = cur
+			changed = append(changed, m.ID)
+		}
+		delete(p.traefikNonUp, m.ID)
+	}
+	p.mu.Unlock()
 	for _, id := range changed {
 		p.publishMemberStatus(id)
 	}

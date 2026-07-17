@@ -164,3 +164,47 @@ func TestPollTraefikOnceDampsDownFlip(t *testing.T) {
 		t.Errorf("recovery to UP should be immediate, got %q", got)
 	}
 }
+
+// TestPollTraefikOnceBlanksStatusAfterAPIFailures covers the Traefik-API-down
+// path: once the Traefik API itself stops answering for `health_fail_threshold`
+// polls in a row, every member's TraefikStatus must blank (rendering as the
+// faint "unknown") instead of freezing at its last live-looking value.
+func TestPollTraefikOnceBlanksStatusAfterAPIFailures(t *testing.T) {
+	ctx := context.Background()
+	store := newTestStore(t)
+	m, err := store.CreateMember(ctx, "m1", "http://m1:8081", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+
+	// The Traefik services response references the member's stored URL so the
+	// status maps back onto it.
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == traefikServicesAPI {
+			_, _ = w.Write([]byte(`[{"name":"hotel@http","serverStatus":{"` + m.URL + `":"UP"}}]`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer stub.Close()
+
+	p := NewPoller(store, events.NewBus(), stub.URL)
+
+	p.PollTraefikOnce(ctx) // seeds "UP"
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+		t.Fatalf("seed status = %q, want UP", got)
+	}
+	stub.Close() // Traefik API now unreachable; last value must not freeze forever
+
+	threshold := p.healthFailThreshold(ctx)
+	for i := 0; i < threshold-1; i++ {
+		p.PollTraefikOnce(ctx)
+		if got := p.Snapshot()[m.ID].TraefikStatus; got != "UP" {
+			t.Fatalf("blanked after %d failures, want hold until %d", i+1, threshold)
+		}
+	}
+	p.PollTraefikOnce(ctx)
+	if got := p.Snapshot()[m.ID].TraefikStatus; got != "" {
+		t.Fatalf("status after %d failed polls = %q, want blank", threshold, got)
+	}
+}
