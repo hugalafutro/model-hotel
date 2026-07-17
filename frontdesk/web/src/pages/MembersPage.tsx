@@ -77,6 +77,12 @@ export function MembersPage() {
 	useEffect(refreshPrimary, [refreshPrimary]);
 
 	const groupVersion = majorityVersion(members);
+	// With a designated primary, version divergence is anchored to it (that is
+	// what holds config sync); the majority "odd one out" flag only fills in
+	// when no primary is set and there is nothing else to anchor to.
+	const primaryVersion = primaryId
+		? (members.find((m) => m.id === primaryId)?.status.version ?? null)
+		: null;
 	// Pin the fleet primary to the top; every other member keeps its order.
 	const orderedMembers = primaryId
 		? [
@@ -148,7 +154,8 @@ export function MembersPage() {
 								<MemberRow
 									key={m.id}
 									member={m}
-									groupVersion={groupVersion}
+									groupVersion={primaryId ? null : groupVersion}
+									primaryVersion={primaryVersion}
 									isPrimary={m.id === primaryId}
 									onSetState={setState}
 									onRemove={() => setRemoving(m)}
@@ -198,12 +205,16 @@ export function MembersPage() {
 function MemberRow({
 	member: m,
 	groupVersion,
+	primaryVersion,
 	isPrimary,
 	onSetState,
 	onRemove,
 }: {
 	member: MemberView;
 	groupVersion: string | null;
+	// The designated primary's version, or null when no primary is set (or its
+	// version is unknown). Non-null anchors the "sync held" badge.
+	primaryVersion: string | null;
 	isPrimary: boolean;
 	onSetState: (m: MemberView, state: "active" | "drained") => void;
 	onRemove: () => void;
@@ -212,6 +223,15 @@ function MemberRow({
 	const health = m.status.health;
 	const mismatch =
 		!!m.status.version && !!groupVersion && m.status.version !== groupVersion;
+	// Mirrors the backend gate: config sync (autosync and the wizard) holds a
+	// tokened member while its version differs from the primary's, including an
+	// unknown version (the gate fails closed). Tokenless members are skipped by
+	// sync entirely, never held.
+	const heldForSkew =
+		!isPrimary &&
+		m.has_token &&
+		!!primaryVersion &&
+		m.status.version !== primaryVersion;
 
 	return (
 		<tr className={isPrimary ? "fd-row-primary" : undefined}>
@@ -270,23 +290,34 @@ function MemberRow({
 				)}
 			</td>
 			<td>
-				{m.status.version ? (
-					<span className="fd-row">
+				<span className="fd-row">
+					{m.status.version ? (
 						<span className="fd-mono">{m.status.version}</span>
-						{mismatch && (
-							<span
-								className="ui-badge ui-badge-warn"
-								title={t("members.versionMismatch")}
-							>
-								<WarningIcon size={12} weight="bold" />
-							</span>
-						)}
-					</span>
-				) : (
-					<span className="fd-faint">
-						{m.has_token ? t("members.versionUnknown") : t("members.noToken")}
-					</span>
-				)}
+					) : (
+						<span className="fd-faint">
+							{m.has_token ? t("members.versionUnknown") : t("members.noToken")}
+						</span>
+					)}
+					{mismatch && (
+						<span
+							className="ui-badge ui-badge-warn"
+							title={t("members.versionMismatch")}
+						>
+							<WarningIcon size={12} weight="bold" />
+						</span>
+					)}
+					{/* Rendered for unknown versions too: the gate fails closed, so a
+					    tokened member we cannot read is held and must show as held. */}
+					{heldForSkew && (
+						<span
+							className="ui-badge ui-badge-warn"
+							data-testid="member-sync-held"
+							title={t("members.syncHeldTip")}
+						>
+							{t("members.syncHeld")}
+						</span>
+					)}
+				</span>
 			</td>
 			<td data-testid="member-verified">
 				{isPrimary ? (

@@ -226,6 +226,21 @@ export interface FleetStatus {
 	lb_port?: string;
 }
 
+// Version-alignment check (POST /api/fleet/version-check). Re-polls member
+// versions on demand and reports the ones that differ from the chosen
+// primary's. Drives the Fleet Sync wizard's pre-sync gate and Refresh button.
+export interface FleetVersionSkewMember {
+	member_id: string;
+	name: string;
+	version: string; // "" when unknown / unreadable
+}
+
+export interface FleetVersionCheck {
+	primary_id: string;
+	primary_version: string;
+	skewed: FleetVersionSkewMember[];
+}
+
 // Last successful fleet-sync wizard run (GET /api/fleet/last-sync). Absent
 // (null/204) until the wizard converges at least one member.
 export interface FleetSyncState {

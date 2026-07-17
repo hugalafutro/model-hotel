@@ -11,6 +11,7 @@ import type {
 	FdEvent,
 	FleetStatus,
 	FleetSyncState,
+	FleetVersionCheck,
 	Member,
 	MemberState,
 	MemberTraffic,
@@ -229,6 +230,14 @@ export const api = {
 	configSync: (primaryId: string) =>
 		request<SyncResult>(
 			"/api/config/sync",
+			jsonInit("POST", { primary_id: primaryId }),
+		),
+
+	// Re-poll member versions and report the ones that differ from the
+	// primary's. Powers the wizard's version gate and its Refresh button.
+	fleetVersionCheck: (primaryId: string) =>
+		request<FleetVersionCheck>(
+			"/api/fleet/version-check",
 			jsonInit("POST", { primary_id: primaryId }),
 		),
 
