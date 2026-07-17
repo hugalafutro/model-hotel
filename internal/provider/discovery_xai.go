@@ -65,6 +65,24 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 	// any catalog model the listing endpoints do not advertise (xAI keeps older
 	// grok models callable without listing them).
 	merged := mergeLiveAndCatalog(live, catalog)
+
+	// Image-generation models live on a separate endpoint from chat/language
+	// models. Discovery is best-effort: a failure here (e.g. no image scope) must
+	// not drop the language models we already have.
+	if imageModels, imgErr := d.discoverXAIImageModels(ctx, provider, apiKey, baseURL); imgErr != nil {
+		debuglog.Warn("discovery: xai image-model discovery failed", "provider", provider.Name, "provider_id", provider.ID, "error", imgErr)
+	} else {
+		existing := make(map[string]struct{}, len(merged))
+		for _, m := range merged {
+			existing[m.ModelID] = struct{}{}
+		}
+		for _, im := range imageModels {
+			if _, dup := existing[im.ModelID]; !dup {
+				merged = append(merged, im)
+			}
+		}
+	}
+
 	debuglog.Info("discovery: xai merged live + catalog", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(catalog), "merged", len(merged))
 	return merged, nil
 }
@@ -155,6 +173,82 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 	}
 
 	debuglog.Info("discovery: xai discovered language models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
+	return models, nil
+}
+
+// discoverXAIImageModels fetches the xAI image-generation catalog and maps it to
+// models with an "image" output modality. xAI serves image generation on the
+// same base as chat (/v1/images/generations), so unlike NanoGPT no base rewrite
+// is needed; only registration was missing. Image models bill per image, not per
+// token, so token price fields stay nil and the xAI image price (in xAI's native
+// units) is preserved in params.
+func (d *DiscoveryService) discoverXAIImageModels(ctx context.Context, provider *Provider, apiKey, baseURL string) ([]*model.Model, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/image-generation-models", http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("xAI: failed to create image-models request for provider %s: %w", provider.Name, err)
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("xAI: image-models request failed for provider %s: %w", provider.Name, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("xAI: failed to read image-models response for provider %s: %w", provider.Name, err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("xAI: unexpected status %d from image-models for provider %s", resp.StatusCode, provider.Name)
+	}
+
+	var imgResp XAIImageGenerationModelsResponse
+	if err := json.Unmarshal(bodyBytes, &imgResp); err != nil {
+		return nil, fmt.Errorf("xAI: failed to decode image-models response: %w", err)
+	}
+
+	models := make([]*model.Model, 0, len(imgResp.Models))
+	for _, im := range imgResp.Models {
+		inputMods := im.InputModalities
+		if len(inputMods) == 0 {
+			inputMods = []string{"text"}
+		}
+		outputMods := im.OutputModalities
+		if len(outputMods) == 0 {
+			outputMods = []string{"image"}
+		}
+		modality := "text->image"
+		if slices.Contains(inputMods, "image") {
+			modality = "text+image->image"
+		}
+		inputModJSON, _ := json.Marshal(inputMods)
+		outputModJSON, _ := json.Marshal(outputMods)
+
+		paramsMap := map[string]any{"image_generation": true}
+		if im.ImagePrice > 0 {
+			paramsMap["image_price"] = im.ImagePrice
+		}
+		paramsJSON, _ := json.Marshal(paramsMap)
+
+		models = append(models, &model.Model{
+			ID:               uuid.New(),
+			ProviderID:       provider.ID,
+			ModelID:          im.ID,
+			Name:             im.ID,
+			DisplayName:      im.ID,
+			Capabilities:     "{}",
+			Params:           string(paramsJSON),
+			Modality:         modality,
+			InputModalities:  string(inputModJSON),
+			OutputModalities: string(outputModJSON),
+			OwnedBy:          im.OwnedBy,
+			Enabled:          true,
+		})
+	}
+
+	debuglog.Info("discovery: xai discovered image models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
 	return models, nil
 }
 

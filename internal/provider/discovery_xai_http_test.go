@@ -1042,3 +1042,83 @@ func TestDiscoverXAI_LanguageModelsEmpty_MinimalModelsEmpty(t *testing.T) {
 		t.Errorf("expected 0 models when live is empty, got %d", len(models))
 	}
 }
+
+func TestDiscoverXAIImageModels(t *testing.T) {
+	imageServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/image-generation-models" || r.Method != "GET" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Header.Get("Authorization") != "Bearer test-api-key" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		response := XAIImageGenerationModelsResponse{
+			Models: []XAIImageGenerationModel{
+				{
+					ID:               "grok-imagine-image",
+					Object:           "model",
+					OwnedBy:          "xai",
+					Version:          "1.0",
+					InputModalities:  []string{"text", "image"},
+					OutputModalities: []string{"image"},
+					ImagePrice:       200000000,
+					Aliases:          []string{"grok-imagine-image-2026-03-02"},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer imageServer.Close()
+
+	service := &DiscoveryService{httpClient: imageServer.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: imageServer.URL}
+
+	models, err := service.discoverXAIImageModels(context.Background(), provider, "test-api-key", imageServer.URL)
+	if err != nil {
+		t.Fatalf("discoverXAIImageModels failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("expected 1 image model, got %d", len(models))
+	}
+	m := models[0]
+	if m.ModelID != "grok-imagine-image" {
+		t.Errorf("model ID = %q, want grok-imagine-image", m.ModelID)
+	}
+	if !strings.Contains(m.OutputModalities, "image") {
+		t.Errorf("output modalities = %q, want to contain image", m.OutputModalities)
+	}
+	if !strings.Contains(m.InputModalities, "image") {
+		t.Errorf("input modalities = %q, want to contain image (grok image models take image input)", m.InputModalities)
+	}
+	if m.Modality != "text+image->image" {
+		t.Errorf("modality = %q, want text+image->image", m.Modality)
+	}
+	if !strings.Contains(m.Params, `"image_generation":true`) {
+		t.Errorf("params = %q, want image_generation true", m.Params)
+	}
+	if !strings.Contains(m.Params, `"image_price":200000000`) {
+		t.Errorf("params = %q, want image_price 200000000", m.Params)
+	}
+	if m.InputPricePerMillion != nil || m.OutputPricePerMillion != nil {
+		t.Error("image models must not carry token pricing")
+	}
+	if !m.Enabled {
+		t.Error("discovered image model should be enabled")
+	}
+}
+
+func TestDiscoverXAIImageModels_Non200IsError(t *testing.T) {
+	imageServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+	}))
+	defer imageServer.Close()
+
+	service := &DiscoveryService{httpClient: imageServer.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: imageServer.URL}
+
+	if _, err := service.discoverXAIImageModels(context.Background(), provider, "test-api-key", imageServer.URL); err == nil {
+		t.Fatal("expected error on non-200 image-models response")
+	}
+}
