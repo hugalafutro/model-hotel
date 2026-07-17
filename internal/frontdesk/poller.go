@@ -90,6 +90,7 @@ type Poller struct {
 	healthFailures        map[string]int  // consecutive failed health polls, keyed by member ID
 	traefikNonUp          map[string]int  // consecutive non-UP Traefik observations, keyed by member ID
 	traefikAPIFails       int             // consecutive failed Traefik API polls (whole-API, not per member)
+	traefikBlanked        bool            // true once a Traefik outage has blanked all badges; skips re-blank + member re-reads until recovery
 	conflictNotified      map[string]bool // members that rejected our announce (409), keyed by member ID
 }
 
@@ -484,6 +485,7 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 	threshold := p.healthFailThreshold(ctx)
 	p.mu.Lock()
 	p.traefikAPIFails = 0
+	p.traefikBlanked = false
 	var changed []string
 	for _, m := range members {
 		cur := p.statuses[m.ID]
@@ -518,16 +520,28 @@ func (p *Poller) PollTraefikOnce(ctx context.Context) {
 // UP->DOWN flip so a restart blip of Traefik does not blank the column.
 func (p *Poller) noteTraefikAPIFailure(ctx context.Context) {
 	threshold := p.healthFailThreshold(ctx)
-	members, err := p.store.ListMembers(ctx)
-	if err != nil {
+	p.mu.Lock()
+	if p.traefikBlanked {
+		// Already blanked by an earlier poll in this outage: nothing left to blank,
+		// so skip the member re-read and stop advancing the counter. A successful
+		// poll (which resets both flags) re-arms this.
+		p.mu.Unlock()
 		return
 	}
-	p.mu.Lock()
 	p.traefikAPIFails++
 	if p.traefikAPIFails < threshold {
 		p.mu.Unlock()
 		return
 	}
+	p.mu.Unlock()
+	// Exactly crossed the threshold: blank every member's badge. Read members
+	// outside the lock; on a read error leave traefikBlanked false so the next
+	// failed poll retries the blank.
+	members, err := p.store.ListMembers(ctx)
+	if err != nil {
+		return
+	}
+	p.mu.Lock()
 	var changed []string
 	for _, m := range members {
 		cur := p.statuses[m.ID]
@@ -538,6 +552,7 @@ func (p *Poller) noteTraefikAPIFailure(ctx context.Context) {
 		}
 		delete(p.traefikNonUp, m.ID)
 	}
+	p.traefikBlanked = true
 	p.mu.Unlock()
 	for _, id := range changed {
 		p.publishMemberStatus(id)

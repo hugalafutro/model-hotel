@@ -94,15 +94,10 @@ func autoSyncStaleTier(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, no
 	return 0
 }
 
-// autoSyncStale reports whether the fleet's config is at risk of silent drift. It
-// delegates to autoSyncStaleTier and is true for tier >= 1: a primary is
-// designated but auto-sync is off, and the last successful fleet sync is older
-// than autoSyncStaleThreshold (or never ran). It is deliberately false when
-// auto-sync is on (the loop keeps the fleet fresh and reports its own failures
-// via config.sync_failed) and when no primary is configured — the operator never
-// opted into the sync model, so "stale" would be meaningless and, since auto-sync
-// is off by default, would otherwise fire on every fresh install. haveSync is
-// false when no successful sync has ever been recorded.
+// autoSyncStale reports whether the fleet's config is at risk of silent drift:
+// true exactly when autoSyncStaleTier returns 1 or higher (see it for the full
+// rule and rationale). Retained as the boolean that the config.autosync_stale
+// watchdog and the autosync payload's Stale flag consume.
 func autoSyncStale(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, now time.Time) bool {
 	return autoSyncStaleTier(cfg, lastSync, haveSync, now) >= 1
 }

@@ -144,6 +144,8 @@ func (s *Server) heldSnapshot() map[string]bool {
 }
 
 // fleetStateNow gathers the live inputs and computes the current fleet state.
+// The background loop uses this self-contained form; autoSyncStatusNow reuses
+// reads it has already made by calling fleetStateFrom directly.
 func (s *Server) fleetStateNow(ctx context.Context) (FleetState, []string, error) {
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {
@@ -157,6 +159,16 @@ func (s *Server) fleetStateNow(ctx context.Context) (FleetState, []string, error
 	if err != nil {
 		return "", nil, err
 	}
+	state, reasons := s.fleetStateFrom(ctx, members, cfg, syncState.LastRunAt, haveSync)
+	return state, reasons, nil
+}
+
+// fleetStateFrom assembles the per-member facts from already-read store data
+// (member list, auto-sync config, last-sync marker) and computes the state,
+// folding in the live poller snapshots (health, Traefik staleness) and the
+// version-skew hold set. Callers that already hold those reads pass them in so
+// the polled /api/fleet/autosync endpoint does not re-query the store.
+func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg AutoSyncConfig, lastSync time.Time, haveSync bool) (FleetState, []string) {
 	statuses := s.poller.Snapshot()
 	held := s.heldSnapshot()
 	facts := make([]memberFleetFacts, 0, len(members))
@@ -169,12 +181,11 @@ func (s *Server) fleetStateNow(ctx context.Context) (FleetState, []string, error
 			Held:     held[m.ID],
 		})
 	}
-	state, reasons := computeFleetState(fleetStateInput{
+	return computeFleetState(fleetStateInput{
 		Members:      facts,
-		AutoSyncTier: autoSyncStaleTier(cfg, syncState.LastRunAt, haveSync, time.Now().UTC()),
+		AutoSyncTier: autoSyncStaleTier(cfg, lastSync, haveSync, time.Now().UTC()),
 		TraefikStale: s.poller.ConfigPollStale(ctx),
 	})
-	return state, reasons, nil
 }
 
 // checkFleetState computes the state and emits fleet.state_changed exactly on

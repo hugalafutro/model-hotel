@@ -165,18 +165,13 @@ func (s *Server) autoSyncStatusNow(ctx context.Context) (autoSyncStatus, error) 
 		AutoSyncConfig: cfg,
 		Stale:          autoSyncStale(cfg, state.LastRunAt, found, time.Now().UTC()),
 	}
-	// Best-effort, like last_sync_at below: a failed state read must not fail
-	// the status endpoint (PUT already persisted its toggle by the time this
-	// runs), so degrade to an absent field instead.
-	if fs, reasons, err := s.fleetStateNow(ctx); err == nil {
-		status.FleetState = fs
-		status.FleetStateReasons = reasons
-	}
-	// last_sync_at is best-effort garnish: the max of members' real-write
-	// stamps. A failed members read must not fail the status itself, or the
-	// PUT /api/fleet/autosync response would report a failure for a toggle that
-	// already persisted. Degrade to an empty stamp instead.
+	// The member list feeds both the fleet-state fields and the last_sync_at
+	// garnish, so it is read once here and reused for both (and both then see one
+	// consistent snapshot). Best-effort, like Stale above: a failed read must not
+	// fail the status endpoint (the PUT toggle already persisted by the time this
+	// runs), so both derived fields degrade to absent instead.
 	if members, err := s.store.ListMembers(ctx); err == nil {
+		status.FleetState, status.FleetStateReasons = s.fleetStateFrom(ctx, members, cfg, state.LastRunAt, found)
 		var lastSync time.Time
 		for _, m := range members {
 			if m.LastConfigSyncAt != nil && m.LastConfigSyncAt.After(lastSync) {

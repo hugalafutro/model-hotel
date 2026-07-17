@@ -186,7 +186,8 @@ func TestPollTraefikOnceBlanksStatusAfterAPIFailures(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusNotFound)
 	}))
-	defer stub.Close()
+	// Closed explicitly mid-test to simulate the outage (below); no defer, so the
+	// server is not double-closed.
 
 	p := NewPoller(store, events.NewBus(), stub.URL)
 
