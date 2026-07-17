@@ -381,7 +381,10 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	// downgraded to a user identity by a stray user row.
 	sessionHandle := []byte("admin")
 	if !rt.allowed[email] {
-		u := resolveSSOUser(ctx, h.users, email)
+		// Bind on the IdP's stable (iss, sub) -- issuer-qualified so two OIDC
+		// issuers can never collide on a bare subject -- not on the email, which
+		// any provider can assert.
+		u := resolveSSOUser(ctx, h.users, "oidc", idToken.Issuer+"#"+idToken.Subject, email)
 		if u == nil {
 			debuglog.Warn("oidc: login denied: email not allowlisted or user-bound",
 				"email_masked", maskEmail(email), "sub", idToken.Subject, "iss", idToken.Issuer)

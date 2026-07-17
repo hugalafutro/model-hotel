@@ -36,6 +36,7 @@ var catalog = []EventDef{
 	{Type: "failover.sync_error", Category: "Failover", Severity: "warning", DefaultOn: true},
 	{Type: "discovery.provider_failed", Category: "Discovery", Severity: "error", DefaultOn: false},
 	{Type: "fleet.conflict", Category: "High Availability", Severity: "warning", DefaultOn: true},
+	{Type: "auth.sso_identity_bound", Category: "Security", Severity: "warning", DefaultOn: false},
 }
 
 // Catalog returns a copy of the event registry, safe for the caller to mutate.
