@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -54,6 +55,13 @@ func systemMemberServerID(t *testing.T, selfReportsPrimary bool, instanceID stri
 
 func newTestServer(t *testing.T) (*Server, *Store) {
 	t.Helper()
+	return newTestServerUI(t, nil)
+}
+
+// newTestServerUI is newTestServer with an embedded SPA mounted, so tests can
+// exercise the "/" UI surface (e.g. security headers on the framed page).
+func newTestServerUI(t *testing.T, ui fs.FS) (*Server, *Store) {
+	t.Helper()
 	store := newTestStore(t)
 	bus := events.NewBus()
 	poller := NewPoller(store, bus, "")
@@ -74,6 +82,7 @@ func newTestServer(t *testing.T) (*Server, *Store) {
 		MasterKey:    testMasterKey,
 		RelyingParty: rp,
 		IPLimiter:    ratelimit.NewIPLimiter(1000, 1000, nil, nil),
+		UI:           ui,
 	})
 	// Drain any detached background goroutine (e.g. an auto-sync kick) before
 	// the store and its temp dir are torn down. Registered here so it runs
