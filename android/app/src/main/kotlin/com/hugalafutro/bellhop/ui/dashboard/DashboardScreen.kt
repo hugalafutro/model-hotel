@@ -83,7 +83,6 @@ import com.hugalafutro.bellhop.ui.common.healthLabel
 import com.hugalafutro.bellhop.ui.common.relativeAgo
 import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
-import com.hugalafutro.bellhop.ui.theme.SeverityWarnFg
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.Instant
@@ -470,7 +469,10 @@ private fun serverFleetSummary(
     val color =
         when (state) {
             "ok" -> MaterialTheme.colorScheme.tertiary
-            "degraded" -> SeverityWarnFg
+            // Brand accent (brass on dark, copper on light) reads on the dashboard
+            // surface in both themes; SeverityWarnFg is near-black and only legible
+            // as the foreground on the orange warn badge, not as standalone text.
+            "degraded" -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.error
         }
     val suffix = reasons.map { fleetReasonLabel(it) }.joinToString(" · ")
