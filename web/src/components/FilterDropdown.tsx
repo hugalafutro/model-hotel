@@ -15,6 +15,13 @@ interface FilterDropdownProps {
 	 * required selector (e.g. a form field) where every choice is a real value.
 	 */
 	allowClear?: boolean;
+	/**
+	 * Trigger sizing. "input" (default) matches a form field (ui-input, h-9).
+	 * "compact" drops ui-input for a 10px, minimally-padded trigger that sits
+	 * flush with the dashboard's segmented toggles (ui-tab) rather than towering
+	 * over them. Only the trigger changes; the popup menu is shared.
+	 */
+	variant?: "input" | "compact";
 }
 
 export function FilterDropdown({
@@ -25,6 +32,7 @@ export function FilterDropdown({
 	allLabel,
 	className = "",
 	allowClear = true,
+	variant = "input",
 }: FilterDropdownProps) {
 	const { t } = useTranslation();
 	const effectivePlaceholder =
@@ -52,6 +60,15 @@ export function FilterDropdown({
 		? (selectedOption?.label ?? value)
 		: effectiveAllLabel;
 
+	const compact = variant === "compact";
+	// Compact avoids ui-input (whose themed base font/padding beat Tailwind
+	// utilities) so it can shrink to the 10px, py-px scale of the ui-tab toggles
+	// it sits beside; the default keeps the form-field look.
+	const triggerClass = compact
+		? "text-[10px] leading-[1.6] font-semibold py-px px-1.5 rounded-(--radius-button) border border-(--border-input) bg-(--surface-input) hover:border-(--accent) transition-colors flex items-center justify-between gap-1"
+		: "ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2";
+	const iconSize = compact ? 12 : 14;
+
 	return (
 		<div ref={containerRef} className={`relative inline-block ${className}`}>
 			<button
@@ -62,7 +79,7 @@ export function FilterDropdown({
 						? `${effectivePlaceholder}: ${displayLabel}`
 						: effectivePlaceholder
 				}
-				className="ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2"
+				className={triggerClass}
 			>
 				<span
 					className={`truncate ${value === "" ? "text-(--text-secondary)" : "text-(--text-primary)"}`}
@@ -89,11 +106,11 @@ export function FilterDropdown({
 							}}
 							title={t("common.clearFilter")}
 						>
-							<X size={14} />
+							<X size={iconSize} />
 						</span>
 					)}
 					<ChevronDown
-						size={14}
+						size={iconSize}
 						className={`text-(--text-tertiary) transition-transform ${open ? "rotate-180" : ""}`}
 					/>
 				</span>
