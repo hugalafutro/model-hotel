@@ -255,6 +255,29 @@ func TestNormalizeModelClassification_CapsSyncFromArrays(t *testing.T) {
 	}
 }
 
+func TestNormalizeModelClassification_PDFCapSync(t *testing.T) {
+	// Arrays are the source of truth: pdf input implies the pdf_upload flag
+	// (models.dev-enriched rows carry pdf only in the arrays)...
+	m := model.Model{
+		ModelID:         "claude-sonnet-4-6",
+		InputModalities: `["text","pdf"]`,
+		Capabilities:    `{"streaming":true}`,
+	}
+	NormalizeModelClassification(&m)
+	if !containsSubstring(m.Capabilities, `"pdf_upload":true`) {
+		t.Errorf("Capabilities = %s, want pdf_upload:true from pdf input", m.Capabilities)
+	}
+	// ...and the reverse: a catalog pdf_upload flag seeds the input array.
+	m2 := model.Model{
+		ModelID:      "claude-sonnet-4-6",
+		Capabilities: `{"pdf_upload":true}`,
+	}
+	NormalizeModelClassification(&m2)
+	if m2.InputModalities != `["text","pdf"]` {
+		t.Errorf("InputModalities = %q, want %q", m2.InputModalities, `["text","pdf"]`)
+	}
+}
+
 func TestNormalizeModels_Batch(t *testing.T) {
 	models := []*model.Model{
 		{ModelID: "llama-3.3-70b"},

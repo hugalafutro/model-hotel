@@ -223,17 +223,6 @@ export function VirtualModelTable({
 		onTotalChange?.(total);
 	}, [total, onTotalChange]);
 
-	const existingCaps = useMemo(() => {
-		const caps = new Set<CapKey>();
-		entries.forEach((m) => {
-			const c = parseCapabilities(m.capabilities);
-			CAP_META.forEach((meta) => {
-				if (hasCap(c, meta.key)) caps.add(meta.key);
-			});
-		});
-		return caps;
-	}, [entries]);
-
 	const disabledModels = useMemo(
 		() => entries.filter((m) => !m.enabled),
 		[entries],
@@ -550,9 +539,11 @@ export function VirtualModelTable({
 							<th className="px-4 py-2" />
 							<th className="px-4 py-2">
 								<span className="flex flex-wrap gap-1">
-									{CAP_META.filter(
-										(m) => existingCaps.has(m.key) || capFilter.has(m.key),
-									).map((m) => {
+									{/* All pills render unconditionally: filtering is
+									    server-side, so a matching model may exist outside
+									    the loaded window and every pill must stay
+									    reachable. */}
+									{CAP_META.map((m) => {
 										const isActive = capFilter.has(m.key);
 										return (
 											<button
@@ -568,9 +559,6 @@ export function VirtualModelTable({
 											</button>
 										);
 									})}
-									{/* All output pills render unconditionally: filtering is
-									    server-side, so a matching model may exist outside the
-									    loaded window and the pill must stay reachable. */}
 									{OUTPUT_META.map((m) => {
 										const isActive = outputFilter.has(m.key);
 										return (

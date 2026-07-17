@@ -391,6 +391,25 @@ describe("VirtualModelTable", () => {
 			expect(screen.getByText("✕")).toBeInTheDocument();
 		});
 
+		it("offers capability filter pills even when no loaded row has that cap", () => {
+			// Same reasoning as output pills: capability filtering is
+			// server-side, so a PDF-capable model may exist outside the
+			// loaded window.
+			const entries = [createModel({ id: "model-plain", capabilities: "{}" })];
+			setupWithEntries(entries);
+			renderWithProviders(<VirtualModelTable />);
+
+			const pdfPill = screen.getByText("PDF");
+			expect(pdfPill.tagName).toBe("BUTTON");
+			fireEvent.click(pdfPill);
+
+			const lastCall =
+				mockUseBidirectionalFetch.mock.calls[
+					mockUseBidirectionalFetch.mock.calls.length - 1
+				][0];
+			expect(lastCall.filters.capabilities).toBe("pdf_upload");
+		});
+
 		it("offers output filter pills even when no loaded row has that output", () => {
 			// Server-side pagination: an image generator may exist outside the
 			// loaded window, so the pill must render regardless of entries.

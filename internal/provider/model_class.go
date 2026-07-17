@@ -32,8 +32,8 @@ var explicitClasses = map[string]bool{
 // is stable across discoveries. Unknown values sort after known ones in
 // first-seen order (default-allow: never dropped).
 var canonicalModalityRank = map[string]int{
-	"text": 0, "image": 1, "audio": 2, "video": 3, "pdf": 4,
-	"embedding": 5, "rerank": 6,
+	"text": 0, "code": 1, "image": 2, "audio": 3, "video": 4, "pdf": 5,
+	"embedding": 6, "rerank": 7,
 }
 
 // DeriveModelClass computes the endpoint class from the modality arrays, with
@@ -190,6 +190,7 @@ var capsInputFlags = map[string]string{
 	"vision":      "image",
 	"audio_input": "audio",
 	"video_input": "video",
+	"pdf_upload":  "pdf",
 }
 
 func parseCapabilityFlags(raw string) map[string]any {
