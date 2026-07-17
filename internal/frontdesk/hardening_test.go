@@ -50,6 +50,41 @@ func TestTotpEnabledCacheFailsClosed(t *testing.T) {
 	})
 }
 
+// TestSecurityHeaders guards the clickjacking fix: every Front Desk response,
+// including the unauthenticated Traefik-config endpoint, must carry the frame,
+// content-type, referrer, and CSP hardening headers. Front Desk stores its
+// bearer in localStorage, so a framed same-origin copy would auto-authenticate
+// without frame-ancestors 'none' / X-Frame-Options: DENY.
+func TestSecurityHeaders(t *testing.T) {
+	srv, _ := newTestServer(t)
+	want := map[string]string{
+		"X-Content-Type-Options":  "nosniff",
+		"X-Frame-Options":         "DENY",
+		"Referrer-Policy":         "strict-origin-when-cross-origin",
+		"Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+	}
+	// Cover both an authenticated API route and the unauthenticated,
+	// compose-internal Traefik-config endpoint.
+	for _, tc := range []struct {
+		path string
+		auth bool
+	}{
+		{"/api/members", true},
+		{"/traefik/config", false},
+	} {
+		rec := do(t, srv, http.MethodGet, tc.path, "", tc.auth)
+		for h, v := range want {
+			if got := rec.Header().Get(h); got != v {
+				t.Errorf("%s: header %s = %q, want %q", tc.path, h, got, v)
+			}
+		}
+		// Plain HTTP (no TLS) must not advertise HSTS.
+		if got := rec.Header().Get("Strict-Transport-Security"); got != "" {
+			t.Errorf("%s: HSTS set on plain HTTP: %q", tc.path, got)
+		}
+	}
+}
+
 func TestIsProbeBlockedIP(t *testing.T) {
 	cases := []struct {
 		ip      string
