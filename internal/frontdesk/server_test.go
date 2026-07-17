@@ -220,10 +220,18 @@ func TestServerMemberCRUD(t *testing.T) {
 		t.Fatalf("state = %d, want 200; body=%s", rec.Code, rec.Body.String())
 	}
 
-	// Draining the now-last active member (hotel-2) is refused with 409 so the
-	// routing pool can never be emptied.
-	if rec := do(t, srv, http.MethodPost, "/api/members/"+second.ID+"/state", `{"state":"drained"}`, true); rec.Code != http.StatusConflict {
-		t.Fatalf("drain last active = %d, want 409; body=%s", rec.Code, rec.Body.String())
+	// Draining the now-last active member (hotel-2) is refused with 409 carrying
+	// the stable machine code (not just the English text) so clients route on it.
+	drainRec := do(t, srv, http.MethodPost, "/api/members/"+second.ID+"/state", `{"state":"drained"}`, true)
+	if drainRec.Code != http.StatusConflict {
+		t.Fatalf("drain last active = %d, want 409; body=%s", drainRec.Code, drainRec.Body.String())
+	}
+	var coded map[string]string
+	if err := json.Unmarshal(drainRec.Body.Bytes(), &coded); err != nil {
+		t.Fatalf("decode 409 body: %v; body=%s", err, drainRec.Body.String())
+	}
+	if coded["code"] != "last_active_member" {
+		t.Errorf("409 code = %q, want %q; body=%s", coded["code"], "last_active_member", drainRec.Body.String())
 	}
 
 	// The state change is attributed in its audit event. An admin bearer carries
