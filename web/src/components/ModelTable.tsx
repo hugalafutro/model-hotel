@@ -383,6 +383,7 @@ export function ModelTable({
 												key={m.key}
 												type="button"
 												disabled={isDisabled}
+												aria-pressed={isActive}
 												onClick={() => toggleCapFilter(m.key)}
 												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${isActive ? m.style : isDisabled ? m.disabled : m.muted}`}
 											>
@@ -399,10 +400,11 @@ export function ModelTable({
 											<button
 												key={m.key}
 												type="button"
+												aria-pressed={isActive}
 												onClick={() => toggleOutputFilter(m.key)}
 												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${isActive ? m.style : m.muted}`}
 											>
-												{m.label}
+												{t(m.labelKey)}
 											</button>
 										);
 									})}

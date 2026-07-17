@@ -933,7 +933,14 @@
 			"sortByStatus": "Duruma göre sırala",
 			"status": "Durum"
 		},
-		"disabledByDiscovery": "{{date}} tarihinden beri sağlayıcı tarafından listelenmiyor"
+		"disabledByDiscovery": "{{date}} tarihinden beri sağlayıcı tarafından listelenmiyor",
+		"outputPills": {
+			"image": "Görsel çıkışı",
+			"audio": "Ses çıkışı",
+			"video": "Video çıkışı",
+			"embedding": "Gömme",
+			"rerank": "Yeniden sıralama"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Tespit edilen değere geri dön",

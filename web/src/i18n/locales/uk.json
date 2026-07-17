@@ -933,7 +933,14 @@
 			"sortByStatus": "За статусом",
 			"status": "Статус"
 		},
-		"disabledByDiscovery": "Не вказано провайдером з {{date}}"
+		"disabledByDiscovery": "Не вказано провайдером з {{date}}",
+		"outputPills": {
+			"image": "Вивід зображень",
+			"audio": "Вивід аудіо",
+			"video": "Вивід відео",
+			"embedding": "Ембедінг",
+			"rerank": "Переранжування"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Повернутися до знайденого значення",

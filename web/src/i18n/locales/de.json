@@ -933,7 +933,14 @@
 			"sortByStatus": "Nach Status sortieren",
 			"status": "Status"
 		},
-		"disabledByDiscovery": "Vom Anbieter nicht aufgeführt seit {{date}}"
+		"disabledByDiscovery": "Vom Anbieter nicht aufgeführt seit {{date}}",
+		"outputPills": {
+			"image": "Bildausgabe",
+			"audio": "Audioausgabe",
+			"video": "Videoausgabe",
+			"embedding": "Embedding",
+			"rerank": "Rerank"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Auf den entdeckten Wert zurücksetzen",

@@ -356,6 +356,20 @@ func TestListModelsCursor_OutputsFilter(t *testing.T) {
 		t.Errorf("outputs=embedding: expected [nomic-embed], got %v", gotEmbed)
 	}
 
+	// Multi-value filters AND together: nothing outputs both image and
+	// embedding.
+	gotBoth := fetch("outputs=image,embedding&provider_id=" + providerResp.ID)
+	if len(gotBoth) != 0 {
+		t.Errorf("outputs=image,embedding: expected 0 entries, got %d (%v)", len(gotBoth), gotBoth)
+	}
+
+	// "text" is filterable too: the chat model and the chat model that also
+	// emits images.
+	gotText := fetch("outputs=text&provider_id=" + providerResp.ID)
+	if len(gotText) != 2 {
+		t.Errorf("outputs=text: expected 2 entries, got %d (%v)", len(gotText), gotText)
+	}
+
 	// Unknown output values are ignored rather than matching nothing.
 	gotUnknown := fetch("outputs=hologram&provider_id=" + providerResp.ID)
 	if len(gotUnknown) != 4 {

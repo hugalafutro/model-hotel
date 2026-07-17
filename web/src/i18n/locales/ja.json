@@ -933,7 +933,14 @@
 			"sortByStatus": "状態でソート",
 			"status": "ステータス"
 		},
-		"disabledByDiscovery": "{{date}} 以降、プロバイダーのリストに掲載されていません"
+		"disabledByDiscovery": "{{date}} 以降、プロバイダーのリストに掲載されていません",
+		"outputPills": {
+			"image": "画像出力",
+			"audio": "音声出力",
+			"video": "動画出力",
+			"embedding": "埋め込み",
+			"rerank": "リランク"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "発見された値に戻す",

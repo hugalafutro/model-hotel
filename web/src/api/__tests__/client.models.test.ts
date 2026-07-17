@@ -100,10 +100,11 @@ describe("api.models", () => {
 				provider_id: "prov-1",
 				search: "gpt",
 				capabilities: "vision",
+				outputs: "image,embedding",
 			});
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				expect.stringContaining(
-					"/api/models/cursor?cursor=abc123&direction=before&limit=20&sort_by=name&sort_dir=desc&provider_id=prov-1&search=gpt&capabilities=vision",
+					"/api/models/cursor?cursor=abc123&direction=before&limit=20&sort_by=name&sort_dir=desc&provider_id=prov-1&search=gpt&capabilities=vision&outputs=image%2Cembedding",
 				),
 				expect.anything(),
 			);

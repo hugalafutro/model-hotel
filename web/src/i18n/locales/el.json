@@ -933,7 +933,14 @@
 			"sortByStatus": "Ταξινόμηση κατά κατάσταση",
 			"status": "Κατάσταση"
 		},
-		"disabledByDiscovery": "Δεν περιλαμβάνεται στον κατάλογο του παρόχου από {{date}}"
+		"disabledByDiscovery": "Δεν περιλαμβάνεται στον κατάλογο του παρόχου από {{date}}",
+		"outputPills": {
+			"image": "Έξοδος εικόνας",
+			"audio": "Έξοδος ήχου",
+			"video": "Έξοδος βίντεο",
+			"embedding": "Ενσωμάτωση",
+			"rerank": "Ανακατάταξη"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Επαναφορά στην τιμή που ανακαλύφθηκε",

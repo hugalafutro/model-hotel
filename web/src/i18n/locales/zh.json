@@ -933,7 +933,14 @@
 			"sortByStatus": "按状态排序",
 			"status": "状态"
 		},
-		"disabledByDiscovery": "自 {{date}} 起未被提供商列入"
+		"disabledByDiscovery": "自 {{date}} 起未被提供商列入",
+		"outputPills": {
+			"image": "图像输出",
+			"audio": "音频输出",
+			"video": "视频输出",
+			"embedding": "嵌入",
+			"rerank": "重排序"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "恢复到发现的值",

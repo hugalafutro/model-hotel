@@ -14,12 +14,12 @@
 -- 1) Arrow-notation modality strings describe both sides; parse them into
 --    whichever arrays are still empty.
 UPDATE models
-SET input_modalities = to_jsonb(string_to_array(replace(split_part(lower(modality), '->', 1), ' ', ''), '+'))
+SET input_modalities = to_jsonb(string_to_array(replace(replace(split_part(lower(modality), '->', 1), ' ', ''), ',', '+'), '+'))
 WHERE modality LIKE '%->%'
   AND (input_modalities IS NULL OR input_modalities = '[]'::jsonb);
 
 UPDATE models
-SET output_modalities = to_jsonb(string_to_array(replace(split_part(lower(modality), '->', 2), ' ', ''), '+'))
+SET output_modalities = to_jsonb(string_to_array(replace(replace(split_part(lower(modality), '->', 2), ' ', ''), ',', '+'), '+'))
 WHERE modality LIKE '%->%'
   AND (output_modalities IS NULL OR output_modalities = '[]'::jsonb);
 

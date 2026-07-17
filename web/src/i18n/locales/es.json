@@ -933,7 +933,14 @@
 			"sortByStatus": "Ordenar por estado",
 			"status": "Estado"
 		},
-		"disabledByDiscovery": "No aparece en la lista del proveedor desde {{date}}"
+		"disabledByDiscovery": "No aparece en la lista del proveedor desde {{date}}",
+		"outputPills": {
+			"image": "Salida de imagen",
+			"audio": "Salida de audio",
+			"video": "Salida de vídeo",
+			"embedding": "Embedding",
+			"rerank": "Rerank"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revertir al valor descubierto",

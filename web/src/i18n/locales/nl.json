@@ -933,7 +933,14 @@
 			"sortByStatus": "Sorteren op status",
 			"status": "status"
 		},
-		"disabledByDiscovery": "Niet vermeld door de provider sinds {{date}}"
+		"disabledByDiscovery": "Niet vermeld door de provider sinds {{date}}",
+		"outputPills": {
+			"image": "Beelduitvoer",
+			"audio": "Audio-uitvoer",
+			"video": "Video-uitvoer",
+			"embedding": "Embedding",
+			"rerank": "Rerank"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Terugkeren naar gevonden waarde",

@@ -6,7 +6,8 @@
  */
 export interface OutputMeta {
 	key: string;
-	label: string;
+	/** i18n key for the pill label (models.outputPills.<key>). */
+	labelKey: string;
 	style: string;
 	muted: string;
 }
@@ -14,7 +15,7 @@ export interface OutputMeta {
 export const OUTPUT_META: OutputMeta[] = [
 	{
 		key: "image",
-		label: "Image out",
+		labelKey: "models.outputPills.image",
 		style:
 			"bg-fuchsia-900/40 text-fuchsia-300 border-fuchsia-700/50 shadow-[0_0_6px_1px_rgba(217,70,239,0.35)]",
 		muted:
@@ -22,7 +23,7 @@ export const OUTPUT_META: OutputMeta[] = [
 	},
 	{
 		key: "audio",
-		label: "Audio out",
+		labelKey: "models.outputPills.audio",
 		style:
 			"bg-rose-900/40 text-rose-300 border-rose-700/50 shadow-[0_0_6px_1px_rgba(244,63,94,0.35)]",
 		muted:
@@ -30,7 +31,7 @@ export const OUTPUT_META: OutputMeta[] = [
 	},
 	{
 		key: "video",
-		label: "Video out",
+		labelKey: "models.outputPills.video",
 		style:
 			"bg-indigo-900/40 text-indigo-300 border-indigo-700/50 shadow-[0_0_6px_1px_rgba(99,102,241,0.35)]",
 		muted:
@@ -38,7 +39,7 @@ export const OUTPUT_META: OutputMeta[] = [
 	},
 	{
 		key: "embedding",
-		label: "Embedding",
+		labelKey: "models.outputPills.embedding",
 		style:
 			"bg-sky-900/40 text-sky-300 border-sky-700/50 shadow-[0_0_6px_1px_rgba(14,165,233,0.35)]",
 		muted:
@@ -46,7 +47,7 @@ export const OUTPUT_META: OutputMeta[] = [
 	},
 	{
 		key: "rerank",
-		label: "Rerank",
+		labelKey: "models.outputPills.rerank",
 		style:
 			"bg-lime-900/40 text-lime-300 border-lime-700/50 shadow-[0_0_6px_1px_rgba(132,204,22,0.35)]",
 		muted:
