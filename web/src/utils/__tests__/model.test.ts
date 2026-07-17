@@ -4,6 +4,7 @@ import {
 	formatPriceInput,
 	is5xxError,
 	isChatModel,
+	nonTextOutputs,
 	normalizeProviderName,
 	parseCapabilities,
 	providerFromModelID,
@@ -280,14 +281,21 @@ describe("is5xxError", () => {
 });
 
 describe("isChatModel", () => {
-	it("returns true for chat-capable modalities", () => {
-		for (const modality of ["text", "vision", "audio", "multimodal", "video"]) {
+	it("returns true for the chat class and legacy chat-capable modalities", () => {
+		for (const modality of ["chat", "text", "vision", "audio", "multimodal"]) {
 			expect(isChatModel({ modality })).toBe(true);
 		}
 	});
 
-	it("returns false for non-chat modalities", () => {
-		for (const modality of ["embedding", "rerank", "image", "tts", "stt"]) {
+	it("returns false for non-chat classes", () => {
+		for (const modality of [
+			"embedding",
+			"rerank",
+			"image",
+			"video",
+			"tts",
+			"stt",
+		]) {
 			expect(isChatModel({ modality })).toBe(false);
 		}
 	});
@@ -320,9 +328,9 @@ describe("isChatModel", () => {
 				output_modalities: '["text","image"]',
 			}),
 		).toBe(true);
-		// Video *input* chat model (outputs text) stays visible.
+		// Video *input* chat model (class chat, outputs text) stays visible.
 		expect(
-			isChatModel({ modality: "video", output_modalities: '["text"]' }),
+			isChatModel({ modality: "chat", output_modalities: '["text"]' }),
 		).toBe(true);
 	});
 
@@ -330,5 +338,33 @@ describe("isChatModel", () => {
 		expect(isChatModel({ output_modalities: "" })).toBe(true);
 		expect(isChatModel({ output_modalities: "not-json" })).toBe(true);
 		expect(isChatModel({ output_modalities: "[]" })).toBe(true);
+	});
+});
+
+describe("nonTextOutputs", () => {
+	it("returns non-text output modalities in stored order", () => {
+		expect(nonTextOutputs({ output_modalities: '["text","image"]' })).toEqual([
+			"image",
+		]);
+		expect(nonTextOutputs({ output_modalities: '["image","video"]' })).toEqual([
+			"image",
+			"video",
+		]);
+		expect(nonTextOutputs({ output_modalities: '["embedding"]' })).toEqual([
+			"embedding",
+		]);
+	});
+
+	it("returns empty for text-only, missing, or malformed outputs", () => {
+		expect(nonTextOutputs({ output_modalities: '["text"]' })).toEqual([]);
+		expect(nonTextOutputs({ output_modalities: "" })).toEqual([]);
+		expect(nonTextOutputs({ output_modalities: "not-json" })).toEqual([]);
+		expect(nonTextOutputs({})).toEqual([]);
+	});
+
+	it("lowercases values", () => {
+		expect(nonTextOutputs({ output_modalities: '["TEXT","Image"]' })).toEqual([
+			"image",
+		]);
 	});
 });

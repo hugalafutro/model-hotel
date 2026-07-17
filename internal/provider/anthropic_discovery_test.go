@@ -132,9 +132,14 @@ func TestAnthropicDiscoveryWithMockServer(t *testing.T) {
 		t.Error("expected Streaming=true (default)")
 	}
 
-	// Check modality derived from image_input
-	if m1.Modality != "vision" {
-		t.Errorf("expected modality 'vision', got '%s'", m1.Modality)
+	// Image input lands in the modality arrays; the endpoint class is derived
+	// by the pipeline's NormalizeModels step.
+	if m1.InputModalities != `["text","image","pdf"]` {
+		t.Errorf("expected input modalities [\"text\",\"image\",\"pdf\"], got '%s'", m1.InputModalities)
+	}
+	NormalizeModels(models)
+	if m1.Modality != "chat" {
+		t.Errorf("expected derived class 'chat', got '%s'", m1.Modality)
 	}
 
 	// Check claude-sonnet-4-6

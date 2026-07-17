@@ -40,6 +40,21 @@ describe("ModelTable", () => {
 			expect(screen.getByText("Test Provider")).toBeInTheDocument();
 		});
 
+		it("renders output pills for generation models", () => {
+			const genModel = {
+				...mockModel,
+				id: "model-gen",
+				model_id: "z-image-turbo",
+				name: "Z Image Turbo",
+				capabilities: "{}",
+				modality: "image",
+				output_modalities: '["image"]',
+			};
+			renderWithProviders(<ModelTable {...defaultProps} models={[genModel]} />);
+
+			expect(screen.getByText("Image out")).toBeInTheDocument();
+		});
+
 		it("renders model count correctly", () => {
 			const models = [
 				{ ...mockModel, id: "model-001" },

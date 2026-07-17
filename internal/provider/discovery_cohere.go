@@ -112,16 +112,16 @@ func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Prov
 // than per token, so their price pointers stay nil (unknown).
 func buildCohereModel(provider *Provider, pricingCatalog []CoherePricingEntry, cm CohereNativeModel, endpoint string) *model.Model {
 	caps := model.Capability{}
-	modality := "text"
 	inputMods := `["text"]`
 	outputMods := `["text"]`
 
 	if endpoint == "rerank" {
-		modality = "rerank"
+		// The endpoint listing is authoritative: rerank models advertise a
+		// rerank output so the derived class can never mistake them for chat.
+		outputMods = `["rerank"]`
 	} else {
 		// Build capabilities from API features array
 		caps = cohereFeaturesToCapabilities(cm.Features)
-		// Determine modality from features
 		if slices.Contains(cm.Features, "vision") {
 			inputMods = `["text","image"]`
 		}
@@ -135,7 +135,6 @@ func buildCohereModel(provider *Provider, pricingCatalog []CoherePricingEntry, c
 		Name:             cm.Name,
 		Capabilities:     string(capJSON),
 		Params:           "{}",
-		Modality:         modality,
 		InputModalities:  inputMods,
 		OutputModalities: outputMods,
 		ContextLength:    &cm.ContextLength,

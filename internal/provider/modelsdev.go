@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -379,14 +378,9 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model) bool {
 		enriched = true
 	}
 
-	// Modalities: only set if currently empty/default.
-	if (m.Modality == "" || m.Modality == "text") && len(spec.Modalities.Input) > 0 {
-		mod := modalityFromModelsDev(spec.Modalities)
-		if mod != "" {
-			m.Modality = mod
-			enriched = true
-		}
-	}
+	// Modality arrays: only set if currently empty. The modality *class* is
+	// not set here — NormalizeModelClassification derives it from the arrays
+	// after enrichment.
 	if (m.InputModalities == "" || m.InputModalities == "[]") && len(spec.Modalities.Input) > 0 {
 		inMods, _ := json.Marshal(spec.Modalities.Input)
 		m.InputModalities = string(inMods)
@@ -424,26 +418,6 @@ func (c *ModelsDevCache) EnrichModels(models []*model.Model) int {
 		}
 	}
 	return count
-}
-
-// modalityFromModelsDev derives a modality string from models.dev modalities.
-func modalityFromModelsDev(mods ModelsDevModalities) string {
-	hasImage := slices.Contains(mods.Input, "image")
-	hasAudio := slices.Contains(mods.Input, "audio")
-	hasVideo := slices.Contains(mods.Input, "video")
-
-	switch {
-	case hasVideo:
-		return "video"
-	case hasAudio && hasImage:
-		return "multimodal"
-	case hasImage:
-		return "vision"
-	case hasAudio:
-		return "audio"
-	default:
-		return "text"
-	}
 }
 
 // contains removed — use slices.Contains from stdlib.

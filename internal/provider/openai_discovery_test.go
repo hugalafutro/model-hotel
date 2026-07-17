@@ -233,6 +233,7 @@ func TestOpenAIDiscovery_EmbeddingClassifiedByName(t *testing.T) {
 	if err != nil {
 		t.Fatalf("discoverOpenAI failed: %v", err)
 	}
+	NormalizeModels(models)
 
 	byID := make(map[string]*model.Model, len(models))
 	for _, m := range models {

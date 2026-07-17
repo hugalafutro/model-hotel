@@ -505,6 +505,7 @@ func TestDiscoverGoogleAIStudio_EmbeddingModel(t *testing.T) {
 	if len(models) != 1 {
 		t.Fatalf("Expected 1 model, got %d", len(models))
 	}
+	NormalizeModels(models)
 	if models[0].Modality != "embedding" {
 		t.Errorf("Expected Modality 'embedding', got '%s'", models[0].Modality)
 	}

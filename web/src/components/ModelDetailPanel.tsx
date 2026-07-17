@@ -8,7 +8,12 @@ import {
 	X,
 } from "@/lib/icons";
 import type { GenerationParams, Model } from "../api/types";
-import { formatPrice, parseCapabilities, proxyModelID } from "../utils/model";
+import {
+	formatPrice,
+	nonTextOutputs,
+	parseCapabilities,
+	proxyModelID,
+} from "../utils/model";
 import {
 	getParamIncompatibility,
 	isParamDisabled,
@@ -18,6 +23,7 @@ import { ApplyRecommendedButton } from "./ApplyRecommendedButton";
 import { CapBadge } from "./CapBadge";
 import { CopyablePill } from "./CopyablePill";
 import { CAP_META } from "./capMeta";
+import { OutputBadges } from "./OutputBadges";
 import { ParamSlider } from "./ParamSlider";
 import { ReasoningEffortSelect } from "./ReasoningEffortSelect";
 
@@ -386,7 +392,8 @@ export function ModelDetailPanel({
 							</div>
 						</div>
 
-						{CAP_META.some((m) => caps[m.key]) && (
+						{(CAP_META.some((m) => caps[m.key]) ||
+							nonTextOutputs(model).length > 0) && (
 							<div>
 								<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
 									{t("components.modelDetailPanel.capabilities")}
@@ -395,6 +402,7 @@ export function ModelDetailPanel({
 									{CAP_META.filter((m) => caps[m.key]).map((m) => (
 										<CapBadge key={m.key} caps={caps} capKey={m.key} />
 									))}
+									<OutputBadges outputModalities={model.output_modalities} />
 								</div>
 							</div>
 						)}

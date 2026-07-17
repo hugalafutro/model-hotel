@@ -77,30 +77,22 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 	}
 	capJSON, _ := json.Marshal(caps)
 
-	// KoboldCPP's /models has no type; if an embedding/reranker model is what's
-	// loaded, classify it by name so it stays out of the chat picker.
-	modality := "text"
-	outputMods := `["text"]`
-	if mod := inferNonChatModality(modelID); mod != "" {
-		modality = mod
-		_, outputMods = nonChatModalityArrays(mod)
-	}
+	// KoboldCPP's /models has no type; NormalizeModelClassification's name
+	// heuristics classify embedding/reranker models out of the chat picker.
 
 	m := &model.Model{
-		ID:               uuid.New(),
-		ProviderID:       provider.ID,
-		ModelID:          modelID,
-		Name:             modelID,
-		DisplayName:      modelID,
-		Description:      fmt.Sprintf("KoboldCPP %s model", version),
-		Capabilities:     string(capJSON),
-		Params:           "{}",
-		Modality:         modality,
-		InputModalities:  `["text"]`,
-		OutputModalities: outputMods,
-		ContextLength:    contextLength,
-		OwnedBy:          "koboldcpp",
-		Enabled:          true,
+		ID:              uuid.New(),
+		ProviderID:      provider.ID,
+		ModelID:         modelID,
+		Name:            modelID,
+		DisplayName:     modelID,
+		Description:     fmt.Sprintf("KoboldCPP %s model", version),
+		Capabilities:    string(capJSON),
+		Params:          "{}",
+		InputModalities: `["text"]`,
+		ContextLength:   contextLength,
+		OwnedBy:         "koboldcpp",
+		Enabled:         true,
 	}
 
 	// Context length comes from the live /api/extra/perf probe, so mark it live:

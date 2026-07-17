@@ -37,20 +37,23 @@ export function parseCapabilities(capStr: string): Record<string, boolean> {
 }
 
 /**
- * Modalities served by non-chat endpoints (embeddings, rerank, etc.). Models
- * with one of these are hidden from the chat/arena pickers, where they could
- * never work, but stay visible in /v1/models and the failover group editor.
+ * Non-chat endpoint classes. The backend derives `modality` as an endpoint
+ * class with a closed vocabulary (chat, embedding, rerank, image, video, tts,
+ * stt — see internal/provider/model_class.go); models with one of these
+ * classes are hidden from the chat/arena pickers, where they could never
+ * work, but stay visible in /v1/models and the failover group editor.
  */
 export const NON_CHAT_MODALITIES = new Set([
 	"embedding",
 	"rerank",
 	"image",
+	"video",
 	"tts",
 	"stt",
 ]);
 
-/** Parse a model's output_modalities (a JSON array string) to a lowercased list. */
-function parseOutputModalities(raw: string | undefined): string[] {
+/** Parse a modalities field (a JSON array string) to a lowercased list. */
+function parseModalityArray(raw: string | undefined): string[] {
 	if (!raw) return [];
 	try {
 		const arr = JSON.parse(raw);
@@ -66,20 +69,26 @@ function parseOutputModalities(raw: string | undefined): string[] {
  * empty modalities are treated as chat so a new modality never silently
  * disappears from the picker.
  *
- * Two exclusions: an explicit non-chat modality (embedding/rerank/image/tts/stt),
- * or an output that is non-text media only. The latter catches generation models
- * (e.g. video output) whose modality string is a misleading chat label — an
- * image->video model reported as "vision" from its image input — since a model
- * that cannot emit text can never serve chat.
+ * Two exclusions: a non-chat endpoint class, or an output that is non-text
+ * media only. The latter is defense in depth for rows that predate the
+ * class derivation — a model that cannot emit text can never serve chat.
  */
 export function isChatModel(m: {
 	modality?: string;
 	output_modalities?: string;
 }): boolean {
 	if (NON_CHAT_MODALITIES.has((m.modality ?? "").toLowerCase())) return false;
-	const output = parseOutputModalities(m.output_modalities);
+	const output = parseModalityArray(m.output_modalities);
 	if (output.length > 0 && !output.includes("text")) return false;
 	return true;
+}
+
+/**
+ * Non-text output modalities (image/audio/video/embedding/rerank), used to
+ * render "produces X" pills alongside the input-capability pills.
+ */
+export function nonTextOutputs(m: { output_modalities?: string }): string[] {
+	return parseModalityArray(m.output_modalities).filter((v) => v !== "text");
 }
 
 export function formatPrice(n: number | null | undefined): string {

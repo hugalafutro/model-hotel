@@ -83,25 +83,22 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 		}
 		capJSON, _ := json.Marshal(caps)
 
-		// Determine modality from model name
-		modality := "text"
+		// Determine modality arrays from the model name; the endpoint class
+		// is derived centrally by NormalizeModelClassification.
 		inputMods := `["text"]`
 		outputMods := `["text"]`
 		if isGoogleVisionModel(modelID) {
 			inputMods = `["text","image"]`
 		}
 		if isGoogleImageGenModel(modelID) {
-			modality = "text"
 			outputMods = `["text","image"]`
 			inputMods = `["text","image"]`
 		}
 		if isGoogleAudioModel(modelID) {
 			inputMods = `["text","image","audio","video"]`
 			outputMods = `["text","audio"]`
-			modality = "text"
 		}
 		if isGoogleEmbeddingModel(modelID) {
-			modality = "embedding"
 			inputMods = `["text","image","video","audio"]`
 			outputMods = `["embedding"]`
 		}
@@ -118,7 +115,6 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 			Description:      gm.Description,
 			Capabilities:     string(capJSON),
 			Params:           "{}",
-			Modality:         modality,
 			InputModalities:  inputMods,
 			OutputModalities: outputMods,
 			ContextLength:    &ctxLen,

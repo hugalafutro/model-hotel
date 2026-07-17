@@ -101,7 +101,7 @@ func zaiCodingSpecToModel(spec ZAICodingModelSpec, providerID uuid.UUID) *model.
 
 	inputMods := `["text"]`
 	if spec.Modality == "vision" {
-		inputMods = `["text","image","video","file"]`
+		inputMods = `["text","image","video","pdf"]`
 	}
 
 	caps := model.Capability{
@@ -124,9 +124,8 @@ func zaiCodingSpecToModel(spec ZAICodingModelSpec, providerID uuid.UUID) *model.
 		DisplayName:      spec.ModelID,
 		Capabilities:     string(capJSON),
 		Params:           "{}",
-		Modality:         spec.Modality,
 		InputModalities:  inputMods,
-		OutputModalities: "[]",
+		OutputModalities: `["text"]`,
 		ContextLength:    &contextLen,
 		MaxOutputTokens:  &maxOutput,
 		OwnedBy:          "zhipu",

@@ -165,6 +165,9 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 			})
 		}
 	}
+	// Runs unconditionally: modality arrays and the derived endpoint class
+	// must be consistent even when models.dev is unreachable.
+	provider.NormalizeModels(models)
 
 	modelRepo := newModelRepo(h.dbPool.Pool())
 
@@ -487,6 +490,9 @@ func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (
 				})
 			}
 		}
+		// Runs unconditionally: modality arrays and the derived endpoint class
+		// must be consistent even when models.dev is unreachable.
+		provider.NormalizeModels(models)
 
 		snapshot, snapErr := SnapshotProviderModels(provCtx, modelRepo, prov.ID)
 		if snapErr != nil {

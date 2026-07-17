@@ -16,6 +16,7 @@ import {
 	MODEL_COL_WIDTHS_NO_PROVIDER,
 	MODEL_COL_WIDTHS_WITH_PROVIDER,
 } from "./modelTableWidths";
+import { OutputBadges } from "./OutputBadges";
 
 export type SortField =
 	| "name"
@@ -409,6 +410,9 @@ export function ModelTable({
 												{CAP_META.map((m) => (
 													<CapBadge key={m.key} caps={caps} capKey={m.key} />
 												))}
+												<OutputBadges
+													outputModalities={model.output_modalities}
+												/>
 											</div>
 										</td>
 										{showProviderCol && (

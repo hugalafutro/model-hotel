@@ -36,17 +36,11 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 	// old fabricated "text"/"[]" minimal entry).
 	live := make([]*model.Model, 0, len(openAIResp.Data))
 	for _, m := range openAIResp.Data {
-		stub := liveModelStub(m.ID, m.OwnedBy, provider.ID)
-		// A plain /models listing carries no model type, so self-hosted
-		// embedding/reranker models (and OpenAI's own text-embedding-* models)
-		// would otherwise be enriched to modality:"text" and appear in the chat
-		// picker. Classify the obvious ones by name; a set modality survives
-		// models.dev enrichment, which only fills empty/"text" modalities.
-		if mod := inferNonChatModality(m.ID); mod != "" {
-			stub.Modality = mod
-			stub.InputModalities, stub.OutputModalities = nonChatModalityArrays(mod)
-		}
-		live = append(live, stub)
+		// A plain /models listing carries no model type; self-hosted
+		// embedding/reranker models (and OpenAI's own text-embedding-*,
+		// tts-*, whisper-* models) are classified out of the chat picker by
+		// NormalizeModelClassification's name heuristics.
+		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
 	}
 
 	// Backfill-only (no union): discoverOpenAI is the fallback for unknown/custom

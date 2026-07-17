@@ -118,16 +118,15 @@ func buildLMStudioNativeModel(provider *Provider, m LMStudioV0Model) *model.Mode
 		StructuredOutput: true, // LM Studio supports response_format with JSON schema
 	}
 
-	modality := "text"
+	// The native listing's type field is authoritative; express it through
+	// the modality arrays and let the endpoint class be derived centrally.
 	inputMods := `["text"]`
 	outputMods := `["text"]`
 	switch m.Type {
 	case "embeddings":
-		modality = "embedding"
 		outputMods = `["embedding"]`
 	case "vlm":
 		caps.Vision = true
-		modality = "vision"
 		inputMods = `["text","image"]`
 	}
 	capJSON, _ := json.Marshal(caps)
@@ -152,7 +151,6 @@ func buildLMStudioNativeModel(provider *Provider, m LMStudioV0Model) *model.Mode
 		Description:      "LM Studio local model",
 		Capabilities:     string(capJSON),
 		Params:           "{}",
-		Modality:         modality,
 		InputModalities:  inputMods,
 		OutputModalities: outputMods,
 		ContextLength:    contextLength,
@@ -209,30 +207,21 @@ func (d *DiscoveryService) discoverLMStudioOpenAI(ctx context.Context, provider 
 			ownedBy = "lmstudio"
 		}
 
-		modality := "text"
-		outputMods := `["text"]`
-		// The OpenAI listing has no type, so recognise embedding/reranker models
-		// by name to keep them out of the chat picker.
-		if mod := inferNonChatModality(m.ID); mod != "" {
-			modality = mod
-			_, outputMods = nonChatModalityArrays(mod)
-		}
-
+		// The OpenAI listing has no type; NormalizeModelClassification's name
+		// heuristics keep embedding/reranker models out of the chat picker.
 		//nolint:gocritic // model variable shadows import but context makes it clear
 		model := &model.Model{
-			ID:               uuid.New(),
-			ProviderID:       provider.ID,
-			ModelID:          m.ID,
-			Name:             m.ID,
-			DisplayName:      displayName,
-			Description:      "LM Studio local model",
-			Capabilities:     string(capJSON),
-			Params:           "{}",
-			Modality:         modality,
-			InputModalities:  `["text"]`,
-			OutputModalities: outputMods,
-			OwnedBy:          ownedBy,
-			Enabled:          true,
+			ID:              uuid.New(),
+			ProviderID:      provider.ID,
+			ModelID:         m.ID,
+			Name:            m.ID,
+			DisplayName:     displayName,
+			Description:     "LM Studio local model",
+			Capabilities:    string(capJSON),
+			Params:          "{}",
+			InputModalities: `["text"]`,
+			OwnedBy:         ownedBy,
+			Enabled:         true,
 		}
 
 		models = append(models, model)

@@ -490,6 +490,7 @@ func TestDiscoverCohere_RerankModels(t *testing.T) {
 	if len(models) != 2 {
 		t.Fatalf("Expected 2 models, got %d", len(models))
 	}
+	NormalizeModels(models)
 
 	rr := models[1]
 	if rr.ModelID != "rerank-v3.5" {
@@ -516,7 +517,7 @@ func TestDiscoverCohere_RerankModels(t *testing.T) {
 	}
 
 	// Chat model construction is unchanged.
-	if models[0].ModelID != "command-r-plus" || models[0].Modality != "text" {
+	if models[0].ModelID != "command-r-plus" || models[0].Modality != "chat" {
 		t.Errorf("Chat model unexpectedly altered: %s / %s", models[0].ModelID, models[0].Modality)
 	}
 }
