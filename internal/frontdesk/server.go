@@ -183,6 +183,32 @@ func (s *Server) SessionManager() *webauthn.SessionManager { return s.sessionMgr
 func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHandler, oidc *adminauth.OIDCHandler, ui fs.FS) http.Handler {
 	r := chi.NewRouter()
 
+	// Security headers. The Front Desk admin UI manages the whole HA fleet
+	// (member admin tokens, device pairing, config sync, OIDC/alert settings)
+	// and keeps its bearer in localStorage, so a framed copy of this origin
+	// auto-authenticates. Deny framing outright and mirror the main server's
+	// content-type / referrer / CSP hardening (cmd/server/main.go). Front Desk
+	// is never embedded, so there is no ALLOW_EMBED escape hatch here.
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("X-Frame-Options", "DENY")
+			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			// HSTS only over TLS. Front Desk serves plain HTTP behind a proxy
+			// that terminates TLS, so this guard is a forward-compatible
+			// placeholder: setting HSTS on plain HTTP would cache a broken
+			// redirect to a non-existent HTTPS listener.
+			if r.TLS != nil {
+				w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
+			}
+			// Same-origin scripts (Vite module output, no inline scripts).
+			// style 'unsafe-inline' is required for Vite's injected style tags;
+			// img data:/blob: covers QR codes and canvas-rendered previews.
+			w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+			next.ServeHTTP(w, r)
+		})
+	})
+
 	// Unauthenticated, compose-internal: Traefik's HTTP provider polls this.
 	r.Get("/traefik/config", s.handleTraefikConfig)
 
