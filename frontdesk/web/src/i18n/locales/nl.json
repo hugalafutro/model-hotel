@@ -129,7 +129,21 @@
 		"errAlreadyPrimary": "Deze host is al de primary van de fleet en kan niet als lid worden toegevoegd. Wijzig de primary via de Fleet Sync-wizard.",
 		"errUnreachable": "Front Desk kon deze host niet bereiken om te verifiëren. Controleer de URL, het admin-token en of de host draait.",
 		"errIdentityUnverified": "Front Desk heeft het admin-token geverifieerd, maar kon de fleet-identiteit van deze host niet uitlezen om te bevestigen dat het niet de primaire host of een bestaand lid is. Controleer de host en probeer het opnieuw.",
-		"errAlreadyMember": "Deze host is al een lid (toegevoegd onder een ander adres). Verwijder eerst het bestaande item als je het opnieuw wilt toevoegen."
+		"errAlreadyMember": "Deze host is al een lid (toegevoegd onder een ander adres). Verwijder eerst het bestaande item als je het opnieuw wilt toevoegen.",
+		"fleetState": {
+			"ok": "Gezond",
+			"degraded": "Verminderd",
+			"faulty": "Defect"
+		},
+		"fleetReason": {
+			"member_down": "een member is onbereikbaar",
+			"all_members_down": "alle members zijn onbereikbaar",
+			"sync_held": "config-sync wordt aangehouden voor een member (versieverschil)",
+			"all_sync_held": "config-sync wordt aangehouden voor elke member; de primaire is de uitzondering",
+			"autosync_stale": "auto-sync staat uit en de vloot is al meer dan een dag niet gesynchroniseerd",
+			"autosync_stale_long": "auto-sync staat uit en de vloot is al meer dan drie dagen niet gesynchroniseerd",
+			"traefik_config_stale": "Traefik haalt de routing-configuratie niet meer op"
+		}
 	},
 	"traffic": {
 		"title": "Verkeer",
@@ -269,7 +283,8 @@
 				"traefik_stale": "Traefik-configuratie verouderd",
 				"member_added": "Member toegevoegd",
 				"member_removed": "Member verwijderd",
-				"member_state_changed": "Member geactiveerd of gedrained"
+				"member_state_changed": "Member geactiveerd of gedrained",
+				"fleet_state_changed": "Vlootstatus gewijzigd"
 			},
 			"saveBtn": "Alert-instellingen opslaan",
 			"testBtn": "Test versturen",

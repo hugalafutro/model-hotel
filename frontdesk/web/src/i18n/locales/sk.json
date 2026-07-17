@@ -129,7 +129,21 @@
 		"errAlreadyPrimary": "Tento hostiteľ už je primárnym uzlom flotily a nemožno ho pridať ako člena. Zmeňte primárny uzol v sprievodcovi synchronizáciou flotily.",
 		"errUnreachable": "Front Desk sa k tomuto hostiteľovi nedokázal pripojiť kvôli overeniu. Skontrolujte URL, admin token a či hostiteľ beží.",
 		"errIdentityUnverified": "Front Desk overil admin token, ale nepodarilo sa mu načítať identitu tohto hostiteľa vo flotile, aby potvrdil, že nie je primárny ani existujúci člen. Skontrolujte hostiteľa a skúste to znova.",
-		"errAlreadyMember": "Tento hostiteľ už je členom (pridaný pod inou adresou). Ak ho chcete pridať znova, najprv odstráňte existujúci záznam."
+		"errAlreadyMember": "Tento hostiteľ už je členom (pridaný pod inou adresou). Ak ho chcete pridať znova, najprv odstráňte existujúci záznam.",
+		"fleetState": {
+			"ok": "V poriadku",
+			"degraded": "Zhoršený",
+			"faulty": "Poruchový"
+		},
+		"fleetReason": {
+			"member_down": "člen je nedostupný",
+			"all_members_down": "všetci členovia sú nedostupní",
+			"sync_held": "synchronizácia konfigurácie je pozastavená pre člena (rozdielne verzie)",
+			"all_sync_held": "synchronizácia konfigurácie je pozastavená u každého člena; primárny je výnimkou",
+			"autosync_stale": "automatická synchronizácia je vypnutá a flotila nebola synchronizovaná viac ako deň",
+			"autosync_stale_long": "automatická synchronizácia je vypnutá a flotila nebola synchronizovaná viac ako tri dni",
+			"traefik_config_stale": "Traefik prestal načítavať konfiguráciu smerovania"
+		}
 	},
 	"traffic": {
 		"title": "Prevádzka",
@@ -269,7 +283,8 @@
 				"traefik_stale": "Konfigurácia Traefik zastaraná",
 				"member_added": "Člen pridaný",
 				"member_removed": "Člen odstránený",
-				"member_state_changed": "Člen aktivovaný alebo vybraný z prevádzky"
+				"member_state_changed": "Člen aktivovaný alebo vybraný z prevádzky",
+				"fleet_state_changed": "Stav flotily sa zmenil"
 			},
 			"saveBtn": "Uložiť nastavenia alertov",
 			"testBtn": "Poslať test",

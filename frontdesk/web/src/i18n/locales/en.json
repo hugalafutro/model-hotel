@@ -129,7 +129,21 @@
 		"errAlreadyPrimary": "This host is already the fleet primary and cannot be added as a member. Change the primary from the Fleet Sync wizard instead.",
 		"errUnreachable": "Front Desk could not reach this host to verify it. Check the URL and admin token, and that the host is running.",
 		"errIdentityUnverified": "Front Desk verified the admin token but could not read this host's fleet identity to confirm it is not the primary or an existing member. Check the host and try again.",
-		"errAlreadyMember": "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it."
+		"errAlreadyMember": "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.",
+		"fleetState": {
+			"ok": "Healthy",
+			"degraded": "Degraded",
+			"faulty": "Faulty"
+		},
+		"fleetReason": {
+			"member_down": "a member is down",
+			"all_members_down": "all members are down",
+			"sync_held": "config sync is held for a member (version skew)",
+			"all_sync_held": "config sync is held for every member; the primary is the odd one out",
+			"autosync_stale": "auto-sync is off and the fleet has not been synced in over a day",
+			"autosync_stale_long": "auto-sync is off and the fleet has not been synced in over three days",
+			"traefik_config_stale": "Traefik has stopped fetching the routing config"
+		}
 	},
 	"traffic": {
 		"title": "Traffic",
@@ -269,7 +283,8 @@
 				"traefik_stale": "Traefik config stale",
 				"member_added": "Member added",
 				"member_removed": "Member removed",
-				"member_state_changed": "Member activated or drained"
+				"member_state_changed": "Member activated or drained",
+				"fleet_state_changed": "Fleet state changed"
 			},
 			"saveBtn": "Save alert settings",
 			"testBtn": "Send test",

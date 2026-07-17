@@ -129,7 +129,21 @@
 		"errAlreadyPrimary": "このホストはすでにフリートのプライマリであり、メンバーとして追加できません。代わりに Fleet Sync ウィザードでプライマリを変更してください。",
 		"errUnreachable": "Front Desk はこのホストに到達して検証できませんでした。URL と管理トークン、ホストが稼働しているかを確認してください。",
 		"errIdentityUnverified": "Front Desk は管理トークンを検証しましたが、このホストのフリート ID を読み取れず、プライマリや既存メンバーでないことを確認できませんでした。ホストを確認して再試行してください。",
-		"errAlreadyMember": "このホストはすでにメンバーです（別のアドレスで追加済み）。再追加するには、まず既存のエントリを削除してください。"
+		"errAlreadyMember": "このホストはすでにメンバーです（別のアドレスで追加済み）。再追加するには、まず既存のエントリを削除してください。",
+		"fleetState": {
+			"ok": "正常",
+			"degraded": "劣化",
+			"faulty": "障害"
+		},
+		"fleetReason": {
+			"member_down": "メンバーが停止しています",
+			"all_members_down": "すべてのメンバーが停止しています",
+			"sync_held": "メンバーの設定同期が保留されています（バージョン不一致）",
+			"all_sync_held": "すべてのメンバーで設定同期が保留されています。プライマリだけが例外です",
+			"autosync_stale": "自動同期がオフで、フリートは1日以上同期されていません",
+			"autosync_stale_long": "自動同期がオフで、フリートは3日以上同期されていません",
+			"traefik_config_stale": "Traefik がルーティング設定の取得を停止しました"
+		}
 	},
 	"traffic": {
 		"title": "トラフィック",
@@ -269,7 +283,8 @@
 				"traefik_stale": "Traefik 設定が古くなりました",
 				"member_added": "メンバーが追加されました",
 				"member_removed": "メンバーが削除されました",
-				"member_state_changed": "メンバーがアクティブ化またはドレインされました"
+				"member_state_changed": "メンバーがアクティブ化またはドレインされました",
+				"fleet_state_changed": "フリートの状態が変化しました"
 			},
 			"saveBtn": "アラート設定を保存",
 			"testBtn": "テスト送信",

@@ -41,7 +41,7 @@ beforeEach(() => {
 	localStorage.setItem("fdAuthToken", "tok");
 	server.use(sseHandler());
 	// Default: no primary designated. The page derives the primary from
-	// /api/fleet/autosync (auto_sync_primary_id), the single source of truth;
+	// /api/fleet/autosync (primary_id), the single source of truth;
 	// tests that care override this with a non-empty primary_id. The last-sync
 	// endpoint is left mocked for any other consumer but no longer drives the badge.
 	server.use(

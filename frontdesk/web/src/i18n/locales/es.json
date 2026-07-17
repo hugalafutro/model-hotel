@@ -129,7 +129,21 @@
 		"errAlreadyPrimary": "Este host ya es el primario de la flota y no puede añadirse como miembro. Cambia el primario desde el asistente de sincronización de flota.",
 		"errUnreachable": "Front Desk no pudo alcanzar este host para verificarlo. Comprueba la URL, el token de administrador y que el host esté en ejecución.",
 		"errIdentityUnverified": "Front Desk verificó el token de administrador pero no pudo leer la identidad de flota de este host para confirmar que no es el primario ni un miembro existente. Comprueba el host e inténtalo de nuevo.",
-		"errAlreadyMember": "Este host ya es un miembro (añadido con otra dirección). Elimina primero la entrada existente si quieres volver a añadirlo."
+		"errAlreadyMember": "Este host ya es un miembro (añadido con otra dirección). Elimina primero la entrada existente si quieres volver a añadirlo.",
+		"fleetState": {
+			"ok": "Saludable",
+			"degraded": "Degradado",
+			"faulty": "Con fallos"
+		},
+		"fleetReason": {
+			"member_down": "un miembro está caído",
+			"all_members_down": "todos los miembros están caídos",
+			"sync_held": "la sincronización de configuración está retenida para un miembro (desfase de versiones)",
+			"all_sync_held": "la sincronización de configuración está retenida en todos los miembros; el principal es la excepción",
+			"autosync_stale": "la sincronización automática está desactivada y la flota no se ha sincronizado en más de un día",
+			"autosync_stale_long": "la sincronización automática está desactivada y la flota no se ha sincronizado en más de tres días",
+			"traefik_config_stale": "Traefik ha dejado de obtener la configuración de enrutamiento"
+		}
 	},
 	"traffic": {
 		"title": "Tráfico",
@@ -269,7 +283,8 @@
 				"traefik_stale": "Configuración de Traefik obsoleta",
 				"member_added": "Miembro añadido",
 				"member_removed": "Miembro eliminado",
-				"member_state_changed": "Miembro activado o retirado"
+				"member_state_changed": "Miembro activado o retirado",
+				"fleet_state_changed": "Estado de la flota cambiado"
 			},
 			"saveBtn": "Guardar ajustes de alertas",
 			"testBtn": "Enviar prueba",

@@ -129,7 +129,21 @@
 		"errAlreadyPrimary": "Dieser Host ist bereits der Fleet-Primary und kann nicht als Mitglied hinzugefügt werden. Ändern Sie den Primary stattdessen im Fleet-Sync-Assistenten.",
 		"errUnreachable": "Front Desk konnte diesen Host nicht zur Verifizierung erreichen. Prüfen Sie URL und Admin-Token und ob der Host läuft.",
 		"errIdentityUnverified": "Front Desk hat das Admin-Token verifiziert, konnte aber die Flotten-Identität dieses Hosts nicht auslesen, um zu bestätigen, dass er nicht der Primär-Host oder ein bestehendes Mitglied ist. Prüfen Sie den Host und versuchen Sie es erneut.",
-		"errAlreadyMember": "Dieser Host ist bereits ein Mitglied (unter einer anderen Adresse hinzugefügt). Entfernen Sie zuerst den vorhandenen Eintrag, wenn Sie ihn erneut hinzufügen möchten."
+		"errAlreadyMember": "Dieser Host ist bereits ein Mitglied (unter einer anderen Adresse hinzugefügt). Entfernen Sie zuerst den vorhandenen Eintrag, wenn Sie ihn erneut hinzufügen möchten.",
+		"fleetState": {
+			"ok": "Gesund",
+			"degraded": "Beeinträchtigt",
+			"faulty": "Fehlerhaft"
+		},
+		"fleetReason": {
+			"member_down": "ein Mitglied ist nicht erreichbar",
+			"all_members_down": "alle Mitglieder sind nicht erreichbar",
+			"sync_held": "Config-Sync ist für ein Mitglied angehalten (Versionsabweichung)",
+			"all_sync_held": "Config-Sync ist für jedes Mitglied angehalten; der Primär ist die Ausnahme",
+			"autosync_stale": "Auto-Sync ist aus und die Flotte wurde seit über einem Tag nicht synchronisiert",
+			"autosync_stale_long": "Auto-Sync ist aus und die Flotte wurde seit über drei Tagen nicht synchronisiert",
+			"traefik_config_stale": "Traefik ruft die Routing-Konfiguration nicht mehr ab"
+		}
 	},
 	"traffic": {
 		"title": "Traffic",
@@ -269,7 +283,8 @@
 				"traefik_stale": "Traefik-Konfiguration veraltet",
 				"member_added": "Mitglied hinzugefügt",
 				"member_removed": "Mitglied entfernt",
-				"member_state_changed": "Mitglied aktiviert oder aus dem Verkehr gezogen"
+				"member_state_changed": "Mitglied aktiviert oder aus dem Verkehr gezogen",
+				"fleet_state_changed": "Flottenstatus geändert"
 			},
 			"saveBtn": "Alert-Einstellungen speichern",
 			"testBtn": "Test senden",
