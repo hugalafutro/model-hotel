@@ -187,7 +187,7 @@ func TestVersionFetchFailureRaisesEvent(t *testing.T) {
 	}
 
 	// Below threshold: no event yet.
-	for i := 0; i < versionFetchFailThreshold-1; i++ {
+	for range versionFetchFailThreshold - 1 {
 		p.PollVersionsOnce(ctx)
 	}
 	if n := countEvents(t, s, "version.fetch_failed"); n != 0 {
