@@ -76,7 +76,13 @@ type Server struct {
 	// in-flight convergence pass cancels synchronously instead of waiting on a poll.
 	rearmMu sync.Mutex
 	rearmCh chan struct{}
-	router  http.Handler
+	// syncHeld tracks which members autosync is currently holding for version
+	// skew, so config.sync_held fires once on the transition into held rather than
+	// every pass (mirrors the poller's versionFailures edge-trigger). In-memory and
+	// bounded by fleet size; a restart re-emits at most once per still-held member.
+	syncHeldMu sync.Mutex
+	syncHeld   map[string]bool
+	router     http.Handler
 	// bgWG tracks detached background goroutines (e.g. the auto-sync kick) so
 	// callers can drain them on shutdown. Without it, a kick fired by an enable
 	// keeps writing to the store after a caller (or a test) has moved on, which
@@ -126,6 +132,7 @@ func NewServer(cfg ServerConfig) *Server {
 		pairing:      newPairingCodes(),
 		ipLimiter:    cfg.IPLimiter,
 		rearmCh:      make(chan struct{}),
+		syncHeld:     make(map[string]bool),
 	}
 
 	// Bind the scrape-time member-fleet collector to this server's store and
@@ -238,6 +245,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 				r.Post("/members/{id}/state", s.setMemberState)
 				r.Put("/fleet/autosync", s.putAutoSync)
 				r.Post("/config/sync", s.configSync)
+				r.Post("/fleet/version-check", s.fleetVersionCheck)
 				r.Post("/alert/selection", s.putAlertSelection)
 			})
 

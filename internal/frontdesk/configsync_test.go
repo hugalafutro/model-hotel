@@ -74,6 +74,7 @@ func TestConfigSyncApplies(t *testing.T) {
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	alignFleetVersions(t, srv, store, "dev")
 
 	body := `{"primary_id":"` + pm.ID + `"}`
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", body, true)
@@ -125,6 +126,7 @@ func TestConfigSyncAttributesInitiator(t *testing.T) {
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	alignFleetVersions(t, srv, store, "dev")
 
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
 	if rec.Code != http.StatusOK {
@@ -191,6 +193,7 @@ func TestConfigSyncImportUsesLongerDeadlineThanProbe(t *testing.T) {
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	alignFleetVersions(t, srv, store, "dev")
 
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
 	if rec.Code != http.StatusOK {
@@ -214,6 +217,7 @@ func TestConfigSyncReportsFailure(t *testing.T) {
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	alignFleetVersions(t, srv, store, "dev")
 
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
 	if rec.Code != http.StatusOK {
@@ -249,6 +253,7 @@ func TestConfigSyncBackupFailureSkipsMember(t *testing.T) {
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	alignFleetVersions(t, srv, store, "dev")
 
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
 	if rec.Code != http.StatusOK {
@@ -296,6 +301,7 @@ func TestConfigSyncConvergedMemberNotBackedUp(t *testing.T) {
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	cm, _ := store.CreateMember(t.Context(), "converged", converged.srv.URL, "ctoken")
+	alignFleetVersions(t, srv, store, "dev")
 
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
 	if rec.Code != http.StatusOK {
@@ -369,6 +375,7 @@ func TestConfigSyncReplicaBadJSON(t *testing.T) {
 	bad.importBody = "not json"
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "bad-json", bad.srv.URL, "btoken")
+	alignFleetVersions(t, srv, store, "dev")
 
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
 	if rec.Code != http.StatusOK {
@@ -413,6 +420,7 @@ func TestConfigSyncApplyVariants(t *testing.T) {
 	nm, _ := store.CreateMember(t.Context(), "not-applied", notApplied.srv.URL, "ntoken")
 	bm, _ := store.CreateMember(t.Context(), "bad-schema", badSchema.srv.URL, "stoken")
 	um, _ := store.CreateMember(t.Context(), "unreachable", "http://127.0.0.1:1", "utoken")
+	alignFleetVersions(t, srv, store, "dev")
 
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
 	if rec.Code != http.StatusOK {
@@ -547,6 +555,7 @@ func TestConfigSyncSurvivesClientDisconnect(t *testing.T) {
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	alignFleetVersions(t, srv, store, "dev")
 
 	req := httptest.NewRequest(http.MethodPost, "/api/config/sync", strings.NewReader(`{"primary_id":"`+pm.ID+`"}`)).WithContext(ctx)
 	req.Header.Set("Authorization", "Bearer "+testFrontdeskToken)
@@ -594,6 +603,7 @@ func TestAutoSyncStatusReportsLastSyncAt(t *testing.T) {
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	_, _ = store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	alignFleetVersions(t, srv, store, "dev")
 
 	read := func() autoSyncStatus {
 		t.Helper()
@@ -626,5 +636,41 @@ func TestAutoSyncStatusReportsLastSyncAt(t *testing.T) {
 	}
 	if time.Since(at) > time.Minute {
 		t.Errorf("last_sync_at %v is stale, want ~now", at)
+	}
+}
+
+// TestConfigSyncHoldsVersionSkew: the sync handler refuses a version-skewed
+// member unconditionally, even though the wizard gates first, so a bypassed UI
+// cannot force a mismatched push.
+func TestConfigSyncHoldsVersionSkew(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	replica := newStubConfigMember(t, "rtoken")
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	setMemberVersion(srv, pm.ID, "v1.0.0")
+	setMemberVersion(srv, rm.ID, "v0.9.0")
+
+	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sync = %d (%s)", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Results []syncResultItem `json:"results"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if len(resp.Results) != 1 || resp.Results[0].MemberID != rm.ID {
+		t.Fatalf("results = %+v", resp.Results)
+	}
+	item := resp.Results[0]
+	if item.OK {
+		t.Error("version-skewed member reported ok; want refused")
+	}
+	if !strings.Contains(item.Error, "version") {
+		t.Errorf("error = %q, want it to name the version skew", item.Error)
+	}
+	if replica.gotImport || replica.gotBackup {
+		t.Error("version-skewed member was contacted for import/backup; want held")
 	}
 }

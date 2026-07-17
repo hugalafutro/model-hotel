@@ -172,6 +172,7 @@ func TestAutoSyncCoalescesThenApplies(t *testing.T) {
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
 
 	// First tick: observe the change, do not act yet (coalescing window).
 	prev := srv.autoSyncOnce(t.Context(), "")
@@ -219,6 +220,7 @@ func TestForceAutoSyncNowConvergesImmediately(t *testing.T) {
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
 
 	// Single call, no prior tick: the kick must act at once.
 	srv.forceAutoSyncNow(t.Context())
@@ -278,6 +280,7 @@ func TestConvergeFleetSkipsRecordAfterRearm(t *testing.T) {
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
 
 	// The generation the pass captured before it read the member list.
 	cfg, _ := store.GetAutoSync(t.Context())
@@ -325,6 +328,7 @@ func TestConvergeFleetAbortsImportWhenRearmLandsAfterBackup(t *testing.T) {
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
 
 	cfg, _ := store.GetAutoSync(t.Context())
 	staleGen := cfg.Gen
@@ -365,6 +369,7 @@ func TestConvergeFleetCancelsImportInFlightOnRearm(t *testing.T) {
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
 
 	cfg, _ := store.GetAutoSync(t.Context())
 	staleGen := cfg.Gen
@@ -415,6 +420,7 @@ func TestAutoSyncSkipsConvergedMember(t *testing.T) {
 	// fleet from being recorded as converged.
 	store.CreateMember(t.Context(), "tokenless", "http://127.0.0.1:9", "") //nolint:errcheck // presence is the point
 	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
 
 	srv.autoSyncOnce(t.Context(), "hash-B") // already settled: act this tick
 
@@ -459,6 +465,31 @@ func setMemberHealthFailures(srv *Server, memberID string, fails int) {
 	srv.poller.mu.Lock()
 	srv.poller.healthFailures[memberID] = fails
 	srv.poller.mu.Unlock()
+}
+
+// setMemberVersion seeds the poller's last-polled app version for a member, so
+// tests can align (or skew) the fleet against the auto-sync version gate
+// without a live settings probe.
+func setMemberVersion(srv *Server, memberID, version string) {
+	srv.poller.mu.Lock()
+	st := srv.poller.statuses[memberID]
+	st.Version = version
+	srv.poller.statuses[memberID] = st
+	srv.poller.mu.Unlock()
+}
+
+// alignFleetVersions stamps every current member's polled app version to ver,
+// so the auto-sync version gate sees an aligned fleet and the push paths under
+// test are actually reached (the gate fails closed on unknown versions).
+func alignFleetVersions(t *testing.T, srv *Server, store *Store, ver string) {
+	t.Helper()
+	members, err := store.ListMembers(t.Context())
+	if err != nil {
+		t.Fatalf("ListMembers: %v", err)
+	}
+	for _, m := range members {
+		setMemberVersion(srv, m.ID, ver)
+	}
 }
 
 // TestAutoSyncQuietTickPingsHealthyMembers: on a converged fleet (primary hash
@@ -545,6 +576,7 @@ func TestAutoSyncBackupFailureSkipsMember(t *testing.T) {
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
 	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
 
 	srv.autoSyncOnce(t.Context(), "hash-B")
 
@@ -569,6 +601,7 @@ func TestAutoSyncUnreachableMemberHoldsHash(t *testing.T) {
 	// A dead URL: the dry-run import is a transport failure, not an HTTP answer.
 	store.CreateMember(t.Context(), "down", "http://127.0.0.1:9", "dtoken") //nolint:errcheck // presence is the point
 	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
 
 	srv.autoSyncOnce(t.Context(), "hash-B")
 
@@ -593,6 +626,7 @@ func TestAutoSyncSchemaBlockedMemberSkipped(t *testing.T) {
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	store.CreateMember(t.Context(), "blocked", blocked.srv.URL, "btoken") //nolint:errcheck // presence is the point
 	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
 
 	srv.autoSyncOnce(t.Context(), "hash-B")
 
@@ -879,6 +913,7 @@ func TestAutoSyncRearmsOnTokenAdd(t *testing.T) {
 	}
 
 	// The next settled pass now converges the freshly-tokened replica.
+	alignFleetVersions(t, srv, store, "dev")
 	prev := srv.autoSyncOnce(t.Context(), "")
 	srv.autoSyncOnce(t.Context(), prev)
 	if !replica.didRealSync() {
@@ -1107,6 +1142,7 @@ func TestAutoSyncReEnableConvergesDriftedReplica(t *testing.T) {
 	}
 
 	// A settled pass now converges the drifted replica without the primary changing.
+	alignFleetVersions(t, srv, store, "dev")
 	prev := srv.autoSyncOnce(t.Context(), "")
 	srv.autoSyncOnce(t.Context(), prev)
 	if !replica.didRealSync() {
@@ -1199,6 +1235,7 @@ func TestAutoSyncSendsSourceGenHeader(t *testing.T) {
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	_, _ = store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
 
 	srv.forceAutoSyncNow(t.Context())
 
@@ -1228,6 +1265,7 @@ func TestAutoSyncStaleImportIsBenign(t *testing.T) {
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	enableAutoSync(t, store, pm.ID, "hash-A")
+	alignFleetVersions(t, srv, store, "dev")
 
 	ch := srv.bus.Subscribe()
 	defer srv.bus.Unsubscribe(ch)
@@ -1267,5 +1305,53 @@ func sawSyncFailed(ch chan events.Event) bool {
 		default:
 			return false
 		}
+	}
+}
+
+// TestAutoSyncHoldsVersionSkew: a member whose polled app version differs from
+// the primary's is held (no backup, no push, fleet not converged), and
+// config.sync_held is emitted once on the transition into held rather than on
+// every pass. Once the versions align, the next pass syncs the member normally.
+func TestAutoSyncHoldsVersionSkew(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	primary.versionHash = "hash-B" // changed vs the recorded last hash
+	replica := newStubAutoMember(t, "rtoken")
+	replica.dryDiff = driftDiff // this member needs the new config
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID, "hash-A")
+	setMemberVersion(srv, pm.ID, "v1.0.0")
+	setMemberVersion(srv, rm.ID, "v0.9.0")
+
+	// Two held passes: the member is never pushed to, and the second pass must
+	// not re-alert (edge-triggered hold).
+	srv.forceAutoSyncNow(t.Context())
+	srv.forceAutoSyncNow(t.Context())
+
+	if replica.didBackup() || replica.didRealSync() {
+		t.Fatal("version-skewed member was pushed to; want held")
+	}
+	cfg, _ := store.GetAutoSync(t.Context())
+	if cfg.LastHash == "hash-B" {
+		t.Error("applied hash recorded despite a held member; want fleet not converged")
+	}
+	evs, _, err := store.ListEvents(t.Context(), EventFilter{Type: "config.sync_held"})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("config.sync_held events = %d, want exactly 1 across repeated held passes", len(evs))
+	}
+	if evs[0].MemberID != rm.ID {
+		t.Errorf("held event member = %q, want %q", evs[0].MemberID, rm.ID)
+	}
+
+	// Versions align: the hold clears on its own and the member syncs.
+	setMemberVersion(srv, rm.ID, "v1.0.0")
+	srv.forceAutoSyncNow(t.Context())
+	if !replica.didRealSync() {
+		t.Error("aligned member was not synced once the hold cleared")
 	}
 }
