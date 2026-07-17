@@ -1122,3 +1122,158 @@ func TestDiscoverXAIImageModels_Non200IsError(t *testing.T) {
 		t.Fatal("expected error on non-200 image-models response")
 	}
 }
+
+// TestDiscoverXAI_UnionsImageModels drives the full discoverXAI path with both
+// the language and image endpoints populated, covering the best-effort image
+// append/dedup wiring in the merged path.
+func TestDiscoverXAI_UnionsImageModels(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/language-models":
+			_ = json.NewEncoder(w).Encode(XAILanguageModelsResponse{
+				Models: []XAILanguageModel{{
+					ID:               "grok-lang",
+					Object:           "model",
+					OwnedBy:          "xai",
+					Version:          "1.0",
+					InputModalities:  []string{"text"},
+					OutputModalities: []string{"text"},
+				}},
+			})
+		case "/image-generation-models":
+			_ = json.NewEncoder(w).Encode(XAIImageGenerationModelsResponse{
+				Models: []XAIImageGenerationModel{{
+					ID:               "grok-imagine-image",
+					Object:           "model",
+					OwnedBy:          "xai",
+					InputModalities:  []string{"text", "image"},
+					OutputModalities: []string{"image"},
+					ImagePrice:       200000000,
+				}},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
+
+	models, err := svc.discoverXAI(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverXAI failed: %v", err)
+	}
+	var img *model.Model
+	for _, m := range models {
+		if m.ModelID == "grok-imagine-image" {
+			img = m
+		}
+	}
+	if img == nil {
+		t.Fatal("expected image model to be unioned into discoverXAI results")
+	}
+	if !strings.Contains(img.OutputModalities, "image") {
+		t.Errorf("image model output modalities = %q, want to contain image", img.OutputModalities)
+	}
+}
+
+// TestDiscoverXAIImageModels_EmptyModalitiesFallback covers the input/output
+// modality fallbacks and the text->image modality default.
+func TestDiscoverXAIImageModels_EmptyModalitiesFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/image-generation-models" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(XAIImageGenerationModelsResponse{
+			Models: []XAIImageGenerationModel{{ID: "bare-image", OwnedBy: "xai"}},
+		})
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
+
+	models, err := svc.discoverXAIImageModels(context.Background(), provider, "test-api-key", server.URL)
+	if err != nil {
+		t.Fatalf("discoverXAIImageModels failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(models))
+	}
+	m := models[0]
+	if m.InputModalities != `["text"]` {
+		t.Errorf("input modalities = %q, want [\"text\"] fallback", m.InputModalities)
+	}
+	if m.OutputModalities != `["image"]` {
+		t.Errorf("output modalities = %q, want [\"image\"] fallback", m.OutputModalities)
+	}
+	if m.Modality != "text->image" {
+		t.Errorf("modality = %q, want text->image", m.Modality)
+	}
+	if strings.Contains(m.Params, "image_price") {
+		t.Errorf("params = %q, should omit image_price when zero", m.Params)
+	}
+}
+
+// TestDiscoverXAIImageModels_InvalidJSONIsError covers the decode error path.
+func TestDiscoverXAIImageModels_InvalidJSONIsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("{not json"))
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
+
+	if _, err := svc.discoverXAIImageModels(context.Background(), provider, "test-api-key", server.URL); err == nil {
+		t.Fatal("expected error decoding invalid JSON")
+	}
+}
+
+// TestDiscoverXAIImageModels_RequestBuildError covers the request-construction
+// error path via a base URL containing a control character.
+func TestDiscoverXAIImageModels_RequestBuildError(t *testing.T) {
+	svc := &DiscoveryService{httpClient: http.DefaultClient}
+	provider := &Provider{ID: uuid.New(), BaseURL: "http://\x7fbad"}
+
+	if _, err := svc.discoverXAIImageModels(context.Background(), provider, "test-api-key", "http://\x7fbad"); err == nil {
+		t.Fatal("expected error building request from an invalid base URL")
+	}
+}
+
+// TestDiscoverXAIImageModels_TransportError covers the transport-failure path by
+// pointing at a server that has already been closed.
+func TestDiscoverXAIImageModels_TransportError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	url := server.URL
+	server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: url}
+
+	if _, err := svc.discoverXAIImageModels(context.Background(), provider, "test-api-key", url); err == nil {
+		t.Fatal("expected transport error against a closed server")
+	}
+}
+
+// TestDiscoverXAIImageModels_BodyReadError covers the response-read error path by
+// declaring a Content-Length larger than the body actually written, so the
+// client's io.ReadAll fails with an unexpected EOF.
+func TestDiscoverXAIImageModels_BodyReadError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", "1000")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("short"))
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
+
+	if _, err := svc.discoverXAIImageModels(context.Background(), provider, "test-api-key", server.URL); err == nil {
+		t.Fatal("expected read error when the body is shorter than Content-Length")
+	}
+}
