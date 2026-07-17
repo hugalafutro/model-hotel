@@ -124,6 +124,7 @@
     <string name="alerts_event_config_synced">設定を同期</string>
     <string name="alerts_event_config_auto_synced">設定を自動同期</string>
     <string name="alerts_event_config_autosync_stale">自動同期オフ、フリート未同期</string>
+    <string name="alerts_event_config_sync_held">同期保留（バージョン不一致）</string>
     <string name="alerts_event_version_fetch_failed">バージョン取得に失敗</string>
     <string name="alerts_event_version_fetch_recovered">バージョン取得が復旧</string>
     <string name="alerts_event_traefik_stale">Traefik 設定が古い</string>

@@ -124,6 +124,7 @@
     <string name="alerts_event_config_synced">配置已同步</string>
     <string name="alerts_event_config_auto_synced">配置已自动同步</string>
     <string name="alerts_event_config_autosync_stale">自动同步已关闭，集群未同步</string>
+    <string name="alerts_event_config_sync_held">同步已暂停（版本不一致）</string>
     <string name="alerts_event_version_fetch_failed">版本读取失败</string>
     <string name="alerts_event_version_fetch_recovered">版本读取已恢复</string>
     <string name="alerts_event_traefik_stale">Traefik 配置已过时</string>
