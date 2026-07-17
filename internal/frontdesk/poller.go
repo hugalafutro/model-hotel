@@ -523,8 +523,8 @@ func (p *Poller) noteTraefikAPIFailure(ctx context.Context) {
 	p.mu.Lock()
 	if p.traefikBlanked {
 		// Already blanked by an earlier poll in this outage: nothing left to blank,
-		// so skip the member re-read and stop advancing the counter. A successful
-		// poll (which resets both flags) re-arms this.
+		// so stop advancing the counter. A successful poll (which resets both
+		// flags) re-arms this.
 		p.mu.Unlock()
 		return
 	}
@@ -533,24 +533,18 @@ func (p *Poller) noteTraefikAPIFailure(ctx context.Context) {
 		p.mu.Unlock()
 		return
 	}
-	p.mu.Unlock()
-	// Exactly crossed the threshold: blank every member's badge. Read members
-	// outside the lock; on a read error leave traefikBlanked false so the next
-	// failed poll retries the blank.
-	members, err := p.store.ListMembers(ctx)
-	if err != nil {
-		return
-	}
-	p.mu.Lock()
+	// Crossed the threshold: blank every live badge. Only members that were
+	// actually polled hold a non-empty TraefikStatus, so iterate the in-memory
+	// statuses directly rather than re-reading the store (a member absent from
+	// this map already renders as "unknown"). Publishing happens after unlock.
 	var changed []string
-	for _, m := range members {
-		cur := p.statuses[m.ID]
+	for id, cur := range p.statuses {
 		if cur.TraefikStatus != "" {
 			cur.TraefikStatus = ""
-			p.statuses[m.ID] = cur
-			changed = append(changed, m.ID)
+			p.statuses[id] = cur
+			changed = append(changed, id)
 		}
-		delete(p.traefikNonUp, m.ID)
+		delete(p.traefikNonUp, id)
 	}
 	p.traefikBlanked = true
 	p.mu.Unlock()

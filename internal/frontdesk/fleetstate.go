@@ -39,16 +39,20 @@ const (
 	reasonAllSyncHeld       = "all_sync_held"
 	reasonAutosyncStale     = "autosync_stale"
 	reasonAutosyncStaleLong = "autosync_stale_long"
-	reasonTraefikStale      = "traefik_stale"
+	// traefik_config_stale is config-poll staleness specifically (Traefik stopped
+	// fetching the dynamic config), not a member's data-plane serverStatus; named
+	// to keep it distinct from the traefik.stale alert event and the per-member
+	// traefik_status badge.
+	reasonTraefikConfigStale = "traefik_config_stale"
 )
 
 // fleetFaultyReasons is the subset of reason codes that escalate the state to
 // faulty; every other reason yields degraded.
 var fleetFaultyReasons = map[string]bool{
-	reasonAllMembersDown:    true,
-	reasonAllSyncHeld:       true,
-	reasonAutosyncStaleLong: true,
-	reasonTraefikStale:      true,
+	reasonAllMembersDown:     true,
+	reasonAllSyncHeld:        true,
+	reasonAutosyncStaleLong:  true,
+	reasonTraefikConfigStale: true,
 }
 
 // memberFleetFacts is the per-member slice of the state machine's input:
@@ -111,7 +115,7 @@ func computeFleetState(in fleetStateInput) (FleetState, []string) {
 		reasons = append(reasons, reasonAutosyncStale)
 	}
 	if in.TraefikStale {
-		reasons = append(reasons, reasonTraefikStale)
+		reasons = append(reasons, reasonTraefikConfigStale)
 	}
 
 	state := FleetOK
@@ -132,7 +136,12 @@ func computeFleetState(in fleetStateInput) (FleetState, []string) {
 // cheap settings reads, so a tight tick costs little.
 const fleetStateInterval = 5 * time.Second
 
-// heldSnapshot copies the autosync version-skew hold set under its lock.
+// heldSnapshot copies the autosync version-skew hold set under its lock. The
+// auto-sync loop owns the set; if auto-sync is disabled while members are held,
+// the set stays frozen rather than clearing, so those members keep contributing
+// sync_held / all_sync_held. That direction is deliberate: a stale hold degrades
+// the fleet state, it never reports a false ok, and it clears when auto-sync
+// resumes or the skew resolves.
 func (s *Server) heldSnapshot() map[string]bool {
 	s.syncHeldMu.Lock()
 	defer s.syncHeldMu.Unlock()
@@ -193,7 +202,7 @@ func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg Auto
 func (s *Server) checkFleetState(ctx context.Context) {
 	cur, reasons, err := s.fleetStateNow(ctx)
 	if err != nil {
-		debuglog.Warn("frontdesk: fleet state", "error", err)
+		debuglog.Warn("frontdesk: compute fleet state", "error", err)
 		return
 	}
 	s.fleetStateMu.Lock()
@@ -213,6 +222,12 @@ func (s *Server) checkFleetState(ctx context.Context) {
 // operator-log prose; clients translate from the metadata reason codes, never
 // from this string.
 func fleetStateEvent(from, to FleetState, reasons []string) Event {
+	// Serialize reasons as [] rather than null on a recovery (to=ok carries no
+	// active reasons), so a client reading the event metadata never has to
+	// special-case a null array.
+	if reasons == nil {
+		reasons = []string{}
+	}
 	sev := "success"
 	switch to {
 	case FleetDegraded:

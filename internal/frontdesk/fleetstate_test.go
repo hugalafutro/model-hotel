@@ -45,13 +45,13 @@ func TestComputeFleetState(t *testing.T) {
 		{"stale tier 2 is faulty", fleetStateInput{AutoSyncTier: 2},
 			FleetFaulty, []string{"autosync_stale_long"}},
 		{"traefik stale is faulty", fleetStateInput{TraefikStale: true},
-			FleetFaulty, []string{"traefik_stale"}},
+			FleetFaulty, []string{"traefik_config_stale"}},
 		{"reasons accumulate and worst severity wins",
 			fleetStateInput{
 				Members:      []memberFleetFacts{up, down, heldOf(up), syncable(up)},
 				AutoSyncTier: 1, TraefikStale: true,
 			},
-			FleetFaulty, []string{"member_down", "sync_held", "autosync_stale", "traefik_stale"}},
+			FleetFaulty, []string{"member_down", "sync_held", "autosync_stale", "traefik_config_stale"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -155,5 +155,50 @@ func TestCheckFleetStateEmitsOnTransitions(t *testing.T) {
 	}
 	if evs[0].Severity != "success" {
 		t.Errorf("recovery severity = %q, want success", evs[0].Severity)
+	}
+}
+
+// TestCheckFleetStateEmitsFaultyTransition covers the to=faulty branch of
+// fleetStateEvent (severity "error"), which the ok/degraded/ok path above never
+// exercises: with every member confirmed down the state is faulty via
+// all_members_down.
+func TestCheckFleetStateEmitsFaultyTransition(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	m2, err := store.CreateMember(ctx, "hotel-2", "https://h2.example", "tok2")
+	if err != nil {
+		t.Fatalf("create m2: %v", err)
+	}
+	setHealth(srv, m1.ID, true)
+	setHealth(srv, m2.ID, true)
+
+	// Baseline ok: no transition, no event.
+	srv.checkFleetState(ctx)
+	if evs := fleetStateEvents(ctx, t, srv); len(evs) != 0 {
+		t.Fatalf("baseline emitted %d events, want 0", len(evs))
+	}
+
+	// Every member confirmed down -> faulty via all_members_down: one event,
+	// severity error.
+	setHealth(srv, m1.ID, false)
+	setHealth(srv, m2.ID, false)
+	srv.checkFleetState(ctx)
+	evs := fleetStateEvents(ctx, t, srv)
+	if len(evs) != 1 {
+		t.Fatalf("after all-down: %d events, want 1", len(evs))
+	}
+	if evs[0].Severity != "error" {
+		t.Errorf("severity = %q, want error", evs[0].Severity)
+	}
+	if got := evs[0].Metadata["to"]; got != "faulty" {
+		t.Errorf(`metadata["to"] = %v, want "faulty"`, got)
+	}
+	if !reasonsContain(evs[0].Metadata, reasonAllMembersDown) {
+		t.Errorf("reasons %v missing %q", evs[0].Metadata["reasons"], reasonAllMembersDown)
 	}
 }
