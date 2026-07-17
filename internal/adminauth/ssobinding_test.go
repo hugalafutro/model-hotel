@@ -6,9 +6,11 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
@@ -20,13 +22,13 @@ type fakeResolver struct {
 	bound   map[uuid.UUID][2]string // user id -> {provider, subject}
 }
 
-func (f *fakeResolver) ResolveSSOIdentity(_ context.Context, provider, subject, email string) (*user.User, error) {
+func (f *fakeResolver) ResolveSSOIdentity(_ context.Context, provider, subject, email string) (*user.User, bool, error) {
 	u, ok := f.byEmail[strings.ToLower(strings.TrimSpace(email))]
 	if !ok {
-		return nil, user.ErrNotFound
+		return nil, false, user.ErrNotFound
 	}
 	if !u.Enabled {
-		return nil, user.ErrNotFound
+		return nil, false, user.ErrNotFound
 	}
 	if f.bound == nil {
 		f.bound = map[uuid.UUID][2]string{}
@@ -34,12 +36,12 @@ func (f *fakeResolver) ResolveSSOIdentity(_ context.Context, provider, subject, 
 	id := [2]string{provider, subject}
 	if cur, ok := f.bound[u.ID]; ok {
 		if cur != id {
-			return nil, user.ErrSSOMismatch
+			return nil, false, user.ErrSSOMismatch
 		}
-	} else {
-		f.bound[u.ID] = id
+		return u, false, nil
 	}
-	return u, nil
+	f.bound[u.ID] = id
+	return u, true, nil
 }
 
 func boundUser(email string, enabled bool) (*user.User, *fakeResolver) {
@@ -67,6 +69,38 @@ func TestResolveSSOUser(t *testing.T) {
 	_, disabledRes := boundUser("off@example.com", false)
 	if got := resolveSSOUser(context.Background(), disabledRes, "oidc", "sub-1", "off@example.com"); got != nil {
 		t.Errorf("disabled user must not bind, got %v", got)
+	}
+}
+
+// A first-ever bind is surfaced on the events bus (guard #1: make an
+// unexpected first-bind loud), while a routine re-login of the same identity is
+// not.
+func TestResolveSSOUser_FirstBindPublishesEvent(t *testing.T) {
+	_, res := boundUser("worker@example.com", true)
+
+	ch := events.Subscribe()
+	defer events.Unsubscribe(ch)
+
+	if got := resolveSSOUser(context.Background(), res, "oidc", "iss#abc", "worker@example.com"); got == nil {
+		t.Fatal("first login should succeed")
+	}
+	select {
+	case ev := <-ch:
+		if ev.Type != "auth.sso_identity_bound" || ev.Severity != "warning" {
+			t.Fatalf("unexpected event: %+v", ev)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected an auth.sso_identity_bound event on first bind")
+	}
+
+	// Re-login with the same identity must NOT publish another bind event.
+	if got := resolveSSOUser(context.Background(), res, "oidc", "iss#abc", "worker@example.com"); got == nil {
+		t.Fatal("re-login should succeed")
+	}
+	select {
+	case ev := <-ch:
+		t.Fatalf("re-login must not publish a bind event, got %+v", ev)
+	case <-time.After(100 * time.Millisecond):
 	}
 }
 
@@ -101,8 +135,8 @@ type errResolver struct {
 	err error
 }
 
-func (e *errResolver) ResolveSSOIdentity(context.Context, string, string, string) (*user.User, error) {
-	return e.u, e.err
+func (e *errResolver) ResolveSSOIdentity(context.Context, string, string, string) (*user.User, bool, error) {
+	return e.u, false, e.err
 }
 
 // A transient lookup error (e.g. a DB blip during the OIDC/GitHub callback)

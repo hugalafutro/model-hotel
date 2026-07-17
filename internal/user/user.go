@@ -163,15 +163,17 @@ func (r *Repository) GetByEmail(ctx context.Context, email string) (*User, error
 // rejected with ErrSSOMismatch even when the verified email matches, which
 // stops a second, lower-trust provider from impersonating the account. Unknown
 // emails and disabled accounts yield ErrNotFound. provider is a short constant
-// ("oidc", "github"); subject is the provider's stable, opaque per-user id.
-func (r *Repository) ResolveSSOIdentity(ctx context.Context, provider, subject, email string) (*User, error) {
+// ("oidc", "github"); subject is the provider's stable, opaque per-user id. The
+// returned bool is true only when this call recorded a first-ever binding, so
+// callers can surface that (audit/alert) distinctly from a routine re-login.
+func (r *Repository) ResolveSSOIdentity(ctx context.Context, provider, subject, email string) (*User, bool, error) {
 	e := NormalizeEmail(&email)
 	if e == nil {
-		return nil, ErrNotFound
+		return nil, false, ErrNotFound
 	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }() // no-op once the tx commits
 
@@ -180,12 +182,13 @@ func (r *Repository) ResolveSSOIdentity(ctx context.Context, provider, subject, 
 	// different identities could both observe NULL and each overwrite the other.
 	u, err := scanUser(tx.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE email = $1 FOR UPDATE`, *e))
 	if err != nil {
-		return nil, err // ErrNotFound when no row matches
+		return nil, false, err // ErrNotFound when no row matches
 	}
 	if !u.Enabled {
-		return nil, ErrNotFound
+		return nil, false, ErrNotFound
 	}
 
+	bound := false
 	switch {
 	case u.SSOProvider == nil:
 		// Trust-on-first-use: bind this identity to the account. A unique-index
@@ -195,20 +198,21 @@ func (r *Repository) ResolveSSOIdentity(ctx context.Context, provider, subject, 
 			`UPDATE users SET sso_provider = $2, sso_subject = $3 WHERE id = $1`,
 			u.ID, provider, subject); err != nil {
 			if isUniqueViolation(err) {
-				return nil, ErrSSOMismatch
+				return nil, false, ErrSSOMismatch
 			}
-			return nil, err
+			return nil, false, err
 		}
 		u.SSOProvider = &provider
 		u.SSOSubject = &subject
+		bound = true
 	case *u.SSOProvider != provider || u.SSOSubject == nil || *u.SSOSubject != subject:
-		return nil, ErrSSOMismatch
+		return nil, false, ErrSSOMismatch
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return u, nil
+	return u, bound, nil
 }
 
 // isUniqueViolation reports whether err is a PostgreSQL unique-constraint
