@@ -684,8 +684,8 @@ func TestDiscoverNanoGPTImageModels_SubscriptionBaseFiltersIncluded(t *testing.T
 	if !strings.Contains(chroma.OutputModalities, "image") {
 		t.Errorf("chroma output modalities = %q, want to contain image", chroma.OutputModalities)
 	}
-	if chroma.Modality != "text->image" {
-		t.Errorf("chroma modality = %q, want text->image", chroma.Modality)
+	if chroma.Modality != "image" {
+		t.Errorf("chroma modality = %q, want image", chroma.Modality)
 	}
 	if !strings.Contains(chroma.Params, `"subscription_included":true`) {
 		t.Errorf("chroma params = %q, want subscription_included true", chroma.Params)
@@ -740,10 +740,12 @@ func TestDiscoverNanoGPTImageModels_EditModelAcceptsImageInput(t *testing.T) {
 		t.Fatal("expected step-image-edit-2 to be registered")
 	}
 	if !strings.Contains(edit.InputModalities, "image") {
-		t.Errorf("edit model input modalities = %q, want to contain image", edit.InputModalities)
+		t.Errorf("edit model input modalities = %q, want to contain image (editing model takes image input)", edit.InputModalities)
 	}
-	if edit.Modality != "text+image->image" {
-		t.Errorf("edit model modality = %q, want text+image->image", edit.Modality)
+	// Modality is the coarse non-chat classifier and is "image" for every image
+	// model regardless of whether it also accepts image input.
+	if edit.Modality != "image" {
+		t.Errorf("edit model modality = %q, want image", edit.Modality)
 	}
 }
 

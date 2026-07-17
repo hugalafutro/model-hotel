@@ -26,7 +26,7 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 		// Step 2: 403/429 (zero-balance or rate-limited account) -> catalog only.
 		if isNoAccessError(err) {
 			debuglog.Warn("discovery: xai /language-models returned no-access, using catalog", "status", errorStatusCode(err), "provider", provider.Name, "provider_id", provider.ID)
-			return catalog, nil
+			return d.appendXAIImageModels(ctx, provider, apiKey, baseURL, catalog), nil
 		}
 		// Step 3: Other failure -> try the minimal /models endpoint.
 		live, err = d.discoverXAIMinimalModels(ctx, provider, apiKey, baseURL)
@@ -34,7 +34,7 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 			// Step 4: /models also no-access -> catalog only.
 			if isNoAccessError(err) {
 				debuglog.Warn("discovery: xai /models also returned no-access, using catalog", "status", errorStatusCode(err), "provider", provider.Name, "provider_id", provider.ID)
-				return catalog, nil
+				return d.appendXAIImageModels(ctx, provider, apiKey, baseURL, catalog), nil
 			}
 			return nil, fmt.Errorf("xAI: failed to discover models for provider %s: both endpoints returned errors", provider.Name)
 		}
@@ -65,26 +65,34 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 	// any catalog model the listing endpoints do not advertise (xAI keeps older
 	// grok models callable without listing them).
 	merged := mergeLiveAndCatalog(live, catalog)
-
-	// Image-generation models live on a separate endpoint from chat/language
-	// models. Discovery is best-effort: a failure here (e.g. no image scope) must
-	// not drop the language models we already have.
-	if imageModels, imgErr := d.discoverXAIImageModels(ctx, provider, apiKey, baseURL); imgErr != nil {
-		debuglog.Warn("discovery: xai image-model discovery failed", "provider", provider.Name, "provider_id", provider.ID, "error", imgErr)
-	} else {
-		existing := make(map[string]struct{}, len(merged))
-		for _, m := range merged {
-			existing[m.ModelID] = struct{}{}
-		}
-		for _, im := range imageModels {
-			if _, dup := existing[im.ModelID]; !dup {
-				merged = append(merged, im)
-			}
-		}
-	}
+	merged = d.appendXAIImageModels(ctx, provider, apiKey, baseURL, merged)
 
 	debuglog.Info("discovery: xai merged live + catalog", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(catalog), "merged", len(merged))
 	return merged, nil
+}
+
+// appendXAIImageModels unions image-generation models onto base, deduplicated by
+// model ID. Image models live on a separate endpoint (/image-generation-models)
+// with its own access from chat/language models, so this runs on every return
+// path including the catalog-only no-access fallback: an account can lack
+// /language-models access while still generating images. Best-effort: a failure
+// (e.g. no image scope) leaves base untouched.
+func (d *DiscoveryService) appendXAIImageModels(ctx context.Context, provider *Provider, apiKey, baseURL string, base []*model.Model) []*model.Model {
+	imageModels, err := d.discoverXAIImageModels(ctx, provider, apiKey, baseURL)
+	if err != nil {
+		debuglog.Warn("discovery: xai image-model discovery failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return base
+	}
+	existing := make(map[string]struct{}, len(base))
+	for _, m := range base {
+		existing[m.ModelID] = struct{}{}
+	}
+	for _, im := range imageModels {
+		if _, dup := existing[im.ModelID]; !dup {
+			base = append(base, im)
+		}
+	}
+	return base
 }
 
 func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provider *Provider, apiKey, baseURL string) ([]*model.Model, error) {
@@ -219,10 +227,6 @@ func (d *DiscoveryService) discoverXAIImageModels(ctx context.Context, provider 
 		if len(outputMods) == 0 {
 			outputMods = []string{"image"}
 		}
-		modality := "text->image"
-		if slices.Contains(inputMods, "image") {
-			modality = "text+image->image"
-		}
 		inputModJSON, _ := json.Marshal(inputMods)
 		outputModJSON, _ := json.Marshal(outputMods)
 
@@ -240,7 +244,7 @@ func (d *DiscoveryService) discoverXAIImageModels(ctx context.Context, provider 
 			DisplayName:      im.ID,
 			Capabilities:     "{}",
 			Params:           string(paramsJSON),
-			Modality:         modality,
+			Modality:         "image",
 			InputModalities:  string(inputModJSON),
 			OutputModalities: string(outputModJSON),
 			OwnedBy:          im.OwnedBy,
