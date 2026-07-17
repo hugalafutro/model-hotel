@@ -628,3 +628,144 @@ func int64Ptr(v int64) *int64 {
 func intPtr(v int) *int {
 	return &v
 }
+
+// nanoGPTImageCatalogBody is a minimal NanoGPT image-catalog payload with two
+// subscription-included models (one text-to-image, one editing) and one
+// pay-as-you-go model, used to exercise base-dependent filtering.
+const nanoGPTImageCatalogBody = `{"models":{"image":{
+  "chroma":{"name":"Chroma","model":"chroma","provider":"chroma","iconLabel":"text-to-image","description":"Uncensored text-to-image model.","cost":{"1024x1024":0.0255,"512x512":0.0255},"subscription":{"included":true}},
+  "step-image-edit-2":{"name":"Step Image Edit 2","model":"step-image-edit-2","provider":"stepfun","iconLabel":"both","description":"Editing model.","cost":{"1024x1024":0.003},"subscription":{"included":true}},
+  "premium-paint":{"name":"Premium Paint","model":"premium-paint","provider":"acme","iconLabel":"text-to-image","description":"Pay-as-you-go only.","cost":{"1024x1024":0.07},"subscription":{"included":false}}
+}}}`
+
+func newNanoGPTImageCatalogServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/models/image" || r.Method != "GET" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(nanoGPTImageCatalogBody))
+	}))
+}
+
+func findModelByID(models []*model.Model, id string) *model.Model {
+	for _, m := range models {
+		if m.ModelID == id {
+			return m
+		}
+	}
+	return nil
+}
+
+func TestDiscoverNanoGPTImageModels_SubscriptionBaseFiltersIncluded(t *testing.T) {
+	server := newNanoGPTImageCatalogServer(t)
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), Name: "nanogpt-test", BaseURL: server.URL + "/api/subscription/v1"}
+
+	models, err := service.discoverNanoGPTImageModels(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverNanoGPTImageModels failed: %v", err)
+	}
+	if len(models) != 2 {
+		t.Fatalf("expected 2 subscription-included image models, got %d", len(models))
+	}
+	if findModelByID(models, "premium-paint") != nil {
+		t.Error("pay-as-you-go model must not be registered on a subscription base")
+	}
+
+	chroma := findModelByID(models, "chroma")
+	if chroma == nil {
+		t.Fatal("expected chroma to be registered")
+	}
+	if !strings.Contains(chroma.OutputModalities, "image") {
+		t.Errorf("chroma output modalities = %q, want to contain image", chroma.OutputModalities)
+	}
+	if chroma.Modality != "text->image" {
+		t.Errorf("chroma modality = %q, want text->image", chroma.Modality)
+	}
+	if !strings.Contains(chroma.Params, `"subscription_included":true`) {
+		t.Errorf("chroma params = %q, want subscription_included true", chroma.Params)
+	}
+	if !strings.Contains(chroma.Params, `"image_generation":true`) {
+		t.Errorf("chroma params = %q, want image_generation true", chroma.Params)
+	}
+	if chroma.InputPricePerMillion != nil || chroma.OutputPricePerMillion != nil {
+		t.Error("image models must not carry token pricing")
+	}
+	if !chroma.Enabled {
+		t.Error("discovered image model should be enabled")
+	}
+}
+
+func TestDiscoverNanoGPTImageModels_NonSubscriptionBaseRegistersAll(t *testing.T) {
+	server := newNanoGPTImageCatalogServer(t)
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), Name: "nanogpt-custom", BaseURL: server.URL + "/api/v1"}
+
+	models, err := service.discoverNanoGPTImageModels(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverNanoGPTImageModels failed: %v", err)
+	}
+	if len(models) != 3 {
+		t.Fatalf("expected all 3 image models on a non-subscription base, got %d", len(models))
+	}
+	paid := findModelByID(models, "premium-paint")
+	if paid == nil {
+		t.Fatal("expected pay-as-you-go model to be registered on a non-subscription base")
+	}
+	if !strings.Contains(paid.Params, `"subscription_included":false`) {
+		t.Errorf("premium-paint params = %q, want subscription_included false", paid.Params)
+	}
+}
+
+func TestDiscoverNanoGPTImageModels_EditModelAcceptsImageInput(t *testing.T) {
+	server := newNanoGPTImageCatalogServer(t)
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), Name: "nanogpt-test", BaseURL: server.URL + "/api/subscription/v1"}
+
+	models, err := service.discoverNanoGPTImageModels(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverNanoGPTImageModels failed: %v", err)
+	}
+	edit := findModelByID(models, "step-image-edit-2")
+	if edit == nil {
+		t.Fatal("expected step-image-edit-2 to be registered")
+	}
+	if !strings.Contains(edit.InputModalities, "image") {
+		t.Errorf("edit model input modalities = %q, want to contain image", edit.InputModalities)
+	}
+	if edit.Modality != "text+image->image" {
+		t.Errorf("edit model modality = %q, want text+image->image", edit.Modality)
+	}
+}
+
+func TestNanoGPTImageCatalogURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		baseURL string
+		want    string
+	}{
+		{"subscription base", "https://nano-gpt.com/api/subscription/v1", "https://nano-gpt.com/api/models/image"},
+		{"bare v1 base", "https://api.nano-gpt.com/v1", "https://api.nano-gpt.com/api/models/image"},
+		{"trailing slash", "https://nano-gpt.com/api/subscription/v1/", "https://nano-gpt.com/api/models/image"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := nanoGPTImageCatalogURL(tt.baseURL)
+			if err != nil {
+				t.Fatalf("nanoGPTImageCatalogURL(%q) error: %v", tt.baseURL, err)
+			}
+			if got != tt.want {
+				t.Errorf("nanoGPTImageCatalogURL(%q) = %q, want %q", tt.baseURL, got, tt.want)
+			}
+		})
+	}
+}

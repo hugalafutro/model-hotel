@@ -128,6 +128,15 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 	if endpoint == "/rerank" && isCohereRerankBase(providerType, sanitized) {
 		return CohereNativeBaseURL(sanitized) + "/v2/rerank"
 	}
+	if providerType == "nanogpt" && isImageEndpoint(endpoint) {
+		// NanoGPT serves image generation under /api/v1, never under the
+		// subscription base (.../api/subscription/v1). Chat/completions stay on
+		// the subscription base for subscription billing, but that base has no
+		// /images/* surface (it returns the marketing SPA), so drop the
+		// /subscription segment for image endpoints. Non-subscription bases
+		// (e.g. .../api/v1) contain no /subscription and are left unchanged.
+		return strings.Replace(sanitized, "/subscription", "", 1) + endpoint
+	}
 	switch providerType {
 	case "anthropic", "ollama", "lmstudio", "koboldcpp":
 		// These providers expose their OpenAI-compatible API under /v1: Ollama,
@@ -170,6 +179,13 @@ func isCohereRerankBase(providerType, sanitized string) bool {
 		return true
 	}
 	return strings.HasSuffix(strings.TrimRight(sanitized, "/"), "/compatibility/v1")
+}
+
+// isImageEndpoint reports whether an OpenAI-compatible endpoint path targets the
+// image surface (/images/generations, /images/edits, /images/variations). Used
+// to apply provider-specific base rewrites that only affect image requests.
+func isImageEndpoint(endpoint string) bool {
+	return strings.HasPrefix(endpoint, "/images")
 }
 
 // CohereNativeBaseURL converts a Cohere base URL to the native API base. It is

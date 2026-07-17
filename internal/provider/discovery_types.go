@@ -128,6 +128,29 @@ type NanoGPTDetailedResponse struct {
 	Data   []NanoGPTModel `json:"data"`
 }
 
+// NanoGPTImageModel represents an entry from the NanoGPT image-model catalog
+// (GET /api/models/image). Image models live on a separate endpoint from chat
+// models and bill per image rather than per token, so they carry no token
+// pricing here. Cost maps each supported resolution to a per-image USD price.
+type NanoGPTImageModel struct {
+	Name         string               `json:"name"`
+	Model        string               `json:"model"`
+	Description  string               `json:"description"`
+	OwnedBy      string               `json:"provider"`
+	IconLabel    string               `json:"iconLabel"`
+	Cost         map[string]float64   `json:"cost"`
+	Subscription *NanoGPTSubscription `json:"subscription"`
+}
+
+// NanoGPTImageModelsResponse is the response from the NanoGPT image-model
+// catalog endpoint, which nests models by media type under models.image, keyed
+// by model ID.
+type NanoGPTImageModelsResponse struct {
+	Models struct {
+		Image map[string]NanoGPTImageModel `json:"image"`
+	} `json:"models"`
+}
+
 // NanoGPTUsageLimits describes usage limits for a NanoGPT account.
 type NanoGPTUsageLimits struct {
 	WeeklyInputTokens *int64 `json:"weeklyInputTokens"`
