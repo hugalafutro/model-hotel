@@ -195,6 +195,7 @@ export function Dashboard() {
 							<MetricToggle value={globalMetric} onChange={setGlobalMetric} />
 							{isAdmin && (ownerOptions?.length ?? 0) > 0 && (
 								<FilterDropdown
+									variant="compact"
 									value={ownerUserID}
 									onChange={setOwnerUserID}
 									placeholder={t("logs.filters.owner")}
@@ -203,7 +204,7 @@ export function Dashboard() {
 										value: u.id,
 										label: u.username,
 									}))}
-									className="w-32"
+									className="max-w-32"
 								/>
 							)}
 						</div>

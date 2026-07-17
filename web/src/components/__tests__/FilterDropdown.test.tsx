@@ -207,4 +207,37 @@ describe("FilterDropdown", () => {
 		// ChevronDown icon should be present
 		expect(triggerButton.querySelector("svg")).toBeInTheDocument();
 	});
+
+	it("compact variant drops ui-input for the toggle-sized trigger", () => {
+		render(
+			<FilterDropdown
+				options={options}
+				value=""
+				onChange={onChange}
+				variant="compact"
+			/>,
+		);
+		const trigger = screen.getByRole("button", { name: "Filter" });
+		// Compact matches the 10px ui-tab toggles beside it, not the ui-input field.
+		expect(trigger).toHaveClass("text-[10px]");
+		expect(trigger).not.toHaveClass("ui-input");
+		// w-full lets a long label truncate within a width-capped wrapper
+		// (e.g. the dashboard's max-w-32) instead of overflowing.
+		expect(trigger).toHaveClass("w-full");
+	});
+
+	it("compact variant renders a smaller (12px) chevron", () => {
+		render(
+			<FilterDropdown
+				options={options}
+				value=""
+				onChange={onChange}
+				variant="compact"
+			/>,
+		);
+		const svg = screen
+			.getByRole("button", { name: "Filter" })
+			.querySelector("svg");
+		expect(svg).toHaveAttribute("width", "12");
+	});
 });

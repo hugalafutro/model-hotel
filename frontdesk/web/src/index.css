@@ -174,11 +174,19 @@ h3 {
 	font-size: 1.25rem;
 	margin-bottom: 1rem;
 }
-/* Aligns the page title with the fleet-state badge on the Members header. */
+/* Aligns the page title with the fleet-state badge on the Members header.
+   The title's own bottom margin is carried by the row instead: otherwise
+   align-items:center centres the badge on the h1's text-plus-margin box,
+   dropping it below the middle of the visible title text. Row margin +
+   .fd-stack gap keep the same total space below the header as before. */
 .fd-page-title-row {
 	display: flex;
 	align-items: center;
 	gap: 0.75rem;
+	margin-bottom: 1rem;
+}
+.fd-page-title-row .fd-page-title {
+	margin-bottom: 0;
 }
 
 /* --- footer (build version + wiki link), centered at the bottom of the shell --- */
