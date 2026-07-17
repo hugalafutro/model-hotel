@@ -162,10 +162,8 @@ func (d *DiscoveryService) discoverNanoGPTImageModels(ctx context.Context, provi
 		}
 
 		inputMods := []string{"text"}
-		modality := "text->image"
 		if nanoGPTImageAcceptsImageInput(im.IconLabel) {
 			inputMods = []string{"text", "image"}
-			modality = "text+image->image"
 		}
 		inputModJSON, _ := json.Marshal(inputMods)
 		outputModJSON, _ := json.Marshal([]string{"image"})
@@ -196,7 +194,7 @@ func (d *DiscoveryService) discoverNanoGPTImageModels(ctx context.Context, provi
 			DisplayName:      displayName,
 			Capabilities:     "{}",
 			Params:           string(paramsJSON),
-			Modality:         modality,
+			Modality:         "image",
 			InputModalities:  string(inputModJSON),
 			OutputModalities: string(outputModJSON),
 			OwnedBy:          im.OwnedBy,

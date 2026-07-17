@@ -1092,8 +1092,8 @@ func TestDiscoverXAIImageModels(t *testing.T) {
 	if !strings.Contains(m.InputModalities, "image") {
 		t.Errorf("input modalities = %q, want to contain image (grok image models take image input)", m.InputModalities)
 	}
-	if m.Modality != "text+image->image" {
-		t.Errorf("modality = %q, want text+image->image", m.Modality)
+	if m.Modality != "image" {
+		t.Errorf("modality = %q, want image", m.Modality)
 	}
 	if !strings.Contains(m.Params, `"image_generation":true`) {
 		t.Errorf("params = %q, want image_generation true", m.Params)
@@ -1179,7 +1179,7 @@ func TestDiscoverXAI_UnionsImageModels(t *testing.T) {
 }
 
 // TestDiscoverXAIImageModels_EmptyModalitiesFallback covers the input/output
-// modality fallbacks and the text->image modality default.
+// modality fallbacks and the "image" modality classification.
 func TestDiscoverXAIImageModels_EmptyModalitiesFallback(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/image-generation-models" {
@@ -1209,8 +1209,8 @@ func TestDiscoverXAIImageModels_EmptyModalitiesFallback(t *testing.T) {
 	if m.OutputModalities != `["image"]` {
 		t.Errorf("output modalities = %q, want [\"image\"] fallback", m.OutputModalities)
 	}
-	if m.Modality != "text->image" {
-		t.Errorf("modality = %q, want text->image", m.Modality)
+	if m.Modality != "image" {
+		t.Errorf("modality = %q, want image", m.Modality)
 	}
 	if strings.Contains(m.Params, "image_price") {
 		t.Errorf("params = %q, should omit image_price when zero", m.Params)
@@ -1275,5 +1275,50 @@ func TestDiscoverXAIImageModels_BodyReadError(t *testing.T) {
 
 	if _, err := svc.discoverXAIImageModels(context.Background(), provider, "test-api-key", server.URL); err == nil {
 		t.Fatal("expected read error when the body is shorter than Content-Length")
+	}
+}
+
+// TestDiscoverXAI_ImageModelsOnCatalogFallback verifies image models are still
+// unioned in when /language-models returns no-access (403) and discovery falls
+// back to the catalog: image generation has its own endpoint access.
+func TestDiscoverXAI_ImageModelsOnCatalogFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/language-models", "/models":
+			http.Error(w, "forbidden", http.StatusForbidden)
+		case "/image-generation-models":
+			_ = json.NewEncoder(w).Encode(XAIImageGenerationModelsResponse{
+				Models: []XAIImageGenerationModel{{
+					ID:               "grok-imagine-image",
+					OwnedBy:          "xai",
+					InputModalities:  []string{"text", "image"},
+					OutputModalities: []string{"image"},
+					ImagePrice:       200000000,
+				}},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
+
+	models, err := svc.discoverXAI(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverXAI failed: %v", err)
+	}
+	var img *model.Model
+	for _, m := range models {
+		if m.ModelID == "grok-imagine-image" {
+			img = m
+		}
+	}
+	if img == nil {
+		t.Fatal("expected image model to be unioned in on the catalog no-access fallback")
+	}
+	if img.Modality != "image" {
+		t.Errorf("image model modality = %q, want image", img.Modality)
 	}
 }

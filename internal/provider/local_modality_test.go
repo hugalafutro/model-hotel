@@ -31,11 +31,22 @@ func TestInferNonChatModality(t *testing.T) {
 		{"jina-reranker-v2-base-multilingual", "rerank"},
 		{"mxbai-rerank-large-v1", "rerank"},
 
+		// Image-generation families.
+		{"gpt-image-1", "image"},
+		{"gpt-image-1-mini", "image"},
+		{"gpt-image-1.5", "image"},
+		{"gpt-image-2", "image"},
+		{"chatgpt-image-latest", "image"},
+		{"dall-e-3", "image"},
+		{"dall-e-2", "image"},
+		{"dalle3", "image"},
+
 		// Chat / other models must not be hidden.
 		{"llama-3.1-8b-instruct", ""},
 		{"qwen2.5-coder-7b", ""},
 		{"mistral-7b-instruct", ""},
 		{"gpt-4o", ""},
+		{"gpt-4-vision-preview", ""}, // vision = image *input* chat, not image gen
 		{"gemma3:4b", ""},
 		{"deepseek-r1", ""},
 		{"", ""},

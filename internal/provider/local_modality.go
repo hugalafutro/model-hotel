@@ -2,8 +2,8 @@ package provider
 
 import "strings"
 
-// inferNonChatModality guesses a non-chat modality ("embedding" or "rerank")
-// from a model ID when the provider does not report one.
+// inferNonChatModality guesses a non-chat modality ("embedding", "rerank" or
+// "image") from a model ID when the provider does not report one.
 //
 // Self-hosted OpenAI-compatible servers (LM Studio's /v1/models, KoboldCPP,
 // llama.cpp, vLLM, LocalAI, text-generation-webui, ...) list embedding and
@@ -30,6 +30,14 @@ func inferNonChatModality(modelID string) string {
 	// embeddinggemma, gte-*-embedding, ...
 	if strings.Contains(id, "embed") {
 		return "embedding"
+	}
+
+	// Image-generation families: gpt-image-1/-mini/-2, chatgpt-image-*, dall-e-2/3.
+	// These emit images from a text prompt and — unlike vision (image *input*)
+	// chat models — can never serve /chat/completions, so they must be classified
+	// out of the chat/arena pickers rather than left to enrich to a chat modality.
+	if strings.Contains(id, "gpt-image") || strings.Contains(id, "dall-e") || strings.Contains(id, "dalle") {
+		return "image"
 	}
 
 	// Well-known embedding families that don't spell out "embed". Match them as
