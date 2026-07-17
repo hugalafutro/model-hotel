@@ -345,8 +345,12 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	// downgraded to a user identity by a stray user row.
 	sessionHandle := []byte("admin")
 	if matched == "" {
+		// Bind on GitHub's numeric account id -- stable and never reassigned,
+		// unlike the email set -- so the account locks to this GitHub user, not
+		// to whoever can next assert one of these verified addresses.
+		subject := strconv.FormatInt(user.ID, 10)
 		for _, e := range verified {
-			if u := resolveSSOUser(ctx, h.users, e); u != nil {
+			if u := resolveSSOUser(ctx, h.users, "github", subject, e); u != nil {
 				matched = e
 				sessionHandle = []byte(u.ID.String())
 				break

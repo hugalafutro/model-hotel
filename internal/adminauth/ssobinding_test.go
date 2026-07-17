@@ -12,16 +12,34 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
-// fakeResolver implements SSOUserResolver in memory (emails pre-normalized).
+// fakeResolver implements SSOUserResolver in memory (emails pre-normalized),
+// mirroring the repository's trust-on-first-use binding: the first (provider,
+// subject) to log in for an account locks it, and a later mismatch is denied.
 type fakeResolver struct {
 	byEmail map[string]*user.User
+	bound   map[uuid.UUID][2]string // user id -> {provider, subject}
 }
 
-func (f *fakeResolver) GetByEmail(_ context.Context, email string) (*user.User, error) {
-	if u, ok := f.byEmail[strings.ToLower(strings.TrimSpace(email))]; ok {
-		return u, nil
+func (f *fakeResolver) ResolveSSOIdentity(_ context.Context, provider, subject, email string) (*user.User, error) {
+	u, ok := f.byEmail[strings.ToLower(strings.TrimSpace(email))]
+	if !ok {
+		return nil, user.ErrNotFound
 	}
-	return nil, user.ErrNotFound
+	if !u.Enabled {
+		return nil, user.ErrNotFound
+	}
+	if f.bound == nil {
+		f.bound = map[uuid.UUID][2]string{}
+	}
+	id := [2]string{provider, subject}
+	if cur, ok := f.bound[u.ID]; ok {
+		if cur != id {
+			return nil, user.ErrSSOMismatch
+		}
+	} else {
+		f.bound[u.ID] = id
+	}
+	return u, nil
 }
 
 func boundUser(email string, enabled bool) (*user.User, *fakeResolver) {
@@ -37,18 +55,42 @@ func boundUser(email string, enabled bool) (*user.User, *fakeResolver) {
 
 func TestResolveSSOUser(t *testing.T) {
 	u, res := boundUser("worker@example.com", true)
-	if got := resolveSSOUser(context.Background(), res, "worker@example.com"); got == nil || got.ID != u.ID {
+	if got := resolveSSOUser(context.Background(), res, "oidc", "sub-1", "worker@example.com"); got == nil || got.ID != u.ID {
 		t.Errorf("expected binding, got %v", got)
 	}
-	if got := resolveSSOUser(context.Background(), res, "other@example.com"); got != nil {
+	if got := resolveSSOUser(context.Background(), res, "oidc", "sub-1", "other@example.com"); got != nil {
 		t.Errorf("unexpected binding for unknown email: %v", got)
 	}
-	if got := resolveSSOUser(context.Background(), nil, "worker@example.com"); got != nil {
+	if got := resolveSSOUser(context.Background(), nil, "oidc", "sub-1", "worker@example.com"); got != nil {
 		t.Errorf("nil resolver must yield nil, got %v", got)
 	}
 	_, disabledRes := boundUser("off@example.com", false)
-	if got := resolveSSOUser(context.Background(), disabledRes, "off@example.com"); got != nil {
+	if got := resolveSSOUser(context.Background(), disabledRes, "oidc", "sub-1", "off@example.com"); got != nil {
 		t.Errorf("disabled user must not bind, got %v", got)
+	}
+}
+
+// The core of vuln-0001: once an account is bound to one provider identity, a
+// second provider asserting the same verified email is denied, even though the
+// email matches a real, enabled account.
+func TestResolveSSOUser_CrossProviderDenied(t *testing.T) {
+	u, res := boundUser("worker@example.com", true)
+
+	// First login via OIDC binds the account.
+	if got := resolveSSOUser(context.Background(), res, "oidc", "iss#abc", "worker@example.com"); got == nil || got.ID != u.ID {
+		t.Fatalf("first OIDC login should bind, got %v", got)
+	}
+	// Same identity logs in again: still fine.
+	if got := resolveSSOUser(context.Background(), res, "oidc", "iss#abc", "worker@example.com"); got == nil {
+		t.Fatalf("same identity re-login should succeed, got nil")
+	}
+	// A GitHub login for the same email is a different identity: denied.
+	if got := resolveSSOUser(context.Background(), res, "github", "424242", "worker@example.com"); got != nil {
+		t.Errorf("cross-provider login must be denied, got %v", got)
+	}
+	// A different OIDC subject (same provider) is also denied.
+	if got := resolveSSOUser(context.Background(), res, "oidc", "iss#other", "worker@example.com"); got != nil {
+		t.Errorf("same provider, different subject must be denied, got %v", got)
 	}
 }
 
@@ -59,7 +101,7 @@ type errResolver struct {
 	err error
 }
 
-func (e *errResolver) GetByEmail(context.Context, string) (*user.User, error) {
+func (e *errResolver) ResolveSSOIdentity(context.Context, string, string, string) (*user.User, error) {
 	return e.u, e.err
 }
 
@@ -67,12 +109,12 @@ func (e *errResolver) GetByEmail(context.Context, string) (*user.User, error) {
 // must deny the login cleanly, never panic dereferencing a nil user.
 func TestResolveSSOUser_LookupErrorDenies(t *testing.T) {
 	res := &errResolver{err: errors.New("db unavailable")}
-	if got := resolveSSOUser(context.Background(), res, "worker@example.com"); got != nil {
+	if got := resolveSSOUser(context.Background(), res, "oidc", "sub-1", "worker@example.com"); got != nil {
 		t.Errorf("lookup error must yield nil, got %v", got)
 	}
 	// Defensive: a resolver that returns (nil, nil) must also be handled without
 	// a panic, regardless of the repository's not-found contract.
-	if got := resolveSSOUser(context.Background(), &errResolver{}, "worker@example.com"); got != nil {
+	if got := resolveSSOUser(context.Background(), &errResolver{}, "oidc", "sub-1", "worker@example.com"); got != nil {
 		t.Errorf("nil user with nil error must yield nil, got %v", got)
 	}
 }

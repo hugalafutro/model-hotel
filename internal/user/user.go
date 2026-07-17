@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,6 +27,12 @@ const (
 
 // ErrNotFound is returned when no user matches the lookup.
 var ErrNotFound = errors.New("user not found")
+
+// ErrSSOMismatch is returned when a verified SSO email matches an account that
+// is already bound to a different provider identity. It denies cross-provider
+// takeover: an account first entered via one provider can never be assumed by
+// another provider that merely asserts the same verified email.
+var ErrSSOMismatch = errors.New("sso identity mismatch")
 
 // User is a dashboard account. PasswordHash never leaves the backend.
 type User struct {
@@ -49,6 +56,13 @@ type User struct {
 	// Derived from user_totp by the API layer (ListUsers), never scanned from
 	// the users table; false in Create/Update responses (the UI refetches).
 	TotpEnabled bool `json:"totp_enabled"`
+	// SSOProvider/SSOSubject lock the account to one external identity. NULL
+	// until the account's first OIDC/GitHub login, then the account can only be
+	// re-entered by that same (provider, subject) -- a second provider asserting
+	// the same verified email is rejected (see ResolveSSOIdentity). Never
+	// exposed over the API.
+	SSOProvider *string `json:"-"`
+	SSOSubject  *string `json:"-"`
 }
 
 // Repository provides CRUD over the users table.
@@ -61,13 +75,13 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-const userColumns = `id, username, display_name, email, password_hash, role, grants, enabled, created_at, updated_at, last_login_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm`
+const userColumns = `id, username, display_name, email, password_hash, role, grants, enabled, created_at, updated_at, last_login_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm, sso_provider, sso_subject`
 
 func scanUser(row pgx.Row) (*User, error) {
 	var u User
 	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Email, &u.PasswordHash,
 		&u.Role, &u.Grants, &u.Enabled, &u.CreatedAt, &u.UpdatedAt, &u.LastLoginAt,
-		&u.RateLimitRPS, &u.RateLimitBurst, &u.RateLimitTPM)
+		&u.RateLimitRPS, &u.RateLimitBurst, &u.RateLimitTPM, &u.SSOProvider, &u.SSOSubject)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -140,6 +154,71 @@ func (r *Repository) GetByEmail(ctx context.Context, email string) (*User, error
 		return nil, ErrNotFound
 	}
 	return scanUser(r.pool.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE email = $1`, *e))
+}
+
+// ResolveSSOIdentity binds an OIDC/GitHub login to a user account by verified
+// email while enforcing exactly one external identity per account. On an
+// account's first SSO login the (provider, subject) is recorded
+// (trust-on-first-use); afterwards a login whose (provider, subject) differs is
+// rejected with ErrSSOMismatch even when the verified email matches, which
+// stops a second, lower-trust provider from impersonating the account. Unknown
+// emails and disabled accounts yield ErrNotFound. provider is a short constant
+// ("oidc", "github"); subject is the provider's stable, opaque per-user id.
+func (r *Repository) ResolveSSOIdentity(ctx context.Context, provider, subject, email string) (*User, error) {
+	e := NormalizeEmail(&email)
+	if e == nil {
+		return nil, ErrNotFound
+	}
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }() // no-op once the tx commits
+
+	// FOR UPDATE serializes concurrent first-logins for the same email so the
+	// "is it bound yet?" check and the bind are atomic; without the row lock two
+	// different identities could both observe NULL and each overwrite the other.
+	u, err := scanUser(tx.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE email = $1 FOR UPDATE`, *e))
+	if err != nil {
+		return nil, err // ErrNotFound when no row matches
+	}
+	if !u.Enabled {
+		return nil, ErrNotFound
+	}
+
+	switch {
+	case u.SSOProvider == nil:
+		// Trust-on-first-use: bind this identity to the account. A unique-index
+		// conflict means the identity is already bound to a different account,
+		// which is itself a cross-account mismatch, not a fresh binding.
+		if _, err := tx.Exec(ctx,
+			`UPDATE users SET sso_provider = $2, sso_subject = $3 WHERE id = $1`,
+			u.ID, provider, subject); err != nil {
+			if isUniqueViolation(err) {
+				return nil, ErrSSOMismatch
+			}
+			return nil, err
+		}
+		u.SSOProvider = &provider
+		u.SSOSubject = &subject
+	case *u.SSOProvider != provider || u.SSOSubject == nil || *u.SSOSubject != subject:
+		return nil, ErrSSOMismatch
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+// isUniqueViolation reports whether err is a PostgreSQL unique-constraint
+// violation (SQLSTATE 23505).
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
 }
 
 // HasEnabled reports whether at least one enabled user exists, so the login
