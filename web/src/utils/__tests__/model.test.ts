@@ -334,6 +334,13 @@ describe("isChatModel", () => {
 		).toBe(true);
 	});
 
+	it("treats code output as text-equivalent (OpenRouter coder models)", () => {
+		expect(isChatModel({ output_modalities: '["code"]' })).toBe(true);
+		expect(
+			isChatModel({ modality: "chat", output_modalities: '["code"]' }),
+		).toBe(true);
+	});
+
 	it("default-allows empty or malformed output_modalities", () => {
 		expect(isChatModel({ output_modalities: "" })).toBe(true);
 		expect(isChatModel({ output_modalities: "not-json" })).toBe(true);

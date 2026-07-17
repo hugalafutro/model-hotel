@@ -23,6 +23,8 @@ func TestDeriveModelClass(t *testing.T) {
 		{"video gen by output", []string{"text", "image"}, []string{"video"}, "sora-like", "video"},
 		{"tts by output", []string{"text"}, []string{"audio"}, "some-voice", "tts"},
 		{"text plus image output stays chat", []string{"text"}, []string{"text", "image"}, "gemini-image", "chat"},
+		{"code-only output is chat", []string{"text"}, []string{"code"}, "deepseek-coder", "chat"},
+		{"code plus image output stays chat", []string{"text"}, []string{"code", "image"}, "coder-with-diagrams", "chat"},
 		{"mixed media without text prefers video", nil, []string{"image", "video"}, "media-gen", "video"},
 		{"whisper stt tiebreak", []string{"audio"}, []string{"text"}, "whisper-large-v3", "stt"},
 		{"transcribe segment stt", []string{"audio"}, []string{"text"}, "gpt-4o-transcribe", "stt"},
@@ -152,6 +154,16 @@ func TestNormalizeModelClassification(t *testing.T) {
 			},
 			wantInput:  `["text","video"]`,
 			wantOutput: `["text"]`,
+			wantClass:  "chat",
+		},
+		{
+			name: "code output kept and derives chat",
+			in: model.Model{
+				ModelID:          "openrouter/some-coder",
+				OutputModalities: `["code"]`,
+			},
+			wantInput:  `["text"]`,
+			wantOutput: `["code"]`,
 			wantClass:  "chat",
 		},
 		{

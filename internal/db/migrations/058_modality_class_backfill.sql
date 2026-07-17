@@ -57,6 +57,7 @@ SET modality = CASE
 		WHEN output_modalities ? 'rerank' THEN 'rerank'
 		WHEN output_modalities ? 'embedding' THEN 'embedding'
 		WHEN output_modalities ? 'text' THEN 'chat'
+		WHEN output_modalities ? 'code' THEN 'chat'
 		WHEN output_modalities ? 'video' THEN 'video'
 		WHEN output_modalities ? 'image' THEN 'image'
 		WHEN output_modalities ? 'audio' THEN 'tts'

@@ -72,6 +72,8 @@ function parseModalityArray(raw: string | undefined): string[] {
  * Two exclusions: a non-chat endpoint class, or an output that is non-text
  * media only. The latter is defense in depth for rows that predate the
  * class derivation — a model that cannot emit text can never serve chat.
+ * "code" counts as text: OpenRouter reports it for coder models, which
+ * serve chat like any text model (mirrors isOpenRouterChatModel).
  */
 export function isChatModel(m: {
 	modality?: string;
@@ -79,16 +81,20 @@ export function isChatModel(m: {
 }): boolean {
 	if (NON_CHAT_MODALITIES.has((m.modality ?? "").toLowerCase())) return false;
 	const output = parseModalityArray(m.output_modalities);
-	if (output.length > 0 && !output.includes("text")) return false;
+	if (output.length > 0 && !output.includes("text") && !output.includes("code"))
+		return false;
 	return true;
 }
 
 /**
  * Non-text output modalities (image/audio/video/embedding/rerank), used to
- * render "produces X" pills alongside the input-capability pills.
+ * render "produces X" pills alongside the input-capability pills. "code" is
+ * text-equivalent (OpenRouter coder models), not a media output.
  */
 export function nonTextOutputs(m: { output_modalities?: string }): string[] {
-	return parseModalityArray(m.output_modalities).filter((v) => v !== "text");
+	return parseModalityArray(m.output_modalities).filter(
+		(v) => v !== "text" && v !== "code",
+	);
 }
 
 export function formatPrice(n: number | null | undefined): string {

@@ -49,7 +49,9 @@ func DeriveModelClass(input, output []string, modelID string) string {
 		return "embedding"
 	}
 
-	if containsModality(output, "text") {
+	// "code" counts as text: OpenRouter reports it for coder models, which
+	// serve chat like any text model (mirrors isOpenRouterChatModel).
+	if containsModality(output, "text") || containsModality(output, "code") {
 		// Audio-in/text-out is structurally identical for Whisper-style
 		// transcription and audio chat models; only the name can tell.
 		if containsModality(input, "audio") && !containsModality(input, "text") {
