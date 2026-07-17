@@ -28,6 +28,7 @@ import (
 //   - search: text search on model_id, name, display_name
 //   - provider_id: filter by provider UUID
 //   - capabilities: comma-separated capability keys (e.g. "vision,reasoning")
+//   - outputs: comma-separated output modalities (e.g. "image,embedding")
 func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 	if h.dbPool == nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -301,8 +302,8 @@ func joinAnd(conditions []string) string {
 }
 
 // buildModelFilterConditions builds the WHERE clause conditions and args for
-// search, provider_id, and capabilities filters. Shared between the main data
-// query and the count query to avoid duplication.
+// search, provider_id, capabilities, and outputs filters. Shared between the
+// main data query and the count query to avoid duplication.
 func buildModelFilterConditions(q url.Values) ([]string, []interface{}) {
 	conditions := []string{}
 	args := []interface{}{}
@@ -351,6 +352,21 @@ func buildModelFilterConditions(q url.Values) ([]string, []interface{}) {
 			capJSON, _ := json.Marshal(capMap)
 			conditions = append(conditions, fmt.Sprintf("COALESCE(m.capabilities, '{}')::jsonb @> $%d::jsonb", argIdx))
 			args = append(args, string(capJSON))
+			argIdx++
+		}
+	}
+	if outputs := q.Get("outputs"); outputs != "" {
+		// AND semantics like the capabilities filter: each requested output
+		// modality must be present. Unknown values are ignored (closed
+		// vocabulary, see internal/provider/model_class.go) so a stale or
+		// mistyped filter never empties the listing.
+		for _, o := range splitComma(outputs) {
+			switch o {
+			case "text", "image", "audio", "video", "embedding", "rerank":
+				conditions = append(conditions, fmt.Sprintf("COALESCE(m.output_modalities, '[]'::jsonb) ? $%d", argIdx))
+				args = append(args, o)
+				argIdx++
+			}
 		}
 	}
 

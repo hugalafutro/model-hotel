@@ -17,7 +17,11 @@ import {
 	formatNumber,
 	formatRelativeTime,
 } from "../utils/format";
-import { parseCapabilities, proxyModelID } from "../utils/model";
+import {
+	nonTextOutputs,
+	parseCapabilities,
+	proxyModelID,
+} from "../utils/model";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CopyablePill } from "./CopyablePill";
 import { CAP_META, type CapKey, hasCap } from "./capMeta";
@@ -27,6 +31,8 @@ import {
 	MODEL_COL_WIDTHS_NO_PROVIDER,
 	MODEL_COL_WIDTHS_WITH_PROVIDER,
 } from "./modelTableWidths";
+import { OutputBadges } from "./OutputBadges";
+import { OUTPUT_META } from "./outputMeta";
 
 interface VirtualModelTableProps {
 	providers?: Provider[];
@@ -84,6 +90,16 @@ export function VirtualModelTable({
 		});
 	}, []);
 
+	const [outputFilter, setOutputFilter] = useState<Set<string>>(new Set());
+	const toggleOutputFilter = useCallback((key: string) => {
+		setOutputFilter((prev) => {
+			const next = new Set(prev);
+			if (next.has(key)) next.delete(key);
+			else next.add(key);
+			return next;
+		});
+	}, []);
+
 	const handleSort = useCallback((field: SortState["field"]) => {
 		setSort((prev) => ({
 			field,
@@ -108,6 +124,7 @@ export function VirtualModelTable({
 				provider_id: params.provider_id as string | undefined,
 				search: params.search as string | undefined,
 				capabilities: params.capabilities as string | undefined,
+				outputs: params.outputs as string | undefined,
 			});
 		},
 		[],
@@ -124,8 +141,11 @@ export function VirtualModelTable({
 		if (capFilter.size > 0) {
 			result.capabilities = Array.from(capFilter).join(",");
 		}
+		if (outputFilter.size > 0) {
+			result.outputs = Array.from(outputFilter).join(",");
+		}
 		return result;
-	}, [searchQuery, sort.field, providerFilter, capFilter]);
+	}, [searchQuery, sort.field, providerFilter, capFilter, outputFilter]);
 
 	const getCursor = useCallback(
 		(entry: Model): string => {
@@ -216,6 +236,14 @@ export function VirtualModelTable({
 			});
 		});
 		return caps;
+	}, [entries]);
+
+	const existingOutputs = useMemo(() => {
+		const outputs = new Set<string>();
+		entries.forEach((m) => {
+			for (const o of nonTextOutputs(m)) outputs.add(o);
+		});
+		return outputs;
 	}, [entries]);
 
 	const disabledModels = useMemo(
@@ -551,10 +579,31 @@ export function VirtualModelTable({
 											</button>
 										);
 									})}
-									{capFilter.size > 0 && (
+									{OUTPUT_META.filter(
+										(m) =>
+											existingOutputs.has(m.key) || outputFilter.has(m.key),
+									).map((m) => {
+										const isActive = outputFilter.has(m.key);
+										return (
+											<button
+												key={m.key}
+												type="button"
+												onClick={() => toggleOutputFilter(m.key)}
+												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${
+													isActive ? m.style : m.muted
+												}`}
+											>
+												{m.label}
+											</button>
+										);
+									})}
+									{(capFilter.size > 0 || outputFilter.size > 0) && (
 										<button
 											type="button"
-											onClick={() => setCapFilter(new Set())}
+											onClick={() => {
+												setCapFilter(new Set());
+												setOutputFilter(new Set());
+											}}
 											className="ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-gray-200"
 										>
 											✕
@@ -627,6 +676,9 @@ export function VirtualModelTable({
 														</span>
 													),
 												)}
+												<OutputBadges
+													outputModalities={model.output_modalities}
+												/>
 											</div>
 										</td>
 										{showProviderCol && (
