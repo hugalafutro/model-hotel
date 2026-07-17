@@ -302,4 +302,33 @@ describe("isChatModel", () => {
 		expect(isChatModel({ modality: "" })).toBe(true);
 		expect(isChatModel({})).toBe(true);
 	});
+
+	it("excludes media-generation models by non-text output", () => {
+		// Video generator mislabelled "vision" (from image input): still excluded.
+		expect(
+			isChatModel({ modality: "vision", output_modalities: '["video"]' }),
+		).toBe(false);
+		expect(isChatModel({ output_modalities: '["image"]' })).toBe(false);
+		expect(isChatModel({ output_modalities: '["image","video"]' })).toBe(false);
+	});
+
+	it("keeps chat models that also emit media, and video-input chat models", () => {
+		// Outputs text alongside images → chat.
+		expect(
+			isChatModel({
+				modality: "vision",
+				output_modalities: '["text","image"]',
+			}),
+		).toBe(true);
+		// Video *input* chat model (outputs text) stays visible.
+		expect(
+			isChatModel({ modality: "video", output_modalities: '["text"]' }),
+		).toBe(true);
+	});
+
+	it("default-allows empty or malformed output_modalities", () => {
+		expect(isChatModel({ output_modalities: "" })).toBe(true);
+		expect(isChatModel({ output_modalities: "not-json" })).toBe(true);
+		expect(isChatModel({ output_modalities: "[]" })).toBe(true);
+	});
 });
