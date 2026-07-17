@@ -193,7 +193,7 @@
 			"goroutines": "Active Go runtime goroutines (lettvekts tråder)",
 			"requestsToday": "Antall forespurte LLM siden midnatt lokal tid i dag",
 			"dbSize": "Sender databasestørrelse på disken",
-			"dbHitRatio": "Hurtigbufferforholdstall (høyere er bedre)",
+			"dbHitRatio": "Hurtigbufferforholdstall for nylig aktivitet (høyere er bedre; tom mens databasen er inaktiv)",
 			"dbConnections": "Aktive databasetilkoblinger",
 			"dbTxPerSec": "Databasetransaksjoner per sekund"
 		},

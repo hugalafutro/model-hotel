@@ -193,7 +193,7 @@
 			"goroutines": "激活运行时goroutines (轻量线程)",
 			"requestsToday": "自今天午夜当地时间以来代理的LLM请求数量",
 			"dbSize": "磁盘上的Postgres数据库大小",
-			"dbHitRatio": "缓存缓存命中率 (更高)",
+			"dbHitRatio": "近期活动的缓冲区缓存命中率 (越高越好；数据库空闲时留空)",
 			"dbConnections": "活跃的数据库连接",
 			"dbTxPerSec": "每秒数据库交易数"
 		},

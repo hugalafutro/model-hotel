@@ -124,6 +124,48 @@ func TestGetUint64(t *testing.T) {
 	}
 }
 
+// TestWindowedCacheHitRatio walks one snapshot lifecycle through the guard
+// rails: lifetime fallback on the first sample, real windows afterwards,
+// carry-forward through an idle window, and re-seeding after a Postgres
+// counter reset (negative delta).
+func TestWindowedCacheHitRatio(t *testing.T) {
+	// Do NOT use t.Parallel() — mutates the package-level counter snapshot.
+	resetSystemCache()
+
+	steps := []struct {
+		name       string
+		hit, read  int64
+		wantRatio  float64
+		wantWindow int64
+	}{
+		{name: "first_sample_lifetime_fallback", hit: 930, read: 70, wantRatio: 93, wantWindow: 0},
+		{name: "second_sample_windowed", hit: 930 + 990, read: 70 + 10, wantRatio: 99, wantWindow: 1000},
+		{name: "idle_window_carries_forward", hit: 930 + 990, read: 70 + 10, wantRatio: 99, wantWindow: 0},
+		{name: "counter_reset_reseeds_lifetime", hit: 10, read: 10, wantRatio: 50, wantWindow: 0},
+		{name: "window_after_reset", hit: 10 + 100, read: 10, wantRatio: 100, wantWindow: 100},
+		{name: "rounds_to_two_decimals", hit: 110 + 2, read: 10 + 1, wantRatio: 66.67, wantWindow: 3},
+	}
+
+	for _, s := range steps {
+		ratio, window := windowedCacheHitRatio(s.hit, s.read)
+		if ratio != s.wantRatio || window != s.wantWindow {
+			t.Errorf("%s: windowedCacheHitRatio(%d, %d) = (%v, %d), want (%v, %d)",
+				s.name, s.hit, s.read, ratio, window, s.wantRatio, s.wantWindow)
+		}
+	}
+}
+
+// TestWindowedCacheHitRatio_ZeroLifetime covers a database that has never
+// touched a block: no division by zero, ratio reported as 0.
+func TestWindowedCacheHitRatio_ZeroLifetime(t *testing.T) {
+	// Do NOT use t.Parallel() — mutates the package-level counter snapshot.
+	resetSystemCache()
+
+	if ratio, window := windowedCacheHitRatio(0, 0); ratio != 0 || window != 0 {
+		t.Errorf("windowedCacheHitRatio(0, 0) = (%v, %d), want (0, 0)", ratio, window)
+	}
+}
+
 // TestSetDockerStatsCollector tests the SetDockerStatsCollector setter.
 func TestSetDockerStatsCollector(t *testing.T) {
 	t.Parallel()

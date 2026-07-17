@@ -60,6 +60,13 @@ func resetSystemCache() {
 	reqTodayTime = time.Time{}
 	reqTodaySince = ""
 	reqTodayMu.Unlock()
+
+	prevBlksMu.Lock()
+	prevBlksHit = 0
+	prevBlksRead = 0
+	prevBlksSeen = false
+	lastCacheHitRatio = 0
+	prevBlksMu.Unlock()
 }
 
 // Register mounts system API routes.
@@ -108,9 +115,14 @@ type DBStats struct {
 	SizeMB        float64 `json:"size_mb"`
 	Connections   int     `json:"connections"`
 	CacheHitRatio float64 `json:"cache_hit_ratio"`
-	TxPerSec      float64 `json:"tx_per_sec"`
-	DeadTuples    int64   `json:"dead_tuples"`
-	LockWaits     int     `json:"lock_waits"`
+	// CacheWindowBlocks is how many block accesses (hits + reads) the window
+	// behind CacheHitRatio contained. Zero/omitted means the ratio is not backed
+	// by fresh activity (first sample, counter reset, or an idle window), so
+	// consumers can grey the ratio out instead of colour-coding stale history.
+	CacheWindowBlocks int64   `json:"cache_window_blocks,omitempty"`
+	TxPerSec          float64 `json:"tx_per_sec"`
+	DeadTuples        int64   `json:"dead_tuples"`
+	LockWaits         int     `json:"lock_waits"`
 }
 
 var (
@@ -123,6 +135,18 @@ var (
 	prevTxCount int64
 	prevTxTime  time.Time
 	prevTxMu    sync.Mutex
+
+	// For cache-hit-ratio delta calculation. Lifetime pg_stat_database counters
+	// are useless as an indicator once history dominates them (an idle instance
+	// reads ~93% forever off its cold-start misses), so the served ratio covers
+	// only the window between two collects. lastCacheHitRatio carries the
+	// previous windowed value through an idle window so consumers never see the
+	// ratio collapse to a hard 0 between samples.
+	prevBlksHit       int64
+	prevBlksRead      int64
+	prevBlksSeen      bool
+	lastCacheHitRatio float64
+	prevBlksMu        sync.Mutex
 )
 
 const systemCacheTTL = 3 * time.Second
@@ -302,16 +326,19 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 		connCount = 0
 	}
 
+	// Cache hit ratio over the window since the previous collect (see
+	// windowedCacheHitRatio). A query error leaves the snapshot untouched so a
+	// transient failure cannot poison the next window's baseline.
 	var cacheHitRatio float64
-	err = h.pool.QueryRow(ctx, `
-		SELECT CASE WHEN blks_hit + blks_read = 0 THEN 0
-			    ELSE round(100.0 * blks_hit / (blks_hit + blks_read), 2)
-			END
-		FROM pg_stat_database WHERE datname = current_database()
-	`).Scan(&cacheHitRatio)
+	var cacheWindowBlocks int64
+	var blksHit, blksRead int64
+	err = h.pool.QueryRow(ctx,
+		"SELECT blks_hit, blks_read FROM pg_stat_database WHERE datname = current_database()",
+	).Scan(&blksHit, &blksRead)
 	if err != nil {
 		debuglog.Error("system: query failed", "query", "cacheHitRatio", "error", err)
-		cacheHitRatio = 0
+	} else {
+		cacheHitRatio, cacheWindowBlocks = windowedCacheHitRatio(blksHit, blksRead)
 	}
 
 	// Transactions per second (delta from previous collection).
@@ -362,12 +389,13 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 	}
 
 	stats.DB = DBStats{
-		SizeMB:        float64(dbSize) / 1024 / 1024,
-		Connections:   connCount,
-		CacheHitRatio: cacheHitRatio,
-		TxPerSec:      math.Round(txPerSec*10) / 10,
-		DeadTuples:    deadTuples,
-		LockWaits:     lockWaits,
+		SizeMB:            float64(dbSize) / 1024 / 1024,
+		Connections:       connCount,
+		CacheHitRatio:     cacheHitRatio,
+		CacheWindowBlocks: cacheWindowBlocks,
+		TxPerSec:          math.Round(txPerSec*10) / 10,
+		DeadTuples:        deadTuples,
+		LockWaits:         lockWaits,
 	}
 
 	stats.Docker = h.dockerStatsCollector(util.DetectContainerFilter())
@@ -391,6 +419,45 @@ func (h *SystemHandler) collect(ctx context.Context, sinceParam string) (*System
 	}
 
 	return stats, nil
+}
+
+// windowedCacheHitRatio folds one raw pg_stat_database counter sample into the
+// package snapshot and returns the buffer-cache hit ratio over the window since
+// the previous sample, plus how many block accesses that window contained.
+// Lifetime counters are the fallback whenever no window exists: the first
+// sample after process start, and a sample taken right after Postgres restarted
+// (its stats reset, so a delta turns negative). An idle window (zero accesses)
+// carries the previous windowed value forward instead of reporting 0%; in every
+// no-window case windowBlocks is 0 so consumers know the ratio is not backed by
+// fresh activity.
+func windowedCacheHitRatio(blksHit, blksRead int64) (ratio float64, windowBlocks int64) {
+	lifetime := 0.0
+	if total := blksHit + blksRead; total > 0 {
+		lifetime = 100 * float64(blksHit) / float64(total)
+	}
+
+	prevBlksMu.Lock()
+	defer prevBlksMu.Unlock()
+
+	deltaHit, deltaRead := blksHit-prevBlksHit, blksRead-prevBlksRead
+	hadBaseline := prevBlksSeen
+	prevBlksHit, prevBlksRead, prevBlksSeen = blksHit, blksRead, true
+
+	if !hadBaseline || deltaHit < 0 || deltaRead < 0 {
+		lastCacheHitRatio = lifetime
+		return round2(lifetime), 0
+	}
+	window := deltaHit + deltaRead
+	if window == 0 {
+		return round2(lastCacheHitRatio), 0
+	}
+	lastCacheHitRatio = 100 * float64(deltaHit) / float64(window)
+	return round2(lastCacheHitRatio), window
+}
+
+// round2 matches the round(x, 2) the cache-hit SQL used to apply.
+func round2(v float64) float64 {
+	return math.Round(v*100) / 100
 }
 
 func getInt64(s metrics.Sample) int64 {

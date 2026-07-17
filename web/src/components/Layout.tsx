@@ -218,6 +218,12 @@ function SystemStatus() {
 		return bad ? "text-red-400" : warn ? "text-orange-400" : "";
 	};
 
+	// A cache-hit sample over a near-idle window (one autovacuum scan, a stray
+	// catalog read) says nothing about cache health, so below this many block
+	// accesses the hit cell shows a dash instead of colour-coding noise. The
+	// backend omits cache_window_blocks entirely for no-window samples.
+	const cacheHitLive = (stats?.db?.cache_window_blocks ?? 0) >= 1000;
+
 	const dockerMem = useDocker && docker.memory_limit_bytes > 0;
 	const memUsagePct = dockerMem
 		? (docker.memory_usage_bytes / docker.memory_limit_bytes) * 100
@@ -452,11 +458,18 @@ function SystemStatus() {
 										</span>
 										<span className="text-(--text-secondary)">|</span>
 										<span
-											className={`text-(--text-secondary) ${dc(stats.db.cache_hit_ratio, 90, 80, true)}`}
+											className={`text-(--text-secondary) ${cacheHitLive ? dc(stats.db.cache_hit_ratio, 90, 80, true) : ""}`}
 											title={t("layout.tooltips.dbHitRatio")}
 										>
-											{t("layout.stats.hit")} {stats.db.cache_hit_ratio}
-											<span className={u}>%</span>
+											{t("layout.stats.hit")}{" "}
+											{cacheHitLive ? (
+												<>
+													{stats.db.cache_hit_ratio}
+													<span className={u}>%</span>
+												</>
+											) : (
+												dash
+											)}
 										</span>
 										<span
 											className="text-(--text-secondary)"

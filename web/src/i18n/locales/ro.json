@@ -193,7 +193,7 @@
 			"goroutines": "goritmi pentru rulare activă (fire ușoare)",
 			"requestsToday": "Numărul de cereri LLM proxied de la miezul nopții locale astăzi",
 			"dbSize": "Dimensiunea bazei de date Postgres pe disc",
-			"dbHitRatio": "Rata de atingere a cache buffer (mai mare este mai bună)",
+			"dbHitRatio": "Rata de reușită a cache-ului buffer pentru activitatea recentă (mai mare este mai bună; goală cât timp baza de date este inactivă)",
 			"dbConnections": "Conexiuni active la baza de date",
 			"dbTxPerSec": "Baza de date tranzacţii pe secundă"
 		},

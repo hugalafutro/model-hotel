@@ -69,6 +69,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -105,6 +106,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -141,6 +143,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -177,6 +180,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -242,6 +246,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -278,6 +283,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -351,6 +357,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -390,6 +397,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -426,6 +434,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -463,6 +472,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -512,6 +522,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -549,6 +560,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -588,6 +600,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -626,6 +639,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -675,6 +689,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -713,6 +728,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -751,6 +767,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -789,6 +806,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 85,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -826,6 +844,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 75,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -838,6 +857,48 @@ describe("Layout", () => {
 			});
 			const dbRow = screen.getByText("DB").closest("div");
 			expect(dbRow?.querySelector(".text-red-400")).toBeInTheDocument();
+		});
+
+		it("renders dash for DB hit ratio when the sample window is idle", async () => {
+			// cache_window_blocks omitted: the backend sends the field only when the
+			// ratio is backed by fresh activity, so the cell must show a dash and
+			// must not colour-code the (meaningless) ratio value.
+			server.use(
+				http.get("/api/system", () =>
+					HttpResponse.json({
+						app: {
+							uptime_seconds: 100,
+							cpu_percent: 10,
+							procs: 5,
+							memory_current_bytes: 100000000,
+							memory_limit_bytes: 0,
+							in_container: false,
+							goroutines: 50,
+							requests_today: 0,
+							heap_alloc_mb: 100,
+							net_rx_bytes_sec: 1000,
+							net_tx_bytes_sec: 500,
+							disk_read_bytes_sec: 200,
+							disk_write_bytes_sec: 100,
+						},
+						docker: { available: false },
+						db: {
+							size_mb: 10,
+							cache_hit_ratio: 75,
+							connections: 3,
+							tx_per_sec: 5.5,
+						},
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			await waitFor(() => {
+				expect(screen.getByText("DB")).toBeInTheDocument();
+			});
+			expect(screen.queryByText("75")).not.toBeInTheDocument();
+			const dbRow = screen.getByText("DB").closest("div");
+			expect(dbRow?.querySelector(".text-red-400")).not.toBeInTheDocument();
+			expect(dbRow?.querySelector(".text-orange-400")).not.toBeInTheDocument();
 		});
 
 		it("renders dash for Req Today when value is 0", async () => {
@@ -863,6 +924,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -902,6 +964,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -940,6 +1003,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -979,6 +1043,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -1018,6 +1083,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -1057,6 +1123,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},
@@ -1143,6 +1210,7 @@ describe("Layout", () => {
 						db: {
 							size_mb: 10,
 							cache_hit_ratio: 95,
+							cache_window_blocks: 50000,
 							connections: 3,
 							tx_per_sec: 5.5,
 						},

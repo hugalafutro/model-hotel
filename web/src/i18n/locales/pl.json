@@ -193,7 +193,7 @@
 			"goroutines": "Aktywne ruchy \"Go runtime\" (lekkie wątki)",
 			"requestsToday": "Liczba żądań programu LLM proxy od północy czasu lokalnego dzisiaj",
 			"dbSize": "Rozmiar bazy danych postgres na dysku",
-			"dbHitRatio": "Współczynnik uderzeń pamięci podręcznej bufora (wyższy jest lepszy)",
+			"dbHitRatio": "Współczynnik trafień pamięci podręcznej bufora dla ostatniej aktywności (wyższy jest lepszy; puste, gdy baza danych jest bezczynna)",
 			"dbConnections": "Aktywne połączenia z bazą danych",
 			"dbTxPerSec": "Transakcje w bazie danych na sekundę"
 		},
