@@ -933,7 +933,14 @@
 			"sortByStatus": "Sort by status",
 			"status": "Status"
 		},
-		"disabledByDiscovery": "Not listed by the provider since {{date}}"
+		"disabledByDiscovery": "Not listed by the provider since {{date}}",
+		"outputPills": {
+			"image": "Image out",
+			"audio": "Audio out",
+			"video": "Video out",
+			"embedding": "Embedding",
+			"rerank": "Rerank"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revert to discovered value",

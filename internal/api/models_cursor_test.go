@@ -285,6 +285,98 @@ func TestListModelsCursor_WithFilters(t *testing.T) {
 	}
 }
 
+// TestListModelsCursor_OutputsFilter tests filtering by output modalities.
+func TestListModelsCursor_OutputsFilter(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	providerData := fmt.Sprintf(`{"name": "cursor-outputs-%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	pool := h.Pool().Pool()
+	models := []struct {
+		modelID string
+		outputs string
+	}{
+		{"z-image-turbo", `["image"]`},
+		{"chat-model", `["text"]`},
+		{"nomic-embed", `["embedding"]`},
+		{"gemini-image", `["text","image"]`},
+	}
+	for i, m := range models {
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO models (id, provider_id, model_id, name, output_modalities, enabled) VALUES ($1, $2, $3, $4, $5, $6)`,
+			uuid.New(), providerResp.ID, m.modelID, m.modelID, m.outputs, true)
+		if err != nil {
+			t.Fatalf("Failed to insert model %d: %v", i, err)
+		}
+	}
+
+	fetch := func(query string) []string {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "/models/cursor?"+query, http.NoBody)
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d: %s", query, w.Code, w.Body.String())
+		}
+		var resp ModelsCursorResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		ids := make([]string, 0, len(resp.Entries))
+		for _, e := range resp.Entries {
+			ids = append(ids, e.ModelID)
+		}
+		return ids
+	}
+
+	// Image output matches both the pure generator and the chat model that
+	// also emits images.
+	gotImage := fetch("outputs=image&provider_id=" + providerResp.ID)
+	if len(gotImage) != 2 {
+		t.Errorf("outputs=image: expected 2 entries, got %d (%v)", len(gotImage), gotImage)
+	}
+
+	gotEmbed := fetch("outputs=embedding&provider_id=" + providerResp.ID)
+	if len(gotEmbed) != 1 || gotEmbed[0] != "nomic-embed" {
+		t.Errorf("outputs=embedding: expected [nomic-embed], got %v", gotEmbed)
+	}
+
+	// Multi-value filters AND together: nothing outputs both image and
+	// embedding.
+	gotBoth := fetch("outputs=image,embedding&provider_id=" + providerResp.ID)
+	if len(gotBoth) != 0 {
+		t.Errorf("outputs=image,embedding: expected 0 entries, got %d (%v)", len(gotBoth), gotBoth)
+	}
+
+	// "text" is filterable too: the chat model and the chat model that also
+	// emits images.
+	gotText := fetch("outputs=text&provider_id=" + providerResp.ID)
+	if len(gotText) != 2 {
+		t.Errorf("outputs=text: expected 2 entries, got %d (%v)", len(gotText), gotText)
+	}
+
+	// Unknown output values are ignored rather than matching nothing.
+	gotUnknown := fetch("outputs=hologram&provider_id=" + providerResp.ID)
+	if len(gotUnknown) != 4 {
+		t.Errorf("outputs=hologram: expected all 4 entries, got %d (%v)", len(gotUnknown), gotUnknown)
+	}
+}
+
 // TestListModelsCursor_SortByDiscovered tests cursor pagination sorted by last_seen_at.
 func TestListModelsCursor_SortByDiscovered(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)

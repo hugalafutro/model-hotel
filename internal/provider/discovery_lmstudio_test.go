@@ -53,9 +53,10 @@ func TestDiscoverLMStudio_Native_TypesAndContext(t *testing.T) {
 		byID[m.ModelID] = m
 	}
 
+	NormalizeModels(models)
 	llm := byID["llama-3-8b"]
-	if llm.Modality != "text" {
-		t.Errorf("llm modality: got %q, want text", llm.Modality)
+	if llm.Modality != "chat" {
+		t.Errorf("llm class: got %q, want chat", llm.Modality)
 	}
 	if llm.ContextLength == nil || *llm.ContextLength != 8192 {
 		t.Errorf("llm context length: got %v, want 8192", llm.ContextLength)
@@ -65,8 +66,11 @@ func TestDiscoverLMStudio_Native_TypesAndContext(t *testing.T) {
 	}
 
 	vlm := byID["qwen2-vl-7b"]
-	if vlm.Modality != "vision" {
-		t.Errorf("vlm modality: got %q, want vision", vlm.Modality)
+	if vlm.Modality != "chat" {
+		t.Errorf("vlm class: got %q, want chat", vlm.Modality)
+	}
+	if vlm.InputModalities != `["text","image"]` {
+		t.Errorf("vlm input modalities: got %q, want [\"text\",\"image\"]", vlm.InputModalities)
 	}
 	var vcaps model.Capability
 	_ = json.Unmarshal([]byte(vlm.Capabilities), &vcaps)
@@ -151,8 +155,9 @@ func TestDiscoverLMStudio_Fallback_SuccessMultiple(t *testing.T) {
 	if models[1].ModelID != "mistral-7b" || models[1].OwnedBy != "mistral" {
 		t.Errorf("unexpected second model: %+v", models[1])
 	}
-	if models[0].Modality != "text" {
-		t.Errorf("chat model modality: got %q, want text", models[0].Modality)
+	NormalizeModels(models)
+	if models[0].Modality != "chat" {
+		t.Errorf("chat model class: got %q, want chat", models[0].Modality)
 	}
 
 	var caps model.Capability
@@ -184,12 +189,13 @@ func TestDiscoverLMStudio_Fallback_EmbeddingByName(t *testing.T) {
 		t.Fatalf("discoverLMStudio failed: %v", err)
 	}
 
+	NormalizeModels(models)
 	byID := make(map[string]*model.Model, len(models))
 	for _, m := range models {
 		byID[m.ModelID] = m
 	}
-	if got := byID["llama-3-8b"].Modality; got != "text" {
-		t.Errorf("chat model modality: got %q, want text", got)
+	if got := byID["llama-3-8b"].Modality; got != "chat" {
+		t.Errorf("chat model class: got %q, want chat", got)
 	}
 	emb := byID["nomic-embed-text-v1.5"]
 	if emb.Modality != "embedding" {

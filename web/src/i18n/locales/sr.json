@@ -933,7 +933,14 @@
 			"sortByStatus": "Сортирај по статусу",
 			"status": "Статус"
 		},
-		"disabledByDiscovery": "Није наведен од стране провајдера од {{date}}"
+		"disabledByDiscovery": "Није наведен од стране провајдера од {{date}}",
+		"outputPills": {
+			"image": "Излаз слике",
+			"audio": "Излаз звука",
+			"video": "Излаз видеа",
+			"embedding": "Ембединг",
+			"rerank": "Поновно рангирање"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Вратите на откривену вредност",

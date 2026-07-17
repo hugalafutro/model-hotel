@@ -933,7 +933,14 @@
 			"sortByStatus": "מיין לפי סטטוס",
 			"status": "סטטוס"
 		},
-		"disabledByDiscovery": "לא מופיע ברשימת הספק מאז {{date}}"
+		"disabledByDiscovery": "לא מופיע ברשימת הספק מאז {{date}}",
+		"outputPills": {
+			"image": "פלט תמונה",
+			"audio": "פלט שמע",
+			"video": "פלט וידאו",
+			"embedding": "הטמעה",
+			"rerank": "דירוג מחדש"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "חזור לערך שנמצא",

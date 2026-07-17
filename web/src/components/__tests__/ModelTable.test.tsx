@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
@@ -38,6 +38,55 @@ describe("ModelTable", () => {
 				screen.getByText("Test-Provider/test-model-v1"),
 			).toBeInTheDocument();
 			expect(screen.getByText("Test Provider")).toBeInTheDocument();
+		});
+
+		it("renders output pills for generation models", () => {
+			const genModel = {
+				...mockModel,
+				id: "model-gen",
+				model_id: "z-image-turbo",
+				name: "Z Image Turbo",
+				capabilities: "{}",
+				modality: "image",
+				output_modalities: '["image"]',
+			};
+			renderWithProviders(<ModelTable {...defaultProps} models={[genModel]} />);
+
+			// The row pill is a span; the filter row renders a button with the
+			// same label.
+			const pills = screen.getAllByText("Image out");
+			expect(pills.some((el) => el.tagName === "SPAN")).toBe(true);
+		});
+
+		it("filters models by output modality pill", () => {
+			const genModel = {
+				...mockModel,
+				id: "model-gen",
+				model_id: "z-image-turbo",
+				name: "Z Image Turbo",
+				capabilities: "{}",
+				modality: "image",
+				output_modalities: '["image"]',
+			};
+			const chatModel = {
+				...mockModel,
+				id: "model-chat",
+				model_id: "gpt-4o",
+				name: "Chatty Model",
+				output_modalities: '["text"]',
+			};
+			renderWithProviders(
+				<ModelTable {...defaultProps} models={[genModel, chatModel]} />,
+			);
+
+			const imageOutButton = screen
+				.getAllByText("Image out")
+				.find((el) => el.tagName === "BUTTON");
+			expect(imageOutButton).toBeDefined();
+			fireEvent.click(imageOutButton as HTMLElement);
+
+			expect(screen.getByText("Z Image Turbo")).toBeInTheDocument();
+			expect(screen.queryByText("Chatty Model")).not.toBeInTheDocument();
 		});
 
 		it("renders model count correctly", () => {

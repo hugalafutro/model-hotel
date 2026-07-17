@@ -78,21 +78,16 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 			Streaming:   true,
 			ToolCalling: true,
 		}
-		modality := "text"
 		inputMods := `["text"]`
 
 		if m.Capabilities != nil {
 			if m.Capabilities.ImageInput.Supported {
 				caps.Vision = true
-				modality = "vision"
 				inputMods = `["text","image"]`
 			}
 			if m.Capabilities.PDFInput.Supported {
 				caps.PDFUpload = true
-				if modality == "text" {
-					modality = "vision"
-					inputMods = `["text","image"]`
-				}
+				inputMods = `["text","image","pdf"]`
 			}
 			if m.Capabilities.StructuredOutputs.Supported {
 				caps.StructuredOutput = true
@@ -109,9 +104,8 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 			DisplayName:      displayName,
 			Capabilities:     string(capJSON),
 			Params:           "{}",
-			Modality:         modality,
 			InputModalities:  inputMods,
-			OutputModalities: "[]",
+			OutputModalities: `["text"]`,
 			ContextLength:    m.MaxInputTokens,
 			MaxOutputTokens:  m.MaxTokens,
 			OwnedBy:          "anthropic",

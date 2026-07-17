@@ -23,6 +23,7 @@ import { DetailSectionHeader } from "../../components/DetailSectionHeader";
 import { DetailItem } from "../../components/LogDetailItem";
 import { LangIcon, type LangIconKey } from "../../components/langIcons";
 import { Modal } from "../../components/Modal";
+import { OutputBadges } from "../../components/OutputBadges";
 import { ShikiCode } from "../../components/ShikiCode";
 import { Spinner } from "../../components/Spinner";
 import { TerminalPreview } from "../../components/TerminalPreview";
@@ -30,6 +31,7 @@ import { formatNumber, formatRelativeTime } from "../../utils/format";
 import {
 	formatPrice,
 	formatPriceInput,
+	nonTextOutputs,
 	parseCapabilities,
 	proxyModelID,
 } from "../../utils/model";
@@ -597,12 +599,14 @@ export function ModelDetailModal({
 						{CAP_META.map((m) => (
 							<CapBadge key={m.key} caps={caps} capKey={m.key} />
 						))}
+						<OutputBadges outputModalities={model.output_modalities} />
 					</div>
-					{!CAP_META.some((m) => hasCap(caps, m.key)) && (
-						<p className="text-sm text-gray-500">
-							{t("model.noSpecialCapabilities")}
-						</p>
-					)}
+					{!CAP_META.some((m) => hasCap(caps, m.key)) &&
+						nonTextOutputs(model).length === 0 && (
+							<p className="text-sm text-gray-500">
+								{t("model.noSpecialCapabilities")}
+							</p>
+						)}
 				</div>
 			)}
 

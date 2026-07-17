@@ -933,7 +933,14 @@
 			"sortByStatus": "Állapot szerint rendezés",
 			"status": "Állapot"
 		},
-		"disabledByDiscovery": "A szolgáltató nem listázza {{date}} óta"
+		"disabledByDiscovery": "A szolgáltató nem listázza {{date}} óta",
+		"outputPills": {
+			"image": "Képkimenet",
+			"audio": "Hangkimenet",
+			"video": "Videókimenet",
+			"embedding": "Embedding",
+			"rerank": "Rerank"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vissza a megállapított értékhez",

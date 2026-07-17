@@ -933,7 +933,14 @@
 			"sortByStatus": "Sortează după stare",
 			"status": "Status"
 		},
-		"disabledByDiscovery": "Nu este listat de furnizor din {{date}}"
+		"disabledByDiscovery": "Nu este listat de furnizor din {{date}}",
+		"outputPills": {
+			"image": "Ieșire imagine",
+			"audio": "Ieșire audio",
+			"video": "Ieșire video",
+			"embedding": "Embedding",
+			"rerank": "Rerank"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revenire la valoarea descoperită",

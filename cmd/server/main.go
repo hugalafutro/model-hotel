@@ -510,6 +510,9 @@ func main() {
 					debuglog.Info("discovery: enriched models from models.dev", "enriched", enriched, "total", len(models), "provider", p.Name)
 				}
 			}
+			// Runs unconditionally: modality arrays and the derived endpoint
+			// class must be consistent even when models.dev is unreachable.
+			provider.NormalizeModels(models)
 			result.ModelsDiscovered += len(models)
 
 			// Snapshot pre-scan state so background metadata/membership changes

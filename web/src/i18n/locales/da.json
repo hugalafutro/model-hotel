@@ -933,7 +933,14 @@
 			"sortByStatus": "Sorter efter status",
 			"status": "Status"
 		},
-		"disabledByDiscovery": "Ikke opført af udbyderen siden {{date}}"
+		"disabledByDiscovery": "Ikke opført af udbyderen siden {{date}}",
+		"outputPills": {
+			"image": "Billedoutput",
+			"audio": "Lydoutput",
+			"video": "Videooutput",
+			"embedding": "Embedding",
+			"rerank": "Rerank"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Tilbagefør til fundne værdier",

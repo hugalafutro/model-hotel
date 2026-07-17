@@ -933,7 +933,14 @@
 			"sortByStatus": "Seřadit podle stavu",
 			"status": "Stav"
 		},
-		"disabledByDiscovery": "Poskytovatelem není uveden od {{date}}"
+		"disabledByDiscovery": "Poskytovatelem není uveden od {{date}}",
+		"outputPills": {
+			"image": "Výstup obrázků",
+			"audio": "Výstup zvuku",
+			"video": "Výstup videa",
+			"embedding": "Embedding",
+			"rerank": "Rerank"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vrátit se k zjištěné hodnotě",

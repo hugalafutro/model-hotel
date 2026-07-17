@@ -9,61 +9,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
-// ---------------------------------------------------------------------------
-// modalityFromModelsDev
-// ---------------------------------------------------------------------------
-
-func TestModalityFromModelsDev(t *testing.T) {
-	tests := []struct {
-		name string
-		mods ModelsDevModalities
-		want string
-	}{
-		{
-			name: "video_input",
-			mods: ModelsDevModalities{Input: []string{"video"}},
-			want: "video",
-		},
-		{
-			name: "video_takes_precedence_over_audio_and_image",
-			mods: ModelsDevModalities{Input: []string{"video", "audio", "image"}},
-			want: "video",
-		},
-		{
-			name: "audio_and_image",
-			mods: ModelsDevModalities{Input: []string{"audio", "image"}},
-			want: "multimodal",
-		},
-		{
-			name: "image_only",
-			mods: ModelsDevModalities{Input: []string{"image"}},
-			want: "vision",
-		},
-		{
-			name: "audio_only",
-			mods: ModelsDevModalities{Input: []string{"audio"}},
-			want: "audio",
-		},
-		{
-			name: "text_only",
-			mods: ModelsDevModalities{Input: []string{"text"}},
-			want: "text",
-		},
-		{
-			name: "empty_input",
-			mods: ModelsDevModalities{Input: []string{}},
-			want: "text",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := modalityFromModelsDev(tt.mods); got != tt.want {
-				t.Errorf("modalityFromModelsDev() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestIsNumeric(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -452,21 +397,6 @@ func TestLookupFuzzy_DateSuffixVariants(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// modalityFromModelsDev additional coverage
-// ---------------------------------------------------------------------------
-
-func TestModalityFromModelsDev_AllModalities(t *testing.T) {
-	mods := ModelsDevModalities{
-		Input:  []string{"text", "image", "audio", "video"},
-		Output: []string{"text"},
-	}
-	got := modalityFromModelsDev(mods)
-	if got != "video" {
-		t.Errorf("expected 'video' when all modalities present, got %q", got)
 	}
 }
 

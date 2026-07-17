@@ -933,7 +933,14 @@
 			"sortByStatus": "الترتيب حسب الحالة",
 			"status": "الحالة"
 		},
-		"disabledByDiscovery": "غير مدرج من قبل المزود منذ {{date}}"
+		"disabledByDiscovery": "غير مدرج من قبل المزود منذ {{date}}",
+		"outputPills": {
+			"image": "إخراج صور",
+			"audio": "إخراج صوت",
+			"video": "إخراج فيديو",
+			"embedding": "تضمين",
+			"rerank": "إعادة ترتيب"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "العودة إلى القيمة المكتشفة",

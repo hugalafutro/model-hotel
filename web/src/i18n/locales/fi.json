@@ -933,7 +933,14 @@
 			"sortByStatus": "Järjestä tilan mukaan",
 			"status": "Tila"
 		},
-		"disabledByDiscovery": "Ei palveluntarjoajan listalla {{date}} lähtien"
+		"disabledByDiscovery": "Ei palveluntarjoajan listalla {{date}} lähtien",
+		"outputPills": {
+			"image": "Kuvaulostulo",
+			"audio": "Ääniulostulo",
+			"video": "Videoulostulo",
+			"embedding": "Embedding",
+			"rerank": "Rerank"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Palauta löydettyyn arvoon",

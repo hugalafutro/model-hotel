@@ -3,16 +3,19 @@
  *  Edit here once — both modes stay in sync. */
 
 /** Columns when provider column is visible (Models page).
- *  The narrow numeric columns (discovered/ctx/maxOut) are widened beyond their
- *  short data so their HEADER words fit unclipped in English at the ~1440p width
- *  this is developed against; the width is borrowed from the model-name column,
- *  which truncates its long values anyway. Headers ellipsize (+ title tooltip)
- *  below that, which is acceptable for narrow screens. */
+ *  Discovered gets a FIXED pixel width sized to its "DISCOVERED" header: its
+ *  data is always short ("21m ago"), so a percentage width made it balloon
+ *  relative to content on narrow (half-screen) windows. The other narrow
+ *  numeric columns keep percentages sized so their header words fit unclipped
+ *  in English at the ~1440p width this is developed against; the width is
+ *  borrowed from the model-name column, which truncates its long values
+ *  anyway. Headers ellipsize (+ title tooltip) below that, which is
+ *  acceptable for narrow screens. */
 export const MODEL_COL_WIDTHS_WITH_PROVIDER = [
-	"w-[23%]", // Model name (truncates long names)
+	"w-[27%]", // Model name (truncates long names)
 	"w-[24%]", // Capabilities
 	"w-[16%]", // Provider
-	"w-[11%]", // Discovered - fits the "DISCOVERED" header
+	"w-[104px]", // Discovered - fixed: fits the "DISCOVERED" header, data is short
 	"w-[2%]", // (spacer)
 	"w-[5%]", // Ctx
 	"w-[2%]", // (spacer)
@@ -23,9 +26,9 @@ export const MODEL_COL_WIDTHS_WITH_PROVIDER = [
 
 /** Columns when provider column is hidden (ProviderModelsModal). */
 export const MODEL_COL_WIDTHS_NO_PROVIDER = [
-	"w-[34%]", // Model name (wider without provider col)
+	"w-[38%]", // Model name (wider without provider col)
 	"w-[28%]", // Capabilities
-	"w-[10%]", // Discovered
+	"w-[104px]", // Discovered - fixed: fits the "DISCOVERED" header, data is short
 	"w-[2%]", // (spacer)
 	"w-[6%]", // Ctx
 	"w-[2%]", // (spacer)

@@ -583,8 +583,12 @@ func TestDiscoverOllama_VisionCapability(t *testing.T) {
 	if !caps.ToolCalling {
 		t.Error("Expected ToolCalling capability to be true")
 	}
-	if models[0].Modality != "vision" {
-		t.Errorf("Expected Modality 'vision', got '%s'", models[0].Modality)
+	NormalizeModels(models)
+	if models[0].Modality != "chat" {
+		t.Errorf("Expected derived class 'chat', got '%s'", models[0].Modality)
+	}
+	if models[0].InputModalities != `["text","image"]` {
+		t.Errorf("Expected input modalities [\"text\",\"image\"], got '%s'", models[0].InputModalities)
 	}
 }
 
@@ -652,6 +656,7 @@ func TestBuildOllamaModel_EmbeddingCapabilityHTTP(t *testing.T) {
 	provider := &Provider{ID: uuid.New()}
 
 	m := service.buildOllamaModel(provider, "nomic-embed-text", show)
+	NormalizeModelClassification(m)
 	if m.Modality != "embedding" {
 		t.Errorf("Expected Modality 'embedding', got '%s'", m.Modality)
 	}
@@ -673,8 +678,9 @@ func TestBuildOllamaModel_CompletionStaysTextHTTP(t *testing.T) {
 	provider := &Provider{ID: uuid.New()}
 
 	m := service.buildOllamaModel(provider, "llama3-embed-tutor", show)
-	if m.Modality != "text" {
-		t.Errorf("Expected Modality 'text' for a completion model, got '%s'", m.Modality)
+	NormalizeModelClassification(m)
+	if m.Modality != "chat" {
+		t.Errorf("Expected class 'chat' for a completion model, got '%s'", m.Modality)
 	}
 }
 
@@ -690,6 +696,7 @@ func TestBuildOllamaModel_EmbeddingByNameFallbackHTTP(t *testing.T) {
 	provider := &Provider{ID: uuid.New()}
 
 	m := service.buildOllamaModel(provider, "mxbai-embed-large", show)
+	NormalizeModelClassification(m)
 	if m.Modality != "embedding" {
 		t.Errorf("Expected Modality 'embedding' from name fallback, got '%s'", m.Modality)
 	}

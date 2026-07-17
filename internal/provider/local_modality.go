@@ -40,26 +40,22 @@ func inferNonChatModality(modelID string) string {
 		return "image"
 	}
 
-	// Well-known embedding families that don't spell out "embed". Match them as
-	// whole segments (split on the usual id separators) so a substring can't
-	// trip a chat model that merely contains these letters.
+	// Well-known embedding families that don't spell out "embed", plus
+	// speech endpoints (tts-1, gpt-4o-mini-tts, whisper-1, gpt-4o-transcribe).
+	// Match them as whole segments (split on the usual id separators) so a
+	// substring can't trip a chat model that merely contains these letters.
 	for _, seg := range splitModelIDSegments(id) {
 		switch seg {
 		case "bge", "gte", "e5", "minilm":
 			return "embedding"
+		case "tts":
+			return "tts"
+		case "whisper", "transcribe":
+			return "stt"
 		}
 	}
 
 	return ""
-}
-
-// nonChatModalityArrays returns the input/output modality JSON arrays to store
-// for a non-chat modality (as returned by inferNonChatModality). Embedding and
-// reranker models both take text input and produce their own output type, so
-// the output_modalities advertised on /v1/models matches the classification
-// instead of defaulting to text or empty.
-func nonChatModalityArrays(modality string) (input, output string) {
-	return `["text"]`, `["` + modality + `"]`
 }
 
 // splitModelIDSegments splits a lower-cased model ID on the separators commonly

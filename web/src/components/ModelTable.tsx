@@ -3,7 +3,11 @@ import { useTranslation } from "react-i18next";
 import type { Model, Provider } from "../api/types";
 import { useWheelPaging } from "../hooks/useWheelPaging";
 import { formatDate, formatRelativeTime, formatTokens } from "../utils/format";
-import { parseCapabilities, proxyModelID } from "../utils/model";
+import {
+	nonTextOutputs,
+	parseCapabilities,
+	proxyModelID,
+} from "../utils/model";
 import { CapBadge } from "./CapBadge";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CopyablePill } from "./CopyablePill";
@@ -16,6 +20,8 @@ import {
 	MODEL_COL_WIDTHS_NO_PROVIDER,
 	MODEL_COL_WIDTHS_WITH_PROVIDER,
 } from "./modelTableWidths";
+import { OutputBadges } from "./OutputBadges";
+import { OUTPUT_META } from "./outputMeta";
 
 export type SortField =
 	| "name"
@@ -53,6 +59,7 @@ export function ModelTable({
 	});
 	const { t } = useTranslation();
 	const [capFilter, setCapFilter] = useState<Set<CapKey>>(new Set());
+	const [outputFilter, setOutputFilter] = useState<Set<string>>(new Set());
 	const [confirmDeleteDisabled, setConfirmDeleteDisabled] = useState(false);
 
 	const [pageSize, setPageSize] = useState(20);
@@ -68,100 +75,117 @@ export function ModelTable({
 
 	const showProviderCol = providers !== undefined;
 
-	const { sortedAndFiltered, pillAvailability, existingCaps } = useMemo(() => {
-		if (!models) {
-			return {
-				sortedAndFiltered: [],
-				pillAvailability: new Map<CapKey, boolean>(),
-				existingCaps: new Set<CapKey>(),
-			};
-		}
-
-		const baseFiltered = models.filter(
-			(model) =>
-				proxyModelID(model.provider_name, model.model_id)
-					.toLowerCase()
-					.includes(searchQuery.toLowerCase()) ||
-				model.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				model.display_name?.toLowerCase().includes(searchQuery.toLowerCase()),
-		);
-
-		const capsInData = new Set<CapKey>();
-		for (const m of baseFiltered) {
-			const c = parseCapabilities(m.capabilities);
-			for (const meta of CAP_META) {
-				if (hasCap(c, meta.key)) capsInData.add(meta.key);
+	const { sortedAndFiltered, pillAvailability, existingCaps, existingOutputs } =
+		useMemo(() => {
+			if (!models) {
+				return {
+					sortedAndFiltered: [],
+					pillAvailability: new Map<CapKey, boolean>(),
+					existingCaps: new Set<CapKey>(),
+					existingOutputs: new Set<string>(),
+				};
 			}
-		}
 
-		let filtered = baseFiltered;
-
-		if (providerFilter) {
-			filtered = filtered.filter((m) => m.provider_id === providerFilter);
-		}
-
-		if (capFilter.size > 0) {
-			filtered = filtered.filter((m) =>
-				matchesAllCaps(parseCapabilities(m.capabilities), capFilter),
+			const baseFiltered = models.filter(
+				(model) =>
+					proxyModelID(model.provider_name, model.model_id)
+						.toLowerCase()
+						.includes(searchQuery.toLowerCase()) ||
+					model.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+					model.display_name?.toLowerCase().includes(searchQuery.toLowerCase()),
 			);
-		}
 
-		const availability = new Map<CapKey, boolean>();
-		for (const m of CAP_META) {
-			const testFilter = new Set(capFilter);
-			testFilter.add(m.key);
-			const hasMatch = baseFiltered.some((model) =>
-				matchesAllCaps(parseCapabilities(model.capabilities), testFilter),
-			);
-			availability.set(m.key, hasMatch);
-		}
-
-		const dir = sort.dir === "asc" ? 1 : -1;
-		filtered.sort((a, b) => {
-			switch (sort.field) {
-				case "name":
-					return (
-						dir *
-						(a.name || proxyModelID(a.provider_name, a.model_id)).localeCompare(
-							b.name || proxyModelID(b.provider_name, b.model_id),
-						)
-					);
-				case "provider":
-					return dir * a.provider_name.localeCompare(b.provider_name);
-				case "discovered":
-					return (
-						dir *
-						(new Date(a.last_seen_at).getTime() -
-							new Date(b.last_seen_at).getTime())
-					);
-				case "context":
-					return dir * ((a.context_length ?? 0) - (b.context_length ?? 0));
-				case "output":
-					return (
-						dir * ((a.max_output_tokens ?? 0) - (b.max_output_tokens ?? 0))
-					);
-				case "capabilities": {
-					const capsA = Object.values(parseCapabilities(a.capabilities)).filter(
-						Boolean,
-					).length;
-					const capsB = Object.values(parseCapabilities(b.capabilities)).filter(
-						Boolean,
-					).length;
-					return dir * (capsA - capsB);
+			const capsInData = new Set<CapKey>();
+			const outputsInData = new Set<string>();
+			for (const m of baseFiltered) {
+				const c = parseCapabilities(m.capabilities);
+				for (const meta of CAP_META) {
+					if (hasCap(c, meta.key)) capsInData.add(meta.key);
 				}
-				case "status":
-					return dir * (a.enabled === b.enabled ? 0 : a.enabled ? -1 : 1);
-				default:
-					return 0;
+				for (const o of nonTextOutputs(m)) outputsInData.add(o);
 			}
-		});
 
-		return {
-			sortedAndFiltered: filtered,
-			pillAvailability: availability,
-			existingCaps: capsInData,
-		};
-	}, [models, searchQuery, sort, capFilter, providerFilter]);
+			let filtered = baseFiltered;
+
+			if (providerFilter) {
+				filtered = filtered.filter((m) => m.provider_id === providerFilter);
+			}
+
+			if (capFilter.size > 0) {
+				filtered = filtered.filter((m) =>
+					matchesAllCaps(parseCapabilities(m.capabilities), capFilter),
+				);
+			}
+
+			if (outputFilter.size > 0) {
+				filtered = filtered.filter((m) => {
+					const outputs = nonTextOutputs(m);
+					for (const o of outputFilter) {
+						if (!outputs.includes(o)) return false;
+					}
+					return true;
+				});
+			}
+
+			const availability = new Map<CapKey, boolean>();
+			for (const m of CAP_META) {
+				const testFilter = new Set(capFilter);
+				testFilter.add(m.key);
+				const hasMatch = baseFiltered.some((model) =>
+					matchesAllCaps(parseCapabilities(model.capabilities), testFilter),
+				);
+				availability.set(m.key, hasMatch);
+			}
+
+			const dir = sort.dir === "asc" ? 1 : -1;
+			filtered.sort((a, b) => {
+				switch (sort.field) {
+					case "name":
+						return (
+							dir *
+							(
+								a.name || proxyModelID(a.provider_name, a.model_id)
+							).localeCompare(
+								b.name || proxyModelID(b.provider_name, b.model_id),
+							)
+						);
+					case "provider":
+						return dir * a.provider_name.localeCompare(b.provider_name);
+					case "discovered":
+						return (
+							dir *
+							(new Date(a.last_seen_at).getTime() -
+								new Date(b.last_seen_at).getTime())
+						);
+					case "context":
+						return dir * ((a.context_length ?? 0) - (b.context_length ?? 0));
+					case "output":
+						return (
+							dir * ((a.max_output_tokens ?? 0) - (b.max_output_tokens ?? 0))
+						);
+					case "capabilities": {
+						const capsA = Object.values(
+							parseCapabilities(a.capabilities),
+						).filter(Boolean).length;
+						const capsB = Object.values(
+							parseCapabilities(b.capabilities),
+						).filter(Boolean).length;
+						return dir * (capsA - capsB);
+					}
+					case "status":
+						return dir * (a.enabled === b.enabled ? 0 : a.enabled ? -1 : 1);
+					default:
+						return 0;
+				}
+			});
+
+			return {
+				sortedAndFiltered: filtered,
+				pillAvailability: availability,
+				existingCaps: capsInData,
+				existingOutputs: outputsInData,
+			};
+		}, [models, searchQuery, sort, capFilter, outputFilter, providerFilter]);
 
 	const disabledModels = useMemo(
 		() => sortedAndFiltered.filter((m) => !m.enabled),
@@ -175,6 +199,16 @@ export function ModelTable({
 
 	const toggleCapFilter = useCallback((key: CapKey) => {
 		setCapFilter((prev) => {
+			const next = new Set(prev);
+			if (next.has(key)) next.delete(key);
+			else next.add(key);
+			return next;
+		});
+		setCurrentPage(1);
+	}, []);
+
+	const toggleOutputFilter = useCallback((key: string) => {
+		setOutputFilter((prev) => {
 			const next = new Set(prev);
 			if (next.has(key)) next.delete(key);
 			else next.add(key);
@@ -349,6 +383,7 @@ export function ModelTable({
 												key={m.key}
 												type="button"
 												disabled={isDisabled}
+												aria-pressed={isActive}
 												onClick={() => toggleCapFilter(m.key)}
 												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${isActive ? m.style : isDisabled ? m.disabled : m.muted}`}
 											>
@@ -356,11 +391,29 @@ export function ModelTable({
 											</button>
 										);
 									})}
-									{capFilter.size > 0 && (
+									{OUTPUT_META.filter(
+										(m) =>
+											existingOutputs.has(m.key) || outputFilter.has(m.key),
+									).map((m) => {
+										const isActive = outputFilter.has(m.key);
+										return (
+											<button
+												key={m.key}
+												type="button"
+												aria-pressed={isActive}
+												onClick={() => toggleOutputFilter(m.key)}
+												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${isActive ? m.style : m.muted}`}
+											>
+												{t(m.labelKey)}
+											</button>
+										);
+									})}
+									{(capFilter.size > 0 || outputFilter.size > 0) && (
 										<button
 											type="button"
 											onClick={() => {
 												setCapFilter(new Set());
+												setOutputFilter(new Set());
 												setCurrentPage(1);
 											}}
 											className="ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-gray-200"
@@ -409,6 +462,9 @@ export function ModelTable({
 												{CAP_META.map((m) => (
 													<CapBadge key={m.key} caps={caps} capKey={m.key} />
 												))}
+												<OutputBadges
+													outputModalities={model.output_modalities}
+												/>
 											</div>
 										</td>
 										{showProviderCol && (
@@ -456,7 +512,10 @@ export function ModelTable({
 							<EmptyRow
 								colSpan={colSpan}
 								message={
-									searchQuery || providerFilter !== "" || capFilter.size > 0
+									searchQuery ||
+									providerFilter !== "" ||
+									capFilter.size > 0 ||
+									outputFilter.size > 0
 										? t("components.modelTable.noModelsMatchFilters")
 										: t("components.modelTable.noModelsDiscovered")
 								}

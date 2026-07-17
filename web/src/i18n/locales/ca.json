@@ -933,7 +933,14 @@
 			"sortByStatus": "Ordena per estat",
 			"status": "Estat"
 		},
-		"disabledByDiscovery": "No llistat pel proveïdor des de {{date}}"
+		"disabledByDiscovery": "No llistat pel proveïdor des de {{date}}",
+		"outputPills": {
+			"image": "Sortida d'imatge",
+			"audio": "Sortida d'àudio",
+			"video": "Sortida de vídeo",
+			"embedding": "Embedding",
+			"rerank": "Rerank"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Restablir al valor descobert",

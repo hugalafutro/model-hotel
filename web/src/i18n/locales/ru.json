@@ -933,7 +933,14 @@
 			"sortByStatus": "Сортировать по статусу",
 			"status": "Статус"
 		},
-		"disabledByDiscovery": "Не указано поставщиком с {{date}}"
+		"disabledByDiscovery": "Не указано поставщиком с {{date}}",
+		"outputPills": {
+			"image": "Вывод изображений",
+			"audio": "Вывод аудио",
+			"video": "Вывод видео",
+			"embedding": "Эмбеддинг",
+			"rerank": "Реранжирование"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Вернуться к обнаруженному значению",

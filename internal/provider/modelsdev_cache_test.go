@@ -970,14 +970,21 @@ func TestModelsDevCacheEnrichModel_ModalityEnrichment(t *testing.T) {
 
 	cache.EnrichModel(m)
 
-	if m.Modality != "vision" {
-		t.Errorf("expected modality 'vision', got '%s'", m.Modality)
+	// Enrichment fills the arrays only; the modality class is derived later
+	// by NormalizeModelClassification.
+	if m.Modality != "" {
+		t.Errorf("expected modality left untouched by enrichment, got '%s'", m.Modality)
 	}
 	if m.InputModalities == "" || m.InputModalities == "[]" {
 		t.Error("expected input modalities to be set")
 	}
 	if m.OutputModalities == "" || m.OutputModalities == "[]" {
 		t.Error("expected output modalities to be set")
+	}
+
+	NormalizeModelClassification(m)
+	if m.Modality != "chat" {
+		t.Errorf("expected derived class 'chat', got '%s'", m.Modality)
 	}
 }
 

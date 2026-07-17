@@ -933,7 +933,14 @@
 			"sortByStatus": "Sortera efter status",
 			"status": "Status"
 		},
-		"disabledByDiscovery": "Inte listad av leverantören sedan {{date}}"
+		"disabledByDiscovery": "Inte listad av leverantören sedan {{date}}",
+		"outputPills": {
+			"image": "Bildutdata",
+			"audio": "Ljudutdata",
+			"video": "Videoutdata",
+			"embedding": "Embedding",
+			"rerank": "Rerank"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Återgå till upptäckt värde",

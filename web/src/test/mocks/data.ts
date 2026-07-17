@@ -48,7 +48,7 @@ export const mockModel: Model = {
 	provider_name: "Test Provider",
 	capabilities: '{"streaming":true,"vision":false,"audio_input":false}',
 	params: '{"temperature":0.7,"max_tokens":4096}',
-	modality: "text",
+	modality: "chat",
 	input_modalities: "text",
 	output_modalities: "text",
 	context_length: 8192,

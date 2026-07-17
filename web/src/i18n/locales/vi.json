@@ -933,7 +933,14 @@
 			"sortByStatus": "Sắp xếp theo trạng thái",
 			"status": "Trạng thái"
 		},
-		"disabledByDiscovery": "Không được nhà cung cấp liệt kê kể từ {{date}}"
+		"disabledByDiscovery": "Không được nhà cung cấp liệt kê kể từ {{date}}",
+		"outputPills": {
+			"image": "Xuất hình ảnh",
+			"audio": "Xuất âm thanh",
+			"video": "Xuất video",
+			"embedding": "Nhúng",
+			"rerank": "Xếp hạng lại"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Quay lại giá trị đã tìm thấy",

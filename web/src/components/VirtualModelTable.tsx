@@ -27,6 +27,8 @@ import {
 	MODEL_COL_WIDTHS_NO_PROVIDER,
 	MODEL_COL_WIDTHS_WITH_PROVIDER,
 } from "./modelTableWidths";
+import { OutputBadges } from "./OutputBadges";
+import { OUTPUT_META } from "./outputMeta";
 
 interface VirtualModelTableProps {
 	providers?: Provider[];
@@ -84,6 +86,16 @@ export function VirtualModelTable({
 		});
 	}, []);
 
+	const [outputFilter, setOutputFilter] = useState<Set<string>>(new Set());
+	const toggleOutputFilter = useCallback((key: string) => {
+		setOutputFilter((prev) => {
+			const next = new Set(prev);
+			if (next.has(key)) next.delete(key);
+			else next.add(key);
+			return next;
+		});
+	}, []);
+
 	const handleSort = useCallback((field: SortState["field"]) => {
 		setSort((prev) => ({
 			field,
@@ -108,6 +120,7 @@ export function VirtualModelTable({
 				provider_id: params.provider_id as string | undefined,
 				search: params.search as string | undefined,
 				capabilities: params.capabilities as string | undefined,
+				outputs: params.outputs as string | undefined,
 			});
 		},
 		[],
@@ -124,8 +137,11 @@ export function VirtualModelTable({
 		if (capFilter.size > 0) {
 			result.capabilities = Array.from(capFilter).join(",");
 		}
+		if (outputFilter.size > 0) {
+			result.outputs = Array.from(outputFilter).join(",");
+		}
 		return result;
-	}, [searchQuery, sort.field, providerFilter, capFilter]);
+	}, [searchQuery, sort.field, providerFilter, capFilter, outputFilter]);
 
 	const getCursor = useCallback(
 		(entry: Model): string => {
@@ -206,17 +222,6 @@ export function VirtualModelTable({
 	useEffect(() => {
 		onTotalChange?.(total);
 	}, [total, onTotalChange]);
-
-	const existingCaps = useMemo(() => {
-		const caps = new Set<CapKey>();
-		entries.forEach((m) => {
-			const c = parseCapabilities(m.capabilities);
-			CAP_META.forEach((meta) => {
-				if (hasCap(c, meta.key)) caps.add(meta.key);
-			});
-		});
-		return caps;
-	}, [entries]);
 
 	const disabledModels = useMemo(
 		() => entries.filter((m) => !m.enabled),
@@ -534,14 +539,17 @@ export function VirtualModelTable({
 							<th className="px-4 py-2" />
 							<th className="px-4 py-2">
 								<span className="flex flex-wrap gap-1">
-									{CAP_META.filter(
-										(m) => existingCaps.has(m.key) || capFilter.has(m.key),
-									).map((m) => {
+									{/* All pills render unconditionally: filtering is
+									    server-side, so a matching model may exist outside
+									    the loaded window and every pill must stay
+									    reachable. */}
+									{CAP_META.map((m) => {
 										const isActive = capFilter.has(m.key);
 										return (
 											<button
 												key={m.key}
 												type="button"
+												aria-pressed={isActive}
 												onClick={() => toggleCapFilter(m.key)}
 												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${
 													isActive ? m.style : m.muted
@@ -551,10 +559,29 @@ export function VirtualModelTable({
 											</button>
 										);
 									})}
-									{capFilter.size > 0 && (
+									{OUTPUT_META.map((m) => {
+										const isActive = outputFilter.has(m.key);
+										return (
+											<button
+												key={m.key}
+												type="button"
+												aria-pressed={isActive}
+												onClick={() => toggleOutputFilter(m.key)}
+												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${
+													isActive ? m.style : m.muted
+												}`}
+											>
+												{t(m.labelKey)}
+											</button>
+										);
+									})}
+									{(capFilter.size > 0 || outputFilter.size > 0) && (
 										<button
 											type="button"
-											onClick={() => setCapFilter(new Set())}
+											onClick={() => {
+												setCapFilter(new Set());
+												setOutputFilter(new Set());
+											}}
 											className="ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-gray-400 hover:text-gray-200"
 										>
 											✕
@@ -627,6 +654,9 @@ export function VirtualModelTable({
 														</span>
 													),
 												)}
+												<OutputBadges
+													outputModalities={model.output_modalities}
+												/>
 											</div>
 										</td>
 										{showProviderCol && (

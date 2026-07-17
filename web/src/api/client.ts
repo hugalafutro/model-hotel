@@ -397,6 +397,7 @@ export const api = {
 			provider_id?: string;
 			search?: string;
 			capabilities?: string;
+			outputs?: string;
 		}): Promise<ModelsCursorResponse> => {
 			const sp = new URLSearchParams();
 			if (params.cursor) sp.set("cursor", params.cursor);
@@ -407,6 +408,7 @@ export const api = {
 			if (params.provider_id) sp.set("provider_id", params.provider_id);
 			if (params.search) sp.set("search", params.search);
 			if (params.capabilities) sp.set("capabilities", params.capabilities);
+			if (params.outputs) sp.set("outputs", params.outputs);
 			return fetchJSON<ModelsCursorResponse>(
 				`${API_BASE}/api/models/cursor?${sp.toString()}`,
 				{ headers: getAuthHeaders() },

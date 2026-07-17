@@ -1720,13 +1720,13 @@ func TestAnthropicDiscovery_PDFWithoutVision(t *testing.T) {
 	if !caps.PDFUpload {
 		t.Error("Expected PDFUpload=true for model with pdf_input capability")
 	}
-	// Modality should be switched to "vision" even though image_input is false
-	if m.Modality != "vision" {
-		t.Errorf("Expected modality 'vision' for PDF-capable model, got '%s'", m.Modality)
+	// PDF capability lands in the input modalities; the class derives chat.
+	if !strings.Contains(m.InputModalities, "image") || !strings.Contains(m.InputModalities, "pdf") {
+		t.Errorf("Expected input modalities to include 'image' and 'pdf', got '%s'", m.InputModalities)
 	}
-	// Input modalities should include image
-	if !strings.Contains(m.InputModalities, "image") {
-		t.Errorf("Expected input modalities to include 'image', got '%s'", m.InputModalities)
+	NormalizeModels(models)
+	if m.Modality != "chat" {
+		t.Errorf("Expected derived class 'chat' for PDF-capable model, got '%s'", m.Modality)
 	}
 }
 
@@ -2011,8 +2011,12 @@ func TestBuildOllamaModel_ThinkingCapability(t *testing.T) {
 	if !caps.Vision {
 		t.Error("Expected Vision=true for 'vision' capability")
 	}
-	if m.Modality != "vision" {
-		t.Errorf("Expected modality 'vision', got '%s'", m.Modality)
+	if m.InputModalities != `["text","image"]` {
+		t.Errorf("Expected input modalities [\"text\",\"image\"], got '%s'", m.InputModalities)
+	}
+	NormalizeModelClassification(m)
+	if m.Modality != "chat" {
+		t.Errorf("Expected derived class 'chat', got '%s'", m.Modality)
 	}
 	if m.OwnedBy != "llama" {
 		t.Errorf("Expected ownedBy 'llama', got '%s'", m.OwnedBy)

@@ -151,7 +151,7 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 
 func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, show *OllamaShowResponse) *model.Model {
 	caps := model.Capability{Streaming: true}
-	modality := "text"
+	isVision := false
 	inputMods := `["text"]`
 	outputMods := "[]"
 
@@ -164,7 +164,7 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 			caps.Reasoning = true
 		case "vision":
 			caps.Vision = true
-			modality = "vision"
+			isVision = true
 			inputMods = `["text","image"]`
 		case "completion":
 			hasCompletion = true
@@ -177,20 +177,17 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 	// Ollama reports capabilities authoritatively: an embedding-only model lists
 	// "embedding" and not "completion", so it must be hidden from the chat
 	// picker. Applies equally to local Ollama and Ollama Cloud (same code path).
-	// If a model reports no completion capability at all (older Ollama returns an
-	// empty list), fall back to a name heuristic so embed/rerank models are still
-	// caught without misclassifying a normal chat model.
-	if !hasCompletion && modality == "text" {
-		switch {
-		case hasEmbedding:
-			modality = "embedding"
-			_, outputMods = nonChatModalityArrays(modality)
-		default:
-			if inferred := inferNonChatModality(modelID); inferred != "" {
-				modality = inferred
-				_, outputMods = nonChatModalityArrays(inferred)
-			}
-		}
+	// Expressed through output_modalities; the endpoint class itself is derived
+	// centrally by NormalizeModelClassification. A reported "completion" pins
+	// text output so the central name heuristics can't reclassify a chat model
+	// that merely has "embed" in its name; an empty capability list (older
+	// Ollama) leaves output empty so those heuristics still catch embed/rerank
+	// models.
+	switch {
+	case !hasCompletion && !isVision && hasEmbedding:
+		outputMods = `["embedding"]`
+	case hasCompletion:
+		outputMods = `["text"]`
 	}
 
 	var contextLength *int
@@ -219,7 +216,6 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 		DisplayName:      modelID,
 		Capabilities:     string(capJSON),
 		Params:           "{}",
-		Modality:         modality,
 		InputModalities:  inputMods,
 		OutputModalities: outputMods,
 		ContextLength:    contextLength,
