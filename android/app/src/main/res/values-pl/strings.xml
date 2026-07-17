@@ -26,6 +26,8 @@
     <string name="dashboard_state_faulty">Flota wadliwa</string>
     <string name="fleet_reason_member_down">węzeł nie działa</string>
     <string name="fleet_reason_all_members_down">wszystkie węzły nie działają</string>
+    <string name="fleet_reason_member_drained">węzeł wygaszony</string>
+    <string name="fleet_reason_drained_to_single">tylko jeden aktywny węzeł</string>
     <string name="fleet_reason_sync_held">synchronizacja wstrzymana</string>
     <string name="fleet_reason_all_sync_held">synchronizacja wstrzymana w całej flocie</string>
     <string name="fleet_reason_autosync_stale">niezsynchronizowana ponad dobę</string>

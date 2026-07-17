@@ -11,6 +11,7 @@ func TestComputeFleetState(t *testing.T) {
 	down := memberFleetFacts{Known: true, Healthy: false}
 	heldOf := func(f memberFleetFacts) memberFleetFacts { f.Syncable = true; f.Held = true; return f }
 	syncable := func(f memberFleetFacts) memberFleetFacts { f.Syncable = true; return f }
+	drainedOf := func(f memberFleetFacts) memberFleetFacts { f.Drained = true; return f }
 
 	cases := []struct {
 		name        string
@@ -40,6 +41,20 @@ func TestComputeFleetState(t *testing.T) {
 		{"single held candidate cannot prove the primary is odd",
 			fleetStateInput{Members: []memberFleetFacts{up, heldOf(up)}},
 			FleetDegraded, []string{"sync_held"}},
+		{"one drained while two-plus stay active degrades",
+			fleetStateInput{Members: []memberFleetFacts{up, up, drainedOf(up)}},
+			FleetDegraded, []string{"member_drained"}},
+		{"drained down to a single active is faulty",
+			fleetStateInput{Members: []memberFleetFacts{up, drainedOf(up)}},
+			FleetFaulty, []string{"drained_to_single"}},
+		{"all drained is faulty (defensive; the drain guard makes this unreachable)",
+			fleetStateInput{Members: []memberFleetFacts{drainedOf(up), drainedOf(up)}},
+			FleetFaulty, []string{"drained_to_single"}},
+		{"a naturally single active member (no drains) does not trigger a drain reason",
+			fleetStateInput{Members: []memberFleetFacts{up}}, FleetOK, nil},
+		{"drain and health reasons compose in fixed order",
+			fleetStateInput{Members: []memberFleetFacts{up, down, drainedOf(up)}},
+			FleetDegraded, []string{"member_down", "member_drained"}},
 		{"stale tier 1 degrades", fleetStateInput{AutoSyncTier: 1},
 			FleetDegraded, []string{"autosync_stale"}},
 		{"stale tier 2 is faulty", fleetStateInput{AutoSyncTier: 2},

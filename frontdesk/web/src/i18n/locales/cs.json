@@ -101,6 +101,7 @@
 		"drain": "Vyřadit z provozu",
 		"activate": "Aktivovat",
 		"drainTip": "Přestat posílat nový provoz na tuto instanci. Rozpracované požadavky se dokončí a instance opustí pool load balanceru. Použijte před údržbou nebo odebráním.",
+		"drainLastActiveTip": "Toto je poslední aktivní člen; jeho vyprázdnění by nechalo flotilu bez instance přijímající provoz. Nejprve aktivujte jiného člena.",
 		"activateTip": "Vrátit tuto instanci do poolu load balanceru, aby opět přijímala provoz.",
 		"removeTip": "Přestat sledovat tuto instanci a odebrat ji z poolu. Samotná instance zůstane běžet beze změny.",
 		"latencyMs": "{{ms}} ms",
@@ -138,6 +139,8 @@
 		"fleetReason": {
 			"member_down": "člen je nedostupný",
 			"all_members_down": "všichni členové jsou nedostupní",
+			"member_drained": "člen je vyprázdněn (mimo směrovací fond)",
+			"drained_to_single": "zůstává jen jeden aktivní člen; flotila nemá redundanci",
 			"sync_held": "synchronizace konfigurace je pozastavena pro člena (rozdílné verze)",
 			"all_sync_held": "synchronizace konfigurace je pozastavena u každého člena; primární instance je výjimkou",
 			"autosync_stale": "automatická synchronizace je vypnutá a flotila nebyla synchronizována více než den",

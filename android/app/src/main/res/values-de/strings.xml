@@ -26,6 +26,8 @@
     <string name="dashboard_state_faulty">Flotte fehlerhaft</string>
     <string name="fleet_reason_member_down">Mitglied ausgefallen</string>
     <string name="fleet_reason_all_members_down">alle Mitglieder ausgefallen</string>
+    <string name="fleet_reason_member_drained">Mitglied stillgelegt</string>
+    <string name="fleet_reason_drained_to_single">nur ein aktives Mitglied übrig</string>
     <string name="fleet_reason_sync_held">Sync angehalten</string>
     <string name="fleet_reason_all_sync_held">Sync flottenweit angehalten</string>
     <string name="fleet_reason_autosync_stale">seit über einem Tag nicht synchronisiert</string>

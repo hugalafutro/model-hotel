@@ -26,6 +26,8 @@
     <string name="dashboard_state_faulty">Vloot defect</string>
     <string name="fleet_reason_member_down">lid offline</string>
     <string name="fleet_reason_all_members_down">alle leden offline</string>
+    <string name="fleet_reason_member_drained">lid gedraineerd</string>
+    <string name="fleet_reason_drained_to_single">nog maar één actief lid</string>
     <string name="fleet_reason_sync_held">sync aangehouden</string>
     <string name="fleet_reason_all_sync_held">sync vlootbreed aangehouden</string>
     <string name="fleet_reason_autosync_stale">meer dan een dag niet gesynchroniseerd</string>

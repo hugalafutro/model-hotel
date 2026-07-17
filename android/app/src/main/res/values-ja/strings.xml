@@ -26,6 +26,8 @@
     <string name="dashboard_state_faulty">フリート障害</string>
     <string name="fleet_reason_member_down">メンバーがダウン</string>
     <string name="fleet_reason_all_members_down">すべてのメンバーがダウン</string>
+    <string name="fleet_reason_member_drained">メンバーがドレイン済み</string>
+    <string name="fleet_reason_drained_to_single">アクティブなメンバーが1つだけ</string>
     <string name="fleet_reason_sync_held">同期保留</string>
     <string name="fleet_reason_all_sync_held">フリート全体で同期保留</string>
     <string name="fleet_reason_autosync_stale">1 日以上未同期</string>

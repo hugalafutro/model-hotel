@@ -162,7 +162,7 @@ func TestServerTraefikConfigUnauthenticatedAndRecordsPoll(t *testing.T) {
 }
 
 func TestServerMemberCRUD(t *testing.T) {
-	srv, _ := newTestServer(t)
+	srv, store := newTestServer(t)
 	// A member is only added once it replies and verifies (token accepted, not the
 	// primary), so point the add at a stand-in that answers 200 and self-reports
 	// is_primary=false.
@@ -208,9 +208,22 @@ func TestServerMemberCRUD(t *testing.T) {
 		t.Fatalf("patch = %d, want 200; body=%s", rec.Code, rec.Body.String())
 	}
 
-	// Set state to drained.
+	// A second active member so the drain below is allowed: the last active member
+	// cannot be drained. Added via the store to skip the add-time host handshake.
+	second, err := store.CreateMember(context.Background(), "hotel-2", "http://hotel-2:8081", "")
+	if err != nil {
+		t.Fatalf("second member: %v", err)
+	}
+
+	// Set state to drained (allowed: hotel-2 stays active).
 	if rec := do(t, srv, http.MethodPost, "/api/members/"+created.ID+"/state", `{"state":"drained"}`, true); rec.Code != http.StatusOK {
 		t.Fatalf("state = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Draining the now-last active member (hotel-2) is refused with 409 so the
+	// routing pool can never be emptied.
+	if rec := do(t, srv, http.MethodPost, "/api/members/"+second.ID+"/state", `{"state":"drained"}`, true); rec.Code != http.StatusConflict {
+		t.Fatalf("drain last active = %d, want 409; body=%s", rec.Code, rec.Body.String())
 	}
 
 	// The state change is attributed in its audit event. An admin bearer carries

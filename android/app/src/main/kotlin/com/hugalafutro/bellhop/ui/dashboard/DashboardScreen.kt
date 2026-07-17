@@ -504,6 +504,8 @@ private fun fleetReasonLabel(code: String): String =
     when (code) {
         "member_down" -> stringResource(R.string.fleet_reason_member_down)
         "all_members_down" -> stringResource(R.string.fleet_reason_all_members_down)
+        "member_drained" -> stringResource(R.string.fleet_reason_member_drained)
+        "drained_to_single" -> stringResource(R.string.fleet_reason_drained_to_single)
         "sync_held" -> stringResource(R.string.fleet_reason_sync_held)
         "all_sync_held" -> stringResource(R.string.fleet_reason_all_sync_held)
         "autosync_stale" -> stringResource(R.string.fleet_reason_autosync_stale)

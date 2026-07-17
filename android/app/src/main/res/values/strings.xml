@@ -28,6 +28,8 @@
     <string name="dashboard_state_faulty">Fleet faulty</string>
     <string name="fleet_reason_member_down">member down</string>
     <string name="fleet_reason_all_members_down">all members down</string>
+    <string name="fleet_reason_member_drained">member drained</string>
+    <string name="fleet_reason_drained_to_single">only one active member left</string>
     <string name="fleet_reason_sync_held">sync held</string>
     <string name="fleet_reason_all_sync_held">sync held fleet-wide</string>
     <string name="fleet_reason_autosync_stale">unsynced for over a day</string>

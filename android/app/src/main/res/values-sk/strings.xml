@@ -26,6 +26,8 @@
     <string name="dashboard_state_faulty">Flotila chybná</string>
     <string name="fleet_reason_member_down">člen mimo prevádzky</string>
     <string name="fleet_reason_all_members_down">všetci členovia mimo prevádzky</string>
+    <string name="fleet_reason_member_drained">člen odstavený</string>
+    <string name="fleet_reason_drained_to_single">zostáva len jeden aktívny člen</string>
     <string name="fleet_reason_sync_held">synchronizácia pozastavená</string>
     <string name="fleet_reason_all_sync_held">synchronizácia pozastavená v celej flotile</string>
     <string name="fleet_reason_autosync_stale">nesynchronizované viac ako deň</string>

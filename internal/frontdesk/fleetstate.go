@@ -33,8 +33,14 @@ const (
 // Reason codes carried in fleet_state_reasons and the fleet.state_changed
 // event. Wire constants: clients key translations off them, so never rename.
 const (
-	reasonMemberDown        = "member_down"
-	reasonAllMembersDown    = "all_members_down"
+	reasonMemberDown     = "member_down"
+	reasonAllMembersDown = "all_members_down"
+	// member_drained: at least one member is drained (out of the routing pool)
+	// while two or more remain active. drained_to_single: draining has left just
+	// one active member, so the fleet has no redundancy (the last active member
+	// cannot be drained, so this is the enforced floor) and is treated as faulty.
+	reasonMemberDrained     = "member_drained"
+	reasonDrainedToSingle   = "drained_to_single"
 	reasonSyncHeld          = "sync_held"
 	reasonAllSyncHeld       = "all_sync_held"
 	reasonAutosyncStale     = "autosync_stale"
@@ -50,6 +56,7 @@ const (
 // faulty; every other reason yields degraded.
 var fleetFaultyReasons = map[string]bool{
 	reasonAllMembersDown:     true,
+	reasonDrainedToSingle:    true,
 	reasonAllSyncHeld:        true,
 	reasonAutosyncStaleLong:  true,
 	reasonTraefikConfigStale: true,
@@ -57,11 +64,14 @@ var fleetFaultyReasons = map[string]bool{
 
 // memberFleetFacts is the per-member slice of the state machine's input:
 // health as confirmed by the poller (Known false means never probed, which
-// counts as neither up nor down), and whether the member is a sync-hold
-// candidate (tokened, non-primary) currently held for version skew.
+// counts as neither up nor down), whether the member is drained (pulled out of
+// the routing pool by the operator; the zero value is the common active case),
+// and whether it is a sync-hold candidate (tokened, non-primary) currently held
+// for version skew.
 type memberFleetFacts struct {
 	Known    bool
 	Healthy  bool
+	Drained  bool
 	Syncable bool
 	Held     bool
 }
@@ -76,14 +86,17 @@ type fleetStateInput struct {
 }
 
 // computeFleetState reduces the input to a state plus the active reason codes,
-// in a fixed order (health, sync holds, autosync staleness, Traefik) so equal
-// inputs always serialize identically. Pure: all live reads happen in the
+// in a fixed order (health, drain, sync holds, autosync staleness, Traefik) so
+// equal inputs always serialize identically. Pure: all live reads happen in the
 // Server wrapper (fleetStateNow), keeping this exhaustively table-testable.
 func computeFleetState(in fleetStateInput) (FleetState, []string) {
-	var down, held, syncable int
+	var down, held, syncable, drained int
 	for _, m := range in.Members {
 		if m.Known && !m.Healthy {
 			down++
+		}
+		if m.Drained {
+			drained++
 		}
 		if m.Syncable {
 			syncable++
@@ -92,6 +105,7 @@ func computeFleetState(in fleetStateInput) (FleetState, []string) {
 			}
 		}
 	}
+	active := len(in.Members) - drained
 
 	var reasons []string
 	switch {
@@ -99,6 +113,15 @@ func computeFleetState(in fleetStateInput) (FleetState, []string) {
 		reasons = append(reasons, reasonAllMembersDown)
 	case down > 0:
 		reasons = append(reasons, reasonMemberDown)
+	}
+	switch {
+	// Draining down to a single active member (or fewer, defensively — the drain
+	// guard makes zero-active unreachable) leaves no routing redundancy: faulty.
+	// Any other drain with two or more still active is a plain degradation.
+	case drained >= 1 && active <= 1:
+		reasons = append(reasons, reasonDrainedToSingle)
+	case drained >= 1:
+		reasons = append(reasons, reasonMemberDrained)
 	}
 	switch {
 	// With a single candidate there is no way to tell which side of the skew is
@@ -186,6 +209,7 @@ func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg Auto
 		facts = append(facts, memberFleetFacts{
 			Known:    st.Health.Known,
 			Healthy:  st.Health.Healthy,
+			Drained:  m.State == StateDrained,
 			Syncable: m.HasToken && m.ID != cfg.PrimaryID,
 			Held:     held[m.ID],
 		})

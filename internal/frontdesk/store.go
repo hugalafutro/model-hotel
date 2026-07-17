@@ -40,6 +40,11 @@ var (
 	// is not allowed. It is a distinct sentinel (not plain ErrValidation) so the
 	// server can hand the frontend a stable machine code instead of English text.
 	ErrInsecureURL = errors.New("frontdesk: member url must use https")
+	// ErrLastActiveMember is returned when draining a member would leave the fleet
+	// with no active (routable) members: the Traefik backend pool would be empty
+	// and all proxy traffic would fail. A distinct sentinel so the server maps it
+	// to 409 with a stable machine code rather than a generic validation 400.
+	ErrLastActiveMember = errors.New("frontdesk: cannot drain the last active member")
 )
 
 // MemberState is the operational state of a member as the control plane sees it.

@@ -329,6 +329,9 @@ describe("MembersPage", () => {
 						name: "hotel-1",
 						state: state as "active" | "drained",
 					}),
+					// A second active member so hotel-1's Drain control is enabled
+					// (the last active member cannot be drained).
+					member({ id: "2", name: "hotel-2", state: "active" }),
 				]),
 			),
 			http.post("/api/members/1/state", async ({ request }) => {
@@ -345,13 +348,18 @@ describe("MembersPage", () => {
 		);
 		renderPage();
 		await screen.findByText("hotel-1");
-		await userEvent.click(screen.getByRole("button", { name: /^Drain$/i }));
-		// The action toggles to "Activate" and the state badge flips to Drained.
-		await waitFor(() =>
-			expect(
-				screen.getByRole("button", { name: /^Activate$/i }),
-			).toBeInTheDocument(),
+		// Two active members means two Drain buttons; scope to hotel-1's row.
+		const row1 = screen.getByText("hotel-1").closest("tr") as HTMLElement;
+		await userEvent.click(
+			within(row1).getByRole("button", { name: /^Drain$/i }),
 		);
+		// The action toggles to "Activate" and the state badge flips to Drained.
+		await waitFor(() => {
+			const r = screen.getByText("hotel-1").closest("tr") as HTMLElement;
+			expect(
+				within(r).getByRole("button", { name: /^Activate$/i }),
+			).toBeInTheDocument();
+		});
 	});
 
 	it("removes a member after confirming", async () => {
@@ -441,6 +449,38 @@ describe("MembersPage", () => {
 				screen.getByRole("button", { name: /^Drain$/i }),
 			).toBeInTheDocument(),
 		);
+	});
+
+	it("disables Drain for the sole active member", async () => {
+		// One active member (plus a drained one) means draining the active one would
+		// empty the routing pool, so its Drain control is disabled.
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1", state: "active" }),
+					member({ id: "2", name: "hotel-2", state: "drained" }),
+				]),
+			),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+		expect(screen.getByRole("button", { name: /^Drain$/i })).toBeDisabled();
+	});
+
+	it("enables Drain when another active member remains", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1", state: "active" }),
+					member({ id: "2", name: "hotel-2", state: "active" }),
+				]),
+			),
+		);
+		renderPage();
+		await screen.findByText("hotel-1");
+		const drains = screen.getAllByRole("button", { name: /^Drain$/i });
+		expect(drains).toHaveLength(2);
+		for (const b of drains) expect(b).toBeEnabled();
 	});
 
 	it("shows an unknown health badge when the poller has no reading yet", async () => {

@@ -50,9 +50,11 @@ func TestCatalogTypesAreEmitted(t *testing.T) {
 }
 
 // TestMigrationSeedMatchesCatalogDefaults guards the one hand-maintained pairing:
-// migration 007 seeds alert_events with a literal CSV that must equal the DefaultOn
-// set of fdCatalog. If someone flips a DefaultOn flag without updating the SQL (or
-// vice versa) a fresh install's picker would disagree with the catalog.
+// the alert_events seed (migration 007, kept in step by later append migrations
+// 015/016/017) must, after all migrations run, equal the DefaultOn set of
+// fdCatalog. If someone flips a DefaultOn flag without adding the matching append
+// migration (or vice versa) a fresh install's picker would disagree with the
+// catalog.
 func TestMigrationSeedMatchesCatalogDefaults(t *testing.T) {
 	store := newTestStore(t)
 	set, err := store.GetSettings(context.Background())

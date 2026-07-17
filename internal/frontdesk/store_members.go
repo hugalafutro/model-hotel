@@ -111,12 +111,52 @@ func (s *Store) SetMemberToken(ctx context.Context, id, token string) error {
 	return affectedOrNotFound(res, err)
 }
 
-// SetMemberState sets a member's state (active or drained).
+// SetMemberState sets a member's state (active or drained). Draining is refused
+// when it would leave the fleet with zero active members: the Traefik backend
+// pool would be empty and all proxy traffic would fail, so at least one member
+// (the primary or any replica) must always stay routable. This guards the
+// routing-pool count, not the primary's identity, so draining the primary is
+// allowed as long as a replica is active (a legitimate maintenance action);
+// conversely the last active member cannot be drained whoever it is. Activating
+// is always allowed. The active-count check and the state write are a single
+// atomic statement, so a concurrent drain elsewhere cannot slip between them and
+// empty the pool.
 func (s *Store) SetMemberState(ctx context.Context, id string, state MemberState) error {
 	if state != StateActive && state != StateDrained {
 		return fmt.Errorf("%w: invalid state %q", ErrValidation, state)
 	}
-	return s.touchMember(ctx, `UPDATE members SET state = ?, updated_at = ? WHERE id = ?`, id, string(state))
+	if state == StateActive {
+		return s.touchMember(ctx, `UPDATE members SET state = ?, updated_at = ? WHERE id = ?`, id, string(state))
+	}
+	// Drain only if some other member is still active. The EXISTS sub-query makes
+	// the guard and the write one atomic statement (no TOCTOU with a concurrent
+	// drain that a two-step count+update would have).
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE members SET state = ?, updated_at = ?
+		WHERE id = ?
+		  AND EXISTS (SELECT 1 FROM members WHERE state = ? AND id != ?)`,
+		string(StateDrained), time.Now().UTC().UnixNano(), id, string(StateActive), id)
+	if err != nil {
+		return fmt.Errorf("frontdesk: drain member: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		// Zero rows means either the member is gone or the guard tripped;
+		// disambiguate so the server returns 404 vs 409.
+		var exists bool
+		if qerr := s.db.QueryRowContext(ctx,
+			`SELECT EXISTS(SELECT 1 FROM members WHERE id = ?)`, id).Scan(&exists); qerr != nil {
+			return fmt.Errorf("frontdesk: drain member existence check: %w", qerr)
+		}
+		if !exists {
+			return ErrNotFound
+		}
+		return ErrLastActiveMember
+	}
+	return nil
 }
 
 // DeleteMember removes a member by id.

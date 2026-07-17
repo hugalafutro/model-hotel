@@ -147,6 +147,11 @@ func TestMemberStateAndRename(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 	m, _ := s.CreateMember(ctx, "h", "http://h:8081", "")
+	// A second active member so draining the first is allowed: the guard only
+	// blocks draining the last active member (see TestSetMemberStateLastActiveGuard).
+	if _, err := s.CreateMember(ctx, "h2", "http://h2:8081", ""); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
 
 	if err := s.SetMemberState(ctx, m.ID, StateDrained); err != nil {
 		t.Fatalf("SetMemberState: %v", err)
@@ -164,6 +169,38 @@ func TestMemberStateAndRename(t *testing.T) {
 	got, _ := s.GetMember(ctx, m.ID)
 	if got.State != StateDrained || got.Name != "renamed" {
 		t.Errorf("got state=%q name=%q", got.State, got.Name)
+	}
+}
+
+func TestSetMemberStateLastActiveGuard(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	a, _ := s.CreateMember(ctx, "a", "http://a:8081", "")
+	b, _ := s.CreateMember(ctx, "b", "http://b:8081", "")
+
+	// Draining one of two active members is allowed.
+	if err := s.SetMemberState(ctx, a.ID, StateDrained); err != nil {
+		t.Fatalf("drain first of two: %v", err)
+	}
+	// Draining the now-last active member is refused, whichever member it is.
+	if err := s.SetMemberState(ctx, b.ID, StateDrained); !errors.Is(err, ErrLastActiveMember) {
+		t.Fatalf("drain last active: want ErrLastActiveMember, got %v", err)
+	}
+	// The refused drain did not apply: the member stays active.
+	if got, _ := s.GetMember(ctx, b.ID); got.State != StateActive {
+		t.Errorf("last active member state = %q, want active", got.State)
+	}
+	// Reactivating the drained one is always allowed and restores headroom, after
+	// which draining the other is allowed again.
+	if err := s.SetMemberState(ctx, a.ID, StateActive); err != nil {
+		t.Fatalf("reactivate: %v", err)
+	}
+	if err := s.SetMemberState(ctx, b.ID, StateDrained); err != nil {
+		t.Fatalf("drain after reactivate: %v", err)
+	}
+	// A drain of a nonexistent member still reports not-found, not the guard.
+	if err := s.SetMemberState(ctx, "nope", StateDrained); !errors.Is(err, ErrNotFound) {
+		t.Errorf("drain nonexistent: want ErrNotFound, got %v", err)
 	}
 }
 
