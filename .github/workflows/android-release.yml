@@ -191,7 +191,13 @@ jobs:
           gh release delete bellhop-latest --yes 2>/dev/null || true
           git push origin :refs/tags/bellhop-latest 2>/dev/null || true
           cp "bellhop-${{ steps.version.outputs.ver }}.apk" bellhop.apk
+          # --target pins the recreated tag to this commit via the API. Without it,
+          # gh reuses the stale local bellhop-latest tag the full-history checkout
+          # fetched (from the previous release) and, since that tag is no longer on
+          # the remote, refuses with "tag exists locally but has not been pushed".
+          # That broke every release after the first (the first had no prior tag).
           gh release create bellhop-latest bellhop.apk \
+            --target "${{ github.sha }}" \
             --title "Bellhop (latest: ${{ steps.version.outputs.ver }})" \
             --prerelease \
             --latest=false \
