@@ -193,7 +193,7 @@
 			"goroutines": "Aktivní goroutiny v prostředí Go (odlehčená vlákna)",
 			"requestsToday": "Počet požadavků na LLM zpracovaných prostřednictvím proxy od dnešní půlnoci místního času",
 			"dbSize": "Velikost databáze Postgres na disku",
-			"dbHitRatio": "Míra úspěšnosti zásahů do vyrovnávací paměti (čím vyšší, tím lepší)",
+			"dbHitRatio": "Míra úspěšnosti zásahů do vyrovnávací paměti za nedávnou aktivitu (čím vyšší, tím lepší; prázdné, když je databáze nečinná)",
 			"dbConnections": "Aktivní připojení k databázi",
 			"dbTxPerSec": "Počet databázových transakcí za sekundu"
 		},

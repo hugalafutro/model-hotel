@@ -193,7 +193,7 @@
 			"goroutines": "Az Active Go futásidejű goroutinek (könnyű szálak)",
 			"requestsToday": "A mai nap helyi idő szerint éjfél óta továbbított LLM-kérelmek száma",
 			"dbSize": "A Postgres adatbázis mérete a lemezen",
-			"dbHitRatio": "A puffer-cache találati aránya (minél magasabb, annál jobb)",
+			"dbHitRatio": "A puffer-cache találati aránya a legutóbbi aktivitás alapján (minél magasabb, annál jobb; üres, amíg az adatbázis tétlen)",
 			"dbConnections": "Aktív adatbázis-kapcsolatok",
 			"dbTxPerSec": "Adatbázis-tranzakciók száma másodpercenként"
 		},

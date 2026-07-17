@@ -193,7 +193,7 @@
 			"goroutines": "Gorutinas de tiempo de ejecución de Active Go (hilos ligeros)",
 			"requestsToday": "Número de peticiones LLLM reemplazadas desde medianoche hora local hoy",
 			"dbSize": "Tamaño de base de datos en el disco",
-			"dbHitRatio": "Relación de pulsación de caché de búfer (mayor es mejor)",
+			"dbHitRatio": "Relación de aciertos de caché de búfer sobre la actividad reciente (mayor es mejor; en blanco mientras la base de datos está inactiva)",
 			"dbConnections": "Conexiones activas de base de datos",
 			"dbTxPerSec": "Transacciones de base de datos por segundo"
 		},

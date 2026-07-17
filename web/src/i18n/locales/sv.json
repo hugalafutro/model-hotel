@@ -193,7 +193,7 @@
 			"goroutines": "Active Go runtime goroutiner (lätta trådar)",
 			"requestsToday": "Antal proxierade LLM-förfrågningar sedan midnatt lokal tid idag",
 			"dbSize": "Postgres databasstorlek på disk",
-			"dbHitRatio": "Buffertcachens träffförhållande (högre är bättre)",
+			"dbHitRatio": "Buffertcachens träffförhållande för senaste aktivitet (högre är bättre; tomt medan databasen är inaktiv)",
 			"dbConnections": "Aktiva databasanslutningar",
 			"dbTxPerSec": "Databastransaktioner per sekund"
 		},

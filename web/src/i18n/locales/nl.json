@@ -193,7 +193,7 @@
 			"goroutines": "Active Go runtime goroutines (lichtgewicht threads)",
 			"requestsToday": "Aantal proxied LLM aanvragen sinds middernacht lokale tijd vandaag",
 			"dbSize": "Postgres database grootte op schijf",
-			"dbHitRatio": "Buffercache hit ratio (hoger is beter)",
+			"dbHitRatio": "Buffercache hit ratio over recente activiteit (hoger is beter; leeg zolang de database inactief is)",
 			"dbConnections": "Actieve database verbindingen",
 			"dbTxPerSec": "Database transacties per seconde"
 		},

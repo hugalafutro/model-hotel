@@ -193,7 +193,7 @@
 			"goroutines": "Active Go çalışma zamanı goroutine'leri (hafif iş parçacıkları)",
 			"requestsToday": "Bugün yerel saatle gece yarısından bu yana proxy üzerinden gönderilen LLM isteklerinin sayısı",
 			"dbSize": "Diskteki Postgres veritabanı boyutu",
-			"dbHitRatio": "Tampon önbellek isabet oranı (yüksek olması daha iyidir)",
+			"dbHitRatio": "Son etkinlik üzerinden tampon önbellek isabet oranı (yüksek olması daha iyidir; veritabanı boştayken boş görünür)",
 			"dbConnections": "Etkin veritabanı bağlantıları",
 			"dbTxPerSec": "Saniye başına veritabanı işlemleri"
 		},

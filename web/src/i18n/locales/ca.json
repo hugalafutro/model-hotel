@@ -193,7 +193,7 @@
 			"goroutines": "Goroutines en execució de Go (fils lleugers)",
 			"requestsToday": "Nombre de sol·licituds a LLM gestionades per proxy des de la mitjanit hora local d'avui",
 			"dbSize": "Mida de la base de dades Postgres al disc",
-			"dbHitRatio": "Ràtio d'encerts de la memòria cau del búfer (com més alta, millor)",
+			"dbHitRatio": "Ràtio d'encerts de la memòria cau del búfer durant l'activitat recent (com més alta, millor; en blanc mentre la base de dades està inactiva)",
 			"dbConnections": "Connexions actives a la base de dades",
 			"dbTxPerSec": "Transaccions de base de dades per segon"
 		},

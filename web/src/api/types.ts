@@ -258,6 +258,10 @@ export interface SystemStats {
 		size_mb: number;
 		connections: number;
 		cache_hit_ratio: number;
+		// Block accesses behind cache_hit_ratio's sample window. Absent/zero means
+		// the ratio is not backed by fresh activity (first sample after a restart,
+		// Postgres counter reset, or an idle window).
+		cache_window_blocks?: number;
 		tx_per_sec: number;
 		dead_tuples: number;
 		lock_waits: number;

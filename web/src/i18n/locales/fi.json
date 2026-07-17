@@ -193,7 +193,7 @@
 			"goroutines": "Aktiiviset Go-ajo-goroutiinit (kevyet kierteet)",
 			"requestsToday": "Määrä proxied LLM pyyntöjä keskiyön paikallinen aika tänään",
 			"dbSize": "Postgres tietokannan koko levyllä",
-			"dbHitRatio": "Puskurin välimuistin osuma (korkeampi on parempi)",
+			"dbHitRatio": "Puskurin välimuistin osumasuhde viimeaikaisesta toiminnasta (korkeampi on parempi; tyhjä, kun tietokanta on jouten)",
 			"dbConnections": "Aktiiviset tietokantayhteydet",
 			"dbTxPerSec": "Tietokannan tapahtumat sekunnissa"
 		},

@@ -193,7 +193,7 @@
 			"goroutines": "Các goroutine đang hoạt động trong môi trường chạy Active Go (luồng nhẹ)",
 			"requestsToday": "Số lượng yêu cầu LLM được chuyển tiếp kể từ nửa đêm theo giờ địa phương hôm nay",
 			"dbSize": "Dung lượng cơ sở dữ liệu Postgres trên đĩa",
-			"dbHitRatio": "Tỷ lệ trúng bộ đệm (càng cao càng tốt)",
+			"dbHitRatio": "Tỷ lệ trúng bộ đệm trong hoạt động gần đây (càng cao càng tốt; để trống khi cơ sở dữ liệu không hoạt động)",
 			"dbConnections": "Các kết nối cơ sở dữ liệu đang hoạt động",
 			"dbTxPerSec": "Số giao dịch cơ sở dữ liệu mỗi giây"
 		},

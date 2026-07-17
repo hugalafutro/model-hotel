@@ -193,7 +193,7 @@
 			"goroutines": "Modo Go runtime goroutines (threads leve)",
 			"requestsToday": "Número de pedidos LLM de proxy desde a meia-noite local de hoje",
 			"dbSize": "Tamanho do banco de dados Postgres no disco",
-			"dbHitRatio": "Taxa de ataque do cache de buffer (maior é melhor)",
+			"dbHitRatio": "Taxa de acertos do cache de buffer sobre a atividade recente (maior é melhor; em branco enquanto o banco de dados está ocioso)",
 			"dbConnections": "Conexões ativas com base de dados",
 			"dbTxPerSec": "Transações do banco de dados por segundo"
 		},

@@ -193,7 +193,7 @@
 			"goroutines": "Aktiewe Go-uitvoer-goroutines (liggewig drade)",
 			"requestsToday": "Aantal LLM-versoeke via proxy sedert middernag plaaslike tyd vandag",
 			"dbSize": "Postgres-databasisgrootte op skyf",
-			"dbHitRatio": "Vulgeheue-trefferkoers (hoe hoër hoe beter)",
+			"dbHitRatio": "Vulgeheue-trefferkoers oor onlangse aktiwiteit (hoe hoër hoe beter; leeg terwyl die databasis ledig is)",
 			"dbConnections": "Aktiewe databasisverbindinge",
 			"dbTxPerSec": "Databasis-transaksies per sekonde"
 		},

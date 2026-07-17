@@ -193,7 +193,7 @@
 			"goroutines": "Attivo Go runtime goroutines (fili leggeri)",
 			"requestsToday": "Numero di richieste LLM proxy a partire dalla mezzanotte ora locale oggi",
 			"dbSize": "Dimensione database Postgres sul disco",
-			"dbHitRatio": "Buffer cache hit ratio (superiore è migliore)",
+			"dbHitRatio": "Buffer cache hit ratio sull'attività recente (superiore è migliore; vuoto quando il database è inattivo)",
 			"dbConnections": "Connessioni attive del database",
 			"dbTxPerSec": "Transazioni del database al secondo"
 		},

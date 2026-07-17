@@ -193,7 +193,7 @@
 			"goroutines": "실행 중인 Go 런타임 고루틴(경량 스레드)",
 			"requestsToday": "오늘 현지 시간 자정 이후 프록시를 통해 전송된 LLM 요청 건수",
 			"dbSize": "디스크상의 Postgres 데이터베이스 크기",
-			"dbHitRatio": "버퍼 캐시 적중률 (높을수록 좋음)",
+			"dbHitRatio": "최근 활동 기준 버퍼 캐시 적중률 (높을수록 좋음, 데이터베이스가 유휴 상태이면 표시되지 않음)",
 			"dbConnections": "활성 데이터베이스 연결",
 			"dbTxPerSec": "초당 데이터베이스 트랜잭션 수"
 		},

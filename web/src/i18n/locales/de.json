@@ -193,7 +193,7 @@
 			"goroutines": "Aktive Go Laufzeit-Übersicht (leichte Threads)",
 			"requestsToday": "Anzahl der proxiierten LLM-Anfragen seit Mitternacht Ortszeit heute",
 			"dbSize": "Postgres Datenbankgröße auf der Festplatte",
-			"dbHitRatio": "Puffercache Trefferverhältnis (höher ist besser)",
+			"dbHitRatio": "Puffercache-Trefferquote über die letzte Aktivität (höher ist besser; leer, solange die Datenbank inaktiv ist)",
 			"dbConnections": "Aktive Datenbankverbindungen",
 			"dbTxPerSec": "Datenbanktransaktionen pro Sekunde"
 		},
