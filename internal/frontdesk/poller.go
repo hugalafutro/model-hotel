@@ -696,6 +696,19 @@ func (p *Poller) checkConfigStaleness(ctx context.Context) {
 	}
 }
 
+// ConfigPollStale reports whether Traefik has stopped fetching the dynamic
+// config past the configured threshold: the same rule checkConfigStaleness
+// alerts on, exposed side-effect-free for the fleet state machine
+// (fleetstate.go). False while unarmed (nothing has ever polled), matching the
+// watchdog's fresh-start grace.
+func (p *Poller) ConfigPollStale(ctx context.Context) bool {
+	threshold := secs(p.settings(ctx).TraefikStaleSecs, 30)
+	p.mu.RLock()
+	last := p.lastConfigPollAt
+	p.mu.RUnlock()
+	return !last.IsZero() && p.now().Sub(last) > threshold
+}
+
 // checkAutoSyncStale emits a single warning when auto-sync is off and the fleet
 // has not been synced within autoSyncStaleThreshold (see autoSyncStale for the
 // exact rule). Like checkConfigStaleness it de-dups on an in-memory flag so it
