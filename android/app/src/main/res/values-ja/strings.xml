@@ -22,6 +22,15 @@
     <string name="dashboard_summary_all_up">すべてのメンバーが稼働中</string>
     <string name="dashboard_summary_down">%2$d 台中 %1$d 台のメンバーがダウン</string>
     <string name="dashboard_summary_checking">メンバーを確認中…</string>
+    <string name="dashboard_state_degraded">フリート劣化</string>
+    <string name="dashboard_state_faulty">フリート障害</string>
+    <string name="fleet_reason_member_down">メンバーがダウン</string>
+    <string name="fleet_reason_all_members_down">すべてのメンバーがダウン</string>
+    <string name="fleet_reason_sync_held">同期保留</string>
+    <string name="fleet_reason_all_sync_held">フリート全体で同期保留</string>
+    <string name="fleet_reason_autosync_stale">1 日以上未同期</string>
+    <string name="fleet_reason_autosync_stale_long">3 日以上未同期</string>
+    <string name="fleet_reason_traefik_config_stale">Traefik が設定を取得していません</string>
     <string name="dashboard_empty">メンバーはまだありません。Front Desk で追加してください。</string>
     <string name="dashboard_refresh_failed">更新に失敗しました: %1$s</string>
     <string name="dashboard_revoked">このデバイスは Front Desk に認証できなくなりました。アクセスが取り消された可能性があります。リンクを解除し、新しいコードで再ペア設定してください。</string>
@@ -128,6 +137,7 @@
     <string name="alerts_event_version_fetch_failed">バージョン取得に失敗</string>
     <string name="alerts_event_version_fetch_recovered">バージョン取得が復旧</string>
     <string name="alerts_event_traefik_stale">Traefik 設定が古い</string>
+    <string name="alerts_event_fleet_state_changed">フリートの状態が変化</string>
     <string name="alerts_event_member_added">メンバーを追加</string>
     <string name="alerts_event_member_removed">メンバーを削除</string>
     <string name="alerts_event_member_state_changed">メンバーをドレインまたは有効化</string>

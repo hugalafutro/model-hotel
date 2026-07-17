@@ -50,6 +50,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -246,7 +247,11 @@ fun DashboardScreen(
                         )
                     }
                 else -> {
-                    FleetSummary(members = ui.members)
+                    FleetSummary(
+                        members = ui.members,
+                        fleetState = ui.fleetState,
+                        fleetStateReasons = ui.fleetStateReasons,
+                    )
                     val listState = rememberLazyListState()
                     // Report which members are on screen so the ViewModel fetches
                     // traffic only for them (viewport-bounded fan-out; a big fleet
@@ -424,26 +429,21 @@ private fun AutoSyncControl(
     }
 }
 
-/** FleetSummary is the one-line rollup above the list: all up, or how many down. */
+/** FleetSummary is the one-line rollup above the list. It prefers the server's
+ * fleet-state verdict (state + translated reason codes) and falls back to the
+ * local all-up/down count when Front Desk predates the field. While every
+ * member is still unprobed the local "checking" line wins even over a server
+ * "ok": FD reports ok before its first probes, and "checking" is honester. */
 @Composable
 private fun FleetSummary(
     members: List<FleetMember>,
+    fleetState: String,
+    fleetStateReasons: List<String>,
     modifier: Modifier = Modifier,
 ) {
-    val down = members.count { it.status.health.known && !it.status.health.healthy }
-    val unknown = members.count { !it.status.health.known }
-    val (text, color) =
-        when {
-            down > 0 ->
-                stringResource(R.string.dashboard_summary_down, down, members.size) to
-                    MaterialTheme.colorScheme.error
-            unknown == members.size ->
-                stringResource(R.string.dashboard_summary_checking) to
-                    MaterialTheme.colorScheme.onSurfaceVariant
-            else ->
-                stringResource(R.string.dashboard_summary_all_up) to
-                    MaterialTheme.colorScheme.tertiary
-        }
+    val allUnknown = members.isNotEmpty() && members.all { !it.status.health.known }
+    val server = if (allUnknown) null else serverFleetSummary(fleetState, fleetStateReasons)
+    val (text, color) = server ?: localFleetSummary(members)
     Text(
         text = text,
         style = MaterialTheme.typography.labelLarge,
@@ -451,6 +451,66 @@ private fun FleetSummary(
         modifier = modifier.padding(bottom = 8.dp).testTag("dashboard-summary"),
     )
 }
+
+/** serverFleetSummary renders the server verdict, or null for unknown/absent
+ * states so the caller falls back to the local rollup. */
+@Composable
+private fun serverFleetSummary(
+    state: String,
+    reasons: List<String>,
+): Pair<String, Color>? {
+    val stateText =
+        when (state) {
+            "ok" -> stringResource(R.string.dashboard_summary_all_up)
+            "degraded" -> stringResource(R.string.dashboard_state_degraded)
+            "faulty" -> stringResource(R.string.dashboard_state_faulty)
+            else -> return null
+        }
+    val color =
+        when (state) {
+            "ok" -> MaterialTheme.colorScheme.tertiary
+            // Brand accent (brass on dark, copper on light) reads on the dashboard
+            // surface in both themes; SeverityWarnFg is near-black and only legible
+            // as the foreground on the orange warn badge, not as standalone text.
+            "degraded" -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.error
+        }
+    val suffix = reasons.map { fleetReasonLabel(it) }.joinToString(" · ")
+    return (if (suffix.isEmpty()) stateText else "$stateText · $suffix") to color
+}
+
+/** localFleetSummary is the pre-fleet-state rollup, kept as the fallback. */
+@Composable
+private fun localFleetSummary(members: List<FleetMember>): Pair<String, Color> {
+    val down = members.count { it.status.health.known && !it.status.health.healthy }
+    val unknown = members.count { !it.status.health.known }
+    return when {
+        down > 0 ->
+            stringResource(R.string.dashboard_summary_down, down, members.size) to
+                MaterialTheme.colorScheme.error
+        unknown == members.size ->
+            stringResource(R.string.dashboard_summary_checking) to
+                MaterialTheme.colorScheme.onSurfaceVariant
+        else ->
+            stringResource(R.string.dashboard_summary_all_up) to
+                MaterialTheme.colorScheme.tertiary
+    }
+}
+
+/** fleetReasonLabel translates a wire reason code; unknown codes (a newer
+ * server) fall back to the raw code, mirroring eventTypeLabel. */
+@Composable
+private fun fleetReasonLabel(code: String): String =
+    when (code) {
+        "member_down" -> stringResource(R.string.fleet_reason_member_down)
+        "all_members_down" -> stringResource(R.string.fleet_reason_all_members_down)
+        "sync_held" -> stringResource(R.string.fleet_reason_sync_held)
+        "all_sync_held" -> stringResource(R.string.fleet_reason_all_sync_held)
+        "autosync_stale" -> stringResource(R.string.fleet_reason_autosync_stale)
+        "autosync_stale_long" -> stringResource(R.string.fleet_reason_autosync_stale_long)
+        "traefik_config_stale" -> stringResource(R.string.fleet_reason_traefik_config_stale)
+        else -> code
+    }
 
 // The plain-text a long-press copies for a member: its name and, when known, its
 // URL on the next line, so it pastes cleanly into a note or bug report.

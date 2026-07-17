@@ -22,6 +22,15 @@
     <string name="dashboard_summary_all_up">Tous les membres actifs</string>
     <string name="dashboard_summary_down">%1$d membres sur %2$d hors service</string>
     <string name="dashboard_summary_checking">Vérification des membres…</string>
+    <string name="dashboard_state_degraded">Flotte dégradée</string>
+    <string name="dashboard_state_faulty">Flotte défaillante</string>
+    <string name="fleet_reason_member_down">membre hors service</string>
+    <string name="fleet_reason_all_members_down">tous les membres hors service</string>
+    <string name="fleet_reason_sync_held">synchronisation suspendue</string>
+    <string name="fleet_reason_all_sync_held">synchronisation suspendue sur toute la flotte</string>
+    <string name="fleet_reason_autosync_stale">non synchronisée depuis plus d\'un jour</string>
+    <string name="fleet_reason_autosync_stale_long">non synchronisée depuis plus de trois jours</string>
+    <string name="fleet_reason_traefik_config_stale">Traefik ne récupère pas la config</string>
     <string name="dashboard_empty">Aucun membre pour l\'instant. Ajoutez-les dans Front Desk.</string>
     <string name="dashboard_refresh_failed">Échec de l\'actualisation : %1$s</string>
     <string name="dashboard_revoked">Cet appareil ne peut plus s\'authentifier auprès de Front Desk. Son accès a peut-être été révoqué ; dissociez-le et associez-le à nouveau avec un nouveau code.</string>
@@ -131,6 +140,7 @@
     <string name="alerts_event_version_fetch_failed">Échec de lecture de la version</string>
     <string name="alerts_event_version_fetch_recovered">Lecture de la version rétablie</string>
     <string name="alerts_event_traefik_stale">Config Traefik obsolète</string>
+    <string name="alerts_event_fleet_state_changed">État de la flotte modifié</string>
     <string name="alerts_event_member_added">Membre ajouté</string>
     <string name="alerts_event_member_removed">Membre supprimé</string>
     <string name="alerts_event_member_state_changed">Membre drainé ou activé</string>

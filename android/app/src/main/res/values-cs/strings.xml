@@ -22,6 +22,15 @@
     <string name="dashboard_summary_all_up">Všichni členové běží</string>
     <string name="dashboard_summary_down">%1$d z %2$d členů je mimo provoz</string>
     <string name="dashboard_summary_checking">Kontrola členů…</string>
+    <string name="dashboard_state_degraded">Flotila oslabena</string>
+    <string name="dashboard_state_faulty">Flotila chybná</string>
+    <string name="fleet_reason_member_down">člen mimo provoz</string>
+    <string name="fleet_reason_all_members_down">všichni členové mimo provoz</string>
+    <string name="fleet_reason_sync_held">synchronizace pozastavena</string>
+    <string name="fleet_reason_all_sync_held">synchronizace pozastavena v celé flotile</string>
+    <string name="fleet_reason_autosync_stale">nesynchronizováno přes den</string>
+    <string name="fleet_reason_autosync_stale_long">nesynchronizováno přes tři dny</string>
+    <string name="fleet_reason_traefik_config_stale">Traefik nenačítá konfiguraci</string>
     <string name="dashboard_empty">Zatím žádní členové. Přidejte je ve Front Desku.</string>
     <string name="dashboard_refresh_failed">Nepodařilo se obnovit: %1$s</string>
     <string name="dashboard_revoked">Toto zařízení se už nemůže ověřit u Front Desku. Jeho přístup byl možná odvolán; zrušte propojení a spárujte znovu s novým kódem.</string>
@@ -137,6 +146,7 @@
     <string name="alerts_event_version_fetch_failed">Čtení verze selhalo</string>
     <string name="alerts_event_version_fetch_recovered">Čtení verze obnoveno</string>
     <string name="alerts_event_traefik_stale">Konfigurace Traefiku zastaralá</string>
+    <string name="alerts_event_fleet_state_changed">Stav flotily se změnil</string>
     <string name="alerts_event_member_added">Člen přidán</string>
     <string name="alerts_event_member_removed">Člen odebrán</string>
     <string name="alerts_event_member_state_changed">Člen odstaven nebo aktivován</string>

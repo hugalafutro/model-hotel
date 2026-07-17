@@ -41,6 +41,11 @@ data class DashboardUiState(
     // Auto-sync master toggle, from GET /api/fleet/autosync. Drives the pause/
     // resume operator control, which is only shown once a primary is configured.
     val autoSyncEnabled: Boolean = false,
+    // Server-computed fleet state + reason codes off the autosync payload;
+    // empty until fetched (or on an older Front Desk), which the summary line
+    // treats as "fall back to the local rollup".
+    val fleetState: String = "",
+    val fleetStateReasons: List<String> = emptyList(),
     // Per-member traffic for the inline card sparkline, keyed by member id and
     // filled lazily for whichever members are currently on screen (see
     // [DashboardViewModel.setVisibleMembers]). A member absent from the map just
@@ -446,6 +451,8 @@ class DashboardViewModel(
                         members = result.data,
                         primaryId = autoSync?.data?.primaryId ?: it.primaryId,
                         autoSyncEnabled = liveEnabled,
+                        fleetState = autoSync?.data?.fleetState ?: it.fleetState,
+                        fleetStateReasons = autoSync?.data?.fleetStateReasons ?: it.fleetStateReasons,
                         // Drop cached traffic for members that left the fleet so
                         // the map can't grow without bound as members churn.
                         traffic = it.traffic.filterKeys { id -> id in liveIds },
