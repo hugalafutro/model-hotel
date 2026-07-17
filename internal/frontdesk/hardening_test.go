@@ -2,12 +2,14 @@ package frontdesk
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+	"testing/fstest"
 )
 
 // stubTotpReader is a totpStatusReader whose IsEnabled result is fully scripted,
@@ -46,6 +48,73 @@ func TestTotpEnabledCacheFailsClosed(t *testing.T) {
 		c.Refresh(context.Background())
 		if c.Enabled() {
 			t.Fatal("a successful read of disabled must update the cache to false")
+		}
+	})
+}
+
+// TestSecurityHeaders guards the clickjacking fix: every Front Desk response
+// must carry the frame, content-type, referrer, and CSP hardening headers. The
+// middleware runs ahead of routing and auth, so this holds on the embedded SPA
+// (the framed surface), the authenticated API, the unauthenticated
+// compose-internal Traefik-config endpoint, and error responses (401/404)
+// alike. Front Desk stores its bearer in localStorage, so a framed same-origin
+// copy would auto-authenticate without frame-ancestors 'none' /
+// X-Frame-Options: DENY.
+func TestSecurityHeaders(t *testing.T) {
+	// Mount a stand-in SPA so "/" serves the real UI surface, not a 404.
+	ui := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte("<!doctype html><title>fd</title>")},
+	}
+	srv, _ := newTestServerUI(t, ui)
+
+	want := map[string]string{
+		"X-Content-Type-Options":  "nosniff",
+		"X-Frame-Options":         "DENY",
+		"Referrer-Policy":         "strict-origin-when-cross-origin",
+		"Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+	}
+
+	for _, tc := range []struct {
+		name     string
+		path     string
+		auth     bool
+		wantCode int
+	}{
+		{"spa index (the framed page)", "/", false, http.StatusOK},
+		{"authenticated API", "/api/members", true, http.StatusOK},
+		{"unauthenticated 401", "/api/members", false, http.StatusUnauthorized},
+		{"unauth compose-internal traefik config", "/traefik/config", false, http.StatusOK},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := do(t, srv, http.MethodGet, tc.path, "", tc.auth)
+			if rec.Code != tc.wantCode {
+				t.Fatalf("%s: status = %d, want %d", tc.path, rec.Code, tc.wantCode)
+			}
+			for h, v := range want {
+				if got := rec.Header().Get(h); got != v {
+					t.Errorf("%s: header %s = %q, want %q", tc.path, h, got, v)
+				}
+			}
+			// Plain HTTP (no TLS) must not advertise HSTS, or browsers cache a
+			// broken redirect to a non-existent HTTPS listener.
+			if got := rec.Header().Get("Strict-Transport-Security"); got != "" {
+				t.Errorf("%s: HSTS set on plain HTTP: %q", tc.path, got)
+			}
+		})
+	}
+
+	// Over TLS the same middleware advertises HSTS.
+	t.Run("hsts set over tls", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/traefik/config", http.NoBody)
+		req.TLS = &tls.ConnectionState{} // mark the request as TLS-terminated
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+		if got := rec.Header().Get("Strict-Transport-Security"); got != "max-age=63072000; includeSubDomains; preload" {
+			t.Errorf("HSTS over TLS = %q, want the preload max-age", got)
+		}
+		// Frame protection is still present over TLS.
+		if got := rec.Header().Get("X-Frame-Options"); got != "DENY" {
+			t.Errorf("X-Frame-Options over TLS = %q, want DENY", got)
 		}
 	})
 }
@@ -152,7 +221,7 @@ func TestVersionFetchFailureRaisesEvent(t *testing.T) {
 	}
 
 	// Below threshold: no event yet.
-	for i := 0; i < versionFetchFailThreshold-1; i++ {
+	for range versionFetchFailThreshold - 1 {
 		p.PollVersionsOnce(ctx)
 	}
 	if n := countEvents(t, s, "version.fetch_failed"); n != 0 {
