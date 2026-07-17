@@ -77,6 +77,11 @@ data class AutoSyncConfig(
     // member; empty until one has. Member detail shows it under the fleet-sync
     // action so the operator sees when the fleet truly last synced.
     @SerialName("last_sync_at") val lastSyncAt: String = "",
+    // Server-computed fleet state machine (ok / degraded / faulty) plus its
+    // machine-readable reason codes; empty on an older Front Desk. The
+    // dashboard prefers this verdict over its own local rollup.
+    @SerialName("fleet_state") val fleetState: String = "",
+    @SerialName("fleet_state_reasons") val fleetStateReasons: List<String> = emptyList(),
 )
 
 /**

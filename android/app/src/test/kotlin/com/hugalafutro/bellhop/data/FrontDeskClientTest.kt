@@ -354,6 +354,38 @@ class FrontDeskClientTest {
         }
 
     @Test
+    fun autoSyncParsesFleetState() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"enabled":true,"primary_id":"p1","stale":false,""" +
+                        """"fleet_state":"degraded","fleet_state_reasons":["member_down","sync_held"]}""",
+                ),
+            )
+
+            val result = client.autoSync(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            assertEquals("degraded", result.data.fleetState)
+            assertEquals(listOf("member_down", "sync_held"), result.data.fleetStateReasons)
+        }
+
+    @Test
+    fun autoSyncFleetStateDefaultsOnLegacyPayload() =
+        runBlocking {
+            // A Front Desk that predates the state machine omits both fields.
+            server.enqueue(MockResponse().setBody("""{"enabled":true,"primary_id":"p1","stale":false}"""))
+
+            val result = client.autoSync(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            assertEquals("", result.data.fleetState)
+            assertEquals(emptyList<String>(), result.data.fleetStateReasons)
+        }
+
+    @Test
     fun unlinkMalformedUrlIsFalseNotThrow() =
         runBlocking {
             assertFalse(client.unlink("not a url", "tok"))
