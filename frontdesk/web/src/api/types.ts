@@ -22,11 +22,27 @@ export interface Member {
 	last_config_sync_reason?: string;
 }
 
-// AutoSyncConfig is the automatic config-propagation setup: a master on/off plus
-// the designated source-of-truth member (empty when none is chosen).
+// FleetState is the server-computed fleet condition, spelled exactly as it
+// travels on the wire (fleet_state on GET/PUT /api/fleet/autosync). Mirrors
+// internal/frontdesk/fleetstate.go. An older backend omits it entirely.
+export type FleetState = "ok" | "degraded" | "faulty";
+
+// AutoSyncConfig is the GET/PUT /api/fleet/autosync body: the stored config (a
+// master on/off plus the designated source-of-truth member, empty when none is
+// chosen) plus the server-computed status fields folded onto the same payload
+// (see autoSyncStatus in server_settings.go). stale, last_sync_at, fleet_state,
+// and fleet_state_reasons are all optional so an older backend that omits them
+// still deserializes cleanly. fleet_state_reasons carries wire-constant reason
+// codes (member_down, all_members_down, sync_held, all_sync_held,
+// autosync_stale, autosync_stale_long, traefik_config_stale) that the client
+// translates.
 export interface AutoSyncConfig {
 	enabled: boolean;
 	primary_id: string;
+	stale?: boolean;
+	last_sync_at?: string;
+	fleet_state?: FleetState;
+	fleet_state_reasons?: string[];
 }
 
 export interface HealthStatus {

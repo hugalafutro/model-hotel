@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
-import type { MemberView } from "../api/types";
+import type { AutoSyncConfig, MemberView } from "../api/types";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { Notice } from "../components/Notice";
 import { useToast } from "../context/ToastContext";
@@ -35,37 +35,66 @@ function majorityVersion(members: MemberView[]): string | null {
 	return best;
 }
 
+// fleetStateBadgeClass maps a fleet state to its badge variant, mirroring
+// severityBadgeClass in EventsPage.tsx. Anything unrecognised (or a future
+// state) degrades to the neutral info badge rather than rendering unstyled.
+function fleetStateBadgeClass(state: string): string {
+	switch (state) {
+		case "ok":
+			return "ui-badge ui-badge-ok";
+		case "degraded":
+			return "ui-badge ui-badge-warn";
+		case "faulty":
+			return "ui-badge ui-badge-danger";
+		default:
+			return "ui-badge ui-badge-info";
+	}
+}
+
 export function MembersPage() {
 	const { t } = useTranslation();
-	const [primaryId, setPrimaryId] = useState<string | null>(null);
+	// The full auto-sync status (GET /api/fleet/autosync) drives both "who is
+	// primary" and the fleet-state badge, so the whole payload is held rather than
+	// just primary_id. Null until the first read applies.
+	const [autoSync, setAutoSync] = useState<AutoSyncConfig | null>(null);
 	// Monotonic sequence counter: refreshPrimary can be called concurrently (on
 	// mount and on SSE events), so only the newest in-flight response is applied.
 	// Without this, a slower earlier request can land after a newer one and, for
 	// example, restore the badge on a primary that was just removed. Mirrors the
 	// seqRef pattern useMembers already uses for its own refetch.
 	const primarySeqRef = useRef(0);
-	// The designated fleet primary (GET /api/fleet/autosync -> auto_sync_primary_id)
-	// is the single source of truth for "who is primary": the same value the
-	// backend delete-guard and the Fleet Sync wizard use. Null/"" when none is set.
-	// Refreshed below on the events that can change it. (This deliberately does NOT
-	// read /api/fleet/last-sync, whose primary_id is only a cosmetic "last run"
-	// marker and could name a since-removed host.)
+	// The designated fleet primary (GET /api/fleet/autosync -> primary_id) is the
+	// single source of truth for "who is primary": the same value the backend
+	// delete-guard and the Fleet Sync wizard use. The response also carries the
+	// server's fleet-state verdict for the header badge. Refreshed below on the
+	// events that can change either. (This deliberately does NOT read
+	// /api/fleet/last-sync, whose primary_id is only a cosmetic "last run" marker
+	// and could name a since-removed host.)
 	const refreshPrimary = useCallback(() => {
 		const seq = ++primarySeqRef.current;
 		api
 			.getAutoSync()
 			.then((cfg) => {
-				if (seq === primarySeqRef.current) setPrimaryId(cfg.primary_id || null);
+				if (seq === primarySeqRef.current) setAutoSync(cfg);
 			})
 			.catch(() => {});
 	}, []);
+	const primaryId = autoSync?.primary_id || null;
 	// useMembers owns the page's single SSE subscription; piggyback on it to
-	// refresh the primary when membership or a sync changes, rather than opening
-	// a second stream to /api/sse.
+	// refresh the auto-sync status when membership, a sync, health, or a fleet /
+	// Traefik signal changes, rather than opening a second stream to /api/sse.
+	// The health/fleet/traefik events are what move the fleet-state badge, so the
+	// filter is wider here than the membership-only refresh the primary needed.
 	const { members, loading, error, refetch, lastUpdatedAt } = useMembers(
 		useCallback(
 			(e) => {
-				if (e.type.startsWith("member.") || e.type.startsWith("config.")) {
+				if (
+					e.type.startsWith("member.") ||
+					e.type.startsWith("config.") ||
+					e.type.startsWith("health.") ||
+					e.type.startsWith("fleet.") ||
+					e.type.startsWith("traefik.")
+				) {
 					refreshPrimary();
 				}
 			},
@@ -125,7 +154,20 @@ export function MembersPage() {
 
 	return (
 		<div className="fd-stack">
-			<h1 className="fd-page-title">{t("members.title")}</h1>
+			<div className="fd-page-title-row">
+				<h1 className="fd-page-title">{t("members.title")}</h1>
+				{autoSync?.fleet_state && (
+					<span
+						className={fleetStateBadgeClass(autoSync.fleet_state)}
+						data-testid="fleet-state-badge"
+						title={(autoSync.fleet_state_reasons ?? [])
+							.map((r) => t(`members.fleetReason.${r}`, { defaultValue: r }))
+							.join(" · ")}
+					>
+						{t(`members.fleetState.${autoSync.fleet_state}`)}
+					</span>
+				)}
+			</div>
 
 			<div className="ui-card">
 				{loading ? (
