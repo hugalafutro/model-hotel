@@ -306,6 +306,11 @@ func translateParts(raw json.RawMessage) ([]genPart, error) {
 	for _, p := range oaiParts {
 		switch p.Type {
 		case "text":
+			// An empty text part would marshal as {} (Text is omitempty),
+			// which Gemini rejects — drop it.
+			if p.Text == "" {
+				continue
+			}
 			parts = append(parts, genPart{Text: p.Text})
 		case "image_url":
 			if p.ImageURL == nil || p.ImageURL.URL == "" {

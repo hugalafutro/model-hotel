@@ -418,6 +418,32 @@ func TestTranslateRequest_Errors(t *testing.T) {
 	}
 }
 
+func TestTranslateRequest_EmptyTextPartsSkipped(t *testing.T) {
+	// An empty text part would marshal as {} inside parts (Text has omitempty),
+	// which Gemini rejects. Empty parts are dropped; a message left with no
+	// parts is dropped entirely.
+	body := []byte(`{
+		"model": "m",
+		"messages": [
+			{"role": "user", "content": [{"type": "text", "text": ""}, {"type": "text", "text": "hi"}]},
+			{"role": "assistant", "content": [{"type": "text", "text": ""}]},
+			{"role": "user", "content": [{"type": "text", "text": "bye"}]}
+		]
+	}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest failed: %v", err)
+	}
+	contents := decodeGemini(t, out)["contents"].([]any)
+	if len(contents) != 2 {
+		t.Fatalf("contents = %v, want empty-only assistant turn dropped", contents)
+	}
+	parts := contents[0].(map[string]any)["parts"].([]any)
+	if len(parts) != 1 || parts[0].(map[string]any)["text"] != "hi" {
+		t.Errorf("parts = %v, want empty text part dropped", parts)
+	}
+}
+
 func TestTranslateRequest_NoTranslatableMessages(t *testing.T) {
 	// Gemini requires at least one contents entry (live: 400 "at least one
 	// contents field is required" for both null and []). Fail fast locally
