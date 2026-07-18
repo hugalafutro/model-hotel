@@ -22,9 +22,10 @@ type azureProjectDeployment struct {
 }
 
 // azureLegacyDeployment is one entry of the classic data-plane deployments
-// listing (GET {root}/openai/deployments?api-version=2023-03-15-preview) —
-// the only api-version that still serves the listing (GA versions dropped it);
-// live-verified 2026-07-18 on a Foundry resource.
+// listing (GET {root}/openai/deployments?api-version=2023-03-15-preview). As
+// of 2026-07-18 (live-checked on a Foundry resource) GA api-versions had
+// dropped the listing route and 2023-03-15-preview was the last one serving
+// it; if Microsoft ships a GA replacement, prefer that.
 type azureLegacyDeployment struct {
 	ID     string `json:"id"`
 	Model  string `json:"model"`
