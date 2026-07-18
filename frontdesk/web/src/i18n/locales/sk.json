@@ -101,6 +101,7 @@
 		"drain": "Vybrať z prevádzky",
 		"activate": "Aktivovať",
 		"drainTip": "Zastaví smerovanie novej prevádzky do tejto inštancie. Prebiehajúce požiadavky sa dokončia a inštancia opustí pool load balancera. Použite pred údržbou alebo odstránením.",
+		"drainLastActiveTip": "Toto je posledný aktívny člen; jeho vyprázdnenie by nechalo flotilu bez inštancie prijímajúcej prevádzku. Najprv aktivujte iného člena.",
 		"activateTip": "Vráti túto inštanciu do poolu load balancera, aby opäť prijímala prevádzku.",
 		"removeTip": "Zastaví sledovanie tejto inštancie a odoberie ju z poolu. Samotná inštancia zostane spustená a nezmenená.",
 		"latencyMs": "{{ms}} ms",
@@ -138,6 +139,8 @@
 		"fleetReason": {
 			"member_down": "člen je nedostupný",
 			"all_members_down": "všetci členovia sú nedostupní",
+			"member_drained": "člen je vyprázdnený (mimo smerovacieho poolu)",
+			"drained_to_single": "zostal len jeden aktívny člen; flotila nemá redundanciu",
 			"sync_held": "synchronizácia konfigurácie je pozastavená pre člena (rozdielne verzie)",
 			"all_sync_held": "synchronizácia konfigurácie je pozastavená u každého člena; primárny je výnimkou",
 			"autosync_stale": "automatická synchronizácia je vypnutá a flotila nebola synchronizovaná viac ako deň",

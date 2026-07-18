@@ -26,6 +26,8 @@
     <string name="dashboard_state_faulty">集群故障</string>
     <string name="fleet_reason_member_down">成员宕机</string>
     <string name="fleet_reason_all_members_down">所有成员宕机</string>
+    <string name="fleet_reason_member_drained">成员已排空</string>
+    <string name="fleet_reason_drained_to_single">仅剩一个活动成员</string>
     <string name="fleet_reason_sync_held">同步已暂停</string>
     <string name="fleet_reason_all_sync_held">整个集群同步已暂停</string>
     <string name="fleet_reason_autosync_stale">超过一天未同步</string>

@@ -101,6 +101,7 @@
 		"drain": "Drainer",
 		"activate": "Activer",
 		"drainTip": "Arrête l'envoi de nouveau trafic vers cette instance. Les requêtes en cours se terminent, puis l'instance quitte le pool du répartiteur de charge. À utiliser avant une maintenance ou un retrait.",
+		"drainLastActiveTip": "Il s'agit du dernier membre actif ; le drainer laisserait la flotte sans aucune instance recevant du trafic. Activez d'abord un autre membre.",
 		"activateTip": "Remet cette instance dans le pool du répartiteur de charge pour qu'elle reçoive à nouveau du trafic.",
 		"removeTip": "Cesse le suivi de cette instance et la retire du pool. L'instance elle-même reste en cours d'exécution, intacte.",
 		"latencyMs": "{{ms}} ms",
@@ -138,6 +139,8 @@
 		"fleetReason": {
 			"member_down": "un membre est hors ligne",
 			"all_members_down": "tous les membres sont hors ligne",
+			"member_drained": "un membre est drainé (retiré du pool de routage)",
+			"drained_to_single": "il ne reste qu'un seul membre actif ; la flotte n'a aucune redondance",
 			"sync_held": "la synchronisation de configuration est suspendue pour un membre (écart de version)",
 			"all_sync_held": "la synchronisation de configuration est suspendue pour chaque membre ; le primaire fait exception",
 			"autosync_stale": "la synchronisation automatique est désactivée et la flotte n'a pas été synchronisée depuis plus d'un jour",

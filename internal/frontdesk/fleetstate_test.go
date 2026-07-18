@@ -11,6 +11,7 @@ func TestComputeFleetState(t *testing.T) {
 	down := memberFleetFacts{Known: true, Healthy: false}
 	heldOf := func(f memberFleetFacts) memberFleetFacts { f.Syncable = true; f.Held = true; return f }
 	syncable := func(f memberFleetFacts) memberFleetFacts { f.Syncable = true; return f }
+	drainedOf := func(f memberFleetFacts) memberFleetFacts { f.Drained = true; return f }
 
 	cases := []struct {
 		name        string
@@ -40,6 +41,20 @@ func TestComputeFleetState(t *testing.T) {
 		{"single held candidate cannot prove the primary is odd",
 			fleetStateInput{Members: []memberFleetFacts{up, heldOf(up)}},
 			FleetDegraded, []string{"sync_held"}},
+		{"one drained while two-plus stay active degrades",
+			fleetStateInput{Members: []memberFleetFacts{up, up, drainedOf(up)}},
+			FleetDegraded, []string{"member_drained"}},
+		{"drained down to a single active is faulty",
+			fleetStateInput{Members: []memberFleetFacts{up, drainedOf(up)}},
+			FleetFaulty, []string{"drained_to_single"}},
+		{"all drained is faulty (defensive; the drain guard makes this unreachable)",
+			fleetStateInput{Members: []memberFleetFacts{drainedOf(up), drainedOf(up)}},
+			FleetFaulty, []string{"drained_to_single"}},
+		{"a naturally single active member (no drains) does not trigger a drain reason",
+			fleetStateInput{Members: []memberFleetFacts{up}}, FleetOK, nil},
+		{"drain and health reasons compose in fixed order",
+			fleetStateInput{Members: []memberFleetFacts{up, down, drainedOf(up)}},
+			FleetDegraded, []string{"member_down", "member_drained"}},
 		{"stale tier 1 degrades", fleetStateInput{AutoSyncTier: 1},
 			FleetDegraded, []string{"autosync_stale"}},
 		{"stale tier 2 is faulty", fleetStateInput{AutoSyncTier: 2},
@@ -200,5 +215,70 @@ func TestCheckFleetStateEmitsFaultyTransition(t *testing.T) {
 	}
 	if !reasonsContain(evs[0].Metadata, reasonAllMembersDown) {
 		t.Errorf("reasons %v missing %q", evs[0].Metadata["reasons"], reasonAllMembersDown)
+	}
+}
+
+// TestCheckFleetStateEmitsDrainTransitions drives the drain reasons through the
+// emit path end to end: member_drained -> degraded (warning) and, once drained
+// down to a single active member, drained_to_single -> faulty (error). This is
+// what makes a forgotten drain actually fire fleet.state_changed.
+func TestCheckFleetStateEmitsDrainTransitions(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+
+	m1, err := store.CreateMember(ctx, "hotel-1", "https://h1.example", "tok1")
+	if err != nil {
+		t.Fatalf("create m1: %v", err)
+	}
+	m2, err := store.CreateMember(ctx, "hotel-2", "https://h2.example", "tok2")
+	if err != nil {
+		t.Fatalf("create m2: %v", err)
+	}
+	m3, err := store.CreateMember(ctx, "hotel-3", "https://h3.example", "tok3")
+	if err != nil {
+		t.Fatalf("create m3: %v", err)
+	}
+	for _, id := range []string{m1.ID, m2.ID, m3.ID} {
+		setHealth(srv, id, true)
+	}
+
+	// Baseline ok: no transition, no event.
+	srv.checkFleetState(ctx)
+	if evs := fleetStateEvents(ctx, t, srv); len(evs) != 0 {
+		t.Fatalf("baseline emitted %d events, want 0", len(evs))
+	}
+
+	// Drain one of three -> degraded via member_drained (two still active).
+	if err := store.SetMemberState(ctx, m3.ID, StateDrained); err != nil {
+		t.Fatalf("drain m3: %v", err)
+	}
+	srv.checkFleetState(ctx)
+	evs := fleetStateEvents(ctx, t, srv)
+	if len(evs) != 1 {
+		t.Fatalf("after first drain: %d events, want 1", len(evs))
+	}
+	if evs[0].Severity != "warning" || evs[0].Metadata["to"] != "degraded" {
+		t.Errorf("first drain: severity=%q to=%v, want warning/degraded", evs[0].Severity, evs[0].Metadata["to"])
+	}
+	if !reasonsContain(evs[0].Metadata, reasonMemberDrained) {
+		t.Errorf("reasons %v missing %q", evs[0].Metadata["reasons"], reasonMemberDrained)
+	}
+
+	// Drain a second -> only one active member left -> faulty via
+	// drained_to_single (the last active member itself cannot be drained).
+	if err := store.SetMemberState(ctx, m2.ID, StateDrained); err != nil {
+		t.Fatalf("drain m2: %v", err)
+	}
+	srv.checkFleetState(ctx)
+	evs = fleetStateEvents(ctx, t, srv)
+	if len(evs) != 2 {
+		t.Fatalf("after second drain: %d events, want 2", len(evs))
+	}
+	// fleetStateEvents is newest first.
+	if evs[0].Severity != "error" || evs[0].Metadata["to"] != "faulty" {
+		t.Errorf("second drain: severity=%q to=%v, want error/faulty", evs[0].Severity, evs[0].Metadata["to"])
+	}
+	if !reasonsContain(evs[0].Metadata, reasonDrainedToSingle) {
+		t.Errorf("reasons %v missing %q", evs[0].Metadata["reasons"], reasonDrainedToSingle)
 	}
 }

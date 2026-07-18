@@ -101,6 +101,7 @@
 		"drain": "Aus dem Verkehr",
 		"activate": "Aktivieren",
 		"drainTip": "Neuen Traffic an diese Instanz stoppen. Laufende Anfragen werden abgeschlossen, dann verlässt sie den Lastverteiler-Pool. Vor Wartung oder Entfernung verwenden.",
+		"drainLastActiveTip": "Dies ist das letzte aktive Mitglied; es zu entleeren würde die Flotte ohne eine Instanz zurücklassen, die Datenverkehr empfängt. Aktivieren Sie zuerst ein anderes Mitglied.",
 		"activateTip": "Diese Instanz in den Lastverteiler-Pool zurückkehren lassen, sodass sie wieder Traffic erhält.",
 		"removeTip": "Diese Instanz nicht mehr überwachen und aus dem Pool entfernen. Die Instanz selbst läuft weiter und bleibt unangetastet.",
 		"latencyMs": "{{ms}} ms",
@@ -138,6 +139,8 @@
 		"fleetReason": {
 			"member_down": "ein Mitglied ist nicht erreichbar",
 			"all_members_down": "alle Mitglieder sind nicht erreichbar",
+			"member_drained": "ein Mitglied ist entleert (aus dem Routing-Pool genommen)",
+			"drained_to_single": "nur ein aktives Mitglied ist übrig; die Flotte hat keine Redundanz",
 			"sync_held": "Config-Sync ist für ein Mitglied angehalten (Versionsabweichung)",
 			"all_sync_held": "Config-Sync ist für jedes Mitglied angehalten; der Primär ist die Ausnahme",
 			"autosync_stale": "Auto-Sync ist aus und die Flotte wurde seit über einem Tag nicht synchronisiert",

@@ -26,6 +26,8 @@
     <string name="dashboard_state_faulty">Flotte défaillante</string>
     <string name="fleet_reason_member_down">membre hors service</string>
     <string name="fleet_reason_all_members_down">tous les membres hors service</string>
+    <string name="fleet_reason_member_drained">membre drainé</string>
+    <string name="fleet_reason_drained_to_single">un seul membre actif restant</string>
     <string name="fleet_reason_sync_held">synchronisation suspendue</string>
     <string name="fleet_reason_all_sync_held">synchronisation suspendue sur toute la flotte</string>
     <string name="fleet_reason_autosync_stale">non synchronisée depuis plus d\'un jour</string>

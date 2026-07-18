@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -480,11 +483,22 @@ open class FrontDeskClient(
     private fun errorMessage(
         text: String,
         code: Int,
-    ): String =
+    ): String {
+        // Front Desk speaks two error envelopes: a nested {"error":{code,message}}
+        // and a flat {"code","error":"..."} (writeCodedError, e.g. the last-active
+        // drain 409). Try the nested form first, then the flat one, so the operator
+        // sees the real reason rather than a bare status code.
         runCatching { json.decodeFromString<ApiError>(text).error?.message }
             .getOrNull()
             ?.takeIf { it.isNotBlank() }
-            ?: "request failed ($code)"
+            ?.let { return it }
+        runCatching {
+            json.parseToJsonElement(text).jsonObject["error"]?.jsonPrimitive?.contentOrNull
+        }.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { return it }
+        return "request failed ($code)"
+    }
 
     private fun base(fdUrl: String): String = fdUrl.trim().trimEnd('/')
 

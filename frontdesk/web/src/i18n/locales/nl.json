@@ -101,6 +101,7 @@
 		"drain": "Drainen",
 		"activate": "Activeren",
 		"drainTip": "Stop met het versturen van nieuw verkeer naar dit exemplaar. Lopende verzoeken worden afgemaakt, waarna deze uit de load-balancer-pool verdwijnt. Gebruik vóór onderhoud of verwijdering.",
+		"drainLastActiveTip": "Dit is het laatste actieve lid; als je het draineert, ontvangt geen enkele instantie in de vloot nog verkeer. Activeer eerst een ander lid.",
 		"activateTip": "Voeg dit exemplaar weer toe aan de load-balancer-pool zodat het weer verkeer ontvangt.",
 		"removeTip": "Stop met het volgen van dit exemplaar en verwijder het uit de pool. Het exemplaar zelf blijft draaien en onaangeroerd.",
 		"latencyMs": "{{ms}} ms",
@@ -138,6 +139,8 @@
 		"fleetReason": {
 			"member_down": "een member is onbereikbaar",
 			"all_members_down": "alle members zijn onbereikbaar",
+			"member_drained": "een lid is gedraineerd (uit de routeringspool gehaald)",
+			"drained_to_single": "er is nog maar één actief lid; de vloot heeft geen redundantie",
 			"sync_held": "config-sync wordt aangehouden voor een member (versieverschil)",
 			"all_sync_held": "config-sync wordt aangehouden voor elke member; de primaire is de uitzondering",
 			"autosync_stale": "auto-sync staat uit en de vloot is al meer dan een dag niet gesynchroniseerd",

@@ -101,6 +101,7 @@
 		"drain": "Drain",
 		"activate": "Activate",
 		"drainTip": "Stop sending new traffic to this instance. In-flight requests finish, then it leaves the load-balancer pool. Use before maintenance or removal.",
+		"drainLastActiveTip": "This is the last active member; draining it would leave the fleet with no instance receiving traffic. Activate another member first.",
 		"activateTip": "Return this instance to the load-balancer pool so it receives traffic again.",
 		"removeTip": "Stop tracking this instance and drop it from the pool. The instance itself is left running and untouched.",
 		"latencyMs": "{{ms}} ms",
@@ -138,6 +139,8 @@
 		"fleetReason": {
 			"member_down": "a member is down",
 			"all_members_down": "all members are down",
+			"member_drained": "a member is drained (out of the routing pool)",
+			"drained_to_single": "only one active member is left; the fleet has no redundancy",
 			"sync_held": "config sync is held for a member (version skew)",
 			"all_sync_held": "config sync is held for every member; the primary is the odd one out",
 			"autosync_stale": "auto-sync is off and the fleet has not been synced in over a day",

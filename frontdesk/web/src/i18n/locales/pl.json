@@ -101,6 +101,7 @@
 		"drain": "Odłącz",
 		"activate": "Aktywuj",
 		"drainTip": "Zatrzymaj kierowanie nowego ruchu do tej instancji. Żądania w toku zostaną zakończone, po czym instancja opuści pulę balansera obciążenia. Używaj przed konserwacją lub usunięciem.",
+		"drainLastActiveTip": "To ostatni aktywny członek; jego wyłączenie sprawiłoby, że żadna instancja nie odbierałaby ruchu. Najpierw aktywuj innego członka.",
 		"activateTip": "Przywróć tę instancję do puli balansera obciążenia, aby ponownie odbierała ruch.",
 		"removeTip": "Zatrzymaj monitorowanie tej instancji i usuń ją z puli. Sama instancja pozostaje uruchomiona i nietknięta.",
 		"latencyMs": "{{ms}} ms",
@@ -138,6 +139,8 @@
 		"fleetReason": {
 			"member_down": "członek nie działa",
 			"all_members_down": "wszyscy członkowie nie działają",
+			"member_drained": "członek jest wyłączony (usunięty z puli routingu)",
+			"drained_to_single": "pozostał tylko jeden aktywny członek; flota nie ma nadmiarowości",
 			"sync_held": "synchronizacja konfiguracji jest wstrzymana dla członka (rozbieżność wersji)",
 			"all_sync_held": "synchronizacja konfiguracji jest wstrzymana dla każdego członka; główny jest wyjątkiem",
 			"autosync_stale": "auto-synchronizacja jest wyłączona, a flota nie była synchronizowana od ponad dnia",

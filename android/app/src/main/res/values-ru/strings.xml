@@ -26,6 +26,8 @@
     <string name="dashboard_state_faulty">Флот неисправен</string>
     <string name="fleet_reason_member_down">узел недоступен</string>
     <string name="fleet_reason_all_members_down">все узлы недоступны</string>
+    <string name="fleet_reason_member_drained">узел выведен</string>
+    <string name="fleet_reason_drained_to_single">остался только один активный узел</string>
     <string name="fleet_reason_sync_held">синхронизация приостановлена</string>
     <string name="fleet_reason_all_sync_held">синхронизация приостановлена во всём флоте</string>
     <string name="fleet_reason_autosync_stale">не синхронизирован более суток</string>

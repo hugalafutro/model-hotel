@@ -46,8 +46,10 @@ var fdCatalog = []alert.EventDef{
 	// Traefik dynamic-config staleness.
 	{Type: "traefik.stale", Category: "Routing", Severity: "warning", DefaultOn: false},
 	// The fleet state machine crossed a boundary (ok/degraded/faulty). Reason
-	// codes ride the event metadata; severity mirrors the state entered.
-	{Type: "fleet.state_changed", Category: "Health", Severity: "warning", DefaultOn: false},
+	// codes ride the event metadata; severity mirrors the state entered. Default-on
+	// so a degrade/faulty transition (including a forgotten drain) pages the
+	// operator without them having to opt in; migration 017 brings the seed in line.
+	{Type: "fleet.state_changed", Category: "Health", Severity: "warning", DefaultOn: true},
 	// Fleet roster + drain/active changes.
 	{Type: "member.added", Category: "Membership", Severity: "info", DefaultOn: false},
 	{Type: "member.removed", Category: "Membership", Severity: "info", DefaultOn: false},

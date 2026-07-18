@@ -654,6 +654,21 @@ class FrontDeskClientTest {
         }
 
     @Test
+    fun setMemberStateLastActiveIsFailureWithMessage() =
+        runBlocking {
+            // 409 last_active_member uses Front Desk's flat coded-error envelope
+            // ({"code","error":"..."}); the message must surface, not a bare status.
+            server.enqueue(
+                MockResponse().setResponseCode(409).setBody(
+                    """{"code":"last_active_member","error":"cannot drain the last active member"}""",
+                ),
+            )
+            val result = client.setMemberState(server.url("/").toString(), "tok-1", "m1", "drained")
+            assertTrue(result is ActionResult.Failure)
+            assertTrue((result as ActionResult.Failure).message.contains("last active member"))
+        }
+
+    @Test
     fun setMemberStateServerErrorIsFailure() =
         runBlocking {
             server.enqueue(MockResponse().setResponseCode(500).setBody("boom"))

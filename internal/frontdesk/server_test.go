@@ -162,7 +162,7 @@ func TestServerTraefikConfigUnauthenticatedAndRecordsPoll(t *testing.T) {
 }
 
 func TestServerMemberCRUD(t *testing.T) {
-	srv, _ := newTestServer(t)
+	srv, store := newTestServer(t)
 	// A member is only added once it replies and verifies (token accepted, not the
 	// primary), so point the add at a stand-in that answers 200 and self-reports
 	// is_primary=false.
@@ -208,9 +208,30 @@ func TestServerMemberCRUD(t *testing.T) {
 		t.Fatalf("patch = %d, want 200; body=%s", rec.Code, rec.Body.String())
 	}
 
-	// Set state to drained.
+	// A second active member so the drain below is allowed: the last active member
+	// cannot be drained. Added via the store to skip the add-time host handshake.
+	second, err := store.CreateMember(context.Background(), "hotel-2", "http://hotel-2:8081", "")
+	if err != nil {
+		t.Fatalf("second member: %v", err)
+	}
+
+	// Set state to drained (allowed: hotel-2 stays active).
 	if rec := do(t, srv, http.MethodPost, "/api/members/"+created.ID+"/state", `{"state":"drained"}`, true); rec.Code != http.StatusOK {
 		t.Fatalf("state = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Draining the now-last active member (hotel-2) is refused with 409 carrying
+	// the stable machine code (not just the English text) so clients route on it.
+	drainRec := do(t, srv, http.MethodPost, "/api/members/"+second.ID+"/state", `{"state":"drained"}`, true)
+	if drainRec.Code != http.StatusConflict {
+		t.Fatalf("drain last active = %d, want 409; body=%s", drainRec.Code, drainRec.Body.String())
+	}
+	var coded map[string]string
+	if err := json.Unmarshal(drainRec.Body.Bytes(), &coded); err != nil {
+		t.Fatalf("decode 409 body: %v; body=%s", err, drainRec.Body.String())
+	}
+	if coded["code"] != "last_active_member" {
+		t.Errorf("409 code = %q, want %q; body=%s", coded["code"], "last_active_member", drainRec.Body.String())
 	}
 
 	// The state change is attributed in its audit event. An admin bearer carries
@@ -561,6 +582,41 @@ func TestServerCannotDeletePrimary(t *testing.T) {
 	cfg, _ := store.GetAutoSync(ctx)
 	if cfg.PrimaryID != pm.ID {
 		t.Errorf("primary_id = %q after refused deletes, want %q", cfg.PrimaryID, pm.ID)
+	}
+}
+
+// TestDeleteLastActiveMemberReturns409 covers the delete door of the routing-pool
+// guard over HTTP: with the primary drained, removing the sole active replica is
+// refused with 409 carrying the stable last_active_member code.
+func TestDeleteLastActiveMemberReturns409(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+	pm, err := store.CreateMember(ctx, "primary", "https://p.example.com", "ptok")
+	if err != nil {
+		t.Fatalf("create primary: %v", err)
+	}
+	rm, err := store.CreateMember(ctx, "replica", "https://r.example.com", "rtok")
+	if err != nil {
+		t.Fatalf("create replica: %v", err)
+	}
+	if rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
+		`{"enabled":false,"primary_id":"`+pm.ID+`"}`, true); rec.Code != http.StatusOK {
+		t.Fatalf("designate primary = %d; body=%s", rec.Code, rec.Body.String())
+	}
+	// Drain the primary so the replica is the only active member.
+	if err := store.SetMemberState(ctx, pm.ID, StateDrained); err != nil {
+		t.Fatalf("drain primary: %v", err)
+	}
+	rec := do(t, srv, http.MethodDelete, "/api/members/"+rm.ID, "", true)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("delete last active = %d, want 409; body=%s", rec.Code, rec.Body.String())
+	}
+	var coded map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &coded); err != nil {
+		t.Fatalf("decode 409 body: %v; body=%s", err, rec.Body.String())
+	}
+	if coded["code"] != "last_active_member" {
+		t.Errorf("409 code = %q, want %q; body=%s", coded["code"], "last_active_member", rec.Body.String())
 	}
 }
 

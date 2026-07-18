@@ -101,6 +101,7 @@
 		"drain": "排空",
 		"activate": "激活",
 		"drainTip": "停止向此实例发送新流量。正在进行的请求会完成，然后该实例退出负载均衡池。在维护或移除前使用。",
+		"drainLastActiveTip": "这是最后一个活动成员；排空它会使整个集群没有任何实例接收流量。请先激活另一个成员。",
 		"activateTip": "将此实例重新加入负载均衡池，使其恢复接收流量。",
 		"removeTip": "停止跟踪此实例并将其从负载均衡池中移除。实例本身保持运行，不受影响。",
 		"latencyMs": "{{ms}} ms",
@@ -138,6 +139,8 @@
 		"fleetReason": {
 			"member_down": "一个成员离线",
 			"all_members_down": "所有成员均离线",
+			"member_drained": "某个成员已排空（移出路由池）",
+			"drained_to_single": "仅剩一个活动成员；集群没有冗余",
 			"sync_held": "某个成员的配置同步已暂停（版本不一致）",
 			"all_sync_held": "每个成员的配置同步均已暂停；仅主节点例外",
 			"autosync_stale": "自动同步已关闭，且集群超过一天未同步",

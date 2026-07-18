@@ -147,6 +147,11 @@ func TestMemberStateAndRename(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 	m, _ := s.CreateMember(ctx, "h", "http://h:8081", "")
+	// A second active member so draining the first is allowed: the guard only
+	// blocks draining the last active member (see TestSetMemberStateLastActiveGuard).
+	if _, err := s.CreateMember(ctx, "h2", "http://h2:8081", ""); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
 
 	if err := s.SetMemberState(ctx, m.ID, StateDrained); err != nil {
 		t.Fatalf("SetMemberState: %v", err)
@@ -164,6 +169,38 @@ func TestMemberStateAndRename(t *testing.T) {
 	got, _ := s.GetMember(ctx, m.ID)
 	if got.State != StateDrained || got.Name != "renamed" {
 		t.Errorf("got state=%q name=%q", got.State, got.Name)
+	}
+}
+
+func TestSetMemberStateLastActiveGuard(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	a, _ := s.CreateMember(ctx, "a", "http://a:8081", "")
+	b, _ := s.CreateMember(ctx, "b", "http://b:8081", "")
+
+	// Draining one of two active members is allowed.
+	if err := s.SetMemberState(ctx, a.ID, StateDrained); err != nil {
+		t.Fatalf("drain first of two: %v", err)
+	}
+	// Draining the now-last active member is refused, whichever member it is.
+	if err := s.SetMemberState(ctx, b.ID, StateDrained); !errors.Is(err, ErrLastActiveMember) {
+		t.Fatalf("drain last active: want ErrLastActiveMember, got %v", err)
+	}
+	// The refused drain did not apply: the member stays active.
+	if got, _ := s.GetMember(ctx, b.ID); got.State != StateActive {
+		t.Errorf("last active member state = %q, want active", got.State)
+	}
+	// Reactivating the drained one is always allowed and restores headroom, after
+	// which draining the other is allowed again.
+	if err := s.SetMemberState(ctx, a.ID, StateActive); err != nil {
+		t.Fatalf("reactivate: %v", err)
+	}
+	if err := s.SetMemberState(ctx, b.ID, StateDrained); err != nil {
+		t.Fatalf("drain after reactivate: %v", err)
+	}
+	// A drain of a nonexistent member still reports not-found, not the guard.
+	if err := s.SetMemberState(ctx, "nope", StateDrained); !errors.Is(err, ErrNotFound) {
+		t.Errorf("drain nonexistent: want ErrNotFound, got %v", err)
 	}
 }
 
@@ -468,6 +505,61 @@ func TestDeleteMemberIfNotPrimary(t *testing.T) {
 	}
 }
 
+// TestDeleteMemberLastActiveGuard covers the delete door of the routing-pool
+// invariant: removing an active member is refused when it is the last active one,
+// so a drained primary plus a delete of the sole active replica cannot empty the
+// Traefik pool. Deleting a drained member is always allowed.
+func TestDeleteMemberLastActiveGuard(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	pm, err := s.CreateMember(ctx, "primary", "https://p.example.com", "ptok")
+	if err != nil {
+		t.Fatalf("create primary: %v", err)
+	}
+	rm, err := s.CreateMember(ctx, "replica", "https://r.example.com", "rtok")
+	if err != nil {
+		t.Fatalf("create replica: %v", err)
+	}
+	dm, err := s.CreateMember(ctx, "spare", "https://s.example.com", "stok")
+	if err != nil {
+		t.Fatalf("create spare: %v", err)
+	}
+	if _, err := s.SetAutoSyncGuarded(ctx, false, pm.ID, true); err != nil {
+		t.Fatalf("set primary: %v", err)
+	}
+
+	// A drained member is always removable (it is not in the routing pool), even
+	// though two active members remain.
+	if err := s.SetMemberState(ctx, dm.ID, StateDrained); err != nil {
+		t.Fatalf("drain spare: %v", err)
+	}
+	if applied, err := s.DeleteMemberIfNotPrimary(ctx, dm.ID); err != nil || !applied {
+		t.Fatalf("delete drained spare: applied=%v err=%v, want applied", applied, err)
+	}
+
+	// Drain the primary (allowed: the replica stays active), leaving the replica
+	// as the only active member.
+	if err := s.SetMemberState(ctx, pm.ID, StateDrained); err != nil {
+		t.Fatalf("drain primary: %v", err)
+	}
+	// Deleting that sole active replica would empty the pool: refused.
+	if applied, err := s.DeleteMemberIfNotPrimary(ctx, rm.ID); applied || !errors.Is(err, ErrLastActiveMember) {
+		t.Fatalf("delete last active replica: applied=%v err=%v, want ErrLastActiveMember", applied, err)
+	}
+	if _, err := s.GetMember(ctx, rm.ID); err != nil {
+		t.Errorf("replica should still exist after a refused delete: %v", err)
+	}
+
+	// Reactivating the primary restores headroom; the replica then deletes.
+	if err := s.SetMemberState(ctx, pm.ID, StateActive); err != nil {
+		t.Fatalf("reactivate primary: %v", err)
+	}
+	if applied, err := s.DeleteMemberIfNotPrimary(ctx, rm.ID); err != nil || !applied {
+		t.Fatalf("delete replica after reactivate: applied=%v err=%v, want applied", applied, err)
+	}
+}
+
 func TestDeleteMemberClearsGhostFleetState(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
@@ -477,6 +569,11 @@ func TestDeleteMemberClearsGhostFleetState(t *testing.T) {
 	gm, err := s.CreateMember(ctx, "ghost", "https://g.example.com", "")
 	if err != nil {
 		t.Fatalf("create ghost: %v", err)
+	}
+	// A second active member so deleting the ghost is allowed (the last active
+	// member cannot be removed; see TestDeleteMemberLastActiveGuard).
+	if _, err := s.CreateMember(ctx, "keep", "https://k.example.com", ""); err != nil {
+		t.Fatalf("create keep: %v", err)
 	}
 	if err := s.SetFleetSyncState(ctx, gm.ID, "ghost", time.Now()); err != nil {
 		t.Fatalf("seed fleet sync state: %v", err)

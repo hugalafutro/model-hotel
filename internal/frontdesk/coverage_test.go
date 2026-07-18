@@ -114,7 +114,7 @@ func TestPollHealthOnceReportsDown(t *testing.T) {
 // TestServerSettingsEventsAndMemberMutations drives the settings, events, and
 // member-mutation handlers (happy and error paths) over HTTP.
 func TestServerSettingsEventsAndMemberMutations(t *testing.T) {
-	srv, _ := newTestServer(t)
+	srv, store := newTestServer(t)
 
 	// An add now requires a verified reply: point it at a stand-in that answers
 	// the token probe and self-reports is_primary=false.
@@ -160,6 +160,11 @@ func TestServerSettingsEventsAndMemberMutations(t *testing.T) {
 	}
 	if rec := do(t, srv, http.MethodPatch, "/api/members/does-not-exist", `{"name":"x"}`, true); rec.Code == http.StatusOK {
 		t.Errorf("patch missing member should fail, got %d", rec.Code)
+	}
+	// A second active member so draining m1 is allowed (the last active member
+	// cannot be drained). Added via the store to skip the add-time host handshake.
+	if _, err := store.CreateMember(context.Background(), "m2", "http://m2:8081", ""); err != nil {
+		t.Fatalf("second member: %v", err)
 	}
 	if rec := do(t, srv, http.MethodPost, "/api/members/"+id+"/state", `{"state":"drained"}`, true); rec.Code != http.StatusOK {
 		t.Errorf("set member state = %d: %s", rec.Code, rec.Body.String())

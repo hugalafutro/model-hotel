@@ -111,12 +111,52 @@ func (s *Store) SetMemberToken(ctx context.Context, id, token string) error {
 	return affectedOrNotFound(res, err)
 }
 
-// SetMemberState sets a member's state (active or drained).
+// SetMemberState sets a member's state (active or drained). Draining is refused
+// when it would leave the fleet with zero active members: the Traefik backend
+// pool would be empty and all proxy traffic would fail, so at least one member
+// (the primary or any replica) must always stay routable. This guards the
+// routing-pool count, not the primary's identity, so draining the primary is
+// allowed as long as a replica is active (a legitimate maintenance action);
+// conversely the last active member cannot be drained whoever it is. Activating
+// is always allowed. The active-count check and the state write are a single
+// atomic statement, so a concurrent drain elsewhere cannot slip between them and
+// empty the pool.
 func (s *Store) SetMemberState(ctx context.Context, id string, state MemberState) error {
 	if state != StateActive && state != StateDrained {
 		return fmt.Errorf("%w: invalid state %q", ErrValidation, state)
 	}
-	return s.touchMember(ctx, `UPDATE members SET state = ?, updated_at = ? WHERE id = ?`, id, string(state))
+	if state == StateActive {
+		return s.touchMember(ctx, `UPDATE members SET state = ?, updated_at = ? WHERE id = ?`, id, string(state))
+	}
+	// Drain only if some other member is still active. The EXISTS sub-query makes
+	// the guard and the write one atomic statement (no TOCTOU with a concurrent
+	// drain that a two-step count+update would have).
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE members SET state = ?, updated_at = ?
+		WHERE id = ?
+		  AND EXISTS (SELECT 1 FROM members WHERE state = ? AND id != ?)`,
+		string(StateDrained), time.Now().UTC().UnixNano(), id, string(StateActive), id)
+	if err != nil {
+		return fmt.Errorf("frontdesk: drain member: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		// Zero rows means either the member is gone or the guard tripped;
+		// disambiguate so the server returns 404 vs 409.
+		var exists bool
+		if qerr := s.db.QueryRowContext(ctx,
+			`SELECT EXISTS(SELECT 1 FROM members WHERE id = ?)`, id).Scan(&exists); qerr != nil {
+			return fmt.Errorf("frontdesk: drain member existence check: %w", qerr)
+		}
+		if !exists {
+			return ErrNotFound
+		}
+		return ErrLastActiveMember
+	}
+	return nil
 }
 
 // DeleteMember removes a member by id.
@@ -161,14 +201,19 @@ func (s *Store) DeleteMemberIfNotPrimary(ctx context.Context, id string) (applie
 	}
 	defer tx.Rollback() //nolint:errcheck // rollback after a successful commit is a no-op
 
-	// Delete only if the member is NOT the fleet primary. The sub-query makes the
-	// check and the delete a single atomic statement, so a concurrent primary
-	// reassignment cannot slip between the check and the delete.
+	// Delete only if the member is NOT the fleet primary AND removing it would not
+	// empty the routing pool (an active member must never be the last active one:
+	// that is the same invariant SetMemberState enforces for draining, reached
+	// here via the delete door). Draining a drained member is always safe (it is
+	// already out of the pool). The sub-queries make the checks and the delete a
+	// single atomic statement, so a concurrent repoint or drain cannot slip
+	// between the check and the delete.
 	res, err := tx.ExecContext(ctx, `
 		DELETE FROM members
 		WHERE id = ?
-		  AND id NOT IN (SELECT auto_sync_primary_id FROM settings WHERE id = 1)`,
-		id)
+		  AND id NOT IN (SELECT auto_sync_primary_id FROM settings WHERE id = 1)
+		  AND (state != ? OR EXISTS (SELECT 1 FROM members WHERE state = ? AND id != ?))`,
+		id, string(StateActive), string(StateActive), id)
 	if err != nil {
 		return false, fmt.Errorf("frontdesk: delete member: %w", err)
 	}
@@ -177,7 +222,20 @@ func (s *Store) DeleteMemberIfNotPrimary(ctx context.Context, id string) (applie
 		return false, err
 	}
 	if n == 0 {
-		return false, nil
+		// Not deleted: either the member is the primary (existing refusal, reported
+		// as applied=false) or it is the last active member (new routing-pool
+		// guard). The caller has already confirmed the member exists, so
+		// disambiguate the two so the server returns the right 409.
+		var isPrimary bool
+		if err := tx.QueryRowContext(ctx,
+			`SELECT EXISTS(SELECT 1 FROM settings WHERE id = 1 AND auto_sync_primary_id = ?)`,
+			id).Scan(&isPrimary); err != nil {
+			return false, fmt.Errorf("frontdesk: delete member primary check: %w", err)
+		}
+		if isPrimary {
+			return false, nil
+		}
+		return false, ErrLastActiveMember
 	}
 	// A removed non-primary member must not linger as the auto-sync primary (it
 	// never should, but stay defensive) nor as the stale "last run" marker.

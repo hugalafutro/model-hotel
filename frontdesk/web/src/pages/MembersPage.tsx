@@ -119,6 +119,9 @@ export function MembersPage() {
 				...members.filter((m) => m.id !== primaryId),
 			]
 		: members;
+	// At most one active member means draining the active one would empty the
+	// routing pool, so its drain control is disabled (the backend also refuses it).
+	const soleActive = members.filter((m) => m.state === "active").length <= 1;
 
 	const setState = async (m: MemberView, state: "active" | "drained") => {
 		try {
@@ -199,6 +202,7 @@ export function MembersPage() {
 									groupVersion={primaryId ? null : groupVersion}
 									primaryVersion={primaryVersion}
 									isPrimary={m.id === primaryId}
+									soleActive={soleActive}
 									onSetState={setState}
 									onRemove={() => setRemoving(m)}
 								/>
@@ -249,6 +253,7 @@ function MemberRow({
 	groupVersion,
 	primaryVersion,
 	isPrimary,
+	soleActive,
 	onSetState,
 	onRemove,
 }: {
@@ -258,6 +263,10 @@ function MemberRow({
 	// version is unknown). Non-null anchors the "sync held" badge.
 	primaryVersion: string | null;
 	isPrimary: boolean;
+	// True when the fleet has at most one active member. The drain control is
+	// disabled for the active member in that case: draining the last active member
+	// would empty the routing pool (the backend refuses it with a 409).
+	soleActive: boolean;
 	onSetState: (m: MemberView, state: "active" | "drained") => void;
 	onRemove: () => void;
 }) {
@@ -421,7 +430,15 @@ function MemberRow({
 						<button
 							type="button"
 							className="ui-btn ui-btn-sm"
-							title={t("members.drainTip")}
+							// The last active member cannot be drained: the routing pool
+							// would be empty and all proxy traffic would fail. The backend
+							// enforces this with a 409; disabling here avoids a doomed tap.
+							title={
+								soleActive
+									? t("members.drainLastActiveTip")
+									: t("members.drainTip")
+							}
+							disabled={soleActive}
 							onClick={() => onSetState(m, "drained")}
 						>
 							{t("members.drain")}

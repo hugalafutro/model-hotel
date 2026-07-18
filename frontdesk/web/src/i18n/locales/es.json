@@ -101,6 +101,7 @@
 		"drain": "Retirar",
 		"activate": "Activar",
 		"drainTip": "Deja de enviar tráfico nuevo a esta instancia. Las peticiones en curso terminan y luego sale del conjunto del balanceador de carga. Úsalo antes de mantenimiento o eliminación.",
+		"drainLastActiveTip": "Este es el último miembro activo; drenarlo dejaría la flota sin ninguna instancia recibiendo tráfico. Activa antes otro miembro.",
 		"activateTip": "Devuelve esta instancia al conjunto del balanceador de carga para que reciba tráfico de nuevo.",
 		"removeTip": "Deja de rastrear esta instancia y la saca del conjunto. La instancia en sí sigue en ejecución y no se modifica.",
 		"latencyMs": "{{ms}} ms",
@@ -138,6 +139,8 @@
 		"fleetReason": {
 			"member_down": "un miembro está caído",
 			"all_members_down": "todos los miembros están caídos",
+			"member_drained": "un miembro está drenado (fuera del grupo de enrutamiento)",
+			"drained_to_single": "solo queda un miembro activo; la flota no tiene redundancia",
 			"sync_held": "la sincronización de configuración está retenida para un miembro (desfase de versiones)",
 			"all_sync_held": "la sincronización de configuración está retenida en todos los miembros; el principal es la excepción",
 			"autosync_stale": "la sincronización automática está desactivada y la flota no se ha sincronizado en más de un día",

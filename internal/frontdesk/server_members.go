@@ -248,6 +248,14 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 	// race past the check.
 	applied, err := s.store.DeleteMemberIfNotPrimary(r.Context(), id)
 	if err != nil {
+		// Removing the last active member would empty the routing pool; refuse with
+		// the same stable code the drain guard uses (drain first is not enough here:
+		// the member must first be reactivated elsewhere or another member added).
+		if errors.Is(err, ErrLastActiveMember) {
+			writeCodedError(w, http.StatusConflict, "last_active_member",
+				"cannot remove the last active member: the fleet would have no routable backends")
+			return
+		}
 		writeError(w, err)
 		return
 	}
@@ -273,6 +281,13 @@ func (s *Server) setMemberState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.SetMemberState(r.Context(), id, req.State); err != nil {
+		// Draining the last active member would empty the routing pool; refuse with
+		// a stable code so the client can translate rather than match English.
+		if errors.Is(err, ErrLastActiveMember) {
+			writeCodedError(w, http.StatusConflict, "last_active_member",
+				"cannot drain the last active member: the fleet would have no routable backends")
+			return
+		}
 		writeError(w, err)
 		return
 	}
