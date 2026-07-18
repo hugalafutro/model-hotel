@@ -348,7 +348,7 @@ The `ValidateProviderURL` function enforces multiple security checks to prevent 
 3. **IP resolution check** - All resolved IPs are checked for loopback addresses (blocks DNS rebinding)
 4. **IPv6 loopback** - `::1` and IPv6-mapped loopback addresses are blocked
 5. **Allowed hosts** - Optional allowlist via `ALLOWED_PROVIDER_HOSTS`:
-   - Built-in provider hosts (`api.openai.com`, `api.nano-gpt.com`, `api.z.ai`, `api.deepseek.com`, `api.anthropic.com`, `ollama.com`, `opencode.ai`, `api.x.ai`, `generativelanguage.googleapis.com`, `api.cohere.com`, `api.cohere.ai`, `openrouter.ai`, `api.neuralwatt.com`, `neuralwatt.com`) are **always allowed** regardless of the allowlist
+   - Built-in provider hosts (`api.openai.com`, `api.nano-gpt.com`, `api.z.ai`, `api.deepseek.com`, `api.anthropic.com`, `ollama.com`, `opencode.ai`, `api.x.ai`, `generativelanguage.googleapis.com`, `aiplatform.googleapis.com`, `api.cohere.com`, `api.cohere.ai`, `openrouter.ai`, `api.neuralwatt.com`, `neuralwatt.com`) are **always allowed** regardless of the allowlist
    - Hosts explicitly listed in `ALLOWED_PROVIDER_HOSTS` bypass the loopback restriction - this is intentional to allow `localhost` for local Ollama or testing scenarios
    - When `ALLOWED_PROVIDER_HOSTS` is empty (the default), any non-loopback HTTPS URL is accepted
 

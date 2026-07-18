@@ -26,6 +26,9 @@ type oaiRequest struct {
 	Stream              bool            `json:"stream"`
 	Temperature         *float64        `json:"temperature"`
 	TopP                *float64        `json:"top_p"`
+	FrequencyPenalty    *float64        `json:"frequency_penalty"`
+	PresencePenalty     *float64        `json:"presence_penalty"`
+	Seed                *int64          `json:"seed"`
 	Stop                json.RawMessage `json:"stop"` // string OR []string
 	Tools               []oaiTool       `json:"tools"`
 	ToolChoice          json.RawMessage `json:"tool_choice"`
@@ -118,10 +121,14 @@ type genTool struct {
 	FunctionDeclarations []genFunctionDecl `json:"functionDeclarations"`
 }
 
+// genFunctionDecl carries tool parameters as parametersJsonSchema, which
+// accepts standard JSON Schema verbatim (live-verified 2026-07-18, incl.
+// additionalProperties) — unlike the older `parameters` OpenAPI subset, so
+// strict-mode client schemas survive untouched.
 type genFunctionDecl struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description,omitempty"`
-	Parameters  json.RawMessage `json:"parameters,omitempty"`
+	Name                 string          `json:"name"`
+	Description          string          `json:"description,omitempty"`
+	ParametersJSONSchema json.RawMessage `json:"parametersJsonSchema,omitempty"`
 }
 
 type genToolConfig struct {
@@ -137,6 +144,9 @@ type genConfig struct {
 	MaxOutputTokens    int                `json:"maxOutputTokens,omitempty"`
 	Temperature        *float64           `json:"temperature,omitempty"`
 	TopP               *float64           `json:"topP,omitempty"`
+	FrequencyPenalty   *float64           `json:"frequencyPenalty,omitempty"`
+	PresencePenalty    *float64           `json:"presencePenalty,omitempty"`
+	Seed               *int64             `json:"seed,omitempty"`
 	StopSequences      []string           `json:"stopSequences,omitempty"`
 	ResponseMimeType   string             `json:"responseMimeType,omitempty"`
 	ResponseJSONSchema json.RawMessage    `json:"responseJsonSchema,omitempty"`
@@ -179,6 +189,9 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 	callNames := map[string]string{}
 
 	var systemParts []genPart
+	// True while the previously emitted content is a coalescing tool-response
+	// content; any other message kind breaks the run.
+	lastToolContent := false
 	for _, m := range req.Messages {
 		switch m.Role {
 		case "system", "developer":
@@ -190,10 +203,18 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 			if name == "" {
 				name = m.ToolCallID
 			}
-			out.Contents = append(out.Contents, genContent{
-				Role:  "user",
-				Parts: []genPart{{FunctionResponse: &genFunctionResp{Name: name, Response: toolResponseValue(m.Content)}}},
-			})
+			part := genPart{FunctionResponse: &genFunctionResp{Name: name, Response: toolResponseValue(m.Content)}}
+			// Consecutive tool results must share ONE user content: Gemini
+			// requires the function response part count to equal the function
+			// call part count of the preceding model turn and 400s when
+			// parallel results arrive as separate contents.
+			if lastToolContent {
+				out.Contents[len(out.Contents)-1].Parts = append(out.Contents[len(out.Contents)-1].Parts, part)
+			} else {
+				out.Contents = append(out.Contents, genContent{Role: "user", Parts: []genPart{part}})
+			}
+			lastToolContent = true
+			continue
 		case "assistant":
 			parts, err := translateParts(m.Content)
 			if err != nil {
@@ -219,6 +240,7 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 				out.Contents = append(out.Contents, genContent{Role: "user", Parts: parts})
 			}
 		}
+		lastToolContent = false
 	}
 	if len(systemParts) > 0 {
 		out.SystemInstruction = &genContent{Parts: systemParts}
@@ -229,12 +251,19 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 		return nil, "", false, fmt.Errorf("gemini: at least one user or assistant message with content is required")
 	}
 
-	for _, t := range req.Tools {
-		out.Tools = append(out.Tools, genTool{FunctionDeclarations: []genFunctionDecl{{
-			Name:        t.Function.Name,
-			Description: t.Function.Description,
-			Parameters:  t.Function.Parameters,
-		}}})
+	// All function declarations share ONE tools entry: Gemini reads multiple
+	// tools array entries as multiple tool *types* (search, code execution,
+	// functions) and rejects the mix.
+	if len(req.Tools) > 0 {
+		decls := make([]genFunctionDecl, 0, len(req.Tools))
+		for _, t := range req.Tools {
+			decls = append(decls, genFunctionDecl{
+				Name:                 t.Function.Name,
+				Description:          t.Function.Description,
+				ParametersJSONSchema: t.Function.Parameters,
+			})
+		}
+		out.Tools = []genTool{{FunctionDeclarations: decls}}
 	}
 
 	if tc, ok := translateToolChoice(req.ToolChoice); ok {
@@ -254,9 +283,12 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 // is set so the field is omitted entirely.
 func buildGenerationConfig(req *oaiRequest) *genConfig {
 	gc := genConfig{
-		Temperature:   req.Temperature,
-		TopP:          req.TopP,
-		StopSequences: decodeStop(req.Stop),
+		Temperature:      req.Temperature,
+		TopP:             req.TopP,
+		FrequencyPenalty: req.FrequencyPenalty,
+		PresencePenalty:  req.PresencePenalty,
+		Seed:             req.Seed,
+		StopSequences:    decodeStop(req.Stop),
 	}
 	// max_completion_tokens is the modern OpenAI field and wins over the
 	// deprecated max_tokens when both are present.
@@ -278,6 +310,7 @@ func buildGenerationConfig(req *oaiRequest) *genConfig {
 	}
 
 	if gc.MaxOutputTokens == 0 && gc.Temperature == nil && gc.TopP == nil &&
+		gc.FrequencyPenalty == nil && gc.PresencePenalty == nil && gc.Seed == nil &&
 		len(gc.StopSequences) == 0 && gc.ResponseMimeType == "" && gc.ThinkingConfig == nil {
 		return nil
 	}

@@ -182,8 +182,13 @@ func TestTranslateRequest_ToolsAndToolChoice(t *testing.T) {
 		if fd["name"] != "get_weather" || fd["description"] != "Get weather" {
 			t.Errorf("functionDeclaration = %v", fd)
 		}
-		if _, ok := fd["parameters"].(map[string]any)["properties"]; !ok {
-			t.Errorf("parameters not carried: %v", fd["parameters"])
+		// Tool params ride parametersJsonSchema (full JSON Schema, verbatim —
+		// live-verified 2026-07-18), not the OpenAPI-subset parameters field.
+		if _, ok := fd["parametersJsonSchema"].(map[string]any)["properties"]; !ok {
+			t.Errorf("parametersJsonSchema not carried: %v", fd["parametersJsonSchema"])
+		}
+		if _, ok := fd["parameters"]; ok {
+			t.Errorf("legacy parameters field present: %v", fd["parameters"])
 		}
 
 		fcc := m["toolConfig"].(map[string]any)["functionCallingConfig"].(map[string]any)
@@ -200,6 +205,36 @@ func TestTranslateRequest_ToolsAndToolChoice(t *testing.T) {
 				t.Errorf("tool_choice %s: allowedFunctionNames = %v", tc.choice, names)
 			}
 		}
+	}
+}
+
+func TestTranslateRequest_MultipleToolsShareOneEntry(t *testing.T) {
+	// All function declarations must ride ONE tools entry: Gemini treats
+	// multiple tools array entries as multiple tool *types* and 400s with
+	// "Multiple tools are supported only when they are all search tools"
+	// (live, 2026-07-18).
+	body := []byte(`{
+		"model": "m",
+		"messages": [{"role": "user", "content": "hi"}],
+		"tools": [
+			{"type": "function", "function": {"name": "f1", "parameters": {"type": "object"}}},
+			{"type": "function", "function": {"name": "f2", "parameters": {"type": "object"}}}
+		]
+	}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest failed: %v", err)
+	}
+	tools := decodeGemini(t, out)["tools"].([]any)
+	if len(tools) != 1 {
+		t.Fatalf("tools entries = %d, want 1", len(tools))
+	}
+	decls := tools[0].(map[string]any)["functionDeclarations"].([]any)
+	if len(decls) != 2 {
+		t.Fatalf("functionDeclarations = %d, want 2", len(decls))
+	}
+	if decls[0].(map[string]any)["name"] != "f1" || decls[1].(map[string]any)["name"] != "f2" {
+		t.Errorf("declarations = %v", decls)
 	}
 }
 
@@ -221,8 +256,11 @@ func TestTranslateRequest_ToolCallsAndToolResults(t *testing.T) {
 		t.Fatalf("TranslateRequest failed: %v", err)
 	}
 	contents := decodeGemini(t, out)["contents"].([]any)
-	if len(contents) != 4 {
-		t.Fatalf("contents len = %d, want 4", len(contents))
+	// Consecutive tool results coalesce into ONE user content: Gemini 400s
+	// ("number of function response parts must equal function call parts")
+	// when parallel results arrive as separate contents (live, 2026-07-18).
+	if len(contents) != 3 {
+		t.Fatalf("contents len = %d, want 3 (tool results coalesced)", len(contents))
 	}
 
 	// Assistant tool-call turn -> model functionCall part with args as an object.
@@ -234,12 +272,17 @@ func TestTranslateRequest_ToolCallsAndToolResults(t *testing.T) {
 		t.Errorf("functionCall args = %v", fc["args"])
 	}
 
-	// Tool result -> user functionResponse; name resolved via the tool_call_id.
+	// Both tool results ride one user content, one functionResponse part each,
+	// names resolved via tool_call_id (falling back to the id when unknown).
 	toolMsg := contents[2].(map[string]any)
 	if toolMsg["role"] != "user" {
 		t.Errorf("tool message role = %v, want user", toolMsg["role"])
 	}
-	fr := toolMsg["parts"].([]any)[0].(map[string]any)["functionResponse"].(map[string]any)
+	parts := toolMsg["parts"].([]any)
+	if len(parts) != 2 {
+		t.Fatalf("tool content parts = %d, want 2", len(parts))
+	}
+	fr := parts[0].(map[string]any)["functionResponse"].(map[string]any)
 	if fr["name"] != "get_weather" {
 		t.Errorf("functionResponse name = %v, want get_weather", fr["name"])
 	}
@@ -247,14 +290,77 @@ func TestTranslateRequest_ToolCallsAndToolResults(t *testing.T) {
 	if fr["response"].(map[string]any)["temp"] != float64(-3) {
 		t.Errorf("functionResponse response = %v", fr["response"])
 	}
-
-	// Unknown tool_call_id: name falls back to the id; plain text is wrapped.
-	fr2 := contents[3].(map[string]any)["parts"].([]any)[0].(map[string]any)["functionResponse"].(map[string]any)
+	fr2 := parts[1].(map[string]any)["functionResponse"].(map[string]any)
 	if fr2["name"] != "call_unknown" {
 		t.Errorf("functionResponse name = %v, want call_unknown", fr2["name"])
 	}
 	if fr2["response"].(map[string]any)["result"] != "plain text result" {
 		t.Errorf("functionResponse response = %v", fr2["response"])
+	}
+}
+
+func TestTranslateRequest_ToolResultsSplitByOtherTurns(t *testing.T) {
+	// Only CONSECUTIVE tool messages coalesce; a tool result after an
+	// intervening turn starts a fresh content.
+	body := []byte(`{
+		"model": "m",
+		"messages": [
+			{"role": "user", "content": "hi"},
+			{"role": "assistant", "content": null, "tool_calls": [{"id": "a", "type": "function", "function": {"name": "f1", "arguments": "{}"}}]},
+			{"role": "tool", "tool_call_id": "a", "content": "r1"},
+			{"role": "assistant", "content": null, "tool_calls": [{"id": "b", "type": "function", "function": {"name": "f2", "arguments": "{}"}}]},
+			{"role": "tool", "tool_call_id": "b", "content": "r2"}
+		]
+	}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest failed: %v", err)
+	}
+	contents := decodeGemini(t, out)["contents"].([]any)
+	if len(contents) != 5 {
+		t.Fatalf("contents len = %d, want 5 (separate rounds stay separate)", len(contents))
+	}
+	for _, idx := range []int{2, 4} {
+		parts := contents[idx].(map[string]any)["parts"].([]any)
+		if len(parts) != 1 {
+			t.Errorf("contents[%d] parts = %d, want 1", idx, len(parts))
+		}
+	}
+}
+
+func TestTranslateRequest_PenaltiesAndSeed(t *testing.T) {
+	body := []byte(`{
+		"model": "gemini-2.5-flash",
+		"messages": [{"role": "user", "content": "hi"}],
+		"frequency_penalty": 0.5,
+		"presence_penalty": -0.3,
+		"seed": 42
+	}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest failed: %v", err)
+	}
+	gc := decodeGemini(t, out)["generationConfig"].(map[string]any)
+	if gc["frequencyPenalty"] != 0.5 {
+		t.Errorf("frequencyPenalty = %v, want 0.5", gc["frequencyPenalty"])
+	}
+	if gc["presencePenalty"] != -0.3 {
+		t.Errorf("presencePenalty = %v, want -0.3", gc["presencePenalty"])
+	}
+	if gc["seed"] != float64(42) {
+		t.Errorf("seed = %v, want 42", gc["seed"])
+	}
+
+	// Absent knobs stay absent (zero values must not be sent).
+	out, _, _, err = TranslateRequest([]byte(`{"model": "m", "messages": [{"role": "user", "content": "hi"}], "max_tokens": 5}`))
+	if err != nil {
+		t.Fatalf("TranslateRequest failed: %v", err)
+	}
+	gc = decodeGemini(t, out)["generationConfig"].(map[string]any)
+	for _, k := range []string{"frequencyPenalty", "presencePenalty", "seed"} {
+		if _, ok := gc[k]; ok {
+			t.Errorf("%s present without being requested", k)
+		}
 	}
 }
 

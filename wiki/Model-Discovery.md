@@ -124,7 +124,7 @@ Providers that expose a live model list **and** ship a built-in catalog are comb
 
 models.dev enrichment runs *after* the merge and fills anything still empty, so the final precedence per field is **live → catalog → models.dev → zero value**. If the live fetch fails entirely (network, auth, 403/429 quota), the discoverer falls back to the pure catalog so discovery never goes dark.
 
-Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt, AWS Bedrock, Azure AI Foundry) have no catalog.
+Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt, AWS Bedrock, Azure AI Foundry) have no catalog. **Vertex AI express** is the inverse case: Google exposes no listing route for express keys, so discovery starts from a shipped candidate catalog and validates each entry live (see its section below).
 
 ### Provider Type Detection
 
@@ -142,7 +142,8 @@ The `DetectProviderType` function in `internal/provider/discovery.go` uses exact
 | `opencode.ai`, `*.opencode.ai` | `/zen/` | `opencode-zen` |
 | `openrouter.ai`, `*.openrouter.ai` | - | `openrouter` |
 | `api.x.ai`, `x.ai`, `*.x.ai` | - | `xai` |
-| `generativelanguage.googleapis.com`, `*.googleapis.com` | - | `google` |
+| `generativelanguage.googleapis.com` (and `*generativelanguage*.googleapis.com`) | - | `google` |
+| `aiplatform.googleapis.com` (incl. regional `{region}-aiplatform...`) | - | `vertex-express` |
 | `bedrock-mantle.{region}.api.aws` | - | `bedrock` |
 | `*.services.ai.azure.com`, `*.openai.azure.com` | - | `azure` |
 | `api.cohere.com`, `api.cohere.ai`, `*.cohere.com`, `*.cohere.ai` | - | `cohere` |
@@ -235,6 +236,20 @@ Both routes accept the resource API key as a **bearer token** (the legacy `api-k
 **Enrichment for aliased deployments:** the deployment name becomes the model ID (it is the invokable identifier) and the underlying base-model name is kept as the model's internal name. models.dev enrichment matches the deployment name first and falls back to the base-model name, so a deployment called `my-fast-gpt` backing `gpt-4.1-mini` still gets context/pricing metadata.
 
 **Account prerequisites for Azure itself** (not MH-specific): create an Azure AI Foundry resource (or classic Azure OpenAI resource) in the Azure portal, then **deploy at least one model** (Foundry portal → Deployments → Deploy model). A resource with zero deployments discovers zero models (MH logs a warning telling you to deploy first). Azure-sold models (OpenAI family) need no extra agreement; partner/community models (Meta, Mistral, xAI, Anthropic, ...) may require an Azure Marketplace subscription accepted during deployment.
+
+### Vertex AI (express keys)
+
+**Source files:** `discovery_vertex.go`, `vertex_catalog.go`, `catalogs/vertex_express.json`
+
+**Method:** Vertex AI **express-mode** API keys (free-tier keys from [express mode](https://cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/overview), no billing account needed) only work on Google's *native* publisher routes — every OpenAI-compatible Google surface rejects them, and **no model-listing route accepts them** (the publishers listing wants OAuth). Discovery therefore starts from a shipped candidate list (`catalogs/vertex_express.json`) and validates each entry with a free `POST .../models/{id}:countTokens` probe (parallel, bounded concurrency):
+
+- **200** → the key can invoke the model; it is kept as a clean stub for models.dev enrichment (context, pricing, modalities).
+- **404** → not express-eligible (or retired); dropped silently. Not-yet-eligible candidates stay in the catalog so they light up automatically once Google enables them for express mode.
+- **401/403** → discovery fails loudly, so a bad key reads as an error instead of "zero models".
+
+**Chat traffic is translated, not proxied.** Gemini's native `generateContent` dialect is not OpenAI-shaped, so requests to a vertex-express provider go through MH's Gemini egress adapter (`internal/gemini`): the chat-completions body is rewritten to `generateContent` on the way out (system → `systemInstruction`, tools → `functionDeclarations` with full JSON Schema, images → `inlineData`, `reasoning_effort` → thinking budget, JSON response formats → `responseJsonSchema`, penalties/seed → `generationConfig`) and the response — including SSE streams, tool calls, and thinking-token usage — is translated back to the chat-completions shape before the rest of the pipeline sees it. Failover groups can therefore mix vertex-express with OpenAI-compatible providers transparently. Auth uses the `x-goog-api-key` header.
+
+**Account prerequisites for Vertex itself** (not MH-specific): sign up for Vertex AI express mode with a Google account and copy the express API key (`AQ.`-prefixed). Free-tier keys expire after 90 days and cover a subset of Gemini models under pre-GA terms; a paid Vertex key on the same routes works identically.
 
 ### NanoGPT
 
