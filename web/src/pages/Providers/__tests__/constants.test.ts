@@ -197,10 +197,10 @@ describe("getProviderType", () => {
 		).toBe("bedrock");
 	});
 
-	it("returns bedrock for runtime url (host-based detection)", () => {
+	it("does not detect bedrock-runtime (no /models listing, unsupported)", () => {
 		expect(
 			getProviderType("https://bedrock-runtime.us-west-2.amazonaws.com/v1"),
-		).toBe("bedrock");
+		).toBe("custom");
 	});
 
 	it("does not detect bedrock-named hosts on other domains", () => {

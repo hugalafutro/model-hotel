@@ -227,8 +227,9 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 
 	// 2. Vendor/dot-prefixed IDs (Bedrock: "openai.gpt-oss-120b", inference
 	//    profiles: "us.anthropic.claude-x"): strip dot segments left-to-right,
-	//    accepting only an exact key hit so version dots inside the tail
-	//    ("zai.glm-4.7" → "7") can't produce a wrong match.
+	//    accepting only an exact key hit. models.dev keys are full model IDs,
+	//    so a stripped tail ("zai.glm-4.7" → "glm-4.7" → "7") only matches
+	//    when the cache genuinely catalogs that ID under the tail name.
 	rest := modelID
 	for {
 		i := strings.IndexByte(rest, '.')

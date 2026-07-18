@@ -12,9 +12,10 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// discoverBedrock discovers models from AWS Bedrock's OpenAI-compatible
-// endpoints (bedrock-mantle.{region}.api.aws or bedrock-runtime.{region}
-// .amazonaws.com) authenticated with a Bedrock API key as a bearer token.
+// discoverBedrock discovers models from AWS Bedrock's OpenAI-optimized
+// bedrock-mantle.{region}.api.aws endpoint, authenticated with a Bedrock API
+// key as a bearer token. (The classic bedrock-runtime endpoint exposes no
+// /models listing, so mantle is the only Bedrock surface MH can discover.)
 //
 // The listing is OpenAI-shaped, but the catalog mixes dialects: anthropic.*
 // models reject /v1/chat/completions and /v1/responses (they are served only
@@ -47,10 +48,17 @@ func (d *DiscoveryService) discoverBedrock(ctx context.Context, provider *Provid
 	for _, m := range openAIResp.Data {
 		if isBedrockMessagesDialectModel(m.ID) {
 			skipped++
-			debuglog.Info("discovery: bedrock skipping messages-dialect model", "model", m.ID, "provider", provider.Name)
+			debuglog.Debug("discovery: bedrock skipping messages-dialect model", "model", m.ID, "provider", provider.Name)
 			continue
 		}
 		live = append(live, liveModelStub(m.ID, m.OwnedBy, provider.ID))
+	}
+
+	// An empty 200 usually means a misconfigured region or a revoked key, not
+	// a genuinely empty catalog — surface it instead of silently succeeding.
+	if len(live) == 0 {
+		debuglog.Warn("discovery: bedrock /models returned no usable models, skipping", "provider", provider.Name, "provider_id", provider.ID, "skipped_messages_dialect", skipped)
+		return live, nil
 	}
 
 	// No catalog for Bedrock: the live listing is authoritative and models.dev
@@ -64,8 +72,9 @@ func (d *DiscoveryService) discoverBedrock(ctx context.Context, provider *Provid
 // the Anthropic Messages dialect rather than OpenAI chat completions.
 func isBedrockMessagesDialectModel(modelID string) bool {
 	id := strings.ToLower(modelID)
-	// Cross-region inference profile prefixes (us./eu./apac./global.) may wrap
-	// the vendor prefix on the runtime endpoint's listing.
+	// Defensive: cross-region inference-profile prefixes (us./eu./apac./
+	// global.) can wrap the vendor prefix in Bedrock IDs; mantle lists bare
+	// IDs today, but a prefixed anthropic model is messages-dialect either way.
 	for _, p := range []string{"us.", "eu.", "apac.", "global."} {
 		id = strings.TrimPrefix(id, p)
 	}

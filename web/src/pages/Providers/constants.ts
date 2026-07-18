@@ -52,14 +52,15 @@ function detectLocalProviderType(url: string): string | null {
 	return null;
 }
 
-/** Host-based detection for providers whose URL varies by region (Bedrock). */
+/**
+ * Host-based detection for providers whose URL varies by region (Bedrock).
+ * Only bedrock-mantle is detected: the classic bedrock-runtime endpoint has
+ * no /models listing, so discovery can never work against it.
+ */
 function detectRegionalProviderType(baseUrl: string): string | null {
 	try {
 		const host = new URL(baseUrl).hostname.toLowerCase();
-		if (
-			(host.startsWith("bedrock-mantle.") && host.endsWith(".api.aws")) ||
-			(host.startsWith("bedrock-runtime.") && host.endsWith(".amazonaws.com"))
-		) {
+		if (host.startsWith("bedrock-mantle.") && host.endsWith(".api.aws")) {
 			return "bedrock";
 		}
 	} catch {

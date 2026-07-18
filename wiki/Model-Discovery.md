@@ -124,7 +124,7 @@ Providers that expose a live model list **and** ship a built-in catalog are comb
 
 models.dev enrichment runs *after* the merge and fills anything still empty, so the final precedence per field is **live → catalog → models.dev → zero value**. If the live fetch fails entirely (network, auth, 403/429 quota), the discoverer falls back to the pure catalog so discovery never goes dark.
 
-Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt) have no catalog.
+Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt, AWS Bedrock) have no catalog.
 
 ### Provider Type Detection
 
@@ -143,6 +143,7 @@ The `DetectProviderType` function in `internal/provider/discovery.go` uses exact
 | `openrouter.ai`, `*.openrouter.ai` | - | `openrouter` |
 | `api.x.ai`, `x.ai`, `*.x.ai` | - | `xai` |
 | `generativelanguage.googleapis.com`, `*.googleapis.com` | - | `google` |
+| `bedrock-mantle.{region}.api.aws` | - | `bedrock` |
 | `api.cohere.com`, `api.cohere.ai`, `*.cohere.com`, `*.cohere.ai` | - | `cohere` |
 | `api.neuralwatt.com`, `neuralwatt.com` | - | `neuralwatt` |
 | `localhost`, `127.0.0.1`, `::1` (port 11434) | - | `ollama` |
@@ -206,6 +207,18 @@ The `DetectProviderType` function in `internal/provider/discovery.go` uses exact
 | Input price per million | Pricing catalog |
 | Input price cache-hit per million | Pricing catalog |
 | Output price per million | Pricing catalog |
+
+### AWS Bedrock
+
+**Source files:** `discovery_bedrock.go`
+
+**Method:** Calls `GET /models` on Bedrock's OpenAI-optimized **bedrock-mantle** endpoint (`https://bedrock-mantle.{region}.api.aws/v1`, e.g. `us-east-1`), authenticated with a [Bedrock API key](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html) as a bearer token. The listing is OpenAI-shaped; entries become clean stubs enriched by models.dev (the enrichment lookup strips Bedrock's `vendor.` ID prefix, so `openai.gpt-oss-120b` matches the models.dev `gpt-oss-120b` entry).
+
+Only mantle is supported: the classic `bedrock-runtime` endpoint serves chat solely under `/openai/v1` and exposes **no models listing at all**, so discovery cannot work against it. Point the provider at a mantle URL.
+
+**Anthropic models are skipped at discovery.** On Bedrock, `anthropic.*` models reject `/v1/chat/completions` (they are served only through the Anthropic Messages dialect at `{base}/anthropic/v1/messages`, which the proxy does not forward to). Exposing them would list models that fail on every chat request, so the discoverer drops them (logged at debug level, with an aggregate `skipped_messages_dialect` count in the completion log line).
+
+**Account prerequisites for Bedrock itself** (not MH-specific): most non-Anthropic models (GPT-OSS, GPT-5.x, Qwen, Kimi, GLM, DeepSeek, Mistral, Gemma, ...) work as soon as you generate an API key in the Bedrock console. Anthropic models additionally require a valid payment method, the Anthropic first-time-use form, a per-model Marketplace agreement (`aws bedrock create-foundation-model-agreement`), and on new or low-usage accounts may still be gated behind an AWS support request.
 
 ### NanoGPT
 

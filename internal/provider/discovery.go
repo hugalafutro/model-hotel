@@ -196,15 +196,13 @@ func detectByHost(host, path string) string {
 			}
 		}
 	}
-	// AWS Bedrock: both the OpenAI-optimized bedrock-mantle endpoint
-	// (bedrock-mantle.{region}.api.aws) and the classic runtime endpoint
-	// (bedrock-runtime.{region}.amazonaws.com, which also serves /v1 with
-	// Bedrock API-key bearer auth). Prefix+suffix must both match so
-	// bedrock-named hosts on unrelated domains stay generic.
+	// AWS Bedrock's OpenAI-optimized bedrock-mantle endpoint
+	// (bedrock-mantle.{region}.api.aws). Prefix+suffix must both match so
+	// bedrock-named hosts on unrelated domains stay generic. The classic
+	// bedrock-runtime endpoint is deliberately not detected: it serves chat
+	// only under /openai/v1 and has no /models listing at all (live-verified
+	// 2026-07-18), so discovery can never succeed against it.
 	if strings.HasPrefix(host, "bedrock-mantle.") && strings.HasSuffix(host, ".api.aws") {
-		return "bedrock"
-	}
-	if strings.HasPrefix(host, "bedrock-runtime.") && strings.HasSuffix(host, ".amazonaws.com") {
 		return "bedrock"
 	}
 	if host == "generativelanguage.googleapis.com" {

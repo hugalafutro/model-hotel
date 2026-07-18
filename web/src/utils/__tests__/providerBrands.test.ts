@@ -6,22 +6,11 @@ describe("PROVIDER_BRAND_COLORS", () => {
 	const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
 
 	it("has valid hex colors for all ProviderBrand keys", () => {
-		const brands: ProviderBrand[] = [
-			"anthropic",
-			"openai",
-			"google",
-			"deepseek",
-			"xai",
-			"ollama",
-			"ollama-cloud",
-			"openrouter",
-			"cohere",
-			"zai-coding",
-			"nanogpt",
-			"lmstudio",
-			"koboldcpp",
-			"opencode",
-		];
+		// Derived from the map itself so newly added brands (bedrock,
+		// neuralwatt, ...) are regression-guarded without editing this list;
+		// Record<ProviderBrand, string> already enforces completeness.
+		const brands = Object.keys(PROVIDER_BRAND_COLORS) as ProviderBrand[];
+		expect(brands.length).toBeGreaterThanOrEqual(16);
 
 		for (const brand of brands) {
 			expect(PROVIDER_BRAND_COLORS[brand]).toBeDefined();
