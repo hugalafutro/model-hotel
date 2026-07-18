@@ -2107,6 +2107,16 @@
 			"message": "Meddelande",
 			"copyMessage": "Kopiera meddelande"
 		},
+		"auditDetail": {
+			"title": "Granskningspost",
+			"timestamp": "Tidsstämpel",
+			"actor": "Aktör",
+			"request": "Förfrågan",
+			"entity": "Entitet",
+			"endpoint": "Slutpunkt",
+			"path": "Sökväg",
+			"remoteAddr": "Fjärradress"
+		},
 		"paramSlider": {
 			"off": "av"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Granskning",
-		"description": "Spår av admin-åtgärder på den här instansen. Innehållet i förfrågningar registreras aldrig.",
+		"description": "Vem ändrade vad på den här instansen: varje ändrande instrumentpanelsåtgärd av varje inloggad användare. Innehållet i förfrågningar registreras aldrig.",
 		"filters": {
 			"actorPlaceholder": "Filtrera på aktör…",
 			"method": "Metod",
@@ -2886,6 +2896,7 @@
 			"method": "Metod",
 			"action": "Åtgärd",
 			"entity": "Entitet",
+			"remote": "Adress",
 			"status": "Status"
 		},
 		"showing": "Visar {{count}} av {{total}}",

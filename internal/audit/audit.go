@@ -44,6 +44,10 @@ type Entry struct {
 	EntityID   string    `json:"entity_id,omitempty"`
 	StatusCode int       `json:"status_code"`
 	RemoteAddr string    `json:"remote_addr"`
+	// EntityName is filled at read time by ResolveEntityNames for entities
+	// that still exist - never stored, so a rename shows the current name and
+	// a deleted entity leaves only the UUID.
+	EntityName string `json:"entity_name,omitempty"`
 }
 
 // ListParams are the cursor-pagination and filter inputs for List.

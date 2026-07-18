@@ -2107,6 +2107,16 @@
 			"message": "Nachricht",
 			"copyMessage": "Nachricht kopieren"
 		},
+		"auditDetail": {
+			"title": "Audit-Eintrag",
+			"timestamp": "Zeitstempel",
+			"actor": "Akteur",
+			"request": "Anfrage",
+			"entity": "Entität",
+			"endpoint": "Endpunkt",
+			"path": "Pfad",
+			"remoteAddr": "Remote-Adresse"
+		},
 		"paramSlider": {
 			"off": "aus"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Audit",
-		"description": "Protokoll der Admin-Aktionen auf dieser Instanz. Anfrageinhalte werden nie aufgezeichnet.",
+		"description": "Wer hat was auf dieser Instanz geändert: jede ändernde Dashboard-Aktion aller angemeldeten Benutzer. Anfrageinhalte werden nie aufgezeichnet.",
 		"filters": {
 			"actorPlaceholder": "Nach Akteur filtern…",
 			"method": "Methode",
@@ -2886,6 +2896,7 @@
 			"method": "Methode",
 			"action": "Aktion",
 			"entity": "Entität",
+			"remote": "Adresse",
 			"status": "Status"
 		},
 		"showing": "{{count}} von {{total}} angezeigt",

@@ -2107,6 +2107,16 @@
 			"message": "Message",
 			"copyMessage": "Copy message"
 		},
+		"auditDetail": {
+			"title": "Audit Entry",
+			"timestamp": "Timestamp",
+			"actor": "Actor",
+			"request": "Request",
+			"entity": "Entity",
+			"endpoint": "Endpoint",
+			"path": "Path",
+			"remoteAddr": "Remote address"
+		},
 		"paramSlider": {
 			"off": "off"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Audit",
-		"description": "Trail of admin actions on this instance. Request contents are never recorded.",
+		"description": "Who changed what on this instance: every mutating dashboard action by any signed-in user. Request contents are never recorded.",
 		"filters": {
 			"actorPlaceholder": "Filter by actor…",
 			"method": "Method",
@@ -2886,6 +2896,7 @@
 			"method": "Method",
 			"action": "Action",
 			"entity": "Entity",
+			"remote": "Remote",
 			"status": "Status"
 		},
 		"showing": "Showing {{count}} of {{total}}",

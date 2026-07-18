@@ -2107,6 +2107,16 @@
 			"message": "Mesaj",
 			"copyMessage": "Mesajı kopyala"
 		},
+		"auditDetail": {
+			"title": "Denetim kaydı",
+			"timestamp": "Zaman damgası",
+			"actor": "Yapan",
+			"request": "İstek",
+			"entity": "Varlık",
+			"endpoint": "Uç nokta",
+			"path": "Yol",
+			"remoteAddr": "Uzak adres"
+		},
 		"paramSlider": {
 			"off": "kapalı"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Denetim",
-		"description": "Bu örnekteki yönetici işlemlerinin kaydı. İstek içerikleri asla kaydedilmez.",
+		"description": "Bu örnekte kim neyi değiştirdi: oturum açmış herhangi bir kullanıcının tüm değiştirici panel eylemleri. İstek içerikleri asla kaydedilmez.",
 		"filters": {
 			"actorPlaceholder": "Yapana göre filtrele…",
 			"method": "Yöntem",
@@ -2886,6 +2896,7 @@
 			"method": "Yöntem",
 			"action": "İşlem",
 			"entity": "Varlık",
+			"remote": "Adres",
 			"status": "Durum"
 		},
 		"showing": "{{total}} kayıttan {{count}} tanesi gösteriliyor",

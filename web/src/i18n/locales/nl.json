@@ -2107,6 +2107,16 @@
 			"message": "bericht",
 			"copyMessage": "Bericht kopiëren"
 		},
+		"auditDetail": {
+			"title": "Auditvermelding",
+			"timestamp": "Artikeldatering",
+			"actor": "Actor",
+			"request": "Verzoek",
+			"entity": "Entiteit",
+			"endpoint": "Endpoint",
+			"path": "Pad",
+			"remoteAddr": "Extern adres"
+		},
 		"paramSlider": {
 			"off": "Uit"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Audit",
-		"description": "Logboek van beheeracties op deze instantie. De inhoud van verzoeken wordt nooit vastgelegd.",
+		"description": "Wie wat heeft gewijzigd op deze instantie: elke wijzigende dashboardactie door elke ingelogde gebruiker. De inhoud van verzoeken wordt nooit vastgelegd.",
 		"filters": {
 			"actorPlaceholder": "Filter op actor…",
 			"method": "Methode",
@@ -2886,6 +2896,7 @@
 			"method": "Methode",
 			"action": "Actie",
 			"entity": "Entiteit",
+			"remote": "Adres",
 			"status": "Status"
 		},
 		"showing": "{{count}} van {{total}} weergegeven",

@@ -2107,6 +2107,16 @@
 			"message": "留言",
 			"copyMessage": "复制消息"
 		},
+		"auditDetail": {
+			"title": "审计条目",
+			"timestamp": "时间戳",
+			"actor": "操作者",
+			"request": "请求",
+			"entity": "对象",
+			"endpoint": "端点",
+			"path": "路径",
+			"remoteAddr": "远程地址"
+		},
 		"paramSlider": {
 			"off": "关闭"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "审计",
-		"description": "此实例上管理操作的记录。请求内容绝不会被记录。",
+		"description": "谁在此实例上更改了什么:任何已登录用户的所有变更类仪表板操作。请求内容绝不会被记录。",
 		"filters": {
 			"actorPlaceholder": "按操作者筛选…",
 			"method": "方法",
@@ -2886,6 +2896,7 @@
 			"method": "方法",
 			"action": "操作",
 			"entity": "对象",
+			"remote": "地址",
 			"status": "状态"
 		},
 		"showing": "显示 {{count}} / {{total}} 条",

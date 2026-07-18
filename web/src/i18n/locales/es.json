@@ -2107,6 +2107,16 @@
 			"message": "Mensaje",
 			"copyMessage": "Copiar mensaje"
 		},
+		"auditDetail": {
+			"title": "Entrada de auditoría",
+			"timestamp": "Timestamp",
+			"actor": "Actor",
+			"request": "Petición",
+			"entity": "Entidad",
+			"endpoint": "Endpoint",
+			"path": "Ruta",
+			"remoteAddr": "Dirección remota"
+		},
 		"paramSlider": {
 			"off": "apagado"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Auditoría",
-		"description": "Registro de acciones de administración en esta instancia. El contenido de las peticiones nunca se registra.",
+		"description": "Quién cambió qué en esta instancia: cada acción de modificación del panel por cualquier usuario con sesión iniciada. El contenido de las peticiones nunca se registra.",
 		"filters": {
 			"actorPlaceholder": "Filtrar por actor…",
 			"method": "Método",
@@ -2886,6 +2896,7 @@
 			"method": "Método",
 			"action": "Acción",
 			"entity": "Entidad",
+			"remote": "Dirección",
 			"status": "Estado"
 		},
 		"showing": "Mostrando {{count}} de {{total}}",

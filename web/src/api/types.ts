@@ -798,6 +798,9 @@ export interface AuditEntry {
 	entity_id?: string;
 	status_code: number;
 	remote_addr: string;
+	// Current display name of the entity, resolved server-side at read time.
+	// Absent when the entity was deleted or the route family is unmapped.
+	entity_name?: string;
 }
 
 // AuditListResponse is the cursor-paginated audit page.

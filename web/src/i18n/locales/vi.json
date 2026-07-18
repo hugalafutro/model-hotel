@@ -2107,6 +2107,16 @@
 			"message": "Thông điệp",
 			"copyMessage": "Sao chép tin nhắn"
 		},
+		"auditDetail": {
+			"title": "Mục kiểm toán",
+			"timestamp": "Dấu thời gian",
+			"actor": "Người thực hiện",
+			"request": "Yêu cầu",
+			"entity": "Đối tượng",
+			"endpoint": "Điểm cuối",
+			"path": "Đường dẫn",
+			"remoteAddr": "Địa chỉ từ xa"
+		},
 		"paramSlider": {
 			"off": "tắt"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Kiểm tra",
-		"description": "Nhật ký các thao tác quản trị trên phiên bản này. Nội dung yêu cầu không bao giờ được ghi lại.",
+		"description": "Ai đã thay đổi gì trên phiên bản này: mọi thao tác thay đổi trên bảng điều khiển của bất kỳ người dùng nào đã đăng nhập. Nội dung yêu cầu không bao giờ được ghi lại.",
 		"filters": {
 			"actorPlaceholder": "Lọc theo người thực hiện…",
 			"method": "Phương thức",
@@ -2886,6 +2896,7 @@
 			"method": "Phương thức",
 			"action": "Thao tác",
 			"entity": "Đối tượng",
+			"remote": "Địa chỉ",
 			"status": "Trạng thái"
 		},
 		"showing": "Đang hiển thị {{count}} / {{total}}",

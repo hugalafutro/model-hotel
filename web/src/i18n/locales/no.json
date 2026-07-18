@@ -2107,6 +2107,16 @@
 			"message": "Melding",
 			"copyMessage": "Kopier melding"
 		},
+		"auditDetail": {
+			"title": "Revisjonsoppføring",
+			"timestamp": "Tidsstempel",
+			"actor": "Aktør",
+			"request": "Forespørsel",
+			"entity": "Entitet",
+			"endpoint": "Endepunkt",
+			"path": "Sti",
+			"remoteAddr": "Ekstern adresse"
+		},
 		"paramSlider": {
 			"off": "av"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Revisjon",
-		"description": "Spor av admin-handlinger på denne instansen. Innholdet i forespørsler registreres aldri.",
+		"description": "Hvem endret hva på denne instansen: enhver endrende dashbordhandling fra enhver pålogget bruker. Innholdet i forespørsler registreres aldri.",
 		"filters": {
 			"actorPlaceholder": "Filtrer etter aktør…",
 			"method": "Metode",
@@ -2886,6 +2896,7 @@
 			"method": "Metode",
 			"action": "Handling",
 			"entity": "Entitet",
+			"remote": "Adresse",
 			"status": "Status"
 		},
 		"showing": "Viser {{count}} av {{total}}",

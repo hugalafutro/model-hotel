@@ -26,7 +26,7 @@ describe("Audit page", () => {
 		server.resetHandlers();
 	});
 
-	it("renders entries with actor, action, and status", async () => {
+	it("renders entries with actor, action, entity, remote address, and status", async () => {
 		server.use(
 			http.get("/api/audit", () =>
 				HttpResponse.json({
@@ -35,6 +35,7 @@ describe("Audit page", () => {
 							actor: "alice",
 							actor_role: "user",
 							route: "/virtual-keys",
+							remote_addr: "192.168.7.9:4242",
 						}),
 						entry({
 							method: "DELETE",
@@ -42,8 +43,13 @@ describe("Audit page", () => {
 							entity_id: "11111111-2222-4333-8444-555555555555",
 							status_code: 204,
 						}),
+						entry({
+							route: "/models/{id}/test",
+							entity_id: "22222222-2222-4333-8444-555555555555",
+							entity_name: "gpt-nice-name",
+						}),
 					],
-					total: 2,
+					total: 3,
 					has_more: false,
 				}),
 			),
@@ -55,8 +61,52 @@ describe("Audit page", () => {
 		expect(screen.getByText("/users/{id}")).toBeInTheDocument();
 		expect(screen.getByText("DELETE")).toBeInTheDocument();
 		expect(screen.getByText("204")).toBeInTheDocument();
-		// Entity id is shown truncated.
+		expect(screen.getByText("192.168.7.9:4242")).toBeInTheDocument();
+		// Unresolved entity falls back to the truncated UUID; a resolved one
+		// shows its current display name instead.
 		expect(screen.getByText("11111111…")).toBeInTheDocument();
+		expect(screen.getByText("gpt-nice-name")).toBeInTheDocument();
+		expect(screen.queryByText("22222222…")).not.toBeInTheDocument();
+	});
+
+	it("opens the detail modal on row click", async () => {
+		server.use(
+			http.get("/api/audit", () =>
+				HttpResponse.json({
+					entries: [
+						entry({
+							actor: "alice",
+							actor_role: "user",
+							method: "DELETE",
+							route: "/api/models/{id}",
+							path: "/api/models/33333333-2222-4333-8444-555555555555",
+							entity_id: "33333333-2222-4333-8444-555555555555",
+							entity_name: "doomed-model",
+							status_code: 204,
+							remote_addr: "10.1.2.3:999",
+						}),
+					],
+					total: 1,
+					has_more: false,
+				}),
+			),
+		);
+		const { user } = renderWithProviders(<Audit />);
+
+		await user.click(await screen.findByText("/api/models/{id}"));
+		const dialog = await screen.findByRole("dialog");
+		expect(dialog).toHaveTextContent("Audit Entry");
+		// Full path and UUID appear in the modal (the table truncates both).
+		expect(dialog).toHaveTextContent(
+			"/api/models/33333333-2222-4333-8444-555555555555",
+		);
+		expect(dialog).toHaveTextContent("doomed-model");
+		expect(dialog).toHaveTextContent("10.1.2.3:999");
+
+		await user.keyboard("{Escape}");
+		await waitFor(() => {
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+		});
 	});
 
 	it("loads the next page through the cursor", async () => {

@@ -2107,6 +2107,16 @@
 			"message": "Messaggio",
 			"copyMessage": "Copia messaggio"
 		},
+		"auditDetail": {
+			"title": "Voce di audit",
+			"timestamp": "Timestamp",
+			"actor": "Attore",
+			"request": "Richiesta",
+			"entity": "Entità",
+			"endpoint": "Endpoint",
+			"path": "Percorso",
+			"remoteAddr": "Indirizzo remoto"
+		},
 		"paramSlider": {
 			"off": "spento"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Audit",
-		"description": "Registro delle azioni di amministrazione su questa istanza. Il contenuto delle richieste non viene mai registrato.",
+		"description": "Chi ha modificato cosa su questa istanza: ogni azione di modifica della dashboard da parte di qualsiasi utente connesso. Il contenuto delle richieste non viene mai registrato.",
 		"filters": {
 			"actorPlaceholder": "Filtra per attore…",
 			"method": "Metodo",
@@ -2886,6 +2896,7 @@
 			"method": "Metodo",
 			"action": "Azione",
 			"entity": "Entità",
+			"remote": "Indirizzo",
 			"status": "Stato"
 		},
 		"showing": "Visualizzate {{count}} di {{total}}",
