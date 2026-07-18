@@ -162,6 +162,8 @@
 		"reqPerMin": "req/min",
 		"noData": "Нет данных",
 		"refresh": "Обновить",
+		"pause": "Пауза",
+		"resume": "Возобновить",
 		"updated": "Обновлено {{time}}"
 	},
 	"events": {

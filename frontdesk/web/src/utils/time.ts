@@ -38,6 +38,18 @@ export function formatTimeOfDay(iso: string | undefined): string {
 	}).format(d);
 }
 
+// formatHourTick renders an ISO bucket timestamp as a short wall-clock label for
+// a chart's X-axis hour ticks, in the active locale (e.g. "14:00"). Returns the
+// raw string on an unparseable value so a tick is never blank.
+export function formatHourTick(iso: string): string {
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return iso;
+	return new Intl.DateTimeFormat(i18next.language, {
+		hour: "2-digit",
+		minute: "2-digit",
+	}).format(d);
+}
+
 // formatAbsolute renders an ISO timestamp in the active locale's date+time
 // format, for tables where an exact time matters more than recency.
 export function formatAbsolute(iso: string | undefined): string {
