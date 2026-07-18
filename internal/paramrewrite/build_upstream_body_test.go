@@ -72,7 +72,7 @@ func TestBuildUpstreamBody(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := BuildUpstreamBody([]byte(inputBody), tt.providerType, tt.wantModel, "gpt-4", tt.isStreaming, cache, &sync.Map{}, tt.extraStrip)
 
-			var raw map[string]interface{}
+			var raw map[string]any
 			if err := json.Unmarshal(result, &raw); err != nil {
 				t.Fatalf("result is not valid JSON: %v", err)
 			}
@@ -88,7 +88,7 @@ func TestBuildUpstreamBody(t *testing.T) {
 				t.Errorf("stream_options present = %v, want %v", hasOpts, tt.wantStreamOpts)
 			}
 			if hasOpts {
-				opts, ok := raw["stream_options"].(map[string]interface{})
+				opts, ok := raw["stream_options"].(map[string]any)
 				if !ok {
 					t.Error("stream_options is not a map")
 				} else if opts["include_usage"] != true {
@@ -120,7 +120,7 @@ func TestBuildUpstreamBody_ExtraStripOnRetry(t *testing.T) {
 		map[string]bool{"min_p": true}, // extra strip from 400 auto-retry
 	)
 
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(result, &raw); err != nil {
 		t.Fatalf("result is not valid JSON: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestBuildUpstreamBody_OpenCodeInjectsChatTemplateArgs(t *testing.T) {
 
 	result := BuildUpstreamBody([]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, &sync.Map{}, nil)
 
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(result, &raw); err != nil {
 		t.Fatalf("result is not valid JSON: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestBuildUpstreamBody_LearnedChatTemplateArgsRejectionStays(t *testing.T) {
 
 	result := BuildUpstreamBody([]byte(inputBody), "opencode-go", "glm-5.2", "glm-5.2", false, cache, &sync.Map{}, nil)
 
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(result, &raw); err != nil {
 		t.Fatalf("result is not valid JSON: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestBuildUpstreamBody_ExtraStripChatTemplateArgsOnRetry(t *testing.T) {
 		map[string]bool{"chat_template_args": true},
 	)
 
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(result, &raw); err != nil {
 		t.Fatalf("result is not valid JSON: %v", err)
 	}
@@ -222,7 +222,7 @@ func TestBuildUpstreamBody_LearnedRenameMovesValue(t *testing.T) {
 
 	result := BuildUpstreamBody([]byte(inputBody), "openai", "gpt-5-nano", "gpt-5-nano", false, &sync.Map{}, renameCache, nil)
 
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(result, &raw); err != nil {
 		t.Fatalf("result is not valid JSON: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestBuildUpstreamBody_RenameDoesNotOverwriteExplicitTarget(t *testing.T) {
 
 	result := BuildUpstreamBody([]byte(inputBody), "openai", "gpt-5-nano", "gpt-5-nano", false, &sync.Map{}, renameCache, nil)
 
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(result, &raw); err != nil {
 		t.Fatalf("result is not valid JSON: %v", err)
 	}
@@ -272,7 +272,7 @@ func TestBuildUpstreamBody_NoRenameWhenSourceAbsent(t *testing.T) {
 
 	result := BuildUpstreamBody([]byte(inputBody), "openai", "gpt-5-nano", "gpt-5-nano", false, &sync.Map{}, renameCache, nil)
 
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(result, &raw); err != nil {
 		t.Fatalf("result is not valid JSON: %v", err)
 	}
@@ -302,16 +302,16 @@ func TestBuildUpstreamBody_StripsEmptyToolCalls(t *testing.T) {
 
 	result := BuildUpstreamBody([]byte(inputBody), "openai", "gpt-4o", "gpt-4", false, &sync.Map{}, &sync.Map{}, nil)
 
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(result, &raw); err != nil {
 		t.Fatalf("result is not valid JSON: %v", err)
 	}
-	msgs, ok := raw["messages"].([]interface{})
+	msgs, ok := raw["messages"].([]any)
 	if !ok || len(msgs) != 4 {
 		t.Fatalf("messages = %v, want 4 entries", raw["messages"])
 	}
 
-	empty := msgs[1].(map[string]interface{})
+	empty := msgs[1].(map[string]any)
 	if _, exists := empty["tool_calls"]; exists {
 		t.Error("empty tool_calls array should be stripped")
 	}
@@ -319,8 +319,8 @@ func TestBuildUpstreamBody_StripsEmptyToolCalls(t *testing.T) {
 		t.Errorf("stripped message content = %v, want unchanged", empty["content"])
 	}
 
-	withCalls := msgs[2].(map[string]interface{})
-	tc, ok := withCalls["tool_calls"].([]interface{})
+	withCalls := msgs[2].(map[string]any)
+	tc, ok := withCalls["tool_calls"].([]any)
 	if !ok || len(tc) != 1 {
 		t.Errorf("non-empty tool_calls must be preserved, got %v", withCalls["tool_calls"])
 	}
@@ -337,7 +337,7 @@ func TestBuildUpstreamBody_StripEmptyToolCallsTolerantOfShapes(t *testing.T) {
 		`{"model":"gpt-4","messages":[42,{"role":"user","content":"hi","tool_calls":"nope"}]}`,
 	} {
 		result := BuildUpstreamBody([]byte(body), "openai", "gpt-4", "gpt-4", false, &sync.Map{}, &sync.Map{}, nil)
-		var raw map[string]interface{}
+		var raw map[string]any
 		if err := json.Unmarshal(result, &raw); err != nil {
 			t.Fatalf("result is not valid JSON for input %s: %v", body, err)
 		}

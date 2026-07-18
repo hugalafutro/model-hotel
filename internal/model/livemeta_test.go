@@ -9,11 +9,11 @@ import "testing"
 func TestMarkLiveMetaFromCurrent(t *testing.T) {
 	t.Run("all fields set flags every meta bit", func(t *testing.T) {
 		m := &Model{
-			InputPricePerMillion:         float64Ptr(1),
-			InputPricePerMillionCacheHit: float64Ptr(0.5),
-			OutputPricePerMillion:        float64Ptr(2),
-			ContextLength:                intPtr(8192),
-			MaxOutputTokens:              intPtr(4096),
+			InputPricePerMillion:         new(float64(1)),
+			InputPricePerMillionCacheHit: new(0.5),
+			OutputPricePerMillion:        new(float64(2)),
+			ContextLength:                new(8192),
+			MaxOutputTokens:              new(4096),
 		}
 		m.MarkLiveMetaFromCurrent()
 
@@ -41,8 +41,8 @@ func TestMarkLiveMetaFromCurrent(t *testing.T) {
 		// Live payload carried a price and context length but no cache-hit price
 		// or max-output cap. Only the two present fields may be flagged live.
 		m := &Model{
-			InputPricePerMillion: float64Ptr(3),
-			ContextLength:        intPtr(32768),
+			InputPricePerMillion: new(float64(3)),
+			ContextLength:        new(32768),
 		}
 		m.MarkLiveMetaFromCurrent()
 
@@ -66,7 +66,7 @@ func TestMarkLiveMetaFromCurrent(t *testing.T) {
 	t.Run("recomputes from current state, clearing stale flags", func(t *testing.T) {
 		// A field that was live earlier but is now nil must be un-flagged: the
 		// method is a full recompute, not an additive merge.
-		m := &Model{InputPricePerMillion: float64Ptr(1)}
+		m := &Model{InputPricePerMillion: new(float64(1))}
 		m.MarkLiveMetaFromCurrent()
 		if !m.LiveMeta.InputPrice {
 			t.Fatal("precondition: InputPrice should be live")

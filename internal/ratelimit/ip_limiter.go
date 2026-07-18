@@ -5,6 +5,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -267,8 +268,8 @@ func extractClientIP(r *http.Request, trustedProxies []*net.IPNet) string {
 // chain from the proxy-adjacent end toward the client.
 func rightmostUntrustedIP(xff string, trustedProxies []*net.IPNet) string {
 	parts := strings.Split(xff, ",")
-	for i := len(parts) - 1; i >= 0; i-- {
-		ip := strings.TrimSpace(parts[i])
+	for _, part := range slices.Backward(parts) {
+		ip := strings.TrimSpace(part)
 		if ip == "" {
 			continue
 		}

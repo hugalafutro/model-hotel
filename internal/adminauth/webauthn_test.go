@@ -327,7 +327,7 @@ func buildFakeRegistrationCredential(t *testing.T, credentialIDB64 string) json.
 	t.Helper()
 
 	// Build clientDataJSON as proper JSON
-	clientData := map[string]interface{}{
+	clientData := map[string]any{
 		"type":        "webauthn.create",
 		"challenge":   "",
 		"origin":      "http://localhost",
@@ -350,7 +350,7 @@ func buildFakeRegistrationCredential(t *testing.T, credentialIDB64 string) json.
 	binary.BigEndian.PutUint16(credIDLen, uint16(len(credID)))
 
 	// Minimal COSE key: EC2/P-256 with placeholder coordinates
-	coseKey := map[int]interface{}{
+	coseKey := map[int]any{
 		1:  2,                // kty: EC2
 		3:  -25,              // alg: ES256
 		-1: make([]byte, 32), // x: 32 zero bytes
@@ -374,9 +374,9 @@ func buildFakeRegistrationCredential(t *testing.T, credentialIDB64 string) json.
 	authData = append(authData, coseKeyCBOR...)
 
 	// Build attestation object as CBOR
-	attObj := map[string]interface{}{
+	attObj := map[string]any{
 		"fmt":      "none",
-		"attStmt":  map[string]interface{}{},
+		"attStmt":  map[string]any{},
 		"authData": authData,
 	}
 	attObjCBOR, err := cbor.Marshal(attObj)
@@ -385,11 +385,11 @@ func buildFakeRegistrationCredential(t *testing.T, credentialIDB64 string) json.
 	}
 
 	// Build the credential response JSON
-	cred := map[string]interface{}{
+	cred := map[string]any{
 		"id":    credentialIDB64,
 		"rawId": credentialIDB64,
 		"type":  "public-key",
-		"response": map[string]interface{}{
+		"response": map[string]any{
 			"attestationObject": base64.RawURLEncoding.EncodeToString(attObjCBOR),
 			"clientDataJSON":    base64.RawURLEncoding.EncodeToString(clientDataJSON),
 			"transports":        []string{"internal"},
@@ -409,7 +409,7 @@ func buildFakeLoginCredential(t *testing.T, credentialIDB64 string) json.RawMess
 	t.Helper()
 
 	// Build clientDataJSON
-	clientData := map[string]interface{}{
+	clientData := map[string]any{
 		"type":        "webauthn.get",
 		"challenge":   "",
 		"origin":      "http://localhost",
@@ -433,11 +433,11 @@ func buildFakeLoginCredential(t *testing.T, credentialIDB64 string) json.RawMess
 	authData = append(authData, signCountBytes...)
 
 	// Build the credential assertion response JSON
-	cred := map[string]interface{}{
+	cred := map[string]any{
 		"id":    credentialIDB64,
 		"rawId": credentialIDB64,
 		"type":  "public-key",
-		"response": map[string]interface{}{
+		"response": map[string]any{
 			"authenticatorData": base64.RawURLEncoding.EncodeToString(authData),
 			"clientDataJSON":    base64.RawURLEncoding.EncodeToString(clientDataJSON),
 			"signature":         base64.RawURLEncoding.EncodeToString(make([]byte, 64)),

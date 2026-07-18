@@ -613,25 +613,21 @@ func TestCacheModelByUUID_ConcurrentAccess(t *testing.T) {
 	errors := make(chan error, 50)
 
 	// Concurrent writes
-	for i := 0; i < 25; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 25 {
+		wg.Go(func() {
 			m := &Model{
 				ID:      uuid.New(),
 				ModelID: "concurrent-model",
 			}
 			cacheModelByUUID(m)
-		}()
+		})
 	}
 
 	// Concurrent reads
-	for i := 0; i < 25; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 25 {
+		wg.Go(func() {
 			_, _ = GetCachedByUUID(uuid.New())
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -655,19 +651,15 @@ func TestInvalidateModelCache_ConcurrentWithReads(t *testing.T) {
 	var wg sync.WaitGroup
 	errors := make(chan error, 50)
 
-	for i := 0; i < 25; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 25 {
+		wg.Go(func() {
 			_, _ = GetCachedByUUID(id)
-		}()
+		})
 	}
-	for i := 0; i < 25; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 25 {
+		wg.Go(func() {
 			InvalidateModelCache()
-		}()
+		})
 	}
 
 	wg.Wait()

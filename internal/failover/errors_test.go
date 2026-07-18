@@ -27,7 +27,7 @@ func TestGetByModel_UnmarshalPriorityError(t *testing.T) {
 	defer func() { jsonUnmarshal = origUnmarshal }()
 
 	callCount := 0
-	jsonUnmarshal = func(data []byte, v interface{}) error {
+	jsonUnmarshal = func(data []byte, v any) error {
 		callCount++
 		if callCount == 1 {
 			return fmt.Errorf("test unmarshal error")
@@ -61,7 +61,7 @@ func TestGetByModel_UnmarshalEntryEnabledError(t *testing.T) {
 	defer func() { jsonUnmarshal = origUnmarshal }()
 
 	callCount := 0
-	jsonUnmarshal = func(data []byte, v interface{}) error {
+	jsonUnmarshal = func(data []byte, v any) error {
 		callCount++
 		if callCount == 2 {
 			return fmt.Errorf("test unmarshal error")
@@ -91,7 +91,7 @@ func TestUpsertWithConfig_UnmarshalPriorityError(t *testing.T) {
 	defer func() { jsonUnmarshal = origUnmarshal }()
 
 	callCount := 0
-	jsonUnmarshal = func(data []byte, v interface{}) error {
+	jsonUnmarshal = func(data []byte, v any) error {
 		callCount++
 		if callCount == 1 {
 			return fmt.Errorf("test unmarshal error")
@@ -119,7 +119,7 @@ func TestUpsertWithConfig_UnmarshalEntryEnabledError(t *testing.T) {
 	defer func() { jsonUnmarshal = origUnmarshal }()
 
 	callCount := 0
-	jsonUnmarshal = func(data []byte, v interface{}) error {
+	jsonUnmarshal = func(data []byte, v any) error {
 		callCount++
 		if callCount == 2 {
 			return fmt.Errorf("test unmarshal error")
@@ -159,7 +159,7 @@ func TestGetByID_UnmarshalPriorityError(t *testing.T) {
 	defer func() { jsonUnmarshal = origUnmarshal }()
 
 	callCount := 0
-	jsonUnmarshal = func(data []byte, v interface{}) error {
+	jsonUnmarshal = func(data []byte, v any) error {
 		callCount++
 		if callCount == 1 {
 			return fmt.Errorf("test unmarshal error")
@@ -193,7 +193,7 @@ func TestGetByID_UnmarshalEntryEnabledError(t *testing.T) {
 	defer func() { jsonUnmarshal = origUnmarshal }()
 
 	callCount := 0
-	jsonUnmarshal = func(data []byte, v interface{}) error {
+	jsonUnmarshal = func(data []byte, v any) error {
 		callCount++
 		if callCount == 2 {
 			return fmt.Errorf("test unmarshal error")
@@ -231,7 +231,7 @@ func TestUpdate_UnmarshalPriorityError(t *testing.T) {
 	defer func() { jsonUnmarshal = origUnmarshal }()
 
 	callCount := 0
-	jsonUnmarshal = func(data []byte, v interface{}) error {
+	jsonUnmarshal = func(data []byte, v any) error {
 		callCount++
 		if callCount == 1 {
 			return fmt.Errorf("test unmarshal error")
@@ -265,7 +265,7 @@ func TestUpdate_UnmarshalEntryEnabledError(t *testing.T) {
 	defer func() { jsonUnmarshal = origUnmarshal }()
 
 	callCount := 0
-	jsonUnmarshal = func(data []byte, v interface{}) error {
+	jsonUnmarshal = func(data []byte, v any) error {
 		callCount++
 		if callCount == 2 {
 			return fmt.Errorf("test unmarshal error")
@@ -290,7 +290,7 @@ func TestUpsertWithConfig_MarshalPriorityError(t *testing.T) {
 	defer func() { jsonMarshal = origMarshal }()
 
 	callCount := 0
-	jsonMarshal = func(v interface{}) ([]byte, error) {
+	jsonMarshal = func(v any) ([]byte, error) {
 		callCount++
 		if callCount == 1 {
 			return nil, fmt.Errorf("test marshal error")
@@ -318,7 +318,7 @@ func TestUpsertWithConfig_MarshalEntryEnabledError(t *testing.T) {
 	defer func() { jsonMarshal = origMarshal }()
 
 	callCount := 0
-	jsonMarshal = func(v interface{}) ([]byte, error) {
+	jsonMarshal = func(v any) ([]byte, error) {
 		callCount++
 		if callCount == 2 {
 			return nil, fmt.Errorf("test marshal error")
@@ -358,7 +358,7 @@ func TestUpdate_MarshalPriorityError(t *testing.T) {
 	defer func() { jsonMarshal = origMarshal }()
 
 	callCount := 0
-	jsonMarshal = func(v interface{}) ([]byte, error) {
+	jsonMarshal = func(v any) ([]byte, error) {
 		callCount++
 		if callCount == 1 {
 			return nil, fmt.Errorf("test marshal error")
@@ -392,7 +392,7 @@ func TestUpdate_MarshalEntryEnabledError(t *testing.T) {
 	defer func() { jsonMarshal = origMarshal }()
 
 	callCount := 0
-	jsonMarshal = func(v interface{}) ([]byte, error) {
+	jsonMarshal = func(v any) ([]byte, error) {
 		callCount++
 		if callCount == 2 {
 			return nil, fmt.Errorf("test marshal error")

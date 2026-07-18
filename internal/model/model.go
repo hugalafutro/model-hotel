@@ -449,7 +449,7 @@ type UpdateModelRequest struct {
 // Update applies partial updates to a model.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRequest) (*Model, error) {
 	var setClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 2 // $1 is reserved for id
 
 	if req.DisplayName != nil {
@@ -497,7 +497,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 		return r.Get(ctx, id)
 	}
 
-	args = append([]interface{}{id}, args...)
+	args = append([]any{id}, args...)
 
 	query := fmt.Sprintf("UPDATE models SET %s WHERE id = $1", strings.Join(setClauses, ", "))
 

@@ -174,14 +174,12 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 			StatusCode: status,
 			RemoteAddr: r.RemoteAddr,
 		}
-		rec.wg.Add(1)
 		//nolint:gosec // G118: record deliberately uses a background context so a
 		// client disconnect can never drop the audit row; the request context is
 		// the wrong scope here.
-		go func() {
-			defer rec.wg.Done()
+		rec.wg.Go(func() {
 			rec.record(entry)
-		}()
+		})
 	})
 }
 

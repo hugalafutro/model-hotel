@@ -11,13 +11,13 @@ import (
 )
 
 // decodeBody reads and JSON-decodes an upstream request body.
-func decodeBody(t *testing.T, r *http.Request) map[string]interface{} {
+func decodeBody(t *testing.T, r *http.Request) map[string]any {
 	t.Helper()
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		t.Fatalf("read body: %v", err)
 	}
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal(b, &m); err != nil {
 		t.Fatalf("unmarshal body %q: %v", b, err)
 	}

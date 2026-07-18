@@ -197,10 +197,7 @@ func (l *TPMLimiter) debitBucket(bucketKey string, tokens int) {
 	}
 	now := time.Now()
 	for remaining > 0 {
-		n := remaining
-		if n > burst {
-			n = burst
-		}
+		n := min(remaining, burst)
 		entry.limiter.ReserveN(now, n)
 		remaining -= n
 	}
@@ -276,10 +273,7 @@ func tpmRetryAfter(lim *rate.Limiter) int {
 	if perSec <= 0 {
 		return 1
 	}
-	secs := int(math.Ceil((1 - avail) / perSec))
-	if secs < 1 {
-		secs = 1
-	}
+	secs := max(int(math.Ceil((1-avail)/perSec)), 1)
 	return secs
 }
 

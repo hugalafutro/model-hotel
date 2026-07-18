@@ -164,7 +164,7 @@ func TestMiddleware_AllowsWithinBurst(t *testing.T) {
 	})
 	handler := lim.Middleware(true)(next)
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		req := requestWithKey("key-allow")
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -186,7 +186,7 @@ func TestMiddleware_BlocksBeyondBurst(t *testing.T) {
 	})
 	handler := lim.Middleware(true)(next)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		req := requestWithKey("key-block")
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -216,7 +216,7 @@ func TestMiddleware_PerKeyIsolation(t *testing.T) {
 	handler := lim.Middleware(true)(next)
 
 	// Exhaust key-a
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		req := requestWithKey("key-a")
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -364,7 +364,7 @@ func TestMiddleware_SettingsChangeAtRuntime(t *testing.T) {
 	}
 
 	// Exhaust new burst of 2
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		req = requestWithKey("key-rt")
 		rr = httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -436,7 +436,7 @@ func TestMiddleware_UnlimitedRPS(t *testing.T) {
 	handler := lim.Middleware(true)(next)
 
 	// Fire many requests — none should be rate limited
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		req := requestWithKey("key-unlimited")
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -723,7 +723,7 @@ func TestMiddleware_PerKeyOverrideNil(t *testing.T) {
 	}
 
 	// Should use global burst=5, so we can make 4 more requests (5 total)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		r = r.WithContext(ctx)
 		rr = httptest.NewRecorder()
 		handler.ServeHTTP(rr, r)
@@ -763,7 +763,7 @@ func TestMiddleware_ExtractKeyFallbackToRemoteAddr(t *testing.T) {
 	handler := lim.Middleware(true)(next)
 
 	// Make requests without virtual key hash in context - should use RemoteAddr
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "192.168.1.100:12345"
 		rr := httptest.NewRecorder()
@@ -844,7 +844,7 @@ func TestMiddleware_DisabledViaEnvNoBackpressure(t *testing.T) {
 	handler := lim.Middleware(false)(next) // enabled=false (env kill-switch)
 
 	// Even though DB says enabled=true with burst=1, many requests should pass
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		req := requestWithKey("key-env-disabled")
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -1108,7 +1108,7 @@ func TestCleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
 // TestCleanupLoop_ConcurrentStopAndTick verifies that cleanupLoop handles
 // the race between the stop channel and the ticker gracefully.
 func TestCleanupLoop_ConcurrentStopAndTick(t *testing.T) {
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		lim := &Limiter{
 			limiters: make(map[string]*keyEntry),
 			settings: newStubSettings(),

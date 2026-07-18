@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"strings"
 	"sync"
@@ -136,9 +137,7 @@ func (p *Poller) Snapshot() map[string]MemberStatus {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	out := make(map[string]MemberStatus, len(p.statuses))
-	for k, v := range p.statuses {
-		out[k] = v
-	}
+	maps.Copy(out, p.statuses)
 	return out
 }
 

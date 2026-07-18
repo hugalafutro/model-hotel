@@ -106,13 +106,13 @@ func TestGetOwnContainerID_CgroupV1(t *testing.T) {
 
 	// Simulate the parsing logic from getOwnContainerID
 	var foundID string
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		parts := strings.Split(line, "/")
-		for _, part := range parts {
+		parts := strings.SplitSeq(line, "/")
+		for part := range parts {
 			part = strings.TrimSuffix(part, ".scope")
 			if len(part) >= 12 && isHex(part) {
 				foundID = part
@@ -148,13 +148,13 @@ func TestGetOwnContainerID_CgroupV2(t *testing.T) {
 	}
 
 	var foundID string
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		parts := strings.Split(line, "/")
-		for _, part := range parts {
+		parts := strings.SplitSeq(line, "/")
+		for part := range parts {
 			part = strings.TrimSuffix(part, ".scope")
 			if len(part) >= 12 && isHex(part) {
 				foundID = part
@@ -187,13 +187,13 @@ func TestGetOwnContainerID_Empty(t *testing.T) {
 	}
 
 	var foundID string
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		parts := strings.Split(line, "/")
-		for _, part := range parts {
+		parts := strings.SplitSeq(line, "/")
+		for part := range parts {
 			part = strings.TrimSuffix(part, ".scope")
 			if len(part) >= 12 && isHex(part) {
 				foundID = part

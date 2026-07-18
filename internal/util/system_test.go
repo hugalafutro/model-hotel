@@ -665,13 +665,13 @@ func TestCgroupParsing_V1(t *testing.T) {
 10:blkio:/docker/abc123def4567890`
 
 	var foundID string
-	for _, line := range strings.Split(cgroupContent, "\n") {
+	for line := range strings.SplitSeq(cgroupContent, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		parts := strings.Split(line, "/")
-		for _, part := range parts {
+		parts := strings.SplitSeq(line, "/")
+		for part := range parts {
 			part = strings.TrimSuffix(part, ".scope")
 			if len(part) >= 12 && isHex(part) {
 				foundID = part
@@ -694,13 +694,13 @@ func TestCgroupParsing_V2(t *testing.T) {
 	cgroupContent := `0::/abc123def4567890`
 
 	var foundID string
-	for _, line := range strings.Split(cgroupContent, "\n") {
+	for line := range strings.SplitSeq(cgroupContent, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		parts := strings.Split(line, "/")
-		for _, part := range parts {
+		parts := strings.SplitSeq(line, "/")
+		for part := range parts {
 			part = strings.TrimSuffix(part, ".scope")
 			if len(part) >= 12 && isHex(part) {
 				foundID = part
@@ -722,13 +722,13 @@ func TestCgroupParsing_Empty(t *testing.T) {
 	cgroupContent := ""
 
 	var foundID string
-	for _, line := range strings.Split(cgroupContent, "\n") {
+	for line := range strings.SplitSeq(cgroupContent, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		parts := strings.Split(line, "/")
-		for _, part := range parts {
+		parts := strings.SplitSeq(line, "/")
+		for part := range parts {
 			part = strings.TrimSuffix(part, ".scope")
 			if len(part) >= 12 && isHex(part) {
 				foundID = part
@@ -751,13 +751,13 @@ func TestCgroupParsing_NoContainerID(t *testing.T) {
 	cgroupContent := `0::/user.slice/user-1000.slice/session-1.scope`
 
 	var foundID string
-	for _, line := range strings.Split(cgroupContent, "\n") {
+	for line := range strings.SplitSeq(cgroupContent, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		parts := strings.Split(line, "/")
-		for _, part := range parts {
+		parts := strings.SplitSeq(line, "/")
+		for part := range parts {
 			part = strings.TrimSuffix(part, ".scope")
 			if len(part) >= 12 && isHex(part) {
 				foundID = part
@@ -785,7 +785,7 @@ func TestNetworkStatsParsing(t *testing.T) {
 `
 
 	var totalRx, totalTx int64
-	for _, line := range strings.Split(procNetDevContent, "\n") {
+	for line := range strings.SplitSeq(procNetDevContent, "\n") {
 		line = strings.TrimSpace(line)
 		if !strings.Contains(line, ":") {
 			continue
@@ -824,14 +824,14 @@ func TestCgroupIOStatParsing(t *testing.T) {
 8:16 rbytes=111111 wbytes=222222 rios=10 wios=20`
 
 	var totalRead, totalWrite int64
-	for _, line := range strings.Split(ioStatContent, "\n") {
-		for _, field := range strings.Fields(line) {
-			if strings.HasPrefix(field, "rbytes=") {
-				if v, e := ParseInt(strings.TrimPrefix(field, "rbytes=")); e == nil {
+	for line := range strings.SplitSeq(ioStatContent, "\n") {
+		for field := range strings.FieldsSeq(line) {
+			if after, ok := strings.CutPrefix(field, "rbytes="); ok {
+				if v, e := ParseInt(after); e == nil {
 					totalRead += v
 				}
-			} else if strings.HasPrefix(field, "wbytes=") {
-				if v, e := ParseInt(strings.TrimPrefix(field, "wbytes=")); e == nil {
+			} else if after, ok := strings.CutPrefix(field, "wbytes="); ok {
+				if v, e := ParseInt(after); e == nil {
 					totalWrite += v
 				}
 			}
@@ -852,14 +852,14 @@ func TestCgroupIOStatParsing_Empty(t *testing.T) {
 	ioStatContent := ""
 
 	var totalRead, totalWrite int64
-	for _, line := range strings.Split(ioStatContent, "\n") {
-		for _, field := range strings.Fields(line) {
-			if strings.HasPrefix(field, "rbytes=") {
-				if v, e := ParseInt(strings.TrimPrefix(field, "rbytes=")); e == nil {
+	for line := range strings.SplitSeq(ioStatContent, "\n") {
+		for field := range strings.FieldsSeq(line) {
+			if after, ok := strings.CutPrefix(field, "rbytes="); ok {
+				if v, e := ParseInt(after); e == nil {
 					totalRead += v
 				}
-			} else if strings.HasPrefix(field, "wbytes=") {
-				if v, e := ParseInt(strings.TrimPrefix(field, "wbytes=")); e == nil {
+			} else if after, ok := strings.CutPrefix(field, "wbytes="); ok {
+				if v, e := ParseInt(after); e == nil {
 					totalWrite += v
 				}
 			}
@@ -885,9 +885,9 @@ nr_throttled 5
 throttled_usec 50000`
 
 	var usageUsec int64
-	for _, line := range strings.Split(cpuStatContent, "\n") {
-		if strings.HasPrefix(line, "usage_usec ") {
-			val := strings.TrimPrefix(line, "usage_usec ")
+	for line := range strings.SplitSeq(cpuStatContent, "\n") {
+		if after, ok := strings.CutPrefix(line, "usage_usec "); ok {
+			val := after
 			if v, e := ParseInt(strings.TrimSpace(val)); e == nil {
 				usageUsec = v
 			}

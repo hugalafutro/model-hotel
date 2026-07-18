@@ -11,9 +11,6 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/packages/ssestream"
 )
 
-// strPtr is a test helper for OpenAI finish_reason pointers.
-func strPtr(s string) *string { return &s }
-
 // decodeWithSDK feeds raw Anthropic SSE bytes through the real anthropic-sdk-go
 // stream decoder, proving a genuine Anthropic SDK client accepts our output. It
 // returns the ordered event types plus the reconstructed assistant turn.
@@ -95,7 +92,7 @@ func TestStreamTranslator_TextOnly_AcceptedBySDK(t *testing.T) {
 	chunks := []OAStreamChunk{
 		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{Content: "Hello"}}}},
 		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{Content: ", world"}}}},
-		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{Content: "!"}, FinishReason: strPtr("stop")}}},
+		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{Content: "!"}, FinishReason: new("stop")}}},
 		{Usage: &OAUsage{PromptTokens: 9, CompletionTokens: 3}},
 	}
 	sse := runTranslator(t, tr, chunks)
@@ -150,7 +147,7 @@ func TestStreamTranslator_ToolUse_AcceptedBySDK(t *testing.T) {
 		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{ToolCalls: []OAToolCallDelta{
 			{Index: 0, Function: OAFunctionDelta{Arguments: `"Paris"}`}},
 		}}}}},
-		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{}, FinishReason: strPtr("tool_calls")}}},
+		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{}, FinishReason: new("tool_calls")}}},
 		{Usage: &OAUsage{PromptTokens: 20, CompletionTokens: 12}},
 	}
 	sse := runTranslator(t, tr, chunks)
@@ -175,7 +172,7 @@ func TestStreamTranslator_EmptyCompletion_WellFormed(t *testing.T) {
 	tr := NewStreamTranslator("msg_empty", "claude-haiku-4-5")
 	// No content at all, just a terminal finish.
 	chunks := []OAStreamChunk{
-		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{}, FinishReason: strPtr("stop")}}},
+		{Choices: []OAStreamChoice{{Delta: OAStreamDelta{}, FinishReason: new("stop")}}},
 	}
 	sse := runTranslator(t, tr, chunks)
 	got := decodeWithSDK(t, sse)

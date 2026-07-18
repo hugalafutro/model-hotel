@@ -363,12 +363,10 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	// steady-state watch. Disabling (or no primary) never kicks.
 	if status.Enabled && status.PrimaryID != "" {
 		kickCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), autoSyncKickTimeout)
-		s.bgWG.Add(1)
-		go func() {
-			defer s.bgWG.Done()
+		s.bgWG.Go(func() {
 			defer cancel()
 			s.forceAutoSyncNow(kickCtx)
-		}()
+		})
 	}
 	writeJSON(w, http.StatusOK, status)
 }

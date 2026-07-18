@@ -227,7 +227,7 @@ func TestDebounceSuppressesFlapping(t *testing.T) {
 	d := New(fakeCfg{cfg: enabledConfig("http://unused", "tgram://x", "circuit_breaker.open")}, nil)
 	d.cooldown = time.Minute // large window: the decision is synchronous, no real time elapses
 
-	ev := events.Event{Type: "circuit_breaker.open", Severity: "warning", Metadata: map[string]interface{}{"provider_id": "p1"}}
+	ev := events.Event{Type: "circuit_breaker.open", Severity: "warning", Metadata: map[string]any{"provider_id": "p1"}}
 	if !d.handle(context.Background(), ev) {
 		t.Fatal("first event should dispatch")
 	}
@@ -239,7 +239,7 @@ func TestDebounceSuppressesFlapping(t *testing.T) {
 	}
 
 	// Different provider => different debounce key => allowed.
-	ev2 := events.Event{Type: "circuit_breaker.open", Severity: "warning", Metadata: map[string]interface{}{"provider_id": "p2"}}
+	ev2 := events.Event{Type: "circuit_breaker.open", Severity: "warning", Metadata: map[string]any{"provider_id": "p2"}}
 	if !d.handle(context.Background(), ev2) {
 		t.Error("a different provider should not be suppressed")
 	}
@@ -253,7 +253,7 @@ func TestDebounceDistinctEntities(t *testing.T) {
 	d.cooldown = time.Minute
 
 	disc := func(provider string) events.Event {
-		return events.Event{Type: "discovery.provider_failed", Severity: "error", Metadata: map[string]interface{}{"provider": provider}}
+		return events.Event{Type: "discovery.provider_failed", Severity: "error", Metadata: map[string]any{"provider": provider}}
 	}
 	if !d.handle(context.Background(), disc("openai")) {
 		t.Fatal("first provider discovery failure should dispatch")
@@ -266,7 +266,7 @@ func TestDebounceDistinctEntities(t *testing.T) {
 	}
 
 	sync := func(model string) events.Event {
-		return events.Event{Type: "failover.sync_error", Severity: "warning", Metadata: map[string]interface{}{"model_id": model}}
+		return events.Event{Type: "failover.sync_error", Severity: "warning", Metadata: map[string]any{"model_id": model}}
 	}
 	if !d.handle(context.Background(), sync("gpt-4o")) || !d.handle(context.Background(), sync("claude")) {
 		t.Error("distinct model sync errors must alert independently")
@@ -277,7 +277,7 @@ func TestDebounceAllowsAfterCooldown(t *testing.T) {
 	d := New(fakeCfg{cfg: enabledConfig("http://unused", "tgram://x", "circuit_breaker.open")}, nil)
 	d.cooldown = 30 * time.Millisecond
 
-	ev := events.Event{Type: "circuit_breaker.open", Severity: "warning", Metadata: map[string]interface{}{"provider_id": "p1"}}
+	ev := events.Event{Type: "circuit_breaker.open", Severity: "warning", Metadata: map[string]any{"provider_id": "p1"}}
 	if !d.handle(context.Background(), ev) {
 		t.Fatal("first event should dispatch")
 	}
@@ -294,7 +294,7 @@ func TestDebounceRecoveryNotSuppressedByFailure(t *testing.T) {
 	d := New(fakeCfg{cfg: enabledConfig("http://unused", "tgram://x", "circuit_breaker.open", "circuit_breaker.closed")}, nil)
 	d.cooldown = time.Minute
 
-	meta := map[string]interface{}{"provider_id": "p1"}
+	meta := map[string]any{"provider_id": "p1"}
 	open := d.handle(context.Background(), events.Event{Type: "circuit_breaker.open", Severity: "warning", Metadata: meta})
 	closed := d.handle(context.Background(), events.Event{Type: "circuit_breaker.closed", Severity: "success", Metadata: meta})
 	if !open || !closed {
@@ -397,7 +397,7 @@ func TestWithDebounceKeysScopesPerMember(t *testing.T) {
 	d.cooldown = time.Minute
 
 	down := func(member string) events.Event {
-		return events.Event{Type: "health.down", Severity: "error", Metadata: map[string]interface{}{"member_id": member}}
+		return events.Event{Type: "health.down", Severity: "error", Metadata: map[string]any{"member_id": member}}
 	}
 	if !d.handle(context.Background(), down("m1")) {
 		t.Fatal("first member-down should dispatch")
@@ -410,7 +410,7 @@ func TestWithDebounceKeysScopesPerMember(t *testing.T) {
 	}
 	// provider_id is NOT a configured debounce key here, so it does not scope:
 	// two events differing only by provider_id collapse to the empty-id bucket.
-	withProv := events.Event{Type: "health.down", Severity: "error", Metadata: map[string]interface{}{"provider_id": "p1"}}
+	withProv := events.Event{Type: "health.down", Severity: "error", Metadata: map[string]any{"provider_id": "p1"}}
 	if !d.handle(context.Background(), withProv) {
 		t.Fatal("first un-membered event should dispatch")
 	}
@@ -427,8 +427,7 @@ func TestWithBusIsolatesFromDefault(t *testing.T) {
 	d := New(fakeCfg{cfg: enabledConfig(rs.URL, "tgram://x", "health.down")},
 		rs.Client(), WithBus(bus), WithCatalog(cat))
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go d.Run(ctx)
 
 	// An event on the GLOBAL bus must not reach a dispatcher bound to `bus`.

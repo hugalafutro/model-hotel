@@ -32,7 +32,7 @@ func TestDiscoverOllama_HTTP(t *testing.T) {
 			// Mock show response
 			response := OllamaShowResponse{
 				Capabilities: []string{"tools"},
-				ModelInfo: map[string]interface{}{
+				ModelInfo: map[string]any{
 					"llama.context_length": float64(8192),
 				},
 				Details: OllamaShowDetails{
@@ -129,7 +129,7 @@ func TestDiscoverOllama_ContextCancelled(t *testing.T) {
 		case "/api/show":
 			response := OllamaShowResponse{
 				Capabilities: []string{"tools"},
-				ModelInfo: map[string]interface{}{
+				ModelInfo: map[string]any{
 					"llama.context_length": float64(8192),
 				},
 				Details: OllamaShowDetails{
@@ -200,7 +200,7 @@ func TestOllamaShowModel_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := OllamaShowResponse{
 			Capabilities: []string{"tools", "vision"},
-			ModelInfo: map[string]interface{}{
+			ModelInfo: map[string]any{
 				"llama.context_length": float64(16384),
 			},
 			Details: OllamaShowDetails{
@@ -484,7 +484,7 @@ func TestDiscoverOllama_ShowModelFails(t *testing.T) {
 			}
 			response := OllamaShowResponse{
 				Capabilities: []string{"tools"},
-				ModelInfo:    map[string]interface{}{"llama.context_length": float64(8192)},
+				ModelInfo:    map[string]any{"llama.context_length": float64(8192)},
 				Details:      OllamaShowDetails{Family: "llama"},
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -545,7 +545,7 @@ func TestDiscoverOllama_VisionCapability(t *testing.T) {
 		case "/api/show":
 			response := OllamaShowResponse{
 				Capabilities: []string{"vision", "tools"},
-				ModelInfo:    map[string]interface{}{"llama.context_length": float64(16384)},
+				ModelInfo:    map[string]any{"llama.context_length": float64(16384)},
 				Details:      OllamaShowDetails{Family: "llama"},
 			}
 			w.Header().Set("Content-Type", "application/json")
@@ -596,7 +596,7 @@ func TestBuildOllamaModel_EmptyFamilyHTTP(t *testing.T) {
 	service := &DiscoveryService{}
 	show := &OllamaShowResponse{
 		Capabilities: []string{},
-		ModelInfo:    map[string]interface{}{},
+		ModelInfo:    map[string]any{},
 		Details:      OllamaShowDetails{Family: ""},
 	}
 	provider := &Provider{ID: uuid.New()}
@@ -611,7 +611,7 @@ func TestBuildOllamaModel_ContextLengthFromModelInfoHTTP(t *testing.T) {
 	service := &DiscoveryService{}
 	show := &OllamaShowResponse{
 		Capabilities: []string{},
-		ModelInfo: map[string]interface{}{
+		ModelInfo: map[string]any{
 			"llama.context_length": float64(32768),
 		},
 		Details: OllamaShowDetails{Family: "llama"},
@@ -628,7 +628,7 @@ func TestBuildOllamaModel_ThinkingCapabilityHTTP(t *testing.T) {
 	service := &DiscoveryService{}
 	show := &OllamaShowResponse{
 		Capabilities: []string{"thinking"},
-		ModelInfo:    map[string]interface{}{},
+		ModelInfo:    map[string]any{},
 		Details:      OllamaShowDetails{Family: "llama"},
 	}
 	provider := &Provider{ID: uuid.New()}
@@ -650,7 +650,7 @@ func TestBuildOllamaModel_EmbeddingCapabilityHTTP(t *testing.T) {
 	// hidden from the chat picker.
 	show := &OllamaShowResponse{
 		Capabilities: []string{"embedding"},
-		ModelInfo:    map[string]interface{}{},
+		ModelInfo:    map[string]any{},
 		Details:      OllamaShowDetails{Family: "nomic-bert"},
 	}
 	provider := &Provider{ID: uuid.New()}
@@ -672,7 +672,7 @@ func TestBuildOllamaModel_CompletionStaysTextHTTP(t *testing.T) {
 	// keeps it as a chat model.
 	show := &OllamaShowResponse{
 		Capabilities: []string{"completion", "tools"},
-		ModelInfo:    map[string]interface{}{},
+		ModelInfo:    map[string]any{},
 		Details:      OllamaShowDetails{Family: "llama"},
 	}
 	provider := &Provider{ID: uuid.New()}
@@ -690,7 +690,7 @@ func TestBuildOllamaModel_EmbeddingByNameFallbackHTTP(t *testing.T) {
 	// heuristic so an embedding model is still caught.
 	show := &OllamaShowResponse{
 		Capabilities: []string{},
-		ModelInfo:    map[string]interface{}{},
+		ModelInfo:    map[string]any{},
 		Details:      OllamaShowDetails{Family: "bert"},
 	}
 	provider := &Provider{ID: uuid.New()}

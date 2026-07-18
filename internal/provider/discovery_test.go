@@ -1065,7 +1065,7 @@ func TestQuotaCircuitState_ClosedByDefault(t *testing.T) {
 
 func TestQuotaCircuitState_OpensAfterThreshold(t *testing.T) {
 	s := &quotaCircuitState{}
-	for i := 0; i < quotaBreakerThreshold-1; i++ {
+	for i := range quotaBreakerThreshold - 1 {
 		if s.recordFailure() {
 			t.Errorf("circuit should not open at failure %d (threshold=%d)", i+1, quotaBreakerThreshold)
 		}
@@ -1082,12 +1082,12 @@ func TestQuotaCircuitState_OpensAfterThreshold(t *testing.T) {
 func TestQuotaCircuitState_SuccessResets(t *testing.T) {
 	s := &quotaCircuitState{}
 	// Fail a few times (not enough to open).
-	for i := 0; i < quotaBreakerThreshold-1; i++ {
+	for range quotaBreakerThreshold - 1 {
 		s.recordFailure()
 	}
 	s.recordSuccess()
 	// consecFailures reset to 0, so threshold more failures needed.
-	for i := 0; i < quotaBreakerThreshold-1; i++ {
+	for range quotaBreakerThreshold - 1 {
 		if s.isCircuitOpen() {
 			t.Error("circuit should not be open yet")
 		}
@@ -1102,7 +1102,7 @@ func TestQuotaCircuitState_SuccessResets(t *testing.T) {
 func TestQuotaCircuitState_HalfOpenAfterReset(t *testing.T) {
 	s := &quotaCircuitState{}
 	// Open the circuit.
-	for i := 0; i < quotaBreakerThreshold; i++ {
+	for range quotaBreakerThreshold {
 		s.recordFailure()
 	}
 	if !s.isCircuitOpen() {
@@ -1126,7 +1126,7 @@ func TestQuotaCircuitState_HalfOpenAfterReset(t *testing.T) {
 func TestQuotaCircuitState_HalfOpenFailureReopens(t *testing.T) {
 	s := &quotaCircuitState{}
 	// Open the circuit.
-	for i := 0; i < quotaBreakerThreshold; i++ {
+	for range quotaBreakerThreshold {
 		s.recordFailure()
 	}
 	// Expire the open window.
@@ -1153,7 +1153,7 @@ func TestDoQuotaRequestWithRetry_CircuitBreakerShortCircuits(t *testing.T) {
 
 	// Open the circuit by recording enough failures.
 	circuit := svc.getOrCreateCircuit(providerID)
-	for i := 0; i < quotaBreakerThreshold; i++ {
+	for range quotaBreakerThreshold {
 		circuit.recordFailure()
 	}
 
@@ -1934,7 +1934,7 @@ func TestDiscoverOllama_ShowModelFailure(t *testing.T) {
 			// Successful response for other models
 			response := OllamaShowResponse{
 				Capabilities: []string{"tools"},
-				ModelInfo: map[string]interface{}{
+				ModelInfo: map[string]any{
 					"llama.context_length": float64(8192),
 				},
 				Details: OllamaShowDetails{
@@ -1987,7 +1987,7 @@ func TestBuildOllamaModel_ThinkingCapability(t *testing.T) {
 
 	showResponse := &OllamaShowResponse{
 		Capabilities: []string{"tools", "thinking", "vision"},
-		ModelInfo: map[string]interface{}{
+		ModelInfo: map[string]any{
 			"llama.context_length": float64(32768),
 		},
 		Details: OllamaShowDetails{
@@ -2034,7 +2034,7 @@ func TestBuildOllamaModel_EmptyFamily(t *testing.T) {
 
 	showResponse := &OllamaShowResponse{
 		Capabilities: []string{"tools"},
-		ModelInfo: map[string]interface{}{
+		ModelInfo: map[string]any{
 			"llama.context_length": float64(8192),
 		},
 		Details: OllamaShowDetails{

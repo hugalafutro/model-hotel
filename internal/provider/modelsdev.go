@@ -51,7 +51,7 @@ type ModelsDevModelSpec struct {
 	OpenWeights      bool                 `json:"open_weights"`
 	Cost             ModelsDevCost        `json:"cost"`
 	Limit            ModelsDevLimit       `json:"limit"`
-	Interleaved      ModelsDevInterleaved `json:"interleaved,omitempty"`
+	Interleaved      ModelsDevInterleaved `json:"interleaved"`
 }
 
 // ModelsDevModalities describes input and output modalities for a models.dev model.

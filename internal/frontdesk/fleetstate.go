@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -169,9 +170,7 @@ func (s *Server) heldSnapshot() map[string]bool {
 	s.syncHeldMu.Lock()
 	defer s.syncHeldMu.Unlock()
 	out := make(map[string]bool, len(s.syncHeld))
-	for k, v := range s.syncHeld {
-		out[k] = v
-	}
+	maps.Copy(out, s.syncHeld)
 	return out
 }
 

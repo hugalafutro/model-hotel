@@ -79,7 +79,7 @@ type ChangeEvent struct {
 }
 
 // subIDCounter is used to assign unique IDs to each subscription.
-var subIDCounter uint64
+var subIDCounter atomic.Uint64
 
 // subscription ties a unique ID to a channel so that Unsubscribe can find it
 // without relying on channel comparison (which doesn't work across
@@ -149,7 +149,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 //	    if change.Key == "discovery_interval" { … }
 //	}
 func (r *Repository) Subscribe() *Subscription {
-	id := atomic.AddUint64(&subIDCounter, 1)
+	id := subIDCounter.Add(1)
 	ch := make(chan ChangeEvent, 16)
 	r.changeMu.Lock()
 	r.subscriptions = append(r.subscriptions, subscription{id: id, ch: ch})

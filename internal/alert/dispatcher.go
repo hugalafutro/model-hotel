@@ -223,7 +223,7 @@ func (d *Dispatcher) suppressed(ev events.Event) bool {
 // failing inside the cooldown window would collapse to a single alert and the
 // second failure would be silently dropped. keys is the most-specific-first list
 // to probe (the dispatcher's configured debounce keys).
-func debounceID(meta map[string]interface{}, keys []string) string {
+func debounceID(meta map[string]any, keys []string) string {
 	for _, k := range keys {
 		if v, ok := meta[k].(string); ok && v != "" {
 			return v

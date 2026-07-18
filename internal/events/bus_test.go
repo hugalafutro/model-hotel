@@ -67,7 +67,7 @@ func TestDropIfFull(t *testing.T) {
 	b.mu.Unlock()
 
 	// Publish more than buffer size
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		b.Publish(Event{Type: "drop"})
 	}
 
@@ -131,23 +131,19 @@ func TestConcurrentSubscribePublish(t *testing.T) {
 	}
 
 	// Concurrent publishers.
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			b.Publish(Event{Type: "concurrent"})
-		}()
+		})
 	}
 
 	// Concurrent subscribe/unsubscribe while publishing.
-	for i := 0; i < 3; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 3 {
+		wg.Go(func() {
 			ch := b.Subscribe()
 			time.Sleep(5 * time.Millisecond)
 			b.Unsubscribe(ch)
-		}()
+		})
 	}
 
 	wg.Wait()

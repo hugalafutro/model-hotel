@@ -68,7 +68,7 @@ func TestIPLimiter_AllowsWithinBurst(t *testing.T) {
 	})
 	handler := lim.Middleware(next)
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "1.2.3.4:1234"
 		rr := httptest.NewRecorder()
@@ -88,7 +88,7 @@ func TestIPLimiter_BlocksBeyondBurst(t *testing.T) {
 	})
 	handler := lim.Middleware(next)
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "5.6.7.8:5678"
 		rr := httptest.NewRecorder()
@@ -117,7 +117,7 @@ func TestIPLimiter_PerIPIsolation(t *testing.T) {
 	handler := lim.Middleware(next)
 
 	// Exhaust IP-A
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "10.0.0.1:1000"
 		rr := httptest.NewRecorder()
@@ -564,7 +564,7 @@ func TestIPLimiter_RuntimeSettingsOverrideRPS(t *testing.T) {
 	handler := lim.Middleware(next)
 
 	// With RPS=1000 and burst=1000, 50 rapid requests should all succeed
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "10.0.0.1:1234"
 		rr := httptest.NewRecorder()
@@ -589,7 +589,7 @@ func TestIPLimiter_SettingsFallbackToDefaults(t *testing.T) {
 
 	// Constructor defaults: RPS=0.1, burst=2
 	// Both burst requests should succeed
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "10.0.0.2:1234"
 		rr := httptest.NewRecorder()
@@ -621,7 +621,7 @@ func TestIPLimiter_ConcurrentAccess(t *testing.T) {
 	var wg sync.WaitGroup
 	errors := make(chan error, 100)
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -682,7 +682,7 @@ func TestIPLimiter_UnlimitedRPS(t *testing.T) {
 	handler := lim.Middleware(next)
 
 	// Fire many requests — none should be rate limited
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "10.10.10.10:1234"
 		rr := httptest.NewRecorder()
@@ -739,7 +739,7 @@ func TestIPLimiter_SettingsChangeRPS(t *testing.T) {
 	lim.mu.Unlock()
 
 	// With new settings, many more requests should succeed
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		req = httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "172.16.0.1:5000"
 		rr = httptest.NewRecorder()
@@ -1044,7 +1044,7 @@ func TestIPLimiter_MiddlewareNoSettingsPassesThrough(t *testing.T) {
 	handler := lim.Middleware(next)
 
 	// burst=2 from constructor defaults
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		req.RemoteAddr = "7.7.7.7:7777"
 		rr := httptest.NewRecorder()

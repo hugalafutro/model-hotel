@@ -366,7 +366,7 @@ func TestWebAuthnHandler_LoginStart_Success(t *testing.T) {
 		t.Fatalf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -513,7 +513,7 @@ func TestWebAuthnHandler_LoginFinish_WithSyntacticallyValidCredential(t *testing
 		t.Fatalf("LoginStart failed: %d %s", w.Code, w.Body.String())
 	}
 
-	var startResp map[string]interface{}
+	var startResp map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&startResp); err != nil {
 		t.Fatalf("failed to decode LoginStart response: %v", err)
 	}
@@ -528,7 +528,7 @@ func TestWebAuthnHandler_LoginFinish_WithSyntacticallyValidCredential(t *testing
 	fakeCred := buildFakeLoginCredential(t, "dGVzdA")
 
 	// Step 3: Call LoginFinish with the valid session + fake credential
-	finishBody := map[string]interface{}{
+	finishBody := map[string]any{
 		"session_id": sessionID,
 		"credential": fakeCred,
 	}
@@ -713,7 +713,7 @@ func TestWebAuthnHandler_LoginFinish_WithStoredCredential(t *testing.T) {
 		t.Fatalf("LoginStart failed: %d %s", w.Code, w.Body.String())
 	}
 
-	var startResp map[string]interface{}
+	var startResp map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&startResp); err != nil {
 		t.Fatalf("failed to decode LoginStart response: %v", err)
 	}
@@ -729,7 +729,7 @@ func TestWebAuthnHandler_LoginFinish_WithStoredCredential(t *testing.T) {
 
 	// Step 4: Call LoginFinish - userLookup finds the credential via
 	// GetCredentialByID, but ValidatePasskeyLogin fails (fake signature)
-	finishBody := map[string]interface{}{
+	finishBody := map[string]any{
 		"session_id": sessionID,
 		"credential": fakeCred,
 	}

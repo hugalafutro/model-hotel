@@ -250,7 +250,7 @@ func TestProviderResponse_JSON(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	var decoded map[string]interface{}
+	var decoded map[string]any
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("unmarshal to map: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestProviderResponse_JSONNilTimestamps(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	var decoded map[string]interface{}
+	var decoded map[string]any
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}

@@ -72,8 +72,8 @@ func TestDetectComposeProject(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		case "/containers/abc123def456/json":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"Config": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"Config": map[string]any{
 					"Labels": map[string]string{
 						"com.docker.compose.project": "testproject",
 					},
@@ -119,8 +119,8 @@ func TestDetectComposeProject_NoLabels(t *testing.T) {
 		case "/containers/abc123def456/json":
 			w.WriteHeader(http.StatusOK)
 			// Container without compose labels
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"Config": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"Config": map[string]any{
 					"Labels": map[string]string{},
 				},
 			})
@@ -232,8 +232,8 @@ func TestDetectComposeProject_WithContainerID(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		case "/containers/abc123def456/json":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"Config": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"Config": map[string]any{
 					"Labels": map[string]string{
 						"com.docker.compose.project": "testproject",
 					},
@@ -466,8 +466,8 @@ func TestDetectComposeProject_HappyPath(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		case "/containers/abc123def4567890/json":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"Config": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"Config": map[string]any{
 					"Labels": map[string]string{
 						"com.docker.compose.project": "myproject",
 					},
@@ -525,8 +525,8 @@ func TestDetectComposeProject_NoLabelsWithID(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		case "/containers/abc123def4567890/json":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"Config": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"Config": map[string]any{
 					"Labels": map[string]string{},
 				},
 			})
@@ -781,8 +781,8 @@ func TestDetectContainerFilter(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		case "/containers/abc123def456/json":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"Config": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"Config": map[string]any{
 					"Labels": map[string]string{
 						"com.docker.compose.project": "testproject",
 					},
@@ -844,8 +844,8 @@ func TestDetectContainerFilter_AppGroupLabel(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		case "/containers/abc123def456/json":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"Config": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"Config": map[string]any{
 					"Labels": map[string]string{
 						"app.group": "model-hotel",
 					},
@@ -970,8 +970,8 @@ func TestDetectContainerFilter_NoLabels(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		case "/containers/abc123def456/json":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"Config": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"Config": map[string]any{
 					"Labels": map[string]string{},
 				},
 			})

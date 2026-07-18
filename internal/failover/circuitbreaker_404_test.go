@@ -18,7 +18,7 @@ func TestCircuitBreaker_NoOpPreservesFailureHistory(t *testing.T) {
 	pid := uuid.New()
 
 	// 4 × RecordFailure (simulating 5xx responses)
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		cb.RecordFailure(pid, "test-provider")
 	}
 
@@ -88,7 +88,7 @@ func TestCircuitBreaker_RecordSuccessResetsFailures(t *testing.T) {
 	pid := uuid.New()
 
 	// 4 × RecordFailure (5xx)
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		cb.RecordFailure(pid, "test-provider")
 	}
 
@@ -96,7 +96,7 @@ func TestCircuitBreaker_RecordSuccessResetsFailures(t *testing.T) {
 	cb.RecordSuccess(pid, "test-provider")
 
 	// Counter was reset to 0 — need 5 MORE failures to open
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		cb.RecordFailure(pid, "test-provider")
 	}
 	if cb.IsOpen(pid, "test-provider") {

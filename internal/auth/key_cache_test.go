@@ -361,10 +361,8 @@ func TestDecryptCached_ConcurrentAccess(t *testing.T) {
 	errors := make(chan error, 20)
 
 	// Launch concurrent decrypts
-	for i := 0; i < 20; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 20 {
+		wg.Go(func() {
 			result, err := DecryptCached(kp.Ciphertext, kp.Nonce, kp.Salt, masterKey)
 			if err != nil {
 				errors <- err
@@ -374,7 +372,7 @@ func TestDecryptCached_ConcurrentAccess(t *testing.T) {
 				errors <- err
 				return
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -762,10 +760,8 @@ func TestDecryptCached_ConcurrentEvictionAndAccess(t *testing.T) {
 	done := make(chan struct{})
 
 	// Launch 10 goroutines repeatedly calling DecryptCached
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			for {
 				select {
 				case <-done:
@@ -782,13 +778,11 @@ func TestDecryptCached_ConcurrentEvictionAndAccess(t *testing.T) {
 					}
 				}
 			}
-		}()
+		})
 	}
 
 	// Launch 1 goroutine repeatedly calling evictExpiredKeyCacheEntries
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-done:
@@ -798,7 +792,7 @@ func TestDecryptCached_ConcurrentEvictionAndAccess(t *testing.T) {
 				time.Sleep(10 * time.Millisecond)
 			}
 		}
-	}()
+	})
 
 	// Run for ~500ms
 	time.Sleep(500 * time.Millisecond)

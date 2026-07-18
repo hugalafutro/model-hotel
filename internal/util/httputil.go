@@ -109,8 +109,8 @@ func IntToStr(i int) string {
 func WriteOpenAIError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"error": map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"error": map[string]any{
 			"message": message,
 			"type":    OpenAIErrorType(statusCode),
 			"code":    statusCode,

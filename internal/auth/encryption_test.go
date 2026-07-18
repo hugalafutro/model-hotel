@@ -249,7 +249,7 @@ func TestGenerateRandomKey_Length(t *testing.T) {
 
 func TestGenerateRandomKey_Randomness(t *testing.T) {
 	keys := make(map[string]bool)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		key, err := GenerateRandomKey()
 		if err != nil {
 			t.Fatalf("GenerateRandomKey failed: %v", err)
@@ -342,7 +342,7 @@ func TestEncryptDecrypt_Concurrent(t *testing.T) {
 	iterations := 100
 
 	results := make(chan string, iterations)
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		go func() {
 			encrypted, err := Encrypt(plaintext, masterKey)
 			if err != nil {
@@ -358,7 +358,7 @@ func TestEncryptDecrypt_Concurrent(t *testing.T) {
 		}()
 	}
 
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		result := <-results
 		if result != plaintext {
 			t.Errorf("Concurrent operation failed: expected %q, got %q", plaintext, result)

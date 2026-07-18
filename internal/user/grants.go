@@ -1,6 +1,9 @@
 package user
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // Grant is a feature key a non-admin user can be given access to. The catalog
 // is the single source of truth: the API validates incoming grants against it
@@ -43,10 +46,5 @@ func ValidateGrants(grants []string) error {
 // HasGrant reports whether the grant list contains g. Role checks live in the
 // middleware; admins bypass grants entirely and never reach this.
 func HasGrant(grants []string, g Grant) bool {
-	for _, have := range grants {
-		if have == string(g) {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(grants, string(g))
 }

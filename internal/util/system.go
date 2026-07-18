@@ -67,8 +67,8 @@ func ReadCgroupCPU() float64 {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, "usage_usec ") {
-			val := strings.TrimPrefix(line, "usage_usec ")
+		if after, ok := strings.CutPrefix(line, "usage_usec "); ok {
+			val := after
 			if v, e := strconv.ParseInt(strings.TrimSpace(val), 10, 64); e == nil {
 				usageUsec = v
 			}
@@ -214,13 +214,13 @@ func ReadCgroupDiskIO() (readBytesPerSec, writeBytesPerSec float64) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
-		for _, field := range strings.Fields(line) {
-			if strings.HasPrefix(field, "rbytes=") {
-				if v, e := ParseInt(strings.TrimPrefix(field, "rbytes=")); e == nil {
+		for field := range strings.FieldsSeq(line) {
+			if after, ok := strings.CutPrefix(field, "rbytes="); ok {
+				if v, e := ParseInt(after); e == nil {
 					totalRead += v
 				}
-			} else if strings.HasPrefix(field, "wbytes=") {
-				if v, e := ParseInt(strings.TrimPrefix(field, "wbytes=")); e == nil {
+			} else if after, ok := strings.CutPrefix(field, "wbytes="); ok {
+				if v, e := ParseInt(after); e == nil {
 					totalWrite += v
 				}
 			}

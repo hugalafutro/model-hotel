@@ -22,7 +22,7 @@ import (
 
 const testFrontdeskToken = "test-frontdesk-token"
 
-var memberServerSeq int32
+var memberServerSeq atomic.Int32
 
 // systemMemberServer stands in for a member instance: it answers GET
 // /api/system/ with a fleet block reporting the given is_primary plus a unique
@@ -32,7 +32,7 @@ var memberServerSeq int32
 // look like two different hosts unless you use systemMemberServerID.
 func systemMemberServer(t *testing.T, selfReportsPrimary bool) *httptest.Server {
 	t.Helper()
-	id := fmt.Sprintf("iid-%d", atomic.AddInt32(&memberServerSeq, 1))
+	id := fmt.Sprintf("iid-%d", memberServerSeq.Add(1))
 	return systemMemberServerID(t, selfReportsPrimary, id)
 }
 

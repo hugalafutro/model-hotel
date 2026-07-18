@@ -104,15 +104,13 @@ func TestConsumeLoginStateConcurrent(t *testing.T) {
 	var success int64
 	var wg sync.WaitGroup
 	start := make(chan struct{})
-	for i := 0; i < racers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range racers {
+		wg.Go(func() {
 			<-start
 			if data, err := sm.ConsumeLoginState(ctx, id); err == nil && string(data) == "blob" {
 				atomic.AddInt64(&success, 1)
 			}
-		}()
+		})
 	}
 	close(start)
 	wg.Wait()

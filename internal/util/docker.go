@@ -440,15 +440,15 @@ func getOwnContainerID() string {
 	// Try /proc/self/cgroup (Docker usually writes the container ID here)
 	data, err := os.ReadFile(procSelfCgroup)
 	if err == nil {
-		for _, line := range strings.Split(string(data), "\n") {
+		for line := range strings.SplitSeq(string(data), "\n") {
 			line = strings.TrimSpace(line)
 			if line == "" {
 				continue
 			}
 			// cgroup v2: 0::/system.slice/docker-<id>.scope
 			// cgroup v1: 12:memory:/docker/<id>
-			parts := strings.Split(line, "/")
-			for _, part := range parts {
+			parts := strings.SplitSeq(line, "/")
+			for part := range parts {
 				part = strings.TrimSuffix(part, ".scope")
 				if len(part) >= 12 && isHex(part) {
 					return part
