@@ -174,7 +174,7 @@ func (h *WebAuthnHandler) RegisterStart(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	writeJSON(w, map[string]interface{}{
+	writeJSON(w, map[string]any{
 		"session_id": sessionID.String(),
 		"options":    creation.Response,
 	})
@@ -273,7 +273,7 @@ func (h *WebAuthnHandler) RegisterFinish(w http.ResponseWriter, r *http.Request)
 		Source:   "webauthn",
 		Message:  "Passkey registered successfully",
 	})
-	writeJSON(w, map[string]interface{}{
+	writeJSON(w, map[string]any{
 		"success": true,
 	})
 }
@@ -310,7 +310,7 @@ func (h *WebAuthnHandler) LoginStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, map[string]interface{}{
+	writeJSON(w, map[string]any{
 		"session_id": sessionID.String(),
 		"options":    assertion.Response,
 	})
@@ -405,7 +405,7 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	debuglog.Info("webauthn: passkey login successful")
-	writeJSON(w, map[string]interface{}{
+	writeJSON(w, map[string]any{
 		"token": token,
 	})
 }
@@ -421,7 +421,7 @@ func (h *WebAuthnHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	h.sessionMgr.RevokeAuthToken(r.Context(), token)
 
-	writeJSON(w, map[string]interface{}{
+	writeJSON(w, map[string]any{
 		"success": true,
 	})
 }
@@ -530,5 +530,5 @@ func (h *WebAuthnHandler) RenameCredential(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	writeJSON(w, map[string]interface{}{"success": true})
+	writeJSON(w, map[string]any{"success": true})
 }

@@ -977,7 +977,7 @@ func TestSyncForModel_UpsertError(t *testing.T) {
 	defer func() { jsonMarshal = origMarshal }()
 
 	callCount := 0
-	jsonMarshal = func(v interface{}) ([]byte, error) {
+	jsonMarshal = func(v any) ([]byte, error) {
 		callCount++
 		if callCount == 1 {
 			return nil, fmt.Errorf("test marshal error")

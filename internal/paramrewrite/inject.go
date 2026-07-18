@@ -23,7 +23,7 @@ func NeedsProviderInjection(providerType string) bool {
 // This is necessary because model-hotel acts as a transparent proxy;
 // clients like opencode don't know which upstream provider they're
 // really talking to, so they can't send provider-specific options.
-func InjectProviderParams(raw map[string]interface{}, providerType, modelID string) bool {
+func InjectProviderParams(raw map[string]any, providerType, modelID string) bool {
 	modified := false
 
 	switch providerType {
@@ -31,7 +31,7 @@ func InjectProviderParams(raw map[string]interface{}, providerType, modelID stri
 		// Z.ai / ZhipuAI requires thinking config for reasoning models.
 		// Without this, reasoning_content is never returned.
 		if _, exists := raw["thinking"]; !exists {
-			raw["thinking"] = map[string]interface{}{
+			raw["thinking"] = map[string]any{
 				"type":           "enabled",
 				"clear_thinking": false,
 			}
@@ -43,7 +43,7 @@ func InjectProviderParams(raw map[string]interface{}, providerType, modelID stri
 		// Baseten/OpenCode Zen and Go require chat_template_args to enable thinking.
 		// Without this, reasoning_content is never returned.
 		if _, exists := raw["chat_template_args"]; !exists {
-			raw["chat_template_args"] = map[string]interface{}{
+			raw["chat_template_args"] = map[string]any{
 				"enable_thinking": true,
 			}
 			modified = true
@@ -69,15 +69,15 @@ func InjectProviderParams(raw map[string]interface{}, providerType, modelID stri
 // backfillDeepSeekReasoning ensures every assistant message in the messages
 // array has a reasoning_content field. DeepSeek V4/R1 reject requests where
 // any assistant message is missing this field.
-func backfillDeepSeekReasoning(raw map[string]interface{}) bool {
-	messages, ok := raw["messages"].([]interface{})
+func backfillDeepSeekReasoning(raw map[string]any) bool {
+	messages, ok := raw["messages"].([]any)
 	if !ok {
 		return false
 	}
 
 	modified := false
 	for i, msg := range messages {
-		msgMap, ok := msg.(map[string]interface{})
+		msgMap, ok := msg.(map[string]any)
 		if !ok {
 			continue
 		}

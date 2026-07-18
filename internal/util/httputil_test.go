@@ -735,12 +735,12 @@ func TestWriteOpenAIError(t *testing.T) {
 	}
 
 	// Check response body structure
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 		t.Fatalf("failed to parse JSON response: %v", err)
 	}
 
-	errorObj, ok := response["error"].(map[string]interface{})
+	errorObj, ok := response["error"].(map[string]any)
 	if !ok {
 		t.Fatal("response should contain 'error' object")
 	}

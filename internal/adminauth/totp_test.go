@@ -829,7 +829,7 @@ func TestTotpLogin_Throttled(t *testing.T) {
 	doEnrollVerify(t, th) // enables TOTP so /totp/login is active
 
 	got429 := false
-	for i := 0; i < 8; i++ {
+	for range 8 {
 		req := httptest.NewRequest(http.MethodPost, "/totp/login",
 			bytes.NewReader([]byte(`{"token":"wrong","code":"000000"}`)))
 		req.Header.Set("Content-Type", "application/json")

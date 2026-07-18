@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -188,9 +189,7 @@ func busEvent(e Event) events.Event {
 	meta := e.Metadata
 	if e.MemberID != "" {
 		meta = make(map[string]any, len(e.Metadata)+1)
-		for k, v := range e.Metadata {
-			meta[k] = v
-		}
+		maps.Copy(meta, e.Metadata)
 		meta["member_id"] = e.MemberID
 	}
 	return events.Event{

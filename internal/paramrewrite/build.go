@@ -3,6 +3,7 @@ package paramrewrite
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sync"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -58,7 +59,7 @@ func BuildUpstreamBody(
 	renameCache *sync.Map,
 	extraStrip map[string]bool,
 ) []byte {
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(proxyReqBody, &raw); err != nil {
 		return proxyReqBody // unparseable — forward as-is
 	}
@@ -70,7 +71,7 @@ func BuildUpstreamBody(
 
 	// 2. stream_options injection
 	if isStreaming && ProviderSupportsStreamOptions(providerType) {
-		raw["stream_options"] = map[string]interface{}{
+		raw["stream_options"] = map[string]any{
 			"include_usage": true,
 		}
 	}
@@ -132,17 +133,17 @@ func BuildUpstreamBody(
 // OpenCode Zen) reject the whole request with a 400, permanently bricking any
 // conversation that has such a turn in its history. No provider needs the
 // empty array, so dropping it is always safe.
-func stripEmptyToolCalls(raw map[string]interface{}) {
-	msgs, ok := raw["messages"].([]interface{})
+func stripEmptyToolCalls(raw map[string]any) {
+	msgs, ok := raw["messages"].([]any)
 	if !ok {
 		return
 	}
 	for _, m := range msgs {
-		msg, ok := m.(map[string]interface{})
+		msg, ok := m.(map[string]any)
 		if !ok {
 			continue
 		}
-		if tc, ok := msg["tool_calls"].([]interface{}); ok && len(tc) == 0 {
+		if tc, ok := msg["tool_calls"].([]any); ok && len(tc) == 0 {
 			delete(msg, "tool_calls")
 		}
 	}
@@ -164,12 +165,8 @@ func MergeLearnedParamCache[V any](cache *sync.Map, key string, learned map[stri
 			return
 		}
 		merged := make(map[string]V, len(*existingMap)+len(learned))
-		for k, v := range *existingMap {
-			merged[k] = v
-		}
-		for k, v := range learned {
-			merged[k] = v
-		}
+		maps.Copy(merged, *existingMap)
+		maps.Copy(merged, learned)
 		if cache.CompareAndSwap(key, existing, &merged) {
 			return
 		}

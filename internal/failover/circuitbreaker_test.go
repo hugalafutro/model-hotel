@@ -55,13 +55,13 @@ func TestCircuitBreaker_SuccessResetsFailures(t *testing.T) {
 	cb := newTestCB(5, 30*time.Second)
 	pid := uuid.New()
 
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		cb.RecordFailure(pid, "test-provider")
 	}
 	cb.RecordSuccess(pid, "test-provider") // resets counter
 
 	// Need 5 more failures to open
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		cb.RecordFailure(pid, "test-provider")
 	}
 	if cb.IsOpen(pid, "test-provider") {
@@ -216,7 +216,7 @@ func TestCircuitBreaker_Concurrent(t *testing.T) {
 	pid := uuid.New()
 
 	var wg sync.WaitGroup
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
@@ -255,7 +255,7 @@ func TestCircuitBreaker_FailureCountAccuracy(t *testing.T) {
 	cb := newTestCB(5, 30*time.Second)
 	pid := uuid.New()
 
-	for i := 0; i < 4; i++ {
+	for range 4 {
 		cb.RecordFailure(pid, "test-provider")
 	}
 	statuses := cb.Status()
@@ -376,7 +376,7 @@ func TestCircuitBreaker_NilSettingsUsesDefaults(t *testing.T) {
 	pid := uuid.New()
 
 	// With nil settings, effective methods should return struct defaults.
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		cb.RecordFailure(pid, "test-provider")
 	}
 	if cb.IsOpen(pid, "test-provider") {
@@ -498,12 +498,10 @@ func TestCircuitBreaker_IsOpen_HalfOpenAllowsProbesConcurrently(t *testing.T) {
 
 	var wg sync.WaitGroup
 	results := make(chan bool, 20)
-	for i := 0; i < 20; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 20 {
+		wg.Go(func() {
 			results <- cb.IsOpen(pid, "test-provider")
-		}()
+		})
 	}
 	wg.Wait()
 	close(results)
@@ -521,18 +519,16 @@ func TestCircuitBreaker_IsOpen_Concurrent(t *testing.T) {
 	pid := uuid.New()
 
 	// Pre-populate with some failures but not enough to open
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		cb.RecordFailure(pid, "test-provider")
 	}
 
 	var wg sync.WaitGroup
 	isOpenResults := make(chan bool, 100)
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 50 {
+		wg.Go(func() {
 			isOpenResults <- cb.IsOpen(pid, "test-provider")
-		}()
+		})
 	}
 	wg.Wait()
 	close(isOpenResults)
@@ -589,7 +585,7 @@ func TestCircuitBreaker_IsOpen_RaceWithRecordSuccess(t *testing.T) {
 
 	var wg sync.WaitGroup
 	errCh := make(chan error, 20)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
@@ -812,16 +808,14 @@ func TestGetState_ConcurrentReads(t *testing.T) {
 	pid := uuid.New()
 
 	// Pre-populate with some failures
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		cb.RecordFailure(pid, "test-provider")
 	}
 
 	var wg sync.WaitGroup
 	errCh := make(chan error, 100)
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 100 {
+		wg.Go(func() {
 			defer func() {
 				if r := recover(); r != nil {
 					errCh <- fmt.Errorf("panic in GetState: %v", r)
@@ -831,7 +825,7 @@ func TestGetState_ConcurrentReads(t *testing.T) {
 			if s != StateClosed && s != StateOpen {
 				errCh <- fmt.Errorf("unexpected state: %v", s)
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	close(errCh)

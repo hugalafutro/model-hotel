@@ -496,7 +496,7 @@ func TestCacheFailoverGroup_ConcurrentAccess(t *testing.T) {
 	errors := make(chan error, 50)
 
 	// Concurrent writes
-	for i := 0; i < 25; i++ {
+	for i := range 25 {
 		wg.Add(1)
 		go func(_ int) {
 			defer wg.Done()
@@ -511,12 +511,10 @@ func TestCacheFailoverGroup_ConcurrentAccess(t *testing.T) {
 	}
 
 	// Concurrent reads
-	for i := 0; i < 25; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 25 {
+		wg.Go(func() {
 			_, _ = GetCachedFailoverByModel("concurrent-model")
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -541,19 +539,15 @@ func TestInvalidateFailoverCache_ConcurrentWithReads(t *testing.T) {
 	var wg sync.WaitGroup
 	errors := make(chan error, 50)
 
-	for i := 0; i < 25; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 25 {
+		wg.Go(func() {
 			_, _ = GetCachedFailoverByModel("concurrent-invalidate")
-		}()
+		})
 	}
-	for i := 0; i < 25; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 25 {
+		wg.Go(func() {
 			InvalidateFailoverCache()
-		}()
+		})
 	}
 
 	wg.Wait()

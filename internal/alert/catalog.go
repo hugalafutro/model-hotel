@@ -79,7 +79,7 @@ func DefaultEnabledCSVFor(defs []EventDef) string {
 // Blank/whitespace entries are ignored.
 func ParseEnabled(csv string) map[string]bool {
 	out := make(map[string]bool)
-	for _, t := range strings.Split(csv, ",") {
+	for t := range strings.SplitSeq(csv, ",") {
 		if t = strings.TrimSpace(t); t != "" {
 			out[t] = true
 		}

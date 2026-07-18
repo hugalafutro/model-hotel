@@ -7,14 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-func strPtr(s string) *string {
-	return &s
-}
-
-func boolPtr(b bool) *bool {
-	return &b
-}
-
 // ---------------------------------------------------------------------------
 // TestUpsert
 // ---------------------------------------------------------------------------
@@ -186,7 +178,7 @@ func TestUpsert_PreservesCustomDisplayName(t *testing.T) {
 
 	// User customizes display_name via Update
 	_, err = repo.Update(ctx, model.ID, UpdateModelRequest{
-		DisplayName: strPtr("short-name"),
+		DisplayName: new("short-name"),
 	})
 	if err != nil {
 		t.Fatalf("update display_name failed: %v", err)
@@ -879,12 +871,12 @@ func TestUpdate_AllFields(t *testing.T) {
 
 	// Update all fields
 	updated, err := repo.Update(ctx, modelID, UpdateModelRequest{
-		DisplayName:           strPtr("Updated Display Name"),
-		ContextLength:         intPtr(8192),
-		MaxOutputTokens:       intPtr(1024),
-		InputPricePerMillion:  float64Ptr(0.5),
-		OutputPricePerMillion: float64Ptr(1.5),
-		Enabled:               boolPtr(true),
+		DisplayName:           new("Updated Display Name"),
+		ContextLength:         new(8192),
+		MaxOutputTokens:       new(1024),
+		InputPricePerMillion:  new(0.5),
+		OutputPricePerMillion: new(1.5),
+		Enabled:               new(true),
 	})
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
@@ -954,7 +946,7 @@ func TestUpdate_SingleField_DisplayName(t *testing.T) {
 
 	// Update only DisplayName
 	updated, err := repo.Update(ctx, modelID, UpdateModelRequest{
-		DisplayName: strPtr("Only Display Name Updated"),
+		DisplayName: new("Only Display Name Updated"),
 	})
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
@@ -981,7 +973,7 @@ func TestUpdate_EnabledFalse(t *testing.T) {
 
 	// Update to set Enabled to false
 	updated, err := repo.Update(ctx, modelID, UpdateModelRequest{
-		Enabled: boolPtr(false),
+		Enabled: new(false),
 	})
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
@@ -1011,7 +1003,7 @@ func TestUpdate_NotFound(t *testing.T) {
 	// Try to update non-existent model
 	nonExistentID := uuid.New()
 	updated, err := repo.Update(ctx, nonExistentID, UpdateModelRequest{
-		DisplayName: strPtr("Should Not Be Set"),
+		DisplayName: new("Should Not Be Set"),
 	})
 
 	// Should return error from Get

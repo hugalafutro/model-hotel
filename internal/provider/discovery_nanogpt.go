@@ -59,7 +59,7 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 			displayName = m.ID
 		}
 
-		paramsMap := map[string]interface{}{}
+		paramsMap := map[string]any{}
 		if m.Subscription != nil {
 			paramsMap["subscription_included"] = m.Subscription.Included
 			paramsMap["subscription_note"] = m.Subscription.Note

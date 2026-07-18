@@ -207,7 +207,7 @@ func TestWaitDrainsBackgroundRecords(t *testing.T) {
 
 	ident := &user.Identity{Role: user.RoleAdmin}
 	const n = 5
-	for i := 0; i < n; i++ {
+	for range n {
 		req := httptest.NewRequest(http.MethodPost, "/things", http.NoBody)
 		req = req.WithContext(user.WithIdentity(req.Context(), ident))
 		r.ServeHTTP(httptest.NewRecorder(), req)

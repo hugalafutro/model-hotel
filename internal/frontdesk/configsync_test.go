@@ -461,7 +461,7 @@ func configSyncCount(t *testing.T, srv *Server, result string) float64 {
 	t.Helper()
 	prefix := `frontdesk_config_sync_total{result="` + result + `"} `
 	body := scrape(t, srv, testFrontdeskToken).Body.String()
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		if rest, ok := strings.CutPrefix(line, prefix); ok {
 			v, err := strconv.ParseFloat(strings.TrimSpace(rest), 64)
 			if err != nil {

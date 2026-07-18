@@ -144,8 +144,8 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 // Native: https://generativelanguage.googleapis.com/v1beta
 func toNativeBaseURL(proxyURL string) string {
 	u := strings.TrimSuffix(proxyURL, "/")
-	if strings.HasSuffix(u, "/openai") {
-		return strings.TrimSuffix(u, "/openai")
+	if before, ok := strings.CutSuffix(u, "/openai"); ok {
+		return before
 	}
 	return u
 }

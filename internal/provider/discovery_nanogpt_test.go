@@ -40,9 +40,9 @@ func TestGetNanoGPTUsage_Success(t *testing.T) {
 			AllowOverage:       false,
 			State:              "active",
 			Limits: NanoGPTUsageLimits{
-				WeeklyInputTokens: int64Ptr(200000),
-				DailyInputTokens:  int64Ptr(50000),
-				DailyImages:       int64Ptr(10),
+				WeeklyInputTokens: new(int64(200000)),
+				DailyInputTokens:  new(int64(50000)),
+				DailyImages:       new(int64(10)),
 			},
 			Period: NanoGPTUsagePeriod{
 				CurrentPeriodEnd: "2024-01-31T23:59:59Z",
@@ -264,8 +264,8 @@ func TestDiscoverNanoGPT_Success(t *testing.T) {
 					ID:              "gpt-4o",
 					Name:            "GPT-4o",
 					Description:     "OpenAI flagship model",
-					ContextLength:   intPtr(128000),
-					MaxOutputTokens: intPtr(16384),
+					ContextLength:   new(128000),
+					MaxOutputTokens: new(16384),
 					OwnedBy:         "openai",
 					Architecture: NanoGPTArchitecture{
 						Modality:         "text",
@@ -279,8 +279,8 @@ func TestDiscoverNanoGPT_Success(t *testing.T) {
 						StructuredOutput: true,
 					},
 					Pricing: NanoGPTPricing{
-						Prompt:     floatPtr(2.5),
-						Completion: floatPtr(10.0),
+						Prompt:     new(2.5),
+						Completion: new(10.0),
 					},
 				},
 			},
@@ -357,7 +357,7 @@ func TestDiscoverNanoGPT_OmittedPricingStaysNil(t *testing.T) {
 						InputModalities:  []string{"text"},
 						OutputModalities: []string{"text"},
 					},
-					ContextLength: intPtr(128000),
+					ContextLength: new(128000),
 					Pricing:       NanoGPTPricing{}, // prompt/completion omitted -> nil
 				},
 				{
@@ -369,10 +369,10 @@ func TestDiscoverNanoGPT_OmittedPricingStaysNil(t *testing.T) {
 						InputModalities:  []string{"text"},
 						OutputModalities: []string{"text"},
 					},
-					ContextLength: intPtr(128000),
+					ContextLength: new(128000),
 					Pricing: NanoGPTPricing{
-						Prompt:     floatPtr(0), // explicit free price -> kept as &0
-						Completion: floatPtr(0),
+						Prompt:     new(float64(0)), // explicit free price -> kept as &0
+						Completion: new(float64(0)),
 					},
 				},
 			},
@@ -619,14 +619,6 @@ func TestDiscoverNanoGPT_VisionCapability(t *testing.T) {
 	if !strings.Contains(models[0].InputModalities, "image") {
 		t.Errorf("Expected image in InputModalities, got %s", models[0].InputModalities)
 	}
-}
-
-func int64Ptr(v int64) *int64 {
-	return &v
-}
-
-func intPtr(v int) *int {
-	return &v
 }
 
 // nanoGPTImageCatalogBody is a minimal NanoGPT image-catalog payload with two

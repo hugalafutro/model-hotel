@@ -490,7 +490,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 	}
 
 	var setClauses []string
-	var args []interface{}
+	var args []any
 	argIdx := 2 // $1 is reserved for id
 
 	setClauses = append(setClauses, fmt.Sprintf("priority_order = $%d", argIdx))
@@ -529,7 +529,7 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 
 	setClauses = append(setClauses, "updated_at = now()")
 
-	args = append([]interface{}{id}, args...)
+	args = append([]any{id}, args...)
 
 	query := fmt.Sprintf(`UPDATE model_failover_groups SET %s WHERE id = $1
 		RETURNING id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,

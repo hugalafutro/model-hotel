@@ -31,7 +31,7 @@ func TestGenerateReturnsNonEmptyKey(t *testing.T) {
 
 func TestGenerateProducesUniqueKeys(t *testing.T) {
 	keys := make(map[string]bool)
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		key, err := Generate()
 		if err != nil {
 			t.Fatalf("Generate() failed on iteration %d: %v", i, err)

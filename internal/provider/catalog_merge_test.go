@@ -11,8 +11,6 @@ import (
 
 // intPtr is defined in discovery_nanogpt_test.go (same package).
 
-func floatPtr(v float64) *float64 { return &v }
-
 func capsJSON(c model.Capability) string {
 	b, _ := json.Marshal(c)
 	return string(b)
@@ -48,7 +46,7 @@ func TestMergeLiveAndCatalog_LiveWinsCatalogBackfills(t *testing.T) {
 		Capabilities:         "{}",
 		InputModalities:      "[]",
 		ContextLength:        nil, // live omitted -> catalog should fill
-		InputPricePerMillion: floatPtr(1.5),
+		InputPricePerMillion: new(1.5),
 	}}
 	catalog := []*model.Model{{
 		ProviderID:           pid,
@@ -57,9 +55,9 @@ func TestMergeLiveAndCatalog_LiveWinsCatalogBackfills(t *testing.T) {
 		Description:          "Zhipu flagship",
 		Modality:             "text",
 		InputModalities:      `["text"]`,
-		ContextLength:        intPtr(200000),
-		MaxOutputTokens:      intPtr(131072),
-		InputPricePerMillion: floatPtr(99), // live already has a value -> must NOT win
+		ContextLength:        new(200000),
+		MaxOutputTokens:      new(131072),
+		InputPricePerMillion: new(float64(99)), // live already has a value -> must NOT win
 		Capabilities:         capsJSON(model.Capability{Streaming: true, Reasoning: true, ToolCalling: true}),
 	}}
 
@@ -106,7 +104,7 @@ func TestMergeLiveAndCatalog_UnionsCatalogOnlyModels(t *testing.T) {
 	live := []*model.Model{{ProviderID: pid, ModelID: "glm-5.1", Name: "glm-5.1"}}
 	catalog := []*model.Model{
 		{ProviderID: pid, ModelID: "glm-5.1", Name: "glm-5.1"},
-		{ProviderID: pid, ModelID: "glm-5.2", Name: "glm-5.2", ContextLength: intPtr(200000)}, // not in live yet
+		{ProviderID: pid, ModelID: "glm-5.2", Name: "glm-5.2", ContextLength: new(200000)}, // not in live yet
 	}
 
 	out := mergeLiveAndCatalog(live, catalog)
@@ -136,7 +134,7 @@ func TestMergeLiveAndCatalog_LiveOnlyPassesThrough(t *testing.T) {
 func TestMergeLiveAndCatalog_CaseInsensitiveMatch(t *testing.T) {
 	pid := uuid.New()
 	live := []*model.Model{{ProviderID: pid, ModelID: "GLM-5.1", Name: "GLM-5.1"}}
-	catalog := []*model.Model{{ProviderID: pid, ModelID: "glm-5.1", ContextLength: intPtr(200000)}}
+	catalog := []*model.Model{{ProviderID: pid, ModelID: "glm-5.1", ContextLength: new(200000)}}
 
 	out := mergeLiveAndCatalog(live, catalog)
 	if len(out) != 1 {
@@ -159,14 +157,14 @@ func TestMergeLiveAndCatalog_LiveMetaProvenance(t *testing.T) {
 		Name:                 "glm-5.1",
 		Capabilities:         "{}",
 		InputModalities:      "[]",
-		InputPricePerMillion: floatPtr(1.5), // provider-reported -> live
-		ContextLength:        nil,           // catalog will backfill -> NOT live
+		InputPricePerMillion: new(1.5), // provider-reported -> live
+		ContextLength:        nil,      // catalog will backfill -> NOT live
 	}}
 	catalog := []*model.Model{{
 		ProviderID:           pid,
 		ModelID:              "glm-5.1",
-		ContextLength:        intPtr(200000),
-		InputPricePerMillion: floatPtr(99),
+		ContextLength:        new(200000),
+		InputPricePerMillion: new(float64(99)),
 	}}
 
 	out := mergeLiveAndCatalog(live, catalog)
@@ -188,7 +186,7 @@ func TestMergeLiveAndCatalog_CatalogOnlyIsNotLive(t *testing.T) {
 	catalog := []*model.Model{
 		{ProviderID: pid, ModelID: "glm-5.1", Name: "glm-5.1"},
 		{ProviderID: pid, ModelID: "glm-5.2", Name: "glm-5.2",
-			ContextLength: intPtr(200000), InputPricePerMillion: floatPtr(2)},
+			ContextLength: new(200000), InputPricePerMillion: new(float64(2))},
 	}
 
 	out := mergeLiveAndCatalog(live, catalog)
@@ -258,7 +256,7 @@ func TestBackfillFromCatalog_FillsEmptyTextFields(t *testing.T) {
 // meta still flagged), with no nil-map dereference.
 func TestBackfillLiveFromCatalog_EmptyCatalogReturnsLive(t *testing.T) {
 	pid := uuid.New()
-	live := []*model.Model{{ProviderID: pid, ModelID: "m1", InputPricePerMillion: floatPtr(3)}}
+	live := []*model.Model{{ProviderID: pid, ModelID: "m1", InputPricePerMillion: new(float64(3))}}
 
 	got := backfillLiveFromCatalog(live, nil)
 

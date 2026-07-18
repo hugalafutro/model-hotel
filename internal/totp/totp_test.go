@@ -83,7 +83,7 @@ func TestVerifyWrongCode(t *testing.T) {
 
 	// "000000" is a 1/1e6 collision candidate; if it validates, regenerate
 	// once and retry so the test is deterministic in practice.
-	for attempt := 0; attempt < 2; attempt++ {
+	for attempt := range 2 {
 		ok, err := repo.Verify(ctx, "000000")
 		require.NoError(t, err)
 		if !ok {

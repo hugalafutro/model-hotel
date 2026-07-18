@@ -98,7 +98,7 @@ func serviceResource(serviceName string) *resource.Resource {
 // the key exactly, so a different key that merely contains the text — notably the
 // standard service.namespace — does not false-positive and suppress our default.
 func resourceAttrsHaveServiceName() bool {
-	for _, kv := range strings.Split(os.Getenv("OTEL_RESOURCE_ATTRIBUTES"), ",") {
+	for kv := range strings.SplitSeq(os.Getenv("OTEL_RESOURCE_ATTRIBUTES"), ",") {
 		if key, _, ok := strings.Cut(kv, "="); ok && strings.TrimSpace(key) == "service.name" {
 			return true
 		}

@@ -386,7 +386,7 @@ func TestNewestEventPerMember(t *testing.T) {
 func TestEventsPagination(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		_, _ = s.InsertEvent(ctx, Event{Type: "t", Severity: "info", Source: "x", Message: "m"})
 	}
 	page, total, _ := s.ListEvents(ctx, EventFilter{Limit: 2, Offset: 0})

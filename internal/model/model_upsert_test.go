@@ -8,9 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-func f64(v float64) *float64 { return &v }
-func i(v int) *int           { return &v }
-
 // newBareModel builds a Model with valid-JSON defaults for the JSON columns
 // (capabilities/params/modalities), which Upsert writes verbatim.
 func newBareModel(providerID uuid.UUID, modelID string) *Model {
@@ -37,11 +34,11 @@ func TestUpsert_PreservesMetadataOnNullRescan(t *testing.T) {
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
 	base := newBareModel(providerID, "preserve-me")
-	base.ContextLength = i(200000)
-	base.MaxOutputTokens = i(131072)
-	base.InputPricePerMillion = f64(1.4)
-	base.InputPricePerMillionCacheHit = f64(0.26)
-	base.OutputPricePerMillion = f64(4.4)
+	base.ContextLength = new(200000)
+	base.MaxOutputTokens = new(131072)
+	base.InputPricePerMillion = new(1.4)
+	base.InputPricePerMillionCacheHit = new(0.26)
+	base.OutputPricePerMillion = new(4.4)
 	if err := repo.Upsert(ctx, base); err != nil {
 		t.Fatalf("initial upsert: %v", err)
 	}
@@ -65,7 +62,7 @@ func TestUpsert_PreservesMetadataOnNullRescan(t *testing.T) {
 	// value, so a catalog/models.dev value can't flip a provider value across
 	// restarts (the source-oscillation fix).
 	nonLive := newBareModel(providerID, "preserve-me")
-	nonLive.InputPricePerMillion = f64(0.5) // LiveMeta zero value => fill-only
+	nonLive.InputPricePerMillion = new(0.5) // LiveMeta zero value => fill-only
 	if err := repo.Upsert(ctx, nonLive); err != nil {
 		t.Fatalf("non-live update upsert: %v", err)
 	}
@@ -78,7 +75,7 @@ func TestUpsert_PreservesMetadataOnNullRescan(t *testing.T) {
 	// A live rescan value overwrites: a genuine provider-reported change
 	// propagates to the stored (and served) metadata.
 	live := newBareModel(providerID, "preserve-me")
-	live.InputPricePerMillion = f64(0.5)
+	live.InputPricePerMillion = new(0.5)
 	live.LiveMeta.InputPrice = true
 	if err := repo.Upsert(ctx, live); err != nil {
 		t.Fatalf("live update upsert: %v", err)

@@ -136,7 +136,7 @@ func parseScopes(raw string) map[string]bool {
 		return nil
 	}
 	scopes := make(map[string]bool)
-	for _, s := range strings.Split(raw, ",") {
+	for s := range strings.SplitSeq(raw, ",") {
 		if s = strings.ToLower(strings.TrimSpace(s)); s != "" {
 			scopes[s] = true
 		}

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -68,21 +69,21 @@ func publishDiscoveryEvent(source string, result DiscoveryResult) {
 			Type:     "discovery.complete",
 			Severity: "error",
 			Message:  fmt.Sprintf("Discovery failed: %s", result.Errors[0]),
-			Metadata: map[string]interface{}{"source": source, "errors": result.Errors},
+			Metadata: map[string]any{"source": source, "errors": result.Errors},
 		})
 	case result.ProvidersFailed > 0:
 		events.Publish(events.Event{
 			Type:     "discovery.complete",
 			Severity: "warning",
 			Message:  fmt.Sprintf("Discovery partially failed: %d/%d providers OK, %d models found", result.ProvidersScanned-result.ProvidersFailed, result.ProvidersScanned, result.ModelsDiscovered),
-			Metadata: map[string]interface{}{"source": source, "errors": result.Errors},
+			Metadata: map[string]any{"source": source, "errors": result.Errors},
 		})
 	default:
 		events.Publish(events.Event{
 			Type:     "discovery.complete",
 			Severity: "success",
 			Message:  fmt.Sprintf("%s discovery complete: %d models across %d providers", source, result.ModelsDiscovered, result.ProvidersScanned),
-			Metadata: map[string]interface{}{"source": source},
+			Metadata: map[string]any{"source": source},
 		})
 	}
 }
@@ -168,7 +169,7 @@ func main() {
 			Type:     "logs.stale_startup",
 			Severity: "warning",
 			Message:  fmt.Sprintf("Server restart interrupted %d pending requests", tag.RowsAffected()),
-			Metadata: map[string]interface{}{"count": tag.RowsAffected()},
+			Metadata: map[string]any{"count": tag.RowsAffected()},
 		})
 	} else if err != nil {
 		debuglog.Error("startup: stale log cleanup failed", "error", err)
@@ -238,13 +239,7 @@ func main() {
 				return
 			}
 
-			allowed := false
-			for _, pattern := range cfg.CORSOrigins {
-				if origin == pattern {
-					allowed = true
-					break
-				}
-			}
+			allowed := slices.Contains(cfg.CORSOrigins, origin)
 
 			w.Header().Set("Vary", "Origin")
 
@@ -566,7 +561,7 @@ func main() {
 					Type:     "discovery.models_disabled",
 					Severity: "warning",
 					Message:  fmt.Sprintf("%d models no longer available at '%s' and were disabled", len(disabledRefs), p.Name),
-					Metadata: map[string]interface{}{"provider": p.Name, "count": len(disabledRefs)},
+					Metadata: map[string]any{"provider": p.Name, "count": len(disabledRefs)},
 				})
 			}
 
@@ -609,7 +604,7 @@ func main() {
 					Type:     "failover.sync_error",
 					Severity: "warning",
 					Message:  fmt.Sprintf("Failover sync failed for model '%s'", modelID),
-					Metadata: map[string]interface{}{"error": err.Error(), "model_id": modelID},
+					Metadata: map[string]any{"error": err.Error(), "model_id": modelID},
 				})
 				continue
 			}
@@ -645,7 +640,7 @@ func main() {
 				Severity: "info",
 				Source:   "discovery",
 				Message:  "Background discovery recorded model changes",
-				Metadata: map[string]interface{}{"source": source},
+				Metadata: map[string]any{"source": source},
 			})
 		}
 		return result
@@ -900,7 +895,7 @@ func main() {
 					Type:     "logs.stale_cleanup",
 					Severity: "warning",
 					Message:  fmt.Sprintf("Marked %d stale requests as interrupted", tag.RowsAffected()),
-					Metadata: map[string]interface{}{"count": tag.RowsAffected()},
+					Metadata: map[string]any{"count": tag.RowsAffected()},
 				})
 			} else if err != nil {
 				debuglog.Error("retention: stale log cleanup failed", "error", err)

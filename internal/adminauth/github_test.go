@@ -184,8 +184,8 @@ func runGitHubCallback(t *testing.T, h *GitHubHandler, cookie *http.Cookie, quer
 		t.Fatalf("Callback status = %d, want 302 (body=%s)", res.StatusCode, rec.Body.String())
 	}
 	loc := res.Header.Get("Location")
-	if i := strings.IndexByte(loc, '#'); i >= 0 {
-		return loc[i+1:]
+	if _, after, ok := strings.Cut(loc, "#"); ok {
+		return after
 	}
 	return ""
 }
@@ -428,7 +428,7 @@ func TestGitHubCallbackThrottled(t *testing.T) {
 	// Backoff begins only once failures EXCEED maxFailures (5): the 6th failure
 	// arms the lock, so the 7th callback is throttled before any work.
 	var frag string
-	for i := 0; i < 7; i++ {
+	for range 7 {
 		loc, cookie := runGitHubStart(t, h)
 		frag = runGitHubCallback(t, h, cookie, url.Values{"state": {loc.Query().Get("state")}, "code": {"c"}})
 	}

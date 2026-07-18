@@ -37,15 +37,15 @@ func TestNeedsProviderInjection(t *testing.T) {
 }
 
 func TestInjectProviderParams_ZaiCoding(t *testing.T) {
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model":    "glm-5.1",
-		"messages": []interface{}{},
+		"messages": []any{},
 	}
 	modified := InjectProviderParams(raw, "zai-coding", "glm-5.1")
 	if !modified {
 		t.Fatal("expected modification for zai-coding")
 	}
-	thinking, ok := raw["thinking"].(map[string]interface{})
+	thinking, ok := raw["thinking"].(map[string]any)
 	if !ok {
 		t.Fatal("expected thinking map to be injected")
 	}
@@ -58,10 +58,10 @@ func TestInjectProviderParams_ZaiCoding(t *testing.T) {
 }
 
 func TestInjectProviderParams_ZaiCoding_AlreadyPresent(t *testing.T) {
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model":    "glm-5.1",
-		"thinking": map[string]interface{}{"type": "disabled"},
-		"messages": []interface{}{},
+		"thinking": map[string]any{"type": "disabled"},
+		"messages": []any{},
 	}
 	modified := InjectProviderParams(raw, "zai-coding", "glm-5.1")
 	if modified {
@@ -70,15 +70,15 @@ func TestInjectProviderParams_ZaiCoding_AlreadyPresent(t *testing.T) {
 }
 
 func TestInjectProviderParams_OpencodeZen(t *testing.T) {
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model":    "kimi-k2-thinking",
-		"messages": []interface{}{},
+		"messages": []any{},
 	}
 	modified := InjectProviderParams(raw, "opencode-zen", "kimi-k2-thinking")
 	if !modified {
 		t.Fatal("expected modification for opencode-zen")
 	}
-	args, ok := raw["chat_template_args"].(map[string]interface{})
+	args, ok := raw["chat_template_args"].(map[string]any)
 	if !ok {
 		t.Fatal("expected chat_template_args map to be injected")
 	}
@@ -88,15 +88,15 @@ func TestInjectProviderParams_OpencodeZen(t *testing.T) {
 }
 
 func TestInjectProviderParams_OpencodeGo(t *testing.T) {
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model":    "glm-4.6",
-		"messages": []interface{}{},
+		"messages": []any{},
 	}
 	modified := InjectProviderParams(raw, "opencode-go", "glm-4.6")
 	if !modified {
 		t.Fatal("expected modification for opencode-go")
 	}
-	args, ok := raw["chat_template_args"].(map[string]interface{})
+	args, ok := raw["chat_template_args"].(map[string]any)
 	if !ok {
 		t.Fatal("expected chat_template_args map to be injected")
 	}
@@ -106,10 +106,10 @@ func TestInjectProviderParams_OpencodeGo(t *testing.T) {
 }
 
 func TestInjectProviderParams_Opencode_AlreadyPresent(t *testing.T) {
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model":              "kimi-k2-thinking",
-		"chat_template_args": map[string]interface{}{"enable_thinking": false},
-		"messages":           []interface{}{},
+		"chat_template_args": map[string]any{"enable_thinking": false},
+		"messages":           []any{},
 	}
 	modified := InjectProviderParams(raw, "opencode-zen", "kimi-k2-thinking")
 	if modified {
@@ -118,22 +118,22 @@ func TestInjectProviderParams_Opencode_AlreadyPresent(t *testing.T) {
 }
 
 func TestInjectProviderParams_DeepSeekV4(t *testing.T) {
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model": "deepseek-v4-pro",
-		"messages": []interface{}{
-			map[string]interface{}{"role": "user", "content": "Hello"},
-			map[string]interface{}{"role": "assistant", "content": "Hi there"},
-			map[string]interface{}{"role": "assistant", "content": "More info", "reasoning_content": "thinking..."},
-			map[string]interface{}{"role": "user", "content": "Follow up"},
+		"messages": []any{
+			map[string]any{"role": "user", "content": "Hello"},
+			map[string]any{"role": "assistant", "content": "Hi there"},
+			map[string]any{"role": "assistant", "content": "More info", "reasoning_content": "thinking..."},
+			map[string]any{"role": "user", "content": "Follow up"},
 		},
 	}
 	modified := InjectProviderParams(raw, "deepseek", "deepseek-v4-pro")
 	if !modified {
 		t.Fatal("expected modification for deepseek v4")
 	}
-	messages := raw["messages"].([]interface{})
+	messages := raw["messages"].([]any)
 	// First assistant message should have reasoning_content backfilled
-	first := messages[1].(map[string]interface{})
+	first := messages[1].(map[string]any)
 	if _, exists := first["reasoning_content"]; !exists {
 		t.Error("first assistant message missing reasoning_content")
 	}
@@ -141,18 +141,18 @@ func TestInjectProviderParams_DeepSeekV4(t *testing.T) {
 		t.Errorf("first assistant reasoning_content = %v, want empty string", first["reasoning_content"])
 	}
 	// Second assistant message already had reasoning_content, should be unchanged
-	second := messages[2].(map[string]interface{})
+	second := messages[2].(map[string]any)
 	if second["reasoning_content"] != "thinking..." {
 		t.Errorf("second assistant reasoning_content = %v, want 'thinking...'", second["reasoning_content"])
 	}
 }
 
 func TestInjectProviderParams_DeepSeekR1(t *testing.T) {
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model": "deepseek-r1",
-		"messages": []interface{}{
-			map[string]interface{}{"role": "user", "content": "Hello"},
-			map[string]interface{}{"role": "assistant", "content": "Thinking hard"},
+		"messages": []any{
+			map[string]any{"role": "user", "content": "Hello"},
+			map[string]any{"role": "assistant", "content": "Thinking hard"},
 		},
 	}
 	modified := InjectProviderParams(raw, "deepseek", "deepseek-r1")
@@ -162,9 +162,9 @@ func TestInjectProviderParams_DeepSeekR1(t *testing.T) {
 }
 
 func TestInjectProviderParams_DeepSeekNonReasoning(t *testing.T) {
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model":    "deepseek-chat",
-		"messages": []interface{}{},
+		"messages": []any{},
 	}
 	modified := InjectProviderParams(raw, "deepseek", "deepseek-chat")
 	if modified {
@@ -173,23 +173,23 @@ func TestInjectProviderParams_DeepSeekNonReasoning(t *testing.T) {
 }
 
 func TestInjectProviderParams_DeepSeekV4_AllAssistantBackfilled(t *testing.T) {
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model": "deepseek-v4-pro",
-		"messages": []interface{}{
-			map[string]interface{}{"role": "user", "content": "Q1"},
-			map[string]interface{}{"role": "assistant", "content": "A1"},
-			map[string]interface{}{"role": "user", "content": "Q2"},
-			map[string]interface{}{"role": "assistant", "content": "A2"},
-			map[string]interface{}{"role": "user", "content": "Q3"},
+		"messages": []any{
+			map[string]any{"role": "user", "content": "Q1"},
+			map[string]any{"role": "assistant", "content": "A1"},
+			map[string]any{"role": "user", "content": "Q2"},
+			map[string]any{"role": "assistant", "content": "A2"},
+			map[string]any{"role": "user", "content": "Q3"},
 		},
 	}
 	modified := InjectProviderParams(raw, "deepseek", "deepseek-v4-pro")
 	if !modified {
 		t.Fatal("expected modification")
 	}
-	messages := raw["messages"].([]interface{})
+	messages := raw["messages"].([]any)
 	for i, msg := range messages {
-		m := msg.(map[string]interface{})
+		m := msg.(map[string]any)
 		if m["role"] == "assistant" {
 			if _, exists := m["reasoning_content"]; !exists {
 				t.Errorf("assistant message at index %d missing reasoning_content", i)
@@ -199,9 +199,9 @@ func TestInjectProviderParams_DeepSeekV4_AllAssistantBackfilled(t *testing.T) {
 }
 
 func TestInjectProviderParams_UnsupportedProvider(t *testing.T) {
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model":    "gpt-4",
-		"messages": []interface{}{},
+		"messages": []any{},
 	}
 	modified := InjectProviderParams(raw, "openai", "gpt-4")
 	if modified {
@@ -210,7 +210,7 @@ func TestInjectProviderParams_UnsupportedProvider(t *testing.T) {
 }
 
 func TestBackfillDeepSeekReasoning_NoMessages(t *testing.T) {
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model": "deepseek-v4",
 	}
 	modified := backfillDeepSeekReasoning(raw)
@@ -220,7 +220,7 @@ func TestBackfillDeepSeekReasoning_NoMessages(t *testing.T) {
 }
 
 func TestBackfillDeepSeekReasoning_InvalidMessages(t *testing.T) {
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model":    "deepseek-v4",
 		"messages": "not an array",
 	}
@@ -232,9 +232,9 @@ func TestBackfillDeepSeekReasoning_InvalidMessages(t *testing.T) {
 
 func TestInjectProviderParams_RoundTrip(t *testing.T) {
 	// Verify that injected params survive JSON round-trip
-	raw := map[string]interface{}{
+	raw := map[string]any{
 		"model":    "glm-5.1",
-		"messages": []interface{}{},
+		"messages": []any{},
 	}
 	InjectProviderParams(raw, "zai-coding", "glm-5.1")
 
@@ -243,12 +243,12 @@ func TestInjectProviderParams_RoundTrip(t *testing.T) {
 		t.Fatalf("failed to marshal: %v", err)
 	}
 
-	var decoded map[string]interface{}
+	var decoded map[string]any
 	if err := json.Unmarshal(b, &decoded); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
-	thinking, ok := decoded["thinking"].(map[string]interface{})
+	thinking, ok := decoded["thinking"].(map[string]any)
 	if !ok {
 		t.Fatal("thinking field lost in round-trip")
 	}

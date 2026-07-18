@@ -65,8 +65,7 @@ func TestErrNotFound_IsSentinel(t *testing.T) {
 
 func TestErrNotFound_Type(t *testing.T) {
 	var err error = ErrNotFound
-	var nf *notFoundError
-	if !errors.As(err, &nf) {
+	if _, ok := errors.AsType[*notFoundError](err); !ok {
 		t.Error("errors.As(ErrNotFound, *notFoundError) should be true")
 	}
 }

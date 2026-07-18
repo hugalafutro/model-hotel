@@ -276,7 +276,7 @@ func TestGetZAICodingQuota_CircuitBreakerOpen(t *testing.T) {
 	}
 
 	// Exhaust retries to open the circuit breaker
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		_, _ = service.GetZAICodingQuota(context.Background(), provider, masterKey)
 	}
 

@@ -8,7 +8,7 @@ import (
 func TestThrottle_AllowsUntilThreshold(t *testing.T) {
 	th := NewThrottle(3, 10*time.Millisecond, time.Second)
 	// First maxFailures failures must not lock (count does not yet exceed).
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		th.RecordFailure("ip")
 		if ok, _ := th.Allowed("ip"); !ok {
 			t.Fatalf("locked after %d failures, expected still allowed", i+1)

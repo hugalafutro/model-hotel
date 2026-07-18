@@ -598,7 +598,7 @@ func TestWebAuthnHandler_RegisterStart_Success(t *testing.T) {
 		t.Fatalf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -754,7 +754,7 @@ func TestWebAuthnHandler_RegisterFinish_WithSyntacticallyValidCredential(t *test
 		t.Fatalf("RegisterStart failed: %d %s", w.Code, w.Body.String())
 	}
 
-	var startResp map[string]interface{}
+	var startResp map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&startResp); err != nil {
 		t.Fatalf("failed to decode RegisterStart response: %v", err)
 	}
@@ -773,7 +773,7 @@ func TestWebAuthnHandler_RegisterFinish_WithSyntacticallyValidCredential(t *test
 	fakeCred := buildFakeRegistrationCredential(t, "dGVzdA")
 
 	// Step 3: Call RegisterFinish with the valid session + fake credential
-	finishBody := map[string]interface{}{
+	finishBody := map[string]any{
 		"session_id": sessionID,
 		"credential": json.RawMessage(fakeCred),
 	}
@@ -981,7 +981,7 @@ func TestWebAuthnHandler_RegisterStart_WithExistingCredentials(t *testing.T) {
 		t.Fatalf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -1045,7 +1045,7 @@ func TestWebAuthnHandler_RegisterFinish_ListCredentialsErrorAfterSession(t *test
 		t.Fatalf("RegisterStart failed: %d %s", w.Code, w.Body.String())
 	}
 
-	var startResp map[string]interface{}
+	var startResp map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&startResp); err != nil {
 		t.Fatalf("failed to decode RegisterStart response: %v", err)
 	}

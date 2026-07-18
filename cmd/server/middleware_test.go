@@ -84,10 +84,10 @@ func TestStreamingAwareTimeout_NonStreamingRequest(t *testing.T) {
 }
 
 func TestStreamingAwareTimeout_NonPostSkipsParsing(t *testing.T) {
-	var capturedBody interface{}
-	var capturedParseMs interface{}
-	var capturedModel interface{}
-	var capturedIsStreaming interface{}
+	var capturedBody any
+	var capturedParseMs any
+	var capturedModel any
+	var capturedIsStreaming any
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedBody = r.Context().Value(ctxkeys.RequestBodyKey)
@@ -185,7 +185,7 @@ func TestStreamingAwareTimeout_MalformedJSON(t *testing.T) {
 }
 
 func TestStreamingAwareTimeout_MultipartNotBuffered(t *testing.T) {
-	var capturedBodyVal interface{}
+	var capturedBodyVal any
 	var readBody []byte
 	var hadDeadline bool
 

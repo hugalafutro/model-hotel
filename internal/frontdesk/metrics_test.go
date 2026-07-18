@@ -162,7 +162,7 @@ func TestMetricsScrapeMemberSeries(t *testing.T) {
 // seriesValue extracts and parses one series' value from a text-format scrape.
 func seriesValue(t *testing.T, body, series string) float64 {
 	t.Helper()
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		if rest, found := strings.CutPrefix(line, series+" "); found {
 			v, err := strconv.ParseFloat(strings.TrimSpace(rest), 64)
 			if err != nil {

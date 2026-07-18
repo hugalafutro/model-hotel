@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -106,9 +107,7 @@ type fakeSettings struct {
 
 func newFakeSettings(kv map[string]string) *fakeSettings {
 	cp := make(map[string]string, len(kv))
-	for k, v := range kv {
-		cp[k] = v
-	}
+	maps.Copy(cp, kv)
 	return &fakeSettings{m: cp}
 }
 
@@ -363,8 +362,8 @@ func runCallback(t *testing.T, h *OIDCHandler, cookie *http.Cookie, query url.Va
 		t.Fatalf("Callback status = %d, want 302 (body=%s)", res.StatusCode, rec.Body.String())
 	}
 	loc := res.Header.Get("Location")
-	if i := strings.IndexByte(loc, '#'); i >= 0 {
-		return loc[i+1:]
+	if _, after, ok := strings.Cut(loc, "#"); ok {
+		return after
 	}
 	return ""
 }
@@ -612,7 +611,7 @@ func TestOIDCCallbackThrottle(t *testing.T) {
 	// constant across httptest requests); the 1s lock easily outlasts the loop.
 	q := url.Values{"state": {"x"}, "code": {"c"}}
 	var frag string
-	for i := 0; i < 7; i++ {
+	for range 7 {
 		frag = runCallback(t, h, nil, q)
 	}
 	if !strings.HasPrefix(frag, "oidc_error=throttled") {

@@ -699,7 +699,7 @@ func TestGenerateToken_DeterministicLength(t *testing.T) {
 	}
 
 	// Call generateToken multiple times and verify length
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		token, err := mgr.generateToken()
 		if err != nil {
 			t.Fatalf("generateToken() failed: %v", err)
@@ -719,7 +719,7 @@ func TestGenerateToken_IsHexString(t *testing.T) {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		token, err := mgr.generateToken()
 		if err != nil {
 			t.Fatalf("generateToken() failed: %v", err)

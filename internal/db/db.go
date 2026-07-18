@@ -225,7 +225,7 @@ var waitForReadyInterval = 2 * time.Second
 
 // WaitForReady polls the database until it responds or maxAttempts is reached.
 func (db *DB) WaitForReady(ctx context.Context, maxAttempts int) error {
-	for i := 0; i < maxAttempts; i++ {
+	for i := range maxAttempts {
 		err := db.pool.Ping(ctx)
 		if err == nil {
 			return nil

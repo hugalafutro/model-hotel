@@ -182,7 +182,7 @@ func TestSPAHandler_ServeHTTP_ConcurrentRequests(t *testing.T) {
 	paths := []string{"/", "/dashboard", "/api/test", "/v1/chat", "/health", "/some/spa/route"}
 	done := make(chan bool)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go func() {
 			defer func() { done <- true }()
 			for _, path := range paths {
@@ -193,7 +193,7 @@ func TestSPAHandler_ServeHTTP_ConcurrentRequests(t *testing.T) {
 		}()
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		select {
 		case <-done:
 		case <-time.After(5 * time.Second):

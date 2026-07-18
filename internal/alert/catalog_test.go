@@ -64,7 +64,7 @@ func TestParseEnabled(t *testing.T) {
 
 func TestDefaultEnabledCSVOnlyKnownTypes(t *testing.T) {
 	idx := catalogIndex()
-	for _, tpe := range strings.Split(DefaultEnabledCSV(), ",") {
+	for tpe := range strings.SplitSeq(DefaultEnabledCSV(), ",") {
 		if _, ok := idx[tpe]; !ok {
 			t.Errorf("DefaultEnabledCSV contains unknown type %q", tpe)
 		}

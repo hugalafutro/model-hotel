@@ -183,11 +183,11 @@ func TestScanModels_SingleRow(t *testing.T) {
 		Modality:                     "text",
 		InputModalities:              "[\"text\"]",
 		OutputModalities:             "[\"text\"]",
-		ContextLength:                intPtr(128000),
-		MaxOutputTokens:              intPtr(4096),
-		InputPricePerMillion:         float64Ptr(10.0),
-		InputPricePerMillionCacheHit: float64Ptr(5.0),
-		OutputPricePerMillion:        float64Ptr(30.0),
+		ContextLength:                new(128000),
+		MaxOutputTokens:              new(4096),
+		InputPricePerMillion:         new(10.0),
+		InputPricePerMillionCacheHit: new(5.0),
+		OutputPricePerMillion:        new(30.0),
 		OwnedBy:                      "openai",
 		Enabled:                      true,
 		DisabledManually:             false,
@@ -395,14 +395,6 @@ func TestScanModels_NilableFields(t *testing.T) {
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
-
-func intPtr(v int) *int {
-	return &v
-}
-
-func float64Ptr(v float64) *float64 {
-	return &v
-}
 
 func assertModelEqual(t *testing.T, expected, got *Model) {
 	t.Helper()

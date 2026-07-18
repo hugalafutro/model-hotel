@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 )
 
@@ -37,7 +36,7 @@ func newStubFleetMember(t *testing.T, token string) *stubFleetMember {
 	t.Helper()
 	sm := &stubFleetMember{
 		token:      token,
-		instanceID: fmt.Sprintf("iid-stub-%d", atomic.AddInt32(&memberServerSeq, 1)),
+		instanceID: fmt.Sprintf("iid-stub-%d", memberServerSeq.Add(1)),
 		exportBody: fleetExportWithKey,
 		importCode: http.StatusOK,
 		importBody: importOK,

@@ -162,11 +162,8 @@ func collectNPM(root string) ([]dep, error) {
 			// installed instance. Emit each so a package present at two
 			// versions is fully attributed (and paired with its own path),
 			// rather than collapsed onto a single version/path.
-			n := len(p.Versions)
-			if len(p.Paths) > n {
-				n = len(p.Paths)
-			}
-			for i := 0; i < n; i++ {
+			n := max(len(p.Paths), len(p.Versions))
+			for i := range n {
 				version := ""
 				if i < len(p.Versions) {
 					version = p.Versions[i]

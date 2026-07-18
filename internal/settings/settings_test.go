@@ -658,7 +658,7 @@ func TestSubscribeMultiSubscriber(t *testing.T) {
 	subs := make([]*Subscription, subCount)
 	dones := make([]chan ChangeEvent, subCount)
 
-	for i := 0; i < subCount; i++ {
+	for i := range subCount {
 		subs[i] = r.Subscribe()
 		dones[i] = make(chan ChangeEvent, 1)
 	}
@@ -669,8 +669,7 @@ func TestSubscribeMultiSubscriber(t *testing.T) {
 		}
 	}()
 
-	for i := 0; i < subCount; i++ {
-		i := i
+	for i := range subCount {
 		go func() {
 			change := <-subs[i].Events()
 			dones[i] <- change
@@ -681,7 +680,7 @@ func TestSubscribeMultiSubscriber(t *testing.T) {
 		t.Fatalf("Set failed: %v", err)
 	}
 
-	for i := 0; i < subCount; i++ {
+	for i := range subCount {
 		select {
 		case change := <-dones[i]:
 			if change.Key != key || change.Value != "broadcast" {
@@ -748,7 +747,7 @@ func TestConcurrentSetGetSubscribe(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Concurrent writers.
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
@@ -757,7 +756,7 @@ func TestConcurrentSetGetSubscribe(t *testing.T) {
 	}
 
 	// Concurrent readers.
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
@@ -766,9 +765,7 @@ func TestConcurrentSetGetSubscribe(t *testing.T) {
 	}
 
 	// Concurrent subscriber drain.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		timeout := time.After(100 * time.Millisecond)
 		for {
 			select {
@@ -777,7 +774,7 @@ func TestConcurrentSetGetSubscribe(t *testing.T) {
 				return
 			}
 		}
-	}()
+	})
 
 	wg.Wait()
 }
@@ -1061,7 +1058,7 @@ func TestUnsubscribe_BufferedEventsInChannel(t *testing.T) {
 	sub := r.Subscribe()
 
 	// Send multiple events to buffer them in the channel
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		err := r.Set(ctx, "buffer_test_key", fmt.Sprintf("val_%d", i))
 		if err != nil {
 			t.Fatalf("Set failed: %v", err)

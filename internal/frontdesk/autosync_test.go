@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -50,7 +49,7 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 	t.Helper()
 	sm := &stubAutoMember{
 		token:       token,
-		instanceID:  fmt.Sprintf("iid-auto-%d", atomic.AddInt32(&memberServerSeq, 1)),
+		instanceID:  fmt.Sprintf("iid-auto-%d", memberServerSeq.Add(1)),
 		versionHash: "hash-A",
 		exportBody:  fleetExportWithKey,
 		dryDiff:     `{"providers":{},"virtual_keys":{},"settings":{}}`, // converged

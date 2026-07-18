@@ -12,13 +12,13 @@ import (
 
 // Event represents a publishable event for SSE distribution.
 type Event struct {
-	ID        string                 `json:"id"`
-	Type      string                 `json:"type"`
-	Severity  string                 `json:"severity"` // "success", "info", "warning", "error"
-	Source    string                 `json:"source"`
-	Message   string                 `json:"message"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
-	Timestamp time.Time              `json:"timestamp"`
+	ID        string         `json:"id"`
+	Type      string         `json:"type"`
+	Severity  string         `json:"severity"` // "success", "info", "warning", "error"
+	Source    string         `json:"source"`
+	Message   string         `json:"message"`
+	Metadata  map[string]any `json:"metadata,omitempty"`
+	Timestamp time.Time      `json:"timestamp"`
 }
 
 // Bus is an event bus for distributing events to SSE subscribers.
