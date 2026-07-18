@@ -25,10 +25,11 @@ type StreamAdapter struct {
 	upstream io.ReadCloser
 	tr       *StreamTranslator
 
-	lineBuf []byte // partial SSE line carried across reads
-	pending []byte // translated bytes not yet handed to the caller
-	readBuf []byte
-	srcErr  error
+	lineBuf  []byte // partial SSE line carried across reads
+	pending  []byte // translated bytes not yet handed to the caller
+	readBuf  []byte
+	srcErr   error
+	transErr error // first translation failure; poisons the stream
 }
 
 // NewStreamAdapter builds an adapter for one streaming response. model is
@@ -45,9 +46,15 @@ func NewStreamAdapter(upstream io.ReadCloser, model string) *StreamAdapter {
 // Read refills the pending buffer from upstream (translating as it goes) and
 // copies out. On EOF the terminal Finish() bytes are appended before the EOF
 // is surfaced; other upstream errors surface only after all translated bytes
-// have been drained.
+// have been drained. A translation failure poisons the stream: already
+// translated bytes drain, then the error surfaces — Finish() is never
+// fabricated over a corrupt upstream, so the proxy sees a failed stream
+// instead of a clean empty/partial success.
 func (a *StreamAdapter) Read(p []byte) (int, error) {
 	for len(a.pending) == 0 {
+		if a.transErr != nil {
+			return 0, a.transErr
+		}
 		if a.srcErr != nil {
 			return 0, a.srcErr
 		}
@@ -57,7 +64,7 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 		}
 		if err != nil {
 			a.srcErr = err
-			if err == io.EOF {
+			if err == io.EOF && a.transErr == nil {
 				fin, finErr := a.tr.Finish()
 				if finErr != nil {
 					debuglog.Warn("gemini: stream finish failed", "error", finErr)
@@ -92,8 +99,11 @@ func (a *StreamAdapter) consume(p []byte) {
 		}
 		out, err := a.tr.Translate(payload)
 		if err != nil {
+			// A malformed data line means a corrupt upstream; record it and
+			// stop translating so Read surfaces the failure.
 			debuglog.Warn("gemini: stream chunk translate failed", "error", err)
-			continue
+			a.transErr = err
+			return
 		}
 		a.pending = append(a.pending, out...)
 	}

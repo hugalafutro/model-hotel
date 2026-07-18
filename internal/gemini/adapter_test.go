@@ -72,16 +72,39 @@ func TestStreamAdapter_TranslatesAndFinishesOnEOF(t *testing.T) {
 	}
 }
 
-func TestStreamAdapter_MalformedLineSkipped(t *testing.T) {
+func TestStreamAdapter_NonDataLinesIgnored(t *testing.T) {
+	// SSE comments and event: lines are normal framing noise, not errors.
 	upstream := &slowReader{script: []string{
-		"event: something\ndata: {not json}\n\ndata: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"ok\"}]},\"finishReason\":\"STOP\"}]}\n\n",
+		": keepalive\nevent: something\ndata: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"ok\"}]},\"finishReason\":\"STOP\"}]}\n\n",
 	}}
 	out, err := io.ReadAll(NewStreamAdapter(upstream, "m"))
 	if err != nil {
 		t.Fatalf("ReadAll: %v", err)
 	}
 	if !strings.Contains(string(out), `"content":"ok"`) {
-		t.Errorf("valid chunk lost after malformed line:\n%s", out)
+		t.Errorf("valid chunk lost after non-data lines:\n%s", out)
+	}
+}
+
+func TestStreamAdapter_MalformedChunkPoisonsStream(t *testing.T) {
+	// A malformed data line means a corrupt upstream. Already-translated bytes
+	// drain, then the stream errors — and EOF must NOT fabricate a clean
+	// terminal chunk + [DONE] that would make the proxy report success.
+	upstream := &slowReader{script: []string{
+		"data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"pre\"}]}}]}\n\n",
+		"data: {not json}\n\n",
+		"data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"post\"}]},\"finishReason\":\"STOP\"}]}\n\n",
+	}}
+	out, err := io.ReadAll(NewStreamAdapter(upstream, "m"))
+	if err == nil {
+		t.Fatal("expected error for malformed upstream chunk")
+	}
+	s := string(out)
+	if !strings.Contains(s, `"content":"pre"`) {
+		t.Errorf("pre-error content lost:\n%s", s)
+	}
+	if strings.Contains(s, "[DONE]") || strings.Contains(s, `"finish_reason":"`) {
+		t.Errorf("terminal chunks fabricated after malformed upstream:\n%s", s)
 	}
 }
 
