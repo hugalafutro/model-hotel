@@ -1,9 +1,3 @@
-/* eslint-disable react-hooks/refs -- useChat() returns refs mixed with state
-   in one object, so the compiler flags every `chat.*` access in the JSX
-   (~90 false positives). Scoping per-line would blanket the whole render;
-   separating refs out of the useChat return is the real fix if this file is
-   ever refactored. */
-
 import { useTranslation } from "react-i18next";
 import {
 	Bot,
@@ -36,7 +30,12 @@ import { useChat } from "./Chat/useChat";
 
 export function Chat() {
 	const { t } = useTranslation();
-	const chat = useChat();
+	// Refs are split off so the ref-free `chat` rest object can be read freely
+	// in the JSX without tripping the react-hooks/refs lint.
+	const {
+		refs: { lastPromptRef, messagesContainerRef, imageInputRef, audioInputRef },
+		...chat
+	} = useChat();
 
 	return (
 		<div
@@ -114,7 +113,7 @@ export function Chat() {
 												chat.clearConversationAbort();
 											}
 											chat.setMessages([]);
-											chat.setInput(chat.lastPromptRef.current);
+											chat.setInput(lastPromptRef.current);
 											chat.setConversationState("idle");
 											chat.setCurrentTurn(0);
 											chat.setTurnCountdown(0);
@@ -366,7 +365,7 @@ export function Chat() {
 
 				{/* Messages */}
 				<div
-					ref={chat.messagesContainerRef}
+					ref={messagesContainerRef}
 					className={`flex-1 pr-1 space-y-4 ${
 						chat.chatSubMode === "conversation"
 							? "overflow-visible"
@@ -470,7 +469,7 @@ export function Chat() {
 									{chat.hasVision && (
 										<>
 											<input
-												ref={chat.imageInputRef}
+												ref={imageInputRef}
 												type="file"
 												accept="image/*"
 												className="hidden"
@@ -479,7 +478,7 @@ export function Chat() {
 											/>
 											<button
 												type="button"
-												onClick={() => chat.imageInputRef.current?.click()}
+												onClick={() => imageInputRef.current?.click()}
 												className={`p-2 rounded-(--radius-button) transition-colors ${
 													chat.pendingImage
 														? "bg-(--accent)/20 text-(--accent)"
@@ -495,7 +494,7 @@ export function Chat() {
 									{chat.hasAudioInput && (
 										<>
 											<input
-												ref={chat.audioInputRef}
+												ref={audioInputRef}
 												type="file"
 												accept="audio/*"
 												className="hidden"
@@ -504,7 +503,7 @@ export function Chat() {
 											/>
 											<button
 												type="button"
-												onClick={() => chat.audioInputRef.current?.click()}
+												onClick={() => audioInputRef.current?.click()}
 												className={`p-2 rounded-(--radius-button) transition-colors ${
 													chat.pendingAudio
 														? "bg-(--accent)/20 text-(--accent)"
@@ -659,7 +658,7 @@ export function Chat() {
 											onClick={() => {
 												chat.clearConversationAbort();
 												chat.setMessages([]);
-												chat.setInput(chat.lastPromptRef.current);
+												chat.setInput(lastPromptRef.current);
 												chat.setConversationState("idle");
 												chat.setCurrentTurn(0);
 												chat.setTurnCountdown(0);
