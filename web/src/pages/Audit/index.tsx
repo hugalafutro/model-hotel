@@ -108,17 +108,25 @@ export function Audit() {
 	// Sentinel at the list foot: when it scrolls into view (scroll mode only),
 	// pull the next page. Re-armed whenever the fetch state changes so it keeps
 	// firing down a long list.
+	const scrollRef = useRef<HTMLDivElement>(null);
 	const sentinelRef = useRef<HTMLDivElement>(null);
 	const { hasNextPage, isFetchingNextPage, fetchNextPage } = scroll;
 	useEffect(() => {
 		if (!isScroll) return;
 		const el = sentinelRef.current;
 		if (!el) return;
-		const observer = new IntersectionObserver((observed) => {
-			if (observed[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
-				fetchNextPage();
-			}
-		});
+		// Root is the table's own scroll box, not the viewport: the page is pinned
+		// to the viewport height and only the table body scrolls, so intersection
+		// must be measured against that inner scroller. rootMargin pulls the next
+		// page in a little before the foot is actually reached.
+		const observer = new IntersectionObserver(
+			(observed) => {
+				if (observed[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+					fetchNextPage();
+				}
+			},
+			{ root: scrollRef.current, rootMargin: "300px" },
+		);
 		observer.observe(el);
 		return () => observer.disconnect();
 	}, [isScroll, hasNextPage, isFetchingNextPage, fetchNextPage]);
@@ -140,7 +148,11 @@ export function Audit() {
 	}
 
 	return (
-		<div className="space-y-6 pb-8">
+		<div
+			className={`space-y-6 flex flex-col ${
+				isScroll ? "h-[calc(100dvh-1rem)] overflow-hidden" : "flex-1 min-h-0"
+			}`}
+		>
 			<PageHeader
 				icon={History}
 				title={t("audit.title")}
@@ -182,7 +194,10 @@ export function Audit() {
 
 			{entries.length > 0 ? (
 				<>
-					<div className="ui-card overflow-hidden">
+					<div
+						ref={scrollRef}
+						className="ui-card overflow-y-auto flex-1 min-h-0"
+					>
 						<table className="w-full table-fixed ui-table">
 							<colgroup>
 								<col className="w-[9%]" />
@@ -193,7 +208,7 @@ export function Audit() {
 								<col className="w-[13%]" />
 								<col className="w-[7%]" />
 							</colgroup>
-							<thead>
+							<thead className="sticky top-0 z-10">
 								<tr>
 									<StaticHeader>{t("audit.table.time")}</StaticHeader>
 									<StaticHeader>{t("audit.table.actor")}</StaticHeader>
@@ -260,30 +275,25 @@ export function Audit() {
 								))}
 							</tbody>
 						</table>
+						{/* Foot marker the observer watches (scroll mode). It lives inside
+						   the scroll box so it enters view as the table body scrolls, not
+						   the page. */}
+						{isScroll && (
+							<div ref={sentinelRef} aria-hidden="true" className="h-px" />
+						)}
 					</div>
 
-					{isScroll ? (
-						<>
-							<div className="flex items-center justify-between text-sm text-gray-500">
-								<span>
-									{t("audit.showing", { count: entries.length, total })}
-								</span>
-								{isFetchingNextPage && (
-									<span
-										role="status"
-										aria-label={t("common.loading")}
-										className="animate-spin rounded-full h-4 w-4 border-b-2 border-(--accent)"
-									/>
-								)}
-							</div>
-							{/* Foot marker the observer watches to load the next page. */}
-							<div ref={sentinelRef} aria-hidden="true" className="h-px" />
-						</>
-					) : (
-						<div className="flex items-center justify-between text-sm text-gray-500">
-							<span>
-								{t("audit.showing", { count: entries.length, total })}
-							</span>
+					<div className="flex items-center justify-between text-sm text-gray-500 shrink-0">
+						<span>{t("audit.showing", { count: entries.length, total })}</span>
+						{isScroll ? (
+							isFetchingNextPage && (
+								<span
+									role="status"
+									aria-label={t("common.loading")}
+									className="animate-spin rounded-full h-4 w-4 border-b-2 border-(--accent)"
+								/>
+							)
+						) : (
 							<PaginationBar
 								page={page}
 								totalPages={totalPages}
@@ -296,8 +306,8 @@ export function Audit() {
 								}}
 								hideCount
 							/>
-						</div>
-					)}
+						)}
+					</div>
 				</>
 			) : (
 				<EmptyState message={t("audit.emptyState")} />

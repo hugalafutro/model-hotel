@@ -177,6 +177,79 @@ describe("Audit page", () => {
 		expect(screen.getByText("/first-page")).toBeInTheDocument();
 	});
 
+	it("does not fetch the next page when the sentinel is not intersecting", async () => {
+		let requests = 0;
+		server.use(
+			http.get("/api/audit", ({ request }) => {
+				requests += 1;
+				const cursor = new URL(request.url).searchParams.get("cursor");
+				return HttpResponse.json({
+					entries: [entry({ route: cursor ? "/second-page" : "/first-page" })],
+					total: 2,
+					has_more: !cursor,
+					next_cursor: cursor ? undefined : "cur-1",
+				});
+			}),
+		);
+		renderWithProviders(<Audit />);
+
+		expect(await screen.findByText("/first-page")).toBeInTheDocument();
+		const requestsAfterFirst = requests;
+		// The sentinel reports as leaving view (isIntersecting false): the observer
+		// must no-op, not pull another page.
+		act(() => {
+			MockIntersectionObserver.instances.at(-1)?.trigger(false);
+		});
+		await waitFor(() => {
+			expect(requests).toBe(requestsAfterFirst);
+		});
+		expect(screen.queryByText("/second-page")).not.toBeInTheDocument();
+	});
+
+	it("shows a loading spinner while the next scroll page is fetching", async () => {
+		// Hold the second page open so isFetchingNextPage stays true long enough to
+		// assert the in-flight spinner, then release it.
+		let releaseSecondPage: () => void = () => {};
+		const secondPageGate = new Promise<void>((resolve) => {
+			releaseSecondPage = resolve;
+		});
+		server.use(
+			http.get("/api/audit", async ({ request }) => {
+				const cursor = new URL(request.url).searchParams.get("cursor");
+				if (cursor === "cur-1") {
+					await secondPageGate;
+					return HttpResponse.json({
+						entries: [entry({ route: "/second-page" })],
+						total: 2,
+						has_more: false,
+					});
+				}
+				return HttpResponse.json({
+					entries: [entry({ route: "/first-page" })],
+					total: 2,
+					has_more: true,
+					next_cursor: "cur-1",
+				});
+			}),
+		);
+		renderWithProviders(<Audit />);
+
+		expect(await screen.findByText("/first-page")).toBeInTheDocument();
+		act(() => {
+			MockIntersectionObserver.instances.at(-1)?.trigger();
+		});
+		// Spinner is visible while the next page is in flight.
+		expect(
+			await screen.findByRole("status", { name: "Loading" }),
+		).toBeInTheDocument();
+
+		releaseSecondPage();
+		expect(await screen.findByText("/second-page")).toBeInTheDocument();
+		expect(
+			screen.queryByRole("status", { name: "Loading" }),
+		).not.toBeInTheDocument();
+	});
+
 	it("navigates by page in pagination mode", async () => {
 		server.use(
 			http.get("/api/audit", ({ request }) => {
