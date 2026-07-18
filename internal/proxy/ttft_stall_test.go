@@ -276,6 +276,10 @@ func TestStallWatchdog_Timeout(t *testing.T) {
 
 	// Body sends one chunk then blocks longer than the stall timeout.
 	// The watchdog should fire and close the body before the second write.
+	// The writer's fallback timeout is deliberately huge relative to the 50ms
+	// stall timeout: it only matters when the watchdog is broken, and a wide
+	// gap keeps the duration assertion below meaningful on loaded CI runners
+	// (this test once flaked at 287ms against a 150ms bound).
 	closeCh := make(chan struct{})
 	pr, pw := io.Pipe()
 	go func() {
@@ -283,7 +287,7 @@ func TestStallWatchdog_Timeout(t *testing.T) {
 		select {
 		case <-closeCh:
 			// Body was closed by watchdog, pipe write will fail
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(2 * time.Second):
 			// Timeout reached — watchdog did NOT fire, write the [DONE]
 			pw.Write([]byte("data: [DONE]\n\n"))
 		}
@@ -331,10 +335,12 @@ func TestStallWatchdog_Timeout(t *testing.T) {
 	if logData.errorMessage == "" {
 		t.Error("expected non-empty error message after stall")
 	}
-	// Duration should be much less than 200ms (the sleep in the goroutine)
-	// since watchdog fires at ~50ms
-	if logData.durationMs > 150 {
-		t.Errorf("expected duration < 150ms (stall fired early), got %.1fms", logData.durationMs)
+	// The watchdog fires at ~50ms; well under the writer's 2s fallback even
+	// with heavy scheduler delay. The state/error assertions above are the
+	// functional proof — this bound only guards against the stream having
+	// waited out the writer instead of being cut by the watchdog.
+	if logData.durationMs > 1000 {
+		t.Errorf("expected duration well under the 2s writer fallback (stall fired early), got %.1fms", logData.durationMs)
 	}
 }
 
