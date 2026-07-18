@@ -212,8 +212,13 @@ func detectByHost(host, path string) string {
 	if host == "generativelanguage.googleapis.com" {
 		return "google"
 	}
-	if strings.HasSuffix(host, ".googleapis.com") &&
-		(strings.Contains(host, "generativelanguage") || strings.Contains(host, "aiplatform")) {
+	// Vertex AI native surface (aiplatform.googleapis.com, incl. regional
+	// hosts): express-mode API keys only work on the native generateContent
+	// routes, served through the internal/gemini egress adapter.
+	if strings.HasSuffix(host, ".googleapis.com") && strings.Contains(host, "aiplatform") {
+		return "vertex-express"
+	}
+	if strings.HasSuffix(host, ".googleapis.com") && strings.Contains(host, "generativelanguage") {
 		return "google"
 	}
 	if host == "opencode.ai" || strings.HasSuffix(host, ".opencode.ai") {
@@ -312,6 +317,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverXAI(ctx, provider, apiKey)
 		case "google":
 			return d.discoverGoogleAIStudio(ctx, provider, apiKey)
+		case "vertex-express":
+			return d.discoverVertexExpress(ctx, provider, apiKey)
 		case "cohere":
 			return d.discoverCohere(ctx, provider, apiKey)
 		case "openrouter":

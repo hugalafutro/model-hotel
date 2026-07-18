@@ -433,6 +433,40 @@ func TestDiscoverModels_AzureDispatch(t *testing.T) {
 	assert.Equal(t, "Kimi-K2.6", models[0].ModelID)
 }
 
+func TestDiscoverModels_VertexExpressDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// The generic openai fallback would GET /models; serving only countTokens
+	// probes proves dispatch reached discoverVertexExpress.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && r.URL.Path == "/v1/publishers/google/models/gemini-2.5-flash:countTokens" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"totalTokens":1}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://aiplatform.googleapis.com",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.Len(t, models, 1)
+	assert.Equal(t, "gemini-2.5-flash", models[0].ModelID)
+}
+
 func TestDiscoverModels_OllamaDispatch(t *testing.T) {
 	t.Parallel()
 

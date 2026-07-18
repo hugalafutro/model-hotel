@@ -26,6 +26,7 @@ describe("PROVIDER_BRAND_COLORS", () => {
 		expect(PROVIDER_BRAND_COLORS.deepseek).toBe("#4D6BFE");
 		expect(PROVIDER_BRAND_COLORS.nanogpt).toBe("#0EA5B0");
 		expect(PROVIDER_BRAND_COLORS.azure).toBe("#0078D4");
+		expect(PROVIDER_BRAND_COLORS["vertex-express"]).toBe("#4285F4");
 	});
 
 	it("has consistent colors for ollama variants", () => {

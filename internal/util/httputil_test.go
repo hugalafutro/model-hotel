@@ -819,6 +819,20 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "https://api.anthropic.com/v1/embeddings",
 		},
 		{
+			name:         "Vertex express bare host gets /v1 prefix",
+			baseURL:      "https://aiplatform.googleapis.com",
+			providerType: "vertex-express",
+			endpoint:     "/publishers/google/models/gemini-2.5-flash:generateContent",
+			expected:     "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent",
+		},
+		{
+			name:         "Vertex express /v1 base stays put",
+			baseURL:      "https://aiplatform.googleapis.com/v1/",
+			providerType: "vertex-express",
+			endpoint:     "/publishers/google/models/gemini-2.5-flash:streamGenerateContent?alt=sse",
+			expected:     "https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:streamGenerateContent?alt=sse",
+		},
+		{
 			name:         "Azure foundry project endpoint maps to /openai/v1",
 			baseURL:      "https://myres-resource.services.ai.azure.com/api/projects/myproject",
 			providerType: "azure",
@@ -1111,6 +1125,7 @@ func TestSetProviderAuthHeaders(t *testing.T) {
 		expectAuthHeader string
 		expectXAPIKey    string
 		expectVersion    string
+		expectGoogle     string
 	}{
 		{
 			name:             "Anthropic",
@@ -1144,6 +1159,12 @@ func TestSetProviderAuthHeaders(t *testing.T) {
 			expectXAPIKey:    "",
 			expectVersion:    "",
 		},
+		{
+			name:         "Vertex express uses x-goog-api-key",
+			providerType: "vertex-express",
+			apiKey:       "AQ.vertex-key",
+			expectGoogle: "AQ.vertex-key",
+		},
 	}
 
 	for _, tc := range tests {
@@ -1165,6 +1186,11 @@ func TestSetProviderAuthHeaders(t *testing.T) {
 			version := req.Header.Get("anthropic-version")
 			if version != tc.expectVersion {
 				t.Errorf("anthropic-version header = %q, want %q", version, tc.expectVersion)
+			}
+
+			googleKey := req.Header.Get("x-goog-api-key")
+			if googleKey != tc.expectGoogle {
+				t.Errorf("x-goog-api-key header = %q, want %q", googleKey, tc.expectGoogle)
 			}
 		})
 	}

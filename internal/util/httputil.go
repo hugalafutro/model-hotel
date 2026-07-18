@@ -138,6 +138,16 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		return strings.Replace(sanitized, "/subscription", "", 1) + endpoint
 	}
 	switch providerType {
+	case "vertex-express":
+		// Vertex AI express keys work only on the native publisher routes
+		// under {host}/v1 (the egress adapter builds the
+		// /publishers/google/models/{m}:generateContent endpoint). Accept a
+		// bare host or a /v1 base without doubling the prefix.
+		versioned := strings.TrimRight(sanitized, "/")
+		if strings.HasSuffix(versioned, "/v1") {
+			return versioned + endpoint
+		}
+		return versioned + "/v1" + endpoint
 	case "azure":
 		// Azure AI resources serve their OpenAI-compatible surface only under
 		// {scheme}://{host}/openai/v1, but the base URL users hold is usually
@@ -235,6 +245,10 @@ func SetProviderAuthHeaders(req *http.Request, providerType, apiKey string) {
 	case "anthropic":
 		req.Header.Set("x-api-key", apiKey)
 		req.Header.Set("anthropic-version", "2023-06-01")
+	case "vertex-express":
+		// Native Google publisher routes authenticate express keys via the
+		// x-goog-api-key header (Bearer is rejected as an OAuth2 expectation).
+		req.Header.Set("x-goog-api-key", apiKey)
 	default:
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}

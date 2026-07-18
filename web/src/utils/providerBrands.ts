@@ -16,7 +16,8 @@ export type ProviderBrand =
 	| "opencode"
 	| "neuralwatt"
 	| "bedrock"
-	| "azure";
+	| "azure"
+	| "vertex-express";
 
 /**
  * Provider brand colors - single source of truth for consistent provider styling.
@@ -45,6 +46,7 @@ export const PROVIDER_BRAND_COLORS: Record<ProviderBrand, string> = {
 	neuralwatt: "#ac4324",
 	bedrock: "#FF9900",
 	azure: "#0078D4",
+	"vertex-express": "#4285F4",
 } as const;
 
 /** Short display prefixes for quota badges in the sidebar. */
@@ -66,4 +68,5 @@ export const PROVIDER_PREFIXES: Record<ProviderBrand, string> = {
 	neuralwatt: "NW",
 	bedrock: "AWS",
 	azure: "AZ",
+	"vertex-express": "VX",
 } as const;

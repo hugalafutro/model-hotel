@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -19,6 +21,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -413,6 +416,12 @@ func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []
 
 	providerType = provider.DetectProviderType(prov.BaseURL)
 	targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType, "/chat/completions")
+	if providerType == "vertex-express" {
+		// Vertex express serves chat only on the native generateContent route;
+		// doTestModelRequest translates the probe body to match.
+		targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType,
+			"/publishers/google/models/"+url.PathEscape(m.ModelID)+":generateContent")
+	}
 
 	reqHashBytes := make([]byte, 8)
 	rand.Read(reqHashBytes)
@@ -434,10 +443,50 @@ func (h *Handler) doTestModelRequest(ctx context.Context, providerType, targetUR
 	if h.testModelCheckRedirect != nil {
 		testClient.CheckRedirect = h.testModelCheckRedirect
 	}
+	if providerType == "vertex-express" {
+		return h.doTestModelGeminiRequest(ctx, testClient, targetURL, providerType, modelID, apiKey, baseBody)
+	}
 	return paramrewrite.SelfHealChatCompletion(ctx, testClient, targetURL, providerType, modelID, baseBody, func(req *http.Request) {
 		util.SetProviderAuthHeaders(req, providerType, apiKey)
 		req.Header.Set("Content-Type", "application/json")
 	})
+}
+
+// doTestModelGeminiRequest sends the probe through the gemini egress
+// translation instead of the chat-completions self-heal (whose 400 param
+// retry rewrites chat bodies, meaningless against generateContent). A 200
+// body is swapped for its chat.completion translation so
+// parseTestModelResponse reads it unchanged.
+func (h *Handler) doTestModelGeminiRequest(ctx context.Context, client *http.Client, targetURL, providerType, modelID, apiKey string, baseBody []byte) (*http.Response, error) {
+	body, _, _, err := gemini.TranslateRequest(baseBody)
+	if err != nil {
+		return nil, err
+	}
+	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
+	req, err := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	util.SetProviderAuthHeaders(req, providerType, apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return resp, err
+	}
+	upstream, err := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if err != nil {
+		resp.Body = io.NopCloser(bytes.NewReader(nil))
+		return resp, err
+	}
+	translated, err := gemini.BuildChatCompletion(upstream, "chatcmpl-test-"+modelID, modelID, time.Now().Unix())
+	if err != nil {
+		resp.Body = io.NopCloser(bytes.NewReader(nil))
+		return resp, err
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(translated))
+	return resp, nil
 }
 
 // parseTestModelResponse extracts the assistant content and computes

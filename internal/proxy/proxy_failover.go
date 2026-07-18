@@ -17,6 +17,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -122,7 +123,11 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// a Responses-required 400 must run BEFORE the param retry — its error
 	// message names reasoning_effort, which the param parser would otherwise
 	// learn as a strip (useless on reason-by-default models).
-	if resp.StatusCode == 400 && !st.anthropicNativeAttempt && !st.responsesAttempt {
+	// Also skipped for gemini egress attempts: the upstream body is
+	// generateContent-shaped, so re-POSTing a rebuilt chat body (or learning
+	// OpenAI param names from Gemini's error text) would be wrong; a Gemini
+	// 400 fails over or is forwarded as-is.
+	if resp.StatusCode == 400 && !st.anthropicNativeAttempt && !st.responsesAttempt && !st.geminiAttempt {
 		res, handled := h.retryWithResponses(r, st, candidate, providerType, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
 		if !handled {
 			res = h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
@@ -177,6 +182,17 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			// A 200 whose body cannot be read or is not a Responses object is
 			// a provider fault; fail over like any other malformed upstream.
 			debuglog.Warn("proxy: responses api translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
+			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
+			logData.failoverAttempt = attempt
+			return outcomeFailover
+		}
+	}
+	if st.geminiAttempt {
+		// Same upstream-side trick for the gemini egress adapter.
+		if st.isStreaming {
+			resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
+		} else if err := translateGeminiResponseBody(resp, st.reqModel); err != nil {
+			debuglog.Warn("proxy: gemini translation failed", "error", err, "model", logData.modelID, "provider", logData.providerName)
 			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 			logData.failoverAttempt = attempt
 			return outcomeFailover
@@ -367,9 +383,10 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	// seamlessly. The flag is read by the response dispatch + writer.
 	st.anthropicNativeAttempt = st.anthropicIn && providerType == "anthropic"
 	// Per-attempt flags: a failover group can mix an OpenAI candidate that
-	// needs /v1/responses with providers that don't, so both flags reset on
-	// every candidate.
+	// needs /v1/responses (or a vertex-express one) with providers that
+	// don't, so all dialect flags reset on every candidate.
 	st.responsesAttempt = false
+	st.geminiAttempt = false
 	if st.anthropicNativeAttempt {
 		return h.buildNativeAnthropicRequest(ctx, st, candidate, providerType)
 	}
@@ -381,6 +398,14 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	if h.shouldUseResponsesAttempt(st, candidate, providerType) {
 		st.responsesAttempt = true
 		return h.buildResponsesRequest(ctx, st, candidate, providerType)
+	}
+
+	// Vertex express egress adapter: chat requests to a vertex-express
+	// provider are translated to Gemini generateContent on the way out and
+	// back on the response side (see gemini_egress.go).
+	if isGeminiEgressAttempt(st, providerType) {
+		st.geminiAttempt = true
+		return h.buildGeminiRequest(ctx, st, candidate, providerType)
 	}
 
 	endpoint := st.endpointPath

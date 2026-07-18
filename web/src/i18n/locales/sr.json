@@ -724,6 +724,7 @@
 		"type_anthropic": "Anthropic",
 		"type_bedrock": "AWS Bedrock",
 		"type_azure": "Azure AI Foundry",
+		"type_vertex_express": "Vertex AI (express keys)",
 		"type_deepseek": "DeepSeek",
 		"type_ollama_cloud": "Ollama Cloud",
 		"type_ollama": "Ollama",
