@@ -182,7 +182,9 @@ jobs:
       # to MH/FD, so README/Docker Hub link here for a stable path to the
       # newest APK (stable asset name bellhop.apk). Marked prerelease so it
       # never takes the repo's Latest badge and Obtainium keeps tracking the
-      # real bellhop-vX.Y.Z releases instead.
+      # real bellhop-vX.Y.Z releases instead. Its notes lead with the rolling
+      # pointer, then embed the same changelog as the versioned release so the
+      # page the README badge lands on shows what changed, not just a link.
       - name: Refresh bellhop-latest rolling release
         if: steps.version.outputs.skip_existing == 'false' && env.DRY_RUN != 'true'
         env:
@@ -191,6 +193,13 @@ jobs:
           gh release delete bellhop-latest --yes 2>/dev/null || true
           git push origin :refs/tags/bellhop-latest 2>/dev/null || true
           cp "bellhop-${{ steps.version.outputs.ver }}.apk" bellhop.apk
+          # Lead with the rolling-pointer explanation, then reuse the changelog
+          # the Generate changelog step already wrote for the versioned release.
+          {
+            echo "Rolling pointer to the newest Bellhop release, currently [${{ steps.version.outputs.ver }}](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }}). The attached \`bellhop.apk\` is byte-identical to that release's APK; the stable URL exists so docs can link the newest APK without per-release edits."
+            echo ""
+            cat "$RUNNER_TEMP/release-notes.md"
+          } > "$RUNNER_TEMP/latest-notes.md"
           # --target pins the recreated tag to this commit via the API. Without it,
           # gh reuses the stale local bellhop-latest tag the full-history checkout
           # fetched (from the previous release) and, since that tag is no longer on
@@ -201,4 +210,4 @@ jobs:
             --title "Bellhop (latest: ${{ steps.version.outputs.ver }})" \
             --prerelease \
             --latest=false \
-            --notes "Rolling pointer to the newest Bellhop release, currently [${{ steps.version.outputs.ver }}](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }}). The attached \`bellhop.apk\` is byte-identical to that release's APK; the stable URL exists so docs can link the newest APK without per-release edits."
+            --notes-file "$RUNNER_TEMP/latest-notes.md"
