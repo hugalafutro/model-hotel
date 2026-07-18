@@ -201,14 +201,19 @@ func (s *Store) DeleteMemberIfNotPrimary(ctx context.Context, id string) (applie
 	}
 	defer tx.Rollback() //nolint:errcheck // rollback after a successful commit is a no-op
 
-	// Delete only if the member is NOT the fleet primary. The sub-query makes the
-	// check and the delete a single atomic statement, so a concurrent primary
-	// reassignment cannot slip between the check and the delete.
+	// Delete only if the member is NOT the fleet primary AND removing it would not
+	// empty the routing pool (an active member must never be the last active one:
+	// that is the same invariant SetMemberState enforces for draining, reached
+	// here via the delete door). Draining a drained member is always safe (it is
+	// already out of the pool). The sub-queries make the checks and the delete a
+	// single atomic statement, so a concurrent repoint or drain cannot slip
+	// between the check and the delete.
 	res, err := tx.ExecContext(ctx, `
 		DELETE FROM members
 		WHERE id = ?
-		  AND id NOT IN (SELECT auto_sync_primary_id FROM settings WHERE id = 1)`,
-		id)
+		  AND id NOT IN (SELECT auto_sync_primary_id FROM settings WHERE id = 1)
+		  AND (state != ? OR EXISTS (SELECT 1 FROM members WHERE state = ? AND id != ?))`,
+		id, string(StateActive), string(StateActive), id)
 	if err != nil {
 		return false, fmt.Errorf("frontdesk: delete member: %w", err)
 	}
@@ -217,7 +222,20 @@ func (s *Store) DeleteMemberIfNotPrimary(ctx context.Context, id string) (applie
 		return false, err
 	}
 	if n == 0 {
-		return false, nil
+		// Not deleted: either the member is the primary (existing refusal, reported
+		// as applied=false) or it is the last active member (new routing-pool
+		// guard). The caller has already confirmed the member exists, so
+		// disambiguate the two so the server returns the right 409.
+		var isPrimary bool
+		if err := tx.QueryRowContext(ctx,
+			`SELECT EXISTS(SELECT 1 FROM settings WHERE id = 1 AND auto_sync_primary_id = ?)`,
+			id).Scan(&isPrimary); err != nil {
+			return false, fmt.Errorf("frontdesk: delete member primary check: %w", err)
+		}
+		if isPrimary {
+			return false, nil
+		}
+		return false, ErrLastActiveMember
 	}
 	// A removed non-primary member must not linger as the auto-sync primary (it
 	// never should, but stay defensive) nor as the stale "last run" marker.

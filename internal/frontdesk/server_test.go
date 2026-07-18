@@ -585,6 +585,41 @@ func TestServerCannotDeletePrimary(t *testing.T) {
 	}
 }
 
+// TestDeleteLastActiveMemberReturns409 covers the delete door of the routing-pool
+// guard over HTTP: with the primary drained, removing the sole active replica is
+// refused with 409 carrying the stable last_active_member code.
+func TestDeleteLastActiveMemberReturns409(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := context.Background()
+	pm, err := store.CreateMember(ctx, "primary", "https://p.example.com", "ptok")
+	if err != nil {
+		t.Fatalf("create primary: %v", err)
+	}
+	rm, err := store.CreateMember(ctx, "replica", "https://r.example.com", "rtok")
+	if err != nil {
+		t.Fatalf("create replica: %v", err)
+	}
+	if rec := do(t, srv, http.MethodPut, "/api/fleet/autosync",
+		`{"enabled":false,"primary_id":"`+pm.ID+`"}`, true); rec.Code != http.StatusOK {
+		t.Fatalf("designate primary = %d; body=%s", rec.Code, rec.Body.String())
+	}
+	// Drain the primary so the replica is the only active member.
+	if err := store.SetMemberState(ctx, pm.ID, StateDrained); err != nil {
+		t.Fatalf("drain primary: %v", err)
+	}
+	rec := do(t, srv, http.MethodDelete, "/api/members/"+rm.ID, "", true)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("delete last active = %d, want 409; body=%s", rec.Code, rec.Body.String())
+	}
+	var coded map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &coded); err != nil {
+		t.Fatalf("decode 409 body: %v; body=%s", err, rec.Body.String())
+	}
+	if coded["code"] != "last_active_member" {
+		t.Errorf("409 code = %q, want %q; body=%s", coded["code"], "last_active_member", rec.Body.String())
+	}
+}
+
 func TestServerEventsAndStatus(t *testing.T) {
 	srv, _ := newTestServer(t)
 
