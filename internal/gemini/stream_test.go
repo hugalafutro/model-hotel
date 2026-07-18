@@ -209,6 +209,28 @@ func TestStreamTranslator_ThoughtAndEmptyChunks(t *testing.T) {
 	}
 }
 
+func TestStreamTranslator_BlockedPrompt(t *testing.T) {
+	// A blocked prompt streams as a single candidate-less chunk carrying only
+	// promptFeedback. That must surface as content_filter, not an empty
+	// successful "stop" (the non-streaming path errors for the same shape).
+	tr := NewStreamTranslator("id", "m", 0)
+	out, err := tr.Translate([]byte(`{"promptFeedback":{"blockReason":"PROHIBITED_CONTENT"}}`))
+	if err != nil {
+		t.Fatalf("Translate: %v", err)
+	}
+	if len(out) != 0 {
+		t.Errorf("blocked chunk output = %q, want none", out)
+	}
+	fin, err := tr.Finish()
+	if err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+	choice := decodeChunk(t, parseFrames(t, fin)[0])["choices"].([]any)[0].(map[string]any)
+	if choice["finish_reason"] != "content_filter" {
+		t.Errorf("finish_reason = %v, want content_filter", choice["finish_reason"])
+	}
+}
+
 func TestStreamTranslator_InvalidChunk(t *testing.T) {
 	tr := NewStreamTranslator("id", "m", 0)
 	if _, err := tr.Translate([]byte(`{not json`)); err == nil {

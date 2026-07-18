@@ -20,6 +20,7 @@ type StreamTranslator struct {
 
 	started      bool   // role delta emitted
 	finished     bool   // Finish() already emitted
+	blocked      bool   // promptFeedback.blockReason seen
 	finishReason string // last Gemini finishReason observed
 	toolCalls    int    // tool_calls emitted so far (drives index + ids)
 	usage        *genUsage
@@ -103,6 +104,11 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 	if chunk.UsageMetadata != nil {
 		t.usage = chunk.UsageMetadata
 	}
+	// A blocked prompt streams as a candidate-less chunk with promptFeedback;
+	// remember it so Finish() reports content_filter instead of a clean stop.
+	if chunk.PromptFeedback != nil && chunk.PromptFeedback.BlockReason != "" {
+		t.blocked = true
+	}
 	if len(chunk.Candidates) == 0 {
 		return nil, nil
 	}
@@ -157,6 +163,9 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 
 	var buf bytes.Buffer
 	reason := mapFinishReason(t.finishReason, t.toolCalls > 0)
+	if t.blocked {
+		reason = "content_filter"
+	}
 	if err := t.writeChunk(&buf, oaiChunkDelta{}, &reason, translateUsage(t.usage)); err != nil {
 		return nil, err
 	}
