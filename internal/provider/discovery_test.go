@@ -46,6 +46,50 @@ func TestDetectProviderType_OpenAI(t *testing.T) {
 	}
 }
 
+func TestDetectProviderType_Bedrock(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"mantle us-east-1", "https://bedrock-mantle.us-east-1.api.aws/v1"},
+		{"mantle eu-central-1", "https://bedrock-mantle.eu-central-1.api.aws/v1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := DetectProviderType(tc.url)
+			if result != "bedrock" {
+				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "bedrock")
+			}
+		})
+	}
+}
+
+func TestDetectProviderType_NotBedrock(t *testing.T) {
+	// Similar-looking hosts must stay generic: detection requires both the
+	// bedrock service prefix and the AWS domain suffix.
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"bedrock-mantle on wrong domain", "https://bedrock-mantle.example.com/v1"},
+		{"random api.aws host", "https://someservice.us-east-1.api.aws/v1"},
+		// bedrock-runtime is deliberately NOT detected: it has no /models
+		// listing (404, live-verified 2026-07-18), so discovery can never work
+		// against it — classifying it as bedrock would only manufacture a
+		// guaranteed-failing provider. Only bedrock-mantle is supported.
+		{"bedrock-runtime not supported", "https://bedrock-runtime.us-east-1.amazonaws.com/v1"},
+		{"bedrock-runtime openai path not supported", "https://bedrock-runtime.us-west-2.amazonaws.com/openai/v1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := DetectProviderType(tc.url)
+			if result != "openai" {
+				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "openai")
+			}
+		})
+	}
+}
+
 func TestDetectProviderType_NanoGPT(t *testing.T) {
 	tests := []struct {
 		name string

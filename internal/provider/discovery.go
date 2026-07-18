@@ -196,6 +196,15 @@ func detectByHost(host, path string) string {
 			}
 		}
 	}
+	// AWS Bedrock's OpenAI-optimized bedrock-mantle endpoint
+	// (bedrock-mantle.{region}.api.aws). Prefix+suffix must both match so
+	// bedrock-named hosts on unrelated domains stay generic. The classic
+	// bedrock-runtime endpoint is deliberately not detected: it serves chat
+	// only under /openai/v1 and has no /models listing at all (live-verified
+	// 2026-07-18), so discovery can never succeed against it.
+	if strings.HasPrefix(host, "bedrock-mantle.") && strings.HasSuffix(host, ".api.aws") {
+		return "bedrock"
+	}
 	if host == "generativelanguage.googleapis.com" {
 		return "google"
 	}
@@ -276,6 +285,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverNanoGPT(ctx, provider, apiKey)
 		case "zai-coding":
 			return d.discoverZAICoding(ctx, provider, apiKey)
+		case "bedrock":
+			return d.discoverBedrock(ctx, provider, apiKey)
 		case "deepseek":
 			return d.discoverDeepSeek(ctx, provider, apiKey)
 		case "anthropic":

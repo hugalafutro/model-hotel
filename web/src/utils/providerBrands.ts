@@ -14,7 +14,8 @@ export type ProviderBrand =
 	| "lmstudio"
 	| "koboldcpp"
 	| "opencode"
-	| "neuralwatt";
+	| "neuralwatt"
+	| "bedrock";
 
 /**
  * Provider brand colors - single source of truth for consistent provider styling.
@@ -41,6 +42,7 @@ export const PROVIDER_BRAND_COLORS: Record<ProviderBrand, string> = {
 	koboldcpp: "#DC2626",
 	opencode: "#2D2D2D",
 	neuralwatt: "#ac4324",
+	bedrock: "#FF9900",
 } as const;
 
 /** Short display prefixes for quota badges in the sidebar. */
@@ -60,4 +62,5 @@ export const PROVIDER_PREFIXES: Record<ProviderBrand, string> = {
 	koboldcpp: "KC",
 	opencode: "OC",
 	neuralwatt: "NW",
+	bedrock: "AWS",
 } as const;

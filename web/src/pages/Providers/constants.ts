@@ -11,6 +11,7 @@ export const baseUrls: Record<string, string> = {
 	google: "https://generativelanguage.googleapis.com/v1beta/openai",
 	cohere: "https://api.cohere.ai/compatibility/v1",
 	openrouter: "https://openrouter.ai/api/v1",
+	bedrock: "https://bedrock-mantle.us-east-1.api.aws/v1",
 };
 
 /** Default URLs for self-hosted providers. Pre-filled but user-editable. */
@@ -51,10 +52,30 @@ function detectLocalProviderType(url: string): string | null {
 	return null;
 }
 
+/**
+ * Host-based detection for providers whose URL varies by region (Bedrock).
+ * Only bedrock-mantle is detected: the classic bedrock-runtime endpoint has
+ * no /models listing, so discovery can never work against it.
+ */
+function detectRegionalProviderType(baseUrl: string): string | null {
+	try {
+		const host = new URL(baseUrl).hostname.toLowerCase();
+		if (host.startsWith("bedrock-mantle.") && host.endsWith(".api.aws")) {
+			return "bedrock";
+		}
+	} catch {
+		// ignore malformed URLs
+	}
+	return null;
+}
+
 export function getProviderType(baseUrl: string): string {
 	for (const [type, url] of Object.entries(baseUrls)) {
 		if (baseUrl === url) return type;
 	}
+	// Host-based detection for region-variant providers on any region
+	const regionalType = detectRegionalProviderType(baseUrl);
+	if (regionalType) return regionalType;
 	// Port-based detection for self-hosted providers on any host
 	const localType = detectLocalProviderType(baseUrl);
 	if (localType) return localType;
@@ -79,6 +100,7 @@ export const providerTypeDisplayNames: Record<string, string> = {
 	openrouter: "OpenRouter",
 	koboldcpp: "KoboldCPP",
 	lmstudio: "LM Studio",
+	bedrock: "AWS Bedrock",
 };
 
 /** Translation keys for provider type display names. Use with t() at consumption sites. */
@@ -99,6 +121,7 @@ export const providerTypeTranslationKeys: Record<string, string> = {
 	openrouter: "providers.type_openrouter",
 	koboldcpp: "providers.type_koboldcpp",
 	lmstudio: "providers.type_lmstudio",
+	bedrock: "providers.type_bedrock",
 };
 
 export function providerTypeAllowsEmptyKey(type: string): boolean {

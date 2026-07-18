@@ -651,7 +651,7 @@ func TestProviderSupportsStreamOptions(t *testing.T) {
 	for _, pt := range []string{
 		"openai", "deepseek", "xai", "openrouter",
 		"ollama", "ollama-cloud", "nanogpt", "zai-coding",
-		"lmstudio", "koboldcpp", "neuralwatt",
+		"lmstudio", "koboldcpp", "neuralwatt", "bedrock",
 	} {
 		t.Run(pt+"_supported", func(t *testing.T) {
 			if !paramrewrite.ProviderSupportsStreamOptions(pt) {
