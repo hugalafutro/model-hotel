@@ -236,6 +236,50 @@ func TestModelsDevCacheLookupFuzzy_ExactMatch(t *testing.T) {
 	}
 }
 
+func TestModelsDevCacheLookupFuzzy_VendorDotPrefix(t *testing.T) {
+	// Bedrock-style IDs prefix a vendor slug with a dot (openai.gpt-oss-120b);
+	// cross-region inference profiles add another (us.anthropic.claude-x).
+	// Fuzzy lookup strips dot segments left-to-right until an exact key hits.
+	spec := &ModelsDevModelSpec{
+		ID:   "gpt-oss-120b",
+		Name: "GPT-OSS 120B",
+	}
+
+	cache := &ModelsDevCache{}
+	cache.mu.Lock()
+	cache.byID = map[string]*ModelsDevModelSpec{
+		"gpt-oss-120b": spec,
+	}
+	cache.loaded = true
+	cache.mu.Unlock()
+
+	for _, id := range []string{"openai.gpt-oss-120b", "us.openai.gpt-oss-120b"} {
+		found := cache.LookupFuzzy(id)
+		if found == nil {
+			t.Fatalf("expected %q to match via vendor-prefix strip", id)
+		}
+		if found.Name != "GPT-OSS 120B" {
+			t.Errorf("expected name 'GPT-OSS 120B' for %q, got %v", id, found.Name)
+		}
+	}
+}
+
+func TestModelsDevCacheLookupFuzzy_VendorDotPrefix_NoFalsePositive(t *testing.T) {
+	// A version dot inside the tail must not truncate the ID into a wrong match:
+	// stripping is only up to a dot, and only accepted on an exact key hit.
+	cache := &ModelsDevCache{}
+	cache.mu.Lock()
+	cache.byID = map[string]*ModelsDevModelSpec{
+		"glm-4": {ID: "glm-4", Name: "GLM-4"},
+	}
+	cache.loaded = true
+	cache.mu.Unlock()
+
+	if found := cache.LookupFuzzy("zai.glm-4.7"); found != nil {
+		t.Errorf("expected no match for zai.glm-4.7, got %v", found.Name)
+	}
+}
+
 func TestModelsDevCacheLookupFuzzy_DateSuffix(t *testing.T) {
 	spec := &ModelsDevModelSpec{
 		ID:   "gpt-4",

@@ -225,7 +225,23 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	// 2. Model ID with date suffix: try stripping the date portion.
+	// 2. Vendor/dot-prefixed IDs (Bedrock: "openai.gpt-oss-120b", inference
+	//    profiles: "us.anthropic.claude-x"): strip dot segments left-to-right,
+	//    accepting only an exact key hit so version dots inside the tail
+	//    ("zai.glm-4.7" → "7") can't produce a wrong match.
+	rest := modelID
+	for {
+		i := strings.IndexByte(rest, '.')
+		if i < 0 || i == len(rest)-1 {
+			break
+		}
+		rest = rest[i+1:]
+		if spec, ok := c.byID[rest]; ok {
+			return spec
+		}
+	}
+
+	// 3. Model ID with date suffix: try stripping the date portion.
 	//    e.g. "gpt-4o-2024-08-06" → try "gpt-4o"
 	if parts := strings.Split(modelID, "-"); len(parts) >= 2 {
 		// Check if last part(s) look like a date (YYYY-MM-DD or YYYYMMDD).
@@ -249,7 +265,7 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 		}
 	}
 
-	// 3. Model ID with version suffix: try stripping last segment.
+	// 4. Model ID with version suffix: try stripping last segment.
 	//    e.g. "claude-sonnet-4-20250514" → try "claude-sonnet-4"
 	if parts := strings.Split(modelID, "-"); len(parts) >= 2 {
 		last := parts[len(parts)-1]

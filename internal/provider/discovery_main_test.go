@@ -360,6 +360,44 @@ func TestDiscoverModels_DeepSeekDispatch(t *testing.T) {
 	assert.Contains(t, models[0].Name, "deepseek")
 }
 
+func TestDiscoverModels_BedrockDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// Mixed-dialect listing: the generic openai fallback would keep all three
+	// models, so the anthropic.* skip proves dispatch reached discoverBedrock.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"data": [` +
+				`{"id": "openai.gpt-oss-120b", "object": "model", "created": 1234567890, "owned_by": "system"},` +
+				`{"id": "anthropic.claude-sonnet-5", "object": "model", "created": 1234567890, "owned_by": "system"},` +
+				`{"id": "qwen.qwen3-32b", "object": "model", "created": 1234567890, "owned_by": "system"}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://bedrock-mantle.us-east-1.api.aws/v1",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.Len(t, models, 2)
+	assert.Equal(t, "openai.gpt-oss-120b", models[0].ModelID)
+	assert.Equal(t, "qwen.qwen3-32b", models[1].ModelID)
+}
+
 func TestDiscoverModels_OllamaDispatch(t *testing.T) {
 	t.Parallel()
 

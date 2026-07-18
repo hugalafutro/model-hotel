@@ -48,6 +48,12 @@ describe("baseUrls", () => {
 		expect(baseUrls.openrouter).toBe("https://openrouter.ai/api/v1");
 	});
 
+	it("has entry for bedrock", () => {
+		expect(baseUrls.bedrock).toBe(
+			"https://bedrock-mantle.us-east-1.api.aws/v1",
+		);
+	});
+
 	it("does not have localhost entry for koboldcpp", () => {
 		expect(baseUrls.koboldcpp).toBeUndefined();
 	});
@@ -183,6 +189,24 @@ describe("getProviderType", () => {
 
 	it("returns ollama-cloud for ollama-cloud url", () => {
 		expect(getProviderType("https://ollama.com/v1")).toBe("ollama-cloud");
+	});
+
+	it("returns bedrock for any-region mantle url (host-based detection)", () => {
+		expect(
+			getProviderType("https://bedrock-mantle.eu-central-1.api.aws/v1"),
+		).toBe("bedrock");
+	});
+
+	it("returns bedrock for runtime url (host-based detection)", () => {
+		expect(
+			getProviderType("https://bedrock-runtime.us-west-2.amazonaws.com/v1"),
+		).toBe("bedrock");
+	});
+
+	it("does not detect bedrock-named hosts on other domains", () => {
+		expect(getProviderType("https://bedrock-mantle.example.com/v1")).toBe(
+			"custom",
+		);
 	});
 
 	it("returns google for google url", () => {

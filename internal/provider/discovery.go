@@ -196,6 +196,17 @@ func detectByHost(host, path string) string {
 			}
 		}
 	}
+	// AWS Bedrock: both the OpenAI-optimized bedrock-mantle endpoint
+	// (bedrock-mantle.{region}.api.aws) and the classic runtime endpoint
+	// (bedrock-runtime.{region}.amazonaws.com, which also serves /v1 with
+	// Bedrock API-key bearer auth). Prefix+suffix must both match so
+	// bedrock-named hosts on unrelated domains stay generic.
+	if strings.HasPrefix(host, "bedrock-mantle.") && strings.HasSuffix(host, ".api.aws") {
+		return "bedrock"
+	}
+	if strings.HasPrefix(host, "bedrock-runtime.") && strings.HasSuffix(host, ".amazonaws.com") {
+		return "bedrock"
+	}
 	if host == "generativelanguage.googleapis.com" {
 		return "google"
 	}
@@ -276,6 +287,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverNanoGPT(ctx, provider, apiKey)
 		case "zai-coding":
 			return d.discoverZAICoding(ctx, provider, apiKey)
+		case "bedrock":
+			return d.discoverBedrock(ctx, provider, apiKey)
 		case "deepseek":
 			return d.discoverDeepSeek(ctx, provider, apiKey)
 		case "anthropic":

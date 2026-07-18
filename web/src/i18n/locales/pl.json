@@ -722,6 +722,7 @@
 		"type_zai_coding": "Z.ai Coding Plan",
 		"type_openai": "OpenAI",
 		"type_anthropic": "Anthropic",
+		"type_bedrock": "AWS Bedrock",
 		"type_deepseek": "DeepSeek",
 		"type_ollama_cloud": "Ollama Cloud",
 		"type_ollama": "Ollama",
