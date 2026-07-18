@@ -315,9 +315,111 @@ type UpdateFailoverGroupRequest struct {
 	EntryEnabled  map[string]bool `json:"entry_enabled"`
 }
 
+// validateDisplayModelPatch validates and canonicalises req.DisplayModel (when
+// provided) and enforces display_model uniqueness across groups. Writes an
+// HTTP error and returns false on failure.
+func (h *FailoverHandler) validateDisplayModelPatch(w http.ResponseWriter, r *http.Request, req *UpdateFailoverGroupRequest, existing *failover.FailoverGroup) bool {
+	if req.DisplayModel == nil {
+		return true
+	}
+	trimmedModel, modelErr := validateNameString("display_model", *req.DisplayModel, 1, 128)
+	if modelErr != nil {
+		respondBadRequest(w, "invalid display model", modelErr)
+		return false
+	}
+	lowerModel := strings.ToLower(trimmedModel)
+	req.DisplayModel = &lowerModel
+
+	// Uniqueness check: no other failover group should have this display_model
+	if *req.DisplayModel != existing.DisplayModel {
+		conflict, err := h.failoverRepo.GetByModel(r.Context(), *req.DisplayModel)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			respondError(w, "failed to check display_model uniqueness", err, http.StatusInternalServerError)
+			return false
+		}
+		if conflict != nil {
+			http.Error(w, "A failover group for '"+*req.DisplayModel+"' already exists. Choose a different name.", http.StatusConflict)
+			return false
+		}
+	}
+	return true
+}
+
+// resolveGroupUpdateLists merges the request's priority_order / entry_enabled
+// with the existing group's values. Writes an HTTP error and returns ok=false
+// when a priority_order entry is not a valid UUID.
+func resolveGroupUpdateLists(w http.ResponseWriter, req *UpdateFailoverGroupRequest, existing *failover.FailoverGroup) (priorityOrder []uuid.UUID, entryEnabled map[string]bool, ok bool) {
+	priorityOrder = existing.PriorityOrder
+	entryEnabled = existing.EntryEnabled
+
+	if req.PriorityOrder != nil {
+		priorityOrder = make([]uuid.UUID, len(req.PriorityOrder))
+		for i, idStr := range req.PriorityOrder {
+			parsedID, err := uuid.Parse(idStr)
+			if err != nil {
+				http.Error(w, "invalid priority_order entry: "+idStr, http.StatusBadRequest)
+				return nil, nil, false
+			}
+			priorityOrder[i] = parsedID
+		}
+	}
+
+	if req.EntryEnabled != nil {
+		entryEnabled = req.EntryEnabled
+	}
+	return priorityOrder, entryEnabled, true
+}
+
+// validateGroupEnabledState enforces the enabled-group invariants for the
+// post-update state: an active group needs at least one enabled entry, and
+// turning a group on (off->on transition only) requires at least two routable
+// members (model and provider both enabled). The latter complements the
+// auto-disable on sync/discovery so a user cannot re-enable a group that
+// discovery left with a single live member; reorders/renames of an
+// already-enabled group are untouched. Writes an HTTP error and returns false
+// on failure.
+func (h *FailoverHandler) validateGroupEnabledState(w http.ResponseWriter, r *http.Request, req *UpdateFailoverGroupRequest, existing *failover.FailoverGroup, priorityOrder []uuid.UUID, entryEnabled map[string]bool) bool {
+	effectiveGroupEnabled := existing.GroupEnabled
+	if req.GroupEnabled != nil {
+		effectiveGroupEnabled = *req.GroupEnabled
+	}
+	if !effectiveGroupEnabled {
+		return true
+	}
+
+	hasEnabled := false
+	for _, enabled := range entryEnabled {
+		if enabled {
+			hasEnabled = true
+			break
+		}
+	}
+	if !hasEnabled {
+		http.Error(w, "at least one entry must be enabled for an active failover group", http.StatusBadRequest)
+		return false
+	}
+
+	if !existing.GroupEnabled {
+		models, mErr := h.modelRepo.GetByIDs(r.Context(), priorityOrder)
+		if mErr != nil {
+			respondError(w, "failed to validate failover members", mErr, http.StatusInternalServerError)
+			return false
+		}
+		routable := 0
+		for _, mid := range priorityOrder {
+			if m, ok := models[mid]; ok && m.Enabled && m.ProviderEnabled {
+				routable++
+			}
+		}
+		if routable < 2 {
+			http.Error(w, "a failover group needs at least 2 enabled members (model and provider enabled) to be active", http.StatusBadRequest)
+			return false
+		}
+	}
+	return true
+}
+
 // Update updates an existing failover group by ID.
-//
-//nolint:gocyclo // complexity 35: sequential validation of many optional PATCH fields; on the gocyclo refactor shortlist
 func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "failover group ID")
 	if !ok {
@@ -336,28 +438,8 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate display_model if provided
-	if req.DisplayModel != nil {
-		trimmedModel, modelErr := validateNameString("display_model", *req.DisplayModel, 1, 128)
-		if modelErr != nil {
-			respondBadRequest(w, "invalid display model", modelErr)
-			return
-		}
-		lowerModel := strings.ToLower(trimmedModel)
-		req.DisplayModel = &lowerModel
-
-		// Uniqueness check: no other failover group should have this display_model
-		if *req.DisplayModel != existing.DisplayModel {
-			conflict, err := h.failoverRepo.GetByModel(r.Context(), *req.DisplayModel)
-			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-				respondError(w, "failed to check display_model uniqueness", err, http.StatusInternalServerError)
-				return
-			}
-			if conflict != nil {
-				http.Error(w, "A failover group for '"+*req.DisplayModel+"' already exists. Choose a different name.", http.StatusConflict)
-				return
-			}
-		}
+	if !h.validateDisplayModelPatch(w, r, &req, existing) {
+		return
 	}
 
 	// Validate field lengths
@@ -380,68 +462,13 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	priorityOrder := existing.PriorityOrder
-	entryEnabled := existing.EntryEnabled
-
-	if req.PriorityOrder != nil {
-		priorityOrder = make([]uuid.UUID, len(req.PriorityOrder))
-		for i, idStr := range req.PriorityOrder {
-			parsedID, err := uuid.Parse(idStr)
-			if err != nil {
-				http.Error(w, "invalid priority_order entry: "+idStr, http.StatusBadRequest)
-				return
-			}
-			priorityOrder[i] = parsedID
-		}
+	priorityOrder, entryEnabled, ok := resolveGroupUpdateLists(w, &req, existing)
+	if !ok {
+		return
 	}
 
-	if req.EntryEnabled != nil {
-		entryEnabled = req.EntryEnabled
-	}
-
-	// Determine the effective group_enabled value
-	effectiveGroupEnabled := existing.GroupEnabled
-	if req.GroupEnabled != nil {
-		effectiveGroupEnabled = *req.GroupEnabled
-	}
-
-	// Validate that at least one entry is enabled for an active failover group
-	if effectiveGroupEnabled {
-		hasEnabled := false
-		for _, enabled := range entryEnabled {
-			if enabled {
-				hasEnabled = true
-				break
-			}
-		}
-		if !hasEnabled {
-			http.Error(w, "at least one entry must be enabled for an active failover group", http.StatusBadRequest)
-			return
-		}
-	}
-
-	// Enforce the failover invariant at the API boundary: turning a group on
-	// requires at least two routable members (model and provider both enabled).
-	// This complements the auto-disable on sync/discovery so a user cannot
-	// re-enable a group that discovery left with a single live member. Scoped to
-	// the off->on transition so reorders/renames of an already-enabled group are
-	// untouched.
-	if effectiveGroupEnabled && !existing.GroupEnabled {
-		models, mErr := h.modelRepo.GetByIDs(r.Context(), priorityOrder)
-		if mErr != nil {
-			respondError(w, "failed to validate failover members", mErr, http.StatusInternalServerError)
-			return
-		}
-		routable := 0
-		for _, mid := range priorityOrder {
-			if m, ok := models[mid]; ok && m.Enabled && m.ProviderEnabled {
-				routable++
-			}
-		}
-		if routable < 2 {
-			http.Error(w, "a failover group needs at least 2 enabled members (model and provider enabled) to be active", http.StatusBadRequest)
-			return
-		}
+	if !h.validateGroupEnabledState(w, r, &req, existing, priorityOrder, entryEnabled) {
+		return
 	}
 
 	// Always invalidate cache so priority reorders and entry changes take

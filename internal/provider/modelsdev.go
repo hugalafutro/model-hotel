@@ -293,11 +293,54 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 	return bestMatch
 }
 
+// fillIfEmpty copies v into *dst when *dst is nil and v is positive,
+// reporting whether it did.
+func fillIfEmpty[T int | float64](dst **T, v T) bool {
+	if *dst != nil || v <= 0 {
+		return false
+	}
+	*dst = &v
+	return true
+}
+
+// mergeSpecCapabilities ORs models.dev capability flags into caps (never
+// clears an already-set flag), reporting whether anything changed.
+func mergeSpecCapabilities(spec *ModelsDevModelSpec, caps *model.Capability) bool {
+	merged := false
+	if spec.Reasoning && !caps.Reasoning {
+		caps.Reasoning = true
+		merged = true
+	}
+	if spec.ToolCall && !caps.ToolCalling {
+		caps.ToolCalling = true
+		merged = true
+	}
+	if spec.StructuredOutput != nil && *spec.StructuredOutput && !caps.StructuredOutput {
+		caps.StructuredOutput = true
+		merged = true
+	}
+	// Attachment → Vision mapping.
+	if spec.Attachment && !caps.Vision {
+		caps.Vision = true
+		merged = true
+	}
+	return merged
+}
+
+// fillModalities marshals mods into *dst when *dst is currently empty,
+// reporting whether it did.
+func fillModalities(dst *string, mods []string) bool {
+	if (*dst != "" && *dst != "[]") || len(mods) == 0 {
+		return false
+	}
+	b, _ := json.Marshal(mods)
+	*dst = string(b)
+	return true
+}
+
 // EnrichModel fills gaps in a model.Model using models.dev data.
 // It only overwrites fields that are empty/zero (never replaces existing data).
 // Returns true if at least one field was enriched.
-//
-//nolint:gocyclo // complexity 38: repetitive per-field if-empty gap filling; on the gocyclo refactor shortlist
 func (c *ModelsDevCache) EnrichModel(m *model.Model) bool {
 	if c == nil {
 		return false
@@ -326,73 +369,23 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model) bool {
 		}
 	}
 
-	// Context length: only set if nil.
-	if m.ContextLength == nil && spec.Limit.Context > 0 {
-		ctxLen := spec.Limit.Context
-		m.ContextLength = &ctxLen
-		enriched = true
-	}
-
-	// Max output tokens: only set if nil.
-	if m.MaxOutputTokens == nil && spec.Limit.Output > 0 {
-		maxOut := spec.Limit.Output
-		m.MaxOutputTokens = &maxOut
-		enriched = true
-	}
-
-	// Input price: only set if nil.
-	if m.InputPricePerMillion == nil && spec.Cost.Input > 0 {
-		inPrice := spec.Cost.Input
-		m.InputPricePerMillion = &inPrice
-		enriched = true
-	}
-
-	// Output price: only set if nil.
-	if m.OutputPricePerMillion == nil && spec.Cost.Output > 0 {
-		outPrice := spec.Cost.Output
-		m.OutputPricePerMillion = &outPrice
-		enriched = true
-	}
-
-	// Cache hit price: only set if nil and models.dev has it.
-	if m.InputPricePerMillionCacheHit == nil && spec.Cost.CacheRead != nil && *spec.Cost.CacheRead > 0 {
-		cachePrice := *spec.Cost.CacheRead
-		m.InputPricePerMillionCacheHit = &cachePrice
-		enriched = true
+	// Numeric fields: only set if nil.
+	enriched = fillIfEmpty(&m.ContextLength, spec.Limit.Context) || enriched
+	enriched = fillIfEmpty(&m.MaxOutputTokens, spec.Limit.Output) || enriched
+	enriched = fillIfEmpty(&m.InputPricePerMillion, spec.Cost.Input) || enriched
+	enriched = fillIfEmpty(&m.OutputPricePerMillion, spec.Cost.Output) || enriched
+	if spec.Cost.CacheRead != nil {
+		enriched = fillIfEmpty(&m.InputPricePerMillionCacheHit, *spec.Cost.CacheRead) || enriched
 	}
 
 	// Capabilities: only set individual fields if they're currently false.
-	if spec.Reasoning && !caps.Reasoning {
-		caps.Reasoning = true
-		enriched = true
-	}
-	if spec.ToolCall && !caps.ToolCalling {
-		caps.ToolCalling = true
-		enriched = true
-	}
-	if spec.StructuredOutput != nil && *spec.StructuredOutput && !caps.StructuredOutput {
-		caps.StructuredOutput = true
-		enriched = true
-	}
-	// Attachment → Vision mapping.
-	if spec.Attachment && !caps.Vision {
-		caps.Vision = true
-		enriched = true
-	}
+	enriched = mergeSpecCapabilities(spec, &caps) || enriched
 
 	// Modality arrays: only set if currently empty. The modality *class* is
 	// not set here — NormalizeModelClassification derives it from the arrays
 	// after enrichment.
-	if (m.InputModalities == "" || m.InputModalities == "[]") && len(spec.Modalities.Input) > 0 {
-		inMods, _ := json.Marshal(spec.Modalities.Input)
-		m.InputModalities = string(inMods)
-		enriched = true
-	}
-	if (m.OutputModalities == "" || m.OutputModalities == "[]") && len(spec.Modalities.Output) > 0 {
-		outMods, _ := json.Marshal(spec.Modalities.Output)
-		m.OutputModalities = string(outMods)
-		enriched = true
-	}
+	enriched = fillModalities(&m.InputModalities, spec.Modalities.Input) || enriched
+	enriched = fillModalities(&m.OutputModalities, spec.Modalities.Output) || enriched
 
 	// Owned by / family: only set if empty.
 	if m.OwnedBy == "" && spec.Family != "" {

@@ -21,6 +21,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
 	"github.com/hugalafutro/model-hotel/internal/adminauth"
@@ -53,42 +54,56 @@ var version = "dev"
 //go:embed all:static
 var staticFiles embed.FS
 
-type DiscoveryResult struct {
-	ProvidersScanned int
-	ProvidersFailed  int
-	ModelsDiscovered int
-	ModelsDisabled   int
-	FailoverSyncErrs int
-	Errors           []string
+// initAppLogging routes slog output through the app log pipeline so debuglog
+// calls reach the ring buffer and database (not just os.Stdout). When OTLP log
+// export is enabled (OTEL_EXPORTER_OTLP_ENDPOINT), fan out to it too so the
+// same structured records are pushed to an OpenTelemetry collector. Returns
+// the OTLP shutdown hook, nil when export is not enabled.
+func initAppLogging(ctx context.Context) func(context.Context) error {
+	appLogHandler := api.NewAppSlogHandler(debuglog.Level())
+	var otelLogShutdown func(context.Context) error
+	if otelexport.LogsEnabled() {
+		otelHandler, shutdown, oerr := otelexport.NewSlogHandler(ctx, "model-hotel", debuglog.Level())
+		if oerr != nil {
+			debuglog.Error("otel: OTLP log export init failed; continuing without it", "error", oerr)
+		} else {
+			appLogHandler = debuglog.NewFanout(appLogHandler, otelHandler)
+			otelLogShutdown = shutdown
+		}
+	}
+	debuglog.SetHandler(appLogHandler)
+	// Logged after SetHandler installs the fan-out, so the confirmation itself
+	// is also exported to the OTLP collector.
+	if otelLogShutdown != nil {
+		debuglog.Info("otel: OTLP log export enabled")
+	}
+	return otelLogShutdown
 }
 
-func publishDiscoveryEvent(source string, result DiscoveryResult) {
-	switch {
-	case result.ProvidersScanned == 0 && len(result.Errors) > 0:
+// cleanupInterruptedRequests marks request logs left in "pending" or
+// "streaming" state from a previous server crash, restart, or unhandled error
+// as failed. Using serverStartTime (captured before DB was ready) means we
+// only reclaim rows that predate this process — a genuine streaming request
+// that happens to be long-running is never touched.
+func cleanupInterruptedRequests(pool *pgxpool.Pool, serverStartTime time.Time) {
+	tag, err := pool.Exec(context.Background(), `
+		UPDATE request_logs
+		SET state = 'failed', error_kind = 'internal', error_message = 'request interrupted (server restart)'
+		WHERE state IN ('pending', 'streaming')
+		  AND created_at < $1`, serverStartTime)
+	if err == nil && tag.RowsAffected() > 0 {
+		debuglog.Info("startup: stale log cleanup", "rows", tag.RowsAffected())
 		events.Publish(events.Event{
-			Type:     "discovery.complete",
-			Severity: "error",
-			Message:  fmt.Sprintf("Discovery failed: %s", result.Errors[0]),
-			Metadata: map[string]any{"source": source, "errors": result.Errors},
-		})
-	case result.ProvidersFailed > 0:
-		events.Publish(events.Event{
-			Type:     "discovery.complete",
+			Type:     "logs.stale_startup",
 			Severity: "warning",
-			Message:  fmt.Sprintf("Discovery partially failed: %d/%d providers OK, %d models found", result.ProvidersScanned-result.ProvidersFailed, result.ProvidersScanned, result.ModelsDiscovered),
-			Metadata: map[string]any{"source": source, "errors": result.Errors},
+			Message:  fmt.Sprintf("Server restart interrupted %d pending requests", tag.RowsAffected()),
+			Metadata: map[string]any{"count": tag.RowsAffected()},
 		})
-	default:
-		events.Publish(events.Event{
-			Type:     "discovery.complete",
-			Severity: "success",
-			Message:  fmt.Sprintf("%s discovery complete: %d models across %d providers", source, result.ModelsDiscovered, result.ProvidersScanned),
-			Metadata: map[string]any{"source": source},
-		})
+	} else if err != nil {
+		debuglog.Error("startup: stale log cleanup failed", "error", err)
 	}
 }
 
-//nolint:gocyclo // complexity 114: linear startup wiring (config, DI, route registration), not branching logic; on the gocyclo refactor shortlist
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -121,27 +136,7 @@ func main() {
 
 	api.InitAppLogBuffer(database.Pool())
 
-	// Route slog output through the app log pipeline so debuglog calls reach the
-	// ring buffer and database (not just os.Stdout). When OTLP log export is
-	// enabled (OTEL_EXPORTER_OTLP_ENDPOINT), fan out to it too so the same
-	// structured records are pushed to an OpenTelemetry collector.
-	appLogHandler := api.NewAppSlogHandler(debuglog.Level())
-	var otelLogShutdown func(context.Context) error
-	if otelexport.LogsEnabled() {
-		otelHandler, shutdown, oerr := otelexport.NewSlogHandler(ctx, "model-hotel", debuglog.Level())
-		if oerr != nil {
-			debuglog.Error("otel: OTLP log export init failed; continuing without it", "error", oerr)
-		} else {
-			appLogHandler = debuglog.NewFanout(appLogHandler, otelHandler)
-			otelLogShutdown = shutdown
-		}
-	}
-	debuglog.SetHandler(appLogHandler)
-	// Logged after SetHandler installs the fan-out, so the confirmation itself
-	// is also exported to the OTLP collector.
-	if otelLogShutdown != nil {
-		debuglog.Info("otel: OTLP log export enabled")
-	}
+	otelLogShutdown := initAppLogging(ctx)
 
 	debuglog.Info("db: Database connected and migrations applied successfully")
 	debuglog.Info("startup: admin token", "source", func() string {
@@ -152,28 +147,8 @@ func main() {
 	}())
 	debuglog.Info("config: Config loaded")
 
-	// Clean up stale request logs left in "pending" or "streaming" state
-	// from a previous server crash, restart, or unhandled error.
-	// Using serverStartTime (captured before DB was ready) means we only
-	// reclaim rows that predate this process — a genuine streaming request
-	// that happens to be long-running is never touched.
 	serverStartTime := time.Now()
-	tag, err := database.Pool().Exec(context.Background(), `
-		UPDATE request_logs
-		SET state = 'failed', error_kind = 'internal', error_message = 'request interrupted (server restart)'
-		WHERE state IN ('pending', 'streaming')
-		  AND created_at < $1`, serverStartTime)
-	if err == nil && tag.RowsAffected() > 0 {
-		debuglog.Info("startup: stale log cleanup", "rows", tag.RowsAffected())
-		events.Publish(events.Event{
-			Type:     "logs.stale_startup",
-			Severity: "warning",
-			Message:  fmt.Sprintf("Server restart interrupted %d pending requests", tag.RowsAffected()),
-			Metadata: map[string]any{"count": tag.RowsAffected()},
-		})
-	} else if err != nil {
-		debuglog.Error("startup: stale log cleanup failed", "error", err)
-	}
+	cleanupInterruptedRequests(database.Pool(), serverStartTime)
 
 	providerRepo := provider.NewRepository(database.Pool())
 	modelRepo := model.NewRepository(database.Pool())
@@ -197,76 +172,9 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
 
-	// Security headers
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-			// When ALLOW_EMBED=true, X-Frame-Options and CSP frame-ancestors
-			// are omitted entirely so any origin can embed the page in an
-			// iframe (e.g. workspace browsers, Home Assistant).
-			if !cfg.AllowEmbed {
-				w.Header().Set("X-Frame-Options", "DENY")
-			}
-			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-			// HSTS only over TLS. Plain HTTP (e.g. behind a reverse proxy that
-			// terminates TLS) must not set HSTS or browsers will cache a broken
-			// redirect to a non-existent HTTPS listener. Currently the server
-			// only serves plain HTTP (ListenAndServe), so this guard is a
-			// forward-compatible placeholder: it will activate automatically if
-			// TLS is added later via ListenAndServeTLS.
-			if r.TLS != nil {
-				w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
-			}
-			// CSP allows same-origin scripts/styles (needed for embedded SPA).
-			// Style 'unsafe-inline' is required for Vite's injected style tags (CSS-based
-			// animations and dynamic theme overrides). Script 'unsafe-inline' is NOT
-			// needed: Vite outputs module scripts, not inline ones.
-			if cfg.AllowEmbed {
-				w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'")
-			} else {
-				w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
-			}
-			next.ServeHTTP(w, r)
-		})
-	})
-
-	// CORS middleware
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			origin := r.Header.Get("Origin")
-			if origin == "" {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			allowed := slices.Contains(cfg.CORSOrigins, origin)
-
-			w.Header().Set("Vary", "Origin")
-
-			if allowed {
-				w.Header().Set("Access-Control-Allow-Origin", origin)
-				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
-				w.Header().Set("Access-Control-Max-Age", "86400")
-			}
-
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	})
-
-	// Request size limit
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			r.Body = http.MaxBytesReader(w, r.Body, cfg.MaxRequestSize)
-			next.ServeHTTP(w, r)
-		})
-	})
+	r.Use(securityHeadersMiddleware(cfg))
+	r.Use(corsMiddleware(cfg))
+	r.Use(maxRequestSizeMiddleware(cfg.MaxRequestSize))
 
 	// Health check: reports database reachability (cached) so a load balancer
 	// stops routing to an instance whose Postgres is down.
@@ -326,17 +234,7 @@ func main() {
 	})
 	apiHandler.SetAudit(auditRecorder)
 
-	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
-		defer ticker.Stop()
-		for range ticker.C {
-			if n, err := webauthnRepo.CleanupExpiredSessions(context.Background()); err != nil {
-				debuglog.Error("webauthn: session cleanup failed", "error", err)
-			} else if n > 0 {
-				debuglog.Info("webauthn: cleaned up expired sessions", "count", n)
-			}
-		}
-	}()
+	go webauthnSessionCleanupLoop(webauthnRepo)
 
 	// TOTP (RFC 6238) second-factor. Always constructed so the public status
 	// and login endpoints are mounted; enforcement is driven by the cached
@@ -465,185 +363,14 @@ func main() {
 	spaHandler := NewSPAHandler()
 	r.Get("/*", spaHandler.ServeHTTP)
 
-	// Startup: run initial discovery for all enabled providers (if enabled)
-	runDiscovery := func(source string) DiscoveryResult {
-		result := DiscoveryResult{}
-		// Set when any background-discovery change row is recorded, so we can
-		// publish a single live-update event for the Models nav badge.
-		changesRecorded := false
-		ctx := context.Background()
-		providers, err := providerRepo.List(ctx)
-		if err != nil {
-			debuglog.Error("discovery: failed to list providers", "error", err)
-			result.Errors = append(result.Errors, fmt.Sprintf("failed to list providers: %v", err))
-			return result
-		}
-		discoverySvc := provider.NewDiscoveryService(sd.DialContext, sd.CheckRedirect)
-		for _, p := range providers {
-			if !p.Enabled {
-				continue
-			}
-			result.ProvidersScanned++
-			models, err := discoverySvc.DiscoverModels(ctx, p, cfg.MasterKey)
-			if err != nil {
-				debuglog.Error("discovery: failed for provider", "provider", p.Name, "error", err)
-				result.ProvidersFailed++
-				result.Errors = append(result.Errors, fmt.Sprintf("provider %s: %v", p.Name, err))
-				// Update last_discovered_at even on failure so the UI reflects
-				// that discovery was *attempted*. Without this, a chronically
-				// failing provider shows a stale "Last discovered" timestamp
-				// that makes the scheduled timer appear broken.
-				now := time.Now()
-				if _, err := database.Pool().Exec(ctx, `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, p.ID); err != nil {
-					debuglog.Error("discovery: failed to update last_discovered_at", "provider", p.Name, "error", err)
-				}
-				continue
-			}
-
-			// Enrich models with data from models.dev.
-			if cache := provider.GetModelsDevCache(); cache != nil {
-				if enriched := cache.EnrichModels(models); enriched > 0 {
-					debuglog.Info("discovery: enriched models from models.dev", "enriched", enriched, "total", len(models), "provider", p.Name)
-				}
-			}
-			// Runs unconditionally: modality arrays and the derived endpoint
-			// class must be consistent even when models.dev is unreachable.
-			provider.NormalizeModels(models)
-			result.ModelsDiscovered += len(models)
-
-			// Snapshot pre-scan state so background metadata/membership changes
-			// can be recorded for the Models nav badge. A snapshot failure only
-			// disables the diff for this provider; the scan itself proceeds.
-			snapshot, snapErr := api.SnapshotProviderModels(ctx, modelRepo, p.ID)
-			if snapErr != nil {
-				debuglog.Debug("discovery: failed to snapshot models", "provider", p.Name, "error", snapErr)
-			}
-			api.DampenOpenRouterPriceJitter(p.BaseURL, snapshot, models)
-
-			existingModelIDs := make([]string, 0, len(models))
-			upsertedModels := make([]*model.Model, 0, len(models))
-			upsertFailed := false
-			for _, m := range models {
-				if err := modelRepo.Upsert(ctx, m); err != nil {
-					debuglog.Error("discovery: failed to upsert model", "model_id", m.ModelID, "error", err)
-					upsertFailed = true
-				} else {
-					existingModelIDs = append(existingModelIDs, m.ModelID)
-					upsertedModels = append(upsertedModels, m)
-				}
-			}
-			// Miss recording needs a trustworthy membership picture: skip it
-			// when the snapshot is unavailable (absentees cannot be confirmed)
-			// or any upsert failed (a DB error must not count a listed model
-			// as missing). Absent models get a second opinion via confirmation
-			// probes, and a model is disabled only after
-			// model.MissingScanThreshold consecutive confirmed-missing scans.
-			var disabledRefs []model.DisabledModelRef
-			if snapErr == nil && !upsertFailed {
-				confirmedIDs, suspect := api.ConfirmMissingModels(ctx, discoverySvc, p, cfg.MasterKey, existingModelIDs, snapshot, api.NewSuspectStreak(database.Pool()))
-				if suspect {
-					debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", p.Name)
-				} else {
-					var pendingRefs []model.DisabledModelRef
-					disabledRefs, pendingRefs, err = modelRepo.RecordMissingModels(ctx, p.ID, p.Name, confirmedIDs)
-					if err != nil {
-						debuglog.Error("discovery: failed to record missing models", "provider", p.Name, "error", err)
-					}
-					if len(pendingRefs) > 0 {
-						debuglog.Info("discovery: models confirmed missing but below disable threshold",
-							"provider", p.Name, "pending", len(pendingRefs), "threshold", model.MissingScanThreshold)
-					}
-				}
-			}
-			if len(disabledRefs) > 0 {
-				result.ModelsDisabled += len(disabledRefs)
-				events.Publish(events.Event{
-					Type:     "discovery.models_disabled",
-					Severity: "warning",
-					Message:  fmt.Sprintf("%d models no longer available at '%s' and were disabled", len(disabledRefs), p.Name),
-					Metadata: map[string]any{"provider": p.Name, "count": len(disabledRefs)},
-				})
-			}
-
-			// Record this provider's model-level diff (added/reenabled/disabled/
-			// metadata-updated) for later review. Failover group churn is folded
-			// in once after the global failover sync below.
-			if snapErr == nil {
-				diff := api.BuildDiscoveryDiff(snapshot, upsertedModels, disabledRefs)
-				if wrote, err := api.AppendDiscoveryChange(ctx, database.Pool(), source, &p.ID, p.Name, diff); err != nil {
-					debuglog.Error("discovery: failed to record changes", "provider", p.Name, "error", err)
-				} else if wrote {
-					changesRecorded = true
-				}
-			}
-
-			now := time.Now()
-			if _, err := database.Pool().Exec(ctx, `UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, p.ID); err != nil {
-				debuglog.Error("discovery: failed to update last_discovered_at", "provider", p.Name, "error", err)
-			}
-			debuglog.Info("discovery: discovered models", "count", len(models), "provider", p.Name)
-		}
-
-		seenModelIDs := make(map[string]bool)
-		for _, p := range providers {
-			if !p.Enabled {
-				continue
-			}
-			models, _ := modelRepo.List(ctx, &p.ID)
-			for _, m := range models {
-				seenModelIDs[m.ModelID] = true
-			}
-		}
-		failoverDiff := &api.DiscoveryDiff{}
-		for modelID := range seenModelIDs {
-			syncRes, err := failoverRepo.SyncForModel(ctx, modelID)
-			if err != nil {
-				debuglog.Error("discovery: failed to sync failover", "model_id", modelID, "error", err)
-				result.FailoverSyncErrs++
-				events.Publish(events.Event{
-					Type:     "failover.sync_error",
-					Severity: "warning",
-					Message:  fmt.Sprintf("Failover sync failed for model '%s'", modelID),
-					Metadata: map[string]any{"error": err.Error(), "model_id": modelID},
-				})
-				continue
-			}
-			if syncRes != nil {
-				failoverDiff.FailoverDeletedGroups = append(failoverDiff.FailoverDeletedGroups, syncRes.DeletedGroups...)
-				failoverDiff.FailoverUpdatedGroups = append(failoverDiff.FailoverUpdatedGroups, syncRes.UpdatedGroups...)
-			}
-		}
-		// SyncForModel only rebuilds auto-groups; custom groups whose member was
-		// just disabled (not deleted) keep their stale size. Revalidate once per
-		// cycle so background discovery auto-disables any custom group left with
-		// fewer than two routable members — the headless path the manual Sync and
-		// interactive discover already cover.
-		if revRes, err := failoverRepo.RevalidateCustomGroups(ctx); err != nil {
-			debuglog.Error("discovery: failed to revalidate custom failover groups", "error", err)
-		} else if revRes != nil {
-			failoverDiff.FailoverDisabledGroups = append(failoverDiff.FailoverDisabledGroups, revRes.DisabledGroups...)
-		}
-		// Record failover group churn as one aggregate entry (the global sync is
-		// not per-provider). An empty provider_name flags this to the frontend as
-		// the run-wide failover entry, which it labels accordingly.
-		if wrote, err := api.AppendDiscoveryChange(ctx, database.Pool(), source, nil, "", failoverDiff); err != nil {
-			debuglog.Error("discovery: failed to record failover changes", "error", err)
-		} else if wrote {
-			changesRecorded = true
-		}
-
-		// One live-update nudge so the Models nav badge refreshes without a
-		// reload; the badge query re-fetches the authoritative count.
-		if changesRecorded {
-			events.Publish(events.Event{
-				Type:     "discovery.changes_pending",
-				Severity: "info",
-				Source:   "discovery",
-				Message:  "Background discovery recorded model changes",
-				Metadata: map[string]any{"source": source},
-			})
-		}
-		return result
+	// Discovery wiring shared by the startup run and the periodic scheduler.
+	discDeps := discoveryDeps{
+		cfg:          cfg,
+		pool:         database.Pool(),
+		providerRepo: providerRepo,
+		modelRepo:    modelRepo,
+		failoverRepo: failoverRepo,
+		dialer:       sd,
 	}
 
 	// Load models.dev catalogue synchronously before startup discovery so
@@ -657,298 +384,20 @@ func main() {
 		}
 	}
 
-	if settingsRepo.GetBool(context.Background(), "discovery_on_startup", true) {
-		recentlyDiscovered := false
-		providers, err := providerRepo.List(context.Background())
-		if err == nil {
-			for _, p := range providers {
-				if p.LastDiscoveredAt != nil && time.Since(*p.LastDiscoveredAt) < 5*time.Minute {
-					recentlyDiscovered = true
-					break
-				}
-			}
-		}
-		if recentlyDiscovered {
-			debuglog.Info("discovery: skipping startup — last discovery within 5 minutes")
-		} else {
-			go func() {
-				result := runDiscovery("startup")
-				publishDiscoveryEvent("Startup", result)
-			}()
-		}
-	}
+	// Startup: run initial discovery for all enabled providers (if enabled).
+	maybeStartupDiscovery(discDeps, settingsRepo)
 
-	// Pre-warm caches synchronously before accepting connections.
-	// Provider, model, and failover lookups are fast (simple SELECT queries),
-	// but key warming (Argon2id) can take ~150ms per provider. The total
-	// warm-up cost is typically under 1s for a handful of providers —
-	// far better than letting the first request pay the cold-cache penalty
-	// of ~170ms+ in failover + model + provider + key decryption DB queries.
-	{
-		ctx := context.Background()
+	warmCaches(discDeps, settingsRepo)
+	initKeyCacheTTL(settingsRepo)
 
-		providers, err := providerRepo.List(ctx)
-		if err != nil {
-			debuglog.Error("cache: warm failed to list providers", "error", err)
-		} else {
-			enabledProviders := make([]*provider.Provider, 0, len(providers))
-			for _, p := range providers {
-				if !p.Enabled || !p.AutodiscoveryEnabled {
-					continue
-				}
-				if len(p.EncryptedKey) > 0 {
-					auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, cfg.MasterKey)
-				}
-				enabledProviders = append(enabledProviders, p)
-			}
-			provider.WarmProviderCache(enabledProviders)
-		}
-
-		enabledModels, err := modelRepo.ListEnabled(ctx)
-		if err != nil {
-			debuglog.Error("cache: warm failed to list models", "error", err)
-		} else {
-			model.WarmModelCache(enabledModels)
-		}
-
-		failoverGroups, err := failoverRepo.List(ctx)
-		if err != nil {
-			debuglog.Error("cache: warm failed to list failover groups", "error", err)
-		} else {
-			failover.WarmFailoverCache(failoverGroups)
-		}
-
-		settingsRepo.WarmCache(ctx)
-
-		debuglog.Info("cache: key, provider, model, failover, and settings caches warmed")
-	}
-
-	// Initialize key cache TTL from settings and react to changes.
-	auth.SetKeyCacheTTL(settingsRepo.GetDuration(context.Background(), "key_cache_ttl", auth.DefaultKeyCacheTTL))
-	settingsRepo.RegisterOnChange(func(key, value string) {
-		if key == "key_cache_ttl" {
-			d, err := time.ParseDuration(value)
-			if err != nil || d <= 0 {
-				debuglog.Warn("keycache: invalid key_cache_ttl setting, keeping current value", "value", value, "error", err)
-				return
-			}
-			auth.SetKeyCacheTTL(d)
-			debuglog.Info("keycache: TTL updated", "ttl", d)
-		}
+	// Background maintenance loops (see background.go). The discovery scheduler
+	// sleeps a full interval before its first run so it doesn't bypass the
+	// discovery_on_startup setting handled by maybeStartupDiscovery above.
+	go discoverySchedulerLoop(ctx, settingsRepo, func(source string) DiscoveryResult {
+		return runDiscovery(discDeps, source)
 	})
-
-	// Periodic discovery based on settings interval.
-	// Sleep before the first run so we don't bypass the discovery_on_startup setting.
-	// When discovery_on_startup is true, the startup go runDiscovery() above already
-	// handles immediate discovery; when false, we must not discover on startup either.
-	//
-	// TODO: Extract the three inline goroutines below (discovery loop, stale log
-	// cleanup, log retention) into internal/scheduler/ for maintainability. main.go
-	// is ~800 lines; each goroutine body should be a named function in its own file.
-	//
-	// Bug fixes applied:
-	//   1. Timer now reacts immediately to discovery_interval changes via the
-	//      settings subscription channel, instead of waiting for the current
-	//      timer to expire.
-	//   2. An interval of 0 ("Disabled") now truly disables periodic discovery
-	//      rather than resetting to 1 minute. The goroutine blocks on the
-	//      subscription channel until a non-zero value arrives.
-	go func() {
-		const defaultInterval = 6 * time.Hour
-
-		readInterval := func() time.Duration {
-			return settingsRepo.GetDuration(context.Background(), "discovery_interval", defaultInterval)
-		}
-
-		settingsSub := settingsRepo.Subscribe()
-		defer settingsSub.Unsubscribe()
-
-		// applyInterval sets up the timer for the given interval. If the
-		// interval is <= 0 (disabled) the timer is stopped and set to nil.
-		// A nil timer channel blocks forever in select, which is exactly what
-		// we want for the disabled state — only the settings subscription
-		// and the context cancellation can wake us.
-		var timer *time.Timer
-		var timerC <-chan time.Time
-		applyInterval := func(d time.Duration) {
-			if d <= 0 {
-				// Transitioning to disabled: stop and drain the existing timer.
-				if timer != nil {
-					timer.Stop()
-					// Drain the channel if the timer already fired, so the
-					// receive does not leak into the next cycle.
-					select {
-					case <-timer.C:
-					default:
-					}
-					timer = nil
-					timerC = nil
-				}
-			} else {
-				// Transitioning to enabled: reset (or create) the timer.
-				if timer != nil {
-					timer.Stop()
-					select {
-					case <-timer.C:
-					default:
-					}
-					timer.Reset(d)
-				} else {
-					timer = time.NewTimer(d)
-					// NewTimer already starts with duration d; no Reset needed.
-				}
-				timerC = timer.C
-			}
-		}
-
-		interval := readInterval()
-		applyInterval(interval)
-
-		defer func() {
-			if timer != nil {
-				timer.Stop()
-			}
-		}()
-
-		for {
-			if interval <= 0 {
-				// Discovery is disabled. Block until the setting changes
-				// or the server shuts down. We cannot reach the main
-				// select because timerC is nil (blocks forever).
-				select {
-				case <-settingsSub.Events():
-					interval = readInterval()
-					applyInterval(interval)
-				case <-ctx.Done():
-					return
-				}
-				continue
-			}
-
-			select {
-			case <-timerC:
-				result := runDiscovery("scheduled")
-				publishDiscoveryEvent("Scheduled", result)
-				// Re-read interval in case it changed since the last
-				// subscription event was processed.
-				interval = readInterval()
-				applyInterval(interval)
-
-			case <-settingsSub.Events():
-				// Re-read from DB (the source of truth) rather than
-				// parsing the event value, which may be empty if the
-				// setting was deleted or the lookup failed.
-				newInterval := readInterval()
-				if newInterval != interval {
-					interval = newInterval
-					applyInterval(interval)
-				}
-
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	// Periodic stale log cleanup: mark rows stuck in "pending"/"streaming"
-	// as "failed". Two strategies are combined in a single pass:
-	//
-	//   1. Server-start-time check: any in-progress row that predates this
-	//      process is definitively orphaned (the previous process is dead).
-	//      This has zero false-positive risk regardless of request duration.
-	//
-	//   2. Age-based check: rows older than stale_request_timeout (default
-	//      30m, configurable via Settings) are also marked failed. This
-	//      catches in-process orphans (e.g. a panic skips the final
-	//      updateRequestLog). The timeout is generous to avoid killing
-	//      legitimate long-running streaming requests.
-	go func() {
-		timer := time.NewTimer(5 * time.Minute)
-		defer timer.Stop()
-		for {
-			select {
-			case <-timer.C:
-			case <-ctx.Done():
-				return
-			}
-			staleTimeout := settingsRepo.GetDuration(context.Background(), "stale_request_timeout", 30*time.Minute)
-			if staleTimeout <= 0 {
-				timer.Reset(5 * time.Minute)
-				continue
-			}
-			// Build a PostgreSQL-safe interval string from the parsed duration.
-			// Truncate to whole seconds to avoid fractional-unit issues (e.g. "30.5 minutes").
-			totalSecs := int64(staleTimeout.Seconds())
-			hours := totalSecs / 3600
-			mins := (totalSecs % 3600) / 60
-			secs := totalSecs % 60
-			intervalStr := fmt.Sprintf("%d hours %d minutes %d seconds", hours, mins, secs)
-			tag, err := database.Pool().Exec(context.Background(), `
-				UPDATE request_logs
-				SET state = 'failed', error_kind = 'internal', error_message = 'request interrupted (stale)'
-				WHERE state IN ('pending', 'streaming')
-				  AND (created_at < $1 OR created_at < NOW() - $2::interval)`,
-				serverStartTime, intervalStr)
-			if err == nil && tag.RowsAffected() > 0 {
-				debuglog.Info("retention: stale log cleanup", "rows", tag.RowsAffected())
-				events.Publish(events.Event{
-					Type:     "logs.stale_cleanup",
-					Severity: "warning",
-					Message:  fmt.Sprintf("Marked %d stale requests as interrupted", tag.RowsAffected()),
-					Metadata: map[string]any{"count": tag.RowsAffected()},
-				})
-			} else if err != nil {
-				debuglog.Error("retention: stale log cleanup failed", "error", err)
-			}
-			timer.Reset(5 * time.Minute)
-		}
-	}()
-
-	// Log retention cleanup
-	go func() {
-		timer := time.NewTimer(1 * time.Hour)
-		defer timer.Stop()
-		for {
-			select {
-			case <-timer.C:
-			case <-ctx.Done():
-				return
-			}
-			retention := settingsRepo.GetWithDefault(context.Background(), "log_retention", "")
-			if retention == "" {
-				timer.Reset(1 * time.Hour)
-				continue
-			}
-			var cutoff time.Time
-			switch retention {
-			case "1h":
-				cutoff = time.Now().Add(-1 * time.Hour)
-			case "1d", "24h":
-				cutoff = time.Now().Add(-24 * time.Hour)
-			case "1w", "168h":
-				cutoff = time.Now().Add(-7 * 24 * time.Hour)
-			case "1m", "720h":
-				cutoff = time.Now().Add(-30 * 24 * time.Hour)
-			default:
-				// Unrecognised value (including "0" for disabled): skip
-				// cleanup this cycle and re-check next hour.
-				timer.Reset(1 * time.Hour)
-				continue
-			}
-			tag, err := database.Pool().Exec(context.Background(),
-				`DELETE FROM request_logs WHERE created_at < $1`, cutoff)
-			if err == nil {
-				debuglog.Info("retention: log retention deleted old entries", "retention", retention, "rows", tag.RowsAffected())
-			}
-			// Clean app_logs with same retention
-			tag, err = database.Pool().Exec(context.Background(),
-				`DELETE FROM app_logs WHERE created_at < $1`, cutoff)
-			if err == nil {
-				debuglog.Info("retention: app log retention deleted old entries", "retention", retention, "rows", tag.RowsAffected())
-			}
-			timer.Reset(1 * time.Hour)
-		}
-	}()
+	go staleLogCleanupLoop(ctx, database.Pool(), settingsRepo, serverStartTime)
+	go logRetentionLoop(ctx, database.Pool(), settingsRepo)
 
 	server := &http.Server{
 		Addr:              cfg.Port,
@@ -1010,6 +459,146 @@ func main() {
 	auditRecorder.Wait()
 
 	debuglog.Info("server: stopped")
+}
+
+// securityHeadersMiddleware sets the standard security headers on every
+// response.
+func securityHeadersMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			// When ALLOW_EMBED=true, X-Frame-Options and CSP frame-ancestors
+			// are omitted entirely so any origin can embed the page in an
+			// iframe (e.g. workspace browsers, Home Assistant).
+			if !cfg.AllowEmbed {
+				w.Header().Set("X-Frame-Options", "DENY")
+			}
+			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			// HSTS only over TLS. Plain HTTP (e.g. behind a reverse proxy that
+			// terminates TLS) must not set HSTS or browsers will cache a broken
+			// redirect to a non-existent HTTPS listener. Currently the server
+			// only serves plain HTTP (ListenAndServe), so this guard is a
+			// forward-compatible placeholder: it will activate automatically if
+			// TLS is added later via ListenAndServeTLS.
+			if r.TLS != nil {
+				w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
+			}
+			// CSP allows same-origin scripts/styles (needed for embedded SPA).
+			// Style 'unsafe-inline' is required for Vite's injected style tags (CSS-based
+			// animations and dynamic theme overrides). Script 'unsafe-inline' is NOT
+			// needed: Vite outputs module scripts, not inline ones.
+			if cfg.AllowEmbed {
+				w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'")
+			} else {
+				w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// corsMiddleware allows the configured origins (CORS_ORIGINS) and answers
+// preflight requests.
+func corsMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			allowed := slices.Contains(cfg.CORSOrigins, origin)
+
+			w.Header().Set("Vary", "Origin")
+
+			if allowed {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				w.Header().Set("Access-Control-Max-Age", "86400")
+			}
+
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// maxRequestSizeMiddleware caps every request body at maxBytes.
+func maxRequestSizeMiddleware(maxBytes int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// warmCaches pre-warms caches synchronously before accepting connections.
+// Provider, model, and failover lookups are fast (simple SELECT queries),
+// but key warming (Argon2id) can take ~150ms per provider. The total
+// warm-up cost is typically under 1s for a handful of providers —
+// far better than letting the first request pay the cold-cache penalty
+// of ~170ms+ in failover + model + provider + key decryption DB queries.
+func warmCaches(deps discoveryDeps, settingsRepo *settings.Repository) {
+	ctx := context.Background()
+
+	providers, err := deps.providerRepo.List(ctx)
+	if err != nil {
+		debuglog.Error("cache: warm failed to list providers", "error", err)
+	} else {
+		enabledProviders := make([]*provider.Provider, 0, len(providers))
+		for _, p := range providers {
+			if !p.Enabled || !p.AutodiscoveryEnabled {
+				continue
+			}
+			if len(p.EncryptedKey) > 0 {
+				auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, deps.cfg.MasterKey)
+			}
+			enabledProviders = append(enabledProviders, p)
+		}
+		provider.WarmProviderCache(enabledProviders)
+	}
+
+	enabledModels, err := deps.modelRepo.ListEnabled(ctx)
+	if err != nil {
+		debuglog.Error("cache: warm failed to list models", "error", err)
+	} else {
+		model.WarmModelCache(enabledModels)
+	}
+
+	failoverGroups, err := deps.failoverRepo.List(ctx)
+	if err != nil {
+		debuglog.Error("cache: warm failed to list failover groups", "error", err)
+	} else {
+		failover.WarmFailoverCache(failoverGroups)
+	}
+
+	settingsRepo.WarmCache(ctx)
+
+	debuglog.Info("cache: key, provider, model, failover, and settings caches warmed")
+}
+
+// initKeyCacheTTL seeds the key cache TTL from settings and reacts to changes.
+func initKeyCacheTTL(settingsRepo *settings.Repository) {
+	auth.SetKeyCacheTTL(settingsRepo.GetDuration(context.Background(), "key_cache_ttl", auth.DefaultKeyCacheTTL))
+	settingsRepo.RegisterOnChange(func(key, value string) {
+		if key == "key_cache_ttl" {
+			d, err := time.ParseDuration(value)
+			if err != nil || d <= 0 {
+				debuglog.Warn("keycache: invalid key_cache_ttl setting, keeping current value", "value", value, "error", err)
+				return
+			}
+			auth.SetKeyCacheTTL(d)
+			debuglog.Info("keycache: TTL updated", "ttl", d)
+		}
+	})
 }
 
 // silentLogger is like chi's middleware.Logger but suppresses request log

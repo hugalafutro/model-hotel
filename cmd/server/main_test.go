@@ -1,11 +1,30 @@
 package main
 
 import (
+	"context"
 	"testing"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/api"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 )
+
+// TestInitAppLogging covers the non-OTLP path: the app slog handler is
+// installed and no shutdown hook is returned. The stdout handler is restored
+// afterwards so later tests keep the default logging destination.
+func TestInitAppLogging(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Skip("test DB unavailable")
+	}
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+	api.InitAppLogBuffer(cmdTestDB.Pool())
+	defer debuglog.SetHandler(debuglog.StdoutHandler())
+
+	if shutdown := initAppLogging(context.Background()); shutdown != nil {
+		t.Error("expected no OTLP shutdown hook without OTEL_EXPORTER_OTLP_ENDPOINT")
+	}
+}
 
 // TestPublishDiscoveryEvent verifies that publishDiscoveryEvent selects the
 // correct severity for each outcome (all-failed, partial-failure, success) and

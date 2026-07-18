@@ -509,3 +509,18 @@ func TestComputeFinishReason(t *testing.T) {
 		}
 	})
 }
+
+// TestApplyEmptyContentStripUnparseablePayload covers the defensive branch
+// where the typed chunk indicates a reasoning-only delta but the raw payload
+// fails to re-parse: the transform declines (no emit, no stop) so the caller
+// forwards the original line. The nil sink proves the branch returns before
+// any write.
+func TestApplyEmptyContentStripUnparseablePayload(t *testing.T) {
+	t.Parallel()
+	c := parseStreamChunk(t, `{"choices":[{"index":0,"delta":{"content":"","reasoning_content":"r"}}]}`)
+	st := &streamState{}
+	wrote, stop := st.applyEmptyContentStrip(nil, c, `{"broken`, 1, &requestLogData{modelID: "m", providerName: "p"})
+	if wrote || stop {
+		t.Errorf("expected no emit and no stop, got wrote=%v stop=%v", wrote, stop)
+	}
+}
