@@ -812,19 +812,17 @@ export function useChat() {
 		failedConversationModel,
 		conversationDisabledReason,
 		chatIcon,
-		// Refs
-		abortRef,
-		sendingRef,
-		lastPromptRef,
-		messagesContainerRef,
-		imageInputRef,
-		audioInputRef,
-		cleanupAbortRef,
-		cleanupConvAbortRef,
-		conversationAbortRef,
-		conversationRunningRef,
-		capturedModelARef,
-		capturedModelBRef,
+		// Refs are grouped in a sub-object so consumers can destructure them away
+		// from render-time state (`const { refs, ...chat } = useChat()`), keeping
+		// the react-hooks/refs lint from tainting every state access. Internal
+		// refs (abort/cleanup/captured-model) are deliberately not exposed.
+		refs: {
+			sendingRef,
+			lastPromptRef,
+			messagesContainerRef,
+			imageInputRef,
+			audioInputRef,
+		},
 		// Handlers
 		handleRandomPersona,
 		handleRandomPersonaB,

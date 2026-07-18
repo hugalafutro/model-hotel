@@ -562,8 +562,12 @@ export function useArena() {
 		handleRandomCompareModel,
 		setPrompt,
 		setActivePromptId,
-		// Refs
-		abortMapRef,
+		// Refs are grouped in a sub-object so consumers can destructure them away
+		// from render-time state, keeping the react-hooks/refs lint from tainting
+		// state accesses (same pattern as useChat).
+		refs: {
+			abortMapRef,
+		},
 		// Helpers
 		roundLabel,
 		// Internal dependencies exposed for JSX

@@ -1373,7 +1373,7 @@ describe("useChat", () => {
 			act(() => {
 				result.current.setInput("Hello");
 				result.current.setChatSelectedModel("Provider/model");
-				result.current.sendingRef.current = true;
+				result.current.refs.sendingRef.current = true;
 			});
 			act(() => {
 				result.current.handleSend();

@@ -99,18 +99,13 @@ describe("Chat", () => {
 			failedConversationModel: undefined,
 			conversationDisabledReason: "",
 			chatIcon: vi.fn() as unknown as LucideIcon,
-			abortRef: { current: null },
-			sendingRef: { current: false },
-			lastPromptRef: { current: "" },
-			messagesContainerRef: { current: null },
-			imageInputRef: { current: null },
-			audioInputRef: { current: null },
-			cleanupAbortRef: { current: null },
-			cleanupConvAbortRef: { current: null },
-			conversationAbortRef: { current: null },
-			conversationRunningRef: { current: false },
-			capturedModelARef: { current: null },
-			capturedModelBRef: { current: null },
+			refs: {
+				sendingRef: { current: false },
+				lastPromptRef: { current: "" },
+				messagesContainerRef: { current: null },
+				imageInputRef: { current: null },
+				audioInputRef: { current: null },
+			},
 			handleRandomPersona: vi.fn(),
 			handleRandomPersonaB: vi.fn(),
 			handleRandomModel: vi.fn(),
@@ -695,7 +690,13 @@ describe("Chat", () => {
 				setTurnCountdown,
 				setIsStreaming,
 				toast,
-				lastPromptRef: { current: "Last prompt" },
+				refs: {
+					sendingRef: { current: false },
+					lastPromptRef: { current: "Last prompt" },
+					messagesContainerRef: { current: null },
+					imageInputRef: { current: null },
+					audioInputRef: { current: null },
+				},
 			});
 
 			const { user } = renderWithProviders(<Chat />);
@@ -805,6 +806,113 @@ describe("Chat", () => {
 					name: "Reset all (clear model & settings)",
 				}).length,
 			).toBeGreaterThan(0);
+		});
+	});
+
+	describe("Stats Bar Clear Button", () => {
+		it("restores the last prompt and resets conversation state", async () => {
+			const clearConversationAbort = vi.fn();
+			const setMessages = vi.fn();
+			const setInput = vi.fn();
+			const setConversationState = vi.fn();
+			const setIsStreaming = vi.fn();
+			const toast = vi.fn();
+
+			mockUseChatResult({
+				chatSubMode: "conversation",
+				conversationState: "completed",
+				messages: [{ role: "user", content: "Test", timestamp: 1 }],
+				clearConversationAbort,
+				setMessages,
+				setInput,
+				setConversationState,
+				setIsStreaming,
+				toast,
+				refs: {
+					sendingRef: { current: false },
+					lastPromptRef: { current: "Last stats prompt" },
+					messagesContainerRef: { current: null },
+					imageInputRef: { current: null },
+					audioInputRef: { current: null },
+				},
+			});
+
+			const { user } = renderWithProviders(<Chat />);
+
+			await user.click(screen.getByRole("button", { name: "Clear" }));
+
+			expect(clearConversationAbort).toHaveBeenCalled();
+			expect(setMessages).toHaveBeenCalledWith([]);
+			expect(setInput).toHaveBeenCalledWith("Last stats prompt");
+			expect(setConversationState).toHaveBeenCalledWith("idle");
+			expect(setIsStreaming).toHaveBeenCalledWith(false);
+			expect(toast).toHaveBeenCalledWith("Conversation cleared", "info");
+		});
+	});
+
+	describe("Attachment Buttons", () => {
+		it("clicking Attach image forwards the click to the hidden file input", async () => {
+			const imageInputRef: { current: HTMLInputElement | null } = {
+				current: null,
+			};
+
+			mockUseChatResult({
+				selectedModel: "Test Provider/test-model",
+				hasVision: true,
+				refs: {
+					sendingRef: { current: false },
+					lastPromptRef: { current: "" },
+					messagesContainerRef: { current: null },
+					imageInputRef,
+					audioInputRef: { current: null },
+				},
+			});
+
+			const { user } = renderWithProviders(<Chat />);
+
+			await waitFor(() => {
+				expect(imageInputRef.current).not.toBeNull();
+			});
+			const clickSpy = vi.spyOn(
+				imageInputRef.current as HTMLInputElement,
+				"click",
+			);
+
+			await user.click(screen.getByRole("button", { name: "Attach image" }));
+
+			expect(clickSpy).toHaveBeenCalled();
+		});
+
+		it("clicking Attach audio forwards the click to the hidden file input", async () => {
+			const audioInputRef: { current: HTMLInputElement | null } = {
+				current: null,
+			};
+
+			mockUseChatResult({
+				selectedModel: "Test Provider/test-model",
+				hasAudioInput: true,
+				refs: {
+					sendingRef: { current: false },
+					lastPromptRef: { current: "" },
+					messagesContainerRef: { current: null },
+					imageInputRef: { current: null },
+					audioInputRef,
+				},
+			});
+
+			const { user } = renderWithProviders(<Chat />);
+
+			await waitFor(() => {
+				expect(audioInputRef.current).not.toBeNull();
+			});
+			const clickSpy = vi.spyOn(
+				audioInputRef.current as HTMLInputElement,
+				"click",
+			);
+
+			await user.click(screen.getByRole("button", { name: "Attach audio" }));
+
+			expect(clickSpy).toHaveBeenCalled();
 		});
 	});
 });
