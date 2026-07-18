@@ -162,6 +162,8 @@
 		"reqPerMin": "req/min",
 		"noData": "No data",
 		"refresh": "Refresh",
+		"pause": "Pause",
+		"resume": "Resume",
 		"updated": "Updated {{time}}"
 	},
 	"events": {

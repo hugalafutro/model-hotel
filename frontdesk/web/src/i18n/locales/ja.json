@@ -162,6 +162,8 @@
 		"reqPerMin": "req/min",
 		"noData": "データなし",
 		"refresh": "更新",
+		"pause": "一時停止",
+		"resume": "再開",
 		"updated": "更新日時 {{time}}"
 	},
 	"events": {

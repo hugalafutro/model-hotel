@@ -162,6 +162,8 @@
 		"reqPerMin": "req/min",
 		"noData": "Žádná data",
 		"refresh": "Obnovit",
+		"pause": "Pozastavit",
+		"resume": "Pokračovat",
 		"updated": "Aktualizováno {{time}}"
 	},
 	"events": {
