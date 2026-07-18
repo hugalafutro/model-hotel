@@ -1414,7 +1414,7 @@ func TestFailoverHandler_Update_InvalidEntryEnabled(t *testing.T) {
 
 	// Build entry_enabled with 101 entries
 	entryEnabled := make(map[string]bool)
-	for i := 0; i < 101; i++ {
+	for range 101 {
 		entryEnabled[uuid.New().String()] = true
 	}
 	eeJSON, _ := json.Marshal(entryEnabled)
@@ -1566,7 +1566,7 @@ func TestFailoverSync_Integration(t *testing.T) {
 		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}

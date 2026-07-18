@@ -23,7 +23,7 @@ func TestHandleStreamingResponse_ClientWriteFailureMarksDisconnected(t *testing.
 			t.Fatal("upstream response writer must support flushing")
 		}
 
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			chunk := fmt.Sprintf(`data: {"id":"chatcmpl-test","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"x"},"finish_reason":null}]}` + "\n\n")
 			fmt.Fprint(w, chunk)
 			flusher.Flush()

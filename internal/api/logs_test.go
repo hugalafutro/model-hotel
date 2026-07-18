@@ -860,7 +860,7 @@ func TestListLogsCursor_Default(t *testing.T) {
 
 	// Insert test request logs
 	pool := h.Pool().Pool()
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		_, err := pool.Exec(context.Background(),
 			fmt.Sprintf(`INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
 			 VALUES ($1, $2, $3, $4, $5, NOW() - INTERVAL '%d minutes')`, i*10),
@@ -927,7 +927,7 @@ func TestListLogsCursor_WithCursor(t *testing.T) {
 
 	// Insert test request logs with known timestamps
 	pool := h.Pool().Pool()
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		logID := uuid.New()
 		// Stagger timestamps
 		ts := time.Now().Add(-time.Duration(i) * time.Minute)
@@ -1127,7 +1127,7 @@ func TestListLogsCursor_BackwardPagination(t *testing.T) {
 	// Insert 10 request logs with staggered timestamps (newest first for DESC)
 	pool := h.Pool().Pool()
 	ids := make([]string, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		ids[i] = uuid.New().String()
 		ts := time.Now().Add(-time.Duration(i) * time.Minute)
 		_, err := pool.Exec(context.Background(),

@@ -45,7 +45,7 @@ func TestListModels_EmptyDB(t *testing.T) {
 		t.Errorf("expected Content-Type application/json, got %s", contentType)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -112,12 +112,12 @@ func TestListModels_WithProviderAndModel(t *testing.T) {
 		t.Errorf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp["data"].([]interface{})
+	data, ok := resp["data"].([]any)
 	if !ok {
 		t.Fatal("response 'data' should be an array")
 	}
@@ -125,7 +125,7 @@ func TestListModels_WithProviderAndModel(t *testing.T) {
 	// Find our model in the response
 	found := false
 	for _, item := range data {
-		itemMap, ok := item.(map[string]interface{})
+		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -197,19 +197,19 @@ func TestListModels_WithOwnedBy(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp["data"].([]interface{})
+	data, ok := resp["data"].([]any)
 	if !ok {
 		t.Fatal("response 'data' should be an array")
 	}
 
 	found := false
 	for _, item := range data {
-		itemMap, ok := item.(map[string]interface{})
+		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -283,19 +283,19 @@ func TestListModels_WithOptionalFields(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp["data"].([]interface{})
+	data, ok := resp["data"].([]any)
 	if !ok {
 		t.Fatal("response 'data' should be an array")
 	}
 
 	found := false
 	for _, item := range data {
-		itemMap, ok := item.(map[string]interface{})
+		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -414,12 +414,12 @@ func TestListModels_FailoverGroupWithDisabledEntry(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp["data"].([]interface{})
+	data, ok := resp["data"].([]any)
 	if !ok {
 		t.Fatal("response 'data' should be an array")
 	}
@@ -432,7 +432,7 @@ func TestListModels_FailoverGroupWithDisabledEntry(t *testing.T) {
 	// Verify the failover model points to the enabled entry (model-2)
 	foundFailover := false
 	for _, item := range data {
-		itemMap, ok := item.(map[string]interface{})
+		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -515,12 +515,12 @@ func TestListModels_FailoverGroupEntryNotFound(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp["data"].([]interface{})
+	data, ok := resp["data"].([]any)
 	if !ok {
 		t.Fatal("response 'data' should be an array")
 	}
@@ -533,7 +533,7 @@ func TestListModels_FailoverGroupEntryNotFound(t *testing.T) {
 	// Verify the failover model is present
 	foundFailover := false
 	for _, item := range data {
-		itemMap, ok := item.(map[string]interface{})
+		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -616,7 +616,7 @@ func TestListModels_ResponseFormat(t *testing.T) {
 		t.Errorf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -690,19 +690,19 @@ func TestListModels_CapabilitiesAndModalities(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp["data"].([]interface{})
+	data, ok := resp["data"].([]any)
 	if !ok {
 		t.Fatal("response 'data' should be an array")
 	}
 
 	found := false
 	for _, item := range data {
-		itemMap, ok := item.(map[string]interface{})
+		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -710,7 +710,7 @@ func TestListModels_CapabilitiesAndModalities(t *testing.T) {
 			found = true
 
 			// Verify capabilities object is present and has expected fields
-			caps, ok := itemMap["capabilities"].(map[string]interface{})
+			caps, ok := itemMap["capabilities"].(map[string]any)
 			if !ok {
 				t.Fatal("expected 'capabilities' to be a map in response")
 			}
@@ -728,7 +728,7 @@ func TestListModels_CapabilitiesAndModalities(t *testing.T) {
 			}
 
 			// Verify input_modalities array
-			inputMods, ok := itemMap["input_modalities"].([]interface{})
+			inputMods, ok := itemMap["input_modalities"].([]any)
 			if !ok {
 				t.Fatal("expected 'input_modalities' to be an array in response")
 			}
@@ -743,7 +743,7 @@ func TestListModels_CapabilitiesAndModalities(t *testing.T) {
 			}
 
 			// Verify output_modalities array
-			outputMods, ok := itemMap["output_modalities"].([]interface{})
+			outputMods, ok := itemMap["output_modalities"].([]any)
 			if !ok {
 				t.Fatal("expected 'output_modalities' to be an array in response")
 			}
@@ -827,18 +827,18 @@ func TestListModels_EmptyCapabilitiesOmitted(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp["data"].([]interface{})
+	data, ok := resp["data"].([]any)
 	if !ok {
 		t.Fatal("response 'data' should be an array")
 	}
 
 	for _, item := range data {
-		itemMap, ok := item.(map[string]interface{})
+		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -903,19 +903,19 @@ func TestListModels_InvalidCapabilitiesJSON(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp["data"].([]interface{})
+	data, ok := resp["data"].([]any)
 	if !ok {
 		t.Fatal("response 'data' should be an array")
 	}
 
 	found := false
 	for _, item := range data {
-		itemMap, ok := item.(map[string]interface{})
+		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -978,19 +978,19 @@ func TestListModels_InvalidModalitiesJSON(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp["data"].([]interface{})
+	data, ok := resp["data"].([]any)
 	if !ok {
 		t.Fatal("response 'data' should be an array")
 	}
 
 	found := false
 	for _, item := range data {
-		itemMap, ok := item.(map[string]interface{})
+		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -1086,19 +1086,19 @@ func TestListModels_FailoverGroupWithFullModel(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp["data"].([]interface{})
+	data, ok := resp["data"].([]any)
 	if !ok {
 		t.Fatal("response 'data' should be an array")
 	}
 
 	foundFailover := false
 	for _, item := range data {
-		itemMap, ok := item.(map[string]interface{})
+		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -1132,7 +1132,7 @@ func TestListModels_FailoverGroupWithFullModel(t *testing.T) {
 				t.Errorf("modality = %v, want 'text->text'", mod)
 			}
 
-			caps, ok := itemMap["capabilities"].(map[string]interface{})
+			caps, ok := itemMap["capabilities"].(map[string]any)
 			if !ok {
 				t.Fatal("expected 'capabilities' to be a map")
 			}
@@ -1140,7 +1140,7 @@ func TestListModels_FailoverGroupWithFullModel(t *testing.T) {
 				t.Error("capabilities.streaming should be true")
 			}
 
-			inputMods, ok := itemMap["input_modalities"].([]interface{})
+			inputMods, ok := itemMap["input_modalities"].([]any)
 			if !ok {
 				t.Fatal("expected 'input_modalities' to be an array")
 			}
@@ -1148,7 +1148,7 @@ func TestListModels_FailoverGroupWithFullModel(t *testing.T) {
 				t.Errorf("input_modalities = %v, want ['text','image']", inputMods)
 			}
 
-			outputMods, ok := itemMap["output_modalities"].([]interface{})
+			outputMods, ok := itemMap["output_modalities"].([]any)
 			if !ok {
 				t.Fatal("expected 'output_modalities' to be an array")
 			}
@@ -1261,19 +1261,19 @@ func TestListModels_FailoverGroupInvalidJSON(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp["data"].([]interface{})
+	data, ok := resp["data"].([]any)
 	if !ok {
 		t.Fatal("response 'data' should be an array")
 	}
 
 	foundFailover := false
 	for _, item := range data {
-		itemMap, ok := item.(map[string]interface{})
+		itemMap, ok := item.(map[string]any)
 		if !ok {
 			continue
 		}
@@ -1327,12 +1327,12 @@ func TestListModels_FailoverRepoError(t *testing.T) {
 		t.Errorf("expected 200, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := resp["data"].([]interface{})
+	data, ok := resp["data"].([]any)
 	if !ok {
 		t.Fatal("response 'data' should be an array")
 	}
@@ -1407,11 +1407,11 @@ func TestListModels_DBError(t *testing.T) {
 	}
 
 	// Verify response is JSON with expected message
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Errorf("response should be valid JSON: %v", err)
 	}
-	if msg, ok := resp["error"].(map[string]interface{}); !ok {
+	if msg, ok := resp["error"].(map[string]any); !ok {
 		t.Error("response should have error object")
 	} else if msg["message"] != "failed to list models" {
 		t.Errorf("expected error message 'failed to list models', got %v", msg["message"])
@@ -1479,7 +1479,7 @@ func TestListModels_MockListEnabledError(t *testing.T) {
 	}
 
 	// Verify response is JSON
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Errorf("response should be valid JSON: %v", err)
 	}
@@ -1527,7 +1527,7 @@ func TestListModels_ValidProviderIDQuery(t *testing.T) {
 	}
 
 	// Verify response is valid JSON
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Errorf("response should be valid JSON: %v", err)
 	}
@@ -1661,7 +1661,7 @@ func TestListModels_MultipleProviders(t *testing.T) {
 		t.Errorf("expected 200, got %d", rr.Code)
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -1671,7 +1671,7 @@ func TestListModels_MultipleProviders(t *testing.T) {
 		t.Errorf("expected object=list, got %v", response["object"])
 	}
 
-	data, ok := response["data"].([]interface{})
+	data, ok := response["data"].([]any)
 	if !ok {
 		t.Fatal("expected data to be an array")
 	}
@@ -1684,7 +1684,7 @@ func TestListModels_MultipleProviders(t *testing.T) {
 	// Verify model IDs are in the expected format
 	modelIDs := make([]string, 0, len(data))
 	for _, item := range data {
-		m := item.(map[string]interface{})
+		m := item.(map[string]any)
 		modelIDs = append(modelIDs, m["id"].(string))
 	}
 
@@ -1735,7 +1735,7 @@ func TestListModels_NoModels(t *testing.T) {
 		t.Errorf("expected 200, got %d", rr.Code)
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -1744,14 +1744,14 @@ func TestListModels_NoModels(t *testing.T) {
 		t.Errorf("expected object=list, got %v", response["object"])
 	}
 
-	data, ok := response["data"].([]interface{})
+	data, ok := response["data"].([]any)
 	if !ok {
 		t.Fatal("expected data to be an array")
 	}
 
 	// Verify no test provider models are present (exact count is fragile in parallel test suite)
 	for _, item := range data {
-		m := item.(map[string]interface{})
+		m := item.(map[string]any)
 		modelID := m["id"].(string)
 		if containsTestProviderPrefix(modelID) {
 			t.Errorf("unexpected test provider model in response: %s", modelID)
@@ -1855,12 +1855,12 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 		t.Errorf("expected 200, got %d", rr.Code)
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := response["data"].([]interface{})
+	data, ok := response["data"].([]any)
 	if !ok {
 		t.Fatal("expected data to be an array")
 	}
@@ -1874,7 +1874,7 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 	foundEnabled := false
 	foundDisabled := false
 	for _, item := range data {
-		m := item.(map[string]interface{})
+		m := item.(map[string]any)
 		modelID := m["id"].(string)
 		if modelID == provider.NormalizeName(providerName)+"/enabled-model" {
 			foundEnabled = true
@@ -1891,7 +1891,7 @@ func TestListModels_DisabledModelsFiltered(t *testing.T) {
 	}
 
 	// Verify it's the enabled model
-	m := data[0].(map[string]interface{})
+	m := data[0].(map[string]any)
 	if m["id"] != provider.NormalizeName(providerName)+"/enabled-model" {
 		t.Errorf("expected enabled-model, got %v", m["id"])
 	}
@@ -1974,12 +1974,12 @@ func TestListModels_WithFailoverGroups(t *testing.T) {
 		t.Errorf("expected 200, got %d", rr.Code)
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := response["data"].([]interface{})
+	data, ok := response["data"].([]any)
 	if !ok {
 		t.Fatal("expected data to be an array")
 	}
@@ -1993,7 +1993,7 @@ func TestListModels_WithFailoverGroups(t *testing.T) {
 	foundFailover := false
 	foundRegular := false
 	for _, item := range data {
-		m := item.(map[string]interface{})
+		m := item.(map[string]any)
 		modelID := m["id"].(string)
 		if modelID == "hotel/my-failover-model" {
 			foundFailover = true
@@ -2091,12 +2091,12 @@ func TestListModels_FilterByProvider(t *testing.T) {
 		t.Errorf("expected 200, got %d", rr.Code)
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.NewDecoder(rr.Body).Decode(&response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	data, ok := response["data"].([]interface{})
+	data, ok := response["data"].([]any)
 	if !ok {
 		t.Fatal("expected data to be an array")
 	}
@@ -2109,7 +2109,7 @@ func TestListModels_FilterByProvider(t *testing.T) {
 	// Verify model IDs
 	foundModels := make(map[string]bool)
 	for _, item := range data {
-		m := item.(map[string]interface{})
+		m := item.(map[string]any)
 		modelID := m["id"].(string)
 		foundModels[modelID] = true
 	}

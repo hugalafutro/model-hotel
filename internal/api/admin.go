@@ -744,8 +744,7 @@ func providerTypeAllowsEmptyKey(baseURL string) bool {
 
 // isUniqueViolation checks if the error is a PostgreSQL unique constraint violation (error code 23505).
 func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		return pgErr.Code == "23505"
 	}
 	return false
@@ -753,8 +752,7 @@ func isUniqueViolation(err error) bool {
 
 // isForeignKeyViolation checks if the error is a PostgreSQL foreign key violation (error code 23503).
 func isForeignKeyViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		return pgErr.Code == "23503"
 	}
 	return false

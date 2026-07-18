@@ -145,7 +145,7 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		Severity: "success",
 		Source:   "backup",
 		Message:  fmt.Sprintf("Database backup created: %s (%s)", filename, util.FormatBytes(info.Size())),
-		Metadata: map[string]interface{}{"filename": filename, "size_bytes": info.Size()},
+		Metadata: map[string]any{"filename": filename, "size_bytes": info.Size()},
 	})
 
 	writeJSONCreated(w, backupEntry{
@@ -334,7 +334,7 @@ func (h *BackupHandler) DeleteBackup(w http.ResponseWriter, r *http.Request) {
 		Severity: "info",
 		Source:   "backup",
 		Message:  fmt.Sprintf("Backup deleted: %s", filename),
-		Metadata: map[string]interface{}{"filename": filename},
+		Metadata: map[string]any{"filename": filename},
 	})
 
 	w.WriteHeader(http.StatusNoContent)

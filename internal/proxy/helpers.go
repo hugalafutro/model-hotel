@@ -22,8 +22,8 @@ func extractStreamingUsage(data string) *Usage {
 		line := scanner.Text()
 		var payload string
 		//nolint:gocritic // if-else chain is clearer than switch for SSE prefix matching
-		if strings.HasPrefix(line, "data: ") {
-			payload = strings.TrimPrefix(line, "data: ")
+		if after, ok := strings.CutPrefix(line, "data: "); ok {
+			payload = after
 		} else if strings.HasPrefix(line, "data:") && len(line) > 5 {
 			// "data:" with no space — LM Studio compatibility.
 			payload = strings.TrimLeft(line[5:], " \t")
@@ -243,7 +243,7 @@ func (h *Handler) recordTokenUsage(vkHash string, promptTokens, completionTokens
 			Severity: "error",
 			Source:   "proxy",
 			Message:  fmt.Sprintf("Token counting failed for key %q", keyLabel),
-			Metadata: map[string]interface{}{"error": err.Error(), "key": keyLabel},
+			Metadata: map[string]any{"error": err.Error(), "key": keyLabel},
 		})
 	}
 }

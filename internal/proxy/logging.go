@@ -74,7 +74,7 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		var vkID interface{}
+		var vkID any
 		if virtualKeyID != "" {
 			vkID = virtualKeyID
 		}
@@ -99,7 +99,7 @@ func publishRequestStartedEvent(logEntry *requestLogData) {
 		Severity: "info",
 		Source:   "proxy",
 		Message:  fmt.Sprintf("Request started: %s", logEntry.modelID),
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"request_id":    logEntry.id,
 			"model_id":      logEntry.modelID,
 			"streaming":     logEntry.streaming,
@@ -124,7 +124,7 @@ func publishRequestStreamingEvent(logEntry *requestLogData) {
 		Severity: "info",
 		Source:   "proxy",
 		Message:  fmt.Sprintf("Request streaming: %s", logEntry.modelID),
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"request_id":    logEntry.id,
 			"model_id":      logEntry.modelID,
 			"provider_name": logEntry.providerName,
@@ -188,13 +188,13 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		h.WaitForInsert(logEntry)
 	}
 
-	var providerID interface{}
+	var providerID any
 	if logEntry.providerID != uuid.Nil {
 		providerID = logEntry.providerID
 	}
 	// NULL (not "") when unclassified, so the dashboard can distinguish "no kind
 	// recorded" (fall back to substring matching) from a real classification.
-	var errKind interface{}
+	var errKind any
 	if logEntry.errorKind != "" {
 		errKind = string(logEntry.errorKind)
 	}
@@ -292,7 +292,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 			Severity: severity,
 			Source:   "proxy",
 			Message:  msg,
-			Metadata: map[string]interface{}{
+			Metadata: map[string]any{
 				"request_id":    logEntry.id,
 				"model_id":      logEntry.modelID,
 				"provider_name": logEntry.providerName,

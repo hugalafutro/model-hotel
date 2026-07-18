@@ -216,7 +216,7 @@ func TestFailoverBackoff_Sequence(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			got := failoverBackoff(base, capacity, tc.attempt)
 			if got < tc.minBackoff || got >= tc.maxBackoff {
 				t.Errorf("attempt %d (sample %d): backoff = %v, want in [%v, %v)", tc.attempt, i, got, tc.minBackoff, tc.maxBackoff)
@@ -327,11 +327,11 @@ func TestWriteOpenAIError_429WithType(t *testing.T) {
 		t.Errorf("expected status %d, got %d", http.StatusTooManyRequests, rec.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
-	errObj := resp["error"].(map[string]interface{})
+	errObj := resp["error"].(map[string]any)
 	if errObj["message"] != "rate limit exceeded" {
 		t.Errorf("expected message 'rate limit exceeded', got %q", errObj["message"])
 	}
@@ -348,11 +348,11 @@ func TestWriteOpenAIError_500WithType(t *testing.T) {
 		t.Errorf("expected status %d, got %d", http.StatusInternalServerError, rec.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
-	errObj := resp["error"].(map[string]interface{})
+	errObj := resp["error"].(map[string]any)
 	if errObj["message"] != "internal server error" {
 		t.Errorf("expected message 'internal server error', got %q", errObj["message"])
 	}
@@ -466,7 +466,7 @@ func TestCacheHits_RoundTrip(t *testing.T) {
 	}
 
 	// Parse the JSON to verify the values round-tripped correctly.
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(rawJSON, &parsed); err != nil {
 		t.Fatalf("cache_hits is not valid JSON: %v (raw: %s)", err, string(rawJSON))
 	}

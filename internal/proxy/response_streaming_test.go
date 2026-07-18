@@ -1029,8 +1029,8 @@ data: [DONE]
 	assert.NotContains(t, body, `"choices":[{"delta":{"content"`)
 
 	// Verify no broken JSON in output (every data: line contains valid JSON or [DONE])
-	lines := strings.Split(body, "\n\n")
-	for _, event := range lines {
+	lines := strings.SplitSeq(body, "\n\n")
+	for event := range lines {
 		event = strings.TrimSpace(event)
 		if event == "" || !strings.HasPrefix(event, "data: ") {
 			continue
@@ -1256,7 +1256,7 @@ func TestHandleStreamingResponse_ValidJSONForwardedUnchanged(t *testing.T) {
 	assert.Contains(t, body, "data: [DONE]")
 
 	// Verify JSON is valid
-	var chunk map[string]interface{}
+	var chunk map[string]any
 	require.NoError(t, json.Unmarshal([]byte(validChunk), &chunk))
 }
 

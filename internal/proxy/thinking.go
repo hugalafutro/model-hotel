@@ -114,7 +114,7 @@ type ReasoningDetail struct {
 //  3. delta.content with <thinking> tags → extract to delta.reasoning_content (MiniMax native, some vLLM)
 //
 // Original fields are preserved (dual representation) for backward compatibility.
-func NormalizeReasoningFields(delta map[string]interface{}) bool {
+func NormalizeReasoningFields(delta map[string]any) bool {
 	changed := false
 
 	// Get current reasoning_content value.
@@ -131,10 +131,10 @@ func NormalizeReasoningFields(delta map[string]interface{}) bool {
 
 	// Rule 2: reasoning_details text → reasoning_content
 	if rcEmpty {
-		if details, ok := delta["reasoning_details"].([]interface{}); ok && len(details) > 0 {
+		if details, ok := delta["reasoning_details"].([]any); ok && len(details) > 0 {
 			var texts []string
 			for _, d := range details {
-				if dm, ok := d.(map[string]interface{}); ok {
+				if dm, ok := d.(map[string]any); ok {
 					if t, _ := dm["type"].(string); t == "reasoning.text" {
 						if txt, _ := dm["text"].(string); txt != "" {
 							texts = append(texts, txt)
@@ -174,7 +174,7 @@ func extractThinkingFromContent(content string) (string, string, bool) {
 
 // NormalizeMessageReasoning applies the same normalization rules to
 // a non-streaming message object. Returns true if modified.
-func NormalizeMessageReasoning(msg map[string]interface{}) bool {
+func NormalizeMessageReasoning(msg map[string]any) bool {
 	changed := false
 
 	rc, _ := msg["reasoning_content"].(string)
@@ -190,10 +190,10 @@ func NormalizeMessageReasoning(msg map[string]interface{}) bool {
 
 	// Rule 2: reasoning_details text → reasoning_content
 	if rcEmpty {
-		if details, ok := msg["reasoning_details"].([]interface{}); ok && len(details) > 0 {
+		if details, ok := msg["reasoning_details"].([]any); ok && len(details) > 0 {
 			var texts []string
 			for _, d := range details {
-				if dm, ok := d.(map[string]interface{}); ok {
+				if dm, ok := d.(map[string]any); ok {
 					if t, _ := dm["type"].(string); t == "reasoning.text" {
 						if txt, _ := dm["text"].(string); txt != "" {
 							texts = append(texts, txt)

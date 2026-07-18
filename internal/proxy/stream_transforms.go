@@ -81,11 +81,11 @@ func computeStripReasoning(payload string, lastFinishReason *string, logData *re
 				keepAliveID = idStr
 			}
 		}
-		keepAlivePayload := map[string]interface{}{
+		keepAlivePayload := map[string]any{
 			"id":     keepAliveID,
 			"object": "chat.completion.chunk",
-			"choices": []map[string]interface{}{
-				{"index": 0, "delta": map[string]interface{}{}},
+			"choices": []map[string]any{
+				{"index": 0, "delta": map[string]any{}},
 			},
 		}
 		keepAliveJSON, err := json.Marshal(keepAlivePayload)
@@ -229,7 +229,7 @@ func stripEmptyReasoningContent(payload string, lastFinishReason *string, logDat
 // finish_reason is normalized in place via lastFinishReason.
 func normalizeReasoningChunk(content, reasoningContent *string, payload string, lastFinishReason *string, logData *requestLogData) ([]byte, bool) {
 	// Build a map from the typed delta fields for normalization.
-	deltaMap := make(map[string]interface{})
+	deltaMap := make(map[string]any)
 	if content != nil {
 		deltaMap["content"] = *content
 	}
@@ -249,7 +249,7 @@ func normalizeReasoningChunk(content, reasoningContent *string, payload string, 
 		}
 		// Extract reasoning_details (OpenRouter, MiniMax).
 		if rdRaw, ok := chunkParsed.delta["reasoning_details"]; ok {
-			var rdArr []interface{}
+			var rdArr []any
 			if json.Unmarshal(rdRaw, &rdArr) == nil {
 				deltaMap["reasoning_details"] = rdArr
 			}

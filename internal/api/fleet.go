@@ -321,7 +321,7 @@ func (h *FleetHandler) rejectConflict(_ context.Context, storedID, rejectedID st
 		Severity: "warning",
 		Source:   "fleet",
 		Message:  "Rejected a fleet announce from a Front Desk that does not own this instance",
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"stored_frontdesk_id":   storedID,
 			"rejected_frontdesk_id": rejectedID,
 		},

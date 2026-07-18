@@ -57,7 +57,7 @@ func TestListBackups_EmptyDirectory_Integration(t *testing.T) {
 		t.Errorf("Expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var backups []interface{}
+	var backups []any
 	if err := json.Unmarshal(w.Body.Bytes(), &backups); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}

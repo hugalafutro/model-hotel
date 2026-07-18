@@ -64,10 +64,10 @@ func TestListLogs(t *testing.T) {
 	}
 
 	var response struct {
-		Entries []map[string]interface{} `json:"entries"`
-		Total   int                      `json:"total"`
-		Page    int                      `json:"page"`
-		PerPage int                      `json:"per_page"`
+		Entries []map[string]any `json:"entries"`
+		Total   int              `json:"total"`
+		Page    int              `json:"page"`
+		PerPage int              `json:"per_page"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -104,7 +104,7 @@ func TestListLogs_WithProviderIDFilter(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 
-	var resp1, resp2 map[string]interface{}
+	var resp1, resp2 map[string]any
 	json.NewDecoder(w1.Body).Decode(&resp1)
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	providerID1 := resp1["id"].(string)
@@ -139,9 +139,9 @@ func TestListLogs_WithProviderIDFilter(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	json.NewDecoder(w.Body).Decode(&response)
-	entries := response["entries"].([]interface{})
+	entries := response["entries"].([]any)
 	if len(entries) != 1 {
 		t.Errorf("expected 1 log entry for provider 1, got %d", len(entries))
 	}
@@ -160,7 +160,7 @@ func TestListLogs_WithEndpointTypeFilter(t *testing.T) {
 	wCreate := httptest.NewRecorder()
 	r.ServeHTTP(wCreate, reqCreate)
 
-	var created map[string]interface{}
+	var created map[string]any
 	json.NewDecoder(wCreate.Body).Decode(&created)
 	providerID := created["id"].(string)
 
@@ -256,7 +256,7 @@ func TestListLogs_WithModelIDFilter(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -288,9 +288,9 @@ func TestListLogs_WithModelIDFilter(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w2.Code, w2.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	json.NewDecoder(w2.Body).Decode(&response)
-	entries := response["entries"].([]interface{})
+	entries := response["entries"].([]any)
 	if len(entries) != 1 {
 		t.Errorf("expected 1 log entry for gpt-4 model, got %d", len(entries))
 	}
@@ -309,7 +309,7 @@ func TestListLogs_WithVirtualKeyFilter(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -321,7 +321,7 @@ func TestListLogs_WithVirtualKeyFilter(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 
-	var vkResp map[string]interface{}
+	var vkResp map[string]any
 	json.NewDecoder(w2.Body).Decode(&vkResp)
 	virtualKeyID := vkResp["id"].(string)
 	virtualKeyName := vkResp["name"].(string)
@@ -346,9 +346,9 @@ func TestListLogs_WithVirtualKeyFilter(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w3.Code, w3.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	json.NewDecoder(w3.Body).Decode(&response)
-	entries := response["entries"].([]interface{})
+	entries := response["entries"].([]any)
 	if len(entries) != 1 {
 		t.Errorf("expected 1 log entry, got %d", len(entries))
 	}
@@ -367,7 +367,7 @@ func TestListLogs_WithStatusCodeFilter(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -399,9 +399,9 @@ func TestListLogs_WithStatusCodeFilter(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w2.Code, w2.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	json.NewDecoder(w2.Body).Decode(&response)
-	entries := response["entries"].([]interface{})
+	entries := response["entries"].([]any)
 	if len(entries) != 1 {
 		t.Errorf("expected 1 log entry with 5xx status, got %d", len(entries))
 	}
@@ -420,7 +420,7 @@ func TestListLogs_WithDateRangeFilter(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -458,9 +458,9 @@ func TestListLogs_WithDateRangeFilter(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w2.Code, w2.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	json.NewDecoder(w2.Body).Decode(&response)
-	entries := response["entries"].([]interface{})
+	entries := response["entries"].([]any)
 	// Should only get the newTime log (1 entry)
 	if len(entries) != 1 {
 		t.Errorf("expected 1 log entry in date range, got %d", len(entries))
@@ -480,13 +480,13 @@ func TestListLogs_WithPagination(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
 	// Insert multiple test logs
 	pool := h.Pool().Pool()
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		_, err := pool.Exec(context.Background(), `
 			INSERT INTO request_logs (provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -506,9 +506,9 @@ func TestListLogs_WithPagination(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w2.Code, w2.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	json.NewDecoder(w2.Body).Decode(&response)
-	entries := response["entries"].([]interface{})
+	entries := response["entries"].([]any)
 	total := response["total"].(float64)
 	page := response["page"].(float64)
 	perPage := response["per_page"].(float64)
@@ -541,7 +541,7 @@ func TestListLogs_With4xxStatusCodeFilter(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -573,9 +573,9 @@ func TestListLogs_With4xxStatusCodeFilter(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w2.Code, w2.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	json.NewDecoder(w2.Body).Decode(&response)
-	entries := response["entries"].([]interface{})
+	entries := response["entries"].([]any)
 	if len(entries) != 1 {
 		t.Errorf("expected 1 log entry with 4xx status, got %d", len(entries))
 	}

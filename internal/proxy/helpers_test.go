@@ -582,7 +582,7 @@ func TestGenerateRequestHash_IsHexString(t *testing.T) {
 
 func TestGenerateRequestHash_Unique(t *testing.T) {
 	hashes := make(map[string]bool)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		hash := generateRequestHash()
 		if hashes[hash] {
 			t.Errorf("generateRequestHash produced duplicate hash: %q", hash)

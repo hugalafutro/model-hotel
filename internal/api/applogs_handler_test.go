@@ -50,7 +50,7 @@ func TestRingBufferWriteEntry_WrapAround(t *testing.T) {
 	}()
 
 	// Fill the buffer to capacity
-	for i := 0; i < appLogBufferSize; i++ {
+	for i := range appLogBufferSize {
 		entry := AppLogEntry{
 			Timestamp: time.Now().UTC().Add(time.Duration(i) * time.Second).Format(time.RFC3339Nano),
 			Level:     "info",
@@ -106,7 +106,7 @@ func TestRingBufferGetEntries_Order(t *testing.T) {
 	}()
 
 	// Add entries in order
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		entry := AppLogEntry{
 			Timestamp: time.Now().UTC().Add(time.Duration(i) * time.Second).Format(time.RFC3339Nano),
 			Level:     "info",
@@ -122,7 +122,7 @@ func TestRingBufferGetEntries_Order(t *testing.T) {
 	}
 
 	// Should be in chronological order (oldest first)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		if !strings.Contains(entries[i].Message, fmt.Sprintf("message %d", i)) {
 			t.Errorf("entry %d should contain 'message %d', got %q", i, i, entries[i].Message)
 		}
@@ -137,7 +137,7 @@ func TestRingBufferClear(t *testing.T) {
 	}()
 
 	// Add some entries
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		entry := AppLogEntry{
 			Timestamp: time.Now().UTC().Add(time.Duration(i) * time.Second).Format(time.RFC3339Nano),
 			Level:     "info",
@@ -722,7 +722,7 @@ func TestGetAppLogs_WithLimitAndAfter(t *testing.T) {
 
 	// Add 15 entries with different timestamps
 	baseTime := time.Now().UTC()
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		entry := AppLogEntry{
 			Timestamp: baseTime.Add(time.Duration(i) * time.Second).Format(time.RFC3339Nano),
 			Level:     "info",
@@ -784,7 +784,7 @@ func TestClearAppLogs_WithBuffer(t *testing.T) {
 	}()
 
 	// Add some entries
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		entry := AppLogEntry{
 			Timestamp: time.Now().UTC().Add(time.Duration(i) * time.Second).Format(time.RFC3339Nano),
 			Level:     "info",
@@ -828,7 +828,7 @@ func TestGetAppLogs_HistoryWithDB(t *testing.T) {
 	ctx := context.Background()
 
 	// Insert a few app log entries
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		_, err := pool.Exec(ctx,
 			`INSERT INTO app_logs (timestamp, level, source, message)
 			 VALUES (NOW(), $1, $2, $3)`,
@@ -881,7 +881,7 @@ func TestGetAppLogs_HistorySuccessWithDB(t *testing.T) {
 	// Insert app log entries with varied levels and sources
 	levels := []string{"info", "warning", "error"}
 	sources := []string{"proxy", "auth"}
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		level := levels[i%len(levels)]
 		source := sources[i%len(sources)]
 		_, err := pool.Exec(ctx,
@@ -952,7 +952,7 @@ func TestGetAppLogs_HistoryPagination(t *testing.T) {
 	ctx := context.Background()
 
 	// Insert more entries than one page can hold
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		_, err := pool.Exec(ctx,
 			`INSERT INTO app_logs (timestamp, level, source, message)
 			 VALUES (NOW() + ($1 || ' seconds')::interval, $2, $3, $4)`,

@@ -780,7 +780,7 @@ func TestDBLogWriter_BatchSizeFlush(t *testing.T) {
 	defer w.stop()
 
 	// Send 50 entries to trigger the batch-size flush path (lines 127-130)
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		w.ch <- AppLogEntry{
 			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 			Level:     "info",
@@ -828,7 +828,7 @@ func TestDBLogWriter_TickerFlush(t *testing.T) {
 	defer w.stop()
 
 	// Send a few entries (less than 50) and wait for the ticker to flush
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		w.ch <- AppLogEntry{
 			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 			Level:     "info",
@@ -877,7 +877,7 @@ func TestDBLogWriter_FlushDBError(t *testing.T) {
 	defer w.stop()
 
 	// Send entries — they'll be flushed but the DB write will fail silently
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		w.ch <- AppLogEntry{
 			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 			Level:     "info",
@@ -971,7 +971,7 @@ func TestGetAppLogsCursor_Default(t *testing.T) {
 	pool := h.Pool().Pool()
 
 	// Insert test app logs with different timestamp and created_at values
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		logID := uuid.New().String()
 		eventTs := time.Now().Add(-time.Duration(i) * time.Minute).UTC()
 		createdAt := eventTs.Add(time.Duration(i) * time.Second)
@@ -1035,7 +1035,7 @@ func TestGetAppLogsCursor_WithCursor(t *testing.T) {
 	// Use different values for timestamp (event time) and created_at (insertion time)
 	// to ensure cursor pagination uses created_at, not timestamp
 	now := time.Now().UTC()
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		logID := uuid.New().String()
 		eventTs := now.Add(-time.Duration(i) * 24 * time.Hour)
 		createdAt := eventTs.Add(time.Duration(i) * time.Second)
@@ -1654,7 +1654,7 @@ func TestGetAppLogsCursor_BackwardPagination(t *testing.T) {
 
 	now := time.Now().UTC()
 	ids := make([]string, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		ids[i] = uuid.New().String()
 		eventTs := now.Add(-time.Duration(i) * time.Hour)
 		createdAt := eventTs.Add(time.Duration(i) * time.Second)
@@ -1983,7 +1983,7 @@ func TestGetAppLogsCursor_CancelledContext(t *testing.T) {
 
 // mockAppLogRows implements pgx.Rows for testing scanAppLogRow error paths.
 type mockAppLogRows struct {
-	scanFn  func(dest ...interface{}) error
+	scanFn  func(dest ...any) error
 	closeFn func()
 }
 
@@ -1993,17 +1993,17 @@ func (m *mockAppLogRows) CommandTag() pgconn.CommandTag { return pgconn.NewComma
 func (m *mockAppLogRows) FieldDescriptions() []pgconn.FieldDescription {
 	return nil
 }
-func (m *mockAppLogRows) Next() bool                     { return false }
-func (m *mockAppLogRows) Scan(dest ...interface{}) error { return m.scanFn(dest...) }
-func (m *mockAppLogRows) Values() ([]interface{}, error) { return nil, nil }
-func (m *mockAppLogRows) RawValues() [][]byte            { return nil }
-func (m *mockAppLogRows) Conn() *pgx.Conn                { return nil }
+func (m *mockAppLogRows) Next() bool             { return false }
+func (m *mockAppLogRows) Scan(dest ...any) error { return m.scanFn(dest...) }
+func (m *mockAppLogRows) Values() ([]any, error) { return nil, nil }
+func (m *mockAppLogRows) RawValues() [][]byte    { return nil }
+func (m *mockAppLogRows) Conn() *pgx.Conn        { return nil }
 
 // TestScanAppLogRow_ScanError tests that scanAppLogRow returns an error
 // when the underlying row scan fails (e.g. wrong column count or type mismatch).
 func TestScanAppLogRow_ScanError(t *testing.T) {
 	rows := &mockAppLogRows{
-		scanFn: func(dest ...interface{}) error {
+		scanFn: func(dest ...any) error {
 			return errors.New("scan error: wrong column count")
 		},
 		closeFn: func() {},
@@ -2025,7 +2025,7 @@ func TestScanAppLogRow_Success(t *testing.T) {
 	catTime := now.Add(-time.Second)
 
 	rows := &mockAppLogRows{
-		scanFn: func(dest ...interface{}) error {
+		scanFn: func(dest ...any) error {
 			*(dest[0].(*string)) = "test-id-123"
 			*(dest[1].(*time.Time)) = catTime
 			*(dest[2].(*time.Time)) = now

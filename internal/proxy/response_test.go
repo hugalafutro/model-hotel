@@ -277,11 +277,11 @@ func TestHandleNonStreamingResponse_InvalidJSON(t *testing.T) {
 	assert.Equal(t, http.StatusOK, result.StatusCode)
 	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
 
-	var responseBody map[string]interface{}
+	var responseBody map[string]any
 	err := json.NewDecoder(result.Body).Decode(&responseBody)
 	require.NoError(t, err)
 
-	errorObj, ok := responseBody["error"].(map[string]interface{})
+	errorObj, ok := responseBody["error"].(map[string]any)
 	require.True(t, ok, "Should have error object in response")
 	assert.Contains(t, errorObj["message"], "upstream provider returned HTTP 200")
 
@@ -326,11 +326,11 @@ func TestHandleNonStreamingResponse_EmptyBody(t *testing.T) {
 	assert.Equal(t, http.StatusOK, result.StatusCode)
 	assert.Equal(t, "application/json", result.Header.Get("Content-Type"))
 
-	var responseBody map[string]interface{}
+	var responseBody map[string]any
 	err := json.NewDecoder(result.Body).Decode(&responseBody)
 	require.NoError(t, err)
 
-	errorObj, ok := responseBody["error"].(map[string]interface{})
+	errorObj, ok := responseBody["error"].(map[string]any)
 	require.True(t, ok, "Should have error object in response")
 	assert.Contains(t, errorObj["message"], "upstream provider returned HTTP 200")
 

@@ -25,7 +25,7 @@ func TestMakeJSONModelRewriter_RewritesModel(t *testing.T) {
 	if contentType != "application/json" {
 		t.Errorf("contentType = %q, want application/json", contentType)
 	}
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal(out, &raw); err != nil {
 		t.Fatalf("rewritten body is not valid JSON: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestMakeJSONModelRewriter_RewritesModel(t *testing.T) {
 	if raw["dimensions"] != float64(256) {
 		t.Errorf("dimensions = %v, want 256 (other fields must survive the rewrite)", raw["dimensions"])
 	}
-	input, ok := raw["input"].([]interface{})
+	input, ok := raw["input"].([]any)
 	if !ok || len(input) != 2 {
 		t.Errorf("input = %v, want 2-element array", raw["input"])
 	}

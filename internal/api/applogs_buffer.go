@@ -41,7 +41,7 @@ var stderrSuppressSources = map[string]bool{}
 func (f *stderrLogFilter) Write(p []byte) (n int, err error) {
 	text := string(p)
 	debugEnabled := debuglog.Level() <= slog.LevelDebug
-	for _, line := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimRight(text, "\n"), "\n") {
 		if line == "" {
 			continue
 		}
@@ -170,7 +170,7 @@ func (w *dbLogWriter) flush(entries []AppLogEntry) {
 	// Build batch INSERT
 	builder := strings.Builder{}
 	builder.WriteString("INSERT INTO app_logs (timestamp, level, source, message) VALUES ")
-	args := make([]interface{}, 0, len(entries)*4)
+	args := make([]any, 0, len(entries)*4)
 	for i, e := range entries {
 		if i > 0 {
 			builder.WriteString(", ")

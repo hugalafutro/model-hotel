@@ -77,8 +77,6 @@ func withExtraProvider(env ConfigEnvelope, name string) ConfigEnvelope {
 	return out
 }
 
-func gptr(v int64) *int64 { return &v }
-
 // TestConfigSync_CommitFenceRejectsStaleSourceGen exercises the member-side
 // commit fence end to end: an import older than the last applied generation is
 // refused (config untouched), an equal or newer one applies, the marker advances
@@ -92,7 +90,7 @@ func TestConfigSync_CommitFenceRejectsStaleSourceGen(t *testing.T) {
 	withExtra := withExtraProvider(base, "extra")
 
 	// gen=5: first fenced import applies and records the marker.
-	if resp, rec := doImportGen(t, r, base, gptr(5)); rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
+	if resp, rec := doImportGen(t, r, base, new(int64(5))); rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
 		t.Fatalf("gen=5 import: code=%d applied=%v stale=%v, want 200 applied not-stale", rec.Code, resp.Applied, resp.Stale)
 	}
 	if got := storedSourceGen(t); got != "5" {
@@ -102,7 +100,7 @@ func TestConfigSync_CommitFenceRejectsStaleSourceGen(t *testing.T) {
 	// gen=4: older than the applied generation, so the fence refuses it. The
 	// response is a benign "stale", not an error, and the carried change (the extra
 	// provider) must NOT land.
-	resp, rec := doImportGen(t, r, withExtra, gptr(4))
+	resp, rec := doImportGen(t, r, withExtra, new(int64(4)))
 	if rec.Code != http.StatusOK || resp.Applied || !resp.Stale || !resp.SchemaVersionOK || !resp.MasterKeyOK {
 		t.Fatalf("gen=4 import: code=%d applied=%v stale=%v schemaOK=%v keyOK=%v, want 200 not-applied stale schemaOK keyOK",
 			rec.Code, resp.Applied, resp.Stale, resp.SchemaVersionOK, resp.MasterKeyOK)
@@ -116,7 +114,7 @@ func TestConfigSync_CommitFenceRejectsStaleSourceGen(t *testing.T) {
 
 	// gen=5 again: an equal generation is allowed (a legitimate same-generation
 	// config change), so the extra provider now lands.
-	if resp, rec := doImportGen(t, r, withExtra, gptr(5)); rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
+	if resp, rec := doImportGen(t, r, withExtra, new(int64(5))); rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
 		t.Fatalf("gen=5 (equal) import: code=%d applied=%v stale=%v, want 200 applied not-stale", rec.Code, resp.Applied, resp.Stale)
 	}
 	if !providerNames(t)["extra"] {
@@ -125,7 +123,7 @@ func TestConfigSync_CommitFenceRejectsStaleSourceGen(t *testing.T) {
 
 	// gen=6: newer generation applies and declaratively removes the extra provider
 	// again, advancing the marker.
-	if resp, rec := doImportGen(t, r, base, gptr(6)); rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
+	if resp, rec := doImportGen(t, r, base, new(int64(6))); rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
 		t.Fatalf("gen=6 import: code=%d applied=%v stale=%v, want 200 applied not-stale", rec.Code, resp.Applied, resp.Stale)
 	}
 	if providerNames(t)["extra"] {
@@ -194,7 +192,7 @@ func TestConfigSync_CommitFenceGenZeroIsFenced(t *testing.T) {
 	base := doExport(t, r)
 
 	// Fenced import at generation 0 applies and records the marker as "0".
-	if resp, rec := doImportGen(t, r, base, gptr(0)); rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
+	if resp, rec := doImportGen(t, r, base, new(int64(0))); rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
 		t.Fatalf("gen=0 import: code=%d applied=%v stale=%v, want 200 applied not-stale", rec.Code, resp.Applied, resp.Stale)
 	}
 	if got := storedSourceGen(t); got != "0" {
@@ -261,7 +259,7 @@ func TestConfigSync_CommitFenceCorruptMarkerStillFences(t *testing.T) {
 
 	// A fenced import applies (the corrupt marker floors to 0, so any generation is
 	// accepted) and rewrites a clean value.
-	if resp, rec := doImportGen(t, r, base, gptr(3)); rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
+	if resp, rec := doImportGen(t, r, base, new(int64(3))); rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
 		t.Fatalf("fenced import over corrupt marker: code=%d applied=%v stale=%v, want 200 applied not-stale", rec.Code, resp.Applied, resp.Stale)
 	}
 	if got := storedSourceGen(t); got != "3" {
@@ -320,7 +318,7 @@ func TestConfigSync_CommitFenceDryRunNeverFenced(t *testing.T) {
 	base := doExport(t, r)
 
 	// Apply at gen=10 so the marker is well above the dry-run's generation.
-	if _, rec := doImportGen(t, r, base, gptr(10)); rec.Code != http.StatusOK {
+	if _, rec := doImportGen(t, r, base, new(int64(10))); rec.Code != http.StatusOK {
 		t.Fatalf("seed apply gen=10: code=%d", rec.Code)
 	}
 

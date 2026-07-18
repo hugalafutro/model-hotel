@@ -274,15 +274,15 @@ type ChatCompletionResponse struct {
 // Choice represents a single completion choice in the response.
 type Choice struct {
 	Index        int     `json:"index"`
-	Message      Message `json:"message,omitempty"`
-	Delta        Message `json:"delta,omitempty"`
+	Message      Message `json:"message"`
+	Delta        Message `json:"delta"`
 	FinishReason *string `json:"finish_reason,omitempty"`
 }
 
 // Message represents a chat message with role and content.
 type Message struct {
-	Role    string      `json:"role"`
-	Content interface{} `json:"content"`
+	Role    string `json:"role"`
+	Content any    `json:"content"`
 	// ToolCalls/ToolCallID must round-trip through the non-streaming decode +
 	// re-encode in handleNonStreamingResponse, or function calls are silently
 	// dropped (finish_reason:"tool_calls" with no tool_calls array) for every

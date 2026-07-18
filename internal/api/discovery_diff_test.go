@@ -118,9 +118,6 @@ func models(ids ...string) []*model.Model {
 	return out
 }
 
-func fptr(v float64) *float64 { return &v }
-func iptr(v int) *int         { return &v }
-
 func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 	// An existing, still-enabled model whose pricing/context fields shift is
 	// reported as an Updated entry — not Added or Reenabled.
@@ -134,13 +131,13 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// A live (provider-reported) price change overwrites on upsert, so it
 			// is reported.
 			name: "live input price changed",
-			prev: ModelSnapshot{enabled: true, inputPrice: fptr(1)},
+			prev: ModelSnapshot{enabled: true, inputPrice: new(float64(1))},
 			model: &model.Model{
-				ModelID: "m", InputPricePerMillion: fptr(2),
+				ModelID: "m", InputPricePerMillion: new(float64(2)),
 				LiveMeta: model.LiveMetaFields{InputPrice: true},
 			},
 			wantChanges: []FieldChange{
-				{Field: changeFieldInputPrice, Old: fptr(1), New: fptr(2)},
+				{Field: changeFieldInputPrice, Old: new(float64(1)), New: new(float64(2))},
 			},
 		},
 		{
@@ -149,8 +146,8 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// reported. This is the cross-restart source oscillation that used to
 			// flood the modal with phantom price flips.
 			name:        "non-live value change is not reported",
-			prev:        ModelSnapshot{enabled: true, inputPrice: fptr(1)},
-			model:       &model.Model{ModelID: "m", InputPricePerMillion: fptr(2)},
+			prev:        ModelSnapshot{enabled: true, inputPrice: new(float64(1))},
+			model:       &model.Model{ModelID: "m", InputPricePerMillion: new(float64(2))},
 			wantChanges: nil,
 		},
 		{
@@ -158,43 +155,43 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// Upsert fills the gap, so it is a genuine new value.
 			name:  "context length set from unset (non-live fill)",
 			prev:  ModelSnapshot{enabled: true},
-			model: &model.Model{ModelID: "m", ContextLength: iptr(8192)},
+			model: &model.Model{ModelID: "m", ContextLength: new(8192)},
 			wantChanges: []FieldChange{
-				{Field: changeFieldContextLength, Old: nil, New: fptr(8192)},
+				{Field: changeFieldContextLength, Old: nil, New: new(float64(8192))},
 			},
 		},
 		{
 			// A scan that omits a value must NOT report "value → unset": Upsert
 			// preserves the stored value, so the diff stays quiet.
 			name:        "scan omits a value — preserved, not reported",
-			prev:        ModelSnapshot{enabled: true, outputPrice: fptr(5)},
+			prev:        ModelSnapshot{enabled: true, outputPrice: new(float64(5))},
 			model:       &model.Model{ModelID: "m"},
 			wantChanges: nil,
 		},
 		{
 			name:  "value gained from unset",
 			prev:  ModelSnapshot{enabled: true},
-			model: &model.Model{ModelID: "m", OutputPricePerMillion: fptr(3)},
+			model: &model.Model{ModelID: "m", OutputPricePerMillion: new(float64(3))},
 			wantChanges: []FieldChange{
-				{Field: changeFieldOutputPrice, Old: nil, New: fptr(3)},
+				{Field: changeFieldOutputPrice, Old: nil, New: new(float64(3))},
 			},
 		},
 		{
 			name: "multiple live fields change at once",
 			prev: ModelSnapshot{
 				enabled:         true,
-				inputPriceCache: fptr(0.5),
-				contextLength:   iptr(131072),
+				inputPriceCache: new(0.5),
+				contextLength:   new(131072),
 			},
 			model: &model.Model{
 				ModelID:                      "m",
-				InputPricePerMillionCacheHit: fptr(0.25),
-				ContextLength:                iptr(262144),
+				InputPricePerMillionCacheHit: new(0.25),
+				ContextLength:                new(262144),
 				LiveMeta:                     model.LiveMetaFields{InputPriceCache: true, ContextLength: true},
 			},
 			wantChanges: []FieldChange{
-				{Field: changeFieldInputPriceCache, Old: fptr(0.5), New: fptr(0.25)},
-				{Field: changeFieldContextLength, Old: fptr(131072), New: fptr(262144)},
+				{Field: changeFieldInputPriceCache, Old: new(0.5), New: new(0.25)},
+				{Field: changeFieldContextLength, Old: new(float64(131072)), New: new(float64(262144))},
 			},
 		},
 		{
@@ -202,7 +199,7 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// alone produces no update.
 			name: "max output tokens change is ignored",
 			prev: ModelSnapshot{enabled: true},
-			model: &model.Model{ModelID: "m", MaxOutputTokens: iptr(8192),
+			model: &model.Model{ModelID: "m", MaxOutputTokens: new(8192),
 				LiveMeta: model.LiveMetaFields{MaxOutputTokens: true}},
 			wantChanges: nil,
 		},
@@ -210,8 +207,8 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// Binary-vs-decimal unit noise (262144 vs 262000) is within tolerance,
 			// even for a live field.
 			name: "context length unit difference is ignored",
-			prev: ModelSnapshot{enabled: true, contextLength: iptr(262144)},
-			model: &model.Model{ModelID: "m", ContextLength: iptr(262000),
+			prev: ModelSnapshot{enabled: true, contextLength: new(262144)},
+			model: &model.Model{ModelID: "m", ContextLength: new(262000),
 				LiveMeta: model.LiveMetaFields{ContextLength: true}},
 			wantChanges: nil,
 		},
@@ -219,25 +216,25 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// A real context-window jump (200K → 256K) on a live field is well
 			// past tolerance.
 			name: "real live context length jump is reported",
-			prev: ModelSnapshot{enabled: true, contextLength: iptr(200000)},
-			model: &model.Model{ModelID: "m", ContextLength: iptr(256000),
+			prev: ModelSnapshot{enabled: true, contextLength: new(200000)},
+			model: &model.Model{ModelID: "m", ContextLength: new(256000),
 				LiveMeta: model.LiveMetaFields{ContextLength: true}},
 			wantChanges: []FieldChange{
-				{Field: changeFieldContextLength, Old: fptr(200000), New: fptr(256000)},
+				{Field: changeFieldContextLength, Old: new(float64(200000)), New: new(float64(256000))},
 			},
 		},
 		{
 			// Float32 storage jitter on a live price must not register.
 			name: "price float32 jitter is ignored",
-			prev: ModelSnapshot{enabled: true, inputPrice: fptr(float64(float32(0.28)))},
-			model: &model.Model{ModelID: "m", InputPricePerMillion: fptr(0.28),
+			prev: ModelSnapshot{enabled: true, inputPrice: new(float64(float32(0.28)))},
+			model: &model.Model{ModelID: "m", InputPricePerMillion: new(0.28),
 				LiveMeta: model.LiveMetaFields{InputPrice: true}},
 			wantChanges: nil,
 		},
 		{
 			name: "unchanged live values produce no update",
-			prev: ModelSnapshot{enabled: true, inputPrice: fptr(1), contextLength: iptr(8192)},
-			model: &model.Model{ModelID: "m", InputPricePerMillion: fptr(1), ContextLength: iptr(8192),
+			prev: ModelSnapshot{enabled: true, inputPrice: new(float64(1)), contextLength: new(8192)},
+			model: &model.Model{ModelID: "m", InputPricePerMillion: new(float64(1)), ContextLength: new(8192),
 				LiveMeta: model.LiveMetaFields{InputPrice: true, ContextLength: true}},
 			wantChanges: nil,
 		},
@@ -251,9 +248,9 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// A model the user has manually disabled is skipped entirely: even a
 			// genuine live price change on a hidden model must not raise the badge.
 			name: "manually disabled model is not reported",
-			prev: ModelSnapshot{enabled: false, disabledManually: true, inputPrice: fptr(1)},
+			prev: ModelSnapshot{enabled: false, disabledManually: true, inputPrice: new(float64(1))},
 			model: &model.Model{
-				ModelID: "m", InputPricePerMillion: fptr(2),
+				ModelID: "m", InputPricePerMillion: new(float64(2)),
 				LiveMeta: model.LiveMetaFields{InputPrice: true},
 			},
 			wantChanges: nil,
@@ -292,11 +289,11 @@ func TestBuildDiscoveryDiff_NewAndReenabledSkipMetadata(t *testing.T) {
 	// A brand-new or reappearing model is classified by membership only; its
 	// field values are not also diffed (no snapshot baseline to compare).
 	snapshot := map[string]ModelSnapshot{
-		"back": {enabled: false, disabledManually: false, inputPrice: fptr(1)},
+		"back": {enabled: false, disabledManually: false, inputPrice: new(float64(1))},
 	}
 	upserted := []*model.Model{
-		{ModelID: "new", InputPricePerMillion: fptr(9)},
-		{ModelID: "back", InputPricePerMillion: fptr(2)},
+		{ModelID: "new", InputPricePerMillion: new(float64(9))},
+		{ModelID: "back", InputPricePerMillion: new(float64(2))},
 	}
 	diff := BuildDiscoveryDiff(snapshot, upserted, nil)
 
@@ -359,12 +356,12 @@ func TestDiscoverProviderModels_RenameScenario(t *testing.T) {
 		}
 		listingMu.Lock()
 		defer listingMu.Unlock()
-		data := make([]map[string]interface{}, 0, len(listing))
+		data := make([]map[string]any, 0, len(listing))
 		for _, id := range listing {
-			data = append(data, map[string]interface{}{"id": id, "owned_by": "test", "object": "model"})
+			data = append(data, map[string]any{"id": id, "owned_by": "test", "object": "model"})
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"data": data})
+		json.NewEncoder(w).Encode(map[string]any{"data": data})
 	}))
 	defer mockServer.Close()
 
@@ -377,8 +374,8 @@ func TestDiscoverProviderModels_RenameScenario(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"data": []map[string]interface{}{{"id": "rename-model-b", "owned_by": "test", "object": "model"}},
+		json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{{"id": "rename-model-b", "owned_by": "test", "object": "model"}},
 		})
 	}))
 	defer mockB.Close()
@@ -572,12 +569,12 @@ func TestDiscoverSweep_DisabledModelSyncErrorTolerated(t *testing.T) {
 		}
 		listingMu.Lock()
 		defer listingMu.Unlock()
-		data := make([]map[string]interface{}, 0, len(listing))
+		data := make([]map[string]any, 0, len(listing))
 		for _, id := range listing {
-			data = append(data, map[string]interface{}{"id": id, "owned_by": "test", "object": "model"})
+			data = append(data, map[string]any{"id": id, "owned_by": "test", "object": "model"})
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"data": data})
+		json.NewEncoder(w).Encode(map[string]any{"data": data})
 	}))
 	defer mockServer.Close()
 
@@ -645,12 +642,12 @@ func TestDiscoverSweep_RevalidationErrorIsBestEffort(t *testing.T) {
 		}
 		listingMu.Lock()
 		defer listingMu.Unlock()
-		data := make([]map[string]interface{}, 0, len(listing))
+		data := make([]map[string]any, 0, len(listing))
 		for _, id := range listing {
-			data = append(data, map[string]interface{}{"id": id, "owned_by": "test", "object": "model"})
+			data = append(data, map[string]any{"id": id, "owned_by": "test", "object": "model"})
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"data": data})
+		json.NewEncoder(w).Encode(map[string]any{"data": data})
 	}))
 	defer mockServer.Close()
 
@@ -709,12 +706,12 @@ func TestDiscoverAllModels_DisabledSyncError(t *testing.T) {
 		}
 		listingMu.Lock()
 		defer listingMu.Unlock()
-		data := make([]map[string]interface{}, 0, len(listing))
+		data := make([]map[string]any, 0, len(listing))
 		for _, id := range listing {
-			data = append(data, map[string]interface{}{"id": id, "owned_by": "test", "object": "model"})
+			data = append(data, map[string]any{"id": id, "owned_by": "test", "object": "model"})
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"data": data})
+		json.NewEncoder(w).Encode(map[string]any{"data": data})
 	}))
 	defer mockServer.Close()
 
@@ -773,12 +770,12 @@ func TestDiscoverSweep_SuspectScanSkipsDisable(t *testing.T) {
 		}
 		listingMu.Lock()
 		defer listingMu.Unlock()
-		data := make([]map[string]interface{}, 0, len(listing))
+		data := make([]map[string]any, 0, len(listing))
 		for _, id := range listing {
-			data = append(data, map[string]interface{}{"id": id, "owned_by": "test", "object": "model"})
+			data = append(data, map[string]any{"id": id, "owned_by": "test", "object": "model"})
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"data": data})
+		json.NewEncoder(w).Encode(map[string]any{"data": data})
 	}))
 	defer mockServer.Close()
 

@@ -48,7 +48,7 @@ func newTestProxyHandler(t *testing.T) *testProxyEnv {
 			return
 		}
 
-		var reqBody map[string]interface{}
+		var reqBody map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
@@ -63,15 +63,15 @@ func newTestProxyHandler(t *testing.T) *testProxyEnv {
 			fmt.Fprintf(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":7,\"total_tokens\":12}}\n\n")
 			fmt.Fprintf(w, "data: [DONE]\n\n")
 		} else {
-			response := map[string]interface{}{
+			response := map[string]any{
 				"id":      "chatcmpl-test",
 				"object":  "chat.completion",
 				"created": time.Now().Unix(),
 				"model":   reqBody["model"].(string),
-				"choices": []map[string]interface{}{
-					{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
+				"choices": []map[string]any{
+					{"index": 0, "message": map[string]any{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
 				},
-				"usage": map[string]interface{}{
+				"usage": map[string]any{
 					"prompt_tokens":     5,
 					"completion_tokens": 7,
 					"total_tokens":      12,
@@ -182,7 +182,7 @@ func TestChatCompletions_NonStreaming(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Errorf("failed to parse response: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestChatCompletions_NonStreaming(t *testing.T) {
 		t.Errorf("expected model '%s', got %v", modelName, resp["model"])
 	}
 
-	choices := resp["choices"].([]interface{})
+	choices := resp["choices"].([]any)
 	if len(choices) == 0 {
 		t.Error("expected at least one choice")
 	}
@@ -268,7 +268,7 @@ func TestChatCompletions_HotelModel(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Errorf("failed to parse response: %v", err)
 	}
@@ -373,7 +373,7 @@ func TestChatCompletions_StreamFalseWithStreamOptions(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Errorf("failed to parse response: %v", err)
 	}
@@ -499,7 +499,7 @@ func TestChatCompletions_AdditionalParameters(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Errorf("failed to parse response: %v", err)
 	}
@@ -538,7 +538,7 @@ func TestChatCompletions_NonStreaming_Success(t *testing.T) {
 		t.Errorf("expected Content-Type 'application/json', got %v", contentType)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -547,12 +547,12 @@ func TestChatCompletions_NonStreaming_Success(t *testing.T) {
 		t.Errorf("expected model '%s', got %v", modelName, resp["model"])
 	}
 
-	choices := resp["choices"].([]interface{})
+	choices := resp["choices"].([]any)
 	if len(choices) != 1 {
 		t.Errorf("expected 1 choice, got %d", len(choices))
 	}
 
-	usage := resp["usage"].(map[string]interface{})
+	usage := resp["usage"].(map[string]any)
 	if usage["prompt_tokens"] != float64(5) {
 		t.Errorf("expected prompt_tokens=5, got %v", usage["prompt_tokens"])
 	}
@@ -577,8 +577,8 @@ func TestChatCompletions_NonStreaming_Upstream4xxError(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
 				"message": "invalid request",
 				"type":    "invalid_request_error",
 			},
@@ -643,7 +643,7 @@ func TestChatCompletions_NonStreaming_Upstream4xxError(t *testing.T) {
 		t.Errorf("expected 400, got %d", w.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -670,8 +670,8 @@ func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
 				"message": "service unavailable",
 				"type":    "server_error",
 			},
@@ -736,7 +736,7 @@ func TestChatCompletions_NonStreaming_Upstream5xxError(t *testing.T) {
 		t.Errorf("expected 503, got %d", w.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -820,8 +820,8 @@ func TestChatCompletions_FailoverWithBackoff(t *testing.T) {
 	upstream1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
 				"message": "internal error",
 				"type":    "server_error",
 			},
@@ -833,15 +833,15 @@ func TestChatCompletions_FailoverWithBackoff(t *testing.T) {
 	upstream2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"id":      "chatcmpl-test",
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
 			"model":   "success-model",
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "success"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "success"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"prompt_tokens":     5,
 				"completion_tokens": 7,
 				"total_tokens":      12,
@@ -927,7 +927,7 @@ func TestChatCompletions_FailoverWithBackoff(t *testing.T) {
 		t.Errorf("expected 200 after failover, got %d", w.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
@@ -1055,8 +1055,8 @@ func TestChatCompletions_ClientDisconnectDuringBackoff(t *testing.T) {
 	upstream1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
 				"message": "error1",
 			},
 		})
@@ -1068,9 +1068,9 @@ func TestChatCompletions_ClientDisconnectDuringBackoff(t *testing.T) {
 		time.Sleep(500 * time.Millisecond)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"id":      "chatcmpl-test",
-			"choices": []map[string]interface{}{{"message": map[string]interface{}{"content": "success"}}},
+			"choices": []map[string]any{{"message": map[string]any{"content": "success"}}},
 		})
 	}))
 	defer upstream2.Close()
@@ -1188,15 +1188,15 @@ func TestChatCompletions_ParamRejectionAutoRetry(t *testing.T) {
 	// Create provider that rejects temperature on first request, succeeds on retry
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		retryCount.Add(1)
-		var body map[string]interface{}
+		var body map[string]any
 		json.NewDecoder(r.Body).Decode(&body)
 
 		// First request has temperature - reject it with quoted param name
 		if retryCount.Load() == 1 && body["temperature"] != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"error": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"error": map[string]any{
 					"message": "Unsupported parameter: \"temperature\" is not supported for this model",
 					"type":    "invalid_request_error",
 				},
@@ -1207,15 +1207,15 @@ func TestChatCompletions_ParamRejectionAutoRetry(t *testing.T) {
 		// Retry or request without temperature - succeed
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"id":      "chatcmpl-test",
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
 			"model":   body["model"].(string),
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "success"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "success"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"prompt_tokens":     5,
 				"completion_tokens": 7,
 				"total_tokens":      12,
@@ -1366,7 +1366,7 @@ func TestChatCompletions_NonJSONErrorBody(t *testing.T) {
 	}
 
 	// Body should be valid JSON with error object (not raw HTML)
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("expected JSON response, got: %s", w.Body.String())
 	}

@@ -32,7 +32,7 @@ func TestGetAppLogsIntegration(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response []map[string]interface{}
+	var response []map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestClearAppLogs_InvalidatesCountCache(t *testing.T) {
 
 	// newTestHandler truncates app_logs, so the unfiltered total covers exactly
 	// the rows we insert here.
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if _, err := pool.Exec(ctx,
 			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
 			 VALUES (gen_random_uuid(), NOW(), 'info', 'clearcache', 'msg', NOW())`); err != nil {
@@ -125,7 +125,7 @@ func TestClearAppLogs_OlderThanRange(t *testing.T) {
 	ctx := context.Background()
 
 	// Two stale rows (8 days old) and one fresh row (1 hour old).
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		if _, err := pool.Exec(ctx,
 			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
 			 VALUES (gen_random_uuid(), NOW() - INTERVAL '8 days', 'info', 'rangetest', 'old', NOW() - INTERVAL '8 days')`); err != nil {
@@ -190,7 +190,7 @@ func TestGetAppLogs_WithSeverityFilter(t *testing.T) {
 	}
 
 	var response struct {
-		Entries []map[string]interface{} `json:"entries"`
+		Entries []map[string]any `json:"entries"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -214,7 +214,7 @@ func TestGetAppLogs_WithSearchFilter(t *testing.T) {
 	}
 
 	var response struct {
-		Entries []map[string]interface{} `json:"entries"`
+		Entries []map[string]any `json:"entries"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -238,7 +238,7 @@ func TestGetAppLogs_WithTimeRangeFilter(t *testing.T) {
 	}
 
 	var response struct {
-		Entries []map[string]interface{} `json:"entries"`
+		Entries []map[string]any `json:"entries"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -262,7 +262,7 @@ func TestGetAppLogs(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response []map[string]interface{}
+	var response []map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -498,7 +498,7 @@ func TestGetAppLogs_WithLimit(t *testing.T) {
 	debuglog.SetHandler(slogHandler)
 
 	// Write multiple log messages
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		debuglog.Info(fmt.Sprintf("test message %d", i), "source", "test")
 	}
 
@@ -541,12 +541,12 @@ func TestGetAppLogsHistory(t *testing.T) {
 	}
 
 	var response struct {
-		Entries      []map[string]interface{} `json:"entries"`
-		Total        int                      `json:"total"`
-		Page         int                      `json:"page"`
-		PerPage      int                      `json:"per_page"`
-		LevelCounts  map[string]int           `json:"level_counts"`
-		SourceCounts map[string]int           `json:"source_counts"`
+		Entries      []map[string]any `json:"entries"`
+		Total        int              `json:"total"`
+		Page         int              `json:"page"`
+		PerPage      int              `json:"per_page"`
+		LevelCounts  map[string]int   `json:"level_counts"`
+		SourceCounts map[string]int   `json:"source_counts"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -773,7 +773,7 @@ func TestGetAppLogs_EmptyResult(t *testing.T) {
 	}
 
 	// Default mode returns a JSON array of log entries (may be empty)
-	var response []interface{}
+	var response []any
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}

@@ -45,7 +45,7 @@ func TestUpdateVirtualKey(t *testing.T) {
 			t.Fatalf("Failed to create virtual key: %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var createResp map[string]interface{}
+		var createResp map[string]any
 		if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
 			t.Fatalf("Failed to parse create response: %v", err)
 		}
@@ -63,7 +63,7 @@ func TestUpdateVirtualKey(t *testing.T) {
 			t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var updateResp map[string]interface{}
+		var updateResp map[string]any
 		if err := json.Unmarshal(rec.Body.Bytes(), &updateResp); err != nil {
 			t.Fatalf("Failed to parse update response: %v", err)
 		}
@@ -85,7 +85,7 @@ func TestUpdateVirtualKey(t *testing.T) {
 			t.Fatalf("Failed to create virtual key: %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var createResp map[string]interface{}
+		var createResp map[string]any
 		if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
 			t.Fatalf("Failed to parse create response: %v", err)
 		}
@@ -120,7 +120,7 @@ func TestUpdateVirtualKey(t *testing.T) {
 			t.Fatalf("Failed to create virtual key: %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var createResp map[string]interface{}
+		var createResp map[string]any
 		if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
 			t.Fatalf("Failed to parse create response: %v", err)
 		}
@@ -167,7 +167,7 @@ func TestUpdateVirtualKey(t *testing.T) {
 			t.Fatalf("Failed to create virtual key: %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var createResp map[string]interface{}
+		var createResp map[string]any
 		if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
 			t.Fatalf("Failed to parse create response: %v", err)
 		}
@@ -185,7 +185,7 @@ func TestUpdateVirtualKey(t *testing.T) {
 			t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var updateResp map[string]interface{}
+		var updateResp map[string]any
 		if err := json.Unmarshal(rec.Body.Bytes(), &updateResp); err != nil {
 			t.Fatalf("Failed to parse update response: %v", err)
 		}

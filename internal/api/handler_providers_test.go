@@ -470,7 +470,7 @@ func TestListProviders_WithPagination(t *testing.T) {
 	// Create multiple providers
 	var rec *httptest.ResponseRecorder
 	var req *http.Request
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		providerData := fmt.Sprintf(`{"name": "test-provider-%d", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, i)
 		rec = httptest.NewRecorder()
 		req = httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
@@ -827,7 +827,7 @@ func TestListProviders_WithSearchFilter(t *testing.T) {
 		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var response []map[string]interface{}
+	var response []map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -855,7 +855,7 @@ func TestUpdateProvider_InvalidBody(t *testing.T) {
 		t.Fatalf("Failed to create provider: %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID, ok := resp["id"].(string)
 	if !ok {
@@ -888,7 +888,7 @@ func TestUpdateProvider_WithNewAPIKey(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -918,7 +918,7 @@ func TestListProviders_WithPaginationAndModelCounts(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -950,7 +950,7 @@ func TestListProviders_WithPaginationAndModelCounts(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w2.Code, w2.Body.String())
 	}
 
-	var response []map[string]interface{}
+	var response []map[string]any
 	json.NewDecoder(w2.Body).Decode(&response)
 	if len(response) < 1 {
 		t.Fatalf("expected at least 1 provider, got %d", len(response))
@@ -996,7 +996,7 @@ func TestUpdateProvider_NameConflict(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 
-	var resp1, resp2 map[string]interface{}
+	var resp1, resp2 map[string]any
 	json.NewDecoder(w1.Body).Decode(&resp1)
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	providerID2 := resp2["id"].(string)
@@ -1054,7 +1054,7 @@ func TestListProviders_SearchFilter_Integration(t *testing.T) {
 	}
 
 	// Response is an array of providers
-	var providers []map[string]interface{}
+	var providers []map[string]any
 	if err := json.NewDecoder(w3.Body).Decode(&providers); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -1155,7 +1155,7 @@ func TestUpdateProvider_EnableDisable(t *testing.T) {
 			t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var response map[string]interface{}
+		var response map[string]any
 		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 			t.Fatalf("Failed to parse response: %v", err)
 		}
@@ -1177,7 +1177,7 @@ func TestUpdateProvider_EnableDisable(t *testing.T) {
 			t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var response map[string]interface{}
+		var response map[string]any
 		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 			t.Fatalf("Failed to parse response: %v", err)
 		}
@@ -1230,7 +1230,7 @@ func TestUpdateProvider_PartialUpdate_WithGet(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
-		var response map[string]interface{}
+		var response map[string]any
 		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 			t.Fatalf("Failed to parse response: %v", err)
 		}
@@ -1258,7 +1258,7 @@ func TestUpdateProvider_PartialUpdate_WithGet(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		r.ServeHTTP(rec, req)
 
-		var response map[string]interface{}
+		var response map[string]any
 		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 			t.Fatalf("Failed to parse response: %v", err)
 		}
@@ -1360,7 +1360,7 @@ func TestListProviders_WithTokenCounts_Integration(t *testing.T) {
 	}
 
 	// Parse the provider ID from the create response
-	var createResp map[string]interface{}
+	var createResp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &createResp); err != nil {
 		t.Fatalf("Failed to parse create response: %v", err)
 	}
@@ -1389,7 +1389,7 @@ func TestListProviders_WithTokenCounts_Integration(t *testing.T) {
 		t.Errorf("Expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var providers []map[string]interface{}
+	var providers []map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &providers); err != nil {
 		t.Fatalf("Failed to parse list response: %v", err)
 	}

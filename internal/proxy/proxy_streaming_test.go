@@ -386,7 +386,7 @@ func TestHandleStreamingResponse_TooManyEmptyLines(t *testing.T) {
 		// Send 1002 empty lines. bufio.Scanner splits on \n, so each
 		// \n is a separate scan line. The implementation aborts when
 		// emptyLines > 1000.
-		for i := 0; i < 1002; i++ {
+		for range 1002 {
 			fmt.Fprint(w, "\n")
 		}
 		flusher.Flush()
@@ -747,7 +747,7 @@ func TestHandleStreamingResponse_RepeatedContentDetection(t *testing.T) {
 		}
 
 		// Send same content 12 times (exceeds threshold of 10)
-		for i := 0; i < 12; i++ {
+		for range 12 {
 			fmt.Fprint(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"thinking...\"},\"finish_reason\":null}]}\n\n")
 			flusher.Flush()
 		}
@@ -1367,7 +1367,7 @@ func TestHandleStreamingResponse_RepeatedContentPreviewTruncation(t *testing.T) 
 		}
 
 		// Send 12 identical chunks (exceeds threshold of 10)
-		for i := 0; i < 12; i++ {
+		for range 12 {
 			fmt.Fprintf(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"%s\"},\"finish_reason\":null}]}\n\n", longContent)
 			flusher.Flush()
 		}

@@ -936,8 +936,8 @@ exit 0
 		// Verify 1: Password should NOT appear in command-line args
 		if strings.Contains(capturedStr, "secret") {
 			// Check if it's in an ARG line (bad) vs PGPASSWORD line (ok)
-			lines := strings.Split(capturedStr, "\n")
-			for _, line := range lines {
+			lines := strings.SplitSeq(capturedStr, "\n")
+			for line := range lines {
 				if strings.HasPrefix(line, "ARG:") && strings.Contains(line, "secret") {
 					t.Errorf("password 'secret' found in command-line args: %s", line)
 				}
@@ -952,7 +952,7 @@ exit 0
 		// Verify 3: The connection URL should have user but no password
 		// Should be something like: postgresql://user@localhost:5432/dbname
 		hasUserOnlyURL := false
-		for _, line := range strings.Split(capturedStr, "\n") {
+		for line := range strings.SplitSeq(capturedStr, "\n") {
 			if strings.HasPrefix(line, "ARG:postgresql://user@") && !strings.Contains(line, ":secret") {
 				hasUserOnlyURL = true
 				break
@@ -999,7 +999,7 @@ exit 0
 
 		// Verify: PGPASSWORD should NOT be set (empty)
 		if strings.Contains(capturedStr, "PGPASSWORD:") {
-			for _, line := range strings.Split(capturedStr, "\n") {
+			for line := range strings.SplitSeq(capturedStr, "\n") {
 				if line == "PGPASSWORD:" {
 					// Empty PGPASSWORD is correct (not set)
 					return

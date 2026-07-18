@@ -298,7 +298,7 @@ func (h *BackupHandler) RestoreBackup(w http.ResponseWriter, r *http.Request) {
 		Severity: "success",
 		Source:   "backup",
 		Message:  "Database restored successfully. Restarting...",
-		Metadata: map[string]interface{}{"migration_count": len(dumpMigrations)},
+		Metadata: map[string]any{"migration_count": len(dumpMigrations)},
 	})
 
 	// Respond before exiting so the client gets the success response

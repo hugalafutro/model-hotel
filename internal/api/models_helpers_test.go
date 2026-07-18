@@ -162,11 +162,11 @@ func TestModelToResponse(t *testing.T) {
 				Modality:                     "text",
 				InputModalities:              `["text"]`,
 				OutputModalities:             `["text"]`,
-				ContextLength:                intPtr(128000),
-				MaxOutputTokens:              intPtr(4096),
-				InputPricePerMillion:         float64Ptr(10.0),
-				InputPricePerMillionCacheHit: float64Ptr(5.0),
-				OutputPricePerMillion:        float64Ptr(30.0),
+				ContextLength:                new(128000),
+				MaxOutputTokens:              new(4096),
+				InputPricePerMillion:         new(10.0),
+				InputPricePerMillionCacheHit: new(5.0),
+				OutputPricePerMillion:        new(30.0),
 				OwnedBy:                      "OpenAI",
 				Enabled:                      true,
 				CreatedAt:                    time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
@@ -185,11 +185,11 @@ func TestModelToResponse(t *testing.T) {
 				Modality:                     "text",
 				InputModalities:              `["text"]`,
 				OutputModalities:             `["text"]`,
-				ContextLength:                intPtr(128000),
-				MaxOutputTokens:              intPtr(4096),
-				InputPricePerMillion:         float64Ptr(10.0),
-				InputPricePerMillionCacheHit: float64Ptr(5.0),
-				OutputPricePerMillion:        float64Ptr(30.0),
+				ContextLength:                new(128000),
+				MaxOutputTokens:              new(4096),
+				InputPricePerMillion:         new(10.0),
+				InputPricePerMillionCacheHit: new(5.0),
+				OutputPricePerMillion:        new(30.0),
 				OwnedBy:                      "OpenAI",
 				Enabled:                      true,
 				CreatedAt:                    "2024-01-15T10:30:00Z",
@@ -344,16 +344,7 @@ func TestModelToResponse(t *testing.T) {
 	}
 }
 
-// Helper functions for testing
-func intPtr(i int) *int {
-	return &i
-}
-
-func float64Ptr(f float64) *float64 {
-	return &f
-}
-
-func ptrEqual(a, b interface{}) bool {
+func ptrEqual(a, b any) bool {
 	// Handle nil cases - this handles when the interface{} itself is nil
 	if a == nil && b == nil {
 		return true

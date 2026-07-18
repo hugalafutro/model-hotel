@@ -31,8 +31,8 @@ func TestCollapseRoundTrips(t *testing.T) {
 		// Newest-first, as listPendingDiscoveryChanges returns: the later run
 		// ($0.182 -> $0.49) sits above the earlier run ($0.49 -> $0.182).
 		entries := []DiscoveryChangeEntry{
-			updEntry("p1", "OR", t1, "z-ai/glm-5.1", fc("input_price_cache", fptr(0.182), fptr(0.49))),
-			updEntry("p1", "OR", t0, "z-ai/glm-5.1", fc("input_price_cache", fptr(0.49), fptr(0.182))),
+			updEntry("p1", "OR", t1, "z-ai/glm-5.1", fc("input_price_cache", new(0.182), new(0.49))),
+			updEntry("p1", "OR", t0, "z-ai/glm-5.1", fc("input_price_cache", new(0.49), new(0.182))),
 		}
 		got := collapseRoundTrips(entries)
 		if len(got) != 0 {
@@ -42,7 +42,7 @@ func TestCollapseRoundTrips(t *testing.T) {
 
 	t.Run("one-directional change is kept", func(t *testing.T) {
 		entries := []DiscoveryChangeEntry{
-			updEntry("p1", "OR", t0, "z-ai/glm-5.1", fc("input_price_cache", fptr(0.49), fptr(0.182))),
+			updEntry("p1", "OR", t0, "z-ai/glm-5.1", fc("input_price_cache", new(0.49), new(0.182))),
 		}
 		got := collapseRoundTrips(entries)
 		if len(got) != 1 || len(got[0].Diff.Updated) != 1 {
@@ -54,12 +54,12 @@ func TestCollapseRoundTrips(t *testing.T) {
 		// input_price returns to its start; output_price ends changed.
 		entries := []DiscoveryChangeEntry{
 			updEntry("p1", "OR", t1, "m",
-				fc("input_price", fptr(2.0), fptr(1.0)),
-				fc("output_price", fptr(8.0), fptr(9.0)),
+				fc("input_price", new(2.0), new(1.0)),
+				fc("output_price", new(8.0), new(9.0)),
 			),
 			updEntry("p1", "OR", t0, "m",
-				fc("input_price", fptr(1.0), fptr(2.0)),
-				fc("output_price", fptr(7.0), fptr(8.0)),
+				fc("input_price", new(1.0), new(2.0)),
+				fc("output_price", new(7.0), new(8.0)),
 			),
 		}
 		got := collapseRoundTrips(entries)
@@ -81,8 +81,8 @@ func TestCollapseRoundTrips(t *testing.T) {
 		// Two distinct providers each show one genuine, opposite move. They must
 		// NOT chain into a false round-trip.
 		entries := []DiscoveryChangeEntry{
-			updEntry("pA", "A", t0, "openai/gpt-5-mini", fc("input_price_cache", fptr(0.49), fptr(0.182))),
-			updEntry("pB", "B", t0, "openai/gpt-5-mini", fc("input_price_cache", fptr(0.182), fptr(0.49))),
+			updEntry("pA", "A", t0, "openai/gpt-5-mini", fc("input_price_cache", new(0.49), new(0.182))),
+			updEntry("pB", "B", t0, "openai/gpt-5-mini", fc("input_price_cache", new(0.182), new(0.49))),
 		}
 		got := collapseRoundTrips(entries)
 		if len(got) != 2 {
@@ -92,9 +92,9 @@ func TestCollapseRoundTrips(t *testing.T) {
 
 	t.Run("three-run bounce A->B->C->A collapses", func(t *testing.T) {
 		entries := []DiscoveryChangeEntry{
-			updEntry("p1", "OR", t2, "m", fc("input_price", fptr(3.0), fptr(1.0))),
-			updEntry("p1", "OR", t1, "m", fc("input_price", fptr(2.0), fptr(3.0))),
-			updEntry("p1", "OR", t0, "m", fc("input_price", fptr(1.0), fptr(2.0))),
+			updEntry("p1", "OR", t2, "m", fc("input_price", new(3.0), new(1.0))),
+			updEntry("p1", "OR", t1, "m", fc("input_price", new(2.0), new(3.0))),
+			updEntry("p1", "OR", t0, "m", fc("input_price", new(1.0), new(2.0))),
 		}
 		got := collapseRoundTrips(entries)
 		if len(got) != 0 {
@@ -115,8 +115,8 @@ func TestCollapseRoundTrips(t *testing.T) {
 
 	t.Run("provider keyed by name when id is empty", func(t *testing.T) {
 		entries := []DiscoveryChangeEntry{
-			updEntry("", "Deleted OR", t1, "m", fc("input_price", fptr(0.182), fptr(0.49))),
-			updEntry("", "Deleted OR", t0, "m", fc("input_price", fptr(0.49), fptr(0.182))),
+			updEntry("", "Deleted OR", t1, "m", fc("input_price", new(0.182), new(0.49))),
+			updEntry("", "Deleted OR", t0, "m", fc("input_price", new(0.49), new(0.182))),
 		}
 		got := collapseRoundTrips(entries)
 		if len(got) != 0 {
@@ -129,11 +129,11 @@ func TestCollapseRoundTrips(t *testing.T) {
 			{
 				ProviderID: "p1", ProviderName: "OR", DetectedAt: t1,
 				Diff: &DiscoveryDiff{
-					Updated:  []ModelUpdate{{ModelID: "m", Changes: []FieldChange{fc("input_price", fptr(0.182), fptr(0.49))}}},
+					Updated:  []ModelUpdate{{ModelID: "m", Changes: []FieldChange{fc("input_price", new(0.182), new(0.49))}}},
 					Disabled: []ModelChange{{ModelID: "x", Reason: "not_listed"}},
 				},
 			},
-			updEntry("p1", "OR", t0, "m", fc("input_price", fptr(0.49), fptr(0.182))),
+			updEntry("p1", "OR", t0, "m", fc("input_price", new(0.49), new(0.182))),
 		}
 		got := collapseRoundTrips(entries)
 		if len(got) != 1 {
@@ -151,8 +151,8 @@ func TestCollapseRoundTrips(t *testing.T) {
 		// Same timestamp on both runs: first/last resolve by slice order, and the
 		// earliest "from" ($0.49) still equals the latest "to" ($0.49).
 		entries := []DiscoveryChangeEntry{
-			updEntry("p1", "OR", t0, "m", fc("input_price", fptr(0.49), fptr(0.182))),
-			updEntry("p1", "OR", t0, "m", fc("input_price", fptr(0.182), fptr(0.49))),
+			updEntry("p1", "OR", t0, "m", fc("input_price", new(0.49), new(0.182))),
+			updEntry("p1", "OR", t0, "m", fc("input_price", new(0.182), new(0.49))),
 		}
 		got := collapseRoundTrips(entries)
 		if len(got) != 0 {
@@ -164,8 +164,8 @@ func TestCollapseRoundTrips(t *testing.T) {
 		// A provider deleted mid-review: one entry carries its ID, a later one only
 		// the name. Different keys, so the two opposite moves must NOT cancel.
 		entries := []DiscoveryChangeEntry{
-			updEntry("", "OR", t1, "m", fc("input_price", fptr(0.182), fptr(0.49))),
-			updEntry("p1", "OR", t0, "m", fc("input_price", fptr(0.49), fptr(0.182))),
+			updEntry("", "OR", t1, "m", fc("input_price", new(0.182), new(0.49))),
+			updEntry("p1", "OR", t0, "m", fc("input_price", new(0.49), new(0.182))),
 		}
 		got := collapseRoundTrips(entries)
 		if len(got) != 2 {
@@ -178,8 +178,8 @@ func TestCollapseRoundTrips_DoesNotMutateInput(t *testing.T) {
 	t0 := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
 	t1 := t0.Add(time.Hour)
 	entries := []DiscoveryChangeEntry{
-		updEntry("p1", "OR", t1, "m", fc("input_price", fptr(0.182), fptr(0.49))),
-		updEntry("p1", "OR", t0, "m", fc("input_price", fptr(0.49), fptr(0.182))),
+		updEntry("p1", "OR", t1, "m", fc("input_price", new(0.182), new(0.49))),
+		updEntry("p1", "OR", t0, "m", fc("input_price", new(0.49), new(0.182))),
 	}
 	origDiff0 := entries[0].Diff
 	origUpdatedLen := len(entries[0].Diff.Updated)
@@ -208,8 +208,8 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 	}
 
 	t.Run("within tolerance demotes the field to fill-only", func(t *testing.T) {
-		snap := map[string]ModelSnapshot{"m": {inputPriceCache: fptr(0.50)}}
-		m := liveModel("m", fptr(0.48)) // 4% drift, under 7%
+		snap := map[string]ModelSnapshot{"m": {inputPriceCache: new(0.50)}}
+		m := liveModel("m", new(0.48)) // 4% drift, under 7%
 		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
 		if m.LiveMeta.InputPriceCache {
 			t.Fatal("sub-tolerance wiggle should have cleared the live flag")
@@ -217,8 +217,8 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 	})
 
 	t.Run("beyond tolerance stays live", func(t *testing.T) {
-		snap := map[string]ModelSnapshot{"m": {inputPriceCache: fptr(0.49)}}
-		m := liveModel("m", fptr(0.182)) // 63% drop, real upstream switch
+		snap := map[string]ModelSnapshot{"m": {inputPriceCache: new(0.49)}}
+		m := liveModel("m", new(0.182)) // 63% drop, real upstream switch
 		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
 		if !m.LiveMeta.InputPriceCache {
 			t.Fatal("a large genuine price move must remain live")
@@ -226,8 +226,8 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 	})
 
 	t.Run("non-openrouter provider is a no-op", func(t *testing.T) {
-		snap := map[string]ModelSnapshot{"m": {inputPriceCache: fptr(0.50)}}
-		m := liveModel("m", fptr(0.48))
+		snap := map[string]ModelSnapshot{"m": {inputPriceCache: new(0.50)}}
+		m := liveModel("m", new(0.48))
 		DampenOpenRouterPriceJitter("https://api.deepseek.com", snap, []*model.Model{m})
 		if !m.LiveMeta.InputPriceCache {
 			t.Fatal("damping must only apply to openrouter providers")
@@ -235,7 +235,7 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 	})
 
 	t.Run("model absent from snapshot is untouched", func(t *testing.T) {
-		m := liveModel("m", fptr(0.48))
+		m := liveModel("m", new(0.48))
 		DampenOpenRouterPriceJitter(orURL, map[string]ModelSnapshot{}, []*model.Model{m})
 		if !m.LiveMeta.InputPriceCache {
 			t.Fatal("first-seen model has no prior value to compare; flag must stay")
@@ -244,7 +244,7 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 
 	t.Run("filling a previously-unset price is kept", func(t *testing.T) {
 		snap := map[string]ModelSnapshot{"m": {inputPriceCache: nil}}
-		m := liveModel("m", fptr(0.48))
+		m := liveModel("m", new(0.48))
 		DampenOpenRouterPriceJitter(orURL, snap, []*model.Model{m})
 		if !m.LiveMeta.InputPriceCache {
 			t.Fatal("filling an unset field is a genuine change, not jitter")
@@ -255,13 +255,13 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 		// A model whose input price wiggled under tolerance but whose output price
 		// genuinely jumped: only the input flag should be demoted.
 		snap := map[string]ModelSnapshot{"m": {
-			inputPrice:  fptr(2.00),
-			outputPrice: fptr(6.00),
+			inputPrice:  new(2.00),
+			outputPrice: new(6.00),
 		}}
 		m := &model.Model{
 			ModelID:               "m",
-			InputPricePerMillion:  fptr(1.96), // 2% drift -> jitter
-			OutputPricePerMillion: fptr(3.00), // 50% drop -> real move
+			InputPricePerMillion:  new(1.96), // 2% drift -> jitter
+			OutputPricePerMillion: new(3.00), // 50% drop -> real move
 		}
 		m.LiveMeta.InputPrice = true
 		m.LiveMeta.OutputPrice = true
@@ -278,13 +278,13 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 
 	t.Run("both input and output sub-tolerance wiggles are damped", func(t *testing.T) {
 		snap := map[string]ModelSnapshot{"m": {
-			inputPrice:  fptr(2.00),
-			outputPrice: fptr(6.00),
+			inputPrice:  new(2.00),
+			outputPrice: new(6.00),
 		}}
 		m := &model.Model{
 			ModelID:               "m",
-			InputPricePerMillion:  fptr(2.02),
-			OutputPricePerMillion: fptr(5.90),
+			InputPricePerMillion:  new(2.02),
+			OutputPricePerMillion: new(5.90),
 		}
 		m.LiveMeta.InputPrice = true
 		m.LiveMeta.OutputPrice = true
@@ -302,7 +302,7 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 // and a nil pointer reports -1 (no real price is negative, so it reads
 // unambiguously as "unset" in the damping debug log).
 func TestFloatPtrVal(t *testing.T) {
-	if got := floatPtrVal(fptr(0.5)); got != 0.5 {
+	if got := floatPtrVal(new(0.5)); got != 0.5 {
 		t.Errorf("floatPtrVal(0.5) = %v, want 0.5", got)
 	}
 	if got := floatPtrVal(nil); got != -1 {
@@ -316,16 +316,16 @@ func TestWithinPriceTolerance(t *testing.T) {
 		old, new *float64
 		want     bool
 	}{
-		{"equal", fptr(1.0), fptr(1.0), true},
-		{"within band", fptr(1.0), fptr(1.05), true},
+		{"equal", new(1.0), new(1.0), true},
+		{"within band", new(1.0), new(1.05), true},
 		// denom is the larger value, so exactly 7% is 0.93 -> 1.0 (0.07/1.0).
-		{"exactly on the 7% edge", fptr(0.93), fptr(1.0), true},
-		{"just past the edge", fptr(0.92), fptr(1.0), false},
-		{"beyond band", fptr(1.0), fptr(1.5), false},
-		{"old nil", nil, fptr(1.0), false},
-		{"new nil", fptr(1.0), nil, false},
+		{"exactly on the 7% edge", new(0.93), new(1.0), true},
+		{"just past the edge", new(0.92), new(1.0), false},
+		{"beyond band", new(1.0), new(1.5), false},
+		{"old nil", nil, new(1.0), false},
+		{"new nil", new(1.0), nil, false},
 		{"both nil", nil, nil, false},
-		{"both zero", fptr(0), fptr(0), true},
+		{"both zero", new(float64(0)), new(float64(0)), true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

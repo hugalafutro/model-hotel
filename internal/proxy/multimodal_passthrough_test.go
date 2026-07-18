@@ -142,7 +142,7 @@ func TestEmbeddings_PassthroughAndModelRewrite(t *testing.T) {
 	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath.Store(r.URL.Path)
 		gotAuth.Store(r.Header.Get("Authorization"))
-		var req map[string]interface{}
+		var req map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		if m, ok := req["model"].(string); ok {
 			gotModel.Store(m)
@@ -274,7 +274,7 @@ func TestRerank_PassthroughAndModelRewrite(t *testing.T) {
 	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath.Store(r.URL.Path)
 		gotAuth.Store(r.Header.Get("Authorization"))
-		var req map[string]interface{}
+		var req map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		if m, ok := req["model"].(string); ok {
 			gotModel.Store(m)

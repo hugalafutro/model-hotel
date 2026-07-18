@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -208,9 +209,7 @@ func TestFleetAnnounce_Ownership(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := &fakeFleetSettings{values: map[string]string{}}
-			for k, v := range tt.stored {
-				fs.values[k] = v
-			}
+			maps.Copy(fs.values, tt.stored)
 			h := NewFleetHandler(fs)
 			req := httptest.NewRequest(http.MethodPost, "/fleet/announce", strings.NewReader(tt.body))
 			rec := httptest.NewRecorder()
@@ -260,7 +259,7 @@ func TestFleetAnnounce_ConflictDebounced(t *testing.T) {
 	defer events.Unsubscribe(sub)
 
 	// Two back-to-back rejections from the same rogue FD: exactly one event.
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		req := httptest.NewRequest(http.MethodPost, "/fleet/announce",
 			strings.NewReader(`{"is_primary":false,"frontdesk_id":"fd-2"}`))
 		rec := httptest.NewRecorder()

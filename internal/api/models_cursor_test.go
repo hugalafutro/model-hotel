@@ -1081,7 +1081,7 @@ func TestListModelsCursor_BackwardPagination(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_EmptyCursor(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	result := buildModelKeysetPredicate(modelCursor{}, "after", "ASC", &argIdx, &args)
 	if result != "" {
 		t.Errorf("expected empty string for empty cursor, got %q", result)
@@ -1093,7 +1093,7 @@ func TestBuildModelKeysetPredicate_EmptyCursor(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_EmptyID(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	result := buildModelKeysetPredicate(modelCursor{SortBy: "name"}, "after", "ASC", &argIdx, &args)
 	if result != "" {
 		t.Errorf("expected empty string for empty ID, got %q", result)
@@ -1102,7 +1102,7 @@ func TestBuildModelKeysetPredicate_EmptyID(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_NameSort(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	cursor := modelCursor{SortBy: "name", Name: "my-model", ID: "test-id-1"}
 	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
 	if result == "" {
@@ -1127,7 +1127,7 @@ func TestBuildModelKeysetPredicate_NameSort(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_DescAfterUsesLessThan(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	cursor := modelCursor{SortBy: "name", Name: "my-model", ID: "test-id-2"}
 	result := buildModelKeysetPredicate(cursor, "after", "DESC", &argIdx, &args)
 	if !strings.Contains(result, "<") {
@@ -1137,7 +1137,7 @@ func TestBuildModelKeysetPredicate_DescAfterUsesLessThan(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_BeforeAscUsesLessThan(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	cursor := modelCursor{SortBy: "name", Name: "my-model", ID: "test-id-3"}
 	result := buildModelKeysetPredicate(cursor, "before", "ASC", &argIdx, &args)
 	if !strings.Contains(result, "<") {
@@ -1147,7 +1147,7 @@ func TestBuildModelKeysetPredicate_BeforeAscUsesLessThan(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_DiscoveredSort(t *testing.T) {
 	argIdx := 5
-	var args []interface{}
+	var args []any
 	now := time.Now()
 	cursor := modelCursor{SortBy: "discovered", LastSeenAt: now, ID: "test-id-disc"}
 	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
@@ -1164,7 +1164,7 @@ func TestBuildModelKeysetPredicate_DiscoveredSort(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_DiscoveredSortZeroTime(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	cursor := modelCursor{SortBy: "discovered", ID: "test-id-zero"}
 	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
 	if result != "" {
@@ -1174,7 +1174,7 @@ func TestBuildModelKeysetPredicate_DiscoveredSortZeroTime(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_ContextSort(t *testing.T) {
 	argIdx := 3
-	var args []interface{}
+	var args []any
 	ctxLen := 8192
 	cursor := modelCursor{SortBy: "context", ContextLength: &ctxLen, ID: "test-id-ctx"}
 	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
@@ -1188,7 +1188,7 @@ func TestBuildModelKeysetPredicate_ContextSort(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_ContextSortNilLength(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	cursor := modelCursor{SortBy: "context", ID: "test-id-ctx-nil"}
 	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
 	if result != "" {
@@ -1198,7 +1198,7 @@ func TestBuildModelKeysetPredicate_ContextSortNilLength(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_OutputSort(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	maxOut := 4096
 	cursor := modelCursor{SortBy: "output", MaxOutput: &maxOut, ID: "test-id-out"}
 	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
@@ -1212,7 +1212,7 @@ func TestBuildModelKeysetPredicate_OutputSort(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_OutputSortNilOutput(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	cursor := modelCursor{SortBy: "output", ID: "test-id-out-nil"}
 	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
 	if result != "" {
@@ -1222,7 +1222,7 @@ func TestBuildModelKeysetPredicate_OutputSortNilOutput(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_ProviderSort(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	cursor := modelCursor{SortBy: "provider", ProviderName: "OpenAI", ID: "test-id-prov"}
 	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
 	if result == "" {
@@ -1235,7 +1235,7 @@ func TestBuildModelKeysetPredicate_ProviderSort(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_ProviderSortEmptyName(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	cursor := modelCursor{SortBy: "provider", ID: "test-id-prov-empty"}
 	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
 	if result != "" {
@@ -1245,7 +1245,7 @@ func TestBuildModelKeysetPredicate_ProviderSortEmptyName(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_StatusSort(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	statusSort := 0
 	cursor := modelCursor{SortBy: "status", StatusSort: &statusSort, ID: "test-id-status"}
 	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
@@ -1259,7 +1259,7 @@ func TestBuildModelKeysetPredicate_StatusSort(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_StatusSortNil(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	cursor := modelCursor{SortBy: "status", ID: "test-id-status-nil"}
 	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
 	if result != "" {
@@ -1269,7 +1269,7 @@ func TestBuildModelKeysetPredicate_StatusSortNil(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_DefaultSortFallsBackToModelID(t *testing.T) {
 	argIdx := 1
-	var args []interface{}
+	var args []any
 	cursor := modelCursor{SortBy: "name", ModelID: "gpt-4", ID: "test-id-fallback"}
 	result := buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)
 	if result == "" {
@@ -1286,7 +1286,7 @@ func TestBuildModelKeysetPredicate_DefaultSortFallsBackToModelID(t *testing.T) {
 
 func TestBuildModelKeysetPredicate_ArgIdxAdvances(t *testing.T) {
 	argIdx := 10
-	var args []interface{}
+	var args []any
 	ctxLen := 128
 	cursor := modelCursor{SortBy: "context", ContextLength: &ctxLen, ID: "test-id-idx"}
 	buildModelKeysetPredicate(cursor, "after", "ASC", &argIdx, &args)

@@ -454,7 +454,7 @@ func TestCalculateStats_IncludeLatencyWithData(t *testing.T) {
 	insertTestProvider(t, pool, providerID, "test-provider-lat-data", "https://api.example.com/v1")
 
 	// Insert 3 requests for a single model to meet the HAVING COUNT(*) >= 3 threshold
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "lat-model", 200, 150, 10, 20, requestLogOpts{
 			ProxyOverheadMs: 15.0,
 			LatencyMs:       135.0,
@@ -583,7 +583,7 @@ func TestCalculateStats_WithLatency(t *testing.T) {
 	// Insert enough request logs to populate latency data (>=3 for HAVING clause)
 	providerID := uuid.New()
 	insertTestProvider(t, pool, providerID, "latency-provider", "https://api.example.com/v1")
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "latency-model", 200, 100+i*10, 10, 20, requestLogOpts{
 			ResponseHeaderMs: float64(50 + i*5),
 			ProxyOverheadMs:  float64(10 + i*2),
@@ -666,7 +666,7 @@ func TestCalculateStats_7dWithLatency(t *testing.T) {
 
 	providerID := uuid.New()
 	insertTestProvider(t, pool, providerID, "latency-7d-provider", "https://api.example.com/v1")
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "latency-7d-model", 200, 100+i*10, 10, 20, requestLogOpts{
 			ResponseHeaderMs: float64(50 + i*5),
 			ProxyOverheadMs:  float64(10 + i*2),

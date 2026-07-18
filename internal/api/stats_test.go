@@ -306,7 +306,7 @@ func TestFillEmptyBuckets_Hourly_FullCoverage(t *testing.T) {
 	end := timeMustParse(time.RFC3339, "2026-01-16T09:00:00Z")
 
 	points := make([]TimeSeriesPoint, 24)
-	for i := 0; i < 24; i++ {
+	for i := range 24 {
 		points[i] = makePoint(bucketFormat(start.Add(time.Duration(i)*time.Hour)), i+1, i*10, i%3)
 	}
 
@@ -418,7 +418,7 @@ func TestFillEmptyBuckets_Daily_FullCoverage(t *testing.T) {
 	end := timeMustParse(time.RFC3339, "2026-01-16T00:00:00Z") // 7 days
 
 	points := make([]TimeSeriesPoint, 7)
-	for i := 0; i < 7; i++ {
+	for i := range 7 {
 		points[i] = makePoint(bucketFormat(start.Add(time.Duration(i)*24*time.Hour)), i*5, i*50, i)
 	}
 

@@ -136,7 +136,7 @@ func TestListModels_WithPagination(t *testing.T) {
 
 	// Insert multiple models directly via DB
 	pool := h.Pool().Pool()
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		modelID := uuid.New().String()
 		_, err := pool.Exec(context.Background(),
 			`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
@@ -175,8 +175,8 @@ func TestTestModel_Success(t *testing.T) {
 		if strings.Contains(r.URL.Path, "/chat/completions") {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"error": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"error": map[string]any{
 					"message": "invalid api key",
 					"type":    "invalid_request_error",
 				},
@@ -380,7 +380,7 @@ func TestTestModel(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var testResp map[string]interface{}
+	var testResp map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
 		t.Fatalf("Failed to parse test response: %v", err)
 	}
@@ -558,7 +558,7 @@ func TestUpdateModel_EnableDisable_Integration(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -586,7 +586,7 @@ func TestUpdateModel_EnableDisable_Integration(t *testing.T) {
 	}
 
 	// Verify the model is disabled
-	var modelResp map[string]interface{}
+	var modelResp map[string]any
 	json.NewDecoder(w2.Body).Decode(&modelResp)
 	if modelResp["enabled"] != false {
 		t.Errorf("expected model to be disabled, got enabled=%v", modelResp["enabled"])
@@ -656,7 +656,7 @@ func TestListModels_WithModels(t *testing.T) {
 
 	// Insert multiple models with different properties
 	pool := h.Pool().Pool()
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		modelID := uuid.New().String()
 		_, err := pool.Exec(context.Background(),
 			`INSERT INTO models (id, provider_id, model_id, name, enabled, context_length) VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -833,8 +833,8 @@ func TestDoTestModelRequest_CustomCheckRedirect(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Return a successful chat completions response
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"choices": []map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
 				{"message": map[string]string{"content": "Hi"}},
 			},
 			"usage": map[string]int{"prompt_tokens": 5, "completion_tokens": 1},

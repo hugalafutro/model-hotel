@@ -69,8 +69,7 @@ func TestStopScheduler(t *testing.T) {
 	}
 	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	h.StartScheduler(ctx)
 	if h.schedulerCancel == nil {
@@ -214,8 +213,7 @@ func TestStartBackupScheduler_NonNilBackupScheduler(t *testing.T) {
 	backupH := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
 	h := &Handler{backupScheduler: backupH}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	h.StartBackupScheduler(ctx)
 	// Verify the scheduler was started by checking the backupHandler's schedulerCancel
@@ -474,8 +472,7 @@ func TestStartScheduler_RestartAfterStop(t *testing.T) {
 	}
 	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// First start
 	h.StartScheduler(ctx)
@@ -1017,8 +1014,7 @@ func TestStartScheduler_PanicResetsCancelForRestart(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	dir := t.TempDir()
 	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
