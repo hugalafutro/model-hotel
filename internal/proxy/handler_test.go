@@ -263,9 +263,9 @@ func TestProxyKeyMiddleware_ValidKey_Integration(t *testing.T) {
 	}()
 
 	called := false
-	var capturedVKName interface{}
-	var capturedVKID interface{}
-	var capturedVKHash interface{}
+	var capturedVKName any
+	var capturedVKID any
+	var capturedVKHash any
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		capturedVKName = r.Context().Value(virtualKeyNameKey)
@@ -483,7 +483,7 @@ func TestRegisterAdminChat_SetsVirtualKeyContext(t *testing.T) {
 	h.RegisterAdminChat(r)
 
 	// Test that /chat route sets virtual key context to "chat"
-	var capturedVKName interface{}
+	var capturedVKName any
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedVKName = r.Context().Value(virtualKeyNameKey)
 	})
@@ -879,7 +879,7 @@ func TestProxyKeyMiddleware_MissingAuth(t *testing.T) {
 	}
 
 	// Verify response is JSON
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Errorf("response should be valid JSON: %v", err)
 	}
@@ -918,11 +918,11 @@ func TestProxyKeyMiddleware_InvalidAuth(t *testing.T) {
 	}
 
 	// Verify response is JSON with expected message
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Errorf("response should be valid JSON: %v", err)
 	}
-	if msg, ok := resp["error"].(map[string]interface{}); !ok {
+	if msg, ok := resp["error"].(map[string]any); !ok {
 		t.Error("response should have error object")
 	} else if msg["message"] != "invalid virtual key" {
 		t.Errorf("expected error message 'invalid virtual key', got %v", msg["message"])

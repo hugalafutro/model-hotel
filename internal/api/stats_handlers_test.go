@@ -849,13 +849,13 @@ func TestGetStats_MultipleProviders(t *testing.T) {
 	insertTestProvider(t, pool, providerC, "provider-c", "https://api.c.com/v1")
 
 	// Insert request logs: 2 for A, 3 for B, 5 for C (total=10)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		insertTestRequestLog(t, pool, uuid.New(), providerA, "model-a", 200, 100, 10, 20)
 	}
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		insertTestRequestLog(t, pool, uuid.New(), providerB, "model-b", 200, 100, 10, 20)
 	}
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		insertTestRequestLog(t, pool, uuid.New(), providerC, "model-c", 200, 100, 10, 20)
 	}
 
@@ -998,7 +998,7 @@ func TestGetStats_ModelLatency(t *testing.T) {
 	// Model D: 2 requests only (should NOT appear due to HAVING COUNT(*) >= 3)
 
 	// Model A - 3 requests with high latency
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-a", 200, 300, 10, 20, requestLogOpts{
 			ProxyOverheadMs: 30.0,
 			LatencyMs:       270.0, // Provider latency = 270ms
@@ -1006,7 +1006,7 @@ func TestGetStats_ModelLatency(t *testing.T) {
 	}
 
 	// Model B - 3 requests with medium latency
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-b", 200, 200, 10, 20, requestLogOpts{
 			ProxyOverheadMs: 20.0,
 			LatencyMs:       180.0, // Provider latency = 180ms
@@ -1014,7 +1014,7 @@ func TestGetStats_ModelLatency(t *testing.T) {
 	}
 
 	// Model C - 3 requests with low latency
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-c", 200, 100, 10, 20, requestLogOpts{
 			ProxyOverheadMs: 10.0,
 			LatencyMs:       90.0, // Provider latency = 90ms
@@ -1022,7 +1022,7 @@ func TestGetStats_ModelLatency(t *testing.T) {
 	}
 
 	// Model D - Only 2 requests (should be excluded by HAVING COUNT(*) >= 3)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		insertRichTestRequestLog(t, pool, uuid.New(), providerID, "model-d", 200, 500, 10, 20, requestLogOpts{
 			ProxyOverheadMs: 50.0,
 			LatencyMs:       450.0,
@@ -1220,10 +1220,10 @@ func TestGetProviderDistribution_MultipleProviders_ShareRounding(t *testing.T) {
 	insertTestProvider(t, pool, providerC, "provider-c", "https://api.c.com/v1")
 
 	// Insert request logs: 7 for A, 2 for B, 1 for C (total=10)
-	for i := 0; i < 7; i++ {
+	for range 7 {
 		insertTestRequestLog(t, pool, uuid.New(), providerA, "model-a", 200, 100, 10, 20)
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		insertTestRequestLog(t, pool, uuid.New(), providerB, "model-b", 200, 100, 10, 20)
 	}
 	insertTestRequestLog(t, pool, uuid.New(), providerC, "model-c", 200, 100, 10, 20)

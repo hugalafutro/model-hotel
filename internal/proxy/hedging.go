@@ -96,7 +96,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		}()
 	}
 	cancelExcept := func(except int) {
-		for i := 0; i < len(cancels); i++ {
+		for i := range cancels {
 			if i != except && cancels[i] != nil {
 				cancels[i]()
 			}
@@ -296,7 +296,7 @@ func commitHedgeWin(ctx context.Context, res hedgeResult, resp *http.Response, p
 // already closed its own); closing here releases that connection instead of
 // holding it until the transport idle timeout.
 func drainHedgeResults(results <-chan hedgeResult, n int) {
-	for i := 0; i < n; i++ {
+	for range n {
 		res := <-results
 		if res.resp != nil {
 			_ = res.resp.Body.Close()

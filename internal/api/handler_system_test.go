@@ -33,7 +33,7 @@ func TestGetSystem(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestGetSystem_NoCache(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -171,7 +171,7 @@ func TestGetSystem_Details(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestGetSystem_Details(t *testing.T) {
 	}
 
 	// Check app section has expected fields
-	if app, ok := response["app"].(map[string]interface{}); ok {
+	if app, ok := response["app"].(map[string]any); ok {
 		for _, field := range []string{"uptime_seconds", "goroutines", "memory_current_bytes"} {
 			if _, exists := app[field]; !exists {
 				t.Errorf("Expected field 'app.%s' in system response", field)
@@ -193,7 +193,7 @@ func TestGetSystem_Details(t *testing.T) {
 	}
 
 	// Check db section has expected fields
-	if db, ok := response["db"].(map[string]interface{}); ok {
+	if db, ok := response["db"].(map[string]any); ok {
 		for _, field := range []string{"connections"} {
 			if _, exists := db[field]; !exists {
 				t.Errorf("Expected field 'db.%s' in system response", field)
@@ -361,7 +361,7 @@ func TestGetOllamaCloudAccount(t *testing.T) {
 			t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
 		}
 
-		var providerResp map[string]interface{}
+		var providerResp map[string]any
 		if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
 			t.Fatalf("Failed to parse provider response: %v", err)
 		}

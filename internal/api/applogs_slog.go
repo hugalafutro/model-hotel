@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"slices"
 	"strings"
@@ -131,9 +132,7 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 // attr key so the line's shape is always predictable for collectors.
 func (h *appSlogHandler) renderJSONLine(t time.Time, level, source, msg string, fields map[string]string) []byte {
 	obj := make(map[string]string, len(fields)+4)
-	for k, v := range fields {
-		obj[k] = v
-	}
+	maps.Copy(obj, fields)
 	obj["time"] = t.UTC().Format(time.RFC3339Nano)
 	obj["level"] = level
 	obj["source"] = source

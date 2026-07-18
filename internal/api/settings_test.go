@@ -368,7 +368,7 @@ func TestUpdateSettings_TooManyKeys(t *testing.T) {
 	// Build a request with more than 50 unique keys
 	// The >50 check happens before key validation, so keys don't need to be valid
 	body := `{`
-	for i := 0; i < 55; i++ {
+	for i := range 55 {
 		if i > 0 {
 			body += `,`
 		}

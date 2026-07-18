@@ -112,18 +112,18 @@ func TestChatCompletions_TransientResetRetriesSameProvider(t *testing.T) {
 	// Two RSTs then success: a single-provider model must survive transient
 	// connection resets via same-provider retries (no failover candidates).
 	upstream, calls := newResettingUpstream(t, maxTransientRetries, func(w http.ResponseWriter, r *http.Request) {
-		var reqBody map[string]interface{}
+		var reqBody map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&reqBody)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id":      "chatcmpl-test",
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
 			"model":   reqBody["model"],
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "recovered"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "recovered"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
+			"usage": map[string]any{"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
 		})
 	})
 	defer upstream.Close()
@@ -138,11 +138,11 @@ func TestChatCompletions_TransientResetRetriesSameProvider(t *testing.T) {
 	if got := calls.Load(); got != int32(maxTransientRetries+1) {
 		t.Errorf("expected %d upstream calls (1 + %d retries), got %d", maxTransientRetries+1, maxTransientRetries, got)
 	}
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
-	choices, ok := resp["choices"].([]interface{})
+	choices, ok := resp["choices"].([]any)
 	if !ok || len(choices) == 0 {
 		t.Errorf("expected at least one choice, got %v", resp["choices"])
 	}

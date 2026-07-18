@@ -759,7 +759,7 @@ func (h *Handler) probeFirstToken(
 		if probeCtx.Err() == nil {
 			probeSucceeded.Store(true) // mirror line 1680: store before any processing
 			bufStr := buf.String()
-			for _, rawLine := range strings.Split(bufStr, "\n") {
+			for rawLine := range strings.SplitSeq(bufStr, "\n") {
 				if l := strings.TrimSpace(rawLine); strings.HasPrefix(l, "data:") {
 					// Reject partial lines: a complete SSE line must be
 					// followed by \n in the buffer. Without this guard a
@@ -794,10 +794,7 @@ func (h *Handler) probeFirstToken(
 // base is the starting delay, capacity is the maximum delay, attempt is the 1-indexed attempt number.
 // Jitter of [0, base) is added to spread retries from concurrent requests hitting the same cascade.
 func failoverBackoff(base, capacity time.Duration, attempt int) time.Duration {
-	exp := time.Duration(float64(base) * math.Pow(2, float64(attempt-1)))
-	if exp > capacity {
-		exp = capacity
-	}
+	exp := min(time.Duration(float64(base)*math.Pow(2, float64(attempt-1))), capacity)
 	jitter := time.Duration(rand.Int64N(int64(base)))
 	return exp + jitter
 }

@@ -32,7 +32,7 @@ func TestDiscoveryChangesStore_RoundTrip(t *testing.T) {
 		Added: []ModelChange{{ModelID: "new-model", Reason: changeReasonNewModel}},
 		Updated: []ModelUpdate{{
 			ModelID: "priced-model",
-			Changes: []FieldChange{{Field: changeFieldInputPrice, Old: fptr(1), New: fptr(2)}},
+			Changes: []FieldChange{{Field: changeFieldInputPrice, Old: new(float64(1)), New: new(float64(2))}},
 		}},
 	}
 
@@ -100,7 +100,7 @@ func TestDiscoveryChangesHandlers_HTTP(t *testing.T) {
 		Added: []ModelChange{{ModelID: "fresh-model", Reason: changeReasonNewModel}},
 		Updated: []ModelUpdate{{
 			ModelID: "repriced",
-			Changes: []FieldChange{{Field: changeFieldInputPrice, Old: fptr(1), New: fptr(2)}},
+			Changes: []FieldChange{{Field: changeFieldInputPrice, Old: new(float64(1)), New: new(float64(2))}},
 		}},
 	}
 	if _, err := AppendDiscoveryChange(ctx, pool, "scheduled", &providerID, "DeepSeek", diff); err != nil {

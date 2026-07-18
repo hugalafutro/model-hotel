@@ -107,7 +107,7 @@ func TestChatCompletions_FailoverWithTimeout(t *testing.T) {
 
 	// Create a second provider that will succeed
 	upstream2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var reqBody map[string]interface{}
+		var reqBody map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
@@ -121,15 +121,15 @@ func TestChatCompletions_FailoverWithTimeout(t *testing.T) {
 			fmt.Fprintf(w, "data: {\"id\":\"chatcmpl-test\",\"object\":\"chat.completion.chunk\",\"choices\":[],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":7,\"total_tokens\":12}}\n\n")
 			fmt.Fprintf(w, "data: [DONE]\n\n")
 		} else {
-			response := map[string]interface{}{
+			response := map[string]any{
 				"id":      "chatcmpl-test",
 				"object":  "chat.completion",
 				"created": time.Now().Unix(),
 				"model":   reqBody["model"].(string),
-				"choices": []map[string]interface{}{
-					{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
+				"choices": []map[string]any{
+					{"index": 0, "message": map[string]any{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
 				},
-				"usage": map[string]interface{}{
+				"usage": map[string]any{
 					"prompt_tokens":     5,
 					"completion_tokens": 7,
 					"total_tokens":      12,
@@ -180,7 +180,7 @@ func TestChatCompletions_StreamOptionsInjection_Integration(t *testing.T) {
 	req = req.WithContext(ctx)
 
 	// Capture the upstream request
-	var capturedBody map[string]interface{}
+	var capturedBody map[string]any
 	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&capturedBody); err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
@@ -188,7 +188,7 @@ func TestChatCompletions_StreamOptionsInjection_Integration(t *testing.T) {
 		}
 
 		// Verify stream_options was injected
-		if so, ok := capturedBody["stream_options"].(map[string]interface{}); !ok {
+		if so, ok := capturedBody["stream_options"].(map[string]any); !ok {
 			http.Error(w, "stream_options not found", http.StatusBadRequest)
 			return
 		} else if so["include_usage"] != true {
@@ -232,7 +232,7 @@ func TestChatCompletions_ParamStripping(t *testing.T) {
 	req = req.WithContext(ctx)
 
 	// Capture what was sent upstream
-	var capturedBody map[string]interface{}
+	var capturedBody map[string]any
 	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&capturedBody); err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
@@ -240,15 +240,15 @@ func TestChatCompletions_ParamStripping(t *testing.T) {
 		}
 
 		// Return a valid response
-		response := map[string]interface{}{
+		response := map[string]any{
 			"id":      "chatcmpl-test",
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
 			"model":   capturedBody["model"].(string),
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"prompt_tokens":     5,
 				"completion_tokens": 7,
 				"total_tokens":      12,
@@ -322,7 +322,7 @@ func TestChatCompletions_DeprecationCacheStripping(t *testing.T) {
 	req = req.WithContext(ctx)
 
 	// Capture the upstream request body
-	var capturedBody map[string]interface{}
+	var capturedBody map[string]any
 	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&capturedBody); err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
@@ -331,13 +331,13 @@ func TestChatCompletions_DeprecationCacheStripping(t *testing.T) {
 
 		// Return success response
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"id":     "chatcmpl-test",
 			"object": "chat.completion",
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "hello"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
+			"usage": map[string]any{"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
 		})
 	})
 
@@ -393,7 +393,7 @@ func TestChatCompletions_NonJSONUpstreamError(t *testing.T) {
 	}
 
 	// Verify response is valid JSON (OpenAI error format)
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 		t.Errorf("expected response to be valid JSON, got:\n%s\nerror: %v", w.Body.String(), err)
 	}
@@ -494,15 +494,15 @@ func TestChatCompletions_UpstreamTimeout(t *testing.T) {
 	slowUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(2 * time.Second) // longer than the 250ms request_timeout
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"id":      "chatcmpl-test",
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
 			"model":   modelName,
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"prompt_tokens":     5,
 				"completion_tokens": 7,
 				"total_tokens":      12,
@@ -703,8 +703,8 @@ func TestChatCompletions_FailoverOnRateLimit(t *testing.T) {
 	// Create a mock upstream server that returns 429
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTooManyRequests)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
 				"message": "rate limit exceeded",
 				"type":    "rate_limit_exceeded",
 			},
@@ -763,8 +763,8 @@ func TestChatCompletions_FailoverOnAuthError(t *testing.T) {
 	// Create a mock upstream server that returns 401
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
 				"message": "invalid api key",
 				"type":    "invalid_request_error",
 			},
@@ -823,8 +823,8 @@ func TestChatCompletions_FailoverOn5xxError(t *testing.T) {
 	// Create a mock upstream server that returns 500
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
 				"message": "internal server error",
 				"type":    "server_error",
 			},
@@ -927,13 +927,13 @@ func TestChatCompletions_DeprecationCache_InitialToMerged(t *testing.T) {
 
 	// Phase 1: Upstream returns 400 with param rejection on first request,
 	// then 200 on retry. This simulates learning rejected params from a 400.
-	var requestCount int32
-	var firstRequestBody map[string]interface{}
+	var requestCount atomic.Int32
+	var firstRequestBody map[string]any
 
 	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		count := atomic.AddInt32(&requestCount, 1)
+		count := requestCount.Add(1)
 
-		var reqBody map[string]interface{}
+		var reqBody map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
@@ -944,8 +944,8 @@ func TestChatCompletions_DeprecationCache_InitialToMerged(t *testing.T) {
 			firstRequestBody = reqBody
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"error": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"error": map[string]any{
 					"message": "Unknown parameter `temperature`",
 					"type":    "invalid_request_error",
 				},
@@ -954,15 +954,15 @@ func TestChatCompletions_DeprecationCache_InitialToMerged(t *testing.T) {
 		}
 
 		// Retry (count 2) and subsequent requests: return success
-		response := map[string]interface{}{
+		response := map[string]any{
 			"id":      "chatcmpl-test",
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
 			"model":   modelName,
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12,
 			},
 		}
@@ -1009,18 +1009,18 @@ func TestChatCompletions_DeprecationCache_InitialToMerged(t *testing.T) {
 
 	// Phase 2: Send another request with temperature — it should be stripped
 	// before sending to upstream (pre-emptive stripping from cache).
-	var secondRequestBody map[string]interface{}
+	var secondRequestBody map[string]any
 	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&secondRequestBody)
-		response := map[string]interface{}{
+		response := map[string]any{
 			"id":      "chatcmpl-test-2",
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
 			"model":   modelName,
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "cached strip works"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "cached strip works"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12,
 			},
 		}
@@ -1073,15 +1073,15 @@ func TestChatCompletions_DeprecationCache_MergedRejections(t *testing.T) {
 	var requestCount int32
 	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		count := atomic.AddInt32(&requestCount, 1)
-		var reqBody map[string]interface{}
+		var reqBody map[string]any
 		json.NewDecoder(r.Body).Decode(&reqBody)
 
 		if count == 1 {
 			// First request: reject temperature
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"error": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"error": map[string]any{
 					"message": "Unknown parameter `temperature`",
 				},
 			})
@@ -1105,15 +1105,15 @@ func TestChatCompletions_DeprecationCache_MergedRejections(t *testing.T) {
 	requestCount = 0
 	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		count := atomic.AddInt32(&requestCount, 1)
-		var reqBody map[string]interface{}
+		var reqBody map[string]any
 		json.NewDecoder(r.Body).Decode(&reqBody)
 
 		if count == 1 {
 			// Reject top_p (temperature already stripped from cache, so this is new)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"error": map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"error": map[string]any{
 					"message": "Unknown parameter `top_p`",
 				},
 			})
@@ -1135,7 +1135,7 @@ func TestChatCompletions_DeprecationCache_MergedRejections(t *testing.T) {
 	}
 
 	// Phase 3: Third request should strip both cached params preemptively.
-	var capturedBody map[string]interface{}
+	var capturedBody map[string]any
 	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&capturedBody)
 		successResponse(t, w, modelName)
@@ -1157,15 +1157,15 @@ func TestChatCompletions_DeprecationCache_MergedRejections(t *testing.T) {
 
 func successResponse(t *testing.T, w http.ResponseWriter, modelName string) {
 	t.Helper()
-	response := map[string]interface{}{
+	response := map[string]any{
 		"id":      "chatcmpl-test",
 		"object":  "chat.completion",
 		"created": time.Now().Unix(),
 		"model":   modelName,
-		"choices": []map[string]interface{}{
-			{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "ok"}, "finish_reason": "stop"},
+		"choices": []map[string]any{
+			{"index": 0, "message": map[string]any{"role": "assistant", "content": "ok"}, "finish_reason": "stop"},
 		},
-		"usage": map[string]interface{}{
+		"usage": map[string]any{
 			"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12,
 		},
 	}
@@ -1227,8 +1227,8 @@ func TestChatCompletions_DeprecationCache_UnexpectedTypeInHandler(t *testing.T) 
 	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{
 				"message": "Unknown parameter `temperature`",
 			},
 		})

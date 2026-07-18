@@ -712,7 +712,7 @@ func TestResolveHotelModel_CircuitBreakerOpen(t *testing.T) {
 	defer func() { _ = h.failoverRepo.Delete(context.Background(), "cb-fg") }()
 
 	// Open the circuit breaker for the provider (threshold=5 by default)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		h.circuitBreaker.RecordFailure(createdProvider.ID, createdProvider.Name)
 	}
 

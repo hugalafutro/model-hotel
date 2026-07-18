@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -67,12 +68,7 @@ func managedBlocksSyncableSettings(ctx context.Context, fs fleetSettings, keys [
 	if !isManagedMember(ctx, fs) {
 		return false
 	}
-	for _, k := range keys {
-		if isSyncableSetting(k) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(keys, isSyncableSetting)
 }
 
 // managedWriteGuard returns middleware that refuses a request with 403 when this

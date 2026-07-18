@@ -111,22 +111,22 @@ func TestChatCompletions_SpecificProviderNotFound(t *testing.T) {
 
 func TestChatCompletions_StreamOptionsInjection(t *testing.T) {
 	body := `{"model":"test","stream":true,"messages":[]}`
-	var raw map[string]interface{}
+	var raw map[string]any
 	if err := json.Unmarshal([]byte(body), &raw); err != nil {
 		t.Fatal(err)
 	}
-	raw["stream_options"] = map[string]interface{}{
+	raw["stream_options"] = map[string]any{
 		"include_usage": true,
 	}
 	injected, err := json.Marshal(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var parsed map[string]interface{}
+	var parsed map[string]any
 	if err := json.Unmarshal(injected, &parsed); err != nil {
 		t.Fatal(err)
 	}
-	so, ok := parsed["stream_options"].(map[string]interface{})
+	so, ok := parsed["stream_options"].(map[string]any)
 	if !ok {
 		t.Fatal("stream_options should be a map")
 	}
@@ -564,7 +564,7 @@ func TestChatCompletions_RetryCancelDuringFailover(t *testing.T) {
 	callCount := 0
 	upstream1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		var reqBody map[string]interface{}
+		var reqBody map[string]any
 		json.NewDecoder(r.Body).Decode(&reqBody)
 		if _, hasTopP := reqBody["top_p"]; hasTopP {
 			// First request: return 400 with param rejection
@@ -679,15 +679,15 @@ func TestChatCompletions_TouchLastUsedGoroutine(t *testing.T) {
 	// reach the TouchLastUsed goroutine at line 1081.
 	upstream.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"id":      "chatcmpl-test",
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
 			"model":   modelName,
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "hello"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12,
 			},
 		})
@@ -1017,15 +1017,15 @@ func TestChatCompletions_AllowedProviders_FilterAllowed(t *testing.T) {
 	prov1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"id":      "chatcmpl-allowed",
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
 			"model":   "test",
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hi"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "hi"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+			"usage": map[string]any{"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
 		})
 	}))
 	defer prov1Server.Close()
@@ -1243,15 +1243,15 @@ func TestChatCompletions_AllowedProviders_EmptySliceAllowsAll(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]any{
 			"id":      "chatcmpl-test",
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
 			"model":   "test",
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hi"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "hi"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+			"usage": map[string]any{"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
 		})
 	}))
 	defer upstream.Close()

@@ -89,7 +89,7 @@ func (s *SuspectStreak) bump(ctx context.Context, prov *provider.Provider, missi
 			Severity: "error",
 			Source:   "discovery",
 			Message:  fmt.Sprintf("Provider '%s' has been missing %d of %d enabled models for %d consecutive scans. This looks like a real bulk removal rather than a broken listing; discovery will not auto-disable them. Review and disable the retired models by hand.", prov.Name, missing, enabled, streak),
-			Metadata: map[string]interface{}{"provider": prov.Name, "provider_id": prov.ID, "missing": missing, "enabled": enabled, "consecutive_scans": streak},
+			Metadata: map[string]any{"provider": prov.Name, "provider_id": prov.ID, "missing": missing, "enabled": enabled, "consecutive_scans": streak},
 		})
 	}
 }
@@ -217,7 +217,7 @@ func ConfirmMissingModels(ctx context.Context, svc *provider.DiscoveryService, p
 			Severity: "warning",
 			Source:   "discovery",
 			Message:  fmt.Sprintf("Discovery scan for %s is missing %d of %d enabled models even after confirmation probes; treating the listing as broken and disabling nothing", prov.Name, missing, enabledCount),
-			Metadata: map[string]interface{}{"provider": prov.Name, "provider_id": prov.ID, "missing": missing, "enabled": enabledCount},
+			Metadata: map[string]any{"provider": prov.Name, "provider_id": prov.ID, "missing": missing, "enabled": enabledCount},
 		})
 		// A recovered listing resets the streak; a persistent one crosses the
 		// escalation threshold and raises the louder bulk-removal alert.

@@ -25,9 +25,9 @@ func TestEventVisible(t *testing.T) {
 
 	// own scopes an event to ownerID; other scopes it to a different user; unowned
 	// carries no owner (admin-only, like an admin/unowned virtual key).
-	own := map[string]interface{}{"owner_user_id": ownerID.String()}
-	other := map[string]interface{}{"owner_user_id": otherID.String()}
-	unowned := map[string]interface{}{"owner_user_id": ""}
+	own := map[string]any{"owner_user_id": ownerID.String()}
+	other := map[string]any{"owner_user_id": otherID.String()}
+	unowned := map[string]any{"owner_user_id": ""}
 
 	cases := []struct {
 		name string
@@ -97,8 +97,8 @@ func TestStreamEvents_OwnerScoping(t *testing.T) {
 
 	// Own request (owner_user_id == this user) is visible; another user's request
 	// and operational/discovery events are not.
-	events.Publish(events.Event{Type: "request.completed", Severity: "info", Message: "mine done", Metadata: map[string]interface{}{"owner_user_id": id}})
-	events.Publish(events.Event{Type: "request.completed", Severity: "info", Message: "theirs done", Metadata: map[string]interface{}{"owner_user_id": uuid.NewString()}})
+	events.Publish(events.Event{Type: "request.completed", Severity: "info", Message: "mine done", Metadata: map[string]any{"owner_user_id": id}})
+	events.Publish(events.Event{Type: "request.completed", Severity: "info", Message: "theirs done", Metadata: map[string]any{"owner_user_id": uuid.NewString()}})
 	events.Publish(events.Event{Type: "backup.created", Severity: "success", Message: "backup done"})
 	events.Publish(events.Event{Type: "request.discovery.provider_starting", Severity: "info", Message: "discovering"})
 	time.Sleep(100 * time.Millisecond)

@@ -682,7 +682,7 @@ func TestStallWatchdog_RapidChunksNoPanic(t *testing.T) {
 	stallTimeout := 10 * time.Millisecond
 	pr, pw := io.Pipe()
 	go func() {
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\n\n"))
 			time.Sleep(3 * time.Millisecond) // much faster than stallTimeout
 		}
@@ -964,7 +964,7 @@ func TestStallWatchdog_ProgressiveTimeout(t *testing.T) {
 	pr, pw := io.Pipe()
 	go func() {
 		// Send 51 chunks rapidly to cross the 50-chunk threshold
-		for i := 0; i < 51; i++ {
+		for range 51 {
 			pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\n\n"))
 			time.Sleep(time.Millisecond) // tiny delay
 		}
@@ -1039,7 +1039,7 @@ func TestStallWatchdog_ProgressiveTimeout_Boundary50(t *testing.T) {
 	pr, pw := io.Pipe()
 	go func() {
 		// Send exactly 50 chunks — NOT enough to trigger progressive timeout
-		for i := 0; i < 50; i++ {
+		for range 50 {
 			pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\n\n"))
 		}
 		// Block until either: watchdog closes the body (closeCh) or a

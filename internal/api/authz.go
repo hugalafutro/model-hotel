@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -80,11 +81,9 @@ func requireGrant(grants ...user.Grant) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			id := user.IdentityFrom(r.Context())
-			for _, g := range grants {
-				if id.Can(g) {
-					next.ServeHTTP(w, r)
-					return
-				}
+			if slices.ContainsFunc(grants, id.Can) {
+				next.ServeHTTP(w, r)
+				return
 			}
 			forbid(w, r, id)
 		})

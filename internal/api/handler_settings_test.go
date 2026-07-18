@@ -34,7 +34,7 @@ func TestGetSettings(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestUpdateSettingsIntegration(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -323,7 +323,7 @@ func TestUpdateSettings_TooManySettings_Integration(t *testing.T) {
 
 	// Create a map with >50 settings
 	settings := make(map[string]string)
-	for i := 0; i < 51; i++ {
+	for i := range 51 {
 		settings[fmt.Sprintf("setting_%d", i)] = "value"
 	}
 	body, _ := json.Marshal(settings)

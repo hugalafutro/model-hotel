@@ -248,7 +248,7 @@ func newChiRequest(method, path string, body io.Reader) (*http.Request, *httptes
 	return req, httptest.NewRecorder()
 }
 
-func parseJSON(t *testing.T, w *httptest.ResponseRecorder, v interface{}) {
+func parseJSON(t *testing.T, w *httptest.ResponseRecorder, v any) {
 	t.Helper()
 	if err := json.NewDecoder(w.Body).Decode(v); err != nil {
 		t.Fatalf("failed to decode JSON response: %v", err)
@@ -1584,7 +1584,7 @@ func TestListProviders_Integration(t *testing.T) {
 		t.Fatalf("expected status 200 OK, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var response []map[string]interface{}
+	var response []map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}

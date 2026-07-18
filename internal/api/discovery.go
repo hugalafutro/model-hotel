@@ -148,7 +148,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		Severity: "success",
 		Source:   "discovery",
 		Message:  fmt.Sprintf("Fetched %d models from %s", len(models), prov.Name),
-		Metadata: map[string]interface{}{"provider": prov.Name, "count": len(models)},
+		Metadata: map[string]any{"provider": prov.Name, "count": len(models)},
 	})
 
 	// Enrich models with data from models.dev (fills gaps for models not
@@ -161,7 +161,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 				Severity: "info",
 				Source:   "discovery",
 				Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
-				Metadata: map[string]interface{}{"provider": prov.Name, "enriched": enriched, "total": len(models)},
+				Metadata: map[string]any{"provider": prov.Name, "enriched": enriched, "total": len(models)},
 			})
 		}
 	}
@@ -222,7 +222,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response := map[string]interface{}{
+	response := map[string]any{
 		"discovered": len(models),
 		"models":     models,
 		"diff":       diff,
@@ -395,7 +395,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to list providers", nil, http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, map[string]interface{}{
+	writeJSON(w, map[string]any{
 		"results":    results,
 		"succeeded":  succeeded,
 		"failed":     failed,
@@ -440,7 +440,7 @@ func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (
 			Severity: "info",
 			Source:   "proxy",
 			Message:  fmt.Sprintf("Discovering models from %s…", prov.Name),
-			Metadata: map[string]interface{}{"provider_id": prov.ID, "provider": prov.Name},
+			Metadata: map[string]any{"provider_id": prov.ID, "provider": prov.Name},
 		})
 
 		provCtx, provCancel := context.WithTimeout(context.WithoutCancel(ctx), 180*time.Second)
@@ -459,7 +459,7 @@ func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (
 				Severity: "error",
 				Source:   "discovery",
 				Message:  fmt.Sprintf("Failed to discover models from %s: %s", prov.Name, discoverErr.Error()),
-				Metadata: map[string]interface{}{"provider": prov.Name, "error": discoverErr.Error()},
+				Metadata: map[string]any{"provider": prov.Name, "error": discoverErr.Error()},
 			})
 			results = append(results, result)
 			continue
@@ -474,7 +474,7 @@ func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (
 			Severity: "success",
 			Source:   "discovery",
 			Message:  fmt.Sprintf("Fetched %d models from %s", len(models), prov.Name),
-			Metadata: map[string]interface{}{"provider": prov.Name, "count": len(models)},
+			Metadata: map[string]any{"provider": prov.Name, "count": len(models)},
 		})
 
 		// Enrich models with data from models.dev.
@@ -486,7 +486,7 @@ func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (
 					Severity: "info",
 					Source:   "discovery",
 					Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
-					Metadata: map[string]interface{}{"provider": prov.Name, "enriched": enriched, "total": len(models)},
+					Metadata: map[string]any{"provider": prov.Name, "enriched": enriched, "total": len(models)},
 				})
 			}
 		}
@@ -675,7 +675,7 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 		results = append(results, result)
 	}
 
-	writeJSON(w, map[string]interface{}{
+	writeJSON(w, map[string]any{
 		"results":   results,
 		"refreshed": refreshed,
 		"failed":    failed,

@@ -53,7 +53,7 @@ func TestListFailoverGroups(t *testing.T) {
 	}
 
 	var response struct {
-		Groups []map[string]interface{} `json:"groups"`
+		Groups []map[string]any `json:"groups"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -179,7 +179,7 @@ func TestSyncFailoverGroups(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestFailoverCandidates(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response []map[string]interface{}
+	var response []map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestSyncFailoverGroups_WithModels(t *testing.T) {
 	var req *http.Request
 
 	// Create providers and models
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		providerData := fmt.Sprintf(`{"name": "test-failover-provider-%d", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`, i)
 		rec = httptest.NewRecorder()
 		req = httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
@@ -239,7 +239,7 @@ func TestSyncFailoverGroups_WithModels(t *testing.T) {
 		}
 
 		// Insert models with same model_id (for failover grouping)
-		for j := 0; j < 2; j++ {
+		for j := range 2 {
 			modelID := uuid.New().String()
 			pool := h.Pool().Pool()
 			_, err := pool.Exec(context.Background(),
@@ -261,7 +261,7 @@ func TestSyncFailoverGroups_WithModels(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -507,7 +507,7 @@ func TestFailoverCandidates_Empty(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var candidates []interface{}
+	var candidates []any
 	if err := json.NewDecoder(w.Body).Decode(&candidates); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -534,7 +534,7 @@ func TestFailoverCandidates_WithModels(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -565,7 +565,7 @@ func TestFailoverCandidates_WithModels(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w2.Code, w2.Body.String())
 	}
 
-	var candidates []map[string]interface{}
+	var candidates []map[string]any
 	if err := json.NewDecoder(w2.Body).Decode(&candidates); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -592,7 +592,7 @@ func TestFailoverCandidates_DisabledModels(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -623,7 +623,7 @@ func TestFailoverCandidates_DisabledModels(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w2.Code, w2.Body.String())
 	}
 
-	var candidates []map[string]interface{}
+	var candidates []map[string]any
 	if err := json.NewDecoder(w2.Body).Decode(&candidates); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -655,7 +655,7 @@ func TestFailoverSync_Success(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -770,7 +770,7 @@ func TestCircuitBreakerStatus_WithDetail(t *testing.T) {
 			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 		}
 
-		var resp map[string]interface{}
+		var resp map[string]any
 		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 			t.Fatalf("failed to decode: %v", err)
 		}
@@ -800,18 +800,18 @@ func TestCircuitBreakerStatus_WithDetail(t *testing.T) {
 			t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 		}
 
-		var resp map[string]interface{}
+		var resp map[string]any
 		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 			t.Fatalf("failed to decode: %v", err)
 		}
 
-		providers, ok := resp["providers"].([]interface{})
+		providers, ok := resp["providers"].([]any)
 		if !ok || len(providers) != 3 {
 			t.Fatalf("expected 3 providers, got %v", resp["providers"])
 		}
 
 		// First provider should be open with cooldown_ms and next_retry_at.
-		first := providers[0].(map[string]interface{})
+		first := providers[0].(map[string]any)
 		if first["state"] != "open" {
 			t.Errorf("expected state=open, got %v", first["state"])
 		}
@@ -824,7 +824,7 @@ func TestCircuitBreakerStatus_WithDetail(t *testing.T) {
 
 		// Second provider should be half-open with opened_at but no cooldown_ms or next_retry_at
 		// (cooldown has elapsed, provider is actively probing).
-		second := providers[1].(map[string]interface{})
+		second := providers[1].(map[string]any)
 		if second["state"] != "half-open" {
 			t.Errorf("expected state=half-open, got %v", second["state"])
 		}
@@ -836,7 +836,7 @@ func TestCircuitBreakerStatus_WithDetail(t *testing.T) {
 		}
 
 		// Third provider should be closed without cooldown fields.
-		third := providers[2].(map[string]interface{})
+		third := providers[2].(map[string]any)
 		if third["state"] != "closed" {
 			t.Errorf("expected state=closed, got %v", third["state"])
 		}
@@ -858,7 +858,7 @@ func TestCircuitBreakerStatus_NoCircuitBreaker(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -948,7 +948,7 @@ func TestCircuitBreakerStatus_UntrackedMembers(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -1052,7 +1052,7 @@ func TestCircuitBreakerStatus_TrackedProviderNotDoubleCounted(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -1143,7 +1143,7 @@ func TestCircuitBreakerStatus_MissingModelInGroup(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode: %v", err)
 	}
@@ -1230,7 +1230,7 @@ func TestCircuitBreakerStatus_DuplicateModelAcrossGroups(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode: %v", err)
 	}
@@ -1315,7 +1315,7 @@ func TestCircuitBreakerStatus_AggregateCacheHit(t *testing.T) {
 		t.Fatalf("first request: expected 200, got %d", rec1.Code)
 	}
 
-	var resp1 map[string]interface{}
+	var resp1 map[string]any
 	if err := json.NewDecoder(rec1.Body).Decode(&resp1); err != nil {
 		t.Fatalf("failed to decode first response: %v", err)
 	}
@@ -1329,7 +1329,7 @@ func TestCircuitBreakerStatus_AggregateCacheHit(t *testing.T) {
 		t.Fatalf("second request: expected 200, got %d", rec2.Code)
 	}
 
-	var resp2 map[string]interface{}
+	var resp2 map[string]any
 	if err := json.NewDecoder(rec2.Body).Decode(&resp2); err != nil {
 		t.Fatalf("failed to decode: %v", err)
 	}
@@ -1434,17 +1434,17 @@ func TestCircuitBreakerStatus_DetailCached(t *testing.T) {
 		t.Fatalf("second request: expected 200, got %d: %s", rec2.Code, rec2.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rec2.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode second response: %v", err)
 	}
 
-	providers, ok := resp["providers"].([]interface{})
+	providers, ok := resp["providers"].([]any)
 	if !ok || len(providers) != 1 {
 		t.Fatalf("cached response should still include providers, got %v", resp["providers"])
 	}
 
-	p := providers[0].(map[string]interface{})
+	p := providers[0].(map[string]any)
 	name, _ := p["provider_name"].(string)
 	if !strings.Contains(name, "test-cb-cache-provider") {
 		t.Errorf("cached response should include provider_name, got %q", name)
@@ -1527,17 +1527,17 @@ func TestCircuitBreakerStatus_ProviderName(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode: %v", err)
 	}
 
-	providers, ok := resp["providers"].([]interface{})
+	providers, ok := resp["providers"].([]any)
 	if !ok || len(providers) != 1 {
 		t.Fatalf("expected 1 provider, got %v", resp["providers"])
 	}
 
-	p := providers[0].(map[string]interface{})
+	p := providers[0].(map[string]any)
 	name, _ := p["provider_name"].(string)
 	if !strings.Contains(name, "test-cb-name-provider") {
 		t.Errorf("expected provider_name to contain 'test-cb-name-provider', got %q", name)

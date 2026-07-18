@@ -304,10 +304,7 @@ func (h *Handler) loadFailoverConfig(r *http.Request, st *requestState) {
 	// Read once here so every attempt in the request sees a consistent value.
 	hedgeStart := time.Now()
 	st.hedgingEnabled = h.settingsRepo.GetBool(r.Context(), "hedging_enabled", false)
-	st.hedgeDelay = h.settingsRepo.GetDuration(r.Context(), "hedge_delay", 4*time.Second)
-	if st.hedgeDelay < minHedgeDelay {
-		st.hedgeDelay = minHedgeDelay
-	}
+	st.hedgeDelay = max(h.settingsRepo.GetDuration(r.Context(), "hedge_delay", 4*time.Second), minHedgeDelay)
 	ctxkeys.AddSettingsReadMs(r.Context(), hedgeStart)
 
 	// Overall request deadline: caps total time across all failover candidates

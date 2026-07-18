@@ -278,7 +278,7 @@ func TestClassifyBackups(t *testing.T) {
 		for _, s := range result.Son {
 			sonFiles[s.Filename] = true
 		}
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			if sonFiles[backups[i].Filename] {
 				t.Errorf("backup %q should NOT be in son tier (only most recent per day)", backups[i].Filename)
 			}

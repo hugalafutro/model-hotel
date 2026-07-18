@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -474,11 +475,11 @@ func TestWriteOpenAIError(t *testing.T) {
 		t.Errorf("expected status 400, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("response is not valid JSON: %v", err)
 	}
-	errObj, ok := resp["error"].(map[string]interface{})
+	errObj, ok := resp["error"].(map[string]any)
 	if !ok {
 		t.Fatal("response missing 'error' object")
 	}
@@ -498,11 +499,11 @@ func TestWriteOpenAIError_502(t *testing.T) {
 		t.Errorf("expected status 502, got %d", rr.Code)
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("response is not valid JSON: %v", err)
 	}
-	errObj := resp["error"].(map[string]interface{})
+	errObj := resp["error"].(map[string]any)
 	if errObj["message"] != "all providers failed for model test" {
 		t.Errorf("unexpected message: %v", errObj["message"])
 	}
@@ -708,13 +709,7 @@ func TestProviderUnsupportedParams_ReasoningEffort(t *testing.T) {
 			t.Errorf("provider %q: missing from paramrewrite.ProviderUnsupportedParams", provider)
 			continue
 		}
-		found := false
-		for _, p := range params {
-			if p == "reasoning_effort" {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(params, "reasoning_effort")
 		if !found {
 			t.Errorf("provider %q: reasoning_effort not listed in unsupported params", provider)
 		}

@@ -33,7 +33,7 @@ func TestDeprecationCache_ConcurrentMerges(t *testing.T) {
 	var mu sync.Mutex
 
 	var wg sync.WaitGroup
-	for i := 0; i < numGoroutines; i++ {
+	for i := range numGoroutines {
 		params := map[string]bool{
 			fmt.Sprintf("param_%d", i): true,
 		}

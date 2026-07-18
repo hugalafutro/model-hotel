@@ -29,7 +29,7 @@ func TestGetAppLogsCursor_Golden(t *testing.T) {
 
 	source := "goldsrc-" + uuid.New().String()[:8]
 	ids := make([]string, 6) // newest (0) -> oldest (5)
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		id := uuid.New().String()
 		ids[i] = id
 		level := "info"

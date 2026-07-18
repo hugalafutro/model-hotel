@@ -150,7 +150,7 @@ func makeJSONModelRewriter(body []byte, requestModel string) func(string) ([]byt
 			// (mirrors paramrewrite.BuildUpstreamBody).
 			dec := json.NewDecoder(bytes.NewReader(body))
 			dec.UseNumber()
-			var raw map[string]interface{}
+			var raw map[string]any
 			if dec.Decode(&raw) == nil {
 				raw["model"] = resolvedModelID
 				if rewritten, err := json.Marshal(raw); err == nil {
@@ -656,7 +656,7 @@ func extractPassthroughUsage(body []byte) (promptTokens, completionTokens int) {
 // final (small) event, so scanning the retained tail is enough. A leading
 // partial line (cut by the tail cap) simply fails to parse and is skipped.
 func extractPassthroughSSEUsage(tail []byte) (promptTokens, completionTokens int) {
-	for _, line := range strings.Split(string(tail), "\n") {
+	for line := range strings.SplitSeq(string(tail), "\n") {
 		payload, ok := strings.CutPrefix(strings.TrimSpace(line), "data:")
 		if !ok {
 			continue

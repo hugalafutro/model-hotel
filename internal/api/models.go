@@ -93,7 +93,7 @@ type modelCursor struct {
 	SortBy        string    `json:"sort_by"`
 	Name          string    `json:"name,omitempty"`
 	ModelID       string    `json:"model_id,omitempty"`
-	LastSeenAt    time.Time `json:"last_seen_at,omitempty"`
+	LastSeenAt    time.Time `json:"last_seen_at"`
 	ContextLength *int      `json:"context_length,omitempty"`
 	MaxOutput     *int      `json:"max_output_tokens,omitempty"`
 	ProviderName  string    `json:"provider_name,omitempty"`
@@ -402,7 +402,7 @@ func (h *Handler) decryptTestModelKey(w http.ResponseWriter, prov *provider.Prov
 // OpenAI gpt-5/o-series models that reject max_tokens, the shared self-heal
 // renames it to max_completion_tokens and retries, so the probe succeeds.
 func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []byte, providerType, targetURL, reqHash string) {
-	body := map[string]interface{}{
+	body := map[string]any{
 		"model": m.ModelID,
 		"messages": []map[string]string{
 			{"role": "user", "content": "Respond only with `Hi`"},

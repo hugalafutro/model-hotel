@@ -117,7 +117,7 @@ func TestRefreshAllQuotas_AllDisabled(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create multiple disabled providers
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		providerData := fmt.Sprintf(`{"name": "test-quota-disabled-%d", "base_url": "https://api.nanogpt.com", "api_key": "test-key", "enabled": false}`, i)
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
@@ -141,10 +141,10 @@ func TestRefreshAllQuotas_AllDisabled(t *testing.T) {
 	}
 
 	var response struct {
-		Results   []interface{} `json:"results"`
-		Refreshed int           `json:"refreshed"`
-		Failed    int           `json:"failed"`
-		Skipped   int           `json:"skipped"`
+		Results   []any `json:"results"`
+		Refreshed int   `json:"refreshed"`
+		Failed    int   `json:"failed"`
+		Skipped   int   `json:"skipped"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -306,10 +306,10 @@ func TestRefreshAllQuotas_UnsupportedType(t *testing.T) {
 	}
 
 	var response struct {
-		Results   []interface{} `json:"results"`
-		Refreshed int           `json:"refreshed"`
-		Failed    int           `json:"failed"`
-		Skipped   int           `json:"skipped"`
+		Results   []any `json:"results"`
+		Refreshed int   `json:"refreshed"`
+		Failed    int   `json:"failed"`
+		Skipped   int   `json:"skipped"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -1111,7 +1111,7 @@ func TestGetProviderUsage_NanoGPTSuccess(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1179,7 +1179,7 @@ func TestGetProviderUsage_OpenRouterSuccess(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1244,7 +1244,7 @@ func TestGetProviderBalance_DeepSeekSuccess(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1308,7 +1308,7 @@ func TestGetOllamaCloudAccount_Success(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1393,7 +1393,7 @@ func TestRefreshAllQuotas_NanoGPTSuccess(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1449,7 +1449,7 @@ func TestRefreshAllQuotas_ZAICodingError(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1506,7 +1506,7 @@ func TestRefreshAllQuotas_ZAICodingSuccess(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1571,7 +1571,7 @@ func TestRefreshAllQuotas_OpenRouterSuccess(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1628,7 +1628,7 @@ func TestRefreshAllQuotas_DeepSeekSuccess(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1685,7 +1685,7 @@ func TestRefreshAllQuotas_OllamaCloudSuccess(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1746,7 +1746,7 @@ func TestGetProviderUsage_NeuralWattSuccess(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1911,7 +1911,7 @@ func TestRefreshAllQuotas_MixedResults(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1924,7 +1924,7 @@ func TestRefreshAllQuotas_MixedResults(t *testing.T) {
 		t.Errorf("expected 1 failed, got %v", resp["failed"])
 	}
 
-	results := resp["results"].([]interface{})
+	results := resp["results"].([]any)
 	if len(results) != 2 {
 		t.Fatalf("expected 2 results, got %d", len(results))
 	}
@@ -1972,7 +1972,7 @@ func TestRefreshAllQuotas_NeuralWattSuccess(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -2022,7 +2022,7 @@ func TestRefreshAllQuotas_NeuralWattError(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}

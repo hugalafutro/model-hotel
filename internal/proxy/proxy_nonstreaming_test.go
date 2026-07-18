@@ -20,15 +20,15 @@ func TestHandleNonStreamingResponse_Success_Integration(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		response := map[string]interface{}{
+		response := map[string]any{
 			"id":      "chatcmpl-test",
 			"object":  "chat.completion",
 			"created": time.Now().Unix(),
 			"model":   "test-model",
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "hello world"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"prompt_tokens":     5,
 				"completion_tokens": 7,
 				"total_tokens":      12,
@@ -86,13 +86,13 @@ func TestHandleNonStreamingResponse_PromptCacheHitTokens(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		response := map[string]interface{}{
+		response := map[string]any{
 			"id":     "chatcmpl-test",
 			"object": "chat.completion",
-			"choices": []map[string]interface{}{
-				{"index": 0, "message": map[string]interface{}{"role": "assistant", "content": "hello"}, "finish_reason": "stop"},
+			"choices": []map[string]any{
+				{"index": 0, "message": map[string]any{"role": "assistant", "content": "hello"}, "finish_reason": "stop"},
 			},
-			"usage": map[string]interface{}{
+			"usage": map[string]any{
 				"prompt_tokens":           100,
 				"completion_tokens":       5,
 				"total_tokens":            105,
@@ -184,7 +184,7 @@ func TestHandleNonStreamingResponse_NonJSONError(t *testing.T) {
 	}
 
 	// Verify response is valid JSON (OpenAI error format)
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(inner.Body.Bytes(), &response); err != nil {
 		t.Errorf("expected response to be valid JSON, got:\n%s\nerror: %v", inner.Body.String(), err)
 	}

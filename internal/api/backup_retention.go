@@ -66,7 +66,7 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 	// ── Son (daily) ──
 	// Keep the most recent backup from each of the last sonRetention calendar days.
 	dayKeys := make(map[string]bool)
-	for i := 0; i < sonRetention; i++ {
+	for i := range sonRetention {
 		dayKeys[now.AddDate(0, 0, -i).Format("2006-01-02")] = true
 	}
 	result.Son = keepMostRecentPerBucket(backups, timestamps, kept, dayKeys, func(ts time.Time) string {
@@ -83,7 +83,7 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 	}
 	isoWeekSet := make(map[string]bool)
 	t := now
-	for i := 0; i < fatherRetention; i++ {
+	for range fatherRetention {
 		isoWeekSet[isoWeekKey(t)] = true
 		t = t.AddDate(0, 0, -7)
 	}
@@ -93,7 +93,7 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 	// Keep the most recent backup from each of the last grandfatherRetention months
 	// that is NOT already kept as a son or father.
 	monthKeys := make(map[string]bool)
-	for i := 0; i < grandfatherRetention; i++ {
+	for i := range grandfatherRetention {
 		monthKeys[now.AddDate(0, -i, 0).Format("2006-01")] = true
 	}
 	result.Grandfather = keepMostRecentPerBucket(backups, timestamps, kept, monthKeys, func(ts time.Time) string {
@@ -258,7 +258,7 @@ func (h *BackupHandler) ApplyPrune(w http.ResponseWriter, r *http.Request) {
 			Severity: "info",
 			Source:   "backup",
 			Message:  fmt.Sprintf("Pruned %d backup(s): %s", len(pruned), strings.Join(pruned, ", ")),
-			Metadata: map[string]interface{}{"pruned_count": len(pruned), "filenames": pruned},
+			Metadata: map[string]any{"pruned_count": len(pruned), "filenames": pruned},
 		})
 	}
 

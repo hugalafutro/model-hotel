@@ -128,7 +128,7 @@ func TestIsPartialThinkingTag(t *testing.T) {
 
 func TestNormalizeReasoningFields_ReasoningToReasoningContent(t *testing.T) {
 	// Ollama-style: delta.reasoning present, delta.reasoning_content absent
-	delta := map[string]interface{}{
+	delta := map[string]any{
 		"content":   "",
 		"reasoning": "Let me think about this",
 	}
@@ -148,7 +148,7 @@ func TestNormalizeReasoningFields_ReasoningToReasoningContent(t *testing.T) {
 
 func TestNormalizeReasoningFields_ReasoningContentAlreadyPresent(t *testing.T) {
 	// DeepSeek-style: reasoning_content already present, no change needed
-	delta := map[string]interface{}{
+	delta := map[string]any{
 		"content":           "",
 		"reasoning_content": "Already here",
 		"reasoning":         "Should not override",
@@ -165,15 +165,15 @@ func TestNormalizeReasoningFields_ReasoningContentAlreadyPresent(t *testing.T) {
 
 func TestNormalizeReasoningFields_ReasoningDetailsToReasoningContent(t *testing.T) {
 	// OpenRouter/MiniMax-style: reasoning_details with text entries
-	delta := map[string]interface{}{
+	delta := map[string]any{
 		"content": "",
-		"reasoning_details": []interface{}{
-			map[string]interface{}{
+		"reasoning_details": []any{
+			map[string]any{
 				"type":   "reasoning.text",
 				"text":   "Step 1: Analyze",
 				"format": "google-gemini-v1",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"type":   "reasoning.encrypted",
 				"text":   "",
 				"format": "anthropic-claude-v1",
@@ -192,7 +192,7 @@ func TestNormalizeReasoningFields_ReasoningDetailsToReasoningContent(t *testing.
 
 func TestNormalizeReasoningFields_ThinkingTagsInContent(t *testing.T) {
 	// MiniMax native-style: <thinking> tags in content
-	delta := map[string]interface{}{
+	delta := map[string]any{
 		"content": "<thinking>My reasoning</thinking>The answer",
 	}
 
@@ -210,7 +210,7 @@ func TestNormalizeReasoningFields_ThinkingTagsInContent(t *testing.T) {
 
 func TestNormalizeReasoningFields_NoChangeNeeded(t *testing.T) {
 	// Standard DeepSeek-style: reasoning_content already present, no tags
-	delta := map[string]interface{}{
+	delta := map[string]any{
 		"content":           "Hello",
 		"reasoning_content": "I thought about it",
 	}
@@ -222,7 +222,7 @@ func TestNormalizeReasoningFields_NoChangeNeeded(t *testing.T) {
 }
 
 func TestNormalizeReasoningFields_EmptyDelta(t *testing.T) {
-	delta := map[string]interface{}{
+	delta := map[string]any{
 		"role": "assistant",
 	}
 
@@ -233,7 +233,7 @@ func TestNormalizeReasoningFields_EmptyDelta(t *testing.T) {
 }
 
 func TestNormalizeMessageReasoning_ReasoningToReasoningContent(t *testing.T) {
-	msg := map[string]interface{}{
+	msg := map[string]any{
 		"role":      "assistant",
 		"content":   "The answer",
 		"reasoning": "My thought process",
@@ -249,11 +249,11 @@ func TestNormalizeMessageReasoning_ReasoningToReasoningContent(t *testing.T) {
 }
 
 func TestNormalizeMessageReasoning_ReasoningDetailsToReasoningContent(t *testing.T) {
-	msg := map[string]interface{}{
+	msg := map[string]any{
 		"role":    "assistant",
 		"content": "",
-		"reasoning_details": []interface{}{
-			map[string]interface{}{
+		"reasoning_details": []any{
+			map[string]any{
 				"type": "reasoning.text",
 				"text": "Structured reasoning",
 			},
@@ -270,7 +270,7 @@ func TestNormalizeMessageReasoning_ReasoningDetailsToReasoningContent(t *testing
 }
 
 func TestNormalizeMessageReasoning_ThinkingTagsInContent(t *testing.T) {
-	msg := map[string]interface{}{
+	msg := map[string]any{
 		"role":    "assistant",
 		"content": "<thinking>Hidden reasoning</thinking>Visible answer",
 	}

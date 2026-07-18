@@ -373,13 +373,11 @@ func TestWaitForInsert_Completes(t *testing.T) {
 		virtualKeyName: "test-key",
 		state:          "pending",
 	}
-	logData.insertWg.Add(1)
 
 	// Call Done() in a goroutine after a brief delay
-	go func() {
+	logData.insertWg.Go(func() {
 		time.Sleep(10 * time.Millisecond)
-		logData.insertWg.Done()
-	}()
+	})
 
 	start := time.Now()
 	h.WaitForInsert(logData)

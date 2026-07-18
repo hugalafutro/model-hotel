@@ -18,7 +18,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	openAIModels := make([]map[string]interface{}, 0, len(models))
+	openAIModels := make([]map[string]any, 0, len(models))
 	for _, m := range models {
 		modelID := provider.NormalizeName(m.ProviderName) + "/" + m.ModelID
 		openAIModels = append(openAIModels, modelToOpenAIItem(m, modelID, m.ProviderName))
@@ -49,7 +49,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	response := map[string]interface{}{
+	response := map[string]any{
 		"object": "list",
 		"data":   openAIModels,
 	}
@@ -61,13 +61,13 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 }
 
 // modelToOpenAIItem builds an OpenAI-compatible model object from a model entity.
-func modelToOpenAIItem(m *model.Model, id, providerName string) map[string]interface{} {
+func modelToOpenAIItem(m *model.Model, id, providerName string) map[string]any {
 	ownedBy := m.OwnedBy
 	if ownedBy == "" {
 		ownedBy = m.ProviderName
 	}
 
-	item := map[string]interface{}{
+	item := map[string]any{
 		"id":       id,
 		"object":   "model",
 		"created":  m.CreatedAt.Unix(),
@@ -94,7 +94,7 @@ func modelToOpenAIItem(m *model.Model, id, providerName string) map[string]inter
 		item["modality"] = m.Modality
 	}
 	if m.Capabilities != "" && m.Capabilities != "{}" {
-		var caps map[string]interface{}
+		var caps map[string]any
 		if err := json.Unmarshal([]byte(m.Capabilities), &caps); err == nil {
 			item["capabilities"] = caps
 		} else {

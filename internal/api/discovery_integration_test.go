@@ -28,7 +28,7 @@ func TestDiscoverAllModels_AllDisabled(t *testing.T) {
 
 	// Create providers and then disable them (CreateProviderRequest doesn't have enabled field)
 	var providerIDs []string
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		providerData := fmt.Sprintf(`{"name": "test-disabled-all-%d", "base_url": "https://api.openai.com", "api_key": "sk-test123"}`, i)
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
@@ -74,10 +74,10 @@ func TestDiscoverAllModels_AllDisabled(t *testing.T) {
 	}
 
 	var response struct {
-		Results    []interface{} `json:"results"`
-		Succeeded  int           `json:"succeeded"`
-		Failed     int           `json:"failed"`
-		Discovered int           `json:"discovered"`
+		Results    []any `json:"results"`
+		Succeeded  int   `json:"succeeded"`
+		Failed     int   `json:"failed"`
+		Discovered int   `json:"discovered"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -237,8 +237,8 @@ func TestDiscoverProviderModels_SuccessWithMockServer(t *testing.T) {
 	// Create mock OpenAI-compatible server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/models" && r.Method == "GET" {
-			response := map[string]interface{}{
-				"data": []map[string]interface{}{
+			response := map[string]any{
+				"data": []map[string]any{
 					{"id": "gpt-4-test", "owned_by": "openai"},
 					{"id": "gpt-3.5-test", "owned_by": "openai"},
 				},
@@ -281,8 +281,8 @@ func TestDiscoverProviderModels_SuccessWithMockServer(t *testing.T) {
 	}
 
 	var response struct {
-		Discovered int           `json:"discovered"`
-		Models     []interface{} `json:"models"`
+		Discovered int   `json:"discovered"`
+		Models     []any `json:"models"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -304,8 +304,8 @@ func TestDiscoverAllModels_WithEnabledProvider(t *testing.T) {
 	// Create mock OpenAI-compatible server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/models" && r.Method == "GET" {
-			response := map[string]interface{}{
-				"data": []map[string]interface{}{
+			response := map[string]any{
+				"data": []map[string]any{
 					{"id": "model-1", "owned_by": "test"},
 				},
 			}
@@ -475,8 +475,8 @@ func TestDiscoverProviderModels_WithModelsDevCache(t *testing.T) {
 	// Create mock OpenAI-compatible server that returns models matching the cache
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/models" && r.Method == "GET" {
-			response := map[string]interface{}{
-				"data": []map[string]interface{}{
+			response := map[string]any{
+				"data": []map[string]any{
 					{"id": "gpt-4", "owned_by": "openai"},
 					{"id": "gpt-3.5-test", "owned_by": "openai"},
 				},
@@ -624,8 +624,8 @@ func TestDiscoverProviderModels_ModelRepoError(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
 					{"id": "test-model-1", "owned_by": "test", "object": "model"},
 				},
 			})
@@ -687,8 +687,8 @@ func TestDiscoverProviderModels_UpsertError(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
 					{"id": "upsert-error-model", "owned_by": "test", "object": "model"},
 				},
 			})
@@ -760,8 +760,8 @@ func TestDiscoverProviderModels_DoesNotRecordMisses(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
 					{"id": "test-model-1", "owned_by": "test", "object": "model"},
 				},
 			})
@@ -816,8 +816,8 @@ func TestDiscoverProviderModels_SyncForModelError(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
 					{"id": "test-model-1", "owned_by": "test", "object": "model"},
 				},
 			})
@@ -873,8 +873,8 @@ func TestDiscoverProviderModels_DBExecError(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
 					{"id": "test-model-1", "owned_by": "test", "object": "model"},
 				},
 			})
@@ -1016,8 +1016,8 @@ func TestDiscoverAllModels_ModelsDevCacheEnrichment(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
 					{"id": "gpt-4", "owned_by": "openai", "object": "model"},
 				},
 			})
@@ -1049,7 +1049,7 @@ func TestDiscoverAllModels_ModelsDevCacheEnrichment(t *testing.T) {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -1065,8 +1065,8 @@ func TestDiscoverAllModels_UpsertError(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
 					{"id": "test-model-1", "owned_by": "test", "object": "model"},
 				},
 			})
@@ -1122,8 +1122,8 @@ func TestDiscoverAllModels_DisableMissingError(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
 					{"id": "test-model-1", "owned_by": "test", "object": "model"},
 				},
 			})
@@ -1174,8 +1174,8 @@ func TestDiscoverAllModels_SyncForModelError(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
 					{"id": "test-model-1", "owned_by": "test", "object": "model"},
 				},
 			})
@@ -1221,8 +1221,8 @@ func TestDiscoverAllModels_DBExecError(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data": []map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{
 					{"id": "test-model-1", "owned_by": "test", "object": "model"},
 				},
 			})

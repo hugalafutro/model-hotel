@@ -179,7 +179,7 @@ func TestDiscoverAllModelsIntegration(t *testing.T) {
 		t.Fatalf("Expected 200 for discover all, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -227,7 +227,7 @@ func TestRefreshAllQuotasIntegration(t *testing.T) {
 		t.Fatalf("Expected 200 for refresh quotas, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -426,7 +426,7 @@ func TestDiscoverAllModels_MultipleProviders(t *testing.T) {
 		t.Fatalf("Expected 200 for discover all, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -475,7 +475,7 @@ func TestGetProviderUsage_NanoGPT(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -502,7 +502,7 @@ func TestGetProviderUsage_OpenRouter(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -535,7 +535,7 @@ func TestGetProviderBalance_DefaultUnsupported(t *testing.T) {
 		t.Fatalf("Failed to create provider: %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID, ok := resp["id"].(string)
 	if !ok {
@@ -565,7 +565,7 @@ func TestGetProviderBalance_DeepSeek(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -609,7 +609,7 @@ func TestRefreshAllQuotas_NanoGPT(t *testing.T) {
 		t.Errorf("expected 200, got %d", w2.Code)
 	}
 
-	var resp2 map[string]interface{}
+	var resp2 map[string]any
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	resultsInterface, ok := resp2["results"]
 	if !ok {
@@ -620,7 +620,7 @@ func TestRefreshAllQuotas_NanoGPT(t *testing.T) {
 		// This is acceptable - no providers support quotas
 		return
 	}
-	results := resultsInterface.([]interface{})
+	results := resultsInterface.([]any)
 
 	// Should have one result
 	if len(results) != 1 {
@@ -650,7 +650,7 @@ func TestRefreshAllQuotas_ZAICoding(t *testing.T) {
 		t.Errorf("expected 200, got %d", w2.Code)
 	}
 
-	var resp2 map[string]interface{}
+	var resp2 map[string]any
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	resultsInterface, ok := resp2["results"]
 	if !ok {
@@ -661,7 +661,7 @@ func TestRefreshAllQuotas_ZAICoding(t *testing.T) {
 		// This is acceptable - no providers support quotas
 		return
 	}
-	results := resultsInterface.([]interface{})
+	results := resultsInterface.([]any)
 
 	// Should have one result
 	if len(results) != 1 {
@@ -691,7 +691,7 @@ func TestRefreshAllQuotas_DeepSeek(t *testing.T) {
 		t.Errorf("expected 200, got %d", w2.Code)
 	}
 
-	var resp2 map[string]interface{}
+	var resp2 map[string]any
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	resultsInterface, ok := resp2["results"]
 	if !ok {
@@ -702,7 +702,7 @@ func TestRefreshAllQuotas_DeepSeek(t *testing.T) {
 		// This is acceptable - no providers support quotas
 		return
 	}
-	results := resultsInterface.([]interface{})
+	results := resultsInterface.([]any)
 
 	// Should have one result
 	if len(results) != 1 {
@@ -732,7 +732,7 @@ func TestRefreshAllQuotas_OpenRouter(t *testing.T) {
 		t.Errorf("expected 200, got %d", w2.Code)
 	}
 
-	var resp2 map[string]interface{}
+	var resp2 map[string]any
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	resultsInterface, ok := resp2["results"]
 	if !ok {
@@ -742,7 +742,7 @@ func TestRefreshAllQuotas_OpenRouter(t *testing.T) {
 		t.Fatal("results field is nil")
 		return
 	}
-	results := resultsInterface.([]interface{})
+	results := resultsInterface.([]any)
 
 	// Should have one result
 	if len(results) != 1 {
@@ -772,7 +772,7 @@ func TestRefreshAllQuotas_SkippedProvider(t *testing.T) {
 		t.Errorf("expected 200, got %d", w2.Code)
 	}
 
-	var resp2 map[string]interface{}
+	var resp2 map[string]any
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	resultsInterface, ok := resp2["results"]
 	if !ok {
@@ -783,14 +783,14 @@ func TestRefreshAllQuotas_SkippedProvider(t *testing.T) {
 		// This is acceptable - no providers support quotas
 		return
 	}
-	results := resultsInterface.([]interface{})
+	results := resultsInterface.([]any)
 
 	// Should have one result with refreshed=false
 	if len(results) != 1 {
 		t.Errorf("expected 1 result, got %d", len(results))
 	}
 
-	result := results[0].(map[string]interface{})
+	result := results[0].(map[string]any)
 	if result["refreshed"].(bool) != false {
 		t.Errorf("expected refreshed=false, got %v", result["refreshed"])
 	}
@@ -807,7 +807,7 @@ func TestRefreshAllQuotas_DisabledProvider(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -825,7 +825,7 @@ func TestRefreshAllQuotas_DisabledProvider(t *testing.T) {
 		t.Errorf("expected 200, got %d", w2.Code)
 	}
 
-	var resp2 map[string]interface{}
+	var resp2 map[string]any
 	json.NewDecoder(w2.Body).Decode(&resp2)
 	resultsInterface, ok := resp2["results"]
 	if !ok {
@@ -836,7 +836,7 @@ func TestRefreshAllQuotas_DisabledProvider(t *testing.T) {
 		// This is acceptable - no providers support quotas
 		return
 	}
-	results := resultsInterface.([]interface{})
+	results := resultsInterface.([]any)
 
 	// Should have no results since disabled provider is skipped
 	if len(results) != 0 {
@@ -956,7 +956,7 @@ func TestDiscoverAllModels_NoProviders(t *testing.T) {
 		t.Fatalf("Expected 200 for discover all with no providers, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -993,7 +993,7 @@ func TestDiscoverProviderModels_DisabledProviderExplicit(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -1041,7 +1041,7 @@ func TestDiscoverProviderModels_AutodiscoveryDisabled(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -1115,7 +1115,7 @@ func TestGetProviderUsage_Error(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -1150,7 +1150,7 @@ func TestGetProviderBalance_Error(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -1185,7 +1185,7 @@ func TestDiscoverProviderModels_WithInvalidProviderType(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -1220,7 +1220,7 @@ func TestGetProviderBalance_UnsupportedProvider(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -1253,7 +1253,7 @@ func TestDiscoverProviderModels_SuccessPath(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -1287,7 +1287,7 @@ func TestGetProviderUsage_ZAICoding(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -1322,7 +1322,7 @@ func TestGetProviderBalance_UnsupportedType_Integration(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
@@ -1355,7 +1355,7 @@ func TestGetProviderBalance_OpenRouterError_Integration(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 

@@ -24,7 +24,7 @@ func TestListLogsCursor_ParamEdges(t *testing.T) {
 	insertTestProvider(t, pool, provID, "edge-prov-"+uuid.New().String()[:8], "https://e.example/v1")
 
 	model := "edge-" + uuid.New().String()[:8]
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		if _, err := pool.Exec(ctx,
 			`INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, created_at)
 			 VALUES ($1, $2, $3, 200, 100, NOW() - ($4 * INTERVAL '1 minute'))`,

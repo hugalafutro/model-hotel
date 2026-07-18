@@ -30,7 +30,7 @@ func TestGetStats(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestGetTimeSeries(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestGetProviderDistribution(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestGetTimeSeries_DifferentPeriods(t *testing.T) {
 	// Insert some request logs at different times
 	now := time.Now().UTC()
 	pool := h.Pool().Pool()
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		_, err := pool.Exec(context.Background(), `
 			INSERT INTO request_logs (
 				provider_id, model_id, virtual_key_id, status_code, duration_ms, 
@@ -259,7 +259,7 @@ func TestGetProviderDistribution_WithLogs(t *testing.T) {
 	now := time.Now().UTC()
 	pool := h.Pool().Pool()
 	for name, providerID := range providerIDs {
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			_, err := pool.Exec(context.Background(), `
 				INSERT INTO request_logs (
 					provider_id, model_id, virtual_key_id, status_code, duration_ms, 
@@ -355,7 +355,7 @@ func TestGetStats_Empty(t *testing.T) {
 		t.Errorf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
 	}
 
-	var response map[string]interface{}
+	var response map[string]any
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -401,7 +401,7 @@ func TestGetStats_WithQueryParams_Integration(t *testing.T) {
 	pool := h.Pool().Pool()
 
 	// Insert logs for last 24 hours with different metrics
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		_, err := pool.Exec(context.Background(), `
 			INSERT INTO request_logs (
 				provider_id, model_id, status_code, duration_ms, 
@@ -526,7 +526,7 @@ func TestGetStats_WithFilters_Integration(t *testing.T) {
 		t.Fatalf("Failed to create provider: %d", w.Code)
 	}
 
-	var createResp map[string]interface{}
+	var createResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	provIDStr := createResp["id"].(string)
 	provUUID, _ := uuid.Parse(provIDStr)
@@ -564,7 +564,7 @@ func TestGetStats_WithExcludeDeleted(t *testing.T) {
 		t.Fatalf("Failed to create provider: %d", w.Code)
 	}
 
-	var createResp map[string]interface{}
+	var createResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	provIDStr := createResp["id"].(string)
 	provUUID, _ := uuid.Parse(provIDStr)
@@ -613,7 +613,7 @@ func TestGetStats_WithMetricTokens(t *testing.T) {
 		t.Fatalf("Failed to create provider: %d", w.Code)
 	}
 
-	var createResp map[string]interface{}
+	var createResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	provIDStr := createResp["id"].(string)
 	provUUID, _ := uuid.Parse(provIDStr)
@@ -629,7 +629,7 @@ func TestGetStats_WithMetricTokens(t *testing.T) {
 		t.Fatalf("Failed to create virtual key: %d", w.Code)
 	}
 
-	var vkResp map[string]interface{}
+	var vkResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &vkResp)
 	vkIDStr := vkResp["id"].(string)
 	vkUUID, _ := uuid.Parse(vkIDStr)
@@ -684,7 +684,7 @@ func TestGetStats_Period7d(t *testing.T) {
 		t.Fatalf("Failed to create provider: %d", w.Code)
 	}
 
-	var createResp map[string]interface{}
+	var createResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	provIDStr := createResp["id"].(string)
 	provUUID, _ := uuid.Parse(provIDStr)
@@ -733,7 +733,7 @@ func TestGetStats_Period1h(t *testing.T) {
 		t.Fatalf("Failed to create provider: %d", w.Code)
 	}
 
-	var createResp map[string]interface{}
+	var createResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	provIDStr := createResp["id"].(string)
 	provUUID, _ := uuid.Parse(provIDStr)
@@ -782,7 +782,7 @@ func TestGetStats_WithChatLogs(t *testing.T) {
 		t.Fatalf("Failed to create provider: %d", w.Code)
 	}
 
-	var createResp map[string]interface{}
+	var createResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	provIDStr := createResp["id"].(string)
 	provUUID, _ := uuid.Parse(provIDStr)
@@ -831,7 +831,7 @@ func TestGetProviderDistribution_WithMetricTokens(t *testing.T) {
 		t.Fatalf("Failed to create provider: %d", w.Code)
 	}
 
-	var createResp map[string]interface{}
+	var createResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	provIDStr := createResp["id"].(string)
 	provUUID, _ := uuid.Parse(provIDStr)
@@ -884,7 +884,7 @@ func TestGetTimeSeries_WithExcludeDeleted(t *testing.T) {
 		t.Fatalf("Failed to create provider: %d", w.Code)
 	}
 
-	var createResp map[string]interface{}
+	var createResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	provIDStr := createResp["id"].(string)
 	provUUID, _ := uuid.Parse(provIDStr)
@@ -933,7 +933,7 @@ func TestGetProviderDistribution_WithExcludeDeleted(t *testing.T) {
 		t.Fatalf("Failed to create provider: %d", w.Code)
 	}
 
-	var createResp map[string]interface{}
+	var createResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &createResp)
 	provIDStr := createResp["id"].(string)
 	provUUID, _ := uuid.Parse(provIDStr)
@@ -975,7 +975,7 @@ func TestGetStats_ProviderLatency(t *testing.T) {
 
 	// Create multiple providers
 	providerIDs := make([]uuid.UUID, 3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		provBody := fmt.Sprintf(`{"name":"provider-latency-%d-%s","base_url":"https://api.example.com/v1","api_key":"sk-test"}`, i, uuid.New().String()[:8])
 		req := httptest.NewRequest("POST", "/providers", strings.NewReader(provBody))
 		req.Header.Set("Content-Type", "application/json")
@@ -986,7 +986,7 @@ func TestGetStats_ProviderLatency(t *testing.T) {
 			t.Fatalf("Failed to create provider %d: %d", i, w.Code)
 		}
 
-		var createResp map[string]interface{}
+		var createResp map[string]any
 		json.Unmarshal(w.Body.Bytes(), &createResp)
 		provIDStr := createResp["id"].(string)
 		providerIDs[i], _ = uuid.Parse(provIDStr)
@@ -996,7 +996,7 @@ func TestGetStats_ProviderLatency(t *testing.T) {
 	pool := h.dbPool.Pool()
 	now := time.Now().UTC()
 	for i, provID := range providerIDs {
-		for j := 0; j < 5; j++ {
+		for j := range 5 {
 			duration := float64(1000 + i*500 + j*100) // Different durations per provider
 			overhead := float64(50 + j*5)
 			_, err := pool.Exec(context.Background(), `

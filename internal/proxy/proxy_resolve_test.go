@@ -247,7 +247,7 @@ func TestResolveHotelModel_CircuitBreakerOpen_Integration(t *testing.T) {
 	}
 
 	// Open the circuit breaker for the provider (threshold=5 by default)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		handler.circuitBreaker.RecordFailure(providerID, "test-provider")
 	}
 

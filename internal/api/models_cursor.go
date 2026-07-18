@@ -214,7 +214,7 @@ func modelSortColumn(sortBy string) string {
 }
 
 // buildModelKeysetPredicate builds the keyset WHERE clause for cursor pagination.
-func buildModelKeysetPredicate(cursor modelCursor, direction, sortDir string, argIdx *int, args *[]interface{}) string {
+func buildModelKeysetPredicate(cursor modelCursor, direction, sortDir string, argIdx *int, args *[]any) string {
 	if cursor.ID == "" {
 		return ""
 	}
@@ -304,9 +304,9 @@ func joinAnd(conditions []string) string {
 // buildModelFilterConditions builds the WHERE clause conditions and args for
 // search, provider_id, capabilities, and outputs filters. Shared between the
 // main data query and the count query to avoid duplication.
-func buildModelFilterConditions(q url.Values) ([]string, []interface{}) {
+func buildModelFilterConditions(q url.Values) ([]string, []any) {
 	conditions := []string{}
-	args := []interface{}{}
+	args := []any{}
 	argIdx := 1
 
 	if search := q.Get("search"); search != "" {

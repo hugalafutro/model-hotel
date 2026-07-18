@@ -660,17 +660,8 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 
 // ListLogs returns paginated request logs with filtering and sorting.
 func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
-	page := util.GetIntQueryParam(r, "page", 1)
-	if page < 1 {
-		page = 1
-	}
-	perPage := util.GetIntQueryParam(r, "per_page", 20)
-	if perPage < 1 {
-		perPage = 1
-	}
-	if perPage > 200 {
-		perPage = 200
-	}
+	page := max(util.GetIntQueryParam(r, "page", 1), 1)
+	perPage := min(max(util.GetIntQueryParam(r, "per_page", 20), 1), 200)
 	ownerUserID := logOwnerScope(r)
 	// The response cache is shared across callers, so the key must carry the
 	// owner scope: a non-admin page and the admin's unscoped page for the same

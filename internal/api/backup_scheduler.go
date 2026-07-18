@@ -69,10 +69,7 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) {
 			sleep := backupSchedulerIdlePoll
 			if enabled {
 				h.runScheduledBackup(schedCtx)
-				sleep = h.settingsRepo.GetDuration(schedCtx, "backup_interval", 24*time.Hour)
-				if sleep < 5*time.Minute {
-					sleep = 5 * time.Minute
-				}
+				sleep = max(h.settingsRepo.GetDuration(schedCtx, "backup_interval", 24*time.Hour), 5*time.Minute)
 			}
 
 			select {
@@ -141,7 +138,7 @@ func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 		Severity: "success",
 		Source:   "backup",
 		Message:  fmt.Sprintf("Scheduled backup created: %s (%s)", filename, util.FormatBytes(info.Size())),
-		Metadata: map[string]interface{}{"filename": filename, "size_bytes": info.Size()},
+		Metadata: map[string]any{"filename": filename, "size_bytes": info.Size()},
 	})
 
 	// Apply rotation

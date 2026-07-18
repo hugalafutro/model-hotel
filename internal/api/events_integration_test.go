@@ -71,7 +71,7 @@ func TestStreamEvents_EventDelivery(t *testing.T) {
 		Type:     "test.event",
 		Severity: "info",
 		Message:  "Test message",
-		Metadata: map[string]interface{}{"test": true},
+		Metadata: map[string]any{"test": true},
 	})
 
 	// Give time for event to be delivered
@@ -190,7 +190,7 @@ func TestStreamEvents_MarshalError(t *testing.T) {
 		Type:     "test.bad_event",
 		Severity: "info",
 		Message:  "Bad event with channel",
-		Metadata: map[string]interface{}{"ch": make(chan int)},
+		Metadata: map[string]any{"ch": make(chan int)},
 	})
 
 	// Give time for the bad event to be processed
@@ -201,7 +201,7 @@ func TestStreamEvents_MarshalError(t *testing.T) {
 		Type:     "test.good_event",
 		Severity: "info",
 		Message:  "Good event after bad",
-		Metadata: map[string]interface{}{"test": true},
+		Metadata: map[string]any{"test": true},
 	})
 
 	// Give time for the good event to be delivered

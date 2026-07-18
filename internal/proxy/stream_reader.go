@@ -55,7 +55,7 @@ type streamReader struct {
 	body         io.ReadCloser // closed by the watchdog on stall, to unblock the scanner
 	stallTimeout time.Duration
 
-	streamStalledFlag int32 // set to 1 by the watchdog on timeout
+	streamStalledFlag atomic.Int32 // set to 1 by the watchdog on timeout
 	stallCh           chan time.Duration
 	watchdogDone      chan struct{}
 
@@ -113,7 +113,7 @@ func (r *streamReader) runWatchdog() {
 			}
 			timer.Reset(d)
 		case <-timer.C:
-			atomic.StoreInt32(&r.streamStalledFlag, 1)
+			r.streamStalledFlag.Store(1)
 			_ = r.body.Close() // unblock scanner
 			return
 		case <-r.watchdogDone:
@@ -204,7 +204,7 @@ func dataEvent(line []byte, payload string) sseEvent {
 
 // stalled reports whether the watchdog fired. Read after Close().
 func (r *streamReader) stalled() bool {
-	return atomic.LoadInt32(&r.streamStalledFlag) == 1
+	return r.streamStalledFlag.Load() == 1
 }
 
 // err returns the scanner's terminal error, if any.
