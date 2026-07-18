@@ -2107,6 +2107,16 @@
 			"message": "Boodskap",
 			"copyMessage": "Kopieer boodskap"
 		},
+		"auditDetail": {
+			"title": "Ouditinskrywing",
+			"timestamp": "Tydstempel",
+			"actor": "Akteur",
+			"request": "Versoek",
+			"entity": "Entiteit",
+			"endpoint": "Eindpunt",
+			"path": "Pad",
+			"remoteAddr": "Afgeleë adres"
+		},
 		"paramSlider": {
 			"off": "af"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Oudit",
-		"description": "Spoor van admin-aksies op hierdie instansie. Versoekinhoud word nooit aangeteken nie.",
+		"description": "Wie het wat op hierdie instansie verander: elke wysigende kontroleskerm-aksie deur enige aangemelde gebruiker. Versoekinhoud word nooit aangeteken nie.",
 		"filters": {
 			"actorPlaceholder": "Filtreer volgens akteur…",
 			"method": "Metode",
@@ -2886,6 +2896,7 @@
 			"method": "Metode",
 			"action": "Aksie",
 			"entity": "Entiteit",
+			"remote": "Adres",
 			"status": "Status"
 		},
 		"showing": "Wys {{count}} van {{total}}",

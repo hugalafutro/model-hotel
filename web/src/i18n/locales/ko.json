@@ -2107,6 +2107,16 @@
 			"message": "메시지",
 			"copyMessage": "메시지 복사"
 		},
+		"auditDetail": {
+			"title": "감사 항목",
+			"timestamp": "시간 표시",
+			"actor": "수행자",
+			"request": "요청",
+			"entity": "대상",
+			"endpoint": "엔드포인트",
+			"path": "경로",
+			"remoteAddr": "원격 주소"
+		},
 		"paramSlider": {
 			"off": "끄기"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "감사",
-		"description": "이 인스턴스의 관리 작업 기록입니다. 요청 내용은 절대 기록되지 않습니다.",
+		"description": "이 인스턴스에서 누가 무엇을 변경했는지 기록합니다. 로그인한 모든 사용자의 변경 작업이 대상입니다. 요청 내용은 절대 기록되지 않습니다.",
 		"filters": {
 			"actorPlaceholder": "수행자로 필터…",
 			"method": "메서드",
@@ -2886,6 +2896,7 @@
 			"method": "메서드",
 			"action": "작업",
 			"entity": "대상",
+			"remote": "주소",
 			"status": "상태"
 		},
 		"showing": "{{total}}개 중 {{count}}개 표시",

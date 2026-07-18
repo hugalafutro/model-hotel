@@ -2107,6 +2107,16 @@
 			"message": "mensagem",
 			"copyMessage": "Copiar mensagem"
 		},
+		"auditDetail": {
+			"title": "Entrada de auditoria",
+			"timestamp": "Timestamp",
+			"actor": "Autor",
+			"request": "Requisição",
+			"entity": "Entidade",
+			"endpoint": "Endpoint",
+			"path": "Caminho",
+			"remoteAddr": "Endereço remoto"
+		},
 		"paramSlider": {
 			"off": "desligado"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Auditoria",
-		"description": "Registro das ações de administração nesta instância. O conteúdo das requisições nunca é gravado.",
+		"description": "Quem alterou o quê nesta instância: cada ação de modificação do painel por qualquer usuário conectado. O conteúdo das requisições nunca é gravado.",
 		"filters": {
 			"actorPlaceholder": "Filtrar por autor…",
 			"method": "Método",
@@ -2886,6 +2896,7 @@
 			"method": "Método",
 			"action": "Ação",
 			"entity": "Entidade",
+			"remote": "Endereço",
 			"status": "Status"
 		},
 		"showing": "Exibindo {{count}} de {{total}}",

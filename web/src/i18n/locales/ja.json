@@ -2107,6 +2107,16 @@
 			"message": "メッセージ",
 			"copyMessage": "メッセージをコピー"
 		},
+		"auditDetail": {
+			"title": "監査エントリ",
+			"timestamp": "タイムスタンプ",
+			"actor": "実行者",
+			"request": "リクエスト",
+			"entity": "対象",
+			"endpoint": "エンドポイント",
+			"path": "パス",
+			"remoteAddr": "リモートアドレス"
+		},
 		"paramSlider": {
 			"off": "オフ"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "監査",
-		"description": "このインスタンスでの管理操作の記録です。リクエストの内容が記録されることはありません。",
+		"description": "このインスタンスで誰が何を変更したかの記録です。ログイン中のすべてのユーザーによる変更系の操作が対象です。リクエストの内容が記録されることはありません。",
 		"filters": {
 			"actorPlaceholder": "実行者で絞り込み…",
 			"method": "メソッド",
@@ -2886,6 +2896,7 @@
 			"method": "メソッド",
 			"action": "操作",
 			"entity": "対象",
+			"remote": "アドレス",
 			"status": "ステータス"
 		},
 		"showing": "{{total}} 件中 {{count}} 件を表示",

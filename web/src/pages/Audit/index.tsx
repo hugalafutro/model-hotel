@@ -4,9 +4,14 @@ import { useTranslation } from "react-i18next";
 import { History } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { AuditEntry } from "../../api/types";
+import { AuditDetailModal } from "../../components/AuditDetailModal";
+import {
+	auditMethodVariant,
+	auditStatusVariant,
+} from "../../components/auditUtils";
 import { Badge } from "../../components/Badge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { StaticHeader } from "../../components/DataTable";
+import { Row, StaticHeader } from "../../components/DataTable";
 import { EmptyState } from "../../components/EmptyState";
 import { FilterDropdown } from "../../components/FilterDropdown";
 import { FilterInput } from "../../components/FilterInput";
@@ -17,12 +22,6 @@ import { useDebounce } from "../../hooks/useDebounce";
 import { formatRelativeTime } from "../../utils/format";
 
 const METHODS = ["POST", "PUT", "PATCH", "DELETE"] as const;
-
-function statusVariant(code: number): "success" | "warning" | "error" {
-	if (code >= 500) return "error";
-	if (code >= 400) return "warning";
-	return "success";
-}
 
 /**
  * Admin-only audit trail: who did what on the dashboard API, newest first,
@@ -36,6 +35,7 @@ export function Audit() {
 	const [actor, setActor] = useState("");
 	const [method, setMethod] = useState("");
 	const [confirmPurge, setConfirmPurge] = useState(false);
+	const [selected, setSelected] = useState<AuditEntry | null>(null);
 	// Pages loaded past the first are appended here; each "Load more" click
 	// fetches exactly one page and merges it, rather than replaying cursors.
 	const [extra, setExtra] = useState<{
@@ -143,12 +143,13 @@ export function Audit() {
 					<div className="ui-card overflow-hidden">
 						<table className="w-full table-fixed ui-table">
 							<colgroup>
-								<col className="w-[14%]" />
-								<col className="w-[16%]" />
-								<col className="w-[10%]" />
-								<col className="w-[34%]" />
-								<col className="w-[18%]" />
-								<col className="w-[8%]" />
+								<col className="w-[9%]" />
+								<col className="w-[13%]" />
+								<col className="w-[7%]" />
+								<col className="w-[27%]" />
+								<col className="w-[24%]" />
+								<col className="w-[13%]" />
+								<col className="w-[7%]" />
 							</colgroup>
 							<thead>
 								<tr>
@@ -157,14 +158,15 @@ export function Audit() {
 									<StaticHeader>{t("audit.table.method")}</StaticHeader>
 									<StaticHeader>{t("audit.table.action")}</StaticHeader>
 									<StaticHeader>{t("audit.table.entity")}</StaticHeader>
+									<StaticHeader>{t("audit.table.remote")}</StaticHeader>
 									<StaticHeader>{t("audit.table.status")}</StaticHeader>
 								</tr>
 							</thead>
 							<tbody>
 								{entries.map((e) => (
-									<tr key={e.id}>
+									<Row key={e.id} onClick={() => setSelected(e)}>
 										<td
-											className="px-4 py-3 text-sm text-gray-400"
+											className="px-4 py-3 text-sm text-gray-400 whitespace-nowrap"
 											title={new Date(e.created_at).toLocaleString()}
 										>
 											{formatRelativeTime(e.created_at)}
@@ -178,7 +180,7 @@ export function Audit() {
 											)}
 										</td>
 										<td className="px-4 py-3">
-											<Badge variant={e.method === "DELETE" ? "error" : "info"}>
+											<Badge variant={auditMethodVariant(e.method)}>
 												{e.method}
 											</Badge>
 										</td>
@@ -188,21 +190,31 @@ export function Audit() {
 										>
 											{e.route}
 										</td>
-										<td className="px-4 py-3 text-sm text-gray-400 font-mono truncate">
-											{e.entity_id ? (
-												<span title={e.entity_id}>
+										{/* Resolved name when the entity still exists; its UUID
+										   (truncated) as the fallback trace when it does not. */}
+										<td className="px-4 py-3 text-sm text-gray-400 truncate">
+											{e.entity_name ? (
+												<span title={e.entity_id}>{e.entity_name}</span>
+											) : e.entity_id ? (
+												<span className="font-mono" title={e.entity_id}>
 													{e.entity_id.slice(0, 8)}…
 												</span>
 											) : (
 												"—"
 											)}
 										</td>
+										<td
+											className="px-4 py-3 text-sm text-gray-400 font-mono truncate"
+											title={e.remote_addr}
+										>
+											{e.remote_addr}
+										</td>
 										<td className="px-4 py-3">
-											<Badge variant={statusVariant(e.status_code)}>
+											<Badge variant={auditStatusVariant(e.status_code)}>
 												{e.status_code}
 											</Badge>
 										</td>
-									</tr>
+									</Row>
 								))}
 							</tbody>
 						</table>
@@ -225,6 +237,8 @@ export function Audit() {
 			) : (
 				<EmptyState message={t("audit.emptyState")} />
 			)}
+
+			<AuditDetailModal entry={selected} onClose={() => setSelected(null)} />
 
 			{confirmPurge && (
 				<ConfirmDialog

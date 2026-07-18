@@ -2101,11 +2101,21 @@
 		},
 		"appLogDetail": {
 			"title": "Log invoer details",
-			"timestamp": "Artikeldatering",
+			"timestamp": "Tijdstempel",
 			"level": "Niveau",
 			"source": "Bron",
 			"message": "bericht",
 			"copyMessage": "Bericht kopiëren"
+		},
+		"auditDetail": {
+			"title": "Auditvermelding",
+			"timestamp": "Tijdstempel",
+			"actor": "Actor",
+			"request": "Verzoek",
+			"entity": "Entiteit",
+			"endpoint": "Endpoint",
+			"path": "Pad",
+			"remoteAddr": "Extern adres"
 		},
 		"paramSlider": {
 			"off": "Uit"
@@ -2387,7 +2397,7 @@
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Log invoer details",
-			"timestamp": "Artikeldatering",
+			"timestamp": "Tijdstempel",
 			"level": "Niveau",
 			"source": "Bron",
 			"message": "bericht",
@@ -2412,7 +2422,7 @@
 			"resolved": "opgelost",
 			"provider": "Leverancier",
 			"dbRowId": "DB rij ID",
-			"timestamp": "Artikeldatering",
+			"timestamp": "Tijdstempel",
 			"copyDbRowId": "Kopieer DB rij ID",
 			"virtualKey": "Virtuele sleutel",
 			"tokenUsage": "Token gebruik",
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Audit",
-		"description": "Logboek van beheeracties op deze instantie. De inhoud van verzoeken wordt nooit vastgelegd.",
+		"description": "Wie wat heeft gewijzigd op deze instantie: elke wijzigende dashboardactie door elke ingelogde gebruiker. De inhoud van verzoeken wordt nooit vastgelegd.",
 		"filters": {
 			"actorPlaceholder": "Filter op actor…",
 			"method": "Methode",
@@ -2886,6 +2896,7 @@
 			"method": "Methode",
 			"action": "Actie",
 			"entity": "Entiteit",
+			"remote": "Adres",
 			"status": "Status"
 		},
 		"showing": "{{count}} van {{total}} weergegeven",

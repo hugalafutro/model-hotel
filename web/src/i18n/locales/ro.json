@@ -2107,6 +2107,16 @@
 			"message": "Mesaj",
 			"copyMessage": "Copiază mesajul"
 		},
+		"auditDetail": {
+			"title": "Înregistrare de audit",
+			"timestamp": "Ora",
+			"actor": "Autor",
+			"request": "Cerere",
+			"entity": "Entitate",
+			"endpoint": "Endpoint",
+			"path": "Cale",
+			"remoteAddr": "Adresă la distanță"
+		},
 		"paramSlider": {
 			"off": "dezactivat"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Audit",
-		"description": "Istoricul acțiunilor de administrare pe această instanță. Conținutul cererilor nu este niciodată înregistrat.",
+		"description": "Cine a schimbat ce pe această instanță: fiecare acțiune de modificare din panou, de la orice utilizator autentificat. Conținutul cererilor nu este niciodată înregistrat.",
 		"filters": {
 			"actorPlaceholder": "Filtrați după autor…",
 			"method": "Metodă",
@@ -2886,6 +2896,7 @@
 			"method": "Metodă",
 			"action": "Acțiune",
 			"entity": "Entitate",
+			"remote": "Adresă",
 			"status": "Stare"
 		},
 		"showing": "Se afișează {{count}} din {{total}}",

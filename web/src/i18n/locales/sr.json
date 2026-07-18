@@ -2107,6 +2107,16 @@
 			"message": "Порука",
 			"copyMessage": "Копирај поруку"
 		},
+		"auditDetail": {
+			"title": "Ставка ревизије",
+			"timestamp": "Временски жиг",
+			"actor": "Izvršilac",
+			"request": "Захтев",
+			"entity": "Entitet",
+			"endpoint": "Крајња тачка",
+			"path": "Путања",
+			"remoteAddr": "Удаљена адреса"
+		},
 		"paramSlider": {
 			"off": "искључено"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Ревизија",
-		"description": "Траг административних радњи на овој инстанци. Садржај захтева се никада не бележи.",
+		"description": "Ко је шта променио на овој инстанци: свака измењујућа радња контролне табле од било ког пријављеног корисника. Садржај захтева се никада не бележи.",
 		"filters": {
 			"actorPlaceholder": "Filtriraj po izvršiocu…",
 			"method": "Metoda",
@@ -2886,6 +2896,7 @@
 			"method": "Metoda",
 			"action": "Radnja",
 			"entity": "Entitet",
+			"remote": "Адреса",
 			"status": "Status"
 		},
 		"showing": "Prikazano {{count}} od {{total}}",

@@ -2107,6 +2107,16 @@
 			"message": "Üzenet",
 			"copyMessage": "Üzenet másolása"
 		},
+		"auditDetail": {
+			"title": "Auditbejegyzés",
+			"timestamp": "Időbélyeg",
+			"actor": "Végrehajtó",
+			"request": "Kérés",
+			"entity": "Entitás",
+			"endpoint": "Végpont",
+			"path": "Útvonal",
+			"remoteAddr": "Távoli cím"
+		},
 		"paramSlider": {
 			"off": "ki"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Audit",
-		"description": "Az adminisztrátori műveletek nyomvonala ezen a példányon. A kérések tartalma soha nem kerül rögzítésre.",
+		"description": "Ki mit változtatott ezen a példányon: minden módosító irányítópult-művelet bármely bejelentkezett felhasználótól. A kérések tartalma soha nem kerül rögzítésre.",
 		"filters": {
 			"actorPlaceholder": "Szűrés végrehajtó szerint…",
 			"method": "Metódus",
@@ -2886,6 +2896,7 @@
 			"method": "Metódus",
 			"action": "Művelet",
 			"entity": "Entitás",
+			"remote": "Cím",
 			"status": "Állapot"
 		},
 		"showing": "{{count}} / {{total}} megjelenítve",

@@ -2107,6 +2107,16 @@
 			"message": "Besked",
 			"copyMessage": "Kopiér besked"
 		},
+		"auditDetail": {
+			"title": "Auditpost",
+			"timestamp": "Tidsstempel",
+			"actor": "Aktør",
+			"request": "Forespørgsel",
+			"entity": "Entitet",
+			"endpoint": "Endpoint",
+			"path": "Sti",
+			"remoteAddr": "Fjernadresse"
+		},
 		"paramSlider": {
 			"off": "fra"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Revision",
-		"description": "Spor af admin-handlinger på denne instans. Forespørgslers indhold registreres aldrig.",
+		"description": "Hvem ændrede hvad på denne instans: enhver ændrende dashboard-handling fra enhver bruger, der er logget ind. Forespørgslers indhold registreres aldrig.",
 		"filters": {
 			"actorPlaceholder": "Filtrér efter aktør…",
 			"method": "Metode",
@@ -2886,6 +2896,7 @@
 			"method": "Metode",
 			"action": "Handling",
 			"entity": "Entitet",
+			"remote": "Adresse",
 			"status": "Status"
 		},
 		"showing": "Viser {{count}} af {{total}}",

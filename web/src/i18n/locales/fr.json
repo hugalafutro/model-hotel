@@ -2107,6 +2107,16 @@
 			"message": "Message",
 			"copyMessage": "Copier le message"
 		},
+		"auditDetail": {
+			"title": "Entrée d'audit",
+			"timestamp": "Horodatage",
+			"actor": "Acteur",
+			"request": "Requête",
+			"entity": "Entité",
+			"endpoint": "Point de terminaison",
+			"path": "Chemin",
+			"remoteAddr": "Adresse distante"
+		},
 		"paramSlider": {
 			"off": "désactivée"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Audit",
-		"description": "Journal des actions d'administration sur cette instance. Le contenu des requêtes n'est jamais enregistré.",
+		"description": "Qui a modifié quoi sur cette instance : chaque action de modification du tableau de bord par tout utilisateur connecté. Le contenu des requêtes n'est jamais enregistré.",
 		"filters": {
 			"actorPlaceholder": "Filtrer par acteur…",
 			"method": "Méthode",
@@ -2886,6 +2896,7 @@
 			"method": "Méthode",
 			"action": "Action",
 			"entity": "Entité",
+			"remote": "Adresse",
 			"status": "Statut"
 		},
 		"showing": "Affichage de {{count}} sur {{total}}",

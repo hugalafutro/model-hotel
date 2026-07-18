@@ -86,6 +86,8 @@ func (h *Handler) ListAudit(w http.ResponseWriter, r *http.Request) {
 	if hasMore {
 		entries = entries[:limit]
 	}
+	// After trimming so the lookahead row is not resolved needlessly.
+	h.audit.ResolveEntityNames(r.Context(), entries)
 	resp := AuditListResponse{
 		Entries: entries,
 		Total:   h.audit.Count(r.Context(), p),

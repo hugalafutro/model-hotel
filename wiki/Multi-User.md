@@ -59,6 +59,24 @@ Each account can carry optional RPS, burst, and TPM caps. These are **aggregate*
 - Sessions are SHA-256 hashed and never stored in plaintext, on the same infrastructure passkey and admin TOTP login use.
 - The admin token, passkeys, and SSO all keep working regardless of how many user accounts exist.
 
+## Audit trail
+
+Every mutating dashboard action (POST, PUT, PATCH, DELETE on the authenticated `/api/*` surface) by any signed-in account, admin or user, is recorded in an audit trail. Viewing the trail is admin-only.
+
+<p align="center">
+<a href="screenshots/audit.png"><img src="screenshots/audit.png" alt="Audit page with the detail modal open" width="760"></a><br>
+<em>The Audit page: who changed what, with the detail modal open on a model-test entry</em>
+</p>
+
+Each entry records who (actor and role), what (HTTP method and route pattern), the target entity, the response status, the caller's remote address, and when. Request and response bodies are never stored, so secrets (provider keys, passwords) can never end up in the trail.
+
+- The **Entity** column resolves the target's UUID to its current display name at read time (model, provider, virtual key, failover group, or username). Names are never stored: after a rename the trail shows the new name, and a deleted entity leaves only its UUID as the trace.
+- Clicking a row opens a detail modal with copyable fields: full timestamp, actor, entity name and UUID, endpoint pattern, the concrete request path, and remote address.
+- The list filters by actor and method, and paginates newest-first with a cursor.
+- The trail can be purged from the page. The purge is itself a mutating request and is recorded, so a wiped trail always shows who wiped it.
+
+See [API Reference](API-Reference#audit-trail) for the `/api/audit` endpoints.
+
 ## Security notes
 
 - Passwords are hashed with **argon2id** (per-account random salt, PHC string format), the same KDF used for `MASTER_KEY` derivation. Plaintext passwords are never stored.

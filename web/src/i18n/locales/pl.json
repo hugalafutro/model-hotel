@@ -2107,6 +2107,16 @@
 			"message": "Wiadomość",
 			"copyMessage": "Kopiuj wiadomość"
 		},
+		"auditDetail": {
+			"title": "Wpis audytu",
+			"timestamp": "Znacznik czasu",
+			"actor": "Wykonawca",
+			"request": "Żądanie",
+			"entity": "Obiekt",
+			"endpoint": "Endpoint",
+			"path": "Ścieżka",
+			"remoteAddr": "Adres zdalny"
+		},
 		"paramSlider": {
 			"off": "wyłączony"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Audyt",
-		"description": "Zapis działań administracyjnych w tej instancji. Treść żądań nigdy nie jest rejestrowana.",
+		"description": "Kto co zmienił w tej instancji: każda modyfikująca akcja panelu wykonana przez dowolnego zalogowanego użytkownika. Treść żądań nigdy nie jest rejestrowana.",
 		"filters": {
 			"actorPlaceholder": "Filtruj według wykonawcy…",
 			"method": "Metoda",
@@ -2886,6 +2896,7 @@
 			"method": "Metoda",
 			"action": "Działanie",
 			"entity": "Obiekt",
+			"remote": "Adres",
 			"status": "Status"
 		},
 		"showing": "Wyświetlono {{count}} z {{total}}",

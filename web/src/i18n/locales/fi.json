@@ -2107,6 +2107,16 @@
 			"message": "Viesti",
 			"copyMessage": "Kopioi viesti"
 		},
+		"auditDetail": {
+			"title": "Auditointimerkintä",
+			"timestamp": "Aikaleima",
+			"actor": "Tekijä",
+			"request": "Pyyntö",
+			"entity": "Kohde",
+			"endpoint": "Päätepiste",
+			"path": "Polku",
+			"remoteAddr": "Etäosoite"
+		},
 		"paramSlider": {
 			"off": "pois"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Auditointi",
-		"description": "Tämän instanssin ylläpitotoimien jälki. Pyyntöjen sisältöä ei koskaan tallenneta.",
+		"description": "Kuka muutti mitä tässä instanssissa: jokainen muuttava hallintapaneelin toiminto keneltä tahansa kirjautuneelta käyttäjältä. Pyyntöjen sisältöä ei koskaan tallenneta.",
 		"filters": {
 			"actorPlaceholder": "Suodata tekijän mukaan…",
 			"method": "Metodi",
@@ -2886,6 +2896,7 @@
 			"method": "Metodi",
 			"action": "Toiminto",
 			"entity": "Kohde",
+			"remote": "Osoite",
 			"status": "Tila"
 		},
 		"showing": "Näytetään {{count}} / {{total}}",

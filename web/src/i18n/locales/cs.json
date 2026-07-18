@@ -2107,6 +2107,16 @@
 			"message": "Zpráva",
 			"copyMessage": "Kopírovat zprávu"
 		},
+		"auditDetail": {
+			"title": "Záznam auditu",
+			"timestamp": "Časové razítko",
+			"actor": "Aktér",
+			"request": "Požadavek",
+			"entity": "Entita",
+			"endpoint": "Endpoint",
+			"path": "Cesta",
+			"remoteAddr": "Vzdálená adresa"
+		},
 		"paramSlider": {
 			"off": "vypnuto"
 		},
@@ -2871,7 +2881,7 @@
 	},
 	"audit": {
 		"title": "Audit",
-		"description": "Záznam administrátorských akcí na této instanci. Obsah požadavků se nikdy nezaznamenává.",
+		"description": "Kdo co změnil na této instanci: každá měnící akce v panelu od kteréhokoli přihlášeného uživatele. Obsah požadavků se nikdy nezaznamenává.",
 		"filters": {
 			"actorPlaceholder": "Filtrovat podle aktéra…",
 			"method": "Metoda",
@@ -2886,6 +2896,7 @@
 			"method": "Metoda",
 			"action": "Akce",
 			"entity": "Entita",
+			"remote": "Adresa",
 			"status": "Stav"
 		},
 		"showing": "Zobrazeno {{count}} z {{total}}",

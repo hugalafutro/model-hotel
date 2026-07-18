@@ -902,6 +902,71 @@ Returns available models that can be added to failover groups.
 
 ---
 
+### Audit Trail
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/audit` | GET | Query the audit trail (cursor-paginated, newest first) |
+| `/api/audit/purge` | DELETE | Purge audit entries older than a specified period |
+
+> **Admin-only.** Both endpoints require an admin session. The trail itself is written by middleware that records every mutating (POST/PUT/PATCH/DELETE) request on the authenticated `/api/*` surface from any signed-in account, admin or user. Request and response bodies are never stored.
+
+#### GET `/api/audit`
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | integer | 50 | Page size (max 200) |
+| `cursor` | string | - | Keyset cursor from a previous response's `next_cursor` |
+| `actor` | string | - | Filter by actor (exact match: a username, or `admin` for legacy admin-token/passkey/SSO logins) |
+| `method` | string | - | Filter by HTTP method (`POST`, `PUT`, `PATCH`, `DELETE`) |
+| `from` | RFC3339 | - | Start timestamp |
+| `to` | RFC3339 | - | End timestamp |
+
+**Response:**
+```json
+{
+  "entries": [
+    {
+      "id": "uuid",
+      "created_at": "2026-01-01T00:00:00Z",
+      "actor": "maya",
+      "actor_role": "user",
+      "method": "PUT",
+      "route": "/api/virtual-keys/{id}",
+      "path": "/api/virtual-keys/0a1b2c3d-...",
+      "entity_id": "0a1b2c3d-...",
+      "entity_name": "maya-cli",
+      "status_code": 200,
+      "remote_addr": "10.0.0.17:41822"
+    }
+  ],
+  "total": 132,
+  "has_more": true,
+  "next_cursor": "..."
+}
+```
+
+`entity_name` is resolved at read time from the entity's current display name (models, providers, virtual keys, failover groups, users) and is omitted when the entity has been deleted or the route has no mapped entity; the UUID in `entity_id` then remains the only trace. Names are never stored, so a rename shows the current name.
+
+[![Audit Page](screenshots/audit.png)](screenshots/audit.png)
+
+#### DELETE `/api/audit/purge`
+
+**Request Body:**
+```json
+{ "older_than": "1w" }
+```
+
+**Accepted values:** `1h`, `1d`, `1w`, `1m`, `all`
+
+**Response:** `204 No Content`
+
+The purge is itself a mutating request and is recorded by the audit middleware, so a wiped trail always shows who wiped it.
+
+---
+
 ### Backups
 
 | Endpoint | Method | Description |
