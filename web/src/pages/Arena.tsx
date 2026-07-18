@@ -30,7 +30,12 @@ import { WinnerSummaryModal } from "./Arena/WinnerSummaryModal";
 
 export function Arena() {
 	const { t } = useTranslation();
-	const arena = useArena();
+	// Refs are split off so the ref-free `arena` rest object can be read freely
+	// in the JSX without tripping the react-hooks/refs lint.
+	const {
+		refs: { abortMapRef },
+		...arena
+	} = useArena();
 
 	const displayNameMap = useMemo(() => {
 		const map = new Map<string, string>();
@@ -139,10 +144,10 @@ export function Arena() {
 									<ActionIconButton
 										icon={Eraser}
 										onClick={() => {
-											for (const [, ctrl] of arena.abortMapRef.current) {
+											for (const [, ctrl] of abortMapRef.current) {
 												ctrl.abort();
 											}
-											arena.abortMapRef.current.clear();
+											abortMapRef.current.clear();
 											arena.setRounds([]);
 											arena.setCurrentRound(0);
 											arena.setPhase("setup");
@@ -678,10 +683,10 @@ export function Arena() {
 					fields={[]}
 					confirmLabel={t("arena.confirmReset.confirmLabel")}
 					onConfirm={() => {
-						for (const [, ctrl] of arena.abortMapRef.current) {
+						for (const [, ctrl] of abortMapRef.current) {
 							ctrl.abort();
 						}
-						arena.abortMapRef.current.clear();
+						abortMapRef.current.clear();
 						arena.setCompareModels([]);
 						arena.setBracketModels([]);
 						arena.setCompetitionPrompt("");

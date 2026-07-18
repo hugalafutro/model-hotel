@@ -287,7 +287,7 @@ const baseArena = {
 	setArenaMode: vi.fn(),
 	onPersonaChange: vi.fn(),
 	onModelParamChange: vi.fn(),
-	abortMapRef: { current: new Map() },
+	refs: { abortMapRef: { current: new Map() } },
 	handleRandomBracketModel: vi.fn(),
 	handleRandomCompareModel: vi.fn(),
 	handleRandomComparePersona: vi.fn(),
@@ -574,7 +574,7 @@ describe("Arena - Controls section", () => {
 
 		mockArena({
 			phase: "running",
-			abortMapRef: { current: abortMap },
+			refs: { abortMapRef: { current: abortMap } },
 			setRounds: setRoundsSpy,
 			setCurrentRound: setCurrentRoundSpy,
 			setPhase: setPhaseSpy,
@@ -1118,7 +1118,7 @@ describe("Arena - ConfirmDialog full reset", () => {
 		const arenaReturn = {
 			...baseArena,
 			pendingFullReset: true,
-			abortMapRef: { current: abortMap },
+			refs: { abortMapRef: { current: abortMap } },
 			setCompareModels: vi.fn(),
 			setBracketModels: vi.fn(),
 			setCompetitionPrompt: vi.fn(),
