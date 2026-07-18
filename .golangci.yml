@@ -25,9 +25,8 @@ linters:
 
     gocyclo:
       # Ceiling for prod code (tests + generated migrations excluded below).
-      # 30 is the current ratchet: 6 known hotspots above it carry justified
-      # inline nolints (see gocyclo refactor shortlist); lower this as they
-      # get refactored.
+      # 30 is the current ratchet, met with zero inline nolints (worst prod
+      # function is currently 29); lower this as further refactors land.
       min-complexity: 30
 
     gocritic:

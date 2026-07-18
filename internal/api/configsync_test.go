@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/settings"
@@ -764,6 +765,68 @@ func TestConfigSync_HelperDBErrors(t *testing.T) {
 	}
 	if err := h.apply(cctx, env, nil); err == nil {
 		t.Error("apply should error on cancelled ctx (Begin fails)")
+	}
+}
+
+// TestConfigSync_ApplyHelperDBErrors exercises the DB-error return paths of
+// the transactional apply helpers with transactions that are already finished
+// (every statement errors) or read-only (reads succeed, writes fail).
+func TestConfigSync_ApplyHelperDBErrors(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	pool := apiTestDB.Pool()
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(pool), configSyncMasterKey, "v-test", nil)
+
+	deadTx := func() pgx.Tx {
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin: %v", err)
+		}
+		_ = tx.Rollback(ctx)
+		return tx
+	}
+
+	if err := enforceSourceGenFence(ctx, deadTx(), nil); err == nil {
+		t.Error("enforceSourceGenFence should error on a finished tx")
+	}
+	// An empty search_path lets the advisory lock succeed but fails the
+	// settings read, covering the fence's marker-read error return.
+	blindTx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = blindTx.Rollback(ctx) }()
+	if _, err := blindTx.Exec(ctx, `SET LOCAL search_path TO ''`); err != nil {
+		t.Fatalf("set search_path: %v", err)
+	}
+	if err := enforceSourceGenFence(ctx, blindTx, nil); err == nil {
+		t.Error("enforceSourceGenFence should error when the marker read fails")
+	}
+	if err := guardAgainstProviderWipe(ctx, deadTx(), nil); err == nil {
+		t.Error("guardAgainstProviderWipe should error on a finished tx")
+	}
+	if _, err := h.applySettingsTx(ctx, deadTx(), map[string]string{"discovery_interval": "1h"}); err == nil {
+		t.Error("applySettingsTx should error when SetTx fails")
+	}
+	if _, err := h.applySettingsTx(ctx, deadTx(), nil); err == nil {
+		t.Error("applySettingsTx should error when the settings read fails")
+	}
+
+	// Read-only tx: the settings read succeeds and finds an orphan syncable
+	// key absent from the envelope, so the declarative delete runs and fails.
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO settings (key, value, updated_at) VALUES ('discovery_interval', '6h', now())`); err != nil {
+		t.Fatalf("seed setting: %v", err)
+	}
+	roTx, err := pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		t.Fatalf("begin read-only: %v", err)
+	}
+	defer func() { _ = roTx.Rollback(ctx) }()
+	// The non-syncable key is skipped (no write attempted); the orphan
+	// syncable key still triggers the failing delete.
+	if _, err := h.applySettingsTx(ctx, roTx, map[string]string{"not_a_syncable_key": "x"}); err == nil {
+		t.Error("applySettingsTx should error when DeleteKeysTx fails on a read-only tx")
 	}
 }
 

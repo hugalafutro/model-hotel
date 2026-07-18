@@ -286,6 +286,51 @@ func (st *streamState) emitData(sink *streamSink, payload []byte, transform stri
 	return true
 }
 
+// applyReasoningNormalize is the reasoning field normalization transform:
+// ensure reasoning_content is populated regardless of upstream format (Ollama
+// reasoning, OpenRouter/MiniMax reasoning_details, <thinking> tags in
+// content). Emits the rewritten chunk itself; wrote reports that emit and
+// stop=true a client write failure.
+func (st *streamState) applyReasoningNormalize(sink *streamSink, chunk streamChunk, payload string, chunkCount int, logData *requestLogData) (wrote, stop bool) {
+	if len(chunk.Choices) == 0 || chunk.Choices[0].Delta == nil {
+		return false, false
+	}
+	delta := chunk.Choices[0].Delta
+	newPayload, ok := normalizeReasoningChunk(delta.Content, delta.ReasoningContent, payload, &st.lastFinishReason, logData)
+	if !ok {
+		return false, false
+	}
+	if !st.emitData(sink, newPayload, "reasoning normalization", chunkCount, logData) {
+		return false, true
+	}
+	debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+	return true, false
+}
+
+// applyEmptyContentStrip strips the noise content:"" that accompanies
+// reasoning-only deltas. Emits the rewritten chunk itself; wrote reports that
+// emit and stop=true a client write failure.
+func (st *streamState) applyEmptyContentStrip(sink *streamSink, chunk streamChunk, payload string, chunkCount int, logData *requestLogData) (wrote, stop bool) {
+	if len(chunk.Choices) == 0 || chunk.Choices[0].Delta == nil {
+		return false, false
+	}
+	delta := chunk.Choices[0].Delta
+	hasReasoning := delta.ReasoningContent != nil && *delta.ReasoningContent != ""
+	hasEmptyContent := delta.Content != nil && *delta.Content == ""
+	if !hasReasoning || !hasEmptyContent {
+		return false, false
+	}
+	newPayload, ok := stripEmptyReasoningContent(payload, &st.lastFinishReason, logData)
+	if !ok {
+		return false, false
+	}
+	if !st.emitData(sink, newPayload, "empty content strip", chunkCount, logData) {
+		return false, true
+	}
+	debuglog.Debug("proxy: stripped empty content from reasoning chunk", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+	return true, false
+}
+
 // handleDataChunk processes one sseData event end-to-end: capture split/Anthropic
 // SSE errors (P1-B/P1-C), parse the chunk, run the transforms (strip_reasoning,
 // reasoning-normalize, empty-content-strip, finish_reason) and the side-channel
@@ -293,8 +338,6 @@ func (st *streamState) emitData(sink *streamSink, payload []byte, transform stri
 // whole transform dispatch are encapsulated here. Returns stop=true when a client
 // write failed (the caller jumps to finalize), false otherwise (advance to the
 // next event).
-//
-//nolint:gocyclo // complexity 33: SSE transform dispatch for every chunk shape; on the gocyclo refactor shortlist
 func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent, stripReasoning bool, chunkCount int, logData *requestLogData) (stop bool) {
 	payload := ev.payload
 	line := ev.raw
@@ -333,35 +376,17 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		}
 	stripReasoningDone:
 
-		// Reasoning field normalization: ensure reasoning_content is populated
-		// regardless of upstream format (Ollama reasoning, OpenRouter/MiniMax
-		// reasoning_details, <thinking> tags in content).
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
-			delta := chunk.Choices[0].Delta
-			if newPayload, ok := normalizeReasoningChunk(delta.Content, delta.ReasoningContent, payload, &st.lastFinishReason, logData); ok {
-				if !st.emitData(sink, newPayload, "reasoning normalization", chunkCount, logData) {
-					return true
-				}
-				written = true
-				debuglog.Debug("proxy: normalized reasoning fields", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-			}
+		wrote, stopStream := st.applyReasoningNormalize(sink, chunk, payload, chunkCount, logData)
+		if stopStream {
+			return true
 		}
+		written = written || wrote
 
-		// Strip the noise content:"" that accompanies reasoning-only deltas.
-		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {
-			delta := chunk.Choices[0].Delta
-			hasReasoning := delta.ReasoningContent != nil && *delta.ReasoningContent != ""
-			hasEmptyContent := delta.Content != nil && *delta.Content == ""
-			if hasReasoning && hasEmptyContent {
-				if newPayload, ok := stripEmptyReasoningContent(payload, &st.lastFinishReason, logData); ok {
-					if !st.emitData(sink, newPayload, "empty content strip", chunkCount, logData) {
-						return true
-					}
-					written = true
-					debuglog.Debug("proxy: stripped empty content from reasoning chunk", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
-				}
-			}
+		wrote, stopStream = st.applyEmptyContentStrip(sink, chunk, payload, chunkCount, logData)
+		if stopStream {
+			return true
 		}
+		written = written || wrote
 
 		// Normalize provider finish_reason and suppress P2-2 bare duplicates.
 		switch decision, newPayload := computeFinishReason(chunk, payload, &st.lastFinishReason); decision {

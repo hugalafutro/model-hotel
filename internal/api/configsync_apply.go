@@ -34,8 +34,6 @@ import (
 // The lock is taken for every import, headed or not, so a headerless push cannot
 // slip past a generation that already committed. That, plus the same-transaction
 // advance, is what makes a newer config win regardless of the order pushes arrive.
-//
-//nolint:gocyclo // complexity 33: staged import pipeline with per-entity guards; on the gocyclo refactor shortlist
 func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourceGen *int64) error {
 	tx, err := h.db.Begin(ctx)
 	if err != nil {
@@ -43,49 +41,11 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// pg_advisory_xact_lock blocks a concurrent import's fence step until this
-	// transaction ends, so the read-current / reject-or-advance below is atomic
-	// even when two pushes' bytes both arrived before either committed. Released
-	// automatically on commit or rollback.
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, fleetSourceGenLock); err != nil {
+	if err := enforceSourceGenFence(ctx, tx, sourceGen); err != nil {
 		return err
 	}
-	last, fenced, err := readAppliedSourceGen(ctx, tx)
-	if err != nil {
+	if err := guardAgainstProviderWipe(ctx, tx, env.Config.Providers); err != nil {
 		return err
-	}
-	switch {
-	case sourceGen != nil:
-		if fenced && *sourceGen < last {
-			return errStaleSourceGen // a newer generation already applied; refuse
-		}
-	case fenced:
-		// Headerless (pre-fence) import onto a member any fenced generation already
-		// converged (including generation 0): applying an un-versioned write now
-		// could clobber that config and leave the marker lying. Refuse; the fenced
-		// source reconverges.
-		return errStaleSourceGen
-	}
-
-	// Destructive-wipe rail. The declarative delete below removes every provider
-	// absent from the envelope, so an envelope with zero providers would delete
-	// the member's entire provider set (cascading to discovered models) and,
-	// paired with the users replace further down, is the reported backdoor-wipe
-	// vector. buildEnvelope always ships the full config, so a functioning primary
-	// never legitimately pushes zero providers onto a member that has some.
-	// Refuse here, inside the transaction and before any delete, so the check and
-	// the delete it guards are atomic and no throwaway setting or virtual key can
-	// dress the envelope past it. An empty-provider envelope onto a member that
-	// also has no providers is a harmless no-op and is allowed (fleet bootstrap /
-	// keys-only sync onto an empty member).
-	if len(env.Config.Providers) == 0 {
-		var existing int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM providers`).Scan(&existing); err != nil {
-			return err
-		}
-		if existing > 0 {
-			return errWouldWipeProviders
-		}
 	}
 
 	if err := upsertProviders(ctx, tx, env.Config.Providers); err != nil {
@@ -122,23 +82,8 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 		return err
 	}
 
-	for k, v := range env.Config.Settings {
-		if !isSyncableSetting(k) {
-			continue // skip non-syncable / unknown keys silently
-		}
-		if err := h.settings.SetTx(ctx, tx, k, v); err != nil {
-			return err
-		}
-	}
-	// Declarative replace for settings too: delete any syncable key this member
-	// has that the primary does not, so the replica falls back to the same
-	// built-in default the primary is using. Non-syncable keys (apprise,
-	// observability, instance-local) are never touched.
-	removedSettings, err := h.syncableSettingsToDelete(ctx, tx, env.Config.Settings)
+	removedSettings, err := h.applySettingsTx(ctx, tx, env.Config.Settings)
 	if err != nil {
-		return err
-	}
-	if err := h.settings.DeleteKeysTx(ctx, tx, removedSettings); err != nil {
 		return err
 	}
 
@@ -157,6 +102,91 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 		return err
 	}
 
+	h.postImportRefresh(ctx, env, removedSettings)
+	return nil
+}
+
+// enforceSourceGenFence takes the fleet source-generation advisory lock and
+// applies the commit fence for this import. pg_advisory_xact_lock blocks a
+// concurrent import's fence step until the surrounding transaction ends, so
+// the read-current / reject-or-advance is atomic even when two pushes' bytes
+// both arrived before either committed. Released automatically on commit or
+// rollback.
+func enforceSourceGenFence(ctx context.Context, tx pgx.Tx, sourceGen *int64) error {
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, fleetSourceGenLock); err != nil {
+		return err
+	}
+	last, fenced, err := readAppliedSourceGen(ctx, tx)
+	if err != nil {
+		return err
+	}
+	switch {
+	case sourceGen != nil:
+		if fenced && *sourceGen < last {
+			return errStaleSourceGen // a newer generation already applied; refuse
+		}
+	case fenced:
+		// Headerless (pre-fence) import onto a member any fenced generation already
+		// converged (including generation 0): applying an un-versioned write now
+		// could clobber that config and leave the marker lying. Refuse; the fenced
+		// source reconverges.
+		return errStaleSourceGen
+	}
+	return nil
+}
+
+// guardAgainstProviderWipe is the destructive-wipe rail. The declarative
+// delete in apply removes every provider absent from the envelope, so an
+// envelope with zero providers would delete the member's entire provider set
+// (cascading to discovered models) and, paired with the users replace, is the
+// reported backdoor-wipe vector. buildEnvelope always ships the full config,
+// so a functioning primary never legitimately pushes zero providers onto a
+// member that has some. Refuse here, inside the transaction and before any
+// delete, so the check and the delete it guards are atomic and no throwaway
+// setting or virtual key can dress the envelope past it. An empty-provider
+// envelope onto a member that also has no providers is a harmless no-op and is
+// allowed (fleet bootstrap / keys-only sync onto an empty member).
+func guardAgainstProviderWipe(ctx context.Context, tx pgx.Tx, providers []ExportProvider) error {
+	if len(providers) == 0 {
+		var existing int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM providers`).Scan(&existing); err != nil {
+			return err
+		}
+		if existing > 0 {
+			return errWouldWipeProviders
+		}
+	}
+	return nil
+}
+
+// applySettingsTx converges syncable settings to the envelope inside the
+// import transaction and returns the keys it deleted. Declarative replace:
+// any syncable key this member has that the primary does not is deleted, so
+// the replica falls back to the same built-in default the primary is using.
+// Non-syncable keys (apprise, observability, instance-local) are never
+// touched, and unknown keys are skipped silently.
+func (h *ConfigSyncHandler) applySettingsTx(ctx context.Context, tx pgx.Tx, want map[string]string) ([]string, error) {
+	for k, v := range want {
+		if !isSyncableSetting(k) {
+			continue // skip non-syncable / unknown keys silently
+		}
+		if err := h.settings.SetTx(ctx, tx, k, v); err != nil {
+			return nil, err
+		}
+	}
+	removedSettings, err := h.syncableSettingsToDelete(ctx, tx, want)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.settings.DeleteKeysTx(ctx, tx, removedSettings); err != nil {
+		return nil, err
+	}
+	return removedSettings, nil
+}
+
+// postImportRefresh runs the best-effort post-commit steps of an import: the
+// core config is already durable, so nothing here can fail the sync.
+func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnvelope, removedSettings []string) {
 	// Stamp the HA synced marker AFTER the commit, via Set (not SetTx): this
 	// instance-local, non-syncable key drives the member dashboard's "synced
 	// from primary" readout. It must be written post-commit and through Set
@@ -202,7 +232,6 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 		h.settings.InvalidateCache(k)
 		h.settings.NotifyDeleted(k)
 	}
-	return nil
 }
 
 // applyFailoverGroups upserts the custom failover groups and declaratively

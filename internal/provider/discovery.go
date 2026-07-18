@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -160,13 +161,63 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, url string, hea
 	return bodyBytes, nil
 }
 
+// hostTypeRules maps provider hostnames to provider types: exact host names
+// plus suffixes for subdomain matches (api.foo.deepseek.com, custom.nano-gpt.com).
+// Suffix matching (rather than strings.Contains) ensures
+// "https://my-proxy.deepseek.com" resolves to "deepseek" without substring
+// false positives. Providers needing path- or contains-based detection
+// (opencode, google) are handled separately in detectByHost.
+var hostTypeRules = []struct {
+	typ      string
+	exact    []string
+	suffixes []string
+}{
+	{"nanogpt", []string{"api.nano-gpt.com", "nano-gpt.com"}, []string{".nano-gpt.com"}},
+	{"zai-coding", []string{"api.z.ai", "z.ai"}, []string{".z.ai"}},
+	{"deepseek", []string{"api.deepseek.com", "deepseek.com"}, []string{".deepseek.com"}},
+	{"anthropic", []string{"api.anthropic.com", "anthropic.com"}, []string{".anthropic.com"}},
+	{"xai", []string{"api.x.ai", "x.ai"}, []string{".x.ai"}},
+	{"cohere", []string{"api.cohere.com", "api.cohere.ai"}, []string{".cohere.com", ".cohere.ai"}},
+	{"openrouter", []string{"openrouter.ai"}, []string{".openrouter.ai"}},
+	{"ollama-cloud", []string{"ollama.com"}, []string{".ollama.com"}},
+	{"neuralwatt", []string{"api.neuralwatt.com", "neuralwatt.com"}, []string{".neuralwatt.com"}},
+}
+
+// detectByHost resolves a provider type from a lowercased hostname (and URL
+// path, for opencode). Returns "" when no rule matches.
+func detectByHost(host, path string) string {
+	for _, r := range hostTypeRules {
+		if slices.Contains(r.exact, host) {
+			return r.typ
+		}
+		for _, s := range r.suffixes {
+			if strings.HasSuffix(host, s) {
+				return r.typ
+			}
+		}
+	}
+	if host == "generativelanguage.googleapis.com" {
+		return "google"
+	}
+	if strings.HasSuffix(host, ".googleapis.com") &&
+		(strings.Contains(host, "generativelanguage") || strings.Contains(host, "aiplatform")) {
+		return "google"
+	}
+	if host == "opencode.ai" || strings.HasSuffix(host, ".opencode.ai") {
+		// Path-based detection: Go URL contains /zen/go/, Zen contains /zen/.
+		// Must check Go before Zen since /zen/go/ is a subpath of /zen/.
+		if strings.Contains(path, "/zen/go") {
+			return "opencode-go"
+		}
+		if strings.Contains(path, "/zen") {
+			return "opencode-zen"
+		}
+	}
+	return ""
+}
+
 // DetectProviderType parses the provider's base URL and returns a type string
-// based on the hostname and (for some providers) the URL path. It uses exact
-// host matching and suffix matching so that "https://my-proxy.deepseek.com"
-// correctly resolves to "deepseek" rather than matching a substring like
-// strings.Contains would.
-//
-//nolint:gocyclo // complexity 38: flat hostname-matching table over the provider list; on the gocyclo refactor shortlist
+// based on the hostname and (for some providers) the URL path or port.
 func DetectProviderType(baseURL string) string {
 	u, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || u.Host == "" {
@@ -176,80 +227,8 @@ func DetectProviderType(baseURL string) string {
 	host := strings.ToLower(u.Hostname())
 	path := strings.ToLower(u.Path)
 
-	// Exact matches first
-	switch host {
-	case "api.nano-gpt.com", "nano-gpt.com":
-		return "nanogpt"
-	case "api.z.ai", "z.ai":
-		return "zai-coding"
-	case "api.deepseek.com", "deepseek.com":
-		return "deepseek"
-	case "api.anthropic.com", "anthropic.com":
-		return "anthropic"
-	case "api.x.ai", "x.ai":
-		return "xai"
-	case "api.cohere.com", "api.cohere.ai":
-		return "cohere"
-	case "openrouter.ai":
-		return "openrouter"
-	case "generativelanguage.googleapis.com":
-		return "google"
-	case "ollama.com":
-		return "ollama-cloud"
-	case "opencode.ai":
-		// Path-based detection: Go URL contains /zen/go/, Zen contains /zen/
-		// Must check Go before Zen since /zen/go/ is a subpath of /zen/
-		if strings.Contains(path, "/zen/go") {
-			return "opencode-go"
-		}
-		if strings.Contains(path, "/zen") {
-			return "opencode-zen"
-		}
-	case "api.neuralwatt.com", "neuralwatt.com":
-		return "neuralwatt"
-	}
-
-	// Subdomain matching: api.foo.deepseek.com, custom.nano-gpt.com, etc.
-	if strings.HasSuffix(host, ".nano-gpt.com") {
-		return "nanogpt"
-	}
-	if strings.HasSuffix(host, ".z.ai") {
-		return "zai-coding"
-	}
-	if strings.HasSuffix(host, ".deepseek.com") {
-		return "deepseek"
-	}
-	if strings.HasSuffix(host, ".anthropic.com") {
-		return "anthropic"
-	}
-	if strings.HasSuffix(host, ".x.ai") {
-		return "xai"
-	}
-	if strings.HasSuffix(host, ".cohere.com") || strings.HasSuffix(host, ".cohere.ai") {
-		return "cohere"
-	}
-	if strings.HasSuffix(host, ".openrouter.ai") {
-		return "openrouter"
-	}
-	if strings.HasSuffix(host, ".googleapis.com") {
-		if strings.Contains(host, "generativelanguage") || strings.Contains(host, "aiplatform") {
-			return "google"
-		}
-	}
-	if strings.HasSuffix(host, ".ollama.com") {
-		return "ollama-cloud"
-	}
-	if strings.HasSuffix(host, ".opencode.ai") {
-		// Path-based detection for custom opencode.ai subdomains
-		if strings.Contains(path, "/zen/go") {
-			return "opencode-go"
-		}
-		if strings.Contains(path, "/zen") {
-			return "opencode-zen"
-		}
-	}
-	if strings.HasSuffix(host, ".neuralwatt.com") {
-		return "neuralwatt"
+	if typ := detectByHost(host, path); typ != "" {
+		return typ
 	}
 
 	// Port-based heuristics for self-hosted providers (Ollama, LM Studio, KoboldCPP).
@@ -259,8 +238,7 @@ func DetectProviderType(baseURL string) string {
 	// Note: port 5001 is also used by IPFS HTTP API and Apple AirPlay Receiver.
 	// Port 1234 is a common generic dev port. If discovery misclassifies a non-LLM
 	// service on one of these ports, the user can override the provider type manually.
-	port := u.Port()
-	switch port {
+	switch u.Port() {
 	case "11434":
 		return "ollama"
 	case "5001":
@@ -269,11 +247,7 @@ func DetectProviderType(baseURL string) string {
 		return "lmstudio"
 	}
 
-	// Loopback without a recognised local-provider port falls back to openai.
-	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
-		return "openai"
-	}
-
+	// Unrecognised hosts (including bare loopback) fall back to openai.
 	return "openai"
 }
 
