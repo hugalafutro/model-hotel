@@ -53,6 +53,7 @@ beforeEach(() => {
 afterEach(() => {
 	// Tests that opt into fake timers reset here; a no-op for the real-timer ones.
 	vi.useRealTimers();
+	vi.restoreAllMocks();
 });
 
 // settle drives the fake-timer clock forward a little, flushing the mount fetch
@@ -229,6 +230,55 @@ describe("TrafficPage", () => {
 		expect(screen.queryByTestId("traffic-updated")).not.toBeInTheDocument();
 		// The healthy card keeps exactly one local stamp; the failed one has none.
 		expect(screen.getAllByTestId("traffic-updated-local")).toHaveLength(1);
+	});
+
+	it("keeps one shared stamp when reachable cards report different times", async () => {
+		// Regression: two reachable cards can commit slightly different fetch times
+		// (one lands a beat after the other on a refresh tick). That difference must
+		// NOT split the page into per-card stamps - which flashed a ~15px line under
+		// the second graph - since both are fresh. The page keeps a single shared
+		// stamp using the latest time. Distinct per-call times are forced here.
+		let tick = 0;
+		vi.spyOn(Date.prototype, "toISOString").mockImplementation(() => {
+			tick += 1;
+			return `2026-01-01T00:00:0${tick}.000Z`;
+		});
+		vi.useFakeTimers();
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+				]),
+			),
+			http.get("/api/members/1/traffic", () =>
+				HttpResponse.json(
+					traffic({
+						member_id: "1",
+						total_requests: 10,
+						points: [{ bucket: "b1", requests: 10, errors: 0 }],
+					}),
+				),
+			),
+			http.get("/api/members/2/traffic", () =>
+				HttpResponse.json(
+					traffic({
+						member_id: "2",
+						total_requests: 20,
+						points: [{ bucket: "b1", requests: 20, errors: 0 }],
+					}),
+				),
+			),
+		);
+		renderPage();
+		await settle();
+
+		expect(screen.getByText("10")).toBeInTheDocument();
+		expect(screen.getByText("20")).toBeInTheDocument();
+		// Both reachable but with different reported times: still exactly one shared
+		// stamp, and no per-card stamp flashed in.
+		expect(screen.getByTestId("traffic-updated")).toBeInTheDocument();
+		expect(screen.queryAllByTestId("traffic-updated-local")).toHaveLength(0);
 	});
 
 	it("auto-refreshes every graph on an interval with no user action", async () => {
