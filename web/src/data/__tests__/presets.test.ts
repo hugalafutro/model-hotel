@@ -9,8 +9,7 @@ describe("CHAT_PERSONAS", () => {
 	});
 
 	it("items have required fields: id, icon, label, systemPrompt", () => {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		CHAT_PERSONAS.forEach((persona: PersonaPreset, _index: number) => {
+		CHAT_PERSONAS.forEach((persona: PersonaPreset) => {
 			expect(persona).toHaveProperty("id");
 			expect(persona).toHaveProperty("icon");
 			expect(persona).toHaveProperty("label");
@@ -25,8 +24,7 @@ describe("CHAT_PERSONAS", () => {
 	});
 
 	it("system prompts are i18n key paths", () => {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		CHAT_PERSONAS.forEach((persona: PersonaPreset, _index: number) => {
+		CHAT_PERSONAS.forEach((persona: PersonaPreset) => {
 			expect(typeof persona.systemPrompt).toBe("string");
 			expect(persona.systemPrompt).toMatch(
 				/^presets\.personas\.[a-z0-9-]+\.prompt$/,
@@ -42,8 +40,7 @@ describe("ARENA_PROMPTS", () => {
 	});
 
 	it("items have required fields: id, icon, label, prompt", () => {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		ARENA_PROMPTS.forEach((prompt: ArenaPromptPreset, _index: number) => {
+		ARENA_PROMPTS.forEach((prompt: ArenaPromptPreset) => {
 			expect(prompt).toHaveProperty("id");
 			expect(prompt).toHaveProperty("icon");
 			expect(prompt).toHaveProperty("label");
@@ -58,8 +55,7 @@ describe("ARENA_PROMPTS", () => {
 	});
 
 	it("prompts are i18n key paths", () => {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		ARENA_PROMPTS.forEach((prompt: ArenaPromptPreset, _index: number) => {
+		ARENA_PROMPTS.forEach((prompt: ArenaPromptPreset) => {
 			expect(typeof prompt.prompt).toBe("string");
 			expect(prompt.prompt).toMatch(/^presets\.prompts\.[a-z0-9-]+\.text$/);
 		});

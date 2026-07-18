@@ -293,6 +293,8 @@ func (st *streamState) emitData(sink *streamSink, payload []byte, transform stri
 // whole transform dispatch are encapsulated here. Returns stop=true when a client
 // write failed (the caller jumps to finalize), false otherwise (advance to the
 // next event).
+//
+//nolint:gocyclo // complexity 33: SSE transform dispatch for every chunk shape; on the gocyclo refactor shortlist
 func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent, stripReasoning bool, chunkCount int, logData *requestLogData) (stop bool) {
 	payload := ev.payload
 	line := ev.raw

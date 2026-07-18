@@ -296,6 +296,8 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 // EnrichModel fills gaps in a model.Model using models.dev data.
 // It only overwrites fields that are empty/zero (never replaces existing data).
 // Returns true if at least one field was enriched.
+//
+//nolint:gocyclo // complexity 38: repetitive per-field if-empty gap filling; on the gocyclo refactor shortlist
 func (c *ModelsDevCache) EnrichModel(m *model.Model) bool {
 	if c == nil {
 		return false

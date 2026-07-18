@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.3/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -23,7 +23,7 @@
 		"rules": {
 			"preset": "recommended",
 			"correctness": {
-				"useExhaustiveDependencies": "warn"
+				"useExhaustiveDependencies": "error"
 			}
 		}
 	},

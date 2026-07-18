@@ -65,18 +65,14 @@ class MockEventSource {
 	}
 
 	addEventListener(
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		_event: string,
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		_listener: (event: MessageEvent) => void,
 	): void {
 		// No-op for basic testing
 	}
 
 	removeEventListener(
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		_event: string,
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		_listener: (event: MessageEvent) => void,
 	): void {
 		// No-op for basic testing
@@ -133,7 +129,6 @@ vi.stubGlobal(
 // Mock ResizeObserver (jsdom doesn't implement it)
 if (typeof globalThis.ResizeObserver === "undefined") {
 	globalThis.ResizeObserver = class ResizeObserver {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		observe(_target: Element, _options?: ResizeObserverOptions) {}
 		unobserve() {}
 		disconnect() {}

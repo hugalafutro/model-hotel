@@ -165,6 +165,8 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, url string, hea
 // host matching and suffix matching so that "https://my-proxy.deepseek.com"
 // correctly resolves to "deepseek" rather than matching a substring like
 // strings.Contains would.
+//
+//nolint:gocyclo // complexity 38: flat hostname-matching table over the provider list; on the gocyclo refactor shortlist
 func DetectProviderType(baseURL string) string {
 	u, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || u.Host == "" {

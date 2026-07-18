@@ -19,23 +19,29 @@ export default defineConfig([
 			ecmaVersion: 2020,
 			globals: globals.browser,
 		},
-		// Downgrade from "error" to "warn": streaming/orchestration hooks
-		// intentionally access mutable refs (abortMapRef, roundsRef, etc.)
-		// inside useCallback bodies without listing them in dep arrays.
-		// Ref identity is stable so they're never needed as deps, but the
-		// linter can't distinguish refs from other values. "warn" catches
-		// genuine missing deps without blocking CI on ref false positives.
-		//
-		// The compiler-enforced purity/refs/set-state-in-effect rules are
-		// overly strict for common patterns like Date.now() in render
-		// (SortableEntry, ToastContext) and ref initialization (ToastContext).
-		// Downgrade to "warn" so they're surfaced without blocking CI.
+		// All react-hooks rules run at "error": the codebase is clean, and
+		// known false positives (stable-ref access in streaming hooks,
+		// Date.now() in render, TanStack Virtual's mutable functions) carry
+		// per-line eslint-disable comments with justifications. Keep it that
+		// way — a warn-level downgrade would let new violations pass CI
+		// silently.
 		rules: {
-			"react-hooks/exhaustive-deps": "warn",
-			"react-hooks/preserve-manual-memoization": "warn",
-			"react-hooks/purity": "warn",
-			"react-hooks/refs": "warn",
-			"react-hooks/set-state-in-effect": "warn",
+			"react-hooks/exhaustive-deps": "error",
+			"react-hooks/preserve-manual-memoization": "error",
+			"react-hooks/purity": "error",
+			"react-hooks/refs": "error",
+			"react-hooks/set-state-in-effect": "error",
+			// Underscore prefix marks intentionally-unused params/vars
+			// (mock interfaces, destructure-to-omit) instead of per-line
+			// disables.
+			"@typescript-eslint/no-unused-vars": [
+				"error",
+				{
+					argsIgnorePattern: "^_",
+					varsIgnorePattern: "^_",
+					caughtErrorsIgnorePattern: "^_",
+				},
+			],
 		},
 	},
 ]);

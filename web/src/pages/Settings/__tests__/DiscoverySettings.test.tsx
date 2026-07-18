@@ -411,9 +411,17 @@ describe("DiscoverySettings", () => {
 		});
 
 		it("disables settings controls while discovery is in progress", async () => {
+			// Gate the response so the mutation stays pending exactly until the
+			// disabled-state assertions are done, then settles inside the test —
+			// a handler that outlives the test rejects after jsdom teardown and
+			// crashes in the onError toast ("window is not defined").
+			let release: () => void = () => {};
+			const gate = new Promise<void>((resolve) => {
+				release = resolve;
+			});
 			server.use(
 				http.post("/api/providers/discover-all", async () => {
-					await new Promise((resolve) => setTimeout(resolve, 2000));
+					await gate;
 					return HttpResponse.json({
 						succeeded: 1,
 						failed: 0,
@@ -446,6 +454,12 @@ describe("DiscoverySettings", () => {
 			await waitFor(() => {
 				expect(slider).toBeDisabled();
 				expect(discoverOnStartupToggle).toBeDisabled();
+			});
+
+			// Let the mutation settle before the test ends.
+			release();
+			await waitFor(() => {
+				expect(screen.getByText("Discovery complete")).toBeInTheDocument();
 			});
 		});
 	});

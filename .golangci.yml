@@ -14,7 +14,7 @@ linters:
     - gosec        # Security issues (hardcoded credentials, SQL injection, weak crypto)
     - gocritic     # Style and performance checks (unchecked range values, sloppy realloc)
     - revive       # Drop-in golint replacement with extra rules
-    - gocyclo      # Cyclomatic complexity (warning-only via severity)
+    - gocyclo      # Cyclomatic complexity (prod code only; tests + generated migrations excluded below)
     - errorlint    # Proper error wrapping/inspection (errors.Is, errors.As)
     - nilerr       # Checks for returning nil even if err != nil
     - bodyclose    # HTTP response body must be closed
@@ -24,7 +24,11 @@ linters:
       check-type-assertions: false
 
     gocyclo:
-      min-complexity: 15
+      # Ceiling for prod code (tests + generated migrations excluded below).
+      # 30 is the current ratchet: 6 known hotspots above it carry justified
+      # inline nolints (see gocyclo refactor shortlist); lower this as they
+      # get refactored.
+      min-complexity: 30
 
     gocritic:
       enabled-tags:
@@ -79,15 +83,18 @@ linters:
         linters:
           - gocyclo
 
-      # gocyclo is advisory, not CI-blocking (any file)
-      - path: ".*"
-        linters:
-          - gocyclo
-
       # gocritic style/performance suggestions are advisory
       - linters:
           - gocritic
-        text: "hugeParam|rangeValCopy|importShadow|unnamedResult|nestingReduce|exitAfterDefer|deferInLoop|sprintfQuotedString"
+        text: "hugeParam|rangeValCopy|importShadow|unnamedResult|nestingReduce|sprintfQuotedString"
+
+      # deferInLoop/exitAfterDefer stay active in prod code (they catch real
+      # leaks) but are noise in tests: defer-per-iteration cleanup and
+      # os.Exit in TestMain are deliberate patterns there.
+      - path: _test\.go
+        linters:
+          - gocritic
+        text: "deferInLoop|exitAfterDefer"
 
       # revive unused-parameter and package-comments are advisory
       - linters:

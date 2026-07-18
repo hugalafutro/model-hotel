@@ -1,4 +1,8 @@
-/* eslint-disable react-hooks/refs */
+/* eslint-disable react-hooks/refs -- useChat() returns refs mixed with state
+   in one object, so the compiler flags every `chat.*` access in the JSX
+   (~90 false positives). Scoping per-line would blanket the whole render;
+   separating refs out of the useChat return is the real fix if this file is
+   ever refactored. */
 
 import { useTranslation } from "react-i18next";
 import {

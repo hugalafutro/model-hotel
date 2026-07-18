@@ -19,8 +19,10 @@ export default defineConfig([
 			ecmaVersion: 2020,
 			globals: globals.browser,
 		},
+		// Kept at "error" (plugin default is warn): warn-level findings pass
+		// `pnpm lint` silently, so genuine missing deps would never block CI.
 		rules: {
-			"react-hooks/exhaustive-deps": "warn",
+			"react-hooks/exhaustive-deps": "error",
 		},
 	},
 ]);
