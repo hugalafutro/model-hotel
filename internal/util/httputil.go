@@ -138,6 +138,17 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		return strings.Replace(sanitized, "/subscription", "", 1) + endpoint
 	}
 	switch providerType {
+	case "azure":
+		// Azure AI resources serve their OpenAI-compatible surface only under
+		// {scheme}://{host}/openai/v1, but the base URL users hold is usually
+		// something else: the Foundry portal hands out the *project* endpoint
+		// ({root}/api/projects/{proj}, which discovery uses for the deployments
+		// listing) and classic resources are quoted as a bare root. Map any
+		// Azure base URL onto the one real inference surface.
+		if u, err := url.Parse(sanitized); err == nil && u.Host != "" {
+			return u.Scheme + "://" + u.Host + "/openai/v1" + endpoint
+		}
+		return sanitized + endpoint
 	case "anthropic", "ollama", "lmstudio", "koboldcpp":
 		// These providers expose their OpenAI-compatible API under /v1: Ollama,
 		// LM Studio and KoboldCPP all serve /v1/chat/completions, and Anthropic's

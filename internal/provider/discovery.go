@@ -181,6 +181,10 @@ var hostTypeRules = []struct {
 	{"openrouter", []string{"openrouter.ai"}, []string{".openrouter.ai"}},
 	{"ollama-cloud", []string{"ollama.com"}, []string{".ollama.com"}},
 	{"neuralwatt", []string{"api.neuralwatt.com", "neuralwatt.com"}, []string{".neuralwatt.com"}},
+	// Azure AI Foundry ({res}.services.ai.azure.com) and classic Azure OpenAI
+	// ({res}.openai.azure.com) resources. Both expose the same OpenAI v1
+	// surface under /openai/v1 (Bearer auth, live-verified 2026-07-18).
+	{"azure", nil, []string{".services.ai.azure.com", ".openai.azure.com"}},
 }
 
 // detectByHost resolves a provider type from a lowercased hostname (and URL
@@ -287,6 +291,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverZAICoding(ctx, provider, apiKey)
 		case "bedrock":
 			return d.discoverBedrock(ctx, provider, apiKey)
+		case "azure":
+			return d.discoverAzure(ctx, provider, apiKey)
 		case "deepseek":
 			return d.discoverDeepSeek(ctx, provider, apiKey)
 		case "anthropic":

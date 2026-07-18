@@ -124,7 +124,7 @@ Providers that expose a live model list **and** ship a built-in catalog are comb
 
 models.dev enrichment runs *after* the merge and fills anything still empty, so the final precedence per field is **live → catalog → models.dev → zero value**. If the live fetch fails entirely (network, auth, 403/429 quota), the discoverer falls back to the pure catalog so discovery never goes dark.
 
-Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt, AWS Bedrock) have no catalog.
+Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt, AWS Bedrock, Azure AI Foundry) have no catalog.
 
 ### Provider Type Detection
 
@@ -144,6 +144,7 @@ The `DetectProviderType` function in `internal/provider/discovery.go` uses exact
 | `api.x.ai`, `x.ai`, `*.x.ai` | - | `xai` |
 | `generativelanguage.googleapis.com`, `*.googleapis.com` | - | `google` |
 | `bedrock-mantle.{region}.api.aws` | - | `bedrock` |
+| `*.services.ai.azure.com`, `*.openai.azure.com` | - | `azure` |
 | `api.cohere.com`, `api.cohere.ai`, `*.cohere.com`, `*.cohere.ai` | - | `cohere` |
 | `api.neuralwatt.com`, `neuralwatt.com` | - | `neuralwatt` |
 | `localhost`, `127.0.0.1`, `::1` (port 11434) | - | `ollama` |
@@ -219,6 +220,21 @@ Only mantle is supported: the classic `bedrock-runtime` endpoint serves chat sol
 **Anthropic models are skipped at discovery.** On Bedrock, `anthropic.*` models reject `/v1/chat/completions` (they are served only through the Anthropic Messages dialect at `{base}/anthropic/v1/messages`, which the proxy does not forward to). Exposing them would list models that fail on every chat request, so the discoverer drops them (logged at debug level, with an aggregate `skipped_messages_dialect` count in the completion log line).
 
 **Account prerequisites for Bedrock itself** (not MH-specific): most non-Anthropic models (GPT-OSS, GPT-5.x, Qwen, Kimi, GLM, DeepSeek, Mistral, Gemma, ...) work as soon as you generate an API key in the Bedrock console. Anthropic models additionally require a valid payment method, the Anthropic first-time-use form, a per-model Marketplace agreement (`aws bedrock create-foundation-model-agreement`), and on new or low-usage accounts may still be gated behind an AWS support request.
+
+### Azure AI Foundry
+
+**Source files:** `discovery_azure.go`
+
+**Method:** Azure is deployment-based: `GET /openai/v1/models` returns the full Azure model *catalog* (300+ entries), but only **deployments** the user created are invokable — and requests must name the deployment, not the base model. Discovery therefore enumerates deployments, via one of two routes depending on the base URL:
+
+- **Foundry project endpoint** (`https://{resource}.services.ai.azure.com/api/projects/{project}` — exactly the string the Foundry portal hands you; recommended): lists via the project data-plane (`{root}/api/projects/{project}/deployments?api-version=v1`), which also carries the underlying model name, version, and publisher.
+- **Anything else on an Azure AI host** (a bare resource root or an `/openai/v1` base, including classic `{resource}.openai.azure.com` resources): lists via the classic data-plane route (`{root}/openai/deployments?api-version=2023-03-15-preview` — the only api-version that still serves the listing; GA versions dropped it). Non-`succeeded` deployments are skipped.
+
+Both routes accept the resource API key as a **bearer token** (the legacy `api-key` header also works but MH doesn't need it). Whatever base URL shape is configured, the proxy sends chat traffic to the one real inference surface, `https://{host}/openai/v1/chat/completions` (no `api-version` parameter needed on the v1 surface).
+
+**Enrichment for aliased deployments:** the deployment name becomes the model ID (it is the invokable identifier) and the underlying base-model name is kept as the model's internal name. models.dev enrichment matches the deployment name first and falls back to the base-model name, so a deployment called `my-fast-gpt` backing `gpt-4.1-mini` still gets context/pricing metadata.
+
+**Account prerequisites for Azure itself** (not MH-specific): create an Azure AI Foundry resource (or classic Azure OpenAI resource) in the Azure portal, then **deploy at least one model** (Foundry portal → Deployments → Deploy model). A resource with zero deployments discovers zero models (MH logs a warning telling you to deploy first). Azure-sold models (OpenAI family) need no extra agreement; partner/community models (Meta, Mistral, xAI, Anthropic, ...) may require an Azure Marketplace subscription accepted during deployment.
 
 ### NanoGPT
 

@@ -819,6 +819,31 @@ func TestBuildProviderTargetURL(t *testing.T) {
 			expected:     "https://api.anthropic.com/v1/embeddings",
 		},
 		{
+			name:         "Azure foundry project endpoint maps to /openai/v1",
+			baseURL:      "https://myres-resource.services.ai.azure.com/api/projects/myproject",
+			providerType: "azure",
+			expected:     "https://myres-resource.services.ai.azure.com/openai/v1/chat/completions",
+		},
+		{
+			name:         "Azure resource root maps to /openai/v1",
+			baseURL:      "https://myres-resource.services.ai.azure.com",
+			providerType: "azure",
+			expected:     "https://myres-resource.services.ai.azure.com/openai/v1/chat/completions",
+		},
+		{
+			name:         "Azure /openai/v1 base stays put",
+			baseURL:      "https://myres-resource.services.ai.azure.com/openai/v1",
+			providerType: "azure",
+			expected:     "https://myres-resource.services.ai.azure.com/openai/v1/chat/completions",
+		},
+		{
+			name:         "Azure classic resource maps to /openai/v1",
+			baseURL:      "https://myres.openai.azure.com/",
+			providerType: "azure",
+			endpoint:     "/embeddings",
+			expected:     "https://myres.openai.azure.com/openai/v1/embeddings",
+		},
+		{
 			name:         "Cohere rerank routes to native /v2/rerank from compat base",
 			baseURL:      "https://api.cohere.ai/compatibility/v1",
 			providerType: "cohere",

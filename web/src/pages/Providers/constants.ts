@@ -12,6 +12,8 @@ export const baseUrls: Record<string, string> = {
 	cohere: "https://api.cohere.ai/compatibility/v1",
 	openrouter: "https://openrouter.ai/api/v1",
 	bedrock: "https://bedrock-mantle.us-east-1.api.aws/v1",
+	azure:
+		"https://your-resource.services.ai.azure.com/api/projects/your-project",
 };
 
 /** Default URLs for self-hosted providers. Pre-filled but user-editable. */
@@ -53,15 +55,23 @@ function detectLocalProviderType(url: string): string | null {
 }
 
 /**
- * Host-based detection for providers whose URL varies by region (Bedrock).
- * Only bedrock-mantle is detected: the classic bedrock-runtime endpoint has
- * no /models listing, so discovery can never work against it.
+ * Host-based detection for providers whose URL varies per account or region
+ * (Bedrock, Azure). Only bedrock-mantle is detected for AWS: the classic
+ * bedrock-runtime endpoint has no /models listing, so discovery can never
+ * work against it. Azure matches both Foundry ({res}.services.ai.azure.com)
+ * and classic ({res}.openai.azure.com) resource hosts.
  */
 function detectRegionalProviderType(baseUrl: string): string | null {
 	try {
 		const host = new URL(baseUrl).hostname.toLowerCase();
 		if (host.startsWith("bedrock-mantle.") && host.endsWith(".api.aws")) {
 			return "bedrock";
+		}
+		if (
+			host.endsWith(".services.ai.azure.com") ||
+			host.endsWith(".openai.azure.com")
+		) {
+			return "azure";
 		}
 	} catch {
 		// ignore malformed URLs
@@ -101,6 +111,7 @@ export const providerTypeDisplayNames: Record<string, string> = {
 	koboldcpp: "KoboldCPP",
 	lmstudio: "LM Studio",
 	bedrock: "AWS Bedrock",
+	azure: "Azure AI Foundry",
 };
 
 /** Translation keys for provider type display names. Use with t() at consumption sites. */
@@ -122,6 +133,7 @@ export const providerTypeTranslationKeys: Record<string, string> = {
 	koboldcpp: "providers.type_koboldcpp",
 	lmstudio: "providers.type_lmstudio",
 	bedrock: "providers.type_bedrock",
+	azure: "providers.type_azure",
 };
 
 export function providerTypeAllowsEmptyKey(type: string): boolean {
