@@ -417,3 +417,18 @@ func TestTranslateRequest_Errors(t *testing.T) {
 		t.Error("expected error for missing model")
 	}
 }
+
+func TestTranslateRequest_NoTranslatableMessages(t *testing.T) {
+	// Gemini requires at least one contents entry (live: 400 "at least one
+	// contents field is required" for both null and []). Fail fast locally
+	// instead of marshaling a request the upstream is guaranteed to reject.
+	for _, body := range []string{
+		`{"model": "m", "messages": []}`,
+		`{"model": "m", "messages": [{"role": "system", "content": "sys only"}]}`,
+		`{"model": "m", "messages": [{"role": "user", "content": ""}]}`,
+	} {
+		if _, _, _, err := TranslateRequest([]byte(body)); err == nil {
+			t.Errorf("expected error for %s", body)
+		}
+	}
+}

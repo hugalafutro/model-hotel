@@ -223,6 +223,11 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 	if len(systemParts) > 0 {
 		out.SystemInstruction = &genContent{Parts: systemParts}
 	}
+	// Gemini rejects null and empty contents alike ("at least one contents
+	// field is required"); fail fast with a clearer error than the upstream 400.
+	if len(out.Contents) == 0 {
+		return nil, "", false, fmt.Errorf("gemini: at least one user or assistant message with content is required")
+	}
 
 	for _, t := range req.Tools {
 		out.Tools = append(out.Tools, genTool{FunctionDeclarations: []genFunctionDecl{{
