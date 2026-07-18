@@ -2,8 +2,11 @@ package api
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -238,6 +241,114 @@ func TestTestModel_Success(t *testing.T) {
 	// Should have error field due to mock server returning 401
 	if testResp.Error == "" {
 		t.Error("Expected error field in test response")
+	}
+}
+
+// TestTestModel_VertexExpress proves the Test button routes vertex-express
+// models through the gemini egress translation: native generateContent URL,
+// x-goog-api-key auth, and the 200 body translated back so the standard chat
+// parsing reads the content.
+func TestTestModel_VertexExpress(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	mockServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if !strings.Contains(req.URL.Path, ":generateContent") {
+			t.Errorf("unexpected upstream path %s", req.URL.Path)
+			http.NotFound(w, req)
+			return
+		}
+		if req.Header.Get("x-goog-api-key") == "" {
+			t.Error("missing x-goog-api-key header")
+		}
+		body, _ := io.ReadAll(req.Body)
+		if !strings.Contains(string(body), `"contents"`) || strings.Contains(string(body), `"messages"`) {
+			t.Errorf("upstream got untranslated body: %s", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"candidates":[{"content":{"role":"model","parts":[{"text":"Hi"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":6,"candidatesTokenCount":1,"totalTokenCount":7}}`))
+	}))
+	defer mockServer.Close()
+
+	// The provider's base URL must detect as vertex-express, so pin the
+	// transport's dialer to the mock server instead of pointing the URL at it
+	// (the mock's self-signed cert requires skipping verification).
+	target := mockServer.Listener.Addr().String()
+	origTransport := h.testModelTransport
+	h.testModelTransport = &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, network, target)
+		},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // test-only mock server
+	}
+	defer func() { h.testModelTransport = origTransport }()
+
+	providerData := fmt.Sprintf(`{"name": "vertex-test-%s", "base_url": "https://aiplatform.googleapis.com", "api_key": "AQ.test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	modelID := uuid.New().String()
+	pool := h.Pool().Pool()
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		modelID, providerResp.ID, "gemini-2.5-flash", "Gemini 2.5 Flash", true); err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("POST", "/models/"+modelID+"/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var testResp TestModelResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
+		t.Fatalf("Failed to parse test response: %v", err)
+	}
+	if !testResp.Success {
+		t.Fatalf("test failed: %+v", testResp)
+	}
+	if testResp.Response != "Hi" {
+		t.Errorf("response = %q, want Hi (translated content)", testResp.Response)
+	}
+}
+
+// doTestModelGeminiRequest error paths: an untranslatable probe body errors
+// locally, and a non-200 upstream response passes through untranslated for the
+// caller's normal error handling.
+func TestDoTestModelGeminiRequest_Errors(t *testing.T) {
+	h := newTestHandler(t)
+
+	if _, err := h.doTestModelGeminiRequest(context.Background(), &http.Client{}, "http://unused", "vertex-express", "m", "k", []byte(`{not json`)); err == nil {
+		t.Error("expected error for untranslatable body")
+	}
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, `{"error":{"code":401}}`, http.StatusUnauthorized)
+	}))
+	defer mockServer.Close()
+
+	body := []byte(`{"model":"gemini-2.5-flash","messages":[{"role":"user","content":"hi"}],"max_tokens":10}`)
+	resp, err := h.doTestModelGeminiRequest(context.Background(), mockServer.Client(), mockServer.URL, "vertex-express", "gemini-2.5-flash", "k", body)
+	if err != nil {
+		t.Fatalf("doTestModelGeminiRequest: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401 passed through", resp.StatusCode)
 	}
 }
 

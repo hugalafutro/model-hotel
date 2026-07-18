@@ -368,14 +368,15 @@ func TestDetectProviderType_XAI(t *testing.T) {
 }
 
 func TestDetectProviderType_Google(t *testing.T) {
+	// aiplatform hosts used to detect as "google" too, but the AI Studio
+	// discovery/proxy surfaces never existed there — they now route to the
+	// vertex-express egress adapter (see TestDetectProviderType_VertexExpress).
 	tests := []struct {
 		name string
 		url  string
 	}{
 		{"generativelanguage v1beta", "https://generativelanguage.googleapis.com/v1beta"},
-		{"aiplatform v1", "https://aiplatform.googleapis.com/v1"},
 		{"generativelanguage custom subdomain", "https://custom-generativelanguage.googleapis.com/v1"},
-		{"aiplatform custom subdomain", "https://custom-aiplatform.googleapis.com/v1"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

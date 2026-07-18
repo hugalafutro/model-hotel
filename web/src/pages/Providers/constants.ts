@@ -14,6 +14,7 @@ export const baseUrls: Record<string, string> = {
 	bedrock: "https://bedrock-mantle.us-east-1.api.aws/v1",
 	azure:
 		"https://your-resource.services.ai.azure.com/api/projects/your-project",
+	"vertex-express": "https://aiplatform.googleapis.com",
 };
 
 /** Default URLs for self-hosted providers. Pre-filled but user-editable. */
@@ -59,7 +60,8 @@ function detectLocalProviderType(url: string): string | null {
  * (Bedrock, Azure). Only bedrock-mantle is detected for AWS: the classic
  * bedrock-runtime endpoint has no /models listing, so discovery can never
  * work against it. Azure matches both Foundry ({res}.services.ai.azure.com)
- * and classic ({res}.openai.azure.com) resource hosts.
+ * and classic ({res}.openai.azure.com) resource hosts. Vertex express matches
+ * aiplatform.googleapis.com including regional hosts.
  */
 function detectRegionalProviderType(baseUrl: string): string | null {
 	try {
@@ -72,6 +74,9 @@ function detectRegionalProviderType(baseUrl: string): string | null {
 			host.endsWith(".openai.azure.com")
 		) {
 			return "azure";
+		}
+		if (host.endsWith(".googleapis.com") && host.includes("aiplatform")) {
+			return "vertex-express";
 		}
 	} catch {
 		// ignore malformed URLs
@@ -112,6 +117,7 @@ export const providerTypeDisplayNames: Record<string, string> = {
 	lmstudio: "LM Studio",
 	bedrock: "AWS Bedrock",
 	azure: "Azure AI Foundry",
+	"vertex-express": "Vertex AI (express keys)",
 };
 
 /** Translation keys for provider type display names. Use with t() at consumption sites. */
@@ -134,6 +140,7 @@ export const providerTypeTranslationKeys: Record<string, string> = {
 	lmstudio: "providers.type_lmstudio",
 	bedrock: "providers.type_bedrock",
 	azure: "providers.type_azure",
+	"vertex-express": "providers.type_vertex_express",
 };
 
 export function providerTypeAllowsEmptyKey(type: string): boolean {

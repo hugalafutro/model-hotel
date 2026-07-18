@@ -179,6 +179,14 @@ type requestState struct {
 	// the chat-completions shape the pipeline and client expect.
 	responsesAttempt bool
 
+	// Gemini egress adapter (zero value = plain chat-completions).
+	// geminiAttempt is set per failover attempt by buildCandidateRequest: true
+	// when the current candidate is a vertex-express provider served through
+	// the internal/gemini translation, read by the response dispatch so it
+	// translates the generateContent body/stream back to the chat-completions
+	// shape the pipeline and client expect.
+	geminiAttempt bool
+
 	// Populated by resolveCandidates (phase B).
 	timings    resolveTimings
 	cacheHits  resolveCacheHits

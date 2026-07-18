@@ -60,6 +60,12 @@ describe("baseUrls", () => {
 		);
 	});
 
+	it("has entry for vertex-express", () => {
+		expect(baseUrls["vertex-express"]).toBe(
+			"https://aiplatform.googleapis.com",
+		);
+	});
+
 	it("does not have localhost entry for koboldcpp", () => {
 		expect(baseUrls.koboldcpp).toBeUndefined();
 	});
@@ -232,6 +238,18 @@ describe("getProviderType", () => {
 	it("does not detect azure-lookalike hosts on other domains", () => {
 		expect(
 			getProviderType("https://services.ai.azure.com.evil.example/openai/v1"),
+		).toBe("custom");
+	});
+
+	it("returns vertex-express for regional aiplatform hosts (host-based detection)", () => {
+		expect(
+			getProviderType("https://us-central1-aiplatform.googleapis.com/v1"),
+		).toBe("vertex-express");
+	});
+
+	it("does not detect aiplatform-lookalike hosts on other domains", () => {
+		expect(
+			getProviderType("https://aiplatform.googleapis.com.evil.example"),
 		).toBe("custom");
 	});
 

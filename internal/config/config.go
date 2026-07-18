@@ -74,6 +74,7 @@ var defaultKnownProviderHosts = []string{
 	"opencode.ai",
 	"api.x.ai",
 	"generativelanguage.googleapis.com",
+	"aiplatform.googleapis.com",
 	"api.cohere.com",
 	"api.cohere.ai",
 	"openrouter.ai",

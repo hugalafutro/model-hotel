@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -239,6 +240,11 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// st is this attempt's private snapshot, so the flag set by
 		// buildCandidateRequest is visible right here — no shared-state race.
 		resp.Body = openairesponses.NewStreamAdapter(resp.Body, st.reqModel)
+	}
+	if st.geminiAttempt {
+		// Vertex-express candidate in a hedged race: same upstream-side
+		// translation so the hedged pipeline sees chat-completions SSE.
+		resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
 	}
 
 	if ttftTimeout <= 0 {
