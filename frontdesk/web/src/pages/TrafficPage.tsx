@@ -64,9 +64,18 @@ function MemberTrafficCard({
 			.then((d) => {
 				if (!active) return;
 				setData(d);
-				const iso = new Date().toISOString();
-				setUpdatedAt(iso);
-				onUpdated(member.id, iso);
+				// Only a reachable snapshot counts as a fresh stamp. An unreachable
+				// member replies 200 with reachable:false (the backend could not read
+				// its stats), which is not a refresh of any shown data - stamping it
+				// would let one failed card ride along under a shared "Updated" time.
+				if (d.reachable) {
+					const iso = new Date().toISOString();
+					setUpdatedAt(iso);
+					onUpdated(member.id, iso);
+				} else {
+					setUpdatedAt(null);
+					onUpdated(member.id, null);
+				}
 			})
 			.catch(() => {
 				// Clear the timestamp too: a failed refresh must not leave an old
@@ -262,22 +271,28 @@ export function TrafficPage() {
 		return () => clearInterval(id);
 	}, [paused, refresh]);
 
-	// Each card reports its last fetch time here. When every card that has a stamp
-	// agrees (the common case - they all refresh on the same tick) the page shows a
-	// single shared "updated" line, mirroring the Members tab; only if they diverge
-	// does each card fall back to its own stamp.
+	// Each card reports its last fetch time here (null when its read failed). The
+	// page shows one shared "updated" line only when EVERY token card has reported
+	// a time and they all match - the common case, where all cards refresh on the
+	// same tick, mirroring the Members tab. If any card is still loading or failed
+	// its read, a shared stamp would falsely imply that card is fresh too, so each
+	// card falls back to its own stamp instead (the failed one showing none).
 	const [updatedAts, setUpdatedAts] = useState<Record<string, string | null>>(
 		{},
 	);
 	const onUpdated = useCallback((id: string, iso: string | null) => {
 		setUpdatedAts((prev) => ({ ...prev, [id]: iso }));
 	}, []);
-	const stampTimes = tokenMembers
-		.map((m) => updatedAts[m.id])
-		.filter((v): v is string => !!v)
-		.map((iso) => formatTimeOfDay(iso));
-	const sharedTime = stampTimes[0] ?? null;
-	const allAgree = stampTimes.every((tv) => tv === sharedTime);
+	const cardStamps = tokenMembers.map((m) => {
+		const iso = updatedAts[m.id];
+		return iso ? formatTimeOfDay(iso) : null;
+	});
+	const allStamped =
+		cardStamps.length > 0 && cardStamps.every((tv) => tv !== null);
+	const sharedTime =
+		allStamped && cardStamps.every((tv) => tv === cardStamps[0])
+			? cardStamps[0]
+			: null;
 
 	return (
 		<div className="fd-stack">
@@ -315,7 +330,7 @@ export function TrafficPage() {
 								member={m}
 								reloadKey={reloadKey}
 								onUpdated={onUpdated}
-								showLocalUpdated={!allAgree}
+								showLocalUpdated={sharedTime === null}
 							/>
 						))}
 						{hasTokenless && (
@@ -324,7 +339,7 @@ export function TrafficPage() {
 							</p>
 						)}
 					</div>
-					{allAgree && sharedTime && (
+					{sharedTime && (
 						<div
 							className="fd-faint"
 							style={{

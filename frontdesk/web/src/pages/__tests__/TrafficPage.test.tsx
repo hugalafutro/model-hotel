@@ -195,6 +195,42 @@ describe("TrafficPage", () => {
 		).not.toBeInTheDocument();
 	});
 
+	it("keeps per-card stamps when one member's read fails", async () => {
+		// Two token members, one reachable and one whose stats can't be read. The
+		// page must NOT collapse to a single shared stamp (that would falsely imply
+		// the failed member is fresh too); the healthy card keeps its own stamp and
+		// the failed card shows none.
+		vi.useFakeTimers();
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member({ id: "1", name: "hotel-1" }),
+					member({ id: "2", name: "hotel-2" }),
+				]),
+			),
+			http.get("/api/members/1/traffic", () =>
+				HttpResponse.json(
+					traffic({
+						member_id: "1",
+						total_requests: 100,
+						points: [{ bucket: "b1", requests: 100, errors: 0 }],
+					}),
+				),
+			),
+			http.get("/api/members/2/traffic", () =>
+				HttpResponse.json(traffic({ member_id: "2", reachable: false })),
+			),
+		);
+		renderPage();
+		await settle();
+
+		expect(screen.getByText("100")).toBeInTheDocument();
+		// No misleading page-level shared stamp while a card is unfresh.
+		expect(screen.queryByTestId("traffic-updated")).not.toBeInTheDocument();
+		// The healthy card keeps exactly one local stamp; the failed one has none.
+		expect(screen.getAllByTestId("traffic-updated-local")).toHaveLength(1);
+	});
+
 	it("auto-refreshes every graph on an interval with no user action", async () => {
 		vi.useFakeTimers();
 		let calls = 0;
