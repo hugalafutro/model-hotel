@@ -2113,7 +2113,7 @@
 			"actor": "Aktér",
 			"request": "Požiadavka",
 			"entity": "Entita",
-			"endpoint": "Endpoint",
+			"endpoint": "Koncový bod",
 			"path": "Cesta",
 			"remoteAddr": "Vzdialená adresa"
 		},

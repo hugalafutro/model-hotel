@@ -951,6 +951,26 @@
 		"vi",
 		"zh"
 	],
+	"components.auditDetail.actor": [
+		"ca",
+		"es",
+		"nl"
+	],
+	"components.auditDetail.endpoint": [
+		"cs",
+		"da",
+		"es",
+		"it",
+		"nl",
+		"pl",
+		"pt",
+		"ro"
+	],
+	"components.auditDetail.timestamp": [
+		"es",
+		"it",
+		"pt"
+	],
 	"components.conversationConfig.prompt": [
 		"ar",
 		"da",

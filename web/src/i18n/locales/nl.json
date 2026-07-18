@@ -2101,7 +2101,7 @@
 		},
 		"appLogDetail": {
 			"title": "Log invoer details",
-			"timestamp": "Artikeldatering",
+			"timestamp": "Tijdstempel",
 			"level": "Niveau",
 			"source": "Bron",
 			"message": "bericht",
@@ -2109,7 +2109,7 @@
 		},
 		"auditDetail": {
 			"title": "Auditvermelding",
-			"timestamp": "Artikeldatering",
+			"timestamp": "Tijdstempel",
 			"actor": "Actor",
 			"request": "Verzoek",
 			"entity": "Entiteit",
@@ -2397,7 +2397,7 @@
 		},
 		"logDetailModal": {
 			"logEntryDetails": "Log invoer details",
-			"timestamp": "Artikeldatering",
+			"timestamp": "Tijdstempel",
 			"level": "Niveau",
 			"source": "Bron",
 			"message": "bericht",
@@ -2422,7 +2422,7 @@
 			"resolved": "opgelost",
 			"provider": "Leverancier",
 			"dbRowId": "DB rij ID",
-			"timestamp": "Artikeldatering",
+			"timestamp": "Tijdstempel",
 			"copyDbRowId": "Kopieer DB rij ID",
 			"virtualKey": "Virtuele sleutel",
 			"tokenUsage": "Token gebruik",
