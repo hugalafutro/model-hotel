@@ -665,10 +665,10 @@ export function Chat() {
 												chat.setIsStreaming(false);
 												chat.toast(t("chat.toast.conversationCleared"), "info");
 											}}
-											title={t("chat.controls.clear")}
+											title={t("chat.clearLabel")}
 											color="amber"
 											size={16}
-											label={t("chat.controls.clear")}
+											label={t("chat.clearLabel")}
 											withLabel
 										/>
 									)}
