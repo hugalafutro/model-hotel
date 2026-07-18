@@ -147,10 +147,10 @@ describe("Audit page", () => {
 	it("appends the next page when the scroll sentinel comes into view", async () => {
 		server.use(
 			http.get("/api/audit", ({ request }) => {
-				const offset = Number(
-					new URL(request.url).searchParams.get("offset") ?? "0",
-				);
-				if (offset > 0) {
+				// Scroll mode pages by keyset cursor, not offset, so inserts at the top
+				// of this newest-first log never shift the window.
+				const cursor = new URL(request.url).searchParams.get("cursor");
+				if (cursor === "cur-1") {
 					return HttpResponse.json({
 						entries: [entry({ route: "/second-page" })],
 						total: 2,
@@ -161,6 +161,7 @@ describe("Audit page", () => {
 					entries: [entry({ route: "/first-page" })],
 					total: 2,
 					has_more: true,
+					next_cursor: "cur-1",
 				});
 			}),
 		);

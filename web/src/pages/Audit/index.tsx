@@ -60,18 +60,21 @@ export function Audit() {
 		method: method || undefined,
 	};
 
-	// Infinite-scroll mode: one offset page per fetch, appended. getNextPageParam
-	// returns the count loaded so far as the next offset, and stops once every
-	// row is in hand.
+	// Infinite-scroll mode: keyset-cursor pagination, one page per fetch, appended.
+	// The cursor (last row's created_at+id) is stable under inserts, so a new audit
+	// row landing at the top mid-scroll never shifts the window - unlike offset,
+	// which would duplicate or skip rows on this newest-first, actively-written log.
 	const scroll = useInfiniteQuery({
 		queryKey: ["audit", "scroll", debouncedActor, method],
 		queryFn: ({ pageParam }) =>
-			api.audit.list({ ...filters, limit: PAGE_SIZE, offset: pageParam }),
-		initialPageParam: 0,
-		getNextPageParam: (lastPage, pages) => {
-			const loaded = pages.reduce((n, p) => n + p.entries.length, 0);
-			return loaded < lastPage.total ? loaded : undefined;
-		},
+			api.audit.list({
+				...filters,
+				limit: PAGE_SIZE,
+				cursor: pageParam || undefined,
+			}),
+		initialPageParam: "",
+		getNextPageParam: (lastPage) =>
+			lastPage.has_more ? (lastPage.next_cursor ?? undefined) : undefined,
 		enabled: isScroll,
 	});
 
