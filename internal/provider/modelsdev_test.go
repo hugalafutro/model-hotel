@@ -305,6 +305,37 @@ func TestEnrichModel_ModelNotFound(t *testing.T) {
 	}
 }
 
+func TestEnrichModel_FallsBackToNameForAliasedDeployments(t *testing.T) {
+	// Azure deployments are invoked by user-chosen alias (ModelID) while the
+	// underlying base-model name lands in Name; when the alias misses the
+	// catalog, enrichment must retry with the base-model name.
+	setupCacheWithModels(t, map[string]*ModelsDevModelSpec{
+		"gpt-4.1-mini": {
+			ID:    "gpt-4.1-mini",
+			Name:  "GPT-4.1 mini",
+			Limit: ModelsDevLimit{Context: 1047576},
+		},
+	})
+
+	cache := GetModelsDevCache()
+	if cache == nil {
+		t.Fatal("expected cache to be loaded")
+		return
+	}
+
+	m := &model.Model{ModelID: "my-fast-gpt", Name: "gpt-4.1-mini"}
+	if !cache.EnrichModel(m) {
+		t.Fatal("expected enrichment via Name fallback")
+	}
+	if m.ContextLength == nil || *m.ContextLength != 1047576 {
+		t.Errorf("ContextLength = %v, want 1047576", m.ContextLength)
+	}
+	// The alias stays the invokable ID.
+	if m.ModelID != "my-fast-gpt" {
+		t.Errorf("ModelID = %q, want my-fast-gpt", m.ModelID)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // EnrichModels edge cases
 // ---------------------------------------------------------------------------

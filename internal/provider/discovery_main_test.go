@@ -398,6 +398,41 @@ func TestDiscoverModels_BedrockDispatch(t *testing.T) {
 	assert.Equal(t, "qwen.qwen3-32b", models[1].ModelID)
 }
 
+func TestDiscoverModels_AzureDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	masterKey := "test-master-key-1234567890123456"
+
+	// The generic openai fallback would GET /models; serving only the Foundry
+	// project deployments route proves dispatch reached discoverAzure.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/projects/myproject/deployments" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"value":[` +
+				`{"name":"Kimi-K2.6","type":"ModelDeployment","modelName":"Kimi-K2.6","modelVersion":"2026-04-20","modelPublisher":"MoonshotAI"}]}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		BaseURL: "https://myres-resource.services.ai.azure.com/api/projects/myproject",
+	}
+
+	svc := &DiscoveryService{
+		httpClient: &http.Client{
+			Transport: &testTransport{url: server.URL},
+		},
+	}
+	models, err := svc.DiscoverModels(ctx, provider, masterKey)
+	assert.NoError(t, err)
+	assert.Len(t, models, 1)
+	assert.Equal(t, "Kimi-K2.6", models[0].ModelID)
+}
+
 func TestDiscoverModels_OllamaDispatch(t *testing.T) {
 	t.Parallel()
 

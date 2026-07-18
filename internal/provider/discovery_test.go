@@ -90,6 +90,48 @@ func TestDetectProviderType_NotBedrock(t *testing.T) {
 	}
 }
 
+func TestDetectProviderType_Azure(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"foundry project endpoint", "https://myres-resource.services.ai.azure.com/api/projects/myproject"},
+		{"foundry resource root", "https://myres-resource.services.ai.azure.com"},
+		{"foundry openai v1 path", "https://myres-resource.services.ai.azure.com/openai/v1"},
+		{"classic azure openai resource", "https://myres.openai.azure.com"},
+		{"classic azure openai v1 path", "https://myres.openai.azure.com/openai/v1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := DetectProviderType(tc.url)
+			if result != "azure" {
+				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "azure")
+			}
+		})
+	}
+}
+
+func TestDetectProviderType_NotAzure(t *testing.T) {
+	// Azure-looking names on unrelated domains must stay generic: detection
+	// matches the two Azure AI host suffixes only.
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"azure in subdomain of wrong domain", "https://services.ai.azure.com.evil.example/openai/v1"},
+		{"generic azure.com host", "https://portal.azure.com/whatever"},
+		{"azure-named host elsewhere", "https://openai.azure.example.com/v1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := DetectProviderType(tc.url)
+			if result == "azure" {
+				t.Errorf("DetectProviderType(%q) = %q, want non-azure", tc.url, result)
+			}
+		})
+	}
+}
+
 func TestDetectProviderType_NanoGPT(t *testing.T) {
 	tests := []struct {
 		name string

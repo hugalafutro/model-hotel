@@ -364,6 +364,12 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model) bool {
 	}
 
 	spec := c.LookupFuzzy(m.ModelID)
+	if spec == nil && m.Name != "" && m.Name != m.ModelID {
+		// Deployment-based providers (Azure) invoke by user-chosen alias but
+		// record the underlying base-model name in Name — match on that when
+		// the alias misses the catalog.
+		spec = c.LookupFuzzy(m.Name)
+	}
 	if spec == nil {
 		return false
 	}

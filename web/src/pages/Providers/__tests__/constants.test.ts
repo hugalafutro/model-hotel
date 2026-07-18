@@ -54,6 +54,12 @@ describe("baseUrls", () => {
 		);
 	});
 
+	it("has entry for azure", () => {
+		expect(baseUrls.azure).toBe(
+			"https://your-resource.services.ai.azure.com/api/projects/your-project",
+		);
+	});
+
 	it("does not have localhost entry for koboldcpp", () => {
 		expect(baseUrls.koboldcpp).toBeUndefined();
 	});
@@ -207,6 +213,26 @@ describe("getProviderType", () => {
 		expect(getProviderType("https://bedrock-mantle.example.com/v1")).toBe(
 			"custom",
 		);
+	});
+
+	it("returns azure for any foundry project endpoint (host-based detection)", () => {
+		expect(
+			getProviderType(
+				"https://myres-resource.services.ai.azure.com/api/projects/myproject",
+			),
+		).toBe("azure");
+	});
+
+	it("returns azure for classic azure openai resource url", () => {
+		expect(getProviderType("https://myres.openai.azure.com/openai/v1")).toBe(
+			"azure",
+		);
+	});
+
+	it("does not detect azure-lookalike hosts on other domains", () => {
+		expect(
+			getProviderType("https://services.ai.azure.com.evil.example/openai/v1"),
+		).toBe("custom");
 	});
 
 	it("returns google for google url", () => {
