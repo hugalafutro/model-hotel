@@ -36,9 +36,9 @@ type AuditListResponse struct {
 	NextCursor string `json:"next_cursor,omitempty"`
 }
 
-// ListAudit returns audit entries newest-first with keyset pagination.
-// Query params: cursor (base64 of {created_at,id}), limit (default 50, max
-// 200), actor, method, from, to (RFC3339).
+// ListAudit returns audit entries newest-first. Query params: cursor (base64 of
+// {created_at,id}) for infinite scroll, or offset for the page-numbered view;
+// limit (default 50, max 200), actor, method, from, to (RFC3339).
 func (h *Handler) ListAudit(w http.ResponseWriter, r *http.Request) {
 	if h.audit == nil {
 		http.Error(w, "audit log is not available", http.StatusNotFound)
@@ -47,6 +47,7 @@ func (h *Handler) ListAudit(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	p := audit.ListParams{
 		Limit:  util.GetIntQueryParam(r, "limit", 50),
+		Offset: util.GetIntQueryParam(r, "offset", 0),
 		Actor:  q.Get("actor"),
 		Method: q.Get("method"),
 	}

@@ -46,8 +46,9 @@ export function AuditDetailModal({ entry, onClose }: AuditDetailModalProps) {
 				>
 					<CopyablePill
 						text={entry.created_at}
-						displayText={formatDateTime(entry.created_at)}
-						textClassName="text-sm text-(--text-primary)"
+						displayText={formatDateTime(entry.created_at).replace(", ", "\n")}
+						lines={2}
+						textClassName="text-sm text-(--text-primary) whitespace-pre-line leading-tight"
 					/>
 					<div className="text-xs text-(--text-tertiary) mt-1 pl-[3px]">
 						{formatRelativeTime(entry.created_at)}
@@ -74,19 +75,13 @@ export function AuditDetailModal({ entry, onClose }: AuditDetailModalProps) {
 						</Badge>
 					</div>
 				</DetailItem>
-				<DetailItem
-					icon={Server}
-					label={t("components.auditDetail.remoteAddr")}
-				>
-					<CopyablePill
-						text={entry.remote_addr}
-						textClassName="text-sm font-mono text-(--text-primary)"
-					/>
-				</DetailItem>
+				{/* Entity sits in the half-width slot: whether a UUID or a human name,
+				    it is still legible when truncated. Remote address moves to the
+				    full-width row below so an ip:port is never clipped into a useless
+				    pill. */}
 				<DetailItem
 					icon={Tag}
 					label={t("components.auditDetail.entity")}
-					className="col-span-2"
 					value={entry.entity_name || entry.entity_id ? undefined : "-"}
 				>
 					{(entry.entity_name || entry.entity_id) && (
@@ -105,6 +100,16 @@ export function AuditDetailModal({ entry, onClose }: AuditDetailModalProps) {
 							)}
 						</div>
 					)}
+				</DetailItem>
+				<DetailItem
+					icon={Server}
+					label={t("components.auditDetail.remoteAddr")}
+					className="col-span-2"
+				>
+					<CopyablePill
+						text={entry.remote_addr}
+						textClassName="text-sm font-mono text-(--text-primary)"
+					/>
 				</DetailItem>
 				<DetailItem
 					icon={Hash}

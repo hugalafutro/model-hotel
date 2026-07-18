@@ -282,6 +282,18 @@ func TestListFiltersCursorAndLimits(t *testing.T) {
 		}
 	}
 
+	// Offset paging (page-numbered view): skipping the first two rows returns the
+	// next window and never the rows it skipped.
+	offsetPage, _ := rec.List(ctx, ListParams{Limit: 2, Offset: 2})
+	if len(offsetPage) != 3 { // 2 requested + 1 lookahead
+		t.Fatalf("offset page = %d entries, want 3", len(offsetPage))
+	}
+	for _, e := range offsetPage {
+		if e.ID == page1[0].ID || e.ID == page1[1].ID {
+			t.Errorf("offset page overlaps the first two rows: %s", e.ID)
+		}
+	}
+
 	// Count honors the same filters, without the cursor.
 	if n := rec.Count(ctx, ListParams{Actor: "alice"}); n != 5 {
 		t.Errorf("count actor=alice = %d", n)

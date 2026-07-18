@@ -57,10 +57,15 @@ type ListParams struct {
 	CursorCreatedAt time.Time
 	CursorID        string
 	Limit           int
-	Actor           string
-	Method          string
-	From            time.Time
-	To              time.Time
+	// Offset skips this many rows before the page (0 = from the top). Used by the
+	// dashboard's page-numbered view; the keyset cursor above is used by infinite
+	// scroll. They are mutually exclusive in practice - a caller sends one or the
+	// other - but both may be set and are simply ANDed.
+	Offset int
+	Actor  string
+	Method string
+	From   time.Time
+	To     time.Time
 }
 
 // Recorder persists audit entries and prunes old ones. Wired over the shared
@@ -267,6 +272,9 @@ func (rec *Recorder) List(ctx context.Context, p ListParams) ([]Entry, error) {
 	if p.Limit > 200 {
 		p.Limit = 200
 	}
+	if p.Offset < 0 {
+		p.Offset = 0
+	}
 	query := `SELECT id, created_at, actor, actor_role, method, route, path, COALESCE(entity_id, ''), status_code, remote_addr
 		FROM audit_log WHERE 1=1`
 	args := []any{}
@@ -295,6 +303,12 @@ func (rec *Recorder) List(ctx context.Context, p ListParams) ([]Entry, error) {
 	}
 	query += fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT $%d", idx)
 	args = append(args, p.Limit+1)
+	// Offset-based paging for the page-numbered view. The +1 lookahead above still
+	// gives HasMore for the current page.
+	if p.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", idx+1)
+		args = append(args, p.Offset)
+	}
 
 	rows, err := rec.pool.Query(ctx, query, args...)
 	if err != nil {

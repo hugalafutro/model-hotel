@@ -36,8 +36,9 @@ function MemberTrafficCard({
 	// Reports this card's fetch time (or null on a failed read) up to the page so
 	// it can collapse identical stamps into a single page-level one.
 	onUpdated: (id: string, iso: string | null) => void;
-	// True only when the cards disagree on their last-updated time, in which case
-	// each card carries its own stamp; otherwise the page shows one shared stamp.
+	// True only when another card's read failed, so the page can't show a single
+	// trustworthy shared stamp and each card carries its own instead (this card's
+	// own stamp is still hidden when its data is null).
 	showLocalUpdated: boolean;
 }) {
 	const { t } = useTranslation();
@@ -271,28 +272,30 @@ export function TrafficPage() {
 		return () => clearInterval(id);
 	}, [paused, refresh]);
 
-	// Each card reports its last fetch time here (null when its read failed). The
-	// page shows one shared "updated" line only when EVERY token card has reported
-	// a time and they all match - the common case, where all cards refresh on the
-	// same tick, mirroring the Members tab. If any card is still loading or failed
-	// its read, a shared stamp would falsely imply that card is fresh too, so each
-	// card falls back to its own stamp instead (the failed one showing none).
+	// Each card reports its last fetch time here (null when its read failed, or
+	// still absent before its first load). The page shows one shared "updated"
+	// line whenever every token card holds a fresh reachable time, using the most
+	// recent of them - mirroring the Members tab. Only a genuinely failed card
+	// (an explicit null) splits the page into per-card stamps; a card that is
+	// merely mid-refetch keeps its previous time, so a refresh tick where one card
+	// commits its new time a beat before the other does NOT flip the layout to
+	// per-card and back (which showed up as a ~15px jump under the second graph).
 	const [updatedAts, setUpdatedAts] = useState<Record<string, string | null>>(
 		{},
 	);
 	const onUpdated = useCallback((id: string, iso: string | null) => {
 		setUpdatedAts((prev) => ({ ...prev, [id]: iso }));
 	}, []);
-	const cardStamps = tokenMembers.map((m) => {
-		const iso = updatedAts[m.id];
-		return iso ? formatTimeOfDay(iso) : null;
-	});
-	const allStamped =
-		cardStamps.length > 0 && cardStamps.every((tv) => tv !== null);
+	const cardStamps = tokenMembers.map((m) => updatedAts[m.id]);
+	const anyFailed = cardStamps.some((v) => v === null);
+	const anyLoading = cardStamps.some((v) => v === undefined);
+	// Latest reported ISO wins for the shared line; ISO strings sort chronologically.
+	const latestIso = cardStamps.reduce<string | null>(
+		(latest, v) => (v && (!latest || v > latest) ? v : latest),
+		null,
+	);
 	const sharedTime =
-		allStamped && cardStamps.every((tv) => tv === cardStamps[0])
-			? cardStamps[0]
-			: null;
+		!anyFailed && !anyLoading && latestIso ? formatTimeOfDay(latestIso) : null;
 
 	return (
 		<div className="fd-stack">
@@ -330,7 +333,7 @@ export function TrafficPage() {
 								member={m}
 								reloadKey={reloadKey}
 								onUpdated={onUpdated}
-								showLocalUpdated={sharedTime === null}
+								showLocalUpdated={anyFailed}
 							/>
 						))}
 						{hasTokenless && (

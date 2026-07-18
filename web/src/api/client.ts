@@ -1374,6 +1374,7 @@ export const api = {
 		list: async (params?: {
 			cursor?: string;
 			limit?: number;
+			offset?: number;
 			actor?: string;
 			method?: string;
 			from?: string;
@@ -1383,6 +1384,7 @@ export const api = {
 				buildUrl("/api/audit", {
 					cursor: params?.cursor,
 					limit: params?.limit,
+					offset: params?.offset,
 					actor: params?.actor,
 					method: params?.method,
 					from: params?.from,

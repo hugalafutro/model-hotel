@@ -1,5 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import {
+	keepPreviousData,
+	useInfiniteQuery,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { History } from "@/lib/icons";
 import { api } from "../../api/client";
@@ -11,22 +16,27 @@ import {
 } from "../../components/auditUtils";
 import { Badge } from "../../components/Badge";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { Row, StaticHeader } from "../../components/DataTable";
+import { PaginationBar, Row, StaticHeader } from "../../components/DataTable";
 import { EmptyState } from "../../components/EmptyState";
 import { FilterDropdown } from "../../components/FilterDropdown";
 import { FilterInput } from "../../components/FilterInput";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
+import { ViewModeToggle } from "../../components/logs/ViewModeToggle";
 import { PageHeader } from "../../components/PageHeader";
 import { useToast } from "../../context/ToastContext";
 import { useDebounce } from "../../hooks/useDebounce";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { formatRelativeTime } from "../../utils/format";
 
 const METHODS = ["POST", "PUT", "PATCH", "DELETE"] as const;
+const PAGE_SIZE = 50;
 
 /**
- * Admin-only audit trail: who did what on the dashboard API, newest first,
- * with actor/method filters and cursor-based "load more" pagination. The
- * server records mutations only and never stores request bodies.
+ * Admin-only audit trail: who did what on the dashboard API, newest first, with
+ * actor/method filters. Two viewing modes matching the Logs pages: infinite
+ * scroll (default) that appends pages as you reach the bottom, and a paginated
+ * static table. The server records mutations only and never stores request
+ * bodies.
  */
 export function Audit() {
 	const { t } = useTranslation();
@@ -36,51 +46,79 @@ export function Audit() {
 	const [method, setMethod] = useState("");
 	const [confirmPurge, setConfirmPurge] = useState(false);
 	const [selected, setSelected] = useState<AuditEntry | null>(null);
-	// Pages loaded past the first are appended here; each "Load more" click
-	// fetches exactly one page and merges it, rather than replaying cursors.
-	const [extra, setExtra] = useState<{
-		entries: AuditEntry[];
-		hasMore: boolean;
-		nextCursor: string;
-	} | null>(null);
+	const [viewMode, setViewMode] = useLocalStorage<"paginate" | "scroll">(
+		"auditViewMode",
+		"scroll",
+	);
+	const [page, setPage] = useState(1);
+	const [pageSize, setPageSize] = useState(PAGE_SIZE);
 	const debouncedActor = useDebounce(actor, 300);
+	const isScroll = viewMode === "scroll";
 
-	const resetPaging = () => setExtra(null);
+	const filters = {
+		actor: debouncedActor || undefined,
+		method: method || undefined,
+	};
 
-	const { data: firstPage, isLoading } = useQuery({
-		queryKey: ["audit", debouncedActor, method],
+	// Infinite-scroll mode: one offset page per fetch, appended. getNextPageParam
+	// returns the count loaded so far as the next offset, and stops once every
+	// row is in hand.
+	const scroll = useInfiniteQuery({
+		queryKey: ["audit", "scroll", debouncedActor, method],
+		queryFn: ({ pageParam }) =>
+			api.audit.list({ ...filters, limit: PAGE_SIZE, offset: pageParam }),
+		initialPageParam: 0,
+		getNextPageParam: (lastPage, pages) => {
+			const loaded = pages.reduce((n, p) => n + p.entries.length, 0);
+			return loaded < lastPage.total ? loaded : undefined;
+		},
+		enabled: isScroll,
+	});
+
+	// Pagination mode: a single offset page, keeping the previous page visible
+	// while the next one loads so the table does not blank out on navigation.
+	const paginated = useQuery({
+		queryKey: ["audit", "page", debouncedActor, method, page, pageSize],
 		queryFn: () =>
 			api.audit.list({
-				actor: debouncedActor || undefined,
-				method: method || undefined,
-				limit: 50,
+				...filters,
+				limit: pageSize,
+				offset: (page - 1) * pageSize,
 			}),
+		enabled: !isScroll,
+		placeholderData: keepPreviousData,
 	});
 
-	const entries: AuditEntry[] = [
-		...(firstPage?.entries ?? []),
-		...(extra?.entries ?? []),
-	];
-	const hasMore = extra ? extra.hasMore : (firstPage?.has_more ?? false);
-	const nextCursor = extra ? extra.nextCursor : (firstPage?.next_cursor ?? "");
-	const total = firstPage?.total ?? 0;
+	const entries: AuditEntry[] = isScroll
+		? (scroll.data?.pages.flatMap((p) => p.entries) ?? [])
+		: (paginated.data?.entries ?? []);
+	const total = isScroll
+		? (scroll.data?.pages[0]?.total ?? 0)
+		: (paginated.data?.total ?? 0);
+	const isLoading = isScroll ? scroll.isLoading : paginated.isLoading;
+	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-	// One fetch per click: append the returned page to the accumulated list.
-	const loadMore = useMutation({
-		mutationFn: (cursor: string) =>
-			api.audit.list({
-				actor: debouncedActor || undefined,
-				method: method || undefined,
-				limit: 50,
-				cursor,
-			}),
-		onSuccess: (page) =>
-			setExtra((prev) => ({
-				entries: [...(prev?.entries ?? []), ...page.entries],
-				hasMore: page.has_more,
-				nextCursor: page.next_cursor ?? "",
-			})),
-	});
+	// Any filter change restarts both views: the scroll query re-keys itself, and
+	// the paginated view jumps back to page one.
+	const resetPaging = () => setPage(1);
+
+	// Sentinel at the list foot: when it scrolls into view (scroll mode only),
+	// pull the next page. Re-armed whenever the fetch state changes so it keeps
+	// firing down a long list.
+	const sentinelRef = useRef<HTMLDivElement>(null);
+	const { hasNextPage, isFetchingNextPage, fetchNextPage } = scroll;
+	useEffect(() => {
+		if (!isScroll) return;
+		const el = sentinelRef.current;
+		if (!el) return;
+		const observer = new IntersectionObserver((observed) => {
+			if (observed[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+				fetchNextPage();
+			}
+		});
+		observer.observe(el);
+		return () => observer.disconnect();
+	}, [isScroll, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
 	const handlePurge = async () => {
 		setConfirmPurge(false);
@@ -126,6 +164,7 @@ export function Audit() {
 							options={METHODS.map((m) => ({ value: m, label: m }))}
 							className="w-32"
 						/>
+						<ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
 						<button
 							type="button"
 							onClick={() => setConfirmPurge(true)}
@@ -219,20 +258,43 @@ export function Audit() {
 							</tbody>
 						</table>
 					</div>
-					<div className="flex items-center justify-between text-sm text-gray-500">
-						<span>{t("audit.showing", { count: entries.length, total })}</span>
-						{hasMore && nextCursor && (
-							<button
-								type="button"
-								onClick={() => loadMore.mutate(nextCursor)}
-								disabled={loadMore.isPending}
-								className="ui-btn"
-								data-testid="audit-load-more"
-							>
-								{t("audit.loadMore")}
-							</button>
-						)}
-					</div>
+
+					{isScroll ? (
+						<>
+							<div className="flex items-center justify-between text-sm text-gray-500">
+								<span>
+									{t("audit.showing", { count: entries.length, total })}
+								</span>
+								{isFetchingNextPage && (
+									<span
+										role="status"
+										aria-label={t("common.loading")}
+										className="animate-spin rounded-full h-4 w-4 border-b-2 border-(--accent)"
+									/>
+								)}
+							</div>
+							{/* Foot marker the observer watches to load the next page. */}
+							<div ref={sentinelRef} aria-hidden="true" className="h-px" />
+						</>
+					) : (
+						<div className="flex items-center justify-between text-sm text-gray-500">
+							<span>
+								{t("audit.showing", { count: entries.length, total })}
+							</span>
+							<PaginationBar
+								page={page}
+								totalPages={totalPages}
+								totalItems={total}
+								pageSize={pageSize}
+								onPageChange={setPage}
+								onPageSizeChange={(s) => {
+									setPageSize(s);
+									setPage(1);
+								}}
+								hideCount
+							/>
+						</div>
+					)}
 				</>
 			) : (
 				<EmptyState message={t("audit.emptyState")} />
