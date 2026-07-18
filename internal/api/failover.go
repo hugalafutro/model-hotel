@@ -316,6 +316,8 @@ type UpdateFailoverGroupRequest struct {
 }
 
 // Update updates an existing failover group by ID.
+//
+//nolint:gocyclo // complexity 35: sequential validation of many optional PATCH fields; on the gocyclo refactor shortlist
 func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "failover group ID")
 	if !ok {

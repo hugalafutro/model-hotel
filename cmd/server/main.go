@@ -87,6 +87,7 @@ func publishDiscoveryEvent(source string, result DiscoveryResult) {
 	}
 }
 
+//nolint:gocyclo // complexity 114: linear startup wiring (config, DI, route registration), not branching logic; on the gocyclo refactor shortlist
 func main() {
 	cfg, err := config.Load()
 	if err != nil {

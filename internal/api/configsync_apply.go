@@ -34,6 +34,8 @@ import (
 // The lock is taken for every import, headed or not, so a headerless push cannot
 // slip past a generation that already committed. That, plus the same-transaction
 // advance, is what makes a newer config win regardless of the order pushes arrive.
+//
+//nolint:gocyclo // complexity 33: staged import pipeline with per-entity guards; on the gocyclo refactor shortlist
 func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourceGen *int64) error {
 	tx, err := h.db.Begin(ctx)
 	if err != nil {
