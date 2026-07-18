@@ -100,6 +100,48 @@ describe("TrafficPage", () => {
 		expect(screen.getByText("5.0%")).toBeInTheDocument();
 	});
 
+	it("charts an all-zero series instead of the No-data state", async () => {
+		// Reachable member, buckets present but no requests: the chart must render
+		// (showing the flat green baseline), not the No-data empty state.
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+			),
+			http.get("/api/members/1/traffic", () =>
+				HttpResponse.json(
+					traffic({
+						member_id: "1",
+						total_requests: 0,
+						total_errors: 0,
+						points: [
+							{ bucket: "b1", requests: 0, errors: 0 },
+							{ bucket: "b2", requests: 0, errors: 0 },
+						],
+					}),
+				),
+			),
+		);
+		renderPage();
+		// The metrics row (chart branch only) shows the zero totals...
+		expect(await screen.findByText("Requests")).toBeInTheDocument();
+		expect(screen.getByText("Error rate")).toBeInTheDocument();
+		// ...and the No-data empty state is not shown.
+		expect(screen.queryByText("No data")).not.toBeInTheDocument();
+	});
+
+	it("shows the No-data state only when the series is empty", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([member({ id: "1", name: "hotel-1" })]),
+			),
+			http.get("/api/members/1/traffic", () =>
+				HttpResponse.json(traffic({ member_id: "1", points: [] })),
+			),
+		);
+		renderPage();
+		expect(await screen.findByText("No data")).toBeInTheDocument();
+	});
+
 	it("renders with a multi-bucket error spike without crashing", async () => {
 		server.use(
 			http.get("/api/members", () =>
@@ -291,6 +333,7 @@ describe("TrafficPage", () => {
 								member_id: "1",
 								reachable: true,
 								total_requests: 100,
+								points: [{ bucket: "b1", requests: 100, errors: 0 }],
 							}),
 				);
 			}),

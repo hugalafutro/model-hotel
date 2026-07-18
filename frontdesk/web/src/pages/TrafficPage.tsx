@@ -127,7 +127,10 @@ function MemberTrafficCard({
 						{t("traffic.refresh")}
 					</button>
 				</div>
-			) : data.total_requests === 0 ? (
+			) : data.points.length === 0 ? (
+				// Only a genuinely empty series (no buckets to plot) gets the empty
+				// state. A reachable member with all-zero buckets still charts, so the
+				// flat green requests baseline shows instead of a bare "No data".
 				<div className="fd-empty fd-faint">{t("traffic.noData")}</div>
 			) : (
 				<>
