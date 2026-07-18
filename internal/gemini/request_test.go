@@ -307,6 +307,39 @@ func TestTranslateRequest_JSONResponseFormat(t *testing.T) {
 	if gc["responseMimeType"] != "application/json" {
 		t.Errorf("responseMimeType = %v, want application/json", gc["responseMimeType"])
 	}
+	if _, ok := gc["responseJsonSchema"]; ok {
+		t.Error("responseJsonSchema present for schemaless json_object")
+	}
+}
+
+func TestTranslateRequest_JSONSchemaResponseFormat(t *testing.T) {
+	// Structured output must forward the schema, not downgrade to generic JSON
+	// mode. Vertex's responseJsonSchema accepts standard JSON Schema verbatim
+	// (live-verified 2026-07-18, incl. additionalProperties).
+	body := []byte(`{
+		"model": "gemini-2.5-flash",
+		"messages": [{"role": "user", "content": "hi"}],
+		"response_format": {"type": "json_schema", "json_schema": {
+			"name": "weather",
+			"strict": true,
+			"schema": {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"], "additionalProperties": false}
+		}}
+	}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest failed: %v", err)
+	}
+	gc := decodeGemini(t, out)["generationConfig"].(map[string]any)
+	if gc["responseMimeType"] != "application/json" {
+		t.Errorf("responseMimeType = %v, want application/json", gc["responseMimeType"])
+	}
+	schema := gc["responseJsonSchema"].(map[string]any)
+	if schema["type"] != "object" || schema["additionalProperties"] != false {
+		t.Errorf("responseJsonSchema = %v, want schema forwarded verbatim", schema)
+	}
+	if _, ok := schema["properties"].(map[string]any)["city"]; !ok {
+		t.Errorf("responseJsonSchema properties = %v", schema["properties"])
+	}
 }
 
 func TestTranslateRequest_SystemAsParts(t *testing.T) {

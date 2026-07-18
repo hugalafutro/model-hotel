@@ -65,7 +65,10 @@ type oaiTool struct {
 }
 
 type oaiRespFormat struct {
-	Type string `json:"type"` // "text" | "json_object" | "json_schema"
+	Type       string `json:"type"` // "text" | "json_object" | "json_schema"
+	JSONSchema *struct {
+		Schema json.RawMessage `json:"schema"`
+	} `json:"json_schema"`
 }
 
 // --- Outgoing Gemini generateContent request shape ---
@@ -131,12 +134,13 @@ type genFunctionCallingConfig struct {
 }
 
 type genConfig struct {
-	MaxOutputTokens  int                `json:"maxOutputTokens,omitempty"`
-	Temperature      *float64           `json:"temperature,omitempty"`
-	TopP             *float64           `json:"topP,omitempty"`
-	StopSequences    []string           `json:"stopSequences,omitempty"`
-	ResponseMimeType string             `json:"responseMimeType,omitempty"`
-	ThinkingConfig   *genThinkingConfig `json:"thinkingConfig,omitempty"`
+	MaxOutputTokens    int                `json:"maxOutputTokens,omitempty"`
+	Temperature        *float64           `json:"temperature,omitempty"`
+	TopP               *float64           `json:"topP,omitempty"`
+	StopSequences      []string           `json:"stopSequences,omitempty"`
+	ResponseMimeType   string             `json:"responseMimeType,omitempty"`
+	ResponseJSONSchema json.RawMessage    `json:"responseJsonSchema,omitempty"`
+	ThinkingConfig     *genThinkingConfig `json:"thinkingConfig,omitempty"`
 }
 
 type genThinkingConfig struct {
@@ -257,6 +261,12 @@ func buildGenerationConfig(req *oaiRequest) *genConfig {
 	}
 	if req.ResponseFormat != nil && (req.ResponseFormat.Type == "json_object" || req.ResponseFormat.Type == "json_schema") {
 		gc.ResponseMimeType = "application/json"
+		// Structured output: forward the JSON Schema verbatim. Vertex's
+		// responseJsonSchema takes standard JSON Schema (unlike the older
+		// responseSchema OpenAPI subset), so no sanitizing is needed.
+		if js := req.ResponseFormat.JSONSchema; js != nil && len(js.Schema) > 0 {
+			gc.ResponseJSONSchema = js.Schema
+		}
 	}
 	if budget, ok := reasoningBudgets[strings.ToLower(req.ReasoningEffort)]; ok && req.ReasoningEffort != "" {
 		gc.ThinkingConfig = &genThinkingConfig{ThinkingBudget: budget}
