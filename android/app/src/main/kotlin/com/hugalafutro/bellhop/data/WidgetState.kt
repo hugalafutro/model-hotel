@@ -12,6 +12,10 @@ import kotlinx.serialization.Serializable
 data class WidgetMember(
     val name: String,
     val state: String,
+    // Last hour of the member's request counts in 5-minute buckets (oldest
+    // first, at most [TRAFFIC_BUCKETS]); empty when traffic graphs are off or
+    // the series was never fetched. Display data only, like everything here.
+    val traffic: List<Int> = emptyList(),
 ) {
     val healthState: MemberHealthState
         get() = runCatching { MemberHealthState.valueOf(state) }.getOrDefault(MemberHealthState.UNKNOWN)
@@ -37,6 +41,9 @@ data class WidgetState(
     val newestEvent: WidgetEvent? = null,
     val updatedAt: Long = 0L,
 )
+
+/** TRAFFIC_BUCKETS is the widget's bar-graph window: one hour of 5-minute buckets. */
+const val TRAFFIC_BUCKETS = 12
 
 /** WidgetCounts is the collapsed fallback face for fleets too big for per-member rows. */
 data class WidgetCounts(
@@ -66,9 +73,19 @@ fun widgetStateOf(
     members: List<FleetMember>,
     autosyncStale: Boolean,
     now: Long,
+    traffic: Map<String, List<Int>> = emptyMap(),
 ): WidgetState =
     WidgetState(
-        members = members.map { WidgetMember(name = it.name.ifBlank { it.id }, state = healthStateOf(it).name) },
+        members =
+            members.map {
+                WidgetMember(
+                    name = it.name.ifBlank { it.id },
+                    state = healthStateOf(it).name,
+                    // Writers hand over whatever window they fetched; the model
+                    // owns the widget's newest-TRAFFIC_BUCKETS contract.
+                    traffic = traffic[it.id].orEmpty().takeLast(TRAFFIC_BUCKETS),
+                )
+            },
         autosyncStale = autosyncStale,
         newestEvent =
             members

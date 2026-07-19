@@ -266,4 +266,6 @@
     <string name="widget_state_drained">Drained</string>
     <string name="widget_state_unknown">Unknown</string>
     <string name="widget_event_header">Latest fleet event</string>
+    <string name="settings_widget_title">Home-screen widget</string>
+    <string name="settings_widget_graphs_subtitle">Traffic graphs: overlay each member with its last hour of requests. Fresh bars cost one extra request per member on each background check.</string>
 </resources>

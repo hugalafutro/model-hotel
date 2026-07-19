@@ -67,6 +67,7 @@ import com.hugalafutro.bellhop.widget.BellhopWidget
 import com.hugalafutro.bellhop.work.FleetPollWorker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 // The paired-device role that may mutate the fleet (Front Desk's RoleOperator).
@@ -219,6 +220,7 @@ fun BellhopApp() {
     val pushEnabled by monitorStore.pushEnabled.collectAsStateWithLifecycle(initialValue = false)
     val pushEndpoint by monitorStore.endpoint.collectAsStateWithLifecycle(initialValue = null)
     val holdToCopy by prefsStore.holdToCopy.collectAsStateWithLifecycle(initialValue = true)
+    val widgetGraphs by prefsStore.widgetGraphs.collectAsStateWithLifecycle(initialValue = false)
     val graphRangeMinutes by
         prefsStore.graphRangeMinutes.collectAsStateWithLifecycle(
             initialValue = PrefsStore.DEFAULT_GRAPH_RANGE_MINUTES,
@@ -543,6 +545,15 @@ fun BellhopApp() {
                         onToggleHoldToCopy = { scope.launch { prefsStore.setHoldToCopy(it) } },
                         graphRangeMinutes = graphRangeMinutes,
                         onSetGraphRange = { scope.launch { prefsStore.setGraphRangeMinutes(it) } },
+                        widgetGraphs = widgetGraphs,
+                        onToggleWidgetGraphs = {
+                            scope.launch {
+                                prefsStore.setWidgetGraphs(it)
+                                // Refetch right away so the bars appear (or clear)
+                                // without waiting for the next organic write.
+                                FleetPollWorker.runWidgetRefresh(context)
+                            }
+                        },
                         onUnlink = { runUnlink(state.fdUrl) },
                         onForceUnlink = { forceUnlink() },
                         requireOperatorAuth = { action -> requireOperatorAuth(action) },
@@ -591,6 +602,8 @@ private fun LinkedContent(
     onToggleHoldToCopy: (Boolean) -> Unit,
     graphRangeMinutes: Int,
     onSetGraphRange: (Int) -> Unit,
+    widgetGraphs: Boolean,
+    onToggleWidgetGraphs: (Boolean) -> Unit,
     onUnlink: () -> Unit,
     onForceUnlink: () -> Unit,
     requireOperatorAuth: (() -> Unit) -> Unit,
@@ -642,6 +655,10 @@ private fun LinkedContent(
                     state.fdUrl,
                     widgetStore,
                     onWidgetWritten = { BellhopWidget.update(monitorContext.applicationContext) },
+                    // Read fresh per refresh (not a captured composable value):
+                    // the VM outlives recompositions, so a captured Boolean
+                    // would freeze the toggle at creation time.
+                    widgetGraphs = { PrefsStore.create(monitorContext).widgetGraphs.first() },
                 ),
         )
     val ui by dashVm.state.collectAsStateWithLifecycle()
@@ -765,6 +782,8 @@ private fun LinkedContent(
             onToggleHoldToCopy = onToggleHoldToCopy,
             graphRangeMinutes = graphRangeMinutes,
             onSetGraphRange = onSetGraphRange,
+            widgetGraphs = widgetGraphs,
+            onToggleWidgetGraphs = onToggleWidgetGraphs,
             alertCounts = alertCounts,
         )
     } else if (selected != null) {

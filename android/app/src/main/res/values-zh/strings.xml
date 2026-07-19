@@ -256,4 +256,6 @@
     <string name="widget_state_drained">已排空</string>
     <string name="widget_state_unknown">未知</string>
     <string name="widget_event_header">最新集群事件</string>
+    <string name="settings_widget_title">主屏幕小组件</string>
+    <string name="settings_widget_graphs_subtitle">流量图：在每个成员上叠加最近一小时的请求。保持更新会使每次后台检查对每个成员多发送一个请求。</string>
 </resources>

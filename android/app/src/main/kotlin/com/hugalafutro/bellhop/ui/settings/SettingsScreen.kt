@@ -104,6 +104,8 @@ fun SettingsScreen(
     onToggleHoldToCopy: (Boolean) -> Unit = {},
     graphRangeMinutes: Int = PrefsStore.DEFAULT_GRAPH_RANGE_MINUTES,
     onSetGraphRange: (Int) -> Unit = {},
+    widgetGraphs: Boolean = false,
+    onToggleWidgetGraphs: (Boolean) -> Unit = {},
     // Enabled-alert counts per severity (error/warning/info/success), sourced from
     // Front Desk's live selection. Always rendered as badges on the Alerts pill,
     // even at 0, so the pill reads as a live, tappable destination.
@@ -336,6 +338,35 @@ fun SettingsScreen(
                             // toggle stays legible on the card.
                             colors = bellhopSwitchColors(),
                             modifier = Modifier.testTag("settings-hold-copy-toggle"),
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Home-screen widget: opt-in traffic bars on the member rows. Off by
+            // default because fresh bars add one request per member to every
+            // background check; the widget itself still never polls.
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_widget_title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_widget_graphs_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = widgetGraphs,
+                            onCheckedChange = onToggleWidgetGraphs,
+                            colors = bellhopSwitchColors(),
+                            modifier = Modifier.testTag("settings-widget-graphs-toggle"),
                         )
                     }
                 }

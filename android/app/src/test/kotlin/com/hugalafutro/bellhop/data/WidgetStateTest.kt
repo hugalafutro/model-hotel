@@ -100,4 +100,31 @@ class WidgetStateTest {
             )
         assertEquals(WidgetCounts(up = 2, down = 1, drained = 1, unknown = 1), countsOf(state))
     }
+
+    @Test
+    fun trafficBucketsMapByIdAndMissingMembersGetNone() {
+        val state =
+            widgetStateOf(
+                listOf(member("m1", name = "hotel-1"), member("m2", name = "hotel-2")),
+                autosyncStale = false,
+                now = 0L,
+                traffic = mapOf("m1" to listOf(1, 2, 3)),
+            )
+        assertEquals(listOf(1, 2, 3), state.members[0].traffic)
+        assertEquals(emptyList<Int>(), state.members[1].traffic)
+    }
+
+    @Test
+    fun trafficKeepsOnlyTheNewestTwelveBuckets() {
+        // Writers hand over whatever window they fetched; the model owns the
+        // widget's 12-bucket (one hour of 5-minute buckets) contract.
+        val state =
+            widgetStateOf(
+                listOf(member("m1")),
+                autosyncStale = false,
+                now = 0L,
+                traffic = mapOf("m1" to (1..15).toList()),
+            )
+        assertEquals((4..15).toList(), state.members.single().traffic)
+    }
 }

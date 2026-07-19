@@ -15,11 +15,13 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.hugalafutro.bellhop.data.FetchResult
 import com.hugalafutro.bellhop.data.FleetAlert
+import com.hugalafutro.bellhop.data.FleetMember
 import com.hugalafutro.bellhop.data.FleetSnapshot
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MonitorStore
+import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.diffAutoSync
 import com.hugalafutro.bellhop.data.diffFleet
@@ -47,6 +49,33 @@ sealed interface PollResult {
 }
 
 /**
+ * widgetTraffic fetches each member's last-hour request series for the widget's
+ * opt-in bar graphs: one extra request per member, so it runs only when the
+ * Settings toggle asked for it ([includeTraffic] at the call sites). A member
+ * whose series read fails keeps its previously stored bars (stale beats blank,
+ * same stance as everything else the widget shows); an unreachable series
+ * (Front Desk has no admin token for the member) renders as no bars.
+ */
+private suspend fun widgetTraffic(
+    client: FrontDeskClient,
+    fdUrl: String,
+    token: String,
+    members: List<FleetMember>,
+    widgetStore: WidgetStore,
+): Map<String, List<Int>> {
+    val previous = widgetStore.read()?.members.orEmpty()
+    val previousByName = previous.associate { it.name to it.traffic }
+    return members.associate { member ->
+        member.id to
+            when (val res = client.memberTraffic(fdUrl, token, member.id, windowMinutes = 60)) {
+                is FetchResult.Success ->
+                    if (res.data.reachable) res.data.points.map { it.requests } else emptyList()
+                else -> previousByName[member.name.ifBlank { member.id }].orEmpty()
+            }
+    }
+}
+
+/**
  * pollFleet is the testable core of the background backstop: fetch the fleet,
  * diff it against the last-seen snapshot, persist the new snapshot, and return the
  * health edges. It performs no notification or Android I/O itself, so it can run
@@ -61,6 +90,7 @@ suspend fun pollFleet(
     token: String,
     monitorStore: MonitorStore,
     widgetStore: WidgetStore,
+    includeTraffic: Boolean = false,
     now: () -> Long = System::currentTimeMillis,
 ): PollResult {
     // Capture the session epoch before the fetch: if an unlink + re-enable churns
@@ -93,7 +123,13 @@ suspend fun pollFleet(
             // baseline), but fenced by the store's own generation captured
             // before the fetch, so a poll finishing after an unlink cleared
             // the store cannot write the old fleet back.
-            widgetStore.saveIfChanged(widgetStateOf(result.data, stale, now()), widgetGeneration)
+            val traffic =
+                if (includeTraffic) {
+                    widgetTraffic(client, fdUrl, token, result.data, widgetStore)
+                } else {
+                    emptyMap()
+                }
+            widgetStore.saveIfChanged(widgetStateOf(result.data, stale, now(), traffic), widgetGeneration)
             PollResult.Changed(alerts)
         }
         FetchResult.Unauthorized -> PollResult.Unauthorized
@@ -117,6 +153,7 @@ suspend fun runBackstop(
     canNotify: Boolean,
     notify: (FleetAlert) -> Unit,
     retryOnFailure: Boolean = true,
+    includeTraffic: Boolean = false,
 ): Result {
     // Neither layer active: nothing to do. A stale periodic run can outlive the
     // Layer-2 toggle, and a push-triggered one-shot can land just after Layer 3
@@ -134,7 +171,7 @@ suspend fun runBackstop(
     // foreground UI surfaces the revoke; the backstop just stops quietly.
     val token = linkStore.token() ?: return Result.success()
 
-    return when (val result = pollFleet(client, link.fdUrl, token, monitorStore, widgetStore)) {
+    return when (val result = pollFleet(client, link.fdUrl, token, monitorStore, widgetStore, includeTraffic)) {
         is PollResult.Changed -> {
             result.alerts.forEach(notify)
             Result.success()
@@ -166,6 +203,7 @@ suspend fun refreshWidgetOnly(
     linkStore: LinkStore,
     widgetStore: WidgetStore,
     client: FrontDeskClient,
+    includeTraffic: Boolean = false,
     now: () -> Long = System::currentTimeMillis,
 ): Result {
     val link = linkStore.state.first()
@@ -180,7 +218,13 @@ suspend fun refreshWidgetOnly(
             (client.autoSync(link.fdUrl, token) as? FetchResult.Success)?.data?.stale
                 ?: widgetStore.read()?.autosyncStale
                 ?: false
-        widgetStore.saveIfChanged(widgetStateOf(result.data, stale, now()), generation)
+        val traffic =
+            if (includeTraffic) {
+                widgetTraffic(client, link.fdUrl, token, result.data, widgetStore)
+            } else {
+                emptyMap()
+            }
+        widgetStore.saveIfChanged(widgetStateOf(result.data, stale, now(), traffic), generation)
     }
     return Result.success()
 }
@@ -200,6 +244,9 @@ class FleetPollWorker(
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
         val context = applicationContext
+        // Opt-in widget traffic bars (Settings): both paths pass it through so
+        // the bars stay as fresh as the health rows they overlay.
+        val includeTraffic = PrefsStore.create(context).widgetGraphs.first()
         // The widget refresh tap is a display-only one-shot: no monitor guards, no
         // notify, no alert baseline. It still re-renders the widget afterwards, the
         // same as a backstop run does below.
@@ -209,6 +256,7 @@ class FleetPollWorker(
                     LinkStore.create(context),
                     WidgetStore.create(context),
                     FrontDeskClient(),
+                    includeTraffic,
                 )
             BellhopWidget.update(context)
             return result
@@ -224,6 +272,7 @@ class FleetPollWorker(
                 // The push one-shot must not retry (see runBackstop): a backing-off
                 // one-shot would block later push wakes under the KEEP policy.
                 retryOnFailure = !inputData.getBoolean(KEY_ONESHOT, false),
+                includeTraffic = includeTraffic,
             )
         // Re-render after every run: cheap no-op with no widget placed, and a
         // successful poll just wrote fresh WidgetStore state.

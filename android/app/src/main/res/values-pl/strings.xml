@@ -274,4 +274,6 @@
     <string name="widget_state_drained">Wygaszony</string>
     <string name="widget_state_unknown">Nieznany</string>
     <string name="widget_event_header">Ostatnie zdarzenie floty</string>
+    <string name="settings_widget_title">Widżet ekranu głównego</string>
+    <string name="settings_widget_graphs_subtitle">Wykresy ruchu: nakładają na każdy węzeł żądania z ostatniej godziny. Świeże słupki kosztują jedno dodatkowe żądanie na węzeł przy każdym sprawdzeniu w tle.</string>
 </resources>
