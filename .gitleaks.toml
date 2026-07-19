@@ -8,7 +8,7 @@
 [extend]
 useDefault = true
 
-[[allowlist]]
+[[allowlists]]
 description = """
 Dead Ollama Cloud API key committed to old history in
 plans/integrating-ollama-cloud.md (commit bb7bb913, 2026-04-22) and removed
