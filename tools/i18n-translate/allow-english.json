@@ -1405,6 +1405,9 @@
 		"it",
 		"ro"
 	],
+	"components.providerModals.kimiCodePlanQuota": [
+		"nl"
+	],
 	"components.providerModals.neuralWattCredits": [
 		"da",
 		"de"
@@ -5386,6 +5389,36 @@
 		"zh"
 	],
 	"providers.type_google": [
+		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"el",
+		"es",
+		"fi",
+		"fr",
+		"he",
+		"hu",
+		"it",
+		"ja",
+		"ko",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"ru",
+		"sk",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi",
+		"zh"
+	],
+	"providers.type_kimi_code": [
 		"af",
 		"ar",
 		"ca",
