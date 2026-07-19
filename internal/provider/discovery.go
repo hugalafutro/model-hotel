@@ -298,6 +298,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverNanoGPT(ctx, provider, apiKey)
 		case "zai-coding":
 			return d.discoverZAICoding(ctx, provider, apiKey)
+		case "kimi-code":
+			return d.discoverKimiCode(ctx, provider, apiKey)
 		case "bedrock":
 			return d.discoverBedrock(ctx, provider, apiKey)
 		case "azure":
