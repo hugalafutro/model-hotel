@@ -3115,6 +3115,12 @@ html.light .quota-card-zai-coding {
 	border-color: rgba(55, 65, 81, 0.2);
 }
 
+html.light .quota-card-kimi-code {
+	background-color: rgba(55, 65, 81, 0.06);
+	color: #374151;
+	border-color: rgba(55, 65, 81, 0.2);
+}
+
 html.light .quota-card-deepseek {
 	background-color: rgba(77, 107, 254, 0.1);
 	color: #3b54cc;

@@ -12,6 +12,7 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ManagedBanner } from "../components/ManagedBanner";
 import { PageHeader } from "../components/PageHeader";
 import {
+	KimiCodeQuotaModal,
 	NanoGPTQuotaModal,
 	NeuralWattQuotaModal,
 	OpenRouterQuotaModal,
@@ -98,6 +99,8 @@ export function Providers() {
 		setNanoOpen,
 		isZaiCodingOpen,
 		setZaiCodingOpen,
+		isKimiCodeOpen,
+		setKimiCodeOpen,
 		isOpenRouterOpen,
 		setOpenRouterOpen,
 		isNeuralwattOpen,
@@ -231,6 +234,7 @@ export function Providers() {
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 			queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
 			queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
+			queryClient.invalidateQueries({ queryKey: ["kimi-code-usage"] });
 			queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
 			queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
@@ -421,6 +425,7 @@ export function Providers() {
 						onSetModelsProvider={setModelsProvider}
 						onSetModalNano={() => setNanoOpen(true)}
 						onSetModalZaiCoding={() => setZaiCodingOpen(true)}
+						onSetModalKimiCode={() => setKimiCodeOpen(true)}
 						onSetModalOpenRouter={() => setOpenRouterOpen(true)}
 						onSetModalNeuralwatt={() => setNeuralwattOpen(true)}
 						toast={toast}
@@ -478,6 +483,17 @@ export function Providers() {
 					isRefreshing={quotaData.isZaiCodingRefetching}
 					onToast={toast}
 					lastRefreshed={quotaData.zaiCodingDataUpdatedAt}
+				/>
+			)}
+
+			{isKimiCodeOpen && quotaData.kimiCodeUsage && (
+				<KimiCodeQuotaModal
+					usage={quotaData.kimiCodeUsage}
+					onClose={() => setKimiCodeOpen(false)}
+					onRefresh={quotaData.refetchKimiCode}
+					isRefreshing={quotaData.isKimiCodeRefetching}
+					onToast={toast}
+					lastRefreshed={quotaData.kimiCodeDataUpdatedAt}
 				/>
 			)}
 

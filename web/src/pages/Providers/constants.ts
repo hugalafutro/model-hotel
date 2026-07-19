@@ -1,6 +1,7 @@
 export const baseUrls: Record<string, string> = {
 	nanogpt: "https://nano-gpt.com/api/subscription/v1",
 	"zai-coding": "https://api.z.ai/api/coding/paas/v4",
+	"kimi-code": "https://api.kimi.com/coding/v1",
 	openai: "https://api.openai.com/v1",
 	anthropic: "https://api.anthropic.com",
 	deepseek: "https://api.deepseek.com/v1",
@@ -102,6 +103,7 @@ export const providerTypeDisplayNames: Record<string, string> = {
 	custom: "Custom",
 	nanogpt: "NanoGPT",
 	"zai-coding": "Z.ai Coding Plan",
+	"kimi-code": "Kimi Code",
 	openai: "OpenAI",
 	anthropic: "Anthropic",
 	deepseek: "DeepSeek",
@@ -125,6 +127,7 @@ export const providerTypeTranslationKeys: Record<string, string> = {
 	custom: "providers.type_custom",
 	nanogpt: "providers.type_nanogpt",
 	"zai-coding": "providers.type_zai_coding",
+	"kimi-code": "providers.type_kimi_code",
 	openai: "providers.type_openai",
 	anthropic: "providers.type_anthropic",
 	deepseek: "providers.type_deepseek",

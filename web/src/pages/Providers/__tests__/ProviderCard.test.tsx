@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
 	DeepSeekBalance,
+	KimiCodeQuotaResponse,
 	NanoGPTUsage,
 	OllamaCloudAccount,
 	OpenRouterBalance,
@@ -46,6 +47,7 @@ const defaultProps = {
 	onSetModelsProvider: vi.fn(),
 	onSetModalNano: vi.fn(),
 	onSetModalZaiCoding: vi.fn(),
+	onSetModalKimiCode: vi.fn(),
 	onSetModalOpenRouter: vi.fn(),
 	onSetModalNeuralwatt: vi.fn(),
 	toast: vi.fn(),
@@ -549,6 +551,31 @@ describe("ProviderCard", () => {
 			fireEvent.click(zaiBadge);
 
 			expect(defaultProps.onSetModalZaiCoding).toHaveBeenCalled();
+		});
+
+		it("calls onSetModalKimiCode when Kimi Code badge is clicked", () => {
+			mockQuotaData.showKimiCodeBadge = true;
+			mockQuotaData.kimiCodeUsage = {
+				success: true,
+			} as unknown as KimiCodeQuotaResponse;
+
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{
+						...mockProvider,
+						base_url: "https://api.kimi.com/coding/v1",
+					}}
+				/>,
+				{ wrapper: AllProviders },
+			);
+
+			const kimiBadge = screen.getByTitle(
+				"Kimi Code remaining quota - click for details",
+			);
+			fireEvent.click(kimiBadge);
+
+			expect(defaultProps.onSetModalKimiCode).toHaveBeenCalled();
 		});
 
 		it("calls refetchDeepseek and toasts success when DeepSeek badge is clicked", async () => {
