@@ -214,7 +214,10 @@ class FleetPollTest {
             store.setEnabled(true)
             // Seed a previous fetch's state: an untouched store and a wiped one
             // both read null, so only a surviving seed proves "untouched".
-            widget.saveIfChanged(WidgetState(members = listOf(WidgetMember("hotel-1", "UP")), updatedAt = 7L))
+            widget.saveIfChanged(
+                WidgetState(members = listOf(WidgetMember("hotel-1", "UP")), updatedAt = 7L),
+                widget.generation(),
+            )
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
 
             poll(store, widget)
