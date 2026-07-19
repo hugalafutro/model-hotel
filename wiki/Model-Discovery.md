@@ -124,7 +124,7 @@ Providers that expose a live model list **and** ship a built-in catalog are comb
 
 models.dev enrichment runs *after* the merge and fills anything still empty, so the final precedence per field is **live → catalog → models.dev → zero value**. If the live fetch fails entirely (network, auth, 403/429 quota), the discoverer falls back to the pure catalog so discovery never goes dark.
 
-Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt, AWS Bedrock, Azure AI Foundry) have no catalog. **Vertex AI express** is the inverse case: Google exposes no listing route for express keys, so discovery starts from a shipped candidate catalog and validates each entry live (see its section below).
+Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt, Kimi Code, AWS Bedrock, Azure AI Foundry) have no catalog. **Vertex AI express** is the inverse case: Google exposes no listing route for express keys, so discovery starts from a shipped candidate catalog and validates each entry live (see its section below).
 
 ### Provider Type Detection
 
@@ -137,6 +137,7 @@ The `DetectProviderType` function in `internal/provider/discovery.go` uses exact
 | `api.deepseek.com`, `*.deepseek.com` | - | `deepseek` |
 | `api.nano-gpt.com`, `nano-gpt.com` | - | `nanogpt` |
 | `api.z.ai`, `z.ai`, `*.z.ai` | - | `zai-coding` |
+| `api.kimi.com`, `kimi.com`, `*.kimi.com` | - | `kimi-code` |
 | `ollama.com`, `*.ollama.com` | - | `ollama-cloud` |
 | `opencode.ai`, `*.opencode.ai` | `/zen/go/` | `opencode-go` |
 | `opencode.ai`, `*.opencode.ai` | `/zen/` | `opencode-zen` |
@@ -385,6 +386,28 @@ Both routes accept the resource API key as a **bearer token** (the legacy `api-k
 | Streaming | Hardcoded `true` (catalog entries) |
 | Output modalities | Hardcoded `"[]"` |
 | Pricing | None |
+
+### Kimi Code
+
+**Source files:** `discovery_kimi.go`
+
+**Method:** Moonshot's coding-subscription endpoint (base URL `https://api.kimi.com/coding/v1`, API keys `sk-kimi-...` from the Kimi Code console). `discoverKimiCode` fetches `GET {base}/models`, an OpenAI-shaped listing with rich extras that are mapped directly onto the model rather than routed through a catalog - there is no embedded catalog and no models.dev fallback for this provider; everything comes from the live API.
+
+Subscription keys only work against `api.kimi.com/coding` - they 401 on Moonshot's pay-per-token platform (`api.moonshot.ai`) and vice versa, since the two are isolated key namespaces. A platform key pointed at `api.moonshot.ai` is handled by the generic OpenAI-compatible discoverer instead.
+
+**Live API provides:**
+
+| Field | Source |
+|-------|--------|
+| Model list | API (`GET /models`) |
+| Display name | API (`display_name`) |
+| Context length | API (`context_length`, e.g. `262144`) |
+| Reasoning | API (`supports_reasoning`) |
+| Vision / image input | API (`supports_image_in`) |
+| Video input | API (`supports_video_in`) |
+| Owned by | API (recorded as `moonshotai`) |
+
+Known models: `k3` (K3), `kimi-for-coding` (K2.7 Coding), `kimi-for-coding-highspeed` (K2.7 Coding Highspeed). All three are thinking-only - reasoning cannot be disabled, and responses carry DeepSeek-style `reasoning_content`.
 
 ### OpenCode Go
 
@@ -1071,6 +1094,7 @@ The table below summarizes what each provider type supplies during model discove
 | LMStudio | API | - | API | API | Live API |
 | KoboldCPP | API | - | - | - | Live API |
 | NeuralWatt | models.dev | models.dev | models.dev | models.dev | OpenAI-compatible `GET /v1/models` (no dedicated discovery; enriched via models.dev) |
+| Kimi Code | API | - | API | API | Live API (no catalog, no models.dev) |
 
 ---
 
@@ -1086,9 +1110,10 @@ Some providers offer supplementary APIs that are accessible outside of model dis
 | OpenRouter | `GET /api/v1/credits`, `GET /api/v1/key` | `GetOpenRouterBalance` | Account credits, rate limits, usage limits, free tier status |
 | Ollama Cloud | `POST /api/me` | `GetOllamaCloudAccount` | Account information |
 | NeuralWatt | `GET /quota` | `GetNeuralWattQuota` | Quota/balance (a 404 means a free-tier key with no quota endpoint - treated as "no data", not an error) |
+| Kimi Code | `GET /usages` | `GetKimiCodeQuota` | 5-hour and weekly quota (limit/remaining/reset time), parallel-request limit, and membership tier |
 
 These are exposed via:
-- `GET /api/providers/{id}/usage` - for NanoGPT, Z.AI, OpenRouter, and NeuralWatt
+- `GET /api/providers/{id}/usage` - for NanoGPT, Z.AI, OpenRouter, NeuralWatt, and Kimi Code
 - `GET /api/providers/{id}/balance` - for DeepSeek
 - `POST /api/providers/refresh-quotas` - refreshes usage/balance for all supported providers
 

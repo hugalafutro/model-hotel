@@ -234,7 +234,7 @@ The admin token is generated on first startup and saved to `.data/admin-token`. 
 | `/api/providers/{id}` | PUT | Update provider |
 | `/api/providers/{id}` | DELETE | Delete provider |
 | `/api/providers/{id}/discover` | POST | Trigger manual model discovery |
-| `/api/providers/{id}/usage` | GET | Get usage/quota info (Z.AI, Nano-GPT, OpenRouter) |
+| `/api/providers/{id}/usage` | GET | Get usage/quota info (Z.AI, Nano-GPT, OpenRouter, NeuralWatt, Kimi Code) |
 | `/api/providers/{id}/balance` | GET | Get balance info (DeepSeek) |
 | `/api/providers/{id}/account` | GET | Get account info (Ollama Cloud) |
 | `/api/providers/discover-all` | POST | Trigger discovery for all enabled providers |
@@ -324,6 +324,7 @@ Returns usage/quota information for supported providers.
 - `nanogpt` (Nano-GPT)
 - `openrouter` (OpenRouter - returns key balance)
 - `neuralwatt` (NeuralWatt - returns quota; 404 from the upstream quota endpoint means a free-tier key and yields no data)
+- `kimi-code` (Kimi Code - returns 5-hour/weekly quota, parallel-request limit, and membership tier)
 
 **Response (Z.AI example):**
 ```json
@@ -333,6 +334,20 @@ Returns usage/quota information for supported providers.
   "remaining_quota": 950000
 }
 ```
+
+**Response (Kimi Code example, abbreviated):**
+```json
+{
+  "user": {"userId": "u_123", "region": "global", "membership": {"level": "standard"}},
+  "limits": [
+    {"window": {"duration": 300, "timeUnit": "TIME_UNIT_MINUTE"}, "detail": {"limit": "100", "remaining": "62", "resetTime": "2026-07-19T18:00:00Z"}},
+    {"window": {"duration": 10080, "timeUnit": "TIME_UNIT_MINUTE"}, "detail": {"limit": "700", "remaining": "410", "resetTime": "2026-07-24T00:00:00Z"}}
+  ],
+  "parallel": {"limit": "4"},
+  "subType": "coding"
+}
+```
+The service passes the Kimi Code `/usages` payload through as-is; the dashboard derives 5-hour and weekly percentages from the `limits` array by matching each window's `duration` (300 minutes = 5h, 10080 minutes = weekly).
 
 #### GET `/api/providers/{id}/balance`
 
