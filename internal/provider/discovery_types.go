@@ -366,3 +366,41 @@ type AnthropicModelsResponse struct {
 	FirstID string               `json:"first_id"`
 	LastID  string               `json:"last_id"`
 }
+
+// MiniMaxModelRemain is one per-model-class quota block in the MiniMax
+// /token_plan/remains payload. All numbers are JSON numbers; times are epoch
+// milliseconds; remains_time fields are countdown milliseconds to window
+// reset. The percent fields are REMAINING quota, not consumed, despite the
+// *_usage_count names. current_interval_status/current_weekly_status 1 means
+// active in plan; 3 means the model class is not covered by the plan.
+type MiniMaxModelRemain struct {
+	ModelName                       string  `json:"model_name"`
+	StartTime                       int64   `json:"start_time"`
+	EndTime                         int64   `json:"end_time"`
+	RemainsTime                     int64   `json:"remains_time"`
+	CurrentIntervalTotalCount       int64   `json:"current_interval_total_count"`
+	CurrentIntervalUsageCount       int64   `json:"current_interval_usage_count"`
+	CurrentWeeklyTotalCount         int64   `json:"current_weekly_total_count"`
+	CurrentWeeklyUsageCount         int64   `json:"current_weekly_usage_count"`
+	WeeklyStartTime                 int64   `json:"weekly_start_time"`
+	WeeklyEndTime                   int64   `json:"weekly_end_time"`
+	WeeklyRemainsTime               int64   `json:"weekly_remains_time"`
+	CurrentIntervalStatus           int     `json:"current_interval_status"`
+	CurrentIntervalRemainingPercent float64 `json:"current_interval_remaining_percent"`
+	CurrentWeeklyStatus             int     `json:"current_weekly_status"`
+	CurrentWeeklyRemainingPercent   float64 `json:"current_weekly_remaining_percent"`
+}
+
+// MiniMaxBaseResp is MiniMax's business-status envelope; status_code 0 means
+// success even though the HTTP status is 200 either way.
+type MiniMaxBaseResp struct {
+	StatusCode int    `json:"status_code"`
+	StatusMsg  string `json:"status_msg"`
+}
+
+// MiniMaxQuotaResponse is the MiniMax /token_plan/remains payload, passed
+// through to the dashboard as-is.
+type MiniMaxQuotaResponse struct {
+	ModelRemains []MiniMaxModelRemain `json:"model_remains"`
+	BaseResp     MiniMaxBaseResp      `json:"base_resp"`
+}
