@@ -5,6 +5,8 @@ interface QuotaModalContextType {
 	setNanoOpen: (open: boolean) => void;
 	isZaiCodingOpen: boolean;
 	setZaiCodingOpen: (open: boolean) => void;
+	isKimiCodeOpen: boolean;
+	setKimiCodeOpen: (open: boolean) => void;
 	isOpenRouterOpen: boolean;
 	setOpenRouterOpen: (open: boolean) => void;
 	isNeuralwattOpen: boolean;
@@ -16,6 +18,7 @@ const QuotaModalContext = createContext<QuotaModalContextType | null>(null);
 export function QuotaModalProvider({ children }: { children: ReactNode }) {
 	const [isNanoOpen, setNanoOpen] = useState(false);
 	const [isZaiCodingOpen, setZaiCodingOpen] = useState(false);
+	const [isKimiCodeOpen, setKimiCodeOpen] = useState(false);
 	const [isOpenRouterOpen, setOpenRouterOpen] = useState(false);
 	const [isNeuralwattOpen, setNeuralwattOpen] = useState(false);
 	return (
@@ -25,6 +28,8 @@ export function QuotaModalProvider({ children }: { children: ReactNode }) {
 				setNanoOpen,
 				isZaiCodingOpen,
 				setZaiCodingOpen,
+				isKimiCodeOpen,
+				setKimiCodeOpen,
 				isOpenRouterOpen,
 				setOpenRouterOpen,
 				isNeuralwattOpen,

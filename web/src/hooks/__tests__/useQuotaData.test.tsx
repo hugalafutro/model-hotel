@@ -706,6 +706,12 @@ describe("useQuotaData", () => {
 			expect(detectQuotaProviderType("https://z.ai/api/v1")).toBe("zai-coding");
 		});
 
+		it("detects Kimi Code provider type", () => {
+			expect(detectQuotaProviderType("https://api.kimi.com/v1")).toBe(
+				"kimi-code",
+			);
+		});
+
 		it("detects DeepSeek provider type", () => {
 			expect(detectQuotaProviderType("https://api.deepseek.com/v1")).toBe(
 				"deepseek",

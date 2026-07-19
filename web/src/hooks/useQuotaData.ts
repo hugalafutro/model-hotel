@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type {
 	DeepSeekBalance,
+	KimiCodeQuotaResponse,
+	KimiCodeQuotaWindow,
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
@@ -43,6 +45,7 @@ export function setCachedData<T>(key: string, data: T) {
 export type QuotaProviderType =
 	| "nanogpt"
 	| "zai-coding"
+	| "kimi-code"
 	| "deepseek"
 	| "openrouter"
 	| "ollama-cloud"
@@ -63,6 +66,7 @@ export function detectQuotaProviderType(
 ): QuotaProviderType | null {
 	if (hostnameMatches(baseUrl, "nano-gpt.com")) return "nanogpt";
 	if (hostnameMatches(baseUrl, ".z.ai", "z.ai")) return "zai-coding";
+	if (hostnameMatches(baseUrl, ".kimi.com", "kimi.com")) return "kimi-code";
 	if (hostnameMatches(baseUrl, "deepseek.com")) return "deepseek";
 	if (hostnameMatches(baseUrl, "openrouter.ai")) return "openrouter";
 	if (hostnameMatches(baseUrl, "ollama.com")) return "ollama-cloud";
@@ -97,6 +101,48 @@ export function getZaiCodingWeeklyLimit(
 	);
 }
 
+// ── Kimi Code limit helpers ─────────────────────────────────────────────
+// Kimi encodes limit/remaining as JSON strings; parse with Number() before
+// computing percentage. Percentage used = (limit - remaining) / limit * 100.
+
+function toKimiCodeWindow(
+	limitStr: string | undefined,
+	remainingStr: string | undefined,
+	resetTime: string | undefined,
+): KimiCodeQuotaWindow | undefined {
+	if (limitStr == null || remainingStr == null) return undefined;
+	const limit = Number(limitStr);
+	const remaining = Number(remainingStr);
+	if (!Number.isFinite(limit) || !Number.isFinite(remaining)) return undefined;
+	const percentage = limit > 0 ? ((limit - remaining) / limit) * 100 : 0;
+	return { limit, remaining, resetTime: resetTime ?? "", percentage };
+}
+
+/** The rolling 300-minute (5-hour) window. */
+export function getKimiCodeFiveHourLimit(
+	data: KimiCodeQuotaResponse | undefined | null,
+): KimiCodeQuotaWindow | undefined {
+	const entry = data?.limits?.find(
+		(l) =>
+			l.window?.timeUnit === "TIME_UNIT_MINUTE" && l.window?.duration === 300,
+	);
+	if (!entry) return undefined;
+	return toKimiCodeWindow(
+		entry.detail?.limit,
+		entry.detail?.remaining,
+		entry.detail?.resetTime,
+	);
+}
+
+/** The weekly window (top-level `usage`). */
+export function getKimiCodeWeeklyLimit(
+	data: KimiCodeQuotaResponse | undefined | null,
+): KimiCodeQuotaWindow | undefined {
+	const usage = data?.usage;
+	if (!usage) return undefined;
+	return toKimiCodeWindow(usage.limit, usage.remaining, usage.resetTime);
+}
+
 // ── Hook options ─────────────────────────────────────────────────────────
 
 export interface UseQuotaDataOptions {
@@ -114,6 +160,7 @@ export interface QuotaDataResult {
 	/** Per-provider IDs (undefined if no such provider exists). */
 	nanogptProviderId: string | undefined;
 	zaiCodingProviderId: string | undefined;
+	kimiCodeProviderId: string | undefined;
 	deepseekProviderId: string | undefined;
 	openrouterProviderId: string | undefined;
 	ollamaCloudProviderId: string | undefined;
@@ -122,6 +169,7 @@ export interface QuotaDataResult {
 	/** Raw query data. */
 	nanogptUsage: NanoGPTUsage | undefined;
 	zaiCodingUsage: ZAICodingQuotaResponse | undefined;
+	kimiCodeUsage: KimiCodeQuotaResponse | undefined;
 	deepseekBalance: DeepSeekBalance | undefined;
 	openrouterBalance: OpenRouterBalance | undefined;
 	ollamaCloudAccount: OllamaCloudAccount | undefined;
@@ -131,6 +179,10 @@ export interface QuotaDataResult {
 	zaiCodingFiveHour: ZAICodingQuotaLimit | undefined;
 	zaiCodingWeekly: ZAICodingQuotaLimit | undefined;
 
+	/** Derived Kimi Code limits. */
+	kimiCodeFiveHour: KimiCodeQuotaWindow | undefined;
+	kimiCodeWeekly: KimiCodeQuotaWindow | undefined;
+
 	/** NanoGPT weekly helpers. */
 	nanoWeeklyUsed: number | null | undefined;
 	nanoWeeklyLimit: number | null | undefined;
@@ -138,6 +190,7 @@ export interface QuotaDataResult {
 	/** Badge visibility booleans (already account for providerId + data). */
 	showNanoBadge: boolean;
 	showZaiCodingBadge: boolean;
+	showKimiCodeBadge: boolean;
 	showDsBadge: boolean;
 	showOrBadge: boolean;
 	showOllamaCloudBadge: boolean;
@@ -149,6 +202,7 @@ export interface QuotaDataResult {
 	/** Individual refetch fns. */
 	refetchNano: () => Promise<void>;
 	refetchZaiCoding: () => Promise<void>;
+	refetchKimiCode: () => Promise<void>;
 	refetchDeepseek: () => Promise<void>;
 	refetchOpenRouter: () => Promise<void>;
 	refetchOllamaCloud: () => Promise<void>;
@@ -157,6 +211,7 @@ export interface QuotaDataResult {
 	/** Individual isRefetching flags. */
 	isNanoRefetching: boolean;
 	isZaiCodingRefetching: boolean;
+	isKimiCodeRefetching: boolean;
 	isDsRefetching: boolean;
 	isOrRefetching: boolean;
 	isOllamaCloudRefetching: boolean;
@@ -166,6 +221,7 @@ export interface QuotaDataResult {
 	openrouterDataUpdatedAt: number;
 	nanogptDataUpdatedAt: number;
 	zaiCodingDataUpdatedAt: number;
+	kimiCodeDataUpdatedAt: number;
 	deepseekDataUpdatedAt: number;
 	ollamaCloudDataUpdatedAt: number;
 	neuralwattDataUpdatedAt: number;
@@ -191,6 +247,10 @@ export function useQuotaData(
 	);
 	const zaiCodingProviderId = useMemo(
 		() => findProviderId(providers, "zai-coding"),
+		[providers],
+	);
+	const kimiCodeProviderId = useMemo(
+		() => findProviderId(providers, "kimi-code"),
 		[providers],
 	);
 	const deepseekProviderId = useMemo(
@@ -263,6 +323,28 @@ export function useQuotaData(
 	useEffect(() => {
 		if (zaiCodingUsage) setCachedData("zai-coding-usage", zaiCodingUsage);
 	}, [zaiCodingUsage]);
+
+	// ── Kimi Code query ──
+	const {
+		data: kimiCodeUsage,
+		dataUpdatedAt: kimiCodeDataUpdatedAt,
+		isRefetching: isKimiCodeRefetching,
+		isError: isKimiCodeError,
+		refetch: refetchKimiRaw,
+	} = useQuery({
+		queryKey: ["kimi-code-usage", kimiCodeProviderId],
+		queryFn: () =>
+			api.providers.getUsage(
+				kimiCodeProviderId as string,
+			) as Promise<KimiCodeQuotaResponse>,
+		enabled: Boolean(kimiCodeProviderId),
+		refetchInterval: effectiveRefetchInterval,
+		initialData: () => getCachedData<KimiCodeQuotaResponse>("kimi-code-usage"),
+	});
+
+	useEffect(() => {
+		if (kimiCodeUsage) setCachedData("kimi-code-usage", kimiCodeUsage);
+	}, [kimiCodeUsage]);
 
 	// ── DeepSeek query ──
 	const {
@@ -368,6 +450,16 @@ export function useQuotaData(
 		if (!isZAICodingError) zaiErrorToasted.current = false;
 	}, [isZAICodingError, toastErrors, t]);
 
+	const kimiErrorToasted = useRef(false);
+	useEffect(() => {
+		if (!toastErrors) return;
+		if (isKimiCodeError && !kimiErrorToasted.current) {
+			toastErrors(t("hooks.useQuotaData.kimiError"), "warning");
+			kimiErrorToasted.current = true;
+		}
+		if (!isKimiCodeError) kimiErrorToasted.current = false;
+	}, [isKimiCodeError, toastErrors, t]);
+
 	const dsErrorToasted = useRef(false);
 	useEffect(() => {
 		if (!toastErrors) return;
@@ -412,6 +504,9 @@ export function useQuotaData(
 	const zaiCodingFiveHour = getZaiCodingFiveHourLimit(zaiCodingUsage);
 	const zaiCodingWeekly = getZaiCodingWeeklyLimit(zaiCodingUsage);
 
+	const kimiCodeFiveHour = getKimiCodeFiveHourLimit(kimiCodeUsage);
+	const kimiCodeWeekly = getKimiCodeWeeklyLimit(kimiCodeUsage);
+
 	const nanoWeeklyUsed = nanogptUsage?.weeklyInputTokens?.used;
 	const nanoWeeklyLimit = nanogptUsage?.limits?.weeklyInputTokens;
 
@@ -430,6 +525,11 @@ export function useQuotaData(
 		Boolean(zaiCodingProviderId) &&
 		Boolean(zaiCodingUsage?.success) &&
 		Boolean(zaiCodingFiveHour || zaiCodingWeekly);
+
+	const showKimiCodeBadge =
+		Boolean(kimiCodeProviderId) &&
+		Boolean(kimiCodeUsage) &&
+		Boolean(kimiCodeFiveHour || kimiCodeWeekly);
 
 	const showDsBadge =
 		Boolean(deepseekProviderId) &&
@@ -460,6 +560,7 @@ export function useQuotaData(
 	const hasAnyProvider = Boolean(
 		nanogptProviderId ||
 			zaiCodingProviderId ||
+			kimiCodeProviderId ||
 			deepseekProviderId ||
 			openrouterProviderId ||
 			ollamaCloudProviderId ||
@@ -474,6 +575,10 @@ export function useQuotaData(
 	const refetchZaiCoding = useCallback(async () => {
 		await refetchZaiRaw();
 	}, [refetchZaiRaw]);
+
+	const refetchKimiCode = useCallback(async () => {
+		await refetchKimiRaw();
+	}, [refetchKimiRaw]);
 
 	const refetchDeepseek = useCallback(async () => {
 		await refetchDsRaw();
@@ -494,6 +599,7 @@ export function useQuotaData(
 	const invalidateAll = useCallback(() => {
 		queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
+		queryClient.invalidateQueries({ queryKey: ["kimi-code-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
 		queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
 		queryClient.invalidateQueries({ queryKey: ["ollama-cloud-account"] });
@@ -503,22 +609,27 @@ export function useQuotaData(
 	return {
 		nanogptProviderId,
 		zaiCodingProviderId,
+		kimiCodeProviderId,
 		deepseekProviderId,
 		openrouterProviderId,
 		ollamaCloudProviderId,
 		neuralwattProviderId,
 		nanogptUsage,
 		zaiCodingUsage,
+		kimiCodeUsage,
 		deepseekBalance,
 		openrouterBalance,
 		ollamaCloudAccount,
 		neuralwattQuota,
 		zaiCodingFiveHour,
 		zaiCodingWeekly,
+		kimiCodeFiveHour,
+		kimiCodeWeekly,
 		nanoWeeklyUsed,
 		nanoWeeklyLimit,
 		showNanoBadge,
 		showZaiCodingBadge,
+		showKimiCodeBadge,
 		showDsBadge,
 		showOrBadge,
 		showOllamaCloudBadge,
@@ -526,18 +637,21 @@ export function useQuotaData(
 		hasAnyProvider,
 		refetchNano,
 		refetchZaiCoding,
+		refetchKimiCode,
 		refetchDeepseek,
 		refetchOpenRouter,
 		refetchOllamaCloud,
 		refetchNeuralwatt,
 		isNanoRefetching,
 		isZaiCodingRefetching,
+		isKimiCodeRefetching,
 		isDsRefetching,
 		isOrRefetching,
 		isOllamaCloudRefetching,
 		isNeuralwattRefetching,
 		nanogptDataUpdatedAt,
 		zaiCodingDataUpdatedAt,
+		kimiCodeDataUpdatedAt,
 		deepseekDataUpdatedAt,
 		openrouterDataUpdatedAt,
 		ollamaCloudDataUpdatedAt,

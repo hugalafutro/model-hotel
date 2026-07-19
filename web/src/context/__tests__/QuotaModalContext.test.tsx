@@ -55,6 +55,18 @@ describe("QuotaModalContext", () => {
 		expect(result.current.isZaiCodingOpen).toBe(true);
 	});
 
+	it("setKimiCodeOpen sets true", () => {
+		const { result } = renderHook(() => useQuotaModal(), {
+			wrapper: QuotaModalProvider,
+		});
+
+		act(() => {
+			result.current.setKimiCodeOpen(true);
+		});
+
+		expect(result.current.isKimiCodeOpen).toBe(true);
+	});
+
 	it("setOpenRouterOpen sets true", () => {
 		const { result } = renderHook(() => useQuotaModal(), {
 			wrapper: QuotaModalProvider,

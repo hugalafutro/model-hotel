@@ -8,6 +8,7 @@ import { useToast } from "../context/ToastContext";
 import { useQuotaData } from "../hooks/useQuotaData";
 import { CollapsibleToggle } from "./CollapsibleToggle";
 import {
+	KimiCodeQuotaModal,
 	NanoGPTQuotaModal,
 	NeuralWattQuotaModal,
 	OpenRouterQuotaModal,
@@ -110,6 +111,7 @@ export function ProviderQuotaPanel() {
 		invalidateAll,
 		isNanoRefetching,
 		isZaiCodingRefetching,
+		isKimiCodeRefetching,
 		isDsRefetching,
 		isOrRefetching,
 	} = quotaData;
@@ -117,6 +119,7 @@ export function ProviderQuotaPanel() {
 	const anyRefreshing =
 		isNanoRefetching ||
 		isZaiCodingRefetching ||
+		isKimiCodeRefetching ||
 		isDsRefetching ||
 		isOrRefetching ||
 		quotaData.isNeuralwattRefetching;
@@ -142,6 +145,8 @@ export function ProviderQuotaPanel() {
 		setNanoOpen,
 		isZaiCodingOpen,
 		setZaiCodingOpen,
+		isKimiCodeOpen,
+		setKimiCodeOpen,
 		isOpenRouterOpen,
 		setOpenRouterOpen,
 		isNeuralwattOpen,
@@ -192,6 +197,7 @@ export function ProviderQuotaPanel() {
 							variant="sidebar"
 							onNanoClick={() => setNanoOpen(true)}
 							onZaiCodingClick={() => setZaiCodingOpen(true)}
+							onKimiCodeClick={() => setKimiCodeOpen(true)}
 							onDeepseekClick={handleRefresh}
 							onOpenRouterClick={() => setOpenRouterOpen(true)}
 							onOllamaCloudClick={handleRefresh}
@@ -219,6 +225,16 @@ export function ProviderQuotaPanel() {
 					isRefreshing={quotaData.isZaiCodingRefetching}
 					onToast={toast}
 					lastRefreshed={quotaData.zaiCodingDataUpdatedAt}
+				/>
+			)}
+			{isKimiCodeOpen && quotaData.kimiCodeUsage && (
+				<KimiCodeQuotaModal
+					usage={quotaData.kimiCodeUsage}
+					onClose={() => setKimiCodeOpen(false)}
+					onRefresh={quotaData.refetchKimiCode}
+					isRefreshing={quotaData.isKimiCodeRefetching}
+					onToast={toast}
+					lastRefreshed={quotaData.kimiCodeDataUpdatedAt}
 				/>
 			)}
 			{isOpenRouterOpen && quotaData.openrouterBalance && (

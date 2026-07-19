@@ -26,10 +26,12 @@ function createMockQuotaData(
 		hasAnyProvider: true,
 		nanogptUsage: undefined,
 		zaiCodingUsage: undefined,
+		kimiCodeUsage: undefined,
 		openrouterBalance: undefined,
 		neuralwattQuota: undefined,
 		isNanoRefetching: false,
 		isZaiCodingRefetching: false,
+		isKimiCodeRefetching: false,
 		isDsRefetching: false,
 		isOrRefetching: false,
 		isOllamaCloudRefetching: false,
@@ -37,24 +39,28 @@ function createMockQuotaData(
 		invalidateAll: vi.fn(),
 		refetchNano: vi.fn(),
 		refetchZaiCoding: vi.fn(),
+		refetchKimiCode: vi.fn(),
 		refetchDeepseek: vi.fn(),
 		refetchOpenRouter: vi.fn(),
 		refetchOllamaCloud: vi.fn(),
 		refetchNeuralwatt: vi.fn(),
 		nanogptDataUpdatedAt: 0,
 		zaiCodingDataUpdatedAt: 0,
+		kimiCodeDataUpdatedAt: 0,
 		openrouterDataUpdatedAt: 0,
 		deepseekDataUpdatedAt: 0,
 		ollamaCloudDataUpdatedAt: 0,
 		neuralwattDataUpdatedAt: 0,
 		showNanoBadge: false,
 		showZaiCodingBadge: false,
+		showKimiCodeBadge: false,
 		showDsBadge: false,
 		showOrBadge: false,
 		showOllamaCloudBadge: false,
 		showNeuralwattBadge: false,
 		nanogptProviderId: undefined,
 		zaiCodingProviderId: undefined,
+		kimiCodeProviderId: undefined,
 		deepseekProviderId: undefined,
 		openrouterProviderId: undefined,
 		ollamaCloudProviderId: undefined,
@@ -63,6 +69,8 @@ function createMockQuotaData(
 		ollamaCloudAccount: undefined,
 		zaiCodingFiveHour: undefined,
 		zaiCodingWeekly: undefined,
+		kimiCodeFiveHour: undefined,
+		kimiCodeWeekly: undefined,
 		nanoWeeklyUsed: undefined,
 		nanoWeeklyLimit: undefined,
 		...overrides,
@@ -174,6 +182,27 @@ describe("ProviderQuotaPanel", () => {
 				},
 			],
 		},
+	};
+
+	const mockKimiCodeUsage: import("../../api/types").KimiCodeQuotaResponse = {
+		user: { membership: { level: "basic" } },
+		usage: {
+			limit: "100",
+			remaining: "50",
+			resetTime: "2026-07-26T12:10:02Z",
+		},
+		limits: [
+			{
+				window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+				detail: {
+					limit: "100",
+					remaining: "80",
+					resetTime: "2026-07-19T17:10:02Z",
+				},
+			},
+		],
+		parallel: { limit: "10" },
+		totalQuota: { limit: "100", remaining: "99" },
 	};
 
 	beforeEach(() => {
@@ -465,6 +494,35 @@ describe("ProviderQuotaPanel", () => {
 
 			expect(
 				screen.getByRole("heading", { name: "Z.ai Coding Plan Quota" }),
+			).toBeInTheDocument();
+		});
+
+		it("opens KimiCodeQuotaModal when clicking Kimi Code badge", async () => {
+			const user = userEvent.setup();
+			setupPanel({
+				showKimiCodeBadge: true,
+				kimiCodeUsage: mockKimiCodeUsage,
+				kimiCodeFiveHour: {
+					limit: 100,
+					remaining: 80,
+					resetTime: "2026-07-19T17:10:02Z",
+					percentage: 20,
+				},
+				kimiCodeWeekly: {
+					limit: 100,
+					remaining: 50,
+					resetTime: "2026-07-26T12:10:02Z",
+					percentage: 50,
+				},
+			});
+
+			const badge = screen.getByTitle(
+				"Kimi Code remaining quota - click for details",
+			);
+			await user.click(badge);
+
+			expect(
+				screen.getByRole("heading", { name: "Kimi Code Plan Quota" }),
 			).toBeInTheDocument();
 		});
 

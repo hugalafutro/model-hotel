@@ -586,6 +586,60 @@ export interface ZAICodingQuotaResponse {
 	success: boolean;
 }
 
+// ── Kimi Code quota ────────────────────────────────────────────────────
+// Numeric fields arrive as JSON strings; parse with Number() before math.
+
+export interface KimiCodeQuotaMembership {
+	level?: string;
+}
+
+export interface KimiCodeQuotaUser {
+	userId?: string;
+	region?: string;
+	membership?: KimiCodeQuotaMembership;
+}
+
+/** A quota window: limit/remaining are string-encoded numbers, resetTime an ISO timestamp. */
+export interface KimiCodeQuotaUsageWindow {
+	limit: string;
+	remaining: string;
+	resetTime: string;
+}
+
+export interface KimiCodeQuotaWindowSpec {
+	duration: number;
+	timeUnit: string;
+}
+
+export interface KimiCodeQuotaLimitEntry {
+	window: KimiCodeQuotaWindowSpec;
+	detail: KimiCodeQuotaUsageWindow;
+}
+
+export interface KimiCodeQuotaResponse {
+	user?: KimiCodeQuotaUser;
+	/** Weekly window. */
+	usage?: KimiCodeQuotaUsageWindow;
+	/** Rolling windows; the 300-minute entry is the 5-hour window. */
+	limits?: KimiCodeQuotaLimitEntry[];
+	parallel?: { limit?: string };
+	totalQuota?: { limit?: string; remaining?: string };
+	authentication?: { method?: string; scope?: string };
+	subType?: string;
+}
+
+/**
+ * Normalized quota window returned by the Kimi limit helpers. Mirrors the shape
+ * the Z.ai helpers return (an object exposing `percentage`) so badge code stays
+ * uniform across providers.
+ */
+export interface KimiCodeQuotaWindow {
+	limit: number;
+	remaining: number;
+	resetTime: string;
+	percentage: number;
+}
+
 export interface NeuralWattQuotaBalance {
 	credits_remaining_usd: number;
 	total_credits_usd: number;

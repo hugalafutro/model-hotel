@@ -252,6 +252,93 @@ describe("QuotaBadge", () => {
 		});
 	});
 
+	describe("kimi-code type", () => {
+		it("renders with kimi-code type shows -/- without usage", () => {
+			render(<QuotaBadge type="kimi-code" variant="card" />);
+			expect(screen.getByText("-/-")).toBeInTheDocument();
+		});
+
+		it("renders with kimi-code sidebar variant", () => {
+			render(<QuotaBadge type="kimi-code" variant="sidebar" />);
+			const button = screen.getByRole("button");
+			expect(button).toHaveClass("sidebar-quota-pill");
+			expect(button).toHaveClass("sidebar-quota-pill-kimi-code");
+		});
+
+		it("handles null kimiCodeUsage", () => {
+			render(
+				<QuotaBadge type="kimi-code" variant="card" kimiCodeUsage={null} />,
+			);
+			expect(screen.getByText("-/-")).toBeInTheDocument();
+		});
+
+		it("handles undefined kimiCodeUsage", () => {
+			render(
+				<QuotaBadge
+					type="kimi-code"
+					variant="card"
+					kimiCodeUsage={undefined}
+				/>,
+			);
+			expect(screen.getByText("-/-")).toBeInTheDocument();
+		});
+
+		it("shows remaining percentages by default (barMode=remaining)", () => {
+			const usage: import("../../api/types").KimiCodeQuotaResponse = {
+				usage: {
+					limit: "100",
+					remaining: "20",
+					resetTime: "2026-07-26T12:10:02Z",
+				},
+				limits: [
+					{
+						window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+						detail: {
+							limit: "100",
+							remaining: "90",
+							resetTime: "2026-07-19T17:10:02Z",
+						},
+					},
+				],
+			};
+			render(
+				<QuotaBadge type="kimi-code" variant="card" kimiCodeUsage={usage} />,
+			);
+			// remaining: 5h = 90%, weekly = 20%
+			expect(screen.getByText("90%/20%")).toBeInTheDocument();
+		});
+
+		it("shows used percentages when barMode is used", () => {
+			const usage: import("../../api/types").KimiCodeQuotaResponse = {
+				usage: {
+					limit: "100",
+					remaining: "20",
+					resetTime: "2026-07-26T12:10:02Z",
+				},
+				limits: [
+					{
+						window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+						detail: {
+							limit: "100",
+							remaining: "90",
+							resetTime: "2026-07-19T17:10:02Z",
+						},
+					},
+				],
+			};
+			render(
+				<QuotaBadge
+					type="kimi-code"
+					variant="card"
+					barMode="used"
+					kimiCodeUsage={usage}
+				/>,
+			);
+			// used: 5h = 10%, weekly = 80%
+			expect(screen.getByText("10%/80%")).toBeInTheDocument();
+		});
+	});
+
 	describe("deepseek type", () => {
 		const mockDeepSeekBalance: DeepSeekBalance = {
 			is_available: true,
@@ -623,6 +710,8 @@ describe("QuotaBadges", () => {
 		nanoWeeklyLimit: 1000000,
 		showZaiCodingBadge: false,
 		zaiCodingUsage: undefined,
+		showKimiCodeBadge: false,
+		kimiCodeUsage: undefined,
 		showDsBadge: false,
 		deepseekBalance: undefined,
 		showOrBadge: false,
@@ -633,27 +722,33 @@ describe("QuotaBadges", () => {
 		neuralwattQuota: undefined,
 		nanogptProviderId: "nanogpt-1",
 		zaiCodingProviderId: undefined,
+		kimiCodeProviderId: undefined,
 		deepseekProviderId: undefined,
 		openrouterProviderId: undefined,
 		ollamaCloudProviderId: undefined,
 		neuralwattProviderId: undefined,
 		zaiCodingFiveHour: undefined,
 		zaiCodingWeekly: undefined,
+		kimiCodeFiveHour: undefined,
+		kimiCodeWeekly: undefined,
 		hasAnyProvider: true,
 		refetchNano: vi.fn(),
 		refetchZaiCoding: vi.fn(),
+		refetchKimiCode: vi.fn(),
 		refetchDeepseek: vi.fn(),
 		refetchOpenRouter: vi.fn(),
 		refetchOllamaCloud: vi.fn(),
 		refetchNeuralwatt: vi.fn(),
 		isNanoRefetching: false,
 		isZaiCodingRefetching: false,
+		isKimiCodeRefetching: false,
 		isDsRefetching: false,
 		isOrRefetching: false,
 		isOllamaCloudRefetching: false,
 		isNeuralwattRefetching: false,
 		nanogptDataUpdatedAt: 0,
 		zaiCodingDataUpdatedAt: 0,
+		kimiCodeDataUpdatedAt: 0,
 		deepseekDataUpdatedAt: 0,
 		openrouterDataUpdatedAt: 0,
 		ollamaCloudDataUpdatedAt: 0,
@@ -668,6 +763,8 @@ describe("QuotaBadges", () => {
 		nanoWeeklyLimit: undefined,
 		showZaiCodingBadge: false,
 		zaiCodingUsage: undefined,
+		showKimiCodeBadge: false,
+		kimiCodeUsage: undefined,
 		showDsBadge: false,
 		deepseekBalance: undefined,
 		showOrBadge: false,
@@ -720,27 +817,33 @@ describe("QuotaBadges", () => {
 		},
 		nanogptProviderId: undefined,
 		zaiCodingProviderId: undefined,
+		kimiCodeProviderId: undefined,
 		deepseekProviderId: undefined,
 		openrouterProviderId: undefined,
 		ollamaCloudProviderId: undefined,
 		neuralwattProviderId: "neuralwatt-1",
 		zaiCodingFiveHour: undefined,
 		zaiCodingWeekly: undefined,
+		kimiCodeFiveHour: undefined,
+		kimiCodeWeekly: undefined,
 		hasAnyProvider: true,
 		refetchNano: vi.fn(),
 		refetchZaiCoding: vi.fn(),
+		refetchKimiCode: vi.fn(),
 		refetchDeepseek: vi.fn(),
 		refetchOpenRouter: vi.fn(),
 		refetchOllamaCloud: vi.fn(),
 		refetchNeuralwatt: vi.fn(),
 		isNanoRefetching: false,
 		isZaiCodingRefetching: false,
+		isKimiCodeRefetching: false,
 		isDsRefetching: false,
 		isOrRefetching: false,
 		isOllamaCloudRefetching: false,
 		isNeuralwattRefetching: false,
 		nanogptDataUpdatedAt: 0,
 		zaiCodingDataUpdatedAt: 0,
+		kimiCodeDataUpdatedAt: 0,
 		deepseekDataUpdatedAt: 0,
 		openrouterDataUpdatedAt: 0,
 		ollamaCloudDataUpdatedAt: 0,
