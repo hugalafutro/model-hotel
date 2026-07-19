@@ -63,6 +63,7 @@ import com.hugalafutro.bellhop.ui.pairing.PairingScreen
 import com.hugalafutro.bellhop.ui.pairing.PairingViewModel
 import com.hugalafutro.bellhop.ui.settings.SettingsScreen
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import com.hugalafutro.bellhop.widget.BellhopWidget
 import com.hugalafutro.bellhop.work.FleetPollWorker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -249,7 +250,10 @@ fun BellhopApp() {
     // permission. Scheduling the actual poll is left to LinkedContent's effect so
     // the DataStore flag stays the single source of truth for whether it runs.
     fun toggleMonitor(enabled: Boolean) {
-        scope.launch { monitorStore.setEnabled(enabled) }
+        scope.launch {
+            monitorStore.setEnabled(enabled)
+            BellhopWidget.update(context)
+        }
         if (enabled && !hasPostNotificationPermission(context)) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -260,7 +264,10 @@ fun BellhopApp() {
     // UnifiedPush register/unregister is left to LinkedContent's effect so the
     // DataStore flag stays the single source of truth, mirroring toggleMonitor.
     fun togglePush(enabled: Boolean) {
-        scope.launch { monitorStore.setPushEnabled(enabled) }
+        scope.launch {
+            monitorStore.setPushEnabled(enabled)
+            BellhopWidget.update(context)
+        }
         if (enabled && !hasPostNotificationPermission(context)) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -425,6 +432,8 @@ fun BellhopApp() {
                     monitorStore.clear()
                     // Widget display state is per-link too: a re-pair must not show the old fleet.
                     widgetStore.clear()
+                    // Cleared store must render the unpaired face immediately, not the old fleet.
+                    BellhopWidget.update(context)
                     FleetPollWorker.cancelAll(context)
                     BellhopPush.unregister(context, pushInstance)
                 } else {
@@ -462,6 +471,8 @@ fun BellhopApp() {
                 monitorStore.clear()
                 // Widget display state is per-link too: a re-pair must not show the old fleet.
                 widgetStore.clear()
+                // Cleared store must render the unpaired face immediately, not the old fleet.
+                BellhopWidget.update(context)
                 FleetPollWorker.cancelAll(context)
                 BellhopPush.unregister(context, pushInstance)
             } catch (e: CancellationException) {
