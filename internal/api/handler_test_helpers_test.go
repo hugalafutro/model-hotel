@@ -58,7 +58,7 @@ func newTestHandler(t *testing.T) *Handler {
 		AllowHTTPProviders:   true,
 		RateLimitEnabled:     false,
 		DataDir:              t.TempDir(),
-		AllowedProviderHosts: []string{"localhost", "127.0.0.1", "api.nano-gpt.com", "nano-gpt.com", "api.nanogpt.com", "nanogpt.com", "ngc.nanogpt.com", "openrouter.ai", "api.z.ai", "z.ai", "api.zai.chat", "zai.api.example.com", "api.deepseek.com", "deepseek.com", "api.anthropic.com", "anthropic.com", "api.openai.com", "opencode.ai", "api.example.com", "custom.example.com", "api.alpha.com", "api.beta.com", "api.first.com", "api.second.com", "api.generic.com", "example.com", "api.mistral.ai", "api.cohere.ai", "api.x.ai", "generativelanguage.googleapis.com", "192.168.1.1", "192.0.2.1", "httpbin.org"},
+		AllowedProviderHosts: []string{"localhost", "127.0.0.1", "api.nano-gpt.com", "nano-gpt.com", "api.nanogpt.com", "nanogpt.com", "ngc.nanogpt.com", "openrouter.ai", "api.z.ai", "z.ai", "api.zai.chat", "zai.api.example.com", "api.kimi.com", "kimi.com", "api.deepseek.com", "deepseek.com", "api.anthropic.com", "anthropic.com", "api.openai.com", "opencode.ai", "api.example.com", "custom.example.com", "api.alpha.com", "api.beta.com", "api.first.com", "api.second.com", "api.generic.com", "example.com", "api.mistral.ai", "api.cohere.ai", "api.x.ai", "generativelanguage.googleapis.com", "192.168.1.1", "192.0.2.1", "httpbin.org"},
 	}
 
 	providerRepo := provider.NewRepository(pool)

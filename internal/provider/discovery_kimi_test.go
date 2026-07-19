@@ -135,6 +135,42 @@ func TestDiscoverKimiCode_EmptyListing(t *testing.T) {
 	assert.Empty(t, models)
 }
 
+// TestKimiCodeLiveModel_ImageOnlyModality verifies the image-in-without-video
+// branch of the input-modality switch in kimiCodeLiveModel, which the shared
+// kimiListing fixture (image+video, or neither) doesn't exercise.
+func TestKimiCodeLiveModel_ImageOnlyModality(t *testing.T) {
+	t.Parallel()
+
+	m := kimiCodeModel{
+		ID:              "image-only-model",
+		SupportsImageIn: true,
+	}
+
+	mm := kimiCodeLiveModel(m, uuid.New())
+	assert.Equal(t, `["text","image"]`, mm.InputModalities)
+}
+
+// TestDiscoverKimiCode_DecodeError verifies that a 200 response with a body
+// that isn't valid JSON surfaces a decode error instead of panicking or
+// silently returning an empty model list.
+func TestDiscoverKimiCode_DecodeError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{not valid json`))
+	}))
+	defer server.Close()
+
+	provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
+	svc := &DiscoveryService{httpClient: server.Client()}
+
+	models, err := svc.discoverKimiCode(context.Background(), provider, "k")
+	assert.Error(t, err)
+	assert.Nil(t, models)
+	assert.Contains(t, err.Error(), "failed to decode models")
+}
+
 // ---------------------------------------------------------------------------
 // GetKimiCodeQuota
 // ---------------------------------------------------------------------------
@@ -208,4 +244,119 @@ func TestGetKimiCodeQuota_KeyInvalid(t *testing.T) {
 	assert.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "auth") || errors.Is(err, ErrProviderKeyInvalid),
 		"expected an auth-related error, got: %v", err)
+}
+
+// TestGetKimiCodeQuota_DecryptFailure verifies that a provider row with a
+// key that doesn't decrypt (e.g. corrupted ciphertext/nonce/salt) fails
+// fast with a decrypt error and never issues an HTTP request.
+func TestGetKimiCodeQuota_DecryptFailure(t *testing.T) {
+	t.Parallel()
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "test-kimi-code",
+		BaseURL:      "https://api.kimi.com/coding/v1",
+		EncryptedKey: []byte("not-real-ciphertext"),
+		KeyNonce:     []byte("bad-nonce"),
+		KeySalt:      []byte("bad-salt"),
+	}
+	svc := &DiscoveryService{httpClient: http.DefaultClient}
+
+	_, err := svc.GetKimiCodeQuota(context.Background(), provider, "test-master-key-1234567890123456")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decrypt API key")
+}
+
+// TestGetKimiCodeQuota_UnexpectedStatus verifies that a non-200, non-auth,
+// non-retryable status code (e.g. 400) surfaces a generic "unexpected
+// status code" error rather than ErrProviderKeyInvalid.
+func TestGetKimiCodeQuota_UnexpectedStatus(t *testing.T) {
+	t.Parallel()
+
+	masterKey := "test-master-key-1234567890123456"
+	kp, err := auth.Encrypt("test-api-key", masterKey)
+	assert.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error": "bad request"}`))
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "test-kimi-code",
+		BaseURL:      server.URL,
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+	svc := &DiscoveryService{httpClient: server.Client(), retryBaseDelay: 0}
+
+	_, err = svc.GetKimiCodeQuota(context.Background(), provider, masterKey)
+	assert.Error(t, err)
+	assert.False(t, errors.Is(err, ErrProviderKeyInvalid))
+	assert.Contains(t, err.Error(), "unexpected status code 400")
+}
+
+// TestGetKimiCodeQuota_RetryExhausted verifies that a persistently
+// retryable status (5xx) exhausts the quota-fetch retry budget and returns
+// an error from the retry loop rather than hanging or succeeding.
+func TestGetKimiCodeQuota_RetryExhausted(t *testing.T) {
+	t.Parallel()
+
+	masterKey := "test-master-key-1234567890123456"
+	kp, err := auth.Encrypt("test-api-key", masterKey)
+	assert.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error": "internal server error"}`))
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "test-kimi-code",
+		BaseURL:      server.URL,
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+	svc := &DiscoveryService{httpClient: server.Client(), retryBaseDelay: 0}
+
+	_, err = svc.GetKimiCodeQuota(context.Background(), provider, masterKey)
+	assert.Error(t, err)
+	assert.False(t, errors.Is(err, ErrProviderKeyInvalid))
+}
+
+// TestGetKimiCodeQuota_DecodeError verifies that a 200 response with a body
+// that isn't valid JSON surfaces a decode error.
+func TestGetKimiCodeQuota_DecodeError(t *testing.T) {
+	t.Parallel()
+
+	masterKey := "test-master-key-1234567890123456"
+	kp, err := auth.Encrypt("test-api-key", masterKey)
+	assert.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{not valid json`))
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "test-kimi-code",
+		BaseURL:      server.URL,
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+	svc := &DiscoveryService{httpClient: server.Client()}
+
+	_, err = svc.GetKimiCodeQuota(context.Background(), provider, masterKey)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode response")
 }

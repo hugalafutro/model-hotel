@@ -390,6 +390,73 @@ func TestGetProviderUsage_ZAICodingError(t *testing.T) {
 	}
 }
 
+// TestGetProviderUsage_KimiCodeError tests that GetProviderUsage handles
+// Kimi Code API errors. Unlike z.ai (hardcoded quota URL), Kimi Code builds
+// its quota URL from the provider's own base_url + "/usages", but
+// DetectProviderType still routes purely by hostname, so the provider row's
+// base_url must be an api.kimi.com URL to select the kimi-code arm.
+func TestGetProviderUsage_KimiCodeError(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
+	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.kimi.com") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"internal server error"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	// Create a provider with a Kimi Code URL and fake key
+	providerName := fmt.Sprintf("test-kimi-code-error-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.kimi.com/coding/v1", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Try to get usage - the fake key causes a 500 from the mock transport,
+	// which exercises the kimi-code case in GetProviderUsage.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("Expected 500 for Kimi Code API error, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "failed to fetch usage") {
+		t.Errorf("Expected error about failed to fetch usage, got: %s", rec.Body.String())
+	}
+}
+
 // TestGetProviderUsage_NanoGPTError tests that GetProviderUsage returns 500
 // when the NanoGPT API call fails with an invalid key.
 func TestGetProviderUsage_NanoGPTError(t *testing.T) {
@@ -998,6 +1065,86 @@ func TestRefreshAllQuotas_OpenRouterError(t *testing.T) {
 	}
 	if !openrouterFound {
 		t.Error("Expected openrouter result with error in results")
+	}
+}
+
+// TestRefreshAllQuotas_KimiCodeError tests that RefreshAllQuotas handles
+// Kimi Code API errors correctly, exercising the kimi-code arm of the
+// provider-type switch in RefreshAllQuotas.
+func TestRefreshAllQuotas_KimiCodeError(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
+	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.kimi.com") {
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"error":"invalid key"}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	// Create a provider with a Kimi Code URL and fake key
+	providerName := fmt.Sprintf("test-quota-kimi-code-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.kimi.com/coding/v1", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Run refresh-quotas
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Results   []QuotaRefreshResult `json:"results"`
+		Refreshed int                  `json:"refreshed"`
+		Failed    int                  `json:"failed"`
+		Skipped   int                  `json:"skipped"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.Failed < 1 {
+		t.Errorf("Expected failed >= 1, got %d", response.Failed)
+	}
+
+	// Verify the result has provider_type: "kimi-code" and non-empty error
+	var kimiCodeFound bool
+	for _, result := range response.Results {
+		if result.ProviderType == "kimi-code" && result.Error != "" {
+			kimiCodeFound = true
+			break
+		}
+	}
+	if !kimiCodeFound {
+		t.Error("Expected kimi-code result with error in results")
 	}
 }
 
