@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type {
 	DeepSeekBalance,
 	DeepSeekBalanceInfo,
+	KimiCodeQuotaResponse,
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
@@ -12,6 +13,8 @@ import type {
 import type { QuotaDataResult, QuotaProviderType } from "../hooks/useQuotaData";
 import {
 	detectQuotaProviderType,
+	getKimiCodeFiveHourLimit,
+	getKimiCodeWeeklyLimit,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 } from "../hooks/useQuotaData";
@@ -35,6 +38,7 @@ const VARIANT_CLASSES: Record<QuotaBadgeVariant, string> = {
 const TYPE_PREFIX: Record<QuotaProviderType, string> = {
 	nanogpt: PROVIDER_PREFIXES.nanogpt,
 	"zai-coding": PROVIDER_PREFIXES["zai-coding"],
+	"kimi-code": PROVIDER_PREFIXES["kimi-code"],
 	deepseek: PROVIDER_PREFIXES.deepseek,
 	openrouter: PROVIDER_PREFIXES.openrouter,
 	"ollama-cloud": PROVIDER_PREFIXES["ollama-cloud"],
@@ -56,6 +60,10 @@ const TYPE_STYLES: Record<
 	"zai-coding": {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-zai-coding",
 		card: "quota-card-zai-coding bg-white/10 text-gray-300 border border-gray-400/50 hover:bg-white/15",
+	},
+	"kimi-code": {
+		sidebar: "sidebar-quota-pill sidebar-quota-pill-kimi-code",
+		card: "quota-card-kimi-code bg-white/10 text-gray-300 border border-gray-400/50 hover:bg-white/15",
 	},
 	deepseek: {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-deepseek",
@@ -114,6 +122,23 @@ function zaiCodingBadgeContent(
 	}
 	const label = `${fiveHour ? `${fiveHour.percentage.toFixed(0)}%` : "-"}/${weekly ? `${weekly.percentage.toFixed(0)}%` : "-"}`;
 	return { label, title: i18next.t("components.quotaBadge.zaiCodingUsed") };
+}
+
+function kimiCodeBadgeContent(
+	usage: KimiCodeQuotaResponse | null | undefined,
+	barMode: QuotaBarMode,
+): BadgeContent {
+	const fiveHour = getKimiCodeFiveHourLimit(usage);
+	const weekly = getKimiCodeWeeklyLimit(usage);
+	if (barMode === "remaining") {
+		const label = `${fiveHour ? `${(100 - fiveHour.percentage).toFixed(0)}%` : "-"}/${weekly ? `${(100 - weekly.percentage).toFixed(0)}%` : "-"}`;
+		return {
+			label,
+			title: i18next.t("components.quotaBadge.kimiCodeRemaining"),
+		};
+	}
+	const label = `${fiveHour ? `${fiveHour.percentage.toFixed(0)}%` : "-"}/${weekly ? `${weekly.percentage.toFixed(0)}%` : "-"}`;
+	return { label, title: i18next.t("components.quotaBadge.kimiCodeUsed") };
 }
 
 function deepseekBadgeContent(
@@ -210,6 +235,8 @@ export interface QuotaBadgeProps {
 	nanogptUsage?: NanoGPTUsage;
 	/** Z.ai Coding props */
 	zaiCodingUsage?: ZAICodingQuotaResponse | null;
+	/** Kimi Code props */
+	kimiCodeUsage?: KimiCodeQuotaResponse | null;
 	/** DeepSeek props */
 	deepseekBalance?: DeepSeekBalance;
 	/** OpenRouter props */
@@ -230,6 +257,7 @@ export function QuotaBadge({
 	weeklyUsed,
 	weeklyLimit,
 	zaiCodingUsage,
+	kimiCodeUsage,
 	deepseekBalance,
 	openrouterBalance,
 	ollamaCloudAccount,
@@ -242,6 +270,8 @@ export function QuotaBadge({
 				return nanoBadgeContent(weeklyUsed, weeklyLimit, barMode);
 			case "zai-coding":
 				return zaiCodingBadgeContent(zaiCodingUsage, barMode);
+			case "kimi-code":
+				return kimiCodeBadgeContent(kimiCodeUsage, barMode);
 			case "deepseek": {
 				if (!deepseekBalance)
 					return {
@@ -313,6 +343,7 @@ interface QuotaBadgesProps {
 	providerBaseUrl?: string;
 	onNanoClick?: () => void;
 	onZaiCodingClick?: () => void;
+	onKimiCodeClick?: () => void;
 	onDeepseekClick?: () => void;
 	onOpenRouterClick?: () => void;
 	onOllamaCloudClick?: () => void;
@@ -331,6 +362,7 @@ export function QuotaBadges({
 	providerBaseUrl,
 	onNanoClick,
 	onZaiCodingClick,
+	onKimiCodeClick,
 	onDeepseekClick,
 	onOpenRouterClick,
 	onOllamaCloudClick,
@@ -413,6 +445,17 @@ export function QuotaBadges({
 						barMode={barMode}
 						zaiCodingUsage={quotaData.zaiCodingUsage}
 						onClick={onZaiCodingClick}
+					/>
+				)}
+			{quotaData.showKimiCodeBadge &&
+				quotaData.kimiCodeUsage &&
+				showForType("kimi-code") && (
+					<QuotaBadge
+						type="kimi-code"
+						variant={variant}
+						barMode={barMode}
+						kimiCodeUsage={quotaData.kimiCodeUsage}
+						onClick={onKimiCodeClick}
 					/>
 				)}
 			{quotaData.showDsBadge &&

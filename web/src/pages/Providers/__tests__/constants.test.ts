@@ -82,6 +82,10 @@ describe("baseUrls", () => {
 		expect(baseUrls["zai-coding"]).toBe("https://api.z.ai/api/coding/paas/v4");
 	});
 
+	it("has entry for kimi-code", () => {
+		expect(baseUrls["kimi-code"]).toBe("https://api.kimi.com/coding/v1");
+	});
+
 	it("has entry for opencode-zen", () => {
 		expect(baseUrls["opencode-zen"]).toBe("https://opencode.ai/zen/v1");
 	});
@@ -362,6 +366,12 @@ describe("providerTypeTranslationKeys", () => {
 	it("has translation key for zai-coding", () => {
 		expect(providerTypeTranslationKeys["zai-coding"]).toBe(
 			"providers.type_zai_coding",
+		);
+	});
+
+	it("has translation key for kimi-code", () => {
+		expect(providerTypeTranslationKeys["kimi-code"]).toBe(
+			"providers.type_kimi_code",
 		);
 	});
 

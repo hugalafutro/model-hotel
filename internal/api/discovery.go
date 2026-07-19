@@ -277,6 +277,14 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, quota)
 		return
+	case "kimi-code":
+		quota, err := discovery.GetKimiCodeQuota(quotaCtx, prov, h.cfg.MasterKey)
+		if err != nil {
+			respondQuotaError(w, prov.Name, "usage", err)
+			return
+		}
+		writeJSON(w, quota)
+		return
 	case "nanogpt":
 		usage, err := discovery.GetNanoGPTUsage(quotaCtx, prov, h.cfg.MasterKey)
 		if err != nil {
@@ -622,6 +630,15 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 			}
 		case "zai-coding":
 			_, err := discovery.GetZAICodingQuota(provCtx, prov, h.cfg.MasterKey)
+			if err != nil {
+				result.Error = err.Error()
+				failed++
+			} else {
+				result.Refreshed = true
+				refreshed++
+			}
+		case "kimi-code":
+			_, err := discovery.GetKimiCodeQuota(provCtx, prov, h.cfg.MasterKey)
 			if err != nil {
 				result.Error = err.Error()
 				failed++

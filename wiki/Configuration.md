@@ -58,6 +58,8 @@ The following provider hosts are **always allowed** as provider `base_url` value
 - `api.openai.com`
 - `api.nano-gpt.com`
 - `api.z.ai`
+- `api.kimi.com`
+- `kimi.com`
 - `api.deepseek.com`
 - `api.anthropic.com`
 - `ollama.com`

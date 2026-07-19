@@ -291,6 +291,48 @@ type ZAICodingQuotaResponse struct {
 	Success bool               `json:"success"`
 }
 
+// KimiCodeQuotaDetail is one limit/remaining/reset block in the Kimi Code
+// /usages response. Numeric fields arrive as JSON strings.
+type KimiCodeQuotaDetail struct {
+	Limit     string `json:"limit"`
+	Remaining string `json:"remaining"`
+	ResetTime string `json:"resetTime"`
+}
+
+// KimiCodeQuotaWindow describes a rolling limit window (e.g. 300 minutes = 5h).
+type KimiCodeQuotaWindow struct {
+	Duration int    `json:"duration"`
+	TimeUnit string `json:"timeUnit"`
+}
+
+// KimiCodeQuotaLimit pairs a window with its usage detail.
+type KimiCodeQuotaLimit struct {
+	Window KimiCodeQuotaWindow `json:"window"`
+	Detail KimiCodeQuotaDetail `json:"detail"`
+}
+
+// KimiCodeQuotaUser identifies the subscription tier.
+type KimiCodeQuotaUser struct {
+	UserID     string `json:"userId"`
+	Region     string `json:"region"`
+	Membership struct {
+		Level string `json:"level"`
+	} `json:"membership"`
+}
+
+// KimiCodeQuotaResponse is the Kimi Code /usages payload, passed through to
+// the dashboard as-is.
+type KimiCodeQuotaResponse struct {
+	User     KimiCodeQuotaUser    `json:"user"`
+	Usage    KimiCodeQuotaDetail  `json:"usage"`
+	Limits   []KimiCodeQuotaLimit `json:"limits"`
+	Parallel struct {
+		Limit string `json:"limit"`
+	} `json:"parallel"`
+	TotalQuota KimiCodeQuotaDetail `json:"totalQuota"`
+	SubType    string              `json:"subType"`
+}
+
 // AnthropicCapSupport indicates whether an Anthropic capability is supported.
 type AnthropicCapSupport struct {
 	Supported bool `json:"supported"`

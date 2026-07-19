@@ -7,6 +7,8 @@ import { server } from "../../test/mocks/server";
 import {
 	detectQuotaProviderType,
 	getCachedData,
+	getKimiCodeFiveHourLimit,
+	getKimiCodeWeeklyLimit,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 	setCachedData,
@@ -706,6 +708,12 @@ describe("useQuotaData", () => {
 			expect(detectQuotaProviderType("https://z.ai/api/v1")).toBe("zai-coding");
 		});
 
+		it("detects Kimi Code provider type", () => {
+			expect(detectQuotaProviderType("https://api.kimi.com/v1")).toBe(
+				"kimi-code",
+			);
+		});
+
 		it("detects DeepSeek provider type", () => {
 			expect(detectQuotaProviderType("https://api.deepseek.com/v1")).toBe(
 				"deepseek",
@@ -857,6 +865,89 @@ describe("useQuotaData", () => {
 			expect(getZaiCodingFiveHourLimit(undefined)).toBeUndefined();
 			expect(getZaiCodingWeeklyLimit(null)).toBeUndefined();
 			expect(getZaiCodingWeeklyLimit(undefined)).toBeUndefined();
+		});
+	});
+
+	describe("getKimiCodeFiveHourLimit / getKimiCodeWeeklyLimit", () => {
+		const window300 = (
+			limit: string | undefined,
+			remaining: string | undefined,
+			resetTime = "2026-07-19T17:10:02Z",
+		) => ({
+			window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+			detail: { limit, remaining, resetTime },
+		});
+
+		it("returns the 300-minute window with computed percentage", () => {
+			const data = {
+				usage: { limit: "100", remaining: "40", resetTime: "" },
+				limits: [window300("100", "42")],
+			} as never;
+			const win = getKimiCodeFiveHourLimit(data);
+			expect(win).toBeDefined();
+			expect(win?.limit).toBe(100);
+			expect(win?.remaining).toBe(42);
+			expect(win?.percentage).toBeCloseTo(58);
+			expect(win?.resetTime).toBe("2026-07-19T17:10:02Z");
+		});
+
+		it("returns undefined when no 300-minute window exists", () => {
+			const data = {
+				limits: [
+					{
+						window: { duration: 60, timeUnit: "TIME_UNIT_MINUTE" },
+						detail: { limit: "100", remaining: "10", resetTime: "" },
+					},
+				],
+			} as never;
+			expect(getKimiCodeFiveHourLimit(data)).toBeUndefined();
+		});
+
+		it("returns undefined when the window detail is missing limit/remaining", () => {
+			const data = {
+				limits: [window300(undefined, undefined)],
+			} as never;
+			expect(getKimiCodeFiveHourLimit(data)).toBeUndefined();
+		});
+
+		it("returns undefined for non-finite numeric strings", () => {
+			const data = {
+				limits: [window300("abc", "def")],
+			} as never;
+			expect(getKimiCodeFiveHourLimit(data)).toBeUndefined();
+		});
+
+		it("yields percentage 0 when the limit is 0", () => {
+			const data = {
+				limits: [window300("0", "0")],
+			} as never;
+			const win = getKimiCodeFiveHourLimit(data);
+			expect(win).toBeDefined();
+			expect(win?.percentage).toBe(0);
+		});
+
+		it("returns the weekly window from top-level usage", () => {
+			const data = {
+				usage: { limit: "1000", remaining: "250", resetTime: "reset-weekly" },
+				limits: [],
+			} as never;
+			const win = getKimiCodeWeeklyLimit(data);
+			expect(win).toBeDefined();
+			expect(win?.limit).toBe(1000);
+			expect(win?.remaining).toBe(250);
+			expect(win?.percentage).toBeCloseTo(75);
+			expect(win?.resetTime).toBe("reset-weekly");
+		});
+
+		it("returns undefined weekly when usage is missing", () => {
+			expect(getKimiCodeWeeklyLimit({ limits: [] } as never)).toBeUndefined();
+		});
+
+		it("returns undefined for null/undefined kimi data", () => {
+			expect(getKimiCodeFiveHourLimit(null)).toBeUndefined();
+			expect(getKimiCodeFiveHourLimit(undefined)).toBeUndefined();
+			expect(getKimiCodeWeeklyLimit(null)).toBeUndefined();
+			expect(getKimiCodeWeeklyLimit(undefined)).toBeUndefined();
 		});
 	});
 });

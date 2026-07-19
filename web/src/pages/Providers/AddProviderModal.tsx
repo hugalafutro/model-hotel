@@ -116,6 +116,11 @@ export function AddProviderModal({
 						onToast(t("providers.toast_quota_detected_zai"), "info");
 						queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
 						break;
+					case "kimi-code":
+						await api.providers.getUsage(newProvider.id);
+						onToast(t("providers.toast_quota_detected_kimi"), "info");
+						queryClient.invalidateQueries({ queryKey: ["kimi-code-usage"] });
+						break;
 					case "deepseek": {
 						const balance = await api.providers.getBalance(newProvider.id);
 						const usd = balance.balance_infos.find((b) => b.currency === "USD");

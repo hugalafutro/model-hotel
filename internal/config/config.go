@@ -68,6 +68,8 @@ var defaultKnownProviderHosts = []string{
 	"api.openai.com",
 	"api.nano-gpt.com",
 	"api.z.ai",
+	"api.kimi.com",
+	"kimi.com",
 	"api.deepseek.com",
 	"api.anthropic.com",
 	"ollama.com",
@@ -80,6 +82,28 @@ var defaultKnownProviderHosts = []string{
 	"openrouter.ai",
 	"api.neuralwatt.com",
 	"neuralwatt.com",
+}
+
+// defaultKnownProviderHostSuffixes accept any subdomain of a known provider
+// domain. Keep in sync with the suffix rules in hostTypeRules
+// (internal/provider/discovery.go): every domain whose subdomains detect as a
+// first-class provider type must be creatable without an explicit
+// ALLOWED_PROVIDER_HOSTS entry, or restricted installs reject hosts the
+// detector advertises. Runtime dialing still enforces the private/reserved-IP
+// checks (SafeDialer), so this does not widen SSRF exposure.
+var defaultKnownProviderHostSuffixes = []string{
+	".nano-gpt.com",
+	".z.ai",
+	".kimi.com",
+	".deepseek.com",
+	".anthropic.com",
+	".ollama.com",
+	".opencode.ai",
+	".x.ai",
+	".cohere.com",
+	".cohere.ai",
+	".openrouter.ai",
+	".neuralwatt.com",
 }
 
 // KnownProviderHosts returns the built-in provider host allowlist.
@@ -342,6 +366,12 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 	// Built-in known provider hosts are always allowed (skip the IP checks)
 	for _, knownHost := range defaultKnownProviderHosts {
 		if strings.EqualFold(host, knownHost) {
+			return nil
+		}
+	}
+	lowerHost := strings.ToLower(host)
+	for _, suffix := range defaultKnownProviderHostSuffixes {
+		if strings.HasSuffix(lowerHost, suffix) {
 			return nil
 		}
 	}

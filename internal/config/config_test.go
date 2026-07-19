@@ -64,6 +64,8 @@ func TestValidateProviderURL_AllowKnownProvider(t *testing.T) {
 		{"DeepSeek", "https://api.deepseek.com/v1"},
 		{"NanoGPT", "https://api.nano-gpt.com/v1"},
 		{"ZAI", "https://api.z.ai/v1"},
+		{"KimiCode", "https://api.kimi.com/coding/v1"},
+		{"KimiCode apex", "https://kimi.com/coding/v1"},
 		{"Ollama", "https://ollama.com/api"},
 		{"OpenCode", "https://opencode.ai/v1"},
 	}
@@ -104,6 +106,39 @@ func TestValidateProviderURL_AllowKnownProviderSubdomain(t *testing.T) {
 				t.Errorf("ValidateProviderURL(%q) returned unexpected error: %v", tc.url, err)
 			}
 		})
+	}
+}
+
+func TestValidateProviderURL_KnownSubdomainWithRestrictiveAllowlist(t *testing.T) {
+	// Subdomains of known provider domains must pass even when
+	// ALLOWED_PROVIDER_HOSTS is set and does not list them: DetectProviderType
+	// classifies them as first-class provider types, so creation-time
+	// validation has to accept what the detector advertises.
+	cfg := &Config{AllowedProviderHosts: []string{"custom-llm.example.com"}}
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"Kimi subdomain", "https://gateway.kimi.com/coding/v1"},
+		{"ZAI subdomain", "https://custom.z.ai/v1"},
+		{"DeepSeek subdomain", "https://proxy.api.deepseek.com/v1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := cfg.ValidateProviderURL(tc.url); err != nil {
+				t.Errorf("ValidateProviderURL(%q) returned unexpected error: %v", tc.url, err)
+			}
+		})
+	}
+}
+
+func TestValidateProviderURL_LookalikeDomainStillRestricted(t *testing.T) {
+	// A domain merely containing a known provider name must not match the
+	// suffix bypass: kimi.com.evil.com ends in evil.com, not .kimi.com.
+	cfg := &Config{AllowedProviderHosts: []string{"custom-llm.example.com"}}
+	err := cfg.ValidateProviderURL("https://kimi.com.evil.com/v1")
+	if err == nil {
+		t.Error("lookalike domain should be rejected by the allowlist")
 	}
 }
 

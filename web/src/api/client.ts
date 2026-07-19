@@ -19,6 +19,7 @@ import type {
 	FailoverGroup,
 	FailoverListResponse,
 	GithubStatus,
+	KimiCodeQuotaResponse,
 	LogEntry,
 	LogsCursorResponse,
 	LogsResponse,
@@ -304,8 +305,12 @@ export const api = {
 		},
 		getUsage: async (
 			id: string,
-		): Promise<NanoGPTUsage | ZAICodingQuotaResponse> => {
-			return fetchJSON<NanoGPTUsage | ZAICodingQuotaResponse>(
+		): Promise<
+			NanoGPTUsage | ZAICodingQuotaResponse | KimiCodeQuotaResponse
+		> => {
+			return fetchJSON<
+				NanoGPTUsage | ZAICodingQuotaResponse | KimiCodeQuotaResponse
+			>(
 				`${API_BASE}/api/providers/${id}/usage`,
 				{
 					headers: getAuthHeaders(),
