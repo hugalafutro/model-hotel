@@ -66,6 +66,8 @@ func TestValidateProviderURL_AllowKnownProvider(t *testing.T) {
 		{"ZAI", "https://api.z.ai/v1"},
 		{"KimiCode", "https://api.kimi.com/coding/v1"},
 		{"KimiCode apex", "https://kimi.com/coding/v1"},
+		{"MiniMax", "https://api.minimax.io/v1"},
+		{"MiniMax apex", "https://minimax.io"},
 		{"Ollama", "https://ollama.com/api"},
 		{"OpenCode", "https://opencode.ai/v1"},
 	}
@@ -120,6 +122,7 @@ func TestValidateProviderURL_KnownSubdomainWithRestrictiveAllowlist(t *testing.T
 		url  string
 	}{
 		{"Kimi subdomain", "https://gateway.kimi.com/coding/v1"},
+		{"MiniMax subdomain", "https://gateway.minimax.io/v1"},
 		{"ZAI subdomain", "https://custom.z.ai/v1"},
 		{"DeepSeek subdomain", "https://proxy.api.deepseek.com/v1"},
 	}
@@ -139,6 +142,13 @@ func TestValidateProviderURL_LookalikeDomainStillRestricted(t *testing.T) {
 	err := cfg.ValidateProviderURL("https://kimi.com.evil.com/v1")
 	if err == nil {
 		t.Error("lookalike domain should be rejected by the allowlist")
+	}
+
+	// Same bypass check for minimax.io: minimax.io.evil.com ends in
+	// evil.com, not .minimax.io.
+	err = cfg.ValidateProviderURL("https://minimax.io.evil.com/v1")
+	if err == nil {
+		t.Error("lookalike minimax domain should be rejected by the allowlist")
 	}
 }
 

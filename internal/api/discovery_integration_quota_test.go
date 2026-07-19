@@ -1302,6 +1302,294 @@ func TestRefreshAllQuotas_KimiCodeSuccess(t *testing.T) {
 	}
 }
 
+// minimaxQuotaSuccessBody is the reference /token_plan/remains payload
+// (live-captured) used to drive the minimax success arms.
+const minimaxQuotaSuccessBody = `{"model_remains":[{"start_time":1784473200000,"end_time":1784491200000,"remains_time":16420081,"current_interval_total_count":0,"current_interval_usage_count":0,"model_name":"general","current_weekly_total_count":0,"current_weekly_usage_count":0,"weekly_start_time":1783900800000,"weekly_end_time":1784505600000,"weekly_remains_time":30820081,"current_interval_status":1,"current_interval_remaining_percent":100,"current_weekly_status":1,"current_weekly_remaining_percent":100},{"start_time":1784419200000,"end_time":1784505600000,"remains_time":30820081,"current_interval_total_count":0,"current_interval_usage_count":0,"model_name":"video","current_weekly_total_count":0,"current_weekly_usage_count":0,"weekly_start_time":1783900800000,"weekly_end_time":1784505600000,"weekly_remains_time":30820081,"current_interval_status":3,"current_interval_remaining_percent":100,"current_weekly_status":3,"current_weekly_remaining_percent":100}],"base_resp":{"status_code":0,"status_msg":"success"}}`
+
+// TestGetProviderUsage_MiniMaxError tests that GetProviderUsage handles a
+// MiniMax API key rejection. DetectProviderType routes purely by hostname
+// (api.minimax.io), so the provider row's base_url selects the minimax arm;
+// a 401 upstream response is classified by quotaAuthError into the
+// dependency-failure envelope rather than the generic 500 error path.
+func TestGetProviderUsage_MiniMaxError(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
+	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.minimax.io") {
+						return &http.Response{
+							StatusCode: http.StatusUnauthorized,
+							Body:       io.NopCloser(strings.NewReader(`{"base_resp":{"status_code":1004,"status_msg":"invalid api key"}}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	// Create a provider with a MiniMax URL and fake key
+	providerName := fmt.Sprintf("test-minimax-error-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.minimax.io/v1", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Try to get usage - the fake key causes a 401 from the mock transport,
+	// which exercises the minimax case in GetProviderUsage.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusFailedDependency {
+		t.Errorf("Expected 424 for MiniMax key rejection, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "provider key invalid or inactive") {
+		t.Errorf("Expected provider key invalid error, got: %s", rec.Body.String())
+	}
+}
+
+// TestGetProviderUsage_MiniMaxSuccess exercises the success arm of the
+// minimax case in GetProviderUsage: a 200 /token_plan/remains response is
+// decoded and written back as JSON, passing model_remains through untouched.
+// The mock transport intercepts the api.minimax.io request so no real
+// network call is made while DetectProviderType still routes by host.
+func TestGetProviderUsage_MiniMaxSuccess(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.minimax.io") {
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader(minimaxQuotaSuccessBody)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	providerName := fmt.Sprintf("test-minimax-ok-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.minimax.io/v1", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 for MiniMax usage success, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var quota provider.MiniMaxQuotaResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &quota); err != nil {
+		t.Fatalf("Failed to parse usage response: %v", err)
+	}
+	if len(quota.ModelRemains) != 2 {
+		t.Errorf("Expected 2 model_remains entries, got %d", len(quota.ModelRemains))
+	}
+	if quota.BaseResp.StatusCode != 0 {
+		t.Errorf("Expected base_resp.status_code 0, got %d", quota.BaseResp.StatusCode)
+	}
+}
+
+// TestRefreshAllQuotas_MiniMaxError tests that RefreshAllQuotas handles a
+// MiniMax API key rejection correctly, exercising the minimax arm of the
+// provider-type switch in RefreshAllQuotas.
+func TestRefreshAllQuotas_MiniMaxError(t *testing.T) {
+	// Override newDiscoveryService with mock transport to avoid real API calls
+	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
+	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.minimax.io") {
+						return &http.Response{
+							StatusCode: http.StatusUnauthorized,
+							Body:       io.NopCloser(strings.NewReader(`{"base_resp":{"status_code":1004,"status_msg":"invalid api key"}}`)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	// Create provider with MiniMax URL and fake key
+	providerName := fmt.Sprintf("test-quota-minimax-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.minimax.io/v1", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Run refresh-quotas
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Results []QuotaRefreshResult `json:"results"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// Verify result has provider_type: "minimax" and non-empty error
+	var minimaxFound bool
+	for _, result := range response.Results {
+		if result.ProviderType == "minimax" && result.Error != "" {
+			minimaxFound = true
+			break
+		}
+	}
+	if !minimaxFound {
+		t.Error("Expected minimax result error in results")
+	}
+}
+
+// TestRefreshAllQuotas_MiniMaxSuccess exercises the success arm of the
+// minimax case in RefreshAllQuotas: a 200 /token_plan/remains response
+// records the provider as refreshed, not failed.
+func TestRefreshAllQuotas_MiniMaxSuccess(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.minimax.io") {
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader(minimaxQuotaSuccessBody)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	providerName := fmt.Sprintf("test-quota-minimax-ok-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.minimax.io/v1", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Results   []QuotaRefreshResult `json:"results"`
+		Refreshed int                  `json:"refreshed"`
+		Failed    int                  `json:"failed"`
+		Skipped   int                  `json:"skipped"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.Refreshed < 1 {
+		t.Errorf("Expected refreshed >= 1, got %d", response.Refreshed)
+	}
+
+	var minimaxRefreshed bool
+	for _, result := range response.Results {
+		if result.ProviderType == "minimax" && result.Refreshed && result.Error == "" {
+			minimaxRefreshed = true
+			break
+		}
+	}
+	if !minimaxRefreshed {
+		t.Error("Expected minimax result marked refreshed with no error")
+	}
+}
+
 // =============================================================================
 // GetProviderUsage Tests (Unit tests with mock transport)
 // =============================================================================
