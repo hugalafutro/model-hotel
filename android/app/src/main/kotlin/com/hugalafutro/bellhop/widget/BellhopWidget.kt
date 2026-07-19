@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
@@ -206,6 +207,9 @@ private fun WidgetContent(
                     ImageProvider(R.drawable.ic_widget_refresh),
                     context.getString(R.string.widget_refresh),
                     GlanceModifier.size(18.dp).clickable(actionRunCallback<WidgetRefreshAction>()),
+                    // The vector's fill is opaque black; tint to the footer's muted
+                    // pair or the icon vanishes on the night background.
+                    colorFilter = ColorFilter.tint(TextMuted),
                 )
             }
         }
