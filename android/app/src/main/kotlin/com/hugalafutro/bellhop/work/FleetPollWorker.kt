@@ -64,13 +64,13 @@ private suspend fun widgetTraffic(
     widgetStore: WidgetStore,
 ): Map<String, List<Int>> {
     val previous = widgetStore.read()?.members.orEmpty()
-    val previousByName = previous.associate { it.name to it.traffic }
+    val previousById = previous.associate { it.id to it.traffic }
     return members.associate { member ->
         member.id to
             when (val res = client.memberTraffic(fdUrl, token, member.id, windowMinutes = 60)) {
                 is FetchResult.Success ->
                     if (res.data.reachable) res.data.points.map { it.requests } else emptyList()
-                else -> previousByName[member.name.ifBlank { member.id }].orEmpty()
+                else -> previousById[member.id].orEmpty()
             }
     }
 }

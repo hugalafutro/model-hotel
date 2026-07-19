@@ -202,7 +202,7 @@ class FleetPollTest {
             poll(store, widget)
 
             val ws = widget.read()
-            assertEquals(listOf(WidgetMember("hotel-1", "UP")), ws?.members)
+            assertEquals(listOf(WidgetMember("hotel-1", "UP", id = "m1")), ws?.members)
             assertEquals(42L, ws?.updatedAt)
         }
 
@@ -270,7 +270,10 @@ class FleetPollTest {
             val widget = newWidgetStore()
             store.setEnabled(true)
             widget.saveIfChanged(
-                WidgetState(members = listOf(WidgetMember("hotel-1", "UP", traffic = listOf(7, 8))), updatedAt = 1L),
+                WidgetState(
+                    members = listOf(WidgetMember("hotel-1", "UP", traffic = listOf(7, 8), id = "m1")),
+                    updatedAt = 1L,
+                ),
                 widget.generation(),
             )
             enqueuePoll(healthy = true)

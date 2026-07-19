@@ -16,6 +16,10 @@ data class WidgetMember(
     // first, at most [TRAFFIC_BUCKETS]); empty when traffic graphs are off or
     // the series was never fetched. Display data only, like everything here.
     val traffic: List<Int> = emptyList(),
+    // Stable member id for cross-poll matching (keeping a member's bars through
+    // a failed series read must not key on the display name, which can collide
+    // or be renamed). Never rendered. Defaulted so pre-field state decodes.
+    val id: String = "",
 ) {
     val healthState: MemberHealthState
         get() = runCatching { MemberHealthState.valueOf(state) }.getOrDefault(MemberHealthState.UNKNOWN)
@@ -84,6 +88,7 @@ fun widgetStateOf(
                     // Writers hand over whatever window they fetched; the model
                     // owns the widget's newest-TRAFFIC_BUCKETS contract.
                     traffic = traffic[it.id].orEmpty().takeLast(TRAFFIC_BUCKETS),
+                    id = it.id,
                 )
             },
         autosyncStale = autosyncStale,

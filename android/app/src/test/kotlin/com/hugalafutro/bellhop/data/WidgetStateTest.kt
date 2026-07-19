@@ -42,10 +42,10 @@ class WidgetStateTest {
             )
         assertEquals(
             listOf(
-                WidgetMember("hotel-1", "UP"),
-                WidgetMember("hotel-2", "DOWN"),
-                WidgetMember("hotel-3", "DRAINED"),
-                WidgetMember("hotel-4", "UNKNOWN"),
+                WidgetMember("hotel-1", "UP", id = "m1"),
+                WidgetMember("hotel-2", "DOWN", id = "m2"),
+                WidgetMember("hotel-3", "DRAINED", id = "m3"),
+                WidgetMember("hotel-4", "UNKNOWN", id = "m4"),
             ),
             state.members,
         )
