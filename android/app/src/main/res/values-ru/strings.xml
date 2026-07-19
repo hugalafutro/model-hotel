@@ -268,4 +268,5 @@
     <string name="widget_stale">Синхронизация устарела</string>
     <!-- Collapsed face for large fleets: up/down/drained counts -->
     <string name="widget_counts">%1$d работает · %2$d недоступно · %3$d выведено</string>
+    <string name="widget_refresh">Обновить</string>
 </resources>

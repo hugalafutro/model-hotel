@@ -7,7 +7,11 @@ to that FD; it never holds a member Model Hotel token. The full design lives in
 
 Current status: in active use. Pairing (QR/code), the live dashboard and member
 detail, background monitoring, push notifications, operator actions, an app lock,
-alerts, an event log, a settings screen, and full internationalisation have shipped.
+alerts, an event log, a settings screen, full internationalisation, and a
+home-screen widget have shipped. The widget renders persisted fleet state only:
+its updates piggyback on fetches the app already makes (background poll, push
+wakes, foreground refresh) plus a manual refresh button; it never polls on its
+own, so it adds no battery cost.
 
 ## Stack
 

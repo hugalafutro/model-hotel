@@ -17,6 +17,7 @@ import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.PairedDevice
 import com.hugalafutro.bellhop.data.SseMessage
+import com.hugalafutro.bellhop.data.WidgetStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
@@ -190,6 +191,49 @@ class DashboardViewModelTest {
             status = MemberStatus(health = HealthStatus(known = true, healthy = true, latencyMs = 5)),
         )
 
+    // Builds a DashboardViewModel with the widget wiring defaulted, so the existing
+    // tests read exactly as their old direct construction did: the widget mirror
+    // lands in a throwaway in-memory store and signals nothing. Tests that assert on
+    // the widget pass their own store and onWidgetWritten.
+    private suspend fun viewModel(
+        client: FrontDeskClient = FakeFleetClient(FetchResult.Success(listOf(member))),
+        linkStore: LinkStore? = null,
+        fdUrl: String = "http://fd:1",
+        widgetStore: WidgetStore = WidgetStore(InMemoryPreferencesDataStore()),
+        onWidgetWritten: suspend () -> Unit = {},
+        pollIntervalMs: Long = DashboardViewModel.POLL_INTERVAL_MS,
+        sseHealthyPollIntervalMs: Long = DashboardViewModel.SSE_HEALTHY_POLL_INTERVAL_MS,
+        trafficPollMs: Long = DashboardViewModel.TRAFFIC_POLL_MS,
+        now: () -> Long = System::currentTimeMillis,
+    ): DashboardViewModel =
+        DashboardViewModel(
+            client,
+            linkStore ?: linkedStore(),
+            fdUrl,
+            widgetStore,
+            onWidgetWritten,
+            pollIntervalMs,
+            sseHealthyPollIntervalMs,
+            trafficPollMs,
+            now,
+        )
+
+    @Test
+    fun refreshWritesWidgetStateAndSignalsOnChange() =
+        runBlocking {
+            val widget = WidgetStore(InMemoryPreferencesDataStore())
+            var signals = 0
+            val vm = viewModel(widgetStore = widget, onWidgetWritten = { signals++ })
+
+            vm.refreshOnce()
+            assertEquals(1, signals)
+            assertEquals("hotel-1", widget.read()?.members?.single()?.name)
+
+            // The same data again inside the stamp window: no write, no re-render signal.
+            vm.refreshOnce()
+            assertEquals(1, signals)
+        }
+
     @Test
     fun refreshPopulatesMembersAndPrimaryWithStoredToken() =
         runBlocking {
@@ -198,7 +242,7 @@ class DashboardViewModelTest {
                     membersResult = FetchResult.Success(listOf(member)),
                     autoSyncResult = FetchResult.Success(AutoSyncConfig(enabled = true, primaryId = "m1")),
                 )
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
 
             vm.refreshOnce()
 
@@ -231,7 +275,7 @@ class DashboardViewModelTest {
                         ),
                     "m2" to listOf(FdEvent(id = "e2", memberId = "m2", message = "only m2")),
                 )
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
 
             vm.refreshOnce()
 
@@ -250,7 +294,7 @@ class DashboardViewModelTest {
                     autoSyncResult = FetchResult.Success(AutoSyncConfig(enabled = true, primaryId = "m1")),
                 )
             // No per-member events configured, so the map stays empty (no pill).
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
 
             vm.refreshOnce()
 
@@ -274,7 +318,7 @@ class DashboardViewModelTest {
                     membersResult = FetchResult.Success(listOf(m1, m2)),
                     autoSyncResult = FetchResult.Success(AutoSyncConfig(enabled = true, primaryId = "m1")),
                 )
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
 
             vm.refreshOnce()
 
@@ -295,7 +339,7 @@ class DashboardViewModelTest {
                     autoSyncResult = FetchResult.Success(AutoSyncConfig(enabled = true, primaryId = "m1")),
                 )
             client.eventsByMember = mapOf("m1" to listOf(FdEvent(id = "e1", memberId = "m1", message = "fetched m1")))
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
 
             vm.refreshOnce()
 
@@ -314,7 +358,7 @@ class DashboardViewModelTest {
         runBlocking {
             val client = autoSyncClient(enabled = true)
             client.setAutoSyncResult = ActionResult.Success(AutoSyncConfig(enabled = false, primaryId = "m1"))
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             vm.refreshOnce()
             assertTrue(vm.state.value.autoSyncEnabled)
 
@@ -338,7 +382,7 @@ class DashboardViewModelTest {
         runBlocking {
             val client = autoSyncClient(enabled = true)
             client.setAutoSyncResult = ActionResult.Success(AutoSyncConfig(enabled = false, primaryId = "m1"))
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             vm.refreshOnce()
 
             vm.setAutoSync(false)
@@ -359,7 +403,7 @@ class DashboardViewModelTest {
         runBlocking {
             val client = autoSyncClient()
             client.setAutoSyncResult = ActionResult.Forbidden
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             vm.refreshOnce()
 
             vm.setAutoSync(false)
@@ -372,7 +416,7 @@ class DashboardViewModelTest {
         runBlocking {
             val client = autoSyncClient()
             client.setAutoSyncResult = ActionResult.Unauthorized
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             vm.refreshOnce()
 
             vm.setAutoSync(false)
@@ -385,7 +429,7 @@ class DashboardViewModelTest {
         runBlocking {
             val client = autoSyncClient()
             client.setAutoSyncResult = ActionResult.Failure("boom")
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             vm.refreshOnce()
 
             vm.setAutoSync(false)
@@ -404,7 +448,7 @@ class DashboardViewModelTest {
                     membersResult = FetchResult.Success(listOf(member)),
                     autoSyncResult = FetchResult.Success(AutoSyncConfig(enabled = false, primaryId = "")),
                 )
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             vm.refreshOnce()
 
             vm.setAutoSync(true)
@@ -415,7 +459,7 @@ class DashboardViewModelTest {
     fun failedRefreshKeepsStaleMembersAndRecovers() =
         runBlocking {
             val client = FakeFleetClient(FetchResult.Success(listOf(member)))
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             vm.refreshOnce()
 
             // Stale beats blank: the last good list stays, the error surfaces.
@@ -446,7 +490,7 @@ class DashboardViewModelTest {
                             ),
                         ),
                 )
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
 
             vm.refreshOnce()
 
@@ -471,7 +515,7 @@ class DashboardViewModelTest {
                             ),
                         ),
                 )
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             vm.refreshOnce()
             assertEquals("degraded", vm.state.value.fleetState)
 
@@ -499,7 +543,7 @@ class DashboardViewModelTest {
                             MemberTraffic(memberId = "m1", reachable = true, totalRequests = 5),
                         ),
                 )
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             val job = launch { vm.state.collect {} }
             withTimeout(5_000) { vm.state.first { it.members.size == 2 } }
 
@@ -520,7 +564,7 @@ class DashboardViewModelTest {
             val client = FakeFleetClient(FetchResult.Success(listOf(member)))
             client.trafficResults =
                 mapOf("m1" to FetchResult.Success(MemberTraffic(memberId = "m1", reachable = true)))
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1", trafficPollMs = 40)
+            val vm = viewModel(client, linkedStore(), "http://fd:1", trafficPollMs = 40)
             val job = launch { vm.state.collect {} }
             vm.setVisibleMembers(listOf("m1"))
             // The periodic fetch ticks while the dashboard is shown.
@@ -551,7 +595,7 @@ class DashboardViewModelTest {
                 mapOf("m1" to FetchResult.Success(MemberTraffic(memberId = "m1", reachable = true)))
             // A long poll keeps the periodic tick out of the window so only the
             // range change could move the count.
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1", trafficPollMs = 10_000)
+            val vm = viewModel(client, linkedStore(), "http://fd:1", trafficPollMs = 10_000)
             val job = launch { vm.state.collect {} }
             vm.setVisibleMembers(listOf("m1"))
             withTimeout(5_000) { while (client.trafficFetched.isEmpty()) delay(20) }
@@ -573,7 +617,7 @@ class DashboardViewModelTest {
             val client = FakeFleetClient(FetchResult.Success(listOf(member)))
             client.trafficResults =
                 mapOf("m1" to FetchResult.Success(MemberTraffic(memberId = "m1", reachable = true)))
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             val job = launch { vm.state.collect {} }
             withTimeout(5_000) { vm.state.first { it.members.size == 1 } }
 
@@ -597,7 +641,7 @@ class DashboardViewModelTest {
                 mapOf("m1" to FetchResult.Success(MemberTraffic(memberId = "m1", reachable = true)))
             // Park the initial default-window fetch so it stays in flight.
             client.firstTrafficGate = CompletableDeferred()
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             val job = launch { vm.state.collect {} }
             withTimeout(5_000) { vm.state.first { it.members.size == 1 } }
 
@@ -618,7 +662,7 @@ class DashboardViewModelTest {
     @Test
     fun unauthorizedFlagsRevoked() =
         runBlocking {
-            val vm = DashboardViewModel(FakeFleetClient(FetchResult.Unauthorized), linkedStore(), "http://fd:1")
+            val vm = viewModel(FakeFleetClient(FetchResult.Unauthorized), linkedStore(), "http://fd:1")
             vm.refreshOnce()
             assertTrue(vm.state.value.revoked)
             assertFalse(vm.state.value.loading)
@@ -634,7 +678,7 @@ class DashboardViewModelTest {
                 FakeFleetClient(membersResult = FetchResult.Success(listOf(member))).apply {
                     eventsResult = FetchResult.Unauthorized
                 }
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             vm.refreshOnce()
             assertTrue(vm.state.value.revoked)
             assertFalse(vm.state.value.loading)
@@ -646,7 +690,7 @@ class DashboardViewModelTest {
             // Linked metadata without a readable token (e.g. lost Keystore key):
             // no request can succeed, so don't make one.
             val client = FakeFleetClient(FetchResult.Success(listOf(member)))
-            val vm = DashboardViewModel(client, newLinkStore(), "http://fd:1")
+            val vm = viewModel(client, newLinkStore(), "http://fd:1")
             vm.refreshOnce()
             assertTrue(vm.state.value.revoked)
             assertNull(client.lastToken)
@@ -661,7 +705,7 @@ class DashboardViewModelTest {
                     membersResult = FetchResult.Success(listOf(member)),
                     autoSyncResult = FetchResult.Failure("nope"),
                 )
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
             vm.refreshOnce()
             val s = vm.state.value
             assertEquals(listOf(member), s.members)
@@ -675,7 +719,7 @@ class DashboardViewModelTest {
             // The poll loop is gated on collectors; the first collector must
             // trigger a refresh on its own, with no manual refreshOnce call.
             val client = FakeFleetClient(FetchResult.Success(listOf(member)))
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
 
             val s = withTimeout(5_000) { vm.state.first { !it.loading } }
             assertEquals(listOf(member), s.members)
@@ -688,7 +732,7 @@ class DashboardViewModelTest {
             // through without waiting for the slow fallback poll.
             val events = MutableSharedFlow<SseMessage>(extraBufferCapacity = 8)
             val client = FakeFleetClient(FetchResult.Success(emptyList()), sseFlow = events)
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
 
             val job = launch { vm.state.collect {} }
             withTimeout(5_000) { vm.state.first { !it.loading } }
@@ -722,7 +766,7 @@ class DashboardViewModelTest {
             // A stream that completes at once models a dropped connection; the loop
             // must back off and reconnect (subscribe again), not give up after one.
             val client = FakeFleetClient(FetchResult.Success(listOf(member)), sseFlow = flowOf())
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
 
             val job = launch { vm.state.collect {} }
             withTimeout(5_000) {
@@ -743,7 +787,7 @@ class DashboardViewModelTest {
             withTimeout(30_000) {
                 val events = MutableSharedFlow<SseMessage>(extraBufferCapacity = 8)
                 val client = FakeFleetClient(FetchResult.Unauthorized, sseFlow = events)
-                val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+                val vm = viewModel(client, linkedStore(), "http://fd:1")
 
                 val job = launch { vm.state.collect {} }
                 withTimeout(5_000) { vm.state.first { it.revoked } }
@@ -775,7 +819,7 @@ class DashboardViewModelTest {
                     FetchResult.Success(listOf(member)),
                     sseFlow = flowOf(SseMessage.Unauthorized),
                 )
-            val vm = DashboardViewModel(client, linkedStore(), "http://fd:1")
+            val vm = viewModel(client, linkedStore(), "http://fd:1")
 
             val job = launch { vm.state.collect {} }
             // revoked here is reached only through streamLoop (the poll succeeds), so
@@ -817,7 +861,7 @@ class DashboardViewModelTest {
             val events = MutableSharedFlow<SseMessage>(extraBufferCapacity = 8)
             val client = FakeFleetClient(FetchResult.Success(listOf(member)), sseFlow = events)
             val vm =
-                DashboardViewModel(
+                viewModel(
                     client,
                     linkedStore(),
                     "http://fd:1",
@@ -849,7 +893,7 @@ class DashboardViewModelTest {
             val events = MutableSharedFlow<SseMessage>(extraBufferCapacity = 8)
             val client = FakeFleetClient(FetchResult.Success(listOf(member)), sseFlow = events)
             val vm =
-                DashboardViewModel(
+                viewModel(
                     client,
                     linkedStore(),
                     "http://fd:1",

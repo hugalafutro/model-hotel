@@ -521,6 +521,7 @@ fun BellhopApp() {
                         state = state,
                         client = client,
                         linkStore = linkStore,
+                        widgetStore = widgetStore,
                         lockStore = lockStore,
                         lockConfig = lockConfig,
                         lockAvailable = lockAvailable,
@@ -568,6 +569,7 @@ private fun LinkedContent(
     state: LinkState.Linked,
     client: FrontDeskClient,
     linkStore: LinkStore,
+    widgetStore: WidgetStore,
     lockStore: LockStore,
     lockConfig: LockConfig,
     lockAvailable: Boolean,
@@ -633,7 +635,14 @@ private fun LinkedContent(
     val dashVm: DashboardViewModel =
         viewModel(
             key = "dashboard-${state.fdUrl}|${state.deviceId}",
-            factory = DashboardViewModel.Factory(client, linkStore, state.fdUrl),
+            factory =
+                DashboardViewModel.Factory(
+                    client,
+                    linkStore,
+                    state.fdUrl,
+                    widgetStore,
+                    onWidgetWritten = { BellhopWidget.update(monitorContext.applicationContext) },
+                ),
         )
     val ui by dashVm.state.collectAsStateWithLifecycle()
     // Feed the Settings graph-range pref into the dashboard VM; a change

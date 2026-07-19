@@ -250,4 +250,5 @@
     <string name="widget_stale">同期が古い</string>
     <!-- Collapsed face for large fleets: up/down/drained counts -->
     <string name="widget_counts">稼働 %1$d · ダウン %2$d · ドレイン %3$d</string>
+    <string name="widget_refresh">更新</string>
 </resources>

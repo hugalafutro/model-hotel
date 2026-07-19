@@ -6,16 +6,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
+import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
@@ -27,6 +32,7 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.size
 import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
@@ -48,6 +54,7 @@ import com.hugalafutro.bellhop.ui.theme.Moss300
 import com.hugalafutro.bellhop.ui.theme.Moss600
 import com.hugalafutro.bellhop.ui.theme.PaperInk
 import com.hugalafutro.bellhop.ui.theme.PaperInkMuted
+import com.hugalafutro.bellhop.work.FleetPollWorker
 import kotlinx.coroutines.flow.first
 import java.util.Date
 
@@ -89,6 +96,22 @@ class BellhopWidget : GlanceAppWidget() {
         suspend fun update(context: Context) {
             BellhopWidget().updateAll(context)
         }
+    }
+}
+
+/**
+ * WidgetRefreshAction hands the tap off to WorkManager and returns; the
+ * poll's own completion re-renders the widget via [FleetPollWorker]'s update
+ * call, so the action itself stays instant and the widget never blocks on
+ * the network.
+ */
+class WidgetRefreshAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters,
+    ) {
+        FleetPollWorker.runWidgetRefresh(context)
     }
 }
 
@@ -177,6 +200,17 @@ private fun WidgetContent(
                         context.getString(R.string.widget_monitoring_off),
                         style = TextStyle(color = TextMuted, fontSize = 11.sp),
                     )
+            }
+            if (state != null) {
+                Spacer(GlanceModifier.width(8.dp))
+                Image(
+                    ImageProvider(R.drawable.ic_widget_refresh),
+                    context.getString(R.string.widget_refresh),
+                    GlanceModifier.size(18.dp).clickable(actionRunCallback<WidgetRefreshAction>()),
+                    // The vector's fill is opaque black; tint to the footer's muted
+                    // pair or the icon vanishes on the night background.
+                    colorFilter = ColorFilter.tint(TextMuted),
+                )
             }
         }
     }

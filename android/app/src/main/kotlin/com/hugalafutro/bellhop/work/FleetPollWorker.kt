@@ -153,6 +153,39 @@ suspend fun runBackstop(
 }
 
 /**
+ * refreshWidgetOnly is the widget refresh button's poll: fetch and persist the
+ * DISPLAY state, and nothing else. Deliberately not [runBackstop]: this work runs
+ * even when monitoring is off and notifications are blocked (it renders, it does
+ * not page), it never notifies the user (they are looking at the widget), and it
+ * never touches the alert baseline, so a member found down here still alerts on
+ * the next backstop poll. It always ends in success: a user-initiated one-shot
+ * must not hold the unique-work slot in a retry backoff, and the stale stamp
+ * already tells the truth about a failed refresh.
+ */
+suspend fun refreshWidgetOnly(
+    linkStore: LinkStore,
+    widgetStore: WidgetStore,
+    client: FrontDeskClient,
+    now: () -> Long = System::currentTimeMillis,
+): Result {
+    val link = linkStore.state.first()
+    if (link !is LinkState.Linked) return Result.success()
+    val token = linkStore.token() ?: return Result.success()
+    // Write fence captured before the fetch (same pattern as pollFleet): an
+    // unlink mid-refresh stamps a fresh generation and this write is dropped.
+    val generation = widgetStore.generation()
+    val result = client.members(link.fdUrl, token)
+    if (result is FetchResult.Success) {
+        val stale =
+            (client.autoSync(link.fdUrl, token) as? FetchResult.Success)?.data?.stale
+                ?: widgetStore.read()?.autosyncStale
+                ?: false
+        widgetStore.saveIfChanged(widgetStateOf(result.data, stale, now()), generation)
+    }
+    return Result.success()
+}
+
+/**
  * FleetPollWorker is the Layer-2 background backstop (plan section 5.2): a periodic
  * poll that, while Bellhop is backgrounded or killed, diffs fleet health against
  * the last poll and posts a local notification on a member going down or
@@ -167,6 +200,19 @@ class FleetPollWorker(
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
         val context = applicationContext
+        // The widget refresh tap is a display-only one-shot: no monitor guards, no
+        // notify, no alert baseline. It still re-renders the widget afterwards, the
+        // same as a backstop run does below.
+        if (inputData.getBoolean(KEY_WIDGET, false)) {
+            val result =
+                refreshWidgetOnly(
+                    LinkStore.create(context),
+                    WidgetStore.create(context),
+                    FrontDeskClient(),
+                )
+            BellhopWidget.update(context)
+            return result
+        }
         val result =
             runBackstop(
                 monitorStore = MonitorStore.create(context),
@@ -188,7 +234,9 @@ class FleetPollWorker(
     companion object {
         private const val UNIQUE_NAME = "fleet-poll"
         private const val ONESHOT_NAME = "fleet-poll-now"
+        private const val WIDGET_NAME = "widget-refresh"
         private const val KEY_ONESHOT = "oneshot"
+        private const val KEY_WIDGET = "widget"
 
         // The 15-minute WorkManager floor is the shortest periodic interval Android
         // allows; the backstop is explicitly not real-time (plan section 5.2).
@@ -244,6 +292,28 @@ class FleetPollWorker(
         }
 
         /**
+         * runWidgetRefresh enqueues the widget refresh button's one-shot. KEEP
+         * coalesces tap-spam onto one in-flight poll; expedited with a non-expedited
+         * fallback, the same as [runNow]. A distinct unique name from the push wake
+         * so a widget tap can't coalesce away a pending push poll (or vice versa).
+         */
+        fun runWidgetRefresh(context: Context) {
+            val request =
+                OneTimeWorkRequestBuilder<FleetPollWorker>()
+                    .setConstraints(
+                        Constraints
+                            .Builder()
+                            .setRequiredNetworkType(NetworkType.CONNECTED)
+                            .build(),
+                    ).setInputData(workDataOf(KEY_WIDGET to true))
+                    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                    .build()
+            WorkManager
+                .getInstance(context)
+                .enqueueUniqueWork(WIDGET_NAME, ExistingWorkPolicy.KEEP, request)
+        }
+
+        /**
          * cancel stops ONLY the periodic poll, used when Layer-2 monitoring is
          * turned off. It deliberately leaves the push one-shot alone: push-only mode
          * (Layer 2 off, Layer 3 on) is supported, so cancelling a queued or running
@@ -264,6 +334,7 @@ class FleetPollWorker(
             val wm = WorkManager.getInstance(context)
             wm.cancelUniqueWork(UNIQUE_NAME)
             wm.cancelUniqueWork(ONESHOT_NAME)
+            wm.cancelUniqueWork(WIDGET_NAME)
         }
     }
 }
