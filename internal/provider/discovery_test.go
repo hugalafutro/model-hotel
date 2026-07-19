@@ -90,6 +90,25 @@ func TestDetectProviderType_NotBedrock(t *testing.T) {
 	}
 }
 
+func TestDetectProviderType_KimiCode(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"coding endpoint", "https://api.kimi.com/coding/v1"},
+		{"bare host", "https://api.kimi.com"},
+		{"subdomain", "https://gateway.kimi.com/coding/v1"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := DetectProviderType(tc.url)
+			if result != "kimi-code" {
+				t.Errorf("DetectProviderType(%q) = %q, want %q", tc.url, result, "kimi-code")
+			}
+		})
+	}
+}
+
 func TestDetectProviderType_Azure(t *testing.T) {
 	tests := []struct {
 		name string

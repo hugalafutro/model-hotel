@@ -185,6 +185,10 @@ var hostTypeRules = []struct {
 	// ({res}.openai.azure.com) resources. Both expose the same OpenAI v1
 	// surface under /openai/v1 (Bearer auth, live-verified 2026-07-18).
 	{"azure", nil, []string{".services.ai.azure.com", ".openai.azure.com"}},
+	// Kimi Code subscription endpoint (api.kimi.com/coding). Subscription
+	// sk-kimi- keys ONLY work here — the pay-per-token platform
+	// (api.moonshot.ai) is a separate key namespace and stays generic openai.
+	{"kimi-code", []string{"api.kimi.com", "kimi.com"}, []string{".kimi.com"}},
 }
 
 // detectByHost resolves a provider type from a lowercased hostname (and URL
