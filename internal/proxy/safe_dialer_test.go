@@ -12,6 +12,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func TestIsBlockedIP_LoopbackIPv4(t *testing.T) {
@@ -791,5 +792,88 @@ func TestDiscoveryService_NoProtectionWhenNil(t *testing.T) {
 	// Should be a normal connection error, NOT an SSRF block.
 	if strings.Contains(err.Error(), "refused connection to private/reserved IP") {
 		t.Errorf("expected normal connection error without SSRF protection, got SSRF block: %v", err)
+	}
+}
+
+// redirectReq builds a redirect target request with the provider auth headers
+// that Go's http.Client would have copied verbatim from the original request.
+func redirectReq(t *testing.T, providerType, target, apiKey string) *http.Request {
+	t.Helper()
+	orig, err := http.NewRequest(http.MethodPost, "https://provider.example/v1/messages", http.NoBody)
+	if err != nil {
+		t.Fatalf("build original request: %v", err)
+	}
+	util.SetProviderAuthHeaders(orig, providerType, apiKey)
+	redir, err := http.NewRequest(http.MethodPost, target, http.NoBody)
+	if err != nil {
+		t.Fatalf("build redirect request: %v", err)
+	}
+	// Mirror net/http: non-sensitive headers (including custom x-* auth
+	// headers) are copied onto the redirect request before CheckRedirect runs.
+	for k, vals := range orig.Header {
+		if strings.EqualFold(k, "Authorization") {
+			continue // Go strips Authorization cross-host on its own.
+		}
+		for _, v := range vals {
+			redir.Header.Add(k, v)
+		}
+	}
+	return redir
+}
+
+// TestCheckRedirect_StripsCustomAuthHeadersCrossHost is the regression test for
+// the provider-key leak: a cross-host redirect must not carry x-api-key /
+// x-goog-api-key to the redirect target.
+func TestCheckRedirect_StripsCustomAuthHeadersCrossHost(t *testing.T) {
+	// attacker.example resolves to a public IP, so CheckRedirect would otherwise
+	// allow the redirect and forward the credential.
+	sd := newSafeDialerWithResolver(nil, &mockResolver{
+		lookupFunc: func(ctx context.Context, host string) ([]net.IPAddr, error) {
+			return []net.IPAddr{{IP: net.ParseIP("93.184.216.34")}}, nil
+		},
+	}, nil)
+
+	cases := []struct {
+		name         string
+		providerType string
+		header       string
+	}{
+		{"anthropic", "anthropic", "x-api-key"},
+		{"vertex-express", "vertex-express", "x-goog-api-key"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := redirectReq(t, tc.providerType, "http://attacker.example/exfil", "super-secret-key")
+			if got := req.Header.Get(tc.header); got == "" {
+				t.Fatalf("precondition: %s should be set before redirect", tc.header)
+			}
+			orig, _ := http.NewRequest(http.MethodPost, "https://provider.example/v1/messages", http.NoBody)
+			if err := sd.CheckRedirect(req, []*http.Request{orig}); err != nil {
+				t.Fatalf("cross-host redirect to public host should be allowed: %v", err)
+			}
+			if got := req.Header.Get(tc.header); got != "" {
+				t.Fatalf("%s leaked to redirect target: %q", tc.header, got)
+			}
+		})
+	}
+}
+
+// TestCheckRedirect_PreservesAuthHeadersSameHost ensures the strip is scoped to
+// cross-host hops: a same-host redirect (e.g. a provider pointing at a longer
+// path on itself) keeps the credential so the redirected request still auths.
+func TestCheckRedirect_PreservesAuthHeadersSameHost(t *testing.T) {
+	sd := newSafeDialerWithResolver([]string{"provider.example"}, &mockResolver{
+		lookupFunc: func(ctx context.Context, host string) ([]net.IPAddr, error) {
+			return []net.IPAddr{{IP: net.ParseIP("93.184.216.34")}}, nil
+		},
+	}, nil)
+
+	req := redirectReq(t, "anthropic", "https://provider.example/v1/messages/next", "super-secret-key")
+	orig, _ := http.NewRequest(http.MethodPost, "https://provider.example/v1/messages", http.NoBody)
+	if err := sd.CheckRedirect(req, []*http.Request{orig}); err != nil {
+		t.Fatalf("same-host redirect should be allowed: %v", err)
+	}
+	if got := req.Header.Get("x-api-key"); got != "super-secret-key" {
+		t.Fatalf("x-api-key should survive a same-host redirect, got %q", got)
 	}
 }

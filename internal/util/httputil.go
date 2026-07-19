@@ -254,6 +254,27 @@ func SetProviderAuthHeaders(req *http.Request, providerType, apiKey string) {
 	}
 }
 
+// providerAuthHeaders lists every header SetProviderAuthHeaders may set. It is
+// the single source of truth for StripProviderAuthHeaders, so the two stay in
+// sync as provider auth schemes are added.
+var providerAuthHeaders = []string{
+	"Authorization",
+	"anthropic-version",
+	"x-api-key",
+	"x-goog-api-key",
+}
+
+// StripProviderAuthHeaders removes any provider authentication headers set by
+// SetProviderAuthHeaders from req. Go's http.Client strips the standard
+// Authorization header on cross-host redirects but forwards custom headers such
+// as x-api-key and x-goog-api-key verbatim, so this must be called explicitly to
+// keep a provider credential from leaking to a redirect target.
+func StripProviderAuthHeaders(req *http.Request) {
+	for _, h := range providerAuthHeaders {
+		req.Header.Del(h)
+	}
+}
+
 // OpenAIErrorType maps an HTTP status code to the corresponding OpenAI error type string.
 func OpenAIErrorType(code int) string {
 	switch {
