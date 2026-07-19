@@ -124,7 +124,7 @@ Providers that expose a live model list **and** ship a built-in catalog are comb
 
 models.dev enrichment runs *after* the merge and fills anything still empty, so the final precedence per field is **live → catalog → models.dev → zero value**. If the live fetch fails entirely (network, auth, 403/429 quota), the discoverer falls back to the pure catalog so discovery never goes dark.
 
-Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt, Kimi Code, AWS Bedrock, Azure AI Foundry) have no catalog. **Vertex AI express** is the inverse case: Google exposes no listing route for express keys, so discovery starts from a shipped candidate catalog and validates each entry live (see its section below).
+Providers on the merge (union): **Z.AI**, **xAI**, **DeepSeek**, **OpenCode Go**, **OpenCode Zen**. **OpenAI** uses the same live-first model but **backfill-only** (no union) via `backfillLiveFromCatalog`, because discoverOpenAI is the fallback for unknown/custom hosts and must not attach catalog-only gpt-5.x models to them. Providers with a *pricing-only* catalog - **Anthropic**, **Google AI Studio**, **Cohere** - keep their own discoverers: the live API is already the rich model-list source and the catalog only backfills pricing, so there is nothing to union. Pure-live providers (NanoGPT, OpenRouter, Ollama, LM Studio, KoboldCPP, NeuralWatt, Kimi Code, AWS Bedrock, Azure AI Foundry) have no catalog. **MiniMax** is a third, narrower case - call it *live-stub + models.dev*: `discoverMiniMax` has no catalog either, but unlike Kimi Code its live listing is metadata-bare (id and owner only), so every other field (context, pricing, capabilities) comes from models.dev enrichment rather than a rich live payload. **Vertex AI express** is the inverse case: Google exposes no listing route for express keys, so discovery starts from a shipped candidate catalog and validates each entry live (see its section below).
 
 ### Provider Type Detection
 
@@ -138,6 +138,7 @@ The `DetectProviderType` function in `internal/provider/discovery.go` uses exact
 | `api.nano-gpt.com`, `nano-gpt.com` | - | `nanogpt` |
 | `api.z.ai`, `z.ai`, `*.z.ai` | - | `zai-coding` |
 | `api.kimi.com`, `kimi.com`, `*.kimi.com` | - | `kimi-code` |
+| `api.minimax.io`, `minimax.io`, `*.minimax.io` | - | `minimax` |
 | `ollama.com`, `*.ollama.com` | - | `ollama-cloud` |
 | `opencode.ai`, `*.opencode.ai` | `/zen/go/` | `opencode-go` |
 | `opencode.ai`, `*.opencode.ai` | `/zen/` | `opencode-zen` |
@@ -408,6 +409,25 @@ Subscription keys only work against `api.kimi.com/coding` - they 401 on Moonshot
 | Owned by | API (recorded as `moonshotai`) |
 
 Known models: `k3` (K3), `kimi-for-coding` (K2.7 Coding), `kimi-for-coding-highspeed` (K2.7 Coding Highspeed). All three are thinking-only - reasoning cannot be disabled, and responses carry DeepSeek-style `reasoning_content`.
+
+### MiniMax
+
+**Source files:** `discovery_minimax.go`
+
+**Method:** MiniMax's international platform (base URL `https://api.minimax.io/v1`). Token Plan subscription keys (`sk-cp-...`) and pay-as-you-go keys (`sk-api-...`) share the same OpenAI-compatible endpoint, but only Token Plan keys have quota data to report (see below). `discoverMiniMax` fetches `GET {base}/models`, a metadata-bare OpenAI-shaped listing (id and owner only) - there is no embedded catalog for this provider, so every model becomes a live stub and models.dev fills in context length, pricing, capabilities, and reasoning support.
+
+The CN twin (`api.minimaxi.com`) is a separate key namespace and is left to the generic OpenAI-compatible discoverer.
+
+**Live API provides:**
+
+| Field | Source |
+|-------|--------|
+| Model list | API (`GET /models`) |
+| Owned by | API (recorded as `minimax`) |
+
+Everything else - context length, pricing, capabilities, reasoning - is backfilled by models.dev enrichment rather than the live listing.
+
+Known models: `MiniMax-M3`, `MiniMax-M2.7` (+ `MiniMax-M2.7-highspeed`), `MiniMax-M2.5` (+ `MiniMax-M2.5-highspeed`), `MiniMax-M2.1` (+ `MiniMax-M2.1-highspeed`), and `MiniMax-M2`.
 
 ### OpenCode Go
 
@@ -1095,6 +1115,7 @@ The table below summarizes what each provider type supplies during model discove
 | KoboldCPP | API | - | - | - | Live API |
 | NeuralWatt | models.dev | models.dev | models.dev | models.dev | OpenAI-compatible `GET /v1/models` (no dedicated discovery; enriched via models.dev) |
 | Kimi Code | API | - | API | API | Live API (no catalog, no models.dev) |
+| MiniMax | models.dev | models.dev | models.dev | models.dev | Live API (metadata-bare `GET /models`; no catalog, enriched via models.dev) |
 
 ---
 
@@ -1111,9 +1132,10 @@ Some providers offer supplementary APIs that are accessible outside of model dis
 | Ollama Cloud | `POST /api/me` | `GetOllamaCloudAccount` | Account information |
 | NeuralWatt | `GET /quota` | `GetNeuralWattQuota` | Quota/balance (a 404 means a free-tier key with no quota endpoint - treated as "no data", not an error) |
 | Kimi Code | `GET /usages` | `GetKimiCodeQuota` | 5-hour and weekly quota (limit/remaining/reset time), parallel-request limit, and membership tier |
+| MiniMax | `GET /token_plan/remains` | `GetMiniMaxQuota` | 5-hour and weekly Token Plan quota per model class (status and remaining percent), passed through as-is including `base_resp` |
 
 These are exposed via:
-- `GET /api/providers/{id}/usage` - for NanoGPT, Z.AI, OpenRouter, NeuralWatt, and Kimi Code
+- `GET /api/providers/{id}/usage` - for NanoGPT, Z.AI, OpenRouter, NeuralWatt, Kimi Code, and MiniMax
 - `GET /api/providers/{id}/balance` - for DeepSeek
 - `POST /api/providers/refresh-quotas` - refreshes usage/balance for all supported providers
 

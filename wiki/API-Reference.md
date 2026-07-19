@@ -234,7 +234,7 @@ The admin token is generated on first startup and saved to `.data/admin-token`. 
 | `/api/providers/{id}` | PUT | Update provider |
 | `/api/providers/{id}` | DELETE | Delete provider |
 | `/api/providers/{id}/discover` | POST | Trigger manual model discovery |
-| `/api/providers/{id}/usage` | GET | Get usage/quota info (Z.AI, Nano-GPT, OpenRouter, NeuralWatt, Kimi Code) |
+| `/api/providers/{id}/usage` | GET | Get usage/quota info (Z.AI, Nano-GPT, OpenRouter, NeuralWatt, Kimi Code, MiniMax) |
 | `/api/providers/{id}/balance` | GET | Get balance info (DeepSeek) |
 | `/api/providers/{id}/account` | GET | Get account info (Ollama Cloud) |
 | `/api/providers/discover-all` | POST | Trigger discovery for all enabled providers |
@@ -325,6 +325,7 @@ Returns usage/quota information for supported providers.
 - `openrouter` (OpenRouter - returns key balance)
 - `neuralwatt` (NeuralWatt - returns quota; 404 from the upstream quota endpoint means a free-tier key and yields no data)
 - `kimi-code` (Kimi Code - returns 5-hour/weekly quota, parallel-request limit, and membership tier)
+- `minimax` (MiniMax - returns 5-hour/weekly Token Plan quota per model class)
 
 **Response (Z.AI example):**
 ```json
@@ -348,6 +349,27 @@ Returns usage/quota information for supported providers.
 }
 ```
 The service passes the Kimi Code `/usages` payload through as-is; the dashboard derives 5-hour and weekly percentages from the `limits` array by matching each window's `duration` (300 minutes = 5h, 10080 minutes = weekly).
+
+**Response (MiniMax example):**
+```json
+{
+  "model_remains": [
+    {
+      "model_name": "general",
+      "current_interval_status": 1,
+      "current_interval_remaining_percent": 100,
+      "current_weekly_status": 1,
+      "current_weekly_remaining_percent": 100,
+      "start_time": 1784473200000,
+      "end_time": 1784491200000,
+      "remains_time": 16420081,
+      "weekly_remains_time": 30820081
+    }
+  ],
+  "base_resp": {"status_code": 0, "status_msg": "success"}
+}
+```
+The service passes the MiniMax `/token_plan/remains` payload through as-is, including `base_resp`. MiniMax reports business errors (such as `2062` for "no active token plan subscription") inside an HTTP 200 response, so the dashboard checks `base_resp.status_code` rather than the HTTP status to decide whether quota data is available.
 
 #### GET `/api/providers/{id}/balance`
 
