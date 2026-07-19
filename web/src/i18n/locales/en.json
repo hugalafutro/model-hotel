@@ -711,6 +711,7 @@
 		"toast_quota_detected_nanogpt": "NanoGPT quota detected",
 		"toast_quota_detected_zai": "Z.ai Coding quota detected",
 		"toast_quota_detected_kimi": "Kimi Code quota detected",
+		"toast_quota_detected_minimax": "MiniMax quota detected",
 		"toast_quota_detected_deepseek": "DeepSeek balance detected: ${{amount}}",
 		"toast_quota_detected_openrouter": "OpenRouter balance detected: ${{amount}}",
 		"toast_quota_detected_ollama": "Ollama Cloud {{plan}} plan detected",

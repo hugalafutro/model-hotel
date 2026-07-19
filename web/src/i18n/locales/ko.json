@@ -855,7 +855,9 @@
 			"toggleSection": "{{provider}} 섹션 전환",
 			"failoverDisabled": "페일오버 그룹 비활성화됨",
 			"failoverDisabledReason": "라우팅 가능한 멤버 {{count}}개 남음, 2개 이상 필요"
-		}
+		},
+		"toast_quota_detected_minimax": "MiniMax 할당량 감지됨",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "모델",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "청구 주기",
 			"neuralwattAccountingMethod": "회계 처리 방법",
 			"limits": "한계",
-			"none": "없음"
+			"none": "없음",
+			"miniMaxPlanQuota": "MiniMax 플랜 할당량",
+			"miniMaxChatModels": "채팅 모델",
+			"miniMaxNotInPlan": "플랜에 포함되지 않음",
+			"miniMaxVideoModels": "동영상 모델"
 		},
 		"providerQuotaPanel": {
 			"quotas": "할당량",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} 요금제 ( {{endDate}}까지) {{refreshed}} - 클릭하여 업데이트",
 			"updated": "- 업데이트됨 {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} 잔여 kWh {{refreshed}}",
-			"neuralwattBalanceUnavailable": "NeuralWatt 잔액 확인 불가"
+			"neuralwattBalanceUnavailable": "NeuralWatt 잔액 확인 불가",
+			"miniMaxRemaining": "MiniMax 잔여 할당량 - 자세한 내용을 보려면 클릭하세요",
+			"miniMaxUsed": "MiniMax 사용 할당량 - 자세한 내용을 보려면 클릭하세요"
 		},
 		"filterDropdown": {
 			"placeholder": "필터",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "DeepSeek 잔액 조회에 실패했습니다",
 			"openRouterError": "OpenRouter 키 잔액 가져오기에 실패했습니다",
 			"ollamaCloudError": "Ollama Cloud 계정을 불러오지 못했습니다",
-			"neuralwattError": "NeuralWatt 할당량 가져오기에 실패했습니다"
+			"neuralwattError": "NeuralWatt 할당량 가져오기에 실패했습니다",
+			"miniMaxError": "MiniMax 사용량 할당량 가져오기에 실패했습니다"
 		},
 		"useDisableModel": {
 			"success": "\"{{model}}\" 모델이 비활성화되었습니다.",

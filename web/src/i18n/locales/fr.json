@@ -855,7 +855,9 @@
 			"toggleSection": "Afficher ou masquer la section {{provider}}",
 			"failoverDisabled": "Groupes de basculement désactivés",
 			"failoverDisabledReason": "{{count}} membre(s) routable(s) restant(s), 2+ requis"
-		}
+		},
+		"toast_quota_detected_minimax": "Quota MiniMax détecté",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "Modèle",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "Intervalle de facturation",
 			"neuralwattAccountingMethod": "Méthode comptable",
 			"limits": "Limites",
-			"none": "Aucun"
+			"none": "Aucun",
+			"miniMaxPlanQuota": "Quota du plan MiniMax",
+			"miniMaxChatModels": "Modèles de chat",
+			"miniMaxNotInPlan": "Non inclus dans le plan",
+			"miniMaxVideoModels": "Modèles vidéo"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Quotas",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Plan Ollama Cloud {{plan}} (se termine {{endDate}}) {{refreshed}} - cliquez pour mettre à jour",
 			"updated": "- mise à jour {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh restants {{refreshed}}",
-			"neuralwattBalanceUnavailable": "Solde NeuralWatt indisponible"
+			"neuralwattBalanceUnavailable": "Solde NeuralWatt indisponible",
+			"miniMaxRemaining": "Quota restant de MiniMax - cliquez pour plus de détails",
+			"miniMaxUsed": "Quota utilisé de MiniMax - cliquez pour plus de détails"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtre",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "Impossible de récupérer le solde de DeepSeek",
 			"openRouterError": "Impossible de récupérer le solde de la clé OpenRouter",
 			"ollamaCloudError": "Impossible de récupérer le compte Ollama Cloud",
-			"neuralwattError": "Impossible de récupérer le quota NeuralWatt"
+			"neuralwattError": "Impossible de récupérer le quota NeuralWatt",
+			"miniMaxError": "Impossible de récupérer le quota d'utilisation de MiniMax"
 		},
 		"useDisableModel": {
 			"success": "Modèle \"{{model}}\" désactivé",

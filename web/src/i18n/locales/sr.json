@@ -855,7 +855,9 @@
 			"toggleSection": "Прикажи/сакриј одељак {{provider}}",
 			"failoverDisabled": "Фејловер групе су онемогућене",
 			"failoverDisabledReason": "преостало {{count}} чланова који се могу рутирати, потребно 2+"
-		}
+		},
+		"toast_quota_detected_minimax": "MiniMax квота откривена",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "Модел",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "Интервал наплате",
 			"neuralwattAccountingMethod": "Метод рачуноводства",
 			"limits": "Ограничења",
-			"none": "Ниједан"
+			"none": "Ниједан",
+			"miniMaxPlanQuota": "Квота MiniMax плана",
+			"miniMaxChatModels": "Модели ћаскања",
+			"miniMaxNotInPlan": "Није укључено у план",
+			"miniMaxVideoModels": "Видео модели"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Квоте",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} план (завршава се {{endDate}}) {{refreshed}} - кликните да освежите",
 			"updated": "- ажурирано {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} преосталих kWh {{refreshed}}",
-			"neuralwattBalanceUnavailable": "НеуралВат баланс недоступан"
+			"neuralwattBalanceUnavailable": "НеуралВат баланс недоступан",
+			"miniMaxRemaining": "MiniMax преостала квота - кликните за детаље",
+			"miniMaxUsed": "Искоришћена квота MiniMax - кликните за детаље"
 		},
 		"filterDropdown": {
 			"placeholder": "Филтер",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "Није успело да се преузме стање на DeepSeek-у",
 			"openRouterError": "Није успело да се преузме стање OpenRouter кључа",
 			"ollamaCloudError": "Није успело преузимање налога Ollama Cloud",
-			"neuralwattError": "Није успело да се преузме квота NeuralWatt"
+			"neuralwattError": "Није успело да се преузме квота NeuralWatt",
+			"miniMaxError": "Није успело да се преузме квота коришћења MiniMax"
 		},
 		"useDisableModel": {
 			"success": "Модел \"{{model}}\" онемогућен",

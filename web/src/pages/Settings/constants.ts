@@ -25,6 +25,7 @@ const PROVIDER_CACHE_KEYS = [
 	{ key: "model-hotel:nanogpt-usage", name: "NanoGPT" },
 	{ key: "model-hotel:zai-coding-usage", name: "Z.ai Coding Plan" },
 	{ key: "model-hotel:kimi-code-usage", name: "Kimi Code" },
+	{ key: "model-hotel:minimax-usage", name: "MiniMax" },
 	{ key: "model-hotel:deepseek-balance", name: "DeepSeek" },
 	{ key: "model-hotel:ollama-cloud-account", name: "Ollama Cloud" },
 ] as const;

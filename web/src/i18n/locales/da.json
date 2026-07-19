@@ -855,7 +855,9 @@
 			"toggleSection": "Skift {{provider}}-sektion",
 			"failoverDisabled": "Failover-grupper deaktiveret",
 			"failoverDisabledReason": "{{count}} rutebare medlem(mer) tilbage, kræver 2+"
-		}
+		},
+		"toast_quota_detected_minimax": "Opdaget kvote for MiniMax",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "Faktureringsinterval",
 			"neuralwattAccountingMethod": "Regnskabsmetode",
 			"limits": "Grænser",
-			"none": "Ingen"
+			"none": "Ingen",
+			"miniMaxPlanQuota": "Kvote for MiniMax-plan",
+			"miniMaxChatModels": "Chatmodeller",
+			"miniMaxNotInPlan": "Ikke inkluderet i planen",
+			"miniMaxVideoModels": "Videomodeller"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Kvoter",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (slutter {{endDate}}) {{refreshed}} - klik for at opdatere",
 			"updated": "- opdaterede {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh resterende {{refreshed}}",
-			"neuralwattBalanceUnavailable": "NeuralWatt saldo utilgængelig"
+			"neuralwattBalanceUnavailable": "NeuralWatt saldo utilgængelig",
+			"miniMaxRemaining": "MiniMax resterende kvote - klik for detaljer",
+			"miniMaxUsed": "MiniMax brugte kvote - klik for detaljer"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtrer",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "Kunne ikke hente DeepSeek balance",
 			"openRouterError": "Kunne ikke hente OpenRouter nøglesaldo",
 			"ollamaCloudError": "Kunne ikke hente Ollama Cloud-konto",
-			"neuralwattError": "Kunne ikke hente NeuralWatt kvote"
+			"neuralwattError": "Kunne ikke hente NeuralWatt kvote",
+			"miniMaxError": "Kunne ikke hente MiniMax-brugskvoter"
 		},
 		"useDisableModel": {
 			"success": "Model \"{{model}}\" deaktiveret",

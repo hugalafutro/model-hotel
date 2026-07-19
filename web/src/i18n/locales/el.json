@@ -855,7 +855,9 @@
 			"toggleSection": "Εναλλαγή ενότητας {{provider}}",
 			"failoverDisabled": "Ομάδες ανακατεύθυνσης απενεργοποιημένες",
 			"failoverDisabledReason": "απομένουν {{count}} δρομολογήσιμα μέλη, απαιτούνται 2+"
-		}
+		},
+		"toast_quota_detected_minimax": "Ανιχνεύθηκε ποσόστωση MiniMax",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "Μοντέλο",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "Διάστημα Χρέωσης",
 			"neuralwattAccountingMethod": "Λογιστική Μέθοδος",
 			"limits": "Όρια",
-			"none": "Κανένα"
+			"none": "Κανένα",
+			"miniMaxPlanQuota": "Ποσόστωση Σχεδίου MiniMax",
+			"miniMaxChatModels": "Μοντέλα συνομιλίας",
+			"miniMaxNotInPlan": "Δεν περιλαμβάνεται στο πλάνο",
+			"miniMaxVideoModels": "Μοντέλα βίντεο"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Ποσοστώσεις",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (ends {{endDate}}) {{refreshed}} - κάντε κλικ για ενημέρωση",
 			"updated": "- ενημερωμένο {{time}}",
 			"neuralwattBalance": "NeuralWatt: Απομένει {{amount}} kWh {{refreshed}}",
-			"neuralwattBalanceUnavailable": "NeuralWatt υπόλοιπο μη διαθέσιμο"
+			"neuralwattBalanceUnavailable": "NeuralWatt υπόλοιπο μη διαθέσιμο",
+			"miniMaxRemaining": "MiniMax υπόλοιπο όριο - κάντε κλικ για λεπτομέρειες",
+			"miniMaxUsed": "MiniMax χρησιμοποιημένο όριο - κάντε κλικ για λεπτομέρειες"
 		},
 		"filterDropdown": {
 			"placeholder": "Φίλτρο",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "Αποτυχία ανάκτησης του υπολοίπου DeepSeek",
 			"openRouterError": "Αποτυχία ανάκτησης υπολοίπου κλειδιού OpenRouter",
 			"ollamaCloudError": "Αποτυχία ανάκτησης του λογαριασμού Ollama Cloud",
-			"neuralwattError": "Αποτυχία ανάκτησης του ορίου NeuralWatt"
+			"neuralwattError": "Αποτυχία ανάκτησης του ορίου NeuralWatt",
+			"miniMaxError": "Αποτυχία ανάκτησης του ορίου χρήσης MiniMax"
 		},
 		"useDisableModel": {
 			"success": "Μοντέλο \"{{model}}\" απενεργοποιήθηκε",

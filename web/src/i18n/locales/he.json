@@ -855,7 +855,9 @@
 			"toggleSection": "החלף את מקטע {{provider}}",
 			"failoverDisabled": "קבוצות מעבר למקרה כשל הושבתו",
 			"failoverDisabledReason": "נותרו {{count}} חברים הניתנים לניתוב, נדרשים 2+"
-		}
+		},
+		"toast_quota_detected_minimax": "זוהתה מכסת MiniMax",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "מודל",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "תדירות החיוב",
 			"neuralwattAccountingMethod": "שיטת חשבונאות",
 			"limits": "גבולות",
-			"none": "אין"
+			"none": "אין",
+			"miniMaxPlanQuota": "מכסת תוכנית MiniMax",
+			"miniMaxChatModels": "מודלים לצ'אט",
+			"miniMaxNotInPlan": "לא כלול בתוכנית",
+			"miniMaxVideoModels": "מודלים לווידאו"
 		},
 		"providerQuotaPanel": {
 			"quotas": "מכסות",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "תוכנית Ollama Cloud {{plan}} (מסתיימת ב- {{endDate}}) {{refreshed}} - לחץ כדי לעדכן",
 			"updated": "- עודכן {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} קוט\"ש שנותרו {{refreshed}}",
-			"neuralwattBalanceUnavailable": "מאזן NeuralWatt אינו זמין"
+			"neuralwattBalanceUnavailable": "מאזן NeuralWatt אינו זמין",
+			"miniMaxRemaining": "MiniMax: מכסה נותרת - לחץ כאן לפרטים",
+			"miniMaxUsed": "MiniMax: מכסה בשימוש - לחץ לפרטים"
 		},
 		"filterDropdown": {
 			"placeholder": "מסנן",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "לא הצלחתי לאחזר את יתרת DeepSeek",
 			"openRouterError": "לא הצליח לאחזר את יתרת המפתח של OpenRouter",
 			"ollamaCloudError": "לא הצליח לאחזר את חשבון Ollama Cloud",
-			"neuralwattError": "לא הצלחתי לאחזר את מכסת NeuralWatt"
+			"neuralwattError": "לא הצלחתי לאחזר את מכסת NeuralWatt",
+			"miniMaxError": "לא ניתן לאחזר את מכסת השימוש ב-MiniMax"
 		},
 		"useDisableModel": {
 			"success": "הדגם \"{{model}}\" מושבת",

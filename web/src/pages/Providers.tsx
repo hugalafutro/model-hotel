@@ -13,6 +13,7 @@ import { ManagedBanner } from "../components/ManagedBanner";
 import { PageHeader } from "../components/PageHeader";
 import {
 	KimiCodeQuotaModal,
+	MiniMaxQuotaModal,
 	NanoGPTQuotaModal,
 	NeuralWattQuotaModal,
 	OpenRouterQuotaModal,
@@ -101,6 +102,8 @@ export function Providers() {
 		setZaiCodingOpen,
 		isKimiCodeOpen,
 		setKimiCodeOpen,
+		isMiniMaxOpen,
+		setMiniMaxOpen,
 		isOpenRouterOpen,
 		setOpenRouterOpen,
 		isNeuralwattOpen,
@@ -235,6 +238,7 @@ export function Providers() {
 			queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
 			queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
 			queryClient.invalidateQueries({ queryKey: ["kimi-code-usage"] });
+			queryClient.invalidateQueries({ queryKey: ["minimax-usage"] });
 			queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
 			queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
@@ -426,6 +430,7 @@ export function Providers() {
 						onSetModalNano={() => setNanoOpen(true)}
 						onSetModalZaiCoding={() => setZaiCodingOpen(true)}
 						onSetModalKimiCode={() => setKimiCodeOpen(true)}
+						onSetModalMiniMax={() => setMiniMaxOpen(true)}
 						onSetModalOpenRouter={() => setOpenRouterOpen(true)}
 						onSetModalNeuralwatt={() => setNeuralwattOpen(true)}
 						toast={toast}
@@ -494,6 +499,17 @@ export function Providers() {
 					isRefreshing={quotaData.isKimiCodeRefetching}
 					onToast={toast}
 					lastRefreshed={quotaData.kimiCodeDataUpdatedAt}
+				/>
+			)}
+
+			{isMiniMaxOpen && quotaData.minimaxUsage && (
+				<MiniMaxQuotaModal
+					usage={quotaData.minimaxUsage}
+					onClose={() => setMiniMaxOpen(false)}
+					onRefresh={quotaData.refetchMiniMax}
+					isRefreshing={quotaData.isMiniMaxRefetching}
+					onToast={toast}
+					lastRefreshed={quotaData.minimaxDataUpdatedAt}
 				/>
 			)}
 

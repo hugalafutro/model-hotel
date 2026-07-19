@@ -718,6 +718,52 @@ describe("Providers", () => {
 			});
 		});
 
+		it("opens MiniMax quota modal when clicking quota badge", async () => {
+			const minimaxProvider = {
+				...mockProvider,
+				id: "provider-minimax",
+				name: "MiniMax",
+				base_url: "https://api.minimax.io/v1",
+			};
+			server.use(
+				...mockProvidersPageDefaults({ providers: [minimaxProvider] }),
+				http.get("/api/providers/:id/usage", () =>
+					HttpResponse.json({
+						model_remains: [
+							{
+								model_name: "general",
+								remains_time: 1000,
+								weekly_remains_time: 2000,
+								current_interval_status: 1,
+								current_interval_remaining_percent: 80,
+								current_weekly_status: 1,
+								current_weekly_remaining_percent: 60,
+							},
+						],
+						base_resp: { status_code: 0, status_msg: "success" },
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("MiniMax")).toBeInTheDocument();
+			});
+
+			// Badge shows "80%/60%" (5-hour/weekly remaining, default bar mode).
+			await waitFor(() => {
+				expect(screen.getByText("80%/60%")).toBeInTheDocument();
+			});
+			await user.click(screen.getByText("80%/60%"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "MiniMax Plan Quota" }),
+				).toBeInTheDocument();
+			});
+		});
+
 		it("opens OpenRouter balance modal when clicking balance badge", async () => {
 			const openrouterProvider = {
 				...mockProvider,

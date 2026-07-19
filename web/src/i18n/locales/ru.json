@@ -855,7 +855,9 @@
 			"toggleSection": "Переключить раздел {{provider}}",
 			"failoverDisabled": "Группы отказоустойчивости отключены",
 			"failoverDisabledReason": "осталось {{count}} маршрутизируемых участников, нужно 2+"
-		}
+		},
+		"toast_quota_detected_minimax": "Обнаружена квота MiniMax",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "Модель",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "Интервал выставления счетов",
 			"neuralwattAccountingMethod": "Метод учета",
 			"limits": "Лимиты",
-			"none": "Нет"
+			"none": "Нет",
+			"miniMaxPlanQuota": "Квота плана MiniMax",
+			"miniMaxChatModels": "Модели чата",
+			"miniMaxNotInPlan": "Не включено в план",
+			"miniMaxVideoModels": "Модели видео"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Квоты",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Ollama облачный {{plan}} план (заканчивается {{endDate}}) {{refreshed}} - нажмите для обновления",
 			"updated": "- обновлено {{time}}",
 			"neuralwattBalance": "НевральWatt: {{amount}} кВтч осталось {{refreshed}}",
-			"neuralwattBalanceUnavailable": "Баланс NeuralWatt недоступен"
+			"neuralwattBalanceUnavailable": "Баланс NeuralWatt недоступен",
+			"miniMaxRemaining": "Оставшаяся квота MiniMax - нажмите для получения подробной информации",
+			"miniMaxUsed": "Использованная квота MiniMax - нажмите для получения подробной информации"
 		},
 		"filterDropdown": {
 			"placeholder": "Фильтр",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "Не удалось получить баланс DeepSeek",
 			"openRouterError": "Не удалось получить баланс ключа OpenRouter",
 			"ollamaCloudError": "Не удалось получить аккаунт Ollama Cloud",
-			"neuralwattError": "Не удалось получить квоту NeuralWatt"
+			"neuralwattError": "Не удалось получить квоту NeuralWatt",
+			"miniMaxError": "Не удалось получить лимит использования MiniMax"
 		},
 		"useDisableModel": {
 			"success": "Модель \"{{model}}\" отключена",
