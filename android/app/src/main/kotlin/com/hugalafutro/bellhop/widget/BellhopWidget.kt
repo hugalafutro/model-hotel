@@ -3,6 +3,8 @@ package com.hugalafutro.bellhop.widget
 import android.content.Context
 import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,6 +63,18 @@ import java.util.Date
 /** BellhopWidgetReceiver is the manifest entry point; all logic is in [BellhopWidget]. */
 class BellhopWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = BellhopWidget()
+
+    // Placing the first widget instance is a user action asking for fleet state
+    // now, so fire the same display-only one-shot as the refresh button rather
+    // than sitting on empty-or-stale until the next organic write (the periodic
+    // backstop's first run can be a full period away). Not polling: one fetch
+    // per placement, and the linked/token guards inside make it a no-op when
+    // unpaired. onEnabled fires on first placement only, not on boot, so a
+    // reboot still renders purely from persisted state.
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        FleetPollWorker.runWidgetRefresh(context)
+    }
 }
 
 /**
@@ -77,11 +91,22 @@ class BellhopWidget : GlanceAppWidget() {
         context: Context,
         id: GlanceId,
     ) {
-        // Read once per render; updateAll() re-runs provideGlance, so writers
-        // control freshness and the composition itself stays static.
-        val state = WidgetStore.create(context).read()
-        val monitoringActive = MonitorStore.create(context).active.first()
-        provideContent { WidgetContent(state, monitoringActive) }
+        val widgetStore = WidgetStore.create(context)
+        val monitorStore = MonitorStore.create(context)
+        // Seed synchronously so the first frame shows real data, then keep
+        // collecting inside the composition: a Glance session outlives its
+        // first frame, and an update landing while it is alive (the placement
+        // refresh finishes seconds after placement) re-runs only the
+        // composition, not this function - a read captured out here would
+        // pin every recomposition to placement-time state. Collecting is not
+        // polling: the flow only emits when a writer commits.
+        val initialState = widgetStore.read()
+        val initialActive = monitorStore.active.first()
+        provideContent {
+            val state by widgetStore.state.collectAsState(initial = initialState)
+            val monitoringActive by monitorStore.active.collectAsState(initial = initialActive)
+            WidgetContent(state, monitoringActive)
+        }
     }
 
     companion object {
