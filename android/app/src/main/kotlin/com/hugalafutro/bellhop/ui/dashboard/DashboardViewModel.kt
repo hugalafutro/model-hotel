@@ -13,6 +13,8 @@ import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.SseMessage
+import com.hugalafutro.bellhop.data.WidgetStore
+import com.hugalafutro.bellhop.data.widgetStateOf
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
@@ -95,6 +97,10 @@ class DashboardViewModel(
     private val client: FrontDeskClient,
     private val linkStore: LinkStore,
     private val fdUrl: String,
+    private val widgetStore: WidgetStore,
+    // Called after a refresh writes a changed widget state, so the caller can
+    // trigger a Glance re-render (default no-op keeps unit tests off the widget).
+    private val onWidgetWritten: suspend () -> Unit = {},
     private val pollIntervalMs: Long = POLL_INTERVAL_MS,
     private val sseHealthyPollIntervalMs: Long = SSE_HEALTHY_POLL_INTERVAL_MS,
     private val trafficPollMs: Long = TRAFFIC_POLL_MS,
@@ -397,6 +403,11 @@ class DashboardViewModel(
             _state.update { it.copy(loading = false, revoked = true) }
             return
         }
+        // Widget write fence, captured before the fetch (same pattern as the
+        // background poll): an unlink mid-refresh stamps a fresh generation, so
+        // this refresh's late display write is dropped instead of resurrecting the
+        // old fleet (see WidgetStore).
+        val widgetGeneration = widgetStore.generation()
         when (val result = client.members(fdUrl, token)) {
             is FetchResult.Success -> {
                 val autoSync = client.autoSync(fdUrl, token) as? FetchResult.Success
@@ -477,6 +488,17 @@ class DashboardViewModel(
                     )
                 }
                 trafficFetchedAt.keys.retainAll(liveIds)
+                // Mirror this refresh into the home-screen widget so it rides the
+                // existing fetch (the no-new-polling rule) instead of ever fetching
+                // itself. Fenced by the generation captured before the fetch; the
+                // autosync flag falls back to the stored value when its read failed
+                // so a transient miss doesn't flip the widget's badge. Only a real
+                // change (saveIfChanged returns true) triggers a Glance re-render,
+                // so the dashboard's fast poll cadence doesn't re-render every tick.
+                val autosyncStale = autoSync?.data?.stale ?: widgetStore.read()?.autosyncStale ?: false
+                if (widgetStore.saveIfChanged(widgetStateOf(result.data, autosyncStale, now()), widgetGeneration)) {
+                    onWidgetWritten()
+                }
             }
             FetchResult.Unauthorized ->
                 _state.update { it.copy(loading = false, revoked = true) }
@@ -543,9 +565,12 @@ class DashboardViewModel(
         private val client: FrontDeskClient,
         private val linkStore: LinkStore,
         private val fdUrl: String,
+        private val widgetStore: WidgetStore,
+        private val onWidgetWritten: suspend () -> Unit = {},
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T = DashboardViewModel(client, linkStore, fdUrl) as T
+        override fun <T : ViewModel> create(modelClass: Class<T>): T =
+            DashboardViewModel(client, linkStore, fdUrl, widgetStore, onWidgetWritten) as T
     }
 
     companion object {
