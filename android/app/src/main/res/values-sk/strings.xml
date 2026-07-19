@@ -257,4 +257,15 @@
         <item quantity="many">pred %d dňa</item>
         <item quantity="other">pred %d dňami</item>
     </plurals>
+
+    <!-- Home-screen widget -->
+    <string name="widget_label">Stav flotily</string>
+    <string name="widget_unpaired">Otvorte Bellhop a spárujte</string>
+    <string name="widget_no_members">Zatiaľ žiadni členovia</string>
+    <string name="widget_monitoring_off">Sledovanie vypnuté</string>
+    <!-- %1$s is a clock time, e.g. 14:32 -->
+    <string name="widget_as_of">k %1$s</string>
+    <string name="widget_stale">Synchronizácia zastaraná</string>
+    <!-- Collapsed face for large fleets: up/down/drained counts -->
+    <string name="widget_counts">%1$d beží · %2$d mimo · %3$d odstavené</string>
 </resources>

@@ -239,4 +239,15 @@
     <plurals name="time_day_ago">
         <item quantity="other">%d 天前</item>
     </plurals>
+
+    <!-- Home-screen widget -->
+    <string name="widget_label">集群状态</string>
+    <string name="widget_unpaired">打开 Bellhop 进行配对</string>
+    <string name="widget_no_members">暂无成员</string>
+    <string name="widget_monitoring_off">监控已关闭</string>
+    <!-- %1$s is a clock time, e.g. 14:32 -->
+    <string name="widget_as_of">截至 %1$s</string>
+    <string name="widget_stale">同步已过期</string>
+    <!-- Collapsed face for large fleets: up/down/drained counts -->
+    <string name="widget_counts">%1$d 运行中 · %2$d 已宕机 · %3$d 已排空</string>
 </resources>

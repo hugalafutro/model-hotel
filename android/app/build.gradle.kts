@@ -145,6 +145,10 @@ dependencies {
     // worker that diffs fleet health while Bellhop is backgrounded and posts a
     // local notification on a member going down or recovering. No push infra.
     implementation(libs.androidx.work.runtime)
+    // Jetpack Glance renders the home-screen widget. The widget never fetches:
+    // it displays WidgetStore state written by fetches the app already makes
+    // (spec: plans/2026-07-18-bellhop-glance-widget-design.md).
+    implementation(libs.androidx.glance.appwidget)
     // UnifiedPush is the Layer-3 real-time wake (plan section 5.2): an opt-in,
     // Google-free replacement for FCM. A distributor (ntfy) holds the socket and
     // wakes Bellhop the moment Front Desk's Apprise pipeline pushes to its topic;

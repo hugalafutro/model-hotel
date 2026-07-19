@@ -25,6 +25,7 @@ import com.hugalafutro.bellhop.data.diffAutoSync
 import com.hugalafutro.bellhop.data.diffFleet
 import com.hugalafutro.bellhop.data.widgetStateOf
 import com.hugalafutro.bellhop.notify.FleetNotifier
+import com.hugalafutro.bellhop.widget.BellhopWidget
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
@@ -166,17 +167,22 @@ class FleetPollWorker(
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
         val context = applicationContext
-        return runBackstop(
-            monitorStore = MonitorStore.create(context),
-            linkStore = LinkStore.create(context),
-            widgetStore = WidgetStore.create(context),
-            client = FrontDeskClient(),
-            canNotify = FleetNotifier.canPost(context),
-            notify = { FleetNotifier.notify(context, it) },
-            // The push one-shot must not retry (see runBackstop): a backing-off
-            // one-shot would block later push wakes under the KEEP policy.
-            retryOnFailure = !inputData.getBoolean(KEY_ONESHOT, false),
-        )
+        val result =
+            runBackstop(
+                monitorStore = MonitorStore.create(context),
+                linkStore = LinkStore.create(context),
+                widgetStore = WidgetStore.create(context),
+                client = FrontDeskClient(),
+                canNotify = FleetNotifier.canPost(context),
+                notify = { FleetNotifier.notify(context, it) },
+                // The push one-shot must not retry (see runBackstop): a backing-off
+                // one-shot would block later push wakes under the KEEP policy.
+                retryOnFailure = !inputData.getBoolean(KEY_ONESHOT, false),
+            )
+        // Re-render after every run: cheap no-op with no widget placed, and a
+        // successful poll just wrote fresh WidgetStore state.
+        BellhopWidget.update(context)
+        return result
     }
 
     companion object {
