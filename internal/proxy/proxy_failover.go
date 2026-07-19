@@ -147,6 +147,12 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		}
 	}
 
+	// MiniMax reports business errors (rate limit, exhausted plan balance,
+	// auth failures) inside an HTTP 200 envelope; remap them to an effective
+	// status so the breaker/failover/error paths below — all keyed on status
+	// codes — see the failure.
+	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
+
 	responseHeaderMs := float64(time.Since(st.startTime).Microseconds()) / 1000.0
 
 	hasMoreCandidates := attempt < totalCandidates-1

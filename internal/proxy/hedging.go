@@ -214,6 +214,12 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	}
 	res.respHeaderMs = float64(time.Since(st.startTime).Microseconds()) / 1000.0
 
+	// MiniMax reports business errors (rate limit, exhausted plan balance,
+	// auth failures) inside an HTTP 200 envelope; remap them to an effective
+	// status so the breaker/failover paths below — all keyed on status codes —
+	// see the failure.
+	resp = remapMiniMaxBusinessError(provider.DetectProviderType(candidate.provider.BaseURL), candidate.provider.Name, resp)
+
 	isFailoverEligible := h.shouldFailover(ctx, resp.StatusCode)
 	h.recordBreakerOutcome(st, candidate, resp.StatusCode, isFailoverEligible)
 

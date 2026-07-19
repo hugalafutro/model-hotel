@@ -429,6 +429,8 @@ Everything else - context length, pricing, capabilities, reasoning - is backfill
 
 Known models: `MiniMax-M3`, `MiniMax-M2.7` (+ `MiniMax-M2.7-highspeed`), `MiniMax-M2.5` (+ `MiniMax-M2.5-highspeed`), `MiniMax-M2.1` (+ `MiniMax-M2.1-highspeed`), and `MiniMax-M2`.
 
+**Chat-completion HTTP-200 business errors:** MiniMax reports chat-completion failures (rate limit, exhausted Token Plan balance, auth rejection) inside a real HTTP `200` whose JSON body carries `base_resp.status_code != 0` (e.g. `1008` "insufficient balance"). The proxy's failover, circuit-breaker, and error-forwarding paths are all keyed on `resp.StatusCode`, so an unmodified `200` would be treated as success - the client gets an empty completion and no failover fires. For minimax-typed providers, the proxy inspects each non-streaming `200` and remaps the business code to the HTTP status it stands for (`1002`/`1039`/`1008` rate/token/balance to `429`, `1004` auth to `401`, anything else to `502`), restoring the original body so the error message still forwards. Genuine successes (`base_resp.status_code == 0`), streaming SSE responses, and unparseable bodies are passed through untouched. This is a proxy concern only; the quota endpoint (`GetMiniMaxQuota`, below) still passes `base_resp` through to the dashboard as-is.
+
 ### OpenCode Go
 
 **Source files:** `discovery_opencode_go.go`, `opencode_go_catalog.go`, `opencode_catalog_types.go`, `catalog_merge.go`
