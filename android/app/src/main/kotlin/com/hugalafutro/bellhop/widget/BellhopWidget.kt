@@ -225,7 +225,9 @@ private fun MemberBars(traffic: List<Int>) {
     val max = buckets.max().coerceAtLeast(1)
     Row(
         verticalAlignment = Alignment.Bottom,
-        modifier = GlanceModifier.fillMaxWidth().height(16.dp).padding(horizontal = 6.dp),
+        // Inset from the card's bottom edge so the rounded surface stays visible
+        // under the baseline and neighbouring cards don't blend into one strip.
+        modifier = GlanceModifier.fillMaxWidth().height(16.dp).padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         buckets.chunked(TRAFFIC_BUCKETS / 2).forEach { half ->
             Row(verticalAlignment = Alignment.Bottom, modifier = GlanceModifier.defaultWeight()) {
@@ -348,7 +350,7 @@ private fun WidgetContent(
                         modifier =
                             GlanceModifier
                                 .fillMaxWidth()
-                                .padding(bottom = 3.dp)
+                                .padding(bottom = 4.dp)
                                 .background(ImageProvider(R.drawable.widget_row_bg)),
                     ) {
                         if (graphs && member.traffic.isNotEmpty()) {
@@ -356,7 +358,7 @@ private fun WidgetContent(
                         }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = GlanceModifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
+                            modifier = GlanceModifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 3.dp),
                         ) {
                             Image(
                                 ImageProvider(R.drawable.widget_dot),
@@ -396,7 +398,7 @@ private fun WidgetContent(
                             .fillMaxWidth()
                             .padding(bottom = 6.dp)
                             .background(ImageProvider(R.drawable.widget_event_bg))
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
                 ) {
                     Text(
                         context.getString(R.string.widget_event_header),
@@ -421,12 +423,14 @@ private fun WidgetContent(
                 }
             }
         }
-        Row(modifier = GlanceModifier.fillMaxWidth()) {
+        // Footer chrome is informative, not content: 9sp muted text and a small
+        // icon so it recedes behind the rows it annotates.
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = GlanceModifier.fillMaxWidth()) {
             if (state != null) {
                 val stamp = DateFormat.getTimeFormat(context).format(Date(state.updatedAt))
                 Text(
                     context.getString(R.string.widget_as_of, stamp),
-                    style = TextStyle(color = TextMuted, fontSize = 11.sp),
+                    style = TextStyle(color = TextMuted, fontSize = 9.sp),
                 )
             }
             Spacer(GlanceModifier.defaultWeight())
@@ -434,12 +438,12 @@ private fun WidgetContent(
                 state?.autosyncStale == true ->
                     Text(
                         context.getString(R.string.widget_stale),
-                        style = TextStyle(color = DotDrained, fontSize = 11.sp),
+                        style = TextStyle(color = DotDrained, fontSize = 9.sp),
                     )
                 !monitoringActive && state != null ->
                     Text(
                         context.getString(R.string.widget_monitoring_off),
-                        style = TextStyle(color = TextMuted, fontSize = 11.sp),
+                        style = TextStyle(color = TextMuted, fontSize = 9.sp),
                     )
             }
             if (state != null) {
@@ -447,7 +451,7 @@ private fun WidgetContent(
                 Image(
                     ImageProvider(R.drawable.ic_widget_refresh),
                     context.getString(R.string.widget_refresh),
-                    GlanceModifier.size(18.dp).clickable(actionRunCallback<WidgetRefreshAction>()),
+                    GlanceModifier.size(14.dp).clickable(actionRunCallback<WidgetRefreshAction>()),
                     // The vector's fill is opaque black; tint to the footer's muted
                     // pair or the icon vanishes on the night background.
                     colorFilter = ColorFilter.tint(TextMuted),
