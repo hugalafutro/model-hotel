@@ -257,4 +257,8 @@
     <!-- Collapsed face for large fleets: up/down/drained counts -->
     <string name="widget_counts">%1$d actifs · %2$d hors service · %3$d drainés</string>
     <string name="widget_refresh">Actualiser</string>
+    <string name="widget_state_up">Actif</string>
+    <string name="widget_state_down">Hors service</string>
+    <string name="widget_state_drained">Drainé</string>
+    <string name="widget_state_unknown">Inconnu</string>
 </resources>

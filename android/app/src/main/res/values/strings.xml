@@ -261,4 +261,8 @@
     <!-- Collapsed face for large fleets: up/down/drained counts -->
     <string name="widget_counts">%1$d up · %2$d down · %3$d drained</string>
     <string name="widget_refresh">Refresh</string>
+    <string name="widget_state_up">Up</string>
+    <string name="widget_state_down">Down</string>
+    <string name="widget_state_drained">Drained</string>
+    <string name="widget_state_unknown">Unknown</string>
 </resources>
