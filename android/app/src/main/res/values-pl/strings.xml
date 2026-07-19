@@ -269,4 +269,9 @@
     <!-- Collapsed face for large fleets: up/down/drained counts -->
     <string name="widget_counts">%1$d działa · %2$d nie działa · %3$d wygaszone</string>
     <string name="widget_refresh">Odśwież</string>
+    <string name="widget_state_up">Działa</string>
+    <string name="widget_state_down">Nie działa</string>
+    <string name="widget_state_drained">Wygaszony</string>
+    <string name="widget_state_unknown">Nieznany</string>
+    <string name="widget_event_header">Ostatnie zdarzenie floty</string>
 </resources>

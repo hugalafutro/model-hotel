@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Member row card, night: Ink800 on the Ink900 widget background. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#1A2331" />
+    <corners android:radius="10dp" />
+</shape>

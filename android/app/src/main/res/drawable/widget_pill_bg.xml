@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Newest-event pill, day: Paper200, fully rounded like the app's event chips. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#E5DCCB" />
+    <corners android:radius="99dp" />
+</shape>

@@ -257,4 +257,9 @@
     <!-- Collapsed face for large fleets: up/down/drained counts -->
     <string name="widget_counts">%1$d activos · %2$d caídos · %3$d drenados</string>
     <string name="widget_refresh">Actualizar</string>
+    <string name="widget_state_up">Activo</string>
+    <string name="widget_state_down">Caído</string>
+    <string name="widget_state_drained">Drenado</string>
+    <string name="widget_state_unknown">Desconocido</string>
+    <string name="widget_event_header">Último evento de la flota</string>
 </resources>

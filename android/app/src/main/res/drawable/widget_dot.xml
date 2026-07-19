@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Health dot: white oval tinted per state at the use site. A drawable rather
+     than a text glyph so the dot is crisp and identically sized everywhere. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="#FFFFFFFF" />
+</shape>
