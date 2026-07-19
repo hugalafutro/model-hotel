@@ -20,8 +20,10 @@ import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MonitorStore
+import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.diffAutoSync
 import com.hugalafutro.bellhop.data.diffFleet
+import com.hugalafutro.bellhop.data.widgetStateOf
 import com.hugalafutro.bellhop.notify.FleetNotifier
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
@@ -57,11 +59,17 @@ suspend fun pollFleet(
     fdUrl: String,
     token: String,
     monitorStore: MonitorStore,
+    widgetStore: WidgetStore,
+    now: () -> Long = System::currentTimeMillis,
 ): PollResult {
     // Capture the session epoch before the fetch: if an unlink + re-enable churns
     // the store while this poll is in flight, saveSnapshot drops our now-stale
     // write instead of poisoning the new session's baseline.
     val epoch = monitorStore.epoch()
+    // Widget write fence, captured before the fetch like the epoch above: an
+    // unlink mid-poll stamps a fresh generation, so this poll's late display
+    // write is dropped instead of resurrecting the old fleet (see WidgetStore).
+    val widgetGeneration = widgetStore.generation()
     return when (val result = client.members(fdUrl, token)) {
         is FetchResult.Success -> {
             val previous = monitorStore.snapshot()
@@ -77,6 +85,14 @@ suspend fun pollFleet(
                 }
             val alerts = diffFleet(previous, result.data) + listOfNotNull(diffAutoSync(previous, stale))
             monitorStore.saveSnapshot(FleetSnapshot.of(result.data, stale), epoch)
+            // This poll already holds everything the home-screen widget renders;
+            // persist its render model here so the widget rides the existing
+            // fetch (the no-new-polling rule) instead of ever fetching itself.
+            // Not gated by the monitor epoch (display state is not the alert
+            // baseline), but fenced by the store's own generation captured
+            // before the fetch, so a poll finishing after an unlink cleared
+            // the store cannot write the old fleet back.
+            widgetStore.saveIfChanged(widgetStateOf(result.data, stale, now()), widgetGeneration)
             PollResult.Changed(alerts)
         }
         FetchResult.Unauthorized -> PollResult.Unauthorized
@@ -95,6 +111,7 @@ suspend fun pollFleet(
 suspend fun runBackstop(
     monitorStore: MonitorStore,
     linkStore: LinkStore,
+    widgetStore: WidgetStore,
     client: FrontDeskClient,
     canNotify: Boolean,
     notify: (FleetAlert) -> Unit,
@@ -116,7 +133,7 @@ suspend fun runBackstop(
     // foreground UI surfaces the revoke; the backstop just stops quietly.
     val token = linkStore.token() ?: return Result.success()
 
-    return when (val result = pollFleet(client, link.fdUrl, token, monitorStore)) {
+    return when (val result = pollFleet(client, link.fdUrl, token, monitorStore, widgetStore)) {
         is PollResult.Changed -> {
             result.alerts.forEach(notify)
             Result.success()
@@ -152,6 +169,7 @@ class FleetPollWorker(
         return runBackstop(
             monitorStore = MonitorStore.create(context),
             linkStore = LinkStore.create(context),
+            widgetStore = WidgetStore.create(context),
             client = FrontDeskClient(),
             canNotify = FleetNotifier.canPost(context),
             notify = { FleetNotifier.notify(context, it) },

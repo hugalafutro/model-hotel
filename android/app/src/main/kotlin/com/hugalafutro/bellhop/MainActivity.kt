@@ -44,6 +44,7 @@ import com.hugalafutro.bellhop.data.LockStore
 import com.hugalafutro.bellhop.data.LockTimeout
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PrefsStore
+import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.shouldLock
 import com.hugalafutro.bellhop.data.shouldLockOnEntry
 import com.hugalafutro.bellhop.notify.FleetNotifier
@@ -204,6 +205,7 @@ fun BellhopApp() {
     val linkStore = remember { LinkStore.create(context) }
     val lockStore = remember { LockStore.create(context) }
     val monitorStore = remember { MonitorStore.create(context) }
+    val widgetStore = remember { WidgetStore.create(context) }
     val prefsStore = remember { PrefsStore.create(context) }
     val client = remember { FrontDeskClient() }
     val linkState by linkStore.state.collectAsStateWithLifecycle(initialValue = LinkState.Loading)
@@ -421,6 +423,8 @@ fun BellhopApp() {
                     // clear() drops the pushEnabled flag, but LinkedContent unmounts
                     // before its LaunchedEffect can unregister, so do it here too.
                     monitorStore.clear()
+                    // Widget display state is per-link too: a re-pair must not show the old fleet.
+                    widgetStore.clear()
                     FleetPollWorker.cancelAll(context)
                     BellhopPush.unregister(context, pushInstance)
                 } else {
@@ -456,6 +460,8 @@ fun BellhopApp() {
                 linkStore.clear()
                 lockStore.clear()
                 monitorStore.clear()
+                // Widget display state is per-link too: a re-pair must not show the old fleet.
+                widgetStore.clear()
                 FleetPollWorker.cancelAll(context)
                 BellhopPush.unregister(context, pushInstance)
             } catch (e: CancellationException) {
