@@ -1148,6 +1148,160 @@ func TestRefreshAllQuotas_KimiCodeError(t *testing.T) {
 	}
 }
 
+// kimiCodeUsageSuccessBody is a well-formed /usages payload used to drive the
+// kimi-code success arms.
+const kimiCodeUsageSuccessBody = `{
+	"user": {"userId": "u-1", "region": "REGION_OVERSEA", "membership": {"level": "LEVEL_BASIC"}},
+	"usage": {"limit": "100", "remaining": "42", "resetTime": "2026-07-26T12:10:02Z"},
+	"limits": [{"window": {"duration": 300, "timeUnit": "TIME_UNIT_MINUTE"}, "detail": {"limit": "100", "remaining": "42", "resetTime": "2026-07-19T17:10:02Z"}}],
+	"parallel": {"limit": "10"},
+	"totalQuota": {"limit": "100", "remaining": "99"},
+	"subType": "TYPE_PURCHASE"
+}`
+
+// TestGetProviderUsage_KimiCodeSuccess exercises the success arm of the
+// kimi-code case in GetProviderUsage: a 200 /usages response is decoded and
+// written back as JSON. The mock transport intercepts the api.kimi.com request
+// so no real network call is made while DetectProviderType still routes by host.
+func TestGetProviderUsage_KimiCodeSuccess(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.kimi.com") {
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader(kimiCodeUsageSuccessBody)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	providerName := fmt.Sprintf("test-kimi-code-ok-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.kimi.com/coding/v1", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 for Kimi Code usage success, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var quota provider.KimiCodeQuotaResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &quota); err != nil {
+		t.Fatalf("Failed to parse usage response: %v", err)
+	}
+	if quota.Usage.Remaining != "42" {
+		t.Errorf("Expected usage remaining 42, got %q", quota.Usage.Remaining)
+	}
+	if len(quota.Limits) != 1 || quota.Limits[0].Window.Duration != 300 {
+		t.Errorf("Expected one 300-minute window, got %+v", quota.Limits)
+	}
+}
+
+// TestRefreshAllQuotas_KimiCodeSuccess exercises the success arm of the
+// kimi-code case in RefreshAllQuotas: a 200 /usages response records the
+// provider as refreshed rather than failed.
+func TestRefreshAllQuotas_KimiCodeSuccess(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.Contains(req.URL.Host, "api.kimi.com") {
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader(kimiCodeUsageSuccessBody)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	providerName := fmt.Sprintf("test-quota-kimi-ok-%s", uuid.New().String()[:8])
+	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.kimi.com/coding/v1", "api_key": "fake-key"}`, providerName)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Results   []QuotaRefreshResult `json:"results"`
+		Refreshed int                  `json:"refreshed"`
+		Failed    int                  `json:"failed"`
+		Skipped   int                  `json:"skipped"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.Refreshed < 1 {
+		t.Errorf("Expected refreshed >= 1, got %d", response.Refreshed)
+	}
+
+	var kimiCodeRefreshed bool
+	for _, result := range response.Results {
+		if result.ProviderType == "kimi-code" && result.Refreshed && result.Error == "" {
+			kimiCodeRefreshed = true
+			break
+		}
+	}
+	if !kimiCodeRefreshed {
+		t.Error("Expected kimi-code result marked refreshed with no error")
+	}
+}
+
 // =============================================================================
 // GetProviderUsage Tests (Unit tests with mock transport)
 // =============================================================================

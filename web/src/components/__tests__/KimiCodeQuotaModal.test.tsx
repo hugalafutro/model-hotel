@@ -135,6 +135,69 @@ describe("KimiCodeQuotaModal", () => {
 				screen.queryByTestId("kimi-code-total-quota"),
 			).not.toBeInTheDocument();
 		});
+
+		it("shows 'N/A' reset label when the 5h window reset time is empty", () => {
+			const usageEmptyReset: KimiCodeQuotaResponse = {
+				...mockUsage,
+				limits: [
+					{
+						window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+						detail: { limit: "100", remaining: "80", resetTime: "" },
+					},
+				],
+			};
+			renderWithProviders(
+				<KimiCodeQuotaModal {...defaultProps} usage={usageEmptyReset} />,
+			);
+			expect(screen.getByText("N/A")).toBeInTheDocument();
+		});
+
+		it("shows 'N/A' reset label when the reset time is not a valid date", () => {
+			const usageBadReset: KimiCodeQuotaResponse = {
+				...mockUsage,
+				limits: [
+					{
+						window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+						detail: {
+							limit: "100",
+							remaining: "80",
+							resetTime: "not-a-date",
+						},
+					},
+				],
+			};
+			renderWithProviders(
+				<KimiCodeQuotaModal {...defaultProps} usage={usageBadReset} />,
+			);
+			expect(screen.getByText("N/A")).toBeInTheDocument();
+		});
+
+		it("renders '-' fallbacks when total quota fields are missing", () => {
+			const usageNoTotals: KimiCodeQuotaResponse = {
+				...mockUsage,
+				totalQuota: {},
+			};
+			renderWithProviders(
+				<KimiCodeQuotaModal {...defaultProps} usage={usageNoTotals} />,
+			);
+			expect(screen.getByTestId("kimi-code-total-quota")).toHaveTextContent(
+				"- / -",
+			);
+		});
+
+		it("toggles bar mode from remaining to used", async () => {
+			const { user } = renderWithProviders(
+				<KimiCodeQuotaModal {...defaultProps} />,
+			);
+			// 5h window: limit 100, remaining 80 => 20% used / 80% left.
+			expect(screen.getByText("80% left")).toBeInTheDocument();
+			await user.click(
+				screen.getByRole("button", {
+					name: "Toggle between remaining and used",
+				}),
+			);
+			expect(screen.getByText("20% used")).toBeInTheDocument();
+		});
 	});
 
 	describe("refresh functionality", () => {

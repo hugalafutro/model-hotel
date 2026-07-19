@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -359,4 +360,47 @@ func TestGetKimiCodeQuota_DecodeError(t *testing.T) {
 	_, err = svc.GetKimiCodeQuota(context.Background(), provider, masterKey)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+// TestDiscoverModels_KimiCodeDispatch exercises the kimi-code arm of the
+// DiscoverModels provider-type switch end-to-end offline: DetectProviderType
+// routes the api.kimi.com host to "kimi-code", and a mock transport returns a
+// canned listing so discoverKimiCode runs without a real network call. A
+// keyless provider (nil EncryptedKey) takes the no-decrypt path.
+func TestDiscoverModels_KimiCodeDispatch(t *testing.T) {
+	t.Parallel()
+
+	const listing = `{
+		"object": "list",
+		"data": [
+			{"id": "k3", "display_name": "K3", "context_length": 262144, "supports_reasoning": true, "supports_image_in": true},
+			{"id": "kimi-for-coding", "context_length": 262144},
+			{"id": "text-only", "context_length": 8192}
+		]
+	}`
+
+	svc := &DiscoveryService{httpClient: &http.Client{
+		Transport: &mockTransport{
+			roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				if !strings.Contains(req.URL.Host, "api.kimi.com") {
+					return nil, errors.New("unexpected host " + req.URL.Host)
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(listing)),
+					Header:     make(http.Header),
+				}, nil
+			},
+		},
+	}}
+
+	provider := &Provider{
+		ID:      uuid.New(),
+		Name:    "test-kimi-code-dispatch",
+		BaseURL: "https://api.kimi.com/coding/v1",
+	}
+
+	models, err := svc.DiscoverModels(context.Background(), provider, "unused-master-key")
+	assert.NoError(t, err)
+	assert.Len(t, models, 3)
 }

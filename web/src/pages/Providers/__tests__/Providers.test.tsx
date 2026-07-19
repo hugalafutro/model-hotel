@@ -665,6 +665,59 @@ describe("Providers", () => {
 			});
 		});
 
+		it("opens Kimi Code quota modal when clicking quota badge", async () => {
+			const kimiProvider = {
+				...mockProvider,
+				id: "provider-kimi",
+				name: "Kimi Code",
+				base_url: "https://api.kimi.com/coding/v1",
+			};
+			server.use(
+				...mockProvidersPageDefaults({ providers: [kimiProvider] }),
+				http.get("/api/providers/:id/usage", () =>
+					HttpResponse.json({
+						user: { region: "REGION_OVERSEA", membership: { level: "basic" } },
+						usage: {
+							limit: "100",
+							remaining: "20",
+							resetTime: "2099-07-26T12:10:02Z",
+						},
+						limits: [
+							{
+								window: { duration: 300, timeUnit: "TIME_UNIT_MINUTE" },
+								detail: {
+									limit: "100",
+									remaining: "90",
+									resetTime: "2099-07-19T17:10:02Z",
+								},
+							},
+						],
+						parallel: { limit: "10" },
+						totalQuota: { limit: "100", remaining: "99" },
+						subType: "TYPE_PURCHASE",
+					}),
+				),
+			);
+
+			const { user } = renderWithProviders(<Providers />);
+
+			await waitFor(() => {
+				expect(screen.getByText("Kimi Code")).toBeInTheDocument();
+			});
+
+			// Badge shows "90%/20%" (5-hour/weekly remaining).
+			await waitFor(() => {
+				expect(screen.getByText("90%/20%")).toBeInTheDocument();
+			});
+			await user.click(screen.getByText("90%/20%"));
+
+			await waitFor(() => {
+				expect(
+					screen.getByRole("heading", { name: "Kimi Code Plan Quota" }),
+				).toBeInTheDocument();
+			});
+		});
+
 		it("opens OpenRouter balance modal when clicking balance badge", async () => {
 			const openrouterProvider = {
 				...mockProvider,

@@ -1170,6 +1170,63 @@ describe("AddProviderModal", () => {
 			});
 		});
 
+		it("shows Kimi Code quota detected toast", async () => {
+			server.use(
+				http.post("/api/providers", async ({ request }) => {
+					const body = await request.json();
+					return HttpResponse.json(
+						{
+							id: "provider-new",
+							name: (body as { name?: string }).name ?? "Kimi Code",
+							base_url:
+								(body as { base_url?: string }).base_url ??
+								"https://api.kimi.com/coding/v1",
+							masked_key: "sk_test_••••••••",
+							enabled: true,
+							last_discovered_at: null,
+							last_used_at: null,
+							created_at: new Date().toISOString(),
+							updated_at: new Date().toISOString(),
+							model_count: 0,
+							total_tokens: 0,
+						},
+						{ status: 201 },
+					);
+				}),
+				http.post("/api/providers/:id/discover", () => {
+					return HttpResponse.json({ discovered: 3 });
+				}),
+				http.get("/api/providers/:id/usage", () => {
+					return HttpResponse.json({
+						usage: { limit: "100", remaining: "42", resetTime: "" },
+						limits: [],
+					});
+				}),
+			);
+			const { user } = renderWithProviders(
+				<AddProviderModal
+					{...defaultProps}
+					settings={{ discovery_on_provider_create: "true" }}
+				/>,
+			);
+			const nameInput = screen.getByLabelText("Name");
+			const baseUrlInput = screen.getByLabelText("Base URL");
+			const apiKeyInput = screen.getByLabelText("API Key");
+			await user.type(nameInput, "Kimi Code");
+			await user.type(baseUrlInput, "https://api.kimi.com/coding/v1");
+			await user.type(apiKeyInput, "sk-test-key");
+			const submitButton = screen.getByRole("button", {
+				name: "Add Provider",
+			});
+			await user.click(submitButton);
+			await waitFor(() => {
+				expect(onToast).toHaveBeenCalledWith(
+					"Kimi Code quota detected",
+					"info",
+				);
+			});
+		});
+
 		it("shows DeepSeek balance with USD currency", async () => {
 			server.use(
 				http.post("/api/providers", async ({ request }) => {

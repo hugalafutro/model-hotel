@@ -337,6 +337,23 @@ describe("QuotaBadge", () => {
 			// used: 5h = 10%, weekly = 80%
 			expect(screen.getByText("10%/80%")).toBeInTheDocument();
 		});
+
+		it("shows '-' fallback for the 5h window when it is missing", () => {
+			const usage: import("../../api/types").KimiCodeQuotaResponse = {
+				usage: {
+					limit: "100",
+					remaining: "20",
+					resetTime: "2026-07-26T12:10:02Z",
+				},
+				// No 300-minute window => five-hour helper returns undefined.
+				limits: [],
+			};
+			render(
+				<QuotaBadge type="kimi-code" variant="card" kimiCodeUsage={usage} />,
+			);
+			// remaining: 5h missing => "-", weekly = 20%
+			expect(screen.getByText("-/20%")).toBeInTheDocument();
+		});
 	});
 
 	describe("deepseek type", () => {
