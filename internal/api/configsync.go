@@ -79,6 +79,14 @@ var errStaleSourceGen = errors.New("configsync: import source generation is olde
 // reported backdoor-wipe vector). Import maps it to a 400 refusal.
 var errWouldWipeProviders = errors.New("configsync: refusing to wipe every provider off a populated member")
 
+// errInvalidSyncedURL is returned by apply when a syncable url-typed setting in
+// the envelope fails the same netguard validation the interactive PUT
+// /api/settings handler enforces. Without it a compromised primary could push an
+// oidc_issuer_url the interactive endpoint rejects, which the gateway later
+// fetches during OIDC discovery / token exchange (reported SSRF bypass,
+// CWE-918). Import maps it to a 400 refusal.
+var errInvalidSyncedURL = errors.New("configsync: refusing to apply a setting with an invalid URL")
+
 // ConfigSyncHandler serves the member-side config export/import endpoints. It is
 // mounted inside the admin-authenticated /api group, so every call already
 // requires the admin token (or a session when TOTP is on): a caller able to

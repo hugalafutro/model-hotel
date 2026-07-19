@@ -89,6 +89,14 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		debuglog.Warn("configsync: refused provider-wiping import")
 		http.Error(w, "refusing to import a config that would delete every provider on this member", http.StatusBadRequest)
 		return
+	case errors.Is(err, errInvalidSyncedURL):
+		// A syncable url-typed setting failed the same netguard validation the
+		// interactive settings endpoint enforces (reported SSRF bypass, CWE-918).
+		// A legitimate primary never exports such a value, so a 400 surfaces the
+		// poisoned/corrupt envelope to Front Desk rather than silently applying it.
+		debuglog.Warn("configsync: refused import with invalid URL setting", "error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	case err != nil:
 		debuglog.Error("configsync: apply import", "error", err)
 		http.Error(w, "could not apply config", http.StatusInternalServerError)

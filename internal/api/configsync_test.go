@@ -582,6 +582,82 @@ func TestConfigSync_RefusesUsersOnlyEnvelope(t *testing.T) {
 	}
 }
 
+// TestConfigSync_ImportRejectsPoisonedURLSetting reproduces the reported SSRF
+// bypass (CWE-918). The interactive PUT /api/settings validates url-typed
+// settings with netguard.ValidateURL, but the config-sync apply path wrote them
+// straight through SetTx. A compromised primary could push an oidc_issuer_url the
+// interactive endpoint would reject, and the gateway would later fetch it during
+// OIDC discovery / token exchange (leaking the client secret). The import must
+// refuse the whole envelope with a 400, and its transaction must roll back so no
+// provider or setting from the poisoned envelope survives.
+func TestConfigSync_ImportRejectsPoisonedURLSetting(t *testing.T) {
+	for _, tc := range []struct {
+		name, key, value string
+	}{
+		{"oidc issuer link-local", "oidc_issuer_url", "http://169.254.169.254/"},
+		{"oidc issuer bad scheme", "oidc_issuer_url", "ftp://evil.example/"},
+		{"oidc issuer missing host", "oidc_issuer_url", "http://"},
+		{"public base bad scheme", "oidc_public_base_url", "javascript:alert(1)"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cleanConfigTables(t)
+			r := newConfigSyncRouter(t, configSyncMasterKey)
+			seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+			env := doExport(t, r)
+			if env.Config.Settings == nil {
+				env.Config.Settings = map[string]string{}
+			}
+			env.Config.Settings[tc.key] = tc.value
+
+			cleanConfigTables(t) // fresh replica: the whole envelope must fail atomically
+			rec := doImport(t, r, env, "")
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("poisoned %s status = %d, want 400; body %s", tc.key, rec.Code, rec.Body.String())
+			}
+			if !bytes.Contains(rec.Body.Bytes(), []byte(tc.key)) {
+				t.Errorf("rejection body should name the setting %q, got %s", tc.key, rec.Body.String())
+			}
+
+			ctx := context.Background()
+			var providers, poisoned int
+			_ = apiTestDB.Pool().QueryRow(ctx, `SELECT count(*) FROM providers`).Scan(&providers)
+			if providers != 0 {
+				t.Errorf("refused import must roll back: providers = %d, want 0", providers)
+			}
+			_ = apiTestDB.Pool().QueryRow(ctx,
+				`SELECT count(*) FROM settings WHERE key = $1`, tc.key).Scan(&poisoned)
+			if poisoned != 0 {
+				t.Errorf("poisoned %s must not be written, count = %d", tc.key, poisoned)
+			}
+		})
+	}
+}
+
+// A valid url-typed setting must still sync: the CWE-918 guard rejects only
+// values the interactive endpoint would reject, never a legitimate primary's
+// already-validated URL (including the empty string that clears the setting).
+func TestConfigSync_ImportAcceptsValidURLSetting(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	env := doExport(t, r)
+	if env.Config.Settings == nil {
+		env.Config.Settings = map[string]string{}
+	}
+	env.Config.Settings["oidc_issuer_url"] = "https://idp.example.com/"
+
+	cleanConfigTables(t)
+	rec := doImport(t, r, env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("valid URL import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if got := settings.NewRepository(apiTestDB.Pool()).
+		GetWithDefault(ctx, "oidc_issuer_url", ""); got != "https://idp.example.com/" {
+		t.Fatalf("valid oidc_issuer_url = %q, want it applied", got)
+	}
+}
+
 // TestConfigSync_RefusesProviderWipeBackdoorInjection reproduces the reported
 // critical bypass (CWE-284) AND the one-line variant of it. The declarative
 // replace in apply() deletes every provider absent from the envelope, so an

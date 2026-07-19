@@ -170,6 +170,13 @@ func (h *ConfigSyncHandler) applySettingsTx(ctx context.Context, tx pgx.Tx, want
 		if !isSyncableSetting(k) {
 			continue // skip non-syncable / unknown keys silently
 		}
+		// Mirror the interactive PUT /api/settings URL validation: the config-sync
+		// path also writes url-typed settings (oidc_issuer_url, ...) that the server
+		// later fetches, so a compromised primary must not bypass netguard here
+		// (CWE-918). A legitimate primary already validated these on the way in.
+		if err := validateSyncedSettingURL(k, v); err != nil {
+			return nil, err
+		}
 		if err := h.settings.SetTx(ctx, tx, k, v); err != nil {
 			return nil, err
 		}
@@ -182,6 +189,29 @@ func (h *ConfigSyncHandler) applySettingsTx(ctx context.Context, tx pgx.Tx, want
 		return nil, err
 	}
 	return removedSettings, nil
+}
+
+// validateSyncedSettingURL applies the same netguard checks to a url-typed
+// setting that the interactive UpdateSettings handler enforces (settings.go),
+// so a config-sync import cannot write an oidc_issuer_url / apprise base URL the
+// interactive endpoint would reject (reported SSRF bypass, CWE-918). Non-URL and
+// unknown keys pass through untouched; the caller has already gated syncability.
+func validateSyncedSettingURL(key, value string) error {
+	rule, ok := allowedSettings[key]
+	if !ok {
+		return nil
+	}
+	switch rule.typeName {
+	case "url":
+		if err := netguard.ValidateURL(value); err != nil {
+			return fmt.Errorf("%w %q: %w", errInvalidSyncedURL, key, err)
+		}
+	case "url_public":
+		if err := netguard.ValidatePublicURL(value); err != nil {
+			return fmt.Errorf("%w %q: %w", errInvalidSyncedURL, key, err)
+		}
+	}
+	return nil
 }
 
 // postImportRefresh runs the best-effort post-commit steps of an import: the
