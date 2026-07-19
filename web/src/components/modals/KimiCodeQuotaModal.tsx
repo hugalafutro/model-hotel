@@ -138,30 +138,32 @@ export function KimiCodeQuotaModal({
 					</QuotaBar>
 				)}
 
-				<div className="p-3 ui-detail-section space-y-1">
-					{parallelLimit != null && (
-						<div
-							className="flex justify-between text-xs text-(--text-muted)"
-							data-testid="kimi-code-parallel"
-						>
-							<span>
-								{t("components.providerModals.kimiCodeParallelLimit")}
-							</span>
-							<span>{parallelLimit}</span>
-						</div>
-					)}
-					{totalQuota && (
-						<div
-							className="flex justify-between text-xs text-(--text-muted)"
-							data-testid="kimi-code-total-quota"
-						>
-							<span>{t("components.providerModals.kimiCodeTotalQuota")}</span>
-							<span>
-								{totalQuota.remaining ?? "-"} / {totalQuota.limit ?? "-"}
-							</span>
-						</div>
-					)}
-				</div>
+				{(parallelLimit != null || totalQuota) && (
+					<div className="p-3 ui-detail-section space-y-1">
+						{parallelLimit != null && (
+							<div
+								className="flex justify-between text-xs text-(--text-muted)"
+								data-testid="kimi-code-parallel"
+							>
+								<span>
+									{t("components.providerModals.kimiCodeParallelLimit")}
+								</span>
+								<span>{parallelLimit}</span>
+							</div>
+						)}
+						{totalQuota && (
+							<div
+								className="flex justify-between text-xs text-(--text-muted)"
+								data-testid="kimi-code-total-quota"
+							>
+								<span>{t("components.providerModals.kimiCodeTotalQuota")}</span>
+								<span>
+									{totalQuota.remaining ?? "-"} / {totalQuota.limit ?? "-"}
+								</span>
+							</div>
+						)}
+					</div>
+				)}
 
 				{lastRefreshed ? (
 					<div className="flex justify-between items-center text-xs text-(--text-muted) pt-2 ">

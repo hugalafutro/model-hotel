@@ -120,6 +120,21 @@ describe("KimiCodeQuotaModal", () => {
 				screen.queryByTestId("kimi-code-weekly-bar"),
 			).not.toBeInTheDocument();
 		});
+
+		it("does not render the detail section when parallel limit and total quota are absent", () => {
+			const empty: KimiCodeQuotaResponse = {
+				user: { membership: { level: "basic" } },
+			};
+			renderWithProviders(
+				<KimiCodeQuotaModal {...defaultProps} usage={empty} />,
+			);
+			expect(
+				screen.queryByTestId("kimi-code-parallel"),
+			).not.toBeInTheDocument();
+			expect(
+				screen.queryByTestId("kimi-code-total-quota"),
+			).not.toBeInTheDocument();
+		});
 	});
 
 	describe("refresh functionality", () => {

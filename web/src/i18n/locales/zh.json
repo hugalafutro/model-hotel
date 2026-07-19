@@ -2262,7 +2262,7 @@
 			"subscriptionWillCancel": "订阅将在期满时自动取消（{{date}}）",
 			"lastRefreshed": "上次刷新",
 			"zAICodingPlanQuota": "Z.ai 编码计划Quota",
-			"kimiCodePlanQuota": "Kimi 编码计划Quota",
+			"kimiCodePlanQuota": "Kimi 编码计划配额",
 			"kimiCodeParallelLimit": "并行请求",
 			"kimiCodeTotalQuota": "总配额",
 			"plan": "计划",
