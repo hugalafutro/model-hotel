@@ -64,6 +64,8 @@ func TestValidateProviderURL_AllowKnownProvider(t *testing.T) {
 		{"DeepSeek", "https://api.deepseek.com/v1"},
 		{"NanoGPT", "https://api.nano-gpt.com/v1"},
 		{"ZAI", "https://api.z.ai/v1"},
+		{"KimiCode", "https://api.kimi.com/coding/v1"},
+		{"KimiCode apex", "https://kimi.com/coding/v1"},
 		{"Ollama", "https://ollama.com/api"},
 		{"OpenCode", "https://opencode.ai/v1"},
 	}

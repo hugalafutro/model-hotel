@@ -68,6 +68,8 @@ var defaultKnownProviderHosts = []string{
 	"api.openai.com",
 	"api.nano-gpt.com",
 	"api.z.ai",
+	"api.kimi.com",
+	"kimi.com",
 	"api.deepseek.com",
 	"api.anthropic.com",
 	"ollama.com",
