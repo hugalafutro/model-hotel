@@ -101,6 +101,10 @@ class DashboardViewModel(
     // Called after a refresh writes a changed widget state, so the caller can
     // trigger a Glance re-render (default no-op keeps unit tests off the widget).
     private val onWidgetWritten: suspend () -> Unit = {},
+    // Whether the widget's opt-in traffic bars are on (Settings). A supplier
+    // rather than a store so unit tests stay store-free; when false the mirror
+    // writes no traffic, matching what the background writers persist.
+    private val widgetGraphs: suspend () -> Boolean = { false },
     private val pollIntervalMs: Long = POLL_INTERVAL_MS,
     private val sseHealthyPollIntervalMs: Long = SSE_HEALTHY_POLL_INTERVAL_MS,
     private val trafficPollMs: Long = TRAFFIC_POLL_MS,
@@ -496,7 +500,20 @@ class DashboardViewModel(
                 // change (saveIfChanged returns true) triggers a Glance re-render,
                 // so the dashboard's fast poll cadence doesn't re-render every tick.
                 val autosyncStale = autoSync?.data?.stale ?: widgetStore.read()?.autosyncStale ?: false
-                if (widgetStore.saveIfChanged(widgetStateOf(result.data, autosyncStale, now()), widgetGeneration)) {
+                // Traffic rides along only when the widget's bar graphs are on,
+                // and only what the dashboard already fetched (no new requests);
+                // widgetStateOf trims to the widget's newest-12-bucket window.
+                val widgetTraffic =
+                    if (widgetGraphs()) {
+                        _state.value.traffic.mapValues { (_, t) -> t.points.map { p -> p.requests } }
+                    } else {
+                        emptyMap()
+                    }
+                if (widgetStore.saveIfChanged(
+                        widgetStateOf(result.data, autosyncStale, now(), widgetTraffic),
+                        widgetGeneration,
+                    )
+                ) {
                     onWidgetWritten()
                 }
             }
@@ -567,10 +584,11 @@ class DashboardViewModel(
         private val fdUrl: String,
         private val widgetStore: WidgetStore,
         private val onWidgetWritten: suspend () -> Unit = {},
+        private val widgetGraphs: suspend () -> Boolean = { false },
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            DashboardViewModel(client, linkStore, fdUrl, widgetStore, onWidgetWritten) as T
+            DashboardViewModel(client, linkStore, fdUrl, widgetStore, onWidgetWritten, widgetGraphs) as T
     }
 
     companion object {

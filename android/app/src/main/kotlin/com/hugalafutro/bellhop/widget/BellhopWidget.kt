@@ -28,6 +28,7 @@ import androidx.glance.appwidget.updateAll
 import androidx.glance.background
 import androidx.glance.color.ColorProvider
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
@@ -46,6 +47,8 @@ import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberHealthState
 import com.hugalafutro.bellhop.data.MonitorStore
+import com.hugalafutro.bellhop.data.PrefsStore
+import com.hugalafutro.bellhop.data.TRAFFIC_BUCKETS
 import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.countsOf
@@ -59,6 +62,8 @@ import com.hugalafutro.bellhop.ui.theme.Moss300
 import com.hugalafutro.bellhop.ui.theme.Moss600
 import com.hugalafutro.bellhop.ui.theme.PaperInk
 import com.hugalafutro.bellhop.ui.theme.PaperInkMuted
+import com.hugalafutro.bellhop.ui.theme.SteelContainerDark
+import com.hugalafutro.bellhop.ui.theme.SteelContainerLight
 import com.hugalafutro.bellhop.work.FleetPollWorker
 import kotlinx.coroutines.flow.first
 import java.time.Instant
@@ -108,12 +113,15 @@ class BellhopWidget : GlanceAppWidget() {
         // composition, not this function - a read captured out here would
         // pin every recomposition to placement-time state. Collecting is not
         // polling: the flow only emits when a writer commits.
+        val prefsStore = PrefsStore.create(context)
         val initialState = widgetStore.read()
         val initialActive = monitorStore.active.first()
+        val initialGraphs = prefsStore.widgetGraphs.first()
         provideContent {
             val state by widgetStore.state.collectAsState(initial = initialState)
             val monitoringActive by monitorStore.active.collectAsState(initial = initialActive)
-            WidgetContent(state, monitoringActive, fdName)
+            val graphs by prefsStore.widgetGraphs.collectAsState(initial = initialGraphs)
+            WidgetContent(state, monitoringActive, fdName, graphs)
         }
     }
 
@@ -151,6 +159,10 @@ class WidgetRefreshAction : ActionCallback {
 // Day/night pairs off the app palette (ui/theme/Color.kt); Glance can't read
 // MaterialTheme, so the pairing is repeated here with the same named colors.
 private val BrandAccent = ColorProvider(day = Brass600, night = Brass300)
+
+// Bar tint for the opt-in traffic overlay: the steel containers read as a calm
+// cool wash against the warm row surfaces without fighting the row text.
+private val BarTint = ColorProvider(day = SteelContainerLight, night = SteelContainerDark)
 private val TextPrimary = ColorProvider(day = PaperInk, night = Ink100)
 private val TextMuted = ColorProvider(day = PaperInkMuted, night = Ink300)
 private val DotUp = ColorProvider(day = Moss600, night = Moss300)
@@ -200,11 +212,47 @@ private fun eventStamp(
     }
 }
 
+/**
+ * MemberBars is the opt-in traffic overlay: the member's last-hour request
+ * buckets as bottom-aligned bars behind the row text, split into two
+ * six-bar halves because a Glance container is capped at 10 children.
+ * Heights are normalized per member (3..15dp inside the 16dp strip); an
+ * empty bucket keeps a 1dp baseline so the hour reads as continuous.
+ */
+@Composable
+private fun MemberBars(traffic: List<Int>) {
+    val buckets = List((TRAFFIC_BUCKETS - traffic.size).coerceAtLeast(0)) { 0 } + traffic.takeLast(TRAFFIC_BUCKETS)
+    val max = buckets.max().coerceAtLeast(1)
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        // Inset from the card's bottom edge so the rounded surface stays visible
+        // under the baseline and neighbouring cards don't blend into one strip.
+        modifier = GlanceModifier.fillMaxWidth().height(16.dp).padding(horizontal = 6.dp, vertical = 2.dp),
+    ) {
+        buckets.chunked(TRAFFIC_BUCKETS / 2).forEach { half ->
+            Row(verticalAlignment = Alignment.Bottom, modifier = GlanceModifier.defaultWeight()) {
+                half.forEach { v ->
+                    val h = if (v == 0) 1 else 3 + 12 * v / max
+                    Box(
+                        modifier =
+                            GlanceModifier
+                                .defaultWeight()
+                                .height(h.dp)
+                                .padding(horizontal = 1.dp)
+                                .background(BarTint),
+                    ) {}
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun WidgetContent(
     state: WidgetState?,
     monitoringActive: Boolean,
     fdName: String,
+    graphs: Boolean,
 ) {
     val context = LocalContext.current
     Column(
@@ -297,33 +345,45 @@ private fun WidgetContent(
                 // the footer was the casualty). Worst case now: header + 5
                 // rows + pill + weight spacer + footer = 9.
                 state.members.forEach { member ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+                    Box(
+                        contentAlignment = Alignment.BottomStart,
                         modifier =
                             GlanceModifier
                                 .fillMaxWidth()
-                                .padding(bottom = 3.dp)
-                                .background(ImageProvider(R.drawable.widget_row_bg))
-                                .padding(horizontal = 10.dp, vertical = 5.dp),
+                                .padding(bottom = 4.dp)
+                                .background(ImageProvider(R.drawable.widget_row_bg)),
                     ) {
-                        Image(
-                            ImageProvider(R.drawable.widget_dot),
-                            null,
-                            GlanceModifier.size(9.dp),
-                            colorFilter = ColorFilter.tint(dotColor(member.healthState)),
-                        )
-                        Spacer(GlanceModifier.width(8.dp))
-                        Text(
-                            member.name,
-                            style = TextStyle(color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium),
-                            maxLines = 1,
-                            modifier = GlanceModifier.defaultWeight(),
-                        )
-                        Spacer(GlanceModifier.width(8.dp))
-                        Text(
-                            stateLabel(context, member.healthState),
-                            style = TextStyle(color = dotColor(member.healthState), fontSize = 11.sp),
-                        )
+                        if (graphs && member.traffic.isNotEmpty()) {
+                            MemberBars(member.traffic)
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = GlanceModifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 3.dp),
+                        ) {
+                            Image(
+                                ImageProvider(R.drawable.widget_dot),
+                                null,
+                                GlanceModifier.size(9.dp),
+                                colorFilter = ColorFilter.tint(dotColor(member.healthState)),
+                            )
+                            Spacer(GlanceModifier.width(8.dp))
+                            Text(
+                                member.name,
+                                style =
+                                    TextStyle(
+                                        color = TextPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                    ),
+                                maxLines = 1,
+                                modifier = GlanceModifier.defaultWeight(),
+                            )
+                            Spacer(GlanceModifier.width(8.dp))
+                            Text(
+                                stateLabel(context, member.healthState),
+                                style = TextStyle(color = dotColor(member.healthState), fontSize = 11.sp),
+                            )
+                        }
                     }
                 }
         }
@@ -338,7 +398,7 @@ private fun WidgetContent(
                             .fillMaxWidth()
                             .padding(bottom = 6.dp)
                             .background(ImageProvider(R.drawable.widget_event_bg))
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
                 ) {
                     Text(
                         context.getString(R.string.widget_event_header),
@@ -363,12 +423,14 @@ private fun WidgetContent(
                 }
             }
         }
-        Row(modifier = GlanceModifier.fillMaxWidth()) {
+        // Footer chrome is informative, not content: 9sp muted text and a small
+        // icon so it recedes behind the rows it annotates.
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = GlanceModifier.fillMaxWidth()) {
             if (state != null) {
                 val stamp = DateFormat.getTimeFormat(context).format(Date(state.updatedAt))
                 Text(
                     context.getString(R.string.widget_as_of, stamp),
-                    style = TextStyle(color = TextMuted, fontSize = 11.sp),
+                    style = TextStyle(color = TextMuted, fontSize = 9.sp),
                 )
             }
             Spacer(GlanceModifier.defaultWeight())
@@ -376,12 +438,12 @@ private fun WidgetContent(
                 state?.autosyncStale == true ->
                     Text(
                         context.getString(R.string.widget_stale),
-                        style = TextStyle(color = DotDrained, fontSize = 11.sp),
+                        style = TextStyle(color = DotDrained, fontSize = 9.sp),
                     )
                 !monitoringActive && state != null ->
                     Text(
                         context.getString(R.string.widget_monitoring_off),
-                        style = TextStyle(color = TextMuted, fontSize = 11.sp),
+                        style = TextStyle(color = TextMuted, fontSize = 9.sp),
                     )
             }
             if (state != null) {
@@ -389,7 +451,7 @@ private fun WidgetContent(
                 Image(
                     ImageProvider(R.drawable.ic_widget_refresh),
                     context.getString(R.string.widget_refresh),
-                    GlanceModifier.size(18.dp).clickable(actionRunCallback<WidgetRefreshAction>()),
+                    GlanceModifier.size(14.dp).clickable(actionRunCallback<WidgetRefreshAction>()),
                     // The vector's fill is opaque black; tint to the footer's muted
                     // pair or the icon vanishes on the night background.
                     colorFilter = ColorFilter.tint(TextMuted),

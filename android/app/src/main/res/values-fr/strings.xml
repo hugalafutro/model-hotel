@@ -262,4 +262,6 @@
     <string name="widget_state_drained">Drainé</string>
     <string name="widget_state_unknown">Inconnu</string>
     <string name="widget_event_header">Dernier événement de la flotte</string>
+    <string name="settings_widget_title">Widget d\'écran d\'accueil</string>
+    <string name="settings_widget_graphs_subtitle">Graphiques de trafic : superposent à chaque membre ses requêtes de la dernière heure. Leur fraîcheur coûte une requête de plus par membre à chaque vérification en arrière-plan.</string>
 </resources>

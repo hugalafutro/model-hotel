@@ -262,4 +262,6 @@
     <string name="widget_state_drained">Gedraineerd</string>
     <string name="widget_state_unknown">Onbekend</string>
     <string name="widget_event_header">Laatste vlootgebeurtenis</string>
+    <string name="settings_widget_title">Startscherm-widget</string>
+    <string name="settings_widget_graphs_subtitle">Verkeersgrafieken: tonen per lid de verzoeken van het afgelopen uur. Verse balken kosten één extra verzoek per lid bij elke achtergrondcontrole.</string>
 </resources>

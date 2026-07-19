@@ -256,4 +256,6 @@
     <string name="widget_state_drained">ドレイン済み</string>
     <string name="widget_state_unknown">不明</string>
     <string name="widget_event_header">最新のフリートイベント</string>
+    <string name="settings_widget_title">ホーム画面ウィジェット</string>
+    <string name="settings_widget_graphs_subtitle">トラフィックグラフ: 各メンバーに直近1時間のリクエストを重ねて表示します。バックグラウンド確認ごとにメンバーあたり1リクエスト増えます。</string>
 </resources>

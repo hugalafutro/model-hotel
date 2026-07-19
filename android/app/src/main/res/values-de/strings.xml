@@ -262,4 +262,6 @@
     <string name="widget_state_drained">Stillgelegt</string>
     <string name="widget_state_unknown">Unbekannt</string>
     <string name="widget_event_header">Letztes Flottenereignis</string>
+    <string name="settings_widget_title">Startbildschirm-Widget</string>
+    <string name="settings_widget_graphs_subtitle">Verkehrsgraphen: zeigen je Mitglied die Anfragen der letzten Stunde. Frische Balken kosten pro Hintergrundprüfung eine zusätzliche Anfrage je Mitglied.</string>
 </resources>

@@ -47,11 +47,25 @@ class PrefsStore(
         dataStore.edit { it[GRAPH_RANGE_MINUTES] = minutes }
     }
 
+    /**
+     * widgetGraphs emits whether the home-screen widget overlays each member
+     * row with its last-hour traffic bars; defaults off. Opt-in because
+     * keeping the bars fresh adds one traffic request per member to the
+     * background poll and the widget refresh (the widget itself still never
+     * polls).
+     */
+    val widgetGraphs: Flow<Boolean> = dataStore.data.map { it[WIDGET_GRAPHS] ?: false }
+
+    suspend fun setWidgetGraphs(enabled: Boolean) {
+        dataStore.edit { it[WIDGET_GRAPHS] = enabled }
+    }
+
     companion object {
         fun create(context: Context): PrefsStore = PrefsStore(context.applicationContext.prefsDataStore)
 
         private val HOLD_TO_COPY = booleanPreferencesKey("hold_to_copy")
         private val GRAPH_RANGE_MINUTES = intPreferencesKey("graph_range_minutes")
+        private val WIDGET_GRAPHS = booleanPreferencesKey("widget_graphs")
 
         /** Default traffic-graph lookback: the last hour. */
         const val DEFAULT_GRAPH_RANGE_MINUTES = 60

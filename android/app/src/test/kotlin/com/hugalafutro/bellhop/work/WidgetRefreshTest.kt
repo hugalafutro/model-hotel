@@ -109,7 +109,7 @@ class WidgetRefreshTest {
             val result = refreshWidgetOnly(linkedLinkStore(), widget, client, now = { 42L })
 
             assertEquals(Result.success(), result)
-            assertEquals(listOf(WidgetMember("hotel-1", "UP")), widget.read()?.members)
+            assertEquals(listOf(WidgetMember("hotel-1", "UP", id = "m1")), widget.read()?.members)
             assertEquals(42L, widget.read()?.updatedAt)
         }
 

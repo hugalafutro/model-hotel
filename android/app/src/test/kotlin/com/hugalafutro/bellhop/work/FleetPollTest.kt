@@ -202,7 +202,7 @@ class FleetPollTest {
             poll(store, widget)
 
             val ws = widget.read()
-            assertEquals(listOf(WidgetMember("hotel-1", "UP")), ws?.members)
+            assertEquals(listOf(WidgetMember("hotel-1", "UP", id = "m1")), ws?.members)
             assertEquals(42L, ws?.updatedAt)
         }
 
@@ -224,5 +224,65 @@ class FleetPollTest {
 
             // Stale beats blank: the widget keeps showing the last fetch + stamp.
             assertEquals(7L, widget.read()?.updatedAt)
+        }
+
+    @Test
+    fun includeTrafficFetchesPerMemberBuckets() =
+        runBlocking {
+            val store = newStore()
+            val widget = newWidgetStore()
+            store.setEnabled(true)
+            enqueuePoll(healthy = true)
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"member_id":"m1","reachable":true,"window_minutes":60,"total_requests":6,""" +
+                        """"points":[{"bucket":"b1","requests":1,"errors":0},""" +
+                        """{"bucket":"b2","requests":5,"errors":0}]}""",
+                ),
+            )
+
+            pollFleet(client, server.url("/").toString(), "tok-1", store, widget, includeTraffic = true, now = { 42L })
+
+            assertEquals(listOf(1, 5), widget.read()?.members?.single()?.traffic)
+            // members + autosync + one traffic call for the one member.
+            assertEquals(3, server.requestCount)
+        }
+
+    @Test
+    fun trafficOffMakesNoTrafficRequests() =
+        runBlocking {
+            val store = newStore()
+            val widget = newWidgetStore()
+            store.setEnabled(true)
+            enqueuePoll(healthy = true)
+
+            poll(store, widget)
+
+            assertEquals(emptyList<Int>(), widget.read()?.members?.single()?.traffic)
+            // The exact request count the battery baseline was measured against.
+            assertEquals(2, server.requestCount)
+        }
+
+    @Test
+    fun trafficReadFailureKeepsPreviousBars() =
+        runBlocking {
+            val store = newStore()
+            val widget = newWidgetStore()
+            store.setEnabled(true)
+            widget.saveIfChanged(
+                WidgetState(
+                    members = listOf(WidgetMember("hotel-1", "UP", traffic = listOf(7, 8), id = "m1")),
+                    updatedAt = 1L,
+                ),
+                widget.generation(),
+            )
+            enqueuePoll(healthy = true)
+            server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
+
+            pollFleet(client, server.url("/").toString(), "tok-1", store, widget, includeTraffic = true, now = { 42L })
+
+            // A failed series read keeps the member's previous bars: stale beats
+            // blank, and a blip must not blank the whole hour.
+            assertEquals(listOf(7, 8), widget.read()?.members?.single()?.traffic)
         }
 }

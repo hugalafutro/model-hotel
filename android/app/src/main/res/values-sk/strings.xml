@@ -274,4 +274,6 @@
     <string name="widget_state_drained">Odstavené</string>
     <string name="widget_state_unknown">Neznáme</string>
     <string name="widget_event_header">Posledná udalosť flotily</string>
+    <string name="settings_widget_title">Widget na ploche</string>
+    <string name="settings_widget_graphs_subtitle">Grafy prevádzky: prekryjú každého člena požiadavkami za poslednú hodinu. Čerstvé stĺpce stoja jednu požiadavku na člena navyše pri každej kontrole na pozadí.</string>
 </resources>
