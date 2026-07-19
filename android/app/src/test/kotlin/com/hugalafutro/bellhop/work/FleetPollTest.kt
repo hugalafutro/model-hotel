@@ -10,6 +10,7 @@ import com.hugalafutro.bellhop.data.MemberHealthState
 import com.hugalafutro.bellhop.data.MemberTransition
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.WidgetMember
+import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +20,6 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -212,11 +212,14 @@ class FleetPollTest {
             val store = newStore()
             val widget = newWidgetStore()
             store.setEnabled(true)
+            // Seed a previous fetch's state: an untouched store and a wiped one
+            // both read null, so only a surviving seed proves "untouched".
+            widget.saveIfChanged(WidgetState(members = listOf(WidgetMember("hotel-1", "UP")), updatedAt = 7L))
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
 
             poll(store, widget)
 
             // Stale beats blank: the widget keeps showing the last fetch + stamp.
-            assertNull(widget.read())
+            assertEquals(7L, widget.read()?.updatedAt)
         }
 }
