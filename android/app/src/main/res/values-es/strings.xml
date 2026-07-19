@@ -256,4 +256,5 @@
     <string name="widget_stale">Sincronización obsoleta</string>
     <!-- Collapsed face for large fleets: up/down/drained counts -->
     <string name="widget_counts">%1$d activos · %2$d caídos · %3$d drenados</string>
+    <string name="widget_refresh">Actualizar</string>
 </resources>
