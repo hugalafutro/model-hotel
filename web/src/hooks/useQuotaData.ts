@@ -6,6 +6,9 @@ import type {
 	DeepSeekBalance,
 	KimiCodeQuotaResponse,
 	KimiCodeQuotaWindow,
+	MiniMaxModelRemains,
+	MiniMaxQuotaResponse,
+	MiniMaxQuotaWindow,
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
@@ -46,6 +49,7 @@ export type QuotaProviderType =
 	| "nanogpt"
 	| "zai-coding"
 	| "kimi-code"
+	| "minimax"
 	| "deepseek"
 	| "openrouter"
 	| "ollama-cloud"
@@ -67,6 +71,7 @@ export function detectQuotaProviderType(
 	if (hostnameMatches(baseUrl, "nano-gpt.com")) return "nanogpt";
 	if (hostnameMatches(baseUrl, ".z.ai", "z.ai")) return "zai-coding";
 	if (hostnameMatches(baseUrl, ".kimi.com", "kimi.com")) return "kimi-code";
+	if (hostnameMatches(baseUrl, ".minimax.io", "minimax.io")) return "minimax";
 	if (hostnameMatches(baseUrl, "deepseek.com")) return "deepseek";
 	if (hostnameMatches(baseUrl, "openrouter.ai")) return "openrouter";
 	if (hostnameMatches(baseUrl, "ollama.com")) return "ollama-cloud";
@@ -143,6 +148,60 @@ export function getKimiCodeWeeklyLimit(
 	return toKimiCodeWindow(usage.limit, usage.remaining, usage.resetTime);
 }
 
+// ── MiniMax token-plan helpers ─────────────────────────────────────────────
+// MiniMax reports REMAINING percentages (0-100) per model class. The active
+// class is the first "general" entry with current_interval_status === 1. Used%
+// is 100 − remaining%. Badge/panel hide entirely when base_resp.status_code is
+// non-zero (e.g. 2062 "no active token plan"), model_remains is empty, or no
+// active general entry exists.
+
+/** First active "general" model-class entry, or undefined. */
+export function getMiniMaxGeneralEntry(
+	data: MiniMaxQuotaResponse | undefined | null,
+): MiniMaxModelRemains | undefined {
+	const entries =
+		data?.base_resp?.status_code === 0 ? data.model_remains : null;
+	if (!Array.isArray(entries)) return undefined;
+	return entries.find(
+		(m) => m.model_name === "general" && m.current_interval_status === 1,
+	);
+}
+
+function toMiniMaxWindow(
+	remainingPercent: number | undefined,
+	resetMs: number | undefined,
+): MiniMaxQuotaWindow | undefined {
+	if (remainingPercent == null || !Number.isFinite(remainingPercent)) {
+		return undefined;
+	}
+	return {
+		percentage: 100 - remainingPercent,
+		remainingPercent,
+		resetMs: resetMs ?? 0,
+	};
+}
+
+/** Rolling 5-hour window derived from the active general entry. */
+export function getMiniMaxFiveHourLimit(
+	data: MiniMaxQuotaResponse | undefined | null,
+): MiniMaxQuotaWindow | undefined {
+	const g = getMiniMaxGeneralEntry(data);
+	if (!g) return undefined;
+	return toMiniMaxWindow(g.current_interval_remaining_percent, g.remains_time);
+}
+
+/** Weekly window derived from the active general entry. */
+export function getMiniMaxWeeklyLimit(
+	data: MiniMaxQuotaResponse | undefined | null,
+): MiniMaxQuotaWindow | undefined {
+	const g = getMiniMaxGeneralEntry(data);
+	if (!g) return undefined;
+	return toMiniMaxWindow(
+		g.current_weekly_remaining_percent,
+		g.weekly_remains_time,
+	);
+}
+
 // ── Hook options ─────────────────────────────────────────────────────────
 
 export interface UseQuotaDataOptions {
@@ -161,6 +220,7 @@ export interface QuotaDataResult {
 	nanogptProviderId: string | undefined;
 	zaiCodingProviderId: string | undefined;
 	kimiCodeProviderId: string | undefined;
+	minimaxProviderId: string | undefined;
 	deepseekProviderId: string | undefined;
 	openrouterProviderId: string | undefined;
 	ollamaCloudProviderId: string | undefined;
@@ -170,6 +230,7 @@ export interface QuotaDataResult {
 	nanogptUsage: NanoGPTUsage | undefined;
 	zaiCodingUsage: ZAICodingQuotaResponse | undefined;
 	kimiCodeUsage: KimiCodeQuotaResponse | undefined;
+	minimaxUsage: MiniMaxQuotaResponse | undefined;
 	deepseekBalance: DeepSeekBalance | undefined;
 	openrouterBalance: OpenRouterBalance | undefined;
 	ollamaCloudAccount: OllamaCloudAccount | undefined;
@@ -183,6 +244,10 @@ export interface QuotaDataResult {
 	kimiCodeFiveHour: KimiCodeQuotaWindow | undefined;
 	kimiCodeWeekly: KimiCodeQuotaWindow | undefined;
 
+	/** Derived MiniMax limits (from the active "general" model class). */
+	minimaxFiveHour: MiniMaxQuotaWindow | undefined;
+	minimaxWeekly: MiniMaxQuotaWindow | undefined;
+
 	/** NanoGPT weekly helpers. */
 	nanoWeeklyUsed: number | null | undefined;
 	nanoWeeklyLimit: number | null | undefined;
@@ -191,6 +256,7 @@ export interface QuotaDataResult {
 	showNanoBadge: boolean;
 	showZaiCodingBadge: boolean;
 	showKimiCodeBadge: boolean;
+	showMiniMaxBadge: boolean;
 	showDsBadge: boolean;
 	showOrBadge: boolean;
 	showOllamaCloudBadge: boolean;
@@ -203,6 +269,7 @@ export interface QuotaDataResult {
 	refetchNano: () => Promise<void>;
 	refetchZaiCoding: () => Promise<void>;
 	refetchKimiCode: () => Promise<void>;
+	refetchMiniMax: () => Promise<void>;
 	refetchDeepseek: () => Promise<void>;
 	refetchOpenRouter: () => Promise<void>;
 	refetchOllamaCloud: () => Promise<void>;
@@ -212,6 +279,7 @@ export interface QuotaDataResult {
 	isNanoRefetching: boolean;
 	isZaiCodingRefetching: boolean;
 	isKimiCodeRefetching: boolean;
+	isMiniMaxRefetching: boolean;
 	isDsRefetching: boolean;
 	isOrRefetching: boolean;
 	isOllamaCloudRefetching: boolean;
@@ -222,6 +290,7 @@ export interface QuotaDataResult {
 	nanogptDataUpdatedAt: number;
 	zaiCodingDataUpdatedAt: number;
 	kimiCodeDataUpdatedAt: number;
+	minimaxDataUpdatedAt: number;
 	deepseekDataUpdatedAt: number;
 	ollamaCloudDataUpdatedAt: number;
 	neuralwattDataUpdatedAt: number;
@@ -251,6 +320,10 @@ export function useQuotaData(
 	);
 	const kimiCodeProviderId = useMemo(
 		() => findProviderId(providers, "kimi-code"),
+		[providers],
+	);
+	const minimaxProviderId = useMemo(
+		() => findProviderId(providers, "minimax"),
 		[providers],
 	);
 	const deepseekProviderId = useMemo(
@@ -345,6 +418,28 @@ export function useQuotaData(
 	useEffect(() => {
 		if (kimiCodeUsage) setCachedData("kimi-code-usage", kimiCodeUsage);
 	}, [kimiCodeUsage]);
+
+	// ── MiniMax query ──
+	const {
+		data: minimaxUsage,
+		dataUpdatedAt: minimaxDataUpdatedAt,
+		isRefetching: isMiniMaxRefetching,
+		isError: isMiniMaxError,
+		refetch: refetchMiniMaxRaw,
+	} = useQuery({
+		queryKey: ["minimax-usage", minimaxProviderId],
+		queryFn: () =>
+			api.providers.getUsage(
+				minimaxProviderId as string,
+			) as Promise<MiniMaxQuotaResponse>,
+		enabled: Boolean(minimaxProviderId),
+		refetchInterval: effectiveRefetchInterval,
+		initialData: () => getCachedData<MiniMaxQuotaResponse>("minimax-usage"),
+	});
+
+	useEffect(() => {
+		if (minimaxUsage) setCachedData("minimax-usage", minimaxUsage);
+	}, [minimaxUsage]);
 
 	// ── DeepSeek query ──
 	const {
@@ -460,6 +555,16 @@ export function useQuotaData(
 		if (!isKimiCodeError) kimiErrorToasted.current = false;
 	}, [isKimiCodeError, toastErrors, t]);
 
+	const minimaxErrorToasted = useRef(false);
+	useEffect(() => {
+		if (!toastErrors) return;
+		if (isMiniMaxError && !minimaxErrorToasted.current) {
+			toastErrors(t("hooks.useQuotaData.miniMaxError"), "warning");
+			minimaxErrorToasted.current = true;
+		}
+		if (!isMiniMaxError) minimaxErrorToasted.current = false;
+	}, [isMiniMaxError, toastErrors, t]);
+
 	const dsErrorToasted = useRef(false);
 	useEffect(() => {
 		if (!toastErrors) return;
@@ -507,6 +612,9 @@ export function useQuotaData(
 	const kimiCodeFiveHour = getKimiCodeFiveHourLimit(kimiCodeUsage);
 	const kimiCodeWeekly = getKimiCodeWeeklyLimit(kimiCodeUsage);
 
+	const minimaxFiveHour = getMiniMaxFiveHourLimit(minimaxUsage);
+	const minimaxWeekly = getMiniMaxWeeklyLimit(minimaxUsage);
+
 	const nanoWeeklyUsed = nanogptUsage?.weeklyInputTokens?.used;
 	const nanoWeeklyLimit = nanogptUsage?.limits?.weeklyInputTokens;
 
@@ -530,6 +638,11 @@ export function useQuotaData(
 		Boolean(kimiCodeProviderId) &&
 		Boolean(kimiCodeUsage) &&
 		Boolean(kimiCodeFiveHour || kimiCodeWeekly);
+
+	const showMiniMaxBadge =
+		Boolean(minimaxProviderId) &&
+		Boolean(minimaxUsage) &&
+		Boolean(getMiniMaxGeneralEntry(minimaxUsage));
 
 	const showDsBadge =
 		Boolean(deepseekProviderId) &&
@@ -561,6 +674,7 @@ export function useQuotaData(
 		nanogptProviderId ||
 			zaiCodingProviderId ||
 			kimiCodeProviderId ||
+			minimaxProviderId ||
 			deepseekProviderId ||
 			openrouterProviderId ||
 			ollamaCloudProviderId ||
@@ -579,6 +693,10 @@ export function useQuotaData(
 	const refetchKimiCode = useCallback(async () => {
 		await refetchKimiRaw();
 	}, [refetchKimiRaw]);
+
+	const refetchMiniMax = useCallback(async () => {
+		await refetchMiniMaxRaw();
+	}, [refetchMiniMaxRaw]);
 
 	const refetchDeepseek = useCallback(async () => {
 		await refetchDsRaw();
@@ -600,6 +718,7 @@ export function useQuotaData(
 		queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["kimi-code-usage"] });
+		queryClient.invalidateQueries({ queryKey: ["minimax-usage"] });
 		queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
 		queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
 		queryClient.invalidateQueries({ queryKey: ["ollama-cloud-account"] });
@@ -610,6 +729,7 @@ export function useQuotaData(
 		nanogptProviderId,
 		zaiCodingProviderId,
 		kimiCodeProviderId,
+		minimaxProviderId,
 		deepseekProviderId,
 		openrouterProviderId,
 		ollamaCloudProviderId,
@@ -617,6 +737,7 @@ export function useQuotaData(
 		nanogptUsage,
 		zaiCodingUsage,
 		kimiCodeUsage,
+		minimaxUsage,
 		deepseekBalance,
 		openrouterBalance,
 		ollamaCloudAccount,
@@ -625,11 +746,14 @@ export function useQuotaData(
 		zaiCodingWeekly,
 		kimiCodeFiveHour,
 		kimiCodeWeekly,
+		minimaxFiveHour,
+		minimaxWeekly,
 		nanoWeeklyUsed,
 		nanoWeeklyLimit,
 		showNanoBadge,
 		showZaiCodingBadge,
 		showKimiCodeBadge,
+		showMiniMaxBadge,
 		showDsBadge,
 		showOrBadge,
 		showOllamaCloudBadge,
@@ -638,6 +762,7 @@ export function useQuotaData(
 		refetchNano,
 		refetchZaiCoding,
 		refetchKimiCode,
+		refetchMiniMax,
 		refetchDeepseek,
 		refetchOpenRouter,
 		refetchOllamaCloud,
@@ -645,6 +770,7 @@ export function useQuotaData(
 		isNanoRefetching,
 		isZaiCodingRefetching,
 		isKimiCodeRefetching,
+		isMiniMaxRefetching,
 		isDsRefetching,
 		isOrRefetching,
 		isOllamaCloudRefetching,
@@ -652,6 +778,7 @@ export function useQuotaData(
 		nanogptDataUpdatedAt,
 		zaiCodingDataUpdatedAt,
 		kimiCodeDataUpdatedAt,
+		minimaxDataUpdatedAt,
 		deepseekDataUpdatedAt,
 		openrouterDataUpdatedAt,
 		ollamaCloudDataUpdatedAt,

@@ -1,4 +1,5 @@
 export { KimiCodeQuotaModal } from "./modals/KimiCodeQuotaModal";
+export { MiniMaxQuotaModal } from "./modals/MiniMaxQuotaModal";
 export { NanoGPTQuotaModal } from "./modals/NanoGPTQuotaModal";
 export { NeuralWattQuotaModal } from "./modals/NeuralWattQuotaModal";
 export { OpenRouterQuotaModal } from "./modals/OpenRouterQuotaModal";

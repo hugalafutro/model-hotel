@@ -11,6 +11,7 @@ export type ProviderBrand =
 	| "cohere"
 	| "zai-coding"
 	| "kimi-code"
+	| "minimax"
 	| "nanogpt"
 	| "lmstudio"
 	| "koboldcpp"
@@ -41,6 +42,7 @@ export const PROVIDER_BRAND_COLORS: Record<ProviderBrand, string> = {
 	cohere: "#D4E7C5",
 	"zai-coding": "#2D2D2D",
 	"kimi-code": "#2D2D2D",
+	minimax: "#F23F5B",
 	nanogpt: "#0EA5B0",
 	lmstudio: "#E879F9",
 	koboldcpp: "#DC2626",
@@ -56,6 +58,7 @@ export const PROVIDER_PREFIXES: Record<ProviderBrand, string> = {
 	nanogpt: "NG",
 	"zai-coding": "ZAI",
 	"kimi-code": "KIMI",
+	minimax: "MMX",
 	deepseek: "DS",
 	openrouter: "OR",
 	anthropic: "AC",

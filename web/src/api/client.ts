@@ -24,6 +24,7 @@ import type {
 	LogsCursorResponse,
 	LogsResponse,
 	Me,
+	MiniMaxQuotaResponse,
 	Model,
 	ModelsCursorResponse,
 	NanoGPTUsage,
@@ -306,10 +307,16 @@ export const api = {
 		getUsage: async (
 			id: string,
 		): Promise<
-			NanoGPTUsage | ZAICodingQuotaResponse | KimiCodeQuotaResponse
+			| NanoGPTUsage
+			| ZAICodingQuotaResponse
+			| KimiCodeQuotaResponse
+			| MiniMaxQuotaResponse
 		> => {
 			return fetchJSON<
-				NanoGPTUsage | ZAICodingQuotaResponse | KimiCodeQuotaResponse
+				| NanoGPTUsage
+				| ZAICodingQuotaResponse
+				| KimiCodeQuotaResponse
+				| MiniMaxQuotaResponse
 			>(
 				`${API_BASE}/api/providers/${id}/usage`,
 				{

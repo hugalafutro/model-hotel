@@ -27,11 +27,13 @@ function createMockQuotaData(
 		nanogptUsage: undefined,
 		zaiCodingUsage: undefined,
 		kimiCodeUsage: undefined,
+		minimaxUsage: undefined,
 		openrouterBalance: undefined,
 		neuralwattQuota: undefined,
 		isNanoRefetching: false,
 		isZaiCodingRefetching: false,
 		isKimiCodeRefetching: false,
+		isMiniMaxRefetching: false,
 		isDsRefetching: false,
 		isOrRefetching: false,
 		isOllamaCloudRefetching: false,
@@ -40,6 +42,7 @@ function createMockQuotaData(
 		refetchNano: vi.fn(),
 		refetchZaiCoding: vi.fn(),
 		refetchKimiCode: vi.fn(),
+		refetchMiniMax: vi.fn(),
 		refetchDeepseek: vi.fn(),
 		refetchOpenRouter: vi.fn(),
 		refetchOllamaCloud: vi.fn(),
@@ -47,6 +50,7 @@ function createMockQuotaData(
 		nanogptDataUpdatedAt: 0,
 		zaiCodingDataUpdatedAt: 0,
 		kimiCodeDataUpdatedAt: 0,
+		minimaxDataUpdatedAt: 0,
 		openrouterDataUpdatedAt: 0,
 		deepseekDataUpdatedAt: 0,
 		ollamaCloudDataUpdatedAt: 0,
@@ -54,6 +58,7 @@ function createMockQuotaData(
 		showNanoBadge: false,
 		showZaiCodingBadge: false,
 		showKimiCodeBadge: false,
+		showMiniMaxBadge: false,
 		showDsBadge: false,
 		showOrBadge: false,
 		showOllamaCloudBadge: false,
@@ -61,6 +66,7 @@ function createMockQuotaData(
 		nanogptProviderId: undefined,
 		zaiCodingProviderId: undefined,
 		kimiCodeProviderId: undefined,
+		minimaxProviderId: undefined,
 		deepseekProviderId: undefined,
 		openrouterProviderId: undefined,
 		ollamaCloudProviderId: undefined,
@@ -71,6 +77,8 @@ function createMockQuotaData(
 		zaiCodingWeekly: undefined,
 		kimiCodeFiveHour: undefined,
 		kimiCodeWeekly: undefined,
+		minimaxFiveHour: undefined,
+		minimaxWeekly: undefined,
 		nanoWeeklyUsed: undefined,
 		nanoWeeklyLimit: undefined,
 		...overrides,
@@ -523,6 +531,47 @@ describe("ProviderQuotaPanel", () => {
 
 			expect(
 				screen.getByRole("heading", { name: "Kimi Code Plan Quota" }),
+			).toBeInTheDocument();
+		});
+
+		it("opens MiniMaxQuotaModal when clicking MiniMax badge", async () => {
+			const user = userEvent.setup();
+			const mockMiniMaxUsage: import("../../api/types").MiniMaxQuotaResponse = {
+				model_remains: [
+					{
+						model_name: "general",
+						remains_time: 16420081,
+						weekly_remains_time: 30820081,
+						current_interval_status: 1,
+						current_interval_remaining_percent: 100,
+						current_weekly_status: 1,
+						current_weekly_remaining_percent: 100,
+					},
+				],
+				base_resp: { status_code: 0, status_msg: "success" },
+			};
+			setupPanel({
+				showMiniMaxBadge: true,
+				minimaxUsage: mockMiniMaxUsage,
+				minimaxFiveHour: {
+					percentage: 0,
+					remainingPercent: 100,
+					resetMs: 16420081,
+				},
+				minimaxWeekly: {
+					percentage: 0,
+					remainingPercent: 100,
+					resetMs: 30820081,
+				},
+			});
+
+			const badge = screen.getByTitle(
+				"MiniMax remaining quota - click for details",
+			);
+			await user.click(badge);
+
+			expect(
+				screen.getByRole("heading", { name: "MiniMax Plan Quota" }),
 			).toBeInTheDocument();
 		});
 

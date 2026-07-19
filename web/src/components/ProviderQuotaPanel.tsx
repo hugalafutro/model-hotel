@@ -9,6 +9,7 @@ import { useQuotaData } from "../hooks/useQuotaData";
 import { CollapsibleToggle } from "./CollapsibleToggle";
 import {
 	KimiCodeQuotaModal,
+	MiniMaxQuotaModal,
 	NanoGPTQuotaModal,
 	NeuralWattQuotaModal,
 	OpenRouterQuotaModal,
@@ -112,6 +113,7 @@ export function ProviderQuotaPanel() {
 		isNanoRefetching,
 		isZaiCodingRefetching,
 		isKimiCodeRefetching,
+		isMiniMaxRefetching,
 		isDsRefetching,
 		isOrRefetching,
 	} = quotaData;
@@ -120,6 +122,7 @@ export function ProviderQuotaPanel() {
 		isNanoRefetching ||
 		isZaiCodingRefetching ||
 		isKimiCodeRefetching ||
+		isMiniMaxRefetching ||
 		isDsRefetching ||
 		isOrRefetching ||
 		quotaData.isNeuralwattRefetching;
@@ -147,6 +150,8 @@ export function ProviderQuotaPanel() {
 		setZaiCodingOpen,
 		isKimiCodeOpen,
 		setKimiCodeOpen,
+		isMiniMaxOpen,
+		setMiniMaxOpen,
 		isOpenRouterOpen,
 		setOpenRouterOpen,
 		isNeuralwattOpen,
@@ -198,6 +203,7 @@ export function ProviderQuotaPanel() {
 							onNanoClick={() => setNanoOpen(true)}
 							onZaiCodingClick={() => setZaiCodingOpen(true)}
 							onKimiCodeClick={() => setKimiCodeOpen(true)}
+							onMiniMaxClick={() => setMiniMaxOpen(true)}
 							onDeepseekClick={handleRefresh}
 							onOpenRouterClick={() => setOpenRouterOpen(true)}
 							onOllamaCloudClick={handleRefresh}
@@ -235,6 +241,16 @@ export function ProviderQuotaPanel() {
 					isRefreshing={quotaData.isKimiCodeRefetching}
 					onToast={toast}
 					lastRefreshed={quotaData.kimiCodeDataUpdatedAt}
+				/>
+			)}
+			{isMiniMaxOpen && quotaData.minimaxUsage && (
+				<MiniMaxQuotaModal
+					usage={quotaData.minimaxUsage}
+					onClose={() => setMiniMaxOpen(false)}
+					onRefresh={quotaData.refetchMiniMax}
+					isRefreshing={quotaData.isMiniMaxRefetching}
+					onToast={toast}
+					lastRefreshed={quotaData.minimaxDataUpdatedAt}
 				/>
 			)}
 			{isOpenRouterOpen && quotaData.openrouterBalance && (

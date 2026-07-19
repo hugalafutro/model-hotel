@@ -973,6 +973,13 @@ html[data-ui-style="clean-saas"] .sidebar-link {
 	--pill-bg-light-hover: rgba(45, 45, 45, 0.2);
 }
 
+.sidebar-quota-pill-minimax {
+	--pill-r: 242;
+	--pill-g: 63;
+	--pill-b: 91;
+	--pill-color: #f23f5b;
+}
+
 .sidebar-quota-pill-nanogpt {
 	--pill-r: 14;
 	--pill-g: 165;
@@ -3119,6 +3126,12 @@ html.light .quota-card-kimi-code {
 	background-color: rgba(55, 65, 81, 0.06);
 	color: #374151;
 	border-color: rgba(55, 65, 81, 0.2);
+}
+
+html.light .quota-card-minimax {
+	background-color: rgba(242, 63, 91, 0.08);
+	color: #d81e3c;
+	border-color: rgba(242, 63, 91, 0.25);
 }
 
 html.light .quota-card-deepseek {

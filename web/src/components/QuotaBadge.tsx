@@ -4,6 +4,7 @@ import type {
 	DeepSeekBalance,
 	DeepSeekBalanceInfo,
 	KimiCodeQuotaResponse,
+	MiniMaxQuotaResponse,
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
@@ -15,6 +16,8 @@ import {
 	detectQuotaProviderType,
 	getKimiCodeFiveHourLimit,
 	getKimiCodeWeeklyLimit,
+	getMiniMaxFiveHourLimit,
+	getMiniMaxWeeklyLimit,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 } from "../hooks/useQuotaData";
@@ -39,6 +42,7 @@ const TYPE_PREFIX: Record<QuotaProviderType, string> = {
 	nanogpt: PROVIDER_PREFIXES.nanogpt,
 	"zai-coding": PROVIDER_PREFIXES["zai-coding"],
 	"kimi-code": PROVIDER_PREFIXES["kimi-code"],
+	minimax: PROVIDER_PREFIXES.minimax,
 	deepseek: PROVIDER_PREFIXES.deepseek,
 	openrouter: PROVIDER_PREFIXES.openrouter,
 	"ollama-cloud": PROVIDER_PREFIXES["ollama-cloud"],
@@ -64,6 +68,10 @@ const TYPE_STYLES: Record<
 	"kimi-code": {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-kimi-code",
 		card: "quota-card-kimi-code bg-white/10 text-gray-300 border border-gray-400/50 hover:bg-white/15",
+	},
+	minimax: {
+		sidebar: "sidebar-quota-pill sidebar-quota-pill-minimax",
+		card: "quota-card-minimax bg-[#F23F5B]/20 text-[#F23F5B] border border-[#F23F5B]/50 hover:bg-[#F23F5B]/30",
 	},
 	deepseek: {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-deepseek",
@@ -139,6 +147,23 @@ function kimiCodeBadgeContent(
 	}
 	const label = `${fiveHour ? `${fiveHour.percentage.toFixed(0)}%` : "-"}/${weekly ? `${weekly.percentage.toFixed(0)}%` : "-"}`;
 	return { label, title: i18next.t("components.quotaBadge.kimiCodeUsed") };
+}
+
+function miniMaxBadgeContent(
+	usage: MiniMaxQuotaResponse | null | undefined,
+	barMode: QuotaBarMode,
+): BadgeContent {
+	const fiveHour = getMiniMaxFiveHourLimit(usage);
+	const weekly = getMiniMaxWeeklyLimit(usage);
+	if (barMode === "remaining") {
+		const label = `${fiveHour ? `${(100 - fiveHour.percentage).toFixed(0)}%` : "-"}/${weekly ? `${(100 - weekly.percentage).toFixed(0)}%` : "-"}`;
+		return {
+			label,
+			title: i18next.t("components.quotaBadge.miniMaxRemaining"),
+		};
+	}
+	const label = `${fiveHour ? `${fiveHour.percentage.toFixed(0)}%` : "-"}/${weekly ? `${weekly.percentage.toFixed(0)}%` : "-"}`;
+	return { label, title: i18next.t("components.quotaBadge.miniMaxUsed") };
 }
 
 function deepseekBadgeContent(
@@ -237,6 +262,8 @@ export interface QuotaBadgeProps {
 	zaiCodingUsage?: ZAICodingQuotaResponse | null;
 	/** Kimi Code props */
 	kimiCodeUsage?: KimiCodeQuotaResponse | null;
+	/** MiniMax props */
+	minimaxUsage?: MiniMaxQuotaResponse | null;
 	/** DeepSeek props */
 	deepseekBalance?: DeepSeekBalance;
 	/** OpenRouter props */
@@ -258,6 +285,7 @@ export function QuotaBadge({
 	weeklyLimit,
 	zaiCodingUsage,
 	kimiCodeUsage,
+	minimaxUsage,
 	deepseekBalance,
 	openrouterBalance,
 	ollamaCloudAccount,
@@ -272,6 +300,8 @@ export function QuotaBadge({
 				return zaiCodingBadgeContent(zaiCodingUsage, barMode);
 			case "kimi-code":
 				return kimiCodeBadgeContent(kimiCodeUsage, barMode);
+			case "minimax":
+				return miniMaxBadgeContent(minimaxUsage, barMode);
 			case "deepseek": {
 				if (!deepseekBalance)
 					return {
@@ -344,6 +374,7 @@ interface QuotaBadgesProps {
 	onNanoClick?: () => void;
 	onZaiCodingClick?: () => void;
 	onKimiCodeClick?: () => void;
+	onMiniMaxClick?: () => void;
 	onDeepseekClick?: () => void;
 	onOpenRouterClick?: () => void;
 	onOllamaCloudClick?: () => void;
@@ -363,6 +394,7 @@ export function QuotaBadges({
 	onNanoClick,
 	onZaiCodingClick,
 	onKimiCodeClick,
+	onMiniMaxClick,
 	onDeepseekClick,
 	onOpenRouterClick,
 	onOllamaCloudClick,
@@ -456,6 +488,17 @@ export function QuotaBadges({
 						barMode={barMode}
 						kimiCodeUsage={quotaData.kimiCodeUsage}
 						onClick={onKimiCodeClick}
+					/>
+				)}
+			{quotaData.showMiniMaxBadge &&
+				quotaData.minimaxUsage &&
+				showForType("minimax") && (
+					<QuotaBadge
+						type="minimax"
+						variant={variant}
+						barMode={barMode}
+						minimaxUsage={quotaData.minimaxUsage}
+						onClick={onMiniMaxClick}
 					/>
 				)}
 			{quotaData.showDsBadge &&
