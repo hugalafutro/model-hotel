@@ -19,7 +19,8 @@ const kimiListing = `{
 	"data": [
 		{"id": "k3", "object": "model", "created": 1761264000, "display_name": "K3", "type": "model", "context_length": 262144, "supports_reasoning": true, "supports_image_in": true, "supports_video_in": true, "supports_thinking_type": "only"},
 		{"id": "kimi-for-coding", "object": "model", "created": 1761264000, "display_name": "K2.7 Coding", "type": "model", "context_length": 262144, "supports_reasoning": true, "supports_image_in": true, "supports_video_in": true, "supports_thinking_type": "only"},
-		{"id": "text-only-model", "object": "model", "created": 1761264000, "context_length": 8192, "supports_reasoning": false, "supports_image_in": false, "supports_video_in": false}
+		{"id": "text-only-model", "object": "model", "created": 1761264000, "context_length": 8192, "supports_reasoning": false, "supports_image_in": false, "supports_video_in": false},
+		{"id": "reasoning-only-model", "object": "model", "created": 1761264000, "context_length": 4096, "supports_reasoning": true, "supports_image_in": false, "supports_video_in": false}
 	]
 }`
 
@@ -46,7 +47,7 @@ func TestDiscoverKimiCode_MapsListingMetadata(t *testing.T) {
 
 	models, err := svc.discoverKimiCode(context.Background(), provider, apiKey)
 	assert.NoError(t, err)
-	assert.Len(t, models, 3)
+	assert.Len(t, models, 4)
 
 	byID := map[string]*model.Model{}
 	for _, m := range models {
@@ -76,6 +77,14 @@ func TestDiscoverKimiCode_MapsListingMetadata(t *testing.T) {
 	if assert.NotNil(t, plain.ContextLength) {
 		assert.Equal(t, 8192, *plain.ContextLength)
 	}
+
+	// Entry with reasoning but no vision: discriminates a swapped
+	// Reasoning/Vision capability mapping in kimiCodeLiveModel.
+	reasoningOnly := byID["reasoning-only-model"]
+	assert.NotNil(t, reasoningOnly)
+	assert.Contains(t, reasoningOnly.Capabilities, `"reasoning":true`)
+	assert.Contains(t, reasoningOnly.Capabilities, `"vision":false`)
+	assert.Equal(t, `["text"]`, reasoningOnly.InputModalities)
 }
 
 func TestDiscoverKimiCode_FetchErrorAborts(t *testing.T) {
