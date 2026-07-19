@@ -2555,8 +2555,8 @@
 		"quotaBadge": {
 			"weeklyTokensRemaining": "残りのNanoGPT週間トークン - 詳細をクリックしてください",
 			"weeklyTokenQuota": "NanoGPT毎週のトークンクォータ - 詳細をクリックしてください",
-			"zaiCodingRemaining": "Z.ai Coding remaining quota - Click for details",
-			"zaiCodingUsed": "Z.ai Coding used quota - click for details",
+			"zaiCodingRemaining": "Z.ai コーディング残りクォータ - 詳細をクリックしてください",
+			"zaiCodingUsed": "Z.ai コーディング使用済みクォータ - 詳細をクリックしてください",
 			"kimiCodeRemaining": "Kimi コーディング残りクォータ - 詳細をクリックしてください",
 			"kimiCodeUsed": "Kimi コーディング使用済みクォータ - 詳細をクリックしてください",
 			"deepseekBalance": "DeepSeek balance: ${{usd}} USD {{refreshed}} - クリックして更新",
