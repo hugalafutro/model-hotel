@@ -855,7 +855,9 @@
 			"toggleSection": "切换 {{provider}} 部分",
 			"failoverDisabled": "故障转移组已停用",
 			"failoverDisabledReason": "剩余 {{count}} 个可路由成员，需要 2 个以上"
-		}
+		},
+		"toast_quota_detected_minimax": "检测到 MiniMax 配额",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "模型",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "计费间隔",
 			"neuralwattAccountingMethod": "会计方法",
 			"limits": "限制",
-			"none": "无"
+			"none": "无",
+			"miniMaxPlanQuota": "MiniMax 计划配额",
+			"miniMaxChatModels": "聊天模型",
+			"miniMaxNotInPlan": "不在计划中",
+			"miniMaxVideoModels": "视频模型"
 		},
 		"providerQuotaPanel": {
 			"quotas": "定数",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} 套餐（截止日期： {{endDate}}） {{refreshed}} - 点击更新",
 			"updated": "- 已更新 {{time}}",
 			"neuralwattBalance": "NeuralWatt： {{amount}} 剩余电量（千瓦时） {{refreshed}}",
-			"neuralwattBalanceUnavailable": "NeuralWatt余额不可用"
+			"neuralwattBalanceUnavailable": "NeuralWatt余额不可用",
+			"miniMaxRemaining": "MiniMax 剩余配额-点击查看详情",
+			"miniMaxUsed": "MiniMax 使用的配额-点击查看详情"
 		},
 		"filterDropdown": {
 			"placeholder": "筛选器",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "获取深Seek余额失败",
 			"openRouterError": "获取 OpenRouter 密钥余额失败",
 			"ollamaCloudError": "获取 Olama 云账户失败",
-			"neuralwattError": "获取 NeuralWatt 配额失败"
+			"neuralwattError": "获取 NeuralWatt 配额失败",
+			"miniMaxError": "获取 MiniMax 使用配额失败"
 		},
 		"useDisableModel": {
 			"success": "已禁用“{{model}}”模型",

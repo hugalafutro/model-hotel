@@ -86,6 +86,10 @@ describe("baseUrls", () => {
 		expect(baseUrls["kimi-code"]).toBe("https://api.kimi.com/coding/v1");
 	});
 
+	it("has entry for minimax", () => {
+		expect(baseUrls.minimax).toBe("https://api.minimax.io/v1");
+	});
+
 	it("has entry for opencode-zen", () => {
 		expect(baseUrls["opencode-zen"]).toBe("https://opencode.ai/zen/v1");
 	});
@@ -373,6 +377,10 @@ describe("providerTypeTranslationKeys", () => {
 		expect(providerTypeTranslationKeys["kimi-code"]).toBe(
 			"providers.type_kimi_code",
 		);
+	});
+
+	it("has translation key for minimax", () => {
+		expect(providerTypeTranslationKeys.minimax).toBe("providers.type_minimax");
 	});
 
 	it("has translation key for opencode-zen", () => {

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
 	DeepSeekBalance,
 	KimiCodeQuotaResponse,
+	MiniMaxQuotaResponse,
 	NanoGPTUsage,
 	OllamaCloudAccount,
 	OpenRouterBalance,
@@ -48,6 +49,7 @@ const defaultProps = {
 	onSetModalNano: vi.fn(),
 	onSetModalZaiCoding: vi.fn(),
 	onSetModalKimiCode: vi.fn(),
+	onSetModalMiniMax: vi.fn(),
 	onSetModalOpenRouter: vi.fn(),
 	onSetModalNeuralwatt: vi.fn(),
 	toast: vi.fn(),
@@ -576,6 +578,42 @@ describe("ProviderCard", () => {
 			fireEvent.click(kimiBadge);
 
 			expect(defaultProps.onSetModalKimiCode).toHaveBeenCalled();
+		});
+
+		it("calls onSetModalMiniMax when MiniMax badge is clicked", () => {
+			mockQuotaData.showMiniMaxBadge = true;
+			mockQuotaData.minimaxUsage = {
+				model_remains: [
+					{
+						model_name: "general",
+						remains_time: 1000,
+						weekly_remains_time: 2000,
+						current_interval_status: 1,
+						current_interval_remaining_percent: 80,
+						current_weekly_status: 1,
+						current_weekly_remaining_percent: 60,
+					},
+				],
+				base_resp: { status_code: 0, status_msg: "success" },
+			} as unknown as MiniMaxQuotaResponse;
+
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{
+						...mockProvider,
+						base_url: "https://api.minimax.io/v1",
+					}}
+				/>,
+				{ wrapper: AllProviders },
+			);
+
+			const minimaxBadge = screen.getByTitle(
+				"MiniMax remaining quota - click for details",
+			);
+			fireEvent.click(minimaxBadge);
+
+			expect(defaultProps.onSetModalMiniMax).toHaveBeenCalled();
 		});
 
 		it("calls refetchDeepseek and toasts success when DeepSeek badge is clicked", async () => {

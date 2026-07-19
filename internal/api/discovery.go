@@ -285,6 +285,14 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, quota)
 		return
+	case "minimax":
+		quota, err := discovery.GetMiniMaxQuota(quotaCtx, prov, h.cfg.MasterKey)
+		if err != nil {
+			respondQuotaError(w, prov.Name, "usage", err)
+			return
+		}
+		writeJSON(w, quota)
+		return
 	case "nanogpt":
 		usage, err := discovery.GetNanoGPTUsage(quotaCtx, prov, h.cfg.MasterKey)
 		if err != nil {
@@ -639,6 +647,15 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 			}
 		case "kimi-code":
 			_, err := discovery.GetKimiCodeQuota(provCtx, prov, h.cfg.MasterKey)
+			if err != nil {
+				result.Error = err.Error()
+				failed++
+			} else {
+				result.Refreshed = true
+				refreshed++
+			}
+		case "minimax":
+			_, err := discovery.GetMiniMaxQuota(provCtx, prov, h.cfg.MasterKey)
 			if err != nil {
 				result.Error = err.Error()
 				failed++

@@ -9,6 +9,9 @@ import {
 	getCachedData,
 	getKimiCodeFiveHourLimit,
 	getKimiCodeWeeklyLimit,
+	getMiniMaxFiveHourLimit,
+	getMiniMaxGeneralEntry,
+	getMiniMaxWeeklyLimit,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 	setCachedData,
@@ -714,6 +717,19 @@ describe("useQuotaData", () => {
 			);
 		});
 
+		it("detects MiniMax provider type (api subdomain)", () => {
+			expect(detectQuotaProviderType("https://api.minimax.io/v1")).toBe(
+				"minimax",
+			);
+		});
+
+		it("detects MiniMax provider type (apex + other subdomain)", () => {
+			expect(detectQuotaProviderType("https://minimax.io/v1")).toBe("minimax");
+			expect(detectQuotaProviderType("https://foo.minimax.io/v1")).toBe(
+				"minimax",
+			);
+		});
+
 		it("detects DeepSeek provider type", () => {
 			expect(detectQuotaProviderType("https://api.deepseek.com/v1")).toBe(
 				"deepseek",
@@ -948,6 +964,137 @@ describe("useQuotaData", () => {
 			expect(getKimiCodeFiveHourLimit(undefined)).toBeUndefined();
 			expect(getKimiCodeWeeklyLimit(null)).toBeUndefined();
 			expect(getKimiCodeWeeklyLimit(undefined)).toBeUndefined();
+		});
+	});
+
+	describe("getMiniMax helpers", () => {
+		// Live-captured 2026-07-19 reference payload.
+		const fixture = {
+			model_remains: [
+				{
+					start_time: 1784473200000,
+					end_time: 1784491200000,
+					remains_time: 16420081,
+					current_interval_total_count: 0,
+					current_interval_usage_count: 0,
+					model_name: "general",
+					current_weekly_total_count: 0,
+					current_weekly_usage_count: 0,
+					weekly_start_time: 1783900800000,
+					weekly_end_time: 1784505600000,
+					weekly_remains_time: 30820081,
+					current_interval_status: 1,
+					current_interval_remaining_percent: 100,
+					current_weekly_status: 1,
+					current_weekly_remaining_percent: 100,
+				},
+				{
+					start_time: 1784419200000,
+					end_time: 1784505600000,
+					remains_time: 30820081,
+					current_interval_total_count: 0,
+					current_interval_usage_count: 0,
+					model_name: "video",
+					current_weekly_total_count: 0,
+					current_weekly_usage_count: 0,
+					weekly_start_time: 1783900800000,
+					weekly_end_time: 1784505600000,
+					weekly_remains_time: 30820081,
+					current_interval_status: 3,
+					current_interval_remaining_percent: 100,
+					current_weekly_status: 3,
+					current_weekly_remaining_percent: 100,
+				},
+			],
+			base_resp: { status_code: 0, status_msg: "success" },
+		} as never;
+
+		const noSub = {
+			model_remains: null,
+			base_resp: {
+				status_code: 2062,
+				status_msg: "no active token plan subscription",
+			},
+		} as never;
+
+		it("finds the active general model class", () => {
+			const g = getMiniMaxGeneralEntry(fixture);
+			expect(g).toBeDefined();
+			expect(g?.model_name).toBe("general");
+			expect(g?.current_interval_status).toBe(1);
+		});
+
+		it("returns undefined for the no-subscription variant (status_code 2062)", () => {
+			expect(getMiniMaxGeneralEntry(noSub)).toBeUndefined();
+			expect(getMiniMaxFiveHourLimit(noSub)).toBeUndefined();
+			expect(getMiniMaxWeeklyLimit(noSub)).toBeUndefined();
+		});
+
+		it("returns undefined when model_remains is empty", () => {
+			const empty = {
+				model_remains: [],
+				base_resp: { status_code: 0, status_msg: "success" },
+			} as never;
+			expect(getMiniMaxGeneralEntry(empty)).toBeUndefined();
+		});
+
+		it("returns undefined when no general class is in active interval status", () => {
+			const inactive = {
+				model_remains: [
+					{
+						model_name: "general",
+						remains_time: 1,
+						weekly_remains_time: 1,
+						current_interval_status: 3,
+						current_interval_remaining_percent: 100,
+						current_weekly_status: 3,
+						current_weekly_remaining_percent: 100,
+					},
+				],
+				base_resp: { status_code: 0, status_msg: "success" },
+			} as never;
+			expect(getMiniMaxGeneralEntry(inactive)).toBeUndefined();
+		});
+
+		it("derives 5h window as used% (100 − remaining) with ms reset", () => {
+			const win = getMiniMaxFiveHourLimit(fixture);
+			expect(win).toBeDefined();
+			expect(win?.percentage).toBe(0);
+			expect(win?.remainingPercent).toBe(100);
+			expect(win?.resetMs).toBe(16420081);
+		});
+
+		it("derives weekly window as used% with weekly ms reset", () => {
+			const win = getMiniMaxWeeklyLimit(fixture);
+			expect(win).toBeDefined();
+			expect(win?.percentage).toBe(0);
+			expect(win?.resetMs).toBe(30820081);
+		});
+
+		it("inverts remaining percentages into used percentages", () => {
+			const used = {
+				model_remains: [
+					{
+						model_name: "general",
+						remains_time: 1000,
+						weekly_remains_time: 2000,
+						current_interval_status: 1,
+						current_interval_remaining_percent: 70,
+						current_weekly_status: 1,
+						current_weekly_remaining_percent: 40,
+					},
+				],
+				base_resp: { status_code: 0, status_msg: "success" },
+			} as never;
+			expect(getMiniMaxFiveHourLimit(used)?.percentage).toBe(30);
+			expect(getMiniMaxWeeklyLimit(used)?.percentage).toBe(60);
+		});
+
+		it("returns undefined for null/undefined minimax data", () => {
+			expect(getMiniMaxGeneralEntry(null)).toBeUndefined();
+			expect(getMiniMaxGeneralEntry(undefined)).toBeUndefined();
+			expect(getMiniMaxFiveHourLimit(null)).toBeUndefined();
+			expect(getMiniMaxWeeklyLimit(undefined)).toBeUndefined();
 		});
 	});
 });

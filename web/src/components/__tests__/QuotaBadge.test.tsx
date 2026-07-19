@@ -356,6 +356,78 @@ describe("QuotaBadge", () => {
 		});
 	});
 
+	describe("minimax type", () => {
+		const activeUsage = (
+			intervalRemaining: number,
+			weeklyRemaining: number,
+		): import("../../api/types").MiniMaxQuotaResponse => ({
+			model_remains: [
+				{
+					model_name: "general",
+					remains_time: 16420081,
+					weekly_remains_time: 30820081,
+					current_interval_status: 1,
+					current_interval_remaining_percent: intervalRemaining,
+					current_weekly_status: 1,
+					current_weekly_remaining_percent: weeklyRemaining,
+				},
+			],
+			base_resp: { status_code: 0, status_msg: "success" },
+		});
+
+		it("renders with minimax type shows -/- without usage", () => {
+			render(<QuotaBadge type="minimax" variant="card" />);
+			expect(screen.getByText("-/-")).toBeInTheDocument();
+		});
+
+		it("renders with minimax sidebar variant", () => {
+			render(<QuotaBadge type="minimax" variant="sidebar" />);
+			const button = screen.getByRole("button");
+			expect(button).toHaveClass("sidebar-quota-pill");
+			expect(button).toHaveClass("sidebar-quota-pill-minimax");
+		});
+
+		it("handles null minimaxUsage", () => {
+			render(<QuotaBadge type="minimax" variant="card" minimaxUsage={null} />);
+			expect(screen.getByText("-/-")).toBeInTheDocument();
+		});
+
+		it("shows remaining percentages by default (barMode=remaining)", () => {
+			render(
+				<QuotaBadge
+					type="minimax"
+					variant="card"
+					minimaxUsage={activeUsage(90, 20)}
+				/>,
+			);
+			expect(screen.getByText("90%/20%")).toBeInTheDocument();
+		});
+
+		it("shows used percentages when barMode=used", () => {
+			render(
+				<QuotaBadge
+					type="minimax"
+					variant="card"
+					barMode="used"
+					minimaxUsage={activeUsage(90, 20)}
+				/>,
+			);
+			expect(screen.getByText("10%/80%")).toBeInTheDocument();
+		});
+
+		it("hides (shows -/-) when there is no active token plan (status 2062)", () => {
+			const noSub: import("../../api/types").MiniMaxQuotaResponse = {
+				model_remains: null,
+				base_resp: {
+					status_code: 2062,
+					status_msg: "no active token plan subscription",
+				},
+			};
+			render(<QuotaBadge type="minimax" variant="card" minimaxUsage={noSub} />);
+			expect(screen.getByText("-/-")).toBeInTheDocument();
+		});
+	});
+
 	describe("deepseek type", () => {
 		const mockDeepSeekBalance: DeepSeekBalance = {
 			is_available: true,
@@ -728,7 +800,9 @@ describe("QuotaBadges", () => {
 		showZaiCodingBadge: false,
 		zaiCodingUsage: undefined,
 		showKimiCodeBadge: false,
+		showMiniMaxBadge: false,
 		kimiCodeUsage: undefined,
+		minimaxUsage: undefined,
 		showDsBadge: false,
 		deepseekBalance: undefined,
 		showOrBadge: false,
@@ -740,6 +814,7 @@ describe("QuotaBadges", () => {
 		nanogptProviderId: "nanogpt-1",
 		zaiCodingProviderId: undefined,
 		kimiCodeProviderId: undefined,
+		minimaxProviderId: undefined,
 		deepseekProviderId: undefined,
 		openrouterProviderId: undefined,
 		ollamaCloudProviderId: undefined,
@@ -748,10 +823,13 @@ describe("QuotaBadges", () => {
 		zaiCodingWeekly: undefined,
 		kimiCodeFiveHour: undefined,
 		kimiCodeWeekly: undefined,
+		minimaxFiveHour: undefined,
+		minimaxWeekly: undefined,
 		hasAnyProvider: true,
 		refetchNano: vi.fn(),
 		refetchZaiCoding: vi.fn(),
 		refetchKimiCode: vi.fn(),
+		refetchMiniMax: vi.fn(),
 		refetchDeepseek: vi.fn(),
 		refetchOpenRouter: vi.fn(),
 		refetchOllamaCloud: vi.fn(),
@@ -759,6 +837,7 @@ describe("QuotaBadges", () => {
 		isNanoRefetching: false,
 		isZaiCodingRefetching: false,
 		isKimiCodeRefetching: false,
+		isMiniMaxRefetching: false,
 		isDsRefetching: false,
 		isOrRefetching: false,
 		isOllamaCloudRefetching: false,
@@ -766,6 +845,7 @@ describe("QuotaBadges", () => {
 		nanogptDataUpdatedAt: 0,
 		zaiCodingDataUpdatedAt: 0,
 		kimiCodeDataUpdatedAt: 0,
+		minimaxDataUpdatedAt: 0,
 		deepseekDataUpdatedAt: 0,
 		openrouterDataUpdatedAt: 0,
 		ollamaCloudDataUpdatedAt: 0,
@@ -781,7 +861,9 @@ describe("QuotaBadges", () => {
 		showZaiCodingBadge: false,
 		zaiCodingUsage: undefined,
 		showKimiCodeBadge: false,
+		showMiniMaxBadge: false,
 		kimiCodeUsage: undefined,
+		minimaxUsage: undefined,
 		showDsBadge: false,
 		deepseekBalance: undefined,
 		showOrBadge: false,
@@ -835,6 +917,7 @@ describe("QuotaBadges", () => {
 		nanogptProviderId: undefined,
 		zaiCodingProviderId: undefined,
 		kimiCodeProviderId: undefined,
+		minimaxProviderId: undefined,
 		deepseekProviderId: undefined,
 		openrouterProviderId: undefined,
 		ollamaCloudProviderId: undefined,
@@ -843,10 +926,13 @@ describe("QuotaBadges", () => {
 		zaiCodingWeekly: undefined,
 		kimiCodeFiveHour: undefined,
 		kimiCodeWeekly: undefined,
+		minimaxFiveHour: undefined,
+		minimaxWeekly: undefined,
 		hasAnyProvider: true,
 		refetchNano: vi.fn(),
 		refetchZaiCoding: vi.fn(),
 		refetchKimiCode: vi.fn(),
+		refetchMiniMax: vi.fn(),
 		refetchDeepseek: vi.fn(),
 		refetchOpenRouter: vi.fn(),
 		refetchOllamaCloud: vi.fn(),
@@ -854,6 +940,7 @@ describe("QuotaBadges", () => {
 		isNanoRefetching: false,
 		isZaiCodingRefetching: false,
 		isKimiCodeRefetching: false,
+		isMiniMaxRefetching: false,
 		isDsRefetching: false,
 		isOrRefetching: false,
 		isOllamaCloudRefetching: false,
@@ -861,6 +948,7 @@ describe("QuotaBadges", () => {
 		nanogptDataUpdatedAt: 0,
 		zaiCodingDataUpdatedAt: 0,
 		kimiCodeDataUpdatedAt: 0,
+		minimaxDataUpdatedAt: 0,
 		deepseekDataUpdatedAt: 0,
 		openrouterDataUpdatedAt: 0,
 		ollamaCloudDataUpdatedAt: 0,

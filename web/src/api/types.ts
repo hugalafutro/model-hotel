@@ -640,6 +640,48 @@ export interface KimiCodeQuotaWindow {
 	percentage: number;
 }
 
+/**
+ * MiniMax token-plan quota. Raw `/token_plan/remains` payload: one entry per
+ * model class ("general", "video"). Percentages are already 0-100 numbers
+ * (REMAINING, not used); `remains_time`/`weekly_remains_time` are millisecond
+ * durations until the 5-hour / weekly window resets. `current_interval_status`
+ * / `current_weekly_status` of 3 means the class is not in the active plan.
+ */
+export interface MiniMaxModelRemains {
+	model_name: string;
+	start_time?: number;
+	end_time?: number;
+	remains_time: number;
+	weekly_start_time?: number;
+	weekly_end_time?: number;
+	weekly_remains_time: number;
+	current_interval_status: number;
+	current_interval_remaining_percent: number;
+	current_weekly_status: number;
+	current_weekly_remaining_percent: number;
+}
+
+export interface MiniMaxBaseResp {
+	status_code: number;
+	status_msg: string;
+}
+
+export interface MiniMaxQuotaResponse {
+	model_remains: MiniMaxModelRemains[] | null;
+	base_resp: MiniMaxBaseResp;
+}
+
+/**
+ * Normalized MiniMax quota window returned by the helpers. `percentage` is the
+ * USED percentage (100 − remaining) so badge/modal code stays uniform with the
+ * other providers; `resetMs` is the millisecond duration until reset.
+ */
+export interface MiniMaxQuotaWindow {
+	percentage: number;
+	remainingPercent: number;
+	resetMs: number;
+}
+
 export interface NeuralWattQuotaBalance {
 	credits_remaining_usd: number;
 	total_credits_usd: number;

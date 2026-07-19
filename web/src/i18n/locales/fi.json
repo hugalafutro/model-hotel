@@ -855,7 +855,9 @@
 			"toggleSection": "Näytä tai piilota osio {{provider}}",
 			"failoverDisabled": "Vikasietoryhmät poistettu käytöstä",
 			"failoverDisabledReason": "{{count}} reititettävää jäsentä jäljellä, tarvitaan 2+"
-		}
+		},
+		"toast_quota_detected_minimax": "MiniMax-kiintiö havaittu",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "Malli",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "Laskutuksen Aikaväli",
 			"neuralwattAccountingMethod": "Kirjanpitotapa",
 			"limits": "Raja-arvot",
-			"none": "Ei Mitään"
+			"none": "Ei Mitään",
+			"miniMaxPlanQuota": "MiniMax-suunnitelman kiintiö",
+			"miniMaxChatModels": "Keskustelumallit",
+			"miniMaxNotInPlan": "Ei sisälly suunnitelmaan",
+			"miniMaxVideoModels": "Videomallit"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Kiintiöt",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} -paketti (voimassa {{endDate}}) {{refreshed}} - päivitä napsauttamalla",
 			"updated": "- päivitetty {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} jäljellä olevat kWh {{refreshed}}",
-			"neuralwattBalanceUnavailable": "NeuralWatt saldo ei saatavilla"
+			"neuralwattBalanceUnavailable": "NeuralWatt saldo ei saatavilla",
+			"miniMaxRemaining": "MiniMax jäljellä oleva kiintiö - klikkaa saadaksesi lisätietoja",
+			"miniMaxUsed": "MiniMax käytetty kiintiö - klikkaa lisätietoja"
 		},
 		"filterDropdown": {
 			"placeholder": "Suodatin",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "DeepSeekin saldon noutaminen epäonnistui",
 			"openRouterError": "OpenRouter avaimen saldon haku epäonnistui",
 			"ollamaCloudError": "Ollama Cloud -tilin haku epäonnistui",
-			"neuralwattError": "NeuralWatt-kiintiön nouto epäonnistui"
+			"neuralwattError": "NeuralWatt-kiintiön nouto epäonnistui",
+			"miniMaxError": "MiniMax:n käyttökiintiön nouto epäonnistui"
 		},
 		"useDisableModel": {
 			"success": "Malli \"{{model}}\" pois päältä",

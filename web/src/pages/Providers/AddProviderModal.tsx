@@ -121,6 +121,11 @@ export function AddProviderModal({
 						onToast(t("providers.toast_quota_detected_kimi"), "info");
 						queryClient.invalidateQueries({ queryKey: ["kimi-code-usage"] });
 						break;
+					case "minimax":
+						await api.providers.getUsage(newProvider.id);
+						onToast(t("providers.toast_quota_detected_minimax"), "info");
+						queryClient.invalidateQueries({ queryKey: ["minimax-usage"] });
+						break;
 					case "deepseek": {
 						const balance = await api.providers.getBalance(newProvider.id);
 						const usd = balance.balance_infos.find((b) => b.currency === "USD");

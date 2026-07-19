@@ -189,6 +189,10 @@ var hostTypeRules = []struct {
 	// sk-kimi- keys ONLY work here — the pay-per-token platform
 	// (api.moonshot.ai) is a separate key namespace and stays generic openai.
 	{"kimi-code", []string{"api.kimi.com", "kimi.com"}, []string{".kimi.com"}},
+	// MiniMax intl platform (api.minimax.io). Token Plan subscription sk-cp-
+	// keys and pay-as-you-go sk-api- keys share the same OpenAI-compatible
+	// endpoint; the CN twin (api.minimaxi.com) stays generic openai.
+	{"minimax", []string{"api.minimax.io", "minimax.io"}, []string{".minimax.io"}},
 }
 
 // detectByHost resolves a provider type from a lowercased hostname (and URL
@@ -300,6 +304,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 			return d.discoverZAICoding(ctx, provider, apiKey)
 		case "kimi-code":
 			return d.discoverKimiCode(ctx, provider, apiKey)
+		case "minimax":
+			return d.discoverMiniMax(ctx, provider, apiKey)
 		case "bedrock":
 			return d.discoverBedrock(ctx, provider, apiKey)
 		case "azure":

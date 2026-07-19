@@ -855,7 +855,9 @@
 			"toggleSection": "Prepnúť sekciu {{provider}}",
 			"failoverDisabled": "Skupiny pre prevzatie pri výpadku deaktivované",
 			"failoverDisabledReason": "zostáva {{count}} smerovateľných členov, potrebné 2+"
-		}
+		},
+		"toast_quota_detected_minimax": "Zistená kvóta MiniMax",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "Fakturačný interval",
 			"neuralwattAccountingMethod": "Účtovná metóda",
 			"limits": "Limity",
-			"none": "Žiadne"
+			"none": "Žiadne",
+			"miniMaxPlanQuota": "Kvóta plánu MiniMax",
+			"miniMaxChatModels": "Chatovacie modely",
+			"miniMaxNotInPlan": "Nie je súčasťou plánu",
+			"miniMaxVideoModels": "Video modely"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Kvóty",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plán (končí {{endDate}}) {{refreshed}} – kliknite pre aktualizáciu",
 			"updated": "- aktualizované {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} zostávajúce kWh {{refreshed}}",
-			"neuralwattBalanceUnavailable": "Údaje o spotrebe energie v aplikácii NeuralWatt nie sú k dispozícii"
+			"neuralwattBalanceUnavailable": "Údaje o spotrebe energie v aplikácii NeuralWatt nie sú k dispozícii",
+			"miniMaxRemaining": "MiniMax – Zostávajúca kvóta – kliknite pre podrobnosti",
+			"miniMaxUsed": "MiniMax – využitá kvóta – kliknite pre podrobnosti"
 		},
 		"filterDropdown": {
 			"placeholder": "Filter",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "Nepodarilo sa načítať stav účtu DeepSeek",
 			"openRouterError": "Nepodarilo sa načítať stav zostatku kľúča OpenRouter",
 			"ollamaCloudError": "Nepodarilo sa načítať účet Ollama Cloud",
-			"neuralwattError": "Nepodarilo sa načítať kvótu NeuralWatt"
+			"neuralwattError": "Nepodarilo sa načítať kvótu NeuralWatt",
+			"miniMaxError": "Nepodarilo sa načítať kvótu využitia MiniMax"
 		},
 		"useDisableModel": {
 			"success": "Model „{{model}}“ je deaktivovaný",

@@ -855,7 +855,9 @@
 			"toggleSection": "تبديل قسم {{provider}}",
 			"failoverDisabled": "تم تعطيل مجموعات التحويل التلقائي",
 			"failoverDisabledReason": "{{count}} عضو قابل للتوجيه متبقٍ، يلزم 2+"
-		}
+		},
+		"toast_quota_detected_minimax": "تم اكتشاف حصة MiniMax",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "الموديل",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "فاصل الفاتورة",
 			"neuralwattAccountingMethod": "طريقة المحاسبة",
 			"limits": "الحدود",
-			"none": "لا"
+			"none": "لا",
+			"miniMaxPlanQuota": "حصة خطة MiniMax",
+			"miniMaxChatModels": "نماذج الدردشة",
+			"miniMaxNotInPlan": "غير مدرج في الخطة",
+			"miniMaxVideoModels": "نماذج الفيديو"
 		},
 		"providerQuotaPanel": {
 			"quotas": "الحصص",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "خطة Ollama Cloud {{plan}} (ينتهي {{endDate}}) {{refreshed}} - انقر للتحديث",
 			"updated": "- تم تحديثه {{time}}",
 			"neuralwattBalance": "نيورالواط: {{amount}} kwh تبقى {{refreshed}}",
-			"neuralwattBalanceUnavailable": "رصيد NeuralWatt غير متوفر"
+			"neuralwattBalanceUnavailable": "رصيد NeuralWatt غير متوفر",
+			"miniMaxRemaining": "MiniMax الحصة المتبقية - انقر للحصول على التفاصيل",
+			"miniMaxUsed": "MiniMax الحصة المستخدمة - انقر للحصول على التفاصيل"
 		},
 		"filterDropdown": {
 			"placeholder": "تصفية",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "فشل في جلب رصيد DeepSeek",
 			"openRouterError": "فشل في جلب رصيد مفتاح OpenRouter",
 			"ollamaCloudError": "فشل في جلب حساب Ollama Cloud",
-			"neuralwattError": "فشل في جلب حصة NeuralWatt"
+			"neuralwattError": "فشل في جلب حصة NeuralWatt",
+			"miniMaxError": "فشل في جلب حصة استخدام MiniMax"
 		},
 		"useDisableModel": {
 			"success": "تم تعطيل الموديل \"{{model}}\"",

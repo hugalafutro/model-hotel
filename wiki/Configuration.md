@@ -60,6 +60,8 @@ The following provider hosts are **always allowed** as provider `base_url` value
 - `api.z.ai`
 - `api.kimi.com`
 - `kimi.com`
+- `api.minimax.io`
+- `minimax.io`
 - `api.deepseek.com`
 - `api.anthropic.com`
 - `ollama.com`

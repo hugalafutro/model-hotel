@@ -213,6 +213,13 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		return res
 	}
 	res.respHeaderMs = float64(time.Since(st.startTime).Microseconds()) / 1000.0
+	providerType := provider.DetectProviderType(candidate.provider.BaseURL)
+
+	// MiniMax reports business errors (rate limit, exhausted plan balance,
+	// auth failures) inside an HTTP 200 envelope; remap them to an effective
+	// status so the breaker/failover paths below — all keyed on status codes —
+	// see the failure.
+	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
 
 	isFailoverEligible := h.shouldFailover(ctx, resp.StatusCode)
 	h.recordBreakerOutcome(st, candidate, resp.StatusCode, isFailoverEligible)
@@ -227,7 +234,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			// inside one race slot would skew the TTFT contest), but it can
 			// still LEARN the /v1/responses requirement from the 400 so every
 			// subsequent request — hedged or sequential — routes preemptively.
-			h.learnResponsesRequirement(st, candidate, provider.DetectProviderType(candidate.provider.BaseURL), errBody)
+			h.learnResponsesRequirement(st, candidate, providerType, errBody)
 		}
 		res.reqErr = reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}
 		return res

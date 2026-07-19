@@ -855,7 +855,9 @@
 			"toggleSection": "Wissel {{provider}}-afdeling",
 			"failoverDisabled": "Failover-groepe gedeaktiveer",
 			"failoverDisabledReason": "{{count}} roeteerbare lid(lede) oor, benodig 2+"
-		}
+		},
+		"toast_quota_detected_minimax": "MiniMax-kwota opgespoor",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "Faktureringsinterval",
 			"neuralwattAccountingMethod": "Rekeningkundige metode",
 			"limits": "Perke",
-			"none": "Geen"
+			"none": "Geen",
+			"miniMaxPlanQuota": "MiniMax Plankwota",
+			"miniMaxChatModels": "Klets-modelle",
+			"miniMaxNotInPlan": "Nie in plan nie",
+			"miniMaxVideoModels": "Video-modelle"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Kwota's",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} -plan (eindig {{endDate}}) {{refreshed}} - klik om op te dateer",
 			"updated": "- bygewerk {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} oorblywende kWh {{refreshed}}",
-			"neuralwattBalanceUnavailable": "NeuralWatt-balans onbeskikbaar"
+			"neuralwattBalanceUnavailable": "NeuralWatt-balans onbeskikbaar",
+			"miniMaxRemaining": "MiniMax oorskotkwota - klik vir besonderhede",
+			"miniMaxUsed": "MiniMax het kwota gebruik - klik vir besonderhede"
 		},
 		"filterDropdown": {
 			"placeholder": "Filter",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "Het misluk om die DeepSeek-balans op te haal",
 			"openRouterError": "Misluk om die OpenRouter-sleutelbalans op te haal",
 			"ollamaCloudError": "Misluk om die Ollama Cloud-rekening op te haal",
-			"neuralwattError": "Misluk om NeuralWatt-kwota op te haal"
+			"neuralwattError": "Misluk om NeuralWatt-kwota op te haal",
+			"miniMaxError": "Misluk om die MiniMax-gebruikkwota op te haal"
 		},
 		"useDisableModel": {
 			"success": "Model \"{{model}}\" gedeaktiveer",

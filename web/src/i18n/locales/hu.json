@@ -855,7 +855,9 @@
 			"toggleSection": "{{provider}} szakasz be- és kikapcsolása",
 			"failoverDisabled": "Letiltott failover csoportok",
 			"failoverDisabledReason": "{{count}} útválasztható tag maradt, 2+ szükséges"
-		}
+		},
+		"toast_quota_detected_minimax": "MiniMax kvóta észlelve",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "Számlázási időszak",
 			"neuralwattAccountingMethod": "Számviteli módszer",
 			"limits": "Határok",
-			"none": "Nincs"
+			"none": "Nincs",
+			"miniMaxPlanQuota": "MiniMax terv kvóta",
+			"miniMaxChatModels": "Csevegési modellek",
+			"miniMaxNotInPlan": "Nincs a tervben",
+			"miniMaxVideoModels": "Videomodellek"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Kvóták",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} csomag (lejár: {{endDate}}) {{refreshed}} – kattintson a frissítéshez",
 			"updated": "- frissítve {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} maradt kWh {{refreshed}}",
-			"neuralwattBalanceUnavailable": "A NeuralWatt mérleg nem elérhető"
+			"neuralwattBalanceUnavailable": "A NeuralWatt mérleg nem elérhető",
+			"miniMaxRemaining": "MiniMax: fennmaradó kvóta – kattintson a részletekért",
+			"miniMaxUsed": "MiniMax felhasznált kvóta – kattintson a részletekért"
 		},
 		"filterDropdown": {
 			"placeholder": "Szűrő",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "Nem sikerült lekérni a DeepSeek egyenlegét",
 			"openRouterError": "Nem sikerült lekérni az OpenRouter kulcs egyenlegét",
 			"ollamaCloudError": "Nem sikerült betölteni az Ollama Cloud-fiókot",
-			"neuralwattError": "Nem sikerült lekérni a NeuralWatt kvótát"
+			"neuralwattError": "Nem sikerült lekérni a NeuralWatt kvótát",
+			"miniMaxError": "Nem sikerült lekérni a MiniMax használati kvótát"
 		},
 		"useDisableModel": {
 			"success": "A „{{model}}” modell le van tiltva",

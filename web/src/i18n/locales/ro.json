@@ -855,7 +855,9 @@
 			"toggleSection": "Comută secțiunea {{provider}}",
 			"failoverDisabled": "Grupuri de failover dezactivate",
 			"failoverDisabledReason": "au rămas {{count}} membri rutabili, sunt necesari 2+"
-		}
+		},
+		"toast_quota_detected_minimax": "Cotă MiniMax detectată",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "Interval facturare",
 			"neuralwattAccountingMethod": "Metoda de contabilitate",
 			"limits": "Limite",
-			"none": "Niciunul"
+			"none": "Niciunul",
+			"miniMaxPlanQuota": "Cota planului MiniMax",
+			"miniMaxChatModels": "Modele de chat",
+			"miniMaxNotInPlan": "Nu este inclus în plan",
+			"miniMaxVideoModels": "Modele video"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Contingente",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "{{plan}} planul Ollama Cloud (termină {{endDate}}) {{refreshed}} - click pentru actualizare",
 			"updated": "- Actualizare {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh rămași {{refreshed}}",
-			"neuralwattBalanceUnavailable": "Balanță NeuralWatt indisponibilă"
+			"neuralwattBalanceUnavailable": "Balanță NeuralWatt indisponibilă",
+			"miniMaxRemaining": "MiniMax cota rămasă - click pentru detalii",
+			"miniMaxUsed": "MiniMax cota folosită - click pentru detalii"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtrare",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "Obținerea soldului DeepSeek a eșuat",
 			"openRouterError": "Nu s-a reușit preluarea soldului cheii OpenRouter",
 			"ollamaCloudError": "Nu s-a reușit preluarea contului Ollama Cloud",
-			"neuralwattError": "Nu s-a reușit preluarea cotei NeuralWatt"
+			"neuralwattError": "Nu s-a reușit preluarea cotei NeuralWatt",
+			"miniMaxError": "Nu s-a putut obține cota de utilizare MiniMax"
 		},
 		"useDisableModel": {
 			"success": "Modelul \"{{model}}\" dezactivat",

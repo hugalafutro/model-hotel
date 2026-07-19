@@ -855,7 +855,9 @@
 			"toggleSection": "Bật/tắt phần {{provider}}",
 			"failoverDisabled": "Các nhóm dự phòng đã bị vô hiệu hóa",
 			"failoverDisabledReason": "còn {{count}} thành viên có thể định tuyến, cần 2+"
-		}
+		},
+		"toast_quota_detected_minimax": "Đã phát hiện hạn ngạch MiniMax",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "Mô hình",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "Khoảng thời gian thanh toán",
 			"neuralwattAccountingMethod": "Phương pháp kế toán",
 			"limits": "Giới hạn",
-			"none": "Không có"
+			"none": "Không có",
+			"miniMaxPlanQuota": "Hạn ngạch Kế hoạch MiniMax",
+			"miniMaxChatModels": "Mô hình trò chuyện",
+			"miniMaxNotInPlan": "Không có trong gói",
+			"miniMaxVideoModels": "Mô hình video"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Hạn ngạch",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Gói Ollama Cloud {{plan}} (hết hạn vào ngày {{endDate}}) {{refreshed}} - nhấp vào đây để cập nhật",
 			"updated": "- đã cập nhật {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} Số kWh còn lại {{refreshed}}",
-			"neuralwattBalanceUnavailable": "Không thể hiển thị số dư NeuralWatt"
+			"neuralwattBalanceUnavailable": "Không thể hiển thị số dư NeuralWatt",
+			"miniMaxRemaining": "MiniMax: Số lượng còn lại - nhấp vào để xem chi tiết",
+			"miniMaxUsed": "MiniMax đã sử dụng hết hạn ngạch - nhấp vào để xem chi tiết"
 		},
 		"filterDropdown": {
 			"placeholder": "Bộ lọc",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "Không thể lấy số dư DeepSeek",
 			"openRouterError": "Không thể lấy số dư khóa OpenRouter",
 			"ollamaCloudError": "Không thể truy xuất tài khoản Ollama Cloud",
-			"neuralwattError": "Không thể truy xuất hạn mức NeuralWatt"
+			"neuralwattError": "Không thể truy xuất hạn mức NeuralWatt",
+			"miniMaxError": "Không thể lấy hạn mức sử dụng MiniMax"
 		},
 		"useDisableModel": {
 			"success": "Mẫu \"{{model}}\" đã bị vô hiệu hóa",

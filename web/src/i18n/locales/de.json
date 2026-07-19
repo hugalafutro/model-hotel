@@ -855,7 +855,9 @@
 			"toggleSection": "Abschnitt {{provider}} umschalten",
 			"failoverDisabled": "Failover-Gruppen deaktiviert",
 			"failoverDisabledReason": "{{count}} routbare(s) Mitglied(er) übrig, 2+ erforderlich"
-		}
+		},
+		"toast_quota_detected_minimax": "MiniMax Quote erkannt",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "Rechnungsintervall",
 			"neuralwattAccountingMethod": "Buchhaltungsmethode",
 			"limits": "Grenzen",
-			"none": "Keine"
+			"none": "Keine",
+			"miniMaxPlanQuota": "MiniMax Plankontingent",
+			"miniMaxChatModels": "Chat-Modelle",
+			"miniMaxNotInPlan": "Nicht im Plan enthalten",
+			"miniMaxVideoModels": "Video-Modelle"
 		},
 		"providerQuotaPanel": {
 			"quotas": "Quoten",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} Plan (endet {{endDate}}) {{refreshed}} - Klicke zum Aktualisieren",
 			"updated": "- aktualisierte {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} verbleibende kWh {{refreshed}}",
-			"neuralwattBalanceUnavailable": "NeuralWatt-Guthaben nicht verfügbar"
+			"neuralwattBalanceUnavailable": "NeuralWatt-Guthaben nicht verfügbar",
+			"miniMaxRemaining": "MiniMax Restbetrag - Klicken Sie für Details",
+			"miniMaxUsed": "MiniMax verwendete Quote - für Details klicken"
 		},
 		"filterDropdown": {
 			"placeholder": "Filtern",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "DeepSeek Guthaben konnte nicht abgerufen werden",
 			"openRouterError": "Fehler beim Abrufen des OpenRouter Key Saldos",
 			"ollamaCloudError": "Fehler beim Abrufen des Ollama Cloud-Kontos",
-			"neuralwattError": "Fehler beim Abrufen des NeuralWatt-Kontingents"
+			"neuralwattError": "Fehler beim Abrufen des NeuralWatt-Kontingents",
+			"miniMaxError": "MiniMax-Nutzungsquote konnte nicht abgerufen werden"
 		},
 		"useDisableModel": {
 			"success": "Modell \"{{model}}\" deaktiviert",

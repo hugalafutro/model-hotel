@@ -20,6 +20,7 @@ interface ProviderCardProps {
 	onSetModalNano: () => void;
 	onSetModalZaiCoding: () => void;
 	onSetModalKimiCode: () => void;
+	onSetModalMiniMax: () => void;
 	onSetModalOpenRouter: () => void;
 	onSetModalNeuralwatt: () => void;
 	toast: (msg: string, type: "success" | "error" | "info") => void;
@@ -42,6 +43,7 @@ export function ProviderCard({
 	onSetModalNano,
 	onSetModalZaiCoding,
 	onSetModalKimiCode,
+	onSetModalMiniMax,
 	onSetModalOpenRouter,
 	onSetModalNeuralwatt,
 	toast,
@@ -103,6 +105,7 @@ export function ProviderCard({
 							onNanoClick={() => onSetModalNano()}
 							onZaiCodingClick={() => onSetModalZaiCoding()}
 							onKimiCodeClick={() => onSetModalKimiCode()}
+							onMiniMaxClick={() => onSetModalMiniMax()}
 							onDeepseekClick={async () => {
 								try {
 									await quotaData.refetchDeepseek();

@@ -855,7 +855,9 @@
 			"toggleSection": "{{provider}} セクションの表示切り替え",
 			"failoverDisabled": "フェイルオーバーグループが無効化されました",
 			"failoverDisabledReason": "ルーティング可能なメンバーが {{count}} 個、2個以上必要"
-		}
+		},
+		"toast_quota_detected_minimax": "MiniMax のクオータを検出しました",
+		"type_minimax": "MiniMax"
 	},
 	"models": {
 		"page_title_one": "モデル",
@@ -2318,7 +2320,11 @@
 			"neuralwattBillingInterval": "請求間隔",
 			"neuralwattAccountingMethod": "会計方法",
 			"limits": "制限",
-			"none": "なし"
+			"none": "なし",
+			"miniMaxPlanQuota": "MiniMax プランクォータ",
+			"miniMaxChatModels": "チャットモデル",
+			"miniMaxNotInPlan": "プランに含まれていません",
+			"miniMaxVideoModels": "動画モデル"
 		},
 		"providerQuotaPanel": {
 			"quotas": "クォータ",
@@ -2574,7 +2580,9 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} plan (termines {{endDate}}) {{refreshed}} - クリックして更新",
 			"updated": "- {{time}} を更新しました",
 			"neuralwattBalance": "NeuralWatt: {{amount}} kWh残り {{refreshed}}",
-			"neuralwattBalanceUnavailable": "NeuralWattが利用できません"
+			"neuralwattBalanceUnavailable": "NeuralWattが利用できません",
+			"miniMaxRemaining": "MiniMax 残りクォータ - 詳細をクリックしてください",
+			"miniMaxUsed": "MiniMax 使用済みクォータ - 詳細をクリックしてください"
 		},
 		"filterDropdown": {
 			"placeholder": "フィルター",
@@ -2689,7 +2697,8 @@
 			"deepSeekError": "DeepSeek残高の取得に失敗しました",
 			"openRouterError": "OpenRouterキー残高の取得に失敗しました",
 			"ollamaCloudError": "Orlama Cloudアカウントの取得に失敗しました",
-			"neuralwattError": "NeuralWattのクォータの取得に失敗しました"
+			"neuralwattError": "NeuralWattのクォータの取得に失敗しました",
+			"miniMaxError": "MiniMax の使用量の取得に失敗しました"
 		},
 		"useDisableModel": {
 			"success": "モデル \"{{model}}\" は無効",
