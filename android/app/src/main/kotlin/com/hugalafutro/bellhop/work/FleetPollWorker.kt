@@ -66,6 +66,10 @@ suspend fun pollFleet(
     // the store while this poll is in flight, saveSnapshot drops our now-stale
     // write instead of poisoning the new session's baseline.
     val epoch = monitorStore.epoch()
+    // Widget write fence, captured before the fetch like the epoch above: an
+    // unlink mid-poll stamps a fresh generation, so this poll's late display
+    // write is dropped instead of resurrecting the old fleet (see WidgetStore).
+    val widgetGeneration = widgetStore.generation()
     return when (val result = client.members(fdUrl, token)) {
         is FetchResult.Success -> {
             val previous = monitorStore.snapshot()
@@ -84,8 +88,11 @@ suspend fun pollFleet(
             // This poll already holds everything the home-screen widget renders;
             // persist its render model here so the widget rides the existing
             // fetch (the no-new-polling rule) instead of ever fetching itself.
-            // Deliberately ungated: display state is not the alert baseline.
-            widgetStore.saveIfChanged(widgetStateOf(result.data, stale, now()))
+            // Not gated by the monitor epoch (display state is not the alert
+            // baseline), but fenced by the store's own generation captured
+            // before the fetch, so a poll finishing after an unlink cleared
+            // the store cannot write the old fleet back.
+            widgetStore.saveIfChanged(widgetStateOf(result.data, stale, now()), widgetGeneration)
             PollResult.Changed(alerts)
         }
         FetchResult.Unauthorized -> PollResult.Unauthorized
