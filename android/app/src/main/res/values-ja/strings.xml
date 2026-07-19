@@ -239,4 +239,15 @@
     <plurals name="time_day_ago">
         <item quantity="other">%d 日前</item>
     </plurals>
+
+    <!-- Home-screen widget -->
+    <string name="widget_label">フリートの状態</string>
+    <string name="widget_unpaired">Bellhop を開いてペアリング</string>
+    <string name="widget_no_members">メンバーはまだいません</string>
+    <string name="widget_monitoring_off">監視オフ</string>
+    <!-- %1$s is a clock time, e.g. 14:32 -->
+    <string name="widget_as_of">%1$s 時点</string>
+    <string name="widget_stale">同期が古い</string>
+    <!-- Collapsed face for large fleets: up/down/drained counts -->
+    <string name="widget_counts">稼働 %1$d · ダウン %2$d · ドレイン %3$d</string>
 </resources>

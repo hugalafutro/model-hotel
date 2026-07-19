@@ -245,4 +245,15 @@
         <item quantity="one">il y a %d jour</item>
         <item quantity="other">il y a %d jours</item>
     </plurals>
+
+    <!-- Home-screen widget -->
+    <string name="widget_label">État de la flotte</string>
+    <string name="widget_unpaired">Ouvrez Bellhop pour appairer</string>
+    <string name="widget_no_members">Aucun membre pour l\'instant</string>
+    <string name="widget_monitoring_off">Surveillance désactivée</string>
+    <!-- %1$s is a clock time, e.g. 14:32 -->
+    <string name="widget_as_of">à %1$s</string>
+    <string name="widget_stale">Synchro périmée</string>
+    <!-- Collapsed face for large fleets: up/down/drained counts -->
+    <string name="widget_counts">%1$d actifs · %2$d hors service · %3$d drainés</string>
 </resources>

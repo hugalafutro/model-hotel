@@ -257,4 +257,15 @@
         <item quantity="many">%d dni temu</item>
         <item quantity="other">%d dnia temu</item>
     </plurals>
+
+    <!-- Home-screen widget -->
+    <string name="widget_label">Stan floty</string>
+    <string name="widget_unpaired">Otwórz Bellhop, aby sparować</string>
+    <string name="widget_no_members">Brak węzłów</string>
+    <string name="widget_monitoring_off">Monitorowanie wyłączone</string>
+    <!-- %1$s is a clock time, e.g. 14:32 -->
+    <string name="widget_as_of">stan na %1$s</string>
+    <string name="widget_stale">Synchronizacja nieaktualna</string>
+    <!-- Collapsed face for large fleets: up/down/drained counts -->
+    <string name="widget_counts">%1$d działa · %2$d nie działa · %3$d wygaszone</string>
 </resources>
