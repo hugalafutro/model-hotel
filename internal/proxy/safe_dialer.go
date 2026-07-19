@@ -170,6 +170,16 @@ func (s *SafeDialer) CheckRedirect(req *http.Request, via []*http.Request) error
 		return fmt.Errorf("proxy: stopped after 10 redirects")
 	}
 	host := req.URL.Hostname()
+	// A redirect that leaves the original upstream host must not carry the
+	// provider's credentials with it. Go's http.Client strips the standard
+	// Authorization header across hosts, but forwards custom auth headers
+	// (x-api-key, x-goog-api-key) verbatim, which would leak the key to the
+	// redirect target. Strip all provider auth headers on any cross-host hop,
+	// before the allowlist/IP checks below, so it applies regardless of whether
+	// the target is allowed.
+	if len(via) > 0 && !strings.EqualFold(host, via[0].URL.Hostname()) {
+		util.StripProviderAuthHeaders(req)
+	}
 	// Allowlisted hosts bypass all checks.
 	if s.hosts[strings.ToLower(host)] {
 		return nil

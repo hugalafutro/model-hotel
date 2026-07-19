@@ -1195,3 +1195,25 @@ func TestSetProviderAuthHeaders(t *testing.T) {
 		})
 	}
 }
+
+func TestStripProviderAuthHeaders(t *testing.T) {
+	for _, providerType := range []string{"anthropic", "vertex-express", "openai"} {
+		t.Run(providerType, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/", http.NoBody)
+			SetProviderAuthHeaders(req, providerType, "super-secret-key")
+			// A non-auth header must survive the strip.
+			req.Header.Set("X-Request-Id", "keep-me")
+
+			StripProviderAuthHeaders(req)
+
+			for _, h := range []string{"Authorization", "anthropic-version", "x-api-key", "x-goog-api-key"} {
+				if got := req.Header.Get(h); got != "" {
+					t.Errorf("%s not stripped: %q", h, got)
+				}
+			}
+			if got := req.Header.Get("X-Request-Id"); got != "keep-me" {
+				t.Errorf("non-auth header should be preserved, got %q", got)
+			}
+		})
+	}
+}

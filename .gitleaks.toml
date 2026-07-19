@@ -1,0 +1,22 @@
+# gitleaks configuration.
+#
+# We do not run gitleaks in CI (secret scanning here is Trivy on the built
+# image). This file exists solely to allowlist a known, dead credential that
+# external history-walking scanners keep flagging, so the noise does not
+# distract from real findings.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """
+Dead Ollama Cloud API key committed to old history in
+plans/integrating-ollama-cloud.md (commit bb7bb913, 2026-04-22) and removed
+from the tree in 370186d7. The key is revoked/expired: it returns HTTP 401
+and is not present among the account's active keys, so there is nothing to
+abuse. History was deliberately not rewritten (force-pushing master to scrub
+a dead string is not worth breaking every clone, fork, and open PR).
+"""
+regexes = [
+  '''49071b69aefc4bbe9d78a3419b6e3d23\.os5ggixiHouArVW8RzqUkFWm''',
+]
