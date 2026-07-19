@@ -55,6 +55,14 @@ function ModelClassRows({
 	const fiveHourUsed = 100 - entry.current_interval_remaining_percent;
 	const weeklyUsed = 100 - entry.current_weekly_remaining_percent;
 	const resetsWord = t("components.providerModals.resets");
+	// Interval length varies by model class (chat 5h, video 24h), so derive it
+	// from the window bounds instead of hardcoding 5.
+	const intervalHours =
+		entry.end_time != null &&
+		entry.start_time != null &&
+		entry.end_time > entry.start_time
+			? Math.round((entry.end_time - entry.start_time) / 3_600_000)
+			: 5;
 
 	const rightText = (used: number) =>
 		barMode === "used"
@@ -65,7 +73,9 @@ function ModelClassRows({
 		<div className="space-y-4">
 			<p className="text-sm font-medium text-(--text-secondary)">{label}</p>
 			<QuotaBar
-				label={t("components.providerModals.hTokenQuota", { hours: 5 })}
+				label={t("components.providerModals.hTokenQuota", {
+					hours: intervalHours,
+				})}
 				rightText={rightText(fiveHourUsed)}
 				percentage={fiveHourUsed}
 				barMode={barMode}

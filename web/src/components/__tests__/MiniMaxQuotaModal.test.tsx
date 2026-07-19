@@ -6,35 +6,34 @@ import { MiniMaxQuotaModal } from "../ProviderModals";
 
 describe("MiniMaxQuotaModal", () => {
 	// Live-captured reference payload (general active, video not in plan).
+	const generalEntry = {
+		model_name: "general",
+		start_time: 1784473200000,
+		end_time: 1784491200000,
+		remains_time: 16420081,
+		weekly_start_time: 1783900800000,
+		weekly_end_time: 1784505600000,
+		weekly_remains_time: 30820081,
+		current_interval_status: 1,
+		current_interval_remaining_percent: 80,
+		current_weekly_status: 1,
+		current_weekly_remaining_percent: 50,
+	};
+	const videoEntry = {
+		model_name: "video",
+		start_time: 1784419200000,
+		end_time: 1784505600000,
+		remains_time: 30820081,
+		weekly_start_time: 1783900800000,
+		weekly_end_time: 1784505600000,
+		weekly_remains_time: 30820081,
+		current_interval_status: 3,
+		current_interval_remaining_percent: 100,
+		current_weekly_status: 3,
+		current_weekly_remaining_percent: 100,
+	};
 	const mockUsage: MiniMaxQuotaResponse = {
-		model_remains: [
-			{
-				model_name: "general",
-				start_time: 1784473200000,
-				end_time: 1784491200000,
-				remains_time: 16420081,
-				weekly_start_time: 1783900800000,
-				weekly_end_time: 1784505600000,
-				weekly_remains_time: 30820081,
-				current_interval_status: 1,
-				current_interval_remaining_percent: 80,
-				current_weekly_status: 1,
-				current_weekly_remaining_percent: 50,
-			},
-			{
-				model_name: "video",
-				start_time: 1784419200000,
-				end_time: 1784505600000,
-				remains_time: 30820081,
-				weekly_start_time: 1783900800000,
-				weekly_end_time: 1784505600000,
-				weekly_remains_time: 30820081,
-				current_interval_status: 3,
-				current_interval_remaining_percent: 100,
-				current_weekly_status: 3,
-				current_weekly_remaining_percent: 100,
-			},
-		],
+		model_remains: [generalEntry, videoEntry],
 		base_resp: { status_code: 0, status_msg: "success" },
 	};
 
@@ -89,6 +88,27 @@ describe("MiniMaxQuotaModal", () => {
 			expect(
 				screen.queryByTestId("minimax-video-weekly-bar"),
 			).not.toBeInTheDocument();
+		});
+
+		it("labels the interval bar with hours derived from the window bounds", () => {
+			// general: 5h window (from the reference payload); an active video
+			// class carries a 24h interval window and must not say "5-hour".
+			const withActiveVideo: MiniMaxQuotaResponse = {
+				...mockUsage,
+				model_remains: [
+					generalEntry,
+					{
+						...videoEntry,
+						current_interval_status: 1,
+						current_weekly_status: 1,
+					},
+				],
+			};
+			renderWithProviders(
+				<MiniMaxQuotaModal {...defaultProps} usage={withActiveVideo} />,
+			);
+			expect(screen.getByText("5h Token Quota")).toBeInTheDocument();
+			expect(screen.getByText("24h Token Quota")).toBeInTheDocument();
 		});
 
 		it("renders reset countdowns derived from ms durations", () => {
