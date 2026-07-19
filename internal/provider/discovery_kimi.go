@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -107,4 +109,47 @@ func kimiCodeLiveModel(m kimiCodeModel, providerID uuid.UUID) *model.Model {
 		mm.ContextLength = &cl
 	}
 	return mm
+}
+
+// GetKimiCodeQuota retrieves quota information for a Kimi Code provider from
+// its /usages endpoint.
+func (d *DiscoveryService) GetKimiCodeQuota(ctx context.Context, provider *Provider, masterKey string) (*KimiCodeQuotaResponse, error) {
+	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
+	if err != nil {
+		return nil, fmt.Errorf("kimi-code: failed to decrypt API key for provider %s: %w", provider.Name, err)
+	}
+
+	quotaURL := util.SanitizeBaseURL(provider.BaseURL) + "/usages"
+
+	req, err := http.NewRequestWithContext(ctx, "GET", quotaURL, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("kimi-code: failed to create request for provider %s: %w", provider.Name, err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), provider.Name, "kimi-code")
+	if err != nil {
+		debuglog.Error("discovery: kimi-code quota fetch failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("kimi-code: failed to fetch quota for provider %s: %w", provider.Name, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		if authErr := quotaAuthError("kimi-code", provider, resp.StatusCode, body); authErr != nil {
+			return nil, authErr
+		}
+		debuglog.Error("discovery: kimi-code quota fetch non-200 status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.SanitizeLogBody(string(body), 2000))
+		return nil, fmt.Errorf("kimi-code: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
+	}
+
+	var quota KimiCodeQuotaResponse
+	if err := json.NewDecoder(resp.Body).Decode(&quota); err != nil {
+		debuglog.Error("discovery: kimi-code quota decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("kimi-code: failed to decode response for provider %s: %w", provider.Name, err)
+	}
+
+	return &quota, nil
 }

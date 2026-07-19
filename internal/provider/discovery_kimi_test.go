@@ -2,15 +2,30 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
+
+// kimiUsagePayload is the real /usages response (live-captured 2026-07-19).
+// Note numeric fields arrive as JSON strings.
+const kimiUsagePayload = `{
+	"user": {"userId": "u-1", "region": "REGION_OVERSEA", "membership": {"level": "LEVEL_BASIC"}},
+	"usage": {"limit": "100", "remaining": "100", "resetTime": "2026-07-26T12:10:02Z"},
+	"limits": [{"window": {"duration": 300, "timeUnit": "TIME_UNIT_MINUTE"}, "detail": {"limit": "100", "remaining": "100", "resetTime": "2026-07-19T17:10:02Z"}}],
+	"parallel": {"limit": "10"},
+	"totalQuota": {"limit": "100", "remaining": "99"},
+	"authentication": {"method": "METHOD_API_KEY", "scope": "FEATURE_CODING"},
+	"subType": "TYPE_PURCHASE"
+}`
 
 // kimiListing is a trimmed copy of the real /coding/v1/models response
 // (live-captured 2026-07-19).
@@ -118,4 +133,79 @@ func TestDiscoverKimiCode_EmptyListing(t *testing.T) {
 	models, err := svc.discoverKimiCode(context.Background(), provider, "k")
 	assert.NoError(t, err)
 	assert.Empty(t, models)
+}
+
+// ---------------------------------------------------------------------------
+// GetKimiCodeQuota
+// ---------------------------------------------------------------------------
+
+func TestGetKimiCodeQuota_DecodesUsage(t *testing.T) {
+	t.Parallel()
+
+	masterKey := "test-master-key-1234567890123456"
+	apiKey := "test-api-key"
+	kp, err := auth.Encrypt(apiKey, masterKey)
+	assert.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/usages" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if r.Header.Get("Authorization") != "Bearer "+apiKey {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(kimiUsagePayload))
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "test-kimi-code",
+		BaseURL:      server.URL,
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+	svc := &DiscoveryService{httpClient: server.Client()}
+
+	quota, err := svc.GetKimiCodeQuota(context.Background(), provider, masterKey)
+	assert.NoError(t, err)
+	assert.NotNil(t, quota)
+	assert.Equal(t, "100", quota.Usage.Remaining)
+	if assert.Len(t, quota.Limits, 1) {
+		assert.Equal(t, 300, quota.Limits[0].Window.Duration)
+	}
+}
+
+func TestGetKimiCodeQuota_KeyInvalid(t *testing.T) {
+	t.Parallel()
+
+	masterKey := "test-master-key-1234567890123456"
+	kp, err := auth.Encrypt("revoked-key", masterKey)
+	assert.NoError(t, err)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error": "unauthorized"}`))
+	}))
+	defer server.Close()
+
+	provider := &Provider{
+		ID:           uuid.New(),
+		Name:         "test-kimi-code",
+		BaseURL:      server.URL,
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
+	}
+	svc := &DiscoveryService{httpClient: server.Client(), retryBaseDelay: 0}
+
+	_, err = svc.GetKimiCodeQuota(context.Background(), provider, masterKey)
+	assert.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), "auth") || errors.Is(err, ErrProviderKeyInvalid),
+		"expected an auth-related error, got: %v", err)
 }
