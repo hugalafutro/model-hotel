@@ -9,6 +9,8 @@ import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.MemberHealthState
 import com.hugalafutro.bellhop.data.MemberTransition
 import com.hugalafutro.bellhop.data.MonitorStore
+import com.hugalafutro.bellhop.data.WidgetMember
+import com.hugalafutro.bellhop.data.WidgetStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -17,6 +19,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -58,6 +61,15 @@ class FleetPollTest {
         return MonitorStore(ds)
     }
 
+    private fun newWidgetStore(): WidgetStore {
+        val scope = CoroutineScope(Dispatchers.IO + Job())
+        val ds: DataStore<Preferences> =
+            PreferenceDataStoreFactory.create(scope = scope) {
+                File(tmp.newFolder(), "widget.preferences_pb")
+            }
+        return WidgetStore(ds)
+    }
+
     private fun memberBody(healthy: Boolean): String =
         """[{"id":"m1","name":"hotel-1","state":"active",""" +
             """"status":{"health":{"known":true,"healthy":$healthy}}}]"""
@@ -73,8 +85,10 @@ class FleetPollTest {
         server.enqueue(MockResponse().setBody(autoSyncBody(stale)))
     }
 
-    private suspend fun poll(store: MonitorStore): PollResult =
-        pollFleet(client, server.url("/").toString(), "tok-1", store)
+    private suspend fun poll(
+        store: MonitorStore,
+        widget: WidgetStore = newWidgetStore(),
+    ): PollResult = pollFleet(client, server.url("/").toString(), "tok-1", store, widget, now = { 42L })
 
     @Test
     fun firstPollSavesBaselineWithNoTransitions() =
@@ -175,5 +189,34 @@ class FleetPollTest {
             // A blip mustn't advance or clear the baseline, or the next poll would
             // diff against nothing and re-alert the whole fleet.
             assertEquals(MemberHealthState.UP, store.snapshot()?.stateOf("m1"))
+        }
+
+    @Test
+    fun successfulPollWritesWidgetState() =
+        runBlocking {
+            val store = newStore()
+            val widget = newWidgetStore()
+            store.setEnabled(true)
+            enqueuePoll(healthy = true)
+
+            poll(store, widget)
+
+            val ws = widget.read()
+            assertEquals(listOf(WidgetMember("hotel-1", "UP")), ws?.members)
+            assertEquals(42L, ws?.updatedAt)
+        }
+
+    @Test
+    fun failedPollLeavesWidgetStateUntouched() =
+        runBlocking {
+            val store = newStore()
+            val widget = newWidgetStore()
+            store.setEnabled(true)
+            server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
+
+            poll(store, widget)
+
+            // Stale beats blank: the widget keeps showing the last fetch + stamp.
+            assertNull(widget.read())
         }
 }

@@ -13,6 +13,7 @@ import com.hugalafutro.bellhop.data.MemberTransition
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PairedDevice
 import com.hugalafutro.bellhop.data.TokenCipher
+import com.hugalafutro.bellhop.data.WidgetStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -80,6 +81,8 @@ class FleetBackstopTest {
 
     private fun monitorStore(): MonitorStore = MonitorStore(preferences("monitor"))
 
+    private fun widgetStore(): WidgetStore = WidgetStore(preferences("widget"))
+
     private fun linkStore(cipher: TokenCipher): LinkStore = LinkStore(preferences("link"), cipher)
 
     private suspend fun linkedTo(
@@ -109,7 +112,10 @@ class FleetBackstopTest {
         monitor: MonitorStore,
         link: LinkStore,
         canNotify: Boolean = true,
-    ): Result = runBackstop(monitor, link, client, canNotify, notify = { fired += it })
+    ): Result =
+        runBackstop(monitor, link, widgetStore = widgetStore(), client = client, canNotify = canNotify, notify = {
+            fired += it
+        })
 
     @Test
     fun disabledMonitoringSucceedsWithoutPolling() =
@@ -239,7 +245,8 @@ class FleetBackstopTest {
                 runBackstop(
                     monitor,
                     linkedTo(server.url("/").toString()),
-                    client,
+                    widgetStore = widgetStore(),
+                    client = client,
                     canNotify = true,
                     notify = { fired += it },
                     retryOnFailure = false,
