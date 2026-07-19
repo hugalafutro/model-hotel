@@ -261,4 +261,5 @@
     <string name="widget_state_down">Ausgefallen</string>
     <string name="widget_state_drained">Stillgelegt</string>
     <string name="widget_state_unknown">Unbekannt</string>
+    <string name="widget_event_header">Letztes Flottenereignis</string>
 </resources>

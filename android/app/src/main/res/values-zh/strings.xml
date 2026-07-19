@@ -255,4 +255,5 @@
     <string name="widget_state_down">已宕机</string>
     <string name="widget_state_drained">已排空</string>
     <string name="widget_state_unknown">未知</string>
+    <string name="widget_event_header">最新集群事件</string>
 </resources>

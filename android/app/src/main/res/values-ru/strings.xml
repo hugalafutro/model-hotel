@@ -273,4 +273,5 @@
     <string name="widget_state_down">Недоступен</string>
     <string name="widget_state_drained">Выведен</string>
     <string name="widget_state_unknown">Неизвестно</string>
+    <string name="widget_event_header">Последнее событие флота</string>
 </resources>

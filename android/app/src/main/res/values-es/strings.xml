@@ -261,4 +261,5 @@
     <string name="widget_state_down">Caído</string>
     <string name="widget_state_drained">Drenado</string>
     <string name="widget_state_unknown">Desconocido</string>
+    <string name="widget_event_header">Último evento de la flota</string>
 </resources>

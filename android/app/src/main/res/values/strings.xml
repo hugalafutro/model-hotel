@@ -265,4 +265,5 @@
     <string name="widget_state_down">Down</string>
     <string name="widget_state_drained">Drained</string>
     <string name="widget_state_unknown">Unknown</string>
+    <string name="widget_event_header">Latest fleet event</string>
 </resources>

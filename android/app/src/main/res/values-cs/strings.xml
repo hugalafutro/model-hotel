@@ -273,4 +273,5 @@
     <string name="widget_state_down">Mimo provoz</string>
     <string name="widget_state_drained">Odstaveno</string>
     <string name="widget_state_unknown">Neznámé</string>
+    <string name="widget_event_header">Poslední událost flotily</string>
 </resources>

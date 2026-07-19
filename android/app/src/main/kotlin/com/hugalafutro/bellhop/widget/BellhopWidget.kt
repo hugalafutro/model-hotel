@@ -327,31 +327,42 @@ private fun WidgetContent(
                     }
                 }
         }
+        Spacer(GlanceModifier.defaultWeight())
+        // Pinned above the footer rather than under the member rows, so a small
+        // fleet doesn't render the event box glued on like an n+1th member.
         if (state != null && LocalSize.current.height >= BellhopWidget.TALL.height) {
             state.newestEvent?.let { event ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                Column(
                     modifier =
                         GlanceModifier
-                            .padding(top = 2.dp)
-                            .background(ImageProvider(R.drawable.widget_pill_bg))
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp)
+                            .background(ImageProvider(R.drawable.widget_event_bg))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                 ) {
                     Text(
-                        event.message,
-                        style = TextStyle(color = TextMuted, fontSize = 11.sp),
-                        maxLines = 1,
-                        modifier = GlanceModifier.defaultWeight(),
+                        context.getString(R.string.widget_event_header),
+                        style = TextStyle(color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Medium),
                     )
-                    Spacer(GlanceModifier.width(6.dp))
-                    Text(
-                        eventStamp(context, event.createdAt),
-                        style = TextStyle(color = TextMuted, fontSize = 10.sp),
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = GlanceModifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            event.message,
+                            style = TextStyle(color = TextPrimary, fontSize = 11.sp),
+                            maxLines = 1,
+                            modifier = GlanceModifier.defaultWeight(),
+                        )
+                        Spacer(GlanceModifier.width(6.dp))
+                        Text(
+                            eventStamp(context, event.createdAt),
+                            style = TextStyle(color = TextMuted, fontSize = 9.sp),
+                        )
+                    }
                 }
             }
         }
-        Spacer(GlanceModifier.defaultWeight())
         Row(modifier = GlanceModifier.fillMaxWidth()) {
             if (state != null) {
                 val stamp = DateFormat.getTimeFormat(context).format(Date(state.updatedAt))

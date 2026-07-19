@@ -273,4 +273,5 @@
     <string name="widget_state_down">Nie działa</string>
     <string name="widget_state_drained">Wygaszony</string>
     <string name="widget_state_unknown">Nieznany</string>
+    <string name="widget_event_header">Ostatnie zdarzenie floty</string>
 </resources>
