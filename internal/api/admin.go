@@ -28,6 +28,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/quota"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -125,9 +126,10 @@ type Handler struct {
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
 	discoveryCheckRedirect func(req *http.Request, via []*http.Request) error
 	circuitBreaker         CircuitBreakerReader
-	audit                  *audit.Recorder // nil until SetAudit (audit trail of admin actions)
-	totpStatus             TotpStatus      // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
-	totpEnabled            atomic.Bool     // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
+	audit                  *audit.Recorder   // nil until SetAudit (audit trail of admin actions)
+	totpStatus             TotpStatus        // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
+	totpEnabled            atomic.Bool       // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
+	quotaRepo              *quota.Repository // read-through store for polled provider quota snapshots
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
@@ -149,6 +151,7 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 		// Same profile as the login throttles: an authenticated session must
 		// not be a free brute-force oracle for the account's current password.
 		pwThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
+		quotaRepo:  quota.NewRepository(database.Pool()),
 	}
 	// Wire the discovery service factory to use the SSRF-protected dial/redirect
 	// functions so admin-API discovery endpoints are also protected.
