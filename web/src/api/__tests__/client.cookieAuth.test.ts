@@ -75,5 +75,8 @@ describe("client cookie auth", () => {
 		expect(getHeaders.get("Authorization")).toBeNull();
 		expect(postHeaders.get("Authorization")).toBeNull();
 		expect(postHeaders.get("X-CSRF-Token")).toBe("csrf-abc");
+		// The CSRF token guards mutating requests only; a read-only GET must not
+		// carry it even though getAuthHeaders() (shared with POST callers) sets it.
+		expect(getHeaders.get("X-CSRF-Token")).toBeNull();
 	});
 });

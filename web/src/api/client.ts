@@ -83,7 +83,26 @@ async function fetchOK(
 	// Same-origin credentials so the httpOnly session cookie rides along on every
 	// dashboard call. (Same-origin is the fetch default, but we set it explicitly
 	// so the intent is obvious and survives any future default change.)
-	const response = await fetch(url, { credentials: "same-origin", ...options });
+	const init: RequestInit = { credentials: "same-origin", ...options };
+	// The CSRF token only guards state-changing requests. getAuthHeaders() is
+	// shared by GET and mutating callers, so strip X-CSRF-Token here for safe
+	// methods (GET/HEAD) rather than leaking the token on read-only calls. The
+	// original header shape is preserved (plain object stays a plain object).
+	const method = (init.method ?? "GET").toUpperCase();
+	if ((method === "GET" || method === "HEAD") && init.headers) {
+		if (init.headers instanceof Headers) {
+			init.headers.delete("X-CSRF-Token");
+		} else if (Array.isArray(init.headers)) {
+			init.headers = init.headers.filter(
+				([key]) => key.toLowerCase() !== "x-csrf-token",
+			);
+		} else {
+			const rest = { ...(init.headers as Record<string, string>) };
+			delete rest["X-CSRF-Token"];
+			init.headers = rest;
+		}
+	}
+	const response = await fetch(url, init);
 	if (!response.ok) {
 		// A 401 means the session cookie is gone or invalid. Drop the client-side
 		// auth signal so isAuthenticated() flips false; the surfaced ApiError lets
@@ -1269,16 +1288,6 @@ export const api = {
 				"Failed to rename passkey",
 			);
 		},
-		logout: async (): Promise<void> => {
-			await fetchOK(
-				`${API_BASE}/api/webauthn/logout`,
-				{
-					method: "POST",
-					headers: getAuthHeaders(),
-				},
-				"Failed to logout",
-			);
-		},
 	},
 	totp: {
 		status: async (): Promise<TotpStatus> =>
@@ -1373,6 +1382,20 @@ export const api = {
 				},
 				"Login failed",
 			),
+		// Always-mounted logout: revokes whatever session the caller presents
+		// (passkey OR TOTP session token) and clears both auth cookies
+		// server-side. Works with or without passkeys configured, unlike the
+		// passkey-gated /webauthn/logout.
+		logout: async (): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/auth/logout`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Failed to logout",
+			);
+		},
 		me: async (): Promise<Me> =>
 			fetchJSON<Me>(`${API_BASE}/api/auth/me`, {
 				headers: getAuthHeaders(),

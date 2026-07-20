@@ -88,8 +88,9 @@ function LoginScreen() {
 	const ssoProvider = oidcStatus?.display_name ?? "";
 
 	// GitHub SSO is independent of OIDC: an operator may run either, both, or
-	// neither. It shares the same callback hand-off (token/error in the URL
-	// fragment), so consumeOidcToken/consumeOidcError below cover it too.
+	// neither. It shares the same callback hand-off (error in the URL fragment;
+	// the session cookie is set by the clean redirect), so consumeOidcError
+	// below covers it too.
 	const { data: githubStatus } = useQuery({
 		queryKey: ["github-status"],
 		queryFn: () => api.github.status(),
