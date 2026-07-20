@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "Usunięto model {{count}} wyłączony",
 		"toast_delete_models_success_other": "Usunięte modele {{count}} wyłączone",
 		"toast_delete_models_success": "Usunięte modele {{count}} wyłączone",
-		"toast_delete_models_warning_one": "Usunięto model {{kept}} , {{failed}} nie powiodło się",
-		"toast_delete_models_warning_other": "Usunięto modele {{kept}} , {{failed}} nie powiodło się",
-		"toast_delete_models_warning": "Usunięto modele {{kept}} , {{failed}} nie powiodło się",
 		"card_models_one": "Model {{count}}",
 		"card_models_other": "Modele {{count}}",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "Szczegóły modelu",
 		"toast_delete_bulk_success_one": "Usunięto model {{count}} wyłączony",
 		"toast_delete_bulk_success_other": "Usunięte modele {{count}} wyłączone",
-		"toast_delete_bulk_warning_one": "Usunięto model {{kept}} , {{failed}} nie powiodło się",
-		"toast_delete_bulk_warning_other": "Usunięto modele {{kept}} , {{failed}} nie powiodło się",
-		"toast_delete_bulk_warning": "Usunięto model {{kept}} , {{failed}} nie powiodło się",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

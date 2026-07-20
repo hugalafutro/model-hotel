@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "Модель отключена {{count}}",
 		"toast_delete_models_success_other": "Удаленные {{count}} модели отключены",
 		"toast_delete_models_success": "Удаленные {{count}} модели отключены",
-		"toast_delete_models_warning_one": "Удалена модель {{kept}} , {{failed}} не удалось",
-		"toast_delete_models_warning_other": "Удаленные {{kept}} модели, {{failed}} не удалось",
-		"toast_delete_models_warning": "Удаленные {{kept}} модели, {{failed}} не удалось",
 		"card_models_one": "Модель {{count}}",
 		"card_models_other": "Модели {{count}}",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "Детали модели",
 		"toast_delete_bulk_success_one": "Модель отключена {{count}}",
 		"toast_delete_bulk_success_other": "Удаленные {{count}} модели отключены",
-		"toast_delete_bulk_warning_one": "Удалена модель {{kept}} , {{failed}} не удалось",
-		"toast_delete_bulk_warning_other": "Удаленные {{kept}} модели, {{failed}} не удалось",
-		"toast_delete_bulk_warning": "Удалена модель {{kept}} , {{failed}} не удалось",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

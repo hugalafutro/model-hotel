@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "Silindi {{count}} devre dışı bırakılmış model",
 		"toast_delete_models_success_other": "Silindi {{count}} devre dışı bırakılmış modeller",
 		"toast_delete_models_success": "Silindi {{count}} devre dışı bırakılmış modeller",
-		"toast_delete_models_warning_one": "Silindi {{kept}} modeli, {{failed}} başarısız",
-		"toast_delete_models_warning_other": "Silindi {{kept}} modeller, {{failed}} başarısız",
-		"toast_delete_models_warning": "Silindi {{kept}} modeller, {{failed}} başarısız",
 		"card_models_one": "{{count}} model",
 		"card_models_other": "{{count}} modeller",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "Model Bilgileri",
 		"toast_delete_bulk_success_one": "Silindi {{count}} devre dışı bırakılmış model",
 		"toast_delete_bulk_success_other": "Silindi {{count}} devre dışı bırakılmış modeller",
-		"toast_delete_bulk_warning_one": "Silindi {{kept}} modeli, {{failed}} başarısız",
-		"toast_delete_bulk_warning_other": "Silindi {{kept}} modeller, {{failed}} başarısız",
-		"toast_delete_bulk_warning": "Silindi {{kept}} modeli, {{failed}} başarısız",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

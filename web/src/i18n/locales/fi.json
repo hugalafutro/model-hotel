@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "Poistettu {{count}} pois käytöstä -malli",
 		"toast_delete_models_success_other": "Poistettu {{count}} käytöstä poistetut mallit",
 		"toast_delete_models_success": "Poistettu {{count}} käytöstä poistetut mallit",
-		"toast_delete_models_warning_one": "Poistettu {{kept}} malli, {{failed}} epäonnistui",
-		"toast_delete_models_warning_other": "Poistettu {{kept}} mallit, {{failed}} epäonnistui",
-		"toast_delete_models_warning": "Poistettu {{kept}} mallit, {{failed}} epäonnistui",
 		"card_models_one": "{{count}} mallia",
 		"card_models_other": "{{count}} mallia",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "Mallin Tiedot",
 		"toast_delete_bulk_success_one": "Poistettu {{count}} pois käytöstä -malli",
 		"toast_delete_bulk_success_other": "Poistettu {{count}} käytöstä poistetut mallit",
-		"toast_delete_bulk_warning_one": "Poistettu {{kept}} malli, {{failed}} epäonnistui",
-		"toast_delete_bulk_warning_other": "Poistettu {{kept}} mallit, {{failed}} epäonnistui",
-		"toast_delete_bulk_warning": "Poistettu {{kept}} malli, {{failed}} epäonnistui",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

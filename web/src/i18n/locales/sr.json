@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "Избрисано {{count}} онемогућен модел",
 		"toast_delete_models_success_other": "Избрисано {{count}} онемогућени модели",
 		"toast_delete_models_success": "Избрисано {{count}} онемогућени модели",
-		"toast_delete_models_warning_one": "Избрисано {{kept}} модел, {{failed}} није успео",
-		"toast_delete_models_warning_other": "Избрисани модели {{kept}} , {{failed}} нису успели",
-		"toast_delete_models_warning": "Избрисани модели {{kept}} , {{failed}} нису успели",
 		"card_models_one": "{{count}} модел",
 		"card_models_other": "{{count}} модели",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "Детаљи модела",
 		"toast_delete_bulk_success_one": "Избрисано {{count}} онемогућен модел",
 		"toast_delete_bulk_success_other": "Избрисано {{count}} онемогућени модели",
-		"toast_delete_bulk_warning_one": "Избрисан {{kept}} модел, {{failed}} није успео",
-		"toast_delete_bulk_warning_other": "Избрисани модели {{kept}} , {{failed}} нису успели",
-		"toast_delete_bulk_warning": "Избрисано {{kept}} модел, {{failed}} није успео",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

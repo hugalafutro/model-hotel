@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "נמחק {{count}} דגם מושבת",
 		"toast_delete_models_success_other": "נמחק {{count}} דוגמניות מושעות",
 		"toast_delete_models_success": "נמחק {{count}} דוגמניות מושעות",
-		"toast_delete_models_warning_one": "נמחק {{kept}} model, {{failed}} נכשל",
-		"toast_delete_models_warning_other": "נמחקו {{kept}} models, {{failed}} נכשל",
-		"toast_delete_models_warning": "נמחקו {{kept}} models, {{failed}} נכשל",
 		"card_models_one": "{{count}} דגם",
 		"card_models_other": "{{count}} דגמים",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "פרטי הדגם",
 		"toast_delete_bulk_success_one": "נמחק {{count}} דגם מושבת",
 		"toast_delete_bulk_success_other": "נמחק {{count}} דוגמניות מושעות",
-		"toast_delete_bulk_warning_one": "נמחק {{kept}} model, {{failed}} נכשל",
-		"toast_delete_bulk_warning_other": "נמחקו {{kept}} models, {{failed}} נכשל",
-		"toast_delete_bulk_warning": "נמחק {{kept}} model, {{failed}} נכשל",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

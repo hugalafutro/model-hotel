@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "Törölve {{count}} letiltott modell",
 		"toast_delete_models_success_other": "Törölve {{count}} letiltott modellek",
 		"toast_delete_models_success": "Törölve {{count}} letiltott modellek",
-		"toast_delete_models_warning_one": "Törölve: {{kept}} modell, {{failed}} sikertelen",
-		"toast_delete_models_warning_other": "Törölve: {{kept}} modellek, {{failed}} sikertelen",
-		"toast_delete_models_warning": "Törölve: {{kept}} modellek, {{failed}} sikertelen",
 		"card_models_one": "{{count}} modell",
 		"card_models_other": "{{count}} modellek",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "A modell részletei",
 		"toast_delete_bulk_success_one": "Törölve {{count}} letiltott modell",
 		"toast_delete_bulk_success_other": "Törölve {{count}} letiltott modellek",
-		"toast_delete_bulk_warning_one": "Törölve: {{kept}} modell, {{failed}} sikertelen",
-		"toast_delete_bulk_warning_other": "Törölve: {{kept}} modellek, {{failed}} sikertelen",
-		"toast_delete_bulk_warning": "Törölve: {{kept}} modell, {{failed}} sikertelen",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

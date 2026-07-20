@@ -294,7 +294,7 @@ type BulkDeleteRequest struct {
 // BulkDeleteResponse reports the outcome of a bulk delete. Deleted may be less
 // than Requested when some IDs no longer exist (idempotent, not an error).
 type BulkDeleteResponse struct {
-	Requested int   `json:"requested"`
+	Requested int64 `json:"requested"`
 	Deleted   int64 `json:"deleted"`
 }
 
@@ -342,12 +342,15 @@ func (h *Handler) BulkDeleteModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Resync failover groups since deleted models may leave auto-groups with too
-	// few candidates. Best-effort like single-model DeleteModel: log but don't
-	// fail the delete. WithoutCancel so it survives the request completing.
+	// Resync failover groups since the deleted models may leave groups with too
+	// few candidates. SyncForModel handles the auto-group for each affected base
+	// name (deduped, one resync per base instead of one per model); PruneModelUUID
+	// cleans up any custom groups that referenced the deleted UUIDs. Best-effort
+	// like single-model DeleteModel: log but don't fail the delete. WithoutCancel
+	// so it survives the request completing.
 	h.resyncFailoverAfterModelDelete(context.WithoutCancel(r.Context()), modelIDs, ids)
 
-	writeJSON(w, BulkDeleteResponse{Requested: len(ids), Deleted: deleted})
+	writeJSON(w, BulkDeleteResponse{Requested: int64(len(req.IDs)), Deleted: deleted})
 }
 
 // collectDistinctModelIDs returns the distinct provider model_id strings for the

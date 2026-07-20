@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "Διαγραμμένο μοντέλο {{count}} απενεργοποιημένο",
 		"toast_delete_models_success_other": "Διαγραμμένα μοντέλα {{count}} απενεργοποιημένα",
 		"toast_delete_models_success": "Διαγραμμένα μοντέλα {{count}} απενεργοποιημένα",
-		"toast_delete_models_warning_one": "Το μοντέλο {{kept}} διαγράφηκε, {{failed}} απέτυχε",
-		"toast_delete_models_warning_other": "Διαγραφή {{kept}} μοντέλα, {{failed}} απέτυχε",
-		"toast_delete_models_warning": "Διαγραφή {{kept}} μοντέλα, {{failed}} απέτυχε",
 		"card_models_one": "{{count}} μοντέλο",
 		"card_models_other": "{{count}} μοντέλα",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "Λεπτομέρειες Μοντέλου",
 		"toast_delete_bulk_success_one": "Διαγραμμένο μοντέλο {{count}} απενεργοποιημένο",
 		"toast_delete_bulk_success_other": "Διαγραμμένα μοντέλα {{count}} απενεργοποιημένα",
-		"toast_delete_bulk_warning_one": "Το μοντέλο {{kept}} διαγράφηκε, {{failed}} απέτυχε",
-		"toast_delete_bulk_warning_other": "Διαγραφή {{kept}} μοντέλα, {{failed}} απέτυχε",
-		"toast_delete_bulk_warning": "Το μοντέλο {{kept}} διαγράφηκε, {{failed}} απέτυχε",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

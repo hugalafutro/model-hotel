@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "Odstraněný model {{count}} (deaktivován)",
 		"toast_delete_models_success_other": "Odstraněné modely s deaktivovaným {{count}}",
 		"toast_delete_models_success": "Odstraněné modely s deaktivovaným {{count}}",
-		"toast_delete_models_warning_one": "Model {{kept}} byl odstraněn, model {{failed}} selhal",
-		"toast_delete_models_warning_other": "Modely {{kept}} byly odstraněny, {{failed}} selhal",
-		"toast_delete_models_warning": "Modely {{kept}} byly odstraněny, {{failed}} selhal",
 		"card_models_one": "Model {{count}}",
 		"card_models_other": "Modely {{count}}",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "Podrobnosti o modelu",
 		"toast_delete_bulk_success_one": "Odstraněný model {{count}} (deaktivovaný)",
 		"toast_delete_bulk_success_other": "Odstraněné modely s deaktivovaným {{count}}",
-		"toast_delete_bulk_warning_one": "Model {{kept}} byl odstraněn, model {{failed}} selhal",
-		"toast_delete_bulk_warning_other": "Modely {{kept}} byly odstraněny, {{failed}} selhal",
-		"toast_delete_bulk_warning": "Model {{kept}} byl odstraněn, model {{failed}} selhal",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",
