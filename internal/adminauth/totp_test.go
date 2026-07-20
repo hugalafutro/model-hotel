@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -81,6 +82,25 @@ func validCode(t *testing.T, secret string) string {
 		}
 	}
 	t.Fatal("otptotp.GenerateCode failed after 3 attempts")
+	return ""
+}
+
+// wrongCode returns a 6-digit code the validator is guaranteed to reject. The
+// server accepts a skew=1 window (previous/current/next step), so any code that
+// differs from all three is rejected deterministically -- no retry, no skip.
+func wrongCode(t *testing.T, secret string) string {
+	t.Helper()
+	accepted := map[string]bool{
+		codeForStep(t, secret, -1): true,
+		codeForStep(t, secret, 0):  true,
+		codeForStep(t, secret, 1):  true,
+	}
+	for n := range 10 {
+		if cand := fmt.Sprintf("%06d", n); !accepted[cand] {
+			return cand
+		}
+	}
+	t.Fatal("could not find a code outside the accepted skew window")
 	return ""
 }
 
@@ -479,24 +499,22 @@ func TestTotpEnrollVerify_InvalidCode(t *testing.T) {
 		t.Fatalf("enroll/start: expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	// Verify with "000000" -- retry on collision (unusual but possible).
-	for range 3 {
-		vreq := httptest.NewRequest(http.MethodPost, "/totp/enroll/verify",
-			bytes.NewReader([]byte(`{"code":"000000"}`)))
-		vreq.Header.Set("Authorization", "Bearer admin-token")
-		vreq.Header.Set("Content-Type", "application/json")
-		vw := httptest.NewRecorder()
-		serveTotpRouter(th).ServeHTTP(vw, vreq)
-
-		if vw.Code == http.StatusBadRequest {
-			return // expected outcome
-		}
-		// If the code happened to be valid (rare jackpot), just skip.
-		if vw.Code == http.StatusOK {
-			t.Skip("000000 accidentally matched; skipping")
-		}
+	// Capture the secret so we can submit a code guaranteed outside the window.
+	var startResp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &startResp); err != nil {
+		t.Fatalf("decode enroll/start: %v", err)
 	}
-	t.Errorf("expected 400 for invalid code, got non-400 after 3 tries")
+
+	vreq := httptest.NewRequest(http.MethodPost, "/totp/enroll/verify",
+		bytes.NewReader([]byte(`{"code":"`+wrongCode(t, startResp["secret"])+`"}`)))
+	vreq.Header.Set("Authorization", "Bearer admin-token")
+	vreq.Header.Set("Content-Type", "application/json")
+	vw := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(vw, vreq)
+
+	if vw.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for invalid code, got %d: %s", vw.Code, vw.Body.String())
+	}
 }
 
 // --- Disable tests ---
@@ -729,23 +747,17 @@ func TestTotpLogin_BadToken(t *testing.T) {
 
 func TestTotpLogin_BadCode(t *testing.T) {
 	_, th := newTotpTestHandler(t)
-	doEnrollVerify(t, th)
+	secret, _ := doEnrollVerify(t, th)
 
-	body := []byte(`{"token":"admin-token","code":"000000"}`)
+	body := []byte(`{"token":"admin-token","code":"` + wrongCode(t, secret) + `"}`)
 	req := httptest.NewRequest(http.MethodPost, "/totp/login", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	for range 3 {
-		w := httptest.NewRecorder()
-		serveTotpRouter(th).ServeHTTP(w, req)
-		if w.Code == http.StatusUnauthorized {
-			return
-		}
-		if w.Code == http.StatusOK {
-			t.Skip("000000 accidentally matched; skipping")
-		}
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for bad code, got %d: %s", w.Code, w.Body.String())
 	}
-	t.Errorf("expected 401 for bad code, got non-401 after 3 tries")
 }
 
 func TestTotpLogin_BadBoth(t *testing.T) {

@@ -39,7 +39,7 @@ func TestGetDeepSeekModels_AllFieldsValid(t *testing.T) {
 func TestGetDeepSeekModelSpec_Found(t *testing.T) {
 	catalog := GetDeepSeekModels()
 	if len(catalog) == 0 {
-		t.Skip("catalog is empty")
+		t.Fatal("catalog is empty")
 	}
 	first := catalog[0]
 	result := GetDeepSeekModelSpec(first.ModelID)
@@ -91,7 +91,7 @@ func TestGetCoherePricingCatalog_AllFieldsValid(t *testing.T) {
 func TestLookupCoherePricing_Found(t *testing.T) {
 	catalog := GetCoherePricingCatalog()
 	if len(catalog) == 0 {
-		t.Skip("catalog is empty")
+		t.Fatal("catalog is empty")
 	}
 	first := catalog[0]
 	result := LookupCoherePricing(catalog, first.ModelID)
@@ -151,7 +151,7 @@ func TestGetGooglePricingCatalog_AllFieldsValid(t *testing.T) {
 func TestLookupGooglePricing_Found(t *testing.T) {
 	catalog := GetGooglePricingCatalog()
 	if len(catalog) == 0 {
-		t.Skip("catalog is empty")
+		t.Fatal("catalog is empty")
 	}
 	first := catalog[0]
 	result := LookupGooglePricing(catalog, first.ModelID)

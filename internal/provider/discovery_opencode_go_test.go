@@ -137,7 +137,7 @@ func TestDiscoverOpenCodeGo_CatalogModelPopulated(t *testing.T) {
 	// Verify that a model in the catalog gets the full catalog treatment
 	catalog := GetOpenCodeGoCatalog()
 	if len(catalog) == 0 {
-		t.Skip("No models in OpenCode Go catalog")
+		t.Fatal("No models in OpenCode Go catalog")
 	}
 	firstCatalogModel := catalog[0].ModelID
 

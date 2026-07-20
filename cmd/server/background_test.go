@@ -20,7 +20,7 @@ func newTestSettingsRepo() *settings.Repository {
 
 func TestCleanupInterruptedRequests(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	ctx := context.Background()
 	pool := cmdTestDB.Pool()
@@ -49,7 +49,7 @@ func TestCleanupInterruptedRequests(t *testing.T) {
 
 func TestCleanupInterruptedRequestsDBError(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	broken := closedTestPool(t)
 	// Only logs; must not panic on a dead pool.
@@ -58,7 +58,7 @@ func TestCleanupInterruptedRequestsDBError(t *testing.T) {
 
 func TestWarmCaches(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	wipeDiscoveryState(t)
 	ctx := context.Background()
@@ -82,7 +82,7 @@ func TestWarmCaches(t *testing.T) {
 
 func TestWarmCachesDBErrors(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	deps := testDiscoveryDeps(t)
 	broken := closedTestPool(t)
@@ -96,7 +96,7 @@ func TestWarmCachesDBErrors(t *testing.T) {
 
 func TestInitKeyCacheTTL(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	ctx := context.Background()
 	settingsRepo := newTestSettingsRepo()
@@ -121,7 +121,7 @@ func TestInitKeyCacheTTL(t *testing.T) {
 
 func TestDiscoverySchedulerLoop(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -179,7 +179,7 @@ func TestDiscoverySchedulerLoop(t *testing.T) {
 // stops on cancellation.
 func TestDiscoverySchedulerLoopDisabledAtStart(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -224,7 +224,7 @@ func TestDiscoverySchedulerLoopDisabledAtStart(t *testing.T) {
 
 func TestStaleLogCleanupPass(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	ctx := context.Background()
 	pool := cmdTestDB.Pool()
@@ -269,7 +269,7 @@ func TestStaleLogCleanupPass(t *testing.T) {
 
 func TestLogRetentionPass(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	ctx := context.Background()
 	pool := cmdTestDB.Pool()
@@ -329,7 +329,7 @@ func TestLogRetentionPass(t *testing.T) {
 
 func TestStaleLogCleanupLoopStopsOnCancel(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -347,7 +347,7 @@ func TestStaleLogCleanupLoopStopsOnCancel(t *testing.T) {
 
 func TestLogRetentionLoopStopsOnCancel(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

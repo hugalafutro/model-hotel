@@ -785,7 +785,7 @@ func TestListBackupFiles_InfoError(t *testing.T) {
 	}
 	// Create a symlink to a non-existent target
 	if err := os.Symlink("/nonexistent/target.dump", filepath.Join(dir, "broken.dump")); err != nil {
-		t.Skipf("symlink not supported: %v", err)
+		t.Fatalf("symlink not supported: %v", err)
 	}
 
 	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, nil)
@@ -960,7 +960,7 @@ func TestApplyPrune_RemoveError(t *testing.T) {
 
 	// Make parent dir read-only so Remove fails
 	if err := os.Chmod(dir, 0o555); err != nil {
-		t.Skipf("cannot chmod temp dir: %v", err)
+		t.Fatalf("cannot chmod temp dir: %v", err)
 	}
 	t.Cleanup(func() { os.Chmod(dir, 0o755) })
 

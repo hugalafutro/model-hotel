@@ -16,7 +16,7 @@ import (
 func TestFailoverUpdateHelperDBErrors(t *testing.T) {
 	h := newIntegrationFailoverHandler()
 	if h == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	failover.InvalidateFailoverCache()
 	cctx := cancelledCtx()

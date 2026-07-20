@@ -349,7 +349,7 @@ func TestExtractMigrationNames_Integration(t *testing.T) {
 
 	// Check pg_restore is available
 	if _, err := exec.LookPath("pg_restore"); err != nil {
-		t.Skip("pg_restore not installed, skipping integration test")
+		t.Fatal("pg_restore not installed, skipping integration test")
 	}
 
 	// Create a backup using pg_dump
@@ -367,7 +367,7 @@ func TestExtractMigrationNames_Integration(t *testing.T) {
 
 	pgDumpPath, err := exec.LookPath("pg_dump")
 	if err != nil {
-		t.Skip("pg_dump not available")
+		t.Fatal("pg_dump not available")
 	}
 
 	cmd := exec.CommandContext(ctx, pgDumpPath,
@@ -405,7 +405,7 @@ func TestExtractMigrationNames_Integration(t *testing.T) {
 	entries := parseTOC(listStdout.String())
 	schemaEntry := findSchemaMigrationsEntry(entries)
 	if schemaEntry == 0 {
-		t.Skip("no schema_migrations entry found in dump")
+		t.Fatal("no schema_migrations entry found in dump")
 	}
 
 	// Now test extractMigrationNames

@@ -358,7 +358,7 @@ func TestLookupOpenAICatalog_NotFound(t *testing.T) {
 func TestLookupOpenAICatalog_Found(t *testing.T) {
 	catalog := GetOpenAIModels()
 	if len(catalog) == 0 {
-		t.Skip("catalog is empty")
+		t.Fatal("catalog is empty")
 	}
 	first := catalog[0]
 	result := LookupOpenAICatalog(catalog, first.ModelID)

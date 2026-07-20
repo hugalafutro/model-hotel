@@ -231,7 +231,7 @@ func TestCreateBackup_Success_Integration(t *testing.T) {
 
 	// Check pg_dump is available
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed, skipping integration test")
+		t.Fatal("pg_dump not installed, skipping integration test")
 	}
 
 	dir := t.TempDir()
@@ -274,7 +274,7 @@ func TestCreateBackup_Success_Integration(t *testing.T) {
 
 func TestBackupHandler_CreateBackup_PgDumpFailed(t *testing.T) {
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed, skipping pg_dump failure test")
+		t.Fatal("pg_dump not installed, skipping pg_dump failure test")
 	}
 
 	r, _ := setupBackupRouter(t)
@@ -656,7 +656,7 @@ func TestCreateBackup_Success(t *testing.T) {
 
 	// Skip if pg_dump is not available
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed, skipping backup integration test")
+		t.Fatal("pg_dump not installed, skipping backup integration test")
 	}
 
 	backupDir := t.TempDir()
@@ -843,13 +843,13 @@ func TestNewBackupHandler_AbsFallback_Subprocess(t *testing.T) {
 
 	// Start the subprocess first
 	if err := cmd.Start(); err != nil {
-		t.Skipf("cannot start subprocess: %v", err)
+		t.Fatalf("cannot start subprocess: %v", err)
 	}
 
 	// Delete the CWD while the subprocess is running
 	//nolint:gosec // test-only: removing test directory
 	if err := os.RemoveAll(tmpDir); err != nil {
-		t.Skipf("cannot remove temp dir: %v", err)
+		t.Fatalf("cannot remove temp dir: %v", err)
 	}
 
 	// Wait for the subprocess to finish

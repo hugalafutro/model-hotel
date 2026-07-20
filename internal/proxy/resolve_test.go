@@ -213,15 +213,26 @@ func TestResolveSpecificProvider_ProviderNotFound(t *testing.T) {
 func TestResolveSpecificProvider_ModelNotFound(t *testing.T) {
 	h := newIntegrationHandler()
 
-	providers, err := h.providerRepo.List(context.Background())
+	// Seed a provider so the lookup succeeds and the failure is specifically the
+	// missing model, not a missing provider.
+	keyPair, err := auth.Encrypt("test-api-key", h.cfg.MasterKey)
 	if err != nil {
-		t.Fatalf("failed to list providers: %v", err)
+		t.Fatalf("encrypt API key: %v", err)
 	}
-	if len(providers) == 0 {
-		t.Skip("no providers in database")
+	name := "resolve-modelnotfound-" + uuid.New().String()[:8]
+	created, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    name,
+		BaseURL: "https://api.openai.com",
+		APIKey:  "test-api-key",
+	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
 	}
+	t.Cleanup(func() {
+		_, _ = testDB.Pool().Exec(context.Background(), "DELETE FROM providers WHERE id = $1", created.ID)
+	})
 
-	candidates, _, _, err := h.resolveSpecificProvider(context.Background(), providers[0].Name, "nonexistent-model-xyz")
+	candidates, _, _, err := h.resolveSpecificProvider(context.Background(), created.Name, "nonexistent-model-xyz")
 
 	if err == nil {
 		t.Error("expected error for nonexistent model")

@@ -133,9 +133,18 @@ func TestPollTraefikOnceDampsDownFlip(t *testing.T) {
 	defer traefik.Close()
 
 	p := NewPoller(store, events.NewBus(), traefik.URL)
+	// Configure a grace window (threshold >= 2) so the DOWN status is held back.
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("get settings: %v", err)
+	}
+	set.HealthFailThreshold = 3
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatalf("update settings: %v", err)
+	}
 	thr := p.healthFailThreshold(ctx)
 	if thr < 2 {
-		t.Skip("no grace window at this threshold")
+		t.Fatalf("expected grace window (threshold >= 2) after configuring, got %d", thr)
 	}
 
 	p.PollTraefikOnce(ctx)

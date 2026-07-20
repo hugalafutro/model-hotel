@@ -186,9 +186,18 @@ func TestApplyHealthBlipBelowThresholdIsSilent(t *testing.T) {
 	p, store, _ := newTestPoller(t, "")
 	ctx := context.Background()
 	m, _ := store.CreateMember(ctx, "h", "http://h:8081", "")
+	// Configure a grace window (threshold >= 2) so a sub-threshold blip is silent.
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("get settings: %v", err)
+	}
+	set.HealthFailThreshold = 3
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatalf("update settings: %v", err)
+	}
 	thr := p.healthFailThreshold(ctx)
 	if thr < 2 {
-		t.Skip("no grace window at this threshold")
+		t.Fatalf("expected grace window (threshold >= 2) after configuring, got %d", thr)
 	}
 
 	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true})
