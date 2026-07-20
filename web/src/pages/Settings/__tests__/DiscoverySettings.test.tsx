@@ -30,7 +30,7 @@ describe("DiscoverySettings", () => {
 	it("displays default values when settings are empty", async () => {
 		server.use(
 			http.get("/api/settings", ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				return HttpResponse.json({});
@@ -49,7 +49,7 @@ describe("DiscoverySettings", () => {
 	it("shows success toast on mutation success", async () => {
 		server.use(
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				return HttpResponse.json({ ok: true });
@@ -106,7 +106,7 @@ describe("DiscoverySettings", () => {
 	it("shows description with disable note when interval is 0", async () => {
 		server.use(
 			http.get("/api/settings", ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				return HttpResponse.json({
@@ -146,7 +146,7 @@ describe("DiscoverySettings", () => {
 
 		server.use(
 			http.get("/api/settings", ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				return HttpResponse.json({
@@ -154,7 +154,7 @@ describe("DiscoverySettings", () => {
 				});
 			}),
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				capturedPayload = (await request.json()) as Record<string, string>;
@@ -193,7 +193,7 @@ describe("DiscoverySettings", () => {
 
 		server.use(
 			http.get("/api/settings", ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				return HttpResponse.json({
@@ -201,7 +201,7 @@ describe("DiscoverySettings", () => {
 				});
 			}),
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				capturedPayload = (await request.json()) as Record<string, string>;
@@ -290,7 +290,7 @@ describe("DiscoverySettings", () => {
 
 		server.use(
 			http.get("/api/settings", ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				return HttpResponse.json({

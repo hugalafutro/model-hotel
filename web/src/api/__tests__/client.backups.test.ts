@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setAdminToken } from "../client";
+import { api } from "../client";
 
 describe("api.backups", () => {
 	beforeEach(() => {
-		setAdminToken("test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		vi.restoreAllMocks();
 	});
 
@@ -23,9 +23,7 @@ describe("api.backups", () => {
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/backups",
 				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});
@@ -59,9 +57,7 @@ describe("api.backups", () => {
 				"/api/backups",
 				expect.objectContaining({
 					method: "POST",
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});
@@ -105,9 +101,7 @@ describe("api.backups", () => {
 				"/api/backups/backup-2024-01-01.sql",
 				expect.objectContaining({
 					method: "DELETE",
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});
@@ -146,7 +140,6 @@ describe("api.backups", () => {
 				type: "application/sql",
 			});
 			const adminToken = "restore-token-123";
-			localStorage.setItem("adminToken", adminToken);
 
 			const mockResponse = { migration_count: 5, known_count: 10 };
 			const fetchSpy = vi
@@ -165,9 +158,10 @@ describe("api.backups", () => {
 
 			const options = callArgs[1] as RequestInit;
 			expect(options.method).toBe("POST");
-			expect(options.headers).toEqual({
-				Authorization: `Bearer ${adminToken}`,
-			});
+			expect(options.credentials).toBe("same-origin");
+			// Session rides in the cookie; the CSRF header (from the mh_csrf cookie
+			// seeded in setup.ts) authorizes the write. No bearer token.
+			expect(options.headers).toEqual({ "X-CSRF-Token": "test-csrf" });
 			expect(options.body).toBeInstanceOf(FormData);
 
 			const formData = options.body as FormData;
@@ -175,10 +169,8 @@ describe("api.backups", () => {
 			expect(formData.get("admin_token")).toBe(adminToken);
 		});
 
-		it("uses localStorage token for Authorization", async () => {
+		it("sends the CSRF header from the cookie, never a bearer token", async () => {
 			const mockFile = new File(["content"], "test.sql");
-			const storedToken = "stored-restore-token";
-			localStorage.setItem("adminToken", storedToken);
 
 			vi.spyOn(globalThis, "fetch").mockImplementation(
 				async () =>
@@ -187,23 +179,20 @@ describe("api.backups", () => {
 					}),
 			);
 
-			await api.backups.restore(mockFile, storedToken);
+			await api.backups.restore(mockFile, "confirm-token");
 
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/backups/restore",
 				expect.objectContaining({
-					headers: {
-						Authorization: `Bearer ${storedToken}`,
-					},
+					credentials: "same-origin",
+					headers: { "X-CSRF-Token": "test-csrf" },
 				}),
 			);
 		});
 
-		it("uses localStorage token for Authorization, not the parameter", async () => {
+		it("passes the admin_token parameter through the FormData body", async () => {
 			const mockFile = new File(["content"], "test.sql");
-			const localStorageToken = "local-storage-token";
 			const paramToken = "param-token";
-			localStorage.setItem("adminToken", localStorageToken);
 
 			const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
 				async () =>
@@ -214,13 +203,8 @@ describe("api.backups", () => {
 
 			await api.backups.restore(mockFile, paramToken);
 
-			// Authorization header uses localStorage, not the parameter
+			// The admin_token confirmation travels in the form body, not a header.
 			const options = fetchSpy.mock.calls[0][1] as RequestInit;
-			expect(options.headers).toEqual({
-				Authorization: `Bearer ${localStorageToken}`,
-			});
-
-			// FormData admin_token uses the parameter
 			const formData = options.body as FormData;
 			expect(formData.get("admin_token")).toBe(paramToken);
 		});

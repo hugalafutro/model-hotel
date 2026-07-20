@@ -234,7 +234,7 @@ describe("webauthn utils", () => {
 			userVerification: "preferred",
 		} as PublicKeyCredentialRequestOptionsJSON;
 
-		it("successfully logs in with passkey and returns token", async () => {
+		it("successfully logs in with passkey and returns true", async () => {
 			server.use(
 				http.post("/api/webauthn/login/start", () =>
 					HttpResponse.json({
@@ -242,8 +242,9 @@ describe("webauthn utils", () => {
 						options: mockOptions,
 					}),
 				),
+				// The server sets the session cookie pair; the body carries no token.
 				http.post("/api/webauthn/login/finish", () =>
-					HttpResponse.json({ token: "mock-token-123" }),
+					HttpResponse.json({ success: true }),
 				),
 			);
 			vi.spyOn(simplewebauthn, "startAuthentication").mockResolvedValue({
@@ -259,10 +260,10 @@ describe("webauthn utils", () => {
 				clientExtensionResults: {},
 			});
 			const result = await webauthn.loginWithPasskey();
-			expect(result).toBe("mock-token-123");
+			expect(result).toBe(true);
 		});
 
-		it("returns null when user cancels (NotAllowedError)", async () => {
+		it("returns false when user cancels (NotAllowedError)", async () => {
 			server.use(
 				http.post("/api/webauthn/login/start", () =>
 					HttpResponse.json({
@@ -275,7 +276,7 @@ describe("webauthn utils", () => {
 				new MockDOMError("User cancelled", "NotAllowedError"),
 			);
 			const result = await webauthn.loginWithPasskey();
-			expect(result).toBe(null);
+			expect(result).toBe(false);
 		});
 
 		it("throws on other errors", async () => {

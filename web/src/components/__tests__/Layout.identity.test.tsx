@@ -1,7 +1,6 @@
 import { screen } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setAdminToken } from "../../api/client";
 import { IdentityProvider } from "../../context/IdentityContext";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
@@ -16,7 +15,7 @@ describe("Layout — logged-in identity", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		setAdminToken("test-admin-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 	});
 
 	it("labels the logout button with the user's display name", async () => {

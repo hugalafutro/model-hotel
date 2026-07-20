@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Copy, Download, X } from "@/lib/icons";
-import { api, setAdminToken } from "../../api/client";
+import { api } from "../../api/client";
 import { CopyButton } from "../../components/CopyButton";
 import { useToast } from "../../context/ToastContext";
 import { formatDate } from "../../utils/format";
@@ -76,12 +76,9 @@ export function TotpPanel() {
 		mutationFn: (code: string) => api.totp.enrollVerify(code),
 		onSuccess: (data) => {
 			// Enabling 2FA invalidates the raw admin token the browser was using;
-			// the server returns a session token so we stay logged in instead of the
-			// dashboard suddenly going "API offline". Install it before any refetch.
-			if (data.token) {
-				localStorage.setItem("adminToken", data.token);
-				setAdminToken(data.token);
-			}
+			// the server rotates the session cookie pair in the response so we stay
+			// logged in instead of the dashboard suddenly going "API offline". No
+			// client-side token juggling is needed.
 			setRecoveryCodes(data.recovery_codes);
 			setShowRecovery(true);
 			setEnrollUri("");

@@ -232,7 +232,7 @@ describe("CircuitBreakerSettings", () => {
 				},
 			}),
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				const body = await request.json();
@@ -278,7 +278,7 @@ describe("CircuitBreakerSettings", () => {
 				},
 			}),
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				const body = await request.json();
@@ -320,7 +320,7 @@ describe("CircuitBreakerSettings", () => {
 				},
 			}),
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				return HttpResponse.json({ ok: true });
@@ -418,7 +418,7 @@ describe("CircuitBreakerSettings", () => {
 		server.use(
 			...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				capturedPayload = (await request.json()) as Record<string, string>;
@@ -448,7 +448,7 @@ describe("CircuitBreakerSettings", () => {
 		server.use(
 			...mockSettings({ body: {} }),
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				capturedPayload = (await request.json()) as Record<string, string>;
@@ -502,7 +502,7 @@ describe("CircuitBreakerSettings", () => {
 		server.use(
 			...mockSettings({ body: { circuit_breaker_enabled: "false" } }),
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				capturedPayload = (await request.json()) as Record<string, string>;
@@ -574,7 +574,7 @@ describe("CircuitBreakerSettings", () => {
 			server.use(
 				...mockSettings({ body: {} }),
 				http.put("/api/settings", async ({ request }) => {
-					if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+					if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 						return HttpResponse.json(
 							{ error: "Unauthorized" },
 							{ status: 401 },
@@ -608,7 +608,7 @@ describe("CircuitBreakerSettings", () => {
 					body: { hedging_enabled: "true", hedge_delay: "4s" },
 				}),
 				http.put("/api/settings", async ({ request }) => {
-					if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+					if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 						return HttpResponse.json(
 							{ error: "Unauthorized" },
 							{ status: 401 },

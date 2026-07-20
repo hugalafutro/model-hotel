@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setAdminToken } from "../client";
+import { api } from "../client";
 
 describe("api.failoverGroups", () => {
 	beforeEach(() => {
-		setAdminToken("test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		vi.restoreAllMocks();
 	});
 
@@ -23,9 +23,7 @@ describe("api.failoverGroups", () => {
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/failover-groups",
 				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});
@@ -58,9 +56,7 @@ describe("api.failoverGroups", () => {
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/failover-groups/1",
 				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});
@@ -96,9 +92,7 @@ describe("api.failoverGroups", () => {
 				"/api/failover-groups",
 				expect.objectContaining({
 					method: "POST",
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 					body: JSON.stringify(createData),
 				}),
 			);
@@ -143,9 +137,7 @@ describe("api.failoverGroups", () => {
 				"/api/failover-groups/1",
 				expect.objectContaining({
 					method: "PUT",
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 					body: JSON.stringify(updateData),
 				}),
 			);
@@ -177,9 +169,7 @@ describe("api.failoverGroups", () => {
 				"/api/failover-groups/1",
 				expect.objectContaining({
 					method: "DELETE",
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});
@@ -209,9 +199,7 @@ describe("api.failoverGroups", () => {
 				"/api/failover-groups/sync",
 				expect.objectContaining({
 					method: "POST",
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});
@@ -243,9 +231,7 @@ describe("api.failoverGroups", () => {
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/failover-groups/candidates",
 				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});

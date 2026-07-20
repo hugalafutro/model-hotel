@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setAdminToken } from "../client";
+import { api } from "../client";
 
 describe("api.settings", () => {
 	beforeEach(() => {
-		setAdminToken("test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		vi.restoreAllMocks();
 	});
 
@@ -20,9 +20,7 @@ describe("api.settings", () => {
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/settings",
 				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});
@@ -53,7 +51,6 @@ describe("api.settings", () => {
 				expect.objectContaining({
 					method: "PUT",
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 					body: JSON.stringify(newSettings),
@@ -92,9 +89,7 @@ describe("api.settings", () => {
 					body: JSON.stringify({
 						keys: ["log_retention", "stale_request_timeout"],
 					}),
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});

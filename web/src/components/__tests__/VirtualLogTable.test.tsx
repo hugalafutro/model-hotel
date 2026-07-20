@@ -86,7 +86,7 @@ const defaultProps = {
 describe("VirtualLogTable", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		localStorage.setItem("adminToken", "test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		mockGetVirtualItems.mockReturnValue([]);
 		mockGetTotalSize.mockReturnValue(0);
 		mockMeasureElement.mockImplementation(() => {});

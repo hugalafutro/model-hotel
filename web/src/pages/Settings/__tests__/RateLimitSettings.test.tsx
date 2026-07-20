@@ -466,7 +466,7 @@ describe("RateLimitSettings", () => {
 					});
 				}),
 				http.put("/api/settings", async ({ request }) => {
-					if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+					if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 						return HttpResponse.json(
 							{ error: "Unauthorized" },
 							{ status: 401 },
@@ -509,7 +509,7 @@ describe("RateLimitSettings", () => {
 					});
 				}),
 				http.put("/api/settings", async ({ request }) => {
-					if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+					if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 						return HttpResponse.json(
 							{ error: "Unauthorized" },
 							{ status: 401 },

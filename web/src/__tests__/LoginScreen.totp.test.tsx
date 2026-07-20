@@ -2,17 +2,18 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
-import { setAdminToken } from "../api/client";
 import { server } from "../test/mocks/server";
 import { renderWithProviders } from "../test/utils";
 
 // Mirror App.test.tsx's client mock, adding the totp block so the LoginScreen
-// status probe + login flow can be driven per-test.
+// status probe + login flow can be driven per-test. Auth is cookie-derived.
 vi.mock("../api/client", () => ({
-	setAdminToken: vi.fn(),
-	getAdminToken: vi.fn(() => localStorage.getItem("adminToken")),
+	isAuthenticated: vi.fn(() => /mh_csrf=[^;\s]/.test(document.cookie)),
 	API_BASE: "",
 	api: {
+		auth: {
+			adminExchange: vi.fn().mockResolvedValue({ success: true }),
+		},
 		settings: {
 			get: vi.fn().mockResolvedValue({ app_version: "v0.0.0-test" }),
 		},
@@ -44,6 +45,7 @@ vi.mock("../api/client", () => ({
 describe("LoginScreen TOTP step", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		document.cookie = "mh_csrf=; path=/; max-age=0"; // logged out -> LoginScreen
 		vi.clearAllMocks();
 		server.resetHandlers();
 		// Default: status disabled. Tests that need enabled override via
@@ -71,7 +73,7 @@ describe("LoginScreen TOTP step", () => {
 		expect(screen.queryByLabelText("TOTP code")).not.toBeInTheDocument();
 	});
 
-	it("submits token+code to totp.login and stores the session token", async () => {
+	it("submits token+code to totp.login on the TOTP step", async () => {
 		const { api } = await import("../api/client");
 		vi.mocked(api.totp.status).mockResolvedValue({ enabled: true });
 		vi.mocked(api.totp.login).mockResolvedValue({
@@ -80,8 +82,8 @@ describe("LoginScreen TOTP step", () => {
 
 		const user = userEvent.setup();
 		// jsdom's window.location.reload is a no-op for navigation (setup.ts
-		// suppresses the "Not implemented" warning, exactly as App.test.tsx
-		// does). We assert on the api call + localStorage + setAdminToken.
+		// suppresses the "Not implemented" warning). The server sets the session
+		// cookie pair; we assert only that the api call fired.
 
 		renderWithProviders(<App />);
 
@@ -97,10 +99,6 @@ describe("LoginScreen TOTP step", () => {
 		await waitFor(() => {
 			expect(api.totp.login).toHaveBeenCalledWith("raw-admin-token", "654321");
 		});
-
-		// The SESSION token (not the raw admin token) is persisted.
-		expect(localStorage.getItem("adminToken")).toBe("ses_sessionTokenValue123");
-		expect(setAdminToken).toHaveBeenCalledWith("ses_sessionTokenValue123");
 	});
 
 	it("shows generic totpFailed error on login failure", async () => {
@@ -126,9 +124,6 @@ describe("LoginScreen TOTP step", () => {
 		expect(
 			await screen.findByText("Invalid admin token or TOTP code"),
 		).toBeInTheDocument();
-		// Raw token was NOT persisted on failure.
-		expect(localStorage.getItem("adminToken")).toBeNull();
-		expect(setAdminToken).not.toHaveBeenCalled();
 	});
 
 	it("shows the throttled message on a 429 login response", async () => {
@@ -157,8 +152,6 @@ describe("LoginScreen TOTP step", () => {
 				"Too many attempts. Please wait a moment and try again.",
 			),
 		).toBeInTheDocument();
-		expect(localStorage.getItem("adminToken")).toBeNull();
-		expect(setAdminToken).not.toHaveBeenCalled();
 	});
 
 	it("shows the SSO button only when oidc status is enabled", async () => {

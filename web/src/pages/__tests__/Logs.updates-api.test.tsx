@@ -123,7 +123,7 @@ describe("Logs", () => {
 			server.use(
 				http.get("/api/logs", ({ request }) => {
 					apiCalled = true;
-					expect(request.headers.get("Authorization")).toMatch(/Bearer /);
+					expect(request.headers.get("Cookie")).toContain("mh_csrf=");
 					return HttpResponse.json({
 						entries: [],
 						total: 0,

@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Eye, EyeOff, Fingerprint, GithubLogo, LogIn } from "@/lib/icons";
-import { api, setAdminToken } from "./api/client";
+import { api, isAuthenticated } from "./api/client";
 import { CopyablePill } from "./components/CopyablePill";
 import { Layout } from "./components/Layout";
 import { Logo } from "./components/Logo";
@@ -16,7 +16,7 @@ import { SidebarModeProvider } from "./context/SidebarModeContext";
 import { StorageProvider } from "./context/StorageContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
-import { consumeOidcError, consumeOidcToken } from "./utils/oidc";
+import { consumeOidcError } from "./utils/oidc";
 import { canUsePasskeyLogin, loginWithPasskey } from "./utils/webauthn";
 
 const Dashboard = lazy(() =>
@@ -121,13 +121,12 @@ function LoginScreen() {
 		setUserLoading(true);
 		setError(null);
 		try {
-			const res = await api.auth.login(
+			await api.auth.login(
 				name,
 				userPassword,
 				userTotpNeeded ? userTotpCode.trim() : undefined,
 			);
-			localStorage.setItem("adminToken", res.token);
-			setAdminToken(res.token);
+			// The server set the session cookie pair; reload boots into the app.
 			window.location.reload();
 		} catch (err) {
 			const status =
@@ -206,21 +205,15 @@ function LoginScreen() {
 					setLoading(false);
 					return;
 				}
-				const res = await api.totp.login(value, code);
-				localStorage.setItem("adminToken", res.token);
-				setAdminToken(res.token);
+				// The server sets the session cookie pair; reload boots into the app.
+				await api.totp.login(value, code);
 				window.location.reload();
 				return;
 			}
-			const res = await fetch("/api/system", {
-				headers: { Authorization: `Bearer ${value}` },
-			});
-			if (!res.ok) {
-				setError(t("layout.auth.invalidToken"));
-				return;
-			}
-			localStorage.setItem("adminToken", value);
-			setAdminToken(value);
+			// Exchange the raw admin token for a session cookie pair. A 400 means the
+			// admin account actually has TOTP enabled, so flip into the TOTP step
+			// instead of failing outright.
+			await api.auth.adminExchange(value);
 			window.location.reload();
 		} catch (err) {
 			// Duck-type the status (ApiError carries it) so this is robust to the
@@ -229,14 +222,20 @@ function LoginScreen() {
 				err && typeof err === "object" && "status" in err
 					? (err as { status?: number }).status
 					: undefined;
-			if (totpEnabled && status === 429) {
-				setError(t("layout.auth.totpThrottled"));
-			} else {
+			if (totpEnabled) {
 				setError(
-					totpEnabled
-						? t("layout.auth.totpFailed")
-						: t("layout.auth.connectionFailed"),
+					status === 429
+						? t("layout.auth.totpThrottled")
+						: t("layout.auth.totpFailed"),
 				);
+			} else if (status === 400) {
+				// The admin account has TOTP enabled; reveal the code field.
+				setTotpEnabled(true);
+				setError(t("layout.auth.totpCodeRequired"));
+			} else if (status === 401) {
+				setError(t("layout.auth.invalidToken"));
+			} else {
+				setError(t("layout.auth.connectionFailed"));
 			}
 		} finally {
 			setLoading(false);
@@ -247,10 +246,9 @@ function LoginScreen() {
 		setPasskeyLoading(true);
 		setError(null);
 		try {
-			const sessionToken = await loginWithPasskey();
-			if (sessionToken) {
-				localStorage.setItem("adminToken", sessionToken);
-				setAdminToken(sessionToken);
+			const ok = await loginWithPasskey();
+			if (ok) {
+				// The server set the session cookie pair; reload boots into the app.
 				window.location.reload();
 			}
 		} catch {
@@ -586,15 +584,10 @@ function PageSuspense({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
-	// An SSO callback hands the session token back in the URL fragment. Consume
-	// it before reading the stored token so the app boots logged in.
-	consumeOidcToken();
-	const token = localStorage.getItem("adminToken");
-	if (token) {
-		setAdminToken(token);
-	}
-
-	if (!token) {
+	// Auth is derived from the session cookie pair (set by the server on every
+	// login path, including a clean SSO redirect). No token juggling: presence of
+	// the readable CSRF cookie is the "logged in" signal.
+	if (!isAuthenticated()) {
 		return <LoginScreen />;
 	}
 

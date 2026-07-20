@@ -28,7 +28,7 @@ describe("ProxySettings", () => {
 	it("displays default values when settings are empty", async () => {
 		server.use(
 			http.get("/api/settings", ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				return HttpResponse.json({});
@@ -57,7 +57,7 @@ describe("ProxySettings", () => {
 	it("displays values from settings API", async () => {
 		server.use(
 			http.get("/api/settings", ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				return HttpResponse.json({
@@ -91,7 +91,7 @@ describe("ProxySettings", () => {
 
 		server.use(
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				const body = await request.json();
@@ -133,7 +133,7 @@ describe("ProxySettings", () => {
 
 		server.use(
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				const body = await request.json();
@@ -173,7 +173,7 @@ describe("ProxySettings", () => {
 	it("shows success toast on mutation success", async () => {
 		server.use(
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				return HttpResponse.json({ ok: true });
@@ -262,7 +262,7 @@ describe("ProxySettings", () => {
 	it("invalidates settings query after successful mutation", async () => {
 		server.use(
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				return HttpResponse.json({ ok: true });
@@ -380,7 +380,7 @@ describe("ProxySettings", () => {
 
 		server.use(
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				capturedPayload = (await request.json()) as Record<string, string>;
@@ -415,7 +415,7 @@ describe("ProxySettings", () => {
 
 		server.use(
 			http.put("/api/settings", async ({ request }) => {
-				if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 				}
 				capturedPayload = (await request.json()) as Record<string, string>;

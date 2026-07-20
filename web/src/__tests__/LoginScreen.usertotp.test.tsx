@@ -2,15 +2,14 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
-import { setAdminToken } from "../api/client";
 import { server } from "../test/mocks/server";
 import { renderWithProviders } from "../test/utils";
 
 // Mirror LoginScreen.totp.test.tsx's client mock, adding the auth block so the
-// username/password form renders and its TOTP second step can be driven.
+// username/password form renders and its TOTP second step can be driven. Auth
+// is cookie-derived.
 vi.mock("../api/client", () => ({
-	setAdminToken: vi.fn(),
-	getAdminToken: vi.fn(() => localStorage.getItem("adminToken")),
+	isAuthenticated: vi.fn(() => /mh_csrf=[^;\s]/.test(document.cookie)),
 	API_BASE: "",
 	api: {
 		settings: {
@@ -52,6 +51,7 @@ const totpRequiredError = () =>
 describe("LoginScreen user TOTP step", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		document.cookie = "mh_csrf=; path=/; max-age=0"; // logged out -> LoginScreen
 		vi.clearAllMocks();
 		server.resetHandlers();
 	});
@@ -79,12 +79,9 @@ describe("LoginScreen user TOTP step", () => {
 			"correct-horse",
 			undefined,
 		);
-		// Nothing was persisted yet.
-		expect(localStorage.getItem("adminToken")).toBeNull();
-		expect(setAdminToken).not.toHaveBeenCalled();
 	});
 
-	it("resubmits with the code and stores the session token", async () => {
+	it("resubmits with the code and logs in", async () => {
 		const { api } = await import("../api/client");
 		vi.mocked(api.auth.login)
 			.mockRejectedValueOnce(totpRequiredError())
@@ -105,8 +102,6 @@ describe("LoginScreen user TOTP step", () => {
 				"123456",
 			);
 		});
-		expect(localStorage.getItem("adminToken")).toBe("ses_userSessionToken");
-		expect(setAdminToken).toHaveBeenCalledWith("ses_userSessionToken");
 	});
 
 	it("shows the code error on a wrong code, not the generic login failure", async () => {
@@ -130,7 +125,6 @@ describe("LoginScreen user TOTP step", () => {
 		expect(
 			await screen.findByText("Invalid TOTP or recovery code"),
 		).toBeInTheDocument();
-		expect(localStorage.getItem("adminToken")).toBeNull();
 	});
 
 	it("accepts a full recovery code in the user code field", async () => {

@@ -1,7 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setAdminToken } from "../../../api/client";
 import type { UserTotpStatus } from "../../../api/types";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
@@ -349,15 +348,16 @@ describe("Security page edge handlers", () => {
 			await waitFor(() => expect(reload).toHaveBeenCalled(), {
 				timeout: 15000,
 			});
-			expect(localStorage.getItem("adminToken")).toBeNull();
+			// The teardown clears the client auth signal (mh_csrf cookie).
+			expect(document.cookie).not.toContain("mh_csrf=");
 		} finally {
 			Object.defineProperty(window, "location", {
 				value: original,
 				configurable: true,
 			});
-			// The teardown cleared the file-wide test token; put it back for
+			// The teardown cleared the file-wide session cookie; put it back for
 			// whatever runs after this test.
-			setAdminToken("test-admin-token");
+			document.cookie = "mh_csrf=test-csrf; path=/";
 		}
 	});
 

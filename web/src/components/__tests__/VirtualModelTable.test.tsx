@@ -32,7 +32,11 @@ vi.mock("../../api/client", () => ({
 			cursor: vi.fn(),
 		},
 	},
-	getAdminToken: vi.fn(() => "test-admin-token"),
+	// EventProvider (mounted by renderWithProviders) reads the cookie-derived
+	// auth signal; the fetch helpers ride along for any component network calls.
+	isAuthenticated: vi.fn(() => true),
+	clearAuth: vi.fn(),
+	getAuthHeaders: vi.fn(() => ({ "Content-Type": "application/json" })),
 	API_BASE: "",
 }));
 
@@ -105,7 +109,7 @@ function setupWithEntries(
 
 describe("VirtualModelTable", () => {
 	beforeEach(() => {
-		localStorage.setItem("adminToken", "test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		mockGetVirtualItems.mockReturnValue([]);
 		mockGetTotalSize.mockReturnValue(0);
 		mockMeasureElement.mockImplementation(() => {});

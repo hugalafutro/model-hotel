@@ -2,7 +2,6 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getAdminToken, setAdminToken } from "../../api/client";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import * as webauthnUtils from "../../utils/webauthn";
@@ -13,10 +12,10 @@ describe("Layout", () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
-		// The admin token is module-global state (seeded once in setup.ts). The
-		// logout tests now clear it (the in-memory token, not just localStorage),
-		// so re-seed before every test to keep the suite order-independent.
-		setAdminToken("test-admin-token");
+		// Auth is the readable mh_csrf cookie (seeded once in setup.ts). The logout
+		// tests clear it, so re-seed before every test to keep the suite
+		// order-independent.
+		document.cookie = "mh_csrf=test-csrf; path=/";
 	});
 
 	describe("Sidebar Navigation", () => {
@@ -266,8 +265,7 @@ describe("Layout", () => {
 
 		it("performs logout on confirmation", async () => {
 			const user = userEvent.setup();
-			const originalStorage = localStorage.getItem("adminToken");
-			localStorage.setItem("adminToken", "test-token");
+			document.cookie = "mh_csrf=test-csrf; path=/";
 
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
@@ -288,12 +286,8 @@ describe("Layout", () => {
 			}
 
 			await waitFor(() => {
-				expect(localStorage.getItem("adminToken")).toBeNull();
+				expect(document.cookie).not.toContain("mh_csrf=");
 			});
-
-			if (originalStorage) {
-				localStorage.setItem("adminToken", originalStorage);
-			}
 		});
 	});
 
@@ -474,8 +468,7 @@ describe("Layout", () => {
 
 		it("handles logout confirmation flow", async () => {
 			const user = userEvent.setup();
-			const originalStorage = localStorage.getItem("adminToken");
-			localStorage.setItem("adminToken", "test-token");
+			document.cookie = "mh_csrf=test-csrf; path=/";
 
 			renderWithProviders(<Layout>{mockChildren}</Layout>, {
 				initialEntries: ["/dashboard"],
@@ -500,12 +493,8 @@ describe("Layout", () => {
 			}
 
 			await waitFor(() => {
-				expect(localStorage.getItem("adminToken")).toBeNull();
+				expect(document.cookie).not.toContain("mh_csrf=");
 			});
-
-			if (originalStorage) {
-				localStorage.setItem("adminToken", originalStorage);
-			}
 		});
 
 		it("cancels logout confirmation", async () => {
@@ -889,7 +878,7 @@ describe("Layout", () => {
 					return HttpResponse.json({ success: true });
 				}),
 			);
-			localStorage.setItem("adminToken", "test-token");
+			document.cookie = "mh_csrf=test-csrf; path=/";
 
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
@@ -908,21 +897,17 @@ describe("Layout", () => {
 
 			await waitFor(() => {
 				expect(logoutCalled).toBe(true);
-				expect(localStorage.getItem("adminToken")).toBeNull();
+				expect(document.cookie).not.toContain("mh_csrf=");
 			});
-
-			localStorage.removeItem("adminToken");
 		});
 
-		// Regression: logout must clear the IN-MEMORY token, not just localStorage.
-		// getAuthHeaders() reads the in-memory token first, so leaving it set let
-		// queries refetch with the just-revoked token in the gap before the reload,
+		// Regression: logout must clear the client auth signal so queries don't
+		// refetch with a just-revoked session in the gap before the reload,
 		// producing a burst of 401s server-side.
-		it("clears the in-memory admin token on logout", async () => {
+		it("clears the session cookie on logout", async () => {
 			const user = userEvent.setup();
 			vi.spyOn(webauthnUtils, "isWebAuthnAvailable").mockResolvedValue(true);
-			setAdminToken("test-token");
-			localStorage.setItem("adminToken", "test-token");
+			document.cookie = "mh_csrf=test-csrf; path=/";
 			server.use(
 				http.post("/api/webauthn/logout", () =>
 					HttpResponse.json({ success: true }),
@@ -943,11 +928,8 @@ describe("Layout", () => {
 			}
 
 			await waitFor(() => {
-				expect(getAdminToken()).toBe("");
-				expect(localStorage.getItem("adminToken")).toBeNull();
+				expect(document.cookie).not.toContain("mh_csrf=");
 			});
-
-			localStorage.removeItem("adminToken");
 		});
 	});
 });

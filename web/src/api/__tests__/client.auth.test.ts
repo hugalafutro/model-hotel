@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setAdminToken } from "../client";
+import { api } from "../client";
 
 describe("api.demoLogin", () => {
 	beforeEach(() => {
-		setAdminToken("test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		vi.restoreAllMocks();
 	});
 
@@ -15,7 +15,9 @@ describe("api.demoLogin", () => {
 		const result = await api.demoLogin.get();
 
 		expect(result).toEqual({ token: "demo-abc" });
-		expect(globalThis.fetch).toHaveBeenCalledWith("/api/demo-login", undefined);
+		expect(globalThis.fetch).toHaveBeenCalledWith("/api/demo-login", {
+			credentials: "same-origin",
+		});
 	});
 
 	it("throws on error response", async () => {
@@ -30,7 +32,7 @@ describe("api.demoLogin", () => {
 
 describe("api.totp.login", () => {
 	beforeEach(() => {
-		setAdminToken("test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		vi.restoreAllMocks();
 	});
 

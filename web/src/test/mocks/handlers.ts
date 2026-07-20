@@ -18,10 +18,12 @@ import {
 	mockVirtualKey,
 } from "./data";
 
-// Helper to check for valid auth header
+// Helper to check for a valid dashboard session. Cookie-session auth: the
+// session rides in the (httpOnly, in prod) mh_session cookie and a readable
+// mh_csrf cookie. Tests seed mh_csrf via document.cookie, which same-origin
+// fetch forwards to MSW as the Cookie header, so we gate on its presence.
 function hasValidAuth(request: Request): boolean {
-	const auth = request.headers.get("Authorization");
-	return auth?.startsWith("Bearer ") ?? false;
+	return request.headers.get("Cookie")?.includes("mh_csrf=") ?? false;
 }
 
 // Factory function to create fresh mock data arrays for each test.
