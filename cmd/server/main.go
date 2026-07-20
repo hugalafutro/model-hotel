@@ -248,7 +248,7 @@ func main() {
 	// the same CreateAuthToken, so no downstream gate changes. Config lives in
 	// settings (rebuilt lazily on change), so it is always constructed; the
 	// public status/start/callback endpoints no-op until oidc_enabled is set.
-	oidcHandler := adminauth.NewOIDCHandler(settingsRepo, sessionMgr, ipLimiter, cfg.MasterKey)
+	oidcHandler := adminauth.NewOIDCHandler(settingsRepo, sessionMgr, ipLimiter, cfg.MasterKey, true, cfg.CookieSecure)
 	oidcHandler.SetUserResolver(userRepo)
 
 	// GitHub SSO is a fourth admin-login front-end, alongside OIDC/passkey/TOTP.

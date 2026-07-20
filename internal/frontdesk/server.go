@@ -176,7 +176,7 @@ func NewServer(cfg ServerConfig) *Server {
 	// OIDC SSO: a fourth admin-login path. The shared adminauth handler is reused
 	// as-is; newOIDCSettings adapts Front Desk's typed settings row to its key/value
 	// contract, and the config secret rides the same MasterKey encryption as above.
-	oidcHandler := adminauth.NewOIDCHandler(newOIDCSettings(cfg.Store), sessionMgr, cfg.IPLimiter, cfg.MasterKey)
+	oidcHandler := adminauth.NewOIDCHandler(newOIDCSettings(cfg.Store), sessionMgr, cfg.IPLimiter, cfg.MasterKey, false, "auto")
 
 	s.router = s.buildRouter(webauthnHandler, totpHandler, oidcHandler, cfg.UI)
 	return s
