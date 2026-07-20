@@ -2,11 +2,16 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -117,5 +122,106 @@ func TestFetchQuotaSnapshot_UnsupportedType(t *testing.T) {
 	}
 	if status != 0 || payload != nil || kind != "" {
 		t.Fatalf("want zero-value results, got kind=%q payload=%q status=%d", kind, string(payload), status)
+	}
+}
+
+// insertQuotaPollProvider inserts a provider row (with encrypted key material so
+// the fetch layer can decrypt it) directly into the test DB and returns its ID.
+func insertQuotaPollProvider(t *testing.T, pool *pgxpool.Pool, name, baseURL string, enabled bool) uuid.UUID {
+	t.Helper()
+	ek, kn, ks := encryptTestKey(t, "test-api-key", testMasterKey)
+	id := uuid.New()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, now(), now())`,
+		id, name, baseURL, ek, kn, ks, enabled)
+	if err != nil {
+		t.Fatalf("insert provider: %v", err)
+	}
+	return id
+}
+
+// nanoGPTPollDiscovery returns a discovery service whose /usage endpoint reports
+// a fresh dailyInputTokens.used value, and 404s everything else.
+func nanoGPTPollDiscovery(used int64) *provider.DiscoveryService {
+	ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
+			if strings.HasSuffix(req.URL.Path, "/usage") {
+				body := `{"active":true,"provider":"nanogpt","dailyInputTokens":{"used":` +
+					strconv.FormatInt(used, 10) + `,"limit":100}}`
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+			}
+			return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader(`{}`)), Header: make(http.Header)}, nil
+		}},
+	})
+	ds.SetRetryBaseDelay(time.Millisecond)
+	return ds
+}
+
+// TestPollQuotasOnce_UpsertsEnabledProviders verifies the poll pass fetches an
+// enabled quota-capable provider and stores a fresh source="poll" snapshot.
+func TestPollQuotasOnce_UpsertsEnabledProviders(t *testing.T) {
+	h := newTestHandler(t)
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-poll", "https://api.nano-gpt.com/v1", true)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(9) }
+
+	h.PollQuotasOnce(context.Background())
+
+	snap, err := h.quotaRepo.Get(context.Background(), id, "usage")
+	if err != nil {
+		t.Fatalf("get snapshot: %v", err)
+	}
+	if snap == nil {
+		t.Fatal("poll should upsert a snapshot, got nil")
+	}
+	if snap.Source != "poll" {
+		t.Fatalf("want source=poll, got %q", snap.Source)
+	}
+	if snap.HTTPStatus != http.StatusOK {
+		t.Fatalf("want http_status=200, got %d", snap.HTTPStatus)
+	}
+	// JSONB canonicalizes whitespace, so decode semantically instead of a
+	// byte/substring compare on the raw payload.
+	var got struct {
+		DailyInputTokens struct {
+			Used int64 `json:"used"`
+		} `json:"dailyInputTokens"`
+	}
+	if uerr := json.Unmarshal(snap.Payload, &got); uerr != nil {
+		t.Fatalf("decode payload: %v (%s)", uerr, string(snap.Payload))
+	}
+	if got.DailyInputTokens.Used != 9 {
+		t.Fatalf("want fresh used=9, got %d (%s)", got.DailyInputTokens.Used, string(snap.Payload))
+	}
+}
+
+// TestPollQuotasOnce_SkipsDisabled verifies a disabled provider is never polled,
+// so no snapshot row is created for it.
+func TestPollQuotasOnce_SkipsDisabled(t *testing.T) {
+	h := newTestHandler(t)
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-disabled", "https://api.nano-gpt.com/v1", false)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService {
+		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				t.Fatalf("disabled provider should not trigger an upstream call to %s", req.URL.String())
+				return nil, nil
+			}},
+		})
+	}
+
+	h.PollQuotasOnce(context.Background())
+
+	snap, err := h.quotaRepo.Get(context.Background(), id, "usage")
+	if err != nil {
+		t.Fatalf("get snapshot: %v", err)
+	}
+	if snap != nil {
+		t.Fatalf("disabled provider should not be polled, got %+v", snap)
 	}
 }

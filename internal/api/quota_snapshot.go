@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
 // quotaKindFor maps a provider type to the snapshot kind it produces, or
@@ -106,4 +109,42 @@ func fetchQuotaSnapshot(ctx context.Context, disc *provider.DiscoveryService, pr
 		return kind, nil, 0, err
 	}
 	return kind, payload, status, nil
+}
+
+// PollQuotasOnce refreshes the snapshot for every enabled quota-capable
+// provider. Called by the background quota loop. Each provider fetch is bounded
+// by its own timeout so one slow upstream cannot stall the pass, and failures
+// are recorded (via RecordFailure) without discarding the last good snapshot.
+func (h *Handler) PollQuotasOnce(ctx context.Context) {
+	providers, err := h.providerRepo.List(ctx)
+	if err != nil {
+		debuglog.Error("quota: list providers failed", "error", err)
+		return
+	}
+	disc := newDiscoveryService()
+	for _, prov := range providers {
+		if !prov.Enabled {
+			continue
+		}
+		if _, ok := quotaKindFor(provider.DetectProviderType(prov.BaseURL)); !ok {
+			continue
+		}
+		provCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		kind, payload, status, ferr := fetchQuotaSnapshot(provCtx, disc, prov, h.cfg.MasterKey)
+		if ferr != nil {
+			debuglog.Warn("quota: poll fetch failed", "provider", prov.Name, "error", ferr)
+			if rerr := h.quotaRepo.RecordFailure(provCtx, prov.ID, kind, ferr.Error()); rerr != nil {
+				debuglog.Warn("quota: record failure failed", "provider", prov.Name, "error", rerr)
+			}
+		} else if uerr := h.quotaRepo.Upsert(provCtx, quota.Snapshot{
+			ProviderID: prov.ID,
+			Kind:       kind,
+			Payload:    payload,
+			HTTPStatus: status,
+			Source:     "poll",
+		}); uerr != nil {
+			debuglog.Warn("quota: poll upsert failed", "provider", prov.Name, "error", uerr)
+		}
+		cancel()
+	}
 }
