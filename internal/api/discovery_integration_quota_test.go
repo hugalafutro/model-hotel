@@ -1863,6 +1863,8 @@ func TestRefreshAllQuotas_ListError(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_NanoGPTSuccess(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
 	// Override newDiscoveryService with mock transport returning valid NanoGPT JSON
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
@@ -1885,22 +1887,11 @@ func TestRefreshAllQuotas_NanoGPTSuccess(t *testing.T) {
 		return ds
 	}
 
-	// Create handler with mock provider store - use nano-gpt.com (with hyphen) for detection
-	prov := createTestProvider(t, "refresh-nanogpt", "https://api.nano-gpt.com/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
-			return []*provider.Provider{prov}, nil
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	// Set up chi router
-	r := chi.NewRouter()
-	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
+	// Provider is created in the real test DB so the quota snapshot FK is satisfied.
+	createQuotaProvider(t, r, "https://api.nano-gpt.com/v1")
 
 	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -1918,6 +1909,8 @@ func TestRefreshAllQuotas_NanoGPTSuccess(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_ZAICodingError(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
 	// Override newDiscoveryService with mock transport returning error for z.ai
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
@@ -1941,22 +1934,11 @@ func TestRefreshAllQuotas_ZAICodingError(t *testing.T) {
 		return ds
 	}
 
-	// Create handler with mock provider store
-	prov := createTestProvider(t, "refresh-zai-err", "https://api.z.ai/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
-			return []*provider.Provider{prov}, nil
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	// Set up chi router
-	r := chi.NewRouter()
-	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
+	// Provider is created in the real test DB so the quota snapshot FK is satisfied.
+	createQuotaProvider(t, r, "https://api.z.ai/v1")
 
 	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -1974,6 +1956,8 @@ func TestRefreshAllQuotas_ZAICodingError(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_ZAICodingSuccess(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
 	// Override newDiscoveryService with mock transport returning valid ZAI JSON
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
@@ -1998,22 +1982,11 @@ func TestRefreshAllQuotas_ZAICodingSuccess(t *testing.T) {
 		return ds
 	}
 
-	// Create handler with mock provider store
-	prov := createTestProvider(t, "refresh-zai", "https://api.z.ai/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
-			return []*provider.Provider{prov}, nil
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	// Set up chi router
-	r := chi.NewRouter()
-	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
+	// Provider is created in the real test DB so the quota snapshot FK is satisfied.
+	createQuotaProvider(t, r, "https://api.z.ai/v1")
 
 	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -2031,6 +2004,8 @@ func TestRefreshAllQuotas_ZAICodingSuccess(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_OpenRouterSuccess(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
 	// Override newDiscoveryService with mock transport returning valid OpenRouter JSON
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
@@ -2062,23 +2037,11 @@ func TestRefreshAllQuotas_OpenRouterSuccess(t *testing.T) {
 		return ds
 	}
 
-	// Create handler with mock provider store
-	prov := createTestProvider(t, "refresh-openrouter", "https://openrouter.ai/api/v1", testMasterKeyForDiscovery)
-	_ = prov // provider type detection uses hostname
-	mockProv := &mockProviderStore{
-		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
-			return []*provider.Provider{prov}, nil
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	// Set up chi router
-	r := chi.NewRouter()
-	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
+	// Provider is created in the real test DB so the quota snapshot FK is satisfied.
+	createQuotaProvider(t, r, "https://openrouter.ai/api/v1")
 
 	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -2096,6 +2059,8 @@ func TestRefreshAllQuotas_OpenRouterSuccess(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_DeepSeekSuccess(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
 	// Override newDiscoveryService with mock transport returning valid DeepSeek JSON
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
@@ -2120,22 +2085,11 @@ func TestRefreshAllQuotas_DeepSeekSuccess(t *testing.T) {
 		return ds
 	}
 
-	// Create handler with mock provider store
-	prov := createTestProvider(t, "refresh-deepseek", "https://api.deepseek.com/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
-			return []*provider.Provider{prov}, nil
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	// Set up chi router
-	r := chi.NewRouter()
-	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
+	// Provider is created in the real test DB so the quota snapshot FK is satisfied.
+	createQuotaProvider(t, r, "https://api.deepseek.com/v1")
 
 	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -2153,6 +2107,8 @@ func TestRefreshAllQuotas_DeepSeekSuccess(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_OllamaCloudSuccess(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
 	// Override newDiscoveryService with mock transport returning valid Ollama Cloud JSON
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
@@ -2177,22 +2133,11 @@ func TestRefreshAllQuotas_OllamaCloudSuccess(t *testing.T) {
 		return ds
 	}
 
-	// Create handler with mock provider store - use ollama.com hostname for detection
-	prov := createTestProvider(t, "refresh-ollama-cloud", "https://api.ollama.com/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
-			return []*provider.Provider{prov}, nil
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	// Set up chi router
-	r := chi.NewRouter()
-	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
+	// Provider is created in the real test DB so the quota snapshot FK is satisfied.
+	createQuotaProvider(t, r, "https://api.ollama.com/v1")
 
 	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -2324,6 +2269,8 @@ func TestGetProviderUsage_NeuralWattError(t *testing.T) {
 // TestRefreshAllQuotas_MixedResults tests that RefreshAllQuotas continues
 // processing all providers even when one fails, returning partial results.
 func TestRefreshAllQuotas_MixedResults(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
 
@@ -2360,21 +2307,12 @@ func TestRefreshAllQuotas_MixedResults(t *testing.T) {
 		return ds
 	}
 
-	nanoProv := createTestProvider(t, "mixed-nanogpt", "https://api.nano-gpt.com/v1", testMasterKeyForDiscovery)
-	dsProv := createTestProvider(t, "mixed-deepseek", "https://api.deepseek.com/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
-			return []*provider.Provider{nanoProv, dsProv}, nil
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	r := chi.NewRouter()
-	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
+	// Providers are created in the real test DB so the quota snapshot FKs are satisfied.
+	createQuotaProvider(t, r, "https://api.nano-gpt.com/v1")
+	createQuotaProvider(t, r, "https://api.deepseek.com/v1")
 
 	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -2402,6 +2340,8 @@ func TestRefreshAllQuotas_MixedResults(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_NeuralWattSuccess(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
 
@@ -2422,20 +2362,11 @@ func TestRefreshAllQuotas_NeuralWattSuccess(t *testing.T) {
 		return ds
 	}
 
-	prov := createTestProvider(t, "refresh-neuralwatt", "https://api.neuralwatt.com/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
-			return []*provider.Provider{prov}, nil
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	r := chi.NewRouter()
-	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
+	// Provider is created in the real test DB so the quota snapshot FK is satisfied.
+	createQuotaProvider(t, r, "https://api.neuralwatt.com/v1")
 
 	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -2453,6 +2384,8 @@ func TestRefreshAllQuotas_NeuralWattSuccess(t *testing.T) {
 }
 
 func TestRefreshAllQuotas_NeuralWattError(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
 
@@ -2472,20 +2405,11 @@ func TestRefreshAllQuotas_NeuralWattError(t *testing.T) {
 		return ds
 	}
 
-	prov := createTestProvider(t, "refresh-neuralwatt-err", "https://api.neuralwatt.com/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		listFn: func(ctx context.Context) ([]*provider.Provider, error) {
-			return []*provider.Provider{prov}, nil
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	r := chi.NewRouter()
-	r.Post("/providers/refresh-quotas", h.RefreshAllQuotas)
+	// Provider is created in the real test DB so the quota snapshot FK is satisfied.
+	createQuotaProvider(t, r, "https://api.neuralwatt.com/v1")
 
 	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

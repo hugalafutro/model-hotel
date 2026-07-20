@@ -600,13 +600,9 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 		if ferr != nil {
 			result.Error = ferr.Error()
 			failed++
-			if h.quotaRepo != nil {
-				_ = h.quotaRepo.RecordFailure(provCtx, prov.ID, kind, ferr.Error())
-			}
+			_ = h.quotaRepo.RecordFailure(provCtx, prov.ID, kind, ferr.Error())
 		} else {
-			if h.quotaRepo != nil {
-				_ = h.quotaRepo.Upsert(provCtx, quota.Snapshot{ProviderID: prov.ID, Kind: kind, Payload: payload, HTTPStatus: status, Source: "manual"})
-			}
+			_ = h.quotaRepo.Upsert(provCtx, quota.Snapshot{ProviderID: prov.ID, Kind: kind, Payload: payload, HTTPStatus: status, Source: "manual"})
 			result.Refreshed = true
 			refreshed++
 		}
