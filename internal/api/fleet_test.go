@@ -470,7 +470,7 @@ func TestConfigSyncApplyStampsFleetMarker(t *testing.T) {
 	cleanConfigTables(t)
 	ctx := context.Background()
 	sr := settings.NewRepository(apiTestDB.Pool())
-	h := NewConfigSyncHandler(apiTestDB, sr, "", "v-test", nil)
+	h := NewConfigSyncHandler(apiTestDB, sr, "", "v-test", nil, nil)
 
 	// Instance-local fleet key (must survive) + a syncable key the envelope omits
 	// (must be deleted by the declarative replace).

@@ -48,7 +48,7 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 		return err
 	}
 
-	if err := upsertProviders(ctx, tx, env.Config.Providers); err != nil {
+	if err := upsertProviders(ctx, tx, env.Config.Providers, h.validateProviderURL); err != nil {
 		return err
 	}
 	// Declarative replace: drop providers absent from the primary. This cascades
@@ -317,14 +317,20 @@ func (h *ConfigSyncHandler) syncableSettingsToDelete(ctx context.Context, q quer
 	return toDelete, nil
 }
 
-func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider) error {
+func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider, validateURL func(string) error) error {
 	for _, p := range providers {
 		// Defense in depth on the import path: a compromised primary must not be
-		// able to write a provider base_url that points at a link-local/metadata
-		// address. The runtime proxy SafeDialer still blocks it at dial time, but
-		// rejecting it here keeps the poisoned value out of the database entirely.
-		if err := netguard.ValidateURL(p.BaseURL); err != nil {
-			return fmt.Errorf("provider %q has an invalid base_url: %w", p.Name, err)
+		// able to write a provider base_url that the interactive admin API would
+		// reject. validateURL is the same guard CreateProvider/UpdateProvider use
+		// (config.ValidateProviderURL): it resolves DNS and blocks loopback, RFC
+		// 1918/ULA, link-local, CGNAT and cloud-metadata addresses (hosts in
+		// ALLOWED_PROVIDER_HOSTS are exempted). The runtime proxy SafeDialer also
+		// blocks these at dial time, but rejecting here keeps the poisoned value
+		// out of the database entirely. Nil validateURL disables the check (tests).
+		if validateURL != nil {
+			if err := validateURL(p.BaseURL); err != nil {
+				return fmt.Errorf("provider %q has an invalid base_url: %w", p.Name, err)
+			}
 		}
 		_, err := tx.Exec(ctx, `
 			INSERT INTO providers (name, base_url, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, updated_at)
