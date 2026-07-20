@@ -12,6 +12,7 @@ It does this through [Apprise](https://github.com/caronc/apprise): you run a sma
 - [Setup](#setup)
 - [Choosing which events fire](#choosing-which-events-fire)
 - [Notification targets](#notification-targets)
+- [Phone push (ntfy and Bellhop)](#phone-push-ntfy-and-bellhop)
 - [Security](#security)
 - [Reliability](#reliability)
 
@@ -82,6 +83,40 @@ The target is any [Apprise URL](https://AppriseIt.com/services/). The Alerts sec
 | Webhook (JSON) | `json://{host}/{path}` |
 
 Send to multiple destinations at once by separating Apprise URLs with `;`.
+
+## Phone push (ntfy and Bellhop)
+
+Alerts can reach your phone with no Google services, using [ntfy](https://ntfy.sh) as the delivery channel. This is also what powers real-time push in [[Bellhop]]. It is the same Apprise pipeline as any other target, with two extra pieces: an `apprise-api` container for the sending side to POST to, and an ntfy topic your phone subscribes to.
+
+You do **not** run an "ntfy.sh" container. `ntfy.sh` is a public hosted service, so the only container you add is `apprise-api` (you may optionally self-host an ntfy server instead, see below). The chain is:
+
+```
+ Front Desk event  ──►  apprise-api  ──►  ntfy.sh/<your-topic>  ──►  phone (ntfy app / Bellhop)
+```
+
+**1. Add `apprise-api` to the Front Desk stack.** For Bellhop the alerts come from Front Desk (fleet and member events), so the container belongs with Front Desk, not the main gateway; adding it to the main `docker-compose.yml` would only wire the gateway's own alerts. The `deploy/ha/docker-compose.yml` stack ships it commented out; uncomment it:
+
+```yaml
+services:
+  frontdesk:
+    # ... existing Front Desk service ...
+
+  apprise:
+    image: caronc/apprise:latest
+    restart: unless-stopped
+    # Internal only; Front Desk reaches it as http://apprise:8000. No host port needed.
+    expose:
+      - "8000"
+```
+
+**2. Point Front Desk at it and at your ntfy topic.** In Front Desk → **Settings → Alerts**:
+   - Enable alerting and set **Apprise API URL** to `http://apprise:8000`.
+   - In the **Phone push via ntfy** helper, enter the ntfy server (`https://ntfy.sh`) and a **secret topic** name (treat it like a password: anyone who knows it can read your alerts), then **Set as target**. This composes the Apprise URL `ntfys://ntfy.sh/<topic>` for you.
+   - **Send test notification** to verify the whole chain.
+
+**3. Subscribe on the phone.** Install the [ntfy Android app](https://ntfy.sh) and subscribe to the same topic, or use [[Bellhop]]'s real-time push, which registers the topic for you (see the Bellhop page for the phone-side steps).
+
+**Self-hosting ntfy.** If you would rather not use the public server, run your own ntfy container. Unlike `apprise-api`, it must be **publicly reachable** (the phone connects to it from anywhere), so put it behind your TLS reverse proxy. Then enter your server's URL (e.g. `https://ntfy.example.com`) in the helper: `https` servers compose to `ntfys://…`, plain `http` to `ntfy://…`.
 
 ## Security
 
