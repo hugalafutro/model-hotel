@@ -64,10 +64,13 @@ func (h *Handler) AdminTokenExchange(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]bool{"success": true})
 }
 
-// RegisterAuthExchange mounts the admin-token exchange endpoint. It must be
-// registered in the auth-exempt group next to the other login routes because
-// the exchange runs before any session exists. Mounted under /api, this
-// resolves to POST /api/auth/admin-exchange.
+// RegisterAuthExchange mounts the admin-token exchange endpoint and the
+// always-available logout endpoint. Both must be registered in the
+// auth-exempt group: the exchange runs before any session exists, and
+// logout must work even for an already-expired or otherwise invalid
+// session. Mounted under /api, this resolves to POST /api/auth/admin-exchange
+// and POST /api/auth/logout.
 func (h *Handler) RegisterAuthExchange(r chi.Router) {
 	r.Post("/auth/admin-exchange", h.AdminTokenExchange)
+	r.Post("/auth/logout", h.AuthLogout)
 }
