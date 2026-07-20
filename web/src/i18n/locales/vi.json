@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "Đã xóa {{count}} mô hình đã bị vô hiệu hóa",
 		"toast_delete_models_success_other": "Đã xóa {{count}} các mẫu đã bị vô hiệu hóa",
 		"toast_delete_models_success": "Đã xóa {{count}} các mẫu đã bị vô hiệu hóa",
-		"toast_delete_models_warning_one": "Đã xóa mô hình {{kept}} , {{failed}} không thành công",
-		"toast_delete_models_warning_other": "Đã xóa {{kept}} các mẫu, {{failed}} không thành công",
-		"toast_delete_models_warning": "Đã xóa {{kept}} các mẫu, {{failed}} không thành công",
 		"card_models_one": "{{count}} mẫu",
 		"card_models_other": "{{count}} các mẫu",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "Chi tiết mẫu",
 		"toast_delete_bulk_success_one": "Đã xóa {{count}} mô hình đã bị vô hiệu hóa",
 		"toast_delete_bulk_success_other": "Đã xóa {{count}} các mẫu đã bị vô hiệu hóa",
-		"toast_delete_bulk_warning_one": "Đã xóa mô hình {{kept}} , {{failed}} không thành công",
-		"toast_delete_bulk_warning_other": "Đã xóa {{kept}} các mẫu, {{failed}} không thành công",
-		"toast_delete_bulk_warning": "Đã xóa mô hình {{kept}} , {{failed}} không thành công",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

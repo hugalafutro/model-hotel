@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "تم تعطيل نموذج {{count}} المحذوف",
 		"toast_delete_models_success_other": "تم تعطيل نماذج {{count}} المحذوفة",
 		"toast_delete_models_success": "تم تعطيل نماذج {{count}} المحذوفة",
-		"toast_delete_models_warning_one": "نموذج {{kept}} المحذوف، {{failed}} فشل",
-		"toast_delete_models_warning_other": "النماذج المحذوفة {{kept}} ، فشل {{failed}}",
-		"toast_delete_models_warning": "النماذج المحذوفة {{kept}} ، فشل {{failed}}",
 		"card_models_one": "نموذج {{count}}",
 		"card_models_other": "نماذج {{count}}",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "تفاصيل النموذج",
 		"toast_delete_bulk_success_one": "تم تعطيل نموذج {{count}} المحذوف",
 		"toast_delete_bulk_success_other": "تم تعطيل نماذج {{count}} المحذوفة",
-		"toast_delete_bulk_warning_one": "نموذج {{kept}} المحذوف، {{failed}} فشل",
-		"toast_delete_bulk_warning_other": "النماذج المحذوفة {{kept}} ، فشل {{failed}}",
-		"toast_delete_bulk_warning": "نموذج {{kept}} المحذوف، {{failed}} فشل",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

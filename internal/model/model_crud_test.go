@@ -1185,6 +1185,79 @@ func TestDeleteByID_Success(t *testing.T) {
 	}
 }
 
+func TestDeleteByIDs_Success(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-delete-ids-success")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	ids := []uuid.UUID{uuid.New(), uuid.New(), uuid.New()}
+	for i, id := range ids {
+		_, err := testPool.Exec(ctx, `
+			INSERT INTO models (id, provider_id, model_id, name, created_at)
+			VALUES ($1, $2, $3, $4, now())
+		`, id, providerID, "delete-me-"+id.String()[:8], "Delete Me")
+		if err != nil {
+			t.Fatalf("insert %d failed: %v", i, err)
+		}
+	}
+
+	// Delete the first two; the third must survive.
+	deleted, err := repo.DeleteByIDs(ctx, ids[:2])
+	if err != nil {
+		t.Fatalf("DeleteByIDs failed: %v", err)
+	}
+	if deleted != 2 {
+		t.Errorf("expected 2 deleted, got %d", deleted)
+	}
+
+	var remaining int
+	if err := testPool.QueryRow(ctx, `SELECT count(*) FROM models WHERE id = ANY($1)`, ids).Scan(&remaining); err != nil {
+		t.Fatalf("count failed: %v", err)
+	}
+	if remaining != 1 {
+		t.Errorf("expected 1 remaining model, got %d", remaining)
+	}
+}
+
+func TestDeleteByIDs_Empty(t *testing.T) {
+	repo := NewRepository(testPool)
+	deleted, err := repo.DeleteByIDs(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("DeleteByIDs(nil) should not error: %v", err)
+	}
+	if deleted != 0 {
+		t.Errorf("expected 0 deleted for empty input, got %d", deleted)
+	}
+}
+
+func TestDeleteByIDs_Idempotent(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-delete-ids-idempotent")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	realID := uuid.New()
+	_, err := testPool.Exec(ctx, `
+		INSERT INTO models (id, provider_id, model_id, name, created_at)
+		VALUES ($1, $2, $3, $4, now())
+	`, realID, providerID, "real-model", "Real Model")
+	if err != nil {
+		t.Fatalf("insert failed: %v", err)
+	}
+
+	// One real ID plus one that does not exist: only the real one counts.
+	deleted, err := repo.DeleteByIDs(ctx, []uuid.UUID{realID, uuid.New()})
+	if err != nil {
+		t.Fatalf("DeleteByIDs failed: %v", err)
+	}
+	if deleted != 1 {
+		t.Errorf("expected 1 deleted, got %d", deleted)
+	}
+}
+
 func TestDeleteByID_CacheInvalidated(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)

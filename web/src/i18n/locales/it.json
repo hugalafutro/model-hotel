@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "Eliminato {{count}} modello disabilitato",
 		"toast_delete_models_success_other": "Eliminati {{count}} modelli disabilitati",
 		"toast_delete_models_success": "Eliminati {{count}} modelli disabilitati",
-		"toast_delete_models_warning_one": "Eliminato il modello {{kept}} , {{failed}} fallito",
-		"toast_delete_models_warning_other": "Modelli {{kept}} eliminati, {{failed}} falliti",
-		"toast_delete_models_warning": "Modelli {{kept}} eliminati, {{failed}} falliti",
 		"card_models_one": "{{count}} modello",
 		"card_models_other": "{{count}} modelli",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "Dettagli Modello",
 		"toast_delete_bulk_success_one": "Eliminato {{count}} modello disabilitato",
 		"toast_delete_bulk_success_other": "Eliminati {{count}} modelli disabilitati",
-		"toast_delete_bulk_warning_one": "Eliminato il modello {{kept}} , {{failed}} fallito",
-		"toast_delete_bulk_warning_other": "Modelli {{kept}} eliminati, {{failed}} falliti",
-		"toast_delete_bulk_warning": "Eliminato il modello {{kept}} , {{failed}} fallito",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "已删除 {{count}} 已停用该模型",
 		"toast_delete_models_success_other": "已删除 {{count}} 已停用的模型",
 		"toast_delete_models_success": "已删除 {{count}} 已停用的模型",
-		"toast_delete_models_warning_one": "已删除 {{kept}} 模型， {{failed}} 操作失败",
-		"toast_delete_models_warning_other": "已删除 {{kept}} models， {{failed}} 失败",
-		"toast_delete_models_warning": "已删除 {{kept}} models， {{failed}} 失败",
 		"card_models_one": "{{count}} 模型",
 		"card_models_other": "{{count}} 模型",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "模型详细信息",
 		"toast_delete_bulk_success_one": "已删除 {{count}} 已停用该模型",
 		"toast_delete_bulk_success_other": "已删除 {{count}} 已停用的模型",
-		"toast_delete_bulk_warning_one": "已删除 {{kept}} 模型， {{failed}} 操作失败",
-		"toast_delete_bulk_warning_other": "已删除 {{kept}} models， {{failed}} 失败",
-		"toast_delete_bulk_warning": "已删除 {{kept}} 模型， {{failed}} 操作失败",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

@@ -486,6 +486,23 @@ export const api = {
 				throw new Error("Failed to delete model");
 			}
 		},
+		// Delete many models in one request. Deleting one HTTP DELETE per model
+		// stampedes the admin IP rate limiter, so bulk selections go through this
+		// single endpoint instead. deleted may be < requested when some IDs were
+		// already gone (idempotent).
+		bulkDelete: async (
+			ids: string[],
+		): Promise<{ requested: number; deleted: number }> => {
+			return fetchJSON<{ requested: number; deleted: number }>(
+				`${API_BASE}/api/models/bulk-delete`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+					body: JSON.stringify({ ids }),
+				},
+				"Failed to delete models",
+			);
+		},
 	},
 
 	logs: {

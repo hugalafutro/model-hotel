@@ -257,27 +257,22 @@ export function Providers() {
 
 	const handleDeleteDisabledModels = useCallback(
 		async (ids: string[]) => {
-			let failed = 0;
-			await Promise.all(
-				ids.map((id) =>
-					api.models.delete(id).catch(() => {
-						failed++;
-					}),
-				),
-			);
-			queryClient.invalidateQueries({ queryKey: ["models"] });
-			if (failed === 0) {
+			try {
+				// One atomic request instead of one DELETE per model: a concurrent
+				// burst trips the admin IP rate limiter and reports spurious failures.
+				const { deleted } = await api.models.bulkDelete(ids);
+				queryClient.invalidateQueries({ queryKey: ["models"] });
 				toast(
-					t("providers.toast_delete_models_success", { count: ids.length }),
+					t("providers.toast_delete_models_success", { count: deleted }),
 					"success",
 				);
-			} else {
+			} catch (err) {
+				queryClient.invalidateQueries({ queryKey: ["models"] });
 				toast(
-					t("providers.toast_delete_models_warning", {
-						kept: ids.length - failed,
-						failed,
+					t("providers.toast_delete_failed", {
+						message: (err as Error).message,
 					}),
-					"warning",
+					"error",
 				);
 			}
 		},

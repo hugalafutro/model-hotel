@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "削除された {{count}} 無効化されたモデル",
 		"toast_delete_models_success_other": "削除された {{count}} 無効化されたモデル",
 		"toast_delete_models_success": "削除された {{count}} 無効化されたモデル",
-		"toast_delete_models_warning_one": "{{kept}} モデルを削除しました。 {{failed}} に失敗しました",
-		"toast_delete_models_warning_other": "{{kept}} モデルを削除しました。 {{failed}} に失敗しました",
-		"toast_delete_models_warning": "{{kept}} モデルを削除しました。 {{failed}} に失敗しました",
 		"card_models_one": "{{count}} モデル",
 		"card_models_other": "{{count}} モデル",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "モデルの詳細",
 		"toast_delete_bulk_success_one": "削除された {{count}} 無効化されたモデル",
 		"toast_delete_bulk_success_other": "削除された {{count}} 無効化されたモデル",
-		"toast_delete_bulk_warning_one": "{{kept}} モデルを削除しました。 {{failed}} に失敗しました",
-		"toast_delete_bulk_warning_other": "{{kept}} モデルを削除しました。 {{failed}} に失敗しました",
-		"toast_delete_bulk_warning": "{{kept}} モデルを削除しました。 {{failed}} に失敗しました",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

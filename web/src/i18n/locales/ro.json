@@ -784,9 +784,6 @@
 		"toast_delete_models_success_one": "Model dezactivat de {{count}}",
 		"toast_delete_models_success_other": "{{count}} modele dezactivate",
 		"toast_delete_models_success": "{{count}} modele dezactivate",
-		"toast_delete_models_warning_one": "Modelul {{kept}} a fost șters, {{failed}} a eșuat",
-		"toast_delete_models_warning_other": "{{kept}} modele, {{failed}} a eșuat",
-		"toast_delete_models_warning": "{{kept}} modele, {{failed}} a eșuat",
 		"card_models_one": "{{count}} model",
 		"card_models_other": "{{count}} modele",
 		"add": {
@@ -878,9 +875,6 @@
 		"detail_modal_title": "Detalii model",
 		"toast_delete_bulk_success_one": "Model dezactivat de {{count}}",
 		"toast_delete_bulk_success_other": "{{count}} modele dezactivate",
-		"toast_delete_bulk_warning_one": "Modelul {{kept}} a fost șters, {{failed}} a eșuat",
-		"toast_delete_bulk_warning_other": "{{kept}} modele, {{failed}} a eșuat",
-		"toast_delete_bulk_warning": "Modelul {{kept}} a fost șters, {{failed}} a eșuat",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",

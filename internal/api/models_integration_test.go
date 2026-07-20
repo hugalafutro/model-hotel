@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -16,6 +18,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/admin"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
@@ -441,6 +444,302 @@ func TestDeleteModel_Success(t *testing.T) {
 		if m.ID == modelID {
 			t.Errorf("Deleted model %s still appears in list", modelID)
 		}
+	}
+}
+
+// bulkDeleteTestProvider creates a provider and returns its ID for bulk-delete tests.
+func bulkDeleteTestProvider(t *testing.T, r chi.Router) string {
+	t.Helper()
+	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "https://api.openai.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+	return providerResp.ID
+}
+
+// TestBulkDeleteModels_Success verifies BulkDeleteModels removes exactly the
+// requested models in one request, leaves the rest, and reports the counts.
+func TestBulkDeleteModels_Success(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	providerID := bulkDeleteTestProvider(t, r)
+	pool := h.Pool().Pool()
+
+	// Insert three models; we will delete the first two.
+	ids := []string{uuid.New().String(), uuid.New().String(), uuid.New().String()}
+	for i, id := range ids {
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+			id, providerID, fmt.Sprintf("model-%d", i), fmt.Sprintf("Model %d", i), true)
+		if err != nil {
+			t.Fatalf("Failed to insert model %d: %v", i, err)
+		}
+	}
+
+	body := fmt.Sprintf(`{"ids": [%q, %q]}`, ids[0], ids[1])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/models/bulk-delete", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp BulkDeleteResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if resp.Requested != 2 || resp.Deleted != 2 {
+		t.Errorf("Expected requested=2 deleted=2, got requested=%d deleted=%d", resp.Requested, resp.Deleted)
+	}
+
+	// The first two are gone; the third survives.
+	for _, id := range []string{ids[0], ids[1]} {
+		var exists bool
+		if err := pool.QueryRow(context.Background(), `SELECT EXISTS(SELECT 1 FROM models WHERE id = $1)`, id).Scan(&exists); err != nil {
+			t.Fatalf("existence check failed: %v", err)
+		}
+		if exists {
+			t.Errorf("Model %s should have been deleted", id)
+		}
+	}
+	var survives bool
+	if err := pool.QueryRow(context.Background(), `SELECT EXISTS(SELECT 1 FROM models WHERE id = $1)`, ids[2]).Scan(&survives); err != nil {
+		t.Fatalf("existence check failed: %v", err)
+	}
+	if !survives {
+		t.Errorf("Model %s should NOT have been deleted", ids[2])
+	}
+}
+
+// TestBulkDeleteModels_Idempotent verifies that unknown IDs are counted as not
+// deleted rather than failing the request.
+func TestBulkDeleteModels_Idempotent(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	providerID := bulkDeleteTestProvider(t, r)
+	pool := h.Pool().Pool()
+
+	realID := uuid.New().String()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, $5)`,
+		realID, providerID, "real-model", "Real Model", true)
+	if err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	// One real ID plus one that does not exist.
+	body := fmt.Sprintf(`{"ids": [%q, %q]}`, realID, uuid.New().String())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/models/bulk-delete", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp BulkDeleteResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if resp.Requested != 2 || resp.Deleted != 1 {
+		t.Errorf("Expected requested=2 deleted=1, got requested=%d deleted=%d", resp.Requested, resp.Deleted)
+	}
+}
+
+// TestBulkDeleteModels_EmptyIDs verifies an empty ids array is rejected with 400.
+func TestBulkDeleteModels_EmptyIDs(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/models/bulk-delete", strings.NewReader(`{"ids": []}`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for empty ids, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestBulkDeleteModels_InvalidUUID verifies a malformed ID is rejected with 400
+// and no models are deleted.
+func TestBulkDeleteModels_InvalidUUID(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/models/bulk-delete", strings.NewReader(`{"ids": ["not-a-uuid"]}`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for invalid UUID, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestBulkDeleteModels_MalformedBody verifies an unparseable JSON body is 400.
+func TestBulkDeleteModels_MalformedBody(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/models/bulk-delete", strings.NewReader(`{"ids":`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for malformed body, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestBulkDeleteModels_RequiresAdmin verifies the endpoint rejects a request
+// with no admin credentials.
+func TestBulkDeleteModels_RequiresAdmin(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/models/bulk-delete", strings.NewReader(`{"ids":["`+uuid.New().String()+`"]}`))
+	req.Header.Set("Content-Type", "application/json")
+	// deliberately no Authorization header
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized && rec.Code != http.StatusForbidden {
+		t.Errorf("Expected 401 or 403 without admin token, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestDeleteModel_RequiresAdmin verifies the single-model delete also rejects a
+// request with no admin credentials.
+func TestDeleteModel_RequiresAdmin(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/models/"+uuid.New().String(), http.NoBody)
+	// deliberately no Authorization header
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized && rec.Code != http.StatusForbidden {
+		t.Errorf("Expected 401 or 403 without admin token, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestBulkDeleteModels_ResyncsFailoverGroup verifies the handler actually
+// resyncs failover after deleting: an auto-group formed from two same-named
+// models must be torn down once the bulk delete removes them (SyncForModel runs
+// synchronously inside the handler, so the state is settled by the response).
+func TestBulkDeleteModels_ResyncsFailoverGroup(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+	ctx := context.Background()
+
+	// Two enabled providers, one same-named enabled model each: SyncForModel
+	// groups them into an auto-created failover group.
+	base := "shared-bulk-" + uuid.New().String()[:8]
+	provA := bulkDeleteTestProvider(t, r)
+	provB := bulkDeleteTestProvider(t, r)
+	idA, idB := uuid.New(), uuid.New()
+	for _, m := range []struct {
+		id   uuid.UUID
+		prov string
+	}{{idA, provA}, {idB, provB}} {
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO models (id, provider_id, model_id, name, enabled) VALUES ($1, $2, $3, $4, true)`,
+			m.id, m.prov, base, "Shared"); err != nil {
+			t.Fatalf("insert model failed: %v", err)
+		}
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(ctx, "DELETE FROM model_failover_groups WHERE display_model = $1", base)
+	})
+
+	failoverRepo := failover.NewRepository(pool)
+	if _, err := failoverRepo.SyncForModel(ctx, base); err != nil {
+		t.Fatalf("SyncForModel setup failed: %v", err)
+	}
+	var groupsBefore int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM model_failover_groups WHERE display_model = $1`, base).Scan(&groupsBefore); err != nil {
+		t.Fatalf("count before failed: %v", err)
+	}
+	if groupsBefore == 0 {
+		t.Fatalf("expected an auto-group for %q before delete, found none", base)
+	}
+
+	// Bulk-delete both members: the handler's resync must remove the now-empty group.
+	body := fmt.Sprintf(`{"ids": [%q, %q]}`, idA, idB)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/models/bulk-delete", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var groupsAfter int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM model_failover_groups WHERE display_model = $1`, base).Scan(&groupsAfter); err != nil {
+		t.Fatalf("count after failed: %v", err)
+	}
+	if groupsAfter != 0 {
+		t.Errorf("expected auto-group for %q to be resynced away after delete, still %d present", base, groupsAfter)
+	}
+}
+
+// TestBulkDeleteModels_ResyncFailureDoesNotFail verifies the failover resync is
+// best-effort: even when the resync calls error (here, a cancelled context), the
+// helper swallows them and returns rather than propagating the failure.
+func TestBulkDeleteModels_ResyncFailureDoesNotFail(t *testing.T) {
+	h, _ := newTestHandlerWithRouter(t)
+
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel() // every DB call on this context now errors
+
+	done := make(chan struct{})
+	go func() {
+		// Must return despite SyncForModel and PruneModelUUID erroring.
+		h.resyncFailoverAfterModelDelete(cancelled, []string{"any-model"}, []uuid.UUID{uuid.New()})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("resyncFailoverAfterModelDelete did not return on resync failure")
+	}
+}
+
+// TestBulkDeleteModels_TooMany verifies requests over the cap are rejected 400.
+func TestBulkDeleteModels_TooMany(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	ids := make([]string, maxBulkDeleteIDs+1)
+	for i := range ids {
+		ids[i] = uuid.New().String()
+	}
+	body, err := json.Marshal(BulkDeleteRequest{IDs: ids})
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/models/bulk-delete", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for over-cap request, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

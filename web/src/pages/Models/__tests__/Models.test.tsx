@@ -921,8 +921,8 @@ describe("Models", () => {
 
 			server.use(
 				...mockAllDefaults({ models }),
-				http.delete("/api/models/:id", () => {
-					return new HttpResponse(null, { status: 204 });
+				http.post("/api/models/bulk-delete", () => {
+					return HttpResponse.json({ requested: 2, deleted: 2 });
 				}),
 			);
 
@@ -952,7 +952,7 @@ describe("Models", () => {
 			});
 		});
 
-		it("shows warning toast when some deletes fail", async () => {
+		it("shows error toast when the bulk delete request fails", async () => {
 			const models = [
 				{ ...mockModel, id: "model-001", enabled: true },
 				{
@@ -969,15 +969,9 @@ describe("Models", () => {
 				},
 			];
 
-			let deleteCount = 0;
 			server.use(
 				...mockAllDefaults({ models }),
-				http.delete("/api/models/:id", () => {
-					deleteCount++;
-					// First delete succeeds, second fails
-					if (deleteCount === 1) {
-						return new HttpResponse(null, { status: 204 });
-					}
+				http.post("/api/models/bulk-delete", () => {
 					return HttpResponse.json(
 						{ error: "Database connection failed" },
 						{ status: 500 },
@@ -1001,11 +995,11 @@ describe("Models", () => {
 			// Click "Delete" in the confirm dialog
 			await user.click(screen.getByRole("button", { name: "Delete" }));
 
-			// Should show warning toast with partial failure message
+			// Should show error toast (the whole request failed atomically)
 			await waitFor(() => {
 				expect(
 					screen.getByRole("button", {
-						name: /Deleted 1 model, 1 failed/,
+						name: /Failed to delete/,
 					}),
 				).toBeInTheDocument();
 			});

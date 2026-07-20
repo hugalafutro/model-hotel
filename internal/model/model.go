@@ -436,6 +436,24 @@ func (r *Repository) DeleteByID(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// DeleteByIDs removes multiple models in a single statement and returns the
+// number of rows actually deleted (IDs that no longer exist are silently
+// skipped, matching DeleteByID's idempotent semantics). It exists so the Models
+// page can clear a large selection in one request instead of firing one HTTP
+// DELETE per model — a burst that trips the admin IP rate limiter.
+func (r *Repository) DeleteByIDs(ctx context.Context, ids []uuid.UUID) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	tag, err := r.pool.Exec(ctx, `DELETE FROM models WHERE id = ANY($1)`, ids)
+	if err != nil {
+		debuglog.Error("model: bulk delete failed", "count", len(ids), "error", err)
+		return 0, err
+	}
+	InvalidateModelCache()
+	return tag.RowsAffected(), nil
+}
+
 // UpdateModelRequest contains optional fields for updating a model.
 type UpdateModelRequest struct {
 	DisplayName           *string  `json:"display_name"`
