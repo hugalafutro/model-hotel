@@ -296,6 +296,7 @@ func (h *Handler) serveQuota(w http.ResponseWriter, r *http.Request, prov *provi
 		http.Error(w, "", http.StatusFailedDependency)
 	default:
 		w.Header().Set("Content-Type", "application/json")
+		//nolint:gosec // G705 false positive: provider quota JSON body, not HTML; Content-Type is application/json
 		_, _ = w.Write(snap.Payload)
 	}
 }
