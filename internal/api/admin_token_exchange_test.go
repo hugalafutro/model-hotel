@@ -2,10 +2,13 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/go-chi/chi/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 )
@@ -93,6 +96,72 @@ func TestAdminTokenExchange_MalformedBody_400(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("malformed body = %d, want 400", rec.Code)
+	}
+}
+
+func TestAdminTokenExchange_NoSessionManager_500(t *testing.T) {
+	// Build a handler without SetWebAuthnSessionManager: a misconfigured build
+	// must fail closed with 500 rather than panicking on a nil session manager.
+	h := testHandler(nil, nil, nil, &mockAdminAuth{
+		validateFn: func(tok string) bool { return tok == exchangeAdminToken },
+	}, nil)
+
+	rec := httptest.NewRecorder()
+	body := `{"admin_token":"` + exchangeAdminToken + `"}`
+	h.AdminTokenExchange(rec, httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange", strings.NewReader(body)))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("no session manager = %d, want 500 (%s)", rec.Code, rec.Body.String())
+	}
+	if cookieByName(rec, authcookie.SessionCookie) != nil {
+		t.Error("no session cookie should be set when the session manager is unavailable")
+	}
+}
+
+func TestAdminTokenExchange_CreateAuthTokenError_500(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{
+		validateFn: func(tok string) bool { return tok == exchangeAdminToken },
+	}, nil)
+	h.SetWebAuthnSessionManager(&mockWebAuthnSessionMgr{
+		createFn: func(_ context.Context, _, _ []byte) (string, error) {
+			return "", errors.New("session store unavailable")
+		},
+	})
+
+	rec := httptest.NewRecorder()
+	body := `{"admin_token":"` + exchangeAdminToken + `"}`
+	h.AdminTokenExchange(rec, httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange", strings.NewReader(body)))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("CreateAuthToken error = %d, want 500 (%s)", rec.Code, rec.Body.String())
+	}
+	if cookieByName(rec, authcookie.SessionCookie) != nil {
+		t.Error("no session cookie should be set when CreateAuthToken fails")
+	}
+}
+
+func TestRegisterAuthExchange_MountsRoutes(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{
+		validateFn: func(tok string) bool { return tok == exchangeAdminToken },
+	}, nil)
+	h.SetWebAuthnSessionManager(&mockWebAuthnSessionMgr{
+		createFn: func(_ context.Context, _, _ []byte) (string, error) { return "admin-sess", nil },
+	})
+
+	r := chi.NewRouter()
+	h.RegisterAuthExchange(r)
+
+	rec := httptest.NewRecorder()
+	body := `{"admin_token":"` + exchangeAdminToken + `"}`
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/auth/admin-exchange", strings.NewReader(body)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /auth/admin-exchange = %d, want 200 (%s)", rec.Code, rec.Body.String())
+	}
+
+	rec2 := httptest.NewRecorder()
+	r.ServeHTTP(rec2, httptest.NewRequest(http.MethodPost, "/auth/logout", http.NoBody))
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("POST /auth/logout = %d, want 200 (%s)", rec2.Code, rec2.Body.String())
 	}
 }
 
