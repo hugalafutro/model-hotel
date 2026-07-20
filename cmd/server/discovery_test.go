@@ -116,7 +116,7 @@ func waitForEvent(t *testing.T, ch chan events.Event, wantType string) events.Ev
 
 func TestRunDiscoveryNoProviders(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	wipeDiscoveryState(t)
 
@@ -131,7 +131,7 @@ func TestRunDiscoveryNoProviders(t *testing.T) {
 
 func TestRunDiscoveryListError(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	deps := testDiscoveryDeps(t)
 	broken := closedTestPool(t)
@@ -149,7 +149,7 @@ func TestRunDiscoveryListError(t *testing.T) {
 // change-feed nudge event fires.
 func TestRunDiscoveryHappyPath(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	wipeDiscoveryState(t)
 	ctx := context.Background()
@@ -252,7 +252,7 @@ func TestRunDiscoveryHappyPath(t *testing.T) {
 
 func TestScanProviderUnreachable(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	wipeDiscoveryState(t)
 	ctx := context.Background()
@@ -288,7 +288,7 @@ func TestScanProviderUnreachable(t *testing.T) {
 
 func TestTouchLastDiscoveredError(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	broken := closedTestPool(t)
 	// Only logs; must not panic on a dead pool.
@@ -297,7 +297,7 @@ func TestTouchLastDiscoveredError(t *testing.T) {
 
 func TestMaybeStartupDiscovery(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	deps := testDiscoveryDeps(t)
 	settingsRepo := newTestSettingsRepo()

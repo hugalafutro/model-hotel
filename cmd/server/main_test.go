@@ -15,7 +15,7 @@ import (
 // afterwards so later tests keep the default logging destination.
 func TestInitAppLogging(t *testing.T) {
 	if cmdTestDB == nil {
-		t.Skip("test DB unavailable")
+		t.Fatal("test DB unavailable")
 	}
 	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 	api.InitAppLogBuffer(cmdTestDB.Pool())

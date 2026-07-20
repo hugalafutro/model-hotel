@@ -18,10 +18,21 @@ linters:
     - errorlint    # Proper error wrapping/inspection (errors.Is, errors.As)
     - nilerr       # Checks for returning nil even if err != nil
     - bodyclose    # HTTP response body must be closed
+    - forbidigo    # Ban t.Skip: tests must pass or fail (see settings below)
 
   settings:
     errcheck:
       check-type-assertions: false
+
+    forbidigo:
+      # The test database and every required tool (pg_dump, pg_restore, docker)
+      # are always present in CI and locally, so a skipped test is a silently
+      # unfixed test, not a graceful degradation. Ban t.Skip/t.Skipf outright:
+      # fix the test (seed the fixture, assert the real outcome) instead.
+      forbid:
+        - pattern: '\.Skipf?$'
+          msg: "test skips are banned: tests must pass or fail. Fix the test (seed fixtures / assert the real outcome) instead of skipping."
+      analyze-types: false
 
     gocyclo:
       # Ceiling for prod code (tests + generated migrations excluded below).

@@ -191,10 +191,10 @@ func TestRestoreBackup_Integration(t *testing.T) {
 
 	// Check required binaries
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed")
+		t.Fatal("pg_dump not installed")
 	}
 	if _, err := exec.LookPath("pg_restore"); err != nil {
-		t.Skip("pg_restore not installed")
+		t.Fatal("pg_restore not installed")
 	}
 
 	// Create a test database for this integration test
@@ -363,10 +363,10 @@ func TestRestoreBackup_WithRealDump_Integration(t *testing.T) {
 		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed")
+		t.Fatal("pg_dump not installed")
 	}
 	if _, err := exec.LookPath("pg_restore"); err != nil {
-		t.Skip("pg_restore not installed")
+		t.Fatal("pg_restore not installed")
 	}
 
 	// Step 1: Create a real pg_dump file
@@ -444,10 +444,10 @@ func TestRestoreBackup_DangerousObjectsInDump_Integration(t *testing.T) {
 		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed")
+		t.Fatal("pg_dump not installed")
 	}
 	if _, err := exec.LookPath("pg_restore"); err != nil {
-		t.Skip("pg_restore not installed")
+		t.Fatal("pg_restore not installed")
 	}
 
 	// Create a real dump and verify it does NOT contain dangerous objects
@@ -518,10 +518,10 @@ func TestRestoreBackup_NoSchemaMigrationsInDump_Integration(t *testing.T) {
 		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed")
+		t.Fatal("pg_dump not installed")
 	}
 	if _, err := exec.LookPath("pg_restore"); err != nil {
-		t.Skip("pg_restore not installed")
+		t.Fatal("pg_restore not installed")
 	}
 
 	// Create a dump that only includes a test table (no schema_migrations)
@@ -633,10 +633,10 @@ func TestRestoreBackup_DangerousObjectsHandler_Integration(t *testing.T) {
 		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed")
+		t.Fatal("pg_dump not installed")
 	}
 	if _, err := exec.LookPath("pg_restore"); err != nil {
-		t.Skip("pg_restore not installed")
+		t.Fatal("pg_restore not installed")
 	}
 
 	// Create a dangerous function in the test DB, dump it, then clean up
@@ -751,10 +751,10 @@ func TestRestoreBackup_UnknownMigrations_Integration(t *testing.T) {
 		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed")
+		t.Fatal("pg_dump not installed")
 	}
 	if _, err := exec.LookPath("pg_restore"); err != nil {
-		t.Skip("pg_restore not installed")
+		t.Fatal("pg_restore not installed")
 	}
 
 	dir := t.TempDir()
@@ -910,10 +910,10 @@ func TestRestoreBackup_ExtractMigrationsError(t *testing.T) {
 		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed")
+		t.Fatal("pg_dump not installed")
 	}
 	if _, err := exec.LookPath("pg_restore"); err != nil {
-		t.Skip("pg_restore not installed")
+		t.Fatal("pg_restore not installed")
 	}
 
 	// This test runs itself as a subprocess to safely manipulate TMPDIR
@@ -1007,7 +1007,7 @@ func TestSaveUploadedDump_MkdirAllError(t *testing.T) {
 	// to create a subdirectory inside it.
 	parent := t.TempDir()
 	if err := os.Chmod(parent, 0o555); err != nil {
-		t.Skipf("cannot chmod temp dir: %v", err)
+		t.Fatalf("cannot chmod temp dir: %v", err)
 	}
 	t.Cleanup(func() { os.Chmod(parent, 0o755) })
 
@@ -1308,10 +1308,10 @@ func TestRestoreBackup_ValidDumpPassesValidation_Integration(t *testing.T) {
 		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed")
+		t.Fatal("pg_dump not installed")
 	}
 	if _, err := exec.LookPath("pg_restore"); err != nil {
-		t.Skip("pg_restore not installed")
+		t.Fatal("pg_restore not installed")
 	}
 
 	dir := t.TempDir()
@@ -1511,7 +1511,7 @@ func TestSaveUploadedDump_MkdirAllFailure(t *testing.T) {
 	// Use a read-only directory as parent so MkdirAll fails
 	readOnlyDir := t.TempDir()
 	if err := os.Chmod(readOnlyDir, 0o444); err != nil {
-		t.Skipf("cannot make dir read-only: %v", err)
+		t.Fatalf("cannot make dir read-only: %v", err)
 	}
 	defer os.Chmod(readOnlyDir, 0o755) // restore for cleanup
 

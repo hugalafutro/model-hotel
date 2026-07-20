@@ -50,7 +50,7 @@ func TestListComposeContainers(t *testing.T) {
 
 	// First, verify Docker is available
 	if !IsDockerAvailable() {
-		t.Skip("Docker not available in test setup")
+		t.Fatal("Docker not available in test setup")
 	}
 
 	result, err := ListComposeContainers(ContainerFilter{ComposeProject: "myapp"})
@@ -210,7 +210,7 @@ func TestListComposeContainers_Empty(t *testing.T) {
 	}
 
 	if !IsDockerAvailable() {
-		t.Skip("Docker not available in test setup")
+		t.Fatal("Docker not available in test setup")
 	}
 
 	result, err := ListComposeContainers(ContainerFilter{})
@@ -334,7 +334,7 @@ func TestListComposeContainers_AllProjects(t *testing.T) {
 	}
 
 	if !IsDockerAvailable() {
-		t.Skip("Docker not available in test setup")
+		t.Fatal("Docker not available in test setup")
 	}
 
 	// Empty filter should return NO containers (by design - avoids counting random containers)
@@ -382,7 +382,7 @@ func TestListComposeContainers_NoComposeLabel(t *testing.T) {
 	}
 
 	if !IsDockerAvailable() {
-		t.Skip("Docker not available in test setup")
+		t.Fatal("Docker not available in test setup")
 	}
 
 	result, err := ListComposeContainers(ContainerFilter{})
@@ -425,7 +425,7 @@ func TestListComposeContainers_JSONDecodeError(t *testing.T) {
 	}
 
 	if !IsDockerAvailable() {
-		t.Skip("Docker not available in test setup")
+		t.Fatal("Docker not available in test setup")
 	}
 
 	_, err := ListComposeContainers(ContainerFilter{ComposeProject: "myapp"})
@@ -913,7 +913,7 @@ func TestListComposeContainers_Non200Status(t *testing.T) {
 	}
 
 	if !IsDockerAvailable() {
-		t.Skip("Docker not available in test setup")
+		t.Fatal("Docker not available in test setup")
 	}
 
 	_, err := ListComposeContainers(ContainerFilter{ComposeProject: "myapp"})
@@ -1091,7 +1091,7 @@ func TestListComposeContainers_AppGroupFilter(t *testing.T) {
 	}
 
 	if !IsDockerAvailable() {
-		t.Skip("Docker not available in test setup")
+		t.Fatal("Docker not available in test setup")
 	}
 
 	result, err := ListComposeContainers(ContainerFilter{AppGroup: "myapp"})

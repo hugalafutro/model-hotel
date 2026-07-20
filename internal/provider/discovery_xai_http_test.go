@@ -903,7 +903,7 @@ func TestDiscoverXAIMinimalModels_CatalogModelLookup(t *testing.T) {
 	// catalog backfill now happens in mergeLiveAndCatalog, not at this layer.
 	catalog := GetXAICatalog()
 	if len(catalog) == 0 {
-		t.Skip("No models in xAI catalog")
+		t.Fatal("No models in xAI catalog")
 	}
 	// Use a model ID that exists in the catalog to prove this layer does NOT
 	// apply catalog data on its own.

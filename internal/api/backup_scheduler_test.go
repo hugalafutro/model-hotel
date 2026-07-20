@@ -237,7 +237,7 @@ func TestRunScheduledBackup_MkdirError(t *testing.T) {
 	parent := t.TempDir()
 	// Make parent read-only so MkdirAll fails for a subdirectory
 	if err := os.Chmod(parent, 0o555); err != nil {
-		t.Skipf("cannot chmod temp dir: %v", err)
+		t.Fatalf("cannot chmod temp dir: %v", err)
 	}
 	t.Cleanup(func() { os.Chmod(parent, 0o755) })
 
@@ -251,7 +251,7 @@ func TestRunScheduledBackup_Integration(t *testing.T) {
 		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed, skipping integration test")
+		t.Fatal("pg_dump not installed, skipping integration test")
 	}
 
 	ss := &mockSettingsStore{
@@ -284,7 +284,7 @@ func TestRunScheduledBackup_Integration_WithRotation(t *testing.T) {
 		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed, skipping integration test")
+		t.Fatal("pg_dump not installed, skipping integration test")
 	}
 
 	ss := &mockSettingsStore{
@@ -567,7 +567,7 @@ func TestStartScheduler_MinimumIntervalEnforced(t *testing.T) {
 // runScheduledBackup when pg_dump is available but the connection fails.
 func TestRunScheduledBackup_PgDumpFailed(t *testing.T) {
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed, skipping pg_dump failure test")
+		t.Fatal("pg_dump not installed, skipping pg_dump failure test")
 	}
 
 	dir := t.TempDir()
@@ -666,7 +666,7 @@ func TestStartScheduler_EnabledLoopTimerFires(t *testing.T) {
 // command execution. Uses an already-expired context.
 func TestRunScheduledBackup_ContextExpiredDuringDump(t *testing.T) {
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed")
+		t.Fatal("pg_dump not installed")
 	}
 
 	dir := t.TempDir()
@@ -685,7 +685,7 @@ func TestRunScheduledBackup_ContextExpiredDuringDump(t *testing.T) {
 // creating a mock pg_dump that writes to a different location than expected.
 func TestRunScheduledBackup_RotationWithExistingBackups(t *testing.T) {
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed")
+		t.Fatal("pg_dump not installed")
 	}
 
 	dir := t.TempDir()
@@ -713,7 +713,7 @@ func TestRunScheduledBackup_PgDumpSuccessIntegration(t *testing.T) {
 		t.Fatal("test database not available")
 	}
 	if _, err := exec.LookPath("pg_dump"); err != nil {
-		t.Skip("pg_dump not installed")
+		t.Fatal("pg_dump not installed")
 	}
 
 	dir := t.TempDir()

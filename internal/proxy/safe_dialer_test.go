@@ -478,7 +478,7 @@ func TestSafeDialer_DialByIPPublicHostWithDNS(t *testing.T) {
 
 	ips, err := net.DefaultResolver.LookupIPAddr(ctx, "example.com")
 	if err != nil {
-		t.Skipf("DNS resolution failed, skipping test: %v", err)
+		t.Fatalf("DNS resolution failed, skipping test: %v", err)
 	}
 
 	// Check if any resolved IP is non-blocked
@@ -490,7 +490,7 @@ func TestSafeDialer_DialByIPPublicHostWithDNS(t *testing.T) {
 		}
 	}
 	if !hasNonBlocked {
-		t.Skip("all resolved IPs are blocked, skipping test")
+		t.Fatal("all resolved IPs are blocked, skipping test")
 	}
 
 	// Now test the actual dial-by-IP path
