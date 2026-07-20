@@ -327,6 +327,112 @@ func TestLogRetentionPass(t *testing.T) {
 	})
 }
 
+func TestQuotaPollLoop_RunsOnInterval(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	// Interpret the interval in milliseconds so the timer fires within the
+	// test window instead of waiting real minutes.
+	t.Cleanup(func() { quotaPollUnit = time.Minute })
+	quotaPollUnit = time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	settingsRepo := newTestSettingsRepo()
+	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "20"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+
+	var calls atomic.Int32
+	done := make(chan struct{})
+	go func() {
+		quotaPollLoop(ctx, settingsRepo, func(context.Context) {
+			calls.Add(1)
+		})
+		close(done)
+	}()
+
+	deadline := time.After(5 * time.Second)
+	for calls.Load() == 0 {
+		select {
+		case <-deadline:
+			t.Fatal("poll loop never ran")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	// A different interval reaches the loop through the settings subscription
+	// and resets the live timer.
+	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "30"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+
+	// Interval 0 disables the timer: the loop parks on the settings
+	// subscription until cancellation.
+	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "0"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("poll loop did not stop on context cancellation")
+	}
+}
+
+// TestQuotaPollLoopDisabledAtStart covers the branch where the poll loop
+// starts with polling disabled: it parks on the settings subscription
+// immediately, wakes when a real interval arrives, and still stops on
+// cancellation.
+func TestQuotaPollLoopDisabledAtStart(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	t.Cleanup(func() { quotaPollUnit = time.Minute })
+	quotaPollUnit = time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	settingsRepo := newTestSettingsRepo()
+	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "0"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+
+	var calls atomic.Int32
+	done := make(chan struct{})
+	go func() {
+		quotaPollLoop(ctx, settingsRepo, func(context.Context) {
+			calls.Add(1)
+		})
+		close(done)
+	}()
+
+	// Give the loop a moment to park in the disabled branch, then enable.
+	time.Sleep(50 * time.Millisecond)
+	if calls.Load() != 0 {
+		t.Fatal("disabled poll loop must not run")
+	}
+	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "20"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+	deadline := time.After(5 * time.Second)
+	for calls.Load() == 0 {
+		select {
+		case <-deadline:
+			t.Fatal("poll loop never woke from disabled state")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("poll loop did not stop on context cancellation")
+	}
+}
+
 func TestStaleLogCleanupLoopStopsOnCancel(t *testing.T) {
 	if cmdTestDB == nil {
 		t.Fatal("test DB unavailable")

@@ -125,6 +125,111 @@ func discoverySchedulerLoop(ctx context.Context, settingsRepo *settings.Reposito
 	}
 }
 
+// quotaPollUnit is the time unit for the quota_refresh_interval_min setting.
+// It is time.Minute in production; tests override it so the timer fires
+// within a test window instead of waiting real minutes.
+var quotaPollUnit = time.Minute
+
+// quotaPollLoop periodically refreshes provider quota snapshots based on the
+// quota_refresh_interval_min setting. It mirrors discoverySchedulerLoop: the
+// first run waits a full interval, the timer reacts immediately to interval
+// changes via the settings subscription channel, and an interval of 0
+// ("Disabled") truly disables polling — the loop blocks on the subscription
+// channel until a non-zero value arrives.
+func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollOnce func(context.Context)) {
+	readInterval := func() time.Duration {
+		return time.Duration(settingsRepo.GetInt(context.Background(), "quota_refresh_interval_min", 5)) * quotaPollUnit
+	}
+
+	settingsSub := settingsRepo.Subscribe()
+	defer settingsSub.Unsubscribe()
+
+	// applyInterval sets up the timer for the given interval. If the
+	// interval is <= 0 (disabled) the timer is stopped and set to nil.
+	// A nil timer channel blocks forever in select, which is exactly what
+	// we want for the disabled state — only the settings subscription
+	// and the context cancellation can wake us.
+	var timer *time.Timer
+	var timerC <-chan time.Time
+	applyInterval := func(d time.Duration) {
+		if d <= 0 {
+			// Transitioning to disabled: stop and drain the existing timer.
+			if timer != nil {
+				timer.Stop()
+				// Drain the channel if the timer already fired, so the
+				// receive does not leak into the next cycle.
+				select {
+				case <-timer.C:
+				default:
+				}
+				timer = nil
+				timerC = nil
+			}
+		} else {
+			// Transitioning to enabled: reset (or create) the timer.
+			if timer != nil {
+				timer.Stop()
+				select {
+				case <-timer.C:
+				default:
+				}
+				timer.Reset(d)
+			} else {
+				timer = time.NewTimer(d)
+				// NewTimer already starts with duration d; no Reset needed.
+			}
+			timerC = timer.C
+		}
+	}
+
+	interval := readInterval()
+	applyInterval(interval)
+
+	defer func() {
+		if timer != nil {
+			timer.Stop()
+		}
+	}()
+
+	for {
+		if interval <= 0 {
+			// Polling is disabled. Block until the setting changes
+			// or the server shuts down. We cannot reach the main
+			// select because timerC is nil (blocks forever).
+			select {
+			case <-settingsSub.Events():
+				interval = readInterval()
+				applyInterval(interval)
+			case <-ctx.Done():
+				return
+			}
+			continue
+		}
+
+		select {
+		case <-timerC:
+			pollOnce(ctx)
+			// Re-read interval in case it changed since the last
+			// subscription event was processed.
+			interval = readInterval()
+			applyInterval(interval)
+
+		case <-settingsSub.Events():
+			// Re-read from DB (the source of truth) rather than
+			// parsing the event value, which may be empty if the
+			// setting was deleted or the lookup failed.
+			newInterval := readInterval()
+			if newInterval != interval {
+				interval = newInterval
+				applyInterval(interval)
+			}
+
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 // staleLogCleanupLoop periodically marks rows stuck in "pending"/"streaming"
 // as "failed". Two strategies are combined in a single pass:
 //

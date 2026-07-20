@@ -65,6 +65,7 @@ var AllowedSettings = map[string]bool{
 	"github_client_secret":         true,
 	"github_allowed_emails":        true,
 	"github_public_base_url":       true,
+	"quota_refresh_interval_min":   true,
 }
 
 type cacheEntry struct {
