@@ -351,7 +351,7 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 			// synced member's own scheduled sweep owns disabling.
 			_, _, _, _, err := h.discoverAllProviders(ctx, false)
 			return err
-		}).Register(r)
+		}, h.cfg.ValidateProviderURL).Register(r)
 
 	// HA fleet membership heartbeat (Phase 6). Front Desk POSTs /fleet/announce
 	// on its poll; the member records the contact as instance-local _fleet_*

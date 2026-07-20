@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
@@ -32,7 +33,7 @@ func newConfigSyncRouter(t *testing.T, masterKey string) chi.Router {
 // import (the real wiring runs discoverAllProviders).
 func newConfigSyncRouterWithDiscovery(t *testing.T, masterKey string, discoverAll func(context.Context) error) chi.Router {
 	t.Helper()
-	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), masterKey, "v-test", discoverAll)
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), masterKey, "v-test", discoverAll, nil)
 	r := chi.NewRouter()
 	h.Register(r)
 	return r
@@ -805,7 +806,7 @@ func TestConfigSync_ImportDBError(t *testing.T) {
 // handling is covered without a broken database.
 func TestConfigSync_HelperDBErrors(t *testing.T) {
 	pool := apiTestDB.Pool()
-	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(pool), configSyncMasterKey, "v-test", nil)
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(pool), configSyncMasterKey, "v-test", nil, nil)
 	cctx := cancelledCtx()
 	env := ConfigEnvelope{
 		SchemaVersion: configSchemaVersion,
@@ -851,7 +852,7 @@ func TestConfigSync_ApplyHelperDBErrors(t *testing.T) {
 	cleanConfigTables(t)
 	ctx := context.Background()
 	pool := apiTestDB.Pool()
-	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(pool), configSyncMasterKey, "v-test", nil)
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(pool), configSyncMasterKey, "v-test", nil, nil)
 
 	deadTx := func() pgx.Tx {
 		tx, err := pool.Begin(ctx)
@@ -903,6 +904,53 @@ func TestConfigSync_ApplyHelperDBErrors(t *testing.T) {
 	// syncable key still triggers the failing delete.
 	if _, err := h.applySettingsTx(ctx, roTx, map[string]string{"not_a_syncable_key": "x"}); err == nil {
 		t.Error("applySettingsTx should error when DeleteKeysTx fails on a read-only tx")
+	}
+}
+
+// TestUpsertProviders_ProviderURLGuard proves the config-sync import path
+// applies the same SSRF guard as the interactive admin API (config.
+// ValidateProviderURL) rather than the weaker netguard.ValidateURL: a base_url
+// resolving to a private/reserved address is refused (kept out of the database),
+// while a public one still imports. Literal IPs are used so the guard's DNS
+// resolution is deterministic and never touches the network.
+func TestUpsertProviders_ProviderURLGuard(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	pool := apiTestDB.Pool()
+	validate := (&config.Config{}).ValidateProviderURL
+
+	// Reject: a private-IP base_url the admin API would refuse must not be
+	// persisted. Validation fails before any INSERT, so an empty-key provider
+	// is fine here.
+	rejTx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	err = upsertProviders(ctx, rejTx, []ExportProvider{
+		{Name: "ssrf-probe", BaseURL: "http://10.0.0.5/v1"},
+	}, validate)
+	_ = rejTx.Rollback(ctx)
+	if err == nil {
+		t.Fatal("upsertProviders should reject a private-IP base_url on import")
+	}
+
+	// Accept: a public-IP base_url still imports through the same guard, so the
+	// stricter check does not over-block legitimate fleet providers.
+	kp, err := auth.Encrypt("sk-ok", configSyncMasterKey)
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	okTx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer func() { _ = okTx.Rollback(ctx) }()
+	err = upsertProviders(ctx, okTx, []ExportProvider{{
+		Name: "public", BaseURL: "http://8.8.8.8/v1", Enabled: true,
+		EncryptedKey: kp.Ciphertext, KeyNonce: kp.Nonce, KeySalt: kp.Salt,
+	}}, validate)
+	if err != nil {
+		t.Fatalf("upsertProviders should accept a public base_url: %v", err)
 	}
 }
 

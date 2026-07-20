@@ -100,15 +100,26 @@ type ConfigSyncHandler struct {
 	// providers, so custom failover groups can resolve. Nil disables it (tests
 	// that seed models directly pass nil).
 	discoverAll func(context.Context) error
+	// validateProviderURL guards imported provider base_urls with the same SSRF
+	// check the interactive admin API applies on CreateProvider/UpdateProvider
+	// (config.ValidateProviderURL): resolve DNS and reject loopback, RFC
+	// 1918/ULA, link-local, CGNAT and cloud-metadata addresses (hosts in
+	// ALLOWED_PROVIDER_HOSTS are exempted). Keeps a compromised primary from
+	// persisting a base_url the admin API would refuse. Nil disables the check
+	// (tests that do not exercise it pass nil).
+	validateProviderURL func(string) error
 }
 
 // NewConfigSyncHandler builds the handler. masterKey is needed only to verify
 // (on import) that this member can decrypt the incoming provider keys; the
-// plaintext is never produced here.
+// plaintext is never produced here. validateProviderURL applies the admin API's
+// SSRF check to imported provider base_urls (see the field doc); production
+// passes config.ValidateProviderURL, tests may pass nil to skip it.
 func NewConfigSyncHandler(database *db.DB, settingsRepo SettingsStore, masterKey, appVersion string,
-	discoverAll func(context.Context) error) *ConfigSyncHandler {
+	discoverAll func(context.Context) error, validateProviderURL func(string) error) *ConfigSyncHandler {
 	return &ConfigSyncHandler{
-		db: database, settings: settingsRepo, masterKey: masterKey, appVersion: appVersion, discoverAll: discoverAll,
+		db: database, settings: settingsRepo, masterKey: masterKey, appVersion: appVersion,
+		discoverAll: discoverAll, validateProviderURL: validateProviderURL,
 	}
 }
 
