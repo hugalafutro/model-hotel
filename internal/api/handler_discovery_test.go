@@ -1341,7 +1341,30 @@ func TestGetProviderBalance_UnsupportedType_Integration(t *testing.T) {
 // Note: Current implementation only supports DeepSeek, so OpenRouter returns 400 (unsupported)
 
 func TestGetProviderBalance_OpenRouterError_Integration(t *testing.T) {
+	// The three quota endpoints now share the read-through serveQuota, which
+	// derives the snapshot kind from the provider type rather than the URL path.
+	// OpenRouter maps to the "usage" kind, so /balance read-throughs (it no
+	// longer 400s); an upstream failure surfaces as a 500 from the cold-fill.
 	_, r := newTestHandlerWithRouter(t)
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				if strings.Contains(req.URL.Host, "openrouter.ai") {
+					return &http.Response{
+						StatusCode: http.StatusInternalServerError,
+						Body:       io.NopCloser(strings.NewReader(`{"error":"internal"}`)),
+						Header:     make(http.Header),
+					}, nil
+				}
+				return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+			}},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
 
 	// Create a provider with OpenRouter base URL pattern
 	body := `{"name":"test-balance-openrouter","base_url":"https://openrouter.ai/api/v1","api_key":"sk-fake-key"}`
@@ -1359,14 +1382,16 @@ func TestGetProviderBalance_OpenRouterError_Integration(t *testing.T) {
 	json.NewDecoder(w.Body).Decode(&resp)
 	providerID := resp["id"].(string)
 
-	// Try to get balance - returns 400 since only DeepSeek is supported
 	req2 := httptest.NewRequest("GET", "/providers/"+providerID+"/balance", http.NoBody)
 	req2.Header.Set("Authorization", "Bearer test-admin-token")
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 
-	if w2.Code != http.StatusBadRequest {
-		t.Errorf("expected 400 Bad Request for unsupported provider type, got %d: %s", w2.Code, w2.Body.String())
+	if w2.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 from read-through cold-fill error, got %d: %s", w2.Code, w2.Body.String())
+	}
+	if !strings.Contains(w2.Body.String(), "failed to fetch usage") {
+		t.Errorf("expected read-through fetch error, got: %s", w2.Body.String())
 	}
 }
 

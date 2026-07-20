@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
 // TestGetProviderUsage_InvalidUUID tests that GetProviderUsage returns 400 for
@@ -235,8 +236,9 @@ func TestGetProviderBalance_UnsupportedType(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("Expected 400 for unsupported balance type, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "balance information not supported") {
-		t.Errorf("Expected error about unsupported balance, got: %s", rec.Body.String())
+	// serveQuota emits a single generic unsupported-type message for all three endpoints.
+	if !strings.Contains(rec.Body.String(), "not supported for this provider type") {
+		t.Errorf("Expected error about unsupported type, got: %s", rec.Body.String())
 	}
 }
 
@@ -578,8 +580,9 @@ func TestGetProviderUsage_OpenRouterError(t *testing.T) {
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 500 for OpenRouter API error, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "failed to fetch key balance") {
-		t.Errorf("Expected error about failed to fetch key balance, got: %s", rec.Body.String())
+	// Read-through reports the snapshot kind ("usage") as the failed resource.
+	if !strings.Contains(rec.Body.String(), "failed to fetch usage") {
+		t.Errorf("Expected error about failed to fetch usage, got: %s", rec.Body.String())
 	}
 }
 
@@ -704,8 +707,9 @@ func TestGetOllamaCloudAccount_Error(t *testing.T) {
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("Expected 500 for Ollama Cloud API error, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "failed to fetch ollama cloud account") {
-		t.Errorf("Expected error about failed to fetch ollama cloud account, got: %s", rec.Body.String())
+	// Read-through reports the snapshot kind ("account") as the failed resource.
+	if !strings.Contains(rec.Body.String(), "failed to fetch account") {
+		t.Errorf("Expected error about failed to fetch account, got: %s", rec.Body.String())
 	}
 }
 
@@ -1365,11 +1369,11 @@ func TestGetProviderUsage_MiniMaxError(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
+	// Read-through cold-fill maps ErrProviderKeyInvalid to a persisted 424
+	// snapshot and reproduces it with an empty body (the client only keys off
+	// the status; the badge hides on any non-2xx).
 	if rec.Code != http.StatusFailedDependency {
 		t.Errorf("Expected 424 for MiniMax key rejection, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if !strings.Contains(rec.Body.String(), "provider key invalid or inactive") {
-		t.Errorf("Expected provider key invalid error, got: %s", rec.Body.String())
 	}
 }
 
@@ -1595,7 +1599,9 @@ func TestRefreshAllQuotas_MiniMaxSuccess(t *testing.T) {
 // =============================================================================
 
 func TestGetProviderUsage_ZAICodingQuotaError(t *testing.T) {
-	// Override newDiscoveryService with mock transport returning 500
+	// DB-backed handler so the read-through cold-fill has a real quota store and
+	// the provider row satisfies the snapshot FK.
+	_, r := newTestHandlerWithRouter(t)
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
 
@@ -1619,27 +1625,8 @@ func TestGetProviderUsage_ZAICodingQuotaError(t *testing.T) {
 		return ds
 	}
 
-	// Create handler with mock provider store
-	prov := createTestProvider(t, "zai-test", "https://api.z.ai/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		getFn: func(ctx context.Context, id uuid.UUID) (*provider.Provider, error) {
-			if id == prov.ID {
-				return prov, nil
-			}
-			return nil, errors.New("provider not found")
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	// Set up chi router
-	r := chi.NewRouter()
-	r.Get("/providers/{id}/usage", h.GetProviderUsage)
-
-	req := httptest.NewRequest(http.MethodGet, "/providers/"+prov.ID.String()+"/usage", http.NoBody)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	_, idStr := createQuotaProvider(t, r, "https://api.z.ai/v1")
+	w := doQuotaGet(t, r, "/providers/"+idStr+"/usage")
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected status 500, got %d: %s", w.Code, w.Body.String())
@@ -1650,6 +1637,8 @@ func TestGetProviderUsage_ZAICodingQuotaError(t *testing.T) {
 }
 
 func TestGetProviderUsage_NanoGPTSuccess(t *testing.T) {
+	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
+	_, r := newTestHandlerWithRouter(t)
 	// Override newDiscoveryService with mock transport returning valid NanoGPT JSON
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
@@ -1674,27 +1663,8 @@ func TestGetProviderUsage_NanoGPTSuccess(t *testing.T) {
 		return ds
 	}
 
-	// Create handler with mock provider store - use nano-gpt.com (with hyphen) for detection
-	prov := createTestProvider(t, "nanogpt-test", "https://api.nano-gpt.com/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		getFn: func(ctx context.Context, id uuid.UUID) (*provider.Provider, error) {
-			if id == prov.ID {
-				return prov, nil
-			}
-			return nil, errors.New("provider not found")
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	// Set up chi router
-	r := chi.NewRouter()
-	r.Get("/providers/{id}/usage", h.GetProviderUsage)
-
-	req := httptest.NewRequest(http.MethodGet, "/providers/"+prov.ID.String()+"/usage", http.NoBody)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	_, idStr := createQuotaProvider(t, r, "https://api.nano-gpt.com/v1")
+	w := doQuotaGet(t, r, "/providers/"+idStr+"/usage")
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
@@ -1710,6 +1680,8 @@ func TestGetProviderUsage_NanoGPTSuccess(t *testing.T) {
 }
 
 func TestGetProviderUsage_OpenRouterSuccess(t *testing.T) {
+	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
+	_, r := newTestHandlerWithRouter(t)
 	// Override newDiscoveryService with mock transport returning valid OpenRouter JSON
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
@@ -1742,27 +1714,8 @@ func TestGetProviderUsage_OpenRouterSuccess(t *testing.T) {
 		return ds
 	}
 
-	// Create handler with mock provider store
-	prov := createTestProvider(t, "openrouter-test", "https://openrouter.ai/api/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		getFn: func(ctx context.Context, id uuid.UUID) (*provider.Provider, error) {
-			if id == prov.ID {
-				return prov, nil
-			}
-			return nil, errors.New("provider not found")
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	// Set up chi router
-	r := chi.NewRouter()
-	r.Get("/providers/{id}/usage", h.GetProviderUsage)
-
-	req := httptest.NewRequest(http.MethodGet, "/providers/"+prov.ID.String()+"/usage", http.NoBody)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	_, idStr := createQuotaProvider(t, r, "https://openrouter.ai/api/v1")
+	w := doQuotaGet(t, r, "/providers/"+idStr+"/usage")
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
@@ -1783,6 +1736,8 @@ func TestGetProviderUsage_OpenRouterSuccess(t *testing.T) {
 // =============================================================================
 
 func TestGetProviderBalance_DeepSeekSuccess(t *testing.T) {
+	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
+	_, r := newTestHandlerWithRouter(t)
 	// Override newDiscoveryService with mock transport returning valid DeepSeek JSON
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
@@ -1807,27 +1762,8 @@ func TestGetProviderBalance_DeepSeekSuccess(t *testing.T) {
 		return ds
 	}
 
-	// Create handler with mock provider store
-	prov := createTestProvider(t, "deepseek-test", "https://api.deepseek.com/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		getFn: func(ctx context.Context, id uuid.UUID) (*provider.Provider, error) {
-			if id == prov.ID {
-				return prov, nil
-			}
-			return nil, errors.New("provider not found")
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	// Set up chi router
-	r := chi.NewRouter()
-	r.Get("/providers/{id}/balance", h.GetProviderBalance)
-
-	req := httptest.NewRequest(http.MethodGet, "/providers/"+prov.ID.String()+"/balance", http.NoBody)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	_, idStr := createQuotaProvider(t, r, "https://api.deepseek.com/v1")
+	w := doQuotaGet(t, r, "/providers/"+idStr+"/balance")
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
@@ -1847,6 +1783,8 @@ func TestGetProviderBalance_DeepSeekSuccess(t *testing.T) {
 // =============================================================================
 
 func TestGetOllamaCloudAccount_Success(t *testing.T) {
+	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
+	_, r := newTestHandlerWithRouter(t)
 	// Override newDiscoveryService with mock transport returning valid Ollama Cloud JSON
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
@@ -1871,27 +1809,8 @@ func TestGetOllamaCloudAccount_Success(t *testing.T) {
 		return ds
 	}
 
-	// Create handler with mock provider store - use ollama.com hostname for detection
-	prov := createTestProvider(t, "ollama-cloud-test", "https://api.ollama.com/v1", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		getFn: func(ctx context.Context, id uuid.UUID) (*provider.Provider, error) {
-			if id == prov.ID {
-				return prov, nil
-			}
-			return nil, errors.New("provider not found")
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	// Set up chi router
-	r := chi.NewRouter()
-	r.Get("/providers/{id}/account", h.GetOllamaCloudAccount)
-
-	req := httptest.NewRequest(http.MethodGet, "/providers/"+prov.ID.String()+"/account", http.NoBody)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	_, idStr := createQuotaProvider(t, r, "https://api.ollama.com/v1")
+	w := doQuotaGet(t, r, "/providers/"+idStr+"/account")
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
@@ -2288,6 +2207,8 @@ func TestRefreshAllQuotas_OllamaCloudSuccess(t *testing.T) {
 // =============================================================================
 
 func TestGetProviderUsage_NeuralWattSuccess(t *testing.T) {
+	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
+	_, r := newTestHandlerWithRouter(t)
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
 
@@ -2311,25 +2232,8 @@ func TestGetProviderUsage_NeuralWattSuccess(t *testing.T) {
 		return ds
 	}
 
-	prov := createTestProvider(t, "neuralwatt-test", "https://api.neuralwatt.com", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		getFn: func(ctx context.Context, id uuid.UUID) (*provider.Provider, error) {
-			if id == prov.ID {
-				return prov, nil
-			}
-			return nil, errors.New("provider not found")
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	r := chi.NewRouter()
-	r.Get("/providers/{id}/usage", h.GetProviderUsage)
-
-	req := httptest.NewRequest(http.MethodGet, "/providers/"+prov.ID.String()+"/usage", http.NoBody)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	_, idStr := createQuotaProvider(t, r, "https://api.neuralwatt.com")
+	w := doQuotaGet(t, r, "/providers/"+idStr+"/usage")
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d: %s", w.Code, w.Body.String())
@@ -2345,6 +2249,8 @@ func TestGetProviderUsage_NeuralWattSuccess(t *testing.T) {
 }
 
 func TestGetProviderUsage_NeuralWattFreeTier(t *testing.T) {
+	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
+	_, r := newTestHandlerWithRouter(t)
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
 
@@ -2365,25 +2271,8 @@ func TestGetProviderUsage_NeuralWattFreeTier(t *testing.T) {
 		return ds
 	}
 
-	prov := createTestProvider(t, "neuralwatt-freetier", "https://api.neuralwatt.com", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		getFn: func(ctx context.Context, id uuid.UUID) (*provider.Provider, error) {
-			if id == prov.ID {
-				return prov, nil
-			}
-			return nil, errors.New("provider not found")
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	r := chi.NewRouter()
-	r.Get("/providers/{id}/usage", h.GetProviderUsage)
-
-	req := httptest.NewRequest(http.MethodGet, "/providers/"+prov.ID.String()+"/usage", http.NoBody)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	_, idStr := createQuotaProvider(t, r, "https://api.neuralwatt.com")
+	w := doQuotaGet(t, r, "/providers/"+idStr+"/usage")
 
 	// Free tier returns 204 No Content (nil quota, nil error)
 	if w.Code != http.StatusNoContent {
@@ -2392,6 +2281,8 @@ func TestGetProviderUsage_NeuralWattFreeTier(t *testing.T) {
 }
 
 func TestGetProviderUsage_NeuralWattError(t *testing.T) {
+	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
+	_, r := newTestHandlerWithRouter(t)
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
 
@@ -2411,31 +2302,15 @@ func TestGetProviderUsage_NeuralWattError(t *testing.T) {
 		return ds
 	}
 
-	prov := createTestProvider(t, "neuralwatt-err", "https://api.neuralwatt.com", testMasterKeyForDiscovery)
-	mockProv := &mockProviderStore{
-		getFn: func(ctx context.Context, id uuid.UUID) (*provider.Provider, error) {
-			if id == prov.ID {
-				return prov, nil
-			}
-			return nil, errors.New("provider not found")
-		},
-	}
-	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return true }}
-	h := testHandler(mockProv, nil, nil, mockAuth, nil)
-	h.cfg.MasterKey = testMasterKeyForDiscovery
-
-	r := chi.NewRouter()
-	r.Get("/providers/{id}/usage", h.GetProviderUsage)
-
-	req := httptest.NewRequest(http.MethodGet, "/providers/"+prov.ID.String()+"/usage", http.NoBody)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	_, idStr := createQuotaProvider(t, r, "https://api.neuralwatt.com")
+	w := doQuotaGet(t, r, "/providers/"+idStr+"/usage")
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected status 500 for NeuralWatt error, got %d: %s", w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "failed to fetch quota") {
-		t.Errorf("expected error about fetch quota, got %q", w.Body.String())
+	// Read-through reports the snapshot kind ("usage") as the failed resource.
+	if !strings.Contains(w.Body.String(), "failed to fetch usage") {
+		t.Errorf("expected error about fetch usage, got %q", w.Body.String())
 	}
 }
 
@@ -2617,5 +2492,143 @@ func TestRefreshAllQuotas_NeuralWattError(t *testing.T) {
 	}
 	if resp["failed"].(float64) < 1 {
 		t.Errorf("expected at least 1 failed, got %v", resp["failed"])
+	}
+}
+
+// createQuotaProvider creates a provider (in the real test DB, so the quota
+// snapshot FK is satisfied) via the router and returns its parsed UUID plus the
+// raw string form for path building. The key is encrypted under the handler's
+// MasterKey, so the read-through cold-fill can decrypt it.
+func createQuotaProvider(t *testing.T, r chi.Router, baseURL string) (uuid.UUID, string) {
+	t.Helper()
+	providerName := fmt.Sprintf("test-quota-%s", uuid.New().String()[:8])
+	body := fmt.Sprintf(`{"name": "%s", "base_url": "%s", "api_key": "fake-key"}`, providerName, baseURL)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("failed to parse create response: %v", err)
+	}
+	id, err := uuid.Parse(createResp.ID)
+	if err != nil {
+		t.Fatalf("invalid provider id %q: %v", createResp.ID, err)
+	}
+	return id, createResp.ID
+}
+
+// doQuotaGet issues an authenticated GET to a quota endpoint path.
+func doQuotaGet(t *testing.T, r chi.Router, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, path, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	return rec
+}
+
+// TestGetProviderUsage_ServesStoredSnapshot proves the read-through serves a
+// stored snapshot verbatim without any upstream call: the discovery service
+// fails the test if it is ever invoked.
+func TestGetProviderUsage_ServesStoredSnapshot(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	provID, idStr := createQuotaProvider(t, r, "https://nano-gpt.com")
+
+	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+		ProviderID: provID, Kind: "usage",
+		Payload: json.RawMessage(`{"used":42}`), HTTPStatus: 200, Source: "poll",
+	}); err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+
+	// Any upstream call means the read-through incorrectly fell through to a
+	// live fetch — fail loudly. This replaces the invented panicOnCallDiscovery.
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService {
+		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				t.Fatalf("unexpected upstream call to %s", req.URL.String())
+				return nil, fmt.Errorf("unexpected upstream call")
+			}},
+		})
+	}
+
+	rr := doQuotaGet(t, r, "/providers/"+idStr+"/usage")
+	// Compare semantically: Postgres JSONB canonicalizes the payload (e.g.
+	// {"used":42} round-trips as {"used": 42}), so never byte-compare it.
+	var got map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &got); err != nil {
+		t.Fatalf("want stored snapshot served, got %d %s (decode: %v)", rr.Code, rr.Body.String(), err)
+	}
+	if rr.Code != http.StatusOK || got["used"] != float64(42) {
+		t.Fatalf("want stored snapshot served, got %d %s", rr.Code, rr.Body.String())
+	}
+	if rr.Header().Get("X-Quota-Fetched-At") == "" {
+		t.Fatal("want X-Quota-Fetched-At header")
+	}
+}
+
+// TestGetProviderUsage_Reproduces424 confirms a stored 424 snapshot is served
+// as 424 (the store-seed path deferred from the Task 3 review).
+func TestGetProviderUsage_Reproduces424(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	provID, idStr := createQuotaProvider(t, r, "https://nano-gpt.com")
+
+	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+		ProviderID: provID, Kind: "usage", HTTPStatus: 424, Source: "poll",
+	}); err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+
+	rr := doQuotaGet(t, r, "/providers/"+idStr+"/usage")
+	if rr.Code != http.StatusFailedDependency {
+		t.Fatalf("want 424, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestGetProviderUsage_ColdLazyFill verifies that a first view with no stored
+// snapshot performs one live fetch, persists it, and serves the fetched body.
+func TestGetProviderUsage_ColdLazyFill(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	provID, idStr := createQuotaProvider(t, r, "https://nano-gpt.com")
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				if strings.Contains(req.URL.Host, "nano-gpt.com") {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(`{"active":true,"provider":"coldfill-marker"}`)),
+						Header:     make(http.Header),
+					}, nil
+				}
+				return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+			}},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	rr := doQuotaGet(t, r, "/providers/"+idStr+"/usage")
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "coldfill-marker") {
+		t.Fatalf("cold fill should fetch+serve, got %d %s", rr.Code, rr.Body.String())
+	}
+
+	snap, err := h.quotaRepo.Get(context.Background(), provID, "usage")
+	if err != nil {
+		t.Fatalf("get persisted snapshot: %v", err)
+	}
+	if snap == nil {
+		t.Fatal("cold fill should persist a snapshot")
 	}
 }

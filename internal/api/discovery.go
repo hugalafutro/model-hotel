@@ -18,6 +18,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
 // newDiscoveryService creates a DiscoveryService. NewHandler overwrites this
@@ -247,7 +248,60 @@ func respondQuotaError(w http.ResponseWriter, providerName, resource string, err
 	respondError(w, fmt.Sprintf("failed to fetch %s for provider %s", resource, providerName), err, http.StatusInternalServerError)
 }
 
-// GetProviderUsage fetches usage/quota information for a provider.
+// serveQuota returns the stored quota snapshot for prov, reproducing its status.
+// On a cold miss it performs a one-time live fetch, persists it, then serves it,
+// so a brand-new provider's first view is not blank. The X-Quota-Fetched-At
+// header (RFC3339) carries the snapshot age for the client display.
+func (h *Handler) serveQuota(w http.ResponseWriter, r *http.Request, prov *provider.Provider) {
+	providerType := provider.DetectProviderType(prov.BaseURL)
+	kind, ok := quotaKindFor(providerType)
+	if !ok {
+		http.Error(w, "usage information not supported for this provider type", http.StatusBadRequest)
+		return
+	}
+
+	snap, err := h.quotaRepo.Get(r.Context(), prov.ID, kind)
+	if err != nil {
+		respondError(w, "failed to load quota snapshot", err, http.StatusInternalServerError)
+		return
+	}
+	if snap == nil {
+		// Cold: fetch once and persist, then fall through to serve it. The
+		// context is decoupled from the HTTP request deadline so a client
+		// disconnect does not abort the in-flight upstream call mid-fetch.
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
+		defer cancel()
+		disc := newDiscoveryService()
+		k, payload, status, ferr := fetchQuotaSnapshot(ctx, disc, prov, h.cfg.MasterKey)
+		if ferr != nil {
+			respondQuotaError(w, prov.Name, kind, ferr)
+			return
+		}
+		if uerr := h.quotaRepo.Upsert(ctx, quota.Snapshot{ProviderID: prov.ID, Kind: k, Payload: payload, HTTPStatus: status, Source: "manual"}); uerr != nil {
+			respondError(w, "failed to persist quota snapshot", uerr, http.StatusInternalServerError)
+			return
+		}
+		snap, _ = h.quotaRepo.Get(ctx, prov.ID, kind)
+		if snap == nil {
+			http.Error(w, "quota unavailable", http.StatusServiceUnavailable)
+			return
+		}
+	}
+
+	w.Header().Set("X-Quota-Fetched-At", snap.FetchedAt.UTC().Format(time.RFC3339))
+	switch snap.HTTPStatus {
+	case http.StatusNoContent:
+		w.WriteHeader(http.StatusNoContent)
+	case http.StatusFailedDependency:
+		http.Error(w, "", http.StatusFailedDependency)
+	default:
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(snap.Payload)
+	}
+}
+
+// GetProviderUsage serves usage/quota information for a provider from the
+// read-through snapshot store (cold-filling on first view).
 func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
 	if !ok {
@@ -260,75 +314,11 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discovery := newDiscoveryService()
-
-	// Use a context decoupled from the HTTP request deadline for outbound
-	// API calls. Client disconnects (navigation, tab close) cancel r.Context(),
-	// which would abort in-flight provider API requests mid-flight.
-	quotaCtx, quotaCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
-	defer quotaCancel()
-
-	switch provider.DetectProviderType(prov.BaseURL) {
-	case "zai-coding":
-		quota, err := discovery.GetZAICodingQuota(quotaCtx, prov, h.cfg.MasterKey)
-		if err != nil {
-			respondQuotaError(w, prov.Name, "usage", err)
-			return
-		}
-		writeJSON(w, quota)
-		return
-	case "kimi-code":
-		quota, err := discovery.GetKimiCodeQuota(quotaCtx, prov, h.cfg.MasterKey)
-		if err != nil {
-			respondQuotaError(w, prov.Name, "usage", err)
-			return
-		}
-		writeJSON(w, quota)
-		return
-	case "minimax":
-		quota, err := discovery.GetMiniMaxQuota(quotaCtx, prov, h.cfg.MasterKey)
-		if err != nil {
-			respondQuotaError(w, prov.Name, "usage", err)
-			return
-		}
-		writeJSON(w, quota)
-		return
-	case "nanogpt":
-		usage, err := discovery.GetNanoGPTUsage(quotaCtx, prov, h.cfg.MasterKey)
-		if err != nil {
-			respondQuotaError(w, prov.Name, "usage", err)
-			return
-		}
-		writeJSON(w, usage)
-		return
-	case "openrouter":
-		keyBalance, err := discovery.GetOpenRouterBalance(quotaCtx, prov, h.cfg.MasterKey)
-		if err != nil {
-			respondQuotaError(w, prov.Name, "key balance", err)
-			return
-		}
-		writeJSON(w, keyBalance)
-		return
-	case "neuralwatt":
-		quota, err := discovery.GetNeuralWattQuota(quotaCtx, prov, h.cfg.MasterKey)
-		if err != nil {
-			respondQuotaError(w, prov.Name, "quota", err)
-			return
-		}
-		if quota == nil {
-			// Free tier or no quota data available
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		writeJSON(w, quota)
-		return
-	default:
-		http.Error(w, "usage information not supported for this provider type", http.StatusBadRequest)
-		return
-	}
+	h.serveQuota(w, r, prov)
 }
 
-// GetProviderBalance fetches balance information for a provider.
+// GetProviderBalance serves balance information for a provider from the
+// read-through snapshot store (cold-filling on first view).
 func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
 	if !ok {
@@ -341,28 +331,11 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discovery := newDiscoveryService()
-
-	// Use a context decoupled from the HTTP request deadline for outbound API calls.
-	balanceCtx, balanceCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
-	defer balanceCancel()
-
-	switch provider.DetectProviderType(prov.BaseURL) {
-	case "deepseek":
-		balance, err := discovery.GetDeepSeekBalance(balanceCtx, prov, h.cfg.MasterKey)
-		if err != nil {
-			respondQuotaError(w, prov.Name, "balance", err)
-			return
-		}
-		writeJSON(w, balance)
-		return
-	default:
-		http.Error(w, "balance information not supported for this provider type", http.StatusBadRequest)
-		return
-	}
+	h.serveQuota(w, r, prov)
 }
 
-// GetOllamaCloudAccount fetches account info from Ollama Cloud.
+// GetOllamaCloudAccount serves Ollama Cloud account info from the read-through
+// snapshot store (cold-filling on first view).
 func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) {
 	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
 	if !ok {
@@ -380,18 +353,7 @@ func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	discovery := newDiscoveryService()
-
-	// Use a context decoupled from the HTTP request deadline for outbound API calls.
-	accountCtx, accountCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
-	defer accountCancel()
-
-	account, err := discovery.GetOllamaCloudAccount(accountCtx, prov, h.cfg.MasterKey)
-	if err != nil {
-		respondQuotaError(w, prov.Name, "ollama cloud account", err)
-		return
-	}
-	writeJSON(w, account)
+	h.serveQuota(w, r, prov)
 }
 
 // DiscoverAllResult holds the result of discovering models from a single provider.
