@@ -15,6 +15,11 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
+// AuthTokenTTL is the lifetime of a minted auth-token session, shared by the
+// server-side session expiry and the session cookie MaxAge so the two cannot
+// drift apart. All login front-ends that mint sessions use this single value.
+const AuthTokenTTL = 30 * 24 * time.Hour
+
 // errInvalidLoginState is returned by ConsumeLoginState when the record is
 // missing, of the wrong type, or expired. Kept unexported and opaque so callers
 // can't distinguish the cases (no oracle for a probing attacker).
@@ -125,7 +130,7 @@ func (m *SessionManager) CreateAuthToken(ctx context.Context, userID, credential
 		UserID:       userID,
 		TokenHash:    &tokenHash,
 		CredentialID: credentialID,
-		ExpiresAt:    time.Now().Add(30 * 24 * time.Hour),
+		ExpiresAt:    time.Now().Add(AuthTokenTTL),
 	}
 
 	if err := m.store.CreateSession(ctx, session); err != nil {
