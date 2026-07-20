@@ -117,7 +117,7 @@ func TestDiscoverZAICoding_VisionModelCapabilities(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("No vision model in zai-coding catalog - skipping vision capability test")
+		t.Fatal("expected a vision model in the merged zai-coding result")
 	}
 }
 

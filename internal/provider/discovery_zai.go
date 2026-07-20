@@ -124,6 +124,7 @@ func zaiCodingSpecToModel(spec ZAICodingModelSpec, providerID uuid.UUID) *model.
 		DisplayName:      spec.ModelID,
 		Capabilities:     string(capJSON),
 		Params:           "{}",
+		Modality:         spec.Modality,
 		InputModalities:  inputMods,
 		OutputModalities: `["text"]`,
 		ContextLength:    &contextLen,
