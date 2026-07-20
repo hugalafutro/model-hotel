@@ -193,6 +193,31 @@ describe("LoginScreen", () => {
 		});
 	});
 
+	it("reveals the TOTP field when the admin account has 2FA enabled (400)", async () => {
+		// A 400 on the admin-token exchange means the account has TOTP enabled;
+		// the admin token alone is not a sufficient credential, so the UI must
+		// flip into the TOTP step rather than reporting a hard failure.
+		vi.mocked(api.auth.adminExchange).mockRejectedValue(
+			Object.assign(new Error("400 Bad Request"), { status: 400 }),
+		);
+
+		const user = userEvent.setup();
+		renderWithProviders(<App />);
+
+		const input = screen.getByLabelText("Admin Token");
+		await user.type(input, "test-admin-token");
+
+		const signInButton = screen.getByRole("button", { name: "Sign In" });
+		await user.click(signInButton);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Please enter your TOTP code"),
+			).toBeInTheDocument();
+		});
+		expect(screen.getByLabelText("TOTP code")).toBeInTheDocument();
+	});
+
 	it("shows error when server is unreachable", async () => {
 		vi.mocked(api.auth.adminExchange).mockRejectedValue(
 			new TypeError("Failed to fetch"),

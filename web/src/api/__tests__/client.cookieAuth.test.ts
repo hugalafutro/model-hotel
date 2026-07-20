@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+	ApiError,
 	api,
 	clearAuth,
+	fetchJSONWithServerNow,
 	getAuthHeaders,
 	getCsrfToken,
 	isAuthenticated,
@@ -78,5 +80,61 @@ describe("client cookie auth", () => {
 		// The CSRF token guards mutating requests only; a read-only GET must not
 		// carry it even though getAuthHeaders() (shared with POST callers) sets it.
 		expect(getHeaders.get("X-CSRF-Token")).toBeNull();
+	});
+
+	it("strips X-CSRF-Token from a GET request whose headers are a Headers instance", async () => {
+		const seen: Array<{ init?: RequestInit }> = [];
+		vi.spyOn(globalThis, "fetch").mockImplementation((async (
+			_url: string,
+			init?: RequestInit,
+		) => {
+			seen.push({ init });
+			return new Response("{}", { status: 200 });
+		}) as typeof fetch);
+
+		await fetchJSONWithServerNow("/api/x", {
+			headers: new Headers({ "X-CSRF-Token": "csrf-abc" }),
+		});
+
+		const headers = seen[0]?.init?.headers as Headers;
+		expect(headers).toBeInstanceOf(Headers);
+		expect(headers.get("X-CSRF-Token")).toBeNull();
+	});
+
+	it("strips X-CSRF-Token from a GET request whose headers are an array of tuples", async () => {
+		const seen: Array<{ init?: RequestInit }> = [];
+		vi.spyOn(globalThis, "fetch").mockImplementation((async (
+			_url: string,
+			init?: RequestInit,
+		) => {
+			seen.push({ init });
+			return new Response("{}", { status: 200 });
+		}) as typeof fetch);
+
+		await fetchJSONWithServerNow("/api/x", {
+			method: "HEAD",
+			headers: [
+				["X-CSRF-Token", "csrf-abc"],
+				["Accept", "application/json"],
+			],
+		});
+
+		const headers = seen[0]?.init?.headers as Array<[string, string]>;
+		expect(headers).toEqual([["Accept", "application/json"]]);
+	});
+
+	it("clears the auth cookie and throws an ApiError with status 401 on an expired session", async () => {
+		document.cookie = "mh_csrf=csrf-abc; path=/";
+		expect(isAuthenticated()).toBe(true);
+		vi.spyOn(globalThis, "fetch").mockImplementation(
+			async () => new Response("unauthorized", { status: 401 }),
+		);
+
+		await expect(api.providers.list()).rejects.toThrow(ApiError);
+		expect(isAuthenticated()).toBe(false);
+
+		document.cookie = "mh_csrf=csrf-abc; path=/";
+		await expect(api.providers.list()).rejects.toMatchObject({ status: 401 });
+		expect(isAuthenticated()).toBe(false);
 	});
 });
