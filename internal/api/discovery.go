@@ -588,83 +588,27 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 			ProviderType: providerType,
 		}
 
-		switch providerType {
-		case "nanogpt":
-			_, err := discovery.GetNanoGPTUsage(provCtx, prov, h.cfg.MasterKey)
-			if err != nil {
-				result.Error = err.Error()
-				failed++
-			} else {
-				result.Refreshed = true
-				refreshed++
-			}
-		case "zai-coding":
-			_, err := discovery.GetZAICodingQuota(provCtx, prov, h.cfg.MasterKey)
-			if err != nil {
-				result.Error = err.Error()
-				failed++
-			} else {
-				result.Refreshed = true
-				refreshed++
-			}
-		case "kimi-code":
-			_, err := discovery.GetKimiCodeQuota(provCtx, prov, h.cfg.MasterKey)
-			if err != nil {
-				result.Error = err.Error()
-				failed++
-			} else {
-				result.Refreshed = true
-				refreshed++
-			}
-		case "minimax":
-			_, err := discovery.GetMiniMaxQuota(provCtx, prov, h.cfg.MasterKey)
-			if err != nil {
-				result.Error = err.Error()
-				failed++
-			} else {
-				result.Refreshed = true
-				refreshed++
-			}
-		case "openrouter":
-			_, err := discovery.GetOpenRouterBalance(provCtx, prov, h.cfg.MasterKey)
-			if err != nil {
-				result.Error = err.Error()
-				failed++
-			} else {
-				result.Refreshed = true
-				refreshed++
-			}
-		case "deepseek":
-			_, err := discovery.GetDeepSeekBalance(provCtx, prov, h.cfg.MasterKey)
-			if err != nil {
-				result.Error = err.Error()
-				failed++
-			} else {
-				result.Refreshed = true
-				refreshed++
-			}
-		case "ollama-cloud":
-			_, err := discovery.GetOllamaCloudAccount(provCtx, prov, h.cfg.MasterKey)
-			if err != nil {
-				result.Error = err.Error()
-				failed++
-			} else {
-				result.Refreshed = true
-				refreshed++
-			}
-		case "neuralwatt":
-			_, err := discovery.GetNeuralWattQuota(provCtx, prov, h.cfg.MasterKey)
-			if err != nil {
-				result.Error = err.Error()
-				failed++
-			} else {
-				result.Refreshed = true
-				refreshed++
-			}
-		default:
+		// fetchQuotaSnapshot returns kind=="" for provider types that expose no
+		// quota endpoint; those are skipped (and not added to results), matching
+		// the prior behaviour where the type switch had no matching case.
+		kind, payload, status, ferr := fetchQuotaSnapshot(provCtx, discovery, prov, h.cfg.MasterKey)
+		if kind == "" {
 			provCancel()
 			skipped++
 			continue
+		}
+		if ferr != nil {
+			result.Error = ferr.Error()
+			failed++
+			if h.quotaRepo != nil {
+				_ = h.quotaRepo.RecordFailure(provCtx, prov.ID, kind, ferr.Error())
+			}
+		} else {
+			if h.quotaRepo != nil {
+				_ = h.quotaRepo.Upsert(provCtx, quota.Snapshot{ProviderID: prov.ID, Kind: kind, Payload: payload, HTTPStatus: status, Source: "manual"})
+			}
+			result.Refreshed = true
+			refreshed++
 		}
 
 		provCancel()

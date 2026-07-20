@@ -1446,13 +1446,15 @@ func TestGetProviderUsage_MiniMaxSuccess(t *testing.T) {
 	}
 }
 
-// TestRefreshAllQuotas_MiniMaxError tests that RefreshAllQuotas handles a
-// MiniMax API key rejection correctly, exercising the minimax arm of the
-// provider-type switch in RefreshAllQuotas.
+// TestRefreshAllQuotas_MiniMaxError verifies that a MiniMax API-key rejection
+// is unified through fetchQuotaSnapshot: a dead credential (ErrProviderKeyInvalid)
+// is persisted as a source="manual" 424 snapshot and reported as refreshed
+// rather than surfacing a Go error, matching the read-through model where a 424
+// is a valid stored state served back to the dashboard.
 func TestRefreshAllQuotas_MiniMaxError(t *testing.T) {
 	// Override newDiscoveryService with mock transport to avoid real API calls
 	// Note: Must override AFTER newTestHandlerWithRouter since NewHandler sets it
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
 
 	orig := newDiscoveryService
 	defer func() { newDiscoveryService = orig }()
@@ -1477,21 +1479,11 @@ func TestRefreshAllQuotas_MiniMaxError(t *testing.T) {
 	}
 
 	// Create provider with MiniMax URL and fake key
-	providerName := fmt.Sprintf("test-quota-minimax-%s", uuid.New().String()[:8])
-	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "https://api.minimax.io/v1", "api_key": "fake-key"}`, providerName)
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
-	}
+	provID, _ := createQuotaProvider(t, r, "https://api.minimax.io/v1")
 
 	// Run refresh-quotas
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	r.ServeHTTP(rec, req)
 
@@ -1506,16 +1498,31 @@ func TestRefreshAllQuotas_MiniMaxError(t *testing.T) {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
 
-	// Verify result has provider_type: "minimax" and non-empty error
+	// A dead key is refreshed to a 424 snapshot, not surfaced as an error.
 	var minimaxFound bool
 	for _, result := range response.Results {
-		if result.ProviderType == "minimax" && result.Error != "" {
+		if result.ProviderType == "minimax" {
 			minimaxFound = true
+			if result.Error != "" {
+				t.Errorf("dead key should not surface an error, got %q", result.Error)
+			}
+			if !result.Refreshed {
+				t.Error("dead key should be reported as refreshed (424 snapshot)")
+			}
 			break
 		}
 	}
 	if !minimaxFound {
-		t.Error("Expected minimax result error in results")
+		t.Error("Expected minimax result in results")
+	}
+
+	// The persisted snapshot is a source="manual" dependency-failure (424).
+	snap, err := h.quotaRepo.Get(context.Background(), provID, "usage")
+	if err != nil {
+		t.Fatalf("get persisted snapshot: %v", err)
+	}
+	if snap == nil || snap.Source != "manual" || snap.HTTPStatus != http.StatusFailedDependency {
+		t.Fatalf("want manual 424 snapshot, got %+v", snap)
 	}
 }
 
@@ -2630,5 +2637,62 @@ func TestGetProviderUsage_ColdLazyFill(t *testing.T) {
 	}
 	if snap == nil {
 		t.Fatal("cold fill should persist a snapshot")
+	}
+}
+
+// TestRefreshAllQuotas_PersistsSnapshot verifies the manual refresh endpoint
+// writes a source="manual" snapshot per supported provider via the shared
+// fetchQuotaSnapshot helper, rather than fetching and discarding the result.
+func TestRefreshAllQuotas_PersistsSnapshot(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	provID, _ := createQuotaProvider(t, r, "https://nano-gpt.com")
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
+				if strings.Contains(req.URL.Host, "nano-gpt.com") {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(`{"active":true,"provider":"manual-refresh-marker"}`)),
+						Header:     make(http.Header),
+					}, nil
+				}
+				// Other providers present in the shared test DB simply fail;
+				// this test only asserts our own provider's snapshot.
+				return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+			}},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	snap, err := h.quotaRepo.Get(context.Background(), provID, "usage")
+	if err != nil {
+		t.Fatalf("get persisted snapshot: %v", err)
+	}
+	if snap == nil {
+		t.Fatal("manual refresh should persist a snapshot")
+	}
+	if snap.Source != "manual" {
+		t.Fatalf("want Source=manual, got %q", snap.Source)
+	}
+	// Decode semantically: Postgres JSONB canonicalizes the stored payload, so
+	// never byte-compare it.
+	var decoded provider.NanoGPTUsageResponse
+	if err := json.Unmarshal(snap.Payload, &decoded); err != nil {
+		t.Fatalf("decode persisted payload: %v (%s)", err, string(snap.Payload))
+	}
+	if decoded.Provider != "manual-refresh-marker" {
+		t.Fatalf("want persisted payload from live fetch, got provider=%q", decoded.Provider)
 	}
 }
