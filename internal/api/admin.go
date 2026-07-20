@@ -96,6 +96,10 @@ type WebAuthnSessionManager interface {
 	// multi-user password logins).
 	TokenUser(ctx context.Context, token string) ([]byte, bool)
 	RevokeAuthToken(ctx context.Context, token string) bool
+	// CreateAuthToken mints a new session token for the given user handle. The
+	// admin-token exchange trades a valid admin token for a session cookie via
+	// this method (userID is []byte("admin") for the legacy admin login).
+	CreateAuthToken(ctx context.Context, userID, credentialID []byte) (string, error)
 }
 
 // Handler manages admin API operations for providers, models, and virtual keys.

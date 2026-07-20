@@ -327,6 +327,16 @@ func main() {
 			githubHandler.Register(r)
 		})
 
+		// Admin-token bootstrap exchange (POST /api/auth/admin-exchange) — a
+		// dashboard-only login front-end that trades a valid raw admin token for
+		// an HttpOnly session cookie so the browser never stores the raw token.
+		// Unauthenticated (the exchange IS the login), same posture as the other
+		// login groups; the per-IP limiter above still throttles brute-force.
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Timeout(60 * time.Second))
+			apiHandler.RegisterAuthExchange(r)
+		})
+
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Timeout(60 * time.Second))
 			apiHandler.Register(r)
