@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setAdminToken } from "../client";
+import { api } from "../client";
 
 describe("api.virtualKeys", () => {
 	beforeEach(() => {
-		setAdminToken("test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		vi.restoreAllMocks();
 	});
 
@@ -23,9 +23,7 @@ describe("api.virtualKeys", () => {
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/virtual-keys",
 				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});
@@ -68,9 +66,7 @@ describe("api.virtualKeys", () => {
 				"/api/virtual-keys",
 				expect.objectContaining({
 					method: "POST",
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 					body: JSON.stringify(requestBody),
 				}),
 			);
@@ -121,9 +117,7 @@ describe("api.virtualKeys", () => {
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/virtual-keys/1",
 				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});
@@ -157,9 +151,7 @@ describe("api.virtualKeys", () => {
 				"/api/virtual-keys/1",
 				expect.objectContaining({
 					method: "PUT",
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 					body: JSON.stringify(updateData),
 				}),
 			);
@@ -188,9 +180,7 @@ describe("api.virtualKeys", () => {
 				"/api/virtual-keys/1",
 				expect.objectContaining({
 					method: "DELETE",
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});

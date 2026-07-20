@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setAdminToken } from "../client";
+import { api } from "../client";
 
 describe("api.stats", () => {
 	beforeEach(() => {
-		setAdminToken("test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		vi.restoreAllMocks();
 	});
 
@@ -20,9 +20,7 @@ describe("api.stats", () => {
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/stats",
 				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});
@@ -69,9 +67,7 @@ describe("api.stats", () => {
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/stats/timeseries",
 				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});
@@ -113,9 +109,7 @@ describe("api.stats", () => {
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/stats/provider-distribution",
 				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});

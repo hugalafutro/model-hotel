@@ -21,6 +21,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/netguard"
 	"github.com/hugalafutro/model-hotel/internal/totp"
@@ -76,6 +77,14 @@ type OIDCHandler struct {
 	masterKey  string
 	users      SSOUserResolver // nil = no user email binding (admin allowlist only)
 
+	// useCookieAuth delivers the session over the dashboard HttpOnly cookie and
+	// a clean redirect; Front Desk leaves it false to keep the legacy
+	// token-in-URL-fragment contract byte-for-byte.
+	useCookieAuth bool
+	// cookieSecure ("auto"/"always"/"never") resolves the cookie Secure
+	// attribute; only consulted when useCookieAuth is true.
+	cookieSecure string
+
 	// httpClient is an SSRF-guarded client used for every outbound OIDC request
 	// (discovery, token exchange, UserInfo). Without it go-oidc/oauth2 fall back
 	// to http.DefaultClient, letting an admin-configured (or fleet-synced) issuer
@@ -103,12 +112,16 @@ func NewOIDCHandler(
 	sessionMgr *webauthn.SessionManager,
 	ipLimiter IPLimiterMiddleware,
 	masterKey string,
+	useCookieAuth bool,
+	cookieSecure string,
 ) *OIDCHandler {
 	return &OIDCHandler{
 		settings:      settings,
 		sessionMgr:    sessionMgr,
 		ipLimiter:     ipLimiter,
 		masterKey:     masterKey,
+		useCookieAuth: useCookieAuth,
+		cookieSecure:  cookieSecure,
 		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
 		httpClient:    netguard.NewClient(oidcHTTPTimeout),
 	}
@@ -241,9 +254,10 @@ func (h *OIDCHandler) Start(w http.ResponseWriter, r *http.Request) {
 // Callback completes the flow: it validates the login-state record (single use),
 // state, PKCE, and the IdP error param; exchanges the code; verifies the ID
 // token (iss/aud/exp/signature via go-oidc, plus nonce here); enforces the
-// verified-email allowlist; and on success mints a normal session token and
-// redirects to the SPA with the token in the URL fragment (never sent back to
-// the server, so it can't be logged). All denials redirect with an error code.
+// verified-email allowlist; and on success mints a session token, then either
+// delivers it in the HttpOnly mh_session cookie and redirects to a clean SPA URL
+// (dashboard, useCookieAuth) or, for legacy Front Desk callers, redirects with
+// the token in the URL fragment. All denials redirect with an error code.
 func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -405,12 +419,25 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	debuglog.Info("oidc: login success",
 		"email_masked", maskEmail(email), "sub", idToken.Subject, "iss", idToken.Issuer)
 
-	// Deliver the token in the URL *fragment*: the SPA reads it on mount, stores
-	// it, and scrubs the URL. The fragment is never sent to the server on the
-	// follow-up request (no Referer leak, nothing in our own request logs). It
-	// does, however, appear in this 302's Location response header, so a proxy
-	// that logs response headers would capture it -- operators should redact
-	// `Location` on /api/auth/oidc/callback in their access logs (see README).
+	if h.useCookieAuth {
+		if err := authcookie.SetSession(w, sessionToken, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
+			debuglog.Error("oidc: set session cookie failed", "error", err)
+			h.redirectError(w, r, "session_error")
+			return
+		}
+		// Clean redirect: the session rides the HttpOnly cookie, so the token
+		// never appears in the URL or this 302's Location response header.
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	// Legacy Front Desk delivery: put the token in the URL *fragment*. The SPA
+	// reads it on mount, stores it, and scrubs the URL. The fragment is never
+	// sent to the server on the follow-up request (no Referer leak, nothing in
+	// our own request logs). It does, however, appear in this 302's Location
+	// response header, so a proxy that logs response headers would capture it --
+	// operators should redact `Location` on /api/auth/oidc/callback in their
+	// access logs (see README).
 	http.Redirect(w, r, "/#oidc_token="+url.QueryEscape(sessionToken), http.StatusFound)
 }
 

@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setAdminToken } from "../client";
+import { api } from "../client";
 
 describe("api.providers", () => {
 	beforeEach(() => {
-		setAdminToken("test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		vi.restoreAllMocks();
 	});
 
@@ -20,7 +20,6 @@ describe("api.providers", () => {
 				"/api/providers",
 				expect.objectContaining({
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 				}),
@@ -56,7 +55,6 @@ describe("api.providers", () => {
 				expect.objectContaining({
 					method: "POST",
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 					body: JSON.stringify(data),
@@ -90,7 +88,6 @@ describe("api.providers", () => {
 				expect.objectContaining({
 					method: "DELETE",
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 				}),
@@ -122,7 +119,6 @@ describe("api.providers", () => {
 				expect.objectContaining({
 					method: "PUT",
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 					body: JSON.stringify(data),
@@ -154,7 +150,6 @@ describe("api.providers", () => {
 				expect.objectContaining({
 					method: "POST",
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 				}),
@@ -193,7 +188,6 @@ describe("api.providers", () => {
 				expect.objectContaining({
 					method: "POST",
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 				}),
@@ -231,7 +225,6 @@ describe("api.providers", () => {
 				expect.objectContaining({
 					method: "POST",
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 				}),
@@ -261,7 +254,6 @@ describe("api.providers", () => {
 				"/api/providers/123/usage",
 				expect.objectContaining({
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 				}),
@@ -291,7 +283,6 @@ describe("api.providers", () => {
 				"/api/providers/123/balance",
 				expect.objectContaining({
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 				}),
@@ -321,7 +312,6 @@ describe("api.providers", () => {
 				"/api/providers/123/usage",
 				expect.objectContaining({
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 				}),
@@ -351,7 +341,6 @@ describe("api.providers", () => {
 				"/api/providers/123/account",
 				expect.objectContaining({
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 				}),
@@ -381,9 +370,7 @@ describe("api.providers", () => {
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/providers/123/usage",
 				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});

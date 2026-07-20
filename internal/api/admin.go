@@ -21,6 +21,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/audit"
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -95,6 +96,10 @@ type WebAuthnSessionManager interface {
 	// multi-user password logins).
 	TokenUser(ctx context.Context, token string) ([]byte, bool)
 	RevokeAuthToken(ctx context.Context, token string) bool
+	// CreateAuthToken mints a new session token for the given user handle. The
+	// admin-token exchange trades a valid admin token for a session cookie via
+	// this method (userID is []byte("admin") for the legacy admin login).
+	CreateAuthToken(ctx context.Context, userID, credentialID []byte) (string, error)
 }
 
 // Handler manages admin API operations for providers, models, and virtual keys.
@@ -365,6 +370,25 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 // If the admin token is invalid, the session-based token is tried as a fallback.
 func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Cookie path (browser). The session token rides an HttpOnly cookie;
+		// unsafe methods must also present a matching CSRF header. This branch
+		// is additive: an invalid/expired cookie falls through to the header
+		// logic below, and header (admin-token / bearer) callers are unaffected.
+		if tok, ok := authcookie.SessionToken(r); ok && h.webauthnSessionMgr != nil {
+			if sessionUserID, ok := h.webauthnSessionMgr.TokenUser(r.Context(), tok); ok {
+				if id, ok := h.resolveIdentity(r.Context(), sessionUserID); ok {
+					if !authcookie.IsSafeMethod(r.Method) && !authcookie.ValidCSRF(r) {
+						debuglog.Warn("auth: CSRF check failed", "remote_addr", r.RemoteAddr, "path", r.URL.Path)
+						http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
+						return
+					}
+					next.ServeHTTP(w, r.WithContext(user.WithIdentity(r.Context(), id)))
+					return
+				}
+			}
+			// Invalid/expired cookie: fall through to header logic.
+		}
+
 		token, ok := util.ParseBearerToken(r)
 		if !ok {
 			// Warn (not Error) with the remote address — never the token — so

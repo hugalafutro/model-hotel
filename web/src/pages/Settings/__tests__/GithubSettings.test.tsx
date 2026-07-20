@@ -9,7 +9,7 @@ import { GithubPanel } from "../GithubSettings";
 function mockSettings(values: Record<string, string>) {
 	server.use(
 		http.get("/api/settings", ({ request }) => {
-			if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+			if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
 				return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 			}
 			return HttpResponse.json(values);

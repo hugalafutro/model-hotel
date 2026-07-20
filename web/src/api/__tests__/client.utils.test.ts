@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
 	buildQueryString,
 	buildUrl,
-	getAdminToken,
+	clearAuth,
 	getAuthHeaders,
-	setAdminToken,
+	getCsrfToken,
+	isAuthenticated,
 } from "../client";
 
 describe("buildQueryString", () => {
@@ -96,118 +97,62 @@ describe("buildUrl", () => {
 	});
 });
 
-describe("setAdminToken", () => {
-	beforeEach(() => {
-		localStorage.clear();
-		// Reset in-memory token by setting empty string
-		setAdminToken("");
+function clearCsrfCookie() {
+	document.cookie = "mh_csrf=; path=/; max-age=0";
+}
+
+describe("getCsrfToken / isAuthenticated", () => {
+	beforeEach(clearCsrfCookie);
+
+	it("reads the CSRF token from the mh_csrf cookie", () => {
+		document.cookie = "mh_csrf=my-test-csrf; path=/";
+		expect(getCsrfToken()).toBe("my-test-csrf");
+		expect(isAuthenticated()).toBe(true);
 	});
 
-	it("stores token in memory", () => {
-		setAdminToken("my-test-token");
-		expect(getAdminToken()).toBe("my-test-token");
+	it("reports unauthenticated with no cookie", () => {
+		expect(getCsrfToken()).toBeNull();
+		expect(isAuthenticated()).toBe(false);
 	});
 
-	it("overwrites previous token", () => {
-		setAdminToken("first-token");
-		setAdminToken("second-token");
-		expect(getAdminToken()).toBe("second-token");
+	it("decodes URL-encoded cookie values", () => {
+		document.cookie = "mh_csrf=a%2Bb; path=/";
+		expect(getCsrfToken()).toBe("a+b");
 	});
 });
 
-describe("getAdminToken", () => {
-	beforeEach(() => {
-		localStorage.clear();
-		setAdminToken("");
-	});
+describe("clearAuth", () => {
+	beforeEach(clearCsrfCookie);
 
-	it("returns empty string when token set to empty", () => {
-		setAdminToken("");
-		expect(getAdminToken()).toBe("");
-	});
-
-	it("returns token after setAdminToken", () => {
-		setAdminToken("stored-token");
-		expect(getAdminToken()).toBe("stored-token");
-	});
-
-	it("returns in-memory value only (no localStorage fallback)", () => {
-		// getAdminToken() returns only in-memory value
-		// localStorage fallback is only in getAuthHeaders()
-		localStorage.setItem("adminToken", "localStorage-token");
-		setAdminToken("");
-		expect(getAdminToken()).toBe("");
-	});
-
-	it("prefers memory over localStorage", () => {
-		localStorage.setItem("adminToken", "storage-token");
-		setAdminToken("memory-token");
-		expect(getAdminToken()).toBe("memory-token");
+	it("expires the mh_csrf cookie so isAuthenticated flips false", () => {
+		document.cookie = "mh_csrf=stored-csrf; path=/";
+		expect(isAuthenticated()).toBe(true);
+		clearAuth();
+		expect(getCsrfToken()).toBeNull();
+		expect(isAuthenticated()).toBe(false);
 	});
 });
 
 describe("getAuthHeaders", () => {
-	beforeEach(() => {
-		localStorage.clear();
-		setAdminToken("");
-	});
+	beforeEach(clearCsrfCookie);
 
-	it("throws error when no token set in memory or localStorage", () => {
-		setAdminToken("");
-		expect(() => getAuthHeaders()).toThrow("Admin token not set");
-	});
-
-	it("returns Authorization header with Bearer token when set", () => {
-		setAdminToken("test-token");
+	it("returns Content-Type plus the CSRF header, never a bearer token", () => {
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		expect(getAuthHeaders()).toEqual({
-			Authorization: "Bearer test-token",
 			"Content-Type": "application/json",
+			"X-CSRF-Token": "test-csrf",
 		});
 	});
 
-	it("uses localStorage token when memory not set", () => {
-		setAdminToken("");
-		localStorage.setItem("adminToken", "storage-token");
-		expect(getAuthHeaders()).toEqual({
-			Authorization: "Bearer storage-token",
-			"Content-Type": "application/json",
-		});
+	it("omits the CSRF header when logged out", () => {
+		expect(getAuthHeaders()).toEqual({ "Content-Type": "application/json" });
+		expect(getAuthHeaders().Authorization).toBeUndefined();
 	});
 
-	it("prefers memory over localStorage", () => {
-		localStorage.setItem("adminToken", "storage-token");
-		setAdminToken("memory-token");
-		expect(getAuthHeaders()).toEqual({
-			Authorization: "Bearer memory-token",
-			"Content-Type": "application/json",
-		});
-	});
-
-	it("includes Content-Type header", () => {
-		setAdminToken("token");
-		const headers = getAuthHeaders();
-		expect(headers["Content-Type"]).toBe("application/json");
-	});
-});
-
-describe("Integration: setAdminToken + getAuthHeaders", () => {
-	beforeEach(() => {
-		localStorage.clear();
-		setAdminToken("");
-	});
-
-	it("setAdminToken then getAuthHeaders returns correct header", () => {
-		setAdminToken("integration-test-token");
-		const headers = getAuthHeaders();
-		expect(headers.Authorization).toBe("Bearer integration-test-token");
-		expect(headers["Content-Type"]).toBe("application/json");
-	});
-
-	it("works with complex token values", () => {
-		const complexToken =
+	it("works with complex CSRF token values", () => {
+		const complex =
 			"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0";
-		setAdminToken(complexToken);
-		const headers = getAuthHeaders();
-		expect(headers.Authorization).toBe(`Bearer ${complexToken}`);
+		document.cookie = `mh_csrf=${complex}; path=/`;
+		expect(getAuthHeaders()["X-CSRF-Token"]).toBe(complex);
 	});
 });

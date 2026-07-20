@@ -12,7 +12,6 @@ import "../i18n";
 // unchanged, so this only tolerates scheduling jitter, it does not hide failures.
 configure({ asyncUtilTimeout: 5000 });
 
-import { setAdminToken } from "../api/client";
 import { resetStore } from "./mocks/handlers";
 import { server } from "./mocks/server";
 
@@ -165,12 +164,21 @@ if (
 beforeAll(() => {
 	_suppressJsdomNotImplemented();
 	server.listen({ onUnhandledRequest: "warn" });
-	setAdminToken("test-admin-token");
+	// Cookie-session auth: seed the readable CSRF cookie so isAuthenticated()
+	// reports logged-in and same-origin requests carry the session cookie to the
+	// MSW handlers (which gate on mh_csrf). httpOnly cookies can't be set from JS,
+	// so the readable half stands in for the session in tests.
+	document.cookie = "mh_csrf=test-csrf; path=/";
 });
 
 afterEach(() => {
 	server.resetHandlers();
 	resetStore();
+	// Re-seed the session cookie between tests. A 401 response clears it (the api
+	// client's clearAuth on 401), and tests that exercise logged-out flows clear
+	// it in their own beforeEach; re-seeding here keeps the default state
+	// "logged in" and makes the suite order-independent.
+	document.cookie = "mh_csrf=test-csrf; path=/";
 });
 
 afterAll(() => {

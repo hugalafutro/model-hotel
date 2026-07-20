@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Copy, Download, ShieldCheck, X } from "@/lib/icons";
-import { ApiError, api, setAdminToken } from "../../api/client";
+import { ApiError, api, clearAuth } from "../../api/client";
 import { CopyButton } from "../../components/CopyButton";
 import { PageHeader } from "../../components/PageHeader";
 import { useToast } from "../../context/ToastContext";
@@ -158,8 +158,7 @@ export function Security() {
 			// logout button does and land on the login screen.
 			toast(t("security.password.success"), "success");
 			setTimeout(() => {
-				setAdminToken("");
-				localStorage.removeItem("adminToken");
+				clearAuth();
 				queryClient.cancelQueries();
 				window.location.reload();
 			}, 1500);

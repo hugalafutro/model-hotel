@@ -161,7 +161,7 @@ describe("TotpSettings", () => {
 		clickSpy.mockRestore();
 	});
 
-	it("installs the session token from enroll/verify to stay logged in", async () => {
+	it("stays logged in after enroll/verify without client-side token juggling", async () => {
 		mockStatus(false);
 		server.use(
 			http.post("/api/totp/enroll/start", () =>
@@ -193,8 +193,9 @@ describe("TotpSettings", () => {
 		await waitFor(() => {
 			expect(screen.getByText(RECOVERY_CODES[0])).toBeInTheDocument();
 		});
-		// The minted session token is installed so the dashboard stays authed.
-		expect(localStorage.getItem("adminToken")).toBe("sess-tok-123");
+		// The server rotates the session cookie pair in the response; the client
+		// does not stash any token in localStorage.
+		expect(localStorage.getItem("adminToken")).toBeNull();
 	});
 
 	it("clears recovery codes after I have saved them", async () => {

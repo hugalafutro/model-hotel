@@ -34,7 +34,7 @@ describe("EventContext", () => {
 		expect(getByTestId("child")).toBeInTheDocument();
 	});
 
-	it("EventProvider works with admin token set (from setup.ts which calls setAdminToken)", () => {
+	it("EventProvider works with the session cookie set (seeded in setup.ts)", () => {
 		const TestChild = () => <div data-testid="child">Test Child</div>;
 
 		const { getByTestId } = renderWithEventProvider(<TestChild />);
@@ -48,16 +48,21 @@ describe("SSE connection and event handling", () => {
 		server.resetHandlers();
 		vi.clearAllMocks();
 		vi.useRealTimers();
+		// Re-seed the session cookie so the next test starts authenticated (the
+		// 401 test clears it via clearAuth()).
+		document.cookie = "mh_csrf=test-csrf; path=/";
 	});
 
-	it("connects to /api/events on mount", async () => {
+	it("connects to /api/events on mount with the session cookie", async () => {
 		let fetchCalled = false;
 		let authHeader: string | undefined;
+		let cookieHeader: string | undefined;
 
 		server.use(
 			http.get("/api/events", ({ request }) => {
 				fetchCalled = true;
 				authHeader = request.headers.get("Authorization") ?? undefined;
+				cookieHeader = request.headers.get("Cookie") ?? undefined;
 				const stream = createSSEStream([], { doneSentinel: null });
 				return new HttpResponse(stream, {
 					status: 200,
@@ -76,7 +81,8 @@ describe("SSE connection and event handling", () => {
 			expect(fetchCalled).toBe(true);
 		});
 
-		expect(authHeader).toBe("Bearer test-admin-token");
+		expect(authHeader).toBeUndefined();
+		expect(cookieHeader).toContain("mh_csrf=");
 	});
 
 	it("dispatches server-event CustomEvent for each SSE chunk", async () => {
@@ -413,9 +419,9 @@ describe("SSE connection and event handling", () => {
 		);
 	});
 
-	it("clears token and reloads on 401 response", async () => {
-		// Pre-set the adminToken in localStorage so we can verify removal
-		localStorage.setItem("adminToken", "will-be-removed");
+	it("clears the session and reloads on 401 response", async () => {
+		// The session cookie is present (seeded in setup); a 401 must clear it.
+		expect(document.cookie).toContain("mh_csrf=");
 
 		const reloadMock = vi.fn();
 		vi.stubGlobal("location", {
@@ -436,15 +442,13 @@ describe("SSE connection and event handling", () => {
 			expect(reloadMock).toHaveBeenCalled();
 		});
 
-		expect(localStorage.getItem("adminToken")).toBeNull();
+		// clearAuth() expired the readable CSRF cookie.
+		expect(document.cookie).not.toContain("mh_csrf=");
 
 		vi.unstubAllGlobals();
 	});
 
 	it("reconnects with backoff on non-401 error", async () => {
-		// Pre-set the adminToken to verify it's NOT removed on non-401 errors
-		localStorage.setItem("adminToken", "should-remain");
-
 		const reloadMock = vi.fn();
 		vi.stubGlobal("location", {
 			...window.location,
@@ -476,8 +480,8 @@ describe("SSE connection and event handling", () => {
 
 		// Verify reload was NOT called
 		expect(reloadMock).not.toHaveBeenCalled();
-		// Verify adminToken was NOT removed
-		expect(localStorage.getItem("adminToken")).toBe("should-remain");
+		// The session cookie is NOT cleared on non-401 errors.
+		expect(document.cookie).toContain("mh_csrf=");
 
 		vi.unstubAllGlobals();
 	});

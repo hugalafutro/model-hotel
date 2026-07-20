@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setAdminToken } from "../client";
+import { api } from "../client";
 
 describe("api.system", () => {
 	beforeEach(() => {
-		setAdminToken("test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		vi.restoreAllMocks();
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date("2024-01-15T10:30:00Z"));
@@ -35,9 +35,7 @@ describe("api.system", () => {
 		expect(globalThis.fetch).toHaveBeenCalledWith(
 			`/api/system?since=${expectedSince}`,
 			expect.objectContaining({
-				headers: expect.objectContaining({
-					Authorization: "Bearer test-token",
-				}),
+				headers: expect.objectContaining({}),
 			}),
 		);
 	});

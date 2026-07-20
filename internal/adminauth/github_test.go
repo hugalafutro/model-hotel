@@ -124,7 +124,7 @@ func newGitHubTestHandler(t *testing.T, m *githubMock, allowed string) (*GitHubH
 		githubAllowedEmailsKey: allowed,
 		githubPublicBaseURLKey: "https://mh.example.test",
 	})
-	h := NewGitHubHandler(fs, sessionMgr, mockIPLimiter{}, testMasterKey)
+	h := NewGitHubHandler(fs, sessionMgr, mockIPLimiter{}, testMasterKey, "auto")
 
 	// Build once, then redirect the cached runtime at the mock server.
 	rt, err := h.runtime(context.Background())
@@ -168,9 +168,10 @@ func runGitHubStart(t *testing.T, h *GitHubHandler) (*url.URL, *http.Cookie) {
 	return loc, cookie
 }
 
-// runGitHubCallback drives GET /callback and returns the fragment of the redirect
-// Location (the part after '#').
-func runGitHubCallback(t *testing.T, h *GitHubHandler, cookie *http.Cookie, query url.Values) string {
+// runGitHubCallbackRec drives GET /callback and returns the raw response
+// recorder, so callers can inspect the Location header and any Set-Cookie
+// headers (the fragment-only runGitHubCallback below cannot see cookies).
+func runGitHubCallbackRec(t *testing.T, h *GitHubHandler, cookie *http.Cookie, query url.Values) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/api/auth/github/callback?"+query.Encode(), http.NoBody)
 	if cookie != nil {
@@ -178,19 +179,27 @@ func runGitHubCallback(t *testing.T, h *GitHubHandler, cookie *http.Cookie, quer
 	}
 	rec := httptest.NewRecorder()
 	h.Callback(rec, req)
-	res := rec.Result()
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusFound {
-		t.Fatalf("Callback status = %d, want 302 (body=%s)", res.StatusCode, rec.Body.String())
+	if rec.Result().StatusCode != http.StatusFound {
+		t.Fatalf("Callback status = %d, want 302 (body=%s)", rec.Result().StatusCode, rec.Body.String())
 	}
-	loc := res.Header.Get("Location")
+	return rec
+}
+
+// runGitHubCallback drives GET /callback and returns the fragment of the redirect
+// Location (the part after '#'). Used by the rejection-path tests, which still
+// deliver errors via the "oidc_error" fragment.
+func runGitHubCallback(t *testing.T, h *GitHubHandler, cookie *http.Cookie, query url.Values) string {
+	t.Helper()
+	rec := runGitHubCallbackRec(t, h, cookie, query)
+	loc := rec.Result().Header.Get("Location")
 	if _, after, ok := strings.Cut(loc, "#"); ok {
 		return after
 	}
 	return ""
 }
 
-// successToken drives start+callback and asserts a session token came back.
+// successToken drives start+callback and asserts the session came back on the
+// HttpOnly mh_session cookie, with a clean "/" redirect carrying no token.
 func successToken(t *testing.T, h *GitHubHandler, sessionMgr *webauthn.SessionManager) {
 	t.Helper()
 	loc, cookie := runGitHubStart(t, h)
@@ -198,18 +207,27 @@ func successToken(t *testing.T, h *GitHubHandler, sessionMgr *webauthn.SessionMa
 	if state == "" {
 		t.Fatalf("auth URL missing state: %s", loc.String())
 	}
-	frag := runGitHubCallback(t, h, cookie, url.Values{"state": {state}, "code": {"auth-code"}})
-	const prefix = "oidc_token="
-	if !strings.HasPrefix(frag, prefix) {
-		t.Fatalf("expected token fragment, got %q", frag)
+	rec := runGitHubCallbackRec(t, h, cookie, url.Values{"state": {state}, "code": {"auth-code"}})
+	location := rec.Result().Header.Get("Location")
+	if location != "/" {
+		t.Fatalf("expected a clean redirect to \"/\", got %q", location)
 	}
-	token, err := url.QueryUnescape(strings.TrimPrefix(frag, prefix))
-	if err != nil {
-		t.Fatalf("unescape token: %v", err)
+	if strings.Contains(location, "oidc_token") || strings.Contains(location, "access_token") {
+		t.Fatalf("Location must not carry the session token, got %q", location)
 	}
+	token := sessionCookie(t, rec)
 	if !sessionMgr.Validate(context.Background(), token) {
 		t.Fatal("minted session token failed Validate")
 	}
+}
+
+// TestGitHubCallback_SetsCookie_RedirectsClean pins the dashboard cookie-auth
+// contract end to end: a successful callback sets the HttpOnly mh_session
+// cookie and redirects to a clean "/" with no token in the Location header.
+func TestGitHubCallback_SetsCookie_RedirectsClean(t *testing.T) {
+	m := newGitHubMock(t)
+	h, _, sessionMgr := newGitHubTestHandler(t, m, "admin@example.com")
+	successToken(t, h, sessionMgr)
 }
 
 func TestGitHubStatus(t *testing.T) {
@@ -250,7 +268,7 @@ func TestGitHubStatus(t *testing.T) {
 			githubPublicBaseURLKey: "https://mh.example.test",
 		})
 		fs.set(tc.key, tc.val)
-		h := NewGitHubHandler(fs, nil, mockIPLimiter{}, testMasterKey)
+		h := NewGitHubHandler(fs, nil, mockIPLimiter{}, testMasterKey, "auto")
 		rec := httptest.NewRecorder()
 		h.Status(rec, httptest.NewRequest(http.MethodGet, "/api/auth/github/status", http.NoBody))
 		var resp githubStatusResponse
@@ -469,7 +487,7 @@ func TestGitHubCreateAuthTokenError(t *testing.T) {
 		githubAllowedEmailsKey: "admin@example.com",
 		githubPublicBaseURLKey: "https://mh.example.test",
 	})
-	h := NewGitHubHandler(fs, sessionMgr, mockIPLimiter{}, testMasterKey)
+	h := NewGitHubHandler(fs, sessionMgr, mockIPLimiter{}, testMasterKey, "auto")
 	rt, err := h.runtime(context.Background())
 	if err != nil || rt == nil || !rt.enabled {
 		t.Fatalf("runtime: %v", err)

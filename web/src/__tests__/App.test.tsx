@@ -1,19 +1,28 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { HttpResponse, http } from "msw";
 import { lazy, Suspense } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
-import { api, setAdminToken } from "../api/client";
+import { api } from "../api/client";
 import { mockAllDefaults } from "../test/helpers";
 import { server } from "../test/mocks/server";
 import { renderWithProviders } from "../test/utils";
 
+// The dashboard is authenticated purely from the readable mh_csrf cookie now.
+// Drive login state by setting/clearing that cookie in tests.
+function clearAuthCookie() {
+	document.cookie = "mh_csrf=; path=/; max-age=0";
+}
+
 vi.mock("../api/client", () => ({
-	setAdminToken: vi.fn(),
-	getAdminToken: vi.fn(() => localStorage.getItem("adminToken")),
 	API_BASE: "",
+	// Cookie-derived auth signal so AppContent gates on it, mirroring production.
+	isAuthenticated: vi.fn(() => /mh_csrf=[^;\s]/.test(document.cookie)),
 	api: {
+		auth: {
+			// Admin-token bootstrap for non-TOTP login.
+			adminExchange: vi.fn().mockResolvedValue({ success: true }),
+		},
 		settings: {
 			get: vi.fn().mockResolvedValue({ app_version: "v0.0.0-test" }),
 		},
@@ -38,7 +47,9 @@ vi.mock("../api/client", () => ({
 describe("LoginScreen", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		clearAuthCookie(); // logged-out: no session cookie -> LoginScreen renders
 		vi.clearAllMocks();
+		vi.mocked(api.auth.adminExchange).mockResolvedValue({ success: true });
 	});
 
 	it("renders logo, token input, and sign-in button", () => {
@@ -95,24 +106,20 @@ describe("LoginScreen", () => {
 		expect(input).toHaveAttribute("type", "password");
 	});
 
-	it("calls setAdminToken and reloads on successful submit", async () => {
+	it("exchanges the admin token and reloads on successful submit", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(<App />);
 
 		const input = screen.getByLabelText("Admin Token");
 		await user.type(input, "test-admin-token");
 
-		const reloadSpy = vi.spyOn(window, "location", "get");
-
 		const signInButton = screen.getByRole("button", { name: "Sign In" });
 		await user.click(signInButton);
 
+		// The server sets the session cookie pair; the client just POSTs the token.
 		await waitFor(() => {
-			expect(setAdminToken).toHaveBeenCalledWith("test-admin-token");
-			expect(localStorage.getItem("adminToken")).toBe("test-admin-token");
+			expect(api.auth.adminExchange).toHaveBeenCalledWith("test-admin-token");
 		});
-
-		reloadSpy.mockRestore();
 	});
 
 	it("shows the demo token as a copyable pill, not a second login button", async () => {
@@ -126,7 +133,7 @@ describe("LoginScreen", () => {
 		// The old one-click "log in to the demo" button is gone (the pill copies),
 		// and nothing logs in just by rendering the box.
 		expect(within(box).queryByRole("button", { name: /log in/i })).toBeNull();
-		expect(setAdminToken).not.toHaveBeenCalled();
+		expect(api.auth.adminExchange).not.toHaveBeenCalled();
 	});
 
 	it("does not show the demo token box when no demo token is present", async () => {
@@ -148,8 +155,7 @@ describe("LoginScreen", () => {
 		await user.type(input, "test-admin-token{enter}");
 
 		await waitFor(() => {
-			expect(setAdminToken).toHaveBeenCalledWith("test-admin-token");
-			expect(localStorage.getItem("adminToken")).toBe("test-admin-token");
+			expect(api.auth.adminExchange).toHaveBeenCalledWith("test-admin-token");
 		});
 	});
 
@@ -164,16 +170,13 @@ describe("LoginScreen", () => {
 		await user.click(signInButton);
 
 		await waitFor(() => {
-			expect(setAdminToken).toHaveBeenCalledWith("test-admin-token");
-			expect(localStorage.getItem("adminToken")).toBe("test-admin-token");
+			expect(api.auth.adminExchange).toHaveBeenCalledWith("test-admin-token");
 		});
 	});
 
 	it("shows error when token is invalid (401)", async () => {
-		server.use(
-			http.get("/api/system", () =>
-				HttpResponse.json({ error: "Unauthorized" }, { status: 401 }),
-			),
+		vi.mocked(api.auth.adminExchange).mockRejectedValue(
+			Object.assign(new Error("401 Unauthorized"), { status: 401 }),
 		);
 
 		const user = userEvent.setup();
@@ -188,14 +191,37 @@ describe("LoginScreen", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Invalid admin token")).toBeInTheDocument();
 		});
+	});
 
-		// Should NOT have saved the token
-		expect(localStorage.getItem("adminToken")).toBeNull();
-		expect(setAdminToken).not.toHaveBeenCalled();
+	it("reveals the TOTP field when the admin account has 2FA enabled (400)", async () => {
+		// A 400 on the admin-token exchange means the account has TOTP enabled;
+		// the admin token alone is not a sufficient credential, so the UI must
+		// flip into the TOTP step rather than reporting a hard failure.
+		vi.mocked(api.auth.adminExchange).mockRejectedValue(
+			Object.assign(new Error("400 Bad Request"), { status: 400 }),
+		);
+
+		const user = userEvent.setup();
+		renderWithProviders(<App />);
+
+		const input = screen.getByLabelText("Admin Token");
+		await user.type(input, "test-admin-token");
+
+		const signInButton = screen.getByRole("button", { name: "Sign In" });
+		await user.click(signInButton);
+
+		await waitFor(() => {
+			expect(
+				screen.getByText("Please enter your TOTP code"),
+			).toBeInTheDocument();
+		});
+		expect(screen.getByLabelText("TOTP code")).toBeInTheDocument();
 	});
 
 	it("shows error when server is unreachable", async () => {
-		server.use(http.get("/api/system", () => HttpResponse.error()));
+		vi.mocked(api.auth.adminExchange).mockRejectedValue(
+			new TypeError("Failed to fetch"),
+		);
 
 		const user = userEvent.setup();
 		renderWithProviders(<App />);
@@ -211,18 +237,11 @@ describe("LoginScreen", () => {
 				screen.getByText("Failed to connect to server"),
 			).toBeInTheDocument();
 		});
-
-		expect(localStorage.getItem("adminToken")).toBeNull();
 	});
 
 	it("disables sign-in button while validating", async () => {
-		// Use a delayed response to catch the loading state
-		server.use(
-			http.get("/api/system", async () => {
-				await new Promise((r) => setTimeout(r, 500));
-				return HttpResponse.json({});
-			}),
-		);
+		// Never-resolving exchange keeps the button in its loading state.
+		vi.mocked(api.auth.adminExchange).mockReturnValue(new Promise(() => {}));
 
 		const user = userEvent.setup();
 		renderWithProviders(<App />);
@@ -238,11 +257,9 @@ describe("LoginScreen", () => {
 	});
 
 	it("clears previous error on new submit attempt", async () => {
-		// First attempt: invalid token
-		server.use(
-			http.get("/api/system", () =>
-				HttpResponse.json({ error: "Unauthorized" }, { status: 401 }),
-			),
+		// First attempt: invalid token.
+		vi.mocked(api.auth.adminExchange).mockRejectedValueOnce(
+			Object.assign(new Error("401 Unauthorized"), { status: 401 }),
 		);
 
 		const user = userEvent.setup();
@@ -258,10 +275,7 @@ describe("LoginScreen", () => {
 			expect(screen.getByText("Invalid admin token")).toBeInTheDocument();
 		});
 
-		// Override handler to accept any token now
-		server.use(http.get("/api/system", () => HttpResponse.json({})));
-
-		// Clear input and type a valid token
+		// Second attempt succeeds (default mock resolves).
 		await user.clear(input);
 		await user.type(input, "valid-token");
 		await user.click(signInButton);
@@ -274,13 +288,11 @@ describe("LoginScreen", () => {
 
 	it("does not submit on Enter while already validating", async () => {
 		let callCount = 0;
-		server.use(
-			http.get("/api/system", async () => {
-				callCount++;
-				await new Promise((r) => setTimeout(r, 500));
-				return HttpResponse.json({});
-			}),
-		);
+		vi.mocked(api.auth.adminExchange).mockImplementation(async () => {
+			callCount++;
+			await new Promise((r) => setTimeout(r, 500));
+			return { success: true };
+		});
 
 		const user = userEvent.setup();
 		renderWithProviders(<App />);
@@ -303,18 +315,19 @@ describe("LoginScreen", () => {
 describe("AppContent", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		clearAuthCookie();
 		vi.clearAllMocks();
 	});
 
-	it("renders LoginScreen when no token in localStorage", () => {
+	it("renders LoginScreen when no session cookie is present", () => {
 		renderWithProviders(<App />);
 
 		expect(screen.getByLabelText("Admin Token")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Sign In" })).toBeInTheDocument();
 	});
 
-	it("renders Layout with routes when token present", async () => {
-		localStorage.setItem("adminToken", "existing-token");
+	it("renders Layout with routes when session cookie present", async () => {
+		document.cookie = "mh_csrf=existing-token; path=/";
 
 		renderWithProviders(<App />);
 
@@ -332,18 +345,8 @@ describe("AppContent", () => {
 		await act(async () => {});
 	});
 
-	it("calls setAdminToken with token from localStorage on mount", async () => {
-		localStorage.setItem("adminToken", "stored-token");
-
-		renderWithProviders(<App />);
-
-		expect(setAdminToken).toHaveBeenCalledWith("stored-token");
-
-		await act(async () => {});
-	});
-
-	it("navigates to dashboard by default when token present", async () => {
-		localStorage.setItem("adminToken", "test-token");
+	it("navigates to dashboard by default when session cookie present", async () => {
+		document.cookie = "mh_csrf=test-token; path=/";
 
 		renderWithProviders(<App />);
 
@@ -359,6 +362,7 @@ describe("AppContent", () => {
 describe("App providers", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		clearAuthCookie();
 	});
 
 	it("wraps AppContent in all required providers", () => {
@@ -448,13 +452,14 @@ describe("PageSuspense pattern (Suspense with spinner fallback)", () => {
 describe("Route navigation", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		clearAuthCookie();
 		vi.clearAllMocks();
 		server.resetHandlers();
 		server.use(...mockAllDefaults());
 	});
 
 	it("navigates to Logs page", async () => {
-		localStorage.setItem("adminToken", "test-token");
+		document.cookie = "mh_csrf=test-token; path=/";
 		renderWithProviders(<App />);
 
 		const logsLink = screen.getByRole("link", { name: /Requests/ });
@@ -468,7 +473,7 @@ describe("Route navigation", () => {
 	});
 
 	it("navigates to Settings page", async () => {
-		localStorage.setItem("adminToken", "test-token");
+		document.cookie = "mh_csrf=test-token; path=/";
 		renderWithProviders(<App />);
 
 		const settingsLink = screen.getByRole("link", { name: "Settings" });
@@ -482,7 +487,7 @@ describe("Route navigation", () => {
 	});
 
 	it("navigates to Virtual Keys page", async () => {
-		localStorage.setItem("adminToken", "test-token");
+		document.cookie = "mh_csrf=test-token; path=/";
 		renderWithProviders(<App />);
 
 		const virtualKeysLink = screen.getByRole("link", { name: "Virtual Keys" });
@@ -496,7 +501,7 @@ describe("Route navigation", () => {
 	});
 
 	it("navigates to Chat page", async () => {
-		localStorage.setItem("adminToken", "test-token");
+		document.cookie = "mh_csrf=test-token; path=/";
 		renderWithProviders(<App />);
 
 		const chatLink = screen.getByRole("link", { name: /Chat/ });
@@ -510,7 +515,7 @@ describe("Route navigation", () => {
 	});
 
 	it("navigates to Arena page", async () => {
-		localStorage.setItem("adminToken", "test-token");
+		document.cookie = "mh_csrf=test-token; path=/";
 		renderWithProviders(<App />);
 
 		const arenaLink = screen.getByRole("link", { name: /Arena/ });
@@ -524,7 +529,7 @@ describe("Route navigation", () => {
 	});
 
 	it("navigates to Dashboard page", async () => {
-		localStorage.setItem("adminToken", "test-token");
+		document.cookie = "mh_csrf=test-token; path=/";
 		renderWithProviders(<App />);
 
 		// Navigate away first (to Settings), since Dashboard is the default route
@@ -553,7 +558,7 @@ describe("Route navigation", () => {
 	});
 
 	it("navigates to Providers page", async () => {
-		localStorage.setItem("adminToken", "test-token");
+		document.cookie = "mh_csrf=test-token; path=/";
 		renderWithProviders(<App />);
 
 		const providersLink = screen.getByRole("link", { name: "Providers" });
@@ -572,7 +577,7 @@ describe("Route navigation", () => {
 	});
 
 	it("navigates to Models page", async () => {
-		localStorage.setItem("adminToken", "test-token");
+		document.cookie = "mh_csrf=test-token; path=/";
 		renderWithProviders(<App />);
 
 		const modelsLink = screen.getByRole("link", { name: "Models" });
@@ -586,7 +591,7 @@ describe("Route navigation", () => {
 	});
 
 	it("navigates to Failover Groups page", async () => {
-		localStorage.setItem("adminToken", "test-token");
+		document.cookie = "mh_csrf=test-token; path=/";
 		renderWithProviders(<App />);
 
 		const failoverLink = screen.getByRole("link", { name: "Failover" });

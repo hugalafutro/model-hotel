@@ -238,8 +238,8 @@ func TestGitHubUserEmailBinding(t *testing.T) {
 
 	loc, cookie := runGitHubStart(t, h)
 	state := loc.Query().Get("state")
-	frag := runGitHubCallback(t, h, cookie, url.Values{"state": {state}, "code": {"auth-code"}})
-	token := oidcTokenFromFragment(t, frag)
+	rec := runGitHubCallbackRec(t, h, cookie, url.Values{"state": {state}, "code": {"auth-code"}})
+	token := sessionCookie(t, rec)
 	handle, ok := sessionMgr.TokenUser(context.Background(), token)
 	if !ok {
 		t.Fatal("bound-user token failed validation")

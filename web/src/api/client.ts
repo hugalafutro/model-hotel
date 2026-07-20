@@ -80,8 +80,35 @@ async function fetchOK(
 	options?: RequestInit,
 	errorPrefix = "Request failed",
 ): Promise<Response> {
-	const response = await fetch(url, options);
+	// Same-origin credentials so the httpOnly session cookie rides along on every
+	// dashboard call. (Same-origin is the fetch default, but we set it explicitly
+	// so the intent is obvious and survives any future default change.)
+	const init: RequestInit = { credentials: "same-origin", ...options };
+	// The CSRF token only guards state-changing requests. getAuthHeaders() is
+	// shared by GET and mutating callers, so strip X-CSRF-Token here for safe
+	// methods (GET/HEAD) rather than leaking the token on read-only calls. The
+	// original header shape is preserved (plain object stays a plain object).
+	const method = (init.method ?? "GET").toUpperCase();
+	if ((method === "GET" || method === "HEAD") && init.headers) {
+		if (init.headers instanceof Headers) {
+			init.headers.delete("X-CSRF-Token");
+		} else if (Array.isArray(init.headers)) {
+			init.headers = init.headers.filter(
+				([key]) => key.toLowerCase() !== "x-csrf-token",
+			);
+		} else {
+			const rest = { ...(init.headers as Record<string, string>) };
+			delete rest["X-CSRF-Token"];
+			init.headers = rest;
+		}
+	}
+	const response = await fetch(url, init);
 	if (!response.ok) {
+		// A 401 means the session cookie is gone or invalid. Drop the client-side
+		// auth signal so isAuthenticated() flips false; the surfaced ApiError lets
+		// callers show a session-expired state (the SSE stream forces the reload
+		// to the login screen).
+		if (response.status === 401) clearAuth();
 		const text = await response.text();
 		throw new ApiError(
 			`${errorPrefix}: ${response.status} ${text}`,
@@ -147,32 +174,45 @@ export function buildUrl(
 
 // ── API ─────────────────────────────────────────────────────────────
 
-// Admin token is stored in memory (preferred) with localStorage as a
-// persistence fallback so sessions survive page reloads. This is an explicit
-// trade-off: the dashboard is same-origin and admin-only, so XSS is the only
-// practical attack vector. httpOnly cookies would eliminate the XSS risk but
-// require CSRF protection, which adds complexity for a single-user admin
-// panel serving an embedded SPA. If you deploy this behind a public-facing
-// domain with untrusted users, consider switching to httpOnly cookies.
-let adminToken: string | null = null;
+// Cookie-session auth. The session rides in an httpOnly `mh_session` cookie the
+// browser attaches automatically on same-origin requests; JS cannot read it. A
+// companion readable `mh_csrf` cookie is the client-visible "is logged in"
+// signal and is echoed back in the X-CSRF-Token header on mutating requests so
+// the server can reject cross-site writes. No bearer token is ever stored or
+// sent.
 
-export function setAdminToken(token: string) {
-	adminToken = token;
+/** getCsrfToken reads the readable `mh_csrf` cookie, or null when absent. */
+export function getCsrfToken(): string | null {
+	const m = document.cookie.match(/(?:^|;\s*)mh_csrf=([^;]+)/);
+	return m ? decodeURIComponent(m[1]) : null;
 }
 
-export function getAdminToken(): string | null {
-	return adminToken;
+/** isAuthenticated reports whether the dashboard session cookie pair is present,
+ * derived from the readable CSRF cookie (the httpOnly session cookie can't be
+ * observed from JS). */
+export function isAuthenticated(): boolean {
+	return getCsrfToken() !== null;
 }
 
+/** clearAuth expires the readable CSRF cookie so isAuthenticated() flips false.
+ * The httpOnly session cookie is cleared server-side on logout / on a 401; this
+ * drops the client-visible auth signal immediately. */
+export function clearAuth(): void {
+	document.cookie = "mh_csrf=; path=/; max-age=0";
+}
+
+/** getAuthHeaders returns the headers for an authenticated mutating request:
+ * a JSON content type plus the CSRF token echoed from the readable cookie. It
+ * never throws and never sends an Authorization bearer; the session travels in
+ * the cookie. Safe (GET) requests may reuse it harmlessly — the server only
+ * validates the CSRF header on mutating methods. */
 export function getAuthHeaders(): Record<string, string> {
-	const token = adminToken || localStorage.getItem("adminToken");
-	if (!token) {
-		throw new Error("Admin token not set");
-	}
-	return {
-		Authorization: `Bearer ${token}`,
+	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
 	};
+	const csrf = getCsrfToken();
+	if (csrf) headers["X-CSRF-Token"] = csrf;
+	return headers;
 }
 
 export const api = {
@@ -1130,13 +1170,13 @@ export const api = {
 			formData.append("admin_token", adminToken);
 
 			// Must not set Content-Type: the browser needs to auto-set
-			// multipart/form-data with the correct boundary for FormData.
-			const token = localStorage.getItem("adminToken") || "";
+			// multipart/form-data with the correct boundary for FormData. The
+			// session rides in the cookie; the CSRF token authorizes this write.
+			const csrf = getCsrfToken();
 			const response = await fetch(`${API_BASE}/api/backups/restore`, {
 				method: "POST",
-				headers: {
-					Authorization: `Bearer ${token}`,
-				},
+				credentials: "same-origin",
+				headers: csrf ? { "X-CSRF-Token": csrf } : {},
 				body: formData,
 			});
 			if (!response.ok) {
@@ -1248,16 +1288,6 @@ export const api = {
 				"Failed to rename passkey",
 			);
 		},
-		logout: async (): Promise<void> => {
-			await fetchOK(
-				`${API_BASE}/api/webauthn/logout`,
-				{
-					method: "POST",
-					headers: getAuthHeaders(),
-				},
-				"Failed to logout",
-			);
-		},
 	},
 	totp: {
 		status: async (): Promise<TotpStatus> =>
@@ -1339,6 +1369,33 @@ export const api = {
 				},
 				"Login failed",
 			),
+		// Admin-token bootstrap: exchanges the env admin token for a session
+		// cookie pair. Returns 400 when the admin account has TOTP enabled (the
+		// caller must use the TOTP login flow instead), 401 on a bad token.
+		adminExchange: async (adminToken: string): Promise<{ success: boolean }> =>
+			fetchJSON<{ success: boolean }>(
+				`${API_BASE}/api/auth/admin-exchange`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ admin_token: adminToken }),
+				},
+				"Login failed",
+			),
+		// Always-mounted logout: revokes whatever session the caller presents
+		// (passkey OR TOTP session token) and clears both auth cookies
+		// server-side. Works with or without passkeys configured, unlike the
+		// passkey-gated /webauthn/logout.
+		logout: async (): Promise<void> => {
+			await fetchOK(
+				`${API_BASE}/api/auth/logout`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Failed to logout",
+			);
+		},
 		me: async (): Promise<Me> =>
 			fetchJSON<Me>(`${API_BASE}/api/auth/me`, {
 				headers: getAuthHeaders(),

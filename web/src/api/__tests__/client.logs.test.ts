@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setAdminToken } from "../client";
+import { api } from "../client";
 
 describe("api.logs", () => {
 	beforeEach(() => {
-		setAdminToken("test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 		vi.restoreAllMocks();
 	});
 
@@ -20,7 +20,6 @@ describe("api.logs", () => {
 				"/api/logs",
 				expect.objectContaining({
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 				}),
@@ -49,7 +48,6 @@ describe("api.logs", () => {
 				expect.stringContaining("/api/logs?"),
 				expect.objectContaining({
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 				}),
@@ -78,7 +76,6 @@ describe("api.logs", () => {
 				expect.objectContaining({
 					method: "DELETE",
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 					body: JSON.stringify({ older_than: "2024-01-01" }),
@@ -119,7 +116,6 @@ describe("api.logs", () => {
 				expect.stringContaining("/api/logs/cursor?"),
 				expect.objectContaining({
 					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
 						"Content-Type": "application/json",
 					}),
 				}),
@@ -175,9 +171,7 @@ describe("api.logs", () => {
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/logs/log-123",
 				expect.objectContaining({
-					headers: expect.objectContaining({
-						Authorization: "Bearer test-token",
-					}),
+					headers: expect.objectContaining({}),
 				}),
 			);
 		});

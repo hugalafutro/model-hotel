@@ -8,8 +8,7 @@ import { renderWithProviders } from "../test/utils";
 // Mirror LoginScreen.usertotp.test.tsx's client mock; both totp and auth
 // blocks are present so either login path can be driven per-test.
 vi.mock("../api/client", () => ({
-	setAdminToken: vi.fn(),
-	getAdminToken: vi.fn(() => localStorage.getItem("adminToken")),
+	isAuthenticated: vi.fn(() => /mh_csrf=[^;\s]/.test(document.cookie)),
 	API_BASE: "",
 	api: {
 		settings: {
@@ -51,6 +50,7 @@ vi.mock("../utils/webauthn", () => ({
 describe("LoginScreen loading indicators", () => {
 	beforeEach(() => {
 		localStorage.clear();
+		document.cookie = "mh_csrf=; path=/; max-age=0"; // logged out -> LoginScreen
 		vi.clearAllMocks();
 		server.resetHandlers();
 	});

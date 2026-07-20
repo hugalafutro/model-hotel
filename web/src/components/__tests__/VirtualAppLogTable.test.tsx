@@ -47,7 +47,7 @@ const defaultProps = {
 describe("VirtualAppLogTable", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		localStorage.setItem("adminToken", "test-token");
+		document.cookie = "mh_csrf=test-csrf; path=/";
 	});
 
 	// ==================== Empty State Tests ====================

@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef } from "react";
-import { API_BASE, getAdminToken } from "../api/client";
+import { API_BASE, clearAuth, isAuthenticated } from "../api/client";
 import { readSSEStream } from "../utils/sse";
 import { useToast } from "./ToastContext";
 
@@ -20,7 +20,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
 	const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
-		if (!getAdminToken()) return;
+		if (!isAuthenticated()) return;
 
 		// Set once the effect's cleanup has run so any in-flight fetch that
 		// settles afterwards won't schedule a fresh reconnect.
@@ -28,25 +28,24 @@ export function EventProvider({ children }: { children: ReactNode }) {
 
 		const connect = () => {
 			if (connectingRef.current) return;
-			// Re-read the token on every (re)connect so a token rotated mid-session
-			// (e.g. enabling TOTP 2FA swaps the raw admin token for a session token)
-			// is used instead of the stale one captured when the effect mounted.
-			const token = getAdminToken();
-			if (!token) return;
+			// Re-check auth on every (re)connect so a session dropped mid-run stops
+			// us from reconnecting in a loop. The session cookie attaches
+			// automatically on this same-origin request.
+			if (!isAuthenticated()) return;
 			connectingRef.current = true;
 			const ac = new AbortController();
 			abortRef.current = ac;
 			let authFailed = false;
 
 			fetch(`${API_BASE}/api/events`, {
-				headers: { Authorization: `Bearer ${token}` },
+				credentials: "same-origin",
 				signal: ac.signal,
 			})
 				.then((response) => {
 					if (!response.ok) {
 						if (response.status === 401) {
 							authFailed = true;
-							localStorage.removeItem("adminToken");
+							clearAuth();
 							window.location.reload();
 							return;
 						}

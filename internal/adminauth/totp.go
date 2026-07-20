@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -29,6 +30,16 @@ type TotpHandler struct {
 	totpEnabled        func() bool           // shared cached state (Handler.TotpEnabled)
 	refreshTotpEnabled func(context.Context) // refresh cache after mutations (Handler.RefreshTotpEnabled)
 	loginThrottle      *totp.Throttle        // per-IP exponential backoff on failed /totp/login
+	// cookieSecure ("auto"/"always"/"never") resolves the Secure attribute on
+	// the session cookie so plain-http LAN deployments still work.
+	cookieSecure string
+	// useCookieAuth selects the session-delivery mode at both mint sites
+	// (EnrollVerify, Login). true (the dashboard): mint sets an HttpOnly
+	// mh_session cookie and the body carries no token. false (Front Desk):
+	// legacy behavior preserved byte-for-byte from before the httpOnly-cookie
+	// migration, since the Front Desk web client keeps its bearer token in
+	// localStorage rather than a cookie.
+	useCookieAuth bool
 	// confirmed_at cache for /totp/status. The stamp is set once at enrollment
 	// and never changes until disable/re-enroll, so a polled status endpoint can
 	// serve it from memory instead of reading the DB on every call. Read lock-free
@@ -51,6 +62,8 @@ func NewTotpHandler(
 	demoReadOnly bool,
 	totpEnabled func() bool,
 	refreshTotpEnabled func(context.Context),
+	cookieSecure string,
+	useCookieAuth bool,
 ) *TotpHandler {
 	return &TotpHandler{
 		totpRepo:           totpRepo,
@@ -60,6 +73,8 @@ func NewTotpHandler(
 		demoReadOnly:       demoReadOnly,
 		totpEnabled:        totpEnabled,
 		refreshTotpEnabled: refreshTotpEnabled,
+		cookieSecure:       cookieSecure,
+		useCookieAuth:      useCookieAuth,
 		// After maxFailures failed logins from one IP, back off exponentially
 		// (1s doubling, capped at 5m), self-clearing and reset on success.
 		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
@@ -251,6 +266,24 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 	// endpoint + a valid TOTP code), so a session is warranted. Best effort:
 	// the recovery codes are the critical payload and are returned even if the
 	// mint fails (the admin can re-login manually).
+	if h.useCookieAuth {
+		resp := map[string]any{"recovery_codes": codes, "success": true}
+		if h.sessionMgr != nil {
+			if tok, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil); err != nil {
+				debuglog.Error("totp: failed to mint post-enroll session token; admin must re-login", "error", err)
+			} else if err := authcookie.SetSession(w, tok, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
+				// Best effort like the mint above: the recovery codes are the
+				// critical payload and are still returned even if the cookie
+				// write fails (the admin can re-login manually).
+				debuglog.Error("totp: set session cookie failed", "error", err)
+			}
+		}
+		writeJSON(w, resp)
+		return
+	}
+	// Legacy path (Front Desk): return the session token in the body exactly
+	// as before the httpOnly-cookie migration. Front Desk's web client keeps
+	// its bearer token in localStorage rather than reading a cookie.
 	resp := map[string]any{"recovery_codes": codes}
 	if h.sessionMgr != nil {
 		if tok, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil); err != nil {
@@ -354,5 +387,21 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.loginThrottle.RecordSuccess(throttleKey)
-	writeJSON(w, map[string]string{"token": sessionToken})
+	if !h.useCookieAuth {
+		// Legacy path (Front Desk): return the session token in the body
+		// exactly as before the httpOnly-cookie migration. Front Desk's web
+		// client keeps its bearer token in localStorage rather than reading
+		// a cookie.
+		writeJSON(w, map[string]string{"token": sessionToken})
+		return
+	}
+	// Hand the session to the browser as an HttpOnly cookie rather than in the
+	// body: JS never touches it, and the cookie MaxAge is bound to the same
+	// webauthn.AuthTokenTTL as the server-side session so the two cannot drift.
+	if err := authcookie.SetSession(w, sessionToken, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
+		debuglog.Error("totp: set session cookie failed", "error", err)
+		http.Error(w, "failed to create session", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"success": true})
 }

@@ -598,7 +598,7 @@ describe("Dashboard", () => {
 			server.use(
 				http.get("/api/stats", ({ request }) => {
 					apiCalled = true;
-					expect(request.headers.get("Authorization")).toMatch(/Bearer /);
+					expect(request.headers.get("Cookie")).toContain("mh_csrf=");
 					return HttpResponse.json(mockStats);
 				}),
 			);
@@ -615,7 +615,7 @@ describe("Dashboard", () => {
 			server.use(
 				http.get("/api/models", ({ request }) => {
 					apiCalled = true;
-					expect(request.headers.get("Authorization")).toMatch(/Bearer /);
+					expect(request.headers.get("Cookie")).toContain("mh_csrf=");
 					return HttpResponse.json([mockModel]);
 				}),
 			);
@@ -632,7 +632,7 @@ describe("Dashboard", () => {
 			server.use(
 				http.get("/api/providers", ({ request }) => {
 					apiCalled = true;
-					expect(request.headers.get("Authorization")).toMatch(/Bearer /);
+					expect(request.headers.get("Cookie")).toContain("mh_csrf=");
 					return HttpResponse.json([mockProvider]);
 				}),
 			);

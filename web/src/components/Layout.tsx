@@ -26,7 +26,7 @@ import {
 	Swords,
 	Users as UsersIcon,
 } from "@/lib/icons";
-import { api, setAdminToken } from "../api/client";
+import { api, clearAuth } from "../api/client";
 import { useIdentity } from "../context/IdentityContext";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
@@ -909,25 +909,22 @@ export function Layout({ children }: LayoutProps) {
 
 	const handleLogout = async () => {
 		try {
-			// Best-effort server-side session revoke. The endpoint revokes whatever
-			// session matches the bearer (passkey OR TOTP session token), so it must
-			// run for every session type, not only when passkeys are configured. A
-			// raw admin token with no server session is a harmless no-op; a route
-			// that isn't mounted 404s into the catch below. This matters for idle
-			// auto-logout: a TOTP-only admin's session must die server-side too.
-			await api.webauthn.logout();
+			// Best-effort server-side session revoke via the always-mounted
+			// endpoint. It revokes whatever session the caller presents (passkey OR
+			// TOTP session token) and clears both auth cookies, so it must run for
+			// every session type and works whether or not passkeys are configured. A
+			// raw admin token with no server session is a harmless no-op. This
+			// matters for idle auto-logout: a TOTP-only admin's session must die
+			// server-side too.
+			await api.auth.logout();
 		} catch {
 			// Server-side logout failure is non-fatal.
 		}
-		// Tear down the auth state before the reload. Order matters: clear the
-		// in-memory token (the primary source getAuthHeaders() reads) AND the
-		// localStorage fallback, then cancel any in-flight queries. Without
-		// clearing the in-memory token, queries that refetch in the gap before the
-		// reload would still send the now-revoked token, producing a burst of
-		// 401s server-side (and pointless work client-side). With it cleared,
-		// getAuthHeaders() throws locally and those refetches never hit the wire.
-		setAdminToken("");
-		localStorage.removeItem("adminToken");
+		// The logout call revoked the session and cleared the httpOnly session
+		// cookie server-side. Drop the client-visible auth signal so
+		// isAuthenticated() flips false, cancel any in-flight queries so they don't
+		// race the reload, then reload into the login screen.
+		clearAuth();
 		queryClient.cancelQueries();
 		window.location.reload();
 	};

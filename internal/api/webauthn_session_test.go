@@ -13,6 +13,16 @@ import (
 type mockWebAuthnSessionMgr struct {
 	validateFn func(ctx context.Context, token string) bool
 	revokeFn   func(ctx context.Context, token string) bool
+	createFn   func(ctx context.Context, userID, credentialID []byte) (string, error)
+}
+
+// CreateAuthToken mints a session token, deferring to createFn when set so
+// tests can return a deterministic token (or an error) without a session store.
+func (m *mockWebAuthnSessionMgr) CreateAuthToken(ctx context.Context, userID, credentialID []byte) (string, error) {
+	if m.createFn != nil {
+		return m.createFn(ctx, userID, credentialID)
+	}
+	return "mock-session-token", nil
 }
 
 func (m *mockWebAuthnSessionMgr) Validate(ctx context.Context, token string) bool {

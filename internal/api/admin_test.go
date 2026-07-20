@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -849,6 +850,97 @@ func TestAuthMiddleware_WebAuthnSessionFallbackFails(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("expected status %d when both admin and webAuthn fail, got %d", http.StatusUnauthorized, rec.Code)
+	}
+}
+
+// --- Cookie/CSRF AuthMiddleware tests ---
+
+// TestAuthMiddleware_SessionCookie_Get_Works verifies a browser session
+// carried on the HttpOnly cookie authenticates a safe (GET) request without
+// any Authorization header.
+func TestAuthMiddleware_SessionCookie_Get_Works(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	h.webauthnSessionMgr = &mockWebAuthnSessionMgr{
+		validateFn: func(_ context.Context, token string) bool { return token == "valid-session" },
+	}
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/system", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: "valid-session"})
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET with session cookie = %d, want 200 (body %s)", rec.Code, rec.Body.String())
+	}
+}
+
+// TestAuthMiddleware_SessionCookie_Post_RequiresCSRF verifies that a cookie-authenticated
+// unsafe method (POST) is rejected with 403 when no matching CSRF header is present.
+func TestAuthMiddleware_SessionCookie_Post_RequiresCSRF(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	h.webauthnSessionMgr = &mockWebAuthnSessionMgr{
+		validateFn: func(_ context.Context, token string) bool { return token == "valid-session" },
+	}
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/providers", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: "valid-session"})
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("POST cookie without CSRF = %d, want 403", rec.Code)
+	}
+}
+
+// TestAuthMiddleware_SessionCookie_Post_WithCSRF_Works verifies that a cookie-authenticated
+// POST succeeds when the CSRF header matches the CSRF cookie (double-submit).
+func TestAuthMiddleware_SessionCookie_Post_WithCSRF_Works(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	h.webauthnSessionMgr = &mockWebAuthnSessionMgr{
+		validateFn: func(_ context.Context, token string) bool { return token == "valid-session" },
+	}
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/providers", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: "valid-session"})
+	req.AddCookie(&http.Cookie{Name: authcookie.CSRFCookie, Value: "csrf-xyz"})
+	req.Header.Set(authcookie.CSRFHeader, "csrf-xyz")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST cookie with CSRF = %d, want 200", rec.Code)
+	}
+}
+
+// TestAuthMiddleware_AdminTokenHeader_StillWorks_NoCSRF verifies that the
+// existing admin-token bearer path (TOTP off) is untouched by the cookie
+// branch: a header POST needs no CSRF token.
+func TestAuthMiddleware_AdminTokenHeader_StillWorks_NoCSRF(t *testing.T) {
+	mockAuth := &mockAdminAuth{validateFn: func(token string) bool { return token == "valid-token" }}
+	h := testHandler(nil, nil, nil, mockAuth, nil)
+	handler := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/providers", http.NoBody)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin-token header POST = %d, want 200 (CSRF-exempt)", rec.Code)
 	}
 }
 

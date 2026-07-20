@@ -40,9 +40,7 @@ describe("Test infrastructure", () => {
 			}),
 		);
 
-		const response = await fetch("/api/providers", {
-			headers: { Authorization: "Bearer test-admin-token" },
-		});
+		const response = await fetch("/api/providers");
 		const data = await response.json();
 
 		expect(data).toHaveLength(1);
@@ -56,9 +54,7 @@ describe("Test infrastructure", () => {
 			}),
 		);
 
-		const response = await fetch("/api/providers", {
-			headers: { Authorization: "Bearer test-admin-token" },
-		});
+		const response = await fetch("/api/providers");
 		const data = await response.json();
 		expect(data).toHaveLength(0);
 	});

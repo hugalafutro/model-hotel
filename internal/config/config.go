@@ -46,6 +46,11 @@ type Config struct {
 	TrustedProxies       []*net.IPNet
 	KnownProxies         []*net.IPNet
 
+	// CookieSecure controls the Secure attribute on dashboard auth cookies.
+	// "auto" (default) sets Secure based on the request scheme, "always"
+	// forces Secure on, and "never" forces Secure off (for local HTTP dev).
+	CookieSecure string
+
 	// WebAuthn/FIDO2 configuration. When WEBAUTHN_RP_ID is set, passkey
 	// login is enabled; otherwise the feature is completely disabled.
 	WebAuthnRPID          string
@@ -148,6 +153,8 @@ func Load() (*Config, error) {
 		WebAuthnRPID:          getEnv("WEBAUTHN_RP_ID"),
 		WebAuthnRPDisplayName: getEnvWithDefault("WEBAUTHN_RP_DISPLAY_NAME", "Model Hotel"),
 		WebAuthnRPOrigins:     parseCORSOrigins(getEnv("WEBAUTHN_RP_ORIGINS")),
+
+		CookieSecure: normalizeCookieSecure(getEnv("COOKIE_SECURE")),
 	}
 
 	// If DATABASE_URL is not set, construct it from POSTGRES_* components.
@@ -427,6 +434,19 @@ func getEnvWithDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// normalizeCookieSecure validates COOKIE_SECURE against its allowed values
+// ("always", "never"), defaulting to "auto" for unset or unrecognized input.
+func normalizeCookieSecure(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "always":
+		return "always"
+	case "never":
+		return "never"
+	default:
+		return "auto"
+	}
 }
 
 func getBoolEnvWithDefault(key string, defaultValue bool) bool {

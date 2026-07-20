@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	otptotp "github.com/pquerna/otp/totp"
 
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	totpsvc "github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
@@ -52,7 +53,28 @@ func newTotpTestHandler(t *testing.T) (*totpEnabledShim, *TotpHandler) {
 	// Clean up TOTP state after the test too.
 	t.Cleanup(func() { truncateTOTPTables(t) })
 
-	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled)
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled, "auto", true)
+	return shim, th
+}
+
+// newTotpTestHandlerLegacy is newTotpTestHandler with useCookieAuth=false,
+// pinning the Front Desk contract: session tokens travel in the JSON body,
+// never as an mh_session cookie.
+func newTotpTestHandlerLegacy(t *testing.T) (*totpEnabledShim, *TotpHandler) {
+	t.Helper()
+	truncateTOTPTables(t)
+
+	totpRepo := totpsvc.NewRepository(apiTestDB.Pool(), testMasterKey)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
+	wrepo := webauthn.NewRepository(apiTestDB.Pool())
+	sessionMgr := webauthn.NewSessionManager(wrepo)
+
+	shim := &totpEnabledShim{repo: totpRepo, adminMgr: adminMgr, sessionMgr: sessionMgr}
+	shim.totpEnabled.Store(false)
+
+	t.Cleanup(func() { truncateTOTPTables(t) })
+
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled, "auto", false)
 	return shim, th
 }
 
@@ -389,7 +411,7 @@ func TestTotpEnrollStart_DemoReadOnly(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
 	wrepo := webauthn.NewRepository(apiTestDB.Pool())
 	sessionMgr := webauthn.NewSessionManager(wrepo)
-	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, true, func() bool { return false }, func(context.Context) {})
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, true, func() bool { return false }, func(context.Context) {}, "auto", true)
 
 	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
 	req.Header.Set("Authorization", "Bearer admin-token")
@@ -472,7 +494,7 @@ func TestTotpEnrollVerify_HappyPath(t *testing.T) {
 	}
 	var verifyResp struct {
 		RecoveryCodes []string `json:"recovery_codes"`
-		Token         string   `json:"token"`
+		Success       bool     `json:"success"`
 	}
 	if err := json.Unmarshal(vw.Body.Bytes(), &verifyResp); err != nil {
 		t.Fatalf("decode: %v", err)
@@ -480,10 +502,110 @@ func TestTotpEnrollVerify_HappyPath(t *testing.T) {
 	if len(verifyResp.RecoveryCodes) != 10 {
 		t.Errorf("expected 10 recovery codes, got %d", len(verifyResp.RecoveryCodes))
 	}
+	if !verifyResp.Success {
+		t.Error("expected success=true in the enroll/verify response")
+	}
 	// Enabling 2FA invalidates the raw admin token, so enroll/verify mints a
-	// session token (kept by the UI) to avoid logging the admin out.
+	// session (kept by the UI as an HttpOnly cookie) to avoid logging the
+	// admin out.
+	if _, ok := th.sessionMgr.TokenUser(context.Background(), sessionCookie(t, vw)); !ok {
+		t.Error("cookie token does not validate against the session manager")
+	}
+}
+
+// TestTotpEnrollVerify_SetsSessionCookie_NoTokenInBody pins the cookie-auth
+// contract for the post-enroll mint: recovery codes travel in the body (the
+// UI must display them once), but the session token never does.
+func TestTotpEnrollVerify_SetsSessionCookie_NoTokenInBody(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer admin-token")
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("enroll/start: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var startResp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &startResp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	code := validCode(t, startResp["secret"])
+	vreq := httptest.NewRequest(http.MethodPost, "/totp/enroll/verify",
+		bytes.NewReader([]byte(`{"code":"`+code+`"}`)))
+	vreq.Header.Set("Authorization", "Bearer admin-token")
+	vreq.Header.Set("Content-Type", "application/json")
+	vw := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(vw, vreq)
+
+	if vw.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", vw.Code, vw.Body.String())
+	}
+	if bytes.Contains(vw.Body.Bytes(), []byte(`"token"`)) {
+		t.Errorf("token leaked into body: %s", vw.Body.String())
+	}
+	if !bytes.Contains(vw.Body.Bytes(), []byte(`"success":true`)) {
+		t.Errorf("expected success:true in body: %s", vw.Body.String())
+	}
+	if _, ok := th.sessionMgr.TokenUser(context.Background(), sessionCookie(t, vw)); !ok {
+		t.Error("cookie token does not validate against the session manager")
+	}
+}
+
+// TestTotpEnrollVerify_LegacyMode_ReturnsTokenInBody_NoCookie pins the Front
+// Desk contract: with useCookieAuth=false the post-enroll session token
+// travels in the JSON body alongside recovery_codes, exactly as before the
+// httpOnly-cookie migration, and no mh_session cookie is ever set.
+func TestTotpEnrollVerify_LegacyMode_ReturnsTokenInBody_NoCookie(t *testing.T) {
+	_, th := newTotpTestHandlerLegacy(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer admin-token")
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("enroll/start: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var startResp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &startResp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	code := validCode(t, startResp["secret"])
+	vreq := httptest.NewRequest(http.MethodPost, "/totp/enroll/verify",
+		bytes.NewReader([]byte(`{"code":"`+code+`"}`)))
+	vreq.Header.Set("Authorization", "Bearer admin-token")
+	vreq.Header.Set("Content-Type", "application/json")
+	vw := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(vw, vreq)
+
+	if vw.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", vw.Code, vw.Body.String())
+	}
+	var verifyResp struct {
+		RecoveryCodes []string `json:"recovery_codes"`
+		Token         string   `json:"token"`
+	}
+	if err := json.Unmarshal(vw.Body.Bytes(), &verifyResp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
 	if verifyResp.Token == "" {
-		t.Error("expected a session token in the enroll/verify response")
+		t.Errorf("expected token in legacy body, got: %s", vw.Body.String())
+	}
+	if len(verifyResp.RecoveryCodes) == 0 {
+		t.Errorf("expected recovery_codes in legacy body, got: %s", vw.Body.String())
+	}
+	if bytes.Contains(vw.Body.Bytes(), []byte(`"success"`)) {
+		t.Errorf("legacy body must not carry success flag: %s", vw.Body.String())
+	}
+	for _, c := range vw.Result().Cookies() {
+		if c.Name == authcookie.SessionCookie {
+			t.Errorf("legacy mode must not set an mh_session cookie, got %+v", c)
+		}
+	}
+	if _, ok := th.sessionMgr.TokenUser(context.Background(), verifyResp.Token); !ok {
+		t.Error("legacy body token does not validate against the session manager")
 	}
 }
 
@@ -552,7 +674,6 @@ func doEnrollVerify(t *testing.T, th *TotpHandler) (string, []string) {
 	}
 	var verifyResp struct {
 		RecoveryCodes []string `json:"recovery_codes"`
-		Token         string   `json:"token"`
 	}
 	if err := json.Unmarshal(vw.Body.Bytes(), &verifyResp); err != nil {
 		t.Fatalf("decode: %v", err)
@@ -562,6 +683,7 @@ func doEnrollVerify(t *testing.T, th *TotpHandler) (string, []string) {
 
 // sessionTokenAfterEnroll logs in via /totp/login to obtain a session token
 // for the post-EnrollVerify state (where raw admin is rejected by the gate).
+// The session travels in the HttpOnly mh_session cookie, not the body.
 func sessionTokenAfterEnroll(t *testing.T, th *TotpHandler, secret string) string {
 	t.Helper()
 	code := validCode(t, secret)
@@ -573,11 +695,7 @@ func sessionTokenAfterEnroll(t *testing.T, th *TotpHandler, secret string) strin
 	if w.Code != http.StatusOK {
 		t.Fatalf("totp/login: expected 200, got %d: %s", w.Code, w.Body.String())
 	}
-	var resp map[string]string
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	return resp["token"]
+	return sessionCookie(t, w)
 }
 
 func TestTotpDisable_WithTotpCode(t *testing.T) {
@@ -666,14 +784,7 @@ func TestTotpLogin_HappyPath(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
-	var resp map[string]string
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	sessionToken := resp["token"]
-	if sessionToken == "" {
-		t.Fatal("expected non-empty session token")
-	}
+	sessionToken := sessionCookie(t, w)
 
 	// Assert the session token passes AuthMiddleware on a protected route.
 	mw := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -708,24 +819,89 @@ func TestTotpLogin_RecoveryCode(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
-	var resp map[string]string
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if resp["token"] == "" {
-		t.Error("expected non-empty session token")
-	}
+	sessionToken := sessionCookie(t, w)
 
 	// session token must pass AuthMiddleware.
 	mw := h.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	protectedReq := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
-	protectedReq.Header.Set("Authorization", "Bearer "+resp["token"])
+	protectedReq.Header.Set("Authorization", "Bearer "+sessionToken)
 	pw := httptest.NewRecorder()
 	mw.ServeHTTP(pw, protectedReq)
 	if pw.Code != http.StatusOK {
 		t.Errorf("recovery-code session token should pass AuthMiddleware, got %d", pw.Code)
+	}
+}
+
+// TestTotpLogin_SetsSessionCookie_NoTokenInBody pins the cookie-auth contract:
+// a successful TOTP login sets an HttpOnly mh_session cookie and the body
+// carries only {"success":true}, never the raw token.
+func TestTotpLogin_SetsSessionCookie_NoTokenInBody(t *testing.T) {
+	h, th := newTotpTestHandler(t)
+	secret, _ := doEnrollVerify(t, th)
+	if !h.TotpEnabled() {
+		t.Fatal("expected TOTP enabled after enroll/verify")
+	}
+
+	code := validCode(t, secret)
+	body := []byte(`{"token":"admin-token","code":"` + code + `"}`)
+	req := httptest.NewRequest(http.MethodPost, "/totp/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if !bytes.Contains(w.Body.Bytes(), []byte(`"success"`)) || bytes.Contains(w.Body.Bytes(), []byte(`"token"`)) {
+		t.Errorf("body must be success-only with no token: %s", w.Body.String())
+	}
+	if _, ok := th.sessionMgr.TokenUser(context.Background(), sessionCookie(t, w)); !ok {
+		t.Error("cookie token does not validate against the session manager")
+	}
+}
+
+// TestTotpLogin_LegacyMode_ReturnsTokenInBody_NoCookie pins the Front Desk
+// contract: with useCookieAuth=false a successful TOTP login returns the
+// session token in the JSON body exactly as before the httpOnly-cookie
+// migration, and no mh_session cookie is ever set.
+func TestTotpLogin_LegacyMode_ReturnsTokenInBody_NoCookie(t *testing.T) {
+	h, th := newTotpTestHandlerLegacy(t)
+	secret, _ := doEnrollVerify(t, th)
+	if !h.TotpEnabled() {
+		t.Fatal("expected TOTP enabled after enroll/verify")
+	}
+
+	code := validCode(t, secret)
+	body := []byte(`{"token":"admin-token","code":"` + code + `"}`)
+	req := httptest.NewRequest(http.MethodPost, "/totp/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Token == "" {
+		t.Errorf("expected token in legacy body, got: %s", w.Body.String())
+	}
+	if bytes.Contains(w.Body.Bytes(), []byte(`"success"`)) {
+		t.Errorf("legacy body must not carry success flag: %s", w.Body.String())
+	}
+	for _, c := range w.Result().Cookies() {
+		if c.Name == authcookie.SessionCookie {
+			t.Errorf("legacy mode must not set an mh_session cookie, got %+v", c)
+		}
+	}
+	if _, ok := th.sessionMgr.TokenUser(context.Background(), resp.Token); !ok {
+		t.Error("legacy body token does not validate against the session manager")
 	}
 }
 
@@ -805,7 +981,7 @@ func TestTotpAdminOrSessionAuth_TotpOn_RejectsRawToken(t *testing.T) {
 	sessionMgr := webauthn.NewSessionManager(wrepo)
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
 
-	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, func() bool { return true }, func(context.Context) {})
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, func() bool { return true }, func(context.Context) {}, "auto", true)
 
 	// Raw admin token: with TOTP on, enroll/start must 401.
 	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)

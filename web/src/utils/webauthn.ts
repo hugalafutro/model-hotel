@@ -58,17 +58,21 @@ export async function registerPasskey(): Promise<boolean> {
 	}
 }
 
-export async function loginWithPasskey(): Promise<string | null> {
+// loginWithPasskey drives a passkey assertion and returns true on success. The
+// server sets the session cookie pair on loginFinish, so there is no token to
+// hand back; reaching the end without throwing means we are logged in. Returns
+// false when the user dismisses the browser prompt (NotAllowedError).
+export async function loginWithPasskey(): Promise<boolean> {
 	try {
 		const { session_id, options } = await api.webauthn.loginStart();
 		const credential = await startAuthentication({
 			optionsJSON: options as unknown as PublicKeyCredentialRequestOptionsJSON,
 		});
-		const { token } = await api.webauthn.loginFinish(session_id, credential);
-		return token;
+		await api.webauthn.loginFinish(session_id, credential);
+		return true;
 	} catch (err) {
 		if (err instanceof Error && err.name === "NotAllowedError") {
-			return null;
+			return false;
 		}
 		throw err;
 	}

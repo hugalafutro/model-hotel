@@ -1,11 +1,8 @@
-// Helpers for the OIDC SSO callback hand-off. The backend callback redirects the
-// browser to the SPA with the result in the URL *fragment* (never the query
-// string), so the session token is not sent back to the server on the follow-up
-// request (no Referer leak, nothing in request logs). It does still appear in the
-// callback's 302 Location response header, so operators should redact Location on
-// /api/auth/oidc/callback in proxy access logs.
+// Helpers for the OIDC SSO callback hand-off. On success the backend callback
+// sets the session cookie pair and redirects to a clean `/` (no token in the URL
+// at all), so the app boots logged in purely from the cookie. On failure it
+// redirects to `/#oidc_error=<code>`; consumeOidcError turns that into a message.
 
-const TOKEN_PREFIX = "#oidc_token=";
 const ERROR_PREFIX = "#oidc_error=";
 
 /** scrubHash removes the fragment without adding a history entry. */
@@ -25,22 +22,6 @@ function safeDecode(s: string): string {
 	} catch {
 		return "";
 	}
-}
-
-/**
- * consumeOidcToken stores an SSO session token delivered in the URL fragment
- * (the same `adminToken` slot the other login paths use) and scrubs the
- * fragment. Returns true when a token was consumed. Call this synchronously
- * before the app reads the stored token so an SSO redirect boots logged in.
- */
-export function consumeOidcToken(): boolean {
-	const hash = window.location.hash;
-	if (!hash.startsWith(TOKEN_PREFIX)) return false;
-	const token = safeDecode(hash.slice(TOKEN_PREFIX.length));
-	scrubHash();
-	if (!token) return false;
-	localStorage.setItem("adminToken", token);
-	return true;
 }
 
 /**

@@ -29,7 +29,7 @@ describe("Arena", () => {
 			server.use(
 				http.get("/api/models", ({ request }) => {
 					modelsApiCalled = true;
-					expect(request.headers.get("Authorization")).toMatch(/Bearer /);
+					expect(request.headers.get("Cookie")).toContain("mh_csrf=");
 					return HttpResponse.json([mockModel]);
 				}),
 				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
@@ -49,7 +49,7 @@ describe("Arena", () => {
 			server.use(
 				http.get("/api/models", ({ request }) => {
 					modelsApiCalled = true;
-					expect(request.headers.get("Authorization")).toMatch(/Bearer /);
+					expect(request.headers.get("Cookie")).toContain("mh_csrf=");
 					return HttpResponse.json([mockModel]);
 				}),
 				http.get("/api/providers", () => HttpResponse.json([mockProvider])),
