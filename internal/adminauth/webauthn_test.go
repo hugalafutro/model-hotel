@@ -14,6 +14,7 @@ import (
 	webauthnx "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
@@ -193,6 +194,106 @@ func TestAdminOrSessionAuth_SessionToken(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// newCookieSessionEnv builds a repo-backed SessionManager wired through
+// adminOrSessionAuth and mints a session token for the given user handle.
+// It returns the wrapped handler and the minted token. The admin token is
+// never valid here, so only the cookie/session paths can admit a request.
+func newCookieSessionEnv(t *testing.T, userID []byte) (http.Handler, string) {
+	t.Helper()
+	if apiTestDBURL == "" {
+		t.Fatal("test database not available")
+	}
+	pool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Fatal("test database not available")
+	}
+	t.Cleanup(pool.Close)
+
+	repo := webauthn.NewRepository(pool)
+	sessionMgr := webauthn.NewSessionManager(repo)
+	adminMgr := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := newTestWebAuthnHandler(repo, nil, sessionMgr, adminMgr)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	wrapped := h.adminOrSessionAuth(handler)
+
+	token, err := sessionMgr.CreateAuthToken(context.Background(), userID, nil)
+	if err != nil {
+		t.Fatalf("failed to create session token: %v", err)
+	}
+	return wrapped, token
+}
+
+// TestAdminOrSession_Cookie_AdminGet_Works verifies an admin session ridden on
+// the mh_session cookie admits a safe GET (no CSRF header required).
+func TestAdminOrSession_Cookie_AdminGet_Works(t *testing.T) {
+	wrapped, token := newCookieSessionEnv(t, []byte("admin"))
+
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: token})
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// TestAdminOrSession_Cookie_Post_RequiresCSRF verifies an admin cookie session
+// on an unsafe method is rejected with 403 when the CSRF header is absent.
+func TestAdminOrSession_Cookie_Post_RequiresCSRF(t *testing.T) {
+	wrapped, token := newCookieSessionEnv(t, []byte("admin"))
+
+	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: token})
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected status %d (CSRF required), got %d; body: %s", http.StatusForbidden, w.Code, w.Body.String())
+	}
+}
+
+// TestAdminOrSession_Cookie_Post_WithCSRF verifies an admin cookie session on
+// an unsafe method passes when the CSRF cookie and header match.
+func TestAdminOrSession_Cookie_Post_WithCSRF(t *testing.T) {
+	wrapped, token := newCookieSessionEnv(t, []byte("admin"))
+
+	req := httptest.NewRequest(http.MethodPost, "/test", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: token})
+	req.AddCookie(&http.Cookie{Name: authcookie.CSRFCookie, Value: "csrf-tok"})
+	req.Header.Set(authcookie.CSRFHeader, "csrf-tok")
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d (matching CSRF), got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+// TestAdminOrSession_Cookie_UserSessionRejected verifies the admin-only gate:
+// a valid but non-admin (UUID) session cookie must NOT reach next. With no
+// bearer header and no admin cookie identity, it falls through to the header
+// logic and is rejected with 401.
+func TestAdminOrSession_Cookie_UserSessionRejected(t *testing.T) {
+	wrapped, token := newCookieSessionEnv(t, []byte("11111111-1111-1111-1111-111111111111"))
+
+	req := httptest.NewRequest(http.MethodGet, "/test", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: token})
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected status %d (non-admin session rejected), got %d; body: %s", http.StatusUnauthorized, w.Code, w.Body.String())
 	}
 }
 

@@ -3,6 +3,7 @@ package adminauth
 import (
 	"net/http"
 
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
@@ -32,6 +33,25 @@ func RequireAdminOrSession(
 	next http.Handler,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Cookie path (browser). The session token rides an HttpOnly cookie
+		// instead of an Authorization header. This branch is additive and keeps
+		// the same admin-only gate: it admits only the admin session
+		// (UserID == "admin"). A valid but non-admin (UUID) session cookie, or
+		// an absent/expired cookie, falls through to the header logic below so
+		// header (admin-token / bearer) callers stay unaffected. On unsafe
+		// methods a matching CSRF header is also required.
+		if tok, ok := authcookie.SessionToken(r); ok && sessionMgr != nil {
+			if userID, ok := sessionMgr.TokenUser(r.Context(), tok); ok && string(userID) == "admin" {
+				if !authcookie.IsSafeMethod(r.Method) && !authcookie.ValidCSRF(r) {
+					http.Error(w, "CSRF token missing or invalid", http.StatusForbidden)
+					return
+				}
+				next.ServeHTTP(w, r)
+				return
+			}
+			// Non-admin or invalid cookie session: fall through to header logic.
+		}
+
 		token, ok := util.ParseBearerToken(r)
 		if !ok {
 			http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
