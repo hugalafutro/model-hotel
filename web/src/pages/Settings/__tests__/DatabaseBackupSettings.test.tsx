@@ -842,7 +842,57 @@ describe("DatabaseBackupSettings", () => {
 		expect(clickSpy).toHaveBeenCalled();
 	});
 
-	// TODO: test button disabled/text state during restore — flaky due to modal timing
+	it("disables the upload button and shows 'Restoring…' while a restore is in flight", async () => {
+		const user = userEvent.setup();
+
+		// Hold the restore request open with a gate we release explicitly, so the
+		// in-flight state is stable to assert instead of racing the response.
+		let releaseRestore: () => void = () => {};
+		const restoreGate = new Promise<void>((resolve) => {
+			releaseRestore = resolve;
+		});
+		server.use(
+			http.post("/api/backups/restore", async () => {
+				await restoreGate;
+				return HttpResponse.json({ success: true });
+			}),
+		);
+
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		// Capture the upload/restore button now: in flight both it and the modal's
+		// confirm button read "Restoring…", so hold a ref to assert the right one.
+		const uploadButton = await screen.findByRole("button", {
+			name: /upload & restore/i,
+		});
+
+		// The confirm modal opens on file selection, not on the button click.
+		const fileInput = screen.getByLabelText("Select backup file to restore");
+		await user.upload(
+			fileInput,
+			new File(["dump"], "backup.dump", { type: "application/octet-stream" }),
+		);
+		const tokenInput = await screen.findByLabelText("Confirm with admin token");
+		await user.type(tokenInput, "test-admin-token");
+		await user.click(screen.getByRole("button", { name: /restore database/i }));
+
+		// In flight: the upload button is disabled and relabeled "Restoring…".
+		await waitFor(() => {
+			expect(uploadButton).toBeDisabled();
+			expect(uploadButton).toHaveTextContent("Restoring…");
+		});
+
+		// Releasing the request lets the restore complete and drops the in-flight state.
+		releaseRestore();
+		await waitFor(() => {
+			expect(
+				screen.getByText("Database restored. The server is restarting…"),
+			).toBeInTheDocument();
+		});
+		expect(uploadButton).not.toBeDisabled();
+	});
 
 	it("formats KB correctly (1536 bytes → 1.5 KB)", async () => {
 		server.use(
