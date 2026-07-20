@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/user"
@@ -42,6 +43,9 @@ type UserLoginHandler struct {
 	sessionMgr *webauthn.SessionManager
 	ipLimiter  IPLimiterMiddleware
 	userTotp   UserTotpFactory
+	// cookieSecure ("auto"/"always"/"never") resolves the Secure attribute on
+	// the session cookie so plain-http LAN deployments still work.
+	cookieSecure string
 	// Per-IP exponential backoff on failed logins, same knobs as /totp/login.
 	throttle *totp.Throttle
 	// Per-username backoff so a brute force distributed across source IPs is
@@ -52,12 +56,13 @@ type UserLoginHandler struct {
 
 // NewUserLoginHandler constructs the password-login front-end. userTotp may
 // be nil (no second factor is ever required then).
-func NewUserLoginHandler(users UserLoginStore, sessionMgr *webauthn.SessionManager, ipLimiter IPLimiterMiddleware, userTotp UserTotpFactory) *UserLoginHandler {
+func NewUserLoginHandler(users UserLoginStore, sessionMgr *webauthn.SessionManager, ipLimiter IPLimiterMiddleware, userTotp UserTotpFactory, cookieSecure string) *UserLoginHandler {
 	return &UserLoginHandler{
 		users:        users,
 		sessionMgr:   sessionMgr,
 		ipLimiter:    ipLimiter,
 		userTotp:     userTotp,
+		cookieSecure: cookieSecure,
 		throttle:     totp.NewThrottle(5, time.Second, 5*time.Minute),
 		userThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
 	}
@@ -174,7 +179,15 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err := h.users.TouchLastLogin(r.Context(), u.ID); err != nil {
 		debuglog.Warn("userlogin: failed to record last login", "error", err)
 	}
-	writeJSON(w, map[string]string{"token": token})
+	// Hand the session to the browser as an HttpOnly cookie rather than in the
+	// body: JS never touches it, and the cookie MaxAge is bound to the same
+	// webauthn.AuthTokenTTL as the server-side session so the two cannot drift.
+	if err := authcookie.SetSession(w, token, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
+		debuglog.Error("userlogin: set session cookie failed", "error", err)
+		http.Error(w, "failed to create session", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"success": true})
 }
 
 // checkSecondFactor enforces per-user TOTP after the password has verified.

@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	totpsvc "github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -55,7 +56,7 @@ func newLoginFixture(t *testing.T, users ...*user.User) (*UserLoginHandler, *fak
 		store.byUsername[u.Username] = u
 	}
 	sm := webauthn.NewSessionManager(newMemStore())
-	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, nil)
+	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, nil, "auto")
 	r := chi.NewRouter()
 	h.Register(r)
 	return h, store, sm, r
@@ -86,6 +87,22 @@ func doLogin(t *testing.T, r chi.Router, body string) *httptest.ResponseRecorder
 	return w
 }
 
+// sessionCookie returns the value of the HttpOnly mh_session cookie set on the
+// response, failing the test if it is absent, empty, or not HttpOnly.
+func sessionCookie(t *testing.T, w *httptest.ResponseRecorder) string {
+	t.Helper()
+	for _, c := range w.Result().Cookies() {
+		if c.Name == authcookie.SessionCookie {
+			if !c.HttpOnly || c.Value == "" {
+				t.Fatalf("session cookie must be HttpOnly and non-empty, got %+v", c)
+			}
+			return c.Value
+		}
+	}
+	t.Fatalf("no %s cookie set: %+v", authcookie.SessionCookie, w.Result().Cookies())
+	return ""
+}
+
 func TestUserLogin_Success(t *testing.T) {
 	u := testUser(t, "alice", "correct-horse", true)
 	_, store, sm, r := newLoginFixture(t, u)
@@ -94,11 +111,11 @@ func TestUserLogin_Success(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
 	}
-	var resp map[string]string
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("bad body: %v", err)
+	// The session travels in the HttpOnly cookie, never the response body.
+	if bytes.Contains(w.Body.Bytes(), []byte("token")) {
+		t.Errorf("token leaked into body: %s", w.Body.String())
 	}
-	handle, ok := sm.TokenUser(context.Background(), resp["token"])
+	handle, ok := sm.TokenUser(context.Background(), sessionCookie(t, w))
 	if !ok {
 		t.Fatal("minted token does not validate")
 	}
@@ -107,6 +124,25 @@ func TestUserLogin_Success(t *testing.T) {
 	}
 	if len(store.touched) != 1 || store.touched[0] != u.ID {
 		t.Errorf("TouchLastLogin not recorded: %v", store.touched)
+	}
+}
+
+// TestUserLogin_SetsSessionCookie_NoTokenInBody pins the cookie-auth contract:
+// a successful login sets an HttpOnly mh_session cookie and the body carries
+// only {"success":true}, never the raw token.
+func TestUserLogin_SetsSessionCookie_NoTokenInBody(t *testing.T) {
+	u := testUser(t, "alice", "correct-horse", true)
+	_, _, sm, r := newLoginFixture(t, u)
+
+	w := doLogin(t, r, `{"username":"alice","password":"correct-horse"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("login = %d, want 200 (%s)", w.Code, w.Body.String())
+	}
+	if !bytes.Contains(w.Body.Bytes(), []byte(`"success"`)) || bytes.Contains(w.Body.Bytes(), []byte(`"token"`)) {
+		t.Errorf("body must be success-only with no token: %s", w.Body.String())
+	}
+	if _, ok := sm.TokenUser(context.Background(), sessionCookie(t, w)); !ok {
+		t.Error("cookie token does not validate against the session manager")
 	}
 }
 
@@ -219,7 +255,7 @@ func TestUserLogin_LookupErrorIs500(t *testing.T) {
 	// error, distinct from bad credentials: it must surface as 500, not 401.
 	store := &fakeUserStore{byUsername: map[string]*user.User{}, hasEnabled: true, getErr: errors.New("db down")}
 	sm := webauthn.NewSessionManager(newMemStore())
-	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, nil)
+	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, nil, "auto")
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -248,7 +284,7 @@ func TestUserLogin_TouchLastLoginFailureStillSucceeds(t *testing.T) {
 	u := testUser(t, "alice", "correct-horse", true)
 	store := &fakeUserStore{byUsername: map[string]*user.User{"alice": u}, hasEnabled: true, touchErr: errors.New("write failed")}
 	sm := webauthn.NewSessionManager(newMemStore())
-	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, nil)
+	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, nil, "auto")
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -454,7 +490,7 @@ func newTotpLoginFixture(t *testing.T, u *user.User) (*fakeTotpStore, string, ch
 		t.Fatalf("Enable: %v", err)
 	}
 	sm := webauthn.NewSessionManager(newMemStore())
-	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, func(uuid.UUID) *totpsvc.Repository { return repo })
+	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, func(uuid.UUID) *totpsvc.Repository { return repo }, "auto")
 	r := chi.NewRouter()
 	h.Register(r)
 	return fake, secret, r
@@ -495,12 +531,9 @@ func TestUserLogin_TotpValidCode(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
 	}
-	var resp map[string]string
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("bad body: %v", err)
-	}
-	if resp["token"] == "" {
-		t.Error("no session token in response")
+	// A code-gated login also delivers its session via the HttpOnly cookie.
+	if sessionCookie(t, w) == "" {
+		t.Error("no session cookie after valid TOTP login")
 	}
 }
 
@@ -564,7 +597,7 @@ func TestUserLogin_TotpWiredButNotEnabled(t *testing.T) {
 	fake := &fakeTotpStore{recovery: map[string]bool{}} // never enrolled/enabled
 	repo := totpsvc.NewRepositoryWithStore(fake, testMasterKey)
 	sm := webauthn.NewSessionManager(newMemStore())
-	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, func(uuid.UUID) *totpsvc.Repository { return repo })
+	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, func(uuid.UUID) *totpsvc.Repository { return repo }, "auto")
 	r := chi.NewRouter()
 	h.Register(r)
 
@@ -634,7 +667,7 @@ func TestUserLogin_TotpPostgresStoreRoundTrip(t *testing.T) {
 
 	store := &fakeUserStore{byUsername: map[string]*user.User{u.Username: u}, hasEnabled: true}
 	sm := webauthn.NewSessionManager(newMemStore())
-	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, factory)
+	h := NewUserLoginHandler(store, sm, mockIPLimiter{}, factory, "auto")
 	r := chi.NewRouter()
 	h.Register(r)
 

@@ -223,7 +223,7 @@ func main() {
 	userTotpFactory := func(id uuid.UUID) *totp.Repository {
 		return totp.NewRepositoryWithStore(totp.NewUserPostgresStore(database.Pool(), id), cfg.MasterKey)
 	}
-	userLoginHandler := adminauth.NewUserLoginHandler(userRepo, sessionMgr, ipLimiter, userTotpFactory)
+	userLoginHandler := adminauth.NewUserLoginHandler(userRepo, sessionMgr, ipLimiter, userTotpFactory, cfg.CookieSecure)
 	apiHandler.SetUserTotp(userTotpFactory)
 
 	// Audit trail of admin actions: middleware-recorded mutating requests on
