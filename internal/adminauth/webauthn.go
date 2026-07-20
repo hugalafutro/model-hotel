@@ -14,6 +14,7 @@ import (
 	webauthnx "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -33,6 +34,13 @@ type WebAuthnHandler struct {
 	ipLimiter    IPLimiterMiddleware
 	demoReadOnly bool
 	totpEnabled  func() bool
+	// useCookieAuth mints the dashboard HttpOnly session cookie on passkey
+	// login and clears it on logout. Front Desk leaves this false so its
+	// legacy token-in-body login and header-only logout stay byte-for-byte.
+	useCookieAuth bool
+	// cookieSecure ("auto"/"always"/"never") resolves the cookie Secure
+	// attribute; only consulted when useCookieAuth is true.
+	cookieSecure string
 }
 
 // NewWebAuthnHandler creates a new WebAuthn handler with the given dependencies.
@@ -44,15 +52,19 @@ func NewWebAuthnHandler(
 	ipLimiter IPLimiterMiddleware,
 	demoReadOnly bool,
 	totpEnabled func() bool,
+	useCookieAuth bool,
+	cookieSecure string,
 ) *WebAuthnHandler {
 	return &WebAuthnHandler{
-		webauthnRepo: webauthnRepo,
-		relyingParty: relyingParty,
-		sessionMgr:   sessionMgr,
-		adminMgr:     adminMgr,
-		ipLimiter:    ipLimiter,
-		demoReadOnly: demoReadOnly,
-		totpEnabled:  totpEnabled,
+		webauthnRepo:  webauthnRepo,
+		relyingParty:  relyingParty,
+		sessionMgr:    sessionMgr,
+		adminMgr:      adminMgr,
+		ipLimiter:     ipLimiter,
+		demoReadOnly:  demoReadOnly,
+		totpEnabled:   totpEnabled,
+		useCookieAuth: useCookieAuth,
+		cookieSecure:  cookieSecure,
 	}
 }
 
@@ -405,6 +417,23 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	debuglog.Info("webauthn: passkey login successful")
+	h.respondLoginSuccess(w, r, token)
+}
+
+// respondLoginSuccess writes the minted auth token to the response. In cookie
+// mode (main dashboard) it sets the HttpOnly session cookie and returns
+// {"success": true}; otherwise (Front Desk legacy) it returns the token in the
+// body so the pre-cookie contract stays byte-for-byte.
+func (h *WebAuthnHandler) respondLoginSuccess(w http.ResponseWriter, r *http.Request, token string) {
+	if h.useCookieAuth {
+		if err := authcookie.SetSession(w, token, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
+			debuglog.Error("webauthn: set session cookie failed", "error", err)
+			http.Error(w, "failed to create session", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]any{"success": true})
+		return
+	}
 	writeJSON(w, map[string]any{
 		"token": token,
 	})
@@ -413,13 +442,25 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 // Logout revokes a WebAuthn session token.
 // POST /webauthn/logout (admin or session auth required)
 func (h *WebAuthnHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	token, ok := util.ParseBearerToken(r)
+	// Read the token cookie-first (main dashboard) with a bearer-header
+	// fallback (Front Desk legacy), so both auth surfaces can log out.
+	token, ok := authcookie.SessionToken(r)
+	if !ok {
+		token, ok = util.ParseBearerToken(r)
+	}
 	if !ok {
 		http.Error(w, "Authorization header required", http.StatusUnauthorized)
 		return
 	}
 
 	h.sessionMgr.RevokeAuthToken(r.Context(), token)
+
+	// Clear the session cookies only in cookie mode. Front Desk leaves this
+	// off so its logout response emits no Set-Cookie header and stays
+	// byte-identical to the legacy contract.
+	if h.useCookieAuth {
+		authcookie.ClearSession(w, authcookie.Secure(r, h.cookieSecure))
+	}
 
 	writeJSON(w, map[string]any{
 		"success": true,

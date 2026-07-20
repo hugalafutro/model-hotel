@@ -342,6 +342,160 @@ func TestWebAuthnHandler_Logout_WithValidToken(t *testing.T) {
 	}
 }
 
+// TestWebAuthnLoginFinish_SetsSessionCookie verifies that in cookie mode the
+// passkey login success response sets the HttpOnly session cookie carrying the
+// minted token and returns {"success": true} with no token in the body.
+func TestWebAuthnLoginFinish_SetsSessionCookie(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+	h.useCookieAuth = true
+	h.cookieSecure = "never"
+
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", http.NoBody)
+	w := httptest.NewRecorder()
+
+	h.respondLoginSuccess(w, req, "session-token-123")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+	if got := sessionCookie(t, w); got != "session-token-123" {
+		t.Errorf("session cookie value = %q, want %q", got, "session-token-123")
+	}
+	var resp map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode body: %v", err)
+	}
+	if _, ok := resp["token"]; ok {
+		t.Errorf("cookie-mode response must not include token in body: %v", resp)
+	}
+	if resp["success"] != true {
+		t.Errorf("expected success:true, got %v", resp)
+	}
+}
+
+// TestWebAuthnLoginFinish_LegacyReturnsToken verifies that with cookie auth
+// disabled (Front Desk) the login response carries the token in the body and
+// sets no session cookie, preserving the legacy contract byte-for-byte.
+func TestWebAuthnLoginFinish_LegacyReturnsToken(t *testing.T) {
+	h := newTestWebAuthnHandler(nil, nil, nil, nil)
+	// useCookieAuth defaults to false (Front Desk legacy).
+
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", http.NoBody)
+	w := httptest.NewRecorder()
+
+	h.respondLoginSuccess(w, req, "legacy-token")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, w.Code)
+	}
+	var resp map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode body: %v", err)
+	}
+	if resp["token"] != "legacy-token" {
+		t.Errorf("expected token in body, got %v", resp)
+	}
+	for _, c := range w.Result().Cookies() {
+		if c.Name == authcookie.SessionCookie {
+			t.Errorf("legacy mode must not set session cookie, got %+v", c)
+		}
+	}
+}
+
+// TestWebAuthnHandler_Logout_CookieMode_ClearsCookie verifies that in cookie
+// mode logout revokes the token read from the session cookie and emits an
+// expiring session cookie (MaxAge < 0).
+func TestWebAuthnHandler_Logout_CookieMode_ClearsCookie(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Fatal("test database not available")
+	}
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Fatal("test database not available")
+	}
+	defer pool.Close()
+
+	repo := webauthn.NewRepository(pool)
+	sessionMgr := webauthn.NewSessionManager(repo)
+	adminMgr := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := newTestWebAuthnHandler(repo, nil, sessionMgr, adminMgr)
+	h.useCookieAuth = true
+	h.cookieSecure = "never"
+
+	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	if err != nil {
+		t.Fatalf("failed to create session token: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/logout", http.NoBody)
+	req.AddCookie(&http.Cookie{Name: authcookie.SessionCookie, Value: token})
+	w := httptest.NewRecorder()
+
+	h.Logout(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+	if sessionMgr.Validate(context.Background(), token) {
+		t.Error("token should be invalid after cookie-mode logout")
+	}
+	var cleared *http.Cookie
+	for _, c := range w.Result().Cookies() {
+		if c.Name == authcookie.SessionCookie {
+			cleared = c
+		}
+	}
+	if cleared == nil {
+		t.Fatalf("expected expiring %s cookie, got %+v", authcookie.SessionCookie, w.Result().Cookies())
+	}
+	if cleared.MaxAge >= 0 {
+		t.Errorf("expected session cookie MaxAge < 0, got %d", cleared.MaxAge)
+	}
+}
+
+// TestWebAuthnHandler_Logout_LegacyMode_NoSetCookie verifies the Front Desk
+// legacy logout path: it revokes the bearer token and emits no Set-Cookie
+// header so the response stays byte-identical to the pre-cookie contract.
+func TestWebAuthnHandler_Logout_LegacyMode_NoSetCookie(t *testing.T) {
+	dbURL := apiTestDBURL
+	if dbURL == "" {
+		t.Fatal("test database not available")
+	}
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Fatal("test database not available")
+	}
+	defer pool.Close()
+
+	repo := webauthn.NewRepository(pool)
+	sessionMgr := webauthn.NewSessionManager(repo)
+	adminMgr := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	h := newTestWebAuthnHandler(repo, nil, sessionMgr, adminMgr)
+	// useCookieAuth defaults to false (Front Desk legacy).
+
+	token, err := sessionMgr.CreateAuthToken(context.Background(), []byte("admin"), nil)
+	if err != nil {
+		t.Fatalf("failed to create session token: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/logout", http.NoBody)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+
+	h.Logout(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d; body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+	if sessionMgr.Validate(context.Background(), token) {
+		t.Error("token should be invalid after logout")
+	}
+	if sc := w.Header().Values("Set-Cookie"); len(sc) != 0 {
+		t.Errorf("legacy logout must not emit Set-Cookie, got %v", sc)
+	}
+}
+
 // TestListCredentials_Success tests listing credentials with valid auth
 func TestListCredentials_Success(t *testing.T) {
 	dbURL := apiTestDBURL
@@ -384,7 +538,7 @@ func TestListCredentials_Success(t *testing.T) {
 
 // TestWebAuthnHandler_NewWebAuthnHandler_NilParams tests the constructor with nil params
 func TestWebAuthnHandler_NewWebAuthnHandler_NilParams(t *testing.T) {
-	h := NewWebAuthnHandler(nil, nil, nil, nil, nil, false, nil)
+	h := NewWebAuthnHandler(nil, nil, nil, nil, nil, false, nil, false, "")
 	if h == nil {
 		t.Fatal("expected non-nil handler")
 	}
@@ -409,7 +563,7 @@ func TestWebAuthnHandler_NewWebAuthnHandler_NilParams(t *testing.T) {
 func TestWebAuthnHandler_NewWebAuthnHandler_NonNilParams(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return true }}
 	limiter := mockIPLimiter{}
-	h := NewWebAuthnHandler(nil, nil, nil, adminMgr, limiter, false, nil)
+	h := NewWebAuthnHandler(nil, nil, nil, adminMgr, limiter, false, nil, false, "")
 	if h == nil {
 		t.Fatal("expected non-nil handler")
 	}

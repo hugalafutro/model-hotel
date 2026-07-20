@@ -160,7 +160,7 @@ func NewServer(cfg ServerConfig) *Server {
 	)
 
 	webauthnHandler := adminauth.NewWebAuthnHandler(
-		webAuthnStore, cfg.RelyingParty, sessionMgr, cfg.AdminMgr, cfg.IPLimiter, false, s.totpStatus.Enabled,
+		webAuthnStore, cfg.RelyingParty, sessionMgr, cfg.AdminMgr, cfg.IPLimiter, false, s.totpStatus.Enabled, false, "auto",
 	)
 	// NOTE: Front Desk's own web client (frontdesk/web) still consumes the
 	// TOTP login/enroll-verify session token from the JSON body (bearer
