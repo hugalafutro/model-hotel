@@ -147,13 +147,9 @@ export function buildUrl(
 
 // ── API ─────────────────────────────────────────────────────────────
 
-// Admin token is stored in memory (preferred) with localStorage as a
-// persistence fallback so sessions survive page reloads. This is an explicit
-// trade-off: the dashboard is same-origin and admin-only, so XSS is the only
-// practical attack vector. httpOnly cookies would eliminate the XSS risk but
-// require CSRF protection, which adds complexity for a single-user admin
-// panel serving an embedded SPA. If you deploy this behind a public-facing
-// domain with untrusted users, consider switching to httpOnly cookies.
+// The admin token is held in memory and mirrored to localStorage so a session
+// survives a page reload. getAuthHeaders() reads the in-memory value first and
+// falls back to the persisted copy.
 let adminToken: string | null = null;
 
 export function setAdminToken(token: string) {
