@@ -19,6 +19,7 @@ import (
 	githuboauth "golang.org/x/oauth2/github"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -74,11 +75,12 @@ type GitHubSettings interface {
 // ID token, and the state parameter + single-use login-state record + the
 // confidential client secret carry the CSRF/replay defense.
 type GitHubHandler struct {
-	settings   GitHubSettings
-	sessionMgr *webauthn.SessionManager
-	ipLimiter  IPLimiterMiddleware
-	masterKey  string
-	users      SSOUserResolver // nil = no user email binding (admin allowlist only)
+	settings     GitHubSettings
+	sessionMgr   *webauthn.SessionManager
+	ipLimiter    IPLimiterMiddleware
+	masterKey    string
+	cookieSecure string          // authcookie.Secure mode ("auto"/"always"/"never")
+	users        SSOUserResolver // nil = no user email binding (admin allowlist only)
 
 	// loginThrottle applies per-IP exponential backoff to the callback, mirroring
 	// the OIDC/TOTP login defense (5 failures, 1s doubling, capped at 5m).
@@ -95,17 +97,23 @@ type GitHubHandler struct {
 
 // NewGitHubHandler constructs a GitHubHandler. masterKey decrypts the stored
 // client secret (encrypted at rest like provider keys and the OIDC secret).
+// GitHub is a dashboard-only login front-end (Front Desk does not use it), so
+// the successful callback always delivers the session via the HttpOnly
+// mh_session cookie; cookieSecure is the authcookie.Secure mode passed through
+// from config.
 func NewGitHubHandler(
 	settings GitHubSettings,
 	sessionMgr *webauthn.SessionManager,
 	ipLimiter IPLimiterMiddleware,
 	masterKey string,
+	cookieSecure string,
 ) *GitHubHandler {
 	return &GitHubHandler{
 		settings:      settings,
 		sessionMgr:    sessionMgr,
 		ipLimiter:     ipLimiter,
 		masterKey:     masterKey,
+		cookieSecure:  cookieSecure,
 		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
 	}
 }
@@ -375,17 +383,22 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	debuglog.Info("github: login success",
 		"email_masked", maskEmail(matched), "gh_id", user.ID, "gh_login", user.Login)
 
-	// Deliver the token in the URL *fragment* (shared with OIDC): the SPA reads it
-	// on mount, stores it, and scrubs the URL. The fragment is never sent to the
-	// server on the follow-up request (no Referer leak, nothing in our own request
-	// logs). It does appear in this 302's Location response header, so operators
-	// should redact `Location` on /api/auth/github/callback in their access logs.
+	// Deliver the session via the HttpOnly mh_session cookie and redirect to a
+	// clean "/": GitHub is dashboard-only (Front Desk does not use this handler),
+	// so there is no legacy fragment-token surface to preserve here. The token
+	// never appears in the URL or this 302's Location response header.
 	//
-	// The `oidc_token`/`oidc_error` fragment keys are the generic SSO hand-off
-	// slot the SPA already consumes, not an OIDC-specific channel. If a third SSO
-	// provider is ever added, rename these to a neutral `sso_*` across the handlers
-	// and the SPA's consume helpers in lockstep.
-	http.Redirect(w, r, "/#oidc_token="+url.QueryEscape(sessionToken), http.StatusFound)
+	// The `oidc_error` fragment key (used by redirectError below) is the generic
+	// SSO hand-off slot the SPA already consumes for failures, not an
+	// OIDC-specific channel. If a third SSO provider is ever added, rename it to
+	// a neutral `sso_error` across the handlers and the SPA's consume helpers in
+	// lockstep.
+	if err := authcookie.SetSession(w, sessionToken, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
+		debuglog.Error("github: set session cookie failed", "error", err)
+		h.redirectError(w, r, "session_error")
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 // fetchUser GETs {apiBase}/user and decodes the id + login.

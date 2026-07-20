@@ -256,7 +256,7 @@ func main() {
 	// that confirms an allowlisted *verified* email via the REST API and then
 	// mints the same CreateAuthToken session. Always constructed; the public
 	// endpoints no-op until github_sso_enabled is set.
-	githubHandler := adminauth.NewGitHubHandler(settingsRepo, sessionMgr, ipLimiter, cfg.MasterKey)
+	githubHandler := adminauth.NewGitHubHandler(settingsRepo, sessionMgr, ipLimiter, cfg.MasterKey, cfg.CookieSecure)
 	githubHandler.SetUserResolver(userRepo)
 
 	if cfg.WebAuthnRPID != "" {
