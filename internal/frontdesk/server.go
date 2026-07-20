@@ -162,8 +162,14 @@ func NewServer(cfg ServerConfig) *Server {
 	webauthnHandler := adminauth.NewWebAuthnHandler(
 		webAuthnStore, cfg.RelyingParty, sessionMgr, cfg.AdminMgr, cfg.IPLimiter, false, s.totpStatus.Enabled,
 	)
+	// NOTE: Front Desk's own web client (frontdesk/web) still consumes the
+	// TOTP login/enroll-verify session token from the JSON body (bearer
+	// auth), not the HttpOnly cookie the main dashboard now reads. "auto"
+	// keeps the cookie Secure attribute sane for both http and https
+	// deployments; it is otherwise unused here until Front Desk's frontend
+	// is migrated to cookie auth in a follow-up.
 	totpHandler := adminauth.NewTotpHandler(
-		totpRepo, cfg.AdminMgr, sessionMgr, cfg.IPLimiter, false, s.totpStatus.Enabled, s.totpStatus.Refresh,
+		totpRepo, cfg.AdminMgr, sessionMgr, cfg.IPLimiter, false, s.totpStatus.Enabled, s.totpStatus.Refresh, "auto",
 	)
 	// OIDC SSO: a fourth admin-login path. The shared adminauth handler is reused
 	// as-is; newOIDCSettings adapts Front Desk's typed settings row to its key/value

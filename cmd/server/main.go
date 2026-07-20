@@ -241,7 +241,7 @@ func main() {
 	// IsEnabled state wired into the Handler (AuthMiddleware gate).
 	totpRepo := totp.NewRepository(database.Pool(), cfg.MasterKey)
 	apiHandler.SetTotpStatus(totpRepo)
-	totpHandler := adminauth.NewTotpHandler(totpRepo, adminMgr, sessionMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, apiHandler.RefreshTotpEnabled)
+	totpHandler := adminauth.NewTotpHandler(totpRepo, adminMgr, sessionMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, apiHandler.RefreshTotpEnabled, cfg.CookieSecure)
 
 	// OIDC single sign-on. A third front-end to the same session token minted by
 	// passkey/TOTP login: after the IdP confirms an allowlisted identity it calls
