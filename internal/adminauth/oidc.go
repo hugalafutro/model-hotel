@@ -254,9 +254,10 @@ func (h *OIDCHandler) Start(w http.ResponseWriter, r *http.Request) {
 // Callback completes the flow: it validates the login-state record (single use),
 // state, PKCE, and the IdP error param; exchanges the code; verifies the ID
 // token (iss/aud/exp/signature via go-oidc, plus nonce here); enforces the
-// verified-email allowlist; and on success mints a normal session token and
-// redirects to the SPA with the token in the URL fragment (never sent back to
-// the server, so it can't be logged). All denials redirect with an error code.
+// verified-email allowlist; and on success mints a session token, then either
+// delivers it in the HttpOnly mh_session cookie and redirects to a clean SPA URL
+// (dashboard, useCookieAuth) or, for legacy Front Desk callers, redirects with
+// the token in the URL fragment. All denials redirect with an error code.
 func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

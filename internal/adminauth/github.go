@@ -242,9 +242,9 @@ type githubEmail struct {
 // Callback completes the flow: it validates the login-state record (single use)
 // and state, exchanges the code for an access token, fetches the GitHub identity
 // and verified emails over the REST API, enforces the verified-email allowlist,
-// and on success mints a normal session token and redirects to the SPA with the
-// token in the URL fragment (never sent back to the server, so it can't be
-// logged). All denials redirect with a generic error code.
+// and on success mints a session token, delivers it in the HttpOnly mh_session
+// cookie, and redirects to a clean SPA URL (no token in the URL). All denials
+// redirect with a generic error code.
 func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
