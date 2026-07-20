@@ -125,28 +125,22 @@ export function Models() {
 
 	const handleDeleteDisabled = useCallback(
 		async (ids: string[]) => {
-			let failed = 0;
-			await Promise.all(
-				ids.map((id) =>
-					api.models.delete(id).catch(() => {
-						failed++;
-					}),
-				),
-			);
-			queryClient.invalidateQueries({ queryKey: ["models"] });
-			setModelRefreshTrigger((n) => n + 1);
-			if (failed === 0) {
+			try {
+				// One atomic request instead of one DELETE per model: a concurrent
+				// burst trips the admin IP rate limiter and reports spurious failures.
+				const { deleted } = await api.models.bulkDelete(ids);
+				queryClient.invalidateQueries({ queryKey: ["models"] });
+				setModelRefreshTrigger((n) => n + 1);
 				toast(
-					t("models.toast_delete_bulk_success", { count: ids.length }),
+					t("models.toast_delete_bulk_success", { count: deleted }),
 					"success",
 				);
-			} else {
+			} catch (err) {
+				queryClient.invalidateQueries({ queryKey: ["models"] });
+				setModelRefreshTrigger((n) => n + 1);
 				toast(
-					t("models.toast_delete_bulk_warning", {
-						kept: ids.length - failed,
-						failed,
-					}),
-					"warning",
+					t("models.toast_delete_failed", { message: (err as Error).message }),
+					"error",
 				);
 			}
 		},

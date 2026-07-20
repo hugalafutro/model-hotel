@@ -138,6 +138,7 @@ func (h *Handler) RegisterModels(r chi.Router) {
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(requireAdmin)
+			r.Post("/bulk-delete", h.BulkDeleteModels)
 			r.Patch("/{id}", h.UpdateModel)
 			r.Delete("/{id}", h.DeleteModel)
 			r.Post("/{id}/test", h.TestModel)
@@ -278,6 +279,112 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// maxBulkDeleteIDs caps the number of models a single bulk-delete request may
+// remove, bounding the DELETE ... = ANY($1) parameter and the follow-up
+// failover resync work. Far above any realistic manual selection.
+const maxBulkDeleteIDs = 10000
+
+// BulkDeleteRequest is the JSON body for POST /api/models/bulk-delete.
+type BulkDeleteRequest struct {
+	IDs []string `json:"ids"`
+}
+
+// BulkDeleteResponse reports the outcome of a bulk delete. Deleted may be less
+// than Requested when some IDs no longer exist (idempotent, not an error).
+type BulkDeleteResponse struct {
+	Requested int   `json:"requested"`
+	Deleted   int64 `json:"deleted"`
+}
+
+// BulkDeleteModels removes many models in a single request and resyncs the
+// affected failover groups once at the end. The Models page uses it to clear a
+// large selection without firing one HTTP DELETE per model — a concurrent burst
+// that trips the admin IP rate limiter and surfaces spurious "N failed" toasts.
+func (h *Handler) BulkDeleteModels(w http.ResponseWriter, r *http.Request) {
+	var req BulkDeleteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondBadRequest(w, "invalid request body", err)
+		return
+	}
+	if len(req.IDs) == 0 {
+		respondBadRequest(w, "ids must not be empty", nil)
+		return
+	}
+	if len(req.IDs) > maxBulkDeleteIDs {
+		respondBadRequest(w, fmt.Sprintf("too many ids (max %d)", maxBulkDeleteIDs), nil)
+		return
+	}
+
+	ids := make([]uuid.UUID, 0, len(req.IDs))
+	for _, s := range req.IDs {
+		id, err := uuid.Parse(s)
+		if err != nil {
+			respondBadRequest(w, "invalid model ID: "+s, err)
+			return
+		}
+		ids = append(ids, id)
+	}
+
+	// Capture the affected provider model_ids before deletion so we can resync
+	// the right failover auto-groups afterwards.
+	modelIDs, err := h.collectDistinctModelIDs(r.Context(), ids)
+	if err != nil {
+		respondError(w, "failed to look up models for bulk delete", err, http.StatusInternalServerError)
+		return
+	}
+
+	modelRepo := model.NewRepository(h.dbPool.Pool())
+	deleted, err := modelRepo.DeleteByIDs(r.Context(), ids)
+	if err != nil {
+		respondError(w, "failed to bulk delete models", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Resync failover groups since deleted models may leave auto-groups with too
+	// few candidates. Best-effort like single-model DeleteModel: log but don't
+	// fail the delete. WithoutCancel so it survives the request completing.
+	h.resyncFailoverAfterModelDelete(context.WithoutCancel(r.Context()), modelIDs, ids)
+
+	writeJSON(w, BulkDeleteResponse{Requested: len(ids), Deleted: deleted})
+}
+
+// collectDistinctModelIDs returns the distinct provider model_id strings for the
+// given model UUIDs, used to decide which failover auto-groups to resync.
+func (h *Handler) collectDistinctModelIDs(ctx context.Context, ids []uuid.UUID) ([]string, error) {
+	rows, err := h.dbPool.Pool().Query(ctx, `SELECT DISTINCT model_id FROM models WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var modelIDs []string
+	for rows.Next() {
+		var mid string
+		if err := rows.Scan(&mid); err != nil {
+			return nil, err
+		}
+		modelIDs = append(modelIDs, mid)
+	}
+	return modelIDs, rows.Err()
+}
+
+// resyncFailoverAfterModelDelete resyncs the auto-group for each affected base
+// model once and prunes any custom groups that referenced the deleted UUIDs.
+// This mirrors the per-model cleanup in DeleteModel, batched for a bulk delete.
+func (h *Handler) resyncFailoverAfterModelDelete(ctx context.Context, modelIDs []string, deletedIDs []uuid.UUID) {
+	failoverRepo := failover.NewRepository(h.dbPool.Pool())
+	for _, mid := range modelIDs {
+		if _, err := failoverRepo.SyncForModel(ctx, mid); err != nil {
+			debuglog.Info("admin: failed to sync failover groups after bulk model delete", "model_id", mid, "error", err)
+		}
+	}
+	for _, id := range deletedIDs {
+		if err := failoverRepo.PruneModelUUID(ctx, id); err != nil {
+			debuglog.Info("admin: failed to prune stale failover entries after bulk model delete", "id", id, "error", err)
+		}
+	}
 }
 
 // TestModelResponse is the JSON response for model test requests.

@@ -1352,7 +1352,7 @@ describe("Providers", () => {
 				name: "Disabled Model 2",
 			};
 
-			let deleteCallCount = 0;
+			let bulkCallCount = 0;
 			const deletedIds: string[] = [];
 
 			server.use(
@@ -1366,10 +1366,14 @@ describe("Providers", () => {
 						disabledModel2,
 					]);
 				}),
-				http.delete("/api/models/:id", ({ params }) => {
-					deleteCallCount++;
-					deletedIds.push(params.id as string);
-					return new HttpResponse(null, { status: 204 });
+				http.post("/api/models/bulk-delete", async ({ request }) => {
+					bulkCallCount++;
+					const body = (await request.json()) as { ids: string[] };
+					deletedIds.push(...body.ids);
+					return HttpResponse.json({
+						requested: body.ids.length,
+						deleted: body.ids.length,
+					});
 				}),
 			);
 
@@ -1415,9 +1419,9 @@ describe("Providers", () => {
 			});
 			await user.click(confirmBtn);
 
-			// Verify all disabled models were deleted
+			// Verify all disabled models were deleted in a single bulk request
 			await waitFor(() => {
-				expect(deleteCallCount).toBe(2);
+				expect(bulkCallCount).toBe(1);
 				expect(deletedIds).toContain("model-002");
 				expect(deletedIds).toContain("model-003");
 				expect(
@@ -1426,7 +1430,7 @@ describe("Providers", () => {
 			});
 		});
 
-		it("shows warning toast when some deletions fail", async () => {
+		it("shows error toast when the bulk delete request fails", async () => {
 			const enabledModel = { ...mockModel, id: "model-001", enabled: true };
 			const disabledModel1 = {
 				...mockModel,
@@ -1459,15 +1463,11 @@ describe("Providers", () => {
 						disabledModel3,
 					]);
 				}),
-				http.delete("/api/models/:id", ({ params }) => {
-					// Fail deletion for model-003
-					if (params.id === "model-003") {
-						return HttpResponse.json(
-							{ error: "Failed to delete model" },
-							{ status: 500 },
-						);
-					}
-					return new HttpResponse(null, { status: 204 });
+				http.post("/api/models/bulk-delete", () => {
+					return HttpResponse.json(
+						{ error: "Failed to delete models" },
+						{ status: 500 },
+					);
 				}),
 			);
 
@@ -1513,11 +1513,9 @@ describe("Providers", () => {
 			});
 			await user.click(confirmBtn);
 
-			// Verify partial success toast (2 succeeded, 1 failed)
+			// Verify error toast (the whole request failed atomically)
 			await waitFor(() => {
-				expect(
-					screen.getByText(/Deleted 2 models?[, ]+1 failed/),
-				).toBeInTheDocument();
+				expect(screen.getByText(/Failed to delete/)).toBeInTheDocument();
 			});
 		});
 	});
