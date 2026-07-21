@@ -39,6 +39,7 @@ func NewQuotaFleetHandler(quotaRepo *quota.Repository, providerRepo ProviderStor
 // Register mounts the fleet quota routes on the given (fleet-authed) router.
 func (h *QuotaFleetHandler) Register(r chi.Router) {
 	r.Get("/config/quota-snapshots", h.ExportSnapshots)
+	r.Post("/config/quota-snapshots", h.ReceiveSnapshots)
 }
 
 // ExportSnapshots serves this node's quota snapshots keyed by provider name so a
@@ -75,4 +76,55 @@ func (h *QuotaFleetHandler) ExportSnapshots(w http.ResponseWriter, r *http.Reque
 		})
 	}
 	writeJSON(w, map[string]any{"snapshots": wire})
+}
+
+// ReceiveSnapshots stores fleet-distributed snapshots, mapping each by provider
+// name onto this member's own provider IDs and writing with UpsertIfNewer so an
+// older fleet write never clobbers a fresher local (e.g. manual) snapshot. A
+// name with no local provider is skipped. Written with source='fleet'.
+func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Snapshots []QuotaSnapshotWire `json:"snapshots"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+
+	provs, err := h.providerRepo.List(r.Context())
+	if err != nil {
+		respondError(w, "failed to list providers", err, http.StatusInternalServerError)
+		return
+	}
+	nameToID := make(map[string]uuid.UUID, len(provs))
+	for _, p := range provs {
+		nameToID[p.Name] = p.ID
+	}
+
+	applied, skipped := 0, 0
+	for _, s := range in.Snapshots {
+		pid, ok := nameToID[s.ProviderName]
+		if !ok {
+			skipped++ // provider not present on this member
+			continue
+		}
+		wrote, err := h.quotaRepo.UpsertIfNewer(r.Context(), quota.Snapshot{
+			ProviderID: pid,
+			Kind:       s.Kind,
+			Payload:    s.Payload,
+			HTTPStatus: s.HTTPStatus,
+			Source:     "fleet",
+			FetchedAt:  s.FetchedAt,
+		})
+		if err != nil {
+			respondError(w, "failed to store snapshot", err, http.StatusInternalServerError)
+			return
+		}
+		if wrote {
+			applied++
+		} else {
+			skipped++
+		}
+	}
+	writeJSON(w, map[string]any{"applied": applied, "skipped": skipped})
 }
