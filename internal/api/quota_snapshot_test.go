@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
 func TestQuotaKindFor(t *testing.T) {
@@ -160,6 +161,67 @@ func nanoGPTPollDiscovery(used int64) *provider.DiscoveryService {
 
 // TestPollQuotasOnce_UpsertsEnabledProviders verifies the poll pass fetches an
 // enabled quota-capable provider and stores a fresh source="poll" snapshot.
+// TestPollQuotasOnce_SuppressesWhenRecentFleetSnapshot verifies a member fed by
+// Front Desk does not also hit upstream while a recent fleet snapshot exists.
+func TestPollQuotasOnce_SuppressesWhenRecentFleetSnapshot(t *testing.T) {
+	h := newTestHandler(t)
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-fleet-recent", "https://api.nano-gpt.com/v1", true)
+
+	// A recent fleet-distributed snapshot already exists.
+	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+		ProviderID: id, Kind: "usage", Payload: json.RawMessage(`{"used":1}`), HTTPStatus: 200, Source: "fleet", FetchedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("seed fleet snapshot: %v", err)
+	}
+
+	called := false
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService {
+		return provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{roundTripFunc: func(_ *http.Request) (*http.Response, error) {
+				called = true
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Header: make(http.Header)}, nil
+			}},
+		})
+	}
+
+	h.PollQuotasOnce(context.Background())
+
+	if called {
+		t.Fatal("poll must not hit upstream while a recent fleet snapshot exists")
+	}
+	snap, _ := h.quotaRepo.Get(context.Background(), id, "usage")
+	if snap == nil || snap.Source != "fleet" {
+		t.Fatalf("the fleet snapshot should remain untouched, got %+v", snap)
+	}
+}
+
+// TestPollQuotasOnce_PollsWhenFleetSnapshotStale verifies a stale fleet snapshot
+// does not suppress the self-poll, so quota is never worse than standalone.
+func TestPollQuotasOnce_PollsWhenFleetSnapshotStale(t *testing.T) {
+	h := newTestHandler(t)
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-fleet-stale", "https://api.nano-gpt.com/v1", true)
+
+	// A stale fleet snapshot (older than the poll interval) must not suppress.
+	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+		ProviderID: id, Kind: "usage", Payload: json.RawMessage(`{"used":1}`), HTTPStatus: 200, Source: "fleet", FetchedAt: time.Now().Add(-2 * time.Hour),
+	}); err != nil {
+		t.Fatalf("seed stale fleet snapshot: %v", err)
+	}
+
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(2) }
+
+	h.PollQuotasOnce(context.Background())
+
+	snap, _ := h.quotaRepo.Get(context.Background(), id, "usage")
+	if snap == nil || snap.Source != "poll" {
+		t.Fatalf("stale fleet snapshot should fall back to self-poll, got %+v", snap)
+	}
+}
+
 func TestPollQuotasOnce_UpsertsEnabledProviders(t *testing.T) {
 	h := newTestHandler(t)
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-poll", "https://api.nano-gpt.com/v1", true)

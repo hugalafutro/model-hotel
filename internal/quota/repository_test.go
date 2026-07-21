@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -59,6 +60,89 @@ func cleanupProvider(ctx context.Context, t *testing.T, providerID uuid.UUID) {
 	t.Helper()
 
 	_, _ = testPool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
+}
+
+// TestListPopulatesLastError: a failed refresh leaves a row whose last_error is
+// carried through List (the export reader relies on the field being populated).
+func TestListPopulatesLastError(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+	id := insertTestProvider(ctx, t, "list-lasterr")
+	defer cleanupProvider(ctx, t, id)
+
+	if err := repo.RecordFailure(ctx, id, "usage", "boom"); err != nil {
+		t.Fatalf("record failure: %v", err)
+	}
+	snaps, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	var found bool
+	for _, s := range snaps {
+		if s.ProviderID == id && s.Kind == "usage" {
+			found = true
+			if s.LastError != "boom" {
+				t.Fatalf("last_error = %q, want boom", s.LastError)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("failure placeholder row not returned by List")
+	}
+}
+
+// TestUpsertIfNewerDefaultsFetchedAt: an incoming snapshot with a zero FetchedAt
+// is stamped now and applied against an empty row.
+func TestUpsertIfNewerDefaultsFetchedAt(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+	id := insertTestProvider(ctx, t, "upsertnewer-default")
+	defer cleanupProvider(ctx, t, id)
+
+	wrote, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: id,
+		Kind:       "usage",
+		Payload:    json.RawMessage(`{"used":1}`),
+		HTTPStatus: 200,
+		Source:     "fleet",
+		// FetchedAt left zero on purpose.
+	})
+	if err != nil {
+		t.Fatalf("upsert if newer: %v", err)
+	}
+	if !wrote {
+		t.Fatal("first write should apply")
+	}
+	got, err := repo.Get(ctx, id, "usage")
+	if err != nil || got == nil {
+		t.Fatalf("get: %v (snap %v)", err, got)
+	}
+	if got.FetchedAt.IsZero() {
+		t.Fatal("fetched_at should have been defaulted to now")
+	}
+}
+
+// TestRepositoryContextCancelledErrors: each query surfaces the DB error (rather
+// than panicking or masking it) when the context is already cancelled.
+func TestRepositoryContextCancelledErrors(t *testing.T) {
+	repo := quota.NewRepository(testPool)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := repo.Get(ctx, uuid.New(), "usage"); err == nil {
+		t.Error("Get: want error on cancelled context")
+	}
+	if _, err := repo.List(ctx); err == nil {
+		t.Error("List: want error on cancelled context")
+	}
+	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: uuid.New(),
+		Kind:       "usage",
+		Payload:    json.RawMessage(`{}`),
+		FetchedAt:  time.Now(),
+	}); err == nil {
+		t.Error("UpsertIfNewer: want error on cancelled context")
+	}
 }
 
 // jsonEqual compares two JSON payloads by value rather than by raw bytes:
@@ -129,5 +213,62 @@ func TestRecordFailureKeepsPayload(t *testing.T) {
 	got, _ := repo.Get(ctx, provID, "usage")
 	if got == nil || !jsonEqual(t, got.Payload, json.RawMessage(`{"used":5}`)) || got.LastError != "boom" {
 		t.Fatalf("failure should keep payload and set last_error: %+v", got)
+	}
+}
+
+func TestUpsertIfNewer(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+
+	provID := insertTestProvider(ctx, t, "test-quota-upsert-if-newer")
+	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
+
+	older := time.Now().Add(-10 * time.Minute)
+	newer := time.Now()
+
+	// First write always applies.
+	applied, err := repo.UpsertIfNewer(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`), HTTPStatus: 200, Source: "fleet", FetchedAt: newer})
+	if err != nil || !applied {
+		t.Fatalf("first write should apply: applied=%v err=%v", applied, err)
+	}
+
+	// An older incoming write is skipped so it cannot clobber a fresher local one.
+	applied, err = repo.UpsertIfNewer(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":2}`), HTTPStatus: 200, Source: "fleet", FetchedAt: older})
+	if err != nil || applied {
+		t.Fatalf("older write should be skipped: applied=%v err=%v", applied, err)
+	}
+
+	got, _ := repo.Get(ctx, provID, "usage")
+	if got == nil || !jsonEqual(t, got.Payload, json.RawMessage(`{"v":1}`)) {
+		t.Fatalf("older write must not clobber newer payload, got %+v", got)
+	}
+}
+
+func TestList(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+
+	provID := insertTestProvider(ctx, t, "test-quota-list")
+	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
+
+	if err := repo.Upsert(ctx, quota.Snapshot{ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{}`), HTTPStatus: 200, Source: "poll"}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	all, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	// The test DB is shared across quota tests, so assert our row is present
+	// rather than an exact count.
+	found := false
+	for _, s := range all {
+		if s.ProviderID == provID && s.Kind == "usage" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("list did not contain the inserted snapshot (got %d rows)", len(all))
 	}
 }
