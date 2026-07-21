@@ -366,6 +366,11 @@ export function useQuotaData(
 			) as Promise<NanoGPTUsage>,
 		enabled: Boolean(nanogptProviderId),
 		refetchInterval: effectiveRefetchInterval,
+		// Reflect the server's stored snapshot on every mount (reload after a
+		// rebuild shows correct quotas within ~1s), while initialData still paints
+		// the cached value instantly.
+		staleTime: 0,
+		refetchOnMount: "always",
 		initialData: () => getCachedData<NanoGPTUsage>("nanogpt-usage"),
 	});
 
@@ -389,6 +394,8 @@ export function useQuotaData(
 			) as Promise<ZAICodingQuotaResponse>,
 		enabled: Boolean(zaiCodingProviderId),
 		refetchInterval: effectiveRefetchInterval,
+		staleTime: 0,
+		refetchOnMount: "always",
 		initialData: () =>
 			getCachedData<ZAICodingQuotaResponse>("zai-coding-usage"),
 	});
@@ -412,6 +419,8 @@ export function useQuotaData(
 			) as Promise<KimiCodeQuotaResponse>,
 		enabled: Boolean(kimiCodeProviderId),
 		refetchInterval: effectiveRefetchInterval,
+		staleTime: 0,
+		refetchOnMount: "always",
 		initialData: () => getCachedData<KimiCodeQuotaResponse>("kimi-code-usage"),
 	});
 
@@ -434,6 +443,8 @@ export function useQuotaData(
 			) as Promise<MiniMaxQuotaResponse>,
 		enabled: Boolean(minimaxProviderId),
 		refetchInterval: effectiveRefetchInterval,
+		staleTime: 0,
+		refetchOnMount: "always",
 		initialData: () => getCachedData<MiniMaxQuotaResponse>("minimax-usage"),
 	});
 
@@ -453,6 +464,8 @@ export function useQuotaData(
 		queryFn: () => api.providers.getBalance(deepseekProviderId as string),
 		enabled: Boolean(deepseekProviderId),
 		refetchInterval: effectiveRefetchInterval,
+		staleTime: 0,
+		refetchOnMount: "always",
 		initialData: () => getCachedData<DeepSeekBalance>("deepseek-balance"),
 	});
 
@@ -473,6 +486,8 @@ export function useQuotaData(
 			api.providers.getOpenRouterBalance(openrouterProviderId as string),
 		enabled: Boolean(openrouterProviderId),
 		refetchInterval: effectiveRefetchInterval,
+		staleTime: 0,
+		refetchOnMount: "always",
 		initialData: () => getCachedData<OpenRouterBalance>("openrouter-balance"),
 	});
 
@@ -494,6 +509,8 @@ export function useQuotaData(
 			api.providers.getOllamaCloudAccount(ollamaCloudProviderId as string),
 		enabled: Boolean(ollamaCloudProviderId),
 		refetchInterval: effectiveRefetchInterval,
+		staleTime: 0,
+		refetchOnMount: "always",
 		initialData: () =>
 			getCachedData<OllamaCloudAccount>("ollama-cloud-account"),
 	});
@@ -516,6 +533,8 @@ export function useQuotaData(
 			api.providers.getNeuralWattQuota(neuralwattProviderId as string),
 		enabled: Boolean(neuralwattProviderId),
 		refetchInterval: effectiveRefetchInterval,
+		staleTime: 0,
+		refetchOnMount: "always",
 		initialData: () =>
 			getCachedData<NeuralWattQuotaResponse>("neuralwatt-quota"),
 	});

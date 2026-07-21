@@ -1,7 +1,16 @@
+import * as reactQuery from "@tanstack/react-query";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+
+// Wrap react-query's useQuery so we can inspect the options each quota query is
+// configured with (delegates to the real implementation, so behavior is intact).
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@tanstack/react-query")>();
+	return { ...actual, useQuery: vi.fn(actual.useQuery) };
+});
+
 import type { Provider } from "../../api/types";
 import { server } from "../../test/mocks/server";
 import {
@@ -133,6 +142,29 @@ describe("useQuotaData", () => {
 		});
 
 		expect(result.current.hasAnyProvider).toBe(true);
+	});
+
+	it("configures quota queries to refetch on mount with staleTime 0", () => {
+		const useQueryMock = reactQuery.useQuery as unknown as Mock;
+
+		renderHook(() => useQuotaData(mockProviders), {
+			wrapper: createWrapper(),
+		});
+
+		const nanoCall = useQueryMock.mock.calls.find(
+			([opts]) =>
+				Array.isArray(
+					(opts as { queryKey?: unknown[] } | undefined)?.queryKey,
+				) && (opts as { queryKey: unknown[] }).queryKey[0] === "nanogpt-usage",
+		);
+
+		expect(nanoCall).toBeDefined();
+		const nanoOpts = nanoCall?.[0] as {
+			refetchOnMount?: unknown;
+			staleTime?: unknown;
+		};
+		expect(nanoOpts.refetchOnMount).toBe("always");
+		expect(nanoOpts.staleTime).toBe(0);
 	});
 
 	it("fetches quota data on mount for enabled providers", async () => {

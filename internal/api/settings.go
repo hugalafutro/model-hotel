@@ -182,6 +182,7 @@ var allowedSettings = map[string]struct {
 	"github_client_secret":         {typeName: "string"},                // secret: encrypted at rest, masked on read
 	"github_allowed_emails":        {typeName: "string"},                // comma/newline-separated allowlist (verified emails)
 	"github_public_base_url":       {typeName: "url_public"},            // app's external origin for the callback URI
+	"quota_refresh_interval_min":   {typeName: "int", min: 0, max: 30},  // provider quota poll interval in minutes; 0 = disabled
 }
 
 const maxSettingValueLen = 500

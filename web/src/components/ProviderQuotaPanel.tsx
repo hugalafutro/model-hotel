@@ -39,33 +39,17 @@ export function ProviderQuotaPanel() {
 		}
 	});
 	const [disabled, setDisabled] = useState(() => isQuotaDisabled());
-	const [refreshIntervalMin, setRefreshIntervalMin] = useState(() => {
-		try {
-			return localStorage.getItem("sidebarQuotaRefreshMin") || "5";
-		} catch {
-			return "5";
-		}
-	});
 
-	// Listen for toggle and refresh-interval changes from Settings page (same tab)
+	// Listen for show/hide toggle changes from the Settings page (same tab) and
+	// cross-tab storage events. The refresh interval is now sourced from the
+	// server setting below, so it no longer needs a custom-event listener.
 	useEffect(() => {
 		const toggleHandler = () => setDisabled(isQuotaDisabled());
-		const refreshHandler = () => {
-			try {
-				setRefreshIntervalMin(
-					localStorage.getItem("sidebarQuotaRefreshMin") || "5",
-				);
-			} catch {
-				setRefreshIntervalMin("5");
-			}
-		};
 		window.addEventListener("sidebarQuotaToggle", toggleHandler);
-		window.addEventListener("sidebarQuotaRefreshChange", refreshHandler);
 		// Also listen for storage events (cross-tab)
 		window.addEventListener("storage", toggleHandler);
 		return () => {
 			window.removeEventListener("sidebarQuotaToggle", toggleHandler);
-			window.removeEventListener("sidebarQuotaRefreshChange", refreshHandler);
 			window.removeEventListener("storage", toggleHandler);
 		};
 	}, []);
@@ -93,11 +77,16 @@ export function ProviderQuotaPanel() {
 		staleTime: 60_000,
 	});
 
-	// Derive the refresh interval from the reactive state so changes
-	// (triggered by the sidebarQuotaRefreshChange event) take effect
-	// immediately without a page reload.
+	const { data: settings } = useQuery({
+		queryKey: ["settings"],
+		queryFn: () => api.settings.get(),
+	});
+
+	// Derive the refresh interval from the server setting. Query invalidation
+	// (triggered when the Settings page saves the value) re-runs this without a
+	// page reload. 0 disables auto-refresh; anything invalid falls back to 5min.
 	const refreshMs: number | false = (() => {
-		const v = parseInt(refreshIntervalMin, 10);
+		const v = parseInt(settings?.quota_refresh_interval_min ?? "5", 10);
 		if (v === 0) return false;
 		if (v >= 1) return v * 60_000;
 		return 5 * 60_000;
@@ -139,8 +128,18 @@ export function ProviderQuotaPanel() {
 			return;
 		}
 		lastManualRefresh.current = now;
-		invalidateAll();
 		toast(t("components.providerQuotaPanel.refreshingQuotas"), "info");
+		// Force the server to refetch upstream and persist fresh snapshots, then
+		// re-read them into the UI. invalidateAll on its own only re-reads the
+		// stored (possibly stale) snapshot through the read-through GET. If the
+		// server refresh fails we still invalidate, so the UI falls back to the
+		// last-good stored snapshot the server keeps.
+		void api.providers
+			.refreshQuotas()
+			.catch(() => undefined)
+			.finally(() => {
+				invalidateAll();
+			});
 	}, [toast, invalidateAll, t]);
 
 	const {
