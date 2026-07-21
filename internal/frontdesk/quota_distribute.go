@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
@@ -12,6 +13,31 @@ import (
 // mounted on the same fleet-authed router as config export/import (see
 // internal/api QuotaFleetHandler.Register), so it lives under /api/config.
 const memberQuotaSnapshotsPath = "/api/config/quota-snapshots"
+
+// quotaDistributeInterval is how often Front Desk redistributes the primary's
+// quota snapshots to the fleet. It is kept well under the member's quota-poll
+// interval (default 5 min) so a member Front Desk feeds always has a fresh fleet
+// snapshot and stays suppressed rather than falling back to its own upstream
+// poll. Redundant passes are cheap: the member applies with skip-if-newer, so an
+// unchanged snapshot is a no-op write. It is a var so tests can drive a tick.
+var quotaDistributeInterval = 60 * time.Second
+
+// RunQuotaDistribute runs the quota-distribution pass on a fixed tick until ctx
+// is cancelled. It is started once at startup, alongside RunAutoSync, and
+// mirrors that loop: a Front-Desk-owned ticker driving a best-effort,
+// error-free pass over the fleet.
+func (s *Server) RunQuotaDistribute(ctx context.Context) {
+	ticker := time.NewTicker(quotaDistributeInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.DistributeQuotaOnce(ctx)
+		}
+	}
+}
 
 // DistributeQuotaOnce fetches the designated primary's quota snapshots and posts
 // them to every other member, so members do not each poll the same upstream

@@ -1,12 +1,14 @@
 package frontdesk
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // stubQuotaMember plays a member for the quota-distribution loop: it serves the
@@ -81,4 +83,52 @@ func TestDistributeQuotaOnce(t *testing.T) {
 func TestDistributeQuotaOnce_NoPrimaryIsNoop(t *testing.T) {
 	srv, _ := newTestServer(t)
 	srv.DistributeQuotaOnce(t.Context()) // must not panic or call anything
+}
+
+// TestRunQuotaDistributeDistributesOnTick: the loop distributes on its tick.
+func TestRunQuotaDistributeDistributesOnTick(t *testing.T) {
+	old := quotaDistributeInterval
+	quotaDistributeInterval = 10 * time.Millisecond
+	t.Cleanup(func() { quotaDistributeInterval = old })
+
+	srv, store := newTestServer(t)
+	exportBody := `{"snapshots":[{"provider_name":"nano","kind":"usage","payload":{"used":5},"http_status":200,"fetched_at":"2026-07-21T00:00:00Z"}]}`
+	primary := newStubQuotaMember(t, "ptoken", exportBody)
+	replica := newStubQuotaMember(t, "rtoken", "")
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	_, _ = store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	go srv.RunQuotaDistribute(ctx)
+
+	deadline := time.After(2 * time.Second)
+	for {
+		if len(replica.postedBodies()) > 0 {
+			return
+		}
+		select {
+		case <-deadline:
+			t.Fatal("no distribution within deadline")
+		case <-time.After(5 * time.Millisecond):
+		}
+	}
+}
+
+// TestRunQuotaDistributeStopsOnContextCancel: the loop returns promptly when its
+// context is cancelled.
+func TestRunQuotaDistributeStopsOnContextCancel(t *testing.T) {
+	srv, _ := newTestServer(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	done := make(chan struct{})
+	go func() { srv.RunQuotaDistribute(ctx); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("RunQuotaDistribute did not return after context cancel")
+	}
 }
