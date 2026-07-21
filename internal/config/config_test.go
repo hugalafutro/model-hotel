@@ -1585,9 +1585,9 @@ func TestLoadTrustedProxies_InvalidCIDRGraceful(t *testing.T) {
 	}
 }
 
-// TestCookieSecure_DefaultsToAuto tests that COOKIE_SECURE defaults to "auto"
+// TestCookieSecure_DefaultsToAlways tests that COOKIE_SECURE defaults to "always"
 // when unset, and that a valid explicit value ("always") is honored.
-func TestCookieSecure_DefaultsToAuto(t *testing.T) {
+func TestCookieSecure_DefaultsToAlways(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost/test")
 	t.Setenv("MASTER_KEY", "test-master-key")
 	t.Setenv("COOKIE_SECURE", "")
@@ -1596,8 +1596,8 @@ func TestCookieSecure_DefaultsToAuto(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() failed: %v", err)
 	}
-	if cfg.CookieSecure != "auto" {
-		t.Errorf("CookieSecure = %q, want auto", cfg.CookieSecure)
+	if cfg.CookieSecure != "always" {
+		t.Errorf("CookieSecure = %q, want always (secure-by-default)", cfg.CookieSecure)
 	}
 
 	t.Setenv("COOKIE_SECURE", "always")
@@ -1618,14 +1618,14 @@ func TestCookieSecure_DefaultsToAuto(t *testing.T) {
 		t.Errorf("CookieSecure = %q, want never", cfg2b.CookieSecure)
 	}
 
-	// An unrecognized value falls back to the "auto" default rather than
-	// propagating garbage into the Secure() cookie attribute decision.
+	// An unrecognized value falls back to the secure-by-default "always" rather
+	// than propagating garbage into the Secure() cookie attribute decision.
 	t.Setenv("COOKIE_SECURE", "bogus")
 	cfg3, err := Load()
 	if err != nil {
 		t.Fatalf("Load() failed: %v", err)
 	}
-	if cfg3.CookieSecure != "auto" {
-		t.Errorf("CookieSecure = %q, want auto for unrecognized value", cfg3.CookieSecure)
+	if cfg3.CookieSecure != "always" {
+		t.Errorf("CookieSecure = %q, want always for unrecognized value", cfg3.CookieSecure)
 	}
 }
