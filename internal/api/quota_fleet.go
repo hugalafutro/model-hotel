@@ -63,6 +63,14 @@ func (h *QuotaFleetHandler) ExportSnapshots(w http.ResponseWriter, r *http.Reque
 
 	wire := make([]QuotaSnapshotWire, 0, len(snaps))
 	for _, s := range snaps {
+		if s.HTTPStatus == 0 {
+			// Failure placeholder from RecordFailure (no successful fetch yet): it
+			// carries no real payload but a fresh fetched_at. Distributing it as
+			// source='fleet' would suppress a member's own (potentially successful)
+			// poll, so it is never worse than standalone only if we drop it here. A
+			// real fetch always has a non-zero HTTP status (200/204/424, ...).
+			continue
+		}
 		name, ok := idToName[s.ProviderID]
 		if !ok {
 			continue // provider deleted since the snapshot was stored; skip it

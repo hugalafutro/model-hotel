@@ -55,6 +55,60 @@ func TestQuotaFleetExportSnapshots(t *testing.T) {
 	}
 }
 
+// TestQuotaFleetExportSkipsFailurePlaceholders: RecordFailure leaves a
+// placeholder row (http_status=0, no real payload, fresh fetched_at). It must
+// not be distributed, or a member would store it as source='fleet' and suppress
+// its own (potentially successful) poll while that empty row looks fresh.
+func TestQuotaFleetExportSkipsFailurePlaceholders(t *testing.T) {
+	h := newTestHandler(t)
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+
+	failed, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "failed-only",
+		BaseURL: "https://api.nano-gpt.com",
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("create failed provider: %v", err)
+	}
+	if err := h.quotaRepo.RecordFailure(context.Background(), failed.ID, "usage", "boom"); err != nil {
+		t.Fatalf("record failure: %v", err)
+	}
+
+	okProv, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "ok-provider",
+		BaseURL: "https://api.nano-gpt.com",
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("create ok provider: %v", err)
+	}
+	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+		ProviderID: okProv.ID,
+		Kind:       "usage",
+		Payload:    json.RawMessage(`{"used":4}`),
+		HTTPStatus: 200,
+		Source:     "poll",
+	}); err != nil {
+		t.Fatalf("upsert ok snapshot: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/config/quota-snapshots", http.NoBody)
+	fleet.ExportSnapshots(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var body struct {
+		Snapshots []QuotaSnapshotWire `json:"snapshots"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Snapshots) != 1 || body.Snapshots[0].ProviderName != okProv.Name {
+		t.Fatalf("only the successful snapshot should export, got %+v", body.Snapshots)
+	}
+}
+
 func TestQuotaFleetReceiveSnapshots_UpsertsAsFleet(t *testing.T) {
 	h := newTestHandler(t)
 	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
