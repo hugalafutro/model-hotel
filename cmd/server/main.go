@@ -96,7 +96,7 @@ func cleanupInterruptedRequests(pool *pgxpool.Pool, serverStartTime time.Time) {
 		events.Publish(events.Event{
 			Type:     "logs.stale_startup",
 			Severity: "warning",
-			Message:  fmt.Sprintf("Server restart interrupted %d pending requests", tag.RowsAffected()),
+			Message:  fmt.Sprintf("Server restart interrupted %d pending %s", tag.RowsAffected(), util.Plural(int(tag.RowsAffected()), "request", "requests")),
 			Metadata: map[string]any{"count": tag.RowsAffected()},
 		})
 	} else if err != nil {

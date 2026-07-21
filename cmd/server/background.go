@@ -14,6 +14,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/settings"
+	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
@@ -276,7 +277,7 @@ func staleLogCleanupPass(pool *pgxpool.Pool, settingsRepo *settings.Repository, 
 		events.Publish(events.Event{
 			Type:     "logs.stale_cleanup",
 			Severity: "warning",
-			Message:  fmt.Sprintf("Marked %d stale requests as interrupted", tag.RowsAffected()),
+			Message:  fmt.Sprintf("Marked %d stale %s as interrupted", tag.RowsAffected(), util.Plural(int(tag.RowsAffected()), "request", "requests")),
 			Metadata: map[string]any{"count": tag.RowsAffected()},
 		})
 	} else if err != nil {

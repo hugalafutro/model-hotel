@@ -19,6 +19,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // newDiscoveryService creates a DiscoveryService. NewHandler overwrites this
@@ -148,7 +149,7 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 		Type:     "discovery.provider_fetched",
 		Severity: "success",
 		Source:   "discovery",
-		Message:  fmt.Sprintf("Fetched %d models from %s", len(models), prov.Name),
+		Message:  fmt.Sprintf("Fetched %s from %s", util.Count(len(models), "model", "models"), prov.Name),
 		Metadata: map[string]any{"provider": prov.Name, "count": len(models)},
 	})
 
@@ -450,7 +451,7 @@ func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (
 			Type:     "discovery.provider_fetched",
 			Severity: "success",
 			Source:   "discovery",
-			Message:  fmt.Sprintf("Fetched %d models from %s", len(models), prov.Name),
+			Message:  fmt.Sprintf("Fetched %s from %s", util.Count(len(models), "model", "models"), prov.Name),
 			Metadata: map[string]any{"provider": prov.Name, "count": len(models)},
 		})
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // This file holds the background pollers: a per-member /health probe (status +
@@ -351,7 +352,7 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus) {
 			"member", m.Name, "consecutive_failures", fails, "error", hs.Error)
 		p.recordEvent(ctx, Event{
 			Type: "health.down", Severity: "error", Source: "frontdesk-poller",
-			Message: fmt.Sprintf("%s is unreachable after %d checks", m.Name, fails), MemberID: m.ID,
+			Message: fmt.Sprintf("%s is unreachable after %d %s", m.Name, fails, util.Plural(fails, "check", "checks")), MemberID: m.ID,
 			Metadata: map[string]any{"error": hs.Error, "consecutive_failures": fails},
 		})
 	}
