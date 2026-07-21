@@ -1618,6 +1618,15 @@ func TestCookieSecure_DefaultsToAlways(t *testing.T) {
 		t.Errorf("CookieSecure = %q, want never", cfg2b.CookieSecure)
 	}
 
+	t.Setenv("COOKIE_SECURE", "auto")
+	cfg2c, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	if cfg2c.CookieSecure != "auto" {
+		t.Errorf("CookieSecure = %q, want auto", cfg2c.CookieSecure)
+	}
+
 	// An unrecognized value falls back to the secure-by-default "always" rather
 	// than propagating garbage into the Secure() cookie attribute decision.
 	t.Setenv("COOKIE_SECURE", "bogus")
