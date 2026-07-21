@@ -242,6 +242,46 @@ func TestGetProviderBalance_UnsupportedType(t *testing.T) {
 	}
 }
 
+// TestGetProviderUsage_RejectsMismatchedKind verifies the endpoint contract: a
+// provider whose type maps to a different quota kind (DeepSeek is balance-kind)
+// is rejected on /usage rather than served the wrong payload shape.
+func TestGetProviderUsage_RejectsMismatchedKind(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	// DeepSeek maps to the "balance" kind, not "usage".
+	providerData := `{"name": "test-usage-mismatch", "base_url": "https://api.deepseek.com", "api_key": "sk-test123"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var createResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+
+	// Hitting /usage on a balance-kind provider must 400, not serve the balance
+	// payload on the usage endpoint.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for mismatched kind, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "usage information not supported") {
+		t.Errorf("Expected usage-not-supported error, got: %s", rec.Body.String())
+	}
+}
+
 // TestGetOllamaCloudAccount_NonOllamaCloud tests that GetOllamaCloudAccount returns 400 for
 // a provider that is not Ollama Cloud.
 func TestGetOllamaCloudAccount_NonOllamaCloud(t *testing.T) {

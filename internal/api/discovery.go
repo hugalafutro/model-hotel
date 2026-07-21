@@ -252,11 +252,14 @@ func respondQuotaError(w http.ResponseWriter, providerName, resource string, err
 // On a cold miss it performs a one-time live fetch, persists it, then serves it,
 // so a brand-new provider's first view is not blank. The X-Quota-Fetched-At
 // header (RFC3339) carries the snapshot age for the client display.
-func (h *Handler) serveQuota(w http.ResponseWriter, r *http.Request, prov *provider.Provider) {
+func (h *Handler) serveQuota(w http.ResponseWriter, r *http.Request, prov *provider.Provider, expectedKind string) {
 	providerType := provider.DetectProviderType(prov.BaseURL)
 	kind, ok := quotaKindFor(providerType)
-	if !ok {
-		http.Error(w, "usage information not supported for this provider type", http.StatusBadRequest)
+	if !ok || kind != expectedKind {
+		// Enforce the endpoint contract: /usage, /balance and /account each
+		// serve only their own kind. Without this a provider whose type maps to
+		// a different kind would return the wrong payload shape on the endpoint.
+		http.Error(w, expectedKind+" information not supported for this provider type", http.StatusBadRequest)
 		return
 	}
 
@@ -315,7 +318,7 @@ func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.serveQuota(w, r, prov)
+	h.serveQuota(w, r, prov, "usage")
 }
 
 // GetProviderBalance serves balance information for a provider from the
@@ -332,7 +335,7 @@ func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.serveQuota(w, r, prov)
+	h.serveQuota(w, r, prov, "balance")
 }
 
 // GetOllamaCloudAccount serves Ollama Cloud account info from the read-through
@@ -349,12 +352,7 @@ func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if provider.DetectProviderType(prov.BaseURL) != "ollama-cloud" {
-		http.Error(w, "account information not supported for this provider type", http.StatusBadRequest)
-		return
-	}
-
-	h.serveQuota(w, r, prov)
+	h.serveQuota(w, r, prov, "account")
 }
 
 // DiscoverAllResult holds the result of discovering models from a single provider.
