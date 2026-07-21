@@ -359,11 +359,20 @@ func TestQuotaPollLoop_RunsOnInterval(t *testing.T) {
 	}
 
 	// A different interval reaches the loop through the settings subscription
-	// and resets the live timer.
+	// and resets the live timer. Assert the loop keeps firing on the new cadence
+	// rather than just sleeping and hoping.
+	before := calls.Load()
 	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "30"); err != nil {
 		t.Fatalf("set failed: %v", err)
 	}
-	time.Sleep(50 * time.Millisecond)
+	resetDeadline := time.After(5 * time.Second)
+	for calls.Load() <= before {
+		select {
+		case <-resetDeadline:
+			t.Fatal("poll loop did not fire after interval reset")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
 
 	// Interval 0 disables the timer: the loop parks on the settings
 	// subscription until cancellation.
