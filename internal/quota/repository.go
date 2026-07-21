@@ -89,3 +89,55 @@ func (r *Repository) RecordFailure(ctx context.Context, providerID uuid.UUID, ki
 		providerID, kind, errMsg, now)
 	return err
 }
+
+// List returns every stored snapshot. The fleet export endpoint reads this on
+// the primary so Front Desk can distribute the primary's snapshots to members.
+func (r *Repository) List(ctx context.Context) ([]Snapshot, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT provider_id, kind, payload, http_status, fetched_at, source, last_error, last_attempt_at
+		FROM provider_quota_snapshots`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Snapshot
+	for rows.Next() {
+		var s Snapshot
+		var lastErr *string
+		if err := rows.Scan(&s.ProviderID, &s.Kind, &s.Payload, &s.HTTPStatus, &s.FetchedAt, &s.Source, &lastErr, &s.LastAttemptAt); err != nil {
+			return nil, err
+		}
+		if lastErr != nil {
+			s.LastError = *lastErr
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// UpsertIfNewer writes only when there is no existing row or the incoming
+// fetched_at is strictly newer, so an older fleet write never clobbers a
+// member's fresher manual refresh. Returns whether the write applied.
+func (r *Repository) UpsertIfNewer(ctx context.Context, s Snapshot) (bool, error) {
+	if s.FetchedAt.IsZero() {
+		s.FetchedAt = time.Now()
+	}
+	tag, err := r.pool.Exec(ctx, `
+		INSERT INTO provider_quota_snapshots
+			(provider_id, kind, payload, http_status, fetched_at, source, last_error, last_attempt_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NULL, $5)
+		ON CONFLICT (provider_id, kind) DO UPDATE SET
+			payload         = EXCLUDED.payload,
+			http_status     = EXCLUDED.http_status,
+			fetched_at      = EXCLUDED.fetched_at,
+			source          = EXCLUDED.source,
+			last_error      = NULL,
+			last_attempt_at = EXCLUDED.fetched_at
+		WHERE provider_quota_snapshots.fetched_at < EXCLUDED.fetched_at`,
+		s.ProviderID, s.Kind, s.Payload, s.HTTPStatus, s.FetchedAt, s.Source)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
