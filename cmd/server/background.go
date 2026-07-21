@@ -125,20 +125,15 @@ func discoverySchedulerLoop(ctx context.Context, settingsRepo *settings.Reposito
 	}
 }
 
-// quotaPollUnit is the time unit for the quota_refresh_interval_min setting.
-// It is time.Minute in production; tests override it so the timer fires
-// within a test window instead of waiting real minutes.
-var quotaPollUnit = time.Minute
-
 // quotaPollLoop periodically refreshes provider quota snapshots based on the
 // quota_refresh_interval_min setting. It mirrors discoverySchedulerLoop: the
 // first run waits a full interval, the timer reacts immediately to interval
 // changes via the settings subscription channel, and an interval of 0
 // ("Disabled") truly disables polling — the loop blocks on the subscription
 // channel until a non-zero value arrives.
-func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollOnce func(context.Context)) {
+func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollOnce func(context.Context), unit time.Duration) {
 	readInterval := func() time.Duration {
-		return time.Duration(settingsRepo.GetInt(context.Background(), "quota_refresh_interval_min", 5)) * quotaPollUnit
+		return time.Duration(settingsRepo.GetInt(context.Background(), "quota_refresh_interval_min", 5)) * unit
 	}
 
 	settingsSub := settingsRepo.Subscribe()

@@ -333,9 +333,6 @@ func TestQuotaPollLoop_RunsOnInterval(t *testing.T) {
 	}
 	// Interpret the interval in milliseconds so the timer fires within the
 	// test window instead of waiting real minutes.
-	t.Cleanup(func() { quotaPollUnit = time.Minute })
-	quotaPollUnit = time.Millisecond
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	settingsRepo := newTestSettingsRepo()
@@ -348,7 +345,7 @@ func TestQuotaPollLoop_RunsOnInterval(t *testing.T) {
 	go func() {
 		quotaPollLoop(ctx, settingsRepo, func(context.Context) {
 			calls.Add(1)
-		})
+		}, time.Millisecond)
 		close(done)
 	}()
 
@@ -390,9 +387,6 @@ func TestQuotaPollLoopDisabledAtStart(t *testing.T) {
 	if cmdTestDB == nil {
 		t.Fatal("test DB unavailable")
 	}
-	t.Cleanup(func() { quotaPollUnit = time.Minute })
-	quotaPollUnit = time.Millisecond
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	settingsRepo := newTestSettingsRepo()
@@ -405,7 +399,7 @@ func TestQuotaPollLoopDisabledAtStart(t *testing.T) {
 	go func() {
 		quotaPollLoop(ctx, settingsRepo, func(context.Context) {
 			calls.Add(1)
-		})
+		}, time.Millisecond)
 		close(done)
 	}()
 
