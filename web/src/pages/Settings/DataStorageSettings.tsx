@@ -52,13 +52,6 @@ export function DataStorageSettings({
 			return false;
 		}
 	});
-	const [refreshMin, setRefreshMin] = useState(() => {
-		try {
-			return localStorage.getItem("sidebarQuotaRefreshMin") || "5";
-		} catch {
-			return "5";
-		}
-	});
 	const [refreshSec, setRefreshSec] = useState(() => {
 		try {
 			return localStorage.getItem("dashboardRefreshSec") || "30";
@@ -136,6 +129,8 @@ export function DataStorageSettings({
 
 	const logRetention = settings?.log_retention || "0";
 	const staleRequestTimeout = settings?.stale_request_timeout || "30m0s";
+	// Quota sidebar refresh interval is a server setting (minutes, 0 = off).
+	const quotaRefreshMin = Number(settings?.quota_refresh_interval_min ?? 5);
 	const logRetentionHours = goDurationToHours(logRetention);
 	const staleTimeoutMinutes = goDurationToMinutes(staleRequestTimeout);
 
@@ -428,7 +423,7 @@ export function DataStorageSettings({
 							<SettingsSlider
 								id="quota-refresh-interval"
 								label={t("settings.sidebarQuota.refreshInterval")}
-								value={Number(refreshMin)}
+								value={quotaRefreshMin}
 								min={0}
 								max={30}
 								step={1}
@@ -437,16 +432,9 @@ export function DataStorageSettings({
 								unit="m"
 								disabled={quotaDisabled}
 								onChange={(v) => {
-									const val = String(v);
-									setRefreshMin(val);
-									try {
-										localStorage.setItem("sidebarQuotaRefreshMin", val);
-									} catch {
-										/* ignore */
-									}
-									window.dispatchEvent(
-										new CustomEvent("sidebarQuotaRefreshChange"),
-									);
+									updateMutation.mutate({
+										quota_refresh_interval_min: String(v),
+									});
 									toast(
 										v === 0
 											? t("settings.sidebarQuota.disabled")

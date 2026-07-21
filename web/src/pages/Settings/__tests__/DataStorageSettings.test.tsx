@@ -731,6 +731,25 @@ describe("Quota Sidebar section", () => {
 		expect(quotaSlider).toHaveValue("5");
 	});
 
+	it("sources quota refresh slider value from server settings", async () => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({ quota_refresh_interval_min: "15" }),
+			),
+		);
+
+		renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+
+		await waitFor(() => {
+			const quotaSlider = screen
+				.getAllByLabelText("Refresh Interval")
+				.find((s) => (s as HTMLInputElement).id === "quota-refresh-interval");
+			expect(quotaSlider).toHaveValue("15");
+		});
+	});
+
 	it("dispatches sidebarQuotaToggle event when quota toggle changes", async () => {
 		const user = userEvent.setup();
 		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
@@ -1302,10 +1321,16 @@ describe("DataStorageSettings collapsed state", () => {
 		});
 	});
 
-	it("dispatches sidebarQuotaRefreshChange event when quota refresh slider changes", async () => {
-		const user = userEvent.setup();
-		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+	it("saves quota_refresh_interval_min to server settings when quota slider changes", async () => {
+		let capturedBody: Record<string, string> | undefined;
+		server.use(
+			http.put("/api/settings", async ({ request }) => {
+				capturedBody = (await request.json()) as Record<string, string>;
+				return HttpResponse.json(capturedBody);
+			}),
+		);
 
+		const user = userEvent.setup();
 		renderWithProviders(
 			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
 		);
@@ -1321,11 +1346,9 @@ describe("DataStorageSettings collapsed state", () => {
 		fireEvent.input(quotaSlider, { target: { value: "10" } });
 		fireEvent.pointerUp(quotaSlider);
 
-		expect(dispatchSpy).toHaveBeenCalledWith(
-			expect.objectContaining({ type: "sidebarQuotaRefreshChange" }),
+		await waitFor(() =>
+			expect(capturedBody).toEqual({ quota_refresh_interval_min: "10" }),
 		);
-
-		dispatchSpy.mockRestore();
 	});
 
 	it("shows quota interval set toast when quota slider value changes", async () => {

@@ -1,7 +1,9 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuotaDataResult } from "../../hooks/useQuotaData";
+import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { ProviderQuotaPanel } from "../ProviderQuotaPanel";
 
@@ -393,17 +395,16 @@ describe("ProviderQuotaPanel", () => {
 			});
 		});
 
-		it("sidebarQuotaRefreshChange event updates refresh interval", async () => {
+		it("derives refresh interval from the server setting", async () => {
+			server.use(
+				http.get("/api/settings", () =>
+					HttpResponse.json({ quota_refresh_interval_min: "10" }),
+				),
+			);
 			setupPanel();
 
-			localStorage.setItem("sidebarQuotaRefreshMin", "10");
-			await act(async () => {
-				window.dispatchEvent(new CustomEvent("sidebarQuotaRefreshChange"));
-			});
-
-			// The handler calls setRefreshIntervalMin which triggers a
-			// re-render with the updated refetchInterval passed to
-			// useQuotaData. 10min = 600000ms.
+			// Once the settings query resolves, the panel passes the derived
+			// refetchInterval to useQuotaData. 10min = 600000ms.
 			await vi.waitFor(() => {
 				expect(mockUseQuotaData).toHaveBeenCalledWith(
 					expect.anything(),
@@ -440,25 +441,38 @@ describe("ProviderQuotaPanel", () => {
 
 	describe("refreshMs calculation", () => {
 		// Additional refetchInterval tests below verify the hook arguments directly;
-		// these tests verify the component still renders correctly.
-		it("renders panel when refreshIntervalMin is 0 (auto-refresh disabled)", () => {
-			localStorage.setItem("sidebarQuotaRefreshMin", "0");
+		// these tests verify the component still renders correctly regardless of
+		// the server-provided interval value.
+		it("renders panel when interval is 0 (auto-refresh disabled)", () => {
+			server.use(
+				http.get("/api/settings", () =>
+					HttpResponse.json({ quota_refresh_interval_min: "0" }),
+				),
+			);
 			const { container } = setupPanel();
 			expect(
 				container.querySelector(".sidebar-quota-panel"),
 			).toBeInTheDocument();
 		});
 
-		it("renders panel with valid refresh interval", () => {
-			localStorage.setItem("sidebarQuotaRefreshMin", "10");
+		it("renders panel with a valid refresh interval", () => {
+			server.use(
+				http.get("/api/settings", () =>
+					HttpResponse.json({ quota_refresh_interval_min: "10" }),
+				),
+			);
 			const { container } = setupPanel();
 			expect(
 				container.querySelector(".sidebar-quota-panel"),
 			).toBeInTheDocument();
 		});
 
-		it("renders panel with invalid refresh interval (defaults to 5min)", () => {
-			localStorage.setItem("sidebarQuotaRefreshMin", "invalid");
+		it("renders panel with an invalid refresh interval (defaults to 5min)", () => {
+			server.use(
+				http.get("/api/settings", () =>
+					HttpResponse.json({ quota_refresh_interval_min: "invalid" }),
+				),
+			);
 			const { container } = setupPanel();
 			expect(
 				container.querySelector(".sidebar-quota-panel"),
@@ -693,25 +707,49 @@ describe("ProviderQuotaPanel", () => {
 	});
 
 	describe("refetchInterval", () => {
-		it("passes false when refreshIntervalMin is 0", async () => {
-			localStorage.setItem("sidebarQuotaRefreshMin", "0");
+		it("passes false when the server interval is 0", async () => {
+			server.use(
+				http.get("/api/settings", () =>
+					HttpResponse.json({ quota_refresh_interval_min: "0" }),
+				),
+			);
 			setupPanel();
 
 			await vi.waitFor(() => {
 				expect(mockUseQuotaData).toHaveBeenCalledWith(
-					undefined,
+					expect.anything(),
 					expect.objectContaining({ refetchInterval: false }),
 				);
 			});
 		});
 
-		it("passes 300000ms when refreshIntervalMin is invalid", async () => {
-			localStorage.setItem("sidebarQuotaRefreshMin", "abc");
+		it("passes 300000ms when the server interval is 5", async () => {
+			server.use(
+				http.get("/api/settings", () =>
+					HttpResponse.json({ quota_refresh_interval_min: "5" }),
+				),
+			);
 			setupPanel();
 
 			await vi.waitFor(() => {
 				expect(mockUseQuotaData).toHaveBeenCalledWith(
-					undefined,
+					expect.anything(),
+					expect.objectContaining({ refetchInterval: 300_000 }),
+				);
+			});
+		});
+
+		it("passes 300000ms when the server interval is invalid", async () => {
+			server.use(
+				http.get("/api/settings", () =>
+					HttpResponse.json({ quota_refresh_interval_min: "abc" }),
+				),
+			);
+			setupPanel();
+
+			await vi.waitFor(() => {
+				expect(mockUseQuotaData).toHaveBeenCalledWith(
+					expect.anything(),
 					expect.objectContaining({ refetchInterval: 300_000 }),
 				);
 			});
