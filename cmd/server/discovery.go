@@ -21,6 +21,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/proxy"
 	"github.com/hugalafutro/model-hotel/internal/settings"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 type DiscoveryResult struct {
@@ -56,14 +57,14 @@ func publishDiscoveryEvent(source string, result DiscoveryResult) {
 		events.Publish(events.Event{
 			Type:     "discovery.complete",
 			Severity: "warning",
-			Message:  fmt.Sprintf("Discovery partially failed: %d/%d providers OK, %d models found", result.ProvidersScanned-result.ProvidersFailed, result.ProvidersScanned, result.ModelsDiscovered),
+			Message:  fmt.Sprintf("Discovery partially failed: %d/%d providers OK, %s found", result.ProvidersScanned-result.ProvidersFailed, result.ProvidersScanned, util.Count(result.ModelsDiscovered, "model", "models")),
 			Metadata: map[string]any{"source": source, "errors": result.Errors},
 		})
 	default:
 		events.Publish(events.Event{
 			Type:     "discovery.complete",
 			Severity: "success",
-			Message:  fmt.Sprintf("%s discovery complete: %d models across %d providers", source, result.ModelsDiscovered, result.ProvidersScanned),
+			Message:  fmt.Sprintf("%s discovery complete: %s across %s", source, util.Count(result.ModelsDiscovered, "model", "models"), util.Count(result.ProvidersScanned, "provider", "providers")),
 			Metadata: map[string]any{"source": source},
 		})
 	}
@@ -179,7 +180,7 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 		events.Publish(events.Event{
 			Type:     "discovery.models_disabled",
 			Severity: "warning",
-			Message:  fmt.Sprintf("%d models no longer available at '%s' and were disabled", len(disabledRefs), p.Name),
+			Message:  fmt.Sprintf("%s no longer available at '%s' and %s disabled", util.Count(len(disabledRefs), "model", "models"), p.Name, util.Plural(len(disabledRefs), "was", "were")),
 			Metadata: map[string]any{"provider": p.Name, "count": len(disabledRefs)},
 		})
 	}
