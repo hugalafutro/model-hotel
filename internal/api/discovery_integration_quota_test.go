@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
@@ -363,6 +364,78 @@ func TestRefreshAllQuotas_UnsupportedType(t *testing.T) {
 	}
 	if response.Refreshed != 0 {
 		t.Errorf("Expected refreshed=0, got %d", response.Refreshed)
+	}
+}
+
+// TestRefreshAllQuotas_UpsertErrorReportsFailure verifies that a persist failure
+// is reported as failed rather than a false "refreshed", so callers do not treat
+// stale stored quota as freshly updated.
+func TestRefreshAllQuotas_UpsertErrorReportsFailure(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	// Mock a successful DeepSeek balance fetch so the flow reaches the Upsert.
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = func() *provider.DiscoveryService {
+		ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+			Transport: &mockTransport{
+				roundTripFunc: func(req *http.Request) (*http.Response, error) {
+					if strings.HasSuffix(req.URL.Path, "/user/balance") {
+						resp := `{"is_available":true,"balance_infos":[{"currency":"USD","total_balance":"10.00","granted_balance":"5.00","topped_up_balance":"5.00"}]}`
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(strings.NewReader(resp)),
+							Header:     make(http.Header),
+						}, nil
+					}
+					return nil, fmt.Errorf("unexpected request to %s", req.URL.String())
+				},
+			},
+		})
+		ds.SetRetryBaseDelay(time.Millisecond)
+		return ds
+	}
+
+	createQuotaProvider(t, r, "https://api.deepseek.com/v1")
+
+	// Point the quota repo at a closed pool so the Upsert fails, while the
+	// provider list (its own healthy repo) still returns the provider.
+	brokenPool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Fatalf("failed to open pool: %v", err)
+	}
+	brokenPool.Close()
+	h.quotaRepo = quota.NewRepository(brokenPool)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers/refresh-quotas", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Results []struct {
+			Refreshed bool   `json:"refreshed"`
+			Error     string `json:"error"`
+		} `json:"results"`
+		Refreshed int `json:"refreshed"`
+		Failed    int `json:"failed"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if response.Refreshed != 0 {
+		t.Errorf("expected refreshed=0 when persist fails, got %d", response.Refreshed)
+	}
+	if response.Failed != 1 {
+		t.Errorf("expected failed=1 when persist fails, got %d", response.Failed)
+	}
+	if len(response.Results) != 1 || response.Results[0].Refreshed || response.Results[0].Error == "" {
+		t.Errorf("expected the provider reported as failed with an error, got %+v", response.Results)
 	}
 }
 
