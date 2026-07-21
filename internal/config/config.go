@@ -47,8 +47,11 @@ type Config struct {
 	KnownProxies         []*net.IPNet
 
 	// CookieSecure controls the Secure attribute on dashboard auth cookies.
-	// "auto" (default) sets Secure based on the request scheme, "always"
-	// forces Secure on, and "never" forces Secure off (for local HTTP dev).
+	// "always" (default) forces Secure on so the session cookie is never sent
+	// over cleartext HTTP; "auto" sets Secure from the request scheme (TLS or
+	// X-Forwarded-Proto=https); "never" forces Secure off for a plain-HTTP LAN
+	// deployment (the operator's explicit, accepted-risk opt-out). localhost is a
+	// browser secure context, so "always" still works in local HTTP dev.
 	CookieSecure string
 
 	// WebAuthn/FIDO2 configuration. When WEBAUTHN_RP_ID is set, passkey
@@ -442,10 +445,14 @@ func normalizeCookieSecure(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "always":
 		return "always"
+	case "auto":
+		return "auto"
 	case "never":
 		return "never"
 	default:
-		return "auto"
+		// Secure-by-default: unset or unrecognized values force Secure on so a
+		// misconfiguration cannot silently ship the session cookie over cleartext.
+		return "always"
 	}
 }
 
