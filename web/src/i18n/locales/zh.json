@@ -696,7 +696,6 @@
 		"sort_title_desc": "排序 Z-A (点击还原)",
 		"empty_no_match": "没有匹配所选过滤器的提供者。",
 		"empty_no_providers": "未配置提供商。添加您的第一个提供商以开始操作。",
-		"toast_discovery_failed_all": "无法发现所有 {{failed}} 提供商",
 		"toast_discover_failed": "发现失败： {{message}}",
 		"toast_provider_added": "已添加服务提供商“{{name}}”",
 		"toast_provider_updated": "提供商“{{name}}”已更新",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "删除失败： {{message}}",
 		"toast_add_failed": "添加提供程序失败： {{message}}",
 		"toast_update_failed": "更新失败： {{message}}",
-		"toast_refresh_success": "已刷新 {{count}} 配额/余额",
 		"toast_refresh_warning": "已刷新 {{refreshed}} 配额（{{failed}} 操作失败， {{skipped}} 不支持）",
 		"toast_refresh_none": "没有找到配额/平衡支持的提供商",
 		"toast_refresh_failed": "刷新配额失败： {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "已重新测试 {{provider}}",
 			"toggleSection": "切换 {{provider}} 部分",
 			"failoverDisabled": "故障转移组已停用",
-			"failoverDisabledReason": "剩余 {{count}} 个可路由成员，需要 2 个以上"
+			"failoverDisabledReason_one": "剩余 {{count}} 个可路由成员，需要 2 个以上",
+			"failoverDisabledReason_other": "剩余 {{count}} 个可路由成员，需要 2 个以上"
 		},
 		"toast_quota_detected_minimax": "检测到 MiniMax 配额",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "已刷新 {{count}} 个配额/余额",
+		"toast_refresh_success_other": "已刷新 {{count}} 个配额/余额",
+		"toast_discovery_failed_all_one": "无法发现该提供商",
+		"toast_discovery_failed_all_other": "无法发现所有 {{count}} 个提供商"
 	},
 	"models": {
 		"page_title_one": "模型",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "批量切换某些组失败",
 		"toast_provider_toggle_failed": "批量提供商切换某些组失败",
 		"toast_sync_deleted": "酒店/{{model}} 已删除： {{reason}}{{providers}}",
-		"toast_sync_purged": "酒店/{{group}}：已删除 {{count}} 过期条目",
 		"toast_sync_success": "失败的组同步",
 		"toast_sync_failed": "同步失败： {{message}}",
 		"toast_update_failed": "更新失败： {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "禁用一个提供商将在每个失败组禁用其所有模型",
 		"toast_provider_toggle_no_groups": "没有故障转移组使用该提供程序 {{provider}}",
 		"last_sync_label": "最后同步时间：",
-		"toast_sync_disabled": "酒店/{{group}} 已停用：剩余 {{count}} 个可路由成员",
-		"toast_entry_min_two": "至少 2 个成员必须保持活动状态。"
+		"toast_entry_min_two": "至少 2 个成员必须保持活动状态。",
+		"toast_sync_purged_one": "酒店/{{group}}：已删除 {{count}} 个过期条目",
+		"toast_sync_purged_other": "酒店/{{group}}：已删除 {{count}} 个过期条目",
+		"toast_sync_disabled_one": "酒店/{{group}} 已停用：剩余 {{count}} 个可路由成员",
+		"toast_sync_disabled_other": "酒店/{{group}} 已停用：剩余 {{count}} 个可路由成员"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "未保存的更改"

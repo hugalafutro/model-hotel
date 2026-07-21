@@ -696,7 +696,6 @@
 		"sort_title_desc": "Trié Z-A (cliquez pour inverser)",
 		"empty_no_match": "Aucun fournisseur ne correspond au filtre sélectionné.",
 		"empty_no_providers": "Aucun fournisseur configuré. Ajoutez votre premier fournisseur pour commencer.",
-		"toast_discovery_failed_all": "La découverte a échoué pour tous les fournisseurs {{failed}}",
 		"toast_discover_failed": "Échec de la découverte : {{message}}",
 		"toast_provider_added": "Ajout du fournisseur «{{name}}»",
 		"toast_provider_updated": "Fournisseur \"{{name}}\" mis à jour",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Échec de la suppression : {{message}}",
 		"toast_add_failed": "Impossible d'ajouter le fournisseur : {{message}}",
 		"toast_update_failed": "Échec de la mise à jour : {{message}}",
-		"toast_refresh_success": "Quota/Soldes {{count}} actualisés",
 		"toast_refresh_warning": "Mise à jour des quotas {{refreshed}} ({{failed}} échoué, {{skipped}} non pris en charge)",
 		"toast_refresh_none": "Aucun fournisseur avec le support du quota/solde trouvé",
 		"toast_refresh_failed": "Échec de l'actualisation des quotas : {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} retesté",
 			"toggleSection": "Afficher ou masquer la section {{provider}}",
 			"failoverDisabled": "Groupes de basculement désactivés",
-			"failoverDisabledReason": "{{count}} membre(s) routable(s) restant(s), 2+ requis"
+			"failoverDisabledReason_one": "{{count}} membre routable restant, 2+ requis",
+			"failoverDisabledReason_other": "{{count}} membres routables restants, 2+ requis"
 		},
 		"toast_quota_detected_minimax": "Quota MiniMax détecté",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Quota/Solde {{count}} actualisé",
+		"toast_refresh_success_other": "Quotas/Soldes {{count}} actualisés",
+		"toast_discovery_failed_all_one": "La découverte a échoué pour le fournisseur",
+		"toast_discovery_failed_all_other": "La découverte a échoué pour tous les {{count}} fournisseurs"
 	},
 	"models": {
 		"page_title_one": "Modèle",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Échec de l'activation en bloc pour certains groupes",
 		"toast_provider_toggle_failed": "Échec du basculement du fournisseur de masse pour certains groupes",
 		"toast_sync_deleted": "hotel/{{model}} supprimé: {{reason}}{{providers}}",
-		"toast_sync_purged": "hôtel/{{group}}: suppression de l'adresse {{count}} (entrée(s) obsolète(s))",
 		"toast_sync_success": "Groupes de basculement synchronisés",
 		"toast_sync_failed": "Échec de la synchronisation : {{message}}",
 		"toast_update_failed": "Échec de la mise à jour : {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Désactiver un fournisseur désactivera tous ses modèles dans chaque groupe de basculement",
 		"toast_provider_toggle_no_groups": "Aucun groupe de basculement n'utilise le fournisseur {{provider}}",
 		"last_sync_label": "Dernière synchronisation :",
-		"toast_sync_disabled": "hôtel/{{group}} désactivé : {{count}} membre(s) routable(s) restant(s)",
-		"toast_entry_min_two": "Au moins 2 membres doivent rester actifs."
+		"toast_entry_min_two": "Au moins 2 membres doivent rester actifs.",
+		"toast_sync_purged_one": "hôtel/{{group}} : {{count}} entrée obsolète supprimée",
+		"toast_sync_purged_other": "hôtel/{{group}} : {{count}} entrées obsolètes supprimées",
+		"toast_sync_disabled_one": "hôtel/{{group}} désactivé : {{count}} membre routable restant",
+		"toast_sync_disabled_other": "hôtel/{{group}} désactivé : {{count}} membres routables restants"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modifications non enregistrées"

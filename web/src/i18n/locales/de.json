@@ -696,7 +696,6 @@
 		"sort_title_desc": "Z-A sortiert (zum Umkehren)",
 		"empty_no_match": "Keine Anbieter stimmen mit dem ausgewählten Filter überein.",
 		"empty_no_providers": "Keine Anbieter konfiguriert. Fügen Sie Ihren ersten Anbieter hinzu, um loszulegen.",
-		"toast_discovery_failed_all": "Discovery fehlgeschlagen für alle {{failed}} Anbieter",
 		"toast_discover_failed": "Entdeckung fehlgeschlagen: {{message}}",
 		"toast_provider_added": "Anbieter \"{{name}}\" hinzugefügt",
 		"toast_provider_updated": "Anbieter \"{{name}}\" aktualisiert",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Fehler beim Löschen: {{message}}",
 		"toast_add_failed": "Fehler beim Hinzufügen des Providers: {{message}}",
 		"toast_update_failed": "Aktualisierung fehlgeschlagen: {{message}}",
-		"toast_refresh_success": "Aktualisierte {{count}} Quoten/Salden",
 		"toast_refresh_warning": "Aktualisierte {{refreshed}} Quoten ({{failed}} fehlgeschlagen, {{skipped}} nicht unterstützt)",
 		"toast_refresh_none": "Keine Anbieter mit Quota/Saldo Unterstützung gefunden",
 		"toast_refresh_failed": "Quota aktualisieren fehlgeschlagen: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} erneut getestet",
 			"toggleSection": "Abschnitt {{provider}} umschalten",
 			"failoverDisabled": "Failover-Gruppen deaktiviert",
-			"failoverDisabledReason": "{{count}} routbare(s) Mitglied(er) übrig, 2+ erforderlich"
+			"failoverDisabledReason_one": "{{count}} routbares Mitglied übrig, 2+ erforderlich",
+			"failoverDisabledReason_other": "{{count}} routbare Mitglieder übrig, 2+ erforderlich"
 		},
 		"toast_quota_detected_minimax": "MiniMax Quote erkannt",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Aktualisierte {{count}} Quote/Saldo",
+		"toast_refresh_success_other": "Aktualisierte {{count}} Quoten/Salden",
+		"toast_discovery_failed_all_one": "Discovery fehlgeschlagen für den Anbieter",
+		"toast_discovery_failed_all_other": "Discovery fehlgeschlagen für alle {{count}} Anbieter"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Massenschalter für einige Gruppen fehlgeschlagen",
 		"toast_provider_toggle_failed": "Massenanbieter für einige Gruppen fehlgeschlagen",
 		"toast_sync_deleted": "hotel/{{model}} gelöscht: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: entfernte {{count}} veraltete Einträge(n)",
 		"toast_sync_success": "Failover Gruppen synchronisiert",
 		"toast_sync_failed": "Fehler beim Synchronisieren: {{message}}",
 		"toast_update_failed": "Aktualisierung fehlgeschlagen: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Das Deaktivieren eines Anbieters wird alle seine Modelle in jeder Failover-Gruppe deaktivieren",
 		"toast_provider_toggle_no_groups": "Keine Failover-Gruppen verwenden den Anbieter {{provider}}",
 		"last_sync_label": "Letzter Sync:",
-		"toast_sync_disabled": "hotel/{{group}} deaktiviert: {{count}} routbare(s) Mitglied(er) übrig",
-		"toast_entry_min_two": "Mindestens 2 Mitglieder müssen aktiv bleiben."
+		"toast_entry_min_two": "Mindestens 2 Mitglieder müssen aktiv bleiben.",
+		"toast_sync_purged_one": "hotel/{{group}}: {{count}} veralteten Eintrag entfernt",
+		"toast_sync_purged_other": "hotel/{{group}}: {{count}} veraltete Einträge entfernt",
+		"toast_sync_disabled_one": "hotel/{{group}} deaktiviert: {{count}} routbares Mitglied übrig",
+		"toast_sync_disabled_other": "hotel/{{group}} deaktiviert: {{count}} routbare Mitglieder übrig"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Ungespeicherte Änderungen"

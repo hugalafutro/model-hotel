@@ -696,7 +696,6 @@
 		"sort_title_desc": "Z-A ordinata (clicca per invertire)",
 		"empty_no_match": "Nessun provider corrisponde al filtro selezionato.",
 		"empty_no_providers": "Nessun provider configurato. Aggiungi il tuo primo provider per iniziare.",
-		"toast_discovery_failed_all": "Scoperta fallita per tutti i provider {{failed}}",
 		"toast_discover_failed": "Scoperta non riuscita: {{message}}",
 		"toast_provider_added": "Provider \"{{name}}\" aggiunto",
 		"toast_provider_updated": "Provider \"{{name}}\" aggiornato",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Impossibile eliminare: {{message}}",
 		"toast_add_failed": "Impossibile aggiungere il provider: {{message}}",
 		"toast_update_failed": "Aggiornamento non riuscito: {{message}}",
-		"toast_refresh_success": "Aggiornato {{count}} quote/saldi",
 		"toast_refresh_warning": "Quote aggiornate {{refreshed}} ({{failed}} fallito, {{skipped}} non supportato)",
 		"toast_refresh_none": "Nessun provider con supporto quota/saldo trovato",
 		"toast_refresh_failed": "Aggiornamento quote non riuscito: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} ritestato",
 			"toggleSection": "Mostra o nascondi la sezione {{provider}}",
 			"failoverDisabled": "Gruppi di failover disabilitati",
-			"failoverDisabledReason": "{{count}} membro/i instradabile/i rimasto/i, ne servono 2+"
+			"failoverDisabledReason_one": "{{count}} membro instradabile rimasto, ne servono 2+",
+			"failoverDisabledReason_other": "{{count}} membri instradabili rimasti, ne servono 2+"
 		},
 		"toast_quota_detected_minimax": "Rilevata quota MiniMax",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Aggiornata {{count}} quota/saldo",
+		"toast_refresh_success_other": "Aggiornate {{count}} quote/saldi",
+		"toast_discovery_failed_all_one": "Rilevamento non riuscito per il provider",
+		"toast_discovery_failed_all_other": "Rilevamento non riuscito per tutti i {{count}} provider"
 	},
 	"models": {
 		"page_title_one": "Modello",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Interruttore di massa fallito per alcuni gruppi",
 		"toast_provider_toggle_failed": "Attiva/disattiva provider Bulk per alcuni gruppi",
 		"toast_sync_deleted": "hotel/{{model}} eliminato: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: rimosso {{count}} stale entry(ies)",
 		"toast_sync_success": "Gruppi di failover sincronizzati",
 		"toast_sync_failed": "Sincronizzazione non riuscita: {{message}}",
 		"toast_update_failed": "Aggiornamento non riuscito: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Disabilitare un provider disabiliterà tutti i suoi modelli in ogni gruppo di failover",
 		"toast_provider_toggle_no_groups": "Nessun gruppo di failover usa il provider {{provider}}",
 		"last_sync_label": "Ultima sincronizzazione:",
-		"toast_sync_disabled": "hotel/{{group}} disabilitato: {{count}} membro/i instradabile/i rimasto/i",
-		"toast_entry_min_two": "Almeno 2 membri devono rimanere attivi."
+		"toast_entry_min_two": "Almeno 2 membri devono rimanere attivi.",
+		"toast_sync_purged_one": "hotel/{{group}}: rimossa {{count}} voce obsoleta",
+		"toast_sync_purged_other": "hotel/{{group}}: rimosse {{count}} voci obsolete",
+		"toast_sync_disabled_one": "hotel/{{group}} disabilitato: {{count}} membro instradabile rimasto",
+		"toast_sync_disabled_other": "hotel/{{group}} disabilitato: {{count}} membri instradabili rimasti"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modifiche Non Salvate"

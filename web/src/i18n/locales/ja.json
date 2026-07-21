@@ -696,7 +696,6 @@
 		"sort_title_desc": "Z-Aを並べ替えました（クリックすると元に戻します）",
 		"empty_no_match": "選択したフィルタに一致するプロバイダがありません。",
 		"empty_no_providers": "プロバイダが設定されていません。最初のプロバイダを追加して開始します。",
-		"toast_discovery_failed_all": "すべての {{failed}} プロバイダーの検出に失敗しました",
 		"toast_discover_failed": "ディスカバリーに失敗しました: {{message}}",
 		"toast_provider_added": "プロバイダー \"{{name}}\" が追加されました",
 		"toast_provider_updated": "プロバイダー \"{{name}}\" が更新されました",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "{{message}} の削除に失敗しました",
 		"toast_add_failed": "プロバイダの追加に失敗しました: {{message}}",
 		"toast_update_failed": "更新に失敗しました: {{message}}",
-		"toast_refresh_success": "更新された {{count}} クォータ/残高",
 		"toast_refresh_warning": " {{refreshed}} クォータを更新しました ({{failed}} 失敗しました, {{skipped}} サポートされていません)",
 		"toast_refresh_none": "クォータ/残高サポートを持つプロバイダが見つかりません",
 		"toast_refresh_failed": "クォータの更新に失敗しました: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} を再テストしました",
 			"toggleSection": "{{provider}} セクションの表示切り替え",
 			"failoverDisabled": "フェイルオーバーグループが無効化されました",
-			"failoverDisabledReason": "ルーティング可能なメンバーが {{count}} 個、2個以上必要"
+			"failoverDisabledReason_one": "ルーティング可能なメンバーが残り {{count}} 個、2個以上必要",
+			"failoverDisabledReason_other": "ルーティング可能なメンバーが残り {{count}} 個、2個以上必要"
 		},
 		"toast_quota_detected_minimax": "MiniMax のクオータを検出しました",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "{{count}} 件のクォータ/残高を更新しました",
+		"toast_refresh_success_other": "{{count}} 件のクォータ/残高を更新しました",
+		"toast_discovery_failed_all_one": "プロバイダーの検出に失敗しました",
+		"toast_discovery_failed_all_other": "すべての {{count}} プロバイダーの検出に失敗しました"
 	},
 	"models": {
 		"page_title_one": "モデル",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "いくつかのグループの一括切り替えに失敗しました",
 		"toast_provider_toggle_failed": "一部のグループの一括プロバイダの切り替えに失敗しました",
 		"toast_sync_deleted": "ホテル/{{model}} 削除: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: {{count}} 古いエントリを削除しました",
 		"toast_sync_success": "フェイルオーバーグループが同期されました",
 		"toast_sync_failed": "同期に失敗しました: {{message}}",
 		"toast_update_failed": "更新に失敗しました: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "プロバイダを無効にすると、フェイルオーバーグループのすべてのモデルが無効になります",
 		"toast_provider_toggle_no_groups": "フェイルオーバーグループでプロバイダ {{provider}}を使用しません",
 		"last_sync_label": "前回の同期:",
-		"toast_sync_disabled": "hotel/{{group}} を無効化しました: ルーティング可能なメンバーが {{count}} 個",
-		"toast_entry_min_two": "少なくとも2つのメンバーをアクティブのままにする必要があります。"
+		"toast_entry_min_two": "少なくとも2つのメンバーをアクティブのままにする必要があります。",
+		"toast_sync_purged_one": "hotel/{{group}}: 古いエントリを {{count}} 件削除しました",
+		"toast_sync_purged_other": "hotel/{{group}}: 古いエントリを {{count}} 件削除しました",
+		"toast_sync_disabled_one": "hotel/{{group}} を無効化しました: ルーティング可能なメンバーが残り {{count}} 個",
+		"toast_sync_disabled_other": "hotel/{{group}} を無効化しました: ルーティング可能なメンバーが残り {{count}} 個"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "保存されていない変更"

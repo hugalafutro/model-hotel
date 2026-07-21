@@ -696,7 +696,6 @@
 		"sort_title_desc": "Z-A 순서 (클릭하면 순서 반전)",
 		"empty_no_match": "선택한 필터에 해당하는 제공자가 없습니다.",
 		"empty_no_providers": "설정된 공급자가 없습니다. 시작하려면 첫 번째 공급자를 추가하세요.",
-		"toast_discovery_failed_all": "모든 {{failed}} 제공자에 대해 검색에 실패했습니다",
 		"toast_discover_failed": "탐색에 실패했습니다: {{message}}",
 		"toast_provider_added": "제공자 \"{{name}}\"가 추가되었습니다",
 		"toast_provider_updated": "제공자 \"{{name}}\"가 업데이트되었습니다",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "삭제에 실패했습니다: {{message}}",
 		"toast_add_failed": "프로바이더 추가에 실패했습니다: {{message}}",
 		"toast_update_failed": "업데이트에 실패했습니다: {{message}}",
-		"toast_refresh_success": "{{count}} 의 할당량/잔액 업데이트",
 		"toast_refresh_warning": " {{refreshed}} 할당량 갱신 ({{failed}} 실패, {{skipped}} 미지원)",
 		"toast_refresh_none": "할당량/잔액 기능을 지원하는 제공자가 없습니다.",
 		"toast_refresh_failed": "할당량 갱신에 실패했습니다: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} 다시 테스트함",
 			"toggleSection": "{{provider}} 섹션 전환",
 			"failoverDisabled": "페일오버 그룹 비활성화됨",
-			"failoverDisabledReason": "라우팅 가능한 멤버 {{count}}개 남음, 2개 이상 필요"
+			"failoverDisabledReason_one": "라우팅 가능한 멤버 {{count}}개 남음, 2개 이상 필요",
+			"failoverDisabledReason_other": "라우팅 가능한 멤버 {{count}}개 남음, 2개 이상 필요"
 		},
 		"toast_quota_detected_minimax": "MiniMax 할당량 감지됨",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "{{count}}개의 할당량/잔액 업데이트",
+		"toast_refresh_success_other": "{{count}}개의 할당량/잔액 업데이트",
+		"toast_discovery_failed_all_one": "공급자 검색에 실패했습니다",
+		"toast_discovery_failed_all_other": "모든 {{count}}개 공급자 검색에 실패했습니다"
 	},
 	"models": {
 		"page_title_one": "모델",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "일부 그룹에서 일괄 토글이 실패했습니다",
 		"toast_provider_toggle_failed": "일부 그룹에서 대량 제공자 토글이 실패했습니다",
 		"toast_sync_deleted": "호텔/{{model}} 삭제됨: {{reason}}{{providers}}",
-		"toast_sync_purged": "호텔/{{group}}: 삭제됨 {{count}} 오래된 게시물",
 		"toast_sync_success": "페일오버 그룹 동기화됨",
 		"toast_sync_failed": "동기화 실패: {{message}}",
 		"toast_update_failed": "업데이트에 실패했습니다: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "프로바이더를 비활성화하면 모든 페일오버 그룹에서 해당 프로바이더의 모든 모델이 비활성화됩니다.",
 		"toast_provider_toggle_no_groups": "이 공급자를 사용하는 장애 조치 그룹이 없습니다 {{provider}}",
 		"last_sync_label": "마지막 동기화:",
-		"toast_sync_disabled": "호텔/{{group}} 비활성화됨: 라우팅 가능한 멤버 {{count}}개 남음",
-		"toast_entry_min_two": "최소 2개의 구성원이 활성 상태를 유지해야 합니다."
+		"toast_entry_min_two": "최소 2개의 구성원이 활성 상태를 유지해야 합니다.",
+		"toast_sync_purged_one": "호텔/{{group}}: 오래된 항목 {{count}}개 삭제됨",
+		"toast_sync_purged_other": "호텔/{{group}}: 오래된 항목 {{count}}개 삭제됨",
+		"toast_sync_disabled_one": "호텔/{{group}} 비활성화됨: 라우팅 가능한 멤버 {{count}}개 남음",
+		"toast_sync_disabled_other": "호텔/{{group}} 비활성화됨: 라우팅 가능한 멤버 {{count}}개 남음"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "저장되지 않은 변경 사항"

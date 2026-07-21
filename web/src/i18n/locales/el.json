@@ -696,7 +696,6 @@
 		"sort_title_desc": "Ταξινόμηση Z-A (κλικ για αντιστροφή)",
 		"empty_no_match": "Κανένας πάροχος δεν ταιριάζει με το επιλεγμένο φίλτρο.",
 		"empty_no_providers": "Δεν έχουν ρυθμιστεί πάροχοι. Προσθέστε τον πρώτο πάροχο σας για να ξεκινήσετε.",
-		"toast_discovery_failed_all": "Η αναζήτηση απέτυχε για όλους τους παρόχους του {{failed}}",
 		"toast_discover_failed": "Η αναζήτηση απέτυχε: {{message}}",
 		"toast_provider_added": "Πάροχος \"{{name}}\" προστέθηκε",
 		"toast_provider_updated": "Ο πάροχος \"{{name}}\" ενημερώθηκε",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Δεν κατέστη δυνατή η διαγραφή: {{message}}",
 		"toast_add_failed": "Δεν κατέστη δυνατή η προσθήκη παρόχου: {{message}}",
 		"toast_update_failed": "Η ενημέρωση απέτυχε: {{message}}",
-		"toast_refresh_success": "Ενημέρωση των {{count}} ποσοστώσεων/υπολοίπων",
 		"toast_refresh_warning": "Ενημερώθηκαν οι ποσοστώσεις του {{refreshed}} (το{{failed}} απέτυχε, το {{skipped}} δεν υποστηρίζεται)",
 		"toast_refresh_none": "Δεν βρέθηκαν πάροχοι με υποστήριξη ποσόστωσης/υπολοίπου",
 		"toast_refresh_failed": "Η ανανέωση των ορίων απέτυχε: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "Έγινε επανέλεγχος του {{provider}}",
 			"toggleSection": "Εναλλαγή ενότητας {{provider}}",
 			"failoverDisabled": "Ομάδες ανακατεύθυνσης απενεργοποιημένες",
-			"failoverDisabledReason": "απομένουν {{count}} δρομολογήσιμα μέλη, απαιτούνται 2+"
+			"failoverDisabledReason_one": "απομένει {{count}} δρομολογήσιμο μέλος, απαιτούνται 2+",
+			"failoverDisabledReason_other": "απομένουν {{count}} δρομολογήσιμα μέλη, απαιτούνται 2+"
 		},
 		"toast_quota_detected_minimax": "Ανιχνεύθηκε ποσόστωση MiniMax",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Ενημέρωση {{count}} ποσόστωσης/υπολοίπου",
+		"toast_refresh_success_other": "Ενημέρωση {{count}} ποσοστώσεων/υπολοίπων",
+		"toast_discovery_failed_all_one": "Η αναζήτηση απέτυχε για τον πάροχο",
+		"toast_discovery_failed_all_other": "Η αναζήτηση απέτυχε για όλους τους {{count}} παρόχους"
 	},
 	"models": {
 		"page_title_one": "Μοντέλο",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Η μαζική εναλλαγή απέτυχε για ορισμένες ομάδες",
 		"toast_provider_toggle_failed": "Η εναλλαγή μαζικής παροχής απέτυχε για ορισμένες ομάδες",
 		"toast_sync_deleted": "hotel/{{model}} διαγράφηκε: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: αφαιρέθηκε {{count}} stale entry(ies)",
 		"toast_sync_success": "Οι ομάδες απέτυχαν συγχρονίστηκαν",
 		"toast_sync_failed": "Αποτυχία συγχρονισμού: {{message}}",
 		"toast_update_failed": "Η ενημέρωση απέτυχε: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Η απενεργοποίηση ενός παρόχου θα απενεργοποιήσει όλα τα μοντέλα του σε κάθε ομάδα αποτυχίας",
 		"toast_provider_toggle_no_groups": "Δεν υπάρχουν ομάδες αποτυχίας χρήσης παρόχου {{provider}}",
 		"last_sync_label": "Τελευταίος συγχρονισμός:",
-		"toast_sync_disabled": "hotel/{{group}} απενεργοποιήθηκε: απομένουν {{count}} δρομολογήσιμα μέλη",
-		"toast_entry_min_two": "Τουλάχιστον 2 μέλη πρέπει να παραμείνουν ενεργά."
+		"toast_entry_min_two": "Τουλάχιστον 2 μέλη πρέπει να παραμείνουν ενεργά.",
+		"toast_sync_purged_one": "hotel/{{group}}: αφαιρέθηκε {{count}} παλαιά καταχώριση",
+		"toast_sync_purged_other": "hotel/{{group}}: αφαιρέθηκαν {{count}} παλαιές καταχωρίσεις",
+		"toast_sync_disabled_one": "hotel/{{group}} απενεργοποιήθηκε: απομένει {{count}} δρομολογήσιμο μέλος",
+		"toast_sync_disabled_other": "hotel/{{group}} απενεργοποιήθηκε: απομένουν {{count}} δρομολογήσιμα μέλη"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Μη Αποθηκευμένες Αλλαγές"

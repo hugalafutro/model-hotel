@@ -696,7 +696,6 @@
 		"sort_title_desc": "Z-A sortat (click pentru a inversa)",
 		"empty_no_match": "Niciun furnizor nu se potrivește cu filtrul selectat.",
 		"empty_no_providers": "Niciun furnizor configurat. Adăugați primul dvs. furnizor pentru a începe.",
-		"toast_discovery_failed_all": "Descoperirea a eșuat pentru toți furnizorii {{failed}}",
 		"toast_discover_failed": "Descoperire eșuată: {{message}}",
 		"toast_provider_added": "Furnizor \"{{name}}\" adăugat",
 		"toast_provider_updated": "Furnizor \"{{name}}\" actualizat",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Ștergerea nu a reușit: {{message}}",
 		"toast_add_failed": "Nu s-a reușit adăugarea furnizorului: {{message}}",
 		"toast_update_failed": "Actualizarea nu a reușit: {{message}}",
-		"toast_refresh_success": "Actualizat {{count}} cote/solduri",
 		"toast_refresh_warning": "Reîmprospătat {{refreshed}} cote ({{failed}} a eșuat, {{skipped}} nesuportat)",
 		"toast_refresh_none": "Niciun furnizor cu suport pentru cotă/echilibru găsit",
 		"toast_refresh_failed": "Reîmprospătarea cotelor a eșuat: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} a fost retestat",
 			"toggleSection": "Comută secțiunea {{provider}}",
 			"failoverDisabled": "Grupuri de failover dezactivate",
-			"failoverDisabledReason": "au rămas {{count}} membri rutabili, sunt necesari 2+"
+			"failoverDisabledReason_one": "a rămas {{count}} membru rutabil, sunt necesari 2+",
+			"failoverDisabledReason_other": "au rămas {{count}} membri rutabili, sunt necesari 2+"
 		},
 		"toast_quota_detected_minimax": "Cotă MiniMax detectată",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Actualizat {{count}} cotă/sold",
+		"toast_refresh_success_other": "Actualizat {{count}} cote/solduri",
+		"toast_discovery_failed_all_one": "Descoperirea a eșuat pentru furnizor",
+		"toast_discovery_failed_all_other": "Descoperirea a eșuat pentru toți cei {{count}} furnizori"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Comutarea în bloc a eșuat pentru unele grupuri",
 		"toast_provider_toggle_failed": "Comutarea furnizorului în bloc a eșuat pentru unele grupuri",
 		"toast_sync_deleted": "hotel/{{model}} șters: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: a eliminat {{count}} intrare veche",
 		"toast_sync_success": "Grupuri eșuate sincronizate",
 		"toast_sync_failed": "Nu s-a putut sincroniza: {{message}}",
 		"toast_update_failed": "Actualizarea nu a reușit: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Dezactivarea unui furnizor va dezactiva toate modelele sale în fiecare grup de eșec",
 		"toast_provider_toggle_no_groups": "Niciun grup eșuat utilizați furnizorul {{provider}}",
 		"last_sync_label": "Ultima sincronizare:",
-		"toast_sync_disabled": "hotel/{{group}} dezactivat: au rămas {{count}} membri rutabili",
-		"toast_entry_min_two": "Cel puțin 2 membri trebuie să rămână activi."
+		"toast_entry_min_two": "Cel puțin 2 membri trebuie să rămână activi.",
+		"toast_sync_purged_one": "hotel/{{group}}: a eliminat {{count}} intrare veche",
+		"toast_sync_purged_other": "hotel/{{group}}: a eliminat {{count}} intrări vechi",
+		"toast_sync_disabled_one": "hotel/{{group}} dezactivat: a rămas {{count}} membru rutabil",
+		"toast_sync_disabled_other": "hotel/{{group}} dezactivat: au rămas {{count}} membri rutabili"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Modificări nesalvate"

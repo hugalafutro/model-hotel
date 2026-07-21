@@ -696,7 +696,6 @@
 		"sort_title_desc": "Z-A ordenada (haga clic para revertir)",
 		"empty_no_match": "Ningún proveedor coincide con el filtro seleccionado.",
 		"empty_no_providers": "No hay proveedores configurados. Añade tu primer proveedor para empezar.",
-		"toast_discovery_failed_all": "El descubrimiento falló para todos los proveedores {{failed}}",
 		"toast_discover_failed": "Descubrimiento fallido: {{message}}",
 		"toast_provider_added": "Proveedor \"{{name}}\" añadido",
 		"toast_provider_updated": "Proveedor \"{{name}}\" actualizado",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Error al eliminar: {{message}}",
 		"toast_add_failed": "No se pudo agregar el proveedor: {{message}}",
 		"toast_update_failed": "Error al actualizar: {{message}}",
-		"toast_refresh_success": "Actualización de {{count}} cuotas/saldos",
 		"toast_refresh_warning": "Cuotas {{refreshed}} actualizadas ({{failed}} fallaron, {{skipped}} no soportados)",
 		"toast_refresh_none": "No se encontró ningún proveedor con soporte de quota/balance",
 		"toast_refresh_failed": "Error al actualizar cuotas: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "Se ha vuelto a probar {{provider}}",
 			"toggleSection": "Mostrar u ocultar la sección {{provider}}",
 			"failoverDisabled": "Grupos de conmutación por error desactivados",
-			"failoverDisabledReason": "quedan {{count}} miembro(s) enrutable(s), se necesitan 2+"
+			"failoverDisabledReason_one": "queda {{count}} miembro enrutable, se necesitan 2+",
+			"failoverDisabledReason_other": "quedan {{count}} miembros enrutables, se necesitan 2+"
 		},
 		"toast_quota_detected_minimax": "Cuota de MiniMax detectada",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Actualización de {{count}} cuota/saldo",
+		"toast_refresh_success_other": "Actualización de {{count}} cuotas/saldos",
+		"toast_discovery_failed_all_one": "El descubrimiento falló para el proveedor",
+		"toast_discovery_failed_all_other": "El descubrimiento falló para todos los {{count}} proveedores"
 	},
 	"models": {
 		"page_title_one": "Modelo",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Fallo al alternar masivo para algunos grupos",
 		"toast_provider_toggle_failed": "Error al alternar proveedores masivos para algunos grupos",
 		"toast_sync_deleted": "hotel/{{model}} eliminado: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: se ha eliminado la entrada antigua de {{count}}",
 		"toast_sync_success": "Grupos de fallo sincronizados",
 		"toast_sync_failed": "Error al sincronizar: {{message}}",
 		"toast_update_failed": "Error al actualizar: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Deshabilitar un proveedor desactivará todos sus modelos en cada grupo de tolerancia contra fallos",
 		"toast_provider_toggle_no_groups": "Ningún grupo de tolerancia contra fallos utiliza el proveedor {{provider}}",
 		"last_sync_label": "Última sincronización:",
-		"toast_sync_disabled": "hotel/{{group}} desactivado: quedan {{count}} miembro(s) enrutable(s)",
-		"toast_entry_min_two": "Al menos 2 miembros deben permanecer activos."
+		"toast_entry_min_two": "Al menos 2 miembros deben permanecer activos.",
+		"toast_sync_purged_one": "hotel/{{group}}: se ha eliminado {{count}} entrada antigua",
+		"toast_sync_purged_other": "hotel/{{group}}: se han eliminado {{count}} entradas antiguas",
+		"toast_sync_disabled_one": "hotel/{{group}} desactivado: queda {{count}} miembro enrutable",
+		"toast_sync_disabled_other": "hotel/{{group}} desactivado: quedan {{count}} miembros enrutables"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Cambios sin guardar"

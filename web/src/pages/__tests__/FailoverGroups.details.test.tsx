@@ -288,7 +288,7 @@ describe("FailoverGroups", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByText("hotel/claude-3: removed 2 stale entry(ies)"),
+					screen.getByText("hotel/claude-3: removed 2 stale entries"),
 				).toBeInTheDocument();
 			});
 		});
@@ -330,9 +330,7 @@ describe("FailoverGroups", () => {
 
 			await waitFor(() => {
 				expect(
-					screen.getByText(
-						"hotel/claude-3 disabled: 1 routable member(s) left",
-					),
+					screen.getByText("hotel/claude-3 disabled: 1 routable member left"),
 				).toBeInTheDocument();
 			});
 		});

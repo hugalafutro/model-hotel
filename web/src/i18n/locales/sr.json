@@ -696,7 +696,6 @@
 		"sort_title_desc": "Сортирано Z-A (кликните за обрнуто)",
 		"empty_no_match": "Нема пружалаца услуга који одговарају изабраном филтеру.",
 		"empty_no_providers": "Није конфигурисан ниједан провајдер. Додајте свог првог провајдера да бисте започели.",
-		"toast_discovery_failed_all": "Откривање није успело за све пружаоце услуге {{failed}}",
 		"toast_discover_failed": "Откриће је пропало: {{message}}",
 		"toast_provider_added": "Добављен провајдер \"{{name}}\"",
 		"toast_provider_updated": "Провајдер \"{{name}}\" је ажуриран",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Није успело да се обрише: {{message}}",
 		"toast_add_failed": "Није успело да се дода провајдер: {{message}}",
 		"toast_update_failed": "Ажурирање није успело: {{message}}",
-		"toast_refresh_success": "Ажуриране квоте/стања {{count}}",
 		"toast_refresh_warning": "Обновиле су се квоте за {{refreshed}} ({{failed}} није успео, {{skipped}} није подржан)",
 		"toast_refresh_none": "Није пронађен ниједан провајдер са подршком за квоту/стање",
 		"toast_refresh_failed": "Обнове квота су неуспеле: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} поново тестиран",
 			"toggleSection": "Прикажи/сакриј одељак {{provider}}",
 			"failoverDisabled": "Фејловер групе су онемогућене",
-			"failoverDisabledReason": "преостало {{count}} чланова који се могу рутирати, потребно 2+"
+			"failoverDisabledReason_one": "преостао {{count}} члан који се може рутирати, потребно 2+",
+			"failoverDisabledReason_other": "преостало {{count}} чланова који се могу рутирати, потребно 2+"
 		},
 		"toast_quota_detected_minimax": "MiniMax квота откривена",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Ажурирана {{count}} квота/стање",
+		"toast_refresh_success_other": "Ажуриране {{count}} квоте/стања",
+		"toast_discovery_failed_all_one": "Откривање није успело за добављача",
+		"toast_discovery_failed_all_other": "Откривање није успело за све {{count}} добављача"
 	},
 	"models": {
 		"page_title_one": "Модел",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Масовно пребацивање није успело за неке групе",
 		"toast_provider_toggle_failed": "Прекинуто пребацивање добављача за неке групе",
 		"toast_sync_deleted": "хотел/{{model}} избрисано: {{reason}}{{providers}}",
-		"toast_sync_purged": "хотел/{{group}}: уклоњене застареле уносе са {{count}}",
 		"toast_sync_success": "Синкронизоване групе за преузимање",
 		"toast_sync_failed": "Синхронизација није успела: {{message}}",
 		"toast_update_failed": "Ажурирање није успело: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Онемогућавање провајдера онемогућиће све његове моделе у свакој групи за преузимање.",
 		"toast_provider_toggle_no_groups": "Ниједна група за преузимање не користи провајдера {{provider}}",
 		"last_sync_label": "Последња синхронизација:",
-		"toast_sync_disabled": "хотел/{{group}} онемогућено: преостало {{count}} чланова који се могу рутирати",
-		"toast_entry_min_two": "Најмање 2 члана морају остати активна."
+		"toast_entry_min_two": "Најмање 2 члана морају остати активна.",
+		"toast_sync_purged_one": "хотел/{{group}}: уклоњен {{count}} застарели унос",
+		"toast_sync_purged_other": "хотел/{{group}}: уклоњено {{count}} застарелих уноса",
+		"toast_sync_disabled_one": "хотел/{{group}} онемогућено: преостао {{count}} члан који се може рутирати",
+		"toast_sync_disabled_other": "хотел/{{group}} онемогућено: преостало {{count}} чланова који се могу рутирати"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Несачуване измене"

@@ -696,7 +696,6 @@
 		"sort_title_desc": "Sortowane Z-A (kliknij, aby cofnąć)",
 		"empty_no_match": "Żaden dostawca nie pasuje do wybranego filtra.",
 		"empty_no_providers": "Brak skonfigurowanych dostawców. Dodaj swojego pierwszego dostawcę, aby rozpocząć.",
-		"toast_discovery_failed_all": "Odkrycie nie powiodło się dla wszystkich dostawców {{failed}}",
 		"toast_discover_failed": "Odkrycie nie powiodło się: {{message}}",
 		"toast_provider_added": "Dodano dostawcę \"{{name}}\"",
 		"toast_provider_updated": "Dostawca \"{{name}}\" zaktualizowany",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Nie udało się usunąć: {{message}}",
 		"toast_add_failed": "Nie udało się dodać dostawcy: {{message}}",
 		"toast_update_failed": "Nie udało się zaktualizować: {{message}}",
-		"toast_refresh_success": "Odświeżono kwotę/salda {{count}}",
 		"toast_refresh_warning": "Odświeżone kontyngenty {{refreshed}} ({{failed}} nie powiodło się, {{skipped}} nieobsługiwane)",
 		"toast_refresh_none": "Nie znaleziono dostawców obsługujących kwotę/saldo",
 		"toast_refresh_failed": "Nie udało się odświeżyć kontyngentów: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "Ponownie przetestowano {{provider}}",
 			"toggleSection": "Przełącz sekcję {{provider}}",
 			"failoverDisabled": "Grupy przełączania awaryjnego wyłączone",
-			"failoverDisabledReason": "pozostało {{count}} członków z routingiem, potrzeba 2+"
+			"failoverDisabledReason_one": "pozostał {{count}} członek z routingiem, potrzeba 2+",
+			"failoverDisabledReason_other": "pozostało {{count}} członków z routingiem, potrzeba 2+"
 		},
 		"toast_quota_detected_minimax": "Wykryto limit MiniMax",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Odświeżono {{count}} kwotę/saldo",
+		"toast_refresh_success_other": "Odświeżono {{count}} kwot/sald",
+		"toast_discovery_failed_all_one": "Wykrywanie nie powiodło się dla dostawcy",
+		"toast_discovery_failed_all_other": "Wykrywanie nie powiodło się dla wszystkich {{count}} dostawców"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Przełączanie masowe nie powiodło się dla niektórych grup",
 		"toast_provider_toggle_failed": "Przełączenie grupowego dostawcy nie powiodło się dla niektórych grup",
 		"toast_sync_deleted": "hotel/{{model}} usunięto: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: usunięto przestarzałe wpis(y) {{count}}",
 		"toast_sync_success": "Grupy niepowodzeń zsynchronizowane",
 		"toast_sync_failed": "Synchronizacja nie powiodła się: {{message}}",
 		"toast_update_failed": "Nie udało się zaktualizować: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Wyłączenie dostawcy wyłączy wszystkie jego modele w każdej grupie awaryjnej",
 		"toast_provider_toggle_no_groups": "Żadne grupy awaryjne nie używają dostawcy {{provider}}",
 		"last_sync_label": "Ostatnia synchronizacja:",
-		"toast_sync_disabled": "hotel/{{group}} wyłączono: pozostało {{count}} członków z routingiem",
-		"toast_entry_min_two": "Co najmniej 2 członków musi pozostać aktywnych."
+		"toast_entry_min_two": "Co najmniej 2 członków musi pozostać aktywnych.",
+		"toast_sync_purged_one": "hotel/{{group}}: usunięto {{count}} przestarzały wpis",
+		"toast_sync_purged_other": "hotel/{{group}}: usunięto {{count}} przestarzałych wpisów",
+		"toast_sync_disabled_one": "hotel/{{group}} wyłączono: pozostał {{count}} członek z routingiem",
+		"toast_sync_disabled_other": "hotel/{{group}} wyłączono: pozostało {{count}} członków z routingiem"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Niezapisane zmiany"

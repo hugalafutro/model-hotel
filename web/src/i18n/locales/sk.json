@@ -696,7 +696,6 @@
 		"sort_title_desc": "Zoradené podľa abecedy (kliknutím obrátite poradie)",
 		"empty_no_match": "Žiadny poskytovateľ nezodpovedá zvoleným kritériám.",
 		"empty_no_providers": "Nie sú nakonfigurovaní žiadni poskytovatelia. Pridajte svojho prvého poskytovateľa a môžete začať.",
-		"toast_discovery_failed_all": "Zistenie sa nepodarilo pre všetkých poskytovateľov služby {{failed}}",
 		"toast_discover_failed": "Objav sa nepodaril: {{message}}",
 		"toast_provider_added": "Bol pridaný poskytovateľ „{{name}}“",
 		"toast_provider_updated": "Poskytovateľ „{{name}}“ aktualizoval",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Odstránenie sa nepodarilo: {{message}}",
 		"toast_add_failed": "Nepodarilo sa pridať poskytovateľa: {{message}}",
 		"toast_update_failed": "Aktualizácia sa nepodarila: {{message}}",
-		"toast_refresh_success": "Aktualizované {{count}} kvóty/zostatky",
 		"toast_refresh_warning": "Aktualizované kvóty pre doménu {{refreshed}} ({{failed}} sa nepodarilo aktualizovať, doména {{skipped}} nie je podporovaná)",
 		"toast_refresh_none": "Nenašli sa žiadni poskytovatelia s podporou kvót/zostatkov",
 		"toast_refresh_failed": "Obnovenie kvót sa nepodarilo: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} znova otestované",
 			"toggleSection": "Prepnúť sekciu {{provider}}",
 			"failoverDisabled": "Skupiny pre prevzatie pri výpadku deaktivované",
-			"failoverDisabledReason": "zostáva {{count}} smerovateľných členov, potrebné 2+"
+			"failoverDisabledReason_one": "zostáva {{count}} smerovateľný člen, potrebné 2+",
+			"failoverDisabledReason_other": "zostáva {{count}} smerovateľných členov, potrebné 2+"
 		},
 		"toast_quota_detected_minimax": "Zistená kvóta MiniMax",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Aktualizovaná {{count}} kvóta/zostatok",
+		"toast_refresh_success_other": "Aktualizované {{count}} kvóty/zostatky",
+		"toast_discovery_failed_all_one": "Zisťovanie zlyhalo pre poskytovateľa",
+		"toast_discovery_failed_all_other": "Zisťovanie zlyhalo pre všetkých {{count}} poskytovateľov"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "U niektorých skupín sa nepodarilo zapnúť hromadné prepínanie",
 		"toast_provider_toggle_failed": "U niektorých skupín sa nepodarilo prepnúť režim hromadného poskytovateľa",
 		"toast_sync_deleted": "hotel/{{model}} vymazané: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: odstránené {{count}} neaktuálne záznamy",
 		"toast_sync_success": "Skupiny pre prevzatie pri výpadku sú synchronizované",
 		"toast_sync_failed": "Synchronizácia sa nepodarila: {{message}}",
 		"toast_update_failed": "Aktualizácia sa nepodarila: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Deaktiváciou poskytovateľa sa deaktivujú všetky jeho modely vo všetkých skupinách pre prevzatie pri výpadku",
 		"toast_provider_toggle_no_groups": "Žiadna skupina pre prechod na záložný systém nepoužíva poskytovateľa {{provider}}",
 		"last_sync_label": "Posledná synchronizácia:",
-		"toast_sync_disabled": "hotel/{{group}} deaktivované: zostáva {{count}} smerovateľných členov",
-		"toast_entry_min_two": "Aktívni musia zostať aspoň 2 členovia."
+		"toast_entry_min_two": "Aktívni musia zostať aspoň 2 členovia.",
+		"toast_sync_purged_one": "hotel/{{group}}: odstránený {{count}} neaktuálny záznam",
+		"toast_sync_purged_other": "hotel/{{group}}: odstránené {{count}} neaktuálne záznamy",
+		"toast_sync_disabled_one": "hotel/{{group}} deaktivované: zostáva {{count}} smerovateľný člen",
+		"toast_sync_disabled_other": "hotel/{{group}} deaktivované: zostáva {{count}} smerovateľných členov"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Neuložené zmeny"

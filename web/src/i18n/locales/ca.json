@@ -696,7 +696,6 @@
 		"sort_title_desc": "Ordenat de Z a A (fes clic per invertir)",
 		"empty_no_match": "No hi ha cap proveïdor que coincideixi amb el filtre seleccionat.",
 		"empty_no_providers": "No s'ha configurat cap proveïdor. Afegeix el teu primer proveïdor per començar.",
-		"toast_discovery_failed_all": "El descobriment va fallar per a tots els proveïdors {{failed}}",
 		"toast_discover_failed": "El descobriment va fracassar: {{message}}",
 		"toast_provider_added": "S'ha afegit el proveïdor \"{{name}}\".",
 		"toast_provider_updated": "El proveïdor \"{{name}}\" s'ha actualitzat.",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "No s'ha pogut suprimir: {{message}}",
 		"toast_add_failed": "S'ha fallat l'addició del proveïdor: {{message}}",
 		"toast_update_failed": "S'ha fallat l'actualització: {{message}}",
-		"toast_refresh_success": "Quotes/saldos de {{count}} actualitzats",
 		"toast_refresh_warning": "Quotes de {{refreshed}} actualitzades ({{failed}} ha fallat, {{skipped}} no admès)",
 		"toast_refresh_none": "No s'han trobat proveïdors amb suport de quota/saldo.",
 		"toast_refresh_failed": "L'actualització de les quotes ha fallat: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "S'ha reprovat {{provider}}",
 			"toggleSection": "Mostra o amaga la secció {{provider}}",
 			"failoverDisabled": "Grups de fallada desactivats",
-			"failoverDisabledReason": "queden {{count}} membre(s) encaminable(s), calen 2+"
+			"failoverDisabledReason_one": "queda {{count}} membre encaminable, calen 2+",
+			"failoverDisabledReason_other": "queden {{count}} membres encaminables, calen 2+"
 		},
 		"toast_quota_detected_minimax": "Detectada quota de MiniMax",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Quota/saldo de {{count}} actualitzat",
+		"toast_refresh_success_other": "Quotes/saldos de {{count}} actualitzats",
+		"toast_discovery_failed_all_one": "El descobriment ha fallat per al proveïdor",
+		"toast_discovery_failed_all_other": "El descobriment ha fallat per a tots els {{count}} proveïdors"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "L'activació massiva ha fallat per a alguns grups",
 		"toast_provider_toggle_failed": "L'interruptor de proveïdor massiu ha fallat per a alguns grups",
 		"toast_sync_deleted": "hotel/{{model}} eliminat: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: eliminada la(s) entrada(s) caduca(s) de {{count}}",
 		"toast_sync_success": "Grups de fallada sincronitzats",
 		"toast_sync_failed": "Sincronització fallida: {{message}}",
 		"toast_update_failed": "S'ha fallat l'actualització: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Desactivar un proveïdor desactivarà tots els seus models en cada grup de conmutació per error.",
 		"toast_provider_toggle_no_groups": "Cap grup de fallada utilitza proveïdor. {{provider}}",
 		"last_sync_label": "Darrera sincronització:",
-		"toast_sync_disabled": "hotel/{{group}} desactivat: queden {{count}} membre(s) encaminable(s)",
-		"toast_entry_min_two": "Almenys 2 membres han de romandre actius."
+		"toast_entry_min_two": "Almenys 2 membres han de romandre actius.",
+		"toast_sync_purged_one": "hotel/{{group}}: eliminada {{count}} entrada caducada",
+		"toast_sync_purged_other": "hotel/{{group}}: eliminades {{count}} entrades caducades",
+		"toast_sync_disabled_one": "hotel/{{group}} desactivat: queda {{count}} membre encaminable",
+		"toast_sync_disabled_other": "hotel/{{group}} desactivat: queden {{count}} membres encaminables"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Canvis no desats"
