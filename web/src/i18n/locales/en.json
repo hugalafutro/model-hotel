@@ -696,7 +696,6 @@
 		"sort_title_desc": "Sorted Z-A (click to reverse)",
 		"empty_no_match": "No providers match the selected filter.",
 		"empty_no_providers": "No providers configured. Add your first provider to get started.",
-		"toast_discovery_failed_all": "Discovery failed for all {{failed}} providers",
 		"toast_discover_failed": "Discovery failed: {{message}}",
 		"toast_provider_added": "Provider \"{{name}}\" added",
 		"toast_provider_updated": "Provider \"{{name}}\" updated",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Failed to delete: {{message}}",
 		"toast_add_failed": "Failed to add provider: {{message}}",
 		"toast_update_failed": "Failed to update: {{message}}",
-		"toast_refresh_success": "Refreshed {{count}} quotas/balances",
 		"toast_refresh_warning": "Refreshed {{refreshed}} quotas ({{failed}} failed, {{skipped}} unsupported)",
 		"toast_refresh_none": "No providers with quota/balance support found",
 		"toast_refresh_failed": "Refresh quotas failed: {{message}}",
@@ -853,8 +851,13 @@
 			"retestDone": "Retested {{provider}}",
 			"toggleSection": "Toggle {{provider}} section",
 			"failoverDisabled": "Failover groups disabled",
-			"failoverDisabledReason": "{{count}} routable member(s) left, need 2+"
-		}
+			"failoverDisabledReason_one": "{{count}} routable member left, need 2+",
+			"failoverDisabledReason_other": "{{count}} routable members left, need 2+"
+		},
+		"toast_refresh_success_one": "Refreshed {{count}} quota/balance",
+		"toast_refresh_success_other": "Refreshed {{count}} quotas/balances",
+		"toast_discovery_failed_all_one": "Discovery failed for the provider",
+		"toast_discovery_failed_all_other": "Discovery failed for all {{count}} providers"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -992,7 +995,6 @@
 		"toast_bulk_toggle_failed": "Bulk toggle failed for some groups",
 		"toast_provider_toggle_failed": "Bulk provider toggle failed for some groups",
 		"toast_sync_deleted": "hotel/{{model}} deleted: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: removed {{count}} stale entry(ies)",
 		"toast_sync_success": "Failover groups synced",
 		"toast_sync_failed": "Failed to sync: {{message}}",
 		"toast_update_failed": "Failed to update: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_title": "Manage Provider Status",
 		"provider_modal_description": "Disabling a provider will disable all its models in every failover group",
 		"toast_provider_toggle_no_groups": "No failover groups use provider {{provider}}",
-		"toast_sync_disabled": "hotel/{{group}} disabled: {{count}} routable member(s) left",
-		"toast_entry_min_two": "At least 2 members must stay active."
+		"toast_entry_min_two": "At least 2 members must stay active.",
+		"toast_sync_purged_one": "hotel/{{group}}: removed {{count}} stale entry",
+		"toast_sync_purged_other": "hotel/{{group}}: removed {{count}} stale entries",
+		"toast_sync_disabled_one": "hotel/{{group}} disabled: {{count}} routable member left",
+		"toast_sync_disabled_other": "hotel/{{group}} disabled: {{count}} routable members left"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Unsaved Changes"

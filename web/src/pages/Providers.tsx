@@ -135,7 +135,7 @@ export function Providers() {
 			setDiscoverAllCurrentId(null);
 			if (data.failed > 0 && data.succeeded === 0) {
 				toast(
-					t("providers.toast_discovery_failed_all", { failed: data.failed }),
+					t("providers.toast_discovery_failed_all", { count: data.failed }),
 					"error",
 				);
 			}

@@ -696,7 +696,6 @@
 		"sort_title_desc": "تم فرز Z-A (انقر لعكس ذلك)",
 		"empty_no_match": "لا يوجد موفري يتطابق مع الفلتر المحدد.",
 		"empty_no_providers": "لم يتم تكوين موفري الخدمة. أضف موفر الخدمة الأول للبدء.",
-		"toast_discovery_failed_all": "فشل اكتشاف جميع موفري {{failed}}",
 		"toast_discover_failed": "فشل الاكتشاف: {{message}}",
 		"toast_provider_added": "مزود \"{{name}}\" أضيف",
 		"toast_provider_updated": "تم تحديث موفر \"{{name}}\"",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "فشل الحذف: {{message}}",
 		"toast_add_failed": "فشل في إضافة المزود: {{message}}",
 		"toast_update_failed": "فشل التحديث: {{message}}",
-		"toast_refresh_success": "تحديث الحصص/الأرصدة {{count}}",
 		"toast_refresh_warning": "تحديث الحصص {{refreshed}} ( فشل{{failed}} ، {{skipped}} غير مدعوم)",
 		"toast_refresh_none": "لم يتم العثور على مزودين مع دعم الحصة/الرصيد",
 		"toast_refresh_failed": "فشل تحديث الحصص: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "تمت إعادة اختبار {{provider}}",
 			"toggleSection": "تبديل قسم {{provider}}",
 			"failoverDisabled": "تم تعطيل مجموعات التحويل التلقائي",
-			"failoverDisabledReason": "{{count}} عضو قابل للتوجيه متبقٍ، يلزم 2+"
+			"failoverDisabledReason_one": "{{count}} عضو قابل للتوجيه متبقٍ، يلزم 2+",
+			"failoverDisabledReason_other": "{{count}} أعضاء قابلون للتوجيه متبقّون، يلزم 2+"
 		},
 		"toast_quota_detected_minimax": "تم اكتشاف حصة MiniMax",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "تحديث الحصة/الرصيد {{count}}",
+		"toast_refresh_success_other": "تحديث الحصص/الأرصدة {{count}}",
+		"toast_discovery_failed_all_one": "فشل الاكتشاف للموفّر",
+		"toast_discovery_failed_all_other": "فشل اكتشاف جميع الموفّرين {{count}}"
 	},
 	"models": {
 		"page_title_one": "الموديل",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "فشل تبديل الكتلة لبعض المجموعات",
 		"toast_provider_toggle_failed": "فشل تبديل موفر الجملة لبعض المجموعات",
 		"toast_sync_deleted": "الفندق/{{model}} حذف: {{reason}}{{providers}}",
-		"toast_sync_purged": "فندق/{{group}}: إزالة إدخال (إدخالات) أستاذية {{count}}",
 		"toast_sync_success": "مجموعات الفشل مزامنة",
 		"toast_sync_failed": "فشل في المزامنة: {{message}}",
 		"toast_update_failed": "فشل التحديث: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "تعطيل موفر سيعطل جميع نماذجه في كل مجموعة فشل",
 		"toast_provider_toggle_no_groups": "لا يوجد فشل في المجموعات التي تستخدم موفر {{provider}}",
 		"last_sync_label": "آخر مزامنة:",
-		"toast_sync_disabled": "فندق/{{group}} معطل: {{count}} عضو قابل للتوجيه متبقٍ",
-		"toast_entry_min_two": "يجب أن يبقى عضوان على الأقل نشطين."
+		"toast_entry_min_two": "يجب أن يبقى عضوان على الأقل نشطين.",
+		"toast_sync_purged_one": "فندق/{{group}}: تمت إزالة {{count}} إدخال قديم",
+		"toast_sync_purged_other": "فندق/{{group}}: تمت إزالة {{count}} إدخالات قديمة",
+		"toast_sync_disabled_one": "فندق/{{group}} معطل: {{count}} عضو قابل للتوجيه متبقٍ",
+		"toast_sync_disabled_other": "فندق/{{group}} معطل: {{count}} أعضاء قابلون للتوجيه متبقّون"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "التغييرات غير المحفوظة"

@@ -696,7 +696,6 @@
 		"sort_title_desc": "מסודר לפי Z-A (לחץ כדי להפוך את הסדר)",
 		"empty_no_match": "אין ספקים העונים על הקריטריונים שנבחרו.",
 		"empty_no_providers": "לא הוגדרו ספקים. הוסף את הספק הראשון שלך כדי להתחיל.",
-		"toast_discovery_failed_all": "לא נמצא אף ספק בכתובת {{failed}}",
 		"toast_discover_failed": "החיפוש נכשל: {{message}}",
 		"toast_provider_added": "הספק \"{{name}}\" נוסף",
 		"toast_provider_updated": "הספק \"{{name}}\" עודכן",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "לא הצליח למחוק: {{message}}",
 		"toast_add_failed": "לא הצליח להוסיף ספק: {{message}}",
 		"toast_update_failed": "לא הצליח לעדכן: {{message}}",
-		"toast_refresh_success": "עודכן {{count}} מכסות/יתרות",
 		"toast_refresh_warning": "מכסות ה- {{refreshed}} עודכנו ({{failed}} נכשל, {{skipped}} אינו נתמך)",
 		"toast_refresh_none": "לא נמצאו ספקים התומכים במכסות/יתרות",
 		"toast_refresh_failed": "לא ניתן לרענן את מכסות: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} נבדק מחדש",
 			"toggleSection": "החלף את מקטע {{provider}}",
 			"failoverDisabled": "קבוצות מעבר למקרה כשל הושבתו",
-			"failoverDisabledReason": "נותרו {{count}} חברים הניתנים לניתוב, נדרשים 2+"
+			"failoverDisabledReason_one": "נותר {{count}} חבר הניתן לניתוב, נדרשים 2+",
+			"failoverDisabledReason_other": "נותרו {{count}} חברים הניתנים לניתוב, נדרשים 2+"
 		},
 		"toast_quota_detected_minimax": "זוהתה מכסת MiniMax",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "עודכנה {{count}} מכסה/יתרה",
+		"toast_refresh_success_other": "עודכנו {{count}} מכסות/יתרות",
+		"toast_discovery_failed_all_one": "הגילוי נכשל עבור הספק",
+		"toast_discovery_failed_all_other": "הגילוי נכשל עבור כל {{count}} הספקים"
 	},
 	"models": {
 		"page_title_one": "מודל",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "הפעלת/כיבוי המוני נכשל עבור חלק מהקבוצות",
 		"toast_provider_toggle_failed": "הפעלת/כיבוי האפשרות 'ספק בכמות גדולה' נכשלה עבור קבוצות מסוימות",
 		"toast_sync_deleted": "מלון/{{model}} נמחק: {{reason}}{{providers}}",
-		"toast_sync_purged": "מלון/{{group}}: הוסרו {{count}} רשומות מיושנות",
 		"toast_sync_success": "קבוצות מעבר לגיבוי מסונכרנות",
 		"toast_sync_failed": "לא הצליח לסנכרן: {{message}}",
 		"toast_update_failed": "לא הצליח לעדכן: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "השבתת ספק תשבית את כל הדגמים שלו בכל קבוצת מעבר לגיבוי",
 		"toast_provider_toggle_no_groups": "אף קבוצת מעבר לגיבוי אינה משתמשת בספק {{provider}}",
 		"last_sync_label": "הסנכרון האחרון:",
-		"toast_sync_disabled": "מלון/{{group}} מושבת: נותרו {{count}} חברים הניתנים לניתוב",
-		"toast_entry_min_two": "לפחות 2 חברים חייבים להישאר פעילים."
+		"toast_entry_min_two": "לפחות 2 חברים חייבים להישאר פעילים.",
+		"toast_sync_purged_one": "מלון/{{group}}: הוסרה {{count}} רשומה מיושנת",
+		"toast_sync_purged_other": "מלון/{{group}}: הוסרו {{count}} רשומות מיושנות",
+		"toast_sync_disabled_one": "מלון/{{group}} מושבת: נותר {{count}} חבר הניתן לניתוב",
+		"toast_sync_disabled_other": "מלון/{{group}} מושבת: נותרו {{count}} חברים הניתנים לניתוב"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "שינויים שלא נשמרו"

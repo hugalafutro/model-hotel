@@ -696,7 +696,6 @@
 		"sort_title_desc": "Sorterade Z-A (klicka för att återställa)",
 		"empty_no_match": "Inga leverantörer matchar det valda filtret.",
 		"empty_no_providers": "Inga leverantörer konfigurerade. Lägg till din första leverantör för att komma igång.",
-		"toast_discovery_failed_all": "Upptäckten misslyckades för alla {{failed}} leverantörer",
 		"toast_discover_failed": "Upptäckten misslyckades: {{message}}",
 		"toast_provider_added": "Leverantör \"{{name}}\" tillagd",
 		"toast_provider_updated": "Leverantör \"{{name}}\" uppdaterad",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Misslyckades att radera: {{message}}",
 		"toast_add_failed": "Kunde inte lägga till leverantör: {{message}}",
 		"toast_update_failed": "Det gick inte att uppdatera: {{message}}",
-		"toast_refresh_success": "Uppdaterade {{count}} kvoter/saldon",
 		"toast_refresh_warning": "Uppdaterad {{refreshed}} quotas ({{failed}} misslyckades, {{skipped}} stöds inte)",
 		"toast_refresh_none": "Inga leverantörer med kvot/balanssupport hittades",
 		"toast_refresh_failed": "Uppdateringskvoter misslyckades: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} testad igen",
 			"toggleSection": "Växla {{provider}}-sektion",
 			"failoverDisabled": "Failover-grupper inaktiverade",
-			"failoverDisabledReason": "{{count}} dirigerbar(a) medlem(mar) kvar, behöver 2+"
+			"failoverDisabledReason_one": "{{count}} dirigerbar medlem kvar, behöver 2+",
+			"failoverDisabledReason_other": "{{count}} dirigerbara medlemmar kvar, behöver 2+"
 		},
 		"toast_quota_detected_minimax": "MiniMax-kvot upptäckt",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Uppdaterade {{count}} kvot/saldo",
+		"toast_refresh_success_other": "Uppdaterade {{count}} kvoter/saldon",
+		"toast_discovery_failed_all_one": "Upptäckten misslyckades för leverantören",
+		"toast_discovery_failed_all_other": "Upptäckten misslyckades för alla {{count}} leverantörer"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Bulkväxling misslyckades för vissa grupper",
 		"toast_provider_toggle_failed": "Bulk provider toggle misslyckades för vissa grupper",
 		"toast_sync_deleted": "hotel/{{model}} borttaget: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: tog bort {{count}} gamla poster",
 		"toast_sync_success": "Misslyckade grupper synkroniserade",
 		"toast_sync_failed": "Det gick inte att synkronisera: {{message}}",
 		"toast_update_failed": "Det gick inte att uppdatera: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Inaktivera en leverantör kommer att inaktivera alla dess modeller i varje felöversättningsgrupp",
 		"toast_provider_toggle_no_groups": "Inga övergångsgrupper använder leverantören {{provider}}",
 		"last_sync_label": "Senaste synkronisering:",
-		"toast_sync_disabled": "hotel/{{group}} inaktiverad: {{count}} dirigerbar(a) medlem(mar) kvar",
-		"toast_entry_min_two": "Minst 2 medlemmar måste förbli aktiva."
+		"toast_entry_min_two": "Minst 2 medlemmar måste förbli aktiva.",
+		"toast_sync_purged_one": "hotel/{{group}}: tog bort {{count}} gammal post",
+		"toast_sync_purged_other": "hotel/{{group}}: tog bort {{count}} gamla poster",
+		"toast_sync_disabled_one": "hotel/{{group}} inaktiverad: {{count}} dirigerbar medlem kvar",
+		"toast_sync_disabled_other": "hotel/{{group}} inaktiverad: {{count}} dirigerbara medlemmar kvar"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Osparade ändringar"

@@ -696,7 +696,6 @@
 		"sort_title_desc": "Sorteret Z-A (klik for at vende)",
 		"empty_no_match": "Ingen udbydere matcher det valgte filter.",
 		"empty_no_providers": "Ingen udbydere konfigureret. Tilføj din første udbyder for at komme i gang.",
-		"toast_discovery_failed_all": "Discovery mislykkedes for alle {{failed}} udbydere",
 		"toast_discover_failed": "Opdagelse mislykkedes: {{message}}",
 		"toast_provider_added": "Udbyder \"{{name}}\" tilføjet",
 		"toast_provider_updated": "Udbyder \"{{name}}\" opdateret",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Mislykkedes at slette: {{message}}",
 		"toast_add_failed": "Kunne ikke tilføje udbyder: {{message}}",
 		"toast_update_failed": "Mislykkedes at opdatere: {{message}}",
-		"toast_refresh_success": "Refreshed {{count}} quotas/balances",
 		"toast_refresh_warning": "Refreshed {{refreshed}} quotas ({{failed}} mislykkedes, {{skipped}} uunderstøttet)",
 		"toast_refresh_none": "Ingen udbydere med kvote/saldounderstøttelse fundet",
 		"toast_refresh_failed": "Opdatering af kvoter mislykkedes: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} testet igen",
 			"toggleSection": "Skift {{provider}}-sektion",
 			"failoverDisabled": "Failover-grupper deaktiveret",
-			"failoverDisabledReason": "{{count}} rutebare medlem(mer) tilbage, kræver 2+"
+			"failoverDisabledReason_one": "{{count}} rutebart medlem tilbage, kræver 2+",
+			"failoverDisabledReason_other": "{{count}} rutebare medlemmer tilbage, kræver 2+"
 		},
 		"toast_quota_detected_minimax": "Opdaget kvote for MiniMax",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Opdaterede {{count}} kvote/saldo",
+		"toast_refresh_success_other": "Opdaterede {{count}} kvoter/saldi",
+		"toast_discovery_failed_all_one": "Discovery mislykkedes for udbyderen",
+		"toast_discovery_failed_all_other": "Discovery mislykkedes for alle {{count}} udbydere"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Masseskift mislykkedes for nogle grupper",
 		"toast_provider_toggle_failed": "Masse udbyder skifte mislykkedes for nogle grupper",
 		"toast_sync_deleted": "Hotel/{{model}} slettet: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: fjernede {{count}} forsvundet indgang (ies)",
 		"toast_sync_success": "Mislykket grupper synkroniseret",
 		"toast_sync_failed": "Synkronisering mislykkedes: {{message}}",
 		"toast_update_failed": "Mislykkedes at opdatere: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Deaktivering af en udbyder vil deaktivere alle sine modeller i hver failover gruppe",
 		"toast_provider_toggle_no_groups": "Ingen mislykkede grupper bruger udbyder {{provider}}",
 		"last_sync_label": "Seneste synkronisering:",
-		"toast_sync_disabled": "hotel/{{group}} deaktiveret: {{count}} rutebare medlem(mer) tilbage",
-		"toast_entry_min_two": "Mindst 2 medlemmer skal forblive aktive."
+		"toast_entry_min_two": "Mindst 2 medlemmer skal forblive aktive.",
+		"toast_sync_purged_one": "hotel/{{group}}: fjernede {{count}} forældet indgang",
+		"toast_sync_purged_other": "hotel/{{group}}: fjernede {{count}} forældede indgange",
+		"toast_sync_disabled_one": "hotel/{{group}} deaktiveret: {{count}} rutebart medlem tilbage",
+		"toast_sync_disabled_other": "hotel/{{group}} deaktiveret: {{count}} rutebare medlemmer tilbage"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Ikke-Gemte Ændringer"

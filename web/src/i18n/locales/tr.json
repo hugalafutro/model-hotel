@@ -696,7 +696,6 @@
 		"sort_title_desc": "Z-A sırasına göre (tersine çevirmek için tıklayın)",
 		"empty_no_match": "Seçilen filtreye uyan sağlayıcı bulunamadı.",
 		"empty_no_providers": "Yapılandırılmış sağlayıcı yok. Başlamak için ilk sağlayıcınızı ekleyin.",
-		"toast_discovery_failed_all": "{{failed}} 'daki tüm sağlayıcılar için keşif işlemi başarısız oldu",
 		"toast_discover_failed": "Keşif başarısız oldu: {{message}}",
 		"toast_provider_added": "\"{{name}}\" sağlayıcısı eklendi",
 		"toast_provider_updated": "\"{{name}}\" sağlayıcısı güncellendi",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Silme işlemi başarısız: {{message}}",
 		"toast_add_failed": "Sağlayıcı eklenemedi: {{message}}",
 		"toast_update_failed": "Güncelleme başarısız: {{message}}",
-		"toast_refresh_success": "Güncellenen {{count}} kota/bakiye bilgileri",
 		"toast_refresh_warning": " {{refreshed}} kota değerleri güncellendi ({{failed}} başarısız, {{skipped}} desteklenmiyor)",
 		"toast_refresh_none": "Kota/bakiye desteği sunan sağlayıcı bulunamadı",
 		"toast_refresh_failed": "Kota yenileme işlemi başarısız oldu: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} yeniden test edildi",
 			"toggleSection": "{{provider}} bölümünü aç/kapat",
 			"failoverDisabled": "Yedekleme grupları devre dışı bırakıldı",
-			"failoverDisabledReason": "{{count}} yönlendirilebilir üye kaldı, 2+ gerekli"
+			"failoverDisabledReason_one": "{{count}} yönlendirilebilir üye kaldı, 2+ gerekli",
+			"failoverDisabledReason_other": "{{count}} yönlendirilebilir üye kaldı, 2+ gerekli"
 		},
 		"toast_quota_detected_minimax": "MiniMax kotası tespit edildi",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "{{count}} kota/bakiye güncellendi",
+		"toast_refresh_success_other": "{{count}} kota/bakiye güncellendi",
+		"toast_discovery_failed_all_one": "Sağlayıcı için keşif başarısız oldu",
+		"toast_discovery_failed_all_other": "Tüm {{count}} sağlayıcı için keşif başarısız oldu"
 	},
 	"models": {
 		"page_title_one": "Model",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Bazı gruplarda toplu geçiş işlemi başarısız oldu",
 		"toast_provider_toggle_failed": "Bazı gruplar için toplu sağlayıcı geçişi başarısız oldu",
 		"toast_sync_deleted": "otel/{{model}} silindi: {{reason}}{{providers}}",
-		"toast_sync_purged": "otel/{{group}}: kaldırıldı {{count}} eski giriş(ler)",
 		"toast_sync_success": "Yedekleme grupları senkronize edildi",
 		"toast_sync_failed": "Senkronizasyon başarısız: {{message}}",
 		"toast_update_failed": "Güncelleme başarısız: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Bir sağlayıcının devre dışı bırakılması, tüm yedekleme gruplarındaki tüm modellerini devre dışı bırakır",
 		"toast_provider_toggle_no_groups": "Hiçbir yük devretme grubu bu sağlayıcıyı kullanmıyor {{provider}}",
 		"last_sync_label": "Son senkronizasyon:",
-		"toast_sync_disabled": "otel/{{group}} devre dışı: {{count}} yönlendirilebilir üye kaldı",
-		"toast_entry_min_two": "En az 2 üye etkin kalmalıdır."
+		"toast_entry_min_two": "En az 2 üye etkin kalmalıdır.",
+		"toast_sync_purged_one": "otel/{{group}}: {{count}} eski giriş kaldırıldı",
+		"toast_sync_purged_other": "otel/{{group}}: {{count}} eski giriş kaldırıldı",
+		"toast_sync_disabled_one": "otel/{{group}} devre dışı: {{count}} yönlendirilebilir üye kaldı",
+		"toast_sync_disabled_other": "otel/{{group}} devre dışı: {{count}} yönlendirilebilir üye kaldı"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Kaydedilmemiş Değişiklikler"

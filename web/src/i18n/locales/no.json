@@ -696,7 +696,6 @@
 		"sort_title_desc": "Sortert Z-A (klikk for å reversere)",
 		"empty_no_match": "Ingen leverandører stemmer med det valgte filteret.",
 		"empty_no_providers": "Ingen leverandører konfigurert. Legg til din første leverandør for å starte.",
-		"toast_discovery_failed_all": "Funnet mislyktes for alle {{failed}} leverandører",
 		"toast_discover_failed": "Funnene mislyktes: {{message}}",
 		"toast_provider_added": "Søkeleverandør \"{{name}}\" lagt til",
 		"toast_provider_updated": "Leverandør \"{{name}}\" oppdatert",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Kan ikke slette: {{message}}",
 		"toast_add_failed": "Kan ikke legge til leverandør: {{message}}",
 		"toast_update_failed": "Kan ikke oppdatere: {{message}}",
-		"toast_refresh_success": "Oppdatert {{count}} sitat/saldoer",
 		"toast_refresh_warning": "Oppdaterte {{refreshed}} kvoter ({{failed}} mislyktes, {{skipped}} ikke støttet)",
 		"toast_refresh_none": "Ingen leverandører med kvote/saldostøtte funnet",
 		"toast_refresh_failed": "Oppdateringskvoter mislyktes: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} testet på nytt",
 			"toggleSection": "Veksle {{provider}}-seksjon",
 			"failoverDisabled": "Failover-grupper deaktivert",
-			"failoverDisabledReason": "{{count}} rutbare medlem(mer) igjen, krever 2+"
+			"failoverDisabledReason_one": "{{count}} rutbart medlem igjen, krever 2+",
+			"failoverDisabledReason_other": "{{count}} rutbare medlemmer igjen, krever 2+"
 		},
 		"toast_quota_detected_minimax": "MiniMax-kvote oppdaget",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Oppdaterte {{count}} kvote/saldo",
+		"toast_refresh_success_other": "Oppdaterte {{count}} kvoter/saldoer",
+		"toast_discovery_failed_all_one": "Oppdagelse mislyktes for leverandøren",
+		"toast_discovery_failed_all_other": "Oppdagelse mislyktes for alle {{count}} leverandører"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Masseveksling mislyktes for noen grupper",
 		"toast_provider_toggle_failed": "Masseleverandørvekselveksling mislyktes for noen grupper",
 		"toast_sync_deleted": "hotell/{{model}} slettet: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotell/{{group}}: fjernet fra {{count}} hovedenheter",
 		"toast_sync_success": "Feil over grupper synkronisert",
 		"toast_sync_failed": "Kan ikke synkronisere: {{message}}",
 		"toast_update_failed": "Kan ikke oppdatere: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Deaktivering av en leverandør vil deaktivere alle modellene i hver feilovergruppe",
 		"toast_provider_toggle_no_groups": "Ingen mislykket gruppe bruk {{provider}}",
 		"last_sync_label": "Sist synkronisert:",
-		"toast_sync_disabled": "hotell/{{group}} deaktivert: {{count}} rutbare medlem(mer) igjen",
-		"toast_entry_min_two": "Minst 2 medlemmer må forbli aktive."
+		"toast_entry_min_two": "Minst 2 medlemmer må forbli aktive.",
+		"toast_sync_purged_one": "hotell/{{group}}: fjernet {{count}} utdatert oppføring",
+		"toast_sync_purged_other": "hotell/{{group}}: fjernet {{count}} utdaterte oppføringer",
+		"toast_sync_disabled_one": "hotell/{{group}} deaktivert: {{count}} rutbart medlem igjen",
+		"toast_sync_disabled_other": "hotell/{{group}} deaktivert: {{count}} rutbare medlemmer igjen"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Ulagrede endringer"

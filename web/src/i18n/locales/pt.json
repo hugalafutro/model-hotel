@@ -696,7 +696,6 @@
 		"sort_title_desc": "Ordenado Z-A (clique para reverter)",
 		"empty_no_match": "Nenhum provedor corresponde ao filtro selecionado.",
 		"empty_no_providers": "Nenhum provedor configurado. Adicione seu primeiro provedor para começar.",
-		"toast_discovery_failed_all": "A descoberta falhou para todos os provedores {{failed}}",
 		"toast_discover_failed": "A descoberta falhou: {{message}}",
 		"toast_provider_added": "Provedor \"{{name}}\" adicionado",
 		"toast_provider_updated": "Provedor \"{{name}}\" atualizado",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "Falha ao excluir: {{message}}",
 		"toast_add_failed": "Falha ao adicionar provedor: {{message}}",
 		"toast_update_failed": "Falha ao atualizar: {{message}}",
-		"toast_refresh_success": "Atualizado entre aspas/saldos {{count}}",
 		"toast_refresh_warning": "Cotas {{refreshed}} atualizadas ({{failed}} falhou, {{skipped}} não suportado)",
 		"toast_refresh_none": "Nenhum provedor com suporte de quota/saldo encontrado",
 		"toast_refresh_failed": "Falha ao atualizar cotas: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} testado novamente",
 			"toggleSection": "Alternar a seção {{provider}}",
 			"failoverDisabled": "Grupos de failover desativados",
-			"failoverDisabledReason": "{{count}} membro(s) roteável(is) restante(s), são necessários 2+"
+			"failoverDisabledReason_one": "{{count}} membro roteável restante, são necessários 2+",
+			"failoverDisabledReason_other": "{{count}} membros roteáveis restantes, são necessários 2+"
 		},
 		"toast_quota_detected_minimax": "Cota MiniMax detectada",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Atualizada {{count}} cota/saldo",
+		"toast_refresh_success_other": "Atualizadas {{count}} cotas/saldos",
+		"toast_discovery_failed_all_one": "A descoberta falhou para o provedor",
+		"toast_discovery_failed_all_other": "A descoberta falhou para todos os {{count}} provedores"
 	},
 	"models": {
 		"page_title_one": "Modelo",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Falha ao alternar em massa para alguns grupos",
 		"toast_provider_toggle_failed": "Falha ao alternar provedor de massa para alguns grupos",
 		"toast_sync_deleted": "hotel/{{model}} excluído: {{reason}}{{providers}}",
-		"toast_sync_purged": "hotel/{{group}}: removeu entrada obsoleta {{count}}",
 		"toast_sync_success": "Grupos falhados sincronizados",
 		"toast_sync_failed": "Falha ao sincronizar: {{message}}",
 		"toast_update_failed": "Falha ao atualizar: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Desabilitar um provedor desativará todos os seus modelos em cada grupo de falhas",
 		"toast_provider_toggle_no_groups": "Nenhum grupo de falha usa o provedor {{provider}}",
 		"last_sync_label": "Última sincronização:",
-		"toast_sync_disabled": "hotel/{{group}} desativado: {{count}} membro(s) roteável(is) restante(s)",
-		"toast_entry_min_two": "Pelo menos 2 membros têm de permanecer ativos."
+		"toast_entry_min_two": "Pelo menos 2 membros têm de permanecer ativos.",
+		"toast_sync_purged_one": "hotel/{{group}}: removida {{count}} entrada obsoleta",
+		"toast_sync_purged_other": "hotel/{{group}}: removidas {{count}} entradas obsoletas",
+		"toast_sync_disabled_one": "hotel/{{group}} desativado: {{count}} membro roteável restante",
+		"toast_sync_disabled_other": "hotel/{{group}} desativado: {{count}} membros roteáveis restantes"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Alterações Não Salvas"

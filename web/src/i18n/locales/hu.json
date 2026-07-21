@@ -696,7 +696,6 @@
 		"sort_title_desc": "Z–A sorrendben (kattintson a sorrend megfordításához)",
 		"empty_no_match": "A kiválasztott szűrőnek nem felel meg egyetlen szolgáltató sem.",
 		"empty_no_providers": "Nincs beállított szolgáltató. Az induláshoz adja hozzá az első szolgáltatót.",
-		"toast_discovery_failed_all": "A felfedezés sikertelen volt az összes {{failed}} szolgáltató esetében",
 		"toast_discover_failed": "A felfedezés sikertelen volt: {{message}}",
 		"toast_provider_added": "Hozzáadva a „{{name}}” szolgáltató",
 		"toast_provider_updated": "A „{{name}}” szolgáltató frissítve",
@@ -704,7 +703,6 @@
 		"toast_delete_failed": "A törlés nem sikerült: {{message}}",
 		"toast_add_failed": "A szolgáltató hozzáadása nem sikerült: {{message}}",
 		"toast_update_failed": "A frissítés nem sikerült: {{message}}",
-		"toast_refresh_success": "Frissítve: {{count}} kvóták/egyenlegek",
 		"toast_refresh_warning": "A {{refreshed}} kvóták frissítése (a{{failed}} frissítése sikertelen, a {{skipped}} nem támogatott)",
 		"toast_refresh_none": "Nem találtam olyan szolgáltatót, amely támogatná a kvótát/egyenleget",
 		"toast_refresh_failed": "A kvóták frissítése sikertelen volt: {{message}}",
@@ -851,10 +849,15 @@
 			"retestDone": "{{provider}} újratesztelve",
 			"toggleSection": "{{provider}} szakasz be- és kikapcsolása",
 			"failoverDisabled": "Letiltott failover csoportok",
-			"failoverDisabledReason": "{{count}} útválasztható tag maradt, 2+ szükséges"
+			"failoverDisabledReason_one": "{{count}} útválasztható tag maradt, 2+ szükséges",
+			"failoverDisabledReason_other": "{{count}} útválasztható tag maradt, 2+ szükséges"
 		},
 		"toast_quota_detected_minimax": "MiniMax kvóta észlelve",
-		"type_minimax": "MiniMax"
+		"type_minimax": "MiniMax",
+		"toast_refresh_success_one": "Frissítve: {{count}} kvóta/egyenleg",
+		"toast_refresh_success_other": "Frissítve: {{count}} kvóta/egyenleg",
+		"toast_discovery_failed_all_one": "A felfedezés sikertelen volt a szolgáltatónál",
+		"toast_discovery_failed_all_other": "A felfedezés sikertelen volt mind a(z) {{count}} szolgáltatónál"
 	},
 	"models": {
 		"page_title_one": "Modell",
@@ -991,7 +994,6 @@
 		"toast_bulk_toggle_failed": "Néhány csoportnál nem sikerült a tömeges átkapcsolás",
 		"toast_provider_toggle_failed": "Egyes csoportoknál nem sikerült a tömeges szolgáltatókapcsolás",
 		"toast_sync_deleted": "szálloda/{{model}} törölve: {{reason}}{{providers}}",
-		"toast_sync_purged": "szálloda/{{group}}: eltávolítva {{count}} elavult bejegyzés(ek)",
 		"toast_sync_success": "A feladatátvételi csoportok szinkronizálva",
 		"toast_sync_failed": "A szinkronizálás nem sikerült: {{message}}",
 		"toast_update_failed": "A frissítés nem sikerült: {{message}}",
@@ -1037,8 +1039,11 @@
 		"provider_modal_description": "Egy szolgáltató letiltása minden failover-csoportban letiltja az összes modelljét",
 		"toast_provider_toggle_no_groups": "Egyetlen átállási csoport sem használja a szolgáltatót {{provider}}",
 		"last_sync_label": "Utolsó szinkronizálás:",
-		"toast_sync_disabled": "szálloda/{{group}} letiltva: {{count}} útválasztható tag maradt",
-		"toast_entry_min_two": "Legalább 2 tagnak aktívnak kell maradnia."
+		"toast_entry_min_two": "Legalább 2 tagnak aktívnak kell maradnia.",
+		"toast_sync_purged_one": "szálloda/{{group}}: {{count}} elavult bejegyzés eltávolítva",
+		"toast_sync_purged_other": "szálloda/{{group}}: {{count}} elavult bejegyzés eltávolítva",
+		"toast_sync_disabled_one": "szálloda/{{group}} letiltva: {{count}} útválasztható tag maradt",
+		"toast_sync_disabled_other": "szálloda/{{group}} letiltva: {{count}} útválasztható tag maradt"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Még nem mentett módosítások"
