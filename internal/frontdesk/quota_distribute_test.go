@@ -19,12 +19,14 @@ type stubQuotaMember struct {
 	srv        *httptest.Server
 	token      string
 	exportBody string
+	getCode    int // status for the export GET (default 200)
+	postCode   int // status for the receive POST (default 200)
 	posted     [][]byte
 }
 
 func newStubQuotaMember(t *testing.T, token, exportBody string) *stubQuotaMember {
 	t.Helper()
-	sm := &stubQuotaMember{token: token, exportBody: exportBody}
+	sm := &stubQuotaMember{token: token, exportBody: exportBody, getCode: http.StatusOK, postCode: http.StatusOK}
 	sm.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer "+sm.token {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -34,8 +36,16 @@ func newStubQuotaMember(t *testing.T, token, exportBody string) *stubQuotaMember
 		defer sm.mu.Unlock()
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/config/quota-snapshots":
+			if sm.getCode != http.StatusOK {
+				w.WriteHeader(sm.getCode)
+				return
+			}
 			_, _ = w.Write([]byte(sm.exportBody))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/quota-snapshots":
+			if sm.postCode != http.StatusOK {
+				w.WriteHeader(sm.postCode)
+				return
+			}
 			b, _ := io.ReadAll(r.Body)
 			sm.posted = append(sm.posted, b)
 			_, _ = w.Write([]byte(`{"applied":1,"skipped":0}`))
@@ -83,6 +93,85 @@ func TestDistributeQuotaOnce(t *testing.T) {
 func TestDistributeQuotaOnce_NoPrimaryIsNoop(t *testing.T) {
 	srv, _ := newTestServer(t)
 	srv.DistributeQuotaOnce(t.Context()) // must not panic or call anything
+}
+
+// TestDistributeQuotaOnce_GetAutoSyncError: a store read failure is logged and
+// the pass is a no-op (does not panic).
+func TestDistributeQuotaOnce_GetAutoSyncError(t *testing.T) {
+	srv, store := newTestServer(t)
+	if err := store.Close(); err != nil {
+		t.Fatalf("close store: %v", err)
+	}
+	srv.DistributeQuotaOnce(t.Context()) // GetAutoSync errors on the closed store
+}
+
+// TestDistributeQuotaOnce_PrimaryUnavailable: a designated primary that no longer
+// exists (removed, or lost its token) aborts the pass, so no member is written.
+func TestDistributeQuotaOnce_PrimaryUnavailable(t *testing.T) {
+	srv, store := newTestServer(t)
+	member := newStubQuotaMember(t, "rtoken", "")
+	_, _ = store.CreateMember(t.Context(), "replica", member.srv.URL, "rtoken")
+	// Point the primary at an id with no member row.
+	if err := store.SetAutoSync(t.Context(), true, "00000000-0000-0000-0000-000000000000"); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+
+	srv.DistributeQuotaOnce(t.Context())
+
+	if n := len(member.postedBodies()); n != 0 {
+		t.Fatalf("no distribution expected when the primary is unavailable, got %d posts", n)
+	}
+}
+
+// TestDistributeQuotaOnce_PrimaryFetchFails: a primary that answers the export
+// with a non-200 aborts the pass, so no member is written.
+func TestDistributeQuotaOnce_PrimaryFetchFails(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubQuotaMember(t, "ptoken", "")
+	primary.getCode = http.StatusInternalServerError
+	member := newStubQuotaMember(t, "rtoken", "")
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	_, _ = store.CreateMember(t.Context(), "replica", member.srv.URL, "rtoken")
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+
+	srv.DistributeQuotaOnce(t.Context())
+
+	if n := len(member.postedBodies()); n != 0 {
+		t.Fatalf("no distribution expected when the primary export fails, got %d posts", n)
+	}
+}
+
+// TestDistributeQuotaOnce_SkipsBadMembersDeliversRest: a tokenless member and a
+// member that rejects the push are each logged and skipped without aborting the
+// pass, so a healthy member still receives the snapshot.
+func TestDistributeQuotaOnce_SkipsBadMembersDeliversRest(t *testing.T) {
+	srv, store := newTestServer(t)
+	exportBody := `{"snapshots":[{"provider_name":"nano","kind":"usage","payload":{"used":5},"http_status":200,"fetched_at":"2026-07-21T00:00:00Z"}]}`
+	primary := newStubQuotaMember(t, "ptoken", exportBody)
+	rejecting := newStubQuotaMember(t, "btoken", "")
+	rejecting.postCode = http.StatusInternalServerError
+	good := newStubQuotaMember(t, "gtoken", "")
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	_, _ = store.CreateMember(t.Context(), "rejecting", rejecting.srv.URL, "btoken")
+	// A tokenless member: memberTokenOrErr fails, so it is skipped.
+	_, _ = store.CreateMember(t.Context(), "tokenless", "https://tokenless.example", "")
+	_, _ = store.CreateMember(t.Context(), "good", good.srv.URL, "gtoken")
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+
+	srv.DistributeQuotaOnce(t.Context())
+
+	if got := good.postedBodies(); len(got) != 1 || !strings.Contains(string(got[0]), `"used":5`) {
+		t.Fatalf("healthy member should still receive the snapshot, got %v", got)
+	}
+	if n := len(rejecting.postedBodies()); n != 0 {
+		t.Fatalf("rejecting member records nothing (500 before capture), got %d", n)
+	}
 }
 
 // TestRunQuotaDistributeDistributesOnTick: the loop distributes on its tick.
