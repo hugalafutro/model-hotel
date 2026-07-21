@@ -128,8 +128,18 @@ export function ProviderQuotaPanel() {
 			return;
 		}
 		lastManualRefresh.current = now;
-		invalidateAll();
 		toast(t("components.providerQuotaPanel.refreshingQuotas"), "info");
+		// Force the server to refetch upstream and persist fresh snapshots, then
+		// re-read them into the UI. invalidateAll on its own only re-reads the
+		// stored (possibly stale) snapshot through the read-through GET. If the
+		// server refresh fails we still invalidate, so the UI falls back to the
+		// last-good stored snapshot the server keeps.
+		void api.providers
+			.refreshQuotas()
+			.catch(() => undefined)
+			.finally(() => {
+				invalidateAll();
+			});
 	}, [toast, invalidateAll, t]);
 
 	const {

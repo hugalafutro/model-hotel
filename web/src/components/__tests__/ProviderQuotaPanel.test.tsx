@@ -317,16 +317,31 @@ describe("ProviderQuotaPanel", () => {
 	});
 
 	describe("refresh behavior", () => {
-		it("handleRefresh calls invalidateAll and shows toast", async () => {
+		it("handleRefresh triggers a server refresh, then invalidateAll and toast", async () => {
 			const mockInvalidateAll = vi.fn();
+			let refreshCalls = 0;
+			server.use(
+				http.post("/api/providers/refresh-quotas", () => {
+					refreshCalls++;
+					return HttpResponse.json({
+						refreshed: 0,
+						failed: 0,
+						skipped: 0,
+						results: [],
+					});
+				}),
+			);
 			const user = userEvent.setup();
 			setupPanel({ invalidateAll: mockInvalidateAll });
 
 			const refreshButton = screen.getByTitle("Refresh all quotas");
 			await user.click(refreshButton);
 
-			expect(mockInvalidateAll).toHaveBeenCalledTimes(1);
+			// The toast fires immediately; the server refresh and the follow-up
+			// invalidate happen asynchronously.
 			expect(screen.getByText("Refreshing quotas…")).toBeInTheDocument();
+			await waitFor(() => expect(refreshCalls).toBe(1));
+			await waitFor(() => expect(mockInvalidateAll).toHaveBeenCalledTimes(1));
 		});
 
 		it("handleRefresh enforces cooldown on rapid clicks", async () => {
@@ -336,9 +351,9 @@ describe("ProviderQuotaPanel", () => {
 
 			const refreshButton = screen.getByTitle("Refresh all quotas");
 
-			// First click succeeds
+			// First click succeeds (server refresh + invalidate happen async)
 			await user.click(refreshButton);
-			expect(mockInvalidateAll).toHaveBeenCalledTimes(1);
+			await waitFor(() => expect(mockInvalidateAll).toHaveBeenCalledTimes(1));
 
 			// Immediate second click blocked by cooldown
 			await user.click(refreshButton);
