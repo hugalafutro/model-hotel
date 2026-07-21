@@ -62,6 +62,89 @@ func cleanupProvider(ctx context.Context, t *testing.T, providerID uuid.UUID) {
 	_, _ = testPool.Exec(ctx, `DELETE FROM providers WHERE id = $1`, providerID)
 }
 
+// TestListPopulatesLastError: a failed refresh leaves a row whose last_error is
+// carried through List (the export reader relies on the field being populated).
+func TestListPopulatesLastError(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+	id := insertTestProvider(ctx, t, "list-lasterr")
+	defer cleanupProvider(ctx, t, id)
+
+	if err := repo.RecordFailure(ctx, id, "usage", "boom"); err != nil {
+		t.Fatalf("record failure: %v", err)
+	}
+	snaps, err := repo.List(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	var found bool
+	for _, s := range snaps {
+		if s.ProviderID == id && s.Kind == "usage" {
+			found = true
+			if s.LastError != "boom" {
+				t.Fatalf("last_error = %q, want boom", s.LastError)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("failure placeholder row not returned by List")
+	}
+}
+
+// TestUpsertIfNewerDefaultsFetchedAt: an incoming snapshot with a zero FetchedAt
+// is stamped now and applied against an empty row.
+func TestUpsertIfNewerDefaultsFetchedAt(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+	id := insertTestProvider(ctx, t, "upsertnewer-default")
+	defer cleanupProvider(ctx, t, id)
+
+	wrote, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: id,
+		Kind:       "usage",
+		Payload:    json.RawMessage(`{"used":1}`),
+		HTTPStatus: 200,
+		Source:     "fleet",
+		// FetchedAt left zero on purpose.
+	})
+	if err != nil {
+		t.Fatalf("upsert if newer: %v", err)
+	}
+	if !wrote {
+		t.Fatal("first write should apply")
+	}
+	got, err := repo.Get(ctx, id, "usage")
+	if err != nil || got == nil {
+		t.Fatalf("get: %v (snap %v)", err, got)
+	}
+	if got.FetchedAt.IsZero() {
+		t.Fatal("fetched_at should have been defaulted to now")
+	}
+}
+
+// TestRepositoryContextCancelledErrors: each query surfaces the DB error (rather
+// than panicking or masking it) when the context is already cancelled.
+func TestRepositoryContextCancelledErrors(t *testing.T) {
+	repo := quota.NewRepository(testPool)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, err := repo.Get(ctx, uuid.New(), "usage"); err == nil {
+		t.Error("Get: want error on cancelled context")
+	}
+	if _, err := repo.List(ctx); err == nil {
+		t.Error("List: want error on cancelled context")
+	}
+	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: uuid.New(),
+		Kind:       "usage",
+		Payload:    json.RawMessage(`{}`),
+		FetchedAt:  time.Now(),
+	}); err == nil {
+		t.Error("UpsertIfNewer: want error on cancelled context")
+	}
+}
+
 // jsonEqual compares two JSON payloads by value rather than by raw bytes:
 // Postgres JSONB re-serializes on write/read (e.g. adds a space after ':'),
 // so a raw byte/string comparison against the literal we inserted is not

@@ -9,9 +9,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
+
+// cancelledRequest builds a request whose context is already cancelled, so the
+// first DB call the handler makes fails, exercising the store-error branches.
+func cancelledRequest(method, target, body string) *http.Request {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	return httptest.NewRequest(method, target, strings.NewReader(body)).WithContext(ctx)
+}
 
 func TestQuotaFleetExportSnapshots(t *testing.T) {
 	h := newTestHandler(t)
@@ -185,5 +195,91 @@ func TestQuotaFleetReceiveSnapshots_SkipsOlder(t *testing.T) {
 	}
 	if err := json.Unmarshal(snap.Payload, &got); err != nil || got.Used != 99 {
 		t.Fatalf("expected the newer manual payload used=99 to survive, got %s (err %v)", snap.Payload, err)
+	}
+}
+
+// TestQuotaFleetRegisterMountsRoutes: Register wires the export/receive routes on
+// the given router so both respond.
+func TestQuotaFleetRegisterMountsRoutes(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	NewQuotaFleetHandler(h.quotaRepo, h.providerRepo).Register(r)
+
+	for _, tc := range []struct {
+		method, body string
+	}{
+		{http.MethodGet, ""},
+		{http.MethodPost, `{"snapshots":[]}`},
+	} {
+		rr := httptest.NewRecorder()
+		req := httptest.NewRequest(tc.method, "/config/quota-snapshots", strings.NewReader(tc.body))
+		r.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s: want 200, got %d: %s", tc.method, rr.Code, rr.Body.String())
+		}
+	}
+}
+
+// TestQuotaFleetExportListError: a store failure listing snapshots surfaces a 500.
+func TestQuotaFleetExportListError(t *testing.T) {
+	h := newTestHandler(t)
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+
+	rr := httptest.NewRecorder()
+	fleet.ExportSnapshots(rr, cancelledRequest(http.MethodGet, "/config/quota-snapshots", ""))
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("want 500 on store error, got %d", rr.Code)
+	}
+}
+
+// TestQuotaFleetReceiveInvalidBody: a malformed request body is a 400.
+func TestQuotaFleetReceiveInvalidBody(t *testing.T) {
+	h := newTestHandler(t)
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/config/quota-snapshots", strings.NewReader("not json"))
+	fleet.ReceiveSnapshots(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("want 400 on bad body, got %d", rr.Code)
+	}
+}
+
+// TestQuotaFleetReceiveProviderListError: a store failure listing providers (the
+// body decodes fine first) surfaces a 500.
+func TestQuotaFleetReceiveProviderListError(t *testing.T) {
+	h := newTestHandler(t)
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+
+	rr := httptest.NewRecorder()
+	fleet.ReceiveSnapshots(rr, cancelledRequest(http.MethodPost, "/config/quota-snapshots", `{"snapshots":[]}`))
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("want 500 on store error, got %d", rr.Code)
+	}
+}
+
+// TestQuotaFleetReceiveSkipsUnknownProvider: a snapshot for a provider name not
+// present on this member is skipped, not applied.
+func TestQuotaFleetReceiveSkipsUnknownProvider(t *testing.T) {
+	h := newTestHandler(t)
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+
+	body := `{"snapshots":[{"provider_name":"does-not-exist-here","kind":"usage","payload":{"used":1},"http_status":200,"fetched_at":"` + time.Now().UTC().Format(time.RFC3339) + `"}]}`
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/config/quota-snapshots", strings.NewReader(body))
+	fleet.ReceiveSnapshots(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var out struct {
+		Applied int `json:"applied"`
+		Skipped int `json:"skipped"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.Applied != 0 || out.Skipped != 1 {
+		t.Fatalf("unknown provider must be skipped, got applied=%d skipped=%d", out.Applied, out.Skipped)
 	}
 }
