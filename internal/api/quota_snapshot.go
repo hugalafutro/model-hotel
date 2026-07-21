@@ -126,11 +126,24 @@ func (h *Handler) PollQuotasOnce(ctx context.Context) {
 		if !prov.Enabled {
 			continue
 		}
-		if _, ok := quotaKindFor(provider.DetectProviderType(prov.BaseURL)); !ok {
+		kind, ok := quotaKindFor(provider.DetectProviderType(prov.BaseURL))
+		if !ok {
 			continue
 		}
+
+		// Fleet dedup: if Front Desk recently distributed a snapshot for this
+		// provider, skip the upstream call. The primary (and any node FD is not
+		// feeding) has no recent fleet snapshot and still self-polls, so quota is
+		// never worse than standalone.
+		interval := time.Duration(h.settingsRepo.GetInt(ctx, "quota_refresh_interval_min", 5)) * time.Minute
+		if interval > 0 {
+			if snap, _ := h.quotaRepo.Get(ctx, prov.ID, kind); snap != nil && snap.Source == "fleet" && time.Since(snap.FetchedAt) < interval {
+				continue
+			}
+		}
+
 		provCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		kind, payload, status, ferr := fetchQuotaSnapshot(provCtx, disc, prov, h.cfg.MasterKey)
+		_, payload, status, ferr := fetchQuotaSnapshot(provCtx, disc, prov, h.cfg.MasterKey)
 		if ferr != nil {
 			debuglog.Warn("quota: poll fetch failed", "provider", prov.Name, "error", ferr)
 			if rerr := h.quotaRepo.RecordFailure(provCtx, prov.ID, kind, ferr.Error()); rerr != nil {
