@@ -436,7 +436,7 @@ Before committing changes:
 
 ### Translations
 
-Locale files in `web/src/i18n/locales/` are the single source of truth (the project previously synced with Crowdin; that integration was removed). The workflow when adding user-facing strings:
+Locale files in `web/src/i18n/locales/` are the single source of truth; translations are maintained in-repo. The workflow when adding user-facing strings:
 
 1. Add the key to `en.json` AND to all 28 other locales.
 2. **Translate the new keys by hand** into each locale, keeping `{{placeholders}}`, `<tags>`, acronyms, and brand names verbatim. The quickest correct way is a one-off script that reuses `tools/i18n-translate/translate.py`'s `load_locale`/`set_path`/`save_locale` helpers (preserves nesting + formatting).

@@ -443,6 +443,12 @@ jobs:
           --threshold 90 --out coverage.json --label coverage
 
       - name: Publish badge JSON to the badges branch
+        # always() so the public badge shows the true current number even when the
+        # aggregate step fails the 90% gate; otherwise a regression freezes the badge
+        # at the last passing (inflated) value. aggregate_coverage.py writes
+        # coverage.json before the threshold check, so the file exists here. The job
+        # itself still fails the gate.
+        if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

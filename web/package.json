@@ -48,7 +48,6 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.3",
-		"@codecov/vite-plugin": "^2.0.1",
 		"@eslint/js": "^10.0.1",
 		"@tailwindcss/postcss": "^4.3.3",
 		"@testing-library/jest-dom": "^6.9.1",

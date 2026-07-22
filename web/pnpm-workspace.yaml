@@ -16,11 +16,3 @@ overrides:
   # Remove each line once a direct dependency requires the patched range itself.
   "undici@6": "^6.27.0"
   "undici@7": "^7.28.0"
-
-# @codecov/vite-plugin still declares a stale peer range (vite 4-6) even on its
-# latest release, but it runs fine on vite 8 (the Bundle Report comments on PRs
-# confirm it works). Tell pnpm vite 8 is vetted so the peer warning stops.
-# Drop this once the plugin publishes a version whose peer range includes vite 8.
-peerDependencyRules:
-  allowedVersions:
-    "@codecov/vite-plugin>vite": "8"
