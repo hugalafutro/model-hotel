@@ -39,7 +39,7 @@ def parse_go_profile(text: str) -> dict:
     for line in text.splitlines():
         if not line or line.startswith("mode:"):
             continue
-        left, numstmt, count = line.rsplit(" ", 2)
+        left, _, count = line.rsplit(" ", 2)
         path, rng = left.rsplit(":", 1)
         path = _strip_module(path)
         start = int(rng.split(".", 1)[0])
@@ -51,20 +51,21 @@ def parse_go_profile(text: str) -> dict:
     return out
 
 
-def go_statement_counts(text: str) -> tuple:
-    """(covered, total) statements over non-excluded Go files."""
+def go_line_counts(text: str) -> tuple:
+    """(covered, total) source lines over non-excluded Go files. A line counts
+    as covered when any statement block spanning it has a nonzero hit count.
+    This is line coverage (not Go's native statement coverage) so the aggregate
+    badge matches how the former Codecov config measured Go (codecov.yml used
+    line coverage with the same ignore list)."""
+    per_file = parse_go_profile(text)
     covered = total = 0
-    for line in text.splitlines():
-        if not line or line.startswith("mode:"):
-            continue
-        left, numstmt, count = line.rsplit(" ", 2)
-        path = _strip_module(left.rsplit(":", 1)[0])
+    for path, lines in per_file.items():
         if is_excluded(path):
             continue
-        n = int(numstmt)
-        total += n
-        if int(count) > 0:
-            covered += n
+        for is_covered in lines.values():
+            total += 1
+            if is_covered:
+                covered += 1
     return covered, total
 
 

@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
-"""Aggregate coverage across Go + JS surfaces; emit shields endpoint JSON."""
+"""Aggregate coverage across Go + JS surfaces; emit shields endpoint JSON.
+
+Coverage is line-based on every surface and the percentage is rounded DOWN to
+one decimal, mirroring the former Codecov config (codecov.yml: precision 1,
+round down, line coverage, the same cmd/ + tools/ + test-file ignore list that
+covlib enforces). The badge therefore reports the honest floor, never a
+rounded-up or statement-inflated number."""
 import argparse
 import json
+import math
 import sys
 
 import covlib
@@ -13,17 +20,22 @@ def summary_line_counts(path: str):
     return int(d["covered"]), int(d["total"])
 
 
+def floor1(pct: float) -> float:
+    """Round a percentage DOWN to one decimal place (codecov round: down)."""
+    return math.floor(pct * 10) / 10.0
+
+
 def aggregate(go_texts, summary_paths):
     covered = total = 0
     for text in go_texts:
-        c, t = covlib.go_statement_counts(text)
+        c, t = covlib.go_line_counts(text)
         covered += c
         total += t
     for p in summary_paths:
         c, t = summary_line_counts(p)
         covered += c
         total += t
-    pct = round(100.0 * covered / total, 1) if total else 0.0
+    pct = floor1(100.0 * covered / total) if total else 0.0
     return covered, total, pct
 
 
