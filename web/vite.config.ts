@@ -1,5 +1,4 @@
 import path from "node:path";
-import { codecovVitePlugin } from "@codecov/vite-plugin";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
@@ -23,17 +22,7 @@ const SHIKI_LAZY = [
 
 // https://vite.dev/config/
 export default defineConfig({
-	plugins: [
-		react(),
-		// Uploads bundle-size stats to Codecov. Gated on a non-empty CODECOV_TOKEN
-		// so it only runs in CI with the real secret; local + Docker builds and
-		// fork PRs (where the secret is an empty string) stay silent.
-		codecovVitePlugin({
-			enableBundleAnalysis: !!process.env.CODECOV_TOKEN,
-			bundleName: "model-hotel-web",
-			uploadToken: process.env.CODECOV_TOKEN,
-		}),
-	],
+	plugins: [react()],
 	resolve: {
 		alias: {
 			"@": path.resolve(__dirname, "./src"),

@@ -413,10 +413,13 @@ The CI pipeline (`.github/workflows/ci.yml`) runs on every push and pull request
 
 | Job | Description |
 |-----|-------------|
-| `go-test` | Runs `go test -timeout 5m ./...` against PostgreSQL 16, enforces an 80% coverage threshold, uploads to Codecov |
+| `go-test` | Runs `go test -timeout 5m ./...` against PostgreSQL 16, enforces a 90% coverage threshold |
 | `go-lint` | Runs `golangci-lint` v2.11 |
 | `go-vet` | Runs `go vet ./...` |
-| `frontend` | Runs `pnpm lint`, `pnpm vitest run --coverage` (80% threshold, Codecov upload), `pnpm build` |
+| `frontend` | Runs `pnpm lint`, `pnpm vitest run --coverage` (90% threshold), `pnpm build` |
+| `frontdesk-web-test` | Runs the Front Desk web suite with coverage, enforces a 90% threshold |
+| `Coverage Diff Gate` | PR-only: fails if <90% of the PR's changed lines are covered (backend + both frontends) |
+| `Coverage Aggregate` | master-only: computes overall coverage, fails below 90%, force-pushes the shields.io badge JSON to the `badges` branch |
 | `docker-build` | Verifies Docker image builds successfully |
 | `i18n-check` | Verifies all 28 locales are in sync with `en.json`: no missing keys, `{{placeholder}}` parity, no non-allowlisted English values |
 
@@ -433,7 +436,7 @@ Before committing changes:
 
 ### Translations
 
-Locale files in `web/src/i18n/locales/` are the single source of truth (the project previously synced with Crowdin; that integration was removed). The workflow when adding user-facing strings:
+Locale files in `web/src/i18n/locales/` are the single source of truth; translations are maintained in-repo. The workflow when adding user-facing strings:
 
 1. Add the key to `en.json` AND to all 28 other locales.
 2. **Translate the new keys by hand** into each locale, keeping `{{placeholders}}`, `<tags>`, acronyms, and brand names verbatim. The quickest correct way is a one-off script that reuses `tools/i18n-translate/translate.py`'s `load_locale`/`set_path`/`save_locale` helpers (preserves nesting + formatting).

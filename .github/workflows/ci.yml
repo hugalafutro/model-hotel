@@ -63,15 +63,9 @@ jobs:
       - name: Run tests
         env:
           TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
-        # gotestsum wraps `go test` to emit a JUnit report for Codecov Test
-        # Analytics while still writing coverage.out for the gate below.
-        run: >-
-          go run gotest.tools/gotestsum@v1.13.0
-          --junitfile=go-test-report.junit.xml
-          --
-          -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
+        run: go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
 
-      - name: Check coverage (80% threshold)
+      - name: Check coverage (90% threshold)
         run: |
           # Filter out cmd/ and tools/ from coverage calculation
           filtered=$(mktemp)
@@ -80,31 +74,18 @@ jobs:
           rm -f "$filtered"
           pct_int=${pct%%.*}
           echo "Coverage: ${pct}%"
-          if [ "$pct_int" -lt 80 ]; then
-            echo "FAIL: coverage ${pct}% is below 80% threshold"
+          if [ "$pct_int" -lt 90 ]; then
+            echo "FAIL: coverage ${pct}% is below 90% threshold"
             exit 1
           fi
 
-      - name: Upload Go coverage to Codecov
+      - name: Upload Go coverage artifact
         if: always()
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          files: coverage.out
-          flags: backend
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-      # Upload even on test failure — capturing failed tests is the point of
-      # Test Analytics. Uses CODECOV_TOKEN (the coverage token), which the
-      # test-results endpoint accepts.
-      - name: Upload Go test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: go-test-report.junit.xml
-          flags: backend
-          report_type: test_results
+          name: go-coverage
+          path: coverage.out
+          retention-days: 1
 
   go-lint:
     name: Go Lint
@@ -211,17 +192,11 @@ jobs:
         run: pnpm run format
 
       - name: Build
-        # CODECOV_TOKEN enables the bundle-analysis plugin's upload (gated on the
-        # var being set, so only CI uploads — local/Docker builds stay silent).
-        # Bundle analysis needs the repo-scoped bundle token; the coverage
-        # CODECOV_TOKEN is a different value the bundle endpoint rejects (404).
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_BUNDLE_TOKEN }}
         run: pnpm run build
 
   # The 5k-test vitest suite was the sole CI wall-clock bottleneck (~7-8 min),
   # so it is split into parallel shards. Each shard writes a blob report (with
-  # embedded coverage); frontend-coverage merges them for the gate + Codecov.
+  # embedded coverage); frontend-coverage merges them for the gate.
   frontend-test:
     name: Frontend Test (shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
@@ -248,16 +223,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # blob feeds the coverage merge in frontend-coverage; junit feeds Codecov
-      # Test Analytics (one report per shard, aggregated by commit on Codecov).
-      # github-actions surfaces failures as inline log annotations so a flaky or
-      # failing test is named directly in the Actions log (blob and junit write
-      # only to files, leaving the console silent on failure).
+      # blob feeds the coverage merge in frontend-coverage. github-actions
+      # surfaces failures as inline log annotations so a flaky or failing
+      # test is named directly in the Actions log (blob writes only to
+      # files, leaving the console silent on failure).
       - name: Test (shard ${{ matrix.shard }}/3)
         run: >-
           pnpm exec vitest run --coverage
           --reporter=blob --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}.json
-          --reporter=junit --outputFile.junit=vitest-${{ matrix.shard }}.junit.xml
           --reporter=github-actions
           --shard=${{ matrix.shard }}/3
 
@@ -268,15 +241,6 @@ jobs:
           path: web/.vitest-reports/*
           include-hidden-files: true
           retention-days: 1
-
-      - name: Upload frontend test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: web/vitest-${{ matrix.shard }}.junit.xml
-          flags: frontend
-          report_type: test_results
 
   frontend-coverage:
     name: Frontend Coverage Gate
@@ -313,7 +277,7 @@ jobs:
       - name: Merge shard reports + coverage
         run: pnpm exec vitest --mergeReports --coverage
 
-      - name: Check frontend coverage (80% threshold)
+      - name: Check frontend coverage (90% threshold)
         run: |
           # The merge step above always writes this; a missing file means the
           # shard merge failed, so fail loudly rather than skip the gate.
@@ -330,19 +294,175 @@ jobs:
           ")
           pct_int=${pct%%.*}
           echo "Frontend coverage: ${pct}%"
-          if [ "$pct_int" -lt 80 ]; then
-            echo "FAIL: frontend coverage ${pct}% is below 80% threshold"
+          if [ "$pct_int" -lt 90 ]; then
+            echo "FAIL: frontend coverage ${pct}% is below 90% threshold"
             exit 1
           fi
 
-      - name: Upload frontend coverage to Codecov
+      - name: Upload web coverage artifact
         if: always()
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          files: web/coverage/lcov.info
-          flags: frontend
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
+          name: web-coverage
+          path: |
+            web/coverage/lcov.info
+            web/coverage/coverage-summary.json
+          retention-days: 1
+
+  frontdesk-web-test:
+    name: Front Desk Web Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontdesk/web
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontdesk/web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Test coverage (90% threshold)
+        run: >-
+          pnpm exec vitest run --coverage
+          --coverage.reporter=lcov --coverage.reporter=json-summary
+
+      - name: Check Front Desk web coverage (90% threshold)
+        run: |
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "FAIL: no coverage-summary.json"
+            exit 1
+          fi
+          pct=$(python3 -c "import json;print(json.load(open('coverage/coverage-summary.json'))['total']['lines']['pct'])")
+          pct_int=${pct%%.*}
+          echo "Front Desk web coverage: ${pct}%"
+          if [ "$pct_int" -lt 90 ]; then
+            echo "FAIL: Front Desk web coverage ${pct}% below 90% threshold"
+            exit 1
+          fi
+
+      - name: Upload Front Desk web coverage artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fdweb-coverage
+          path: |
+            frontdesk/web/coverage/lcov.info
+            frontdesk/web/coverage/coverage-summary.json
+          retention-days: 1
+
+  coverage-diff:
+    name: Coverage Diff Gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [go-test, frontend-coverage, frontdesk-web-test]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: go-coverage
+          path: cov/go
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: web-coverage
+          path: cov/web
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: fdweb-coverage
+          path: cov/fdweb
+
+      - name: Coverage script self-tests
+        run: cd scripts/coverage && python3 -m unittest discover -p 'test_*.py'
+
+      - name: Ensure base ref is available
+        run: git fetch --no-tags origin "${{ github.base_ref }}"
+
+      - name: Check diff coverage (90% threshold)
+        run: >-
+          python3 scripts/coverage/diff_coverage.py
+          --diff-base "origin/${{ github.base_ref }}"
+          --go cov/go/coverage.out
+          --lcov "web/=cov/web/lcov.info"
+          --lcov "frontdesk/web/=cov/fdweb/lcov.info"
+          --threshold 90
+
+  coverage-aggregate:
+    name: Coverage Aggregate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [go-test, frontend-coverage, frontdesk-web-test]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: go-coverage
+          path: cov/go
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: web-coverage
+          path: cov/web
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: fdweb-coverage
+          path: cov/fdweb
+
+      - name: Coverage script self-tests
+        run: cd scripts/coverage && python3 -m unittest discover -p 'test_*.py'
+
+      - name: Compute overall coverage + badge JSON (90% threshold)
+        run: >-
+          python3 scripts/coverage/aggregate_coverage.py
+          --go cov/go/coverage.out
+          --summary cov/web/coverage-summary.json
+          --summary cov/fdweb/coverage-summary.json
+          --threshold 90 --out coverage.json --label coverage
+
+      - name: Publish badge JSON to the badges branch
+        # always() so the public badge shows the true current number even when the
+        # aggregate step fails the 90% gate; otherwise a regression freezes the badge
+        # at the last passing (inflated) value. aggregate_coverage.py writes
+        # coverage.json before the threshold check, so the file exists here. The job
+        # itself still fails the gate.
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d)
+          cp coverage.json "$tmp/coverage.json"
+          cd "$tmp"
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b badges
+          git add coverage.json
+          git commit -q -m "chore(badges): coverage $(python3 -c "import json;print(json.load(open('coverage.json'))['message'])")"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" badges:badges
 
   # Guards against THIRD-PARTY-NOTICES.md drifting from the actual dependency
   # set: regenerate it and fail if the committed copy differs. The generator is
@@ -437,6 +557,7 @@ jobs:
       - frontend-checks
       - frontend-test
       - frontend-coverage
+      - frontdesk-web-test
       - notices
       - docker-build
     # No concurrency group on purpose: GitHub keeps only one *pending* job per
