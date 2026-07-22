@@ -366,6 +366,98 @@ jobs:
             frontdesk/web/coverage/coverage-summary.json
           retention-days: 1
 
+  coverage-diff:
+    name: Coverage Diff Gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [go-test, frontend-coverage, frontdesk-web-test]
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: go-coverage
+          path: cov/go
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: web-coverage
+          path: cov/web
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: fdweb-coverage
+          path: cov/fdweb
+
+      - name: Coverage script self-tests
+        run: cd scripts/coverage && python3 -m unittest discover -p 'test_*.py'
+
+      - name: Ensure base ref is available
+        run: git fetch --no-tags origin "${{ github.base_ref }}"
+
+      - name: Check diff coverage (90% threshold)
+        run: >-
+          python3 scripts/coverage/diff_coverage.py
+          --diff-base "origin/${{ github.base_ref }}"
+          --go cov/go/coverage.out
+          --lcov "web/=cov/web/lcov.info"
+          --lcov "frontdesk/web/=cov/fdweb/lcov.info"
+          --threshold 90
+
+  coverage-aggregate:
+    name: Coverage Aggregate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [go-test, frontend-coverage, frontdesk-web-test]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: go-coverage
+          path: cov/go
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: web-coverage
+          path: cov/web
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: fdweb-coverage
+          path: cov/fdweb
+
+      - name: Coverage script self-tests
+        run: cd scripts/coverage && python3 -m unittest discover -p 'test_*.py'
+
+      - name: Compute overall coverage + badge JSON (90% threshold)
+        run: >-
+          python3 scripts/coverage/aggregate_coverage.py
+          --go cov/go/coverage.out
+          --summary cov/web/coverage-summary.json
+          --summary cov/fdweb/coverage-summary.json
+          --threshold 90 --out coverage.json --label coverage
+
+      - name: Publish badge JSON to the badges branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d)
+          cp coverage.json "$tmp/coverage.json"
+          cd "$tmp"
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b badges
+          git add coverage.json
+          git commit -q -m "chore(badges): coverage $(python3 -c "import json;print(json.load(open('coverage.json'))['message'])")"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" badges:badges
+
   # Guards against THIRD-PARTY-NOTICES.md drifting from the actual dependency
   # set: regenerate it and fail if the committed copy differs. The generator is
   # deterministic, so any diff means someone changed deps without running
