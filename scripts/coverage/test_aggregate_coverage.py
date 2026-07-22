@@ -13,7 +13,7 @@ class TestAggregate(unittest.TestCase):
             json.dump({"total": {"lines": {"covered": 90, "total": 100}}}, open(p, "w"))
             self.assertEqual(agg.summary_line_counts(p), (90, 100))
 
-    def test_aggregate_sums_go_and_summaries(self):
+    def test_aggregate_sums_go_lines_and_summaries(self):
         go = ("mode: atomic\n"
               "github.com/hugalafutro/model-hotel/internal/x.go:1.1,2.1 8 1\n"
               "github.com/hugalafutro/model-hotel/internal/x.go:3.1,3.5 2 0\n")
@@ -21,9 +21,16 @@ class TestAggregate(unittest.TestCase):
             p = os.path.join(d, "s.json")
             json.dump({"total": {"lines": {"covered": 2, "total": 10}}}, open(p, "w"))
             covered, total, pct = agg.aggregate([go], [p])
-            # go: 8/10 ; summary: 2/10 -> 10/20 = 50.0
-            self.assertEqual((covered, total), (10, 20))
-            self.assertEqual(pct, 50.0)
+            # go lines: 1-2 covered, 3 uncovered -> 2/3 ; summary: 2/10.
+            # combined 4/13 = 30.769... floored DOWN to 30.7.
+            self.assertEqual((covered, total), (4, 13))
+            self.assertEqual(pct, 30.7)
+
+    def test_pct_rounds_down_not_nearest(self):
+        # 2/3 = 66.666...; round-down must yield 66.6, never 66.7.
+        self.assertEqual(agg.floor1(200.0 / 3), 66.6)
+        # a value that ordinary rounding would push UP stays floored.
+        self.assertEqual(agg.floor1(89.99), 89.9)
 
     def test_badge_obj(self):
         b = agg.badge_obj("coverage", 93.9)
@@ -50,7 +57,7 @@ class TestMain(unittest.TestCase):
             gp = os.path.join(d, "c.out"); open(gp, "w").write(go)
             out = os.path.join(d, "coverage.json")
             rc = agg.main(["--go", gp, "--threshold", "90", "--out", out, "--label", "coverage"])
-            self.assertEqual(rc, 1)  # 50%
+            self.assertEqual(rc, 1)  # lines 1-2 covered, 3 uncovered -> 66.6%
 
 
 if __name__ == "__main__":

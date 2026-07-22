@@ -35,9 +35,10 @@ class TestGoProfile(unittest.TestCase):
         self.assertEqual(m["internal/proxy/p.go"][12], True)
         self.assertEqual(m["internal/proxy/p.go"][14], False)
 
-    def test_statement_counts_exclude_cmd(self):
-        covered, total = covlib.go_statement_counts(self.PROFILE)
-        self.assertEqual((covered, total), (2, 3))
+    def test_line_counts_exclude_cmd(self):
+        # p.go: lines 10-12 covered, line 14 uncovered -> 3/4. cmd/ block excluded.
+        covered, total = covlib.go_line_counts(self.PROFILE)
+        self.assertEqual((covered, total), (3, 4))
 
 
 class TestLcov(unittest.TestCase):
