@@ -6,7 +6,7 @@
 
 **Multi-Provider AI Gateway**
 
-![Github CI](https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg) [![golangci-lint](https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml/badge.svg)](https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml) ![Go Version](https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white) ![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)  ![Coverage](https://codecov.io/github/hugalafutro/model-hotel/branch/master/graph/badge.svg) ![GitHub Repo stars](https://img.shields.io/github/stars/hugalafutro/model-hotel)
+![Github CI](https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg) [![golangci-lint](https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml/badge.svg)](https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml) ![Go Version](https://img.shields.io/github/go-mod/go-version/hugalafutro/model-hotel) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white) ![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)  ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hugalafutro/model-hotel/badges/coverage.json) ![GitHub Repo stars](https://img.shields.io/github/stars/hugalafutro/model-hotel)
 
 
 > **AI-Assisted Project Disclaimer:**

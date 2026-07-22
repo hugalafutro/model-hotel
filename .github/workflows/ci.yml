@@ -63,13 +63,7 @@ jobs:
       - name: Run tests
         env:
           TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
-        # gotestsum wraps `go test` to emit a JUnit report for Codecov Test
-        # Analytics while still writing coverage.out for the gate below.
-        run: >-
-          go run gotest.tools/gotestsum@v1.13.0
-          --junitfile=go-test-report.junit.xml
-          --
-          -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
+        run: go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Check coverage (80% threshold)
         run: |
@@ -84,27 +78,6 @@ jobs:
             echo "FAIL: coverage ${pct}% is below 80% threshold"
             exit 1
           fi
-
-      - name: Upload Go coverage to Codecov
-        if: always()
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
-        with:
-          files: coverage.out
-          flags: backend
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-      # Upload even on test failure — capturing failed tests is the point of
-      # Test Analytics. Uses CODECOV_TOKEN (the coverage token), which the
-      # test-results endpoint accepts.
-      - name: Upload Go test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: go-test-report.junit.xml
-          flags: backend
-          report_type: test_results
 
   go-lint:
     name: Go Lint
@@ -211,17 +184,11 @@ jobs:
         run: pnpm run format
 
       - name: Build
-        # CODECOV_TOKEN enables the bundle-analysis plugin's upload (gated on the
-        # var being set, so only CI uploads — local/Docker builds stay silent).
-        # Bundle analysis needs the repo-scoped bundle token; the coverage
-        # CODECOV_TOKEN is a different value the bundle endpoint rejects (404).
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_BUNDLE_TOKEN }}
         run: pnpm run build
 
   # The 5k-test vitest suite was the sole CI wall-clock bottleneck (~7-8 min),
   # so it is split into parallel shards. Each shard writes a blob report (with
-  # embedded coverage); frontend-coverage merges them for the gate + Codecov.
+  # embedded coverage); frontend-coverage merges them for the gate.
   frontend-test:
     name: Frontend Test (shard ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
@@ -248,16 +215,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # blob feeds the coverage merge in frontend-coverage; junit feeds Codecov
-      # Test Analytics (one report per shard, aggregated by commit on Codecov).
-      # github-actions surfaces failures as inline log annotations so a flaky or
-      # failing test is named directly in the Actions log (blob and junit write
-      # only to files, leaving the console silent on failure).
+      # blob feeds the coverage merge in frontend-coverage. github-actions
+      # surfaces failures as inline log annotations so a flaky or failing
+      # test is named directly in the Actions log (blob writes only to
+      # files, leaving the console silent on failure).
       - name: Test (shard ${{ matrix.shard }}/3)
         run: >-
           pnpm exec vitest run --coverage
           --reporter=blob --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}.json
-          --reporter=junit --outputFile.junit=vitest-${{ matrix.shard }}.junit.xml
           --reporter=github-actions
           --shard=${{ matrix.shard }}/3
 
@@ -268,15 +233,6 @@ jobs:
           path: web/.vitest-reports/*
           include-hidden-files: true
           retention-days: 1
-
-      - name: Upload frontend test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: web/vitest-${{ matrix.shard }}.junit.xml
-          flags: frontend
-          report_type: test_results
 
   frontend-coverage:
     name: Frontend Coverage Gate
@@ -334,15 +290,6 @@ jobs:
             echo "FAIL: frontend coverage ${pct}% is below 80% threshold"
             exit 1
           fi
-
-      - name: Upload frontend coverage to Codecov
-        if: always()
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
-        with:
-          files: web/coverage/lcov.info
-          flags: frontend
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
 
   # Guards against THIRD-PARTY-NOTICES.md drifting from the actual dependency
   # set: regenerate it and fail if the committed copy differs. The generator is
