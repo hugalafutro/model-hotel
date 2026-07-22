@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
-# Pre-push: smoke test only (~30s). GitHub CI is the real gatekeeper.
+# Pre-push: smoke test (~30s) plus a scoped diff-coverage gate. GitHub CI is
+# still the real gatekeeper; this just catches the common failures before a
+# wasted CI cycle.
 #
 # Frontend checks use local pnpm when web/node_modules exists,
 # otherwise fall back to Docker.
+#
+# The diff-coverage gate (mirrors CI's "Coverage Diff Gate") builds coverage
+# only for the surfaces whose files changed and fails the push if <90% of this
+# branch's changed lines are covered. It runs whole suites, so it can take a
+# few minutes; skip it entirely with NO_COVERAGE_PREPUSH=1.
 
 set -euo pipefail
 
@@ -89,6 +96,72 @@ else
 		sh -c "npm install -g pnpm@10 >/dev/null 2>&1 && pnpm config set store-dir /pnpm/store >/dev/null && pnpm install --frozen-lockfile >/dev/null 2>&1 && pnpm run lint && pnpm exec tsc -b" 2>&1; then
 		echo "pre-push: FAILED - pnpm lint / tsc -b" >&2
 		exit 1
+	fi
+fi
+
+# Scoped diff-coverage gate. Only builds coverage for changed surfaces; blocks
+# the push if changed lines fall below 90%. Go coverage needs the test Postgres
+# on :5433 - if it's not up, Go is skipped with a warning (CI still enforces it)
+# rather than blocking. Bypass the whole gate with NO_COVERAGE_PREPUSH=1.
+if [ "${NO_COVERAGE_PREPUSH:-}" = "1" ]; then
+	echo "pre-push: diff-coverage gate skipped (NO_COVERAGE_PREPUSH=1)"
+elif [ -z "$SYNC_BASE" ]; then
+	echo "pre-push: diff-coverage gate skipped (no merge-base with origin/${DEFAULT_BRANCH})" >&2
+elif ! command -v python3 >/dev/null 2>&1; then
+	echo "pre-push: diff-coverage gate skipped (python3 not found)" >&2
+else
+	CHANGED_FILES="$(git diff --name-only "$SYNC_BASE" HEAD)"
+	COV_DIR="$(mktemp -d)"
+	trap 'rm -rf "$COV_DIR"' EXIT
+	DC_ARGS=()
+
+	# Go: any non-test .go under internal/ (cmd/ and tools/ are excluded from coverage).
+	if printf '%s\n' "$CHANGED_FILES" | grep -E '^internal/.*\.go$' | grep -qvE '_test\.go$'; then
+		if (exec 3<>/dev/tcp/localhost/5433) 2>/dev/null; then
+			echo "pre-push: coverage - go test ./internal/... (Postgres :5433 up)"
+			if go test -timeout 5m -coverprofile="$COV_DIR/go.out" -covermode=atomic ./internal/...; then
+				DC_ARGS+=(--go "$COV_DIR/go.out")
+			else
+				echo "pre-push: FAILED - go test (coverage run)" >&2
+				exit 1
+			fi
+		else
+			echo "pre-push: WARNING - test Postgres on :5433 not up; skipping Go diff-coverage (CI still enforces it)." >&2
+		fi
+	fi
+
+	# web dashboard frontend.
+	if printf '%s\n' "$CHANGED_FILES" | grep -qE '^web/src/'; then
+		echo "pre-push: coverage - web vitest"
+		if (cd "$REPO_ROOT/web" && env -u NODE_ENV pnpm exec vitest run --coverage --coverage.reporter=lcov); then
+			DC_ARGS+=(--lcov "web/=$REPO_ROOT/web/coverage/lcov.info")
+		else
+			echo "pre-push: FAILED - web vitest (coverage run)" >&2
+			exit 1
+		fi
+	fi
+
+	# Front Desk frontend.
+	if printf '%s\n' "$CHANGED_FILES" | grep -qE '^frontdesk/web/src/'; then
+		echo "pre-push: coverage - frontdesk/web vitest"
+		if (cd "$REPO_ROOT/frontdesk/web" && env -u NODE_ENV pnpm exec vitest run --coverage --coverage.reporter=lcov); then
+			DC_ARGS+=(--lcov "frontdesk/web/=$REPO_ROOT/frontdesk/web/coverage/lcov.info")
+		else
+			echo "pre-push: FAILED - frontdesk/web vitest (coverage run)" >&2
+			exit 1
+		fi
+	fi
+
+	if [ "${#DC_ARGS[@]}" -eq 0 ]; then
+		echo "pre-push: diff-coverage gate - no measurable changed surfaces, skipping"
+	else
+		echo "pre-push: diff-coverage gate (threshold 90%)..."
+		if ! (cd "$REPO_ROOT" && python3 scripts/coverage/diff_coverage.py --diff-base "$SYNC_BASE" "${DC_ARGS[@]}"); then
+			echo "pre-push: FAILED - diff coverage below 90% on changed lines." >&2
+			echo "  Add tests for the uncovered changed lines, or re-run as" >&2
+			echo "  NO_COVERAGE_PREPUSH=1 git push  to bypass the gate." >&2
+			exit 1
+		fi
 	fi
 fi
 
