@@ -71,6 +71,50 @@ func createUserViaAPI(t *testing.T, r chi.Router, username, password, role strin
 	return resp.ID
 }
 
+// TestCreateUser_BreachCheckAndToggle exercises breached-password screening end
+// to end through the admin create-user path: a wired checker rejects a breached
+// password with 400, and flipping the pwned_password_check_enabled runtime
+// toggle off (through the settings API a real operator uses) lets the same
+// password through. The unit tests in passwordpolicy_test.go cover
+// validateNewPassword directly; this asserts the full request path plus the DB
+// toggle, which no unit test can reach.
+func TestCreateUser_BreachCheckAndToggle(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	pool := h.Pool().Pool()
+	if _, err := pool.Exec(context.Background(), `TRUNCATE users, webauthn_sessions CASCADE`); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+	userRepo := user.NewRepository(pool)
+	webauthnRepo := webauthn.NewRepository(pool)
+	h.SetWebAuthnSessionManager(webauthn.NewSessionManager(webauthnRepo))
+	h.SetUserAuth(userRepo, webauthnRepo)
+
+	h.cfg.PwnedPasswordCheckEnabled = true
+	h.SetPwnedChecker(&stubPwnedChecker{breached: true, count: 42})
+
+	body := `{"username":"breachy","password":"password123","role":"user","grants":["chat"]}`
+
+	// A breached password is refused at create time.
+	w := doJSON(t, r, http.MethodPost, "/users", envAdminToken, body)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("breached create: %d, want 400; body=%s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "data breach") {
+		t.Errorf("body %q missing the breach message", w.Body.String())
+	}
+
+	// Turn the runtime toggle off through the settings API; the same password
+	// now goes through, proving the DB toggle reaches passwordBreached live.
+	if tw := doJSON(t, r, http.MethodPut, "/settings", envAdminToken, `{"pwned_password_check_enabled":"false"}`); tw.Code != http.StatusOK {
+		t.Fatalf("toggle off: %d, body=%s", tw.Code, tw.Body.String())
+	}
+	w = doJSON(t, r, http.MethodPost, "/users", envAdminToken, body)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create after toggle off: %d, want 201; body=%s", w.Code, w.Body.String())
+	}
+}
+
 func TestUsersAPI_AdminCRUD(t *testing.T) {
 	r, _, _ := setupUsersTest(t)
 

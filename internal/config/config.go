@@ -54,6 +54,15 @@ type Config struct {
 	// browser secure context, so "always" still works in local HTTP dev.
 	CookieSecure string
 
+	// Breached-password checking. When enabled (the default), new dashboard
+	// passwords are checked against the Have I Been Pwned Pwned Passwords range
+	// API using k-anonymity (only a 5-char SHA-1 prefix is sent). The check
+	// fails open, so an unreachable endpoint never blocks a password change.
+	// PwnedPasswordAPIURL points the check at a self-hosted mirror instead of
+	// the public service for offline or egress-restricted deployments.
+	PwnedPasswordCheckEnabled bool
+	PwnedPasswordAPIURL       string
+
 	// WebAuthn/FIDO2 configuration. When WEBAUTHN_RP_ID is set, passkey
 	// login is enabled; otherwise the feature is completely disabled.
 	WebAuthnRPID          string
@@ -153,6 +162,9 @@ func Load() (*Config, error) {
 		TrustedProxies:       LoadTrustedProxies(),
 		KnownProxies:         LoadKnownProxies(),
 
+		PwnedPasswordCheckEnabled: getBoolEnvWithDefault("PWNED_PASSWORD_CHECK_ENABLED", true),
+		PwnedPasswordAPIURL:       getEnvWithDefault("PWNED_PASSWORD_API_URL", "https://api.pwnedpasswords.com"),
+
 		WebAuthnRPID:          getEnv("WEBAUTHN_RP_ID"),
 		WebAuthnRPDisplayName: getEnvWithDefault("WEBAUTHN_RP_DISPLAY_NAME", "Model Hotel"),
 		WebAuthnRPOrigins:     parseCORSOrigins(getEnv("WEBAUTHN_RP_ORIGINS")),
@@ -238,6 +250,7 @@ func (c *Config) String() string {
 		{"HTTP Providers", fmt.Sprintf("%t", c.AllowHTTPProviders)},
 		{"Allow Embed", fmt.Sprintf("%t", c.AllowEmbed)},
 		{"Rate Limiting", fmt.Sprintf("%t", c.RateLimitEnabled)},
+		{"Breached-PW Check", fmt.Sprintf("%t", c.PwnedPasswordCheckEnabled)},
 		{"Max Request Size", formatBytes(c.MaxRequestSize)},
 		{"Debug Log", fmt.Sprintf("%t", c.DebugLog)},
 		{"Log Format", logFormat},

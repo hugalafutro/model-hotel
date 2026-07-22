@@ -353,6 +353,46 @@ func TestLoad_SuccessWithDefaults(t *testing.T) {
 	}
 }
 
+func TestLoad_PwnedPasswordDefaults(t *testing.T) {
+	os.Setenv("DATABASE_URL", "postgres://user:pass@localhost/test")
+	os.Setenv("MASTER_KEY", "test-master-key-12345")
+	defer os.Unsetenv("DATABASE_URL")
+	defer os.Unsetenv("MASTER_KEY")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	if !cfg.PwnedPasswordCheckEnabled {
+		t.Error("expected PwnedPasswordCheckEnabled to default to true")
+	}
+	if cfg.PwnedPasswordAPIURL != "https://api.pwnedpasswords.com" {
+		t.Errorf("expected default PwnedPasswordAPIURL, got %q", cfg.PwnedPasswordAPIURL)
+	}
+}
+
+func TestLoad_PwnedPasswordOverrides(t *testing.T) {
+	os.Setenv("DATABASE_URL", "postgres://user:pass@localhost/test")
+	os.Setenv("MASTER_KEY", "test-master-key-12345")
+	os.Setenv("PWNED_PASSWORD_CHECK_ENABLED", "false")
+	os.Setenv("PWNED_PASSWORD_API_URL", "http://hibp-api:8000")
+	defer os.Unsetenv("DATABASE_URL")
+	defer os.Unsetenv("MASTER_KEY")
+	defer os.Unsetenv("PWNED_PASSWORD_CHECK_ENABLED")
+	defer os.Unsetenv("PWNED_PASSWORD_API_URL")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	if cfg.PwnedPasswordCheckEnabled {
+		t.Error("expected PwnedPasswordCheckEnabled to be false via env")
+	}
+	if cfg.PwnedPasswordAPIURL != "http://hibp-api:8000" {
+		t.Errorf("expected self-hosted PwnedPasswordAPIURL, got %q", cfg.PwnedPasswordAPIURL)
+	}
+}
+
 func TestLoad_CustomPort(t *testing.T) {
 	os.Setenv("DATABASE_URL", "postgres://user:pass@localhost/test")
 	os.Setenv("MASTER_KEY", "test-master-key-12345")

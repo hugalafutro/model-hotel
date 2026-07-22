@@ -54,6 +54,7 @@ var AllowedSettings = map[string]bool{
 	"alert_apprise_targets":        true,
 	"alert_events":                 true,
 	"session_idle_timeout_minutes": true,
+	"pwned_password_check_enabled": true,
 	"oidc_enabled":                 true,
 	"oidc_issuer_url":              true,
 	"oidc_client_id":               true,
