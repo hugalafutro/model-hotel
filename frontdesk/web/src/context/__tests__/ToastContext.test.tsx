@@ -1,4 +1,10 @@
-import { fireEvent, render, renderHook, screen } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	renderHook,
+	screen,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider, useToast } from "../ToastContext";
 
@@ -30,6 +36,23 @@ describe("ToastProvider", () => {
 		);
 		fireEvent.click(screen.getByRole("button", { name: "fire" }));
 		expect(screen.getByText("saved")).toBeInTheDocument();
+	});
+
+	it("auto-dismisses a toast after 5s and drops its pending timer", () => {
+		vi.useFakeTimers();
+		render(
+			<ToastProvider>
+				<Fire message="gone soon" />
+			</ToastProvider>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "fire" }));
+		expect(screen.getByText("gone soon")).toBeInTheDocument();
+		// Advancing past the 5s window fires the auto-dismiss callback, which
+		// removes the toast and deletes its handle from the pending-timers set.
+		act(() => {
+			vi.advanceTimersByTime(5000);
+		});
+		expect(screen.queryByText("gone soon")).not.toBeInTheDocument();
 	});
 
 	it("clears pending auto-dismiss timers on unmount", () => {
