@@ -2016,6 +2016,11 @@
 				"configured": "Activado y configurado",
 				"incomplete": "Configuración incompleta"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Política de contraseñas",
+			"breachCheckLabel": "Rechazar contraseñas filtradas",
+			"breachCheckDescription": "Comprueba las contraseñas de las cuentas nuevas con una base de datos pública de contraseñas filtradas conocidas y rechaza cualquier coincidencia. Solo se envía un prefijo corto del hash, nunca la contraseña."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "El nombre de usuario es obligatorio",
-			"passwordShort": "La contraseña debe tener al menos 8 caracteres"
+			"passwordShort": "La contraseña debe tener al menos 8 caracteres",
+			"passwordBreached": "Esta contraseña ha aparecido en una filtración de datos conocida. Elige otra."
 		}
 	},
 	"security": {

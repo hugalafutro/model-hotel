@@ -2016,6 +2016,11 @@
 				"configured": "Käytössä ja määritetty",
 				"incomplete": "Puutteellinen määritys"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Salasanakäytäntö",
+			"breachCheckLabel": "Hylkää vuotaneet salasanat",
+			"breachCheckDescription": "Tarkista uudet tilien salasanat julkista tunnettujen vuotaneiden salasanojen tietokantaa vasten ja hylkää kaikki osumat. Vain lyhyt tiivisteen etuliite lähetetään, ei koskaan itse salasanaa."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Käyttäjätunnus vaaditaan",
-			"passwordShort": "Salasanan on oltava vähintään 8 merkkiä"
+			"passwordShort": "Salasanan on oltava vähintään 8 merkkiä",
+			"passwordBreached": "Tämä salasana on esiintynyt tunnetussa tietovuodossa. Valitse toinen."
 		}
 	},
 	"security": {

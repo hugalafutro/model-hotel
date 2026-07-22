@@ -2016,6 +2016,11 @@
 				"configured": "Activat și configurat",
 				"incomplete": "Configurație incompletă"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Politica parolelor",
+			"breachCheckLabel": "Respinge parolele compromise",
+			"breachCheckDescription": "Verifică parolele conturilor noi față de o bază de date publică cu parole compromise cunoscute și respinge orice potrivire. Se trimite doar un prefix scurt al amprentei (hash), niciodată parola în sine."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Numele de utilizator este obligatoriu",
-			"passwordShort": "Parola trebuie să aibă cel puțin 8 caractere"
+			"passwordShort": "Parola trebuie să aibă cel puțin 8 caractere",
+			"passwordBreached": "Această parolă a apărut într-o breșă de date cunoscută. Alegeți alta."
 		}
 	},
 	"security": {

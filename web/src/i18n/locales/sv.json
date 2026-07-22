@@ -2016,6 +2016,11 @@
 				"configured": "Aktiverad och konfigurerad",
 				"incomplete": "Ofullständig konfiguration"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Lösenordspolicy",
+			"breachCheckLabel": "Avvisa läckta lösenord",
+			"breachCheckDescription": "Kontrollera nya kontolösenord mot en offentlig databas över kända läckta lösenord och avvisa alla träffar. Endast ett kort hash-prefix skickas, aldrig själva lösenordet."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Användarnamn krävs",
-			"passwordShort": "Lösenordet måste vara minst 8 tecken"
+			"passwordShort": "Lösenordet måste vara minst 8 tecken",
+			"passwordBreached": "Detta lösenord har förekommit i en känd dataläcka. Välj ett annat."
 		}
 	},
 	"security": {

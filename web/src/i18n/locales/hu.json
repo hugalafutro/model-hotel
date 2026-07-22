@@ -2016,6 +2016,11 @@
 				"configured": "Engedélyezve és beállítva",
 				"incomplete": "Hiányos konfiguráció"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Jelszóházirend",
+			"breachCheckLabel": "Kiszivárgott jelszavak elutasítása",
+			"breachCheckDescription": "Az új fiókjelszavak ellenőrzése egy ismert kiszivárgott jelszavakat tartalmazó nyilvános adatbázissal, és minden egyezés elutasítása. Csak egy rövid kivonat-előtag kerül elküldésre, soha nem maga a jelszó."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "A felhasználónév kötelező",
-			"passwordShort": "A jelszónak legalább 8 karakter hosszúnak kell lennie"
+			"passwordShort": "A jelszónak legalább 8 karakter hosszúnak kell lennie",
+			"passwordBreached": "Ez a jelszó szerepelt egy ismert adatszivárgásban. Válasszon másikat."
 		}
 	},
 	"security": {

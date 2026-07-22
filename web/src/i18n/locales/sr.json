@@ -2016,6 +2016,11 @@
 				"configured": "Омогућено и конфигурисано",
 				"incomplete": "Непотпуна конфигурација"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Смернице за лозинке",
+			"breachCheckLabel": "Одбиј компромитоване лозинке",
+			"breachCheckDescription": "Проверите лозинке нових налога у односу на јавну базу познатих компромитованих лозинки и одбијте свако подударање. Шаље се само кратак префикс хеша, никада сама лозинка."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Korisničko ime je obavezno",
-			"passwordShort": "Lozinka mora imati najmanje 8 znakova"
+			"passwordShort": "Lozinka mora imati najmanje 8 znakova",
+			"passwordBreached": "Ова лозинка се појавила у познатом цурењу података. Изаберите другу."
 		}
 	},
 	"security": {

@@ -2016,6 +2016,11 @@
 				"configured": "已启用并配置",
 				"incomplete": "配置不完整"
 			}
+		},
+		"passwordPolicy": {
+			"title": "密码策略",
+			"breachCheckLabel": "拒绝已泄露的密码",
+			"breachCheckDescription": "对照已知泄露密码的公共数据库检查新账户密码，并拒绝任何匹配项。仅发送哈希值的短前缀，绝不发送密码本身。"
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "用户名为必填项",
-			"passwordShort": "密码至少需要 8 个字符"
+			"passwordShort": "密码至少需要 8 个字符",
+			"passwordBreached": "此密码已出现在已知的数据泄露中。请选择其他密码。"
 		}
 	},
 	"security": {

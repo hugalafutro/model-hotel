@@ -2016,6 +2016,11 @@
 				"configured": "Aktiveret og konfigureret",
 				"incomplete": "Ufuldstændig konfiguration"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Adgangskodepolitik",
+			"breachCheckLabel": "Afvis lækkede adgangskoder",
+			"breachCheckDescription": "Kontrollér nye kontoadgangskoder mod en offentlig database over kendte lækkede adgangskoder, og afvis ethvert match. Kun et kort hash-præfiks sendes, aldrig selve adgangskoden."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Brugernavn er påkrævet",
-			"passwordShort": "Adgangskoden skal være på mindst 8 tegn"
+			"passwordShort": "Adgangskoden skal være på mindst 8 tegn",
+			"passwordBreached": "Denne adgangskode er dukket op i et kendt datalæk. Vælg en anden."
 		}
 	},
 	"security": {

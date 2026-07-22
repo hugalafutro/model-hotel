@@ -2016,6 +2016,11 @@
 				"configured": "Abilitato e configurato",
 				"incomplete": "Configurazione incompleta"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Criteri per le password",
+			"breachCheckLabel": "Rifiuta le password compromesse",
+			"breachCheckDescription": "Verifica le password dei nuovi account rispetto a un database pubblico di password compromesse note e rifiuta qualsiasi corrispondenza. Viene inviato solo un breve prefisso dell'hash, mai la password stessa."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Il nome utente è obbligatorio",
-			"passwordShort": "La password deve contenere almeno 8 caratteri"
+			"passwordShort": "La password deve contenere almeno 8 caratteri",
+			"passwordBreached": "Questa password è comparsa in una violazione di dati nota. Scegline un'altra."
 		}
 	},
 	"security": {

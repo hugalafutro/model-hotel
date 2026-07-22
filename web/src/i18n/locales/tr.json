@@ -2016,6 +2016,11 @@
 				"configured": "Etkin ve yapılandırılmış",
 				"incomplete": "Eksik yapılandırma"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Parola politikası",
+			"breachCheckLabel": "Sızdırılmış parolaları reddet",
+			"breachCheckDescription": "Yeni hesap parolalarını bilinen sızdırılmış parolaların herkese açık bir veritabanıyla karşılaştırın ve eşleşen her parolayı reddedin. Yalnızca kısa bir karma öneki gönderilir, parolanın kendisi asla gönderilmez."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Kullanıcı adı gerekli",
-			"passwordShort": "Parola en az 8 karakter olmalıdır"
+			"passwordShort": "Parola en az 8 karakter olmalıdır",
+			"passwordBreached": "Bu parola bilinen bir veri ihlalinde yer aldı. Farklı bir tane seçin."
 		}
 	},
 	"security": {

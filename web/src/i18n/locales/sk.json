@@ -2016,6 +2016,11 @@
 				"configured": "Povolené a nakonfigurované",
 				"incomplete": "Neúplná konfigurácia"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Zásady hesiel",
+			"breachCheckLabel": "Odmietať uniknuté heslá",
+			"breachCheckDescription": "Porovnať nové heslá účtov s verejnou databázou známych uniknutých hesiel a odmietnuť akúkoľvek zhodu. Odosiela sa iba krátka predpona odtlačku, nikdy samotné heslo."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Používateľské meno je povinné",
-			"passwordShort": "Heslo musí mať aspoň 8 znakov"
+			"passwordShort": "Heslo musí mať aspoň 8 znakov",
+			"passwordBreached": "Toto heslo sa objavilo v známom úniku údajov. Zvoľte iné."
 		}
 	},
 	"security": {

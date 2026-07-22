@@ -1,8 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { KeyRound } from "@/lib/icons";
+import { ResetButton } from "../../components/ResetButton";
 import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
+import { Toggle } from "../../components/Toggle";
 import { SETTING_DEFAULTS } from "./defaults";
 import { GithubPanel } from "./GithubSettings";
 import { OidcPanel } from "./OidcSettings";
@@ -28,13 +30,17 @@ export function AuthenticationSettings({
 	onToggle,
 }: AuthenticationSettingsProps) {
 	const { t } = useTranslation();
-	const { settings, updateMutation, resetSettingMutation } =
+	const { settings, updateMutation, resetSettingMutation, isResetting } =
 		useSettingsMutations();
 
 	const idleMinutes = Number(
 		settings?.session_idle_timeout_minutes ??
 			SETTING_DEFAULTS.session_idle_timeout_minutes,
 	);
+
+	const breachCheckEnabled =
+		(settings?.pwned_password_check_enabled ??
+			SETTING_DEFAULTS.pwned_password_check_enabled) === "true";
 
 	return (
 		<SettingsSection
@@ -75,6 +81,43 @@ export function AuthenticationSettings({
 						/>
 					</SettingsGroup>
 				</div>
+			</div>
+			<div className="mt-5">
+				<SettingsGroup title={t("settings.passwordPolicy.title")}>
+					<div className="flex items-center justify-between">
+						<div>
+							<div className="flex items-center gap-1">
+								<p className="text-sm font-medium text-gray-300">
+									{t("settings.passwordPolicy.breachCheckLabel")}
+								</p>
+								<ResetButton
+									tooltip={t("settings.common.resetSetting")}
+									onClick={() =>
+										resetSettingMutation.mutate([
+											"pwned_password_check_enabled",
+										])
+									}
+									size={12}
+									disabled={isResetting}
+								/>
+							</div>
+							<p className="text-gray-500 text-xs mt-0.5">
+								{t("settings.passwordPolicy.breachCheckDescription")}
+							</p>
+						</div>
+						<Toggle
+							checked={breachCheckEnabled}
+							size="sm"
+							onChange={(v) =>
+								updateMutation.mutate({
+									pwned_password_check_enabled: v ? "true" : "false",
+								})
+							}
+							disabled={updateMutation.isPending}
+							ariaLabel={t("settings.passwordPolicy.breachCheckLabel")}
+						/>
+					</div>
+				</SettingsGroup>
 			</div>
 			<div className="mt-5">
 				<SettingsGroup title={t("settings.oidc.title")}>

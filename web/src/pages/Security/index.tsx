@@ -8,6 +8,7 @@ import { CopyButton } from "../../components/CopyButton";
 import { PageHeader } from "../../components/PageHeader";
 import { useToast } from "../../context/ToastContext";
 import { formatDate } from "../../utils/format";
+import { isBreachedPasswordError } from "../../utils/passwordPolicy";
 
 /**
  * Self-service security page for users-row identities: enroll, inspect, and
@@ -166,6 +167,10 @@ export function Security() {
 		onError: (err: Error) => {
 			if (err instanceof ApiError && err.status === 401) {
 				toast(t("security.password.wrongCurrent"), "error");
+				return;
+			}
+			if (isBreachedPasswordError(err)) {
+				toast(t("users.validation.passwordBreached"), "error");
 				return;
 			}
 			toast(t("security.password.failed"), "error");

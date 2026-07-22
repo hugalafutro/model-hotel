@@ -2016,6 +2016,11 @@
 				"configured": "Aktivert og konfigurert",
 				"incomplete": "Ufullstendig konfigurasjon"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Passordregler",
+			"breachCheckLabel": "Avvis lekkede passord",
+			"breachCheckDescription": "Kontroller nye kontopassord mot en offentlig database over kjente lekkede passord, og avvis alle treff. Bare et kort hash-prefiks sendes, aldri selve passordet."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Brukernavn er påkrevd",
-			"passwordShort": "Passordet må være på minst 8 tegn"
+			"passwordShort": "Passordet må være på minst 8 tegn",
+			"passwordBreached": "Dette passordet har dukket opp i en kjent datalekkasje. Velg et annet."
 		}
 	},
 	"security": {

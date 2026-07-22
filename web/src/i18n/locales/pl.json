@@ -2016,6 +2016,11 @@
 				"configured": "Włączone i skonfigurowane",
 				"incomplete": "Niekompletna konfiguracja"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Zasady haseł",
+			"breachCheckLabel": "Odrzucaj wyciekłe hasła",
+			"breachCheckDescription": "Sprawdzaj hasła nowych kont w publicznej bazie znanych wyciekłych haseł i odrzucaj wszelkie dopasowania. Wysyłany jest tylko krótki prefiks skrótu, nigdy samo hasło."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Nazwa użytkownika jest wymagana",
-			"passwordShort": "Hasło musi mieć co najmniej 8 znaków"
+			"passwordShort": "Hasło musi mieć co najmniej 8 znaków",
+			"passwordBreached": "To hasło pojawiło się w znanym wycieku danych. Wybierz inne."
 		}
 	},
 	"security": {
