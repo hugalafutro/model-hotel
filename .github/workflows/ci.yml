@@ -65,7 +65,7 @@ jobs:
           TEST_DATABASE_URL: postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable
         run: go test -timeout 5m -coverprofile=coverage.out -covermode=atomic ./...
 
-      - name: Check coverage (80% threshold)
+      - name: Check coverage (90% threshold)
         run: |
           # Filter out cmd/ and tools/ from coverage calculation
           filtered=$(mktemp)
@@ -74,10 +74,18 @@ jobs:
           rm -f "$filtered"
           pct_int=${pct%%.*}
           echo "Coverage: ${pct}%"
-          if [ "$pct_int" -lt 80 ]; then
-            echo "FAIL: coverage ${pct}% is below 80% threshold"
+          if [ "$pct_int" -lt 90 ]; then
+            echo "FAIL: coverage ${pct}% is below 90% threshold"
             exit 1
           fi
+
+      - name: Upload Go coverage artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: go-coverage
+          path: coverage.out
+          retention-days: 1
 
   go-lint:
     name: Go Lint
@@ -269,7 +277,7 @@ jobs:
       - name: Merge shard reports + coverage
         run: pnpm exec vitest --mergeReports --coverage
 
-      - name: Check frontend coverage (80% threshold)
+      - name: Check frontend coverage (90% threshold)
         run: |
           # The merge step above always writes this; a missing file means the
           # shard merge failed, so fail loudly rather than skip the gate.
@@ -286,10 +294,77 @@ jobs:
           ")
           pct_int=${pct%%.*}
           echo "Frontend coverage: ${pct}%"
-          if [ "$pct_int" -lt 80 ]; then
-            echo "FAIL: frontend coverage ${pct}% is below 80% threshold"
+          if [ "$pct_int" -lt 90 ]; then
+            echo "FAIL: frontend coverage ${pct}% is below 90% threshold"
             exit 1
           fi
+
+      - name: Upload web coverage artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-coverage
+          path: |
+            web/coverage/lcov.info
+            web/coverage/coverage-summary.json
+          retention-days: 1
+
+  frontdesk-web-test:
+    name: Front Desk Web Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontdesk/web
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontdesk/web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Test coverage (90% threshold)
+        run: >-
+          pnpm exec vitest run --coverage
+          --coverage.reporter=lcov --coverage.reporter=json-summary
+
+      - name: Check Front Desk web coverage (90% threshold)
+        run: |
+          if [ ! -f coverage/coverage-summary.json ]; then
+            echo "FAIL: no coverage-summary.json"
+            exit 1
+          fi
+          pct=$(python3 -c "import json;print(json.load(open('coverage/coverage-summary.json'))['total']['lines']['pct'])")
+          pct_int=${pct%%.*}
+          echo "Front Desk web coverage: ${pct}%"
+          if [ "$pct_int" -lt 90 ]; then
+            echo "FAIL: Front Desk web coverage ${pct}% below 90% threshold"
+            exit 1
+          fi
+
+      - name: Upload Front Desk web coverage artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fdweb-coverage
+          path: |
+            frontdesk/web/coverage/lcov.info
+            frontdesk/web/coverage/coverage-summary.json
+          retention-days: 1
 
   # Guards against THIRD-PARTY-NOTICES.md drifting from the actual dependency
   # set: regenerate it and fail if the committed copy differs. The generator is
@@ -384,6 +459,7 @@ jobs:
       - frontend-checks
       - frontend-test
       - frontend-coverage
+      - frontdesk-web-test
       - notices
       - docker-build
     # No concurrency group on purpose: GitHub keeps only one *pending* job per
