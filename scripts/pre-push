@@ -17,8 +17,9 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # README/DOCKERHUB.md sync guard - mirrors .github/workflows/dockerhub-readme-guard.yml
 # so the "you touched README.md, touch DOCKERHUB.md too" decision happens here
-# instead of after a wasted CI cycle. DOCKERHUB.md is the Hub-tailored copy uploaded
-# on release. Diff this branch against its merge-base with the default branch (same
+# instead of after a wasted CI cycle. DOCKERHUB.md is the Hub-tailored copy synced
+# to Docker Hub whenever it changes on master (sync-dockerhub-readme.yml). Diff this
+# branch against its merge-base with the default branch (same
 # base..head model the CI uses). Set DOCKERHUB_README_NOT_NEEDED=1 to acknowledge a
 # README change that genuinely doesn't apply to Docker Hub (local stand-in for the
 # 'dockerhub-readme-not-needed' PR label).
@@ -46,7 +47,7 @@ fi
 # DOCKERHUB.md length guard - mirrors the 'length' job in dockerhub-readme-guard.yml.
 # Docker Hub truncates a repository description at 25,000 characters (sliced
 # mid-content, often mid-link), and we never see it locally because the file is
-# uploaded verbatim only on release. Guard on chars (Docker Hub's unit) AND bytes
+# uploaded verbatim to Docker Hub. Guard on chars (Docker Hub's unit) AND bytes
 # here so an over-length edit fails before the push, not after a wasted CI cycle.
 DOCKERHUB_LIMIT=25000
 if [ -f "$REPO_ROOT/DOCKERHUB.md" ]; then
@@ -59,7 +60,7 @@ if [ -f "$REPO_ROOT/DOCKERHUB.md" ]; then
 	DH_BYTES="$(wc -c <"$REPO_ROOT/DOCKERHUB.md" | tr -d '[:space:]')"
 	if [ "$DH_CHARS" -gt "$DOCKERHUB_LIMIT" ] || [ "$DH_BYTES" -gt "$DOCKERHUB_LIMIT" ]; then
 		echo "pre-push: FAILED - DOCKERHUB.md is ${DH_CHARS} chars / ${DH_BYTES} bytes, over Docker Hub's ${DOCKERHUB_LIMIT}-char limit." >&2
-		echo "  Trim DOCKERHUB.md below ${DOCKERHUB_LIMIT} (it ships to Docker Hub on release and truncates mid-content)." >&2
+		echo "  Trim DOCKERHUB.md below ${DOCKERHUB_LIMIT} (it ships to Docker Hub verbatim and truncates mid-content)." >&2
 		exit 1
 	fi
 fi

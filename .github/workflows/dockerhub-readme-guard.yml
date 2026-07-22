@@ -1,7 +1,8 @@
 name: Docker Hub README guard
 
 # DOCKERHUB.md is a deliberately separate, Hub-tailored copy of the README
-# (absolute URLs only) that docker-publish.yml uploads verbatim on release.
+# (absolute URLs only) that sync-dockerhub-readme.yml uploads verbatim whenever
+# it changes on master.
 # Nothing keeps it honest except a human remembering it exists - this check
 # fails any PR that touches README.md without touching DOCKERHUB.md, so the
 # decision ("update it" or "doesn't apply") happens while the diff is fresh.
@@ -43,7 +44,7 @@ jobs:
             echo "DOCKERHUB.md updated alongside README.md - OK."
             exit 0
           fi
-          echo "::error file=README.md::README.md changed but DOCKERHUB.md did not. Update DOCKERHUB.md (the Docker Hub copy, uploaded on release) or add the 'dockerhub-readme-not-needed' label if the change doesn't apply to Docker Hub."
+          echo "::error file=README.md::README.md changed but DOCKERHUB.md did not. Update DOCKERHUB.md (the Docker Hub copy, synced to Docker Hub when it changes on master) or add the 'dockerhub-readme-not-needed' label if the change doesn't apply to Docker Hub."
           exit 1
 
   length:
@@ -57,9 +58,9 @@ jobs:
           # Docker Hub truncates a repository's full description at 25,000
           # characters; a longer file is sliced mid-content (often mid-link),
           # silently breaking the rendered page. We never see it locally because
-          # docker-publish.yml uploads the file verbatim only on release. Guard
+          # sync-dockerhub-readme.yml uploads the file verbatim to Docker Hub. Guard
           # on both character count (Docker Hub's unit) and byte count, so neither
-          # interpretation can sneak a truncated readme into a release.
+          # interpretation can sneak a truncated readme onto Docker Hub.
           LIMIT=25000
           chars=$(python3 -c "import io; print(len(io.open('DOCKERHUB.md', encoding='utf-8').read()))")
           bytes=$(wc -c < DOCKERHUB.md)
