@@ -86,6 +86,52 @@ describe("UserModal", () => {
 		);
 	});
 
+	it("shows a localized message when the server rejects a breached password", async () => {
+		mockGrants();
+		server.use(
+			http.post("/api/users", () =>
+				HttpResponse.text(
+					"this password has appeared in a known data breach; choose a different one",
+					{ status: 400 },
+				),
+			),
+		);
+		const { user } = renderWithProviders(
+			<UserModal user={null} onClose={onClose} onToast={onToast} />,
+		);
+
+		await user.type(screen.getByLabelText("Username"), "carol");
+		await user.type(screen.getByLabelText("Password"), "password123");
+		await user.click(screen.getByTestId("user-modal-save"));
+
+		expect(await screen.findByTestId("user-modal-error")).toHaveTextContent(
+			"This password has appeared in a known data breach. Choose a different one.",
+		);
+		expect(onClose).not.toHaveBeenCalled();
+	});
+
+	it("localizes a breached password rejected during a reset", async () => {
+		mockGrants();
+		server.use(
+			http.post("/api/users/:id/password", () =>
+				HttpResponse.text(
+					"this password has appeared in a known data breach; choose a different one",
+					{ status: 400 },
+				),
+			),
+		);
+		const { user } = renderWithProviders(
+			<UserModal user={existing} onClose={onClose} onToast={onToast} />,
+		);
+
+		await user.type(screen.getByLabelText("Reset password"), "password123");
+		await user.click(screen.getByRole("button", { name: "Reset" }));
+
+		expect(await screen.findByTestId("user-modal-error")).toHaveTextContent(
+			"This password has appeared in a known data breach. Choose a different one.",
+		);
+	});
+
 	it("clears grants when the admin role is selected", async () => {
 		mockGrants();
 		let body: UserUpsertRequest | undefined;

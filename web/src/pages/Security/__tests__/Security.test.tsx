@@ -167,6 +167,45 @@ describe("Security page", () => {
 		});
 	});
 
+	it("surfaces a localized breach message on a breached password", async () => {
+		mockStatus({ enabled: false });
+		// A 400 (not 200) means no delayed sign-out teardown is scheduled, so this
+		// test cannot clobber the file-wide auth token (see the note above).
+		server.use(
+			http.post("/api/auth/password", () =>
+				HttpResponse.text(
+					"this password has appeared in a known data breach; choose a different one",
+					{ status: 400 },
+				),
+			),
+		);
+		const { user } = renderWithProviders(<Security />);
+
+		await user.type(
+			await screen.findByTestId("security-current-password"),
+			"old-password",
+		);
+		await user.type(
+			screen.getByTestId("security-new-password"),
+			"new-password-1",
+		);
+		await user.type(
+			screen.getByTestId("security-confirm-password"),
+			"new-password-1",
+		);
+		await user.click(screen.getByTestId("security-password-submit"));
+
+		expect(
+			await screen.findByText(
+				"This password has appeared in a known data breach. Choose a different one.",
+			),
+		).toBeInTheDocument();
+		// The form remains usable; no teardown happened on the error path.
+		await waitFor(() => {
+			expect(screen.getByTestId("security-password-submit")).toBeEnabled();
+		});
+	});
+
 	it("shows the enable button when TOTP is off", async () => {
 		mockStatus({ enabled: false });
 		renderWithProviders(<Security />);

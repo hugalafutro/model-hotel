@@ -2016,6 +2016,11 @@
 				"configured": "Ativado e configurado",
 				"incomplete": "Configuração incompleta"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Política de palavras-passe",
+			"breachCheckLabel": "Rejeitar palavras-passe comprometidas",
+			"breachCheckDescription": "Verifique as palavras-passe de novas contas numa base de dados pública de palavras-passe comprometidas conhecidas e rejeite qualquer correspondência. É enviado apenas um prefixo curto do hash, nunca a própria palavra-passe."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "O nome de utilizador é obrigatório",
-			"passwordShort": "A palavra-passe deve ter pelo menos 8 caracteres"
+			"passwordShort": "A palavra-passe deve ter pelo menos 8 caracteres",
+			"passwordBreached": "Esta palavra-passe apareceu numa violação de dados conhecida. Escolha outra."
 		}
 	},
 	"security": {

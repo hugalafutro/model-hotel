@@ -2016,6 +2016,11 @@
 				"configured": "Ingeschakeld en geconfigureerd",
 				"incomplete": "Onvolledige configuratie"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Wachtwoordbeleid",
+			"breachCheckLabel": "Gelekte wachtwoorden weigeren",
+			"breachCheckDescription": "Controleer wachtwoorden van nieuwe accounts aan de hand van een openbare database met bekende gelekte wachtwoorden en weiger elke overeenkomst. Alleen een korte hash-prefix wordt verzonden, nooit het wachtwoord zelf."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Gebruikersnaam is verplicht",
-			"passwordShort": "Het wachtwoord moet minimaal 8 tekens lang zijn"
+			"passwordShort": "Het wachtwoord moet minimaal 8 tekens lang zijn",
+			"passwordBreached": "Dit wachtwoord is verschenen in een bekend datalek. Kies een ander wachtwoord."
 		}
 	},
 	"security": {

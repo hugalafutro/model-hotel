@@ -1960,6 +1960,11 @@
 			"label": "Auto-logout after inactivity",
 			"hint": "Sign the dashboard out automatically after this period with no activity. Set to Never to keep the session open indefinitely."
 		},
+		"passwordPolicy": {
+			"title": "Password policy",
+			"breachCheckLabel": "Reject breached passwords",
+			"breachCheckDescription": "Check new account passwords against a public database of known breached passwords and reject any match. Only a short hash prefix is sent, never the password itself."
+		},
 		"managed": {
 			"sectionNote": "Managed by the fleet primary. Changes here are replaced on the next config sync.",
 			"alertsNote": "Alerting on or off and event routing are managed by the fleet primary. The Apprise delivery settings below stay local to this instance."
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Username is required",
-			"passwordShort": "Password must be at least 8 characters"
+			"passwordShort": "Password must be at least 8 characters",
+			"passwordBreached": "This password has appeared in a known data breach. Choose a different one."
 		}
 	},
 	"security": {

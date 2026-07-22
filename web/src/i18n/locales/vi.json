@@ -2016,6 +2016,11 @@
 				"configured": "Đã bật và đã cấu hình",
 				"incomplete": "Cấu hình chưa hoàn chỉnh"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Chính sách mật khẩu",
+			"breachCheckLabel": "Từ chối mật khẩu bị rò rỉ",
+			"breachCheckDescription": "Kiểm tra mật khẩu của tài khoản mới với cơ sở dữ liệu công khai về các mật khẩu bị rò rỉ đã biết và từ chối mọi kết quả trùng khớp. Chỉ một tiền tố băm ngắn được gửi đi, không bao giờ gửi chính mật khẩu."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Tên đăng nhập là bắt buộc",
-			"passwordShort": "Mật khẩu phải có ít nhất 8 ký tự"
+			"passwordShort": "Mật khẩu phải có ít nhất 8 ký tự",
+			"passwordBreached": "Mật khẩu này đã xuất hiện trong một vụ rò rỉ dữ liệu đã biết. Hãy chọn mật khẩu khác."
 		}
 	},
 	"security": {

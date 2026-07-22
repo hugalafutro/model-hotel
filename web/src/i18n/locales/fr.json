@@ -2016,6 +2016,11 @@
 				"configured": "Activé et configuré",
 				"incomplete": "Configuration incomplète"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Politique de mots de passe",
+			"breachCheckLabel": "Rejeter les mots de passe compromis",
+			"breachCheckDescription": "Vérifiez les mots de passe des nouveaux comptes par rapport à une base de données publique de mots de passe compromis connus et rejetez toute correspondance. Seul un court préfixe d'empreinte est envoyé, jamais le mot de passe lui-même."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Le nom d'utilisateur est requis",
-			"passwordShort": "Le mot de passe doit contenir au moins 8 caractères"
+			"passwordShort": "Le mot de passe doit contenir au moins 8 caractères",
+			"passwordBreached": "Ce mot de passe est apparu dans une fuite de données connue. Choisissez-en un autre."
 		}
 	},
 	"security": {

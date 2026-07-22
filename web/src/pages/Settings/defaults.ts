@@ -53,6 +53,11 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	// disables it. Consumed entirely on the frontend (see useIdleLogout); the
 	// backend only validates/stores the value.
 	session_idle_timeout_minutes: "60",
+
+	// Reject new account passwords found in a known breach (Have I Been Pwned
+	// range API, k-anonymity). Default on; matches the Go GetBool fallback in
+	// internal/api/passwordpolicy.go. The env kill-switch can still force it off.
+	pwned_password_check_enabled: "true",
 };
 
 export type SectionName =
@@ -132,7 +137,8 @@ export type SettingKey =
 	| "alert_apprise_api_url"
 	| "alert_apprise_targets"
 	| "alert_events"
-	| "session_idle_timeout_minutes";
+	| "session_idle_timeout_minutes"
+	| "pwned_password_check_enabled";
 
 /**
  * Mapping from DB setting keys to their human-readable i18n keys.
@@ -166,4 +172,5 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	alert_apprise_targets: "settings.alerts.target",
 	alert_events: "settings.alerts.eventsLabel",
 	session_idle_timeout_minutes: "settings.sessionTimeout.label",
+	pwned_password_check_enabled: "settings.passwordPolicy.breachCheckLabel",
 };

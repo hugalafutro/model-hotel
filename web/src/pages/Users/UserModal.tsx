@@ -7,6 +7,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { useIdentity } from "../../context/IdentityContext";
+import { isBreachedPasswordError } from "../../utils/passwordPolicy";
 
 /** Duck-typed ApiError body (robust across module boundaries, like App.tsx). */
 function errMessage(err: unknown, fallback: string): string {
@@ -68,6 +69,14 @@ export function UserModal({
 	const invalidate = () =>
 		queryClient.invalidateQueries({ queryKey: ["users"] });
 
+	// A breached-password rejection comes back as a stable English 400 string;
+	// swap it for localized copy while leaving every other server error (e.g. a
+	// duplicate username) to surface its own message verbatim.
+	const passwordSaveError = (err: unknown): string =>
+		isBreachedPasswordError(err)
+			? t("users.validation.passwordBreached")
+			: errMessage(err, t("users.toast.saveFailed"));
+
 	const buildRequest = (): UserUpsertRequest => ({
 		username: username.trim(),
 		display_name: displayName.trim(),
@@ -93,7 +102,7 @@ export function UserModal({
 			);
 			onClose();
 		},
-		onError: (err) => setError(errMessage(err, t("users.toast.saveFailed"))),
+		onError: (err) => setError(passwordSaveError(err)),
 	});
 
 	const deleteMutation = useMutation({
@@ -115,7 +124,7 @@ export function UserModal({
 			setResetValue("");
 			onToast(t("users.toast.passwordReset"), "success");
 		},
-		onError: (err) => setError(errMessage(err, t("users.toast.saveFailed"))),
+		onError: (err) => setError(passwordSaveError(err)),
 	});
 
 	const totpResetMutation = useMutation({

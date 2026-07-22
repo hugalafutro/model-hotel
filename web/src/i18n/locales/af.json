@@ -2016,6 +2016,11 @@
 				"configured": "Geaktiveer en gekonfigureer",
 				"incomplete": "Onvolledige konfigurasie"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Wagwoordbeleid",
+			"breachCheckLabel": "Verwerp gelekte wagwoorde",
+			"breachCheckDescription": "Kontroleer nuwe rekeningwagwoorde teen 'n openbare databasis van bekende gelekte wagwoorde en verwerp enige treffer. Slegs 'n kort hutswaarde-voorvoegsel word gestuur, nooit die wagwoord self nie."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "Gebruikersnaam word vereis",
-			"passwordShort": "Die wagwoord moet minstens 8 karakters lank wees"
+			"passwordShort": "Die wagwoord moet minstens 8 karakters lank wees",
+			"passwordBreached": "Hierdie wagwoord het in 'n bekende datalek verskyn. Kies 'n ander een."
 		}
 	},
 	"security": {

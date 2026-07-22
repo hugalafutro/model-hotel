@@ -2016,6 +2016,11 @@
 				"configured": "有効かつ構成済み",
 				"incomplete": "構成が不完全です"
 			}
+		},
+		"passwordPolicy": {
+			"title": "パスワードポリシー",
+			"breachCheckLabel": "漏洩したパスワードを拒否",
+			"breachCheckDescription": "新しいアカウントのパスワードを、既知の漏洩パスワードの公開データベースと照合し、一致するものを拒否します。送信されるのはハッシュの短い接頭辞のみで、パスワード自体は送信されません。"
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "ユーザー名は必須です",
-			"passwordShort": "パスワードは8文字以上にしてください"
+			"passwordShort": "パスワードは8文字以上にしてください",
+			"passwordBreached": "このパスワードは既知のデータ漏洩に含まれています。別のパスワードを選択してください。"
 		}
 	},
 	"security": {

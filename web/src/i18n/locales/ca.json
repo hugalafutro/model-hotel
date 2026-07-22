@@ -2016,6 +2016,11 @@
 				"configured": "Activat i configurat",
 				"incomplete": "Configuració incompleta"
 			}
+		},
+		"passwordPolicy": {
+			"title": "Política de contrasenyes",
+			"breachCheckLabel": "Rebutja les contrasenyes filtrades",
+			"breachCheckDescription": "Comprova les contrasenyes dels comptes nous amb una base de dades pública de contrasenyes filtrades conegudes i rebutja qualsevol coincidència. Només s'envia un prefix curt del resum (hash), mai la contrasenya."
 		}
 	},
 	"components": {
@@ -2879,7 +2884,8 @@
 		},
 		"validation": {
 			"usernameRequired": "El nom d'usuari és obligatori",
-			"passwordShort": "La contrasenya ha de tenir com a mínim 8 caràcters"
+			"passwordShort": "La contrasenya ha de tenir com a mínim 8 caràcters",
+			"passwordBreached": "Aquesta contrasenya ha aparegut en una filtració de dades coneguda. Trieu-ne una altra."
 		}
 	},
 	"security": {
