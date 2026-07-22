@@ -1,0 +1,48 @@
+# Push the Docker Hub repository descriptions from their tracked, Hub-tailored
+# copies whenever those copies change on master (or on demand). This is
+# deliberately decoupled from image builds: a README edit reaches Docker Hub as
+# soon as it lands on master, without waiting for a version release. DOCKERHUB.md
+# and DOCKERHUB-frontdesk.md use absolute URLs only (the GitHub READMEs' relative
+# links break on Docker Hub, so they are separate documents kept at the repo root
+# next to README.md). Each file is uploaded verbatim; nothing is rewritten.
+name: Sync Docker Hub README
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - DOCKERHUB.md
+      - DOCKERHUB-frontdesk.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel
+  DOCKERHUB_FRONTDESK_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/model-hotel-frontdesk
+
+jobs:
+  sync:
+    name: Push Hub descriptions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # Requires the DOCKERHUB_TOKEN PAT to have read/write scope. Failures are
+      # visible (not swallowed) so a silently stale Hub page can't recur.
+      - name: Sync Docker Hub README (server)
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.DOCKERHUB_IMAGE }}
+          readme-filepath: ./DOCKERHUB.md
+
+      - name: Sync Docker Hub README (Front Desk)
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.DOCKERHUB_FRONTDESK_IMAGE }}
+          readme-filepath: ./DOCKERHUB-frontdesk.md

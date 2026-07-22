@@ -158,33 +158,7 @@ jobs:
             --latest \
             --title "${{ steps.version.outputs.tag }}"
 
-      # Sync the Docker Hub repository README from the tracked, Hub-tailored
-      # copy (absolute URLs only — the GitHub README's relative links break on
-      # Docker Hub, so the two are deliberately separate documents; it lives
-      # at the repo root next to README.md so doc updates don't miss it). The
-      # file is uploaded verbatim; nothing is rewritten. Requires the
-      # DOCKERHUB_TOKEN PAT to have read/write/delete scope. Non-blocking: a
-      # failed README sync must never fail a release.
-      - name: Sync Docker Hub README
-        if: steps.version.outputs.skip_existing == 'false'
-        continue-on-error: true
-        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ env.DOCKERHUB_IMAGE }}
-          readme-filepath: ./DOCKERHUB.md
-
-      # Sync the Front Desk repo's Hub README from DOCKERHUB-frontdesk.md. Not
-      # gated on skip_existing: the Front Desk page is near-static and the sync
-      # is cheap, so we refresh it on every workflow run (including when the
-      # version tag already exists) to keep it current without needing a release.
-      # Non-blocking, same as the main README sync.
-      - name: Sync Docker Hub README (Front Desk)
-        continue-on-error: true
-        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa # v5.0.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ env.DOCKERHUB_FRONTDESK_IMAGE }}
-          readme-filepath: ./DOCKERHUB-frontdesk.md
+      # Docker Hub repository descriptions (DOCKERHUB.md / DOCKERHUB-frontdesk.md)
+      # are NOT synced here — they are decoupled from image builds and pushed by
+      # sync-dockerhub-readme.yml whenever the Hub copy changes on master. A
+      # README edit does not need a release to show up on Docker Hub.
