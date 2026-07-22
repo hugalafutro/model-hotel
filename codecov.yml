@@ -1,13 +1,3 @@
-codecov:
-  # Don't invalidate a commit's coverage report just because some *other* CI
-  # check on that commit was red. Branch protection (required checks, strict,
-  # no admin bypass) is what actually gates merges; this switch only governs
-  # whether Codecov trusts an upload. Leaving it on let one historical red
-  # check (a dismissed CodeQL false positive on the HIBP SHA-1 usage) mark the
-  # default-branch report invalid and stall coverage comparison for every
-  # later PR ("missing base commit"). Off = trust the upload on its own.
-  require_ci_to_pass: false
-
 coverage:
   precision: 1
   round: down

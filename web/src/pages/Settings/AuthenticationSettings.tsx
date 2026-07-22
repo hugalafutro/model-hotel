@@ -98,7 +98,7 @@ export function AuthenticationSettings({
 										])
 									}
 									size={12}
-									disabled={isResetting}
+									disabled={isResetting || updateMutation.isPending}
 								/>
 							</div>
 							<p className="text-gray-500 text-xs mt-0.5">
@@ -113,7 +113,7 @@ export function AuthenticationSettings({
 									pwned_password_check_enabled: v ? "true" : "false",
 								})
 							}
-							disabled={updateMutation.isPending}
+							disabled={updateMutation.isPending || isResetting}
 							ariaLabel={t("settings.passwordPolicy.breachCheckLabel")}
 						/>
 					</div>
