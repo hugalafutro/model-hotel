@@ -155,8 +155,16 @@ func resolveWriteOwner(id *user.Identity, requested *string) (*uuid.UUID, error)
 // always, non-admins only for keys they own. Deny reads as 404 so the key
 // listing and the detail routes tell a consistent story (no existence
 // oracle for other users' keys).
+//
+// A nil identity fails closed. The routes that call this already reject nil
+// callers upstream (behind requireGrant/requireAdmin), so treating nil as an
+// allow was never reachable — but an authorization predicate should be safe by
+// construction, not by every caller remembering to pre-check.
 func canTouchKey(id *user.Identity, vk *virtualkey.VirtualKey) bool {
-	if id == nil || id.IsAdmin() {
+	if id == nil {
+		return false
+	}
+	if id.IsAdmin() {
 		return true
 	}
 	return id.UserID != nil && vk.OwnerUserID != nil && *vk.OwnerUserID == *id.UserID

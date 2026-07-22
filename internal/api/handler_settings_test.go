@@ -254,6 +254,42 @@ func TestUpdateSettings_TimeoutDurations(t *testing.T) {
 	}
 }
 
+// Test that pwned_password_check_enabled round-trips through the settings API.
+// It is the runtime toggle read by passwordpolicy.go; without an allowlist entry
+// the write silently 400s and the "disable without a redeploy" promise breaks
+// (AGENTS.md: one save/retrieve test per allowedSettings key).
+func TestUpdateSettings_PwnedPasswordToggle(t *testing.T) {
+	_, r := newTestHandlerWithRouter(t)
+
+	body := `{"pwned_password_check_enabled": "false"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/settings", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest("GET", "/settings", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var response map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if response["pwned_password_check_enabled"] != "false" {
+		t.Errorf("Expected pwned_password_check_enabled='false', got %q", response["pwned_password_check_enabled"])
+	}
+}
+
 // Test that hedging_enabled and hedge_delay round-trip through the settings API
 // (AGENTS.md: one save/retrieve test per allowedSettings key).
 func TestUpdateSettings_Hedging(t *testing.T) {

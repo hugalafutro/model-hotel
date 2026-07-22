@@ -66,6 +66,13 @@ func (h *Handler) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "current password is incorrect", http.StatusUnauthorized)
 		return
 	}
+	// Breach-check the new password only after the current one is verified, so
+	// the outbound lookup is driven by this authenticated action rather than an
+	// unauthenticated probe, and a throttled caller cannot spam it.
+	if h.passwordBreached(r.Context(), req.NewPassword) {
+		respondBadRequest(w, errPasswordBreached.Error(), nil)
+		return
+	}
 	hash, err := user.HashPassword(req.NewPassword)
 	if err != nil {
 		respondError(w, "failed to hash password", err, http.StatusInternalServerError)

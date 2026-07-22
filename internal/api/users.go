@@ -161,8 +161,8 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
 		return
 	}
-	if len(req.Password) < minPasswordLen {
-		respondBadRequest(w, "password must be at least 8 characters", nil)
+	if err := h.validateNewPassword(r.Context(), req.Password); err != nil {
+		respondBadRequest(w, err.Error(), nil)
 		return
 	}
 	hash, err := user.HashPassword(req.Password)
@@ -249,8 +249,8 @@ func (h *Handler) SetUserPassword(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, "invalid request body", err)
 		return
 	}
-	if len(req.Password) < minPasswordLen {
-		respondBadRequest(w, "password must be at least 8 characters", nil)
+	if err := h.validateNewPassword(r.Context(), req.Password); err != nil {
+		respondBadRequest(w, err.Error(), nil)
 		return
 	}
 	hash, err := user.HashPassword(req.Password)

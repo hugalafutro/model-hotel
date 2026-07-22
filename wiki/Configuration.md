@@ -36,6 +36,8 @@ Environment variables are read once at server startup and cannot be changed at r
 | `RATE_LIMIT_ENABLED` | bool | `true` | **Hard kill-switch** for rate limiting. When `false`, the rate-limiting middleware is always mounted but becomes a complete pass-through (no buckets allocated, no headers, no 429 responses). Cannot be overridden at runtime. |
 | `RATE_LIMIT_IP_RPS` | float | `30` | Per-IP requests per second for the token bucket rate limiter. Clamped to 0–10000. |
 | `RATE_LIMIT_IP_BURST` | int | `60` | Per-IP maximum burst size for the token bucket. Clamped to 1–10000. |
+| `PWNED_PASSWORD_CHECK_ENABLED` | bool | `true` | Screen new dashboard passwords against the Have I Been Pwned range API using k-anonymity (only a 5-char SHA-1 prefix is sent; the password never leaves the box). **Hard kill-switch**: when `false`, no breach check runs and the `pwned_password_check_enabled` DB toggle has no effect. The check **fails open** — an unreachable endpoint never blocks a password change. |
+| `PWNED_PASSWORD_API_URL` | string | `https://api.pwnedpasswords.com` | Base URL of the breach range API. Point at a self-hosted mirror (e.g. `http://hibp-api:8000`) for offline/egress-restricted deployments. Request path is `<base>/range/<prefix>`. See [Breached-password screening](#breached-password-screening). |
 | `MAX_REQUEST_SIZE` | int | `52428800` | Maximum request body size in bytes. Clamped to 1KB–100MB. Default is 50 MB, sized for multipart audio uploads to `/v1/audio/transcriptions` (OpenAI's audio file limit is 25 MB). |
 | `CORS_ORIGINS` | string (comma-separated) | `http://localhost:5173,http://localhost:8081` | Comma-separated list of allowed CORS origins. Must include the scheme (e.g. `http://`). Wildcard `*` is explicitly rejected (incompatible with credentials=true). |
 | `ALLOWED_PROVIDER_HOSTS` | string (comma-separated) | (empty) | Comma-separated list of additional allowed provider hosts. Built-in provider hosts are **always** allowed regardless of this setting. Hosts listed here bypass loopback blocking, so `localhost` can be added for local Ollama. E.g. `localhost,api.example.com` |
@@ -123,6 +125,7 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `rate_limit_ip_enabled` | bool string | `true` | Runtime toggle for per-IP rate limiting. Only effective when `RATE_LIMIT_ENABLED=true`. | `true`, `false` |
 | `rate_limit_ip_rps` | float | `30` | Per-IP requests per second. Set to `0` for unlimited per-IP rate. | 0–10000 |
 | `rate_limit_ip_burst` | int | `60` | Per-IP burst size for token bucket. | 1–10000 |
+| `pwned_password_check_enabled` | bool string | `true` | Runtime toggle for breached-password screening. **Overridden by `PWNED_PASSWORD_CHECK_ENABLED` env var** - if env var is `false`, this setting has no effect. Lets an operator turn the check off without a redeploy. | `true`, `false` |
 | `rate_limit_rps` | float | `10` | Per-virtual-key requests per second. Set to `0` to disable per-key rate limiting (makes every bucket unlimited). | 0–10000 |
 | `rate_limit_burst` | int | `20` | Maximum burst bucket size per virtual key. | 1–10000 |
 | `rate_limit_tpm` | int | `0` | Global default tokens-per-minute cap for keys without a per-key `rate_limit_tpm`. `0` = no cap. No Settings-UI control (API-only). | 0–100000000 |
@@ -146,6 +149,50 @@ To avoid this, either:
 - set `ttft_timeout` below the proxy's read timeout, so Model Hotel's own probe fires first and fails over to the next provider while the connection is still alive.
 
 A request cut off this way is logged as a `provider_timeout` (502) whose message names the likely reverse-proxy cause, and the stalling provider's circuit breaker records the failure, so repeated stalls open the breaker and subsequent requests skip that provider.
+
+### Breached-password screening
+
+When `PWNED_PASSWORD_CHECK_ENABLED` is `true` (the default) and the runtime `pwned_password_check_enabled` toggle is on, every new dashboard password — set at user creation, admin reset, or self-service change — is checked against the [Have I Been Pwned](https://haveibeenpwned.com/Passwords) Pwned Passwords corpus before it is accepted. If the password appears in a known breach, the change is rejected and the user is asked to pick a different one.
+
+The lookup uses **k-anonymity**: the password is hashed with SHA-1, only the first 5 hex characters of the hash are sent to the range API, and the full password never leaves the box. The API returns every suffix sharing that prefix along with a breach count, and Model Hotel matches the remaining suffix locally.
+
+The check is **fail-open**: if the range endpoint is unreachable, times out, or errors, the password change is allowed rather than blocked - it only ever adds a rejection, never a lock-out. The 8-character length minimum is enforced first and short-circuits the lookup.
+
+#### Self-hosted / offline mirror
+
+For air-gapped or egress-restricted deployments, point `PWNED_PASSWORD_API_URL` at a local mirror that speaks the same `GET /range/{prefix}` contract. [IncogniPwn](https://github.com/millaguie/incognipwn) serves the full Pwned Passwords corpus (~80 GB) from a downloader + API pair. Add it to your `docker-compose.yml`:
+
+```yaml
+services:
+  hibp-downloader:
+    # One-shot: downloads the Pwned Passwords corpus into the shared volume.
+    # Re-run periodically to refresh. Expect ~80 GB and a long first run.
+    image: ghcr.io/millaguie/incognipwn-downloader:latest
+    volumes:
+      - hibp-data:/data
+    restart: "no"
+
+  hibp-api:
+    # Serves GET /range/{prefix} on port 8000 from the downloaded corpus.
+    image: ghcr.io/millaguie/incognipwn-api:latest
+    volumes:
+      - hibp-data:/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  app:
+    # ... your existing Model Hotel service ...
+    environment:
+      PWNED_PASSWORD_API_URL: http://hibp-api:8000
+    depends_on:
+      - hibp-api
+
+volumes:
+  hibp-data:
+```
+
+The mirror only needs to be reachable from the `app` container — do not expose it publicly. Because the check fails open, Model Hotel keeps accepting password changes even while the downloader is still populating the corpus.
 
 ### Reset to Defaults
 

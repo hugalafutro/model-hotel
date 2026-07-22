@@ -103,6 +103,13 @@ type WebAuthnSessionManager interface {
 	CreateAuthToken(ctx context.Context, userID, credentialID []byte) (string, error)
 }
 
+// PwnedChecker reports whether a password appears in a known breach corpus.
+// Satisfied by *pwned.Checker in production and by a stub in tests; nil when
+// the feature is not wired.
+type PwnedChecker interface {
+	Breached(ctx context.Context, password string) (bool, int, error)
+}
+
 // Handler manages admin API operations for providers, models, and virtual keys.
 type Handler struct {
 	cfg                    *config.Config
@@ -130,6 +137,7 @@ type Handler struct {
 	totpStatus             TotpStatus        // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
 	totpEnabled            atomic.Bool       // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
 	quotaRepo              *quota.Repository // read-through store for polled provider quota snapshots
+	pwnedChecker           PwnedChecker      // nil until SetPwnedChecker (breached-password check on create/reset/change)
 }
 
 // NewHandler creates a new admin API handler with the given dependencies.
@@ -164,6 +172,13 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 // Pool returns the database connection pool.
 func (h *Handler) Pool() *db.DB {
 	return h.dbPool
+}
+
+// SetPwnedChecker wires the breached-password checker used by the user
+// create/reset/change flows. Leaving it unset disables the check regardless of
+// config (the check is skipped, never blocking).
+func (h *Handler) SetPwnedChecker(c PwnedChecker) {
+	h.pwnedChecker = c
 }
 
 // SetWebAuthnSessionManager sets the optional webAuthn session manager for

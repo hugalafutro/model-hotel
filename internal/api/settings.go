@@ -171,6 +171,7 @@ var allowedSettings = map[string]struct {
 	"alert_apprise_targets":        {typeName: "string"},                // secret: encrypted at rest, masked on read
 	"alert_events":                 {typeName: "string"},                // CSV of enabled event Types (the picker)
 	"session_idle_timeout_minutes": {typeName: "int", min: 0, max: 240}, // dashboard auto-logout window in minutes; 0 = disabled
+	"pwned_password_check_enabled": {typeName: "string"},                // bool as string; breached-password screening runtime toggle
 	"oidc_enabled":                 {typeName: "string"},                // bool as string
 	"oidc_issuer_url":              {typeName: "url"},                   // OIDC discovery base URL (SSRF-validated)
 	"oidc_client_id":               {typeName: "string"},                // OAuth client id

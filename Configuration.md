@@ -20,6 +20,8 @@ These are read once at startup and cannot be changed at runtime.
 | `ALLOWED_PROVIDER_HOSTS` | No | *(empty)* | Comma-separated list of additional allowed provider hosts. Built-in provider hosts (`api.openai.com`, `api.nano-gpt.com`, `api.z.ai`, `api.deepseek.com`, `api.anthropic.com`, `ollama.com`, `opencode.ai`, `api.x.ai`, `generativelanguage.googleapis.com`, `api.cohere.com`, `api.cohere.ai`, `openrouter.ai`) are **always** allowed regardless of this setting. Hosts listed here bypass URL-validation checks (loopback-address blocking and DNS-resolved loopback detection) so `localhost` can be added for local Ollama or testing. They do **not** bypass SafeDialer private-IP blocking at the TCP level (use `KNOWN_PROXIES` for that). |
 | `RATE_LIMIT_IP_RPS` | No | `30` | Per-IP requests per second (DoS safety net; always-on, not DB-configurable). |
 | `RATE_LIMIT_IP_BURST` | No | `60` | Per-IP burst size for DoS protection token bucket. |
+| `PWNED_PASSWORD_CHECK_ENABLED` | No | `true` | Screen new dashboard passwords against the Have I Been Pwned range API (k-anonymity: only a 5-char SHA-1 prefix is sent, the password never leaves the box). Hard kill-switch: when `false`, no breach check ever runs and the `pwned_password_check_enabled` DB toggle has no effect. The check **fails open** — an unreachable endpoint never blocks a password change. |
+| `PWNED_PASSWORD_API_URL` | No | `https://api.pwnedpasswords.com` | Base URL of the breach range API. Point it at a self-hosted mirror (e.g. `http://hibp-api:8000`) for offline or egress-restricted deployments. The request path is `<base>/range/<prefix>`. See [Breached-password screening](#breached-password-screening). |
 | `DATABASE_MAX_CONNS` | No | `25` | Maximum database connection pool size. |
 | `DATABASE_MIN_CONNS` | No | `5` | Minimum database connection pool size. |
 | `MODELSDEV_ENABLED` | No | `true` | Enable models.dev enrichment for auto-discovering model metadata (pricing, context window, capabilities). |
@@ -64,6 +66,7 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `circuit_breaker_threshold` | `5` | Number of consecutive failures before the circuit breaker opens (1-100). |
 | `circuit_breaker_cooldown` | `1m0s` | Duration the circuit breaker stays open before allowing a half-open retry (e.g. `30s`, `1m0s`, `5m0s`). |
 | `rate_limit_ip_enabled` | `true` | Runtime toggle for per-IP rate limiting. Overridden by the `RATE_LIMIT_ENABLED` env var. |
+| `pwned_password_check_enabled` | `true` | Runtime toggle for breached-password screening. Overridden by the `PWNED_PASSWORD_CHECK_ENABLED` env var: if the env var is `false`, this setting has no effect. Lets an operator turn the check off without a redeploy. |
 | `rate_limit_ip_rps` | `30` | Per-IP requests per second. |
 | `rate_limit_ip_burst` | `60` | Per-IP burst size for the token bucket. |
 | `rate_limit_max_wait_ms` | `200` | Maximum time (ms) a rate-limited request waits for a token before returning 429 (0-10000). |
@@ -104,6 +107,50 @@ When a request is rate-limited, the response includes:
 - `X-RateLimit-Limit: <rate>`: The refill rate
 - `X-RateLimit-Remaining: <tokens>`: Remaining tokens in the bucket
 - `X-RateLimit-Burst: <burst>`: The burst capacity
+
+### Breached-password screening
+
+When `PWNED_PASSWORD_CHECK_ENABLED` is `true` (the default) and the runtime `pwned_password_check_enabled` toggle is on, every new dashboard password — set at user creation, admin reset, or self-service change — is checked against the [Have I Been Pwned](https://haveibeenpwned.com/Passwords) Pwned Passwords corpus before it is accepted. If the password appears in a known breach, the change is rejected with a message telling the user to pick a different one.
+
+The lookup uses **k-anonymity**: the password is hashed with SHA-1, only the first 5 hex characters of the hash are sent to the range API, and the full password never leaves the box. The API returns every suffix sharing that prefix along with a breach count, and Model Hotel matches the remaining suffix locally.
+
+The check is **fail-open**: if the range endpoint is unreachable, times out, or errors, the password change is allowed rather than blocked. It only ever adds a rejection, never a lock-out. The length minimum (8 characters) is enforced first and short-circuits the lookup.
+
+#### Self-hosted / offline mirror
+
+For air-gapped or egress-restricted deployments, point `PWNED_PASSWORD_API_URL` at a local mirror that speaks the same `GET /range/{prefix}` contract. [IncogniPwn](https://github.com/millaguie/incognipwn) serves the full Pwned Passwords corpus (~80 GB) from a downloader + API pair. Add it to your `docker-compose.yml`:
+
+```yaml
+services:
+  hibp-downloader:
+    # One-shot: downloads the Pwned Passwords corpus into the shared volume.
+    # Re-run periodically to refresh. Expect ~80 GB and a long first run.
+    image: ghcr.io/millaguie/incognipwn-downloader:latest
+    volumes:
+      - hibp-data:/data
+    restart: "no"
+
+  hibp-api:
+    # Serves GET /range/{prefix} on port 8000 from the downloaded corpus.
+    image: ghcr.io/millaguie/incognipwn-api:latest
+    volumes:
+      - hibp-data:/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  app:
+    # ... your existing Model Hotel service ...
+    environment:
+      PWNED_PASSWORD_API_URL: http://hibp-api:8000
+    depends_on:
+      - hibp-api
+
+volumes:
+  hibp-data:
+```
+
+The mirror only needs to be reachable from the `app` container — do not expose it publicly. Because the check fails open, Model Hotel keeps accepting password changes even while the downloader is still populating the corpus.
 
 ## Frontend Settings
 

@@ -26,6 +26,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	totpsvc "github.com/hugalafutro/model-hotel/internal/totp"
+	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
@@ -246,6 +247,11 @@ func testHandler(provStore *mockProviderStore, vkStore *mockVirtualKeyStore, set
 func newChiRequest(method, path string, body io.Reader) (*http.Request, *httptest.ResponseRecorder) {
 	req := httptest.NewRequest(method, path, body)
 	req.Header.Set("Content-Type", "application/json")
+	// The admin auth middleware injects an identity on every authenticated
+	// request (AdminIdentity for the admin token). These handler tests call the
+	// handlers directly, so carry the same admin identity to mirror production;
+	// authorization predicates like canTouchKey fail closed on a nil identity.
+	req = req.WithContext(user.WithIdentity(req.Context(), user.AdminIdentity()))
 	return req, httptest.NewRecorder()
 }
 

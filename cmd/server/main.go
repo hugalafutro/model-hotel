@@ -39,6 +39,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/otelexport"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/proxy"
+	"github.com/hugalafutro/model-hotel/internal/pwned"
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/totp"
@@ -217,6 +218,13 @@ func main() {
 	// doubles as the session revoker for disable/delete/password-reset.
 	userRepo := user.NewRepository(database.Pool())
 	apiHandler.SetUserAuth(userRepo, webauthnRepo)
+	// Breached-password check: new dashboard passwords are screened against the
+	// Have I Been Pwned range API (k-anonymity — only a 5-char SHA-1 prefix ever
+	// leaves the process) unless disabled via the env kill-switch or DB toggle.
+	// It fails open, so an unreachable endpoint never blocks a password change;
+	// PWNED_PASSWORD_API_URL can point at a self-hosted mirror for offline or
+	// egress-restricted deployments.
+	apiHandler.SetPwnedChecker(pwned.New(cfg.PwnedPasswordAPIURL, nil))
 	// Per-user TOTP second factor: the factory binds the shared crypto/policy
 	// repository to one user's rows (user_totp tables), so login enforcement
 	// and the self-service endpoints reuse the admin TOTP machinery verbatim.

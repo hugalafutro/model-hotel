@@ -67,7 +67,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [golang.org/x/time](https://golang.org/x/time) | v0.15.0 | Go | BSD-3-Clause |
 | [google.golang.org/genproto/googleapis/api](https://google.golang.org/genproto/googleapis/api) | v0.0.0-20260526163538-3dc84a4a5aaa | Go | Apache-2.0 |
 | [google.golang.org/genproto/googleapis/rpc](https://google.golang.org/genproto/googleapis/rpc) | v0.0.0-20260526163538-3dc84a4a5aaa | Go | Apache-2.0 |
-| [google.golang.org/grpc](https://google.golang.org/grpc) | v1.81.1 | Go | Apache-2.0 |
+| [google.golang.org/grpc](https://google.golang.org/grpc) | v1.82.1 | Go | Apache-2.0 |
 | [google.golang.org/protobuf](https://google.golang.org/protobuf) | v1.36.11 | Go | BSD-3-Clause |
 | [@babel/runtime](https://babel.dev/docs/en/next/babel-runtime) | 7.29.7 | npm | MIT |
 | [@dnd-kit/accessibility](https://github.com/clauderic/dnd-kit#readme) | 3.1.1 | npm | MIT |
@@ -3577,7 +3577,7 @@ SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `google.golang.org/grpc@v1.81.1`
+Applies to: `google.golang.org/grpc@v1.82.1`
 
 ```
 Apache License
