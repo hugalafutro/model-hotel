@@ -37,7 +37,7 @@ def compute(changed: dict, cov: dict, threshold: float):
 def evaluate(changed: dict, cov: dict, threshold: float) -> int:
     covered, total, rows = compute(changed, cov, threshold)
     if total == 0:
-        print("Diff coverage: no coverable changed lines — PASS")
+        print("Diff coverage: no coverable changed lines - PASS")
         return 0
     pct = 100.0 * covered / total
     for path, c, t in rows:

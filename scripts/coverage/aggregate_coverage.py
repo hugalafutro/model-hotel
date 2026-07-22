@@ -8,7 +8,8 @@ import covlib
 
 
 def summary_line_counts(path: str):
-    d = json.load(open(path))["total"]["lines"]
+    with open(path) as f:
+        d = json.load(f)["total"]["lines"]
     return int(d["covered"]), int(d["total"])
 
 
@@ -43,7 +44,10 @@ def main(argv=None) -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--label", default="coverage")
     args = ap.parse_args(argv)
-    go_texts = [open(p).read() for p in args.go]
+    go_texts = []
+    for p in args.go:
+        with open(p) as f:
+            go_texts.append(f.read())
     covered, total, pct = aggregate(go_texts, args.summary)
     with open(args.out, "w") as f:
         json.dump(badge_obj(args.label, pct), f)
