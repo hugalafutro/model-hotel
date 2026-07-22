@@ -53,7 +53,11 @@ func New(baseURL string, client *http.Client) *Checker {
 // to the caller, which decides how to fail (the callers in this project fail
 // open). Padding decoys (count 0) never count as a match.
 func (c *Checker) Breached(ctx context.Context, password string) (bool, int, error) {
-	sum := sha1.Sum([]byte(password)) //nolint:gosec // see package doc: wire contract, not a security primitive
+	// SHA-1 is the HIBP range API's wire contract for k-anonymity, not password
+	// storage: only the 5-char prefix below is ever sent and the password is
+	// never persisted as this hash. The gosec/CodeQL weak-hash warnings key on
+	// the word "password" reaching sha1 and cannot see that distinction.
+	sum := sha1.Sum([]byte(password)) //nolint:gosec // codeql[go/weak-sensitive-data-hashing] -- HIBP k-anonymity wire contract, not a security primitive
 	hash := strings.ToUpper(hex.EncodeToString(sum[:]))
 	prefix, suffix := hash[:5], hash[5:]
 
