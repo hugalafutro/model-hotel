@@ -1382,7 +1382,14 @@ func TestGetLimiter_FleetDivisorDividesCap(t *testing.T) {
 }
 
 func TestGetLimiter_FleetDivisorFloorsBurst(t *testing.T) {
-	// A 1-burst cap on a 5-member fleet must floor to 1, never round to 0.
+	// A 1-burst cap on a 5-member fleet must floor to 1, never round to 0
+	// (a zero-burst limiter blocks everything). This floor is the accepted
+	// lesser-evil when the burst cap is smaller than the fleet: the aggregate
+	// initial burst can reach N (5 here) instead of the configured 1, a
+	// bounded, one-time cold-start overshoot. The SUSTAINED rate stays exact
+	// because rps divides as a float (2/5 = 0.4 per member, 5*0.4 = 2 = the
+	// configured cap), so only the instantaneous burst — not the steady-state
+	// throughput — can exceed the cap, and only when burst < member count.
 	s := newStubSettings()
 	s.set(settingsKeyRPS, "2")
 	s.set(settingsKeyBurst, "1")
@@ -1393,6 +1400,10 @@ func TestGetLimiter_FleetDivisorFloorsBurst(t *testing.T) {
 	e := l.getLimiter(context.Background(), "k", nil, nil)
 	if e.burst != 1 {
 		t.Errorf("burst = %d, want floored 1", e.burst)
+	}
+	// Sustained rate is exact (float division), not floored: 2/5 = 0.4.
+	if e.rps != 0.4 {
+		t.Errorf("rps = %v, want exact 0.4 (sustained rate never floors)", e.rps)
 	}
 }
 

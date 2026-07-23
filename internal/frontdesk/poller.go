@@ -382,8 +382,18 @@ var errAnnounceConflict = errors.New("frontdesk: announce rejected (managed by a
 
 // activeMemberCount counts members in StateActive — the exact set
 // BuildTraefikConfig puts behind the round-robin /v1 pool (traefik.go:96). It is
-// the fleet fair-share divisor each active member applies to its rate limits, so
-// the divisor always equals the number of backends actually receiving traffic.
+// the fleet fair-share divisor each active member applies to its rate limits.
+// The divisor tracks the announced StateActive set, which is the same set
+// BuildTraefikConfig routes to — but Traefik's live pool can diverge from it
+// transiently: it may eject a StateActive backend its own health check finds
+// unhealthy, or pick up a state change on a different schedule than the ~5s
+// announce loop. That skew is bounded and self-correcting on the next
+// announce, and its dominant direction is safe: when Traefik routes to fewer
+// backends than N, each survivor divides by a too-large N and the fleet
+// under-serves (never exceeds the global cap). The opposite (brief over-cap)
+// only occurs on an Active->Drained transition where Traefik still routes to
+// the old member for a beat after N dropped — the accepted membership-change
+// blip, not a sustained violation.
 func activeMemberCount(members []*Member) int {
 	n := 0
 	for _, m := range members {

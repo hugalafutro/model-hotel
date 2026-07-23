@@ -23,6 +23,15 @@ func fleetDivisor(ctx context.Context, s SettingsReader) int {
 // caps (tpm <= 0) pass through untouched; a finite share is floored to >= 1 so a
 // small cap on a large fleet never rounds to 0 — which the TPM limiter treats as
 // "no cap", the wrong and unsafe direction.
+//
+// Accepted edge: when tpm < N the floor makes every member allow 1, so the
+// aggregate (N) exceeds the configured cap. This is a deliberate, bounded
+// (aggregate <= N) lesser-evil versus flooring to 0 (which reads as
+// "unlimited"). It cannot be fixed without giving some members a share of 0,
+// which requires per-member ordinals — the cross-member coordination this
+// stateless divisor exists to avoid. In practice it only bites at
+// non-physical caps: a TPM below the active-member count (a single request
+// spends far more than a handful of tokens), never at realistic limits.
 func fleetShareTPM(ctx context.Context, s SettingsReader, tpm int) int {
 	if tpm <= 0 {
 		return tpm
