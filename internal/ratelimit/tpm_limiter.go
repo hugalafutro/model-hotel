@@ -111,6 +111,7 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			// (or cleared) on every admission so Debit, which only sees the
 			// key hash, can debit the owner's bucket too.
 			userKey, userTPM := userTPMFromCtx(r.Context())
+			userTPM = fleetShareTPM(r.Context(), l.settings, userTPM)
 			l.setAssoc(keyHash, userKey)
 			if userKey != "" {
 				userEntry := l.getEntry(userKey, userTPM)
@@ -231,14 +232,15 @@ func userTPMFromCtx(ctx context.Context) (string, int) {
 }
 
 // effectiveTPM resolves the per-minute cap for the current request: the per-key
-// override from context if set, otherwise the global default from settings.
+// override from context if set, otherwise the global default from settings. The
+// resolved cap is split into this member's fleet fair share before use.
 func (l *TPMLimiter) effectiveTPM(ctx context.Context) int {
 	if v := ctx.Value(ctxkeys.VirtualKeyRateLimitTPMKey); v != nil {
 		if p, ok := v.(*int); ok && p != nil {
-			return *p
+			return fleetShareTPM(ctx, l.settings, *p)
 		}
 	}
-	return l.settings.GetInt(ctx, settingsKeyTPM, defaultTPM)
+	return fleetShareTPM(ctx, l.settings, l.settings.GetInt(ctx, settingsKeyTPM, defaultTPM))
 }
 
 // getEntry returns (or creates) the token-budget bucket for keyHash. If the

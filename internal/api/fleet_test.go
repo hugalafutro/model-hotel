@@ -7,6 +7,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -103,6 +104,61 @@ func TestFleetAnnounce_PersistsContact(t *testing.T) {
 	}
 	if len(fs.written) != 4 {
 		t.Errorf("persisted %d keys, want 4: %v", len(fs.written), fs.written)
+	}
+}
+
+func TestFleetAnnounce_PersistsActiveMembers(t *testing.T) {
+	fs := newFakeFleetSettings()
+	h := NewFleetHandler(fs)
+
+	body := `{"is_primary":false,"frontdesk_id":"fd-1","active_members":3}`
+	req := httptest.NewRequest(http.MethodPost, "/fleet/announce", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.Announce(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204; body=%q", rec.Code, rec.Body.String())
+	}
+	if got := fs.values[keyFleetActiveMembers]; got != "3" {
+		t.Errorf("%s = %q, want 3", keyFleetActiveMembers, got)
+	}
+	// The divisor-aware announce also stamps a fresh member-local receive time;
+	// the rate limiter reads it to expire a stale divisor (revert to standalone).
+	atRaw, ok := fs.values[keyFleetActiveMembersAt]
+	if !ok {
+		t.Fatalf("%s not written alongside the count", keyFleetActiveMembersAt)
+	}
+	at, err := strconv.ParseInt(atRaw, 10, 64)
+	if err != nil {
+		t.Fatalf("%s = %q, not a unix timestamp: %v", keyFleetActiveMembersAt, atRaw, err)
+	}
+	if delta := time.Now().Unix() - at; delta < 0 || delta > 5 {
+		t.Errorf("%s = %d, want ~now (delta %ds)", keyFleetActiveMembersAt, at, delta)
+	}
+}
+
+func TestFleetAnnounce_AbsentActiveMembersLeavesKeyUnchanged(t *testing.T) {
+	fs := newFakeFleetSettings()
+	// A live divisor already recorded from a newer FD; a legacy FD (no field, or 0)
+	// must not clobber it back to 0/unlimited.
+	fs.values[keyFleetActiveMembers] = "4"
+
+	h := NewFleetHandler(fs)
+	body := `{"is_primary":false,"frontdesk_id":"fd-1"}`
+	req := httptest.NewRequest(http.MethodPost, "/fleet/announce", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.Announce(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204; body=%q", rec.Code, rec.Body.String())
+	}
+	if got := fs.values[keyFleetActiveMembers]; got != "4" {
+		t.Errorf("%s = %q, want 4 (unchanged; absent/zero field must not overwrite)", keyFleetActiveMembers, got)
+	}
+	for _, k := range fs.written {
+		if k == keyFleetActiveMembers || k == keyFleetActiveMembersAt {
+			t.Errorf("%s was written on an announce without active_members", k)
+		}
 	}
 }
 

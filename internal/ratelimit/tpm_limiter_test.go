@@ -458,3 +458,28 @@ func TestTPMLimiter_AssocClearedWhenOwnerRemoved(t *testing.T) {
 		t.Errorf("stale association still debited the old owner: before=%v after=%v", before, after)
 	}
 }
+
+func TestEffectiveTPM_FleetDivisor(t *testing.T) {
+	// Global cap 600 across a 3-member fleet -> each member's effective cap 200.
+	s := newStubSettings()
+	s.set(settingsKeyTPM, "600")
+	setFleetActive(s, 3)
+	l := NewTPMLimiter(s)
+	defer l.Stop()
+
+	if got := l.effectiveTPM(context.Background()); got != 200 {
+		t.Errorf("effectiveTPM = %d, want 200", got)
+	}
+}
+
+func TestEffectiveTPM_FleetDivisorUnlimitedUntouched(t *testing.T) {
+	// No global cap (0) stays 0 regardless of fleet size.
+	s := newStubSettings()
+	setFleetActive(s, 3)
+	l := NewTPMLimiter(s)
+	defer l.Stop()
+
+	if got := l.effectiveTPM(context.Background()); got != 0 {
+		t.Errorf("effectiveTPM = %d, want 0 (no cap)", got)
+	}
+}

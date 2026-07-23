@@ -1362,3 +1362,92 @@ func TestMiddleware_UserStageRejectPreservesKeyBudget(t *testing.T) {
 		t.Fatalf("sibling key after per-key 429: expected 200, got %d", rr.Code)
 	}
 }
+
+func TestGetLimiter_FleetDivisorDividesCap(t *testing.T) {
+	// N=3: a 30 RPS / 30 burst global cap becomes each member's 10/10 share.
+	s := newStubSettings()
+	s.set(settingsKeyRPS, "30")
+	s.set(settingsKeyBurst, "30")
+	setFleetActive(s, 3)
+	l := NewLimiter(s)
+	defer l.Stop()
+
+	e := l.getLimiter(context.Background(), "k", nil, nil)
+	if e.rps != 10 {
+		t.Errorf("rps = %v, want 10", e.rps)
+	}
+	if e.burst != 10 {
+		t.Errorf("burst = %d, want 10", e.burst)
+	}
+}
+
+func TestGetLimiter_FleetDivisorFloorsBurst(t *testing.T) {
+	// A 1-burst cap on a 5-member fleet must floor to 1, never round to 0
+	// (a zero-burst limiter blocks everything). This floor is the accepted
+	// lesser-evil when the burst cap is smaller than the fleet: the aggregate
+	// initial burst can reach N (5 here) instead of the configured 1, a
+	// bounded, one-time cold-start overshoot. The SUSTAINED rate stays exact
+	// because rps divides as a float (2/5 = 0.4 per member, 5*0.4 = 2 = the
+	// configured cap), so only the instantaneous burst — not the steady-state
+	// throughput — can exceed the cap, and only when burst < member count.
+	s := newStubSettings()
+	s.set(settingsKeyRPS, "2")
+	s.set(settingsKeyBurst, "1")
+	setFleetActive(s, 5)
+	l := NewLimiter(s)
+	defer l.Stop()
+
+	e := l.getLimiter(context.Background(), "k", nil, nil)
+	if e.burst != 1 {
+		t.Errorf("burst = %d, want floored 1", e.burst)
+	}
+	// Sustained rate is exact (float division), not floored: 2/5 = 0.4.
+	if e.rps != 0.4 {
+		t.Errorf("rps = %v, want exact 0.4 (sustained rate never floors)", e.rps)
+	}
+}
+
+func TestGetLimiter_FleetDivisorSkipsUnlimited(t *testing.T) {
+	// rps<=0 means "unlimited": the divisor must leave the sentinel untouched so a
+	// fleet never turns an unlimited key into a finite cap.
+	s := newStubSettings()
+	s.set(settingsKeyRPS, "0")
+	setFleetActive(s, 4)
+	l := NewLimiter(s)
+	defer l.Stop()
+
+	e := l.getLimiter(context.Background(), "k", nil, nil)
+	if e.rps != 1e6 || e.burst != 1e6 {
+		t.Errorf("unlimited changed: rps=%v burst=%d, want 1e6/1e6", e.rps, e.burst)
+	}
+}
+
+func TestGetLimiter_FleetDivisorDefaultOneNoop(t *testing.T) {
+	// Unset _fleet_active_members (standalone) => divisor 1 => unchanged.
+	s := newStubSettings()
+	s.set(settingsKeyRPS, "10")
+	s.set(settingsKeyBurst, "20")
+	l := NewLimiter(s)
+	defer l.Stop()
+
+	e := l.getLimiter(context.Background(), "k", nil, nil)
+	if e.rps != 10 || e.burst != 20 {
+		t.Errorf("standalone changed: rps=%v burst=%d, want 10/20", e.rps, e.burst)
+	}
+}
+
+func TestGetLimiter_FleetDivisorDividesPerKeyOverride(t *testing.T) {
+	// Per-key and per-user buckets go through getLimiter with override pointers;
+	// the divisor must apply to them identically.
+	s := newStubSettings()
+	setFleetActive(s, 2)
+	l := NewLimiter(s)
+	defer l.Stop()
+
+	rps := 20.0
+	burst := 20
+	e := l.getLimiter(context.Background(), "user:u1", &rps, &burst)
+	if e.rps != 10 || e.burst != 10 {
+		t.Errorf("per-key override not divided: rps=%v burst=%d, want 10/10", e.rps, e.burst)
+	}
+}
