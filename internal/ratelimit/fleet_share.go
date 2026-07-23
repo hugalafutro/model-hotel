@@ -21,10 +21,18 @@ const settingsKeyFleetActiveMembersAt = "_fleet_active_members_at"
 // fleetDivisorTTL bounds how long a persisted divisor stays valid without a
 // refresh. Past it the divisor reverts to 1 (no division — the accepted
 // pre-feature Nx behavior) rather than throttle valid traffic to a stale
-// fraction indefinitely. Sized well above a Front Desk restart/rebuild
-// (announces are ~5s apart) so a briefly-absent control plane keeps dividing,
-// while a genuinely standalone or detached member self-heals within the window.
-const fleetDivisorTTL = 5 * time.Minute
+// fraction indefinitely.
+//
+// It matches the fleet's existing standalone horizon (internal/api's
+// fleetForgetTTL, 24h — "the window after which a member that has not heard from
+// Front Desk is treated as standalone again"). That is deliberately long: any
+// realistic control-plane outage (a Front Desk restart, rebuild, or even a
+// multi-hour blip) stays within it, so every member keeps dividing by N and the
+// fleet's aggregate rate never exceeds the configured cap. Only a member truly
+// abandoned for a full day reverts to standalone — the same moment the rest of
+// the fleet logic already forgets it. Cross-package constant (ratelimit must not
+// import api); keep the two in step if either changes.
+const fleetDivisorTTL = 24 * time.Hour
 
 // fleetDivisor is the number of active members sharing each configured limit.
 // Always >= 1: an absent, zero, or negative setting means "no division", so it
