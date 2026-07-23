@@ -381,7 +381,7 @@ type memberAnnounce struct {
 var errAnnounceConflict = errors.New("frontdesk: announce rejected (managed by another Front Desk)")
 
 // activeMemberCount counts members in StateActive — the exact set
-// BuildTraefikConfig puts behind the round-robin /v1 pool (traefik.go:93). It is
+// BuildTraefikConfig puts behind the round-robin /v1 pool (traefik.go:96). It is
 // the fleet fair-share divisor each active member applies to its rate limits, so
 // the divisor always equals the number of backends actually receiving traffic.
 func activeMemberCount(members []*Member) int {
