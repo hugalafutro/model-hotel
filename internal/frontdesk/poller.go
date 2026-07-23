@@ -369,11 +369,30 @@ type memberAnnounce struct {
 	// announces from any other Front Desk while that owner is live. Empty on a
 	// legacy Front Desk build (the member then accepts unconditionally).
 	FrontdeskID string `json:"frontdesk_id,omitempty"`
+	// ActiveMembers is the fleet-wide count of StateActive members — the fair-share
+	// rate-limit divisor. Every active member is a Traefik round-robin backend, so
+	// each enforces 1/ActiveMembers of every configured limit. Omitted (0) by a
+	// legacy Front Desk build, which the member reads as divisor 1 (no division).
+	ActiveMembers int `json:"active_members,omitempty"`
 }
 
 // errAnnounceConflict is returned by announceToMember when a member rejects the
 // announce with 409: another Front Desk currently owns that member's fleet role.
 var errAnnounceConflict = errors.New("frontdesk: announce rejected (managed by another Front Desk)")
+
+// activeMemberCount counts members in StateActive — the exact set
+// BuildTraefikConfig puts behind the round-robin /v1 pool (traefik.go:93). It is
+// the fleet fair-share divisor each active member applies to its rate limits, so
+// the divisor always equals the number of backends actually receiving traffic.
+func activeMemberCount(members []*Member) int {
+	n := 0
+	for _, m := range members {
+		if m.State == StateActive {
+			n++
+		}
+	}
+	return n
+}
 
 // PollAnnounceOnce tells every reachable, tokened member that Front Desk is in
 // contact, and which member is the fleet primary. It is the producing half of
@@ -395,14 +414,16 @@ func (p *Poller) PollAnnounceOnce(ctx context.Context) {
 		debuglog.Warn("frontdesk: poll announce: fleet sync state", "error", err)
 		hasPrimary = false
 	}
+	activeCount := activeMemberCount(members)
 	for _, m := range members {
 		token, ok, err := p.store.MemberToken(ctx, m.ID)
 		if err != nil || !ok {
 			continue // no stored token: the announce endpoint needs admin auth
 		}
 		ann := memberAnnounce{
-			IsPrimary:   hasPrimary && m.ID == state.PrimaryID,
-			FrontdeskID: p.frontdeskID,
+			IsPrimary:     hasPrimary && m.ID == state.PrimaryID,
+			FrontdeskID:   p.frontdeskID,
+			ActiveMembers: activeCount,
 		}
 		if hasPrimary {
 			ann.PrimaryName = state.PrimaryName

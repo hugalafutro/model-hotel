@@ -175,6 +175,57 @@ func TestPollAnnounceOnce_ConflictWarnsOnceDoesNotAbort(t *testing.T) {
 	}
 }
 
+func TestPollAnnounceOnce_SendsActiveMembers(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	// Two members, both StateActive by default (CreateMember inserts StateActive),
+	// so every announce must carry active_members=2.
+	srvA := newAnnounceRecorder(t, http.StatusNoContent)
+	srvB := newAnnounceRecorder(t, http.StatusNoContent)
+	if _, err := store.CreateMember(ctx, "a", srvA.srv.URL, "tok-a"); err != nil {
+		t.Fatalf("create a: %v", err)
+	}
+	if _, err := store.CreateMember(ctx, "b", srvB.srv.URL, "tok-b"); err != nil {
+		t.Fatalf("create b: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := srvA.snapshot(); ann.ActiveMembers != 2 {
+		t.Errorf("member a: active_members = %d, want 2", ann.ActiveMembers)
+	}
+	if _, ann, _ := srvB.snapshot(); ann.ActiveMembers != 2 {
+		t.Errorf("member b: active_members = %d, want 2", ann.ActiveMembers)
+	}
+}
+
+func TestPollAnnounceOnce_ActiveMembersCountsOnlyActive(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	// One active member and one drained member: the drained one is not a Traefik
+	// backend, so the announced divisor must be 1, not 2.
+	activeSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	drainedSrv := newAnnounceRecorder(t, http.StatusNoContent)
+	if _, err := store.CreateMember(ctx, "active", activeSrv.srv.URL, "tok-a"); err != nil {
+		t.Fatalf("create active: %v", err)
+	}
+	drained, err := store.CreateMember(ctx, "drained", drainedSrv.srv.URL, "tok-d")
+	if err != nil {
+		t.Fatalf("create drained: %v", err)
+	}
+	if err := store.SetMemberState(ctx, drained.ID, StateDrained); err != nil {
+		t.Fatalf("drain member: %v", err)
+	}
+
+	p.PollAnnounceOnce(ctx)
+
+	if _, ann, _ := activeSrv.snapshot(); ann.ActiveMembers != 1 {
+		t.Errorf("active member: active_members = %d, want 1 (drained excluded)", ann.ActiveMembers)
+	}
+}
+
 // memberIDByName resolves a member's generated ID from its name for assertions.
 func memberIDByName(ctx context.Context, t *testing.T, store *Store, name string) string {
 	t.Helper()

@@ -18,6 +18,21 @@ func newTestPoller(t *testing.T, traefikAPI string) (*Poller, *Store, *events.Bu
 	return NewPoller(s, bus, traefikAPI), s, bus
 }
 
+func TestActiveMemberCount(t *testing.T) {
+	members := []*Member{
+		{State: StateActive},
+		{State: StateDrained},
+		{State: StateActive},
+		{State: StateActive},
+	}
+	if got := activeMemberCount(members); got != 3 {
+		t.Errorf("activeMemberCount = %d, want 3 (only StateActive counts)", got)
+	}
+	if got := activeMemberCount(nil); got != 0 {
+		t.Errorf("activeMemberCount(nil) = %d, want 0", got)
+	}
+}
+
 func TestCheckHealth(t *testing.T) {
 	p, _, _ := newTestPoller(t, "")
 	ctx := context.Background()
