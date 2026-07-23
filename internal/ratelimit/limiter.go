@@ -271,6 +271,17 @@ func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *flo
 		burst = *perKeyBurst
 	}
 
+	// Fleet fair-share: N active members behind Traefik's round-robin /v1 pool each
+	// enforce 1/N of the configured cap, so the N local shares sum to the global
+	// limit. Applied only to finite caps (rps>0); "unlimited" (rps<=0) is handled
+	// by the sentinel branch below and must not be divided. Burst floors to >=1 so
+	// a small cap on a large fleet never rounds to a zero-burst (block-everything)
+	// limiter.
+	if n := fleetDivisor(ctx, l.settings); n > 1 && rps > 0 {
+		rps /= float64(n)
+		burst = max(1, burst/n)
+	}
+
 	// Unlimited (RPS=0) — use an extremely high rate that never blocks.
 	if rps <= 0 {
 		rps = 1e6
