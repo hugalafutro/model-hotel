@@ -106,6 +106,48 @@ func TestFleetAnnounce_PersistsContact(t *testing.T) {
 	}
 }
 
+func TestFleetAnnounce_PersistsActiveMembers(t *testing.T) {
+	fs := newFakeFleetSettings()
+	h := NewFleetHandler(fs)
+
+	body := `{"is_primary":false,"frontdesk_id":"fd-1","active_members":3}`
+	req := httptest.NewRequest(http.MethodPost, "/fleet/announce", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.Announce(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204; body=%q", rec.Code, rec.Body.String())
+	}
+	if got := fs.values[keyFleetActiveMembers]; got != "3" {
+		t.Errorf("%s = %q, want 3", keyFleetActiveMembers, got)
+	}
+}
+
+func TestFleetAnnounce_AbsentActiveMembersLeavesKeyUnchanged(t *testing.T) {
+	fs := newFakeFleetSettings()
+	// A live divisor already recorded from a newer FD; a legacy FD (no field, or 0)
+	// must not clobber it back to 0/unlimited.
+	fs.values[keyFleetActiveMembers] = "4"
+
+	h := NewFleetHandler(fs)
+	body := `{"is_primary":false,"frontdesk_id":"fd-1"}`
+	req := httptest.NewRequest(http.MethodPost, "/fleet/announce", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.Announce(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204; body=%q", rec.Code, rec.Body.String())
+	}
+	if got := fs.values[keyFleetActiveMembers]; got != "4" {
+		t.Errorf("%s = %q, want 4 (unchanged; absent/zero field must not overwrite)", keyFleetActiveMembers, got)
+	}
+	for _, k := range fs.written {
+		if k == keyFleetActiveMembers {
+			t.Errorf("%s was written on an announce without active_members", keyFleetActiveMembers)
+		}
+	}
+}
+
 func TestFleetAnnounce_WriteFailureIs500(t *testing.T) {
 	fs := newFakeFleetSettings()
 	fs.setErr = errors.New("db unavailable")
