@@ -62,6 +62,13 @@ const (
 	// fair-share divisor. Instance-local like the other _fleet_* keys: written via
 	// Set/SetMany, so config-sync's declarative replace never touches it.
 	keyFleetActiveMembers = "_fleet_active_members"
+	// keyFleetActiveMembersAt is the member-local Unix-seconds timestamp of the
+	// last announce that carried a real active_members count. The rate limiter
+	// honors the divisor only while this is fresh, so a member that stops hearing
+	// divisor-aware announces (pulled from the fleet, gone standalone, or adopted
+	// by a pre-feature Front Desk) reverts to no division instead of throttling
+	// valid traffic to a stale 1/N forever. See internal/ratelimit.fleetDivisor.
+	keyFleetActiveMembersAt = "_fleet_active_members_at"
 )
 
 const (
@@ -287,7 +294,15 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 	// count so an old control plane can never overwrite a live divisor with 0
 	// (which the limiters read as "unlimited" — the wrong, unsafe direction).
 	if req.ActiveMembers >= 1 {
-		writes = append(writes, [2]string{keyFleetActiveMembers, strconv.Itoa(req.ActiveMembers)})
+		// Record the count together with a member-local receive timestamp. The
+		// rate limiter treats the divisor as valid only while this is fresh, so a
+		// member that stops hearing divisor-aware announces reverts to standalone
+		// rather than throttle to a frozen 1/N. Member-local time (not Front
+		// Desk's) keeps the reader's TTL check free of cross-host clock skew.
+		writes = append(writes,
+			[2]string{keyFleetActiveMembers, strconv.Itoa(req.ActiveMembers)},
+			[2]string{keyFleetActiveMembersAt, strconv.FormatInt(time.Now().Unix(), 10)},
+		)
 	}
 	if err := h.settings.SetMany(ctx, writes); err != nil {
 		respondError(w, "failed to record fleet announce", err, http.StatusInternalServerError)

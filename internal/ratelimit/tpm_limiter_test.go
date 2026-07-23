@@ -463,7 +463,7 @@ func TestEffectiveTPM_FleetDivisor(t *testing.T) {
 	// Global cap 600 across a 3-member fleet -> each member's effective cap 200.
 	s := newStubSettings()
 	s.set(settingsKeyTPM, "600")
-	s.set(settingsKeyFleetActiveMembers, "3")
+	setFleetActive(s, 3)
 	l := NewTPMLimiter(s)
 	defer l.Stop()
 
@@ -475,7 +475,7 @@ func TestEffectiveTPM_FleetDivisor(t *testing.T) {
 func TestEffectiveTPM_FleetDivisorUnlimitedUntouched(t *testing.T) {
 	// No global cap (0) stays 0 regardless of fleet size.
 	s := newStubSettings()
-	s.set(settingsKeyFleetActiveMembers, "3")
+	setFleetActive(s, 3)
 	l := NewTPMLimiter(s)
 	defer l.Stop()
 

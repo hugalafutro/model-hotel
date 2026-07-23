@@ -1,6 +1,9 @@
 package ratelimit
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // settingsKeyFleetActiveMembers is the instance-local count of StateActive fleet
 // members, delivered by Front Desk's announce heartbeat (internal/api/fleet.go).
@@ -8,12 +11,37 @@ import "context"
 // fair-share division, i.e. exactly today's single-process behavior.
 const settingsKeyFleetActiveMembers = "_fleet_active_members"
 
+// settingsKeyFleetActiveMembersAt is the member-local Unix-seconds timestamp of
+// the last divisor-aware announce (written by internal/api/fleet.go only when a
+// real active_members count arrives). It is what lets the divisor self-expire:
+// without it, a persisted count would keep throttling forever after the control
+// plane stops managing this member.
+const settingsKeyFleetActiveMembersAt = "_fleet_active_members_at"
+
+// fleetDivisorTTL bounds how long a persisted divisor stays valid without a
+// refresh. Past it the divisor reverts to 1 (no division — the accepted
+// pre-feature Nx behavior) rather than throttle valid traffic to a stale
+// fraction indefinitely. Sized well above a Front Desk restart/rebuild
+// (announces are ~5s apart) so a briefly-absent control plane keeps dividing,
+// while a genuinely standalone or detached member self-heals within the window.
+const fleetDivisorTTL = 5 * time.Minute
+
 // fleetDivisor is the number of active members sharing each configured limit.
-// Always >= 1: an absent, zero, or negative setting means "no division", so it is
-// safe to divide by unconditionally.
+// Always >= 1: an absent, zero, or negative setting means "no division", so it
+// is safe to divide by unconditionally.
+//
+// The count is honored only while a divisor-aware announce has refreshed it
+// within fleetDivisorTTL. If that refresh timestamp is missing or stale, this
+// member is standalone, has been pulled from the fleet, or is under a control
+// plane too old to send the count — so the divisor reverts to 1 rather than
+// under-serve on a frozen fraction of the configured capacity.
 func fleetDivisor(ctx context.Context, s SettingsReader) int {
 	n := s.GetInt(ctx, settingsKeyFleetActiveMembers, 1)
-	if n < 1 {
+	if n <= 1 {
+		return 1
+	}
+	at := s.GetInt(ctx, settingsKeyFleetActiveMembersAt, 0)
+	if at == 0 || time.Since(time.Unix(int64(at), 0)) > fleetDivisorTTL {
 		return 1
 	}
 	return n

@@ -7,6 +7,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -121,6 +122,19 @@ func TestFleetAnnounce_PersistsActiveMembers(t *testing.T) {
 	if got := fs.values[keyFleetActiveMembers]; got != "3" {
 		t.Errorf("%s = %q, want 3", keyFleetActiveMembers, got)
 	}
+	// The divisor-aware announce also stamps a fresh member-local receive time;
+	// the rate limiter reads it to expire a stale divisor (revert to standalone).
+	atRaw, ok := fs.values[keyFleetActiveMembersAt]
+	if !ok {
+		t.Fatalf("%s not written alongside the count", keyFleetActiveMembersAt)
+	}
+	at, err := strconv.ParseInt(atRaw, 10, 64)
+	if err != nil {
+		t.Fatalf("%s = %q, not a unix timestamp: %v", keyFleetActiveMembersAt, atRaw, err)
+	}
+	if delta := time.Now().Unix() - at; delta < 0 || delta > 5 {
+		t.Errorf("%s = %d, want ~now (delta %ds)", keyFleetActiveMembersAt, at, delta)
+	}
 }
 
 func TestFleetAnnounce_AbsentActiveMembersLeavesKeyUnchanged(t *testing.T) {
@@ -142,8 +156,8 @@ func TestFleetAnnounce_AbsentActiveMembersLeavesKeyUnchanged(t *testing.T) {
 		t.Errorf("%s = %q, want 4 (unchanged; absent/zero field must not overwrite)", keyFleetActiveMembers, got)
 	}
 	for _, k := range fs.written {
-		if k == keyFleetActiveMembers {
-			t.Errorf("%s was written on an announce without active_members", keyFleetActiveMembers)
+		if k == keyFleetActiveMembers || k == keyFleetActiveMembersAt {
+			t.Errorf("%s was written on an announce without active_members", k)
 		}
 	}
 }

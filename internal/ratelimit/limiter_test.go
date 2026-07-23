@@ -1368,7 +1368,7 @@ func TestGetLimiter_FleetDivisorDividesCap(t *testing.T) {
 	s := newStubSettings()
 	s.set(settingsKeyRPS, "30")
 	s.set(settingsKeyBurst, "30")
-	s.set(settingsKeyFleetActiveMembers, "3")
+	setFleetActive(s, 3)
 	l := NewLimiter(s)
 	defer l.Stop()
 
@@ -1393,7 +1393,7 @@ func TestGetLimiter_FleetDivisorFloorsBurst(t *testing.T) {
 	s := newStubSettings()
 	s.set(settingsKeyRPS, "2")
 	s.set(settingsKeyBurst, "1")
-	s.set(settingsKeyFleetActiveMembers, "5")
+	setFleetActive(s, 5)
 	l := NewLimiter(s)
 	defer l.Stop()
 
@@ -1412,7 +1412,7 @@ func TestGetLimiter_FleetDivisorSkipsUnlimited(t *testing.T) {
 	// fleet never turns an unlimited key into a finite cap.
 	s := newStubSettings()
 	s.set(settingsKeyRPS, "0")
-	s.set(settingsKeyFleetActiveMembers, "4")
+	setFleetActive(s, 4)
 	l := NewLimiter(s)
 	defer l.Stop()
 
@@ -1440,7 +1440,7 @@ func TestGetLimiter_FleetDivisorDividesPerKeyOverride(t *testing.T) {
 	// Per-key and per-user buckets go through getLimiter with override pointers;
 	// the divisor must apply to them identically.
 	s := newStubSettings()
-	s.set(settingsKeyFleetActiveMembers, "2")
+	setFleetActive(s, 2)
 	l := NewLimiter(s)
 	defer l.Stop()
 
