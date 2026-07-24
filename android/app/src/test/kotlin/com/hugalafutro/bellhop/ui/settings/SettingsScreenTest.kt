@@ -58,6 +58,7 @@ class SettingsScreenTest {
         batteryUnrestricted: Boolean = true,
         onRequestBatteryExemption: () -> Unit = {},
         onAlertsClick: () -> Unit = {},
+        onQuotaBadgesClick: () -> Unit = {},
         onUnlink: () -> Unit = {},
         onForceUnlink: () -> Unit = {},
         onDismissUnlinkError: () -> Unit = {},
@@ -82,6 +83,7 @@ class SettingsScreenTest {
                     onToggleMonitor = onToggleMonitor,
                     onTogglePush = onTogglePush,
                     onAlertsClick = onAlertsClick,
+                    onQuotaBadgesClick = onQuotaBadgesClick,
                     onUnlink = onUnlink,
                     unlinkFailed = unlinkFailed,
                     onDismissUnlinkError = onDismissUnlinkError,
@@ -266,6 +268,14 @@ class SettingsScreenTest {
         var opened = 0
         content(onAlertsClick = { opened++ })
         composeTestRule.onNodeWithTag("settings-alerts").performScrollTo().performClick()
+        assertTrue(opened == 1)
+    }
+
+    @Test
+    fun quotaBadgesRowFiresCallback() {
+        var opened = 0
+        content(onQuotaBadgesClick = { opened++ })
+        composeTestRule.onNodeWithTag("settings-quota-badges").performScrollTo().performClick()
         assertTrue(opened == 1)
     }
 

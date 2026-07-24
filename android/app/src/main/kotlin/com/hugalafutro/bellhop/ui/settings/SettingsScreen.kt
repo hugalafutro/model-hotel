@@ -87,6 +87,7 @@ fun SettingsScreen(
     onToggleMonitor: (Boolean) -> Unit,
     onTogglePush: (Boolean) -> Unit,
     onAlertsClick: () -> Unit,
+    onQuotaBadgesClick: () -> Unit,
     onUnlink: () -> Unit,
     modifier: Modifier = Modifier,
     notificationsBlocked: Boolean = false,
@@ -680,6 +681,35 @@ fun SettingsScreen(
             // only appears when a member is down). The severity badges tally what
             // Front Desk currently alerts on; the brass chevron marks the tap as a
             // jump to the Alerts screen (where an operator can flip them).
+            Card(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onQuotaBadgesClick)
+                        .testTag("settings-quota-badges"),
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = stringResource(R.string.settings_quota_badges_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_quota_badges_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    NavChevron(
+                        contentDescription = stringResource(R.string.settings_quota_badges_title),
+                        tag = "nav-chevron-quota",
+                    )
+                }
+            }
             Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onAlertsClick).testTag("settings-alerts")) {
                 Row(
                     modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -869,6 +899,7 @@ private fun SettingsScreenPreview() {
             onToggleMonitor = {},
             onTogglePush = {},
             onAlertsClick = {},
+            onQuotaBadgesClick = {},
             onUnlink = {},
         )
     }

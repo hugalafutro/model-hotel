@@ -269,6 +269,9 @@
     <string name="settings_widget_title">Home-screen widget</string>
     <string name="settings_widget_graphs_subtitle">Traffic graphs: overlay each member with its last hour of requests. Fresh bars cost one extra request per member on each background check.</string>
 
+    <string name="settings_quota_badges_title">Quota badges</string>
+    <string name="settings_quota_badges_subtitle">Choose which provider quota badges show on the dashboard and the widget, reorder them, and pick used or remaining.</string>
+
     <!-- Quota badge detail sheet -->
     <string name="quota_refresh">Refresh quotas</string>
     <string name="quota_unavailable">Quota data unavailable</string>

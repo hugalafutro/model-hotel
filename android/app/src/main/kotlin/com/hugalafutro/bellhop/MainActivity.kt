@@ -63,6 +63,7 @@ import com.hugalafutro.bellhop.ui.member.MemberDetailScreen
 import com.hugalafutro.bellhop.ui.member.MemberDetailViewModel
 import com.hugalafutro.bellhop.ui.pairing.PairingScreen
 import com.hugalafutro.bellhop.ui.pairing.PairingViewModel
+import com.hugalafutro.bellhop.ui.settings.QuotaBadgesConfigScreen
 import com.hugalafutro.bellhop.ui.settings.SettingsScreen
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import com.hugalafutro.bellhop.widget.ACTION_OPEN_QUOTA
@@ -741,6 +742,10 @@ private fun LinkedContent(
     var showSettings by rememberSaveable(state.fdUrl, state.deviceId) {
         mutableStateOf(false)
     }
+    // Whether the quota-badge configurator is open (reached from Settings).
+    var showQuotaConfig by rememberSaveable(state.fdUrl, state.deviceId) {
+        mutableStateOf(false)
+    }
     val selected = ui.members.find { it.id == selectedMemberId }
     // The member left the fleet while its detail was open: drop the
     // selection (once the list has actually loaded) so the detail
@@ -755,8 +760,8 @@ private fun LinkedContent(
     // (member detail, events, alerts, settings) is on top: those charts aren't
     // visible, so fetching them just wakes the radio. The list stays warm via the
     // health poll and SSE, and the fan-out resumes the moment the dashboard shows.
-    LaunchedEffect(showEvents, showAlerts, showSettings, selectedMemberId) {
-        dashVm.setCovered(showEvents || showAlerts || showSettings || selectedMemberId != null)
+    LaunchedEffect(showEvents, showAlerts, showSettings, showQuotaConfig, selectedMemberId) {
+        dashVm.setCovered(showEvents || showAlerts || showSettings || showQuotaConfig || selectedMemberId != null)
     }
 
     if (showEvents) {
@@ -795,6 +800,15 @@ private fun LinkedContent(
             onToggleEvent = { type, enabled -> requireOperatorAuth { alertsVm.toggleEvent(type, enabled) } },
             onDismissActionError = { alertsVm.dismissActionError() },
         )
+    } else if (showQuotaConfig) {
+        BackHandler { showQuotaConfig = false }
+        val quotaConfigStore = remember(monitorContext) { QuotaBadgeConfigStore.create(monitorContext) }
+        val quotaPrefsStore = remember(monitorContext) { PrefsStore.create(monitorContext) }
+        QuotaBadgesConfigScreen(
+            configStore = quotaConfigStore,
+            prefsStore = quotaPrefsStore,
+            onBack = { showQuotaConfig = false },
+        )
     } else if (showSettings) {
         BackHandler { showSettings = false }
         // Collecting the hoisted alerts VM here subscribes it, so its selection is
@@ -820,6 +834,7 @@ private fun LinkedContent(
             onToggleMonitor = onToggleMonitor,
             onTogglePush = onTogglePush,
             onAlertsClick = { showAlerts = true },
+            onQuotaBadgesClick = { showQuotaConfig = true },
             onUnlink = onUnlink,
             unlinking = unlinking,
             unlinkFailed = unlinkFailed,
