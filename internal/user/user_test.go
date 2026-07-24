@@ -89,9 +89,9 @@ func TestVerifyPassword_MalformedHash(t *testing.T) {
 		"$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$",       // empty key
 		"$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$" +
 			base64.RawStdEncoding.EncodeToString(make([]byte, 513)), // key over 512 bytes
-		"$argon2id$v=19$m=1048577,t=2,p=1$c2FsdA$aGFzaA", // memory over 1 GiB ceiling
-		"$argon2id$v=19$m=19456,t=31,p=1$c2FsdA$aGFzaA",  // iterations over ceiling
-		"$argon2id$v=19$m=19456,t=2,p=65$c2FsdA$aGFzaA",  // threads over ceiling
+		"$argon2id$v=19$m=131073,t=2,p=1$c2FsdA$aGFzaA", // memory over 128 MiB ceiling
+		"$argon2id$v=19$m=19456,t=31,p=1$c2FsdA$aGFzaA", // iterations over ceiling
+		"$argon2id$v=19$m=19456,t=2,p=65$c2FsdA$aGFzaA", // threads over ceiling
 	} {
 		if _, err := VerifyPassword("x", bad); !errors.Is(err, ErrHashFormat) {
 			t.Errorf("VerifyPassword(%q) err = %v, want ErrHashFormat", bad, err)

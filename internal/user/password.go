@@ -60,12 +60,14 @@ func VerifyPassword(password, encoded string) (bool, error) {
 	if mem == 0 || iters == 0 || threads == 0 {
 		return false, ErrHashFormat
 	}
-	// Reject absurdly large parameters. A malformed or hostile stored hash
-	// (only writable by something that already has DB access) could otherwise
-	// set m to gigabytes and OOM the process on the next verify. These ceilings
-	// sit far above any realistic OWASP hardening (baseline is m=19 MiB, t=2,
-	// p=1), so raising the work factors later stays within bounds.
-	if mem > 1<<20 || iters > 30 || threads > 64 {
+	// Reject parameters far above the configured cost. VerifyPassword runs on the
+	// unauthenticated login path, so an oversized m (only settable via DB
+	// corruption or a foreign write) would make every verify allocate that much
+	// memory and OOM the process. The 128 MiB ceiling sits well above the current
+	// cost (19 MiB) and any realistic OWASP hardening, yet is far below the
+	// gigabyte-scale allocation that would exhaust memory; raising the work
+	// factors later stays within bounds.
+	if mem > 128*1024 || iters > 30 || threads > 64 {
 		return false, ErrHashFormat
 	}
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
