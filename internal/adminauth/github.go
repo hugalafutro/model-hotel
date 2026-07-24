@@ -21,6 +21,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/netguard"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
@@ -38,6 +39,11 @@ const (
 // githubCallbackPath is the fixed redirect-URI path. The operator registers
 // <github_public_base_url><githubCallbackPath> as the OAuth App callback URL.
 const githubCallbackPath = "/api/auth/github/callback"
+
+// githubHTTPTimeout bounds each outbound GitHub request (token exchange, /user,
+// /user/emails). Mirrors oidcHTTPTimeout; the netguard client's own dialer also
+// enforces this as its dial/keepalive timeout.
+const githubHTTPTimeout = 15 * time.Second
 
 // githubAPIBaseURL is GitHub's REST API root. It is a package constant (GitHub
 // has no discovery document); the value is copied into each githubRuntime so
@@ -86,6 +92,13 @@ type GitHubHandler struct {
 	// the OIDC/TOTP login defense (5 failures, 1s doubling, capped at 5m).
 	loginThrottle *totp.Throttle
 
+	// httpClient is an SSRF-guarded client used for every outbound GitHub request
+	// (token exchange, /user, /user/emails). Without it oauth2 falls back to
+	// http.DefaultClient; routing through netguard blocks metadata/link-local
+	// targets and keeps parity with the OIDC handler. github.com is public, so
+	// normal login is unaffected (netguard permits only what it must).
+	httpClient *http.Client
+
 	// cached holds the lazily-built oauth2 config for one config fingerprint,
 	// rebuilt only when the fingerprint changes. Mirrors OIDCHandler; there is no
 	// network discovery to amortize here, but the cache keeps the allowlist parse
@@ -115,6 +128,7 @@ func NewGitHubHandler(
 		masterKey:     masterKey,
 		cookieSecure:  cookieSecure,
 		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
+		httpClient:    netguard.NewClient(githubHTTPTimeout),
 	}
 }
 
@@ -309,6 +323,11 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, throttleKey, "missing code", nil)
 		return
 	}
+
+	// Route the token exchange AND the derived API client (fetchUser /
+	// fetchVerifiedEmails, built by oauth2Config.Client below) through the
+	// SSRF-guarded transport. oauth2 reads the base client from this context key.
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, h.httpClient)
 
 	// Exchange the code for an access token (no PKCE verifier: GitHub OAuth Apps
 	// don't support it; the confidential client secret authenticates this call).

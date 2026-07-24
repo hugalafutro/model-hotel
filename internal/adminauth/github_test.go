@@ -599,3 +599,12 @@ func TestGitHubCallbackDisabledClearsCookie(t *testing.T) {
 		t.Fatal("disabled-runtime callback must still clear the login-state cookie")
 	}
 }
+
+func TestNewGitHubHandler_UsesNetguardClient(t *testing.T) {
+	store := newMemStore()
+	sessionMgr := webauthn.NewSessionManager(store)
+	h := NewGitHubHandler(newFakeSettings(map[string]string{}), sessionMgr, mockIPLimiter{}, testMasterKey, "auto")
+	if h.httpClient == nil {
+		t.Fatal("GitHubHandler.httpClient must be an SSRF-guarded netguard client, got nil")
+	}
+}
