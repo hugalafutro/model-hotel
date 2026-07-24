@@ -227,6 +227,22 @@ open class FrontDeskClient(
     ): FetchResult<AutoSyncConfig> = get(fdUrl, "/api/fleet/autosync", token)
 
     /**
+     * quota fetches Front Desk's cached quota/balance readings for every
+     * quota-capable provider via GET /api/quota. Monitor tier, like
+     * [members]. The wire envelope is `{"quota": [...]}`; callers get the
+     * unwrapped list, each entry decoded through [providerQuotaOf].
+     */
+    open suspend fun quota(
+        fdUrl: String,
+        token: String,
+    ): FetchResult<List<ProviderQuota>> =
+        when (val r = get<QuotaEnvelope>(fdUrl, "/api/quota", token)) {
+            is FetchResult.Success -> FetchResult.Success(r.data.quota.map(::providerQuotaOf))
+            FetchResult.Unauthorized -> FetchResult.Unauthorized
+            is FetchResult.Failure -> r
+        }
+
+    /**
      * alertStatus reports whether Front Desk's outbound notifier is reachable
      * and delivering. Monitor tier, like [members]; the Alerts screen renders it
      * as a delivery-health pill.
@@ -324,6 +340,18 @@ open class FrontDeskClient(
         enabled: Boolean,
         primaryId: String,
     ): ActionResult<AutoSyncConfig> = put(fdUrl, "/api/fleet/autosync", token, AutoSyncRequest(enabled, primaryId))
+
+    /**
+     * refreshQuota tells Front Desk to re-poll every quota-capable provider
+     * now, rather than waiting for its own background cadence, via POST
+     * /api/quota/refresh. Monitor tier, like [quota]: any paired device may
+     * trigger it, not just operators. The request body is empty (`{}`);
+     * Front Desk already knows which providers are quota-capable.
+     */
+    open suspend fun refreshQuota(
+        fdUrl: String,
+        token: String,
+    ): ActionResult<QuotaRefreshResult> = post(fdUrl, "/api/quota/refresh", token, emptyMap<String, String>())
 
     /**
      * streamEvents subscribes to GET {fdUrl}/api/sse and emits each frame as an

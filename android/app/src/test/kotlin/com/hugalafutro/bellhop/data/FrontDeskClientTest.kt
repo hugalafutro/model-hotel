@@ -386,6 +386,75 @@ class FrontDeskClientTest {
         }
 
     @Test
+    fun quotaMapsEnvelopeToProviderQuotas() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"quota":[{"provider_name":"OR","type":"openrouter","kind":"usage",""" +
+                        """"payload":{"label":"k","limit":10.0,"usage":2.5},"http_status":200,"fetched_at":"t"}]}""",
+                ),
+            )
+
+            val result = client.quota(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            val quota = result.data.single()
+            assertEquals("OR", quota.providerName)
+            assertEquals(QuotaType.OPENROUTER, quota.type)
+            assertTrue(quota.available)
+
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertEquals("/api/quota", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+        }
+
+    @Test
+    fun quotaMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.quota(server.url("/").toString(), "dead")
+            assertEquals(FetchResult.Unauthorized, result)
+        }
+
+    @Test
+    fun refreshQuotaPostsEmptyBodyAndParsesTally() =
+        runBlocking {
+            server.enqueue(MockResponse().setBody("""{"refreshed":2,"failed":0,"skipped":1}"""))
+
+            val result = client.refreshQuota(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is ActionResult.Success)
+            val data = (result as ActionResult.Success).data
+            assertEquals(2, data.refreshed)
+            assertEquals(0, data.failed)
+            assertEquals(1, data.skipped)
+
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/quota/refresh", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+            assertEquals("{}", request.body.readUtf8())
+        }
+
+    @Test
+    fun refreshQuotaMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.refreshQuota(server.url("/").toString(), "dead")
+            assertEquals(ActionResult.Unauthorized, result)
+        }
+
+    @Test
     fun unlinkMalformedUrlIsFalseNotThrow() =
         runBlocking {
             assertFalse(client.unlink("not a url", "tok"))

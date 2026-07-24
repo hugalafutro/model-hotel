@@ -74,6 +74,20 @@ data class QuotaEnvelope(
     val quota: List<QuotaWire> = emptyList(),
 )
 
+/**
+ * QuotaRefreshResult is the POST /api/quota/refresh response: how many
+ * cached entries Front Desk re-polled just now, split by outcome. Bellhop
+ * surfaces this as a one-shot confirmation of the manual refresh; the
+ * badges themselves repaint from the next [QuotaEnvelope] read, not from
+ * this tally directly.
+ */
+@Serializable
+data class QuotaRefreshResult(
+    val refreshed: Int = 0,
+    val failed: Int = 0,
+    val skipped: Int = 0,
+)
+
 // ── Per-type payload shapes ─────────────────────────────────────────────
 
 /**
