@@ -44,6 +44,7 @@ import com.hugalafutro.bellhop.data.LockStore
 import com.hugalafutro.bellhop.data.LockTimeout
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PrefsStore
+import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.shouldLock
 import com.hugalafutro.bellhop.data.shouldLockOnEntry
@@ -659,6 +660,8 @@ private fun LinkedContent(
                     // the VM outlives recompositions, so a captured Boolean
                     // would freeze the toggle at creation time.
                     widgetGraphs = { PrefsStore.create(monitorContext).widgetGraphs.first() },
+                    configStore = QuotaBadgeConfigStore.create(monitorContext),
+                    barMode = { PrefsStore.create(monitorContext).quotaBarMode.first() },
                 ),
         )
     val ui by dashVm.state.collectAsStateWithLifecycle()

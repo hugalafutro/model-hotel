@@ -12,8 +12,15 @@ import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.PrefsStore
+import com.hugalafutro.bellhop.data.ProviderQuota
+import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
+import com.hugalafutro.bellhop.data.QuotaBarMode
+import com.hugalafutro.bellhop.data.QuotaSurface
 import com.hugalafutro.bellhop.data.SseMessage
+import com.hugalafutro.bellhop.data.WidgetQuotaBadge
 import com.hugalafutro.bellhop.data.WidgetStore
+import com.hugalafutro.bellhop.data.orderedVisible
+import com.hugalafutro.bellhop.data.widgetQuotaOf
 import com.hugalafutro.bellhop.data.widgetStateOf
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -26,6 +33,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -62,6 +70,15 @@ data class DashboardUiState(
     val revoked: Boolean = false,
     // Pause/resume operator action state (same shape as the member-detail card).
     val autoSync: AutoSyncAction = AutoSyncAction(),
+    // MAIN-surface quota badges, already ordered/filtered through
+    // [QuotaBadgeConfigStore] + [orderedVisible] -- the composable renders this
+    // list verbatim, no further config logic in the render path. A failed
+    // quota read keeps the last-good list (stale beats blank), same stance as
+    // [members].
+    val quota: List<ProviderQuota> = emptyList(),
+    // Whether a manual [DashboardViewModel.refreshQuota] call is in flight, so
+    // the badge row can show a spinner and the trigger can debounce a double-tap.
+    val refreshingQuota: Boolean = false,
 )
 
 /**
@@ -105,6 +122,13 @@ class DashboardViewModel(
     // rather than a store so unit tests stay store-free; when false the mirror
     // writes no traffic, matching what the background writers persist.
     private val widgetGraphs: suspend () -> Boolean = { false },
+    // Persists per-surface (MAIN/WIDGET) badge order + hidden set; reconciled
+    // whenever a fresh quota read comes in so newly-seen providers get folded
+    // in.
+    private val configStore: QuotaBadgeConfigStore,
+    // Which polarity (remaining/used) METERED quota badges render, from
+    // Settings. A supplier, like [widgetGraphs], so unit tests stay store-free.
+    private val barMode: suspend () -> QuotaBarMode = { QuotaBarMode.REMAINING },
     private val pollIntervalMs: Long = POLL_INTERVAL_MS,
     private val sseHealthyPollIntervalMs: Long = SSE_HEALTHY_POLL_INTERVAL_MS,
     private val trafficPollMs: Long = TRAFFIC_POLL_MS,
@@ -415,6 +439,12 @@ class DashboardViewModel(
         when (val result = client.members(fdUrl, token)) {
             is FetchResult.Success -> {
                 val autoSync = client.autoSync(fdUrl, token) as? FetchResult.Success
+                // One quota read feeds both surfaces this refresh needs: the
+                // MAIN-ordered list for the dashboard's own badge row, and the
+                // WIDGET-ordered list threaded into this refresh's widget mirror
+                // below (omitting it there used to blank the widget's badges on
+                // every foreground poll tick).
+                val quotaFetch = fetchQuota(token)
                 val liveIds = result.data.mapTo(HashSet()) { it.id }
                 // Each card's pill shows that member's newest event. Front Desk
                 // attaches it inline on the members read (newestEvent), so the common
@@ -477,6 +507,9 @@ class DashboardViewModel(
                         recentEvents = it.recentEvents.filterKeys { id -> id in liveIds } + recentMap,
                         error = null,
                         revoked = false,
+                        // Stale beats blank: a failed quota read keeps the last-good
+                        // list rather than blanking the badge row.
+                        quota = quotaFetch.first ?: it.quota,
                         // Reconcile the pause/resume control: drop the optimistic hint
                         // once it's resolved. Either a live read shows the toggle
                         // caught up (so a change made elsewhere isn't masked by it), or
@@ -510,7 +543,13 @@ class DashboardViewModel(
                         emptyMap()
                     }
                 if (widgetStore.saveIfChanged(
-                        widgetStateOf(result.data, autosyncStale, now(), widgetTraffic),
+                        // quotaFetch.second is already the WIDGET-ordered/capped
+                        // badge list (or, on a failed quota read, the store's
+                        // last-good one) -- the fix for the widget-blanking bug:
+                        // this trailing arg used to be omitted, so every dashboard
+                        // foreground poll tick defaulted it to emptyList() and wiped
+                        // whatever the background poll had written.
+                        widgetStateOf(result.data, autosyncStale, now(), widgetTraffic, quotaFetch.second),
                         widgetGeneration,
                     )
                 ) {
@@ -521,6 +560,73 @@ class DashboardViewModel(
                 _state.update { it.copy(loading = false, revoked = true) }
             is FetchResult.Failure ->
                 _state.update { it.copy(loading = false, error = result.message) }
+        }
+    }
+
+    /**
+     * fetchQuota fetches Front Desk's quota/balance readings once and derives
+     * both surfaces' badge lists off that single read (mirrors the shape of
+     * [com.hugalafutro.bellhop.work.pollFleet]'s quota handling): the
+     * MAIN-ordered list ready for [DashboardUiState.quota], and the
+     * WIDGET-ordered, capped, pre-labeled list ready for [widgetStateOf]'s
+     * trailing quota arg. Both surfaces' [QuotaBadgeConfigStore] entries are
+     * reconciled against the fresh provider names so newly-seen providers get
+     * folded in exactly once per refresh. A failed read returns a null MAIN
+     * list (caller keeps its own last-good one, stale beats blank) and falls
+     * back to the widget store's own last-good badges for the WIDGET side.
+     */
+    private suspend fun fetchQuota(token: String): Pair<List<ProviderQuota>?, List<WidgetQuotaBadge>> =
+        when (val q = client.quota(fdUrl, token)) {
+            is FetchResult.Success -> {
+                val names = q.data.map { it.providerName }
+                configStore.reconcile(QuotaSurface.MAIN, names)
+                configStore.reconcile(QuotaSurface.WIDGET, names)
+                val main = orderedVisible(configStore.config(QuotaSurface.MAIN).first(), q.data)
+                val widget = widgetQuotaOf(q.data, configStore.config(QuotaSurface.WIDGET).first(), barMode())
+                main to widget
+            }
+            else -> null to widgetStore.read()?.quota.orEmpty()
+        }
+
+    /**
+     * refreshQuota is the badge row's manual refresh: tells Front Desk to
+     * re-poll every quota-capable provider right now (POST /api/quota/refresh,
+     * monitor tier -- any paired device may trigger it), then re-reads via
+     * [refreshOnce] so the badges repaint from the fresh [com.hugalafutro.bellhop.data.QuotaEnvelope],
+     * not from the refresh call's own tally. Guarded like the other action
+     * methods against a concurrent tap; [DashboardUiState.refreshingQuota]
+     * flips back off in the `finally` so a request that throws still clears
+     * the spinner.
+     */
+    fun refreshQuota() {
+        if (_state.value.refreshingQuota) return
+        viewModelScope.launch {
+            _state.update { it.copy(refreshingQuota = true) }
+            try {
+                val token = linkStore.token()
+                if (token == null) {
+                    _state.update { it.copy(revoked = true) }
+                    return@launch
+                }
+                when (client.refreshQuota(fdUrl, token)) {
+                    ActionResult.Unauthorized ->
+                        _state.update { it.copy(revoked = true) }
+                    // Quota refresh is monitor tier -- any paired device may
+                    // trigger it -- so Forbidden should never happen; treat it
+                    // as a no-op rather than an error if a stricter Front Desk
+                    // ever returns it, same stance the brief calls for.
+                    ActionResult.Forbidden -> Unit
+                    is ActionResult.Success -> Unit
+                    is ActionResult.Failure -> Unit
+                }
+                // Re-read regardless of the refresh call's own outcome: a
+                // Forbidden/Failure still re-reads (a no-op re-read of the
+                // existing cache is harmless), and a Success's badges only
+                // land via this same re-read path, never off the tally.
+                refreshOnce()
+            } finally {
+                _state.update { it.copy(refreshingQuota = false) }
+            }
         }
     }
 
@@ -585,10 +691,21 @@ class DashboardViewModel(
         private val widgetStore: WidgetStore,
         private val onWidgetWritten: suspend () -> Unit = {},
         private val widgetGraphs: suspend () -> Boolean = { false },
+        private val configStore: QuotaBadgeConfigStore,
+        private val barMode: suspend () -> QuotaBarMode = { QuotaBarMode.REMAINING },
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            DashboardViewModel(client, linkStore, fdUrl, widgetStore, onWidgetWritten, widgetGraphs) as T
+            DashboardViewModel(
+                client,
+                linkStore,
+                fdUrl,
+                widgetStore,
+                onWidgetWritten,
+                widgetGraphs,
+                configStore,
+                barMode,
+            ) as T
     }
 
     companion object {

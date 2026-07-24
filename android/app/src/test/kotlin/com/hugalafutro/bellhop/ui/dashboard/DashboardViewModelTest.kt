@@ -16,7 +16,15 @@ import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.PairedDevice
+import com.hugalafutro.bellhop.data.ProviderQuota
+import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
+import com.hugalafutro.bellhop.data.QuotaBarMode
+import com.hugalafutro.bellhop.data.QuotaRefreshResult
+import com.hugalafutro.bellhop.data.QuotaSurface
+import com.hugalafutro.bellhop.data.QuotaType
 import com.hugalafutro.bellhop.data.SseMessage
+import com.hugalafutro.bellhop.data.WidgetQuotaBadge
+import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -150,6 +158,31 @@ private class FakeFleetClient(
         streamCalls.incrementAndGet()
         return sseFlow
     }
+
+    // Quota badges: canned read plus a call counter so a test can prove
+    // refreshQuota() re-reads (not just fires the refresh POST) and a failed
+    // read leaves the previous list alone.
+    var quotaResult: FetchResult<List<ProviderQuota>> = FetchResult.Success(emptyList())
+    val quotaCalls = AtomicInteger(0)
+
+    override suspend fun quota(
+        fdUrl: String,
+        token: String,
+    ): FetchResult<List<ProviderQuota>> {
+        quotaCalls.incrementAndGet()
+        return quotaResult
+    }
+
+    var refreshQuotaResult: ActionResult<QuotaRefreshResult> = ActionResult.Success(QuotaRefreshResult())
+    val refreshQuotaCalls = AtomicInteger(0)
+
+    override suspend fun refreshQuota(
+        fdUrl: String,
+        token: String,
+    ): ActionResult<QuotaRefreshResult> {
+        refreshQuotaCalls.incrementAndGet()
+        return refreshQuotaResult
+    }
 }
 
 @RunWith(RobolectricTestRunner::class)
@@ -202,6 +235,8 @@ class DashboardViewModelTest {
         widgetStore: WidgetStore = WidgetStore(InMemoryPreferencesDataStore()),
         onWidgetWritten: suspend () -> Unit = {},
         widgetGraphs: suspend () -> Boolean = { false },
+        configStore: QuotaBadgeConfigStore = QuotaBadgeConfigStore(InMemoryPreferencesDataStore()),
+        barMode: suspend () -> QuotaBarMode = { QuotaBarMode.REMAINING },
         pollIntervalMs: Long = DashboardViewModel.POLL_INTERVAL_MS,
         sseHealthyPollIntervalMs: Long = DashboardViewModel.SSE_HEALTHY_POLL_INTERVAL_MS,
         trafficPollMs: Long = DashboardViewModel.TRAFFIC_POLL_MS,
@@ -214,6 +249,8 @@ class DashboardViewModelTest {
             widgetStore,
             onWidgetWritten,
             widgetGraphs,
+            configStore,
+            barMode,
             pollIntervalMs,
             sseHealthyPollIntervalMs,
             trafficPollMs,
@@ -920,5 +957,106 @@ class DashboardViewModelTest {
             withTimeout(5_000) { while (client.memberCalls.get() == afterInitial) delay(20) }
             assertTrue(client.memberCalls.get() > afterInitial)
             job.cancel()
+        }
+
+    private fun quota(
+        name: String,
+        type: QuotaType = QuotaType.OPENROUTER,
+    ) = ProviderQuota(providerName = name, type = type, data = null, fetchedAt = "t", available = true)
+
+    @Test
+    fun refreshExposesMainOrderedVisibleQuota() =
+        runBlocking {
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.quotaResult = FetchResult.Success(listOf(quota("a"), quota("b"), quota("c")))
+            val config = QuotaBadgeConfigStore(InMemoryPreferencesDataStore())
+            // "b" ordered first, "c" hidden: the state's quota list must reflect
+            // both, not the fetch's own arrival order.
+            config.setOrder(QuotaSurface.MAIN, listOf("b", "a"))
+            config.setVisible(QuotaSurface.MAIN, "c", visible = false)
+            val vm = viewModel(client, configStore = config)
+
+            vm.refreshOnce()
+
+            assertEquals(listOf("b", "a"), vm.state.value.quota.map { it.providerName })
+        }
+
+    @Test
+    fun failedQuotaReadKeepsPreviousList() =
+        runBlocking {
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.quotaResult = FetchResult.Success(listOf(quota("a")))
+            val vm = viewModel(client)
+
+            vm.refreshOnce()
+            assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+
+            // A transient quota read failure must not blank the already-good list.
+            client.quotaResult = FetchResult.Failure("nope")
+            vm.refreshOnce()
+            assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+        }
+
+    @Test
+    fun refreshQuotaTriggersRefreshThenReReadsAndClearsFlag() =
+        runBlocking {
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.quotaResult = FetchResult.Success(listOf(quota("a")))
+            val vm = viewModel(client)
+            vm.refreshOnce()
+            assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+
+            // The manual refresh's re-read must see fresh data, not the stale
+            // snapshot from before the POST /api/quota/refresh call.
+            client.quotaResult = FetchResult.Success(listOf(quota("a"), quota("b")))
+
+            vm.refreshQuota()
+            withTimeout(5_000) { vm.state.first { !it.refreshingQuota && it.quota.size == 2 } }
+
+            assertEquals(1, client.refreshQuotaCalls.get())
+            assertEquals(listOf("a", "b"), vm.state.value.quota.map { it.providerName })
+            assertFalse(vm.state.value.refreshingQuota)
+        }
+
+    @Test
+    fun refreshWritesWidgetQuotaBadges() =
+        runBlocking {
+            val widget = WidgetStore(InMemoryPreferencesDataStore())
+            val config = QuotaBadgeConfigStore(InMemoryPreferencesDataStore())
+            // A widget badge is opt-in (new names default hidden on WIDGET), so
+            // pre-place it in the order to keep it visible through reconcile --
+            // same setup as FleetPollTest.successfulPollWritesVisibleWidgetQuota.
+            config.setOrder(QuotaSurface.WIDGET, listOf("a"))
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.quotaResult = FetchResult.Success(listOf(quota("a")))
+            val vm = viewModel(client, widgetStore = widget, configStore = config)
+
+            vm.refreshOnce()
+
+            // This is the widget-blanking fix: the dashboard's own refresh must
+            // thread the fetched quota through to the widget's render model,
+            // not fall back to widgetStateOf's emptyList() default.
+            assertEquals(listOf("a"), widget.read()?.quota?.map { it.providerName })
+        }
+
+    @Test
+    fun dashboardDrivenWidgetWriteDoesNotBlankExistingQuotaOnFailedRead() =
+        runBlocking {
+            val widget = WidgetStore(InMemoryPreferencesDataStore())
+            val prior = listOf(WidgetQuotaBadge("a", "OPENROUTER", "\$7.50"))
+            widget.saveIfChanged(
+                WidgetState(members = emptyList(), updatedAt = 1L, quota = prior),
+                widget.generation(),
+            )
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.quotaResult = FetchResult.Failure("nope")
+            val vm = viewModel(client, widgetStore = widget)
+
+            vm.refreshOnce()
+
+            // Stale beats blank: a failed quota read during a dashboard-driven
+            // refresh must keep the widget's last-good badges, same stance as the
+            // background poll (FleetPollTest.quotaReadFailureKeepsPreviousWidgetBadges).
+            assertEquals(prior, widget.read()?.quota)
         }
 }
