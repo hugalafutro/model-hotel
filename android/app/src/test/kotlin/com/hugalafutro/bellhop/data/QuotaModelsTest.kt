@@ -129,6 +129,130 @@ class QuotaModelsTest {
     }
 
     @Test
+    fun parsesZaiCodingQuotaPayload() {
+        val body =
+            """
+            {"quota":[{"provider_name":"ZAI","type":"zai-coding","kind":"usage",
+            "payload":{"code":0,"msg":"ok","success":true,"data":{"level":"pro","limits":[
+            {"type":"TOKENS_LIMIT","unit":3,"number":100,"usage":10,"currentValue":90,"remaining":90,
+            "percentage":10.0,"nextResetTime":1234567890,"usageDetails":[{"modelCode":"glm-4.6","usage":10}]}]}},
+            "http_status":200,"fetched_at":"2026-07-24T00:00:00Z"}]}
+            """.trimIndent()
+        val env = json.decodeFromString<QuotaEnvelope>(body)
+        val pq = providerQuotaOf(env.quota.single())
+
+        assertEquals(QuotaType.ZAI_CODING, pq.type)
+        assertTrue(pq.available)
+        val data = pq.data as QuotaData.ZaiCoding
+        assertTrue(data.success)
+        assertEquals("pro", data.data.level)
+        assertEquals(10.0, data.data.limits.single().percentage, 0.0)
+        assertEquals(1234567890L, data.data.limits.single().nextResetTime)
+    }
+
+    @Test
+    fun parsesKimiCodeQuotaPayload() {
+        val body =
+            """
+            {"quota":[{"provider_name":"KIMI","type":"kimi-code","kind":"usage",
+            "payload":{"user":{"membership":{"level":"pro"}},
+            "usage":{"limit":"1000000","remaining":"500000","resetTime":"2026-07-25T00:00:00Z"},
+            "limits":[{"window":{"duration":300,"timeUnit":"TIME_UNIT_MINUTE"},
+            "detail":{"limit":"100000","remaining":"40000","resetTime":"2026-07-24T05:00:00Z"}}],
+            "parallel":{"limit":"5"},
+            "totalQuota":{"limit":"2000000","remaining":"900000","resetTime":"2026-08-01T00:00:00Z"}},
+            "http_status":200,"fetched_at":"2026-07-24T00:00:00Z"}]}
+            """.trimIndent()
+        val env = json.decodeFromString<QuotaEnvelope>(body)
+        val pq = providerQuotaOf(env.quota.single())
+
+        assertEquals(QuotaType.KIMI_CODE, pq.type)
+        assertTrue(pq.available)
+        val data = pq.data as QuotaData.KimiCode
+        assertEquals("pro", data.user.membership.level)
+        assertEquals(300, data.limits.single().window.duration)
+        assertEquals("40000", data.limits.single().detail.remaining)
+        assertEquals("900000", data.totalQuota.remaining)
+    }
+
+    @Test
+    fun parsesMiniMaxQuotaPayloadWithSnakeCaseKeys() {
+        val body =
+            """
+            {"quota":[{"provider_name":"MM","type":"minimax","kind":"usage",
+            "payload":{"model_remains":[{"model_name":"general","start_time":1000,"end_time":19000000,
+            "remains_time":18000000,"weekly_remains_time":600000000,"current_interval_status":1,
+            "current_interval_remaining_percent":72.5,"current_weekly_status":1,
+            "current_weekly_remaining_percent":88.0}],"base_resp":{"status_code":0,"status_msg":"ok"}},
+            "http_status":200,"fetched_at":"2026-07-24T00:00:00Z"}]}
+            """.trimIndent()
+        val env = json.decodeFromString<QuotaEnvelope>(body)
+        val pq = providerQuotaOf(env.quota.single())
+
+        assertEquals(QuotaType.MINIMAX, pq.type)
+        assertTrue(pq.available)
+        val data = pq.data as QuotaData.MiniMax
+        val entry = data.modelRemains.single()
+        assertEquals("general", entry.modelName)
+        assertEquals(72.5, entry.currentIntervalRemainingPercent, 0.0)
+        assertEquals(88.0, entry.currentWeeklyRemainingPercent, 0.0)
+        assertEquals(0, data.baseResp.statusCode)
+    }
+
+    @Test
+    fun parsesNeuralWattQuotaPayloadWithSnakeCaseKeys() {
+        val body =
+            """
+            {"quota":[{"provider_name":"NW","type":"neuralwatt","kind":"account",
+            "payload":{"snapshot_at":"2026-07-24T00:00:00Z",
+            "balance":{"credits_remaining_usd":42.5,"total_credits_usd":100.0,"credits_used_usd":57.5,
+            "accounting_method":"prepaid"},
+            "usage":{"lifetime":{"cost_usd":500.0,"requests":1000,"tokens":2000000,"energy_kwh":12.5},
+            "current_month":{"cost_usd":10.0,"requests":20,"tokens":40000,"energy_kwh":0.5}},
+            "limits":{"overage_limit_usd":25.0,"rate_limit_tier":"standard"},
+            "subscription":{"plan":"pro","status":"active","billing_interval":"monthly",
+            "current_period_start":"2026-07-01T00:00:00Z","current_period_end":"2026-08-01T00:00:00Z",
+            "auto_renew":true,"kwh_included":50.0,"kwh_used":20.0,"kwh_remaining":30.0,"in_overage":false},
+            "key":{"name":"prod","allowance":100.0}},
+            "http_status":200,"fetched_at":"2026-07-24T00:00:00Z"}]}
+            """.trimIndent()
+        val env = json.decodeFromString<QuotaEnvelope>(body)
+        val pq = providerQuotaOf(env.quota.single())
+
+        assertEquals(QuotaType.NEURALWATT, pq.type)
+        assertTrue(pq.available)
+        val data = pq.data as QuotaData.NeuralWatt
+        assertEquals(42.5, data.balance.creditsRemainingUsd, 0.0)
+        assertEquals(20.0, data.subscription.kwhUsed, 0.0)
+        assertEquals(100.0, data.key.allowance)
+    }
+
+    @Test
+    fun parsesOllamaCloudPayloadWithSnakeCaseKeys() {
+        val body =
+            """
+            {"quota":[{"provider_name":"OC","type":"ollama-cloud","kind":"account",
+            "payload":{"id":"acc_1","email":"a@b.com","name":"A","plan":"pro",
+            "customer_id":{"string":"cus_1","valid":true},
+            "subscription_id":{"string":"sub_1","valid":true},
+            "subscription_period_start":{"time":"2026-07-01T00:00:00Z","valid":true},
+            "subscription_period_end":{"time":"2026-08-01T00:00:00Z","valid":true},
+            "suspended_at":{"time":"","valid":false}},
+            "http_status":200,"fetched_at":"2026-07-24T00:00:00Z"}]}
+            """.trimIndent()
+        val env = json.decodeFromString<QuotaEnvelope>(body)
+        val pq = providerQuotaOf(env.quota.single())
+
+        assertEquals(QuotaType.OLLAMA_CLOUD, pq.type)
+        assertTrue(pq.available)
+        val data = pq.data as QuotaData.OllamaCloud
+        assertEquals("pro", data.plan)
+        assertEquals("2026-08-01T00:00:00Z", data.subscriptionPeriodEnd.time)
+        assertTrue(data.subscriptionPeriodEnd.valid)
+        assertFalse(data.suspendedAt.valid)
+    }
+
+    @Test
     fun fromWireCoversAllEightKnownTypes() {
         val known =
             mapOf(
