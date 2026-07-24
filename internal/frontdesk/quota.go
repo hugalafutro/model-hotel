@@ -49,3 +49,36 @@ func (s *Server) handleQuota(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"quota": parsed.Snapshots})
 }
+
+// memberRefreshQuotasPath is the primary member's manual quota-refresh route
+// (internal/api Handler.RefreshAllQuotas), which re-polls quota-capable
+// providers' upstream endpoints synchronously.
+const memberRefreshQuotasPath = "/api/providers/refresh-quotas"
+
+// handleQuotaRefresh forces the designated primary member to re-poll its
+// quota-capable providers' upstream endpoints (the pull-to-refresh path),
+// mirroring handleQuota's read side but as a write-through proxy. It is
+// monitor-tier: any paired device may trigger a refresh. No primary
+// designated or an unreachable primary yields a 200 no-op.
+func (s *Server) handleQuotaRefresh(w http.ResponseWriter, r *http.Request) {
+	noop := map[string]any{"refreshed": 0, "failed": 0, "skipped": 0}
+
+	cfg, err := s.store.GetAutoSync(r.Context())
+	if err != nil || cfg.PrimaryID == "" {
+		writeJSON(w, http.StatusOK, noop)
+		return
+	}
+	primary, token, err := s.memberTokenOrErr(r.Context(), cfg.PrimaryID)
+	if err != nil {
+		writeJSON(w, http.StatusOK, noop)
+		return
+	}
+	status, body, err := s.callMember(r.Context(), http.MethodPost, primary.URL, memberRefreshQuotasPath, token, nil)
+	if err != nil || status != http.StatusOK {
+		writeJSON(w, http.StatusOK, noop)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(body)
+}

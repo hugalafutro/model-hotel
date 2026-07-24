@@ -65,3 +65,26 @@ func TestHandleQuota_NoPrimaryReturnsEmpty(t *testing.T) {
 	require.Equal(t, http.StatusOK, rr.Code)
 	require.JSONEq(t, `{"quota":[]}`, rr.Body.String())
 }
+
+func TestHandleQuotaRefresh_ProxiesPrimary(t *testing.T) {
+	member := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "/api/providers/refresh-quotas", r.URL.Path)
+		writeJSON(w, http.StatusOK, map[string]any{"refreshed": 2, "failed": 0, "skipped": 1})
+	}))
+	defer member.Close()
+	s := newTestServerWithPrimary(t, member.URL)
+
+	rr := httptest.NewRecorder()
+	s.handleQuotaRefresh(rr, httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody))
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.Contains(t, rr.Body.String(), `"refreshed":2`)
+}
+
+func TestHandleQuotaRefresh_NoPrimaryReturnsNoOp(t *testing.T) {
+	s := newTestServerNoPrimary(t)
+	rr := httptest.NewRecorder()
+	s.handleQuotaRefresh(rr, httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody))
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.JSONEq(t, `{"refreshed":0,"failed":0,"skipped":0}`, rr.Body.String())
+}
