@@ -28,6 +28,7 @@ import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.data.QuotaData
 import com.hugalafutro.bellhop.data.quotaBadgeLabel
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * QuotaBadgeRow is the dashboard's quota-badge strip: one tappable chip per
@@ -200,10 +201,29 @@ private fun QuotaDetailRows(data: QuotaData) {
                 )
             }
             QuotaDetailRow(stringResource(R.string.quota_field_allow_overage), if (data.allowOverage) yes else no)
+            data.dailyInputTokens?.let { info ->
+                QuotaDetailRow(
+                    stringResource(R.string.quota_field_daily_input_tokens),
+                    "${tokenAmount(info.used)}/${tokenAmount(data.limits.dailyInputTokens)}",
+                )
+            }
+            data.dailyImages?.let { info ->
+                QuotaDetailRow(
+                    stringResource(R.string.quota_field_daily_images),
+                    "${tokenAmount(info.used)}/${tokenAmount(data.limits.dailyImages)}",
+                )
+            }
         }
         is QuotaData.ZaiCoding -> {
             if (data.data.level.isNotBlank()) {
                 QuotaDetailRow(stringResource(R.string.quota_field_plan), data.data.level)
+            }
+            val mcpLimit = data.data.limits.find { it.type == "TIME_LIMIT" && it.unit == 5 }
+            mcpLimit?.let {
+                QuotaDetailRow(
+                    stringResource(R.string.quota_field_mcp_quota),
+                    "${it.percentage.roundToInt()}%",
+                )
             }
         }
         is QuotaData.KimiCode -> {
@@ -224,12 +244,11 @@ private fun QuotaDetailRows(data: QuotaData) {
             }
         }
         is QuotaData.MiniMax -> {
-            val general = data.modelRemains.find { it.modelName == "general" }
-            general?.let {
+            data.modelRemains.forEach { entry ->
                 QuotaDetailRow(
-                    stringResource(R.string.quota_field_status),
+                    entry.modelName,
                     stringResource(
-                        if (it.currentIntervalStatus == 3) {
+                        if (entry.currentIntervalStatus == 3) {
                             R.string.quota_status_not_in_plan
                         } else {
                             R.string.quota_status_in_plan
@@ -291,3 +310,8 @@ private fun isoDatePart(iso: String): String {
  * [com.hugalafutro.bellhop.data]'s widget-facing formatters, so the sheet
  * reads the same on every device regardless of the user's locale. */
 private fun usd(v: Double): String = "$" + String.format(Locale.US, "%.2f", v)
+
+/** tokenAmount formats a token/image count with locale-aware digit grouping;
+ * a null limit (no cap set) renders as "∞", mirroring the web modal's
+ * fallback for an unset per-period limit. */
+private fun tokenAmount(n: Long?): String = if (n == null) "∞" else String.format(Locale.US, "%,d", n)

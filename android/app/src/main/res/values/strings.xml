@@ -294,4 +294,7 @@
     <string name="quota_field_usage_month">Usage this month</string>
     <string name="quota_field_balance_remaining">Balance remaining</string>
     <string name="quota_field_balance_total">Total credits</string>
+    <string name="quota_field_daily_input_tokens">Daily input tokens</string>
+    <string name="quota_field_daily_images">Daily images</string>
+    <string name="quota_field_mcp_quota">MCP quota</string>
 </resources>
