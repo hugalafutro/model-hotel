@@ -109,6 +109,8 @@ class FleetBackstopTest {
     private fun enqueuePoll(healthy: Boolean) {
         server.enqueue(MockResponse().setBody(memberBody(healthy)))
         server.enqueue(MockResponse().setBody("""{"enabled":true,"primary_id":"m1","stale":false}"""))
+        // Every successful poll now also fetches quota (empty here).
+        server.enqueue(MockResponse().setBody("""{"quota":[]}"""))
     }
 
     private suspend fun run(

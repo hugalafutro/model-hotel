@@ -98,6 +98,8 @@ class WidgetRefreshTest {
     ) {
         server.enqueue(MockResponse().setBody(memberBody(healthy)))
         server.enqueue(MockResponse().setBody("""{"enabled":true,"primary_id":"m1","stale":$stale}"""))
+        // Every successful poll now also fetches quota (empty here).
+        server.enqueue(MockResponse().setBody("""{"quota":[]}"""))
     }
 
     @Test
@@ -163,6 +165,7 @@ class WidgetRefreshTest {
             )
             server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
+            server.enqueue(MockResponse().setBody("""{"quota":[]}"""))
 
             val result = refreshWidgetOnly(linkedLinkStore(), widget, client, newConfigStore(), now = { 42L })
 
