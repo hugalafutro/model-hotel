@@ -1,6 +1,7 @@
 package com.hugalafutro.bellhop.widget
 
 import android.content.Context
+import android.content.Intent
 import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -69,6 +70,7 @@ import kotlinx.coroutines.flow.first
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Date
+import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 
 /** BellhopWidgetReceiver is the manifest entry point; all logic is in [BellhopWidget]. */
 class BellhopWidgetReceiver : GlanceAppWidgetReceiver() {
@@ -155,6 +157,35 @@ class WidgetRefreshAction : ActionCallback {
         FleetPollWorker.runWidgetRefresh(context)
     }
 }
+
+// Deep-link contract for a quota badge tap (Task D4 owns the MainActivity
+// side: intent-filter + extra read). Top-level and public so both sides of
+// the contract share the literal instead of duplicating strings.
+const val ACTION_OPEN_QUOTA = "com.hugalafutro.bellhop.OPEN_QUOTA"
+const val EXTRA_BADGE_PROVIDER_NAME = "badge_provider_name"
+
+/**
+ * quotaBadgeIntent builds the explicit intent a quota badge tap fires: same
+ * destination and launch flags as the widget's default open-app tap
+ * (`actionStartActivity<MainActivity>()` below), plus the deep-link
+ * action/extra above so MainActivity can route straight to that provider's
+ * quota sheet. Extracted as a plain function (no Glance/Composable types) so
+ * it is unit-testable without a composition.
+ *
+ * Rendered via the aliased `actionStartActivityIntent` (`androidx.glance.
+ * appwidget.action.actionStartActivity(Intent, ...)`): the core-module
+ * `actionStartActivity` imported above only targets a ComponentName/Class
+ * and can't carry this Intent's custom action + extra.
+ */
+fun quotaBadgeIntent(
+    context: Context,
+    providerName: String,
+): Intent =
+    Intent(context, MainActivity::class.java).apply {
+        action = ACTION_OPEN_QUOTA
+        putExtra(EXTRA_BADGE_PROVIDER_NAME, providerName)
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
 
 // Day/night pairs off the app palette (ui/theme/Color.kt); Glance can't read
 // MaterialTheme, so the pairing is repeated here with the same named colors.
@@ -386,6 +417,33 @@ private fun WidgetContent(
                         }
                     }
                 }
+        }
+        // One badge per configured provider, pre-ordered/filtered/capped by the
+        // poll layer (WIDGET_QUOTA_CAP). A single Row is one Glance child no
+        // matter how many badges it holds, keeping this section cheap against
+        // the 10-child cap the member rows above already have to mind.
+        if (state != null && state.quota.isNotEmpty()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp),
+            ) {
+                state.quota.forEach { badge ->
+                    Box(
+                        modifier =
+                            GlanceModifier
+                                .padding(end = 4.dp)
+                                .background(ImageProvider(R.drawable.widget_pill_bg))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .clickable(actionStartActivityIntent(quotaBadgeIntent(context, badge.providerName))),
+                    ) {
+                        Text(
+                            badge.label,
+                            style = TextStyle(color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Medium),
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
         }
         Spacer(GlanceModifier.defaultWeight())
         // Pinned above the footer rather than under the member rows, so a small
