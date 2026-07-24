@@ -297,4 +297,15 @@
     <string name="quota_field_daily_input_tokens">Daily input tokens</string>
     <string name="quota_field_daily_images">Daily images</string>
     <string name="quota_field_mcp_quota">MCP quota</string>
+
+    <!-- Quota badge configurator (dashboard + widget surfaces) -->
+    <string name="quota_config_title">Quota badges</string>
+    <string name="quota_config_back">Back</string>
+    <string name="quota_config_tab_main">Dashboard</string>
+    <string name="quota_config_tab_widget">Widget</string>
+    <string name="quota_config_mode_title">Badge style</string>
+    <string name="quota_config_mode_remaining">Remaining</string>
+    <string name="quota_config_mode_used">Used</string>
+    <string name="quota_config_empty">No quota-capable providers seen yet.</string>
+    <string name="quota_config_widget_cap">%1$d of %2$d shown on the widget</string>
 </resources>
