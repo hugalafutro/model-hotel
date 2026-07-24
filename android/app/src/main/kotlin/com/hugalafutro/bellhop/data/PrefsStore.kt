@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -60,12 +61,31 @@ class PrefsStore(
         dataStore.edit { it[WIDGET_GRAPHS] = enabled }
     }
 
+    /**
+     * quotaBarMode emits which polarity ([QuotaBarMode.REMAINING] or
+     * [QuotaBarMode.USED]) quota badges show for METERED types; defaults to
+     * REMAINING, matching the web dashboard's default. A stored value this
+     * build doesn't recognize (e.g. from a future build's new mode) falls
+     * back to the default rather than throwing -- same stance as
+     * [WidgetMember.healthState] on an unknown persisted enum name.
+     */
+    val quotaBarMode: Flow<QuotaBarMode> =
+        dataStore.data.map {
+            val stored = it[QUOTA_BAR_MODE] ?: return@map QuotaBarMode.REMAINING
+            runCatching { QuotaBarMode.valueOf(stored) }.getOrDefault(QuotaBarMode.REMAINING)
+        }
+
+    suspend fun setQuotaBarMode(mode: QuotaBarMode) {
+        dataStore.edit { it[QUOTA_BAR_MODE] = mode.name }
+    }
+
     companion object {
         fun create(context: Context): PrefsStore = PrefsStore(context.applicationContext.prefsDataStore)
 
         private val HOLD_TO_COPY = booleanPreferencesKey("hold_to_copy")
         private val GRAPH_RANGE_MINUTES = intPreferencesKey("graph_range_minutes")
         private val WIDGET_GRAPHS = booleanPreferencesKey("widget_graphs")
+        private val QUOTA_BAR_MODE = stringPreferencesKey("quota_bar_mode")
 
         /** Default traffic-graph lookback: the last hour. */
         const val DEFAULT_GRAPH_RANGE_MINUTES = 60

@@ -142,8 +142,25 @@ class WidgetStateTest {
                 )
             }
         val cfg = QuotaBadgeConfig(order = quotas.map { it.providerName }, hidden = setOf("P2"))
-        val badges = widgetQuotaOf(quotas, cfg)
+        val badges = widgetQuotaOf(quotas, cfg, QuotaBarMode.REMAINING)
         assertEquals(WIDGET_QUOTA_CAP, badges.size)
         assertFalse(badges.any { it.providerName == "P2" }) // hidden dropped before the cap
+    }
+
+    @Test
+    fun widgetQuotaThreadsModeIntoLabel() {
+        val quota =
+            ProviderQuota(
+                providerName = "OR",
+                type = QuotaType.OPENROUTER,
+                data = QuotaData.OpenRouter(limitReset = "k", limit = 10.0, creditsRemaining = 4.0),
+                fetchedAt = "t",
+                available = true,
+            )
+        val cfg = QuotaBadgeConfig(order = listOf("OR"), hidden = emptySet())
+        val remaining = widgetQuotaOf(listOf(quota), cfg, QuotaBarMode.REMAINING)
+        val used = widgetQuotaOf(listOf(quota), cfg, QuotaBarMode.USED)
+        // OpenRouter is a BALANCE type: mode doesn't change the figure.
+        assertEquals(remaining.single().label, used.single().label)
     }
 }

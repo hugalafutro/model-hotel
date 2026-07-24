@@ -419,33 +419,50 @@ private fun decodeQuotaPayload(
 // formatted with a fixed Locale so the widget reads the same on every device.
 
 /**
- * quotaBadgeLabel formats [pq] into the short text a badge shows. Unavailable
- * or payload-less quotas (see [ProviderQuota.available]) render as "-",
- * mirroring the web badge's fallback when its balance hook has no data yet.
+ * QuotaBarMode selects which polarity [quotaBadgeLabel] shows for METERED
+ * (percentage/fraction) quota types -- REMAINING or USED -- mirroring the web
+ * dashboard's `QuotaBarMode` (web/src/components/QuotaBadge.tsx), whose
+ * default is also "remaining". BALANCE/credit types (OpenRouter, DeepSeek,
+ * OllamaCloud, NeuralWatt) render the same figure regardless of [mode]: there
+ * is no "used" polarity for an account balance or plan name.
  */
-fun quotaBadgeLabel(pq: ProviderQuota): String {
+enum class QuotaBarMode { REMAINING, USED }
+
+/**
+ * quotaBadgeLabel formats [pq] into the short text a badge shows, in the
+ * polarity [mode] selects for METERED types. Unavailable or payload-less
+ * quotas (see [ProviderQuota.available]) render as "-", mirroring the web
+ * badge's fallback when its balance hook has no data yet.
+ */
+fun quotaBadgeLabel(
+    pq: ProviderQuota,
+    mode: QuotaBarMode,
+): String {
     val data = pq.data
     if (!pq.available || data == null) return "-"
     return when (data) {
-        is QuotaData.NanoGpt ->
-            "${formatTokenCount(data.weeklyInputTokens?.used)}/${formatTokenCount(data.limits.weeklyInputTokens)}"
+        is QuotaData.NanoGpt -> nanoGptBadgeLabel(data, mode)
         is QuotaData.ZaiCoding -> {
             val fiveHour = data.data.limits.find { it.type == "TOKENS_LIMIT" && it.unit == 3 }
             val weekly = data.data.limits.find { it.type == "TOKENS_LIMIT" && it.unit == 6 }
-            "${formatPercent(fiveHour?.percentage)}/${formatPercent(weekly?.percentage)}"
+            val fiveHourPct = applyBarMode(fiveHour?.percentage, mode)
+            val weeklyPct = applyBarMode(weekly?.percentage, mode)
+            "${formatPercent(fiveHourPct)}/${formatPercent(weeklyPct)}"
         }
         is QuotaData.KimiCode -> {
             val fiveHour =
                 data.limits
                     .find { it.window.timeUnit == "TIME_UNIT_MINUTE" && it.window.duration == 300 }
                     ?.detail
-            "${formatPercent(kimiUsedPercent(fiveHour))}/${formatPercent(kimiUsedPercent(data.usage))}"
+            val fiveHourUsed = applyBarMode(kimiUsedPercent(fiveHour), mode)
+            val weeklyUsed = applyBarMode(kimiUsedPercent(data.usage), mode)
+            "${formatPercent(fiveHourUsed)}/${formatPercent(weeklyUsed)}"
         }
         is QuotaData.MiniMax -> {
             val general = data.modelRemains.find { it.modelName == "general" && it.currentIntervalStatus == 1 }
-            val fiveHour = general?.let { 100.0 - it.currentIntervalRemainingPercent }
-            val weekly = general?.let { 100.0 - it.currentWeeklyRemainingPercent }
-            "${formatPercent(fiveHour)}/${formatPercent(weekly)}"
+            val fiveHourUsed = general?.let { 100.0 - it.currentIntervalRemainingPercent }
+            val weeklyUsed = general?.let { 100.0 - it.currentWeeklyRemainingPercent }
+            "${formatPercent(applyBarMode(fiveHourUsed, mode))}/${formatPercent(applyBarMode(weeklyUsed, mode))}"
         }
         is QuotaData.DeepSeek -> {
             val usd = data.balanceInfos.find { it.currency == "USD" }?.totalBalance
@@ -471,6 +488,39 @@ private fun kimiUsedPercent(detail: KimiCodeDetail?): Double? {
     val remaining = detail.remaining.toDoubleOrNull() ?: return null
     if (limit == 0.0) return null
     return (limit - remaining) / limit * 100.0
+}
+
+/**
+ * nanoGptBadgeLabel renders NanoGPT's weekly-token fraction. USED (the prior,
+ * only behavior) shows used/limit; REMAINING shows (limit - used)/limit,
+ * floored at zero, mirroring web's `nanoBadgeContent`.
+ */
+private fun nanoGptBadgeLabel(
+    data: QuotaData.NanoGpt,
+    mode: QuotaBarMode,
+): String {
+    val used = data.weeklyInputTokens?.used
+    val limit = data.limits.weeklyInputTokens
+    val numerator =
+        if (mode == QuotaBarMode.REMAINING) {
+            if (used != null && limit != null) (limit - used).coerceAtLeast(0) else null
+        } else {
+            used
+        }
+    return "${formatTokenCount(numerator)}/${formatTokenCount(limit)}"
+}
+
+/**
+ * applyBarMode converts a used% value into the polarity [mode] wants: USED
+ * passes it through unchanged (the prior, only behavior); REMAINING returns
+ * 100 minus it. Null (no data) propagates through either polarity.
+ */
+private fun applyBarMode(
+    usedPercent: Double?,
+    mode: QuotaBarMode,
+): Double? {
+    if (usedPercent == null) return null
+    return if (mode == QuotaBarMode.USED) usedPercent else 100.0 - usedPercent
 }
 
 private fun formatPercent(pct: Double?): String = if (pct == null) "-" else "${pct.roundToInt()}%"

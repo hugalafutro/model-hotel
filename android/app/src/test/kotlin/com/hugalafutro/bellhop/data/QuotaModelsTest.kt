@@ -268,4 +268,164 @@ class QuotaModelsTest {
         known.forEach { (wire, expected) -> assertEquals(expected, QuotaType.fromWire(wire)) }
         assertEquals(QuotaType.UNKNOWN, QuotaType.fromWire("garbage"))
     }
+
+    // ── quotaBadgeLabel ──────────────────────────────────────────────────
+    // METERED types (NanoGPT, Z.ai Coding, Kimi Code, MiniMax) flip polarity
+    // with mode; BALANCE/credit types (DeepSeek, OpenRouter, Ollama Cloud,
+    // NeuralWatt) render the same figure in either mode.
+
+    private fun pq(
+        data: QuotaData?,
+        type: QuotaType = QuotaType.UNKNOWN,
+        available: Boolean = true,
+    ): ProviderQuota =
+        ProviderQuota(providerName = "P", type = type, data = data, fetchedAt = "t", available = available)
+
+    @Test
+    fun unavailableOrPayloadlessRendersDash() {
+        val unavailable = pq(QuotaData.OpenRouter(creditsRemaining = 4.0), QuotaType.OPENROUTER, available = false)
+        assertEquals("-", quotaBadgeLabel(unavailable, QuotaBarMode.REMAINING))
+
+        val noPayload = pq(null, QuotaType.OPENROUTER, available = true)
+        assertEquals("-", quotaBadgeLabel(noPayload, QuotaBarMode.REMAINING))
+    }
+
+    @Test
+    fun nanoGptUsedModeShowsUsedOverLimit() {
+        val data =
+            QuotaData.NanoGpt(
+                limits = NanoGptLimits(weeklyInputTokens = 1_000_000L),
+                weeklyInputTokens = NanoGptTokenInfo(used = 250_000L, remaining = 750_000L),
+            )
+        assertEquals("250K/1M", quotaBadgeLabel(pq(data, QuotaType.NANOGPT), QuotaBarMode.USED))
+    }
+
+    @Test
+    fun nanoGptRemainingModeShowsRemainingOverLimit() {
+        val data =
+            QuotaData.NanoGpt(
+                limits = NanoGptLimits(weeklyInputTokens = 1_000_000L),
+                weeklyInputTokens = NanoGptTokenInfo(used = 250_000L, remaining = 750_000L),
+            )
+        assertEquals("750K/1M", quotaBadgeLabel(pq(data, QuotaType.NANOGPT), QuotaBarMode.REMAINING))
+    }
+
+    @Test
+    fun nanoGptRemainingFloorsAtZeroWhenUsedExceedsLimit() {
+        // Overage is allowed upstream; the badge must never show a negative fraction.
+        val data =
+            QuotaData.NanoGpt(
+                limits = NanoGptLimits(weeklyInputTokens = 1_000L),
+                weeklyInputTokens = NanoGptTokenInfo(used = 1_500L, remaining = 0L),
+            )
+        assertEquals("0/1K", quotaBadgeLabel(pq(data, QuotaType.NANOGPT), QuotaBarMode.REMAINING))
+    }
+
+    @Test
+    fun nanoGptMissingUsageRendersDashNumerator() {
+        val data = QuotaData.NanoGpt(limits = NanoGptLimits(weeklyInputTokens = 1_000_000L), weeklyInputTokens = null)
+        assertEquals("-/1M", quotaBadgeLabel(pq(data, QuotaType.NANOGPT), QuotaBarMode.USED))
+        assertEquals("-/1M", quotaBadgeLabel(pq(data, QuotaType.NANOGPT), QuotaBarMode.REMAINING))
+    }
+
+    @Test
+    fun zaiCodingUsedAndRemainingPercentages() {
+        val data =
+            QuotaData.ZaiCoding(
+                success = true,
+                data =
+                    ZaiCodingQuotaBody(
+                        limits =
+                            listOf(
+                                ZaiCodingLimit(type = "TOKENS_LIMIT", unit = 3, percentage = 30.0),
+                                ZaiCodingLimit(type = "TOKENS_LIMIT", unit = 6, percentage = 70.0),
+                            ),
+                    ),
+            )
+        val wrapped = pq(data, QuotaType.ZAI_CODING)
+        assertEquals("30%/70%", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("70%/30%", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+    }
+
+    @Test
+    fun kimiCodeUsedAndRemainingPercentages() {
+        val data =
+            QuotaData.KimiCode(
+                usage = KimiCodeDetail(limit = "200000", remaining = "150000"),
+                limits =
+                    listOf(
+                        KimiCodeLimitEntry(
+                            window = KimiCodeWindowSpec(duration = 300, timeUnit = "TIME_UNIT_MINUTE"),
+                            detail = KimiCodeDetail(limit = "100000", remaining = "60000"),
+                        ),
+                    ),
+            )
+        val wrapped = pq(data, QuotaType.KIMI_CODE)
+        assertEquals("40%/25%", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("60%/75%", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+    }
+
+    @Test
+    fun miniMaxUsedAndRemainingPercentages() {
+        val data =
+            QuotaData.MiniMax(
+                modelRemains =
+                    listOf(
+                        MiniMaxModelRemain(
+                            modelName = "general",
+                            currentIntervalStatus = 1,
+                            currentIntervalRemainingPercent = 65.0,
+                            currentWeeklyStatus = 1,
+                            currentWeeklyRemainingPercent = 80.0,
+                        ),
+                    ),
+            )
+        val wrapped = pq(data, QuotaType.MINIMAX)
+        assertEquals("35%/20%", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("65%/80%", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+    }
+
+    @Test
+    fun deepSeekBalanceUnaffectedByMode() {
+        val data =
+            QuotaData.DeepSeek(
+                isAvailable = true,
+                balanceInfos = listOf(DeepSeekBalanceInfo(currency = "USD", totalBalance = "12.34")),
+            )
+        val wrapped = pq(data, QuotaType.DEEPSEEK)
+        assertEquals("$12.34", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("$12.34", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+    }
+
+    @Test
+    fun openRouterBalanceUnaffectedByMode() {
+        val data = QuotaData.OpenRouter(creditsRemaining = 4.0)
+        val wrapped = pq(data, QuotaType.OPENROUTER)
+        assertEquals("$4.00", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("$4.00", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+    }
+
+    @Test
+    fun ollamaCloudPlanUnaffectedByMode() {
+        val data = QuotaData.OllamaCloud(plan = "pro")
+        val wrapped = pq(data, QuotaType.OLLAMA_CLOUD)
+        assertEquals("pro", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("pro", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+    }
+
+    @Test
+    fun neuralWattUnaffectedByModeWithIncludedAllowance() {
+        val data = QuotaData.NeuralWatt(subscription = NeuralWattSubscription(kwhUsed = 20.0, kwhIncluded = 50.0))
+        val wrapped = pq(data, QuotaType.NEURALWATT)
+        assertEquals("20/50 kWh", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("20/50 kWh", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+    }
+
+    @Test
+    fun neuralWattWithoutIncludedAllowanceShowsUsedOnly() {
+        val data = QuotaData.NeuralWatt(subscription = NeuralWattSubscription(kwhUsed = 20.0, kwhIncluded = 0.0))
+        val wrapped = pq(data, QuotaType.NEURALWATT)
+        assertEquals("20 kWh", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("20 kWh", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+    }
 }

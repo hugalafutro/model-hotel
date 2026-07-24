@@ -71,12 +71,13 @@ const val WIDGET_QUOTA_CAP = 6
  * widgetQuotaOf resolves [quota] against [config] the same way the main-page
  * badge list does ([orderedVisible]: hidden/unavailable names dropped, order
  * preserved), then trims to [WIDGET_QUOTA_CAP] and precomputes each badge's
- * short [WidgetQuotaBadge.label] via [quotaBadgeLabel] so the widget's render
- * stays pure-string.
+ * short [WidgetQuotaBadge.label] via [quotaBadgeLabel] (in [mode]'s polarity)
+ * so the widget's render stays pure-string.
  */
 fun widgetQuotaOf(
     quota: List<ProviderQuota>,
     config: QuotaBadgeConfig,
+    mode: QuotaBarMode,
 ): List<WidgetQuotaBadge> =
     orderedVisible(config, quota)
         .take(WIDGET_QUOTA_CAP)
@@ -84,7 +85,7 @@ fun widgetQuotaOf(
             WidgetQuotaBadge(
                 providerName = it.providerName,
                 type = it.type.name,
-                label = quotaBadgeLabel(it),
+                label = quotaBadgeLabel(it, mode),
             )
         }
 
