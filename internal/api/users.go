@@ -165,7 +165,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, err.Error(), nil)
 		return
 	}
-	hash, err := user.HashPassword(req.Password)
+	hash, err := user.HashPassword(r.Context(), req.Password)
 	if err != nil {
 		respondError(w, "failed to hash password", err, http.StatusInternalServerError)
 		return
@@ -253,7 +253,7 @@ func (h *Handler) SetUserPassword(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, err.Error(), nil)
 		return
 	}
-	hash, err := user.HashPassword(req.Password)
+	hash, err := user.HashPassword(r.Context(), req.Password)
 	if err != nil {
 		respondError(w, "failed to hash password", err, http.StatusInternalServerError)
 		return

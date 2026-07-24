@@ -12,7 +12,7 @@ import (
 // seedUser inserts a user row directly and returns its username.
 func seedUser(t *testing.T, username string, email *string, enabled bool, grants []string) {
 	t.Helper()
-	hash, err := user.HashPassword("seed-password-1")
+	hash, err := user.HashPassword(context.Background(), "seed-password-1")
 	if err != nil {
 		t.Fatalf("hash: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestConfigSync_UsersRoundTrip(t *testing.T) {
 	if !enabled || gotEmail == nil || *gotEmail != email || len(grants) != 1 || grants[0] != "chat" {
 		t.Errorf("row did not converge: enabled=%v email=%v grants=%v", enabled, gotEmail, grants)
 	}
-	if ok, _ := user.VerifyPassword("seed-password-1", hash); !ok {
+	if ok, _ := user.VerifyPassword(context.Background(), "seed-password-1", hash); !ok {
 		t.Error("ported hash does not verify the primary's password")
 	}
 }

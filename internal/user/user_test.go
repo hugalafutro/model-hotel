@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 // ---------------------------------------------------------------------------
 
 func TestHashAndVerifyPassword(t *testing.T) {
-	hash, err := HashPassword("hunter2")
+	hash, err := HashPassword(context.Background(), "hunter2")
 	if err != nil {
 		t.Fatalf("HashPassword: %v", err)
 	}
@@ -50,11 +50,11 @@ func TestHashAndVerifyPassword(t *testing.T) {
 		t.Fatalf("hash not in PHC format: %q", hash)
 	}
 
-	ok, err := VerifyPassword("hunter2", hash)
+	ok, err := VerifyPassword(context.Background(), "hunter2", hash)
 	if err != nil || !ok {
 		t.Fatalf("correct password rejected: ok=%v err=%v", ok, err)
 	}
-	ok, err = VerifyPassword("wrong", hash)
+	ok, err = VerifyPassword(context.Background(), "wrong", hash)
 	if err != nil {
 		t.Fatalf("VerifyPassword(wrong): %v", err)
 	}
@@ -64,11 +64,11 @@ func TestHashAndVerifyPassword(t *testing.T) {
 }
 
 func TestHashPassword_UniqueSalts(t *testing.T) {
-	h1, err := HashPassword("same")
+	h1, err := HashPassword(context.Background(), "same")
 	if err != nil {
 		t.Fatal(err)
 	}
-	h2, err := HashPassword("same")
+	h2, err := HashPassword(context.Background(), "same")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestVerifyPassword_MalformedHash(t *testing.T) {
 		"$argon2id$v=19$m=19456,t=31,p=1$c2FsdA$aGFzaA", // iterations over ceiling
 		"$argon2id$v=19$m=19456,t=2,p=65$c2FsdA$aGFzaA", // threads over ceiling
 	} {
-		if _, err := VerifyPassword("x", bad); !errors.Is(err, ErrHashFormat) {
+		if _, err := VerifyPassword(context.Background(), "x", bad); !errors.Is(err, ErrHashFormat) {
 			t.Errorf("VerifyPassword(%q) err = %v, want ErrHashFormat", bad, err)
 		}
 	}
@@ -108,7 +108,7 @@ func TestVerifyPassword_ConcurrentCorrect(t *testing.T) {
 	if cap(argon2Sem) != argon2MaxConcurrent {
 		t.Fatalf("argon2Sem cap = %d, want %d", cap(argon2Sem), argon2MaxConcurrent)
 	}
-	hash, err := HashPassword("correct horse battery staple")
+	hash, err := HashPassword(context.Background(), "correct horse battery staple")
 	if err != nil {
 		t.Fatalf("HashPassword: %v", err)
 	}
@@ -117,13 +117,13 @@ func TestVerifyPassword_ConcurrentCorrect(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			if ok, err := VerifyPassword("correct horse battery staple", hash); err != nil || !ok {
+			if ok, err := VerifyPassword(context.Background(), "correct horse battery staple", hash); err != nil || !ok {
 				t.Errorf("right password concurrent verify: ok=%v err=%v", ok, err)
 			}
 		}()
 		go func() {
 			defer wg.Done()
-			if ok, err := VerifyPassword("wrong", hash); err != nil || ok {
+			if ok, err := VerifyPassword(context.Background(), "wrong", hash); err != nil || ok {
 				t.Errorf("wrong password concurrent verify: ok=%v err=%v", ok, err)
 			}
 		}()
@@ -179,7 +179,7 @@ func TestNormalizeEmail(t *testing.T) {
 
 func mustCreate(t *testing.T, repo *Repository, username string, email *string, role Role, grants []string) *User {
 	t.Helper()
-	hash, err := HashPassword("test-password")
+	hash, err := HashPassword(context.Background(), "test-password")
 	if err != nil {
 		t.Fatalf("HashPassword: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestRepository_UpdateAndPassword(t *testing.T) {
 		t.Error("updated_at not bumped")
 	}
 
-	newHash, err := HashPassword("rotated")
+	newHash, err := HashPassword(context.Background(), "rotated")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +260,7 @@ func TestRepository_UpdateAndPassword(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ok, _ := VerifyPassword("rotated", got.PasswordHash); !ok {
+	if ok, _ := VerifyPassword(context.Background(), "rotated", got.PasswordHash); !ok {
 		t.Error("rotated password does not verify")
 	}
 
@@ -333,7 +333,7 @@ func TestRepository_DuplicateUsername(t *testing.T) {
 	name := "erin-" + uuid.NewString()
 	mustCreate(t, repo, name, nil, RoleUser, nil)
 
-	hash, err := HashPassword("x")
+	hash, err := HashPassword(context.Background(), "x")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -385,7 +385,7 @@ func TestRepository_CancelledContext(t *testing.T) {
 
 func TestRepository_Limits_RoundTrip(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
-	hash, err := HashPassword("test-password")
+	hash, err := HashPassword(context.Background(), "test-password")
 	if err != nil {
 		t.Fatalf("HashPassword: %v", err)
 	}

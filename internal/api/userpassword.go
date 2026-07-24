@@ -55,7 +55,11 @@ func (h *Handler) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to load user", err, http.StatusInternalServerError)
 		return
 	}
-	match, err := user.VerifyPassword(req.CurrentPassword, u.PasswordHash)
+	match, err := user.VerifyPassword(r.Context(), req.CurrentPassword, u.PasswordHash)
+	if r.Context().Err() != nil {
+		// Caller went away while queued for the Argon2 slot; nothing to answer.
+		return
+	}
 	if err != nil {
 		respondError(w, "failed to verify password", err, http.StatusInternalServerError)
 		return
@@ -73,7 +77,7 @@ func (h *Handler) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, errPasswordBreached.Error(), nil)
 		return
 	}
-	hash, err := user.HashPassword(req.NewPassword)
+	hash, err := user.HashPassword(r.Context(), req.NewPassword)
 	if err != nil {
 		respondError(w, "failed to hash password", err, http.StatusInternalServerError)
 		return
