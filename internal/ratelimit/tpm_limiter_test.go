@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -389,6 +391,48 @@ func TestTPMMiddleware_UserAggregateBudget(t *testing.T) {
 	}
 }
 
+// TestTPMMiddleware_RejectedPerKeyDoesNotDrainOwnerBucket guards against an
+// owner-budget leak. When a request clears the user-aggregate stage but is
+// then rejected by the per-key gate, the owner token it reserved must be
+// returned. Otherwise sustained rejections on one over-cap key would drain
+// the shared owner budget and 429 the owner's other keys, even though those
+// rejected requests never run and so never call Debit.
+func TestTPMMiddleware_RejectedPerKeyDoesNotDrainOwnerBucket(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	// Global default of 1 makes the per-key cap 1, so the per-key gate is the
+	// bottleneck. The owner budget (userTPM) is larger.
+	s.set(settingsKeyTPM, "1")
+	userTPM := 5
+	h := l.Middleware(true)(okHandler())
+
+	// First request on key-a consumes its sole per-key token and one owner
+	// token, and passes.
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, ownedTPMReq("key-a", "uid-1", userTPM))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("first request should pass, got %d", rec.Code)
+	}
+
+	// Hammer key-a past its per-key budget. Each request clears the owner
+	// stage then fails the per-key gate. If the owner token were committed on
+	// rejection, this loop would exhaust the shared owner budget.
+	for i := 0; i < userTPM+3; i++ {
+		rec = httptest.NewRecorder()
+		h.ServeHTTP(rec, ownedTPMReq("key-a", "uid-1", userTPM))
+		if rec.Code != http.StatusTooManyRequests {
+			t.Fatalf("over-cap key-a request %d should be 429, got %d", i, rec.Code)
+		}
+	}
+
+	// Sibling key-b (same owner, its own per-key bucket) must still pass:
+	// key-a's rejections must not have drained the shared owner budget.
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, ownedTPMReq("key-b", "uid-1", userTPM))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sibling key-b should still pass (owner budget intact), got %d", rec.Code)
+	}
+}
+
 // TestTPMLimiter_DebitDebitsOwnerBucket verifies the dual debit: the key's own
 // bucket (when capped) and the owner's aggregate bucket both drop.
 func TestTPMLimiter_DebitDebitsOwnerBucket(t *testing.T) {
@@ -469,6 +513,55 @@ func TestEffectiveTPM_FleetDivisor(t *testing.T) {
 
 	if got := l.effectiveTPM(context.Background()); got != 200 {
 		t.Errorf("effectiveTPM = %d, want 200", got)
+	}
+}
+
+// TestTPMMiddleware_ConcurrentAdmissionReservesTokens guards the admission
+// TOCTOU race: admission must atomically reserve a token, not merely peek at the
+// available count. Under the old non-mutating Tokens() peek, many concurrent
+// requests all observed tokens available before any of them reserved one, so far
+// more than the per-minute burst passed and the budget was blown. okHandler
+// returns immediately and never calls Debit, so nothing but the 1-token
+// admission reservation can throttle: with a burst of tpm, at most tpm requests
+// (plus a negligible sub-millisecond refill) may be admitted no matter how many
+// fire at once.
+func TestTPMMiddleware_ConcurrentAdmissionReservesTokens(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	tpm := 50 // burst == tpm == 50
+	h := l.Middleware(true)(okHandler())
+
+	const N = 200
+	var admitted, rejected int64
+	var wg sync.WaitGroup
+	wg.Add(N)
+	for range N {
+		go func() {
+			defer wg.Done()
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, tpmReq("k", &tpm))
+			switch rec.Code {
+			case http.StatusOK:
+				atomic.AddInt64(&admitted, 1)
+			case http.StatusTooManyRequests:
+				atomic.AddInt64(&rejected, 1)
+			default:
+				t.Errorf("unexpected status %d", rec.Code)
+			}
+		}()
+	}
+	wg.Wait()
+
+	// The sub-millisecond run refills ~0 tokens, so admissions must stay within
+	// the burst. The +2 slack absorbs any tiny refill without letting the old
+	// peek-based regression (which would admit ~all N) slip through.
+	if admitted > int64(tpm+2) {
+		t.Fatalf("admitted %d of %d concurrent requests, want <= %d: admission did not reserve tokens atomically", admitted, N, tpm+2)
+	}
+	if admitted < 1 {
+		t.Fatalf("admitted %d requests, want at least 1", admitted)
+	}
+	if admitted+rejected != N {
+		t.Fatalf("accounting mismatch: admitted=%d rejected=%d, want sum %d", admitted, rejected, N)
 	}
 }
 
