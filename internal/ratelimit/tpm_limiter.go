@@ -28,10 +28,14 @@ const defaultTPM = 0
 // upstream provider is never throttled.
 //
 // Because a request's token cost is unknown until it completes, enforcement is
-// admit-on-past-consumption / debit-on-completion: admission checks the current
-// budget (Allow), and the actual token total is debited afterwards (Debit). A
-// key can therefore overshoot by ~one in-flight request's worth of tokens; this
-// is the standard, accepted behaviour for token rate limiting.
+// admit-on-past-consumption / debit-on-completion: admission reserves one
+// placeholder token (Allow / ReserveN, which also closes the concurrent
+// admission race), and the actual token total is debited afterwards (Debit) on
+// top of that reservation. Each admitted request thus costs its real total plus
+// one placeholder token; the reservation is not reconciled against the debit,
+// so it is a small restrictive surcharge, negligible at realistic budgets. A
+// key can still overshoot by up to its in-flight requests' worth of tokens
+// (bounded by the RPS burst), the standard behaviour for token rate limiting.
 //
 // Like Limiter, the budget lives in-process and is NOT consistent across
 // replicas behind a load balancer (effective limit is ~N× configured with N
@@ -113,9 +117,35 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			userKey, userTPM := userTPMFromCtx(r.Context())
 			userTPM = fleetShareTPM(r.Context(), l.settings, userTPM)
 			l.setAssoc(keyHash, userKey)
+			// The owner token is reserved (not committed) here and only kept
+			// once every later gate passes. A request that clears this stage
+			// but is then rejected by the per-key gate cancels the reservation,
+			// so a rejected request never burns an owner token (Debit only runs
+			// for admitted requests). Without this a single over-cap key would
+			// drain the shared owner budget and 429 the owner's other keys.
+			//
+			// The reservation and its cancellation are pinned to a single `now`
+			// on purpose: an immediately actionable reservation (Delay 0) has
+			// timeToAct == now, and CancelAt only restores tokens when
+			// timeToAct is not before the cancel time. Using time.Now() again
+			// at cancel would make timeToAct earlier than it, turning Cancel
+			// into a no-op and defeating the whole point.
+			now := time.Now()
+			var userRes *rate.Reservation
 			if userKey != "" {
 				userEntry := l.getEntry(userKey, userTPM)
-				if userEntry.limiter.Tokens() < 1 {
+				// ReserveN takes one admission token under the limiter's mutex,
+				// so concurrent requests can't all pass the same non-mutating
+				// peek and blow the budget. Unlike Allow() the reservation is
+				// cancellable; !OK() || DelayFrom(now) > 0 is the exact
+				// equivalent of Allow() returning false (no token available
+				// right now). The reserved token is a placeholder that is not
+				// reconciled: Debit later charges the full total on top of it,
+				// a ~1-token restrictive surcharge, negligible at realistic
+				// budgets.
+				userRes = userEntry.limiter.ReserveN(now, 1)
+				if !userRes.OK() || userRes.DelayFrom(now) > 0 {
+					userRes.CancelAt(now)
 					w.Header().Set("Retry-After", strconv.Itoa(tpmRetryAfter(userEntry.limiter)))
 					util.WriteOpenAIError(w, "user token rate limit exceeded", http.StatusTooManyRequests)
 					return
@@ -129,7 +159,19 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			}
 
 			entry := l.getEntry(keyHash, tpm)
-			if entry.limiter.Tokens() < 1 {
+			// Allow() atomically reserves one admission token under the
+			// limiter's mutex; concurrent requests cannot all pass the same
+			// non-mutating peek. The reserved token is a placeholder that is
+			// not reconciled: Debit later charges the full total on top of it,
+			// a ~1-token restrictive surcharge, negligible at realistic budgets.
+			if !entry.limiter.Allow() {
+				// This request cleared the owner stage but fails here, so return
+				// its held owner token. Leaving it committed would let sustained
+				// per-key rejections drain the shared owner budget even though
+				// none of those requests ever run (Debit is never called).
+				if userRes != nil {
+					userRes.CancelAt(now)
+				}
 				w.Header().Set("Retry-After", strconv.Itoa(tpmRetryAfter(entry.limiter)))
 				util.WriteOpenAIError(w, "token rate limit exceeded", http.StatusTooManyRequests)
 				return
@@ -140,13 +182,16 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 }
 
 // Allow reports whether a request may be admitted for keyHash under the given
-// per-minute token budget. tpm <= 0 means no cap (always allowed). Exposed for
-// testing and reuse; the Middleware performs the same check inline.
+// per-minute token budget, and atomically reserves one admission token when it
+// returns true. tpm <= 0 means no cap (always allowed, no reservation). The
+// reservation is what makes admission race-free: concurrent callers cannot all
+// pass the same non-mutating peek. Exposed for testing and reuse; the
+// Middleware performs the same reserving check inline.
 func (l *TPMLimiter) Allow(keyHash string, tpm int) bool {
 	if tpm <= 0 {
 		return true
 	}
-	return l.getEntry(keyHash, tpm).limiter.Tokens() >= 1
+	return l.getEntry(keyHash, tpm).limiter.Allow()
 }
 
 // Debit removes the actual token total from a key's budget after a request
