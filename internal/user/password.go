@@ -60,6 +60,14 @@ func VerifyPassword(password, encoded string) (bool, error) {
 	if mem == 0 || iters == 0 || threads == 0 {
 		return false, ErrHashFormat
 	}
+	// Reject absurdly large parameters. A malformed or hostile stored hash
+	// (only writable by something that already has DB access) could otherwise
+	// set m to gigabytes and OOM the process on the next verify. These ceilings
+	// sit far above any realistic OWASP hardening (baseline is m=19 MiB, t=2,
+	// p=1), so raising the work factors later stays within bounds.
+	if mem > 1<<20 || iters > 30 || threads > 64 {
+		return false, ErrHashFormat
+	}
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
 	if err != nil {
 		return false, ErrHashFormat

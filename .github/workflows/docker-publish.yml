@@ -32,9 +32,12 @@ jobs:
 
       - name: Resolve version
         id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
             echo "skip_existing=false" >> "$GITHUB_OUTPUT"
           else
             ver=$(tr -d '[:space:]' < .version)
@@ -52,9 +55,11 @@ jobs:
 
       - name: Create git tag
         if: steps.version.outputs.skip_existing == 'false' && github.event_name != 'workflow_dispatch'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          git tag "${{ steps.version.outputs.tag }}"
-          git push origin "${{ steps.version.outputs.tag }}"
+          git tag "$TAG"
+          git push origin "$TAG"
 
       - name: Log in to GHCR
         if: steps.version.outputs.skip_existing == 'false'
