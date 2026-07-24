@@ -50,6 +50,7 @@ var dangerousObjectTypes = map[string]bool{
 	"FOREIGN DATA":      true,
 	"FOREIGN TABLE":     true,
 	"MATERIALIZED VIEW": true,
+	"RULE":              true,
 	"SERVER":            true,
 	"TYPE":              true,
 }

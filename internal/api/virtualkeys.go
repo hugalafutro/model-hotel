@@ -132,11 +132,16 @@ func (h *Handler) ownerUsername(ctx context.Context, ownerID *uuid.UUID) *string
 	return &u.Username
 }
 
-// resolveWriteOwner decides the owner a create/update writes. Non-admins
-// always write their own id: they can neither assign keys to others nor
-// orphan their own. Admins get what they asked for (requested, which may be
-// nil to unassign); a caller without a users row (the env-token admin)
-// behaves like any admin.
+// resolveWriteOwner decides the owner a create/update writes. Non-admins always
+// write their own id: the request-body owner_user_id (the `requested` argument)
+// is deliberately IGNORED for them, so a non-admin can neither assign a key to
+// another owner nor orphan their own. Admins get what they asked for (requested,
+// which may be nil to unassign); a caller without a users row (the env-token
+// admin) behaves like any admin.
+//
+// SECURITY INVARIANT: never honor `requested` for a non-admin caller — doing so
+// is a privilege-escalation / key-reassignment vector. Any refactor that starts
+// threading the body value through for non-admins is a bug.
 func resolveWriteOwner(id *user.Identity, requested *string) (*uuid.UUID, error) {
 	if id != nil && !id.IsAdmin() {
 		return id.UserID, nil

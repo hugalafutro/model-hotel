@@ -76,6 +76,13 @@ func managedBlocksSyncableSettings(ctx context.Context, fs fleetSettings, keys [
 // (providers, virtual keys, custom failover group CRUD, user accounts): every
 // request that reaches it is treated as such a write, so it does no method or
 // path inspection.
+//
+// SECURITY INVARIANT: this is a fleet-ROLE policy gate layered on TOP of the
+// upstream auth middleware (requireGrant/requireAdmin), NOT the authorization
+// control itself. It answers "may this instance accept synced-entity writes at
+// all", not "is this caller authenticated/authorized". Removing or reordering it
+// does not reopen authz (that stays with the upstream middleware) — but it does
+// reopen fleet split-brain writes on a managed member, so keep it mounted.
 func managedWriteGuard(fs fleetSettings) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

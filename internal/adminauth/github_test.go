@@ -599,3 +599,87 @@ func TestGitHubCallbackDisabledClearsCookie(t *testing.T) {
 		t.Fatal("disabled-runtime callback must still clear the login-state cookie")
 	}
 }
+
+func TestNewGitHubHandler_UsesNetguardClient(t *testing.T) {
+	store := newMemStore()
+	sessionMgr := webauthn.NewSessionManager(store)
+	h := NewGitHubHandler(newFakeSettings(map[string]string{}), sessionMgr, mockIPLimiter{}, testMasterKey, "auto")
+	if h.httpClient == nil {
+		t.Fatal("GitHubHandler.httpClient must be an SSRF-guarded netguard client, got nil")
+	}
+	// Prove it is genuinely the netguard-guarded client, not merely non-nil: a
+	// plain http.Client would dial the link-local cloud-metadata address; the
+	// netguard client refuses it at the dial Control hook (169.254.0.0/16).
+	req, err := http.NewRequest(http.MethodGet, "http://169.254.169.254/latest/meta-data/", http.NoBody)
+	if err != nil {
+		t.Fatalf("build metadata request: %v", err)
+	}
+	resp, err := h.httpClient.Do(req)
+	if err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("httpClient reached the link-local metadata address; expected a netguard dial block")
+	}
+	// Assert the SPECIFIC netguard block, not merely any error: a timeout, a
+	// refused connection, or a proxy failure would otherwise let this pass even
+	// after the dial guard is removed. netguard's dialControl returns
+	// "netguard: refusing to connect to blocked address <host>".
+	if !strings.Contains(err.Error(), "netguard: refusing to connect to blocked address") {
+		t.Fatalf("expected a netguard blocked-address dial error, got: %v", err)
+	}
+}
+
+// recordingTransport records the request paths that pass through it, then
+// delegates to inner. It proves Callback routes its OAuth traffic through
+// GitHubHandler.httpClient rather than http.DefaultClient: if the ctx injection
+// in Callback is dropped, oauth2 uses http.DefaultClient, this transport is
+// never exercised, and the routing assertion fails.
+type recordingTransport struct {
+	inner http.RoundTripper
+	mu    sync.Mutex
+	paths []string
+}
+
+func (rt *recordingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	rt.mu.Lock()
+	rt.paths = append(rt.paths, req.URL.Path)
+	rt.mu.Unlock()
+	return rt.inner.RoundTrip(req)
+}
+
+func (rt *recordingTransport) saw(path string) bool {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	for _, p := range rt.paths {
+		if p == path {
+			return true
+		}
+	}
+	return false
+}
+
+func (rt *recordingTransport) recorded() []string {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+	return append([]string(nil), rt.paths...)
+}
+
+// TestGitHubCallback_RoutesOAuthThroughHandlerClient guards the SSRF routing:
+// the token exchange and the GitHub identity calls must travel through
+// h.httpClient (the netguard-guarded client), not http.DefaultClient. Removing
+// the oauth2.HTTPClient ctx injection in Callback makes this fail.
+func TestGitHubCallback_RoutesOAuthThroughHandlerClient(t *testing.T) {
+	m := newGitHubMock(t)
+	h, _, sessionMgr := newGitHubTestHandler(t, m, "admin@example.com")
+
+	rec := &recordingTransport{inner: http.DefaultTransport}
+	h.httpClient = &http.Client{Transport: rec}
+
+	successToken(t, h, sessionMgr)
+
+	if !rec.saw("/login/oauth/access_token") {
+		t.Fatalf("token exchange did not route through h.httpClient; recorded paths: %v", rec.recorded())
+	}
+	if !rec.saw("/user") || !rec.saw("/user/emails") {
+		t.Fatalf("identity calls did not route through h.httpClient; recorded paths: %v", rec.recorded())
+	}
+}
