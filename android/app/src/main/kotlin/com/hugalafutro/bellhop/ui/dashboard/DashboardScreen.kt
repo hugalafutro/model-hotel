@@ -111,6 +111,8 @@ fun DashboardScreen(
     onVisibleMembers: (List<String>) -> Unit = {},
     quotaBarMode: QuotaBarMode = QuotaBarMode.REMAINING,
     onRefreshQuota: () -> Unit = {},
+    deepLinkBadge: String? = null,
+    onDeepLinkConsumed: () -> Unit = {},
     // When true, a long-press on a member card copies it to the clipboard (tap
     // still opens the member). Off leaves the card tap-only (Settings > Hold to copy).
     holdToCopy: Boolean = false,
@@ -135,6 +137,14 @@ fun DashboardScreen(
 
     // Which quota badge's detail sheet is open, if any (keyed by provider name).
     var selectedQuotaBadge by remember { mutableStateOf<String?>(null) }
+    // A widget deep-link (already past the app lock, since this UI only composes
+    // once unlocked) opens that badge's detail sheet, then clears the pending target.
+    LaunchedEffect(deepLinkBadge) {
+        if (deepLinkBadge != null) {
+            selectedQuotaBadge = deepLinkBadge
+            onDeepLinkConsumed()
+        }
+    }
     selectedQuotaBadge?.let { name ->
         ui.quota.firstOrNull { it.providerName == name }?.let { pq ->
             QuotaDetailSheet(pq = pq, mode = quotaBarMode, onDismiss = { selectedQuotaBadge = null })
