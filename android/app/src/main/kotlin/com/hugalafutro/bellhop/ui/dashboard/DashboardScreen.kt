@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -70,6 +71,7 @@ import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
+import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.ui.common.ConfirmOpenUrlDialog
 import com.hugalafutro.bellhop.ui.common.LockFab
 import com.hugalafutro.bellhop.ui.common.Pill
@@ -107,6 +109,8 @@ fun DashboardScreen(
     onSetAutoSync: (Boolean) -> Unit = {},
     onDismissAutoSyncError: () -> Unit = {},
     onVisibleMembers: (List<String>) -> Unit = {},
+    quotaBarMode: QuotaBarMode = QuotaBarMode.REMAINING,
+    onRefreshQuota: () -> Unit = {},
     // When true, a long-press on a member card copies it to the clipboard (tap
     // still opens the member). Off leaves the card tap-only (Settings > Hold to copy).
     holdToCopy: Boolean = false,
@@ -127,6 +131,14 @@ fun DashboardScreen(
     var urlDialogFor by remember { mutableStateOf<FleetMember?>(null) }
     urlDialogFor?.let { member ->
         ConfirmOpenUrlDialog(url = member.url, onDismiss = { urlDialogFor = null })
+    }
+
+    // Which quota badge's detail sheet is open, if any (keyed by provider name).
+    var selectedQuotaBadge by remember { mutableStateOf<String?>(null) }
+    selectedQuotaBadge?.let { name ->
+        ui.quota.firstOrNull { it.providerName == name }?.let { pq ->
+            QuotaDetailSheet(pq = pq, mode = quotaBarMode, onDismiss = { selectedQuotaBadge = null })
+        }
     }
 
     // Build footer: tapping it confirms before leaving for GitHub. Stamped builds
@@ -199,6 +211,37 @@ fun DashboardScreen(
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
+
+            if (ui.quota.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    QuotaBadgeRow(
+                        quota = ui.quota,
+                        mode = quotaBarMode,
+                        onBadgeClick = { selectedQuotaBadge = it },
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(
+                        onClick = onRefreshQuota,
+                        modifier = Modifier.testTag("quota-refresh"),
+                    ) {
+                        if (ui.refreshingQuota) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = stringResource(R.string.quota_refresh),
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
             if (ui.revoked) {
                 StatusBanner(

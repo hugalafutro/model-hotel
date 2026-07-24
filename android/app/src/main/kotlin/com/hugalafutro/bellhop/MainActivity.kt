@@ -45,6 +45,7 @@ import com.hugalafutro.bellhop.data.LockTimeout
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
+import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.shouldLock
 import com.hugalafutro.bellhop.data.shouldLockOnEntry
@@ -222,6 +223,7 @@ fun BellhopApp() {
     val pushEndpoint by monitorStore.endpoint.collectAsStateWithLifecycle(initialValue = null)
     val holdToCopy by prefsStore.holdToCopy.collectAsStateWithLifecycle(initialValue = true)
     val widgetGraphs by prefsStore.widgetGraphs.collectAsStateWithLifecycle(initialValue = false)
+    val quotaBarMode by prefsStore.quotaBarMode.collectAsStateWithLifecycle(initialValue = QuotaBarMode.REMAINING)
     val graphRangeMinutes by
         prefsStore.graphRangeMinutes.collectAsStateWithLifecycle(
             initialValue = PrefsStore.DEFAULT_GRAPH_RANGE_MINUTES,
@@ -545,6 +547,7 @@ fun BellhopApp() {
                         onTogglePush = { togglePush(it) },
                         onToggleHoldToCopy = { scope.launch { prefsStore.setHoldToCopy(it) } },
                         graphRangeMinutes = graphRangeMinutes,
+                        quotaBarMode = quotaBarMode,
                         onSetGraphRange = { scope.launch { prefsStore.setGraphRangeMinutes(it) } },
                         widgetGraphs = widgetGraphs,
                         onToggleWidgetGraphs = {
@@ -602,6 +605,7 @@ private fun LinkedContent(
     onTogglePush: (Boolean) -> Unit,
     onToggleHoldToCopy: (Boolean) -> Unit,
     graphRangeMinutes: Int,
+    quotaBarMode: QuotaBarMode,
     onSetGraphRange: (Int) -> Unit,
     widgetGraphs: Boolean,
     onToggleWidgetGraphs: (Boolean) -> Unit,
@@ -833,6 +837,8 @@ private fun LinkedContent(
             onSetAutoSync = { enabled -> requireOperatorAuth { dashVm.setAutoSync(enabled) } },
             onDismissAutoSyncError = { dashVm.dismissAutoSyncError() },
             onVisibleMembers = dashVm::setVisibleMembers,
+            quotaBarMode = quotaBarMode,
+            onRefreshQuota = { dashVm.refreshQuota() },
             holdToCopy = holdToCopy,
             lockEnabled = lockConfig.enabled,
             onLock = onLock,

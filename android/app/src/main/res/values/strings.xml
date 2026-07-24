@@ -268,4 +268,30 @@
     <string name="widget_event_header">Latest fleet event</string>
     <string name="settings_widget_title">Home-screen widget</string>
     <string name="settings_widget_graphs_subtitle">Traffic graphs: overlay each member with its last hour of requests. Fresh bars cost one extra request per member on each background check.</string>
+
+    <!-- Quota badge detail sheet -->
+    <string name="quota_refresh">Refresh quotas</string>
+    <string name="quota_unavailable">Quota data unavailable</string>
+    <string name="quota_yes">Yes</string>
+    <string name="quota_no">No</string>
+    <string name="quota_status_active">Active</string>
+    <string name="quota_status_inactive">Inactive</string>
+    <string name="quota_status_in_plan">In plan</string>
+    <string name="quota_status_not_in_plan">Not in plan</string>
+    <string name="quota_field_status">Status</string>
+    <string name="quota_field_plan">Plan</string>
+    <string name="quota_field_membership">Membership</string>
+    <string name="quota_field_period_end">Period ends</string>
+    <string name="quota_field_subscription_end">Subscription ends</string>
+    <string name="quota_field_suspended">Suspended</string>
+    <string name="quota_field_allow_overage">Allow overage</string>
+    <string name="quota_field_free_tier">Free tier</string>
+    <string name="quota_field_parallel_limit">Parallel limit</string>
+    <string name="quota_field_total_quota">Total quota</string>
+    <string name="quota_field_credits_total">Credits total</string>
+    <string name="quota_field_credits_used">Credits used</string>
+    <string name="quota_field_usage_today">Usage today</string>
+    <string name="quota_field_usage_month">Usage this month</string>
+    <string name="quota_field_balance_remaining">Balance remaining</string>
+    <string name="quota_field_balance_total">Total credits</string>
 </resources>
