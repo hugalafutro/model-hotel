@@ -1,6 +1,7 @@
 package com.hugalafutro.bellhop.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -126,5 +127,23 @@ class WidgetStateTest {
                 traffic = mapOf("m1" to (1..15).toList()),
             )
         assertEquals((4..15).toList(), state.members.single().traffic)
+    }
+
+    @Test
+    fun widgetQuotaRespectsOrderVisibilityAndCap() {
+        val quotas =
+            (1..8).map {
+                ProviderQuota(
+                    providerName = "P$it",
+                    type = QuotaType.OPENROUTER,
+                    data = QuotaData.OpenRouter(limitReset = "k", limit = 10.0, creditsRemaining = it.toDouble()),
+                    fetchedAt = "t",
+                    available = true,
+                )
+            }
+        val cfg = QuotaBadgeConfig(order = quotas.map { it.providerName }, hidden = setOf("P2"))
+        val badges = widgetQuotaOf(quotas, cfg)
+        assertEquals(WIDGET_QUOTA_CAP, badges.size)
+        assertFalse(badges.any { it.providerName == "P2" }) // hidden dropped before the cap
     }
 }

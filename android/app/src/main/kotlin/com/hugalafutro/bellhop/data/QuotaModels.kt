@@ -6,6 +6,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.decodeFromJsonElement
+import java.util.Locale
+import kotlin.math.roundToInt
 
 // Wire models for GET /api/quota (internal/frontdesk, monitor tier -- any
 // paired device may read/refresh). The envelope is one entry per
@@ -405,4 +407,92 @@ private fun decodeQuotaPayload(
             QuotaType.UNKNOWN -> null
         }
     }.getOrNull()
+}
+
+// ── Badge label formatting ──────────────────────────────────────────────
+// Shared between the widget (this file feeds WidgetState.widgetQuotaOf) and
+// the future main-page badge composable (D2), so the two surfaces never
+// drift on what a badge says. Shapes mirror web/src/components/QuotaBadge.tsx
+// (used-fraction / used-percent / dollars / plan name / kWh) -- data/shape
+// parity, not a code port. These are numeric or symbol fragments (not
+// natural-language copy), so no Android string resources apply, and they are
+// formatted with a fixed Locale so the widget reads the same on every device.
+
+/**
+ * quotaBadgeLabel formats [pq] into the short text a badge shows. Unavailable
+ * or payload-less quotas (see [ProviderQuota.available]) render as "-",
+ * mirroring the web badge's fallback when its balance hook has no data yet.
+ */
+fun quotaBadgeLabel(pq: ProviderQuota): String {
+    val data = pq.data
+    if (!pq.available || data == null) return "-"
+    return when (data) {
+        is QuotaData.NanoGpt ->
+            "${formatTokenCount(data.weeklyInputTokens?.used)}/${formatTokenCount(data.limits.weeklyInputTokens)}"
+        is QuotaData.ZaiCoding -> {
+            val fiveHour = data.data.limits.find { it.type == "TOKENS_LIMIT" && it.unit == 3 }
+            val weekly = data.data.limits.find { it.type == "TOKENS_LIMIT" && it.unit == 6 }
+            "${formatPercent(fiveHour?.percentage)}/${formatPercent(weekly?.percentage)}"
+        }
+        is QuotaData.KimiCode -> {
+            val fiveHour =
+                data.limits
+                    .find { it.window.timeUnit == "TIME_UNIT_MINUTE" && it.window.duration == 300 }
+                    ?.detail
+            "${formatPercent(kimiUsedPercent(fiveHour))}/${formatPercent(kimiUsedPercent(data.usage))}"
+        }
+        is QuotaData.MiniMax -> {
+            val general = data.modelRemains.find { it.modelName == "general" && it.currentIntervalStatus == 1 }
+            val fiveHour = general?.let { 100.0 - it.currentIntervalRemainingPercent }
+            val weekly = general?.let { 100.0 - it.currentWeeklyRemainingPercent }
+            "${formatPercent(fiveHour)}/${formatPercent(weekly)}"
+        }
+        is QuotaData.DeepSeek -> {
+            val usd = data.balanceInfos.find { it.currency == "USD" }?.totalBalance
+            if (usd.isNullOrBlank()) "-" else "$$usd"
+        }
+        is QuotaData.OpenRouter -> "$${formatDollarAmount(data.creditsRemaining)}"
+        is QuotaData.OllamaCloud -> data.plan.ifBlank { "-" }
+        is QuotaData.NeuralWatt -> {
+            val used = data.subscription.kwhUsed
+            val included = data.subscription.kwhIncluded
+            if (included > 0) {
+                "${formatKwhAmount(used)}/${formatKwhAmount(included)} kWh"
+            } else {
+                "${formatKwhAmount(used)} kWh"
+            }
+        }
+    }
+}
+
+/** kimiUsedPercent computes used% from Kimi's wire-string limit/remaining pair. */
+private fun kimiUsedPercent(detail: KimiCodeDetail?): Double? {
+    val limit = detail?.limit?.toDoubleOrNull() ?: return null
+    val remaining = detail.remaining.toDoubleOrNull() ?: return null
+    if (limit == 0.0) return null
+    return (limit - remaining) / limit * 100.0
+}
+
+private fun formatPercent(pct: Double?): String = if (pct == null) "-" else "${pct.roundToInt()}%"
+
+private fun formatDollarAmount(v: Double): String = String.format(Locale.US, "%.2f", v)
+
+private fun formatKwhAmount(v: Double): String = trimTrailingZero(v)
+
+/** formatTokenCount mirrors formatCompact from web/src/utils/format.ts: K/M/B suffixes, one decimal. */
+private fun formatTokenCount(n: Long?): String {
+    if (n == null) return "-"
+    if (n == 0L) return "0"
+    val abs = kotlin.math.abs(n)
+    return when {
+        abs >= 1_000_000_000L -> "${trimTrailingZero(n / 1_000_000_000.0)}B"
+        abs >= 1_000_000L -> "${trimTrailingZero(n / 1_000_000.0)}M"
+        abs >= 1_000L -> "${trimTrailingZero(n / 1_000.0)}K"
+        else -> n.toString()
+    }
+}
+
+private fun trimTrailingZero(v: Double): String {
+    val s = String.format(Locale.US, "%.1f", v)
+    return if (s.endsWith(".0")) s.dropLast(2) else s
 }

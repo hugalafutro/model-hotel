@@ -33,6 +33,21 @@ data class WidgetEvent(
 )
 
 /**
+ * WidgetQuotaBadge is one quota badge on the widget: the provider identity
+ * ([providerName], the wire's own key -- never type or UUID, see
+ * global-constraints badge-identity note) plus [type] (kept as the enum's
+ * wire name so a future build's new type degrades gracefully, same stance as
+ * [WidgetMember.state]) and a precomputed [label] so the Glance render stays
+ * a pure string (no [ProviderQuota]/formatting logic in the render path).
+ */
+@Serializable
+data class WidgetQuotaBadge(
+    val providerName: String,
+    val type: String,
+    val label: String,
+)
+
+/**
  * WidgetState is the widget's whole persisted render model. It is written only
  * by code paths that already fetched the fleet (background poll, foreground
  * refresh, widget refresh tap) so the widget itself never needs the network;
@@ -44,7 +59,34 @@ data class WidgetState(
     val autosyncStale: Boolean = false,
     val newestEvent: WidgetEvent? = null,
     val updatedAt: Long = 0L,
+    // Defaulted so widget state persisted before quota badges existed still
+    // decodes.
+    val quota: List<WidgetQuotaBadge> = emptyList(),
 )
+
+/** WIDGET_QUOTA_CAP is headroom under Glance's 10-child cap, shared with member rows; tuned with the render in C3. */
+const val WIDGET_QUOTA_CAP = 6
+
+/**
+ * widgetQuotaOf resolves [quota] against [config] the same way the main-page
+ * badge list does ([orderedVisible]: hidden/unavailable names dropped, order
+ * preserved), then trims to [WIDGET_QUOTA_CAP] and precomputes each badge's
+ * short [WidgetQuotaBadge.label] via [quotaBadgeLabel] so the widget's render
+ * stays pure-string.
+ */
+fun widgetQuotaOf(
+    quota: List<ProviderQuota>,
+    config: QuotaBadgeConfig,
+): List<WidgetQuotaBadge> =
+    orderedVisible(config, quota)
+        .take(WIDGET_QUOTA_CAP)
+        .map {
+            WidgetQuotaBadge(
+                providerName = it.providerName,
+                type = it.type.name,
+                label = quotaBadgeLabel(it),
+            )
+        }
 
 /** TRAFFIC_BUCKETS is the widget's bar-graph window: one hour of 5-minute buckets. */
 const val TRAFFIC_BUCKETS = 12
@@ -78,6 +120,7 @@ fun widgetStateOf(
     autosyncStale: Boolean,
     now: Long,
     traffic: Map<String, List<Int>> = emptyMap(),
+    quota: List<WidgetQuotaBadge> = emptyList(),
 ): WidgetState =
     WidgetState(
         members =
@@ -98,4 +141,9 @@ fun widgetStateOf(
                 .maxByOrNull { it.createdAt }
                 ?.let { WidgetEvent(it.message, it.createdAt) },
         updatedAt = now,
+        // Writers already computed the badge list via widgetQuotaOf (needs the
+        // fetched ProviderQuota list plus the surface's QuotaBadgeConfig,
+        // neither of which this function otherwise touches); threaded through
+        // verbatim.
+        quota = quota,
     )
