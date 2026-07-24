@@ -26,13 +26,34 @@ const (
 // encoded string; it means DB corruption or a foreign write, never bad input.
 var ErrHashFormat = errors.New("malformed password hash")
 
+// argon2MaxConcurrent bounds how many Argon2id derivations run at once. Argon2
+// is deliberately memory-hard, and password verification runs on the
+// unauthenticated login path where the per-IP and per-account throttles admit a
+// burst before the first failure is recorded. Without this cap a burst of
+// logins multiplies the per-hash memory cost (up to the 128 MiB ceiling in
+// VerifyPassword) into gigabytes of simultaneous allocation and can OOM the
+// process. The semaphore caps aggregate in-flight Argon2 memory at
+// argon2MaxConcurrent times the per-hash cost instead.
+const argon2MaxConcurrent = 4
+
+var argon2Sem = make(chan struct{}, argon2MaxConcurrent)
+
+// argon2IDKey runs argon2.IDKey under the concurrency semaphore. The acquire
+// blocks only briefly: each derivation is CPU-bound and bounded-time, so
+// callers queue rather than pile up unbounded memory.
+func argon2IDKey(password, salt []byte, time, memory uint32, threads uint8, keyLen uint32) []byte {
+	argon2Sem <- struct{}{}
+	defer func() { <-argon2Sem }()
+	return argon2.IDKey(password, salt, time, memory, threads, keyLen)
+}
+
 // HashPassword derives an argon2id hash and returns it in PHC string format.
 func HashPassword(password string) (string, error) {
 	salt := make([]byte, argonSaltLen)
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	key := argon2.IDKey([]byte(password), salt, argonTime, argonMemoryKiB, argonThreads, argonKeyLen)
+	key := argon2IDKey([]byte(password), salt, argonTime, argonMemoryKiB, argonThreads, argonKeyLen)
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
 		argon2.Version, argonMemoryKiB, argonTime, argonThreads,
 		base64.RawStdEncoding.EncodeToString(salt),
@@ -60,13 +81,12 @@ func VerifyPassword(password, encoded string) (bool, error) {
 	if mem == 0 || iters == 0 || threads == 0 {
 		return false, ErrHashFormat
 	}
-	// Reject parameters far above the configured cost. VerifyPassword runs on the
-	// unauthenticated login path, so an oversized m (only settable via DB
-	// corruption or a foreign write) would make every verify allocate that much
-	// memory and OOM the process. The 128 MiB ceiling sits well above the current
-	// cost (19 MiB) and any realistic OWASP hardening, yet is far below the
-	// gigabyte-scale allocation that would exhaust memory; raising the work
-	// factors later stays within bounds.
+	// Reject parameters far above the configured cost — the per-hash companion to
+	// the argon2MaxConcurrent semaphore. Bounding a single derivation to 128 MiB
+	// keeps aggregate in-flight Argon2 memory at argon2MaxConcurrent * 128 MiB even
+	// against a hostile stored hash (only settable via DB corruption or a foreign
+	// write). 128 MiB sits well above the current cost (19 MiB) and any realistic
+	// OWASP hardening, so raising the work factors later stays within bounds.
 	if mem > 128*1024 || iters > 30 || threads > 64 {
 		return false, ErrHashFormat
 	}
@@ -78,6 +98,6 @@ func VerifyPassword(password, encoded string) (bool, error) {
 	if err != nil || len(want) == 0 || len(want) > 512 {
 		return false, ErrHashFormat
 	}
-	got := argon2.IDKey([]byte(password), salt, iters, mem, threads, uint32(len(want))) //nolint:gosec // length bounded to 512 above
+	got := argon2IDKey([]byte(password), salt, iters, mem, threads, uint32(len(want))) //nolint:gosec // length bounded to 512 above
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
 }

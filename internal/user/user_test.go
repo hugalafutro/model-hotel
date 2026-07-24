@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -97,6 +98,37 @@ func TestVerifyPassword_MalformedHash(t *testing.T) {
 			t.Errorf("VerifyPassword(%q) err = %v, want ErrHashFormat", bad, err)
 		}
 	}
+}
+
+// TestVerifyPassword_ConcurrentCorrect exercises the argon2 concurrency
+// semaphore: many simultaneous verifications must still return correct results
+// (the semaphore bounds in-flight memory; it must not corrupt or serialize
+// wrongly). cap(argon2Sem) guards the intended concurrency bound.
+func TestVerifyPassword_ConcurrentCorrect(t *testing.T) {
+	if cap(argon2Sem) != argon2MaxConcurrent {
+		t.Fatalf("argon2Sem cap = %d, want %d", cap(argon2Sem), argon2MaxConcurrent)
+	}
+	hash, err := HashPassword("correct horse battery staple")
+	if err != nil {
+		t.Fatalf("HashPassword: %v", err)
+	}
+	var wg sync.WaitGroup
+	for range 64 {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			if ok, err := VerifyPassword("correct horse battery staple", hash); err != nil || !ok {
+				t.Errorf("right password concurrent verify: ok=%v err=%v", ok, err)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			if ok, err := VerifyPassword("wrong", hash); err != nil || ok {
+				t.Errorf("wrong password concurrent verify: ok=%v err=%v", ok, err)
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func TestValidateGrants(t *testing.T) {
