@@ -12,6 +12,7 @@ import com.hugalafutro.bellhop.data.MemberHealthState
 import com.hugalafutro.bellhop.data.MemberTransition
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PairedDevice
+import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
 import com.hugalafutro.bellhop.data.TokenCipher
 import com.hugalafutro.bellhop.data.WidgetStore
 import kotlinx.coroutines.CoroutineScope
@@ -83,6 +84,8 @@ class FleetBackstopTest {
 
     private fun widgetStore(): WidgetStore = WidgetStore(preferences("widget"))
 
+    private fun newConfigStore(): QuotaBadgeConfigStore = QuotaBadgeConfigStore(preferences("quota-config"))
+
     private fun linkStore(cipher: TokenCipher): LinkStore = LinkStore(preferences("link"), cipher)
 
     private suspend fun linkedTo(
@@ -113,9 +116,17 @@ class FleetBackstopTest {
         link: LinkStore,
         canNotify: Boolean = true,
     ): Result =
-        runBackstop(monitor, link, widgetStore = widgetStore(), client = client, canNotify = canNotify, notify = {
-            fired += it
-        })
+        runBackstop(
+            monitor,
+            link,
+            widgetStore = widgetStore(),
+            client = client,
+            configStore = newConfigStore(),
+            canNotify = canNotify,
+            notify = {
+                fired += it
+            },
+        )
 
     @Test
     fun disabledMonitoringSucceedsWithoutPolling() =
@@ -247,6 +258,7 @@ class FleetBackstopTest {
                     linkedTo(server.url("/").toString()),
                     widgetStore = widgetStore(),
                     client = client,
+                    configStore = newConfigStore(),
                     canNotify = true,
                     notify = { fired += it },
                     retryOnFailure = false,

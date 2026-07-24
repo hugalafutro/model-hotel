@@ -7,6 +7,7 @@ import androidx.work.ListenableWorker.Result
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.PairedDevice
+import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
 import com.hugalafutro.bellhop.data.TokenCipher
 import com.hugalafutro.bellhop.data.WidgetMember
 import com.hugalafutro.bellhop.data.WidgetState
@@ -72,6 +73,8 @@ class WidgetRefreshTest {
 
     private fun newWidgetStore(): WidgetStore = WidgetStore(preferences("widget"))
 
+    private fun newConfigStore(): QuotaBadgeConfigStore = QuotaBadgeConfigStore(preferences("quota-config"))
+
     private fun unlinkedLinkStore(): LinkStore = LinkStore(preferences("link"), passThrough)
 
     private suspend fun linkedLinkStore(): LinkStore =
@@ -106,7 +109,7 @@ class WidgetRefreshTest {
             val widget = newWidgetStore()
             enqueuePoll(healthy = true)
 
-            val result = refreshWidgetOnly(linkedLinkStore(), widget, client, now = { 42L })
+            val result = refreshWidgetOnly(linkedLinkStore(), widget, client, newConfigStore(), now = { 42L })
 
             assertEquals(Result.success(), result)
             assertEquals(listOf(WidgetMember("hotel-1", "UP", id = "m1")), widget.read()?.members)
@@ -118,7 +121,7 @@ class WidgetRefreshTest {
         runBlocking {
             val widget = newWidgetStore()
 
-            val result = refreshWidgetOnly(unlinkedLinkStore(), widget, client, now = { 42L })
+            val result = refreshWidgetOnly(unlinkedLinkStore(), widget, client, newConfigStore(), now = { 42L })
 
             assertEquals(Result.success(), result)
             assertNull(widget.read())
@@ -137,7 +140,7 @@ class WidgetRefreshTest {
             )
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
 
-            val result = refreshWidgetOnly(linkedLinkStore(), widget, client, now = { 42L })
+            val result = refreshWidgetOnly(linkedLinkStore(), widget, client, newConfigStore(), now = { 42L })
 
             // User-initiated one-shot never retries; stale beats blank.
             assertEquals(Result.success(), result)
@@ -161,7 +164,7 @@ class WidgetRefreshTest {
             server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
 
-            val result = refreshWidgetOnly(linkedLinkStore(), widget, client, now = { 42L })
+            val result = refreshWidgetOnly(linkedLinkStore(), widget, client, newConfigStore(), now = { 42L })
 
             assertEquals(Result.success(), result)
             assertEquals(true, widget.read()?.autosyncStale)
