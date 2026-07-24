@@ -152,14 +152,10 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		hash = u.PasswordHash
 	}
 	ok, verr := user.VerifyPassword(r.Context(), req.Password, hash)
-	if r.Context().Err() != nil {
-		// Client disconnected or timed out while queued for the Argon2 slot; the
-		// response is moot and recording a failure would penalize a request that
-		// was never actually answered.
-		return
-	}
-	if verr != nil && u != nil {
-		// A malformed stored hash is corruption, not bad credentials.
+	if verr != nil && u != nil && r.Context().Err() == nil {
+		// A malformed stored hash is corruption, not bad credentials. When the
+		// context was canceled (client gone / queued for the Argon2 slot) verr is
+		// just that cancellation, not a real hash problem, so don't log it.
 		debuglog.Error("userlogin: stored hash malformed", "username", req.Username, "error", verr)
 	}
 	if u == nil || !ok || !u.Enabled {

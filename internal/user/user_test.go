@@ -131,6 +131,35 @@ func TestVerifyPassword_ConcurrentCorrect(t *testing.T) {
 	wg.Wait()
 }
 
+// TestArgon2_ContextCanceledWhileQueued covers the cancellable acquire: with
+// every semaphore slot held, the send blocks and the canceled context must win,
+// so HashPassword/VerifyPassword abandon the slot with ctx.Err() instead of
+// running Argon2 work for a caller that has gone away.
+func TestArgon2_ContextCanceledWhileQueued(t *testing.T) {
+	hash, err := HashPassword(context.Background(), "pw")
+	if err != nil {
+		t.Fatalf("HashPassword: %v", err)
+	}
+	// Saturate the semaphore so the acquire has no free slot and must observe
+	// cancellation. Drained again on the way out.
+	for range argon2MaxConcurrent {
+		argon2Sem <- struct{}{}
+	}
+	defer func() {
+		for range argon2MaxConcurrent {
+			<-argon2Sem
+		}
+	}()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if ok, err := VerifyPassword(ctx, "pw", hash); ok || !errors.Is(err, context.Canceled) {
+		t.Fatalf("VerifyPassword under canceled ctx: ok=%v err=%v, want false + context.Canceled", ok, err)
+	}
+	if _, err := HashPassword(ctx, "pw"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("HashPassword under canceled ctx: err=%v, want context.Canceled", err)
+	}
+}
+
 func TestValidateGrants(t *testing.T) {
 	if err := ValidateGrants(nil); err != nil {
 		t.Errorf("nil grants: %v", err)
