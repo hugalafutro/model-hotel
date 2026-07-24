@@ -23,6 +23,51 @@ func cancelledRequest(method, target, body string) *http.Request {
 	return httptest.NewRequest(method, target, strings.NewReader(body)).WithContext(ctx)
 }
 
+// TestExportSnapshots_IncludesProviderType: the wire snapshot carries the
+// provider's detected type (not just its stored kind), so a consumer (Front
+// Desk, Bellhop) can pick the right badge without re-deriving it.
+func TestExportSnapshots_IncludesProviderType(t *testing.T) {
+	h := newTestHandler(t)
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+
+	prov, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "openrouter-export",
+		BaseURL: "https://openrouter.ai/api/v1",
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+		ProviderID: prov.ID,
+		Kind:       "usage",
+		Payload:    json.RawMessage(`{"used":4}`),
+		HTTPStatus: 200,
+		Source:     "poll",
+	}); err != nil {
+		t.Fatalf("upsert snapshot: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/config/quota-snapshots", http.NoBody)
+	fleet.ExportSnapshots(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var body struct {
+		Snapshots []QuotaSnapshotWire `json:"snapshots"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Snapshots) != 1 {
+		t.Fatalf("want 1 snapshot, got %+v", body.Snapshots)
+	}
+	if body.Snapshots[0].Type != "openrouter" {
+		t.Fatalf("want type=openrouter, got %+v", body.Snapshots[0])
+	}
+}
+
 func TestQuotaFleetExportSnapshots(t *testing.T) {
 	h := newTestHandler(t)
 	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
