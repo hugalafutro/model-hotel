@@ -434,7 +434,7 @@ func TestCheckDangerousObjects_AllTypes(t *testing.T) {
 		"FUNCTION", "AGGREGATE", "TRIGGER", "EXTENSION", "PROCEDURE",
 		"OPERATOR", "CAST", "COLLATION", "CONVERSION", "DOMAIN",
 		"EVENT TRIGGER", "FOREIGN DATA", "FOREIGN TABLE", "MATERIALIZED VIEW",
-		"SERVER", "TYPE",
+		"SERVER", "TYPE", "RULE",
 	}
 
 	for _, objType := range dangerousTypes {
