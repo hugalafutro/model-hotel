@@ -64,7 +64,7 @@ func newLoginFixture(t *testing.T, users ...*user.User) (*UserLoginHandler, *fak
 
 func testUser(t *testing.T, username, password string, enabled bool) *user.User {
 	t.Helper()
-	hash, err := user.HashPassword(password)
+	hash, err := user.HashPassword(context.Background(), password)
 	if err != nil {
 		t.Fatalf("HashPassword: %v", err)
 	}
@@ -633,7 +633,7 @@ func TestUserLogin_TotpPostgresStoreRoundTrip(t *testing.T) {
 	}
 	ctx := context.Background()
 	userRepo := user.NewRepository(apiTestDB.Pool())
-	hash, err := user.HashPassword("correct-horse")
+	hash, err := user.HashPassword(context.Background(), "correct-horse")
 	if err != nil {
 		t.Fatalf("HashPassword: %v", err)
 	}

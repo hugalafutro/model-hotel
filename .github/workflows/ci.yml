@@ -395,12 +395,16 @@ jobs:
         run: cd scripts/coverage && python3 -m unittest discover -p 'test_*.py'
 
       - name: Ensure base ref is available
-        run: git fetch --no-tags origin "${{ github.base_ref }}"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch --no-tags origin "$BASE_REF"
 
       - name: Check diff coverage (90% threshold)
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: >-
           python3 scripts/coverage/diff_coverage.py
-          --diff-base "origin/${{ github.base_ref }}"
+          --diff-base "origin/$BASE_REF"
           --go cov/go/coverage.out
           --lcov "web/=cov/web/lcov.info"
           --lcov "frontdesk/web/=cov/fdweb/lcov.info"
@@ -451,6 +455,7 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           tmp=$(mktemp -d)
@@ -462,7 +467,7 @@ jobs:
           git checkout -q -b badges
           git add coverage.json
           git commit -q -m "chore(badges): coverage $(python3 -c "import json;print(json.load(open('coverage.json'))['message'])")"
-          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" badges:badges
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" badges:badges
 
   # Guards against THIRD-PARTY-NOTICES.md drifting from the actual dependency
   # set: regenerate it and fail if the committed copy differs. The generator is

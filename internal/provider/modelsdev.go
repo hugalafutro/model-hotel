@@ -112,6 +112,11 @@ var modelsDevCache = &ModelsDevCache{}
 // LoadModelsDev fetches the models.dev API and builds the in-memory index.
 // Each call fetches fresh data from the remote API and replaces the cache.
 // It is safe to call concurrently — the write is protected by a mutex.
+//
+// This uses http.DefaultClient, which follows redirects without SSRF checks.
+// Production code must instead call LoadModelsDevWithClient with a client whose
+// transport is backed by a SafeDialer (see cmd/server/main.go); this bare form
+// is retained for tests that exercise the real fetch/error paths.
 func LoadModelsDev(ctx context.Context) error {
 	return modelsDevCache.load(ctx, http.DefaultClient)
 }

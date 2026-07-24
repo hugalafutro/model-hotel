@@ -93,7 +93,7 @@ func (h *UserLoginHandler) Status(w http.ResponseWriter, r *http.Request) {
 // missing user costs the same argon2 work as a wrong password and the
 // endpoint does not leak which usernames exist through response timing.
 var dummyHash = sync.OnceValue(func() string {
-	hash, err := user.HashPassword("model-hotel-timing-equalizer")
+	hash, err := user.HashPassword(context.Background(), "model-hotel-timing-equalizer")
 	if err != nil {
 		// rand.Read failing means the process is in a bad state; the login
 		// path below will fail closed on CreateAuthToken anyway.
@@ -151,9 +151,11 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if u != nil {
 		hash = u.PasswordHash
 	}
-	ok, verr := user.VerifyPassword(req.Password, hash)
-	if verr != nil && u != nil {
-		// A malformed stored hash is corruption, not bad credentials.
+	ok, verr := user.VerifyPassword(r.Context(), req.Password, hash)
+	if verr != nil && u != nil && r.Context().Err() == nil {
+		// A malformed stored hash is corruption, not bad credentials. When the
+		// context was canceled (client gone / queued for the Argon2 slot) verr is
+		// just that cancellation, not a real hash problem, so don't log it.
 		debuglog.Error("userlogin: stored hash malformed", "username", req.Username, "error", verr)
 	}
 	if u == nil || !ok || !u.Enabled {

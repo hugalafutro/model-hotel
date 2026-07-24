@@ -5,6 +5,11 @@
 # web/ workspace (see plans/ha-frontdesk.md).
 packages: []
 
+# Supply-chain cooldown mirrored from web/pnpm-workspace.yaml: refuse dependency
+# versions published < 24h (1440 min) ago during fresh resolution. Only affects
+# install/update/add; --frozen-lockfile CI installs are unaffected. pnpm >= 10.16.
+minimumReleaseAge: 1440
+
 # Transitive build/lint-time dep pins mirrored from web/pnpm-workspace.yaml so
 # the same Dependabot advisories stay closed here. Remove each once a direct
 # dependency requires the patched range on its own.

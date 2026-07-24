@@ -397,7 +397,14 @@ func main() {
 	if cfg.ModelsDevEnabled {
 		loadCtx, loadCancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer loadCancel()
-		if err := provider.LoadModelsDev(loadCtx); err != nil {
+		// Route the catalogue fetch through the SafeDialer so a redirect from
+		// models.dev to a private/reserved address can't be turned into an SSRF,
+		// even though the request URL itself is a fixed constant.
+		modelsDevClient := &http.Client{
+			Transport:     &http.Transport{DialContext: sd.DialContext},
+			CheckRedirect: sd.CheckRedirect,
+		}
+		if err := provider.LoadModelsDevWithClient(loadCtx, modelsDevClient); err != nil {
 			debuglog.Warn("modelsdev: failed to load catalogue", "error", err)
 		}
 	}
