@@ -373,8 +373,12 @@ private fun WidgetContent(
                 // Column translates to a RemoteViews container capped at 10
                 // children, and per-row Spacers blew past it on a 3-member
                 // fleet (the children beyond the cap are silently dropped -
-                // the footer was the casualty). Worst case now: header + 5
-                // rows + pill + weight spacer + footer = 9.
+                // the footer was the casualty). Worst case now sits AT the cap:
+                // header + 5 rows + quota Row + weight spacer + event Column +
+                // footer = 10, no headroom. The quota Row holds all badges as
+                // ONE child (not one-per-badge), so raising WIDGET_QUOTA_CAP is
+                // free here - but adding any new top-level SECTION will silently
+                // drop a child; free a slot (nest a singleton) before doing so.
                 state.members.forEach { member ->
                     Box(
                         contentAlignment = Alignment.BottomStart,
