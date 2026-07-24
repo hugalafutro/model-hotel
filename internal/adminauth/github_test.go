@@ -619,6 +619,13 @@ func TestNewGitHubHandler_UsesNetguardClient(t *testing.T) {
 		_ = resp.Body.Close()
 		t.Fatal("httpClient reached the link-local metadata address; expected a netguard dial block")
 	}
+	// Assert the SPECIFIC netguard block, not merely any error: a timeout, a
+	// refused connection, or a proxy failure would otherwise let this pass even
+	// after the dial guard is removed. netguard's dialControl returns
+	// "netguard: refusing to connect to blocked address <host>".
+	if !strings.Contains(err.Error(), "netguard: refusing to connect to blocked address") {
+		t.Fatalf("expected a netguard blocked-address dial error, got: %v", err)
+	}
 }
 
 // recordingTransport records the request paths that pass through it, then
