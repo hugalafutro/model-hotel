@@ -264,4 +264,47 @@
     <string name="widget_event_header">Laatste vlootgebeurtenis</string>
     <string name="settings_widget_title">Startscherm-widget</string>
     <string name="settings_widget_graphs_subtitle">Verkeersgrafieken: tonen per lid de verzoeken van het afgelopen uur. Verse balken kosten één extra verzoek per lid bij elke achtergrondcontrole.</string>
+
+    <string name="settings_quota_badges_title">Quotabadges</string>
+    <string name="settings_quota_badges_subtitle">Kies welke quotabadges van providers worden getoond op het dashboard en de widget, herschik ze en kies gebruikt of resterend.</string>
+
+    <!-- Quota badge detail sheet -->
+    <string name="quota_refresh">Quota\'s vernieuwen</string>
+    <string name="quota_unavailable">Quotagegevens niet beschikbaar</string>
+    <string name="quota_yes">Ja</string>
+    <string name="quota_no">Nee</string>
+    <string name="quota_status_active">Actief</string>
+    <string name="quota_status_inactive">Inactief</string>
+    <string name="quota_status_in_plan">In abonnement</string>
+    <string name="quota_status_not_in_plan">Niet in abonnement</string>
+    <string name="quota_field_status">Status</string>
+    <string name="quota_field_plan">Abonnement</string>
+    <string name="quota_field_membership">Lidmaatschap</string>
+    <string name="quota_field_period_end">Periode eindigt</string>
+    <string name="quota_field_subscription_end">Abonnement eindigt</string>
+    <string name="quota_field_suspended">Opgeschort</string>
+    <string name="quota_field_allow_overage">Overschrijding toestaan</string>
+    <string name="quota_field_free_tier">Gratis niveau</string>
+    <string name="quota_field_parallel_limit">Parallellimiet</string>
+    <string name="quota_field_total_quota">Totaalquota</string>
+    <string name="quota_field_credits_total">Credits totaal</string>
+    <string name="quota_field_credits_used">Credits gebruikt</string>
+    <string name="quota_field_usage_today">Gebruik vandaag</string>
+    <string name="quota_field_usage_month">Gebruik deze maand</string>
+    <string name="quota_field_balance_remaining">Resterend saldo</string>
+    <string name="quota_field_balance_total">Totaal credits</string>
+    <string name="quota_field_daily_input_tokens">Dagelijkse invoertokens</string>
+    <string name="quota_field_daily_images">Dagelijkse afbeeldingen</string>
+    <string name="quota_field_mcp_quota">MCP-quota</string>
+
+    <!-- Quota badge configurator (dashboard + widget surfaces) -->
+    <string name="quota_config_title">Quotabadges</string>
+    <string name="quota_config_back">Terug</string>
+    <string name="quota_config_tab_main">Dashboard</string>
+    <string name="quota_config_tab_widget">Widget</string>
+    <string name="quota_config_mode_title">Badgestijl</string>
+    <string name="quota_config_mode_remaining">Resterend</string>
+    <string name="quota_config_mode_used">Gebruikt</string>
+    <string name="quota_config_empty">Nog geen providers met quota gezien.</string>
+    <string name="quota_config_widget_cap">%1$d van %2$d getoond op de widget</string>
 </resources>

@@ -264,4 +264,47 @@
     <string name="widget_event_header">Dernier événement de la flotte</string>
     <string name="settings_widget_title">Widget d\'écran d\'accueil</string>
     <string name="settings_widget_graphs_subtitle">Graphiques de trafic : superposent à chaque membre ses requêtes de la dernière heure. Leur fraîcheur coûte une requête de plus par membre à chaque vérification en arrière-plan.</string>
+
+    <string name="settings_quota_badges_title">Badges de quota</string>
+    <string name="settings_quota_badges_subtitle">Choisissez les badges de quota des fournisseurs affichés sur le tableau de bord et le widget, réorganisez-les, et choisissez utilisé ou restant.</string>
+
+    <!-- Quota badge detail sheet -->
+    <string name="quota_refresh">Actualiser les quotas</string>
+    <string name="quota_unavailable">Données de quota indisponibles</string>
+    <string name="quota_yes">Oui</string>
+    <string name="quota_no">Non</string>
+    <string name="quota_status_active">Actif</string>
+    <string name="quota_status_inactive">Inactif</string>
+    <string name="quota_status_in_plan">Dans le forfait</string>
+    <string name="quota_status_not_in_plan">Hors forfait</string>
+    <string name="quota_field_status">Statut</string>
+    <string name="quota_field_plan">Forfait</string>
+    <string name="quota_field_membership">Adhésion</string>
+    <string name="quota_field_period_end">Fin de période</string>
+    <string name="quota_field_subscription_end">Fin d\'abonnement</string>
+    <string name="quota_field_suspended">Suspendu</string>
+    <string name="quota_field_allow_overage">Autoriser le dépassement</string>
+    <string name="quota_field_free_tier">Palier gratuit</string>
+    <string name="quota_field_parallel_limit">Limite parallèle</string>
+    <string name="quota_field_total_quota">Quota total</string>
+    <string name="quota_field_credits_total">Total des crédits</string>
+    <string name="quota_field_credits_used">Crédits utilisés</string>
+    <string name="quota_field_usage_today">Utilisation aujourd\'hui</string>
+    <string name="quota_field_usage_month">Utilisation ce mois-ci</string>
+    <string name="quota_field_balance_remaining">Solde restant</string>
+    <string name="quota_field_balance_total">Crédits totaux</string>
+    <string name="quota_field_daily_input_tokens">Jetons d\'entrée quotidiens</string>
+    <string name="quota_field_daily_images">Images quotidiennes</string>
+    <string name="quota_field_mcp_quota">Quota MCP</string>
+
+    <!-- Quota badge configurator (dashboard + widget surfaces) -->
+    <string name="quota_config_title">Badges de quota</string>
+    <string name="quota_config_back">Retour</string>
+    <string name="quota_config_tab_main">Tableau de bord</string>
+    <string name="quota_config_tab_widget">Widget</string>
+    <string name="quota_config_mode_title">Style de badge</string>
+    <string name="quota_config_mode_remaining">Restant</string>
+    <string name="quota_config_mode_used">Utilisé</string>
+    <string name="quota_config_empty">Aucun fournisseur compatible avec les quotas pour l\'instant.</string>
+    <string name="quota_config_widget_cap">%1$d sur %2$d affichés sur le widget</string>
 </resources>

@@ -258,4 +258,47 @@
     <string name="widget_event_header">最新のフリートイベント</string>
     <string name="settings_widget_title">ホーム画面ウィジェット</string>
     <string name="settings_widget_graphs_subtitle">トラフィックグラフ: 各メンバーに直近1時間のリクエストを重ねて表示します。バックグラウンド確認ごとにメンバーあたり1リクエスト増えます。</string>
+
+    <string name="settings_quota_badges_title">クォータバッジ</string>
+    <string name="settings_quota_badges_subtitle">ダッシュボードとウィジェットに表示するプロバイダーのクォータバッジを選び、並べ替えて、使用量か残量かを選択します。</string>
+
+    <!-- Quota badge detail sheet -->
+    <string name="quota_refresh">クォータを更新</string>
+    <string name="quota_unavailable">クォータデータを利用できません</string>
+    <string name="quota_yes">はい</string>
+    <string name="quota_no">いいえ</string>
+    <string name="quota_status_active">有効</string>
+    <string name="quota_status_inactive">無効</string>
+    <string name="quota_status_in_plan">プランに含まれる</string>
+    <string name="quota_status_not_in_plan">プランに含まれない</string>
+    <string name="quota_field_status">ステータス</string>
+    <string name="quota_field_plan">プラン</string>
+    <string name="quota_field_membership">メンバーシップ</string>
+    <string name="quota_field_period_end">期間終了</string>
+    <string name="quota_field_subscription_end">サブスクリプション終了</string>
+    <string name="quota_field_suspended">停止中</string>
+    <string name="quota_field_allow_overage">超過を許可</string>
+    <string name="quota_field_free_tier">無料ティア</string>
+    <string name="quota_field_parallel_limit">並列実行数の上限</string>
+    <string name="quota_field_total_quota">合計クォータ</string>
+    <string name="quota_field_credits_total">クレジット合計</string>
+    <string name="quota_field_credits_used">使用済みクレジット</string>
+    <string name="quota_field_usage_today">本日の使用量</string>
+    <string name="quota_field_usage_month">今月の使用量</string>
+    <string name="quota_field_balance_remaining">残高</string>
+    <string name="quota_field_balance_total">クレジット総額</string>
+    <string name="quota_field_daily_input_tokens">1日あたりの入力トークン</string>
+    <string name="quota_field_daily_images">1日あたりの画像数</string>
+    <string name="quota_field_mcp_quota">MCP クォータ</string>
+
+    <!-- Quota badge configurator (dashboard + widget surfaces) -->
+    <string name="quota_config_title">クォータバッジ</string>
+    <string name="quota_config_back">戻る</string>
+    <string name="quota_config_tab_main">ダッシュボード</string>
+    <string name="quota_config_tab_widget">ウィジェット</string>
+    <string name="quota_config_mode_title">バッジのスタイル</string>
+    <string name="quota_config_mode_remaining">残量</string>
+    <string name="quota_config_mode_used">使用量</string>
+    <string name="quota_config_empty">クォータに対応するプロバイダーはまだありません。</string>
+    <string name="quota_config_widget_cap">ウィジェットに %2$d 件中 %1$d 件を表示</string>
 </resources>

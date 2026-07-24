@@ -264,4 +264,47 @@
     <string name="widget_event_header">Último evento de la flota</string>
     <string name="settings_widget_title">Widget de pantalla de inicio</string>
     <string name="settings_widget_graphs_subtitle">Gráficas de tráfico: muestran sobre cada miembro sus solicitudes de la última hora. Mantenerlas al día cuesta una solicitud extra por miembro en cada comprobación en segundo plano.</string>
+
+    <string name="settings_quota_badges_title">Insignias de cuota</string>
+    <string name="settings_quota_badges_subtitle">Elige qué insignias de cuota de proveedor se muestran en el dashboard y en el widget, reordénalas y elige usado o restante.</string>
+
+    <!-- Quota badge detail sheet -->
+    <string name="quota_refresh">Actualizar cuotas</string>
+    <string name="quota_unavailable">Datos de cuota no disponibles</string>
+    <string name="quota_yes">Sí</string>
+    <string name="quota_no">No</string>
+    <string name="quota_status_active">Activo</string>
+    <string name="quota_status_inactive">Inactivo</string>
+    <string name="quota_status_in_plan">En el plan</string>
+    <string name="quota_status_not_in_plan">Fuera del plan</string>
+    <string name="quota_field_status">Estado</string>
+    <string name="quota_field_plan">Plan</string>
+    <string name="quota_field_membership">Membresía</string>
+    <string name="quota_field_period_end">Fin del periodo</string>
+    <string name="quota_field_subscription_end">Fin de la suscripción</string>
+    <string name="quota_field_suspended">Suspendido</string>
+    <string name="quota_field_allow_overage">Permitir exceso</string>
+    <string name="quota_field_free_tier">Nivel gratuito</string>
+    <string name="quota_field_parallel_limit">Límite paralelo</string>
+    <string name="quota_field_total_quota">Cuota total</string>
+    <string name="quota_field_credits_total">Total de créditos</string>
+    <string name="quota_field_credits_used">Créditos usados</string>
+    <string name="quota_field_usage_today">Uso de hoy</string>
+    <string name="quota_field_usage_month">Uso de este mes</string>
+    <string name="quota_field_balance_remaining">Saldo restante</string>
+    <string name="quota_field_balance_total">Créditos totales</string>
+    <string name="quota_field_daily_input_tokens">Tokens de entrada diarios</string>
+    <string name="quota_field_daily_images">Imágenes diarias</string>
+    <string name="quota_field_mcp_quota">Cuota de MCP</string>
+
+    <!-- Quota badge configurator (dashboard + widget surfaces) -->
+    <string name="quota_config_title">Insignias de cuota</string>
+    <string name="quota_config_back">Atrás</string>
+    <string name="quota_config_tab_main">Panel</string>
+    <string name="quota_config_tab_widget">Widget</string>
+    <string name="quota_config_mode_title">Estilo de insignia</string>
+    <string name="quota_config_mode_remaining">Restante</string>
+    <string name="quota_config_mode_used">Usado</string>
+    <string name="quota_config_empty">Aún no se han detectado proveedores con cuota.</string>
+    <string name="quota_config_widget_cap">%1$d de %2$d mostrados en el widget</string>
 </resources>

@@ -276,4 +276,47 @@
     <string name="widget_event_header">Posledná udalosť flotily</string>
     <string name="settings_widget_title">Widget na ploche</string>
     <string name="settings_widget_graphs_subtitle">Grafy prevádzky: prekryjú každého člena požiadavkami za poslednú hodinu. Čerstvé stĺpce stoja jednu požiadavku na člena navyše pri každej kontrole na pozadí.</string>
+
+    <string name="settings_quota_badges_title">Odznaky kvót</string>
+    <string name="settings_quota_badges_subtitle">Vyberte, ktoré odznaky kvót poskytovateľov sa zobrazia na dashboarde a vo widgete, usporiadajte ich a zvoľte využité alebo zostávajúce.</string>
+
+    <!-- Quota badge detail sheet -->
+    <string name="quota_refresh">Obnoviť kvóty</string>
+    <string name="quota_unavailable">Údaje o kvóte nie sú dostupné</string>
+    <string name="quota_yes">Áno</string>
+    <string name="quota_no">Nie</string>
+    <string name="quota_status_active">Aktívne</string>
+    <string name="quota_status_inactive">Neaktívne</string>
+    <string name="quota_status_in_plan">V pláne</string>
+    <string name="quota_status_not_in_plan">Mimo plánu</string>
+    <string name="quota_field_status">Stav</string>
+    <string name="quota_field_plan">Plán</string>
+    <string name="quota_field_membership">Členstvo</string>
+    <string name="quota_field_period_end">Koniec obdobia</string>
+    <string name="quota_field_subscription_end">Koniec predplatného</string>
+    <string name="quota_field_suspended">Pozastavené</string>
+    <string name="quota_field_allow_overage">Povoliť prekročenie</string>
+    <string name="quota_field_free_tier">Bezplatná úroveň</string>
+    <string name="quota_field_parallel_limit">Limit súbežných požiadaviek</string>
+    <string name="quota_field_total_quota">Celková kvóta</string>
+    <string name="quota_field_credits_total">Kredity spolu</string>
+    <string name="quota_field_credits_used">Využité kredity</string>
+    <string name="quota_field_usage_today">Využitie dnes</string>
+    <string name="quota_field_usage_month">Využitie tento mesiac</string>
+    <string name="quota_field_balance_remaining">Zostávajúci zostatok</string>
+    <string name="quota_field_balance_total">Celkové kredity</string>
+    <string name="quota_field_daily_input_tokens">Denné vstupné tokeny</string>
+    <string name="quota_field_daily_images">Denné obrázky</string>
+    <string name="quota_field_mcp_quota">Kvóta MCP</string>
+
+    <!-- Quota badge configurator (dashboard + widget surfaces) -->
+    <string name="quota_config_title">Odznaky kvót</string>
+    <string name="quota_config_back">Späť</string>
+    <string name="quota_config_tab_main">Dashboard</string>
+    <string name="quota_config_tab_widget">Widget</string>
+    <string name="quota_config_mode_title">Štýl odznaku</string>
+    <string name="quota_config_mode_remaining">Zostávajúce</string>
+    <string name="quota_config_mode_used">Využité</string>
+    <string name="quota_config_empty">Zatiaľ nie sú vidieť žiadni poskytovatelia s kvótou.</string>
+    <string name="quota_config_widget_cap">%1$d z %2$d zobrazených na widgete</string>
 </resources>
