@@ -35,7 +35,8 @@ const defaultTPM = 0
 // one placeholder token; the reservation is not reconciled against the debit,
 // so it is a small restrictive surcharge, negligible at realistic budgets. A
 // key can still overshoot by up to its in-flight requests' worth of tokens
-// (bounded by the RPS burst), the standard behaviour for token rate limiting.
+// (bounded in practice by the separate RPS limiter's burst), the standard
+// behaviour for token rate limiting.
 //
 // Like Limiter, the budget lives in-process and is NOT consistent across
 // replicas behind a load balancer (effective limit is ~N× configured with N
