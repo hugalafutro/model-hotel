@@ -178,6 +178,53 @@ func TestHandleQuota_UndecodableExportReturnsBadGateway(t *testing.T) {
 	require.Contains(t, rr.Body.String(), `"error"`)
 }
 
+// newTestServerWithPrimaryBody points the primary at a member that answers the
+// export path 200 with the given body, for the shapes that decode as JSON but
+// aren't the export.
+func newTestServerWithPrimaryBody(t *testing.T, body string) *Server {
+	t.Helper()
+	member := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(member.Close)
+	return newTestServerWithPrimary(t, member.URL)
+}
+
+func TestHandleQuota_ExportWithoutSnapshotsKeyReturnsBadGateway(t *testing.T) {
+	// Valid JSON that simply isn't the export -- a proxy's own 200, say. It
+	// would decode into a nil slice and pass for "this fleet has no quota
+	// providers", which is the reading that wipes the device's badges.
+	s := newTestServerWithPrimaryBody(t, `{"detail":"upstream ok"}`)
+	rr := httptest.NewRecorder()
+	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
+	require.Equal(t, http.StatusBadGateway, rr.Code)
+	require.Contains(t, rr.Body.String(), `"error"`)
+}
+
+func TestHandleQuota_ExportWithUnreadableSnapshotsReturnsBadGateway(t *testing.T) {
+	// The key is there but holds something that isn't a snapshot list.
+	s := newTestServerWithPrimaryBody(t, `{"snapshots":"soon"}`)
+	rr := httptest.NewRecorder()
+	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
+	require.Equal(t, http.StatusBadGateway, rr.Code)
+	require.Contains(t, rr.Body.String(), `"error"`)
+}
+
+func TestHandleQuota_EmptyExportIsAnAnswer(t *testing.T) {
+	// The other side of the same coin: a primary that really has no
+	// quota-capable providers sends the key with an empty list, and that is a
+	// truthful empty answer rather than a failure. Null passes too, so a member
+	// that ever marshals the field that way isn't read as broken.
+	for _, body := range []string{`{"snapshots":[]}`, `{"snapshots":null}`} {
+		s := newTestServerWithPrimaryBody(t, body)
+		rr := httptest.NewRecorder()
+		s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
+		require.Equal(t, http.StatusOK, rr.Code, body)
+		require.JSONEq(t, `{"quota":[]}`, rr.Body.String(), body)
+	}
+}
+
 func TestHandleQuotaRefresh_ProxiesPrimary(t *testing.T) {
 	member := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodPost, r.Method)

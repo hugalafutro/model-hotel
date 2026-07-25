@@ -67,8 +67,9 @@ func (s *Server) quotaPrimary(w http.ResponseWriter, r *http.Request, none any) 
 // paired device (monitor tier). It mirrors DistributeQuotaOnce's read side: the
 // primary is the source of truth, Front Desk keeps no copy. With no primary to
 // ask the answer is an empty set; a primary that cannot be reached, does not
-// answer 200, or answers something undecodable is a 502, which leaves the device
-// on its last-good badges (stale beats blank on the Android side).
+// answer 200, or answers something that isn't the export shape is a 502, which
+// leaves the device on its last-good badges (stale beats blank on the Android
+// side).
 func (s *Server) handleQuota(w http.ResponseWriter, r *http.Request) {
 	empty := map[string]any{"quota": []quotaWire{}}
 
@@ -81,17 +82,34 @@ func (s *Server) handleQuota(w http.ResponseWriter, r *http.Request) {
 		writeQuotaUnreachable(w, "could not read the primary's quota snapshots")
 		return
 	}
-	var parsed struct {
-		Snapshots []quotaWire `json:"snapshots"`
-	}
+	// Decoded key-first rather than straight into a struct so a 200 that simply
+	// lacks the snapshots key -- an unrelated JSON object from a proxy or a
+	// captive portal -- fails instead of silently reading as a nil slice, i.e.
+	// as an authoritative "this fleet has no quota-capable providers". A primary
+	// that really has none sends the key with an empty list (ExportSnapshots
+	// builds a non-nil slice), so the truthful empty answer still gets through.
+	var parsed map[string]json.RawMessage
 	if err := json.Unmarshal(body, &parsed); err != nil {
-		// A 200 that isn't the export shape (a proxy's error page, say) means we
-		// still don't know the primary's quota, so it fails like an unreachable
-		// primary rather than reading as "no snapshots".
 		writeQuotaUnreachable(w, "could not decode the primary's quota snapshots")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"quota": parsed.Snapshots})
+	raw, ok := parsed["snapshots"]
+	if !ok {
+		writeQuotaUnreachable(w, "the primary's quota snapshots were missing from its export")
+		return
+	}
+	var snapshots []quotaWire
+	if err := json.Unmarshal(raw, &snapshots); err != nil {
+		writeQuotaUnreachable(w, "could not decode the primary's quota snapshots")
+		return
+	}
+	if snapshots == nil {
+		// The key was present but null. That still answers the question -- the
+		// primary has nothing to report -- so it stays a 200, normalised to a
+		// list rather than reaching the device as "quota": null.
+		snapshots = []quotaWire{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"quota": snapshots})
 }
 
 // memberRefreshQuotasPath is the primary member's manual quota-refresh route
