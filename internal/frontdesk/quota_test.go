@@ -67,7 +67,9 @@ func TestHandleQuota_NoPrimaryReturnsEmpty(t *testing.T) {
 }
 
 // newTestServerWithMissingPrimary designates a primary ID no member row
-// matches, the state left behind when a designated member is deleted.
+// matches. Unreachable through the API -- DeleteMemberIfNotPrimary refuses to
+// remove the designated primary and DeleteMember clears the pointer -- so it
+// stands in for a cleanup that failed partway.
 func newTestServerWithMissingPrimary(t *testing.T) *Server {
 	t.Helper()
 	srv, store := newTestServer(t)
@@ -119,14 +121,15 @@ func newTestServerWithBrokenStore(t *testing.T) *Server {
 	return srv
 }
 
-func TestHandleQuota_MissingPrimaryMemberReturnsEmpty(t *testing.T) {
-	// A designated member that was deleted is a steady state, not a transient
-	// failure: there is nobody left to ask, so an empty set is truthful.
+func TestHandleQuota_MissingPrimaryMemberReturnsBadGateway(t *testing.T) {
+	// A designated id with no member row means a cleanup failed, not that the
+	// fleet stopped having a primary, so its quota is unknown rather than
+	// absent and the device keeps its badges.
 	s := newTestServerWithMissingPrimary(t)
 	rr := httptest.NewRecorder()
 	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
-	require.Equal(t, http.StatusOK, rr.Code)
-	require.JSONEq(t, `{"quota":[]}`, rr.Body.String())
+	require.Equal(t, http.StatusBadGateway, rr.Code)
+	require.Contains(t, rr.Body.String(), `"error"`)
 }
 
 func TestHandleQuota_TokenlessPrimaryReturnsBadGateway(t *testing.T) {
@@ -198,13 +201,14 @@ func TestHandleQuotaRefresh_NoPrimaryReturnsNoOp(t *testing.T) {
 	require.JSONEq(t, `{"results":[],"refreshed":0,"failed":0,"skipped":0}`, rr.Body.String())
 }
 
-func TestHandleQuotaRefresh_MissingPrimaryMemberReturnsNoOp(t *testing.T) {
-	// Deleted designated member: nobody to refresh, so the no-op is honest.
+func TestHandleQuotaRefresh_MissingPrimaryMemberReturnsBadGateway(t *testing.T) {
+	// A designated id with no member row is a failed cleanup, so the refresh
+	// could not run and must not answer like one that ran and found nothing.
 	s := newTestServerWithMissingPrimary(t)
 	rr := httptest.NewRecorder()
 	s.handleQuotaRefresh(rr, httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody))
-	require.Equal(t, http.StatusOK, rr.Code)
-	require.JSONEq(t, `{"results":[],"refreshed":0,"failed":0,"skipped":0}`, rr.Body.String())
+	require.Equal(t, http.StatusBadGateway, rr.Code)
+	require.Contains(t, rr.Body.String(), `"error"`)
 }
 
 func TestHandleQuotaRefresh_TokenlessPrimaryReturnsBadGateway(t *testing.T) {

@@ -2,7 +2,6 @@ package frontdesk
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 )
 
@@ -31,8 +30,8 @@ func writeQuotaUnreachable(w http.ResponseWriter, msg string) {
 // quotaPrimary resolves the member both quota handlers proxy to. When it returns
 // ok=false it has already written the response, so the caller just returns:
 // either a 200 carrying none (the caller's "nothing to report" payload) for the
-// two steady states that legitimately have no primary to ask, or an error status
-// for every failure to reach one that does exist.
+// one steady state with no primary to ask -- none designated -- or an error
+// status for every failure to reach a primary that is designated.
 func (s *Server) quotaPrimary(w http.ResponseWriter, r *http.Request, none any) (*Member, string, bool) {
 	cfg, err := s.store.GetAutoSync(r.Context())
 	if err != nil {
@@ -50,17 +49,15 @@ func (s *Server) quotaPrimary(w http.ResponseWriter, r *http.Request, none any) 
 		return nil, "", false
 	}
 	primary, token, err := s.memberTokenOrErr(r.Context(), cfg.PrimaryID)
-	switch {
-	case errors.Is(err, ErrNotFound):
-		// The designated member row is gone (deleted while still designated):
-		// the same steady state as none designated.
-		writeJSON(w, http.StatusOK, none)
-		return nil, "", false
-	case err != nil:
-		// The primary exists but is unusable to us: no stored admin token
-		// (ErrValidation), an undecryptable one, or a store failure. We could
-		// not ask, which is not the same as "nothing to report".
-		writeQuotaUnreachable(w, "could not authenticate to the fleet primary")
+	if err != nil {
+		// A designated primary we cannot use: no stored admin token
+		// (ErrValidation), an undecryptable one, a store failure, or no member
+		// row at all (ErrNotFound). The dangling-id case is an anomaly rather
+		// than a steady state -- DeleteMemberIfNotPrimary refuses to remove the
+		// designated primary, and DeleteMember clears the pointer -- so it means
+		// a cleanup failed, not that the fleet stopped having a primary. Either
+		// way we could not ask, which is not the same as "nothing to report".
+		writeQuotaUnreachable(w, "could not reach the fleet primary")
 		return nil, "", false
 	}
 	return primary, token, true
