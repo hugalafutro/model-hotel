@@ -86,5 +86,5 @@ func TestHandleQuotaRefresh_NoPrimaryReturnsNoOp(t *testing.T) {
 	rr := httptest.NewRecorder()
 	s.handleQuotaRefresh(rr, httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody))
 	require.Equal(t, http.StatusOK, rr.Code)
-	require.JSONEq(t, `{"refreshed":0,"failed":0,"skipped":0}`, rr.Body.String())
+	require.JSONEq(t, `{"results":[],"refreshed":0,"failed":0,"skipped":0}`, rr.Body.String())
 }

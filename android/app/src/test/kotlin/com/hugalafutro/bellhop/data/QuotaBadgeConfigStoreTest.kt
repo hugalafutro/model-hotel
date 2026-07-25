@@ -1,5 +1,7 @@
 package com.hugalafutro.bellhop.data
 
+import androidx.datastore.preferences.core.mutablePreferencesOf
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -127,6 +129,35 @@ class QuotaBadgeConfigStoreTest {
 
             store.setVisible(QuotaSurface.MAIN, "OR", visible = true)
             assertFalse("OR" in store.config(QuotaSurface.MAIN).first().hidden)
+        }
+
+    @Test
+    fun reconcileLeavesTheStoredRecordAloneWhenNothingIsNew() =
+        runBlocking {
+            // reconcile runs on every quota fetch, so the common case is a no-op.
+            // The seeded record carries a field this build doesn't know: a
+            // re-encode would silently drop it, so its survival is the proof
+            // that nothing was rewritten.
+            val key = stringPreferencesKey("quota_badges_main")
+            val seeded = """{"order":["OR"],"hidden":[],"fieldFromALaterBuild":1}"""
+            val data = InMemoryPreferencesDataStore(mutablePreferencesOf(key to seeded))
+
+            QuotaBadgeConfigStore(data).reconcile(QuotaSurface.MAIN, listOf("OR"))
+
+            assertEquals(seeded, data.data.first()[key])
+        }
+
+    @Test
+    fun reconcileStillWritesWhenAProviderIsNew() =
+        runBlocking {
+            val key = stringPreferencesKey("quota_badges_main")
+            val seeded = """{"order":["OR"],"hidden":[]}"""
+            val data = InMemoryPreferencesDataStore(mutablePreferencesOf(key to seeded))
+            val store = QuotaBadgeConfigStore(data)
+
+            store.reconcile(QuotaSurface.MAIN, listOf("OR", "NG"))
+
+            assertEquals(listOf("OR", "NG"), store.config(QuotaSurface.MAIN).first().order)
         }
 
     private fun quota(name: String): ProviderQuota =

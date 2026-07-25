@@ -61,7 +61,10 @@ const memberRefreshQuotasPath = "/api/providers/refresh-quotas"
 // monitor-tier: any paired device may trigger a refresh. No primary
 // designated or an unreachable primary yields a 200 no-op.
 func (s *Server) handleQuotaRefresh(w http.ResponseWriter, r *http.Request) {
-	noop := map[string]any{"refreshed": 0, "failed": 0, "skipped": 0}
+	// The success path writes the member's body verbatim ({results, refreshed,
+	// failed, skipped}); the no-op carries the same keys with an empty result
+	// list so both paths answer this route with one shape.
+	noop := map[string]any{"results": []any{}, "refreshed": 0, "failed": 0, "skipped": 0}
 
 	cfg, err := s.store.GetAutoSync(r.Context())
 	if err != nil || cfg.PrimaryID == "" {

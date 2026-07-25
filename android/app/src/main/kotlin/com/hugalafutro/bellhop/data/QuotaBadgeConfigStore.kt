@@ -124,8 +124,15 @@ class QuotaBadgeConfigStore(
     ) {
         val key = keyFor(surface)
         dataStore.edit { prefs ->
-            val prev = prefs[key]?.let(::decode) ?: QuotaBadgeConfig()
-            prefs[key] = json.encodeToString(transform(prev))
+            val stored = prefs[key]?.let(::decode)
+            val next = transform(stored ?: QuotaBadgeConfig())
+            // reconcile runs on every successful quota fetch (foreground poll
+            // and background worker) and yields the same config whenever no new
+            // provider appeared, so leave the stored value alone rather than
+            // re-encoding it each time. A missing or undecodable value is still
+            // written, so a corrupt record heals on the next edit.
+            if (stored != null && next == stored) return@edit
+            prefs[key] = json.encodeToString(next)
         }
     }
 
