@@ -96,8 +96,13 @@ private const val WIDGET_QUOTA_PILL_CHROME_DP = 9
  */
 private const val WIDGET_QUOTA_MAX_PER_ROW = 9
 
-/** badgeWidthDp estimates what one badge occupies, label plus pill chrome. */
-private fun badgeWidthDp(badge: WidgetQuotaBadge): Int =
+/**
+ * badgeWidthDp estimates what one badge occupies, label plus pill chrome.
+ * Internal rather than private so the packing tests measure rows with the same
+ * arithmetic the packer uses instead of restating the constants, which is how
+ * they came to check a marker reserve production had already outgrown.
+ */
+internal fun badgeWidthDp(badge: WidgetQuotaBadge): Int =
     badge.label.length * WIDGET_QUOTA_CHAR_DP + WIDGET_QUOTA_PILL_CHROME_DP
 
 /**
@@ -107,8 +112,11 @@ private fun badgeWidthDp(badge: WidgetQuotaBadge): Int =
  * width off the top and the row's badges split only what is left -- which is
  * why the row that carries it is fitted against a budget short by this much,
  * rather than against the full width.
+ *
+ * Internal for the same reason as [badgeWidthDp]: the tests assert against this
+ * number, so they must read it rather than repeat it.
  */
-private const val WIDGET_QUOTA_OVERFLOW_MARKER_DP = 28
+internal const val WIDGET_QUOTA_OVERFLOW_MARKER_DP = 28
 
 /**
  * quotaBadgeRows packs [badges] into the rows the widget renders, keeping the
