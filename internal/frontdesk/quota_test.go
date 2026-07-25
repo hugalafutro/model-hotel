@@ -66,6 +66,60 @@ func TestHandleQuota_NoPrimaryReturnsEmpty(t *testing.T) {
 	require.JSONEq(t, `{"quota":[]}`, rr.Body.String())
 }
 
+// newTestServerWithMissingPrimary designates a primary ID no member row
+// matches, the state left behind when a designated member is deleted.
+func newTestServerWithMissingPrimary(t *testing.T) *Server {
+	t.Helper()
+	srv, store := newTestServer(t)
+	if err := store.SetAutoSync(t.Context(), true, "gone"); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	return srv
+}
+
+// newTestServerWithFailingPrimary points the primary at a member that answers
+// every request with a 500.
+func newTestServerWithFailingPrimary(t *testing.T) *Server {
+	t.Helper()
+	member := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	t.Cleanup(member.Close)
+	return newTestServerWithPrimary(t, member.URL)
+}
+
+func TestHandleQuota_MissingPrimaryMemberReturnsEmpty(t *testing.T) {
+	s := newTestServerWithMissingPrimary(t)
+	rr := httptest.NewRecorder()
+	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.JSONEq(t, `{"quota":[]}`, rr.Body.String())
+}
+
+func TestHandleQuota_UnhappyPrimaryReturnsEmpty(t *testing.T) {
+	s := newTestServerWithFailingPrimary(t)
+	rr := httptest.NewRecorder()
+	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.JSONEq(t, `{"quota":[]}`, rr.Body.String())
+}
+
+func TestHandleQuota_UndecodableExportReturnsEmpty(t *testing.T) {
+	// A 200 whose body isn't the export shape (a proxy's error page, say)
+	// must read as "no snapshots", not propagate to the device.
+	member := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("not json"))
+	}))
+	defer member.Close()
+
+	s := newTestServerWithPrimary(t, member.URL)
+	rr := httptest.NewRecorder()
+	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.JSONEq(t, `{"quota":[]}`, rr.Body.String())
+}
+
 func TestHandleQuotaRefresh_ProxiesPrimary(t *testing.T) {
 	member := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodPost, r.Method)
@@ -83,6 +137,24 @@ func TestHandleQuotaRefresh_ProxiesPrimary(t *testing.T) {
 
 func TestHandleQuotaRefresh_NoPrimaryReturnsNoOp(t *testing.T) {
 	s := newTestServerNoPrimary(t)
+	rr := httptest.NewRecorder()
+	s.handleQuotaRefresh(rr, httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody))
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.JSONEq(t, `{"results":[],"refreshed":0,"failed":0,"skipped":0}`, rr.Body.String())
+}
+
+func TestHandleQuotaRefresh_MissingPrimaryMemberReturnsNoOp(t *testing.T) {
+	s := newTestServerWithMissingPrimary(t)
+	rr := httptest.NewRecorder()
+	s.handleQuotaRefresh(rr, httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody))
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.JSONEq(t, `{"results":[],"refreshed":0,"failed":0,"skipped":0}`, rr.Body.String())
+}
+
+func TestHandleQuotaRefresh_UnhappyPrimaryReturnsNoOp(t *testing.T) {
+	// The refresh is best-effort: a member that can't re-poll leaves the
+	// device on its last-good snapshot rather than surfacing an error.
+	s := newTestServerWithFailingPrimary(t)
 	rr := httptest.NewRecorder()
 	s.handleQuotaRefresh(rr, httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody))
 	require.Equal(t, http.StatusOK, rr.Code)
