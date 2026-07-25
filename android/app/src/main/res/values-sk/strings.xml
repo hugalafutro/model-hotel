@@ -322,7 +322,6 @@
     <string name="quota_config_mode_remaining">Zostávajúce</string>
     <string name="quota_config_mode_used">Využité</string>
     <string name="quota_config_empty">Zatiaľ nie sú vidieť žiadni poskytovatelia s kvótou.</string>
-    <string name="quota_config_widget_cap">Na widget sa zmestí len prvých %1$d</string>
     <string name="quota_config_selected">Zobrazené %1$d z %2$d</string>
     <string name="quota_config_reorder">Presunúť %1$s</string>
 </resources>

@@ -304,7 +304,6 @@
     <string name="quota_config_mode_remaining">剩余</string>
     <string name="quota_config_mode_used">已用</string>
     <string name="quota_config_empty">尚未发现支持配额的服务商。</string>
-    <string name="quota_config_widget_cap">小组件仅能显示前 %1$d 项</string>
     <string name="quota_config_selected">已显示 %2$d 项中的 %1$d 项</string>
     <string name="quota_config_reorder">重新排序 %1$s</string>
 </resources>

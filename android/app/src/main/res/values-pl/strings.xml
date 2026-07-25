@@ -322,7 +322,6 @@
     <string name="quota_config_mode_remaining">Pozostałe</string>
     <string name="quota_config_mode_used">Wykorzystane</string>
     <string name="quota_config_empty">Nie znaleziono jeszcze dostawców obsługujących limity.</string>
-    <string name="quota_config_widget_cap">Na widżecie zmieści się tylko pierwszych %1$d</string>
     <string name="quota_config_selected">Pokazano %1$d z %2$d</string>
     <string name="quota_config_reorder">Zmień kolejność: %1$s</string>
 </resources>

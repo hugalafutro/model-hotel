@@ -39,7 +39,6 @@ import com.hugalafutro.bellhop.data.QuotaBadgeConfig
 import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
 import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.data.QuotaSurface
-import com.hugalafutro.bellhop.data.WIDGET_QUOTA_CAP
 import com.hugalafutro.bellhop.ui.common.FilterPill
 import com.hugalafutro.bellhop.ui.common.ReorderableColumn
 import com.hugalafutro.bellhop.ui.common.bellhopSwitchColors
@@ -132,18 +131,6 @@ fun QuotaBadgesConfigScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp).testTag("quota-config-count"),
-                )
-            }
-            // The widget wraps its badges onto several lines, so a selection that
-            // fits needs no commentary at all -- a cap line reads as a limit being
-            // enforced even when nothing is being dropped. Speak up only when the
-            // selection genuinely outruns WIDGET_QUOTA_CAP.
-            if (surface == QuotaSurface.WIDGET && visibleCount > WIDGET_QUOTA_CAP) {
-                Text(
-                    text = stringResource(R.string.quota_config_widget_cap, WIDGET_QUOTA_CAP),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp).testTag("quota-config-widget-cap"),
                 )
             }
 

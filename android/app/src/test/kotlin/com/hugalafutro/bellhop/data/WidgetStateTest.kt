@@ -131,9 +131,9 @@ class WidgetStateTest {
     }
 
     @Test
-    fun widgetQuotaRespectsOrderVisibilityAndCap() {
+    fun widgetQuotaRespectsOrderAndVisibilityAndKeepsTheWholeSelection() {
         val quotas =
-            (1..WIDGET_QUOTA_CAP + 3).map {
+            (1..15).map {
                 ProviderQuota(
                     providerName = "P$it",
                     type = QuotaType.OPENROUTER,
@@ -144,8 +144,12 @@ class WidgetStateTest {
             }
         val cfg = QuotaBadgeConfig(order = quotas.map { it.providerName }, hidden = setOf("P2"))
         val badges = widgetQuotaOf(quotas, cfg, QuotaBarMode.REMAINING)
-        assertEquals(WIDGET_QUOTA_CAP, badges.size)
-        assertFalse(badges.any { it.providerName == "P2" }) // hidden dropped before the cap
+
+        // Everything the operator selected, uncapped: how many fit is decided at
+        // render time by width, and pre-trimming here would make the widget's
+        // "+N" understate what is missing.
+        assertEquals(14, badges.size)
+        assertFalse(badges.any { it.providerName == "P2" })
     }
 
     @Test
@@ -274,6 +278,34 @@ class WidgetStateTest {
         val rows = quotaBadgeRows(badges, budgetDp = 156)
 
         assertEquals(badges.size, rows.sumOf { it.size } + quotaBadgeOverflow(badges, rows))
+    }
+
+    @Test
+    fun overflowCountsEveryBadgeTheStripLeftOut() {
+        // The marker has to speak for the whole selection. When the badge list
+        // was pre-trimmed before it reached the strip, this arithmetic held
+        // against the trimmed list and the "+N" understated the shortfall.
+        val quotas =
+            (1..15).map {
+                ProviderQuota(
+                    providerName = "P$it",
+                    type = QuotaType.OPENROUTER,
+                    data = QuotaData.OpenRouter(limitReset = "k", limit = 10.0, creditsRemaining = 1.0),
+                    fetchedAt = "t",
+                    available = true,
+                )
+            }
+        val badges =
+            widgetQuotaOf(
+                quotas,
+                QuotaBadgeConfig(order = quotas.map { it.providerName }, hidden = emptySet()),
+                QuotaBarMode.REMAINING,
+            )
+        val rows = quotaBadgeRows(badges, budgetDp = 156)
+
+        assertEquals(15, badges.size)
+        assertEquals(15 - rows.sumOf { it.size }, quotaBadgeOverflow(badges, rows))
+        assertTrue("a 15-badge selection cannot fit a narrow strip", quotaBadgeOverflow(badges, rows) > 0)
     }
 
     @Test
