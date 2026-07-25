@@ -374,4 +374,29 @@ class FleetPollTest {
             // Stale beats blank: a failed quota read keeps the last-good badges.
             assertEquals(prior, widget.read()?.quota)
         }
+
+    @Test
+    fun badGatewayQuotaReadKeepsPreviousWidgetBadges() =
+        runBlocking {
+            val store = newStore()
+            store.setEnabled(true)
+            val widget = newWidgetStore()
+            val prior = listOf(WidgetQuotaBadge("or-1", "OPENROUTER", "\$7.50"))
+            widget.saveIfChanged(
+                WidgetState(members = listOf(WidgetMember("hotel-1", "UP", id = "m1")), quota = prior),
+                widget.generation(),
+            )
+            server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
+            server.enqueue(MockResponse().setBody(autoSyncBody(false)))
+            // Front Desk's 502 for an unreachable primary, body and all: the
+            // envelope parses into a zero-entry list, so this is the case where
+            // ignoring the status would silently blank the widget's badges rather
+            // than fail loudly. Separate from the 500 case above precisely because
+            // the body is well-formed.
+            server.enqueue(MockResponse().setResponseCode(502).setBody("""{"quota":[]}"""))
+
+            poll(store, widget, newConfigStore())
+
+            assertEquals(prior, widget.read()?.quota)
+        }
 }

@@ -995,6 +995,42 @@ class DashboardViewModelTest {
             client.quotaResult = FetchResult.Failure("nope")
             vm.refreshOnce()
             assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+            // The deep-link resolver is kept alongside the row: a widget badge
+            // tapped while the quota read is failing must still find its entry
+            // instead of opening onto nothing.
+            assertEquals(setOf("a"), vm.state.value.quotaByName.keys)
+        }
+
+    @Test
+    fun failedQuotaRefreshSurfacesTheFailureInsteadOfPassingForSuccess() =
+        runBlocking {
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.quotaResult = FetchResult.Success(listOf(quota("a")))
+            val vm = viewModel(client)
+            vm.refreshOnce()
+            assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+
+            // Front Desk can't reach the primary, so both the re-poll and the
+            // read behind it fail. The row keeps its last-good badge either way,
+            // which is exactly why the failure has to be said out loud: otherwise
+            // the tap looks identical to a refresh that found no change.
+            client.refreshQuotaResult = ActionResult.Failure("primary unreachable")
+            client.quotaResult = FetchResult.Failure("primary unreachable")
+
+            vm.refreshQuota()
+            val settled = withTimeout(5_000) { vm.state.first { !it.refreshingQuota } }
+
+            assertEquals("primary unreachable", settled.quotaRefreshError)
+            assertEquals(listOf("a"), settled.quota.map { it.providerName })
+            // The members read is fine, so its own banner slot stays empty: the
+            // two failures are surfaced separately.
+            assertNull(settled.error)
+
+            // Front Desk comes back: the first read that gets through retires the
+            // banner, so it can never outlive the problem it reported.
+            client.quotaResult = FetchResult.Success(listOf(quota("a")))
+            vm.refreshOnce()
+            assertNull(vm.state.value.quotaRefreshError)
         }
 
     @Test

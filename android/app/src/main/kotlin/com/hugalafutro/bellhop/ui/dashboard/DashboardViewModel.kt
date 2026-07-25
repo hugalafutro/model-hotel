@@ -84,6 +84,14 @@ data class DashboardUiState(
     // Whether a manual [DashboardViewModel.refreshQuota] call is in flight, so
     // the badge row can show a spinner and the trigger can debounce a double-tap.
     val refreshingQuota: Boolean = false,
+    // Why the last manual quota refresh failed (Front Desk answers 502 when it
+    // can't reach the primary member), or null when the last one ran. Kept apart
+    // from [error], which the members read owns and clears on its next success:
+    // the badge row repaints from the last-good readings either way, so without
+    // its own slot the failure would be wiped by the next poll tick and the tap
+    // would have looked exactly like a refresh that found no change. Cleared by
+    // the next successful quota read, so it can't outlive the problem.
+    val quotaRefreshError: String? = null,
 )
 
 /**
@@ -516,6 +524,9 @@ class DashboardViewModel(
                         // list rather than blanking the badge row.
                         quota = quotaFetch.main ?: it.quota,
                         quotaByName = quotaFetch.all?.associateBy { pq -> pq.providerName } ?: it.quotaByName,
+                        // A quota read that got through retires the stale
+                        // refresh-failed banner; a failing one leaves it up.
+                        quotaRefreshError = if (quotaFetch.main != null) null else it.quotaRefreshError,
                         // Reconcile the pause/resume control: drop the optimistic hint
                         // once it's resolved. Either a live read shows the toggle
                         // caught up (so a change made elsewhere isn't masked by it), or
@@ -615,34 +626,50 @@ class DashboardViewModel(
      * not from the refresh call's own tally. Guarded like the other action
      * methods against a concurrent tap; [DashboardUiState.refreshingQuota]
      * flips back off in the `finally` so a request that throws still clears
-     * the spinner.
+     * the spinner. A refresh Front Desk could not run (it answers 502 when the
+     * primary member is unreachable) lands in [DashboardUiState.quotaRefreshError]
+     * so the tap never passes for a successful one.
      */
     fun refreshQuota() {
         if (_state.value.refreshingQuota) return
         viewModelScope.launch {
-            _state.update { it.copy(refreshingQuota = true) }
+            // This tap's own outcome replaces the previous one's, so an old
+            // banner can't linger over a refresh that has since gone through.
+            _state.update { it.copy(refreshingQuota = true, quotaRefreshError = null) }
             try {
                 val token = linkStore.token()
                 if (token == null) {
                     _state.update { it.copy(revoked = true) }
                     return@launch
                 }
-                when (client.refreshQuota(fdUrl, token)) {
-                    ActionResult.Unauthorized ->
-                        _state.update { it.copy(revoked = true) }
-                    // Quota refresh is monitor tier -- any paired device may
-                    // trigger it -- so Forbidden should never happen; treat it
-                    // as a no-op rather than an error if a stricter Front Desk
-                    // ever returns it, same stance the brief calls for.
-                    ActionResult.Forbidden -> Unit
-                    is ActionResult.Success -> Unit
-                    is ActionResult.Failure -> Unit
-                }
+                val failure =
+                    when (val result = client.refreshQuota(fdUrl, token)) {
+                        ActionResult.Unauthorized -> {
+                            _state.update { it.copy(revoked = true) }
+                            null
+                        }
+                        // Quota refresh is monitor tier -- any paired device may
+                        // trigger it -- so Forbidden should never happen; treat it
+                        // as a no-op rather than an error if a stricter Front Desk
+                        // ever returns it, same stance the brief calls for.
+                        ActionResult.Forbidden -> null
+                        is ActionResult.Success -> null
+                        // Carried out of the `when` instead of being shown here:
+                        // the re-read below retires the banner whenever the quota
+                        // read gets through, which would wipe it immediately.
+                        is ActionResult.Failure -> result.message
+                    }
                 // Re-read regardless of the refresh call's own outcome: a
                 // Forbidden/Failure still re-reads (a no-op re-read of the
                 // existing cache is harmless), and a Success's badges only
                 // land via this same re-read path, never off the tally.
                 refreshOnce()
+                // Said out loud even when that re-read succeeded: Front Desk
+                // never ran the re-poll, so the badges are older than the tap
+                // implies.
+                if (failure != null) {
+                    _state.update { it.copy(quotaRefreshError = failure) }
+                }
             } finally {
                 _state.update { it.copy(refreshingQuota = false) }
             }

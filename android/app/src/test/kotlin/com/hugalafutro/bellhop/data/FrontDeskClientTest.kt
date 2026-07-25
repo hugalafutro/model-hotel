@@ -449,6 +449,27 @@ class FrontDeskClientTest {
         }
 
     @Test
+    fun quotaMapsBadGatewayToFailureNotAnEmptyList() =
+        runBlocking {
+            // Front Desk answers 502 when it cannot reach the primary member, and
+            // its error envelope still carries a (empty) quota key, so the body
+            // decodes cleanly into a zero-entry list. Only the status keeps this
+            // off the Success arm -- and it must, or every consumer would read a
+            // "successful" empty list and blank its badges instead of keeping the
+            // last-good ones.
+            server.enqueue(
+                MockResponse().setResponseCode(502).setBody(
+                    """{"error":{"code":"primary_unreachable","message":"primary unreachable"},"quota":[]}""",
+                ),
+            )
+
+            val result = client.quota(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Failure)
+            assertEquals("primary unreachable", (result as FetchResult.Failure).message)
+        }
+
+    @Test
     fun refreshQuotaPostsEmptyBodyAndParsesTally() =
         runBlocking {
             server.enqueue(MockResponse().setBody("""{"refreshed":2,"failed":0,"skipped":1}"""))
@@ -478,6 +499,25 @@ class FrontDeskClientTest {
             )
             val result = client.refreshQuota(server.url("/").toString(), "dead")
             assertEquals(ActionResult.Unauthorized, result)
+        }
+
+    @Test
+    fun refreshQuotaMapsBadGatewayToFailureCarryingTheReason() =
+        runBlocking {
+            // A re-poll Front Desk could not run (primary unreachable) must reach
+            // the caller as a failure with Front Desk's own reason attached, so
+            // the dashboard can say the refresh failed rather than let the tap
+            // pass for a successful one.
+            server.enqueue(
+                MockResponse().setResponseCode(502).setBody(
+                    """{"error":{"code":"primary_unreachable","message":"primary unreachable"}}""",
+                ),
+            )
+
+            val result = client.refreshQuota(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is ActionResult.Failure)
+            assertEquals("primary unreachable", (result as ActionResult.Failure).message)
         }
 
     @Test

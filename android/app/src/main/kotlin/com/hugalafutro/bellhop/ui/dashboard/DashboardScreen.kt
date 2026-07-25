@@ -266,6 +266,16 @@ fun DashboardScreen(
                     text = stringResource(R.string.dashboard_refresh_failed, ui.error),
                     tag = "dashboard-error",
                 )
+            } else if (ui.quotaRefreshError != null) {
+                // Ranked below the two above because it is the narrower failure:
+                // a dead token or an unreadable fleet outranks quota readings
+                // Front Desk could not re-poll. Shown at all because the badge
+                // row keeps its last-good values, so the tap would otherwise be
+                // indistinguishable from a refresh that found no change.
+                StatusBanner(
+                    text = stringResource(R.string.dashboard_refresh_failed, ui.quotaRefreshError),
+                    tag = "quota-refresh-error",
+                )
             }
 
             // Pause/resume auto-sync: an operator lever, shown only once a primary

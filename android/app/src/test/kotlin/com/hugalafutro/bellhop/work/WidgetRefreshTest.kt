@@ -10,6 +10,7 @@ import com.hugalafutro.bellhop.data.PairedDevice
 import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
 import com.hugalafutro.bellhop.data.TokenCipher
 import com.hugalafutro.bellhop.data.WidgetMember
+import com.hugalafutro.bellhop.data.WidgetQuotaBadge
 import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import kotlinx.coroutines.CoroutineScope
@@ -171,5 +172,28 @@ class WidgetRefreshTest {
 
             assertEquals(Result.success(), result)
             assertEquals(true, widget.read()?.autosyncStale)
+        }
+
+    @Test
+    fun badGatewayQuotaReadKeepsLastGoodBadges() =
+        runBlocking {
+            val widget = newWidgetStore()
+            val prior = listOf(WidgetQuotaBadge("or-1", "OPENROUTER", "\$7.50"))
+            widget.saveIfChanged(
+                WidgetState(members = listOf(WidgetMember("hotel-1", "UP", id = "m1")), quota = prior),
+                widget.generation(),
+            )
+            server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
+            server.enqueue(MockResponse().setBody("""{"enabled":true,"primary_id":"m1","stale":false}"""))
+            // Front Desk's 502 for an unreachable primary. The envelope decodes
+            // into a zero-entry list, so the refresh button is the third surface
+            // that must reject it on status alone rather than write empty badges
+            // over the ones the widget is already showing.
+            server.enqueue(MockResponse().setResponseCode(502).setBody("""{"quota":[]}"""))
+
+            val result = refreshWidgetOnly(linkedLinkStore(), widget, client, newConfigStore(), now = { 42L })
+
+            assertEquals(Result.success(), result)
+            assertEquals(prior, widget.read()?.quota)
         }
 }
