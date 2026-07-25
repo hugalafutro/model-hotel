@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Drag handle (Material "drag_handle"): two rules, the conventional grip a
+     reorderable row is dragged by. Hand-vectored because the app depends on
+     material-icons-core only, which doesn't carry it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M20,9H4v2h16V9zM4,15h16v-2H4v2z" />
+</vector>

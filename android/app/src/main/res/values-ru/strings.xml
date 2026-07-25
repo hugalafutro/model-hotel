@@ -319,4 +319,6 @@
     <string name="quota_config_mode_used">Использовано</string>
     <string name="quota_config_empty">Провайдеры с поддержкой квот пока не найдены.</string>
     <string name="quota_config_widget_cap">В виджет помещаются только первые %1$d</string>
+    <string name="quota_config_selected">Показано %1$d из %2$d</string>
+    <string name="quota_config_reorder">Переместить %1$s</string>
 </resources>

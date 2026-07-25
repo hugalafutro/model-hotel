@@ -307,4 +307,6 @@
     <string name="quota_config_mode_used">Gebruikt</string>
     <string name="quota_config_empty">Nog geen providers met quota gezien.</string>
     <string name="quota_config_widget_cap">Alleen de eerste %1$d passen op de widget</string>
+    <string name="quota_config_selected">%1$d van %2$d getoond</string>
+    <string name="quota_config_reorder">%1$s herschikken</string>
 </resources>

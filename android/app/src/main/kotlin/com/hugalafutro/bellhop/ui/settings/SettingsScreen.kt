@@ -6,6 +6,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -324,98 +326,156 @@ fun SettingsScreen(
             // so without a gap a subtitle that fills its line ends up touching
             // the toggle. Same 12dp the nav cards further down put between their
             // text and chevron.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.settings_hold_copy_title),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                text = stringResource(R.string.settings_hold_copy_subtitle),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(
-                            checked = holdToCopy,
-                            onCheckedChange = onToggleHoldToCopy,
-                            // Same off-state colours as the other switches so an off
-                            // toggle stays legible on the card.
-                            colors = bellhopSwitchColors(),
-                            modifier = Modifier.testTag("settings-hold-copy-toggle"),
+            SettingsSection {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_hold_copy_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_hold_copy_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    Switch(
+                        checked = holdToCopy,
+                        onCheckedChange = onToggleHoldToCopy,
+                        // Same off-state colours as the other switches so an off
+                        // toggle stays legible on the card.
+                        colors = bellhopSwitchColors(),
+                        modifier = Modifier.testTag("settings-hold-copy-toggle"),
+                    )
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
 
             // Home-screen widget: opt-in traffic bars on the member rows. Off by
             // default because fresh bars add one request per member to every
             // background check; the widget itself still never polls.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.settings_widget_title),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                text = stringResource(R.string.settings_widget_graphs_subtitle),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(
-                            checked = widgetGraphs,
-                            onCheckedChange = onToggleWidgetGraphs,
-                            colors = bellhopSwitchColors(),
-                            modifier = Modifier.testTag("settings-widget-graphs-toggle"),
+            SettingsSection {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_widget_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_widget_graphs_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = widgetGraphs,
+                        onCheckedChange = onToggleWidgetGraphs,
+                        colors = bellhopSwitchColors(),
+                        modifier = Modifier.testTag("settings-widget-graphs-toggle"),
+                    )
+                }
+            }
+
+            // Traffic graph range: how far back the request charts (the dashboard
+            // sparklines and the member-detail graph) reach. Coarse presets only.
+            SettingsSection {
+                Text(
+                    text = stringResource(R.string.settings_graph_range_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = stringResource(R.string.settings_graph_range_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                // The same FilterPill row as the app-lock window pills, so the two
+                // pickers read identically. weight(1f) shares the width evenly, so
+                // the five ranges fit without overflowing the card.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    PrefsStore.GRAPH_RANGE_OPTIONS.forEach { minutes ->
+                        FilterPill(
+                            text = stringResource(R.string.settings_graph_range_hours, minutes / 60),
+                            selected = graphRangeMinutes == minutes,
+                            onClick = { onSetGraphRange(minutes) },
+                            tag = "settings-graph-range-$minutes",
+                            modifier = Modifier.weight(1f),
+                            // In a Card the default outline nearly vanishes; match the
+                            // lock pills and use the higher-contrast onSurfaceVariant.
+                            borderColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Traffic graph range: how far back the request charts (the dashboard
-            // sparklines and the member-detail graph) reach. Coarse presets only.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = stringResource(R.string.settings_graph_range_title),
-                        style = MaterialTheme.typography.titleMedium,
+            // App lock: on/off plus the idle window it measures from foreground exit.
+            SettingsSection {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_lock_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_lock_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = lockConfig.enabled,
+                        onCheckedChange = onToggleLock,
+                        enabled = lockAvailable,
+                        // The default unchecked track is surfaceContainerHighest
+                        // (the Card's own colour) with an outline thumb/border, so
+                        // an off switch blends into the card. Give the off state a
+                        // light thumb + border over a surface track so it stays
+                        // legible on both the ink and paper schemes.
+                        colors = bellhopSwitchColors(),
+                        modifier = Modifier.testTag("settings-lock-toggle"),
                     )
+                }
+                if (!lockAvailable) {
+                    // No biometric or device credential enrolled: the gate can't
+                    // engage, so say why the toggle is inert rather than failing
+                    // silently when it's flipped on. Muted, not red: this is
+                    // guidance about a precondition, unlike the monitor/push
+                    // "delivery is blocked" notes where something is broken.
                     Text(
-                        text = stringResource(R.string.settings_graph_range_subtitle),
+                        text = stringResource(R.string.settings_lock_unavailable),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("settings-lock-unavailable"),
                     )
-                    // The same FilterPill row as the app-lock window pills, so the two
-                    // pickers read identically. weight(1f) shares the width evenly, so
-                    // the five ranges fit without overflowing the card.
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        PrefsStore.GRAPH_RANGE_OPTIONS.forEach { minutes ->
+                }
+                if (lockConfig.enabled && lockAvailable) {
+                    Text(
+                        text = stringResource(R.string.settings_lock_window),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    val selected = LockTimeout.fromMillis(lockConfig.timeoutMs)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                        LockTimeout.entries.forEach { option ->
                             FilterPill(
-                                text = stringResource(R.string.settings_graph_range_hours, minutes / 60),
-                                selected = graphRangeMinutes == minutes,
-                                onClick = { onSetGraphRange(minutes) },
-                                tag = "settings-graph-range-$minutes",
+                                text = stringResource(timeoutLabel(option)),
+                                selected = option == selected,
+                                onClick = { onSelectTimeout(option) },
+                                tag = "settings-lock-timeout-${option.name}",
                                 modifier = Modifier.weight(1f),
-                                // In a Card the default outline nearly vanishes; match the
-                                // lock pills and use the higher-contrast onSurfaceVariant.
+                                // These pills sit inside a Card, where the default
+                                // `outline` border nearly vanishes; use the higher-
+                                // contrast onSurfaceVariant so the unselected pills read.
                                 borderColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -423,297 +483,204 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // App lock: on/off plus the idle window it measures from foreground exit.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.settings_lock_title),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                text = stringResource(R.string.settings_lock_subtitle),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(
-                            checked = lockConfig.enabled,
-                            onCheckedChange = onToggleLock,
-                            enabled = lockAvailable,
-                            // The default unchecked track is surfaceContainerHighest
-                            // (the Card's own colour) with an outline thumb/border, so
-                            // an off switch blends into the card. Give the off state a
-                            // light thumb + border over a surface track so it stays
-                            // legible on both the ink and paper schemes.
-                            colors = bellhopSwitchColors(),
-                            modifier = Modifier.testTag("settings-lock-toggle"),
-                        )
-                    }
-                    if (!lockAvailable) {
-                        // No biometric or device credential enrolled: the gate can't
-                        // engage, so say why the toggle is inert rather than failing
-                        // silently when it's flipped on. Muted, not red: this is
-                        // guidance about a precondition, unlike the monitor/push
-                        // "delivery is blocked" notes where something is broken.
-                        Text(
-                            text = stringResource(R.string.settings_lock_unavailable),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.testTag("settings-lock-unavailable"),
-                        )
-                    }
-                    if (lockConfig.enabled && lockAvailable) {
-                        Text(
-                            text = stringResource(R.string.settings_lock_window),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        val selected = LockTimeout.fromMillis(lockConfig.timeoutMs)
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                            LockTimeout.entries.forEach { option ->
-                                FilterPill(
-                                    text = stringResource(timeoutLabel(option)),
-                                    selected = option == selected,
-                                    onClick = { onSelectTimeout(option) },
-                                    tag = "settings-lock-timeout-${option.name}",
-                                    modifier = Modifier.weight(1f),
-                                    // These pills sit inside a Card, where the default
-                                    // `outline` border nearly vanishes; use the higher-
-                                    // contrast onSurfaceVariant so the unselected pills read.
-                                    borderColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             // Background monitoring: the Layer-2 backstop (plan section 5.2). Off
             // by default; turning it on schedules the periodic poll and prompts
             // for the notification permission.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.settings_monitor_title),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                text = stringResource(R.string.settings_monitor_subtitle),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(
-                            checked = monitorEnabled,
-                            onCheckedChange = onToggleMonitor,
-                            // Same off-state colours as the lock switch so an off
-                            // toggle stays legible on the card (see note above).
-                            colors = bellhopSwitchColors(),
-                            modifier = Modifier.testTag("settings-monitor-toggle"),
-                        )
-                    }
-                    if (monitorEnabled) {
-                        if (notificationsBlocked) {
-                            // Monitoring polls regardless, but with
-                            // POST_NOTIFICATIONS denied nothing reaches the
-                            // operator, so say so rather than let the switch
-                            // imply working alerts.
-                            Text(
-                                text = stringResource(R.string.settings_monitor_blocked),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.testTag("settings-monitor-blocked"),
-                            )
-                        }
+            SettingsSection {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(R.string.settings_monitor_note),
+                            text = stringResource(R.string.settings_monitor_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_monitor_subtitle),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.testTag("settings-monitor-note"),
                         )
                     }
+                    Switch(
+                        checked = monitorEnabled,
+                        onCheckedChange = onToggleMonitor,
+                        // Same off-state colours as the lock switch so an off
+                        // toggle stays legible on the card (see note above).
+                        colors = bellhopSwitchColors(),
+                        modifier = Modifier.testTag("settings-monitor-toggle"),
+                    )
+                }
+                if (monitorEnabled) {
+                    if (notificationsBlocked) {
+                        // Monitoring polls regardless, but with
+                        // POST_NOTIFICATIONS denied nothing reaches the
+                        // operator, so say so rather than let the switch
+                        // imply working alerts.
+                        Text(
+                            text = stringResource(R.string.settings_monitor_blocked),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.testTag("settings-monitor-blocked"),
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.settings_monitor_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("settings-monitor-note"),
+                    )
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
 
             // Real-time push: Layer-3 opt-in (plan section 5.2). Off by default like
             // monitoring; turning it on registers with a UnifiedPush distributor and
             // (on API 33+) prompts for the notification permission.
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.settings_push_title),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                text = stringResource(R.string.settings_push_subtitle),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(
-                            checked = pushEnabled,
-                            onCheckedChange = onTogglePush,
-                            // Same off-state colours as the other switches so an off
-                            // toggle stays legible on the card (see note above).
-                            colors = bellhopSwitchColors(),
-                            modifier = Modifier.testTag("settings-push-toggle"),
+            SettingsSection {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_push_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_push_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    if (!pushDistributorAvailable) {
-                        // No distributor app installed: registration can't complete,
-                        // so nothing will ever wake Bellhop. Say so rather than let
-                        // an enabled switch imply working push.
+                    Switch(
+                        checked = pushEnabled,
+                        onCheckedChange = onTogglePush,
+                        // Same off-state colours as the other switches so an off
+                        // toggle stays legible on the card (see note above).
+                        colors = bellhopSwitchColors(),
+                        modifier = Modifier.testTag("settings-push-toggle"),
+                    )
+                }
+                if (!pushDistributorAvailable) {
+                    // No distributor app installed: registration can't complete,
+                    // so nothing will ever wake Bellhop. Say so rather than let
+                    // an enabled switch imply working push.
+                    Text(
+                        text = stringResource(R.string.settings_push_no_distributor),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.testTag("settings-push-no-distributor"),
+                    )
+                }
+                if (pushEnabled) {
+                    if (pushNotificationsBlocked) {
                         Text(
-                            text = stringResource(R.string.settings_push_no_distributor),
+                            text = stringResource(R.string.settings_push_blocked),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.testTag("settings-push-no-distributor"),
+                            modifier = Modifier.testTag("settings-push-blocked"),
                         )
                     }
-                    if (pushEnabled) {
-                        if (pushNotificationsBlocked) {
+                    if (pushDistributorAvailable) {
+                        Text(
+                            text = stringResource(R.string.settings_push_endpoint_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        val endpoint = pushEndpoint
+                        if (endpoint != null) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    text = endpoint,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f).testTag("settings-push-endpoint"),
+                                )
+                                TextButton(
+                                    onClick = {
+                                        clipboard.setText(AnnotatedString(endpoint))
+                                        Toast.makeText(context, pushCopied, Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.testTag("settings-push-copy"),
+                                ) {
+                                    Text(stringResource(R.string.settings_push_copy))
+                                }
+                            }
                             Text(
-                                text = stringResource(R.string.settings_push_blocked),
+                                text = stringResource(R.string.settings_push_endpoint_note),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.testTag("settings-push-blocked"),
-                            )
-                        }
-                        if (pushDistributorAvailable) {
-                            Text(
-                                text = stringResource(R.string.settings_push_endpoint_label),
-                                style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            val endpoint = pushEndpoint
-                            if (endpoint != null) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Text(
-                                        text = endpoint,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f).testTag("settings-push-endpoint"),
-                                    )
-                                    TextButton(
-                                        onClick = {
-                                            clipboard.setText(AnnotatedString(endpoint))
-                                            Toast.makeText(context, pushCopied, Toast.LENGTH_SHORT).show()
-                                        },
-                                        modifier = Modifier.testTag("settings-push-copy"),
-                                    ) {
-                                        Text(stringResource(R.string.settings_push_copy))
-                                    }
-                                }
-                                Text(
-                                    text = stringResource(R.string.settings_push_endpoint_note),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            } else {
-                                Text(
-                                    text = stringResource(R.string.settings_push_endpoint_waiting),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.testTag("settings-push-waiting"),
-                                )
-                            }
+                        } else {
+                            Text(
+                                text = stringResource(R.string.settings_push_endpoint_waiting),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("settings-push-waiting"),
+                            )
                         }
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
 
             // Battery: background alert delivery (the poll + push wake) is only
             // reliable if Bellhop is exempt from battery optimisation. Shown once
             // monitoring or push is on, since it's irrelevant otherwise.
             if (monitorEnabled || pushEnabled) {
-                Card(modifier = Modifier.fillMaxWidth().testTag("settings-battery")) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
+                SettingsSection(modifier = Modifier.testTag("settings-battery")) {
+                    Text(
+                        text = stringResource(R.string.settings_battery_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_battery_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (batteryUnrestricted) {
                         Text(
-                            text = stringResource(R.string.settings_battery_title),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_battery_subtitle),
+                            text = stringResource(R.string.settings_battery_unrestricted),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.testTag("settings-battery-ok"),
                         )
-                        if (batteryUnrestricted) {
-                            Text(
-                                text = stringResource(R.string.settings_battery_unrestricted),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.testTag("settings-battery-ok"),
-                            )
-                        } else {
-                            Text(
-                                text = stringResource(R.string.settings_battery_optimized),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                            OutlinedButton(
-                                onClick = onRequestBatteryExemption,
-                                // The default outline colour vanishes on the card; use
-                                // primary to match the button's own text and read as an
-                                // action, like the pills' higher-contrast borders.
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                // Buttons take their corner from a Material token, not
-                                // the theme's shape scale, so each names the radius.
-                                shape = MaterialTheme.shapes.small,
-                                modifier = Modifier.testTag("settings-battery-request"),
-                            ) {
-                                Text(stringResource(R.string.settings_battery_action))
-                            }
+                    } else {
+                        Text(
+                            text = stringResource(R.string.settings_battery_optimized),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        OutlinedButton(
+                            onClick = onRequestBatteryExemption,
+                            // The default outline colour vanishes on the card; use
+                            // primary to match the button's own text and read as an
+                            // action, like the pills' higher-contrast borders.
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            // Buttons take their corner from a Material token, not
+                            // the theme's shape scale, so each names the radius.
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.testTag("settings-battery-request"),
+                        ) {
+                            Text(stringResource(R.string.settings_battery_action))
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
             }
 
             // Alerts stays reachable here even when all is green (the dashboard bell
             // only appears when a member is down). The severity badges tally what
             // Front Desk currently alerts on; the brass chevron marks the tap as a
             // jump to the Alerts screen (where an operator can flip them).
-            Card(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable(onClick = onQuotaBadgesClick)
-                        .testTag("settings-quota-badges"),
+            SettingsSection(
+                modifier = Modifier.clickable(onClick = onQuotaBadgesClick).testTag("settings-quota-badges"),
             ) {
                 Row(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -735,11 +702,9 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onAlertsClick).testTag("settings-alerts")) {
+            SettingsSection(modifier = Modifier.clickable(onClick = onAlertsClick).testTag("settings-alerts")) {
                 Row(
-                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -771,6 +736,34 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+}
+
+/**
+ * SettingsSection is one entry in the settings list: its content across the
+ * full width, on a tight vertical inset, closed by a rule.
+ *
+ * It replaces the card each setting used to sit in. A screen of stacked cards
+ * is mostly card -- 16dp of inset and 16dp of gap around every switch -- and a
+ * one-pixel rule separates two settings just as well while fitting several
+ * more on the screen. The link summary at the top keeps its card, because that
+ * one is a status panel rather than a setting.
+ *
+ * [modifier] lands on the content, not the rule, so a tappable section's
+ * clickable and test tag cover exactly the rows the user sees.
+ */
+@Composable
+private fun SettingsSection(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = modifier.fillMaxWidth().padding(vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            content = content,
+        )
+        HorizontalDivider()
     }
 }
 

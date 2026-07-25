@@ -301,4 +301,6 @@
     <string name="quota_config_mode_used">使用量</string>
     <string name="quota_config_empty">クォータに対応するプロバイダーはまだありません。</string>
     <string name="quota_config_widget_cap">ウィジェットに収まるのは先頭の %1$d 件のみです</string>
+    <string name="quota_config_selected">%2$d 件中 %1$d 件を表示</string>
+    <string name="quota_config_reorder">%1$s を並べ替え</string>
 </resources>
