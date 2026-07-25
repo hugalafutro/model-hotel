@@ -110,6 +110,16 @@ private fun badgeWidthDp(badge: WidgetQuotaBadge): Int =
     badge.label.length * WIDGET_QUOTA_CHAR_DP + WIDGET_QUOTA_PILL_CHROME_DP
 
 /**
+ * WIDGET_QUOTA_OVERFLOW_MARKER_DP is what the trailing "+N" costs the row that
+ * carries it: at most three characters ("+12", since [WIDGET_QUOTA_CAP] bounds
+ * it) plus its gap. The marker is rendered *unweighted*, so it takes its width
+ * off the top and the row's badges split only what is left -- which is why the
+ * row that carries it is fitted against a budget short by this much, rather
+ * than against the full width.
+ */
+private const val WIDGET_QUOTA_OVERFLOW_MARKER_DP = 22
+
+/**
  * quotaBadgeRows packs [badges] into the rows the widget renders, keeping the
  * given order and fitting as many per row as [budgetDp] -- the widget's real
  * inner width -- allows.
@@ -125,11 +135,43 @@ private fun badgeWidthDp(badge: WidgetQuotaBadge): Int =
  * Rows past [WIDGET_QUOTA_MAX_ROWS] are still dropped -- the strip must not eat
  * the fleet rows the widget exists for -- so the caller asks
  * [quotaBadgeOverflow] how many were left out and says so rather than dropping
- * them silently.
+ * them silently. When that happens the last visible row also gives up whatever
+ * it must to leave room for the "+N" marker it will carry.
  */
 fun quotaBadgeRows(
     badges: List<WidgetQuotaBadge>,
     budgetDp: Int = WIDGET_QUOTA_DEFAULT_ROW_BUDGET_DP,
+): List<List<WidgetQuotaBadge>> {
+    val packed = packRows(badges, budgetDp)
+    if (packed.size <= WIDGET_QUOTA_MAX_ROWS) return packed
+    val kept = packed.take(WIDGET_QUOTA_MAX_ROWS).toMutableList()
+    kept[kept.lastIndex] = fitAroundMarker(kept.last(), budgetDp)
+    return kept
+}
+
+/**
+ * fitAroundMarker trims [row] until its badges still fit beside the overflow
+ * marker. A badge dropped here is not lost, only re-counted: it lands in
+ * [quotaBadgeOverflow] along with the rows that didn't fit at all. At least one
+ * badge is always kept -- a row of just the marker would say less than a
+ * clipped badge does.
+ */
+private fun fitAroundMarker(
+    row: List<WidgetQuotaBadge>,
+    budgetDp: Int,
+): List<WidgetQuotaBadge> {
+    val budget = budgetDp - WIDGET_QUOTA_OVERFLOW_MARKER_DP
+    var out = row
+    while (out.size > 1 && out.size * out.maxOf { badgeWidthDp(it) } > budget) {
+        out = out.dropLast(1)
+    }
+    return out
+}
+
+/** packRows fills rows against [budgetDp] without regard to the row cap. */
+private fun packRows(
+    badges: List<WidgetQuotaBadge>,
+    budgetDp: Int,
 ): List<List<WidgetQuotaBadge>> {
     val rows = mutableListOf<MutableList<WidgetQuotaBadge>>()
     // The widest label in the row being filled: what every badge in it will be
@@ -150,7 +192,9 @@ fun quotaBadgeRows(
             rowWidest = width
         }
     }
-    return rows.take(WIDGET_QUOTA_MAX_ROWS)
+    // Every row, cap included: the caller needs to see that it overflowed to
+    // know the last visible row has a marker to make room for.
+    return rows
 }
 
 /**

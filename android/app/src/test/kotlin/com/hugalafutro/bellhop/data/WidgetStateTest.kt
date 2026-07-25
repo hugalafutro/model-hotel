@@ -244,6 +244,39 @@ class WidgetStateTest {
     }
 
     @Test
+    fun quotaBadgeRowsLeaveTheOverflowMarkerItsWidth() {
+        // The "+N" is rendered unweighted, so it takes its width off the top and
+        // the row's badges split only the remainder. A last row fitted against
+        // the full width would therefore hand each badge less than was checked
+        // and clip the labels; the marker's width has to come out first.
+        val marker = 22
+        val badges = (1..12).map { badge("P$it", "NANO 1.9M/3M") }
+
+        listOf(120, 156, 240, 320).forEach { budget ->
+            val rows = quotaBadgeRows(badges, budget)
+            val overflow = quotaBadgeOverflow(badges, rows)
+            if (overflow == 0) return@forEach
+            val last = rows.last()
+            val widest = last.maxOf { it.label.length * 6 + 9 }
+            assertTrue(
+                "last row of ${last.size} at ${budget}dp leaves ${(budget - marker) / last.size}dp " +
+                    "per badge for a ${widest}dp label",
+                last.size == 1 || (budget - marker) / last.size >= widest,
+            )
+        }
+    }
+
+    @Test
+    fun badgesTrimmedForTheMarkerAreCountedAsOverflow() {
+        // A badge pushed out of the last row to make room for the marker is not
+        // lost track of -- it joins the count the marker itself reports.
+        val badges = (1..12).map { badge("P$it", "OR 10%") }
+        val rows = quotaBadgeRows(badges, budgetDp = 156)
+
+        assertEquals(badges.size, rows.sumOf { it.size } + quotaBadgeOverflow(badges, rows))
+    }
+
+    @Test
     fun quotaBadgeOverflowIsZeroWhenEverythingFits() {
         val badges = listOf(badge("a", "1"), badge("b", "2"))
         assertEquals(0, quotaBadgeOverflow(badges, quotaBadgeRows(badges, budgetDp = 320)))
