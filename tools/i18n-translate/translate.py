@@ -17,8 +17,8 @@ Subcommands:
                  allowlist(s) so `check` only flags future additions.
 
 Intentionally-English values (brand names, loanwords like "Failover") live
-in allow-english.json (main dashboard) and allow-english-fd.json (Front Desk)
-next to this script: {"dot.key": ["af", "da"]} or {"dot.key": ["*"]}. Remove
+in allow-english.json (main dashboard), allow-english-fd.json (Front Desk) and
+allow-english-android.json (Bellhop) next to this script: {"dot.key": ["af", "da"]} or {"dot.key": ["*"]}. Remove
 entries to force retranslation later.
 """
 
@@ -27,6 +27,7 @@ import json
 import os
 import re
 import sys
+from xml.etree import ElementTree
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -177,6 +178,106 @@ def should_skip(value: str) -> bool:
 	return False
 
 
+# ── Android string resources ─────────────────────────────────────────────────
+
+# Bellhop keeps its copy in Android XML, not JSON, so it needs its own reader.
+# Everything after parsing (missing/extra/placeholders/untranslated, the
+# allowlist, should_skip) is shared with the two web apps.
+ANDROID_RES_DIR = os.path.normpath(
+	os.path.join(SCRIPT_DIR, "..", "..", "android", "app", "src", "main", "res")
+)
+
+ANDROID_ALLOWLIST_PATH = os.path.join(SCRIPT_DIR, "allow-english-android.json")
+
+# Android interpolates with printf conversions (%1$s, %1$d, %s), not {{name}},
+# and an argument dropped or renumbered in translation crashes at format time.
+ANDROID_PROTECTED_RE = r"%\d+\$[a-zA-Z]|%[a-zA-Z]"
+
+# values-cs, values-zh-rCN. Bare "values" is the English base; anything else
+# under res/ (values-night, values-v31, drawable*) is not a locale.
+ANDROID_LOCALE_DIR_RE = re.compile(r"^values-([a-z]{2,3}(?:-r[A-Z]{2})?)$")
+
+
+def android_interpolations(text: str) -> set[str]:
+	return set(re.findall(ANDROID_PROTECTED_RE, text))
+
+
+def android_locale_codes() -> list[str]:
+	codes = []
+	for name in os.listdir(ANDROID_RES_DIR):
+		m = ANDROID_LOCALE_DIR_RE.match(name)
+		if m and os.path.isfile(os.path.join(ANDROID_RES_DIR, name, "strings.xml")):
+			codes.append(m.group(1))
+	return sorted(codes)
+
+
+def load_android(code: str) -> dict[str, str]:
+	"""Flat key -> value for one locale.
+
+	A <plurals> set is keyed by its name and represented by its "other" item:
+	quantity sets are language-specific (ru/pl carry one/few/many/other where ja
+	carries only other), so requiring matching quantities across locales would
+	fail correct translations. Every item's placeholders are still checked, via
+	the synthetic "<name>#<quantity>" keys below, against English's "other".
+
+	Strings marked translatable="false" (brand names Android itself must not
+	localise) are dropped, so they are not reported missing everywhere.
+	"""
+	path = os.path.join(
+		ANDROID_RES_DIR, "values" if code == "en" else f"values-{code}", "strings.xml"
+	)
+	root = ElementTree.parse(path).getroot()
+	out = {}
+	for el in root:
+		name = el.get("name")
+		if not name or el.get("translatable") == "false":
+			continue
+		if el.tag == "string":
+			out[name] = "".join(el.itertext())
+		elif el.tag == "plurals":
+			for item in el.findall("item"):
+				quantity = item.get("quantity", "other")
+				text = "".join(item.itertext())
+				if quantity == "other":
+					out[name] = text
+				out[f"{name}#{quantity}"] = text
+	return out
+
+
+def find_android_problems(allow: dict[str, list[str]]) -> dict[str, list[tuple[str, str]]]:
+	"""Same problem taxonomy as the web targets, over Android XML."""
+	en = load_android("en")
+	# Only the "other" item of each plurals set is required everywhere; the rest
+	# are checked for placeholder parity when present.
+	required = {k for k in en if "#" not in k}
+	problems = {"missing": [], "extra": [], "malformed": [], "placeholders": [], "untranslated": []}
+	for code in android_locale_codes():
+		loc = load_android(code)
+		for key in required - loc.keys():
+			problems["missing"].append((code, key))
+		for key in loc.keys() - en.keys():
+			# A quantity English doesn't have (ru's "few") is correct, not extra.
+			if "#" in key and key.split("#")[0] in en:
+				continue
+			problems["extra"].append((code, key))
+		for key, value in loc.items():
+			# Every plural item is measured against the set's "other", which is
+			# the only quantity English is guaranteed to carry.
+			reference = en.get(key.split("#")[0] if "#" in key else key)
+			if reference is None:
+				continue
+			if android_interpolations(value) != android_interpolations(reference):
+				problems["placeholders"].append((code, key))
+			elif (
+				"#" not in key
+				and value == reference
+				and not should_skip(value)
+				and not allowed(allow, key, code)
+			):
+				problems["untranslated"].append((code, key))
+	return problems
+
+
 # ── check ───────────────────────────────────────────────────────────────────
 
 def find_problems(allow: dict[str, list[str]], locales_dir: str = WEB_LOCALES_DIR) -> dict[str, list[tuple[str, str]]]:
@@ -201,25 +302,30 @@ def find_problems(allow: dict[str, list[str]], locales_dir: str = WEB_LOCALES_DI
 	return problems
 
 
+def _report(label: str, problems: dict[str, list[tuple[str, str]]], locales: int, source: str) -> int:
+	"""Print one target's result; return its problem count."""
+	total = sum(len(v) for v in problems.values())
+	if total == 0:
+		print(f"[{label}] i18n check OK: {locales} locales in sync with {source}")
+		return 0
+	for kind, entries in problems.items():
+		if not entries:
+			continue
+		print(f"\n[{label}] {kind} ({len(entries)}):")
+		for code, key in sorted(entries):
+			print(f"  {code}: {key}")
+	return total
+
+
 def cmd_check() -> int:
 	total = 0
+	total += _report("android", find_android_problems(load_allowlist(ANDROID_ALLOWLIST_PATH)),
+	                 len(android_locale_codes()), "values/strings.xml")
 	for label, locales_dir in LOCALE_TARGETS:
 		if not os.path.isdir(locales_dir):
 			continue
 		allow = load_allowlist(ALLOWLIST_PATHS[label])
-		problems = find_problems(allow, locales_dir)
-		target_total = sum(len(v) for v in problems.values())
-		if target_total == 0:
-			n = len(locale_codes(locales_dir))
-			print(f"[{label}] i18n check OK: {n} locales in sync with en.json")
-			continue
-		total += target_total
-		for kind, entries in problems.items():
-			if not entries:
-				continue
-			print(f"\n[{label}] {kind} ({len(entries)}):")
-			for code, key in sorted(entries):
-				print(f"  {code}: {key}")
+		total += _report(label, find_problems(allow, locales_dir), len(locale_codes(locales_dir)), "en.json")
 	if total == 0:
 		print("i18n check OK: all targets in sync")
 		return 0
@@ -228,6 +334,7 @@ def cmd_check() -> int:
 		"\nFix: translate the listed keys into the listed locales by hand and commit"
 		"\n(reuse this script's load_locale/set_path/save_locale from a one-off script)."
 		"\nIntentionally-English values go into the matching allow-english*.json."
+		"\n(Android copy is res/values-*/strings.xml; translate by hand and commit.)"
 	)
 	if any(
 		find_problems(load_allowlist(ALLOWLIST_PATHS[l]), d)["malformed"]
@@ -241,25 +348,34 @@ def cmd_check() -> int:
 
 # ── grandfather ─────────────────────────────────────────────────────────────
 
+def _grandfather_one(label: str, path: str, problems_for) -> int:
+	"""Snapshot one target's English-equal values into its allowlist."""
+	allow = load_allowlist(path)
+	added = 0
+	for code, key in problems_for(allow)["untranslated"]:
+		langs = allow.setdefault(key, [])
+		if code not in langs and "*" not in langs:
+			langs.append(code)
+			added += 1
+	for langs in allow.values():
+		langs.sort()
+	save_allowlist(path, allow)
+	print(f"[{label}] allowlisted {added} locale/key pairs into {path}")
+	return added
+
+
 def cmd_grandfather() -> int:
-	added_total = 0
+	added_total = _grandfather_one(
+		"android", ANDROID_ALLOWLIST_PATH,
+		lambda allow: find_android_problems(allow),
+	)
 	for label, locales_dir in LOCALE_TARGETS:
 		if not os.path.isdir(locales_dir):
 			continue
-		path = ALLOWLIST_PATHS[label]
-		allow = load_allowlist(path)
-		problems = find_problems(allow, locales_dir)
-		added = 0
-		for code, key in problems["untranslated"]:
-			langs = allow.setdefault(key, [])
-			if code not in langs and "*" not in langs:
-				langs.append(code)
-				added += 1
-		for langs in allow.values():
-			langs.sort()
-		save_allowlist(path, allow)
-		print(f"[{label}] allowlisted {added} locale/key pairs into {path}")
-		added_total += added
+		added_total += _grandfather_one(
+			label, ALLOWLIST_PATHS[label],
+			lambda allow, d=locales_dir: find_problems(allow, d),
+		)
 	return 0
 
 
