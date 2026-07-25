@@ -224,7 +224,10 @@ fun DashboardScreen(
 
             if (ui.quota.isNotEmpty()) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                    // Top, not centre: the badge strip wraps onto as many lines
+                    // as the selection needs, and a centred refresh button ends
+                    // up floating halfway down a tall strip with nothing beside it.
+                    verticalAlignment = Alignment.Top,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     QuotaBadgeRow(

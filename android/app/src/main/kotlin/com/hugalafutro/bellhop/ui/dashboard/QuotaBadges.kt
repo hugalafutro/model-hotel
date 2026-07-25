@@ -1,14 +1,15 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -18,6 +19,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,21 +29,24 @@ import com.hugalafutro.bellhop.data.ProviderQuota
 import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.data.QuotaData
 import com.hugalafutro.bellhop.data.quotaBadgeLabel
+import com.hugalafutro.bellhop.ui.theme.quotaBrandColor
 import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
  * QuotaBadgeRow is the dashboard's quota-badge strip: one tappable chip per
  * [quota] entry, showing the same short label [quotaBadgeLabel] computes for
- * the widget, so the two surfaces never drift on what a badge says. Scrolls
- * horizontally rather than wrapping, so a long provider list stays a single
- * line above the member list. Renders nothing when [quota] is empty (no
+ * the widget, so the two surfaces never drift on what a badge says. Wraps onto
+ * as many lines as the selection needs rather than scrolling: everything the
+ * operator ticked in the configurator has to be visible without a gesture that
+ * nothing on screen advertises. Renders nothing when [quota] is empty (no
  * quota-capable providers configured) instead of an empty strip. A dead-key
  * entry ([ProviderQuota.available] == false) still renders and is still
  * tappable -- [onBadgeClick] carries [ProviderQuota.providerName] either
  * way -- because the detail sheet is what explains *why* it's unavailable;
  * swallowing the tap would strand the user looking at a bare "-".
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun QuotaBadgeRow(
     quota: List<ProviderQuota>,
@@ -50,9 +55,13 @@ fun QuotaBadgeRow(
     modifier: Modifier = Modifier,
 ) {
     if (quota.isEmpty()) return
-    Row(
-        modifier = modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+        // Tighter than the horizontal gap on purpose: each chip is a clickable
+        // Surface, so Material already reserves a 48dp touch target around it
+        // and a matching 8dp here reads as a hole between the lines.
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         quota.forEach { pq ->
             QuotaBadgeChip(pq = pq, mode = mode, onClick = { onBadgeClick(pq.providerName) })
@@ -63,9 +72,13 @@ fun QuotaBadgeRow(
 /**
  * QuotaBadgeChip is one badge: the provider's own name (badge identity is
  * always the wire's provider *name*, never its type or a list index -- see
- * global-constraints) plus [quotaBadgeLabel]'s short value. Availability
- * only changes the chip's tint (dimmed, matching a disabled-looking control)
- * -- it stays a live tap target either way.
+ * global-constraints) plus [quotaBadgeLabel]'s short value. The chip wears its
+ * provider's brand colour ([quotaBrandColor]) in the Model Hotel dashboard's
+ * own proportions -- tinted fill, brand text, brand outline -- so a strip of
+ * badges is scannable by colour rather than eight identical pills. An
+ * unavailable badge drops to the scheme's neutrals (matching a disabled-looking
+ * control) but stays a live tap target either way: the detail sheet is what
+ * explains the "-".
  */
 @Composable
 private fun QuotaBadgeChip(
@@ -74,14 +87,23 @@ private fun QuotaBadgeChip(
     onClick: () -> Unit,
 ) {
     val available = pq.available
-    val bg = if (available) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant
-    val fg =
-        if (available) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    // Read the scheme rather than isSystemInDarkTheme(): BellhopTheme takes
+    // darkTheme as a parameter, so the system flag can disagree with what is
+    // actually rendering (previews, tests, a future in-app theme switch).
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val brand = quotaBrandColor(pq.type, dark)
+    // Alphas mirror the web pill (web/src/index.css .sidebar-quota-pill):
+    // 15% fill, 40% border, full-strength text.
+    val bg = if (available) brand.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant
+    val fg = if (available) brand else MaterialTheme.colorScheme.onSurfaceVariant
+    val border =
+        if (available) brand.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outline
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         color = bg,
         contentColor = fg,
+        border = BorderStroke(1.dp, border),
         modifier = Modifier.testTag("quota-badge-${pq.providerName}"),
     ) {
         Row(

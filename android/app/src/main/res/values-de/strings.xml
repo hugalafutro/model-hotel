@@ -306,5 +306,5 @@
     <string name="quota_config_mode_remaining">Verbleibend</string>
     <string name="quota_config_mode_used">Verbraucht</string>
     <string name="quota_config_empty">Noch keine kontingentfähigen Anbieter gesehen.</string>
-    <string name="quota_config_widget_cap">%1$d von %2$d im Widget angezeigt</string>
+    <string name="quota_config_widget_cap">Nur die ersten %1$d passen auf das Widget</string>
 </resources>

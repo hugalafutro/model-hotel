@@ -120,10 +120,14 @@ fun QuotaBadgesConfigScreen(
 
             SurfaceTabsRow(surface = surface, onSelect = { surface = it })
 
-            if (surface == QuotaSurface.WIDGET) {
-                val visibleCount = config.order.count { it !in config.hidden }
+            // The widget wraps its badges onto several lines, so a selection that
+            // fits needs no commentary at all -- the old "N of 6" line read as a
+            // limit being enforced even when nothing was being dropped. Speak up
+            // only when the selection genuinely outruns WIDGET_QUOTA_CAP.
+            val visibleCount = config.order.count { it !in config.hidden }
+            if (surface == QuotaSurface.WIDGET && visibleCount > WIDGET_QUOTA_CAP) {
                 Text(
-                    text = stringResource(R.string.quota_config_widget_cap, visibleCount, WIDGET_QUOTA_CAP),
+                    text = stringResource(R.string.quota_config_widget_cap, WIDGET_QUOTA_CAP),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp).testTag("quota-config-widget-cap"),

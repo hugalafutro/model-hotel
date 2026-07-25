@@ -306,5 +306,5 @@
     <string name="quota_config_mode_remaining">Restante</string>
     <string name="quota_config_mode_used">Usado</string>
     <string name="quota_config_empty">Aún no se han detectado proveedores con cuota.</string>
-    <string name="quota_config_widget_cap">%1$d de %2$d mostrados en el widget</string>
+    <string name="quota_config_widget_cap">Solo los primeros %1$d caben en el widget</string>
 </resources>

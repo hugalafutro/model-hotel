@@ -9,6 +9,7 @@ import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
 import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.data.QuotaSurface
+import com.hugalafutro.bellhop.data.WIDGET_QUOTA_CAP
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -93,9 +94,34 @@ class QuotaBadgesConfigScreenTest {
     }
 
     @Test
-    fun widgetTabShowsCapHeadroomText() {
+    fun widgetTabStaysQuietWhenTheSelectionFits() {
+        // The widget wraps badges onto several lines, so a selection under the
+        // cap is shown in full and the cap note would only be noise.
         val configStore = newConfigStore()
         runBlocking { configStore.reconcile(QuotaSurface.WIDGET, listOf("OR", "NG")) }
+
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaBadgesConfigScreen(configStore = configStore, prefsStore = newPrefsStore(), onBack = {})
+            }
+        }
+
+        composeTestRule.onNodeWithTag("quota-config-tab-widget").performClick()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("quota-config-widget-cap").assertDoesNotExist()
+    }
+
+    @Test
+    fun widgetTabWarnsWhenTheSelectionOutrunsTheCap() {
+        val configStore = newConfigStore()
+        val names = (1..WIDGET_QUOTA_CAP + 1).map { "P$it" }
+        runBlocking {
+            configStore.reconcile(QuotaSurface.WIDGET, names)
+            // WIDGET is opt-in, so reconcile leaves new names hidden; tick them
+            // all on to get past the cap.
+            names.forEach { configStore.setVisible(QuotaSurface.WIDGET, it, true) }
+        }
 
         composeTestRule.setContent {
             BellhopTheme {

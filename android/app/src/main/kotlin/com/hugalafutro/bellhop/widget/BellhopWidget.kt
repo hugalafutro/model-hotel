@@ -49,10 +49,12 @@ import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberHealthState
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PrefsStore
+import com.hugalafutro.bellhop.data.QuotaType
 import com.hugalafutro.bellhop.data.TRAFFIC_BUCKETS
 import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.countsOf
+import com.hugalafutro.bellhop.data.quotaBadgeRows
 import com.hugalafutro.bellhop.ui.theme.Brass300
 import com.hugalafutro.bellhop.ui.theme.Brass600
 import com.hugalafutro.bellhop.ui.theme.Ember300
@@ -65,6 +67,7 @@ import com.hugalafutro.bellhop.ui.theme.PaperInk
 import com.hugalafutro.bellhop.ui.theme.PaperInkMuted
 import com.hugalafutro.bellhop.ui.theme.SteelContainerDark
 import com.hugalafutro.bellhop.ui.theme.SteelContainerLight
+import com.hugalafutro.bellhop.ui.theme.quotaBrand
 import com.hugalafutro.bellhop.work.FleetPollWorker
 import kotlinx.coroutines.flow.first
 import java.time.Instant
@@ -200,6 +203,11 @@ private val DotUp = ColorProvider(day = Moss600, night = Moss300)
 private val DotDown = ColorProvider(day = Ember600, night = Ember300)
 private val DotDrained = ColorProvider(day = Brass600, night = Brass300)
 private val DotUnknown = ColorProvider(day = PaperInkMuted, night = Ink300)
+
+// Quota badges are the one place the widget shows third-party brand colors
+// rather than the app palette; quotaBrand is the shared source (ui/theme),
+// so the widget pill and the dashboard chip can never drift apart.
+private fun quotaBadgeColor(type: QuotaType) = quotaBrand(type).let { ColorProvider(day = it.day, night = it.night) }
 
 private fun dotColor(state: MemberHealthState) =
     when (state) {
@@ -374,11 +382,12 @@ private fun WidgetContent(
                 // children, and per-row Spacers blew past it on a 3-member
                 // fleet (the children beyond the cap are silently dropped -
                 // the footer was the casualty). Worst case now sits AT the cap:
-                // header + 5 rows + quota Row + weight spacer + event Column +
-                // footer = 10, no headroom. The quota Row holds all badges as
-                // ONE child (not one-per-badge), so raising WIDGET_QUOTA_CAP is
-                // free here - but adding any new top-level SECTION will silently
-                // drop a child; free a slot (nest a singleton) before doing so.
+                // header + 5 rows + quota Column + weight spacer + event Column
+                // + footer = 10, no headroom. The quota strip is ONE child
+                // whatever its badge count (its rows are children of its own
+                // nested Column), so raising WIDGET_QUOTA_CAP is free here -
+                // but adding any new top-level SECTION will silently drop a
+                // child; free a slot (nest a singleton) before doing so.
                 state.members.forEach { member ->
                     Box(
                         contentAlignment = Alignment.BottomStart,
@@ -423,28 +432,48 @@ private fun WidgetContent(
                 }
         }
         // One badge per configured provider, pre-ordered/filtered/capped by the
-        // poll layer (WIDGET_QUOTA_CAP). A single Row is one Glance child no
-        // matter how many badges it holds, keeping this section cheap against
-        // the 10-child cap the member rows above already have to mind.
+        // poll layer (WIDGET_QUOTA_CAP) and packed into lines by quotaBadgeRows
+        // -- Glance has no wrapping layout, so the rows are explicit. The whole
+        // strip is ONE child of the Column above (the badge rows are children
+        // of this nested Column, which has its own 10-child budget that
+        // WIDGET_QUOTA_MAX_ROWS keeps it well inside), so it stays cheap
+        // against the 10-child cap the member rows already have to mind.
         if (state != null && state.quota.isNotEmpty()) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp),
-            ) {
-                state.quota.forEach { badge ->
-                    Box(
-                        modifier =
-                            GlanceModifier
-                                .padding(end = 4.dp)
-                                .background(ImageProvider(R.drawable.widget_pill_bg))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .clickable(actionStartActivityIntent(quotaBadgeIntent(context, badge.providerName))),
+            Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp)) {
+                quotaBadgeRows(state.quota).forEach { row ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = GlanceModifier.fillMaxWidth().padding(bottom = 2.dp),
                     ) {
-                        Text(
-                            badge.label,
-                            style = TextStyle(color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Medium),
-                            maxLines = 1,
-                        )
+                        row.forEach { badge ->
+                            Box(
+                                modifier =
+                                    GlanceModifier
+                                        .padding(end = 4.dp)
+                                        .background(ImageProvider(R.drawable.widget_pill_bg))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        .clickable(
+                                            actionStartActivityIntent(
+                                                quotaBadgeIntent(context, badge.providerName),
+                                            ),
+                                        ),
+                            ) {
+                                Text(
+                                    badge.label,
+                                    style =
+                                        TextStyle(
+                                            // Provider brand colour, same source as the
+                                            // dashboard chips and the Model Hotel sidebar
+                                            // pills, so a strip of badges is scannable
+                                            // instead of eight identical pills.
+                                            color = quotaBadgeColor(badge.quotaType),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Medium,
+                                        ),
+                                    maxLines = 1,
+                                )
+                            }
+                        }
                     }
                 }
             }

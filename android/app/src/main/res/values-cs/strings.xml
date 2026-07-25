@@ -318,5 +318,5 @@
     <string name="quota_config_mode_remaining">Zbývající</string>
     <string name="quota_config_mode_used">Využité</string>
     <string name="quota_config_empty">Zatím nejsou vidět žádní poskytovatelé s kvótou.</string>
-    <string name="quota_config_widget_cap">%1$d z %2$d zobrazeno na widgetu</string>
+    <string name="quota_config_widget_cap">Na widget se vejde jen prvních %1$d</string>
 </resources>

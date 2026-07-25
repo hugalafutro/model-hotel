@@ -306,5 +306,5 @@
     <string name="quota_config_mode_remaining">Restant</string>
     <string name="quota_config_mode_used">Utilisé</string>
     <string name="quota_config_empty">Aucun fournisseur compatible avec les quotas pour l\'instant.</string>
-    <string name="quota_config_widget_cap">%1$d sur %2$d affichés sur le widget</string>
+    <string name="quota_config_widget_cap">Seuls les %1$d premiers tiennent sur le widget</string>
 </resources>

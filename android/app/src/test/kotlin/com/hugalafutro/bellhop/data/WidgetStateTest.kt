@@ -132,7 +132,7 @@ class WidgetStateTest {
     @Test
     fun widgetQuotaRespectsOrderVisibilityAndCap() {
         val quotas =
-            (1..8).map {
+            (1..WIDGET_QUOTA_CAP + 3).map {
                 ProviderQuota(
                     providerName = "P$it",
                     type = QuotaType.OPENROUTER,
@@ -146,6 +146,40 @@ class WidgetStateTest {
         assertEquals(WIDGET_QUOTA_CAP, badges.size)
         assertFalse(badges.any { it.providerName == "P2" }) // hidden dropped before the cap
     }
+
+    @Test
+    fun quotaBadgeRowsPacksToTheRowBudget() {
+        // Short labels share a line; a long one starts the next.
+        val badges =
+            listOf(
+                badge("A", "$1"),
+                badge("B", "$2"),
+                badge("C", "$3"),
+                badge("D", "999.9M/999.9M"),
+            )
+        val rows = quotaBadgeRows(badges)
+        assertEquals(listOf(listOf("A", "B", "C"), listOf("D")), rows.map { row -> row.map { it.providerName } })
+    }
+
+    @Test
+    fun quotaBadgeRowsGivesAnOversizedBadgeItsOwnRow() {
+        val rows = quotaBadgeRows(listOf(badge("wide", "x".repeat(80)), badge("next", "$1")))
+        assertEquals(listOf(listOf("wide"), listOf("next")), rows.map { row -> row.map { it.providerName } })
+    }
+
+    @Test
+    fun quotaBadgeRowsStopsAtTheRowCap() {
+        // One badge per row (each fills the budget on its own), so the row cap
+        // is what bounds the strip's height.
+        val rows = quotaBadgeRows((1..WIDGET_QUOTA_MAX_ROWS + 2).map { badge("P$it", "x".repeat(40)) })
+        assertEquals(WIDGET_QUOTA_MAX_ROWS, rows.size)
+        assertEquals("P1", rows.first().single().providerName)
+    }
+
+    private fun badge(
+        name: String,
+        label: String,
+    ) = WidgetQuotaBadge(providerName = name, type = QuotaType.OPENROUTER.name, label = label)
 
     @Test
     fun widgetQuotaThreadsModeIntoLabel() {
