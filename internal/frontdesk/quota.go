@@ -104,10 +104,13 @@ func (s *Server) handleQuota(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if snapshots == nil {
-		// The key was present but null. That still answers the question -- the
-		// primary has nothing to report -- so it stays a 200, normalised to a
-		// list rather than reaching the device as "quota": null.
-		snapshots = []quotaWire{}
+		// Present but null. No member sends that -- ExportSnapshots has built a
+		// non-nil slice since the endpoint existed, so an empty export is [] --
+		// which puts null in the same class as a missing key: something other
+		// than an export answered, and reading it as "no providers" is exactly
+		// the wipe this decode path exists to prevent.
+		writeQuotaUnreachable(w, "the primary's quota snapshots were missing from its export")
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"quota": snapshots})
 }

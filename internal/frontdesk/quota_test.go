@@ -213,16 +213,23 @@ func TestHandleQuota_ExportWithUnreadableSnapshotsReturnsBadGateway(t *testing.T
 
 func TestHandleQuota_EmptyExportIsAnAnswer(t *testing.T) {
 	// The other side of the same coin: a primary that really has no
-	// quota-capable providers sends the key with an empty list, and that is a
-	// truthful empty answer rather than a failure. Null passes too, so a member
-	// that ever marshals the field that way isn't read as broken.
-	for _, body := range []string{`{"snapshots":[]}`, `{"snapshots":null}`} {
-		s := newTestServerWithPrimaryBody(t, body)
-		rr := httptest.NewRecorder()
-		s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
-		require.Equal(t, http.StatusOK, rr.Code, body)
-		require.JSONEq(t, `{"quota":[]}`, rr.Body.String(), body)
-	}
+	// quota-capable providers sends the key with an empty list, which is a
+	// truthful empty answer rather than a failure.
+	s := newTestServerWithPrimaryBody(t, `{"snapshots":[]}`)
+	rr := httptest.NewRecorder()
+	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.JSONEq(t, `{"quota":[]}`, rr.Body.String())
+}
+
+func TestHandleQuota_NullSnapshotsReturnsBadGateway(t *testing.T) {
+	// An export has sent [] for empty since the endpoint existed, so null is
+	// not an empty export -- it is something else answering 200.
+	s := newTestServerWithPrimaryBody(t, `{"snapshots":null}`)
+	rr := httptest.NewRecorder()
+	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
+	require.Equal(t, http.StatusBadGateway, rr.Code)
+	require.Contains(t, rr.Body.String(), `"error"`)
 }
 
 func TestHandleQuotaRefresh_ProxiesPrimary(t *testing.T) {
