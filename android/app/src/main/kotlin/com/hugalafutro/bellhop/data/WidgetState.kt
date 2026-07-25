@@ -99,34 +99,68 @@ private const val WIDGET_QUOTA_CHAR_DP = 6
 private const val WIDGET_QUOTA_PILL_CHROME_DP = 9
 
 /**
- * WIDGET_QUOTA_MAX_PER_ROW is Glance's own 10-children cap on the Row each
- * line of badges becomes. Nothing else is emitted into that Row, so the cap is
- * the badge count exactly.
+ * WIDGET_QUOTA_MAX_PER_ROW is Glance's 10-children cap on the Row each line of
+ * badges becomes, less one slot held for the overflow marker
+ * ([quotaBadgeOverflow]) the last row may have to carry.
  */
-private const val WIDGET_QUOTA_MAX_PER_ROW = 10
+private const val WIDGET_QUOTA_MAX_PER_ROW = 9
+
+/** badgeWidthDp estimates what one badge occupies, label plus pill chrome. */
+private fun badgeWidthDp(badge: WidgetQuotaBadge): Int =
+    badge.label.length * WIDGET_QUOTA_CHAR_DP + WIDGET_QUOTA_PILL_CHROME_DP
 
 /**
  * quotaBadgeRows packs [badges] into the rows the widget renders, keeping the
  * given order and fitting as many per row as [budgetDp] -- the widget's real
- * inner width -- allows. Every row holds the same number of badges, sized off
- * the *widest* label rather than each row's own: the widget stretches badges to
- * fill their row, so an equal share has to be wide enough for the longest one
- * or that badge would be the one clipped. The result is a grid that fills the
- * width instead of a ragged left-aligned strip. Rows past
- * [WIDGET_QUOTA_MAX_ROWS] are dropped -- [widgetQuotaOf] has already capped the
- * input, so this only bites when every label is unusually long.
+ * inner width -- allows.
+ *
+ * The widget stretches a row's badges to equal shares, so a row of n badges is
+ * only safe when n times its *own* widest label still fits: an equal share
+ * narrower than the longest badge clips that badge. Packing therefore fills
+ * each row against that row's widest, not the whole strip's -- sizing every row
+ * off the global widest let one long label ("NW 12.5/20 kWh") force the entire
+ * strip to one badge per row, which combined with [WIDGET_QUOTA_MAX_ROWS] hid
+ * two thirds of a full selection on a narrow widget.
+ *
+ * Rows past [WIDGET_QUOTA_MAX_ROWS] are still dropped -- the strip must not eat
+ * the fleet rows the widget exists for -- so the caller asks
+ * [quotaBadgeOverflow] how many were left out and says so rather than dropping
+ * them silently.
  */
 fun quotaBadgeRows(
     badges: List<WidgetQuotaBadge>,
     budgetDp: Int = WIDGET_QUOTA_DEFAULT_ROW_BUDGET_DP,
 ): List<List<WidgetQuotaBadge>> {
-    if (badges.isEmpty()) return emptyList()
-    val widest = badges.maxOf { it.label.length * WIDGET_QUOTA_CHAR_DP + WIDGET_QUOTA_PILL_CHROME_DP }
-    // At least one per row, so a badge wider than the whole widget still gets
-    // its own line rather than disappearing.
-    val perRow = (budgetDp / widest).coerceIn(1, WIDGET_QUOTA_MAX_PER_ROW)
-    return badges.chunked(perRow).take(WIDGET_QUOTA_MAX_ROWS)
+    val rows = mutableListOf<MutableList<WidgetQuotaBadge>>()
+    // The widest label in the row being filled: what every badge in it will be
+    // stretched to, and so what decides whether one more still fits.
+    var rowWidest = 0
+    badges.forEach { badge ->
+        val width = badgeWidthDp(badge)
+        val row = rows.lastOrNull()
+        val widest = maxOf(rowWidest, width)
+        val fits = row != null && row.size < WIDGET_QUOTA_MAX_PER_ROW && (row.size + 1) * widest <= budgetDp
+        if (fits) {
+            row.add(badge)
+            rowWidest = widest
+        } else {
+            // A new row always accepts its first badge, so one wider than the
+            // whole widget still gets a line rather than disappearing.
+            rows += mutableListOf(badge)
+            rowWidest = width
+        }
+    }
+    return rows.take(WIDGET_QUOTA_MAX_ROWS)
 }
+
+/**
+ * quotaBadgeOverflow counts the badges [rows] left out of [badges] -- what the
+ * [WIDGET_QUOTA_MAX_ROWS] cap dropped. Zero when everything fit.
+ */
+fun quotaBadgeOverflow(
+    badges: List<WidgetQuotaBadge>,
+    rows: List<List<WidgetQuotaBadge>>,
+): Int = badges.size - rows.sumOf { it.size }
 
 /**
  * widgetQuotaOf resolves [quota] against [config] the same way the main-page

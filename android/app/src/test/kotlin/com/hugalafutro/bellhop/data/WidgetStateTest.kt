@@ -3,6 +3,7 @@ package com.hugalafutro.bellhop.data
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -149,8 +150,9 @@ class WidgetStateTest {
 
     @Test
     fun quotaBadgeRowsPacksToTheRowBudget() {
-        // Uniform columns sized off the widest label: "999.9M/999.9M" is 13
-        // characters, so ~87dp a badge and only one fits the default budget.
+        // Uniform columns, so a row of n badges needs n * its own widest to fit:
+        // "999.9M/999.9M" is 13 characters (~87dp), which claims a row alone,
+        // while the three short ones share theirs.
         val badges =
             listOf(
                 badge("A", "$1"),
@@ -160,9 +162,48 @@ class WidgetStateTest {
             )
         val rows = quotaBadgeRows(badges)
         assertEquals(
-            listOf(listOf("A"), listOf("B"), listOf("C"), listOf("D")),
+            listOf(listOf("A", "B", "C"), listOf("D")),
             rows.map { row -> row.map { it.providerName } },
         )
+    }
+
+    @Test
+    fun quotaBadgeRowsSizeEachRowOffItsOwnWidest() {
+        // Regression: sizing every row off the *strip's* widest label let one
+        // long badge force the whole strip to one per row, and the row cap then
+        // hid the rest of the selection. The long one takes its own row; the
+        // short ones must still share.
+        val badges = (1..6).map { badge("S$it", "OR 5%") } + badge("LONG", "NW 12.5/20 kWh")
+
+        val rows = quotaBadgeRows(badges, budgetDp = 156)
+
+        assertTrue("short badges must still share a row", rows.first().size > 1)
+        assertEquals(badges.size, rows.sumOf { it.size })
+        assertEquals(0, quotaBadgeOverflow(badges, rows))
+    }
+
+    @Test
+    fun quotaBadgeRowsNeverGiveARowAShareNarrowerThanItsWidestBadge() {
+        // The widget stretches a row's badges to equal shares, so any row whose
+        // share is narrower than its longest label would clip that label.
+        val badges =
+            listOf(
+                badge("a", "OR $1"),
+                badge("b", "NANO 1.9M/3M"),
+                badge("c", "ZAI 50%/80%"),
+                badge("d", "DS $5.00"),
+                badge("e", "NW 12.5/20 kWh"),
+                badge("f", "OLC pro"),
+            )
+        listOf(120, 156, 240, 320, 480).forEach { budget ->
+            quotaBadgeRows(badges, budget).forEach { row ->
+                val widest = row.maxOf { it.label.length * 6 + 9 }
+                assertTrue(
+                    "row of ${row.size} at ${budget}dp gives ${budget / row.size}dp to a ${widest}dp badge",
+                    row.size == 1 || budget / row.size >= widest,
+                )
+            }
+        }
     }
 
     @Test
@@ -176,10 +217,11 @@ class WidgetStateTest {
     }
 
     @Test
-    fun quotaBadgeRowsNeverExceedGlancesChildCap() {
-        // A Row is one Glance container, and Glance drops children past ten.
+    fun quotaBadgeRowsLeaveGlanceAChildForTheOverflowMarker() {
+        // A Row is one Glance container and Glance drops children past ten, so
+        // the packer stops at nine to leave the "+N" marker a slot.
         val rows = quotaBadgeRows((1..20).map { badge("P$it", "1") }, budgetDp = 4000)
-        assertEquals(10, rows.first().size)
+        assertEquals(9, rows.first().size)
     }
 
     @Test
@@ -189,12 +231,22 @@ class WidgetStateTest {
     }
 
     @Test
-    fun quotaBadgeRowsStopsAtTheRowCap() {
+    fun quotaBadgeRowsStopsAtTheRowCapAndReportsWhatItDropped() {
         // One badge per row (each fills the budget on its own), so the row cap
-        // is what bounds the strip's height.
-        val rows = quotaBadgeRows((1..WIDGET_QUOTA_MAX_ROWS + 2).map { badge("P$it", "x".repeat(40)) })
+        // is what bounds the strip's height -- and the overflow it drops is
+        // counted rather than vanishing.
+        val badges = (1..WIDGET_QUOTA_MAX_ROWS + 2).map { badge("P$it", "x".repeat(40)) }
+        val rows = quotaBadgeRows(badges)
+
         assertEquals(WIDGET_QUOTA_MAX_ROWS, rows.size)
         assertEquals("P1", rows.first().single().providerName)
+        assertEquals(2, quotaBadgeOverflow(badges, rows))
+    }
+
+    @Test
+    fun quotaBadgeOverflowIsZeroWhenEverythingFits() {
+        val badges = listOf(badge("a", "1"), badge("b", "2"))
+        assertEquals(0, quotaBadgeOverflow(badges, quotaBadgeRows(badges, budgetDp = 320)))
     }
 
     private fun badge(

@@ -57,6 +57,7 @@ import com.hugalafutro.bellhop.data.TimeFormat
 import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.countsOf
+import com.hugalafutro.bellhop.data.quotaBadgeOverflow
 import com.hugalafutro.bellhop.data.quotaBadgeRows
 import com.hugalafutro.bellhop.data.quotaHasDetail
 import com.hugalafutro.bellhop.data.timePattern
@@ -521,7 +522,12 @@ private fun WidgetContent(
                 // less the root Column's side padding), so a wide widget fits a
                 // wide row instead of the two the narrowest breakpoint allowed.
                 val budgetDp = (LocalSize.current.width - ROOT_PADDING * 2).value.toInt()
-                quotaBadgeRows(state.quota, budgetDp).forEach { row ->
+                val rows = quotaBadgeRows(state.quota, budgetDp)
+                // What the row cap left out. Said out loud on the last row: the
+                // operator picked these badges, so a strip too short to hold
+                // them all has to admit it rather than quietly showing fewer.
+                val overflow = quotaBadgeOverflow(state.quota, rows)
+                rows.forEachIndexed { index, row ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = GlanceModifier.fillMaxWidth().padding(bottom = 1.dp),
@@ -569,6 +575,13 @@ private fun WidgetContent(
                                     )
                                 }
                             }
+                        }
+                        if (overflow > 0 && index == rows.lastIndex) {
+                            Text(
+                                "+$overflow",
+                                style = TextStyle(color = TextMuted, fontSize = 9.sp),
+                                maxLines = 1,
+                            )
                         }
                     }
                 }
