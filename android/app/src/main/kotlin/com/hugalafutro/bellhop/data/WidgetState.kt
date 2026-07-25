@@ -84,39 +84,48 @@ const val WIDGET_QUOTA_CAP = 12
  */
 const val WIDGET_QUOTA_MAX_ROWS = 4
 
-// Row packing budget. Glance cannot measure text or wrap a Row, and under
-// SizeMode.Responsive LocalSize reports the breakpoint (180dp wide), not the
-// real widget, so rows are packed against the narrowest width the widget can
-// be resized to: 180dp minus the root Column's 12dp side padding. Badges are
-// digits and percent signs at 9sp; 6dp per character is a deliberate
-// over-estimate (a clipped badge is worse than a short row) and the chrome
-// term is the pill's 12dp horizontal padding plus its 4dp end gap.
-private const val WIDGET_QUOTA_ROW_BUDGET_DP = 156
+/**
+ * WIDGET_QUOTA_DEFAULT_ROW_BUDGET_DP is the packing width for a caller that
+ * doesn't know the widget's own: the narrowest the widget can be resized to
+ * (180dp) minus the root Column's 12dp side padding.
+ */
+const val WIDGET_QUOTA_DEFAULT_ROW_BUDGET_DP = 156
+
+// Glance cannot measure text, so a badge's width is estimated from its label.
+// Labels are digits, percent signs and a short provider code at 9sp; 6dp per
+// character is a deliberate over-estimate, and the chrome term is the pill's
+// horizontal padding plus its 1dp end gap.
 private const val WIDGET_QUOTA_CHAR_DP = 6
-private const val WIDGET_QUOTA_PILL_CHROME_DP = 16
+private const val WIDGET_QUOTA_PILL_CHROME_DP = 9
+
+/**
+ * WIDGET_QUOTA_MAX_PER_ROW is Glance's own 10-children cap on the Row each
+ * line of badges becomes. Nothing else is emitted into that Row, so the cap is
+ * the badge count exactly.
+ */
+private const val WIDGET_QUOTA_MAX_PER_ROW = 10
 
 /**
  * quotaBadgeRows packs [badges] into the rows the widget renders, keeping the
- * given order and fitting as many per row as [WIDGET_QUOTA_ROW_BUDGET_DP]
- * allows (always at least one, so a badge wider than the whole row still gets
- * its own line rather than disappearing). Rows past [WIDGET_QUOTA_MAX_ROWS] are
- * dropped -- [widgetQuotaOf] has already capped the input, so this only bites
- * when every label is unusually long.
+ * given order and fitting as many per row as [budgetDp] -- the widget's real
+ * inner width -- allows. Every row holds the same number of badges, sized off
+ * the *widest* label rather than each row's own: the widget stretches badges to
+ * fill their row, so an equal share has to be wide enough for the longest one
+ * or that badge would be the one clipped. The result is a grid that fills the
+ * width instead of a ragged left-aligned strip. Rows past
+ * [WIDGET_QUOTA_MAX_ROWS] are dropped -- [widgetQuotaOf] has already capped the
+ * input, so this only bites when every label is unusually long.
  */
-fun quotaBadgeRows(badges: List<WidgetQuotaBadge>): List<List<WidgetQuotaBadge>> {
-    val rows = mutableListOf<MutableList<WidgetQuotaBadge>>()
-    var used = 0
-    badges.forEach { badge ->
-        val width = badge.label.length * WIDGET_QUOTA_CHAR_DP + WIDGET_QUOTA_PILL_CHROME_DP
-        if (rows.isEmpty() || used + width > WIDGET_QUOTA_ROW_BUDGET_DP) {
-            rows += mutableListOf(badge)
-            used = width
-        } else {
-            rows.last() += badge
-            used += width
-        }
-    }
-    return rows.take(WIDGET_QUOTA_MAX_ROWS)
+fun quotaBadgeRows(
+    badges: List<WidgetQuotaBadge>,
+    budgetDp: Int = WIDGET_QUOTA_DEFAULT_ROW_BUDGET_DP,
+): List<List<WidgetQuotaBadge>> {
+    if (badges.isEmpty()) return emptyList()
+    val widest = badges.maxOf { it.label.length * WIDGET_QUOTA_CHAR_DP + WIDGET_QUOTA_PILL_CHROME_DP }
+    // At least one per row, so a badge wider than the whole widget still gets
+    // its own line rather than disappearing.
+    val perRow = (budgetDp / widest).coerceIn(1, WIDGET_QUOTA_MAX_PER_ROW)
+    return badges.chunked(perRow).take(WIDGET_QUOTA_MAX_ROWS)
 }
 
 /**
@@ -124,7 +133,10 @@ fun quotaBadgeRows(badges: List<WidgetQuotaBadge>): List<List<WidgetQuotaBadge>>
  * badge list does ([orderedVisible]: hidden/unavailable names dropped, order
  * preserved), then trims to [WIDGET_QUOTA_CAP] and precomputes each badge's
  * short [WidgetQuotaBadge.label] via [quotaBadgeLabel] (in [mode]'s polarity)
- * so the widget's render stays pure-string.
+ * so the widget's render stays pure-string. The label leads with
+ * [quotaShortCode] because a widget badge showing only a number says nothing
+ * about whose number it is, and the dashboard's full provider name would eat
+ * the row at this size.
  */
 fun widgetQuotaOf(
     quota: List<ProviderQuota>,
@@ -137,7 +149,7 @@ fun widgetQuotaOf(
             WidgetQuotaBadge(
                 providerName = it.providerName,
                 type = it.type.name,
-                label = quotaBadgeLabel(it, mode),
+                label = "${quotaShortCode(it.type)} ${quotaBadgeLabel(it, mode)}",
             )
         }
 

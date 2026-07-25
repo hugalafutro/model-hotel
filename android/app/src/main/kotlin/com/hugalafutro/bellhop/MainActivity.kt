@@ -66,9 +66,7 @@ import com.hugalafutro.bellhop.ui.pairing.PairingViewModel
 import com.hugalafutro.bellhop.ui.settings.QuotaBadgesConfigScreen
 import com.hugalafutro.bellhop.ui.settings.SettingsScreen
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
-import com.hugalafutro.bellhop.widget.ACTION_OPEN_QUOTA
 import com.hugalafutro.bellhop.widget.BellhopWidget
-import com.hugalafutro.bellhop.widget.EXTRA_BADGE_PROVIDER_NAME
 import com.hugalafutro.bellhop.work.FleetPollWorker
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -87,12 +85,6 @@ private const val OPERATOR_AUTH_WINDOW_MS = 60_000L
 // FragmentActivity (not plain ComponentActivity) because BiometricPrompt hosts
 // its sheet on a FragmentManager; Compose still drives the whole UI.
 class MainActivity : FragmentActivity() {
-    // A widget quota-badge tap launches here carrying the provider name; held as
-    // Compose state so onNewIntent (app already running) recomposes, and so the
-    // target rides the app-lock gate -- BellhopApp only forwards it to the linked
-    // UI once unlocked (see consumePendingQuotaTarget).
-    private var pendingQuotaBadge by mutableStateOf<String?>(null)
-
     // Apply the in-app language override before any resource resolves. A change
     // from the Settings picker persists the tag and recreates the activity, which
     // re-enters here in the new locale.
@@ -105,38 +97,14 @@ class MainActivity : FragmentActivity() {
         // Register the background-backstop notification channels up front so a
         // poll that fires while the app is dead has channels to post into.
         FleetNotifier.ensureChannels(this)
-        pendingQuotaBadge = quotaBadgeFromIntent(intent)
         enableEdgeToEdge()
         setContent {
             BellhopTheme {
-                BellhopApp(
-                    deepLinkBadge = pendingQuotaBadge,
-                    onDeepLinkConsumed = { pendingQuotaBadge = null },
-                )
+                BellhopApp()
             }
         }
     }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        quotaBadgeFromIntent(intent)?.let { pendingQuotaBadge = it }
-    }
 }
-
-// quotaBadgeFromIntent pulls the widget deep-link's provider-name extra, but
-// only from an OPEN_QUOTA action, so an ordinary launch never opens a sheet.
-private fun quotaBadgeFromIntent(intent: Intent?): String? =
-    if (intent?.action == ACTION_OPEN_QUOTA) intent.getStringExtra(EXTRA_BADGE_PROVIDER_NAME) else null
-
-// consumePendingQuotaTarget gates the widget deep-link on the app lock: the
-// target opens the detail sheet only once [unlocked], otherwise it stays
-// pending. Returns (targetToOpen, stillPending). Pure, so the gate is
-// unit-testable without the Compose/biometric stack.
-fun consumePendingQuotaTarget(
-    pending: String?,
-    unlocked: Boolean,
-): Pair<String?, String?> = if (pending != null && unlocked) pending to null else null to pending
 
 // appLockAuthenticators is the authenticator set the app lock prompts with. The
 // STRONG|DEVICE_CREDENTIAL combination isn't supported below API 30, so fall back
@@ -236,10 +204,7 @@ private fun FragmentActivity.promptAppUnlock(
  * linked, an enabled app lock covers the fleet UI until the user authenticates.
  */
 @Composable
-fun BellhopApp(
-    deepLinkBadge: String? = null,
-    onDeepLinkConsumed: () -> Unit = {},
-) {
+fun BellhopApp() {
     val context = LocalContext.current
     val activity = context as? FragmentActivity
     val linkStore = remember { LinkStore.create(context) }
@@ -584,9 +549,6 @@ fun BellhopApp(
                         onToggleHoldToCopy = { scope.launch { prefsStore.setHoldToCopy(it) } },
                         graphRangeMinutes = graphRangeMinutes,
                         quotaBarMode = quotaBarMode,
-                        deepLinkBadge =
-                            consumePendingQuotaTarget(deepLinkBadge, unlocked = lockEvaluated && !locked).first,
-                        onDeepLinkConsumed = onDeepLinkConsumed,
                         onSetGraphRange = { scope.launch { prefsStore.setGraphRangeMinutes(it) } },
                         widgetGraphs = widgetGraphs,
                         onToggleWidgetGraphs = {
@@ -645,8 +607,6 @@ private fun LinkedContent(
     onToggleHoldToCopy: (Boolean) -> Unit,
     graphRangeMinutes: Int,
     quotaBarMode: QuotaBarMode,
-    deepLinkBadge: String? = null,
-    onDeepLinkConsumed: () -> Unit = {},
     onSetGraphRange: (Int) -> Unit,
     widgetGraphs: Boolean,
     onToggleWidgetGraphs: (Boolean) -> Unit,
@@ -894,8 +854,6 @@ private fun LinkedContent(
             onVisibleMembers = dashVm::setVisibleMembers,
             quotaBarMode = quotaBarMode,
             onRefresh = { dashVm.refreshAll() },
-            deepLinkBadge = deepLinkBadge,
-            onDeepLinkConsumed = onDeepLinkConsumed,
             holdToCopy = holdToCopy,
             lockEnabled = lockConfig.enabled,
             onLock = onLock,

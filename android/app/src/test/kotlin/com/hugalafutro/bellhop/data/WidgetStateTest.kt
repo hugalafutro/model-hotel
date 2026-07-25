@@ -149,7 +149,8 @@ class WidgetStateTest {
 
     @Test
     fun quotaBadgeRowsPacksToTheRowBudget() {
-        // Short labels share a line; a long one starts the next.
+        // Uniform columns sized off the widest label: "999.9M/999.9M" is 13
+        // characters, so ~87dp a badge and only one fits the default budget.
         val badges =
             listOf(
                 badge("A", "$1"),
@@ -158,7 +159,27 @@ class WidgetStateTest {
                 badge("D", "999.9M/999.9M"),
             )
         val rows = quotaBadgeRows(badges)
-        assertEquals(listOf(listOf("A", "B", "C"), listOf("D")), rows.map { row -> row.map { it.providerName } })
+        assertEquals(
+            listOf(listOf("A"), listOf("B"), listOf("C"), listOf("D")),
+            rows.map { row -> row.map { it.providerName } },
+        )
+    }
+
+    @Test
+    fun quotaBadgeRowsFitMoreOnAWiderWidget() {
+        // Same badges, a 4-column widget's inner width: the strip fills the row
+        // it was given instead of the narrowest one the widget can be resized to.
+        val badges = (1..6).map { badge("P$it", "OR ${it}0%") }
+
+        assertEquals(2, quotaBadgeRows(badges, budgetDp = 100).first().size)
+        assertEquals(6, quotaBadgeRows(badges, budgetDp = 300).single().size)
+    }
+
+    @Test
+    fun quotaBadgeRowsNeverExceedGlancesChildCap() {
+        // A Row is one Glance container, and Glance drops children past ten.
+        val rows = quotaBadgeRows((1..20).map { badge("P$it", "1") }, budgetDp = 4000)
+        assertEquals(10, rows.first().size)
     }
 
     @Test

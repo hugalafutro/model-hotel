@@ -482,6 +482,30 @@ fun quotaBadgeLabel(
     }
 }
 
+/**
+ * quotaShortCode is the widget's stand-in for a provider name: two to four
+ * characters that fit beside the reading on a home-screen pill, where the
+ * operator's own provider name ("openrouter-personal") would eat the row. It
+ * keys on [QuotaType], so two providers of the same type share a code -- the
+ * badge tap toasts the full name, which is what tells them apart. Like the
+ * label formatters above these are symbols, not translatable copy, so they
+ * carry no string resources.
+ */
+fun quotaShortCode(type: QuotaType): String =
+    when (type) {
+        QuotaType.NANOGPT -> "NANO"
+        QuotaType.ZAI_CODING -> "ZAI"
+        QuotaType.KIMI_CODE -> "KIMI"
+        QuotaType.MINIMAX -> "MMX"
+        QuotaType.DEEPSEEK -> "DS"
+        QuotaType.OPENROUTER -> "OR"
+        QuotaType.OLLAMA_CLOUD -> "OLC"
+        QuotaType.NEURALWATT -> "NW"
+        // Unreachable in the widget (unknown types are dropped before a badge is
+        // built), but a code is cheaper than making the caller handle a null.
+        QuotaType.UNKNOWN -> "?"
+    }
+
 /** kimiUsedPercent computes used% from Kimi's wire-string limit/remaining pair. */
 private fun kimiUsedPercent(detail: KimiCodeDetail?): Double? {
     val limit = detail?.limit?.toDoubleOrNull() ?: return null

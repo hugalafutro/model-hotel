@@ -1,31 +1,52 @@
 package com.hugalafutro.bellhop.widget
 
 import android.app.Application
-import com.hugalafutro.bellhop.MainActivity
+import androidx.glance.GlanceId
+import androidx.glance.action.actionParametersOf
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowToast
 
 /**
- * quotaBadgeIntent is the only piece of the quota-badge tap that is plain
- * enough to unit test: it's a pure function over a Context, with no Glance
- * composition involved. The render itself is covered by an on-device smoke
- * test, not here.
+ * A widget quota badge only has room for a short provider code, so its tap
+ * names the provider in a toast. That callback is the one piece of the tap
+ * plain enough to unit test; the render itself is covered by an on-device
+ * smoke test, not here.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class BellhopWidgetTest {
     private val app: Application = RuntimeEnvironment.getApplication()
 
-    @Test
-    fun quotaBadgeIntentTargetsMainActivityWithDeepLinkExtras() {
-        val intent = quotaBadgeIntent(app, "or-1")
+    // The callback never dereferences the id, so a marker instance is enough to
+    // call it outside a Glance session.
+    private object FakeGlanceId : GlanceId
 
-        assertEquals(ACTION_OPEN_QUOTA, intent.action)
-        assertEquals("or-1", intent.getStringExtra(EXTRA_BADGE_PROVIDER_NAME))
-        assertEquals(MainActivity::class.java.name, intent.component?.className)
-    }
+    @Test
+    fun badgeTapToastsTheFullProviderName() =
+        runBlocking {
+            QuotaBadgeNameAction().onAction(
+                app,
+                FakeGlanceId,
+                actionParametersOf(BADGE_PROVIDER_NAME to "openrouter-personal"),
+            )
+
+            assertEquals("openrouter-personal", ShadowToast.getTextOfLatestToast())
+        }
+
+    @Test
+    fun aTapWithoutAProviderNameShowsNothing() =
+        runBlocking {
+            // Can't happen from the widget (every badge carries its name), but a
+            // missing parameter must stay a no-op rather than toast a blank.
+            QuotaBadgeNameAction().onAction(app, FakeGlanceId, actionParametersOf())
+
+            assertNull(ShadowToast.getTextOfLatestToast())
+        }
 }
