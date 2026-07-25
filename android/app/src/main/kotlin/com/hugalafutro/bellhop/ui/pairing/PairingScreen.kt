@@ -104,6 +104,9 @@ fun PairingScreen(
             OutlinedButton(
                 onClick = { scanning = true },
                 enabled = !state.busy,
+                // Buttons take their corner from a Material token, not the theme's
+                // shape scale, so every one of them names the squared-off radius.
+                shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth().testTag("pairing-scan"),
             ) {
                 Text(stringResource(R.string.pairing_scan))
@@ -171,6 +174,7 @@ fun PairingScreen(
             Button(
                 onClick = onSubmit,
                 enabled = state.canSubmit,
+                shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth().testTag("pairing-submit"),
             ) {
                 if (state.busy) {

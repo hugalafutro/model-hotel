@@ -574,6 +574,9 @@ private fun OperatorControls(
             Button(
                 onClick = { onSetState(if (drained) MemberState.ACTIVE else MemberState.DRAINED) },
                 enabled = !action.inProgress,
+                // Buttons take their corner from a Material token, not the theme's
+                // shape scale, so every one of them names the squared-off radius.
+                shape = MaterialTheme.shapes.small,
                 modifier = Modifier.testTag("member-op-state"),
             ) {
                 if (action.inProgress) {
@@ -597,6 +600,7 @@ private fun OperatorControls(
                 OutlinedButton(
                     onClick = onSyncFleet,
                     enabled = !action.inProgress,
+                    shape = MaterialTheme.shapes.small,
                     modifier = Modifier.testTag("member-op-sync"),
                 ) {
                     Text(text = stringResource(R.string.member_op_sync))

@@ -82,6 +82,7 @@ fun BellhopTheme(
     MaterialTheme(
         colorScheme = if (darkTheme) NightLobbyColors else DayShiftColors,
         typography = BellhopTypography,
+        shapes = BellhopShapes,
         content = content,
     )
 }

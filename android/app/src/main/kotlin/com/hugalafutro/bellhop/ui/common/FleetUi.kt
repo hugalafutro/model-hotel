@@ -5,7 +5,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -56,8 +55,10 @@ internal fun StatusBanner(
 }
 
 /**
- * Pill is a compact rounded badge (Primary, Drained). Pass [onClick] to make it
+ * Pill is a compact badge (Primary, Drained). Pass [onClick] to make it
  * tappable (e.g. a severity pill that copies its event); left null it is inert.
+ * "Pill" is the name it has always had, but the corner comes off the theme's
+ * squared-off scale now, not a stadium radius.
  */
 @Composable
 internal fun Pill(
@@ -71,7 +72,7 @@ internal fun Pill(
     Surface(
         color = container,
         contentColor = content,
-        shape = RoundedCornerShape(999.dp),
+        shape = MaterialTheme.shapes.extraSmall,
         modifier =
             modifier
                 .testTag(tag)
@@ -118,7 +119,7 @@ internal fun FilterPill(
         onClick = onClick,
         color = container,
         contentColor = content,
-        shape = RoundedCornerShape(999.dp),
+        shape = MaterialTheme.shapes.small,
         border = if (selected) null else BorderStroke(1.dp, borderColor),
         modifier = modifier.testTag(tag),
     ) {

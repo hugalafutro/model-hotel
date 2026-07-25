@@ -687,6 +687,9 @@ fun SettingsScreen(
                                 // primary to match the button's own text and read as an
                                 // action, like the pills' higher-contrast borders.
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                // Buttons take their corner from a Material token, not
+                                // the theme's shape scale, so each names the radius.
+                                shape = MaterialTheme.shapes.small,
                                 modifier = Modifier.testTag("settings-battery-request"),
                             ) {
                                 Text(stringResource(R.string.settings_battery_action))
@@ -761,6 +764,7 @@ fun SettingsScreen(
             OutlinedButton(
                 onClick = { confirmUnlink = true },
                 enabled = !unlinking,
+                shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth().testTag("settings-unlink"),
             ) {
                 Text(stringResource(R.string.dashboard_unlink))

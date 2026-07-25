@@ -3,5 +3,5 @@
      cards so it reads as a footnote panel, not an n+1th member row. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <solid android:color="#E5DCCB" />
-    <corners android:radius="8dp" />
+    <corners android:radius="6dp" />
 </shape>
