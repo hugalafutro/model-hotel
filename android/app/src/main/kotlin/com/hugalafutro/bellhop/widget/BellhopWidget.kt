@@ -1,6 +1,7 @@
 package com.hugalafutro.bellhop.widget
 
 import android.content.Context
+import android.content.Intent
 import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -48,10 +49,12 @@ import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberHealthState
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PrefsStore
+import com.hugalafutro.bellhop.data.QuotaType
 import com.hugalafutro.bellhop.data.TRAFFIC_BUCKETS
 import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.countsOf
+import com.hugalafutro.bellhop.data.quotaBadgeRows
 import com.hugalafutro.bellhop.ui.theme.Brass300
 import com.hugalafutro.bellhop.ui.theme.Brass600
 import com.hugalafutro.bellhop.ui.theme.Ember300
@@ -64,11 +67,13 @@ import com.hugalafutro.bellhop.ui.theme.PaperInk
 import com.hugalafutro.bellhop.ui.theme.PaperInkMuted
 import com.hugalafutro.bellhop.ui.theme.SteelContainerDark
 import com.hugalafutro.bellhop.ui.theme.SteelContainerLight
+import com.hugalafutro.bellhop.ui.theme.quotaBrand
 import com.hugalafutro.bellhop.work.FleetPollWorker
 import kotlinx.coroutines.flow.first
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Date
+import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 
 /** BellhopWidgetReceiver is the manifest entry point; all logic is in [BellhopWidget]. */
 class BellhopWidgetReceiver : GlanceAppWidgetReceiver() {
@@ -156,6 +161,35 @@ class WidgetRefreshAction : ActionCallback {
     }
 }
 
+// Deep-link contract for a quota badge tap (Task D4 owns the MainActivity
+// side: intent-filter + extra read). Top-level and public so both sides of
+// the contract share the literal instead of duplicating strings.
+const val ACTION_OPEN_QUOTA = "com.hugalafutro.bellhop.OPEN_QUOTA"
+const val EXTRA_BADGE_PROVIDER_NAME = "badge_provider_name"
+
+/**
+ * quotaBadgeIntent builds the explicit intent a quota badge tap fires: same
+ * destination and launch flags as the widget's default open-app tap
+ * (`actionStartActivity<MainActivity>()` below), plus the deep-link
+ * action/extra above so MainActivity can route straight to that provider's
+ * quota sheet. Extracted as a plain function (no Glance/Composable types) so
+ * it is unit-testable without a composition.
+ *
+ * Rendered via the aliased `actionStartActivityIntent` (`androidx.glance.
+ * appwidget.action.actionStartActivity(Intent, ...)`): the core-module
+ * `actionStartActivity` imported above only targets a ComponentName/Class
+ * and can't carry this Intent's custom action + extra.
+ */
+fun quotaBadgeIntent(
+    context: Context,
+    providerName: String,
+): Intent =
+    Intent(context, MainActivity::class.java).apply {
+        action = ACTION_OPEN_QUOTA
+        putExtra(EXTRA_BADGE_PROVIDER_NAME, providerName)
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
+
 // Day/night pairs off the app palette (ui/theme/Color.kt); Glance can't read
 // MaterialTheme, so the pairing is repeated here with the same named colors.
 private val BrandAccent = ColorProvider(day = Brass600, night = Brass300)
@@ -169,6 +203,11 @@ private val DotUp = ColorProvider(day = Moss600, night = Moss300)
 private val DotDown = ColorProvider(day = Ember600, night = Ember300)
 private val DotDrained = ColorProvider(day = Brass600, night = Brass300)
 private val DotUnknown = ColorProvider(day = PaperInkMuted, night = Ink300)
+
+// Quota badges are the one place the widget shows third-party brand colors
+// rather than the app palette; quotaBrand is the shared source (ui/theme),
+// so the widget pill and the dashboard chip can never drift apart.
+private fun quotaBadgeColor(type: QuotaType) = quotaBrand(type).let { ColorProvider(day = it.day, night = it.night) }
 
 private fun dotColor(state: MemberHealthState) =
     when (state) {
@@ -342,8 +381,13 @@ private fun WidgetContent(
                 // Column translates to a RemoteViews container capped at 10
                 // children, and per-row Spacers blew past it on a 3-member
                 // fleet (the children beyond the cap are silently dropped -
-                // the footer was the casualty). Worst case now: header + 5
-                // rows + pill + weight spacer + footer = 9.
+                // the footer was the casualty). Worst case now sits AT the cap:
+                // header + 5 rows + quota Column + weight spacer + event Column
+                // + footer = 10, no headroom. The quota strip is ONE child
+                // whatever its badge count (its rows are children of its own
+                // nested Column), so raising WIDGET_QUOTA_CAP is free here -
+                // but adding any new top-level SECTION will silently drop a
+                // child; free a slot (nest a singleton) before doing so.
                 state.members.forEach { member ->
                     Box(
                         contentAlignment = Alignment.BottomStart,
@@ -386,6 +430,53 @@ private fun WidgetContent(
                         }
                     }
                 }
+        }
+        // One badge per configured provider, pre-ordered/filtered/capped by the
+        // poll layer (WIDGET_QUOTA_CAP) and packed into lines by quotaBadgeRows
+        // -- Glance has no wrapping layout, so the rows are explicit. The whole
+        // strip is ONE child of the Column above (the badge rows are children
+        // of this nested Column, which has its own 10-child budget that
+        // WIDGET_QUOTA_MAX_ROWS keeps it well inside), so it stays cheap
+        // against the 10-child cap the member rows already have to mind.
+        if (state != null && state.quota.isNotEmpty()) {
+            Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp)) {
+                quotaBadgeRows(state.quota).forEach { row ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = GlanceModifier.fillMaxWidth().padding(bottom = 2.dp),
+                    ) {
+                        row.forEach { badge ->
+                            Box(
+                                modifier =
+                                    GlanceModifier
+                                        .padding(end = 4.dp)
+                                        .background(ImageProvider(R.drawable.widget_pill_bg))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        .clickable(
+                                            actionStartActivityIntent(
+                                                quotaBadgeIntent(context, badge.providerName),
+                                            ),
+                                        ),
+                            ) {
+                                Text(
+                                    badge.label,
+                                    style =
+                                        TextStyle(
+                                            // Provider brand colour, same source as the
+                                            // dashboard chips and the Model Hotel sidebar
+                                            // pills, so a strip of badges is scannable
+                                            // instead of eight identical pills.
+                                            color = quotaBadgeColor(badge.quotaType),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Medium,
+                                        ),
+                                    maxLines = 1,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
         Spacer(GlanceModifier.defaultWeight())
         // Pinned above the footer rather than under the member rows, so a small

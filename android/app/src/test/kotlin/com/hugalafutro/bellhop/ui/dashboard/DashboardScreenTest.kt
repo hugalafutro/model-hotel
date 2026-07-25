@@ -466,4 +466,42 @@ class DashboardScreenTest {
         }
         composeTestRule.onNodeWithTag("dashboard-revoked").assertIsDisplayed()
     }
+
+    @Test
+    fun failedQuotaRefreshShowsItsOwnBanner() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui =
+                        DashboardUiState(
+                            loading = false,
+                            members = allUp,
+                            quotaRefreshError = "primary unreachable",
+                        ),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("quota-refresh-error").assertIsDisplayed()
+    }
+
+    @Test
+    fun fleetReadFailureOutranksTheQuotaRefreshBanner() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui =
+                        DashboardUiState(
+                            loading = false,
+                            members = allUp,
+                            error = "front desk unreachable",
+                            quotaRefreshError = "primary unreachable",
+                        ),
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("dashboard-error").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("quota-refresh-error").assertDoesNotExist()
+    }
 }

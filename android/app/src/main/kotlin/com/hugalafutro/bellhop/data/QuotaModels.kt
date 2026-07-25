@@ -1,0 +1,548 @@
+package com.hugalafutro.bellhop.data
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.decodeFromJsonElement
+import java.util.Locale
+import kotlin.math.roundToInt
+
+// Wire models for GET /api/quota (internal/frontdesk, monitor tier -- any
+// paired device may read/refresh). The envelope is one entry per
+// quota-supporting provider Front Desk has cached; `type` selects which
+// per-provider payload shape to decode and which badge to render -- `kind`
+// (usage|balance|account) is bookkeeping only, never a badge selector. Each
+// [QuotaData] variant mirrors the matching Go struct in internal/provider/
+// (discovery_types.go, openrouter_types.go, ollama_cloud_types.go) but only
+// carries the fields the dashboard (web/src/components/QuotaBadge.tsx +
+// web/src/components/modals/*QuotaModal.tsx) actually displays.
+
+/**
+ * QuotaType is the badge/payload-shape selector: FD's `type` field, not
+ * `kind`. [fromWire] degrades any string it doesn't recognize to [UNKNOWN]
+ * rather than throwing, so a Front Desk that has grown a ninth provider never
+ * crashes an older Bellhop -- the badge for it simply doesn't render.
+ */
+enum class QuotaType {
+    NANOGPT,
+    ZAI_CODING,
+    KIMI_CODE,
+    MINIMAX,
+    DEEPSEEK,
+    OPENROUTER,
+    OLLAMA_CLOUD,
+    NEURALWATT,
+    UNKNOWN,
+    ;
+
+    companion object {
+        fun fromWire(wire: String): QuotaType =
+            when (wire) {
+                "nanogpt" -> NANOGPT
+                "zai-coding" -> ZAI_CODING
+                "kimi-code" -> KIMI_CODE
+                "minimax" -> MINIMAX
+                "deepseek" -> DEEPSEEK
+                "openrouter" -> OPENROUTER
+                "ollama-cloud" -> OLLAMA_CLOUD
+                "neuralwatt" -> NEURALWATT
+                else -> UNKNOWN
+            }
+    }
+}
+
+/**
+ * QuotaWire is one raw entry of the GET /api/quota envelope, before payload
+ * decoding. [payload] is left as a [JsonElement] (rather than a concrete
+ * type) because its shape depends on [type]; it is null both when Front Desk
+ * has no cached payload yet and when the upstream fetch failed
+ * ([httpStatus] != 200).
+ */
+@Serializable
+data class QuotaWire(
+    @SerialName("provider_name") val providerName: String = "",
+    val type: String = "",
+    val kind: String = "",
+    val payload: JsonElement? = null,
+    @SerialName("http_status") val httpStatus: Int = 0,
+    @SerialName("fetched_at") val fetchedAt: String = "",
+)
+
+/** QuotaEnvelope is the GET /api/quota top-level response: `{"quota": [...]}`. */
+@Serializable
+data class QuotaEnvelope(
+    val quota: List<QuotaWire> = emptyList(),
+)
+
+/**
+ * QuotaRefreshResult is the POST /api/quota/refresh response: how many
+ * cached entries Front Desk re-polled just now, split by outcome. Bellhop
+ * surfaces this as a one-shot confirmation of the manual refresh; the
+ * badges themselves repaint from the next [QuotaEnvelope] read, not from
+ * this tally directly.
+ */
+@Serializable
+data class QuotaRefreshResult(
+    val refreshed: Int = 0,
+    val failed: Int = 0,
+    val skipped: Int = 0,
+)
+
+// ── Per-type payload shapes ─────────────────────────────────────────────
+
+/**
+ * QuotaData is the decoded, per-type payload -- one variant per [QuotaType]
+ * (excluding [QuotaType.UNKNOWN], which never has a payload variant). Each
+ * variant models only the fields the dashboard badge or detail modal renders,
+ * not the full upstream response.
+ */
+sealed interface QuotaData {
+    /** Mirrors internal/provider/discovery_types.go NanoGPTUsageResponse. */
+    @Serializable
+    data class NanoGpt(
+        val active: Boolean = false,
+        val provider: String = "",
+        val providerStatus: String = "",
+        val allowOverage: Boolean = false,
+        val cancelAtPeriodEnd: Boolean = false,
+        val limits: NanoGptLimits = NanoGptLimits(),
+        val period: NanoGptPeriod = NanoGptPeriod(),
+        val weeklyInputTokens: NanoGptTokenInfo? = null,
+        val dailyInputTokens: NanoGptTokenInfo? = null,
+        val dailyImages: NanoGptTokenInfo? = null,
+    ) : QuotaData
+
+    /** Mirrors internal/provider/discovery_types.go ZAICodingQuotaResponse. */
+    @Serializable
+    data class ZaiCoding(
+        val data: ZaiCodingQuotaBody = ZaiCodingQuotaBody(),
+        val success: Boolean = false,
+    ) : QuotaData
+
+    /** Mirrors internal/provider/discovery_types.go KimiCodeQuotaResponse. */
+    @Serializable
+    data class KimiCode(
+        val user: KimiCodeUser = KimiCodeUser(),
+        val usage: KimiCodeDetail = KimiCodeDetail(),
+        val limits: List<KimiCodeLimitEntry> = emptyList(),
+        val parallel: KimiCodeParallel = KimiCodeParallel(),
+        val totalQuota: KimiCodeDetail = KimiCodeDetail(),
+    ) : QuotaData
+
+    /** Mirrors internal/provider/discovery_types.go MiniMaxQuotaResponse. */
+    @Serializable
+    data class MiniMax(
+        @SerialName("model_remains") val modelRemains: List<MiniMaxModelRemain> = emptyList(),
+        @SerialName("base_resp") val baseResp: MiniMaxBaseResp = MiniMaxBaseResp(),
+    ) : QuotaData
+
+    /** Mirrors internal/provider/discovery_types.go DeepSeekBalanceResponse. */
+    @Serializable
+    data class DeepSeek(
+        @SerialName("is_available") val isAvailable: Boolean = false,
+        @SerialName("balance_infos") val balanceInfos: List<DeepSeekBalanceInfo> = emptyList(),
+    ) : QuotaData
+
+    /** Mirrors internal/provider/openrouter_types.go OpenRouterBalance. */
+    @Serializable
+    data class OpenRouter(
+        val limit: Double? = null,
+        @SerialName("limit_reset") val limitReset: String = "",
+        @SerialName("limit_remaining") val limitRemaining: Double? = null,
+        val usage: Double = 0.0,
+        @SerialName("usage_daily") val usageDaily: Double = 0.0,
+        @SerialName("usage_weekly") val usageWeekly: Double = 0.0,
+        @SerialName("usage_monthly") val usageMonthly: Double = 0.0,
+        @SerialName("credits_total") val creditsTotal: Double = 0.0,
+        @SerialName("credits_used") val creditsUsed: Double = 0.0,
+        @SerialName("credits_remaining") val creditsRemaining: Double = 0.0,
+        @SerialName("is_free_tier") val isFreeTier: Boolean = false,
+    ) : QuotaData
+
+    /** Mirrors internal/provider/ollama_cloud_types.go OllamaCloudAccount. */
+    @Serializable
+    data class OllamaCloud(
+        val plan: String = "",
+        @SerialName("subscription_period_end")
+        val subscriptionPeriodEnd: OllamaCloudNullableTime = OllamaCloudNullableTime(),
+        @SerialName("suspended_at")
+        val suspendedAt: OllamaCloudNullableTime = OllamaCloudNullableTime(),
+    ) : QuotaData
+
+    /** Mirrors internal/provider/discovery_types.go NeuralWattQuotaResponse. */
+    @Serializable
+    data class NeuralWatt(
+        val balance: NeuralWattBalance = NeuralWattBalance(),
+        val usage: NeuralWattUsage = NeuralWattUsage(),
+        val limits: NeuralWattLimits = NeuralWattLimits(),
+        val subscription: NeuralWattSubscription = NeuralWattSubscription(),
+        val key: NeuralWattKey = NeuralWattKey(),
+    ) : QuotaData
+}
+
+// ── NanoGPT support types ───────────────────────────────────────────────
+// NanoGPT's JSON keys are already camelCase (no @SerialName needed).
+
+@Serializable
+data class NanoGptLimits(
+    val weeklyInputTokens: Long? = null,
+    val dailyInputTokens: Long? = null,
+    val dailyImages: Long? = null,
+)
+
+@Serializable
+data class NanoGptPeriod(
+    val currentPeriodEnd: String = "",
+)
+
+@Serializable
+data class NanoGptTokenInfo(
+    val used: Long = 0,
+    val remaining: Long = 0,
+    val percentUsed: Double = 0.0,
+    val resetAt: Long = 0,
+)
+
+// ── Z.ai Coding support types ───────────────────────────────────────────
+
+@Serializable
+data class ZaiCodingQuotaBody(
+    val limits: List<ZaiCodingLimit> = emptyList(),
+    val level: String = "",
+)
+
+@Serializable
+data class ZaiCodingLimit(
+    val type: String = "",
+    val unit: Int = 0,
+    val percentage: Double = 0.0,
+    val nextResetTime: Long = 0,
+    val usageDetails: List<ZaiCodingUsageDetail> = emptyList(),
+)
+
+@Serializable
+data class ZaiCodingUsageDetail(
+    val modelCode: String = "",
+    val usage: Long = 0,
+)
+
+// ── Kimi Code support types ─────────────────────────────────────────────
+// Kimi's numeric limit/remaining fields arrive as JSON strings on the wire.
+
+@Serializable
+data class KimiCodeUser(
+    val membership: KimiCodeMembership = KimiCodeMembership(),
+)
+
+@Serializable
+data class KimiCodeMembership(
+    val level: String = "",
+)
+
+@Serializable
+data class KimiCodeDetail(
+    val limit: String = "",
+    val remaining: String = "",
+    val resetTime: String = "",
+)
+
+@Serializable
+data class KimiCodeWindowSpec(
+    val duration: Int = 0,
+    val timeUnit: String = "",
+)
+
+@Serializable
+data class KimiCodeLimitEntry(
+    val window: KimiCodeWindowSpec = KimiCodeWindowSpec(),
+    val detail: KimiCodeDetail = KimiCodeDetail(),
+)
+
+@Serializable
+data class KimiCodeParallel(
+    val limit: String = "",
+)
+
+// ── MiniMax support types ───────────────────────────────────────────────
+
+@Serializable
+data class MiniMaxModelRemain(
+    @SerialName("model_name") val modelName: String = "",
+    @SerialName("start_time") val startTime: Long = 0,
+    @SerialName("end_time") val endTime: Long = 0,
+    @SerialName("remains_time") val remainsTime: Long = 0,
+    @SerialName("weekly_remains_time") val weeklyRemainsTime: Long = 0,
+    @SerialName("current_interval_status") val currentIntervalStatus: Int = 0,
+    @SerialName("current_interval_remaining_percent") val currentIntervalRemainingPercent: Double = 0.0,
+    @SerialName("current_weekly_status") val currentWeeklyStatus: Int = 0,
+    @SerialName("current_weekly_remaining_percent") val currentWeeklyRemainingPercent: Double = 0.0,
+)
+
+@Serializable
+data class MiniMaxBaseResp(
+    @SerialName("status_code") val statusCode: Int = 0,
+)
+
+// ── DeepSeek support types ──────────────────────────────────────────────
+
+@Serializable
+data class DeepSeekBalanceInfo(
+    val currency: String = "",
+    @SerialName("total_balance") val totalBalance: String = "",
+)
+
+// ── Ollama Cloud support types ──────────────────────────────────────────
+
+@Serializable
+data class OllamaCloudNullableTime(
+    val time: String = "",
+    val valid: Boolean = false,
+)
+
+// ── NeuralWatt support types ────────────────────────────────────────────
+
+@Serializable
+data class NeuralWattBalance(
+    @SerialName("credits_remaining_usd") val creditsRemainingUsd: Double = 0.0,
+    @SerialName("total_credits_usd") val totalCreditsUsd: Double = 0.0,
+    @SerialName("credits_used_usd") val creditsUsedUsd: Double = 0.0,
+    @SerialName("accounting_method") val accountingMethod: String = "",
+)
+
+@Serializable
+data class NeuralWattUsagePeriod(
+    @SerialName("cost_usd") val costUsd: Double = 0.0,
+    val requests: Long = 0,
+    val tokens: Long = 0,
+    @SerialName("energy_kwh") val energyKwh: Double = 0.0,
+)
+
+@Serializable
+data class NeuralWattUsage(
+    val lifetime: NeuralWattUsagePeriod = NeuralWattUsagePeriod(),
+    @SerialName("current_month") val currentMonth: NeuralWattUsagePeriod = NeuralWattUsagePeriod(),
+)
+
+@Serializable
+data class NeuralWattLimits(
+    @SerialName("overage_limit_usd") val overageLimitUsd: Double? = null,
+    @SerialName("rate_limit_tier") val rateLimitTier: String = "",
+)
+
+@Serializable
+data class NeuralWattSubscription(
+    val plan: String = "",
+    val status: String = "",
+    @SerialName("billing_interval") val billingInterval: String = "",
+    @SerialName("current_period_start") val currentPeriodStart: String = "",
+    @SerialName("current_period_end") val currentPeriodEnd: String = "",
+    @SerialName("auto_renew") val autoRenew: Boolean = false,
+    @SerialName("kwh_included") val kwhIncluded: Double = 0.0,
+    @SerialName("kwh_used") val kwhUsed: Double = 0.0,
+    @SerialName("kwh_remaining") val kwhRemaining: Double = 0.0,
+    @SerialName("in_overage") val inOverage: Boolean = false,
+)
+
+@Serializable
+data class NeuralWattKey(
+    val allowance: Double? = null,
+)
+
+// ── Parsing ──────────────────────────────────────────────────────────────
+
+/**
+ * ProviderQuota is the parsed, display-ready form of one [QuotaWire] entry.
+ * [available] is true only when Front Desk's own fetch succeeded
+ * (http_status == 200) *and* the payload decoded into the shape [type]
+ * expects; badge code should gate on [available], not on [data] alone.
+ */
+data class ProviderQuota(
+    val providerName: String,
+    val type: QuotaType,
+    val data: QuotaData?,
+    val fetchedAt: String,
+    val available: Boolean,
+)
+
+private val quotaPayloadJson = Json { ignoreUnknownKeys = true }
+
+/**
+ * providerQuotaOf maps one [QuotaWire] entry to a [ProviderQuota], decoding
+ * [QuotaWire.payload] into the variant matching [QuotaWire.type]. Mirrors
+ * [FleetSnapshot.stateOf]'s tolerant stance: a missing payload, a non-200
+ * [QuotaWire.httpStatus], an unrecognized [QuotaWire.type], or a payload that
+ * doesn't decode into the expected shape all degrade to `data = null,
+ * available = false` -- this must never throw on a foreign or malformed
+ * payload from a newer Front Desk.
+ */
+fun providerQuotaOf(wire: QuotaWire): ProviderQuota {
+    val type = QuotaType.fromWire(wire.type)
+    val data = decodeQuotaPayload(type, wire.payload)
+    return ProviderQuota(
+        providerName = wire.providerName,
+        type = type,
+        data = data,
+        fetchedAt = wire.fetchedAt,
+        available = wire.httpStatus == 200 && data != null,
+    )
+}
+
+private fun decodeQuotaPayload(
+    type: QuotaType,
+    payload: JsonElement?,
+): QuotaData? {
+    if (payload == null || payload is JsonNull) return null
+    return runCatching {
+        when (type) {
+            QuotaType.NANOGPT -> quotaPayloadJson.decodeFromJsonElement<QuotaData.NanoGpt>(payload)
+            QuotaType.ZAI_CODING -> quotaPayloadJson.decodeFromJsonElement<QuotaData.ZaiCoding>(payload)
+            QuotaType.KIMI_CODE -> quotaPayloadJson.decodeFromJsonElement<QuotaData.KimiCode>(payload)
+            QuotaType.MINIMAX -> quotaPayloadJson.decodeFromJsonElement<QuotaData.MiniMax>(payload)
+            QuotaType.DEEPSEEK -> quotaPayloadJson.decodeFromJsonElement<QuotaData.DeepSeek>(payload)
+            QuotaType.OPENROUTER -> quotaPayloadJson.decodeFromJsonElement<QuotaData.OpenRouter>(payload)
+            QuotaType.OLLAMA_CLOUD -> quotaPayloadJson.decodeFromJsonElement<QuotaData.OllamaCloud>(payload)
+            QuotaType.NEURALWATT -> quotaPayloadJson.decodeFromJsonElement<QuotaData.NeuralWatt>(payload)
+            QuotaType.UNKNOWN -> null
+        }
+    }.getOrNull()
+}
+
+// ── Badge label formatting ──────────────────────────────────────────────
+// Shared between the widget (this file feeds WidgetState.widgetQuotaOf) and
+// the future main-page badge composable (D2), so the two surfaces never
+// drift on what a badge says. Shapes mirror web/src/components/QuotaBadge.tsx
+// (used-fraction / used-percent / dollars / plan name / kWh) -- data/shape
+// parity, not a code port. These are numeric or symbol fragments (not
+// natural-language copy), so no Android string resources apply, and they are
+// formatted with a fixed Locale so the widget reads the same on every device.
+
+/**
+ * QuotaBarMode selects which polarity [quotaBadgeLabel] shows for METERED
+ * (percentage/fraction) quota types -- REMAINING or USED -- mirroring the web
+ * dashboard's `QuotaBarMode` (web/src/components/QuotaBadge.tsx), whose
+ * default is also "remaining". BALANCE/credit types (OpenRouter, DeepSeek,
+ * OllamaCloud, NeuralWatt) render the same figure regardless of [mode]: there
+ * is no "used" polarity for an account balance or plan name.
+ */
+enum class QuotaBarMode { REMAINING, USED }
+
+/**
+ * quotaBadgeLabel formats [pq] into the short text a badge shows, in the
+ * polarity [mode] selects for METERED types. Unavailable or payload-less
+ * quotas (see [ProviderQuota.available]) render as "-", mirroring the web
+ * badge's fallback when its balance hook has no data yet.
+ */
+fun quotaBadgeLabel(
+    pq: ProviderQuota,
+    mode: QuotaBarMode,
+): String {
+    val data = pq.data
+    if (!pq.available || data == null) return "-"
+    return when (data) {
+        is QuotaData.NanoGpt -> nanoGptBadgeLabel(data, mode)
+        is QuotaData.ZaiCoding -> {
+            val fiveHour = data.data.limits.find { it.type == "TOKENS_LIMIT" && it.unit == 3 }
+            val weekly = data.data.limits.find { it.type == "TOKENS_LIMIT" && it.unit == 6 }
+            val fiveHourPct = applyBarMode(fiveHour?.percentage, mode)
+            val weeklyPct = applyBarMode(weekly?.percentage, mode)
+            "${formatPercent(fiveHourPct)}/${formatPercent(weeklyPct)}"
+        }
+        is QuotaData.KimiCode -> {
+            val fiveHour =
+                data.limits
+                    .find { it.window.timeUnit == "TIME_UNIT_MINUTE" && it.window.duration == 300 }
+                    ?.detail
+            val fiveHourUsed = applyBarMode(kimiUsedPercent(fiveHour), mode)
+            val weeklyUsed = applyBarMode(kimiUsedPercent(data.usage), mode)
+            "${formatPercent(fiveHourUsed)}/${formatPercent(weeklyUsed)}"
+        }
+        is QuotaData.MiniMax -> {
+            val general = data.modelRemains.find { it.modelName == "general" && it.currentIntervalStatus == 1 }
+            val fiveHourUsed = general?.let { 100.0 - it.currentIntervalRemainingPercent }
+            val weeklyUsed = general?.let { 100.0 - it.currentWeeklyRemainingPercent }
+            "${formatPercent(applyBarMode(fiveHourUsed, mode))}/${formatPercent(applyBarMode(weeklyUsed, mode))}"
+        }
+        is QuotaData.DeepSeek -> {
+            val usd = data.balanceInfos.find { it.currency == "USD" }?.totalBalance
+            if (usd.isNullOrBlank()) "-" else "$$usd"
+        }
+        is QuotaData.OpenRouter -> "$${formatDollarAmount(data.creditsRemaining)}"
+        is QuotaData.OllamaCloud -> data.plan.ifBlank { "-" }
+        is QuotaData.NeuralWatt -> {
+            val used = data.subscription.kwhUsed
+            val included = data.subscription.kwhIncluded
+            if (included > 0) {
+                "${formatKwhAmount(used)}/${formatKwhAmount(included)} kWh"
+            } else {
+                "${formatKwhAmount(used)} kWh"
+            }
+        }
+    }
+}
+
+/** kimiUsedPercent computes used% from Kimi's wire-string limit/remaining pair. */
+private fun kimiUsedPercent(detail: KimiCodeDetail?): Double? {
+    val limit = detail?.limit?.toDoubleOrNull() ?: return null
+    val remaining = detail.remaining.toDoubleOrNull() ?: return null
+    if (limit == 0.0) return null
+    return (limit - remaining) / limit * 100.0
+}
+
+/**
+ * nanoGptBadgeLabel renders NanoGPT's weekly-token fraction. USED (the prior,
+ * only behavior) shows used/limit; REMAINING shows (limit - used)/limit,
+ * floored at zero, mirroring web's `nanoBadgeContent`.
+ */
+private fun nanoGptBadgeLabel(
+    data: QuotaData.NanoGpt,
+    mode: QuotaBarMode,
+): String {
+    val used = data.weeklyInputTokens?.used
+    val limit = data.limits.weeklyInputTokens
+    val numerator =
+        if (mode == QuotaBarMode.REMAINING) {
+            if (used != null && limit != null) (limit - used).coerceAtLeast(0) else null
+        } else {
+            used
+        }
+    return "${formatTokenCount(numerator)}/${formatTokenCount(limit)}"
+}
+
+/**
+ * applyBarMode converts a used% value into the polarity [mode] wants: USED
+ * passes it through unchanged (the prior, only behavior); REMAINING returns
+ * 100 minus it. Null (no data) propagates through either polarity.
+ */
+private fun applyBarMode(
+    usedPercent: Double?,
+    mode: QuotaBarMode,
+): Double? {
+    if (usedPercent == null) return null
+    return if (mode == QuotaBarMode.USED) usedPercent else 100.0 - usedPercent
+}
+
+private fun formatPercent(pct: Double?): String = if (pct == null) "-" else "${pct.roundToInt()}%"
+
+private fun formatDollarAmount(v: Double): String = String.format(Locale.US, "%.2f", v)
+
+private fun formatKwhAmount(v: Double): String = trimTrailingZero(v)
+
+/** formatTokenCount mirrors formatCompact from web/src/utils/format.ts: K/M/B suffixes, one decimal. */
+private fun formatTokenCount(n: Long?): String {
+    if (n == null) return "-"
+    if (n == 0L) return "0"
+    val abs = kotlin.math.abs(n)
+    return when {
+        abs >= 1_000_000_000L -> "${trimTrailingZero(n / 1_000_000_000.0)}B"
+        abs >= 1_000_000L -> "${trimTrailingZero(n / 1_000_000.0)}M"
+        abs >= 1_000L -> "${trimTrailingZero(n / 1_000.0)}K"
+        else -> n.toString()
+    }
+}
+
+private fun trimTrailingZero(v: Double): String {
+    val s = String.format(Locale.US, "%.1f", v)
+    return if (s.endsWith(".0")) s.dropLast(2) else s
+}

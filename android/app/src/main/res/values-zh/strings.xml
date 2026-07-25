@@ -258,4 +258,47 @@
     <string name="widget_event_header">最新集群事件</string>
     <string name="settings_widget_title">主屏幕小组件</string>
     <string name="settings_widget_graphs_subtitle">流量图：在每个成员上叠加最近一小时的请求。保持更新会使每次后台检查对每个成员多发送一个请求。</string>
+
+    <string name="settings_quota_badges_title">配额徽章</string>
+    <string name="settings_quota_badges_subtitle">选择在仪表盘和小组件上显示哪些服务商的配额徽章，调整顺序，并选择已用量或剩余量。</string>
+
+    <!-- Quota badge detail sheet -->
+    <string name="quota_refresh">刷新配额</string>
+    <string name="quota_unavailable">配额数据不可用</string>
+    <string name="quota_yes">是</string>
+    <string name="quota_no">否</string>
+    <string name="quota_status_active">已启用</string>
+    <string name="quota_status_inactive">未启用</string>
+    <string name="quota_status_in_plan">套餐内</string>
+    <string name="quota_status_not_in_plan">套餐外</string>
+    <string name="quota_field_status">状态</string>
+    <string name="quota_field_plan">套餐</string>
+    <string name="quota_field_membership">会员资格</string>
+    <string name="quota_field_period_end">周期结束</string>
+    <string name="quota_field_subscription_end">订阅结束</string>
+    <string name="quota_field_suspended">已暂停</string>
+    <string name="quota_field_allow_overage">允许超额</string>
+    <string name="quota_field_free_tier">免费层级</string>
+    <string name="quota_field_parallel_limit">并发限制</string>
+    <string name="quota_field_total_quota">总配额</string>
+    <string name="quota_field_credits_total">积分总额</string>
+    <string name="quota_field_credits_used">已用积分</string>
+    <string name="quota_field_usage_today">今日用量</string>
+    <string name="quota_field_usage_month">本月用量</string>
+    <string name="quota_field_balance_remaining">剩余余额</string>
+    <string name="quota_field_balance_total">总积分</string>
+    <string name="quota_field_daily_input_tokens">每日输入 token 数</string>
+    <string name="quota_field_daily_images">每日图片数</string>
+    <string name="quota_field_mcp_quota">MCP 配额</string>
+
+    <!-- Quota badge configurator (dashboard + widget surfaces) -->
+    <string name="quota_config_title">配额徽章</string>
+    <string name="quota_config_back">返回</string>
+    <string name="quota_config_tab_main">仪表盘</string>
+    <string name="quota_config_tab_widget">小组件</string>
+    <string name="quota_config_mode_title">徽章样式</string>
+    <string name="quota_config_mode_remaining">剩余</string>
+    <string name="quota_config_mode_used">已用</string>
+    <string name="quota_config_empty">尚未发现支持配额的服务商。</string>
+    <string name="quota_config_widget_cap">小组件仅能显示前 %1$d 项</string>
 </resources>

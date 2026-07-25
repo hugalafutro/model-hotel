@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -70,6 +71,7 @@ import com.hugalafutro.bellhop.data.HealthStatus
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
+import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.ui.common.ConfirmOpenUrlDialog
 import com.hugalafutro.bellhop.ui.common.LockFab
 import com.hugalafutro.bellhop.ui.common.Pill
@@ -107,6 +109,10 @@ fun DashboardScreen(
     onSetAutoSync: (Boolean) -> Unit = {},
     onDismissAutoSyncError: () -> Unit = {},
     onVisibleMembers: (List<String>) -> Unit = {},
+    quotaBarMode: QuotaBarMode = QuotaBarMode.REMAINING,
+    onRefreshQuota: () -> Unit = {},
+    deepLinkBadge: String? = null,
+    onDeepLinkConsumed: () -> Unit = {},
     // When true, a long-press on a member card copies it to the clipboard (tap
     // still opens the member). Off leaves the card tap-only (Settings > Hold to copy).
     holdToCopy: Boolean = false,
@@ -127,6 +133,22 @@ fun DashboardScreen(
     var urlDialogFor by remember { mutableStateOf<FleetMember?>(null) }
     urlDialogFor?.let { member ->
         ConfirmOpenUrlDialog(url = member.url, onDismiss = { urlDialogFor = null })
+    }
+
+    // Which quota badge's detail sheet is open, if any (keyed by provider name).
+    var selectedQuotaBadge by remember { mutableStateOf<String?>(null) }
+    // A widget deep-link (already past the app lock, since this UI only composes
+    // once unlocked) opens that badge's detail sheet, then clears the pending target.
+    LaunchedEffect(deepLinkBadge) {
+        if (deepLinkBadge != null) {
+            selectedQuotaBadge = deepLinkBadge
+            onDeepLinkConsumed()
+        }
+    }
+    selectedQuotaBadge?.let { name ->
+        ui.quotaByName[name]?.let { pq ->
+            QuotaDetailSheet(pq = pq, mode = quotaBarMode, onDismiss = { selectedQuotaBadge = null })
+        }
     }
 
     // Build footer: tapping it confirms before leaving for GitHub. Stamped builds
@@ -200,6 +222,40 @@ fun DashboardScreen(
             }
             Spacer(modifier = Modifier.height(12.dp))
 
+            if (ui.quota.isNotEmpty()) {
+                Row(
+                    // Top, not centre: the badge strip wraps onto as many lines
+                    // as the selection needs, and a centred refresh button ends
+                    // up floating halfway down a tall strip with nothing beside it.
+                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    QuotaBadgeRow(
+                        quota = ui.quota,
+                        mode = quotaBarMode,
+                        onBadgeClick = { selectedQuotaBadge = it },
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(
+                        onClick = onRefreshQuota,
+                        modifier = Modifier.testTag("quota-refresh"),
+                    ) {
+                        if (ui.refreshingQuota) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.Refresh,
+                                contentDescription = stringResource(R.string.quota_refresh),
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
             if (ui.revoked) {
                 StatusBanner(
                     text = stringResource(R.string.dashboard_revoked),
@@ -209,6 +265,16 @@ fun DashboardScreen(
                 StatusBanner(
                     text = stringResource(R.string.dashboard_refresh_failed, ui.error),
                     tag = "dashboard-error",
+                )
+            } else if (ui.quotaRefreshError != null) {
+                // Ranked below the two above because it is the narrower failure:
+                // a dead token or an unreadable fleet outranks quota readings
+                // Front Desk could not re-poll. Shown at all because the badge
+                // row keeps its last-good values, so the tap would otherwise be
+                // indistinguishable from a refresh that found no change.
+                StatusBanner(
+                    text = stringResource(R.string.dashboard_refresh_failed, ui.quotaRefreshError),
+                    tag = "quota-refresh-error",
                 )
             }
 

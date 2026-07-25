@@ -266,6 +266,8 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireAuth)
 			r.Get("/members", s.listMembers)
+			r.Get("/quota", s.handleQuota)
+			r.Post("/quota/refresh", s.handleQuotaRefresh)
 			r.Get("/members/{id}/traffic", s.memberTraffic)
 			r.Get("/version", s.getVersion)
 			r.Get("/observability", s.getObservability)

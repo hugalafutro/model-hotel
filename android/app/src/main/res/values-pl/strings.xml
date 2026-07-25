@@ -276,4 +276,47 @@
     <string name="widget_event_header">Ostatnie zdarzenie floty</string>
     <string name="settings_widget_title">Widżet ekranu głównego</string>
     <string name="settings_widget_graphs_subtitle">Wykresy ruchu: nakładają na każdy węzeł żądania z ostatniej godziny. Świeże słupki kosztują jedno dodatkowe żądanie na węzeł przy każdym sprawdzeniu w tle.</string>
+
+    <string name="settings_quota_badges_title">Odznaki limitów</string>
+    <string name="settings_quota_badges_subtitle">Wybierz, które odznaki limitów dostawców są widoczne na dashboardzie i w widżecie, zmień ich kolejność i wybierz wykorzystane lub pozostałe.</string>
+
+    <!-- Quota badge detail sheet -->
+    <string name="quota_refresh">Odśwież limity</string>
+    <string name="quota_unavailable">Dane limitu niedostępne</string>
+    <string name="quota_yes">Tak</string>
+    <string name="quota_no">Nie</string>
+    <string name="quota_status_active">Aktywny</string>
+    <string name="quota_status_inactive">Nieaktywny</string>
+    <string name="quota_status_in_plan">W planie</string>
+    <string name="quota_status_not_in_plan">Poza planem</string>
+    <string name="quota_field_status">Status</string>
+    <string name="quota_field_plan">Plan</string>
+    <string name="quota_field_membership">Członkostwo</string>
+    <string name="quota_field_period_end">Koniec okresu</string>
+    <string name="quota_field_subscription_end">Koniec subskrypcji</string>
+    <string name="quota_field_suspended">Zawieszony</string>
+    <string name="quota_field_allow_overage">Zezwól na przekroczenie</string>
+    <string name="quota_field_free_tier">Poziom darmowy</string>
+    <string name="quota_field_parallel_limit">Limit równoległy</string>
+    <string name="quota_field_total_quota">Łączny limit</string>
+    <string name="quota_field_credits_total">Kredyty łącznie</string>
+    <string name="quota_field_credits_used">Wykorzystane kredyty</string>
+    <string name="quota_field_usage_today">Zużycie dzisiaj</string>
+    <string name="quota_field_usage_month">Zużycie w tym miesiącu</string>
+    <string name="quota_field_balance_remaining">Pozostałe saldo</string>
+    <string name="quota_field_balance_total">Łączne kredyty</string>
+    <string name="quota_field_daily_input_tokens">Dzienne tokeny wejściowe</string>
+    <string name="quota_field_daily_images">Dzienne obrazy</string>
+    <string name="quota_field_mcp_quota">Limit MCP</string>
+
+    <!-- Quota badge configurator (dashboard + widget surfaces) -->
+    <string name="quota_config_title">Odznaki limitów</string>
+    <string name="quota_config_back">Wstecz</string>
+    <string name="quota_config_tab_main">Dashboard</string>
+    <string name="quota_config_tab_widget">Widżet</string>
+    <string name="quota_config_mode_title">Styl odznaki</string>
+    <string name="quota_config_mode_remaining">Pozostałe</string>
+    <string name="quota_config_mode_used">Wykorzystane</string>
+    <string name="quota_config_empty">Nie znaleziono jeszcze dostawców obsługujących limity.</string>
+    <string name="quota_config_widget_cap">Na widżecie zmieści się tylko pierwszych %1$d</string>
 </resources>

@@ -9,7 +9,10 @@ import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.MemberHealthState
 import com.hugalafutro.bellhop.data.MemberTransition
 import com.hugalafutro.bellhop.data.MonitorStore
+import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
+import com.hugalafutro.bellhop.data.QuotaSurface
 import com.hugalafutro.bellhop.data.WidgetMember
+import com.hugalafutro.bellhop.data.WidgetQuotaBadge
 import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import kotlinx.coroutines.CoroutineScope
@@ -83,12 +86,29 @@ class FleetPollTest {
     ) {
         server.enqueue(MockResponse().setBody(memberBody(healthy)))
         server.enqueue(MockResponse().setBody(autoSyncBody(stale)))
+        // Every successful poll now also fetches quota; empty by default so tests
+        // that don't exercise badges keep their enqueue counts simple.
+        server.enqueue(MockResponse().setBody("""{"quota":[]}"""))
     }
+
+    private fun newConfigStore(): QuotaBadgeConfigStore {
+        val scope = CoroutineScope(Dispatchers.IO + Job())
+        val ds: DataStore<Preferences> =
+            PreferenceDataStoreFactory.create(scope = scope) {
+                File(tmp.newFolder(), "quota-config.preferences_pb")
+            }
+        return QuotaBadgeConfigStore(ds)
+    }
+
+    private fun quotaBody(): String =
+        """{"quota":[{"provider_name":"or-1","type":"openrouter","kind":"usage",""" +
+            """"payload":{"label":"k","limit":10.0,"usage":2.5},"http_status":200,"fetched_at":"t"}]}"""
 
     private suspend fun poll(
         store: MonitorStore,
         widget: WidgetStore = newWidgetStore(),
-    ): PollResult = pollFleet(client, server.url("/").toString(), "tok-1", store, widget, now = { 42L })
+        config: QuotaBadgeConfigStore = newConfigStore(),
+    ): PollResult = pollFleet(client, server.url("/").toString(), "tok-1", store, widget, config, now = { 42L })
 
     @Test
     fun firstPollSavesBaselineWithNoTransitions() =
@@ -150,6 +170,7 @@ class FleetPollTest {
             )
             server.enqueue(MockResponse().setBody(memberBody(healthy = false)))
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
+            server.enqueue(MockResponse().setBody("""{"quota":[]}"""))
 
             val result = poll(store)
 
@@ -241,11 +262,24 @@ class FleetPollTest {
                 ),
             )
 
-            pollFleet(client, server.url("/").toString(), "tok-1", store, widget, includeTraffic = true, now = { 42L })
+            pollFleet(
+                client,
+                server.url(
+                    "/",
+                ).toString(),
+                "tok-1",
+                store,
+                widget,
+                newConfigStore(),
+                includeTraffic = true,
+                now = {
+                    42L
+                },
+            )
 
             assertEquals(listOf(1, 5), widget.read()?.members?.single()?.traffic)
-            // members + autosync + one traffic call for the one member.
-            assertEquals(3, server.requestCount)
+            // members + autosync + quota + one traffic call for the one member.
+            assertEquals(4, server.requestCount)
         }
 
     @Test
@@ -260,7 +294,7 @@ class FleetPollTest {
 
             assertEquals(emptyList<Int>(), widget.read()?.members?.single()?.traffic)
             // The exact request count the battery baseline was measured against.
-            assertEquals(2, server.requestCount)
+            assertEquals(3, server.requestCount)
         }
 
     @Test
@@ -279,10 +313,90 @@ class FleetPollTest {
             enqueuePoll(healthy = true)
             server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
 
-            pollFleet(client, server.url("/").toString(), "tok-1", store, widget, includeTraffic = true, now = { 42L })
+            pollFleet(
+                client,
+                server.url(
+                    "/",
+                ).toString(),
+                "tok-1",
+                store,
+                widget,
+                newConfigStore(),
+                includeTraffic = true,
+                now = {
+                    42L
+                },
+            )
 
             // A failed series read keeps the member's previous bars: stale beats
             // blank, and a blip must not blank the whole hour.
             assertEquals(listOf(7, 8), widget.read()?.members?.single()?.traffic)
+        }
+
+    @Test
+    fun successfulPollWritesVisibleWidgetQuota() =
+        runBlocking {
+            val store = newStore()
+            store.setEnabled(true)
+            val widget = newWidgetStore()
+            val config = newConfigStore()
+            // A widget badge is opt-in (new names default hidden on WIDGET), so
+            // pre-place it in the order to keep it visible through reconcile.
+            config.setOrder(QuotaSurface.WIDGET, listOf("or-1"))
+            server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
+            server.enqueue(MockResponse().setBody(autoSyncBody(false)))
+            server.enqueue(MockResponse().setBody(quotaBody()))
+
+            poll(store, widget, config)
+
+            val badges = widget.read()?.quota
+            assertEquals(1, badges?.size)
+            assertEquals("or-1", badges?.single()?.providerName)
+        }
+
+    @Test
+    fun quotaReadFailureKeepsPreviousWidgetBadges() =
+        runBlocking {
+            val store = newStore()
+            store.setEnabled(true)
+            val widget = newWidgetStore()
+            val prior = listOf(WidgetQuotaBadge("or-1", "OPENROUTER", "\$7.50"))
+            widget.saveIfChanged(
+                WidgetState(members = listOf(WidgetMember("hotel-1", "UP", id = "m1")), quota = prior),
+                widget.generation(),
+            )
+            server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
+            server.enqueue(MockResponse().setBody(autoSyncBody(false)))
+            server.enqueue(MockResponse().setResponseCode(500).setBody("nope"))
+
+            poll(store, widget, newConfigStore())
+
+            // Stale beats blank: a failed quota read keeps the last-good badges.
+            assertEquals(prior, widget.read()?.quota)
+        }
+
+    @Test
+    fun badGatewayQuotaReadKeepsPreviousWidgetBadges() =
+        runBlocking {
+            val store = newStore()
+            store.setEnabled(true)
+            val widget = newWidgetStore()
+            val prior = listOf(WidgetQuotaBadge("or-1", "OPENROUTER", "\$7.50"))
+            widget.saveIfChanged(
+                WidgetState(members = listOf(WidgetMember("hotel-1", "UP", id = "m1")), quota = prior),
+                widget.generation(),
+            )
+            server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
+            server.enqueue(MockResponse().setBody(autoSyncBody(false)))
+            // Front Desk's 502 for an unreachable primary, body and all: the
+            // envelope parses into a zero-entry list, so this is the case where
+            // ignoring the status would silently blank the widget's badges rather
+            // than fail loudly. Separate from the 500 case above precisely because
+            // the body is well-formed.
+            server.enqueue(MockResponse().setResponseCode(502).setBody("""{"quota":[]}"""))
+
+            poll(store, widget, newConfigStore())
+
+            assertEquals(prior, widget.read()?.quota)
         }
 }

@@ -264,4 +264,47 @@
     <string name="widget_event_header">Letztes Flottenereignis</string>
     <string name="settings_widget_title">Startbildschirm-Widget</string>
     <string name="settings_widget_graphs_subtitle">Verkehrsgraphen: zeigen je Mitglied die Anfragen der letzten Stunde. Frische Balken kosten pro Hintergrundprüfung eine zusätzliche Anfrage je Mitglied.</string>
+
+    <string name="settings_quota_badges_title">Kontingent-Badges</string>
+    <string name="settings_quota_badges_subtitle">Wähle aus, welche Kontingent-Badges der Anbieter im Dashboard und im Widget angezeigt werden, ordne sie neu an und wähle verbraucht oder verbleibend.</string>
+
+    <!-- Quota badge detail sheet -->
+    <string name="quota_refresh">Kontingente aktualisieren</string>
+    <string name="quota_unavailable">Kontingentdaten nicht verfügbar</string>
+    <string name="quota_yes">Ja</string>
+    <string name="quota_no">Nein</string>
+    <string name="quota_status_active">Aktiv</string>
+    <string name="quota_status_inactive">Inaktiv</string>
+    <string name="quota_status_in_plan">Im Tarif enthalten</string>
+    <string name="quota_status_not_in_plan">Nicht im Tarif enthalten</string>
+    <string name="quota_field_status">Status</string>
+    <string name="quota_field_plan">Tarif</string>
+    <string name="quota_field_membership">Mitgliedschaft</string>
+    <string name="quota_field_period_end">Zeitraum endet</string>
+    <string name="quota_field_subscription_end">Abo endet</string>
+    <string name="quota_field_suspended">Gesperrt</string>
+    <string name="quota_field_allow_overage">Überschreitung erlauben</string>
+    <string name="quota_field_free_tier">Kostenlose Stufe</string>
+    <string name="quota_field_parallel_limit">Parallel-Limit</string>
+    <string name="quota_field_total_quota">Gesamtkontingent</string>
+    <string name="quota_field_credits_total">Guthaben gesamt</string>
+    <string name="quota_field_credits_used">Guthaben verbraucht</string>
+    <string name="quota_field_usage_today">Nutzung heute</string>
+    <string name="quota_field_usage_month">Nutzung diesen Monat</string>
+    <string name="quota_field_balance_remaining">Verbleibendes Guthaben</string>
+    <string name="quota_field_balance_total">Guthaben insgesamt</string>
+    <string name="quota_field_daily_input_tokens">Tägliche Eingabe-Tokens</string>
+    <string name="quota_field_daily_images">Tägliche Bilder</string>
+    <string name="quota_field_mcp_quota">MCP-Kontingent</string>
+
+    <!-- Quota badge configurator (dashboard + widget surfaces) -->
+    <string name="quota_config_title">Kontingent-Badges</string>
+    <string name="quota_config_back">Zurück</string>
+    <string name="quota_config_tab_main">Dashboard</string>
+    <string name="quota_config_tab_widget">Widget</string>
+    <string name="quota_config_mode_title">Badge-Stil</string>
+    <string name="quota_config_mode_remaining">Verbleibend</string>
+    <string name="quota_config_mode_used">Verbraucht</string>
+    <string name="quota_config_empty">Noch keine kontingentfähigen Anbieter gesehen.</string>
+    <string name="quota_config_widget_cap">Nur die ersten %1$d passen auf das Widget</string>
 </resources>

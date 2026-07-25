@@ -87,6 +87,7 @@ fun SettingsScreen(
     onToggleMonitor: (Boolean) -> Unit,
     onTogglePush: (Boolean) -> Unit,
     onAlertsClick: () -> Unit,
+    onQuotaBadgesClick: () -> Unit,
     onUnlink: () -> Unit,
     modifier: Modifier = Modifier,
     notificationsBlocked: Boolean = false,
@@ -317,9 +318,18 @@ fun SettingsScreen(
 
             // Copy gesture: whether a tap or a long-press copies a log/member cell.
             // Hold (the default) guards against stray copies while scrolling a list.
+            //
+            // The 12dp arrangement on this row and the switch rows below it is
+            // load-bearing: the label Column takes every pixel the switch leaves,
+            // so without a gap a subtitle that fills its line ends up touching
+            // the toggle. Same 12dp the nav cards further down put between their
+            // text and chevron.
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = stringResource(R.string.settings_hold_copy_title),
@@ -350,7 +360,10 @@ fun SettingsScreen(
             // background check; the widget itself still never polls.
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = stringResource(R.string.settings_widget_title),
@@ -415,7 +428,10 @@ fun SettingsScreen(
             // App lock: on/off plus the idle window it measures from foreground exit.
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = stringResource(R.string.settings_lock_title),
@@ -486,7 +502,10 @@ fun SettingsScreen(
             // for the notification permission.
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = stringResource(R.string.settings_monitor_title),
@@ -537,7 +556,10 @@ fun SettingsScreen(
             // (on API 33+) prompts for the notification permission.
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = stringResource(R.string.settings_push_title),
@@ -680,6 +702,38 @@ fun SettingsScreen(
             // only appears when a member is down). The severity badges tally what
             // Front Desk currently alerts on; the brass chevron marks the tap as a
             // jump to the Alerts screen (where an operator can flip them).
+            Card(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onQuotaBadgesClick)
+                        .testTag("settings-quota-badges"),
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = stringResource(R.string.settings_quota_badges_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_quota_badges_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    NavChevron(
+                        contentDescription = stringResource(R.string.settings_quota_badges_title),
+                        tag = "nav-chevron-quota",
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onAlertsClick).testTag("settings-alerts")) {
                 Row(
                     modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -869,6 +923,7 @@ private fun SettingsScreenPreview() {
             onToggleMonitor = {},
             onTogglePush = {},
             onAlertsClick = {},
+            onQuotaBadgesClick = {},
             onUnlink = {},
         )
     }

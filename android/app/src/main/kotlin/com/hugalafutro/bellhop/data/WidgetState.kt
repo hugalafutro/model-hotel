@@ -33,6 +33,25 @@ data class WidgetEvent(
 )
 
 /**
+ * WidgetQuotaBadge is one quota badge on the widget: the provider identity
+ * ([providerName], the wire's own key -- never type or UUID, see
+ * global-constraints badge-identity note) plus [type] (kept as the enum's
+ * wire name so a future build's new type degrades gracefully, same stance as
+ * [WidgetMember.state]) and a precomputed [label] so the Glance render stays
+ * a pure string (no [ProviderQuota]/formatting logic in the render path).
+ */
+@Serializable
+data class WidgetQuotaBadge(
+    val providerName: String,
+    val type: String,
+    val label: String,
+) {
+    /** Decoded [type], UNKNOWN for a name this build doesn't know (see the class note). */
+    val quotaType: QuotaType
+        get() = runCatching { QuotaType.valueOf(type) }.getOrDefault(QuotaType.UNKNOWN)
+}
+
+/**
  * WidgetState is the widget's whole persisted render model. It is written only
  * by code paths that already fetched the fleet (background poll, foreground
  * refresh, widget refresh tap) so the widget itself never needs the network;
@@ -44,7 +63,83 @@ data class WidgetState(
     val autosyncStale: Boolean = false,
     val newestEvent: WidgetEvent? = null,
     val updatedAt: Long = 0L,
+    // Defaulted so widget state persisted before quota badges existed still
+    // decodes.
+    val quota: List<WidgetQuotaBadge> = emptyList(),
 )
+
+/**
+ * WIDGET_QUOTA_CAP is the most badges the widget renders. The strip wraps onto
+ * several lines now ([quotaBadgeRows]), so this is no longer the old
+ * one-line-holds-six limit that quietly hid the rest of an operator's
+ * selection: it bounds how much of a small widget the strip may eat, and keeps
+ * the row count inside the nested Column well under Glance's 10-children cap.
+ */
+const val WIDGET_QUOTA_CAP = 12
+
+/**
+ * WIDGET_QUOTA_MAX_ROWS caps the strip's height. Four rows of 9sp pills is
+ * roughly a third of the COMPACT widget; past that the fleet rows the widget
+ * exists for would be the ones squeezed out.
+ */
+const val WIDGET_QUOTA_MAX_ROWS = 4
+
+// Row packing budget. Glance cannot measure text or wrap a Row, and under
+// SizeMode.Responsive LocalSize reports the breakpoint (180dp wide), not the
+// real widget, so rows are packed against the narrowest width the widget can
+// be resized to: 180dp minus the root Column's 12dp side padding. Badges are
+// digits and percent signs at 9sp; 6dp per character is a deliberate
+// over-estimate (a clipped badge is worse than a short row) and the chrome
+// term is the pill's 12dp horizontal padding plus its 4dp end gap.
+private const val WIDGET_QUOTA_ROW_BUDGET_DP = 156
+private const val WIDGET_QUOTA_CHAR_DP = 6
+private const val WIDGET_QUOTA_PILL_CHROME_DP = 16
+
+/**
+ * quotaBadgeRows packs [badges] into the rows the widget renders, keeping the
+ * given order and fitting as many per row as [WIDGET_QUOTA_ROW_BUDGET_DP]
+ * allows (always at least one, so a badge wider than the whole row still gets
+ * its own line rather than disappearing). Rows past [WIDGET_QUOTA_MAX_ROWS] are
+ * dropped -- [widgetQuotaOf] has already capped the input, so this only bites
+ * when every label is unusually long.
+ */
+fun quotaBadgeRows(badges: List<WidgetQuotaBadge>): List<List<WidgetQuotaBadge>> {
+    val rows = mutableListOf<MutableList<WidgetQuotaBadge>>()
+    var used = 0
+    badges.forEach { badge ->
+        val width = badge.label.length * WIDGET_QUOTA_CHAR_DP + WIDGET_QUOTA_PILL_CHROME_DP
+        if (rows.isEmpty() || used + width > WIDGET_QUOTA_ROW_BUDGET_DP) {
+            rows += mutableListOf(badge)
+            used = width
+        } else {
+            rows.last() += badge
+            used += width
+        }
+    }
+    return rows.take(WIDGET_QUOTA_MAX_ROWS)
+}
+
+/**
+ * widgetQuotaOf resolves [quota] against [config] the same way the main-page
+ * badge list does ([orderedVisible]: hidden/unavailable names dropped, order
+ * preserved), then trims to [WIDGET_QUOTA_CAP] and precomputes each badge's
+ * short [WidgetQuotaBadge.label] via [quotaBadgeLabel] (in [mode]'s polarity)
+ * so the widget's render stays pure-string.
+ */
+fun widgetQuotaOf(
+    quota: List<ProviderQuota>,
+    config: QuotaBadgeConfig,
+    mode: QuotaBarMode,
+): List<WidgetQuotaBadge> =
+    orderedVisible(config, quota)
+        .take(WIDGET_QUOTA_CAP)
+        .map {
+            WidgetQuotaBadge(
+                providerName = it.providerName,
+                type = it.type.name,
+                label = quotaBadgeLabel(it, mode),
+            )
+        }
 
 /** TRAFFIC_BUCKETS is the widget's bar-graph window: one hour of 5-minute buckets. */
 const val TRAFFIC_BUCKETS = 12
@@ -78,6 +173,7 @@ fun widgetStateOf(
     autosyncStale: Boolean,
     now: Long,
     traffic: Map<String, List<Int>> = emptyMap(),
+    quota: List<WidgetQuotaBadge> = emptyList(),
 ): WidgetState =
     WidgetState(
         members =
@@ -98,4 +194,9 @@ fun widgetStateOf(
                 .maxByOrNull { it.createdAt }
                 ?.let { WidgetEvent(it.message, it.createdAt) },
         updatedAt = now,
+        // Writers already computed the badge list via widgetQuotaOf (needs the
+        // fetched ProviderQuota list plus the surface's QuotaBadgeConfig,
+        // neither of which this function otherwise touches); threaded through
+        // verbatim.
+        quota = quota,
     )

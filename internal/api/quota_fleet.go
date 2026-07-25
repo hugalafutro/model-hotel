@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
@@ -16,6 +17,7 @@ import (
 // contract config-sync already uses.
 type QuotaSnapshotWire struct {
 	ProviderName string          `json:"provider_name"`
+	Type         string          `json:"type"` // provider type from DetectProviderType(base_url); chooses the badge
 	Kind         string          `json:"kind"`
 	Payload      json.RawMessage `json:"payload"`
 	HTTPStatus   int             `json:"http_status"`
@@ -57,8 +59,10 @@ func (h *QuotaFleetHandler) ExportSnapshots(w http.ResponseWriter, r *http.Reque
 	}
 
 	idToName := make(map[uuid.UUID]string, len(provs))
+	idToType := make(map[uuid.UUID]string, len(provs))
 	for _, p := range provs {
 		idToName[p.ID] = p.Name
+		idToType[p.ID] = provider.DetectProviderType(p.BaseURL)
 	}
 
 	wire := make([]QuotaSnapshotWire, 0, len(snaps))
@@ -77,6 +81,7 @@ func (h *QuotaFleetHandler) ExportSnapshots(w http.ResponseWriter, r *http.Reque
 		}
 		wire = append(wire, QuotaSnapshotWire{
 			ProviderName: name,
+			Type:         idToType[s.ProviderID],
 			Kind:         s.Kind,
 			Payload:      s.Payload,
 			HTTPStatus:   s.HTTPStatus,

@@ -386,6 +386,141 @@ class FrontDeskClientTest {
         }
 
     @Test
+    fun quotaMapsEnvelopeToProviderQuotas() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"quota":[{"provider_name":"OR","type":"openrouter","kind":"usage",""" +
+                        """"payload":{"label":"k","limit":10.0,"usage":2.5},"http_status":200,"fetched_at":"t"}]}""",
+                ),
+            )
+
+            val result = client.quota(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            val quota = result.data.single()
+            assertEquals("OR", quota.providerName)
+            assertEquals(QuotaType.OPENROUTER, quota.type)
+            assertTrue(quota.available)
+
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertEquals("/api/quota", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+        }
+
+    @Test
+    fun quotaDropsUnknownTypesAndKeepsKnownFailedFetches() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"quota":[""" +
+                        """{"provider_name":"Ninth","type":"brand-new","kind":"usage",""" +
+                        """"payload":{"whatever":1},"http_status":200,"fetched_at":"t"},""" +
+                        // A member still on a build whose export predates `type`.
+                        """{"provider_name":"Typeless","kind":"usage",""" +
+                        """"payload":{"credits_remaining":1.0},"http_status":200,"fetched_at":"t"},""" +
+                        """{"provider_name":"OR","type":"openrouter","kind":"usage",""" +
+                        """"payload":null,"http_status":500,"fetched_at":"t"}]}""",
+                ),
+            )
+
+            val result = client.quota(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            val quota = result.data.single()
+            assertEquals("OR", quota.providerName)
+            assertEquals(QuotaType.OPENROUTER, quota.type)
+            assertFalse(quota.available)
+        }
+
+    @Test
+    fun quotaMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.quota(server.url("/").toString(), "dead")
+            assertEquals(FetchResult.Unauthorized, result)
+        }
+
+    @Test
+    fun quotaMapsBadGatewayToFailureNotAnEmptyList() =
+        runBlocking {
+            // Front Desk answers 502 when it cannot reach the primary member, and
+            // its error envelope still carries a (empty) quota key, so the body
+            // decodes cleanly into a zero-entry list. Only the status keeps this
+            // off the Success arm -- and it must, or every consumer would read a
+            // "successful" empty list and blank its badges instead of keeping the
+            // last-good ones.
+            server.enqueue(
+                MockResponse().setResponseCode(502).setBody(
+                    """{"error":{"code":"primary_unreachable","message":"primary unreachable"},"quota":[]}""",
+                ),
+            )
+
+            val result = client.quota(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Failure)
+            assertEquals("primary unreachable", (result as FetchResult.Failure).message)
+        }
+
+    @Test
+    fun refreshQuotaPostsEmptyBodyAndParsesTally() =
+        runBlocking {
+            server.enqueue(MockResponse().setBody("""{"refreshed":2,"failed":0,"skipped":1}"""))
+
+            val result = client.refreshQuota(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is ActionResult.Success)
+            val data = (result as ActionResult.Success).data
+            assertEquals(2, data.refreshed)
+            assertEquals(0, data.failed)
+            assertEquals(1, data.skipped)
+
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertEquals("/api/quota/refresh", request.path)
+            assertEquals("Bearer tok-1", request.getHeader("Authorization"))
+            assertEquals("{}", request.body.readUtf8())
+        }
+
+    @Test
+    fun refreshQuotaMapsUnauthorizedToItsOwnArm() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setResponseCode(401).setBody(
+                    """{"error":{"code":"unauthorized","message":"bad token"}}""",
+                ),
+            )
+            val result = client.refreshQuota(server.url("/").toString(), "dead")
+            assertEquals(ActionResult.Unauthorized, result)
+        }
+
+    @Test
+    fun refreshQuotaMapsBadGatewayToFailureCarryingTheReason() =
+        runBlocking {
+            // A re-poll Front Desk could not run (primary unreachable) must reach
+            // the caller as a failure with Front Desk's own reason attached, so
+            // the dashboard can say the refresh failed rather than let the tap
+            // pass for a successful one.
+            server.enqueue(
+                MockResponse().setResponseCode(502).setBody(
+                    """{"error":{"code":"primary_unreachable","message":"primary unreachable"}}""",
+                ),
+            )
+
+            val result = client.refreshQuota(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is ActionResult.Failure)
+            assertEquals("primary unreachable", (result as ActionResult.Failure).message)
+        }
+
+    @Test
     fun unlinkMalformedUrlIsFalseNotThrow() =
         runBlocking {
             assertFalse(client.unlink("not a url", "tok"))

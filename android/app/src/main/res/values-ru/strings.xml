@@ -276,4 +276,47 @@
     <string name="widget_event_header">Последнее событие флота</string>
     <string name="settings_widget_title">Виджет главного экрана</string>
     <string name="settings_widget_graphs_subtitle">Графики трафика: показывают по каждому узлу запросы за последний час. Свежие столбцы стоят один дополнительный запрос на узел при каждой фоновой проверке.</string>
+
+    <string name="settings_quota_badges_title">Значки квот</string>
+    <string name="settings_quota_badges_subtitle">Выберите, какие значки квот поставщиков показывать на дашборде и в виджете, измените их порядок и выберите использовано или осталось.</string>
+
+    <!-- Quota badge detail sheet -->
+    <string name="quota_refresh">Обновить квоты</string>
+    <string name="quota_unavailable">Данные о квоте недоступны</string>
+    <string name="quota_yes">Да</string>
+    <string name="quota_no">Нет</string>
+    <string name="quota_status_active">Активно</string>
+    <string name="quota_status_inactive">Неактивно</string>
+    <string name="quota_status_in_plan">В плане</string>
+    <string name="quota_status_not_in_plan">Вне плана</string>
+    <string name="quota_field_status">Статус</string>
+    <string name="quota_field_plan">План</string>
+    <string name="quota_field_membership">Членство</string>
+    <string name="quota_field_period_end">Окончание периода</string>
+    <string name="quota_field_subscription_end">Окончание подписки</string>
+    <string name="quota_field_suspended">Приостановлено</string>
+    <string name="quota_field_allow_overage">Разрешить превышение</string>
+    <string name="quota_field_free_tier">Бесплатный уровень</string>
+    <string name="quota_field_parallel_limit">Лимит параллельных запросов</string>
+    <string name="quota_field_total_quota">Общая квота</string>
+    <string name="quota_field_credits_total">Кредиты всего</string>
+    <string name="quota_field_credits_used">Использовано кредитов</string>
+    <string name="quota_field_usage_today">Использование сегодня</string>
+    <string name="quota_field_usage_month">Использование в этом месяце</string>
+    <string name="quota_field_balance_remaining">Остаток баланса</string>
+    <string name="quota_field_balance_total">Всего кредитов</string>
+    <string name="quota_field_daily_input_tokens">Дневные входные токены</string>
+    <string name="quota_field_daily_images">Дневные изображения</string>
+    <string name="quota_field_mcp_quota">Квота MCP</string>
+
+    <!-- Quota badge configurator (dashboard + widget surfaces) -->
+    <string name="quota_config_title">Значки квот</string>
+    <string name="quota_config_back">Назад</string>
+    <string name="quota_config_tab_main">Дашборд</string>
+    <string name="quota_config_tab_widget">Виджет</string>
+    <string name="quota_config_mode_title">Стиль значка</string>
+    <string name="quota_config_mode_remaining">Осталось</string>
+    <string name="quota_config_mode_used">Использовано</string>
+    <string name="quota_config_empty">Провайдеры с поддержкой квот пока не найдены.</string>
+    <string name="quota_config_widget_cap">В виджет помещаются только первые %1$d</string>
 </resources>

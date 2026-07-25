@@ -1,0 +1,179 @@
+package com.hugalafutro.bellhop.ui.settings
+
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import com.hugalafutro.bellhop.data.InMemoryPreferencesDataStore
+import com.hugalafutro.bellhop.data.PrefsStore
+import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
+import com.hugalafutro.bellhop.data.QuotaBarMode
+import com.hugalafutro.bellhop.data.QuotaSurface
+import com.hugalafutro.bellhop.data.WIDGET_QUOTA_CAP
+import com.hugalafutro.bellhop.ui.theme.BellhopTheme
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+/**
+ * QuotaBadgesConfigScreen owns its store writes directly (no ViewModel), so
+ * these tests drive real in-memory-backed [QuotaBadgeConfigStore] /
+ * [PrefsStore] instances and assert on the store's resulting state after a
+ * tap, not on a callback capture. Assertions are all by test tag or store
+ * enum value, never translated text (see global-constraints).
+ */
+@RunWith(RobolectricTestRunner::class)
+class QuotaBadgesConfigScreenTest {
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    private fun newConfigStore(): QuotaBadgeConfigStore = QuotaBadgeConfigStore(InMemoryPreferencesDataStore())
+
+    private fun newPrefsStore(): PrefsStore = PrefsStore(InMemoryPreferencesDataStore())
+
+    @Test
+    fun bothSurfaceTabsAreDisplayed() {
+        val configStore = newConfigStore()
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaBadgesConfigScreen(configStore = configStore, prefsStore = newPrefsStore(), onBack = {})
+            }
+        }
+        composeTestRule.onNodeWithTag("quota-config-tab-main").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("quota-config-tab-widget").assertIsDisplayed()
+    }
+
+    @Test
+    fun togglingRowSwitchHidesBadgeInStore() {
+        val configStore = newConfigStore()
+        runBlocking { configStore.reconcile(QuotaSurface.MAIN, listOf("OR", "NG")) }
+
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaBadgesConfigScreen(configStore = configStore, prefsStore = newPrefsStore(), onBack = {})
+            }
+        }
+
+        // MAIN is the default tab and OR starts visible (unhidden) by default.
+        composeTestRule.onNodeWithTag("quota-config-visible-OR").performClick()
+        composeTestRule.waitForIdle()
+
+        val hidden = runBlocking { configStore.config(QuotaSurface.MAIN).first().hidden }
+        assertTrue("OR" in hidden)
+    }
+
+    @Test
+    fun switchingToWidgetTabShowsWidgetConfig() {
+        val configStore = newConfigStore()
+        runBlocking {
+            configStore.reconcile(QuotaSurface.MAIN, listOf("OR"))
+            configStore.reconcile(QuotaSurface.WIDGET, listOf("NG"))
+        }
+
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaBadgesConfigScreen(configStore = configStore, prefsStore = newPrefsStore(), onBack = {})
+            }
+        }
+
+        composeTestRule.onNodeWithTag("quota-config-tab-widget").performClick()
+        composeTestRule.waitForIdle()
+
+        // WIDGET reconciled with one name, newly-seen names default hidden on
+        // that surface, so the row toggling it back on lands in the store.
+        composeTestRule.onNodeWithTag("quota-config-visible-NG").performClick()
+        composeTestRule.waitForIdle()
+
+        val visible = runBlocking { configStore.config(QuotaSurface.WIDGET).first().hidden }
+        assertTrue("NG" !in visible)
+    }
+
+    @Test
+    fun widgetTabStaysQuietWhenTheSelectionFits() {
+        // The widget wraps badges onto several lines, so a selection under the
+        // cap is shown in full and the cap note would only be noise.
+        val configStore = newConfigStore()
+        runBlocking { configStore.reconcile(QuotaSurface.WIDGET, listOf("OR", "NG")) }
+
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaBadgesConfigScreen(configStore = configStore, prefsStore = newPrefsStore(), onBack = {})
+            }
+        }
+
+        composeTestRule.onNodeWithTag("quota-config-tab-widget").performClick()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("quota-config-widget-cap").assertDoesNotExist()
+    }
+
+    @Test
+    fun widgetTabWarnsWhenTheSelectionOutrunsTheCap() {
+        val configStore = newConfigStore()
+        val names = (1..WIDGET_QUOTA_CAP + 1).map { "P$it" }
+        runBlocking {
+            configStore.reconcile(QuotaSurface.WIDGET, names)
+            // WIDGET is opt-in, so reconcile leaves new names hidden; tick them
+            // all on to get past the cap.
+            names.forEach { configStore.setVisible(QuotaSurface.WIDGET, it, true) }
+        }
+
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaBadgesConfigScreen(configStore = configStore, prefsStore = newPrefsStore(), onBack = {})
+            }
+        }
+
+        composeTestRule.onNodeWithTag("quota-config-tab-widget").performClick()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("quota-config-widget-cap").assertIsDisplayed()
+    }
+
+    @Test
+    fun emptyOrderShowsEmptyState() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaBadgesConfigScreen(configStore = newConfigStore(), prefsStore = newPrefsStore(), onBack = {})
+            }
+        }
+        composeTestRule.onNodeWithTag("quota-config-empty").assertIsDisplayed()
+    }
+
+    @Test
+    fun modeToggleFiresSetQuotaBarMode() {
+        val prefsStore = newPrefsStore()
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaBadgesConfigScreen(configStore = newConfigStore(), prefsStore = prefsStore, onBack = {})
+            }
+        }
+
+        composeTestRule.onNodeWithTag("quota-mode-toggle").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("quota-mode-used").performClick()
+        composeTestRule.waitForIdle()
+
+        assertEquals(QuotaBarMode.USED, runBlocking { prefsStore.quotaBarMode.first() })
+    }
+
+    @Test
+    fun backArrowFiresCallback() {
+        var backs = 0
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaBadgesConfigScreen(
+                    configStore = newConfigStore(),
+                    prefsStore = newPrefsStore(),
+                    onBack = { backs++ },
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("quota-config-back").performClick()
+        assertEquals(1, backs)
+    }
+}
