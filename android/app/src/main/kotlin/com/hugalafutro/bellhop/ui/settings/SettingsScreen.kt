@@ -55,6 +55,7 @@ import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LockConfig
 import com.hugalafutro.bellhop.data.LockTimeout
 import com.hugalafutro.bellhop.data.PrefsStore
+import com.hugalafutro.bellhop.data.TimeFormat
 import com.hugalafutro.bellhop.ui.alerts.ALERT_SEVERITIES
 import com.hugalafutro.bellhop.ui.common.FilterPill
 import com.hugalafutro.bellhop.ui.common.NavChevron
@@ -109,6 +110,8 @@ fun SettingsScreen(
     onSetGraphRange: (Int) -> Unit = {},
     widgetGraphs: Boolean = false,
     onToggleWidgetGraphs: (Boolean) -> Unit = {},
+    timeFormat: TimeFormat = TimeFormat.SYSTEM,
+    onSetTimeFormat: (TimeFormat) -> Unit = {},
     // Enabled-alert counts per severity (error/warning/info/success), sourced from
     // Front Desk's live selection. Always rendered as badges on the Alerts pill,
     // even at 0, so the pill reads as a live, tappable destination.
@@ -378,6 +381,31 @@ fun SettingsScreen(
                         colors = bellhopSwitchColors(),
                         modifier = Modifier.testTag("settings-widget-graphs-toggle"),
                     )
+                }
+            }
+
+            // Clock: which face every wall-clock time in the app is drawn on.
+            // System follows the device, the other two override it -- the app is
+            // the only clock some people read on this screen.
+            SettingsSection {
+                Text(
+                    text = stringResource(R.string.settings_time_format_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    TimeFormat.entries.forEach { option ->
+                        FilterPill(
+                            text = stringResource(timeFormatLabel(option)),
+                            selected = option == timeFormat,
+                            onClick = { onSetTimeFormat(option) },
+                            tag = "settings-time-format-${option.name}",
+                            modifier = Modifier.weight(1f),
+                            borderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 
@@ -738,6 +766,14 @@ fun SettingsScreen(
         }
     }
 }
+
+/** timeFormatLabel maps a clock choice to its picker label. */
+private fun timeFormatLabel(format: TimeFormat): Int =
+    when (format) {
+        TimeFormat.SYSTEM -> R.string.settings_time_format_system
+        TimeFormat.H24 -> R.string.settings_time_format_24h
+        TimeFormat.H12 -> R.string.settings_time_format_12h
+    }
 
 /**
  * SettingsSection is one entry in the settings list: its content across the

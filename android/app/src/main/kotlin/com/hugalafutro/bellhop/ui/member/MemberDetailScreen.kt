@@ -64,6 +64,7 @@ import com.hugalafutro.bellhop.ui.common.ConfirmOpenUrlDialog
 import com.hugalafutro.bellhop.ui.common.CustomDateRange
 import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.common.EventRangeRow
+import com.hugalafutro.bellhop.ui.common.LocalTimePattern
 import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.ScrollToTopButton
 import com.hugalafutro.bellhop.ui.common.SeverityRailRow
@@ -123,9 +124,10 @@ fun MemberDetailScreen(
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val copiedMsg = stringResource(R.string.events_copied)
+    val timePattern = LocalTimePattern.current
     val onCopyEvent: (FdEvent) -> Unit = { event ->
         val name = member.name.takeIf { event.memberId == member.id }
-        clipboard.setText(AnnotatedString(eventClipboardText(event, name)))
+        clipboard.setText(AnnotatedString(eventClipboardText(event, name, timePattern)))
         Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
     }
     // Clear the optimistic pending state once the dashboard's live state (member
@@ -357,7 +359,7 @@ private fun MetaLedger(
         if (member.createdAt.isNotBlank()) {
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_added),
-                value = formatEventTime(member.createdAt),
+                value = formatEventTime(member.createdAt, LocalTimePattern.current),
                 trailing = remember(member.createdAt, context) { ageParenthetical(context, member.createdAt) },
                 tag = "member-detail-created",
             )
@@ -369,7 +371,7 @@ private fun MetaLedger(
             // lives on VERIFIED below, where a frozen heartbeat signals drift.
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_synced),
-                value = formatEventTime(member.lastConfigSyncAt),
+                value = formatEventTime(member.lastConfigSyncAt, LocalTimePattern.current),
                 trailing =
                     remember(
                         member.lastConfigSyncAt,
@@ -395,7 +397,7 @@ private fun MetaLedger(
             // the fleet MIGHT have drifted, not a week-old config that never changed.
             LedgerRow(
                 label = stringResource(R.string.member_detail_label_verified),
-                value = formatEventTime(member.status.autoSyncVerifiedAt),
+                value = formatEventTime(member.status.autoSyncVerifiedAt, LocalTimePattern.current),
                 trailing =
                     remember(member.status.autoSyncVerifiedAt, context) {
                         ageParenthetical(context, member.status.autoSyncVerifiedAt)
@@ -617,7 +619,11 @@ private fun OperatorControls(
                 modifier = Modifier.fillMaxWidth().testTag("member-op-last-sync"),
             ) {
                 Text(
-                    text = stringResource(R.string.member_op_last_sync, formatEventTime(lastFleetSyncAt)),
+                    text =
+                        stringResource(
+                            R.string.member_op_last_sync,
+                            formatEventTime(lastFleetSyncAt, LocalTimePattern.current),
+                        ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
@@ -788,7 +794,7 @@ private fun TrafficCard(
                     // Wall-clock times under the chart edges, so the bars are
                     // anchored in time instead of floating unlabeled. Omitted when
                     // the bucket timestamps don't parse.
-                    trafficAxisLabels(traffic.points)?.let { (start, end) ->
+                    trafficAxisLabels(traffic.points, LocalTimePattern.current)?.let { (start, end) ->
                         Row(modifier = Modifier.fillMaxWidth().testTag("member-traffic-axis")) {
                             Text(
                                 text = start,
@@ -822,16 +828,19 @@ private fun LegendDot(
 
 /**
  * trafficAxisLabels turns the first and last bucket timestamps into local
- * wall-clock "HH:mm" labels for the chart's time axis, or null when the buckets
- * don't parse (the axis row is then omitted rather than showing raw strings).
- * The formatter is built per call, not held in a static, so an in-app language
- * switch is picked up.
+ * wall-clock labels for the chart's time axis, on the clock [timePattern]
+ * names, or null when the buckets don't parse (the axis row is then omitted
+ * rather than showing raw strings). The formatter is built per call, not held
+ * in a static, so an in-app language switch is picked up.
  */
-private fun trafficAxisLabels(points: List<TrafficPoint>): Pair<String, String>? =
+private fun trafficAxisLabels(
+    points: List<TrafficPoint>,
+    timePattern: String,
+): Pair<String, String>? =
     try {
         val fmt =
             DateTimeFormatter
-                .ofPattern("HH:mm", Locale.getDefault())
+                .ofPattern(timePattern, Locale.getDefault())
                 .withZone(ZoneId.systemDefault())
         fmt.format(Instant.parse(points.first().bucket)) to fmt.format(Instant.parse(points.last().bucket))
     } catch (e: Exception) {
@@ -874,7 +883,7 @@ private fun MemberEventRow(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = formatEventTime(event.createdAt),
+                text = formatEventTime(event.createdAt, LocalTimePattern.current),
                 style = MaterialTheme.typography.labelSmall,
                 fontFamily = MonoFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

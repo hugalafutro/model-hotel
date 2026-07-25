@@ -46,6 +46,7 @@ import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
 import com.hugalafutro.bellhop.data.QuotaBarMode
+import com.hugalafutro.bellhop.data.TimeFormat
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.shouldLock
 import com.hugalafutro.bellhop.data.shouldLockOnEntry
@@ -54,6 +55,7 @@ import com.hugalafutro.bellhop.push.BellhopPush
 import com.hugalafutro.bellhop.ui.alerts.AlertsScreen
 import com.hugalafutro.bellhop.ui.alerts.AlertsViewModel
 import com.hugalafutro.bellhop.ui.alerts.enabledSeverityCounts
+import com.hugalafutro.bellhop.ui.common.ProvideTimePattern
 import com.hugalafutro.bellhop.ui.dashboard.DashboardScreen
 import com.hugalafutro.bellhop.ui.dashboard.DashboardViewModel
 import com.hugalafutro.bellhop.ui.events.EventsScreen
@@ -225,6 +227,7 @@ fun BellhopApp() {
     val holdToCopy by prefsStore.holdToCopy.collectAsStateWithLifecycle(initialValue = true)
     val widgetGraphs by prefsStore.widgetGraphs.collectAsStateWithLifecycle(initialValue = false)
     val quotaBarMode by prefsStore.quotaBarMode.collectAsStateWithLifecycle(initialValue = QuotaBarMode.REMAINING)
+    val timeFormat by prefsStore.timeFormat.collectAsStateWithLifecycle(initialValue = TimeFormat.SYSTEM)
     val graphRangeMinutes by
         prefsStore.graphRangeMinutes.collectAsStateWithLifecycle(
             initialValue = PrefsStore.DEFAULT_GRAPH_RANGE_MINUTES,
@@ -549,6 +552,8 @@ fun BellhopApp() {
                         onToggleHoldToCopy = { scope.launch { prefsStore.setHoldToCopy(it) } },
                         graphRangeMinutes = graphRangeMinutes,
                         quotaBarMode = quotaBarMode,
+                        timeFormat = timeFormat,
+                        onSetTimeFormat = { scope.launch { prefsStore.setTimeFormat(it) } },
                         onSetGraphRange = { scope.launch { prefsStore.setGraphRangeMinutes(it) } },
                         widgetGraphs = widgetGraphs,
                         onToggleWidgetGraphs = {
@@ -607,6 +612,8 @@ private fun LinkedContent(
     onToggleHoldToCopy: (Boolean) -> Unit,
     graphRangeMinutes: Int,
     quotaBarMode: QuotaBarMode,
+    timeFormat: TimeFormat,
+    onSetTimeFormat: (TimeFormat) -> Unit,
     onSetGraphRange: (Int) -> Unit,
     widgetGraphs: Boolean,
     onToggleWidgetGraphs: (Boolean) -> Unit,
@@ -724,139 +731,145 @@ private fun LinkedContent(
         dashVm.setCovered(showEvents || showAlerts || showSettings || showQuotaConfig || selectedMemberId != null)
     }
 
-    if (showEvents) {
-        BackHandler { showEvents = false }
-        // Keyed like the dashboard VM so a relink gets a fresh log.
-        val eventsVm: EventsViewModel =
-            viewModel(
-                key = "events-${state.fdUrl}|${state.deviceId}",
-                factory = EventsViewModel.Factory(client, linkStore, state.fdUrl),
+    // Every clock time under here -- event stamps, the traffic axis, a copied
+    // log line -- is drawn on the clock Settings names, resolved once.
+    ProvideTimePattern(timeFormat) {
+        if (showEvents) {
+            BackHandler { showEvents = false }
+            // Keyed like the dashboard VM so a relink gets a fresh log.
+            val eventsVm: EventsViewModel =
+                viewModel(
+                    key = "events-${state.fdUrl}|${state.deviceId}",
+                    factory = EventsViewModel.Factory(client, linkStore, state.fdUrl),
+                )
+            val eventsUi by eventsVm.state.collectAsStateWithLifecycle()
+            EventsScreen(
+                onBack = { showEvents = false },
+                ui = eventsUi,
+                // Member names ride the dashboard's live state; an unknown
+                // id (member since removed) falls back to the raw id.
+                memberNames = ui.members.associate { it.id to it.name },
+                onSeverity = eventsVm::setSeverity,
+                onRange = eventsVm::setRange,
+                onCustomRange = eventsVm::setCustomRange,
+                onLoadMore = eventsVm::loadMore,
+                holdToCopy = holdToCopy,
             )
-        val eventsUi by eventsVm.state.collectAsStateWithLifecycle()
-        EventsScreen(
-            onBack = { showEvents = false },
-            ui = eventsUi,
-            // Member names ride the dashboard's live state; an unknown
-            // id (member since removed) falls back to the raw id.
-            memberNames = ui.members.associate { it.id to it.name },
-            onSeverity = eventsVm::setSeverity,
-            onRange = eventsVm::setRange,
-            onCustomRange = eventsVm::setCustomRange,
-            onLoadMore = eventsVm::loadMore,
-            holdToCopy = holdToCopy,
-        )
-    } else if (showAlerts) {
-        // Alerts can be reached from the dashboard bell or from Settings; back
-        // returns to whichever is still open underneath (Settings if it was).
-        BackHandler { showAlerts = false }
-        val alertsUi by alertsVm.state.collectAsStateWithLifecycle()
-        AlertsScreen(
-            onBack = { showAlerts = false },
-            ui = alertsUi,
-            // Role-hint UI, same as the member-detail card: an operator gets live
-            // switches, a monitor sees them read-only. Front Desk's 403 is still the
-            // real guard. Each flip goes through the biometric operator gate.
-            canOperate = state.role == OPERATOR_ROLE,
-            onToggleEvent = { type, enabled -> requireOperatorAuth { alertsVm.toggleEvent(type, enabled) } },
-            onDismissActionError = { alertsVm.dismissActionError() },
-        )
-    } else if (showQuotaConfig) {
-        BackHandler { showQuotaConfig = false }
-        val quotaConfigStore = remember(monitorContext) { QuotaBadgeConfigStore.create(monitorContext) }
-        val quotaPrefsStore = remember(monitorContext) { PrefsStore.create(monitorContext) }
-        QuotaBadgesConfigScreen(
-            configStore = quotaConfigStore,
-            prefsStore = quotaPrefsStore,
-            onBack = { showQuotaConfig = false },
-        )
-    } else if (showSettings) {
-        BackHandler { showSettings = false }
-        // Collecting the hoisted alerts VM here subscribes it, so its selection is
-        // fetched while Settings is open and the pill badges stay live (including
-        // right after an operator flips events on the Alerts screen and returns).
-        val alertsUi by alertsVm.state.collectAsStateWithLifecycle()
-        val alertCounts = remember(alertsUi.catalog) { enabledSeverityCounts(alertsUi.catalog) }
-        SettingsScreen(
-            link = state,
-            lockConfig = lockConfig,
-            lockAvailable = lockAvailable,
-            monitorEnabled = monitorEnabled,
-            notificationsBlocked = notificationsBlocked,
-            pushEnabled = pushEnabled,
-            pushEndpoint = pushEndpoint,
-            pushDistributorAvailable = pushDistributorAvailable,
-            pushNotificationsBlocked = pushNotificationsBlocked,
-            batteryUnrestricted = batteryUnrestricted,
-            onRequestBatteryExemption = onRequestBatteryExemption,
-            onBack = { showSettings = false },
-            onToggleLock = { enabled -> scope.launch { lockStore.setEnabled(enabled) } },
-            onSelectTimeout = { option -> scope.launch { lockStore.setTimeout(option.millis) } },
-            onToggleMonitor = onToggleMonitor,
-            onTogglePush = onTogglePush,
-            onAlertsClick = { showAlerts = true },
-            onQuotaBadgesClick = { showQuotaConfig = true },
-            onUnlink = onUnlink,
-            unlinking = unlinking,
-            unlinkFailed = unlinkFailed,
-            onDismissUnlinkError = onDismissUnlinkError,
-            onForceUnlink = onForceUnlink,
-            holdToCopy = holdToCopy,
-            onToggleHoldToCopy = onToggleHoldToCopy,
-            graphRangeMinutes = graphRangeMinutes,
-            onSetGraphRange = onSetGraphRange,
-            widgetGraphs = widgetGraphs,
-            onToggleWidgetGraphs = onToggleWidgetGraphs,
-            alertCounts = alertCounts,
-        )
-    } else if (selected != null) {
-        BackHandler { selectedMemberId = null }
-        // Keyed like the dashboard VM, plus the member id, so flipping
-        // between members never shows another member's series.
-        val detailVm: MemberDetailViewModel =
-            viewModel(
-                key = "member-${state.fdUrl}|${state.deviceId}|${selected.id}",
-                factory = MemberDetailViewModel.Factory(client, linkStore, state.fdUrl, selected.id),
+        } else if (showAlerts) {
+            // Alerts can be reached from the dashboard bell or from Settings; back
+            // returns to whichever is still open underneath (Settings if it was).
+            BackHandler { showAlerts = false }
+            val alertsUi by alertsVm.state.collectAsStateWithLifecycle()
+            AlertsScreen(
+                onBack = { showAlerts = false },
+                ui = alertsUi,
+                // Role-hint UI, same as the member-detail card: an operator gets live
+                // switches, a monitor sees them read-only. Front Desk's 403 is still the
+                // real guard. Each flip goes through the biometric operator gate.
+                canOperate = state.role == OPERATOR_ROLE,
+                onToggleEvent = { type, enabled -> requireOperatorAuth { alertsVm.toggleEvent(type, enabled) } },
+                onDismissActionError = { alertsVm.dismissActionError() },
             )
-        val detailUi by detailVm.state.collectAsStateWithLifecycle()
-        LaunchedEffect(graphRangeMinutes) { detailVm.setGraphRange(graphRangeMinutes) }
-        MemberDetailScreen(
-            member = selected,
-            isPrimary = selected.id == ui.primaryId,
-            ui = detailUi,
-            onBack = { selectedMemberId = null },
-            // Role-hint UI: an operator device gets the controls, a monitor
-            // doesn't. Front Desk's 403 is still the real guard (surfaced in the
-            // card). Each action goes through the biometric operator gate.
-            canOperate = state.role == OPERATOR_ROLE,
-            onSetState = { target -> requireOperatorAuth { detailVm.setMemberState(target) } },
-            onSyncFleet = { requireOperatorAuth { detailVm.syncFleet(ui.primaryId) } },
-            onReconcile = { liveState -> detailVm.reconcile(liveState) },
-            onDismissActionError = { detailVm.dismissActionError() },
-            onRange = detailVm::setRange,
-            onCustomRange = detailVm::setCustomRange,
-            onLoadMoreEvents = detailVm::loadMore,
-            holdToCopy = holdToCopy,
-        )
-    } else {
-        DashboardScreen(
-            link = state,
-            ui = ui,
-            // Role-hint UI, same as the member-detail card: an operator device gets
-            // the pause/resume toggle, a monitor doesn't. Front Desk's 403 is still
-            // the real guard. The toggle goes through the biometric operator gate.
-            canOperate = state.role == OPERATOR_ROLE,
-            onMemberClick = { selectedMemberId = it },
-            onEventsClick = { showEvents = true },
-            onAlertsClick = { showAlerts = true },
-            onSettingsClick = { showSettings = true },
-            onSetAutoSync = { enabled -> requireOperatorAuth { dashVm.setAutoSync(enabled) } },
-            onDismissAutoSyncError = { dashVm.dismissAutoSyncError() },
-            onVisibleMembers = dashVm::setVisibleMembers,
-            quotaBarMode = quotaBarMode,
-            onRefresh = { dashVm.refreshAll() },
-            holdToCopy = holdToCopy,
-            lockEnabled = lockConfig.enabled,
-            onLock = onLock,
-        )
+        } else if (showQuotaConfig) {
+            BackHandler { showQuotaConfig = false }
+            val quotaConfigStore = remember(monitorContext) { QuotaBadgeConfigStore.create(monitorContext) }
+            val quotaPrefsStore = remember(monitorContext) { PrefsStore.create(monitorContext) }
+            QuotaBadgesConfigScreen(
+                configStore = quotaConfigStore,
+                prefsStore = quotaPrefsStore,
+                onBack = { showQuotaConfig = false },
+            )
+        } else if (showSettings) {
+            BackHandler { showSettings = false }
+            // Collecting the hoisted alerts VM here subscribes it, so its selection is
+            // fetched while Settings is open and the pill badges stay live (including
+            // right after an operator flips events on the Alerts screen and returns).
+            val alertsUi by alertsVm.state.collectAsStateWithLifecycle()
+            val alertCounts = remember(alertsUi.catalog) { enabledSeverityCounts(alertsUi.catalog) }
+            SettingsScreen(
+                link = state,
+                lockConfig = lockConfig,
+                lockAvailable = lockAvailable,
+                monitorEnabled = monitorEnabled,
+                notificationsBlocked = notificationsBlocked,
+                pushEnabled = pushEnabled,
+                pushEndpoint = pushEndpoint,
+                pushDistributorAvailable = pushDistributorAvailable,
+                pushNotificationsBlocked = pushNotificationsBlocked,
+                batteryUnrestricted = batteryUnrestricted,
+                onRequestBatteryExemption = onRequestBatteryExemption,
+                onBack = { showSettings = false },
+                onToggleLock = { enabled -> scope.launch { lockStore.setEnabled(enabled) } },
+                onSelectTimeout = { option -> scope.launch { lockStore.setTimeout(option.millis) } },
+                onToggleMonitor = onToggleMonitor,
+                onTogglePush = onTogglePush,
+                onAlertsClick = { showAlerts = true },
+                onQuotaBadgesClick = { showQuotaConfig = true },
+                onUnlink = onUnlink,
+                unlinking = unlinking,
+                unlinkFailed = unlinkFailed,
+                onDismissUnlinkError = onDismissUnlinkError,
+                onForceUnlink = onForceUnlink,
+                holdToCopy = holdToCopy,
+                onToggleHoldToCopy = onToggleHoldToCopy,
+                graphRangeMinutes = graphRangeMinutes,
+                onSetGraphRange = onSetGraphRange,
+                widgetGraphs = widgetGraphs,
+                onToggleWidgetGraphs = onToggleWidgetGraphs,
+                timeFormat = timeFormat,
+                onSetTimeFormat = onSetTimeFormat,
+                alertCounts = alertCounts,
+            )
+        } else if (selected != null) {
+            BackHandler { selectedMemberId = null }
+            // Keyed like the dashboard VM, plus the member id, so flipping
+            // between members never shows another member's series.
+            val detailVm: MemberDetailViewModel =
+                viewModel(
+                    key = "member-${state.fdUrl}|${state.deviceId}|${selected.id}",
+                    factory = MemberDetailViewModel.Factory(client, linkStore, state.fdUrl, selected.id),
+                )
+            val detailUi by detailVm.state.collectAsStateWithLifecycle()
+            LaunchedEffect(graphRangeMinutes) { detailVm.setGraphRange(graphRangeMinutes) }
+            MemberDetailScreen(
+                member = selected,
+                isPrimary = selected.id == ui.primaryId,
+                ui = detailUi,
+                onBack = { selectedMemberId = null },
+                // Role-hint UI: an operator device gets the controls, a monitor
+                // doesn't. Front Desk's 403 is still the real guard (surfaced in the
+                // card). Each action goes through the biometric operator gate.
+                canOperate = state.role == OPERATOR_ROLE,
+                onSetState = { target -> requireOperatorAuth { detailVm.setMemberState(target) } },
+                onSyncFleet = { requireOperatorAuth { detailVm.syncFleet(ui.primaryId) } },
+                onReconcile = { liveState -> detailVm.reconcile(liveState) },
+                onDismissActionError = { detailVm.dismissActionError() },
+                onRange = detailVm::setRange,
+                onCustomRange = detailVm::setCustomRange,
+                onLoadMoreEvents = detailVm::loadMore,
+                holdToCopy = holdToCopy,
+            )
+        } else {
+            DashboardScreen(
+                link = state,
+                ui = ui,
+                // Role-hint UI, same as the member-detail card: an operator device gets
+                // the pause/resume toggle, a monitor doesn't. Front Desk's 403 is still
+                // the real guard. The toggle goes through the biometric operator gate.
+                canOperate = state.role == OPERATOR_ROLE,
+                onMemberClick = { selectedMemberId = it },
+                onEventsClick = { showEvents = true },
+                onAlertsClick = { showAlerts = true },
+                onSettingsClick = { showSettings = true },
+                onSetAutoSync = { enabled -> requireOperatorAuth { dashVm.setAutoSync(enabled) } },
+                onDismissAutoSyncError = { dashVm.dismissAutoSyncError() },
+                onVisibleMembers = dashVm::setVisibleMembers,
+                quotaBarMode = quotaBarMode,
+                onRefresh = { dashVm.refreshAll() },
+                holdToCopy = holdToCopy,
+                lockEnabled = lockConfig.enabled,
+                onLock = onLock,
+            )
+        }
     }
 }

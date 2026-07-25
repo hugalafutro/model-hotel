@@ -191,6 +191,10 @@
     <string name="common_copy">Copy</string>
     <string name="settings_hold_copy_title">Hold to copy</string>
     <string name="settings_hold_copy_subtitle">When on, long-press an event or member cell to copy it to the clipboard. When off, cells can\'t be copied.</string>
+    <string name="settings_time_format_title">Time format</string>
+    <string name="settings_time_format_system">System</string>
+    <string name="settings_time_format_24h">24-hour</string>
+    <string name="settings_time_format_12h">12-hour</string>
     <string name="settings_graph_range_title">Traffic graph range</string>
     <string name="settings_graph_range_subtitle">How far back the request charts reach.</string>
     <string name="settings_graph_range_hours">%1$d h</string>

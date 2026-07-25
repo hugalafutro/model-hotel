@@ -52,10 +52,12 @@ import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.QuotaType
 import com.hugalafutro.bellhop.data.TRAFFIC_BUCKETS
+import com.hugalafutro.bellhop.data.TimeFormat
 import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.countsOf
 import com.hugalafutro.bellhop.data.quotaBadgeRows
+import com.hugalafutro.bellhop.data.timePattern
 import com.hugalafutro.bellhop.ui.theme.Brass300
 import com.hugalafutro.bellhop.ui.theme.Brass600
 import com.hugalafutro.bellhop.ui.theme.Ember300
@@ -77,7 +79,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Date
+import java.util.Locale
 
 /** BellhopWidgetReceiver is the manifest entry point; all logic is in [BellhopWidget]. */
 class BellhopWidgetReceiver : GlanceAppWidgetReceiver() {
@@ -130,11 +134,13 @@ class BellhopWidget : GlanceAppWidget() {
         val initialState = widgetStore.read()
         val initialActive = monitorStore.active.first()
         val initialGraphs = prefsStore.widgetGraphs.first()
+        val initialTimeFormat = prefsStore.timeFormat.first()
         provideContent {
             val state by widgetStore.state.collectAsState(initial = initialState)
             val monitoringActive by monitorStore.active.collectAsState(initial = initialActive)
             val graphs by prefsStore.widgetGraphs.collectAsState(initial = initialGraphs)
-            WidgetContent(state, monitoringActive, fdName, graphs)
+            val timeFormat by prefsStore.timeFormat.collectAsState(initial = initialTimeFormat)
+            WidgetContent(state, monitoringActive, fdName, graphs, timeFormat)
         }
     }
 
@@ -247,22 +253,37 @@ private fun stateLabel(
     )
 
 /**
- * eventStamp dates the newest-event pill: clock time when the event is from
+ * clockStamp renders a moment as wall-clock time on the clock [format] names.
+ * The widget can't use the app's LocalTimePattern (it isn't a Compose UI
+ * composition), so it resolves the same preference itself.
+ */
+private fun clockStamp(
+    context: Context,
+    format: TimeFormat,
+    millis: Long,
+): String =
+    DateTimeFormatter
+        .ofPattern(timePattern(format, context), Locale.getDefault())
+        .withZone(ZoneId.systemDefault())
+        .format(Instant.ofEpochMilli(millis))
+
+/**
+ * eventStamp dates the newest-event line: clock time when the event is from
  * today, a short date otherwise, so a day-old event can't masquerade as fresh.
  * Absolute like the "as of" stamp (relative text would need timed re-renders).
- * Empty when the wire timestamp doesn't parse; the pill just omits the stamp.
+ * Empty when the wire timestamp doesn't parse; the line just omits the stamp.
  */
 private fun eventStamp(
     context: Context,
+    format: TimeFormat,
     createdAt: String,
 ): String {
     val instant = runCatching { Instant.parse(createdAt) }.getOrNull() ?: return ""
     val zone = ZoneId.systemDefault()
-    val asDate = Date(instant.toEpochMilli())
     return if (instant.atZone(zone).toLocalDate() == Instant.now().atZone(zone).toLocalDate()) {
-        DateFormat.getTimeFormat(context).format(asDate)
+        clockStamp(context, format, instant.toEpochMilli())
     } else {
-        DateFormat.getDateFormat(context).format(asDate)
+        DateFormat.getDateFormat(context).format(Date(instant.toEpochMilli()))
     }
 }
 
@@ -307,6 +328,7 @@ private fun WidgetContent(
     monitoringActive: Boolean,
     fdName: String,
     graphs: Boolean,
+    timeFormat: TimeFormat,
 ) {
     val context = LocalContext.current
     Column(
@@ -533,7 +555,7 @@ private fun WidgetContent(
                         )
                         Spacer(GlanceModifier.width(6.dp))
                         Text(
-                            eventStamp(context, event.createdAt),
+                            eventStamp(context, timeFormat, event.createdAt),
                             style = TextStyle(color = TextMuted, fontSize = 9.sp),
                         )
                     }
@@ -550,7 +572,7 @@ private fun WidgetContent(
                 modifier = GlanceModifier.fillMaxWidth().padding(top = 3.dp),
             ) {
                 if (state != null) {
-                    val stamp = DateFormat.getTimeFormat(context).format(Date(state.updatedAt))
+                    val stamp = clockStamp(context, timeFormat, state.updatedAt)
                     Text(
                         context.getString(R.string.widget_as_of, stamp),
                         style = TextStyle(color = TextMuted, fontSize = 9.sp),

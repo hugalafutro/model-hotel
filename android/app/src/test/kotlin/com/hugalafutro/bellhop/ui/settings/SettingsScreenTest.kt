@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performScrollTo
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LockConfig
 import com.hugalafutro.bellhop.data.LockTimeout
+import com.hugalafutro.bellhop.data.TimeFormat
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -55,6 +56,8 @@ class SettingsScreenTest {
         onToggleHoldToCopy: (Boolean) -> Unit = {},
         graphRangeMinutes: Int = 60,
         onSetGraphRange: (Int) -> Unit = {},
+        timeFormat: TimeFormat = TimeFormat.SYSTEM,
+        onSetTimeFormat: (TimeFormat) -> Unit = {},
         batteryUnrestricted: Boolean = true,
         onRequestBatteryExemption: () -> Unit = {},
         onAlertsClick: () -> Unit = {},
@@ -92,6 +95,8 @@ class SettingsScreenTest {
                     onToggleHoldToCopy = onToggleHoldToCopy,
                     graphRangeMinutes = graphRangeMinutes,
                     onSetGraphRange = onSetGraphRange,
+                    timeFormat = timeFormat,
+                    onSetTimeFormat = onSetTimeFormat,
                     alertCounts = alertCounts,
                 )
             }
@@ -142,6 +147,14 @@ class SettingsScreenTest {
         content(graphRangeMinutes = 60, onSetGraphRange = { picked = it })
         composeTestRule.onNodeWithTag("settings-graph-range-360").performScrollTo().performClick()
         assertEquals(360, picked)
+    }
+
+    @Test
+    fun pickingTimeFormatFiresCallback() {
+        var picked: TimeFormat? = null
+        content(timeFormat = TimeFormat.SYSTEM, onSetTimeFormat = { picked = it })
+        composeTestRule.onNodeWithTag("settings-time-format-H12").performScrollTo().performClick()
+        assertEquals(TimeFormat.H12, picked)
     }
 
     @Test

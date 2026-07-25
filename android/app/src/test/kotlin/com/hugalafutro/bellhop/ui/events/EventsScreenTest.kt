@@ -82,6 +82,7 @@ class EventsScreenTest {
             eventClipboardText(
                 ev("e1", severity = "error", memberId = "m1").copy(message = "boom"),
                 memberName = "alpha",
+                timePattern = "HH:mm",
             )
         val lines = text.split("\n")
         assertEquals(3, lines.size)
@@ -97,7 +98,7 @@ class EventsScreenTest {
         // separator: only the header and message remain.
         val bare =
             ev("e2").copy(source = "", memberId = "", message = "just a message")
-        val lines = eventClipboardText(bare, memberName = null).split("\n")
+        val lines = eventClipboardText(bare, memberName = null, timePattern = "HH:mm").split("\n")
         assertEquals(2, lines.size)
         assertEquals("just a message", lines[1])
     }
@@ -279,6 +280,6 @@ class EventsScreenTest {
 
     @Test
     fun eventTimeFallsBackToRawOnGarbage() {
-        assertEquals("not-a-time", formatEventTime("not-a-time"))
+        assertEquals("not-a-time", formatEventTime("not-a-time", "HH:mm"))
     }
 }

@@ -41,6 +41,7 @@ import com.hugalafutro.bellhop.ui.common.CustomDateRange
 import com.hugalafutro.bellhop.ui.common.EventRange
 import com.hugalafutro.bellhop.ui.common.EventRangeRow
 import com.hugalafutro.bellhop.ui.common.FilterPill
+import com.hugalafutro.bellhop.ui.common.LocalTimePattern
 import com.hugalafutro.bellhop.ui.common.ScrollToTopButton
 import com.hugalafutro.bellhop.ui.common.SeverityRailRow
 import com.hugalafutro.bellhop.ui.common.StatusBanner
@@ -80,8 +81,9 @@ fun EventsScreen(
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
     val copiedMsg = stringResource(R.string.events_copied)
+    val timePattern = LocalTimePattern.current
     val onCopy: (FdEvent) -> Unit = { event ->
-        clipboard.setText(AnnotatedString(eventClipboardText(event, memberNames[event.memberId])))
+        clipboard.setText(AnnotatedString(eventClipboardText(event, memberNames[event.memberId], timePattern)))
         Toast.makeText(context, copiedMsg, Toast.LENGTH_SHORT).show()
     }
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
@@ -263,7 +265,7 @@ private fun EventRow(
             )
             // Time in the brand mono so the column aligns and reads as a metric.
             Text(
-                text = formatEventTime(event.createdAt),
+                text = formatEventTime(event.createdAt, LocalTimePattern.current),
                 style = MaterialTheme.typography.labelSmall,
                 fontFamily = MonoFamily,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -309,9 +311,14 @@ private fun severityLabel(severity: String): String =
 // better than a crash or a blank cell). The formatter is built per call from the
 // current default locale (kept in step with the in-app language by AppLocale), so
 // month names follow a language switch instead of freezing at process start.
-internal fun formatEventTime(createdAt: String): String =
+// [timePattern] is the clock half, from the Settings preference (LocalTimePattern);
+// the date half is the locale's business, not the user's.
+internal fun formatEventTime(
+    createdAt: String,
+    timePattern: String,
+): String =
     try {
-        val format = DateTimeFormatter.ofPattern("MMM d, yyyy · HH:mm", Locale.getDefault())
+        val format = DateTimeFormatter.ofPattern("MMM d, yyyy · $timePattern", Locale.getDefault())
         Instant.parse(createdAt).atZone(ZoneId.systemDefault()).format(format)
     } catch (e: Exception) {
         createdAt
@@ -323,8 +330,9 @@ internal fun formatEventTime(createdAt: String): String =
 internal fun eventClipboardText(
     event: FdEvent,
     memberName: String?,
+    timePattern: String,
 ): String {
-    val header = "${formatEventTime(event.createdAt)} · [${event.severity}] ${event.type}"
+    val header = "${formatEventTime(event.createdAt, timePattern)} · [${event.severity}] ${event.type}"
     val who =
         listOfNotNull(
             event.source.ifEmpty { null },

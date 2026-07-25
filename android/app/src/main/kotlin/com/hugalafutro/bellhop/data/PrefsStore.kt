@@ -79,6 +79,22 @@ class PrefsStore(
         dataStore.edit { it[QUOTA_BAR_MODE] = mode.name }
     }
 
+    /**
+     * timeFormat emits the clock every wall-clock time in the app is drawn on,
+     * defaulting to [TimeFormat.SYSTEM] (follow the device). An unrecognised
+     * stored value falls back to the default rather than throwing, the same
+     * stance as [quotaBarMode].
+     */
+    val timeFormat: Flow<TimeFormat> =
+        dataStore.data.map {
+            val stored = it[TIME_FORMAT] ?: return@map TimeFormat.SYSTEM
+            runCatching { TimeFormat.valueOf(stored) }.getOrDefault(TimeFormat.SYSTEM)
+        }
+
+    suspend fun setTimeFormat(format: TimeFormat) {
+        dataStore.edit { it[TIME_FORMAT] = format.name }
+    }
+
     companion object {
         fun create(context: Context): PrefsStore = PrefsStore(context.applicationContext.prefsDataStore)
 
@@ -86,6 +102,7 @@ class PrefsStore(
         private val GRAPH_RANGE_MINUTES = intPreferencesKey("graph_range_minutes")
         private val WIDGET_GRAPHS = booleanPreferencesKey("widget_graphs")
         private val QUOTA_BAR_MODE = stringPreferencesKey("quota_bar_mode")
+        private val TIME_FORMAT = stringPreferencesKey("time_format")
 
         /** Default traffic-graph lookback: the last hour. */
         const val DEFAULT_GRAPH_RANGE_MINUTES = 60
