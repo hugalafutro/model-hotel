@@ -1040,6 +1040,30 @@ class DashboardViewModelTest {
         }
 
     @Test
+    fun quotaByNameKeepsMainHiddenProviderForWidgetDeepLink() =
+        runBlocking {
+            val config = QuotaBadgeConfigStore(InMemoryPreferencesDataStore())
+            // "b" is a known dashboard badge the user hid on the dashboard (MAIN)
+            // while keeping it on the widget -- per-surface visibility is
+            // independent. It must drop out of the dashboard row yet stay
+            // resolvable by name, so a widget deep-link for "b" still opens its
+            // sheet instead of dead-ending (whole-branch review finding).
+            config.setOrder(QuotaSurface.MAIN, listOf("a", "b"))
+            config.setVisible(QuotaSurface.MAIN, "b", false)
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.quotaResult = FetchResult.Success(listOf(quota("a"), quota("b")))
+            val vm = viewModel(client, configStore = config)
+
+            vm.refreshOnce()
+
+            // Dashboard row excludes the hidden "b"...
+            assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+            // ...but the deep-link resolver still carries it.
+            assertEquals("b", vm.state.value.quotaByName["b"]?.providerName)
+            assertEquals(setOf("a", "b"), vm.state.value.quotaByName.keys)
+        }
+
+    @Test
     fun dashboardDrivenWidgetWriteDoesNotBlankExistingQuotaOnFailedRead() =
         runBlocking {
             val widget = WidgetStore(InMemoryPreferencesDataStore())

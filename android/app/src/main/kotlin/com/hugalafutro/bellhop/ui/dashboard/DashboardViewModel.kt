@@ -76,6 +76,11 @@ data class DashboardUiState(
     // quota read keeps the last-good list (stale beats blank), same stance as
     // [members].
     val quota: List<ProviderQuota> = emptyList(),
+    // The full unfiltered quota set keyed by provider name, for resolving a
+    // tapped badge's detail sheet regardless of surface visibility: a widget
+    // deep-link can name a provider hidden on the dashboard, which is absent
+    // from [quota] (the MAIN-filtered row) but present here. Stale-kept too.
+    val quotaByName: Map<String, ProviderQuota> = emptyMap(),
     // Whether a manual [DashboardViewModel.refreshQuota] call is in flight, so
     // the badge row can show a spinner and the trigger can debounce a double-tap.
     val refreshingQuota: Boolean = false,
@@ -509,7 +514,8 @@ class DashboardViewModel(
                         revoked = false,
                         // Stale beats blank: a failed quota read keeps the last-good
                         // list rather than blanking the badge row.
-                        quota = quotaFetch.first ?: it.quota,
+                        quota = quotaFetch.main ?: it.quota,
+                        quotaByName = quotaFetch.all?.associateBy { pq -> pq.providerName } ?: it.quotaByName,
                         // Reconcile the pause/resume control: drop the optimistic hint
                         // once it's resolved. Either a live read shows the toggle
                         // caught up (so a change made elsewhere isn't masked by it), or
@@ -549,7 +555,7 @@ class DashboardViewModel(
                         // this trailing arg used to be omitted, so every dashboard
                         // foreground poll tick defaulted it to emptyList() and wiped
                         // whatever the background poll had written.
-                        widgetStateOf(result.data, autosyncStale, now(), widgetTraffic, quotaFetch.second),
+                        widgetStateOf(result.data, autosyncStale, now(), widgetTraffic, quotaFetch.widget),
                         widgetGeneration,
                     )
                 ) {
@@ -564,6 +570,18 @@ class DashboardViewModel(
     }
 
     /**
+     * QuotaFetch carries one quota read's three derivations: the MAIN-ordered
+     * dashboard row, the WIDGET-ordered/capped widget badges, and the full
+     * unfiltered set (for resolving any tapped badge, including a widget-only
+     * one). main/all are null on a failed read so the caller keeps last-good.
+     */
+    private data class QuotaFetch(
+        val main: List<ProviderQuota>?,
+        val widget: List<WidgetQuotaBadge>,
+        val all: List<ProviderQuota>?,
+    )
+
+    /**
      * fetchQuota fetches Front Desk's quota/balance readings once and derives
      * both surfaces' badge lists off that single read (mirrors the shape of
      * [com.hugalafutro.bellhop.work.pollFleet]'s quota handling): the
@@ -575,7 +593,8 @@ class DashboardViewModel(
      * list (caller keeps its own last-good one, stale beats blank) and falls
      * back to the widget store's own last-good badges for the WIDGET side.
      */
-    private suspend fun fetchQuota(token: String): Pair<List<ProviderQuota>?, List<WidgetQuotaBadge>> =
+
+    private suspend fun fetchQuota(token: String): QuotaFetch =
         when (val q = client.quota(fdUrl, token)) {
             is FetchResult.Success -> {
                 val names = q.data.map { it.providerName }
@@ -583,9 +602,9 @@ class DashboardViewModel(
                 configStore.reconcile(QuotaSurface.WIDGET, names)
                 val main = orderedVisible(configStore.config(QuotaSurface.MAIN).first(), q.data)
                 val widget = widgetQuotaOf(q.data, configStore.config(QuotaSurface.WIDGET).first(), barMode())
-                main to widget
+                QuotaFetch(main = main, widget = widget, all = q.data)
             }
-            else -> null to widgetStore.read()?.quota.orEmpty()
+            else -> QuotaFetch(main = null, widget = widgetStore.read()?.quota.orEmpty(), all = null)
         }
 
     /**

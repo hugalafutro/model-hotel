@@ -146,7 +146,7 @@ fun DashboardScreen(
         }
     }
     selectedQuotaBadge?.let { name ->
-        ui.quota.firstOrNull { it.providerName == name }?.let { pq ->
+        ui.quotaByName[name]?.let { pq ->
             QuotaDetailSheet(pq = pq, mode = quotaBarMode, onDismiss = { selectedQuotaBadge = null })
         }
     }
