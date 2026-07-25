@@ -231,13 +231,25 @@ open class FrontDeskClient(
      * quota-capable provider via GET /api/quota. Monitor tier, like
      * [members]. The wire envelope is `{"quota": [...]}`; callers get the
      * unwrapped list, each entry decoded through [providerQuotaOf].
+     *
+     * [QuotaType.UNKNOWN] entries are dropped here rather than passed on: a
+     * type this build has no payload shape for can never render a value, so
+     * showing it would mean a permanent "-" badge (and a config row for a
+     * badge that never says anything). This is what a Front Desk reporting a
+     * ninth provider type to an older Bellhop looks like, and what a fleet
+     * mid-upgrade looks like while the primary member's export still predates
+     * the `type` field. Known types whose fetch failed keep their badge and
+     * render "-", mirroring the web dashboard.
      */
     open suspend fun quota(
         fdUrl: String,
         token: String,
     ): FetchResult<List<ProviderQuota>> =
         when (val r = get<QuotaEnvelope>(fdUrl, "/api/quota", token)) {
-            is FetchResult.Success -> FetchResult.Success(r.data.quota.map(::providerQuotaOf))
+            is FetchResult.Success ->
+                FetchResult.Success(
+                    r.data.quota.map(::providerQuotaOf).filter { it.type != QuotaType.UNKNOWN },
+                )
             FetchResult.Unauthorized -> FetchResult.Unauthorized
             is FetchResult.Failure -> r
         }

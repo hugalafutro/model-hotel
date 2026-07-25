@@ -411,6 +411,32 @@ class FrontDeskClientTest {
         }
 
     @Test
+    fun quotaDropsUnknownTypesAndKeepsKnownFailedFetches() =
+        runBlocking {
+            server.enqueue(
+                MockResponse().setBody(
+                    """{"quota":[""" +
+                        """{"provider_name":"Ninth","type":"brand-new","kind":"usage",""" +
+                        """"payload":{"whatever":1},"http_status":200,"fetched_at":"t"},""" +
+                        // A member still on a build whose export predates `type`.
+                        """{"provider_name":"Typeless","kind":"usage",""" +
+                        """"payload":{"credits_remaining":1.0},"http_status":200,"fetched_at":"t"},""" +
+                        """{"provider_name":"OR","type":"openrouter","kind":"usage",""" +
+                        """"payload":null,"http_status":500,"fetched_at":"t"}]}""",
+                ),
+            )
+
+            val result = client.quota(server.url("/").toString(), "tok-1")
+
+            assertTrue(result is FetchResult.Success)
+            result as FetchResult.Success
+            val quota = result.data.single()
+            assertEquals("OR", quota.providerName)
+            assertEquals(QuotaType.OPENROUTER, quota.type)
+            assertFalse(quota.available)
+        }
+
+    @Test
     fun quotaMapsUnauthorizedToItsOwnArm() =
         runBlocking {
             server.enqueue(
