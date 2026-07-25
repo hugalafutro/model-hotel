@@ -281,7 +281,7 @@
     <string name="settings_quota_badges_subtitle">Vyberte, které odznaky kvót poskytovatelů se zobrazí na dashboardu a ve widgetu, přeuspořádejte je a zvolte využité nebo zbývající.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Obnovit kvóty</string>
+    <string name="dashboard_refresh">Obnovit</string>
     <string name="quota_unavailable">Data o kvótě nejsou dostupná</string>
     <string name="quota_yes">Ano</string>
     <string name="quota_no">Ne</string>

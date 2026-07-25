@@ -263,7 +263,7 @@
     <string name="settings_quota_badges_subtitle">ダッシュボードとウィジェットに表示するプロバイダーのクォータバッジを選び、並べ替えて、使用量か残量かを選択します。</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">クォータを更新</string>
+    <string name="dashboard_refresh">更新</string>
     <string name="quota_unavailable">クォータデータを利用できません</string>
     <string name="quota_yes">はい</string>
     <string name="quota_no">いいえ</string>

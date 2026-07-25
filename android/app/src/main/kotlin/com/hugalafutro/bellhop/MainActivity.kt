@@ -893,7 +893,7 @@ private fun LinkedContent(
             onDismissAutoSyncError = { dashVm.dismissAutoSyncError() },
             onVisibleMembers = dashVm::setVisibleMembers,
             quotaBarMode = quotaBarMode,
-            onRefreshQuota = { dashVm.refreshQuota() },
+            onRefresh = { dashVm.refreshAll() },
             deepLinkBadge = deepLinkBadge,
             onDeepLinkConsumed = onDeepLinkConsumed,
             holdToCopy = holdToCopy,

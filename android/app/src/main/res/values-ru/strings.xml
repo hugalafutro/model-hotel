@@ -281,7 +281,7 @@
     <string name="settings_quota_badges_subtitle">Выберите, какие значки квот поставщиков показывать на дашборде и в виджете, измените их порядок и выберите использовано или осталось.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Обновить квоты</string>
+    <string name="dashboard_refresh">Обновить</string>
     <string name="quota_unavailable">Данные о квоте недоступны</string>
     <string name="quota_yes">Да</string>
     <string name="quota_no">Нет</string>

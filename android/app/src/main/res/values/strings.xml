@@ -273,7 +273,7 @@
     <string name="settings_quota_badges_subtitle">Choose which provider quota badges show on the dashboard and the widget, reorder them, and pick used or remaining.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Refresh quotas</string>
+    <string name="dashboard_refresh">Refresh</string>
     <string name="quota_unavailable">Quota data unavailable</string>
     <string name="quota_yes">Yes</string>
     <string name="quota_no">No</string>

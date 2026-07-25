@@ -269,7 +269,7 @@
     <string name="settings_quota_badges_subtitle">Elige qué insignias de cuota de proveedor se muestran en el dashboard y en el widget, reordénalas y elige usado o restante.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Actualizar cuotas</string>
+    <string name="dashboard_refresh">Actualizar</string>
     <string name="quota_unavailable">Datos de cuota no disponibles</string>
     <string name="quota_yes">Sí</string>
     <string name="quota_no">No</string>

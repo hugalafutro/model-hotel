@@ -263,7 +263,7 @@
     <string name="settings_quota_badges_subtitle">选择在仪表盘和小组件上显示哪些服务商的配额徽章，调整顺序，并选择已用量或剩余量。</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">刷新配额</string>
+    <string name="dashboard_refresh">刷新</string>
     <string name="quota_unavailable">配额数据不可用</string>
     <string name="quota_yes">是</string>
     <string name="quota_no">否</string>

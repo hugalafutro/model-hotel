@@ -269,7 +269,7 @@
     <string name="settings_quota_badges_subtitle">Choisissez les badges de quota des fournisseurs affichés sur le tableau de bord et le widget, réorganisez-les, et choisissez utilisé ou restant.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Actualiser les quotas</string>
+    <string name="dashboard_refresh">Actualiser</string>
     <string name="quota_unavailable">Données de quota indisponibles</string>
     <string name="quota_yes">Oui</string>
     <string name="quota_no">Non</string>

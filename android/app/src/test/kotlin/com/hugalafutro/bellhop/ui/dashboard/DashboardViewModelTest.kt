@@ -1017,10 +1017,10 @@ class DashboardViewModelTest {
             client.refreshQuotaResult = ActionResult.Failure("primary unreachable")
             client.quotaResult = FetchResult.Failure("primary unreachable")
 
-            vm.refreshQuota()
-            val settled = withTimeout(5_000) { vm.state.first { !it.refreshingQuota } }
+            vm.refreshAll()
+            val settled = withTimeout(5_000) { vm.state.first { !it.refreshing } }
 
-            assertEquals("primary unreachable", settled.quotaRefreshError)
+            assertEquals("primary unreachable", settled.refreshError)
             assertEquals(listOf("a"), settled.quota.map { it.providerName })
             // The members read is fine, so its own banner slot stays empty: the
             // two failures are surfaced separately.
@@ -1030,11 +1030,11 @@ class DashboardViewModelTest {
             // banner, so it can never outlive the problem it reported.
             client.quotaResult = FetchResult.Success(listOf(quota("a")))
             vm.refreshOnce()
-            assertNull(vm.state.value.quotaRefreshError)
+            assertNull(vm.state.value.refreshError)
         }
 
     @Test
-    fun refreshQuotaTriggersRefreshThenReReadsAndClearsFlag() =
+    fun refreshAllTriggersQuotaRefreshThenReReadsAndClearsFlag() =
         runBlocking {
             val client = FakeFleetClient(FetchResult.Success(listOf(member)))
             client.quotaResult = FetchResult.Success(listOf(quota("a")))
@@ -1046,12 +1046,12 @@ class DashboardViewModelTest {
             // snapshot from before the POST /api/quota/refresh call.
             client.quotaResult = FetchResult.Success(listOf(quota("a"), quota("b")))
 
-            vm.refreshQuota()
-            withTimeout(5_000) { vm.state.first { !it.refreshingQuota && it.quota.size == 2 } }
+            vm.refreshAll()
+            withTimeout(5_000) { vm.state.first { !it.refreshing && it.quota.size == 2 } }
 
             assertEquals(1, client.refreshQuotaCalls.get())
             assertEquals(listOf("a", "b"), vm.state.value.quota.map { it.providerName })
-            assertFalse(vm.state.value.refreshingQuota)
+            assertFalse(vm.state.value.refreshing)
         }
 
     @Test

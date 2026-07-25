@@ -29,6 +29,7 @@ import com.hugalafutro.bellhop.data.ProviderQuota
 import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.data.QuotaData
 import com.hugalafutro.bellhop.data.quotaBadgeLabel
+import com.hugalafutro.bellhop.ui.common.TightTouchTarget
 import com.hugalafutro.bellhop.ui.theme.quotaBrandColor
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -55,16 +56,21 @@ fun QuotaBadgeRow(
     modifier: Modifier = Modifier,
 ) {
     if (quota.isEmpty()) return
-    FlowRow(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        // Tighter than the horizontal gap on purpose: each chip is a clickable
-        // Surface, so Material already reserves a 48dp touch target around it
-        // and a matching 8dp here reads as a hole between the lines.
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        quota.forEach { pq ->
-            QuotaBadgeChip(pq = pq, mode = mode, onClick = { onBadgeClick(pq.providerName) })
+    // TightTouchTarget is what makes the strip's own gaps the real gaps: every
+    // chip is a clickable Surface, and Material's 48dp minimum touch target
+    // otherwise pads each one out to more than twice its drawn height, so the
+    // strip would keep its old footprint no matter how small the chips get.
+    // The chips sit shoulder to shoulder, so nothing else is nearby to have
+    // its taps stolen by the tighter bounds.
+    TightTouchTarget {
+        FlowRow(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            quota.forEach { pq ->
+                QuotaBadgeChip(pq = pq, mode = mode, onClick = { onBadgeClick(pq.providerName) })
+            }
         }
     }
 }
@@ -100,7 +106,7 @@ private fun QuotaBadgeChip(
         if (available) brand.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outline
     Surface(
         onClick = onClick,
-        shape = MaterialTheme.shapes.large,
+        shape = MaterialTheme.shapes.extraSmall,
         color = bg,
         contentColor = fg,
         border = BorderStroke(1.dp, border),
@@ -108,8 +114,11 @@ private fun QuotaBadgeChip(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            // As near to nothing as the border allows: the strip is the densest
+            // thing on the screen and every dp here is one the fleet list loses.
+            // Horizontal keeps 3dp so the text isn't drawn onto the outline.
+            modifier = Modifier.padding(horizontal = 3.dp, vertical = 1.dp),
         ) {
             Text(
                 text = pq.providerName,

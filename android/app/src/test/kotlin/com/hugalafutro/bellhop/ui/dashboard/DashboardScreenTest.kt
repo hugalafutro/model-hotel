@@ -468,6 +468,38 @@ class DashboardScreenTest {
     }
 
     @Test
+    fun toolbarRefreshFiresOnRefresh() {
+        var refreshed = 0
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui = DashboardUiState(loading = false, members = allUp),
+                    onRefresh = { refreshed++ },
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("dashboard-refresh").performClick()
+        assertEquals(1, refreshed)
+    }
+
+    @Test
+    fun refreshInFlightShowsASpinnerInsteadOfTheIcon() {
+        composeTestRule.setContent {
+            BellhopTheme {
+                DashboardScreen(
+                    link = link,
+                    ui = DashboardUiState(loading = false, members = allUp, refreshing = true),
+                )
+            }
+        }
+        // The button stays in place (so the toolbar doesn't reflow mid-refresh)
+        // but swaps its icon for the progress indicator.
+        composeTestRule.onNodeWithTag("dashboard-refresh").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("dashboard-refreshing").assertIsDisplayed()
+    }
+
+    @Test
     fun failedQuotaRefreshShowsItsOwnBanner() {
         composeTestRule.setContent {
             BellhopTheme {
@@ -477,12 +509,12 @@ class DashboardScreenTest {
                         DashboardUiState(
                             loading = false,
                             members = allUp,
-                            quotaRefreshError = "primary unreachable",
+                            refreshError = "primary unreachable",
                         ),
                 )
             }
         }
-        composeTestRule.onNodeWithTag("quota-refresh-error").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("dashboard-refresh-error").assertIsDisplayed()
     }
 
     @Test
@@ -496,12 +528,12 @@ class DashboardScreenTest {
                             loading = false,
                             members = allUp,
                             error = "front desk unreachable",
-                            quotaRefreshError = "primary unreachable",
+                            refreshError = "primary unreachable",
                         ),
                 )
             }
         }
         composeTestRule.onNodeWithTag("dashboard-error").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("quota-refresh-error").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("dashboard-refresh-error").assertDoesNotExist()
     }
 }

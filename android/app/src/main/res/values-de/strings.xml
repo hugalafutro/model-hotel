@@ -269,7 +269,7 @@
     <string name="settings_quota_badges_subtitle">Wähle aus, welche Kontingent-Badges der Anbieter im Dashboard und im Widget angezeigt werden, ordne sie neu an und wähle verbraucht oder verbleibend.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Kontingente aktualisieren</string>
+    <string name="dashboard_refresh">Aktualisieren</string>
     <string name="quota_unavailable">Kontingentdaten nicht verfügbar</string>
     <string name="quota_yes">Ja</string>
     <string name="quota_no">Nein</string>

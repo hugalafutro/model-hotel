@@ -269,7 +269,7 @@
     <string name="settings_quota_badges_subtitle">Kies welke quotabadges van providers worden getoond op het dashboard en de widget, herschik ze en kies gebruikt of resterend.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Quota\'s vernieuwen</string>
+    <string name="dashboard_refresh">Vernieuwen</string>
     <string name="quota_unavailable">Quotagegevens niet beschikbaar</string>
     <string name="quota_yes">Ja</string>
     <string name="quota_no">Nee</string>

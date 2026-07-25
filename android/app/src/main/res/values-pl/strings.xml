@@ -281,7 +281,7 @@
     <string name="settings_quota_badges_subtitle">Wybierz, które odznaki limitów dostawców są widoczne na dashboardzie i w widżecie, zmień ich kolejność i wybierz wykorzystane lub pozostałe.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Odśwież limity</string>
+    <string name="dashboard_refresh">Odśwież</string>
     <string name="quota_unavailable">Dane limitu niedostępne</string>
     <string name="quota_yes">Tak</string>
     <string name="quota_no">Nie</string>
