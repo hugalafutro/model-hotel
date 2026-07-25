@@ -180,6 +180,10 @@
     <string name="common_copy">Kopírovať</string>
     <string name="settings_hold_copy_title">Podržať pre kopírovanie</string>
     <string name="settings_hold_copy_subtitle">Keď je zapnuté, dlhým stlačením bunky udalosti alebo člena ju skopírujete do schránky. Keď je vypnuté, bunky nemožno kopírovať.</string>
+    <string name="settings_time_format_title">Formát času</string>
+    <string name="settings_time_format_system">Systém</string>
+    <string name="settings_time_format_24h">24-hodinový</string>
+    <string name="settings_time_format_12h">12-hodinový</string>
     <string name="settings_graph_range_title">Rozsah grafu prevádzky</string>
     <string name="settings_graph_range_subtitle">Ako ďaleko do minulosti siahajú grafy požiadaviek.</string>
     <string name="settings_graph_range_hours">%1$d h</string>
@@ -281,7 +285,7 @@
     <string name="settings_quota_badges_subtitle">Vyberte, ktoré odznaky kvót poskytovateľov sa zobrazia na dashboarde a vo widgete, usporiadajte ich a zvoľte využité alebo zostávajúce.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Obnoviť kvóty</string>
+    <string name="dashboard_refresh">Obnoviť</string>
     <string name="quota_unavailable">Údaje o kvóte nie sú dostupné</string>
     <string name="quota_yes">Áno</string>
     <string name="quota_no">Nie</string>
@@ -319,4 +323,6 @@
     <string name="quota_config_mode_used">Využité</string>
     <string name="quota_config_empty">Zatiaľ nie sú vidieť žiadni poskytovatelia s kvótou.</string>
     <string name="quota_config_widget_cap">Na widget sa zmestí len prvých %1$d</string>
+    <string name="quota_config_selected">Zobrazené %1$d z %2$d</string>
+    <string name="quota_config_reorder">Presunúť %1$s</string>
 </resources>

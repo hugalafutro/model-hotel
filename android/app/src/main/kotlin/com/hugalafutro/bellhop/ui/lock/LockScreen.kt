@@ -69,7 +69,13 @@ fun LockScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
-            Button(onClick = onUnlock, modifier = Modifier.testTag("lock-unlock")) {
+            Button(
+                onClick = onUnlock,
+                // Buttons take their corner from a Material token, not the theme's
+                // shape scale, so every one of them names the squared-off radius.
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.testTag("lock-unlock"),
+            ) {
                 Text(stringResource(R.string.lock_unlock))
             }
         }

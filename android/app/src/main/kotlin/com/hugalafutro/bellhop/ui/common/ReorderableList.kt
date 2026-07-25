@@ -1,6 +1,6 @@
 package com.hugalafutro.bellhop.ui.common
 
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -43,10 +43,17 @@ fun <T> moveItem(
 
 /**
  * A minimal, hand-rolled drag-to-reorder [LazyColumn] for short string lists
- * (no drag-and-drop library dependency; see task brief). Long-pressing an
- * item and dragging it up/down live-shifts that row; [onMove] is invoked
- * once with the final `(from, to)` on release, so the caller owns the
- * source of truth and is expected to persist the reordered list.
+ * (no drag-and-drop library dependency; see task brief). Each row is handed a
+ * `dragHandle` modifier to hang on its grip; dragging that grip up/down
+ * live-shifts the row, and [onMove] is invoked once with the final
+ * `(from, to)` on release, so the caller owns the source of truth and is
+ * expected to persist the reordered list.
+ *
+ * The drag lives on the handle rather than the whole row, and so starts on
+ * touch instead of after a long press: a row that carries its own controls (a
+ * switch, a tappable label) can't also be a drag surface without one gesture
+ * stealing from the other, and a visible grip says the list reorders at all,
+ * which a long-press-anywhere list never does.
  *
  * Row heights are assumed roughly uniform (the common case for short
  * configurator lists like provider name order) since the drop target is
@@ -60,7 +67,7 @@ fun ReorderableColumn(
     modifier: Modifier = Modifier,
     key: (String) -> Any = { it },
     lazyListState: LazyListState = rememberLazyListState(),
-    itemContent: @Composable (String) -> Unit,
+    itemContent: @Composable (item: String, dragHandle: Modifier) -> Unit,
 ) {
     var draggedIndex by remember { mutableStateOf<Int?>(null) }
     var dragOffsetY by remember { mutableStateOf(0f) }
@@ -79,38 +86,40 @@ fun ReorderableColumn(
                         }
                         .onGloballyPositioned { coordinates ->
                             if (rowHeightPx == 0) rowHeightPx = coordinates.size.height
-                        }
-                        .pointerInput(items, index) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = {
-                                    draggedIndex = index
-                                    dragOffsetY = 0f
-                                },
-                                onDragCancel = {
-                                    draggedIndex = null
-                                    dragOffsetY = 0f
-                                },
-                                onDragEnd = {
-                                    val startIndex = draggedIndex
-                                    if (startIndex != null && rowHeightPx > 0) {
-                                        val rowsMoved = (dragOffsetY / rowHeightPx).toInt()
-                                        val targetIndex =
-                                            (startIndex + rowsMoved)
-                                                .coerceIn(0, items.lastIndex)
-                                        if (targetIndex != startIndex) {
-                                            onMove(startIndex, targetIndex)
-                                        }
-                                    }
-                                    draggedIndex = null
-                                    dragOffsetY = 0f
-                                },
-                            ) { change, dragAmount ->
-                                change.consume()
-                                dragOffsetY += dragAmount.y
-                            }
                         },
             ) {
-                itemContent(item)
+                itemContent(
+                    item,
+                    Modifier.pointerInput(items, index) {
+                        detectDragGestures(
+                            onDragStart = {
+                                draggedIndex = index
+                                dragOffsetY = 0f
+                            },
+                            onDragCancel = {
+                                draggedIndex = null
+                                dragOffsetY = 0f
+                            },
+                            onDragEnd = {
+                                val startIndex = draggedIndex
+                                if (startIndex != null && rowHeightPx > 0) {
+                                    val rowsMoved = (dragOffsetY / rowHeightPx).toInt()
+                                    val targetIndex =
+                                        (startIndex + rowsMoved)
+                                            .coerceIn(0, items.lastIndex)
+                                    if (targetIndex != startIndex) {
+                                        onMove(startIndex, targetIndex)
+                                    }
+                                }
+                                draggedIndex = null
+                                dragOffsetY = 0f
+                            },
+                        ) { change, dragAmount ->
+                            change.consume()
+                            dragOffsetY += dragAmount.y
+                        }
+                    },
+                )
             }
         }
     }

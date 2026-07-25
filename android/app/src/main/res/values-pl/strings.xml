@@ -180,6 +180,10 @@
     <string name="common_copy">Kopiuj</string>
     <string name="settings_hold_copy_title">Przytrzymaj, aby skopiować</string>
     <string name="settings_hold_copy_subtitle">Gdy włączone, przytrzymaj komórkę zdarzenia lub węzła, aby skopiować ją do schowka. Gdy wyłączone, komórek nie można kopiować.</string>
+    <string name="settings_time_format_title">Format czasu</string>
+    <string name="settings_time_format_system">Systemowy</string>
+    <string name="settings_time_format_24h">24-godzinny</string>
+    <string name="settings_time_format_12h">12-godzinny</string>
     <string name="settings_graph_range_title">Zakres wykresu ruchu</string>
     <string name="settings_graph_range_subtitle">Jak daleko wstecz sięgają wykresy żądań.</string>
     <string name="settings_graph_range_hours">%1$d godz.</string>
@@ -281,7 +285,7 @@
     <string name="settings_quota_badges_subtitle">Wybierz, które odznaki limitów dostawców są widoczne na dashboardzie i w widżecie, zmień ich kolejność i wybierz wykorzystane lub pozostałe.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Odśwież limity</string>
+    <string name="dashboard_refresh">Odśwież</string>
     <string name="quota_unavailable">Dane limitu niedostępne</string>
     <string name="quota_yes">Tak</string>
     <string name="quota_no">Nie</string>
@@ -319,4 +323,6 @@
     <string name="quota_config_mode_used">Wykorzystane</string>
     <string name="quota_config_empty">Nie znaleziono jeszcze dostawców obsługujących limity.</string>
     <string name="quota_config_widget_cap">Na widżecie zmieści się tylko pierwszych %1$d</string>
+    <string name="quota_config_selected">Pokazano %1$d z %2$d</string>
+    <string name="quota_config_reorder">Zmień kolejność: %1$s</string>
 </resources>

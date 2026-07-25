@@ -171,6 +171,10 @@
     <string name="common_copy">コピー</string>
     <string name="settings_hold_copy_title">長押しでコピー</string>
     <string name="settings_hold_copy_subtitle">オンのとき、イベントまたはメンバーのセルを長押しするとクリップボードにコピーします。オフのとき、セルはコピーできません。</string>
+    <string name="settings_time_format_title">時刻表示</string>
+    <string name="settings_time_format_system">システム</string>
+    <string name="settings_time_format_24h">24時間</string>
+    <string name="settings_time_format_12h">12時間</string>
     <string name="settings_graph_range_title">トラフィックグラフの範囲</string>
     <string name="settings_graph_range_subtitle">リクエストグラフがさかのぼる範囲。</string>
     <string name="settings_graph_range_hours">%1$d 時間</string>
@@ -263,7 +267,7 @@
     <string name="settings_quota_badges_subtitle">ダッシュボードとウィジェットに表示するプロバイダーのクォータバッジを選び、並べ替えて、使用量か残量かを選択します。</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">クォータを更新</string>
+    <string name="dashboard_refresh">更新</string>
     <string name="quota_unavailable">クォータデータを利用できません</string>
     <string name="quota_yes">はい</string>
     <string name="quota_no">いいえ</string>
@@ -301,4 +305,6 @@
     <string name="quota_config_mode_used">使用量</string>
     <string name="quota_config_empty">クォータに対応するプロバイダーはまだありません。</string>
     <string name="quota_config_widget_cap">ウィジェットに収まるのは先頭の %1$d 件のみです</string>
+    <string name="quota_config_selected">%2$d 件中 %1$d 件を表示</string>
+    <string name="quota_config_reorder">%1$s を並べ替え</string>
 </resources>

@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Notifications
@@ -110,7 +109,7 @@ fun DashboardScreen(
     onDismissAutoSyncError: () -> Unit = {},
     onVisibleMembers: (List<String>) -> Unit = {},
     quotaBarMode: QuotaBarMode = QuotaBarMode.REMAINING,
-    onRefreshQuota: () -> Unit = {},
+    onRefresh: () -> Unit = {},
     deepLinkBadge: String? = null,
     onDeepLinkConsumed: () -> Unit = {},
     // When true, a long-press on a member card copies it to the clipboard (tap
@@ -189,6 +188,25 @@ fun DashboardScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f).testTag("dashboard-title"),
                 )
+                // Refresh leads the toolbar: it acts on the whole screen (fleet,
+                // events, badges, sparklines), so it sits with the other screen-wide
+                // controls rather than hanging off the badge strip it used to.
+                IconButton(
+                    onClick = onRefresh,
+                    modifier = Modifier.testTag("dashboard-refresh"),
+                ) {
+                    if (ui.refreshing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp).testTag("dashboard-refreshing"),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.dashboard_refresh),
+                        )
+                    }
+                }
                 IconButton(
                     onClick = onEventsClick,
                     modifier = Modifier.testTag("dashboard-events"),
@@ -220,40 +238,15 @@ fun DashboardScreen(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             if (ui.quota.isNotEmpty()) {
-                Row(
-                    // Top, not centre: the badge strip wraps onto as many lines
-                    // as the selection needs, and a centred refresh button ends
-                    // up floating halfway down a tall strip with nothing beside it.
-                    verticalAlignment = Alignment.Top,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    QuotaBadgeRow(
-                        quota = ui.quota,
-                        mode = quotaBarMode,
-                        onBadgeClick = { selectedQuotaBadge = it },
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(
-                        onClick = onRefreshQuota,
-                        modifier = Modifier.testTag("quota-refresh"),
-                    ) {
-                        if (ui.refreshingQuota) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Filled.Refresh,
-                                contentDescription = stringResource(R.string.quota_refresh),
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(12.dp))
+                QuotaBadgeRow(
+                    quota = ui.quota,
+                    mode = quotaBarMode,
+                    onBadgeClick = { selectedQuotaBadge = it },
+                )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             if (ui.revoked) {
@@ -266,15 +259,15 @@ fun DashboardScreen(
                     text = stringResource(R.string.dashboard_refresh_failed, ui.error),
                     tag = "dashboard-error",
                 )
-            } else if (ui.quotaRefreshError != null) {
+            } else if (ui.refreshError != null) {
                 // Ranked below the two above because it is the narrower failure:
                 // a dead token or an unreadable fleet outranks quota readings
                 // Front Desk could not re-poll. Shown at all because the badge
                 // row keeps its last-good values, so the tap would otherwise be
                 // indistinguishable from a refresh that found no change.
                 StatusBanner(
-                    text = stringResource(R.string.dashboard_refresh_failed, ui.quotaRefreshError),
-                    tag = "quota-refresh-error",
+                    text = stringResource(R.string.dashboard_refresh_failed, ui.refreshError),
+                    tag = "dashboard-refresh-error",
                 )
             }
 
@@ -760,7 +753,7 @@ private fun MemberCard(
                     onClick = onClick,
                     color = evAccent.copy(alpha = 0.06f),
                     contentColor = MaterialTheme.colorScheme.onSurface,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = MaterialTheme.shapes.small,
                     modifier = Modifier.fillMaxWidth().testTag("member-recent-event-${member.name}"),
                 ) {
                     Row(

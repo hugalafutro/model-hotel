@@ -174,6 +174,10 @@
     <string name="common_copy">Copier</string>
     <string name="settings_hold_copy_title">Maintenir pour copier</string>
     <string name="settings_hold_copy_subtitle">Lorsque activé, appuyez longuement sur une cellule d\'événement ou de membre pour la copier dans le presse-papiers. Lorsque désactivé, les cellules ne peuvent pas être copiées.</string>
+    <string name="settings_time_format_title">Format de l\'heure</string>
+    <string name="settings_time_format_system">Système</string>
+    <string name="settings_time_format_24h">24 heures</string>
+    <string name="settings_time_format_12h">12 heures</string>
     <string name="settings_graph_range_title">Plage du graphique de trafic</string>
     <string name="settings_graph_range_subtitle">Jusqu\'où remontent les graphiques de requêtes.</string>
     <string name="settings_graph_range_hours">%1$d h</string>
@@ -269,7 +273,7 @@
     <string name="settings_quota_badges_subtitle">Choisissez les badges de quota des fournisseurs affichés sur le tableau de bord et le widget, réorganisez-les, et choisissez utilisé ou restant.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Actualiser les quotas</string>
+    <string name="dashboard_refresh">Actualiser</string>
     <string name="quota_unavailable">Données de quota indisponibles</string>
     <string name="quota_yes">Oui</string>
     <string name="quota_no">Non</string>
@@ -307,4 +311,6 @@
     <string name="quota_config_mode_used">Utilisé</string>
     <string name="quota_config_empty">Aucun fournisseur compatible avec les quotas pour l\'instant.</string>
     <string name="quota_config_widget_cap">Seuls les %1$d premiers tiennent sur le widget</string>
+    <string name="quota_config_selected">%1$d sur %2$d affichés</string>
+    <string name="quota_config_reorder">Réorganiser %1$s</string>
 </resources>

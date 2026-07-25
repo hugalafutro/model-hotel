@@ -482,6 +482,60 @@ fun quotaBadgeLabel(
     }
 }
 
+/**
+ * quotaShortCode is the widget's stand-in for a provider name: two to four
+ * characters that fit beside the reading on a home-screen pill, where the
+ * operator's own provider name ("openrouter-personal") would eat the row. It
+ * keys on [QuotaType], so two providers of the same type share a code -- the
+ * badge tap toasts the full name, which is what tells them apart. Like the
+ * label formatters above these are symbols, not translatable copy, so they
+ * carry no string resources.
+ */
+fun quotaShortCode(type: QuotaType): String =
+    when (type) {
+        QuotaType.NANOGPT -> "NANO"
+        QuotaType.ZAI_CODING -> "ZAI"
+        QuotaType.KIMI_CODE -> "KIMI"
+        QuotaType.MINIMAX -> "MMX"
+        QuotaType.DEEPSEEK -> "DS"
+        QuotaType.OPENROUTER -> "OR"
+        QuotaType.OLLAMA_CLOUD -> "OLC"
+        QuotaType.NEURALWATT -> "NW"
+        // Unreachable in the widget (unknown types are dropped before a badge is
+        // built), but a code is cheaper than making the caller handle a null.
+        QuotaType.UNKNOWN -> "?"
+    }
+
+/**
+ * quotaHasDetail reports whether a provider has anything worth opening a detail
+ * view for, beyond what its badge already says.
+ *
+ * It follows Model Hotel's web dashboard, which gives six of the eight types a
+ * quota modal and leaves DeepSeek and Ollama Cloud with a badge that only
+ * refreshes: DeepSeek's whole reading is its balance, and Ollama Cloud's is its
+ * plan name. Both are already printed on the badge, so opening a sheet -- from
+ * the widget, possibly through an unlock prompt -- would spend a screen to
+ * repeat one word. The six that do have a modal have genuinely more to say
+ * (ZAI's 5-hour, weekly and MCP windows; OpenRouter's spend; Kimi's tiers).
+ *
+ * Keep this in step with `web/src/context/QuotaModalContext.tsx`: a type that
+ * gains a modal there should gain a detail view here.
+ */
+fun quotaHasDetail(type: QuotaType): Boolean =
+    when (type) {
+        QuotaType.NANOGPT,
+        QuotaType.ZAI_CODING,
+        QuotaType.KIMI_CODE,
+        QuotaType.MINIMAX,
+        QuotaType.OPENROUTER,
+        QuotaType.NEURALWATT,
+        -> true
+        // Balance-only and plan-only: the badge is the whole story.
+        QuotaType.DEEPSEEK, QuotaType.OLLAMA_CLOUD -> false
+        // Never rendered (unknown types are dropped before a badge is built).
+        QuotaType.UNKNOWN -> false
+    }
+
 /** kimiUsedPercent computes used% from Kimi's wire-string limit/remaining pair. */
 private fun kimiUsedPercent(detail: KimiCodeDetail?): Double? {
     val limit = detail?.limit?.toDoubleOrNull() ?: return null

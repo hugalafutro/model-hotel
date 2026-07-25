@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Newest-event pill, day: Paper200, fully rounded like the app's event chips. -->
+<!-- Badge/count pill, day: Paper200, squared off to match the app's chips. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <solid android:color="#E5DCCB" />
-    <corners android:radius="99dp" />
+    <corners android:radius="4dp" />
 </shape>

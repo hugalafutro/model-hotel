@@ -33,6 +33,32 @@ class PrefsStoreTest {
         }
 
     @Test
+    fun timeFormatDefaultsToFollowingTheDevice() =
+        runBlocking {
+            assertEquals(TimeFormat.SYSTEM, newStore().timeFormat.first())
+        }
+
+    @Test
+    fun timeFormatRoundTripsThroughSet() =
+        runBlocking {
+            val store = newStore()
+            store.setTimeFormat(TimeFormat.H12)
+            assertEquals(TimeFormat.H12, store.timeFormat.first())
+
+            store.setTimeFormat(TimeFormat.H24)
+            assertEquals(TimeFormat.H24, store.timeFormat.first())
+        }
+
+    @Test
+    fun unrecognizedStoredTimeFormatDegradesToDefault() =
+        runBlocking {
+            val dataStore = InMemoryPreferencesDataStore()
+            dataStore.edit { it[stringPreferencesKey("time_format")] = "SOME_FUTURE_CLOCK" }
+
+            assertEquals(TimeFormat.SYSTEM, PrefsStore(dataStore).timeFormat.first())
+        }
+
+    @Test
     fun unrecognizedStoredValueDegradesToDefault() =
         runBlocking {
             val dataStore = InMemoryPreferencesDataStore()

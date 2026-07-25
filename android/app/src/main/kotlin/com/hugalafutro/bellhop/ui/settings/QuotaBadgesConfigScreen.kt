@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -120,17 +122,28 @@ fun QuotaBadgesConfigScreen(
 
             SurfaceTabsRow(surface = surface, onSelect = { surface = it })
 
-            // The widget wraps its badges onto several lines, so a selection that
-            // fits needs no commentary at all -- the old "N of 6" line read as a
-            // limit being enforced even when nothing was being dropped. Speak up
-            // only when the selection genuinely outruns WIDGET_QUOTA_CAP.
+            // How much of what the fleet offers this surface actually shows. On
+            // either tab, since "6 of 8" is the same question on the dashboard as
+            // on the widget and only one of them used to answer it.
             val visibleCount = config.order.count { it !in config.hidden }
+            if (config.order.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.quota_config_selected, visibleCount, config.order.size),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp).testTag("quota-config-count"),
+                )
+            }
+            // The widget wraps its badges onto several lines, so a selection that
+            // fits needs no commentary at all -- a cap line reads as a limit being
+            // enforced even when nothing is being dropped. Speak up only when the
+            // selection genuinely outruns WIDGET_QUOTA_CAP.
             if (surface == QuotaSurface.WIDGET && visibleCount > WIDGET_QUOTA_CAP) {
                 Text(
                     text = stringResource(R.string.quota_config_widget_cap, WIDGET_QUOTA_CAP),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp).testTag("quota-config-widget-cap"),
+                    modifier = Modifier.padding(top = 4.dp).testTag("quota-config-widget-cap"),
                 )
             }
 
@@ -150,13 +163,14 @@ fun QuotaBadgesConfigScreen(
                         scope.launch { configStore.setOrder(surface, moveItem(config.order, from, to)) }
                     },
                     modifier = Modifier.fillMaxWidth().weight(1f),
-                ) { name ->
+                ) { name, dragHandle ->
                     BadgeRow(
                         name = name,
                         visible = name !in config.hidden,
                         onVisibleChange = { checked ->
                             scope.launch { configStore.setVisible(surface, name, checked) }
                         },
+                        dragHandle = dragHandle,
                     )
                 }
             }
@@ -233,14 +247,23 @@ private fun BadgeRow(
     name: String,
     visible: Boolean,
     onVisibleChange: (Boolean) -> Unit,
+    dragHandle: Modifier,
     modifier: Modifier = Modifier,
 ) {
-    Card(modifier = modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("quota-config-row-$name")) {
+    // A divider-closed row rather than a card: this list is the same kind of
+    // list Settings is, and eight stacked cards say nothing eight rules don't.
+    Column(modifier = modifier.fillMaxWidth().testTag("quota-config-row-$name")) {
         Row(
-            modifier = Modifier.padding(14.dp).fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_drag_handle),
+                contentDescription = stringResource(R.string.quota_config_reorder, name),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = dragHandle.testTag("quota-config-drag-$name"),
+            )
             Text(
                 text = name,
                 style = MaterialTheme.typography.bodyMedium,
@@ -255,6 +278,7 @@ private fun BadgeRow(
                 modifier = Modifier.testTag("quota-config-visible-$name"),
             )
         }
+        HorizontalDivider()
     }
 }
 

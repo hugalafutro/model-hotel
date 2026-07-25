@@ -174,6 +174,10 @@
     <string name="common_copy">Kopieren</string>
     <string name="settings_hold_copy_title">Zum Kopieren halten</string>
     <string name="settings_hold_copy_subtitle">Wenn aktiviert, kopiert ein langer Druck auf ein Ereignis oder eine Mitgliedszelle diese in die Zwischenablage. Wenn deaktiviert, können Zellen nicht kopiert werden.</string>
+    <string name="settings_time_format_title">Zeitformat</string>
+    <string name="settings_time_format_system">System</string>
+    <string name="settings_time_format_24h">24 Stunden</string>
+    <string name="settings_time_format_12h">12 Stunden</string>
     <string name="settings_graph_range_title">Zeitraum des Traffic-Diagramms</string>
     <string name="settings_graph_range_subtitle">Wie weit die Anfrage-Diagramme zurückreichen.</string>
     <string name="settings_graph_range_hours">%1$d h</string>
@@ -269,7 +273,7 @@
     <string name="settings_quota_badges_subtitle">Wähle aus, welche Kontingent-Badges der Anbieter im Dashboard und im Widget angezeigt werden, ordne sie neu an und wähle verbraucht oder verbleibend.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Kontingente aktualisieren</string>
+    <string name="dashboard_refresh">Aktualisieren</string>
     <string name="quota_unavailable">Kontingentdaten nicht verfügbar</string>
     <string name="quota_yes">Ja</string>
     <string name="quota_no">Nein</string>
@@ -307,4 +311,6 @@
     <string name="quota_config_mode_used">Verbraucht</string>
     <string name="quota_config_empty">Noch keine kontingentfähigen Anbieter gesehen.</string>
     <string name="quota_config_widget_cap">Nur die ersten %1$d passen auf das Widget</string>
+    <string name="quota_config_selected">%1$d von %2$d angezeigt</string>
+    <string name="quota_config_reorder">%1$s neu anordnen</string>
 </resources>

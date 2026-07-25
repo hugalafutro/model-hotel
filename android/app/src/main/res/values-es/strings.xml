@@ -174,6 +174,10 @@
     <string name="common_copy">Copiar</string>
     <string name="settings_hold_copy_title">Mantener para copiar</string>
     <string name="settings_hold_copy_subtitle">Cuando está activado, mantén pulsada una celda de evento o de miembro para copiarla al portapapeles. Cuando está desactivado, las celdas no se pueden copiar.</string>
+    <string name="settings_time_format_title">Formato de hora</string>
+    <string name="settings_time_format_system">Sistema</string>
+    <string name="settings_time_format_24h">24 horas</string>
+    <string name="settings_time_format_12h">12 horas</string>
     <string name="settings_graph_range_title">Rango del gráfico de tráfico</string>
     <string name="settings_graph_range_subtitle">Hasta dónde se remontan los gráficos de solicitudes.</string>
     <string name="settings_graph_range_hours">%1$d h</string>
@@ -269,7 +273,7 @@
     <string name="settings_quota_badges_subtitle">Elige qué insignias de cuota de proveedor se muestran en el dashboard y en el widget, reordénalas y elige usado o restante.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Actualizar cuotas</string>
+    <string name="dashboard_refresh">Actualizar</string>
     <string name="quota_unavailable">Datos de cuota no disponibles</string>
     <string name="quota_yes">Sí</string>
     <string name="quota_no">No</string>
@@ -307,4 +311,6 @@
     <string name="quota_config_mode_used">Usado</string>
     <string name="quota_config_empty">Aún no se han detectado proveedores con cuota.</string>
     <string name="quota_config_widget_cap">Solo los primeros %1$d caben en el widget</string>
+    <string name="quota_config_selected">%1$d de %2$d mostrados</string>
+    <string name="quota_config_reorder">Reordenar %1$s</string>
 </resources>

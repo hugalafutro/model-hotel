@@ -81,17 +81,17 @@ data class DashboardUiState(
     // deep-link can name a provider hidden on the dashboard, which is absent
     // from [quota] (the MAIN-filtered row) but present here. Stale-kept too.
     val quotaByName: Map<String, ProviderQuota> = emptyMap(),
-    // Whether a manual [DashboardViewModel.refreshQuota] call is in flight, so
-    // the badge row can show a spinner and the trigger can debounce a double-tap.
-    val refreshingQuota: Boolean = false,
-    // Why the last manual quota refresh failed (Front Desk answers 502 when it
-    // can't reach the primary member), or null when the last one ran. Kept apart
-    // from [error], which the members read owns and clears on its next success:
-    // the badge row repaints from the last-good readings either way, so without
-    // its own slot the failure would be wiped by the next poll tick and the tap
-    // would have looked exactly like a refresh that found no change. Cleared by
-    // the next successful quota read, so it can't outlive the problem.
-    val quotaRefreshError: String? = null,
+    // Whether a manual [DashboardViewModel.refreshAll] call is in flight, so the
+    // toolbar button can show a spinner and the trigger can debounce a double-tap.
+    val refreshing: Boolean = false,
+    // Why the last manual refresh failed (Front Desk answers 502 when it can't
+    // reach the primary member for the quota leg), or null when the last one ran.
+    // Kept apart from [error], which the members read owns and clears on its next
+    // success: the badge row repaints from the last-good readings either way, so
+    // without its own slot the failure would be wiped by the next poll tick and
+    // the tap would have looked exactly like a refresh that found no change.
+    // Cleared by the next successful quota read, so it can't outlive the problem.
+    val refreshError: String? = null,
 )
 
 /**
@@ -523,10 +523,10 @@ class DashboardViewModel(
                         // Stale beats blank: a failed quota read keeps the last-good
                         // list rather than blanking the badge row.
                         quota = quotaFetch.main ?: it.quota,
-                        quotaByName = quotaFetch.all?.associateBy { pq -> pq.providerName } ?: it.quotaByName,
                         // A quota read that got through retires the stale
                         // refresh-failed banner; a failing one leaves it up.
-                        quotaRefreshError = if (quotaFetch.main != null) null else it.quotaRefreshError,
+                        quotaByName = quotaFetch.all?.associateBy { pq -> pq.providerName } ?: it.quotaByName,
+                        refreshError = if (quotaFetch.main != null) null else it.refreshError,
                         // Reconcile the pause/resume control: drop the optimistic hint
                         // once it's resolved. Either a live read shows the toggle
                         // caught up (so a change made elsewhere isn't masked by it), or
@@ -619,23 +619,26 @@ class DashboardViewModel(
         }
 
     /**
-     * refreshQuota is the badge row's manual refresh: tells Front Desk to
-     * re-poll every quota-capable provider right now (POST /api/quota/refresh,
-     * monitor tier -- any paired device may trigger it), then re-reads via
-     * [refreshOnce] so the badges repaint from the fresh [com.hugalafutro.bellhop.data.QuotaEnvelope],
-     * not from the refresh call's own tally. Guarded like the other action
-     * methods against a concurrent tap; [DashboardUiState.refreshingQuota]
-     * flips back off in the `finally` so a request that throws still clears
-     * the spinner. A refresh Front Desk could not run (it answers 502 when the
-     * primary member is unreachable) lands in [DashboardUiState.quotaRefreshError]
-     * so the tap never passes for a successful one.
+     * refreshAll is the toolbar's manual refresh, and it refreshes the whole
+     * screen rather than one strip of it: it tells Front Desk to re-poll every
+     * quota-capable provider right now (POST /api/quota/refresh, monitor tier --
+     * any paired device may trigger it), re-reads the fleet via [refreshOnce] so
+     * members, events and badges all repaint from fresh reads (the badges from
+     * the fresh [com.hugalafutro.bellhop.data.QuotaEnvelope], never from the
+     * refresh call's own tally), and force-refetches the on-screen sparklines,
+     * which otherwise sit on their TTL. Guarded like the other action methods
+     * against a concurrent tap; [DashboardUiState.refreshing] flips back off in
+     * the `finally` so a request that throws still clears the spinner. A quota
+     * re-poll Front Desk could not run (it answers 502 when the primary member is
+     * unreachable) lands in [DashboardUiState.refreshError] so the tap never
+     * passes for a successful one.
      */
-    fun refreshQuota() {
-        if (_state.value.refreshingQuota) return
+    fun refreshAll() {
+        if (_state.value.refreshing) return
         viewModelScope.launch {
             // This tap's own outcome replaces the previous one's, so an old
             // banner can't linger over a refresh that has since gone through.
-            _state.update { it.copy(refreshingQuota = true, quotaRefreshError = null) }
+            _state.update { it.copy(refreshing = true, refreshError = null) }
             try {
                 val token = linkStore.token()
                 if (token == null) {
@@ -664,14 +667,17 @@ class DashboardViewModel(
                 // existing cache is harmless), and a Success's badges only
                 // land via this same re-read path, never off the tally.
                 refreshOnce()
+                // The sparklines are on their own TTL-gated loop, so without this
+                // they'd be the one thing on screen a manual refresh left alone.
+                fetchVisibleTraffic(visibleIds.value, force = true)
                 // Said out loud even when that re-read succeeded: Front Desk
                 // never ran the re-poll, so the badges are older than the tap
                 // implies.
                 if (failure != null) {
-                    _state.update { it.copy(quotaRefreshError = failure) }
+                    _state.update { it.copy(refreshError = failure) }
                 }
             } finally {
-                _state.update { it.copy(refreshingQuota = false) }
+                _state.update { it.copy(refreshing = false) }
             }
         }
     }

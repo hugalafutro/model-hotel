@@ -136,6 +136,43 @@ class QuotaBadgesConfigScreenTest {
     }
 
     @Test
+    fun bothTabsCountWhatTheyShow() {
+        val configStore = newConfigStore()
+        runBlocking {
+            configStore.reconcile(QuotaSurface.MAIN, listOf("OR", "NG"))
+            configStore.reconcile(QuotaSurface.WIDGET, listOf("OR", "NG"))
+        }
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaBadgesConfigScreen(configStore = configStore, prefsStore = newPrefsStore(), onBack = {})
+            }
+        }
+
+        // The count used to be a widget-only line, so the dashboard tab is the
+        // one worth asserting: it answers "how many of these am I showing?" too.
+        composeTestRule.onNodeWithTag("quota-config-count").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("quota-config-tab-widget").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("quota-config-count").assertIsDisplayed()
+    }
+
+    @Test
+    fun everyRowCarriesADragHandle() {
+        val configStore = newConfigStore()
+        runBlocking { configStore.reconcile(QuotaSurface.MAIN, listOf("OR", "NG")) }
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaBadgesConfigScreen(configStore = configStore, prefsStore = newPrefsStore(), onBack = {})
+            }
+        }
+
+        // The order is dragged by the grip, not by long-pressing the row, so the
+        // grip has to be on every row for the list to be reorderable at all.
+        composeTestRule.onNodeWithTag("quota-config-drag-OR").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("quota-config-drag-NG").assertIsDisplayed()
+    }
+
+    @Test
     fun emptyOrderShowsEmptyState() {
         composeTestRule.setContent {
             BellhopTheme {

@@ -1,0 +1,133 @@
+{
+	"autosync_title": [
+		"nl"
+	],
+	"dashboard_footer": [
+		"cs",
+		"de",
+		"es",
+		"fr",
+		"ja",
+		"nl",
+		"pl",
+		"ru",
+		"sk",
+		"zh"
+	],
+	"events_sev_error": [
+		"es"
+	],
+	"events_sev_info": [
+		"cs",
+		"de",
+		"fr",
+		"nl",
+		"pl",
+		"sk"
+	],
+	"member_detail_label_version": [
+		"de",
+		"fr"
+	],
+	"member_traefik": [
+		"cs",
+		"de",
+		"es",
+		"fr",
+		"ja",
+		"nl",
+		"pl",
+		"ru",
+		"sk",
+		"zh"
+	],
+	"pairing_target": [
+		"cs",
+		"de",
+		"es",
+		"ja",
+		"nl",
+		"pl",
+		"ru",
+		"sk"
+	],
+	"pairing_target_short": [
+		"cs",
+		"de",
+		"es",
+		"ja",
+		"nl",
+		"pl",
+		"ru",
+		"sk"
+	],
+	"quota_config_tab_main": [
+		"cs",
+		"de",
+		"nl",
+		"pl",
+		"sk"
+	],
+	"quota_config_tab_widget": [
+		"cs",
+		"de",
+		"es",
+		"fr",
+		"nl",
+		"sk"
+	],
+	"quota_field_plan": [
+		"es",
+		"pl"
+	],
+	"quota_field_status": [
+		"de",
+		"nl",
+		"pl"
+	],
+	"quota_no": [
+		"es"
+	],
+	"settings_graph_range_hours": [
+		"cs",
+		"de",
+		"es",
+		"fr",
+		"sk"
+	],
+	"settings_lock_15m": [
+		"cs",
+		"es",
+		"fr",
+		"nl",
+		"pl",
+		"sk"
+	],
+	"settings_lock_1m": [
+		"cs",
+		"es",
+		"fr",
+		"nl",
+		"pl",
+		"sk"
+	],
+	"settings_lock_30m": [
+		"cs",
+		"es",
+		"fr",
+		"nl",
+		"pl",
+		"sk"
+	],
+	"settings_lock_5m": [
+		"cs",
+		"es",
+		"fr",
+		"nl",
+		"pl",
+		"sk"
+	],
+	"settings_time_format_system": [
+		"de"
+	]
+}

@@ -3,6 +3,7 @@ package com.hugalafutro.bellhop.widget
 import android.content.Context
 import android.content.Intent
 import android.text.format.DateFormat
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -17,6 +18,7 @@ import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -51,28 +53,38 @@ import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.QuotaType
 import com.hugalafutro.bellhop.data.TRAFFIC_BUCKETS
+import com.hugalafutro.bellhop.data.TimeFormat
 import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.countsOf
+import com.hugalafutro.bellhop.data.quotaBadgeOverflow
 import com.hugalafutro.bellhop.data.quotaBadgeRows
+import com.hugalafutro.bellhop.data.quotaHasDetail
+import com.hugalafutro.bellhop.data.timePattern
 import com.hugalafutro.bellhop.ui.theme.Brass300
 import com.hugalafutro.bellhop.ui.theme.Brass600
 import com.hugalafutro.bellhop.ui.theme.Ember300
 import com.hugalafutro.bellhop.ui.theme.Ember600
 import com.hugalafutro.bellhop.ui.theme.Ink100
 import com.hugalafutro.bellhop.ui.theme.Ink300
+import com.hugalafutro.bellhop.ui.theme.Ink700
 import com.hugalafutro.bellhop.ui.theme.Moss300
 import com.hugalafutro.bellhop.ui.theme.Moss600
+import com.hugalafutro.bellhop.ui.theme.Paper200
 import com.hugalafutro.bellhop.ui.theme.PaperInk
 import com.hugalafutro.bellhop.ui.theme.PaperInkMuted
 import com.hugalafutro.bellhop.ui.theme.SteelContainerDark
 import com.hugalafutro.bellhop.ui.theme.SteelContainerLight
 import com.hugalafutro.bellhop.ui.theme.quotaBrand
 import com.hugalafutro.bellhop.work.FleetPollWorker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Date
+import java.util.Locale
 import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 
 /** BellhopWidgetReceiver is the manifest entry point; all logic is in [BellhopWidget]. */
@@ -100,7 +112,11 @@ class BellhopWidgetReceiver : GlanceAppWidgetReceiver() {
  * text would need timed re-renders just to tick.
  */
 class BellhopWidget : GlanceAppWidget() {
-    override val sizeMode: SizeMode = SizeMode.Responsive(setOf(COMPACT, TALL))
+    // Exact, not Responsive: the badge strip packs its rows against the widget's
+    // real inner width, and Responsive reports whichever breakpoint matched, so
+    // a 4-column widget would still be laid out as if it were 180dp wide. TALL
+    // below stays on as a plain height threshold.
+    override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(
         context: Context,
@@ -122,17 +138,19 @@ class BellhopWidget : GlanceAppWidget() {
         val initialState = widgetStore.read()
         val initialActive = monitorStore.active.first()
         val initialGraphs = prefsStore.widgetGraphs.first()
+        val initialTimeFormat = prefsStore.timeFormat.first()
         provideContent {
             val state by widgetStore.state.collectAsState(initial = initialState)
             val monitoringActive by monitorStore.active.collectAsState(initial = initialActive)
             val graphs by prefsStore.widgetGraphs.collectAsState(initial = initialGraphs)
-            WidgetContent(state, monitoringActive, fdName, graphs)
+            val timeFormat by prefsStore.timeFormat.collectAsState(initial = initialTimeFormat)
+            WidgetContent(state, monitoringActive, fdName, graphs, timeFormat)
         }
     }
 
     companion object {
-        // Two responsive tiers: COMPACT = rows + footer; TALL adds the event line.
-        val COMPACT = DpSize(180.dp, 110.dp)
+        // The height at which the widget is tall enough to spend a block on the
+        // latest event as well as the member rows and the footer.
         val TALL = DpSize(180.dp, 180.dp)
 
         // Per-member rows up to here; larger fleets collapse to counts.
@@ -161,9 +179,10 @@ class WidgetRefreshAction : ActionCallback {
     }
 }
 
-// Deep-link contract for a quota badge tap (Task D4 owns the MainActivity
-// side: intent-filter + extra read). Top-level and public so both sides of
-// the contract share the literal instead of duplicating strings.
+// Deep-link contract for a quota badge tap on a provider that has a detail view
+// (MainActivity owns the other side: the extra read + the app-lock gate).
+// Top-level and public so both sides of the contract share the literal instead
+// of duplicating strings.
 const val ACTION_OPEN_QUOTA = "com.hugalafutro.bellhop.OPEN_QUOTA"
 const val EXTRA_BADGE_PROVIDER_NAME = "badge_provider_name"
 
@@ -190,6 +209,35 @@ fun quotaBadgeIntent(
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
 
+/** BADGE_PROVIDER_NAME carries the tapped badge's provider to [QuotaBadgeNameAction]. */
+val BADGE_PROVIDER_NAME = ActionParameters.Key<String>("badge_provider_name")
+
+/**
+ * QuotaBadgeNameAction answers a badge tap with the provider's full name in a
+ * toast, and nothing else. It is what a badge gets instead of a deep link when
+ * its provider has nothing more to show than the badge already does
+ * ([com.hugalafutro.bellhop.data.quotaHasDetail]): launching the app, possibly
+ * through an unlock prompt, to read the same "pro" back is a poor trade. The
+ * toast still earns its tap, because the badge only has room for a short code
+ * ([com.hugalafutro.bellhop.data.quotaShortCode]) that two providers of the
+ * same type share.
+ */
+class QuotaBadgeNameAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters,
+    ) {
+        val name = parameters[BADGE_PROVIDER_NAME] ?: return
+        // Glance runs actions off the main thread and a Toast needs a Looper, so
+        // hop to main -- immediate, so a caller already on it runs inline rather
+        // than posting to a looper that may be waiting on this call to return.
+        withContext(Dispatchers.Main.immediate) {
+            Toast.makeText(context, name, Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
 // Day/night pairs off the app palette (ui/theme/Color.kt); Glance can't read
 // MaterialTheme, so the pairing is repeated here with the same named colors.
 private val BrandAccent = ColorProvider(day = Brass600, night = Brass300)
@@ -199,6 +247,14 @@ private val BrandAccent = ColorProvider(day = Brass600, night = Brass300)
 private val BarTint = ColorProvider(day = SteelContainerLight, night = SteelContainerDark)
 private val TextPrimary = ColorProvider(day = PaperInk, night = Ink100)
 private val TextMuted = ColorProvider(day = PaperInkMuted, night = Ink300)
+
+// Hairline rules. Same tones the row and pill fills use, which on the widget
+// background read as a line rather than a second surface.
+private val RuleTint = ColorProvider(day = Paper200, night = Ink700)
+
+// The root Column's inset. Named because the badge strip has to subtract it
+// from the reported widget width to know how much room a row really has.
+private val ROOT_PADDING = 12.dp
 private val DotUp = ColorProvider(day = Moss600, night = Moss300)
 private val DotDown = ColorProvider(day = Ember600, night = Ember300)
 private val DotDrained = ColorProvider(day = Brass600, night = Brass300)
@@ -232,22 +288,37 @@ private fun stateLabel(
     )
 
 /**
- * eventStamp dates the newest-event pill: clock time when the event is from
+ * clockStamp renders a moment as wall-clock time on the clock [format] names.
+ * The widget can't use the app's LocalTimePattern (it isn't a Compose UI
+ * composition), so it resolves the same preference itself.
+ */
+private fun clockStamp(
+    context: Context,
+    format: TimeFormat,
+    millis: Long,
+): String =
+    DateTimeFormatter
+        .ofPattern(timePattern(format, context), Locale.getDefault())
+        .withZone(ZoneId.systemDefault())
+        .format(Instant.ofEpochMilli(millis))
+
+/**
+ * eventStamp dates the newest-event line: clock time when the event is from
  * today, a short date otherwise, so a day-old event can't masquerade as fresh.
  * Absolute like the "as of" stamp (relative text would need timed re-renders).
- * Empty when the wire timestamp doesn't parse; the pill just omits the stamp.
+ * Empty when the wire timestamp doesn't parse; the line just omits the stamp.
  */
 private fun eventStamp(
     context: Context,
+    format: TimeFormat,
     createdAt: String,
 ): String {
     val instant = runCatching { Instant.parse(createdAt) }.getOrNull() ?: return ""
     val zone = ZoneId.systemDefault()
-    val asDate = Date(instant.toEpochMilli())
     return if (instant.atZone(zone).toLocalDate() == Instant.now().atZone(zone).toLocalDate()) {
-        DateFormat.getTimeFormat(context).format(asDate)
+        clockStamp(context, format, instant.toEpochMilli())
     } else {
-        DateFormat.getDateFormat(context).format(asDate)
+        DateFormat.getDateFormat(context).format(Date(instant.toEpochMilli()))
     }
 }
 
@@ -292,6 +363,7 @@ private fun WidgetContent(
     monitoringActive: Boolean,
     fdName: String,
     graphs: Boolean,
+    timeFormat: TimeFormat,
 ) {
     val context = LocalContext.current
     Column(
@@ -299,7 +371,7 @@ private fun WidgetContent(
             GlanceModifier
                 .fillMaxSize()
                 .background(ImageProvider(R.drawable.widget_bg))
-                .padding(12.dp)
+                .padding(ROOT_PADDING)
                 .clickable(actionStartActivity<MainActivity>()),
     ) {
         if (state != null) {
@@ -389,44 +461,50 @@ private fun WidgetContent(
                 // but adding any new top-level SECTION will silently drop a
                 // child; free a slot (nest a singleton) before doing so.
                 state.members.forEach { member ->
-                    Box(
-                        contentAlignment = Alignment.BottomStart,
-                        modifier =
-                            GlanceModifier
-                                .fillMaxWidth()
-                                .padding(bottom = 4.dp)
-                                .background(ImageProvider(R.drawable.widget_row_bg)),
-                    ) {
-                        if (graphs && member.traffic.isNotEmpty()) {
-                            MemberBars(member.traffic)
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = GlanceModifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 3.dp),
+                    // The gap rides an outer Box because Glance padding is a
+                    // view's *inner* padding: put it on the card itself and the
+                    // background paints over it, which is why the rows used to
+                    // sit flush against each other with a 4dp gap declared.
+                    Box(modifier = GlanceModifier.fillMaxWidth().padding(bottom = 1.dp)) {
+                        Box(
+                            contentAlignment = Alignment.BottomStart,
+                            modifier =
+                                GlanceModifier
+                                    .fillMaxWidth()
+                                    .background(ImageProvider(R.drawable.widget_row_bg)),
                         ) {
-                            Image(
-                                ImageProvider(R.drawable.widget_dot),
-                                null,
-                                GlanceModifier.size(9.dp),
-                                colorFilter = ColorFilter.tint(dotColor(member.healthState)),
-                            )
-                            Spacer(GlanceModifier.width(8.dp))
-                            Text(
-                                member.name,
-                                style =
-                                    TextStyle(
-                                        color = TextPrimary,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium,
-                                    ),
-                                maxLines = 1,
-                                modifier = GlanceModifier.defaultWeight(),
-                            )
-                            Spacer(GlanceModifier.width(8.dp))
-                            Text(
-                                stateLabel(context, member.healthState),
-                                style = TextStyle(color = dotColor(member.healthState), fontSize = 11.sp),
-                            )
+                            if (graphs && member.traffic.isNotEmpty()) {
+                                MemberBars(member.traffic)
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier =
+                                    GlanceModifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 3.dp),
+                            ) {
+                                Image(
+                                    ImageProvider(R.drawable.widget_dot),
+                                    null,
+                                    GlanceModifier.size(9.dp),
+                                    colorFilter = ColorFilter.tint(dotColor(member.healthState)),
+                                )
+                                Spacer(GlanceModifier.width(8.dp))
+                                Text(
+                                    member.name,
+                                    style =
+                                        TextStyle(
+                                            color = TextPrimary,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium,
+                                        ),
+                                    maxLines = 1,
+                                    modifier = GlanceModifier.defaultWeight(),
+                                )
+                                Spacer(GlanceModifier.width(8.dp))
+                                Text(
+                                    stateLabel(context, member.healthState),
+                                    style = TextStyle(color = dotColor(member.healthState), fontSize = 11.sp),
+                                )
+                            }
                         }
                     }
                 }
@@ -440,39 +518,70 @@ private fun WidgetContent(
         // against the 10-child cap the member rows already have to mind.
         if (state != null && state.quota.isNotEmpty()) {
             Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp)) {
-                quotaBadgeRows(state.quota).forEach { row ->
+                // Packed against the widget's real inner width (its own width
+                // less the root Column's side padding), so a wide widget fits a
+                // wide row instead of the two the narrowest breakpoint allowed.
+                val budgetDp = (LocalSize.current.width - ROOT_PADDING * 2).value.toInt()
+                val rows = quotaBadgeRows(state.quota, budgetDp)
+                // What the row cap left out. Said out loud on the last row: the
+                // operator picked these badges, so a strip too short to hold
+                // them all has to admit it rather than quietly showing fewer.
+                val overflow = quotaBadgeOverflow(state.quota, rows)
+                rows.forEachIndexed { index, row ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = GlanceModifier.fillMaxWidth().padding(bottom = 2.dp),
+                        modifier = GlanceModifier.fillMaxWidth().padding(bottom = 1.dp),
                     ) {
                         row.forEach { badge ->
-                            Box(
-                                modifier =
-                                    GlanceModifier
-                                        .padding(end = 4.dp)
-                                        .background(ImageProvider(R.drawable.widget_pill_bg))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        .clickable(
-                                            actionStartActivityIntent(
-                                                quotaBadgeIntent(context, badge.providerName),
+                            // Outer Box carries the gap, inner Box the pill: Glance
+                            // padding is a view's inner padding, so a gap declared on
+                            // the pill itself is painted over by its own background
+                            // and the badges come out touching.
+                            Box(modifier = GlanceModifier.defaultWeight().padding(end = 1.dp)) {
+                                // A provider with a detail view worth the trip opens it;
+                                // one whose badge is already the whole reading just names
+                                // itself, rather than launching the app to repeat a word.
+                                val onTap =
+                                    if (quotaHasDetail(badge.quotaType)) {
+                                        actionStartActivityIntent(
+                                            quotaBadgeIntent(context, badge.providerName),
+                                        )
+                                    } else {
+                                        actionRunCallback<QuotaBadgeNameAction>(
+                                            actionParametersOf(BADGE_PROVIDER_NAME to badge.providerName),
+                                        )
+                                    }
+                                Box(
+                                    modifier =
+                                        GlanceModifier
+                                            .fillMaxWidth()
+                                            .background(ImageProvider(R.drawable.widget_pill_bg))
+                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                            .clickable(onTap),
+                                ) {
+                                    Text(
+                                        badge.label,
+                                        style =
+                                            TextStyle(
+                                                // Provider brand colour, same source as the
+                                                // dashboard chips and the Model Hotel sidebar
+                                                // pills, so a strip of badges is scannable
+                                                // instead of eight identical pills.
+                                                color = quotaBadgeColor(badge.quotaType),
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Medium,
                                             ),
-                                        ),
-                            ) {
-                                Text(
-                                    badge.label,
-                                    style =
-                                        TextStyle(
-                                            // Provider brand colour, same source as the
-                                            // dashboard chips and the Model Hotel sidebar
-                                            // pills, so a strip of badges is scannable
-                                            // instead of eight identical pills.
-                                            color = quotaBadgeColor(badge.quotaType),
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Medium,
-                                        ),
-                                    maxLines = 1,
-                                )
+                                        maxLines = 1,
+                                    )
+                                }
                             }
+                        }
+                        if (overflow > 0 && index == rows.lastIndex) {
+                            Text(
+                                "+$overflow",
+                                style = TextStyle(color = TextMuted, fontSize = 9.sp),
+                                maxLines = 1,
+                            )
                         }
                     }
                 }
@@ -480,24 +589,17 @@ private fun WidgetContent(
         }
         Spacer(GlanceModifier.defaultWeight())
         // Pinned above the footer rather than under the member rows, so a small
-        // fleet doesn't render the event box glued on like an n+1th member.
+        // fleet doesn't render the event glued on like an n+1th member. It reads
+        // as a titled section now instead of a filled panel: a centred caption
+        // with a rule running out to both edges, the line itself, and a closing
+        // rule that doubles as the footer's separator.
         if (state != null && LocalSize.current.height >= BellhopWidget.TALL.height) {
             state.newestEvent?.let { event ->
-                Column(
-                    modifier =
-                        GlanceModifier
-                            .fillMaxWidth()
-                            .padding(bottom = 6.dp)
-                            .background(ImageProvider(R.drawable.widget_event_bg))
-                            .padding(horizontal = 8.dp, vertical = 2.dp),
-                ) {
-                    Text(
-                        context.getString(R.string.widget_event_header),
-                        style = TextStyle(color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Medium),
-                    )
+                Column(modifier = GlanceModifier.fillMaxWidth().padding(bottom = 2.dp)) {
+                    CaptionRule(context.getString(R.string.widget_event_header))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = GlanceModifier.fillMaxWidth(),
+                        modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp),
                     ) {
                         Text(
                             event.message,
@@ -507,7 +609,7 @@ private fun WidgetContent(
                         )
                         Spacer(GlanceModifier.width(6.dp))
                         Text(
-                            eventStamp(context, event.createdAt),
+                            eventStamp(context, timeFormat, event.createdAt),
                             style = TextStyle(color = TextMuted, fontSize = 9.sp),
                         )
                     }
@@ -515,39 +617,71 @@ private fun WidgetContent(
             }
         }
         // Footer chrome is informative, not content: 9sp muted text and a small
-        // icon so it recedes behind the rows it annotates.
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = GlanceModifier.fillMaxWidth()) {
-            if (state != null) {
-                val stamp = DateFormat.getTimeFormat(context).format(Date(state.updatedAt))
-                Text(
-                    context.getString(R.string.widget_as_of, stamp),
-                    style = TextStyle(color = TextMuted, fontSize = 9.sp),
-                )
-            }
-            Spacer(GlanceModifier.defaultWeight())
-            when {
-                state?.autosyncStale == true ->
+        // icon so it recedes behind the rows it annotates. Rule and row share
+        // one Column so the footer still costs the root a single child.
+        Column(modifier = GlanceModifier.fillMaxWidth()) {
+            Rule()
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = GlanceModifier.fillMaxWidth().padding(top = 3.dp),
+            ) {
+                if (state != null) {
+                    val stamp = clockStamp(context, timeFormat, state.updatedAt)
                     Text(
-                        context.getString(R.string.widget_stale),
-                        style = TextStyle(color = DotDrained, fontSize = 9.sp),
-                    )
-                !monitoringActive && state != null ->
-                    Text(
-                        context.getString(R.string.widget_monitoring_off),
+                        context.getString(R.string.widget_as_of, stamp),
                         style = TextStyle(color = TextMuted, fontSize = 9.sp),
                     )
-            }
-            if (state != null) {
-                Spacer(GlanceModifier.width(8.dp))
-                Image(
-                    ImageProvider(R.drawable.ic_widget_refresh),
-                    context.getString(R.string.widget_refresh),
-                    GlanceModifier.size(14.dp).clickable(actionRunCallback<WidgetRefreshAction>()),
-                    // The vector's fill is opaque black; tint to the footer's muted
-                    // pair or the icon vanishes on the night background.
-                    colorFilter = ColorFilter.tint(TextMuted),
-                )
+                }
+                Spacer(GlanceModifier.defaultWeight())
+                when {
+                    state?.autosyncStale == true ->
+                        Text(
+                            context.getString(R.string.widget_stale),
+                            style = TextStyle(color = DotDrained, fontSize = 9.sp),
+                        )
+                    !monitoringActive && state != null ->
+                        Text(
+                            context.getString(R.string.widget_monitoring_off),
+                            style = TextStyle(color = TextMuted, fontSize = 9.sp),
+                        )
+                }
+                if (state != null) {
+                    Spacer(GlanceModifier.width(8.dp))
+                    Image(
+                        ImageProvider(R.drawable.ic_widget_refresh),
+                        context.getString(R.string.widget_refresh),
+                        GlanceModifier.size(14.dp).clickable(actionRunCallback<WidgetRefreshAction>()),
+                        // The vector's fill is opaque black; tint to the footer's muted
+                        // pair or the icon vanishes on the night background.
+                        colorFilter = ColorFilter.tint(TextMuted),
+                    )
+                }
             }
         }
+    }
+}
+
+/** Rule is a hairline separator across the widget's width. */
+@Composable
+private fun Rule() {
+    Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp).background(RuleTint)) {}
+}
+
+/**
+ * CaptionRule is a section heading: the caption centred with a rule running
+ * from it out to each edge, which labels the block below without wrapping it
+ * in a filled panel.
+ */
+@Composable
+private fun CaptionRule(caption: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = GlanceModifier.fillMaxWidth()) {
+        Box(modifier = GlanceModifier.defaultWeight().height(1.dp).background(RuleTint)) {}
+        Text(
+            caption,
+            style = TextStyle(color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Medium),
+            maxLines = 1,
+            modifier = GlanceModifier.padding(horizontal = 6.dp),
+        )
+        Box(modifier = GlanceModifier.defaultWeight().height(1.dp).background(RuleTint)) {}
     }
 }

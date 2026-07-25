@@ -180,6 +180,10 @@
     <string name="common_copy">Копировать</string>
     <string name="settings_hold_copy_title">Удерживать для копирования</string>
     <string name="settings_hold_copy_subtitle">Когда включено, удерживайте ячейку события или узла, чтобы скопировать её в буфер обмена. Когда выключено, ячейки нельзя копировать.</string>
+    <string name="settings_time_format_title">Формат времени</string>
+    <string name="settings_time_format_system">Системный</string>
+    <string name="settings_time_format_24h">24 часа</string>
+    <string name="settings_time_format_12h">12 часов</string>
     <string name="settings_graph_range_title">Диапазон графика трафика</string>
     <string name="settings_graph_range_subtitle">Насколько далеко назад простираются графики запросов.</string>
     <string name="settings_graph_range_hours">%1$d ч</string>
@@ -281,7 +285,7 @@
     <string name="settings_quota_badges_subtitle">Выберите, какие значки квот поставщиков показывать на дашборде и в виджете, измените их порядок и выберите использовано или осталось.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Обновить квоты</string>
+    <string name="dashboard_refresh">Обновить</string>
     <string name="quota_unavailable">Данные о квоте недоступны</string>
     <string name="quota_yes">Да</string>
     <string name="quota_no">Нет</string>
@@ -319,4 +323,6 @@
     <string name="quota_config_mode_used">Использовано</string>
     <string name="quota_config_empty">Провайдеры с поддержкой квот пока не найдены.</string>
     <string name="quota_config_widget_cap">В виджет помещаются только первые %1$d</string>
+    <string name="quota_config_selected">Показано %1$d из %2$d</string>
+    <string name="quota_config_reorder">Переместить %1$s</string>
 </resources>

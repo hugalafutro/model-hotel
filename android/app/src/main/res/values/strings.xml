@@ -191,6 +191,10 @@
     <string name="common_copy">Copy</string>
     <string name="settings_hold_copy_title">Hold to copy</string>
     <string name="settings_hold_copy_subtitle">When on, long-press an event or member cell to copy it to the clipboard. When off, cells can\'t be copied.</string>
+    <string name="settings_time_format_title">Time format</string>
+    <string name="settings_time_format_system">System</string>
+    <string name="settings_time_format_24h">24-hour</string>
+    <string name="settings_time_format_12h">12-hour</string>
     <string name="settings_graph_range_title">Traffic graph range</string>
     <string name="settings_graph_range_subtitle">How far back the request charts reach.</string>
     <string name="settings_graph_range_hours">%1$d h</string>
@@ -273,7 +277,7 @@
     <string name="settings_quota_badges_subtitle">Choose which provider quota badges show on the dashboard and the widget, reorder them, and pick used or remaining.</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">Refresh quotas</string>
+    <string name="dashboard_refresh">Refresh</string>
     <string name="quota_unavailable">Quota data unavailable</string>
     <string name="quota_yes">Yes</string>
     <string name="quota_no">No</string>
@@ -311,4 +315,6 @@
     <string name="quota_config_mode_used">Used</string>
     <string name="quota_config_empty">No quota-capable providers seen yet.</string>
     <string name="quota_config_widget_cap">Only the first %1$d fit on the widget</string>
+    <string name="quota_config_selected">%1$d of %2$d shown</string>
+    <string name="quota_config_reorder">Reorder %1$s</string>
 </resources>

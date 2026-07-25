@@ -171,6 +171,10 @@
     <string name="common_copy">复制</string>
     <string name="settings_hold_copy_title">长按以复制</string>
     <string name="settings_hold_copy_subtitle">开启时，长按事件或成员单元格可将其复制到剪贴板。关闭时，单元格无法复制。</string>
+    <string name="settings_time_format_title">时间格式</string>
+    <string name="settings_time_format_system">跟随系统</string>
+    <string name="settings_time_format_24h">24 小时制</string>
+    <string name="settings_time_format_12h">12 小时制</string>
     <string name="settings_graph_range_title">流量图表范围</string>
     <string name="settings_graph_range_subtitle">请求图表回溯的时间范围。</string>
     <string name="settings_graph_range_hours">%1$d 小时</string>
@@ -263,7 +267,7 @@
     <string name="settings_quota_badges_subtitle">选择在仪表盘和小组件上显示哪些服务商的配额徽章，调整顺序，并选择已用量或剩余量。</string>
 
     <!-- Quota badge detail sheet -->
-    <string name="quota_refresh">刷新配额</string>
+    <string name="dashboard_refresh">刷新</string>
     <string name="quota_unavailable">配额数据不可用</string>
     <string name="quota_yes">是</string>
     <string name="quota_no">否</string>
@@ -301,4 +305,6 @@
     <string name="quota_config_mode_used">已用</string>
     <string name="quota_config_empty">尚未发现支持配额的服务商。</string>
     <string name="quota_config_widget_cap">小组件仅能显示前 %1$d 项</string>
+    <string name="quota_config_selected">已显示 %2$d 项中的 %1$d 项</string>
+    <string name="quota_config_reorder">重新排序 %1$s</string>
 </resources>
