@@ -314,7 +314,6 @@
     <string name="quota_config_mode_remaining">Remaining</string>
     <string name="quota_config_mode_used">Used</string>
     <string name="quota_config_empty">No quota-capable providers seen yet.</string>
-    <string name="quota_config_widget_cap">Only the first %1$d fit on the widget</string>
     <string name="quota_config_selected">%1$d of %2$d shown</string>
     <string name="quota_config_reorder">Reorder %1$s</string>
 </resources>

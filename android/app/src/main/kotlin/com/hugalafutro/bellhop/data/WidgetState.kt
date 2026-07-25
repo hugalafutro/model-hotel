@@ -69,15 +69,6 @@ data class WidgetState(
 )
 
 /**
- * WIDGET_QUOTA_CAP is the most badges the widget renders. The strip wraps onto
- * several lines now ([quotaBadgeRows]), so this is no longer the old
- * one-line-holds-six limit that quietly hid the rest of an operator's
- * selection: it bounds how much of a small widget the strip may eat, and keeps
- * the row count inside the nested Column well under Glance's 10-children cap.
- */
-const val WIDGET_QUOTA_CAP = 12
-
-/**
  * WIDGET_QUOTA_MAX_ROWS caps the strip's height. Four rows of 9sp pills is
  * roughly a third of the smallest widget; past that the fleet rows the widget
  * exists for would be the ones squeezed out.
@@ -105,19 +96,27 @@ private const val WIDGET_QUOTA_PILL_CHROME_DP = 9
  */
 private const val WIDGET_QUOTA_MAX_PER_ROW = 9
 
-/** badgeWidthDp estimates what one badge occupies, label plus pill chrome. */
-private fun badgeWidthDp(badge: WidgetQuotaBadge): Int =
+/**
+ * badgeWidthDp estimates what one badge occupies, label plus pill chrome.
+ * Internal rather than private so the packing tests measure rows with the same
+ * arithmetic the packer uses instead of restating the constants, which is how
+ * they came to check a marker reserve production had already outgrown.
+ */
+internal fun badgeWidthDp(badge: WidgetQuotaBadge): Int =
     badge.label.length * WIDGET_QUOTA_CHAR_DP + WIDGET_QUOTA_PILL_CHROME_DP
 
 /**
  * WIDGET_QUOTA_OVERFLOW_MARKER_DP is what the trailing "+N" costs the row that
- * carries it: at most three characters ("+12", since [WIDGET_QUOTA_CAP] bounds
- * it) plus its gap. The marker is rendered *unweighted*, so it takes its width
- * off the top and the row's badges split only what is left -- which is why the
- * row that carries it is fitted against a budget short by this much, rather
- * than against the full width.
+ * carries it: four characters ("+999", far past any real fleet's provider
+ * count) plus its gap. The marker is rendered *unweighted*, so it takes its
+ * width off the top and the row's badges split only what is left -- which is
+ * why the row that carries it is fitted against a budget short by this much,
+ * rather than against the full width.
+ *
+ * Internal for the same reason as [badgeWidthDp]: the tests assert against this
+ * number, so they must read it rather than repeat it.
  */
-private const val WIDGET_QUOTA_OVERFLOW_MARKER_DP = 22
+internal const val WIDGET_QUOTA_OVERFLOW_MARKER_DP = 28
 
 /**
  * quotaBadgeRows packs [badges] into the rows the widget renders, keeping the
@@ -209,9 +208,16 @@ fun quotaBadgeOverflow(
 /**
  * widgetQuotaOf resolves [quota] against [config] the same way the main-page
  * badge list does ([orderedVisible]: hidden/unavailable names dropped, order
- * preserved), then trims to [WIDGET_QUOTA_CAP] and precomputes each badge's
- * short [WidgetQuotaBadge.label] via [quotaBadgeLabel] (in [mode]'s polarity)
- * so the widget's render stays pure-string. The label leads with
+ * preserved) and precomputes each badge's short [WidgetQuotaBadge.label] via
+ * [quotaBadgeLabel] (in [mode]'s polarity) so the widget's render stays
+ * pure-string.
+ *
+ * It carries the operator's WHOLE selection, uncapped. Trimming it here to a
+ * fixed count would make [quotaBadgeOverflow] -- which measures what the strip
+ * showed against what it was given -- report a shortfall short by whatever this
+ * had already discarded, so a "+3" could stand for eleven missing badges. How
+ * many actually fit is [quotaBadgeRows]' business, and depends on the widget's
+ * width, which nothing upstream of the render knows. The label leads with
  * [quotaShortCode] because a widget badge showing only a number says nothing
  * about whose number it is, and the dashboard's full provider name would eat
  * the row at this size.
@@ -222,7 +228,6 @@ fun widgetQuotaOf(
     mode: QuotaBarMode,
 ): List<WidgetQuotaBadge> =
     orderedVisible(config, quota)
-        .take(WIDGET_QUOTA_CAP)
         .map {
             WidgetQuotaBadge(
                 providerName = it.providerName,

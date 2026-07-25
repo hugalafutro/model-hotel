@@ -131,9 +131,9 @@ class WidgetStateTest {
     }
 
     @Test
-    fun widgetQuotaRespectsOrderVisibilityAndCap() {
+    fun widgetQuotaRespectsOrderAndVisibilityAndKeepsTheWholeSelection() {
         val quotas =
-            (1..WIDGET_QUOTA_CAP + 3).map {
+            (1..15).map {
                 ProviderQuota(
                     providerName = "P$it",
                     type = QuotaType.OPENROUTER,
@@ -144,8 +144,12 @@ class WidgetStateTest {
             }
         val cfg = QuotaBadgeConfig(order = quotas.map { it.providerName }, hidden = setOf("P2"))
         val badges = widgetQuotaOf(quotas, cfg, QuotaBarMode.REMAINING)
-        assertEquals(WIDGET_QUOTA_CAP, badges.size)
-        assertFalse(badges.any { it.providerName == "P2" }) // hidden dropped before the cap
+
+        // Everything the operator selected, uncapped: how many fit is decided at
+        // render time by width, and pre-trimming here would make the widget's
+        // "+N" understate what is missing.
+        assertEquals(14, badges.size)
+        assertFalse(badges.any { it.providerName == "P2" })
     }
 
     @Test
@@ -197,7 +201,7 @@ class WidgetStateTest {
             )
         listOf(120, 156, 240, 320, 480).forEach { budget ->
             quotaBadgeRows(badges, budget).forEach { row ->
-                val widest = row.maxOf { it.label.length * 6 + 9 }
+                val widest = row.maxOf { badgeWidthDp(it) }
                 assertTrue(
                     "row of ${row.size} at ${budget}dp gives ${budget / row.size}dp to a ${widest}dp badge",
                     row.size == 1 || budget / row.size >= widest,
@@ -247,23 +251,41 @@ class WidgetStateTest {
     fun quotaBadgeRowsLeaveTheOverflowMarkerItsWidth() {
         // The "+N" is rendered unweighted, so it takes its width off the top and
         // the row's badges split only the remainder. A last row fitted against
-        // the full width would therefore hand each badge less than was checked
-        // and clip the labels; the marker's width has to come out first.
-        val marker = 22
+        // the full width would hand each badge less than was checked and clip the
+        // labels, so the marker's width has to come out first.
+        //
+        // 170dp is the width that makes this bind rather than merely hold: a
+        // 12-character label is ~81dp, two of them fit 170dp on their own
+        // (162dp), and only the marker's reserve pushes them over. Widths where
+        // the row already held one badge, or had slack to spare, pass whether
+        // the reserve is applied or not -- an earlier version of this test used
+        // only those and went green against a deliberately reverted fix.
         val badges = (1..12).map { badge("P$it", "NANO 1.9M/3M") }
 
-        listOf(120, 156, 240, 320).forEach { budget ->
+        listOf(120, 156, 170, 240).forEach { budget ->
             val rows = quotaBadgeRows(badges, budget)
-            val overflow = quotaBadgeOverflow(badges, rows)
-            if (overflow == 0) return@forEach
+            if (quotaBadgeOverflow(badges, rows) == 0) return@forEach
             val last = rows.last()
-            val widest = last.maxOf { it.label.length * 6 + 9 }
+            val widest = last.maxOf { badgeWidthDp(it) }
+            val share = (budget - WIDGET_QUOTA_OVERFLOW_MARKER_DP) / last.size
             assertTrue(
-                "last row of ${last.size} at ${budget}dp leaves ${(budget - marker) / last.size}dp " +
-                    "per badge for a ${widest}dp label",
-                last.size == 1 || (budget - marker) / last.size >= widest,
+                "last row of ${last.size} at ${budget}dp leaves ${share}dp per badge for a ${widest}dp label",
+                last.size == 1 || share >= widest,
             )
         }
+    }
+
+    @Test
+    fun theMarkerReserveActuallyTrimsTheLastRow() {
+        // Guards the assertion above from going vacuous: at 170dp the packer
+        // fills the last row with two badges and only the marker's reserve takes
+        // one back, so this pins that the reserve is doing something. Remove the
+        // reserve and this fails; the invariant test fails with it.
+        val badges = (1..12).map { badge("P$it", "NANO 1.9M/3M") }
+        val rows = quotaBadgeRows(badges, budgetDp = 170)
+
+        assertEquals(1, rows.last().size)
+        assertEquals(2, rows.first().size)
     }
 
     @Test
@@ -274,6 +296,34 @@ class WidgetStateTest {
         val rows = quotaBadgeRows(badges, budgetDp = 156)
 
         assertEquals(badges.size, rows.sumOf { it.size } + quotaBadgeOverflow(badges, rows))
+    }
+
+    @Test
+    fun overflowCountsEveryBadgeTheStripLeftOut() {
+        // The marker has to speak for the whole selection. When the badge list
+        // was pre-trimmed before it reached the strip, this arithmetic held
+        // against the trimmed list and the "+N" understated the shortfall.
+        val quotas =
+            (1..15).map {
+                ProviderQuota(
+                    providerName = "P$it",
+                    type = QuotaType.OPENROUTER,
+                    data = QuotaData.OpenRouter(limitReset = "k", limit = 10.0, creditsRemaining = 1.0),
+                    fetchedAt = "t",
+                    available = true,
+                )
+            }
+        val badges =
+            widgetQuotaOf(
+                quotas,
+                QuotaBadgeConfig(order = quotas.map { it.providerName }, hidden = emptySet()),
+                QuotaBarMode.REMAINING,
+            )
+        val rows = quotaBadgeRows(badges, budgetDp = 156)
+
+        assertEquals(15, badges.size)
+        assertEquals(15 - rows.sumOf { it.size }, quotaBadgeOverflow(badges, rows))
+        assertTrue("a 15-badge selection cannot fit a narrow strip", quotaBadgeOverflow(badges, rows) > 0)
     }
 
     @Test

@@ -457,9 +457,9 @@ private fun WidgetContent(
                 // header + 5 rows + quota Column + weight spacer + event Column
                 // + footer = 10, no headroom. The quota strip is ONE child
                 // whatever its badge count (its rows are children of its own
-                // nested Column), so raising WIDGET_QUOTA_CAP is free here -
-                // but adding any new top-level SECTION will silently drop a
-                // child; free a slot (nest a singleton) before doing so.
+                // nested Column), so a bigger selection is free here - but
+                // adding any new top-level SECTION will silently drop a child;
+                // free a slot (nest a singleton) before doing so.
                 state.members.forEach { member ->
                     // The gap rides an outer Box because Glance padding is a
                     // view's *inner* padding: put it on the card itself and the
@@ -509,8 +509,8 @@ private fun WidgetContent(
                     }
                 }
         }
-        // One badge per configured provider, pre-ordered/filtered/capped by the
-        // poll layer (WIDGET_QUOTA_CAP) and packed into lines by quotaBadgeRows
+        // One badge per configured provider, pre-ordered and filtered by the
+        // poll layer and packed into lines by quotaBadgeRows
         // -- Glance has no wrapping layout, so the rows are explicit. The whole
         // strip is ONE child of the Column above (the badge rows are children
         // of this nested Column, which has its own 10-child budget that
