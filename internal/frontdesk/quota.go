@@ -2,6 +2,7 @@ package frontdesk
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 )
 
@@ -17,34 +18,80 @@ type quotaWire struct {
 	FetchedAt    string          `json:"fetched_at"`
 }
 
+// writeQuotaUnreachable answers a quota proxy request that could not be served
+// because Front Desk failed to get an answer out of a primary that does exist.
+// It must never be an empty 200: Bellhop keeps its last-good badges only when a
+// read fails, and an empty 200 is indistinguishable from a fleet that genuinely
+// has no quota-capable providers, so degrading a transient failure into one
+// silently wipes the badges off the dashboard and the home-screen widget.
+func writeQuotaUnreachable(w http.ResponseWriter, msg string) {
+	writeJSON(w, http.StatusBadGateway, map[string]string{"error": msg})
+}
+
+// quotaPrimary resolves the member both quota handlers proxy to. When it returns
+// ok=false it has already written the response, so the caller just returns:
+// either a 200 carrying none (the caller's "nothing to report" payload) for the
+// two steady states that legitimately have no primary to ask, or an error status
+// for every failure to reach one that does exist.
+func (s *Server) quotaPrimary(w http.ResponseWriter, r *http.Request, none any) (*Member, string, bool) {
+	cfg, err := s.store.GetAutoSync(r.Context())
+	if err != nil {
+		// Front Desk's own store is unreadable. That is our failure, not the
+		// primary's, so it maps to 500 rather than 502 -- but it is still an
+		// error, because answering "no quota" here would wipe the device's
+		// badges over a transient local hiccup.
+		writeError(w, err)
+		return nil, "", false
+	}
+	if cfg.PrimaryID == "" {
+		// Standalone / not set up yet: there is no one to ask, and there never
+		// was. A steady state, so an empty payload is the truthful answer.
+		writeJSON(w, http.StatusOK, none)
+		return nil, "", false
+	}
+	primary, token, err := s.memberTokenOrErr(r.Context(), cfg.PrimaryID)
+	switch {
+	case errors.Is(err, ErrNotFound):
+		// The designated member row is gone (deleted while still designated):
+		// the same steady state as none designated.
+		writeJSON(w, http.StatusOK, none)
+		return nil, "", false
+	case err != nil:
+		// The primary exists but is unusable to us: no stored admin token
+		// (ErrValidation), an undecryptable one, or a store failure. We could
+		// not ask, which is not the same as "nothing to report".
+		writeQuotaUnreachable(w, "could not authenticate to the fleet primary")
+		return nil, "", false
+	}
+	return primary, token, true
+}
+
 // handleQuota proxies the designated primary member's quota snapshot export to a
 // paired device (monitor tier). It mirrors DistributeQuotaOnce's read side: the
-// primary is the source of truth, Front Desk keeps no copy. No primary designated
-// (standalone / not set up) or an unreachable primary yields an empty set, and the
-// device shows its last-good (stale-beats-blank on the Android side).
+// primary is the source of truth, Front Desk keeps no copy. With no primary to
+// ask the answer is an empty set; a primary that cannot be reached, does not
+// answer 200, or answers something undecodable is a 502, which leaves the device
+// on its last-good badges (stale beats blank on the Android side).
 func (s *Server) handleQuota(w http.ResponseWriter, r *http.Request) {
 	empty := map[string]any{"quota": []quotaWire{}}
 
-	cfg, err := s.store.GetAutoSync(r.Context())
-	if err != nil || cfg.PrimaryID == "" {
-		writeJSON(w, http.StatusOK, empty)
-		return
-	}
-	primary, token, err := s.memberTokenOrErr(r.Context(), cfg.PrimaryID)
-	if err != nil {
-		writeJSON(w, http.StatusOK, empty)
+	primary, token, ok := s.quotaPrimary(w, r, empty)
+	if !ok {
 		return
 	}
 	status, body, err := s.callMember(r.Context(), http.MethodGet, primary.URL, memberQuotaSnapshotsPath, token, nil)
 	if err != nil || status != http.StatusOK {
-		writeJSON(w, http.StatusOK, empty)
+		writeQuotaUnreachable(w, "could not read the primary's quota snapshots")
 		return
 	}
 	var parsed struct {
 		Snapshots []quotaWire `json:"snapshots"`
 	}
 	if err := json.Unmarshal(body, &parsed); err != nil {
-		writeJSON(w, http.StatusOK, empty)
+		// A 200 that isn't the export shape (a proxy's error page, say) means we
+		// still don't know the primary's quota, so it fails like an unreachable
+		// primary rather than reading as "no snapshots".
+		writeQuotaUnreachable(w, "could not decode the primary's quota snapshots")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"quota": parsed.Snapshots})
@@ -58,27 +105,23 @@ const memberRefreshQuotasPath = "/api/providers/refresh-quotas"
 // handleQuotaRefresh forces the designated primary member to re-poll its
 // quota-capable providers' upstream endpoints (the pull-to-refresh path),
 // mirroring handleQuota's read side but as a write-through proxy. It is
-// monitor-tier: any paired device may trigger a refresh. No primary
-// designated or an unreachable primary yields a 200 no-op.
+// monitor-tier: any paired device may trigger a refresh. It splits outcomes the
+// same way: no primary to ask is a 200 no-op, a primary that could not be asked
+// is a 502 so the device can say the refresh failed instead of showing a
+// successful refresh that changed nothing.
 func (s *Server) handleQuotaRefresh(w http.ResponseWriter, r *http.Request) {
 	// The success path writes the member's body verbatim ({results, refreshed,
 	// failed, skipped}); the no-op carries the same keys with an empty result
 	// list so both paths answer this route with one shape.
 	noop := map[string]any{"results": []any{}, "refreshed": 0, "failed": 0, "skipped": 0}
 
-	cfg, err := s.store.GetAutoSync(r.Context())
-	if err != nil || cfg.PrimaryID == "" {
-		writeJSON(w, http.StatusOK, noop)
-		return
-	}
-	primary, token, err := s.memberTokenOrErr(r.Context(), cfg.PrimaryID)
-	if err != nil {
-		writeJSON(w, http.StatusOK, noop)
+	primary, token, ok := s.quotaPrimary(w, r, noop)
+	if !ok {
 		return
 	}
 	status, body, err := s.callMember(r.Context(), http.MethodPost, primary.URL, memberRefreshQuotasPath, token, nil)
 	if err != nil || status != http.StatusOK {
-		writeJSON(w, http.StatusOK, noop)
+		writeQuotaUnreachable(w, "the primary could not refresh its quotas")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

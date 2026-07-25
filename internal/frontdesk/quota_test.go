@@ -88,7 +88,40 @@ func newTestServerWithFailingPrimary(t *testing.T) *Server {
 	return newTestServerWithPrimary(t, member.URL)
 }
 
+// newTestServerWithTokenlessPrimary designates a member Front Desk holds no
+// admin token for, so memberTokenOrErr fails with ErrValidation: the primary
+// exists, we just cannot authenticate to it.
+func newTestServerWithTokenlessPrimary(t *testing.T) *Server {
+	t.Helper()
+	srv, store := newTestServer(t)
+	pm, err := store.CreateMember(t.Context(), "primary", "http://127.0.0.1:9", "")
+	if err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	return srv
+}
+
+// newTestServerWithBrokenStore designates a primary and then closes the store
+// underneath the Server, so the primary lookup fails the way an unreadable
+// database file would.
+func newTestServerWithBrokenStore(t *testing.T) *Server {
+	t.Helper()
+	srv, store := newTestServer(t)
+	if err := store.SetAutoSync(t.Context(), true, "primary"); err != nil {
+		t.Fatalf("SetAutoSync: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	return srv
+}
+
 func TestHandleQuota_MissingPrimaryMemberReturnsEmpty(t *testing.T) {
+	// A designated member that was deleted is a steady state, not a transient
+	// failure: there is nobody left to ask, so an empty set is truthful.
 	s := newTestServerWithMissingPrimary(t)
 	rr := httptest.NewRecorder()
 	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
@@ -96,17 +129,39 @@ func TestHandleQuota_MissingPrimaryMemberReturnsEmpty(t *testing.T) {
 	require.JSONEq(t, `{"quota":[]}`, rr.Body.String())
 }
 
-func TestHandleQuota_UnhappyPrimaryReturnsEmpty(t *testing.T) {
+func TestHandleQuota_TokenlessPrimaryReturnsBadGateway(t *testing.T) {
+	// The primary exists but Front Desk stores no admin token for it, so its
+	// quota is unknown rather than absent.
+	s := newTestServerWithTokenlessPrimary(t)
+	rr := httptest.NewRecorder()
+	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
+	require.Equal(t, http.StatusBadGateway, rr.Code)
+	require.Contains(t, rr.Body.String(), `"error"`)
+}
+
+func TestHandleQuota_StoreFailureReturnsError(t *testing.T) {
+	// Front Desk's own store is unreadable: our failure, still not an answer.
+	s := newTestServerWithBrokenStore(t)
+	rr := httptest.NewRecorder()
+	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
+	require.Equal(t, http.StatusInternalServerError, rr.Code)
+}
+
+func TestHandleQuota_UnhappyPrimaryReturnsBadGateway(t *testing.T) {
+	// A primary that answers 500 leaves its quota unknown. Answering an empty
+	// 200 here would read on the device as "this fleet has no quota providers"
+	// and wipe the last-good badges, so the read has to fail loudly.
 	s := newTestServerWithFailingPrimary(t)
 	rr := httptest.NewRecorder()
 	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
-	require.Equal(t, http.StatusOK, rr.Code)
-	require.JSONEq(t, `{"quota":[]}`, rr.Body.String())
+	require.Equal(t, http.StatusBadGateway, rr.Code)
+	require.Contains(t, rr.Body.String(), `"error"`)
 }
 
-func TestHandleQuota_UndecodableExportReturnsEmpty(t *testing.T) {
-	// A 200 whose body isn't the export shape (a proxy's error page, say)
-	// must read as "no snapshots", not propagate to the device.
+func TestHandleQuota_UndecodableExportReturnsBadGateway(t *testing.T) {
+	// A 200 whose body isn't the export shape (a proxy's error page, say) tells
+	// us nothing about the primary's quota, so it fails like an unreachable
+	// primary instead of reading as "no snapshots".
 	member := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte("not json"))
@@ -116,8 +171,8 @@ func TestHandleQuota_UndecodableExportReturnsEmpty(t *testing.T) {
 	s := newTestServerWithPrimary(t, member.URL)
 	rr := httptest.NewRecorder()
 	s.handleQuota(rr, httptest.NewRequest(http.MethodGet, "/api/quota", http.NoBody))
-	require.Equal(t, http.StatusOK, rr.Code)
-	require.JSONEq(t, `{"quota":[]}`, rr.Body.String())
+	require.Equal(t, http.StatusBadGateway, rr.Code)
+	require.Contains(t, rr.Body.String(), `"error"`)
 }
 
 func TestHandleQuotaRefresh_ProxiesPrimary(t *testing.T) {
@@ -144,6 +199,7 @@ func TestHandleQuotaRefresh_NoPrimaryReturnsNoOp(t *testing.T) {
 }
 
 func TestHandleQuotaRefresh_MissingPrimaryMemberReturnsNoOp(t *testing.T) {
+	// Deleted designated member: nobody to refresh, so the no-op is honest.
 	s := newTestServerWithMissingPrimary(t)
 	rr := httptest.NewRecorder()
 	s.handleQuotaRefresh(rr, httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody))
@@ -151,12 +207,27 @@ func TestHandleQuotaRefresh_MissingPrimaryMemberReturnsNoOp(t *testing.T) {
 	require.JSONEq(t, `{"results":[],"refreshed":0,"failed":0,"skipped":0}`, rr.Body.String())
 }
 
-func TestHandleQuotaRefresh_UnhappyPrimaryReturnsNoOp(t *testing.T) {
-	// The refresh is best-effort: a member that can't re-poll leaves the
-	// device on its last-good snapshot rather than surfacing an error.
+func TestHandleQuotaRefresh_TokenlessPrimaryReturnsBadGateway(t *testing.T) {
+	s := newTestServerWithTokenlessPrimary(t)
+	rr := httptest.NewRecorder()
+	s.handleQuotaRefresh(rr, httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody))
+	require.Equal(t, http.StatusBadGateway, rr.Code)
+	require.Contains(t, rr.Body.String(), `"error"`)
+}
+
+func TestHandleQuotaRefresh_StoreFailureReturnsError(t *testing.T) {
+	s := newTestServerWithBrokenStore(t)
+	rr := httptest.NewRecorder()
+	s.handleQuotaRefresh(rr, httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody))
+	require.Equal(t, http.StatusInternalServerError, rr.Code)
+}
+
+func TestHandleQuotaRefresh_UnhappyPrimaryReturnsBadGateway(t *testing.T) {
+	// A primary that can't re-poll must not answer like a refresh that ran and
+	// found nothing: the device has to be able to tell the operator it failed.
 	s := newTestServerWithFailingPrimary(t)
 	rr := httptest.NewRecorder()
 	s.handleQuotaRefresh(rr, httptest.NewRequest(http.MethodPost, "/api/quota/refresh", http.NoBody))
-	require.Equal(t, http.StatusOK, rr.Code)
-	require.JSONEq(t, `{"results":[],"refreshed":0,"failed":0,"skipped":0}`, rr.Body.String())
+	require.Equal(t, http.StatusBadGateway, rr.Code)
+	require.Contains(t, rr.Body.String(), `"error"`)
 }
