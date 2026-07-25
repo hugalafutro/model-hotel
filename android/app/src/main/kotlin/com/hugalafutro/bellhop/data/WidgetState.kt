@@ -79,7 +79,7 @@ const val WIDGET_QUOTA_CAP = 12
 
 /**
  * WIDGET_QUOTA_MAX_ROWS caps the strip's height. Four rows of 9sp pills is
- * roughly a third of the COMPACT widget; past that the fleet rows the widget
+ * roughly a third of the smallest widget; past that the fleet rows the widget
  * exists for would be the ones squeezed out.
  */
 const val WIDGET_QUOTA_MAX_ROWS = 4

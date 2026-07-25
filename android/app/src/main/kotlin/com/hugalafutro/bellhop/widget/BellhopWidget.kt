@@ -110,8 +110,8 @@ class BellhopWidgetReceiver : GlanceAppWidgetReceiver() {
 class BellhopWidget : GlanceAppWidget() {
     // Exact, not Responsive: the badge strip packs its rows against the widget's
     // real inner width, and Responsive reports whichever breakpoint matched, so
-    // a 4-column widget would still be laid out as if it were 180dp wide. The
-    // COMPACT/TALL sizes below stay on as plain thresholds.
+    // a 4-column widget would still be laid out as if it were 180dp wide. TALL
+    // below stays on as a plain height threshold.
     override val sizeMode: SizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(
@@ -145,8 +145,8 @@ class BellhopWidget : GlanceAppWidget() {
     }
 
     companion object {
-        // Two responsive tiers: COMPACT = rows + footer; TALL adds the event line.
-        val COMPACT = DpSize(180.dp, 110.dp)
+        // The height at which the widget is tall enough to spend a block on the
+        // latest event as well as the member rows and the footer.
         val TALL = DpSize(180.dp, 180.dp)
 
         // Per-member rows up to here; larger fleets collapse to counts.
