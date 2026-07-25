@@ -995,6 +995,10 @@ class DashboardViewModelTest {
             client.quotaResult = FetchResult.Failure("nope")
             vm.refreshOnce()
             assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+            // The deep-link resolver is kept alongside the row: a widget badge
+            // tapped while the quota read is failing must still find its entry
+            // instead of opening onto nothing.
+            assertEquals(setOf("a"), vm.state.value.quotaByName.keys)
         }
 
     @Test
@@ -1069,6 +1073,30 @@ class DashboardViewModelTest {
             // thread the fetched quota through to the widget's render model,
             // not fall back to widgetStateOf's emptyList() default.
             assertEquals(listOf("a"), widget.read()?.quota?.map { it.providerName })
+        }
+
+    @Test
+    fun quotaByNameKeepsMainHiddenProviderForWidgetDeepLink() =
+        runBlocking {
+            val config = QuotaBadgeConfigStore(InMemoryPreferencesDataStore())
+            // "b" is a known dashboard badge the user hid on the dashboard (MAIN)
+            // while keeping it on the widget -- per-surface visibility is
+            // independent. It must drop out of the dashboard row yet stay
+            // resolvable by name, so a widget deep-link for "b" still opens its
+            // sheet instead of dead-ending (whole-branch review finding).
+            config.setOrder(QuotaSurface.MAIN, listOf("a", "b"))
+            config.setVisible(QuotaSurface.MAIN, "b", false)
+            val client = FakeFleetClient(FetchResult.Success(listOf(member)))
+            client.quotaResult = FetchResult.Success(listOf(quota("a"), quota("b")))
+            val vm = viewModel(client, configStore = config)
+
+            vm.refreshOnce()
+
+            // Dashboard row excludes the hidden "b"...
+            assertEquals(listOf("a"), vm.state.value.quota.map { it.providerName })
+            // ...but the deep-link resolver still carries it.
+            assertEquals("b", vm.state.value.quotaByName["b"]?.providerName)
+            assertEquals(setOf("a", "b"), vm.state.value.quotaByName.keys)
         }
 
     @Test

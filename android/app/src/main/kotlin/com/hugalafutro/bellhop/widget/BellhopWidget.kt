@@ -1,6 +1,7 @@
 package com.hugalafutro.bellhop.widget
 
 import android.content.Context
+import android.content.Intent
 import android.text.format.DateFormat
 import android.widget.Toast
 import androidx.compose.runtime.Composable
@@ -57,6 +58,7 @@ import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.countsOf
 import com.hugalafutro.bellhop.data.quotaBadgeRows
+import com.hugalafutro.bellhop.data.quotaHasDetail
 import com.hugalafutro.bellhop.data.timePattern
 import com.hugalafutro.bellhop.ui.theme.Brass300
 import com.hugalafutro.bellhop.ui.theme.Brass600
@@ -82,6 +84,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
+import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 
 /** BellhopWidgetReceiver is the manifest entry point; all logic is in [BellhopWidget]. */
 class BellhopWidgetReceiver : GlanceAppWidgetReceiver() {
@@ -175,17 +178,48 @@ class WidgetRefreshAction : ActionCallback {
     }
 }
 
+// Deep-link contract for a quota badge tap on a provider that has a detail view
+// (MainActivity owns the other side: the extra read + the app-lock gate).
+// Top-level and public so both sides of the contract share the literal instead
+// of duplicating strings.
+const val ACTION_OPEN_QUOTA = "com.hugalafutro.bellhop.OPEN_QUOTA"
+const val EXTRA_BADGE_PROVIDER_NAME = "badge_provider_name"
+
+/**
+ * quotaBadgeIntent builds the explicit intent a quota badge tap fires: same
+ * destination and launch flags as the widget's default open-app tap
+ * (`actionStartActivity<MainActivity>()` below), plus the deep-link
+ * action/extra above so MainActivity can route straight to that provider's
+ * quota sheet. Extracted as a plain function (no Glance/Composable types) so
+ * it is unit-testable without a composition.
+ *
+ * Rendered via the aliased `actionStartActivityIntent` (`androidx.glance.
+ * appwidget.action.actionStartActivity(Intent, ...)`): the core-module
+ * `actionStartActivity` imported above only targets a ComponentName/Class
+ * and can't carry this Intent's custom action + extra.
+ */
+fun quotaBadgeIntent(
+    context: Context,
+    providerName: String,
+): Intent =
+    Intent(context, MainActivity::class.java).apply {
+        action = ACTION_OPEN_QUOTA
+        putExtra(EXTRA_BADGE_PROVIDER_NAME, providerName)
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
+
 /** BADGE_PROVIDER_NAME carries the tapped badge's provider to [QuotaBadgeNameAction]. */
 val BADGE_PROVIDER_NAME = ActionParameters.Key<String>("badge_provider_name")
 
 /**
  * QuotaBadgeNameAction answers a badge tap with the provider's full name in a
- * toast, and nothing else. The badge itself only has room for a short code
- * ([com.hugalafutro.bellhop.data.quotaShortCode]), which two providers of the
- * same type share, so naming the one you tapped is the whole job. Deliberately
- * not a deep link into the app: opening a full-screen detail sheet is a heavy
- * answer to "which one is this?", and every other part of the widget already
- * opens the app on tap.
+ * toast, and nothing else. It is what a badge gets instead of a deep link when
+ * its provider has nothing more to show than the badge already does
+ * ([com.hugalafutro.bellhop.data.quotaHasDetail]): launching the app, possibly
+ * through an unlock prompt, to read the same "pro" back is a poor trade. The
+ * toast still earns its tap, because the badge only has room for a short code
+ * ([com.hugalafutro.bellhop.data.quotaShortCode]) that two providers of the
+ * same type share.
  */
 class QuotaBadgeNameAction : ActionCallback {
     override suspend fun onAction(
@@ -498,19 +532,26 @@ private fun WidgetContent(
                             // the pill itself is painted over by its own background
                             // and the badges come out touching.
                             Box(modifier = GlanceModifier.defaultWeight().padding(end = 1.dp)) {
+                                // A provider with a detail view worth the trip opens it;
+                                // one whose badge is already the whole reading just names
+                                // itself, rather than launching the app to repeat a word.
+                                val onTap =
+                                    if (quotaHasDetail(badge.quotaType)) {
+                                        actionStartActivityIntent(
+                                            quotaBadgeIntent(context, badge.providerName),
+                                        )
+                                    } else {
+                                        actionRunCallback<QuotaBadgeNameAction>(
+                                            actionParametersOf(BADGE_PROVIDER_NAME to badge.providerName),
+                                        )
+                                    }
                                 Box(
                                     modifier =
                                         GlanceModifier
                                             .fillMaxWidth()
                                             .background(ImageProvider(R.drawable.widget_pill_bg))
                                             .padding(horizontal = 4.dp, vertical = 2.dp)
-                                            .clickable(
-                                                actionRunCallback<QuotaBadgeNameAction>(
-                                                    actionParametersOf(
-                                                        BADGE_PROVIDER_NAME to badge.providerName,
-                                                    ),
-                                                ),
-                                            ),
+                                            .clickable(onTap),
                                 ) {
                                     Text(
                                         badge.label,

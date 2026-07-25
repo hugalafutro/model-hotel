@@ -428,4 +428,41 @@ class QuotaModelsTest {
         assertEquals("20 kWh", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
         assertEquals("20 kWh", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
     }
+
+    @Test
+    fun detailBearingTypesMatchTheWebDashboardsModals() {
+        // Model Hotel's web dashboard opens a quota modal for six of the eight
+        // types; DeepSeek and Ollama Cloud get a badge that only refreshes,
+        // because their whole reading is the balance or plan the badge prints.
+        // Bellhop follows that split, which is what decides whether a widget
+        // badge deep-links into a detail sheet or just toasts its name.
+        val withDetail = QuotaType.entries.filter { quotaHasDetail(it) }.toSet()
+
+        assertEquals(
+            setOf(
+                QuotaType.NANOGPT,
+                QuotaType.ZAI_CODING,
+                QuotaType.KIMI_CODE,
+                QuotaType.MINIMAX,
+                QuotaType.OPENROUTER,
+                QuotaType.NEURALWATT,
+            ),
+            withDetail,
+        )
+        assertFalse(quotaHasDetail(QuotaType.DEEPSEEK))
+        assertFalse(quotaHasDetail(QuotaType.OLLAMA_CLOUD))
+        // A type this build doesn't know never renders a badge, but must not
+        // claim a detail view if one somehow reaches the tap handler.
+        assertFalse(quotaHasDetail(QuotaType.UNKNOWN))
+    }
+
+    @Test
+    fun shortCodesAreDistinctPerType() {
+        // Two badges sharing a code would be indistinguishable on the widget,
+        // where the code is all there is room for.
+        val codes = QuotaType.entries.filter { it != QuotaType.UNKNOWN }.map { quotaShortCode(it) }
+
+        assertEquals(codes.size, codes.toSet().size)
+        assertTrue(codes.all { it.isNotBlank() && it.length <= 4 })
+    }
 }
