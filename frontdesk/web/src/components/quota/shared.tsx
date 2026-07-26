@@ -208,6 +208,14 @@ export function resetSublabelFromEpoch(
 	ms: number | null | undefined,
 	t: Translate,
 ): string {
+	// `ms == null` is redundant AT RUNTIME: Number.isFinite does not coerce, so
+	// Number.isFinite(null) and Number.isFinite(undefined) are already false,
+	// and no test can independently kill this clause. It is NOT redundant at
+	// COMPILE TIME: Number.isFinite's TS signature is `(number: unknown) =>
+	// boolean`, not a type guard, so it does not narrow `ms` from `number |
+	// null | undefined` down to `number`. This explicit check is what narrows
+	// `ms` for the `new Date(ms)` call below; deleting it as "dead" breaks the
+	// build (TS18049 / TS2769), it does not just leave untested code.
 	if (ms == null || !Number.isFinite(ms) || ms <= 0) return "-";
 	return resetSublabel(new Date(ms).toISOString(), t);
 }

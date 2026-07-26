@@ -199,6 +199,19 @@ describe("MiniMaxQuotaModal", () => {
 				current_weekly_remaining_percent: 50,
 				weekly_remains_time: 86_400_000,
 			},
+			{
+				// An active (non-status-3) class with no window bounds at all: the
+				// only way to actually exercise the ": 5" fallback branch, since
+				// "video" (the only other bounds-less entry) is status 3 and
+				// early-returns before intervalHours is ever computed.
+				model_name: "voice",
+				current_interval_status: 1,
+				current_interval_remaining_percent: 60,
+				remains_time: 1_800_000,
+				current_weekly_status: 1,
+				current_weekly_remaining_percent: 40,
+				weekly_remains_time: 43_200_000,
+			},
 		],
 	};
 
@@ -231,6 +244,13 @@ describe("MiniMaxQuotaModal", () => {
 		expect(screen.getByTestId("minimax-audio-5h-label")).toHaveTextContent(
 			"24",
 		);
+	});
+
+	it("falls back to a 5 hour interval when a live class reports no window bounds", () => {
+		render(<MiniMaxQuotaModal {...chrome} payload={payload} barMode="used" />);
+		// "voice" has no start_time/end_time and is NOT status 3, so it is the
+		// only fixture entry that actually reaches the ": 5" fallback branch.
+		expect(screen.getByTestId("minimax-voice-5h-label")).toHaveTextContent("5");
 	});
 
 	it("renders nothing per class when model_remains is null", () => {
