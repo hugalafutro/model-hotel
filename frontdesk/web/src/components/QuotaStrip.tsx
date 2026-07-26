@@ -74,9 +74,29 @@ export function QuotaStrip() {
 	const [barMode, setBarMode] = useState<QuotaBarMode>(readBarMode);
 	const [openKey, setOpenKey] = useState<string | null>(null);
 
-	const { snapshots, stale, lastUpdatedAt, refreshing, refresh } =
+	const { snapshots, loading, stale, lastUpdatedAt, refreshing, refresh } =
 		useQuota(collapsed);
 	const models = toBadgeModels(snapshots);
+	const open = openKey ? models.find((m) => m.key === openKey) : undefined;
+
+	// M-4: a provider that drops out of a genuinely loaded list must not leave
+	// its modal's key sitting in state, or the badge reappearing on a later
+	// poll would silently reopen a dialog the operator never asked to see
+	// again. Corrected directly in the render body (React's documented
+	// "adjusting state" bail-out-and-re-render pattern), not in a useEffect:
+	// an effect would commit the stale modal to the screen for one frame
+	// before closing it, and synchronous setState-in-effect is exactly what
+	// react-hooks/set-state-in-effect exists to catch. Gated on `!loading`
+	// (at least one read has completed) rather than firing on any transient
+	// state: useQuota only ever replaces `snapshots` atomically on a
+	// SUCCESSFUL read (a failed read keeps the last-good cache untouched, see
+	// useQuota's `read`), so this can only ever trigger on a genuine change
+	// to the fleet primary's export, never on an in-flight or failed fetch.
+	// It cannot loop: the condition requires `openKey` to be non-null, and
+	// this sets it to null, so it cannot re-fire on the render it causes.
+	if (!loading && openKey && !open) {
+		setOpenKey(null);
+	}
 
 	const doRefresh = useCallback(async () => {
 		const outcome = await refresh();
@@ -89,6 +109,12 @@ export function QuotaStrip() {
 		setCollapsed((prev) => {
 			const next = !prev;
 			store(COLLAPSED_KEY, String(next));
+			// M-3: collapsing hides the badges but previously left an open modal
+			// floating over the now-empty strip. Close it along with the badges;
+			// idempotent, so a StrictMode double-invoke of this updater is
+			// harmless. Deliberately one-directional: EXPANDING later must not
+			// resurrect a modal the operator dismissed by collapsing.
+			if (next) setOpenKey(null);
 			return next;
 		});
 	}, []);
@@ -118,8 +144,6 @@ export function QuotaStrip() {
 	// permanent empty bar above every tab. An unreachable primary is already
 	// reported prominently on the Members page.
 	if (models.length === 0) return null;
-
-	const open = openKey ? models.find((m) => m.key === openKey) : undefined;
 
 	return (
 		<div className="fd-quota-strip" data-testid="quota-strip">

@@ -926,7 +926,10 @@ h3 {
 	display: flex;
 	flex-direction: column;
 	gap: 0.4rem;
-	padding: 0.5rem 1rem 0.6rem;
+	/* Horizontal padding matches .fd-header's (1.25rem) so the badges align
+	   with the logo and tabs above; vertical padding is unchanged from the
+	   brief. Deviation from the brief's verbatim CSS block, per review M-5. */
+	padding: 0.5rem 1.25rem 0.6rem;
 	border-bottom: 1px solid var(--border);
 	background: var(--bg-elevated);
 }

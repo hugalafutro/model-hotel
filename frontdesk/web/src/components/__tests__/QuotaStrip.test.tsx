@@ -1,7 +1,7 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuotaSnapshot } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
 import { server } from "../../test/server";
@@ -72,19 +72,39 @@ describe("QuotaStrip", () => {
 	});
 
 	it("renders nothing on an authoritative empty list", async () => {
-		server.use(http.get("/api/quota", () => HttpResponse.json({ quota: [] })));
+		// Gated on the GET actually landing (not merely on the pre-fetch
+		// render, where `models.length === 0` is ALSO true because useQuota
+		// seeds from cleared localStorage): otherwise this assertion would
+		// pass against the loading state without ever observing the response,
+		// and would not catch a wrong implementation like
+		// `models.length === 0 && loading` that renders an empty bar once
+		// loaded instead of staying hidden.
+		let hits = 0;
+		server.use(
+			http.get("/api/quota", () => {
+				hits++;
+				return HttpResponse.json({ quota: [] });
+			}),
+		);
 		renderStrip();
-		await waitFor(() => expect(screen.queryByTestId("quota-strip")).toBeNull());
+		await waitFor(() => expect(hits).toBe(1));
+		expect(screen.queryByTestId("quota-strip")).toBeNull();
 	});
 
 	it("renders nothing when the first read fails with nothing cached", async () => {
+		// Same reasoning as the empty-list test above: wait for the failing
+		// response to actually land before asserting, rather than observing
+		// the (also-null) pre-fetch loading state.
+		let hits = 0;
 		server.use(
-			http.get("/api/quota", () =>
-				HttpResponse.json({ error: "x" }, { status: 502 }),
-			),
+			http.get("/api/quota", () => {
+				hits++;
+				return HttpResponse.json({ error: "x" }, { status: 502 });
+			}),
 		);
 		renderStrip();
-		await waitFor(() => expect(screen.queryByTestId("quota-strip")).toBeNull());
+		await waitFor(() => expect(hits).toBe(1));
+		expect(screen.queryByTestId("quota-strip")).toBeNull();
 	});
 
 	it("keeps cached badges and shows a stale marker when the read fails", async () => {
@@ -473,6 +493,35 @@ describe("QuotaStrip", () => {
 		expect(screen.queryByRole("dialog")).toBeNull();
 	});
 
+	// M-3 regression: collapsing while a modal is open must close it (rather
+	// than leaving a dialog floating over an empty strip), and expanding
+	// again afterwards must not resurrect it.
+	it("dismisses an open modal on collapse and does not reopen it on expand", async () => {
+		server.use(
+			http.get("/api/quota", () => HttpResponse.json({ quota: [nano] })),
+		);
+		renderStrip();
+		await waitFor(() =>
+			expect(
+				screen.getByTestId("quota-badge-nanogpt:nano"),
+			).toBeInTheDocument(),
+		);
+		await userEvent.click(screen.getByTestId("quota-badge-nanogpt:nano"));
+		expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+		await userEvent.click(screen.getByTestId("quota-collapse"));
+		expect(screen.queryByRole("dialog")).toBeNull();
+		expect(screen.queryByTestId("quota-badge-nanogpt:nano")).toBeNull();
+
+		await userEvent.click(screen.getByTestId("quota-collapse"));
+		await waitFor(() =>
+			expect(
+				screen.getByTestId("quota-badge-nanogpt:nano"),
+			).toBeInTheDocument(),
+		);
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+
 	it("refreshes from the button inside an open modal", async () => {
 		let posted = 0;
 		server.use(
@@ -542,5 +591,84 @@ describe("QuotaStrip", () => {
 		);
 		// The cooldown outcome returns before calling the endpoint again.
 		expect(posted).toBe(1);
+	});
+});
+
+// M-4 regression: a provider dropping out of a LATER, genuinely loaded poll
+// must close its own open modal, and the provider reappearing on a
+// subsequent poll must not silently reopen it. Uses fake timers to drive the
+// 60 second poll interval directly (matching the pattern in
+// hooks/__tests__/useQuota.test.ts's "useQuota polling" describe), rather
+// than the strip's own refresh button, which has a 10 second cooldown that
+// would make two rapid manual refreshes indistinguishable from one.
+describe("QuotaStrip polling", () => {
+	beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+	afterEach(() => vi.useRealTimers());
+
+	const zaiForPolling: QuotaSnapshot = {
+		provider_name: "zai",
+		type: "zai-coding",
+		kind: "usage",
+		payload: {
+			success: true,
+			data: {
+				level: "pro",
+				limits: [{ type: "TOKENS_LIMIT", unit: 3, percentage: 40 }],
+			},
+		},
+		http_status: 200,
+		fetched_at: "2026-07-26T10:00:00Z",
+	};
+
+	it("closes a stale open modal when its provider drops from a later poll, and does not reopen it when the provider returns", async () => {
+		let call = 0;
+		server.use(
+			http.get("/api/quota", () => {
+				call++;
+				// Poll 1 (mount): both providers present. Poll 2: nano drops out
+				// of the fleet primary's export, but zai stays, so the strip
+				// itself stays mounted. Poll 3: nano comes back.
+				if (call === 2) {
+					return HttpResponse.json({ quota: [zaiForPolling] });
+				}
+				return HttpResponse.json({ quota: [nano, zaiForPolling] });
+			}),
+		);
+		renderStrip();
+		await waitFor(() =>
+			expect(
+				screen.getByTestId("quota-badge-nanogpt:nano"),
+			).toBeInTheDocument(),
+		);
+		await userEvent.click(screen.getByTestId("quota-badge-nanogpt:nano"));
+		expect(screen.getByTestId("nano-weekly-fill")).toBeInTheDocument();
+
+		// Poll 2 lands: nano is gone, so its modal must close on its own.
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(60_000);
+		});
+		await waitFor(() => expect(call).toBe(2));
+		await waitFor(() =>
+			expect(screen.queryByTestId("quota-badge-nanogpt:nano")).toBeNull(),
+		);
+		expect(screen.queryByRole("dialog")).toBeNull();
+		// The strip stays up: zai's badge is still there.
+		expect(screen.getByTestId("quota-strip")).toBeInTheDocument();
+		expect(
+			screen.getByTestId("quota-badge-zai-coding:zai"),
+		).toBeInTheDocument();
+
+		// Poll 3 lands: nano is back. The dismissed modal must NOT reopen on
+		// its own; a badge reappearing is not the operator asking to see it.
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(60_000);
+		});
+		await waitFor(() => expect(call).toBe(3));
+		await waitFor(() =>
+			expect(
+				screen.getByTestId("quota-badge-nanogpt:nano"),
+			).toBeInTheDocument(),
+		);
+		expect(screen.queryByRole("dialog")).toBeNull();
 	});
 });
