@@ -1,0 +1,248 @@
+import {
+	ArrowClockwiseIcon,
+	CaretDownIcon,
+	CaretUpIcon,
+} from "@phosphor-icons/react";
+import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type {
+	KimiCodeQuotaResponse,
+	MiniMaxQuotaResponse,
+	NanoGPTUsage,
+	NeuralWattQuotaResponse,
+	OpenRouterBalance,
+	ZAICodingQuotaResponse,
+} from "../api/types";
+import { useToast } from "../context/ToastContext";
+import { useQuota } from "../hooks/useQuota";
+import {
+	payloadOf,
+	type QuotaBadgeModel,
+	type QuotaBarMode,
+	toBadgeModels,
+} from "../utils/quota";
+import { formatTimeOfDay } from "../utils/time";
+import { QuotaBadge } from "./QuotaBadge";
+import { KimiCodeQuotaModal } from "./quota/KimiCodeQuotaModal";
+import { MiniMaxQuotaModal } from "./quota/MiniMaxQuotaModal";
+import { NanoGPTQuotaModal } from "./quota/NanoGPTQuotaModal";
+import { NeuralWattQuotaModal } from "./quota/NeuralWattQuotaModal";
+import { OpenRouterQuotaModal } from "./quota/OpenRouterQuotaModal";
+import { ZAICodingQuotaModal } from "./quota/ZAICodingQuotaModal";
+
+const COLLAPSED_KEY = "fdQuotaCollapsed";
+const BAR_MODE_KEY = "fdQuotaBarMode";
+
+/** Providers whose badge says everything the modal would: click means refresh. */
+const NO_MODAL = new Set(["deepseek", "ollama-cloud"]);
+
+function readCollapsed(): boolean {
+	try {
+		return localStorage.getItem(COLLAPSED_KEY) === "true";
+	} catch {
+		return false;
+	}
+}
+
+function readBarMode(): QuotaBarMode {
+	try {
+		return localStorage.getItem(BAR_MODE_KEY) === "used" ? "used" : "remaining";
+	} catch {
+		return "remaining";
+	}
+}
+
+function store(key: string, value: string) {
+	try {
+		localStorage.setItem(key, value);
+	} catch {
+		/* private mode: the preference just does not survive the reload */
+	}
+}
+
+/**
+ * The quota strip under the header, on every tab.
+ *
+ * Unlike the Model Hotel sidebar, badges and modals are siblings in one subtree,
+ * so bar mode is ordinary state passed down rather than a localStorage plus
+ * custom-event bridge. It is still persisted, purely so it survives a reload.
+ */
+export function QuotaStrip() {
+	const { t } = useTranslation();
+	const { toast } = useToast();
+	const [collapsed, setCollapsed] = useState(readCollapsed);
+	const [barMode, setBarMode] = useState<QuotaBarMode>(readBarMode);
+	const [openKey, setOpenKey] = useState<string | null>(null);
+
+	const { snapshots, stale, lastUpdatedAt, refreshing, refresh } =
+		useQuota(collapsed);
+	const models = toBadgeModels(snapshots);
+
+	const doRefresh = useCallback(async () => {
+		const outcome = await refresh();
+		if (outcome === "cooldown") toast(t("quota.refreshCooldown"), "info");
+		else if (outcome === "failed") toast(t("quota.refreshFailed"), "error");
+		else toast(t("quota.refreshed"), "success");
+	}, [refresh, toast, t]);
+
+	const toggleCollapsed = useCallback(() => {
+		setCollapsed((prev) => {
+			const next = !prev;
+			store(COLLAPSED_KEY, String(next));
+			return next;
+		});
+	}, []);
+
+	const toggleBarMode = useCallback(() => {
+		setBarMode((prev) => {
+			const next: QuotaBarMode = prev === "remaining" ? "used" : "remaining";
+			store(BAR_MODE_KEY, next);
+			return next;
+		});
+	}, []);
+
+	const onBadgeClick = useCallback(
+		(model: QuotaBadgeModel) => {
+			// A degraded badge has no payload to show, and two providers have no
+			// modal at all, so in both cases the useful action is a refresh.
+			if (model.degraded || NO_MODAL.has(model.type)) {
+				void doRefresh();
+				return;
+			}
+			setOpenKey(model.key);
+		},
+		[doRefresh],
+	);
+
+	// Nothing known and nothing cached: stay out of the way rather than parking a
+	// permanent empty bar above every tab. An unreachable primary is already
+	// reported prominently on the Members page.
+	if (models.length === 0) return null;
+
+	const open = openKey ? models.find((m) => m.key === openKey) : undefined;
+
+	return (
+		<div className="fd-quota-strip" data-testid="quota-strip">
+			<div className="fd-quota-strip-head">
+				<span className="fd-quota-strip-label">{t("quota.title")}</span>
+				{stale && (
+					<span
+						className="fd-quota-stale"
+						data-testid="quota-stale"
+						title={t("quota.stale")}
+					>
+						{lastUpdatedAt
+							? t("quota.lastUpdated", { time: formatTimeOfDay(lastUpdatedAt) })
+							: t("quota.stale")}
+					</span>
+				)}
+				<div className="fd-quota-strip-actions">
+					{!collapsed && (
+						<button
+							type="button"
+							data-testid="quota-refresh"
+							className="fd-quota-modal-btn"
+							onClick={() => void doRefresh()}
+							disabled={refreshing}
+							title={t("quota.refresh")}
+							aria-label={t("quota.refresh")}
+						>
+							<ArrowClockwiseIcon
+								size={14}
+								className={refreshing ? "fd-spin" : undefined}
+							/>
+						</button>
+					)}
+					<button
+						type="button"
+						data-testid="quota-collapse"
+						className="fd-quota-modal-btn"
+						onClick={toggleCollapsed}
+						aria-expanded={!collapsed}
+						title={collapsed ? t("quota.expand") : t("quota.collapse")}
+						aria-label={collapsed ? t("quota.expand") : t("quota.collapse")}
+					>
+						{collapsed ? (
+							<CaretDownIcon size={14} />
+						) : (
+							<CaretUpIcon size={14} />
+						)}
+					</button>
+				</div>
+			</div>
+
+			{!collapsed && (
+				<div className="fd-quota-badges">
+					{models.map((m) => (
+						<QuotaBadge
+							key={m.key}
+							model={m}
+							barMode={barMode}
+							onClick={() => onBadgeClick(m)}
+						/>
+					))}
+				</div>
+			)}
+
+			{open && (
+				<QuotaModalFor
+					model={open}
+					barMode={barMode}
+					onToggleBarMode={toggleBarMode}
+					onRefresh={() => void doRefresh()}
+					isRefreshing={refreshing}
+					onClose={() => setOpenKey(null)}
+				/>
+			)}
+		</div>
+	);
+}
+
+interface QuotaModalForProps {
+	model: QuotaBadgeModel;
+	barMode: QuotaBarMode;
+	onToggleBarMode: () => void;
+	onRefresh: () => void;
+	isRefreshing: boolean;
+	onClose: () => void;
+}
+
+/** Picks the modal for a badge and narrows its payload to that provider's shape. */
+function QuotaModalFor({ model, ...rest }: QuotaModalForProps) {
+	const common = {
+		providerName: model.providerName,
+		fetchedAt: model.snapshot.fetched_at,
+		...rest,
+	};
+
+	switch (model.type) {
+		case "nanogpt": {
+			const p = payloadOf<NanoGPTUsage>(model.snapshot);
+			return p ? <NanoGPTQuotaModal {...common} payload={p} /> : null;
+		}
+		case "zai-coding": {
+			const p = payloadOf<ZAICodingQuotaResponse>(model.snapshot);
+			return p ? <ZAICodingQuotaModal {...common} payload={p} /> : null;
+		}
+		case "kimi-code": {
+			const p = payloadOf<KimiCodeQuotaResponse>(model.snapshot);
+			return p ? <KimiCodeQuotaModal {...common} payload={p} /> : null;
+		}
+		case "minimax": {
+			const p = payloadOf<MiniMaxQuotaResponse>(model.snapshot);
+			return p ? <MiniMaxQuotaModal {...common} payload={p} /> : null;
+		}
+		case "openrouter": {
+			const p = payloadOf<OpenRouterBalance>(model.snapshot);
+			return p ? <OpenRouterQuotaModal {...common} payload={p} /> : null;
+		}
+		case "neuralwatt": {
+			const p = payloadOf<NeuralWattQuotaResponse>(model.snapshot);
+			return p ? <NeuralWattQuotaModal {...common} payload={p} /> : null;
+		}
+		// DeepSeek and Ollama Cloud never open a modal; onBadgeClick refreshes.
+		case "deepseek":
+		case "ollama-cloud":
+			return null;
+	}
+}

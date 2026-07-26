@@ -919,3 +919,46 @@ h3 {
 	color: var(--text);
 	font-size: 0.78rem;
 }
+
+/* ── Quota strip ──────────────────────────────────────────────────────── */
+
+.fd-quota-strip {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	padding: 0.5rem 1rem 0.6rem;
+	border-bottom: 1px solid var(--border);
+	background: var(--bg-elevated);
+}
+
+.fd-quota-strip-head {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+}
+
+.fd-quota-strip-label {
+	color: var(--text-faint);
+	font-size: 0.68rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+
+.fd-quota-stale {
+	color: var(--warn);
+	font-size: 0.7rem;
+}
+
+.fd-quota-strip-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.15rem;
+	margin-left: auto;
+}
+
+.fd-quota-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+}

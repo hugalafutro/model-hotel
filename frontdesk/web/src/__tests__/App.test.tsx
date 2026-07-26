@@ -24,6 +24,11 @@ function authHandlers(validToken: string) {
 			}
 			return HttpResponse.json([]);
 		}),
+		// The authed shell renders QuotaStrip, which reads /api/quota. An empty
+		// list keeps the strip hidden (see QuotaStrip.test.tsx) so it does not
+		// disturb any existing assertion here; onUnhandledRequest is "error", so
+		// every test that reaches the shell needs this handler regardless.
+		http.get("/api/quota", () => HttpResponse.json({ quota: [] })),
 	];
 }
 
@@ -121,6 +126,7 @@ describe("App auth gating", () => {
 					? HttpResponse.json([])
 					: new HttpResponse("expired", { status: 401 });
 			}),
+			http.get("/api/quota", () => HttpResponse.json({ quota: [] })),
 		);
 		render(<App />);
 		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");

@@ -16,6 +16,7 @@ import {
 import { LanguageSelector } from "./components/LanguageSelector";
 import { Login } from "./components/Login";
 import { Logo } from "./components/Logo";
+import { QuotaStrip } from "./components/QuotaStrip";
 import { VersionFooter } from "./components/VersionFooter";
 import { ToastProvider } from "./context/ToastContext";
 import { useIdleLogout } from "./hooks/useIdleLogout";
@@ -129,6 +130,7 @@ function Shell() {
 				</div>
 				<LanguageSelector />
 			</header>
+			<QuotaStrip />
 			<main className="fd-main">
 				<Suspense
 					fallback={<div className="fd-empty">{t("common.loading")}</div>}
