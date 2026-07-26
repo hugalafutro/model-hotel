@@ -404,7 +404,9 @@ export interface KimiCodeQuotaResponse {
 	user?: { membership?: { level?: string } };
 	usage?: { limit?: string; remaining?: string; resetTime?: string };
 	limits?: KimiCodeQuotaLimitEntry[];
-	parallel?: { limit?: number };
+	// Kimi encodes numeric fields as JSON strings throughout, which is why
+	// toKimiCodeWindow parses with Number(). These two are no exception.
+	parallel?: { limit?: string };
 	totalQuota?: { limit?: string; remaining?: string };
 }
 
