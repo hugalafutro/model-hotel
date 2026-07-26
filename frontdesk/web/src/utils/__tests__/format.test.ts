@@ -53,6 +53,8 @@ describe("formatDollars", () => {
 
 describe("formatKwh", () => {
 	it("caps at two decimal places", () => {
-		expect(formatKwh(3.14159)).toBe("3.14");
+		// Deliberately not a digit sequence of pi: biome's
+		// lint/suspicious/noApproximativeNumericConstant flags that literal.
+		expect(formatKwh(7.86432)).toBe("7.86");
 	});
 });

@@ -76,6 +76,24 @@ describe("payloadOf", () => {
 		expect(payloadOf(snap({ payload: null }))).toBeNull();
 		expect(payloadOf(snap({ payload: "nope" }))).toBeNull();
 	});
+
+	it("returns null for an array payload", () => {
+		// `typeof [] === "object"`, so an array slips past a bare typeof check and
+		// becomes a "usable" payload with none of the fields any renderer reads.
+		expect(payloadOf(snap({ payload: [] }))).toBeNull();
+		expect(payloadOf(snap({ payload: [{ plan: "pro" }] }))).toBeNull();
+	});
+
+	it("marks an array payload degraded rather than rendering a bare dash", () => {
+		// End-to-end consequence of the guard above: ollama-cloud's visibility rule
+		// (suspended_at?.valid !== true) is satisfied by an array, so without the
+		// guard this badge renders NON-degraded with a "-" value.
+		const out = toBadgeModels([
+			snap({ type: "ollama-cloud", payload: [] as unknown as object }),
+		]);
+		expect(out).toHaveLength(1);
+		expect(out[0].degraded).toBe(true);
+	});
 });
 
 describe("barTone", () => {
@@ -89,6 +107,29 @@ describe("barTone", () => {
 		expect(barTone(20, "used")).toBe("warn");
 		expect(barTone(60, "used")).toBe("high");
 		expect(barTone(95, "used")).toBe("danger");
+	});
+
+	// Each threshold is exclusive (`<`). The tests below sit exactly on the
+	// boundary and one step below it, so flipping any `<` to `<=` flips an
+	// assertion; the round numbers used above all sit mid-band and survive that.
+	it("puts exactly 20% remaining in warn, not danger", () => {
+		expect(barTone(80, "remaining")).toBe("warn"); // 20% left
+		expect(barTone(81, "remaining")).toBe("danger"); // 19% left
+	});
+
+	it("puts exactly 60% remaining in ok, not warn", () => {
+		expect(barTone(40, "remaining")).toBe("ok"); // 60% left
+		expect(barTone(41, "remaining")).toBe("warn"); // 59% left
+	});
+
+	it("puts exactly 50% used in high, not warn", () => {
+		expect(barTone(50, "used")).toBe("high");
+		expect(barTone(49, "used")).toBe("warn");
+	});
+
+	it("puts exactly 80% used in danger, not high", () => {
+		expect(barTone(80, "used")).toBe("danger");
+		expect(barTone(79, "used")).toBe("high");
 	});
 });
 
@@ -326,7 +367,9 @@ describe("toBadgeModels", () => {
 				payload: { is_available: true, balance_infos: [] },
 			}),
 		]);
-		expect(out.every((m) => m.showProviderName)).toBe(false);
+		// Exact, not `.every(...) === false`: that form passes when a SINGLE badge
+		// is false, so it would not catch one of the two being relabelled.
+		expect(out.map((m) => m.showProviderName)).toEqual([false, false]);
 	});
 
 	it("does not relabel one type because another type collided", () => {

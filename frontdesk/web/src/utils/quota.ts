@@ -80,11 +80,17 @@ export const QUOTA_BRAND_COLORS: Record<QuotaProviderType, string> = {
  * or when the payload is not a JSON object. Callers render a "-" badge in that
  * case rather than hiding the provider: Front Desk shows another machine's
  * stored snapshot, so a failed fetch there is information, not noise.
+ *
+ * Arrays are rejected explicitly: `typeof [] === "object"`, so without the guard
+ * a JSON array body would pass as a usable payload and (for the providers whose
+ * visibility rule tolerates missing fields) render a NON-degraded "-" pill, with
+ * neither the italic nor the degraded colour that the same non-reading earns
+ * everywhere else.
  */
 export function payloadOf<T>(snapshot: QuotaSnapshot): T | null {
 	if (snapshot.http_status !== 200) return null;
 	const p = snapshot.payload;
-	if (p === null || typeof p !== "object") return null;
+	if (p === null || typeof p !== "object" || Array.isArray(p)) return null;
 	return p as T;
 }
 
