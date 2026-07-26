@@ -62,6 +62,23 @@ class PrefsStore(
     }
 
     /**
+     * widgetQuota emits whether the home-screen widget carries the quota badge
+     * strip at all; defaults on, since that is what the widget already did
+     * before the switch existed. Off is not only a layout choice: the badges are
+     * the sole reason the background poll reads Front Desk's quota at all, so
+     * turning them off drops that request from every poll (the same trade
+     * [widgetGraphs] makes for the traffic bars).
+     *
+     * Which providers appear, in what order, is a separate question the
+     * WIDGET-surface [QuotaBadgeConfig] answers.
+     */
+    val widgetQuota: Flow<Boolean> = dataStore.data.map { it[WIDGET_QUOTA] ?: true }
+
+    suspend fun setWidgetQuota(enabled: Boolean) {
+        dataStore.edit { it[WIDGET_QUOTA] = enabled }
+    }
+
+    /**
      * quotaBarMode emits which polarity ([QuotaBarMode.REMAINING] or
      * [QuotaBarMode.USED]) quota badges show for METERED types; defaults to
      * REMAINING, matching the web dashboard's default. A stored value this
@@ -101,6 +118,7 @@ class PrefsStore(
         private val HOLD_TO_COPY = booleanPreferencesKey("hold_to_copy")
         private val GRAPH_RANGE_MINUTES = intPreferencesKey("graph_range_minutes")
         private val WIDGET_GRAPHS = booleanPreferencesKey("widget_graphs")
+        private val WIDGET_QUOTA = booleanPreferencesKey("widget_quota")
         private val QUOTA_BAR_MODE = stringPreferencesKey("quota_bar_mode")
         private val TIME_FORMAT = stringPreferencesKey("time_format")
 

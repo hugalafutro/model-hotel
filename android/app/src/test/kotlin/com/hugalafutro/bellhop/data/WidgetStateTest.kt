@@ -154,9 +154,9 @@ class WidgetStateTest {
 
     @Test
     fun quotaBadgeRowsPacksToTheRowBudget() {
-        // Uniform columns, so a row of n badges needs n * its own widest to fit:
-        // "999.9M/999.9M" is 13 characters (~87dp), which claims a row alone,
-        // while the three short ones share theirs.
+        // Each badge takes only its own label's width, so the row fills while
+        // the sum fits: three short ones (21dp each) plus "999.9M/999.9M"
+        // (13 characters, ~87dp) come to 150dp of the default 156dp budget.
         val badges =
             listOf(
                 badge("A", "$1"),
@@ -165,31 +165,32 @@ class WidgetStateTest {
                 badge("D", "999.9M/999.9M"),
             )
         val rows = quotaBadgeRows(badges)
-        assertEquals(
-            listOf(listOf("A", "B", "C"), listOf("D")),
-            rows.map { row -> row.map { it.providerName } },
-        )
+        assertEquals(listOf(listOf("A", "B", "C", "D")), rows.map { row -> row.map { it.providerName } })
     }
 
     @Test
-    fun quotaBadgeRowsSizeEachRowOffItsOwnWidest() {
-        // Regression: sizing every row off the *strip's* widest label let one
-        // long badge force the whole strip to one per row, and the row cap then
-        // hid the rest of the selection. The long one takes its own row; the
-        // short ones must still share.
+    fun quotaBadgeRowsChargeEachBadgeOnlyItsOwnWidth() {
+        // Regression on the equal-share layout this replaced: with uniform
+        // columns, one long label priced every badge beside it at its own width,
+        // so a row carried fewer badges than it had room for. Six "OR 5%" badges
+        // (39dp each) beside one "NW 12.5/20 kWh" (93dp) come to 327dp and now
+        // share one 327dp row; under the old rule that row fitted three, since
+        // it had to hold seven times the widest label (651dp).
         val badges = (1..6).map { badge("S$it", "OR 5%") } + badge("LONG", "NW 12.5/20 kWh")
 
-        val rows = quotaBadgeRows(badges, budgetDp = 156)
+        val rows = quotaBadgeRows(badges, budgetDp = 327)
 
-        assertTrue("short badges must still share a row", rows.first().size > 1)
-        assertEquals(badges.size, rows.sumOf { it.size })
+        assertEquals(1, rows.size)
+        assertEquals(badges.size, rows.single().size)
         assertEquals(0, quotaBadgeOverflow(badges, rows))
     }
 
     @Test
-    fun quotaBadgeRowsNeverGiveARowAShareNarrowerThanItsWidestBadge() {
-        // The widget stretches a row's badges to equal shares, so any row whose
-        // share is narrower than its longest label would clip that label.
+    fun quotaBadgeRowsNeverOverfillARow() {
+        // The badges are content-width and a Glance Row can't shrink them, so a
+        // row packed past the budget would clip its last badge. No row may cost
+        // more than it was given (a lone badge wider than the whole widget still
+        // gets its line -- clipped beats disappeared).
         val badges =
             listOf(
                 badge("a", "OR $1"),
@@ -201,13 +202,42 @@ class WidgetStateTest {
             )
         listOf(120, 156, 240, 320, 480).forEach { budget ->
             quotaBadgeRows(badges, budget).forEach { row ->
-                val widest = row.maxOf { badgeWidthDp(it) }
+                val cost = row.sumOf { badgeWidthDp(it) }
                 assertTrue(
-                    "row of ${row.size} at ${budget}dp gives ${budget / row.size}dp to a ${widest}dp badge",
-                    row.size == 1 || budget / row.size >= widest,
+                    "row of ${row.size} costs ${cost}dp of a ${budget}dp budget",
+                    row.size == 1 || cost <= budget,
                 )
             }
         }
+    }
+
+    @Test
+    fun quotaBadgeRowsPackAgainstTheWidthsTheCallerReports() {
+        // The widget measures its labels for real (a TextPaint in the app's own
+        // process) rather than guessing per character, so the cost of a badge is
+        // the caller's to say. Told that each badge is 30dp instead of the
+        // estimate's 45dp, the same 156dp row has to take five instead of three
+        // -- that difference is the whole reason for measuring.
+        val badges = (1..6).map { badge("P$it", "OR 50%") }
+
+        val estimated = quotaBadgeRows(badges, budgetDp = 156)
+        val measured = quotaBadgeRows(badges, budgetDp = 156, widthDp = { 30 })
+
+        assertEquals(3, estimated.first().size)
+        assertEquals(5, measured.first().size)
+    }
+
+    @Test
+    fun theOverflowMarkerReserveUsesTheCallersWidthsToo() {
+        // The last row's trim has to price badges the same way the packing did,
+        // or a measured strip would be fitted for the marker by estimate and
+        // give up a badge it had room for.
+        val badges = (1..40).map { badge("P$it", "OR 50%") }
+        val rows = quotaBadgeRows(badges, budgetDp = 156, widthDp = { 30 })
+
+        assertTrue("40 badges cannot fit four rows", quotaBadgeOverflow(badges, rows) > 0)
+        // 156dp less the 28dp marker leaves 128dp: four 30dp badges, not three.
+        assertEquals(4, rows.last().size)
     }
 
     @Test
@@ -249,10 +279,10 @@ class WidgetStateTest {
 
     @Test
     fun quotaBadgeRowsLeaveTheOverflowMarkerItsWidth() {
-        // The "+N" is rendered unweighted, so it takes its width off the top and
-        // the row's badges split only the remainder. A last row fitted against
-        // the full width would hand each badge less than was checked and clip the
-        // labels, so the marker's width has to come out first.
+        // The "+N" shares the last row with its badges, so they have only what
+        // it doesn't take. A last row fitted against the full width would push
+        // the marker past the edge (or clip the badge before it), so the
+        // marker's width comes out of the budget first.
         //
         // 170dp is the width that makes this bind rather than merely hold: a
         // 12-character label is ~81dp, two of them fit 170dp on their own
@@ -266,11 +296,11 @@ class WidgetStateTest {
             val rows = quotaBadgeRows(badges, budget)
             if (quotaBadgeOverflow(badges, rows) == 0) return@forEach
             val last = rows.last()
-            val widest = last.maxOf { badgeWidthDp(it) }
-            val share = (budget - WIDGET_QUOTA_OVERFLOW_MARKER_DP) / last.size
+            val cost = last.sumOf { badgeWidthDp(it) }
+            val room = budget - WIDGET_QUOTA_OVERFLOW_MARKER_DP
             assertTrue(
-                "last row of ${last.size} at ${budget}dp leaves ${share}dp per badge for a ${widest}dp label",
-                last.size == 1 || share >= widest,
+                "last row of ${last.size} costs ${cost}dp of the ${room}dp left beside the marker at ${budget}dp",
+                last.size == 1 || cost <= room,
             )
         }
     }
@@ -291,10 +321,14 @@ class WidgetStateTest {
     @Test
     fun badgesTrimmedForTheMarkerAreCountedAsOverflow() {
         // A badge pushed out of the last row to make room for the marker is not
-        // lost track of -- it joins the count the marker itself reports.
-        val badges = (1..12).map { badge("P$it", "OR 10%") }
+        // lost track of -- it joins the count the marker itself reports. Fifteen
+        // 45dp badges pack three to a 156dp row, so the strip overflows and the
+        // last row gives one back to the marker: 3+3+3+2 shown, 4 counted.
+        val badges = (1..15).map { badge("P$it", "OR 10%") }
         val rows = quotaBadgeRows(badges, budgetDp = 156)
 
+        assertTrue("the strip must overflow for this to say anything", quotaBadgeOverflow(badges, rows) > 0)
+        assertEquals(2, rows.last().size)
         assertEquals(badges.size, rows.sumOf { it.size } + quotaBadgeOverflow(badges, rows))
     }
 

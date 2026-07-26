@@ -272,8 +272,13 @@
     <string name="widget_state_drained">Drained</string>
     <string name="widget_state_unknown">Unknown</string>
     <string name="widget_event_header">Latest fleet event</string>
+    <!-- Newest-event stamp: %1$s is a clock time, %2$s the short date -->
+    <string name="widget_event_stamp">%1$s, %2$s</string>
     <string name="settings_widget_title">Home-screen widget</string>
-    <string name="settings_widget_graphs_subtitle">Traffic graphs: overlay each member with its last hour of requests. Fresh bars cost one extra request per member on each background check.</string>
+    <string name="settings_widget_graphs_title">Traffic graphs</string>
+    <string name="settings_widget_graphs_subtitle">Overlay each member with its last hour of requests. Fresh bars cost one extra request per member on each background check.</string>
+    <string name="settings_widget_quota_title">Quota badges</string>
+    <string name="settings_widget_quota_subtitle">Carry the provider quota strip on the widget. Off also drops the quota read from each background check.</string>
 
     <string name="settings_quota_badges_title">Quota badges</string>
     <string name="settings_quota_badges_subtitle">Choose which provider quota badges show on the dashboard and the widget, reorder them, and pick used or remaining.</string>

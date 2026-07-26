@@ -268,8 +268,12 @@
     <string name="widget_state_drained">Drenado</string>
     <string name="widget_state_unknown">Desconocido</string>
     <string name="widget_event_header">Último evento de la flota</string>
+    <string name="widget_event_stamp">%1$s, %2$s</string>
     <string name="settings_widget_title">Widget de pantalla de inicio</string>
-    <string name="settings_widget_graphs_subtitle">Gráficas de tráfico: muestran sobre cada miembro sus solicitudes de la última hora. Mantenerlas al día cuesta una solicitud extra por miembro en cada comprobación en segundo plano.</string>
+    <string name="settings_widget_graphs_title">Gráficas de tráfico</string>
+    <string name="settings_widget_graphs_subtitle">Muestran sobre cada miembro sus solicitudes de la última hora. Mantenerlas al día cuesta una solicitud extra por miembro en cada comprobación en segundo plano.</string>
+    <string name="settings_widget_quota_title">Insignias de cuota</string>
+    <string name="settings_widget_quota_subtitle">Mostrar en el widget la tira de cuotas de los proveedores. Al desactivarla también se omite la lectura de cuotas en cada comprobación en segundo plano.</string>
 
     <string name="settings_quota_badges_title">Insignias de cuota</string>
     <string name="settings_quota_badges_subtitle">Elige qué insignias de cuota de proveedor se muestran en el dashboard y en el widget, reordénalas y elige usado o restante.</string>

@@ -82,6 +82,10 @@ fun QuotaBadgesConfigScreen(
     val configFlow = remember(configStore, surface) { configStore.config(surface) }
     val config by configFlow.collectAsState(initial = QuotaBadgeConfig())
     val mode by prefsStore.quotaBarMode.collectAsState(initial = QuotaBarMode.REMAINING)
+    // A widget not carrying the strip has nothing to order, so its tab is inert
+    // (faded, not gone: the two surfaces are the point of this screen). The
+    // stored WIDGET order is untouched and waiting for the switch to come back.
+    val widgetStrip by prefsStore.widgetQuota.collectAsState(initial = true)
 
     Scaffold(modifier = modifier.fillMaxSize()) { innerPadding ->
         Column(
@@ -118,7 +122,11 @@ fun QuotaBadgesConfigScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            SurfaceTabsRow(surface = surface, onSelect = { surface = it })
+            SurfaceTabsRow(
+                surface = surface,
+                onSelect = { surface = it },
+                widgetEnabled = widgetStrip,
+            )
 
             // How much of what the fleet offers this surface actually shows. On
             // either tab, since "6 of 8" is the same question on the dashboard as
@@ -205,6 +213,7 @@ private fun ModeToggleRow(
 private fun SurfaceTabsRow(
     surface: QuotaSurface,
     onSelect: (QuotaSurface) -> Unit,
+    widgetEnabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -224,6 +233,7 @@ private fun SurfaceTabsRow(
             onClick = { onSelect(QuotaSurface.WIDGET) },
             tag = "quota-config-tab-widget",
             modifier = Modifier.weight(1f),
+            enabled = widgetEnabled,
         )
     }
 }

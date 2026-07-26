@@ -106,6 +106,10 @@ internal fun FilterPill(
     // inside a Card pass `onSurfaceVariant` instead, since `outline` is close
     // enough to the card's tonal fill to nearly vanish against it.
     borderColor: Color = MaterialTheme.colorScheme.outline,
+    // A pill whose choice isn't available right now: still readable, so the set
+    // still says what it offers, but faded and inert rather than hidden -- a
+    // segmented control that loses a segment reads as a different control.
+    enabled: Boolean = true,
 ) {
     // Selected fills with the brass accent; unselected is an outlined toggle
     // (transparent with a hairline border) rather than a grey fill, so the set
@@ -115,12 +119,18 @@ internal fun FilterPill(
     val container = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
     val content =
         if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    // Material's disabled-content alpha rather than the switch's gentler 0.6:
+    // a switch shows its state through the thumb's position and fill, while a
+    // pill has only its text and hairline border to look inert with, and at 0.6
+    // it reads much like an ordinary unselected pill.
+    val stateAlpha = if (enabled) 1f else 0.38f
     Surface(
         onClick = onClick,
-        color = container,
-        contentColor = content,
+        enabled = enabled,
+        color = container.copy(alpha = container.alpha * stateAlpha),
+        contentColor = content.copy(alpha = stateAlpha),
         shape = MaterialTheme.shapes.small,
-        border = if (selected) null else BorderStroke(1.dp, borderColor),
+        border = if (selected) null else BorderStroke(1.dp, borderColor.copy(alpha = stateAlpha)),
         modifier = modifier.testTag(tag),
     ) {
         Text(

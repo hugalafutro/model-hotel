@@ -97,10 +97,16 @@ private const val WIDGET_QUOTA_PILL_CHROME_DP = 9
 private const val WIDGET_QUOTA_MAX_PER_ROW = 9
 
 /**
- * badgeWidthDp estimates what one badge occupies, label plus pill chrome.
+ * badgeWidthDp estimates what one badge occupies, label plus pill chrome, for a
+ * caller that cannot measure the text itself. The widget CAN (it hands
+ * [quotaBadgeRows] a real measurement, see BellhopWidget), so this is the
+ * fallback and the tests' yardstick: it deliberately over-estimates, since a row
+ * fitted too wide clips its last badge while one fitted too narrow only wastes
+ * space.
+ *
  * Internal rather than private so the packing tests measure rows with the same
- * arithmetic the packer uses instead of restating the constants, which is how
- * they came to check a marker reserve production had already outgrown.
+ * arithmetic the default packer uses instead of restating the constants, which
+ * is how they came to check a marker reserve production had already outgrown.
  */
 internal fun badgeWidthDp(badge: WidgetQuotaBadge): Int =
     badge.label.length * WIDGET_QUOTA_CHAR_DP + WIDGET_QUOTA_PILL_CHROME_DP
@@ -108,10 +114,10 @@ internal fun badgeWidthDp(badge: WidgetQuotaBadge): Int =
 /**
  * WIDGET_QUOTA_OVERFLOW_MARKER_DP is what the trailing "+N" costs the row that
  * carries it: four characters ("+999", far past any real fleet's provider
- * count) plus its gap. The marker is rendered *unweighted*, so it takes its
- * width off the top and the row's badges split only what is left -- which is
- * why the row that carries it is fitted against a budget short by this much,
- * rather than against the full width.
+ * count) plus its gap. The marker sits after the last badge on the same row, so
+ * the badges have only the remainder to spend -- which is why the row that
+ * carries it is fitted against a budget short by this much, rather than against
+ * the full width.
  *
  * Internal for the same reason as [badgeWidthDp]: the tests assert against this
  * number, so they must read it rather than repeat it.
@@ -121,15 +127,15 @@ internal const val WIDGET_QUOTA_OVERFLOW_MARKER_DP = 28
 /**
  * quotaBadgeRows packs [badges] into the rows the widget renders, keeping the
  * given order and fitting as many per row as [budgetDp] -- the widget's real
- * inner width -- allows.
+ * inner width -- allows. [widthDp] says what one badge costs; the widget passes
+ * a real text measurement and everyone else gets [badgeWidthDp]'s estimate.
  *
- * The widget stretches a row's badges to equal shares, so a row of n badges is
- * only safe when n times its *own* widest label still fits: an equal share
- * narrower than the longest badge clips that badge. Packing therefore fills
- * each row against that row's widest, not the whole strip's -- sizing every row
- * off the global widest let one long label ("NW 12.5/20 kWh") force the entire
- * strip to one badge per row, which combined with [WIDGET_QUOTA_MAX_ROWS] hid
- * two thirds of a full selection on a narrow widget.
+ * Each badge is as wide as its own label, so a row fits while the SUM of its
+ * badges' widths does. That is looser than the equal-share layout this replaced,
+ * where a row of n badges had to fit n times its own widest label: uniform
+ * columns meant one long label ("NW 12.5/20 kWh") priced every badge beside it
+ * at its own width, so rows carried a badge or two fewer than they had room for
+ * and a row left holding one badge stretched it across the full width.
  *
  * Rows past [WIDGET_QUOTA_MAX_ROWS] are still dropped -- the strip must not eat
  * the fleet rows the widget exists for -- so the caller asks
@@ -140,11 +146,12 @@ internal const val WIDGET_QUOTA_OVERFLOW_MARKER_DP = 28
 fun quotaBadgeRows(
     badges: List<WidgetQuotaBadge>,
     budgetDp: Int = WIDGET_QUOTA_DEFAULT_ROW_BUDGET_DP,
+    widthDp: (WidgetQuotaBadge) -> Int = ::badgeWidthDp,
 ): List<List<WidgetQuotaBadge>> {
-    val packed = packRows(badges, budgetDp)
+    val packed = packRows(badges, budgetDp, widthDp)
     if (packed.size <= WIDGET_QUOTA_MAX_ROWS) return packed
     val kept = packed.take(WIDGET_QUOTA_MAX_ROWS).toMutableList()
-    kept[kept.lastIndex] = fitAroundMarker(kept.last(), budgetDp)
+    kept[kept.lastIndex] = fitAroundMarker(kept.last(), budgetDp, widthDp)
     return kept
 }
 
@@ -158,10 +165,11 @@ fun quotaBadgeRows(
 private fun fitAroundMarker(
     row: List<WidgetQuotaBadge>,
     budgetDp: Int,
+    widthDp: (WidgetQuotaBadge) -> Int,
 ): List<WidgetQuotaBadge> {
     val budget = budgetDp - WIDGET_QUOTA_OVERFLOW_MARKER_DP
     var out = row
-    while (out.size > 1 && out.size * out.maxOf { badgeWidthDp(it) } > budget) {
+    while (out.size > 1 && out.sumOf(widthDp) > budget) {
         out = out.dropLast(1)
     }
     return out
@@ -171,24 +179,24 @@ private fun fitAroundMarker(
 private fun packRows(
     badges: List<WidgetQuotaBadge>,
     budgetDp: Int,
+    widthDp: (WidgetQuotaBadge) -> Int,
 ): List<List<WidgetQuotaBadge>> {
     val rows = mutableListOf<MutableList<WidgetQuotaBadge>>()
-    // The widest label in the row being filled: what every badge in it will be
-    // stretched to, and so what decides whether one more still fits.
-    var rowWidest = 0
+    // What the row being filled has already spent, since each badge takes only
+    // its own label's width.
+    var rowWidth = 0
     badges.forEach { badge ->
-        val width = badgeWidthDp(badge)
+        val width = widthDp(badge)
         val row = rows.lastOrNull()
-        val widest = maxOf(rowWidest, width)
-        val fits = row != null && row.size < WIDGET_QUOTA_MAX_PER_ROW && (row.size + 1) * widest <= budgetDp
+        val fits = row != null && row.size < WIDGET_QUOTA_MAX_PER_ROW && rowWidth + width <= budgetDp
         if (fits) {
             row.add(badge)
-            rowWidest = widest
+            rowWidth += width
         } else {
             // A new row always accepts its first badge, so one wider than the
             // whole widget still gets a line rather than disappearing.
             rows += mutableListOf(badge)
-            rowWidest = width
+            rowWidth = width
         }
     }
     // Every row, cap included: the caller needs to see that it overflowed to

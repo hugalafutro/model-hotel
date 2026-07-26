@@ -196,4 +196,36 @@ class WidgetRefreshTest {
             assertEquals(Result.success(), result)
             assertEquals(prior, widget.read()?.quota)
         }
+
+    @Test
+    fun quotaStripSwitchedOffSkipsTheReadAndKeepsTheBadgesItHas() =
+        runBlocking {
+            // The strip is the only reason a poll reads quota at all, so with it
+            // switched off in Settings the request must not be made: only members
+            // and auto-sync are enqueued, and a third request would find nothing
+            // to answer it. The stored badges stay put rather than being cleared,
+            // so switching the strip back on shows them at once.
+            val widget = newWidgetStore()
+            val prior = listOf(WidgetQuotaBadge("or-1", "OPENROUTER", "\$7.50"))
+            widget.saveIfChanged(
+                WidgetState(members = listOf(WidgetMember("hotel-1", "UP", id = "m1")), quota = prior),
+                widget.generation(),
+            )
+            server.enqueue(MockResponse().setBody(memberBody(healthy = true)))
+            server.enqueue(MockResponse().setBody("""{"enabled":true,"primary_id":"m1","stale":false}"""))
+
+            val result =
+                refreshWidgetOnly(
+                    linkedLinkStore(),
+                    widget,
+                    client,
+                    newConfigStore(),
+                    includeQuota = false,
+                    now = { 42L },
+                )
+
+            assertEquals(Result.success(), result)
+            assertEquals(2, server.requestCount)
+            assertEquals(prior, widget.read()?.quota)
+        }
 }

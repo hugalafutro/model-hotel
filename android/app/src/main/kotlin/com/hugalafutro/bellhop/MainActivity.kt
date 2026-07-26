@@ -262,6 +262,7 @@ fun BellhopApp(
     val pushEndpoint by monitorStore.endpoint.collectAsStateWithLifecycle(initialValue = null)
     val holdToCopy by prefsStore.holdToCopy.collectAsStateWithLifecycle(initialValue = true)
     val widgetGraphs by prefsStore.widgetGraphs.collectAsStateWithLifecycle(initialValue = false)
+    val widgetQuota by prefsStore.widgetQuota.collectAsStateWithLifecycle(initialValue = true)
     val quotaBarMode by prefsStore.quotaBarMode.collectAsStateWithLifecycle(initialValue = QuotaBarMode.REMAINING)
     val timeFormat by prefsStore.timeFormat.collectAsStateWithLifecycle(initialValue = TimeFormat.SYSTEM)
     val graphRangeMinutes by
@@ -603,6 +604,17 @@ fun BellhopApp(
                                 FleetPollWorker.runWidgetRefresh(context)
                             }
                         },
+                        widgetQuota = widgetQuota,
+                        onToggleWidgetQuota = {
+                            scope.launch {
+                                prefsStore.setWidgetQuota(it)
+                                // Same reason as the bars above: turning the strip
+                                // back on should fill it from a fresh read rather
+                                // than leave yesterday's badges standing until the
+                                // next organic write.
+                                FleetPollWorker.runWidgetRefresh(context)
+                            }
+                        },
                         onUnlink = { runUnlink(state.fdUrl) },
                         onForceUnlink = { forceUnlink() },
                         requireOperatorAuth = { action -> requireOperatorAuth(action) },
@@ -658,6 +670,8 @@ private fun LinkedContent(
     onSetGraphRange: (Int) -> Unit,
     widgetGraphs: Boolean,
     onToggleWidgetGraphs: (Boolean) -> Unit,
+    widgetQuota: Boolean,
+    onToggleWidgetQuota: (Boolean) -> Unit,
     onUnlink: () -> Unit,
     onForceUnlink: () -> Unit,
     requireOperatorAuth: (() -> Unit) -> Unit,
@@ -713,6 +727,7 @@ private fun LinkedContent(
                     // the VM outlives recompositions, so a captured Boolean
                     // would freeze the toggle at creation time.
                     widgetGraphs = { PrefsStore.create(monitorContext).widgetGraphs.first() },
+                    widgetQuota = { PrefsStore.create(monitorContext).widgetQuota.first() },
                     configStore = QuotaBadgeConfigStore.create(monitorContext),
                     barMode = { PrefsStore.create(monitorContext).quotaBarMode.first() },
                 ),
@@ -857,6 +872,8 @@ private fun LinkedContent(
                 onSetGraphRange = onSetGraphRange,
                 widgetGraphs = widgetGraphs,
                 onToggleWidgetGraphs = onToggleWidgetGraphs,
+                widgetQuota = widgetQuota,
+                onToggleWidgetQuota = onToggleWidgetQuota,
                 timeFormat = timeFormat,
                 onSetTimeFormat = onSetTimeFormat,
                 alertCounts = alertCounts,

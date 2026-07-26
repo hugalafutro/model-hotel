@@ -280,8 +280,12 @@
     <string name="widget_state_drained">Odstavené</string>
     <string name="widget_state_unknown">Neznáme</string>
     <string name="widget_event_header">Posledná udalosť flotily</string>
+    <string name="widget_event_stamp">%1$s, %2$s</string>
     <string name="settings_widget_title">Widget na ploche</string>
-    <string name="settings_widget_graphs_subtitle">Grafy prevádzky: prekryjú každého člena požiadavkami za poslednú hodinu. Čerstvé stĺpce stoja jednu požiadavku na člena navyše pri každej kontrole na pozadí.</string>
+    <string name="settings_widget_graphs_title">Grafy prevádzky</string>
+    <string name="settings_widget_graphs_subtitle">Prekryjú každého člena požiadavkami za poslednú hodinu. Čerstvé stĺpce stoja jednu požiadavku na člena navyše pri každej kontrole na pozadí.</string>
+    <string name="settings_widget_quota_title">Odznaky kvót</string>
+    <string name="settings_widget_quota_subtitle">Zobrazovať na widgete pás kvót poskytovateľov. Vypnutie zároveň odoberie čítanie kvót z každej kontroly na pozadí.</string>
 
     <string name="settings_quota_badges_title">Odznaky kvót</string>
     <string name="settings_quota_badges_subtitle">Vyberte, ktoré odznaky kvót poskytovateľov sa zobrazia na dashboarde a vo widgete, usporiadajte ich a zvoľte využité alebo zostávajúce.</string>
