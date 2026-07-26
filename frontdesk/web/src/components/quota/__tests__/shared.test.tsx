@@ -7,7 +7,14 @@ import {
 	QuotaDetailItem,
 	QuotaModalShell,
 	quotaRightText,
+	resetSublabel,
+	resetSublabelFromEpoch,
 } from "../shared";
+
+// Returns the last dotted segment of the key, ignoring interpolation options,
+// same convention as the quotaRightText tests below: locale-independent,
+// asserts on the translation KEY rather than a translated value.
+const stubT = (key: string) => key.split(".").pop() as string;
 
 describe("QuotaBar", () => {
 	it("fills to the used share in used mode", () => {
@@ -231,5 +238,62 @@ describe("quotaRightText", () => {
 		expect(
 			quotaRightText(40, "remaining", (k) => k.split(".").pop() as string),
 		).toBe("60% left");
+	});
+});
+
+describe("resetSublabel", () => {
+	it("returns the dash sentinel for undefined", () => {
+		expect(resetSublabel(undefined, stubT)).toBe("-");
+	});
+
+	it("returns the dash sentinel for null", () => {
+		expect(resetSublabel(null, stubT)).toBe("-");
+	});
+
+	it("returns the dash sentinel for an empty string", () => {
+		expect(resetSublabel("", stubT)).toBe("-");
+	});
+
+	it("returns the dash sentinel for an unparseable ISO string", () => {
+		expect(resetSublabel("not-a-date", stubT)).toBe("-");
+	});
+
+	it("composes the resets key and a non-empty relative line for a valid ISO string", () => {
+		const iso = new Date(Date.now() + 3_600_000).toISOString();
+		const out = resetSublabel(iso, stubT);
+		const lines = out.split("\n");
+		expect(lines).toHaveLength(2);
+		expect(lines[0]).toBe("resets");
+		expect(lines[1].length).toBeGreaterThan(0);
+	});
+});
+
+describe("resetSublabelFromEpoch", () => {
+	it("returns the dash sentinel for null", () => {
+		expect(resetSublabelFromEpoch(null, stubT)).toBe("-");
+	});
+
+	it("returns the dash sentinel for undefined", () => {
+		expect(resetSublabelFromEpoch(undefined, stubT)).toBe("-");
+	});
+
+	it("returns the dash sentinel for NaN", () => {
+		expect(resetSublabelFromEpoch(Number.NaN, stubT)).toBe("-");
+	});
+
+	it("returns the dash sentinel for zero", () => {
+		expect(resetSublabelFromEpoch(0, stubT)).toBe("-");
+	});
+
+	it("returns the dash sentinel for a negative instant", () => {
+		expect(resetSublabelFromEpoch(-1000, stubT)).toBe("-");
+	});
+
+	it("delegates to resetSublabel for a valid future instant", () => {
+		const out = resetSublabelFromEpoch(Date.now() + 3_600_000, stubT);
+		const lines = out.split("\n");
+		expect(lines).toHaveLength(2);
+		expect(lines[0]).toBe("resets");
+		expect(lines[1].length).toBeGreaterThan(0);
 	});
 });

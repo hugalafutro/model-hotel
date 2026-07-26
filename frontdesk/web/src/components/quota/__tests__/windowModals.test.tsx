@@ -61,7 +61,9 @@ describe("ZAICodingQuotaModal", () => {
 		render(
 			<ZAICodingQuotaModal {...chrome} payload={payload} barMode="used" />,
 		);
-		expect(screen.getByTestId("zai-mcp-detail-glm-4")).toHaveTextContent("7");
+		const row = screen.getByTestId("zai-mcp-detail-glm-4");
+		expect(row).toHaveTextContent("glm-4");
+		expect(row).toHaveTextContent("7");
 	});
 
 	it("omits a bar whose window is absent", () => {
@@ -110,7 +112,12 @@ describe("KimiCodeQuotaModal", () => {
 	it("renders the parallel limit and total quota rows", () => {
 		render(<KimiCodeQuotaModal {...chrome} payload={payload} barMode="used" />);
 		expect(screen.getByTestId("kimi-parallel")).toHaveTextContent("4");
-		expect(screen.getByTestId("kimi-total-quota")).toHaveTextContent("8000");
+		// Full "remaining / limit" order, not just a substring: a
+		// remaining/limit field swap would still contain "8000" and pass a
+		// looser assertion.
+		expect(screen.getByTestId("kimi-total-quota")).toHaveTextContent(
+			"8000 / 9000",
+		);
 	});
 
 	it("omits the extras block when neither extra is reported", () => {
@@ -123,6 +130,32 @@ describe("KimiCodeQuotaModal", () => {
 		);
 		expect(screen.queryByTestId("kimi-parallel")).toBeNull();
 		expect(screen.queryByTestId("kimi-total-quota")).toBeNull();
+	});
+
+	it("renders only the parallel row when total quota is absent", () => {
+		render(
+			<KimiCodeQuotaModal
+				{...chrome}
+				payload={{ usage: payload.usage, parallel: payload.parallel }}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByTestId("kimi-parallel")).toHaveTextContent("4");
+		expect(screen.queryByTestId("kimi-total-quota")).toBeNull();
+	});
+
+	it("renders only the total quota row, falling back to '-' for a missing field, when parallel is absent", () => {
+		render(
+			<KimiCodeQuotaModal
+				{...chrome}
+				payload={{ usage: payload.usage, totalQuota: { remaining: "8000" } }}
+				barMode="used"
+			/>,
+		);
+		expect(screen.queryByTestId("kimi-parallel")).toBeNull();
+		expect(screen.getByTestId("kimi-total-quota")).toHaveTextContent(
+			"8000 / -",
+		);
 	});
 });
 
@@ -150,6 +183,22 @@ describe("MiniMaxQuotaModal", () => {
 				current_weekly_remaining_percent: 0,
 				weekly_remains_time: 0,
 			},
+			{
+				// A second active class with a 24 hour window, distinct from
+				// "general"'s 5 hour window: proves the label is DERIVED from
+				// start_time/end_time rather than the 5 hour fallback, which
+				// "general" alone cannot distinguish (its own window is 5 hours,
+				// same as the fallback).
+				model_name: "audio",
+				start_time: 0,
+				end_time: 86_400_000,
+				current_interval_status: 1,
+				current_interval_remaining_percent: 50,
+				remains_time: 3_600_000,
+				current_weekly_status: 1,
+				current_weekly_remaining_percent: 50,
+				weekly_remains_time: 86_400_000,
+			},
 		],
 	};
 
@@ -174,6 +223,13 @@ describe("MiniMaxQuotaModal", () => {
 		// end_time - start_time is 18,000,000 ms, i.e. 5 hours.
 		expect(screen.getByTestId("minimax-general-5h-label")).toHaveTextContent(
 			"5",
+		);
+		// "audio"'s window is 86,400,000 ms, i.e. 24 hours, which differs from
+		// the hardcoded fallback (5). If the derivation above were deleted and
+		// replaced with a literal 5, this assertion (not the "general" one
+		// above, which can't tell 5-computed from 5-hardcoded) would fail.
+		expect(screen.getByTestId("minimax-audio-5h-label")).toHaveTextContent(
+			"24",
 		);
 	});
 

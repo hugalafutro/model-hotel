@@ -83,7 +83,7 @@ export function ZAICodingQuotaModal({
 
 			{mcp && (
 				<QuotaBar
-					label={t("quota.modal.mcpTokenQuota")}
+					label={t("quota.modal.mcpTimeQuota")}
 					rightText={rightText(mcp.percentage)}
 					percentage={mcp.percentage}
 					barMode={barMode}

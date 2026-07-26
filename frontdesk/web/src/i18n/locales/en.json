@@ -519,7 +519,7 @@
 			"plan": "Plan",
 			"hourTokenQuota": "{{hours}} hour token quota",
 			"weeklyTokenQuota": "Weekly token quota",
-			"mcpTokenQuota": "MCP token quota",
+			"mcpTimeQuota": "MCP time quota",
 			"kimiParallelLimit": "Parallel request limit",
 			"kimiTotalQuota": "Total quota",
 			"miniMaxChatModels": "Chat models",

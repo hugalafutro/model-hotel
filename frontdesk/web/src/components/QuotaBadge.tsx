@@ -21,8 +21,7 @@ import {
 	type QuotaBadgeModel,
 	type QuotaBarMode,
 } from "../utils/quota";
-
-type Translate = (key: string, opts?: Record<string, unknown>) => string;
+import type { Translate } from "./quota/shared";
 
 /** Renders one window percentage, or "-" when that window is not reported. */
 function windowPct(pct: number | undefined, mode: QuotaBarMode): string {
