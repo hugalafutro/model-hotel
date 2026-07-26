@@ -20,6 +20,8 @@ import type {
 	OidcStatus,
 	PairedDevice,
 	PairStart,
+	QuotaRefreshResult,
+	QuotaSnapshot,
 	Settings,
 	SyncResult,
 	TotpEnrollStart,
@@ -161,6 +163,14 @@ export const api = {
 		),
 
 	getSettings: () => request<Settings>("/api/settings"),
+	// Quota snapshots proxied from the designated fleet primary. An empty list is
+	// the authoritative "no primary designated" answer; any non-2xx means we could
+	// not ask, and callers must keep their last-good data rather than blank it.
+	getQuota: () => request<{ quota: QuotaSnapshot[] }>("/api/quota"),
+	// Forces the primary to re-poll its quota providers upstream. Monitor tier, so
+	// the same endpoint Bellhop's pull-to-refresh uses.
+	refreshQuota: () =>
+		request<QuotaRefreshResult>("/api/quota/refresh", { method: "POST" }),
 	// Best-effort server-side session revoke for logout (manual or idle). A raw
 	// FRONTDESK_TOKEN bearer has no session row, so the server no-ops and returns 200.
 	logout: () => request<void>("/api/logout", { method: "POST" }),
