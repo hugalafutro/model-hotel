@@ -512,7 +512,19 @@
 			"remaining": "remaining",
 			"resets": "Resets {{when}}",
 			"noLimitSet": "No limit set",
-			"notAvailable": "Not available"
+			"notAvailable": "Not available",
+			"zaiTitle": "Z.ai Coding quota ({{provider}})",
+			"kimiTitle": "Kimi Code quota ({{provider}})",
+			"miniMaxTitle": "MiniMax quota ({{provider}})",
+			"plan": "Plan",
+			"hourTokenQuota": "{{hours}} hour token quota",
+			"weeklyTokenQuota": "Weekly token quota",
+			"mcpTokenQuota": "MCP token quota",
+			"kimiParallelLimit": "Parallel request limit",
+			"kimiTotalQuota": "Total quota",
+			"miniMaxChatModels": "Chat models",
+			"miniMaxVideoModels": "Video models",
+			"miniMaxNotInPlan": "Not included in the current plan"
 		}
 	},
 	"errors": {

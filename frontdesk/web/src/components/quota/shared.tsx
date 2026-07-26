@@ -2,12 +2,12 @@ import { ArrowClockwiseIcon, ArrowsLeftRightIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { barTone, type QuotaBarMode } from "../../utils/quota";
-import { formatAbsolute } from "../../utils/time";
+import { formatAbsolute, formatRelative } from "../../utils/time";
 import { Modal } from "../Modal";
 
 export interface QuotaBarProps {
 	/** Already-translated label for the left of the header row. */
-	label: string;
+	label: ReactNode;
 	/** Already-translated/formatted content for the right of the header row. */
 	rightText: ReactNode;
 	/**
@@ -182,4 +182,48 @@ export function QuotaDetailItem({
 			<span className="fd-quota-detail-value">{value}</span>
 		</div>
 	);
+}
+
+export type Translate = (key: string, opts?: Record<string, unknown>) => string;
+
+/**
+ * "Resets <absolute>\n<relative>" for an ISO reset time, or "-" when the
+ * provider did not report one. Rendered inside a QuotaBar sublabel, which is
+ * `white-space: pre-line`, so the newline becomes a second line.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function resetSublabel(
+	iso: string | null | undefined,
+	t: Translate,
+): string {
+	if (!iso) return "-";
+	const ms = new Date(iso).getTime();
+	if (!Number.isFinite(ms)) return "-";
+	return `${t("quota.modal.resets", { when: formatAbsolute(iso) })}\n${formatRelative(iso)}`;
+}
+
+/** Same, from an epoch-milliseconds instant (Z.ai) or a computed one (MiniMax). */
+// eslint-disable-next-line react-refresh/only-export-components
+export function resetSublabelFromEpoch(
+	ms: number | null | undefined,
+	t: Translate,
+): string {
+	if (ms == null || !Number.isFinite(ms) || ms <= 0) return "-";
+	return resetSublabel(new Date(ms).toISOString(), t);
+}
+
+/**
+ * The right-hand figure on a quota bar header: "40% used" or "60% left",
+ * whichever the current bar mode calls for. `used` is a percent used, matching
+ * QuotaBar's `percentage`.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function quotaRightText(
+	used: number,
+	barMode: QuotaBarMode,
+	t: Translate,
+): string {
+	return barMode === "used"
+		? `${used.toFixed(0)}% ${t("quota.modal.used")}`
+		: `${(100 - used).toFixed(0)}% ${t("quota.modal.left")}`;
 }

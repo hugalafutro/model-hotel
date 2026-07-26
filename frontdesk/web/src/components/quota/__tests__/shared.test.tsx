@@ -6,6 +6,7 @@ import {
 	QuotaDetailGrid,
 	QuotaDetailItem,
 	QuotaModalShell,
+	quotaRightText,
 } from "../shared";
 
 describe("QuotaBar", () => {
@@ -216,5 +217,19 @@ describe("QuotaDetailGrid", () => {
 		expect(screen.getByTestId("notes").className).toContain(
 			"fd-quota-detail-span",
 		);
+	});
+});
+
+describe("quotaRightText", () => {
+	it("reports the used share in used mode", () => {
+		expect(
+			quotaRightText(40, "used", (k) => k.split(".").pop() as string),
+		).toBe("40% used");
+	});
+
+	it("reports the remaining share in remaining mode", () => {
+		expect(
+			quotaRightText(40, "remaining", (k) => k.split(".").pop() as string),
+		).toBe("60% left");
 	});
 });
