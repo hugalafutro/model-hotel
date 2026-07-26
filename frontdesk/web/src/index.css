@@ -493,7 +493,11 @@ h3 {
 	max-width: 520px;
 	padding: 1.25rem 1.35rem;
 }
-.fd-modal h2 {
+/* :where() zeroes the .fd-modal part of the selector, so this base rule scores
+   as a bare `h2` (0,0,1) and `.fd-modal-heading h2` below beats it on
+   specificity rather than on source order. Same declarations as before, so
+   nothing moves for the dialogs that do not override it. */
+:where(.fd-modal) h2 {
 	font-size: 1.05rem;
 	margin-bottom: 0.6rem;
 }

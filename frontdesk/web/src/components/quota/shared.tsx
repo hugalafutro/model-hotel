@@ -1,4 +1,8 @@
-import { ArrowClockwiseIcon, ArrowsLeftRightIcon } from "@phosphor-icons/react";
+import {
+	ArrowClockwiseIcon,
+	ArrowsLeftRightIcon,
+	XIcon,
+} from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { barTone, type QuotaBarMode } from "../../utils/quota";
@@ -131,6 +135,20 @@ export function QuotaModalShell({
 							size={18}
 							className={isRefreshing ? "fd-spin" : undefined}
 						/>
+					</button>
+					{/* Close stays LAST on purpose. Modal focuses the first focusable
+					    control on open and headerActions renders before the body, so
+					    putting close first would move initial focus off the bar-mode
+					    toggle onto a dismiss button. */}
+					<button
+						type="button"
+						data-testid="quota-modal-close"
+						className="fd-quota-modal-btn"
+						onClick={onClose}
+						aria-label={t("common.close")}
+						title={t("common.close")}
+					>
+						<XIcon size={18} />
 					</button>
 				</>
 			}

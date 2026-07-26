@@ -180,6 +180,28 @@ describe("QuotaModalShell", () => {
 		expect(screen.getByTestId("sub")).toBeInTheDocument();
 	});
 
+	it("closes when the close button is pressed", async () => {
+		const props = renderShell();
+		await userEvent.click(screen.getByTestId("quota-modal-close"));
+		expect(props.onClose).toHaveBeenCalledTimes(1);
+	});
+
+	it("keeps initial focus on the bar-mode toggle, with close last in the header", () => {
+		// Modal focuses the first focusable control on open and headerActions
+		// renders before the body, so close has to stay LAST or opening a quota
+		// modal would land the keyboard on a dismiss button.
+		renderShell();
+		expect(screen.getByTestId("quota-modal-toggle")).toHaveFocus();
+		const ids = Array.from(
+			screen.getByRole("dialog").querySelectorAll("button"),
+		).map((b) => b.getAttribute("data-testid"));
+		expect(ids).toEqual([
+			"quota-modal-toggle",
+			"quota-modal-refresh",
+			"quota-modal-close",
+		]);
+	});
+
 	it("spins the refresh icon while a refresh is in flight", () => {
 		renderShell({ isRefreshing: true });
 		const icon = screen.getByTestId("quota-modal-refresh").querySelector("svg");
