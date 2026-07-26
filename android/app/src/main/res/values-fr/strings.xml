@@ -83,6 +83,8 @@
 
     <!-- Pause/resume auto-sync (dashboard operator control) -->
     <string name="autosync_title">Synchro auto</string>
+    <string name="autosync_badge_on">Synchro auto activée</string>
+    <string name="autosync_badge_off">Synchro auto désactivée</string>
     <string name="autosync_on">La flotte reste synchronisée avec le primaire.</string>
     <string name="autosync_off">La flotte ne se synchronisera pas tant que vous ne reprendrez pas.</string>
     <string name="autosync_pausing">Mise en pause…</string>
@@ -300,6 +302,9 @@
     <string name="quota_field_daily_input_tokens">Jetons d\'entrée quotidiens</string>
     <string name="quota_field_daily_images">Images quotidiennes</string>
     <string name="quota_field_mcp_quota">Quota MCP</string>
+    <string name="quota_field_five_hour">Quota sur 5 h</string>
+    <string name="quota_field_weekly">Quota hebdomadaire</string>
+    <string name="quota_field_energy">Énergie</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Badges de quota</string>

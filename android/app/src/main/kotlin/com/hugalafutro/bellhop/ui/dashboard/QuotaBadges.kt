@@ -1,16 +1,21 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -19,6 +24,8 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -28,8 +35,13 @@ import com.hugalafutro.bellhop.R
 import com.hugalafutro.bellhop.data.ProviderQuota
 import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.data.QuotaData
+import com.hugalafutro.bellhop.data.QuotaMeter
+import com.hugalafutro.bellhop.data.QuotaMeterKind
 import com.hugalafutro.bellhop.data.quotaBadgeLabel
+import com.hugalafutro.bellhop.data.quotaMeters
 import com.hugalafutro.bellhop.ui.common.TightTouchTarget
+import com.hugalafutro.bellhop.ui.theme.SeverityErrorBg
+import com.hugalafutro.bellhop.ui.theme.SeverityWarnBg
 import com.hugalafutro.bellhop.ui.theme.quotaBrandColor
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -57,16 +69,16 @@ fun QuotaBadgeRow(
 ) {
     if (quota.isEmpty()) return
     // TightTouchTarget is what makes the strip's own gaps the real gaps: every
-    // chip is a clickable Surface, and Material's 48dp minimum touch target
-    // otherwise pads each one out to more than twice its drawn height, so the
-    // strip would keep its old footprint no matter how small the chips get.
+    // chip is a clickable Surface, which Material measures at no less than
+    // 48dp square, so a 17dp chip would otherwise sit in a 48dp row and the
+    // arrangement below would be invisible between three badges' worth of air.
     // The chips sit shoulder to shoulder, so nothing else is nearby to have
     // its taps stolen by the tighter bounds.
     TightTouchTarget {
         FlowRow(
             modifier = modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalArrangement = Arrangement.spacedBy(1.dp),
+            verticalArrangement = Arrangement.spacedBy(1.dp),
         ) {
             quota.forEach { pq ->
                 QuotaBadgeChip(pq = pq, mode = mode, onClick = { onBadgeClick(pq.providerName) })
@@ -166,7 +178,7 @@ fun QuotaDetailSheet(
                     .padding(bottom = 24.dp),
         ) {
             Text(text = pq.providerName, style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             val data = pq.data
             if (!pq.available || data == null) {
                 Text(
@@ -181,21 +193,48 @@ fun QuotaDetailSheet(
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                val meters = quotaMeters(pq)
+                if (meters.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    var subject = ""
+                    meters.forEach { meter ->
+                        // MiniMax meters the same two windows per model, so the
+                        // model name heads its own pair rather than being folded
+                        // into every bar's label.
+                        if (meter.subject != subject) {
+                            subject = meter.subject
+                            if (subject.isNotBlank()) {
+                                Text(
+                                    text = subject,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    modifier = Modifier.padding(top = 6.dp),
+                                )
+                            }
+                        }
+                        QuotaMeterBar(meter = meter, mode = mode)
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
                 QuotaDetailRows(data)
             }
         }
     }
 }
 
-/** QuotaDetailRow is one label/value line in the detail sheet. */
+/**
+ * QuotaDetailRow is one label/value line in the detail sheet. The rule rides
+ * above the row rather than below it, so a run of rows is separated without a
+ * trailing rule hanging off the bottom of the sheet, and the first row is
+ * fenced off from the bars above it.
+ */
 @Composable
 private fun QuotaDetailRow(
     label: String,
     value: String,
 ) {
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
@@ -232,30 +271,31 @@ private fun QuotaDetailRows(data: QuotaData) {
                 )
             }
             QuotaDetailRow(stringResource(R.string.quota_field_allow_overage), if (data.allowOverage) yes else no)
-            data.dailyInputTokens?.let { info ->
-                QuotaDetailRow(
-                    stringResource(R.string.quota_field_daily_input_tokens),
-                    "${tokenAmount(info.used)}/${tokenAmount(data.limits.dailyInputTokens)}",
-                )
+            // Uncapped periods get a row instead of a bar: with no ceiling there
+            // is nothing to fill, and "12,345/∞" is the whole reading.
+            if (!isCapped(data.limits.dailyInputTokens)) {
+                data.dailyInputTokens?.let { info ->
+                    QuotaDetailRow(
+                        stringResource(R.string.quota_field_daily_input_tokens),
+                        "${tokenAmount(info.used)}/${tokenAmount(data.limits.dailyInputTokens)}",
+                    )
+                }
             }
-            data.dailyImages?.let { info ->
-                QuotaDetailRow(
-                    stringResource(R.string.quota_field_daily_images),
-                    "${tokenAmount(info.used)}/${tokenAmount(data.limits.dailyImages)}",
-                )
+            if (!isCapped(data.limits.dailyImages)) {
+                data.dailyImages?.let { info ->
+                    QuotaDetailRow(
+                        stringResource(R.string.quota_field_daily_images),
+                        "${tokenAmount(info.used)}/${tokenAmount(data.limits.dailyImages)}",
+                    )
+                }
             }
         }
         is QuotaData.ZaiCoding -> {
             if (data.data.level.isNotBlank()) {
                 QuotaDetailRow(stringResource(R.string.quota_field_plan), data.data.level)
             }
-            val mcpLimit = data.data.limits.find { it.type == "TIME_LIMIT" && it.unit == 5 }
-            mcpLimit?.let {
-                QuotaDetailRow(
-                    stringResource(R.string.quota_field_mcp_quota),
-                    "${it.percentage.roundToInt()}%",
-                )
-            }
+            // The MCP window is a bar now (see quotaMeters); a row repeating its
+            // percentage underneath would say the same thing twice.
         }
         is QuotaData.KimiCode -> {
             val level = data.user.membership.level
@@ -275,27 +315,32 @@ private fun QuotaDetailRows(data: QuotaData) {
             }
         }
         is QuotaData.MiniMax -> {
-            data.modelRemains.forEach { entry ->
-                QuotaDetailRow(
-                    entry.modelName,
-                    stringResource(
-                        if (entry.currentIntervalStatus == 3) {
-                            R.string.quota_status_not_in_plan
-                        } else {
-                            R.string.quota_status_in_plan
-                        },
-                    ),
-                )
-            }
+            // Models on the plan are drawn as bars above; the rest have no
+            // windows to meter, so their status is all there is to say.
+            data.modelRemains
+                .filter { it.currentIntervalStatus != 1 }
+                .forEach { entry ->
+                    QuotaDetailRow(
+                        entry.modelName,
+                        stringResource(
+                            if (entry.currentIntervalStatus == 3) {
+                                R.string.quota_status_not_in_plan
+                            } else {
+                                R.string.quota_status_in_plan
+                            },
+                        ),
+                    )
+                }
         }
         // DeepSeek has no dedicated web modal -- only the badge tooltip, which
         // is exactly the headline above -- so no supporting rows.
         is QuotaData.DeepSeek -> Unit
         is QuotaData.OpenRouter -> {
-            if (data.creditsTotal > 0) {
-                QuotaDetailRow(stringResource(R.string.quota_field_credits_total), usd(data.creditsTotal))
+            // With a credit ceiling the bar above already reads used-of-total;
+            // without one there is no bar, so the spend still needs a row.
+            if (data.creditsTotal <= 0) {
+                QuotaDetailRow(stringResource(R.string.quota_field_credits_used), usd(data.creditsUsed))
             }
-            QuotaDetailRow(stringResource(R.string.quota_field_credits_used), usd(data.creditsUsed))
             QuotaDetailRow(stringResource(R.string.quota_field_usage_today), usd(data.usageDaily))
             QuotaDetailRow(stringResource(R.string.quota_field_usage_month), usd(data.usageMonthly))
             QuotaDetailRow(stringResource(R.string.quota_field_free_tier), if (data.isFreeTier) yes else no)
@@ -316,9 +361,8 @@ private fun QuotaDetailRows(data: QuotaData) {
                 stringResource(R.string.quota_field_balance_remaining),
                 usd(data.balance.creditsRemainingUsd),
             )
-            if (data.balance.totalCreditsUsd > 0) {
-                QuotaDetailRow(stringResource(R.string.quota_field_balance_total), usd(data.balance.totalCreditsUsd))
-            }
+            // The total is the right-hand end of the credits bar above whenever
+            // there is one, and a bar is drawn for exactly the same condition.
             if (data.subscription.plan.isNotBlank()) {
                 QuotaDetailRow(stringResource(R.string.quota_field_plan), data.subscription.plan)
             }
@@ -328,6 +372,107 @@ private fun QuotaDetailRows(data: QuotaData) {
         }
     }
 }
+
+/**
+ * QuotaMeterBar draws one [QuotaMeter] as a labelled bar, in the polarity
+ * [mode] selects -- the same polarity the badge that opened the sheet is using,
+ * so a badge reading "63%" opens onto a bar that is 63% full, not 37%.
+ *
+ * The fill colour follows Model Hotel's web modals (the `remainingBarColor` /
+ * `usedBarColor` pair in web/src/components/modals/shared.tsx): healthy in the
+ * theme's own accent, then warning, then error as the reading gets worse. The
+ * thresholds differ by polarity there and they differ here for the same reason
+ * -- "half used" is calm, "half left" is not.
+ */
+@Composable
+private fun QuotaMeterBar(
+    meter: QuotaMeter,
+    mode: QuotaBarMode,
+) {
+    val used = meter.usedPercent.coerceIn(0.0, 100.0)
+    val shown = if (mode == QuotaBarMode.USED) used else 100.0 - used
+    val tag =
+        if (meter.subject.isBlank()) {
+            "quota-detail-meter-${meter.kind.name}"
+        } else {
+            "quota-detail-meter-${meter.subject}-${meter.kind.name}"
+        }
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).testTag(tag)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = stringResource(meterLabel(meter.kind)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                // A provider that reports only a percentage has nothing else to
+                // put here, and the percentage is already the bar's own length.
+                text = meter.value.ifBlank { "${shown.roundToInt()}%" },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        Spacer(modifier = Modifier.height(2.dp))
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(MaterialTheme.shapes.extraSmall)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth((shown / 100.0).toFloat())
+                        .fillMaxHeight()
+                        .background(meterColor(used, mode)),
+            )
+        }
+    }
+}
+
+@Composable
+private fun meterColor(
+    usedPercent: Double,
+    mode: QuotaBarMode,
+): Color =
+    if (mode == QuotaBarMode.USED) {
+        when {
+            usedPercent < 50 -> MaterialTheme.colorScheme.primary
+            usedPercent < 80 -> SeverityWarnBg
+            else -> SeverityErrorBg
+        }
+    } else {
+        when {
+            100 - usedPercent < 20 -> SeverityErrorBg
+            100 - usedPercent < 60 -> SeverityWarnBg
+            else -> MaterialTheme.colorScheme.primary
+        }
+    }
+
+/**
+ * meterLabel names a bar. Three kinds reuse the row labels they replaced, so a
+ * reading that moved from a row to a bar reads the same as it did before.
+ */
+@StringRes
+private fun meterLabel(kind: QuotaMeterKind): Int =
+    when (kind) {
+        QuotaMeterKind.FIVE_HOUR -> R.string.quota_field_five_hour
+        QuotaMeterKind.WEEKLY -> R.string.quota_field_weekly
+        QuotaMeterKind.MCP -> R.string.quota_field_mcp_quota
+        QuotaMeterKind.DAILY_INPUT_TOKENS -> R.string.quota_field_daily_input_tokens
+        QuotaMeterKind.DAILY_IMAGES -> R.string.quota_field_daily_images
+        QuotaMeterKind.CREDITS -> R.string.quota_field_credits_used
+        QuotaMeterKind.ENERGY -> R.string.quota_field_energy
+    }
+
+/** isCapped mirrors [quotaMeters]'s own test for whether a period has a
+ * ceiling worth drawing a bar against, so a row and a bar never both claim the
+ * same reading. */
+private fun isCapped(limit: Long?): Boolean = limit != null && limit > 0L
 
 /** isoDatePart trims an RFC3339 timestamp to its date portion; a value that
  * isn't RFC3339-shaped (no "T") is returned as-is rather than dropped, so a

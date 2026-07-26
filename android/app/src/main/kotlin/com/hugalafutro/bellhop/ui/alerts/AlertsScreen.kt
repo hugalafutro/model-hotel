@@ -21,7 +21,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,9 +34,9 @@ import androidx.compose.ui.unit.dp
 import com.hugalafutro.bellhop.R
 import com.hugalafutro.bellhop.data.AlertEventDef
 import com.hugalafutro.bellhop.data.AlertStatus
+import com.hugalafutro.bellhop.ui.common.BellhopSwitch
 import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.StatusBanner
-import com.hugalafutro.bellhop.ui.common.bellhopSwitchColors
 import com.hugalafutro.bellhop.ui.common.eventTypeLabel
 import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
@@ -261,11 +260,10 @@ private fun AlertRow(
                 // Keep onCheckedChange non-null even for a monitor so the switch keeps
                 // its toggleable semantics (and reads as disabled, not merely inert);
                 // enabled=false blocks the tap, and Front Desk's 403 is the real guard.
-                Switch(
+                BellhopSwitch(
                     checked = def.enabled,
                     onCheckedChange = onToggle,
                     enabled = canOperate,
-                    colors = bellhopSwitchColors(),
                     modifier = Modifier.testTag("alert-toggle-${def.type}"),
                 )
             }

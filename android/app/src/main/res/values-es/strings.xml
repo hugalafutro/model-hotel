@@ -83,6 +83,8 @@
 
     <!-- Pause/resume auto-sync (dashboard operator control) -->
     <string name="autosync_title">Sincronización automática</string>
+    <string name="autosync_badge_on">Sincronización automática activada</string>
+    <string name="autosync_badge_off">Sincronización automática desactivada</string>
     <string name="autosync_on">La flota se mantiene sincronizada con el primario.</string>
     <string name="autosync_off">La flota no se sincronizará hasta que la reanudes.</string>
     <string name="autosync_pausing">Pausando…</string>
@@ -300,6 +302,9 @@
     <string name="quota_field_daily_input_tokens">Tokens de entrada diarios</string>
     <string name="quota_field_daily_images">Imágenes diarias</string>
     <string name="quota_field_mcp_quota">Cuota de MCP</string>
+    <string name="quota_field_five_hour">Cuota de 5 h</string>
+    <string name="quota_field_weekly">Cuota semanal</string>
+    <string name="quota_field_energy">Energía</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Insignias de cuota</string>

@@ -81,6 +81,8 @@
 
     <!-- Pause/resume auto-sync (dashboard operator control) -->
     <string name="autosync_title">自动同步</string>
+    <string name="autosync_badge_on">自动同步已开启</string>
+    <string name="autosync_badge_off">自动同步已关闭</string>
     <string name="autosync_on">集群与主节点保持同步。</string>
     <string name="autosync_off">在你恢复之前，集群不会同步。</string>
     <string name="autosync_pausing">正在暂停…</string>
@@ -294,6 +296,9 @@
     <string name="quota_field_daily_input_tokens">每日输入 token 数</string>
     <string name="quota_field_daily_images">每日图片数</string>
     <string name="quota_field_mcp_quota">MCP 配额</string>
+    <string name="quota_field_five_hour">5 小时配额</string>
+    <string name="quota_field_weekly">每周配额</string>
+    <string name="quota_field_energy">能耗</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">配额徽章</string>

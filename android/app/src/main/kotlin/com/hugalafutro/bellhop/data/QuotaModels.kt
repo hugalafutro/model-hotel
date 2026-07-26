@@ -536,6 +536,164 @@ fun quotaHasDetail(type: QuotaType): Boolean =
         QuotaType.UNKNOWN -> false
     }
 
+/**
+ * QuotaMeterKind names one bar in a provider's detail sheet. It exists so the
+ * data layer can say *which* reading a bar is without reaching for a string
+ * resource: the sheet maps the kind onto translated copy, and the kinds a
+ * provider yields are unit-testable without a Compose runtime.
+ */
+enum class QuotaMeterKind {
+    FIVE_HOUR,
+    WEEKLY,
+    MCP,
+    DAILY_INPUT_TOKENS,
+    DAILY_IMAGES,
+    CREDITS,
+    ENERGY,
+}
+
+/**
+ * QuotaMeter is one bar's worth of a reading.
+ *
+ * [usedPercent] is always the *used* polarity (0-100), whatever the badge mode
+ * is: the sheet flips it for display the same way [quotaBadgeLabel] flips its
+ * text, so the two never disagree about which end of the bar is full.
+ * [subject] names what the bar is about when a provider meters more than one
+ * thing of the same kind (MiniMax reports per model); it is blank otherwise.
+ * [value] is the raw fraction behind the bar ("1.2M/2M", "12.5/20 kWh") when
+ * the provider reports one, and blank when the only figure it gives is the
+ * percentage itself, which the sheet already renders.
+ */
+data class QuotaMeter(
+    val kind: QuotaMeterKind,
+    val usedPercent: Double,
+    val subject: String = "",
+    val value: String = "",
+)
+
+/**
+ * quotaMeters is the bar chart behind a badge: every reading of [pq] that has
+ * both a used figure and a ceiling, in the order the matching Model Hotel web
+ * modal shows them (the QuotaModal components under web/src/components/modals).
+ *
+ * A reading with no ceiling yields no bar -- a bar with no full end is a
+ * decoration, not a reading -- so a provider on an unmetered plan simply shows
+ * its supporting rows and nothing else. DeepSeek and Ollama Cloud have no
+ * detail sheet at all (see [quotaHasDetail]) and never reach this.
+ */
+fun quotaMeters(pq: ProviderQuota): List<QuotaMeter> {
+    val data = pq.data
+    if (!pq.available || data == null) return emptyList()
+    return when (data) {
+        is QuotaData.NanoGpt ->
+            listOfNotNull(
+                tokenMeter(QuotaMeterKind.WEEKLY, data.weeklyInputTokens, data.limits.weeklyInputTokens),
+                tokenMeter(QuotaMeterKind.DAILY_INPUT_TOKENS, data.dailyInputTokens, data.limits.dailyInputTokens),
+                tokenMeter(QuotaMeterKind.DAILY_IMAGES, data.dailyImages, data.limits.dailyImages),
+            )
+        is QuotaData.ZaiCoding ->
+            listOfNotNull(
+                zaiMeter(data, QuotaMeterKind.FIVE_HOUR, "TOKENS_LIMIT", 3),
+                zaiMeter(data, QuotaMeterKind.WEEKLY, "TOKENS_LIMIT", 6),
+                zaiMeter(data, QuotaMeterKind.MCP, "TIME_LIMIT", 5),
+            )
+        is QuotaData.KimiCode -> {
+            val fiveHour =
+                data.limits
+                    .find { it.window.timeUnit == "TIME_UNIT_MINUTE" && it.window.duration == 300 }
+                    ?.detail
+            listOfNotNull(
+                kimiUsedPercent(fiveHour)?.let { QuotaMeter(QuotaMeterKind.FIVE_HOUR, it) },
+                kimiUsedPercent(data.usage)?.let { QuotaMeter(QuotaMeterKind.WEEKLY, it) },
+            )
+        }
+        // One pair of bars per model that is actually on the plan; the models
+        // that are not keep their status row and would only draw empty bars.
+        is QuotaData.MiniMax ->
+            data.modelRemains
+                .filter { it.currentIntervalStatus == 1 }
+                .flatMap { entry ->
+                    listOf(
+                        QuotaMeter(
+                            kind = QuotaMeterKind.FIVE_HOUR,
+                            usedPercent = 100.0 - entry.currentIntervalRemainingPercent,
+                            subject = entry.modelName,
+                        ),
+                        QuotaMeter(
+                            kind = QuotaMeterKind.WEEKLY,
+                            usedPercent = 100.0 - entry.currentWeeklyRemainingPercent,
+                            subject = entry.modelName,
+                        ),
+                    )
+                }
+        is QuotaData.OpenRouter ->
+            listOfNotNull(
+                amountMeter(
+                    kind = QuotaMeterKind.CREDITS,
+                    used = data.creditsUsed,
+                    ceiling = data.creditsTotal,
+                    format = { "$${formatDollarAmount(it)}" },
+                ),
+            )
+        is QuotaData.NeuralWatt ->
+            listOfNotNull(
+                amountMeter(
+                    kind = QuotaMeterKind.ENERGY,
+                    used = data.subscription.kwhUsed,
+                    ceiling = data.subscription.kwhIncluded,
+                    format = { formatKwhAmount(it) },
+                    suffix = " kWh",
+                ),
+                amountMeter(
+                    kind = QuotaMeterKind.CREDITS,
+                    used = data.balance.creditsUsedUsd,
+                    ceiling = data.balance.totalCreditsUsd,
+                    format = { "$${formatDollarAmount(it)}" },
+                ),
+            )
+        // Balance-only and plan-only: no ceiling exists to meter against.
+        is QuotaData.DeepSeek, is QuotaData.OllamaCloud -> emptyList()
+    }
+}
+
+private fun tokenMeter(
+    kind: QuotaMeterKind,
+    info: NanoGptTokenInfo?,
+    limit: Long?,
+): QuotaMeter? {
+    if (info == null || limit == null || limit <= 0L) return null
+    return QuotaMeter(
+        kind = kind,
+        usedPercent = info.used.toDouble() / limit.toDouble() * 100.0,
+        value = "${formatTokenCount(info.used)}/${formatTokenCount(limit)}",
+    )
+}
+
+private fun zaiMeter(
+    data: QuotaData.ZaiCoding,
+    kind: QuotaMeterKind,
+    type: String,
+    unit: Int,
+): QuotaMeter? {
+    val limit = data.data.limits.find { it.type == type && it.unit == unit } ?: return null
+    return QuotaMeter(kind = kind, usedPercent = limit.percentage)
+}
+
+private fun amountMeter(
+    kind: QuotaMeterKind,
+    used: Double,
+    ceiling: Double,
+    format: (Double) -> String,
+    suffix: String = "",
+): QuotaMeter? {
+    if (ceiling <= 0.0) return null
+    return QuotaMeter(
+        kind = kind,
+        usedPercent = used / ceiling * 100.0,
+        value = "${format(used)}/${format(ceiling)}$suffix",
+    )
+}
+
 /** kimiUsedPercent computes used% from Kimi's wire-string limit/remaining pair. */
 private fun kimiUsedPercent(detail: KimiCodeDetail?): Double? {
     val limit = detail?.limit?.toDoubleOrNull() ?: return null

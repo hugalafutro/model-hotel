@@ -1,11 +1,15 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import com.hugalafutro.bellhop.data.FdEvent
 import com.hugalafutro.bellhop.data.FleetMember
@@ -364,8 +368,14 @@ class DashboardScreenTest {
         composeTestRule.onNodeWithTag("member-card-alpha").assertIsDisplayed()
     }
 
+    /**
+     * The lever moved off the dashboard body and behind the primary's badge, so
+     * what these cover is the route: the badge states the fleet's auto-sync
+     * standing to everyone, an operator's tap opens the sheet the toggle now
+     * lives in, and a monitor's badge has no tap at all.
+     */
     @Test
-    fun autoSyncControlShownForOperatorAndToggleFires() {
+    fun autoSyncBadgeOpensTheSheetAndItsToggleFires() {
         var requested: Boolean? = null
         composeTestRule.setContent {
             BellhopTheme {
@@ -377,14 +387,26 @@ class DashboardScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithTag("autosync-card").assertIsDisplayed()
-        // Effective state is on; toggling asks to turn it off.
-        composeTestRule.onNodeWithTag("autosync-toggle").performClick()
+        composeTestRule.onNodeWithTag("autosync-sheet").assertDoesNotExist()
+        // Unmerged: the card is combinedClickable, so it merges its children's
+        // semantics (badge tags included) into one node.
+        composeTestRule
+            .onNodeWithTag("member-autosync", useUnmergedTree = true)
+            .assertIsDisplayed()
+            .assertHasClickAction()
+            .performClick()
+        composeTestRule.waitForIdle()
+
+        // Effective state is on; toggling asks to turn it off. Driven through the
+        // semantics action rather than performClick: the sheet renders in its own
+        // window, and Robolectric does not route injected touches into it (the
+        // node is there, with its click action, and a tap on a device lands).
+        composeTestRule.onNodeWithTag("autosync-toggle").performSemanticsAction(SemanticsActions.OnClick)
         assertTrue(requested == false)
     }
 
     @Test
-    fun autoSyncControlHiddenForMonitor() {
+    fun autoSyncBadgeIsReadOnlyForMonitor() {
         composeTestRule.setContent {
             BellhopTheme {
                 DashboardScreen(
@@ -394,11 +416,18 @@ class DashboardScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithTag("autosync-card").assertDoesNotExist()
+        // A monitor still learns whether the fleet is converging; it just cannot
+        // reach the lever, so the tap opens nothing.
+        composeTestRule
+            .onNodeWithTag("member-autosync", useUnmergedTree = true)
+            .assertIsDisplayed()
+            .assertHasNoClickAction()
+        composeTestRule.onNodeWithTag("autosync-sheet").assertDoesNotExist()
+        composeTestRule.onNodeWithTag("autosync-toggle").assertDoesNotExist()
     }
 
     @Test
-    fun autoSyncControlHiddenWithoutAPrimary() {
+    fun autoSyncBadgeAbsentWithoutAPrimary() {
         composeTestRule.setContent {
             BellhopTheme {
                 DashboardScreen(
@@ -408,7 +437,9 @@ class DashboardScreenTest {
                 )
             }
         }
-        composeTestRule.onNodeWithTag("autosync-card").assertDoesNotExist()
+        // No primary means no card carries the badge: auto-sync has no source to
+        // copy from, and choosing one stays a web action.
+        composeTestRule.onNodeWithTag("member-autosync", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
@@ -428,6 +459,8 @@ class DashboardScreenTest {
                 )
             }
         }
+        composeTestRule.onNodeWithTag("member-autosync", useUnmergedTree = true).performClick()
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("autosync-forbidden").assertIsDisplayed()
         composeTestRule.onNodeWithTag("autosync-toggle").assertDoesNotExist()
     }
@@ -450,6 +483,10 @@ class DashboardScreenTest {
                 )
             }
         }
+        // The badge follows the optimistic value, so it reads "off" while the
+        // pause is still in flight rather than lagging a refresh behind.
+        composeTestRule.onNodeWithTag("member-autosync", useUnmergedTree = true).performClick()
+        composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("autosync-pending").assertIsDisplayed()
         composeTestRule.onNodeWithTag("autosync-toggle").assertIsNotEnabled()
     }

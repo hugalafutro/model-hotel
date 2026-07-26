@@ -83,6 +83,8 @@
 
     <!-- Pause/resume auto-sync (dashboard operator control) -->
     <string name="autosync_title">Auto-Sync</string>
+    <string name="autosync_badge_on">Auto-Sync ein</string>
+    <string name="autosync_badge_off">Auto-Sync aus</string>
     <string name="autosync_on">Die Flotte bleibt mit dem Primärknoten synchron.</string>
     <string name="autosync_off">Die Flotte synchronisiert erst wieder, wenn du fortsetzt.</string>
     <string name="autosync_pausing">Wird pausiert…</string>
@@ -300,6 +302,9 @@
     <string name="quota_field_daily_input_tokens">Tägliche Eingabe-Tokens</string>
     <string name="quota_field_daily_images">Tägliche Bilder</string>
     <string name="quota_field_mcp_quota">MCP-Kontingent</string>
+    <string name="quota_field_five_hour">5-Stunden-Kontingent</string>
+    <string name="quota_field_weekly">Wochenkontingent</string>
+    <string name="quota_field_energy">Energie</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Kontingent-Badges</string>

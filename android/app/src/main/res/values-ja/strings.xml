@@ -81,6 +81,8 @@
 
     <!-- Pause/resume auto-sync (dashboard operator control) -->
     <string name="autosync_title">自動同期</string>
+    <string name="autosync_badge_on">自動同期オン</string>
+    <string name="autosync_badge_off">自動同期オフ</string>
     <string name="autosync_on">フリートはプライマリと同期を保ちます。</string>
     <string name="autosync_off">再開するまでフリートは同期されません。</string>
     <string name="autosync_pausing">一時停止中…</string>
@@ -294,6 +296,9 @@
     <string name="quota_field_daily_input_tokens">1日あたりの入力トークン</string>
     <string name="quota_field_daily_images">1日あたりの画像数</string>
     <string name="quota_field_mcp_quota">MCP クォータ</string>
+    <string name="quota_field_five_hour">5時間クォータ</string>
+    <string name="quota_field_weekly">週間クォータ</string>
+    <string name="quota_field_energy">電力量</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">クォータバッジ</string>

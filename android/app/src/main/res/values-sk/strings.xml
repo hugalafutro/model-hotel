@@ -87,6 +87,8 @@
 
     <!-- Pause/resume auto-sync (dashboard operator control) -->
     <string name="autosync_title">Automatická synchronizácia</string>
+    <string name="autosync_badge_on">Automatická synchronizácia zapnutá</string>
+    <string name="autosync_badge_off">Automatická synchronizácia vypnutá</string>
     <string name="autosync_on">Flotila zostáva synchronizovaná s primárnym.</string>
     <string name="autosync_off">Flotila sa nebude synchronizovať, kým neobnovíte.</string>
     <string name="autosync_pausing">Pozastavovanie…</string>
@@ -312,6 +314,9 @@
     <string name="quota_field_daily_input_tokens">Denné vstupné tokeny</string>
     <string name="quota_field_daily_images">Denné obrázky</string>
     <string name="quota_field_mcp_quota">Kvóta MCP</string>
+    <string name="quota_field_five_hour">Kvóta za 5 h</string>
+    <string name="quota_field_weekly">Týždenná kvóta</string>
+    <string name="quota_field_energy">Energia</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Odznaky kvót</string>

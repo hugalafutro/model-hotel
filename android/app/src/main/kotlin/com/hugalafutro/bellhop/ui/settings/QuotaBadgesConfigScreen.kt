@@ -16,7 +16,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -39,9 +38,9 @@ import com.hugalafutro.bellhop.data.QuotaBadgeConfig
 import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
 import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.data.QuotaSurface
+import com.hugalafutro.bellhop.ui.common.BellhopSwitch
 import com.hugalafutro.bellhop.ui.common.FilterPill
 import com.hugalafutro.bellhop.ui.common.ReorderableColumn
-import com.hugalafutro.bellhop.ui.common.bellhopSwitchColors
 import com.hugalafutro.bellhop.ui.common.moveItem
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import kotlinx.coroutines.launch
@@ -258,10 +257,9 @@ private fun BadgeRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            Switch(
+            BellhopSwitch(
                 checked = visible,
                 onCheckedChange = onVisibleChange,
-                colors = bellhopSwitchColors(),
                 modifier = Modifier.testTag("quota-config-visible-$name"),
             )
         }

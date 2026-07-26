@@ -6,6 +6,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.hugalafutro.bellhop.data.NeuralWattBalance
+import com.hugalafutro.bellhop.data.NeuralWattSubscription
 import com.hugalafutro.bellhop.data.ProviderQuota
 import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.data.QuotaData
@@ -145,5 +147,42 @@ class QuotaBadgesTest {
             }
         }
         composeTestRule.onNodeWithText("$12.50", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun detailSheetDrawsABarPerMeteredReading() {
+        val neuralWatt =
+            ProviderQuota(
+                providerName = "neuralwatt-main",
+                type = QuotaType.NEURALWATT,
+                data =
+                    QuotaData.NeuralWatt(
+                        balance = NeuralWattBalance(creditsUsedUsd = 3.0, totalCreditsUsd = 12.0),
+                        subscription = NeuralWattSubscription(kwhIncluded = 20.0, kwhUsed = 12.5),
+                    ),
+                fetchedAt = "2026-07-26T00:00:00Z",
+                available = true,
+            )
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaDetailSheet(pq = neuralWatt, mode = QuotaBarMode.REMAINING, onDismiss = {})
+            }
+        }
+
+        composeTestRule.onNodeWithTag("quota-detail-meter-ENERGY").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("quota-detail-meter-CREDITS").assertIsDisplayed()
+    }
+
+    @Test
+    fun detailSheetDrawsNoBarsWithoutACeiling() {
+        // `available` is a pay-as-you-go OpenRouter key: spend, no credit
+        // ceiling. A bar here would be a full-looking track with no meaning.
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaDetailSheet(pq = available, mode = QuotaBarMode.REMAINING, onDismiss = {})
+            }
+        }
+
+        composeTestRule.onNodeWithTag("quota-detail-meter-CREDITS").assertDoesNotExist()
     }
 }

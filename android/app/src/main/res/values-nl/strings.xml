@@ -83,6 +83,8 @@
 
     <!-- Pause/resume auto-sync (dashboard operator control) -->
     <string name="autosync_title">Auto-sync</string>
+    <string name="autosync_badge_on">Autosync aan</string>
+    <string name="autosync_badge_off">Autosync uit</string>
     <string name="autosync_on">De vloot blijft synchroon met de primaire.</string>
     <string name="autosync_off">De vloot synchroniseert pas weer als je hervat.</string>
     <string name="autosync_pausing">Pauzeren…</string>
@@ -300,6 +302,9 @@
     <string name="quota_field_daily_input_tokens">Dagelijkse invoertokens</string>
     <string name="quota_field_daily_images">Dagelijkse afbeeldingen</string>
     <string name="quota_field_mcp_quota">MCP-quota</string>
+    <string name="quota_field_five_hour">Quotum van 5 uur</string>
+    <string name="quota_field_weekly">Wekelijks quotum</string>
+    <string name="quota_field_energy">Energie</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Quotabadges</string>
