@@ -909,3 +909,13 @@ h3 {
 		transition: none;
 	}
 }
+
+.fd-quota-notice {
+	margin: 0;
+	padding: 0.5rem 0.6rem;
+	border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+	border-radius: var(--radius-sm);
+	background: color-mix(in srgb, var(--warn) 12%, transparent);
+	color: var(--text);
+	font-size: 0.78rem;
+}
