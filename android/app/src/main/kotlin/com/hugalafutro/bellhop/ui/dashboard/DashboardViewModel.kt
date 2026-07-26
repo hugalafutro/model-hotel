@@ -107,6 +107,13 @@ data class AutoSyncAction(
     val forbidden: Boolean = false,
     val error: String? = null,
     val busy: Boolean = false,
+    // How many refreshes have read a live value that contradicts
+    // [pendingEnabled]. One is ordinary (Front Desk acked the write and a
+    // refresh raced ahead of it landing); repeatedly is Front Desk disagreeing
+    // with its own ack, and the hint has to give way rather than sit on screen
+    // forever over a toggle showing a state the fleet is not in. See the
+    // reconcile in refreshOnce.
+    val staleReconciles: Int = 0,
 )
 
 /**
@@ -533,11 +540,23 @@ class DashboardViewModel(
                         // the confirming endpoint is down and we've promoted the
                         // PUT-acked value to the baseline above instead of stranding a
                         // perpetual "pending" against a read that keeps failing.
+                        //
+                        // A live read that *contradicts* the hint gets one refresh of
+                        // grace and then loses it too: Front Desk acked the value we
+                        // are holding, so one disagreeing read is most likely a race
+                        // with the write landing, but a Front Desk that keeps
+                        // disagreeing with its own ack (an older build, or a proxy
+                        // answering 200 with a body that decodes to defaults) would
+                        // otherwise leave "Pausing…" up and the toggle showing a state
+                        // the fleet is not in, with nothing to clear it but a restart.
                         autoSync =
-                            if (pending != null && (autoSync == null || pending == liveEnabled)) {
-                                it.autoSync.copy(pendingEnabled = null)
-                            } else {
-                                it.autoSync
+                            when {
+                                pending == null -> it.autoSync
+                                autoSync == null || pending == liveEnabled ->
+                                    it.autoSync.copy(pendingEnabled = null, staleReconciles = 0)
+                                it.autoSync.staleReconciles >= 1 ->
+                                    it.autoSync.copy(pendingEnabled = null, staleReconciles = 0)
+                                else -> it.autoSync.copy(staleReconciles = it.autoSync.staleReconciles + 1)
                             },
                     )
                 }
@@ -721,7 +740,15 @@ class DashboardViewModel(
                         // reconcile to strand.
                         val applied = result.data.enabled
                         val pending = applied.takeUnless { it == cleared.autoSyncEnabled }
-                        cleared.copy(autoSync = cleared.autoSync.copy(pendingEnabled = pending, forbidden = false))
+                        cleared.copy(
+                            autoSync =
+                                cleared.autoSync.copy(
+                                    pendingEnabled = pending,
+                                    forbidden = false,
+                                    // Fresh hint, fresh grace period.
+                                    staleReconciles = 0,
+                                ),
+                        )
                     }
                     ActionResult.Forbidden -> cleared.copy(autoSync = cleared.autoSync.copy(forbidden = true))
                     ActionResult.Unauthorized -> cleared.copy(revoked = true)

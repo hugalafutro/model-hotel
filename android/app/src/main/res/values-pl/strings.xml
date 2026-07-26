@@ -87,6 +87,8 @@
 
     <!-- Pause/resume auto-sync (dashboard operator control) -->
     <string name="autosync_title">Autosynchronizacja</string>
+    <string name="autosync_badge_on">Autosynchronizacja włączona</string>
+    <string name="autosync_badge_off">Autosynchronizacja wyłączona</string>
     <string name="autosync_on">Flota pozostaje zsynchronizowana z podstawowym.</string>
     <string name="autosync_off">Flota nie zsynchronizuje się, dopóki nie wznowisz.</string>
     <string name="autosync_pausing">Wstrzymywanie…</string>
@@ -303,15 +305,16 @@
     <string name="quota_field_free_tier">Poziom darmowy</string>
     <string name="quota_field_parallel_limit">Limit równoległy</string>
     <string name="quota_field_total_quota">Łączny limit</string>
-    <string name="quota_field_credits_total">Kredyty łącznie</string>
     <string name="quota_field_credits_used">Wykorzystane kredyty</string>
     <string name="quota_field_usage_today">Zużycie dzisiaj</string>
     <string name="quota_field_usage_month">Zużycie w tym miesiącu</string>
     <string name="quota_field_balance_remaining">Pozostałe saldo</string>
-    <string name="quota_field_balance_total">Łączne kredyty</string>
     <string name="quota_field_daily_input_tokens">Dzienne tokeny wejściowe</string>
     <string name="quota_field_daily_images">Dzienne obrazy</string>
     <string name="quota_field_mcp_quota">Limit MCP</string>
+    <string name="quota_field_five_hour">Limit 5-godzinny</string>
+    <string name="quota_field_weekly">Limit tygodniowy</string>
+    <string name="quota_field_energy">Energia</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Odznaki limitów</string>

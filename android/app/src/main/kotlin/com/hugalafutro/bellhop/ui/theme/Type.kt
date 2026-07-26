@@ -40,11 +40,25 @@ val PlexSansFamily =
 
 val MonoFamily = FontFamily(Font(R.font.ibm_plex_mono))
 
+/**
+ * SLAB_FIGURES forces lining, tabular digits on every Zilla Slab style.
+ *
+ * Zilla Slab's *default* figure set is old-style: the digits sit at x-height
+ * and 3, 4, 5, 7 and 9 hang below the baseline. In running prose that is the
+ * point of the typeface, but on a readout it looks like a rendering fault --
+ * in "12.5/20 kWh" the "12.5" appears to sag next to the "20", and in "1.2M"
+ * the digits sit below the cap-height "M". `tnum` is the set that carries the
+ * lining forms in this font; `lnum` is a no-op here but states the intent, so
+ * a future font swap keeps lining digits without needing tabular ones.
+ */
+private const val SLAB_FIGURES = "lnum, tnum"
+
 val BellhopTypography =
     Typography(
         displayLarge =
             TextStyle(
                 fontFamily = ZillaSlabFamily,
+                fontFeatureSettings = SLAB_FIGURES,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 48.sp,
                 lineHeight = 54.sp,
@@ -52,6 +66,7 @@ val BellhopTypography =
         displayMedium =
             TextStyle(
                 fontFamily = ZillaSlabFamily,
+                fontFeatureSettings = SLAB_FIGURES,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 38.sp,
                 lineHeight = 44.sp,
@@ -59,6 +74,7 @@ val BellhopTypography =
         displaySmall =
             TextStyle(
                 fontFamily = ZillaSlabFamily,
+                fontFeatureSettings = SLAB_FIGURES,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 32.sp,
                 lineHeight = 38.sp,
@@ -66,6 +82,7 @@ val BellhopTypography =
         headlineLarge =
             TextStyle(
                 fontFamily = ZillaSlabFamily,
+                fontFeatureSettings = SLAB_FIGURES,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 28.sp,
                 lineHeight = 34.sp,
@@ -73,6 +90,7 @@ val BellhopTypography =
         headlineMedium =
             TextStyle(
                 fontFamily = ZillaSlabFamily,
+                fontFeatureSettings = SLAB_FIGURES,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 24.sp,
                 lineHeight = 30.sp,
@@ -80,6 +98,7 @@ val BellhopTypography =
         headlineSmall =
             TextStyle(
                 fontFamily = ZillaSlabFamily,
+                fontFeatureSettings = SLAB_FIGURES,
                 fontWeight = FontWeight.Medium,
                 fontSize = 21.sp,
                 lineHeight = 26.sp,

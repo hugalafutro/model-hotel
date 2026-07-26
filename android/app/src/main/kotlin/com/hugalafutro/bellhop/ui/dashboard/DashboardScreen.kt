@@ -28,15 +28,17 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -71,6 +73,7 @@ import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.MemberStatus
 import com.hugalafutro.bellhop.data.MemberTraffic
 import com.hugalafutro.bellhop.data.QuotaBarMode
+import com.hugalafutro.bellhop.ui.common.BellhopSwitch
 import com.hugalafutro.bellhop.ui.common.ConfirmOpenUrlDialog
 import com.hugalafutro.bellhop.ui.common.LockFab
 import com.hugalafutro.bellhop.ui.common.Pill
@@ -78,7 +81,6 @@ import com.hugalafutro.bellhop.ui.common.ScrollToTopButton
 import com.hugalafutro.bellhop.ui.common.StatusBanner
 import com.hugalafutro.bellhop.ui.common.TightTouchTarget
 import com.hugalafutro.bellhop.ui.common.TrafficChart
-import com.hugalafutro.bellhop.ui.common.bellhopSwitchColors
 import com.hugalafutro.bellhop.ui.common.healthColor
 import com.hugalafutro.bellhop.ui.common.healthLabel
 import com.hugalafutro.bellhop.ui.common.relativeAgo
@@ -148,6 +150,20 @@ fun DashboardScreen(
         ui.quotaByName[name]?.let { pq ->
             QuotaDetailSheet(pq = pq, mode = quotaBarMode, onDismiss = { selectedQuotaBadge = null })
         }
+    }
+
+    // Whether the auto-sync lever is open. Reached from the badge on the primary's
+    // card, so it is only ever raised on an operator device (the badge passes no
+    // click handler otherwise); Front Desk's 403 is still the real guard.
+    var showAutoSync by remember { mutableStateOf(false) }
+    if (showAutoSync) {
+        AutoSyncSheet(
+            action = ui.autoSync,
+            enabled = ui.autoSyncEnabled,
+            onSetAutoSync = onSetAutoSync,
+            onDismissError = onDismissAutoSyncError,
+            onDismiss = { showAutoSync = false },
+        )
     }
 
     // Build footer: tapping it confirms before leaving for GitHub. Stamped builds
@@ -271,20 +287,6 @@ fun DashboardScreen(
                 )
             }
 
-            // Pause/resume auto-sync: an operator lever, shown only once a primary
-            // is configured (choosing one stays a web action) and only to an
-            // operator device. Front Desk's 403 is still the real guard, collapsing
-            // the card to a note if the role hint is wrong.
-            if (canOperate && ui.primaryId.isNotEmpty()) {
-                AutoSyncControl(
-                    action = ui.autoSync,
-                    enabled = ui.autoSyncEnabled,
-                    onSetAutoSync = onSetAutoSync,
-                    onDismissError = onDismissAutoSyncError,
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
             when {
                 ui.loading ->
                     Box(
@@ -353,6 +355,11 @@ fun DashboardScreen(
                                     isPrimary = member.id == ui.primaryId,
                                     traffic = ui.traffic[member.id],
                                     recentEvent = ui.recentEvents[member.id],
+                                    // Auto-sync is a property of the primary, so it
+                                    // rides that card's header. Everyone sees the
+                                    // state; only an operator can open the lever.
+                                    autoSyncEnabled = ui.autoSync.pendingEnabled ?: ui.autoSyncEnabled,
+                                    onAutoSyncClick = if (canOperate) ({ showAutoSync = true }) else null,
                                     onClick = { onMemberClick(member.id) },
                                     onUrlClick = { urlDialogFor = member },
                                     onLongClick =
@@ -398,23 +405,34 @@ fun DashboardScreen(
 }
 
 /**
- * AutoSyncControl is the pause/resume operator lever. It shows the effective state
- * optimistically ([AutoSyncAction.pendingEnabled] over the live value) so the
- * toggle reflects a just-sent change while it reconciles, collapses to a guard
- * note when Front Desk returns 403, and surfaces a failure with a dismiss.
+ * AutoSyncSheet is the pause/resume operator lever, reached by tapping the
+ * auto-sync badge on the primary's card. It lives in a sheet rather than on the
+ * dashboard because it is a rarely-touched switch for something that should be on
+ * essentially always: as the second thing on the screen it read as a decision the
+ * operator was being asked to make on every glance.
+ *
+ * It shows the effective state optimistically ([AutoSyncAction.pendingEnabled]
+ * over the live value) so the toggle reflects a just-sent change while it
+ * reconciles, collapses to a guard note when Front Desk returns 403, and surfaces
+ * a failure with a dismiss.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AutoSyncControl(
+private fun AutoSyncSheet(
     action: AutoSyncAction,
     enabled: Boolean,
     onSetAutoSync: (Boolean) -> Unit,
     onDismissError: () -> Unit,
-    modifier: Modifier = Modifier,
+    onDismiss: () -> Unit,
 ) {
     val effective = action.pendingEnabled ?: enabled
-    Card(modifier = modifier.fillMaxWidth().testTag("autosync-card")) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(),
+        modifier = Modifier.testTag("autosync-sheet"),
+    ) {
         Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             if (action.forbidden) {
@@ -443,11 +461,10 @@ private fun AutoSyncControl(
                             modifier = Modifier.testTag("autosync-status"),
                         )
                     }
-                    Switch(
+                    BellhopSwitch(
                         checked = effective,
                         onCheckedChange = onSetAutoSync,
                         enabled = !action.inProgress,
-                        colors = bellhopSwitchColors(),
                         modifier = Modifier.testTag("autosync-toggle"),
                     )
                 }
@@ -593,6 +610,12 @@ private fun MemberCard(
     onClick: () -> Unit,
     onUrlClick: () -> Unit,
     modifier: Modifier = Modifier,
+    // Fleet-wide auto-sync state, badged beside Primary on the primary's card
+    // only (it is that member's config the fleet copies). Null on every other
+    // card. [onAutoSyncClick] is null for a monitor device, which makes the
+    // badge a read-only label rather than a way into the operator lever.
+    autoSyncEnabled: Boolean? = null,
+    onAutoSyncClick: (() -> Unit)? = null,
     // This member's most recent event, shown as a severity-tinted pill under the
     // sparkline; null hides it. Tapping the pill opens the member (its detail log
     // is newest-first, so this event sits at the top).
@@ -644,6 +667,40 @@ private fun MemberCard(
                         content = MaterialTheme.colorScheme.onSecondaryContainer,
                         tag = "member-primary",
                     )
+                    if (autoSyncEnabled != null) {
+                        // Paused reads as error-tinted, the same way a drained
+                        // member does: the fleet silently not converging is the
+                        // condition worth noticing, not the healthy default.
+                        // TightTouchTarget because an operator's badge is
+                        // clickable, and Material would otherwise measure it at
+                        // 48dp and stretch the whole header row around it.
+                        TightTouchTarget {
+                            Pill(
+                                text =
+                                    stringResource(
+                                        if (autoSyncEnabled) {
+                                            R.string.autosync_badge_on
+                                        } else {
+                                            R.string.autosync_badge_off
+                                        },
+                                    ),
+                                container =
+                                    if (autoSyncEnabled) {
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.errorContainer
+                                    },
+                                content =
+                                    if (autoSyncEnabled) {
+                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onErrorContainer
+                                    },
+                                tag = "member-autosync",
+                                onClick = onAutoSyncClick,
+                            )
+                        }
+                    }
                 }
                 if (member.drained) {
                     Pill(

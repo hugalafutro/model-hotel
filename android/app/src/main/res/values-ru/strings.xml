@@ -87,6 +87,8 @@
 
     <!-- Pause/resume auto-sync (dashboard operator control) -->
     <string name="autosync_title">Автосинхронизация</string>
+    <string name="autosync_badge_on">Автосинхронизация вкл.</string>
+    <string name="autosync_badge_off">Автосинхронизация выкл.</string>
     <string name="autosync_on">Флот остаётся синхронизированным с основным.</string>
     <string name="autosync_off">Флот не будет синхронизироваться, пока вы не возобновите.</string>
     <string name="autosync_pausing">Приостановка…</string>
@@ -303,15 +305,16 @@
     <string name="quota_field_free_tier">Бесплатный уровень</string>
     <string name="quota_field_parallel_limit">Лимит параллельных запросов</string>
     <string name="quota_field_total_quota">Общая квота</string>
-    <string name="quota_field_credits_total">Кредиты всего</string>
     <string name="quota_field_credits_used">Использовано кредитов</string>
     <string name="quota_field_usage_today">Использование сегодня</string>
     <string name="quota_field_usage_month">Использование в этом месяце</string>
     <string name="quota_field_balance_remaining">Остаток баланса</string>
-    <string name="quota_field_balance_total">Всего кредитов</string>
     <string name="quota_field_daily_input_tokens">Дневные входные токены</string>
     <string name="quota_field_daily_images">Дневные изображения</string>
     <string name="quota_field_mcp_quota">Квота MCP</string>
+    <string name="quota_field_five_hour">Квота за 5 ч</string>
+    <string name="quota_field_weekly">Недельная квота</string>
+    <string name="quota_field_energy">Энергия</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Значки квот</string>

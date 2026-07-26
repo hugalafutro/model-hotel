@@ -83,6 +83,8 @@
 
     <!-- Pause/resume auto-sync (dashboard operator control) -->
     <string name="autosync_title">Synchro auto</string>
+    <string name="autosync_badge_on">Synchro auto activée</string>
+    <string name="autosync_badge_off">Synchro auto désactivée</string>
     <string name="autosync_on">La flotte reste synchronisée avec le primaire.</string>
     <string name="autosync_off">La flotte ne se synchronisera pas tant que vous ne reprendrez pas.</string>
     <string name="autosync_pausing">Mise en pause…</string>
@@ -291,15 +293,16 @@
     <string name="quota_field_free_tier">Palier gratuit</string>
     <string name="quota_field_parallel_limit">Limite parallèle</string>
     <string name="quota_field_total_quota">Quota total</string>
-    <string name="quota_field_credits_total">Total des crédits</string>
     <string name="quota_field_credits_used">Crédits utilisés</string>
     <string name="quota_field_usage_today">Utilisation aujourd\'hui</string>
     <string name="quota_field_usage_month">Utilisation ce mois-ci</string>
     <string name="quota_field_balance_remaining">Solde restant</string>
-    <string name="quota_field_balance_total">Crédits totaux</string>
     <string name="quota_field_daily_input_tokens">Jetons d\'entrée quotidiens</string>
     <string name="quota_field_daily_images">Images quotidiennes</string>
     <string name="quota_field_mcp_quota">Quota MCP</string>
+    <string name="quota_field_five_hour">Quota sur 5 h</string>
+    <string name="quota_field_weekly">Quota hebdomadaire</string>
+    <string name="quota_field_energy">Énergie</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Badges de quota</string>
