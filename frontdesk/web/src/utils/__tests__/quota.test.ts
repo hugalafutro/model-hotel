@@ -237,6 +237,15 @@ describe("toBadgeModels", () => {
 		expect(out[0].type).toBe("nanogpt");
 	});
 
+	it("drops an unknown type even when its fetch also failed", () => {
+		// The discriminating case for rule ordering: the type guard must run
+		// BEFORE the degraded check, or this would render a badge whose type is
+		// not a key of QUOTA_PREFIXES/QUOTA_BRAND_COLORS.
+		expect(
+			toBadgeModels([snap({ type: "anthropic", http_status: 502 })]),
+		).toEqual([]);
+	});
+
 	it("marks a non-200 snapshot degraded instead of hiding it", () => {
 		const out = toBadgeModels([snap({ http_status: 502 })]);
 		expect(out).toHaveLength(1);
