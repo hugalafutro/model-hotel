@@ -124,7 +124,7 @@ export function QuotaModalShell({
 						className="fd-quota-modal-btn"
 						onClick={onRefresh}
 						disabled={isRefreshing}
-						aria-label={t("quota.refresh")}
+						aria-label={t("quota.modal.refreshLabel")}
 						title={t("quota.modal.refreshTitle")}
 					>
 						<ArrowClockwiseIcon

@@ -698,6 +698,19 @@ h3 {
 	gap: 1rem;
 }
 
+/* min-width: 0 lets a long title wrap inside the flex row instead of forcing
+   the row wider and squeezing headerActions. margin-bottom carries the gap
+   that used to live on `.fd-modal h2` (0.6rem): the h2's own bottom margin is
+   zeroed below so the gap is not doubled when a subtitle sits between them. */
+.fd-modal-heading {
+	min-width: 0;
+	margin-bottom: 0.6rem;
+}
+
+.fd-modal-heading h2 {
+	margin-bottom: 0;
+}
+
 .fd-modal-subtitle {
 	margin: 0.15rem 0 0;
 	color: var(--text-muted);
@@ -731,6 +744,11 @@ h3 {
 .fd-quota-modal-btn:disabled {
 	opacity: 0.5;
 	cursor: default;
+}
+
+.fd-quota-modal-btn:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
 }
 
 .fd-quota-modal-body {

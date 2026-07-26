@@ -506,6 +506,7 @@
 			"showUsed": "Show quota used",
 			"showRemaining": "Show quota remaining",
 			"refreshTitle": "Refresh this quota from the fleet primary",
+			"refreshLabel": "Refresh this quota",
 			"used": "used",
 			"left": "left",
 			"remaining": "remaining",

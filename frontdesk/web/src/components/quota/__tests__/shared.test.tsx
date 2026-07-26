@@ -20,6 +20,7 @@ describe("QuotaBar", () => {
 				fillTestId="fill"
 			/>,
 		);
+		expect(screen.getByTestId("bar")).toBeInTheDocument();
 		expect(screen.getByTestId("fill")).toHaveStyle({ width: "75%" });
 	});
 
@@ -50,6 +51,22 @@ describe("QuotaBar", () => {
 		expect(screen.getByTestId("fill")).toHaveStyle({ width: "100%" });
 	});
 
+	it("clamps the lower bound when a remaining-mode share goes negative", () => {
+		// percentage is percent USED; 140 used in remaining mode computes a raw
+		// shown value of 100 - 140 = -40, which must clamp to 0, not render
+		// negative width.
+		render(
+			<QuotaBar
+				label="Weekly"
+				rightText="x"
+				percentage={140}
+				barMode="remaining"
+				fillTestId="fill"
+			/>,
+		);
+		expect(screen.getByTestId("fill")).toHaveStyle({ width: "0%" });
+	});
+
 	it("tones the fill by severity", () => {
 		render(
 			<QuotaBar
@@ -62,6 +79,25 @@ describe("QuotaBar", () => {
 		);
 		expect(screen.getByTestId("fill").className).toContain(
 			"fd-quota-fill-danger",
+		);
+	});
+
+	it("tones a remaining-mode bar off the used percentage, not the inverted width", () => {
+		// percentage is always percent USED. 75 used in remaining mode means 25
+		// remaining, which is barTone's "warn" band (< 60 remaining). This fails
+		// under two plausible bugs: passing the already-inverted/clamped width
+		// into barTone instead of percentage, or hardcoding barMode to "used".
+		render(
+			<QuotaBar
+				label="Weekly"
+				rightText="x"
+				percentage={75}
+				barMode="remaining"
+				fillTestId="fill"
+			/>,
+		);
+		expect(screen.getByTestId("fill").className).toContain(
+			"fd-quota-fill-warn",
 		);
 	});
 
@@ -129,6 +165,12 @@ describe("QuotaModalShell", () => {
 		renderShell({ subtitle: <span data-testid="sub">pro</span> });
 		expect(screen.getByTestId("sub")).toBeInTheDocument();
 	});
+
+	it("spins the refresh icon while a refresh is in flight", () => {
+		renderShell({ isRefreshing: true });
+		const icon = screen.getByTestId("quota-modal-refresh").querySelector("svg");
+		expect(icon?.getAttribute("class")).toContain("fd-spin");
+	});
 });
 
 describe("QuotaDetailGrid", () => {
@@ -139,5 +181,27 @@ describe("QuotaDetailGrid", () => {
 			</QuotaDetailGrid>,
 		);
 		expect(screen.getByTestId("plan")).toHaveTextContent("pro");
+	});
+
+	it("applies the 3-column grid class when given columns={3}", () => {
+		render(
+			<QuotaDetailGrid columns={3}>
+				<QuotaDetailItem label="Plan" value="pro" testId="plan" />
+			</QuotaDetailGrid>,
+		);
+		expect(screen.getByTestId("plan").parentElement?.className).toContain(
+			"fd-quota-detail-grid-3",
+		);
+	});
+
+	it("spans a detail item across the full grid width when span is set", () => {
+		render(
+			<QuotaDetailGrid columns={2}>
+				<QuotaDetailItem label="Notes" value="long text" span testId="notes" />
+			</QuotaDetailGrid>,
+		);
+		expect(screen.getByTestId("notes").className).toContain(
+			"fd-quota-detail-span",
+		);
 	});
 });
