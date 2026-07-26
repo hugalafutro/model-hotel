@@ -47,9 +47,11 @@ export function OpenRouterQuotaModal({
 		<QuotaModalShell
 			title={t("quota.modal.openRouterTitle", { provider: providerName })}
 			subtitle={
-				payload.is_free_tier
-					? t("quota.modal.freeTier")
-					: t("quota.modal.paidAccount")
+				payload.is_free_tier ? (
+					<span data-testid="or-tier-free">{t("quota.modal.freeTier")}</span>
+				) : (
+					<span data-testid="or-tier-paid">{t("quota.modal.paidAccount")}</span>
+				)
 			}
 			barMode={barMode}
 			onToggleBarMode={onToggleBarMode}

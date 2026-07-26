@@ -124,6 +124,7 @@ export function NanoGPTQuotaModal({
 					value={
 						payload.allowOverage ? t("quota.modal.yes") : t("quota.modal.no")
 					}
+					testId="nano-allow-overage"
 				/>
 			</QuotaDetailGrid>
 

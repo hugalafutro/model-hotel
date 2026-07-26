@@ -118,10 +118,12 @@ export function NeuralWattQuotaModal({
 					value={
 						subscription.auto_renew ? t("quota.modal.yes") : t("quota.modal.no")
 					}
+					testId="nw-auto-renew"
 				/>
 				<QuotaDetailItem
 					label={t("quota.modal.accountingMethod")}
 					value={balance.accounting_method || t("quota.modal.none")}
+					testId="nw-accounting-method"
 				/>
 			</QuotaDetailGrid>
 
@@ -154,6 +156,7 @@ export function NeuralWattQuotaModal({
 							? formatDollars(limits.overage_limit_usd)
 							: t("quota.modal.none")
 					}
+					testId="nw-overage-limit"
 				/>
 				<QuotaDetailItem
 					label={t("quota.modal.rateLimitTier")}

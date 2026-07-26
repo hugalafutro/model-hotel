@@ -123,6 +123,57 @@ describe("NanoGPTQuotaModal", () => {
 		expect(screen.getByTestId("nano-status-active")).toBeInTheDocument();
 		expect(screen.queryByTestId("nano-status-inactive")).toBeNull();
 	});
+
+	it("falls back to literal zeros and swaps labelled values for a sparse payload", () => {
+		const sparse: NanoGPTUsage = {
+			...payload,
+			allowOverage: false,
+			weeklyInputTokens: null,
+			limits: {
+				weeklyInputTokens: null,
+				dailyInputTokens: null,
+				dailyImages: null,
+			},
+		};
+		const { unmount } = render(
+			<NanoGPTQuotaModal {...chrome} payload={sparse} barMode="used" />,
+		);
+		// Both `?? 0` fallbacks (weeklyLimit, weeklyUsed) resolve to a literal
+		// zero, not a blank "-" placeholder. The testid sits on the bar track,
+		// not the header, so walk up to the block to reach the rightText.
+		expect(
+			screen.getByTestId("nano-weekly-bar").closest(".fd-quota-bar-block"),
+		).toHaveTextContent("0 / 0");
+		expect(screen.getByTestId("nano-weekly-fill")).toHaveStyle({ width: "0%" });
+		// The optional bars still render even though their configured limit is null.
+		expect(screen.getByTestId("nano-images-fill")).toBeInTheDocument();
+		expect(screen.getByTestId("nano-daily-tokens-fill")).toBeInTheDocument();
+
+		const sparseImagesText = screen
+			.getByTestId("nano-images-bar")
+			.closest(".fd-quota-bar-block")?.textContent;
+		const sparseTokensText = screen
+			.getByTestId("nano-daily-tokens-bar")
+			.closest(".fd-quota-bar-block")?.textContent;
+		const sparseOverage = screen.getByTestId("nano-allow-overage").textContent;
+		unmount();
+
+		render(<NanoGPTQuotaModal {...chrome} payload={payload} barMode="used" />);
+		const baseImagesText = screen
+			.getByTestId("nano-images-bar")
+			.closest(".fd-quota-bar-block")?.textContent;
+		const baseTokensText = screen
+			.getByTestId("nano-daily-tokens-bar")
+			.closest(".fd-quota-bar-block")?.textContent;
+		const baseOverage = screen.getByTestId("nano-allow-overage").textContent;
+
+		// Locale-independent: compares two live renders rather than asserting on
+		// translated text, but still proves each fallback/ternary is wired to its
+		// source field instead of being hardcoded to one arm.
+		expect(sparseImagesText).not.toBe(baseImagesText);
+		expect(sparseTokensText).not.toBe(baseTokensText);
+		expect(sparseOverage).not.toBe(baseOverage);
+	});
 });
 
 describe("OpenRouterQuotaModal", () => {
@@ -186,6 +237,57 @@ describe("OpenRouterQuotaModal", () => {
 		expect(screen.getByTestId("or-usage-monthly")).toHaveTextContent("$20.00");
 		expect(screen.getByTestId("or-usage-all")).toHaveTextContent("$40.00");
 	});
+
+	it("marks a free-tier account", () => {
+		render(
+			<OpenRouterQuotaModal
+				{...chrome}
+				payload={{ ...payload, is_free_tier: true }}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByTestId("or-tier-free")).toBeInTheDocument();
+		expect(screen.queryByTestId("or-tier-paid")).toBeNull();
+	});
+
+	it("marks a paid-tier account", () => {
+		render(
+			<OpenRouterQuotaModal
+				{...chrome}
+				payload={{ ...payload, is_free_tier: false }}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByTestId("or-tier-paid")).toBeInTheDocument();
+		expect(screen.queryByTestId("or-tier-free")).toBeNull();
+	});
+
+	it("treats a missing key limit remaining as zero", () => {
+		render(
+			<OpenRouterQuotaModal
+				{...chrome}
+				payload={{ ...payload, limit_remaining: null }}
+				barMode="used"
+			/>,
+		);
+		// limitRemaining falls back to 0, so limitPctUsed = 100 - (0 / 100) * 100 = 100.
+		expect(screen.getByTestId("or-limit-fill")).toHaveStyle({ width: "100%" });
+	});
+
+	it("still renders a zero-value key limit bar at 0 percent used", () => {
+		render(
+			<OpenRouterQuotaModal
+				{...chrome}
+				payload={{ ...payload, limit: 0 }}
+				barMode="used"
+			/>,
+		);
+		// Pinning current behaviour (matches the brief and Model Hotel): a
+		// zero-value limit still passes `limit != null`, so the block renders
+		// rather than being omitted like `limit: null`, with a 0% fill since
+		// limitPctUsed's `limit > 0` guard is false.
+		expect(screen.getByTestId("or-limit-fill")).toHaveStyle({ width: "0%" });
+	});
 });
 
 describe("NeuralWattQuotaModal", () => {
@@ -205,7 +307,11 @@ describe("NeuralWattQuotaModal", () => {
 			},
 			current_month: {
 				cost_usd: 20,
-				requests: 300,
+				// Deliberately not a round thousand: toLocaleString("en-US") gives
+				// "1,234" while formatCompact (used for the tokens slot) would give
+				// "1.2K" for the same number, so a requests/tokens field swap at
+				// render time produces a different, catchable string.
+				requests: 1234,
 				tokens: 1_000_000,
 				energy_kwh: 3.21,
 			},
@@ -259,6 +365,32 @@ describe("NeuralWattQuotaModal", () => {
 			<NeuralWattQuotaModal {...chrome} payload={payload} barMode="used" />,
 		);
 		expect(screen.getByTestId("nw-allowance")).toBeInTheDocument();
+		expect(screen.getByTestId("nw-allowance")).not.toHaveTextContent("$");
+	});
+
+	it("renders a dollar allowance when the key has one", () => {
+		render(
+			<NeuralWattQuotaModal
+				{...chrome}
+				payload={{ ...payload, key: { name: "k", allowance: 25 } }}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByTestId("nw-allowance")).toHaveTextContent("$25.00");
+	});
+
+	it("omits the credit bar when the account has no credit total", () => {
+		render(
+			<NeuralWattQuotaModal
+				{...chrome}
+				payload={{
+					...payload,
+					balance: { ...payload.balance, total_credits_usd: 0 },
+				}}
+				barMode="used"
+			/>,
+		);
+		expect(screen.queryByTestId("nw-credits-fill")).toBeNull();
 	});
 
 	it("flags an account in overage", () => {
@@ -279,7 +411,9 @@ describe("NeuralWattQuotaModal", () => {
 		render(
 			<NeuralWattQuotaModal {...chrome} payload={payload} barMode="used" />,
 		);
-		expect(screen.getByTestId("nw-usage-current")).toHaveTextContent("300");
+		// "1,234" (toLocaleString) is distinguishable from "1.2K" (formatCompact),
+		// which is what a requests/tokens field swap would render instead.
+		expect(screen.getByTestId("nw-usage-current")).toHaveTextContent("1,234");
 		expect(screen.getByTestId("nw-usage-lifetime")).toHaveTextContent("1,200");
 	});
 
@@ -289,5 +423,40 @@ describe("NeuralWattQuotaModal", () => {
 		);
 		expect(screen.getByTestId("nw-status")).toHaveTextContent("active");
 		expect(screen.queryByTestId("nw-status-overage")).toBeNull();
+	});
+
+	it("differs its auto-renew, accounting-method and overage-limit labels for a sparse payload", () => {
+		const sparse: NeuralWattQuotaResponse = {
+			...payload,
+			balance: { ...payload.balance, accounting_method: "" },
+			limits: { ...payload.limits, overage_limit_usd: null },
+			subscription: { ...payload.subscription, auto_renew: false },
+		};
+		const { unmount } = render(
+			<NeuralWattQuotaModal {...chrome} payload={sparse} barMode="used" />,
+		);
+		const sparseAutoRenew = screen.getByTestId("nw-auto-renew").textContent;
+		const sparseAccounting = screen.getByTestId(
+			"nw-accounting-method",
+		).textContent;
+		const sparseOverageLimit =
+			screen.getByTestId("nw-overage-limit").textContent;
+		unmount();
+
+		render(
+			<NeuralWattQuotaModal {...chrome} payload={payload} barMode="used" />,
+		);
+		const baseAutoRenew = screen.getByTestId("nw-auto-renew").textContent;
+		const baseAccounting = screen.getByTestId(
+			"nw-accounting-method",
+		).textContent;
+		const baseOverageLimit = screen.getByTestId("nw-overage-limit").textContent;
+
+		// Locale-independent: compares two live renders rather than asserting on
+		// translated text, but still proves each fallback/ternary is wired to its
+		// source field instead of being hardcoded to one arm.
+		expect(sparseAutoRenew).not.toBe(baseAutoRenew);
+		expect(sparseAccounting).not.toBe(baseAccounting);
+		expect(sparseOverageLimit).not.toBe(baseOverageLimit);
 	});
 });
