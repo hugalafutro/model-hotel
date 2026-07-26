@@ -517,7 +517,7 @@
 			"kimiTitle": "Kimi Code quota ({{provider}})",
 			"miniMaxTitle": "MiniMax quota ({{provider}})",
 			"plan": "Plan",
-			"hourTokenQuota": "{{hours}} hour token quota",
+			"hourTokenQuota": "{{hours}}h token quota",
 			"weeklyTokenQuota": "Weekly token quota",
 			"mcpTimeQuota": "MCP time quota",
 			"kimiParallelLimit": "Parallel request limit",
