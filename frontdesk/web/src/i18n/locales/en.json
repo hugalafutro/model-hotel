@@ -500,6 +500,18 @@
 			"openrouterBalance": "{{provider}}: credits remaining",
 			"ollamaCloudPlan": "{{provider}}: subscription plan",
 			"neuralwattEnergy": "{{provider}}: energy used this period"
+		},
+		"modal": {
+			"toggleBarMode": "Switch between used and remaining",
+			"showUsed": "Show quota used",
+			"showRemaining": "Show quota remaining",
+			"refreshTitle": "Refresh this quota from the fleet primary",
+			"used": "used",
+			"left": "left",
+			"remaining": "remaining",
+			"resets": "Resets {{when}}",
+			"noLimitSet": "No limit set",
+			"notAvailable": "Not available"
 		}
 	},
 	"errors": {

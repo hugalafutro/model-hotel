@@ -10,6 +10,11 @@ interface ModalProps {
 	// the in-progress feedback (the work keeps running server-side regardless).
 	// Defaults to true: every existing caller stays dismissible.
 	dismissible?: boolean;
+	// Optional secondary line under the title (e.g. a plan name or status).
+	subtitle?: ReactNode;
+	// Optional controls rendered on the title row, opposite the heading. Callers
+	// that omit it keep the previous single-heading layout and focus order.
+	headerActions?: ReactNode;
 }
 
 const FOCUSABLE =
@@ -26,6 +31,8 @@ export function Modal({
 	children,
 	actions,
 	dismissible = true,
+	subtitle,
+	headerActions,
 }: ModalProps) {
 	const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -99,7 +106,15 @@ export function Modal({
 				aria-label={title}
 				tabIndex={-1}
 			>
-				<h2>{title}</h2>
+				<div className="fd-modal-head">
+					<div className="fd-modal-heading">
+						<h2>{title}</h2>
+						{subtitle && <p className="fd-modal-subtitle">{subtitle}</p>}
+					</div>
+					{headerActions && (
+						<div className="fd-modal-head-actions">{headerActions}</div>
+					)}
+				</div>
 				<div>{children}</div>
 				{actions && <div className="fd-modal-actions">{actions}</div>}
 			</div>

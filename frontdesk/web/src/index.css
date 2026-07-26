@@ -688,3 +688,174 @@ h3 {
 	--quota-brand: var(--text-faint);
 	font-style: italic;
 }
+
+/* ── Quota modals ─────────────────────────────────────────────────────── */
+
+.fd-modal-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.fd-modal-subtitle {
+	margin: 0.15rem 0 0;
+	color: var(--text-muted);
+	font-size: 0.8rem;
+}
+
+.fd-modal-head-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	flex-shrink: 0;
+}
+
+.fd-quota-modal-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.3rem;
+	border: 1px solid transparent;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.fd-quota-modal-btn:hover:not(:disabled) {
+	background: var(--surface-2);
+	color: var(--text);
+}
+
+.fd-quota-modal-btn:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.fd-quota-modal-body {
+	display: flex;
+	flex-direction: column;
+	gap: 1.25rem;
+}
+
+.fd-quota-modal-stamp {
+	margin: 0;
+	padding-top: 0.5rem;
+	border-top: 1px solid var(--border);
+	color: var(--text-faint);
+	font-size: 0.72rem;
+}
+
+.fd-quota-bar-block {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.fd-quota-bar-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+.fd-quota-bar-label {
+	color: var(--text);
+	font-size: 0.82rem;
+	font-weight: 500;
+}
+
+.fd-quota-bar-right {
+	color: var(--text-muted);
+	font-size: 0.8rem;
+	font-family: var(--font-mono);
+}
+
+.fd-quota-bar-track {
+	width: 100%;
+	height: 0.6rem;
+	border-radius: 999px;
+	background: var(--surface-2);
+	overflow: hidden;
+}
+
+.fd-quota-bar-fill {
+	height: 100%;
+	border-radius: 999px;
+	transition: width 0.25s ease;
+}
+
+.fd-quota-fill-ok {
+	background: var(--ok);
+}
+.fd-quota-fill-warn {
+	background: var(--warn);
+}
+.fd-quota-fill-high {
+	background: var(--accent-strong);
+}
+.fd-quota-fill-danger {
+	background: var(--danger);
+}
+
+.fd-quota-bar-sub {
+	margin: 0;
+	color: var(--text-faint);
+	font-size: 0.72rem;
+	white-space: pre-line;
+}
+
+.fd-quota-detail-grid {
+	display: grid;
+	gap: 0.5rem;
+}
+.fd-quota-detail-grid-2 {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.fd-quota-detail-grid-3 {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fd-quota-detail-item {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	padding: 0.5rem 0.6rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	background: var(--surface-2);
+	min-width: 0;
+}
+
+.fd-quota-detail-span {
+	grid-column: 1 / -1;
+}
+
+.fd-quota-detail-label {
+	color: var(--text-faint);
+	font-size: 0.68rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.fd-quota-detail-value {
+	color: var(--text);
+	font-size: 0.82rem;
+	overflow-wrap: anywhere;
+}
+
+/* fd-spin keyframes already declared above (powers .fd-spinner); reused here
+   for the refresh-icon spin instead of redeclaring the same @keyframes. */
+.fd-spin {
+	animation: fd-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fd-spin {
+		animation: none;
+	}
+	.fd-quota-bar-fill {
+		transition: none;
+	}
+}
