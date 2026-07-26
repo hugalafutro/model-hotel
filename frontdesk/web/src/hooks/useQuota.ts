@@ -18,13 +18,12 @@ interface CachedQuota {
 	lastUpdatedAt: string | null;
 }
 
-// Frozen: this is a shared module-level constant handed straight out as
-// `snapshots`, and a future consumer calling e.g. `.sort()` on it would
-// otherwise silently corrupt it for every hook instance.
-const EMPTY: CachedQuota = Object.freeze({
-	snapshots: [],
-	lastUpdatedAt: null,
-});
+// A fresh empty result per call: readCache's fallback value is handed straight
+// out as `snapshots`, so a shared module-level array would let one consumer's
+// in-place sort corrupt every other mount in the session.
+function emptyQuota(): CachedQuota {
+	return { snapshots: [], lastUpdatedAt: null };
+}
 
 // Seeding from localStorage means a reload paints the badges immediately instead
 // of flashing empty for a round trip, and it is what lets a failed first read
@@ -32,15 +31,15 @@ const EMPTY: CachedQuota = Object.freeze({
 function readCache(): CachedQuota {
 	try {
 		const raw = localStorage.getItem(QUOTA_CACHE_KEY);
-		if (!raw) return EMPTY;
+		if (!raw) return emptyQuota();
 		const parsed = JSON.parse(raw) as CachedQuota;
-		if (!Array.isArray(parsed?.snapshots)) return EMPTY;
+		if (!Array.isArray(parsed?.snapshots)) return emptyQuota();
 		return {
 			snapshots: parsed.snapshots,
 			lastUpdatedAt: parsed.lastUpdatedAt ?? null,
 		};
 	} catch {
-		return EMPTY;
+		return emptyQuota();
 	}
 }
 

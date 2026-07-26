@@ -64,6 +64,19 @@ describe("useQuota", () => {
 		expect(result.current.snapshots).toEqual([]);
 	});
 
+	it("does not share a mutable empty snapshots array between hook instances", () => {
+		// No cache present, so both instances fall back to the empty-quota path.
+		// If that fallback ever returns the same array reference twice, an
+		// in-place mutation on one hook's snapshots (e.g. a consumer's .sort())
+		// would corrupt every other mount in the session.
+		server.use(failQuota());
+		const { result: first } = renderHook(() => useQuota(false));
+		expect(first.current.snapshots).toEqual([]);
+		first.current.snapshots.push({ ...snapshot, provider_name: "leaked" });
+		const { result: second } = renderHook(() => useQuota(false));
+		expect(second.current.snapshots).toEqual([]);
+	});
+
 	it("clears snapshots and cache on an authoritative empty 200", async () => {
 		localStorage.setItem(
 			QUOTA_CACHE_KEY,
