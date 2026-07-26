@@ -13,6 +13,7 @@ import {
 	getAuthToken,
 	onUnauthorized,
 } from "./api/client";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LanguageSelector } from "./components/LanguageSelector";
 import { Login } from "./components/Login";
 import { Logo } from "./components/Logo";
@@ -130,7 +131,15 @@ function Shell() {
 				</div>
 				<LanguageSelector />
 			</header>
-			<QuotaStrip />
+			{/* The strip renders provider payloads fetched from the fleet primary,
+			    i.e. data this build does not control the shape of. A 200 carrying a
+			    partial body must cost the strip and nothing else; without a boundary
+			    it would blank the whole control plane, on every tab. No fallback: the
+			    strip already renders nothing when it has nothing to show, so vanishing
+			    is its established empty state. */}
+			<ErrorBoundary>
+				<QuotaStrip />
+			</ErrorBoundary>
 			<main className="fd-main">
 				<Suspense
 					fallback={<div className="fd-empty">{t("common.loading")}</div>}
