@@ -136,8 +136,11 @@ function Shell() {
 			    partial body must cost the strip and nothing else; without a boundary
 			    it would blank the whole control plane, on every tab. No fallback: the
 			    strip already renders nothing when it has nothing to show, so vanishing
-			    is its established empty state. */}
-			<ErrorBoundary>
+			    is its established empty state. Keyed off the current tab so a
+			    strip-level failure is recoverable by switching tabs: the strip
+			    hangs above every one of them and this shell never unmounts, so
+			    without a reset key the only way back would be a page reload. */}
+			<ErrorBoundary resetKeys={[tab]}>
 				<QuotaStrip />
 			</ErrorBoundary>
 			<main className="fd-main">

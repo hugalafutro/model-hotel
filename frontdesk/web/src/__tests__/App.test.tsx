@@ -10,8 +10,9 @@ import { sseHandler } from "../test/sse";
 // inside it cannot take the whole authenticated shell down. That wiring lives
 // on a single line with nothing forcing it to stay; this flag lets one test
 // flip QuotaStrip into throwing on demand without disturbing every other test
-// in this file, which rely on QuotaStrip rendering normally (i.e. nothing,
-// since /api/quota returns an empty list in authHandlers).
+// in this file, which rely on QuotaStrip rendering harmlessly (the real one
+// renders nothing at all, since /api/quota returns an empty list in
+// authHandlers). The marker div is what makes "the strip came back" observable.
 const quotaStripThrows = vi.hoisted(() => ({ current: false }));
 
 vi.mock("../components/QuotaStrip", () => ({
@@ -19,7 +20,7 @@ vi.mock("../components/QuotaStrip", () => ({
 		if (quotaStripThrows.current) {
 			throw new Error("malformed quota payload");
 		}
-		return null;
+		return <div data-testid="quota-strip-mock" />;
 	},
 }));
 
@@ -178,6 +179,42 @@ describe("App auth gating", () => {
 			});
 			await waitFor(() => {
 				expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+			});
+			// Contained means gone, not degraded in place: the boundary renders no
+			// fallback, matching the strip's own empty state.
+			expect(screen.queryByTestId("quota-strip-mock")).toBeNull();
+		} finally {
+			quotaStripThrows.current = false;
+			consoleErrorSpy.mockRestore();
+		}
+	});
+
+	it("retries the strip on the next tab switch after it has failed", async () => {
+		// Containment alone leaves the boundary latched for the life of the
+		// mount, and this shell never unmounts while signed in, so without the
+		// resetKeys wiring in App.tsx the only way back would be a page reload.
+		const consoleErrorSpy = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+		quotaStripThrows.current = true;
+		try {
+			server.use(...authHandlers("good"));
+			render(<App />);
+			await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
+			await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+			await waitFor(() => {
+				expect(
+					screen.getByRole("tab", { name: /members/i }),
+				).toBeInTheDocument();
+			});
+			expect(screen.queryByTestId("quota-strip-mock")).toBeNull();
+
+			// Whatever the strip choked on is not necessarily permanent (the next
+			// poll replaces the payload), so navigating gives it another go.
+			quotaStripThrows.current = false;
+			await userEvent.click(screen.getByRole("tab", { name: /settings/i }));
+			await waitFor(() => {
+				expect(screen.getByTestId("quota-strip-mock")).toBeInTheDocument();
 			});
 		} finally {
 			quotaStripThrows.current = false;

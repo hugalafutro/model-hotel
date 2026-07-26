@@ -22,6 +22,7 @@ import {
 	toBadgeModels,
 } from "../utils/quota";
 import { formatTimeOfDay } from "../utils/time";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { QuotaBadge } from "./QuotaBadge";
 import { KimiCodeQuotaModal } from "./quota/KimiCodeQuotaModal";
 import { MiniMaxQuotaModal } from "./quota/MiniMaxQuotaModal";
@@ -208,15 +209,26 @@ export function QuotaStrip() {
 				</div>
 			)}
 
+			{/* The modal is where a partial provider payload actually bites: the
+			    badges read defensively, the modals read deep. A boundary of its own
+			    keeps that throw off the strip, so the badges (and every other
+			    provider's modal) survive it. `key` is the recovery path: React
+			    discards a boundary whose key changed, so opening a different
+			    provider gets a clean one, and closing and reopening this one
+			    unmounts it outright. No fallback, matching the strip's own empty
+			    state; the operator sees the click do nothing rather than a broken
+			    dialog, and the badge itself still shows the numbers. */}
 			{open && (
-				<QuotaModalFor
-					model={open}
-					barMode={barMode}
-					onToggleBarMode={toggleBarMode}
-					onRefresh={() => void doRefresh()}
-					isRefreshing={refreshing}
-					onClose={() => setOpenKey(null)}
-				/>
+				<ErrorBoundary key={open.key}>
+					<QuotaModalFor
+						model={open}
+						barMode={barMode}
+						onToggleBarMode={toggleBarMode}
+						onRefresh={() => void doRefresh()}
+						isRefreshing={refreshing}
+						onClose={() => setOpenKey(null)}
+					/>
+				</ErrorBoundary>
 			)}
 		</div>
 	);
