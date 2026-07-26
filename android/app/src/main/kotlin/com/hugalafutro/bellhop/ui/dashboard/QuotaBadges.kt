@@ -378,11 +378,14 @@ private fun QuotaDetailRows(data: QuotaData) {
  * [mode] selects -- the same polarity the badge that opened the sheet is using,
  * so a badge reading "63%" opens onto a bar that is 63% full, not 37%.
  *
- * The fill colour follows Model Hotel's web modals (the `remainingBarColor` /
- * `usedBarColor` pair in web/src/components/modals/shared.tsx): healthy in the
- * theme's own accent, then warning, then error as the reading gets worse. The
- * thresholds differ by polarity there and they differ here for the same reason
- * -- "half used" is calm, "half left" is not.
+ * The fill colour ramps healthy -> warning -> error as the reading gets worse,
+ * on thresholds that differ by polarity because "half used" is calm and "half
+ * left" is not. REMAINING mirrors the web modals' `remainingBarColor` (the
+ * shared.tsx pair): error under 20% left, warning under 60%, accent above.
+ * USED deliberately parts company with `usedBarColor` at the bottom of the
+ * range: the web bar is amber from zero, this one starts in the theme's accent,
+ * so a barely-touched quota reads as healthy whichever polarity you are in
+ * rather than as a caution in one and fine in the other.
  */
 @Composable
 private fun QuotaMeterBar(

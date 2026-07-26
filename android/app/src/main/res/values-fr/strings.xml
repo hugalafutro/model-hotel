@@ -293,12 +293,10 @@
     <string name="quota_field_free_tier">Palier gratuit</string>
     <string name="quota_field_parallel_limit">Limite parallèle</string>
     <string name="quota_field_total_quota">Quota total</string>
-    <string name="quota_field_credits_total">Total des crédits</string>
     <string name="quota_field_credits_used">Crédits utilisés</string>
     <string name="quota_field_usage_today">Utilisation aujourd\'hui</string>
     <string name="quota_field_usage_month">Utilisation ce mois-ci</string>
     <string name="quota_field_balance_remaining">Solde restant</string>
-    <string name="quota_field_balance_total">Crédits totaux</string>
     <string name="quota_field_daily_input_tokens">Jetons d\'entrée quotidiens</string>
     <string name="quota_field_daily_images">Images quotidiennes</string>
     <string name="quota_field_mcp_quota">Quota MCP</string>

@@ -305,12 +305,10 @@
     <string name="quota_field_free_tier">Poziom darmowy</string>
     <string name="quota_field_parallel_limit">Limit równoległy</string>
     <string name="quota_field_total_quota">Łączny limit</string>
-    <string name="quota_field_credits_total">Kredyty łącznie</string>
     <string name="quota_field_credits_used">Wykorzystane kredyty</string>
     <string name="quota_field_usage_today">Zużycie dzisiaj</string>
     <string name="quota_field_usage_month">Zużycie w tym miesiącu</string>
     <string name="quota_field_balance_remaining">Pozostałe saldo</string>
-    <string name="quota_field_balance_total">Łączne kredyty</string>
     <string name="quota_field_daily_input_tokens">Dzienne tokeny wejściowe</string>
     <string name="quota_field_daily_images">Dzienne obrazy</string>
     <string name="quota_field_mcp_quota">Limit MCP</string>

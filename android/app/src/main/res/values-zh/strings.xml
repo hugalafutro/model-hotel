@@ -287,12 +287,10 @@
     <string name="quota_field_free_tier">免费层级</string>
     <string name="quota_field_parallel_limit">并发限制</string>
     <string name="quota_field_total_quota">总配额</string>
-    <string name="quota_field_credits_total">积分总额</string>
     <string name="quota_field_credits_used">已用积分</string>
     <string name="quota_field_usage_today">今日用量</string>
     <string name="quota_field_usage_month">本月用量</string>
     <string name="quota_field_balance_remaining">剩余余额</string>
-    <string name="quota_field_balance_total">总积分</string>
     <string name="quota_field_daily_input_tokens">每日输入 token 数</string>
     <string name="quota_field_daily_images">每日图片数</string>
     <string name="quota_field_mcp_quota">MCP 配额</string>

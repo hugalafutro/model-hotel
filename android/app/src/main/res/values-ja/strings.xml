@@ -287,12 +287,10 @@
     <string name="quota_field_free_tier">無料ティア</string>
     <string name="quota_field_parallel_limit">並列実行数の上限</string>
     <string name="quota_field_total_quota">合計クォータ</string>
-    <string name="quota_field_credits_total">クレジット合計</string>
     <string name="quota_field_credits_used">使用済みクレジット</string>
     <string name="quota_field_usage_today">本日の使用量</string>
     <string name="quota_field_usage_month">今月の使用量</string>
     <string name="quota_field_balance_remaining">残高</string>
-    <string name="quota_field_balance_total">クレジット総額</string>
     <string name="quota_field_daily_input_tokens">1日あたりの入力トークン</string>
     <string name="quota_field_daily_images">1日あたりの画像数</string>
     <string name="quota_field_mcp_quota">MCP クォータ</string>

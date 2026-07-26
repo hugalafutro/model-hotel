@@ -305,12 +305,10 @@
     <string name="quota_field_free_tier">Bezplatná úroveň</string>
     <string name="quota_field_parallel_limit">Limit súbežných požiadaviek</string>
     <string name="quota_field_total_quota">Celková kvóta</string>
-    <string name="quota_field_credits_total">Kredity spolu</string>
     <string name="quota_field_credits_used">Využité kredity</string>
     <string name="quota_field_usage_today">Využitie dnes</string>
     <string name="quota_field_usage_month">Využitie tento mesiac</string>
     <string name="quota_field_balance_remaining">Zostávajúci zostatok</string>
-    <string name="quota_field_balance_total">Celkové kredity</string>
     <string name="quota_field_daily_input_tokens">Denné vstupné tokeny</string>
     <string name="quota_field_daily_images">Denné obrázky</string>
     <string name="quota_field_mcp_quota">Kvóta MCP</string>
