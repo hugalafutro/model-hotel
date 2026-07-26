@@ -1,10 +1,27 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import App from "../App";
 import { server } from "../test/server";
 import { sseHandler } from "../test/sse";
+
+// QuotaStrip is wrapped in an ErrorBoundary in App.tsx specifically so a throw
+// inside it cannot take the whole authenticated shell down. That wiring lives
+// on a single line with nothing forcing it to stay; this flag lets one test
+// flip QuotaStrip into throwing on demand without disturbing every other test
+// in this file, which rely on QuotaStrip rendering normally (i.e. nothing,
+// since /api/quota returns an empty list in authHandlers).
+const quotaStripThrows = vi.hoisted(() => ({ current: false }));
+
+vi.mock("../components/QuotaStrip", () => ({
+	QuotaStrip: () => {
+		if (quotaStripThrows.current) {
+			throw new Error("malformed quota payload");
+		}
+		return null;
+	},
+}));
 
 // Auth-gating handlers: TOTP off, no passkey, members list reflects the token.
 // Includes the SSE stream the authenticated shell opens after login.
@@ -136,5 +153,35 @@ describe("App auth gating", () => {
 			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
 		);
 		expect(localStorage.getItem("fdAuthToken")).toBeNull();
+	});
+
+	it("contains a QuotaStrip render failure to the strip and keeps the rest of the shell up", async () => {
+		// React logs a caught render error to the console; expected here since the
+		// point of this test is to throw on purpose. Scoped to this test only.
+		const consoleErrorSpy = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+		quotaStripThrows.current = true;
+		try {
+			server.use(...authHandlers("good"));
+			render(<App />);
+			await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
+			await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+			// The rest of the authenticated shell renders normally: tabs, and the
+			// Members page content past its own loading state. If the ErrorBoundary
+			// around QuotaStrip in App.tsx were removed, this throw would unmount
+			// the whole tree and none of this would be found.
+			await waitFor(() => {
+				expect(
+					screen.getByRole("tab", { name: /members/i }),
+				).toBeInTheDocument();
+			});
+			await waitFor(() => {
+				expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+			});
+		} finally {
+			quotaStripThrows.current = false;
+			consoleErrorSpy.mockRestore();
+		}
 	});
 });

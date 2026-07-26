@@ -636,8 +636,11 @@ h3 {
 }
 
 /* ── Quota badges ─────────────────────────────────────────────────────── */
-/* Every pill shares one rule; the per-provider accent arrives as the inline
-   --quota-brand custom property, so adding a provider needs no new CSS. */
+/* Every pill shares one rule; for a healthy pill the per-provider accent
+   arrives as the inline --quota-brand custom property, so adding a provider
+   needs no new CSS. A degraded pill intentionally omits that inline property
+   so the .fd-quota-pill-degraded rule below can set --quota-brand itself and
+   grey the pill out. */
 
 .fd-quota-pill {
 	display: inline-flex;
