@@ -45,12 +45,16 @@ Full deployment in the [High Availability wiki](https://github.com/hugalafutro/m
 
 ### [<img src="docs/icons/bellhop.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Bellhop Companion App](#-bellhop-companion-app)
 
-**Bellhop**, the native Android companion app for Front Desk, turns a paired phone into a pocket view of the fleet: live member health, request traffic, the event log, and, for operator devices, one-tap drain, activate, and config-sync behind a biometric prompt. It talks only to Front Desk, holds no provider credentials, and authenticates with a device token you can revoke from either side.
+**Bellhop**, the native Android companion app for Front Desk, turns a paired phone into a pocket view of the fleet: live member health, request traffic, provider quota badges, the event log, and, for operator devices, one-tap drain, activate, and config-sync behind a biometric prompt. A home-screen widget keeps the fleet and its badges on the launcher without opening anything. It talks only to Front Desk, holds no provider credentials, and authenticates with a device token you can revoke from either side.
 
 <p align="center">
-<a href="docs/screenshots/bellhop_dashboard.png"><img src="docs/screenshots/bellhop_dashboard.png" width="220" alt="Bellhop dashboard: linked fleet with health and traffic sparklines"></a>
+<a href="docs/screenshots/bellhop_dashboard.png"><img src="docs/screenshots/bellhop_dashboard.png" width="220" alt="Bellhop dashboard: linked fleet with quota badges, health and traffic sparklines"></a>
 <a href="docs/screenshots/bellhop_member.png"><img src="docs/screenshots/bellhop_member.png" width="220" alt="Bellhop member detail: request-traffic graph and operator controls"></a>
 <a href="docs/screenshots/bellhop_events.png"><img src="docs/screenshots/bellhop_events.png" width="220" alt="Bellhop fleet event log"></a>
+</p>
+
+<p align="center">
+<a href="docs/screenshots/bellhop_widget.png"><img src="docs/screenshots/bellhop_widget.png" width="500" alt="Bellhop home-screen widget: member health, quota badge strip and the latest fleet event"></a>
 </p>
 
 Full walkthrough in the [Bellhop wiki](https://github.com/hugalafutro/model-hotel/wiki/Bellhop); source under [`android/`](android/README.md).<br>APK download: [![Latest Bellhop release](https://img.shields.io/github/v/release/hugalafutro/model-hotel?filter=bellhop-v*&label=Bellhop%20APK&color=3ddc84)](https://github.com/hugalafutro/model-hotel/releases/tag/bellhop-latest) (signed; [Obtainium](https://github.com/ImranR98/Obtainium)-compatible).

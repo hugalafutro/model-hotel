@@ -5,12 +5,12 @@ Bellhop is the Android companion app for [[Front Desk|High Availability]]. Pair 
 ## The app at a glance
 
 <p align="center">
-<a href="screenshots/bellhop_dashboard.png"><img src="screenshots/bellhop_dashboard.png" width="240" alt="Bellhop dashboard: linked Front Desk, auto-sync, two healthy members with traffic sparklines"></a>
+<a href="screenshots/bellhop_dashboard.png"><img src="screenshots/bellhop_dashboard.png" width="240" alt="Bellhop dashboard: linked Front Desk, quota badge strip, two healthy members with traffic sparklines"></a>
 <a href="screenshots/bellhop_member.png"><img src="screenshots/bellhop_member.png" width="240" alt="Bellhop member detail: traffic graph, operator controls, recent events"></a>
 <a href="screenshots/bellhop_events.png"><img src="screenshots/bellhop_events.png" width="240" alt="Bellhop fleet event log with date-range filter"></a>
 </p>
 
-Three surfaces cover day-to-day monitoring. The **dashboard** is the linked home screen: it names the Front Desk you paired with, carries an auto-sync switch for operators, shows a fleet health banner, and lists every member as a card with its health dot, address, latency, Traefik status, version, a request sparkline, and its latest event. Tapping a card opens the **member detail** screen with a full request-traffic graph, the member's metadata, operator controls, and its recent events. The top-bar log icon opens the fleet-wide **events** screen. Tap any screenshot on this page to view it full size.
+Three surfaces cover day-to-day monitoring. The **dashboard** is the linked home screen: it names the Front Desk you paired with, carries a strip of [provider quota badges](#quota-badges), shows a fleet health banner, and lists every member as a card with its health dot, address, latency, Traefik status, version, a request sparkline, and its latest event. Tapping a card opens the **member detail** screen with a full request-traffic graph, the member's metadata, operator controls, and its recent events. The top-bar log icon opens the fleet-wide **events** screen. A fourth surface never needs opening at all: the [home-screen widget](#the-home-screen-widget) keeps the fleet, its badges and the latest event on your launcher. Tap any screenshot on this page to view it full size.
 
 ## Linking a device
 
@@ -41,12 +41,24 @@ A device can never do more than its role allows, because Front Desk enforces the
 
 ## The dashboard
 
-The dashboard is the linked home screen shown at the top of this page. A banner summarizes fleet health at a glance ("All members up", or a count when something is down), and an auto-sync switch (operator only) reflects and controls whether members track the primary's config. Each member card carries a colored health dot, the member name and a **Primary** badge where it applies, the member address, a compact status line (reachability, latency, Traefik state, and running version), a request-traffic sparkline drawn only when the card is on screen to save battery, and the member's most recent event with a relative timestamp. Pull to refresh forces an immediate poll.
+The dashboard is the linked home screen shown at the top of this page. A banner summarizes fleet health at a glance ("All members up", or a count when something is down), and a strip of provider quota badges sits above it. Each member card carries a colored health dot, the member name, the member address, a compact status line (reachability, latency, Traefik state, and running version), a request-traffic sparkline drawn only when the card is on screen to save battery, and the member's most recent event with a relative timestamp.
+
+The primary member's card names its role with a **Primary** badge and, beside it, an **Auto-sync on** or **Auto-sync off** badge saying whether the fleet's members track the primary's config. On a monitor device that badge is a readout; on an operator device it is a button that opens the auto-sync switch in a bottom sheet, so a setting worth changing once in a blue moon does not sit on the dashboard as though it needed watching. Pull to refresh forces an immediate poll.
+
+## Quota badges
+
+<p align="center">
+<a href="screenshots/bellhop_quota.png"><img src="screenshots/bellhop_quota.png" width="240" alt="Bellhop quota detail sheet: MiniMax per-model quota with meter bars"></a>
+</p>
+
+The badge strip reports what is left of each provider's quota, straight from the same readings the Model Hotel dashboard shows: a short provider code and one headline number per provider, in that provider's own brand colour, packed as tightly as the screen allows. Tap a badge for a **detail sheet** with the full picture: a meter bar per metered reading (with per-model grouping where a provider reports it that way), and the flat facts underneath, such as membership level, parallel-request limit, or reset time. A reading with no ceiling to measure against gets a plain row rather than a bar, since a bar nobody can fill is decoration.
+
+**Badge style** and which providers appear is yours to set, per surface, in **Settings → Quota badges**: reorder the providers, hide the ones you do not care about, and choose whether a badge counts what you have **used** or what is **remaining**. The dashboard and the widget keep separate lists, so a phone can carry eight badges while the widget carries the two you actually glance at.
 
 ## Member detail
 
 <p align="center">
-<a href="screenshots/bellhop_member.png"><img src="screenshots/bellhop_member.png" width="260" alt="Bellhop member detail: traffic graph at last 3 hours, operator controls, recent events"></a>
+<a href="screenshots/bellhop_member.png"><img src="screenshots/bellhop_member.png" width="260" alt="Bellhop member detail: request-traffic graph, operator controls, recent events"></a>
 </p>
 
 Tapping a card opens the member. The top of the screen is a **request-traffic graph** over the window you chose in Settings (requests and errors are drawn as separate series with their own legend, and the time axis spans the selected range). Below it sit the member's address, running version, and when it was added to the fleet. The **Operator controls** section (present only on operator devices) offers **Drain** to bleed traffic off a member, **Activate** to bring a drained member back, and **Sync fleet config** to push the primary's config out; each action asks for a biometric confirmation and reports back whether Front Desk accepted it. A **Recent events** list closes the screen, with its own date-range chips so you can narrow it to the last hour or open it up to all time.
@@ -54,6 +66,18 @@ Tapping a card opens the member. The top of the screen is a **request-traffic gr
 ## Events
 
 The events screen is the fleet-wide log. A header counts the events in view, and a row of range chips (1h, 24h, 7d, 30d, All) plus a calendar picker scope the list. Each entry shows a human title and one-line summary, a severity (Error, Warning, Info, or Success) shown as a colored edge, and the raw event type with its source and member (for example `health.down` from `frontdesk-poller` on a given member). The log covers member health transitions, version read failures and recoveries, config syncs (manual and automatic), and device pairing and revocation, so it doubles as an audit trail of everything Front Desk noticed.
+
+## The home-screen widget
+
+<p align="center">
+<a href="screenshots/bellhop_widget.png"><img src="screenshots/bellhop_widget.png" width="520" alt="Bellhop home-screen widget: Front Desk name, member count, two healthy members with traffic overlays, quota badge strip, latest fleet event"></a>
+</p>
+
+The widget answers "is the fleet fine?" without opening anything. It carries the Front Desk's name, a member count badge (2/2 above), a row per member with its health dot and state, the quota badge strip, and the latest fleet event with its time and date. A footer stamps how old the reading is ("as of 09:01") beside a refresh button, because a widget that cannot say when it last spoke to Front Desk is worse than no widget.
+
+**It never polls on its own.** The widget draws whatever the app or the background check last wrote, which is what keeps it free: no extra battery, no extra requests. Tapping refresh forces a read right then, and background monitoring keeps it current on its own schedule. Tapping the widget anywhere else opens the app; tapping a quota badge opens that provider's detail view where there is one to open, and otherwise raises a toast with the provider's full name, since a badge on a widget has no room to spell out "openrouter-personal".
+
+Resize it and the contents follow: member rows stack to the height you give it, and the badge strip repacks to the width, fitting each badge to its own label and marking anything that did not fit with a **+N** so a trimmed strip never pretends to be the whole picture. Two switches under **Settings → Home-screen widget** decide what it carries at all: the per-member **traffic graph** overlay and the **quota badge** strip. Both are worth knowing the cost of, since each adds a read to every background check, and turning one off removes that read rather than merely hiding the result.
 
 ## Alerts
 
@@ -67,11 +91,11 @@ The **Alerts** screen shows what Front Desk raises alerts for and, on operator d
 ## Settings
 
 <p align="center">
-<a href="screenshots/bellhop_settings.png"><img src="screenshots/bellhop_settings.png" width="240" alt="Bellhop settings: linked Front Desk, app lock, background monitoring, real-time push, traffic graph range"></a>
+<a href="screenshots/bellhop_settings.png"><img src="screenshots/bellhop_settings.png" width="240" alt="Bellhop settings: linked Front Desk, hold to copy, home-screen widget switches, time format, traffic graph range"></a>
 <a href="screenshots/bellhop_language.png"><img src="screenshots/bellhop_language.png" width="240" alt="Bellhop language picker with system default and ten locales"></a>
 </p>
 
-Settings gathers the device-side preferences. **Linked Front Desk** shows which Front Desk you paired with, the name and role you linked as, and the date, and it long-presses to copy. **App lock** requires a fingerprint or device PIN to open Bellhop at all. **Background monitoring** checks the fleet every fifteen minutes and notifies you when a member goes down or recovers, even while the app is closed. **Real-time push** wakes Bellhop the instant Front Desk pushes an alert, over UnifiedPush and ntfy, with no Google dependency and no polling delay; it is opt-in. **Traffic graph range** sets how far back the request charts reach (1h, 3h, 6h, 12h, or 24h). **Hold to copy** toggles whether long-pressing an event or member cell copies it to the clipboard. **Language** offers the system default plus ten hand-translated locales. The screen ends with **Unlink**.
+Settings gathers the device-side preferences. **Linked Front Desk** shows which Front Desk you paired with, the name and role you linked as, and the date, and it long-presses to copy. **Hold to copy** toggles whether long-pressing an event or member cell copies it to the clipboard. **Home-screen widget** governs what the widget carries, one switch per block: **Traffic graphs** overlays each member row with its last hour of requests, and **Quota badges** carries the badge strip. Both cost the background check an extra read while they are on, which is why each says so and why each can be turned off on its own. **Time format** picks the clock every time in Bellhop is drawn on (follow the device, or force 24-hour or 12-hour). **Traffic graph range** sets how far back the request charts reach (1h, 3h, 6h, 12h, or 24h). **App lock** requires a fingerprint or device PIN to open Bellhop at all. **Background monitoring** checks the fleet every fifteen minutes and notifies you when a member goes down or recovers, even while the app is closed. **Real-time push** wakes Bellhop the instant Front Desk pushes an alert, over UnifiedPush and ntfy, with no Google dependency and no polling delay; it is opt-in. **Battery** reports whether Android is letting Bellhop run in the background at all, and offers to fix it when it is not. **Quota badges** opens the badge picker described above, **Alerts** opens the alert policy, **Language** offers the system default plus ten hand-translated locales, and the screen ends with **Unlink**.
 
 ## Notifications and background monitoring
 

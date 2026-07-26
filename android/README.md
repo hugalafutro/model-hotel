@@ -6,12 +6,15 @@ to that FD; it never holds a member Model Hotel token. The full design lives in
 [`plans/android-companion-app.md`](../plans/android-companion-app.md).
 
 Current status: in active use. Pairing (QR/code), the live dashboard and member
-detail, background monitoring, push notifications, operator actions, an app lock,
-alerts, an event log, a settings screen, full internationalisation, and a
-home-screen widget have shipped. The widget renders persisted fleet state only:
-its updates piggyback on fetches the app already makes (background poll, push
-wakes, foreground refresh) plus a manual refresh button; it never polls on its
-own, so it adds no battery cost.
+detail, provider quota badges, background monitoring, push notifications,
+operator actions, an app lock, alerts, an event log, a settings screen, full
+internationalisation, and a home-screen widget have shipped. The widget renders
+persisted fleet state only: its updates piggyback on fetches the app already
+makes (background poll, push wakes, foreground refresh) plus a manual refresh
+button; it never polls on its own, so it adds no battery cost. What it carries
+beyond the member rows -- the per-member traffic overlay and the quota badge
+strip -- is switchable in Settings, and each switch also decides whether the
+background check makes that block's extra read at all.
 
 ## Stack
 
@@ -58,4 +61,5 @@ are reserved for what Robolectric cannot do and are not part of the per-push CI.
 
 `.github/workflows/android.yml` is path-filtered to `android/**`: ktlint,
 Android Lint, unit tests, debug APK assembly, and an APK artifact upload.
-Release signing and distribution (GitHub Releases + Obtainium) come in Phase A4.
+`android-release.yml` builds and signs the release APK and publishes it to
+GitHub Releases (Obtainium-compatible).
