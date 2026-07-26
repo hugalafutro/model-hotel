@@ -34,15 +34,40 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # 'dockerhub-readme-not-needed' PR label).
 DEFAULT_BRANCH="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
 DEFAULT_BRANCH="${DEFAULT_BRANCH:-master}"
-SYNC_BASE="$(git merge-base "origin/${DEFAULT_BRANCH}" HEAD 2>/dev/null || true)"
-
-# One diff for the whole hook. Every gate below tests against this, so a branch
-# only pays for the surfaces it actually touched. Empty when there is no
-# merge-base, in which case the gates fall back to running everything.
-CHANGED=""
-if [ -n "$SYNC_BASE" ]; then
-	CHANGED="$(git diff --name-only "$SYNC_BASE" HEAD)"
+# git feeds pre-push the refs actually being pushed on stdin, one line each:
+#   <local ref> <local sha> <remote ref> <remote sha>
+# Gate on THOSE, not on HEAD. `git push origin some-other-branch` and multi-ref
+# pushes never touch HEAD, so a gate reading HEAD would measure an unrelated
+# branch and skip checks the pushed commits actually need. Falls back to HEAD
+# when stdin is empty or a terminal, i.e. the hook was run by hand.
+PUSH_HEADS=()
+if [ ! -t 0 ]; then
+	while read -r _local_ref local_sha _remote_ref _remote_sha; do
+		[ -n "${local_sha:-}" ] || continue
+		# All-zero local sha means a branch deletion: nothing to check.
+		case "$local_sha" in
+		*[!0]*) PUSH_HEADS+=("$local_sha") ;;
+		esac
+	done
 fi
+if [ "${#PUSH_HEADS[@]}" -eq 0 ]; then
+	PUSH_HEADS=("$(git rev-parse HEAD)")
+fi
+
+# One diff for the whole hook: the union of every ref being pushed, each measured
+# against its own merge-base with the default branch (the base..head model CI
+# uses). Every gate below tests against this, so a push only pays for the
+# surfaces it actually touched. SYNC_BASE stays empty when nothing has a
+# merge-base, in which case the gates fall back to running everything.
+SYNC_BASE=""
+CHANGED=""
+for _sha in "${PUSH_HEADS[@]}"; do
+	_base="$(git merge-base "origin/${DEFAULT_BRANCH}" "$_sha" 2>/dev/null || true)"
+	[ -n "$_base" ] || continue
+	[ -n "$SYNC_BASE" ] || SYNC_BASE="$_base"
+	CHANGED="$(printf '%s\n%s\n' "$CHANGED" "$(git diff --name-only "$_base" "$_sha" 2>/dev/null || true)")"
+done
+CHANGED="$(printf '%s\n' "$CHANGED" | grep -v '^[[:space:]]*$' || true)"
 # touched <regex> - true when a changed path matches, or when we have no diff to
 # go on (no merge-base), so an unknown state stays conservative and runs the check.
 touched() {
@@ -91,7 +116,9 @@ fi
 # Go lint, only when Go actually changed. golangci-lint already runs govet as one
 # of its enabled linters (.golangci.yml), so a separate `go vet` pass was doing
 # the same package-graph analysis twice for no extra signal; it is gone.
-if touched '\.go$|^go\.(mod|sum)$'; then
+# The linter's own config counts as a Go change: editing .golangci.yml can turn a
+# linter on and make previously-passing code fail, so it has to re-run.
+if touched '\.go$|^go\.(mod|sum)$|^\.golangci\.ya?ml$'; then
 	echo "pre-push: golangci-lint run ./cmd/... ./internal/... (includes govet)"
 	if ! golangci-lint run ./cmd/... ./internal/...; then
 		echo "pre-push: FAILED - golangci-lint" >&2
