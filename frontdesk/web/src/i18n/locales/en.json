@@ -557,7 +557,6 @@
 			"billingPeriod": "Billing period",
 			"autoRenew": "Auto renew",
 			"inOverage": "In overage",
-			"energy": "Energy",
 			"currentMonth": "This month",
 			"lifetime": "Lifetime",
 			"overageLimit": "Overage limit",

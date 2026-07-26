@@ -40,6 +40,11 @@ export function OpenRouterQuotaModal({
 
 	const limit = payload.limit;
 	const limitRemaining = payload.limit_remaining ?? 0;
+	// The `limit > 0` guard avoids a division by zero; note that QuotaBar's own
+	// `Math.max(shown, 0)` clamp would mask its removal for a 0% render anyway
+	// (division by zero yields -Infinity, which clamps back to 0), so this
+	// guard is defense in depth rather than the only thing standing between a
+	// zero limit and a broken bar.
 	const limitPctUsed =
 		limit != null && limit > 0 ? 100 - (limitRemaining / limit) * 100 : 0;
 
@@ -92,9 +97,15 @@ export function OpenRouterQuotaModal({
 					testId="or-limit-bar"
 					fillTestId="or-limit-fill"
 				>
-					{limit > 0
-						? resetSublabel(payload.limit_reset || null, t)
-						: t("quota.modal.limitReset")}
+					{limit > 0 ? (
+						<span data-testid="or-limit-reset">
+							{resetSublabel(payload.limit_reset || null, t)}
+						</span>
+					) : (
+						<span data-testid="or-limit-reached">
+							{t("quota.modal.limitReset")}
+						</span>
+					)}
 				</QuotaBar>
 			)}
 

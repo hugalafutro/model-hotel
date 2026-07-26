@@ -288,6 +288,55 @@ describe("OpenRouterQuotaModal", () => {
 		// limitPctUsed's `limit > 0` guard is false.
 		expect(screen.getByTestId("or-limit-fill")).toHaveStyle({ width: "0%" });
 	});
+
+	it("shows the reset-time sublabel for a positive limit, wired to the actual reset date", () => {
+		const { unmount } = render(
+			<OpenRouterQuotaModal
+				{...chrome}
+				payload={{
+					...payload,
+					limit: 100,
+					limit_reset: "2026-08-01T00:00:00Z",
+				}}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByTestId("or-limit-reset")).toBeInTheDocument();
+		expect(screen.queryByTestId("or-limit-reached")).toBeNull();
+		const augustText = screen.getByTestId("or-limit-reset").textContent;
+		unmount();
+
+		render(
+			<OpenRouterQuotaModal
+				{...chrome}
+				payload={{
+					...payload,
+					limit: 100,
+					limit_reset: "2026-12-25T00:00:00Z",
+				}}
+				barMode="used"
+			/>,
+		);
+		const decemberText = screen.getByTestId("or-limit-reset").textContent;
+
+		// Locale-independent: compares two live renders driven by different raw
+		// `limit_reset` timestamps rather than asserting on translated text, but
+		// still proves the sublabel is derived from the payload field instead of
+		// being a hardcoded string.
+		expect(decemberText).not.toBe(augustText);
+	});
+
+	it("shows the limit-reached sublabel testid for a zero-value limit", () => {
+		render(
+			<OpenRouterQuotaModal
+				{...chrome}
+				payload={{ ...payload, limit: 0 }}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByTestId("or-limit-reached")).toBeInTheDocument();
+		expect(screen.queryByTestId("or-limit-reset")).toBeNull();
+	});
 });
 
 describe("NeuralWattQuotaModal", () => {
