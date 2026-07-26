@@ -25,6 +25,7 @@ import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
 import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.data.QuotaSurface
+import com.hugalafutro.bellhop.data.WidgetQuotaBadge
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.diffAutoSync
 import com.hugalafutro.bellhop.data.diffFleet
@@ -80,6 +81,36 @@ private suspend fun widgetTraffic(
 }
 
 /**
+ * widgetQuotaBadges derives the widget's badge strip from one quota read,
+ * piggybacked on a poll that was already talking to Front Desk rather than
+ * costing a cycle of its own. The strip is the only reason this read happens, so
+ * with it switched off in Settings ([include] false) the request isn't made at
+ * all and the widget keeps the badges it already holds -- the same last-good
+ * fallback a failed read gets, since stale beats blank on a surface whose "as
+ * of" stamp says how old it is.
+ *
+ * Shared by both writers below so the gate and the fallback can't drift apart.
+ */
+private suspend fun widgetQuotaBadges(
+    client: FrontDeskClient,
+    fdUrl: String,
+    token: String,
+    widgetStore: WidgetStore,
+    configStore: QuotaBadgeConfigStore,
+    barMode: QuotaBarMode,
+    include: Boolean,
+): List<WidgetQuotaBadge> {
+    if (!include) return widgetStore.read()?.quota.orEmpty()
+    return when (val q = client.quota(fdUrl, token)) {
+        is FetchResult.Success -> {
+            configStore.reconcile(QuotaSurface.WIDGET, q.data.map { it.providerName })
+            widgetQuotaOf(q.data, configStore.config(QuotaSurface.WIDGET).first(), barMode)
+        }
+        else -> widgetStore.read()?.quota.orEmpty()
+    }
+}
+
+/**
  * pollFleet is the testable core of the background backstop: fetch the fleet,
  * diff it against the last-seen snapshot, persist the new snapshot, and return the
  * health edges. It performs no notification or Android I/O itself, so it can run
@@ -96,6 +127,7 @@ suspend fun pollFleet(
     widgetStore: WidgetStore,
     configStore: QuotaBadgeConfigStore,
     includeTraffic: Boolean = false,
+    includeQuota: Boolean = true,
     barMode: QuotaBarMode = QuotaBarMode.REMAINING,
     now: () -> Long = System::currentTimeMillis,
 ): PollResult {
@@ -120,17 +152,8 @@ suspend fun pollFleet(
                     is FetchResult.Success -> autoSync.data.stale
                     else -> previous?.autosyncStale ?: false
                 }
-            // Fetch the fleet's quota once per poll (piggyback on this fetch, no
-            // extra polling cycle) and fold the widget-visible subset into the
-            // render model. Stale-beats-blank: a failed read keeps the last-good.
             val quotaBadges =
-                when (val q = client.quota(fdUrl, token)) {
-                    is FetchResult.Success -> {
-                        configStore.reconcile(QuotaSurface.WIDGET, q.data.map { it.providerName })
-                        widgetQuotaOf(q.data, configStore.config(QuotaSurface.WIDGET).first(), barMode)
-                    }
-                    else -> widgetStore.read()?.quota.orEmpty()
-                }
+                widgetQuotaBadges(client, fdUrl, token, widgetStore, configStore, barMode, includeQuota)
             val alerts = diffFleet(previous, result.data) + listOfNotNull(diffAutoSync(previous, stale))
             monitorStore.saveSnapshot(FleetSnapshot.of(result.data, stale), epoch)
             // This poll already holds everything the home-screen widget renders;
@@ -172,6 +195,7 @@ suspend fun runBackstop(
     notify: (FleetAlert) -> Unit,
     retryOnFailure: Boolean = true,
     includeTraffic: Boolean = false,
+    includeQuota: Boolean = true,
     barMode: QuotaBarMode = QuotaBarMode.REMAINING,
 ): Result {
     // Neither layer active: nothing to do. A stale periodic run can outlive the
@@ -200,6 +224,7 @@ suspend fun runBackstop(
                 widgetStore,
                 configStore,
                 includeTraffic = includeTraffic,
+                includeQuota = includeQuota,
                 barMode = barMode,
             )
     ) {
@@ -236,6 +261,7 @@ suspend fun refreshWidgetOnly(
     client: FrontDeskClient,
     configStore: QuotaBadgeConfigStore,
     includeTraffic: Boolean = false,
+    includeQuota: Boolean = true,
     barMode: QuotaBarMode = QuotaBarMode.REMAINING,
     now: () -> Long = System::currentTimeMillis,
 ): Result {
@@ -252,13 +278,7 @@ suspend fun refreshWidgetOnly(
                 ?: widgetStore.read()?.autosyncStale
                 ?: false
         val quotaBadges =
-            when (val q = client.quota(link.fdUrl, token)) {
-                is FetchResult.Success -> {
-                    configStore.reconcile(QuotaSurface.WIDGET, q.data.map { it.providerName })
-                    widgetQuotaOf(q.data, configStore.config(QuotaSurface.WIDGET).first(), barMode)
-                }
-                else -> widgetStore.read()?.quota.orEmpty()
-            }
+            widgetQuotaBadges(client, link.fdUrl, token, widgetStore, configStore, barMode, includeQuota)
         val traffic =
             if (includeTraffic) {
                 widgetTraffic(client, link.fdUrl, token, result.data, widgetStore)
@@ -285,10 +305,12 @@ class FleetPollWorker(
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
         val context = applicationContext
-        // Opt-in widget traffic bars (Settings): both paths pass it through so
-        // the bars stay as fresh as the health rows they overlay.
+        // What the widget is set to carry (Settings): both paths pass these
+        // through, so a block the widget shows stays as fresh as the health rows
+        // it sits with, and a block it doesn't show costs this run nothing.
         val prefs = PrefsStore.create(context)
         val includeTraffic = prefs.widgetGraphs.first()
+        val includeQuota = prefs.widgetQuota.first()
         val barMode = prefs.quotaBarMode.first()
         val configStore = QuotaBadgeConfigStore.create(context)
         // The widget refresh tap is a display-only one-shot: no monitor guards, no
@@ -302,6 +324,7 @@ class FleetPollWorker(
                     FrontDeskClient(),
                     configStore,
                     includeTraffic,
+                    includeQuota,
                     barMode,
                 )
             BellhopWidget.update(context)
@@ -320,6 +343,7 @@ class FleetPollWorker(
                 // one-shot would block later push wakes under the KEEP policy.
                 retryOnFailure = !inputData.getBoolean(KEY_ONESHOT, false),
                 includeTraffic = includeTraffic,
+                includeQuota = includeQuota,
                 barMode = barMode,
             )
         // Re-render after every run: cheap no-op with no widget placed, and a
@@ -389,12 +413,25 @@ class FleetPollWorker(
         }
 
         /**
-         * runWidgetRefresh enqueues the widget refresh button's one-shot. KEEP
-         * coalesces tap-spam onto one in-flight poll; expedited with a non-expedited
-         * fallback, the same as [runNow]. A distinct unique name from the push wake
-         * so a widget tap can't coalesce away a pending push poll (or vice versa).
+         * runWidgetRefresh enqueues the widget's one-shot refresh. Expedited with a
+         * non-expedited fallback, the same as [runNow], under a unique name distinct
+         * from the push wake so a widget refresh can't coalesce away a pending push
+         * poll (or vice versa).
+         *
+         * [supersedeInFlight] picks the coalescing policy, and the two callers want
+         * opposite things. The refresh button wants KEEP: every tap asks for the same
+         * thing, so a burst should ride one in-flight poll instead of one network
+         * call per tap. A Settings toggle wants REPLACE, because [doWork] samples the
+         * preferences when it STARTS: a run already going was configured by the old
+         * value and cannot answer the new one, so coalescing onto it silently drops
+         * the refresh and leaves the widget on the previous state until something
+         * else happens to poll. Replacing cancels that run, which loses nothing the
+         * replacement doesn't immediately refetch.
          */
-        fun runWidgetRefresh(context: Context) {
+        fun runWidgetRefresh(
+            context: Context,
+            supersedeInFlight: Boolean = false,
+        ) {
             val request =
                 OneTimeWorkRequestBuilder<FleetPollWorker>()
                     .setConstraints(
@@ -405,9 +442,10 @@ class FleetPollWorker(
                     ).setInputData(workDataOf(KEY_WIDGET to true))
                     .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                     .build()
+            val policy = if (supersedeInFlight) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
             WorkManager
                 .getInstance(context)
-                .enqueueUniqueWork(WIDGET_NAME, ExistingWorkPolicy.KEEP, request)
+                .enqueueUniqueWork(WIDGET_NAME, policy, request)
         }
 
         /**

@@ -262,8 +262,12 @@
     <string name="widget_state_drained">已排空</string>
     <string name="widget_state_unknown">未知</string>
     <string name="widget_event_header">最新集群事件</string>
+    <string name="widget_event_stamp">%1$s，%2$s</string>
     <string name="settings_widget_title">主屏幕小组件</string>
-    <string name="settings_widget_graphs_subtitle">流量图：在每个成员上叠加最近一小时的请求。保持更新会使每次后台检查对每个成员多发送一个请求。</string>
+    <string name="settings_widget_graphs_title">流量图</string>
+    <string name="settings_widget_graphs_subtitle">在每个成员上叠加最近一小时的请求。保持更新会使每次后台检查对每个成员多发送一个请求。</string>
+    <string name="settings_widget_quota_title">配额徽章</string>
+    <string name="settings_widget_quota_subtitle">在小组件上显示各提供商的配额条。关闭后，每次后台检查也不再读取配额。</string>
 
     <string name="settings_quota_badges_title">配额徽章</string>
     <string name="settings_quota_badges_subtitle">选择在仪表盘和小组件上显示哪些服务商的配额徽章，调整顺序，并选择已用量或剩余量。</string>

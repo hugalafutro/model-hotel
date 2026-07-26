@@ -268,8 +268,12 @@
     <string name="widget_state_drained">Drainé</string>
     <string name="widget_state_unknown">Inconnu</string>
     <string name="widget_event_header">Dernier événement de la flotte</string>
+    <string name="widget_event_stamp">%1$s, %2$s</string>
     <string name="settings_widget_title">Widget d\'écran d\'accueil</string>
-    <string name="settings_widget_graphs_subtitle">Graphiques de trafic : superposent à chaque membre ses requêtes de la dernière heure. Leur fraîcheur coûte une requête de plus par membre à chaque vérification en arrière-plan.</string>
+    <string name="settings_widget_graphs_title">Graphiques de trafic</string>
+    <string name="settings_widget_graphs_subtitle">Superposent à chaque membre ses requêtes de la dernière heure. Leur fraîcheur coûte une requête de plus par membre à chaque vérification en arrière-plan.</string>
+    <string name="settings_widget_quota_title">Badges de quota</string>
+    <string name="settings_widget_quota_subtitle">Afficher la bande de quotas des fournisseurs sur le widget. Désactivé, la lecture des quotas disparaît aussi de chaque vérification en arrière-plan.</string>
 
     <string name="settings_quota_badges_title">Badges de quota</string>
     <string name="settings_quota_badges_subtitle">Choisissez les badges de quota des fournisseurs affichés sur le tableau de bord et le widget, réorganisez-les, et choisissez utilisé ou restant.</string>

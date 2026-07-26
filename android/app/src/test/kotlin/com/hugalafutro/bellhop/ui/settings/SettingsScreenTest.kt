@@ -11,6 +11,7 @@ import com.hugalafutro.bellhop.data.LockTimeout
 import com.hugalafutro.bellhop.data.TimeFormat
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -56,6 +57,10 @@ class SettingsScreenTest {
         onToggleHoldToCopy: (Boolean) -> Unit = {},
         graphRangeMinutes: Int = 60,
         onSetGraphRange: (Int) -> Unit = {},
+        widgetGraphs: Boolean = false,
+        onToggleWidgetGraphs: (Boolean) -> Unit = {},
+        widgetQuota: Boolean = true,
+        onToggleWidgetQuota: (Boolean) -> Unit = {},
         timeFormat: TimeFormat = TimeFormat.SYSTEM,
         onSetTimeFormat: (TimeFormat) -> Unit = {},
         batteryUnrestricted: Boolean = true,
@@ -95,6 +100,10 @@ class SettingsScreenTest {
                     onToggleHoldToCopy = onToggleHoldToCopy,
                     graphRangeMinutes = graphRangeMinutes,
                     onSetGraphRange = onSetGraphRange,
+                    widgetGraphs = widgetGraphs,
+                    onToggleWidgetGraphs = onToggleWidgetGraphs,
+                    widgetQuota = widgetQuota,
+                    onToggleWidgetQuota = onToggleWidgetQuota,
                     timeFormat = timeFormat,
                     onSetTimeFormat = onSetTimeFormat,
                     alertCounts = alertCounts,
@@ -147,6 +156,29 @@ class SettingsScreenTest {
         content(graphRangeMinutes = 60, onSetGraphRange = { picked = it })
         composeTestRule.onNodeWithTag("settings-graph-range-360").performScrollTo().performClick()
         assertEquals(360, picked)
+    }
+
+    @Test
+    fun theWidgetSectionSwitchesItsTwoBlocksIndependently() {
+        // The traffic bars and the badge strip are separate blocks of the widget
+        // under one heading: each switch must reach only its own preference, and
+        // neither can be mistaken for an off switch for the widget itself.
+        var graphsTo: Boolean? = null
+        var quotaTo: Boolean? = null
+        content(
+            widgetGraphs = false,
+            onToggleWidgetGraphs = { graphsTo = it },
+            widgetQuota = true,
+            onToggleWidgetQuota = { quotaTo = it },
+        )
+
+        composeTestRule.onNodeWithTag("settings-widget-graphs-toggle").performScrollTo().performClick()
+        assertEquals(true, graphsTo)
+        assertNull(quotaTo)
+
+        composeTestRule.onNodeWithTag("settings-widget-quota-toggle").performScrollTo().performClick()
+        assertEquals(false, quotaTo)
+        assertEquals(true, graphsTo)
     }
 
     @Test

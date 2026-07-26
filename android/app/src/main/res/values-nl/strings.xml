@@ -268,8 +268,12 @@
     <string name="widget_state_drained">Gedraineerd</string>
     <string name="widget_state_unknown">Onbekend</string>
     <string name="widget_event_header">Laatste vlootgebeurtenis</string>
+    <string name="widget_event_stamp">%1$s, %2$s</string>
     <string name="settings_widget_title">Startscherm-widget</string>
-    <string name="settings_widget_graphs_subtitle">Verkeersgrafieken: tonen per lid de verzoeken van het afgelopen uur. Verse balken kosten één extra verzoek per lid bij elke achtergrondcontrole.</string>
+    <string name="settings_widget_graphs_title">Verkeersgrafieken</string>
+    <string name="settings_widget_graphs_subtitle">Tonen per lid de verzoeken van het afgelopen uur. Verse balken kosten één extra verzoek per lid bij elke achtergrondcontrole.</string>
+    <string name="settings_widget_quota_title">Quotabadges</string>
+    <string name="settings_widget_quota_subtitle">Toon de quotastrook van de providers op de widget. Uit laat ook de quota-uitlezing bij elke achtergrondcontrole vervallen.</string>
 
     <string name="settings_quota_badges_title">Quotabadges</string>
     <string name="settings_quota_badges_subtitle">Kies welke quotabadges van providers worden getoond op het dashboard en de widget, herschik ze en kies gebruikt of resterend.</string>

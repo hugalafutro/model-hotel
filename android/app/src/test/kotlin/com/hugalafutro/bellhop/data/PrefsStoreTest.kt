@@ -33,6 +33,28 @@ class PrefsStoreTest {
         }
 
     @Test
+    fun widgetQuotaDefaultsOnAndWidgetGraphsOff() =
+        runBlocking {
+            // Opposite defaults on purpose: the widget carried the badge strip
+            // before this switch existed, so leaving it out must not remove it,
+            // while the traffic bars were always opt-in for their extra request.
+            val store = newStore()
+            assertEquals(true, store.widgetQuota.first())
+            assertEquals(false, store.widgetGraphs.first())
+        }
+
+    @Test
+    fun widgetQuotaRoundTripsThroughSet() =
+        runBlocking {
+            val store = newStore()
+            store.setWidgetQuota(false)
+            assertEquals(false, store.widgetQuota.first())
+
+            store.setWidgetQuota(true)
+            assertEquals(true, store.widgetQuota.first())
+        }
+
+    @Test
     fun timeFormatDefaultsToFollowingTheDevice() =
         runBlocking {
             assertEquals(TimeFormat.SYSTEM, newStore().timeFormat.first())

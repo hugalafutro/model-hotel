@@ -2,7 +2,9 @@ package com.hugalafutro.bellhop.widget
 
 import android.content.Context
 import android.content.Intent
-import android.text.format.DateFormat
+import android.graphics.Typeface
+import android.text.TextPaint
+import android.util.TypedValue
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -54,6 +56,7 @@ import com.hugalafutro.bellhop.data.PrefsStore
 import com.hugalafutro.bellhop.data.QuotaType
 import com.hugalafutro.bellhop.data.TRAFFIC_BUCKETS
 import com.hugalafutro.bellhop.data.TimeFormat
+import com.hugalafutro.bellhop.data.WidgetQuotaBadge
 import com.hugalafutro.bellhop.data.WidgetState
 import com.hugalafutro.bellhop.data.WidgetStore
 import com.hugalafutro.bellhop.data.countsOf
@@ -61,6 +64,7 @@ import com.hugalafutro.bellhop.data.quotaBadgeOverflow
 import com.hugalafutro.bellhop.data.quotaBadgeRows
 import com.hugalafutro.bellhop.data.quotaHasDetail
 import com.hugalafutro.bellhop.data.timePattern
+import com.hugalafutro.bellhop.ui.common.timeAndDate
 import com.hugalafutro.bellhop.ui.theme.Brass300
 import com.hugalafutro.bellhop.ui.theme.Brass600
 import com.hugalafutro.bellhop.ui.theme.Ember300
@@ -83,8 +87,8 @@ import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Date
 import java.util.Locale
+import kotlin.math.ceil
 import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 
 /** BellhopWidgetReceiver is the manifest entry point; all logic is in [BellhopWidget]. */
@@ -138,13 +142,15 @@ class BellhopWidget : GlanceAppWidget() {
         val initialState = widgetStore.read()
         val initialActive = monitorStore.active.first()
         val initialGraphs = prefsStore.widgetGraphs.first()
+        val initialQuota = prefsStore.widgetQuota.first()
         val initialTimeFormat = prefsStore.timeFormat.first()
         provideContent {
             val state by widgetStore.state.collectAsState(initial = initialState)
             val monitoringActive by monitorStore.active.collectAsState(initial = initialActive)
             val graphs by prefsStore.widgetGraphs.collectAsState(initial = initialGraphs)
+            val quotaStrip by prefsStore.widgetQuota.collectAsState(initial = initialQuota)
             val timeFormat by prefsStore.timeFormat.collectAsState(initial = initialTimeFormat)
-            WidgetContent(state, monitoringActive, fdName, graphs, timeFormat)
+            WidgetContent(state, monitoringActive, fdName, graphs, quotaStrip, timeFormat)
         }
     }
 
@@ -303,10 +309,13 @@ private fun clockStamp(
         .format(Instant.ofEpochMilli(millis))
 
 /**
- * eventStamp dates the newest-event line: clock time when the event is from
- * today, a short date otherwise, so a day-old event can't masquerade as fresh.
- * Absolute like the "as of" stamp (relative text would need timed re-renders).
- * Empty when the wire timestamp doesn't parse; the line just omits the stamp.
+ * eventStamp stamps the newest-event line with the time AND the date, always
+ * both: it used to show one or the other (time for today, date for anything
+ * older), which reads as a complete stamp either way, so a line dated
+ * "22/07/26" left you guessing whether that morning's event or that night's was
+ * the fleet's last word. Absolute like the "as of" stamp (relative text would
+ * need timed re-renders). Empty when the wire timestamp doesn't parse; the line
+ * just omits the stamp.
  */
 private fun eventStamp(
     context: Context,
@@ -314,11 +323,48 @@ private fun eventStamp(
     createdAt: String,
 ): String {
     val instant = runCatching { Instant.parse(createdAt) }.getOrNull() ?: return ""
-    val zone = ZoneId.systemDefault()
-    return if (instant.atZone(zone).toLocalDate() == Instant.now().atZone(zone).toLocalDate()) {
-        clockStamp(context, format, instant.toEpochMilli())
-    } else {
-        DateFormat.getDateFormat(context).format(Date(instant.toEpochMilli()))
+    return timeAndDate(context, format, instant.toEpochMilli())
+}
+
+// The badge pill's own text: 9sp Medium in the platform's sans, matching the
+// Text below it. Named here because the packer needs the same numbers to know
+// how wide a label comes out.
+private const val BADGE_TEXT_SP = 9f
+private val BADGE_TEXT_TYPEFACE: Typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+
+// The pill's chrome around its label: 4dp of padding each side plus the 1dp gap
+// to the next badge. Same figure WIDGET_QUOTA_PILL_CHROME_DP estimates with.
+private const val BADGE_CHROME_DP = 9
+
+// One dp of slack per badge on top of the measured width. Rounding up is not
+// quite enough on its own: the measurement is of the same string in the same
+// font at the same size, but it is not the RemoteViews layout pass, and these
+// pills cannot shrink to fit -- a dp too generous costs nothing visible, a dp
+// too tight clips a label.
+private const val BADGE_MEASURE_SLACK_DP = 1
+
+/**
+ * badgeMeasurer returns the width function [quotaBadgeRows] packs with: the
+ * label's real rendered width rather than a per-character guess. Glance can't
+ * measure text, but this code runs in the app's own process, so a [TextPaint]
+ * set up like the pill's Text can -- through [TypedValue], so the device's own
+ * text-size setting is already in the answer.
+ *
+ * This is what lets the strip fill its rows: the estimate it replaces ran some
+ * 30% wide on a typical label ("KIMI 0%/0%" measures 53dp against a 69dp guess),
+ * which cost most rows a badge or two they had room for. The estimate stays as
+ * [badgeWidthDp] for callers with no Context.
+ */
+private fun badgeMeasurer(context: Context): (WidgetQuotaBadge) -> Int {
+    val metrics = context.resources.displayMetrics
+    val paint =
+        TextPaint().apply {
+            typeface = BADGE_TEXT_TYPEFACE
+            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, BADGE_TEXT_SP, metrics)
+        }
+    return { badge ->
+        val labelDp = ceil(paint.measureText(badge.label) / metrics.density).toInt()
+        labelDp + BADGE_CHROME_DP + BADGE_MEASURE_SLACK_DP
     }
 }
 
@@ -363,6 +409,7 @@ private fun WidgetContent(
     monitoringActive: Boolean,
     fdName: String,
     graphs: Boolean,
+    quotaStrip: Boolean,
     timeFormat: TimeFormat,
 ) {
     val context = LocalContext.current
@@ -509,20 +556,21 @@ private fun WidgetContent(
                     }
                 }
         }
-        // One badge per configured provider, pre-ordered and filtered by the
-        // poll layer and packed into lines by quotaBadgeRows
+        // One badge per configured provider (when Settings has the strip on at
+        // all), pre-ordered and filtered by the poll layer and packed into lines
+        // by quotaBadgeRows
         // -- Glance has no wrapping layout, so the rows are explicit. The whole
         // strip is ONE child of the Column above (the badge rows are children
         // of this nested Column, which has its own 10-child budget that
         // WIDGET_QUOTA_MAX_ROWS keeps it well inside), so it stays cheap
         // against the 10-child cap the member rows already have to mind.
-        if (state != null && state.quota.isNotEmpty()) {
+        if (state != null && quotaStrip && state.quota.isNotEmpty()) {
             Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 4.dp)) {
                 // Packed against the widget's real inner width (its own width
                 // less the root Column's side padding), so a wide widget fits a
                 // wide row instead of the two the narrowest breakpoint allowed.
                 val budgetDp = (LocalSize.current.width - ROOT_PADDING * 2).value.toInt()
-                val rows = quotaBadgeRows(state.quota, budgetDp)
+                val rows = quotaBadgeRows(state.quota, budgetDp, badgeMeasurer(context))
                 // What the row cap left out. Said out loud on the last row: the
                 // operator picked these badges, so a strip too short to hold
                 // them all has to admit it rather than quietly showing fewer.
@@ -537,7 +585,14 @@ private fun WidgetContent(
                             // padding is a view's inner padding, so a gap declared on
                             // the pill itself is painted over by its own background
                             // and the badges come out touching.
-                            Box(modifier = GlanceModifier.defaultWeight().padding(end = 1.dp)) {
+                            //
+                            // Neither Box takes a weight: a badge is as wide as its
+                            // own label, like the dashboard chips. Equal shares made
+                            // every row a grid of uniform columns, which left a row
+                            // holding one badge painting its brand colour across the
+                            // full width and cost the packer a badge per row (it had
+                            // to fit n times the row's WIDEST label, not the sum).
+                            Box(modifier = GlanceModifier.padding(end = 1.dp)) {
                                 // A provider with a detail view worth the trip opens it;
                                 // one whose badge is already the whole reading just names
                                 // itself, rather than launching the app to repeat a word.
@@ -554,7 +609,6 @@ private fun WidgetContent(
                                 Box(
                                     modifier =
                                         GlanceModifier
-                                            .fillMaxWidth()
                                             .background(ImageProvider(R.drawable.widget_pill_bg))
                                             .padding(horizontal = 4.dp, vertical = 2.dp)
                                             .clickable(onTap),

@@ -280,8 +280,12 @@
     <string name="widget_state_drained">Выведен</string>
     <string name="widget_state_unknown">Неизвестно</string>
     <string name="widget_event_header">Последнее событие флота</string>
+    <string name="widget_event_stamp">%1$s, %2$s</string>
     <string name="settings_widget_title">Виджет главного экрана</string>
-    <string name="settings_widget_graphs_subtitle">Графики трафика: показывают по каждому узлу запросы за последний час. Свежие столбцы стоят один дополнительный запрос на узел при каждой фоновой проверке.</string>
+    <string name="settings_widget_graphs_title">Графики трафика</string>
+    <string name="settings_widget_graphs_subtitle">Показывают по каждому узлу запросы за последний час. Свежие столбцы стоят один дополнительный запрос на узел при каждой фоновой проверке.</string>
+    <string name="settings_widget_quota_title">Значки квот</string>
+    <string name="settings_widget_quota_subtitle">Показывать на виджете полосу квот провайдеров. Если выключено, запрос квот исчезает и из каждой фоновой проверки.</string>
 
     <string name="settings_quota_badges_title">Значки квот</string>
     <string name="settings_quota_badges_subtitle">Выберите, какие значки квот поставщиков показывать на дашборде и в виджете, измените их порядок и выберите использовано или осталось.</string>

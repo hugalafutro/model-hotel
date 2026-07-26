@@ -1,6 +1,7 @@
 package com.hugalafutro.bellhop.ui.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -90,6 +91,37 @@ class QuotaBadgesConfigScreenTest {
 
         val visible = runBlocking { configStore.config(QuotaSurface.WIDGET).first().hidden }
         assertTrue("NG" !in visible)
+    }
+
+    @Test
+    fun widgetTabGoesInertWhenTheWidgetIsntCarryingTheStrip() {
+        val configStore = newConfigStore()
+        val prefsStore = newPrefsStore()
+        runBlocking {
+            configStore.reconcile(QuotaSurface.MAIN, listOf("OR"))
+            configStore.reconcile(QuotaSurface.WIDGET, listOf("NG"))
+            prefsStore.setWidgetQuota(false)
+        }
+
+        composeTestRule.setContent {
+            BellhopTheme {
+                QuotaBadgesConfigScreen(configStore = configStore, prefsStore = prefsStore, onBack = {})
+            }
+        }
+
+        // Still on screen (the two surfaces are what this screen is about) but
+        // not selectable: with the strip switched off in Settings there is
+        // nothing on the widget for an order to arrange. The tap does nothing,
+        // so the MAIN row is the one that stays reachable.
+        composeTestRule.onNodeWithTag("quota-config-tab-widget").assertIsDisplayed().assertIsNotEnabled()
+        composeTestRule.onNodeWithTag("quota-config-tab-widget").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("quota-config-row-OR").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("quota-config-row-NG").assertDoesNotExist()
+
+        // The stored widget order is untouched, waiting for the switch to
+        // come back rather than reset by the strip being off.
+        assertEquals(listOf("NG"), runBlocking { configStore.config(QuotaSurface.WIDGET).first().order })
     }
 
     @Test

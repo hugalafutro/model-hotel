@@ -109,6 +109,10 @@ fun SettingsScreen(
     onSetGraphRange: (Int) -> Unit = {},
     widgetGraphs: Boolean = false,
     onToggleWidgetGraphs: (Boolean) -> Unit = {},
+    // Defaults on, like the preference itself: the widget carried the badge
+    // strip before there was a switch for it.
+    widgetQuota: Boolean = true,
+    onToggleWidgetQuota: (Boolean) -> Unit = {},
     timeFormat: TimeFormat = TimeFormat.SYSTEM,
     onSetTimeFormat: (TimeFormat) -> Unit = {},
     // Enabled-alert counts per severity (error/warning/info/success), sourced from
@@ -352,31 +356,31 @@ fun SettingsScreen(
                 }
             }
 
-            // Home-screen widget: opt-in traffic bars on the member rows. Off by
-            // default because fresh bars add one request per member to every
-            // background check; the widget itself still never polls.
+            // Home-screen widget: what the widget carries, one switch per block.
+            // The section title used to sit on the traffic-graph switch itself,
+            // which read as if the switch turned the whole widget off; it is a
+            // heading now, and each row names the block it governs. Both are
+            // opt-in-shaped for the same reason: each block the widget shows
+            // costs the background check its own extra read.
             SettingsSection {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.settings_widget_title),
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_widget_graphs_subtitle),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    BellhopSwitch(
-                        checked = widgetGraphs,
-                        onCheckedChange = onToggleWidgetGraphs,
-                        modifier = Modifier.testTag("settings-widget-graphs-toggle"),
-                    )
-                }
+                Text(
+                    text = stringResource(R.string.settings_widget_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                WidgetToggleRow(
+                    title = stringResource(R.string.settings_widget_graphs_title),
+                    subtitle = stringResource(R.string.settings_widget_graphs_subtitle),
+                    checked = widgetGraphs,
+                    onCheckedChange = onToggleWidgetGraphs,
+                    tag = "settings-widget-graphs-toggle",
+                )
+                WidgetToggleRow(
+                    title = stringResource(R.string.settings_widget_quota_title),
+                    subtitle = stringResource(R.string.settings_widget_quota_subtitle),
+                    checked = widgetQuota,
+                    onCheckedChange = onToggleWidgetQuota,
+                    tag = "settings-widget-quota-toggle",
+                )
             }
 
             // Clock: which face every wall-clock time in the app is drawn on.
@@ -747,6 +751,39 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+}
+
+/**
+ * WidgetToggleRow is one switch under the widget heading: the block's name, what
+ * it costs, and its switch. A private row rather than repeated Row/Column
+ * scaffolding, since the two are identical but for their strings and tag.
+ */
+@Composable
+private fun WidgetToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    tag: String,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        BellhopSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            modifier = Modifier.testTag(tag),
+        )
     }
 }
 

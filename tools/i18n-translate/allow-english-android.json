@@ -129,5 +129,15 @@
 	],
 	"settings_time_format_system": [
 		"de"
+	],
+	"widget_event_stamp": [
+		"cs",
+		"de",
+		"es",
+		"fr",
+		"nl",
+		"pl",
+		"ru",
+		"sk"
 	]
 }

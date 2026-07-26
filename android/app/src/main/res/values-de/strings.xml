@@ -268,8 +268,12 @@
     <string name="widget_state_drained">Stillgelegt</string>
     <string name="widget_state_unknown">Unbekannt</string>
     <string name="widget_event_header">Letztes Flottenereignis</string>
+    <string name="widget_event_stamp">%1$s, %2$s</string>
     <string name="settings_widget_title">Startbildschirm-Widget</string>
-    <string name="settings_widget_graphs_subtitle">Verkehrsgraphen: zeigen je Mitglied die Anfragen der letzten Stunde. Frische Balken kosten pro Hintergrundprüfung eine zusätzliche Anfrage je Mitglied.</string>
+    <string name="settings_widget_graphs_title">Verkehrsgraphen</string>
+    <string name="settings_widget_graphs_subtitle">Zeigen je Mitglied die Anfragen der letzten Stunde. Frische Balken kosten pro Hintergrundprüfung eine zusätzliche Anfrage je Mitglied.</string>
+    <string name="settings_widget_quota_title">Kontingent-Badges</string>
+    <string name="settings_widget_quota_subtitle">Die Kontingent-Leiste der Anbieter im Widget anzeigen. Aus spart außerdem die Kontingentabfrage bei jeder Hintergrundprüfung.</string>
 
     <string name="settings_quota_badges_title">Kontingent-Badges</string>
     <string name="settings_quota_badges_subtitle">Wähle aus, welche Kontingent-Badges der Anbieter im Dashboard und im Widget angezeigt werden, ordne sie neu an und wähle verbraucht oder verbleibend.</string>

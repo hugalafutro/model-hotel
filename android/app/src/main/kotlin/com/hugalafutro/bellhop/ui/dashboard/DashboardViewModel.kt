@@ -142,6 +142,12 @@ class DashboardViewModel(
     // rather than a store so unit tests stay store-free; when false the mirror
     // writes no traffic, matching what the background writers persist.
     private val widgetGraphs: suspend () -> Boolean = { false },
+    // Whether the widget carries the quota badge strip at all (Settings), read
+    // per refresh like [widgetGraphs]. When it is off the mirror leaves the
+    // widget's badges alone rather than writing an empty strip, so turning it
+    // back on shows the last-good badges at once (the "as of" stamp already
+    // says how old they are) instead of a blank row until the next read.
+    private val widgetQuota: suspend () -> Boolean = { true },
     // Persists per-surface (MAIN/WIDGET) badge order + hidden set; reconciled
     // whenever a fresh quota read comes in so newly-seen providers get folded
     // in.
@@ -621,7 +627,8 @@ class DashboardViewModel(
      * reconciled against the fresh provider names so newly-seen providers get
      * folded in exactly once per refresh. A failed read returns a null MAIN
      * list (caller keeps its own last-good one, stale beats blank) and falls
-     * back to the widget store's own last-good badges for the WIDGET side.
+     * back to the widget store's own last-good badges for the WIDGET side --
+     * which is also where a strip switched off in Settings leaves it.
      */
 
     private suspend fun fetchQuota(token: String): QuotaFetch =
@@ -631,7 +638,15 @@ class DashboardViewModel(
                 configStore.reconcile(QuotaSurface.MAIN, names)
                 configStore.reconcile(QuotaSurface.WIDGET, names)
                 val main = orderedVisible(configStore.config(QuotaSurface.MAIN).first(), q.data)
-                val widget = widgetQuotaOf(q.data, configStore.config(QuotaSurface.WIDGET).first(), barMode())
+                // The widget's strip is switchable in Settings; with it off, keep
+                // whatever badges it already holds rather than deriving a fresh
+                // set for a surface that isn't drawing them.
+                val widget =
+                    if (widgetQuota()) {
+                        widgetQuotaOf(q.data, configStore.config(QuotaSurface.WIDGET).first(), barMode())
+                    } else {
+                        widgetStore.read()?.quota.orEmpty()
+                    }
                 QuotaFetch(main = main, widget = widget, all = q.data)
             }
             else -> QuotaFetch(main = null, widget = widgetStore.read()?.quota.orEmpty(), all = null)
@@ -770,6 +785,7 @@ class DashboardViewModel(
         private val widgetStore: WidgetStore,
         private val onWidgetWritten: suspend () -> Unit = {},
         private val widgetGraphs: suspend () -> Boolean = { false },
+        private val widgetQuota: suspend () -> Boolean = { true },
         private val configStore: QuotaBadgeConfigStore,
         private val barMode: suspend () -> QuotaBarMode = { QuotaBarMode.REMAINING },
     ) : ViewModelProvider.Factory {
@@ -782,6 +798,7 @@ class DashboardViewModel(
                 widgetStore,
                 onWidgetWritten,
                 widgetGraphs,
+                widgetQuota,
                 configStore,
                 barMode,
             ) as T
