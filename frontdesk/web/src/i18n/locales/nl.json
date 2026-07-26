@@ -512,7 +512,6 @@
 			"remaining": "resterend",
 			"resets": "Reset {{when}}",
 			"noLimitSet": "Geen limiet ingesteld",
-			"notAvailable": "Niet beschikbaar",
 			"zaiTitle": "Z.ai Coding-quotum ({{provider}})",
 			"kimiTitle": "Kimi Code-quotum ({{provider}})",
 			"miniMaxTitle": "MiniMax-quotum ({{provider}})",

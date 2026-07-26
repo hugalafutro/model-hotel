@@ -512,7 +512,6 @@
 			"remaining": "剩余",
 			"resets": "重置时间 {{when}}",
 			"noLimitSet": "未设置限额",
-			"notAvailable": "不可用",
 			"zaiTitle": "Z.ai Coding 配额（{{provider}}）",
 			"kimiTitle": "Kimi Code 配额（{{provider}}）",
 			"miniMaxTitle": "MiniMax 配额（{{provider}}）",

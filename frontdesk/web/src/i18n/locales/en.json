@@ -512,7 +512,6 @@
 			"remaining": "remaining",
 			"resets": "Resets {{when}}",
 			"noLimitSet": "No limit set",
-			"notAvailable": "Not available",
 			"zaiTitle": "Z.ai Coding quota ({{provider}})",
 			"kimiTitle": "Kimi Code quota ({{provider}})",
 			"miniMaxTitle": "MiniMax quota ({{provider}})",

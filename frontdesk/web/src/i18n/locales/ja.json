@@ -512,7 +512,6 @@
 			"remaining": "残り",
 			"resets": "{{when}} にリセット",
 			"noLimitSet": "制限は設定されていません",
-			"notAvailable": "利用できません",
 			"zaiTitle": "Z.ai Coding クォータ ({{provider}})",
 			"kimiTitle": "Kimi Code クォータ ({{provider}})",
 			"miniMaxTitle": "MiniMax クォータ ({{provider}})",

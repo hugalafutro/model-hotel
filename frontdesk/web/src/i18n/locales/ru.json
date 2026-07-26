@@ -512,7 +512,6 @@
 			"remaining": "осталось",
 			"resets": "Сброс {{when}}",
 			"noLimitSet": "Лимит не задан",
-			"notAvailable": "Недоступно",
 			"zaiTitle": "Квота Z.ai Coding ({{provider}})",
 			"kimiTitle": "Квота Kimi Code ({{provider}})",
 			"miniMaxTitle": "Квота MiniMax ({{provider}})",

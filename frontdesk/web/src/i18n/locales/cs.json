@@ -512,7 +512,6 @@
 			"remaining": "zbývá",
 			"resets": "Reset {{when}}",
 			"noLimitSet": "Není nastaven žádný limit",
-			"notAvailable": "Není k dispozici",
 			"zaiTitle": "Kvóta Z.ai Coding ({{provider}})",
 			"kimiTitle": "Kvóta Kimi Code ({{provider}})",
 			"miniMaxTitle": "Kvóta MiniMax ({{provider}})",

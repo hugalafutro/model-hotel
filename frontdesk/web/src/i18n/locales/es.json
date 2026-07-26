@@ -512,7 +512,6 @@
 			"remaining": "restante",
 			"resets": "Se restablece {{when}}",
 			"noLimitSet": "Sin límite establecido",
-			"notAvailable": "No disponible",
 			"zaiTitle": "Cuota de Z.ai Coding ({{provider}})",
 			"kimiTitle": "Cuota de Kimi Code ({{provider}})",
 			"miniMaxTitle": "Cuota de MiniMax ({{provider}})",

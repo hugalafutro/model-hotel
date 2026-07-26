@@ -512,7 +512,6 @@
 			"remaining": "verbleibend",
 			"resets": "Zurücksetzung {{when}}",
 			"noLimitSet": "Kein Limit gesetzt",
-			"notAvailable": "Nicht verfügbar",
 			"zaiTitle": "Z.ai Coding-Kontingent ({{provider}})",
 			"kimiTitle": "Kimi Code-Kontingent ({{provider}})",
 			"miniMaxTitle": "MiniMax-Kontingent ({{provider}})",

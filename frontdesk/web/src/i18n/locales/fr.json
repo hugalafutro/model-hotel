@@ -512,7 +512,6 @@
 			"remaining": "restant",
 			"resets": "Réinitialisation {{when}}",
 			"noLimitSet": "Aucune limite définie",
-			"notAvailable": "Non disponible",
 			"zaiTitle": "Quota Z.ai Coding ({{provider}})",
 			"kimiTitle": "Quota Kimi Code ({{provider}})",
 			"miniMaxTitle": "Quota MiniMax ({{provider}})",
