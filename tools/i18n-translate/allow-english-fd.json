@@ -213,5 +213,23 @@
 	"settings.alerts.ntfyTopicPlaceholder": [
 		"ja",
 		"zh"
+	],
+	"quota.title": [
+		"fr"
+	],
+	"quota.modal.status": [
+		"de",
+		"nl",
+		"pl"
+	],
+	"quota.modal.plan": [
+		"es",
+		"pl"
+	],
+	"quota.modal.no": [
+		"es"
+	],
+	"quota.modal.provider": [
+		"nl"
 	]
 }
