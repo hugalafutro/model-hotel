@@ -479,6 +479,29 @@
 			"revokeBody": "“{{label}}” will immediately lose access. Pair it again to restore it."
 		}
 	},
+	"quota": {
+		"title": "Quotas",
+		"expand": "Show quotas",
+		"collapse": "Hide quotas",
+		"refresh": "Refresh quotas from the fleet primary",
+		"refreshed": "Quotas refreshed",
+		"refreshFailed": "The fleet primary could not refresh its quotas",
+		"refreshCooldown": "Please wait a moment before refreshing again",
+		"stale": "Showing the last known values. The fleet primary could not be reached.",
+		"lastUpdated": "Last updated {{time}}",
+		"fetchedAt": "Snapshot taken {{time}}",
+		"badge": {
+			"degraded": "{{provider}}: the primary's last fetch failed (HTTP {{status}})",
+			"nanogptUsed": "{{provider}}: weekly token quota used",
+			"nanogptRemaining": "{{provider}}: weekly tokens remaining",
+			"windowsUsed": "{{provider}}: 5 hour and weekly quota used",
+			"windowsRemaining": "{{provider}}: 5 hour and weekly quota remaining",
+			"deepseekBalance": "{{provider}}: account balance",
+			"openrouterBalance": "{{provider}}: credits remaining",
+			"ollamaCloudPlan": "{{provider}}: subscription plan",
+			"neuralwattEnergy": "{{provider}}: energy used this period"
+		}
+	},
 	"errors": {
 		"generic": "Something went wrong",
 		"unauthorized": "Your session expired, please sign in again",

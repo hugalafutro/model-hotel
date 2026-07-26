@@ -630,3 +630,61 @@ h3 {
 		}
 	}
 }
+
+/* ── Quota badges ─────────────────────────────────────────────────────── */
+/* Every pill shares one rule; the per-provider accent arrives as the inline
+   --quota-brand custom property, so adding a provider needs no new CSS. */
+
+.fd-quota-pill {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.3rem;
+	padding: 0.15rem 0.5rem;
+	border-radius: var(--radius-sm);
+	border: 1px solid color-mix(in srgb, var(--quota-brand) 45%, transparent);
+	background: color-mix(in srgb, var(--quota-brand) 16%, transparent);
+	color: color-mix(in srgb, var(--quota-brand) 80%, var(--text));
+	font-family: var(--font-sans);
+	font-size: 0.72rem;
+	line-height: 1.5;
+	cursor: pointer;
+	transition:
+		background 0.15s ease,
+		border-color 0.15s ease;
+}
+
+.fd-quota-pill:hover {
+	background: color-mix(in srgb, var(--quota-brand) 26%, transparent);
+	border-color: color-mix(in srgb, var(--quota-brand) 65%, transparent);
+}
+
+.fd-quota-pill:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.fd-quota-pill-prefix {
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	opacity: 0.8;
+}
+
+.fd-quota-pill-name {
+	max-width: 9rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	opacity: 0.75;
+}
+
+.fd-quota-pill-value {
+	font-family: var(--font-mono);
+	font-size: 0.7rem;
+}
+
+/* A snapshot whose last upstream fetch failed: no brand colour, because there
+   is no reading to colour. */
+.fd-quota-pill-degraded {
+	--quota-brand: var(--text-faint);
+	font-style: italic;
+}
