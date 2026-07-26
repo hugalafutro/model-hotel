@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
-# Pre-push: smoke test (~30s) plus a scoped diff-coverage gate. GitHub CI is
+# Pre-push: a scoped smoke test plus a scoped diff-coverage gate. GitHub CI is
 # still the real gatekeeper; this just catches the common failures before a
 # wasted CI cycle.
+#
+# EVERY step is gated on the surface it protects actually having changed, because
+# git opens the connection to the remote BEFORE running this hook and only writes
+# the pack afterwards. A hook that runs for minutes leaves that connection idle
+# for minutes, and a dropped connection kills the push with SIGPIPE (exit 141)
+# after all the work is done. Keeping the hook proportional to the diff is what
+# stops that, so do not add an ungated step here. If you are on a network that
+# drops idle connections anyway, push with:
+#   GIT_SSH_COMMAND="ssh -o ServerAliveInterval=15" git push
 #
 # Frontend checks use local pnpm when web/node_modules exists,
 # otherwise fall back to Docker.
@@ -26,8 +35,22 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 DEFAULT_BRANCH="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')"
 DEFAULT_BRANCH="${DEFAULT_BRANCH:-master}"
 SYNC_BASE="$(git merge-base "origin/${DEFAULT_BRANCH}" HEAD 2>/dev/null || true)"
+
+# One diff for the whole hook. Every gate below tests against this, so a branch
+# only pays for the surfaces it actually touched. Empty when there is no
+# merge-base, in which case the gates fall back to running everything.
+CHANGED=""
 if [ -n "$SYNC_BASE" ]; then
 	CHANGED="$(git diff --name-only "$SYNC_BASE" HEAD)"
+fi
+# touched <regex> - true when a changed path matches, or when we have no diff to
+# go on (no merge-base), so an unknown state stays conservative and runs the check.
+touched() {
+	[ -z "$SYNC_BASE" ] && return 0
+	printf '%s\n' "$CHANGED" | grep -qE "$1"
+}
+
+if [ -n "$SYNC_BASE" ]; then
 	if printf '%s\n' "$CHANGED" | grep -qx "README.md" &&
 		! printf '%s\n' "$CHANGED" | grep -qx "DOCKERHUB.md"; then
 		if [ "${DOCKERHUB_README_NOT_NEEDED:-}" = "1" ]; then
@@ -65,21 +88,27 @@ if [ -f "$REPO_ROOT/DOCKERHUB.md" ]; then
 	fi
 fi
 
-echo "pre-push: go vet ./..."
-if ! go vet ./cmd/... ./internal/...; then
-	echo "pre-push: FAILED - go vet" >&2
-	exit 1
+# Go lint, only when Go actually changed. golangci-lint already runs govet as one
+# of its enabled linters (.golangci.yml), so a separate `go vet` pass was doing
+# the same package-graph analysis twice for no extra signal; it is gone.
+if touched '\.go$|^go\.(mod|sum)$'; then
+	echo "pre-push: golangci-lint run ./cmd/... ./internal/... (includes govet)"
+	if ! golangci-lint run ./cmd/... ./internal/...; then
+		echo "pre-push: FAILED - golangci-lint" >&2
+		exit 1
+	fi
+else
+	echo "pre-push: no Go changes, skipping golangci-lint"
 fi
 
-echo "pre-push: golangci-lint run ./..."
-if ! golangci-lint run ./cmd/... ./internal/...; then
-	echo "pre-push: FAILED - golangci-lint" >&2
-	exit 1
-fi
-
-# tsc -b runs here (not in the Docker image build) so type errors are caught
-# locally before push. It is incremental (tsbuildinfo), so it is cheap to repeat.
-if [ -d "$REPO_ROOT/web/node_modules" ]; then
+# Main-dashboard lint + typecheck, only when web/ changed. tsc -b runs here (not
+# in the Docker image build) so type errors are caught locally before push; it is
+# incremental (tsbuildinfo), so it is cheap to repeat.
+# This step only ever covered web/. frontdesk/web has never been linted by this
+# hook, so gating on ^web/ takes no protection away from a Front Desk branch.
+if ! touched '^web/'; then
+	echo "pre-push: no web/ changes, skipping pnpm lint + tsc -b"
+elif [ -d "$REPO_ROOT/web/node_modules" ]; then
 	echo "pre-push: pnpm lint + tsc -b (local)..."
 	if ! (cd "$REPO_ROOT/web" && pnpm run lint && pnpm exec tsc -b); then
 		echo "pre-push: FAILED - pnpm lint / tsc -b" >&2
