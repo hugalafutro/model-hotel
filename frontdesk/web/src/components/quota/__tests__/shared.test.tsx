@@ -142,6 +142,12 @@ describe("QuotaModalShell", () => {
 		expect(screen.getByRole("dialog")).toHaveAttribute("aria-label", "NanoGPT");
 		expect(screen.getByTestId("body")).toBeInTheDocument();
 		expect(screen.getByTestId("quota-modal-fetched-at")).toBeInTheDocument();
+		// The default fixture renders with isRefreshing: false, so the refresh
+		// icon must not carry the spin class here. getAttribute returns null
+		// when isRefreshing is false (className is undefined, not "undefined"),
+		// so fall back to "" before asserting.
+		const icon = screen.getByTestId("quota-modal-refresh").querySelector("svg");
+		expect(icon?.getAttribute("class") ?? "").not.toContain("fd-spin");
 	});
 
 	it("toggles bar mode when the toggle is pressed", async () => {
@@ -181,6 +187,13 @@ describe("QuotaDetailGrid", () => {
 			</QuotaDetailGrid>,
 		);
 		expect(screen.getByTestId("plan")).toHaveTextContent("pro");
+		expect(screen.getByTestId("plan").parentElement?.className).toContain(
+			"fd-quota-detail-grid-2",
+		);
+		// No span prop was passed, so the span class must be absent.
+		expect(screen.getByTestId("plan").className).not.toContain(
+			"fd-quota-detail-span",
+		);
 	});
 
 	it("applies the 3-column grid class when given columns={3}", () => {
