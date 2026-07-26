@@ -179,9 +179,15 @@ export interface QuotaBadgeProps {
 export function QuotaBadge({ model, barMode, onClick }: QuotaBadgeProps) {
 	const { t } = useTranslation();
 	const { label, title } = contentFor(model, barMode, t);
-	const style = {
-		"--quota-brand": QUOTA_BRAND_COLORS[model.type],
-	} as CSSProperties;
+	// A degraded badge deliberately gets NO inline custom property: an inline
+	// declaration outranks any author rule, custom properties included, so
+	// emitting one here would make `.fd-quota-pill-degraded { --quota-brand: ... }`
+	// dead and a failed provider would render in full brand colour, visually
+	// identical to a healthy one. Leaving it off lets the CSS rule be the single
+	// source of the degraded colour.
+	const style = model.degraded
+		? undefined
+		: ({ "--quota-brand": QUOTA_BRAND_COLORS[model.type] } as CSSProperties);
 
 	return (
 		<button
