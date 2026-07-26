@@ -75,6 +75,9 @@ describe("useQuota", () => {
 		server.use(okQuota([]));
 		const { result } = renderHook(() => useQuota(false));
 		await waitFor(() => expect(result.current.snapshots).toEqual([]));
+		// An empty 200 is still a successful read, so it must stamp a fresh
+		// lastUpdatedAt rather than leaving the seeded, now-stale timestamp.
+		expect(result.current.lastUpdatedAt).not.toBe("2026-07-26T09:00:00Z");
 		const cached = JSON.parse(localStorage.getItem(QUOTA_CACHE_KEY) as string);
 		expect(cached.snapshots).toEqual([]);
 	});
@@ -92,6 +95,10 @@ describe("useQuota", () => {
 		await waitFor(() => expect(result.current.error).toBe(true));
 		expect(result.current.snapshots).toHaveLength(1);
 		expect(result.current.stale).toBe(true);
+		// The persisted cache must survive the failure too, not just in-memory
+		// state: a non-2xx must never wipe what a reload would seed from.
+		const cached = JSON.parse(localStorage.getItem(QUOTA_CACHE_KEY) as string);
+		expect(cached.snapshots).toHaveLength(1);
 	});
 
 	it("is not stale on a failure when nothing was ever known", async () => {
@@ -106,11 +113,59 @@ describe("useQuota", () => {
 		server.use(failQuota());
 		const { result } = renderHook(() => useQuota(false));
 		await waitFor(() => expect(result.current.error).toBe(true));
-		server.use(okQuota());
+		// Explicit handler: this test exercises refresh()'s POST, so it must not
+		// rely on MSW's onUnhandledRequest fallback to make the network layer work.
+		server.use(
+			okQuota(),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({ results: [], refreshed: 0, failed: 0, skipped: 0 }),
+			),
+		);
 		await act(async () => {
 			await result.current.refresh();
 		});
 		await waitFor(() => expect(result.current.error).toBe(false));
+	});
+
+	it("discards a stale read that resolves after a newer one", async () => {
+		let getCalls = 0;
+		let resolveFirst: (() => void) | undefined;
+		const firstGate = new Promise<void>((resolve) => {
+			resolveFirst = resolve;
+		});
+		server.use(
+			http.get("/api/quota", async () => {
+				getCalls++;
+				if (getCalls === 1) {
+					// The mount read: hangs until we explicitly release it, so it is
+					// guaranteed to resolve after the second (refresh-triggered) read.
+					await firstGate;
+					return HttpResponse.json({
+						quota: [{ ...snapshot, provider_name: "stale" }],
+					});
+				}
+				return HttpResponse.json({
+					quota: [{ ...snapshot, provider_name: "fresh" }],
+				});
+			}),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({ results: [], refreshed: 1, failed: 0, skipped: 0 }),
+			),
+		);
+		const { result } = renderHook(() => useQuota(false));
+		// The mount read (seq 1) is still hanging. Fire a refresh, whose own
+		// re-read (seq 2) resolves immediately and should become current.
+		await act(async () => {
+			await result.current.refresh();
+		});
+		expect(result.current.snapshots[0]?.provider_name).toBe("fresh");
+		// Now release the older, slower mount read. Without the seq guard this
+		// would clobber the newer state with the stale response.
+		await act(async () => {
+			resolveFirst?.();
+			await firstGate;
+		});
+		expect(result.current.snapshots[0]?.provider_name).toBe("fresh");
 	});
 });
 
@@ -156,8 +211,18 @@ describe("useQuota polling", () => {
 describe("useQuota refresh", () => {
 	it("posts a refresh, re-reads, and reports success", async () => {
 		let posted = 0;
+		let getCalls = 0;
 		server.use(
-			okQuota(),
+			http.get("/api/quota", () => {
+				getCalls++;
+				// The re-read after a successful refresh must reflect a genuinely
+				// new GET, not the mount read's leftover state.
+				const list =
+					getCalls === 1
+						? [snapshot]
+						: [{ ...snapshot, provider_name: "after-refresh" }];
+				return HttpResponse.json({ quota: list });
+			}),
 			http.post("/api/quota/refresh", () => {
 				posted++;
 				return HttpResponse.json({
@@ -170,29 +235,64 @@ describe("useQuota refresh", () => {
 		);
 		const { result } = renderHook(() => useQuota(false));
 		await waitFor(() => expect(result.current.loading).toBe(false));
+		expect(getCalls).toBe(1);
 		let outcome: string | undefined;
 		await act(async () => {
 			outcome = await result.current.refresh();
 		});
 		expect(outcome).toBe("ok");
 		expect(posted).toBe(1);
+		expect(getCalls).toBe(2);
+		expect(result.current.snapshots[0]?.provider_name).toBe("after-refresh");
 	});
 
 	it("reports failure but still re-reads so the last-good snapshot survives", async () => {
+		let getCalls = 0;
 		server.use(
-			okQuota(),
+			http.get("/api/quota", () => {
+				getCalls++;
+				return HttpResponse.json({ quota: [snapshot] });
+			}),
 			http.post("/api/quota/refresh", () =>
 				HttpResponse.json({ error: "nope" }, { status: 502 }),
 			),
 		);
 		const { result } = renderHook(() => useQuota(false));
 		await waitFor(() => expect(result.current.loading).toBe(false));
+		expect(getCalls).toBe(1);
 		let outcome: string | undefined;
 		await act(async () => {
 			outcome = await result.current.refresh();
 		});
 		expect(outcome).toBe("failed");
+		expect(getCalls).toBe(2);
 		expect(result.current.snapshots).toHaveLength(1);
+	});
+
+	it("still enforces cooldown after a failed refresh POST", async () => {
+		let posted = 0;
+		server.use(
+			okQuota(),
+			http.post("/api/quota/refresh", () => {
+				posted++;
+				return HttpResponse.json({ error: "nope" }, { status: 502 });
+			}),
+		);
+		const { result } = renderHook(() => useQuota(false));
+		await waitFor(() => expect(result.current.loading).toBe(false));
+		let first: string | undefined;
+		await act(async () => {
+			first = await result.current.refresh();
+		});
+		expect(first).toBe("failed");
+		// The cooldown is measured from the last attempt actually sent, not the
+		// last one that succeeded, so a failed POST must still gate the next call.
+		let second: string | undefined;
+		await act(async () => {
+			second = await result.current.refresh();
+		});
+		expect(second).toBe("cooldown");
+		expect(posted).toBe(1);
 	});
 
 	it("refuses a second refresh inside the 10 second cooldown", async () => {

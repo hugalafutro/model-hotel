@@ -18,7 +18,13 @@ interface CachedQuota {
 	lastUpdatedAt: string | null;
 }
 
-const EMPTY: CachedQuota = { snapshots: [], lastUpdatedAt: null };
+// Frozen: this is a shared module-level constant handed straight out as
+// `snapshots`, and a future consumer calling e.g. `.sort()` on it would
+// otherwise silently corrupt it for every hook instance.
+const EMPTY: CachedQuota = Object.freeze({
+	snapshots: [],
+	lastUpdatedAt: null,
+});
 
 // Seeding from localStorage means a reload paints the badges immediately instead
 // of flashing empty for a round trip, and it is what lets a failed first read
@@ -114,9 +120,20 @@ export function useQuota(collapsed: boolean): UseQuota {
 			});
 	}, []);
 
+	// Discard an in-flight response that lands after unmount: it must not
+	// setState on a dead tree, and it must not write the cache after a test's
+	// teardown (or a real navigation away) has already cleared it. Pulled out
+	// of the effect body itself (rather than `seqRef.current++` inline in the
+	// cleanup closure) because eslint's ref-in-cleanup heuristic can't tell
+	// this apart from a DOM-node ref.
+	const cancelInFlightRead = useCallback(() => {
+		seqRef.current++;
+	}, []);
+
 	useEffect(() => {
 		void read();
-	}, [read]);
+		return cancelInFlightRead;
+	}, [read, cancelInFlightRead]);
 
 	useEffect(() => {
 		if (collapsed) return;
