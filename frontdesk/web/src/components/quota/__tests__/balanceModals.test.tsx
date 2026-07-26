@@ -340,6 +340,27 @@ describe("OpenRouterQuotaModal", () => {
 });
 
 describe("NeuralWattQuotaModal", () => {
+	// The blocks the tests below spread from are declared on their own, as
+	// NonNullable, because the response type marks them optional (the payload is
+	// an upstream provider body relayed by the fleet primary, so a block can be
+	// absent). Spreading `payload.subscription` instead would widen every field
+	// to `| undefined` and no longer typecheck.
+	const limits: NonNullable<NeuralWattQuotaResponse["limits"]> = {
+		overage_limit_usd: 25,
+		rate_limit_tier: "standard",
+	};
+	const subscription: NonNullable<NeuralWattQuotaResponse["subscription"]> = {
+		plan: "pro",
+		status: "active",
+		billing_interval: "month",
+		current_period_start: "2026-07-01T00:00:00Z",
+		current_period_end: "2026-08-01T00:00:00Z",
+		auto_renew: true,
+		kwh_included: 20,
+		kwh_used: 5,
+		kwh_remaining: 15,
+		in_overage: false,
+	};
 	const payload: NeuralWattQuotaResponse = {
 		balance: {
 			credits_remaining_usd: 30,
@@ -365,19 +386,8 @@ describe("NeuralWattQuotaModal", () => {
 				energy_kwh: 3.21,
 			},
 		},
-		limits: { overage_limit_usd: 25, rate_limit_tier: "standard" },
-		subscription: {
-			plan: "pro",
-			status: "active",
-			billing_interval: "month",
-			current_period_start: "2026-07-01T00:00:00Z",
-			current_period_end: "2026-08-01T00:00:00Z",
-			auto_renew: true,
-			kwh_included: 20,
-			kwh_used: 5,
-			kwh_remaining: 15,
-			in_overage: false,
-		},
+		limits,
+		subscription,
 		key: { name: "k", allowance: null },
 	};
 
@@ -401,7 +411,7 @@ describe("NeuralWattQuotaModal", () => {
 				{...chrome}
 				payload={{
 					...payload,
-					subscription: { ...payload.subscription, kwh_included: 0 },
+					subscription: { ...subscription, kwh_included: 0 },
 				}}
 				barMode="used"
 			/>,
@@ -448,7 +458,7 @@ describe("NeuralWattQuotaModal", () => {
 				{...chrome}
 				payload={{
 					...payload,
-					subscription: { ...payload.subscription, in_overage: true },
+					subscription: { ...subscription, in_overage: true },
 				}}
 				barMode="used"
 			/>,
@@ -478,8 +488,8 @@ describe("NeuralWattQuotaModal", () => {
 		const sparse: NeuralWattQuotaResponse = {
 			...payload,
 			balance: { ...payload.balance, accounting_method: "" },
-			limits: { ...payload.limits, overage_limit_usd: null },
-			subscription: { ...payload.subscription, auto_renew: false },
+			limits: { ...limits, overage_limit_usd: null },
+			subscription: { ...subscription, auto_renew: false },
 		};
 		const { unmount } = render(
 			<NeuralWattQuotaModal {...chrome} payload={sparse} barMode="used" />,
@@ -507,5 +517,102 @@ describe("NeuralWattQuotaModal", () => {
 		expect(sparseAutoRenew).not.toBe(baseAutoRenew);
 		expect(sparseAccounting).not.toBe(baseAccounting);
 		expect(sparseOverageLimit).not.toBe(baseOverageLimit);
+	});
+
+	// Regression: a 200 whose body stops after balance and subscription passes
+	// payloadOf and the badge visibility gate (which only requires
+	// balance.credits_remaining_usd), so the badge renders happily, and opening
+	// its modal used to throw on usage.current_month.cost_usd, latch the
+	// boundary above the strip and take the whole quota strip out until the
+	// operator reloaded.
+	it("renders the credits it has when usage, limits and key are absent", () => {
+		const partial: NeuralWattQuotaResponse = {
+			balance: payload.balance,
+			subscription,
+		};
+		render(
+			<NeuralWattQuotaModal {...chrome} payload={partial} barMode="used" />,
+		);
+		// What it does have is still shown: 70 used of 100, $30 left.
+		expect(screen.getByTestId("nw-credits-fill")).toHaveStyle({ width: "70%" });
+		expect(screen.getByText("$30.00")).toBeInTheDocument();
+		expect(screen.getByTestId("nw-status")).toHaveTextContent("active");
+		// What it does not have is left out entirely, rather than rendered as
+		// rows of dashes.
+		expect(screen.queryByTestId("nw-usage-current")).toBeNull();
+		expect(screen.queryByTestId("nw-usage-lifetime")).toBeNull();
+		expect(screen.queryByTestId("nw-overage-limit")).toBeNull();
+		expect(screen.queryByTestId("nw-allowance")).toBeNull();
+		// Their containers go with them: an empty row block or an empty
+		// three-column grid would still occupy layout in the dialog.
+		expect(document.querySelector(".fd-quota-rows")).toBeNull();
+		expect(document.querySelector(".fd-quota-detail-grid-3")).toBeNull();
+	});
+
+	it("renders on balance alone, with no subscription block", () => {
+		const balanceOnly: NeuralWattQuotaResponse = { balance: payload.balance };
+		render(
+			<NeuralWattQuotaModal {...chrome} payload={balanceOnly} barMode="used" />,
+		);
+		expect(screen.getByTestId("nw-credits-fill")).toHaveStyle({ width: "70%" });
+		// The accounting method rides on `balance`, so it survives on its own.
+		expect(screen.getByTestId("nw-accounting-method")).toBeInTheDocument();
+		expect(screen.queryByTestId("nw-status")).toBeNull();
+		expect(screen.queryByTestId("nw-status-overage")).toBeNull();
+		expect(screen.queryByTestId("nw-kwh-fill")).toBeNull();
+		expect(screen.queryByTestId("nw-auto-renew")).toBeNull();
+	});
+
+	// A block that is present but incomplete is its own case: the container
+	// existing says nothing about its siblings, so each row has to stand on the
+	// object it actually reads.
+	it("keeps whichever usage period is reported and drops the other", () => {
+		const currentOnly: NeuralWattQuotaResponse = {
+			balance: payload.balance,
+			usage: { current_month: payload.usage?.current_month },
+		};
+		const { unmount } = render(
+			<NeuralWattQuotaModal {...chrome} payload={currentOnly} barMode="used" />,
+		);
+		expect(screen.getByTestId("nw-usage-current")).toHaveTextContent("1,234");
+		expect(screen.queryByTestId("nw-usage-lifetime")).toBeNull();
+		unmount();
+
+		const lifetimeOnly: NeuralWattQuotaResponse = {
+			balance: payload.balance,
+			usage: { lifetime: payload.usage?.lifetime },
+		};
+		render(
+			<NeuralWattQuotaModal
+				{...chrome}
+				payload={lifetimeOnly}
+				barMode="used"
+			/>,
+		);
+		expect(screen.getByTestId("nw-usage-lifetime")).toHaveTextContent("1,200");
+		expect(screen.queryByTestId("nw-usage-current")).toBeNull();
+	});
+
+	it("keeps the limits rows without a key block, and the allowance without limits", () => {
+		const limitsOnly: NeuralWattQuotaResponse = {
+			balance: payload.balance,
+			limits,
+		};
+		const { unmount } = render(
+			<NeuralWattQuotaModal {...chrome} payload={limitsOnly} barMode="used" />,
+		);
+		expect(screen.getByTestId("nw-overage-limit")).toHaveTextContent("$25.00");
+		expect(screen.queryByTestId("nw-allowance")).toBeNull();
+		unmount();
+
+		const keyOnly: NeuralWattQuotaResponse = {
+			balance: payload.balance,
+			key: { name: "k", allowance: 40 },
+		};
+		render(
+			<NeuralWattQuotaModal {...chrome} payload={keyOnly} barMode="used" />,
+		);
+		expect(screen.getByTestId("nw-allowance")).toHaveTextContent("$40.00");
+		expect(screen.queryByTestId("nw-overage-limit")).toBeNull();
 	});
 });

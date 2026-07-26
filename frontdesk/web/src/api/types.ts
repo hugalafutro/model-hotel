@@ -480,6 +480,19 @@ export interface NeuralWattQuotaUsagePeriod {
 	energy_kwh: number;
 }
 
+/**
+ * NeuralWatt's quota body, as relayed by the fleet primary.
+ *
+ * Only `balance` is declared required, and only because the badge visibility
+ * gate (utils/quota.ts isVisible) refuses to render a NeuralWatt badge at all
+ * unless balance.credits_remaining_usd is present, so nothing downstream can be
+ * reached without it. Every other block is optional on purpose: this is an
+ * upstream provider's JSON forwarded through another machine's export, not a
+ * shape this build controls, and a fleet primary on a different version may
+ * relay less than the current one does. Optional here is what makes the
+ * compiler, rather than an operator's crashed dashboard, catch an unguarded
+ * nested read.
+ */
 export interface NeuralWattQuotaResponse {
 	balance: {
 		credits_remaining_usd: number;
@@ -487,12 +500,12 @@ export interface NeuralWattQuotaResponse {
 		credits_used_usd: number;
 		accounting_method: string;
 	};
-	usage: {
-		lifetime: NeuralWattQuotaUsagePeriod;
-		current_month: NeuralWattQuotaUsagePeriod;
+	usage?: {
+		lifetime?: NeuralWattQuotaUsagePeriod;
+		current_month?: NeuralWattQuotaUsagePeriod;
 	};
-	limits: { overage_limit_usd: number | null; rate_limit_tier: string };
-	subscription: {
+	limits?: { overage_limit_usd: number | null; rate_limit_tier: string };
+	subscription?: {
 		plan: string;
 		status: string;
 		billing_interval: string;
@@ -504,5 +517,5 @@ export interface NeuralWattQuotaResponse {
 		kwh_remaining: number;
 		in_overage: boolean;
 	};
-	key: { name: string; allowance: number | null };
+	key?: { name: string; allowance: number | null };
 }
