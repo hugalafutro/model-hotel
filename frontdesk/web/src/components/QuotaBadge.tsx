@@ -133,7 +133,7 @@ function contentFor(
 				(i) => i.currency === "USD",
 			)?.total_balance;
 			return {
-				label: usd != null ? `$${usd}` : "-",
+				label: `$${usd ?? "-"}`,
 				title: t("quota.badge.deepseekBalance", { provider }),
 			};
 		}
@@ -147,7 +147,7 @@ function contentFor(
 		case "ollama-cloud": {
 			const a = payload as OllamaCloudAccount;
 			return {
-				label: a.plan,
+				label: a.plan || "-",
 				title: t("quota.badge.ollamaCloudPlan", { provider }),
 			};
 		}

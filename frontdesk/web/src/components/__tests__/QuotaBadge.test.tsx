@@ -210,6 +210,25 @@ describe("QuotaBadge", () => {
 		);
 	});
 
+	it("renders a dash for DeepSeek when no USD balance entry is found", () => {
+		render(
+			<QuotaBadge
+				model={model(
+					{ type: "deepseek" },
+					{
+						is_available: true,
+						balance_infos: [],
+					},
+				)}
+				barMode="remaining"
+				onClick={vi.fn()}
+			/>,
+		);
+		expect(screen.getByTestId("quota-badge-deepseek:p")).toHaveTextContent(
+			"$-",
+		);
+	});
+
 	it("renders OpenRouter credits remaining", () => {
 		render(
 			<QuotaBadge
@@ -236,6 +255,19 @@ describe("QuotaBadge", () => {
 		);
 	});
 
+	it("renders a dash for Ollama Cloud when the plan is empty", () => {
+		render(
+			<QuotaBadge
+				model={model({ type: "ollama-cloud" }, { plan: "" })}
+				barMode="remaining"
+				onClick={vi.fn()}
+			/>,
+		);
+		expect(screen.getByTestId("quota-badge-ollama-cloud:p")).toHaveTextContent(
+			"-",
+		);
+	});
+
 	it("renders NeuralWatt energy used", () => {
 		render(
 			<QuotaBadge
@@ -250,7 +282,7 @@ describe("QuotaBadge", () => {
 			/>,
 		);
 		expect(screen.getByTestId("quota-badge-neuralwatt:p")).toHaveTextContent(
-			"1.5/10",
+			"1.5/10 kWh",
 		);
 	});
 
