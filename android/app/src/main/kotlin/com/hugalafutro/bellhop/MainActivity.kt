@@ -600,8 +600,10 @@ fun BellhopApp(
                             scope.launch {
                                 prefsStore.setWidgetGraphs(it)
                                 // Refetch right away so the bars appear (or clear)
-                                // without waiting for the next organic write.
-                                FleetPollWorker.runWidgetRefresh(context)
+                                // without waiting for the next organic write, and
+                                // supersede any refresh already running: it sampled
+                                // this preference before the write above.
+                                FleetPollWorker.runWidgetRefresh(context, supersedeInFlight = true)
                             }
                         },
                         widgetQuota = widgetQuota,
@@ -612,7 +614,7 @@ fun BellhopApp(
                                 // back on should fill it from a fresh read rather
                                 // than leave yesterday's badges standing until the
                                 // next organic write.
-                                FleetPollWorker.runWidgetRefresh(context)
+                                FleetPollWorker.runWidgetRefresh(context, supersedeInFlight = true)
                             }
                         },
                         onUnlink = { runUnlink(state.fdUrl) },

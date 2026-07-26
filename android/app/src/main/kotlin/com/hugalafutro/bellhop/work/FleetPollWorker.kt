@@ -413,12 +413,25 @@ class FleetPollWorker(
         }
 
         /**
-         * runWidgetRefresh enqueues the widget refresh button's one-shot. KEEP
-         * coalesces tap-spam onto one in-flight poll; expedited with a non-expedited
-         * fallback, the same as [runNow]. A distinct unique name from the push wake
-         * so a widget tap can't coalesce away a pending push poll (or vice versa).
+         * runWidgetRefresh enqueues the widget's one-shot refresh. Expedited with a
+         * non-expedited fallback, the same as [runNow], under a unique name distinct
+         * from the push wake so a widget refresh can't coalesce away a pending push
+         * poll (or vice versa).
+         *
+         * [supersedeInFlight] picks the coalescing policy, and the two callers want
+         * opposite things. The refresh button wants KEEP: every tap asks for the same
+         * thing, so a burst should ride one in-flight poll instead of one network
+         * call per tap. A Settings toggle wants REPLACE, because [doWork] samples the
+         * preferences when it STARTS: a run already going was configured by the old
+         * value and cannot answer the new one, so coalescing onto it silently drops
+         * the refresh and leaves the widget on the previous state until something
+         * else happens to poll. Replacing cancels that run, which loses nothing the
+         * replacement doesn't immediately refetch.
          */
-        fun runWidgetRefresh(context: Context) {
+        fun runWidgetRefresh(
+            context: Context,
+            supersedeInFlight: Boolean = false,
+        ) {
             val request =
                 OneTimeWorkRequestBuilder<FleetPollWorker>()
                     .setConstraints(
@@ -429,9 +442,10 @@ class FleetPollWorker(
                     ).setInputData(workDataOf(KEY_WIDGET to true))
                     .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                     .build()
+            val policy = if (supersedeInFlight) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
             WorkManager
                 .getInstance(context)
-                .enqueueUniqueWork(WIDGET_NAME, ExistingWorkPolicy.KEEP, request)
+                .enqueueUniqueWork(WIDGET_NAME, policy, request)
         }
 
         /**
