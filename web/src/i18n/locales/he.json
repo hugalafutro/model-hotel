@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "הספק לא זמין (מפסק זרם פתוח)",
 				"discovery_provider_failed": "הספק נכשל במהלך תהליך הגילוי",
 				"fleet_conflict": "התנגשות בעלות על Front Desk",
-				"failover_sync_error": "נכשל סנכרון קבוצת הגיבוי"
+				"failover_sync_error": "נכשל סנכרון קבוצת הגיבוי",
+				"quota_schema_drift": "הספק שינה את מבנה תגובת המכסה",
+				"auth_sso_identity_bound": "זהות SSO שויכה לחשבון"
 			},
 			"events": {
 				"all": "בחר הכל",

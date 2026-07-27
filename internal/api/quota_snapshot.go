@@ -200,13 +200,20 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 		return
 	}
 	typeByID := make(map[uuid.UUID]string, len(providers))
+	nameByID := make(map[uuid.UUID]string, len(providers))
 	for _, p := range providers {
 		typeByID[p.ID] = provider.DetectProviderType(p.BaseURL)
+		nameByID[p.ID] = p.Name
 	}
 
 	advice := buildQuotaAdvice(snaps, typeByID, maxAge, time.Now())
 	h.quotaAdvisor.Replace(advice)
 	debuglog.Debug("quota: advice refreshed", "advised_providers", len(advice))
+
+	// Alert-only, and deliberately last: the schema-drift watch reuses the
+	// snapshot list and provider maps above rather than re-querying, and
+	// nothing it does can influence the advice just published.
+	h.checkQuotaDrift(ctx, snaps, typeByID, nameByID, maxAge)
 }
 
 // ClearQuotaAdvice drops all quota advice immediately. Used whenever the

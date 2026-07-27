@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Provider inattivo (interruttore di sicurezza aperto)",
 				"discovery_provider_failed": "Errore del provider durante la fase di individuazione",
 				"fleet_conflict": "Conflitto di proprietà del Front Desk",
-				"failover_sync_error": "Sincronizzazione del gruppo di failover non riuscita"
+				"failover_sync_error": "Sincronizzazione del gruppo di failover non riuscita",
+				"quota_schema_drift": "Il provider ha modificato la struttura della risposta sulla quota",
+				"auth_sso_identity_bound": "Identità SSO associata a un account"
 			},
 			"events": {
 				"all": "Seleziona tutto",

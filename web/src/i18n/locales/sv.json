@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Leverantören är nere (strömavbrytaren har löst ut)",
 				"discovery_provider_failed": "Leverantören misslyckades under upptäckten",
 				"fleet_conflict": "Front Desk-ägarskapskonflikt",
-				"failover_sync_error": "Synkroniseringen av failover-gruppen misslyckades"
+				"failover_sync_error": "Synkroniseringen av failover-gruppen misslyckades",
+				"quota_schema_drift": "Leverantören ändrade strukturen på sitt kvotsvar",
+				"auth_sso_identity_bound": "SSO-identitet kopplad till ett konto"
 			},
 			"events": {
 				"all": "Markera allt",

@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Διακοπή λειτουργίας παρόχου (ανοιχτός διακόπτης κυκλώματος)",
 				"discovery_provider_failed": "Ο πάροχος απέτυχε κατά τη διαδικασία ανίχνευσης",
 				"fleet_conflict": "Διένεξη κυριότητας του Front Desk",
-				"failover_sync_error": "Αποτυχία συγχρονισμού ομάδας failover"
+				"failover_sync_error": "Αποτυχία συγχρονισμού ομάδας failover",
+				"quota_schema_drift": "Ο πάροχος άλλαξε τη δομή της απόκρισης ποσόστωσης",
+				"auth_sso_identity_bound": "Ταυτότητα SSO συνδέθηκε με λογαριασμό"
 			},
 			"events": {
 				"all": "Επιλογή όλων",

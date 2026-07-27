@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Anbieter ausgefallen (Circuit Breaker ausgelöst)",
 				"discovery_provider_failed": "Anbieter ist bei der Erkennung fehlgeschlagen",
 				"fleet_conflict": "Front-Desk-Besitzkonflikt",
-				"failover_sync_error": "Synchronisierung der Failover-Gruppe fehlgeschlagen"
+				"failover_sync_error": "Synchronisierung der Failover-Gruppe fehlgeschlagen",
+				"quota_schema_drift": "Anbieter hat die Struktur seiner Quotenantwort geändert",
+				"auth_sso_identity_bound": "SSO-Identität mit einem Konto verknüpft"
 			},
 			"events": {
 				"all": "Alles auswählen",

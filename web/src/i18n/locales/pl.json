@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Awaria dostawcy (wyłącznik otwarty)",
 				"discovery_provider_failed": "Wystąpił błąd dostawcy podczas wykrywania",
 				"fleet_conflict": "Konflikt własności Front Desk",
-				"failover_sync_error": "Nie udało się zsynchronizować grupy awaryjnej"
+				"failover_sync_error": "Nie udało się zsynchronizować grupy awaryjnej",
+				"quota_schema_drift": "Dostawca zmienił strukturę odpowiedzi o kontyngencie",
+				"auth_sso_identity_bound": "Tożsamość SSO powiązana z kontem"
 			},
 			"events": {
 				"all": "Zaznacz wszystko",

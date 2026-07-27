@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Furnizor inactiv (disjunctor deschis)",
 				"discovery_provider_failed": "Furnizorul a eșuat în timpul procesului de descoperire",
 				"fleet_conflict": "Conflict de proprietate Front Desk",
-				"failover_sync_error": "Sincronizarea grupului de failover a eșuat"
+				"failover_sync_error": "Sincronizarea grupului de failover a eșuat",
+				"quota_schema_drift": "Furnizorul a modificat structura răspunsului privind cota",
+				"auth_sso_identity_bound": "Identitate SSO asociată unui cont"
 			},
 			"events": {
 				"all": "Selectați tot",

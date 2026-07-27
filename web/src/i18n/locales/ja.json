@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "プロバイダーダウン（サーキットブレーカーが作動）",
 				"discovery_provider_failed": "プロバイダーの検出中にエラーが発生しました",
 				"fleet_conflict": "Front Desk の所有権競合",
-				"failover_sync_error": "フェイルオーバーグループの同期に失敗しました"
+				"failover_sync_error": "フェイルオーバーグループの同期に失敗しました",
+				"quota_schema_drift": "プロバイダーがクォータ応答の構造を変更しました",
+				"auth_sso_identity_bound": "SSO ID がアカウントに関連付けられました"
 			},
 			"events": {
 				"all": "すべて選択",

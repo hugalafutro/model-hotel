@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "تعطل المزود (فتح قاطع الدائرة)",
 				"discovery_provider_failed": "فشل المزود أثناء عملية الاكتشاف",
 				"fleet_conflict": "تعارض ملكية Front Desk",
-				"failover_sync_error": "فشلت مزامنة مجموعة التحويل التلقائي"
+				"failover_sync_error": "فشلت مزامنة مجموعة التحويل التلقائي",
+				"quota_schema_drift": "غيّر المزود بنية استجابة الحصة",
+				"auth_sso_identity_bound": "تم ربط هوية SSO بحساب"
 			},
 			"events": {
 				"all": "تحديد الكل",

@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Fournisseur hors service (disjoncteur ouvert)",
 				"discovery_provider_failed": "Échec de la détection du fournisseur",
 				"fleet_conflict": "Conflit de propriété Front Desk",
-				"failover_sync_error": "Échec de la synchronisation du groupe de basculement"
+				"failover_sync_error": "Échec de la synchronisation du groupe de basculement",
+				"quota_schema_drift": "Le fournisseur a modifié la structure de sa réponse de quota",
+				"auth_sso_identity_bound": "Identité SSO associée à un compte"
 			},
 			"events": {
 				"all": "Tout sélectionner",

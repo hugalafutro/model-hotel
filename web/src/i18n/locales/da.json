@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Udbyder nede (afbryder udløst)",
 				"discovery_provider_failed": "Udbyderen fejlede under opdagelsen",
 				"fleet_conflict": "Front Desk-ejerskabskonflikt",
-				"failover_sync_error": "Synkronisering af failover-gruppe mislykkedes"
+				"failover_sync_error": "Synkronisering af failover-gruppe mislykkedes",
+				"quota_schema_drift": "Udbyderen ændrede strukturen i sit kvotesvar",
+				"auth_sso_identity_bound": "SSO-identitet knyttet til en konto"
 			},
 			"events": {
 				"all": "Vælg alt",

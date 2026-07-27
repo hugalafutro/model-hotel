@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Verskaffer onbeskikbaar (kringbreker oopgemaak)",
 				"discovery_provider_failed": "Verskaffer het tydens ontdekking misluk",
 				"fleet_conflict": "Front Desk-eienaarskapkonflik",
-				"failover_sync_error": "Failover-groep-sinkronisering het misluk"
+				"failover_sync_error": "Failover-groep-sinkronisering het misluk",
+				"quota_schema_drift": "Verskaffer het sy kwota-antwoord se vorm verander",
+				"auth_sso_identity_bound": "SSO-identiteit aan 'n rekening gekoppel"
 			},
 			"events": {
 				"all": "Kies alles",

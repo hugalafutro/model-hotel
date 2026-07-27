@@ -1537,7 +1537,9 @@
 				"circuit_breaker_half_open": "Provider being probed (circuit breaker half-open)",
 				"failover_sync_error": "Failover group sync failed",
 				"discovery_provider_failed": "Provider failed during discovery",
-				"fleet_conflict": "Front Desk ownership conflict"
+				"fleet_conflict": "Front Desk ownership conflict",
+				"quota_schema_drift": "Provider changed its quota response shape",
+				"auth_sso_identity_bound": "SSO identity bound to an account"
 			},
 			"testButton": "Send test notification",
 			"testSending": "Sending…",

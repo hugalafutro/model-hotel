@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Nhà cung cấp ngừng hoạt động (cầu dao ngắt mạch đã mở)",
 				"discovery_provider_failed": "Nhà cung cấp gặp sự cố trong quá trình phát hiện",
 				"fleet_conflict": "Xung đột quyền sở hữu Front Desk",
-				"failover_sync_error": "Đồng bộ hóa nhóm dự phòng không thành công"
+				"failover_sync_error": "Đồng bộ hóa nhóm dự phòng không thành công",
+				"quota_schema_drift": "Nhà cung cấp đã thay đổi cấu trúc phản hồi hạn ngạch",
+				"auth_sso_identity_bound": "Danh tính SSO đã được liên kết với một tài khoản"
 			},
 			"events": {
 				"all": "Chọn tất cả",

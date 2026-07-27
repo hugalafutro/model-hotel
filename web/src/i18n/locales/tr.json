@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Sağlayıcı devre dışı (devre kesici açıldı)",
 				"discovery_provider_failed": "Sağlayıcı, keşif sırasında hata verdi",
 				"fleet_conflict": "Front Desk sahiplik çakışması",
-				"failover_sync_error": "Yedekleme grubu senkronizasyonu başarısız oldu"
+				"failover_sync_error": "Yedekleme grubu senkronizasyonu başarısız oldu",
+				"quota_schema_drift": "Sağlayıcı kota yanıtının yapısını değiştirdi",
+				"auth_sso_identity_bound": "SSO kimliği bir hesaba bağlandı"
 			},
 			"events": {
 				"all": "Tümünü seç",

@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Provedor inoperante (disjuntor aberto)",
 				"discovery_provider_failed": "Falha do provedor durante a descoberta",
 				"fleet_conflict": "Conflito de propriedade do Front Desk",
-				"failover_sync_error": "Falha na sincronização do grupo de failover"
+				"failover_sync_error": "Falha na sincronização do grupo de failover",
+				"quota_schema_drift": "O provedor alterou a estrutura da resposta de cota",
+				"auth_sso_identity_bound": "Identidade SSO vinculada a uma conta"
 			},
 			"events": {
 				"all": "Selecionar tudo",

@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Poskytovateľ mimo prevádzky (otvorený istič)",
 				"discovery_provider_failed": "Poskytovateľ zlyhal počas vyhľadávania",
 				"fleet_conflict": "Konflikt vlastníctva Front Desku",
-				"failover_sync_error": "Synchronizácia skupiny pre prevzatie pri výpadku zlyhala"
+				"failover_sync_error": "Synchronizácia skupiny pre prevzatie pri výpadku zlyhala",
+				"quota_schema_drift": "Poskytovateľ zmenil štruktúru odpovede o kvóte",
+				"auth_sso_identity_bound": "Identita SSO bola prepojená s účtom"
 			},
 			"events": {
 				"all": "Vybrať všetko",

@@ -1882,7 +1882,9 @@
 				"circuit_breaker_open": "Szolgáltató leállt (áramkör-megszakító nyitva)",
 				"discovery_provider_failed": "A szolgáltató azonosítása során hiba történt",
 				"fleet_conflict": "Front Desk tulajdonjogi ütközés",
-				"failover_sync_error": "A failover-csoport szinkronizálása sikertelen"
+				"failover_sync_error": "A failover-csoport szinkronizálása sikertelen",
+				"quota_schema_drift": "A szolgáltató megváltoztatta a kvótaválasz szerkezetét",
+				"auth_sso_identity_bound": "SSO-azonosító fiókhoz kapcsolva"
 			},
 			"events": {
 				"all": "Összes kijelölése",
