@@ -216,6 +216,57 @@ func TestAssess_FailOpenCases(t *testing.T) {
 	}
 }
 
+// TestAssess_ZaiCoding_UnwatchedTypeOrUnitIsIgnored verifies the parser only
+// judges the two token windows the dashboard reads. Z.ai sends other limit
+// entries in the same array — a spend cap and windows on units the failover
+// circuit knows nothing about — and a spent one of those says nothing about
+// whether a request would succeed. Every entry here is spent with a future
+// reset, so a parser that stopped filtering would pin this provider shut.
+func TestAssess_ZaiCoding_UnwatchedTypeOrUnitIsIgnored(t *testing.T) {
+	reset := time.Now().Add(6 * time.Hour).UnixMilli()
+	payload, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "COST_LIMIT", "unit": 3, "remaining": 0, "nextResetTime": reset},
+			{"type": "TOKENS_LIMIT", "unit": 1, "remaining": 0, "nextResetTime": reset},
+			{"type": "TOKENS_LIMIT", "unit": 9, "remaining": 0, "nextResetTime": reset},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("zai-coding", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("a well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("only TOKENS_LIMIT on unit 3 or 6 may pin; a spent entry of any other kind must be ignored")
+	}
+}
+
+// TestAssess_MalformedBodyFailsOpenForEveryParser verifies every provider
+// parser refuses a body it cannot decode (OK=false) rather than reading it as
+// evidence. A truncated body is what an upstream incident or a proxy actually
+// produces, and OK=false is what makes the caller keep its normal cooldown. The
+// zai case was covered from the start; asserting all three together means a
+// parser that dropped the check would be caught rather than inheriting the
+// coverage of its neighbours.
+func TestAssess_MalformedBodyFailsOpenForEveryParser(t *testing.T) {
+	for _, providerType := range []string{"zai-coding", "kimi-code", "minimax"} {
+		t.Run(providerType, func(t *testing.T) {
+			got := Assess(providerType, Snapshot{Kind: "usage", Payload: []byte(`{"limits":`)})
+
+			if got.OK {
+				t.Errorf("a truncated body must not be reported as understood, got %+v", got)
+			}
+			if got.Exhausted {
+				t.Error("a truncated body must never mark a window spent")
+			}
+		})
+	}
+}
+
 func TestAssess_KimiCode_RFC3339AndStringNumbers(t *testing.T) {
 	fiveHour := time.Now().Add(90 * time.Minute).UTC().Format(time.RFC3339)
 	weekly := time.Now().Add(100 * time.Hour).UTC().Format(time.RFC3339)

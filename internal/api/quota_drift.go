@@ -285,6 +285,11 @@ func (h *Handler) checkQuotaDrift(ctx context.Context, snaps []quota.Snapshot, t
 // debounce and tries again, which is preferable to failing a poll pass over an
 // advisory watch.
 func (h *Handler) storeSchemaBaseline(ctx context.Context, providerID uuid.UUID, name string, paths []string) {
+	// Unreachable in practice and deliberately kept: json.Marshal of a []string
+	// has no failure mode (no unsupported types, no cycles, no custom marshaler,
+	// and invalid UTF-8 is coerced to U+FFFD rather than rejected). No test can
+	// induce it honestly, so it stays uncovered rather than being reached by a
+	// contrived one — but dropping the check would be an unchecked error.
 	b, err := json.Marshal(paths)
 	if err != nil {
 		debuglog.Warn("quota: encode schema baseline failed", "provider", name, "error", err)

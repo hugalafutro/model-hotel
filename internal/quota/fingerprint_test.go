@@ -188,6 +188,46 @@ func TestFingerprintPathCapTruncatesDeterministically(t *testing.T) {
 	}
 }
 
+// TestFingerprintPathCapStopsWalkingAWideArray covers the other half of the
+// path cap. TestFingerprintPathCapTruncatesDeterministically fills the budget
+// inside a single object, which is the object-loop guard; a payload whose bulk
+// lives in an array (a MiniMax account with a very long model_remains, or a
+// provider that starts returning one row per model per window) fills it across
+// array *elements* instead, and the walk has to stop there too or a hostile or
+// accidentally huge body costs unbounded work on the quota poll goroutine.
+//
+// Each element carries exactly one distinct key, so the budget is consumed one
+// element at a time and the stop necessarily happens between elements.
+func TestFingerprintPathCapStopsWalkingAWideArray(t *testing.T) {
+	elems := make([]map[string]int, 0, 3*maxPaths)
+	for i := range 3 * maxPaths {
+		elems = append(elems, map[string]int{fmt.Sprintf("k%04d", i): i})
+	}
+	payload, err := json.Marshal(map[string]any{"arr": elems})
+	if err != nil {
+		t.Fatalf("marshal wide-array payload: %v", err)
+	}
+
+	paths, ok := SchemaPaths(payload)
+	if !ok {
+		t.Fatal("SchemaPaths returned ok=false for a well-formed object payload")
+	}
+	if len(paths) != maxPaths {
+		t.Errorf("got %d paths from a %d-element array, want the walk to stop at maxPaths=%d",
+			len(paths), 3*maxPaths, maxPaths)
+	}
+
+	// Same stability requirement as the object case: array order is fixed and
+	// each element's keys are sorted, so a truncated walk must still return the
+	// identical set every time or an unchanged payload alerts on every poll.
+	first := mustFingerprint(t, payload)
+	for i := range 25 {
+		if got := mustFingerprint(t, payload); got != first {
+			t.Fatalf("call %d returned %s, want the stable %s", i, got, first)
+		}
+	}
+}
+
 // TestFingerprintPathsMatchesFingerprint verifies the two entry points cannot
 // disagree: the drift detector diffs SchemaPaths output but compares digests,
 // so a digest that was not derived from exactly those paths would report an

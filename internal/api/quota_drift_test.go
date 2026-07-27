@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -281,6 +282,155 @@ func TestQuotaDriftPathDiffCapsEachListKeepingTheSortedPrefix(t *testing.T) {
 	}
 	if strings.Join(removed, ",") != strings.Join(wantRemoved, ",") {
 		t.Errorf("removed = %v, want the first %d sorted paths %v", removed, quotaDriftListCap, wantRemoved)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Degradation paths: a settings row that cannot be read, parsed, or written
+// ---------------------------------------------------------------------------
+
+// driftHandler builds the minimal Handler checkQuotaDrift needs. The watch
+// touches only the settings store and its own debounce map, so a struct literal
+// exercises the real code without a database.
+func driftHandler(store SettingsStore) *Handler {
+	return &Handler{settingsRepo: store}
+}
+
+// oneAccountSnapshot is a single eligible snapshot: 200, fresh, with a payload
+// whose shape is readable.
+func oneAccountSnapshot(id uuid.UUID, payload string) []quota.Snapshot {
+	return []quota.Snapshot{{
+		ProviderID: id, Kind: "account", HTTPStatus: 200,
+		Payload: json.RawMessage(payload), FetchedAt: time.Now(),
+	}}
+}
+
+// TestQuotaDriftBaselineReadFailureSkipsTheProviderEntirely verifies the
+// distinction loadSchemaBaseline exists to make: a settings row that could not
+// be *read* is not the same as a provider that has never been seen. Treating the
+// failure as a first sighting would silently overwrite a good baseline with
+// whatever this poll happened to carry, permanently losing the shape the alert
+// would have fired on. The pass must instead do nothing at all.
+func TestQuotaDriftBaselineReadFailureSkipsTheProviderEntirely(t *testing.T) {
+	id := uuid.New()
+	writes := 0
+	h := driftHandler(&mockSettingsStore{
+		getCheckedFn: func(context.Context, string) (string, bool, error) {
+			return "", false, errors.New("settings read boom")
+		},
+		setFn: func(context.Context, string, string) error { writes++; return nil },
+	})
+
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	snaps := oneAccountSnapshot(id, `{"plan":"pro"}`)
+	// Twice, so a debounce cannot be what keeps this quiet: a pass that cannot
+	// read the baseline must not even arm a candidate.
+	for range 2 {
+		h.checkQuotaDrift(context.Background(), snaps,
+			map[uuid.UUID]string{id: "ollama-cloud"}, map[uuid.UUID]string{id: "ollama"}, 15*time.Minute)
+	}
+
+	if evs := collectSchemaDriftEvents(t, sub); len(evs) != 0 {
+		t.Errorf("a baseline that cannot be read is not evidence of drift, got %d event(s)", len(evs))
+	}
+	if writes != 0 {
+		t.Errorf("a failed read must not be mistaken for a first sighting and overwrite the baseline, got %d write(s)", writes)
+	}
+	if len(h.quotaSchemaSeen) != 0 {
+		t.Errorf("a skipped provider must leave no debounce candidate behind, got %+v", h.quotaSchemaSeen)
+	}
+}
+
+// TestQuotaDriftCorruptStoredBaselineIsReadoptedSilently verifies the other half
+// of that distinction: a row that reads fine but is not a JSON path list is our
+// own bug, not the provider changing shape. It must be re-adopted quietly, which
+// both silences a false alert and repairs the row for the next poll.
+func TestQuotaDriftCorruptStoredBaselineIsReadoptedSilently(t *testing.T) {
+	id := uuid.New()
+	stored := map[string]string{quotaSchemaSettingKey(id): "}not-a-json-array{"}
+	h := driftHandler(&mockSettingsStore{
+		getCheckedFn: func(_ context.Context, key string) (string, bool, error) {
+			v, ok := stored[key]
+			return v, ok, nil
+		},
+		setFn: func(_ context.Context, key, value string) error { stored[key] = value; return nil },
+	})
+
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	h.checkQuotaDrift(context.Background(), oneAccountSnapshot(id, `{"plan":"pro"}`),
+		map[uuid.UUID]string{id: "ollama-cloud"}, map[uuid.UUID]string{id: "ollama"}, 15*time.Minute)
+
+	if evs := collectSchemaDriftEvents(t, sub); len(evs) != 0 {
+		t.Errorf("a baseline we wrote wrong must not be alerted on as a provider change, got %d event(s)", len(evs))
+	}
+	if got := stored[quotaSchemaSettingKey(id)]; got != `["plan"]` {
+		t.Errorf("a corrupt baseline must be repaired with the shape just seen, got %q", got)
+	}
+}
+
+// TestQuotaDriftSkipsASnapshotWhoseProviderIsGone verifies a snapshot left
+// behind by a deleted provider is dropped before anything else happens. The
+// alert's entire content is the provider's name and the paths that moved, so
+// there is nothing to publish — and the row must not consume a settings read or
+// leave a baseline for an ID that no longer exists.
+func TestQuotaDriftSkipsASnapshotWhoseProviderIsGone(t *testing.T) {
+	gone := uuid.New()
+	reads, writes := 0, 0
+	h := driftHandler(&mockSettingsStore{
+		getCheckedFn: func(context.Context, string) (string, bool, error) { reads++; return "", false, nil },
+		setFn:        func(context.Context, string, string) error { writes++; return nil },
+	})
+
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	// Type map still knows the ID; the name map (built from the live provider
+	// list) does not. That is exactly the state a deleted provider leaves.
+	h.checkQuotaDrift(context.Background(), oneAccountSnapshot(gone, `{"plan":"pro"}`),
+		map[uuid.UUID]string{gone: "ollama-cloud"}, map[uuid.UUID]string{}, 15*time.Minute)
+
+	if evs := collectSchemaDriftEvents(t, sub); len(evs) != 0 {
+		t.Errorf("a deleted provider has nothing to name in an alert, got %d event(s)", len(evs))
+	}
+	if reads != 0 || writes != 0 {
+		t.Errorf("a deleted provider's snapshot must not touch settings at all, got %d read(s) and %d write(s)", reads, writes)
+	}
+}
+
+// TestQuotaDriftBaselineWriteFailureIsRetriedNextPass verifies a failed baseline
+// write is dropped rather than propagated: this is an advisory watch and must
+// never fail a poll pass. It must also not be recorded as if it had succeeded —
+// the next pass has to try again, or a provider whose first write failed would
+// never acquire a baseline and never be able to alert.
+func TestQuotaDriftBaselineWriteFailureIsRetriedNextPass(t *testing.T) {
+	id := uuid.New()
+	writes := 0
+	h := driftHandler(&mockSettingsStore{
+		getCheckedFn: func(context.Context, string) (string, bool, error) { return "", false, nil },
+		setFn: func(context.Context, string, string) error {
+			writes++
+			return errors.New("settings write boom")
+		},
+	})
+
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	snaps := oneAccountSnapshot(id, `{"plan":"pro"}`)
+	for range 2 {
+		h.checkQuotaDrift(context.Background(), snaps,
+			map[uuid.UUID]string{id: "ollama-cloud"}, map[uuid.UUID]string{id: "ollama"}, 15*time.Minute)
+	}
+
+	if evs := collectSchemaDriftEvents(t, sub); len(evs) != 0 {
+		t.Errorf("a write failure is not drift, got %d event(s)", len(evs))
+	}
+	if writes != 2 {
+		t.Errorf("got %d write attempt(s); a dropped write must be retried on the next pass, not assumed stored", writes)
 	}
 }
 
