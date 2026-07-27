@@ -1025,7 +1025,12 @@ func TestQuotaPin_DisabledBySettingUsesDefault(t *testing.T) {
 // has elapsed, which a pinned circuit would refuse for another six hours.
 func TestQuotaPin_DisablingTheSettingReleasesAnAlreadyPinnedCircuit(t *testing.T) {
 	enabled := true
-	settings := &stubSettings{threshold: 1, cooldown: 50 * time.Millisecond, pinEnabled: &enabled}
+	// 500ms, not the tens of milliseconds the other cooldown tests use: between
+	// openBreaker and the "still open" assertion below sit two Status() calls,
+	// and a GC pause or a loaded runner overrunning the configured cooldown there
+	// would fail the test with a message about the kill switch. The assertions
+	// are unchanged; only the budget they run inside is widened.
+	settings := &stubSettings{threshold: 1, cooldown: 500 * time.Millisecond, pinEnabled: &enabled}
 	cb := NewCircuitBreaker(settings)
 	id := uuid.New()
 	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
@@ -1034,7 +1039,7 @@ func TestQuotaPin_DisablingTheSettingReleasesAnAlreadyPinnedCircuit(t *testing.T
 
 	pinnedMs := cb.Status()[0].CooldownMs
 	if !cb.Status()[0].QuotaPinned {
-		t.Fatal("setup: a 6h deadline against a 50ms cooldown must pin the circuit")
+		t.Fatal("setup: a 6h deadline against a 500ms cooldown must pin the circuit")
 	}
 	if pinnedMs < (6*time.Hour - time.Minute).Milliseconds() {
 		t.Fatalf("setup: got CooldownMs=%d, want the ~6h pin", pinnedMs)
@@ -1056,7 +1061,7 @@ func TestQuotaPin_DisablingTheSettingReleasesAnAlreadyPinnedCircuit(t *testing.T
 	if !cb.IsOpen(id, "test-provider") {
 		t.Fatal("the configured cooldown has not elapsed yet; the circuit must still be open")
 	}
-	time.Sleep(60 * time.Millisecond)
+	time.Sleep(600 * time.Millisecond)
 	if cb.IsOpen(id, "test-provider") {
 		t.Error("with the pin released, the configured cooldown must let a probe through")
 	}
