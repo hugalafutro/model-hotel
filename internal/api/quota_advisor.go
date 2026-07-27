@@ -30,6 +30,9 @@ func (a *QuotaAdvisor) ResetsAt(providerID uuid.UUID) (time.Time, bool) {
 }
 
 // Replace swaps the whole map so providers that recovered stop being advised.
+// Replace takes ownership of m: the caller must not read or mutate it after
+// the call, since ResetsAt may be reading it concurrently under RLock with no
+// synchronization against a caller-side write.
 func (a *QuotaAdvisor) Replace(m map[uuid.UUID]time.Time) {
 	if m == nil {
 		m = make(map[uuid.UUID]time.Time)

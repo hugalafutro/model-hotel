@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -286,4 +287,155 @@ func TestPollQuotasOnce_SkipsDisabled(t *testing.T) {
 	if snap != nil {
 		t.Fatalf("disabled provider should not be polled, got %+v", snap)
 	}
+}
+
+// exhaustedZaiCodingPayload builds a zai-coding usage payload with a spent
+// 5-hour window and the given reset deadline, matching the shape Assess
+// expects (TOKENS_LIMIT, unit=3, remaining=0).
+func exhaustedZaiCodingPayload(t *testing.T, resetsAt time.Time) json.RawMessage {
+	t.Helper()
+	b, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 0, "nextResetTime": resetsAt.UnixMilli()},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal exhausted zai-coding payload: %v", err)
+	}
+	return b
+}
+
+// TestRefreshQuotaAdvice_ThreeIntervalWindowBoundary pins the "three refresh
+// intervals" rule end to end (real quotaRepo + providerRepo, not the pure
+// buildQuotaAdvice helper): with quota_refresh_interval_min left at its
+// default of 5, maxAge resolves to 15 minutes. A 14-minute-old snapshot must
+// survive and a 16-minute-old one must not, so a regression that changed the
+// "3 *" multiplier to anything else (2x = 10min, or 30x = 150min) would fail
+// this specific test even though it might not touch buildQuotaAdvice's own
+// unit tests (which take maxAge as a given argument, not derived from the
+// setting).
+func TestRefreshQuotaAdvice_ThreeIntervalWindowBoundary(t *testing.T) {
+	h := newTestHandler(t)
+	ctx := context.Background()
+
+	freshID := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-fresh", "https://api.z.ai", true)
+	oldID := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-old", "https://api.z.ai", true)
+
+	resetsAt := time.Now().Add(4 * time.Hour)
+	payload := exhaustedZaiCodingPayload(t, resetsAt)
+
+	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		ProviderID: freshID, Kind: "usage", Payload: payload, HTTPStatus: 200, Source: "poll",
+		FetchedAt: time.Now().Add(-14 * time.Minute),
+	}); err != nil {
+		t.Fatalf("seed fresh snapshot: %v", err)
+	}
+	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		ProviderID: oldID, Kind: "usage", Payload: payload, HTTPStatus: 200, Source: "poll",
+		FetchedAt: time.Now().Add(-16 * time.Minute),
+	}); err != nil {
+		t.Fatalf("seed old snapshot: %v", err)
+	}
+
+	adv := NewQuotaAdvisor()
+	h.SetQuotaAdvisor(adv)
+
+	// quota_refresh_interval_min is left unset so GetInt's default of 5
+	// applies, resolving maxAge to 3*5=15 minutes.
+	h.RefreshQuotaAdvice(ctx)
+
+	if _, ok := adv.ResetsAt(freshID); !ok {
+		t.Error("a 14-minute-old snapshot (within the 15-minute window) must be advised")
+	}
+	if _, ok := adv.ResetsAt(oldID); ok {
+		t.Error("a 16-minute-old snapshot (past the 15-minute window) must not be advised")
+	}
+}
+
+// TestRefreshQuotaAdvice_QuotaRepoListErrorLeavesAdvisorUntouched verifies the
+// quiet-degradation path: if the snapshot table can't be listed, the advisor
+// must keep whatever it last had rather than being wiped or partially
+// rebuilt, and the call must not panic.
+func TestRefreshQuotaAdvice_QuotaRepoListErrorLeavesAdvisorUntouched(t *testing.T) {
+	h := newTestHandler(t)
+
+	adv := NewQuotaAdvisor()
+	seedID := uuid.New()
+	seedAt := time.Now().Add(time.Hour).Truncate(time.Second)
+	adv.Replace(map[uuid.UUID]time.Time{seedID: seedAt})
+	h.SetQuotaAdvisor(adv)
+
+	cancelledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	h.RefreshQuotaAdvice(cancelledCtx)
+
+	got, ok := adv.ResetsAt(seedID)
+	if !ok {
+		t.Fatal("a quotaRepo.List failure must leave the previously advised map untouched")
+	}
+	if !got.Equal(seedAt) {
+		t.Errorf("got %v, want unchanged %v", got, seedAt)
+	}
+}
+
+// TestRefreshQuotaAdvice_ProviderRepoListErrorLeavesAdvisorUntouched covers
+// the second quiet-degradation path: quotaRepo.List can succeed while
+// providerRepo.List (needed to build the type map) fails. The advisor must
+// still be left untouched rather than replaced with an empty map.
+func TestRefreshQuotaAdvice_ProviderRepoListErrorLeavesAdvisorUntouched(t *testing.T) {
+	h := newTestHandler(t)
+	h.providerRepo = &mockProviderStore{
+		listFn: func(context.Context) ([]*provider.Provider, error) {
+			return nil, errors.New("provider list boom")
+		},
+	}
+
+	adv := NewQuotaAdvisor()
+	seedID := uuid.New()
+	seedAt := time.Now().Add(time.Hour).Truncate(time.Second)
+	adv.Replace(map[uuid.UUID]time.Time{seedID: seedAt})
+	h.SetQuotaAdvisor(adv)
+
+	h.RefreshQuotaAdvice(context.Background())
+
+	got, ok := adv.ResetsAt(seedID)
+	if !ok {
+		t.Fatal("a providerRepo.List failure must leave the previously advised map untouched")
+	}
+	if !got.Equal(seedAt) {
+		t.Errorf("got %v, want unchanged %v", got, seedAt)
+	}
+}
+
+// TestPollQuotasOnce_ProviderListFailureClearsQuotaAdvice verifies the fix for
+// the "frozen deadline" gap: when PollQuotasOnce can't even list providers, it
+// must clear the advisor (fail closed to no-pin) rather than silently keep
+// whatever advice was computed on a previous, now-untrustworthy, pass.
+func TestPollQuotasOnce_ProviderListFailureClearsQuotaAdvice(t *testing.T) {
+	h := newTestHandler(t)
+	h.providerRepo = &mockProviderStore{
+		listFn: func(context.Context) ([]*provider.Provider, error) {
+			return nil, errors.New("provider list boom")
+		},
+	}
+
+	adv := NewQuotaAdvisor()
+	staleID := uuid.New()
+	adv.Replace(map[uuid.UUID]time.Time{staleID: time.Now().Add(time.Hour)})
+	h.SetQuotaAdvisor(adv)
+
+	h.PollQuotasOnce(context.Background())
+
+	if _, ok := adv.ResetsAt(staleID); ok {
+		t.Error("a providerRepo.List failure in PollQuotasOnce must clear quota advice, not freeze it")
+	}
+}
+
+// TestClearQuotaAdvice_NilAdvisorNoop verifies ClearQuotaAdvice is safe to
+// call on a Handler where SetQuotaAdvisor was never wired (matches the doc
+// comment's "no-op" contract).
+func TestClearQuotaAdvice_NilAdvisorNoop(t *testing.T) {
+	h := newTestHandler(t)
+	h.ClearQuotaAdvice(context.Background())
 }

@@ -345,7 +345,7 @@ func TestQuotaPollLoop_RunsOnInterval(t *testing.T) {
 	go func() {
 		quotaPollLoop(ctx, settingsRepo, func(context.Context) {
 			calls.Add(1)
-		}, time.Millisecond)
+		}, func(context.Context) {}, time.Millisecond)
 		close(done)
 	}()
 
@@ -408,7 +408,7 @@ func TestQuotaPollLoopDisabledAtStart(t *testing.T) {
 	go func() {
 		quotaPollLoop(ctx, settingsRepo, func(context.Context) {
 			calls.Add(1)
-		}, time.Millisecond)
+		}, func(context.Context) {}, time.Millisecond)
 		close(done)
 	}()
 
@@ -428,6 +428,97 @@ func TestQuotaPollLoopDisabledAtStart(t *testing.T) {
 		case <-time.After(10 * time.Millisecond):
 		}
 	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("poll loop did not stop on context cancellation")
+	}
+}
+
+// TestQuotaPollLoop_DisabledAtStartClearsQuotaAdvice verifies that a poll loop
+// which starts with polling disabled clears quota advice immediately, rather
+// than waiting for a poll pass that (by construction of the disabled branch)
+// will never happen.
+func TestQuotaPollLoop_DisabledAtStartClearsQuotaAdvice(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	settingsRepo := newTestSettingsRepo()
+	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "0"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+
+	var clears atomic.Int32
+	done := make(chan struct{})
+	go func() {
+		quotaPollLoop(ctx, settingsRepo, func(context.Context) {}, func(context.Context) {
+			clears.Add(1)
+		}, time.Millisecond)
+		close(done)
+	}()
+
+	deadline := time.After(5 * time.Second)
+	for clears.Load() == 0 {
+		select {
+		case <-deadline:
+			t.Fatal("poll loop starting disabled never cleared quota advice")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("poll loop did not stop on context cancellation")
+	}
+}
+
+// TestQuotaPollLoop_TransitionToDisabledClearsQuotaAdvice verifies that a poll
+// loop which starts enabled clears quota advice exactly when it transitions
+// into the disabled state (not before, while it is still actively polling).
+func TestQuotaPollLoop_TransitionToDisabledClearsQuotaAdvice(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	settingsRepo := newTestSettingsRepo()
+	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "20"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+
+	var clears atomic.Int32
+	done := make(chan struct{})
+	go func() {
+		quotaPollLoop(ctx, settingsRepo, func(context.Context) {}, func(context.Context) {
+			clears.Add(1)
+		}, time.Millisecond)
+		close(done)
+	}()
+
+	// Give the loop a moment to start in the enabled state.
+	time.Sleep(50 * time.Millisecond)
+	if clears.Load() != 0 {
+		t.Fatal("an enabled poll loop must not clear quota advice")
+	}
+
+	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "0"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+
+	deadline := time.After(5 * time.Second)
+	for clears.Load() == 0 {
+		select {
+		case <-deadline:
+			t.Fatal("poll loop never cleared quota advice after disabling")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
 	cancel()
 	select {
 	case <-done:

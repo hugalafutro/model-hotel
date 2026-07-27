@@ -54,7 +54,14 @@ func TestQuotaAdvisor_NilSafeReplace(t *testing.T) {
 	}
 }
 
-func TestBuildQuotaAdvice_DropsStaleAndUnassessable(t *testing.T) {
+// TestBuildQuotaAdvice_DropsStaleUnassessableAndHealthy covers all three
+// reasons a snapshot must NOT be advised — too old, no normalizer for the
+// provider type, and (distinct from both) a provider whose quota simply
+// isn't exhausted. The healthy case uses the exact same zai-coding payload
+// shape as the advised one, differing only in `remaining`, so a regression
+// that filtered on `a.OK` alone (ignoring `a.Exhausted`) would still pass
+// every other branch here but fail this one specifically.
+func TestBuildQuotaAdvice_DropsStaleUnassessableAndHealthy(t *testing.T) {
 	now := time.Now()
 	reset := now.Add(4 * time.Hour).UnixMilli()
 	exhausted, err := json.Marshal(map[string]any{
@@ -65,17 +72,27 @@ func TestBuildQuotaAdvice_DropsStaleAndUnassessable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+	healthy, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 1000, "nextResetTime": reset},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
 
-	fresh, stale, unknownType := uuid.New(), uuid.New(), uuid.New()
+	fresh, stale, unknownType, notExhausted := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	snaps := []quota.Snapshot{
 		{ProviderID: fresh, Kind: "usage", Payload: exhausted, FetchedAt: now.Add(-time.Minute)},
 		{ProviderID: stale, Kind: "usage", Payload: exhausted, FetchedAt: now.Add(-time.Hour)},
 		{ProviderID: unknownType, Kind: "usage", Payload: exhausted, FetchedAt: now},
+		{ProviderID: notExhausted, Kind: "usage", Payload: healthy, FetchedAt: now},
 	}
 	typeByID := map[uuid.UUID]string{
-		fresh:       "zai-coding",
-		stale:       "zai-coding",
-		unknownType: "openai",
+		fresh:        "zai-coding",
+		stale:        "zai-coding",
+		unknownType:  "openai",
+		notExhausted: "zai-coding",
 	}
 
 	got := buildQuotaAdvice(snaps, typeByID, 15*time.Minute, now)
@@ -92,9 +109,73 @@ func TestBuildQuotaAdvice_DropsStaleAndUnassessable(t *testing.T) {
 	if _, ok := got[unknownType]; ok {
 		t.Error("a provider type with no normalizer must be dropped")
 	}
+	if _, ok := got[notExhausted]; ok {
+		t.Error("a provider whose quota is not exhausted must be dropped")
+	}
 }
 
-func TestBuildQuotaAdvice_ZeroMaxAgeDisablesStalenessFilter(t *testing.T) {
+// TestBuildQuotaAdvice_AgeEqualToMaxAgeIsKept and
+// TestBuildQuotaAdvice_AgeOneNanosecondPastMaxAgeIsDropped probe the exact
+// staleness boundary (`now.Sub(FetchedAt) > maxAge`, strict greater-than) so
+// an off-by-one (`>=` vs `>`) or a units mistake shows up immediately instead
+// of hiding behind a coarse minute/hour gap.
+func TestBuildQuotaAdvice_AgeEqualToMaxAgeIsKept(t *testing.T) {
+	now := time.Now()
+	payload, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 0, "nextResetTime": now.Add(time.Hour).UnixMilli()},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	id := uuid.New()
+	const maxAge = 15 * time.Minute
+
+	got := buildQuotaAdvice(
+		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now.Add(-maxAge)}},
+		map[uuid.UUID]string{id: "zai-coding"},
+		maxAge,
+		now,
+	)
+
+	if _, ok := got[id]; !ok {
+		t.Error("a snapshot exactly maxAge old must be kept (boundary is inclusive)")
+	}
+}
+
+func TestBuildQuotaAdvice_AgeOneNanosecondPastMaxAgeIsDropped(t *testing.T) {
+	now := time.Now()
+	payload, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 0, "nextResetTime": now.Add(time.Hour).UnixMilli()},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	id := uuid.New()
+	const maxAge = 15 * time.Minute
+
+	got := buildQuotaAdvice(
+		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now.Add(-maxAge - time.Nanosecond)}},
+		map[uuid.UUID]string{id: "zai-coding"},
+		maxAge,
+		now,
+	)
+
+	if _, ok := got[id]; ok {
+		t.Error("a snapshot one nanosecond past maxAge must be dropped")
+	}
+}
+
+// TestBuildQuotaAdvice_ZeroMaxAgeAdvisesNothing pins the human-ruled inversion:
+// quota_refresh_interval_min <= 0 (polling disabled) resolves to maxAge <= 0,
+// and that must mean "advise nothing", not "no staleness filter". The
+// snapshot here is deliberately pristine (FetchedAt = now, a genuinely
+// exhausted payload) so this cannot pass because the data happened to be
+// stale or unassessable — only the maxAge<=0 short-circuit can drop it.
+func TestBuildQuotaAdvice_ZeroMaxAgeAdvisesNothing(t *testing.T) {
 	now := time.Now()
 	payload, err := json.Marshal(map[string]any{
 		"data": map[string]any{"limits": []map[string]any{
@@ -107,13 +188,13 @@ func TestBuildQuotaAdvice_ZeroMaxAgeDisablesStalenessFilter(t *testing.T) {
 	id := uuid.New()
 
 	got := buildQuotaAdvice(
-		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now.Add(-30 * 24 * time.Hour)}},
+		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now}},
 		map[uuid.UUID]string{id: "zai-coding"},
 		0,
 		now,
 	)
 
-	if _, ok := got[id]; !ok {
-		t.Error("maxAge=0 means no staleness filter, so even an ancient snapshot advises")
+	if len(got) != 0 {
+		t.Errorf("maxAge<=0 must advise nothing (polling disabled), got %v", got)
 	}
 }

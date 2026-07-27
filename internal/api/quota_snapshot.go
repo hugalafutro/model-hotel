@@ -121,6 +121,11 @@ func (h *Handler) PollQuotasOnce(ctx context.Context) {
 	providers, err := h.providerRepo.List(ctx)
 	if err != nil {
 		debuglog.Error("quota: list providers failed", "error", err)
+		// We have no fresh provider list to rebuild advice from, and the last
+		// computed map could be arbitrarily stale by the time providers are
+		// listable again. Fail closed: clear it rather than let a frozen
+		// deadline keep pinning a circuit's cooldown.
+		h.ClearQuotaAdvice(ctx)
 		return
 	}
 	disc := newDiscoveryService()
@@ -170,10 +175,15 @@ func (h *Handler) PollQuotasOnce(ctx context.Context) {
 // It reads the table rather than the poll's own fetches so fleet-distributed
 // snapshots (which PollQuotasOnce skips) are included.
 //
-// A snapshot older than three refresh intervals is ignored: never advise the
-// breaker on data that could predate a plan change or a manual refresh.
+// A snapshot older than three refresh intervals is ignored. If quota polling
+// is disabled (quota_refresh_interval_min <= 0) the resolved maxAge is <= 0,
+// and buildQuotaAdvice treats that as "advise nothing": we cannot trust the
+// age of any stored snapshot without a live poll cadence to bound it, so
+// never pin the breaker on data that could predate a plan change or a manual
+// top-up.
 func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 	if h.quotaAdvisor == nil {
+		debuglog.Warn("quota: advice refresh skipped, no advisor wired")
 		return
 	}
 	snaps, err := h.quotaRepo.List(ctx)
@@ -199,6 +209,19 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 	debuglog.Debug("quota: advice refreshed", "advised_providers", len(advice))
 }
 
+// ClearQuotaAdvice drops all quota advice immediately. Used whenever the
+// in-memory map cannot be trusted to reflect current reality: quota polling
+// has gone from enabled to disabled (the background loop stops calling
+// RefreshQuotaAdvice entirely, so the last computed map would otherwise be
+// retained for the process lifetime), or a poll pass could not even list
+// providers. Safe to call when no advisor was ever wired (no-op).
+func (h *Handler) ClearQuotaAdvice(_ context.Context) {
+	if h.quotaAdvisor == nil {
+		return
+	}
+	h.quotaAdvisor.Replace(nil)
+}
+
 // buildQuotaAdvice is the pure filtering step of RefreshQuotaAdvice, split out
 // so the staleness rule and the assessment filter are testable without a
 // database.
@@ -209,10 +232,15 @@ func buildQuotaAdvice(
 	now time.Time,
 ) map[uuid.UUID]time.Time {
 	advice := make(map[uuid.UUID]time.Time)
+	if maxAge <= 0 {
+		// Quota polling is disabled (or the resolved interval is otherwise
+		// non-positive): there is no cadence to bound snapshot age against, so
+		// advise nothing rather than risk pinning the breaker on data that
+		// could predate a plan change or a manual top-up.
+		return advice
+	}
 	for _, s := range snaps {
-		// Never advise the breaker on data that could predate a plan change or
-		// a manual refresh.
-		if maxAge > 0 && now.Sub(s.FetchedAt) > maxAge {
+		if now.Sub(s.FetchedAt) > maxAge {
 			continue
 		}
 		a := quota.Assess(typeByID[s.ProviderID], s)
