@@ -225,18 +225,22 @@ func TestAssess_MiniMax_EarliestAcrossModelsAndWindows(t *testing.T) {
 			{
 				"model_name":                   "abab7",
 				"end_time":                     later,
+				"current_interval_status":      1,
 				"current_interval_total_count": 100,
 				"current_interval_usage_count": 100,
 				"weekly_end_time":              later,
+				"current_weekly_status":        1,
 				"current_weekly_total_count":   1000,
 				"current_weekly_usage_count":   10,
 			},
 			{
 				"model_name":                   "abab6",
 				"end_time":                     soon,
+				"current_interval_status":      1,
 				"current_interval_total_count": 100,
 				"current_interval_usage_count": 100,
 				"weekly_end_time":              later,
+				"current_weekly_status":        1,
 				"current_weekly_total_count":   1000,
 				"current_weekly_usage_count":   20,
 			},
@@ -256,14 +260,16 @@ func TestAssess_MiniMax_EarliestAcrossModelsAndWindows(t *testing.T) {
 	}
 }
 
-func TestAssess_MiniMax_AllModelsHealthy(t *testing.T) {
+func TestAssess_MiniMax_HealthyModelNotExhausted(t *testing.T) {
 	payload, err := json.Marshal(map[string]any{
 		"model_remains": []map[string]any{{
 			"model_name":                   "abab6",
 			"end_time":                     time.Now().Add(time.Hour).UnixMilli(),
+			"current_interval_status":      1,
 			"current_interval_total_count": 100,
 			"current_interval_usage_count": 3,
 			"weekly_end_time":              time.Now().Add(50 * time.Hour).UnixMilli(),
+			"current_weekly_status":        1,
 			"current_weekly_total_count":   1000,
 			"current_weekly_usage_count":   40,
 		}},
@@ -283,11 +289,15 @@ func TestAssess_MiniMax_AllModelsHealthy(t *testing.T) {
 }
 
 func TestAssess_MiniMax_ZeroTotalIsNotExhausted(t *testing.T) {
-	// A zero total means "no limit reported", not "limit fully consumed".
+	// A zero total means "no limit reported", not "limit fully consumed" —
+	// and on this plan tier the percent fallback is absent from the payload
+	// too (never sent as an explicit 0), so the window must fail open rather
+	// than be misread as 0% remaining.
 	payload, err := json.Marshal(map[string]any{
 		"model_remains": []map[string]any{{
 			"model_name":                   "abab6",
 			"end_time":                     time.Now().Add(time.Hour).UnixMilli(),
+			"current_interval_status":      1,
 			"current_interval_total_count": 0,
 			"current_interval_usage_count": 0,
 		}},
@@ -298,7 +308,119 @@ func TestAssess_MiniMax_ZeroTotalIsNotExhausted(t *testing.T) {
 
 	got := Assess("minimax", Snapshot{Kind: "usage", Payload: payload})
 
+	if !got.OK {
+		t.Fatal("well-formed payload must assess OK")
+	}
 	if got.Exhausted {
-		t.Error("total_count=0 must not be read as exhausted")
+		t.Error("total_count=0 with no percent field present must not be read as exhausted")
+	}
+}
+
+func TestAssess_MiniMax_PercentFallback_ZeroRemainingIsExhausted(t *testing.T) {
+	// Some Token Plan tiers report all-zero counts even on an active window
+	// (plans/already-implemented/2026-07-19-minimax-provider-research.md:58-86);
+	// the remaining-percentage field is then the only real signal.
+	resetAt := time.Now().Add(2 * time.Hour).UnixMilli()
+	payload, err := json.Marshal(map[string]any{
+		"model_remains": []map[string]any{{
+			"model_name":                         "general",
+			"end_time":                           resetAt,
+			"current_interval_status":            1,
+			"current_interval_total_count":       0,
+			"current_interval_usage_count":       0,
+			"current_interval_remaining_percent": 0,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("minimax", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want both true", got.OK, got.Exhausted)
+	}
+	if got.ResetsAt.UnixMilli() != resetAt {
+		t.Errorf("got ResetsAt=%d, want %d", got.ResetsAt.UnixMilli(), resetAt)
+	}
+}
+
+func TestAssess_MiniMax_PercentFallback_FullRemainingNotExhausted(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"model_remains": []map[string]any{{
+			"model_name":                         "general",
+			"end_time":                           time.Now().Add(2 * time.Hour).UnixMilli(),
+			"current_interval_status":            1,
+			"current_interval_total_count":       0,
+			"current_interval_usage_count":       0,
+			"current_interval_remaining_percent": 100,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("minimax", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("100% remaining must not be read as exhausted")
+	}
+}
+
+func TestAssess_MiniMax_StatusNotActiveIsNotExhausted(t *testing.T) {
+	// status 3 means the model class is not covered by the plan; the research
+	// notes flag that such entries "read 100 misleadingly" on the percent
+	// field — filter them out entirely rather than trust either signal.
+	payload, err := json.Marshal(map[string]any{
+		"model_remains": []map[string]any{{
+			"model_name":                         "video",
+			"end_time":                           time.Now().Add(2 * time.Hour).UnixMilli(),
+			"current_interval_status":            3,
+			"current_interval_total_count":       0,
+			"current_interval_usage_count":       0,
+			"current_interval_remaining_percent": 0,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("minimax", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("status 3 (not covered by plan) must not be treated as exhausted")
+	}
+}
+
+func TestAssess_MiniMax_CountsWinOverContradictoryPercent(t *testing.T) {
+	// total > 0 means the count fields are meaningful; a contradictory
+	// percent must never override them.
+	payload, err := json.Marshal(map[string]any{
+		"model_remains": []map[string]any{{
+			"model_name":                         "abab6",
+			"end_time":                           time.Now().Add(2 * time.Hour).UnixMilli(),
+			"current_interval_status":            1,
+			"current_interval_total_count":       100,
+			"current_interval_usage_count":       50,
+			"current_interval_remaining_percent": 0,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("minimax", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("counts (50/100, not spent) must win over a contradictory 0% remaining")
 	}
 }

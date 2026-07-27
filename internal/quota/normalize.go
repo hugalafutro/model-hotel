@@ -137,8 +137,31 @@ func assessKimiCode(payload json.RawMessage) Assessment {
 	return e.result(time.Now())
 }
 
+// minimaxModelRemain is the subset of a MiniMax model_remains entry the quota
+// normalizer needs, decoded locally rather than via provider.MiniMaxModelRemain
+// so the remaining-percent fields can be *float64: that payload is passed
+// through to the dashboard as-is and must not change shape, but a bare
+// float64 cannot tell "field absent" apart from an explicit 0, and treating
+// an absent percent as 0% remaining would pin a healthy provider shut.
+type minimaxModelRemain struct {
+	EndTime                         int64    `json:"end_time"`
+	CurrentIntervalStatus           int      `json:"current_interval_status"`
+	CurrentIntervalTotalCount       int64    `json:"current_interval_total_count"`
+	CurrentIntervalUsageCount       int64    `json:"current_interval_usage_count"`
+	CurrentIntervalRemainingPercent *float64 `json:"current_interval_remaining_percent"`
+	WeeklyEndTime                   int64    `json:"weekly_end_time"`
+	CurrentWeeklyStatus             int      `json:"current_weekly_status"`
+	CurrentWeeklyTotalCount         int64    `json:"current_weekly_total_count"`
+	CurrentWeeklyUsageCount         int64    `json:"current_weekly_usage_count"`
+	CurrentWeeklyRemainingPercent   *float64 `json:"current_weekly_remaining_percent"`
+}
+
+type minimaxQuotaPayload struct {
+	ModelRemains []minimaxModelRemain `json:"model_remains"`
+}
+
 func assessMiniMax(payload json.RawMessage) Assessment {
-	var res provider.MiniMaxQuotaResponse
+	var res minimaxQuotaPayload
 	if err := json.Unmarshal(payload, &res); err != nil {
 		return Assessment{}
 	}
@@ -147,16 +170,42 @@ func assessMiniMax(payload json.RawMessage) Assessment {
 	// earliest reset among every spent window across every model: that is the
 	// soonest moment anything on this provider could work again.
 	for _, m := range res.ModelRemains {
-		addMiniMaxWindow(&e, m.CurrentIntervalTotalCount, m.CurrentIntervalUsageCount, m.EndTime)
-		addMiniMaxWindow(&e, m.CurrentWeeklyTotalCount, m.CurrentWeeklyUsageCount, m.WeeklyEndTime)
+		addMiniMaxWindow(&e, m.CurrentIntervalStatus, m.CurrentIntervalTotalCount, m.CurrentIntervalUsageCount, m.CurrentIntervalRemainingPercent, m.EndTime)
+		addMiniMaxWindow(&e, m.CurrentWeeklyStatus, m.CurrentWeeklyTotalCount, m.CurrentWeeklyUsageCount, m.CurrentWeeklyRemainingPercent, m.WeeklyEndTime)
 	}
 	return e.result(time.Now())
 }
 
-// addMiniMaxWindow records one window if it is spent. A zero total means the
-// provider reported no limit for that window, not a fully consumed one.
-func addMiniMaxWindow(e *earliestReset, total, used, endTime int64) {
-	if total <= 0 || used < total {
+// addMiniMaxWindow records one window if it is spent. Only a window the plan
+// actually covers is considered at all: status 1 means active, 3 means the
+// model class is not in the plan and its percent reads misleadingly as 100
+// (per plans/already-implemented/2026-07-19-minimax-provider-research.md).
+// A missing status decodes to 0 and is skipped the same way, so an
+// unrecognized shape fails open rather than guesses.
+//
+// Counts win when present: total > 0 means the count fields are meaningful,
+// and used >= total is exhausted, matching the other providers' rule. Some
+// Token Plan tiers report all-zero counts even on an active window, in which
+// case (total <= 0) the remaining-percentage field is the only real signal —
+// but only when it was actually present in the payload; a missing percent
+// decodes to nil, never to 0, so it can never be misread as "0% remaining".
+// The percent is REMAINING, not consumed, despite the neighbouring
+// *_usage_count field names, and a value outside [0, 100] is skipped as
+// nonsense rather than guessed at.
+func addMiniMaxWindow(e *earliestReset, status int, total, used int64, remainingPercent *float64, endTime int64) {
+	if status != 1 {
+		return
+	}
+	var exhausted bool
+	switch {
+	case total > 0:
+		exhausted = used >= total
+	case remainingPercent != nil && *remainingPercent >= 0 && *remainingPercent <= 100:
+		exhausted = *remainingPercent <= 0
+	default:
+		return
+	}
+	if !exhausted {
 		return
 	}
 	if t, ok := epochToTime(endTime); ok {
