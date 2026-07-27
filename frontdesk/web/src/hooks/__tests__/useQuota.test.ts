@@ -576,6 +576,36 @@ describe("useQuota refresh", () => {
 		expect(posted).toBe(1);
 	});
 
+	it("reports success when nothing supersedes the read-back", async () => {
+		// The control for the superseded-read-back fix below: reporting failure
+		// only when a read could not apply its own result must not degrade into
+		// reporting failure always. Nothing overtakes this read-back, so it
+		// applies, and the outcome stays "ok".
+		let getCalls = 0;
+		server.use(
+			http.get("/api/quota", () => {
+				getCalls++;
+				return HttpResponse.json({
+					quota: [{ ...snapshot, provider_name: `read-${getCalls}` }],
+				});
+			}),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({ results: [], refreshed: 1, failed: 0, skipped: 0 }),
+			),
+		);
+		const { result } = renderHook(() => useQuota(false));
+		await waitFor(() => expect(result.current.loading).toBe(false));
+		let outcome: string | undefined;
+		await act(async () => {
+			outcome = await result.current.refresh();
+		});
+		expect(outcome).toBe("ok");
+		// The read-back really did apply: the badge shows the second GET's body.
+		expect(result.current.snapshots[0]?.provider_name).toBe("read-2");
+		expect(result.current.error).toBe(false);
+		expect(result.current.stale).toBe(false);
+	});
+
 	it("refuses a second refresh inside the 10 second cooldown", async () => {
 		let posted = 0;
 		server.use(
@@ -601,5 +631,78 @@ describe("useQuota refresh", () => {
 		});
 		expect(second).toBe("cooldown");
 		expect(posted).toBe(1);
+	});
+});
+
+// A refresh's read-back can be overtaken by the 60 second poll. The sequence
+// guard then throws the read-back's response away, so a 200 on that GET says
+// nothing about what ends up on screen, and reporting it as success put a
+// "refreshed" toast over numbers the superseding poll had just flagged stale.
+// Fake timers drive the real interleaving rather than stubbing what `read`
+// returns, matching the pattern in the "useQuota polling" describe above.
+describe("useQuota refresh superseded by a poll", () => {
+	beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+	afterEach(() => vi.useRealTimers());
+
+	it("reports failure when the poll that supersedes the read-back fails", async () => {
+		let getCalls = 0;
+		let releaseReadBack: (() => void) | undefined;
+		const readBackGate = new Promise<void>((resolve) => {
+			releaseReadBack = resolve;
+		});
+		server.use(
+			http.get("/api/quota", async () => {
+				getCalls++;
+				if (getCalls === 2) {
+					// The refresh's read-back. It hangs until we release it, so the
+					// poll is guaranteed to start (and bump the sequence) first, and
+					// it comes back 200: the whole point is that a 200 is not enough.
+					await readBackGate;
+					return HttpResponse.json({
+						quota: [{ ...snapshot, provider_name: "read-back" }],
+					});
+				}
+				if (getCalls >= 3) {
+					// The superseding poll, which fails.
+					return HttpResponse.json({ error: "nope" }, { status: 502 });
+				}
+				return HttpResponse.json({ quota: [snapshot] });
+			}),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({ results: [], refreshed: 1, failed: 0, skipped: 0 }),
+			),
+		);
+		const { result } = renderHook(() => useQuota(false));
+		await waitFor(() => expect(result.current.loading).toBe(false));
+		expect(getCalls).toBe(1);
+
+		// Start the refresh but do not await it: its read-back is the GET we need
+		// to leave in flight.
+		let pending: Promise<string> | undefined;
+		act(() => {
+			pending = result.current.refresh();
+		});
+		await waitFor(() => expect(getCalls).toBe(2));
+
+		// The poll fires while that read-back is still open, so it takes over the
+		// sequence, and it fails.
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(60_000);
+		});
+		await waitFor(() => expect(getCalls).toBe(3));
+		await waitFor(() => expect(result.current.error).toBe(true));
+
+		// Now let the superseded read-back land.
+		releaseReadBack?.();
+		let outcome: string | undefined;
+		await act(async () => {
+			outcome = await pending;
+		});
+		expect(outcome).toBe("failed");
+		// Its response was discarded, so the pre-refresh snapshot is still what the
+		// operator sees, and it is flagged stale. A success toast over that would
+		// be a lie, which is exactly what the outcome above prevents.
+		expect(result.current.snapshots[0]?.provider_name).toBe("nano");
+		expect(result.current.stale).toBe(true);
 	});
 });

@@ -175,16 +175,25 @@ export function useQuota(collapsed: boolean): UseQuota {
 	const seqRef = useRef(0);
 	const lastRefreshRef = useRef(0);
 
-	// Resolves true when the GET itself came back 200, false otherwise. The
-	// boolean is about the request, not about which read won the seq race: a
-	// superseded read still demonstrably reached the primary, and `refresh` only
-	// asks whether it could read its own result back.
+	// Resolves true only when this read APPLIED its own result. A 200 is not
+	// enough: if a newer read overtook this one, the sequence guard below throws
+	// the response away, so nothing on screen came from it and it has demonstrated
+	// nothing about what the operator is looking at. `refresh` asks whether it
+	// could read its own result back, and a discarded read could not.
+	//
+	// The trade-off, deliberately accepted: when a concurrent poll supersedes the
+	// read-back AND that poll succeeds, the data on screen IS fresh, yet the
+	// refresh reports failure anyway. That false negative is the right direction
+	// to err. The operator re-checks and sees good numbers, which beats trusting a
+	// success toast sitting over stale ones. Telling the two cases apart would
+	// cost more state than the rare wrong toast is worth, so do NOT "fix" this
+	// back to returning true on any 200.
 	const read = useCallback((): Promise<boolean> => {
 		const seq = ++seqRef.current;
 		return api
 			.getQuota()
 			.then(({ quota }) => {
-				if (seq !== seqRef.current) return true;
+				if (seq !== seqRef.current) return false;
 				// A 200 is authoritative in both directions. An empty list means no
 				// primary is designated, which is a real steady state, so it clears the
 				// cache as well; anything less would leave stale badges on screen forever

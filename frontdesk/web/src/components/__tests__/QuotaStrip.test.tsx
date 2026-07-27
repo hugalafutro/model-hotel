@@ -764,4 +764,66 @@ describe("QuotaStrip polling", () => {
 		);
 		expect(screen.queryByRole("dialog")).toBeNull();
 	});
+
+	it("shows an error toast, not a success one, when the poll that supersedes the read-back fails", async () => {
+		// The POST succeeded and every provider answered, and the read-back's own
+		// GET came back 200 as well, but the 60 second poll overtook it, so that
+		// 200 was discarded and never reached the screen. The superseding poll
+		// then failed, leaving the pre-refresh numbers up and flagged stale. A
+		// success toast there would sit directly on top of data the strip is
+		// simultaneously marking as unconfirmed.
+		let getCalls = 0;
+		let releaseReadBack: (() => void) | undefined;
+		const readBackGate = new Promise<void>((resolve) => {
+			releaseReadBack = resolve;
+		});
+		server.use(
+			http.get("/api/quota", async () => {
+				getCalls++;
+				if (getCalls === 2) {
+					await readBackGate;
+					return HttpResponse.json({ quota: [nano] });
+				}
+				if (getCalls >= 3) {
+					return HttpResponse.json({ error: "x" }, { status: 502 });
+				}
+				return HttpResponse.json({ quota: [nano] });
+			}),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({
+					results: [],
+					refreshed: 2,
+					failed: 0,
+					skipped: 0,
+				}),
+			),
+		);
+		renderStrip();
+		await waitFor(() =>
+			expect(screen.getByTestId("quota-refresh")).toBeInTheDocument(),
+		);
+		await userEvent.click(screen.getByTestId("quota-refresh"));
+		await waitFor(() => expect(getCalls).toBe(2));
+
+		// The poll fires while the read-back is still open, and fails.
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(60_000);
+		});
+		await waitFor(() => expect(getCalls).toBe(3));
+		await waitFor(() =>
+			expect(screen.getByTestId("quota-stale")).toBeInTheDocument(),
+		);
+
+		// Release the superseded read-back: its 200 must not turn into a success.
+		await act(async () => {
+			releaseReadBack?.();
+			await readBackGate;
+		});
+		await waitFor(() =>
+			expect(document.querySelector(".fd-toast-error")).toBeInTheDocument(),
+		);
+		expect(document.querySelector(".fd-toast-success")).toBeNull();
+		expect(screen.getByTestId("quota-badge-nanogpt:nano")).toBeInTheDocument();
+		expect(screen.getByTestId("quota-stale")).toBeInTheDocument();
+	});
 });
