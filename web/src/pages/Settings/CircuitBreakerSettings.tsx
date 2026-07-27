@@ -13,6 +13,13 @@ import {
 } from "../../utils/duration";
 import { useSettingsMutations } from "./useSettingsMutations";
 
+// Bounds of the quota-pin ceiling slider, in hours. The floor keeps the
+// operator off the zero that does not mean what it looks like; the ceiling is
+// one week, the longest reset window internal/quota/normalize.go recognises.
+// Shared by the clamp and the slider props so the two cannot drift apart.
+const QUOTA_PIN_MAX_MIN_HOURS = 1;
+const QUOTA_PIN_MAX_MAX_HOURS = 168;
+
 interface CircuitBreakerSettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
@@ -39,10 +46,27 @@ export function CircuitBreakerSettings({
 	// the same fallback for a stored non-positive duration, which the breaker
 	// also reads as unset, so the slider shows the ceiling actually in force
 	// rather than a number nothing obeys.
+	//
+	// The clamp must come after that fallback, never merged into it: clamping
+	// first would turn a stored 0 into the floor of 1, which is truthy, and the
+	// `|| 24` would then never fire.
+	//
+	// PUT /api/settings accepts any duration, so a stored value can also sit
+	// below the floor or above the ceiling. Both are clamped for display, since
+	// the browser sanitizes the range track against min/max but leaves the
+	// number box alone, and one control showing two different numbers is worse
+	// than either number. Display only: SettingsSlider seeds its local state
+	// from this prop and fires onChange on interaction, never on mount, so
+	// nothing is written back until the operator actually moves the control.
 	const quotaPinEnabled =
 		settings?.circuit_breaker_quota_pin_enabled !== "false";
-	const quotaPinMaxHours =
-		goDurationToHours(settings?.circuit_breaker_quota_pin_max || "24h") || 24;
+	const quotaPinMaxHours = Math.min(
+		QUOTA_PIN_MAX_MAX_HOURS,
+		Math.max(
+			QUOTA_PIN_MAX_MIN_HOURS,
+			goDurationToHours(settings?.circuit_breaker_quota_pin_max || "24h") || 24,
+		),
+	);
 	const failoverOnRateLimit = settings?.failover_on_rate_limit === "true";
 	const hedgingEnabled = settings?.hedging_enabled === "true";
 	const hedgeDelay = settings?.hedge_delay || "4s";
@@ -214,8 +238,8 @@ export function CircuitBreakerSettings({
 							disabled={!circuitBreakerEnabled || !quotaPinEnabled}
 							label={t("settings.circuitBreaker.quotaPinMax")}
 							value={quotaPinMaxHours}
-							min={1}
-							max={168}
+							min={QUOTA_PIN_MAX_MIN_HOURS}
+							max={QUOTA_PIN_MAX_MAX_HOURS}
 							step={1}
 							unit="h"
 							onChange={(v) =>

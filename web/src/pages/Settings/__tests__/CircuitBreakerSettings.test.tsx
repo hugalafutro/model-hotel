@@ -656,6 +656,13 @@ describe("CircuitBreakerSettings", () => {
 			document.getElementById(
 				"circuit-breaker-quota-pin-max",
 			) as HTMLInputElement;
+		// The number box beside the range track. The browser sanitizes a range
+		// input's value against min/max but leaves a number input alone, so the
+		// two halves only agree if the component itself clamped the stored value.
+		const quotaPinMaxNumberBox = () =>
+			quotaPinMaxSlider().parentElement?.querySelector(
+				"input[type='number']",
+			) as HTMLInputElement;
 
 		it("renders the quota pin toggle on when circuit_breaker_quota_pin_enabled is absent, matching the backend default of true", async () => {
 			server.use(
@@ -752,6 +759,55 @@ describe("CircuitBreakerSettings", () => {
 			await waitFor(() => {
 				expect(quotaPinMaxSlider().value).toBe("24");
 			});
+		});
+
+		it("clamps a stored circuit_breaker_quota_pin_max below the slider minimum so both halves of the control agree", async () => {
+			let putCalled = false;
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_quota_pin_max: "30m",
+					},
+				}),
+				http.put("/api/settings", () => {
+					putCalled = true;
+					return HttpResponse.json({ ok: true });
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinMaxSlider().value).toBe("1");
+			});
+			expect(quotaPinMaxNumberBox().value).toBe("1");
+			// Clamping is display only: rendering must never write storage back.
+			expect(putCalled).toBe(false);
+		});
+
+		it("clamps a stored circuit_breaker_quota_pin_max above the slider maximum so both halves of the control agree", async () => {
+			let putCalled = false;
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_quota_pin_max: "336h0m0s",
+					},
+				}),
+				http.put("/api/settings", () => {
+					putCalled = true;
+					return HttpResponse.json({ ok: true });
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinMaxSlider().value).toBe("168");
+			});
+			expect(quotaPinMaxNumberBox().value).toBe("168");
+			expect(putCalled).toBe(false);
 		});
 
 		it("converts a stored circuit_breaker_quota_pin_max Go duration into slider hours", async () => {
