@@ -5,7 +5,7 @@ import (
 )
 
 // TestBreakerRecordAction is the authoritative table test for the proxy's
-// status→circuit-breaker mapping. 15 cases: 7 failure, 2 no-op, 6 success.
+// status→circuit-breaker mapping. 16 cases: 8 failure, 2 no-op, 6 success.
 func TestBreakerRecordAction(t *testing.T) {
 	t.Parallel()
 
@@ -22,6 +22,7 @@ func TestBreakerRecordAction(t *testing.T) {
 		{name: "429_rate_limited", statusCode: 429, want: breakerActionFailure},
 		{name: "401_unauthorized", statusCode: 401, want: breakerActionFailure},
 		{name: "403_forbidden", statusCode: 403, want: breakerActionFailure},
+		{name: "402_payment_required", statusCode: 402, want: breakerActionFailure},
 
 		// No-op actions — model-specific client error; provider is alive.
 		{name: "404_not_found", statusCode: 404, want: breakerActionNoOp},

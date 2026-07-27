@@ -47,6 +47,17 @@ func TestShouldFailover_PureUnit_AuthErrors(t *testing.T) {
 	}
 }
 
+func TestShouldFailover_PureUnit_PaymentRequired(t *testing.T) {
+	h := &Handler{
+		cfg:          &config.Config{MasterKey: "test"},
+		settingsRepo: nil, // safe: 402 path returns before touching settingsRepo
+	}
+
+	if !h.shouldFailover(context.Background(), 402) {
+		t.Error("402 must be failover-eligible: another provider can serve this")
+	}
+}
+
 func TestShouldFailover_PureUnit_ClientClosedRequest(t *testing.T) {
 	h := &Handler{
 		cfg:          &config.Config{MasterKey: "test"},

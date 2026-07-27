@@ -296,10 +296,11 @@ const (
 // treatment is therefore consistent with the configured policy, not contradictory.
 func breakerRecordAction(statusCode int) breakerAction {
 	switch {
-	case statusCode >= 500 || statusCode == 429 || statusCode == 401 || statusCode == 403:
+	case statusCode >= 500 || statusCode == 429 || statusCode == 401 || statusCode == 403 || statusCode == 402:
 		// 5xx = server error (provider unhealthy)
 		// 429 = rate limit (provider overloaded; see policy note above)
 		// 401/403 = auth failure (provider-wide bad/expired key)
+		// 402 = out of credit (provider-wide billing condition, same class)
 		return breakerActionFailure
 	case statusCode == 404 || statusCode == 499:
 		// 404 = stale/renamed model (model-specific, not provider health)
