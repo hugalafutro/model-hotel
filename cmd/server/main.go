@@ -192,6 +192,14 @@ func main() {
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, tpmLimiter, ipLimiter, sd)
 	apiHandler.SetCircuitBreaker(proxyHandler.CircuitBreaker())
 
+	// Quota advisor: feeds per-provider quota reset deadlines to the circuit
+	// breaker so an open circuit's cooldown can be pinned to the real reset
+	// time instead of the default cooldown. Wired before the poll loop below
+	// starts so the first poll populates a live advisor.
+	quotaAdvisor := api.NewQuotaAdvisor()
+	apiHandler.SetQuotaAdvisor(quotaAdvisor)
+	proxyHandler.CircuitBreaker().SetQuotaAdvisor(quotaAdvisor)
+
 	// Outbound alerting: a single consumer of the events bus that forwards
 	// operator-selected events to a stateless apprise-api container. Best-effort
 	// — a missing/failing apprise-api never affects request serving. Runs for the

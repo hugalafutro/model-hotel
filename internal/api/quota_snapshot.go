@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
@@ -160,4 +162,63 @@ func (h *Handler) PollQuotasOnce(ctx context.Context) {
 		}
 		cancel()
 	}
+
+	h.RefreshQuotaAdvice(ctx)
+}
+
+// RefreshQuotaAdvice rebuilds the in-memory quota advice from stored snapshots.
+// It reads the table rather than the poll's own fetches so fleet-distributed
+// snapshots (which PollQuotasOnce skips) are included.
+//
+// A snapshot older than three refresh intervals is ignored: never advise the
+// breaker on data that could predate a plan change or a manual refresh.
+func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
+	if h.quotaAdvisor == nil {
+		return
+	}
+	snaps, err := h.quotaRepo.List(ctx)
+	if err != nil {
+		debuglog.Warn("quota: advice refresh failed to list snapshots", "error", err)
+		return
+	}
+	interval := time.Duration(h.settingsRepo.GetInt(ctx, "quota_refresh_interval_min", 5)) * time.Minute
+	maxAge := 3 * interval
+
+	providers, err := h.providerRepo.List(ctx)
+	if err != nil {
+		debuglog.Warn("quota: advice refresh failed to list providers", "error", err)
+		return
+	}
+	typeByID := make(map[uuid.UUID]string, len(providers))
+	for _, p := range providers {
+		typeByID[p.ID] = provider.DetectProviderType(p.BaseURL)
+	}
+
+	advice := buildQuotaAdvice(snaps, typeByID, maxAge, time.Now())
+	h.quotaAdvisor.Replace(advice)
+	debuglog.Debug("quota: advice refreshed", "advised_providers", len(advice))
+}
+
+// buildQuotaAdvice is the pure filtering step of RefreshQuotaAdvice, split out
+// so the staleness rule and the assessment filter are testable without a
+// database.
+func buildQuotaAdvice(
+	snaps []quota.Snapshot,
+	typeByID map[uuid.UUID]string,
+	maxAge time.Duration,
+	now time.Time,
+) map[uuid.UUID]time.Time {
+	advice := make(map[uuid.UUID]time.Time)
+	for _, s := range snaps {
+		// Never advise the breaker on data that could predate a plan change or
+		// a manual refresh.
+		if maxAge > 0 && now.Sub(s.FetchedAt) > maxAge {
+			continue
+		}
+		a := quota.Assess(typeByID[s.ProviderID], s)
+		if a.OK && a.Exhausted {
+			advice[s.ProviderID] = a.ResetsAt
+		}
+	}
+	return advice
 }

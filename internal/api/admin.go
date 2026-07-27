@@ -137,6 +137,7 @@ type Handler struct {
 	totpStatus             TotpStatus        // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
 	totpEnabled            atomic.Bool       // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
 	quotaRepo              *quota.Repository // read-through store for polled provider quota snapshots
+	quotaAdvisor           *QuotaAdvisor     // nil until SetQuotaAdvisor; populated by RefreshQuotaAdvice
 	pwnedChecker           PwnedChecker      // nil until SetPwnedChecker (breached-password check on create/reset/change)
 }
 
@@ -248,6 +249,13 @@ func (h *Handler) SetDockerStatsCollector(fn dockerStatsCollector) {
 // SetCircuitBreaker sets the circuit breaker reader for exposing circuit breaker status via the API.
 func (h *Handler) SetCircuitBreaker(cb CircuitBreakerReader) {
 	h.circuitBreaker = cb
+}
+
+// SetQuotaAdvisor wires the in-memory quota advisor that RefreshQuotaAdvice
+// populates from stored snapshots on every poll. Call during startup wiring;
+// leaving it unset makes RefreshQuotaAdvice a no-op.
+func (h *Handler) SetQuotaAdvisor(a *QuotaAdvisor) {
+	h.quotaAdvisor = a
 }
 
 // StartBackupScheduler starts the periodic backup scheduler if backup_enabled is true.
