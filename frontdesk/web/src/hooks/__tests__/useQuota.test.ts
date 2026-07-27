@@ -3,7 +3,7 @@ import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuotaSnapshot } from "../../api/types";
 import { server } from "../../test/server";
-import { QUOTA_CACHE_KEY, useQuota } from "../useQuota";
+import { clearQuotaCache, QUOTA_CACHE_KEY, useQuota } from "../useQuota";
 
 const snapshot: QuotaSnapshot = {
 	provider_name: "nano",
@@ -179,6 +179,38 @@ describe("useQuota", () => {
 			await firstGate;
 		});
 		expect(result.current.snapshots[0]?.provider_name).toBe("fresh");
+	});
+});
+
+describe("clearQuotaCache", () => {
+	it("removes the persisted snapshots", () => {
+		localStorage.setItem(
+			QUOTA_CACHE_KEY,
+			JSON.stringify({
+				snapshots: [snapshot],
+				lastUpdatedAt: "2026-07-26T09:00:00Z",
+			}),
+		);
+		clearQuotaCache();
+		expect(localStorage.getItem(QUOTA_CACHE_KEY)).toBeNull();
+	});
+
+	it("leaves a fresh mount with nothing to seed from", () => {
+		localStorage.setItem(
+			QUOTA_CACHE_KEY,
+			JSON.stringify({
+				snapshots: [snapshot],
+				lastUpdatedAt: "2026-07-26T09:00:00Z",
+			}),
+		);
+		clearQuotaCache();
+		// The failing read is the case that made the leak stick: the hook keeps
+		// last-good data on a non-2xx, so if anything survived the clear it would
+		// stay on screen for the whole next session.
+		server.use(failQuota());
+		const { result } = renderHook(() => useQuota(false));
+		expect(result.current.snapshots).toEqual([]);
+		expect(result.current.lastUpdatedAt).toBeNull();
 	});
 });
 

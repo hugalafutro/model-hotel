@@ -51,6 +51,28 @@ function writeCache(v: CachedQuota) {
 	}
 }
 
+/**
+ * Drops the persisted snapshots. Call this wherever a session ends.
+ *
+ * The cache is not scoped to an operator, so on a shared browser it would
+ * otherwise seed the next operator's first paint with the previous one's quota
+ * data, and a failed first read leaves that stale data on screen indefinitely
+ * (a non-2xx deliberately keeps the last-good snapshots, see `read`).
+ *
+ * There is no in-memory counterpart to reset: `cached` is per-hook state and
+ * the strip lives inside the authenticated subtree, so a session end unmounts
+ * it and the next mount re-seeds from this (now cleared) cache. The unmount
+ * also bumps the request sequence, so a read still in flight cannot write the
+ * cache back after this ran.
+ */
+export function clearQuotaCache() {
+	try {
+		localStorage.removeItem(QUOTA_CACHE_KEY);
+	} catch {
+		/* private mode: nothing was ever persisted to remove */
+	}
+}
+
 export type QuotaRefreshOutcome = "ok" | "cooldown" | "failed";
 
 export interface UseQuota {

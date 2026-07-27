@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import App from "../App";
+import { QUOTA_CACHE_KEY } from "../hooks/useQuota";
 import { server } from "../test/server";
 import { sseHandler } from "../test/sse";
 
@@ -154,6 +155,65 @@ describe("App auth gating", () => {
 			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
 		);
 		expect(localStorage.getItem("fdAuthToken")).toBeNull();
+	});
+
+	it("drops the cached quota snapshots on an explicit logout", async () => {
+		// Front Desk is a shared control plane and the quota cache is not scoped
+		// to an operator, so anything left behind here is the previous operator's
+		// data seeding the next one's first paint. QuotaStrip is mocked out in
+		// this file, so the only thing that can clear the key is App.tsx's own
+		// logout wiring.
+		localStorage.setItem(
+			QUOTA_CACHE_KEY,
+			JSON.stringify({ snapshots: [{ provider_name: "nano" }] }),
+		);
+		server.use(...authHandlers("good"));
+		render(<App />);
+		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
+		await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+		await waitFor(() =>
+			expect(screen.getByRole("tab", { name: /members/i })).toBeInTheDocument(),
+		);
+		expect(localStorage.getItem(QUOTA_CACHE_KEY)).not.toBeNull();
+
+		await userEvent.click(screen.getByRole("button", { name: /log out/i }));
+		await waitFor(() =>
+			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
+		);
+		expect(localStorage.getItem(QUOTA_CACHE_KEY)).toBeNull();
+	});
+
+	it("drops the cached quota snapshots when a 401 ends the session", async () => {
+		// A session that expires ends just as completely as one ended by hand, and
+		// it is the far more common way out, so the 401 path has to clear the cache
+		// too. Same handler shape as the 401 gating test above.
+		localStorage.setItem(
+			QUOTA_CACHE_KEY,
+			JSON.stringify({ snapshots: [{ provider_name: "nano" }] }),
+		);
+		let calls = 0;
+		server.use(
+			sseHandler(),
+			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
+			http.get("/api/webauthn/available", () =>
+				HttpResponse.json({ enabled: false }),
+			),
+			http.get("/api/members", () => {
+				calls += 1;
+				return calls === 1
+					? HttpResponse.json([])
+					: new HttpResponse("expired", { status: 401 });
+			}),
+			http.get("/api/quota", () => HttpResponse.json({ quota: [] })),
+		);
+		render(<App />);
+		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
+		await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+		// The shell mounts, its members fetch 401s, and we bounce back to login.
+		await waitFor(() =>
+			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
+		);
+		expect(localStorage.getItem(QUOTA_CACHE_KEY)).toBeNull();
 	});
 
 	it("contains a QuotaStrip render failure to the strip and keeps the rest of the shell up", async () => {

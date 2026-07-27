@@ -21,6 +21,7 @@ import { QuotaStrip } from "./components/QuotaStrip";
 import { VersionFooter } from "./components/VersionFooter";
 import { ToastProvider } from "./context/ToastContext";
 import { useIdleLogout } from "./hooks/useIdleLogout";
+import { clearQuotaCache } from "./hooks/useQuota";
 import { EventsPage } from "./pages/EventsPage";
 import { MembersPage } from "./pages/MembersPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -64,14 +65,27 @@ function Shell() {
 		setAuthed(true);
 	}, []);
 
-	// Any authenticated request that 401s drops us back to login.
-	useEffect(() => onUnauthorized(() => setAuthed(false)), []);
+	// Any authenticated request that 401s drops us back to login. An expiring
+	// session ends just as completely as a hand-pressed logout, so it has to drop
+	// the cached quota snapshots too; leaving this path out would keep the
+	// cross-operator leak reachable on every timeout.
+	useEffect(
+		() =>
+			onUnauthorized(() => {
+				clearQuotaCache();
+				setAuthed(false);
+			}),
+		[],
+	);
 
 	const logout = useCallback(() => {
 		// Best-effort server-side revoke so an idle/manual logout drops the session
 		// everywhere, not just this tab; failure is non-fatal (we clear locally).
 		void api.logout().catch(() => {});
 		clearAuthToken();
+		// Front Desk is a shared control plane: the quota cache is not scoped to an
+		// operator, so it must not outlive the session that filled it.
+		clearQuotaCache();
 		setSsoError(null);
 		setAuthed(false);
 	}, []);
