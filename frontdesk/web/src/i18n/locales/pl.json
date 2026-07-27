@@ -499,7 +499,8 @@
 			"deepseekBalance": "{{provider}}: saldo konta",
 			"openrouterBalance": "{{provider}}: pozostałe środki",
 			"ollamaCloudPlan": "{{provider}}: plan subskrypcji",
-			"neuralwattEnergy": "{{provider}}: energia zużyta w tym okresie"
+			"neuralwattEnergy": "{{provider}}: energia zużyta w tym okresie",
+			"unreadable": "{{provider}}: ostatnie pobranie przez głównego członka zwróciło nieczytelną odpowiedź"
 		},
 		"modal": {
 			"toggleBarMode": "Przełącz między wykorzystanym a pozostałym",

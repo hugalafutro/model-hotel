@@ -499,7 +499,8 @@
 			"deepseekBalance": "{{provider}}: баланс счёта",
 			"openrouterBalance": "{{provider}}: остаток кредитов",
 			"ollamaCloudPlan": "{{provider}}: тарифный план подписки",
-			"neuralwattEnergy": "{{provider}}: энергия, израсходованная за этот период"
+			"neuralwattEnergy": "{{provider}}: энергия, израсходованная за этот период",
+			"unreadable": "{{provider}}: последний запрос основного узла вернул нечитаемый ответ"
 		},
 		"modal": {
 			"toggleBarMode": "Переключить между использованным и оставшимся",

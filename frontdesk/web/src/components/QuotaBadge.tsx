@@ -52,12 +52,20 @@ function contentFor(
 	const payload = payloadOf<object>(model.snapshot);
 
 	if (payload === null) {
+		// payloadOf() returns null for two unrelated reasons and they need
+		// different words. A non-200 is a fetch that failed. A 200 carrying a
+		// body we cannot use is a fetch that SUCCEEDED and returned something
+		// unreadable, so reporting it as "last fetch failed (HTTP 200)" states
+		// the opposite of the status it then quotes.
+		const fetched = model.snapshot.http_status === 200;
 		return {
 			label: "-",
-			title: t("quota.badge.degraded", {
-				provider,
-				status: model.snapshot.http_status,
-			}),
+			title: fetched
+				? t("quota.badge.unreadable", { provider })
+				: t("quota.badge.degraded", {
+						provider,
+						status: model.snapshot.http_status,
+					}),
 		};
 	}
 

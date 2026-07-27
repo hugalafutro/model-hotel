@@ -357,6 +357,48 @@ describe("QuotaBadge", () => {
 		expect(badge.className).toContain("fd-quota-pill-degraded");
 	});
 
+	it("names the HTTP status in the tooltip when the fetch actually failed", () => {
+		const m = model({ degraded: true });
+		m.snapshot.http_status = 502;
+		render(<QuotaBadge model={m} barMode="remaining" onClick={vi.fn()} />);
+		const title = screen
+			.getByTestId("quota-badge-nanogpt:p")
+			.getAttribute("title");
+		expect(title).toContain("502");
+		expect(title).toContain("failed");
+	});
+
+	it("does not claim the fetch failed when it returned 200 with an unusable body", () => {
+		// payloadOf() rejects a 200 whose body is not a usable object, so the badge
+		// is degraded even though the fetch succeeded. Reusing the failure message
+		// here produced "last fetch failed (HTTP 200)", which contradicts itself.
+		// Asserting only on the testid/class would pass either way, so this pins
+		// the wording: no "200", no "failed".
+		const m = model({ degraded: true }, null);
+		m.snapshot.http_status = 200;
+		render(<QuotaBadge model={m} barMode="remaining" onClick={vi.fn()} />);
+		const badge = screen.getByTestId("quota-badge-nanogpt:p");
+		const title = badge.getAttribute("title");
+		expect(badge).toHaveTextContent("-");
+		expect(badge.className).toContain("fd-quota-pill-degraded");
+		expect(title).not.toContain("200");
+		expect(title).not.toContain("failed");
+		expect(title).toContain("unreadable");
+	});
+
+	it("treats a 200 carrying a JSON array as unreadable, not as a failed fetch", () => {
+		// typeof [] === "object", so the array guard in payloadOf() is what keeps
+		// this off the healthy path.
+		const m = model({ degraded: true }, []);
+		m.snapshot.http_status = 200;
+		render(<QuotaBadge model={m} barMode="remaining" onClick={vi.fn()} />);
+		const title = screen
+			.getByTestId("quota-badge-nanogpt:p")
+			.getAttribute("title");
+		expect(title).toContain("unreadable");
+		expect(title).not.toContain("200");
+	});
+
 	it("omits the inline brand colour on a degraded badge so the CSS rule can grey it", () => {
 		// An inline custom property outranks any author rule, so emitting one here
 		// would make `.fd-quota-pill-degraded { --quota-brand: ... }` dead and a
