@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { NanoGPTUsage } from "../../api/types";
-import { formatTokens } from "../../utils/format";
+import { formatCount, formatTokens } from "../../utils/format";
 import type { QuotaBarMode } from "../../utils/quota";
 import { formatAbsolute } from "../../utils/time";
 import {
@@ -79,7 +79,11 @@ export function NanoGPTQuotaModal({
 			{images && (
 				<QuotaBar
 					label={t("quota.modal.dailyImages")}
-					rightText={`${images.used} / ${payload.limits?.dailyImages ?? t("quota.modal.unlimited")}`}
+					rightText={`${formatCount(images.used)} / ${
+						payload.limits?.dailyImages != null
+							? formatCount(payload.limits.dailyImages)
+							: t("quota.modal.unlimited")
+					}`}
 					percentage={images.percentUsed * 100}
 					barMode={barMode}
 					testId="nano-images-bar"

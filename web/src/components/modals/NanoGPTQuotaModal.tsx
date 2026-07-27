@@ -8,6 +8,7 @@ import {
 	formatTimestamp,
 	formatTimeUntil,
 	formatTokens,
+	formatWithCommas,
 } from "../../utils/format";
 import { DetailSectionHeader } from "../DetailSectionHeader";
 import { DetailItem } from "../LogDetailItem";
@@ -127,7 +128,10 @@ export function NanoGPTQuotaModal({
 								{t("components.providerModals.dailyImages")}
 							</span>
 							<span className="text-sm text-(--text-tertiary)">
-								{usage.dailyImages.used} / {usage.limits.dailyImages ?? "∞"}
+								{formatWithCommas(usage.dailyImages.used)} /{" "}
+								{usage.limits.dailyImages != null
+									? formatWithCommas(usage.limits.dailyImages)
+									: "∞"}
 							</span>
 						</div>
 						<div className="w-full bg-(--surface-input) ui-bar h-3">
