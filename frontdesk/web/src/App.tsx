@@ -67,8 +67,9 @@ function Shell() {
 
 	// Any authenticated request that 401s drops us back to login. An expiring
 	// session ends just as completely as a hand-pressed logout, so it has to drop
-	// the cached quota snapshots too; leaving this path out would keep the
-	// cross-operator leak reachable on every timeout.
+	// the cached quota snapshots too. The cache is namespaced per token, so this
+	// is no longer the only thing standing between operators; it is what stops
+	// dead sessions' entries piling up in localStorage forever.
 	useEffect(
 		() =>
 			onUnauthorized(() => {
@@ -83,8 +84,10 @@ function Shell() {
 		// everywhere, not just this tab; failure is non-fatal (we clear locally).
 		void api.logout().catch(() => {});
 		clearAuthToken();
-		// Front Desk is a shared control plane: the quota cache is not scoped to an
-		// operator, so it must not outlive the session that filled it.
+		// Front Desk is a shared control plane: cached snapshots must not outlive
+		// the session that filled them. clearQuotaCache sweeps every namespaced
+		// entry, so it does not matter that the token it was keyed under has just
+		// been cleared on the line above.
 		clearQuotaCache();
 		setSsoError(null);
 		setAuthed(false);

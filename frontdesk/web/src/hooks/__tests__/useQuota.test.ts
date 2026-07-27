@@ -1,9 +1,15 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearAuthToken, setAuthToken } from "../../api/client";
 import type { QuotaSnapshot } from "../../api/types";
 import { server } from "../../test/server";
-import { clearQuotaCache, QUOTA_CACHE_KEY, useQuota } from "../useQuota";
+import {
+	clearQuotaCache,
+	QUOTA_CACHE_PREFIX,
+	quotaCacheKey,
+	useQuota,
+} from "../useQuota";
 
 const snapshot: QuotaSnapshot = {
 	provider_name: "nano",
@@ -24,6 +30,38 @@ function failQuota(status = 502) {
 	);
 }
 
+/** The key the hook would use right now. Non-null only while a token is stored. */
+function currentKey(): string {
+	const key = quotaCacheKey();
+	if (!key) throw new Error("no auth token stored, so there is no cache key");
+	return key;
+}
+
+/**
+ * Writes a cache entry as `token`'s session would have, then restores whichever
+ * token was in place. Lets a test plant one operator's snapshots and then look
+ * at the world as a different operator.
+ */
+function seedCacheFor(
+	token: string,
+	snapshots: QuotaSnapshot[] = [snapshot],
+	lastUpdatedAt: string | null = "2026-07-26T09:00:00Z",
+) {
+	const previous = localStorage.getItem("fdAuthToken");
+	setAuthToken(token);
+	localStorage.setItem(
+		currentKey(),
+		JSON.stringify({ snapshots, lastUpdatedAt }),
+	);
+	if (previous === null) clearAuthToken();
+	else setAuthToken(previous);
+}
+
+// The strip only ever mounts inside the authenticated shell, so every test here
+// runs with a session token unless it is specifically about not having one.
+// setup.ts clears localStorage after each test, so this does not leak.
+beforeEach(() => setAuthToken("operator-a"));
+
 describe("useQuota", () => {
 	it("loads snapshots and records a last-updated stamp", async () => {
 		server.use(okQuota());
@@ -39,18 +77,12 @@ describe("useQuota", () => {
 		server.use(okQuota());
 		const { result } = renderHook(() => useQuota(false));
 		await waitFor(() => expect(result.current.loading).toBe(false));
-		const cached = JSON.parse(localStorage.getItem(QUOTA_CACHE_KEY) as string);
+		const cached = JSON.parse(localStorage.getItem(currentKey()) as string);
 		expect(cached.snapshots).toHaveLength(1);
 	});
 
 	it("seeds from the cache before the first response lands", () => {
-		localStorage.setItem(
-			QUOTA_CACHE_KEY,
-			JSON.stringify({
-				snapshots: [snapshot],
-				lastUpdatedAt: "2026-07-26T09:00:00Z",
-			}),
-		);
+		seedCacheFor("operator-a");
 		server.use(okQuota());
 		const { result } = renderHook(() => useQuota(false));
 		expect(result.current.snapshots).toHaveLength(1);
@@ -58,7 +90,7 @@ describe("useQuota", () => {
 	});
 
 	it("ignores a malformed cache entry", () => {
-		localStorage.setItem(QUOTA_CACHE_KEY, "{not json");
+		localStorage.setItem(currentKey(), "{not json");
 		server.use(okQuota());
 		const { result } = renderHook(() => useQuota(false));
 		expect(result.current.snapshots).toEqual([]);
@@ -78,31 +110,19 @@ describe("useQuota", () => {
 	});
 
 	it("clears snapshots and cache on an authoritative empty 200", async () => {
-		localStorage.setItem(
-			QUOTA_CACHE_KEY,
-			JSON.stringify({
-				snapshots: [snapshot],
-				lastUpdatedAt: "2026-07-26T09:00:00Z",
-			}),
-		);
+		seedCacheFor("operator-a");
 		server.use(okQuota([]));
 		const { result } = renderHook(() => useQuota(false));
 		await waitFor(() => expect(result.current.snapshots).toEqual([]));
 		// An empty 200 is still a successful read, so it must stamp a fresh
 		// lastUpdatedAt rather than leaving the seeded, now-stale timestamp.
 		expect(result.current.lastUpdatedAt).not.toBe("2026-07-26T09:00:00Z");
-		const cached = JSON.parse(localStorage.getItem(QUOTA_CACHE_KEY) as string);
+		const cached = JSON.parse(localStorage.getItem(currentKey()) as string);
 		expect(cached.snapshots).toEqual([]);
 	});
 
 	it("preserves cached snapshots on a 502 and marks them stale", async () => {
-		localStorage.setItem(
-			QUOTA_CACHE_KEY,
-			JSON.stringify({
-				snapshots: [snapshot],
-				lastUpdatedAt: "2026-07-26T09:00:00Z",
-			}),
-		);
+		seedCacheFor("operator-a");
 		server.use(failQuota());
 		const { result } = renderHook(() => useQuota(false));
 		await waitFor(() => expect(result.current.error).toBe(true));
@@ -110,7 +130,7 @@ describe("useQuota", () => {
 		expect(result.current.stale).toBe(true);
 		// The persisted cache must survive the failure too, not just in-memory
 		// state: a non-2xx must never wipe what a reload would seed from.
-		const cached = JSON.parse(localStorage.getItem(QUOTA_CACHE_KEY) as string);
+		const cached = JSON.parse(localStorage.getItem(currentKey()) as string);
 		expect(cached.snapshots).toHaveLength(1);
 	});
 
@@ -184,25 +204,53 @@ describe("useQuota", () => {
 
 describe("clearQuotaCache", () => {
 	it("removes the persisted snapshots", () => {
-		localStorage.setItem(
-			QUOTA_CACHE_KEY,
-			JSON.stringify({
-				snapshots: [snapshot],
-				lastUpdatedAt: "2026-07-26T09:00:00Z",
-			}),
-		);
+		seedCacheFor("operator-a");
+		const key = currentKey();
 		clearQuotaCache();
-		expect(localStorage.getItem(QUOTA_CACHE_KEY)).toBeNull();
+		expect(localStorage.getItem(key)).toBeNull();
+	});
+
+	it("removes every namespaced entry, not only the signed-in session's", () => {
+		// Keys accumulate one per token this browser has signed in with. A clear
+		// that only removed the current one would narrow what this used to do and
+		// leave the older operators' snapshots sitting in localStorage.
+		seedCacheFor("operator-a");
+		seedCacheFor("operator-b");
+		seedCacheFor("operator-c");
+		const keys = Object.keys(localStorage).filter((k) =>
+			k.startsWith(QUOTA_CACHE_PREFIX),
+		);
+		expect(keys).toHaveLength(3);
+
+		clearQuotaCache();
+
+		expect(
+			Object.keys(localStorage).filter((k) => k.startsWith(QUOTA_CACHE_PREFIX)),
+		).toEqual([]);
+	});
+
+	it("still clears after the auth token has already been dropped", () => {
+		// App's logout clears the token before calling this, so a clear that
+		// resolved the key from the current token would find null and no-op.
+		seedCacheFor("operator-a");
+		const key = currentKey();
+		clearAuthToken();
+		clearQuotaCache();
+		expect(localStorage.getItem(key)).toBeNull();
+	});
+
+	it("leaves other localStorage keys alone", () => {
+		seedCacheFor("operator-a");
+		localStorage.setItem("fdQuotaCollapsed", "true");
+		localStorage.setItem("fdQuotaBarMode", "used");
+		clearQuotaCache();
+		expect(localStorage.getItem("fdQuotaCollapsed")).toBe("true");
+		expect(localStorage.getItem("fdQuotaBarMode")).toBe("used");
+		expect(localStorage.getItem("fdAuthToken")).toBe("operator-a");
 	});
 
 	it("leaves a fresh mount with nothing to seed from", () => {
-		localStorage.setItem(
-			QUOTA_CACHE_KEY,
-			JSON.stringify({
-				snapshots: [snapshot],
-				lastUpdatedAt: "2026-07-26T09:00:00Z",
-			}),
-		);
+		seedCacheFor("operator-a");
 		clearQuotaCache();
 		// The failing read is the case that made the leak stick: the hook keeps
 		// last-good data on a non-2xx, so if anything survived the clear it would
@@ -211,6 +259,84 @@ describe("clearQuotaCache", () => {
 		const { result } = renderHook(() => useQuota(false));
 		expect(result.current.snapshots).toEqual([]);
 		expect(result.current.lastUpdatedAt).toBeNull();
+	});
+});
+
+describe("useQuota cache namespacing", () => {
+	it("does not seed one operator's snapshots into another operator's session", async () => {
+		// Operator A signs in and their read lands, filling the cache.
+		setAuthToken("operator-a");
+		server.use(okQuota([{ ...snapshot, provider_name: "a-only" }]));
+		const a = renderHook(() => useQuota(false));
+		await waitFor(() => expect(a.result.current.loading).toBe(false));
+		expect(a.result.current.snapshots[0]?.provider_name).toBe("a-only");
+		a.unmount();
+
+		// Operator B reloads on the same browser with their own (here: expired)
+		// token, so the shell mounts before anything is validated and the first
+		// read fails with a 502 rather than a 401. That is the path where the
+		// cleanup on logout/401 never runs, so the seed is the only thing that
+		// could put A's numbers on B's screen.
+		setAuthToken("operator-b");
+		server.use(failQuota());
+		const b = renderHook(() => useQuota(false));
+		// Asserted before the response as well as after: the leak is a first-paint
+		// leak, so an empty result that only arrives once the read finishes would
+		// not be a fix.
+		expect(b.result.current.snapshots).toEqual([]);
+		expect(b.result.current.lastUpdatedAt).toBeNull();
+		await waitFor(() => expect(b.result.current.error).toBe(true));
+		expect(b.result.current.snapshots).toEqual([]);
+		expect(b.result.current.stale).toBe(false);
+	});
+
+	it("still repaints the same operator's snapshots on remount", async () => {
+		// The whole point of the cache. Namespacing must not quietly delete it.
+		setAuthToken("operator-a");
+		server.use(okQuota([{ ...snapshot, provider_name: "a-only" }]));
+		const first = renderHook(() => useQuota(false));
+		await waitFor(() => expect(first.result.current.loading).toBe(false));
+		first.unmount();
+
+		// Same token, and the read fails this time, so anything on screen can only
+		// have come from the seed.
+		server.use(failQuota());
+		const second = renderHook(() => useQuota(false));
+		expect(second.result.current.snapshots[0]?.provider_name).toBe("a-only");
+		expect(second.result.current.lastUpdatedAt).not.toBeNull();
+		await waitFor(() => expect(second.result.current.error).toBe(true));
+		expect(second.result.current.stale).toBe(true);
+	});
+
+	it("does not write a cache entry when no token is stored", async () => {
+		clearAuthToken();
+		server.use(okQuota());
+		const { result } = renderHook(() => useQuota(false));
+		await waitFor(() => expect(result.current.loading).toBe(false));
+		// The read still applies in memory; there is just no session to persist it
+		// under, so nothing is left behind for the next operator to pick up.
+		expect(result.current.snapshots).toHaveLength(1);
+		expect(
+			Object.keys(localStorage).filter((k) => k.startsWith(QUOTA_CACHE_PREFIX)),
+		).toEqual([]);
+	});
+
+	it("does not seed from anything when no token is stored", () => {
+		seedCacheFor("operator-a");
+		clearAuthToken();
+		server.use(failQuota());
+		const { result } = renderHook(() => useQuota(false));
+		expect(result.current.snapshots).toEqual([]);
+		expect(result.current.lastUpdatedAt).toBeNull();
+	});
+
+	it("keys the entry by the token without storing the token itself", () => {
+		setAuthToken("super-secret-session-token");
+		server.use(failQuota());
+		renderHook(() => useQuota(false));
+		const key = currentKey();
+		expect(key.startsWith(`${QUOTA_CACHE_PREFIX}:`)).toBe(true);
+		expect(key).not.toContain("super-secret-session-token");
 	});
 });
 
@@ -365,6 +491,63 @@ describe("useQuota refresh", () => {
 			outcome = await result.current.refresh();
 		});
 		expect(outcome).toBe("ok");
+	});
+
+	it("reports failure when the POST succeeds but the read-back does not", async () => {
+		// The sweep was accepted and every provider answered, but we could not read
+		// the result back. Nothing on screen came from that sweep: the badges (and
+		// any open modal) still hold the pre-refresh numbers and are flagged stale.
+		// Claiming success there tells the operator their data is current when the
+		// UI is showing exactly what it showed before they pressed the button.
+		let getCalls = 0;
+		server.use(
+			http.get("/api/quota", () => {
+				getCalls++;
+				return getCalls === 1
+					? HttpResponse.json({ quota: [snapshot] })
+					: HttpResponse.json({ error: "nope" }, { status: 502 });
+			}),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({ results: [], refreshed: 1, failed: 0, skipped: 0 }),
+			),
+		);
+		const { result } = renderHook(() => useQuota(false));
+		await waitFor(() => expect(result.current.loading).toBe(false));
+		expect(getCalls).toBe(1);
+		let outcome: string | undefined;
+		await act(async () => {
+			outcome = await result.current.refresh();
+		});
+		expect(outcome).toBe("failed");
+		expect(getCalls).toBe(2);
+		// The last-good preservation in `read` is untouched: this fix changes what
+		// refresh REPORTS, not what it keeps.
+		expect(result.current.snapshots).toHaveLength(1);
+		expect(result.current.stale).toBe(true);
+	});
+
+	it("reports success only when the read-back also lands", async () => {
+		// The other direction of the same check, on the same handler shape: the
+		// second GET succeeds, so the numbers on screen really are the swept ones.
+		let getCalls = 0;
+		server.use(
+			http.get("/api/quota", () => {
+				getCalls++;
+				return HttpResponse.json({ quota: [snapshot] });
+			}),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({ results: [], refreshed: 1, failed: 0, skipped: 0 }),
+			),
+		);
+		const { result } = renderHook(() => useQuota(false));
+		await waitFor(() => expect(result.current.loading).toBe(false));
+		let outcome: string | undefined;
+		await act(async () => {
+			outcome = await result.current.refresh();
+		});
+		expect(outcome).toBe("ok");
+		expect(getCalls).toBe(2);
+		expect(result.current.stale).toBe(false);
 	});
 
 	it("still enforces cooldown after a failed refresh POST", async () => {

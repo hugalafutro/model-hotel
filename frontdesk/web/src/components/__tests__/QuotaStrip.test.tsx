@@ -2,8 +2,10 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setAuthToken } from "../../api/client";
 import type { QuotaSnapshot } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
+import { quotaCacheKey } from "../../hooks/useQuota";
 import { server } from "../../test/server";
 import { QuotaStrip } from "../QuotaStrip";
 
@@ -55,6 +57,11 @@ function renderStrip() {
 		</ToastProvider>,
 	);
 }
+
+// The strip only ever renders inside the authenticated shell, and the snapshot
+// cache is keyed per session token, so every test here runs with one stored.
+// setup.ts clears localStorage after each test, so this does not leak.
+beforeEach(() => setAuthToken("operator-a"));
 
 describe("QuotaStrip", () => {
 	it("renders a badge per snapshot once loaded", async () => {
@@ -109,7 +116,7 @@ describe("QuotaStrip", () => {
 
 	it("keeps cached badges and shows a stale marker when the read fails", async () => {
 		localStorage.setItem(
-			"fdQuotaSnapshots",
+			quotaCacheKey() as string,
 			JSON.stringify({
 				snapshots: [nano],
 				lastUpdatedAt: "2026-07-26T09:00:00Z",
@@ -589,6 +596,43 @@ describe("QuotaStrip", () => {
 			expect(document.querySelector(".fd-toast-error")).toBeInTheDocument(),
 		);
 		expect(document.querySelector(".fd-toast-success")).toBeNull();
+	});
+
+	it("shows an error toast, not a success one, when the refresh cannot be read back", async () => {
+		// The POST worked and every provider answered, but the follow-up GET did
+		// not. The badges therefore still show the pre-refresh numbers and carry
+		// the stale marker, so a success toast would be sitting directly above
+		// data that demonstrably did not come from this refresh.
+		let getCalls = 0;
+		server.use(
+			http.get("/api/quota", () => {
+				getCalls++;
+				return getCalls === 1
+					? HttpResponse.json({ quota: [nano] })
+					: HttpResponse.json({ error: "x" }, { status: 502 });
+			}),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({
+					results: [],
+					refreshed: 2,
+					failed: 0,
+					skipped: 0,
+				}),
+			),
+		);
+		renderStrip();
+		await waitFor(() =>
+			expect(screen.getByTestId("quota-refresh")).toBeInTheDocument(),
+		);
+		await userEvent.click(screen.getByTestId("quota-refresh"));
+		await waitFor(() =>
+			expect(document.querySelector(".fd-toast-error")).toBeInTheDocument(),
+		);
+		expect(document.querySelector(".fd-toast-success")).toBeNull();
+		// The badge survives, flagged stale: the toast is the only thing that
+		// changed about how this case is reported.
+		expect(screen.getByTestId("quota-badge-nanogpt:nano")).toBeInTheDocument();
+		expect(screen.getByTestId("quota-stale")).toBeInTheDocument();
 	});
 
 	it("shows a success toast when a 200 refresh reports no failures", async () => {
