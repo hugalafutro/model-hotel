@@ -1882,7 +1882,6 @@
 			"enableDescription": "A kiválasztott eseményeket továbbítsa az Apprise végpontjára.",
 			"event": {
 				"circuit_breaker_closed": "A szolgáltató helyreállt (áramkör-megszakító zárva)",
-				"circuit_breaker_half_open": "A szolgáltató ellenőrzése folyamatban (áramkör-megszakító félig nyitott)",
 				"circuit_breaker_open": "Szolgáltató leállt (áramkör-megszakító nyitva)",
 				"discovery_provider_failed": "A szolgáltató azonosítása során hiba történt",
 				"fleet_conflict": "Front Desk tulajdonjogi ütközés",

@@ -1882,7 +1882,6 @@
 			"enableDescription": "Leiten Sie ausgewählte Ereignisse an Ihren Apprise-Endpunkt weiter.",
 			"event": {
 				"circuit_breaker_closed": "Anbieter wiederhergestellt (Circuit Breaker geschlossen)",
-				"circuit_breaker_half_open": "Anbieter wird geprüft (Circuit Breaker halb geöffnet)",
 				"circuit_breaker_open": "Anbieter ausgefallen (Circuit Breaker ausgelöst)",
 				"discovery_provider_failed": "Anbieter ist bei der Erkennung fehlgeschlagen",
 				"fleet_conflict": "Front-Desk-Besitzkonflikt",

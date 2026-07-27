@@ -1920,7 +1920,6 @@
 			"enableDescription": "Encaminhe os eventos selecionados para o seu endpoint do Apprise.",
 			"event": {
 				"circuit_breaker_closed": "Provedor recuperado (disjuntor fechado)",
-				"circuit_breaker_half_open": "Provedor sendo testado (disjuntor semiaberto)",
 				"circuit_breaker_open": "Provedor inoperante (disjuntor aberto)",
 				"discovery_provider_failed": "Falha do provedor durante a descoberta",
 				"fleet_conflict": "Conflito de propriedade do Front Desk",

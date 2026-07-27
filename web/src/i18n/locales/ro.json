@@ -1920,7 +1920,6 @@
 			"enableDescription": "Redirecționați evenimentele selectate către punctul de terminare Apprise.",
 			"event": {
 				"circuit_breaker_closed": "Furnizorul și-a revenit (disjunctorul s-a închis)",
-				"circuit_breaker_half_open": "Furnizorul este testat (disjunctorul este pe jumătate deschis)",
 				"circuit_breaker_open": "Furnizor inactiv (disjunctor deschis)",
 				"discovery_provider_failed": "Furnizorul a eșuat în timpul procesului de descoperire",
 				"fleet_conflict": "Conflict de proprietate Front Desk",

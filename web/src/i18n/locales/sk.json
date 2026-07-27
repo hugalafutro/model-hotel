@@ -1958,7 +1958,6 @@
 			"enableDescription": "Vybrané udalosti presmerujte na váš koncový bod Apprise.",
 			"event": {
 				"circuit_breaker_closed": "Poskytovateľ sa zotavil (istič sa uzavrel)",
-				"circuit_breaker_half_open": "Poskytovateľ sa testuje (istič je polootvorený)",
 				"circuit_breaker_open": "Poskytovateľ mimo prevádzky (otvorený istič)",
 				"discovery_provider_failed": "Poskytovateľ zlyhal počas vyhľadávania",
 				"fleet_conflict": "Konflikt vlastníctva Front Desku",

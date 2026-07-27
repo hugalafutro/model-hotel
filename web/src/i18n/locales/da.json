@@ -1882,7 +1882,6 @@
 			"enableDescription": "Videresend udvalgte begivenheder til dit Apprise-endpoint.",
 			"event": {
 				"circuit_breaker_closed": "Udbyder genoprettet (afbryder lukket)",
-				"circuit_breaker_half_open": "Udbyder under test (afbryder halvåben)",
 				"circuit_breaker_open": "Udbyder nede (afbryder udløst)",
 				"discovery_provider_failed": "Udbyderen fejlede under opdagelsen",
 				"fleet_conflict": "Front Desk-ejerskabskonflikt",

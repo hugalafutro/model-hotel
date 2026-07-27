@@ -63,7 +63,6 @@ Current events:
 |---|---|---|---|
 | Provider down (circuit breaker opened) | Failover | ✅ on | a provider's breaker trips |
 | Provider recovered (circuit breaker closed) | Failover | ✅ on | the breaker recovers |
-| Provider being probed (half-open) | Failover | ⬜ off | the breaker enters its probe state (noisy) |
 | Failover group sync failed | Failover | ✅ on | a failover group fails to sync |
 | Provider failed during discovery | Discovery | ⬜ off | a provider errors during model discovery |
 | Fleet ownership conflict | High Availability | ✅ on | a second Front Desk tries to claim a member that another Front Desk already owns (debounced to once/hour per rejected Front Desk id) |

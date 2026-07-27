@@ -1882,7 +1882,6 @@
 			"enableDescription": "Seçilen olayları Apprise uç noktanıza iletin.",
 			"event": {
 				"circuit_breaker_closed": "Sağlayıcı kurtarıldı (devre kesici kapandı)",
-				"circuit_breaker_half_open": "Sağlayıcı kontrol ediliyor (devre kesici yarı açık)",
 				"circuit_breaker_open": "Sağlayıcı devre dışı (devre kesici açıldı)",
 				"discovery_provider_failed": "Sağlayıcı, keşif sırasında hata verdi",
 				"fleet_conflict": "Front Desk sahiplik çakışması",

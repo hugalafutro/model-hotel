@@ -1882,7 +1882,6 @@
 			"enableDescription": "Välitä valitut tapahtumat Apprise-päätelaitteeseesi.",
 			"event": {
 				"circuit_breaker_closed": "Palveluntarjoaja palautunut (katkaisija suljettu)",
-				"circuit_breaker_half_open": "Palveluntarjoajaa testataan (katkaisija puoliksi auki)",
 				"circuit_breaker_open": "Palveluntarjoaja poissa käytöstä (katkaisija auki)",
 				"discovery_provider_failed": "Palveluntarjoaja epäonnistui tunnistuksen aikana",
 				"fleet_conflict": "Front Deskin omistuskonflikti",

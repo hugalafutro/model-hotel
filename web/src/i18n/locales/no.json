@@ -1882,7 +1882,6 @@
 			"enableDescription": "Videresend valgte hendelser til Apprise-endepunktet ditt.",
 			"event": {
 				"circuit_breaker_closed": "Leverandøren er gjenopprettet (kretsbryter lukket)",
-				"circuit_breaker_half_open": "Leverandør blir testet (kretsbryter halvåpen)",
 				"circuit_breaker_open": "Leverandør nede (kretsbryter åpnet)",
 				"discovery_provider_failed": "Leverandøren mislyktes under oppdagelsen",
 				"fleet_conflict": "Front Desk-eierskapskonflikt",

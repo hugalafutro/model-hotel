@@ -1920,7 +1920,6 @@
 			"enableDescription": "העבירו אירועים נבחרים לנקודת הקצה של Apprise.",
 			"event": {
 				"circuit_breaker_closed": "הספק חזר לפעול (מפסק זרם סגור)",
-				"circuit_breaker_half_open": "הספק נבדק (מפסק זרם חצי פתוח)",
 				"circuit_breaker_open": "הספק לא זמין (מפסק זרם פתוח)",
 				"discovery_provider_failed": "הספק נכשל במהלך תהליך הגילוי",
 				"fleet_conflict": "התנגשות בעלות על Front Desk",

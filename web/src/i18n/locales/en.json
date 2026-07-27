@@ -1534,7 +1534,6 @@
 			"event": {
 				"circuit_breaker_open": "Provider down (circuit breaker opened)",
 				"circuit_breaker_closed": "Provider recovered (circuit breaker closed)",
-				"circuit_breaker_half_open": "Provider being probed (circuit breaker half-open)",
 				"failover_sync_error": "Failover group sync failed",
 				"discovery_provider_failed": "Provider failed during discovery",
 				"fleet_conflict": "Front Desk ownership conflict",

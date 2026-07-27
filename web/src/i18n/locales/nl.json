@@ -1882,7 +1882,6 @@
 			"enableDescription": "Stuur geselecteerde gebeurtenissen door naar uw Apprise-eindpunt.",
 			"event": {
 				"circuit_breaker_closed": "Provider hersteld (circuitbreaker gesloten)",
-				"circuit_breaker_half_open": "Provider wordt getest (circuitbreaker halfopen)",
 				"circuit_breaker_open": "Provider offline (circuitbreaker geopend)",
 				"discovery_provider_failed": "De provider is mislukt tijdens het opsporen",
 				"fleet_conflict": "Front Desk-eigendomsconflict",

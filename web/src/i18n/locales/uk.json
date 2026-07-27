@@ -1958,7 +1958,6 @@
 			"enableDescription": "Пересилайте вибрані події на ваш кінцевий пункт Apprise.",
 			"event": {
 				"circuit_breaker_closed": "Провайдер відновив роботу (запобіжний вимикач закрито)",
-				"circuit_breaker_half_open": "Провайдер перевіряється (запобіжний вимикач напіввідкритий)",
 				"circuit_breaker_open": "Провайдер не працює (запобіжний вимикач спрацював)",
 				"discovery_provider_failed": "Помилка провайдера під час виявлення",
 				"fleet_conflict": "Конфлікт власності Front Desk",

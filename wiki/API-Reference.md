@@ -1358,7 +1358,6 @@ data: {"type":"discovery.complete","severity":"success","message":"Discovery com
 | `discovery.changes_pending` | `info` | Background discovery recorded model changes (badged on the Models nav) |
 | `failover.sync_error` | `warning` | Error during failover group synchronization |
 | `circuit_breaker.open` | `warning` | Provider circuit breaker opened |
-| `circuit_breaker.half-open` | `info` | Circuit breaker probing |
 | `circuit_breaker.closed` | `success` | Circuit breaker closed (recovered) |
 | `quota.schema_drift` | `warning` | A provider changed the shape of its quota response |
 | `tokens.error` | `error` | Error counting tokens |
@@ -1377,7 +1376,7 @@ Heartbeat comments (`: heartbeat`) are sent every 30 seconds.
 |-------|------|---------|---------|
 | `provider_id` | string (UUID) | always | The provider whose circuit changed state |
 | `provider` | string | always | Provider name, so the event reads without a lookup |
-| `state` | string | always | `open`, `half-open`, or `closed` |
+| `state` | string | always | `open` or `closed` |
 | `consecutive_fails` | int | always | Consecutive failures recorded against the provider |
 | `quota_pinned` | bool | always | Whether a quota reset deadline is currently governing this circuit's cooldown rather than `circuit_breaker_cooldown` |
 | `next_retry_at` | string (RFC3339) | only when `quota_pinned` is `true` | When the circuit is next eligible to probe |

@@ -1882,7 +1882,6 @@
 			"enableDescription": "Stuur geselekteerde gebeure na jou Apprise-eindpunt.",
 			"event": {
 				"circuit_breaker_closed": "Verskaffer herstel (kringbreker gesluit)",
-				"circuit_breaker_half_open": "Verskaffer word ondersoek (kringbreker half-oop)",
 				"circuit_breaker_open": "Verskaffer onbeskikbaar (kringbreker oopgemaak)",
 				"discovery_provider_failed": "Verskaffer het tydens ontdekking misluk",
 				"fleet_conflict": "Front Desk-eienaarskapkonflik",

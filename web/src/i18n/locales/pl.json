@@ -1958,7 +1958,6 @@
 			"enableDescription": "Przekazuj wybrane zdarzenia do swojego punktu końcowego Apprise.",
 			"event": {
 				"circuit_breaker_closed": "Dostawca przywrócił działanie (wyłącznik obwodu zamknięty)",
-				"circuit_breaker_half_open": "Dostawca jest sprawdzany (wyłącznik automatyczny częściowo otwarty)",
 				"circuit_breaker_open": "Awaria dostawcy (wyłącznik otwarty)",
 				"discovery_provider_failed": "Wystąpił błąd dostawcy podczas wykrywania",
 				"fleet_conflict": "Konflikt własności Front Desk",

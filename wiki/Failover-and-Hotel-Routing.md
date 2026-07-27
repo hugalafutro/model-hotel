@@ -620,8 +620,9 @@ The circuit breaker publishes real-time events via the SSE event bus:
 | Event | When |
 |-------|------|
 | `circuit_breaker.open` | A provider's circuit transitions from Closed to Open |
-| `circuit_breaker.half-open` | Circuit transitions from Open to Half-Open |
 | `circuit_breaker.closed` | Circuit recovers (Half-Open → Closed) |
+
+The transition into Half-Open itself (an open circuit whose cooldown has elapsed, now allowing a probe through) is not published as an event — it is a transient internal state, surfaced only via the circuit-breaker status API's `half_open` count, not the alert/SSE event stream.
 
 These events appear in the real-time sidebar and dashboard.
 
@@ -631,7 +632,7 @@ These events appear in the real-time sidebar and dashboard.
 |-------|------|---------|---------|
 | `provider_id` | string (UUID) | always | The provider whose circuit changed state |
 | `provider` | string | always | Provider name |
-| `state` | string | always | `open`, `half-open`, or `closed` |
+| `state` | string | always | `open` or `closed` |
 | `consecutive_fails` | int | always | Consecutive failures recorded against the provider |
 | `quota_pinned` | bool | always | `true` when a quota reset deadline, not `circuit_breaker_cooldown`, is governing this circuit |
 | `next_retry_at` | string (RFC3339) | only when `quota_pinned` is `true` | When the circuit is next eligible to probe |

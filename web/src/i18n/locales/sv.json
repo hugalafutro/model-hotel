@@ -1882,7 +1882,6 @@
 			"enableDescription": "Vidarebefordra valda händelser till din Apprise-ändpunkt.",
 			"event": {
 				"circuit_breaker_closed": "Leverantören har återhämtat sig (strömavbrytaren stängd)",
-				"circuit_breaker_half_open": "Leverantör som testas (kretsbrytare halvöppen)",
 				"circuit_breaker_open": "Leverantören är nere (strömavbrytaren har löst ut)",
 				"discovery_provider_failed": "Leverantören misslyckades under upptäckten",
 				"fleet_conflict": "Front Desk-ägarskapskonflikt",

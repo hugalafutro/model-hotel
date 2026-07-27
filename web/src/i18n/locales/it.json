@@ -1920,7 +1920,6 @@
 			"enableDescription": "Inoltra gli eventi selezionati al tuo endpoint Apprise.",
 			"event": {
 				"circuit_breaker_closed": "Provider ripristinato (interruttore di sicurezza chiuso)",
-				"circuit_breaker_half_open": "Provider in fase di verifica (interruttore automatico semiaperto)",
 				"circuit_breaker_open": "Provider inattivo (interruttore di sicurezza aperto)",
 				"discovery_provider_failed": "Errore del provider durante la fase di individuazione",
 				"fleet_conflict": "Conflitto di proprietà del Front Desk",

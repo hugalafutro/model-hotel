@@ -1958,7 +1958,6 @@
 			"enableDescription": "Vybrané události přeposílejte na váš koncový bod Apprise.",
 			"event": {
 				"circuit_breaker_closed": "Poskytovatel obnoven (jistič uzavřen)",
-				"circuit_breaker_half_open": "Probíhá testování poskytovatele (jistič je částečně otevřený)",
 				"circuit_breaker_open": "Výpadek poskytovatele (otevřený jistič)",
 				"discovery_provider_failed": "Došlo k selhání poskytovatele během vyhledávání",
 				"fleet_conflict": "Konflikt vlastnictví Front Desku",

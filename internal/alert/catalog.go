@@ -32,7 +32,6 @@ type EventDef struct {
 var catalog = []EventDef{
 	{Type: "circuit_breaker.open", Category: "Failover", Severity: "warning", DefaultOn: true},
 	{Type: "circuit_breaker.closed", Category: "Failover", Severity: "success", DefaultOn: true},
-	{Type: "circuit_breaker.half_open", Category: "Failover", Severity: "info", DefaultOn: false},
 	{Type: "failover.sync_error", Category: "Failover", Severity: "warning", DefaultOn: true},
 	{Type: "discovery.provider_failed", Category: "Discovery", Severity: "error", DefaultOn: false},
 	{Type: "fleet.conflict", Category: "High Availability", Severity: "warning", DefaultOn: true},

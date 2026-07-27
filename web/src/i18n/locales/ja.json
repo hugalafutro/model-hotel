@@ -1882,7 +1882,6 @@
 			"enableDescription": "選択したイベントをAppriseエンドポイントに転送してください。",
 			"event": {
 				"circuit_breaker_closed": "プロバイダーが復旧しました（サーキットブレーカーが閉じました）",
-				"circuit_breaker_half_open": "プロバイダーをプローブ中（サーキットブレーカーが半開状態）",
 				"circuit_breaker_open": "プロバイダーダウン（サーキットブレーカーが作動）",
 				"discovery_provider_failed": "プロバイダーの検出中にエラーが発生しました",
 				"fleet_conflict": "Front Desk の所有権競合",
