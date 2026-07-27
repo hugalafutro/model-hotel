@@ -131,3 +131,88 @@ func TestAssess_FailOpenCases(t *testing.T) {
 		})
 	}
 }
+
+func TestAssess_KimiCode_RFC3339AndStringNumbers(t *testing.T) {
+	fiveHour := time.Now().Add(90 * time.Minute).UTC().Format(time.RFC3339)
+	weekly := time.Now().Add(100 * time.Hour).UTC().Format(time.RFC3339)
+	payload, err := json.Marshal(map[string]any{
+		"limits": []map[string]any{
+			{
+				"window": map[string]any{"duration": 300, "timeUnit": "MINUTE"},
+				"detail": map[string]any{"limit": "1000", "remaining": "0", "resetTime": fiveHour},
+			},
+			{
+				"window": map[string]any{"duration": 7, "timeUnit": "DAY"},
+				"detail": map[string]any{"limit": "50000", "remaining": "0", "resetTime": weekly},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("kimi-code", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want both true", got.OK, got.Exhausted)
+	}
+	if got.ResetsAt.Format(time.RFC3339) != fiveHour {
+		t.Errorf("got ResetsAt=%s, want earliest %s", got.ResetsAt.Format(time.RFC3339), fiveHour)
+	}
+}
+
+func TestAssess_KimiCode_RemainingIsParsedNotCompared(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"limits": []map[string]any{{
+			"window": map[string]any{"duration": 300, "timeUnit": "MINUTE"},
+			"detail": map[string]any{"limit": "1000", "remaining": "250", "resetTime": time.Now().Add(time.Hour).UTC().Format(time.RFC3339)},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("kimi-code", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error(`remaining "250" must not be treated as exhausted`)
+	}
+}
+
+func TestAssess_KimiCode_UnparseableRemainingIsNotExhausted(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"limits": []map[string]any{{
+			"detail": map[string]any{"limit": "1000", "remaining": "n/a", "resetTime": time.Now().Add(time.Hour).UTC().Format(time.RFC3339)},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("kimi-code", Snapshot{Kind: "usage", Payload: payload})
+
+	if got.Exhausted {
+		t.Error("an unparseable remaining must never be read as exhausted")
+	}
+}
+
+func TestAssess_KimiCode_EpochStringResetTime(t *testing.T) {
+	reset := time.Now().Add(3 * time.Hour).Unix()
+	payload, err := json.Marshal(map[string]any{
+		"limits": []map[string]any{{
+			"detail": map[string]any{"limit": "1000", "remaining": "0", "resetTime": strconv.FormatInt(reset, 10)},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("kimi-code", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.Exhausted || got.ResetsAt.Unix() != reset {
+		t.Errorf("got Exhausted=%v ResetsAt=%d, want true/%d", got.Exhausted, got.ResetsAt.Unix(), reset)
+	}
+}

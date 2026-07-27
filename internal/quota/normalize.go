@@ -85,6 +85,8 @@ func Assess(providerType string, s Snapshot) Assessment {
 	switch providerType {
 	case "zai-coding":
 		return assessZaiCoding(s.Payload)
+	case "kimi-code":
+		return assessKimiCode(s.Payload)
 	default:
 		return Assessment{}
 	}
@@ -106,6 +108,27 @@ func assessZaiCoding(payload json.RawMessage) Assessment {
 			continue
 		}
 		if t, ok := epochToTime(l.NextResetTime); ok {
+			e.add(t)
+		}
+	}
+	return e.result(time.Now())
+}
+
+func assessKimiCode(payload json.RawMessage) Assessment {
+	var res provider.KimiCodeQuotaResponse
+	if err := json.Unmarshal(payload, &res); err != nil {
+		return Assessment{}
+	}
+	var e earliestReset
+	for _, l := range res.Limits {
+		// Kimi encodes limit/remaining as JSON strings. A value we cannot parse
+		// is never treated as exhausted: guessing here would pin a healthy
+		// provider, which the behaviour contract forbids.
+		remaining, err := strconv.ParseInt(strings.TrimSpace(l.Detail.Remaining), 10, 64)
+		if err != nil || remaining > 0 {
+			continue
+		}
+		if t, ok := parseResetString(l.Detail.ResetTime); ok {
 			e.add(t)
 		}
 	}
