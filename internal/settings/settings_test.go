@@ -1437,7 +1437,10 @@ func TestSetManyVisibleToReaderRacingTheWrite(t *testing.T) {
 // generation and is parked inside its query.
 func waitForBlockedSettingsRead(t *testing.T) {
 	t.Helper()
-	ctx := context.Background()
+	// Bound the probe itself by the same deadline, not just the loop: a probe
+	// that blocks would otherwise never get back to the deadline check.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	deadline := time.Now().Add(30 * time.Second)
 	for time.Now().Before(deadline) {
 		var n int
@@ -1532,15 +1535,23 @@ func TestCacheGenerationGuardStillCachesAfterWritesStop(t *testing.T) {
 	r := NewRepository(testPool)
 	key := "gen_settle_key"
 
+	// Wait for the readers rather than leaking them: a reader still parked in
+	// its SELECT would be matched by another test's pg_stat_activity probe.
+	var wg sync.WaitGroup
 	for range 20 {
 		if err := r.Set(ctx, key, "1"); err != nil {
 			t.Fatalf("set failed: %v", err)
 		}
-		go func() { _ = r.GetWithDefault(ctx, key, "d") }()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_ = r.GetWithDefault(ctx, key, "d")
+		}()
 	}
 	if err := r.Set(ctx, key, "final"); err != nil {
 		t.Fatalf("set failed: %v", err)
 	}
+	wg.Wait()
 
 	// With writes finished, the next read must install a cache entry.
 	deadline := time.Now().Add(10 * time.Second)
@@ -1556,4 +1567,71 @@ func TestCacheGenerationGuardStillCachesAfterWritesStop(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+// TestFailedWriteStillEvictsOnBothSides covers the error path of Set and
+// SetMany. pgx reports a failure for a statement the server actually applied
+// when the connection drops or the context is cancelled in the
+// commit-acknowledgement window, and both functions are called with
+// cancellable request contexts (quota drift, config-sync apply). The
+// post-write eviction must therefore run even when Exec returns an error,
+// otherwise a reader that installed the pre-write value mid-write keeps it for
+// the full cacheTTL against a write that took effect. Only the change
+// notification is gated on success.
+//
+// The discriminating observable is the generation counter: a write must move
+// it twice, once on each side of Exec, regardless of the outcome. A full
+// end-to-end repro would need a reader whose entire query completes inside the
+// write window of a write that then fails, which cannot be scheduled without a
+// fault-injection hook in production code. That hook is deliberately not
+// added, so the invariant is asserted directly instead.
+func TestFailedWriteStillEvictsOnBothSides(t *testing.T) {
+	clearSettings(t)
+	r := NewRepository(testPool)
+
+	generation := func(key string) uint64 {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		return r.cacheGen[key]
+	}
+
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	t.Run("Set", func(t *testing.T) {
+		key := "failed_set_key"
+		before := generation(key)
+		if err := r.Set(cancelled, key, "new"); err == nil {
+			t.Fatal("expected Set to fail on a cancelled context")
+		}
+		if moved := generation(key) - before; moved != 2 {
+			t.Errorf("failed Set moved the generation %d time(s), want 2 (one eviction on each side of the write)", moved)
+		}
+	})
+
+	t.Run("SetMany", func(t *testing.T) {
+		key := "failed_setmany_key"
+		before := generation(key)
+		if err := r.SetMany(cancelled, [][2]string{{key, "new"}}); err == nil {
+			t.Fatal("expected SetMany to fail on a cancelled context")
+		}
+		if moved := generation(key) - before; moved != 2 {
+			t.Errorf("failed SetMany moved the generation %d time(s), want 2 (one eviction on each side of the write)", moved)
+		}
+	})
+
+	t.Run("a failed write does not notify subscribers", func(t *testing.T) {
+		key := "failed_notify_key"
+		sub := r.Subscribe()
+		defer sub.Unsubscribe()
+
+		if err := r.Set(cancelled, key, "new"); err == nil {
+			t.Fatal("expected Set to fail on a cancelled context")
+		}
+		select {
+		case ev := <-sub.Events():
+			t.Errorf("a failed write must not announce a change, got %+v", ev)
+		case <-time.After(100 * time.Millisecond):
+		}
+	})
 }

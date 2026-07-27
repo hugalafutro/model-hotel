@@ -171,6 +171,15 @@ func (r *Repository) evict(key string) {
 	r.mu.Unlock()
 }
 
+// evictKVs evicts the key of every pair, taking the lock once.
+func (r *Repository) evictKVs(kvs [][2]string) {
+	r.mu.Lock()
+	for _, kv := range kvs {
+		r.evictLocked(kv[0])
+	}
+	r.mu.Unlock()
+}
+
 // Subscribe returns a Subscription whose channel receives a ChangeEvent for
 // every settings update written through Set or SetTx + InvalidateCache.
 //
@@ -364,10 +373,22 @@ func (r *Repository) Set(ctx context.Context, key, value string) error {
 		INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
 		ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = now()
 	`, key, value)
+
+	// Evict unconditionally, before the error check, because an error here does
+	// not mean the row is unchanged: if the connection drops or ctx is
+	// cancelled in the commit-acknowledgement window, pgx reports a failure for
+	// a statement the server actually applied. Callers do pass cancellable
+	// request contexts (quota drift, config-sync apply), so this is reachable.
+	// Skipping the eviction on that path would leave a reader's mid-write
+	// install pinned for the full cacheTTL against a write that took effect —
+	// the exact bug the post-write eviction exists to close. Evicting after a
+	// genuinely failed write is harmless: it costs one DB read on next access.
+	// Only the notification stays gated on success; we must not announce a
+	// change we cannot confirm.
+	r.evict(key)
 	if err != nil {
 		return err
 	}
-	r.evict(key)
 	r.notifyChange(key, value)
 	return nil
 }
@@ -387,11 +408,7 @@ func (r *Repository) SetMany(ctx context.Context, kvs [][2]string) error {
 
 	// Evict before the write, exactly as Set does, so a read racing the write
 	// falls through to the DB rather than serving a stale cached value.
-	r.mu.Lock()
-	for _, kv := range kvs {
-		r.evictLocked(kv[0])
-	}
-	r.mu.Unlock()
+	r.evictKVs(kvs)
 
 	var sb strings.Builder
 	sb.WriteString("INSERT INTO settings (key, value, updated_at) VALUES ")
@@ -405,17 +422,15 @@ func (r *Repository) SetMany(ctx context.Context, kvs [][2]string) error {
 	}
 	sb.WriteString(" ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()")
 
-	if _, err := r.pool.Exec(ctx, sb.String(), args...); err != nil {
+	_, err := r.pool.Exec(ctx, sb.String(), args...)
+
+	// Evict again for the same reason Set does, and — like Set — unconditionally
+	// and before the error check, because a reported error can still describe a
+	// statement the server applied.
+	r.evictKVs(kvs)
+	if err != nil {
 		return err
 	}
-	// Evict again now the write has committed, for the same reason Set does:
-	// a reader that missed the cache mid-write installed the pre-write value
-	// and would otherwise hold it for the full cacheTTL.
-	r.mu.Lock()
-	for _, kv := range kvs {
-		r.evictLocked(kv[0])
-	}
-	r.mu.Unlock()
 	// The row write is atomic (one statement); the notifications are not. We fan
 	// out one change event per key after the commit succeeds, exactly as a loop
 	// of Set calls would, so a subscriber may observe the keys arrive one at a
@@ -516,7 +531,10 @@ func (r *Repository) WarmCache(ctx context.Context) {
 		warmed++
 	}
 	r.mu.Unlock()
-	debuglog.Info("settings: warmed cache", "count", warmed)
+	// Log both numbers: "count" stays the installed total, and "read" preserves
+	// the "how many settings exist" signal, so a skip is visible as a gap
+	// rather than looking like an empty settings table.
+	debuglog.Info("settings: warmed cache", "count", warmed, "read", len(all), "skipped", len(all)-warmed)
 }
 
 // GetAll retrieves all settings as a key-value map.
