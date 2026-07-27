@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1345,5 +1346,214 @@ func TestWarmCache_EmptyDB(t *testing.T) {
 	r.mu.RUnlock()
 	if cacheLen != 0 {
 		t.Errorf("expected empty cache after WarmCache on empty DB, got %d entries", cacheLen)
+	}
+}
+
+// readerRacingWrite runs a reader hammering the key while write flips it from
+// "20" to "0", then reports whether the post-write value is visible once the
+// write returns. It is the shared body of the Set and SetMany regression
+// tests below.
+//
+// The hazard being covered: the cache is evicted before the write, so a reader
+// that misses the cache mid-write reads the *pre-write* row (the UPSERT has
+// not committed, so it is invisible) and installs it. Without the post-write
+// eviction that stale entry is served for the full cacheTTL (30s), which is
+// far longer than any subscriber that re-reads on the change notification is
+// prepared to wait.
+func readerRacingWrite(t *testing.T, r *Repository, key string, write func() error) int {
+	t.Helper()
+	ctx := context.Background()
+
+	violations := 0
+	const rounds = 50
+	deadline := time.Now().Add(90 * time.Second)
+
+	for i := range rounds {
+		if time.Now().After(deadline) {
+			t.Fatalf("test budget exhausted after %d rounds", i)
+		}
+		if err := r.Set(ctx, key, "20"); err != nil {
+			t.Fatalf("seed set failed: %v", err)
+		}
+		_ = r.GetInt(ctx, key, 5) // warm the cache with the pre-write value
+
+		var stop atomic.Bool
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			for !stop.Load() {
+				_ = r.GetInt(ctx, key, 5)
+			}
+		}()
+
+		err := write()
+		stop.Store(true)
+		<-done
+		if err != nil {
+			t.Fatalf("write failed: %v", err)
+		}
+
+		if got := r.GetInt(ctx, key, 5); got != 0 {
+			violations++
+		}
+	}
+	return violations
+}
+
+// TestSetVisibleToReaderRacingTheWrite pins the fix for a cache race in Set: a
+// read concurrent with the write must not be able to pin the pre-write value
+// for the rest of the cache TTL. Against the pre-fix code this reproduced on
+// every round.
+func TestSetVisibleToReaderRacingTheWrite(t *testing.T) {
+	clearSettings(t)
+	r := NewRepository(testPool)
+	key := "race_set_key"
+
+	violations := readerRacingWrite(t, r, key, func() error {
+		return r.Set(context.Background(), key, "0")
+	})
+	if violations != 0 {
+		t.Errorf("Set: reader observed the pre-write value after the write returned in %d rounds", violations)
+	}
+}
+
+// TestSetManyVisibleToReaderRacingTheWrite is TestSetVisibleToReaderRacingTheWrite
+// for SetMany, which had the identical evict-before-write-only bug.
+func TestSetManyVisibleToReaderRacingTheWrite(t *testing.T) {
+	clearSettings(t)
+	r := NewRepository(testPool)
+	key := "race_setmany_key"
+
+	violations := readerRacingWrite(t, r, key, func() error {
+		return r.SetMany(context.Background(), [][2]string{{key, "0"}})
+	})
+	if violations != 0 {
+		t.Errorf("SetMany: reader observed the pre-write value after the write returned in %d rounds", violations)
+	}
+}
+
+// waitForBlockedSettingsRead blocks until a query against the settings table is
+// waiting on a lock, so the caller knows a reader has captured its cache
+// generation and is parked inside its query.
+func waitForBlockedSettingsRead(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		var n int
+		err := testPool.QueryRow(ctx, `
+			SELECT count(*) FROM pg_stat_activity
+			WHERE datname = current_database()
+			  AND wait_event_type = 'Lock'
+			  AND query LIKE '%FROM settings WHERE key%'
+		`).Scan(&n)
+		if err != nil {
+			t.Fatalf("pg_stat_activity probe failed: %v", err)
+		}
+		if n > 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("reader never blocked on the settings table lock")
+}
+
+// TestCacheGenerationGuardBlocksLateReader covers the residual the double
+// eviction alone cannot close: a reader whose query has already returned, but
+// which has not yet taken the write lock, could still install the value it
+// read after an eviction happened. The per-key generation counter stops it.
+//
+// The interleaving is made deterministic by holding an ACCESS EXCLUSIVE lock on
+// the settings table, which blocks the reader's plain SELECT. That parks the
+// reader precisely between capturing the generation and installing its result,
+// with no test-only hook in the production code.
+func TestCacheGenerationGuardBlocksLateReader(t *testing.T) {
+	ctx := context.Background()
+	clearSettings(t)
+	r := NewRepository(testPool)
+	key := "gen_guard_key"
+
+	if err := r.Set(ctx, key, "old"); err != nil {
+		t.Fatalf("seed set failed: %v", err)
+	}
+	if r.IsCached(key) {
+		t.Fatal("Set must leave the cache empty")
+	}
+
+	tx, err := testPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin failed: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	if _, err := tx.Exec(ctx, "LOCK TABLE settings IN ACCESS EXCLUSIVE MODE"); err != nil {
+		t.Fatalf("lock table failed: %v", err)
+	}
+
+	// Bound the read so a lock we somehow fail to release cannot hang the suite.
+	readCtx, cancelRead := context.WithTimeout(ctx, 60*time.Second)
+	defer cancelRead()
+	got := make(chan string, 1)
+	go func() { got <- r.GetWithDefault(readCtx, key, "default") }()
+
+	waitForBlockedSettingsRead(t)
+
+	// An invalidation lands while the reader is parked inside its query. This
+	// only touches the cache, so it does not contend for the table lock.
+	r.NotifyDeleted(key)
+
+	// Release the lock; the reader's SELECT now returns the row it was waiting
+	// on, which is the value that predates the invalidation.
+	if err := tx.Rollback(ctx); err != nil {
+		t.Fatalf("rollback failed: %v", err)
+	}
+
+	select {
+	case v := <-got:
+		// The reader still returns what it read — the guard suppresses caching,
+		// not the result.
+		if v != "old" {
+			t.Errorf("expected the reader to return the value it read, got %q", v)
+		}
+	case <-time.After(60 * time.Second):
+		t.Fatal("blocked read never completed")
+	}
+
+	if r.IsCached(key) {
+		t.Error("a reader whose generation moved mid-query must not populate the cache")
+	}
+}
+
+// TestCacheGenerationGuardStillCachesAfterWritesStop guards against the guard
+// itself wedging the hot path: once writes stop, reads must cache normally
+// again rather than degrading into a query per read.
+func TestCacheGenerationGuardStillCachesAfterWritesStop(t *testing.T) {
+	ctx := context.Background()
+	clearSettings(t)
+	r := NewRepository(testPool)
+	key := "gen_settle_key"
+
+	for range 20 {
+		if err := r.Set(ctx, key, "1"); err != nil {
+			t.Fatalf("set failed: %v", err)
+		}
+		go func() { _ = r.GetWithDefault(ctx, key, "d") }()
+	}
+	if err := r.Set(ctx, key, "final"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+
+	// With writes finished, the next read must install a cache entry.
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if v := r.GetWithDefault(ctx, key, "d"); v != "final" {
+			t.Fatalf("expected %q, got %q", "final", v)
+		}
+		if r.IsCached(key) {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("reads never resumed caching after writes stopped")
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
