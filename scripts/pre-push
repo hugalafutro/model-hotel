@@ -68,6 +68,18 @@ for _sha in "${PUSH_HEADS[@]}"; do
 	CHANGED="$(printf '%s\n%s\n' "$CHANGED" "$(git diff --name-only "$_base" "$_sha" 2>/dev/null || true)")"
 done
 CHANGED="$(printf '%s\n' "$CHANGED" | grep -v '^[[:space:]]*$' || true)"
+
+# Is the push exactly HEAD? The lint gates above only need the changed PATHS, which
+# the union covers. The coverage gate is different: it runs the suites against the
+# WORKING TREE and diff_coverage.py maps that coverage onto `base...HEAD`, so its
+# number only describes the push when the pushed ref IS HEAD. On a non-HEAD or
+# multi-ref push it would measure code that was never checked out, and with several
+# refs it would keep only the first merge-base, silently reporting on the wrong
+# range. Skipping beats a confident wrong answer; CI enforces coverage regardless.
+PUSH_IS_HEAD="no"
+if [ "${#PUSH_HEADS[@]}" -eq 1 ] && [ "${PUSH_HEADS[0]}" = "$(git rev-parse HEAD)" ]; then
+	PUSH_IS_HEAD="yes"
+fi
 # touched <regex> - true when a changed path matches, or when we have no diff to
 # go on (no merge-base), so an unknown state stays conservative and runs the check.
 touched() {
@@ -166,8 +178,13 @@ elif [ -z "$SYNC_BASE" ]; then
 	echo "pre-push: diff-coverage gate skipped (no merge-base with origin/${DEFAULT_BRANCH})" >&2
 elif ! command -v python3 >/dev/null 2>&1; then
 	echo "pre-push: diff-coverage gate skipped (python3 not found)" >&2
+elif [ "$PUSH_IS_HEAD" != "yes" ]; then
+	echo "pre-push: diff-coverage gate skipped (pushing a ref that is not HEAD)." >&2
+	echo "  Coverage here is measured from the working tree and mapped onto base...HEAD," >&2
+	echo "  so for another ref it would report a confident number about code that was" >&2
+	echo "  never checked out. CI enforces the same gate against the real ref." >&2
 else
-	CHANGED_FILES="$(git diff --name-only "$SYNC_BASE" HEAD)"
+	CHANGED_FILES="$CHANGED"
 	COV_DIR="$(mktemp -d)"
 	trap 'rm -rf "$COV_DIR"' EXIT
 	DC_ARGS=()
