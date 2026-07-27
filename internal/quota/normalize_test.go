@@ -216,3 +216,89 @@ func TestAssess_KimiCode_EpochStringResetTime(t *testing.T) {
 		t.Errorf("got Exhausted=%v ResetsAt=%d, want true/%d", got.Exhausted, got.ResetsAt.Unix(), reset)
 	}
 }
+
+func TestAssess_MiniMax_EarliestAcrossModelsAndWindows(t *testing.T) {
+	soon := time.Now().Add(45 * time.Minute).UnixMilli()
+	later := time.Now().Add(30 * time.Hour).UnixMilli()
+	payload, err := json.Marshal(map[string]any{
+		"model_remains": []map[string]any{
+			{
+				"model_name":                   "abab7",
+				"end_time":                     later,
+				"current_interval_total_count": 100,
+				"current_interval_usage_count": 100,
+				"weekly_end_time":              later,
+				"current_weekly_total_count":   1000,
+				"current_weekly_usage_count":   10,
+			},
+			{
+				"model_name":                   "abab6",
+				"end_time":                     soon,
+				"current_interval_total_count": 100,
+				"current_interval_usage_count": 100,
+				"weekly_end_time":              later,
+				"current_weekly_total_count":   1000,
+				"current_weekly_usage_count":   20,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("minimax", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want both true", got.OK, got.Exhausted)
+	}
+	if got.ResetsAt.UnixMilli() != soon {
+		t.Errorf("got ResetsAt=%d, want earliest exhausted window %d", got.ResetsAt.UnixMilli(), soon)
+	}
+}
+
+func TestAssess_MiniMax_AllModelsHealthy(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"model_remains": []map[string]any{{
+			"model_name":                   "abab6",
+			"end_time":                     time.Now().Add(time.Hour).UnixMilli(),
+			"current_interval_total_count": 100,
+			"current_interval_usage_count": 3,
+			"weekly_end_time":              time.Now().Add(50 * time.Hour).UnixMilli(),
+			"current_weekly_total_count":   1000,
+			"current_weekly_usage_count":   40,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("minimax", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("no window is spent; must not be exhausted")
+	}
+}
+
+func TestAssess_MiniMax_ZeroTotalIsNotExhausted(t *testing.T) {
+	// A zero total means "no limit reported", not "limit fully consumed".
+	payload, err := json.Marshal(map[string]any{
+		"model_remains": []map[string]any{{
+			"model_name":                   "abab6",
+			"end_time":                     time.Now().Add(time.Hour).UnixMilli(),
+			"current_interval_total_count": 0,
+			"current_interval_usage_count": 0,
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("minimax", Snapshot{Kind: "usage", Payload: payload})
+
+	if got.Exhausted {
+		t.Error("total_count=0 must not be read as exhausted")
+	}
+}

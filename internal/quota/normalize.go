@@ -87,6 +87,8 @@ func Assess(providerType string, s Snapshot) Assessment {
 		return assessZaiCoding(s.Payload)
 	case "kimi-code":
 		return assessKimiCode(s.Payload)
+	case "minimax":
+		return assessMiniMax(s.Payload)
 	default:
 		return Assessment{}
 	}
@@ -133,4 +135,31 @@ func assessKimiCode(payload json.RawMessage) Assessment {
 		}
 	}
 	return e.result(time.Now())
+}
+
+func assessMiniMax(payload json.RawMessage) Assessment {
+	var res provider.MiniMaxQuotaResponse
+	if err := json.Unmarshal(payload, &res); err != nil {
+		return Assessment{}
+	}
+	var e earliestReset
+	// MiniMax reports per model while the breaker is per provider. Collect the
+	// earliest reset among every spent window across every model: that is the
+	// soonest moment anything on this provider could work again.
+	for _, m := range res.ModelRemains {
+		addMiniMaxWindow(&e, m.CurrentIntervalTotalCount, m.CurrentIntervalUsageCount, m.EndTime)
+		addMiniMaxWindow(&e, m.CurrentWeeklyTotalCount, m.CurrentWeeklyUsageCount, m.WeeklyEndTime)
+	}
+	return e.result(time.Now())
+}
+
+// addMiniMaxWindow records one window if it is spent. A zero total means the
+// provider reported no limit for that window, not a fully consumed one.
+func addMiniMaxWindow(e *earliestReset, total, used, endTime int64) {
+	if total <= 0 || used < total {
+		return
+	}
+	if t, ok := epochToTime(endTime); ok {
+		e.add(t)
+	}
 }
