@@ -274,7 +274,11 @@ func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state
 		"quota_pinned":      pinned,
 	}
 	if pinned {
-		meta["resets_at"] = c.openedAt.Add(c.cooldownOverride).Format(time.RFC3339)
+		// next_retry_at, not "resets_at": this is openedAt plus the ceiling-clamped
+		// and jittered pin, i.e. exactly the instant the status API publishes under
+		// that name — not the provider's quota reset, which on a weekly plan lies
+		// days beyond a 24h-capped pin.
+		meta["next_retry_at"] = c.openedAt.Add(c.cooldownOverride).Format(time.RFC3339)
 	}
 	events.Publish(events.Event{
 		Type:     "circuit_breaker." + state,

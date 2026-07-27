@@ -1325,9 +1325,15 @@ func TestOpenTransitionLogsTheGoverningCooldown(t *testing.T) {
 }
 
 // TestPublishEvent_CarriesQuotaPinMetadata verifies that when a circuit opens
-// with an active quota pin (cooldownOverride > 0), the published event's
-// Metadata carries quota_pinned=true and an RFC3339 resets_at derived from
-// openedAt + cooldownOverride.
+// with an active quota pin, the published event's Metadata carries
+// quota_pinned=true and next_retry_at.
+//
+// The field is next_retry_at, not resets_at, and the assertion is that it equals
+// the status API's NextRetryAt for the same circuit — because that is what it is.
+// It carries openedAt plus the ceiling-clamped, jittered cooldown, so on a weekly
+// plan pinned at the 24h ceiling it says "tomorrow" while the quota resets in
+// five days. Calling one instant by two names across two surfaces of one feature
+// is how a consumer ends up reporting a reset deadline that is not one.
 func TestPublishEvent_CarriesQuotaPinMetadata(t *testing.T) {
 	sub := events.Subscribe()
 	defer events.Unsubscribe(sub)
@@ -1345,20 +1351,26 @@ func TestPublishEvent_CarriesQuotaPinMetadata(t *testing.T) {
 	if !pinned {
 		t.Fatalf("pinned circuit must publish quota_pinned=true, got metadata %#v", ev.Metadata)
 	}
-	resetsAt, ok := ev.Metadata["resets_at"].(string)
-	if !ok {
-		t.Fatalf("pinned circuit must publish resets_at as a string, got metadata %#v", ev.Metadata)
+	if v, ok := ev.Metadata["resets_at"]; ok {
+		t.Fatalf("resets_at named the retry time, not the quota reset, and is gone; got %#v", v)
 	}
-	if _, err := time.Parse(time.RFC3339, resetsAt); err != nil {
-		t.Fatalf("resets_at %q is not RFC3339: %v", resetsAt, err)
+	nextRetryAt, ok := ev.Metadata["next_retry_at"].(string)
+	if !ok {
+		t.Fatalf("pinned circuit must publish next_retry_at as a string, got metadata %#v", ev.Metadata)
+	}
+	if _, err := time.Parse(time.RFC3339, nextRetryAt); err != nil {
+		t.Fatalf("next_retry_at %q is not RFC3339: %v", nextRetryAt, err)
+	}
+	if want := cb.Status()[0].NextRetryAt; nextRetryAt != want {
+		t.Errorf("event next_retry_at=%q, want the same instant the status API publishes under that name (%q)", nextRetryAt, want)
 	}
 }
 
-// TestPublishEvent_UnpinnedOmitsResetsAt verifies that when a circuit opens
+// TestPublishEvent_UnpinnedOmitsNextRetryAt verifies that when a circuit opens
 // with no quota pin in effect (no advisor installed, so cooldownOverride
 // stays zero), the published event reports quota_pinned=false and omits
-// resets_at entirely rather than emitting an empty or zero-valued string.
-func TestPublishEvent_UnpinnedOmitsResetsAt(t *testing.T) {
+// next_retry_at entirely rather than emitting an empty or zero-valued string.
+func TestPublishEvent_UnpinnedOmitsNextRetryAt(t *testing.T) {
 	sub := events.Subscribe()
 	defer events.Unsubscribe(sub)
 
@@ -1373,7 +1385,10 @@ func TestPublishEvent_UnpinnedOmitsResetsAt(t *testing.T) {
 	if pinned {
 		t.Fatalf("unpinned circuit must publish quota_pinned=false, got metadata %#v", ev.Metadata)
 	}
+	if v, ok := ev.Metadata["next_retry_at"]; ok {
+		t.Fatalf("unpinned circuit must omit next_retry_at entirely, got %#v", v)
+	}
 	if v, ok := ev.Metadata["resets_at"]; ok {
-		t.Fatalf("unpinned circuit must omit resets_at entirely, got %#v", v)
+		t.Fatalf("the old resets_at name must not linger alongside it, got %#v", v)
 	}
 }
