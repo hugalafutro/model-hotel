@@ -686,6 +686,60 @@ describe("Layout", () => {
 				expect(tooltip).not.toContain("Healthy Provider");
 			});
 		});
+
+		it("lists quota-pinned providers on their own tooltip line", async () => {
+			server.use(
+				http.get("/api/failover-groups/circuit-breaker-status", () =>
+					HttpResponse.json({
+						closed: 0,
+						half_open: 0,
+						open: 2,
+						providers: [
+							{
+								provider_id: "p-1",
+								provider_name: "Down Provider",
+								state: "open",
+								consecutive_fails: 5,
+							},
+							{
+								provider_id: "p-2",
+								provider_name: "Quota Provider",
+								state: "open",
+								consecutive_fails: 5,
+								quota_pinned: true,
+							},
+						],
+					}),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await waitFor(() => {
+				const badge = screen
+					.getByText("Failover")
+					.closest("a")
+					?.querySelector("[title]");
+				const tooltip = badge?.getAttribute("title");
+				expect(tooltip).toContain("Quota Provider");
+			});
+
+			const tooltip = screen
+				.getByText("Failover")
+				.closest("a")
+				?.querySelector("[title]")
+				?.getAttribute("title");
+			// Explanation line, ordinary-cooldown line, quota-pinned line. The two
+			// provider lines must be distinct so a week-long pin is not read as a
+			// sixty-second cooldown.
+			const lines = tooltip?.split("\n") ?? [];
+			expect(lines).toHaveLength(3);
+			const pinnedLine = lines.find((l) => l.includes("Quota Provider"));
+			const ordinaryLine = lines.find((l) => l.includes("Down Provider"));
+			expect(pinnedLine).toBeDefined();
+			expect(ordinaryLine).toBeDefined();
+			expect(pinnedLine).not.toContain("Down Provider");
+			expect(ordinaryLine).not.toContain("Quota Provider");
+		});
 	});
 
 	describe("Discovery Changes Badge", () => {

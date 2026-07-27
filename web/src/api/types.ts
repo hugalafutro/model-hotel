@@ -454,6 +454,11 @@ export interface CircuitBreakerProviderStatus {
 	opened_at?: string;
 	cooldown_ms?: number;
 	next_retry_at?: string;
+	// True when the cooldown currently governing this circuit was pinned to the
+	// provider's quota reset deadline rather than the ordinary retry backoff. It
+	// describes the override in force, not a claim that traffic is blocked right
+	// now; when set, next_retry_at is that reset deadline.
+	quota_pinned?: boolean;
 }
 
 export interface DeletedGroupInfo {

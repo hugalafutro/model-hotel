@@ -1022,15 +1022,41 @@ export function Layout({ children }: LayoutProps) {
 														);
 														if (!unhealthy || unhealthy.length === 0)
 															return explain;
-														return `${explain}\n${t(
-															"layout.nav.failoverBadgeTooltip",
-															{
-																count: unhealthy.length,
-																providers: unhealthy
-																	.map((p) => p.provider_name || p.provider_id)
-																	.join(", "),
-															},
-														)}`;
+
+														// Quota-pinned circuits wait until the provider's
+														// quota window resets, which can be days. Listing
+														// them beside ordinary sixty-second cooldowns
+														// reads as "back shortly", so they get their own
+														// line.
+														const names = (list: typeof unhealthy) =>
+															list
+																.map((p) => p.provider_name || p.provider_id)
+																.join(", ");
+														const pinned = unhealthy.filter(
+															(p) => p.quota_pinned,
+														);
+														const ordinary = unhealthy.filter(
+															(p) => !p.quota_pinned,
+														);
+
+														const lines = [explain];
+														if (ordinary.length > 0) {
+															lines.push(
+																t("layout.nav.failoverBadgeTooltip", {
+																	count: ordinary.length,
+																	providers: names(ordinary),
+																}),
+															);
+														}
+														if (pinned.length > 0) {
+															lines.push(
+																t("layout.nav.failoverBadgeQuotaTooltip", {
+																	count: pinned.length,
+																	providers: names(pinned),
+																}),
+															);
+														}
+														return lines.join("\n");
 													})()}
 												>
 													<span className="text-amber-400 badge-text">
