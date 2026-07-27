@@ -124,10 +124,10 @@
 			"db": "DB",
 			"procs_one": "proc",
 			"procs_other": "procs",
-			"aggregateCpu": "Saml CPU på tværs af {{count}} komponere containere",
-			"aggregateNetwork": "Saml netværk på tværs af {{count}} komponere containere",
-			"aggregateDisk": "Saml disk I/O på tværs af {{count}} sammensætte beholdere",
-			"aggregateMemory": "Saml hukommelse på tværs af {{count}} komponere containere",
+			"aggregateCpu": "Samlet CPU på tværs af {{count}} Compose-containere",
+			"aggregateNetwork": "Samlet netværk på tværs af {{count}} Compose-containere",
+			"aggregateDisk": "Samlet disk-I/O på tværs af {{count}} Compose-containere",
+			"aggregateMemory": "Samlet hukommelse på tværs af {{count}} Compose-containere",
 			"heap": "heap",
 			"hit": "Hit",
 			"conn": "forb.",
@@ -207,7 +207,7 @@
 			"haKind": "HA",
 			"ssoKind": "SSO",
 			"clearAll": "Ryd alt",
-			"copyError": "Kopieringsfejl",
+			"copyError": "Kopiér fejl",
 			"requestKind": "Req",
 			"title": "Fejl",
 			"viewDetails": "Se detaljer",
@@ -315,7 +315,7 @@
 			"topModels": "Topmodeller",
 			"topProviders": "Topudbydere",
 			"topVirtualKeys": "Top virtuelle nøgler",
-			"emptyState": "Ingen brugsdata endnu. Brugsfejl vises her, når trafikken strømmer.",
+			"emptyState": "Ingen brugsdata endnu. Brugsoversigten vises her, når trafikken strømmer.",
 			"viewDetailsFor": "Se detaljer for {{label}}",
 			"deletedModelTooltip": "Modellen er ikke længere tilgængelig - den er muligvis blevet slettet, eller leverandøren er blevet fjernet",
 			"reservedKeyTooltip": "Internt reserveret navn, ikke en nøgle, du har oprettet – denne anvendelse stammer fra Model Hotels egne \"{{name}}\"-ruter"
@@ -333,7 +333,7 @@
 			"overhead": "Overhead",
 			"emptyState": "Ingen latens-data endnu. Leverandør latens-tid vises her, når trafikken strømmer.",
 			"responseTooltip": "Gns svartid: {{value}} ({{count}} anmodninger)",
-			"overheadTooltip": "Gns proxy over hovedet: {{value}} ({{count}} anmodninger)",
+			"overheadTooltip": "Gns. proxy-overhead: {{value}} ({{count}} anmodninger)",
 			"requestCount": "{{count}} anmodninger",
 			"responseHeaderTooltip": "Gennemsnitlig samlet svartid, inklusive gatewayens egen overhead.",
 			"overheadHeaderTooltip": "Gennemsnitlig tid, som gatewayen selv tilføjer (routing, godkendelse, måling), eksklusive udbyderens egen svartid."
@@ -357,21 +357,21 @@
 			"emptyState": "Ingen modeldata endnu. Modelopdeling vil blive vist her, når trafikken strømmer."
 		},
 		"virtualKeys": {
-			"emptyState": "Ingen virtuelle nøgledata endnu. Virtuel nøgleopdeling vil blive vist her, når trafikstrømmene."
+			"emptyState": "Ingen virtuelle nøgledata endnu. Virtuel nøgleopdeling vises her, når trafikken strømmer."
 		},
 		"tokens": {
 			"tokenMix": "Tokenfordeling",
 			"noTokenData": "Ingen token data endnu. Token mix vises her, når trafikken strømmer.",
 			"tokens": "Tokens",
 			"prompt": "Prompt",
-			"completion": "Afslutning",
+			"completion": "Fuldførelse",
 			"cacheHit": "Cache hit",
 			"promptTooltip": "Prompt: {{pct}}% ({{count}} tokens)",
 			"completionTooltip": "Færdiggørelse: {{pct}}% ({{count}} tokens)",
 			"cacheHitTooltip": "Cache hit: {{pct}}% ({{count}} tokens)",
 			"mixAriaLabel": "Token blanding: {{promptPct}}% prompt, {{completionPct}}% fuldførelse",
 			"promptTileTitle": "Prompt",
-			"completionTileTitle": "Afslutning"
+			"completionTileTitle": "Fuldførelse"
 		},
 		"modal": {
 			"avgOverhead": "Gns. Overhead",
@@ -420,7 +420,7 @@
 		},
 		"controls": {
 			"_": "Kontrol",
-			"resetAll": "Nulstil alle (klar model og indstillinger)",
+			"resetAll": "Nulstil alle (ryd model og indstillinger)",
 			"modelA": "Model A",
 			"modelB": "Model B",
 			"personaA": "Persona A",
@@ -438,7 +438,7 @@
 		"aiConversation": "AI Samtale",
 		"stop": "Stop",
 		"clearMessages": "Ryd beskeder (behold model og indstillinger)",
-		"resetAll": "Nulstil alle (klar model og indstillinger)",
+		"resetAll": "Nulstil alle (ryd model og indstillinger)",
 		"toast": {
 			"chatCleared": "Chat ryddet",
 			"conversationCleared": "Samtale ryddet"
@@ -449,7 +449,7 @@
 		"modelB": "Model B",
 		"personaA": "Persona A",
 		"personaB": "Persona B",
-		"turn": "Drej",
+		"turn": "Tur",
 		"totalDuration": "Varighed",
 		"totalTokens": "tokens",
 		"modelGenerating": "Modellen genererer…",
@@ -526,12 +526,12 @@
 			"descriptionConversation": "Se to modeller i samspil med hinanden",
 			"selectModelToStart": "Vælg en model for at begynde at chatte",
 			"keyboardHint": "Tryk på Enter for at sende, Shift+Enter for newline",
-			"turnCount": "Drej {{current}} / {{max}}",
+			"turnCount": "Tur {{current}} / {{max}}",
 			"tokens": "tokens",
 			"modelGenerating": "Modellen genererer…",
 			"waitingNextTurn": "Venter på næste tur…",
 			"generationFailed": "{{model}}: Generation mislykkedes - brug Prøv igen i konfiguration ovenover, eller Ryd/Nulstil nedenfor",
-			"generationFailedNoModel": "Generation mislykkedes - brug Prøv igen i konfig ovenfor, eller Klar/Nulstil nedenfor",
+			"generationFailedNoModel": "Generering mislykkedes - brug Prøv igen i konfigurationen ovenfor, eller Ryd/Nulstil nedenfor",
 			"resetChatTitle": "Nulstil Chat",
 			"resetConversationTitle": "Nulstil Samtale",
 			"resetChatMessage": "Dette vil rydde alle beskeder, nulstille model valg, persona og parametre. Fortsæt?",
@@ -545,7 +545,7 @@
 			"compare": "Sammenlign"
 		},
 		"description": {
-			"arena": "Beslag turnering - modeller konkurrerer head-to-head",
+			"arena": "Turneringsstige - modeller konkurrerer head-to-head",
 			"compare": "Side-by-side - sammenligne model udgange på samme prompt"
 		},
 		"controls": {
@@ -556,8 +556,8 @@
 			"compare": "Sammenlign"
 		},
 		"modeDescription": {
-			"arena": "Modeller konkurrerer i en enkelt eliminationsparentes. Vælg 2, 4 eller 8 modeller - hver runde, par står over for samme prompt og du stemmer for den bedre svar. Vinderne rykker frem, indtil en model er tilbage.",
-			"compare": "Vælg modeller og køre den samme prompt gennem dem samtidigt. Ingen afstemning, ingen beslag - bare ren side-by-side output sammenligning for at vurdere, hvilken model der passer bedst til dine behov."
+			"arena": "Modeller konkurrerer i en enkeltelimineringsstige. Vælg 2, 4 eller 8 modeller - i hver runde får parrene den samme prompt, og du stemmer på det bedste svar. Vinderne går videre, indtil én model er tilbage.",
+			"compare": "Vælg modeller, og kør den samme prompt gennem dem samtidigt. Ingen afstemning, ingen turneringsstige - bare ren side-by-side-sammenligning af output for at vurdere, hvilken model der passer bedst til dine behov."
 		},
 		"matchHistory": {
 			"title": "Match historik"
@@ -574,7 +574,7 @@
 		},
 		"models": {
 			"bracketCount": "Modeller ({{count}}/8)",
-			"bracketHint": "Vælg 2, 4 eller 8 for en parentes",
+			"bracketHint": "Vælg 2, 4 eller 8 til en turneringsstige",
 			"compareCount": "Modeller ({{count}}/6)"
 		},
 		"persona": {
@@ -587,9 +587,9 @@
 			"firstRound": "Første Runde",
 			"generation": "Generation",
 			"match": "Match",
-			"final": "Afsluttende",
+			"final": "Finale",
 			"semifinals": "Halvfinaler",
-			"quarterfinals": "Kvarterfinaler",
+			"quarterfinals": "Kvartfinaler",
 			"numbered": "Runde {{num}}"
 		},
 		"vs": "VS",
@@ -654,9 +654,9 @@
 			"maxTokens": "Maks. Tokens",
 			"topP": "Top P",
 			"minP": "Min. P",
-			"topK": "Øverste K",
-			"freqPenalty": "Freq Sanktion",
-			"presPenalty": "Formand For Straffe",
+			"topK": "Top K",
+			"freqPenalty": "Freq. straf",
+			"presPenalty": "Pres. straf",
 			"resetAll": "Nulstil alle",
 			"done": "Udført"
 		},
@@ -678,7 +678,7 @@
 		"close": "Luk",
 		"custom": "Tilpasset",
 		"done": "Udført",
-		"reasoningEffort": "Begrundelse For Indsats"
+		"reasoningEffort": "Ræsonneringsindsats"
 	},
 	"providers": {
 		"page_title_one": "Udbyder",
@@ -703,7 +703,7 @@
 		"toast_delete_failed": "Mislykkedes at slette: {{message}}",
 		"toast_add_failed": "Kunne ikke tilføje udbyder: {{message}}",
 		"toast_update_failed": "Mislykkedes at opdatere: {{message}}",
-		"toast_refresh_warning": "Refreshed {{refreshed}} quotas ({{failed}} mislykkedes, {{skipped}} uunderstøttet)",
+		"toast_refresh_warning": "Opdaterede {{refreshed}} kvoter ({{failed}} mislykkedes, {{skipped}} ikke understøttet)",
 		"toast_refresh_none": "Ingen udbydere med kvote/saldounderstøttelse fundet",
 		"toast_refresh_failed": "Opdatering af kvoter mislykkedes: {{message}}",
 		"toast_quota_detected_nanogpt": "NanoGPT kvote fundet",
@@ -760,7 +760,7 @@
 		"edit_enabled_label": "Aktiveret",
 		"edit_enabled_hint": "Kontrollerer proxy-routing og API-adgang. Deaktiverede udbydere afviser alle anmodninger.",
 		"edit_autodiscovery_label": "Autoopdagelse",
-		"edit_autodiscovery_hint": "Styrer automatisk modelopdagelse. Deaktivér manuelt kuratere denne udbyders modelkatalog.",
+		"edit_autodiscovery_hint": "Styrer automatisk modelopdagelse. Slå fra for manuelt at kuratere denne udbyders modelkatalog.",
 		"edit_api_key_current": "Nuværende: {{key}}",
 		"edit_api_key_placeholder": "Lad feltet stå tomt for at beholde den aktuelle nøgle",
 		"dialog_unsaved_title": "Ikke-Gemte Ændringer",
@@ -787,7 +787,7 @@
 		"add": {
 			"providerFallback": "Udbyder",
 			"discoveredModels_one": "Opdaget {{count}} model…",
-			"discoveredModels_other": "Opdagede {{count}} model…",
+			"discoveredModels_other": "Opdagede {{count}} modeller…",
 			"deepseekBalance": "DeepSeek saldo: ${{balance}}",
 			"deepseekBalanceDetected": "DeepSeek saldo fundet",
 			"openrouterBalance": "OpenRouter saldo fundet: ${{balance}}",
@@ -799,8 +799,8 @@
 		"edit": {
 			"enabledToggle": "Udbyder aktiveret",
 			"enabledHelper": "Kontrollerer proxy-routing og API-adgang. Deaktiverede udbydere afviser alle anmodninger.",
-			"autodiscoveryToggle": "Leverandør autodiscovery",
-			"autodiscoveryHelper": "Styrer automatisk modelopdagelse. Deaktivér manuelt kuratere denne udbyders modelkatalog."
+			"autodiscoveryToggle": "Udbyder-autoopdagelse",
+			"autodiscoveryHelper": "Styrer automatisk modelopdagelse. Slå fra for manuelt at kuratere denne udbyders modelkatalog."
 		},
 		"quotas": {
 			"expand": "Udvid kvoter"
@@ -811,7 +811,7 @@
 			"showRemaining": "Vis resterende kreditter"
 		},
 		"toast": {
-			"refreshedQuotas": "Refreshed {{refreshed}} quotas ({{failed}} mislykkedes, {{skipped}} uunderstøttet)"
+			"refreshedQuotas": "Opdaterede {{refreshed}} kvoter ({{failed}} mislykkedes, {{skipped}} ikke understøttet)"
 		},
 		"discoverySummary": {
 			"title": "Oversigt over opdagelse",
@@ -836,8 +836,8 @@
 			"failover": "Failover-grupper",
 			"field": {
 				"context_length": "Kontekstlængde",
-				"input_price": "Indtast pris",
-				"input_price_cache": "Cachelagret indgangspris",
+				"input_price": "Inputpris",
+				"input_price_cache": "Cachelagret inputpris",
 				"output_price": "Output-pris"
 			},
 			"unset": "—",
@@ -905,7 +905,7 @@
 			"modality": {
 				"text": "tekst"
 			},
-			"capabilities": "Kapaciteter",
+			"capabilities": "Funktioner",
 			"subscription": "Abonnement",
 			"snippetFormatPicker": "Snippet format vælger",
 			"test": "Test",
@@ -925,7 +925,7 @@
 		"table": {
 			"sortByModelName": "Sorter efter modelnavn",
 			"model": "Model",
-			"capabilities": "Kapaciteter",
+			"capabilities": "Funktioner",
 			"sortByProviderName": "Sorter efter udbydernavn",
 			"provider": "Udbyder",
 			"sortByDiscoveredDate": "Sorter efter opdaget dato",
@@ -966,7 +966,7 @@
 		"hint_drag": "Træk modeller ved håndtaget for at omarrangere prioritet",
 		"filter_hotel_model": "Filtrer hotel/model…",
 		"filter_providers": "Alle ({{count}}) udbydere",
-		"filter_states": "Alle ({{count}}) stater",
+		"filter_states": "Alle ({{count}}) tilstande",
 		"filter_origins": "Alle ({{count}}) oprindelser",
 		"filter_state_enabled": "Aktiveret",
 		"filter_state_disabled": "Deaktiveret",
@@ -985,7 +985,7 @@
 		"empty_no_match": "Ingen grupper, der matcher filtre",
 		"empty_create_group": "Opret Ny Gruppe",
 		"empty_clear_filters": "Ryd filtre",
-		"empty_no_groups": "Ingen mislykkede grupper konfigureret",
+		"empty_no_groups": "Ingen failover-grupper konfigureret",
 		"empty_auto_discover": "Find automatisk fra modeller",
 		"section_custom": "Tilpasset",
 		"section_letter": "{{letter}}",
@@ -993,16 +993,16 @@
 		"nav_letter": "Hop til sektion {{letter}}",
 		"toast_bulk_toggle_failed": "Masseskift mislykkedes for nogle grupper",
 		"toast_provider_toggle_failed": "Masse udbyder skifte mislykkedes for nogle grupper",
-		"toast_sync_deleted": "Hotel/{{model}} slettet: {{reason}}{{providers}}",
-		"toast_sync_success": "Mislykket grupper synkroniseret",
+		"toast_sync_deleted": "hotel/{{model}} slettet: {{reason}}{{providers}}",
+		"toast_sync_success": "Failover-grupper synkroniseret",
 		"toast_sync_failed": "Synkronisering mislykkedes: {{message}}",
 		"toast_update_failed": "Mislykkedes at opdatere: {{message}}",
-		"toast_create_collision": "En mislykket gruppe for '{{model}}' eksisterer allerede - det var auto-oprettet fra delte modeller. Rediger den eksisterende gruppe i stedet.",
+		"toast_create_collision": "En failover-gruppe for '{{model}}' findes allerede - den blev auto-oprettet ud fra delte modeller. Rediger den eksisterende gruppe i stedet.",
 		"toast_create_collision_this_model": "denne model",
-		"toast_update_collision": "En mislykket gruppe med dette navn findes allerede - vælg et andet navn.",
+		"toast_update_collision": "En failover-gruppe med dette navn findes allerede - vælg et andet navn.",
 		"toast_create_failed": "Kunne ikke oprette gruppe: {{message}}",
 		"toast_update_group_failed": "Kunne ikke opdatere gruppe: {{message}}",
-		"toast_created": "Mislykket gruppe oprettet",
+		"toast_created": "Failover-gruppe oprettet",
 		"toast_updated": "Failover gruppe opdateret",
 		"toast_delete_success": "Gruppe slettet",
 		"toast_delete_failed": "Mislykkedes at slette: {{message}}",
@@ -1013,8 +1013,8 @@
 		"badge_enabled_other": "{{count}} aktiveret",
 		"badge_disabled_one": "{{count}} deaktiveret",
 		"badge_disabled_other": "{{count}} deaktiveret",
-		"delete_confirm_type": "mislykket gruppe",
-		"delete_confirm_type_plural": "mislykket gruppe",
+		"delete_confirm_type": "failover-gruppe",
+		"delete_confirm_type_plural": "failover-grupper",
 		"auto_created": "auto",
 		"on": "TIL",
 		"off": "FRA",
@@ -1037,10 +1037,10 @@
 		"btn_manage_providers": "Administrer Udbydere",
 		"provider_modal_title": "Administrer Udbyderstatus",
 		"provider_modal_description": "Deaktivering af en udbyder vil deaktivere alle sine modeller i hver failover gruppe",
-		"toast_provider_toggle_no_groups": "Ingen mislykkede grupper bruger udbyder {{provider}}",
+		"toast_provider_toggle_no_groups": "Ingen failover-grupper bruger udbyder {{provider}}",
 		"last_sync_label": "Seneste synkronisering:",
 		"toast_entry_min_two": "Mindst 2 medlemmer skal forblive aktive.",
-		"toast_sync_purged_one": "hotel/{{group}}: fjernede {{count}} forældet indgang",
+		"toast_sync_purged_one": "hotel/{{group}}: fjernede {{count}} forældet post",
 		"toast_sync_purged_other": "hotel/{{group}}: fjernede {{count}} forældede indgange",
 		"toast_sync_disabled_one": "hotel/{{group}} deaktiveret: {{count}} rutebart medlem tilbage",
 		"toast_sync_disabled_other": "hotel/{{group}} deaktiveret: {{count}} rutebare medlemmer tilbage"
@@ -1053,7 +1053,7 @@
 			"singular": "Virtuel Nøgle",
 			"plural": "Virtuelle Nøgler"
 		},
-		"description": "Problemnøgler for klienter at få adgang til proxy på",
+		"description": "Udsted nøgler, så klienter kan tilgå proxyen på",
 		"createButton": "Opret Nøgle",
 		"deleted": "Virtuel nøgle slettet",
 		"deleteFailed": "Mislykkedes at slette: {{message}}",
@@ -1061,7 +1061,7 @@
 			"name": "Navn",
 			"key": "Nøgle",
 			"rps": "RPS",
-			"burst": "Brænde",
+			"burst": "Burst",
 			"created": "Oprettet",
 			"tokens": "Tokens",
 			"lastUsed": "Sidst Brugt",
@@ -1072,14 +1072,14 @@
 			"proxyUrl": "Klik for at kopiere proxy- URL",
 			"name": "Vis navn for den virtuelle nøgle",
 			"key": "Forhåndsvisning af API-nøglen (fuld nøgle vises kun én gang ved oprettelse)",
-			"rps": "Anmodninger pr. grænse for anden sats",
+			"rps": "Hastighedsgrænse i anmodninger pr. sekund",
 			"burst": "Burst kapacitet til hastighedsbegrænsning",
 			"created": "Når nøglen blev oprettet",
 			"tokens": "Totale tokens, der forbruges ved brug af denne nøgle",
 			"lastUsed": "Når nøglen sidst blev brugt til en forespørgsel",
 			"providerRestricted": "Provider-begrænset nøgle",
 			"reasoningStripped": "Reasoning strippet",
-			"keyHashed": "Nøglen hashes og kan ikke inddrives",
+			"keyHashed": "Nøglen er hashet og kan ikke gendannes",
 			"tpm": "Begrænsning på tokens pr. minut; anmodninger afvises med 429, når minutsbudgettet er opbrugt",
 			"id": "Klik for at kopiere nøgle-ID",
 			"owner": "Ejet af {{name}}"
@@ -1112,10 +1112,10 @@
 				"providerInstructions": "Klik på en udbyder for at begrænse adgang. Alle er tilgængelige som standard.",
 				"noProviders": "Ingen tilgængelige udbydere.",
 				"restoreAccess": "Gendan adgang til alle udbydere",
-				"stripReasoning": "Fjern Begrundelse",
+				"stripReasoning": "Fjern ræsonnement",
 				"stripReasoningDescription": "Når aktiveret, ræsonnement/tænkning tokens fjernes fra streaming svar for kunder, der ikke kan håndtere dem.",
-				"enableStripReasoning": "Aktiver strip ræsonnement",
-				"disableStripReasoning": "Deaktiver strimmel ræsonnement",
+				"enableStripReasoning": "Aktiver fjernelse af ræsonnement",
+				"disableStripReasoning": "Deaktiver fjernelse af ræsonnement",
 				"rateLimitBurst": "Burst (maks. samtidige)",
 				"rateLimitRps": "RPS (anmodninger/sek.)",
 				"rateLimitTpm": "TPM (tokens/min)",
@@ -1126,14 +1126,14 @@
 			"detailTitle": "Virtuel Nøgle Detaljer",
 			"sections": {
 				"identity": "Identitet",
-				"rateLimits": "Grænseværdier For Sats",
+				"rateLimits": "Hastighedsgrænser",
 				"usage": "Brug",
 				"providerAccess": "Udbyder Adgang",
-				"stripReasoning": "Fjern Begrundelse"
+				"stripReasoning": "Fjern ræsonnement"
 			},
 			"labels": {
 				"key": "Nøgle",
-				"tokensConsumed": "Tokens Indtaget",
+				"tokensConsumed": "Tokens forbrugt",
 				"lastUsed": "Sidst Brugt",
 				"created": "Oprettet",
 				"id": "ID",
@@ -1210,18 +1210,18 @@
 			"providerDeleted": "Udbyderen blev slettet",
 			"deletedProvider": "Slettet",
 			"resolving": "Løser…",
-			"live": "Levende",
+			"live": "Live",
 			"interrupted": "Afbrudt",
-			"cacheInflated": "Infleret af prompt cache hits",
+			"cacheInflated": "Oppustet af prompt-cache-hits",
 			"keyDeleted": "Slettet"
 		},
 		"tooltip": {
 			"timeDate": "Tidsstempel for anmodningen",
-			"hash": "Unik hash af det anmodende organ",
+			"hash": "Unik hash af anmodningens brødtekst",
 			"model": "Model ID anvendt til anmodningen",
 			"provider": "Udbyder, der håndterer anmodningen",
 			"status": "HTTP status kode for svaret",
-			"tokens": "Spørg + fuldførelse tokens (hvis tilgængelig)",
+			"tokens": "Prompt- + completion-tokens (hvis tilgængelige)",
 			"tps": "Tokens genereret pr. sekund",
 			"headers": "Tid til svaroverskrifter",
 			"ttft": "Tid til første token",
@@ -1230,13 +1230,13 @@
 			"key": "Virtuel nøgle brugt til godkendelse",
 			"providerDeleted": "Udbyderen blev slettet",
 			"totalOverhead": "Samlet Overhead",
-			"requestParsing": "Anmod Om Fortolkning",
-			"failoverGroupLookup": "Kunne Ikke Opslag Af Gruppe",
+			"requestParsing": "Fortolkning af anmodning",
+			"failoverGroupLookup": "Opslag af failover-gruppe",
 			"modelLookup": "Model Opslag",
 			"providerLookup": "Udbyder Opslag",
 			"keyDecryption": "Dekryptering Af Nøgle",
 			"dial": "Ring Til (DNS+TCP)",
-			"settingsReads": "Opsætning Læser",
+			"settingsReads": "Læsning af indstillinger",
 			"reused": "genbrugt"
 		},
 		"status": {
@@ -1311,9 +1311,9 @@
 		"inDaysHours_other_days_one_hour": "på {{days}} dage, {{hours}} time",
 		"inDaysHours_other_days_other_hours": "på {{days}} dage, {{hours}} timer",
 		"inDays_only_one": "på {{days}} dag",
-		"inDays_only_other": "i {{days}} dage",
-		"inHours_only_one": "i {{hours}} time",
-		"inHours_only_other": "i {{hours}} timer",
+		"inDays_only_other": "om {{days}} dage",
+		"inHours_only_one": "om {{hours}} time",
+		"inHours_only_other": "om {{hours}} timer",
 		"now": "nu"
 	},
 	"presets": {
@@ -1448,12 +1448,12 @@
 		"proxy": {
 			"title": "Proxy",
 			"description": "Indstil proxy-anmodnings opførsel og timeouts.",
-			"requestTimeout": "Anmod Om Timeout",
+			"requestTimeout": "Timeout for anmodning",
 			"requestTimeout.description": "Maksimal tid for ikke-streaming anmodninger før timing ud. Streaming anmodninger automatisk få 10 × denne varighed til at rumme tænkning/ræsonnement modeller.",
 			"keyCacheTtl": "Nøgle Cache TTL",
 			"keyCacheTtl.description": "Hvor længe dekrypteret udbyder API nøgler er cached. Højere værdier reducere latency på den første anmodning efter cache udløb (Argon2id nøgle udledning er ~ 12ms).",
 			"ttftTimeout": "TTFT Timeout",
-			"ttftTimeout.description": "Maksimal tid til at vente på det første streaming token før det ikke lykkes over. 0 for at deaktivere (øjeblikkelig commit, ingen failover på langsom første token).",
+			"ttftTimeout.description": "Maksimal tid til at vente på det første streaming-token, før der failes over. 0 for at deaktivere (øjeblikkelig commit, ingen failover ved langsomt første token).",
 			"streamStallTimeout": "Stream Stall Timeout",
 			"streamStallTimeout.description": "Maksimal stilhed under streaming før forbindelsen klippes. 0 for at deaktivere. Efter 50 bidder forlænges timeout automatisk 3 × til at tolerere værktøjsopkald og lang ræsonnement.",
 			"timeout": {
@@ -1491,36 +1491,36 @@
 			"streamingGroup": "Streaming"
 		},
 		"rateLimit": {
-			"title": "Begrænsning Af Sats",
+			"title": "Hastighedsbegrænsning",
 			"description": "Kontrol anmodning gennemløb per virtuel nøgle for at forhindre misbrug og sikre fair brug.",
 			"enable": "Aktiver Rate Limiting",
-			"enableDescription": "Gas proxy anmodninger pr. virtuel nøgle",
+			"enableDescription": "Begræns proxy-anmodninger pr. virtuel nøgle",
 			"requestsPerSecond": "Anmodninger pr. sekund",
 			"requestsPerSecond.description": "Vedvarende anmodningsfrekvens tilladt pr. virtuel nøgle (0 = ubegrænset)",
-			"burstSize": "Brast Størrelse",
-			"burstSize.description": "Maksimalt antal samtidige forespørgsler før sparkering i",
-			"ipRateLimiting": "Ip Rate Grænse",
+			"burstSize": "Burst-størrelse",
+			"burstSize.description": "Maksimalt antal samtidige anmodninger, før begrænsningen træder i kraft",
+			"ipRateLimiting": "IP-hastighedsbegrænsning",
 			"ipRateLimitingDescription": "Per-IP rate limiter (DoS beskyttelse, kører før auth)",
 			"ipRequestsPerSecond": "IP-anmodninger pr. sekund",
 			"ipRequestsPerSecond.description": "Vedvarende anmodningsrate pr. IP-adresse (0 = ubegrænset)",
 			"ipBurstSize": "Ip Burst Størrelse",
-			"ipBurstSize.description": "Maksimum samtidige forespørgsler pr. IP før sparkering i",
-			"backpressure": "Tilbagetryk For Sats",
+			"ipBurstSize.description": "Maksimalt antal samtidige anmodninger pr. IP, før begrænsningen træder i kraft",
+			"backpressure": "Modtryk for hastighedsgrænse",
 			"backpressureDescription": "Delt venteadfærd for både per-key og IP rate limiters",
 			"maxWait": "Maks. Vent (ms)",
-			"maxWait.description": "Maksimal tid til at vente, før en anmodning om hastighedsbegrænsning afvises. Hvis en token bliver tilgængelig inden for dette vindue, så fortsættes anmodningen. Ellers returneres 429.",
+			"maxWait.description": "Maksimal ventetid, før en hastighedsbegrænset anmodning afvises. Hvis en token bliver tilgængelig inden for dette vindue, fortsætter anmodningen. Ellers returneres 429.",
 			"perIpGroup": "Per-IP"
 		},
 		"circuitBreaker": {
 			"title": "Circuit Breaker & Failover",
 			"description": "Konfigurer hvordan proxy håndterer udbyderfejl og hastighedsbegrænsede anmodninger.",
-			"enable": "Aktivér Slutbryder",
+			"enable": "Aktivér Circuit Breaker",
 			"enableDescription": "Stop midlertidigt routing til udbydere, der svigter",
 			"failureThreshold": "Fejl Tærskel",
 			"failureThreshold.description": "Konsekutive fejl før kredsløbet åbner og stopper routing til udbyderen",
 			"cooldownPeriod": "Nedkølingsperiode",
 			"cooldownPeriod.description": "Tid til at vente, før du prøver en udbyder igen med et åbent kredsløb",
-			"failoverOnRateLimit": "Mislykket på satsgrænse",
+			"failoverOnRateLimit": "Failover ved hastighedsgrænse",
 			"failoverOnRateLimitDescription": "Rute til næste failover gruppemedlem, når en udbyder returnerer 429",
 			"hedging": "Afdæk langsomme streams",
 			"hedgingDescription": "Kør en backup-udbyder parallelt, når den første er langsom til at sende sit første token (kun streamende failover-grupper)",
@@ -1535,7 +1535,7 @@
 			"logRetention": "Log Tilbageholdelse",
 			"logRetention.description": "Slet automatisk logs ældre end denne periode. 0 for at deaktivere.",
 			"staleRequestTimeout": "Gammel Forespørgsel Timeout",
-			"staleRequestTimeout.description": "Marker pending/streaming anmodninger som \"afbrudt\", hvis de forbliver i gang længere end denne. 0 for at deaktivere. Konti for udbydere med lang tid til første token.",
+			"staleRequestTimeout.description": "Markér ventende/streamende anmodninger som \"afbrudt\", hvis de er i gang længere end dette. 0 for at deaktivere. Tager højde for udbydere med lang tid til første token.",
 			"deleteRequests": "Slet Forespørgsler",
 			"deleteRequests.tooltip": "Slet forespørgselslogs ældre end et valgt område",
 			"deleteRequests.selectRange": "Vælg område...",
@@ -1568,7 +1568,7 @@
 				"30m0s": "30 minutter (standard)",
 				"1h0m0s": "1 time",
 				"2h0m0s": "2 timer",
-				"disabled": "Deaktiveret (markér aldrig som stil)"
+				"disabled": "Deaktiveret (markér aldrig som forældet)"
 			}
 		},
 		"discovery": {
@@ -1578,7 +1578,7 @@
 			"discoveryInterval.description": "Hvor ofte til automatisk at genopdage modeller fra alle aktiverede udbydere. 0 for at deaktivere.",
 			"discoverOnStartup": "Opdag ved opstart",
 			"discoverOnStartupDescription": "Kør opdagelse for alle udbydere, når serveren starter",
-			"discoverOnProviderCreation": "Opdag på udbyder Creation",
+			"discoverOnProviderCreation": "Opdag ved oprettelse af udbyder",
 			"discoverOnProviderCreationDescription": "Find modeller automatisk, når en ny udbyder er tilføjet",
 			"discoverAll": "Opdag Alle Modeller",
 			"discoverAllComplete": "Discovery complete",
@@ -1606,14 +1606,14 @@
 			"persistChatEnabled": "Chat persistens aktiveret",
 			"persistChatDisabled": "Chat data ryddet",
 			"persistArena": "Persist Arena",
-			"persistArenaDescription": "Husk parentes tilstand og beder på tværs af sessioner",
+			"persistArenaDescription": "Husk turneringsstigens tilstand og prompter på tværs af sessioner",
 			"persistArenaConfirm": "Dette vil rydde alle gemte arena-data. Fortsæt?",
 			"persistArenaEnabled": "Arena persistens aktiveret",
 			"persistArenaDisabled": "Arena-data ryddet",
 			"persistConversation": "Persist AI Samtale",
 			"persistConversationDescription": "Husk samtaletilstand og indstillinger på tværs af sessioner",
 			"persistConversationConfirm": "Dette vil rydde alle gemte samtaledata. Fortsæt?",
-			"persistConversationEnabled": "Samtale vedholdenhed aktiveret",
+			"persistConversationEnabled": "Samtalepersistens aktiveret",
 			"persistConversationDisabled": "Samtale data ryddet",
 			"arenaHistory": "Arena History",
 			"saveMatchHistory": "Gem Match Historik",
@@ -1635,18 +1635,18 @@
 			"clearHistoryAll.tooltip": "Slet alle gemte arena og sammenlign sessionshistorik",
 			"clearHistoryAllCleared": "Alle arena historik ryddet",
 			"cacheAndResets": "Cache & Nulstiller",
-			"quotaBadges": "Kontingentmærker",
+			"quotaBadges": "Kvotemærker",
 			"providerQuotaCache": "Udbyder Kvote Cache",
 			"clearCache": "Ryd Cache",
 			"clearCache.tooltip": "Ryd alle cachede udbyderkvotedata. Friske data vil blive hentet ved næste opdatering",
 			"clearCacheConfirm": "Ryd alle cachede udbyderkvotedata? Friske data vil blive hentet ved næste opdatering.",
 			"clearCacheCleared": "Udbyder cache ryddet",
-			"dismissedErrorBanners": "Mislykkede Fejlbannere",
-			"dismissedErrorBannersDescription": "Nulstil afvist sidebar fejl pille stater",
+			"dismissedErrorBanners": "Afviste fejlbannere",
+			"dismissedErrorBannersDescription": "Nulstil afviste fejlpiller i sidepanelet",
 			"reset": "Reset",
-			"reset.tooltip": "Nulstil afvist sidebar fejl pille stater",
+			"reset.tooltip": "Nulstil afviste fejlpiller i sidepanelet",
 			"resetDismissedBanners": "Nulstilling af fejlbannere",
-			"clearHistoryDescription_one": "{{count}} indgang gemt",
+			"clearHistoryDescription_one": "{{count}} post gemt",
 			"clearHistoryDescription_other": "{{count}} poster gemt",
 			"providerQuotaCacheDescription_one": "{{count}} cachelagret post",
 			"providerQuotaCacheDescription_other": "{{count}} cachede poster"
@@ -1721,12 +1721,12 @@
 				"apply": "Anvend"
 			},
 			"uiStyles": {
-				"cleanSaas": "Rens Saas",
+				"cleanSaas": "Ren SaaS",
 				"cleanSaasDescription": "Raffineret, professionel, minimal",
 				"cyberTerminal": "Cyber Terminal",
 				"cyberTerminalDescription": "Developer-centreret, høj kontrast",
 				"glassmorphism": "Glassmorfisme",
-				"glassmorphismDescription": "Slik, gennemskinnelige overflader"
+				"glassmorphismDescription": "Elegante, gennemskinnelige overflader"
 			},
 			"resetAccent": "Nulstil til temastandard",
 			"followSystem": "Følg systemet",
@@ -1743,7 +1743,7 @@
 				"bottomCenter": "Nederst Centreret",
 				"bottomRight": "Nederst Til Højre"
 			},
-			"testNotification": "Test notifikation - du kan se posteringer her",
+			"testNotification": "Testnotifikation - toasts vises her",
 			"autoDismiss": "Auto-afvis",
 			"autoDismissDescription": "Hvor længe toasterne forbliver synlige før fading ud",
 			"seconds": "{{seconds}}s",
@@ -1754,7 +1754,7 @@
 			"title": "Opfrisk Kontrolpanel",
 			"description": "Indstil hvor ofte dashboardstatistikken og diagrammerne opdateres automatisk. Manuel opdateringsknappen skjules, når den sættes til 10 sekunder eller hurtigere.",
 			"refreshInterval": "Opdater Interval",
-			"refreshInterval.description": "Ved 10 sekunder skjules den manuelle opdateringsknap. 0 for at deaktivere. Ændringer træder i kraft ved næste navigation på instrumentbrættet.",
+			"refreshInterval.description": "Ved 10 sekunder skjules den manuelle opdateringsknap. 0 for at deaktivere. Ændringer træder i kraft ved næste navigation til dashboardet.",
 			"disabled": "Dashboard auto-opfrisk deaktiveret - brug manuel opfrisk",
 			"intervals": {
 				"10": "10 sekunder (manuel opdatering skjult)",
@@ -1765,7 +1765,7 @@
 				"600": "10 minutter",
 				"disabled": "Deaktiveret (kun manuelt)"
 			},
-			"intervalSet_one": "Opfrisk betjeningspanel til hver {{seconds}} sekund",
+			"intervalSet_one": "Dashboard-opdatering sat til hvert {{seconds}} sekund",
 			"intervalSet_other": "Dashboard opdater indstillet til alle {{seconds}} sekunder",
 			"pleaseWaitBeforeRefreshing": "Vent venligst før du genopfrisker igen",
 			"refreshingDashboard": "Opdaterer betjeningspanel…"
@@ -1789,8 +1789,8 @@
 				"30": "30 minutter",
 				"disabled": "Deaktiveret (kun manuelt)"
 			},
-			"intervalSet_one": "Kvoteopdateringssæt til alle {{minutes}} minutter",
-			"intervalSet_other": "Kvoteopdateringssæt til alle {{minutes}} minutter"
+			"intervalSet_one": "Kvoteopdatering sat til hvert {{minutes}} minut",
+			"intervalSet_other": "Kvoteopdatering sat til hvert {{minutes}}. minut"
 		},
 		"common": {
 			"cancel": "Annuller",
@@ -1812,7 +1812,7 @@
 			"resetAllConfirmField": "Skriv RESET for at bekræfte",
 			"resetSectionConfirmTitle": "Nulstil Sektion",
 			"resetSectionConfirmMessage": "Nulstil alle indstillinger i denne sektion til deres standardindstillinger?",
-			"resetSettingDone": "Indstilling af nulstilling til standard",
+			"resetSettingDone": "Indstillingen er nulstillet til standard",
 			"resetSectionDone": "Afsnit nulstillet til standardindstillinger",
 			"resetAllDone": "Alle indstillinger nulstilles til standardindstillinger",
 			"resetFailed": "Kunne ikke nulstille indstillinger: {{message}}",
@@ -1831,8 +1831,8 @@
 			"registerPasskey": "Registrer adgangsnøgle",
 			"registering": "Registrerer…",
 			"registerAriaLabel": "Registrer en ny adgangsnøgle",
-			"securityKey": "Sikkerhed Nøgle",
-			"transportInternal": "Platform (Windows Hej / Touch ID)",
+			"securityKey": "Sikkerhedsnøgle",
+			"transportInternal": "Platform (Windows Hello / Touch ID)",
 			"transportUsb": "Usb Sikkerhedsnøgle",
 			"transportNfc": "NFC",
 			"transportBle": "Bluetooth",
@@ -2085,7 +2085,7 @@
 			"liveToggle": {
 				"paused": "Live opdateringer sat på pause",
 				"resumed": "Live opdateringer genoptaget",
-				"live": "Levende"
+				"live": "Live"
 			},
 			"viewModeToggle": {
 				"switchToScroll": "Skift til rulletilstand",
@@ -2132,7 +2132,7 @@
 			"off": "fra"
 		},
 		"reasoningEffortSelect": {
-			"reasoningEffort": "Begrundelse For Indsats",
+			"reasoningEffort": "Ræsonneringsindsats",
 			"off": "fra",
 			"low": "Lav",
 			"medium": "Mellem",
@@ -2172,8 +2172,8 @@
 			"modelId": "Model ID",
 			"context": "Kontekst",
 			"inputPricePerMillion": "I $/1M",
-			"outputPricePerMillion": "Ud Af $/1M",
-			"capabilities": "Kapaciteter",
+			"outputPricePerMillion": "Ud $/1M",
+			"capabilities": "Funktioner",
 			"proxyId": "Proxy ID",
 			"parametersLockedWhileRunning": "Parametre låst under kørsel",
 			"editGenerationParameters": "Rediger generering parametre",
@@ -2182,16 +2182,16 @@
 			"maxTokens": "Maks. Tokens",
 			"topP": "Top P",
 			"minP": "Min. P",
-			"topK": "Øverste K",
-			"freqPenalty": "Freq Sanktion",
-			"presPenalty": "Formand For Straffe",
+			"topK": "Top K",
+			"freqPenalty": "Freq. straf",
+			"presPenalty": "Pres. straf",
 			"maxOut": "Maks. Ud"
 		},
 		"modelTable": {
 			"searchModels": "Søg i modeller…",
 			"deleteDisabled": "Slet {{count}} deaktiveret",
 			"model": "Model",
-			"capabilities": "Kapaciteter",
+			"capabilities": "Funktioner",
 			"provider": "Udbyder",
 			"discovered": "Opdaget",
 			"context": "Ctx",
@@ -2200,7 +2200,7 @@
 			"modelNameAndId": "Model navn og ID",
 			"providerName": "Navn på udbyder",
 			"whenModelDiscovered": "Da modellen sidst blev set/opdaget",
-			"maximumContextLength": "Maksimal sammenhængslængde i tokens",
+			"maximumContextLength": "Maksimal kontekstlængde i tokens",
 			"maximumOutputTokens": "Maksimum output tokens",
 			"modelStatus": "Model status",
 			"noModelsMatchFilters": "Ingen modeller matcher dine filtre",
@@ -2232,7 +2232,7 @@
 			"thinking": "Tænker…",
 			"waiting": "Venter…",
 			"thinkingDots": "Tænker…",
-			"turn": "Drej {{number}}",
+			"turn": "Tur {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok"
 		},
@@ -2270,15 +2270,15 @@
 			"subscriptionWillCancel": "Abonnementet vil annullere ved periodens slutning ({{date}})",
 			"lastRefreshed": "Sidst opdateret",
 			"zAICodingPlanQuota": "Kvote For Zai Kodningsplan",
-			"kimiCodePlanQuota": "Kvote For Zai Kodningsplan",
+			"kimiCodePlanQuota": "Kvote for Kimi Code-plan",
 			"kimiCodeParallelLimit": "Parallelle anmodninger",
 			"kimiCodeTotalQuota": "Samlet kvote",
 			"plan": "Plan",
 			"hTokenQuota": "{{hours}}h Token-kvote",
-			"left": "venstre",
+			"left": "tilbage",
 			"mcpTokenQuota": "MCP- Tidskvote",
 			"openRouterCredits": "OpenRouter Credits",
-			"freeTier": "Frit Niveau",
+			"freeTier": "Gratis niveau",
 			"paidAccount": "Betalt Konto",
 			"showCreditsUsed": "Vis anvendte kreditter",
 			"showCreditsRemaining": "Vis resterende kreditter",
@@ -2295,7 +2295,7 @@
 			"thisWeek": "Denne Uge",
 			"thisMonth": "Denne Måned",
 			"allTime": "Al Tid",
-			"quotaRefreshed": "Kontingent opdateret",
+			"quotaRefreshed": "Kvote opdateret",
 			"failedToRefreshQuota": "Kunne ikke opdatere kvote",
 			"balanceRefreshed": "Saldo opdateret",
 			"failedToRefreshBalance": "Kunne ikke opdatere saldo",
@@ -2314,9 +2314,9 @@
 			"neuralwattTokens": "Tokens",
 			"neuralwattEnergy": "Energi",
 			"neuralwattKeyName": "Nøgle Navn",
-			"neuralwattAllowance": "Godtgørelse",
-			"neuralwattRateLimitTier": "Bedømmelsesgrænse Niveau",
-			"neuralwattOverageLimit": "Overgangsgrænse",
+			"neuralwattAllowance": "Tildeling",
+			"neuralwattRateLimitTier": "Niveau for hastighedsgrænse",
+			"neuralwattOverageLimit": "Grænse for overforbrug",
 			"neuralwattInOverage": "I Overage",
 			"neuralwattLifetime": "Levetid",
 			"neuralwattKeyInfo": "Nøgle Info",
@@ -2334,8 +2334,8 @@
 			"quotas": "Kvoter",
 			"expandQuotas": "Udvid kvoter",
 			"collapse": "Sammenfold",
-			"quotaPanelCollapsed": "Kontingentpanelet kollapsede - auto-opfrisk sat på pause",
-			"quotaPanelExpanded": "Kvota-panelet udvidet - auto-opdater genoptaget",
+			"quotaPanelCollapsed": "Kvotepanelet er foldet sammen - automatisk opdatering sat på pause",
+			"quotaPanelExpanded": "Kvotepanelet er foldet ud - automatisk opdatering genoptaget",
 			"refreshAllQuotas": "Opdater alle kvoter",
 			"pleaseWaitBeforeRefreshing": "Vent venligst før du genopfrisker igen",
 			"refreshingQuotas": "Genopfrisker kvoter…"
@@ -2344,7 +2344,7 @@
 			"persona": "Persona",
 			"customPersonaPlaceholder": "Indtast brugerdefineret persona for AI her…",
 			"switchToCustom": "Skift til brugerdefineret",
-			"overwritePrompt": "Overskriv Spørg",
+			"overwritePrompt": "Overskriv prompt",
 			"clearPersonaPrompt": "Dette vil rydde den aktuelle persona prompt. Fortsæt?",
 			"systemPrompt": "System prompt"
 		},
@@ -2352,18 +2352,18 @@
 			"prompt": "Prompt",
 			"enterPromptPlaceholder": "Indtast din prompt…",
 			"switchToCustom": "Skift til brugerdefineret",
-			"overwritePrompt": "Overskriv Spørg",
+			"overwritePrompt": "Overskriv prompt",
 			"promptField": "Prompt"
 		},
 		"presetBar": {
 			"random": "Tilfældig",
-			"custom": ":blyant:Brugerdefineret"
+			"custom": "✏️Brugerdefineret"
 		},
 		"conversationConfig": {
 			"title": "Samtale Konfiguration",
-			"rounds": "Rund: {{rounds}}",
+			"rounds": "Runder: {{rounds}}",
 			"delay": "Forsinkelse: {{delay}}ms",
-			"round": "Rund: {{current}} / {{max}}",
+			"round": "Runde: {{current}} / {{max}}",
 			"nextIn": "Næste i {{seconds}}s…",
 			"status": "Status: {{state}}",
 			"expandConfig": "Udvid config",
@@ -2379,7 +2379,7 @@
 			"start": "Start",
 			"reenterOrEditPrompt": "Genindtast eller rediger din prompt…",
 			"retry": "Forsøg igen",
-			"retryFromTurn": "Prøv igen fra Turn {{turn}}",
+			"retryFromTurn": "Prøv igen fra tur {{turn}}",
 			"stop": "Stop"
 		},
 		"thinkingBlock": {
@@ -2393,9 +2393,9 @@
 			"noMatchHistory": "Ingen matchhistorik endnu",
 			"completedSessionsHere": "Afsluttet arena og sammenlign sessioner vises her",
 			"match": "Match",
-			"final": "Afsluttende",
+			"final": "Finale",
 			"semifinals": "Halvfinaler",
-			"quarterfinals": "Kvarterfinaler",
+			"quarterfinals": "Kvartfinaler",
 			"round": "Runde {{number}}",
 			"winner": "Vinder: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
@@ -2406,10 +2406,10 @@
 			"clearAllHistory": "Ryd Al Historik",
 			"clickAgainToConfirm": "Klik igen for at bekræfte",
 			"vs": "mod",
-			"bracket": "Beslag",
+			"bracket": "Turneringsstige",
 			"response_one": "{{count}} svar",
 			"response_other": "{{count}} svar",
-			"entries_one": "{{count}} indgang",
+			"entries_one": "{{count}} post",
 			"entries_other": "{{count}} poster",
 			"entries": "poster"
 		},
@@ -2422,19 +2422,19 @@
 			"copyMessage": "Kopiér besked"
 		},
 		"requestLogDetail": {
-			"title": "Anmod Om Detaljer",
-			"requestDetails": "Anmod Om Detaljer",
+			"title": "Detaljer om anmodning",
+			"requestDetails": "Detaljer om anmodning",
 			"attempt": "Forsøg {{number}}",
 			"duration": "Varighed",
-			"totalWallClockTime": "Samlet væg-ur tid fra anmodning start til svar slutter",
+			"totalWallClockTime": "Samlet forløbet tid fra anmodningens start til svarets afslutning",
 			"headers": "Overskrifter",
 			"timeToReceiveHeaders": "Tid til at modtage de første HTTP-svaroverskrifter fra opstrømsudbyderen",
 			"ttft": "TTFT",
 			"timeToFirstToken": "Tid til første Token: forsinkelse mellem anmodning start og den første token af respons kroppen (streaming) eller fuld respons (ikke-streaming)",
-			"tokensPerSecond": "Tegn",
+			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Output tokens pr. sekund i generationsfasen (udelukker tid til første token). Vises som '-' når generationstiden er ubetydelig.",
 			"sumOfTokens": "Summen af prompt + færdiggørelse + ræsonnement tokens",
-			"requestHash": "Anmod Om Hash",
+			"requestHash": "Hash for anmodning",
 			"model": "Model",
 			"copyModelId": "Kopier model ID",
 			"resolved": "løst",
@@ -2445,16 +2445,16 @@
 			"virtualKey": "Virtuel Nøgle",
 			"tokenUsage": "Token Anvendelse",
 			"prompt": "Prompt",
-			"completion": "Afslutning",
-			"reasoning": "Begrundelse",
+			"completion": "Fuldførelse",
+			"reasoning": "Ræsonnement",
 			"cacheHit": "Cache Hit",
 			"cacheMiss": "Cache Misser",
-			"overheadCacheHit": "(cache visning)",
-			"overheadCacheMiss": "(cache mangler)",
+			"overheadCacheHit": "(cache hit)",
+			"overheadCacheMiss": "(cache miss)",
 			"proxyOverheadBreakdown": "Proxy Overhead Opdeling",
-			"requestParsing": "Anmod Om Fortolkning",
-			"timeToParseRequest": "Tid til at parse og validere den indgående anmodning organ",
-			"failoverGroupLookup": "Kunne Ikke Opslag Af Gruppe",
+			"requestParsing": "Fortolkning af anmodning",
+			"timeToParseRequest": "Tid til at parse og validere den indgående anmodnings brødtekst",
+			"failoverGroupLookup": "Opslag af failover-gruppe",
 			"timeToResolveFailover": "Tid til at løse failover-gruppen til en bestemt model og udbyder",
 			"modelLookup": "Model Opslag",
 			"timeToLookupModel": "Tid til at slå op i modelkonfigurationen i databasen",
@@ -2464,7 +2464,7 @@
 			"timeToDecryptKey": "Tid til at dekryptere udbyder API-nøglen",
 			"dialDnsTcp": "Ring Til (DNS+TCP)",
 			"timeToEstablishTcp": "Tid til at etablere TCP-forbindelsen til opstrømsudbyderen",
-			"settingsReads": "Opsætning Læser",
+			"settingsReads": "Læsning af indstillinger",
 			"timeToReadSettings": "Tid til at læse indstillinger fra databasen",
 			"reused": "genbrugt",
 			"totalOverhead": "Samlet Overhead",
@@ -2510,7 +2510,7 @@
 			"key": "Nøgle",
 			"interrupted": "Afbrudt",
 			"internal": "intern",
-			"cacheInflated": "Infleret af prompt cache hits",
+			"cacheInflated": "Oppustet af prompt-cache-hits",
 			"deleted": "Slettet",
 			"zeroEntries": "0 poster"
 		},
@@ -2540,7 +2540,7 @@
 			"pages": "⬡ Sider"
 		},
 		"liveToggleButton": {
-			"live": "Levende",
+			"live": "Live",
 			"liveUpdatesPaused": "Live opdateringer sat på pause",
 			"liveUpdatesResumed": "Live opdateringer genoptaget"
 		},
@@ -2599,8 +2599,8 @@
 	},
 	"failoverGroups": {
 		"create": {
-			"editTitle": "Rediger Mislykkedes Gruppe",
-			"createTitle": "Opret Mislykket Gruppe",
+			"editTitle": "Rediger failover-gruppe",
+			"createTitle": "Opret failover-gruppe",
 			"displayModelName": "Vis Model Navn",
 			"displayModelNamePlaceholder": "f.eks. glm-5",
 			"displayModelNameHelper": "Dette bliver hotel/{{modelName}} på modellisten",
@@ -2608,15 +2608,15 @@
 			"displayNamePlaceholder": "f.eks. GLM-5 Failover",
 			"descriptionOptional": "Beskrivelse (valgfrit)",
 			"descriptionPlaceholder": "f.eks. Failover gruppe for GLM-5 modeller",
-			"modelEntries": "Model Indgange",
+			"modelEntries": "Modelposter",
 			"selectedCount_one": "{{count}} valgt",
 			"selectedCount_other": "{{count}} valgt",
 			"saving": "Gemmer…",
 			"creating": "Opretter…",
 			"createGroup": "Opret Gruppe"
 		},
-		"countLabel_one": "Mislykkedes Gruppe",
-		"countLabel_other": "Mislykket Grupper",
+		"countLabel_one": "Failover-gruppe",
+		"countLabel_other": "Failover-grupper",
 		"alphabetSidebar": "Alphabet sidebar",
 		"card": {
 			"copy": "Kopiér",
@@ -2664,7 +2664,7 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Brænde",
+			"burst": "Burst",
 			"tpm": "TPM"
 		}
 	},
@@ -2738,11 +2738,11 @@
 	},
 	"paramCompat": {
 		"anthropic": {
-			"topP": "top_p er forældet på nuværende antropiske modeller; brug i stedet top_k",
-			"frequencyPenalty": "Antropi bruger en enkelt sanktionsparameter, ikke separat frekvens/tilstedeværelse",
-			"presencePenalty": "Antropi bruger en enkelt sanktionsparameter, ikke separat frekvens/tilstedeværelse",
-			"minP": "Ikke understøttet af Antropic API",
-			"reasoningEffort": "Ikke understøttet af Antropic API"
+			"topP": "top_p er forældet på nuværende Anthropic-modeller; brug i stedet top_k",
+			"frequencyPenalty": "Anthropic bruger én samlet straf-parameter, ikke separat frekvens/tilstedeværelse",
+			"presencePenalty": "Anthropic bruger én samlet straf-parameter, ikke separat frekvens/tilstedeværelse",
+			"minP": "Ikke understøttet af Anthropic API",
+			"reasoningEffort": "Ikke understøttet af Anthropic API"
 		},
 		"google": {
 			"frequencyPenalty": "Gemini understøtter ikke hyppighed/tilstedeværelse sanktioner",

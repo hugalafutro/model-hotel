@@ -2,7 +2,7 @@
 	"common": {
 		"cancel": "İptal et",
 		"delete": "Sil",
-		"deleting": "… dosyasını silme",
+		"deleting": "Siliniyor…",
 		"close": "Kapat",
 		"closeDialog": "İletişim kutusunu kapat",
 		"clearFilter": "Filtreyi temizle",
@@ -11,7 +11,7 @@
 		"failedToCopy": "Kopyalama işlemi başarısız oldu",
 		"copy": "Kopyala",
 		"expand": "Genişlet",
-		"collapse": "Kapat",
+		"collapse": "Daralt",
 		"enabled": "Etkin",
 		"disabled": "Devre dışı",
 		"never": "Asla",
@@ -33,23 +33,23 @@
 		"confirm": "Onayla",
 		"syncing": "Senkronize ediliyor…",
 		"refresh": "Yenile",
-		"refreshing": "… 'i yenileme",
-		"discovering": "Keşfediyorum...",
+		"refreshing": "Yenileniyor…",
+		"discovering": "Keşfediliyor...",
 		"n_a": "Yok",
 		"current": "Güncel",
 		"optional": "İsteğe bağlı",
 		"required": "Zorunlu",
 		"done": "Tamam",
 		"creating": "Oluşturuluyor...",
-		"resolving": "… dosyasının açılması",
+		"resolving": "Çözümleniyor…",
 		"live": "Canlı",
 		"deleted": "Silindi",
 		"internal": "iç",
 		"noLogsFound": "Herhangi bir günlük bulunamadı",
 		"global": "Genel",
 		"manuallyDisabled": "Elle devre dışı bırakıldı",
-		"loadingNewer": "… 'in en yeni sürümünü yüklüyorum",
-		"loadingOlder": "… 'ın eski sürümleri yükleniyor",
+		"loadingNewer": "Daha yenileri yükleniyor…",
+		"loadingOlder": "Daha eskiler yükleniyor…",
 		"model": "model",
 		"models": "modeller",
 		"tokens": "Token",
@@ -122,12 +122,12 @@
 			"goroutines": "Go rutinleri",
 			"requestsToday": "Bugün istek",
 			"db": "VT",
-			"procs_one": "prosedür",
+			"procs_one": "işlem",
 			"procs_other": "işlemler",
-			"aggregateCpu": "{{count}} 'daki compose konteynerleri genelinde CPU toplamı",
-			"aggregateNetwork": "{{count}} 'daki konteynerleri birleştiren ağ",
-			"aggregateDisk": "{{count}} 'daki compose konteynerleri genelinde toplam disk I/O",
-			"aggregateMemory": "{{count}} 'daki compose kapsayıcıları arasında belleği birleştir",
+			"aggregateCpu": "{{count}} compose konteynerinde toplam CPU",
+			"aggregateNetwork": "{{count}} compose konteynerinde toplam ağ",
+			"aggregateDisk": "{{count}} compose konteynerinde toplam disk I/O",
+			"aggregateMemory": "{{count}} compose konteynerinde toplam bellek",
 			"heap": "heap",
 			"hit": "İsabet",
 			"conn": "bağl.",
@@ -136,7 +136,7 @@
 		"toast": {
 			"copiedToClipboard": "Panoya kopyalandı",
 			"errorAcknowledged": "Hata reddedildi",
-			"errorsCleared": "Tüm hatalar giderildi"
+			"errorsCleared": "Tüm hatalar temizlendi"
 		},
 		"auth": {
 			"logout": "Çıkış yap",
@@ -145,13 +145,13 @@
 			"adminToken": "Yönetici Jetonu",
 			"enterToken": "Yönetici jetonunu girin",
 			"signIn": "Giriş Yap",
-			"signingIn": "… 'da oturum açma",
+			"signingIn": "Oturum açılıyor…",
 			"signInWithPasskey": "Passkey ile giriş yap",
 			"orDivider": "veya",
 			"emptyToken": "Lütfen bir yönetici jetonu girin",
 			"invalidToken": "Geçersiz yönetici jetonu",
 			"connectionFailed": "Sunucuya bağlanılamadı",
-			"passkeyFailed": "Şifreli kimlik doğrulama başarısız oldu",
+			"passkeyFailed": "Passkey kimlik doğrulaması başarısız oldu",
 			"hideToken": "Jetonu gizle",
 			"showToken": "Jetonu göster",
 			"getTokenHint": "Yönetici jetonunu sunucu günlüklerinden al",
@@ -183,14 +183,14 @@
 		"language": {
 			"label": "Dil"
 		},
-		"running": "Koşma {{running}}",
+		"running": "Çalışan sürüm {{running}}",
 		"runningLatest": "En son sürüm çalışıyor ({{running}})",
 		"updateAvailable": "Güncelleme mevcut: {{running}} → {{latest}}",
 		"expandStats": "İstatistikleri genişlet",
 		"collapseStats": "İstatistikleri daralt",
 		"tooltips": {
 			"uptime": "Sunucu işlemi ne kadar süredir çalışıyor?",
-			"goroutines": "Active Go çalışma zamanı goroutine'leri (hafif iş parçacıkları)",
+			"goroutines": "Etkin Go çalışma zamanı goroutine'leri (hafif iş parçacıkları)",
 			"requestsToday": "Bugün yerel saatle gece yarısından bu yana proxy üzerinden gönderilen LLM isteklerinin sayısı",
 			"dbSize": "Diskteki Postgres veritabanı boyutu",
 			"dbHitRatio": "Son etkinlik üzerinden tampon önbellek isabet oranı (yüksek olması daha iyidir; veritabanı boştayken boş görünür)",
@@ -241,8 +241,8 @@
 		"allKeys": "Tüm anahtarlar",
 		"toggleKeyFilter": "Anahtar filtresini aç/kapat",
 		"refresh": "Kontrol panelini yenile",
-		"refreshing": "… 'i yenileme",
-		"loadingGauges": "Yük ölçerler…",
+		"refreshing": "Yenileniyor…",
+		"loadingGauges": "Göstergeler yükleniyor…",
 		"failedToLoadGaugeStats": "Ölçer istatistikleri yüklenemedi",
 		"gaugeLoadFailed": "Ölçer istatistikleri yüklenemedi",
 		"stats": {
@@ -258,7 +258,7 @@
 			"requestsPerRange": "İstekler /{{range}}",
 			"avgTtftPerRange": "Ortalama TTFT/{{range}}",
 			"avgOverheadPerRange": "Ortalama ek yük /{{range}}",
-			"rateLimitHitsPerRange": "{{range}} 'deki istek sınırı",
+			"rateLimitHitsPerRange": "İstek Sınırı Aşımları/{{range}}",
 			"errorRatePerRange": "Hata Oranı /{{range}}",
 			"viewRequestHistory": "İstek geçmişini görüntülemek için tıklayın",
 			"viewTtftHistory": "TTFT geçmişini görmek için tıklayın",
@@ -297,14 +297,14 @@
 			"day": "Gün",
 			"week": "Hafta",
 			"noData": "Henüz zaman serisi verisi yok. {{metric}} trafik akışı başladığında burada görünecektir.",
-			"dragToPan": "kaydırarak kaydırın",
+			"dragToPan": "kaydırmak için sürükleyin",
 			"requests": "İstekler",
 			"tokens": "Jetonlar",
 			"emptyState": "Henüz zaman serisi verisi yok. {{metric}} trafik akışı başladığında burada görünecektir.",
 			"requestsOver": "İstekler /{{range}}",
 			"avgTtftOver": "Ortalama TTFT/{{range}}",
 			"avgOverheadOver": "Ortalama ek yük /{{range}}",
-			"rateLimitHitsOver": "{{range}} 'deki istek sınırı",
+			"rateLimitHitsOver": "İstek Sınırı Aşımları/{{range}}",
 			"errorRateOver": "Hata Oranı /{{range}}",
 			"avgDurationOver": "Ortalama Süre /{{range}}",
 			"cacheHit": "Önbellek isabeti",
@@ -317,7 +317,7 @@
 			"topVirtualKeys": "En iyi sanal anahtarlar",
 			"emptyState": "Henüz kullanım verisi yok. Trafik akışı başladığında kullanım dağılımı burada görünecektir.",
 			"viewDetailsFor": "Ayrıntıları görüntüle {{label}}",
-			"deletedModelTooltip": "Model artık mevcut değil - silinmiş olabilir veya satıcısı kaldırılmış olabilir",
+			"deletedModelTooltip": "Model artık mevcut değil - silinmiş olabilir veya sağlayıcısı kaldırılmış olabilir",
 			"reservedKeyTooltip": "Dahili ayrılmış ad, sizin oluşturduğunuz bir anahtar değil - bu kullanım Model Hotel'in kendi \"{{name}}\" rotalarından gelmektedir"
 		},
 		"latency": {
@@ -366,7 +366,7 @@
 			"prompt": "Komut",
 			"completion": "Tamamlama",
 			"cacheHit": "Önbellek isabeti",
-			"promptTooltip": "İpucu: {{pct}}% ({{count}} belirteçleri)",
+			"promptTooltip": "Komut istemi: {{pct}}% ({{count}} token)",
 			"completionTooltip": "Tamamlanma: {{pct}}% ({{count}} jeton)",
 			"cacheHitTooltip": "Önbellek isabeti: {{pct}}% ({{count}} jetonu)",
 			"mixAriaLabel": "Token dağılımı: {{promptPct}}% komut istemi, {{completionPct}}% tamamlama",
@@ -401,9 +401,9 @@
 	},
 	"chat": {
 		"chat": "Sohbet",
-		"conversation": "Sohbet",
-		"testModels": "Geçici sohbetlerde test özelliği etkinleştirilmiş modeller",
-		"watchConversation": "İki mankenin birbirleriyle sohbet etmesini izleyin",
+		"conversation": "Konuşma",
+		"testModels": "Etkin modelleri geçici sohbette test edin",
+		"watchConversation": "İki modelin birbiriyle sohbet etmesini izleyin",
 		"validation": {
 			"selectModelA": "Model A'yı seçin",
 			"selectModelB": "Model B'yi seçin",
@@ -423,7 +423,7 @@
 			"resetAll": "Tümünü sıfırla (modeli ve ayarları sil)",
 			"modelA": "Model A",
 			"modelB": "Model B",
-			"personaA": "Kişi A",
+			"personaA": "Kişilik A",
 			"personaB": "Kişilik B",
 			"clearMessages": "Mesajları sil (model ve ayarları koru)",
 			"modelLabel": "Model",
@@ -447,12 +447,12 @@
 		"conversationCleared": "Sohbet silindi",
 		"modelA": "Model A",
 		"modelB": "Model B",
-		"personaA": "Kişi A",
+		"personaA": "Kişilik A",
 		"personaB": "Kişilik B",
-		"turn": "Dön",
+		"turn": "Tur",
 		"totalDuration": "Süre",
 		"totalTokens": "jetonlar",
-		"modelGenerating": "Model şu hatayı veriyor:…",
+		"modelGenerating": "Model yanıt oluşturuyor…",
 		"waitingForNextTurn": "Sıradaki turu bekliyorum…",
 		"generationFailed": "{{model}}: Oluşturma başarısız - yukarıdaki yapılandırmada \"Yeniden Dene\" seçeneğini kullanın veya aşağıdaki \"Temizle/Sıfırla\" seçeneğini kullanın",
 		"generationFailedWithModel": "{{model}}: Oluşturma başarısız - yukarıdaki yapılandırmada \"Yeniden Dene\" seçeneğini kullanın veya aşağıdaki \"Temizle/Sıfırla\" seçeneğini kullanın",
@@ -460,8 +460,8 @@
 		"resetConversation": "Sohbeti Sıfırla",
 		"resetChatMessage": "Bu işlem tüm mesajları siler, model seçimini, karakteri ve parametreleri sıfırlar. Devam etmek istiyor musunuz?",
 		"resetConversationMessage": "Bu işlem, sohbeti siler ve hem modelleri, hem karakterleri hem de parametreleri sıfırlar. Devam etmek istiyor musunuz?",
-		"chatReset": "Sohbet sıfırla",
-		"conversationReset": "Sohbet sıfırlama",
+		"chatReset": "Sohbet sıfırlandı",
+		"conversationReset": "Konuşma sıfırlandı",
 		"selectModel": "Bir model seçin",
 		"selectModelA": "Model A'yı seçin",
 		"selectModelB": "Model B'yi seçin",
@@ -474,9 +474,9 @@
 		"uploadAudio": "Ses dosyasını yükle",
 		"attachAudio": "Ses dosyası ekle",
 		"selectModelFirst": "Önce bir model seçin",
-		"typeMessage": "… adresine bir mesaj yazın",
+		"typeMessage": "Bir mesaj yazın…",
 		"typeMessageOrPasteImage": "Bir mesaj yazın (veya bir resim yapıştırın)…",
-		"generating": "… dosyasını oluşturma",
+		"generating": "Oluşturuluyor…",
 		"sendMessage": "Mesaj gönder",
 		"pressEnterToSend": "Göndermek için Enter tuşuna, satır başı eklemek için Shift+Enter tuşlarına basın",
 		"selectModelToStart": "Sohbete başlamak için bir model seçin",
@@ -498,7 +498,7 @@
 			"selectModelA": "Model A'yı seçin",
 			"selectModelB": "Model B'yi seçin",
 			"messageWithImage": "Bir mesaj yazın (veya bir resim yapıştırın)…",
-			"message": "… adresine bir mesaj yazın",
+			"message": "Bir mesaj yazın…",
 			"selectModelFirst": "Önce bir model seçin"
 		},
 		"message": {
@@ -521,14 +521,14 @@
 		},
 		"misc": {
 			"titleChat": "Sohbet",
-			"titleConversation": "Sohbet",
-			"descriptionChat": "Geçici sohbetlerde test özelliği etkinleştirilmiş modeller",
-			"descriptionConversation": "İki mankenin birbirleriyle sohbet etmesini izleyin",
+			"titleConversation": "Konuşma",
+			"descriptionChat": "Etkin modelleri geçici sohbette test edin",
+			"descriptionConversation": "İki modelin birbiriyle sohbet etmesini izleyin",
 			"selectModelToStart": "Sohbete başlamak için bir model seçin",
 			"keyboardHint": "Göndermek için Enter tuşuna, satır başı eklemek için Shift+Enter tuşlarına basın",
-			"turnCount": "{{current}} 'a dön  / {{max}}",
+			"turnCount": "Tur {{current}} / {{max}}",
 			"tokens": "jetonlar",
-			"modelGenerating": "Model şu hatayı veriyor:…",
+			"modelGenerating": "Model yanıt oluşturuyor…",
 			"waitingNextTurn": "Sıradaki turu bekliyorum…",
 			"generationFailed": "{{model}}: Oluşturma işlemi başarısız oldu - yukarıdaki yapılandırmada \"Yeniden Dene\" seçeneğini kullanın veya aşağıdaki \"Temizle/Sıfırla\" seçeneğini kullanın",
 			"generationFailedNoModel": "Oluşturma işlemi başarısız oldu - yukarıdaki yapılandırmada \"Yeniden Dene\" seçeneğini kullanın veya aşağıda \"Temizle/Sıfırla\" seçeneğini kullanın",
@@ -546,7 +546,7 @@
 		},
 		"description": {
 			"arena": "Eleme turnuvası - modeller birbirleriyle karşı karşıya geliyor",
-			"compare": "Yan yana - aynı komut satırında model çıktılarını karşılaştırın"
+			"compare": "Yan yana - aynı komut isteminde model çıktılarını karşılaştırın"
 		},
 		"controls": {
 			"label": "Kontroller"
@@ -557,7 +557,7 @@
 		},
 		"modeDescription": {
 			"arena": "Modeller tek eleme sistemiyle yarışır. 2, 4 veya 8 model seçin; her turda çiftler aynı konuya yanıt verir ve siz daha iyi olan yanıtı seçersiniz. Kazananlar, tek bir model kalana kadar bir üst tura yükselir.",
-			"compare": "Modelleri seçin ve aynı komut satırını hepsinde aynı anda çalıştırın. Oylama yok, eleme turu yok – sadece hangi modelin ihtiyaçlarınıza en uygun olduğunu değerlendirmek için saf bir yan yana çıktı karşılaştırması."
+			"compare": "Modelleri seçin ve aynı komut istemini hepsinde aynı anda çalıştırın. Oylama yok, eleme turu yok – sadece hangi modelin ihtiyaçlarınıza en uygun olduğunu değerlendirmek için saf bir yan yana çıktı karşılaştırması."
 		},
 		"matchHistory": {
 			"title": "Maç geçmişi"
@@ -570,7 +570,7 @@
 			"title": "Sonuçları temizle (modelleri ve komut istemini koru)"
 		},
 		"resetAll": {
-			"title": "Tümünü sıfırla (modelleri ve uyarıyı sil)"
+			"title": "Tümünü sıfırla (modelleri ve komut istemini sil)"
 		},
 		"models": {
 			"bracketCount": "Modeller ({{count}}/8)",
@@ -578,19 +578,19 @@
 			"compareCount": "Modeller ({{count}}/6)"
 		},
 		"persona": {
-			"textareaPlaceholder": "… serisindeki tüm modellere isteğe bağlı sistem uyarısı uygulanmıştır",
+			"textareaPlaceholder": "Tüm modellere uygulanacak isteğe bağlı sistem komut istemi…",
 			"switchToCustom": "Özel'e geç",
 			"overwrite": "Persona'yı üzerine yaz",
 			"fieldLabel": "Kişilik"
 		},
 		"round": {
 			"firstRound": "İlk Tur",
-			"generation": "Nesil",
+			"generation": "Üretim",
 			"match": "Maç",
 			"final": "Final",
 			"semifinals": "Yarı finaller",
 			"quarterfinals": "Çeyrek finaller",
-			"numbered": "Yuvarlak {{num}}"
+			"numbered": "Tur {{num}}"
 		},
 		"vs": "VS",
 		"status": {
@@ -606,7 +606,7 @@
 		},
 		"confirmReset": {
 			"title": "Tümünü Sıfırla",
-			"message": "Bu işlem tüm modelleri, komut satırlarını, karakter profillerini ve devam eden tüm sonuçları silecektir. Devam etmek istiyor musunuz?",
+			"message": "Bu işlem tüm modelleri, komut istemlerini, karakter profillerini ve devam eden tüm sonuçları silecektir. Devam etmek istiyor musunuz?",
 			"confirmLabel": "Tümünü Sıfırla"
 		},
 		"winner": {
@@ -617,7 +617,7 @@
 			"voted": "Oy verildi"
 		},
 		"swapModel": {
-			"title": "Değiştirme modeli"
+			"title": "Modeli değiştir"
 		},
 		"completed": {
 			"title": "Tamamlandı"
@@ -639,7 +639,7 @@
 		},
 		"swapPicker": {
 			"title": "Yenisini seçin",
-			"searchPlaceholder": "… modellerini ara",
+			"searchPlaceholder": "Modelleri ara…",
 			"expandAll": "Tüm sağlayıcıları göster",
 			"collapseAll": "Tüm sağlayıcıları daralt",
 			"noModels": "Mevcut model yok"
@@ -654,9 +654,9 @@
 			"maxTokens": "Maksimum Jeton",
 			"topP": "Top P",
 			"minP": "Min P",
-			"topK": "En İyi K",
+			"topK": "Top K",
 			"freqPenalty": "Frekans Cezası",
-			"presPenalty": "Penaltı",
+			"presPenalty": "Varlık Cezası",
 			"resetAll": "Tümünü sıfırla",
 			"done": "Tamam"
 		},
@@ -688,8 +688,8 @@
 		"btn_refresh_quotas": "Kotaları/Bakiyeleri Yenile",
 		"btn_add_provider": "Sağlayıcı Ekle",
 		"btn_discovering": "Keşfediyorum...",
-		"btn_refreshing": "Ferahlatıcı...",
-		"filter_placeholder": "Filtre sağlayıcıları…",
+		"btn_refreshing": "Yenileniyor...",
+		"filter_placeholder": "Sağlayıcıları filtrele…",
 		"filter_provider_type": "Sağlayıcı türü",
 		"filter_all": "Tümü ({{count}}) sağlayıcılar",
 		"sort_title_asc": "A'dan Z'ye sıralanmış (tersine çevirmek için tıklayın)",
@@ -709,7 +709,7 @@
 		"toast_quota_detected_nanogpt": "NanoGPT kotası tespit edildi",
 		"toast_quota_detected_zai": "Z.ai kodlama kotası tespit edildi",
 		"toast_quota_detected_kimi": "Kimi Code kotası tespit edildi",
-		"toast_quota_detected_deepseek": "DeepSeek bakiyesi tespit edildi:{{amount}}",
+		"toast_quota_detected_deepseek": "DeepSeek bakiyesi tespit edildi: ${{amount}}",
 		"toast_quota_detected_openrouter": "OpenRouter bakiyesi tespit edildi: ${{amount}}",
 		"toast_quota_detected_ollama": "Ollama Cloud {{plan}} planı tespit edildi",
 		"toast_quota_refreshed": "Bakiye güncellendi",
@@ -754,7 +754,7 @@
 		"form_api_key_hide": "API anahtarını gizle",
 		"form_btn_cancel": "İptal et",
 		"form_btn_add": "Sağlayıcı Ekle",
-		"form_btn_adding": "… 'ı ekleme",
+		"form_btn_adding": "Ekleniyor…",
 		"form_btn_save": "Değişiklikleri Kaydet",
 		"edit_modal_title": "Sağlayıcıyı Düzenle",
 		"edit_enabled_label": "Etkin",
@@ -764,7 +764,7 @@
 		"edit_api_key_current": "Şu anki: {{key}}",
 		"edit_api_key_placeholder": "Mevcut anahtarı korumak için boş bırakın",
 		"dialog_unsaved_title": "Kaydedilmemiş Değişiklikler",
-		"card_disabled": "Engelli",
+		"card_disabled": "Devre dışı",
 		"card_autodiscovery_off": "Otomatik Algılama Kapalı",
 		"card_tokens": "{{tokens}} jetonlar",
 		"card_created": "Oluşturuldu",
@@ -777,8 +777,8 @@
 		"card_btn_delete": "Sil",
 		"card_copy_name": "Sağlayıcı adını kopyalamak için tıklayın",
 		"card_copy_url": "API temel URL'sini kopyalamak için tıklayın",
-		"toast_discover_success_one": "{{count}} 'dan bir model keşfedildi {{name}}",
-		"toast_discover_success_other": "{{count}} 'dan keşfedilen modeller {{name}}",
+		"toast_discover_success_one": "{{name}} sağlayıcısından {{count}} model keşfedildi",
+		"toast_discover_success_other": "{{name}} sağlayıcısından {{count}} model keşfedildi",
 		"toast_delete_models_success_one": "Silindi {{count}} devre dışı bırakılmış model",
 		"toast_delete_models_success_other": "Silindi {{count}} devre dışı bırakılmış modeller",
 		"toast_delete_models_success": "Silindi {{count}} devre dışı bırakılmış modeller",
@@ -788,8 +788,8 @@
 			"providerFallback": "Sağlayıcı",
 			"discoveredModels_one": "Keşfedilen {{count}} modeli…",
 			"discoveredModels_other": "Keşfedilen {{count}} modelleri…",
-			"deepseekBalance": "DeepSeek bakiyesi tespit edildi:{{balance}}",
-			"deepseekBalanceDetected": "DeepSeek dengesi tespit edildi",
+			"deepseekBalance": "DeepSeek bakiyesi tespit edildi: ${{balance}}",
+			"deepseekBalanceDetected": "DeepSeek bakiyesi tespit edildi",
 			"openrouterBalance": "OpenRouter bakiyesi tespit edildi: ${{balance}}",
 			"baseUrl": "Ana URL",
 			"baseUrlHelperDefault": "Varsayılan URL önceden girilmiştir; sunucunuz farklı bir adreste çalışıyorsa bunu düzenleyin. Tür, bağlantı noktası numarasından algılanır.",
@@ -803,11 +803,11 @@
 			"autodiscoveryHelper": "Otomatik model keşfini kontrol eder. Bu sağlayıcının model kataloğunu manuel olarak düzenlemek için devre dışı bırakın."
 		},
 		"quotas": {
-			"expand": "Kotaları artır"
+			"expand": "Kotaları genişlet"
 		},
 		"credits": {
 			"toggleLabel": "Kalan ve kullanılan arasında geçiş yap",
-			"showUsed": "Kullanılan kaynakları göster",
+			"showUsed": "Kullanılan kredileri göster",
 			"showRemaining": "Kalan kredileri göster"
 		},
 		"toast": {
@@ -864,7 +864,7 @@
 		"page_title_other": "Modeller",
 		"page_description": "Sağlayıcılarınızdan bulunan modeller",
 		"badge_enabled": "{{count}} etkinleştirildi",
-		"badge_disabled": "{{count}} engelli",
+		"badge_disabled": "{{count}} devre dışı",
 		"view_mode_pages": "⬡ Sayfalar",
 		"view_mode_scroll": "⇊ Aşağı kaydır",
 		"switch_to_pagination": "Sayfa numaralandırma moduna geç",
@@ -894,10 +894,10 @@
 			"provider": "Sağlayıcı",
 			"lastDiscovered": "En Son Keşfedilen",
 			"displayName": "Görünen Ad",
-			"contextLength": "Metin Uzunluğu",
+			"contextLength": "Bağlam Uzunluğu",
 			"maxOutput": "Maksimum Çıkış",
 			"inputPrice": "Giriş Fiyatı",
-			"outputPrice": "Satış Fiyatı",
+			"outputPrice": "Çıktı Fiyatı",
 			"input": "Giriş",
 			"output": "Çıktı",
 			"tokens": "jetonlar",
@@ -909,10 +909,10 @@
 			"subscription": "Abonelik",
 			"snippetFormatPicker": "Parça biçimi seçici",
 			"test": "Test",
-			"testing": "… 'ı Test Etme",
+			"testing": "Test ediliyor…",
 			"confirmDelete": "Silmeyi onayla",
-			"updating": "… 'ın Güncellenmesi",
-			"updateCooldown": "Güncelleme ({{cooldown}}'ler)",
+			"updating": "Güncelleniyor…",
+			"updateCooldown": "Güncelle ({{cooldown}} sn)",
 			"updateInfo": "Güncelleme bilgileri",
 			"placeholder": {
 				"price": "0,00"
@@ -933,7 +933,7 @@
 			"sortByContextLength": "Bağlam uzunluğuna göre sırala",
 			"ctx": "Ctx",
 			"sortByMaxOutput": "En fazla çıkış jetonuna göre sırala",
-			"maxOut": "Sınırı Zorla",
+			"maxOut": "Maks. Çıkış",
 			"sortByStatus": "Duruma göre sırala",
 			"status": "Durum"
 		},
@@ -959,17 +959,17 @@
 		"page_title_one": "Yedekleme Grubu",
 		"page_title_other": "Yedekleme Grupları",
 		"page_description_lead": "İstekleri öncelik sırasına göre birden fazla sağlayıcı üzerinden yönlendirin",
-		"page_description_code": "otel/model",
+		"page_description_code": "hotel/model",
 		"btn_sync": "Senkronize et",
-		"btn_syncing": "… 'i senkronize etme",
+		"btn_syncing": "Senkronize ediliyor…",
 		"btn_new_group": "Yeni Grup",
 		"hint_drag": "Öncelik sırasını değiştirmek için modelleri tutamağından sürükleyin",
-		"filter_hotel_model": "Otel/model filtrele…",
+		"filter_hotel_model": "hotel/model filtrele…",
 		"filter_providers": "Tüm ({{count}}) sağlayıcılar",
-		"filter_states": "Tüm ({{count}}) eyaletler",
+		"filter_states": "Tüm ({{count}}) durumlar",
 		"filter_origins": "Tüm ({{count}}) kaynaklar",
 		"filter_state_enabled": "Etkin",
-		"filter_state_disabled": "Engelli",
+		"filter_state_disabled": "Devre dışı",
 		"filter_origin_auto": "Otomatik",
 		"filter_origin_manual": "Özel",
 		"select_all": "Tümünü seç",
@@ -993,7 +993,7 @@
 		"nav_letter": "Bölüme git {{letter}}",
 		"toast_bulk_toggle_failed": "Bazı gruplarda toplu geçiş işlemi başarısız oldu",
 		"toast_provider_toggle_failed": "Bazı gruplar için toplu sağlayıcı geçişi başarısız oldu",
-		"toast_sync_deleted": "otel/{{model}} silindi: {{reason}}{{providers}}",
+		"toast_sync_deleted": "hotel/{{model}} silindi: {{reason}}{{providers}}",
 		"toast_sync_success": "Yedekleme grupları senkronize edildi",
 		"toast_sync_failed": "Senkronizasyon başarısız: {{message}}",
 		"toast_update_failed": "Güncelleme başarısız: {{message}}",
@@ -1011,8 +1011,8 @@
 		"toast_display_model_required": "Model adının girilmesi zorunludur",
 		"badge_enabled_one": "{{count}} etkinleştirildi",
 		"badge_enabled_other": "{{count}} etkinleştirildi",
-		"badge_disabled_one": "{{count}} engelli",
-		"badge_disabled_other": "{{count}} engelli",
+		"badge_disabled_one": "{{count}} devre dışı",
+		"badge_disabled_other": "{{count}} devre dışı",
 		"delete_confirm_type": "yedekleme grubu",
 		"delete_confirm_type_plural": "yedekleme grupları",
 		"auto_created": "otomatik",
@@ -1026,7 +1026,7 @@
 		"bulk_provider_count_other": "{{count}} {{provider}} 'da girişleri bulunan gruplar",
 		"group_count_one": "{{count}} grup",
 		"group_count_other": "{{count}} gruplar",
-		"toast_bulk_toggle_success_one": "{{action}} {{count}} grubundaki tüm gönderiler",
+		"toast_bulk_toggle_success_one": "{{action}}: {{count}} gruptaki tüm girişler",
 		"toast_bulk_toggle_success_other": "{{action}} {{count}} gruplarındaki tüm girişler",
 		"toast_provider_toggle_success_one": "{{action}} {{provider}} {{count}} grubu genelinde",
 		"toast_provider_toggle_success_other": "{{action}} {{provider}} {{count}} grupları genelinde",
@@ -1040,10 +1040,10 @@
 		"toast_provider_toggle_no_groups": "Hiçbir yük devretme grubu bu sağlayıcıyı kullanmıyor {{provider}}",
 		"last_sync_label": "Son senkronizasyon:",
 		"toast_entry_min_two": "En az 2 üye etkin kalmalıdır.",
-		"toast_sync_purged_one": "otel/{{group}}: {{count}} eski giriş kaldırıldı",
-		"toast_sync_purged_other": "otel/{{group}}: {{count}} eski giriş kaldırıldı",
-		"toast_sync_disabled_one": "otel/{{group}} devre dışı: {{count}} yönlendirilebilir üye kaldı",
-		"toast_sync_disabled_other": "otel/{{group}} devre dışı: {{count}} yönlendirilebilir üye kaldı"
+		"toast_sync_purged_one": "hotel/{{group}}: {{count}} eski giriş kaldırıldı",
+		"toast_sync_purged_other": "hotel/{{group}}: {{count}} eski giriş kaldırıldı",
+		"toast_sync_disabled_one": "hotel/{{group}} devre dışı: {{count}} yönlendirilebilir üye kaldı",
+		"toast_sync_disabled_other": "hotel/{{group}} devre dışı: {{count}} yönlendirilebilir üye kaldı"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "Kaydedilmemiş Değişiklikler"
@@ -1061,11 +1061,11 @@
 			"name": "Ad",
 			"key": "Anahtar",
 			"rps": "RPS",
-			"burst": "Patlama",
+			"burst": "Burst",
 			"created": "Oluşturuldu",
 			"tokens": "Jetonlar",
 			"lastUsed": "En Son Kullanım Tarihi",
-			"keys": "tuşlar",
+			"keys": "anahtar",
 			"tpm": "TPM"
 		},
 		"tooltip": {
@@ -1073,7 +1073,7 @@
 			"name": "Sanal anahtarın görüntü adı",
 			"key": "API anahtarının önizlemesi (tam anahtar yalnızca oluşturulduğunda bir kez gösterilir)",
 			"rps": "Saniye başına istek sınırı",
-			"burst": "Hız sınırlama için patlama kapasitesi",
+			"burst": "Hız sınırlama için burst kapasitesi",
 			"created": "Anahtar oluşturulduğunda",
 			"tokens": "Bu anahtarla kullanılan toplam jeton sayısı",
 			"lastUsed": "Anahtar en son ne zaman bir istek için kullanıldı",
@@ -1112,10 +1112,10 @@
 				"providerInstructions": "Erişimi kısıtlamak için bir sağlayıcıya tıklayın. Varsayılan olarak hepsine erişim açıktır.",
 				"noProviders": "Mevcut sağlayıcı yok.",
 				"restoreAccess": "Tüm sağlayıcılara erişimi geri yükle",
-				"stripReasoning": "Sıralama Mantığı",
+				"stripReasoning": "Akıl Yürütmeyi Kaldır",
 				"stripReasoningDescription": "Etkinleştirildiğinde, akış yanıtlarından, bunları işleyemeyen istemciler için akıl yürütme/düşünme belirteçleri kaldırılır.",
-				"enableStripReasoning": "Çizgi mantığını etkinleştir",
-				"disableStripReasoning": "Çizgi mantığını devre dışı bırak",
+				"enableStripReasoning": "Akıl yürütme kaldırmayı etkinleştir",
+				"disableStripReasoning": "Akıl yürütme kaldırmayı devre dışı bırak",
 				"rateLimitBurst": "Burst (maks. eşzamanlı)",
 				"rateLimitRps": "RPS (istek/saniye)",
 				"rateLimitTpm": "TPM (token/dk)",
@@ -1129,7 +1129,7 @@
 				"rateLimits": "İstek Sınırları",
 				"usage": "Kullanım",
 				"providerAccess": "Sağlayıcı Erişimi",
-				"stripReasoning": "Sıralama Mantığı"
+				"stripReasoning": "Akıl Yürütmeyi Kaldır"
 			},
 			"labels": {
 				"key": "Anahtar",
@@ -1146,7 +1146,7 @@
 			"providerInstructionsText": "Erişimi kısıtlamak için bir sağlayıcıya tıklayın. Varsayılan olarak hepsine erişim açıktır.",
 			"nameLabel": "Ad",
 			"rateLimitRpsLabel": "İstek Sınırı RPS (istek/saniye)",
-			"rateLimitBurstLabel": "İstek Sınırı Aşımı (maksimum eşzamanlı)",
+			"rateLimitBurstLabel": "İstek Sınırı Burst (maksimum eşzamanlı)",
 			"keyCreated": "Sanal anahtar oluşturuldu",
 			"keyCreatedFailed": "Başarısız: {{message}}",
 			"keyUpdated": "Sanal anahtar güncellendi",
@@ -1180,7 +1180,7 @@
 			"level": "Seviye",
 			"levelAll": "Tümü",
 			"source": "Kaynak",
-			"logsPlaceholder": "… 'daki günlükleri filtrele",
+			"logsPlaceholder": "Günlükleri filtrele…",
 			"allStatus": "Tüm Durumlar",
 			"allEndpoints": "Tüm Modaliteler",
 			"owner": "Sahip",
@@ -1209,10 +1209,10 @@
 			"key": "Anahtar",
 			"providerDeleted": "Sağlayıcı silindi",
 			"deletedProvider": "Silindi",
-			"resolving": "… dosyasının açılması",
+			"resolving": "Çözümleniyor…",
 			"live": "Canlı",
 			"interrupted": "Kesintiye uğramış",
-			"cacheInflated": "Hızlı önbellek isabetleri sayesinde artan",
+			"cacheInflated": "Komut istemi önbellek isabetleriyle şişmiş",
 			"keyDeleted": "Silindi"
 		},
 		"tooltip": {
@@ -1221,7 +1221,7 @@
 			"model": "İstek için kullanılan model kimliği",
 			"provider": "İsteği işleyen sağlayıcı",
 			"status": "Yanıtın HTTP durum kodu",
-			"tokens": "Komut istemi + tamamlama simgeleri (varsa)",
+			"tokens": "Komut istemi + tamamlama token'ları (varsa)",
 			"tps": "Saniye başına üretilen jeton sayısı",
 			"headers": "Yanıt başlıklarının süresi",
 			"ttft": "İlk jetonun alınma süresi",
@@ -1236,7 +1236,7 @@
 			"providerLookup": "Sağlayıcı Arama",
 			"keyDecryption": "Anahtar Şifre Çözme",
 			"dial": "Arama (DNS+TCP)",
-			"settingsReads": "Ayarlar Okunur",
+			"settingsReads": "Ayar Okumaları",
 			"reused": "yeniden kullanılmış"
 		},
 		"status": {
@@ -1255,8 +1255,8 @@
 			"label": "girişler"
 		},
 		"loading": {
-			"newer": "↻ Daha yeni sürüm yükleniyor…",
-			"older": "↻ Eski… sayfası yükleniyor"
+			"newer": "↻ Daha yenileri yükleniyor…",
+			"older": "↻ Daha eskiler yükleniyor…"
 		}
 	},
 	"applogs": {
@@ -1271,7 +1271,7 @@
 			"levelAll": "Tümü",
 			"source": "Kaynak",
 			"all": "Tümü ({{count}})",
-			"search": "… 'daki günlükleri filtrele",
+			"search": "Günlükleri filtrele…",
 			"allLevels": "Tüm Seviyeler",
 			"allSources": "Tüm Kaynaklar"
 		},
@@ -1293,8 +1293,8 @@
 			"label": "girişler"
 		},
 		"loading": {
-			"newer": "↻ Daha yeni sürüm yükleniyor…",
-			"older": "↻ Eski… sayfası yükleniyor"
+			"newer": "↻ Daha yenileri yükleniyor…",
+			"older": "↻ Daha eskiler yükleniyor…"
 		}
 	},
 	"format": {
@@ -1310,7 +1310,7 @@
 		"inDaysHours_one_day_other_hours": "{{days}} gün, {{hours}} saat",
 		"inDaysHours_other_days_one_hour": "{{days}} gün içinde, {{hours}} saat içinde",
 		"inDaysHours_other_days_other_hours": "{{days}} gün, {{hours}} saat",
-		"inDays_only_one": "{{days}} 'da  gün",
+		"inDays_only_one": "{{days}} gün içinde",
 		"inDays_only_other": "{{days}} gün içinde",
 		"inHours_only_one": "{{hours}} saat",
 		"inHours_only_other": "{{hours}} saat içinde",
@@ -1446,7 +1446,7 @@
 		"title": "Ayarlar",
 		"description": "Model Hotel örneğinizi yapılandırın",
 		"proxy": {
-			"title": "Vekil",
+			"title": "Proxy",
 			"description": "Proxy istek davranışını ve zaman aşımlarını yapılandırın.",
 			"requestTimeout": "İstek Zaman Aşımı",
 			"requestTimeout.description": "Zaman aşımına uğramadan önce akış dışı istekler için geçerli olan maksimum süre. Akış istekleri, düşünme/akıl yürütme modellerini desteklemek amacıyla bu sürenin 10 katı kadar süreye otomatik olarak sahip olur.",
@@ -1476,7 +1476,7 @@
 				"1m0s": "1 dakika (varsayılan)",
 				"2m0s": "2 dakika",
 				"5m0s": "5 dakika",
-				"disabled": "Engelli"
+				"disabled": "Devre dışı"
 			},
 			"streamStall": {
 				"10s": "10 saniye",
@@ -1485,10 +1485,10 @@
 				"2m0s": "2 dakika",
 				"5m0s": "5 dakika",
 				"10m0s": "10 dakika",
-				"disabled": "Engelli"
+				"disabled": "Devre dışı"
 			},
 			"requestsGroup": "İstekler",
-			"streamingGroup": "Canlı yayın"
+			"streamingGroup": "Akış"
 		},
 		"rateLimit": {
 			"title": "Hız Sınırlaması",
@@ -1497,13 +1497,13 @@
 			"enableDescription": "Sanal anahtar başına proxy isteklerini sınırla",
 			"requestsPerSecond": "Saniye Başına İstek Sayısı",
 			"requestsPerSecond.description": "Sanal anahtar başına izin verilen sürekli istek sayısı (0 = sınırsız)",
-			"burstSize": "Paket Boyutu",
+			"burstSize": "Burst Boyutu",
 			"burstSize.description": "Hız sınırlaması devreye girmeden önce eşzamanlı isteklerin maksimum sayısı",
 			"ipRateLimiting": "IP Hız Sınırlaması",
 			"ipRateLimitingDescription": "IP başına hız sınırlayıcı (DoS koruması, kimlik doğrulamadan önce çalışır)",
 			"ipRequestsPerSecond": "Saniye Başına IP İsteği Sayısı",
 			"ipRequestsPerSecond.description": "IP adresi başına sürekli istek oranı (0 = sınırsız)",
-			"ipBurstSize": "IP Paket Boyutu",
+			"ipBurstSize": "IP Burst Boyutu",
 			"ipBurstSize.description": "Hız sınırlaması devreye girmeden önce IP başına izin verilen maksimum eşzamanlı istek sayısı",
 			"backpressure": "Hız Sınırı Geri Basıncı",
 			"backpressureDescription": "Hem anahtar başına hem de IP hız sınırlayıcıları için ortak bekleme davranışı",
@@ -1536,7 +1536,7 @@
 			"logRetention.description": "Bu süreden daha eski günlükleri otomatik olarak sil. 0 değeri ile devre dışı bırak.",
 			"staleRequestTimeout": "Eski İstek Zaman Aşımı",
 			"staleRequestTimeout.description": "Bu süreden daha uzun süre devam eden bekleyen/akış isteklerini \"kesintiye uğramış\" olarak işaretleyin. Devre dışı bırakmak için 0 değerini girin. İlk token alma süresi uzun olan sağlayıcılar için geçerlidir.",
-			"deleteRequests": "Silme İstekleri",
+			"deleteRequests": "İstekleri Sil",
 			"deleteRequests.tooltip": "Seçilen aralıktan daha eski istek günlüklerini sil",
 			"deleteRequests.selectRange": "Aralık seçin...",
 			"deleteRequests.olderThan1d": "1 günden eski",
@@ -1554,9 +1554,9 @@
 			"deleteAppLogs.allLogs": "Tüm günlükler",
 			"deleteAppLogs.confirm": "Onayla",
 			"deleteAppLogs.cancel": "İptal et",
-			"deleteAppLogs.deleting": "… dosyasını silme",
+			"deleteAppLogs.deleting": "Siliniyor…",
 			"retention": {
-				"disabled": "Engelli",
+				"disabled": "Devre dışı",
 				"24h": "1 gün",
 				"168h": "1 hafta",
 				"720h": "1 ay"
@@ -1578,7 +1578,7 @@
 			"discoveryInterval.description": "Etkinleştirilmiş tüm sağlayıcılardan modellerin otomatik olarak ne sıklıkla yeniden keşfedileceği. 0 değeri ile devre dışı bırakılır.",
 			"discoverOnStartup": "Başlangıçta Keşfet",
 			"discoverOnStartupDescription": "Sunucu başlatıldığında tüm sağlayıcılar için keşif işlemi çalıştır",
-			"discoverOnProviderCreation": "Hizmet Sağlayıcı Oluşturma Hakkında Bilgi Edinin",
+			"discoverOnProviderCreation": "Sağlayıcı Eklenince Keşfet",
 			"discoverOnProviderCreationDescription": "Yeni bir sağlayıcı eklendiğinde modelleri otomatik olarak algıla",
 			"discoverAll": "Tüm Modelleri Keşfedin",
 			"discoverAllComplete": "Keşif tamamlandı",
@@ -1590,7 +1590,7 @@
 				"12h": "12 saat",
 				"24h": "24 saat",
 				"48h": "48 saat",
-				"disabled": "Engelli"
+				"disabled": "Devre dışı"
 			},
 			"automaticGroup": "Otomatik",
 			"manualGroup": "Manuel",
@@ -1601,21 +1601,21 @@
 			"description": "Tarayıcıya özgü oturum verilerini yönetin. Kalıcı veriler, sayfanın yeniden yüklenmesi ve tarayıcının yeniden başlatılması durumunda da korunur.",
 			"sessionPersistence": "Oturum Kalıcılığı",
 			"persistChat": "Sohbeti Kaydet",
-			"persistChatDescription": "Oturumlar arasında mesajları, uyarıları ve kullanıcı profilini hatırla",
+			"persistChatDescription": "Oturumlar arasında mesajları, komut istemini ve kişiliği hatırla",
 			"persistChatConfirm": "Bu işlem, kaydedilmiş tüm sohbet mesajlarını silecektir. Devam etmek istiyor musunuz?",
 			"persistChatEnabled": "Sohbet kaydı özelliği etkinleştirildi",
 			"persistChatDisabled": "Sohbet verileri silindi",
 			"persistArena": "Persist Arena",
-			"persistArenaDescription": "Oturumlar arasında köşeli parantez durumunu ve komut istemlerini hatırla",
+			"persistArenaDescription": "Oturumlar arasında eleme tablosu durumunu ve komut istemlerini hatırla",
 			"persistArenaConfirm": "Bu işlem, kaydedilmiş tüm arena verilerini silecektir. Devam etmek istiyor musunuz?",
 			"persistArenaEnabled": "Arena kalıcılığı etkinleştirildi",
 			"persistArenaDisabled": "Arena verileri silindi",
-			"persistConversation": "AI Sohbetini Devam Ettir",
+			"persistConversation": "AI Sohbetini Kalıcı Kıl",
 			"persistConversationDescription": "Oturumlar arasında sohbet durumunu ve ayarları hatırla",
 			"persistConversationConfirm": "Bu işlem, kaydedilmiş tüm sohbet verilerini silecektir. Devam etmek istiyor musunuz?",
 			"persistConversationEnabled": "Konuşma kalıcılığı etkinleştirildi",
 			"persistConversationDisabled": "Sohbet verileri silindi",
-			"arenaHistory": "Arena Tarihi",
+			"arenaHistory": "Arena Geçmişi",
 			"saveMatchHistory": "Maç Geçmişini Kaydet",
 			"saveMatchHistoryDescription": "Tamamlanan arena oturumlarını otomatik olarak kaydet ve karşılaştır",
 			"saveMatchHistoryEnabled": "Arena geçmişi etkinleştirildi",
@@ -1628,7 +1628,7 @@
 				"50": "50 maç",
 				"100": "100 maç"
 			},
-			"historyLimitToast": "{{count}} adresine ayarlanan geçmiş sınırı",
+			"historyLimitToast": "Geçmiş sınırı {{count}} maç olarak ayarlandı",
 			"clearHistory": "Geçmişi Temizle",
 			"clearHistoryConfirm": "Tüm arena geçmişini silmek istiyor musunuz? Bu işlem geri alınamaz.",
 			"clearHistoryAll": "Tümünü Temizle",
@@ -1665,9 +1665,9 @@
 			"restoreRequirements.virtualKeys": "Sanal anahtarlar geri alınamaz",
 			"restoreRequirements.virtualKeysDescription": "Yalnızca SHA-256 karma değerleri saklanır. Düz metin halindeki sanal anahtarları kaybederseniz, bunlar yedekten geri yüklenemez.",
 			"createBackup": "Yedek Oluştur",
-			"creatingBackup": "… 'da yedekleme oluşturma",
+			"creatingBackup": "Yedek oluşturuluyor…",
 			"uploadRestore": "Yükle ve Geri Yükle",
-			"restoring": "… 'i geri yükleme",
+			"restoring": "Geri yükleniyor…",
 			"selectBackupFile": "Geri yüklemek istediğiniz yedekleme dosyasını seçin",
 			"noBackups": "Henüz yedekleme yapılmadı.",
 			"download": "İndir",
@@ -1690,11 +1690,11 @@
 				"enabledDescription": "Düzenli aralıklarla otomatik olarak yedeklemeler oluşturun ve \"son/father/grandfather\" rotasyonunu kullanarak eski yedekleri silin.",
 				"interval": "Yedekleme Aralığı",
 				"intervalDescription": "Otomatik yedekleme ne sıklıkla oluşturulacak (0 = devre dışı).",
-				"sonRetention": "Günlük Tutma Oranı (Oğul)",
+				"sonRetention": "Günlük Saklama (Oğul)",
 				"sonRetentionDescription": "Son N günün her birinden en güncel yedeği saklayın.",
 				"fatherRetention": "Haftalık Kalıcılık (Baba)",
 				"fatherRetentionDescription": "Son N haftanın her birinden en güncel yedeği saklayın.",
-				"grandfatherRetention": "Aylık Tutma (Eski Düzen)",
+				"grandfatherRetention": "Aylık Saklama (Dede)",
 				"grandfatherRetentionDescription": "Son N ayın her birinden en güncel yedeği saklayın.",
 				"confirmEnableTitle": "Periyodik yedeklemeyi etkinleştirmek ister misiniz?",
 				"confirmEnableDescription": "Periyodik yedeklemeyi etkinleştirmek, oğul/baba/dede rotasyon penceresinin dışında kalan mevcut yedekleri siler.",
@@ -1711,14 +1711,14 @@
 			"title": "Görünüm",
 			"uiStyle": "Kullanıcı Arayüzü Stili",
 			"theme": "Tema",
-			"dark": "Karanlık",
-			"light": "Işık",
+			"dark": "Koyu",
+			"light": "Açık",
 			"accentColor": "Vurgu Rengi",
 			"customColor": "Özel renk",
 			"colorPicker": {
 				"title": "Bir renk seçin",
 				"cancel": "İptal et",
-				"apply": "Başvur"
+				"apply": "Uygula"
 			},
 			"uiStyles": {
 				"cleanSaas": "Temiz SaaS",
@@ -1744,17 +1744,17 @@
 				"bottomRight": "Sağ alt köşe"
 			},
 			"testNotification": "Test bildirimi - burada bildirimler görünecektir",
-			"autoDismiss": "Otomatik olarak reddet",
-			"autoDismissDescription": "Kutlama mesajları kaybolana kadar ne kadar süreyle görünür kalır?",
+			"autoDismiss": "Otomatik kapat",
+			"autoDismissDescription": "Bildirimler kaybolana kadar ne kadar süre görünür kalır",
 			"seconds": "{{seconds}}s",
 			"fuseEffect": "Toast Fuse Etkisi",
-			"fuseEffectDescription": "Geri sayım sırasında tostu izleyen animasyonlu yanan fitil konturu"
+			"fuseEffectDescription": "Geri sayım sırasında bildirimi izleyen animasyonlu yanan fitil konturu"
 		},
 		"dashboard": {
 			"title": "Kontrol Paneli Yenile",
 			"description": "Kontrol panelindeki istatistiklerin ve grafiklerin otomatik olarak ne sıklıkta yenileneceğini ayarlayın. 10 saniye veya daha kısa bir süre seçildiğinde manuel yenileme düğmesi gizlenir.",
 			"refreshInterval": "Güncelleme Aralığı",
-			"refreshInterval.description": "10 saniye sonra manuel yenileme düğmesi gizlenir. 0 olarak ayarlayın devre dışı bırakmak için. Değişiklikler, kontrol paneline bir sonraki geçişte geçerli olur.",
+			"refreshInterval.description": "10 saniyeye ayarlandığında manuel yenileme düğmesi gizlenir. Devre dışı bırakmak için 0 girin. Değişiklikler, kontrol paneline bir sonraki geçişte geçerli olur.",
 			"disabled": "Kontrol panelinde otomatik yenileme devre dışı bırakıldı - manuel yenilemeyi kullanın",
 			"intervals": {
 				"10": "10 saniye (manuel yenileme gizli)",
@@ -1779,7 +1779,7 @@
 			"refreshInterval.description": "En az 1 dakika. 0 olarak ayarlandığında devre dışı bırakılır. Değişiklikler bir sonraki planlanmış yenileme sırasında yürürlüğe girer.",
 			"disabled": "Kenar çubuğu kotasının otomatik yenilenmesi devre dışı bırakıldı - manuel yenilemeyi kullanın",
 			"enabledQuotas": "Kenar çubuğu kotaları etkinleştirildi - pill görünür ve otomatik yenileme yeniden başladı",
-			"disabledQuotas": "Kenar çubuğu kotaları devre dışı bırakıldı - hap gizlendi ve otomatik yenileme duraklatıldı",
+			"disabledQuotas": "Kenar çubuğu kotaları devre dışı bırakıldı - pill gizlendi ve otomatik yenileme duraklatıldı",
 			"intervals": {
 				"1": "1 dakika",
 				"2": "2 dakika",
@@ -1795,7 +1795,7 @@
 		"common": {
 			"cancel": "İptal et",
 			"enabled": "Etkin",
-			"disabled": "Engelli",
+			"disabled": "Devre dışı",
 			"deleting": "Silme",
 			"settingsSaved": "Ayarlar kaydedildi",
 			"failedToSave": "Kaydedilemedi: {{message}}",
@@ -1812,7 +1812,7 @@
 			"resetAllConfirmField": "Onaylamak için RESET yazın",
 			"resetSectionConfirmTitle": "Bölümü Sıfırla",
 			"resetSectionConfirmMessage": "Bu bölümdeki tüm ayarları varsayılan değerlerine sıfırlamak ister misiniz?",
-			"resetSettingDone": "Ayarları varsayılana sıfırla",
+			"resetSettingDone": "Ayar varsayılana sıfırlandı",
 			"resetSectionDone": "Bölüm varsayılan ayarlara sıfırlandı",
 			"resetAllDone": "Tüm ayarlar varsayılan değerlere sıfırlandı",
 			"resetFailed": "Ayarlar sıfırlanamadı: {{message}}",
@@ -1823,13 +1823,13 @@
 		"colorPicker": {
 			"title": "Bir renk seçin",
 			"cancel": "İptal et",
-			"apply": "Başvur"
+			"apply": "Uygula"
 		},
 		"passkeys": {
 			"title": "Geçiş anahtarları",
 			"description": "Yönetici jetonunu yazmak yerine parmak iziniz, yüzünüz veya güvenlik anahtarınızla oturum açmak için bir geçiş anahtarı kaydedin.",
 			"registerPasskey": "Geçiş anahtarı kaydet",
-			"registering": "… 'a kayıt olmak",
+			"registering": "Kaydediliyor…",
 			"registerAriaLabel": "Yeni bir geçiş anahtarı kaydet",
 			"securityKey": "Güvenlik Anahtarı",
 			"transportInternal": "Platform (Windows Hello / Touch ID)",
@@ -1884,7 +1884,7 @@
 			},
 			"events": {
 				"all": "Tümünü seç",
-				"none": "Hiçbiri seçilmedi",
+				"none": "Hiçbirini seçme",
 				"reset": "Varsayılanlara sıfırla",
 				"title": "Bildirilecek olaylar"
 			},
@@ -1894,7 +1894,7 @@
 				"description": "Popüler hizmetler için örnek Apprise URL biçimleri - bunlardan birini kopyalayın, bilgilerinizi girin ve yukarıya yapıştırın."
 			},
 			"target": "Bildirim hedefi",
-			"targetConfigured": "Yapılandırılmış - değiştirilecek metin",
+			"targetConfigured": "Yapılandırıldı (değiştirmek için yazın)",
 			"targetDescription": "Apprise URL'niz - şifrelenmiş olarak saklanır ve bir daha asla gösterilmez. Birden fazla hedefi <code>;</code> şeklinde ayırın.",
 			"testButton": "Test bildirimi gönder",
 			"testFailed": "Bildirim testi başarısız: {{message}}",
@@ -2026,15 +2026,15 @@
 	"components": {
 		"deleteConfirmModal": {
 			"confirmDelete": "Silmeyi Onayla",
-			"deleteType": "Sil {{entityType}}",
-			"areYouSure": "{{entityName}}dosyasını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+			"deleteType": "{{entityType}} sil",
+			"areYouSure": "{{entityName}} ögesini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
 		},
 		"confirmDialog": {
 			"discardChangesTo": "Şuradaki değişiklikleri sil:",
 			"close": "Kapat"
 		},
 		"confirmDeleteButton": {
-			"deleteKey": "Sil Tuşu",
+			"deleteKey": "Anahtarı Sil",
 			"yesDelete": "Evet, sil",
 			"areYouSure": "Emin misin?"
 		},
@@ -2051,7 +2051,7 @@
 			"virtualKeysInfo": "Yalnızca SHA-256 karma değerleri saklanır. Düz metin halindeki sanal anahtarları kaybederseniz, bunlar geri getirilemez.",
 			"confirmWithAdminToken": "Yönetici jetonuyla onayla",
 			"enterAdminToken": "Yönetici jetonunu girin",
-			"restoring": "… 'i geri yükleme",
+			"restoring": "Geri yükleniyor…",
 			"restoreDatabase": "Veritabanını Geri Yükle",
 			"cancel": "İptal et"
 		},
@@ -2060,7 +2060,7 @@
 			"close": "Kapat"
 		},
 		"filterInput": {
-			"filter": "… 'i filtrele",
+			"filter": "Filtrele…",
 			"clearFilter": "Filtreyi temizle"
 		},
 		"copyButton": {
@@ -2076,7 +2076,7 @@
 		},
 		"collapsibleToggle": {
 			"expand": "Genişlet",
-			"collapse": "Kapat"
+			"collapse": "Daralt"
 		},
 		"loadingSpinner": {
 			"loading": "Yükleniyor"
@@ -2104,7 +2104,7 @@
 				"selectEndDate": "Bitiş tarihini seçin…",
 				"selectStartDate": "Başlangıç tarihini seçin",
 				"clear": "Temizle",
-				"apply": "Başvur"
+				"apply": "Uygula"
 			},
 			"errorState": {
 				"failedToLoad": "Günlükler yüklenemedi: {{message}}"
@@ -2143,15 +2143,15 @@
 			"prev": "Önceki",
 			"next": "Sonraki",
 			"entries": "{{start}} {{to}} {{end}} {{of}} {{total}} {{label}}",
-			"entriesShort": "{{start}}–{{end}} adresinden {{total}} {{label}}",
+			"entriesShort": "{{total}} {{label}} içinden {{start}}–{{end}}",
 			"perPage": "{{size}} / sayfa",
-			"noEntries": "{{label}} adresi bulunamadı",
+			"noEntries": "{{label}} bulunamadı",
 			"countOne": "1 {{label}}",
-			"to": "...'ye",
-			"of": "...'nin"
+			"to": "-",
+			"of": "/"
 		},
 		"modelPicker": {
-			"filterModels": "… modellerini filtrele",
+			"filterModels": "Modelleri filtrele…",
 			"random": "Rastgele",
 			"expandAllProviders": "Tüm sağlayıcıları göster",
 			"collapseAllProviders": "Tüm sağlayıcıları daralt",
@@ -2171,8 +2171,8 @@
 			"provider": "Sağlayıcı",
 			"modelId": "Model Kimliği",
 			"context": "Bağlam",
-			"inputPricePerMillion": "(milyon dolar cinsinden)",
-			"outputPricePerMillion": "1 milyon dolarlık zarar",
+			"inputPricePerMillion": "Giriş $/1M",
+			"outputPricePerMillion": "Çıkış $/1M",
 			"capabilities": "Özellikler",
 			"proxyId": "Vekil Kimliği",
 			"parametersLockedWhileRunning": "Çalışma sırasında parametreler kilitlendi",
@@ -2182,20 +2182,20 @@
 			"maxTokens": "Maksimum Jeton",
 			"topP": "Top P",
 			"minP": "Min P",
-			"topK": "En İyi K",
+			"topK": "Top K",
 			"freqPenalty": "Frekans Cezası",
-			"presPenalty": "Penaltı",
-			"maxOut": "Sınırı Zorla"
+			"presPenalty": "Varlık Cezası",
+			"maxOut": "Maks. Çıkış"
 		},
 		"modelTable": {
-			"searchModels": "… modellerini ara",
+			"searchModels": "Modelleri ara…",
 			"deleteDisabled": "Sil {{count}} devre dışı",
 			"model": "Model",
 			"capabilities": "Özellikler",
 			"provider": "Sağlayıcı",
 			"discovered": "Keşfedildi",
 			"context": "Ctx",
-			"maxOutput": "Sınırı Zorla",
+			"maxOutput": "Maks. Çıkış",
 			"status": "Durum",
 			"modelNameAndId": "Model adı ve kimliği",
 			"providerName": "Sağlayıcı adı",
@@ -2208,20 +2208,20 @@
 			"deleteDisabledModels": "Devre Dışı Bırakılmış Modelleri Sil",
 			"models": "modeller",
 			"deleteDisabledAria_one": "{{count}} devre dışı bırakılmış modeli sil",
-			"deleteDisabledAria_other": "{{count}} 'daki devre dışı bırakılmış modelleri sil",
-			"deleteDisabledMessage_one": "Bu işlem, {{count}} adresindeki devre dışı bırakılmış modeli kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bir sonraki döngüde bu model yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
-			"deleteDisabledMessage_other": "Bu işlem, {{count}} adresindeki devre dışı bırakılmış modelleri kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bu modeller bir sonraki döngüde yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
+			"deleteDisabledAria_other": "{{count}} devre dışı modeli sil",
+			"deleteDisabledMessage_one": "Bu işlem, {{count}} devre dışı modeli kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bir sonraki döngüde bu model yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
+			"deleteDisabledMessage_other": "Bu işlem, {{count}} devre dışı modeli kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bu modeller bir sonraki döngüde yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
 			"clickToCopyId": "Model kimliğini kopyalamak için tıklayın"
 		},
 		"virtualModelTable": {
-			"searchModels": "… modellerini ara",
+			"searchModels": "Modelleri ara…",
 			"deleteDisabled": "Sil {{count}} devre dışı",
 			"noModelsFound": "Hiçbir model bulunamadı",
 			"deleteDisabledModels": "Devre Dışı Bırakılmış Modelleri Sil",
 			"deleteDisabledAria_one": "{{count}} devre dışı bırakılmış modeli sil",
-			"deleteDisabledAria_other": "{{count}} adresindeki devre dışı bırakılmış modelleri sil",
-			"deleteDisabledMessage_one": "Bu işlem, {{count}} adresindeki devre dışı bırakılmış modeli kalıcı olarak silecektir. Sağlayıcıda otomatik keşif özelliği etkinse, bir sonraki döngüde bu model yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
-			"deleteDisabledMessage_other": "Bu işlem, {{count}} adresindeki devre dışı bırakılmış modelleri kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bu modeller bir sonraki döngüde yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın."
+			"deleteDisabledAria_other": "{{count}} devre dışı modeli sil",
+			"deleteDisabledMessage_one": "Bu işlem, {{count}} devre dışı modeli kalıcı olarak silecektir. Sağlayıcıda otomatik keşif özelliği etkinse, bir sonraki döngüde bu model yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın.",
+			"deleteDisabledMessage_other": "Bu işlem, {{count}} devre dışı modeli kalıcı olarak siler. Sağlayıcıda otomatik keşif özelliği etkinse, bu modeller bir sonraki döngüde yeniden keşfedilecektir. Bunu önlemek için sağlayıcıda otomatik keşif özelliğini devre dışı bırakın."
 		},
 		"modelReplyCard": {
 			"modelDetails": "Model bilgileri",
@@ -2229,17 +2229,17 @@
 			"copy": "Kopyala",
 			"disableModel": "Modeli devre dışı bırak",
 			"disable": "Devre dışı bırak",
-			"thinking": "… 'i düşünmek",
-			"waiting": "… 'i bekliyorum",
-			"thinkingDots": "… 'i düşünmek",
-			"turn": "Dön {{number}}",
+			"thinking": "Düşünüyor…",
+			"waiting": "Bekleniyor…",
+			"thinkingDots": "Düşünüyor…",
+			"turn": "Tur {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok"
 		},
 		"providerFilter": {
-			"filterProviders": "Filtre Sağlayıcıları",
+			"filterProviders": "Sağlayıcıları Filtrele",
 			"clearFilter": "Filtreyi temizle",
-			"searchProviders": "Arama motorları…",
+			"searchProviders": "Sağlayıcıları ara…",
 			"selectAll": "Tümünü seç",
 			"clear": "Temizle",
 			"noProvidersFound": "Hiçbir sağlayıcı bulunamadı",
@@ -2264,7 +2264,7 @@
 			"provider": "Sağlayıcı",
 			"status": "Durum",
 			"periodEnd": "Dönem Sonu",
-			"allowOverage": "Aşımına İzin Ver",
+			"allowOverage": "Aşıma İzin Ver",
 			"yes": "Evet",
 			"no": "Hayır",
 			"subscriptionWillCancel": "Abonelik dönem sonunda iptal edilecektir ({{date}})",
@@ -2275,17 +2275,17 @@
 			"kimiCodeTotalQuota": "Toplam kota",
 			"plan": "Plan",
 			"hTokenQuota": "{{hours}}h Jeton Kotası",
-			"left": "sol",
+			"left": "kalan",
 			"mcpTokenQuota": "MCP Zaman Kotası",
 			"openRouterCredits": "OpenRouter Kredileri",
 			"freeTier": "Ücretsiz Paket",
 			"paidAccount": "Ücretli Hesap",
-			"showCreditsUsed": "Kullanılan kaynakları göster",
+			"showCreditsUsed": "Kullanılan kredileri göster",
 			"showCreditsRemaining": "Kalan kredileri göster",
 			"refreshBalanceInfo": "Bakiye bilgilerini yenile",
 			"accountBalance": "Hesap Bakiyesi",
 			"spentTotal": "{{amount}} toplam harcama",
-			"keySpendingLimit": "Ana Harcama Sınırı",
+			"keySpendingLimit": "Anahtar Harcama Sınırı",
 			"remaining": "kalan",
 			"limitReset": "limit - harcama engellendi",
 			"resets": "Sıfırlama",
@@ -2302,7 +2302,7 @@
 			"noCredits": "Kredi yok",
 			"cancelAtPeriodEnd": "Abonelik dönem sonunda iptal edilecektir ({{date}})",
 			"neuralWattCredits": "NeuralWatt Kredileri",
-			"neuralwattBalance": "Denge",
+			"neuralwattBalance": "Bakiye",
 			"neuralwattUsage": "Kullanım",
 			"neuralwattSubscription": "Abonelik",
 			"neuralwattPlan": "Plan",
@@ -2317,11 +2317,11 @@
 			"neuralwattAllowance": "Ödenek",
 			"neuralwattRateLimitTier": "Hız Sınırı Seviyesi",
 			"neuralwattOverageLimit": "Aşım Sınırı",
-			"neuralwattInOverage": "Fazlalık",
+			"neuralwattInOverage": "Aşımda",
 			"neuralwattLifetime": "Ömür boyu",
-			"neuralwattKeyInfo": "Önemli Bilgiler",
+			"neuralwattKeyInfo": "Anahtar Bilgileri",
 			"neuralwattEnergyQuota": "Enerji Kotası",
-			"neuralwattBillingInterval": "Fatura Dönemi",
+			"neuralwattBillingInterval": "Faturalama Aralığı",
 			"neuralwattAccountingMethod": "Muhasebe Yöntemi",
 			"limits": "Sınırlar",
 			"none": "Yok",
@@ -2332,27 +2332,27 @@
 		},
 		"providerQuotaPanel": {
 			"quotas": "Kotalar",
-			"expandQuotas": "Kotaları artır",
-			"collapse": "Kapat",
+			"expandQuotas": "Kotaları genişlet",
+			"collapse": "Daralt",
 			"quotaPanelCollapsed": "Kota paneli kapatıldı - otomatik yenileme duraklatıldı",
 			"quotaPanelExpanded": "Kota paneli genişletildi - otomatik yenileme yeniden başlatıldı",
 			"refreshAllQuotas": "Tüm kotaları yenile",
 			"pleaseWaitBeforeRefreshing": "Lütfen bir kez daha yenilemeden önce bekleyin",
-			"refreshingQuotas": "… 'da kota yenileme"
+			"refreshingQuotas": "Kotalar yenileniyor…"
 		},
 		"personaPicker": {
 			"persona": "Kişilik",
 			"customPersonaPlaceholder": "Buraya AI için özel kişilik bilgilerini girin:…",
 			"switchToCustom": "Özel'e geç",
-			"overwritePrompt": "Üzerine Yazma Sorusu",
+			"overwritePrompt": "Komut İstemini Üzerine Yaz",
 			"clearPersonaPrompt": "Bu işlem, mevcut persona istemini silecektir. Devam etmek istiyor musunuz?",
-			"systemPrompt": "Sistem uyarısı"
+			"systemPrompt": "Sistem komut istemi"
 		},
 		"promptPicker": {
 			"prompt": "Komut",
 			"enterPromptPlaceholder": "Komutunuzu girin…",
 			"switchToCustom": "Özel'e geç",
-			"overwritePrompt": "Üzerine Yazma Sorusu",
+			"overwritePrompt": "Komut İstemini Üzerine Yaz",
 			"promptField": "Komut"
 		},
 		"presetBar": {
@@ -2364,7 +2364,7 @@
 			"rounds": "Turlar: {{rounds}}",
 			"delay": "Gecikme: {{delay}}ms",
 			"round": "Tur: {{current}} / {{max}}",
-			"nextIn": "Sıradaki: {{seconds}}'ın…",
+			"nextIn": "Sıradaki {{seconds}} sn içinde…",
 			"status": "Durum: {{state}}",
 			"expandConfig": "Yapılandırmayı genişlet",
 			"collapseConfig": "Yapılandırmayı daralt",
@@ -2374,16 +2374,16 @@
 			"turnDelay": "Gecikme (ms)",
 			"prompt": "Komut",
 			"selectBothModelsFirst": "Önce her iki modeli de seçin",
-			"enterTopicOrQuestion": "… 'a bir konu veya soru girin",
+			"enterTopicOrQuestion": "Bir konu veya soru girin…",
 			"continue": "Devam et",
 			"start": "Başla",
-			"reenterOrEditPrompt": "… komut satırını yeniden girin veya düzenleyin",
+			"reenterOrEditPrompt": "Komut isteminizi yeniden girin veya düzenleyin…",
 			"retry": "Tekrar dene",
-			"retryFromTurn": "Dönüşten yeniden dene {{turn}}",
+			"retryFromTurn": "{{turn}}. turdan yeniden dene",
 			"stop": "Dur"
 		},
 		"thinkingBlock": {
-			"thinking": "Düşünmek"
+			"thinking": "Düşünüyor"
 		},
 		"arenaHistoryModal": {
 			"matchHistory": "Maç Geçmişi",
@@ -2396,9 +2396,9 @@
 			"final": "Final",
 			"semifinals": "Yarı finaller",
 			"quarterfinals": "Çeyrek finaller",
-			"round": "Yuvarlak {{number}}",
+			"round": "Tur {{number}}",
 			"winner": "Kazanan: {{name}}",
-			"responsesAbbrev": "{{count}} sırasıyla",
+			"responsesAbbrev": "{{count}} yanıt",
 			"error": "Hata: {{message}}",
 			"restoreSetup": "Kurulumu Geri Yükle",
 			"delete": "Sil",
@@ -2406,7 +2406,7 @@
 			"clearAllHistory": "Tüm Geçmişi Sil",
 			"clickAgainToConfirm": "Onaylamak için tekrar tıklayın",
 			"vs": "vs",
-			"bracket": "Parantez",
+			"bracket": "Eleme tablosu",
 			"response_one": "{{count}} yanıt",
 			"response_other": "{{count}} yanıtlar",
 			"entries_one": "{{count}} giriş",
@@ -2437,7 +2437,7 @@
 			"requestHash": "İstek Hash'i",
 			"model": "Model",
 			"copyModelId": "Model kimliğini kopyala",
-			"resolved": "karar verildi",
+			"resolved": "çözümlendi",
 			"provider": "Sağlayıcı",
 			"dbRowId": "Veritabanı Satır Kimliği",
 			"timestamp": "Zaman damgası",
@@ -2446,7 +2446,7 @@
 			"tokenUsage": "Jeton Kullanımı",
 			"prompt": "Komut",
 			"completion": "Tamamlama",
-			"reasoning": "Gerekçe",
+			"reasoning": "Akıl yürütme",
 			"cacheHit": "Önbellek isabeti",
 			"cacheMiss": "Önbellek Iskası",
 			"overheadCacheHit": "(önbellek isabeti)",
@@ -2461,10 +2461,10 @@
 			"providerLookup": "Sağlayıcı Arama",
 			"timeToLookupProvider": "Veritabanında sağlayıcı bilgilerini arama zamanı",
 			"keyDecryption": "Anahtar Şifre Çözme",
-			"timeToDecryptKey": "Şimdi sağlayıcı API anahtarının şifresini çözme zamanı",
+			"timeToDecryptKey": "Sağlayıcı API anahtarının şifresini çözme süresi",
 			"dialDnsTcp": "Arama (DNS+TCP)",
-			"timeToEstablishTcp": "Yukarı akış sağlayıcısına TCP bağlantısı kurmanın zamanı geldi",
-			"settingsReads": "Ayarlar Okunur",
+			"timeToEstablishTcp": "Yukarı akış sağlayıcısına TCP bağlantısı kurma süresi",
+			"settingsReads": "Ayar Okumaları",
 			"timeToReadSettings": "Veritabanından ayarları okuma zamanı",
 			"reused": "yeniden kullanılmış",
 			"totalOverhead": "Toplam ek yük",
@@ -2474,26 +2474,26 @@
 			"performance": "Performans"
 		},
 		"statusBadge": {
-			"streaming": "Canlı yayın",
+			"streaming": "Akış",
 			"pending": "Beklemede",
 			"failed": "Başarısız",
 			"ok": "Tamam",
-			"clientError": "Müşteri Hatası",
+			"clientError": "İstemci Hatası",
 			"serverError": "Sunucu Hatası"
 		},
 		"logDetailStatusBadge": {
-			"streaming": "Canlı yayın",
+			"streaming": "Akış",
 			"pending": "Beklemede",
 			"failed": "Başarısız",
 			"ok": "Tamam",
-			"clientError": "Müşteri Hatası",
+			"clientError": "İstemci Hatası",
 			"serverError": "Sunucu Hatası"
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Herhangi bir günlük bulunamadı",
 			"entries": "girişler",
-			"loadingNewer": "… 'ın en yeni sürümünü yüklüyorum",
-			"loadingOlder": "… 'un eski sürümleri yükleniyor",
+			"loadingNewer": "Daha yenileri yükleniyor…",
+			"loadingOlder": "Daha eskiler yükleniyor…",
 			"timeDate": "Saat/Tarih",
 			"hash": "Hash",
 			"model": "Model",
@@ -2510,15 +2510,15 @@
 			"key": "Anahtar",
 			"interrupted": "Kesintiye uğramış",
 			"internal": "iç",
-			"cacheInflated": "Hızlı önbellek isabetleri sayesinde artan",
+			"cacheInflated": "Komut istemi önbellek isabetleriyle şişmiş",
 			"deleted": "Silindi",
 			"zeroEntries": "0 kayıt"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Günlük girdisi bulunamadı",
 			"entries": "girişler",
-			"loadingNewer": "… 'ın en yeni sürümünü yüklüyor",
-			"loadingOlder": "… 'ın eski sürümleri yükleniyor",
+			"loadingNewer": "Daha yenileri yükleniyor…",
+			"loadingOlder": "Daha eskiler yükleniyor…",
 			"timeDate": "Saat/Tarih",
 			"level": "Seviye",
 			"source": "Kaynak",
@@ -2550,7 +2550,7 @@
 			"selectEndDate": "Bitiş tarihini seçin…",
 			"selectStartDate": "Başlangıç tarihini seçin",
 			"clear": "Temizle",
-			"apply": "Başvur"
+			"apply": "Uygula"
 		},
 		"dateFilterButton": {
 			"filterByDateRange": "Tarih aralığına göre filtrele",
@@ -2584,7 +2584,7 @@
 			"ollamaCloudPlanWithEnd": "Ollama Cloud {{plan}} paketi (süresi {{endDate}}tarihinde sona eriyor) {{refreshed}} - güncellemek için tıklayın",
 			"updated": "- güncellendi {{time}}",
 			"neuralwattBalance": "NeuralWatt: {{amount}} Kalan kWh {{refreshed}}",
-			"neuralwattBalanceUnavailable": "NeuralWatt dengesi mevcut değil",
+			"neuralwattBalanceUnavailable": "NeuralWatt bakiyesi mevcut değil",
 			"miniMaxRemaining": "MiniMax kalan kontenjanı - ayrıntılar için tıklayın",
 			"miniMaxUsed": "MiniMax kotası kullanıldı - ayrıntılar için tıklayın"
 		},
@@ -2601,18 +2601,18 @@
 		"create": {
 			"editTitle": "Yedekleme Grubunu Düzenle",
 			"createTitle": "Yedekleme Grubu Oluştur",
-			"displayModelName": "Model Adını Göster",
+			"displayModelName": "Görünen Model Adı",
 			"displayModelNamePlaceholder": "örneğin, glm-5",
 			"displayModelNameHelper": "Bu, model listesinde hotel/{{modelName}} olarak görünür",
 			"displayNameOptional": "Görünen Ad (isteğe bağlı)",
 			"displayNamePlaceholder": "Örneğin, GLM-5 Yedekleme",
 			"descriptionOptional": "Açıklama (isteğe bağlı)",
 			"descriptionPlaceholder": "Örneğin, GLM-5 modelleri için yedekleme grubu",
-			"modelEntries": "Örnek Girişler",
+			"modelEntries": "Model Girişleri",
 			"selectedCount_one": "{{count}} seçilen",
 			"selectedCount_other": "{{count}} seçilen",
-			"saving": "… 'i Kurtarmak",
-			"creating": "… 'ın Oluşturulması",
+			"saving": "Kaydediliyor…",
+			"creating": "Oluşturuluyor…",
 			"createGroup": "Grup Oluştur"
 		},
 		"countLabel_one": "Yedekleme Grubu",
@@ -2644,7 +2644,7 @@
 		}
 	},
 	"virtualKeys": {
-		"global": "Dünya çapında",
+		"global": "Genel",
 		"snippet": {
 			"curl": "cURL",
 			"powershell": "PowerShell",
@@ -2664,7 +2664,7 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "Patlama",
+			"burst": "Burst",
 			"tpm": "TPM"
 		}
 	},
@@ -2680,7 +2680,7 @@
 		},
 		"useChat": {
 			"messageDeleted": "Mesaj silindi",
-			"canOnlyDeleteRecent": "Yalnızca en son yanıtı silebilir"
+			"canOnlyDeleteRecent": "Yalnızca en son yanıtı silebilirsiniz"
 		},
 		"useConversationRunner": {
 			"generationError": "{{model}}: {{error}}"
@@ -2690,7 +2690,7 @@
 		},
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
-			"retry": "{{model}}: {{status}} - yeniden dene {{attempt}} adresinde {{delay}}'un…",
+			"retry": "{{model}}: {{status}} - {{delay}} sn içinde {{attempt}}. yeniden deneme…",
 			"networkError": "ağ hatası",
 			"nonChatModel": "Sohbet modeli değil"
 		},

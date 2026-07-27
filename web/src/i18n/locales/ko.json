@@ -14,7 +14,7 @@
 		"collapse": "접기",
 		"enabled": "활성화됨",
 		"disabled": "비활성화됨",
-		"never": "절대",
+		"never": "없음",
 		"justNow": "방금",
 		"loading": "로딩 중",
 		"loadingDots": "불러오는 중…",
@@ -41,15 +41,15 @@
 		"required": "필수",
 		"done": "완료",
 		"creating": "생성 중...",
-		"resolving": "… 문제 해결",
+		"resolving": "확인 중…",
 		"live": "실시간",
 		"deleted": "삭제됨",
 		"internal": "내부",
 		"noLogsFound": "로그가 없습니다",
 		"global": "전역",
 		"manuallyDisabled": "수동으로 비활성화됨",
-		"loadingNewer": "최신 게시물 불러오기…",
-		"loadingOlder": "… 의 이전 버전 불러오기",
+		"loadingNewer": "최신 항목 불러오는 중…",
+		"loadingOlder": "이전 항목 불러오는 중…",
 		"model": "모델",
 		"models": "모델",
 		"tokens": "토큰",
@@ -88,8 +88,8 @@
 			"providers": "프로바이더",
 			"models": "모델",
 			"failover": "페일오버",
-			"failoverClosed": "{{count}} 차단기",
-			"failoverClosed_other": "{{count}} 차단된 회로 차단기",
+			"failoverClosed": "닫힌 서킷 브레이커 {{count}}개",
+			"failoverClosed_other": "닫힌 서킷 브레이커 {{count}}개",
 			"failoverHalfOpen": "{{count}} 반개방형 차단기",
 			"failoverHalfOpen_other": "{{count}} 반개방형 차단기",
 			"failoverOpen": "{{count}} 개방된 차단기",
@@ -123,7 +123,7 @@
 			"requestsToday": "오늘 요청",
 			"db": "DB",
 			"procs_one": "proc",
-			"procs_other": "프로시저",
+			"procs_other": "프로세스",
 			"aggregateCpu": "{{count}} 의 컴포즈 컨테이너 전체에 걸쳐 CPU 합계",
 			"aggregateNetwork": "{{count}} 의 컴포즈 컨테이너 전반에 걸친 네트워크 통합",
 			"aggregateDisk": "{{count}} 의 Compose 컨테이너 전체에 걸친 디스크 I/O 합계",
@@ -145,7 +145,7 @@
 			"adminToken": "관리자 토큰",
 			"enterToken": "관리자 토큰을 입력하세요",
 			"signIn": "로그인",
-			"signingIn": "… 에 로그인",
+			"signingIn": "로그인 중…",
 			"signInWithPasskey": "패스키로 로그인",
 			"orDivider": "또는",
 			"emptyToken": "관리자 토큰을 입력해 주세요",
@@ -183,7 +183,7 @@
 		"language": {
 			"label": "언어"
 		},
-		"running": "달리기 {{running}}",
+		"running": "실행 중 {{running}}",
 		"runningLatest": "최신 버전 실행 ({{running}})",
 		"updateAvailable": "업데이트가 있습니다: {{running}} → {{latest}}",
 		"expandStats": "통계 보기",
@@ -207,7 +207,7 @@
 			"haKind": "HA",
 			"ssoKind": "SSO",
 			"clearAll": "모두 지우기",
-			"copyError": "복사 오류",
+			"copyError": "오류 복사",
 			"requestKind": "Req",
 			"title": "오류",
 			"viewDetails": "상세 정보 보기",
@@ -242,7 +242,7 @@
 		"toggleKeyFilter": "키 필터 전환",
 		"refresh": "대시보드 새로고침",
 		"refreshing": "… 새로 고침",
-		"loadingGauges": "적재 게이지…",
+		"loadingGauges": "게이지 불러오는 중…",
 		"failedToLoadGaugeStats": "게이지 통계 데이터를 불러오지 못했습니다",
 		"gaugeLoadFailed": "게이지 통계 데이터를 불러오지 못했습니다",
 		"stats": {
@@ -258,20 +258,20 @@
 			"requestsPerRange": "요청/{{range}}",
 			"avgTtftPerRange": "평균 TTFT/{{range}}",
 			"avgOverheadPerRange": "평균 오버헤드/{{range}}",
-			"rateLimitHitsPerRange": "호출 제한({{range}} )",
+			"rateLimitHitsPerRange": "요청 제한 초과 {{range}}",
 			"errorRatePerRange": "오류율/{{range}}",
 			"viewRequestHistory": "요청 내역을 보려면 클릭하세요",
 			"viewTtftHistory": "TTFT 기록을 보려면 클릭하세요",
-			"viewOverheadHistory": "과거 기록을 보려면 클릭하세요",
+			"viewOverheadHistory": "오버헤드 내역을 보려면 클릭하세요",
 			"viewRateLimitHistory": "클릭하여 요청 제한 초과 내역을 확인하세요",
 			"viewErrorRateHistory": "오류 발생률 내역을 보려면 클릭하세요",
-			"viewDurationHistory": "클릭하여 이용 내역을 확인하세요",
+			"viewDurationHistory": "클릭하여 소요 시간 내역을 확인하세요",
 			"viewTokenHistory": "토큰 내역을 보려면 클릭하세요",
 			"svgTitle": "게이지",
 			"modal": {
 				"avgOverheadTitle": "평균 오버헤드",
-				"overheadMetric": "상부",
-				"overheadLabel": "상부",
+				"overheadMetric": "오버헤드",
+				"overheadLabel": "오버헤드",
 				"errorRateTitle": "오류율",
 				"errorRateMetric": "오류율",
 				"errorRateLabel": "오류율",
@@ -304,7 +304,7 @@
 			"requestsOver": "요청/{{range}}",
 			"avgTtftOver": "평균 TTFT/{{range}}",
 			"avgOverheadOver": "평균 오버헤드/{{range}}",
-			"rateLimitHitsOver": "호출 제한({{range}} )",
+			"rateLimitHitsOver": "요청 제한 초과 {{range}}",
 			"errorRateOver": "오류율/{{range}}",
 			"avgDurationOver": "평균 소요 시간 /{{range}}",
 			"cacheHit": "캐시 적중",
@@ -329,8 +329,8 @@
 		},
 		"providerLatency": {
 			"title": "프로바이더 지연 시간",
-			"response": "답변",
-			"overhead": "상부",
+			"response": "응답",
+			"overhead": "오버헤드",
 			"emptyState": "아직 지연 시간 데이터가 없습니다. 트래픽이 발생하면 해당 제공자의 지연 시간이 여기에 표시됩니다.",
 			"responseTooltip": "평균 응답 시간: {{value}} ({{count}} 건의 요청)",
 			"overheadTooltip": "평균 프록시 오버헤드: {{value}} ({{count}} 요청)",
@@ -364,14 +364,14 @@
 			"noTokenData": "아직 토큰 데이터가 없습니다. 트래픽이 발생하면 토큰 구성 정보가 이곳에 표시됩니다.",
 			"tokens": "토큰",
 			"prompt": "프롬프트",
-			"completion": "완료",
+			"completion": "완성",
 			"cacheHit": "캐시 적중",
 			"promptTooltip": "프롬프트: {{pct}}% ({{count}} 토큰)",
-			"completionTooltip": "완료: {{pct}}% ({{count}} 개 토큰)",
+			"completionTooltip": "완성: {{pct}}% ({{count}} 개 토큰)",
 			"cacheHitTooltip": "캐시 적중률: {{pct}}% ({{count}} 개)",
 			"mixAriaLabel": "토큰 구성: {{promptPct}}% 프롬프트, {{completionPct}}% 완성",
 			"promptTileTitle": "프롬프트",
-			"completionTileTitle": "완료"
+			"completionTileTitle": "완성"
 		},
 		"modal": {
 			"avgOverhead": "평균 오버헤드",
@@ -383,12 +383,12 @@
 			"avgTokens": "평균 토큰 수"
 		},
 		"range": {
-			"1h": "1시",
+			"1h": "1시간",
 			"24h": "1일",
 			"1w": "1주"
 		},
 		"metric": {
-			"tokens": "톡",
+			"tokens": "토큰",
 			"requests": "요청"
 		},
 		"label": {
@@ -408,7 +408,7 @@
 			"selectModelA": "모델 A 선택",
 			"selectModelB": "모델 B 선택",
 			"modelsMustDiffer": "모델은 서로 달라야 한다",
-			"enterPrompt": "명령어를 입력하세요"
+			"enterPrompt": "프롬프트를 입력하세요"
 		},
 		"stream": {
 			"stoppedByUser": "사용자가 중단함",
@@ -419,16 +419,16 @@
 			"endedUnexpectedly": "스트림이 콘텐츠 없이 예기치 않게 종료되었습니다."
 		},
 		"controls": {
-			"_": "조작법",
+			"_": "컨트롤",
 			"resetAll": "모두 초기화 (모델 및 설정 삭제)",
 			"modelA": "모델 A",
 			"modelB": "모델 B",
-			"personaA": "인물 A",
+			"personaA": "페르소나 A",
 			"personaB": "페르소나 B",
 			"clearMessages": "메시지 지우기 (모델 및 설정 유지)",
 			"modelLabel": "모델",
 			"personaLabel": "페르소나",
-			"title": "조작법",
+			"title": "컨트롤",
 			"stop": "중지",
 			"generating": "모델 생성 중 - 중지하려면 ‘중지’를 클릭하세요",
 			"sendMessage": "메시지 보내기...",
@@ -447,9 +447,9 @@
 		"conversationCleared": "대화 기록 삭제됨",
 		"modelA": "모델 A",
 		"modelB": "모델 B",
-		"personaA": "인물 A",
+		"personaA": "페르소나 A",
 		"personaB": "페르소나 B",
-		"turn": "돌리다",
+		"turn": "차례",
 		"totalDuration": "소요 시간",
 		"totalTokens": "토큰",
 		"modelGenerating": "모델이 다음을 생성하고 있습니다:…",
@@ -526,7 +526,7 @@
 			"descriptionConversation": "두 모델이 서로 대화를 나누는 모습을 지켜보세요",
 			"selectModelToStart": "채팅을 시작하려면 모델을 선택하세요",
 			"keyboardHint": "보내려면 Enter 키를, 새 줄을 입력하려면 Shift+Enter 키를 누르세요",
-			"turnCount": "{{current}} 로 전환 / {{max}}",
+			"turnCount": "차례 {{current}} / {{max}}",
 			"tokens": "토큰",
 			"modelGenerating": "모델이 다음을 생성하고 있습니다:…",
 			"waitingNextTurn": "다음 차례를 기다리며…",
@@ -549,7 +549,7 @@
 			"compare": "나란히 비교 - 동일한 프롬프트에 대한 모델 출력 결과 비교"
 		},
 		"controls": {
-			"label": "조작법"
+			"label": "컨트롤"
 		},
 		"mode": {
 			"arena": "아레나",
@@ -563,7 +563,7 @@
 			"title": "경기 기록"
 		},
 		"toast": {
-			"cleared": "아레나 클리어",
+			"cleared": "아레나 초기화됨",
 			"reset": "초기화"
 		},
 		"clearResults": {
@@ -585,7 +585,7 @@
 		},
 		"round": {
 			"firstRound": "1라운드",
-			"generation": "세대",
+			"generation": "생성",
 			"match": "경기",
 			"final": "최종",
 			"semifinals": "준결승",
@@ -617,7 +617,7 @@
 			"voted": "투표함"
 		},
 		"swapModel": {
-			"title": "스왑 모델"
+			"title": "모델 교체"
 		},
 		"completed": {
 			"title": "완료됨"
@@ -653,24 +653,24 @@
 			"temperature": "온도",
 			"maxTokens": "최대 토큰 수",
 			"topP": "Top P",
-			"minP": "민 P",
+			"minP": "최소 P",
 			"topK": "Top K",
-			"freqPenalty": "주파수 페널티",
-			"presPenalty": "페널티 킥",
+			"freqPenalty": "빈도 페널티",
+			"presPenalty": "존재 페널티",
 			"resetAll": "모두 초기화",
 			"done": "완료"
 		},
 		"button": {
 			"stop": "모두 중지",
-			"run": "런 아레나"
+			"run": "아레나 실행"
 		},
 		"disabledReason": {
 			"selectTwoModels": "최소 2개 이상의 모델을 선택하세요",
-			"pickOneMore": "모델을 1명 이상 더 선택하세요",
+			"pickOneMore": "모델을 1개 이상 더 선택하세요",
 			"noDuplicates": "중복 모델 없음",
-			"enterPrompt": "명령어를 입력하세요",
+			"enterPrompt": "프롬프트를 입력하세요",
 			"selectBracketModels": "2개, 4개 또는 8개 모델을 선택하세요",
-			"pickOrRemove": "{{count}} 를 선택하거나 더 추가하거나 제거하여 {{nextValid}}",
+			"pickOrRemove": "{{count}}개를 더 선택하거나 제거해 {{nextValid}}개로 맞추세요",
 			"voteToContinue": "다음 라운드로 진출하려면 모든 대진표에 투표해 주세요",
 			"enterPromptNextRound": "다음 라운드를 위한 프롬프트를 입력하세요"
 		},
@@ -678,18 +678,18 @@
 		"close": "닫기",
 		"custom": "사용자 지정",
 		"done": "완료",
-		"reasoningEffort": "추론 과정"
+		"reasoningEffort": "추론 강도"
 	},
 	"providers": {
 		"page_title_one": "제공업체",
 		"page_title_other": "제공업체",
 		"page_description": "공급자 구성 관리",
-		"btn_discover_all": "모든 모델 보기",
+		"btn_discover_all": "모든 모델 검색",
 		"btn_refresh_quotas": "할당량/잔액 새로 고침",
 		"btn_add_provider": "공급자 추가",
 		"btn_discovering": "찾아보는 중...",
-		"btn_refreshing": "상쾌하네요...",
-		"filter_placeholder": "필터 제공업체…",
+		"btn_refreshing": "새로 고치는 중...",
+		"filter_placeholder": "제공업체 필터…",
 		"filter_provider_type": "제공자 유형",
 		"filter_all": "전체 ({{count}}) 제공업체",
 		"sort_title_asc": "A-Z 순서 (클릭하면 순서 반전)",
@@ -699,7 +699,7 @@
 		"toast_discover_failed": "탐색에 실패했습니다: {{message}}",
 		"toast_provider_added": "제공자 \"{{name}}\"가 추가되었습니다",
 		"toast_provider_updated": "제공자 \"{{name}}\"가 업데이트되었습니다",
-		"toast_provider_deleted": "제공자가 삭제했습니다",
+		"toast_provider_deleted": "제공자가 삭제되었습니다",
 		"toast_delete_failed": "삭제에 실패했습니다: {{message}}",
 		"toast_add_failed": "프로바이더 추가에 실패했습니다: {{message}}",
 		"toast_update_failed": "업데이트에 실패했습니다: {{message}}",
@@ -707,7 +707,7 @@
 		"toast_refresh_none": "할당량/잔액 기능을 지원하는 제공자가 없습니다.",
 		"toast_refresh_failed": "할당량 갱신에 실패했습니다: {{message}}",
 		"toast_quota_detected_nanogpt": "NanoGPT 할당량 감지됨",
-		"toast_quota_detected_zai": "Z.ai 코딩 할당량 초과 감지됨",
+		"toast_quota_detected_zai": "Z.ai 코딩 할당량 감지됨",
 		"toast_quota_detected_kimi": "Kimi Code 할당량 감지됨",
 		"toast_quota_detected_deepseek": "DeepSeek 잔액 확인: ${{amount}}",
 		"toast_quota_detected_openrouter": "OpenRouter 잔액 확인: ${{amount}}",
@@ -772,7 +772,7 @@
 		"card_last_used": "마지막 사용일",
 		"card_last_discovery": "마지막 발견",
 		"card_btn_edit": "편집",
-		"card_btn_discover": "모델 살펴보기",
+		"card_btn_discover": "모델 검색",
 		"card_btn_discovering": "찾아보는 중...",
 		"card_btn_delete": "삭제",
 		"card_copy_name": "클릭하여 제공자 이름 복사",
@@ -803,7 +803,7 @@
 			"autodiscoveryHelper": "자동 모델 검색 기능을 제어합니다. 이 제공자의 모델 카탈로그를 수동으로 관리하려면 이 기능을 비활성화하십시오."
 		},
 		"quotas": {
-			"expand": "할당량 확대"
+			"expand": "할당량 펼치기"
 		},
 		"credits": {
 			"toggleLabel": "남은 양과 사용된 양 사이를 전환",
@@ -892,16 +892,16 @@
 				"opencode": "OpenCode"
 			},
 			"provider": "제공업체",
-			"lastDiscovered": "가장 최근에 발견된",
+			"lastDiscovered": "마지막 발견",
 			"displayName": "표시 이름",
 			"contextLength": "문맥 길이",
 			"maxOutput": "최대 출력",
 			"inputPrice": "입력 가격",
-			"outputPrice": "판매 가격",
+			"outputPrice": "출력 가격",
 			"input": "입력",
 			"output": "출력",
 			"tokens": "토큰",
-			"perMillionTokens": "/1M 토크",
+			"perMillionTokens": "/1M 토큰",
 			"modality": {
 				"text": "텍스트"
 			},
@@ -933,7 +933,7 @@
 			"sortByContextLength": "문맥 길이로 정렬",
 			"ctx": "Ctx",
 			"sortByMaxOutput": "최대 출력 토큰 수로 정렬",
-			"maxOut": "최대치",
+			"maxOut": "최대 출력",
 			"sortByStatus": "상태별로 정렬",
 			"status": "상태"
 		},
@@ -959,14 +959,14 @@
 		"page_title_one": "페일오버 그룹",
 		"page_title_other": "장애 조치 그룹",
 		"page_description_lead": "다음과 같이 우선순위 순서대로 여러 공급자를 통해 요청을 전달합니다.",
-		"page_description_code": "호텔/모델",
+		"page_description_code": "hotel/model",
 		"btn_sync": "동기화",
 		"btn_syncing": "… 동기화",
 		"btn_new_group": "새 그룹",
 		"hint_drag": "핸들을 잡고 모델을 드래그하여 우선순위를 재정렬하세요",
-		"filter_hotel_model": "호텔/모델 필터…",
+		"filter_hotel_model": "hotel/model 필터…",
 		"filter_providers": "모든 ({{count}}) 제공업체",
-		"filter_states": "모든 ({{count}}) 주",
+		"filter_states": "모든 ({{count}}) 상태",
 		"filter_origins": "모든 ({{count}}) 출처",
 		"filter_state_enabled": "활성화됨",
 		"filter_state_disabled": "비활성화됨",
@@ -993,7 +993,7 @@
 		"nav_letter": "해당 섹션으로 이동 {{letter}}",
 		"toast_bulk_toggle_failed": "일부 그룹에서 일괄 토글이 실패했습니다",
 		"toast_provider_toggle_failed": "일부 그룹에서 대량 제공자 토글이 실패했습니다",
-		"toast_sync_deleted": "호텔/{{model}} 삭제됨: {{reason}}{{providers}}",
+		"toast_sync_deleted": "hotel/{{model}} 삭제됨: {{reason}}{{providers}}",
 		"toast_sync_success": "페일오버 그룹 동기화됨",
 		"toast_sync_failed": "동기화 실패: {{message}}",
 		"toast_update_failed": "업데이트에 실패했습니다: {{message}}",
@@ -1040,10 +1040,10 @@
 		"toast_provider_toggle_no_groups": "이 공급자를 사용하는 장애 조치 그룹이 없습니다 {{provider}}",
 		"last_sync_label": "마지막 동기화:",
 		"toast_entry_min_two": "최소 2개의 구성원이 활성 상태를 유지해야 합니다.",
-		"toast_sync_purged_one": "호텔/{{group}}: 오래된 항목 {{count}}개 삭제됨",
-		"toast_sync_purged_other": "호텔/{{group}}: 오래된 항목 {{count}}개 삭제됨",
-		"toast_sync_disabled_one": "호텔/{{group}} 비활성화됨: 라우팅 가능한 멤버 {{count}}개 남음",
-		"toast_sync_disabled_other": "호텔/{{group}} 비활성화됨: 라우팅 가능한 멤버 {{count}}개 남음"
+		"toast_sync_purged_one": "hotel/{{group}}: 오래된 항목 {{count}}개 삭제됨",
+		"toast_sync_purged_other": "hotel/{{group}}: 오래된 항목 {{count}}개 삭제됨",
+		"toast_sync_disabled_one": "hotel/{{group}} 비활성화됨: 라우팅 가능한 멤버 {{count}}개 남음",
+		"toast_sync_disabled_other": "hotel/{{group}} 비활성화됨: 라우팅 가능한 멤버 {{count}}개 남음"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "저장되지 않은 변경 사항"
@@ -1061,7 +1061,7 @@
 			"name": "이름",
 			"key": "키",
 			"rps": "RPS",
-			"burst": "연사",
+			"burst": "버스트",
 			"created": "작성됨",
 			"tokens": "토큰",
 			"lastUsed": "마지막 사용일",
@@ -1112,10 +1112,10 @@
 				"providerInstructions": "제공자를 클릭하여 액세스를 제한하세요. 기본적으로 모두 액세스할 수 있습니다.",
 				"noProviders": "제공자가 없습니다.",
 				"restoreAccess": "모든 제공자에 대한 접근 권한 복원",
-				"stripReasoning": "스트립 추론",
+				"stripReasoning": "추론 제거",
 				"stripReasoningDescription": "이 기능이 활성화되면, 해당 토큰을 처리할 수 없는 클라이언트에 대한 스트리밍 응답에서 추론/사고 토큰이 제거됩니다.",
-				"enableStripReasoning": "스트립 추론 활성화",
-				"disableStripReasoning": "스트립 추론 비활성화",
+				"enableStripReasoning": "추론 제거 활성화",
+				"disableStripReasoning": "추론 제거 비활성화",
 				"rateLimitBurst": "버스트(최대 동시 처리량)",
 				"rateLimitRps": "RPS (초당 요청 수)",
 				"rateLimitTpm": "TPM (토큰/분)",
@@ -1125,11 +1125,11 @@
 			},
 			"detailTitle": "가상 키 세부 정보",
 			"sections": {
-				"identity": "정체성",
+				"identity": "식별 정보",
 				"rateLimits": "요청 제한",
-				"usage": "사용법",
+				"usage": "사용량",
 				"providerAccess": "서비스 제공자 접속",
-				"stripReasoning": "스트립 추론"
+				"stripReasoning": "추론 제거"
 			},
 			"labels": {
 				"key": "키",
@@ -1146,13 +1146,13 @@
 			"providerInstructionsText": "제공자를 클릭하여 액세스를 제한하세요. 기본적으로 모두 액세스할 수 있습니다.",
 			"nameLabel": "이름",
 			"rateLimitRpsLabel": "요청 제한 RPS (초당 요청 수)",
-			"rateLimitBurstLabel": "요청 제한 초과 (최대 동시 처리량)",
+			"rateLimitBurstLabel": "요청 제한 버스트 (최대 동시 처리량)",
 			"keyCreated": "가상 키 생성됨",
 			"keyCreatedFailed": "실패: {{message}}",
 			"keyUpdated": "가상 키가 업데이트되었습니다",
 			"keyUpdateFailed": "실패: {{message}}",
 			"usageExamples": "사용 예시",
-			"rateLimitTpmLabel": "요율 제한 TPM (토큰/분)"
+			"rateLimitTpmLabel": "요청 제한 TPM (토큰/분)"
 		}
 	},
 	"logs": {
@@ -1205,14 +1205,14 @@
 			"headers": "헤더",
 			"ttft": "TTFT",
 			"duration": "소요 시간",
-			"overhead": "상부",
+			"overhead": "오버헤드",
 			"key": "키",
 			"providerDeleted": "제공자가 삭제되었습니다",
 			"deletedProvider": "삭제됨",
-			"resolving": "… 문제 해결",
+			"resolving": "확인 중…",
 			"live": "실시간",
 			"interrupted": "중단됨",
-			"cacheInflated": "즉각적인 캐시 적중으로 인해 부풀려짐",
+			"cacheInflated": "프롬프트 캐시 적중으로 인해 부풀려짐",
 			"keyDeleted": "삭제됨"
 		},
 		"tooltip": {
@@ -1229,7 +1229,7 @@
 			"overhead": "프록시 오버헤드 (구문 분석, 조회 등)",
 			"key": "인증에 사용되는 가상 키",
 			"providerDeleted": "제공자가 삭제되었습니다",
-			"totalOverhead": "총 간접비",
+			"totalOverhead": "총 오버헤드",
 			"requestParsing": "요청 분석",
 			"failoverGroupLookup": "장애 조치 그룹 조회",
 			"modelLookup": "모델 조회",
@@ -1255,8 +1255,8 @@
 			"label": "항목"
 		},
 		"loading": {
-			"newer": "↻ 최신 버전 불러오기…",
-			"older": "↻ 이전 게시물 불러오기…"
+			"newer": "↻ 최신 항목 불러오는 중…",
+			"older": "↻ 이전 항목 불러오는 중…"
 		}
 	},
 	"applogs": {
@@ -1293,12 +1293,12 @@
 			"label": "항목"
 		},
 		"loading": {
-			"newer": "↻ 최신 버전 불러오기…",
-			"older": "↻ 이전 게시물 불러오기…"
+			"newer": "↻ 최신 항목 불러오는 중…",
+			"older": "↻ 이전 항목 불러오는 중…"
 		}
 	},
 	"format": {
-		"never": "절대",
+		"never": "없음",
 		"justNow": "방금",
 		"minutesAgo_one": "{{count}}m 전",
 		"minutesAgo_other": "{{count}}m 전",
@@ -1312,8 +1312,8 @@
 		"inDaysHours_other_days_other_hours": "{{days}} 일, {{hours}} 시간",
 		"inDays_only_one": "{{days}} 일",
 		"inDays_only_other": "{{days}} 일",
-		"inHours_only_one": "{{hours}} 시간 전",
-		"inHours_only_other": "{{hours}} 시간 전",
+		"inHours_only_one": "{{hours}} 시간 후",
+		"inHours_only_other": "{{hours}} 시간 후",
 		"now": "지금"
 	},
 	"presets": {
@@ -1446,7 +1446,7 @@
 		"title": "설정",
 		"description": "Model Hotel 인스턴스 구성",
 		"proxy": {
-			"title": "대리인",
+			"title": "프록시",
 			"description": "프록시 요청 동작 및 시간 제한을 구성합니다.",
 			"requestTimeout": "요청 시간 초과",
 			"requestTimeout.description": "스트리밍이 아닌 요청의 시간 초과까지 허용되는 최대 시간입니다. 스트리밍 요청의 경우, 사고/추론 모델을 고려하여 이 시간의 10배가 자동으로 할당됩니다.",
@@ -1455,7 +1455,7 @@
 			"ttftTimeout": "TTFT 시간 초과",
 			"ttftTimeout.description": "페일오버가 발생하기 전까지 첫 번째 스트리밍 토큰을 기다리는 최대 시간. 0으로 설정하면 비활성화됩니다(즉시 커밋, 첫 번째 토큰 수신 지연 시 페일오버 없음).",
 			"streamStallTimeout": "스트림 대기 시간 초과",
-			"streamStallTimeout.description": "스트리밍 중 연결이 끊기기 전까지 허용되는 최대 무음 시간입니다. 0으로 설정하면 비활성화됩니다. 50 챕크가 지나면, 도구 호출 및 긴 추론 처리를 위해 타임아웃이 자동으로 3배 연장됩니다.",
+			"streamStallTimeout.description": "스트리밍 중 연결이 끊기기 전까지 허용되는 최대 무음 시간입니다. 0으로 설정하면 비활성화됩니다. 50개 청크가 지나면, 도구 호출 및 긴 추론 처리를 위해 타임아웃이 자동으로 3배 연장됩니다.",
 			"timeout": {
 				"30s": "30초",
 				"1m0s": "1분 (기본값)",
@@ -1517,9 +1517,9 @@
 			"enable": "회로 차단기 활성화",
 			"enableDescription": "오류가 발생하는 공급자로의 라우팅을 일시적으로 중지합니다",
 			"failureThreshold": "오류 허용 한계",
-			"failureThreshold.description": "회로가 열리기 전까지 연속적인 오류가 발생하여 공급자로의 라우팅이 중단됩니다",
+			"failureThreshold.description": "회로가 열려 공급자로의 라우팅이 중단되기까지 필요한 연속 실패 횟수",
 			"cooldownPeriod": "냉각 기간",
-			"cooldownPeriod.description": "회로가 끊어진 상태에서 해당 통신사를 다시 시도하기까지 기다려야 하는 시간",
+			"cooldownPeriod.description": "회로가 열린 상태에서 해당 공급자를 다시 시도하기까지 기다리는 시간",
 			"failoverOnRateLimit": "속도 제한 시 페일오버",
 			"failoverOnRateLimitDescription": "프로바이더가 429 오류를 반환할 때 다음 장애 조치 그룹 구성원으로 경로 전환",
 			"hedging": "느린 스트림 헤지",
@@ -1536,7 +1536,7 @@
 			"logRetention.description": "이 기간보다 오래된 로그를 자동으로 삭제합니다. 0을 설정하면 비활성화됩니다.",
 			"staleRequestTimeout": "유효 기간이 지난 요청 시간 초과",
 			"staleRequestTimeout.description": "이 시간보다 오래 진행 중인 대기 중/스트리밍 요청은 “중단됨”으로 표시합니다. 0으로 설정하면 비활성화됩니다. 첫 토큰 수신까지 시간이 오래 걸리는 제공자를 고려한 설정입니다.",
-			"deleteRequests": "삭제 요청",
+			"deleteRequests": "요청 로그 삭제",
 			"deleteRequests.tooltip": "선택한 기간보다 오래된 요청 로그 삭제",
 			"deleteRequests.selectRange": "범위 선택...",
 			"deleteRequests.olderThan1d": "1일 이상 지난",
@@ -1578,9 +1578,9 @@
 			"discoveryInterval.description": "활성화된 모든 공급자에서 모델을 자동으로 재탐색하는 빈도. 0으로 설정하면 비활성화됩니다.",
 			"discoverOnStartup": "시작 시 확인하기",
 			"discoverOnStartupDescription": "서버가 시작될 때 모든 공급자에 대해 탐색을 실행합니다",
-			"discoverOnProviderCreation": "프로바이더 생성 알아보기",
+			"discoverOnProviderCreation": "프로바이더 생성 시 검색",
 			"discoverOnProviderCreationDescription": "새로운 공급자가 추가되면 모델을 자동으로 검색합니다",
-			"discoverAll": "모든 모델 보기",
+			"discoverAll": "모든 모델 검색",
 			"discoverAllComplete": "탐색 완료",
 			"discoverAllFailed": "탐색에 실패했습니다: {{message}}",
 			"intervals": {
@@ -1605,7 +1605,7 @@
 			"persistChatConfirm": "저장된 모든 채팅 메시지가 삭제됩니다. 계속하시겠습니까?",
 			"persistChatEnabled": "채팅 기록 저장 기능 활성화됨",
 			"persistChatDisabled": "채팅 데이터가 삭제되었습니다",
-			"persistArena": "퍼시스트 아레나",
+			"persistArena": "아레나 상태 유지",
 			"persistArenaDescription": "세션 간에 브래킷 상태와 프롬프트 기억하기",
 			"persistArenaConfirm": "이렇게 하면 저장된 모든 아레나 데이터가 삭제됩니다. 계속하시겠습니까?",
 			"persistArenaEnabled": "아레나 지속성 활성화됨",
@@ -1615,9 +1615,9 @@
 			"persistConversationConfirm": "이렇게 하면 저장된 모든 대화 기록이 삭제됩니다. 계속하시겠습니까?",
 			"persistConversationEnabled": "대화 지속 기능 활성화됨",
 			"persistConversationDisabled": "대화 데이터 삭제됨",
-			"arenaHistory": "아레나 역사",
+			"arenaHistory": "아레나 기록",
 			"saveMatchHistory": "경기 기록 저장",
-			"saveMatchHistoryDescription": "완료된 아레나 세션을 자동으로 저장하고 비교하기",
+			"saveMatchHistoryDescription": "완료된 아레나 및 비교 세션을 자동으로 저장합니다",
 			"saveMatchHistoryEnabled": "아레나 기록 활성화됨",
 			"saveMatchHistoryDisabled": "아레나 기록 비활성화 - 기존 항목은 유지됨",
 			"maxSavedMatches": "저장된 경기 최대 개수",
@@ -1628,7 +1628,7 @@
 				"50": "50경기",
 				"100": "100경기"
 			},
-			"historyLimitToast": "{{count}} 로 설정된 기록 제한에 해당하는 결과",
+			"historyLimitToast": "기록 제한이 {{count}}경기로 설정되었습니다",
 			"clearHistory": "기록 지우기",
 			"clearHistoryConfirm": "모든 아레나 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
 			"clearHistoryAll": "모두 지우기",
@@ -1641,7 +1641,7 @@
 			"clearCache.tooltip": "캐시된 공급자 할당량 데이터를 모두 지웁니다. 다음 새로고침 시 최신 데이터가 불러오게 됩니다.",
 			"clearCacheConfirm": "캐시된 공급자 할당량 데이터를 모두 삭제하시겠습니까? 다음 새로고침 시 최신 데이터가 불러오게 됩니다.",
 			"clearCacheCleared": "공급자 캐시가 지워졌습니다",
-			"dismissedErrorBanners": "오류 배너 닫기",
+			"dismissedErrorBanners": "닫은 오류 배너",
 			"dismissedErrorBannersDescription": "사이드바 오류 알림창의 상태를 초기화합니다",
 			"reset": "초기화",
 			"reset.tooltip": "사이드바 오류 알림창의 상태를 초기화합니다",
@@ -1690,11 +1690,11 @@
 				"enabledDescription": "정기적으로 백업을 자동으로 생성하고, ‘son/father/grandfather’ 순환 방식을 사용하여 오래된 백업을 삭제합니다.",
 				"interval": "백업 주기",
 				"intervalDescription": "자동 백업을 생성할 빈도(0 = 비활성화).",
-				"sonRetention": "일일 유지율 (아들)",
+				"sonRetention": "일별 보존 (아들)",
 				"sonRetentionDescription": "지난 N일 동안 매일 생성된 백업 중 가장 최근의 백업을 보관하십시오.",
-				"fatherRetention": "주간 유지율 (아버지)",
+				"fatherRetention": "주별 보존 (아버지)",
 				"fatherRetentionDescription": "지난 N주 동안의 각 주별 최신 백업본을 보관하십시오.",
-				"grandfatherRetention": "월별 유지율 (기존 고객)",
+				"grandfatherRetention": "월별 보존 (할아버지)",
 				"grandfatherRetentionDescription": "지난 N개월 동안의 백업 파일 중 가장 최근의 것을 각각 보관하십시오.",
 				"confirmEnableTitle": "주기적 백업을 활성화하시겠습니까?",
 				"confirmEnableDescription": "정기 백업을 활성화하면 아들/아버지/할아버지 순환 범위를 벗어난 기존 백업이 삭제됩니다.",
@@ -1710,15 +1710,15 @@
 		"appearance": {
 			"title": "외관",
 			"uiStyle": "UI 스타일",
-			"theme": "주제",
-			"dark": "어둠",
-			"light": "빛",
+			"theme": "테마",
+			"dark": "다크",
+			"light": "라이트",
 			"accentColor": "포인트 컬러",
 			"customColor": "사용자 지정 색상",
 			"colorPicker": {
 				"title": "색상 선택",
 				"cancel": "취소",
-				"apply": "신청하기"
+				"apply": "적용"
 			},
 			"uiStyles": {
 				"cleanSaas": "클린 SaaS",
@@ -1779,7 +1779,7 @@
 			"refreshInterval.description": "최소 1분. 0으로 설정하면 비활성화됩니다. 변경 사항은 다음 예약된 새로고침 시 적용됩니다.",
 			"disabled": "사이드바 할당량 자동 새로고침이 비활성화되었습니다. 수동 새로고침을 사용하세요.",
 			"enabledQuotas": "사이드바 할당량 활성화 - 탭 표시 및 자동 새로고침 재개",
-			"disabledQuotas": "사이드바 할당량 비활성화 - 필터 숨김 및 자동 새로고침 일시 중지",
+			"disabledQuotas": "사이드바 할당량 비활성화 - 배지 숨김 및 자동 새로고침 일시 중지",
 			"intervals": {
 				"1": "1분",
 				"2": "2분",
@@ -1823,7 +1823,7 @@
 		"colorPicker": {
 			"title": "색상 선택",
 			"cancel": "취소",
-			"apply": "신청하기"
+			"apply": "적용"
 		},
 		"passkeys": {
 			"title": "패스키",
@@ -1884,7 +1884,7 @@
 			},
 			"events": {
 				"all": "모두 선택",
-				"none": "선택 없음",
+				"none": "모두 선택 해제",
 				"reset": "기본값으로 재설정",
 				"title": "알림 대상 이벤트"
 			},
@@ -1894,7 +1894,7 @@
 				"description": "일반적으로 사용되는 서비스의 Apprise URL 형식 예시 - 그중 하나를 복사한 후, 세부 정보를 입력하고 위에 붙여넣으십시오."
 			},
 			"target": "알림 대상",
-			"targetConfigured": "구성됨 - 대체할 유형",
+			"targetConfigured": "구성됨 (교체하려면 입력)",
 			"targetDescription": "Apprise URL - 암호화되어 저장되며 다시는 표시되지 않습니다. 여러 대상은 <code>;</code> 형식으로 구분하십시오.",
 			"testButton": "테스트 알림 보내기",
 			"testFailed": "알림 테스트 실패: {{message}}",
@@ -1918,7 +1918,7 @@
 			"confirmDisableAriaLabel": "TOTP 비활성화 확인",
 			"copied": "클립보드에 복사됨",
 			"copyAll": "모든 코드를 복사하십시오",
-			"copySecretAriaLabel": "TOTP 비밀번호 복사",
+			"copySecretAriaLabel": "TOTP 시크릿 복사",
 			"description": "관리자 로그인 시 두 번째 인증 요소로 시간 기반 일회용 비밀번호를 추가하십시오.",
 			"disable": "비활성화",
 			"disableAriaLabel": "TOTP 2단계 인증 비활성화",
@@ -1938,7 +1938,7 @@
 			"recoveryCodesWarning": "이 복구 코드를 지금 저장해 두십시오. 이 코드는 다시 표시되지 않습니다. 인증기 접근 권한을 상실한 경우, 각 코드를 한 번씩 사용하여 로그인할 수 있습니다.",
 			"saved": "복구 코드를 저장했습니다.",
 			"savedAriaLabel": "복구 코드가 저장되었는지 확인",
-			"secret": "비밀",
+			"secret": "시크릿",
 			"secretCopied": "비밀 정보 복사됨",
 			"title": "2FA · 인증 앱(TOTP)",
 			"verifiedSuccess": "2단계 인증 활성화됨",
@@ -2034,9 +2034,9 @@
 			"close": "닫기"
 		},
 		"confirmDeleteButton": {
-			"deleteKey": "삭제 키",
+			"deleteKey": "키 삭제",
 			"yesDelete": "네, 삭제하세요",
-			"areYouSure": "정말 괜찮으세요?"
+			"areYouSure": "정말 삭제하시겠습니까?"
 		},
 		"restoreConfirmModal": {
 			"title": "데이터베이스 백업 복원",
@@ -2104,7 +2104,7 @@
 				"selectEndDate": "종료일 선택…",
 				"selectStartDate": "시작 날짜 선택",
 				"clear": "지우기",
-				"apply": "신청하기"
+				"apply": "적용"
 			},
 			"errorState": {
 				"failedToLoad": "로그를 불러오지 못했습니다: {{message}}"
@@ -2132,7 +2132,7 @@
 			"off": "끄기"
 		},
 		"reasoningEffortSelect": {
-			"reasoningEffort": "추론 과정",
+			"reasoningEffort": "추론 강도",
 			"off": "끄기",
 			"low": "낮음",
 			"medium": "중간",
@@ -2143,7 +2143,7 @@
 			"prev": "이전",
 			"next": "다음",
 			"entries": "{{start}} {{to}} {{end}} {{of}} {{total}} {{label}}",
-			"entriesShort": "{{start}}–{{end}} 의 {{total}} {{label}}",
+			"entriesShort": "총 {{total}} {{label}} 중 {{start}}–{{end}}",
 			"perPage": "{{size}} / 페이지",
 			"noEntries": "{{label}} 를 찾을 수 없습니다",
 			"countOne": "1 {{label}}",
@@ -2157,7 +2157,7 @@
 			"collapseAllProviders": "모든 제공자 숨기기",
 			"noModelsMatch": "일치하는 모델이 없습니다",
 			"clearFilter": "필터 지우기",
-			"paramsLocked": "실행 중에는 매개변수를 잠글 수 없습니다",
+			"paramsLocked": "실행 중에는 매개변수가 잠깁니다",
 			"editParams": "생성 매개변수 편집",
 			"addParams": "생성 매개변수 추가",
 			"viewDetails": "모델 세부 정보 보기"
@@ -2170,22 +2170,22 @@
 			"collapseModelDetails": "모델 세부 정보 접기",
 			"provider": "제공업체",
 			"modelId": "모델 ID",
-			"context": "배경",
-			"inputPricePerMillion": "(백만 달러 기준)",
-			"outputPricePerMillion": "손실 $/100만 달러",
+			"context": "컨텍스트",
+			"inputPricePerMillion": "입력 $/100만",
+			"outputPricePerMillion": "출력 $/100만",
 			"capabilities": "주요 기능",
-			"proxyId": "대리인 ID",
-			"parametersLockedWhileRunning": "실행 중에는 매개변수를 잠글 수 없습니다",
+			"proxyId": "프록시 ID",
+			"parametersLockedWhileRunning": "실행 중에는 매개변수가 잠깁니다",
 			"editGenerationParameters": "생성 매개변수 편집",
 			"addGenerationParameters": "생성 매개변수 추가",
 			"temperature": "온도",
 			"maxTokens": "최대 토큰 수",
 			"topP": "Top P",
-			"minP": "민 P",
+			"minP": "최소 P",
 			"topK": "Top K",
-			"freqPenalty": "주파수 페널티",
-			"presPenalty": "페널티 킥",
-			"maxOut": "최대치"
+			"freqPenalty": "빈도 페널티",
+			"presPenalty": "존재 페널티",
+			"maxOut": "최대 출력"
 		},
 		"modelTable": {
 			"searchModels": "모델 검색…",
@@ -2195,7 +2195,7 @@
 			"provider": "제공업체",
 			"discovered": "발견됨",
 			"context": "Ctx",
-			"maxOutput": "최대치",
+			"maxOutput": "최대 출력",
 			"status": "상태",
 			"modelNameAndId": "모델명 및 ID",
 			"providerName": "제공자 이름",
@@ -2208,9 +2208,9 @@
 			"deleteDisabledModels": "사용 중지된 모델 삭제",
 			"models": "모델",
 			"deleteDisabledAria_one": "삭제 {{count}} 비활성화된 모델",
-			"deleteDisabledAria_other": "{{count}} 에서 비활성화된 모델 삭제",
+			"deleteDisabledAria_other": "비활성화된 모델 {{count}}개 삭제",
 			"deleteDisabledMessage_one": "이렇게 하면 {{count}} 모델이 영구적으로 삭제됩니다. 해당 공급자에서 자동 검색이 활성화된 경우, 다음 주기에서 다시 검색됩니다. 이를 방지하려면 공급자에서 자동 검색을 비활성화하십시오.",
-			"deleteDisabledMessage_other": "이렇게 하면 {{count}} 에 있는 비활성화된 모델이 영구적으로 삭제됩니다. 해당 공급자에서 자동 검색이 활성화된 경우, 다음 주기에서 다시 검색됩니다. 이를 방지하려면 공급자에서 자동 검색을 비활성화하십시오.",
+			"deleteDisabledMessage_other": "이렇게 하면 비활성화된 모델 {{count}}개가 영구적으로 삭제됩니다. 해당 공급자에서 자동 검색이 활성화된 경우, 다음 주기에서 다시 검색됩니다. 이를 방지하려면 공급자에서 자동 검색을 비활성화하십시오.",
 			"clickToCopyId": "클릭하여 모델 ID 복사"
 		},
 		"virtualModelTable": {
@@ -2219,9 +2219,9 @@
 			"noModelsFound": "모델이 없습니다",
 			"deleteDisabledModels": "사용 중지된 모델 삭제",
 			"deleteDisabledAria_one": "삭제 {{count}} 비활성화된 모델",
-			"deleteDisabledAria_other": "{{count}} 에서 비활성화된 모델 삭제",
+			"deleteDisabledAria_other": "비활성화된 모델 {{count}}개 삭제",
 			"deleteDisabledMessage_one": "이렇게 하면 {{count}} 모델이 영구적으로 삭제됩니다. 해당 공급자에서 자동 검색이 활성화된 경우, 다음 주기에서 다시 검색됩니다. 이를 방지하려면 공급자에서 자동 검색을 비활성화하십시오.",
-			"deleteDisabledMessage_other": "이렇게 하면 {{count}} 에 있는 비활성화된 모델이 영구적으로 삭제됩니다. 해당 공급자에서 자동 검색이 활성화된 경우, 다음 주기에서 다시 검색됩니다. 이를 방지하려면 공급자에서 자동 검색을 비활성화하십시오."
+			"deleteDisabledMessage_other": "이렇게 하면 비활성화된 모델 {{count}}개가 영구적으로 삭제됩니다. 해당 공급자에서 자동 검색이 활성화된 경우, 다음 주기에서 다시 검색됩니다. 이를 방지하려면 공급자에서 자동 검색을 비활성화하십시오."
 		},
 		"modelReplyCard": {
 			"modelDetails": "모델 상세 정보",
@@ -2229,17 +2229,17 @@
 			"copy": "복사",
 			"disableModel": "모델 비활성화",
 			"disable": "비활성화",
-			"thinking": "생각해 보니…",
-			"waiting": "… 를 기다리며",
-			"thinkingDots": "생각해 보니…",
-			"turn": "돌리다 {{number}}",
-			"tokPerSec": "초/초",
+			"thinking": "생각 중…",
+			"waiting": "대기 중…",
+			"thinkingDots": "생각 중…",
+			"turn": "{{number}}번째 차례",
+			"tokPerSec": "토큰/초",
 			"tok": "tok"
 		},
 		"providerFilter": {
-			"filterProviders": "필터 제공업체",
+			"filterProviders": "제공업체 필터",
 			"clearFilter": "필터 지우기",
-			"searchProviders": "검색 제공업체…",
+			"searchProviders": "제공업체 검색…",
 			"selectAll": "모두 선택",
 			"clear": "지우기",
 			"noProvidersFound": "해당 제공자를 찾을 수 없습니다",
@@ -2258,7 +2258,7 @@
 			"weeklyTokenQuota": "주간 토큰 할당량",
 			"used": "사용된",
 			"noLimitSet": "제한 없음",
-			"dailyImages": "오늘의 사진",
+			"dailyImages": "일일 이미지",
 			"dailyInputTokens": "일일 입력 토큰",
 			"subscriptionDetails": "구독 정보",
 			"provider": "제공업체",
@@ -2273,9 +2273,9 @@
 			"kimiCodePlanQuota": "Kimi 코딩 플랜 할당량",
 			"kimiCodeParallelLimit": "병렬 요청",
 			"kimiCodeTotalQuota": "총 할당량",
-			"plan": "계획",
+			"plan": "플랜",
 			"hTokenQuota": "{{hours}}h 토큰 할당량",
-			"left": "왼쪽",
+			"left": "남음",
 			"mcpTokenQuota": "MCP 시간 할당량",
 			"openRouterCredits": "OpenRouter 크레딧",
 			"freeTier": "무료 요금제",
@@ -2285,11 +2285,11 @@
 			"refreshBalanceInfo": "잔액 정보 새로 고침",
 			"accountBalance": "계좌 잔액",
 			"spentTotal": "{{amount}} 총 지출액",
-			"keySpendingLimit": "주요 지출 한도",
+			"keySpendingLimit": "키 지출 한도",
 			"remaining": "남은",
 			"limitReset": "한도 초과 - 결제 차단",
 			"resets": "초기화",
-			"keyUsage": "주요 용도",
+			"keyUsage": "키 사용량",
 			"spendingByThisKey": "이 API 키의 지출 내역 (계정 총액은 다를 수 있음)",
 			"today": "오늘",
 			"thisWeek": "이번 주",
@@ -2302,10 +2302,10 @@
 			"noCredits": "크레딧 없음",
 			"cancelAtPeriodEnd": "구독은 해당 기간이 종료되면 해지됩니다 ({{date}}).",
 			"neuralWattCredits": "NeuralWatt 크레딧",
-			"neuralwattBalance": "균형",
-			"neuralwattUsage": "사용법",
+			"neuralwattBalance": "잔액",
+			"neuralwattUsage": "사용량",
 			"neuralwattSubscription": "구독",
-			"neuralwattPlan": "계획",
+			"neuralwattPlan": "플랜",
 			"neuralwattBillingPeriod": "청구 기간",
 			"neuralwattAutoRenew": "자동 갱신",
 			"neuralwattCurrentMonth": "이번 달",
@@ -2314,16 +2314,16 @@
 			"neuralwattTokens": "토큰",
 			"neuralwattEnergy": "에너지",
 			"neuralwattKeyName": "키 이름",
-			"neuralwattAllowance": "수당",
-			"neuralwattRateLimitTier": "요율 한도 등급",
+			"neuralwattAllowance": "허용량",
+			"neuralwattRateLimitTier": "요청 제한 등급",
 			"neuralwattOverageLimit": "초과 한도",
 			"neuralwattInOverage": "초과분",
-			"neuralwattLifetime": "평생",
-			"neuralwattKeyInfo": "주요 정보",
+			"neuralwattLifetime": "누적",
+			"neuralwattKeyInfo": "키 정보",
 			"neuralwattEnergyQuota": "에너지 할당량",
 			"neuralwattBillingInterval": "청구 주기",
 			"neuralwattAccountingMethod": "회계 처리 방법",
-			"limits": "한계",
+			"limits": "제한",
 			"none": "없음",
 			"miniMaxPlanQuota": "MiniMax 플랜 할당량",
 			"miniMaxChatModels": "채팅 모델",
@@ -2331,8 +2331,8 @@
 			"miniMaxVideoModels": "동영상 모델"
 		},
 		"providerQuotaPanel": {
-			"quotas": "할당량",
-			"expandQuotas": "할당량 확대",
+			"quotas": "사용량",
+			"expandQuotas": "할당량 펼치기",
 			"collapse": "접기",
 			"quotaPanelCollapsed": "할당량 패널이 접혔습니다 - 자동 새로고침이 일시 중지되었습니다",
 			"quotaPanelExpanded": "할당량 패널 확장 - 자동 새로고침 재개",
@@ -2344,15 +2344,15 @@
 			"persona": "페르소나",
 			"customPersonaPlaceholder": "여기에서 AI용 맞춤형 페르소나를 입력하세요…",
 			"switchToCustom": "사용자 지정으로 전환",
-			"overwritePrompt": "덮어쓰기 확인 메시지",
+			"overwritePrompt": "프롬프트 덮어쓰기",
 			"clearPersonaPrompt": "현재의 페르소나 프롬프트를 지우겠습니다. 계속하시겠습니까?",
-			"systemPrompt": "시스템 메시지"
+			"systemPrompt": "시스템 프롬프트"
 		},
 		"promptPicker": {
 			"prompt": "프롬프트",
 			"enterPromptPlaceholder": "프롬프트를 입력하세요…",
 			"switchToCustom": "사용자 지정으로 전환",
-			"overwritePrompt": "덮어쓰기 확인 메시지",
+			"overwritePrompt": "프롬프트 덮어쓰기",
 			"promptField": "프롬프트"
 		},
 		"presetBar": {
@@ -2364,7 +2364,7 @@
 			"rounds": "라운드: {{rounds}}",
 			"delay": "지연: {{delay}}ms",
 			"round": "라운드: {{current}} / {{max}}",
-			"nextIn": "{{seconds}}의 다음 글:…",
+			"nextIn": "{{seconds}}초 후 다음…",
 			"status": "상태: {{state}}",
 			"expandConfig": "설정 확장",
 			"collapseConfig": "설정 접기",
@@ -2377,13 +2377,13 @@
 			"enterTopicOrQuestion": "주제나 질문을 입력하세요…",
 			"continue": "계속",
 			"start": "시작",
-			"reenterOrEditPrompt": "명령어를 다시 입력하거나 수정하세요…",
+			"reenterOrEditPrompt": "프롬프트를 다시 입력하거나 수정하세요…",
 			"retry": "다시 시도",
-			"retryFromTurn": "턴에서 다시 시도 {{turn}}",
+			"retryFromTurn": "{{turn}}번째 차례부터 다시 시도",
 			"stop": "중지"
 		},
 		"thinkingBlock": {
-			"thinking": "생각"
+			"thinking": "생각 중"
 		},
 		"arenaHistoryModal": {
 			"matchHistory": "경기 기록",
@@ -2398,7 +2398,7 @@
 			"quarterfinals": "8강전",
 			"round": "라운드 {{number}}",
 			"winner": "수상자: {{name}}",
-			"responsesAbbrev": "{{count}} 각각",
+			"responsesAbbrev": "{{count}} 응답",
 			"error": "오류: {{message}}",
 			"restoreSetup": "설정 복원",
 			"delete": "삭제",
@@ -2406,7 +2406,7 @@
 			"clearAllHistory": "모든 기록 지우기",
 			"clickAgainToConfirm": "다시 클릭하여 확인하세요",
 			"vs": "vs",
-			"bracket": "괄호",
+			"bracket": "대진표",
 			"response_one": "{{count}} 답변",
 			"response_other": "{{count}} 답변",
 			"entries_one": "{{count}} 항목",
@@ -2428,16 +2428,16 @@
 			"duration": "소요 시간",
 			"totalWallClockTime": "요청 시작부터 응답 종료까지의 총 소요 시간",
 			"headers": "헤더",
-			"timeToReceiveHeaders": "업스트림 공급자로부터 첫 번째 HTTP 응답 헤더를 수신할 시간입니다",
+			"timeToReceiveHeaders": "업스트림 공급자로부터 첫 HTTP 응답 헤더를 수신하는 데 걸린 시간",
 			"ttft": "TTFT",
 			"timeToFirstToken": "첫 토큰 수신까지 걸리는 시간: 요청 시작 시점부터 응답 본문의 첫 토큰(스트리밍) 또는 전체 응답(비스트리밍)이 수신되기까지의 지연 시간",
 			"tokensPerSecond": "토큰/초",
 			"outputTokensPerSecond": "생성 단계 동안 초당 출력되는 토큰 수(첫 번째 토큰이 생성되기까지의 시간은 제외). 생성 시간이 미미한 경우 '-'로 표시됩니다.",
 			"sumOfTokens": "프롬프트 + 완성 + 추론 토큰의 합계",
-			"requestHash": "해시 요청",
+			"requestHash": "요청 해시",
 			"model": "모델",
 			"copyModelId": "모델 ID 복사",
-			"resolved": "해결됨",
+			"resolved": "확인됨",
 			"provider": "제공업체",
 			"dbRowId": "DB 행 ID",
 			"timestamp": "시간 표시",
@@ -2445,7 +2445,7 @@
 			"virtualKey": "가상 키",
 			"tokenUsage": "토큰 사용",
 			"prompt": "프롬프트",
-			"completion": "완료",
+			"completion": "완성",
 			"reasoning": "추론",
 			"cacheHit": "캐시 적중",
 			"cacheMiss": "캐시 미스",
@@ -2453,21 +2453,21 @@
 			"overheadCacheMiss": "(캐시 미스)",
 			"proxyOverheadBreakdown": "프록시 오버헤드 분석",
 			"requestParsing": "요청 분석",
-			"timeToParseRequest": "이제 들어오는 요청 본문을 분석하고 유효성을 검사할 차례입니다",
+			"timeToParseRequest": "들어오는 요청 본문을 분석하고 검증하는 데 걸린 시간",
 			"failoverGroupLookup": "장애 조치 그룹 조회",
-			"timeToResolveFailover": "이제 페일오버 그룹을 특정 모델 및 공급자로 지정할 차례입니다",
+			"timeToResolveFailover": "페일오버 그룹을 특정 모델과 공급자로 확정하는 데 걸린 시간",
 			"modelLookup": "모델 조회",
-			"timeToLookupModel": "이제 데이터베이스에서 모델 구성을 조회할 때입니다",
+			"timeToLookupModel": "데이터베이스에서 모델 구성을 조회하는 데 걸린 시간",
 			"providerLookup": "서비스 제공자 검색",
-			"timeToLookupProvider": "이제 데이터베이스에서 공급자 정보를 조회할 차례입니다",
+			"timeToLookupProvider": "데이터베이스에서 공급자 정보를 조회하는 데 걸린 시간",
 			"keyDecryption": "키 복호화",
-			"timeToDecryptKey": "이제 공급자 API 키를 해독할 시간입니다",
+			"timeToDecryptKey": "공급자 API 키를 복호화하는 데 걸린 시간",
 			"dialDnsTcp": "다이얼 (DNS+TCP)",
-			"timeToEstablishTcp": "업스트림 공급자와의 TCP 연결을 설정할 시간입니다",
+			"timeToEstablishTcp": "업스트림 공급자와 TCP 연결을 맺는 데 걸린 시간",
 			"settingsReads": "설정 읽기",
-			"timeToReadSettings": "데이터베이스에서 설정을 읽어올 시간입니다",
+			"timeToReadSettings": "데이터베이스에서 설정을 읽는 데 걸린 시간",
 			"reused": "재사용된",
-			"totalOverhead": "총 간접비",
+			"totalOverhead": "총 오버헤드",
 			"error": "오류",
 			"copyErrorMessage": "오류 메시지 복사",
 			"expandForBreakdown": "단계별 분석을 보려면 펼치세요",
@@ -2477,7 +2477,7 @@
 			"streaming": "스트리밍",
 			"pending": "처리 중",
 			"failed": "실패함",
-			"ok": "알겠습니다",
+			"ok": "정상",
 			"clientError": "클라이언트 오류",
 			"serverError": "서버 오류"
 		},
@@ -2485,15 +2485,15 @@
 			"streaming": "스트리밍",
 			"pending": "처리 중",
 			"failed": "실패함",
-			"ok": "알겠습니다",
+			"ok": "정상",
 			"clientError": "클라이언트 오류",
 			"serverError": "서버 오류"
 		},
 		"virtualLogTable": {
 			"noLogsFound": "로그가 없습니다",
 			"entries": "항목",
-			"loadingNewer": "최신 게시물 불러오기…",
-			"loadingOlder": "… 의 이전 버전 불러오기",
+			"loadingNewer": "최신 항목 불러오는 중…",
+			"loadingOlder": "이전 항목 불러오는 중…",
 			"timeDate": "시간/날짜",
 			"hash": "해시",
 			"model": "모델",
@@ -2506,19 +2506,19 @@
 			"headers": "헤더",
 			"ttft": "TTFT",
 			"duration": "소요 시간",
-			"overhead": "상부",
+			"overhead": "오버헤드",
 			"key": "키",
 			"interrupted": "중단됨",
 			"internal": "내부",
-			"cacheInflated": "즉각적인 캐시 적중으로 인해 부풀려짐",
+			"cacheInflated": "프롬프트 캐시 적중으로 인해 부풀려짐",
 			"deleted": "삭제됨",
 			"zeroEntries": "0건"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "로그 항목이 없습니다",
 			"entries": "항목",
-			"loadingNewer": "최신 게시물 불러오기…",
-			"loadingOlder": "… 의 이전 버전 불러오기",
+			"loadingNewer": "최신 항목 불러오는 중…",
+			"loadingOlder": "이전 항목 불러오는 중…",
 			"timeDate": "시간/날짜",
 			"level": "레벨",
 			"source": "출처",
@@ -2550,7 +2550,7 @@
 			"selectEndDate": "종료일 선택…",
 			"selectStartDate": "시작 날짜 선택",
 			"clear": "지우기",
-			"apply": "신청하기"
+			"apply": "적용"
 		},
 		"dateFilterButton": {
 			"filterByDateRange": "날짜 범위별로 필터링",
@@ -2567,9 +2567,9 @@
 		"quotaBadge": {
 			"weeklyTokensRemaining": "NanoGPT 주간 토큰 잔여량 - 자세한 내용을 보려면 클릭하세요",
 			"weeklyTokenQuota": "NanoGPT 주간 토큰 할당량 - 자세한 내용을 보려면 클릭하세요",
-			"zaiCodingRemaining": "Z.ai 코딩 과정 잔여 정원 - 자세한 내용을 보려면 클릭하세요",
+			"zaiCodingRemaining": "Z.ai Coding 잔여 할당량 - 자세한 내용을 보려면 클릭하세요",
 			"zaiCodingUsed": "Z.ai 코딩 사용 할당량 - 자세한 내용을 보려면 클릭하세요",
-			"kimiCodeRemaining": "Kimi 코딩 과정 잔여 정원 - 자세한 내용을 보려면 클릭하세요",
+			"kimiCodeRemaining": "Kimi Code 잔여 할당량 - 자세한 내용을 보려면 클릭하세요",
 			"kimiCodeUsed": "Kimi 코딩 사용 할당량 - 자세한 내용을 보려면 클릭하세요",
 			"deepseekBalance": "DeepSeek 잔액: ${{usd}} USD {{refreshed}} - 새로 고치려면 클릭하세요",
 			"deepseekBalanceUnavailable": "DeepSeek 잔액 확인 불가",
@@ -2601,17 +2601,17 @@
 		"create": {
 			"editTitle": "페일오버 그룹 편집",
 			"createTitle": "페일오버 그룹 생성",
-			"displayModelName": "모델명 표시",
+			"displayModelName": "표시 모델명",
 			"displayModelNamePlaceholder": "예: glm-5",
 			"displayModelNameHelper": "모델 목록에서는 hotel/{{modelName}} 로 표시됩니다",
 			"displayNameOptional": "표시 이름 (선택 사항)",
 			"displayNamePlaceholder": "예: GLM-5 장애 조치",
 			"descriptionOptional": "설명 (선택 사항)",
 			"descriptionPlaceholder": "예: GLM-5 모델용 페일오버 그룹",
-			"modelEntries": "예시",
+			"modelEntries": "모델 항목",
 			"selectedCount_one": "{{count}} 선택됨",
 			"selectedCount_other": "{{count}} 선택됨",
-			"saving": "… 구하기",
+			"saving": "저장 중…",
 			"creating": "… 생성하기",
 			"createGroup": "그룹 만들기"
 		},
@@ -2644,7 +2644,7 @@
 		}
 	},
 	"virtualKeys": {
-		"global": "전 세계",
+		"global": "전역",
 		"snippet": {
 			"curl": "cURL",
 			"powershell": "PowerShell",
@@ -2664,7 +2664,7 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "연사",
+			"burst": "버스트",
 			"tpm": "TPM"
 		}
 	},
@@ -2711,7 +2711,7 @@
 		"useBidirectionalFetch": {
 			"initialError": "초기 데이터 가져오기에 실패했습니다",
 			"newerError": "최신 항목을 불러오지 못했습니다",
-			"olderError": "이전 게시물을 불러오는 데 실패했습니다"
+			"olderError": "이전 항목을 불러오지 못했습니다"
 		},
 		"useRecommendedSettings": {
 			"fetchError": "데이터를 가져오지 못했습니다"
@@ -2739,14 +2739,14 @@
 	"paramCompat": {
 		"anthropic": {
 			"topP": "현재 Anthropic 모델에서는 top_p가 더 이상 권장되지 않으므로, 대신 top_k를 사용하십시오.",
-			"frequencyPenalty": "Anthropic은 주파수/존재 여부에 대한 별도의 매개변수가 아닌, 단일 페널티 매개변수를 사용합니다.",
-			"presencePenalty": "Anthropic은 주파수/존재 여부에 대한 별도의 매개변수가 아닌, 단일 페널티 매개변수를 사용합니다.",
+			"frequencyPenalty": "Anthropic은 빈도/존재 페널티를 따로 두지 않고 단일 페널티 매개변수를 사용합니다.",
+			"presencePenalty": "Anthropic은 빈도/존재 페널티를 따로 두지 않고 단일 페널티 매개변수를 사용합니다.",
 			"minP": "Anthropic API에서 지원되지 않습니다",
 			"reasoningEffort": "Anthropic API에서 지원되지 않습니다"
 		},
 		"google": {
-			"frequencyPenalty": "Gemini는 접속 빈도나 접속 상태에 따른 페널티를 적용하지 않습니다.",
-			"presencePenalty": "Gemini는 접속 빈도나 접속 상태에 따른 페널티를 적용하지 않습니다.",
+			"frequencyPenalty": "Gemini는 빈도/존재 페널티를 지원하지 않습니다.",
+			"presencePenalty": "Gemini는 빈도/존재 페널티를 지원하지 않습니다.",
 			"topK": "Gemini의 top_k는 OpenAI의 top_k와 동작 방식이 다르므로, 대신 top_p를 사용하십시오.",
 			"minP": "Google Gemini API에서 지원되지 않습니다",
 			"reasoningEffort": "Google Gemini API에서 지원되지 않습니다"
