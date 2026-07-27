@@ -21,7 +21,6 @@ import { QuotaStrip } from "./components/QuotaStrip";
 import { VersionFooter } from "./components/VersionFooter";
 import { ToastProvider } from "./context/ToastContext";
 import { useIdleLogout } from "./hooks/useIdleLogout";
-import { clearQuotaCache } from "./hooks/useQuota";
 import { EventsPage } from "./pages/EventsPage";
 import { MembersPage } from "./pages/MembersPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -65,30 +64,14 @@ function Shell() {
 		setAuthed(true);
 	}, []);
 
-	// Any authenticated request that 401s drops us back to login. An expiring
-	// session ends just as completely as a hand-pressed logout, so it has to drop
-	// the cached quota snapshots too. The cache is namespaced per token, so this
-	// is no longer the only thing standing between operators; it is what stops
-	// dead sessions' entries piling up in localStorage forever.
-	useEffect(
-		() =>
-			onUnauthorized(() => {
-				clearQuotaCache();
-				setAuthed(false);
-			}),
-		[],
-	);
+	// Any authenticated request that 401s drops us back to login.
+	useEffect(() => onUnauthorized(() => setAuthed(false)), []);
 
 	const logout = useCallback(() => {
 		// Best-effort server-side revoke so an idle/manual logout drops the session
 		// everywhere, not just this tab; failure is non-fatal (we clear locally).
 		void api.logout().catch(() => {});
 		clearAuthToken();
-		// Front Desk is a shared control plane: cached snapshots must not outlive
-		// the session that filled them. clearQuotaCache sweeps every namespaced
-		// entry, so it does not matter that the token it was keyed under has just
-		// been cleared on the line above.
-		clearQuotaCache();
 		setSsoError(null);
 		setAuthed(false);
 	}, []);

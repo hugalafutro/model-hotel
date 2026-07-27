@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setAuthToken } from "../../api/client";
 import type { QuotaSnapshot } from "../../api/types";
 import { ToastProvider } from "../../context/ToastContext";
-import { quotaCacheKey } from "../../hooks/useQuota";
 import { server } from "../../test/server";
 import { QuotaStrip } from "../QuotaStrip";
 
@@ -58,8 +57,8 @@ function renderStrip() {
 	);
 }
 
-// The strip only ever renders inside the authenticated shell, and the snapshot
-// cache is keyed per session token, so every test here runs with one stored.
+// The strip only ever renders inside the authenticated shell, so every test here
+// runs with a session token stored, exactly as the real component is used.
 // setup.ts clears localStorage after each test, so this does not leak.
 beforeEach(() => setAuthToken("operator-a"));
 
@@ -79,11 +78,11 @@ describe("QuotaStrip", () => {
 	});
 
 	it("renders nothing on an authoritative empty list", async () => {
-		// Gated on the GET actually landing (not merely on the pre-fetch
-		// render, where `models.length === 0` is ALSO true because useQuota
-		// seeds from cleared localStorage): otherwise this assertion would
-		// pass against the loading state without ever observing the response,
-		// and would not catch a wrong implementation like
+		// Gated on the GET actually landing (not merely on the pre-fetch render,
+		// where `models.length === 0` is ALSO true, since a fresh mount now knows
+		// nothing at all until its first read resolves): otherwise this assertion
+		// would pass against the loading state without ever observing the
+		// response, and would not catch a wrong implementation like
 		// `models.length === 0 && loading` that renders an empty bar once
 		// loaded instead of staying hidden.
 		let hits = 0;
@@ -98,7 +97,7 @@ describe("QuotaStrip", () => {
 		expect(screen.queryByTestId("quota-strip")).toBeNull();
 	});
 
-	it("renders nothing when the first read fails with nothing cached", async () => {
+	it("renders nothing when the first read fails and nothing is known yet", async () => {
 		// Same reasoning as the empty-list test above: wait for the failing
 		// response to actually land before asserting, rather than observing
 		// the (also-null) pre-fetch loading state.
@@ -112,26 +111,6 @@ describe("QuotaStrip", () => {
 		renderStrip();
 		await waitFor(() => expect(hits).toBe(1));
 		expect(screen.queryByTestId("quota-strip")).toBeNull();
-	});
-
-	it("keeps cached badges and shows a stale marker when the read fails", async () => {
-		localStorage.setItem(
-			quotaCacheKey() as string,
-			JSON.stringify({
-				snapshots: [nano],
-				lastUpdatedAt: "2026-07-26T09:00:00Z",
-			}),
-		);
-		server.use(
-			http.get("/api/quota", () =>
-				HttpResponse.json({ error: "x" }, { status: 502 }),
-			),
-		);
-		renderStrip();
-		await waitFor(() =>
-			expect(screen.getByTestId("quota-stale")).toBeInTheDocument(),
-		);
-		expect(screen.getByTestId("quota-badge-nanogpt:nano")).toBeInTheDocument();
 	});
 
 	it("opens a modal for a provider that has one", async () => {
@@ -825,5 +804,41 @@ describe("QuotaStrip polling", () => {
 		expect(document.querySelector(".fd-toast-success")).toBeNull();
 		expect(screen.getByTestId("quota-badge-nanogpt:nano")).toBeInTheDocument();
 		expect(screen.getByTestId("quota-stale")).toBeInTheDocument();
+	});
+
+	it("keeps the last-good badges and shows the stale marker when a later poll fails", async () => {
+		// The badges' degrade story, with nothing persisted anywhere: what stays on
+		// screen after a failed poll can only be the last-good snapshots this mount
+		// already read, and they must be flagged unconfirmed rather than vanish.
+		let getCalls = 0;
+		server.use(
+			http.get("/api/quota", () => {
+				getCalls++;
+				return getCalls === 1
+					? HttpResponse.json({ quota: [nano] })
+					: HttpResponse.json({ error: "x" }, { status: 502 });
+			}),
+		);
+		renderStrip();
+		await waitFor(() =>
+			expect(
+				screen.getByTestId("quota-badge-nanogpt:nano"),
+			).toBeInTheDocument(),
+		);
+		// Nothing is stale yet: the only read so far succeeded.
+		expect(screen.queryByTestId("quota-stale")).toBeNull();
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(60_000);
+		});
+		await waitFor(() => expect(getCalls).toBe(2));
+		await waitFor(() =>
+			expect(screen.getByTestId("quota-stale")).toBeInTheDocument(),
+		);
+		expect(screen.getByTestId("quota-badge-nanogpt:nano")).toBeInTheDocument();
+		// Still the real numbers, not a blank badge.
+		expect(screen.getByTestId("quota-badge-nanogpt:nano")).toHaveTextContent(
+			"600/1K",
+		);
 	});
 });

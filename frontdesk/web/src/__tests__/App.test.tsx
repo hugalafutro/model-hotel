@@ -3,8 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import App from "../App";
-import { clearAuthToken, setAuthToken } from "../api/client";
-import { QUOTA_CACHE_PREFIX, quotaCacheKey } from "../hooks/useQuota";
 import { server } from "../test/server";
 import { sseHandler } from "../test/sse";
 
@@ -50,30 +48,6 @@ function authHandlers(validToken: string) {
 		// every test that reaches the shell needs this handler regardless.
 		http.get("/api/quota", () => HttpResponse.json({ quota: [] })),
 	];
-}
-
-/**
- * Writes a quota cache entry as `token`'s session would have, then restores the
- * pre-existing token (none, in these tests, so the app still boots to login).
- * Returns the key it used.
- */
-function seedQuotaCacheFor(token: string): string {
-	const previous = localStorage.getItem("fdAuthToken");
-	setAuthToken(token);
-	const key = quotaCacheKey() as string;
-	localStorage.setItem(
-		key,
-		JSON.stringify({ snapshots: [{ provider_name: "nano" }] }),
-	);
-	if (previous === null) clearAuthToken();
-	else setAuthToken(previous);
-	return key;
-}
-
-function quotaCacheKeysInStorage(): string[] {
-	return Object.keys(localStorage).filter((k) =>
-		k.startsWith(QUOTA_CACHE_PREFIX),
-	);
 }
 
 describe("App auth gating", () => {
@@ -180,69 +154,6 @@ describe("App auth gating", () => {
 			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
 		);
 		expect(localStorage.getItem("fdAuthToken")).toBeNull();
-	});
-
-	it("drops every cached quota snapshot entry on an explicit logout", async () => {
-		// Front Desk is a shared control plane, so nothing a session cached may
-		// outlive it. The cache is keyed per token, which means entries pile up
-		// one per operator who has ever signed in here, and the clear has to take
-		// all of them: the signed-in session's AND every older one's. QuotaStrip
-		// is mocked out in this file, so the only thing that can remove these keys
-		// is App.tsx's own logout wiring.
-		const mine = seedQuotaCacheFor("good");
-		const theirs = seedQuotaCacheFor("previous-operator");
-		expect(mine).not.toBe(theirs);
-		server.use(...authHandlers("good"));
-		render(<App />);
-		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
-		await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
-		await waitFor(() =>
-			expect(screen.getByRole("tab", { name: /members/i })).toBeInTheDocument(),
-		);
-		expect(localStorage.getItem(mine)).not.toBeNull();
-		expect(localStorage.getItem(theirs)).not.toBeNull();
-
-		await userEvent.click(screen.getByRole("button", { name: /log out/i }));
-		await waitFor(() =>
-			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
-		);
-		expect(localStorage.getItem(mine)).toBeNull();
-		expect(localStorage.getItem(theirs)).toBeNull();
-		expect(quotaCacheKeysInStorage()).toEqual([]);
-	});
-
-	it("drops every cached quota snapshot entry when a 401 ends the session", async () => {
-		// A session that expires ends just as completely as one ended by hand, and
-		// it is the far more common way out, so the 401 path has to clear the cache
-		// too, and just as completely. Same handler shape as the 401 gating test
-		// above.
-		const mine = seedQuotaCacheFor("good");
-		const theirs = seedQuotaCacheFor("previous-operator");
-		let calls = 0;
-		server.use(
-			sseHandler(),
-			http.get("/api/totp/status", () => HttpResponse.json({ enabled: false })),
-			http.get("/api/webauthn/available", () =>
-				HttpResponse.json({ enabled: false }),
-			),
-			http.get("/api/members", () => {
-				calls += 1;
-				return calls === 1
-					? HttpResponse.json([])
-					: new HttpResponse("expired", { status: 401 });
-			}),
-			http.get("/api/quota", () => HttpResponse.json({ quota: [] })),
-		);
-		render(<App />);
-		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
-		await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
-		// The shell mounts, its members fetch 401s, and we bounce back to login.
-		await waitFor(() =>
-			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
-		);
-		expect(localStorage.getItem(mine)).toBeNull();
-		expect(localStorage.getItem(theirs)).toBeNull();
-		expect(quotaCacheKeysInStorage()).toEqual([]);
 	});
 
 	it("contains a QuotaStrip render failure to the strip and keeps the rest of the shell up", async () => {

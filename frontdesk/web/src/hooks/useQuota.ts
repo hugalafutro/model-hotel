@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, getAuthToken } from "../api/client";
+import { api } from "../api/client";
 import type { QuotaSnapshot } from "../api/types";
 
 // Read cadence. Quota moves slowly and this reads snapshots the primary has
@@ -12,129 +12,30 @@ const POLL_MS = 60_000;
 const REFRESH_COOLDOWN_MS = 10_000;
 
 /**
- * Shared head of every persisted-snapshot key. The full key carries a per-token
- * suffix (see `quotaCacheKey`); this prefix is what makes "drop every operator's
- * entry" expressible without knowing which tokens ever existed.
- */
-export const QUOTA_CACHE_PREFIX = "fdQuotaSnapshots";
-
-/**
- * Namespace suffix for a session token: FNV-1a run twice with different offset
- * bases, so the suffix is ~64 bits and two live sessions cannot collide in
- * practice.
+ * What one hook instance knows: the snapshots it is showing and when they were
+ * read. Purely in-memory and purely per-mount.
  *
- * Deliberately NOT a cryptographic digest. This only has to keep one operator's
- * localStorage entry out of another's reach on a shared browser, and every
- * digest the platform offers (crypto.subtle) is async, which would push the seed
- * past first paint and defeat the entire point of having a cache. The token
- * itself is never written into the key.
+ * Snapshots were once ALSO persisted to localStorage, so that a reload repainted
+ * the badges instead of flashing empty for one round trip. That is gone on
+ * purpose. Front Desk is a shared control plane whose authenticated shell mounts
+ * on the mere presence of a stored token, well before anything has established
+ * that the token is still valid, so persisted snapshots meant one operator's
+ * quota figures sat readable in the next operator's browser. Every attempt to
+ * keep the seed and gate it (namespacing per token, clearing on logout, clearing
+ * on 401) only moved the exposure, because the exposure is the STORAGE, not the
+ * paint: whatever is written is readable with devtools whether or not the app
+ * draws it. Do NOT reintroduce persistence here in any form.
  */
-function namespaceFor(token: string): string {
-	let a = 0x811c9dc5;
-	let b = 0x01000193;
-	for (let i = 0; i < token.length; i++) {
-		const c = token.charCodeAt(i);
-		a = Math.imul(a ^ c, 0x01000193) >>> 0;
-		b = Math.imul(b ^ c, 0x85ebca6b) >>> 0;
-	}
-	return a.toString(36) + b.toString(36);
-}
-
-/**
- * Cache key for the session that is signed in right now, or null when none is.
- *
- * Front Desk is a shared control plane, so a reload on a shared browser mounts
- * the authenticated shell purely because a token exists in localStorage, well
- * before anything has established that the token is still valid. A single
- * unnamespaced key therefore paints the previous operator's quota data at first
- * paint, and if the first read fails with anything other than a 401 (a dead
- * network, a 502 from the primary) the 401 cleanup never runs and it stays on
- * screen. Keying by token closes that: operator B's key is not operator A's, so
- * there is nothing to read, while the same operator reloading still gets their
- * own snapshots and keeps the instant repaint this cache exists for.
- */
-export function quotaCacheKey(): string | null {
-	const token = getAuthToken();
-	if (!token) return null;
-	return `${QUOTA_CACHE_PREFIX}:${namespaceFor(token)}`;
-}
-
-interface CachedQuota {
+interface QuotaState {
 	snapshots: QuotaSnapshot[];
 	lastUpdatedAt: string | null;
 }
 
-// A fresh empty result per call: readCache's fallback value is handed straight
-// out as `snapshots`, so a shared module-level array would let one consumer's
-// in-place sort corrupt every other mount in the session.
-function emptyQuota(): CachedQuota {
+// A fresh empty result per call: this value is handed straight out as
+// `snapshots`, so a shared module-level array would let one consumer's in-place
+// sort corrupt every other mount in the session.
+function emptyQuota(): QuotaState {
 	return { snapshots: [], lastUpdatedAt: null };
-}
-
-// Seeding from localStorage means a reload paints the badges immediately instead
-// of flashing empty for a round trip, and it is what lets a failed first read
-// still show something. Mirrors the main dashboard's initialData seeding.
-//
-// With no token there is no session to seed for, and nothing that could be
-// written back either, so it returns empty rather than falling back to some
-// shared entry.
-function readCache(): CachedQuota {
-	try {
-		const key = quotaCacheKey();
-		if (!key) return emptyQuota();
-		const raw = localStorage.getItem(key);
-		if (!raw) return emptyQuota();
-		const parsed = JSON.parse(raw) as CachedQuota;
-		if (!Array.isArray(parsed?.snapshots)) return emptyQuota();
-		return {
-			snapshots: parsed.snapshots,
-			lastUpdatedAt: parsed.lastUpdatedAt ?? null,
-		};
-	} catch {
-		return emptyQuota();
-	}
-}
-
-function writeCache(v: CachedQuota) {
-	try {
-		const key = quotaCacheKey();
-		if (!key) return;
-		localStorage.setItem(key, JSON.stringify(v));
-	} catch {
-		/* private mode: the cache is an optimisation, not a requirement */
-	}
-}
-
-/**
- * Drops EVERY persisted snapshot entry, not just the current session's. Call
- * this wherever a session ends.
- *
- * Namespacing by token means entries accumulate, one per token this browser has
- * ever signed in with, so a clear that only removed `quotaCacheKey()` would
- * narrow what this used to do and leave a growing pile behind. Sweeping the
- * prefix also makes the call order-independent: App's logout clears the auth
- * token first, at which point `quotaCacheKey()` is already null and a
- * single-key removal would silently do nothing.
- *
- * There is no in-memory counterpart to reset: `cached` is per-hook state and
- * the strip lives inside the authenticated subtree, so a session end unmounts
- * it and the next mount re-seeds from this (now cleared) cache. The unmount
- * also bumps the request sequence, so a read still in flight cannot write the
- * cache back after this ran.
- */
-export function clearQuotaCache() {
-	try {
-		// Collected first: removing while iterating localStorage re-indexes it and
-		// would skip every other match.
-		const doomed: string[] = [];
-		for (let i = 0; i < localStorage.length; i++) {
-			const k = localStorage.key(i);
-			if (k?.startsWith(QUOTA_CACHE_PREFIX)) doomed.push(k);
-		}
-		for (const k of doomed) localStorage.removeItem(k);
-	} catch {
-		/* private mode: nothing was ever persisted to remove */
-	}
 }
 
 export type QuotaRefreshOutcome = "ok" | "cooldown" | "failed";
@@ -165,7 +66,10 @@ export interface UseQuota {
  * @param collapsed pauses the poll while the strip is collapsed.
  */
 export function useQuota(collapsed: boolean): UseQuota {
-	const [cached, setCached] = useState<CachedQuota>(readCache);
+	// Always starts empty: nothing is persisted, so a fresh mount knows nothing
+	// until its first read resolves and the strip renders its empty state until
+	// then. Last-good preservation below is in-memory and lives for the mount.
+	const [data, setData] = useState<QuotaState>(emptyQuota);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
@@ -195,15 +99,10 @@ export function useQuota(collapsed: boolean): UseQuota {
 			.then(({ quota }) => {
 				if (seq !== seqRef.current) return false;
 				// A 200 is authoritative in both directions. An empty list means no
-				// primary is designated, which is a real steady state, so it clears the
-				// cache as well; anything less would leave stale badges on screen forever
-				// after a fleet is torn down.
-				const next: CachedQuota = {
-					snapshots: quota,
-					lastUpdatedAt: new Date().toISOString(),
-				};
-				setCached(next);
-				writeCache(next);
+				// primary is designated, which is a real steady state, so it CLEARS the
+				// badges; anything less would leave stale ones on screen forever after a
+				// fleet is torn down.
+				setData({ snapshots: quota, lastUpdatedAt: new Date().toISOString() });
 				setError(false);
 				return true;
 			})
@@ -221,11 +120,9 @@ export function useQuota(collapsed: boolean): UseQuota {
 	}, []);
 
 	// Discard an in-flight response that lands after unmount: it must not
-	// setState on a dead tree, and it must not write the cache after a test's
-	// teardown (or a real navigation away) has already cleared it. Pulled out
-	// of the effect body itself (rather than `seqRef.current++` inline in the
-	// cleanup closure) because eslint's ref-in-cleanup heuristic can't tell
-	// this apart from a DOM-node ref.
+	// setState on a dead tree. Pulled out of the effect body itself (rather
+	// than `seqRef.current++` inline in the cleanup closure) because eslint's
+	// ref-in-cleanup heuristic can't tell this apart from a DOM-node ref.
 	const cancelInFlightRead = useCallback(() => {
 		seqRef.current++;
 	}, []);
@@ -280,11 +177,11 @@ export function useQuota(collapsed: boolean): UseQuota {
 	}, [read]);
 
 	return {
-		snapshots: cached.snapshots,
+		snapshots: data.snapshots,
 		loading,
 		error,
-		stale: error && cached.snapshots.length > 0,
-		lastUpdatedAt: cached.lastUpdatedAt,
+		stale: error && data.snapshots.length > 0,
+		lastUpdatedAt: data.lastUpdatedAt,
 		refreshing,
 		refresh,
 	};
