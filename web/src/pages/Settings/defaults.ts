@@ -33,6 +33,8 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	circuit_breaker_enabled: "true",
 	circuit_breaker_threshold: "5",
 	circuit_breaker_cooldown: "1m0s",
+	circuit_breaker_quota_pin_enabled: "true",
+	circuit_breaker_quota_pin_max: "24h",
 	failover_on_rate_limit: "true",
 	hedging_enabled: "false",
 	hedge_delay: "4s",
@@ -97,6 +99,8 @@ export const SECTION_SETTINGS: Record<SectionName, string[]> = {
 		"circuit_breaker_enabled",
 		"circuit_breaker_threshold",
 		"circuit_breaker_cooldown",
+		"circuit_breaker_quota_pin_enabled",
+		"circuit_breaker_quota_pin_max",
 		"failover_on_rate_limit",
 		"hedging_enabled",
 		"hedge_delay",
@@ -128,6 +132,8 @@ export type SettingKey =
 	| "circuit_breaker_enabled"
 	| "circuit_breaker_threshold"
 	| "circuit_breaker_cooldown"
+	| "circuit_breaker_quota_pin_enabled"
+	| "circuit_breaker_quota_pin_max"
 	| "failover_on_rate_limit"
 	| "hedging_enabled"
 	| "hedge_delay"
@@ -162,6 +168,8 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	circuit_breaker_enabled: "settings.circuitBreaker.enable",
 	circuit_breaker_threshold: "settings.circuitBreaker.failureThreshold",
 	circuit_breaker_cooldown: "settings.circuitBreaker.cooldownPeriod",
+	circuit_breaker_quota_pin_enabled: "settings.circuitBreaker.quotaPin",
+	circuit_breaker_quota_pin_max: "settings.circuitBreaker.quotaPinMax",
 	failover_on_rate_limit: "settings.circuitBreaker.failoverOnRateLimit",
 	hedging_enabled: "settings.circuitBreaker.hedging",
 	hedge_delay: "settings.circuitBreaker.hedgeDelay",

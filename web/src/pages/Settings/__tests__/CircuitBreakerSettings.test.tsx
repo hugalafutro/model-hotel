@@ -644,6 +644,211 @@ describe("CircuitBreakerSettings", () => {
 		});
 	});
 
+	// Locale-independent by construction: the quota-pin controls are addressed
+	// by data-testid and element id, never by their translated label, so these
+	// tests keep passing under every locale the suite may be run in.
+	describe("quota pin", () => {
+		const quotaPinToggle = () =>
+			screen
+				.getByTestId("quota-pin-row")
+				.querySelector("button[role='switch']") as HTMLButtonElement;
+		const quotaPinMaxSlider = () =>
+			document.getElementById(
+				"circuit-breaker-quota-pin-max",
+			) as HTMLInputElement;
+
+		it("renders the quota pin toggle on when circuit_breaker_quota_pin_enabled is absent, matching the backend default of true", async () => {
+			server.use(
+				...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinToggle()).toHaveAttribute("aria-checked", "true");
+			});
+		});
+
+		it("renders the quota pin toggle off when circuit_breaker_quota_pin_enabled is stored as false", async () => {
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_quota_pin_enabled: "false",
+					},
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinToggle()).toHaveAttribute("aria-checked", "false");
+			});
+		});
+
+		it("sends circuit_breaker_quota_pin_enabled=false when the quota pin toggle is switched off", async () => {
+			const user = userEvent.setup();
+			let capturedPayload: Record<string, string> | undefined;
+
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_quota_pin_enabled: "true",
+					},
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+						return HttpResponse.json(
+							{ error: "Unauthorized" },
+							{ status: 401 },
+						);
+					}
+					capturedPayload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json({ ok: true });
+				}),
+			);
+
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+
+			await waitFor(() => {
+				expect(quotaPinToggle()).toHaveAttribute("aria-checked", "true");
+			});
+			await user.click(quotaPinToggle());
+
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({
+					circuit_breaker_quota_pin_enabled: "false",
+				});
+			});
+		});
+
+		it("renders the quota pin ceiling as 24 hours when circuit_breaker_quota_pin_max is absent", async () => {
+			server.use(
+				...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinMaxSlider().value).toBe("24");
+			});
+		});
+
+		it("shows 24 hours when circuit_breaker_quota_pin_max is stored as a non-positive duration, which the breaker reads as unset", async () => {
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_quota_pin_max: "0s",
+					},
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinMaxSlider().value).toBe("24");
+			});
+		});
+
+		it("converts a stored circuit_breaker_quota_pin_max Go duration into slider hours", async () => {
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_quota_pin_max: "72h0m0s",
+					},
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinMaxSlider().value).toBe("72");
+			});
+		});
+
+		it("sends circuit_breaker_quota_pin_max as a Go duration string when the ceiling slider changes", async () => {
+			let capturedPayload: Record<string, string> | undefined;
+
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_quota_pin_max: "24h0m0s",
+					},
+				}),
+				http.put("/api/settings", async ({ request }) => {
+					if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+						return HttpResponse.json(
+							{ error: "Unauthorized" },
+							{ status: 401 },
+						);
+					}
+					capturedPayload = (await request.json()) as Record<string, string>;
+					return HttpResponse.json({ ok: true });
+				}),
+			);
+
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+
+			await waitFor(() => {
+				expect(quotaPinMaxSlider().value).toBe("24");
+			});
+
+			const slider = quotaPinMaxSlider();
+			fireEvent.change(slider, { target: { value: "6" } });
+			fireEvent.pointerUp(slider);
+
+			await waitFor(() => {
+				expect(capturedPayload).toEqual({
+					circuit_breaker_quota_pin_max: "6h",
+				});
+			});
+		});
+
+		it("disables the quota pin ceiling slider while circuit_breaker_quota_pin_enabled is false", async () => {
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_quota_pin_enabled: "false",
+					},
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinMaxSlider()).toBeDisabled();
+			});
+			expect(quotaPinToggle()).not.toBeDisabled();
+		});
+
+		it("disables both quota pin controls while the circuit breaker itself is off", async () => {
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "false",
+						circuit_breaker_quota_pin_enabled: "true",
+					},
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinToggle()).toBeDisabled();
+			});
+			expect(quotaPinMaxSlider()).toBeDisabled();
+		});
+	});
+
 	describe("per-setting reset", () => {
 		it("calls api.settings.reset when reset button is clicked", async () => {
 			const resetSpy = vi.spyOn(api.settings, "reset");

@@ -5,7 +5,12 @@ import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
-import { goDurationToSeconds, secondsToGoDuration } from "../../utils/duration";
+import {
+	goDurationToHours,
+	goDurationToSeconds,
+	hoursToGoDuration,
+	secondsToGoDuration,
+} from "../../utils/duration";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 interface CircuitBreakerSettingsProps {
@@ -28,6 +33,16 @@ export function CircuitBreakerSettings({
 	const circuitBreakerEnabled = settings?.circuit_breaker_enabled !== "false";
 	const circuitBreakerThreshold = settings?.circuit_breaker_threshold || "5";
 	const circuitBreakerCooldown = settings?.circuit_breaker_cooldown || "1m0s";
+	// Both quota-pin fallbacks mirror the Go defaults the breaker applies when
+	// the key is absent (internal/failover/circuitbreaker.go: quotaPinEnabled
+	// defaults true, quotaPinMax falls back to 24h). The `|| 24` on the hours is
+	// the same fallback for a stored non-positive duration, which the breaker
+	// also reads as unset, so the slider shows the ceiling actually in force
+	// rather than a number nothing obeys.
+	const quotaPinEnabled =
+		settings?.circuit_breaker_quota_pin_enabled !== "false";
+	const quotaPinMaxHours =
+		goDurationToHours(settings?.circuit_breaker_quota_pin_max || "24h") || 24;
 	const failoverOnRateLimit = settings?.failover_on_rate_limit === "true";
 	const hedgingEnabled = settings?.hedging_enabled === "true";
 	const hedgeDelay = settings?.hedge_delay || "4s";
@@ -153,6 +168,64 @@ export function CircuitBreakerSettings({
 							)}
 							onReset={() =>
 								resetSettingMutation.mutate(["circuit_breaker_cooldown"])
+							}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
+
+						<div
+							className="flex items-center justify-between gap-3"
+							data-testid="quota-pin-row"
+						>
+							<div className="min-w-0">
+								<div className="flex items-center gap-1">
+									<p className="text-sm font-medium text-gray-300">
+										{t("settings.circuitBreaker.quotaPin")}
+									</p>
+									<ResetButton
+										tooltip={t("settings.common.resetSetting")}
+										onClick={() =>
+											resetSettingMutation.mutate([
+												"circuit_breaker_quota_pin_enabled",
+											])
+										}
+										size={12}
+										disabled={isResetting}
+									/>
+								</div>
+								<p className="text-gray-500 text-xs mt-0.5">
+									{t("settings.circuitBreaker.quotaPinDescription")}
+								</p>
+							</div>
+							<Toggle
+								checked={quotaPinEnabled}
+								size="sm"
+								disabled={!circuitBreakerEnabled}
+								onChange={(v) =>
+									updateMutation.mutate({
+										circuit_breaker_quota_pin_enabled: v ? "true" : "false",
+									})
+								}
+								ariaLabel={t("settings.circuitBreaker.quotaPin")}
+							/>
+						</div>
+
+						<SettingsSlider
+							id="circuit-breaker-quota-pin-max"
+							disabled={!circuitBreakerEnabled || !quotaPinEnabled}
+							label={t("settings.circuitBreaker.quotaPinMax")}
+							value={quotaPinMaxHours}
+							min={1}
+							max={168}
+							step={1}
+							unit="h"
+							onChange={(v) =>
+								updateMutation.mutate({
+									circuit_breaker_quota_pin_max: hoursToGoDuration(v),
+								})
+							}
+							description={t("settings.circuitBreaker.quotaPinMax.description")}
+							onReset={() =>
+								resetSettingMutation.mutate(["circuit_breaker_quota_pin_max"])
 							}
 							resetTooltip={t("settings.common.resetSetting")}
 						/>
