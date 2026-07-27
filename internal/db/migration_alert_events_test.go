@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"io/fs"
+	"strings"
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/alert"
@@ -127,6 +128,34 @@ func TestQuotaSchemaDriftMigrationAppendsToASavedSelection(t *testing.T) {
 			wantCSV: "circuit_breaker.open, " + quotaDriftEventType,
 			because: "ParseEnabled trims entries, so a hand-edited CSV with spaces must not gain a duplicate",
 		},
+		{
+			name:    "a tab-padded entry still counts as present",
+			seed:    str("circuit_breaker.open,\t" + quotaDriftEventType + "\n"),
+			wantRow: true,
+			wantCSV: "circuit_breaker.open,\t" + quotaDriftEventType + "\n",
+			because: "ParseEnabled trims all whitespace, not just spaces, so a tab- or newline-padded entry must not gain a duplicate either",
+		},
+		{
+			name:    "a whitespace-only selection is untouched",
+			seed:    str("   "),
+			wantRow: true,
+			wantCSV: "   ",
+			because: "ParseEnabled reads a whitespace-only value as selecting nothing, so it is the same explicit 'no alerts' as an empty string and must not be appended to",
+		},
+		{
+			name:    "a separators-only selection is untouched",
+			seed:    str(" , ,\t"),
+			wantRow: true,
+			wantCSV: " , ,\t",
+			because: "ParseEnabled skips blank entries, so a value with no real entry selects nothing and must be left alone like an empty one",
+		},
+		{
+			name:    "a trailing separator does not produce an empty entry",
+			seed:    str("circuit_breaker.open,"),
+			wantRow: true,
+			wantCSV: "circuit_breaker.open," + quotaDriftEventType,
+			because: "appending after an existing trailing comma would write a blank entry into the operator's CSV",
+		},
 	}
 
 	for _, tc := range cases {
@@ -172,17 +201,7 @@ func TestQuotaSchemaDriftMigrationMatchesTheCatalog(t *testing.T) {
 	if !found {
 		t.Fatalf("%s is not in alert.Catalog(); the migration would enable an unknown type", quotaDriftEventType)
 	}
-	if sql := readQuotaSchemaDriftMigration(t); !containsToken(sql, quotaDriftEventType) {
+	if sql := readQuotaSchemaDriftMigration(t); !strings.Contains(sql, quotaDriftEventType) {
 		t.Errorf("migration %s does not mention %s", quotaSchemaDriftMigration, quotaDriftEventType)
 	}
-}
-
-// containsToken reports whether s contains sub.
-func containsToken(s, sub string) bool {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }
