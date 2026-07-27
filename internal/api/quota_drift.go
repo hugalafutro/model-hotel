@@ -130,6 +130,12 @@ func driftDecision(prev, current string, fetchedAt time.Time, cand quotaSchemaCa
 		if cand.fetchedAt.Equal(fetchedAt) {
 			// The same stored row, read again by a later refresh pass. One row
 			// is one sighting no matter how often it is re-read.
+			//
+			// Both timestamps round-trip through Postgres, so neither carries a
+			// monotonic reading and Equal is a plain wall-clock comparison. Keep
+			// it that way: swapping in Unix() (or any truncating comparison)
+			// would collapse two genuinely distinct fetches in the same second
+			// into one sighting and stall drift confirmation.
 			return cand, false, false
 		}
 		cand.seen++

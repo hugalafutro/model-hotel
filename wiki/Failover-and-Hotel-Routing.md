@@ -622,7 +622,7 @@ The circuit breaker publishes real-time events via the SSE event bus:
 | `circuit_breaker.open` | A provider's circuit transitions from Closed to Open |
 | `circuit_breaker.closed` | Circuit recovers (Half-Open → Closed) |
 
-The transition into Half-Open itself (an open circuit whose cooldown has elapsed, now allowing a probe through) is not published as an event — it is a transient internal state, surfaced only via the circuit-breaker status API's `half_open` count, not the alert/SSE event stream.
+The transition into Half-Open itself (an open circuit whose cooldown has elapsed, now allowing a probe through) is not published as an event: it is a transient internal state, surfaced only via the circuit-breaker status API's `half_open` count, not the alert/SSE event stream.
 
 These events appear in the real-time sidebar and dashboard.
 
