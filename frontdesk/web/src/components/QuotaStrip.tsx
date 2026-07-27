@@ -212,14 +212,22 @@ export function QuotaStrip() {
 			{/* The modal is where a partial provider payload actually bites: the
 			    badges read defensively, the modals read deep. A boundary of its own
 			    keeps that throw off the strip, so the badges (and every other
-			    provider's modal) survive it. `key` is the recovery path: React
+			    provider's modal) survive it. `key` is one recovery path: React
 			    discards a boundary whose key changed, so opening a different
 			    provider gets a clean one, and closing and reopening this one
 			    unmounts it outright. No fallback, matching the strip's own empty
 			    state; the operator sees the click do nothing rather than a broken
-			    dialog, and the badge itself still shows the numbers. */}
+			    dialog, and the badge itself still shows the numbers.
+			    `resetKeys` covers the other recovery path: the SAME provider getting
+			    a corrected payload on a later poll, with the modal still open (so
+			    `key` is unchanged and the boundary would otherwise stay latched
+			    until the operator opened another provider or collapsed the strip).
+			    `open.snapshot.fetched_at` changes whenever the primary re-fetches,
+			    so a fresh snapshot always gets a fresh chance to render. Re-clicking
+			    the same badge does NOT change fetched_at, so it is correctly a
+			    no-op here: the recovery signal is new data, not a repeated click. */}
 			{open && (
-				<ErrorBoundary key={open.key}>
+				<ErrorBoundary key={open.key} resetKeys={[open.snapshot.fetched_at]}>
 					<QuotaModalFor
 						model={open}
 						barMode={barMode}
