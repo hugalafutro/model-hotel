@@ -1139,6 +1139,8 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
 | `circuit_breaker_enabled` | string | `"true"` or `"false"` |
 | `circuit_breaker_threshold` | int | 1-100 |
 | `circuit_breaker_cooldown` | string | Duration |
+| `circuit_breaker_quota_pin_enabled` | string | `"true"` or `"false"` (default `"true"`); pin an open circuit's cooldown to the provider's quota reset |
+| `circuit_breaker_quota_pin_max` | string | Duration ceiling for a quota pin (default `"24h0m0s"`); a non-positive value falls back to 24h |
 | `discovery_interval` | string | Duration (e.g. `"6h"`, `"0"` = disabled) |
 | `discovery_on_startup` | string | `"true"` or `"false"` |
 | `discovery_on_provider_create` | string | `"true"` or `"false"` |
@@ -1356,8 +1358,8 @@ data: {"type":"discovery.complete","severity":"success","message":"Discovery com
 | `discovery.changes_pending` | `info` | Background discovery recorded model changes (badged on the Models nav) |
 | `failover.sync_error` | `warning` | Error during failover group synchronization |
 | `circuit_breaker.open` | `warning` | Provider circuit breaker opened |
-| `circuit_breaker.half-open` | `info` | Circuit breaker probing |
 | `circuit_breaker.closed` | `success` | Circuit breaker closed (recovered) |
+| `quota.schema_drift` | `warning` | A provider changed the shape of its quota response |
 | `tokens.error` | `error` | Error counting tokens |
 | `backup.created` | `success` | Database backup created (manual or scheduled) |
 | `backup.deleted` | `info` | Backup deleted |
@@ -1365,6 +1367,34 @@ data: {"type":"discovery.complete","severity":"success","message":"Discovery com
 | `request.discovery.provider_starting` | `info` | Starting discovery for a provider |
 
 Heartbeat comments (`: heartbeat`) are sent every 30 seconds.
+
+**Circuit breaker event metadata:**
+
+`circuit_breaker.open` and `circuit_breaker.closed` carry the same metadata block:
+
+| Field | Type | Present | Meaning |
+|-------|------|---------|---------|
+| `provider_id` | string (UUID) | always | The provider whose circuit changed state |
+| `provider` | string | always | Provider name, so the event reads without a lookup |
+| `state` | string | always | `open` or `closed` |
+| `consecutive_fails` | int | always | Consecutive failures recorded against the provider |
+| `quota_pinned` | bool | always | Whether a quota reset deadline is currently governing this circuit's cooldown rather than `circuit_breaker_cooldown` |
+| `next_retry_at` | string (RFC3339) | only when `quota_pinned` is `true` | When the circuit is next eligible to probe |
+
+`next_retry_at` is the **retry deadline, not the quota reset time**. It is the moment the circuit opened plus the pin after it has been clamped to `circuit_breaker_quota_pin_max` and jittered, so on a weekly plan whose quota resets days out it lands at the 24h ceiling instead. It is the same value the circuit-breaker status API publishes under that name, and both derive from one predicate, so the number and the explanation beside it can never disagree.
+
+**Quota schema drift metadata:**
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `provider_id` | string (UUID) | The provider that reshaped its quota response |
+| `provider` | string | Provider name |
+| `provider_type` | string | Provider family (`openai`, `anthropic`, …) |
+| `kind` | string | Which quota document changed |
+| `added` | array of string | Key paths present now but not in the stored baseline |
+| `removed` | array of string | Key paths that were in the baseline and have gone |
+
+`quota.schema_drift` is alert-only: it never affects routing, failover, or the circuit breaker. It exists because the failure it guards against is silent - a normalizer written against the old shape keeps answering, wrongly, and nothing else would ever say so.
 
 ---
 

@@ -1,6 +1,10 @@
 package alert
 
 import (
+	"io/fs"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -67,6 +71,83 @@ func TestDefaultEnabledCSVOnlyKnownTypes(t *testing.T) {
 	for tpe := range strings.SplitSeq(DefaultEnabledCSV(), ",") {
 		if _, ok := idx[tpe]; !ok {
 			t.Errorf("DefaultEnabledCSV contains unknown type %q", tpe)
+		}
+	}
+}
+
+// TestCatalogTypesAreEmitted enforces the catalog's documented invariant:
+// every alertable Type must correspond to an event actually published
+// somewhere in the backend, so an operator never subscribes to a checkbox
+// that can never fire.
+//
+// Unlike Front Desk's fdCatalog (see internal/frontdesk/alerts_test.go's
+// TestCatalogTypesAreEmitted, which this is modelled on), the main catalog's
+// events are published from packages other than internal/alert itself
+// (internal/api, internal/adminauth, internal/failover, cmd/server), so this
+// scans the whole backend source tree rather than just the current package.
+// catalog.go is excluded so an entry can't "prove" itself by matching its own
+// declaration.
+//
+// circuit_breaker.* is a special case: internal/failover/circuitbreaker.go
+// builds that event's Type by string concatenation ("circuit_breaker." +
+// state), never as a literal, so a plain quoted-string search would never
+// find "circuit_breaker.open" or "circuit_breaker.closed" even though both
+// are genuinely emitted. Those two are instead verified by confirming the
+// state suffix appears as a literal argument to a publishEvent(...) call.
+// This is exactly what caught circuit_breaker.half_open as dead: no call
+// ever passes "half_open" (nor even "half-open", the state string's actual
+// spelling) to publishEvent.
+func TestCatalogTypesAreEmitted(t *testing.T) {
+	const repoRoot = "../.."
+	skipFile := filepath.Join(repoRoot, "internal", "alert", "catalog.go")
+
+	var src strings.Builder
+	for _, dir := range []string{"cmd", "internal"} {
+		root := filepath.Join(repoRoot, dir)
+		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
+			if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			if path == skipFile {
+				return nil
+			}
+			b, rerr := os.ReadFile(path) //nolint:gosec // fixed set of repo-relative paths, not user input
+			if rerr != nil {
+				return rerr
+			}
+			src.Write(b)
+			src.WriteByte('\n')
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	haystack := src.String()
+
+	const cbPrefix = "circuit_breaker."
+	cbCallRe := regexp.MustCompile(`publishEvent\([^)]*"([a-zA-Z-]+)"`)
+	cbStates := map[string]bool{}
+	for _, m := range cbCallRe.FindAllStringSubmatch(haystack, -1) {
+		cbStates[m[1]] = true
+	}
+
+	for _, def := range Catalog() {
+		if strings.HasPrefix(def.Type, cbPrefix) {
+			state := strings.TrimPrefix(def.Type, cbPrefix)
+			if !cbStates[state] {
+				t.Errorf("catalog event %q: no publishEvent call passes state %q (circuit_breaker.* types are built by concatenation, not as a literal); remove the entry or wire the emit", def.Type, state)
+			}
+			continue
+		}
+		if !strings.Contains(haystack, `"`+def.Type+`"`) {
+			t.Errorf("catalog event %q is never emitted anywhere in the backend; remove it or wire the emit", def.Type)
 		}
 	}
 }

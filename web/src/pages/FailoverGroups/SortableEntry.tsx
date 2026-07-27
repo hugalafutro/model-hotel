@@ -21,8 +21,18 @@ export interface SortableEntryProps {
 		next_retry_at?: string;
 		opened_at?: string;
 		consecutive_fails: number;
+		// Set when the cooldown was pinned to the provider's quota reset
+		// deadline instead of the ordinary retry backoff; next_retry_at is then
+		// that deadline.
+		quota_pinned?: boolean;
 	};
 }
+
+// A quota pin can run for hours or days, and a CSS animation over that span is
+// visually frozen: the operator sees a motionless fuse and reads it as broken.
+// Above this much remaining cooldown the outline is static and the deadline
+// lives in the tooltip instead.
+const FUSE_ANIMATION_MAX_MS = 15 * 60 * 1000;
 
 export function SortableEntry({
 	entry,
@@ -71,10 +81,13 @@ export function SortableEntry({
 		entry.enabled &&
 		(cbStatus.state === "open" || cbStatus.state === "half-open");
 
-	// Half-open: cooldown already elapsed, provider is actively probing.
-	// Show a static amber outline — no countdown animation.
-	// Open: cooldown is running, show animated fuse outline.
+	// The backend's own report that the cooldown has elapsed. One of the two
+	// inputs to cooldownOver below; the other is the client noticing first.
 	const isHalfOpen = showFuse && cbStatus.state === "half-open";
+
+	// The cooldown in force was pinned to the provider's quota reset deadline.
+	// This says why the wait is long, not that the provider is unreachable now.
+	const quotaPinned = Boolean(showFuse && cbStatus.quota_pinned);
 
 	// Compute remaining cooldown so it only changes when next_retry_at
 	// changes, not on every render. Without this, intermediate re-renders
@@ -95,13 +108,30 @@ export function SortableEntry({
 	}, [showFuse, isHalfOpen, cbStatus?.next_retry_at]);
 	/* eslint-enable react-hooks/preserve-manual-memoization, react-hooks/purity */
 
-	const fuseColor =
-		showFuse && isHalfOpen ? "#fde68a" : showFuse ? "#fca5a5" : undefined;
-	const fuseTitle = showFuse
-		? isHalfOpen
-			? t("failoverGroups.entry.circuitBreakerHalfOpen")
-			: t("failoverGroups.entry.circuitBreakerOpen")
-		: undefined;
+	// Cooldown is over and the provider is ready to probe. Two paths reach this:
+	// the backend reporting half-open, and the client noticing next_retry_at has
+	// passed before the next poll. They are the same state, so they render the
+	// same way.
+	const cooldownOver = Boolean(showFuse && (isHalfOpen || elapsedCooldown));
+
+	// Only animate a countdown short enough for the motion to read as motion,
+	// and only when there is a real deadline to count down to.
+	const animateFuse =
+		showFuse &&
+		!cooldownOver &&
+		remainingMs > 0 &&
+		remainingMs <= FUSE_ANIMATION_MAX_MS;
+
+	const fuseColor = cooldownOver ? "#fde68a" : showFuse ? "#fca5a5" : undefined;
+	const fuseTitle = !showFuse
+		? undefined
+		: cooldownOver
+			? t("failoverGroups.entry.circuitBreakerReadyToProbe")
+			: quotaPinned && cbStatus.next_retry_at
+				? t("failoverGroups.entry.circuitBreakerQuotaPinned", {
+						resetTime: new Date(cbStatus.next_retry_at).toLocaleString(),
+					})
+				: t("failoverGroups.entry.circuitBreakerOpen");
 
 	return (
 		<div
@@ -114,17 +144,16 @@ export function SortableEntry({
 			}`}
 			{...(fuseTitle ? { title: fuseTitle } : {})}
 		>
-			{showFuse && fuseColor && isHalfOpen && (
-				<div
-					className="absolute inset-0 rounded-[inherit] pointer-events-none"
-					style={{ boxShadow: `inset 0 0 0 1.5px ${fuseColor}` }}
+			{showFuse && fuseColor && animateFuse && (
+				<FuseOutline
+					data-testid="fuse-outline-animated"
+					color={fuseColor}
+					durationMs={remainingMs}
 				/>
 			)}
-			{showFuse && fuseColor && !isHalfOpen && !elapsedCooldown && (
-				<FuseOutline color={fuseColor} durationMs={remainingMs} />
-			)}
-			{showFuse && fuseColor && !isHalfOpen && elapsedCooldown && (
+			{showFuse && fuseColor && !animateFuse && (
 				<div
+					data-testid="fuse-outline-static"
 					className="absolute inset-0 rounded-[inherit] pointer-events-none"
 					style={{ boxShadow: `inset 0 0 0 1.5px ${fuseColor}` }}
 				/>

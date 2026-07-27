@@ -595,10 +595,23 @@ These are treated as user-side cancellations rather than provider health issues.
 | `circuit_breaker_enabled` | bool | `true` | Global kill switch. When disabled, no circuit tracking occurs. |
 | `circuit_breaker_threshold` | int | `5` | Number of consecutive failures before a circuit opens. Only effective when value > 0. |
 | `circuit_breaker_cooldown` | duration | `60s` | How long an open circuit stays open before transitioning to half-open. |
+| `circuit_breaker_quota_pin_enabled` | bool | `true` | When a provider's circuit opens because its quota window is spent, pin the cooldown to the provider's real reset deadline instead of `circuit_breaker_cooldown`. |
+| `circuit_breaker_quota_pin_max` | duration | `24h` | Ceiling on how far out a quota pin may push the cooldown. |
 | `ttft_timeout` | duration | `1m0s` | Time-to-first-token probe timeout for streaming requests. Set to `0s` to disable. |
 | `stream_stall_timeout` | duration | `30s` | Maximum silence during streaming before termination. After 50 chunks, timeout is multiplied by 3. Set to `0s` to disable. |
 
-All of these settings are runtime-configurable and take effect immediately. They have UI controls in the Settings page: the **Circuit Breaker & Failover** section (enabled, threshold, cooldown, failover-on-429) and the **Proxy** section (`ttft_timeout`, `stream_stall_timeout`). They can also be changed via `PUT /api/settings`.
+All of these settings are runtime-configurable and take effect immediately. They have UI controls in the Settings page: the **Circuit Breaker & Failover** section (enabled, threshold, cooldown, failover-on-429, quota pinning and its ceiling) and the **Proxy** section (`ttft_timeout`, `stream_stall_timeout`). They can also be changed via `PUT /api/settings`.
+
+#### Quota-pinned cooldowns
+
+Without pinning, a provider that has exhausted its quota is re-probed every `circuit_breaker_cooldown` until the window resets. On a weekly plan that is thousands of doomed requests, each one a real user request that fails first. Quota pinning stretches an **already-open** circuit's cooldown out to the provider's actual reset deadline, clamped to `circuit_breaker_quota_pin_max` and jittered so a fleet does not stampede the provider at the same instant.
+
+Pinning only ever changes the cooldown of a circuit that has already opened. HTTP responses remain the sole source of truth for whether a circuit opens at all, so a wrong or stale quota reading can delay a retry but can never sideline a healthy provider.
+
+Two behaviours are worth knowing before you reach for these controls:
+
+- **Turning pinning off releases a pin that is already in force.** The kill switch is re-read on every check rather than only when a circuit opens, so an operator whose provider has been sidelined for hours can recover it by flipping `circuit_breaker_quota_pin_enabled` to `false`. Allow up to about 30 seconds for the change to reach the proxy: settings are cached with a 30 second TTL, so the release is not instantaneous.
+- **Setting the maximum to zero does not disable pinning.** A non-positive `circuit_breaker_quota_pin_max` is treated as unset and falls back to the 24h default. `circuit_breaker_quota_pin_enabled` is the off switch; the ceiling only bounds how long a pin may last.
 
 ### SSE Events
 
@@ -607,26 +620,47 @@ The circuit breaker publishes real-time events via the SSE event bus:
 | Event | When |
 |-------|------|
 | `circuit_breaker.open` | A provider's circuit transitions from Closed to Open |
-| `circuit_breaker.half-open` | Circuit transitions from Open to Half-Open |
 | `circuit_breaker.closed` | Circuit recovers (Half-Open → Closed) |
+
+The transition into Half-Open itself (an open circuit whose cooldown has elapsed, now allowing a probe through) is not published as an event: it is a transient internal state, surfaced only via the circuit-breaker status API's `half_open` count, not the alert/SSE event stream.
 
 These events appear in the real-time sidebar and dashboard.
 
+`circuit_breaker.open` and `circuit_breaker.closed` carry the same metadata block:
+
+| Field | Type | Present | Meaning |
+|-------|------|---------|---------|
+| `provider_id` | string (UUID) | always | The provider whose circuit changed state |
+| `provider` | string | always | Provider name |
+| `state` | string | always | `open` or `closed` |
+| `consecutive_fails` | int | always | Consecutive failures recorded against the provider |
+| `quota_pinned` | bool | always | `true` when a quota reset deadline, not `circuit_breaker_cooldown`, is governing this circuit |
+| `next_retry_at` | string (RFC3339) | only when `quota_pinned` is `true` | When the circuit is next eligible to probe |
+
+`next_retry_at` is the clamped and jittered **retry deadline, not the provider's quota reset time** - a weekly quota that resets days out still yields a `next_retry_at` at the `circuit_breaker_quota_pin_max` ceiling. It is the same value the circuit-breaker status API publishes under that name.
+
 ```go
 // internal/failover/circuitbreaker.go:publishEvent
-func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, state string, c *circuit) {
-    events.Publish(events.Event{
-        Type:     "circuit_breaker." + state,
-        Severity: cb.severityForState(state),
-        Message:  fmt.Sprintf("Provider %s circuit breaker: %s", providerID, state),
-        Metadata: map[string]interface{}{
-            "provider_id":       providerID.String(),
-            "state":             state,
-            "consecutive_fails": c.consecutiveFails,
-        },
-    })
+meta := map[string]any{
+    "provider_id":       providerID.String(),
+    "provider":          providerName,
+    "state":             state,
+    "consecutive_fails": c.consecutiveFails,
+    "quota_pinned":      pinned,
 }
+if pinned {
+    meta["next_retry_at"] = c.openedAt.Add(c.cooldownOverride).Format(time.RFC3339)
+}
+events.Publish(events.Event{
+    Type:     "circuit_breaker." + state,
+    Severity: cb.severityForState(state),
+    Source:   "failover",
+    Message:  fmt.Sprintf("Provider %s circuit breaker: %s", providerName, state),
+    Metadata: meta,
+})
 ```
+
+A separate `quota.schema_drift` event fires when a provider changes the *shape* of its quota response (the set of key paths, not the values). It carries the added and removed paths and is alert-only: it never opens a circuit, never pins a cooldown, and never affects routing. See [Alerting](Alerting) and the [API Reference](API-Reference) for its metadata.
 
 ---
 

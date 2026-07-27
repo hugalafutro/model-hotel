@@ -176,19 +176,10 @@ export function Models() {
 		<div className="space-y-4">
 			<PageHeader
 				icon={Bot}
-				title={
-					viewMode === "paginate"
-						? countLabel(
-								models?.length,
-								t("models.page_title_one"),
-								t("models.page_title_other"),
-							)
-						: countLabel(
-								scrollTotal,
-								t("models.page_title_one"),
-								t("models.page_title_other"),
-							)
-				}
+				title={countLabel(
+					viewMode === "paginate" ? models?.length : scrollTotal,
+					"models.page_title",
+				)}
 				description={t("models.page_description")}
 				badge={modelBadge}
 				actions={

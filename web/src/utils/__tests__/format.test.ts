@@ -1,3 +1,4 @@
+import i18next from "i18next";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	countLabel,
@@ -138,24 +139,59 @@ describe("formatTimestamp", () => {
 });
 
 describe("countLabel", () => {
-	it("returns plural form when count is 0", () => {
-		expect(countLabel(0, "Model", "Models")).toBe("Models");
-		expect(countLabel(0, "Request", "Requests")).toBe("Requests");
+	// Synthetic keys, so the assertions own their text and never depend on a
+	// repo translation that a later wording change would break. The Russian
+	// forms are deliberately all distinct: that is what makes a wrong category
+	// visible.
+	const KEY = "test.countLabelFixture";
+	const EN = {
+		[`${KEY}_one`]: "Model",
+		[`${KEY}_other`]: "Models",
+	};
+	const RU = {
+		[`${KEY}_one`]: "RU-ONE",
+		[`${KEY}_few`]: "RU-FEW",
+		[`${KEY}_many`]: "RU-MANY",
+		[`${KEY}_other`]: "RU-OTHER",
+	};
+
+	beforeEach(() => {
+		i18next.addResourceBundle("en", "translation", EN, true, true);
+		i18next.addResourceBundle("ru", "translation", RU, true, true);
 	});
 
-	it("returns plural form when count is undefined", () => {
-		expect(countLabel(undefined, "Model", "Models")).toBe("Models");
+	afterEach(async () => {
+		await i18next.changeLanguage("en");
 	});
 
-	it("returns singular form with '1' when count is 1", () => {
-		expect(countLabel(1, "Model", "Models")).toBe("1 Model");
-		expect(countLabel(1, "Request", "Requests")).toBe("1 Request");
+	it("names the collection without a numeral when the count is 0", () => {
+		expect(countLabel(0, KEY)).toBe("Models");
 	});
 
-	it("returns plural form with count when count > 1", () => {
-		expect(countLabel(2, "Model", "Models")).toBe("2 Models");
-		expect(countLabel(5, "Request", "Requests")).toBe("5 Requests");
-		expect(countLabel(100, "Item", "Items")).toBe("100 Items");
+	it("names the collection without a numeral when the count is undefined", () => {
+		expect(countLabel(undefined, KEY)).toBe("Models");
+	});
+
+	it("prefixes the numeral and takes the singular at 1", () => {
+		expect(countLabel(1, KEY)).toBe("1 Model");
+	});
+
+	it("prefixes the numeral and takes the plural above 1", () => {
+		expect(countLabel(2, KEY)).toBe("2 Models");
+		expect(countLabel(100, KEY)).toBe("100 Models");
+	});
+
+	it("resolves the category through the active language, not the system locale", async () => {
+		// The regression this guards: picking the form with a bare
+		// `new Intl.PluralRules()` uses the host's locale, and collapsing the
+		// result to one/other can never reach _few or _many. Under en rules
+		// both 2 and 5 would land on _other; Russian needs a third form at 2
+		// and a fourth at 5.
+		await i18next.changeLanguage("ru");
+		expect(countLabel(1, KEY)).toBe("1 RU-ONE");
+		expect(countLabel(2, KEY)).toBe("2 RU-FEW");
+		expect(countLabel(5, KEY)).toBe("5 RU-MANY");
+		expect(countLabel(22, KEY)).toBe("22 RU-FEW");
 	});
 });
 

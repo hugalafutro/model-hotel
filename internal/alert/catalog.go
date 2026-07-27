@@ -32,11 +32,14 @@ type EventDef struct {
 var catalog = []EventDef{
 	{Type: "circuit_breaker.open", Category: "Failover", Severity: "warning", DefaultOn: true},
 	{Type: "circuit_breaker.closed", Category: "Failover", Severity: "success", DefaultOn: true},
-	{Type: "circuit_breaker.half_open", Category: "Failover", Severity: "info", DefaultOn: false},
 	{Type: "failover.sync_error", Category: "Failover", Severity: "warning", DefaultOn: true},
 	{Type: "discovery.provider_failed", Category: "Discovery", Severity: "error", DefaultOn: false},
 	{Type: "fleet.conflict", Category: "High Availability", Severity: "warning", DefaultOn: true},
 	{Type: "auth.sso_identity_bound", Category: "Security", Severity: "warning", DefaultOn: false},
+	// A provider reshaped its quota response. Default-on because the failure it
+	// guards against is silent: a normalizer written against the old shape keeps
+	// answering, wrongly, and nothing else in the system would ever say so.
+	{Type: "quota.schema_drift", Category: "Quota", Severity: "warning", DefaultOn: true},
 }
 
 // Catalog returns a copy of the event registry, safe for the caller to mutate.

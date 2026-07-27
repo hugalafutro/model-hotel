@@ -3,11 +3,15 @@ package failover
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
 func newTestCB(threshold int, cooldown time.Duration) *CircuitBreaker {
@@ -274,6 +278,10 @@ func TestCircuitBreaker_FailureCountAccuracy(t *testing.T) {
 type stubSettings struct {
 	threshold int
 	cooldown  time.Duration
+	// pinEnabled overrides circuit_breaker_quota_pin_enabled when non-nil.
+	pinEnabled *bool
+	// pinMax overrides circuit_breaker_quota_pin_max when positive.
+	pinMax time.Duration
 }
 
 func (s *stubSettings) GetInt(_ context.Context, key string, def int) int {
@@ -286,6 +294,16 @@ func (s *stubSettings) GetInt(_ context.Context, key string, def int) int {
 func (s *stubSettings) GetDuration(_ context.Context, key string, def time.Duration) time.Duration {
 	if key == "circuit_breaker_cooldown" && s.cooldown > 0 {
 		return s.cooldown
+	}
+	if key == "circuit_breaker_quota_pin_max" && s.pinMax > 0 {
+		return s.pinMax
+	}
+	return def
+}
+
+func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
+	if key == "circuit_breaker_quota_pin_enabled" && s.pinEnabled != nil {
+		return *s.pinEnabled
 	}
 	return def
 }
@@ -802,6 +820,328 @@ func TestGetState_HalfOpenTransitionsToOpenOnFailure(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Quota pin tests
+// ---------------------------------------------------------------------------
+
+type stubAdvisor struct {
+	at time.Time
+	ok bool
+}
+
+func (s stubAdvisor) ResetsAt(uuid.UUID) (time.Time, bool) { return s.at, s.ok }
+
+// openBreaker drives a fresh breaker to the Open state using real failures.
+func openBreaker(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
+	t.Helper()
+	for i := 0; i < cb.effectiveThreshold(); i++ {
+		cb.RecordFailure(id, "test-provider")
+	}
+	if got := cb.GetState(id); got != StateOpen {
+		t.Fatalf("setup: got state %v, want open", got)
+	}
+}
+
+func TestQuotaPin_ExtendsCooldownToResetDeadline(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	id := uuid.New()
+	reset := time.Now().Add(6 * time.Hour)
+	cb.SetQuotaAdvisor(stubAdvisor{at: reset, ok: true})
+
+	openBreaker(t, cb, id)
+
+	statuses := cb.Status()
+	if len(statuses) != 1 {
+		t.Fatalf("got %d statuses, want 1", len(statuses))
+	}
+	s := statuses[0]
+	if !s.QuotaPinned {
+		t.Error("open circuit with quota advice must report quota_pinned")
+	}
+	// Roughly 6h, plus positive-only jitter capped at 5%. The lower bound has a
+	// second of slack because the pin is computed from time.Until(reset), which
+	// elapses slightly between the advisor call and this assertion.
+	minMs := (6*time.Hour - time.Second).Milliseconds()
+	maxMs := (6 * time.Hour).Milliseconds() * 21 / 20
+	if s.CooldownMs < minMs || s.CooldownMs > maxMs {
+		t.Errorf("got CooldownMs=%d, want within [%d,%d]", s.CooldownMs, minMs, maxMs)
+	}
+	// The circuit must still be closed to traffic until the pinned deadline.
+	if !cb.IsOpen(id, "test-provider") {
+		t.Error("pinned circuit must remain open")
+	}
+}
+
+// TestQuotaPin_JitterVariesAcrossProviders verifies the anti-stampede property
+// that motivates jitter in the first place: providers sharing one quota
+// deadline (as every node in an HA fleet would, since the deadline is
+// fleet-distributed) must not all probe at the same instant. A range check on
+// a single circuit's CooldownMs (as the other tests here do) can't distinguish
+// a jittering implementation from one that never jitters at all — deleting
+// the jitter lines would still satisfy those bounds. This test instead opens
+// many circuits against the identical deadline and requires at least two
+// distinct CooldownMs values: jitter spans up to 18 minutes (5% of 6h) at
+// millisecond granularity, so a non-jittering implementation collapses every
+// provider onto the same value while a jittering one collides with
+// negligible probability across this many samples.
+func TestQuotaPin_JitterVariesAcrossProviders(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	reset := time.Now().Add(6 * time.Hour)
+	cb.SetQuotaAdvisor(stubAdvisor{at: reset, ok: true})
+
+	const providerCount = 16
+	for range providerCount {
+		openBreaker(t, cb, uuid.New())
+	}
+
+	seen := make(map[int64]bool)
+	for _, s := range cb.Status() {
+		seen[s.CooldownMs] = true
+	}
+	if len(seen) <= 1 {
+		t.Errorf("got %d distinct CooldownMs value(s) across %d providers sharing one deadline, want more than 1 (jitter should desync them)", len(seen), providerCount)
+	}
+}
+
+func TestQuotaPin_FloorNeverShortensCooldown(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	id := uuid.New()
+	// Reset is sooner than the default 60s cooldown: the pin must be ignored.
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(5 * time.Second), ok: true})
+
+	openBreaker(t, cb, id)
+
+	s := cb.Status()[0]
+	if s.QuotaPinned {
+		t.Error("a reset sooner than the normal cooldown must not pin")
+	}
+	if s.CooldownMs != cb.Cooldown.Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want default %d", s.CooldownMs, cb.Cooldown.Milliseconds())
+	}
+}
+
+func TestQuotaPin_CeilingCapsRunawayDeadline(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(500 * 24 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	s := cb.Status()[0]
+	ceiling := (24 * time.Hour).Milliseconds()
+	if s.CooldownMs > ceiling+ceiling/20 {
+		t.Errorf("got CooldownMs=%d, want capped near %d", s.CooldownMs, ceiling)
+	}
+}
+
+// TestQuotaPin_SettingsMaxCapsCooldown verifies that a settings-supplied
+// circuit_breaker_quota_pin_max is actually read and applied, not just the
+// hardcoded 24h fallback. A 1h configured max against a 6h deadline caps near
+// 1h; if the settings value were ignored (falling back to the 24h default),
+// the 6h deadline would need no capping at all and the result would land near
+// 6h instead.
+func TestQuotaPin_SettingsMaxCapsCooldown(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Second, pinMax: time.Hour})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	s := cb.Status()[0]
+	if !s.QuotaPinned {
+		t.Fatal("setup: expected the pin to apply (6h deadline exceeds the 1s configured cooldown)")
+	}
+	ceiling := time.Hour.Milliseconds()
+	if s.CooldownMs > ceiling+ceiling/20 {
+		t.Errorf("got CooldownMs=%d, want capped near the settings max %d", s.CooldownMs, ceiling)
+	}
+	sixHourMs := (6 * time.Hour).Milliseconds()
+	if s.CooldownMs >= sixHourMs/2 {
+		t.Errorf("got CooldownMs=%d close to the uncapped 6h deadline (%d) — settings pin max was not applied", s.CooldownMs, sixHourMs)
+	}
+}
+
+func TestQuotaPin_AbsentOrDecliningAdvisorUsesDefault(t *testing.T) {
+	cases := []struct {
+		name    string
+		advisor QuotaAdvisor
+	}{
+		{"nil advisor", nil},
+		{"advisor declines", stubAdvisor{ok: false}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cb := NewCircuitBreaker(nil)
+			id := uuid.New()
+			if tc.advisor != nil {
+				cb.SetQuotaAdvisor(tc.advisor)
+			}
+
+			openBreaker(t, cb, id)
+
+			s := cb.Status()[0]
+			if s.QuotaPinned {
+				t.Error("must not report pinned without usable advice")
+			}
+			if s.CooldownMs != cb.Cooldown.Milliseconds() {
+				t.Errorf("got CooldownMs=%d, want default %d", s.CooldownMs, cb.Cooldown.Milliseconds())
+			}
+		})
+	}
+}
+
+// TestQuotaPin_DisabledBySettingUsesDefault verifies the operator's kill
+// switch: circuit_breaker_quota_pin_enabled=false must suppress pinning even
+// when the advisor offers perfectly usable, floor-clearing advice.
+func TestQuotaPin_DisabledBySettingUsesDefault(t *testing.T) {
+	disabled := false
+	settings := &stubSettings{threshold: 1, cooldown: 50 * time.Millisecond, pinEnabled: &disabled}
+	cb := NewCircuitBreaker(settings)
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	s := cb.Status()[0]
+	if s.QuotaPinned {
+		t.Error("circuit_breaker_quota_pin_enabled=false must disable pinning even with usable advice")
+	}
+	if s.CooldownMs != cb.effectiveCooldown().Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want configured cooldown %d", s.CooldownMs, cb.effectiveCooldown().Milliseconds())
+	}
+}
+
+// TestQuotaPin_DisablingTheSettingReleasesAnAlreadyPinnedCircuit verifies the
+// kill switch is retroactive, not merely prospective. An operator looking at
+// "next retry in 22 hours" flips circuit_breaker_quota_pin_enabled to false to
+// get the provider back; if the switch were only consulted at the moment a
+// circuit opens, nothing would change on any surface until the pin expired.
+// That matters because there is no other recovery lever: Reset/ResetAll have no
+// production caller, so the alternatives are disabling the breaker for every
+// provider or restarting the process.
+//
+// The assertion is the real mechanism, not just the reported number: after the
+// flip the circuit must actually admit a probe once the *configured* cooldown
+// has elapsed, which a pinned circuit would refuse for another six hours.
+func TestQuotaPin_DisablingTheSettingReleasesAnAlreadyPinnedCircuit(t *testing.T) {
+	enabled := true
+	// 500ms, not the tens of milliseconds the other cooldown tests use: between
+	// openBreaker and the "still open" assertion below sit two Status() calls,
+	// and a GC pause or a loaded runner overrunning the configured cooldown there
+	// would fail the test with a message about the kill switch. The assertions
+	// are unchanged; only the budget they run inside is widened.
+	settings := &stubSettings{threshold: 1, cooldown: 500 * time.Millisecond, pinEnabled: &enabled}
+	cb := NewCircuitBreaker(settings)
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	pinnedMs := cb.Status()[0].CooldownMs
+	if !cb.Status()[0].QuotaPinned {
+		t.Fatal("setup: a 6h deadline against a 500ms cooldown must pin the circuit")
+	}
+	if pinnedMs < (6*time.Hour - time.Minute).Milliseconds() {
+		t.Fatalf("setup: got CooldownMs=%d, want the ~6h pin", pinnedMs)
+	}
+
+	// The operator flips the kill switch while the pin is already in force.
+	enabled = false
+
+	s := cb.Status()[0]
+	if s.QuotaPinned {
+		t.Error("a pin the kill switch has disabled must not still report quota_pinned")
+	}
+	if s.CooldownMs != cb.effectiveCooldown().Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want the configured cooldown %d back", s.CooldownMs, cb.effectiveCooldown().Milliseconds())
+	}
+
+	// The number and the behaviour must agree: the configured cooldown elapses
+	// and the circuit admits a probe again.
+	if !cb.IsOpen(id, "test-provider") {
+		t.Fatal("the configured cooldown has not elapsed yet; the circuit must still be open")
+	}
+	time.Sleep(600 * time.Millisecond)
+	if cb.IsOpen(id, "test-provider") {
+		t.Error("with the pin released, the configured cooldown must let a probe through")
+	}
+	if got := cb.GetState(id); got == StateOpen {
+		t.Errorf("got state %v, want the circuit off the open state once its configured cooldown elapsed", got)
+	}
+}
+
+func TestQuotaPin_ClearedWhenCircuitCloses(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	// A 1ms base cooldown lets a 50ms pin clear the floor while still being
+	// short enough to wait out in a test. The pin overrides the cooldown the
+	// instant RecordFailure opens the circuit, so openBreaker's own state
+	// check races against the override (50ms), not this 1ms base — safe.
+	cb.Cooldown = time.Millisecond
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(50 * time.Millisecond), ok: true})
+
+	openBreaker(t, cb, id)
+	if !cb.Status()[0].QuotaPinned {
+		t.Fatal("setup: circuit should be pinned")
+	}
+
+	// Wait out the pin, take the probe, and succeed: the circuit closes.
+	time.Sleep(80 * time.Millisecond)
+	if cb.IsOpen(id, "test-provider") {
+		t.Fatal("setup: pinned cooldown elapsed, probe should be allowed")
+	}
+	cb.RecordSuccess(id, "test-provider")
+	if got := cb.GetState(id); got != StateClosed {
+		t.Fatalf("setup: got state %v, want closed", got)
+	}
+
+	// Reopen with no advice: the stale override must not survive the close.
+	// This reopen is unpinned, so effectiveCooldownFor falls back to
+	// cb.Cooldown live at read time — restore a long value first so
+	// openBreaker's state check isn't racing the leftover 1ms cooldown from
+	// the pinned phase above (a real flake: on a slow CI runner a fresh Open
+	// circuit could already read back as logically half-open before the
+	// assertions below run).
+	cb.Cooldown = time.Minute
+	cb.SetQuotaAdvisor(stubAdvisor{ok: false})
+	openBreaker(t, cb, id)
+
+	s := cb.Status()[0]
+	if s.QuotaPinned {
+		t.Error("a reopened circuit must re-evaluate the pin, not inherit the old one")
+	}
+	if s.CooldownMs != cb.Cooldown.Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want default %d", s.CooldownMs, cb.Cooldown.Milliseconds())
+	}
+}
+
+func TestQuotaPin_RepinsAfterFailedProbe(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	// Open unpinned with a long cooldown first, so openBreaker's own state
+	// check isn't racing a tiny cooldown (a real flake on a slow CI runner:
+	// the circuit could already read back as logically half-open before the
+	// check runs). Only shrink the cooldown afterwards, for the deliberate
+	// wait-out below.
+	cb.Cooldown = time.Minute
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{ok: false})
+
+	openBreaker(t, cb, id)
+	cb.Cooldown = time.Millisecond
+	time.Sleep(5 * time.Millisecond)
+	if cb.IsOpen(id, "test-provider") {
+		t.Fatal("setup: cooldown elapsed, circuit should allow a probe")
+	}
+
+	// Probe fails and quota now reports a long window: half-open to open re-pins.
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(4 * time.Hour), ok: true})
+	cb.RecordFailure(id, "test-provider")
+
+	if !cb.Status()[0].QuotaPinned {
+		t.Error("half-open to open must apply the pin")
+	}
+}
+
 func TestGetState_ConcurrentReads(t *testing.T) {
 	t.Parallel()
 	cb := newTestCB(100, 30*time.Second)
@@ -832,5 +1172,228 @@ func TestGetState_ConcurrentReads(t *testing.T) {
 
 	for err := range errCh {
 		t.Error(err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// SSE event quota-pin metadata
+// ---------------------------------------------------------------------------
+
+// waitForOpenEvent reads from sub until it sees a "circuit_breaker.open" event
+// whose provider_id metadata matches id, or the deadline elapses. Filtering by
+// type and provider makes the assertion deterministic even though the shared
+// DefaultBus channel could otherwise carry events from a different provider
+// or a different transition first.
+func waitForOpenEvent(t *testing.T, sub chan events.Event, id uuid.UUID) events.Event {
+	t.Helper()
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case ev := <-sub:
+			if ev.Type != "circuit_breaker.open" {
+				continue
+			}
+			if pid, _ := ev.Metadata["provider_id"].(string); pid != id.String() {
+				continue
+			}
+			return ev
+		case <-deadline:
+			t.Fatalf("no circuit_breaker.open event for provider %s published within timeout", id)
+			return events.Event{}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Open-transition log trail
+// ---------------------------------------------------------------------------
+
+// capturedLog is one slog record reduced to what these assertions care about.
+type capturedLog struct {
+	level slog.Level
+	msg   string
+	attrs map[string]any
+}
+
+// logCaptureHandler records every slog record emitted while it is installed.
+type logCaptureHandler struct {
+	mu      sync.Mutex
+	records []capturedLog
+}
+
+func (h *logCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *logCaptureHandler) Handle(_ context.Context, r slog.Record) error {
+	rec := capturedLog{level: r.Level, msg: r.Message, attrs: make(map[string]any, r.NumAttrs())}
+	r.Attrs(func(a slog.Attr) bool {
+		rec.attrs[a.Key] = a.Value.Any()
+		return true
+	})
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.records = append(h.records, rec)
+	return nil
+}
+
+func (h *logCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *logCaptureHandler) WithGroup(string) slog.Handler      { return h }
+
+// forProvider returns the records whose provider_id attribute matches id, so an
+// assertion can never be satisfied by a line another test or another provider
+// emitted onto the process-wide logger.
+func (h *logCaptureHandler) forProvider(id uuid.UUID) []capturedLog {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var out []capturedLog
+	for _, r := range h.records {
+		if pid, ok := r.attrs["provider_id"].(uuid.UUID); ok && pid == id {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// captureLogs installs a capturing slog handler for the duration of the test.
+// SetHandler swaps the process-wide default, so the previous one is restored.
+func captureLogs(t *testing.T) *logCaptureHandler {
+	t.Helper()
+	prev := slog.Default().Handler()
+	t.Cleanup(func() { debuglog.SetHandler(prev) })
+	capt := &logCaptureHandler{}
+	debuglog.SetHandler(capt)
+	return capt
+}
+
+// TestOpenTransitionLogsTheGoverningCooldown covers the operator's only trail
+// for a circuit that can stay dark for a day. The open-transition warning
+// previously carried the failure count and nothing about how long the provider
+// would be sidelined, so "why has this provider been dark since midnight" had no
+// answer outside the Failover page and the SSE stream. Both open transitions
+// (closed→open and a failed half-open probe) must name the cooldown actually
+// governing the circuit and whether a quota pin produced it.
+func TestOpenTransitionLogsTheGoverningCooldown(t *testing.T) {
+	capt := captureLogs(t)
+
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 50 * time.Millisecond})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	recs := capt.forProvider(id)
+	if len(recs) != 1 {
+		t.Fatalf("got %d log record(s) for the open transition, want 1: %+v", len(recs), recs)
+	}
+	opened := recs[0]
+	if opened.level != slog.LevelWarn {
+		t.Errorf("got level %v, want warn for an opening circuit", opened.level)
+	}
+	pinned, _ := opened.attrs["quota_pinned"].(bool)
+	if !pinned {
+		t.Errorf("a pinned circuit must log quota_pinned=true, got attrs %#v", opened.attrs)
+	}
+	cooldownMs, ok := opened.attrs["cooldown_ms"].(int64)
+	if !ok {
+		t.Fatalf("the open transition must log cooldown_ms, got attrs %#v", opened.attrs)
+	}
+	if want := cb.Status()[0].CooldownMs; cooldownMs != want {
+		t.Errorf("logged cooldown_ms=%d, want the cooldown actually governing the circuit (%d)", cooldownMs, want)
+	}
+
+	// A failed half-open probe re-opens the circuit and must log the same way:
+	// this is the transition an operator sees when a provider keeps failing.
+	time.Sleep(60 * time.Millisecond)
+	cb.Cooldown = 50 * time.Millisecond
+	cb.SetQuotaAdvisor(stubAdvisor{ok: false}) // advice withdrawn; plain cooldown now
+	cb.circuits[id.String()].cooldownOverride = 0
+	cb.circuits[id.String()].state = StateHalfOpen
+	cb.RecordFailure(id, "test-provider")
+
+	recs = capt.forProvider(id)
+	if len(recs) != 2 {
+		t.Fatalf("got %d log record(s), want the half-open→open transition logged too: %+v", len(recs), recs)
+	}
+	reopened := recs[1]
+	if reopened.level != slog.LevelWarn {
+		t.Errorf("got level %v, want warn for a failed probe re-opening the circuit", reopened.level)
+	}
+	if pinned, _ := reopened.attrs["quota_pinned"].(bool); pinned {
+		t.Errorf("an unpinned re-open must log quota_pinned=false, got attrs %#v", reopened.attrs)
+	}
+	reMs, ok := reopened.attrs["cooldown_ms"].(int64)
+	if !ok {
+		t.Fatalf("the half-open→open transition must log cooldown_ms, got attrs %#v", reopened.attrs)
+	}
+	if want := cb.effectiveCooldown().Milliseconds(); reMs != want {
+		t.Errorf("logged cooldown_ms=%d, want the configured cooldown %d", reMs, want)
+	}
+}
+
+// TestPublishEvent_CarriesQuotaPinMetadata verifies that when a circuit opens
+// with an active quota pin, the published event's Metadata carries
+// quota_pinned=true and next_retry_at.
+//
+// The field is next_retry_at, not resets_at, and the assertion is that it equals
+// the status API's NextRetryAt for the same circuit — because that is what it is.
+// It carries openedAt plus the ceiling-clamped, jittered cooldown, so on a weekly
+// plan pinned at the 24h ceiling it says "tomorrow" while the quota resets in
+// five days. Calling one instant by two names across two surfaces of one feature
+// is how a consumer ends up reporting a reset deadline that is not one.
+func TestPublishEvent_CarriesQuotaPinMetadata(t *testing.T) {
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	cb := NewCircuitBreaker(nil)
+	id := uuid.New()
+	reset := time.Now().Add(3 * time.Hour)
+	cb.SetQuotaAdvisor(stubAdvisor{at: reset, ok: true})
+
+	openBreaker(t, cb, id)
+
+	ev := waitForOpenEvent(t, sub, id)
+
+	pinned, _ := ev.Metadata["quota_pinned"].(bool)
+	if !pinned {
+		t.Fatalf("pinned circuit must publish quota_pinned=true, got metadata %#v", ev.Metadata)
+	}
+	if v, ok := ev.Metadata["resets_at"]; ok {
+		t.Fatalf("resets_at named the retry time, not the quota reset, and is gone; got %#v", v)
+	}
+	nextRetryAt, ok := ev.Metadata["next_retry_at"].(string)
+	if !ok {
+		t.Fatalf("pinned circuit must publish next_retry_at as a string, got metadata %#v", ev.Metadata)
+	}
+	if _, err := time.Parse(time.RFC3339, nextRetryAt); err != nil {
+		t.Fatalf("next_retry_at %q is not RFC3339: %v", nextRetryAt, err)
+	}
+	if want := cb.Status()[0].NextRetryAt; nextRetryAt != want {
+		t.Errorf("event next_retry_at=%q, want the same instant the status API publishes under that name (%q)", nextRetryAt, want)
+	}
+}
+
+// TestPublishEvent_UnpinnedOmitsNextRetryAt verifies that when a circuit opens
+// with no quota pin in effect (no advisor installed, so cooldownOverride
+// stays zero), the published event reports quota_pinned=false and omits
+// next_retry_at entirely rather than emitting an empty or zero-valued string.
+func TestPublishEvent_UnpinnedOmitsNextRetryAt(t *testing.T) {
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	cb := NewCircuitBreaker(nil) // no quota advisor installed
+	id := uuid.New()
+
+	openBreaker(t, cb, id)
+
+	ev := waitForOpenEvent(t, sub, id)
+
+	pinned, _ := ev.Metadata["quota_pinned"].(bool)
+	if pinned {
+		t.Fatalf("unpinned circuit must publish quota_pinned=false, got metadata %#v", ev.Metadata)
+	}
+	if v, ok := ev.Metadata["next_retry_at"]; ok {
+		t.Fatalf("unpinned circuit must omit next_retry_at entirely, got %#v", v)
+	}
+	if v, ok := ev.Metadata["resets_at"]; ok {
+		t.Fatalf("the old resets_at name must not linger alongside it, got %#v", v)
 	}
 }

@@ -1,8 +1,8 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FailoverGroup } from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
-import { SortableEntry } from "../SortableEntry";
+import { SortableEntry, type SortableEntryProps } from "../SortableEntry";
 
 // Mock dnd-kit modules at top level
 vi.mock("@dnd-kit/sortable", () => ({
@@ -155,7 +155,7 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 				consecutive_fails: 5,
 			};
 
-			const { container } = renderWithProviders(
+			const { container, getByTestId, queryByTestId } = renderWithProviders(
 				<SortableEntry
 					entry={baseEntry}
 					groupEnabled={true}
@@ -165,27 +165,18 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 			);
 
 			// Half-open: static amber outline via box-shadow, NOT SVG FuseOutline
-			const svgElements = container.querySelectorAll("svg");
-			expect(svgElements.length).toBe(0);
+			expect(queryByTestId("fuse-outline-animated")).not.toBeInTheDocument();
+			expect(container.querySelectorAll("svg").length).toBe(0);
 
 			// Static outline div should render with amber color
-			const outlineDiv = container.querySelector('[style*="box-shadow"]');
-			expect(outlineDiv).toBeInTheDocument();
-			expect(outlineDiv?.getAttribute("style")).toContain("#fde68a");
+			const outlineDiv = getByTestId("fuse-outline-static");
+			expect(outlineDiv.getAttribute("style")).toContain("#fde68a");
 
 			// Entry should have overflow: hidden
 			const wrapperDiv = getWrapperDiv(container);
 			expect(wrapperDiv).not.toBeNull();
 			if (wrapperDiv) {
 				expect(wrapperDiv).toHaveStyle("overflow: hidden");
-			}
-
-			// Title should show i18n key for half-open
-			if (wrapperDiv) {
-				expect(wrapperDiv).toHaveAttribute(
-					"title",
-					expect.stringContaining("Circuit breaker half-open"),
-				);
 			}
 		});
 	});
@@ -284,6 +275,154 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 			if (wrapperDiv) {
 				expect(wrapperDiv).toHaveStyle("overflow: hidden");
 			}
+		});
+	});
+
+	describe("Quota-pinned cooldowns", () => {
+		const HOUR_MS = 60 * 60 * 1000;
+
+		function renderEntry(cbStatus: SortableEntryProps["cbStatus"]) {
+			return renderWithProviders(
+				<SortableEntry
+					entry={baseEntry}
+					groupEnabled={true}
+					onToggle={vi.fn()}
+					cbStatus={cbStatus}
+				/>,
+			);
+		}
+
+		it("renders a static outline instead of an animated fuse for a long quota pin", () => {
+			const { getByTestId, queryByTestId } = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				quota_pinned: true,
+				cooldown_ms: 6 * HOUR_MS,
+				next_retry_at: new Date(Date.now() + 6 * HOUR_MS).toISOString(),
+			});
+
+			// A six-hour CSS animation is visually frozen, so the outline stops
+			// animating above the threshold and the deadline moves to the tooltip.
+			expect(queryByTestId("fuse-outline-animated")).not.toBeInTheDocument();
+			expect(getByTestId("fuse-outline-static")).toBeInTheDocument();
+		});
+
+		it("stops animating an ordinary cooldown that is longer than the animation threshold", () => {
+			// Not quota-pinned: the threshold is about the animation being useless
+			// over long spans, not about why the cooldown is long.
+			const { getByTestId, queryByTestId } = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				cooldown_ms: 20 * 60 * 1000,
+				next_retry_at: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
+			});
+
+			expect(queryByTestId("fuse-outline-animated")).not.toBeInTheDocument();
+			expect(
+				getByTestId("fuse-outline-static").getAttribute("style"),
+			).toContain("#fca5a5");
+		});
+
+		it("still animates the fuse for a short ordinary cooldown", () => {
+			const { getByTestId, queryByTestId } = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				cooldown_ms: 60_000,
+				next_retry_at: new Date(Date.now() + 60_000).toISOString(),
+			});
+
+			expect(getByTestId("fuse-outline-animated")).toBeInTheDocument();
+			expect(queryByTestId("fuse-outline-static")).not.toBeInTheDocument();
+		});
+
+		it("falls back to a static outline when an open circuit reports no retry deadline", () => {
+			// Without next_retry_at there is nothing to count down, but the circuit
+			// is still open, so the entry must still be visibly marked.
+			const { getByTestId, queryByTestId } = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+			});
+
+			expect(queryByTestId("fuse-outline-animated")).not.toBeInTheDocument();
+			expect(
+				getByTestId("fuse-outline-static").getAttribute("style"),
+			).toContain("#fca5a5");
+		});
+
+		it("renders one colour for both cooldown-over paths", () => {
+			// The backend reporting half-open and the client noticing next_retry_at
+			// has passed are the same state, so they must render identically...
+			const backendHalfOpen = renderEntry({
+				state: "half-open",
+				consecutive_fails: 5,
+			});
+			const clientElapsed = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				next_retry_at: new Date(Date.now() - 1000).toISOString(),
+			});
+
+			// Both renders live in the same document, so scope each lookup to its
+			// own container rather than using the body-wide bound queries.
+			const halfOpenStyle = within(backendHalfOpen.container)
+				.getByTestId("fuse-outline-static")
+				.getAttribute("style");
+			const elapsedStyle = within(clientElapsed.container)
+				.getByTestId("fuse-outline-static")
+				.getAttribute("style");
+			expect(halfOpenStyle).toEqual(elapsedStyle);
+			// ...and identically *amber*, so both regressing to the open-circuit red
+			// would fail rather than silently agree.
+			expect(halfOpenStyle).toContain("#fde68a");
+			expect(halfOpenStyle).not.toContain("#fca5a5");
+		});
+
+		it("names the quota reset deadline in the tooltip instead of the generic open text", () => {
+			const resetAt = new Date(Date.now() + 6 * HOUR_MS);
+
+			const pinned = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				quota_pinned: true,
+				next_retry_at: resetAt.toISOString(),
+			});
+			const pinnedTitle = getWrapperDiv(pinned.container)?.getAttribute(
+				"title",
+			);
+			expect(pinnedTitle).toContain(resetAt.toLocaleString());
+
+			// The same cooldown without the pin keeps the generic copy and never
+			// claims a reset time it does not have.
+			const ordinary = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				next_retry_at: resetAt.toISOString(),
+			});
+			const ordinaryTitle = getWrapperDiv(ordinary.container)?.getAttribute(
+				"title",
+			);
+			expect(ordinaryTitle).not.toContain(resetAt.toLocaleString());
+			expect(ordinaryTitle).not.toEqual(pinnedTitle);
+		});
+
+		it("prefers the cooldown-over tooltip over the quota one once the pin has expired", () => {
+			// quota_pinned describes the override governing the cooldown, not a
+			// claim that the provider is still blocked, so an elapsed pin reads as
+			// ready to probe like any other elapsed cooldown.
+			const pinnedElapsed = renderEntry({
+				state: "open",
+				consecutive_fails: 5,
+				quota_pinned: true,
+				next_retry_at: new Date(Date.now() - 1000).toISOString(),
+			});
+			const halfOpen = renderEntry({
+				state: "half-open",
+				consecutive_fails: 5,
+			});
+
+			expect(
+				getWrapperDiv(pinnedElapsed.container)?.getAttribute("title"),
+			).toBe(getWrapperDiv(halfOpen.container)?.getAttribute("title"));
 		});
 	});
 });

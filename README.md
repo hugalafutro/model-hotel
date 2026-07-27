@@ -28,6 +28,10 @@
 
  <a href="https://mh.site19.ddns.net"><img src="https://img.shields.io/badge/%F0%9F%8F%A8%20Live%20Demo-Try%20it%20now-D97757?style=for-the-badge" alt="Live Demo"></a><br>
  <sub>Poke around a real instance at <a href="https://mh.site19.ddns.net">mh.site19.ddns.net</a> - rebuilds fresh every 30 minutes</sub>
+<br><br>
+
+[![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
+
 </div><br>
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Models are auto-discovered the moment you add a provider and optionally on schedule; failover groups form automatically around shared model names and retry transparently when a provider goes down; no prompt data is ever stored.

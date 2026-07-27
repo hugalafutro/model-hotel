@@ -364,6 +364,12 @@ func (h *Handler) shouldFailover(ctx context.Context, statusCode int) bool {
 	if statusCode == 401 || statusCode == 403 {
 		return true
 	}
+	// 402 Payment Required: the account behind this provider is out of credit.
+	// Unlike other 4xx this is not a problem with the request, so another
+	// provider can serve it.
+	if statusCode == 402 {
+		return true
+	}
 	// 404 from a provider means the model doesn't exist there (stale DB entry,
 	// overloaded provider returning not_found, etc.) — try the next candidate.
 	if statusCode == 404 {

@@ -63,10 +63,11 @@ Current events:
 |---|---|---|---|
 | Provider down (circuit breaker opened) | Failover | ✅ on | a provider's breaker trips |
 | Provider recovered (circuit breaker closed) | Failover | ✅ on | the breaker recovers |
-| Provider being probed (half-open) | Failover | ⬜ off | the breaker enters its probe state (noisy) |
 | Failover group sync failed | Failover | ✅ on | a failover group fails to sync |
 | Provider failed during discovery | Discovery | ⬜ off | a provider errors during model discovery |
 | Fleet ownership conflict | High Availability | ✅ on | a second Front Desk tries to claim a member that another Front Desk already owns (debounced to once/hour per rejected Front Desk id) |
+| SSO identity bound | Security | ⬜ off | an external identity is bound to an admin account for the first time |
+| Quota schema drift | Quota | ✅ on | a provider changes the *shape* of its quota response (a key path appears or disappears). Carries the added and removed paths. Alert-only: nothing about routing or failover changes, but a normalizer written against the old shape may now be reporting the wrong numbers silently, which is why it defaults on |
 
 On first run the default-on events are pre-selected. Deselecting everything means nothing fires.
 

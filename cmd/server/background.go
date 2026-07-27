@@ -132,7 +132,17 @@ func discoverySchedulerLoop(ctx context.Context, settingsRepo *settings.Reposito
 // changes via the settings subscription channel, and an interval of 0
 // ("Disabled") truly disables polling — the loop blocks on the subscription
 // channel until a non-zero value arrives.
-func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollOnce func(context.Context), unit time.Duration) {
+//
+// clearAdvice is invoked once whenever the loop enters (or starts in) the
+// disabled state. pollOnce — and with it api.Handler.RefreshQuotaAdvice — is
+// never called while disabled, so without this the last computed quota advice
+// map would otherwise be retained in memory for the rest of the process
+// lifetime, potentially pinning a circuit's cooldown to a deadline computed
+// from data that predates the disable. clearAdvice does no upstream fetches
+// (it is api.Handler.ClearQuotaAdvice, a plain map swap), so it is cheap
+// enough to call redundantly; it is deliberately not called again for as
+// long as the loop stays disabled.
+func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollOnce, clearAdvice func(context.Context), unit time.Duration) {
 	readInterval := func() time.Duration {
 		return time.Duration(settingsRepo.GetInt(context.Background(), "quota_refresh_interval_min", 5)) * unit
 	}
@@ -187,8 +197,17 @@ func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollO
 		}
 	}()
 
+	// advisorCleared tracks whether clearAdvice has already run for the
+	// current disabled span, so repeated settings events while still
+	// disabled don't call it again on every wakeup.
+	advisorCleared := false
+
 	for {
 		if interval <= 0 {
+			if !advisorCleared {
+				clearAdvice(ctx)
+				advisorCleared = true
+			}
 			// Polling is disabled. Block until the setting changes
 			// or the server shuts down. We cannot reach the main
 			// select because timerC is nil (blocks forever).
@@ -201,6 +220,7 @@ func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollO
 			}
 			continue
 		}
+		advisorCleared = false
 
 		select {
 		case <-timerC:

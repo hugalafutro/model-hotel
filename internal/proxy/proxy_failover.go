@@ -664,8 +664,8 @@ func (h *Handler) recordBreakerOutcome(st *requestState, candidate modelCandidat
 			// model-specific error that says nothing about provider health.
 		case breakerActionSuccess:
 			// Not reached for failover-eligible codes: shouldFailover only
-			// returns true for {5xx,429,401,403,404,499}, all of which map to
-			// failure or no-op above. Retained so the switch stays exhaustive
+			// returns true for {5xx,429,401,403,402,404,499}, all of which map
+			// to failure or no-op above. Retained so the switch stays exhaustive
 			// over breakerAction — if the shouldFailover/breakerRecordAction
 			// mappings ever diverge, a success is recorded rather than dropped.
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)

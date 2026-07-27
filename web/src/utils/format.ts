@@ -48,29 +48,26 @@ export function formatTimestamp(ts: number | string): string {
 	});
 }
 
-// Defer the singular/plural choice to ICU plural rules (Intl.PluralRules) for the
-// active runtime locale instead of a hardcoded n === 1 check. Kept dependency-free
-// like formatDate below (default locale). Callers pass the two grammatical forms;
-// languages with richer plural systems should use i18next count keys (key_one /
-// key_other) at the call site, as FailoverGroups does, and pass the resolved forms.
-const pluralRules = new Intl.PluralRules();
-
 /**
- * Returns a count-prefixed label with proper singular/plural using ICU plural rules.
- * 0 → just the plural noun (e.g. "Models")
- * 1 → "1 {singular}" (e.g. "1 Model")
- * 2+ → "{n} {plural}" (e.g. "5 Models")
+ * Count-prefixed label for a page header: "Models", "1 Model", "5 Models".
+ *
+ * `key` is an i18next plural base ("models.page_title"), not a pair of
+ * resolved forms. i18next picks the category from Intl.PluralRules for the
+ * *active* language, so Russian gets its own form at 2 and again at 5 and
+ * Arabic gets its dual at 2. A caller that hands over a singular and a plural
+ * can only ever reach two of the six categories, which is why this takes the
+ * key instead.
+ *
+ * Zero is deliberately not a plural lookup. The header names the collection
+ * and drops the numeral ("Models", not "0 Models"), and "_other" is the form
+ * that reads as a bare collection noun everywhere we ship. Asking the plural
+ * rules would title an empty page "Model" in French, which selects "one" at
+ * zero.
  */
-export function countLabel(
-	count: number | undefined,
-	singular: string,
-	plural: string,
-): string {
+export function countLabel(count: number | undefined, key: string): string {
 	const n = count ?? 0;
-	if (n === 0) return plural;
-	return pluralRules.select(n) === "one"
-		? `${n} ${singular}`
-		: `${n} ${plural}`;
+	if (n === 0) return i18next.t(`${key}_other`);
+	return `${n} ${i18next.t(key, { count: n })}`;
 }
 
 export function formatDate(ts: number | string): string {
@@ -187,10 +184,10 @@ export function formatTimeUntil(ts: number): string {
 			hours: remainingHours,
 		});
 	}
-	if (hours === 1) {
-		return t("format.inHours_only_one", { hours });
-	}
-	return t("format.inHours_only_other", { hours });
+	// Pick the suffix through i18next rather than by hand: "not 1" is only two
+	// forms in English, and Russian needs a third at 2 and a fourth at 5. The
+	// hand-written `hours === 1` split could only ever reach _one and _other.
+	return t("format.inHours_only", { count: hours, hours });
 }
 
 /**

@@ -20,6 +20,9 @@ interface FuseOutlineProps {
 	 *  If you override className, ensure the SVG still fills the intended target
 	 *  element so dimensions are measured correctly. */
 	className?: string;
+	/** Optional hook for callers that render more than one kind of outline and
+	 *  need to tell them apart in the DOM. Applied to the wrapping SVG. */
+	"data-testid"?: string;
 }
 
 /**
@@ -40,6 +43,7 @@ export function FuseOutline({
 	strokeWidth = 1,
 	rx,
 	className = "absolute inset-0 w-full h-full pointer-events-none",
+	"data-testid": dataTestId,
 }: FuseOutlineProps) {
 	const {
 		ref: sizeRef,
@@ -147,6 +151,7 @@ export function FuseOutline({
 		<svg
 			ref={sizeRef}
 			aria-hidden="true"
+			data-testid={dataTestId}
 			className={className}
 			viewBox={showRect ? `0 0 ${width} ${height}` : undefined}
 		>

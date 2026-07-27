@@ -11,8 +11,9 @@ file's nesting and tab/ensure_ascii formatting.
 Subcommands:
     check        CI gate: fail when any locale (in web/ OR frontdesk/web/) is
                  missing keys, has extra keys, breaks {{placeholder}} parity,
-                 carries a non-string value, or carries an English-equal value
-                 that is not allowlisted.
+                 carries a non-string value, carries an English-equal value
+                 that is not allowlisted, or omits a plural category its
+                 language requires (see PLURAL_CATEGORIES).
     grandfather  Snapshot all current English-equal values into the
                  allowlist(s) so `check` only flags future additions.
 
@@ -62,6 +63,123 @@ PROTECTED_RE = r"\{\{[^}]+\}\}|</?[a-zA-Z][a-zA-Z0-9]*>"
 def interpolations(text: str) -> set[str]:
 	"""The set of {{placeholders}} and markup tags a string uses."""
 	return set(re.findall(PROTECTED_RE, text))
+
+
+# ── Plural categories ────────────────────────────────────────────────────────
+
+# i18next selects a plural form with Intl.PluralRules and then looks up
+# "<base>_<category>". English only ever has "one" and "other", so a locale
+# that ships only those two silently breaks for every other category its
+# language defines: Russian count=22 asks for "_few", Arabic count=2 asks for
+# "_two". i18next then falls back to the bare base key (right locale, wrong
+# grammatical form) or, when there is none, to the English string. Key parity
+# cannot see this, because every locale carries the same _one/_other pair.
+#
+# Generated from Intl.PluralRules itself (the resolver i18next uses), for every
+# locale either web app ships plus the "nb" alias:
+#
+#   node -e 'for (const l of [...]) console.log(l,
+#     new Intl.PluralRules(l).resolvedOptions().pluralCategories)'
+#
+# Two entries surprise people and are deliberate:
+#   * he is one/two/other. CLDR dropped Hebrew's "many" (it only ever covered
+#     round tens in a register no UI string uses), so "_many" is NOT required.
+#   * ca/es/fr/it/pt carry "many". It is not a general plural: it selects only
+#     for exact multiples of a million, where these languages use the same
+#     wording as "other" ("1000000 modelos"). The form is therefore usually a
+#     copy of "_other", and that is correct rather than lazy. It exists so a
+#     count of exactly 1000000 renders Spanish instead of English.
+PLURAL_CATEGORIES = {
+	"af": ("one", "other"),
+	"ar": ("zero", "one", "two", "few", "many", "other"),
+	"ca": ("one", "many", "other"),
+	"cs": ("one", "few", "many", "other"),
+	"da": ("one", "other"),
+	"de": ("one", "other"),
+	"el": ("one", "other"),
+	"en": ("one", "other"),
+	"es": ("one", "many", "other"),
+	"fi": ("one", "other"),
+	"fr": ("one", "many", "other"),
+	"he": ("one", "two", "other"),
+	"hu": ("one", "other"),
+	"it": ("one", "many", "other"),
+	"ja": ("other",),
+	"ko": ("other",),
+	"nb": ("one", "other"),
+	"nl": ("one", "other"),
+	"no": ("one", "other"),
+	"pl": ("one", "few", "many", "other"),
+	"pt": ("one", "many", "other"),
+	"ro": ("one", "few", "other"),
+	"ru": ("one", "few", "many", "other"),
+	"sk": ("one", "few", "many", "other"),
+	"sr": ("one", "few", "other"),
+	"sv": ("one", "other"),
+	"tr": ("one", "other"),
+	"uk": ("one", "few", "many", "other"),
+	"vi": ("other",),
+	"zh": ("other",),
+}
+
+# Every CLDR cardinal category, so a suffix can be recognised as one. Ordered
+# longest-lived first only for readability; membership is what matters.
+PLURAL_SUFFIXES = ("zero", "one", "two", "few", "many", "other")
+
+# A locale file with no entry above is a new language nobody has classified.
+# Requiring one/other keeps the gate honest without guessing extra forms; add
+# the language to PLURAL_CATEGORIES when you add its catalog.
+DEFAULT_PLURAL_CATEGORIES = ("one", "other")
+
+
+# "_other" and "_one" are the two forms en.json always carries, so either one
+# marks a key as pluralised. Deliberately NOT the rest: "_zero", "_two", "_few"
+# and "_many" are ordinary English words that turn up in key names
+# ("failover.toast_entry_min_two" is a sentence about a minimum of two members,
+# not the dual of "failover.toast_entry_min"), and treating those as families
+# would demand five forms of a key that has none.
+PLURAL_MARKERS = ("_other", "_one")
+
+
+def plural_bases(keys) -> set[str]:
+	"""Every pluralised key, minus its category suffix.
+
+	Keying only off "_other" would miss the one broken shape it cannot see: a
+	plural key shipped with "_one" alone. Such a key resolves for count=1 and
+	renders nothing else, and no other check would notice.
+	"""
+	return {
+		k[: -len(marker)]
+		for k in keys
+		for marker in PLURAL_MARKERS
+		if k.endswith(marker)
+	}
+
+
+def missing_plural_forms(code: str, keys) -> list[str]:
+	"""Plural forms `code`'s language requires but this key set does not have."""
+	categories = PLURAL_CATEGORIES.get(code, DEFAULT_PLURAL_CATEGORIES)
+	return sorted(
+		f"{base}_{category}"
+		for base in plural_bases(keys)
+		for category in categories
+		if f"{base}_{category}" not in keys
+	)
+
+
+def plural_reference(key: str, en_bases: set[str]) -> str | None:
+	"""en.json's "_other" form for a category English itself cannot have.
+
+	Russian's "<base>_few" has no English counterpart, so it would otherwise
+	read as an extra key and escape the placeholder/untranslated checks. Its
+	reference is the "_other" form, the only category English is guaranteed to
+	carry. Returns None for keys that are not plural forms of a known base.
+	"""
+	for category in PLURAL_SUFFIXES:
+		suffix = f"_{category}"
+		if key.endswith(suffix) and key[: -len(suffix)] in en_bases:
+			return f"{key[: -len(suffix)]}_other"
+	return None
 
 
 # ── Locale file helpers ─────────────────────────────────────────────────────
@@ -283,21 +401,43 @@ def find_android_problems(allow: dict[str, list[str]]) -> dict[str, list[tuple[s
 def find_problems(allow: dict[str, list[str]], locales_dir: str = WEB_LOCALES_DIR) -> dict[str, list[tuple[str, str]]]:
 	"""Map of problem type -> [(locale, key)]."""
 	en = flatten(load_locale("en", locales_dir))
-	problems = {"missing": [], "extra": [], "malformed": [], "placeholders": [], "untranslated": []}
+	problems = {"missing": [], "extra": [], "malformed": [], "placeholders": [], "untranslated": [], "plural": []}
+	en_bases = plural_bases(en)
+	# en is the fallback for every other locale, so a category missing here is
+	# missing everywhere; it is checked even though it is nobody's translation.
+	for key in missing_plural_forms("en", en):
+		problems["plural"].append(("en", key))
 	for code in locale_codes(locales_dir):
 		loc = flatten(load_locale(code, locales_dir))
 		for key in en.keys() - loc.keys():
 			problems["missing"].append((code, key))
 		for key in loc.keys() - en.keys():
-			problems["extra"].append((code, key))
+			# A category English has no equivalent of (ru's "few") is required,
+			# not extra.
+			if plural_reference(key, en_bases) is None:
+				problems["extra"].append((code, key))
+		for key in missing_plural_forms(code, loc):
+			problems["plural"].append((code, key))
 		for key, value in loc.items():
-			if key not in en:
+			# Plural forms English cannot have are measured against the "_other"
+			# form, so they still have to keep their placeholders and still have
+			# to be translated.
+			reference_key = key if key in en else plural_reference(key, en_bases)
+			if reference_key is None:
 				continue
-			if not isinstance(value, str) or not isinstance(en[key], str):
+			reference = en[reference_key]
+			if not isinstance(value, str) or not isinstance(reference, str):
 				problems["malformed"].append((code, key))
-			elif interpolations(value) != interpolations(en[key]):
+			elif interpolations(value) != interpolations(reference):
 				problems["placeholders"].append((code, key))
-			elif value == en[key] and not should_skip(value) and not allowed(allow, key, code):
+			elif (
+				value == reference
+				and not should_skip(value)
+				and not allowed(allow, key, code)
+				# An "_other" allowlisted as intentionally English covers the
+				# extra categories built from it, which say the same thing.
+				and not allowed(allow, reference_key, code)
+			):
 				problems["untranslated"].append((code, key))
 	return problems
 
@@ -321,11 +461,13 @@ def cmd_check() -> int:
 	total = 0
 	total += _report("android", find_android_problems(load_allowlist(ANDROID_ALLOWLIST_PATH)),
 	                 len(android_locale_codes()), "values/strings.xml")
+	web_problems = []
 	for label, locales_dir in LOCALE_TARGETS:
 		if not os.path.isdir(locales_dir):
 			continue
-		allow = load_allowlist(ALLOWLIST_PATHS[label])
-		total += _report(label, find_problems(allow, locales_dir), len(locale_codes(locales_dir)), "en.json")
+		problems = find_problems(load_allowlist(ALLOWLIST_PATHS[label]), locales_dir)
+		web_problems.append(problems)
+		total += _report(label, problems, len(locale_codes(locales_dir)), "en.json")
 	if total == 0:
 		print("i18n check OK: all targets in sync")
 		return 0
@@ -336,10 +478,14 @@ def cmd_check() -> int:
 		"\nIntentionally-English values go into the matching allow-english*.json."
 		"\n(Android copy is res/values-*/strings.xml; translate by hand and commit.)"
 	)
-	if any(
-		find_problems(load_allowlist(ALLOWLIST_PATHS[l]), d)["malformed"]
-		for l, d in LOCALE_TARGETS if os.path.isdir(d)
-	):
+	if any(p["plural"] for p in web_problems):
+		print(
+			"Note: `plural` entries are plural forms the language requires and the"
+			"\ncatalog omits. Each needs a real translation with the right numeric"
+			"\nagreement, not a copy of _other; en.json cannot supply them, so"
+			"\ni18next would fall back to English or to the wrong form."
+		)
+	if any(p["malformed"] for p in web_problems):
 		print(
 			"Note: `malformed` entries (value is not a string) must be edited by hand."
 		)
