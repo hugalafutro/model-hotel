@@ -116,7 +116,7 @@ func TestAssess_FailOpenCases(t *testing.T) {
 		snap     Snapshot
 	}{
 		{"unknown provider type", "openai", Snapshot{Kind: "usage", Payload: []byte(`{}`)}},
-		{"balance type is out of scope", "deepseek", Snapshot{Kind: "balance", Payload: []byte(`{}`)}},
+		{"balance-type provider has no parser", "deepseek", Snapshot{Kind: "balance", Payload: []byte(`{}`)}},
 		{"malformed json", "zai-coding", Snapshot{Kind: "usage", Payload: []byte(`{"data":`)}},
 		{"nil payload", "zai-coding", Snapshot{Kind: "usage", Payload: nil}},
 		{"no limits", "zai-coding", Snapshot{Kind: "usage", Payload: []byte(`{"data":{"limits":[]}}`)}},
