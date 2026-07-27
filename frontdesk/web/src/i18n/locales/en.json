@@ -500,7 +500,8 @@
 			"openrouterBalance": "{{provider}}: credits remaining",
 			"ollamaCloudPlan": "{{provider}}: subscription plan",
 			"neuralwattEnergy": "{{provider}}: energy used this period",
-			"unreadable": "{{provider}}: the primary's last fetch returned an unreadable response"
+			"unreadable": "{{provider}}: the primary's last fetch returned an unreadable response",
+			"noQuota": "{{provider}}: the primary's last fetch returned no quota"
 		},
 		"modal": {
 			"toggleBarMode": "Switch between used and remaining",

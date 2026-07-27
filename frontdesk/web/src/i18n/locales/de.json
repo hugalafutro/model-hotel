@@ -500,7 +500,8 @@
 			"openrouterBalance": "{{provider}}: verbleibende Credits",
 			"ollamaCloudPlan": "{{provider}}: Abonnement-Tarif",
 			"neuralwattEnergy": "{{provider}}: in dieser Periode verbrauchte Energie",
-			"unreadable": "{{provider}}: der letzte Abruf des Primärs lieferte eine unlesbare Antwort"
+			"unreadable": "{{provider}}: der letzte Abruf des Primärs lieferte eine unlesbare Antwort",
+			"noQuota": "{{provider}}: der letzte Abruf des Primärs lieferte kein Kontingent"
 		},
 		"modal": {
 			"toggleBarMode": "Zwischen verbraucht und verbleibend wechseln",

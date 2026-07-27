@@ -52,20 +52,27 @@ function contentFor(
 	const payload = payloadOf<object>(model.snapshot);
 
 	if (payload === null) {
-		// payloadOf() returns null for two unrelated reasons and they need
-		// different words. A non-200 is a fetch that failed. A 200 carrying a
-		// body we cannot use is a fetch that SUCCEEDED and returned something
-		// unreadable, so reporting it as "last fetch failed (HTTP 200)" states
-		// the opposite of the status it then quotes.
-		const fetched = model.snapshot.http_status === 200;
+		// payloadOf() returns null for three different reasons and they need
+		// different words, because two of the three are not failures at all:
+		//
+		//   204 - the fetch SUCCEEDED and the provider has no quota to report.
+		//         internal/api/quota_snapshot.go:90 emits this for a NeuralWatt
+		//         free-tier account (a nil result becomes 204 with a null body).
+		//   200 - the fetch SUCCEEDED and returned a body we cannot use.
+		//   else - the fetch genuinely failed (424 dead credential, 5xx, ...).
+		//
+		// Collapsing these onto the failure message produced "last fetch failed
+		// (HTTP 204)" for a free-tier account that is working exactly as designed.
+		const status = model.snapshot.http_status;
+		if (status === 204) {
+			return { label: "-", title: t("quota.badge.noQuota", { provider }) };
+		}
 		return {
 			label: "-",
-			title: fetched
-				? t("quota.badge.unreadable", { provider })
-				: t("quota.badge.degraded", {
-						provider,
-						status: model.snapshot.http_status,
-					}),
+			title:
+				status === 200
+					? t("quota.badge.unreadable", { provider })
+					: t("quota.badge.degraded", { provider, status }),
 		};
 	}
 

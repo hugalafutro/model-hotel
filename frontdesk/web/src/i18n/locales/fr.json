@@ -500,7 +500,8 @@
 			"openrouterBalance": "{{provider}} : crédits restants",
 			"ollamaCloudPlan": "{{provider}} : formule d'abonnement",
 			"neuralwattEnergy": "{{provider}} : énergie consommée sur cette période",
-			"unreadable": "{{provider}} : la dernière récupération du primaire a renvoyé une réponse illisible"
+			"unreadable": "{{provider}} : la dernière récupération du primaire a renvoyé une réponse illisible",
+			"noQuota": "{{provider}} : la dernière récupération du primaire n'a renvoyé aucun quota"
 		},
 		"modal": {
 			"toggleBarMode": "Basculer entre utilisé et restant",

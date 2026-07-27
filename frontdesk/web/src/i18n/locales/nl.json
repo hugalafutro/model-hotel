@@ -500,7 +500,8 @@
 			"openrouterBalance": "{{provider}}: resterend tegoed",
 			"ollamaCloudPlan": "{{provider}}: abonnement",
 			"neuralwattEnergy": "{{provider}}: energieverbruik in deze periode",
-			"unreadable": "{{provider}}: de laatste ophaalpoging van de primaire gaf een onleesbaar antwoord"
+			"unreadable": "{{provider}}: de laatste ophaalpoging van de primaire gaf een onleesbaar antwoord",
+			"noQuota": "{{provider}}: de laatste ophaalpoging van de primaire gaf geen quotum"
 		},
 		"modal": {
 			"toggleBarMode": "Wisselen tussen gebruikt en resterend",

@@ -500,7 +500,8 @@
 			"openrouterBalance": "{{provider}}: 残りクレジット",
 			"ollamaCloudPlan": "{{provider}}: サブスクリプションプラン",
 			"neuralwattEnergy": "{{provider}}: 今期のエネルギー使用量",
-			"unreadable": "{{provider}}: プライマリの最後の取得で読み取れない応答が返されました"
+			"unreadable": "{{provider}}: プライマリの最後の取得で読み取れない応答が返されました",
+			"noQuota": "{{provider}}: プライマリの最後の取得でクォータは返されませんでした"
 		},
 		"modal": {
 			"toggleBarMode": "使用量と残量を切り替える",

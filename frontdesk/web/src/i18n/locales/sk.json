@@ -500,7 +500,8 @@
 			"openrouterBalance": "{{provider}}: zostávajúce kredity",
 			"ollamaCloudPlan": "{{provider}}: predplatné",
 			"neuralwattEnergy": "{{provider}}: energia spotrebovaná v tomto období",
-			"unreadable": "{{provider}}: posledné načítanie primárnym členom vrátilo nečitateľnú odpoveď"
+			"unreadable": "{{provider}}: posledné načítanie primárnym členom vrátilo nečitateľnú odpoveď",
+			"noQuota": "{{provider}}: posledné načítanie primárnym členom nevrátilo žiadnu kvótu"
 		},
 		"modal": {
 			"toggleBarMode": "Prepnúť medzi využitým a zostávajúcim",

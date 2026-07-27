@@ -386,6 +386,24 @@ describe("QuotaBadge", () => {
 		expect(title).toContain("unreadable");
 	});
 
+	it("does not claim a failure for a 204, which is a successful empty quota", () => {
+		// internal/api/quota_snapshot.go:90 emits 204 with a null body for a
+		// NeuralWatt free-tier account: the fetch succeeded and there is simply
+		// no quota. Reporting that as "last fetch failed (HTTP 204)" describes a
+		// working account as broken. It is not "unreadable" either - nothing was
+		// unreadable - so it gets its own wording.
+		const m = model({ degraded: true, type: "neuralwatt" }, null);
+		m.snapshot.http_status = 204;
+		render(<QuotaBadge model={m} barMode="remaining" onClick={vi.fn()} />);
+		const title = screen
+			.getByTestId("quota-badge-neuralwatt:p")
+			.getAttribute("title");
+		expect(title).not.toContain("failed");
+		expect(title).not.toContain("204");
+		expect(title).not.toContain("unreadable");
+		expect(title).toContain("no quota");
+	});
+
 	it("treats a 200 carrying a JSON array as unreadable, not as a failed fetch", () => {
 		// typeof [] === "object", so the array guard in payloadOf() is what keeps
 		// this off the healthy path.
