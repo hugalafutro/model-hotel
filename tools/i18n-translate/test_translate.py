@@ -167,10 +167,21 @@ class CategoryTableTest(unittest.TestCase):
 					f"{code}.json ships without a PLURAL_CATEGORIES entry",
 				)
 
-	def test_other_is_the_marker_for_a_pluralised_key(self):
+	def test_either_one_or_other_marks_a_pluralised_key(self):
+		# "d_one" alone is the shape an _other-only rule cannot see: it renders
+		# at count=1 and nowhere else.
 		self.assertEqual(
-			translate.plural_bases({"a_one", "a_other", "b_other", "c"}),
-			{"a", "b"},
+			translate.plural_bases({"a_one", "a_other", "b_other", "c", "d_one"}),
+			{"a", "b", "d"},
+		)
+
+	def test_a_category_word_in_a_key_name_does_not_invent_a_family(self):
+		# failover.toast_entry_min_two really is a sentence about a minimum of
+		# two members. Treating "_two" as a marker would demand a singular and
+		# a plural of a key that has neither.
+		self.assertEqual(
+			translate.plural_bases({"toast_entry_min_two", "cache_zero", "n_few"}),
+			set(),
 		)
 
 

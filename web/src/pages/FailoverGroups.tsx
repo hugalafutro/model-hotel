@@ -530,11 +530,7 @@ export function FailoverGroups() {
 		<div className="space-y-6 pb-6" style={{ scrollBehavior: "smooth" }}>
 			<PageHeader
 				icon={Shuffle}
-				title={countLabel(
-					allGroups?.length,
-					t("failoverGroups.countLabel_one"),
-					t("failoverGroups.countLabel_other"),
-				)}
+				title={countLabel(allGroups?.length, "failoverGroups.countLabel")}
 				description={
 					<>
 						{t("failover.page_description_lead")}{" "}

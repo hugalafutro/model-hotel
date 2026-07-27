@@ -324,11 +324,7 @@ export function Providers() {
 		<div className="space-y-6 pb-6">
 			<PageHeader
 				icon={PlugZap}
-				title={countLabel(
-					allProvidersCount,
-					t("providers.page_title_one"),
-					t("providers.page_title_other"),
-				)}
+				title={countLabel(allProvidersCount, "providers.page_title")}
 				description={t("providers.page_description")}
 				actions={
 					<>

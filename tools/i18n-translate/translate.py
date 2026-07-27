@@ -132,13 +132,28 @@ PLURAL_SUFFIXES = ("zero", "one", "two", "few", "many", "other")
 DEFAULT_PLURAL_CATEGORIES = ("one", "other")
 
 
-def plural_bases(keys) -> set[str]:
-	"""Every key that has an "_other" form, minus the suffix.
+# "_other" and "_one" are the two forms en.json always carries, so either one
+# marks a key as pluralised. Deliberately NOT the rest: "_zero", "_two", "_few"
+# and "_many" are ordinary English words that turn up in key names
+# ("failover.toast_entry_min_two" is a sentence about a minimum of two members,
+# not the dual of "failover.toast_entry_min"), and treating those as families
+# would demand five forms of a key that has none.
+PLURAL_MARKERS = ("_other", "_one")
 
-	"_other" is the one category every language defines, so its presence is
-	what marks a key as pluralised at all.
+
+def plural_bases(keys) -> set[str]:
+	"""Every pluralised key, minus its category suffix.
+
+	Keying only off "_other" would miss the one broken shape it cannot see: a
+	plural key shipped with "_one" alone. Such a key resolves for count=1 and
+	renders nothing else, and no other check would notice.
 	"""
-	return {k[: -len("_other")] for k in keys if k.endswith("_other")}
+	return {
+		k[: -len(marker)]
+		for k in keys
+		for marker in PLURAL_MARKERS
+		if k.endswith(marker)
+	}
 
 
 def missing_plural_forms(code: str, keys) -> list[str]:

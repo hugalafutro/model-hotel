@@ -860,6 +860,30 @@ describe("Models", () => {
 				screen.getByRole("button", { name: "Switch to scroll mode" }),
 			).toBeInTheDocument();
 		});
+
+		it("passes the plural base key, so the header pluralises the noun", async () => {
+			// The header must hand countLabel "models.page_title" and let
+			// i18next choose the suffix. Handing it an already-resolved form
+			// (t("models.page_title_one")) still typechecks, but that string is
+			// not a key, so the title would read "2 Model" here and no locale
+			// with a third plural category could ever reach its own form.
+			localStorage.setItem("modelsViewMode", "paginate");
+
+			server.use(
+				...mockAllDefaults({
+					models: [
+						{ ...mockModel, id: "model-alpha", model_id: "alpha" },
+						{ ...mockModel, id: "model-beta", model_id: "beta" },
+					],
+				}),
+			);
+
+			renderWithProviders(<Models />);
+
+			await waitFor(() => {
+				expect(screen.getByText("2 Models")).toBeInTheDocument();
+			});
+		});
 	});
 
 	describe("API Error Handling", () => {
