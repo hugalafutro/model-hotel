@@ -1028,15 +1028,26 @@ export function Layout({ children }: LayoutProps) {
 														// them beside ordinary sixty-second cooldowns
 														// reads as "back shortly", so they get their own
 														// line.
+														//
+														// The state check is load-bearing: quota_pinned
+														// stays set for the whole life of the circuit,
+														// and a pinned circuit whose deadline has passed
+														// is reported as half-open (ready to probe) with
+														// no next_retry_at. Bucketing on the flag alone
+														// would keep claiming a provider is waiting on a
+														// quota window that has already reset. This
+														// mirrors the per-entry rule, where cooldown-over
+														// wins over the quota tooltip.
+														const stillPinned = (
+															p: (typeof unhealthy)[number],
+														) => Boolean(p.quota_pinned) && p.state === "open";
 														const names = (list: typeof unhealthy) =>
 															list
 																.map((p) => p.provider_name || p.provider_id)
 																.join(", ");
-														const pinned = unhealthy.filter(
-															(p) => p.quota_pinned,
-														);
+														const pinned = unhealthy.filter(stillPinned);
 														const ordinary = unhealthy.filter(
-															(p) => !p.quota_pinned,
+															(p) => !stillPinned(p),
 														);
 
 														const lines = [explain];

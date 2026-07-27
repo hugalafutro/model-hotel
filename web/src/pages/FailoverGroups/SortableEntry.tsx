@@ -81,7 +81,8 @@ export function SortableEntry({
 		entry.enabled &&
 		(cbStatus.state === "open" || cbStatus.state === "half-open");
 
-	// Half-open: cooldown already elapsed, provider is actively probing.
+	// The backend's own report that the cooldown has elapsed. One of the two
+	// inputs to cooldownOver below; the other is the client noticing first.
 	const isHalfOpen = showFuse && cbStatus.state === "half-open";
 
 	// The cooldown in force was pinned to the provider's quota reset deadline.
