@@ -499,7 +499,9 @@
 			"deepseekBalance": "{{provider}}: zůstatek na účtu",
 			"openrouterBalance": "{{provider}}: zbývající kredity",
 			"ollamaCloudPlan": "{{provider}}: plán předplatného",
-			"neuralwattEnergy": "{{provider}}: energie spotřebovaná v tomto období"
+			"neuralwattEnergy": "{{provider}}: energie spotřebovaná v tomto období",
+			"unreadable": "{{provider}}: poslední načtení primární instancí vrátilo nečitelnou odpověď",
+			"noQuota": "{{provider}}: poslední načtení primární instancí nevrátilo žádnou kvótu"
 		},
 		"modal": {
 			"toggleBarMode": "Přepnout mezi využitým a zbývajícím",

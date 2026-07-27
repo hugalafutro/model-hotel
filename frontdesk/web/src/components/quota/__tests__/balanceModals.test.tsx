@@ -54,6 +54,49 @@ describe("NanoGPTQuotaModal", () => {
 		});
 	});
 
+	it("groups the digits of large image counts", () => {
+		// The counts used to be interpolated raw, so a four-figure allowance
+		// rendered as "1200 / 15000". Small numbers are unaffected by the fix,
+		// which is why this uses values above the grouping threshold: with the
+		// raw interpolation restored, this assertion fails and the small-number
+		// cases elsewhere in the file still pass.
+		const big: NanoGPTUsage = {
+			...payload,
+			limits: { ...payload.limits, dailyImages: 15_000 },
+			dailyImages: {
+				used: 1_200,
+				remaining: 13_800,
+				percentUsed: 0.08,
+				resetAt: 1_800_000_000_000,
+			},
+		};
+		render(<NanoGPTQuotaModal {...chrome} payload={big} barMode="used" />);
+		expect(
+			screen.getByTestId("nano-images-bar").closest(".fd-quota-bar-block"),
+		).toHaveTextContent("1,200 / 15,000");
+	});
+
+	it("does not abbreviate an image count the way token counts are abbreviated", () => {
+		// formatTokens would render 1200 as "1.2K", which hides the difference
+		// between 1,200 and 1,249 on a figure the operator reads exactly.
+		const big: NanoGPTUsage = {
+			...payload,
+			limits: { ...payload.limits, dailyImages: 15_000 },
+			dailyImages: {
+				used: 1_249,
+				remaining: 13_751,
+				percentUsed: 0.083,
+				resetAt: 1_800_000_000_000,
+			},
+		};
+		render(<NanoGPTQuotaModal {...chrome} payload={big} barMode="used" />);
+		const text = screen
+			.getByTestId("nano-images-bar")
+			.closest(".fd-quota-bar-block")?.textContent;
+		expect(text).toContain("1,249");
+		expect(text).not.toContain("1.2K");
+	});
+
 	it("scales the fractional percentUsed to a percentage", () => {
 		render(<NanoGPTQuotaModal {...chrome} payload={payload} barMode="used" />);
 		expect(screen.getByTestId("nano-images-fill")).toHaveStyle({

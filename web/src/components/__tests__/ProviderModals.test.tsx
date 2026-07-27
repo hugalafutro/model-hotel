@@ -137,6 +137,28 @@ describe("NanoGPTQuotaModal", () => {
 			expect(screen.getByText("10 / 100")).toBeInTheDocument();
 		});
 
+		it("groups the digits of large daily image counts", () => {
+			// These were interpolated raw, so a four-figure allowance rendered as
+			// "1200 / 15000". The existing "10 / 100" case above is below the
+			// grouping threshold and passes either way, so it cannot catch this.
+			renderWithProviders(
+				<NanoGPTQuotaModal
+					{...defaultProps}
+					usage={{
+						...defaultProps.usage,
+						limits: { ...defaultProps.usage.limits, dailyImages: 15000 },
+						dailyImages: {
+							used: 1200,
+							remaining: 13800,
+							percentUsed: 8,
+							resetAt: 0,
+						},
+					}}
+				/>,
+			);
+			expect(screen.getByText("1,200 / 15,000")).toBeInTheDocument();
+		});
+
 		it("renders daily input tokens section", () => {
 			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
 			expect(screen.getByText("Daily Input Tokens")).toBeInTheDocument();
