@@ -467,12 +467,21 @@ func TestRefreshQuotaAdvice_LogsAdvisedProvidersAtInfoOnlyWhenAdvising(t *testin
 	}
 }
 
-// TestRefreshQuotaAdvice_QuotaRepoListErrorLeavesAdvisorUntouched verifies the
-// quiet-degradation path: if the snapshot table can't be listed, the advisor
-// must keep whatever it last had rather than being wiped or partially
-// rebuilt, and the call must not panic.
-func TestRefreshQuotaAdvice_QuotaRepoListErrorLeavesAdvisorUntouched(t *testing.T) {
+// TestRefreshQuotaAdvice_QuotaRepoListErrorClearsAdvice verifies the fail-closed
+// path: if the snapshot table can't be listed, the advisor must be cleared
+// rather than left holding a possibly-stale pin (see the identical reasoning
+// on PollQuotasOnce's provider-list failure). Only quotaRepo.List is broken
+// here (a closed pool of its own) so providerRepo.List still succeeds,
+// isolating this path from the provider-list failure covered below.
+func TestRefreshQuotaAdvice_QuotaRepoListErrorClearsAdvice(t *testing.T) {
 	h := newTestHandler(t)
+
+	brokenPool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Fatalf("failed to open pool: %v", err)
+	}
+	brokenPool.Close()
+	h.quotaRepo = quota.NewRepository(brokenPool)
 
 	adv := NewQuotaAdvisor()
 	seedID := uuid.New()
@@ -480,25 +489,18 @@ func TestRefreshQuotaAdvice_QuotaRepoListErrorLeavesAdvisorUntouched(t *testing.
 	adv.Replace(map[uuid.UUID]time.Time{seedID: seedAt})
 	h.SetQuotaAdvisor(adv)
 
-	cancelledCtx, cancel := context.WithCancel(context.Background())
-	cancel()
+	h.RefreshQuotaAdvice(context.Background())
 
-	h.RefreshQuotaAdvice(cancelledCtx)
-
-	got, ok := adv.ResetsAt(seedID)
-	if !ok {
-		t.Fatal("a quotaRepo.List failure must leave the previously advised map untouched")
-	}
-	if !got.Equal(seedAt) {
-		t.Errorf("got %v, want unchanged %v", got, seedAt)
+	if _, ok := adv.ResetsAt(seedID); ok {
+		t.Fatal("a quotaRepo.List failure must clear the advisor, not leave a stale pin")
 	}
 }
 
-// TestRefreshQuotaAdvice_ProviderRepoListErrorLeavesAdvisorUntouched covers
-// the second quiet-degradation path: quotaRepo.List can succeed while
-// providerRepo.List (needed to build the type map) fails. The advisor must
-// still be left untouched rather than replaced with an empty map.
-func TestRefreshQuotaAdvice_ProviderRepoListErrorLeavesAdvisorUntouched(t *testing.T) {
+// TestRefreshQuotaAdvice_ProviderRepoListErrorClearsAdvice covers the second
+// fail-closed path: quotaRepo.List succeeds (a real, working repo) while only
+// providerRepo.List (needed to build the type map) fails. The advisor must be
+// cleared here too rather than left holding whatever it last had.
+func TestRefreshQuotaAdvice_ProviderRepoListErrorClearsAdvice(t *testing.T) {
 	h := newTestHandler(t)
 	h.providerRepo = &mockProviderStore{
 		listFn: func(context.Context) ([]*provider.Provider, error) {
@@ -514,12 +516,8 @@ func TestRefreshQuotaAdvice_ProviderRepoListErrorLeavesAdvisorUntouched(t *testi
 
 	h.RefreshQuotaAdvice(context.Background())
 
-	got, ok := adv.ResetsAt(seedID)
-	if !ok {
-		t.Fatal("a providerRepo.List failure must leave the previously advised map untouched")
-	}
-	if !got.Equal(seedAt) {
-		t.Errorf("got %v, want unchanged %v", got, seedAt)
+	if _, ok := adv.ResetsAt(seedID); ok {
+		t.Fatal("a providerRepo.List failure must clear the advisor, not leave a stale pin")
 	}
 }
 

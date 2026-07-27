@@ -189,6 +189,10 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 	snaps, err := h.quotaRepo.List(ctx)
 	if err != nil {
 		debuglog.Warn("quota: advice refresh failed to list snapshots", "error", err)
+		// Same rule as PollQuotasOnce's provider-list failure: a frozen advice
+		// map could be arbitrarily stale by the time listing works again, so
+		// fail closed rather than keep pinning on it.
+		h.ClearQuotaAdvice(ctx)
 		return
 	}
 	interval := time.Duration(h.settingsRepo.GetInt(ctx, "quota_refresh_interval_min", 5)) * time.Minute
@@ -197,6 +201,8 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 	providers, err := h.providerRepo.List(ctx)
 	if err != nil {
 		debuglog.Warn("quota: advice refresh failed to list providers", "error", err)
+		// Same fail-closed rule as above and as PollQuotasOnce.
+		h.ClearQuotaAdvice(ctx)
 		return
 	}
 	typeByID := make(map[uuid.UUID]string, len(providers))
