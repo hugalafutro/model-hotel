@@ -255,20 +255,21 @@ func (cb *CircuitBreaker) RecordSuccess(providerID uuid.UUID, providerName strin
 // publishEvent fires an SSE event for circuit breaker state transitions.
 // Must be called with cb.mu held.
 func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state string, c *circuit) {
-	// quota_pinned reports the override currently governing this circuit
-	// (cooldownOverride > 0), not a claim about whether the circuit is
-	// blocking traffic right now — the same derivation ProviderStatus.QuotaPinned
-	// uses. With the default HalfOpenMaxProbes of 1 the distinction never
-	// surfaces, but a half-open circuit that has banked a probe still carries
-	// its override until RecordSuccess closes it.
+	// quota_pinned reports the override currently governing this circuit, not a
+	// claim about whether the circuit is blocking traffic right now — the same
+	// predicate ProviderStatus.QuotaPinned uses. With the default
+	// HalfOpenMaxProbes of 1 the distinction never surfaces, but a half-open
+	// circuit that has banked a probe still carries its override until
+	// RecordSuccess closes it.
+	pinned := cb.quotaPinnedFor(c)
 	meta := map[string]any{
 		"provider_id":       providerID.String(),
 		"provider":          providerName,
 		"state":             state,
 		"consecutive_fails": c.consecutiveFails,
-		"quota_pinned":      c.cooldownOverride > 0,
+		"quota_pinned":      pinned,
 	}
-	if c.cooldownOverride > 0 {
+	if pinned {
 		meta["resets_at"] = c.openedAt.Add(c.cooldownOverride).Format(time.RFC3339)
 	}
 	events.Publish(events.Event{
@@ -313,10 +314,26 @@ func (cb *CircuitBreaker) effectiveCooldown() time.Duration {
 	return cb.Cooldown
 }
 
+// quotaPinnedFor reports whether a quota pin is actually governing this circuit
+// right now. The kill switch is deliberately re-read here rather than only at
+// the moment a circuit opens: an operator who disables quota pinning to recover
+// a provider sidelined for hours has no other lever (Reset/ResetAll have no
+// production caller), so a pin already in force must be released immediately.
+//
+// Every surface derives from this one predicate — the cooldown the breaker
+// enforces, the CooldownMs/NextRetryAt the status API publishes, and the
+// quota_pinned flag beside them — so the number and the explanation can never
+// disagree.
+func (cb *CircuitBreaker) quotaPinnedFor(c *circuit) bool {
+	return c != nil && c.cooldownOverride > 0 && cb.quotaPinEnabled()
+}
+
 // effectiveCooldownFor returns the cooldown governing a specific circuit: its
-// quota pin when set, otherwise the configured global value.
+// quota pin when one is in force, otherwise the configured global value. The
+// settings read behind quotaPinnedFor is only reached for circuits that carry
+// an override, so the common path costs nothing extra.
 func (cb *CircuitBreaker) effectiveCooldownFor(c *circuit) time.Duration {
-	if c != nil && c.cooldownOverride > 0 {
+	if cb.quotaPinnedFor(c) {
 		return c.cooldownOverride
 	}
 	return cb.effectiveCooldown()
@@ -395,7 +412,7 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 			ProviderID:       id,
 			State:            state.String(),
 			ConsecutiveFails: c.consecutiveFails,
-			QuotaPinned:      c.cooldownOverride > 0,
+			QuotaPinned:      cb.quotaPinnedFor(c),
 		}
 		if state == StateOpen && !c.openedAt.IsZero() {
 			s.OpenedAt = c.openedAt.Format(time.RFC3339)

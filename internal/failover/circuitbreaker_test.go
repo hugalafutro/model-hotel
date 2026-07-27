@@ -1009,6 +1009,60 @@ func TestQuotaPin_DisabledBySettingUsesDefault(t *testing.T) {
 	}
 }
 
+// TestQuotaPin_DisablingTheSettingReleasesAnAlreadyPinnedCircuit verifies the
+// kill switch is retroactive, not merely prospective. An operator looking at
+// "next retry in 22 hours" flips circuit_breaker_quota_pin_enabled to false to
+// get the provider back; if the switch were only consulted at the moment a
+// circuit opens, nothing would change on any surface until the pin expired.
+// That matters because there is no other recovery lever: Reset/ResetAll have no
+// production caller, so the alternatives are disabling the breaker for every
+// provider or restarting the process.
+//
+// The assertion is the real mechanism, not just the reported number: after the
+// flip the circuit must actually admit a probe once the *configured* cooldown
+// has elapsed, which a pinned circuit would refuse for another six hours.
+func TestQuotaPin_DisablingTheSettingReleasesAnAlreadyPinnedCircuit(t *testing.T) {
+	enabled := true
+	settings := &stubSettings{threshold: 1, cooldown: 50 * time.Millisecond, pinEnabled: &enabled}
+	cb := NewCircuitBreaker(settings)
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	pinnedMs := cb.Status()[0].CooldownMs
+	if !cb.Status()[0].QuotaPinned {
+		t.Fatal("setup: a 6h deadline against a 50ms cooldown must pin the circuit")
+	}
+	if pinnedMs < (6*time.Hour - time.Minute).Milliseconds() {
+		t.Fatalf("setup: got CooldownMs=%d, want the ~6h pin", pinnedMs)
+	}
+
+	// The operator flips the kill switch while the pin is already in force.
+	enabled = false
+
+	s := cb.Status()[0]
+	if s.QuotaPinned {
+		t.Error("a pin the kill switch has disabled must not still report quota_pinned")
+	}
+	if s.CooldownMs != cb.effectiveCooldown().Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want the configured cooldown %d back", s.CooldownMs, cb.effectiveCooldown().Milliseconds())
+	}
+
+	// The number and the behaviour must agree: the configured cooldown elapses
+	// and the circuit admits a probe again.
+	if !cb.IsOpen(id, "test-provider") {
+		t.Fatal("the configured cooldown has not elapsed yet; the circuit must still be open")
+	}
+	time.Sleep(60 * time.Millisecond)
+	if cb.IsOpen(id, "test-provider") {
+		t.Error("with the pin released, the configured cooldown must let a probe through")
+	}
+	if got := cb.GetState(id); got == StateOpen {
+		t.Errorf("got state %v, want the circuit off the open state once its configured cooldown elapsed", got)
+	}
+}
+
 func TestQuotaPin_ClearedWhenCircuitCloses(t *testing.T) {
 	cb := NewCircuitBreaker(nil)
 	// A 1ms base cooldown lets a 50ms pin clear the floor while still being
