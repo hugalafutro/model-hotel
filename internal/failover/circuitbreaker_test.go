@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
 func newTestCB(threshold int, cooldown time.Duration) *CircuitBreaker {
@@ -1109,5 +1111,88 @@ func TestGetState_ConcurrentReads(t *testing.T) {
 
 	for err := range errCh {
 		t.Error(err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// SSE event quota-pin metadata
+// ---------------------------------------------------------------------------
+
+// waitForOpenEvent reads from sub until it sees a "circuit_breaker.open" event
+// whose provider_id metadata matches id, or the deadline elapses. Filtering by
+// type and provider makes the assertion deterministic even though the shared
+// DefaultBus channel could otherwise carry events from a different provider
+// or a different transition first.
+func waitForOpenEvent(t *testing.T, sub chan events.Event, id uuid.UUID) events.Event {
+	t.Helper()
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case ev := <-sub:
+			if ev.Type != "circuit_breaker.open" {
+				continue
+			}
+			if pid, _ := ev.Metadata["provider_id"].(string); pid != id.String() {
+				continue
+			}
+			return ev
+		case <-deadline:
+			t.Fatalf("no circuit_breaker.open event for provider %s published within timeout", id)
+			return events.Event{}
+		}
+	}
+}
+
+// TestPublishEvent_CarriesQuotaPinMetadata verifies that when a circuit opens
+// with an active quota pin (cooldownOverride > 0), the published event's
+// Metadata carries quota_pinned=true and an RFC3339 resets_at derived from
+// openedAt + cooldownOverride.
+func TestPublishEvent_CarriesQuotaPinMetadata(t *testing.T) {
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	cb := NewCircuitBreaker(nil)
+	id := uuid.New()
+	reset := time.Now().Add(3 * time.Hour)
+	cb.SetQuotaAdvisor(stubAdvisor{at: reset, ok: true})
+
+	openBreaker(t, cb, id)
+
+	ev := waitForOpenEvent(t, sub, id)
+
+	pinned, _ := ev.Metadata["quota_pinned"].(bool)
+	if !pinned {
+		t.Fatalf("pinned circuit must publish quota_pinned=true, got metadata %#v", ev.Metadata)
+	}
+	resetsAt, ok := ev.Metadata["resets_at"].(string)
+	if !ok {
+		t.Fatalf("pinned circuit must publish resets_at as a string, got metadata %#v", ev.Metadata)
+	}
+	if _, err := time.Parse(time.RFC3339, resetsAt); err != nil {
+		t.Fatalf("resets_at %q is not RFC3339: %v", resetsAt, err)
+	}
+}
+
+// TestPublishEvent_UnpinnedOmitsResetsAt verifies that when a circuit opens
+// with no quota pin in effect (no advisor installed, so cooldownOverride
+// stays zero), the published event reports quota_pinned=false and omits
+// resets_at entirely rather than emitting an empty or zero-valued string.
+func TestPublishEvent_UnpinnedOmitsResetsAt(t *testing.T) {
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	cb := NewCircuitBreaker(nil) // no quota advisor installed
+	id := uuid.New()
+
+	openBreaker(t, cb, id)
+
+	ev := waitForOpenEvent(t, sub, id)
+
+	pinned, _ := ev.Metadata["quota_pinned"].(bool)
+	if pinned {
+		t.Fatalf("unpinned circuit must publish quota_pinned=false, got metadata %#v", ev.Metadata)
+	}
+	if v, ok := ev.Metadata["resets_at"]; ok {
+		t.Fatalf("unpinned circuit must omit resets_at entirely, got %#v", v)
 	}
 }

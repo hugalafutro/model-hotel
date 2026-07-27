@@ -255,17 +255,28 @@ func (cb *CircuitBreaker) RecordSuccess(providerID uuid.UUID, providerName strin
 // publishEvent fires an SSE event for circuit breaker state transitions.
 // Must be called with cb.mu held.
 func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state string, c *circuit) {
+	// quota_pinned reports the override currently governing this circuit
+	// (cooldownOverride > 0), not a claim about whether the circuit is
+	// blocking traffic right now — the same derivation ProviderStatus.QuotaPinned
+	// uses. With the default HalfOpenMaxProbes of 1 the distinction never
+	// surfaces, but a half-open circuit that has banked a probe still carries
+	// its override until RecordSuccess closes it.
+	meta := map[string]any{
+		"provider_id":       providerID.String(),
+		"provider":          providerName,
+		"state":             state,
+		"consecutive_fails": c.consecutiveFails,
+		"quota_pinned":      c.cooldownOverride > 0,
+	}
+	if c.cooldownOverride > 0 {
+		meta["resets_at"] = c.openedAt.Add(c.cooldownOverride).Format(time.RFC3339)
+	}
 	events.Publish(events.Event{
 		Type:     "circuit_breaker." + state,
 		Severity: cb.severityForState(state),
 		Source:   "failover",
 		Message:  fmt.Sprintf("Provider %s circuit breaker: %s", providerName, state),
-		Metadata: map[string]any{
-			"provider_id":       providerID.String(),
-			"provider":          providerName,
-			"state":             state,
-			"consecutive_fails": c.consecutiveFails,
-		},
+		Metadata: meta,
 	})
 }
 
