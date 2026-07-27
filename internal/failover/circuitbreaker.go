@@ -211,7 +211,11 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName strin
 			c.state = StateOpen
 			c.openedAt = time.Now()
 			cb.applyQuotaPin(providerID, c)
-			debuglog.Warn("circuit-breaker: provider state=closed→open", "provider", providerName, "provider_id", providerID, "consecutive_failures", c.consecutiveFails)
+			// cooldown_ms and quota_pinned are the operator's only log trail for
+			// how long this provider will be dark and why: a quota pin can hold a
+			// circuit open for a day, and the failure count alone says nothing
+			// about that. Routing metadata only — never payload or credentials.
+			debuglog.Warn("circuit-breaker: provider state=closed→open", "provider", providerName, "provider_id", providerID, "consecutive_failures", c.consecutiveFails, "cooldown_ms", cb.effectiveCooldownFor(c).Milliseconds(), "quota_pinned", cb.quotaPinnedFor(c))
 			cb.publishEvent(providerID, providerName, "open", c)
 		}
 	case StateHalfOpen:
@@ -219,7 +223,7 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName strin
 		c.openedAt = time.Now()
 		c.consecutiveFails = cb.effectiveThreshold()
 		cb.applyQuotaPin(providerID, c)
-		debuglog.Warn("circuit-breaker: provider state=half-open→open (probe failed)", "provider", providerName, "provider_id", providerID)
+		debuglog.Warn("circuit-breaker: provider state=half-open→open (probe failed)", "provider", providerName, "provider_id", providerID, "cooldown_ms", cb.effectiveCooldownFor(c).Milliseconds(), "quota_pinned", cb.quotaPinnedFor(c))
 		cb.publishEvent(providerID, providerName, "open", c)
 	case StateOpen:
 		// Already open — no-op.

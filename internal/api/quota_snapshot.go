@@ -208,7 +208,16 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 
 	advice := buildQuotaAdvice(snaps, typeByID, maxAge, time.Now())
 	h.quotaAdvisor.Replace(advice)
-	debuglog.Debug("quota: advice refreshed", "advised_providers", len(advice))
+	// Info once anything is actually advised: a quota pin can hold a circuit open
+	// for a day, and Debug is off in normal production, so this is the only log
+	// trail an operator has for why a provider went dark. The no-advice case
+	// stays at Debug — a line on every poll pass would be noise. Counts only, no
+	// payload values.
+	if len(advice) > 0 {
+		debuglog.Info("quota: advice refreshed", "advised_providers", len(advice))
+	} else {
+		debuglog.Debug("quota: advice refreshed", "advised_providers", len(advice))
+	}
 
 	// Alert-only, and deliberately last: the schema-drift watch reuses the
 	// snapshot list and provider maps above rather than re-querying, and

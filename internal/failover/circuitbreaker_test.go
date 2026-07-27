@@ -3,12 +3,14 @@ package failover
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
@@ -1194,6 +1196,131 @@ func waitForOpenEvent(t *testing.T, sub chan events.Event, id uuid.UUID) events.
 			t.Fatalf("no circuit_breaker.open event for provider %s published within timeout", id)
 			return events.Event{}
 		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Open-transition log trail
+// ---------------------------------------------------------------------------
+
+// capturedLog is one slog record reduced to what these assertions care about.
+type capturedLog struct {
+	level slog.Level
+	msg   string
+	attrs map[string]any
+}
+
+// logCaptureHandler records every slog record emitted while it is installed.
+type logCaptureHandler struct {
+	mu      sync.Mutex
+	records []capturedLog
+}
+
+func (h *logCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *logCaptureHandler) Handle(_ context.Context, r slog.Record) error {
+	rec := capturedLog{level: r.Level, msg: r.Message, attrs: make(map[string]any, r.NumAttrs())}
+	r.Attrs(func(a slog.Attr) bool {
+		rec.attrs[a.Key] = a.Value.Any()
+		return true
+	})
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.records = append(h.records, rec)
+	return nil
+}
+
+func (h *logCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *logCaptureHandler) WithGroup(string) slog.Handler      { return h }
+
+// forProvider returns the records whose provider_id attribute matches id, so an
+// assertion can never be satisfied by a line another test or another provider
+// emitted onto the process-wide logger.
+func (h *logCaptureHandler) forProvider(id uuid.UUID) []capturedLog {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var out []capturedLog
+	for _, r := range h.records {
+		if pid, ok := r.attrs["provider_id"].(uuid.UUID); ok && pid == id {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// captureLogs installs a capturing slog handler for the duration of the test.
+// SetHandler swaps the process-wide default, so the previous one is restored.
+func captureLogs(t *testing.T) *logCaptureHandler {
+	t.Helper()
+	prev := slog.Default().Handler()
+	t.Cleanup(func() { debuglog.SetHandler(prev) })
+	capt := &logCaptureHandler{}
+	debuglog.SetHandler(capt)
+	return capt
+}
+
+// TestOpenTransitionLogsTheGoverningCooldown covers the operator's only trail
+// for a circuit that can stay dark for a day. The open-transition warning
+// previously carried the failure count and nothing about how long the provider
+// would be sidelined, so "why has this provider been dark since midnight" had no
+// answer outside the Failover page and the SSE stream. Both open transitions
+// (closed→open and a failed half-open probe) must name the cooldown actually
+// governing the circuit and whether a quota pin produced it.
+func TestOpenTransitionLogsTheGoverningCooldown(t *testing.T) {
+	capt := captureLogs(t)
+
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 50 * time.Millisecond})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	recs := capt.forProvider(id)
+	if len(recs) != 1 {
+		t.Fatalf("got %d log record(s) for the open transition, want 1: %+v", len(recs), recs)
+	}
+	opened := recs[0]
+	if opened.level != slog.LevelWarn {
+		t.Errorf("got level %v, want warn for an opening circuit", opened.level)
+	}
+	pinned, _ := opened.attrs["quota_pinned"].(bool)
+	if !pinned {
+		t.Errorf("a pinned circuit must log quota_pinned=true, got attrs %#v", opened.attrs)
+	}
+	cooldownMs, ok := opened.attrs["cooldown_ms"].(int64)
+	if !ok {
+		t.Fatalf("the open transition must log cooldown_ms, got attrs %#v", opened.attrs)
+	}
+	if want := cb.Status()[0].CooldownMs; cooldownMs != want {
+		t.Errorf("logged cooldown_ms=%d, want the cooldown actually governing the circuit (%d)", cooldownMs, want)
+	}
+
+	// A failed half-open probe re-opens the circuit and must log the same way:
+	// this is the transition an operator sees when a provider keeps failing.
+	time.Sleep(60 * time.Millisecond)
+	cb.Cooldown = 50 * time.Millisecond
+	cb.SetQuotaAdvisor(stubAdvisor{ok: false}) // advice withdrawn; plain cooldown now
+	cb.circuits[id.String()].cooldownOverride = 0
+	cb.circuits[id.String()].state = StateHalfOpen
+	cb.RecordFailure(id, "test-provider")
+
+	recs = capt.forProvider(id)
+	if len(recs) != 2 {
+		t.Fatalf("got %d log record(s), want the half-open→open transition logged too: %+v", len(recs), recs)
+	}
+	reopened := recs[1]
+	if reopened.level != slog.LevelWarn {
+		t.Errorf("got level %v, want warn for a failed probe re-opening the circuit", reopened.level)
+	}
+	if pinned, _ := reopened.attrs["quota_pinned"].(bool); pinned {
+		t.Errorf("an unpinned re-open must log quota_pinned=false, got attrs %#v", reopened.attrs)
+	}
+	reMs, ok := reopened.attrs["cooldown_ms"].(int64)
+	if !ok {
+		t.Fatalf("the half-open→open transition must log cooldown_ms, got attrs %#v", reopened.attrs)
+	}
+	if want := cb.effectiveCooldown().Milliseconds(); reMs != want {
+		t.Errorf("logged cooldown_ms=%d, want the configured cooldown %d", reMs, want)
 	}
 }
 
