@@ -2,7 +2,7 @@
 	"common": {
 		"cancel": "בטל",
 		"delete": "מחק",
-		"deleting": "מחיקת ה-…",
+		"deleting": "מוחק…",
 		"close": "סגור",
 		"closeDialog": "סגור את תיבת הדו-שיח",
 		"clearFilter": "נקה את המסנן",
@@ -13,12 +13,12 @@
 		"expand": "הרחב",
 		"collapse": "לכווץ",
 		"enabled": "מופעל",
-		"disabled": "מבוטל",
+		"disabled": "מושבת",
 		"never": "לעולם לא",
 		"justNow": "רק עכשיו",
 		"loading": "טוען",
 		"loadingDots": "טוען…",
-		"off": "מחוץ",
+		"off": "כבוי",
 		"prev": "הקודם",
 		"next": "הבא",
 		"apply": "החל",
@@ -41,15 +41,15 @@
 		"required": "חובה",
 		"done": "בוצע",
 		"creating": "נוצר...",
-		"resolving": "פתרון הבעיה ב-…",
+		"resolving": "מפענח…",
 		"live": "בשידור חי",
 		"deleted": "נמחק",
 		"internal": "פנימי",
 		"noLogsFound": "לא נמצאו יומנים",
-		"global": "עולמי",
+		"global": "כללי",
 		"manuallyDisabled": "מושבת ידנית",
-		"loadingNewer": "טעינת גרסה חדשה יותר של…",
-		"loadingOlder": "טעינת גרסאות ישנות יותר של…",
+		"loadingNewer": "טוען רשומות חדשות יותר…",
+		"loadingOlder": "טוען רשומות ישנות יותר…",
 		"model": "מודל",
 		"models": "מודלים",
 		"tokens": "אסימונים",
@@ -123,7 +123,7 @@
 			"requestsToday": "בקשות היום",
 			"db": "בסיס נתונים",
 			"procs_one": "proc",
-			"procs_other": "פרוצדורות",
+			"procs_other": "תהליכים",
 			"aggregateCpu": "סיכום משאבי המעבד בכל קונטיינרי ה-compose ב- {{count}}",
 			"aggregateNetwork": "רשת מאוחדת על פני {{count}} מכולות compose",
 			"aggregateDisk": "סיכום פעולות קלט/פלט דיסק בכל קונטיינרי ה-compose של {{count}}",
@@ -145,7 +145,7 @@
 			"adminToken": "אסימון מנהל",
 			"enterToken": "הזן את אסימון המנהל שלך",
 			"signIn": "התחבר",
-			"signingIn": "כניסה ל-…",
+			"signingIn": "מתחבר…",
 			"signInWithPasskey": "התחבר באמצעות Passkey",
 			"orDivider": "או",
 			"emptyToken": "אנא הזן אסימון מנהל",
@@ -183,15 +183,15 @@
 		"language": {
 			"label": "שפה"
 		},
-		"running": "ריצה {{running}}",
+		"running": "פועל {{running}}",
 		"runningLatest": "משתמש בגרסה האחרונה ({{running}})",
 		"updateAvailable": "קיים עדכון: {{running}} → {{latest}}",
 		"expandStats": "הצג נתונים סטטיסטיים",
 		"collapseStats": "לכווץ את הנתונים הסטטיסטיים",
 		"tooltips": {
 			"uptime": "כמה זמן תהליך השרת פועל",
-			"goroutines": "גורוטין (goroutines) של סביבת ההרצה Active Go (תהליכים קלים)",
-			"requestsToday": "מספר בקשות ה-LLM שהועברו באמצעות פרוקסי מאז חצות היום, לפי השעה המקומית",
+			"goroutines": "גורוטינות פעילות של סביבת ההרצה של Go (תהליכונים קלים)",
+			"requestsToday": "מספר בקשות ה-LLM שהועברו באמצעות פרוקסי מאז חצות, לפי השעה המקומית",
 			"dbSize": "גודל מסד הנתונים של Postgres בדיסק",
 			"dbHitRatio": "יחס פגיעות במטמון על פני הפעילות האחרונה (ככל שהערך גבוה יותר, כך טוב יותר; ריק כאשר מסד הנתונים אינו פעיל)",
 			"dbConnections": "חיבורי מסד נתונים פעילים",
@@ -202,7 +202,7 @@
 			"banner": "הדגמה לקריאה בלבד - פעולות יצירה, עריכה ומחיקה מושבתות."
 		},
 		"errorShelf": {
-			"acknowledge": "בטל",
+			"acknowledge": "הסר",
 			"appKind": "App",
 			"haKind": "HA",
 			"ssoKind": "SSO",
@@ -242,7 +242,7 @@
 		"toggleKeyFilter": "החלף מסנן מפתחות",
 		"refresh": "רענון לוח הבקרה",
 		"refreshing": "… מרענן",
-		"loadingGauges": "מדי עומס…",
+		"loadingGauges": "טוען מדים…",
 		"failedToLoadGaugeStats": "לא הצליחו לטעון את נתוני המד",
 		"gaugeLoadFailed": "לא הצליחו לטעון את נתוני המד",
 		"stats": {
@@ -257,21 +257,21 @@
 		"gauge": {
 			"requestsPerRange": "בקשות /{{range}}",
 			"avgTtftPerRange": "TTFT ממוצע/{{range}}",
-			"avgOverheadPerRange": "{{range}} ממוצע",
-			"rateLimitHitsPerRange": "מגבלת בקשות ל-{{range}}",
+			"avgOverheadPerRange": "תקורה ממוצעת/{{range}}",
+			"rateLimitHitsPerRange": "פגיעות במגבלת קצב/{{range}}",
 			"errorRatePerRange": "שיעור השגיאות /{{range}}",
 			"viewRequestHistory": "לחץ כדי להציג את היסטוריית הבקשות",
 			"viewTtftHistory": "לחץ כאן כדי להציג את היסטוריית ה-TTFT",
-			"viewOverheadHistory": "לחץ כדי להציג את היסטוריית ההוצאות",
+			"viewOverheadHistory": "לחץ כדי להציג את היסטוריית התקורה",
 			"viewRateLimitHistory": "לחץ כדי להציג את היסטוריית חריגות ממגבלת הקצב",
 			"viewErrorRateHistory": "לחץ כדי להציג את היסטוריית שיעורי השגיאות",
 			"viewDurationHistory": "לחץ כדי להציג את היסטוריית משך הזמן",
 			"viewTokenHistory": "לחץ כדי להציג את היסטוריית האסימונים",
 			"svgTitle": "מד",
 			"modal": {
-				"avgOverheadTitle": "עלות תפעול ממוצעת",
-				"overheadMetric": "מעל הראש",
-				"overheadLabel": "מעל הראש",
+				"avgOverheadTitle": "תקורה ממוצעת",
+				"overheadMetric": "תקורה",
+				"overheadLabel": "תקורה",
 				"errorRateTitle": "שיעור השגיאות",
 				"errorRateMetric": "שיעור השגיאות",
 				"errorRateLabel": "שיעור השגיאות",
@@ -284,9 +284,9 @@
 				"avgTtftTitle": "TTFT ממוצע",
 				"ttftMetric": "TTFT",
 				"ttftLabel": "TTFT",
-				"rateLimitHitsTitle": "הגבלת מספר הכניסות",
-				"rateLimitHitsMetric": "הגבלת מספר הכניסות",
-				"rateLimitHitsLabel": "הגבלת מספר הכניסות",
+				"rateLimitHitsTitle": "פגיעות במגבלת קצב",
+				"rateLimitHitsMetric": "פגיעות במגבלת קצב",
+				"rateLimitHitsLabel": "פגיעות במגבלת קצב",
 				"avgTokensTitle": "ממוצע אסימונים",
 				"tokensMetric": "אסימונים",
 				"tokensLabel": "אסימונים"
@@ -303,8 +303,8 @@
 			"emptyState": "אין עדיין נתוני סדרות זמן. {{metric}} יופיע כאן ברגע שתתחיל התעבורה.",
 			"requestsOver": "בקשות /{{range}}",
 			"avgTtftOver": "TTFT ממוצע/{{range}}",
-			"avgOverheadOver": "עלות תפעול ממוצעת/{{range}}",
-			"rateLimitHitsOver": "מגבלת בקשות ל-{{range}}",
+			"avgOverheadOver": "תקורה ממוצעת/{{range}}",
+			"rateLimitHitsOver": "פגיעות במגבלת קצב/{{range}}",
 			"errorRateOver": "שיעור השגיאות /{{range}}",
 			"avgDurationOver": "משך ממוצע/{{range}}",
 			"cacheHit": "פגיעה במטמון",
@@ -330,7 +330,7 @@
 		"providerLatency": {
 			"title": "השהיית ספקים",
 			"response": "תגובה",
-			"overhead": "מעל הראש",
+			"overhead": "תקורה",
 			"emptyState": "עדיין אין נתוני חביון. חביון הספק יופיע כאן ברגע שתתחיל תנועת הנתונים.",
 			"responseTooltip": "זמן תגובה ממוצע: {{value}} ({{count}} בקשות)",
 			"overheadTooltip": "עומס פרוקסי ממוצע: {{value}} ({{count}} בקשות)",
@@ -340,8 +340,8 @@
 		},
 		"providers": {
 			"top": "ספקים מובילים",
-			"top_one": "הספק המוביל של {{count}}",
-			"top_other": "ספקי שירותי \" {{count}} \" המובילים",
+			"top_one": "{{count}} ספק מוביל",
+			"top_other": "{{count}} ספקים מובילים",
 			"providers": "ספקים",
 			"noData": "אין עדיין נתונים על ספקים. פירוט הספקים יופיע כאן ברגע שתתחיל תנועת הגלישה.",
 			"distributionChart": "תרשים התפלגות הספקים",
@@ -354,7 +354,7 @@
 		},
 		"models": {
 			"viewDetails": "הצג פרטים על {{label}}",
-			"emptyState": "עדיין אין נתוני מודל. פירוט המודל יופיע כאן ברגע שתתחיל תנועת התנועה."
+			"emptyState": "עדיין אין נתוני מודל. פירוט המודלים יופיע כאן ברגע שתתחיל התעבורה."
 		},
 		"virtualKeys": {
 			"emptyState": "עדיין אין נתוני מפתחות וירטואליים. פירוט המפתחות הווירטואליים יופיע כאן ברגע שתתחיל תנועת הנתונים."
@@ -369,17 +369,17 @@
 			"promptTooltip": "הנחיה: {{pct}}% ({{count}} אסימונים)",
 			"completionTooltip": "השלמה: {{pct}}% ({{count}} אסימונים)",
 			"cacheHitTooltip": "פגיעה במטמון: {{pct}}% ({{count}} אסימונים)",
-			"mixAriaLabel": "תמהיל פקודות: {{promptPct}}% פקודות prompt, {{completionPct}}% פקודות השלמה",
+			"mixAriaLabel": "תמהיל אסימונים: {{promptPct}}% הנחיה, {{completionPct}}% השלמה",
 			"promptTileTitle": "הנחיה",
 			"completionTileTitle": "השלמה"
 		},
 		"modal": {
-			"avgOverhead": "עלות תפעול ממוצעת",
+			"avgOverhead": "תקורה ממוצעת",
 			"errorRate": "שיעור שגיאות",
 			"avgDuration": "משך ממוצע",
 			"requests": "בקשות",
 			"avgTtft": "TTFT ממוצע",
-			"rateLimitHits": "הגבלת מספר הכניסות",
+			"rateLimitHits": "פגיעות במגבלת קצב",
 			"avgTokens": "ממוצע אסימונים"
 		},
 		"range": {
@@ -402,13 +402,13 @@
 	"chat": {
 		"chat": "צ'אט",
 		"conversation": "שיחה",
-		"testModels": "דגמים המותאמים למבחן בצ'אט זמני",
-		"watchConversation": "צפו בשתי דוגמניות משוחחות זו עם זו",
+		"testModels": "בדוק את הדגמים המופעלים בצ'אט זמני",
+		"watchConversation": "צפו בשני דגמים משוחחים זה עם זה",
 		"validation": {
 			"selectModelA": "בחר דגם A",
 			"selectModelB": "בחר דגם B",
 			"modelsMustDiffer": "הדגמים חייבים להיות שונים",
-			"enterPrompt": "הזן פקודה"
+			"enterPrompt": "הזן הנחיה"
 		},
 		"stream": {
 			"stoppedByUser": "נעצר על ידי המשתמש",
@@ -449,13 +449,13 @@
 		"modelB": "דגם B",
 		"personaA": "דמות א'",
 		"personaB": "דמות ב'",
-		"turn": "פנה",
+		"turn": "תור",
 		"totalDuration": "משך",
 		"totalTokens": "אסימונים",
 		"modelGenerating": "המודל מייצר…",
 		"waitingForNextTurn": "מחכה לתור הבא…",
-		"generationFailed": "{{model}}: הכנה נכשלה - השתמש באפשרות \"נסה שוב\" בתצורה שלמעלה, או ב\"נקה/אפס\" למטה",
-		"generationFailedWithModel": "{{model}}: הכנה נכשלה - השתמש באפשרות \"נסה שוב\" בתצורה שלמעלה, או ב\"נקה/אפס\" למטה",
+		"generationFailed": "{{model}}: היצירה נכשלה - השתמש באפשרות \"נסה שוב\" בתצורה שלמעלה, או ב\"נקה/אפס\" למטה",
+		"generationFailedWithModel": "{{model}}: היצירה נכשלה - השתמש באפשרות \"נסה שוב\" בתצורה שלמעלה, או ב\"נקה/אפס\" למטה",
 		"resetChat": "אפס את הצ'אט",
 		"resetConversation": "אפס את השיחה",
 		"resetChatMessage": "פעולה זו תמחק את כל ההודעות, תאפס את בחירת הדגם, את הפרופיל ואת הפרמטרים. להמשיך?",
@@ -476,20 +476,20 @@
 		"selectModelFirst": "בחר תחילה דגם",
 		"typeMessage": "הקלד הודעה…",
 		"typeMessageOrPasteImage": "הקלד הודעה (או הדבק תמונה)…",
-		"generating": "יצירת קובץ `… `",
+		"generating": "מייצר…",
 		"sendMessage": "שלח הודעה",
 		"pressEnterToSend": "לחץ על Enter כדי לשלוח, Shift+Enter כדי להוסיף שורה חדשה",
-		"selectModelToStart": "בחר דוגמנית כדי להתחיל לשוחח",
+		"selectModelToStart": "בחר דגם כדי להתחיל לשוחח",
 		"modelError": "{{model}}: {{error}} - נסה לבצע \"Regenerate\"",
 		"generalError": "{{error}} - נסה לבצע \"Regenerate\" או בחר מודל",
 		"modelLabel": "דגם",
 		"stopLabel": "עצור",
-		"clearLabel": "נקי",
+		"clearLabel": "נקה",
 		"resetAllLabel": "אפס הכל",
 		"cancel": "בטל",
 		"messageInput": "הזנת הודעת צ'אט",
 		"copy": "העתק",
-		"regenerate": "לחדש",
+		"regenerate": "צור מחדש",
 		"deleteMessage": "מחק הודעה",
 		"settings": "הגדרות",
 		"placeholder": {
@@ -517,20 +517,20 @@
 			"userAttachment": "קובץ מצורף של המשתמש",
 			"cancel": "בטל",
 			"deleteMessage": "מחק הודעה",
-			"regenerate": "לחדש"
+			"regenerate": "צור מחדש"
 		},
 		"misc": {
 			"titleChat": "צ'אט",
 			"titleConversation": "שיחה",
-			"descriptionChat": "דגמים המותאמים למבחן בצ'אט זמני",
-			"descriptionConversation": "צפו בשתי דוגמניות משוחחות זו עם זו",
-			"selectModelToStart": "בחר דוגמנית כדי להתחיל לשוחח",
+			"descriptionChat": "בדוק את הדגמים המופעלים בצ'אט זמני",
+			"descriptionConversation": "צפו בשני דגמים משוחחים זה עם זה",
+			"selectModelToStart": "בחר דגם כדי להתחיל לשוחח",
 			"keyboardHint": "לחץ על Enter כדי לשלוח, Shift+Enter כדי להוסיף שורה חדשה",
-			"turnCount": "פנה אל {{current}} / {{max}}",
+			"turnCount": "תור {{current}} / {{max}}",
 			"tokens": "אסימונים",
 			"modelGenerating": "המודל מייצר…",
 			"waitingNextTurn": "מחכה לתור הבא…",
-			"generationFailed": "{{model}}: הכנה נכשלה - השתמש באפשרות \"נסה שוב\" בתצורה שלמעלה, או ב\"נקה/אפס\" שלמטה",
+			"generationFailed": "{{model}}: היצירה נכשלה - השתמש באפשרות \"נסה שוב\" בתצורה שלמעלה, או ב\"נקה/אפס\" שלמטה",
 			"generationFailedNoModel": "היצירה נכשלה - השתמש באפשרות \"נסה שוב\" בתצורה שלמעלה, או ב\"נקה/אפס\" למטה",
 			"resetChatTitle": "אפס את הצ'אט",
 			"resetConversationTitle": "אפס את השיחה",
@@ -545,7 +545,7 @@
 			"compare": "השווה"
 		},
 		"description": {
-			"arena": "טורניר נוקאאוט – הדוגמניות מתחרות זו מול זו",
+			"arena": "טורניר נוקאאוט – הדגמים מתחרים זה מול זה",
 			"compare": "זה לצד זה – השוואת תוצאות הדגמים לאותה בקשה"
 		},
 		"controls": {
@@ -556,8 +556,8 @@
 			"compare": "השווה"
 		},
 		"modeDescription": {
-			"arena": "הדוגמניות מתחרות בטורניר בשיטת נוק-אאוט. בחרו 2, 4 או 8 דוגמניות – בכל סיבוב, זוגות מתמודדים עם אותה הנחיה, ואתם מצביעים עבור התשובה הטובה יותר. המנצחות עולות לשלב הבא עד שנשארת דוגמנית אחת.",
-			"compare": "בחרו מודלים והריצו עליהם את אותה הפקודה במקביל. בלי הצבעות, בלי טבלאות – רק השוואה ישירה של התוצאות זו לצד זו, כדי להעריך איזה מודל מתאים ביותר לצרכים שלכם."
+			"arena": "הדגמים מתחרים בטורניר בשיטת נוק-אאוט. בחרו 2, 4 או 8 דגמים – בכל סיבוב, זוגות מתמודדים עם אותה הנחיה, ואתם מצביעים עבור התשובה הטובה יותר. המנצחים עולים לשלב הבא עד שנשאר דגם אחד.",
+			"compare": "בחרו מודלים והריצו עליהם את אותה ההנחיה במקביל. בלי הצבעות, בלי טורניר – רק השוואה ישירה של התוצאות זו לצד זו, כדי להעריך איזה מודל מתאים ביותר לצרכים שלכם."
 		},
 		"matchHistory": {
 			"title": "היסטוריית המשחקים"
@@ -570,7 +570,7 @@
 			"title": "נקה תוצאות (שמור מודלים והנחיה)"
 		},
 		"resetAll": {
-			"title": "אפס הכל (נקה דגמים והודעות)"
+			"title": "אפס הכל (נקה דגמים והנחיות)"
 		},
 		"models": {
 			"bracketCount": "דגמים ({{count}}/8)",
@@ -585,12 +585,12 @@
 		},
 		"round": {
 			"firstRound": "הסיבוב הראשון",
-			"generation": "דור",
+			"generation": "יצירה",
 			"match": "משחק",
 			"final": "סופי",
 			"semifinals": "חצי הגמר",
 			"quarterfinals": "רבע הגמר",
-			"numbered": "עגול {{num}}"
+			"numbered": "סיבוב {{num}}"
 		},
 		"vs": "VS",
 		"status": {
@@ -653,10 +653,10 @@
 			"temperature": "טמפרטורה",
 			"maxTokens": "מקס אסימונים",
 			"topP": "Top P",
-			"minP": "מין פ",
+			"minP": "Min P",
 			"topK": "הטופ K",
 			"freqPenalty": "עונש תדירות",
-			"presPenalty": "עונש",
+			"presPenalty": "עונש נוכחות",
 			"resetAll": "אפס הכל",
 			"done": "בוצע"
 		},
@@ -668,11 +668,11 @@
 			"selectTwoModels": "בחר לפחות 2 דגמים",
 			"pickOneMore": "בחר לפחות דגם אחד נוסף",
 			"noDuplicates": "אין דגמים כפולים",
-			"enterPrompt": "הזן פקודה",
+			"enterPrompt": "הזן הנחיה",
 			"selectBracketModels": "בחר 2, 4 או 8 דגמים",
 			"pickOrRemove": "בחר {{count}} עוד או הסר כדי לקבל {{nextValid}}",
 			"voteToContinue": "הצביעו בכל המשחקים כדי לעבור לשלב הבא",
-			"enterPromptNextRound": "הזן פקודה לסיבוב הבא"
+			"enterPromptNextRound": "הזן הנחיה לסיבוב הבא"
 		},
 		"tbd": "ייקבע בהמשך",
 		"close": "סגור",
@@ -689,7 +689,7 @@
 		"btn_add_provider": "הוסף ספק",
 		"btn_discovering": "מגלה...",
 		"btn_refreshing": "מרענן...",
-		"filter_placeholder": "ספקי מסננים…",
+		"filter_placeholder": "סינון ספקים…",
 		"filter_provider_type": "סוג ספק",
 		"filter_all": "הכל ({{count}}) הספקים",
 		"sort_title_asc": "מסודר לפי א-ב (לחץ כדי להפוך את הסדר)",
@@ -707,11 +707,11 @@
 		"toast_refresh_none": "לא נמצאו ספקים התומכים במכסות/יתרות",
 		"toast_refresh_failed": "לא ניתן לרענן את מכסות: {{message}}",
 		"toast_quota_detected_nanogpt": "זוהתה מכסת NanoGPT",
-		"toast_quota_detected_zai": "זוהתה חריגה ממכסת ה-Z.ai",
-		"toast_quota_detected_kimi": "זוהתה חריגה ממכסת ה-Kimi Code",
+		"toast_quota_detected_zai": "זוהתה מכסת Z.ai Coding",
+		"toast_quota_detected_kimi": "זוהתה מכסת Kimi Code",
 		"toast_quota_detected_deepseek": "יתרת DeepSeek שזוהתה:{{amount}} דולר",
 		"toast_quota_detected_openrouter": "זוהה יתרה ב-OpenRouter: ${{amount}}",
-		"toast_quota_detected_ollama": "Ollama Cloud {{plan}} זוהתה תוכנית",
+		"toast_quota_detected_ollama": "זוהתה תוכנית Ollama Cloud {{plan}}",
 		"toast_quota_refreshed": "היתרה עודכנה",
 		"toast_quota_refresh_failed": "לא הצליח לרענן את היתרה",
 		"toast_account_refreshed": "פרטי החשבון עודכנו",
@@ -739,7 +739,7 @@
 		"form_modal_title": "הוסף ספק",
 		"form_type_label": "סוג",
 		"form_name_label": "שם",
-		"toast_ollama_cloud_plan_detected": "Ollama Cloud {{plan}} התוכנית זוהתה",
+		"toast_ollama_cloud_plan_detected": "זוהתה תוכנית Ollama Cloud {{plan}}",
 		"form_name_placeholder": "למשל, OpenAI",
 		"form_name_hint": "נקודות, רווחים ותווים מיוחדים מוחלפים ב-\"-\" בעת ניתוב.",
 		"form_base_url_label": "כתובת URL בסיסית",
@@ -764,7 +764,7 @@
 		"edit_api_key_current": "נוכחי: {{key}}",
 		"edit_api_key_placeholder": "השאר ריק כדי לשמור על המפתח הנוכחי",
 		"dialog_unsaved_title": "שינויים שלא נשמרו",
-		"card_disabled": "מוגבלים",
+		"card_disabled": "מושבת",
 		"card_autodiscovery_off": "זיהוי אוטומטי כבוי",
 		"card_tokens": "{{tokens}} אסימונים",
 		"card_created": "נוצר",
@@ -772,7 +772,7 @@
 		"card_last_used": "השימוש האחרון",
 		"card_last_discovery": "התגלית האחרונה",
 		"card_btn_edit": "ערוך",
-		"card_btn_discover": "גלה דוגמניות",
+		"card_btn_discover": "גלה דגמים",
 		"card_btn_discovering": "מגלה...",
 		"card_btn_delete": "מחק",
 		"card_copy_name": "לחץ כדי להעתיק את שם הספק",
@@ -780,14 +780,14 @@
 		"toast_discover_success_one": "התגלה דגם {{count}} מאת {{name}}",
 		"toast_discover_success_other": "התגלו  דגמי {{count}} מ- {{name}}",
 		"toast_delete_models_success_one": "נמחק {{count}} דגם מושבת",
-		"toast_delete_models_success_other": "נמחק {{count}} דוגמניות מושעות",
-		"toast_delete_models_success": "נמחק {{count}} דוגמניות מושעות",
+		"toast_delete_models_success_other": "נמחקו {{count}} דגמים מושבתים",
+		"toast_delete_models_success": "נמחקו {{count}} דגמים מושבתים",
 		"card_models_one": "{{count}} דגם",
 		"card_models_other": "{{count}} דגמים",
 		"add": {
 			"providerFallback": "ספק",
 			"discoveredModels_one": "התגלה {{count}} דגם…",
-			"discoveredModels_other": "התגלו {{count}} דוגמניות…",
+			"discoveredModels_other": "התגלו {{count}} דגמים…",
 			"deepseekBalance": "יתרת DeepSeek שזוהתה:{{balance}} דולר",
 			"deepseekBalanceDetected": "זוהתה יתרת DeepSeek",
 			"openrouterBalance": "זוהתה יתרת OpenRouter: ${{balance}}",
@@ -803,7 +803,7 @@
 			"autodiscoveryHelper": "שולט בזיהוי אוטומטי של מודלים. השבת אפשרות זו כדי לנהל באופן ידני את קטלוג המודלים של ספק זה."
 		},
 		"quotas": {
-			"expand": "הגדלת מכסות"
+			"expand": "הרחב מכסות"
 		},
 		"credits": {
 			"toggleLabel": "החלף בין \"נותר\" ל\"נוצל\"",
@@ -864,7 +864,7 @@
 		"page_title_other": "מודלים",
 		"page_description": "דגמים שהתגלו אצל הספקים שלך",
 		"badge_enabled": "{{count}} מופעל",
-		"badge_disabled": "{{count}} מוגבל",
+		"badge_disabled": "{{count}} מושבתים",
 		"view_mode_pages": "⬡ דפים",
 		"view_mode_scroll": "⇊ גלול",
 		"switch_to_pagination": "עבור למצב חלוקה לעמודים",
@@ -877,7 +877,7 @@
 		"toast_delete_failed": "לא ניתן למחוק את המודל: {{message}}",
 		"detail_modal_title": "פרטי הדגם",
 		"toast_delete_bulk_success_one": "נמחק {{count}} דגם מושבת",
-		"toast_delete_bulk_success_other": "נמחק {{count}} דוגמניות מושעות",
+		"toast_delete_bulk_success_other": "נמחקו {{count}} דגמים מושבתים",
 		"detail": {
 			"snippet": {
 				"curl": "cURL",
@@ -894,10 +894,10 @@
 			"provider": "ספק",
 			"lastDiscovered": "התגלה לאחרונה",
 			"displayName": "שם תצוגה",
-			"contextLength": "אורך הטקסט",
-			"maxOutput": "הספק מרבי",
-			"inputPrice": "מחיר כניסה",
-			"outputPrice": "מחיר המכירה",
+			"contextLength": "אורך ההקשר",
+			"maxOutput": "פלט מרבי",
+			"inputPrice": "מחיר קלט",
+			"outputPrice": "מחיר פלט",
 			"input": "קלט",
 			"output": "פלט",
 			"tokens": "אסימונים",
@@ -909,9 +909,9 @@
 			"subscription": "מנוי",
 			"snippetFormatPicker": "בוחר פורמט קטע",
 			"test": "מבחן",
-			"testing": "בדיקת ה-…",
+			"testing": "בודק…",
 			"confirmDelete": "אשר מחיקה",
-			"updating": "עדכון ה-…",
+			"updating": "מעדכן…",
 			"updateCooldown": "עדכון ({{cooldown}})",
 			"updateInfo": "מידע על עדכונים",
 			"placeholder": {
@@ -933,7 +933,7 @@
 			"sortByContextLength": "מיין לפי אורך ההקשר",
 			"ctx": "Ctx",
 			"sortByMaxOutput": "מיין לפי מספר האסימונים המרבי",
-			"maxOut": "למקסם",
+			"maxOut": "פלט מרבי",
 			"sortByStatus": "מיין לפי סטטוס",
 			"status": "סטטוס"
 		},
@@ -959,17 +959,17 @@
 		"page_title_one": "קבוצת מעבר לגיבוי",
 		"page_title_other": "קבוצות מעבר לגיבוי",
 		"page_description_lead": "העבר בקשות דרך מספר ספקים לפי סדר עדיפות באמצעות",
-		"page_description_code": "מלון/דגם",
+		"page_description_code": "hotel/model",
 		"btn_sync": "סנכרון",
-		"btn_syncing": "סנכרון ה-…",
+		"btn_syncing": "מסנכרן…",
 		"btn_new_group": "קבוצה חדשה",
 		"hint_drag": "גרור את הדגמים באמצעות הידית כדי לשנות את סדר העדיפות",
-		"filter_hotel_model": "סינון לפי מלון/דגם…",
+		"filter_hotel_model": "סינון לפי hotel/model…",
 		"filter_providers": "כל ({{count}}) הספקים",
-		"filter_states": "כל ({{count}}) המדינות",
+		"filter_states": "כל ({{count}}) המצבים",
 		"filter_origins": "כל ({{count}}) המקורות",
 		"filter_state_enabled": "מופעל",
-		"filter_state_disabled": "מוגבלים",
+		"filter_state_disabled": "מושבת",
 		"filter_origin_auto": "אוטומטי",
 		"filter_origin_manual": "מותאם אישית",
 		"select_all": "בחר הכל",
@@ -993,7 +993,7 @@
 		"nav_letter": "קפוץ לסעיף {{letter}}",
 		"toast_bulk_toggle_failed": "הפעלת/כיבוי המוני נכשל עבור חלק מהקבוצות",
 		"toast_provider_toggle_failed": "הפעלת/כיבוי האפשרות 'ספק בכמות גדולה' נכשלה עבור קבוצות מסוימות",
-		"toast_sync_deleted": "מלון/{{model}} נמחק: {{reason}}{{providers}}",
+		"toast_sync_deleted": "hotel/{{model}} נמחק: {{reason}}{{providers}}",
 		"toast_sync_success": "קבוצות מעבר לגיבוי מסונכרנות",
 		"toast_sync_failed": "לא הצליח לסנכרן: {{message}}",
 		"toast_update_failed": "לא הצליח לעדכן: {{message}}",
@@ -1006,17 +1006,17 @@
 		"toast_updated": "קבוצת המעבר לגיבוי עודכנה",
 		"toast_delete_success": "הקבוצה נמחקה",
 		"toast_delete_failed": "לא הצליח למחוק: {{message}}",
-		"toast_bulk_delete_warning": "נמחק {{succeeded}} מהקבוצה {{total}} ({{failed}} נכשל)",
+		"toast_bulk_delete_warning": "נמחקו {{succeeded}} מתוך {{total}} קבוצות ({{failed}} נכשלו)",
 		"toast_min_entries": "יש להזין לפחות 2 ערכים",
 		"toast_display_model_required": "יש להזין את שם הדגם",
 		"badge_enabled_one": "{{count}} מופעל",
 		"badge_enabled_other": "{{count}} מופעל",
-		"badge_disabled_one": "{{count}} מוגבל",
-		"badge_disabled_other": "{{count}} מוגבל",
+		"badge_disabled_one": "{{count}} מושבת",
+		"badge_disabled_other": "{{count}} מושבתים",
 		"delete_confirm_type": "קבוצת מעבר לגיבוי",
 		"delete_confirm_type_plural": "קבוצות מעבר לגיבוי",
 		"auto_created": "אוטומטי",
-		"on": "ON",
+		"on": "פועל",
 		"off": "כבוי",
 		"copied_model": "הועתק {{model}}",
 		"group": {
@@ -1026,7 +1026,7 @@
 		"bulk_provider_count_other": "{{count}} קבוצות עם רשומות ב- {{provider}}",
 		"group_count_one": "{{count}} קבוצה",
 		"group_count_other": "{{count}} קבוצות",
-		"toast_bulk_toggle_success_one": "{{action}} כל ההודעות בקבוצת {{count}}",
+		"toast_bulk_toggle_success_one": "{{action}} כל הרשומות ב-{{count}} קבוצה",
 		"toast_bulk_toggle_success_other": "{{action}} כל הערכים בקבוצות {{count}}",
 		"toast_provider_toggle_success_one": "{{action}} {{provider}} בקבוצת {{count}}",
 		"toast_provider_toggle_success_other": "{{action}} {{provider}} בכל קבוצות ה- {{count}}",
@@ -1040,10 +1040,10 @@
 		"toast_provider_toggle_no_groups": "אף קבוצת מעבר לגיבוי אינה משתמשת בספק {{provider}}",
 		"last_sync_label": "הסנכרון האחרון:",
 		"toast_entry_min_two": "לפחות 2 חברים חייבים להישאר פעילים.",
-		"toast_sync_purged_one": "מלון/{{group}}: הוסרה {{count}} רשומה מיושנת",
-		"toast_sync_purged_other": "מלון/{{group}}: הוסרו {{count}} רשומות מיושנות",
-		"toast_sync_disabled_one": "מלון/{{group}} מושבת: נותר {{count}} חבר הניתן לניתוב",
-		"toast_sync_disabled_other": "מלון/{{group}} מושבת: נותרו {{count}} חברים הניתנים לניתוב"
+		"toast_sync_purged_one": "hotel/{{group}}: הוסרה {{count}} רשומה מיושנת",
+		"toast_sync_purged_other": "hotel/{{group}}: הוסרו {{count}} רשומות מיושנות",
+		"toast_sync_disabled_one": "hotel/{{group}} מושבת: נותר {{count}} חבר הניתן לניתוב",
+		"toast_sync_disabled_other": "hotel/{{group}} מושבת: נותרו {{count}} חברים הניתנים לניתוב"
 	},
 	"delete_confirm": {
 		"unsaved_changes": "שינויים שלא נשמרו"
@@ -1051,7 +1051,7 @@
 	"virtualkeys": {
 		"title": {
 			"singular": "מפתח וירטואלי",
-			"plural": "מקשים וירטואליים"
+			"plural": "מפתחות וירטואליים"
 		},
 		"description": "להנפיק מפתחות ללקוחות כדי שיוכלו לגשת לשרת ה-proxy בכתובת",
 		"createButton": "צור מפתח",
@@ -1061,7 +1061,7 @@
 			"name": "שם",
 			"key": "מפתח",
 			"rps": "RPS",
-			"burst": "התפרצות",
+			"burst": "פרץ",
 			"created": "נוצר",
 			"tokens": "אסימונים",
 			"lastUsed": "השימוש האחרון",
@@ -1079,7 +1079,7 @@
 			"lastUsed": "מתי נעשה שימוש אחרון במפתח לצורך בקשה",
 			"providerRestricted": "מפתח המוגבל לספק",
 			"reasoningStripped": "ההיגיון הושמט",
-			"keyHashed": "המפתח עבר תהליך של חשישה ואינו ניתן לשחזור",
+			"keyHashed": "המפתח עבר גיבוב ואינו ניתן לשחזור",
 			"tpm": "מגבלת אסימונים לדקה; בקשות נדחות עם קוד 429 ברגע שהתקציב הדקתי נוצל",
 			"id": "לחץ כדי להעתיק את מזהה המפתח",
 			"owner": "בבעלות {{name}}"
@@ -1103,7 +1103,7 @@
 			"createTitle": "יצירת מפתח וירטואלי",
 			"createdTitle": "נוצר מפתח וירטואלי",
 			"warningTitle": "לא ניתן לשחזר מפתח זה לאחר סגירת החלון המודאלי.",
-			"warningText": "המפתחות הווירטואליים עוברים תהליך של חשישה לפני שמירתם. העתק אותם עכשיו, אחרת הם יאבדו לנצח.",
+			"warningText": "המפתחות הווירטואליים עוברים גיבוב לפני שמירתם. העתק אותם עכשיו, אחרת הם יאבדו לנצח.",
 			"form": {
 				"name": "שם",
 				"namePlaceholder": "למשל, האפליקציה שלי",
@@ -1112,10 +1112,10 @@
 				"providerInstructions": "לחץ על ספק כדי להגביל את הגישה. כברירת מחדל, הגישה פתוחה לכולם.",
 				"noProviders": "אין ספקים זמינים.",
 				"restoreAccess": "להשיב את הגישה לכל הספקים",
-				"stripReasoning": "הנמקה של רצועות",
+				"stripReasoning": "הסרת שרשרת חשיבה",
 				"stripReasoningDescription": "כאשר אפשרות זו מופעלת, אסימוני ההיגיון/החשיבה מוסרים מתגובות הזרם עבור לקוחות שאינם מסוגלים לטפל בהם.",
-				"enableStripReasoning": "הפעל חשיבה רציפה",
-				"disableStripReasoning": "השבת את חישוב הרצועות",
+				"enableStripReasoning": "הפעל הסרת שרשרת חשיבה",
+				"disableStripReasoning": "השבת הסרת שרשרת חשיבה",
 				"rateLimitBurst": "Burst (מקסימום בו-זמנית)",
 				"rateLimitRps": "RPS (בקשות בשנייה)",
 				"rateLimitTpm": "TPM (אסימונים/דקה)",
@@ -1129,7 +1129,7 @@
 				"rateLimits": "מגבלות קצב",
 				"usage": "שימוש",
 				"providerAccess": "גישה לספקים",
-				"stripReasoning": "הנמקה של רצועות"
+				"stripReasoning": "הסרת שרשרת חשיבה"
 			},
 			"labels": {
 				"key": "מפתח",
@@ -1146,7 +1146,7 @@
 			"providerInstructionsText": "לחץ על ספק כדי להגביל את הגישה. כברירת מחדל, הגישה פתוחה לכולם.",
 			"nameLabel": "שם",
 			"rateLimitRpsLabel": "מגבלת קצב RPS (בקשות בשנייה)",
-			"rateLimitBurstLabel": "חריגה ממגבלת הקצב (מספר מקסימלי של פעולות בו-זמנית)",
+			"rateLimitBurstLabel": "פרץ מגבלת הקצב (מספר מקסימלי של פעולות בו-זמנית)",
 			"keyCreated": "נוצר מפתח וירטואלי",
 			"keyCreatedFailed": "נכשל: {{message}}",
 			"keyUpdated": "המפתח הווירטואלי עודכן",
@@ -1196,7 +1196,7 @@
 		},
 		"table": {
 			"timeDate": "שעה/תאריך",
-			"hash": "האש",
+			"hash": "גיבוב",
 			"model": "דגם",
 			"provider": "ספק",
 			"status": "סטטוס",
@@ -1205,14 +1205,14 @@
 			"headers": "כותרות",
 			"ttft": "TTFT",
 			"duration": "משך",
-			"overhead": "מעל הראש",
+			"overhead": "תקורה",
 			"key": "מפתח",
 			"providerDeleted": "הספק נמחק",
 			"deletedProvider": "נמחק",
-			"resolving": "פתרון הבעיה ב-…",
+			"resolving": "מפענח…",
 			"live": "בשידור חי",
 			"interrupted": "נקטע",
-			"cacheInflated": "מוגדל עקב פגיעות מהירות במטמון",
+			"cacheInflated": "מוגדל עקב פגיעות במטמון ההנחיות",
 			"keyDeleted": "נמחק"
 		},
 		"tooltip": {
@@ -1229,7 +1229,7 @@
 			"overhead": "עומס על ה-proxy (ניתוח, חיפושים וכו')",
 			"key": "מפתח וירטואלי המשמש לאימות",
 			"providerDeleted": "הספק נמחק",
-			"totalOverhead": "הוצאות כלליות",
+			"totalOverhead": "תקורה כוללת",
 			"requestParsing": "ניתוח בקשה",
 			"failoverGroupLookup": "חיפוש קבוצת מעבר לגיבוי",
 			"modelLookup": "חיפוש דגם",
@@ -1255,8 +1255,8 @@
 			"label": "רשומות"
 		},
 		"loading": {
-			"newer": "↻ טוען גרסה חדשה יותר של…",
-			"older": "↻ טוען גרסאות ישנות יותר של…"
+			"newer": "↻ טוען רשומות חדשות יותר…",
+			"older": "↻ טוען רשומות ישנות יותר…"
 		}
 	},
 	"applogs": {
@@ -1293,19 +1293,19 @@
 			"label": "רשומות"
 		},
 		"loading": {
-			"newer": "↻ טוען גרסה חדשה יותר של…",
-			"older": "↻ טוען גרסאות ישנות יותר של…"
+			"newer": "↻ טוען רשומות חדשות יותר…",
+			"older": "↻ טוען רשומות ישנות יותר…"
 		}
 	},
 	"format": {
 		"never": "לעולם לא",
 		"justNow": "זה עתה",
-		"minutesAgo_one": "{{count}}לפני דקה",
-		"minutesAgo_other": "{{count}}לפני דקה",
-		"hoursAgo_one": "{{count}}לפני h שעות",
-		"hoursAgo_other": "{{count}}לפני h שעות",
-		"daysAgo_one": "{{count}}לפני d ימים",
-		"daysAgo_other": "{{count}}לפני d ימים",
+		"minutesAgo_one": "לפני {{count}} דק'",
+		"minutesAgo_other": "לפני {{count}} דק'",
+		"hoursAgo_one": "לפני {{count}} שע'",
+		"hoursAgo_other": "לפני {{count}} שע'",
+		"daysAgo_one": "לפני {{count}} יום",
+		"daysAgo_other": "לפני {{count}} ימים",
 		"inDaysHours_one_day_one_hour": "ב- {{days}} יום, {{hours}} שעה",
 		"inDaysHours_one_day_other_hours": "ב- {{days}} יום, {{hours}} שעות",
 		"inDaysHours_other_days_one_hour": "ב- {{days}} ימים, {{hours}} שעות",
@@ -1476,7 +1476,7 @@
 				"1m0s": "דקה אחת (ברירת מחדל)",
 				"2m0s": "2 דקות",
 				"5m0s": "5 דקות",
-				"disabled": "מוגבלים"
+				"disabled": "מושבת"
 			},
 			"streamStall": {
 				"10s": "10 שניות",
@@ -1485,7 +1485,7 @@
 				"2m0s": "2 דקות",
 				"5m0s": "5 דקות",
 				"10m0s": "10 דקות",
-				"disabled": "מוגבלים"
+				"disabled": "מושבת"
 			},
 			"requestsGroup": "בקשות",
 			"streamingGroup": "סטרימינג"
@@ -1494,10 +1494,10 @@
 			"title": "הגבלת קצב",
 			"description": "יש לפקח על קצב הבקשות לכל מפתח וירטואלי כדי למנוע שימוש לרעה ולהבטיח שימוש הוגן.",
 			"enable": "הפעל הגבלת קצב",
-			"enableDescription": "הגבלת בקשות פרוקסי לפי מקש וירטואלי",
+			"enableDescription": "הגבלת בקשות פרוקסי לפי מפתח וירטואלי",
 			"requestsPerSecond": "בקשות בשנייה",
 			"requestsPerSecond.description": "קצב הבקשות המותר למפתח וירטואלי (0 = ללא הגבלה)",
-			"burstSize": "גודל המנה",
+			"burstSize": "גודל הפרץ",
 			"burstSize.description": "המספר המרבי של בקשות בו-זמניות לפני שההגבלה נכנסת לתוקף",
 			"ipRateLimiting": "הגבלת קצב IP",
 			"ipRateLimitingDescription": "מגביל תעבורה לפי כתובת IP (הגנה מפני DoS, פועל לפני תהליך האימות)",
@@ -1554,9 +1554,9 @@
 			"deleteAppLogs.allLogs": "כל היומנים",
 			"deleteAppLogs.confirm": "אשר",
 			"deleteAppLogs.cancel": "בטל",
-			"deleteAppLogs.deleting": "מחיקת ה-…",
+			"deleteAppLogs.deleting": "מוחק…",
 			"retention": {
-				"disabled": "מוגבלים",
+				"disabled": "מושבת",
 				"24h": "יום אחד",
 				"168h": "שבוע אחד",
 				"720h": "חודש אחד"
@@ -1578,7 +1578,7 @@
 			"discoveryInterval.description": "באיזו תדירות לבצע איתור מחדש אוטומטי של מודלים מכל הספקים המופעלים. 0 – להשבית.",
 			"discoverOnStartup": "גלה ב-Startup",
 			"discoverOnStartupDescription": "הפעל את תהליך זיהוי הספקים בעת הפעלת השרת",
-			"discoverOnProviderCreation": "למד כיצד ליצור ספק",
+			"discoverOnProviderCreation": "גילוי בעת יצירת ספק",
 			"discoverOnProviderCreationDescription": "זיהוי אוטומטי של מודלים עם הוספת ספק חדש",
 			"discoverAll": "גלה את כל הדגמים",
 			"discoverAllComplete": "החיפוש הסתיים",
@@ -1590,7 +1590,7 @@
 				"12h": "12 שעות",
 				"24h": "24 שעות",
 				"48h": "48 שעות",
-				"disabled": "מוגבלים"
+				"disabled": "מושבת"
 			},
 			"automaticGroup": "אוטומטי",
 			"manualGroup": "ידני",
@@ -1605,8 +1605,8 @@
 			"persistChatConfirm": "פעולה זו תמחק את כל הודעות הצ'אט השמורות. להמשיך?",
 			"persistChatEnabled": "הפעלת שמירת צ'אט",
 			"persistChatDisabled": "נתוני הצ'אט נמחקו",
-			"persistArena": "זירת Persist",
-			"persistArenaDescription": "שמור את מצב הסוגריים וההנחיות בין הפעלות",
+			"persistArena": "שמירת מצב הזירה",
+			"persistArenaDescription": "שמור את מצב הטורניר וההנחיות בין הפעלות",
 			"persistArenaConfirm": "פעולה זו תמחק את כל נתוני הזירה שנשמרו. להמשיך?",
 			"persistArenaEnabled": "הפעלת שמירת מצב הזירה",
 			"persistArenaDisabled": "נתוני הזירה נמחקו",
@@ -1617,7 +1617,7 @@
 			"persistConversationDisabled": "נתוני השיחה נמחקו",
 			"arenaHistory": "ההיסטוריה של הארנה",
 			"saveMatchHistory": "שמור את היסטוריית המשחקים",
-			"saveMatchHistoryDescription": "שמור באופן אוטומטי את הזירה שהושלמה והשווה בין הפעלות",
+			"saveMatchHistoryDescription": "שמור באופן אוטומטי הפעלות שהושלמו של הזירה ושל ההשוואה",
 			"saveMatchHistoryEnabled": "היסטוריית הזירה מופעלת",
 			"saveMatchHistoryDisabled": "היסטוריית הזירה הושבתה – הרשומות הקיימות נשמרו",
 			"maxSavedMatches": "מספר המשחקים המרבי שנשמרו",
@@ -1632,7 +1632,7 @@
 			"clearHistory": "נקה את ההיסטוריה",
 			"clearHistoryConfirm": "למחוק את כל היסטוריית הזירה? פעולה זו אינה ניתנת לביטול.",
 			"clearHistoryAll": "נקה הכל",
-			"clearHistoryAll.tooltip": "מחק את כל הזירות השמורות והשווה את היסטוריית ההפעלות",
+			"clearHistoryAll.tooltip": "מחק את כל היסטוריית ההפעלות השמורות של הזירה ושל ההשוואה",
 			"clearHistoryAllCleared": "כל ההיסטוריה בזירה נמחקה",
 			"cacheAndResets": "מטמון ואיפוסים",
 			"quotaBadges": "תגי מכסה",
@@ -1665,9 +1665,9 @@
 			"restoreRequirements.virtualKeys": "מפתחות וירטואליים אינם ניתנים לשחזור",
 			"restoreRequirements.virtualKeysDescription": "מאוחסנים רק ערכי ה-SHA-256. אם תאבד את המפתחות הווירטואליים בטקסט רגיל, לא ניתן יהיה לשחזר אותם מהגיבוי.",
 			"createBackup": "יצירת גיבוי",
-			"creatingBackup": "יצירת גיבוי ל-…",
+			"creatingBackup": "יוצר גיבוי…",
 			"uploadRestore": "העלאה ושחזור",
-			"restoring": "שחזור ה-…",
+			"restoring": "משחזר…",
 			"selectBackupFile": "בחר קובץ גיבוי לשחזור",
 			"noBackups": "עדיין אין גיבויים.",
 			"download": "הורדה",
@@ -1694,7 +1694,7 @@
 				"sonRetentionDescription": "שמור את הגיבוי האחרון מכל אחד מ-N הימים האחרונים.",
 				"fatherRetention": "שימור שבועי (אבא)",
 				"fatherRetentionDescription": "שמור את הגיבוי האחרון מכל אחת מ-N השבועות האחרונים.",
-				"grandfatherRetention": "שימור חודשי (תנאי מעבר)",
+				"grandfatherRetention": "שימור חודשי (סב)",
 				"grandfatherRetentionDescription": "שמור את הגיבוי האחרון מכל אחד מ-N החודשים האחרונים.",
 				"confirmEnableTitle": "להפעיל גיבוי תקופתי?",
 				"confirmEnableDescription": "הפעלת גיבוי תקופתי מוחקת גיבויים קיימים שנמצאים מחוץ לחלון הסבב בן/אב/סב.",
@@ -1710,15 +1710,15 @@
 		"appearance": {
 			"title": "מראה",
 			"uiStyle": "סגנון ממשק המשתמש",
-			"theme": "נושא",
-			"dark": "אפל",
-			"light": "אור",
+			"theme": "ערכת נושא",
+			"dark": "כהה",
+			"light": "בהיר",
 			"accentColor": "צבע הדגשה",
 			"customColor": "צבע מותאם אישית",
 			"colorPicker": {
 				"title": "בחר צבע",
 				"cancel": "בטל",
-				"apply": "הגש בקשה"
+				"apply": "החל"
 			},
 			"uiStyles": {
 				"cleanSaas": "SaaS נקי",
@@ -1789,13 +1789,13 @@
 				"30": "30 דקות",
 				"disabled": "מושבת (במצב ידני בלבד)"
 			},
-			"intervalSet_one": "העדכון של מכסת ה- {{minutes}} מוגדר להתבצע כל   דקות",
-			"intervalSet_other": "העדכון של מכסת המשתמשים מוגדר ל- {{minutes}} דקות"
+			"intervalSet_one": "רענון המכסה מוגדר לכל {{minutes}} דקה",
+			"intervalSet_other": "רענון המכסה מוגדר לכל {{minutes}} דקות"
 		},
 		"common": {
 			"cancel": "בטל",
 			"enabled": "מופעל",
-			"disabled": "מוגבלים",
+			"disabled": "מושבת",
 			"deleting": "מחיקה",
 			"settingsSaved": "ההגדרות נשמרו",
 			"failedToSave": "לא הצליח לשמור: {{message}}",
@@ -1823,7 +1823,7 @@
 		"colorPicker": {
 			"title": "בחר צבע",
 			"cancel": "בטל",
-			"apply": "הגש בקשה"
+			"apply": "החל"
 		},
 		"passkeys": {
 			"title": "מפתחות גישה",
@@ -1870,7 +1870,7 @@
 		"alerts": {
 			"apiUrl": "כתובת ה-API של Apprise",
 			"apiUrlDescription": "כתובת ה-URL הבסיסית של מכולת ה-apprise-api שאתה מפעיל (לדוגמה http://apprise:8000).",
-			"clear": "נקי",
+			"clear": "נקה",
 			"description": "שלחו התראות דחיפה על אירועים חשובים (השבתת ספק, הפעלת מפסק) ל-Telegram, דוא\"ל, Discord ועוד באמצעות מכולה Apprise נטולת מצב (stateless) שאתם מפעילים. תוכן הבקשה לעולם לא נשלח - רק סיכום האירוע.",
 			"enable": "הפעילו התראות",
 			"enableDescription": "העבירו אירועים נבחרים לנקודת הקצה של Apprise.",
@@ -2034,7 +2034,7 @@
 			"close": "סגור"
 		},
 		"confirmDeleteButton": {
-			"deleteKey": "מקש המחיקה",
+			"deleteKey": "מחק מפתח",
 			"yesDelete": "כן, מחק",
 			"areYouSure": "אתה בטוח?"
 		},
@@ -2048,10 +2048,10 @@
 			"adminTokenNotInBackup": "אסימון המנהל אינו מופיע בגיבוי:",
 			"adminTokenInfo": "הוא נשמר במערכת הקבצים. אסימון המנהל הנוכחי שלך ימשיך לפעול לאחר השחזור.",
 			"virtualKeysIrrecoverable": "לא ניתן לשחזר מפתחות וירטואליים:",
-			"virtualKeysInfo": "מאוחסנים רק חשישים מסוג SHA-256. אם תאבד את המפתחות הווירטואליים בטקסט גלוי, לא ניתן יהיה לשחזר אותם.",
+			"virtualKeysInfo": "מאוחסנים רק גיבובי SHA-256. אם תאבד את המפתחות הווירטואליים בטקסט גלוי, לא ניתן יהיה לשחזר אותם.",
 			"confirmWithAdminToken": "אשר באמצעות אסימון מנהל",
 			"enterAdminToken": "הזן את אסימון המנהל",
-			"restoring": "שחזור ה-…",
+			"restoring": "משחזר…",
 			"restoreDatabase": "שחזור מסד הנתונים",
 			"cancel": "בטל"
 		},
@@ -2060,7 +2060,7 @@
 			"close": "סגור"
 		},
 		"filterInput": {
-			"filter": "סינון לפי \"… \"",
+			"filter": "סינון…",
 			"clearFilter": "נקה את המסנן"
 		},
 		"copyButton": {
@@ -2103,8 +2103,8 @@
 				"close": "סגור את בורר התאריכים",
 				"selectEndDate": "בחר תאריך סיום…",
 				"selectStartDate": "בחר תאריך התחלה",
-				"clear": "נקי",
-				"apply": "הגש בקשה"
+				"clear": "נקה",
+				"apply": "החל"
 			},
 			"errorState": {
 				"failedToLoad": "לא הצליחו לטעון את היומנים: {{message}}"
@@ -2129,11 +2129,11 @@
 			"remoteAddr": "כתובת מרוחקת"
 		},
 		"paramSlider": {
-			"off": "מחוץ"
+			"off": "כבוי"
 		},
 		"reasoningEffortSelect": {
 			"reasoningEffort": "מאמץ חשיבתי",
-			"off": "מחוץ",
+			"off": "כבוי",
 			"low": "נמוך",
 			"medium": "בינוני",
 			"high": "גבוה"
@@ -2143,12 +2143,12 @@
 			"prev": "הקודם",
 			"next": "הבא",
 			"entries": "{{start}} {{to}} {{end}} {{of}} {{total}} {{label}}",
-			"entriesShort": "{{start}}–{{end}} של {{total}} {{label}}",
+			"entriesShort": "{{start}}–{{end}} מתוך {{total}} {{label}}",
 			"perPage": "{{size}} / עמוד",
 			"noEntries": "לא נמצא {{label}}",
 			"countOne": "1 {{label}}",
 			"to": "אל",
-			"of": "של"
+			"of": "מתוך"
 		},
 		"modelPicker": {
 			"filterModels": "סינון דגמים…",
@@ -2159,12 +2159,12 @@
 			"clearFilter": "נקה את המסנן",
 			"paramsLocked": "הפרמטרים נעולים בזמן הפעלה",
 			"editParams": "ערוך את פרמטרי היצירה",
-			"addParams": "הוסף פרמטרים של הדור",
+			"addParams": "הוסף פרמטרי יצירה",
 			"viewDetails": "הצג פרטי מודל"
 		},
 		"modelDetailPanel": {
 			"resetParameters": "איפוס הפרמטרים",
-			"generationParameters": "פרמטרים של הדור",
+			"generationParameters": "פרמטרי יצירה",
 			"close": "סגור",
 			"expandModelDetails": "הצג פרטים על הדגם",
 			"collapseModelDetails": "הסתר את פרטי הדגם",
@@ -2172,20 +2172,20 @@
 			"modelId": "מזהה הדגם",
 			"context": "הקשר",
 			"inputPricePerMillion": "בדולרים למיליון",
-			"outputPricePerMillion": "הפסד של 1 מיליון דולר",
+			"outputPricePerMillion": "פלט $/1M",
 			"capabilities": "יכולות",
 			"proxyId": "מזהה פרוקסי",
 			"parametersLockedWhileRunning": "הפרמטרים נעולים בזמן הפעלה",
 			"editGenerationParameters": "ערוך את פרמטרי היצירה",
-			"addGenerationParameters": "הוסף פרמטרים של הדור",
+			"addGenerationParameters": "הוסף פרמטרי יצירה",
 			"temperature": "טמפרטורה",
 			"maxTokens": "מקס אסימונים",
 			"topP": "Top P",
-			"minP": "מין פ",
+			"minP": "Min P",
 			"topK": "הטופ K",
 			"freqPenalty": "עונש תדירות",
-			"presPenalty": "עונש",
-			"maxOut": "למקסם"
+			"presPenalty": "עונש נוכחות",
+			"maxOut": "פלט מרבי"
 		},
 		"modelTable": {
 			"searchModels": "חפש דגמים…",
@@ -2195,16 +2195,16 @@
 			"provider": "ספק",
 			"discovered": "התגלה",
 			"context": "Ctx",
-			"maxOutput": "למקסם",
+			"maxOutput": "פלט מרבי",
 			"status": "סטטוס",
 			"modelNameAndId": "שם הדגם ומספר הזיהוי",
 			"providerName": "שם הספק",
-			"whenModelDiscovered": "מתי נראתה/התגלתה הדוגמנית בפעם האחרונה",
+			"whenModelDiscovered": "מתי נראה/התגלה הדגם בפעם האחרונה",
 			"maximumContextLength": "אורך הקשר המרבי באסימונים",
 			"maximumOutputTokens": "מספר האסימונים המרבי",
 			"modelStatus": "סטטוס הדגם",
-			"noModelsMatchFilters": "אין דוגמניות העונות על הקריטריונים שלך",
-			"noModelsDiscovered": "עדיין לא נמצאו דוגמניות. הוסף ספק וגלה דוגמניות.",
+			"noModelsMatchFilters": "אין דגמים התואמים למסננים שלך",
+			"noModelsDiscovered": "עדיין לא התגלו דגמים. הוסף ספק וגלה דגמים.",
 			"deleteDisabledModels": "מחיקת דגמים מושבתים",
 			"models": "דגמים",
 			"deleteDisabledAria_one": "מחק {{count}} דגם מושבת",
@@ -2229,19 +2229,19 @@
 			"copy": "העתק",
 			"disableModel": "השבת את המודל",
 			"disable": "השבת",
-			"thinking": "מחשבות על \"… \"",
+			"thinking": "חושב…",
 			"waiting": "מחכה…",
-			"thinkingDots": "מחשבות על \"… \"",
-			"turn": "פנה {{number}}",
+			"thinkingDots": "חושב…",
+			"turn": "תור {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "טוק"
 		},
 		"providerFilter": {
-			"filterProviders": "ספקי מסננים",
+			"filterProviders": "סינון ספקים",
 			"clearFilter": "נקה את המסנן",
-			"searchProviders": "ספקי חיפוש…",
+			"searchProviders": "חיפוש ספקים…",
 			"selectAll": "בחר הכל",
-			"clear": "נקי",
+			"clear": "נקה",
 			"noProvidersFound": "לא נמצאו ספקים",
 			"provider_one": "{{count}} ספק",
 			"provider_other": "{{count}} ספקים"
@@ -2256,10 +2256,10 @@
 			"refreshQuotaInfo": "רענן את פרטי המכסה",
 			"toggleRemainingUsed": "החלף בין \"נותר\" ל\"נוצל\"",
 			"weeklyTokenQuota": "מכסת אסימונים שבועית",
-			"used": "משומש",
+			"used": "בשימוש",
 			"noLimitSet": "לא נקבע גבול",
 			"dailyImages": "תמונות יומיות",
-			"dailyInputTokens": "אסימוני כניסה יומיים",
+			"dailyInputTokens": "אסימוני קלט יומיים",
 			"subscriptionDetails": "פרטי המנוי",
 			"provider": "ספק",
 			"status": "סטטוס",
@@ -2275,7 +2275,7 @@
 			"kimiCodeTotalQuota": "מכסה כוללת",
 			"plan": "תוכנית",
 			"hTokenQuota": "{{hours}}מכסת אסימונים",
-			"left": "משמאל",
+			"left": "נותר",
 			"mcpTokenQuota": "מכסת זמן MCP",
 			"openRouterCredits": "קרדיטים ל-OpenRouter",
 			"freeTier": "חבילת חינם",
@@ -2285,24 +2285,24 @@
 			"refreshBalanceInfo": "רענן את פרטי היתרה",
 			"accountBalance": "יתרת חשבון",
 			"spentTotal": "{{amount}} סך ההוצאות",
-			"keySpendingLimit": "תקרת הוצאות מרכזית",
+			"keySpendingLimit": "תקרת הוצאות של המפתח",
 			"remaining": "הנותר",
 			"limitReset": "הגבלה - הוצאה חסומה",
 			"resets": "איפוסים",
-			"keyUsage": "שימושים עיקריים",
+			"keyUsage": "שימוש במפתח",
 			"spendingByThisKey": "הוצאות באמצעות מפתח ה-API הזה (הסכום הכולל בחשבון עשוי להיות שונה)",
 			"today": "היום",
 			"thisWeek": "השבוע",
 			"thisMonth": "החודש",
 			"allTime": "כל הזמנים",
 			"quotaRefreshed": "המכסה עודכנה",
-			"failedToRefreshQuota": "לא ניתן לרענן את מכסת הזיכרון",
+			"failedToRefreshQuota": "לא ניתן לרענן את המכסה",
 			"balanceRefreshed": "היתרה עודכנה",
 			"failedToRefreshBalance": "לא הצליח לרענן את היתרה",
 			"noCredits": "ללא קרדיטים",
 			"cancelAtPeriodEnd": "המנוי יבוטל בתום התקופה ({{date}})",
 			"neuralWattCredits": "קרדיטים ל-NeuralWatt",
-			"neuralwattBalance": "איזון",
+			"neuralwattBalance": "יתרה",
 			"neuralwattUsage": "שימוש",
 			"neuralwattSubscription": "מנוי",
 			"neuralwattPlan": "תוכנית",
@@ -2317,9 +2317,9 @@
 			"neuralwattAllowance": "קצבה",
 			"neuralwattRateLimitTier": "רמת הגבלת קצב",
 			"neuralwattOverageLimit": "מגבלת חריגה",
-			"neuralwattInOverage": "מעל לגיל",
+			"neuralwattInOverage": "בחריגה",
 			"neuralwattLifetime": "לכל החיים",
-			"neuralwattKeyInfo": "מידע עיקרי",
+			"neuralwattKeyInfo": "פרטי המפתח",
 			"neuralwattEnergyQuota": "מכסת אנרגיה",
 			"neuralwattBillingInterval": "תדירות החיוב",
 			"neuralwattAccountingMethod": "שיטת חשבונאות",
@@ -2332,9 +2332,9 @@
 		},
 		"providerQuotaPanel": {
 			"quotas": "מכסות",
-			"expandQuotas": "הגדלת מכסות",
+			"expandQuotas": "הרחב מכסות",
 			"collapse": "לכווץ",
-			"quotaPanelCollapsed": "לוח המכסות קרס - הרענון האוטומטי הושעה",
+			"quotaPanelCollapsed": "לוח המכסות מכווץ - הרענון האוטומטי הושעה",
 			"quotaPanelExpanded": "לוח המכסות הורחב - הרענון האוטומטי חודש",
 			"refreshAllQuotas": "רענן את כל המכסות",
 			"pleaseWaitBeforeRefreshing": "אנא המתן לפני שתרענן את הדף שוב",
@@ -2344,15 +2344,15 @@
 			"persona": "פרסונה",
 			"customPersonaPlaceholder": "הזן כאן פרופיל מותאם אישית עבור ה-AI…",
 			"switchToCustom": "עבור למצב מותאם אישית",
-			"overwritePrompt": "הודעת החלפה",
-			"clearPersonaPrompt": "פעולה זו תמחק את שורת הפקודה הנוכחית של ה-Persona. להמשיך?",
+			"overwritePrompt": "החלפת ההנחיה",
+			"clearPersonaPrompt": "פעולה זו תמחק את הנחיית הפרסונה הנוכחית. להמשיך?",
 			"systemPrompt": "הודעת מערכת"
 		},
 		"promptPicker": {
 			"prompt": "הנחיה",
-			"enterPromptPlaceholder": "הזן את הפקודה שלך…",
+			"enterPromptPlaceholder": "הזן את ההנחיה שלך…",
 			"switchToCustom": "עבור למצב מותאם אישית",
-			"overwritePrompt": "הודעת החלפה",
+			"overwritePrompt": "החלפת ההנחיה",
 			"promptField": "הנחיה"
 		},
 		"presetBar": {
@@ -2364,12 +2364,12 @@
 			"rounds": "סיבובים: {{rounds}}",
 			"delay": "עיכוב: {{delay}}מילי-שניות",
 			"round": "סיבוב: {{current}} / {{max}}",
-			"nextIn": "הפוסט הבא בבלוג \" {{seconds}}\"…",
+			"nextIn": "הבא בעוד {{seconds}} שנ'…",
 			"status": "סטטוס: {{state}}",
 			"expandConfig": "הרחב את הקובץ config",
 			"collapseConfig": "קפל את התצורה",
 			"generationFailed": "היצירה נכשלה - לחץ על \"נסה שוב\" או שנה את המודל כדי להמשיך",
-			"generationFailedWithModel": "{{model}}: הכניסה נכשלה - לחץ על \"נסה שוב\" או שנה את המודל כדי להמשיך",
+			"generationFailedWithModel": "{{model}}: היצירה נכשלה - לחץ על \"נסה שוב\" או שנה את המודל כדי להמשיך",
 			"maxTurns": "סיבובים",
 			"turnDelay": "עיכוב (מילי-שניות)",
 			"prompt": "הנחיה",
@@ -2377,13 +2377,13 @@
 			"enterTopicOrQuestion": "הזן נושא או שאלה…",
 			"continue": "המשך",
 			"start": "התחל",
-			"reenterOrEditPrompt": "הזן מחדש או ערוך את הפקודה שלך…",
+			"reenterOrEditPrompt": "הזן מחדש או ערוך את ההנחיה שלך…",
 			"retry": "נסה שוב",
 			"retryFromTurn": "נסה שוב מהתור {{turn}}",
 			"stop": "עצור"
 		},
 		"thinkingBlock": {
-			"thinking": "מחשבות"
+			"thinking": "חושב"
 		},
 		"arenaHistoryModal": {
 			"matchHistory": "היסטוריית המשחקים",
@@ -2396,9 +2396,9 @@
 			"final": "סופי",
 			"semifinals": "חצי הגמר",
 			"quarterfinals": "רבע הגמר",
-			"round": "עגול {{number}}",
+			"round": "סיבוב {{number}}",
 			"winner": "הזוכה: {{name}}",
-			"responsesAbbrev": "{{count}} בהתאמה",
+			"responsesAbbrev": "{{count}} תגובות",
 			"error": "שגיאה: {{message}}",
 			"restoreSetup": "שחזור הגדרות",
 			"delete": "מחק",
@@ -2406,7 +2406,7 @@
 			"clearAllHistory": "נקה את כל ההיסטוריה",
 			"clickAgainToConfirm": "לחץ שוב כדי לאשר",
 			"vs": "מול",
-			"bracket": "סוגר",
+			"bracket": "טורניר",
 			"response_one": "{{count}} תגובה",
 			"response_other": "{{count}} תגובות",
 			"entries_one": "{{count}} ערך",
@@ -2428,16 +2428,16 @@
 			"duration": "משך",
 			"totalWallClockTime": "הזמן הכולל (לפי שעון הקיר) מתחילת הבקשה ועד סיום התגובה",
 			"headers": "כותרות",
-			"timeToReceiveHeaders": "הגיע הזמן לקבל את כותרות התגובה הראשונות ב-HTTP מהספק במעלה הזרם",
+			"timeToReceiveHeaders": "הזמן לקבלת כותרות התגובה הראשונות ב-HTTP מהספק במעלה הזרם",
 			"ttft": "TTFT",
 			"timeToFirstToken": "זמן עד לאסימון הראשון: העיכוב בין תחילת הבקשה לאסימון הראשון בגוף התגובה (בשידור רציף) או בתגובה המלאה (בשידור לא רציף)",
 			"tokensPerSecond": "אסימונים לשנייה",
 			"outputTokensPerSecond": "מספר האסימונים המופקים בשנייה במהלך שלב הייצור (לא כולל את הזמן עד לאסימון הראשון). מוצג כ'-' כאשר זמן הייצור זניח.",
 			"sumOfTokens": "סך כל אסימוני ההנחיה + ההשלמה + ההנמקה",
-			"requestHash": "בקשת Hash",
+			"requestHash": "Hash של הבקשה",
 			"model": "דגם",
 			"copyModelId": "העתק מזהה הדגם",
-			"resolved": "הוחלט",
+			"resolved": "נפתר",
 			"provider": "ספק",
 			"dbRowId": "מזהה שורה בבסיס הנתונים",
 			"timestamp": "תאריך ושעה",
@@ -2451,23 +2451,23 @@
 			"cacheMiss": "פספוס במטמון",
 			"overheadCacheHit": "(פגיעה במטמון)",
 			"overheadCacheMiss": "(פספוס במטמון)",
-			"proxyOverheadBreakdown": "פירוט עלויות הניהול של ה-Proxy",
+			"proxyOverheadBreakdown": "פירוט תקורת ה-Proxy",
 			"requestParsing": "ניתוח בקשה",
-			"timeToParseRequest": "הגיע הזמן לנתח ולאמת את גוף הבקשה הנכנסת",
+			"timeToParseRequest": "הזמן לניתוח ולאימות של גוף הבקשה הנכנסת",
 			"failoverGroupLookup": "חיפוש קבוצת מעבר לגיבוי",
-			"timeToResolveFailover": "הגיע הזמן להגדיר את קבוצת הגיבוי לדגם ולספק ספציפיים",
+			"timeToResolveFailover": "הזמן לפענוח קבוצת הגיבוי לדגם ולספק ספציפיים",
 			"modelLookup": "חיפוש דגם",
-			"timeToLookupModel": "הגיע הזמן לבדוק את תצורת הדגם במסד הנתונים",
+			"timeToLookupModel": "הזמן לאיתור תצורת הדגם במסד הנתונים",
 			"providerLookup": "חיפוש ספקים",
-			"timeToLookupProvider": "הגיע הזמן לחפש את פרטי הספק במסד הנתונים",
+			"timeToLookupProvider": "הזמן לאיתור פרטי הספק במסד הנתונים",
 			"keyDecryption": "פענוח מפתח",
-			"timeToDecryptKey": "הגיע הזמן לפענח את מפתח ה-API של הספק",
+			"timeToDecryptKey": "הזמן לפענוח מפתח ה-API של הספק",
 			"dialDnsTcp": "חיוג (DNS+TCP)",
-			"timeToEstablishTcp": "הגיע הזמן ליצור את חיבור ה-TCP לספק השירות",
+			"timeToEstablishTcp": "הזמן ליצירת חיבור ה-TCP לספק במעלה הזרם",
 			"settingsReads": "הגדרות קריאה",
-			"timeToReadSettings": "הגיע הזמן לקרוא את ההגדרות מהמסד הנתונים",
+			"timeToReadSettings": "הזמן לקריאת ההגדרות ממסד הנתונים",
 			"reused": "בשימוש חוזר",
-			"totalOverhead": "הוצאות כלליות",
+			"totalOverhead": "תקורה כוללת",
 			"error": "שגיאה",
 			"copyErrorMessage": "העתק את הודעת השגיאה",
 			"expandForBreakdown": "הרחב לפירוט לפי שלבים",
@@ -2492,10 +2492,10 @@
 		"virtualLogTable": {
 			"noLogsFound": "לא נמצאו יומנים",
 			"entries": "רשומות",
-			"loadingNewer": "טעינת גרסה חדשה יותר של…",
-			"loadingOlder": "טעינת גרסאות ישנות יותר של…",
+			"loadingNewer": "טוען רשומות חדשות יותר…",
+			"loadingOlder": "טוען רשומות ישנות יותר…",
 			"timeDate": "שעה/תאריך",
-			"hash": "האש",
+			"hash": "גיבוב",
 			"model": "דגם",
 			"provider": "ספק",
 			"providerDeleted": "הספק נמחק",
@@ -2506,19 +2506,19 @@
 			"headers": "כותרות",
 			"ttft": "TTFT",
 			"duration": "משך",
-			"overhead": "מעל הראש",
+			"overhead": "תקורה",
 			"key": "מפתח",
 			"interrupted": "נקטע",
 			"internal": "פנימי",
-			"cacheInflated": "מוגדל עקב פגיעות מהירות במטמון",
+			"cacheInflated": "מוגדל עקב פגיעות במטמון ההנחיות",
 			"deleted": "נמחק",
 			"zeroEntries": "0 רשומות"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "לא נמצאו רשומות ביומן",
 			"entries": "רשומות",
-			"loadingNewer": "טעינת גרסה חדשה יותר של…",
-			"loadingOlder": "טעינת גרסאות ישנות יותר של…",
+			"loadingNewer": "טוען רשומות חדשות יותר…",
+			"loadingOlder": "טוען רשומות ישנות יותר…",
 			"timeDate": "שעה/תאריך",
 			"level": "רמה",
 			"source": "מקור",
@@ -2528,7 +2528,7 @@
 		"applyRecommendedButton": {
 			"loading": "טוען…",
 			"applyRecommended": "החל את ההמלצה",
-			"params": "(פרמטרים של `{{count}}`)",
+			"params": "({{count}} פרמטרים)",
 			"modelsDevMatched": "models.dev תואם: {{model}}",
 			"noRecommendationsAvailable": "אין המלצות זמינות",
 			"tooltip": "החל את ההגדרות המומלצות מקטלוג models.dev"
@@ -2549,8 +2549,8 @@
 			"closeDatePicker": "סגור את בורר התאריכים",
 			"selectEndDate": "בחר תאריך סיום…",
 			"selectStartDate": "בחר תאריך התחלה",
-			"clear": "נקי",
-			"apply": "הגש בקשה"
+			"clear": "נקה",
+			"apply": "החל"
 		},
 		"dateFilterButton": {
 			"filterByDateRange": "סינון לפי טווח תאריכים",
@@ -2567,9 +2567,9 @@
 		"quotaBadge": {
 			"weeklyTokensRemaining": "אסימונים שבועיים שנותרו ב-NanoGPT - לחץ לפרטים",
 			"weeklyTokenQuota": "מכסת האסימונים השבועית של NanoGPT - לחץ כאן לפרטים",
-			"zaiCodingRemaining": "Z.ai: מכסת מקומות פנויה - לחץ כאן לפרטים",
+			"zaiCodingRemaining": "Z.ai Coding: מכסה שנותרה - לחץ כאן לפרטים",
 			"zaiCodingUsed": "Z.ai: מכסת השימוש בקוד - לחץ לפרטים",
-			"kimiCodeRemaining": "Kimi: מכסת מקומות פנויה - לחץ כאן לפרטים",
+			"kimiCodeRemaining": "Kimi Code: מכסה שנותרה - לחץ כאן לפרטים",
 			"kimiCodeUsed": "Kimi: מכסת השימוש בקוד - לחץ לפרטים",
 			"deepseekBalance": "יתרת DeepSeek: ${{usd}} USD {{refreshed}} - לחץ כדי לרענן",
 			"deepseekBalanceUnavailable": "יתרת DeepSeek אינה זמינה",
@@ -2608,11 +2608,11 @@
 			"displayNamePlaceholder": "למשל, מעבר לגיבוי של GLM-5",
 			"descriptionOptional": "תיאור (לא חובה)",
 			"descriptionPlaceholder": "לדוגמה, קבוצת מעבר לגיבוי עבור דגמי GLM-5",
-			"modelEntries": "דוגמאות לכניסות",
+			"modelEntries": "רשומות מודלים",
 			"selectedCount_one": "{{count}} נבחר",
 			"selectedCount_other": "{{count}} נבחר",
-			"saving": "שמירת…",
-			"creating": "יצירת…",
+			"saving": "שומר…",
+			"creating": "יוצר…",
 			"createGroup": "צור קבוצה"
 		},
 		"countLabel_one": "קבוצת מעבר לגיבוי",
@@ -2644,7 +2644,7 @@
 		}
 	},
 	"virtualKeys": {
-		"global": "עולמי",
+		"global": "כללי",
 		"snippet": {
 			"curl": "cURL",
 			"powershell": "PowerShell",
@@ -2664,7 +2664,7 @@
 		},
 		"detail": {
 			"rps": "RPS",
-			"burst": "התפרצות",
+			"burst": "פרץ",
 			"tpm": "TPM"
 		}
 	},
@@ -2690,7 +2690,7 @@
 		},
 		"useArenaRunner": {
 			"generationError": "{{model}}: {{error}}",
-			"retry": "{{model}}: {{status}} - נסה שוב {{attempt}} בכתובת {{delay}}s…",
+			"retry": "{{model}}: {{status}} - ניסיון חוזר {{attempt}} בעוד {{delay}}s…",
 			"networkError": "שגיאת רשת",
 			"nonChatModel": "לא מודל צ'אט"
 		},

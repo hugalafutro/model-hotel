@@ -34,7 +34,9 @@
 	],
 	"arena.match.label": [
 		"da",
-		"no"
+		"fr",
+		"no",
+		"sv"
 	],
 	"arena.mode.arena": [
 		"af",
@@ -67,6 +69,9 @@
 		"af",
 		"ca"
 	],
+	"arena.params.freqPenalty": [
+		"nl"
+	],
 	"arena.params.maxTokens": [
 		"it",
 		"nl",
@@ -78,10 +83,14 @@
 		"cs",
 		"de",
 		"fr",
+		"he",
 		"hu",
 		"it",
 		"sk",
+		"sr",
+		"sv",
 		"tr",
+		"uk",
 		"vi"
 	],
 	"arena.params.presPenalty": [
@@ -92,14 +101,24 @@
 	],
 	"arena.params.topK": [
 		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
 		"de",
 		"es",
+		"fi",
 		"fr",
 		"hu",
 		"it",
 		"ko",
+		"nl",
+		"pl",
+		"pt",
 		"ro",
 		"sk",
+		"tr",
+		"uk",
 		"vi"
 	],
 	"arena.params.topP": [
@@ -181,6 +200,7 @@
 		"es",
 		"ja",
 		"pt",
+		"sv",
 		"tr"
 	],
 	"arena.round.generation": [
@@ -188,7 +208,9 @@
 		"sv"
 	],
 	"arena.round.match": [
-		"da"
+		"da",
+		"fr",
+		"sv"
 	],
 	"arena.round.numbered": [
 		"it"
@@ -238,6 +260,9 @@
 		"sv",
 		"uk",
 		"zh"
+	],
+	"arena.vs": [
+		"pl"
 	],
 	"audit.table.action": [
 		"fr"
@@ -302,24 +327,30 @@
 	"chat.controls.modelA": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"sk",
 		"tr"
 	],
 	"chat.controls.modelB": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"sk",
 		"tr"
 	],
 	"chat.controls.modelLabel": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"ro",
 		"sk",
 		"tr"
@@ -423,7 +454,10 @@
 		"fr"
 	],
 	"chat.misc.tokens": [
+		"af",
+		"ca",
 		"da",
+		"es",
 		"nl",
 		"pt",
 		"sv"
@@ -431,24 +465,30 @@
 	"chat.modelA": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"sk",
 		"tr"
 	],
 	"chat.modelB": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"sk",
 		"tr"
 	],
 	"chat.modelLabel": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"ro",
 		"sk",
 		"tr"
@@ -524,7 +564,10 @@
 		"da"
 	],
 	"chat.totalTokens": [
+		"af",
+		"ca",
 		"da",
+		"es",
 		"nl",
 		"pt",
 		"sv"
@@ -559,6 +602,9 @@
 	],
 	"common.models": [
 		"ca"
+	],
+	"common.n_a": [
+		"cs"
 	],
 	"common.no": [
 		"ca",
@@ -879,10 +925,13 @@
 		"es",
 		"ja",
 		"pt",
+		"sv",
 		"tr"
 	],
 	"components.arenaHistoryModal.match": [
-		"da"
+		"da",
+		"fr",
+		"sv"
 	],
 	"components.arenaHistoryModal.response_other": [
 		"ca"
@@ -945,6 +994,7 @@
 		"ko",
 		"pl",
 		"pt",
+		"ro",
 		"sk",
 		"sv",
 		"tr",
@@ -1084,8 +1134,10 @@
 		"no"
 	],
 	"components.liveToggleButton.live": [
+		"da",
 		"de",
 		"it",
+		"nl",
 		"ro",
 		"sv"
 	],
@@ -1103,6 +1155,9 @@
 		"it",
 		"pt"
 	],
+	"components.logDetailStatusBadge.ok": [
+		"vi"
+	],
 	"components.logDetailStatusBadge.streaming": [
 		"ca",
 		"da",
@@ -1115,8 +1170,10 @@
 		"no"
 	],
 	"components.logs.liveToggle.live": [
+		"da",
 		"de",
 		"it",
+		"nl",
 		"ro",
 		"sv"
 	],
@@ -1124,6 +1181,9 @@
 		"ca",
 		"nl",
 		"ro"
+	],
+	"components.modelDetailPanel.freqPenalty": [
+		"nl"
 	],
 	"components.modelDetailPanel.inputPricePerMillion": [
 		"de",
@@ -1144,15 +1204,22 @@
 		"cs",
 		"de",
 		"fr",
+		"he",
 		"hu",
 		"it",
 		"sk",
+		"sr",
+		"sv",
 		"tr",
+		"uk",
 		"vi"
 	],
 	"components.modelDetailPanel.modelId": [
 		"da",
 		"nl"
+	],
+	"components.modelDetailPanel.outputPricePerMillion": [
+		"it"
 	],
 	"components.modelDetailPanel.presPenalty": [
 		"ca",
@@ -1171,14 +1238,24 @@
 	],
 	"components.modelDetailPanel.topK": [
 		"af",
+		"ar",
+		"ca",
+		"cs",
+		"da",
 		"de",
 		"es",
+		"fi",
 		"fr",
 		"hu",
 		"it",
 		"ko",
+		"nl",
+		"pl",
+		"pt",
 		"ro",
 		"sk",
+		"tr",
+		"uk",
 		"vi"
 	],
 	"components.modelDetailPanel.topP": [
@@ -1220,6 +1297,7 @@
 	],
 	"components.modelReplyCard.tok": [
 		"ar",
+		"ca",
 		"cs",
 		"da",
 		"de",
@@ -1245,7 +1323,9 @@
 		"zh"
 	],
 	"components.modelReplyCard.tokPerSec": [
+		"af",
 		"ar",
+		"ca",
 		"cs",
 		"da",
 		"de",
@@ -1291,6 +1371,7 @@
 		"no",
 		"pl",
 		"pt",
+		"ro",
 		"ru",
 		"sk",
 		"sr",
@@ -1305,8 +1386,10 @@
 	"components.modelTable.model": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"ro",
 		"sk",
 		"tr"
@@ -1420,8 +1503,10 @@
 		"af",
 		"da",
 		"de",
+		"es",
 		"pl",
 		"ro",
+		"sv",
 		"tr"
 	],
 	"components.providerModals.neuralwattStatus": [
@@ -1434,6 +1519,7 @@
 	],
 	"components.providerModals.neuralwattTokens": [
 		"af",
+		"ca",
 		"da",
 		"es",
 		"nl",
@@ -1445,6 +1531,7 @@
 	],
 	"components.providerModals.no": [
 		"ca",
+		"es",
 		"it"
 	],
 	"components.providerModals.openRouterCredits": [
@@ -1455,8 +1542,10 @@
 		"af",
 		"da",
 		"de",
+		"es",
 		"pl",
 		"ro",
+		"sv",
 		"tr"
 	],
 	"components.providerModals.provider": [
@@ -1534,16 +1623,22 @@
 	"components.requestLogDetail.model": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"ro",
 		"sk",
 		"tr"
 	],
 	"components.requestLogDetail.overheadCacheHit": [
-		"it"
+		"da",
+		"it",
+		"nl"
 	],
 	"components.requestLogDetail.overheadCacheMiss": [
+		"da",
+		"it",
 		"sv"
 	],
 	"components.requestLogDetail.prompt": [
@@ -1579,11 +1674,14 @@
 	],
 	"components.requestLogDetail.tokensPerSecond": [
 		"af",
+		"ca",
+		"da",
 		"el",
 		"es",
 		"fr",
 		"it",
 		"ja",
+		"nl",
 		"no",
 		"pt",
 		"sv"
@@ -1615,6 +1713,9 @@
 		"uk",
 		"vi",
 		"zh"
+	],
+	"components.statusBadge.ok": [
+		"vi"
 	],
 	"components.statusBadge.streaming": [
 		"ca",
@@ -1729,6 +1830,7 @@
 	],
 	"components.virtualLogTable.hash": [
 		"af",
+		"ca",
 		"cs",
 		"da",
 		"de",
@@ -1736,6 +1838,7 @@
 		"fi",
 		"hu",
 		"it",
+		"nl",
 		"no",
 		"pl",
 		"pt",
@@ -1748,8 +1851,10 @@
 	"components.virtualLogTable.model": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"ro",
 		"sk",
 		"tr"
@@ -1758,6 +1863,8 @@
 		"da",
 		"de",
 		"it",
+		"nl",
+		"ro",
 		"sv"
 	],
 	"components.virtualLogTable.provider": [
@@ -1773,6 +1880,7 @@
 	],
 	"components.virtualLogTable.tokens": [
 		"af",
+		"ca",
 		"da",
 		"es",
 		"nl",
@@ -1782,6 +1890,7 @@
 	"components.virtualLogTable.tokensPerSecond": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"de",
 		"es",
@@ -1805,6 +1914,7 @@
 	"components.virtualLogTable.tps": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"de",
 		"es",
@@ -1866,6 +1976,7 @@
 	],
 	"dashboard.chart.tokens": [
 		"af",
+		"ca",
 		"da",
 		"es",
 		"nl",
@@ -1886,12 +1997,16 @@
 		"da",
 		"de",
 		"it",
+		"nl",
+		"ro",
 		"sv"
 	],
 	"dashboard.gauge.modal.overheadMetric": [
 		"da",
 		"de",
 		"it",
+		"nl",
+		"ro",
 		"sv"
 	],
 	"dashboard.gauge.modal.rateLimitHitsLabel": [
@@ -1905,6 +2020,7 @@
 	],
 	"dashboard.gauge.modal.tokensLabel": [
 		"af",
+		"ca",
 		"da",
 		"es",
 		"nl",
@@ -1913,6 +2029,7 @@
 	],
 	"dashboard.gauge.modal.tokensMetric": [
 		"af",
+		"ca",
 		"da",
 		"es",
 		"nl",
@@ -2012,6 +2129,7 @@
 	],
 	"dashboard.label.tokens": [
 		"af",
+		"ca",
 		"da",
 		"es",
 		"nl",
@@ -2121,6 +2239,8 @@
 		"da",
 		"de",
 		"it",
+		"nl",
+		"ro",
 		"sv"
 	],
 	"dashboard.providerLatency.overheadTooltip": [
@@ -2128,14 +2248,17 @@
 	],
 	"dashboard.providers.tokenUnit": [
 		"af",
+		"ca",
 		"cs",
 		"da",
 		"de",
 		"es",
+		"fi",
 		"hu",
 		"it",
 		"nl",
 		"pl",
+		"pt",
 		"ro",
 		"sk",
 		"sv",
@@ -2143,6 +2266,7 @@
 	],
 	"dashboard.providers.tokensUnit": [
 		"af",
+		"ca",
 		"da",
 		"es",
 		"nl",
@@ -2220,14 +2344,17 @@
 	"dashboard.tokens.promptTooltip": [
 		"ca",
 		"da",
+		"es",
 		"it",
 		"nl",
 		"no",
 		"pt",
+		"ro",
 		"sv"
 	],
 	"dashboard.tokens.tokens": [
 		"af",
+		"ca",
 		"da",
 		"es",
 		"nl",
@@ -2255,6 +2382,27 @@
 		"hu",
 		"pl",
 		"sk"
+	],
+	"failover.page_description_code": [
+		"ar",
+		"de",
+		"el",
+		"es",
+		"fi",
+		"fr",
+		"he",
+		"it",
+		"ja",
+		"no",
+		"pl",
+		"pt",
+		"ru",
+		"sr",
+		"sv",
+		"tr",
+		"uk",
+		"vi",
+		"zh"
 	],
 	"failover.section_letter": [
 		"af",
@@ -2313,7 +2461,10 @@
 		"zh"
 	],
 	"failoverGroups.card.tokens": [
+		"af",
+		"ca",
 		"da",
+		"es",
 		"nl",
 		"pt",
 		"sv"
@@ -2589,7 +2740,8 @@
 		"da",
 		"fr",
 		"it",
-		"nl"
+		"nl",
+		"ro"
 	],
 	"layout.stats.procs_one": [
 		"cs",
@@ -2621,6 +2773,7 @@
 		"ja",
 		"nl",
 		"sv",
+		"vi",
 		"zh"
 	],
 	"layout.stats.txPerSec": [
@@ -2708,12 +2861,28 @@
 		"cs",
 		"da",
 		"de",
+		"es",
+		"fr",
 		"it",
 		"ro",
 		"sk"
 	],
+	"logs.endpoint.embeddings": [
+		"ca",
+		"cs",
+		"fr",
+		"nl",
+		"pt",
+		"ro"
+	],
 	"logs.endpoint.image": [
 		"fr"
+	],
+	"logs.endpoint.rerank": [
+		"cs"
+	],
+	"logs.endpoint.stt": [
+		"vi"
 	],
 	"logs.filters.endpoint": [
 		"ar",
@@ -2750,12 +2919,21 @@
 		"ro",
 		"sv"
 	],
+	"logs.filters.statusOptions.0": [
+		"af",
+		"sr"
+	],
+	"logs.filters.statusOptions.5xx": [
+		"uk",
+		"zh"
+	],
 	"logs.table.cacheInflated": [
 		"nl",
 		"sv"
 	],
 	"logs.table.hash": [
 		"af",
+		"ca",
 		"cs",
 		"da",
 		"de",
@@ -2763,6 +2941,7 @@
 		"fi",
 		"hu",
 		"it",
+		"nl",
 		"no",
 		"pl",
 		"pt",
@@ -2773,16 +2952,20 @@
 		"vi"
 	],
 	"logs.table.live": [
+		"da",
 		"de",
 		"it",
+		"nl",
 		"ro",
 		"sv"
 	],
 	"logs.table.model": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"ro",
 		"sk",
 		"tr"
@@ -2791,6 +2974,8 @@
 		"da",
 		"de",
 		"it",
+		"nl",
+		"ro",
 		"sv"
 	],
 	"logs.table.provider": [
@@ -2806,6 +2991,7 @@
 	],
 	"logs.table.tokens": [
 		"af",
+		"ca",
 		"da",
 		"es",
 		"nl",
@@ -3205,7 +3391,10 @@
 		"tr"
 	],
 	"models.detail.tokens": [
+		"af",
+		"ca",
 		"da",
+		"es",
 		"nl",
 		"pt",
 		"sv"
@@ -3286,6 +3475,7 @@
 		"no",
 		"pl",
 		"pt",
+		"ro",
 		"ru",
 		"sk",
 		"sr",
@@ -3300,8 +3490,10 @@
 	"models.table.model": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"ro",
 		"sk",
 		"tr"
@@ -5143,6 +5335,8 @@
 		"ca"
 	],
 	"providers.card_tokens": [
+		"af",
+		"ca",
 		"da",
 		"nl",
 		"no",
@@ -5839,10 +6033,17 @@
 		"hu",
 		"ja",
 		"ko",
+		"sr",
 		"zh"
 	],
 	"settings.alerts.status.reachable": [
 		"ar"
+	],
+	"settings.appearance.uiStyles.cleanSaas": [
+		"ar",
+		"nl",
+		"uk",
+		"vi"
 	],
 	"settings.appearance.uiStyles.cyberTerminal": [
 		"da",
@@ -5850,7 +6051,16 @@
 		"it",
 		"nl",
 		"pl",
-		"sv"
+		"sv",
+		"vi"
+	],
+	"settings.appearance.uiStyles.glassmorphism": [
+		"ar",
+		"es",
+		"it",
+		"ro",
+		"uk",
+		"vi"
 	],
 	"settings.backup.creatingBackup": [
 		"no"
@@ -5930,6 +6140,7 @@
 	"settings.circuitBreaker.title": [
 		"da",
 		"fi",
+		"ro",
 		"sv"
 	],
 	"settings.dashboard.intervals.120": [
@@ -6043,6 +6254,12 @@
 	"settings.discovery.title": [
 		"da"
 	],
+	"settings.github.clientId": [
+		"vi"
+	],
+	"settings.github.clientSecret": [
+		"vi"
+	],
 	"settings.logging.retention.168h": [
 		"af",
 		"nl"
@@ -6086,11 +6303,18 @@
 		"vi",
 		"zh"
 	],
+	"settings.oidc.clientId": [
+		"vi"
+	],
+	"settings.oidc.clientSecret": [
+		"vi"
+	],
 	"settings.passkeys.title": [
 		"de",
 		"it"
 	],
 	"settings.passkeys.transportBle": [
+		"af",
 		"ca",
 		"cs",
 		"da",
@@ -6119,6 +6343,7 @@
 	],
 	"settings.passkeys.transportInternal": [
 		"af",
+		"da",
 		"fi",
 		"hu",
 		"nl",
@@ -6156,6 +6381,7 @@
 		"ca",
 		"da",
 		"de",
+		"fr",
 		"hu",
 		"it",
 		"ro"
@@ -6171,6 +6397,7 @@
 	],
 	"settings.proxy.title": [
 		"af",
+		"ca",
 		"da",
 		"de",
 		"es",
@@ -6181,7 +6408,8 @@
 		"pt",
 		"ro",
 		"sk",
-		"sv"
+		"sv",
+		"tr"
 	],
 	"settings.proxy.ttft.2m0s": [
 		"fr"
@@ -6255,6 +6483,7 @@
 		"fr",
 		"he",
 		"hu",
+		"it",
 		"ko",
 		"nl",
 		"pl",
@@ -6401,9 +6630,22 @@
 		"sv"
 	],
 	"virtualKeys.detail.burst": [
+		"cs",
+		"da",
 		"de",
 		"fi",
-		"ja"
+		"it",
+		"ja",
+		"nl",
+		"pl",
+		"sv",
+		"tr",
+		"vi"
+	],
+	"virtualKeys.detail.rps": [
+		"cs",
+		"pt",
+		"ro"
 	],
 	"virtualKeys.global": [
 		"ca",
@@ -6723,15 +6965,29 @@
 		"fr"
 	],
 	"virtualkeys.table.burst": [
+		"cs",
+		"da",
 		"de",
 		"fi",
-		"ja"
+		"it",
+		"ja",
+		"nl",
+		"pl",
+		"sv",
+		"tr",
+		"vi"
 	],
 	"virtualkeys.table.name": [
 		"de"
 	],
+	"virtualkeys.table.rps": [
+		"cs",
+		"pt",
+		"ro"
+	],
 	"virtualkeys.table.tokens": [
 		"af",
+		"ca",
 		"da",
 		"es",
 		"nl",
