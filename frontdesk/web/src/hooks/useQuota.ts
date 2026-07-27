@@ -147,7 +147,17 @@ export function useQuota(collapsed: boolean): UseQuota {
 		setRefreshing(true);
 		let outcome: QuotaRefreshOutcome = "ok";
 		try {
-			await api.refreshQuota();
+			// A 2xx only means the primary accepted and ran the sweep; the body's
+			// counters say whether every provider actually answered. Without this
+			// check a 200 carrying `failed: 1` reported success and the strip
+			// toasted "refreshed" over providers that never responded.
+			//
+			// A partial failure is deliberately surfaced as the plain "failed"
+			// outcome rather than a third, half-success one: the operator's next
+			// action is the same either way (go look at the primary), so a separate
+			// message would buy nothing and cost a new string in every locale.
+			const { failed } = await api.refreshQuota();
+			if (failed > 0) outcome = "failed";
 		} catch {
 			outcome = "failed";
 		}

@@ -282,6 +282,59 @@ describe("useQuota refresh", () => {
 		expect(result.current.snapshots).toHaveLength(1);
 	});
 
+	it("reports failure for a 200 whose counters include a failed provider", async () => {
+		// The POST succeeds at the HTTP level but the primary could not reach one
+		// of the providers. Reporting "ok" here is a false success: the strip would
+		// toast "refreshed" over data that did not refresh.
+		let getCalls = 0;
+		server.use(
+			http.get("/api/quota", () => {
+				getCalls++;
+				return HttpResponse.json({ quota: [snapshot] });
+			}),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({
+					results: [],
+					refreshed: 1,
+					failed: 1,
+					skipped: 0,
+				}),
+			),
+		);
+		const { result } = renderHook(() => useQuota(false));
+		await waitFor(() => expect(result.current.loading).toBe(false));
+		let outcome: string | undefined;
+		await act(async () => {
+			outcome = await result.current.refresh();
+		});
+		expect(outcome).toBe("failed");
+		// Still re-reads, exactly as the transport-failure path does.
+		expect(getCalls).toBe(2);
+	});
+
+	it("still reports success when the counters report no failures", async () => {
+		// The other direction of the same check: `refreshed: 0` with nothing failed
+		// (everything inside its own cooldown, so all skipped) is not a failure.
+		server.use(
+			okQuota(),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({
+					results: [],
+					refreshed: 0,
+					failed: 0,
+					skipped: 3,
+				}),
+			),
+		);
+		const { result } = renderHook(() => useQuota(false));
+		await waitFor(() => expect(result.current.loading).toBe(false));
+		let outcome: string | undefined;
+		await act(async () => {
+			outcome = await result.current.refresh();
+		});
+		expect(outcome).toBe("ok");
+	});
+
 	it("still enforces cooldown after a failed refresh POST", async () => {
 		let posted = 0;
 		server.use(

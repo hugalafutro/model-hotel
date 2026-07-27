@@ -565,6 +565,55 @@ describe("QuotaStrip", () => {
 		);
 	});
 
+	it("shows an error toast, not a success one, when a 200 refresh reports a failed provider", async () => {
+		// HTTP 200, so the request itself worked; the body says one provider did
+		// not answer. Toasting "refreshed" here would tell the operator their data
+		// is current when it is not.
+		server.use(
+			http.get("/api/quota", () => HttpResponse.json({ quota: [nano] })),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({
+					results: [],
+					refreshed: 1,
+					failed: 1,
+					skipped: 0,
+				}),
+			),
+		);
+		renderStrip();
+		await waitFor(() =>
+			expect(screen.getByTestId("quota-refresh")).toBeInTheDocument(),
+		);
+		await userEvent.click(screen.getByTestId("quota-refresh"));
+		await waitFor(() =>
+			expect(document.querySelector(".fd-toast-error")).toBeInTheDocument(),
+		);
+		expect(document.querySelector(".fd-toast-success")).toBeNull();
+	});
+
+	it("shows a success toast when a 200 refresh reports no failures", async () => {
+		server.use(
+			http.get("/api/quota", () => HttpResponse.json({ quota: [nano] })),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({
+					results: [],
+					refreshed: 2,
+					failed: 0,
+					skipped: 0,
+				}),
+			),
+		);
+		renderStrip();
+		await waitFor(() =>
+			expect(screen.getByTestId("quota-refresh")).toBeInTheDocument(),
+		);
+		await userEvent.click(screen.getByTestId("quota-refresh"));
+		await waitFor(() =>
+			expect(document.querySelector(".fd-toast-success")).toBeInTheDocument(),
+		);
+		expect(document.querySelector(".fd-toast-error")).toBeNull();
+	});
+
 	it("shows a cooldown toast instead of a second refresh call made right away", async () => {
 		let posted = 0;
 		server.use(
