@@ -87,6 +87,37 @@ touched() {
 	printf '%s\n' "$CHANGED" | grep -qE "$1"
 }
 
+# has_measurable_change <include-regex> <exclude-regex> - true when a changed file
+# matches include and not exclude AND at least one of its changed lines is
+# something a coverage tool could attribute to executable code.
+#
+# Why this exists: the coverage suites take minutes, and diff_coverage.py measures
+# CHANGED LINES. Both vitest configs instrument only src/**/*.{ts,tsx} (the emitted
+# lcov carries no other extension) and exclude tests, and no coverage format has
+# ever attributed a blank line or a comment. So a diff limited to locale JSON, to
+# tests, or to comments has ZERO measurable changed lines: the suite runs for
+# minutes and then there is nothing to measure. Skipping it is EQUIVALENT, not
+# weaker. PR #559 paid a full main-dashboard coverage run for a six-line comment.
+#
+# Conservative by construction, in three ways: only blank lines and `//` comments
+# are discounted (NOT `/*` or a leading `*`, since a wrapped expression can begin
+# a line with `*`); anything unrecognised counts as code; and if the diff cannot be
+# computed at all we return true so the suite still runs. CI enforces coverage
+# against the real ref regardless.
+has_measurable_change() {
+	local files
+	files="$(printf '%s\n' "$CHANGED_FILES" | grep -E "$1" | grep -vE "$2" || true)"
+	[ -z "$files" ] && return 1
+	[ -z "$SYNC_BASE" ] && return 0
+	local diff
+	diff="$(printf '%s\n' "$files" | xargs -d '\n' -r git diff -U0 "$SYNC_BASE...HEAD" -- 2>/dev/null)" || return 0
+	printf '%s\n' "$diff" |
+		grep -E '^[+-]' |
+		grep -vE '^(\+\+\+|---)' |
+		sed -E 's/^[+-][[:space:]]*//' |
+		grep -qvE '^$|^//'
+}
+
 if [ -n "$SYNC_BASE" ]; then
 	if printf '%s\n' "$CHANGED" | grep -qx "README.md" &&
 		! printf '%s\n' "$CHANGED" | grep -qx "DOCKERHUB.md"; then
@@ -190,7 +221,7 @@ else
 	DC_ARGS=()
 
 	# Go: any non-test .go under internal/ (cmd/ and tools/ are excluded from coverage).
-	if printf '%s\n' "$CHANGED_FILES" | grep -E '^internal/.*\.go$' | grep -qvE '_test\.go$'; then
+	if has_measurable_change '^internal/.*\.go$' '_test\.go$'; then
 		if (exec 3<>/dev/tcp/localhost/5433) 2>/dev/null; then
 			echo "pre-push: coverage - go test ./internal/... (Postgres :5433 up)"
 			if go test -timeout 5m -coverprofile="$COV_DIR/go.out" -covermode=atomic ./internal/...; then
@@ -205,7 +236,7 @@ else
 	fi
 
 	# web dashboard frontend.
-	if printf '%s\n' "$CHANGED_FILES" | grep -qE '^web/src/'; then
+	if has_measurable_change '^web/src/.*\.tsx?$' '\.test\.tsx?$|/__tests__/|^web/src/test/'; then
 		echo "pre-push: coverage - web vitest"
 		if (cd "$REPO_ROOT/web" && env -u NODE_ENV pnpm exec vitest run --coverage --coverage.reporter=lcov); then
 			DC_ARGS+=(--lcov "web/=$REPO_ROOT/web/coverage/lcov.info")
@@ -216,7 +247,7 @@ else
 	fi
 
 	# Front Desk frontend.
-	if printf '%s\n' "$CHANGED_FILES" | grep -qE '^frontdesk/web/src/'; then
+	if has_measurable_change '^frontdesk/web/src/.*\.tsx?$' '\.test\.tsx?$|/__tests__/|^frontdesk/web/src/test/'; then
 		echo "pre-push: coverage - frontdesk/web vitest"
 		if (cd "$REPO_ROOT/frontdesk/web" && env -u NODE_ENV pnpm exec vitest run --coverage --coverage.reporter=lcov); then
 			DC_ARGS+=(--lcov "frontdesk/web/=$REPO_ROOT/frontdesk/web/coverage/lcov.info")
