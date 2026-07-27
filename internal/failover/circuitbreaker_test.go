@@ -290,6 +290,10 @@ func (s *stubSettings) GetDuration(_ context.Context, key string, def time.Durat
 	return def
 }
 
+func (s *stubSettings) GetBool(_ context.Context, _ string, def bool) bool {
+	return def
+}
+
 func TestCircuitBreaker_SettingsOverrideThreshold(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 2, cooldown: 10 * time.Second})
 	cb.HalfOpenMaxProbes = 1
@@ -799,6 +803,175 @@ func TestGetState_HalfOpenTransitionsToOpenOnFailure(t *testing.T) {
 
 	if s := cb.GetState(pid); s != StateOpen {
 		t.Errorf("expected StateOpen after failed probe in half-open, got %v", s)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Quota pin tests
+// ---------------------------------------------------------------------------
+
+type stubAdvisor struct {
+	at time.Time
+	ok bool
+}
+
+func (s stubAdvisor) ResetsAt(uuid.UUID) (time.Time, bool) { return s.at, s.ok }
+
+// openBreaker drives a fresh breaker to the Open state using real failures.
+func openBreaker(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
+	t.Helper()
+	for i := 0; i < cb.Threshold; i++ {
+		cb.RecordFailure(id, "test-provider")
+	}
+	if got := cb.GetState(id); got != StateOpen {
+		t.Fatalf("setup: got state %v, want open", got)
+	}
+}
+
+func TestQuotaPin_ExtendsCooldownToResetDeadline(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	id := uuid.New()
+	reset := time.Now().Add(6 * time.Hour)
+	cb.SetQuotaAdvisor(stubAdvisor{at: reset, ok: true})
+
+	openBreaker(t, cb, id)
+
+	statuses := cb.Status()
+	if len(statuses) != 1 {
+		t.Fatalf("got %d statuses, want 1", len(statuses))
+	}
+	s := statuses[0]
+	if !s.QuotaPinned {
+		t.Error("open circuit with quota advice must report quota_pinned")
+	}
+	// Roughly 6h, plus positive-only jitter capped at 5%. The lower bound has a
+	// second of slack because the pin is computed from time.Until(reset), which
+	// elapses slightly between the advisor call and this assertion.
+	minMs := (6*time.Hour - time.Second).Milliseconds()
+	maxMs := (6 * time.Hour).Milliseconds() * 21 / 20
+	if s.CooldownMs < minMs || s.CooldownMs > maxMs {
+		t.Errorf("got CooldownMs=%d, want within [%d,%d]", s.CooldownMs, minMs, maxMs)
+	}
+	// The circuit must still be closed to traffic until the pinned deadline.
+	if !cb.IsOpen(id, "test-provider") {
+		t.Error("pinned circuit must remain open")
+	}
+}
+
+func TestQuotaPin_FloorNeverShortensCooldown(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	id := uuid.New()
+	// Reset is sooner than the default 60s cooldown: the pin must be ignored.
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(5 * time.Second), ok: true})
+
+	openBreaker(t, cb, id)
+
+	s := cb.Status()[0]
+	if s.QuotaPinned {
+		t.Error("a reset sooner than the normal cooldown must not pin")
+	}
+	if s.CooldownMs != cb.Cooldown.Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want default %d", s.CooldownMs, cb.Cooldown.Milliseconds())
+	}
+}
+
+func TestQuotaPin_CeilingCapsRunawayDeadline(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(500 * 24 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	s := cb.Status()[0]
+	ceiling := (24 * time.Hour).Milliseconds()
+	if s.CooldownMs > ceiling+ceiling/20 {
+		t.Errorf("got CooldownMs=%d, want capped near %d", s.CooldownMs, ceiling)
+	}
+}
+
+func TestQuotaPin_AbsentOrDecliningAdvisorUsesDefault(t *testing.T) {
+	cases := []struct {
+		name    string
+		advisor QuotaAdvisor
+	}{
+		{"nil advisor", nil},
+		{"advisor declines", stubAdvisor{ok: false}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cb := NewCircuitBreaker(nil)
+			id := uuid.New()
+			if tc.advisor != nil {
+				cb.SetQuotaAdvisor(tc.advisor)
+			}
+
+			openBreaker(t, cb, id)
+
+			s := cb.Status()[0]
+			if s.QuotaPinned {
+				t.Error("must not report pinned without usable advice")
+			}
+			if s.CooldownMs != cb.Cooldown.Milliseconds() {
+				t.Errorf("got CooldownMs=%d, want default %d", s.CooldownMs, cb.Cooldown.Milliseconds())
+			}
+		})
+	}
+}
+
+func TestQuotaPin_ClearedWhenCircuitCloses(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	// A 1ms base cooldown lets a 50ms pin clear the floor while still being
+	// short enough to wait out in a test.
+	cb.Cooldown = time.Millisecond
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(50 * time.Millisecond), ok: true})
+
+	openBreaker(t, cb, id)
+	if !cb.Status()[0].QuotaPinned {
+		t.Fatal("setup: circuit should be pinned")
+	}
+
+	// Wait out the pin, take the probe, and succeed: the circuit closes.
+	time.Sleep(80 * time.Millisecond)
+	if cb.IsOpen(id, "test-provider") {
+		t.Fatal("setup: pinned cooldown elapsed, probe should be allowed")
+	}
+	cb.RecordSuccess(id, "test-provider")
+	if got := cb.GetState(id); got != StateClosed {
+		t.Fatalf("setup: got state %v, want closed", got)
+	}
+
+	// Reopen with no advice: the stale override must not survive the close.
+	cb.SetQuotaAdvisor(stubAdvisor{ok: false})
+	openBreaker(t, cb, id)
+
+	s := cb.Status()[0]
+	if s.QuotaPinned {
+		t.Error("a reopened circuit must re-evaluate the pin, not inherit the old one")
+	}
+	if s.CooldownMs != cb.Cooldown.Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want default %d", s.CooldownMs, cb.Cooldown.Milliseconds())
+	}
+}
+
+func TestQuotaPin_RepinsAfterFailedProbe(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	cb.Cooldown = time.Millisecond
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{ok: false})
+
+	openBreaker(t, cb, id)
+	time.Sleep(5 * time.Millisecond)
+	if cb.IsOpen(id, "test-provider") {
+		t.Fatal("setup: cooldown elapsed, circuit should allow a probe")
+	}
+
+	// Probe fails and quota now reports a long window: half-open to open re-pins.
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(4 * time.Hour), ok: true})
+	cb.RecordFailure(id, "test-provider")
+
+	if !cb.Status()[0].QuotaPinned {
+		t.Error("half-open to open must apply the pin")
 	}
 }
 

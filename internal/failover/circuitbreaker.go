@@ -3,6 +3,7 @@ package failover
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
 	"sync"
 	"time"
 
@@ -45,6 +46,10 @@ type circuit struct {
 	consecutiveFails int
 	openedAt         time.Time // when the circuit last transitioned to Open
 	halfOpenProbes   int       // successful probes in half-open state
+	// cooldownOverride replaces the global cooldown for this circuit only. Set
+	// when the circuit opens against a provider whose quota window is spent;
+	// zero means "use the configured cooldown".
+	cooldownOverride time.Duration
 }
 
 // ProviderStatus represents the health status of a single provider for
@@ -57,6 +62,7 @@ type ProviderStatus struct {
 	OpenedAt         string `json:"opened_at,omitempty"`
 	CooldownMs       int64  `json:"cooldown_ms,omitempty"`
 	NextRetryAt      string `json:"next_retry_at,omitempty"`
+	QuotaPinned      bool   `json:"quota_pinned,omitempty"`
 }
 
 // SettingsReader provides dynamic configuration for the circuit breaker.
@@ -65,6 +71,14 @@ type ProviderStatus struct {
 type SettingsReader interface {
 	GetInt(ctx context.Context, key string, defaultValue int) int
 	GetDuration(ctx context.Context, key string, defaultValue time.Duration) time.Duration
+	GetBool(ctx context.Context, key string, defaultValue bool) bool
+}
+
+// QuotaAdvisor supplies the reset deadline for a provider whose quota window is
+// spent. Implementations must be non-blocking: this is consulted while the
+// breaker holds its write lock on the request path.
+type QuotaAdvisor interface {
+	ResetsAt(providerID uuid.UUID) (time.Time, bool)
 }
 
 // CircuitBreaker tracks per-provider health and prevents requests to
@@ -75,6 +89,10 @@ type CircuitBreaker struct {
 
 	// settings provides runtime-configurable threshold and cooldown.
 	settings SettingsReader
+
+	// quota supplies per-provider quota reset deadlines, used to pin the
+	// cooldown of an already-open circuit. Nil disables quota pinning.
+	quota QuotaAdvisor
 
 	// Threshold is the number of consecutive failures before opening.
 	Threshold int
@@ -104,6 +122,14 @@ func NewCircuitBreaker(settings SettingsReader) *CircuitBreaker {
 		Cooldown:          60 * time.Second,
 		HalfOpenMaxProbes: 1,
 	}
+}
+
+// SetQuotaAdvisor installs the quota advisor. Call during startup wiring,
+// before the breaker serves traffic. A nil advisor disables quota pinning.
+func (cb *CircuitBreaker) SetQuotaAdvisor(a QuotaAdvisor) {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	cb.quota = a
 }
 
 func (cb *CircuitBreaker) getOrCreate(providerID string) *circuit {
@@ -151,7 +177,7 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName string) bool
 	case StateClosed:
 		return false
 	case StateOpen:
-		if time.Since(c.openedAt) >= cb.effectiveCooldown() {
+		if time.Since(c.openedAt) >= cb.effectiveCooldownFor(c) {
 			c.state = StateHalfOpen
 			c.halfOpenProbes = 0
 			debuglog.Info("circuit-breaker: provider state=open→half-open (cooldown elapsed)", "provider", providerName, "provider_id", providerID)
@@ -182,6 +208,7 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName strin
 		if c.consecutiveFails >= cb.effectiveThreshold() {
 			c.state = StateOpen
 			c.openedAt = time.Now()
+			cb.applyQuotaPin(providerID, c)
 			debuglog.Warn("circuit-breaker: provider state=closed→open", "provider", providerName, "provider_id", providerID, "consecutive_failures", c.consecutiveFails)
 			cb.publishEvent(providerID, providerName, "open", c)
 		}
@@ -189,6 +216,7 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName strin
 		c.state = StateOpen
 		c.openedAt = time.Now()
 		c.consecutiveFails = cb.effectiveThreshold()
+		cb.applyQuotaPin(providerID, c)
 		debuglog.Warn("circuit-breaker: provider state=half-open→open (probe failed)", "provider", providerName, "provider_id", providerID)
 		cb.publishEvent(providerID, providerName, "open", c)
 	case StateOpen:
@@ -215,6 +243,7 @@ func (cb *CircuitBreaker) RecordSuccess(providerID uuid.UUID, providerName strin
 			c.state = StateClosed
 			c.consecutiveFails = 0
 			c.halfOpenProbes = 0
+			c.cooldownOverride = 0
 			debuglog.Info("circuit-breaker: provider state=half-open→closed (probe succeeded)", "provider", providerName, "provider_id", providerID)
 			cb.publishEvent(providerID, providerName, "closed", c)
 		}
@@ -271,14 +300,69 @@ func (cb *CircuitBreaker) effectiveCooldown() time.Duration {
 	return cb.Cooldown
 }
 
+// effectiveCooldownFor returns the cooldown governing a specific circuit: its
+// quota pin when set, otherwise the configured global value.
+func (cb *CircuitBreaker) effectiveCooldownFor(c *circuit) time.Duration {
+	if c != nil && c.cooldownOverride > 0 {
+		return c.cooldownOverride
+	}
+	return cb.effectiveCooldown()
+}
+
+func (cb *CircuitBreaker) quotaPinEnabled() bool {
+	if cb.settings == nil {
+		return true
+	}
+	return cb.settings.GetBool(context.Background(), "circuit_breaker_quota_pin_enabled", true)
+}
+
+func (cb *CircuitBreaker) quotaPinMax() time.Duration {
+	if cb.settings != nil {
+		if v := cb.settings.GetDuration(context.Background(), "circuit_breaker_quota_pin_max", 0); v > 0 {
+			return v
+		}
+	}
+	return 24 * time.Hour
+}
+
+// applyQuotaPin sets c.cooldownOverride when the provider's quota window is
+// spent and resets further out than the normal cooldown. Must be called with
+// cb.mu held, immediately after c transitions to Open.
+//
+// Clamp order is floor, then ceiling, then jitter. Jitter is positive only:
+// a negative offset would probe before the window actually resets, which is a
+// guaranteed 429 and precisely the waste this exists to avoid.
+func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit) {
+	c.cooldownOverride = 0
+	if cb.quota == nil || !cb.quotaPinEnabled() {
+		return
+	}
+	resetsAt, ok := cb.quota.ResetsAt(providerID)
+	if !ok {
+		return
+	}
+	d := time.Until(resetsAt)
+	base := cb.effectiveCooldown()
+	if d <= base {
+		return // floor: pinning must never make the breaker more aggressive
+	}
+	if maxPin := cb.quotaPinMax(); d > maxPin {
+		d = maxPin
+	}
+	if spread := int64(d / 20); spread > 0 {
+		d += time.Duration(rand.Int64N(spread + 1))
+	}
+	c.cooldownOverride = d
+}
+
 // Status returns the current status of all tracked providers.
 func (cb *CircuitBreaker) Status() []ProviderStatus {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
 
-	cooldown := cb.effectiveCooldown()
 	statuses := make([]ProviderStatus, 0, len(cb.circuits))
 	for id, c := range cb.circuits {
+		cooldown := cb.effectiveCooldownFor(c)
 		// Apply the same logical cooldown transition as GetState: an open
 		// circuit whose cooldown has elapsed is "ready to probe" and is
 		// reported as half-open, even though the internal state only flips to
@@ -293,6 +377,7 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 			ProviderID:       id,
 			State:            state.String(),
 			ConsecutiveFails: c.consecutiveFails,
+			QuotaPinned:      c.cooldownOverride > 0,
 		}
 		if state == StateOpen && !c.openedAt.IsZero() {
 			s.OpenedAt = c.openedAt.Format(time.RFC3339)
@@ -320,7 +405,7 @@ func (cb *CircuitBreaker) GetState(providerID uuid.UUID) State {
 	}
 
 	// Check if an open circuit should transition to half-open
-	if c.state == StateOpen && time.Since(c.openedAt) >= cb.effectiveCooldown() {
+	if c.state == StateOpen && time.Since(c.openedAt) >= cb.effectiveCooldownFor(c) {
 		return StateHalfOpen // logical state, don't mutate
 	}
 	return c.state
