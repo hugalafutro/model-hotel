@@ -274,6 +274,10 @@ func TestCircuitBreaker_FailureCountAccuracy(t *testing.T) {
 type stubSettings struct {
 	threshold int
 	cooldown  time.Duration
+	// pinEnabled overrides circuit_breaker_quota_pin_enabled when non-nil.
+	pinEnabled *bool
+	// pinMax overrides circuit_breaker_quota_pin_max when positive.
+	pinMax time.Duration
 }
 
 func (s *stubSettings) GetInt(_ context.Context, key string, def int) int {
@@ -287,10 +291,16 @@ func (s *stubSettings) GetDuration(_ context.Context, key string, def time.Durat
 	if key == "circuit_breaker_cooldown" && s.cooldown > 0 {
 		return s.cooldown
 	}
+	if key == "circuit_breaker_quota_pin_max" && s.pinMax > 0 {
+		return s.pinMax
+	}
 	return def
 }
 
-func (s *stubSettings) GetBool(_ context.Context, _ string, def bool) bool {
+func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
+	if key == "circuit_breaker_quota_pin_enabled" && s.pinEnabled != nil {
+		return *s.pinEnabled
+	}
 	return def
 }
 
@@ -820,7 +830,7 @@ func (s stubAdvisor) ResetsAt(uuid.UUID) (time.Time, bool) { return s.at, s.ok }
 // openBreaker drives a fresh breaker to the Open state using real failures.
 func openBreaker(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
 	t.Helper()
-	for i := 0; i < cb.Threshold; i++ {
+	for i := 0; i < cb.effectiveThreshold(); i++ {
 		cb.RecordFailure(id, "test-provider")
 	}
 	if got := cb.GetState(id); got != StateOpen {
@@ -858,6 +868,37 @@ func TestQuotaPin_ExtendsCooldownToResetDeadline(t *testing.T) {
 	}
 }
 
+// TestQuotaPin_JitterVariesAcrossProviders verifies the anti-stampede property
+// that motivates jitter in the first place: providers sharing one quota
+// deadline (as every node in an HA fleet would, since the deadline is
+// fleet-distributed) must not all probe at the same instant. A range check on
+// a single circuit's CooldownMs (as the other tests here do) can't distinguish
+// a jittering implementation from one that never jitters at all — deleting
+// the jitter lines would still satisfy those bounds. This test instead opens
+// many circuits against the identical deadline and requires at least two
+// distinct CooldownMs values: jitter spans up to 18 minutes (5% of 6h) at
+// millisecond granularity, so a non-jittering implementation collapses every
+// provider onto the same value while a jittering one collides with
+// negligible probability across this many samples.
+func TestQuotaPin_JitterVariesAcrossProviders(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	reset := time.Now().Add(6 * time.Hour)
+	cb.SetQuotaAdvisor(stubAdvisor{at: reset, ok: true})
+
+	const providerCount = 16
+	for range providerCount {
+		openBreaker(t, cb, uuid.New())
+	}
+
+	seen := make(map[int64]bool)
+	for _, s := range cb.Status() {
+		seen[s.CooldownMs] = true
+	}
+	if len(seen) <= 1 {
+		t.Errorf("got %d distinct CooldownMs value(s) across %d providers sharing one deadline, want more than 1 (jitter should desync them)", len(seen), providerCount)
+	}
+}
+
 func TestQuotaPin_FloorNeverShortensCooldown(t *testing.T) {
 	cb := NewCircuitBreaker(nil)
 	id := uuid.New()
@@ -886,6 +927,33 @@ func TestQuotaPin_CeilingCapsRunawayDeadline(t *testing.T) {
 	ceiling := (24 * time.Hour).Milliseconds()
 	if s.CooldownMs > ceiling+ceiling/20 {
 		t.Errorf("got CooldownMs=%d, want capped near %d", s.CooldownMs, ceiling)
+	}
+}
+
+// TestQuotaPin_SettingsMaxCapsCooldown verifies that a settings-supplied
+// circuit_breaker_quota_pin_max is actually read and applied, not just the
+// hardcoded 24h fallback. A 1h configured max against a 6h deadline caps near
+// 1h; if the settings value were ignored (falling back to the 24h default),
+// the 6h deadline would need no capping at all and the result would land near
+// 6h instead.
+func TestQuotaPin_SettingsMaxCapsCooldown(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Second, pinMax: time.Hour})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	s := cb.Status()[0]
+	if !s.QuotaPinned {
+		t.Fatal("setup: expected the pin to apply (6h deadline exceeds the 1s configured cooldown)")
+	}
+	ceiling := time.Hour.Milliseconds()
+	if s.CooldownMs > ceiling+ceiling/20 {
+		t.Errorf("got CooldownMs=%d, want capped near the settings max %d", s.CooldownMs, ceiling)
+	}
+	sixHourMs := (6 * time.Hour).Milliseconds()
+	if s.CooldownMs >= sixHourMs/2 {
+		t.Errorf("got CooldownMs=%d close to the uncapped 6h deadline (%d) — settings pin max was not applied", s.CooldownMs, sixHourMs)
 	}
 }
 
@@ -918,10 +986,33 @@ func TestQuotaPin_AbsentOrDecliningAdvisorUsesDefault(t *testing.T) {
 	}
 }
 
+// TestQuotaPin_DisabledBySettingUsesDefault verifies the operator's kill
+// switch: circuit_breaker_quota_pin_enabled=false must suppress pinning even
+// when the advisor offers perfectly usable, floor-clearing advice.
+func TestQuotaPin_DisabledBySettingUsesDefault(t *testing.T) {
+	disabled := false
+	settings := &stubSettings{threshold: 1, cooldown: 50 * time.Millisecond, pinEnabled: &disabled}
+	cb := NewCircuitBreaker(settings)
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	s := cb.Status()[0]
+	if s.QuotaPinned {
+		t.Error("circuit_breaker_quota_pin_enabled=false must disable pinning even with usable advice")
+	}
+	if s.CooldownMs != cb.effectiveCooldown().Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want configured cooldown %d", s.CooldownMs, cb.effectiveCooldown().Milliseconds())
+	}
+}
+
 func TestQuotaPin_ClearedWhenCircuitCloses(t *testing.T) {
 	cb := NewCircuitBreaker(nil)
 	// A 1ms base cooldown lets a 50ms pin clear the floor while still being
-	// short enough to wait out in a test.
+	// short enough to wait out in a test. The pin overrides the cooldown the
+	// instant RecordFailure opens the circuit, so openBreaker's own state
+	// check races against the override (50ms), not this 1ms base — safe.
 	cb.Cooldown = time.Millisecond
 	id := uuid.New()
 	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(50 * time.Millisecond), ok: true})
@@ -942,6 +1033,13 @@ func TestQuotaPin_ClearedWhenCircuitCloses(t *testing.T) {
 	}
 
 	// Reopen with no advice: the stale override must not survive the close.
+	// This reopen is unpinned, so effectiveCooldownFor falls back to
+	// cb.Cooldown live at read time — restore a long value first so
+	// openBreaker's state check isn't racing the leftover 1ms cooldown from
+	// the pinned phase above (a real flake: on a slow CI runner a fresh Open
+	// circuit could already read back as logically half-open before the
+	// assertions below run).
+	cb.Cooldown = time.Minute
 	cb.SetQuotaAdvisor(stubAdvisor{ok: false})
 	openBreaker(t, cb, id)
 
@@ -956,11 +1054,17 @@ func TestQuotaPin_ClearedWhenCircuitCloses(t *testing.T) {
 
 func TestQuotaPin_RepinsAfterFailedProbe(t *testing.T) {
 	cb := NewCircuitBreaker(nil)
-	cb.Cooldown = time.Millisecond
+	// Open unpinned with a long cooldown first, so openBreaker's own state
+	// check isn't racing a tiny cooldown (a real flake on a slow CI runner:
+	// the circuit could already read back as logically half-open before the
+	// check runs). Only shrink the cooldown afterwards, for the deliberate
+	// wait-out below.
+	cb.Cooldown = time.Minute
 	id := uuid.New()
 	cb.SetQuotaAdvisor(stubAdvisor{ok: false})
 
 	openBreaker(t, cb, id)
+	cb.Cooldown = time.Millisecond
 	time.Sleep(5 * time.Millisecond)
 	if cb.IsOpen(id, "test-provider") {
 		t.Fatal("setup: cooldown elapsed, circuit should allow a probe")

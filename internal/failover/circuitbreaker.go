@@ -76,7 +76,9 @@ type SettingsReader interface {
 
 // QuotaAdvisor supplies the reset deadline for a provider whose quota window is
 // spent. Implementations must be non-blocking: this is consulted while the
-// breaker holds its write lock on the request path.
+// breaker holds its write lock on the request path. Implementations must not
+// call back into the CircuitBreaker (e.g. GetState, Status) — cb.mu is held
+// exclusively across the call and any such re-entry self-deadlocks.
 type QuotaAdvisor interface {
 	ResetsAt(providerID uuid.UUID) (time.Time, bool)
 }
@@ -331,7 +333,12 @@ func (cb *CircuitBreaker) quotaPinMax() time.Duration {
 //
 // Clamp order is floor, then ceiling, then jitter. Jitter is positive only:
 // a negative offset would probe before the window actually resets, which is a
-// guaranteed 429 and precisely the waste this exists to avoid.
+// guaranteed 429 and precisely the waste this exists to avoid. The ceiling is
+// applied before jitter, so quotaPinMax() is a pre-jitter cap, not a hard one —
+// e.g. the default 24h ceiling can yield up to ~25.2h once jitter is added.
+// This order must not be reversed: jittering before capping would let two
+// providers pinned at the ceiling collide on the same retry instant, which is
+// exactly the fleet stampede jitter exists to prevent.
 func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit) {
 	c.cooldownOverride = 0
 	if cb.quota == nil || !cb.quotaPinEnabled() {
