@@ -493,7 +493,11 @@ h3 {
 	max-width: 520px;
 	padding: 1.25rem 1.35rem;
 }
-.fd-modal h2 {
+/* :where() zeroes the .fd-modal part of the selector, so this base rule scores
+   as a bare `h2` (0,0,1) and `.fd-modal-heading h2` below beats it on
+   specificity rather than on source order. Same declarations as before, so
+   nothing moves for the dialogs that do not override it. */
+:where(.fd-modal) h2 {
 	font-size: 1.05rem;
 	margin-bottom: 0.6rem;
 }
@@ -629,4 +633,342 @@ h3 {
 			opacity: 1;
 		}
 	}
+}
+
+/* ── Quota badges ─────────────────────────────────────────────────────── */
+/* Every pill shares one rule; for a healthy pill the per-provider accent
+   arrives as the inline --quota-brand custom property, so adding a provider
+   needs no new CSS. A degraded pill intentionally omits that inline property
+   so the .fd-quota-pill-degraded rule below can set --quota-brand itself and
+   grey the pill out. */
+
+.fd-quota-pill {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.3rem;
+	padding: 0.15rem 0.5rem;
+	border-radius: var(--radius-sm);
+	border: 1px solid color-mix(in srgb, var(--quota-brand) 45%, transparent);
+	background: color-mix(in srgb, var(--quota-brand) 16%, transparent);
+	color: color-mix(in srgb, var(--quota-brand) 80%, var(--text));
+	font-family: var(--font-sans);
+	font-size: 0.72rem;
+	line-height: 1.5;
+	cursor: pointer;
+	transition:
+		background 0.15s ease,
+		border-color 0.15s ease;
+}
+
+.fd-quota-pill:hover {
+	background: color-mix(in srgb, var(--quota-brand) 26%, transparent);
+	border-color: color-mix(in srgb, var(--quota-brand) 65%, transparent);
+}
+
+.fd-quota-pill:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.fd-quota-pill-prefix {
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	opacity: 0.8;
+}
+
+.fd-quota-pill-name {
+	max-width: 9rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	opacity: 0.75;
+}
+
+.fd-quota-pill-value {
+	font-family: var(--font-mono);
+	font-size: 0.7rem;
+}
+
+/* A snapshot whose last upstream fetch failed: no brand colour, because there
+   is no reading to colour. */
+.fd-quota-pill-degraded {
+	--quota-brand: var(--text-faint);
+	font-style: italic;
+}
+
+/* ── Quota modals ─────────────────────────────────────────────────────── */
+
+.fd-modal-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+/* min-width: 0 lets a long title wrap inside the flex row instead of forcing
+   the row wider and squeezing headerActions. margin-bottom carries the gap
+   that used to live on `.fd-modal h2` (0.6rem): the h2's own bottom margin is
+   zeroed below so the gap is not doubled when a subtitle sits between them. */
+.fd-modal-heading {
+	min-width: 0;
+	margin-bottom: 0.6rem;
+}
+
+.fd-modal-heading h2 {
+	margin-bottom: 0;
+}
+
+.fd-modal-subtitle {
+	margin: 0.15rem 0 0;
+	color: var(--text-muted);
+	font-size: 0.8rem;
+}
+
+.fd-modal-head-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	flex-shrink: 0;
+}
+
+.fd-quota-modal-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.3rem;
+	border: 1px solid transparent;
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.fd-quota-modal-btn:hover:not(:disabled) {
+	background: var(--surface-2);
+	color: var(--text);
+}
+
+.fd-quota-modal-btn:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.fd-quota-modal-btn:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+.fd-quota-modal-body {
+	display: flex;
+	flex-direction: column;
+	gap: 1.25rem;
+}
+
+.fd-quota-modal-stamp {
+	margin: 0;
+	padding-top: 0.5rem;
+	border-top: 1px solid var(--border);
+	color: var(--text-faint);
+	font-size: 0.72rem;
+}
+
+.fd-quota-bar-block {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.fd-quota-bar-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+.fd-quota-bar-label {
+	color: var(--text);
+	font-size: 0.82rem;
+	font-weight: 500;
+}
+
+.fd-quota-bar-right {
+	color: var(--text-muted);
+	font-size: 0.8rem;
+	font-family: var(--font-mono);
+}
+
+.fd-quota-bar-track {
+	width: 100%;
+	height: 0.6rem;
+	border-radius: 999px;
+	background: var(--surface-2);
+	overflow: hidden;
+}
+
+.fd-quota-bar-fill {
+	height: 100%;
+	border-radius: 999px;
+	transition: width 0.25s ease;
+}
+
+.fd-quota-fill-ok {
+	background: var(--ok);
+}
+.fd-quota-fill-warn {
+	background: var(--warn);
+}
+.fd-quota-fill-high {
+	background: var(--accent-strong);
+}
+.fd-quota-fill-danger {
+	background: var(--danger);
+}
+
+.fd-quota-bar-sub {
+	margin: 0;
+	color: var(--text-faint);
+	font-size: 0.72rem;
+	white-space: pre-line;
+}
+
+.fd-quota-detail-grid {
+	display: grid;
+	gap: 0.5rem;
+}
+.fd-quota-detail-grid-2 {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.fd-quota-detail-grid-3 {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fd-quota-detail-item {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	padding: 0.5rem 0.6rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	background: var(--surface-2);
+	min-width: 0;
+}
+
+.fd-quota-detail-span {
+	grid-column: 1 / -1;
+}
+
+.fd-quota-detail-label {
+	color: var(--text-faint);
+	font-size: 0.68rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.fd-quota-detail-value {
+	color: var(--text);
+	font-size: 0.82rem;
+	overflow-wrap: anywhere;
+}
+
+.fd-quota-rows {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	padding: 0.5rem 0.6rem;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-sm);
+	background: var(--surface-2);
+}
+
+.fd-quota-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	color: var(--text-muted);
+	font-size: 0.74rem;
+}
+
+.fd-quota-class {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.fd-quota-class-label {
+	margin: 0;
+	color: var(--text);
+	font-size: 0.85rem;
+	font-weight: 600;
+}
+
+/* fd-spin keyframes already declared above (powers .fd-spinner); reused here
+   for the refresh-icon spin instead of redeclaring the same @keyframes. */
+.fd-spin {
+	animation: fd-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fd-spin {
+		animation: none;
+	}
+	.fd-quota-bar-fill {
+		transition: none;
+	}
+}
+
+.fd-quota-notice {
+	margin: 0;
+	padding: 0.5rem 0.6rem;
+	border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+	border-radius: var(--radius-sm);
+	background: color-mix(in srgb, var(--warn) 12%, transparent);
+	color: var(--text);
+	font-size: 0.78rem;
+}
+
+/* ── Quota strip ──────────────────────────────────────────────────────── */
+
+.fd-quota-strip {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	/* Horizontal padding matches .fd-header's (1.25rem) so the badges align
+	   with the logo and tabs above; vertical padding is unchanged from the
+	   brief. Deviation from the brief's verbatim CSS block, per review M-5. */
+	padding: 0.5rem 1.25rem 0.6rem;
+	border-bottom: 1px solid var(--border);
+	background: var(--bg-elevated);
+}
+
+.fd-quota-strip-head {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+}
+
+.fd-quota-strip-label {
+	color: var(--text-faint);
+	font-size: 0.68rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+
+.fd-quota-stale {
+	color: var(--warn);
+	font-size: 0.7rem;
+}
+
+.fd-quota-strip-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.15rem;
+	margin-left: auto;
+}
+
+.fd-quota-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
 }

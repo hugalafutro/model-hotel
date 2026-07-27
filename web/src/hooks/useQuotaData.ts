@@ -88,6 +88,12 @@ function findProviderId(
 		?.id;
 }
 
+// NOTE: the limit helpers below, and the badge-visibility booleans further down,
+// are duplicated in Front Desk at frontdesk/web/src/utils/quota.ts. The two
+// frontends are separate pnpm projects with no shared package, so the copy is
+// deliberate -- but it means both dashboards only show the same numbers for the
+// same fleet as long as they stay in step. Change one, change the other.
+
 // ── Z.ai Coding limit helpers ───────────────────────────────────────────
 
 export function getZaiCodingFiveHourLimit(

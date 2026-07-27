@@ -296,3 +296,226 @@ export interface TotpEnrollVerify {
 	// the server could not mint one, in which case the user must re-login.
 	token?: string;
 }
+
+// ── Quota ────────────────────────────────────────────────────────────────
+// Payload shapes mirror the upstream provider APIs, ported from the Model Hotel
+// dashboard (web/src/api/types.ts). Front Desk receives them verbatim inside a
+// QuotaSnapshot.payload, so the field names are the providers', not ours.
+
+/** The provider families that expose a quota or balance endpoint. */
+export type QuotaProviderType =
+	| "nanogpt"
+	| "zai-coding"
+	| "kimi-code"
+	| "minimax"
+	| "deepseek"
+	| "openrouter"
+	| "ollama-cloud"
+	| "neuralwatt";
+
+/**
+ * One provider's quota snapshot as proxied from the fleet primary.
+ *
+ * `type` is deliberately `string`, not `QuotaProviderType`: the member stamps it
+ * from its own provider-type detection, so a Front Desk newer than its primary
+ * (or a primary carrying a type this build predates) can legitimately send a
+ * value we do not know. Unknown types are filtered out in utils/quota.ts.
+ *
+ * `payload` arrives as nested JSON (the Go side carries it as json.RawMessage),
+ * so it is an object here, never a string.
+ */
+export interface QuotaSnapshot {
+	provider_name: string;
+	type: string;
+	kind: string;
+	payload: unknown;
+	http_status: number;
+	fetched_at: string;
+}
+
+/** Counters returned by a forced upstream re-poll on the primary. */
+export interface QuotaRefreshResult {
+	results: unknown[];
+	refreshed: number;
+	failed: number;
+	skipped: number;
+}
+
+export interface NanoGPTUsageLimits {
+	weeklyInputTokens: number | null;
+	dailyInputTokens: number | null;
+	dailyImages: number | null;
+}
+
+export interface NanoGPTUsageTokenInfo {
+	used: number;
+	remaining: number;
+	percentUsed: number;
+	resetAt: number;
+}
+
+export interface NanoGPTUsageDailyImages {
+	used: number;
+	remaining: number;
+	percentUsed: number;
+	resetAt: number;
+}
+
+export interface NanoGPTUsage {
+	active: boolean;
+	provider: string;
+	providerStatus: string;
+	cancelAtPeriodEnd: boolean;
+	limits: NanoGPTUsageLimits;
+	allowOverage: boolean;
+	period: { currentPeriodEnd: string };
+	dailyImages: NanoGPTUsageDailyImages | null;
+	dailyInputTokens: NanoGPTUsageTokenInfo | null;
+	weeklyInputTokens: NanoGPTUsageTokenInfo | null;
+}
+
+export interface ZAICodingQuotaUsageDetail {
+	modelCode: string;
+	usage: number;
+}
+
+export interface ZAICodingQuotaLimit {
+	type: string;
+	unit: number;
+	percentage: number;
+	nextResetTime?: number;
+	usageDetails?: ZAICodingQuotaUsageDetail[];
+}
+
+export interface ZAICodingQuotaResponse {
+	success: boolean;
+	data?: {
+		level?: string;
+		limits?: ZAICodingQuotaLimit[];
+	};
+}
+
+export interface KimiCodeQuotaLimitEntry {
+	window?: { timeUnit?: string; duration?: number };
+	detail?: { limit?: string; remaining?: string; resetTime?: string };
+}
+
+export interface KimiCodeQuotaResponse {
+	user?: { membership?: { level?: string } };
+	usage?: { limit?: string; remaining?: string; resetTime?: string };
+	limits?: KimiCodeQuotaLimitEntry[];
+	// Kimi encodes numeric fields as JSON strings throughout, which is why
+	// toKimiCodeWindow parses with Number(). These two are no exception.
+	parallel?: { limit?: string };
+	totalQuota?: { limit?: string; remaining?: string };
+}
+
+/** Derived Kimi Code window. `percentage` is percent USED. */
+export interface KimiCodeQuotaWindow {
+	limit: number;
+	remaining: number;
+	resetTime: string;
+	percentage: number;
+}
+
+export interface MiniMaxModelRemains {
+	model_name: string;
+	start_time?: number;
+	end_time?: number;
+	remains_time: number;
+	weekly_remains_time: number;
+	current_interval_status: number;
+	current_interval_remaining_percent: number;
+	current_weekly_status: number;
+	current_weekly_remaining_percent: number;
+}
+
+export interface MiniMaxQuotaResponse {
+	model_remains: MiniMaxModelRemains[] | null;
+	base_resp: { status_code: number; status_msg: string };
+}
+
+/** Derived MiniMax window. `percentage` is percent USED. */
+export interface MiniMaxQuotaWindow {
+	percentage: number;
+	remainingPercent: number;
+	resetMs: number;
+}
+
+export interface DeepSeekBalanceInfo {
+	currency: "CNY" | "USD";
+	total_balance: string;
+}
+
+export interface DeepSeekBalance {
+	is_available: boolean;
+	balance_infos: DeepSeekBalanceInfo[];
+}
+
+export interface OpenRouterBalance {
+	label: string;
+	limit: number | null;
+	limit_reset: string;
+	limit_remaining: number | null;
+	usage: number;
+	usage_daily: number;
+	usage_weekly: number;
+	usage_monthly: number;
+	credits_total: number;
+	credits_used: number;
+	credits_remaining: number;
+	is_free_tier: boolean;
+}
+
+export interface OllamaCloudAccount {
+	plan: string;
+	subscription_period_end: { time: string; valid: boolean };
+	suspended_at: { time: string; valid: boolean };
+}
+
+export interface NeuralWattQuotaUsagePeriod {
+	cost_usd: number;
+	requests: number;
+	tokens: number;
+	energy_kwh: number;
+}
+
+/**
+ * NeuralWatt's quota body, as relayed by the fleet primary.
+ *
+ * Only `balance` is declared required, and only because the badge visibility
+ * gate (utils/quota.ts isVisible) refuses to render a NeuralWatt badge at all
+ * unless balance.credits_remaining_usd is present, so nothing downstream can be
+ * reached without it. Every other block is optional on purpose: this is an
+ * upstream provider's JSON forwarded through another machine's export, not a
+ * shape this build controls, and a fleet primary on a different version may
+ * relay less than the current one does. Optional here is what makes the
+ * compiler, rather than an operator's crashed dashboard, catch an unguarded
+ * nested read.
+ */
+export interface NeuralWattQuotaResponse {
+	balance: {
+		credits_remaining_usd: number;
+		total_credits_usd: number;
+		credits_used_usd: number;
+		accounting_method: string;
+	};
+	usage?: {
+		lifetime?: NeuralWattQuotaUsagePeriod;
+		current_month?: NeuralWattQuotaUsagePeriod;
+	};
+	limits?: { overage_limit_usd: number | null; rate_limit_tier: string };
+	subscription?: {
+		plan: string;
+		status: string;
+		billing_interval: string;
+		current_period_start: string;
+		current_period_end: string;
+		auto_renew: boolean;
+		kwh_included: number;
+		kwh_used: number;
+		kwh_remaining: number;
+		in_overage: boolean;
+	};
+	key?: { name: string; allowance: number | null };
+}

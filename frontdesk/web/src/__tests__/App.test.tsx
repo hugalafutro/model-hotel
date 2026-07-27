@@ -1,10 +1,28 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import App from "../App";
 import { server } from "../test/server";
 import { sseHandler } from "../test/sse";
+
+// QuotaStrip is wrapped in an ErrorBoundary in App.tsx specifically so a throw
+// inside it cannot take the whole authenticated shell down. That wiring lives
+// on a single line with nothing forcing it to stay; this flag lets one test
+// flip QuotaStrip into throwing on demand without disturbing every other test
+// in this file, which rely on QuotaStrip rendering harmlessly (the real one
+// renders nothing at all, since /api/quota returns an empty list in
+// authHandlers). The marker div is what makes "the strip came back" observable.
+const quotaStripThrows = vi.hoisted(() => ({ current: false }));
+
+vi.mock("../components/QuotaStrip", () => ({
+	QuotaStrip: () => {
+		if (quotaStripThrows.current) {
+			throw new Error("malformed quota payload");
+		}
+		return <div data-testid="quota-strip-mock" />;
+	},
+}));
 
 // Auth-gating handlers: TOTP off, no passkey, members list reflects the token.
 // Includes the SSE stream the authenticated shell opens after login.
@@ -24,6 +42,11 @@ function authHandlers(validToken: string) {
 			}
 			return HttpResponse.json([]);
 		}),
+		// The authed shell renders QuotaStrip, which reads /api/quota. An empty
+		// list keeps the strip hidden (see QuotaStrip.test.tsx) so it does not
+		// disturb any existing assertion here; onUnhandledRequest is "error", so
+		// every test that reaches the shell needs this handler regardless.
+		http.get("/api/quota", () => HttpResponse.json({ quota: [] })),
 	];
 }
 
@@ -121,6 +144,7 @@ describe("App auth gating", () => {
 					? HttpResponse.json([])
 					: new HttpResponse("expired", { status: 401 });
 			}),
+			http.get("/api/quota", () => HttpResponse.json({ quota: [] })),
 		);
 		render(<App />);
 		await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
@@ -130,5 +154,71 @@ describe("App auth gating", () => {
 			expect(screen.getByLabelText(/Front Desk token/i)).toBeInTheDocument(),
 		);
 		expect(localStorage.getItem("fdAuthToken")).toBeNull();
+	});
+
+	it("contains a QuotaStrip render failure to the strip and keeps the rest of the shell up", async () => {
+		// React logs a caught render error to the console; expected here since the
+		// point of this test is to throw on purpose. Scoped to this test only.
+		const consoleErrorSpy = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+		quotaStripThrows.current = true;
+		try {
+			server.use(...authHandlers("good"));
+			render(<App />);
+			await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
+			await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+			// The rest of the authenticated shell renders normally: tabs, and the
+			// Members page content past its own loading state. If the ErrorBoundary
+			// around QuotaStrip in App.tsx were removed, this throw would unmount
+			// the whole tree and none of this would be found.
+			await waitFor(() => {
+				expect(
+					screen.getByRole("tab", { name: /members/i }),
+				).toBeInTheDocument();
+			});
+			await waitFor(() => {
+				expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+			});
+			// Contained means gone, not degraded in place: the boundary renders no
+			// fallback, matching the strip's own empty state.
+			expect(screen.queryByTestId("quota-strip-mock")).toBeNull();
+		} finally {
+			quotaStripThrows.current = false;
+			consoleErrorSpy.mockRestore();
+		}
+	});
+
+	it("retries the strip on the next tab switch after it has failed", async () => {
+		// Containment alone leaves the boundary latched for the life of the
+		// mount, and this shell never unmounts while signed in, so without the
+		// resetKeys wiring in App.tsx the only way back would be a page reload.
+		const consoleErrorSpy = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => {});
+		quotaStripThrows.current = true;
+		try {
+			server.use(...authHandlers("good"));
+			render(<App />);
+			await userEvent.type(screen.getByLabelText(/Front Desk token/i), "good");
+			await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+			await waitFor(() => {
+				expect(
+					screen.getByRole("tab", { name: /members/i }),
+				).toBeInTheDocument();
+			});
+			expect(screen.queryByTestId("quota-strip-mock")).toBeNull();
+
+			// Whatever the strip choked on is not necessarily permanent (the next
+			// poll replaces the payload), so navigating gives it another go.
+			quotaStripThrows.current = false;
+			await userEvent.click(screen.getByRole("tab", { name: /settings/i }));
+			await waitFor(() => {
+				expect(screen.getByTestId("quota-strip-mock")).toBeInTheDocument();
+			});
+		} finally {
+			quotaStripThrows.current = false;
+			consoleErrorSpy.mockRestore();
+		}
 	});
 });

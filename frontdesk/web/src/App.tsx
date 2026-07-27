@@ -13,9 +13,11 @@ import {
 	getAuthToken,
 	onUnauthorized,
 } from "./api/client";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LanguageSelector } from "./components/LanguageSelector";
 import { Login } from "./components/Login";
 import { Logo } from "./components/Logo";
+import { QuotaStrip } from "./components/QuotaStrip";
 import { VersionFooter } from "./components/VersionFooter";
 import { ToastProvider } from "./context/ToastContext";
 import { useIdleLogout } from "./hooks/useIdleLogout";
@@ -129,6 +131,18 @@ function Shell() {
 				</div>
 				<LanguageSelector />
 			</header>
+			{/* The strip renders provider payloads fetched from the fleet primary,
+			    i.e. data this build does not control the shape of. A 200 carrying a
+			    partial body must cost the strip and nothing else; without a boundary
+			    it would blank the whole control plane, on every tab. No fallback: the
+			    strip already renders nothing when it has nothing to show, so vanishing
+			    is its established empty state. Keyed off the current tab so a
+			    strip-level failure is recoverable by switching tabs: the strip
+			    hangs above every one of them and this shell never unmounts, so
+			    without a reset key the only way back would be a page reload. */}
+			<ErrorBoundary resetKeys={[tab]}>
+				<QuotaStrip />
+			</ErrorBoundary>
 			<main className="fd-main">
 				<Suspense
 					fallback={<div className="fd-empty">{t("common.loading")}</div>}
