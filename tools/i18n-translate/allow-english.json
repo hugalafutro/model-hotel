@@ -2704,9 +2704,8 @@
 		"uk",
 		"vi"
 	],
-	"layout.nav.failoverOpen": [
-		"da",
-		"ro"
+	"layout.nav.failoverOpen_one": [
+		"da"
 	],
 	"layout.nav.models": [
 		"ca"
@@ -2753,7 +2752,6 @@
 		"ro"
 	],
 	"layout.stats.procs_one": [
-		"cs",
 		"da",
 		"de",
 		"el",
@@ -2766,8 +2764,6 @@
 		"ko",
 		"nl",
 		"ro",
-		"ru",
-		"sk",
 		"sv",
 		"vi",
 		"zh"
@@ -5336,8 +5332,10 @@
 	"providers.card_models_one": [
 		"af",
 		"ca",
+		"cs",
 		"da",
 		"nl",
+		"pl",
 		"ro",
 		"sk",
 		"tr"

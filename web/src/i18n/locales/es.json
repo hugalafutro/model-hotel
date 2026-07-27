@@ -88,15 +88,20 @@
 			"providers": "Proveedores",
 			"models": "Modelos",
 			"failover": "Failover",
-			"failoverClosed": "Interruptor de circuito cerrado {{count}}",
+			"failoverClosed_one": "Interruptor de circuito cerrado {{count}}",
+			"failoverClosed_many": "{{count}} interruptores de circuito cerrados",
 			"failoverClosed_other": "{{count}} interruptores de circuito cerrados",
-			"failoverHalfOpen": "Interruptor de circuito {{count}} medio abierto",
+			"failoverHalfOpen_one": "Interruptor de circuito {{count}} medio abierto",
+			"failoverHalfOpen_many": "Interruptores de circuito {{count}} medio abiertos",
 			"failoverHalfOpen_other": "Interruptores de circuito {{count}} medio abiertos",
-			"failoverOpen": "Interruptor de circuito abierto {{count}}",
+			"failoverOpen_one": "Interruptor de circuito abierto {{count}}",
+			"failoverOpen_many": "{{count}} interruptores de circuito abiertos",
 			"failoverOpen_other": "{{count}} interruptores de circuito abiertos",
 			"failoverBadgeTooltip_one": "Interruptor de circuito {{count}} abierto/medio abierto: {{providers}}",
+			"failoverBadgeTooltip_many": "{{count}} interruptores de circuito abiertos/medio abiertos: {{providers}}",
 			"failoverBadgeTooltip_other": "{{count}} interruptores de circuito abiertos/medio abiertos: {{providers}}",
 			"failoverBadgeQuotaTooltip_one": "{{count}} interruptor de circuito esperando el reinicio de la cuota: {{providers}}",
+			"failoverBadgeQuotaTooltip_many": "{{count}} interruptores de circuito esperando el reinicio de la cuota: {{providers}}",
 			"failoverBadgeQuotaTooltip_other": "{{count}} interruptores de circuito esperando el reinicio de la cuota: {{providers}}",
 			"virtualKeys": "Claves virtuales",
 			"logs": "Registros",
@@ -106,6 +111,7 @@
 			"security": "Seguridad",
 			"failoverBadgeExplain": "Proveedores de conmutación por error según el estado del disyuntor: {{closed}} en buen estado / {{halfOpen}} en recuperación / {{open}} disparado",
 			"discoveryChangesBadge_one": "Cambio {{count}} procedente de la detección en segundo plano: haz clic para revisarlo",
+			"discoveryChangesBadge_many": "Cambios en {{count}} derivados del análisis en segundo plano: haz clic para revisarlos",
 			"discoveryChangesBadge_other": "Cambios en {{count}} derivados del análisis en segundo plano: haz clic para revisarlos",
 			"users": "Usuarios",
 			"audit": "Auditoría"
@@ -125,6 +131,7 @@
 			"requestsToday": "Sol. hoy",
 			"db": "BD",
 			"procs_one": "proc",
+			"procs_many": "procs",
 			"procs_other": "procs",
 			"aggregateCpu": "CPU agregada en {{count}} contenedores de Compose",
 			"aggregateNetwork": "Red agregada en {{count}} contenedores de Compose",
@@ -343,6 +350,7 @@
 		"providers": {
 			"top": "Top proveedores",
 			"top_one": "Top {{count}} proveedor",
+			"top_many": "Top {{count}} proveedores",
 			"top_other": "Top {{count}} proveedores",
 			"providers": "Proveedores",
 			"noData": "Aún no hay datos de proveedores. El desglose del proveedor aparecerá aquí una vez que fluya el tráfico.",
@@ -684,6 +692,7 @@
 	},
 	"providers": {
 		"page_title_one": "Proveedor",
+		"page_title_many": "Proveedores",
 		"page_title_other": "Proveedores",
 		"page_description": "Administre las configuraciones de su proveedor",
 		"btn_discover_all": "Descubre todos los modelos",
@@ -780,15 +789,19 @@
 		"card_copy_name": "Haga clic para copiar el nombre del proveedor",
 		"card_copy_url": "Haga clic para copiar la URL base de API",
 		"toast_discover_success_one": "Modelo {{count}} descubierto de {{name}}",
+		"toast_discover_success_many": "{{count}} modelos descubiertos de {{name}}",
 		"toast_discover_success_other": "{{count}} modelos descubiertos de {{name}}",
 		"toast_delete_models_success_one": "Eliminado modelo deshabilitado {{count}}",
+		"toast_delete_models_success_many": "Eliminados modelos {{count}} deshabilitados",
 		"toast_delete_models_success_other": "Eliminados modelos {{count}} deshabilitados",
 		"toast_delete_models_success": "Eliminados modelos {{count}} deshabilitados",
 		"card_models_one": "Modelo {{count}}",
+		"card_models_many": "Modelos {{count}}",
 		"card_models_other": "Modelos {{count}}",
 		"add": {
 			"providerFallback": "Proveedor",
 			"discoveredModels_one": "Descubierto el modelo {{count}}…",
+			"discoveredModels_many": "Descubiertos {{count}} modelos…",
 			"discoveredModels_other": "Descubiertos {{count}} modelos…",
 			"deepseekBalance": "DeepSeek saldo detectado: ${{balance}}",
 			"deepseekBalanceDetected": "Saldo de DeepSeek detectado",
@@ -852,17 +865,21 @@
 			"toggleSection": "Mostrar u ocultar la sección {{provider}}",
 			"failoverDisabled": "Grupos de conmutación por error desactivados",
 			"failoverDisabledReason_one": "queda {{count}} miembro enrutable, se necesitan 2+",
+			"failoverDisabledReason_many": "quedan {{count}} miembros enrutables, se necesitan 2+",
 			"failoverDisabledReason_other": "quedan {{count}} miembros enrutables, se necesitan 2+"
 		},
 		"toast_quota_detected_minimax": "Cuota de MiniMax detectada",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Actualización de {{count}} cuota/saldo",
+		"toast_refresh_success_many": "Actualización de {{count}} cuotas/saldos",
 		"toast_refresh_success_other": "Actualización de {{count}} cuotas/saldos",
 		"toast_discovery_failed_all_one": "El descubrimiento falló para el proveedor",
+		"toast_discovery_failed_all_many": "El descubrimiento falló para todos los {{count}} proveedores",
 		"toast_discovery_failed_all_other": "El descubrimiento falló para todos los {{count}} proveedores"
 	},
 	"models": {
 		"page_title_one": "Modelo",
+		"page_title_many": "Modelos",
 		"page_title_other": "Modelos",
 		"page_description": "Modelos descubiertos de tus proveedores",
 		"badge_enabled": "{{count}} habilitado",
@@ -879,6 +896,7 @@
 		"toast_delete_failed": "Error al eliminar el modelo: {{message}}",
 		"detail_modal_title": "Detalles del Modelo",
 		"toast_delete_bulk_success_one": "Eliminado modelo deshabilitado {{count}}",
+		"toast_delete_bulk_success_many": "Eliminados modelos {{count}} deshabilitados",
 		"toast_delete_bulk_success_other": "Eliminados modelos {{count}} deshabilitados",
 		"detail": {
 			"snippet": {
@@ -959,6 +977,7 @@
 	},
 	"failover": {
 		"page_title_one": "Grupo de Failover",
+		"page_title_many": "Grupos de Failover",
 		"page_title_other": "Grupos de Failover",
 		"page_description_lead": "Enruta las solicitudes a través de varios proveedores por orden de prioridad mediante",
 		"page_description_code": "hotel/model",
@@ -1012,8 +1031,10 @@
 		"toast_min_entries": "Se requieren al menos 2 entradas",
 		"toast_display_model_required": "El nombre del modelo para mostrar es obligatorio",
 		"badge_enabled_one": "{{count}} habilitado",
+		"badge_enabled_many": "{{count}} habilitado",
 		"badge_enabled_other": "{{count}} habilitado",
 		"badge_disabled_one": "{{count}} deshabilitado",
+		"badge_disabled_many": "{{count}} deshabilitado",
 		"badge_disabled_other": "{{count}} deshabilitado",
 		"delete_confirm_type": "grupo de tolerancia a fallos",
 		"delete_confirm_type_plural": "grupos de tolerancia a fallos",
@@ -1025,16 +1046,22 @@
 			"clickToCopy": "Haga clic para copiar"
 		},
 		"bulk_provider_count_one": "Grupo {{count}} con entradas {{provider}}",
+		"bulk_provider_count_many": "{{count}} grupos con entradas {{provider}}",
 		"bulk_provider_count_other": "{{count}} grupos con entradas {{provider}}",
 		"group_count_one": "Grupo {{count}}",
+		"group_count_many": "Grupos {{count}}",
 		"group_count_other": "Grupos {{count}}",
 		"toast_bulk_toggle_success_one": "{{action}} todas las entradas en el grupo {{count}}",
+		"toast_bulk_toggle_success_many": "{{action}} todas las entradas en grupos {{count}}",
 		"toast_bulk_toggle_success_other": "{{action}} todas las entradas en grupos {{count}}",
 		"toast_provider_toggle_success_one": "{{action}} {{provider}} a través del grupo {{count}}",
+		"toast_provider_toggle_success_many": "{{action}} {{provider}} a través de {{count}} grupos",
 		"toast_provider_toggle_success_other": "{{action}} {{provider}} a través de {{count}} grupos",
 		"toast_bulk_delete_success_one": "Grupo {{count}} eliminado",
+		"toast_bulk_delete_success_many": "Grupos {{count}} eliminados",
 		"toast_bulk_delete_success_other": "Grupos {{count}} eliminados",
 		"delete_confirm_bulk_title_one": "Grupo de tolerancia contra fallos {{count}}",
+		"delete_confirm_bulk_title_many": "Grupos de tolerancia contra fallos {{count}}",
 		"delete_confirm_bulk_title_other": "Grupos de tolerancia contra fallos {{count}}",
 		"btn_manage_providers": "Administrar proveedores",
 		"provider_modal_title": "Administrar estado del proveedor",
@@ -1043,8 +1070,10 @@
 		"last_sync_label": "Última sincronización:",
 		"toast_entry_min_two": "Al menos 2 miembros deben permanecer activos.",
 		"toast_sync_purged_one": "hotel/{{group}}: se ha eliminado {{count}} entrada antigua",
+		"toast_sync_purged_many": "hotel/{{group}}: se han eliminado {{count}} entradas antiguas",
 		"toast_sync_purged_other": "hotel/{{group}}: se han eliminado {{count}} entradas antiguas",
 		"toast_sync_disabled_one": "hotel/{{group}} desactivado: queda {{count}} miembro enrutable",
+		"toast_sync_disabled_many": "hotel/{{group}} desactivado: quedan {{count}} miembros enrutables",
 		"toast_sync_disabled_other": "hotel/{{group}} desactivado: quedan {{count}} miembros enrutables"
 	},
 	"delete_confirm": {
@@ -1303,18 +1332,23 @@
 		"never": "Nunca",
 		"justNow": "justo ahora",
 		"minutesAgo_one": "hace {{count}} min",
+		"minutesAgo_many": "hace {{count}} min",
 		"minutesAgo_other": "hace {{count}} min",
 		"hoursAgo_one": "hace {{count}} h",
+		"hoursAgo_many": "hace {{count}} h",
 		"hoursAgo_other": "hace {{count}} h",
 		"daysAgo_one": "hace {{count}} d",
+		"daysAgo_many": "hace {{count}} d",
 		"daysAgo_other": "hace {{count}} d",
 		"inDaysHours_one_day_one_hour": "en {{days}} día, {{hours}} hora",
 		"inDaysHours_one_day_other_hours": "en {{days}} día, {{hours}} horas",
 		"inDaysHours_other_days_one_hour": "en {{days}} días, {{hours}} hora",
 		"inDaysHours_other_days_other_hours": "en {{days}} días, {{hours}} horas",
 		"inDays_only_one": "en {{days}} día",
+		"inDays_only_many": "en {{days}} días",
 		"inDays_only_other": "en {{days}} días",
 		"inHours_only_one": "en {{hours}} hora",
+		"inHours_only_many": "en {{hours}} horas",
 		"inHours_only_other": "en {{hours}} horas",
 		"now": "ahora"
 	},
@@ -1649,8 +1683,10 @@
 			"reset.tooltip": "Restablecer estados de error de la barra lateral descartados",
 			"resetDismissedBanners": "Banners de error descartados restablecidos",
 			"clearHistoryDescription_one": "Entrada {{count}} almacenada",
+			"clearHistoryDescription_many": "{{count}} entradas almacenadas",
 			"clearHistoryDescription_other": "{{count}} entradas almacenadas",
 			"providerQuotaCacheDescription_one": "{{count}} entrada almacenada en caché",
+			"providerQuotaCacheDescription_many": "{{count}} entradas almacenadas en caché",
 			"providerQuotaCacheDescription_other": "{{count}} entradas almacenadas en caché"
 		},
 		"dataStorageAndLogging": {
@@ -1768,6 +1804,7 @@
 				"disabled": "Deshabilitado (sólo manual)"
 			},
 			"intervalSet_one": "El panel de control se actualiza cada {{seconds}} segundo",
+			"intervalSet_many": "El panel de control se actualiza cada {{seconds}} segundos",
 			"intervalSet_other": "El panel de control se actualiza cada {{seconds}} segundos",
 			"pleaseWaitBeforeRefreshing": "Por favor espere antes de actualizar de nuevo",
 			"refreshingDashboard": "Actualizando panel…"
@@ -1792,6 +1829,7 @@
 				"disabled": "Deshabilitado (sólo manual)"
 			},
 			"intervalSet_one": "Actualización de la cuota establecida en cada {{minutes}} minuto",
+			"intervalSet_many": "Actualización de la cuota establecida en cada {{minutes}} minutos",
 			"intervalSet_other": "Actualización de la cuota establecida en cada {{minutes}} minutos"
 		},
 		"common": {
@@ -2212,8 +2250,10 @@
 			"deleteDisabledModels": "Eliminar Modelos Deshabilitados",
 			"models": "modelos",
 			"deleteDisabledAria_one": "Eliminar modelo deshabilitado {{count}}",
+			"deleteDisabledAria_many": "Eliminar modelos deshabilitados {{count}}",
 			"deleteDisabledAria_other": "Eliminar modelos deshabilitados {{count}}",
 			"deleteDisabledMessage_one": "Esto eliminará permanentemente el modelo {{count}} desactivado. Si el autodescubrimiento está activado en su proveedor, será re-descubierto en el siguiente ciclo. Desactivar el autodescubrimiento en el proveedor para evitar esto.",
+			"deleteDisabledMessage_many": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo.",
 			"deleteDisabledMessage_other": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo.",
 			"clickToCopyId": "Haga clic para copiar el ID del modelo"
 		},
@@ -2223,8 +2263,10 @@
 			"noModelsFound": "No se encontraron modelos",
 			"deleteDisabledModels": "Eliminar Modelos Deshabilitados",
 			"deleteDisabledAria_one": "Eliminar modelo deshabilitado {{count}}",
+			"deleteDisabledAria_many": "Eliminar modelos deshabilitados {{count}}",
 			"deleteDisabledAria_other": "Eliminar modelos deshabilitados {{count}}",
 			"deleteDisabledMessage_one": "Esto eliminará permanentemente el modelo {{count}} desactivado. Si el autodescubrimiento está activado en su proveedor, será re-descubierto en el siguiente ciclo. Desactivar el autodescubrimiento en el proveedor para evitar esto.",
+			"deleteDisabledMessage_many": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo.",
 			"deleteDisabledMessage_other": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo."
 		},
 		"modelReplyCard": {
@@ -2248,6 +2290,7 @@
 			"clear": "Borrar",
 			"noProvidersFound": "No hay proveedores",
 			"provider_one": "Proveedor {{count}}",
+			"provider_many": "Proveedores {{count}}",
 			"provider_other": "Proveedores {{count}}"
 		},
 		"providerModals": {
@@ -2412,8 +2455,10 @@
 			"vs": "vs",
 			"bracket": "Cuadro",
 			"response_one": "{{count}} respuesta",
+			"response_many": "{{count}} respuestas",
 			"response_other": "{{count}} respuestas",
 			"entries_one": "Entrada {{count}}",
+			"entries_many": "{{count}} entradas",
 			"entries_other": "{{count}} entradas",
 			"entries": "entradas"
 		},
@@ -2598,6 +2643,7 @@
 		},
 		"providerModelsModal": {
 			"modelCount_one": "modelo",
+			"modelCount_many": "modelos",
 			"modelCount_other": "modelos"
 		}
 	},
@@ -2614,12 +2660,14 @@
 			"descriptionPlaceholder": "p. ej., Grupo Failover para modelos GLM-5",
 			"modelEntries": "Entradas del modelo",
 			"selectedCount_one": "{{count}} seleccionado",
+			"selectedCount_many": "{{count}} seleccionado",
 			"selectedCount_other": "{{count}} seleccionado",
 			"saving": "Guardando…",
 			"creating": "Creando…",
 			"createGroup": "Crear grupo"
 		},
 		"countLabel_one": "Grupo de fallo",
+		"countLabel_many": "Grupos de conmutación por error",
 		"countLabel_other": "Grupos de conmutación por error",
 		"alphabetSidebar": "Alphabet sidebar",
 		"card": {

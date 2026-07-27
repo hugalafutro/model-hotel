@@ -88,15 +88,20 @@
 			"providers": "Proveïdors",
 			"models": "Models",
 			"failover": "Failover",
-			"failoverClosed": "{{count}} interruptor automàtic tancat",
+			"failoverClosed_one": "{{count}} interruptor automàtic tancat",
+			"failoverClosed_many": "{{count}} interruptors automàtics tancats",
 			"failoverClosed_other": "{{count}} interruptors automàtics tancats",
-			"failoverHalfOpen": "{{count}} interruptor automàtic mig obert",
+			"failoverHalfOpen_one": "{{count}} interruptor automàtic mig obert",
+			"failoverHalfOpen_many": "{{count}} interruptors automàtics semioberts",
 			"failoverHalfOpen_other": "{{count}} interruptors automàtics semioberts",
-			"failoverOpen": "{{count}} interruptor automàtic obert",
+			"failoverOpen_one": "{{count}} interruptor automàtic obert",
+			"failoverOpen_many": "{{count}} interruptors automàtics oberts",
 			"failoverOpen_other": "{{count}} interruptors automàtics oberts",
 			"failoverBadgeTooltip_one": "{{count}} interruptor automàtic obert/semiobert: {{providers}}",
+			"failoverBadgeTooltip_many": "{{count}} interruptors automàtics oberts/semioberts: {{providers}}",
 			"failoverBadgeTooltip_other": "{{count}} interruptors automàtics oberts/semioberts: {{providers}}",
 			"failoverBadgeQuotaTooltip_one": "{{count}} interruptor automàtic esperant la reinicialització de la quota: {{providers}}",
+			"failoverBadgeQuotaTooltip_many": "{{count}} interruptors automàtics esperant la reinicialització de la quota: {{providers}}",
 			"failoverBadgeQuotaTooltip_other": "{{count}} interruptors automàtics esperant la reinicialització de la quota: {{providers}}",
 			"virtualKeys": "Claus virtuals",
 			"logs": "Registres",
@@ -106,6 +111,7 @@
 			"security": "Seguretat",
 			"failoverBadgeExplain": "Proveïdors de failover per estat del circuit breaker - {{closed}} saludables / {{halfOpen}} en recuperació / {{open}} disparats",
 			"discoveryChangesBadge_one": "{{count}} canvi del descobriment en segon pla - fes clic per revisar",
+			"discoveryChangesBadge_many": "{{count}} canvis del descobriment en segon pla - feu clic per revisar",
 			"discoveryChangesBadge_other": "{{count}} canvis del descobriment en segon pla - feu clic per revisar",
 			"users": "Usuaris",
 			"audit": "Auditoria"
@@ -125,6 +131,7 @@
 			"requestsToday": "Sol·l. avui",
 			"db": "BD",
 			"procs_one": "procés",
+			"procs_many": "processos",
 			"procs_other": "processos",
 			"aggregateCpu": "CPU agregada de {{count}} contenidors de compose",
 			"aggregateNetwork": "Xarxa agregada de {{count}} contenidors de compose",
@@ -343,6 +350,7 @@
 		"providers": {
 			"top": "Proveïdors principals",
 			"top_one": "Top {{count}} proveïdor",
+			"top_many": "Top {{count}} proveïdors",
 			"top_other": "Top {{count}} proveïdors",
 			"providers": "Proveïdors",
 			"noData": "Encara no hi ha dades dels proveïdors. El desglossament dels proveïdors apareixerà aquí un cop flueixi el trànsit.",
@@ -684,6 +692,7 @@
 	},
 	"providers": {
 		"page_title_one": "Proveïdor",
+		"page_title_many": "Proveïdors",
 		"page_title_other": "Proveïdors",
 		"page_description": "Gestiona les configuracions dels teus proveïdors",
 		"btn_discover_all": "Descobreix tots els models",
@@ -780,15 +789,19 @@
 		"card_copy_name": "Feu clic per copiar el nom del proveïdor",
 		"card_copy_url": "Feu clic per copiar l'URL base de l'API",
 		"toast_discover_success_one": "S'ha descobert {{count}} model de {{name}}",
+		"toast_discover_success_many": "S'han descobert {{count}} models de {{name}}",
 		"toast_discover_success_other": "S'han descobert {{count}} models de {{name}}",
 		"toast_delete_models_success_one": "Suprimit {{count}} model desactivat",
+		"toast_delete_models_success_many": "Suprimit {{count}} models desactivats",
 		"toast_delete_models_success_other": "Suprimit {{count}} models desactivats",
 		"toast_delete_models_success": "Suprimit {{count}} models desactivats",
 		"card_models_one": "{{count}} model",
+		"card_models_many": "{{count}} models",
 		"card_models_other": "{{count}} models",
 		"add": {
 			"providerFallback": "Proveïdor",
 			"discoveredModels_one": "Descobert el model {{count}}…",
+			"discoveredModels_many": "Descoberts els models {{count}}…",
 			"discoveredModels_other": "Descoberts els models {{count}}…",
 			"deepseekBalance": "Saldo de DeepSeek detectat: ${{balance}}",
 			"deepseekBalanceDetected": "Saldo de DeepSeek detectat",
@@ -852,17 +865,21 @@
 			"toggleSection": "Mostra o amaga la secció {{provider}}",
 			"failoverDisabled": "Grups de fallada desactivats",
 			"failoverDisabledReason_one": "queda {{count}} membre encaminable, calen 2+",
+			"failoverDisabledReason_many": "queden {{count}} membres encaminables, calen 2+",
 			"failoverDisabledReason_other": "queden {{count}} membres encaminables, calen 2+"
 		},
 		"toast_quota_detected_minimax": "Detectada quota de MiniMax",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Quota/saldo de {{count}} actualitzat",
+		"toast_refresh_success_many": "Quotes/saldos de {{count}} actualitzats",
 		"toast_refresh_success_other": "Quotes/saldos de {{count}} actualitzats",
 		"toast_discovery_failed_all_one": "El descobriment ha fallat per al proveïdor",
+		"toast_discovery_failed_all_many": "El descobriment ha fallat per a tots els {{count}} proveïdors",
 		"toast_discovery_failed_all_other": "El descobriment ha fallat per a tots els {{count}} proveïdors"
 	},
 	"models": {
 		"page_title_one": "Model",
+		"page_title_many": "Models",
 		"page_title_other": "Models",
 		"page_description": "S'han descobert models dels vostres proveïdors",
 		"badge_enabled": "{{count}} Activat",
@@ -879,6 +896,7 @@
 		"toast_delete_failed": "S'ha fallat l'eliminació del model: {{message}}",
 		"detail_modal_title": "Detalls del model",
 		"toast_delete_bulk_success_one": "Suprimit {{count}} model desactivat",
+		"toast_delete_bulk_success_many": "Suprimit {{count}} models desactivats",
 		"toast_delete_bulk_success_other": "Suprimit {{count}} models desactivats",
 		"detail": {
 			"snippet": {
@@ -959,6 +977,7 @@
 	},
 	"failover": {
 		"page_title_one": "Grup de Failover",
+		"page_title_many": "Grups de Failover",
 		"page_title_other": "Grups de Failover",
 		"page_description_lead": "Encamina les sol·licituds a través de diversos proveïdors en ordre de prioritat mitjançant",
 		"page_description_code": "hotel/model",
@@ -1012,8 +1031,10 @@
 		"toast_min_entries": "Es requereixen com a mínim 2 entrades",
 		"toast_display_model_required": "Cal especificar el nom del model.",
 		"badge_enabled_one": "{{count}} Activat",
+		"badge_enabled_many": "{{count}} Activat",
 		"badge_enabled_other": "{{count}} Activat",
 		"badge_disabled_one": "{{count}} desactivat",
+		"badge_disabled_many": "{{count}} desactivats",
 		"badge_disabled_other": "{{count}} desactivats",
 		"delete_confirm_type": "grup de commutació per error",
 		"delete_confirm_type_plural": "grups de commutació per error",
@@ -1025,16 +1046,22 @@
 			"clickToCopy": "Feu clic per copiar"
 		},
 		"bulk_provider_count_one": "{{count}} grup amb entrades {{provider}}",
+		"bulk_provider_count_many": "{{count}} grups amb entrades {{provider}}",
 		"bulk_provider_count_other": "{{count}} grups amb entrades {{provider}}",
 		"group_count_one": "{{count}} grup",
+		"group_count_many": "{{count}} grups",
 		"group_count_other": "{{count}} grups",
 		"toast_bulk_toggle_success_one": "{{action}} totes les entrades del grup {{count}}",
+		"toast_bulk_toggle_success_many": "{{action}} totes les entrades de {{count}} grups",
 		"toast_bulk_toggle_success_other": "{{action}} totes les entrades de {{count}} grups",
 		"toast_provider_toggle_success_one": "{{action}} {{provider}} a {{count}} grup",
+		"toast_provider_toggle_success_many": "{{action}} {{provider}} a {{count}} grups",
 		"toast_provider_toggle_success_other": "{{action}} {{provider}} a {{count}} grups",
 		"toast_bulk_delete_success_one": "{{count}} grup eliminat",
+		"toast_bulk_delete_success_many": "{{count}} grups eliminats",
 		"toast_bulk_delete_success_other": "{{count}} grups eliminats",
 		"delete_confirm_bulk_title_one": "{{count}} grup de commutació per error",
+		"delete_confirm_bulk_title_many": "{{count}} grups de commutació per error",
 		"delete_confirm_bulk_title_other": "{{count}} grups de commutació per error",
 		"btn_manage_providers": "Gestiona proveïdors",
 		"provider_modal_title": "Gestiona l'estat del proveïdor",
@@ -1043,8 +1070,10 @@
 		"last_sync_label": "Darrera sincronització:",
 		"toast_entry_min_two": "Almenys 2 membres han de romandre actius.",
 		"toast_sync_purged_one": "hotel/{{group}}: eliminada {{count}} entrada caducada",
+		"toast_sync_purged_many": "hotel/{{group}}: eliminades {{count}} entrades caducades",
 		"toast_sync_purged_other": "hotel/{{group}}: eliminades {{count}} entrades caducades",
 		"toast_sync_disabled_one": "hotel/{{group}} desactivat: queda {{count}} membre encaminable",
+		"toast_sync_disabled_many": "hotel/{{group}} desactivat: queden {{count}} membres encaminables",
 		"toast_sync_disabled_other": "hotel/{{group}} desactivat: queden {{count}} membres encaminables"
 	},
 	"delete_confirm": {
@@ -1303,18 +1332,23 @@
 		"never": "Mai",
 		"justNow": "ara mateix",
 		"minutesAgo_one": "fa {{count}} min",
+		"minutesAgo_many": "fa {{count}} min",
 		"minutesAgo_other": "fa {{count}} min",
 		"hoursAgo_one": "fa {{count}} h",
+		"hoursAgo_many": "fa {{count}} h",
 		"hoursAgo_other": "fa {{count}} h",
 		"daysAgo_one": "fa {{count}} d",
+		"daysAgo_many": "fa {{count}} d",
 		"daysAgo_other": "fa {{count}} d",
 		"inDaysHours_one_day_one_hour": "a {{days}} dia, {{hours}} hora",
 		"inDaysHours_one_day_other_hours": "en {{days}} dia, {{hours}} hores",
 		"inDaysHours_other_days_one_hour": "en {{days}} dies, {{hours}} hora",
 		"inDaysHours_other_days_other_hours": "en {{days}} dies, {{hours}} hores",
 		"inDays_only_one": "en {{days}} dia",
+		"inDays_only_many": "en {{days}} dies",
 		"inDays_only_other": "en {{days}} dies",
 		"inHours_only_one": "en {{hours}} hora",
+		"inHours_only_many": "en {{hours}} hores",
 		"inHours_only_other": "en {{hours}} hores",
 		"now": "ara"
 	},
@@ -1649,8 +1683,10 @@
 			"reset.tooltip": "Restableix l'estat de les píndoles d'error descartades de la barra lateral",
 			"resetDismissedBanners": "Restabliment dels missatges d'error descartats",
 			"clearHistoryDescription_one": "{{count}} Entrada emmagatzemada",
+			"clearHistoryDescription_many": "{{count}} Entrades emmagatzemades",
 			"clearHistoryDescription_other": "{{count}} Entrades emmagatzemades",
 			"providerQuotaCacheDescription_one": "{{count}} entrada en memòria cau",
+			"providerQuotaCacheDescription_many": "{{count}} Entrades en memòria cau",
 			"providerQuotaCacheDescription_other": "{{count}} Entrades en memòria cau"
 		},
 		"dataStorageAndLogging": {
@@ -1768,6 +1804,7 @@
 				"disabled": "Desactivat (només manual)"
 			},
 			"intervalSet_one": "Actualització del tauler de control configurada cada {{seconds}} segons",
+			"intervalSet_many": "Actualització del tauler de control configurada cada {{seconds}} segons",
 			"intervalSet_other": "Actualització del tauler de control configurada cada {{seconds}} segons",
 			"pleaseWaitBeforeRefreshing": "Si us plau, espereu abans de refrescar de nou.",
 			"refreshingDashboard": "Actualitzant el tauler…"
@@ -1792,6 +1829,7 @@
 				"disabled": "Desactivat (només manual)"
 			},
 			"intervalSet_one": "El refresc de la quota està configurat per a cada {{minutes}} minut.",
+			"intervalSet_many": "El refresc de la quota està configurat per a cada {{minutes}} minuts",
 			"intervalSet_other": "El refresc de la quota està configurat per a cada {{minutes}} minuts"
 		},
 		"common": {
@@ -2212,8 +2250,10 @@
 			"deleteDisabledModels": "Suprimeix models desactivats",
 			"models": "models",
 			"deleteDisabledAria_one": "Suprimeix {{count}} model desactivat",
+			"deleteDisabledAria_many": "Suprimeix {{count}} models desactivats",
 			"deleteDisabledAria_other": "Suprimeix {{count}} models desactivats",
 			"deleteDisabledMessage_one": "Això suprimirà permanentment {{count}} model desactivat. Si l'autodetecció està habilitada al seu proveïdor, es tornarà a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
+			"deleteDisabledMessage_many": "Això suprimirà permanentment {{count}} models desactivats. Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
 			"deleteDisabledMessage_other": "Això suprimirà permanentment {{count}} models desactivats. Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
 			"clickToCopyId": "Feu clic per copiar l'ID del model"
 		},
@@ -2223,8 +2263,10 @@
 			"noModelsFound": "No s'han trobat models",
 			"deleteDisabledModels": "Suprimeix models desactivats",
 			"deleteDisabledAria_one": "Suprimeix {{count}} model desactivat",
+			"deleteDisabledAria_many": "Suprimeix {{count}} models desactivats",
 			"deleteDisabledAria_other": "Suprimeix {{count}} models desactivats",
 			"deleteDisabledMessage_one": "Això suprimirà permanentment {{count}} model desactivat. Si l'autodetecció està habilitada al seu proveïdor, es tornarà a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
+			"deleteDisabledMessage_many": "Això suprimirà permanentment {{count}} models desactivats. Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
 			"deleteDisabledMessage_other": "Això suprimirà permanentment {{count}} models desactivats. Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho."
 		},
 		"modelReplyCard": {
@@ -2248,6 +2290,7 @@
 			"clear": "Esborra",
 			"noProvidersFound": "No s'han trobat proveïdors",
 			"provider_one": "{{count}} proveïdor",
+			"provider_many": "{{count}} proveïdors",
 			"provider_other": "{{count}} proveïdors"
 		},
 		"providerModals": {
@@ -2412,8 +2455,10 @@
 			"vs": "contra",
 			"bracket": "Quadre",
 			"response_one": "{{count}} resposta",
+			"response_many": "{{count}} responses",
 			"response_other": "{{count}} responses",
 			"entries_one": "{{count}} entrada",
+			"entries_many": "{{count}} entrades",
 			"entries_other": "{{count}} entrades",
 			"entries": "entrades"
 		},
@@ -2598,6 +2643,7 @@
 		},
 		"providerModelsModal": {
 			"modelCount_one": "model",
+			"modelCount_many": "models",
 			"modelCount_other": "models"
 		}
 	},
@@ -2614,12 +2660,14 @@
 			"descriptionPlaceholder": "p. ex., grup de commutació per a models GLM-5",
 			"modelEntries": "Entrades de model",
 			"selectedCount_one": "{{count}} Seleccionat",
+			"selectedCount_many": "{{count}} Seleccionat",
 			"selectedCount_other": "{{count}} Seleccionat",
 			"saving": "Desant…",
 			"creating": "Creant…",
 			"createGroup": "Crea grup"
 		},
 		"countLabel_one": "Grup de fallada",
+		"countLabel_many": "Grups de fallada",
 		"countLabel_other": "Grups de fallada",
 		"alphabetSidebar": "Barra lateral de l'alfabet",
 		"card": {

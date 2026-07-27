@@ -88,15 +88,20 @@
 			"providers": "Provider",
 			"models": "Modelli",
 			"failover": "Failover",
-			"failoverClosed": "{{count}} interruttore chiuso",
+			"failoverClosed_one": "{{count}} interruttore chiuso",
+			"failoverClosed_many": "{{count}} interruttori chiusi",
 			"failoverClosed_other": "{{count}} interruttori chiusi",
-			"failoverHalfOpen": "{{count}} interruttore semi-aperto",
+			"failoverHalfOpen_one": "{{count}} interruttore semi-aperto",
+			"failoverHalfOpen_many": "{{count}} interruttori semiaperti",
 			"failoverHalfOpen_other": "{{count}} interruttori semiaperti",
-			"failoverOpen": "{{count}} interruttore aperto",
+			"failoverOpen_one": "{{count}} interruttore aperto",
+			"failoverOpen_many": "{{count}} interruttori a circuito aperto",
 			"failoverOpen_other": "{{count}} interruttori a circuito aperto",
 			"failoverBadgeTooltip_one": "{{count}} interruttore aperto/semiaperto: {{providers}}",
+			"failoverBadgeTooltip_many": "{{count}} interruttori aperti/semiapertura: {{providers}}",
 			"failoverBadgeTooltip_other": "{{count}} interruttori aperti/semiapertura: {{providers}}",
 			"failoverBadgeQuotaTooltip_one": "{{count}} interruttore in attesa del ripristino della quota: {{providers}}",
+			"failoverBadgeQuotaTooltip_many": "{{count}} interruttori in attesa del ripristino della quota: {{providers}}",
 			"failoverBadgeQuotaTooltip_other": "{{count}} interruttori in attesa del ripristino della quota: {{providers}}",
 			"virtualKeys": "Chiavi virtuali",
 			"logs": "Log",
@@ -106,6 +111,7 @@
 			"security": "Sicurezza",
 			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico - {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato",
 			"discoveryChangesBadge_one": "{{count}} modifica dal rilevamento in background - clicca per rivedere",
+			"discoveryChangesBadge_many": "{{count}} modifiche dal rilevamento in background - clicca per rivedere",
 			"discoveryChangesBadge_other": "{{count}} modifiche dal rilevamento in background - clicca per rivedere",
 			"users": "Utenti",
 			"audit": "Audit"
@@ -125,6 +131,7 @@
 			"requestsToday": "Rich. oggi",
 			"db": "DB",
 			"procs_one": "proc",
+			"procs_many": "procs",
 			"procs_other": "procs",
 			"aggregateCpu": "CPU aggregata su {{count}} container Compose",
 			"aggregateNetwork": "Rete aggregata su {{count}} container Compose",
@@ -343,6 +350,7 @@
 		"providers": {
 			"top": "Provider principali",
 			"top_one": "Top {{count}} Provider",
+			"top_many": "Top Provider {{count}}",
 			"top_other": "Top Provider {{count}}",
 			"providers": "Fornitori",
 			"noData": "Ancora nessun dato provider. La disaggregazione del provider apparirà qui una volta che i flussi di traffico.",
@@ -684,6 +692,7 @@
 	},
 	"providers": {
 		"page_title_one": "Provider",
+		"page_title_many": "Fornitori",
 		"page_title_other": "Fornitori",
 		"page_description": "Gestisci le configurazioni del tuo provider",
 		"btn_discover_all": "Scopri Tutti I Modelli",
@@ -780,15 +789,19 @@
 		"card_copy_name": "Clicca per copiare il nome del provider",
 		"card_copy_url": "Clicca per copiare l'URL di base API",
 		"toast_discover_success_one": "Modello {{count}} scoperto da {{name}}",
+		"toast_discover_success_many": "Scoperto {{count}} modelli da {{name}}",
 		"toast_discover_success_other": "Scoperto {{count}} modelli da {{name}}",
 		"toast_delete_models_success_one": "Eliminato {{count}} modello disabilitato",
+		"toast_delete_models_success_many": "Eliminati {{count}} modelli disabilitati",
 		"toast_delete_models_success_other": "Eliminati {{count}} modelli disabilitati",
 		"toast_delete_models_success": "Eliminati {{count}} modelli disabilitati",
 		"card_models_one": "{{count}} modello",
+		"card_models_many": "{{count}} modelli",
 		"card_models_other": "{{count}} modelli",
 		"add": {
 			"providerFallback": "Provider",
 			"discoveredModels_one": "Ho scoperto {{count}} modello…",
+			"discoveredModels_many": "Scoperti {{count}} modelli…",
 			"discoveredModels_other": "Scoperti {{count}} modelli…",
 			"deepseekBalance": "Rilevato saldo DeepSeek: ${{balance}}",
 			"deepseekBalanceDetected": "Rilevato saldo DeepSeek",
@@ -852,17 +865,21 @@
 			"toggleSection": "Mostra o nascondi la sezione {{provider}}",
 			"failoverDisabled": "Gruppi di failover disabilitati",
 			"failoverDisabledReason_one": "{{count}} membro instradabile rimasto, ne servono 2+",
+			"failoverDisabledReason_many": "{{count}} membri instradabili rimasti, ne servono 2+",
 			"failoverDisabledReason_other": "{{count}} membri instradabili rimasti, ne servono 2+"
 		},
 		"toast_quota_detected_minimax": "Rilevata quota MiniMax",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Aggiornata {{count}} quota/saldo",
+		"toast_refresh_success_many": "Aggiornate {{count}} quote/saldi",
 		"toast_refresh_success_other": "Aggiornate {{count}} quote/saldi",
 		"toast_discovery_failed_all_one": "Rilevamento non riuscito per il provider",
+		"toast_discovery_failed_all_many": "Rilevamento non riuscito per tutti i {{count}} provider",
 		"toast_discovery_failed_all_other": "Rilevamento non riuscito per tutti i {{count}} provider"
 	},
 	"models": {
 		"page_title_one": "Modello",
+		"page_title_many": "Modelli",
 		"page_title_other": "Modelli",
 		"page_description": "Modelli scoperti dai tuoi provider",
 		"badge_enabled": "{{count}} abilitato",
@@ -879,6 +896,7 @@
 		"toast_delete_failed": "Impossibile eliminare il modello: {{message}}",
 		"detail_modal_title": "Dettagli Modello",
 		"toast_delete_bulk_success_one": "Eliminato {{count}} modello disabilitato",
+		"toast_delete_bulk_success_many": "Eliminati {{count}} modelli disabilitati",
 		"toast_delete_bulk_success_other": "Eliminati {{count}} modelli disabilitati",
 		"detail": {
 			"snippet": {
@@ -959,6 +977,7 @@
 	},
 	"failover": {
 		"page_title_one": "Gruppo di Failover",
+		"page_title_many": "Gruppi di Failover",
 		"page_title_other": "Gruppi di Failover",
 		"page_description_lead": "Instrada le richieste attraverso più provider in ordine di priorità tramite",
 		"page_description_code": "hotel/model",
@@ -1012,8 +1031,10 @@
 		"toast_min_entries": "Almeno 2 voci richieste",
 		"toast_display_model_required": "Il nome del modello visualizzato è obbligatorio",
 		"badge_enabled_one": "{{count}} abilitato",
+		"badge_enabled_many": "{{count}} abilitato",
 		"badge_enabled_other": "{{count}} abilitato",
 		"badge_disabled_one": "{{count}} disabilitato",
+		"badge_disabled_many": "{{count}} disabilitato",
 		"badge_disabled_other": "{{count}} disabilitato",
 		"delete_confirm_type": "gruppo failover",
 		"delete_confirm_type_plural": "gruppi failover",
@@ -1025,16 +1046,22 @@
 			"clickToCopy": "Clicca per copiare"
 		},
 		"bulk_provider_count_one": "Gruppo {{count}} con voci {{provider}}",
+		"bulk_provider_count_many": "{{count}} gruppi con voci su {{provider}}",
 		"bulk_provider_count_other": "{{count}} gruppi con voci su {{provider}}",
 		"group_count_one": "{{count}} gruppo",
+		"group_count_many": "{{count}} gruppi",
 		"group_count_other": "{{count}} gruppi",
 		"toast_bulk_toggle_success_one": "{{action}} tutte le voci nel gruppo {{count}}",
+		"toast_bulk_toggle_success_many": "{{action}} tutte le voci nei gruppi {{count}}",
 		"toast_bulk_toggle_success_other": "{{action}} tutte le voci nei gruppi {{count}}",
 		"toast_provider_toggle_success_one": "{{action}} {{provider}} in tutto il gruppo {{count}}",
+		"toast_provider_toggle_success_many": "{{action}} {{provider}} in tutti i gruppi {{count}}",
 		"toast_provider_toggle_success_other": "{{action}} {{provider}} in tutti i gruppi {{count}}",
 		"toast_bulk_delete_success_one": "Gruppo {{count}} eliminato",
+		"toast_bulk_delete_success_many": "Eliminati gruppi {{count}}",
 		"toast_bulk_delete_success_other": "Eliminati gruppi {{count}}",
 		"delete_confirm_bulk_title_one": "{{count}} gruppo di failover",
+		"delete_confirm_bulk_title_many": "{{count}} gruppi di failover",
 		"delete_confirm_bulk_title_other": "{{count}} gruppi di failover",
 		"btn_manage_providers": "Gestisci Fornitori",
 		"provider_modal_title": "Gestisci Stato Provider",
@@ -1043,8 +1070,10 @@
 		"last_sync_label": "Ultima sincronizzazione:",
 		"toast_entry_min_two": "Almeno 2 membri devono rimanere attivi.",
 		"toast_sync_purged_one": "hotel/{{group}}: rimossa {{count}} voce obsoleta",
+		"toast_sync_purged_many": "hotel/{{group}}: rimosse {{count}} voci obsolete",
 		"toast_sync_purged_other": "hotel/{{group}}: rimosse {{count}} voci obsolete",
 		"toast_sync_disabled_one": "hotel/{{group}} disabilitato: {{count}} membro instradabile rimasto",
+		"toast_sync_disabled_many": "hotel/{{group}} disabilitato: {{count}} membri instradabili rimasti",
 		"toast_sync_disabled_other": "hotel/{{group}} disabilitato: {{count}} membri instradabili rimasti"
 	},
 	"delete_confirm": {
@@ -1303,18 +1332,23 @@
 		"never": "Mai",
 		"justNow": "proprio ora",
 		"minutesAgo_one": "{{count}}m fa",
+		"minutesAgo_many": "{{count}}m fa",
 		"minutesAgo_other": "{{count}}m fa",
 		"hoursAgo_one": "{{count}}h fa",
+		"hoursAgo_many": "{{count}}h fa",
 		"hoursAgo_other": "{{count}}h fa",
 		"daysAgo_one": "{{count}}g fa",
+		"daysAgo_many": "{{count}}g fa",
 		"daysAgo_other": "{{count}}g fa",
 		"inDaysHours_one_day_one_hour": "in {{days}} giorno, {{hours}} ora",
 		"inDaysHours_one_day_other_hours": "in {{days}} giorno, {{hours}} ore",
 		"inDaysHours_other_days_one_hour": "in {{days}} giorni, {{hours}} ora",
 		"inDaysHours_other_days_other_hours": "in {{days}} giorni, {{hours}} ore",
 		"inDays_only_one": "tra {{days}} giorno",
+		"inDays_only_many": "in {{days}} giorni",
 		"inDays_only_other": "in {{days}} giorni",
 		"inHours_only_one": "in {{hours}} ora",
+		"inHours_only_many": "in {{hours}} ore",
 		"inHours_only_other": "in {{hours}} ore",
 		"now": "ora"
 	},
@@ -1649,8 +1683,10 @@
 			"reset.tooltip": "Ripristina gli stati di errore della barra laterale annullati",
 			"resetDismissedBanners": "Banner di errore ripristinati",
 			"clearHistoryDescription_one": "{{count}} voce memorizzata",
+			"clearHistoryDescription_many": "{{count}} voci memorizzate",
 			"clearHistoryDescription_other": "{{count}} voci memorizzate",
 			"providerQuotaCacheDescription_one": "{{count}} voce nella cache",
+			"providerQuotaCacheDescription_many": "{{count}} voci nella cache",
 			"providerQuotaCacheDescription_other": "{{count}} voci nella cache"
 		},
 		"dataStorageAndLogging": {
@@ -1768,6 +1804,7 @@
 				"disabled": "Disabilitato (solo manuale)"
 			},
 			"intervalSet_one": "Aggiornamento dashboard impostato ad ogni {{seconds}} secondo",
+			"intervalSet_many": "Aggiornamento dashboard impostato ad ogni {{seconds}} secondi",
 			"intervalSet_other": "Aggiornamento dashboard impostato ad ogni {{seconds}} secondi",
 			"pleaseWaitBeforeRefreshing": "Attendere prima di aggiornare di nuovo",
 			"refreshingDashboard": "Aggiornamento dashboard…"
@@ -1792,6 +1829,7 @@
 				"disabled": "Disabilitato (solo manuale)"
 			},
 			"intervalSet_one": "Aggiornamento della quota impostato ad ogni {{minutes}} minuto",
+			"intervalSet_many": "Aggiornamento della quota impostato ad ogni {{minutes}} minuti",
 			"intervalSet_other": "Aggiornamento della quota impostato ad ogni {{minutes}} minuti"
 		},
 		"common": {
@@ -2212,8 +2250,10 @@
 			"deleteDisabledModels": "Elimina Modelli Disabilitati",
 			"models": "modelli",
 			"deleteDisabledAria_one": "Elimina {{count}} modello disabilitato",
+			"deleteDisabledAria_many": "Elimina i modelli {{count}} disabilitati",
 			"deleteDisabledAria_other": "Elimina i modelli {{count}} disabilitati",
 			"deleteDisabledMessage_one": "Questo eliminerà definitivamente il modello {{count}} disabilitato. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la ricerca automatica sul provider per evitare che ciò accada.",
+			"deleteDisabledMessage_many": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada.",
 			"deleteDisabledMessage_other": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada.",
 			"clickToCopyId": "Clicca per copiare l'ID modello"
 		},
@@ -2223,8 +2263,10 @@
 			"noModelsFound": "Nessun modello trovato",
 			"deleteDisabledModels": "Elimina Modelli Disabilitati",
 			"deleteDisabledAria_one": "Elimina {{count}} modello disabilitato",
+			"deleteDisabledAria_many": "Elimina i modelli {{count}} disabilitati",
 			"deleteDisabledAria_other": "Elimina i modelli {{count}} disabilitati",
 			"deleteDisabledMessage_one": "Questo eliminerà definitivamente il modello {{count}} disabilitato. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la ricerca automatica sul provider per evitare che ciò accada.",
+			"deleteDisabledMessage_many": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada.",
 			"deleteDisabledMessage_other": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada."
 		},
 		"modelReplyCard": {
@@ -2248,6 +2290,7 @@
 			"clear": "Pulisci",
 			"noProvidersFound": "Nessun provider trovato",
 			"provider_one": "{{count}} fornitore",
+			"provider_many": "{{count}} fornitori",
 			"provider_other": "{{count}} fornitori"
 		},
 		"providerModals": {
@@ -2412,8 +2455,10 @@
 			"vs": "vs",
 			"bracket": "Tabellone",
 			"response_one": "{{count}} risposta",
+			"response_many": "{{count}} risposte",
 			"response_other": "{{count}} risposte",
 			"entries_one": "{{count}} voce",
+			"entries_many": "{{count}} voci",
 			"entries_other": "{{count}} voci",
 			"entries": "voci"
 		},
@@ -2598,6 +2643,7 @@
 		},
 		"providerModelsModal": {
 			"modelCount_one": "modello",
+			"modelCount_many": "modelli",
 			"modelCount_other": "modelli"
 		}
 	},
@@ -2614,12 +2660,14 @@
 			"descriptionPlaceholder": "Ad esempio, gruppo di failover per i modelli GLM-5",
 			"modelEntries": "Voci Modello",
 			"selectedCount_one": "{{count}} selezionato",
+			"selectedCount_many": "{{count}} selezionato",
 			"selectedCount_other": "{{count}} selezionato",
 			"saving": "Salvataggio…",
 			"creating": "Creazione…",
 			"createGroup": "Crea Gruppo"
 		},
 		"countLabel_one": "Gruppo di failover",
+		"countLabel_many": "Gruppi di failover",
 		"countLabel_other": "Gruppi di failover",
 		"alphabetSidebar": "Alphabet sidebar",
 		"card": {

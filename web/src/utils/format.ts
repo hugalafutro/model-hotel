@@ -187,10 +187,10 @@ export function formatTimeUntil(ts: number): string {
 			hours: remainingHours,
 		});
 	}
-	if (hours === 1) {
-		return t("format.inHours_only_one", { hours });
-	}
-	return t("format.inHours_only_other", { hours });
+	// Pick the suffix through i18next rather than by hand: "not 1" is only two
+	// forms in English, and Russian needs a third at 2 and a fourth at 5. The
+	// hand-written `hours === 1` split could only ever reach _one and _other.
+	return t("format.inHours_only", { count: hours, hours });
 }
 
 /**
