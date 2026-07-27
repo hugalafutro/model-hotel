@@ -3,6 +3,7 @@ package quota
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -97,6 +98,89 @@ func TestAssess_ZaiCoding_HealthyWindowNotExhausted(t *testing.T) {
 	}
 	if got.Exhausted {
 		t.Error("remaining>0 must not be exhausted")
+	}
+}
+
+// TestAssess_ZaiCoding_AbsentRemainingIsNotExhausted is the same defect the
+// MiniMax parser was fixed for: a field that is simply not in the payload must
+// never be read as "0 left". The fixture omits `remaining` entirely (it is not
+// set to 0), pairing it with a future nextResetTime so a parser that misread the
+// absence would pin this healthy provider for up to the 24h ceiling.
+func TestAssess_ZaiCoding_AbsentRemainingIsNotExhausted(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "nextResetTime": time.Now().Add(6 * time.Hour).UnixMilli()},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(payload), "remaining") {
+		t.Fatalf("fixture must omit the remaining key entirely, got %s", payload)
+	}
+
+	got := Assess("zai-coding", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("a well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("an absent remaining must never be read as a spent window")
+	}
+}
+
+// TestAssess_ZaiCoding_ExplicitZeroRemainingIsExhausted is the other half of the
+// absent-vs-zero distinction: making absence safe must not make a genuinely
+// spent window unreadable, or the feature stops working entirely.
+func TestAssess_ZaiCoding_ExplicitZeroRemainingIsExhausted(t *testing.T) {
+	reset := time.Now().Add(6 * time.Hour).UnixMilli()
+	payload, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 0, "nextResetTime": reset},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("zai-coding", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want an explicit zero to read as exhausted", got.OK, got.Exhausted)
+	}
+	if got.ResetsAt.UnixMilli() != reset {
+		t.Errorf("got ResetsAt=%d, want %d", got.ResetsAt.UnixMilli(), reset)
+	}
+}
+
+// TestAssess_KimiCode_AbsentRemainingIsNotExhausted guards the same hole in the
+// Kimi parser. Kimi encodes remaining as a JSON string, so an absent key decodes
+// to "" and ParseInt rejects it — the parser is safe, but only because a string's
+// zero value happens to be unparseable rather than because absence is handled.
+// Pinning that behaviour here means a future switch to a numeric field (which is
+// exactly the kind of reshape the drift watch exists for) fails this test rather
+// than silently sidelining a healthy provider.
+func TestAssess_KimiCode_AbsentRemainingIsNotExhausted(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"limits": []map[string]any{{
+			"window": map[string]any{"duration": 300, "timeUnit": "MINUTE"},
+			"detail": map[string]any{"limit": "1000", "resetTime": time.Now().Add(6 * time.Hour).UTC().Format(time.RFC3339)},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(payload), "remaining") {
+		t.Fatalf("fixture must omit the remaining key entirely, got %s", payload)
+	}
+
+	got := Assess("kimi-code", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("a well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("an absent remaining must never be read as a spent window")
 	}
 }
 

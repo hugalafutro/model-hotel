@@ -94,8 +94,27 @@ func Assess(providerType string, s Snapshot) Assessment {
 	}
 }
 
+// zaiCodingQuotaLimit is the subset of a zai-coding limit entry the quota
+// normalizer needs, decoded locally rather than via provider.ZAICodingQuotaLimit
+// so Remaining can be *int64: that payload is passed through to the dashboard
+// as-is and must not change shape, but a bare int64 cannot tell "field absent"
+// apart from an explicit 0, and treating an absent remaining as a spent window
+// would pin a healthy provider shut. Same reasoning as minimaxModelRemain below.
+type zaiCodingQuotaLimit struct {
+	Type          string `json:"type"`
+	Unit          int    `json:"unit"`
+	Remaining     *int64 `json:"remaining"`
+	NextResetTime int64  `json:"nextResetTime"`
+}
+
+type zaiCodingQuotaPayload struct {
+	Data struct {
+		Limits []zaiCodingQuotaLimit `json:"limits"`
+	} `json:"data"`
+}
+
 func assessZaiCoding(payload json.RawMessage) Assessment {
-	var res provider.ZAICodingQuotaResponse
+	var res zaiCodingQuotaPayload
 	if err := json.Unmarshal(payload, &res); err != nil {
 		return Assessment{}
 	}
@@ -106,7 +125,9 @@ func assessZaiCoding(payload json.RawMessage) Assessment {
 		if l.Type != "TOKENS_LIMIT" || (l.Unit != 3 && l.Unit != 6) {
 			continue
 		}
-		if l.Remaining > 0 {
+		// A missing remaining decodes to nil, never to 0, so it can never be
+		// misread as exhausted; only a value the provider actually sent counts.
+		if l.Remaining == nil || *l.Remaining > 0 {
 			continue
 		}
 		if t, ok := epochToTime(l.NextResetTime); ok {
