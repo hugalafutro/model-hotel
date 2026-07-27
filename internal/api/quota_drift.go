@@ -59,9 +59,17 @@ const quotaDriftListCap = 10
 // shape that has been seen but not yet confirmed. Held on the Handler rather
 // than persisted, because a restart merely re-arms the debounce -- the harmless
 // direction, costing one extra poll before a real change is reported.
+//
+// fetchedAt identifies *which fetch* the count last advanced on. The watch runs
+// per refresh pass, not per fetch, and the two are not the same thing: a
+// fleet-fed member keeps one row for a whole interval while PollQuotasOnce skips
+// its upstream call, and driftEligible accepts a row for three intervals. Without
+// this, one malformed-but-parseable body would be re-read on the next pass and
+// confirm itself, which is precisely what the debounce exists to stop.
 type quotaSchemaCandidate struct {
 	fingerprint string
 	seen        int
+	fetchedAt   time.Time
 }
 
 // quotaSchemaSettingKey is the settings key holding a provider's baseline
@@ -93,15 +101,16 @@ func driftEligible(s quota.Snapshot, maxAge time.Duration, now time.Time) bool {
 //
 // prev is the fingerprint of the stored baseline ("" when the provider has
 // never been seen), current the fingerprint of this poll's payload ("" when it
-// had no readable shape), and cand the candidate carried over from the previous
-// poll. It returns the candidate to carry into the next poll, whether to alert,
-// and whether to store current as the new baseline.
+// had no readable shape), fetchedAt the snapshot's fetch time (the identity of
+// the observation), and cand the candidate carried over from the previous pass.
+// It returns the candidate to carry into the next pass, whether to alert, and
+// whether to store current as the new baseline.
 //
 // The counter advances inside the decision rather than beside it: a caller that
 // incremented separately could disagree with the branch that reads it, which is
 // exactly the kind of split state that produces either a missed alert or one
 // per poll forever.
-func driftDecision(prev, current string, cand quotaSchemaCandidate) (quotaSchemaCandidate, bool, bool) {
+func driftDecision(prev, current string, fetchedAt time.Time, cand quotaSchemaCandidate) (quotaSchemaCandidate, bool, bool) {
 	switch {
 	case current == "":
 		// Nothing readable this poll. Not evidence in either direction, so an
@@ -118,9 +127,15 @@ func driftDecision(prev, current string, cand quotaSchemaCandidate) (quotaSchema
 	}
 
 	if cand.fingerprint == current {
+		if cand.fetchedAt.Equal(fetchedAt) {
+			// The same stored row, read again by a later refresh pass. One row
+			// is one sighting no matter how often it is re-read.
+			return cand, false, false
+		}
 		cand.seen++
+		cand.fetchedAt = fetchedAt
 	} else {
-		cand = quotaSchemaCandidate{fingerprint: current, seen: 1}
+		cand = quotaSchemaCandidate{fingerprint: current, seen: 1, fetchedAt: fetchedAt}
 	}
 	if cand.seen >= quotaDriftConfirmations {
 		// Confirmed. Promoting the new shape to the baseline is what makes this
@@ -134,13 +149,13 @@ func driftDecision(prev, current string, cand quotaSchemaCandidate) (quotaSchema
 // candidate for one provider, under a lock. RefreshQuotaAdvice runs on the poll
 // goroutine today, but the map is process-wide state and a second caller must
 // not be able to corrupt it.
-func (h *Handler) stepQuotaSchemaCandidate(providerID uuid.UUID, prev, current string) (alert, store bool) {
+func (h *Handler) stepQuotaSchemaCandidate(providerID uuid.UUID, prev, current string, fetchedAt time.Time) (alert, store bool) {
 	h.quotaSchemaMu.Lock()
 	defer h.quotaSchemaMu.Unlock()
 	if h.quotaSchemaSeen == nil {
 		h.quotaSchemaSeen = make(map[uuid.UUID]quotaSchemaCandidate)
 	}
-	next, alert, store := driftDecision(prev, current, h.quotaSchemaSeen[providerID])
+	next, alert, store := driftDecision(prev, current, fetchedAt, h.quotaSchemaSeen[providerID])
 	if next == (quotaSchemaCandidate{}) {
 		delete(h.quotaSchemaSeen, providerID)
 	} else {
@@ -239,7 +254,7 @@ func (h *Handler) checkQuotaDrift(ctx context.Context, snaps []quota.Snapshot, t
 			prev = quota.FingerprintPaths(prevPaths)
 		}
 
-		alert, store := h.stepQuotaSchemaCandidate(s.ProviderID, prev, current)
+		alert, store := h.stepQuotaSchemaCandidate(s.ProviderID, prev, current, s.FetchedAt)
 		if alert {
 			added, removed := diffSchemaPaths(prevPaths, paths)
 			events.Publish(events.Event{

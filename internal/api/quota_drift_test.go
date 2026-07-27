@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -17,11 +19,18 @@ import (
 // The pure decision: baseline adoption, debounce, alert-once
 // ---------------------------------------------------------------------------
 
+// fetchN is a distinct snapshot fetch time, standing for the Nth upstream fetch.
+// The debounce keys off the fetched_at it observed, so the pure tests must feed
+// distinct values wherever they mean "a later poll fetched a fresh row".
+func fetchN(n int) time.Time {
+	return time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC).Add(time.Duration(n) * 5 * time.Minute)
+}
+
 // TestQuotaDriftDecisionFirstSightingAdoptsBaselineSilently verifies a fresh
 // install (or a newly added provider) records what it saw without alerting.
 // Every provider would otherwise page the operator the first time it is polled.
 func TestQuotaDriftDecisionFirstSightingAdoptsBaselineSilently(t *testing.T) {
-	next, alert, store := driftDecision("", "abc123", quotaSchemaCandidate{})
+	next, alert, store := driftDecision("", "abc123", fetchN(1), quotaSchemaCandidate{})
 	if alert {
 		t.Error("the first sighting of a provider must never alert")
 	}
@@ -37,7 +46,7 @@ func TestQuotaDriftDecisionFirstSightingAdoptsBaselineSilently(t *testing.T) {
 // steady state: the fingerprint matches the baseline on every poll, so there is
 // nothing to report and no reason to write the settings row again.
 func TestQuotaDriftDecisionUnchangedShapeNeitherAlertsNorRewrites(t *testing.T) {
-	next, alert, store := driftDecision("abc123", "abc123", quotaSchemaCandidate{})
+	next, alert, store := driftDecision("abc123", "abc123", fetchN(1), quotaSchemaCandidate{})
 	if alert || store {
 		t.Errorf("an unchanged fingerprint must do nothing, got alert=%v store=%v", alert, store)
 	}
@@ -48,19 +57,22 @@ func TestQuotaDriftDecisionUnchangedShapeNeitherAlertsNorRewrites(t *testing.T) 
 
 // TestQuotaDriftDecisionChangedShapeNeedsTwoConsecutiveSightings is the
 // debounce: one malformed or truncated error body reaching the snapshot table
-// must not page anyone, so a new shape only counts once it repeats.
+// must not page anyone, so a new shape only counts once a *later fetch* repeats it.
 func TestQuotaDriftDecisionChangedShapeNeedsTwoConsecutiveSightings(t *testing.T) {
 	const baseline, changed = "old00000", "new00000"
 
-	first, alert, store := driftDecision(baseline, changed, quotaSchemaCandidate{})
+	first, alert, store := driftDecision(baseline, changed, fetchN(1), quotaSchemaCandidate{})
 	if alert || store {
 		t.Fatalf("a single sighting of a new shape must not alert or store, got alert=%v store=%v", alert, store)
 	}
 	if first.fingerprint != changed || first.seen != 1 {
 		t.Fatalf("the new shape must be armed as a candidate, got %+v", first)
 	}
+	if !first.fetchedAt.Equal(fetchN(1)) {
+		t.Fatalf("the candidate must record which fetch it saw, got %+v", first)
+	}
 
-	second, alert, store := driftDecision(baseline, changed, first)
+	second, alert, store := driftDecision(baseline, changed, fetchN(2), first)
 	if !alert {
 		t.Error("a second consecutive sighting of the same new shape must alert")
 	}
@@ -72,6 +84,40 @@ func TestQuotaDriftDecisionChangedShapeNeedsTwoConsecutiveSightings(t *testing.T
 	}
 }
 
+// TestQuotaDriftDecisionSameSnapshotObservedTwiceIsOneSighting is the fleet-dedup
+// hazard: RefreshQuotaAdvice re-reads whatever rows are in the table on every
+// pass, and driftEligible accepts a row for three refresh intervals while
+// PollQuotasOnce skips its own fetch whenever a fleet-distributed row is younger
+// than one interval. So the *same* row is routinely observed by two consecutive
+// passes. Counting that as two sightings would let one malformed-but-parseable
+// body confirm itself, which is exactly what the debounce exists to prevent.
+func TestQuotaDriftDecisionSameSnapshotObservedTwiceIsOneSighting(t *testing.T) {
+	const baseline, changed = "old00000", "new00000"
+	sameFetch := fetchN(1)
+
+	armed, _, _ := driftDecision(baseline, changed, sameFetch, quotaSchemaCandidate{})
+	if armed.seen != 1 {
+		t.Fatalf("first observation must arm at seen=1, got %+v", armed)
+	}
+
+	// The poll pass runs again before a new fetch lands: same row, same fetched_at.
+	for pass := 2; pass <= 4; pass++ {
+		next, alert, store := driftDecision(baseline, changed, sameFetch, armed)
+		if alert || store {
+			t.Fatalf("pass %d: re-reading one stored row must not confirm it, got alert=%v store=%v", pass, alert, store)
+		}
+		if next != armed {
+			t.Fatalf("pass %d: re-reading one stored row must leave the candidate untouched, got %+v want %+v", pass, next, armed)
+		}
+		armed = next
+	}
+
+	// A genuinely new fetch of the same shape does confirm it.
+	if _, alert, store := driftDecision(baseline, changed, fetchN(2), armed); !alert || !store {
+		t.Errorf("a fresh fetch of the same new shape must confirm it, got alert=%v store=%v", alert, store)
+	}
+}
+
 // TestQuotaDriftDecisionAlertsOncePerShapeNotOncePerPoll verifies the promoted
 // baseline silences the shape that was just alerted on, and that a *further*
 // change still gets its own single alert rather than being suppressed.
@@ -79,21 +125,21 @@ func TestQuotaDriftDecisionAlertsOncePerShapeNotOncePerPoll(t *testing.T) {
 	const first, second, third = "shape001", "shape002", "shape003"
 
 	// After alerting on `second`, it is the baseline: polling it again is quiet.
-	if _, alert, store := driftDecision(second, second, quotaSchemaCandidate{}); alert || store {
+	if _, alert, store := driftDecision(second, second, fetchN(1), quotaSchemaCandidate{}); alert || store {
 		t.Errorf("the shape just alerted on became the baseline and must go quiet, got alert=%v store=%v", alert, store)
 	}
 
 	// A third shape arms and then alerts on its own, independently.
-	cand, alert, _ := driftDecision(second, third, quotaSchemaCandidate{})
+	cand, alert, _ := driftDecision(second, third, fetchN(2), quotaSchemaCandidate{})
 	if alert {
 		t.Fatal("a further change must still be debounced, not alerted immediately")
 	}
-	if _, alert, store := driftDecision(second, third, cand); !alert || !store {
+	if _, alert, store := driftDecision(second, third, fetchN(3), cand); !alert || !store {
 		t.Errorf("a further confirmed change must alert on its own, got alert=%v store=%v", alert, store)
 	}
 
 	// And the original shape is not what the alert is about any more.
-	if _, alert, _ := driftDecision(second, first, quotaSchemaCandidate{}); alert {
+	if _, alert, _ := driftDecision(second, first, fetchN(4), quotaSchemaCandidate{}); alert {
 		t.Error("reverting to an older shape must still be debounced like any change")
 	}
 }
@@ -106,7 +152,7 @@ func TestQuotaDriftDecisionFlappingShapeNeverConfirms(t *testing.T) {
 	cand := quotaSchemaCandidate{}
 	for i, fp := range []string{"flapA000", "flapB000", "flapA000", "flapB000", "flapA000"} {
 		var alert, store bool
-		cand, alert, store = driftDecision(baseline, fp, cand)
+		cand, alert, store = driftDecision(baseline, fp, fetchN(i+1), cand)
 		if alert || store {
 			t.Fatalf("poll %d (%s): alternating shapes never confirm, got alert=%v store=%v", i, fp, alert, store)
 		}
@@ -121,9 +167,9 @@ func TestQuotaDriftDecisionFlappingShapeNeverConfirms(t *testing.T) {
 // directions: it must not alert, and it must not disarm a candidate that a
 // previous poll armed, because "we could not read it" is not evidence either way.
 func TestQuotaDriftDecisionUnreadablePayloadLeavesCandidateArmed(t *testing.T) {
-	armed := quotaSchemaCandidate{fingerprint: "new00000", seen: 1}
+	armed := quotaSchemaCandidate{fingerprint: "new00000", seen: 1, fetchedAt: fetchN(1)}
 
-	next, alert, store := driftDecision("old00000", "", armed)
+	next, alert, store := driftDecision("old00000", "", fetchN(2), armed)
 	if alert || store {
 		t.Errorf("an unreadable payload must not alert or store, got alert=%v store=%v", alert, store)
 	}
@@ -154,7 +200,11 @@ func TestQuotaDriftEligibleSkipsNon200AndStaleSnapshots(t *testing.T) {
 		{"fresh 200", quota.Snapshot{HTTPStatus: 200, Payload: body, FetchedAt: now.Add(-time.Minute)}, true},
 		{"204 free tier", quota.Snapshot{HTTPStatus: 204, Payload: json.RawMessage(`null`), FetchedAt: now}, false},
 		{"424 dead credential", quota.Snapshot{HTTPStatus: 424, Payload: body, FetchedAt: now}, false},
-		{"0 failure placeholder", quota.Snapshot{HTTPStatus: 0, Payload: nil, FetchedAt: now}, false},
+		// Deliberately status 0 *with* a payload. RecordFailure's placeholder has
+		// no payload, but pairing the two here would let this case pass on the
+		// empty-payload clause alone and keep passing if the status guard were
+		// deleted. The payload axis is owned by "200 but empty payload" below.
+		{"0 failure placeholder", quota.Snapshot{HTTPStatus: 0, Payload: body, FetchedAt: now}, false},
 		{"500 upstream error", quota.Snapshot{HTTPStatus: 500, Payload: body, FetchedAt: now}, false},
 		{"200 but empty payload", quota.Snapshot{HTTPStatus: 200, Payload: nil, FetchedAt: now}, false},
 		{"200 but stale", quota.Snapshot{HTTPStatus: 200, Payload: body, FetchedAt: now.Add(-16 * time.Minute)}, false},
@@ -204,23 +254,33 @@ func TestQuotaDriftPathDiffNamesTheBillingChange(t *testing.T) {
 	}
 }
 
-// TestQuotaDriftPathDiffCapsEachList verifies a wholesale reshape cannot build
-// an unbounded event payload: both lists are truncated independently.
-func TestQuotaDriftPathDiffCapsEachList(t *testing.T) {
-	prev := make([]string, 0, 40)
-	current := make([]string, 0, 40)
-	for i := range 40 {
-		prev = append(prev, "gone"+string(rune('a'+i%26))+string(rune('a'+i/26)))
-		current = append(current, "new"+string(rune('a'+i%26))+string(rune('a'+i/26)))
+// TestQuotaDriftPathDiffCapsEachListKeepingTheSortedPrefix verifies a wholesale
+// reshape cannot build an unbounded event payload, and that what survives the
+// cap is the alphabetically first paths as diffSchemaPaths documents. The
+// fixtures are sorted because quota.SchemaPaths output and the re-sorted stored
+// baseline both are: an unsorted fixture would prove the cap but not the
+// retained prefix, and the prefix is what makes the truncated alert readable.
+func TestQuotaDriftPathDiffCapsEachListKeepingTheSortedPrefix(t *testing.T) {
+	const total = 40
+	prev := make([]string, 0, total)
+	current := make([]string, 0, total)
+	for i := range total {
+		prev = append(prev, fmt.Sprintf("gone%03d", i))
+		current = append(current, fmt.Sprintf("new%03d", i))
+	}
+	if !sort.StringsAreSorted(prev) || !sort.StringsAreSorted(current) {
+		t.Fatal("fixtures must be sorted to stand in for real SchemaPaths output")
 	}
 
 	added, removed := diffSchemaPaths(prev, current)
 
-	if len(added) != quotaDriftListCap {
-		t.Errorf("added list length %d, want the cap %d", len(added), quotaDriftListCap)
+	wantAdded := current[:quotaDriftListCap]
+	wantRemoved := prev[:quotaDriftListCap]
+	if strings.Join(added, ",") != strings.Join(wantAdded, ",") {
+		t.Errorf("added = %v, want the first %d sorted paths %v", added, quotaDriftListCap, wantAdded)
 	}
-	if len(removed) != quotaDriftListCap {
-		t.Errorf("removed list length %d, want the cap %d", len(removed), quotaDriftListCap)
+	if strings.Join(removed, ",") != strings.Join(wantRemoved, ",") {
+		t.Errorf("removed = %v, want the first %d sorted paths %v", removed, quotaDriftListCap, wantRemoved)
 	}
 }
 
@@ -275,11 +335,17 @@ func TestQuotaDriftWatchAlertsOnlyAfterTheChangeRepeats(t *testing.T) {
 
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "ollama-drift", "https://ollama.com", true)
 
+	// Each seed stands for one upstream fetch and gets its own fetched_at, since
+	// that is the identity the debounce counts. Ages descend so every row stays
+	// well inside the 15-minute eligibility window.
+	fetch := 0
 	seed := func(payload string) {
 		t.Helper()
+		fetch++
 		if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
 			ProviderID: id, Kind: "account", Payload: json.RawMessage(payload),
-			HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
+			HTTPStatus: 200, Source: "poll",
+			FetchedAt: time.Now().Add(-time.Duration(10-fetch) * time.Minute),
 		}); err != nil {
 			t.Fatalf("seed snapshot: %v", err)
 		}
@@ -391,5 +457,64 @@ func TestQuotaDriftWatchIgnoresNon200Snapshot(t *testing.T) {
 	}
 	if baseline, _ := storedSchemaBaseline(t, h, id); strings.Join(baseline, ",") != "plan" {
 		t.Errorf("a non-200 snapshot must not overwrite the baseline, got %v", baseline)
+	}
+}
+
+// TestQuotaDriftWatchDoesNotConfirmOnARefetchedRow is the fleet-dedup case end to
+// end. A member fed by Front Desk keeps a snapshot row for a full interval while
+// PollQuotasOnce skips its own upstream call, and RefreshQuotaAdvice still runs
+// each pass: the same row is read again with no new fetch behind it. Three
+// further passes over that one row must not confirm the change, and a genuinely
+// re-fetched row must.
+func TestQuotaDriftWatchDoesNotConfirmOnARefetchedRow(t *testing.T) {
+	h := newTestHandler(t)
+	h.SetQuotaAdvisor(NewQuotaAdvisor())
+	ctx := context.Background()
+
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "ollama-fleet-fed", "https://ollama.com", true)
+
+	upsert := func(payload string, fetchedAt time.Time) {
+		t.Helper()
+		if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+			ProviderID: id, Kind: "account", Payload: json.RawMessage(payload),
+			HTTPStatus: 200, Source: "fleet", FetchedAt: fetchedAt,
+		}); err != nil {
+			t.Fatalf("seed snapshot: %v", err)
+		}
+	}
+
+	// Baseline adopted from the first fetch.
+	firstFetch := time.Now().Add(-9 * time.Minute)
+	upsert(`{"plan":"pro","subscription_period_end":"2026-08-01T00:00:00Z"}`, firstFetch)
+	h.RefreshQuotaAdvice(ctx)
+
+	sub := events.Subscribe()
+	defer events.Unsubscribe(sub)
+
+	// One fleet-distributed fetch carries a new shape. It then sits in the table
+	// while three more refresh passes run over it.
+	const credits = `{"plan":"pro","credits":{"balance":12.5}}`
+	driftFetch := time.Now().Add(-8 * time.Minute)
+	upsert(credits, driftFetch)
+	for range 4 {
+		h.RefreshQuotaAdvice(ctx)
+	}
+
+	if evs := collectSchemaDriftEvents(t, sub); len(evs) != 0 {
+		t.Fatalf("re-reading one stored row must not confirm a change, got %d event(s)", len(evs))
+	}
+	if baseline, _ := storedSchemaBaseline(t, h, id); strings.Join(baseline, ",") != "plan,subscription_period_end" {
+		t.Fatalf("an unconfirmed change must not move the baseline, got %v", baseline)
+	}
+
+	// A second, genuinely distinct fetch of the same shape confirms it.
+	upsert(credits, time.Now().Add(-7*time.Minute))
+	h.RefreshQuotaAdvice(ctx)
+
+	if evs := collectSchemaDriftEvents(t, sub); len(evs) != 1 {
+		t.Fatalf("a second real fetch of the same new shape must alert exactly once, got %d", len(evs))
+	}
+	if baseline, _ := storedSchemaBaseline(t, h, id); strings.Join(baseline, ",") != "credits,credits.balance,plan" {
+		t.Errorf("the confirmed shape must become the baseline, got %v", baseline)
 	}
 }
