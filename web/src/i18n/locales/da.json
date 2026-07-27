@@ -993,7 +993,7 @@
 		"nav_letter": "Hop til sektion {{letter}}",
 		"toast_bulk_toggle_failed": "Masseskift mislykkedes for nogle grupper",
 		"toast_provider_toggle_failed": "Masse udbyder skifte mislykkedes for nogle grupper",
-		"toast_sync_deleted": "Hotel/{{model}} slettet: {{reason}}{{providers}}",
+		"toast_sync_deleted": "hotel/{{model}} slettet: {{reason}}{{providers}}",
 		"toast_sync_success": "Failover-grupper synkroniseret",
 		"toast_sync_failed": "Synkronisering mislykkedes: {{message}}",
 		"toast_update_failed": "Mislykkedes at opdatere: {{message}}",

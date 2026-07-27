@@ -1809,7 +1809,7 @@
 			"resetAllSettings": "Redefinir todas as configurações para seus padrões",
 			"resetAllConfirmTitle": "Redefinir todas as configurações",
 			"resetAllConfirmMessage": "Isto redefinirá TODAS as configurações para seus valores padrão. Esta ação não pode ser desfeita.",
-			"resetAllConfirmField": "Digite REDEFINIR para confirmar",
+			"resetAllConfirmField": "Digite RESET para confirmar",
 			"resetSectionConfirmTitle": "Redefinir seção",
 			"resetSectionConfirmMessage": "Redefinir todas as configurações desta seção para seus padrões?",
 			"resetSettingDone": "Configuração redefinida para o padrão",

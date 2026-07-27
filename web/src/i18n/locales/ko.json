@@ -959,7 +959,7 @@
 		"page_title_one": "페일오버 그룹",
 		"page_title_other": "장애 조치 그룹",
 		"page_description_lead": "다음과 같이 우선순위 순서대로 여러 공급자를 통해 요청을 전달합니다.",
-		"page_description_code": "hotel/모델명",
+		"page_description_code": "hotel/model",
 		"btn_sync": "동기화",
 		"btn_syncing": "… 동기화",
 		"btn_new_group": "새 그룹",

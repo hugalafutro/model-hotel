@@ -1687,6 +1687,7 @@
 		"sv"
 	],
 	"components.requestLogDetail.ttft": [
+		"af",
 		"ar",
 		"ca",
 		"cs",
@@ -1708,6 +1709,7 @@
 		"ro",
 		"ru",
 		"sk",
+		"sr",
 		"sv",
 		"tr",
 		"uk",
@@ -1936,6 +1938,7 @@
 		"vi"
 	],
 	"components.virtualLogTable.ttft": [
+		"af",
 		"ar",
 		"ca",
 		"cs",
@@ -1957,6 +1960,7 @@
 		"ro",
 		"ru",
 		"sk",
+		"sr",
 		"sv",
 		"tr",
 		"uk",
@@ -2037,6 +2041,7 @@
 		"sv"
 	],
 	"dashboard.gauge.modal.ttftLabel": [
+		"af",
 		"ar",
 		"ca",
 		"cs",
@@ -2058,6 +2063,7 @@
 		"ro",
 		"ru",
 		"sk",
+		"sr",
 		"sv",
 		"tr",
 		"uk",
@@ -2065,6 +2071,7 @@
 		"zh"
 	],
 	"dashboard.gauge.modal.ttftMetric": [
+		"af",
 		"ar",
 		"ca",
 		"cs",
@@ -2086,6 +2093,7 @@
 		"ro",
 		"ru",
 		"sk",
+		"sr",
 		"sv",
 		"tr",
 		"uk",
@@ -2393,6 +2401,7 @@
 		"he",
 		"it",
 		"ja",
+		"ko",
 		"no",
 		"pl",
 		"pt",
@@ -3023,6 +3032,7 @@
 		"vi"
 	],
 	"logs.table.ttft": [
+		"af",
 		"ar",
 		"ca",
 		"cs",
@@ -3044,6 +3054,7 @@
 		"ro",
 		"ru",
 		"sk",
+		"sr",
 		"sv",
 		"tr",
 		"uk",
