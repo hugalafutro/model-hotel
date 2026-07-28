@@ -223,11 +223,51 @@ else
 	# Go: any non-test .go under internal/ (cmd/ and tools/ are excluded from coverage).
 	if has_measurable_change '^internal/.*\.go$' '_test\.go$'; then
 		if (exec 3<>/dev/tcp/localhost/5433) 2>/dev/null; then
-			echo "pre-push: coverage - go test ./internal/... (Postgres :5433 up)"
+			# Only the packages whose files changed, not ./internal/... . `go test
+			# -coverprofile` attributes coverage solely to the package under test
+			# unless -coverpkg widens it, which we do not use: a profile built from
+			# one package contains that package's statements and nothing else. So
+			# for a gate that measures CHANGED LINES, a dependent package's tests
+			# contribute exactly nothing to the number, and running them is pure
+			# cost. Verified by measuring internal/{proxy,quota,failover,model}
+			# inside the full tree and in isolation: 94.9/99.3/95.6/95.5% either
+			# way, identical.
+			#
+			# This matters because internal/api costs ~190s of the ~196s a full run
+			# takes, and it sits downstream of 24 of the 33 internal packages.
+			# Go's test cache already spares you when nothing it compiles against
+			# actually changed (adding an unused function is stripped by the
+			# linker, leaving the test binary byte-identical and the cached result
+			# valid), but any REAL change to one of those 24 re-runs it in full.
+			# Editing an error string in internal/db is enough. Now you pay for
+			# internal/api only when you change internal/api. Falls back to the
+			# whole tree when there is no diff to scope by, the same conservative
+			# default touched() uses.
+			GO_PKGS=""
+			if [ -n "$SYNC_BASE" ]; then
+				# The diff lists deleted paths too, and a package whose last file
+				# was removed no longer exists on disk. `go test ./internal/gone`
+				# is a hard error, so an unrelated deletion would block the push
+				# for a reason that has nothing to do with coverage. Keep only
+				# directories that are still there.
+				while read -r _dir; do
+					[ -n "$_dir" ] || continue
+					[ -d "$REPO_ROOT/$_dir" ] || continue
+					GO_PKGS="$GO_PKGS ./$_dir"
+				done < <(printf '%s\n' "$CHANGED_FILES" |
+					grep -E '^internal/.*\.go$' |
+					grep -vE '_test\.go$' |
+					xargs -d '\n' -r -n1 dirname |
+					sort -u)
+				GO_PKGS="${GO_PKGS# }"
+			fi
+			[ -n "$GO_PKGS" ] || GO_PKGS="./internal/..."
+			echo "pre-push: coverage - go test ${GO_PKGS} (Postgres :5433 up)"
 			# -timeout is per package: internal/api alone runs for minutes against
 			# a real Postgres, and at 5m it started tripping the clock in CI with
 			# nothing actually hung. Same headroom as .github/workflows/ci.yml.
-			if go test -timeout 10m -coverprofile="$COV_DIR/go.out" -covermode=atomic ./internal/...; then
+			# shellcheck disable=SC2086 # deliberate split: one argument per package
+			if go test -timeout 10m -coverprofile="$COV_DIR/go.out" -covermode=atomic $GO_PKGS; then
 				DC_ARGS+=(--go "$COV_DIR/go.out")
 			else
 				echo "pre-push: FAILED - go test (coverage run)" >&2
