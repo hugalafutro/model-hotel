@@ -1,26 +1,10 @@
+// Presentational primitives shared by the two discovery modals:
+// DiscoverySummaryModal (a single run's diff, Providers page) and
+// ModelDiscrepancyModal (the standing ledger behind the Models badge). They live
+// here so the two cannot drift into showing the same thing two different ways.
+// Components only, by Fast Refresh's rule; the shared value formatter lives
+// next door in discoveryFormat.ts.
 import type { ReactNode } from "react";
-import { formatTokens } from "../../utils/format";
-import { formatPrice } from "../../utils/model";
-
-// Pricing fields render as "$<price>"; the rest are token counts.
-export const PRICE_FIELDS = new Set([
-	"input_price",
-	"output_price",
-	"input_price_cache",
-]);
-
-// formatFieldValue renders a metadata value for the Updated section, using the
-// same formatters as the Models table; a null/undefined value reads as `unset`.
-export function formatFieldValue(
-	field: string,
-	value: number | null | undefined,
-	unset: string,
-): string {
-	if (value == null) return unset;
-	return PRICE_FIELDS.has(field)
-		? `$${formatPrice(value)}`
-		: formatTokens(value);
-}
 
 // A change category: a color-coded sign badge that encodes the direction of the
 // change (+ added, − removed, ↺ back, ± edited), the human label, and the body.

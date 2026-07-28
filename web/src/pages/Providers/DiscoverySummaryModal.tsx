@@ -3,12 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { DiscoveryDiff } from "../../api/types";
 import { Modal } from "../../components/Modal";
 import { ChevronDown, ChevronRight, RefreshCw } from "../../lib/icons";
-import {
-	CategoryGroup,
-	Chip,
-	DetailRow,
-	formatFieldValue,
-} from "./discoveryPrimitives";
+import { formatFieldValue } from "./discoveryFormat";
+import { CategoryGroup, Chip, DetailRow } from "./discoveryPrimitives";
 
 export interface DiscoverySummaryEntry {
 	providerName: string;
