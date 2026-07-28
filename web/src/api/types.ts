@@ -548,6 +548,37 @@ export interface DiscoveryChangesResponse {
 	count: number;
 }
 
+/** What discovery currently believes about one model. */
+export type ClaimState = "gone" | "stale" | "suspect";
+
+export interface ModelClaim {
+	model_id: string;
+	state: ClaimState;
+	/** When the provider last listed it; for a gone model, when it went missing. */
+	last_seen_at: string;
+	missing_scans: number;
+	/** Membership transitions over the 30-day claim window. */
+	flap_window: number;
+	/** Membership transitions since the operator last opened the modal. */
+	flap_since_review: number;
+}
+
+export interface ProviderClaims {
+	provider_id: string;
+	provider_name: string;
+	gone: ModelClaim[];
+	stale: ModelClaim[];
+	suspect: ModelClaim[];
+}
+
+/** GET /api/discovery/status. `claim_count` counts `gone` only. */
+export interface DiscoveryStatusResponse {
+	claims: ProviderClaims[];
+	informational: DiscoveryChangeEntry[];
+	claim_count: number;
+	informational_unseen: number;
+}
+
 export interface DiscoverAllResult {
 	provider_name: string;
 	discovered: number;

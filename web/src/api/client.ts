@@ -17,6 +17,7 @@ import type {
 	DiscoverAllResult,
 	DiscoveryChangesResponse,
 	DiscoveryDiff,
+	DiscoveryStatusResponse,
 	FailoverGroup,
 	FailoverListResponse,
 	GithubStatus,
@@ -415,13 +416,35 @@ export const api = {
 	},
 
 	discovery: {
-		// Unseen changes recorded by background (scheduled/startup) discovery,
-		// powering the Models nav badge and its review modal.
-		changes: async (): Promise<DiscoveryChangesResponse> => {
-			return fetchJSON<DiscoveryChangesResponse>(
-				`${API_BASE}/api/discovery/changes`,
+		// Current discrepancy state plus the informational change feed. Pass
+		// review=true only from the modal-open fetch: the server stamps the
+		// last-reviewed marker on that variant, and the badge poll must not
+		// consume it.
+		status: async (review = false): Promise<DiscoveryStatusResponse> => {
+			return fetchJSON<DiscoveryStatusResponse>(
+				`${API_BASE}/api/discovery/status${review ? "?review=1" : ""}`,
 				{ headers: getAuthHeaders() },
-				"Failed to load discovery changes",
+				"Failed to load discovery status",
+			);
+		},
+		// Suppress (or, with dismissed=false, restore) a discrepancy.
+		dismiss: async (
+			providerId: string,
+			modelIds: string[],
+			dismissed: boolean,
+		): Promise<{ updated: number }> => {
+			return fetchJSON<{ updated: number }>(
+				`${API_BASE}/api/discovery/dismiss`,
+				{
+					method: "POST",
+					headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+					body: JSON.stringify({
+						provider_id: providerId,
+						model_ids: modelIds,
+						dismissed,
+					}),
+				},
+				"Failed to update discovery dismissal",
 			);
 		},
 		ackChanges: async (): Promise<DiscoveryChangesResponse> => {
