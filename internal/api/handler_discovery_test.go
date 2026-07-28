@@ -1173,6 +1173,14 @@ func TestGetProviderBalance_Error(t *testing.T) {
 func TestDiscoverProviderModels_WithInvalidProviderType(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
+	// The point of the test is the unrecognised base URL, not the network: left
+	// to itself this resolved a name that does not exist and then retried,
+	// costing tens of seconds and depending on the runner's DNS. Must be
+	// overridden after newTestHandlerWithRouter, which installs its own factory.
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = unreachableDiscovery
+
 	// Create a provider with a custom/self-hosted base URL
 	body := `{"name":"test-custom-provider","base_url":"https://custom.example.com","api_key":"sk-custom"}`
 	req := httptest.NewRequest("POST", "/providers", strings.NewReader(body))
@@ -1195,10 +1203,11 @@ func TestDiscoverProviderModels_WithInvalidProviderType(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 
-	// Discovery will attempt to call the custom endpoint and fail
-	// We just verify it doesn't crash - actual response depends on network
-	if w2.Code != http.StatusOK && w2.Code != http.StatusInternalServerError {
-		t.Errorf("expected 200 or 500, got %d: %s", w2.Code, w2.Body.String())
+	// Discovery calls the custom endpoint and fails. With the transport stubbed
+	// the outcome no longer "depends on network", so this asserts the one code
+	// an unreachable custom endpoint produces instead of accepting either.
+	if w2.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d: %s", w2.Code, w2.Body.String())
 	}
 }
 
