@@ -162,7 +162,18 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 
 		g := byProvider[r.ProviderID]
 		if g == nil {
-			g = &ProviderClaims{ProviderID: r.ProviderID, ProviderName: r.ProviderName}
+			// All three buckets start as [] rather than nil so the JSON
+			// response always serializes them as [], never null: Claims and
+			// Informational already do this (buildProviderClaims below,
+			// discovery_changes.go), and the frontend types promise
+			// ModelClaim[] with no null guard.
+			g = &ProviderClaims{
+				ProviderID:   r.ProviderID,
+				ProviderName: r.ProviderName,
+				Gone:         []ModelClaim{},
+				Stale:        []ModelClaim{},
+				Suspect:      []ModelClaim{},
+			}
 			byProvider[r.ProviderID] = g
 		}
 

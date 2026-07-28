@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -84,6 +86,39 @@ func TestBuildProviderClaims_Ordering(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("order = %v, want %v (most counted claims first, stale-only last)", got, want)
 		}
+	}
+}
+
+// TestBuildProviderClaims_EmptyBucketsSerializeAsEmptyArray pins the wire
+// contract the frontend depends on: a provider with only one populated bucket
+// must still serialize the other two as `[]`, never `null`. The frontend
+// types (web/src/api/types.ts) promise ModelClaim[] with no null guard, so a
+// nil slice here would throw at the first real payload that has an
+// unpopulated bucket, which is the common case, not the edge case.
+func TestBuildProviderClaims_EmptyBucketsSerializeAsEmptyArray(t *testing.T) {
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	rows := []claimRow{
+		{ProviderID: "p1", ProviderName: "NanoGPT", ModelID: "only-gone", LastSeenAt: now.Add(-3 * 24 * time.Hour)},
+	}
+
+	claims, _ := buildProviderClaims(rows, map[flapKey]int{}, map[flapKey]int{}, now)
+	if len(claims) != 1 {
+		t.Fatalf("expected 1 provider group, got %d", len(claims))
+	}
+
+	out, err := json.Marshal(claims[0])
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	got := string(out)
+	if !strings.Contains(got, `"stale":[]`) {
+		t.Errorf("stale bucket must serialize as [], got %s", got)
+	}
+	if !strings.Contains(got, `"suspect":[]`) {
+		t.Errorf("suspect bucket must serialize as [], got %s", got)
+	}
+	if strings.Contains(got, "null") {
+		t.Errorf("no bucket may serialize as null, got %s", got)
 	}
 }
 

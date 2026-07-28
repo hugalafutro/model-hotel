@@ -437,7 +437,7 @@ export const api = {
 				`${API_BASE}/api/discovery/dismiss`,
 				{
 					method: "POST",
-					headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+					headers: getAuthHeaders(),
 					body: JSON.stringify({
 						provider_id: providerId,
 						model_ids: modelIds,
