@@ -608,10 +608,13 @@ Without pinning, a provider that has exhausted its quota is re-probed every `cir
 
 Pinning only ever changes the cooldown of a circuit that has already opened. HTTP responses remain the sole source of truth for whether a circuit opens at all, so a wrong or stale quota reading can delay a retry but can never sideline a healthy provider.
 
-Two behaviours are worth knowing before you reach for these controls:
+Three behaviours are worth knowing before you reach for these controls:
 
+- **A pin ends by itself when the provider recovers.** A pin is stamped on at the moment the circuit opens, but it is not a commitment to wait that long. The quota poller refreshes its picture every `quota_refresh_interval_min` minutes (5 by default), and any provider that is no longer out of quota has its pin lifted on the spot. The circuit falls back to `circuit_breaker_cooldown` and, if that has already elapsed, goes half-open and probes on the next request. So an operator who tops up a spent plan gets the provider back within one poll interval instead of waiting out a pin that could run to the 24h ceiling. Lifting a pin only ever shortens a wait: it does not close the circuit, and the probe still has to succeed before traffic resumes. Look for `circuit-breaker: quota pin released (provider no longer exhausted)` in the logs. Note that a pin is released only after a refresh that actually succeeded; a refresh that could not read the database says nothing about provider health, so it leaves existing pins alone.
 - **Turning pinning off releases a pin that is already in force.** The kill switch is re-read on every check rather than only when a circuit opens, so an operator whose provider has been sidelined for hours can recover it by flipping `circuit_breaker_quota_pin_enabled` to `false`. Allow up to about 30 seconds for the change to reach the proxy: settings are cached with a 30 second TTL, so the release is not instantaneous.
 - **Setting the maximum to zero does not disable pinning.** A non-positive `circuit_breaker_quota_pin_max` is treated as unset and falls back to the 24h default. `circuit_breaker_quota_pin_enabled` is the off switch; the ceiling only bounds how long a pin may last.
+
+Between them, these give you three ways out of a long cooldown, from least to most blunt: wait for the poller to notice (automatic, up to one poll interval), reset the one provider whose circuit you want back (immediate, see [Resetting a circuit](#resetting-a-circuit)), or turn pinning off fleet-wide (releases every pin at once).
 
 ### SSE Events
 
@@ -661,6 +664,32 @@ events.Publish(events.Event{
 ```
 
 A separate `quota.schema_drift` event fires when a provider changes the *shape* of its quota response (the set of key paths, not the values). It carries the added and removed paths and is alert-only: it never opens a circuit, never pins a cooldown, and never affects routing. See [Alerting](Alerting) and the [API Reference](API-Reference) for its metadata.
+
+A pin being lifted early is likewise **not** an event. Nothing transitions at that moment: the circuit is still open, it has simply gone back to the ordinary cooldown. The change shows up in the next circuit-breaker status poll (`quota_pinned` flips to `false` and `next_retry_at` moves in) and in the log line quoted above.
+
+### Resetting a circuit
+
+Waiting out a cooldown is not always what you want. If you have just fixed the provider yourself (rotated a dead key, restarted a local runtime, paid an overdue invoice) the breaker has no way to know, and you can force the circuit back into rotation:
+
+**One provider:**
+
+```bash
+curl -X POST http://localhost:8080/api/failover-groups/circuit-breaker/$PROVIDER_ID/reset \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+This is also the circular-arrow button ("Reset circuit breaker") beside each open or half-open member on the Failover page, so the common case needs no curl at all.
+
+**Every provider at once:**
+
+```bash
+curl -X POST http://localhost:8080/api/failover-groups/circuit-breaker/reset \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+Reset-all is deliberately **API only, with no UI control**. That is a decision, not an omission. Per-provider reset is the operation you want almost every time, and it names the provider you are recovering; a fleet-wide button sitting next to it is far too easy to reach for when a single circuit is the problem, and it discards evidence about every other provider at the same time. The bulk endpoint exists for the case it was written for: a fleet-wide upstream incident that tripped many circuits at once, cleared from a script or a runbook where the blast radius is spelled out.
+
+Resetting clears the circuit outright: state, failure count, and any quota pin. The provider is tried again on the very next request, so if it is still broken the circuit simply reopens after `circuit_breaker_threshold` failures. Both endpoints are safe to call when nothing is wrong: an untracked or already-closed provider reports success and no change rather than an error. See the [API Reference](API-Reference#failover-groups) for the response shapes.
 
 ---
 
