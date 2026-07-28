@@ -139,6 +139,10 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			-- RecordMissingModels, so a model that reappears (even via a manual
 			-- re-test between scheduled scans) starts over from zero misses.
 			missing_scans = 0,
+			-- A sighting also retires any operator dismissal, so a model that is
+			-- dismissed, comes back, and vanishes again counts as a new claim
+			-- instead of staying suppressed by a stale stamp.
+			discovery_dismissed_at = NULL,
 			last_seen_at = now()
 		RETURNING ` + upsertColumns
 

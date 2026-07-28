@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -397,5 +398,42 @@ func TestRecordMissingModels_InvalidatesCache(t *testing.T) {
 	_, ok = GetCachedByUUID(m.ID)
 	if ok {
 		t.Error("expected cache to be invalidated after RecordMissingModels")
+	}
+}
+
+// TestUpsertClearsDiscoveryDismissal drives the sequence the dismissal column
+// exists for: an operator dismisses a gone model, the provider lists it again,
+// and it later vanishes again. The second disappearance must read as a fresh
+// claim, so the sighting in between has to clear the dismissal stamp.
+func TestUpsertClearsDiscoveryDismissal(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-dismiss-clear")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+	insertTestModel(ctx, t, providerID, "vanishing-model")
+
+	// Operator dismissed it while it was gone.
+	if _, err := testPool.Exec(ctx,
+		`UPDATE models SET enabled = false, discovery_dismissed_at = now()
+		  WHERE provider_id = $1 AND model_id = $2`, providerID, "vanishing-model"); err != nil {
+		t.Fatalf("seed dismissal: %v", err)
+	}
+
+	// The provider lists it again.
+	m := newBareModel(providerID, "vanishing-model")
+	m.Enabled = true
+	if err := repo.Upsert(ctx, m); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	var dismissedAt *time.Time
+	if err := testPool.QueryRow(ctx,
+		`SELECT discovery_dismissed_at FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "vanishing-model").Scan(&dismissedAt); err != nil {
+		t.Fatalf("read dismissal: %v", err)
+	}
+	if dismissedAt != nil {
+		t.Errorf("discovery_dismissed_at = %v, want nil: a sighting must clear the stamp so a later disappearance is a fresh claim", *dismissedAt)
 	}
 }
