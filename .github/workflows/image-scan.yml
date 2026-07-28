@@ -1,4 +1,4 @@
-# Weekly vulnerability scan of the published image.
+# Weekly vulnerability scan of the published images (app + Front Desk).
 #
 # The CI gate only runs when a PR is open, but CVEs land in already-published
 # images (this is exactly how the OpenSSL 3.5.6 flags appeared on Docker Hub:
@@ -31,20 +31,30 @@ jobs:
       # workflow that uploads Trivy SARIF, the Security tab then showed the
       # tool as failing for a week. Trivy resolves the image from the local
       # docker daemon first, so both scans below reuse this one pull.
-      - name: Pull published image (with retries)
+      - name: Pull published images (with retries)
         env:
-          IMAGE: docker.io/hugalafutro/model-hotel:latest
+          IMAGES: >-
+            docker.io/hugalafutro/model-hotel:latest
+            docker.io/hugalafutro/model-hotel-frontdesk:latest
         run: |
           set -euo pipefail
-          for attempt in 1 2 3; do
-            if docker pull "$IMAGE"; then
-              exit 0
+          for image in $IMAGES; do
+            pulled=false
+            for attempt in 1 2 3; do
+              if docker pull "$image"; then
+                pulled=true
+                break
+              fi
+              echo "::warning::docker pull $image failed (attempt $attempt/3)"
+              if [ "$attempt" -lt 3 ]; then
+                sleep $((attempt * 30))
+              fi
+            done
+            if [ "$pulled" = false ]; then
+              echo "::error::could not pull $image after 3 attempts"
+              exit 1
             fi
-            echo "::warning::docker pull $IMAGE failed (attempt $attempt/3)"
-            sleep $((attempt * 30))
           done
-          echo "::error::could not pull $IMAGE after 3 attempts"
-          exit 1
 
       # Full-picture report (all severities, unfixed included) for the GitHub
       # Security tab, so findings are tracked over time — deliberately broader
@@ -66,12 +76,43 @@ jobs:
           sarif_file: trivy-image.sarif
           category: published-image
 
+      # The Front Desk control plane is published from the same release, so it
+      # ages the same way and deserves the same weekly look. A distinct SARIF
+      # category keeps its findings from overwriting the app image's.
+      - name: Scan published Front Desk image (SARIF report)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: docker.io/hugalafutro/model-hotel-frontdesk:latest
+          format: sarif
+          output: trivy-frontdesk-image.sarif
+          timeout: 15m
+
+      - name: Upload Front Desk SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          sarif_file: trivy-frontdesk-image.sarif
+          category: published-frontdesk-image
+
+      # Gates run last, after both SARIF uploads: a failing gate must never cost
+      # us the Security tab record of why it failed.
+      #
       # Same actionable-only policy as the CI gate: fixable HIGH/CRITICAL only.
       - name: Scan published image for fixable HIGH/CRITICAL vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
           image-ref: docker.io/hugalafutro/model-hotel:latest
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+          timeout: 15m
+
+      - name: Scan published Front Desk image for fixable HIGH/CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: docker.io/hugalafutro/model-hotel-frontdesk:latest
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: 1
