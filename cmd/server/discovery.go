@@ -111,6 +111,18 @@ func runDiscovery(deps discoveryDeps, source string) DiscoveryResult {
 			Metadata: map[string]any{"source": source},
 		})
 	}
+
+	// Retention. Safe only because claims are derived from live model state: a
+	// journal row can no longer be the sole evidence of a pending claim, so the
+	// feed can be trimmed to the same window flap counts read from. Pruning is
+	// housekeeping, not part of the scan: a failure here must not turn an
+	// otherwise-completed run into a failed one.
+	if deleted, err := api.PruneDiscoveryChanges(ctx, deps.pool, time.Now().Add(-api.ClaimWindow)); err != nil {
+		debuglog.Error("discovery: prune change journal failed", "error", err)
+	} else if deleted > 0 {
+		debuglog.Info("discovery: pruned change journal", "rows", deleted)
+	}
+
 	return result
 }
 

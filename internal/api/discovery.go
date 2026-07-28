@@ -126,7 +126,7 @@ func (h *Handler) GetDiscoveryStatus(w http.ResponseWriter, r *http.Request) {
 			// First ever review: everything in the window is new to this operator.
 			sinceReview = window
 		case lastReviewed.Before(windowStart):
-			// Journal rows are pruned at ClaimWindow (pruneDiscoveryChanges), so a
+			// Journal rows are pruned at ClaimWindow (PruneDiscoveryChanges), so a
 			// stamp older than the window would ask flapCounts to look further
 			// back than the surviving journal actually reaches, silently
 			// deriving the number from rows that no longer exist. Clamp the

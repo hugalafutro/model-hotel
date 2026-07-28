@@ -196,7 +196,7 @@ func TestPruneDiscoveryChanges(t *testing.T) {
 		}
 	}
 
-	deleted, err := pruneDiscoveryChanges(ctx, pool, time.Now().Add(-ClaimWindow))
+	deleted, err := PruneDiscoveryChanges(ctx, pool, time.Now().Add(-ClaimWindow))
 	if err != nil {
 		t.Fatalf("prune: %v", err)
 	}

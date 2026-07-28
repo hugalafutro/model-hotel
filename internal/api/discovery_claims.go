@@ -241,10 +241,10 @@ func setModelsDismissed(ctx context.Context, pool *pgxpool.Pool, providerID uuid
 	return tag.RowsAffected(), nil
 }
 
-// pruneDiscoveryChanges deletes seen journal rows older than the window. Safe
+// PruneDiscoveryChanges deletes seen journal rows older than the window. Safe
 // only because claims are derived from `models`: a journal row can no longer be
 // the sole evidence of a pending claim.
-func pruneDiscoveryChanges(ctx context.Context, pool *pgxpool.Pool, before time.Time) (int64, error) {
+func PruneDiscoveryChanges(ctx context.Context, pool *pgxpool.Pool, before time.Time) (int64, error) {
 	tag, err := pool.Exec(ctx,
 		`DELETE FROM discovery_changes WHERE seen AND detected_at < $1`, before)
 	if err != nil {
