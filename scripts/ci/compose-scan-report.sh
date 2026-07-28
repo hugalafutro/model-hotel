@@ -28,6 +28,7 @@ read_status() {
 vulnerable=false
 needs_release=false
 republished=false
+unverified=false
 
 {
   echo "The weekly scan of the published images found fixable HIGH/CRITICAL vulnerabilities."
@@ -41,9 +42,18 @@ for entry in "model-hotel:$APP_GATE" "model-hotel-frontdesk:$FRONTDESK_GATE"; do
   gate=${entry#*:}
 
   case "$gate" in
-  failure) vulnerable=true; scan_cell="fixable HIGH/CRITICAL" ;;
+  failure)
+    vulnerable=true
+    scan_cell="fixable HIGH/CRITICAL"
+    ;;
   success) scan_cell="clean" ;;
-  *) scan_cell="not scanned ($gate)" ;;
+  # Any other outcome means this image was never actually scanned, most often
+  # because its pull failed. That is not evidence of anything, least of all of
+  # being clean.
+  *)
+    unverified=true
+    scan_cell="not scanned ($gate)"
+    ;;
   esac
 
   rebuild=$(read_status "$image" rebuild_clean || echo "not attempted")
@@ -105,6 +115,16 @@ done
 } >>"$body"
 
 if [ "$vulnerable" != true ]; then
+  # Closing requires a clean result for EVERY image, not merely the absence of a
+  # failing one. An image whose pull died reports its gate as "skipped", and
+  # treating that as clean would close an issue about confirmed HIGH/CRITICAL
+  # vulnerabilities on the strength of never having looked. The run is already
+  # red in that case, so leaving the issue open costs nothing and assuming
+  # recovery costs everything.
+  if [ "$unverified" = true ]; then
+    echo "Not every image was scanned; leaving any open tracking issue alone."
+    exit 0
+  fi
   echo "No fixable findings; closing any open tracking issue."
   scripts/ci/report-image-scan-issue.sh clean "Published images: fixable vulnerabilities found"
   exit 0
