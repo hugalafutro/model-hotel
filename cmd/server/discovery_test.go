@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/api"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/events"
@@ -126,6 +127,65 @@ func TestRunDiscoveryNoProviders(t *testing.T) {
 	}
 	if len(result.Errors) != 0 {
 		t.Errorf("expected no errors, got %v", result.Errors)
+	}
+}
+
+// TestRunDiscoveryPrunesChangeJournal pins that a full runDiscovery call, not
+// just PruneDiscoveryChanges in isolation, ends by trimming the journal to
+// ClaimWindow. TestPruneDiscoveryChanges (internal/api) already covers the
+// SQL; this covers the wiring that calls it from the scheduled/startup loop.
+func TestRunDiscoveryPrunesChangeJournal(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	ctx := context.Background()
+	pool := cmdTestDB.Pool()
+
+	seeds := []struct {
+		modelID string
+		age     time.Duration
+	}{
+		{"old-row", api.ClaimWindow + 24*time.Hour}, // seen and past the window: must be pruned
+		{"recent-row", time.Hour},                   // seen but recent: must survive
+	}
+	for _, s := range seeds {
+		diff := &api.DiscoveryDiff{Added: []api.ModelChange{{ModelID: s.modelID, Reason: "test"}}}
+		if _, err := api.AppendDiscoveryChange(ctx, pool, "test", nil, "", diff); err != nil {
+			t.Fatalf("seed %s: %v", s.modelID, err)
+		}
+		if _, err := pool.Exec(ctx,
+			`UPDATE discovery_changes SET detected_at = now() - $1::interval, seen = true
+			  WHERE detected_at = (SELECT MAX(detected_at) FROM discovery_changes)`,
+			s.age.String()); err != nil {
+			t.Fatalf("age %s: %v", s.modelID, err)
+		}
+	}
+
+	runDiscovery(testDiscoveryDeps(t), "test")
+
+	rows, err := pool.Query(ctx, `SELECT diff->'added'->0->>'model_id' FROM discovery_changes`)
+	if err != nil {
+		t.Fatalf("query remaining rows: %v", err)
+	}
+	defer rows.Close()
+	remaining := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		remaining[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+
+	if remaining["old-row"] {
+		t.Error("old seen row survived runDiscovery's prune")
+	}
+	if !remaining["recent-row"] {
+		t.Error("recent seen row was pruned by runDiscovery; should have survived")
 	}
 }
 
