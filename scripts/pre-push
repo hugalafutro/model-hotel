@@ -110,7 +110,11 @@ has_measurable_change() {
 	[ -z "$files" ] && return 1
 	[ -z "$SYNC_BASE" ] && return 0
 	local diff
-	diff="$(printf '%s\n' "$files" | xargs -d '\n' -r git diff -U0 "$SYNC_BASE...HEAD" -- 2>/dev/null)" || return 0
+	# NUL-delimited rather than `xargs -d '\n'`: -d is a GNU extension BSD xargs
+	# rejects, so on macOS this errored, hit the `|| return 0` below and ran the
+	# suite unconditionally. -r is not needed (files is non-empty by the guard
+	# above) and is itself GNU-only.
+	diff="$(printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 git diff -U0 "$SYNC_BASE...HEAD" -- 2>/dev/null)" || return 0
 	printf '%s\n' "$diff" |
 		grep -E '^[+-]' |
 		grep -vE '^(\+\+\+|---)' |
@@ -254,10 +258,15 @@ else
 					[ -n "$_dir" ] || continue
 					[ -d "$REPO_ROOT/$_dir" ] || continue
 					GO_PKGS="$GO_PKGS ./$_dir"
+				# sed rather than `xargs -n1 dirname`: -d is a GNU extension that
+				# BSD xargs rejects outright, so on macOS this would print an
+				# option error, leave GO_PKGS empty and quietly fall back to the
+				# full suite -- the exact cost this block exists to avoid. Every
+				# path here matched ^internal/.*\.go$ so it always has a slash.
 				done < <(printf '%s\n' "$CHANGED_FILES" |
 					grep -E '^internal/.*\.go$' |
 					grep -vE '_test\.go$' |
-					xargs -d '\n' -r -n1 dirname |
+					sed 's#/[^/]*$##' |
 					sort -u)
 				GO_PKGS="${GO_PKGS# }"
 			fi
