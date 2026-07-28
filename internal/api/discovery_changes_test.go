@@ -61,9 +61,6 @@ func TestDiscoveryChangesStore_RoundTrip(t *testing.T) {
 	if got.Diff == nil || len(got.Diff.Added) != 1 || len(got.Diff.Updated) != 1 {
 		t.Fatalf("decoded diff mismatch: %+v", got.Diff)
 	}
-	if countAffected(got.Diff) != 2 {
-		t.Errorf("countAffected = %d, want 2", countAffected(got.Diff))
-	}
 
 	acked, err := markDiscoveryChangesSeen(ctx, pool)
 	if err != nil {

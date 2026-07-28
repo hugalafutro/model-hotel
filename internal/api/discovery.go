@@ -147,13 +147,7 @@ func (h *Handler) GetDiscoveryStatus(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to load discovery changes", err, http.StatusInternalServerError)
 		return
 	}
-	pending = collapseRoundTrips(pending)
-	// InformationalUnseen counts the raw unseen journal rows, not the display
-	// list below: a disabled-only entry still gets acked (and must stop
-	// driving the badge dot) even though stripDisabledBucket hides it from
-	// the feed, so the badge count has to come from before that strip.
-	unseenCount := len(pending)
-	informational := stripDisabledBucket(pending)
+	informational := stripDisabledBucket(collapseRoundTrips(pending))
 
 	// Stamp last, and never in read-only mode: a GET must not 403 there, so the
 	// write is skipped rather than rejected.
@@ -172,7 +166,7 @@ func (h *Handler) GetDiscoveryStatus(w http.ResponseWriter, r *http.Request) {
 		Claims:              claims,
 		Informational:       informational,
 		ClaimCount:          count,
-		InformationalUnseen: unseenCount,
+		InformationalUnseen: len(informational),
 	})
 }
 

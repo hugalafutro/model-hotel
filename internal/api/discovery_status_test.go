@@ -61,8 +61,12 @@ func TestGetDiscoveryStatus_StripsDisabledBucket(t *testing.T) {
 	if len(resp.Informational[0].Diff.Added) != 1 {
 		t.Errorf("added bucket must survive, got %+v", resp.Informational[0].Diff.Added)
 	}
-	if resp.InformationalUnseen != 2 {
-		t.Errorf("InformationalUnseen = %d, want 2 (both rows are unseen news)", resp.InformationalUnseen)
+	// InformationalUnseen counts what the feed actually shows (post-strip), not
+	// the raw journal-row total: its only job is to drive a badge dot meaning
+	// "there is something to see if you expand Recent changes", and a
+	// disabled-only row strips to nothing, so it must not light that dot.
+	if resp.InformationalUnseen != 1 {
+		t.Errorf("InformationalUnseen = %d, want 1 (matches the stripped, displayed entry only)", resp.InformationalUnseen)
 	}
 }
 
@@ -117,6 +121,36 @@ func TestGetDiscoveryStatus_PlainGetDoesNotStamp(t *testing.T) {
 	}
 }
 
+// TestGetDiscoveryStatus_ReviewSkipsStampInReadOnly pins the DemoReadOnly guard
+// on the write: a GET must never 403 even in read-only mode (so the badge stays
+// browsable on a demo instance), but the review stamp is a write, and read-only
+// means no writes. review=1 is the variant that stamps in every other test
+// (TestGetDiscoveryStatus_ReviewStampsAfterReading), so seeing it NOT stamp here
+// is a real signal that the DemoReadOnly guard fired, not that review=1 is a
+// no-op in general.
+func TestGetDiscoveryStatus_ReviewSkipsStampInReadOnly(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	ctx := context.Background()
+	if err := h.settingsRepo.DeleteKey(ctx, settingKeyDiscoveryLastReviewed); err != nil {
+		t.Fatalf("clear review key: %v", err)
+	}
+	h.cfg.DemoReadOnly = true
+
+	req := httptest.NewRequest(http.MethodGet, "/discovery/status?review=1", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /discovery/status?review=1 in read-only mode = %d, want 200; body: %s", rec.Code, rec.Body.String())
+	}
+
+	if _, found, err := h.settingsRepo.GetChecked(ctx, settingKeyDiscoveryLastReviewed); err != nil {
+		t.Fatalf("read key: %v", err)
+	} else if found {
+		t.Error("read-only mode must skip the last-reviewed stamp even with review=1")
+	}
+}
+
 // TestGetDiscoveryStatus_ReviewStampClampedToWindow pins the gap carried over
 // from Task 2: journal rows are pruned at ClaimWindow, so a stored
 // last-reviewed stamp older than the window must not be used verbatim — that
@@ -162,7 +196,7 @@ func TestGetDiscoveryStatus_ReviewStampClampedToWindow(t *testing.T) {
 	// journal is pruned, so a naive lookup would derive sinceReview from rows
 	// that (in production) no longer exist.
 	staleStamp := time.Now().Add(-(ClaimWindow + 48*time.Hour))
-	if err := h.settingsRepo.Set(ctx, settingKeyDiscoveryLastReviewed, staleStamp.Format(time.RFC3339)); err != nil {
+	if err := h.settingsRepo.Set(ctx, settingKeyDiscoveryLastReviewed, staleStamp.Format(time.RFC3339Nano)); err != nil {
 		t.Fatalf("seed stale review stamp: %v", err)
 	}
 

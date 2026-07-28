@@ -44,20 +44,6 @@ func diffIsEmpty(d *DiscoveryDiff) bool {
 		len(d.FailoverDisabledGroups) == 0
 }
 
-// countAffected sums the entities a diff touched — the badge number.
-func countAffected(d *DiscoveryDiff) int {
-	if d == nil {
-		return 0
-	}
-	return len(d.Added) +
-		len(d.Reenabled) +
-		len(d.Disabled) +
-		len(d.Updated) +
-		len(d.FailoverDeletedGroups) +
-		len(d.FailoverUpdatedGroups) +
-		len(d.FailoverDisabledGroups)
-}
-
 // floatPtrEq reports pointer-aware equality at float32 precision. Prices ride in
 // REAL columns, so comparing at float32 matches what discovery's diffFloatPtr did
 // when it recorded the change. Both nil is equal (field unset on both ends); one

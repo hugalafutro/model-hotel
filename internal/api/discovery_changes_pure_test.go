@@ -33,32 +33,6 @@ func TestDiffIsEmpty(t *testing.T) {
 	}
 }
 
-// TestCountAffected sums every diff bucket into the badge number. A nil diff is
-// 0; a diff touching one entity in each bucket is the bucket count.
-func TestCountAffected(t *testing.T) {
-	if got := countAffected(nil); got != 0 {
-		t.Errorf("countAffected(nil) = %d, want 0", got)
-	}
-	if got := countAffected(&DiscoveryDiff{}); got != 0 {
-		t.Errorf("countAffected(empty) = %d, want 0", got)
-	}
-
-	d := &DiscoveryDiff{
-		Added:                  []ModelChange{{ModelID: "a"}},
-		Reenabled:              []ModelChange{{ModelID: "b"}},
-		Disabled:               []ModelChange{{ModelID: "c"}},
-		Updated:                []ModelUpdate{{ModelID: "d"}, {ModelID: "e"}},
-		FailoverDeletedGroups:  []failover.DeletedGroupInfo{{}},
-		FailoverUpdatedGroups:  []failover.UpdatedGroupInfo{{}},
-		FailoverDisabledGroups: []failover.DisabledGroupInfo{{}},
-	}
-	// Three single-entry buckets, two updated models, three single-entry failover
-	// buckets sum to eight affected entities.
-	if got := countAffected(d); got != 8 {
-		t.Errorf("countAffected = %d, want 8", got)
-	}
-}
-
 // TestFloatPtrEq covers the pointer-aware, float32-precision price equality used
 // to fold discovery round-trips: both-nil is equal, exactly-one-nil is not, and
 // equal-vs-different values compare at float32 precision.
