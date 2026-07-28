@@ -72,6 +72,15 @@ export function useDiscoveryRetest(
 			if (mutation.isPending) return;
 			mutation.mutate(entry);
 		},
+		/**
+		 * Awaitable single retest, for callers that walk providers sequentially and
+		 * must know when each run has settled. Rejects on failure so the caller can
+		 * record a per-provider error. `onRetest`'s fire-and-forget lock is not
+		 * applied here: it reads `mutation.isPending` from the render that produced
+		 * the closure, which a running walk holds fixed, so it would be a stale
+		 * value rather than a lock. Callers of this must serialize themselves.
+		 */
+		retestAsync: (entry: DiscoverySummaryEntry) => mutation.mutateAsync(entry),
 		retestingKey,
 		/** True while any retest is in flight; callers disable every Retest button off this. */
 		isAnyRetesting: mutation.isPending,

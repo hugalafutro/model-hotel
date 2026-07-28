@@ -43,6 +43,7 @@ const baseProps = {
 	onClose: vi.fn(),
 	onRetest: vi.fn(),
 	onRetestAll: vi.fn(),
+	onCancelRetestAll: vi.fn(),
 	onDismiss: vi.fn(),
 	isRetesting: false,
 	errors: {},

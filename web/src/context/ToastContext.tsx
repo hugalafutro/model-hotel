@@ -22,14 +22,21 @@ export type ToastPosition =
 	| "bottom-center"
 	| "bottom-right";
 
+/** An inline control on the toast, e.g. "Undo" on a confirmed dismissal. */
+export interface ToastAction {
+	label: string;
+	onClick: () => void;
+}
+
 interface Toast {
 	id: number;
 	message: string;
 	type: ToastType;
+	action?: ToastAction;
 }
 
 interface ToastContextType {
-	toast: (message: string, type?: ToastType) => void;
+	toast: (message: string, type?: ToastType, action?: ToastAction) => void;
 	position: ToastPosition;
 	setPosition: (position: ToastPosition) => void;
 	timeout: number;
@@ -109,11 +116,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 	});
 
 	const addToast = useCallback(
-		(message: string, type: ToastType = "success") => {
+		(message: string, type: ToastType = "success", action?: ToastAction) => {
 			const id = nextId++;
 			setToasts((prev) => [
 				...prev.filter((t) => t.message !== message),
-				{ id, message, type },
+				{ id, message, type, action },
 			]);
 		},
 		[],
@@ -269,6 +276,33 @@ function ToastItem({
 			}
 		>
 			{toast.message}
+			{toast.action ? (
+				// A nested <span role="button"> rather than a real <button>: the toast
+				// itself is the dismiss control, and a button cannot be nested inside a
+				// button. Same pattern the sidebar nav badge uses inside its <a>.
+				// biome-ignore lint/a11y/useSemanticElements: a real <button> can't nest inside the toast <button>; role+keydown make this span an accessible control
+				<span
+					role="button"
+					tabIndex={0}
+					data-testid="toast-action"
+					onClick={(e) => {
+						e.stopPropagation();
+						toast.action?.onClick();
+						onDone();
+					}}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" || e.key === " ") {
+							e.preventDefault();
+							e.stopPropagation();
+							toast.action?.onClick();
+							onDone();
+						}
+					}}
+					className="ui-btn ui-btn-ghost ui-btn-compact ml-2 inline-flex cursor-pointer items-center underline"
+				>
+					{toast.action.label}
+				</span>
+			) : null}
 			{fuse && (
 				<FuseOutline
 					color={strokeColors[toast.type]}

@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 import { api } from "../api/client";
 import type {
 	DiscoveryChangeEntry,
+	GroupClaim,
 	ModelClaim,
 	ProviderClaims,
 } from "../api/types";
@@ -100,6 +101,34 @@ export function mergeClaims(
 	return out;
 }
 
+/**
+ * Optimistic dismiss: marks one claim `resolved` in place.
+ *
+ * Deliberately not a removal. A row that vanishes on a click is the exact
+ * complaint this rework exists to fix, and `resolved` is already the vocabulary
+ * for "was wrong, is not any more": it strikes the row through where it sits and
+ * names it in the resolved summary. Pure, so the caller can keep the
+ * pre-dismiss array and put it back verbatim when the write fails.
+ *
+ * Only `gone` is touched, because only `gone` rows offer a Dismiss control.
+ */
+export function markClaimResolved(
+	snapshot: MergedProvider[],
+	providerID: string,
+	modelID: string,
+): MergedProvider[] {
+	return snapshot.map((p) =>
+		p.provider_id === providerID
+			? {
+					...p,
+					gone: p.gone.map((c) =>
+						c.model_id === modelID ? { ...c, status: "resolved" as const } : c,
+					),
+				}
+			: p,
+	);
+}
+
 /** True when nothing in any group is still pending or new. */
 export function providerIsResolved(p: MergedProvider): boolean {
 	return GROUPS.every((g) => p[g].every((c) => c.status === "resolved"));
@@ -114,6 +143,12 @@ export function useDiscrepancies(open: boolean) {
 	const [informational, setInformational] = useState<DiscoveryChangeEntry[]>(
 		[],
 	);
+	// Failover groups discovery disabled. Held alongside the claims because
+	// `claim_count` (the nav badge number) already counts them: if the modal
+	// cannot render them, the badge points at rows that do not exist.
+	// Replaced wholesale rather than merged: a group claim is derived live from
+	// `group_enabled`, so it has no session-local status to preserve.
+	const [groupClaims, setGroupClaims] = useState<GroupClaim[]>([]);
 	const [refreshError, setRefreshError] = useState<Error | null>(null);
 	const [seeded, setSeeded] = useState(false);
 
@@ -127,10 +162,18 @@ export function useDiscrepancies(open: boolean) {
 	// replaying a stale response from up to gcTime ago.
 	const [session, setSession] = useState(0);
 	const [prevOpen, setPrevOpen] = useState(open);
+	// The bumped session has to reach THIS render's query key, not the next one.
+	// `setSession` during render does not change `session` for the rest of the
+	// pass, so querying the old key here would subscribe the reopening modal to
+	// the previous open's cached response, seed the snapshot from it and latch
+	// `seeded` before the fresh fetch could ever land: stale rows for the whole
+	// second visit. Deriving the key instead means the reopen render already
+	// misses the cache and fetches.
+	const activeSession = open && !prevOpen ? session + 1 : session;
 	if (open !== prevOpen) {
 		setPrevOpen(open);
 		if (open) {
-			setSession((s) => s + 1);
+			setSession(activeSession);
 		} else {
 			setSeeded(false);
 			setRefreshError(null);
@@ -138,7 +181,7 @@ export function useDiscrepancies(open: boolean) {
 	}
 
 	const query = useQuery({
-		queryKey: ["discovery-status", "modal", session],
+		queryKey: ["discovery-status", "modal", activeSession],
 		queryFn: () => api.discovery.status(true),
 		enabled: open,
 		staleTime: Number.POSITIVE_INFINITY,
@@ -148,6 +191,7 @@ export function useDiscrepancies(open: boolean) {
 		// React's documented "adjust state during render" bail-out: seeding in an
 		// effect would paint one frame of an empty modal first.
 		setSnapshot(toSnapshot(query.data.claims));
+		setGroupClaims(query.data.group_claims);
 		setInformational(query.data.informational);
 		setSeeded(true);
 	}
@@ -156,6 +200,7 @@ export function useDiscrepancies(open: boolean) {
 		try {
 			const fresh = await api.discovery.status(false);
 			setSnapshot((prev) => mergeClaims(prev, fresh.claims));
+			setGroupClaims(fresh.group_claims);
 			setInformational(fresh.informational);
 			setRefreshError(null);
 			return fresh;
@@ -168,13 +213,26 @@ export function useDiscrepancies(open: boolean) {
 		}
 	}, []);
 
+	/** Optimistic half of a dismiss; see `markClaimResolved`. */
+	const dismissClaim = useCallback((providerID: string, modelID: string) => {
+		setSnapshot((prev) => markClaimResolved(prev, providerID, modelID));
+	}, []);
+
+	/** Rollback half: puts back an array the caller captured before dismissing. */
+	const restoreSnapshot = useCallback((previous: MergedProvider[]) => {
+		setSnapshot(previous);
+	}, []);
+
 	return {
 		snapshot,
+		groupClaims,
 		informational,
 		loading: query.isLoading,
 		isError: query.isError,
 		error: query.error,
 		refresh,
 		refreshError,
+		dismissClaim,
+		restoreSnapshot,
 	};
 }

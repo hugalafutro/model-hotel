@@ -43,6 +43,10 @@ export interface ModelDiscrepancyModalProps {
 	onClose: () => void;
 	onRetest: (providerId: string, providerName: string) => void;
 	onRetestAll: () => void;
+	/** Stops the Retest-all walk. The walk finishes the provider already in
+	 * flight, so this asks for no further providers rather than aborting a
+	 * discovery run half-applied. */
+	onCancelRetestAll: () => void;
 	onDismiss: (providerId: string, modelId: string) => void;
 	/** Provider whose retest is in flight; only that section spins. */
 	retestingProviderId?: string;
@@ -53,6 +57,9 @@ export interface ModelDiscrepancyModalProps {
 	/** Per-provider retest failures, keyed by provider id. */
 	errors: Record<string, string>;
 	onExpandInformational: () => void;
+	/** Message from a failed status fetch or refresh. Present means "we do not
+	 * know what is wrong", which must never render as "nothing is wrong". */
+	loadError?: string;
 	readOnly: boolean;
 }
 
@@ -63,12 +70,14 @@ export function ModelDiscrepancyModal({
 	onClose,
 	onRetest,
 	onRetestAll,
+	onCancelRetestAll,
 	onDismiss,
 	retestingProviderId,
 	isRetesting,
 	retestAllProgress,
 	errors,
 	onExpandInformational,
+	loadError,
 	readOnly,
 }: ModelDiscrepancyModalProps) {
 	const { t } = useTranslation();
@@ -592,7 +601,20 @@ export function ModelDiscrepancyModal({
 						</span>
 					) : null}
 					<span className="flex-1" />
-					{unresolvedProviders.length > 0 ? (
+					{/* Cancel replaces Retest all for the duration of the walk, and is
+					    the one control `retestBlocked` must not disable: it is the way
+					    out of a walk across many providers, each a slow upstream call. */}
+					{retestAllProgress ? (
+						<button
+							type="button"
+							onClick={onCancelRetestAll}
+							title={t("providers.discrepancies.cancelRetestAllTooltip")}
+							className="ui-btn ui-btn-ghost ui-btn-compact inline-flex shrink-0 items-center gap-1.5"
+							data-testid="discrepancy-retest-all-cancel"
+						>
+							{t("providers.discrepancies.cancelRetestAll")}
+						</button>
+					) : unresolvedProviders.length > 0 ? (
 						<button
 							type="button"
 							onClick={onRetestAll}
@@ -616,6 +638,23 @@ export function ModelDiscrepancyModal({
 			}
 		>
 			<div className="space-y-5" data-testid="discrepancy-modal">
+				{/* A failed load banners at the top and, crucially, suppresses the
+				    empty state below: "nothing is wrong" when we could not find out
+				    is the false reassurance this whole rework exists to remove. */}
+				{loadError ? (
+					<div
+						className="flex items-start gap-2 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2 text-sm"
+						data-testid="discrepancy-load-error"
+					>
+						<span className="ui-badge ui-badge-error shrink-0">
+							{t("providers.discrepancies.error")}
+						</span>
+						<span className="break-words text-(--text-secondary)">
+							{loadError}
+						</span>
+					</div>
+				) : null}
+
 				{/* Zone 1: what is currently wrong. Sections render in the order the
 				    backend gave them; re-sorting here would move a section out from
 				    under the cursor mid-session. */}
@@ -624,7 +663,7 @@ export function ModelDiscrepancyModal({
 						{providers.map(renderProvider)}
 						{renderGroupClaims()}
 					</div>
-				) : (
+				) : loadError ? null : (
 					<p
 						className="text-sm text-(--text-tertiary)"
 						data-testid="discrepancy-empty"
