@@ -133,7 +133,7 @@ type Handler struct {
 	testModelCheckRedirect func(req *http.Request, via []*http.Request) error // SSRF-protected redirect check for TestModel
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
 	discoveryCheckRedirect func(req *http.Request, via []*http.Request) error
-	circuitBreaker         CircuitBreakerReader
+	circuitBreaker         CircuitBreakerControl
 	audit                  *audit.Recorder   // nil until SetAudit (audit trail of admin actions)
 	totpStatus             TotpStatus        // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
 	totpEnabled            atomic.Bool       // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
@@ -255,8 +255,10 @@ func (h *Handler) SetDockerStatsCollector(fn dockerStatsCollector) {
 	}
 }
 
-// SetCircuitBreaker sets the circuit breaker reader for exposing circuit breaker status via the API.
-func (h *Handler) SetCircuitBreaker(cb CircuitBreakerReader) {
+// SetCircuitBreaker wires the proxy's circuit breaker so the API can publish its
+// status (failover page, sidebar badge, /metrics) and reset it: there is exactly
+// one breaker, so status and the operator reset lever come from the same object.
+func (h *Handler) SetCircuitBreaker(cb CircuitBreakerControl) {
 	h.circuitBreaker = cb
 }
 

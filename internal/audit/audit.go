@@ -150,6 +150,9 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 				route = p
 			}
 			entityID = rctx.URLParam("id")
+			if entityID == "" {
+				entityID = entityParam(rctx)
+			}
 		}
 		// Fleet heartbeat announces are machine-to-machine liveness pings, not
 		// human admin actions. Front Desk POSTs one to every member ~every 2.5s;
@@ -190,6 +193,26 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 			rec.record(entry)
 		})
 	})
+}
+
+// entityParam finds the entity a route acts on when the route does not name its
+// parameter "id". Routes that reach across resources spell the parameter out
+// (e.g. {provider_id} on the circuit-breaker reset), and without this the audit
+// row would record the action with an empty entity, leaving the trail unable to
+// answer "which provider was reset". Only "*_id"/"*_uuid" keys qualify, so
+// non-entity parameters (a backup {filename}, a wildcard) still record nothing
+// rather than something misleading.
+//
+// Keys are scanned newest-first, matching chi's own URLParam lookup, so a nested
+// router's inner parameter wins over an outer one of the same shape.
+func entityParam(rctx *chi.Context) string {
+	keys, values := rctx.URLParams.Keys, rctx.URLParams.Values
+	for i := min(len(keys), len(values)) - 1; i >= 0; i-- {
+		if strings.HasSuffix(keys[i], "_id") || strings.HasSuffix(keys[i], "_uuid") {
+			return values[i]
+		}
+	}
+	return ""
 }
 
 // isFleetHeartbeat reports whether a resolved route is a fleet liveness ping

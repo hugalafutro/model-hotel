@@ -143,6 +143,54 @@ func TestMiddlewareRecordsThroughChi(t *testing.T) {
 	}
 }
 
+// TestMiddlewareRecordsNonIDEntityParam covers routes that name their entity
+// parameter something other than "id" (the circuit-breaker reset uses
+// {provider_id}). Without the fallback these rows land with an empty entity_id
+// and the trail cannot say which provider an operator acted on. A parameter
+// that names no entity ({filename}) must still record nothing rather than
+// something misleading.
+func TestMiddlewareRecordsNonIDEntityParam(t *testing.T) {
+	rec := newRecorder(t, nil)
+	r := chi.NewRouter()
+	r.Use(rec.Middleware)
+	r.Route("/api", func(r chi.Router) {
+		r.Post("/failover-groups/circuit-breaker/{provider_id}/reset", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+		r.Post("/things/{model_uuid}/act", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+		r.Delete("/backups/{filename}", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		})
+	})
+
+	providerID := "3f2a91c4-55de-4d7e-9d1a-6b0f7c2e8a10"
+	modelUUID := "7c1d0e55-2b34-4a99-8f7e-15ab3c9d0e42"
+	ident := &user.Identity{Role: user.RoleAdmin}
+	do := func(method, path string) {
+		req := httptest.NewRequest(method, path, http.NoBody)
+		req = req.WithContext(user.WithIdentity(req.Context(), ident))
+		r.ServeHTTP(httptest.NewRecorder(), req)
+	}
+	do(http.MethodPost, "/api/failover-groups/circuit-breaker/"+providerID+"/reset")
+	do(http.MethodPost, "/api/things/"+modelUUID+"/act")
+	do(http.MethodDelete, "/api/backups/model-hotel-2026-07-27.dump")
+
+	eventually(t, func() bool { return countRows(t, "1=1") == 3 })
+
+	if n := countRows(t, `route = '/api/failover-groups/circuit-breaker/{provider_id}/reset' AND entity_id = $1 AND status_code = 200`, providerID); n != 1 {
+		t.Errorf("circuit-breaker reset row must record the provider id as entity_id")
+	}
+	if n := countRows(t, `route = '/api/things/{model_uuid}/act' AND entity_id = $1`, modelUUID); n != 1 {
+		t.Errorf("{model_uuid} route must record the uuid as entity_id")
+	}
+	// entity_id is stored as NULLIF(..., ''), so "no entity" lands as NULL.
+	if n := countRows(t, `route = '/api/backups/{filename}' AND entity_id IS NULL`); n != 1 {
+		t.Errorf("a non-entity parameter must leave entity_id empty, not guess")
+	}
+}
+
 func TestMiddlewareSkipsFleetHeartbeat(t *testing.T) {
 	rec := newRecorder(t, nil)
 	r := chi.NewRouter()

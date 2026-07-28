@@ -718,20 +718,55 @@ func TestDeleteFailoverGroup_NonExistent(t *testing.T) {
 
 // TestGetSystem_NoCache tests the system stats endpoint
 
-// mockCircuitBreakerReader implements CircuitBreakerReader for tests.
-type mockCircuitBreakerReader struct {
+// mockCircuitBreaker implements CircuitBreakerControl for tests. Reset/ResetAll
+// really drop the circuits from statuses rather than merely recording the call,
+// so a test can observe the reset through the status endpoint the dashboard
+// reads instead of trusting a call counter.
+type mockCircuitBreaker struct {
 	statuses []failover.ProviderStatus
 }
 
-func (m *mockCircuitBreakerReader) Status() []failover.ProviderStatus {
+func (m *mockCircuitBreaker) Status() []failover.ProviderStatus {
 	return m.statuses
+}
+
+func (m *mockCircuitBreaker) Reset(providerID uuid.UUID) failover.State {
+	id := providerID.String()
+	for i, s := range m.statuses {
+		if s.ProviderID != id {
+			continue
+		}
+		m.statuses = append(m.statuses[:i:i], m.statuses[i+1:]...)
+		switch s.State {
+		case failover.StateOpen.String():
+			return failover.StateOpen
+		case failover.StateHalfOpen.String():
+			return failover.StateHalfOpen
+		default:
+			return failover.StateClosed
+		}
+	}
+	// Untracked provider: the real breaker treats this as an implicitly healthy
+	// closed circuit, not an error.
+	return failover.StateClosed
+}
+
+func (m *mockCircuitBreaker) ResetAll() (cleared, recovered int) {
+	cleared = len(m.statuses)
+	for _, s := range m.statuses {
+		if s.State != failover.StateClosed.String() {
+			recovered++
+		}
+	}
+	m.statuses = nil
+	return cleared, recovered
 }
 
 func TestCircuitBreakerStatus_WithDetail(t *testing.T) {
 	h := newTestHandler(t)
 
 	// Wire a mock circuit breaker before registering routes.
-	mockCB := &mockCircuitBreakerReader{
+	mockCB := &mockCircuitBreaker{
 		statuses: []failover.ProviderStatus{
 			{
 				ProviderID:       uuid.New().String(),
@@ -933,7 +968,7 @@ func TestCircuitBreakerStatus_UntrackedMembers(t *testing.T) {
 
 	// Set a mock circuit breaker that tracks NO providers (empty).
 	// All failover group members should be counted as "closed".
-	mockCB := &mockCircuitBreakerReader{
+	mockCB := &mockCircuitBreaker{
 		statuses: []failover.ProviderStatus{},
 	}
 	h.SetCircuitBreaker(mockCB)
@@ -1031,7 +1066,7 @@ func TestCircuitBreakerStatus_TrackedProviderNotDoubleCounted(t *testing.T) {
 
 	// Set the mock circuit breaker BEFORE registering routes again.
 	// The FailoverHandler captures cbReader at Register() time.
-	mockCB := &mockCircuitBreakerReader{
+	mockCB := &mockCircuitBreaker{
 		statuses: []failover.ProviderStatus{
 			{ProviderID: providerResp.ID, State: failover.StateOpen.String(), ConsecutiveFails: 5},
 		},
@@ -1296,7 +1331,7 @@ func TestCircuitBreakerStatus_AggregateCacheHit(t *testing.T) {
 		t.Fatalf("failed to create group: %d: %s", rec.Code, rec.Body.String())
 	}
 
-	mockCB := &mockCircuitBreakerReader{
+	mockCB := &mockCircuitBreaker{
 		statuses: []failover.ProviderStatus{
 			{ProviderID: providerResp.ID, State: failover.StateClosed.String(), ConsecutiveFails: 0},
 		},
@@ -1406,7 +1441,7 @@ func TestCircuitBreakerStatus_DetailCached(t *testing.T) {
 	}
 
 	// Set up mock circuit breaker.
-	mockCB := &mockCircuitBreakerReader{
+	mockCB := &mockCircuitBreaker{
 		statuses: []failover.ProviderStatus{
 			{ProviderID: providerResp.ID, State: failover.StateOpen.String(), ConsecutiveFails: 1},
 		},
@@ -1506,7 +1541,7 @@ func TestCircuitBreakerStatus_ProviderName(t *testing.T) {
 	}
 
 	// Set up a mock circuit breaker with the provider in open state.
-	mockCB := &mockCircuitBreakerReader{
+	mockCB := &mockCircuitBreaker{
 		statuses: []failover.ProviderStatus{
 			{ProviderID: providerResp.ID, State: failover.StateOpen.String(), ConsecutiveFails: 3},
 		},

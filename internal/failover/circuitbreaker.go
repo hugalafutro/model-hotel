@@ -325,8 +325,9 @@ func (cb *CircuitBreaker) effectiveCooldown() time.Duration {
 // quotaPinnedFor reports whether a quota pin is actually governing this circuit
 // right now. The kill switch is deliberately re-read here rather than only at
 // the moment a circuit opens: an operator who disables quota pinning to recover
-// a provider sidelined for hours has no other lever (Reset/ResetAll have no
-// production caller), so a pin already in force must be released immediately.
+// a provider sidelined for hours expects every pin already in force to be
+// released at once, not only the circuits that open afterwards. It is the
+// fleet-wide lever; Reset is the per-provider one.
 //
 // Every surface derives from this one predicate — the cooldown the breaker
 // enforces, the CooldownMs/NextRetryAt the status API publishes, and the
@@ -398,6 +399,22 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit) {
 	c.cooldownOverride = d
 }
 
+// logicalState maps a circuit's stored state to the state every observer
+// reports: an open circuit whose cooldown has elapsed is "ready to probe" and
+// reads as half-open, even though the stored state only flips to StateHalfOpen
+// for the brief duration of an in-flight probe request. Without this the
+// half-open bucket is effectively unobservable (and the sidebar badge's middle
+// count never moves). Purely derived — it never mutates the circuit — so every
+// surface (Status, GetState, Reset) agrees on what a circuit is doing.
+//
+// Must be called with cb.mu held (read lock suffices).
+func (cb *CircuitBreaker) logicalState(c *circuit) State {
+	if c.state == StateOpen && !c.openedAt.IsZero() && time.Since(c.openedAt) >= cb.effectiveCooldownFor(c) {
+		return StateHalfOpen
+	}
+	return c.state
+}
+
 // Status returns the current status of all tracked providers.
 func (cb *CircuitBreaker) Status() []ProviderStatus {
 	cb.mu.RLock()
@@ -406,16 +423,7 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 	statuses := make([]ProviderStatus, 0, len(cb.circuits))
 	for id, c := range cb.circuits {
 		cooldown := cb.effectiveCooldownFor(c)
-		// Apply the same logical cooldown transition as GetState: an open
-		// circuit whose cooldown has elapsed is "ready to probe" and is
-		// reported as half-open, even though the internal state only flips to
-		// StateHalfOpen for the brief duration of an in-flight probe request.
-		// Without this the half-open bucket is effectively unobservable from
-		// the status API (and the sidebar badge's middle count never moves).
-		state := c.state
-		if state == StateOpen && !c.openedAt.IsZero() && time.Since(c.openedAt) >= cooldown {
-			state = StateHalfOpen
-		}
+		state := cb.logicalState(c)
 		s := ProviderStatus{
 			ProviderID:       id,
 			State:            state.String(),
@@ -446,24 +454,44 @@ func (cb *CircuitBreaker) GetState(providerID uuid.UUID) State {
 	if !ok {
 		return StateClosed
 	}
+	return cb.logicalState(c)
+}
 
-	// Check if an open circuit should transition to half-open
-	if c.state == StateOpen && time.Since(c.openedAt) >= cb.effectiveCooldownFor(c) {
-		return StateHalfOpen // logical state, don't mutate
+// Reset clears the circuit breaker state for a specific provider and returns
+// the logical state the circuit was in immediately before being cleared, so an
+// operator-facing caller can report whether the reset actually recovered a
+// sidelined provider or was a no-op.
+//
+// An untracked provider reports StateClosed: a provider only enters the map
+// once it has been routed, and until then it is implicitly healthy. Resetting
+// one is therefore harmless and idempotent, not an error.
+func (cb *CircuitBreaker) Reset(providerID uuid.UUID) State {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	c, ok := cb.circuits[providerID.String()]
+	if !ok {
+		return StateClosed
 	}
-	return c.state
-}
-
-// Reset clears the circuit breaker state for a specific provider.
-func (cb *CircuitBreaker) Reset(providerID uuid.UUID) {
-	cb.mu.Lock()
-	defer cb.mu.Unlock()
+	prev := cb.logicalState(c)
 	delete(cb.circuits, providerID.String())
+	return prev
 }
 
-// ResetAll clears all circuit breaker state.
-func (cb *CircuitBreaker) ResetAll() {
+// ResetAll clears all circuit breaker state. It returns how many circuits were
+// discarded in total and how many of those were actually sidelining their
+// provider (logically open or half-open), so a bulk reset can report what it
+// recovered instead of implying every tracked provider was broken.
+func (cb *CircuitBreaker) ResetAll() (cleared, recovered int) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
+
+	cleared = len(cb.circuits)
+	for _, c := range cb.circuits {
+		if cb.logicalState(c) != StateClosed {
+			recovered++
+		}
+	}
 	cb.circuits = make(map[string]*circuit)
+	return cleared, recovered
 }

@@ -143,9 +143,40 @@ func TestCircuitBreaker_Reset(t *testing.T) {
 		t.Fatal("should be open")
 	}
 
-	cb.Reset(pid)
+	if prev := cb.Reset(pid); prev != StateOpen {
+		t.Errorf("Reset should report the pre-reset state open, got %v", prev)
+	}
 	if cb.IsOpen(pid, "test-provider") {
 		t.Error("should be closed after reset")
+	}
+}
+
+// TestCircuitBreaker_ResetReportsPreResetState pins the value an operator-facing
+// caller reports back: only a circuit that was actually sidelining its provider
+// may read as a change. A closed circuit and a provider the breaker has never
+// routed are the same healthy state, so both report closed.
+func TestCircuitBreaker_ResetReportsPreResetState(t *testing.T) {
+	cb := newTestCB(2, 30*time.Second)
+
+	untracked := uuid.New()
+	if prev := cb.Reset(untracked); prev != StateClosed {
+		t.Errorf("untracked provider: Reset = %v, want closed", prev)
+	}
+
+	belowThreshold := uuid.New()
+	cb.RecordFailure(belowThreshold, "test-provider") // 1 of 2: still closed
+	if prev := cb.Reset(belowThreshold); prev != StateClosed {
+		t.Errorf("below-threshold circuit: Reset = %v, want closed", prev)
+	}
+
+	// A circuit whose cooldown has elapsed reads as half-open everywhere else
+	// (Status, GetState); Reset must not disagree with them.
+	readyToProbe := uuid.New()
+	cbShort := newTestCB(1, time.Millisecond)
+	cbShort.RecordFailure(readyToProbe, "test-provider")
+	time.Sleep(5 * time.Millisecond)
+	if prev := cbShort.Reset(readyToProbe); prev != StateHalfOpen {
+		t.Errorf("cooldown-elapsed circuit: Reset = %v, want half-open", prev)
 	}
 }
 
@@ -156,10 +187,41 @@ func TestCircuitBreaker_ResetAll(t *testing.T) {
 	cb.RecordFailure(p1, "test-provider")
 	cb.RecordFailure(p2, "test-provider")
 
-	cb.ResetAll()
+	cleared, recovered := cb.ResetAll()
+	if cleared != 2 || recovered != 2 {
+		t.Errorf("ResetAll = (cleared %d, recovered %d), want (2, 2)", cleared, recovered)
+	}
 
 	if cb.IsOpen(p1, "test-provider") || cb.IsOpen(p2, "test-provider") {
 		t.Error("all circuits should be cleared after ResetAll")
+	}
+}
+
+// TestCircuitBreaker_ResetAllCountsOnlyBlockingCircuitsAsRecovered separates the
+// two counts: every tracked circuit is discarded, but a circuit that was not
+// blocking anything must not be reported as a recovered provider.
+func TestCircuitBreaker_ResetAllCountsOnlyBlockingCircuitsAsRecovered(t *testing.T) {
+	cb := newTestCB(2, 30*time.Second)
+	open, healthy := uuid.New(), uuid.New()
+
+	cb.RecordFailure(open, "test-provider")
+	cb.RecordFailure(open, "test-provider") // reaches threshold: opens
+	cb.RecordFailure(healthy, "test-provider")
+
+	if !cb.IsOpen(open, "test-provider") {
+		t.Fatal("setup: circuit should be open")
+	}
+
+	cleared, recovered := cb.ResetAll()
+	if cleared != 2 {
+		t.Errorf("cleared = %d, want 2 (both tracked circuits discarded)", cleared)
+	}
+	if recovered != 1 {
+		t.Errorf("recovered = %d, want 1 (only the open circuit was blocking)", recovered)
+	}
+
+	if empty, _ := cb.ResetAll(); empty != 0 {
+		t.Errorf("second ResetAll: cleared = %d, want 0", empty)
 	}
 }
 
@@ -1016,9 +1078,9 @@ func TestQuotaPin_DisabledBySettingUsesDefault(t *testing.T) {
 // "next retry in 22 hours" flips circuit_breaker_quota_pin_enabled to false to
 // get the provider back; if the switch were only consulted at the moment a
 // circuit opens, nothing would change on any surface until the pin expired.
-// That matters because there is no other recovery lever: Reset/ResetAll have no
-// production caller, so the alternatives are disabling the breaker for every
-// provider or restarting the process.
+// That matters because it is the only fleet-wide recovery lever: the
+// alternative to clearing every pin at once is resetting circuits one provider
+// at a time (Reset) or restarting the process.
 //
 // The assertion is the real mechanism, not just the reported number: after the
 // flip the circuit must actually admit a probe once the *configured* cooldown
