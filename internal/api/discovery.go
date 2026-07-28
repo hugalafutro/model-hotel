@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -70,6 +71,7 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 		r.Post("/ack", h.AckDiscoveryChanges)
 	})
 	r.Get("/discovery/status", h.GetDiscoveryStatus)
+	r.Post("/discovery/dismiss", h.DismissDiscoveryClaims)
 }
 
 // settingKeyDiscoveryLastReviewed marks when the operator last opened the
@@ -717,4 +719,51 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 		"failed":    failed,
 		"skipped":   skipped,
 	})
+}
+
+// DismissDiscoveryClaimsRequest carries one provider's dismissal change.
+// Dismissed=false is the toast's Undo, so both directions share one endpoint.
+type DismissDiscoveryClaimsRequest struct {
+	ProviderID string   `json:"provider_id"`
+	ModelIDs   []string `json:"model_ids"`
+	Dismissed  bool     `json:"dismissed"`
+}
+
+// DismissDiscoveryClaims stamps or clears the operator dismissal for models on
+// one provider. setModelsDismissed only touches rows that are currently
+// enabled=false and not manually disabled, so a suspect (still enabled) or
+// healthy model cannot be pre-dismissed; those affect zero rows and fall
+// through the 404 path below like any other unmatched model ID.
+//
+// Deliberately NOT added to isReadOnlyExemptPost: unlike the discovery-change
+// ack it sits beside, this suppresses a real discrepancy from every operator's
+// view, which is a genuine state change.
+func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request) {
+	var req DismissDiscoveryClaimsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	providerID, err := uuid.Parse(req.ProviderID)
+	if err != nil {
+		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+		return
+	}
+	if len(req.ModelIDs) == 0 {
+		http.Error(w, "model_ids must not be empty", http.StatusBadRequest)
+		return
+	}
+
+	affected, err := setModelsDismissed(r.Context(), h.dbPool.Pool(), providerID, req.ModelIDs, req.Dismissed)
+	if err != nil {
+		respondError(w, "failed to update discovery dismissal", err, http.StatusInternalServerError)
+		return
+	}
+	if affected == 0 {
+		http.Error(w, "no matching models", http.StatusNotFound)
+		return
+	}
+
+	model.InvalidateModelCache()
+	writeJSON(w, map[string]any{"updated": affected})
 }

@@ -54,6 +54,20 @@ func TestReadOnlyGuard(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Errorf("POST /discovery/changes/ack: expected 200, got %d", rec.Code)
 	}
+
+	// Dismiss is NOT exempt. It suppresses a real discrepancy from everyone's
+	// view, unlike the ack it sits next to, which only flips a per-row seen
+	// flag. Pattern-matching the neighbouring exemption is the easy way to get
+	// this wrong, so it is asserted explicitly.
+	called = false
+	rec = httptest.NewRecorder()
+	guard.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/discovery/dismiss", http.NoBody))
+	if called {
+		t.Error("POST /discovery/dismiss: next handler must not be called in read-only mode")
+	}
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("read-only POST /discovery/dismiss = %d, want 403", rec.Code)
+	}
 }
 
 // TestHandlerRegister_ReadOnly verifies the wiring in Register: when

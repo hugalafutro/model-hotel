@@ -3,8 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -208,6 +210,117 @@ func TestGetDiscoveryStatus_ReviewStampClampedToWindow(t *testing.T) {
 	if claim.FlapSinceReview != claim.FlapWindow {
 		t.Errorf("FlapSinceReview = %d, want %d (clamped to the window, matching FlapWindow exactly)", claim.FlapSinceReview, claim.FlapWindow)
 	}
+}
+
+// TestDismissDiscoveryClaims_BothDirections: one endpoint serves dismiss and the
+// toast's Undo, so the flag has to work in both directions. Asserted via
+// /discovery/status (the observable API contract), not by re-reading
+// discovery_dismissed_at from the database: TestSetModelsDismissed already
+// proves the stamp itself lands and clears at the SQL layer.
+func TestDismissDiscoveryClaims_BothDirections(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+
+	providerID := seedClaimProvider(t, pool, "dismiss-prov", true)
+	seedClaimModel(t, pool, providerID, "doomed", false, false, 0, nil)
+
+	post := func(dismissed bool) int {
+		body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["doomed"],"dismissed":%t}`, providerID, dismissed)
+		req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	// Anchor: the model must show up as a claim before it is dismissed, so the
+	// "0 claims after dismiss" assertion below cannot pass by the model never
+	// having been a claim in the first place.
+	if ids := claimIDs(t, r); len(ids) != 1 || ids[0] != "doomed" {
+		t.Fatalf("before dismiss, claims = %v, want [doomed]", ids)
+	}
+
+	if code := post(true); code != http.StatusOK {
+		t.Fatalf("dismiss = %d, want 200", code)
+	}
+	if len(claimIDs(t, r)) != 0 {
+		t.Error("a dismissed model must not appear as a claim")
+	}
+
+	if code := post(false); code != http.StatusOK {
+		t.Fatalf("undo = %d, want 200", code)
+	}
+	if ids := claimIDs(t, r); len(ids) != 1 || ids[0] != "doomed" {
+		t.Errorf("after undo, claims = %v, want [doomed]", ids)
+	}
+}
+
+// TestDismissDiscoveryClaims_UnknownModel fails loudly instead of reporting a
+// silent success for a model that does not exist.
+func TestDismissDiscoveryClaims_UnknownModel(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	providerID := seedClaimProvider(t, h.dbPool.Pool(), "dismiss-unknown", true)
+
+	body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["not-a-model"],"dismissed":true}`, providerID)
+	req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("unknown model = %d, want 404", rec.Code)
+	}
+}
+
+// TestDismissDiscoveryClaims_SuspectModelNotDismissible pins Amendment 2: a
+// model that is still enabled and mid-miss-streak is not gone yet, so
+// pre-dismissing it would let it later go gone silently (Upsert only clears
+// discovery_dismissed_at on a sighting, and a suspect model is not being
+// sighted). Unlike TestDismissDiscoveryClaims_UnknownModel, the model here
+// genuinely exists — a regression that dropped the `enabled = false AND
+// disabled_manually = false` guard from setModelsDismissed's WHERE clause
+// would turn this specific case from 404 into 200, which the unknown-model
+// test cannot detect.
+func TestDismissDiscoveryClaims_SuspectModelNotDismissible(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+
+	providerID := seedClaimProvider(t, pool, "dismiss-suspect", true)
+	seedClaimModel(t, pool, providerID, "wobbling", true, false, 1, nil)
+
+	body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["wobbling"],"dismissed":true}`, providerID)
+	req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("dismiss suspect model = %d, want 404", rec.Code)
+	}
+
+	var dismissedAt *time.Time
+	if err := pool.QueryRow(context.Background(),
+		`SELECT discovery_dismissed_at FROM models WHERE provider_id = $1 AND model_id = $2`,
+		providerID, "wobbling").Scan(&dismissedAt); err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if dismissedAt != nil {
+		t.Error("a rejected dismiss on a suspect model must not stamp discovery_dismissed_at")
+	}
+}
+
+func claimIDs(t *testing.T, r http.Handler) []string {
+	t.Helper()
+	var ids []string
+	for _, p := range getStatus(t, r, "/discovery/status").Claims {
+		for _, c := range p.Gone {
+			ids = append(ids, c.ModelID)
+		}
+	}
+	return ids
 }
 
 func findClaim(t *testing.T, resp DiscoveryStatusResponse, modelID string) ModelClaim {

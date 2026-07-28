@@ -217,6 +217,14 @@ func sortClaims(cs []ModelClaim) {
 // setModelsDismissed stamps or clears the operator dismissal for the given
 // models. Returns how many rows changed so the handler can report an unknown
 // model instead of silently succeeding.
+//
+// The UPDATE only ever touches rows that are currently gone (enabled = false)
+// and not manually disabled: Upsert clears the stamp on a SIGHTING, and a
+// suspect (still enabled, missing_scans > 0) or healthy model is by
+// definition not being sighted, so pre-dismissing one would silently hide a
+// real claim the next time it actually goes gone. Undo (dismissed=false)
+// still works under this same restriction, because a dismissed model is still
+// enabled = false.
 func setModelsDismissed(ctx context.Context, pool *pgxpool.Pool, providerID uuid.UUID, modelIDs []string, dismissed bool) (int64, error) {
 	var stamp any
 	if dismissed {
@@ -224,7 +232,8 @@ func setModelsDismissed(ctx context.Context, pool *pgxpool.Pool, providerID uuid
 	}
 	tag, err := pool.Exec(ctx,
 		`UPDATE models SET discovery_dismissed_at = $3
-		  WHERE provider_id = $1 AND model_id = ANY($2)`,
+		  WHERE provider_id = $1 AND model_id = ANY($2)
+		    AND enabled = false AND disabled_manually = false`,
 		providerID, modelIDs, stamp)
 	if err != nil {
 		return 0, err
