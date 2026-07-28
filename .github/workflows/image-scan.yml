@@ -1,4 +1,4 @@
-# Weekly vulnerability scan of the published image.
+# Weekly vulnerability scan of the published images (app + Front Desk).
 #
 # The CI gate only runs when a PR is open, but CVEs land in already-published
 # images (this is exactly how the OpenSSL 3.5.6 flags appeared on Docker Hub:
@@ -7,6 +7,13 @@
 # Alpine patches — so it doubles as the signal to cut a patch release. It also
 # catches the publish workflow's GHA layer cache serving a stale apk upgrade
 # layer.
+#
+# Every step below is independent on purpose. This job is the only thing that
+# uploads Trivy SARIF, so one image being briefly unreachable must never cost
+# us the other image's report or gate: each step records its own outcome, and
+# the summary at the end fails the job while naming what actually broke. A red
+# run whose cause you have to go dig for is how this workflow already lost a
+# week of scan coverage to a transient Docker Hub timeout.
 name: Scan Published Image
 
 on:
@@ -18,36 +25,310 @@ permissions:
   contents: read
   security-events: write
 
+env:
+  APP_IMAGE: docker.io/hugalafutro/model-hotel:latest
+  FRONTDESK_IMAGE: docker.io/hugalafutro/model-hotel-frontdesk:latest
+
 jobs:
   scan:
     name: Trivy Scan (latest)
     runs-on: ubuntu-latest
+    outputs:
+      app_gate: ${{ steps.gate_app.outcome }}
+      frontdesk_gate: ${{ steps.gate_frontdesk.outcome }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # We pull rather than letting Trivy fetch from the registry so a single
+      # Docker Hub blip (`dial tcp ...: i/o timeout`) gets retried instead of
+      # killing the run. Trivy resolves an image from the local docker daemon
+      # before the registry, so each scan reuses the pull above it.
+      - name: Pull published image (with retries)
+        id: pull_app
+        continue-on-error: true
+        run: scripts/ci/pull-image-with-retries.sh "$APP_IMAGE"
 
       # Full-picture report (all severities, unfixed included) for the GitHub
       # Security tab, so findings are tracked over time — deliberately broader
       # than the gate below, which only fails on what is actionable.
       - name: Scan published image (SARIF report)
+        id: scan_app
+        if: steps.pull_app.outcome == 'success'
+        continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: docker.io/hugalafutro/model-hotel:latest
+          image-ref: ${{ env.APP_IMAGE }}
           format: sarif
           output: trivy-image.sarif
+          # Well above Trivy's 5m default: the image is already local, but the
+          # vulnerability DB download still goes over the network.
+          timeout: 15m
 
       - name: Upload SARIF to GitHub Security tab
+        id: upload_app
+        if: steps.scan_app.outcome == 'success'
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
         with:
           sarif_file: trivy-image.sarif
           category: published-image
 
-      # Same actionable-only policy as the CI gate: fixable HIGH/CRITICAL only.
-      - name: Scan published image for fixable HIGH/CRITICAL vulnerabilities
+      # The Front Desk control plane is published from the same release, so it
+      # ages the same way and deserves the same weekly look. A distinct SARIF
+      # category keeps its findings from overwriting the app image's.
+      - name: Pull published Front Desk image (with retries)
+        id: pull_frontdesk
+        continue-on-error: true
+        run: scripts/ci/pull-image-with-retries.sh "$FRONTDESK_IMAGE"
+
+      - name: Scan published Front Desk image (SARIF report)
+        id: scan_frontdesk
+        if: steps.pull_frontdesk.outcome == 'success'
+        continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: docker.io/hugalafutro/model-hotel:latest
+          image-ref: ${{ env.FRONTDESK_IMAGE }}
+          format: sarif
+          output: trivy-frontdesk-image.sarif
+          timeout: 15m
+
+      - name: Upload Front Desk SARIF to GitHub Security tab
+        id: upload_frontdesk
+        if: steps.scan_frontdesk.outcome == 'success'
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          sarif_file: trivy-frontdesk-image.sarif
+          category: published-frontdesk-image
+
+      # Gates run after both uploads, so a gate failure never costs us the
+      # Security tab record of why it failed, and each gate is tied only to its
+      # own image's pull: an unreachable Front Desk image must not let an
+      # actionable app-image vulnerability through unremarked.
+      #
+      # Same actionable-only policy as the CI gate: fixable HIGH/CRITICAL only.
+      - name: Scan published image for fixable HIGH/CRITICAL vulnerabilities
+        id: gate_app
+        if: steps.pull_app.outcome == 'success'
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.APP_IMAGE }}
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: 1
+          timeout: 15m
+
+      - name: Scan published Front Desk image for fixable HIGH/CRITICAL vulnerabilities
+        id: gate_frontdesk
+        if: steps.pull_frontdesk.outcome == 'success'
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.FRONTDESK_IMAGE }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+          timeout: 15m
+
+      # Single place that decides red or green. Every step above is
+      # continue-on-error so none of them can abort the others, which means the
+      # job's own status would be green no matter what happened; this step is
+      # what makes it honest, and it names the failing step so the run does not
+      # need archaeology to interpret.
+      - name: Summarise scan outcomes
+        if: always()
+        env:
+          OUTCOMES: >-
+            pull_app=${{ steps.pull_app.outcome }}
+            scan_app=${{ steps.scan_app.outcome }}
+            upload_app=${{ steps.upload_app.outcome }}
+            gate_app=${{ steps.gate_app.outcome }}
+            pull_frontdesk=${{ steps.pull_frontdesk.outcome }}
+            scan_frontdesk=${{ steps.scan_frontdesk.outcome }}
+            upload_frontdesk=${{ steps.upload_frontdesk.outcome }}
+            gate_frontdesk=${{ steps.gate_frontdesk.outcome }}
+        run: |
+          # shellcheck disable=SC2086 # deliberate split: one argument per outcome
+          scripts/ci/summarise-scan-outcomes.sh $OUTCOMES
+
+  # When the scan finds something fixable, try the cheap fix before asking a
+  # human for anything: rebuild the SAME released source, which picks up current
+  # Alpine security patches via the Dockerfile's apk upgrade.
+  #
+  # This deliberately rebuilds the release TAG, not master. Rebuilding master
+  # would quietly put unreleased code behind :latest. The consequence is that a
+  # rebuild only clears OS-level CVEs: anything coming from go.mod needs a code
+  # change that exists only on master, so it cannot fix itself and the report job
+  # says so instead of pretending otherwise.
+  refresh:
+    name: Rebuild ${{ matrix.image }} from the current release
+    needs: scan
+    if: >-
+      always() && (needs.scan.outputs.app_gate == 'failure'
+      || needs.scan.outputs.frontdesk_gate == 'failure')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: model-hotel
+            dockerfile: Dockerfile
+            smoke: true
+          - image: model-hotel-frontdesk
+            dockerfile: Dockerfile.frontdesk
+            smoke: false
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: modelhotel
+          POSTGRES_PASSWORD: changeme
+          POSTGRES_DB: modelhotel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # :latest always tracks the newest release, so that tag is the source the
+      # published image was built from.
+      - name: Resolve the released tag behind :latest
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag=$(gh release view --json tagName --jq .tagName)
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
+          echo "sha=$(git rev-list -n1 "$tag")" >>"$GITHUB_OUTPUT"
+          echo "Rebuilding from $tag"
+
+      - name: Check out the released tag
+        run: git checkout --detach "${{ steps.release.outputs.tag }}"
+
+      - name: Rebuild the image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          tags: ${{ matrix.image }}:rebuild-candidate
+          build-args: |
+            VERSION=${{ steps.release.outputs.tag }}
+            COMMIT=${{ steps.release.outputs.sha }}
+          platforms: linux/amd64
+          provenance: false
+          # No cache: a cached apk upgrade layer is precisely what would make
+          # this rebuild a no-op and waste the whole exercise.
+          no-cache: true
+
+      - name: Does the rebuild clear the findings?
+        id: rescan
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ matrix.image }}:rebuild-candidate
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
+          timeout: 15m
+
+      # Nothing else in this repo smoke-tests an image before publishing; the
+      # release path relies on the full suite passing before the build. A
+      # rebuild runs none of that, so this is the only thing standing between a
+      # broken base-image update and everyone who pulls :latest.
+      - name: Smoke test the rebuilt image
+        id: smoke
+        if: matrix.smoke && steps.rescan.outcome == 'success'
+        continue-on-error: true
+        env:
+          IMAGE: ${{ matrix.image }}:rebuild-candidate
+        run: scripts/ci/smoke-test-image.sh "$IMAGE"
+
+      - name: Publish the rebuilt image as :latest
+        id: publish
+        if: >-
+          steps.rescan.outcome == 'success'
+          && (matrix.smoke != true || steps.smoke.outcome == 'success')
+        env:
+          IMAGE: ${{ matrix.image }}
+          TARGET: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}:latest
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+          docker tag "$IMAGE:rebuild-candidate" "$TARGET"
+          docker push "$TARGET"
+          echo "Republished $TARGET"
+
+      - name: Record what happened
+        if: always()
+        env:
+          IMAGE: ${{ matrix.image }}
+          TAG: ${{ steps.release.outputs.tag }}
+          RESCAN: ${{ steps.rescan.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          PUBLISH: ${{ steps.publish.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p refresh-status
+          {
+            echo "image=$IMAGE"
+            echo "tag=$TAG"
+            echo "rebuild_clean=$RESCAN"
+            echo "smoke=$SMOKE"
+            echo "published=$PUBLISH"
+          } >"refresh-status/$IMAGE.txt"
+
+      - name: Upload status
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: refresh-status-${{ matrix.image }}
+          path: refresh-status/
+
+  # One issue, reused, that says what it wants from you. The weekly scan's only
+  # previous output was a failure email, and an email that says "network error"
+  # on the one week that mattered is how a real finding went unnoticed.
+  report:
+    name: Report scan result
+    needs: [scan, refresh]
+    if: always() && needs.scan.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download refresh status
+        if: needs.refresh.result != 'skipped'
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: refresh-status-*
+          merge-multiple: true
+          path: refresh-status
+
+      - name: Compose and file the report
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_GATE: ${{ needs.scan.outputs.app_gate }}
+          FRONTDESK_GATE: ${{ needs.scan.outputs.frontdesk_gate }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: scripts/ci/compose-scan-report.sh
