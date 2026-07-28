@@ -74,6 +74,6 @@ export function useDiscoveryRetest(
 		},
 		retestingKey,
 		/** True while any retest is in flight; callers disable every Retest button off this. */
-		isRetesting: mutation.isPending,
+		isAnyRetesting: mutation.isPending,
 	};
 }

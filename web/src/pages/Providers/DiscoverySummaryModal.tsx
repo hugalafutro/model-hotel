@@ -166,6 +166,7 @@ export function DiscoverySummaryModal({
 	onClose,
 	onRetest,
 	retestingKey,
+	isAnyRetesting,
 }: {
 	results: DiscoverySummaryEntry[];
 	onClose: () => void;
@@ -174,6 +175,10 @@ export function DiscoverySummaryModal({
 	onRetest?: (entry: DiscoverySummaryEntry) => void;
 	/** entryKey of the provider whose retest is currently in flight, if any. */
 	retestingKey?: string;
+	/** True while any retest is in flight; disables every Retest button, not
+	 * just the one that was clicked, since discovery is a heavy upstream call
+	 * that the hook serializes. Only the row matching `retestingKey` spins. */
+	isAnyRetesting?: boolean;
 }) {
 	const { t } = useTranslation();
 
@@ -198,7 +203,7 @@ export function DiscoverySummaryModal({
 			<button
 				type="button"
 				onClick={() => onRetest(r)}
-				disabled={isRetesting}
+				disabled={isAnyRetesting || isRetesting}
 				title={t("providers.discoverySummary.retestTooltip")}
 				className="ui-btn ui-btn-secondary ui-btn-compact inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
 				data-testid="discovery-summary-retest"

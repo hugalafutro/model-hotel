@@ -92,15 +92,19 @@ describe("useDiscoveryRetest", () => {
 		await waitFor(() => expect(result.current.retestingKey).toBeUndefined());
 		expect(discover).not.toHaveBeenCalled();
 		expect(patchEntry).not.toHaveBeenCalled();
+		// The rejection still runs through onSettled, so the global flag must
+		// clear too — otherwise every Retest button stays disabled for the rest
+		// of the session after one bad entry.
+		await waitFor(() => expect(result.current.isAnyRetesting).toBe(false));
 	});
 
 	it("reports a global in-flight flag and ignores a second onRetest while one is running", async () => {
 		// Three rapid clicks currently stomp each other: each onMutate overwrites the
 		// shared key, so the first row stops spinning while its request is still out.
-		// The modal disables all buttons off isRetesting, so it must stay true for the
-		// whole in-flight window and clear only when the request settles. The real
-		// regression is a SECOND request starting at all, not just the flag reading
-		// true, so this asserts discover() is only ever called once.
+		// The modal disables all buttons off isAnyRetesting, so it must stay true for
+		// the whole in-flight window and clear only when the request settles. The
+		// real regression is a SECOND request starting at all, not just the flag
+		// reading true, so this asserts discover() is only ever called once.
 		let resolveDiscover: (value: unknown) => void = () => {};
 		discover.mockReturnValue(
 			new Promise((resolve) => {
@@ -111,7 +115,7 @@ describe("useDiscoveryRetest", () => {
 			wrapper: AllProviders,
 		});
 
-		expect(result.current.isRetesting).toBe(false);
+		expect(result.current.isAnyRetesting).toBe(false);
 
 		act(() => {
 			result.current.onRetest({
@@ -120,7 +124,7 @@ describe("useDiscoveryRetest", () => {
 				entryKey: "k1",
 			});
 		});
-		await waitFor(() => expect(result.current.isRetesting).toBe(true));
+		await waitFor(() => expect(result.current.isAnyRetesting).toBe(true));
 		expect(result.current.retestingKey).toBe("k1");
 
 		// A second click, e.g. on a different row, while the first is still in
@@ -139,7 +143,7 @@ describe("useDiscoveryRetest", () => {
 		act(() => {
 			resolveDiscover({ discovered: 0, diff: {} });
 		});
-		await waitFor(() => expect(result.current.isRetesting).toBe(false));
+		await waitFor(() => expect(result.current.isAnyRetesting).toBe(false));
 		expect(discover).toHaveBeenCalledTimes(1);
 	});
 });
