@@ -27,6 +27,14 @@ if [ -z "$state" ] || [ -z "$title" ]; then
   exit 2
 fi
 
+# gh refuses to create an issue with a label the repo does not have, which would
+# break the first real run and nothing after it. --force makes this idempotent.
+ensure_label() {
+  gh label create "$LABEL" --force \
+    --color B60205 \
+    --description "Weekly scan of the published Docker images" >/dev/null
+}
+
 # Reuse the existing open issue if there is one. --limit 1 with the label is
 # enough: this script is the only thing that creates them.
 existing=$(gh issue list --label "$LABEL" --state open --limit 1 --json number --jq '.[0].number // empty')
@@ -46,6 +54,7 @@ vulnerable)
     gh issue comment "$existing" --body-file "$body_file"
   else
     echo "Opening a new issue"
+    ensure_label
     gh issue create --label "$LABEL" --title "$title" --body-file "$body_file"
   fi
   ;;
