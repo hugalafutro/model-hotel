@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DiscoveryDiff } from "../../../api/types";
 import { AllProviders } from "../../../test/utils";
@@ -145,5 +145,54 @@ describe("useDiscoveryRetest", () => {
 		});
 		await waitFor(() => expect(result.current.isAnyRetesting).toBe(false));
 		expect(discover).toHaveBeenCalledTimes(1);
+	});
+	it("toasts per provider by default", async () => {
+		discover.mockResolvedValue({ discovered: 1, diff });
+		const { result } = renderHook(() => useDiscoveryRetest(vi.fn()), {
+			wrapper: AllProviders,
+		});
+
+		await act(async () => {
+			await result.current.retestAsync({
+				providerName: "Prov",
+				providerId: "p1",
+			});
+		});
+
+		expect(screen.getAllByTestId("toast")).toHaveLength(1);
+	});
+
+	it("suppresses its own toast when the caller takes over the messaging", async () => {
+		// A walk over eight providers would otherwise stack eight toasts. Nothing
+		// collapses them: ToastContext dedupes by message and every message names a
+		// different provider.
+		discover.mockResolvedValue({ discovered: 1, diff });
+		const { result } = renderHook(() => useDiscoveryRetest(vi.fn()), {
+			wrapper: AllProviders,
+		});
+
+		await act(async () => {
+			await result.current.retestAsync(
+				{ providerName: "Prov", providerId: "p1" },
+				true,
+			);
+		});
+
+		expect(screen.queryAllByTestId("toast")).toHaveLength(0);
+	});
+
+	it("suppresses the failure toast too when silenced", async () => {
+		discover.mockRejectedValue(new Error("upstream down"));
+		const { result } = renderHook(() => useDiscoveryRetest(vi.fn()), {
+			wrapper: AllProviders,
+		});
+
+		await act(async () => {
+			await result.current
+				.retestAsync({ providerName: "Prov", providerId: "p1" }, true)
+				.catch(() => {});
+		});
+
+		expect(screen.queryAllByTestId("toast")).toHaveLength(0);
 	});
 });

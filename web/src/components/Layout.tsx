@@ -769,17 +769,27 @@ export function Layout({ children }: LayoutProps) {
 	const retestInFlight = useRef(false);
 
 	const runRetest = useCallback(
-		async (providerId: string, providerName: string): Promise<boolean> => {
+		async (
+			providerId: string,
+			providerName: string,
+			// The walk silences the shared hook's per-provider toast and reports once
+			// at the end: eight providers would otherwise stack eight toasts, none of
+			// which ToastContext can dedupe because each names a different provider.
+			silent = false,
+		): Promise<boolean> => {
 			if (retestInFlight.current) return false;
 			retestInFlight.current = true;
 			try {
-				await retestAsync({
-					providerName,
-					providerId,
-					// keyOf() prefers entryKey, so this is what `retestingKey` becomes
-					// and is what the modal matches against `provider_id`.
-					entryKey: providerId,
-				});
+				await retestAsync(
+					{
+						providerName,
+						providerId,
+						// keyOf() prefers entryKey, so this is what `retestingKey` becomes
+						// and is what the modal matches against `provider_id`.
+						entryKey: providerId,
+					},
+					silent,
+				);
 				setRetestErrors((prev) => {
 					if (!(providerId in prev)) return prev;
 					const next = { ...prev };
@@ -823,16 +833,24 @@ export function Layout({ children }: LayoutProps) {
 			// provider starts, so the run already in flight finishes. Aborting a
 			// discovery request mid-call would leave that provider half-applied.
 			if (cancelRetestAll.current) break;
-			if (!(await runRetest(p.provider_id, p.provider_name))) failed++;
+			if (!(await runRetest(p.provider_id, p.provider_name, true))) failed++;
 			done++;
 			setRetestAllProgress({ done, total: targets.length });
 		}
 		cancelRetestAll.current = false;
 		setRetestAllProgress(undefined);
+		// One report for the whole walk, since the per-provider toasts are silenced.
+		// Failures also stay bannered in their own provider section, so this is a
+		// summary and not the only record.
 		if (failed > 0) {
 			toast(
 				t("providers.discrepancies.retestAllFailed", { count: failed }),
 				"error",
+			);
+		} else {
+			toast(
+				t("providers.discrepancies.retestAllDone", { count: done }),
+				"success",
 			);
 		}
 	}, [snapshot, runRetest, toast, t]);
@@ -859,6 +877,11 @@ export function Layout({ children }: LayoutProps) {
 
 	const onDismiss = useCallback(
 		async (providerId: string, modelId: string) => {
+			// LEDGERED: `before` is the whole snapshot array, so a rollback also
+			// discards anything a refresh landed while the dismiss was in flight.
+			// Narrow window (one request, and dismiss is not offered on rows a
+			// refresh is likely to be changing) and the alternative is a per-claim
+			// undo record; left as is deliberately rather than by oversight.
 			const before = snapshot;
 			dismissClaim(providerId, modelId);
 			try {
@@ -894,6 +917,24 @@ export function Layout({ children }: LayoutProps) {
 		[snapshot, dismissClaim, restoreSnapshot, refresh, toast, t, undoDismiss],
 	);
 
+	// `exact: true` on BOTH invalidations below, and it is not optional.
+	//
+	// TanStack Query matches query keys by PREFIX, and the modal's key is
+	// ["discovery-status", "modal", n] — a prefix child of the poll's
+	// ["discovery-status"]. A non-exact invalidation therefore also refetches the
+	// modal's query whenever the modal is open, and that query calls
+	// api.discovery.status(TRUE), which stamps the server's last-reviewed marker.
+	// The refetch itself is inert (`seeded` is already true, so the snapshot does
+	// not change) but the stamp is not: it moves the "since your last visit"
+	// baseline to now, zeroing every flap_since_review for the next visit.
+	// Requirement 5 keeps that write off the timer; this keeps it off a click.
+	const refreshBadge = useCallback(() => {
+		queryClient.invalidateQueries({
+			queryKey: ["discovery-status"],
+			exact: true,
+		});
+	}, [queryClient]);
+
 	// Expanding the journal is what marks it read; the destructive ack-on-open is
 	// gone, so nothing clears the dot until the operator actually looks.
 	const onExpandInformational = useCallback(() => {
@@ -902,21 +943,19 @@ export function Layout({ children }: LayoutProps) {
 			.catch(() => {
 				// Badge dot simply stays lit for a later attempt.
 			})
-			.finally(() => {
-				queryClient.invalidateQueries({ queryKey: ["discovery-status"] });
-			});
-	}, [queryClient]);
+			.finally(refreshBadge);
+	}, [refreshBadge]);
 
 	useEffect(() => {
 		const handler = (e: Event) => {
 			const detail = (e as CustomEvent).detail;
 			if (detail?.type === "discovery.changes_pending") {
-				queryClient.invalidateQueries({ queryKey: ["discovery-status"] });
+				refreshBadge();
 			}
 		};
 		window.addEventListener("server-event", handler);
 		return () => window.removeEventListener("server-event", handler);
-	}, [queryClient]);
+	}, [refreshBadge]);
 
 	// A failed fetch must reach the modal: it renders a failure banner and, more
 	// importantly, suppresses the "nothing is wrong" empty state.
@@ -1237,7 +1276,7 @@ export function Layout({ children }: LayoutProps) {
 												<span
 													role="button"
 													tabIndex={0}
-													data-testid="discovery-changes-badge"
+													data-testid="discovery-status-badge"
 													// A number means "something may be broken". A bare dot
 													// means "there is news". Price churn moves on nearly
 													// every scan, so it must never produce a count.
@@ -1257,7 +1296,13 @@ export function Layout({ children }: LayoutProps) {
 													className={
 														claimCount > 0
 															? "inline-flex items-center leading-[1.6] translate-y-[1px] ui-badge ui-badge-accent cursor-pointer"
-															: "inline-block size-2 shrink-0 translate-y-[1px] rounded-full bg-(--accent) cursor-pointer"
+															: // The dot is only 8x8 CSS px but it is the sole way
+																// into the informational journal, so a ::before
+																// overlay widens the hit area to 24x24 without
+																// changing how it looks or shifting the nav row
+																// (a pseudo-element takes no space in the flow, and
+																// clicks on it target its originating element).
+																"relative inline-block size-2 shrink-0 translate-y-[1px] rounded-full bg-(--accent) cursor-pointer before:absolute before:-inset-2 before:content-['']"
 													}
 													aria-label={
 														claimCount > 0

@@ -82,6 +82,26 @@ describe("ModelDiscrepancyModal", () => {
 		expect(screen.getByTestId("discrepancy-retest-all")).toBeDisabled();
 	});
 
+	it("keeps per-provider retest disabled between two providers of a walk", () => {
+		// `isRetesting` deliberately false: between providers the walk is refreshing
+		// status, not discovering, so no mutation is pending. The walk's own lock
+		// would still refuse the click, silently. An enabled button that does
+		// nothing is the complaint that started this rework.
+		render(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				isRetesting={false}
+				retestAllProgress={{ done: 1, total: 2 }}
+			/>,
+		);
+		expect(screen.getByTestId("discrepancy-retest")).toBeDisabled();
+		// Cancel is the one control the block must not reach.
+		expect(
+			screen.getByTestId("discrepancy-retest-all-cancel"),
+		).not.toBeDisabled();
+	});
+
 	it("keeps a resolved provider in place, drops its retest, and shows the resolved state", () => {
 		render(
 			<ModelDiscrepancyModal

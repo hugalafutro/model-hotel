@@ -27,8 +27,19 @@ export function useDiscoveryRetest(
 		undefined,
 	);
 
+	// `silent` suppresses this hook's own per-provider toasts. A caller retesting
+	// one provider on one click wants the confirmation; a caller walking eight
+	// providers does not want eight stacked toasts (ToastContext dedupes by
+	// message, and the provider name differs in every one, so nothing collapses
+	// them). Carried on the mutation variables rather than a ref so it is
+	// explicit at the call site and typed.
+	interface RetestVars {
+		entry: DiscoverySummaryEntry;
+		silent?: boolean;
+	}
+
 	const mutation = useMutation({
-		mutationFn: (entry: DiscoverySummaryEntry) => {
+		mutationFn: ({ entry }: RetestVars) => {
 			// Retest is only ever wired up for entries with a providerId (the modal
 			// hides the button otherwise), but guard here instead of casting so a
 			// missing id fails loudly rather than hitting /providers/undefined/discover.
@@ -37,13 +48,14 @@ export function useDiscoveryRetest(
 			}
 			return api.providers.discover(entry.providerId);
 		},
-		onMutate: (entry) => {
+		onMutate: ({ entry }) => {
 			setRetestingKey(keyOf(entry));
 		},
-		onSuccess: (data, entry) => {
+		onSuccess: (data, { entry, silent }) => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
 			patchEntry(keyOf(entry), data.diff);
+			if (silent) return;
 			toast(
 				t("providers.discoverySummary.retestDone", {
 					provider: entry.providerName,
@@ -51,7 +63,8 @@ export function useDiscoveryRetest(
 				"success",
 			);
 		},
-		onError: (err: Error) => {
+		onError: (err: Error, { silent }) => {
+			if (silent) return;
 			toast(
 				t("providers.toast_discover_failed", { message: err.message }),
 				"error",
@@ -70,7 +83,7 @@ export function useDiscoveryRetest(
 			// is still out. Guarding here (not just in the UI) keeps the lock
 			// correct even if a caller doesn't wire isRetesting into its buttons.
 			if (mutation.isPending) return;
-			mutation.mutate(entry);
+			mutation.mutate({ entry });
 		},
 		/**
 		 * Awaitable single retest, for callers that walk providers sequentially and
@@ -79,8 +92,12 @@ export function useDiscoveryRetest(
 		 * applied here: it reads `mutation.isPending` from the render that produced
 		 * the closure, which a running walk holds fixed, so it would be a stale
 		 * value rather than a lock. Callers of this must serialize themselves.
+		 *
+		 * Pass `silent` to take over the messaging: the walk reports once at the
+		 * end instead of once per provider.
 		 */
-		retestAsync: (entry: DiscoverySummaryEntry) => mutation.mutateAsync(entry),
+		retestAsync: (entry: DiscoverySummaryEntry, silent = false) =>
+			mutation.mutateAsync({ entry, silent }),
 		retestingKey,
 		/** True while any retest is in flight; callers disable every Retest button off this. */
 		isAnyRetesting: mutation.isPending,

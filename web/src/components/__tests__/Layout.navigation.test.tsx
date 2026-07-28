@@ -848,7 +848,7 @@ describe("Layout", () => {
 			);
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const badge = await screen.findByTestId("discovery-changes-badge");
+			const badge = await screen.findByTestId("discovery-status-badge");
 			expect(badge).toHaveAttribute("data-variant", "count");
 			expect(badge).toHaveTextContent("3");
 		});
@@ -863,7 +863,7 @@ describe("Layout", () => {
 			);
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const badge = await screen.findByTestId("discovery-changes-badge");
+			const badge = await screen.findByTestId("discovery-status-badge");
 			expect(badge).toHaveAttribute("data-variant", "dot");
 			expect(badge.textContent).toBe("");
 		});
@@ -882,7 +882,7 @@ describe("Layout", () => {
 			// query had not resolved yet.
 			await waitFor(() => expect(fetches).toBeGreaterThanOrEqual(1));
 			await screen.findByRole("navigation");
-			expect(screen.queryByTestId("discovery-changes-badge")).toBeNull();
+			expect(screen.queryByTestId("discovery-status-badge")).toBeNull();
 		});
 
 		it("never stamps the review marker from the badge poll", async () => {
@@ -897,7 +897,7 @@ describe("Layout", () => {
 			);
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			await screen.findByTestId("discovery-changes-badge");
+			await screen.findByTestId("discovery-status-badge");
 			expect(urls.length).toBeGreaterThan(0);
 			expect(urls.some((u) => u.includes("review=1"))).toBe(false);
 		});
@@ -925,7 +925,7 @@ describe("Layout", () => {
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			await user.click(await screen.findByTestId("discovery-changes-badge"));
+			await user.click(await screen.findByTestId("discovery-status-badge"));
 
 			const rows = await screen.findAllByTestId("discrepancy-group-claim");
 			expect(rows).toHaveLength(1);
@@ -959,7 +959,7 @@ describe("Layout", () => {
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			await user.click(await screen.findByTestId("discovery-changes-badge"));
+			await user.click(await screen.findByTestId("discovery-status-badge"));
 			expect(await screen.findByTestId("discrepancy-claim")).toHaveAttribute(
 				"data-model-id",
 				"first-open",
@@ -973,7 +973,7 @@ describe("Layout", () => {
 				expect(screen.queryByTestId("discrepancy-modal")).toBeNull(),
 			);
 
-			await user.click(await screen.findByTestId("discovery-changes-badge"));
+			await user.click(await screen.findByTestId("discovery-status-badge"));
 			// A cache replay would put the first open's row back and never reach the
 			// server, so this pins both halves at once: a real refetch, and a real
 			// second stamp.
@@ -1011,7 +1011,7 @@ describe("Layout", () => {
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			await user.click(await screen.findByTestId("discovery-changes-badge"));
+			await user.click(await screen.findByTestId("discovery-status-badge"));
 			await user.click(await screen.findByTestId("discrepancy-retest-all"));
 
 			// p1's discovery run is out; Cancel has taken the Retest all slot.
@@ -1028,6 +1028,35 @@ describe("Layout", () => {
 				expect(screen.queryByTestId("discrepancy-retest-progress")).toBeNull(),
 			);
 			expect(discovered).toEqual(["p1"]);
+		});
+
+		it("reports a Retest all walk once, not once per provider", async () => {
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 3,
+							claims: [
+								providerClaims("p1", "One", [claim("a")]),
+								providerClaims("p2", "Two", [claim("b")]),
+								providerClaims("p3", "Three", [claim("c")]),
+							],
+						}),
+					),
+				),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(await screen.findByTestId("discrepancy-retest-all"));
+
+			await waitFor(() =>
+				expect(screen.queryByTestId("discrepancy-retest-progress")).toBeNull(),
+			);
+			// Three providers, one toast. ToastContext dedupes by message and each
+			// per-provider message names a different provider, so nothing would
+			// collapse them if the walk did not silence them.
+			expect(screen.getAllByTestId("toast")).toHaveLength(1);
 		});
 
 		it("dismisses one model per request and offers an undo that restores it", async () => {
@@ -1060,7 +1089,7 @@ describe("Layout", () => {
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			await user.click(await screen.findByTestId("discovery-changes-badge"));
+			await user.click(await screen.findByTestId("discovery-status-badge"));
 			const rowA = () =>
 				screen
 					.getAllByTestId("discrepancy-claim")
@@ -1110,7 +1139,7 @@ describe("Layout", () => {
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			await user.click(await screen.findByTestId("discovery-changes-badge"));
+			await user.click(await screen.findByTestId("discovery-status-badge"));
 			await user.click(await screen.findByTestId("discrepancy-dismiss"));
 
 			// No confirmation toast, so no Undo control: the success path is the only
@@ -1124,19 +1153,23 @@ describe("Layout", () => {
 			expect(screen.queryByTestId("toast-action")).toBeNull();
 		});
 
-		it("acknowledges the journal only once it is expanded", async () => {
+		it("acknowledges the journal once it is expanded, without re-stamping review", async () => {
 			let acks = 0;
+			let reviewStamps = 0;
 			server.use(
-				http.get("/api/discovery/status", () =>
-					HttpResponse.json(
+				http.get("/api/discovery/status", ({ request }) => {
+					if (new URL(request.url).searchParams.get("review") === "1") {
+						reviewStamps++;
+					}
+					return HttpResponse.json(
 						status({
 							claim_count: 1,
 							claims: [providerClaims("p1", "One", [claim("a")])],
 							informational: [infoEntry],
 							informational_unseen: 1,
 						}),
-					),
-				),
+					);
+				}),
 				http.post("/api/discovery/changes/ack", () => {
 					acks++;
 					return HttpResponse.json({ entries: [], count: 0 });
@@ -1144,16 +1177,67 @@ describe("Layout", () => {
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			await user.click(await screen.findByTestId("discovery-changes-badge"));
+			await user.click(await screen.findByTestId("discovery-status-badge"));
 			const toggle = await screen.findByTestId(
 				"discrepancy-informational-toggle",
 			);
 			// Opening must NOT ack. The destructive ack-on-open is what let the badge
 			// clear while the problem was still outstanding.
 			expect(acks).toBe(0);
+			await waitFor(() => expect(reviewStamps).toBe(1));
 
 			await user.click(toggle);
 			await waitFor(() => expect(acks).toBe(1));
+
+			// The ack's follow-up invalidation must be `exact`. Query keys match by
+			// prefix, so a non-exact invalidate of ["discovery-status"] also refetches
+			// the modal's ["discovery-status","modal",n] query, which fetches with
+			// review=1 and moves the server's "since your last visit" baseline to now
+			// — silently zeroing every flap count for the next visit, on a routine
+			// click rather than a timer.
+			await waitFor(() => expect(acks).toBe(1));
+			expect(reviewStamps).toBe(1);
+		});
+
+		it("does not re-stamp review when an SSE event lands while the modal is open", async () => {
+			// Same prefix-matching hazard as the ack path, on the listener that fires
+			// exactly when flap counts have just moved.
+			let reviewStamps = 0;
+			let polls = 0;
+			server.use(
+				http.get("/api/discovery/status", ({ request }) => {
+					if (new URL(request.url).searchParams.get("review") === "1") {
+						reviewStamps++;
+					} else {
+						polls++;
+					}
+					return HttpResponse.json(
+						status({
+							claim_count: 1,
+							claims: [providerClaims("p1", "One", [claim("a")])],
+						}),
+					);
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await screen.findByTestId("discrepancy-claim");
+			await waitFor(() => expect(reviewStamps).toBe(1));
+			const pollsBefore = polls;
+
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: { type: "discovery.changes_pending" },
+					}),
+				);
+			});
+
+			// The badge poll must refetch (that is the point of the listener) while
+			// the modal's review query must not.
+			await waitFor(() => expect(polls).toBeGreaterThan(pollsBefore));
+			expect(reviewStamps).toBe(1);
 		});
 
 		it("shows a failure state instead of the empty state when the fetch fails", async () => {
@@ -1169,7 +1253,7 @@ describe("Layout", () => {
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			await user.click(await screen.findByTestId("discovery-changes-badge"));
+			await user.click(await screen.findByTestId("discovery-status-badge"));
 
 			expect(
 				await screen.findByTestId("discrepancy-load-error"),

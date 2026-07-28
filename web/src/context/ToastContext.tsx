@@ -256,6 +256,8 @@ function ToastItem({
 	return (
 		<button
 			type="button"
+			data-testid="toast"
+			data-toast-type={toast.type}
 			onClick={handleClick}
 			onMouseEnter={handleMouseEnter}
 			onMouseLeave={handleMouseLeave}
@@ -277,10 +279,15 @@ function ToastItem({
 		>
 			{toast.message}
 			{toast.action ? (
-				// A nested <span role="button"> rather than a real <button>: the toast
-				// itself is the dismiss control, and a button cannot be nested inside a
-				// button. Same pattern the sidebar nav badge uses inside its <a>.
-				// biome-ignore lint/a11y/useSemanticElements: a real <button> can't nest inside the toast <button>; role+keydown make this span an accessible control
+				// KNOWN LIMITATION, not a solved problem. The toast body is itself a
+				// <button> (clicking it dismisses, and copies for errors), so this is
+				// an interactive descendant of an interactive element either way:
+				// role="button" + tabIndex is exactly as invalid per the HTML content
+				// model as a nested <button> would be, and screen readers expose it
+				// unreliably. The span merely avoids the parse-level button-in-button.
+				// The honest fix is to stop making the toast body a button, which is a
+				// change to every existing toast and out of scope here.
+				// biome-ignore lint/a11y/useSemanticElements: nesting a real <button> inside the toast <button> is invalid; this span is a knowingly imperfect stand-in, see the note above
 				<span
 					role="button"
 					tabIndex={0}

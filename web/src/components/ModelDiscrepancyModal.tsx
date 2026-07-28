@@ -143,7 +143,15 @@ export function ModelDiscrepancyModal({
 
 	// A retest is a real discovery run, which read-only mode rejects with a 403.
 	// Disabled rather than hidden, so it does not read as a missing feature.
-	const retestBlocked = isRetesting || readOnly;
+	//
+	// `retestAllProgress` is part of the condition, not a duplicate of
+	// `isRetesting`: between two providers the walk is refreshing status rather
+	// than discovering, so no mutation is pending and `isRetesting` goes false for
+	// that window. The walk's own lock would still refuse the click, silently. A
+	// button that looks enabled and does nothing is the exact complaint that
+	// started this rework, so the whole walk counts as blocked.
+	const retestBlocked =
+		isRetesting || readOnly || retestAllProgress !== undefined;
 
 	const flapChip = (c: MergedClaim) => {
 		// Primary number is "since your last visit"; the 30-day total is the
@@ -642,7 +650,11 @@ export function ModelDiscrepancyModal({
 				    empty state below: "nothing is wrong" when we could not find out
 				    is the false reassurance this whole rework exists to remove. */}
 				{loadError ? (
+					// role="alert": this appears asynchronously inside an already-open
+					// dialog, so without a live region assistive tech never announces
+					// that the modal failed to find out what is wrong.
 					<div
+						role="alert"
 						className="flex items-start gap-2 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2 text-sm"
 						data-testid="discrepancy-load-error"
 					>
