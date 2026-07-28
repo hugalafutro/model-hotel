@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FailoverGroup } from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
@@ -375,6 +375,105 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 			// would fail rather than silently agree.
 			expect(halfOpenStyle).toContain("#fde68a");
 			expect(halfOpenStyle).not.toContain("#fca5a5");
+		});
+
+		it("starts animating once the countdown crosses the threshold while mounted", async () => {
+			// The decision is a function of *now*, so settling it once at mount is
+			// wrong: an entry mounted at 16 minutes remaining used to stay static for
+			// the rest of its cooldown and never start burning, because next_retry_at
+			// (the only thing it watched) never changes while the circuit stays open.
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			try {
+				const { getByTestId, queryByTestId } = renderEntry({
+					state: "open",
+					consecutive_fails: 5,
+					cooldown_ms: 16 * 60 * 1000,
+					next_retry_at: new Date(Date.now() + 16 * 60 * 1000).toISOString(),
+				});
+
+				expect(getByTestId("fuse-outline-static")).toBeInTheDocument();
+				expect(queryByTestId("fuse-outline-animated")).not.toBeInTheDocument();
+
+				// Two minutes later the deadline is inside the animation window.
+				await act(async () => {
+					await vi.advanceTimersByTimeAsync(2 * 60 * 1000);
+				});
+
+				expect(getByTestId("fuse-outline-animated")).toBeInTheDocument();
+				expect(queryByTestId("fuse-outline-static")).not.toBeInTheDocument();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it("holds the animation steady once it has started", async () => {
+			// The fuse restarts its CSS timeline whenever durationMs changes, so the
+			// clock that watches for the crossing has to stop at the crossing. A
+			// re-measured duration on every tick would make the flame jump backwards
+			// to full length every time.
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			try {
+				const { getByTestId } = renderEntry({
+					state: "open",
+					consecutive_fails: 5,
+					cooldown_ms: 10 * 60 * 1000,
+					next_retry_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+				});
+
+				const rectStyleBefore = getByTestId("fuse-outline-animated")
+					.querySelector("rect")
+					?.getAttribute("style");
+
+				await act(async () => {
+					await vi.advanceTimersByTimeAsync(3 * 60 * 1000);
+				});
+
+				const fuse = getByTestId("fuse-outline-animated");
+				expect(fuse).toBeInTheDocument();
+				expect(fuse.querySelector("rect")?.getAttribute("style")).toBe(
+					rectStyleBefore,
+				);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it("stops its clock when the entry unmounts", async () => {
+			// A row is unmounted on every failover-group refetch and on navigation.
+			// An interval that outlived it would tick against a dead component for
+			// the rest of the session, once per surviving row.
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			try {
+				const { unmount } = renderEntry({
+					state: "open",
+					consecutive_fails: 5,
+					cooldown_ms: 60 * 60 * 1000,
+					next_retry_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+				});
+
+				expect(vi.getTimerCount()).toBeGreaterThan(0);
+				unmount();
+				expect(vi.getTimerCount()).toBe(0);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it("runs no clock at all for a countdown already inside the window", async () => {
+			// The common case: nothing to watch for, so nothing should tick.
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			try {
+				renderEntry({
+					state: "open",
+					consecutive_fails: 5,
+					cooldown_ms: 60_000,
+					next_retry_at: new Date(Date.now() + 60_000).toISOString(),
+				});
+
+				expect(vi.getTimerCount()).toBe(0);
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 
 		it("names the quota reset deadline in the tooltip instead of the generic open text", () => {

@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RotateCcw } from "@/lib/icons";
 import type { FailoverGroup } from "../../api/types";
@@ -40,6 +40,13 @@ export interface SortableEntryProps {
 // Above this much remaining cooldown the outline is static and the deadline
 // lives in the tooltip instead.
 const FUSE_ANIMATION_MAX_MS = 15 * 60 * 1000;
+
+// How often a still-too-long countdown re-checks whether it has come inside the
+// window above. Coarse on purpose: the threshold is a rough "is this worth
+// animating" judgement, so arriving up to half a minute late costs nothing,
+// while a per-second clock would re-render every open entry in every group for
+// the entire cooldown.
+const FUSE_THRESHOLD_TICK_MS = 30 * 1000;
 
 export function SortableEntry({
 	entry,
@@ -98,24 +105,48 @@ export function SortableEntry({
 	// This says why the wait is long, not that the provider is unreachable now.
 	const quotaPinned = Boolean(showFuse && cbStatus.quota_pinned);
 
-	// Compute remaining cooldown so it only changes when next_retry_at
-	// changes, not on every render. Without this, intermediate re-renders
-	// (drag, toggle, parent) shorten remainingMs each time, causing the
-	// fuse animation to visually snap ahead of the actual cooldown.
-	// Elapsed cooldown: circuit is open but cooldown has expired — CB hasn't
-	// transitioned to half-open yet (clock drift or polling delay).
-	/* eslint-disable react-hooks/preserve-manual-memoization, react-hooks/purity */
+	const nextRetryAt = cbStatus?.next_retry_at;
+
+	// The instant the countdown was last measured against. It advances only on
+	// the coarse tick below, never on an ordinary re-render, which is what keeps
+	// remainingMs stable: without that, intermediate re-renders (drag, toggle,
+	// parent refetch) would shorten it each time and the fuse would snap ahead of
+	// the cooldown it visualises.
+	const [measuredAt, setMeasuredAt] = useState(() => Date.now());
+
+	// A countdown too long to animate has to keep watching the clock, because the
+	// animate-vs-static decision is a function of *now* while next_retry_at never
+	// changes for as long as the circuit stays open. Settled once at mount, an
+	// entry that appeared at 16 minutes remaining stayed static for the rest of
+	// its cooldown and never began burning as it crossed the threshold.
+	//
+	// The watch stops itself at the crossing rather than running for the whole
+	// cooldown. Time only moves one way, so the decision cannot reverse, and
+	// FuseOutline restarts its CSS timeline whenever durationMs changes: a
+	// re-measured duration every tick would reset the flame to full length twice
+	// a minute. The last measurement it publishes is the one at the crossing,
+	// which is exactly the duration the animation should then run for.
+	useEffect(() => {
+		if (!showFuse || isHalfOpen || !nextRetryAt) return;
+		const deadline = new Date(nextRetryAt).getTime();
+		if (deadline - Date.now() <= FUSE_ANIMATION_MAX_MS) return;
+		const id = setInterval(() => {
+			const now = Date.now();
+			if (deadline - now <= FUSE_ANIMATION_MAX_MS) clearInterval(id);
+			setMeasuredAt(now);
+		}, FUSE_THRESHOLD_TICK_MS);
+		return () => clearInterval(id);
+	}, [showFuse, isHalfOpen, nextRetryAt]);
+
+	// Elapsed cooldown: circuit is open but the deadline has passed — the breaker
+	// has not reported half-open yet (clock drift or polling delay).
 	const { remainingMs, elapsedCooldown } = useMemo(() => {
-		if (!showFuse || isHalfOpen || !cbStatus?.next_retry_at) {
+		if (!showFuse || isHalfOpen || !nextRetryAt) {
 			return { remainingMs: 0, elapsedCooldown: false };
 		}
-		const ms = Math.max(
-			0,
-			new Date(cbStatus.next_retry_at).getTime() - Date.now(),
-		);
+		const ms = Math.max(0, new Date(nextRetryAt).getTime() - measuredAt);
 		return { remainingMs: ms, elapsedCooldown: ms <= 0 };
-	}, [showFuse, isHalfOpen, cbStatus?.next_retry_at]);
-	/* eslint-enable react-hooks/preserve-manual-memoization, react-hooks/purity */
+	}, [showFuse, isHalfOpen, nextRetryAt, measuredAt]);
 
 	// Cooldown is over and the provider is ready to probe. Two paths reach this:
 	// the backend reporting half-open, and the client noticing next_retry_at has
