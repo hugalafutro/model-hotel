@@ -24,6 +24,21 @@ const provider = (over: Partial<ProviderClaims> = {}): ProviderClaims => ({
 	...over,
 });
 
+describe("toSnapshot", () => {
+	it("seeds every claim as pending, regardless of group", () => {
+		const snapshot = toSnapshot([
+			provider({
+				gone: [claim("a")],
+				stale: [claim("b", { state: "stale" })],
+				suspect: [claim("c", { state: "suspect" })],
+			}),
+		]);
+		expect(snapshot[0].gone[0].status).toBe("pending");
+		expect(snapshot[0].stale[0].status).toBe("pending");
+		expect(snapshot[0].suspect[0].status).toBe("pending");
+	});
+});
+
 describe("mergeClaims", () => {
 	it("keeps a claim that is still present as pending", () => {
 		const snapshot = toSnapshot([provider({ gone: [claim("a")] })]);
