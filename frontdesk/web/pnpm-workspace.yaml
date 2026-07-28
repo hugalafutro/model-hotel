@@ -17,3 +17,8 @@ overrides:
   "@babel/core": "^7.29.6"
   "undici@6": "^6.27.0"
   "undici@7": "^7.28.0"
+  # Transitive via vite. Fixes GHSA-r28c-9q8g-f849 (path traversal in postcss's
+  # sourceMappingURL auto-loading, arbitrary .map disclosure); 8.5.15 was the
+  # resolved version and anything <= 8.5.17 is vulnerable. web/ needs no
+  # override because it depends on postcss directly.
+  "postcss": "^8.5.18"

@@ -5,7 +5,7 @@ import { type RenderOptions, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement, ReactNode } from "react";
 import { I18nextProvider } from "react-i18next";
-import { MemoryRouter, type MemoryRouterProps } from "react-router-dom";
+import { MemoryRouter, type MemoryRouterProps } from "react-router";
 import { EventProvider } from "../context/EventContext";
 import { QuotaModalProvider } from "../context/QuotaModalContext";
 import { SidebarModeProvider } from "../context/SidebarModeContext";
