@@ -14,7 +14,8 @@
  <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml/badge.svg" alt="golangci-lint"></a>
- <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hugalafutro/model-hotel/badges/coverage.json" alt="Coverage"></a><br>
+ <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hugalafutro/model-hotel/badges/coverage.json" alt="Coverage"></a>
+ <img src="https://img.shields.io/github/stars/hugalafutro/model-hotel" alt="GitHub Stars"><br>
 </p>
 
 > [!IMPORTANT]
@@ -30,9 +31,7 @@
  <sub>Poke around a real instance at <a href="https://mh.site19.ddns.net">mh.site19.ddns.net</a> - rebuilds fresh every 30 minutes</sub>
 <br><br>
 
-[![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
-
-</div><br>
+</div>
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Models are auto-discovered the moment you add a provider and optionally on schedule; failover groups form automatically around shared model names and retry transparently when a provider goes down; no prompt data is ever stored.
 
@@ -514,11 +513,15 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 
 
 <div align="center">
-<a href="https://www.star-history.com/?repos=hugalafutro%2Fmodel-hotel&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=hugalafutro%2Fmodel-hotel&type=timeline&legend=bottom-right">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=date&theme=dark&legend=bottom-right&sealed_token=CeXdzA3_3AG25QKJhkdMpt9TNMPP8ROJ5EfhDc8yhHBJ8ATCAyb4OyQFZT52LEX6ZV7zoJKJ0nwxj08XPDjcIeBT8C7fM_UxXpn6wuIZNIy0NUP8_9DzdbN91ISA1fPefB7BVii2tfUIW9PGI4R61ROlUFX05ZO1SaG-GLnMO15M82qVHSmpUsgOJkXg" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=date&legend=bottom-right&sealed_token=CeXdzA3_3AG25QKJhkdMpt9TNMPP8ROJ5EfhDc8yhHBJ8ATCAyb4OyQFZT52LEX6ZV7zoJKJ0nwxj08XPDjcIeBT8C7fM_UxXpn6wuIZNIy0NUP8_9DzdbN91ISA1fPefB7BVii2tfUIW9PGI4R61ROlUFX05ZO1SaG-GLnMO15M82qVHSmpUsgOJkXg" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=date&legend=bottom-right&sealed_token=CeXdzA3_3AG25QKJhkdMpt9TNMPP8ROJ5EfhDc8yhHBJ8ATCAyb4OyQFZT52LEX6ZV7zoJKJ0nwxj08XPDjcIeBT8C7fM_UxXpn6wuIZNIy0NUP8_9DzdbN91ISA1fPefB7BVii2tfUIW9PGI4R61ROlUFX05ZO1SaG-GLnMO15M82qVHSmpUsgOJkXg" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=timeline&theme=dark&legend=bottom-right&sealed_token=qYH4XHAJT0zKbI1yOHAXDBo5V4-ZNql7EfTUxapzT0Co97Nz6Jc-b9GhWjboe4Fo8gELb5S9-wBNdv0QLvW9yvdouTXTfpO71Hw2pp5SVr1goMcJ3aFUfA" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=timeline&legend=bottom-right&sealed_token=qYH4XHAJT0zKbI1yOHAXDBo5V4-ZNql7EfTUxapzT0Co97Nz6Jc-b9GhWjboe4Fo8gELb5S9-wBNdv0QLvW9yvdouTXTfpO71Hw2pp5SVr1goMcJ3aFUfA" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=timeline&legend=bottom-right&sealed_token=qYH4XHAJT0zKbI1yOHAXDBo5V4-ZNql7EfTUxapzT0Co97Nz6Jc-b9GhWjboe4Fo8gELb5S9-wBNdv0QLvW9yvdouTXTfpO71Hw2pp5SVr1goMcJ3aFUfA" />
  </picture>
-</a></div>
+</a>
+
+[![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
+
+</div>
 <br>
