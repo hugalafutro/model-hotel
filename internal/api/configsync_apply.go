@@ -535,6 +535,12 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 				display_name   = EXCLUDED.display_name,
 				description    = EXCLUDED.description,
 				auto_created   = false,
+				-- The imported group_enabled is the PRIMARY's configuration, i.e.
+				-- operator intent as far as this member is concerned, so it must
+				-- never read as a local discovery auto-disable (migration 062).
+				-- This member's own revalidation re-stamps it on the next scan if
+				-- the group really is short of routable members here.
+				auto_disabled_at = NULL,
 				updated_at     = now()`,
 			g.DisplayModel, priorityJSON, entryEnabledJSON, g.GroupEnabled, g.DisplayName, g.Description); err != nil {
 			return err

@@ -58,6 +58,74 @@ type ProviderClaims struct {
 	Suspect      []ModelClaim `json:"suspect"`
 }
 
+// GroupClaim is one failover group that discovery disabled, i.e. one model name
+// whose `hotel/` routing is dead until someone fixes it. It is the group-level
+// peer of ModelClaim and, like it, is derived from live state on every request:
+// the row disappears from the response the moment the group is re-enabled.
+//
+// Deleted groups are deliberately NOT represented here. They are not derivable
+// (the row is gone), and both deletion reasons — "no enabled providers found"
+// and "only 1 enabled provider" — are downstream of gone-model claims that are
+// already counted, so claiming them would double-count the root cause and put
+// the journal back in the position of sole evidence. They stay informational.
+type GroupClaim struct {
+	DisplayModel string `json:"display_model"`
+	// MemberCount and RoutableCount together are what make the row actionable:
+	// "1 of 3 members routable" points the operator at a specific broken member,
+	// where a bare "group disabled" would not. Both are counted live, not read
+	// back from the journal entry that recorded the disable.
+	MemberCount   int `json:"member_count"`
+	RoutableCount int `json:"routable_count"`
+	// DisabledAt is when discovery disabled it (model_failover_groups
+	// .auto_disabled_at), so the modal can age the row like ModelClaim's
+	// LastSeenAt.
+	DisabledAt time.Time `json:"disabled_at"`
+}
+
+// listGroupClaims returns every failover group discovery disabled, with its live
+// member and routable-member counts.
+//
+// The `auto_disabled_at IS NOT NULL` half of the predicate is the whole point:
+// group_enabled = false alone is also what the operator writes when switching a
+// group off by hand, and counting those would nag them about their own
+// configuration forever (migration 062 carries the full reasoning).
+//
+// Members are matched on m.id::text rather than casting the JSON element to
+// uuid: a single malformed entry would make the cast error out and take the
+// entire discovery-status endpoint down with it, where a text compare simply
+// fails to match that one member.
+func listGroupClaims(ctx context.Context, pool *pgxpool.Pool) ([]GroupClaim, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT g.display_model,
+		       jsonb_array_length(COALESCE(g.priority_order, '[]'::jsonb)),
+		       (SELECT count(*)
+		          FROM jsonb_array_elements_text(COALESCE(g.priority_order, '[]'::jsonb)) AS e(member_id)
+		          JOIN models m ON m.id::text = e.member_id
+		          JOIN providers p ON p.id = m.provider_id
+		         WHERE m.enabled AND p.enabled),
+		       g.auto_disabled_at
+		  FROM model_failover_groups g
+		 WHERE g.group_enabled = false
+		   AND g.auto_disabled_at IS NOT NULL
+		 ORDER BY g.display_model`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Never nil: the JSON response promises group_claims: GroupClaim[] with no
+	// null guard on the client, matching how ProviderClaims' buckets are built.
+	out := []GroupClaim{}
+	for rows.Next() {
+		var c GroupClaim
+		if err := rows.Scan(&c.DisplayModel, &c.MemberCount, &c.RoutableCount, &c.DisabledAt); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 // claimRow is one candidate model straight from the derivation query.
 type claimRow struct {
 	ProviderID   string

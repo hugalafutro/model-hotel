@@ -15,6 +15,7 @@ describe("api.discovery", () => {
 		it("omits the review param by default", async () => {
 			const mockStatus = {
 				claims: [],
+				group_claims: [],
 				informational: [],
 				claim_count: 0,
 				informational_unseen: 0,
@@ -39,6 +40,7 @@ describe("api.discovery", () => {
 		it("sends review=1 when review is true", async () => {
 			const mockStatus = {
 				claims: [],
+				group_claims: [],
 				informational: [],
 				claim_count: 0,
 				informational_unseen: 0,

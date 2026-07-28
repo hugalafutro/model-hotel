@@ -85,8 +85,12 @@ const settingKeyDiscoveryLastReviewed = "_discovery_last_reviewed_at"
 // the entries carrying something other than metadata `updated` changes: prices
 // move on nearly every scan, so counting them would leave the dot permanently
 // lit (see countInformationalUnseen).
+// GroupClaims are the failover groups discovery disabled; they count toward
+// ClaimCount alongside Gone models, because a disabled group means `hotel/`
+// routing for that model has stopped working.
 type DiscoveryStatusResponse struct {
 	Claims              []ProviderClaims       `json:"claims"`
+	GroupClaims         []GroupClaim           `json:"group_claims"`
 	Informational       []DiscoveryChangeEntry `json:"informational"`
 	ClaimCount          int                    `json:"claim_count"`
 	InformationalUnseen int                    `json:"informational_unseen"`
@@ -147,6 +151,17 @@ func (h *Handler) GetDiscoveryStatus(w http.ResponseWriter, r *http.Request) {
 
 	claims, count := buildProviderClaims(rows, window, sinceReview, now)
 
+	// A disabled failover group stops `hotel/<model>` routing outright, so it is
+	// a claim on the same footing as a gone model. Derived live from
+	// model_failover_groups, never from the journal, so it resolves by itself
+	// when the group comes back.
+	groupClaims, err := listGroupClaims(ctx, pool)
+	if err != nil {
+		respondError(w, "failed to load discovery group claims", err, http.StatusInternalServerError)
+		return
+	}
+	count += len(groupClaims)
+
 	pending, err := listPendingDiscoveryChanges(ctx, pool)
 	if err != nil {
 		respondError(w, "failed to load discovery changes", err, http.StatusInternalServerError)
@@ -169,6 +184,7 @@ func (h *Handler) GetDiscoveryStatus(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, DiscoveryStatusResponse{
 		Claims:              claims,
+		GroupClaims:         groupClaims,
 		Informational:       informational,
 		ClaimCount:          count,
 		InformationalUnseen: countInformationalUnseen(informational),
