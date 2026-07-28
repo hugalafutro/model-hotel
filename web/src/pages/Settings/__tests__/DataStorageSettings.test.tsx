@@ -999,26 +999,31 @@ describe("Delete Request Logs", () => {
 		["1w", "1w"],
 		["1m", "1m"],
 		["all", "all"],
-	])("sends the %s selection as older_than=%s in the purge request", async (selection, expected) => {
-		let capturedOlderThan: string | undefined;
-		server.use(
-			http.delete("/api/logs/purge", async ({ request }) => {
-				capturedOlderThan = ((await request.json()) as { older_than: string })
-					.older_than;
-				return HttpResponse.json({ deleted: 1 });
-			}),
-		);
-		const user = userEvent.setup();
-		renderWithProviders(
-			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
-		);
+	])(
+		"sends the %s selection as older_than=%s in the purge request",
+		async (selection, expected) => {
+			let capturedOlderThan: string | undefined;
+			server.use(
+				http.delete("/api/logs/purge", async ({ request }) => {
+					capturedOlderThan = ((await request.json()) as { older_than: string })
+						.older_than;
+					return HttpResponse.json({ deleted: 1 });
+				}),
+			);
+			const user = userEvent.setup();
+			renderWithProviders(
+				<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+			);
 
-		await user.click(screen.getByRole("button", { name: /delete requests/i }));
-		await user.selectOptions(screen.getByRole("combobox"), selection);
-		await user.click(screen.getByRole("button", { name: /confirm delete/i }));
+			await user.click(
+				screen.getByRole("button", { name: /delete requests/i }),
+			);
+			await user.selectOptions(screen.getByRole("combobox"), selection);
+			await user.click(screen.getByRole("button", { name: /confirm delete/i }));
 
-		await waitFor(() => expect(capturedOlderThan).toBe(expected));
-	});
+			await waitFor(() => expect(capturedOlderThan).toBe(expected));
+		},
+	);
 
 	it("shows an error toast when purging requests fails", async () => {
 		server.use(

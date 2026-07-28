@@ -1274,14 +1274,17 @@ describe("Layout", () => {
 			["member", "Member", "text-green-400"],
 			["warning", "Warning", "text-orange-400"],
 			["member_sync_blocked", "Error", "text-red-400"],
-		])("renders HA %s state with the right value and color", async (state, label, colorClass) => {
-			respondWith({ state, is_primary: state === "primary" });
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
-			const row = await screen.findByTestId("ha-status");
-			expect(row).toHaveTextContent("HA");
-			expect(row).toHaveTextContent(label);
-			expect(row.querySelector(`.${colorClass}`)).toBeInTheDocument();
-		});
+		])(
+			"renders HA %s state with the right value and color",
+			async (state, label, colorClass) => {
+				respondWith({ state, is_primary: state === "primary" });
+				renderWithProviders(<Layout>{mockChildren}</Layout>);
+				const row = await screen.findByTestId("ha-status");
+				expect(row).toHaveTextContent("HA");
+				expect(row).toHaveTextContent(label);
+				expect(row.querySelector(`.${colorClass}`)).toBeInTheDocument();
+			},
+		);
 
 		it("uses the primary name in the member tooltip when present", async () => {
 			respondWith({
