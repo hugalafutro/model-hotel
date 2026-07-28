@@ -751,6 +751,12 @@ func (m *mockCircuitBreaker) Reset(providerID uuid.UUID) failover.State {
 	return failover.StateClosed
 }
 
+// ReleaseQuotaPins is a no-op here: the failover HTTP handlers never lift quota
+// pins (only the quota refresh does, see quota_snapshot_test.go), and returning
+// 0 makes a handler that started calling it visible as an unexpected zero
+// rather than silently mutating the statuses these tests assert on.
+func (m *mockCircuitBreaker) ReleaseQuotaPins(map[uuid.UUID]struct{}) int { return 0 }
+
 func (m *mockCircuitBreaker) ResetAll() (cleared, recovered int) {
 	cleared = len(m.statuses)
 	for _, s := range m.statuses {

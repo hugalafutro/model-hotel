@@ -399,6 +399,57 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit) {
 	c.cooldownOverride = d
 }
 
+// ReleaseQuotaPins lifts the quota cooldown override from every circuit whose
+// provider is absent from stillExhausted, and reports how many pins it lifted.
+// It is how a provider that has recovered (a topped-up plan, a reset window
+// observed early by the quota poller) stops serving out a pin that was stamped
+// on when its circuit opened and could otherwise run to the 24h ceiling.
+//
+// It only ever shortens a wait. The circuit keeps its state and its failure
+// count and simply reverts to the configured cooldown, so HTTP still decides
+// recovery through the ordinary half-open probe. That is the whole quota
+// contract: quota never opens a circuit, never closes one, never blocks a
+// request, and only chooses the cooldown of an already-open circuit.
+//
+// The caller must pass the exhausted set computed by a quota refresh that
+// actually succeeded. Absence from a *failed* refresh says nothing about
+// provider health — the advice map is cleared on those paths so stale data
+// cannot pin anything — and unpinning on it would throw the feature away for no
+// safety gain.
+func (cb *CircuitBreaker) ReleaseQuotaPins(stillExhausted map[uuid.UUID]struct{}) int {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	// The circuits map is keyed by the provider's UUID string; convert once
+	// rather than parsing every key.
+	exhausted := make(map[string]struct{}, len(stillExhausted))
+	for id := range stillExhausted {
+		exhausted[id.String()] = struct{}{}
+	}
+
+	// Read once outside the loop: this runs on the quota poll goroutine every
+	// few minutes and the value is identical for every circuit.
+	base := cb.effectiveCooldown()
+
+	released := 0
+	for id, c := range cb.circuits {
+		if c.cooldownOverride == 0 {
+			continue
+		}
+		if _, still := exhausted[id]; still {
+			continue
+		}
+		c.cooldownOverride = 0
+		released++
+		// The open transition logged a cooldown_ms that may have promised hours
+		// of darkness; an operator needs the line that says it ended early, at
+		// the same Info level the half-open→closed recovery uses. Routing
+		// metadata only — never payload or credentials.
+		debuglog.Info("circuit-breaker: quota pin released (provider no longer exhausted)", "provider_id", id, "state", cb.logicalState(c).String(), "cooldown_ms", base.Milliseconds())
+	}
+	return released
+}
+
 // logicalState maps a circuit's stored state to the state every observer
 // reports: an open circuit whose cooldown has elapsed is "ready to probe" and
 // reads as half-open, even though the stored state only flips to StateHalfOpen

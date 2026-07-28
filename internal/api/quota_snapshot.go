@@ -213,16 +213,40 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 	}
 
 	advice := buildQuotaAdvice(snaps, typeByID, maxAge, time.Now())
+
+	// Snapshot the provider set *before* handing the map to the advisor:
+	// Replace takes ownership of it, and ResetsAt may be reading it concurrently
+	// the instant after.
+	stillExhausted := make(map[uuid.UUID]struct{}, len(advice))
+	for id := range advice {
+		stillExhausted[id] = struct{}{}
+	}
+	advised := len(advice)
+
 	h.quotaAdvisor.Replace(advice)
+
+	// This refresh succeeded, so its exhausted set is current: any circuit still
+	// carrying a pin for a provider outside it belongs to a provider that has
+	// recovered (a topped-up plan, a window that reset early), and serving out
+	// the rest of a pin that can run to 24h would bench a healthy provider for
+	// hours. Only reachable from here, never from the failure paths above: a
+	// refresh that could not read says nothing about provider health, and those
+	// paths only stop *new* pins rather than disturbing pins already in force.
+	//
+	// This shortens a cooldown; it never closes a circuit. HTTP still decides
+	// recovery through the ordinary half-open probe.
+	if h.circuitBreaker != nil {
+		h.circuitBreaker.ReleaseQuotaPins(stillExhausted)
+	}
 	// Info once anything is actually advised: a quota pin can hold a circuit open
 	// for a day, and Debug is off in normal production, so this is the only log
 	// trail an operator has for why a provider went dark. The no-advice case
 	// stays at Debug — a line on every poll pass would be noise. Counts only, no
 	// payload values.
-	if len(advice) > 0 {
-		debuglog.Info("quota: advice refreshed", "advised_providers", len(advice))
+	if advised > 0 {
+		debuglog.Info("quota: advice refreshed", "advised_providers", advised)
 	} else {
-		debuglog.Debug("quota: advice refreshed", "advised_providers", len(advice))
+		debuglog.Debug("quota: advice refreshed", "advised_providers", advised)
 	}
 
 	// Alert-only, and deliberately last: the schema-drift watch reuses the

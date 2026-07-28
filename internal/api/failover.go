@@ -56,12 +56,26 @@ type CircuitBreakerResetter interface {
 	ResetAll() (cleared, recovered int)
 }
 
+// CircuitBreakerQuotaPinner lets a successful quota refresh lift the cooldown
+// pins of providers that are no longer exhausted. Separate from the reset
+// contract because it is a different power: it shortens a wait, it never clears
+// a circuit. Keeping it its own interface is also what keeps internal/failover
+// free of any dependency on internal/quota — the set of still-exhausted
+// providers crosses the boundary as plain UUIDs.
+type CircuitBreakerQuotaPinner interface {
+	// ReleaseQuotaPins clears the quota cooldown override on every tracked
+	// circuit whose provider is absent from stillExhausted, returning how many
+	// pins it lifted. It must not change any circuit's state.
+	ReleaseQuotaPins(stillExhausted map[uuid.UUID]struct{}) int
+}
+
 // CircuitBreakerControl is the whole breaker surface the failover API needs.
-// Composed from the two narrow interfaces above so internal/api still depends
+// Composed from the narrow interfaces above so internal/api still depends
 // on behaviour it names rather than on *failover.CircuitBreaker.
 type CircuitBreakerControl interface {
 	CircuitBreakerReader
 	CircuitBreakerResetter
+	CircuitBreakerQuotaPinner
 }
 
 // CircuitBreakerStatusResponse contains counts of providers in each circuit breaker state.

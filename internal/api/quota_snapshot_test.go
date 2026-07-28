@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
@@ -465,6 +466,129 @@ func TestRefreshQuotaAdvice_LogsAdvisedProvidersAtInfoOnlyWhenAdvising(t *testin
 	if got, _ := attrs["advised_providers"].(int64); got != 1 {
 		t.Errorf("got advised_providers=%v, want 1", attrs["advised_providers"])
 	}
+}
+
+// pinReleaseRecorder is a CircuitBreakerControl that records every
+// ReleaseQuotaPins call, so a test can assert both *that* the refresh released
+// pins and *which* providers it declared still exhausted. Reset/ResetAll panic:
+// the quota refresh must never clear a circuit.
+type pinReleaseRecorder struct {
+	mu    sync.Mutex
+	calls []map[uuid.UUID]struct{}
+}
+
+func (p *pinReleaseRecorder) Status() []failover.ProviderStatus { return nil }
+
+func (p *pinReleaseRecorder) Reset(uuid.UUID) failover.State {
+	panic("the quota refresh must never reset a circuit")
+}
+
+func (p *pinReleaseRecorder) ResetAll() (int, int) {
+	panic("the quota refresh must never reset a circuit")
+}
+
+func (p *pinReleaseRecorder) ReleaseQuotaPins(stillExhausted map[uuid.UUID]struct{}) int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.calls = append(p.calls, stillExhausted)
+	return 0
+}
+
+func (p *pinReleaseRecorder) recorded() []map[uuid.UUID]struct{} {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]map[uuid.UUID]struct{}(nil), p.calls...)
+}
+
+// TestRefreshQuotaAdvice_ReleasesPinsForRecoveredProviders is the auto-unpin
+// path. A pin is stamped on when a circuit opens and nothing used to revisit it,
+// so an operator who topped up a spent plan watched a healthy provider stay
+// benched for the rest of a pin that can run to 24 hours. A successful refresh
+// now hands the breaker its fresh exhausted set: providers outside it lose their
+// pin and fall back to the configured cooldown.
+func TestRefreshQuotaAdvice_ReleasesPinsForRecoveredProviders(t *testing.T) {
+	h := newTestHandler(t)
+	ctx := context.Background()
+	h.SetQuotaAdvisor(NewQuotaAdvisor())
+
+	rec := &pinReleaseRecorder{}
+	h.SetCircuitBreaker(rec)
+
+	spentID := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-still-spent", "https://api.z.ai", true)
+	recoveredID := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-recovered", "https://api.z.ai", true)
+
+	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		ProviderID: spentID, Kind: "usage", HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
+		Payload: exhaustedZaiCodingPayload(t, time.Now().Add(4*time.Hour)),
+	}); err != nil {
+		t.Fatalf("seed exhausted snapshot: %v", err)
+	}
+	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		ProviderID: recoveredID, Kind: "usage", HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
+		Payload: json.RawMessage(`{"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"remaining":5000,"nextResetTime":0}]}}`),
+	}); err != nil {
+		t.Fatalf("seed recovered snapshot: %v", err)
+	}
+
+	h.RefreshQuotaAdvice(ctx)
+
+	calls := rec.recorded()
+	if len(calls) != 1 {
+		t.Fatalf("got %d ReleaseQuotaPins call(s), want exactly 1 per successful refresh", len(calls))
+	}
+	set := calls[0]
+	if _, ok := set[spentID]; !ok {
+		t.Error("a provider whose window is still spent must be reported as still exhausted, keeping its pin")
+	}
+	if _, ok := set[recoveredID]; ok {
+		t.Error("a provider that has recovered must be absent from the exhausted set, so its pin is lifted")
+	}
+}
+
+// TestRefreshQuotaAdvice_FailedRefreshLeavesPinsUntouched is the safety half of
+// the same feature. Both failure paths clear the advice map so stale data cannot
+// pin anything new, but neither says a word about provider health — a database
+// blip must not drag every quota-pinned provider back into rotation. So a failed
+// refresh must not release pins at all.
+func TestRefreshQuotaAdvice_FailedRefreshLeavesPinsUntouched(t *testing.T) {
+	t.Run("quota repo list failure", func(t *testing.T) {
+		h := newTestHandler(t)
+		brokenPool, err := pgxpool.New(context.Background(), apiTestDBURL)
+		if err != nil {
+			t.Fatalf("failed to open pool: %v", err)
+		}
+		brokenPool.Close()
+		h.quotaRepo = quota.NewRepository(brokenPool)
+		h.SetQuotaAdvisor(NewQuotaAdvisor())
+
+		rec := &pinReleaseRecorder{}
+		h.SetCircuitBreaker(rec)
+
+		h.RefreshQuotaAdvice(context.Background())
+
+		if got := len(rec.recorded()); got != 0 {
+			t.Errorf("got %d ReleaseQuotaPins call(s) after a snapshot-list failure, want 0", got)
+		}
+	})
+
+	t.Run("provider repo list failure", func(t *testing.T) {
+		h := newTestHandler(t)
+		h.providerRepo = &mockProviderStore{
+			listFn: func(context.Context) ([]*provider.Provider, error) {
+				return nil, errors.New("provider list boom")
+			},
+		}
+		h.SetQuotaAdvisor(NewQuotaAdvisor())
+
+		rec := &pinReleaseRecorder{}
+		h.SetCircuitBreaker(rec)
+
+		h.RefreshQuotaAdvice(context.Background())
+
+		if got := len(rec.recorded()); got != 0 {
+			t.Errorf("got %d ReleaseQuotaPins call(s) after a provider-list failure, want 0", got)
+		}
+	})
 }
 
 // TestRefreshQuotaAdvice_QuotaRepoListErrorClearsAdvice verifies the fail-closed
