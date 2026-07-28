@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/failover"
 )
 
 func getStatus(t *testing.T, r http.Handler, path string) DiscoveryStatusResponse {
@@ -69,6 +71,78 @@ func TestGetDiscoveryStatus_StripsDisabledBucket(t *testing.T) {
 	// disabled-only row strips to nothing, so it must not light that dot.
 	if resp.InformationalUnseen != 1 {
 		t.Errorf("InformationalUnseen = %d, want 1 (matches the stripped, displayed entry only)", resp.InformationalUnseen)
+	}
+}
+
+// TestGetDiscoveryStatus_PriceOnlyEntryDoesNotCount pins Ruling A: prices move
+// on nearly every scan, so an entry whose only content is the metadata `updated`
+// bucket must not raise InformationalUnseen — otherwise the dot is permanently
+// lit and becomes exactly the ignorable indicator the claim count exists to
+// avoid. The price entry must still be VISIBLE in the feed; only the counter
+// ignores it.
+//
+// Three entries, each under its own provider so collapseRoundTrips (which chains
+// per provider+model+field) cannot fold any of them into another:
+//   - updated-only  -> visible, not counted
+//   - added         -> visible, counted
+//   - failover      -> visible, counted (proves the rule is "anything but
+//     `updated`", not a hardcoded added/reenabled pair)
+func TestGetDiscoveryStatus_PriceOnlyEntryDoesNotCount(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+	ctx := context.Background()
+	truncateDiscoveryChanges(t)
+
+	oldPrice, newPrice := 1.0, 2.0
+	priceProv, addProv, failProv := uuid.New(), uuid.New(), uuid.New()
+	seed := func(providerID uuid.UUID, name string, diff *DiscoveryDiff) {
+		t.Helper()
+		if _, err := AppendDiscoveryChange(ctx, pool, "scheduled", &providerID, name, diff); err != nil {
+			t.Fatalf("seed %s: %v", name, err)
+		}
+	}
+	seed(priceProv, "price-prov", &DiscoveryDiff{
+		Updated: []ModelUpdate{{
+			ModelID: "priced",
+			Changes: []FieldChange{{Field: changeFieldInputPrice, Old: &oldPrice, New: &newPrice}},
+		}},
+	})
+	seed(addProv, "add-prov", &DiscoveryDiff{
+		Added: []ModelChange{{ModelID: "arrived", Reason: changeReasonNewModel}},
+	})
+	seed(failProv, "fail-prov", &DiscoveryDiff{
+		FailoverDisabledGroups: []failover.DisabledGroupInfo{{
+			DisplayModel:   "some-model",
+			EffectiveCount: 1,
+			Reason:         "fewer than 2 routable members (need 2+ for failover)",
+		}},
+	})
+
+	resp := getStatus(t, r, "/discovery/status")
+
+	// Anchor: all three entries must reach the client. Without this the
+	// InformationalUnseen assertion below could pass on a feed that silently
+	// came back empty (bad seed, wrong provider filter, a broken strip pass),
+	// and it is also the positive half of the ruling: prices stay visible.
+	if len(resp.Informational) != 3 {
+		t.Fatalf("informational entries = %d, want 3 (all three must stay visible in the feed): %+v", len(resp.Informational), resp.Informational)
+	}
+	var priced *DiscoveryChangeEntry
+	for i := range resp.Informational {
+		if resp.Informational[i].ProviderName == "price-prov" {
+			priced = &resp.Informational[i]
+		}
+	}
+	if priced == nil {
+		t.Fatal("the price-only entry must still be present in the feed")
+	}
+	if len(priced.Diff.Updated) != 1 || len(priced.Diff.Updated[0].Changes) != 1 {
+		t.Fatalf("the price-only entry must keep its updated bucket, got %+v", priced.Diff.Updated)
+	}
+
+	// The count skips the price-only entry and keeps the other two.
+	if resp.InformationalUnseen != 2 {
+		t.Errorf("InformationalUnseen = %d, want 2 (added + failover count; the price-only entry must not)", resp.InformationalUnseen)
 	}
 }
 

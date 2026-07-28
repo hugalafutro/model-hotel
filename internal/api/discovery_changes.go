@@ -187,6 +187,39 @@ func stripDisabledBucket(entries []DiscoveryChangeEntry) []DiscoveryChangeEntry 
 	return out
 }
 
+// countInformationalUnseen counts the entries that carry something other than
+// the metadata-only `updated` bucket.
+//
+// The dot this drives means "something happened worth a glance". Prices move on
+// nearly every scan, so counting `updated` would light the dot permanently and
+// make it exactly the ignorable indicator the claim count was designed not to
+// be. Price and context changes stay fully visible in the feed once the modal is
+// open; they simply stop driving the indicator.
+//
+// The rule is expressed as "not empty once `updated` is removed" rather than an
+// explicit list of counting buckets, so any bucket added to DiscoveryDiff later
+// counts by default. `updated` is the one bucket that has to opt out by name,
+// which is a deliberate fail-loud direction: a new membership or failover signal
+// is visible until someone decides otherwise.
+//
+// Callers pass the post-collapseRoundTrips, post-stripDisabledBucket slice, so
+// `disabled` is already gone and the count describes exactly what the client
+// renders.
+func countInformationalUnseen(entries []DiscoveryChangeEntry) int {
+	n := 0
+	for _, e := range entries {
+		if e.Diff == nil {
+			continue
+		}
+		probe := *e.Diff
+		probe.Updated = nil
+		if !diffIsEmpty(&probe) {
+			n++
+		}
+	}
+	return n
+}
+
 // AppendDiscoveryChange records one provider's background-discovery diff for
 // later review. Empty diffs are skipped. Returns true when a row was written so
 // the caller can decide whether to publish a live-update event. providerID may

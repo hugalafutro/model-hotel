@@ -81,7 +81,10 @@ const settingKeyDiscoveryLastReviewed = "_discovery_last_reviewed_at"
 // DiscoveryStatusResponse powers the Models nav badge and its modal. ClaimCount
 // counts Gone models only: Stale and Suspect are shown but never inflate the
 // badge, so a non-zero badge always means something might actually be wrong.
-// InformationalUnseen drives the badge dot when ClaimCount is 0.
+// InformationalUnseen drives the badge dot when ClaimCount is 0, and counts only
+// the entries carrying something other than metadata `updated` changes: prices
+// move on nearly every scan, so counting them would leave the dot permanently
+// lit (see countInformationalUnseen).
 type DiscoveryStatusResponse struct {
 	Claims              []ProviderClaims       `json:"claims"`
 	Informational       []DiscoveryChangeEntry `json:"informational"`
@@ -168,7 +171,7 @@ func (h *Handler) GetDiscoveryStatus(w http.ResponseWriter, r *http.Request) {
 		Claims:              claims,
 		Informational:       informational,
 		ClaimCount:          count,
-		InformationalUnseen: len(informational),
+		InformationalUnseen: countInformationalUnseen(informational),
 	})
 }
 
