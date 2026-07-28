@@ -1523,27 +1523,30 @@ describe("Backup rotation sliders", () => {
 			"backup_grandfather_retention",
 			"12",
 		],
-	])("updates %s via the slider and PUTs %s", async (label, value, key, expected) => {
-		let captured: Record<string, string> | null = null;
-		server.use(
-			http.get("/api/settings", () => HttpResponse.json(baseSettings)),
-			http.put("/api/settings", async ({ request }) => {
-				captured = (await request.json()) as Record<string, string>;
-				return HttpResponse.json({});
-			}),
-		);
-		renderWithProviders(
-			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
-		);
+	])(
+		"updates %s via the slider and PUTs %s",
+		async (label, value, key, expected) => {
+			let captured: Record<string, string> | null = null;
+			server.use(
+				http.get("/api/settings", () => HttpResponse.json(baseSettings)),
+				http.put("/api/settings", async ({ request }) => {
+					captured = (await request.json()) as Record<string, string>;
+					return HttpResponse.json({});
+				}),
+			);
+			renderWithProviders(
+				<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+			);
 
-		const slider = await screen.findByLabelText(label);
-		// SettingsSlider commits the value (fires onChange) on pointer release,
-		// not on every drag tick.
-		fireEvent.change(slider, { target: { value } });
-		fireEvent.pointerUp(slider);
+			const slider = await screen.findByLabelText(label);
+			// SettingsSlider commits the value (fires onChange) on pointer release,
+			// not on every drag tick.
+			fireEvent.change(slider, { target: { value } });
+			fireEvent.pointerUp(slider);
 
-		await waitFor(() => expect(captured).toEqual({ [key]: expected }));
-	});
+			await waitFor(() => expect(captured).toEqual({ [key]: expected }));
+		},
+	);
 });
 
 describe("DatabaseBackupSettings additional coverage", () => {

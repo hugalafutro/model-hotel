@@ -217,18 +217,19 @@ describe("isParamDisabled - empty rules providers", () => {
 		"presence_penalty",
 	];
 
-	it.each(
-		emptyRuleProviders,
-	)("returns false for all common params on %s", (provider) => {
-		commonParams.forEach((param) => {
-			expect(isParamDisabled(provider, param as keyof GenerationParams)).toBe(
-				false,
-			);
-			expect(
-				getParamIncompatibility(provider, param as keyof GenerationParams),
-			).toBeNull();
-		});
-	});
+	it.each(emptyRuleProviders)(
+		"returns false for all common params on %s",
+		(provider) => {
+			commonParams.forEach((param) => {
+				expect(isParamDisabled(provider, param as keyof GenerationParams)).toBe(
+					false,
+				);
+				expect(
+					getParamIncompatibility(provider, param as keyof GenerationParams),
+				).toBeNull();
+			});
+		},
+	);
 });
 
 describe("getParamIncompatibility - additional providers", () => {
@@ -316,21 +317,23 @@ describe("reasoning_effort incompatibility", () => {
 
 	const providersWithReasoningEffortCompatible = ["openai", "xai"];
 
-	it.each(
-		providersWithReasoningEffortIncompatible,
-	)("reasoning_effort is incompatible for %s", (provider) => {
-		expect(isParamDisabled(provider, "reasoning_effort")).toBe(true);
-		expect(isParamHidden(provider, "reasoning_effort")).toBe(true);
-		expect(getParamIncompatibility(provider, "reasoning_effort")).toMatch(
-			/^paramCompat\./,
-		);
-	});
+	it.each(providersWithReasoningEffortIncompatible)(
+		"reasoning_effort is incompatible for %s",
+		(provider) => {
+			expect(isParamDisabled(provider, "reasoning_effort")).toBe(true);
+			expect(isParamHidden(provider, "reasoning_effort")).toBe(true);
+			expect(getParamIncompatibility(provider, "reasoning_effort")).toMatch(
+				/^paramCompat\./,
+			);
+		},
+	);
 
-	it.each(
-		providersWithReasoningEffortCompatible,
-	)("reasoning_effort is compatible for %s", (provider) => {
-		expect(isParamDisabled(provider, "reasoning_effort")).toBe(false);
-		expect(isParamHidden(provider, "reasoning_effort")).toBe(false);
-		expect(getParamIncompatibility(provider, "reasoning_effort")).toBeNull();
-	});
+	it.each(providersWithReasoningEffortCompatible)(
+		"reasoning_effort is compatible for %s",
+		(provider) => {
+			expect(isParamDisabled(provider, "reasoning_effort")).toBe(false);
+			expect(isParamHidden(provider, "reasoning_effort")).toBe(false);
+			expect(getParamIncompatibility(provider, "reasoning_effort")).toBeNull();
+		},
+	);
 });
