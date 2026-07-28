@@ -113,6 +113,32 @@ describe("ModelDiscrepancyModal", () => {
 		).not.toBeNull();
 	});
 
+	it("keeps a resolved claim struck through in its slot and takes only its dismiss away", () => {
+		render(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[
+					prov({ gone: [claimOf("a", "resolved"), claimOf("b", "pending")] }),
+				]}
+			/>,
+		);
+		const rows = screen.getAllByTestId("discrepancy-claim");
+		// The row-level form of the headline bug: a claim that clears during a
+		// retest must stay in its slot, greyed, not vanish mid-list.
+		expect(rows.map((r) => r.getAttribute("data-model-id"))).toStrictEqual([
+			"a",
+			"b",
+		]);
+		expect(rows[0]).toHaveAttribute("data-status", "resolved");
+		// A struck-through row has nothing left to dismiss.
+		expect(
+			rows[0].querySelector("[data-testid='discrepancy-dismiss']"),
+		).toBeNull();
+		expect(
+			rows[1].querySelector("[data-testid='discrepancy-dismiss']"),
+		).not.toBeNull();
+	});
+
 	it("offers no dismiss control for stale or suspect claims", () => {
 		render(
 			<ModelDiscrepancyModal
@@ -286,6 +312,34 @@ describe("ModelDiscrepancyModal", () => {
 				screen.getByTestId("discrepancy-informational-toggle"),
 			).toHaveAttribute("aria-expanded", "true");
 			expect(onExpandInformational).toHaveBeenCalledTimes(1);
+		});
+
+		it("ignores the empty render before the fetch lands and seeds off the data", () => {
+			const onExpandInformational = vi.fn();
+			// useDiscrepancies keys its query per open, so the modal always renders
+			// once with an empty snapshot. Seeding off that render would latch the
+			// journal open while claims exist, and would do it without acking, so
+			// the dot would never clear.
+			const { rerender } = render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[]}
+					informational={[]}
+					onExpandInformational={onExpandInformational}
+				/>,
+			);
+			rerender(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+					informational={[infoEntry]}
+					onExpandInformational={onExpandInformational}
+				/>,
+			);
+			expect(
+				screen.getByTestId("discrepancy-informational-toggle"),
+			).toHaveAttribute("aria-expanded", "false");
+			expect(onExpandInformational).not.toHaveBeenCalled();
 		});
 
 		it("starts collapsed when there are claims and reports only the first expand", async () => {

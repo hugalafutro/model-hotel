@@ -81,10 +81,29 @@ export function ModelDiscrepancyModal({
 
 	// The informational zone starts expanded only when the discrepancy zone has
 	// nothing to show, since it is then the only content worth reading. Seeded
-	// from the FIRST render on purpose: a claim arriving mid-session must not
-	// collapse a zone the operator is reading.
-	const [infoOpen, setInfoOpen] = useState(!hasContent);
-	const [notifyOnMount] = useState(!hasContent && informational.length > 0);
+	// once and then left alone: a claim arriving mid-session must not collapse a
+	// zone the operator is already reading.
+	//
+	// The seed waits for the first render carrying ANY payload, rather than
+	// reading the very first render. `useDiscrepancies` uses a fresh query key
+	// per open, so there is always at least one render with an empty snapshot
+	// before the fetch lands; seeding off that would latch the zone open while
+	// claims exist, and would do it without firing the expand callback, leaving
+	// an expanded journal whose dot never clears. An all-empty payload needs no
+	// seed at all: with no entries the zone does not render.
+	const hasPayload =
+		providers.length > 0 || groupClaims.length > 0 || informational.length > 0;
+	const [infoOpen, setInfoOpen] = useState(false);
+	const [seeded, setSeeded] = useState(false);
+	const [autoExpanded, setAutoExpanded] = useState(false);
+	if (!seeded && hasPayload) {
+		// React's documented "adjust state during render" bail-out, the same
+		// pattern useDiscrepancies uses to seed its snapshot: an effect would
+		// paint one frame of a collapsed zone first.
+		setSeeded(true);
+		setInfoOpen(!hasContent);
+		setAutoExpanded(!hasContent && informational.length > 0);
+	}
 	const notified = useRef(false);
 	const notifyExpanded = useCallback(() => {
 		// Expanding marks the journal seen; once per open is enough.
@@ -94,8 +113,8 @@ export function ModelDiscrepancyModal({
 	}, [onExpandInformational]);
 
 	useEffect(() => {
-		if (notifyOnMount) notifyExpanded();
-	}, [notifyOnMount, notifyExpanded]);
+		if (autoExpanded) notifyExpanded();
+	}, [autoExpanded, notifyExpanded]);
 
 	const toggleInfo = () => {
 		const next = !infoOpen;
@@ -300,22 +319,29 @@ export function ModelDiscrepancyModal({
 						{t("providers.discrepancies.resolved")}
 					</span>
 				</div>
-				{cleared.map((c) => (
-					<p
-						key={c.model_id}
-						className="text-[11px] text-(--text-tertiary)"
-						data-testid="discrepancy-resolved-detail"
-					>
-						{c.flap_since_review > 0
-							? t("providers.discrepancies.resolvedDetail", {
-									model: c.model_id,
-									count: c.flap_since_review,
-								})
-							: t("providers.discrepancies.resolvedPlain", {
-									model: c.model_id,
-								})}
-					</p>
-				))}
+				{/* Guarded rather than left to map-over-empty: `every` on an empty
+				    array is true, so a provider with three empty buckets reads as
+				    resolved. Unreachable while the backend only lists providers that
+				    have a claim, but the headline line then stands alone instead of
+				    introducing a detail list that never comes. */}
+				{cleared.length > 0
+					? cleared.map((c) => (
+							<p
+								key={c.model_id}
+								className="text-[11px] text-(--text-tertiary)"
+								data-testid="discrepancy-resolved-detail"
+							>
+								{c.flap_since_review > 0
+									? t("providers.discrepancies.resolvedDetail", {
+											model: c.model_id,
+											count: c.flap_since_review,
+										})
+									: t("providers.discrepancies.resolvedPlain", {
+											model: c.model_id,
+										})}
+							</p>
+						))
+					: null}
 			</div>
 		);
 	};
