@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router";
 import { Eye, EyeOff, Fingerprint, GithubLogo, LogIn } from "@/lib/icons";
 import { api, isAuthenticated } from "./api/client";
 import { CopyablePill } from "./components/CopyablePill";

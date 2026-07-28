@@ -50,7 +50,7 @@ export default defineConfig({
 						// Routing + data fetching
 						{
 							name: "vendor-router-query",
-							test: vendor("/react-router-dom/", "/@tanstack/"),
+							test: vendor("/react-router/", "/@tanstack/"),
 						},
 						// Internationalization
 						{
