@@ -63,7 +63,17 @@ export function useDiscoveryRetest(
 	});
 
 	return {
-		onRetest: (entry: DiscoverySummaryEntry) => mutation.mutate(entry),
+		onRetest: (entry: DiscoverySummaryEntry) => {
+			// Discovery is a heavy upstream call, so callers disable every Retest
+			// while one runs: three rapid clicks otherwise each overwrite
+			// retestingKey and stop the previous row's spinner while its request
+			// is still out. Guarding here (not just in the UI) keeps the lock
+			// correct even if a caller doesn't wire isRetesting into its buttons.
+			if (mutation.isPending) return;
+			mutation.mutate(entry);
+		},
 		retestingKey,
+		/** True while any retest is in flight; callers disable every Retest button off this. */
+		isRetesting: mutation.isPending,
 	};
 }

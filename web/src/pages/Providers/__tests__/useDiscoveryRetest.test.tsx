@@ -93,4 +93,53 @@ describe("useDiscoveryRetest", () => {
 		expect(discover).not.toHaveBeenCalled();
 		expect(patchEntry).not.toHaveBeenCalled();
 	});
+
+	it("reports a global in-flight flag and ignores a second onRetest while one is running", async () => {
+		// Three rapid clicks currently stomp each other: each onMutate overwrites the
+		// shared key, so the first row stops spinning while its request is still out.
+		// The modal disables all buttons off isRetesting, so it must stay true for the
+		// whole in-flight window and clear only when the request settles. The real
+		// regression is a SECOND request starting at all, not just the flag reading
+		// true, so this asserts discover() is only ever called once.
+		let resolveDiscover: (value: unknown) => void = () => {};
+		discover.mockReturnValue(
+			new Promise((resolve) => {
+				resolveDiscover = resolve;
+			}),
+		);
+		const { result } = renderHook(() => useDiscoveryRetest(vi.fn()), {
+			wrapper: AllProviders,
+		});
+
+		expect(result.current.isRetesting).toBe(false);
+
+		act(() => {
+			result.current.onRetest({
+				providerName: "NanoGPT",
+				providerId: "p1",
+				entryKey: "k1",
+			});
+		});
+		await waitFor(() => expect(result.current.isRetesting).toBe(true));
+		expect(result.current.retestingKey).toBe("k1");
+
+		// A second click, e.g. on a different row, while the first is still in
+		// flight must not start another mutation.
+		act(() => {
+			result.current.onRetest({
+				providerName: "Other",
+				providerId: "p2",
+				entryKey: "k2",
+			});
+		});
+		expect(discover).toHaveBeenCalledTimes(1);
+		expect(discover).toHaveBeenCalledWith("p1");
+		expect(result.current.retestingKey).toBe("k1");
+
+		act(() => {
+			resolveDiscover({ discovered: 0, diff: {} });
+		});
+		await waitFor(() => expect(result.current.isRetesting).toBe(false));
+		expect(discover).toHaveBeenCalledTimes(1);
+	});
 });
