@@ -1398,6 +1398,109 @@ func TestReleaseQuotaPins_LogsTheLiftedPin(t *testing.T) {
 	}
 }
 
+// TestReleaseAllQuotaPins_LiftsEveryPin covers the "we have stopped looking"
+// lever. Quota polling being switched off means no refresh will ever report a
+// recovery again, so every pin still in force would be served out to its ceiling
+// on evidence the operator deliberately stopped collecting. Holding a healthy
+// provider out is the expensive direction, so when the gateway stops advising it
+// stops holding too.
+func TestReleaseAllQuotaPins_LiftsEveryPin(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 300 * time.Millisecond})
+	pinnedA, pinnedB, unpinned := uuid.New(), uuid.New(), uuid.New()
+
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+	openBreaker(t, cb, pinnedA)
+	openBreaker(t, cb, pinnedB)
+	cb.SetQuotaAdvisor(stubAdvisor{ok: false})
+	openBreaker(t, cb, unpinned)
+
+	if released := cb.ReleaseAllQuotaPins(); released != 2 {
+		t.Errorf("got %d pin(s) released, want 2 — every pin, and only the pins", released)
+	}
+
+	for _, s := range cb.Status() {
+		if s.QuotaPinned {
+			t.Errorf("provider %s still reports quota_pinned after a release-all", s.ProviderID)
+		}
+		if s.CooldownMs != cb.effectiveCooldown().Milliseconds() {
+			t.Errorf("provider %s: got CooldownMs=%d, want the configured cooldown %d back",
+				s.ProviderID, s.CooldownMs, cb.effectiveCooldown().Milliseconds())
+		}
+	}
+
+	// A second call has nothing left to lift: the release is idempotent, which
+	// is what lets the caller run it once per disabled span without bookkeeping.
+	if released := cb.ReleaseAllQuotaPins(); released != 0 {
+		t.Errorf("got %d pin(s) released on the second call, want 0", released)
+	}
+
+	time.Sleep(400 * time.Millisecond)
+	if cb.IsOpen(pinnedA, "test-provider") {
+		t.Error("with the pin lifted, the configured cooldown must let a probe through")
+	}
+}
+
+// TestReleaseAllQuotaPins_DoesNotCloseCircuits holds the same contract boundary
+// as the recovered-set release: quota chooses cooldowns, nothing else. A blunt
+// release-all must not be a back door to closing circuits.
+func TestReleaseAllQuotaPins_DoesNotCloseCircuits(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Hour})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+	cb.ReleaseAllQuotaPins()
+
+	if got := cb.GetState(id); got != StateOpen {
+		t.Errorf("got state %v after releasing every pin, want open", got)
+	}
+	if !cb.IsOpen(id, "test-provider") {
+		t.Error("the configured cooldown has not elapsed; the circuit must still refuse traffic")
+	}
+	if s := cb.Status()[0]; s.ConsecutiveFails == 0 {
+		t.Error("releasing pins must not reset the failure count that opened the circuit")
+	}
+}
+
+func TestReleaseAllQuotaPins_EmptyBreakerIsANoOp(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	if released := cb.ReleaseAllQuotaPins(); released != 0 {
+		t.Errorf("got %d pin(s) released on an empty breaker, want 0", released)
+	}
+	if len(cb.Status()) != 0 {
+		t.Error("releasing pins must not create circuits")
+	}
+}
+
+// TestReleaseAllQuotaPins_LogsTheReason keeps the two releases distinguishable
+// in the log. An operator reading "pin released" needs to know whether the
+// provider recovered or whether they switched the poller off, because only one
+// of those means the window is actually back.
+func TestReleaseAllQuotaPins_LogsTheReason(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Hour})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	capt := captureLogs(t)
+	cb.ReleaseAllQuotaPins()
+
+	level, attrs, found := capt.last("circuit-breaker: quota pin released (quota polling disabled)")
+	if !found {
+		t.Fatal("releasing every pin must leave a log trail of its own")
+	}
+	if level != slog.LevelInfo {
+		t.Errorf("got level %v, want info", level)
+	}
+	if got, _ := attrs["provider_id"].(string); got != id.String() {
+		t.Errorf("got provider_id=%v, want %s", attrs["provider_id"], id)
+	}
+	if got, _ := attrs["cooldown_ms"].(int64); got != time.Hour.Milliseconds() {
+		t.Errorf("got cooldown_ms=%v, want the configured cooldown %d", attrs["cooldown_ms"], time.Hour.Milliseconds())
+	}
+}
+
 func TestGetState_ConcurrentReads(t *testing.T) {
 	t.Parallel()
 	cb := newTestCB(100, 30*time.Second)

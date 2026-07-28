@@ -473,8 +473,9 @@ func TestRefreshQuotaAdvice_LogsAdvisedProvidersAtInfoOnlyWhenAdvising(t *testin
 // pins and *which* providers it declared recovered. Reset/ResetAll panic:
 // the quota refresh must never clear a circuit.
 type pinReleaseRecorder struct {
-	mu    sync.Mutex
-	calls []map[uuid.UUID]struct{}
+	mu       sync.Mutex
+	calls    []map[uuid.UUID]struct{}
+	allCalls int
 }
 
 func (p *pinReleaseRecorder) Status() []failover.ProviderStatus { return nil }
@@ -494,10 +495,26 @@ func (p *pinReleaseRecorder) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) 
 	return 0
 }
 
+// ReleaseAllQuotaPins is counted separately: a refresh must never take the
+// blunt release-all path, so a test that sees this move has caught the
+// disabled-polling behaviour leaking into an ordinary poll pass.
+func (p *pinReleaseRecorder) ReleaseAllQuotaPins() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.allCalls++
+	return 0
+}
+
 func (p *pinReleaseRecorder) recorded() []map[uuid.UUID]struct{} {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return append([]map[uuid.UUID]struct{}(nil), p.calls...)
+}
+
+func (p *pinReleaseRecorder) recordedAll() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.allCalls
 }
 
 // TestRefreshQuotaAdvice_ReleasesPinsForRecoveredProviders is the auto-unpin
@@ -649,6 +666,92 @@ func TestRefreshQuotaAdvice_ReleasesPinsOnlyOnFreshRecoveryEvidence(t *testing.T
 	// Releasing a pin shortens a cooldown; it must never close a circuit.
 	if got := cb.GetState(ids[0]); got == failover.StateClosed {
 		t.Errorf("got state %v for the recovered provider, want it still open — quota must never close a circuit", got)
+	}
+}
+
+// TestDisableQuotaAdvice_ReleasesPinsThatARefreshWouldKeep is the counterpart to
+// the recovery-evidence rule, and the case that makes the two rules consistent
+// rather than contradictory. While the poller is running, a provider still
+// assessed as exhausted keeps its pin. Switch polling off and that same provider
+// loses it: no refresh will ever report its recovery again, so the pin would be
+// served out to the 24h ceiling on evidence the operator deliberately stopped
+// collecting — and the documented meaning of setting the interval to 0 is that
+// the feature stops acting on this node.
+func TestDisableQuotaAdvice_ReleasesPinsThatARefreshWouldKeep(t *testing.T) {
+	h := newTestHandler(t)
+	ctx := context.Background()
+	adv := NewQuotaAdvisor()
+	h.SetQuotaAdvisor(adv)
+
+	cb := failover.NewCircuitBreaker(nil)
+	cb.Threshold = 1
+	cb.Cooldown = time.Minute
+	cb.SetQuotaAdvisor(fixedQuotaAdvisor{at: time.Now().Add(6 * time.Hour)})
+	h.SetCircuitBreaker(cb)
+
+	spentID := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-still-spent", "https://api.z.ai", true)
+	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		ProviderID: spentID, Kind: "usage", HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
+		Payload: exhaustedZaiCodingPayload(t, time.Now().Add(4*time.Hour)),
+	}); err != nil {
+		t.Fatalf("seed exhausted snapshot: %v", err)
+	}
+	cb.RecordFailure(spentID, "zai-still-spent")
+
+	// While polling runs, this provider's pin survives every refresh: it is
+	// still exhausted, which is affirmative evidence in the other direction.
+	h.RefreshQuotaAdvice(ctx)
+	if !pinnedByProvider(cb)[spentID.String()] {
+		t.Fatal("setup: a still-exhausted provider must keep its pin while polling runs")
+	}
+	if _, ok := adv.ResetsAt(spentID); !ok {
+		t.Fatal("setup: a fresh exhausted snapshot must be advised")
+	}
+
+	h.DisableQuotaAdvice(ctx)
+
+	if pinnedByProvider(cb)[spentID.String()] {
+		t.Error("disabling polling must release a pin already in force, not leave the provider benched for its ceiling")
+	}
+	if _, ok := adv.ResetsAt(spentID); ok {
+		t.Error("disabling polling must drop the advice too, so nothing new can be pinned")
+	}
+	// Still only a cooldown change: the circuit stays open and HTTP decides
+	// recovery through the ordinary half-open probe.
+	if got := cb.GetState(spentID); got != failover.StateOpen {
+		t.Errorf("got state %v, want open — disabling quota advice must not close a circuit", got)
+	}
+	if got := cb.Status()[0].CooldownMs; got != cb.Cooldown.Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want the configured cooldown %d back", got, cb.Cooldown.Milliseconds())
+	}
+}
+
+// TestRefreshQuotaAdvice_NeverTakesTheReleaseAllPath guards the boundary between
+// the two releases from the other side: an ordinary refresh, successful or not,
+// must never reach for the blunt lever that only a disabled poller may pull.
+func TestRefreshQuotaAdvice_NeverTakesTheReleaseAllPath(t *testing.T) {
+	h := newTestHandler(t)
+	ctx := context.Background()
+	h.SetQuotaAdvisor(NewQuotaAdvisor())
+
+	rec := &pinReleaseRecorder{}
+	h.SetCircuitBreaker(rec)
+
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-spent-releaseall", "https://api.z.ai", true)
+	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		ProviderID: id, Kind: "usage", HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
+		Payload: exhaustedZaiCodingPayload(t, time.Now().Add(4*time.Hour)),
+	}); err != nil {
+		t.Fatalf("seed exhausted snapshot: %v", err)
+	}
+
+	h.RefreshQuotaAdvice(ctx)
+
+	if got := rec.recordedAll(); got != 0 {
+		t.Errorf("got %d ReleaseAllQuotaPins call(s) from a refresh, want 0 — only a disabled poller may release every pin", got)
+	}
+	if got := len(rec.recorded()); got != 1 {
+		t.Errorf("got %d ReleaseQuotaPins call(s), want exactly 1 per successful refresh", got)
 	}
 }
 

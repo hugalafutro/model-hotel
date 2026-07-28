@@ -438,15 +438,57 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 		if !ok || c.cooldownOverride == 0 {
 			continue
 		}
-		c.cooldownOverride = 0
+		cb.releasePin("circuit-breaker: quota pin released (provider no longer exhausted)", id, c, base)
 		released++
-		// The open transition logged a cooldown_ms that may have promised hours
-		// of darkness; an operator needs the line that says it ended early, at
-		// the same Info level the half-open→closed recovery uses. Routing
-		// metadata only — never payload or credentials.
-		debuglog.Info("circuit-breaker: quota pin released (provider no longer exhausted)", "provider_id", id, "state", cb.logicalState(c).String(), "cooldown_ms", base.Milliseconds())
 	}
 	return released
+}
+
+// ReleaseAllQuotaPins lifts the quota cooldown override from every circuit that
+// carries one, and reports how many it lifted.
+//
+// This is the other half of the release rule, and the reason it can be this
+// blunt where ReleaseQuotaPins must not be: it is called when quota polling has
+// been switched off. No refresh will ever report a recovery again, so every pin
+// still in force would be served out to its ceiling — up to 24 hours — on
+// evidence the operator deliberately stopped collecting. Absence of evidence
+// keeps a pin only while the gateway is still looking; once it stops looking it
+// stops holding, because benching a healthy provider is the expensive mistake
+// and an unnecessary probe is the cheap one.
+//
+// Like ReleaseQuotaPins it only shortens a wait: circuit state and failure
+// counts are untouched, and HTTP still decides recovery through the ordinary
+// half-open probe. It is idempotent, so a caller can run it once per disabled
+// span without bookkeeping.
+func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	base := cb.effectiveCooldown()
+
+	released := 0
+	for id, c := range cb.circuits {
+		if c.cooldownOverride == 0 {
+			continue
+		}
+		cb.releasePin("circuit-breaker: quota pin released (quota polling disabled)", id, c, base)
+		released++
+	}
+	return released
+}
+
+// releasePin drops one circuit's quota override and logs it. The message names
+// the reason rather than being assembled from parts: an operator reading "pin
+// released" needs to know whether the provider recovered or whether the poller
+// was switched off, because only one of those means the window is actually back.
+//
+// The open transition logged a cooldown_ms that may have promised hours of
+// darkness, so the line that says it ended early is logged at the same Info
+// level the half-open→closed recovery uses. Routing metadata only — never
+// payload or credentials. Must be called with cb.mu held.
+func (cb *CircuitBreaker) releasePin(msg, providerID string, c *circuit, base time.Duration) {
+	c.cooldownOverride = 0
+	debuglog.Info(msg, "provider_id", providerID, "state", cb.logicalState(c).String(), "cooldown_ms", base.Milliseconds())
 }
 
 // logicalState maps a circuit's stored state to the state every observer

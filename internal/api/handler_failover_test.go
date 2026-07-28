@@ -757,6 +757,10 @@ func (m *mockCircuitBreaker) Reset(providerID uuid.UUID) failover.State {
 // rather than silently mutating the statuses these tests assert on.
 func (m *mockCircuitBreaker) ReleaseQuotaPins(map[uuid.UUID]struct{}) int { return 0 }
 
+// ReleaseAllQuotaPins is a no-op for the same reason: only the quota poll loop
+// reaches it, never an HTTP handler.
+func (m *mockCircuitBreaker) ReleaseAllQuotaPins() int { return 0 }
+
 func (m *mockCircuitBreaker) ResetAll() (cleared, recovered int) {
 	cleared = len(m.statuses)
 	for _, s := range m.statuses {

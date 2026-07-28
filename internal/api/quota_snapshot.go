@@ -270,6 +270,31 @@ func (h *Handler) ClearQuotaAdvice(_ context.Context) {
 	h.quotaAdvisor.Replace(nil)
 }
 
+// DisableQuotaAdvice is the path taken when quota polling itself is switched
+// off: it drops all advice *and* releases every quota pin already in force.
+//
+// The two must happen together. Clearing the advice alone stops new pins, but
+// the pins already stamped on would be served out to the 24h ceiling with no
+// refresh left to ever report a recovery — a provider benched for a day on
+// evidence the operator deliberately stopped collecting, from an operator
+// action whose documented meaning is "turn this feature off on this node".
+// Absence of evidence keeps a pin only while the gateway is still looking.
+//
+// Deliberately not folded into ClearQuotaAdvice, which the failed-refresh paths
+// also call: a database blip is exactly the case where the gateway is still
+// looking and the pins must stand.
+func (h *Handler) DisableQuotaAdvice(ctx context.Context) {
+	h.ClearQuotaAdvice(ctx)
+	if h.circuitBreaker == nil {
+		return
+	}
+	// Counts only, no payload values. A pin can hold a provider dark for a day,
+	// so an operator needs the line that says switching polling off ended one.
+	if released := h.circuitBreaker.ReleaseAllQuotaPins(); released > 0 {
+		debuglog.Info("quota: polling disabled, released pins in force", "released_pins", released)
+	}
+}
+
 // buildQuotaAdvice is the pure filtering step of RefreshQuotaAdvice, split out
 // so the staleness rule and the assessment filter are testable without a
 // database. It returns both halves of the same judgement:

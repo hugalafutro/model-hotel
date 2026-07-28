@@ -33,6 +33,10 @@ func (f fakeBreakerReader) ReleaseQuotaPins(map[uuid.UUID]struct{}) int {
 	panic("metrics must never mutate quota pins")
 }
 
+func (f fakeBreakerReader) ReleaseAllQuotaPins() int {
+	panic("metrics must never mutate quota pins")
+}
+
 func TestMetricsAuth_DedicatedToken(t *testing.T) {
 	h := &Handler{cfg: &config.Config{MetricsToken: "s3cret"}}
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

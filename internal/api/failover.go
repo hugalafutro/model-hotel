@@ -69,6 +69,11 @@ type CircuitBreakerQuotaPinner interface {
 	// providers a fresh snapshot was assessed for and found not exhausted;
 	// anything absent (stale, unassessable, or never snapshotted) keeps its pin.
 	ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
+	// ReleaseAllQuotaPins clears the override on every pinned circuit, for the
+	// one case where absence of evidence is decisive: quota polling has been
+	// switched off, so no refresh will ever report a recovery again. It must
+	// not change any circuit's state either.
+	ReleaseAllQuotaPins() int
 }
 
 // CircuitBreakerControl is the whole breaker surface the failover API needs.

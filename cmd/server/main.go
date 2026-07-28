@@ -431,7 +431,7 @@ func main() {
 	})
 	go staleLogCleanupLoop(ctx, database.Pool(), settingsRepo, serverStartTime)
 	go logRetentionLoop(ctx, database.Pool(), settingsRepo)
-	go quotaPollLoop(ctx, settingsRepo, apiHandler.PollQuotasOnce, apiHandler.ClearQuotaAdvice, time.Minute)
+	go quotaPollLoop(ctx, settingsRepo, apiHandler.PollQuotasOnce, apiHandler.DisableQuotaAdvice, time.Minute)
 
 	server := &http.Server{
 		Addr:              cfg.Port,
