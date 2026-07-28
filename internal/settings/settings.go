@@ -100,9 +100,22 @@ type subscription struct {
 // events. The returned Subscription provides a channel to read from and an
 // Unsubscribe method to clean up.
 type Repository struct {
-	pool     *pgxpool.Pool
-	mu       sync.RWMutex
-	cache    map[string]cacheEntry
+	pool  *pgxpool.Pool
+	mu    sync.RWMutex
+	cache map[string]cacheEntry
+	// cacheGen counts mutations per key. A reader captures the generation
+	// before issuing its query and installs the result only if the generation
+	// is unchanged when it takes the write lock, so a read that overlapped a
+	// write can never resurrect the pre-write value. See evictLocked.
+	//
+	// The counter is per-key rather than global on purpose: settings writes
+	// are rare but reads are on the proxy's per-request hot path, and a global
+	// counter would make any single write discard every unrelated cache fill
+	// in flight (a config-sync import or a fleet heartbeat SetMany would
+	// briefly degrade every key to a query per read). Per-key confines that to
+	// the key actually being written. The map is bounded by the number of
+	// distinct keys ever written, which is the settings key space.
+	cacheGen map[string]uint64
 	cacheTTL time.Duration
 
 	// changeMu protects onChangeCallbacks and subscriptions.
@@ -138,8 +151,33 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
 		pool:     pool,
 		cache:    make(map[string]cacheEntry),
+		cacheGen: make(map[string]uint64),
 		cacheTTL: 30 * time.Second,
 	}
+}
+
+// evictLocked drops the cache entry for key and advances its generation so a
+// read already in flight cannot install its (now potentially stale) result.
+// The caller must hold r.mu for writing.
+func (r *Repository) evictLocked(key string) {
+	delete(r.cache, key)
+	r.cacheGen[key]++
+}
+
+// evict is evictLocked with the lock taken for you.
+func (r *Repository) evict(key string) {
+	r.mu.Lock()
+	r.evictLocked(key)
+	r.mu.Unlock()
+}
+
+// evictKVs evicts the key of every pair, taking the lock once.
+func (r *Repository) evictKVs(kvs [][2]string) {
+	r.mu.Lock()
+	for _, kv := range kvs {
+		r.evictLocked(kv[0])
+	}
+	r.mu.Unlock()
 }
 
 // Subscribe returns a Subscription whose channel receives a ChangeEvent for
@@ -250,6 +288,7 @@ func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue strin
 		r.mu.RUnlock()
 		return entry.value
 	}
+	gen := r.cacheGen[key]
 	r.mu.RUnlock()
 
 	var value string
@@ -264,8 +303,17 @@ func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue strin
 		return defaultValue
 	}
 
+	// Only install the result if no write landed while the query was in
+	// flight. If one did, the value we read may already be stale, so we return
+	// it to this caller but leave the cache empty for the next reader to
+	// refill. This cannot wedge the hot path: the guard never retries and
+	// never blocks, so the very next read after the writes stop caches
+	// normally — reads only stay uncached for as long as writes to this key
+	// are actually in flight, which is exactly when caching would be wrong.
 	r.mu.Lock()
-	r.cache[key] = cacheEntry{value: value, expiresAt: time.Now().Add(r.cacheTTL)}
+	if r.cacheGen[key] == gen {
+		r.cache[key] = cacheEntry{value: value, expiresAt: time.Now().Add(r.cacheTTL)}
+	}
 	r.mu.Unlock()
 
 	return value
@@ -283,6 +331,7 @@ func (r *Repository) GetChecked(ctx context.Context, key string) (value string, 
 		r.mu.RUnlock()
 		return entry.value, true, nil
 	}
+	gen := r.cacheGen[key]
 	r.mu.RUnlock()
 
 	var v string
@@ -294,23 +343,49 @@ func (r *Repository) GetChecked(ctx context.Context, key string) (value string, 
 		return "", false, err // real read failure: let the caller decide
 	}
 
+	// Same generation guard as GetWithDefault: skip the install if a write
+	// landed while the query was in flight.
 	r.mu.Lock()
-	r.cache[key] = cacheEntry{value: v, expiresAt: time.Now().Add(r.cacheTTL)}
+	if r.cacheGen[key] == gen {
+		r.cache[key] = cacheEntry{value: v, expiresAt: time.Now().Add(r.cacheTTL)}
+	}
 	r.mu.Unlock()
 
 	return v, true, nil
 }
 
 // Set updates a setting and invalidates the cache.
+//
+// The cache is evicted twice, once on each side of the write, and both
+// evictions matter. The pre-write eviction stops an entry that was already
+// cached from being served for the rest of its TTL while the write is in
+// flight. The post-write eviction drops anything a reader installed *during*
+// the write: such a reader misses the cache, reads the pre-write row (the
+// UPSERT has not committed yet, so it is invisible), and would otherwise pin
+// that stale value for the full cacheTTL — far longer than any caller that
+// re-reads on the change notification is willing to wait. Both evictions
+// happen before notifyChange, so a subscriber woken by the event and
+// re-reading from the "source of truth" cannot be handed the old value.
 func (r *Repository) Set(ctx context.Context, key, value string) error {
-	r.mu.Lock()
-	delete(r.cache, key)
-	r.mu.Unlock()
+	r.evict(key)
 
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, now())
 		ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = now()
 	`, key, value)
+
+	// Evict unconditionally, before the error check, because an error here does
+	// not mean the row is unchanged: if the connection drops or ctx is
+	// cancelled in the commit-acknowledgement window, pgx reports a failure for
+	// a statement the server actually applied. Callers do pass cancellable
+	// request contexts (quota drift, config-sync apply), so this is reachable.
+	// Skipping the eviction on that path would leave a reader's mid-write
+	// install pinned for the full cacheTTL against a write that took effect —
+	// the exact bug the post-write eviction exists to close. Evicting after a
+	// genuinely failed write is harmless: it costs one DB read on next access.
+	// Only the notification stays gated on success; we must not announce a
+	// change we cannot confirm.
+	r.evict(key)
 	if err != nil {
 		return err
 	}
@@ -324,8 +399,8 @@ func (r *Repository) Set(ctx context.Context, key, value string) error {
 // round-trip instead of one per key, which keeps them comfortably inside a
 // caller's request timeout even when the database is briefly slow (a
 // simultaneous multi-container restart, say). Semantics otherwise match Set:
-// no allowlist gate, cache evicted before the write, subscribers notified
-// after it commits. An empty slice is a no-op.
+// no allowlist gate, cache evicted on both sides of the write, subscribers
+// notified after it commits. An empty slice is a no-op.
 func (r *Repository) SetMany(ctx context.Context, kvs [][2]string) error {
 	if len(kvs) == 0 {
 		return nil
@@ -333,11 +408,7 @@ func (r *Repository) SetMany(ctx context.Context, kvs [][2]string) error {
 
 	// Evict before the write, exactly as Set does, so a read racing the write
 	// falls through to the DB rather than serving a stale cached value.
-	r.mu.Lock()
-	for _, kv := range kvs {
-		delete(r.cache, kv[0])
-	}
-	r.mu.Unlock()
+	r.evictKVs(kvs)
 
 	var sb strings.Builder
 	sb.WriteString("INSERT INTO settings (key, value, updated_at) VALUES ")
@@ -351,7 +422,13 @@ func (r *Repository) SetMany(ctx context.Context, kvs [][2]string) error {
 	}
 	sb.WriteString(" ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()")
 
-	if _, err := r.pool.Exec(ctx, sb.String(), args...); err != nil {
+	_, err := r.pool.Exec(ctx, sb.String(), args...)
+
+	// Evict again for the same reason Set does, and — like Set — unconditionally
+	// and before the error check, because a reported error can still describe a
+	// statement the server applied.
+	r.evictKVs(kvs)
+	if err != nil {
 		return err
 	}
 	// The row write is atomic (one statement); the notifications are not. We fan
@@ -406,9 +483,7 @@ func (r *Repository) DeleteKeysTx(ctx context.Context, tx pgx.Tx, keys []string)
 // For reset-to-default flows where the key was deleted from the DB, use
 // NotifyDeleted instead to avoid a wasteful DB query.
 func (r *Repository) InvalidateCache(key string) {
-	r.mu.Lock()
-	delete(r.cache, key)
-	r.mu.Unlock()
+	r.evict(key)
 	// InvalidateCache is called after SetTx commits. We don't know the
 	// committed value here, so we do a best-effort lookup to notify
 	// subscribers. If the lookup fails (e.g. the key was deleted), we
@@ -422,9 +497,7 @@ func (r *Repository) InvalidateCache(key string) {
 // deleted from the database (reset-to-default) to avoid a redundant DB
 // lookup — we already know the value is gone.
 func (r *Repository) NotifyDeleted(key string) {
-	r.mu.Lock()
-	delete(r.cache, key)
-	r.mu.Unlock()
+	r.evict(key)
 	r.notifyChange(key, "")
 }
 
@@ -432,17 +505,36 @@ func (r *Repository) NotifyDeleted(key string) {
 // Without this, settings are populated lazily on first read and expire after
 // cacheTTL (30s), causing periodic cache misses on the hot path.
 func (r *Repository) WarmCache(ctx context.Context) {
+	// Snapshot the generations before the query, so a write that lands while
+	// the bulk read is in flight is not undone by warming the pre-write value
+	// back in. Keys absent from the snapshot are at generation 0. This runs
+	// once at startup, so the copy is not on any hot path.
+	r.mu.RLock()
+	gens := make(map[string]uint64, len(r.cacheGen))
+	for k, v := range r.cacheGen {
+		gens[k] = v
+	}
+	r.mu.RUnlock()
+
 	all, err := r.GetAll(ctx)
 	if err != nil {
 		debuglog.Warn("settings: failed to warm cache", "error", err)
 		return
 	}
+	warmed := 0
 	r.mu.Lock()
 	for key, value := range all {
+		if r.cacheGen[key] != gens[key] {
+			continue // written while we were reading; let the next read refill
+		}
 		r.cache[key] = cacheEntry{value: value, expiresAt: time.Now().Add(r.cacheTTL)}
+		warmed++
 	}
 	r.mu.Unlock()
-	debuglog.Info("settings: warmed cache", "count", len(all))
+	// Log both numbers: "count" stays the installed total, and "read" preserves
+	// the "how many settings exist" signal, so a skip is visible as a gap
+	// rather than looking like an empty settings table.
+	debuglog.Info("settings: warmed cache", "count", warmed, "read", len(all), "skipped", len(all)-warmed)
 }
 
 // GetAll retrieves all settings as a key-value map.
