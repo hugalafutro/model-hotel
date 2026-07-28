@@ -197,8 +197,16 @@ export function isAuthenticated(): boolean {
 
 /** clearAuth expires the readable CSRF cookie so isAuthenticated() flips false.
  * The httpOnly session cookie is cleared server-side on logout / on a 401; this
- * drops the client-visible auth signal immediately. */
+ * drops the client-visible auth signal immediately.
+ *
+ * The write stays on document.cookie rather than the Cookie Store API that
+ * noDocumentCookie suggests: cookieStore.delete() is async and unavailable in
+ * Safari and Firefox, and every caller either reloads the page (Layout logout,
+ * the SSE 401 path) or throws right after this returns, so a promise-based
+ * delete could lose the race and leave the stale signal readable on the next
+ * page load. */
 export function clearAuth(): void {
+	// biome-ignore lint/suspicious/noDocumentCookie: must be synchronous; see the doc comment above.
 	document.cookie = "mh_csrf=; path=/; max-age=0";
 }
 
