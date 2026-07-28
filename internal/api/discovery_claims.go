@@ -187,9 +187,14 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 		sortClaims(g.Suspect)
 		out = append(out, *g)
 	}
-	// Most counted claims first, then most suspect, then by name. A stale-only
-	// provider scores (0,0) and lands at the bottom, which is where a section
-	// that resolved during the session should sink to without vanishing.
+	// Most counted claims first, then most suspect, then by name, then by ID.
+	// A stale-only provider scores (0,0) and lands at the bottom, which is
+	// where a section that resolved during the session should sink to without
+	// vanishing. The final ID tiebreak makes the ordering fully deterministic:
+	// provider name has no uniqueness guarantee, out came from ranging over a
+	// Go map (unordered), and sort.Slice is not stable, so without it two
+	// identically-named providers with identical bucket counts could swap
+	// position between refreshes and jitter the UI.
 	sort.Slice(out, func(i, j int) bool {
 		if len(out[i].Gone) != len(out[j].Gone) {
 			return len(out[i].Gone) > len(out[j].Gone)
@@ -197,7 +202,10 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 		if len(out[i].Suspect) != len(out[j].Suspect) {
 			return len(out[i].Suspect) > len(out[j].Suspect)
 		}
-		return out[i].ProviderName < out[j].ProviderName
+		if out[i].ProviderName != out[j].ProviderName {
+			return out[i].ProviderName < out[j].ProviderName
+		}
+		return out[i].ProviderID < out[j].ProviderID
 	})
 	return out, count
 }

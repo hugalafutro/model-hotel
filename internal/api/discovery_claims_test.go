@@ -38,7 +38,11 @@ func TestBuildProviderClaims_Classification(t *testing.T) {
 	if len(p.Gone) != 2 {
 		t.Fatalf("Gone = %+v, want recent-gone and old-flappy", p.Gone)
 	}
-	if p.Gone[0].ModelID != "old-flappy" && p.Gone[1].ModelID != "old-flappy" {
+	goneIDs := map[string]bool{}
+	for _, c := range p.Gone {
+		goneIDs[c.ModelID] = true
+	}
+	if !goneIDs["old-flappy"] {
 		t.Errorf("a long-gone model that flapped inside the window must keep counting, got %+v", p.Gone)
 	}
 	if len(p.Stale) != 1 || p.Stale[0].ModelID != "old-quiet" {
@@ -84,8 +88,14 @@ func TestBuildProviderClaims_Ordering(t *testing.T) {
 }
 
 // TestListClaimRows_Exclusions proves the three things that must never appear
-// as a claim: a manually disabled model, a model on a disabled provider, and a
-// dismissed model.
+// as a claim (a manually disabled model, a model on a disabled provider, and a
+// dismissed model), and both halves of the inclusion predicate: a
+// discovery-disabled model surfaces, an enabled-but-mid-streak model surfaces
+// (the `enabled = true AND missing_scans > 0` branch), and a healthy enabled
+// model with no missing scans does not. Without the suspect/healthy pair, a
+// typo widening the enabled-branch predicate (e.g. dropping the
+// `missing_scans > 0` guard) would surface every enabled model and this test
+// would stay green.
 func TestListClaimRows_Exclusions(t *testing.T) {
 	h, _ := newTestHandlerWithRouter(t)
 	pool := h.dbPool.Pool()
@@ -98,6 +108,8 @@ func TestListClaimRows_Exclusions(t *testing.T) {
 	seedClaimModel(t, pool, enabledProv, "hand-disabled", false, true, 0, nil)
 	seedClaimModel(t, pool, enabledProv, "dismissed", false, false, 0, ptrTime(time.Now()))
 	seedClaimModel(t, pool, disabledProv, "on-dead-provider", false, false, 0, nil)
+	seedClaimModel(t, pool, enabledProv, "suspect-flapping", true, false, 1, nil)
+	seedClaimModel(t, pool, enabledProv, "healthy", true, false, 0, nil)
 
 	rows, err := listClaimRows(ctx, pool)
 	if err != nil {
@@ -110,7 +122,10 @@ func TestListClaimRows_Exclusions(t *testing.T) {
 	if !got["genuinely-gone"] {
 		t.Error("a discovery-disabled model must surface as a claim")
 	}
-	for _, excluded := range []string{"hand-disabled", "dismissed", "on-dead-provider"} {
+	if !got["suspect-flapping"] {
+		t.Error("an enabled model mid-miss-streak must surface as a claim")
+	}
+	for _, excluded := range []string{"hand-disabled", "dismissed", "on-dead-provider", "healthy"} {
 		if got[excluded] {
 			t.Errorf("%s must not surface as a claim", excluded)
 		}
@@ -118,7 +133,9 @@ func TestListClaimRows_Exclusions(t *testing.T) {
 }
 
 // TestFlapCounts counts membership transitions only, so a metadata-only entry
-// never makes a stable model look flappy.
+// never makes a stable model look flappy. Exercises all three membership
+// buckets the SQL hand-writes as JSON keys (added, reenabled, disabled): a
+// misspelling of any one is invisible unless every bucket has a seeded row.
 func TestFlapCounts(t *testing.T) {
 	h, _ := newTestHandlerWithRouter(t)
 	pool := h.dbPool.Pool()
@@ -128,6 +145,7 @@ func TestFlapCounts(t *testing.T) {
 	providerID := uuid.New()
 	for _, d := range []*DiscoveryDiff{
 		{Disabled: []ModelChange{{ModelID: "flappy", Reason: changeReasonNotListed}}},
+		{Reenabled: []ModelChange{{ModelID: "flappy", Reason: changeReasonReappeared}}},
 		{Added: []ModelChange{{ModelID: "flappy", Reason: changeReasonReappeared}}},
 		{Updated: []ModelUpdate{{ModelID: "steady", Changes: []FieldChange{{Field: changeFieldInputPrice}}}}},
 	} {
@@ -140,8 +158,13 @@ func TestFlapCounts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("flapCounts: %v", err)
 	}
-	if got := counts[flapKey{providerID: providerID.String(), modelID: "flappy"}]; got != 2 {
-		t.Errorf("flappy count = %d, want 2", got)
+	// Anchor: proves the query returned rows at all. The paired steady == 0
+	// check below is a zero-value map lookup that would also pass if the query
+	// silently returned nothing (e.g. a broken JOIN or WHERE clause), so it is
+	// only meaningful alongside this non-zero anchor. Do not delete this one
+	// while trimming the steady assertion.
+	if got := counts[flapKey{providerID: providerID.String(), modelID: "flappy"}]; got != 3 {
+		t.Errorf("flappy count = %d, want 3 (disabled + reenabled + added)", got)
 	}
 	if got := counts[flapKey{providerID: providerID.String(), modelID: "steady"}]; got != 0 {
 		t.Errorf("steady count = %d, want 0: a price move is not a flap", got)
