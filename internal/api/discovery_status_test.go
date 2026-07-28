@@ -81,12 +81,20 @@ func TestGetDiscoveryStatus_StripsDisabledBucket(t *testing.T) {
 // avoid. The price entry must still be VISIBLE in the feed; only the counter
 // ignores it.
 //
-// Three entries, each under its own provider so collapseRoundTrips (which chains
+// Four entries, each under its own provider so collapseRoundTrips (which chains
 // per provider+model+field) cannot fold any of them into another:
-//   - updated-only  -> visible, not counted
-//   - added         -> visible, counted
-//   - failover      -> visible, counted (proves the rule is "anything but
+//   - updated-only    -> visible, not counted
+//   - added           -> visible, counted
+//   - failover        -> visible, counted (proves the rule is "anything but
 //     `updated`", not a hardcoded added/reenabled pair)
+//   - updated + added -> visible, COUNTED
+//
+// That last one is the case the rule actually turns on, and it is the realistic
+// shape: a single provider scan routinely reports a price move and a new model
+// together. The rule is "the entry carries ONLY `updated`", not "the entry
+// contains `updated`" — the one-line misreading `if len(e.Diff.Updated) > 0 {
+// continue }` would silently stop counting every mixed entry, i.e. most real
+// ones, while still passing a test built solely from single-bucket entries.
 func TestGetDiscoveryStatus_PriceOnlyEntryDoesNotCount(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	pool := h.dbPool.Pool()
@@ -94,7 +102,7 @@ func TestGetDiscoveryStatus_PriceOnlyEntryDoesNotCount(t *testing.T) {
 	truncateDiscoveryChanges(t)
 
 	oldPrice, newPrice := 1.0, 2.0
-	priceProv, addProv, failProv := uuid.New(), uuid.New(), uuid.New()
+	priceProv, addProv, failProv, mixedProv := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	seed := func(providerID uuid.UUID, name string, diff *DiscoveryDiff) {
 		t.Helper()
 		if _, err := AppendDiscoveryChange(ctx, pool, "scheduled", &providerID, name, diff); err != nil {
@@ -117,15 +125,22 @@ func TestGetDiscoveryStatus_PriceOnlyEntryDoesNotCount(t *testing.T) {
 			Reason:         "fewer than 2 routable members (need 2+ for failover)",
 		}},
 	})
+	seed(mixedProv, "mixed-prov", &DiscoveryDiff{
+		Added: []ModelChange{{ModelID: "also-arrived", Reason: changeReasonNewModel}},
+		Updated: []ModelUpdate{{
+			ModelID: "also-priced",
+			Changes: []FieldChange{{Field: changeFieldOutputPrice, Old: &oldPrice, New: &newPrice}},
+		}},
+	})
 
 	resp := getStatus(t, r, "/discovery/status")
 
-	// Anchor: all three entries must reach the client. Without this the
+	// Anchor: all four entries must reach the client. Without this the
 	// InformationalUnseen assertion below could pass on a feed that silently
 	// came back empty (bad seed, wrong provider filter, a broken strip pass),
 	// and it is also the positive half of the ruling: prices stay visible.
-	if len(resp.Informational) != 3 {
-		t.Fatalf("informational entries = %d, want 3 (all three must stay visible in the feed): %+v", len(resp.Informational), resp.Informational)
+	if len(resp.Informational) != 4 {
+		t.Fatalf("informational entries = %d, want 4 (all four must stay visible in the feed): %+v", len(resp.Informational), resp.Informational)
 	}
 	var priced *DiscoveryChangeEntry
 	for i := range resp.Informational {
@@ -140,9 +155,10 @@ func TestGetDiscoveryStatus_PriceOnlyEntryDoesNotCount(t *testing.T) {
 		t.Fatalf("the price-only entry must keep its updated bucket, got %+v", priced.Diff.Updated)
 	}
 
-	// The count skips the price-only entry and keeps the other two.
-	if resp.InformationalUnseen != 2 {
-		t.Errorf("InformationalUnseen = %d, want 2 (added + failover count; the price-only entry must not)", resp.InformationalUnseen)
+	// The count skips the price-ONLY entry and keeps the other three, including
+	// the mixed one: only an entry with nothing but `updated` drops out.
+	if resp.InformationalUnseen != 3 {
+		t.Errorf("InformationalUnseen = %d, want 3 (added + failover + mixed count; only the price-only entry must not)", resp.InformationalUnseen)
 	}
 }
 

@@ -241,6 +241,69 @@ func TestGetDiscoveryStatus_GroupClaimStampSurvivesReEnableCycle(t *testing.T) {
 	}
 }
 
+// TestGetDiscoveryStatus_GroupClaimSurvivesMembershipPrune pins the one-way
+// door in this design: revalidateCustomGroups skips groups that are already
+// disabled, so nothing ever re-stamps a group whose stamp is lost. Any
+// maintenance path that clears auto_disabled_at therefore erases the claim
+// PERMANENTLY — the group stays disabled, `hotel/<model>` stays dead, and the
+// badge goes quiet about it forever.
+//
+// pruneStaleEntries is exactly such a path: it fires when a member's model row
+// is DELETED (provider removal, bulk delete, rename), which is nobody's opinion
+// about the group, and it used to route through the operator-facing Update.
+func TestGetDiscoveryStatus_GroupClaimSurvivesMembershipPrune(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+	ctx := context.Background()
+	truncateDiscoveryChanges(t)
+	truncateFailoverGroups(t)
+
+	provID := seedClaimProvider(t, pool, "prune-prov", true)
+	memberA := seedGroupMember(t, pool, provID, "prune-member-a")
+	memberB := seedGroupMember(t, pool, provID, "prune-member-b")
+	memberC := seedGroupMember(t, pool, provID, "prune-member-c")
+	seedCustomGroup(t, pool, "prune-group", []uuid.UUID{memberA, memberB, memberC})
+
+	// Discovery disables it: two members go missing, one routable left.
+	setModelEnabled(t, pool, memberB, false)
+	setModelEnabled(t, pool, memberC, false)
+	runRevalidate(t, pool)
+
+	before := findGroupClaim(getStatus(t, r, "/discovery/status"), "prune-group")
+	if before == nil {
+		t.Fatal("setup: the auto-disabled group must be a claim before the prune")
+	}
+	if before.MemberCount != 3 {
+		t.Fatalf("setup: MemberCount = %d, want 3", before.MemberCount)
+	}
+
+	// A member's model row is deleted outright, then the scheduled sync prunes
+	// the dangling UUID. Two valid members remain, so the group is rewritten
+	// rather than deleted — the branch that used to go through Update.
+	if _, err := pool.Exec(ctx, `DELETE FROM models WHERE id = $1`, memberC); err != nil {
+		t.Fatalf("delete member model: %v", err)
+	}
+	if _, err := failover.NewRepository(pool).SyncAllModels(ctx); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	after := findGroupClaim(getStatus(t, r, "/discovery/status"), "prune-group")
+	if after == nil {
+		t.Fatal("the claim must survive a membership prune: nothing would ever re-stamp it, so losing it here loses it forever")
+	}
+	// Anchor: MemberCount is priority_order's length, so 3 -> 2 proves the prune
+	// actually rewrote THIS group. Without it the assertion above would also
+	// pass if the prune had silently skipped the group (or if the model delete
+	// had failed), making "the claim survived" meaningless.
+	if after.MemberCount != 2 {
+		t.Errorf("MemberCount = %d, want 2 (anchor: proves the prune rewrote this group's membership)", after.MemberCount)
+	}
+	if !after.DisabledAt.Equal(before.DisabledAt) {
+		t.Errorf("DisabledAt = %s, want the original stamp %s: a prune must not re-date the claim either",
+			after.DisabledAt, before.DisabledAt)
+	}
+}
+
 // TestGetDiscoveryStatus_GroupClaimsSerializeAsEmptyArray pins the null-slice
 // trap: web/src/api/types.ts declares group_claims as GroupClaim[] with no null
 // guard, so a nil slice reaching the client as `null` would break `.map()` at

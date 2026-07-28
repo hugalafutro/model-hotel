@@ -25,6 +25,18 @@
 -- group_enabled clears it back to NULL, so a group that is auto-disabled,
 -- re-enabled, then auto-disabled again reads as a fresh claim instead of
 -- inheriting a stale stamp.
+--
+-- One-way door, worth knowing before touching any of this: the auto-disable
+-- skips groups that are already disabled (revalidateCustomGroups), so a group
+-- that is disabled without a stamp is never re-examined and never stamped. Two
+-- consequences. (1) Groups disabled BEFORE this migration read as
+-- operator-disabled forever; that is the safe direction (silent, not nagging),
+-- and it is why there is no backfill — the journal is the only record of the old
+-- provenance, and re-deriving it from routable counts would double-count
+-- gone-model claims. (2) Any code path that clears this column without an
+-- operator behind it destroys a live claim PERMANENTLY. Internal maintenance
+-- must not go through failover.Repository.Update, which clears it by design; see
+-- Repository.pruneMembership for the pattern to follow instead.
 ALTER TABLE model_failover_groups ADD COLUMN IF NOT EXISTS auto_disabled_at TIMESTAMPTZ;
 
 -- Partial index: the claim query only ever looks at discovery-disabled groups.
