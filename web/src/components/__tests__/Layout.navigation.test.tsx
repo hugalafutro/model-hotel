@@ -851,6 +851,7 @@ describe("Layout", () => {
 			const badge = await screen.findByTestId("discovery-status-badge");
 			expect(badge).toHaveAttribute("data-variant", "count");
 			expect(badge).toHaveTextContent("3");
+			expect(badge.getAttribute("aria-label")).not.toMatch(/^layout\.nav\./);
 		});
 
 		it("shows a dot rather than a number when only informational news is unseen", async () => {
@@ -866,6 +867,10 @@ describe("Layout", () => {
 			const badge = await screen.findByTestId("discovery-status-badge");
 			expect(badge).toHaveAttribute("data-variant", "dot");
 			expect(badge.textContent).toBe("");
+			// With no text, the accessible name is the control's ONLY affordance, so
+			// an unresolved key here is not cosmetic. Matched on the key prefix
+			// rather than on the copy, to stay locale-independent.
+			expect(badge.getAttribute("aria-label")).not.toMatch(/^layout\.nav\./);
 		});
 
 		it("hides the badge when there is nothing at all", async () => {
@@ -1028,6 +1033,13 @@ describe("Layout", () => {
 				expect(screen.queryByTestId("discrepancy-retest-progress")).toBeNull(),
 			);
 			expect(discovered).toEqual(["p1"]);
+			// The walk stopped early, so it must not sign off as a completed run.
+			// Asserted on the toast's type rather than its text, to stay
+			// locale-independent: a success toast here is the "done: 1" bug.
+			expect(await screen.findByTestId("toast")).toHaveAttribute(
+				"data-toast-type",
+				"info",
+			);
 		});
 
 		it("reports a Retest all walk once, not once per provider", async () => {

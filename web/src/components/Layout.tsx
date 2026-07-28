@@ -837,12 +837,24 @@ export function Layout({ children }: LayoutProps) {
 			done++;
 			setRetestAllProgress({ done, total: targets.length });
 		}
+		// Read before the reset: the summary below must know whether the walk ran
+		// out of providers or was stopped.
+		const cancelled = cancelRetestAll.current;
 		cancelRetestAll.current = false;
 		setRetestAllProgress(undefined);
 		// One report for the whole walk, since the per-provider toasts are silenced.
 		// Failures also stay bannered in their own provider section, so this is a
 		// summary and not the only record.
-		if (failed > 0) {
+		//
+		// Cancellation is reported ahead of failures precisely because it is the one
+		// outcome with no other record: a failed provider keeps its banner, but a
+		// walk that stopped early leaves untouched providers looking retested.
+		if (cancelled) {
+			toast(
+				t("providers.discrepancies.retestAllCancelled", { count: done }),
+				"info",
+			);
+		} else if (failed > 0) {
 			toast(
 				t("providers.discrepancies.retestAllFailed", { count: failed }),
 				"error",
