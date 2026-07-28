@@ -140,8 +140,18 @@ has_measurable_change() {
 run_vitest_coverage() {
 	local app=$1 include=$2
 	local dir="$REPO_ROOT/$app" lcov="$REPO_ROOT/$app/coverage/lcov.info"
-	local changed_files
-	changed_files="$(printf '%s\n' "$CHANGED_FILES" | grep -E "$include" || true)"
+	local changed_files=""
+	# Keep only files that still exist. The diff lists deleted paths too, and a
+	# deleted file can never appear in an lcov report, so passing it to the guard
+	# would report "unmeasured" every time and rerun the full suite for nothing.
+	# diff_coverage has nothing to measure in it either: its lines are gone from
+	# HEAD, so they are never part of the changed-line set being gated.
+	while read -r _file; do
+		[ -n "$_file" ] || continue
+		[ -f "$REPO_ROOT/$_file" ] || continue
+		changed_files="$changed_files$_file
+"
+	done < <(printf '%s\n' "$CHANGED_FILES" | grep -E "$include" || true)
 
 	if [ -n "$SYNC_BASE" ] && [ -n "$changed_files" ]; then
 		echo "pre-push: coverage - $app vitest (tests affected by this branch)"
