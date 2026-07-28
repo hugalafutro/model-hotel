@@ -764,6 +764,5 @@ func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	model.InvalidateModelCache()
 	writeJSON(w, map[string]any{"updated": affected})
 }

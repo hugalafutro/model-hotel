@@ -262,15 +262,28 @@ func TestDismissDiscoveryClaims_UnknownModel(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	providerID := seedClaimProvider(t, h.dbPool.Pool(), "dismiss-unknown", true)
 
-	body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["not-a-model"],"dismissed":true}`, providerID)
-	req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, req)
+	post := func(body string) int {
+		req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		return rec.Code
+	}
 
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("unknown model = %d, want 404", rec.Code)
+	// Anchor: an empty model_ids list is a 400 from the handler's own
+	// validation, which only fires once the request actually reaches
+	// DismissDiscoveryClaims. A route that were not mounted would 404 here
+	// too (chi never gets far enough to read the body), so seeing 400 proves
+	// the route is live before the 404 below is trusted to mean "no matching
+	// model" rather than "no matching route". This does not touch the store
+	// layer at all, so it does not duplicate TestSetModelsDismissed.
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":[],"dismissed":true}`, providerID)); code != http.StatusBadRequest {
+		t.Fatalf("empty model_ids = %d, want 400 (anchor: proves the route is mounted)", code)
+	}
+
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["not-a-model"],"dismissed":true}`, providerID)); code != http.StatusNotFound {
+		t.Errorf("unknown model = %d, want 404", code)
 	}
 }
 
@@ -289,6 +302,14 @@ func TestDismissDiscoveryClaims_SuspectModelNotDismissible(t *testing.T) {
 
 	providerID := seedClaimProvider(t, pool, "dismiss-suspect", true)
 	seedClaimModel(t, pool, providerID, "wobbling", true, false, 1, nil)
+
+	// Anchor: proves the route table is live and that the seeded row is
+	// genuinely in suspect state before the dismiss attempt below. Without
+	// this, the 404 asserted next would be indistinguishable from chi's
+	// route-not-found 404, which also fires before the handler exists.
+	if claim := findClaim(t, getStatus(t, r, "/discovery/status"), "wobbling"); claim.State != ClaimStateSuspect {
+		t.Fatalf("wobbling state = %q, want %q before the dismiss attempt", claim.State, ClaimStateSuspect)
+	}
 
 	body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["wobbling"],"dismissed":true}`, providerID)
 	req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
