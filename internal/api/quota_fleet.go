@@ -22,6 +22,15 @@ type QuotaSnapshotWire struct {
 	Payload      json.RawMessage `json:"payload"`
 	HTTPStatus   int             `json:"http_status"`
 	FetchedAt    time.Time       `json:"fetched_at"`
+	// LastError carries the sending node's failure marker so a receiving member
+	// classifies the snapshot exactly as the sender would. RecordFailure keeps
+	// the last good payload, http_status and fetched_at and sets only
+	// last_error, so without this field a row whose latest refresh failed
+	// arrives looking fresh and healthy and counts as affirmative recovery
+	// evidence — releasing the quota pin on a provider whose window is still
+	// spent. Omitted when empty, so an export from a node that has nothing to
+	// report stays byte-identical to the pre-existing shape.
+	LastError string `json:"last_error,omitempty"`
 }
 
 // QuotaFleetHandler serves and receives fleet quota snapshots. It mounts on the
@@ -86,6 +95,7 @@ func (h *QuotaFleetHandler) ExportSnapshots(w http.ResponseWriter, r *http.Reque
 			Payload:      s.Payload,
 			HTTPStatus:   s.HTTPStatus,
 			FetchedAt:    s.FetchedAt,
+			LastError:    s.LastError,
 		})
 	}
 	writeJSON(w, map[string]any{"snapshots": wire})
@@ -128,6 +138,11 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 			HTTPStatus: s.HTTPStatus,
 			Source:     "fleet",
 			FetchedAt:  s.FetchedAt,
+			// Carried through verbatim: a member must reach the same verdict on
+			// this row as the node that sent it. An older primary sends no field
+			// at all, which lands here as empty and behaves exactly as it did
+			// before the field existed.
+			LastError: s.LastError,
 		})
 		if err != nil {
 			respondError(w, "failed to store snapshot", err, http.StatusInternalServerError)

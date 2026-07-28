@@ -1,12 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"sync"
@@ -678,6 +680,96 @@ func TestRefreshQuotaAdvice_ReleasesPinsOnlyOnFreshRecoveryEvidence(t *testing.T
 	// Releasing a pin shortens a cooldown; it must never close a circuit.
 	if got := cb.GetState(ids[0]); got == failover.StateClosed {
 		t.Errorf("got state %v for the recovered provider, want it still open — quota must never close a circuit", got)
+	}
+}
+
+// TestRefreshQuotaAdvice_FleetImportedFailureMarkerRetainsPin is the same
+// recovery-evidence rule, one layer deeper: across the fleet boundary. The
+// snapshots a member acts on mostly arrive from the primary rather than from
+// its own poll, so a member must classify an imported row exactly as the
+// primary would. RecordFailure keeps the last good payload and fetched_at and
+// sets only last_error, so if that marker is lost anywhere between the
+// primary's export and the member's store, the member sees a fresh, healthy
+// snapshot, calls it recovery, and releases the quota pin on a provider whose
+// window is still spent — permitting an early half-open probe against a
+// provider the primary itself is still holding open.
+//
+// Both cases go in through the real fleet import handler, and both assert
+// through real breaker state rather than the advice maps. The marker-free case
+// is the control: it must still release, so the test proves the marker is what
+// makes the difference rather than some unrelated property of the payload.
+func TestRefreshQuotaAdvice_FleetImportedFailureMarkerRetainsPin(t *testing.T) {
+	h := newTestHandler(t)
+	ctx := context.Background()
+	h.SetQuotaAdvisor(NewQuotaAdvisor())
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+
+	cb := failover.NewCircuitBreaker(nil)
+	cb.Threshold = 1
+	cb.Cooldown = time.Minute
+	cb.SetQuotaAdvisor(fixedQuotaAdvisor{at: time.Now().Add(6 * time.Hour)})
+	h.SetCircuitBreaker(cb)
+
+	// One healthy, not-exhausted z.ai reading, imported by two providers. The
+	// only difference between them is the failure marker on the wire.
+	const healthy = `{"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"remaining":5000,"nextResetTime":0}]}}`
+
+	cases := []struct {
+		name       string
+		lastError  string
+		wantPinned bool
+		why        string
+	}{
+		{
+			name: "zai-fleet-failed-refresh", lastError: "upstream 500", wantPinned: true,
+			why: "an imported snapshot whose latest refresh failed on the primary is not recovery evidence on the member either — the marker has to survive the fleet boundary or the member releases a pin the primary is still holding",
+		},
+		{
+			name: "zai-fleet-healthy", lastError: "", wantPinned: false,
+			why: "the identical imported snapshot without a marker is affirmative recovery evidence and must release the pin — this is what proves the marker, not the payload, made the difference above",
+		},
+	}
+
+	ids := make([]uuid.UUID, len(cases))
+	fetchedAt := time.Now().UTC()
+	for i, c := range cases {
+		ids[i] = insertQuotaPollProvider(t, h.dbPool.Pool(), c.name, "https://api.z.ai", true)
+
+		wire := QuotaSnapshotWire{
+			ProviderName: c.name,
+			Kind:         "usage",
+			Payload:      json.RawMessage(healthy),
+			HTTPStatus:   200,
+			FetchedAt:    fetchedAt,
+			LastError:    c.lastError,
+		}
+		body, err := json.Marshal(map[string]any{"snapshots": []QuotaSnapshotWire{wire}})
+		if err != nil {
+			t.Fatalf("marshal %s wire: %v", c.name, err)
+		}
+		rr := httptest.NewRecorder()
+		fleet.ReceiveSnapshots(rr, httptest.NewRequest(http.MethodPost, "/config/quota-snapshots", bytes.NewReader(body)))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("import %s: want 200, got %d: %s", c.name, rr.Code, rr.Body.String())
+		}
+
+		cb.RecordFailure(ids[i], c.name)
+	}
+
+	pinned := pinnedByProvider(cb)
+	for i, c := range cases {
+		if !pinned[ids[i].String()] {
+			t.Fatalf("setup: %s must start out quota-pinned", c.name)
+		}
+	}
+
+	h.RefreshQuotaAdvice(ctx)
+
+	pinned = pinnedByProvider(cb)
+	for i, c := range cases {
+		if got := pinned[ids[i].String()]; got != c.wantPinned {
+			t.Errorf("%s: got quota_pinned=%v, want %v — %s", c.name, got, c.wantPinned, c.why)
+		}
 	}
 }
 

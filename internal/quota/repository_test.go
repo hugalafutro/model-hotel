@@ -244,6 +244,182 @@ func TestUpsertIfNewer(t *testing.T) {
 	}
 }
 
+// TestUpsertIfNewerPersistsFailureMarker: the fleet import path must store the
+// failure marker it was handed rather than forcing it to NULL. A member that
+// drops the marker classifies a row whose latest refresh failed as affirmative
+// recovery evidence and releases a still-exhausted provider's quota pin.
+func TestUpsertIfNewerPersistsFailureMarker(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+
+	provID := insertTestProvider(ctx, t, "test-quota-upsertnewer-marker")
+	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
+
+	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
+		HTTPStatus: 200, Source: "fleet", FetchedAt: time.Now(), LastError: "upstream 500",
+	}); err != nil {
+		t.Fatalf("upsert if newer: %v", err)
+	}
+
+	got, err := repo.Get(ctx, provID, "usage")
+	if err != nil || got == nil {
+		t.Fatalf("get: %v (snap %v)", err, got)
+	}
+	if got.LastError != "upstream 500" {
+		t.Fatalf("last_error = %q, want the incoming marker to be persisted", got.LastError)
+	}
+}
+
+// TestUpsertIfNewerAddsFailureMarkerAtEqualFetchedAt covers the gap the
+// strictly-newer WHERE clause leaves open. RecordFailure preserves fetched_at,
+// so a failed refresh does not make the primary's row newer: a member that
+// already holds that exact snapshot would otherwise never learn the refresh
+// behind it has started failing, and would keep treating it as recovery
+// evidence for as long as it stays inside the staleness bound. Taking the
+// marker at an equal timestamp can only ever hold a pin longer, never release
+// one, which is the cheap direction to be wrong in.
+func TestUpsertIfNewerAddsFailureMarkerAtEqualFetchedAt(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+
+	provID := insertTestProvider(ctx, t, "test-quota-upsertnewer-equal-marker")
+	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
+
+	at := time.Now()
+	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
+		HTTPStatus: 200, Source: "fleet", FetchedAt: at,
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	wrote, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
+		HTTPStatus: 200, Source: "fleet", FetchedAt: at, LastError: "upstream 500",
+	})
+	if err != nil {
+		t.Fatalf("marker top-up: %v", err)
+	}
+	if !wrote {
+		t.Fatal("a marker arriving on an equally fresh snapshot must be taken: RecordFailure preserves fetched_at, so the failure never arrives as a newer row")
+	}
+	got, err := repo.Get(ctx, provID, "usage")
+	if err != nil || got == nil {
+		t.Fatalf("get: %v (snap %v)", err, got)
+	}
+	if got.LastError != "upstream 500" {
+		t.Fatalf("last_error = %q, want the marker to have been applied", got.LastError)
+	}
+}
+
+// TestUpsertIfNewerKeepsMarkerWhenNoNewerEvidence: the equal-timestamp path is
+// one-way. A marker-free snapshot at the same fetched_at is not proof the
+// provider recovered (it is the same reading, from a node that has not seen the
+// failure), so it must not clear a marker already held. Only a strictly newer
+// snapshot, i.e. an actual successful refresh, does that.
+func TestUpsertIfNewerKeepsMarkerWhenNoNewerEvidence(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+
+	provID := insertTestProvider(ctx, t, "test-quota-upsertnewer-keeps-marker")
+	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
+
+	at := time.Now()
+	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
+		HTTPStatus: 200, Source: "fleet", FetchedAt: at, LastError: "upstream 500",
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	wrote, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
+		HTTPStatus: 200, Source: "fleet", FetchedAt: at,
+	})
+	if err != nil {
+		t.Fatalf("re-import: %v", err)
+	}
+	if wrote {
+		t.Fatal("a marker-free copy of the same snapshot must not be written: it is not newer evidence")
+	}
+	got, err := repo.Get(ctx, provID, "usage")
+	if err != nil || got == nil {
+		t.Fatalf("get: %v (snap %v)", err, got)
+	}
+	if got.LastError != "upstream 500" {
+		t.Fatalf("last_error = %q, want the marker kept — only a newer successful refresh clears it", got.LastError)
+	}
+}
+
+// TestUpsertIfNewerNewerSuccessClearsMarker is what stops the marker wedging a
+// pin permanently: once the primary polls successfully again its row is
+// strictly newer, and that write clears the marker on the member too.
+func TestUpsertIfNewerNewerSuccessClearsMarker(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+
+	provID := insertTestProvider(ctx, t, "test-quota-upsertnewer-clears-marker")
+	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
+
+	at := time.Now()
+	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
+		HTTPStatus: 200, Source: "fleet", FetchedAt: at, LastError: "upstream 500",
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if _, err := repo.UpsertIfNewer(ctx, quota.Snapshot{
+		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":2}`),
+		HTTPStatus: 200, Source: "fleet", FetchedAt: at.Add(time.Minute),
+	}); err != nil {
+		t.Fatalf("newer success: %v", err)
+	}
+
+	got, err := repo.Get(ctx, provID, "usage")
+	if err != nil || got == nil {
+		t.Fatalf("get: %v (snap %v)", err, got)
+	}
+	if got.LastError != "" {
+		t.Fatalf("last_error = %q, want a newer successful refresh to clear it", got.LastError)
+	}
+}
+
+// TestUpsertClearsFailureMarker pins the other half of the asymmetry: Upsert is
+// the local successful-fetch path, so it clears any marker. Without this the
+// guard could wedge a pin forever on a node that recovers on its own.
+func TestUpsertClearsFailureMarker(t *testing.T) {
+	ctx := context.Background()
+	repo := quota.NewRepository(testPool)
+
+	provID := insertTestProvider(ctx, t, "test-quota-upsert-clears-marker")
+	t.Cleanup(func() { cleanupProvider(ctx, t, provID) })
+
+	if err := repo.Upsert(ctx, quota.Snapshot{
+		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":1}`),
+		HTTPStatus: 200, Source: "poll",
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if err := repo.RecordFailure(ctx, provID, "usage", "boom"); err != nil {
+		t.Fatalf("record failure: %v", err)
+	}
+	if err := repo.Upsert(ctx, quota.Snapshot{
+		ProviderID: provID, Kind: "usage", Payload: json.RawMessage(`{"v":2}`),
+		HTTPStatus: 200, Source: "poll",
+	}); err != nil {
+		t.Fatalf("successful re-poll: %v", err)
+	}
+
+	got, err := repo.Get(ctx, provID, "usage")
+	if err != nil || got == nil {
+		t.Fatalf("get: %v (snap %v)", err, got)
+	}
+	if got.LastError != "" {
+		t.Fatalf("last_error = %q, want a successful local fetch to clear it", got.LastError)
+	}
+}
+
 func TestList(t *testing.T) {
 	ctx := context.Background()
 	repo := quota.NewRepository(testPool)

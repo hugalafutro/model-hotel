@@ -8,6 +8,14 @@ import (
 // quotaWire is one provider's quota snapshot as proxied to Bellhop. It mirrors
 // the member export (internal/api QuotaSnapshotWire) but is defined locally so the
 // control-plane package does not depend on the data-plane api package.
+//
+// It is deliberately a subset: the export's last_error marker is dropped here
+// and that is not an oversight. The marker exists so a receiving member reaches
+// the same recovery verdict as the primary, and this route feeds a display
+// surface, not a classifier — nothing downstream of it decides whether to
+// release a quota pin. The fleet distribution path that does feed that decision
+// (DistributeQuotaOnce) relays the primary's response body verbatim and never
+// passes through this struct, so the marker survives it untouched.
 type quotaWire struct {
 	ProviderName string          `json:"provider_name"`
 	Type         string          `json:"type"`
