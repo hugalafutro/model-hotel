@@ -224,7 +224,10 @@ else
 	if has_measurable_change '^internal/.*\.go$' '_test\.go$'; then
 		if (exec 3<>/dev/tcp/localhost/5433) 2>/dev/null; then
 			echo "pre-push: coverage - go test ./internal/... (Postgres :5433 up)"
-			if go test -timeout 5m -coverprofile="$COV_DIR/go.out" -covermode=atomic ./internal/...; then
+			# -timeout is per package: internal/api alone runs for minutes against
+			# a real Postgres, and at 5m it started tripping the clock in CI with
+			# nothing actually hung. Same headroom as .github/workflows/ci.yml.
+			if go test -timeout 10m -coverprofile="$COV_DIR/go.out" -covermode=atomic ./internal/...; then
 				DC_ARGS+=(--go "$COV_DIR/go.out")
 			else
 				echo "pre-push: FAILED - go test (coverage run)" >&2
