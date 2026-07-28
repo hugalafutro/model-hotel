@@ -303,23 +303,36 @@ func TestDismissDiscoveryClaims_SuspectModelNotDismissible(t *testing.T) {
 	providerID := seedClaimProvider(t, pool, "dismiss-suspect", true)
 	seedClaimModel(t, pool, providerID, "wobbling", true, false, 1, nil)
 
-	// Anchor: proves the route table is live and that the seeded row is
-	// genuinely in suspect state before the dismiss attempt below. Without
-	// this, the 404 asserted next would be indistinguishable from chi's
-	// route-not-found 404, which also fires before the handler exists.
+	// Anchor 1: proves the seeded row is genuinely in suspect state, via
+	// GET /discovery/status. This does NOT prove POST /discovery/dismiss is
+	// mounted — that route and the status route are independently registered
+	// (discovery.go:73-74), so a status-route-only check cannot catch a
+	// missing dismiss route.
 	if claim := findClaim(t, getStatus(t, r, "/discovery/status"), "wobbling"); claim.State != ClaimStateSuspect {
 		t.Fatalf("wobbling state = %q, want %q before the dismiss attempt", claim.State, ClaimStateSuspect)
 	}
 
-	body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["wobbling"],"dismissed":true}`, providerID)
-	req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
-	req.Header.Set("Authorization", "Bearer test-admin-token")
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, req)
+	post := func(body string) int {
+		req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		return rec.Code
+	}
 
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("dismiss suspect model = %d, want 404", rec.Code)
+	// Anchor 2: mirrors TestDismissDiscoveryClaims_UnknownModel's pattern. An
+	// empty model_ids list only yields 400 once the request reaches the
+	// handler's own validation; an unmounted route 404s before that code
+	// runs. This proves POST /discovery/dismiss is live before the 404 below
+	// is trusted to mean "suspect model correctly rejected" rather than
+	// "route not mounted".
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":[],"dismissed":true}`, providerID)); code != http.StatusBadRequest {
+		t.Fatalf("empty model_ids = %d, want 400 (anchor: proves the route is mounted)", code)
+	}
+
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["wobbling"],"dismissed":true}`, providerID)); code != http.StatusNotFound {
+		t.Errorf("dismiss suspect model = %d, want 404", code)
 	}
 
 	var dismissedAt *time.Time
