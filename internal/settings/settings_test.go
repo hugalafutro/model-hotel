@@ -1082,6 +1082,115 @@ func TestUnsubscribe_BufferedEventsInChannel(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// DeleteKey
+// ---------------------------------------------------------------------------
+
+// TestDeleteKey_RemovesInternalKeyOutsideTheAllowlist is the whole reason
+// DeleteKey exists. The internal `_`-prefixed keys (_fleet_*, _quota_schema_*)
+// are deliberately off the operator allowlist, which is exactly what makes
+// DeleteKeysTx refuse them — so a per-provider baseline had no removal path at
+// all and its row outlived the provider forever.
+func TestDeleteKey_RemovesInternalKeyOutsideTheAllowlist(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	const key = "_quota_schema_11111111-1111-1111-1111-111111111111"
+	if AllowedSettings[key] {
+		t.Fatal("setup: this test is meaningless if the key is on the allowlist")
+	}
+	if err := r.Set(ctx, key, `["a","b"]`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	if err := r.DeleteKey(ctx, key); err != nil {
+		t.Fatalf("DeleteKey: %v", err)
+	}
+
+	var count int
+	if err := testPool.QueryRow(ctx, "SELECT count(*) FROM settings WHERE key = $1", key).Scan(&count); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("got %d row(s) for the deleted key, want 0", count)
+	}
+}
+
+// TestDeleteKey_EvictsTheCachedValue guards the half that a raw DELETE against
+// the pool would miss: the value was read (and cached) moments earlier by the
+// drift watch, and without eviction the next read would keep serving the
+// deleted baseline for the rest of the cache TTL.
+func TestDeleteKey_EvictsTheCachedValue(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	const key = "_quota_schema_22222222-2222-2222-2222-222222222222"
+	if err := r.Set(ctx, key, "cached"); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if got := r.GetWithDefault(ctx, key, ""); got != "cached" {
+		t.Fatalf("setup: got %q, want the seeded value cached", got)
+	}
+	if !r.IsCached(key) {
+		t.Fatal("setup: the read should have cached the value")
+	}
+
+	if err := r.DeleteKey(ctx, key); err != nil {
+		t.Fatalf("DeleteKey: %v", err)
+	}
+
+	if got := r.GetWithDefault(ctx, key, "gone"); got != "gone" {
+		t.Errorf("got %q after deletion, want the caller's default — the cache was not evicted", got)
+	}
+}
+
+// TestDeleteKey_MissingKeyIsNotAnError keeps the caller's error handling honest:
+// a provider deleted before it was ever polled has no baseline, and that must
+// not read as a cleanup failure.
+func TestDeleteKey_MissingKeyIsNotAnError(t *testing.T) {
+	r := NewRepository(testPool)
+	clearSettings(t)
+
+	if err := r.DeleteKey(context.Background(), "_quota_schema_never-written"); err != nil {
+		t.Errorf("deleting an absent key must be a no-op, got %v", err)
+	}
+}
+
+// TestDeleteKey_NotifiesSubscribers matches Set's contract: a subscriber that
+// caches a setting locally has to learn the value is gone, not keep the last
+// one it saw.
+func TestDeleteKey_NotifiesSubscribers(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	const key = "_quota_schema_33333333-3333-3333-3333-333333333333"
+	if err := r.Set(ctx, key, "before"); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	sub := r.Subscribe()
+	defer sub.Unsubscribe()
+
+	if err := r.DeleteKey(ctx, key); err != nil {
+		t.Fatalf("DeleteKey: %v", err)
+	}
+
+	select {
+	case ev := <-sub.Events():
+		if ev.Key != key {
+			t.Errorf("got change event for %q, want %q", ev.Key, key)
+		}
+		if ev.Value != "" {
+			t.Errorf("got value %q, want empty — the key is gone", ev.Value)
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("DeleteKey must notify subscribers, like Set does")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // DeleteKeysTx
 // ---------------------------------------------------------------------------
 

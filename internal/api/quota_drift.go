@@ -170,6 +170,28 @@ func (h *Handler) stepQuotaSchemaCandidate(providerID uuid.UUID, prev, current s
 	return alert, store
 }
 
+// forgetQuotaSchema drops everything the drift watch remembers about a provider:
+// the persisted key-path baseline in the settings K/V and the in-memory debounce
+// candidate. Nothing else removed either, so a row accumulated for every
+// provider an operator ever deleted and was never read again.
+//
+// Best effort by design, and called only after the provider row is already gone:
+// a leftover baseline is housekeeping, never correctness, so a failure here must
+// not turn a successful delete into a 500. A provider deleted before it was ever
+// polled has no baseline at all, which DeleteKey reports as success.
+func (h *Handler) forgetQuotaSchema(ctx context.Context, providerID uuid.UUID) {
+	h.quotaSchemaMu.Lock()
+	delete(h.quotaSchemaSeen, providerID)
+	h.quotaSchemaMu.Unlock()
+
+	if h.settingsRepo == nil {
+		return
+	}
+	if err := h.settingsRepo.DeleteKey(ctx, quotaSchemaSettingKey(providerID)); err != nil {
+		debuglog.Warn("quota: failed to remove the schema baseline of a deleted provider", "provider_id", providerID, "error", err)
+	}
+}
+
 // diffSchemaPaths returns the key paths that appeared and disappeared between
 // two shapes, each list capped at quotaDriftListCap. This is the operator's
 // actual diagnosis: removed ["subscription_period_end"] alongside added

@@ -132,6 +132,7 @@ type mockSettingsStore struct {
 	getAllFn          func(ctx context.Context) (map[string]string, error)
 	setTxFn           func(ctx context.Context, tx pgx.Tx, key, value string) error
 	deleteKeysTxFn    func(ctx context.Context, tx pgx.Tx, keys []string) error
+	deleteKeyFn       func(ctx context.Context, key string) error
 	invalidateCacheFn func(key string)
 	getBoolFn         func(ctx context.Context, key string, defaultValue bool) bool
 	getDurationFn     func(ctx context.Context, key string, defaultValue time.Duration) time.Duration
@@ -184,6 +185,12 @@ func (m *mockSettingsStore) DeleteKeysTx(ctx context.Context, tx pgx.Tx, keys []
 		return m.deleteKeysTxFn(ctx, tx, keys)
 	}
 	return errors.New("mock: DeleteKeysTx not implemented")
+}
+func (m *mockSettingsStore) DeleteKey(ctx context.Context, key string) error {
+	if m.deleteKeyFn != nil {
+		return m.deleteKeyFn(ctx, key)
+	}
+	return errors.New("mock: DeleteKey not implemented")
 }
 func (m *mockSettingsStore) InvalidateCache(key string) {
 	if m.invalidateCacheFn != nil {
@@ -492,7 +499,17 @@ func TestDeleteProvider_Success(t *testing.T) {
 			return nil
 		},
 	}
-	h := testHandler(mockProv, nil, nil, nil, nil)
+	// The delete also has to take the quota drift watch's schema baseline with
+	// it: nothing else removes that key, so it would outlive the provider and
+	// accumulate in the settings K/V for every provider ever deleted.
+	var deletedKeys []string
+	sets := &mockSettingsStore{
+		deleteKeyFn: func(_ context.Context, key string) error {
+			deletedKeys = append(deletedKeys, key)
+			return nil
+		},
+	}
+	h := testHandler(mockProv, nil, sets, nil, nil)
 	req, w := newChiRequest(http.MethodDelete, "/providers/"+id.String(), nil)
 	req = setChiURLParam(req, "id", id.String())
 
@@ -500,6 +517,62 @@ func TestDeleteProvider_Success(t *testing.T) {
 
 	if w.Code != http.StatusNoContent {
 		t.Errorf("expected status %d, got %d", http.StatusNoContent, w.Code)
+	}
+	wantKey := quotaSchemaSettingKey(id)
+	if len(deletedKeys) != 1 || deletedKeys[0] != wantKey {
+		t.Errorf("got deleted settings keys %v, want exactly [%s]", deletedKeys, wantKey)
+	}
+}
+
+// TestDeleteProvider_BaselineCleanupFailureStillSucceeds keeps the cleanup in
+// its place: the provider row is already gone by the time it runs, so a settings
+// error is a housekeeping wart to log, never a reason to report a failed delete
+// for something that did happen.
+func TestDeleteProvider_BaselineCleanupFailureStillSucceeds(t *testing.T) {
+	id := uuid.New()
+	mockProv := &mockProviderStore{
+		deleteFn: func(context.Context, uuid.UUID) error { return nil },
+	}
+	sets := &mockSettingsStore{
+		deleteKeyFn: func(context.Context, string) error { return errors.New("settings boom") },
+	}
+	h := testHandler(mockProv, nil, sets, nil, nil)
+	req, w := newChiRequest(http.MethodDelete, "/providers/"+id.String(), nil)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.DeleteProvider(w, req)
+
+	if w.Code != http.StatusNoContent {
+		t.Errorf("got status %d, want %d — a failed baseline cleanup must not fail the delete", w.Code, http.StatusNoContent)
+	}
+}
+
+// TestDeleteProvider_ForgetsTheInMemoryDriftCandidate covers the other half of
+// the orphan: the debounce candidate is process-wide state keyed by provider,
+// and a provider that is gone can never clear its own entry (its snapshots
+// cascade away with it, so the watch never visits it again).
+func TestDeleteProvider_ForgetsTheInMemoryDriftCandidate(t *testing.T) {
+	id := uuid.New()
+	h := testHandler(
+		&mockProviderStore{deleteFn: func(context.Context, uuid.UUID) error { return nil }},
+		nil,
+		&mockSettingsStore{deleteKeyFn: func(context.Context, string) error { return nil }},
+		nil, nil,
+	)
+	h.quotaSchemaSeen = map[uuid.UUID]quotaSchemaCandidate{
+		id: {fingerprint: "abc", seen: 1, fetchedAt: time.Now()},
+	}
+
+	req, w := newChiRequest(http.MethodDelete, "/providers/"+id.String(), nil)
+	req = setChiURLParam(req, "id", id.String())
+
+	h.DeleteProvider(w, req)
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("got status %d, want %d", w.Code, http.StatusNoContent)
+	}
+	if _, ok := h.quotaSchemaSeen[id]; ok {
+		t.Error("the drift candidate of a deleted provider must be forgotten")
 	}
 }
 
@@ -1651,7 +1724,9 @@ func TestDeleteProvider_SyncFailoverError(t *testing.T) {
 		deleteFn: func(_ context.Context, _ uuid.UUID) error {
 			return nil // Mock succeeds; SyncAllModels is what we want to fail
 		},
-	}, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, testDB)
+	}, nil, &mockSettingsStore{
+		deleteKeyFn: func(context.Context, string) error { return nil },
+	}, &mockAdminAuth{validateFn: func(string) bool { return true }}, testDB)
 
 	req, w := newChiRequest(http.MethodDelete, "/providers/"+uuid.New().String(), nil)
 	req = setChiURLParam(req, "id", uuid.New().String())

@@ -74,6 +74,7 @@ type SettingsStore interface {
 	SetMany(ctx context.Context, kvs [][2]string) error
 	SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error
 	DeleteKeysTx(ctx context.Context, tx pgx.Tx, keys []string) error
+	DeleteKey(ctx context.Context, key string) error
 	InvalidateCache(key string)
 	NotifyDeleted(key string)
 }
@@ -781,6 +782,12 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 		respondError(w, fmt.Sprintf("failed to delete provider %s", id), err, http.StatusInternalServerError)
 		return
 	}
+
+	// The quota drift watch keeps a per-provider schema baseline in the settings
+	// K/V; nothing else removes it, so it would outlive the provider forever.
+	// Detached from the request context like the sync below: the row is already
+	// deleted, and a client that hangs up now must not leave the orphan behind.
+	h.forgetQuotaSchema(context.WithoutCancel(r.Context()), id)
 
 	// Sync failover groups since the cascade-deleted models may leave
 	// groups with stale entries or zero candidates.
