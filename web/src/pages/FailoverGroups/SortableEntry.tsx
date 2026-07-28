@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RotateCcw } from "@/lib/icons";
 import type { FailoverGroup } from "../../api/types";
@@ -113,6 +113,25 @@ export function SortableEntry({
 	// parent refetch) would shorten it each time and the fuse would snap ahead of
 	// the cooldown it visualises.
 	const [measuredAt, setMeasuredAt] = useState(() => Date.now());
+
+	// Which deadline that anchor belongs to. An entry that never unmounts can be
+	// handed a *new* next_retry_at — the circuit re-opened, or a quota pin
+	// replaced an ordinary cooldown — and measuring that against the anchor of
+	// the deadline it replaced folds all the time that passed before it arrived
+	// into the new duration: the fuse burns too slowly, or sits static for a
+	// cooldown that belongs inside the animation window. So the anchor is taken
+	// again whenever the deadline changes, and only then — re-taking it on every
+	// render is the very thing measuredAt exists to prevent.
+	//
+	// Layout effect, not a plain one: the fuse restarts its CSS timeline every
+	// time durationMs changes, so a frame painted from the stale anchor would
+	// show a flame of the wrong length before snapping to the right one.
+	const anchoredTo = useRef(nextRetryAt);
+	useLayoutEffect(() => {
+		if (anchoredTo.current === nextRetryAt) return;
+		anchoredTo.current = nextRetryAt;
+		setMeasuredAt(Date.now());
+	}, [nextRetryAt]);
 
 	// A countdown too long to animate has to keep watching the clock, because the
 	// animate-vs-static decision is a function of *now* while next_retry_at never

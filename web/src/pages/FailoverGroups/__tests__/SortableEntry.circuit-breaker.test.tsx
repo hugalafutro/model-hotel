@@ -406,6 +406,57 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 			}
 		});
 
+		it("re-measures the countdown when a new deadline arrives", async () => {
+			// The anchor the countdown is measured from is set once and then only
+			// advanced by the threshold clock, which is right while next_retry_at
+			// stands still — but a circuit that re-opens (or gets a quota pin) sends
+			// a *new* deadline to an entry that never unmounted. Measured against the
+			// old anchor, the new duration silently includes all the time that
+			// elapsed before it arrived: the fuse burns too slowly, or sits static
+			// for a cooldown that belongs inside the animation window.
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			try {
+				const { getByTestId, queryByTestId, rerender } = renderEntry({
+					state: "open",
+					consecutive_fails: 5,
+					cooldown_ms: 10 * 60 * 1000,
+					next_retry_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+				});
+
+				expect(getByTestId("fuse-outline-animated")).toBeInTheDocument();
+
+				// Nine minutes pass. Nothing ticks: a countdown already inside the
+				// animation window has no clock to run, so the anchor still holds the
+				// instant of mount.
+				await act(async () => {
+					await vi.advanceTimersByTimeAsync(9 * 60 * 1000);
+				});
+
+				// A fresh 14-minute deadline arrives — comfortably inside the 15-minute
+				// animation window, but 23 minutes away from the original anchor.
+				rerender(
+					<SortableEntry
+						entry={baseEntry}
+						groupEnabled={true}
+						onToggle={vi.fn()}
+						cbStatus={{
+							state: "open",
+							consecutive_fails: 5,
+							cooldown_ms: 14 * 60 * 1000,
+							next_retry_at: new Date(
+								Date.now() + 14 * 60 * 1000,
+							).toISOString(),
+						}}
+					/>,
+				);
+
+				expect(getByTestId("fuse-outline-animated")).toBeInTheDocument();
+				expect(queryByTestId("fuse-outline-static")).not.toBeInTheDocument();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
 		it("holds the animation steady once it has started", async () => {
 			// The fuse restarts its CSS timeline whenever durationMs changes, so the
 			// clock that watches for the crossing has to stop at the crossing. A
