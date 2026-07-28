@@ -122,6 +122,63 @@ has_measurable_change() {
 		grep -qvE '^$|^//'
 }
 
+# run_vitest_coverage <app-subdir> <source-file-regex> - build lcov for one
+# frontend, preferring the tests vitest believes the change affects.
+#
+# The scoped run is ~4x faster (281s -> 68s for web/ on this repo, 936 of 5481
+# tests). It is NOT trusted on its own, because vitest's affected-test detection
+# misses real dependents: changing web/src/components/CapBadge.tsx did not run
+# ModelTable.test.tsx, despite ModelTable.test.tsx importing ModelTable, which
+# imports CapBadge.
+#
+# That matters because diff_coverage.py SKIPS any changed file it has no
+# coverage for, and reports PASS when that leaves nothing to measure. A file
+# whose tests vitest missed is never loaded, so it never appears in the report,
+# so the gate would wave through a completely untested change. assert_instrumented.py
+# therefore checks every changed file actually got measured, and we rerun the
+# full suite when it did not. Worst case costs both runs; the gate stays honest.
+run_vitest_coverage() {
+	local app=$1 include=$2
+	local dir="$REPO_ROOT/$app" lcov="$REPO_ROOT/$app/coverage/lcov.info"
+	local changed_files=""
+	# Keep only files that still exist. The diff lists deleted paths too, and a
+	# deleted file can never appear in an lcov report, so passing it to the guard
+	# would report "unmeasured" every time and rerun the full suite for nothing.
+	# diff_coverage has nothing to measure in it either: its lines are gone from
+	# HEAD, so they are never part of the changed-line set being gated.
+	while read -r _file; do
+		[ -n "$_file" ] || continue
+		[ -f "$REPO_ROOT/$_file" ] || continue
+		changed_files="$changed_files$_file
+"
+	done < <(printf '%s\n' "$CHANGED_FILES" | grep -E "$include" || true)
+
+	if [ -n "$SYNC_BASE" ] && [ -n "$changed_files" ]; then
+		echo "pre-push: coverage - $app vitest (tests affected by this branch)"
+		# --passWithNoTests: "nothing affected" is a legitimate outcome, not a
+		# failure. The guard below still decides whether that result is usable.
+		if ! (cd "$dir" && env -u NODE_ENV pnpm exec vitest run --changed "$SYNC_BASE" --passWithNoTests --coverage --coverage.reporter=lcov); then
+			echo "pre-push: FAILED - $app vitest (affected tests)" >&2
+			return 1
+		fi
+		# Unquoted on purpose: one argument per changed file. A path containing
+		# whitespace splits into names that match nothing, which reads as
+		# unmeasured and falls back to the full suite - the safe direction.
+		# shellcheck disable=SC2086
+		if python3 "$REPO_ROOT/scripts/coverage/assert_instrumented.py" --lcov "$lcov" --root "$app/" $changed_files; then
+			return 0
+		fi
+		echo "pre-push: affected-test run left changed files unmeasured; rerunning the full $app suite" >&2
+	fi
+
+	echo "pre-push: coverage - $app vitest (full suite)"
+	if ! (cd "$dir" && env -u NODE_ENV pnpm exec vitest run --coverage --coverage.reporter=lcov); then
+		echo "pre-push: FAILED - $app vitest (coverage run)" >&2
+		return 1
+	fi
+	return 0
+}
+
 if [ -n "$SYNC_BASE" ]; then
 	if printf '%s\n' "$CHANGED" | grep -qx "README.md" &&
 		! printf '%s\n' "$CHANGED" | grep -qx "DOCKERHUB.md"; then
@@ -289,22 +346,18 @@ else
 
 	# web dashboard frontend.
 	if has_measurable_change '^web/src/.*\.tsx?$' '\.test\.tsx?$|/__tests__/|^web/src/test/'; then
-		echo "pre-push: coverage - web vitest"
-		if (cd "$REPO_ROOT/web" && env -u NODE_ENV pnpm exec vitest run --coverage --coverage.reporter=lcov); then
+		if run_vitest_coverage web '^web/src/.*\.tsx?$'; then
 			DC_ARGS+=(--lcov "web/=$REPO_ROOT/web/coverage/lcov.info")
 		else
-			echo "pre-push: FAILED - web vitest (coverage run)" >&2
 			exit 1
 		fi
 	fi
 
 	# Front Desk frontend.
 	if has_measurable_change '^frontdesk/web/src/.*\.tsx?$' '\.test\.tsx?$|/__tests__/|^frontdesk/web/src/test/'; then
-		echo "pre-push: coverage - frontdesk/web vitest"
-		if (cd "$REPO_ROOT/frontdesk/web" && env -u NODE_ENV pnpm exec vitest run --coverage --coverage.reporter=lcov); then
+		if run_vitest_coverage frontdesk/web '^frontdesk/web/src/.*\.tsx?$'; then
 			DC_ARGS+=(--lcov "frontdesk/web/=$REPO_ROOT/frontdesk/web/coverage/lcov.info")
 		else
-			echo "pre-push: FAILED - frontdesk/web vitest (coverage run)" >&2
 			exit 1
 		fi
 	fi
