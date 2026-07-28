@@ -74,6 +74,7 @@ type SettingsStore interface {
 	SetMany(ctx context.Context, kvs [][2]string) error
 	SetTx(ctx context.Context, tx pgx.Tx, key string, value string) error
 	DeleteKeysTx(ctx context.Context, tx pgx.Tx, keys []string) error
+	DeleteKey(ctx context.Context, key string) error
 	InvalidateCache(key string)
 	NotifyDeleted(key string)
 }
@@ -133,7 +134,7 @@ type Handler struct {
 	testModelCheckRedirect func(req *http.Request, via []*http.Request) error // SSRF-protected redirect check for TestModel
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
 	discoveryCheckRedirect func(req *http.Request, via []*http.Request) error
-	circuitBreaker         CircuitBreakerReader
+	circuitBreaker         CircuitBreakerControl
 	audit                  *audit.Recorder   // nil until SetAudit (audit trail of admin actions)
 	totpStatus             TotpStatus        // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
 	totpEnabled            atomic.Bool       // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
@@ -255,8 +256,10 @@ func (h *Handler) SetDockerStatsCollector(fn dockerStatsCollector) {
 	}
 }
 
-// SetCircuitBreaker sets the circuit breaker reader for exposing circuit breaker status via the API.
-func (h *Handler) SetCircuitBreaker(cb CircuitBreakerReader) {
+// SetCircuitBreaker wires the proxy's circuit breaker so the API can publish its
+// status (failover page, sidebar badge, /metrics) and reset it: there is exactly
+// one breaker, so status and the operator reset lever come from the same object.
+func (h *Handler) SetCircuitBreaker(cb CircuitBreakerControl) {
 	h.circuitBreaker = cb
 }
 
@@ -779,6 +782,12 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 		respondError(w, fmt.Sprintf("failed to delete provider %s", id), err, http.StatusInternalServerError)
 		return
 	}
+
+	// The quota drift watch keeps a per-provider schema baseline in the settings
+	// K/V; nothing else removes it, so it would outlive the provider forever.
+	// Detached from the request context like the sync below: the row is already
+	// deleted, and a client that hangs up now must not leave the orphan behind.
+	h.forgetQuotaSchema(context.WithoutCancel(r.Context()), id)
 
 	// Sync failover groups since the cascade-deleted models may leave
 	// groups with stale entries or zero candidates.

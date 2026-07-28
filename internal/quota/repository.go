@@ -119,6 +119,22 @@ func (r *Repository) List(ctx context.Context) ([]Snapshot, error) {
 // UpsertIfNewer writes only when there is no existing row or the incoming
 // fetched_at is strictly newer, so an older fleet write never clobbers a
 // member's fresher manual refresh. Returns whether the write applied.
+//
+// It persists the incoming failure marker rather than forcing it to NULL, which
+// Upsert still does. The two differ because they mean different things: Upsert
+// is a successful local fetch, and clearing on one is what stops the marker
+// wedging a quota pin permanently. UpsertIfNewer is an import of somebody
+// else's reading, and dropping the marker there would make a snapshot whose
+// latest refresh failed look, to the receiving node, like affirmative proof the
+// provider recovered.
+//
+// The second WHERE branch closes the gap the strictly-newer rule leaves: a
+// failed refresh does not advance fetched_at (RecordFailure preserves it), so a
+// node that already holds that exact snapshot would otherwise never learn the
+// refresh behind it started failing. That branch is one-way — it fires only to
+// add a marker the row does not have — so it can only ever hold a pin longer,
+// never release one, and it is idempotent once applied. Clearing a marker still
+// requires a strictly newer row, i.e. an actual successful refresh.
 func (r *Repository) UpsertIfNewer(ctx context.Context, s Snapshot) (bool, error) {
 	if s.FetchedAt.IsZero() {
 		s.FetchedAt = time.Now()
@@ -126,16 +142,19 @@ func (r *Repository) UpsertIfNewer(ctx context.Context, s Snapshot) (bool, error
 	tag, err := r.pool.Exec(ctx, `
 		INSERT INTO provider_quota_snapshots
 			(provider_id, kind, payload, http_status, fetched_at, source, last_error, last_attempt_at)
-		VALUES ($1, $2, $3, $4, $5, $6, NULL, $5)
+		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7::text, ''), $5)
 		ON CONFLICT (provider_id, kind) DO UPDATE SET
 			payload         = EXCLUDED.payload,
 			http_status     = EXCLUDED.http_status,
 			fetched_at      = EXCLUDED.fetched_at,
 			source          = EXCLUDED.source,
-			last_error      = NULL,
+			last_error      = EXCLUDED.last_error,
 			last_attempt_at = EXCLUDED.fetched_at
-		WHERE provider_quota_snapshots.fetched_at < EXCLUDED.fetched_at`,
-		s.ProviderID, s.Kind, s.Payload, s.HTTPStatus, s.FetchedAt, s.Source)
+		WHERE provider_quota_snapshots.fetched_at < EXCLUDED.fetched_at
+		   OR (provider_quota_snapshots.fetched_at = EXCLUDED.fetched_at
+		       AND provider_quota_snapshots.last_error IS NULL
+		       AND EXCLUDED.last_error IS NOT NULL)`,
+		s.ProviderID, s.Kind, s.Payload, s.HTTPStatus, s.FetchedAt, s.Source, s.LastError)
 	if err != nil {
 		return false, err
 	}

@@ -133,16 +133,21 @@ func discoverySchedulerLoop(ctx context.Context, settingsRepo *settings.Reposito
 // ("Disabled") truly disables polling — the loop blocks on the subscription
 // channel until a non-zero value arrives.
 //
-// clearAdvice is invoked once whenever the loop enters (or starts in) the
+// onDisabled is invoked once whenever the loop enters (or starts in) the
 // disabled state. pollOnce — and with it api.Handler.RefreshQuotaAdvice — is
 // never called while disabled, so without this the last computed quota advice
 // map would otherwise be retained in memory for the rest of the process
 // lifetime, potentially pinning a circuit's cooldown to a deadline computed
-// from data that predates the disable. clearAdvice does no upstream fetches
-// (it is api.Handler.ClearQuotaAdvice, a plain map swap), so it is cheap
-// enough to call redundantly; it is deliberately not called again for as
-// long as the loop stays disabled.
-func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollOnce, clearAdvice func(context.Context), unit time.Duration) {
+// from data that predates the disable. It also releases the pins already in
+// force: nothing will ever report a recovery once polling is off, so a pin left
+// standing would be served out to its ceiling on evidence the operator
+// deliberately stopped collecting.
+//
+// onDisabled does no upstream fetches (it is api.Handler.DisableQuotaAdvice: a
+// map swap and an in-memory pass over the breaker), so it is cheap enough to
+// call redundantly; it is deliberately not called again for as long as the loop
+// stays disabled.
+func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollOnce, onDisabled func(context.Context), unit time.Duration) {
 	readInterval := func() time.Duration {
 		return time.Duration(settingsRepo.GetInt(context.Background(), "quota_refresh_interval_min", 5)) * unit
 	}
@@ -197,7 +202,7 @@ func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollO
 		}
 	}()
 
-	// advisorCleared tracks whether clearAdvice has already run for the
+	// advisorCleared tracks whether onDisabled has already run for the
 	// current disabled span, so repeated settings events while still
 	// disabled don't call it again on every wakeup.
 	advisorCleared := false
@@ -205,7 +210,7 @@ func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollO
 	for {
 		if interval <= 0 {
 			if !advisorCleared {
-				clearAdvice(ctx)
+				onDisabled(ctx)
 				advisorCleared = true
 			}
 			// Polling is disabled. Block until the setting changes

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/failover"
@@ -517,6 +519,135 @@ func TestQuotaPollLoop_TransitionToDisabledClearsQuotaAdvice(t *testing.T) {
 			t.Fatal("poll loop never cleared quota advice after disabling")
 		case <-time.After(10 * time.Millisecond):
 		}
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("poll loop did not stop on context cancellation")
+	}
+}
+
+// quotaPinAdvisor pins any provider to a deadline far enough out that a circuit
+// opening against it always carries a quota override.
+type quotaPinAdvisor struct{ at time.Time }
+
+func (q quotaPinAdvisor) ResetsAt(uuid.UUID) (time.Time, bool) { return q.at, true }
+
+func quotaPinnedFor(cb *failover.CircuitBreaker, id uuid.UUID) bool {
+	for _, s := range cb.Status() {
+		if s.ProviderID == id.String() {
+			return s.QuotaPinned
+		}
+	}
+	return false
+}
+
+// TestQuotaPollLoop_DisabledSpanReleasesQuotaPins wires the loop to a real
+// circuit breaker so the assertion is the operator-visible outcome — the pin is
+// gone — rather than "a callback fired".
+//
+// Turning polling off is documented as switching the feature off on this node.
+// If it only stopped *new* pins, a provider pinned moments earlier would stay
+// benched for up to 24 hours after the operator disabled the thing that benched
+// it, with nothing left running that could ever release it.
+func TestQuotaPollLoop_DisabledSpanReleasesQuotaPins(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	settingsRepo := newTestSettingsRepo()
+	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "20"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+
+	cb := failover.NewCircuitBreaker(nil)
+	cb.Threshold = 1
+	cb.Cooldown = time.Minute
+	cb.SetQuotaAdvisor(quotaPinAdvisor{at: time.Now().Add(6 * time.Hour)})
+	providerID := uuid.New()
+	cb.RecordFailure(providerID, "pinned-provider")
+	if !quotaPinnedFor(cb, providerID) {
+		t.Fatal("setup: a 6h deadline against a 1m cooldown must pin the circuit")
+	}
+
+	var disables atomic.Int32
+	done := make(chan struct{})
+	go func() {
+		quotaPollLoop(ctx, settingsRepo, func(context.Context) {}, func(context.Context) {
+			disables.Add(1)
+			cb.ReleaseAllQuotaPins()
+		}, time.Millisecond)
+		close(done)
+	}()
+
+	// While polling is enabled the pin is nobody's business but the poller's.
+	time.Sleep(50 * time.Millisecond)
+	if !quotaPinnedFor(cb, providerID) {
+		t.Fatal("an enabled poll loop must leave pins alone")
+	}
+
+	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "0"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+
+	deadline := time.After(5 * time.Second)
+	for quotaPinnedFor(cb, providerID) {
+		select {
+		case <-deadline:
+			t.Fatal("disabling polling never released the quota pin")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+
+	// The circuit itself is untouched: releasing a pin shortens a cooldown, it
+	// does not decide the provider is healthy.
+	if got := cb.GetState(providerID); got != failover.StateOpen {
+		t.Errorf("got state %v after the release, want open", got)
+	}
+
+	// Repeated settings events during the same disabled span must not re-run the
+	// hook: it is guarded once per span, and a loop that re-ran it on every
+	// wakeup would be doing unbounded work for a setting that has not changed.
+	for range 3 {
+		if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "0"); err != nil {
+			t.Fatalf("set failed: %v", err)
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+	if got := disables.Load(); got != 1 {
+		t.Errorf("got %d disable hook call(s) in one disabled span, want 1", got)
+	}
+
+	// Re-enabling arms a fresh span: the pin the poller applies from here is
+	// governed by the ordinary recovery rules again, and disabling once more
+	// releases it a second time.
+	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "20"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+	// Let the loop actually leave the disabled branch first, so the release
+	// below is unambiguously the second span's doing.
+	time.Sleep(50 * time.Millisecond)
+	cb.Reset(providerID)
+	cb.RecordFailure(providerID, "pinned-provider")
+	if !quotaPinnedFor(cb, providerID) {
+		t.Fatal("setup: the circuit must carry a pin again before the second disable")
+	}
+	if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", "0"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+	secondDeadline := time.After(5 * time.Second)
+	for quotaPinnedFor(cb, providerID) {
+		select {
+		case <-secondDeadline:
+			t.Fatal("a second disabled span never released the new pin")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	if got := disables.Load(); got != 2 {
+		t.Errorf("got %d disable hook call(s) across two disabled spans, want 2", got)
 	}
 
 	cancel()

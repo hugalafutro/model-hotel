@@ -461,6 +461,17 @@ export interface CircuitBreakerProviderStatus {
 	quota_pinned?: boolean;
 }
 
+// Outcome of an operator forcing one provider's circuit back closed.
+// previous_state is what the breaker reported a moment before the reset, and
+// reset is false when there was nothing to clear (an already-closed or
+// never-tracked provider), so the UI can report a no-op honestly instead of
+// claiming a recovery that did not happen.
+export interface CircuitBreakerResetResult {
+	provider_id: string;
+	previous_state: "closed" | "open" | "half-open";
+	reset: boolean;
+}
+
 export interface DeletedGroupInfo {
 	display_model: string;
 	reason: string;

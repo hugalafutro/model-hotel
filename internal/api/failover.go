@@ -26,7 +26,7 @@ type FailoverHandler struct {
 	modelRepo    *model.Repository
 	dbPool       *pgxpool.Pool
 	settingsRepo SettingsStore
-	cbReader     CircuitBreakerReader
+	cb           CircuitBreakerControl
 
 	// Cache for aggregate circuit-breaker status to avoid scanning all
 	// failover groups on every 15s poll from each connected client.
@@ -43,6 +43,48 @@ type CircuitBreakerReader interface {
 	Status() []failover.ProviderStatus
 }
 
+// CircuitBreakerResetter clears breaker state so an operator can force a
+// sidelined provider back into rotation early. Kept separate from
+// CircuitBreakerReader so a status-only consumer never acquires the ability to
+// mutate breaker state just by depending on the read contract.
+type CircuitBreakerResetter interface {
+	// Reset clears one provider's circuit and returns the state it was in
+	// beforehand (closed for an untracked provider, which is a no-op).
+	Reset(providerID uuid.UUID) failover.State
+	// ResetAll clears every circuit, returning how many were discarded and how
+	// many of those were actually sidelining a provider.
+	ResetAll() (cleared, recovered int)
+}
+
+// CircuitBreakerQuotaPinner lets a successful quota refresh lift the cooldown
+// pins of providers that are no longer exhausted. Separate from the reset
+// contract because it is a different power: it shortens a wait, it never clears
+// a circuit. Keeping it its own interface is also what keeps internal/failover
+// free of any dependency on internal/quota — the set of recovered providers
+// crosses the boundary as plain UUIDs.
+type CircuitBreakerQuotaPinner interface {
+	// ReleaseQuotaPins clears the quota cooldown override on every tracked
+	// circuit whose provider appears in recovered, returning how many pins it
+	// lifted. It must not change any circuit's state. recovered carries only
+	// providers a fresh snapshot was assessed for and found not exhausted;
+	// anything absent (stale, unassessable, or never snapshotted) keeps its pin.
+	ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
+	// ReleaseAllQuotaPins clears the override on every pinned circuit, for the
+	// one case where absence of evidence is decisive: quota polling has been
+	// switched off, so no refresh will ever report a recovery again. It must
+	// not change any circuit's state either.
+	ReleaseAllQuotaPins() int
+}
+
+// CircuitBreakerControl is the whole breaker surface the failover API needs.
+// Composed from the narrow interfaces above so internal/api still depends
+// on behaviour it names rather than on *failover.CircuitBreaker.
+type CircuitBreakerControl interface {
+	CircuitBreakerReader
+	CircuitBreakerResetter
+	CircuitBreakerQuotaPinner
+}
+
 // CircuitBreakerStatusResponse contains counts of providers in each circuit breaker state.
 type CircuitBreakerStatusResponse struct {
 	Closed    int                       `json:"closed"`
@@ -52,13 +94,13 @@ type CircuitBreakerStatusResponse struct {
 }
 
 // NewFailoverHandler creates a new failover group handler.
-func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository, modelRepo *model.Repository, settingsRepo SettingsStore, cbReader CircuitBreakerReader) *FailoverHandler {
+func NewFailoverHandler(dbPool *pgxpool.Pool, failoverRepo *failover.Repository, modelRepo *model.Repository, settingsRepo SettingsStore, cb CircuitBreakerControl) *FailoverHandler {
 	return &FailoverHandler{
 		failoverRepo: failoverRepo,
 		modelRepo:    modelRepo,
 		dbPool:       dbPool,
 		settingsRepo: settingsRepo,
-		cbReader:     cbReader,
+		cb:           cb,
 	}
 }
 
@@ -116,6 +158,15 @@ func (h *FailoverHandler) Register(r chi.Router) {
 		r.Get("/candidates", h.Candidates)
 		r.Get("/by-model/{model_uuid}", h.GetByModelUUID)
 		r.Get("/circuit-breaker-status", h.CircuitBreakerStatus)
+		// Circuit-breaker resets are deliberately NOT under the managedWriteGuard
+		// group below. That guard protects synced config, which the fleet primary
+		// owns and replaces on the next sync. A circuit is neither: it is local
+		// runtime health this instance computed about its own upstream traffic,
+		// nothing syncs it, and a managed member that has sidelined a provider must
+		// be able to clear it here — a quota-pinned circuit can otherwise stay open
+		// for up to 24h with no other operator lever.
+		r.Post("/circuit-breaker/reset", h.ResetAllCircuitBreakers)
+		r.Post("/circuit-breaker/{provider_id}/reset", h.ResetCircuitBreaker)
 		r.Get("/{id}", h.Get)
 		// Custom failover groups are synced config: a managed fleet member must not
 		// create/edit/delete them locally (the primary owns them and replaces them
@@ -632,8 +683,8 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 
 	resp := CircuitBreakerStatusResponse{}
 	trackedProviders := make([]failover.ProviderStatus, 0)
-	if h.cbReader != nil {
-		trackedProviders = h.cbReader.Status()
+	if h.cb != nil {
+		trackedProviders = h.cb.Status()
 		for _, s := range trackedProviders {
 			switch s.State {
 			case failover.StateClosed.String():
@@ -741,6 +792,79 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 	h.cbStatusMu.Unlock()
 
 	writeJSON(w, resp)
+}
+
+// CircuitBreakerResetResponse reports the outcome of resetting one provider's
+// circuit. PreviousState is what the breaker reported for that provider a
+// moment before it was cleared; Reset is false when there was nothing to clear
+// (an already-closed or never-tracked provider), so the UI can say "no change"
+// instead of claiming a recovery that did not happen.
+type CircuitBreakerResetResponse struct {
+	ProviderID    string `json:"provider_id"`
+	PreviousState string `json:"previous_state"`
+	Reset         bool   `json:"reset"`
+}
+
+// CircuitBreakerResetAllResponse reports the outcome of a bulk reset: Cleared
+// counts every circuit discarded, Recovered only those that were actually
+// sidelining their provider.
+type CircuitBreakerResetAllResponse struct {
+	Cleared   int `json:"cleared"`
+	Recovered int `json:"recovered"`
+}
+
+// invalidateCBStatusCache drops both cached circuit-breaker status slots. A
+// reset must be visible on the very next poll: without this the dashboard
+// refetches immediately after the mutation and is served the pre-reset snapshot
+// for up to cbStatusCacheTTL, which reads as "the reset did nothing".
+func (h *FailoverHandler) invalidateCBStatusCache() {
+	h.cbStatusMu.Lock()
+	defer h.cbStatusMu.Unlock()
+	h.cbStatusCacheTime = time.Time{}
+	h.cbDetailCacheTime = time.Time{}
+}
+
+// ResetCircuitBreaker clears one provider's circuit, returning it to rotation
+// immediately instead of waiting out the cooldown. Resetting an untracked or
+// already-closed provider is a successful no-op (reset=false), not an error:
+// the breaker only tracks providers it has routed, so "no circuit" and "closed
+// circuit" are the same healthy state.
+func (h *FailoverHandler) ResetCircuitBreaker(w http.ResponseWriter, r *http.Request) {
+	providerID, ok := parseUUIDParam(w, r, "provider_id", "provider ID")
+	if !ok {
+		return
+	}
+	if h.cb == nil {
+		respondError(w, "circuit breaker is not available", nil, http.StatusServiceUnavailable)
+		return
+	}
+
+	previous := h.cb.Reset(providerID)
+	h.invalidateCBStatusCache()
+
+	debuglog.Info("circuit-breaker: manual reset", "provider_id", providerID, "previous_state", previous.String())
+
+	writeJSON(w, CircuitBreakerResetResponse{
+		ProviderID:    providerID.String(),
+		PreviousState: previous.String(),
+		Reset:         previous != failover.StateClosed,
+	})
+}
+
+// ResetAllCircuitBreakers clears every tracked circuit at once, for recovering
+// a whole fleet-wide upstream incident without resetting providers one by one.
+func (h *FailoverHandler) ResetAllCircuitBreakers(w http.ResponseWriter, _ *http.Request) {
+	if h.cb == nil {
+		respondError(w, "circuit breaker is not available", nil, http.StatusServiceUnavailable)
+		return
+	}
+
+	cleared, recovered := h.cb.ResetAll()
+	h.invalidateCBStatusCache()
+
+	debuglog.Info("circuit-breaker: manual reset of all circuits", "cleared", cleared, "recovered", recovered)
+
+	writeJSON(w, CircuitBreakerResetAllResponse{Cleared: cleared, Recovered: recovered})
 }
 
 func (h *FailoverHandler) buildGroupResponse(ctx context.Context, g *failover.FailoverGroup) (FailoverGroupResponse, error) {

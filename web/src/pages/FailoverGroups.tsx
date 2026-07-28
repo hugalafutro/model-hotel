@@ -427,6 +427,46 @@ export function FailoverGroups() {
 		},
 	});
 
+	// Forces one provider's circuit closed. Available while `managed` on purpose:
+	// a circuit is this instance's own runtime health, not config the fleet
+	// primary owns, and a quota-pinned circuit can otherwise stay open for up to
+	// 24 hours. Hidden only in read-only demo mode, where the server refuses it.
+	const resetCircuitMutation = useMutation({
+		mutationFn: ({
+			providerId,
+		}: {
+			providerId: string;
+			providerName: string;
+		}) => api.failoverGroups.resetCircuitBreaker(providerId),
+		onSuccess: (result, { providerName }) => {
+			// Prefix key: refreshes both this page's detail query and the sidebar
+			// badge's aggregate one, so the cleared circuit disappears at once.
+			queryClient.invalidateQueries({ queryKey: ["circuit-breaker-status"] });
+			if (result.reset) {
+				toast(
+					t("failover.toast_cb_reset_success", { provider: providerName }),
+					"success",
+				);
+			} else {
+				// Honest no-op: the circuit had already closed on its own.
+				toast(
+					t("failover.toast_cb_reset_noop", { provider: providerName }),
+					"info",
+				);
+			}
+		},
+		onError: (err: Error) => {
+			toast(
+				t("failover.toast_cb_reset_failed", { message: err.message }),
+				"error",
+			);
+		},
+	});
+
+	const handleResetCircuit = (providerId: string, providerName: string) => {
+		resetCircuitMutation.mutate({ providerId, providerName });
+	};
+
 	const handleToggleGroup = (group: FailoverGroup, enabled: boolean) => {
 		updateMutation.mutate({
 			id: group.id,
@@ -852,6 +892,14 @@ export function FailoverGroups() {
 													onEdit={() => setEditGroup(group)}
 													managed={managed}
 													cbProviderMap={cbProviderMap}
+													onResetCircuit={
+														readOnly ? undefined : handleResetCircuit
+													}
+													resetPendingProviderId={
+														resetCircuitMutation.isPending
+															? resetCircuitMutation.variables?.providerId
+															: undefined
+													}
 												/>
 											))}
 										</div>
@@ -912,6 +960,14 @@ export function FailoverGroups() {
 													onDelete={() => handleDelete(group)}
 													managed={managed}
 													cbProviderMap={cbProviderMap}
+													onResetCircuit={
+														readOnly ? undefined : handleResetCircuit
+													}
+													resetPendingProviderId={
+														resetCircuitMutation.isPending
+															? resetCircuitMutation.variables?.providerId
+															: undefined
+													}
 												/>
 											))}
 										</div>

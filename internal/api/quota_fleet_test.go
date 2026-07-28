@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -161,6 +162,123 @@ func TestQuotaFleetExportSkipsFailurePlaceholders(t *testing.T) {
 	}
 	if len(body.Snapshots) != 1 || body.Snapshots[0].ProviderName != okProv.Name {
 		t.Fatalf("only the successful snapshot should export, got %+v", body.Snapshots)
+	}
+}
+
+// TestQuotaFleetSnapshotRoundTripCarriesFailureMarker is the fleet-boundary
+// reproduction of the recovery-evidence rule. RecordFailure preserves the last
+// good payload, http_status and fetched_at and sets only last_error, so a row
+// whose latest refresh failed looks fresh and healthy apart from that one
+// marker. If the marker does not survive export and import, the receiving
+// member classifies the row as affirmative recovery evidence and releases a
+// still-exhausted provider's quota pin — the exact judgement the primary
+// itself would refuse to make on the same data.
+//
+// The name remap stands in for the fleet boundary: the wire format is keyed by
+// provider name precisely so a member maps it onto its own provider IDs.
+func TestQuotaFleetSnapshotRoundTripCarriesFailureMarker(t *testing.T) {
+	h := newTestHandler(t)
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+	ctx := context.Background()
+
+	src, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name: "zai-rt-src", BaseURL: "https://api.z.ai",
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("create source provider: %v", err)
+	}
+	dst, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name: "zai-rt-dst", BaseURL: "https://api.z.ai",
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("create destination provider: %v", err)
+	}
+
+	// A good fetch, then a failed refresh: the row keeps payload/status/
+	// fetched_at and gains only last_error.
+	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		ProviderID: src.ID, Kind: "usage", Payload: json.RawMessage(`{"used":4}`),
+		HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	if err := h.quotaRepo.RecordFailure(ctx, src.ID, "usage", "upstream 500"); err != nil {
+		t.Fatalf("record failure: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	fleet.ExportSnapshots(rr, httptest.NewRequest(http.MethodGet, "/config/quota-snapshots", http.NoBody))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("export: want 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var exported struct {
+		Snapshots []QuotaSnapshotWire `json:"snapshots"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &exported); err != nil {
+		t.Fatalf("decode export: %v", err)
+	}
+	if len(exported.Snapshots) != 1 {
+		t.Fatalf("want 1 exported snapshot, got %+v", exported.Snapshots)
+	}
+	if exported.Snapshots[0].LastError != "upstream 500" {
+		t.Fatalf("export dropped the failure marker: %+v", exported.Snapshots[0])
+	}
+
+	exported.Snapshots[0].ProviderName = dst.Name
+	body, err := json.Marshal(map[string]any{"snapshots": exported.Snapshots})
+	if err != nil {
+		t.Fatalf("marshal import body: %v", err)
+	}
+	rr = httptest.NewRecorder()
+	fleet.ReceiveSnapshots(rr, httptest.NewRequest(http.MethodPost, "/config/quota-snapshots", bytes.NewReader(body)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("import: want 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	got, err := h.quotaRepo.Get(ctx, dst.ID, "usage")
+	if err != nil || got == nil {
+		t.Fatalf("get imported snapshot: %v (snap %v)", err, got)
+	}
+	if got.LastError != "upstream 500" {
+		t.Fatalf("import dropped the failure marker: last_error = %q", got.LastError)
+	}
+}
+
+// TestQuotaFleetReceiveSnapshots_VersionSkewWithoutMarker: a wire payload from
+// an older primary carries no last_error key at all. It must import cleanly and
+// leave the marker empty, i.e. behave exactly as it did before the field
+// existed. No gate is needed for that skew, because an absent marker is the
+// pre-existing behaviour rather than a new claim of health.
+func TestQuotaFleetReceiveSnapshots_VersionSkewWithoutMarker(t *testing.T) {
+	h := newTestHandler(t)
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+	ctx := context.Background()
+
+	prov, err := h.providerRepo.Create(ctx, provider.CreateProviderRequest{
+		Name: "nano-skew", BaseURL: "https://api.nano-gpt.com",
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	body := `{"snapshots":[{"provider_name":"` + prov.Name +
+		`","kind":"usage","payload":{"used":8},"http_status":200,"fetched_at":"` +
+		time.Now().UTC().Format(time.RFC3339) + `"}]}`
+	rr := httptest.NewRecorder()
+	fleet.ReceiveSnapshots(rr, httptest.NewRequest(http.MethodPost, "/config/quota-snapshots", strings.NewReader(body)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	got, err := h.quotaRepo.Get(ctx, prov.ID, "usage")
+	if err != nil || got == nil {
+		t.Fatalf("get: %v (snap %v)", err, got)
+	}
+	if got.LastError != "" {
+		t.Fatalf("an export with no last_error key must import with no marker, got %q", got.LastError)
+	}
+	if got.Source != "fleet" {
+		t.Fatalf("source = %q, want the ordinary fleet import to be unaffected", got.Source)
 	}
 }
 

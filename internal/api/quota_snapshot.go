@@ -212,17 +212,43 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 		nameByID[p.ID] = p.Name
 	}
 
-	advice := buildQuotaAdvice(snaps, typeByID, maxAge, time.Now())
+	// recovered is computed in the same pass as the advice, over the same
+	// snapshots, so it costs no extra query. It is a separate map that is never
+	// handed to the advisor, so Replace taking ownership of the advice below
+	// cannot touch it.
+	advice, recovered := buildQuotaAdvice(snaps, typeByID, maxAge, time.Now())
+	advised := len(advice)
+
 	h.quotaAdvisor.Replace(advice)
+
+	// This refresh succeeded, so every provider it assessed fresh and found no
+	// longer exhausted has affirmatively recovered (a topped-up plan, a window
+	// that reset early), and serving out the rest of a pin that can run to 24h
+	// would bench a healthy provider for hours. Only reachable from here, never
+	// from the failure paths above: a refresh that could not read says nothing
+	// about provider health, and those paths only stop *new* pins rather than
+	// disturbing pins already in force.
+	//
+	// Recovery must be affirmative, which is why this passes the recovered set
+	// rather than inverting the exhausted one: a provider is equally missing
+	// from the advice when its snapshot is stale, when its payload could not be
+	// assessed, and when it has no snapshot at all — the states where quota
+	// fetching is broken and the window is most likely still spent.
+	//
+	// This shortens a cooldown; it never closes a circuit. HTTP still decides
+	// recovery through the ordinary half-open probe.
+	if h.circuitBreaker != nil {
+		h.circuitBreaker.ReleaseQuotaPins(recovered)
+	}
 	// Info once anything is actually advised: a quota pin can hold a circuit open
 	// for a day, and Debug is off in normal production, so this is the only log
 	// trail an operator has for why a provider went dark. The no-advice case
 	// stays at Debug — a line on every poll pass would be noise. Counts only, no
 	// payload values.
-	if len(advice) > 0 {
-		debuglog.Info("quota: advice refreshed", "advised_providers", len(advice))
+	if advised > 0 {
+		debuglog.Info("quota: advice refreshed", "advised_providers", advised)
 	} else {
-		debuglog.Debug("quota: advice refreshed", "advised_providers", len(advice))
+		debuglog.Debug("quota: advice refreshed", "advised_providers", advised)
 	}
 
 	// Alert-only, and deliberately last: the schema-drift watch reuses the
@@ -244,31 +270,99 @@ func (h *Handler) ClearQuotaAdvice(_ context.Context) {
 	h.quotaAdvisor.Replace(nil)
 }
 
+// DisableQuotaAdvice is the path taken when quota polling itself is switched
+// off: it drops all advice *and* releases every quota pin already in force.
+//
+// The two must happen together. Clearing the advice alone stops new pins, but
+// the pins already stamped on would be served out to the 24h ceiling with no
+// refresh left to ever report a recovery — a provider benched for a day on
+// evidence the operator deliberately stopped collecting, from an operator
+// action whose documented meaning is "turn this feature off on this node".
+// Absence of evidence keeps a pin only while the gateway is still looking.
+//
+// Deliberately not folded into ClearQuotaAdvice, which the failed-refresh paths
+// also call: a database blip is exactly the case where the gateway is still
+// looking and the pins must stand.
+func (h *Handler) DisableQuotaAdvice(ctx context.Context) {
+	h.ClearQuotaAdvice(ctx)
+	if h.circuitBreaker == nil {
+		return
+	}
+	// Counts only, no payload values. A pin can hold a provider dark for a day,
+	// so an operator needs the line that says switching polling off ended one.
+	if released := h.circuitBreaker.ReleaseAllQuotaPins(); released > 0 {
+		debuglog.Info("quota: polling disabled, released pins in force", "released_pins", released)
+	}
+}
+
 // buildQuotaAdvice is the pure filtering step of RefreshQuotaAdvice, split out
 // so the staleness rule and the assessment filter are testable without a
-// database.
+// database. It returns both halves of the same judgement:
+//
+//   - advice: providers whose window is spent, mapped to their reset deadline.
+//     This pins the cooldown of a circuit that opens later.
+//   - recovered: providers a fresh snapshot was successfully assessed for and
+//     found *not* exhausted. This is the only thing that lifts a pin already in
+//     force, so it must be affirmative. A stale snapshot, a payload that could
+//     not be assessed, a provider with no snapshot at all, and a snapshot whose
+//     latest refresh attempt failed (LastError set — RecordFailure preserves the
+//     last good payload and fetched_at, so a failed row can still look fresh and
+//     healthy) are all simply absent from both sets: they are unknowns, not
+//     recoveries, and the pin they would otherwise release is most likely still
+//     deserved.
 func buildQuotaAdvice(
 	snaps []quota.Snapshot,
 	typeByID map[uuid.UUID]string,
 	maxAge time.Duration,
 	now time.Time,
-) map[uuid.UUID]time.Time {
-	advice := make(map[uuid.UUID]time.Time)
+) (advice map[uuid.UUID]time.Time, recovered map[uuid.UUID]struct{}) {
+	advice = make(map[uuid.UUID]time.Time)
+	recovered = make(map[uuid.UUID]struct{})
 	if maxAge <= 0 {
 		// Quota polling is disabled (or the resolved interval is otherwise
 		// non-positive): there is no cadence to bound snapshot age against, so
 		// advise nothing rather than risk pinning the breaker on data that
-		// could predate a plan change or a manual top-up.
-		return advice
+		// could predate a plan change or a manual top-up. By the same token it
+		// reports no recoveries: an unbounded snapshot is no more trustworthy as
+		// evidence of health than as evidence of exhaustion.
+		return advice, recovered
 	}
 	for _, s := range snaps {
 		if now.Sub(s.FetchedAt) > maxAge {
 			continue
 		}
 		a := quota.Assess(typeByID[s.ProviderID], s)
-		if a.OK && a.Exhausted {
-			advice[s.ProviderID] = a.ResetsAt
+		if !a.OK {
+			continue
 		}
+		if a.Exhausted {
+			advice[s.ProviderID] = a.ResetsAt
+			continue
+		}
+		// A row whose latest refresh attempt failed still carries the last good
+		// payload and fetched_at (RecordFailure deliberately preserves both), so
+		// it can look fresh and healthy while the most recent attempt to verify
+		// it did not succeed. This guard applies to the recovered path only,
+		// not to advice above, and that asymmetry is deliberate: releasing a
+		// pin requires affirmative proof that the provider is healthy, so a
+		// reading whose latest refresh failed does not qualify. Holding a pin
+		// does not require the same proof: the last known good reading, still
+		// inside the staleness bound, is a reasonable basis for continuing to
+		// hold, and the bound already handles a prolonged outage. Wrongly
+		// holding costs a delayed probe; wrongly releasing puts a spent
+		// provider back in rotation.
+		if s.LastError != "" {
+			continue
+		}
+		recovered[s.ProviderID] = struct{}{}
 	}
-	return advice
+	// A provider with rows of more than one kind could land in both sets (a
+	// base URL edited from one quota-capable type to another leaves the old
+	// row behind). Exhaustion wins: it is the reading that keeps the pin, and
+	// keeping a pin one pass too long costs a delayed probe while dropping one
+	// wrongly puts a spent provider back in rotation.
+	for id := range advice {
+		delete(recovered, id)
+	}
+	return advice, recovered
 }

@@ -1,7 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { RotateCcw } from "@/lib/icons";
 import type { FailoverGroup } from "../../api/types";
 import { FuseOutline } from "../../components/FuseOutline";
 import { Toggle } from "../../components/Toggle";
@@ -26,6 +27,12 @@ export interface SortableEntryProps {
 		// that deadline.
 		quota_pinned?: boolean;
 	};
+	// Forces this provider's circuit closed. Omitted when the caller cannot
+	// reset (read-only demo mode), which is what hides the control. Deliberately
+	// NOT gated on `locked`: a breaker is local runtime health, not synced
+	// config, so a managed member must still be able to clear its own.
+	onResetCircuit?: (providerId: string, providerName: string) => void;
+	resetPending?: boolean;
 }
 
 // A quota pin can run for hours or days, and a CSS animation over that span is
@@ -34,12 +41,21 @@ export interface SortableEntryProps {
 // lives in the tooltip instead.
 const FUSE_ANIMATION_MAX_MS = 15 * 60 * 1000;
 
+// How often a still-too-long countdown re-checks whether it has come inside the
+// window above. Coarse on purpose: the threshold is a rough "is this worth
+// animating" judgement, so arriving up to half a minute late costs nothing,
+// while a per-second clock would re-render every open entry in every group for
+// the entire cooldown.
+const FUSE_THRESHOLD_TICK_MS = 30 * 1000;
+
 export function SortableEntry({
 	entry,
 	groupEnabled,
 	onToggle,
 	locked,
 	cbStatus,
+	onResetCircuit,
+	resetPending,
 }: SortableEntryProps) {
 	const { t } = useTranslation();
 	const draggable = groupEnabled && !locked;
@@ -89,24 +105,67 @@ export function SortableEntry({
 	// This says why the wait is long, not that the provider is unreachable now.
 	const quotaPinned = Boolean(showFuse && cbStatus.quota_pinned);
 
-	// Compute remaining cooldown so it only changes when next_retry_at
-	// changes, not on every render. Without this, intermediate re-renders
-	// (drag, toggle, parent) shorten remainingMs each time, causing the
-	// fuse animation to visually snap ahead of the actual cooldown.
-	// Elapsed cooldown: circuit is open but cooldown has expired — CB hasn't
-	// transitioned to half-open yet (clock drift or polling delay).
-	/* eslint-disable react-hooks/preserve-manual-memoization, react-hooks/purity */
+	const nextRetryAt = cbStatus?.next_retry_at;
+
+	// The instant the countdown was last measured against. It advances only on
+	// the coarse tick below, never on an ordinary re-render, which is what keeps
+	// remainingMs stable: without that, intermediate re-renders (drag, toggle,
+	// parent refetch) would shorten it each time and the fuse would snap ahead of
+	// the cooldown it visualises.
+	const [measuredAt, setMeasuredAt] = useState(() => Date.now());
+
+	// Which deadline that anchor belongs to. An entry that never unmounts can be
+	// handed a *new* next_retry_at — the circuit re-opened, or a quota pin
+	// replaced an ordinary cooldown — and measuring that against the anchor of
+	// the deadline it replaced folds all the time that passed before it arrived
+	// into the new duration: the fuse burns too slowly, or sits static for a
+	// cooldown that belongs inside the animation window. So the anchor is taken
+	// again whenever the deadline changes, and only then — re-taking it on every
+	// render is the very thing measuredAt exists to prevent.
+	//
+	// Layout effect, not a plain one: the fuse restarts its CSS timeline every
+	// time durationMs changes, so a frame painted from the stale anchor would
+	// show a flame of the wrong length before snapping to the right one.
+	const anchoredTo = useRef(nextRetryAt);
+	useLayoutEffect(() => {
+		if (anchoredTo.current === nextRetryAt) return;
+		anchoredTo.current = nextRetryAt;
+		setMeasuredAt(Date.now());
+	}, [nextRetryAt]);
+
+	// A countdown too long to animate has to keep watching the clock, because the
+	// animate-vs-static decision is a function of *now* while next_retry_at never
+	// changes for as long as the circuit stays open. Settled once at mount, an
+	// entry that appeared at 16 minutes remaining stayed static for the rest of
+	// its cooldown and never began burning as it crossed the threshold.
+	//
+	// The watch stops itself at the crossing rather than running for the whole
+	// cooldown. Time only moves one way, so the decision cannot reverse, and
+	// FuseOutline restarts its CSS timeline whenever durationMs changes: a
+	// re-measured duration every tick would reset the flame to full length twice
+	// a minute. The last measurement it publishes is the one at the crossing,
+	// which is exactly the duration the animation should then run for.
+	useEffect(() => {
+		if (!showFuse || isHalfOpen || !nextRetryAt) return;
+		const deadline = new Date(nextRetryAt).getTime();
+		if (deadline - Date.now() <= FUSE_ANIMATION_MAX_MS) return;
+		const id = setInterval(() => {
+			const now = Date.now();
+			if (deadline - now <= FUSE_ANIMATION_MAX_MS) clearInterval(id);
+			setMeasuredAt(now);
+		}, FUSE_THRESHOLD_TICK_MS);
+		return () => clearInterval(id);
+	}, [showFuse, isHalfOpen, nextRetryAt]);
+
+	// Elapsed cooldown: circuit is open but the deadline has passed — the breaker
+	// has not reported half-open yet (clock drift or polling delay).
 	const { remainingMs, elapsedCooldown } = useMemo(() => {
-		if (!showFuse || isHalfOpen || !cbStatus?.next_retry_at) {
+		if (!showFuse || isHalfOpen || !nextRetryAt) {
 			return { remainingMs: 0, elapsedCooldown: false };
 		}
-		const ms = Math.max(
-			0,
-			new Date(cbStatus.next_retry_at).getTime() - Date.now(),
-		);
+		const ms = Math.max(0, new Date(nextRetryAt).getTime() - measuredAt);
 		return { remainingMs: ms, elapsedCooldown: ms <= 0 };
-	}, [showFuse, isHalfOpen, cbStatus?.next_retry_at]);
-	/* eslint-enable react-hooks/preserve-manual-memoization, react-hooks/purity */
+	}, [showFuse, isHalfOpen, nextRetryAt, measuredAt]);
 
 	// Cooldown is over and the provider is ready to probe. Two paths reach this:
 	// the backend reporting half-open, and the client noticing next_retry_at has
@@ -187,6 +246,23 @@ export function SortableEntry({
 					</span>
 				)}
 			</div>
+			{/* Offered exactly where the fuse burns, i.e. an enabled member whose
+			    circuit is open or half-open. A closed circuit has nothing to reset,
+			    and a member the operator has switched off shows no breaker state at
+			    all, so a lone reset button there would have no context to act on. */}
+			{showFuse && onResetCircuit && (
+				<button
+					type="button"
+					data-testid="failover-entry-reset-circuit"
+					className="ui-icon-btn ui-icon-btn-warning shrink-0"
+					disabled={resetPending}
+					onClick={() => onResetCircuit(entry.provider_id, entry.provider_name)}
+					title={t("failoverGroups.entry.resetCircuitBreaker")}
+					aria-label={t("failoverGroups.entry.resetCircuitBreaker")}
+				>
+					<RotateCcw size={14} />
+				</button>
+			)}
 			<Toggle
 				size="sm"
 				// Reflect effective state: an entry whose model/provider is disabled

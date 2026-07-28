@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"sort"
 	"strings"
 	"testing"
@@ -471,6 +473,51 @@ func storedSchemaBaseline(t *testing.T, h *Handler, id uuid.UUID) ([]string, boo
 		t.Fatalf("stored baseline is not a JSON path list (%q): %v", raw, uerr)
 	}
 	return paths, true
+}
+
+// TestDeleteProvider_RemovesQuotaSchemaBaseline_Integration proves the orphan
+// cleanup end to end against a real settings table: the watch adopts a baseline
+// for a provider, the operator deletes the provider through the API, and the row
+// goes with it. Before this, `_quota_schema_<id>` rows accumulated forever — one
+// per provider ever deleted, unreadable by any allowlist-guarded reset because
+// the internal `_`-prefixed keys are deliberately off the allowlist.
+func TestDeleteProvider_RemovesQuotaSchemaBaseline_Integration(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	h.SetQuotaAdvisor(NewQuotaAdvisor())
+	ctx := context.Background()
+
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "ollama-orphan", "https://ollama.com", true)
+
+	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		ProviderID: id, Kind: "account", Payload: json.RawMessage(`{"plan":"pro"}`),
+		HTTPStatus: 200, Source: "poll", FetchedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	h.RefreshQuotaAdvice(ctx)
+	if _, found := storedSchemaBaseline(t, h, id); !found {
+		t.Fatal("setup: the first sighting must persist a baseline to orphan")
+	}
+
+	req := httptest.NewRequest(http.MethodDelete, "/providers/"+id.String(), http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("got status %d, want %d: %s", w.Code, http.StatusNoContent, w.Body.String())
+	}
+
+	// Straight to the table, not through the settings cache: the point is that
+	// the row is gone, not merely uncached.
+	var count int
+	if err := h.dbPool.Pool().QueryRow(ctx,
+		"SELECT count(*) FROM settings WHERE key = $1", quotaSchemaSettingKey(id)).Scan(&count); err != nil {
+		t.Fatalf("count baseline rows: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("got %d baseline row(s) after deleting the provider, want 0", count)
+	}
 }
 
 // TestQuotaDriftWatchAlertsOnlyAfterTheChangeRepeats drives the whole watch

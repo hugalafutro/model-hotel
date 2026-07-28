@@ -143,9 +143,40 @@ func TestCircuitBreaker_Reset(t *testing.T) {
 		t.Fatal("should be open")
 	}
 
-	cb.Reset(pid)
+	if prev := cb.Reset(pid); prev != StateOpen {
+		t.Errorf("Reset should report the pre-reset state open, got %v", prev)
+	}
 	if cb.IsOpen(pid, "test-provider") {
 		t.Error("should be closed after reset")
+	}
+}
+
+// TestCircuitBreaker_ResetReportsPreResetState pins the value an operator-facing
+// caller reports back: only a circuit that was actually sidelining its provider
+// may read as a change. A closed circuit and a provider the breaker has never
+// routed are the same healthy state, so both report closed.
+func TestCircuitBreaker_ResetReportsPreResetState(t *testing.T) {
+	cb := newTestCB(2, 30*time.Second)
+
+	untracked := uuid.New()
+	if prev := cb.Reset(untracked); prev != StateClosed {
+		t.Errorf("untracked provider: Reset = %v, want closed", prev)
+	}
+
+	belowThreshold := uuid.New()
+	cb.RecordFailure(belowThreshold, "test-provider") // 1 of 2: still closed
+	if prev := cb.Reset(belowThreshold); prev != StateClosed {
+		t.Errorf("below-threshold circuit: Reset = %v, want closed", prev)
+	}
+
+	// A circuit whose cooldown has elapsed reads as half-open everywhere else
+	// (Status, GetState); Reset must not disagree with them.
+	readyToProbe := uuid.New()
+	cbShort := newTestCB(1, time.Millisecond)
+	cbShort.RecordFailure(readyToProbe, "test-provider")
+	time.Sleep(5 * time.Millisecond)
+	if prev := cbShort.Reset(readyToProbe); prev != StateHalfOpen {
+		t.Errorf("cooldown-elapsed circuit: Reset = %v, want half-open", prev)
 	}
 }
 
@@ -156,10 +187,41 @@ func TestCircuitBreaker_ResetAll(t *testing.T) {
 	cb.RecordFailure(p1, "test-provider")
 	cb.RecordFailure(p2, "test-provider")
 
-	cb.ResetAll()
+	cleared, recovered := cb.ResetAll()
+	if cleared != 2 || recovered != 2 {
+		t.Errorf("ResetAll = (cleared %d, recovered %d), want (2, 2)", cleared, recovered)
+	}
 
 	if cb.IsOpen(p1, "test-provider") || cb.IsOpen(p2, "test-provider") {
 		t.Error("all circuits should be cleared after ResetAll")
+	}
+}
+
+// TestCircuitBreaker_ResetAllCountsOnlyBlockingCircuitsAsRecovered separates the
+// two counts: every tracked circuit is discarded, but a circuit that was not
+// blocking anything must not be reported as a recovered provider.
+func TestCircuitBreaker_ResetAllCountsOnlyBlockingCircuitsAsRecovered(t *testing.T) {
+	cb := newTestCB(2, 30*time.Second)
+	open, healthy := uuid.New(), uuid.New()
+
+	cb.RecordFailure(open, "test-provider")
+	cb.RecordFailure(open, "test-provider") // reaches threshold: opens
+	cb.RecordFailure(healthy, "test-provider")
+
+	if !cb.IsOpen(open, "test-provider") {
+		t.Fatal("setup: circuit should be open")
+	}
+
+	cleared, recovered := cb.ResetAll()
+	if cleared != 2 {
+		t.Errorf("cleared = %d, want 2 (both tracked circuits discarded)", cleared)
+	}
+	if recovered != 1 {
+		t.Errorf("recovered = %d, want 1 (only the open circuit was blocking)", recovered)
+	}
+
+	if empty, _ := cb.ResetAll(); empty != 0 {
+		t.Errorf("second ResetAll: cleared = %d, want 0", empty)
 	}
 }
 
@@ -1016,9 +1078,9 @@ func TestQuotaPin_DisabledBySettingUsesDefault(t *testing.T) {
 // "next retry in 22 hours" flips circuit_breaker_quota_pin_enabled to false to
 // get the provider back; if the switch were only consulted at the moment a
 // circuit opens, nothing would change on any surface until the pin expired.
-// That matters because there is no other recovery lever: Reset/ResetAll have no
-// production caller, so the alternatives are disabling the breaker for every
-// provider or restarting the process.
+// That matters because it is the only fleet-wide recovery lever: the
+// alternative to clearing every pin at once is resetting circuits one provider
+// at a time (Reset) or restarting the process.
 //
 // The assertion is the real mechanism, not just the reported number: after the
 // flip the circuit must actually admit a probe once the *configured* cooldown
@@ -1142,6 +1204,303 @@ func TestQuotaPin_RepinsAfterFailedProbe(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Quota pin release (auto-unpin on recovery)
+// ---------------------------------------------------------------------------
+
+// TestReleaseQuotaPins_LiftsThePinWhenTheProviderRecovers is the whole point of
+// the feature: an operator who tops up a spent plan must not watch a healthy
+// provider stay benched for the rest of a pin that can run to 24 hours. The
+// assertion is the behaviour, not just the reported number — once the pin is
+// lifted the *configured* cooldown governs, and the circuit admits a probe as
+// soon as that has elapsed.
+func TestReleaseQuotaPins_LiftsThePinWhenTheProviderRecovers(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 300 * time.Millisecond})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+	if !cb.Status()[0].QuotaPinned {
+		t.Fatal("setup: a 6h deadline against a 300ms cooldown must pin the circuit")
+	}
+
+	// A successful advice refresh assessed this provider fresh and found its
+	// window no longer spent: affirmative recovery evidence.
+	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}}); released != 1 {
+		t.Errorf("got %d pin(s) released, want 1", released)
+	}
+
+	s := cb.Status()[0]
+	if s.QuotaPinned {
+		t.Error("a recovered provider must not still report quota_pinned")
+	}
+	if s.CooldownMs != cb.effectiveCooldown().Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want the configured cooldown %d back", s.CooldownMs, cb.effectiveCooldown().Milliseconds())
+	}
+
+	time.Sleep(400 * time.Millisecond)
+	if cb.IsOpen(id, "test-provider") {
+		t.Error("with the pin lifted, the configured cooldown must let a probe through")
+	}
+}
+
+// TestReleaseQuotaPins_KeepsThePinForAStillExhaustedProvider guards the other
+// direction: a provider the same refresh still assessed as exhausted keeps the
+// long cooldown it was given, and an unrelated provider recovering does not drag
+// it back into rotation.
+func TestReleaseQuotaPins_KeepsThePinForAStillExhaustedProvider(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Second})
+	stillSpent, recovered := uuid.New(), uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, stillSpent)
+	openBreaker(t, cb, recovered)
+
+	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{recovered: {}}); released != 1 {
+		t.Errorf("got %d pin(s) released, want only the recovered provider's", released)
+	}
+
+	byID := make(map[string]ProviderStatus)
+	for _, s := range cb.Status() {
+		byID[s.ProviderID] = s
+	}
+	if !byID[stillSpent.String()].QuotaPinned {
+		t.Error("a provider absent from the recovered set must keep its pin")
+	}
+	if byID[recovered.String()].QuotaPinned {
+		t.Error("a provider in the recovered set must lose its pin")
+	}
+	if got := byID[stillSpent.String()].CooldownMs; got < (6*time.Hour - time.Minute).Milliseconds() {
+		t.Errorf("got CooldownMs=%d for the still-exhausted provider, want the ~6h pin intact", got)
+	}
+}
+
+// TestReleaseQuotaPins_DoesNotCloseTheCircuit is the contract boundary: quota
+// never opens a circuit, never closes one, and never blocks a request — it only
+// chooses the cooldown of an already-open circuit. Lifting a pin must therefore
+// leave the circuit open and let HTTP decide recovery through the ordinary
+// half-open probe. Asserting only on the cooldown would not catch an
+// implementation that "helpfully" closed the circuit outright.
+func TestReleaseQuotaPins_DoesNotCloseTheCircuit(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Hour})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}})
+
+	if got := cb.GetState(id); got != StateOpen {
+		t.Errorf("got state %v after lifting the pin, want open — quota must never close a circuit", got)
+	}
+	if !cb.IsOpen(id, "test-provider") {
+		t.Error("the configured cooldown has not elapsed; the circuit must still refuse traffic")
+	}
+	if s := cb.Status()[0]; s.ConsecutiveFails == 0 {
+		t.Error("lifting a pin must not reset the failure count that opened the circuit")
+	}
+}
+
+// TestReleaseQuotaPins_LeavesUnpinnedCircuitsAlone verifies the release is
+// confined to circuits actually carrying an override: an ordinary open circuit
+// (no quota advice at all) must be untouched, so a recovering provider
+// elsewhere in the fleet cannot perturb it.
+func TestReleaseQuotaPins_LeavesUnpinnedCircuitsAlone(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Hour})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{ok: false})
+
+	openBreaker(t, cb, id)
+
+	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}}); released != 0 {
+		t.Errorf("got %d pin(s) released, want 0 — nothing was pinned", released)
+	}
+	s := cb.Status()[0]
+	if s.State != StateOpen.String() {
+		t.Errorf("got state %q, want open", s.State)
+	}
+	if s.CooldownMs != time.Hour.Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want the configured hour untouched", s.CooldownMs)
+	}
+}
+
+// TestReleaseQuotaPins_KeepsThePinWithoutRecoveryEvidence is the asymmetry the
+// whole release rule turns on. A provider is absent from the recovered set for
+// three different reasons — its snapshot is stale, its payload could not be
+// assessed, or it has no snapshot at all — and none of them is evidence of
+// recovery. Releasing on absence would unpin exactly the provider whose quota
+// fetches are broken, i.e. the one whose window is most likely still spent, so
+// absence must leave the pin exactly as it was.
+func TestReleaseQuotaPins_KeepsThePinWithoutRecoveryEvidence(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Second})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+	if !cb.Status()[0].QuotaPinned {
+		t.Fatal("setup: a 6h deadline against a 1s cooldown must pin the circuit")
+	}
+
+	// A refresh that recovered somebody else entirely (or nobody at all) says
+	// nothing about this provider.
+	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{uuid.New(): {}}); released != 0 {
+		t.Errorf("got %d pin(s) released, want 0 — no fresh evidence for this provider", released)
+	}
+
+	s := cb.Status()[0]
+	if !s.QuotaPinned {
+		t.Error("a provider with no fresh recovery evidence must keep its pin")
+	}
+	if got := s.CooldownMs; got < (6*time.Hour - time.Minute).Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want the ~6h pin intact", got)
+	}
+}
+
+// TestReleaseQuotaPins_EmptyBreakerIsANoOp covers the common case: the poll runs
+// every few minutes against a fleet with no open circuits at all.
+func TestReleaseQuotaPins_EmptyBreakerIsANoOp(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{uuid.New(): {}}); released != 0 {
+		t.Errorf("got %d pin(s) released on an empty breaker, want 0", released)
+	}
+	if len(cb.Status()) != 0 {
+		t.Error("releasing pins must not create circuits")
+	}
+}
+
+// TestReleaseQuotaPins_LogsTheLiftedPin covers the operator's log trail. A pin
+// being applied is logged when the circuit opens; a pin ending early is just as
+// operator-relevant, and without a line for it the provider silently returns to
+// rotation hours before the "cooldown_ms" already in the log said it would.
+func TestReleaseQuotaPins_LogsTheLiftedPin(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Hour})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	capt := captureLogs(t)
+
+	cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}})
+
+	level, attrs, found := capt.last("circuit-breaker: quota pin released (provider no longer exhausted)")
+	if !found {
+		t.Fatal("lifting a pin must leave a log trail")
+	}
+	if level != slog.LevelInfo {
+		t.Errorf("got level %v, want info", level)
+	}
+	if got, _ := attrs["provider_id"].(string); got != id.String() {
+		t.Errorf("got provider_id=%v, want %s", attrs["provider_id"], id)
+	}
+	if got, _ := attrs["cooldown_ms"].(int64); got != time.Hour.Milliseconds() {
+		t.Errorf("got cooldown_ms=%v, want the configured cooldown %d", attrs["cooldown_ms"], time.Hour.Milliseconds())
+	}
+}
+
+// TestReleaseAllQuotaPins_LiftsEveryPin covers the "we have stopped looking"
+// lever. Quota polling being switched off means no refresh will ever report a
+// recovery again, so every pin still in force would be served out to its ceiling
+// on evidence the operator deliberately stopped collecting. Holding a healthy
+// provider out is the expensive direction, so when the gateway stops advising it
+// stops holding too.
+func TestReleaseAllQuotaPins_LiftsEveryPin(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 300 * time.Millisecond})
+	pinnedA, pinnedB, unpinned := uuid.New(), uuid.New(), uuid.New()
+
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+	openBreaker(t, cb, pinnedA)
+	openBreaker(t, cb, pinnedB)
+	cb.SetQuotaAdvisor(stubAdvisor{ok: false})
+	openBreaker(t, cb, unpinned)
+
+	if released := cb.ReleaseAllQuotaPins(); released != 2 {
+		t.Errorf("got %d pin(s) released, want 2 — every pin, and only the pins", released)
+	}
+
+	for _, s := range cb.Status() {
+		if s.QuotaPinned {
+			t.Errorf("provider %s still reports quota_pinned after a release-all", s.ProviderID)
+		}
+		if s.CooldownMs != cb.effectiveCooldown().Milliseconds() {
+			t.Errorf("provider %s: got CooldownMs=%d, want the configured cooldown %d back",
+				s.ProviderID, s.CooldownMs, cb.effectiveCooldown().Milliseconds())
+		}
+	}
+
+	// A second call has nothing left to lift: the release is idempotent, which
+	// is what lets the caller run it once per disabled span without bookkeeping.
+	if released := cb.ReleaseAllQuotaPins(); released != 0 {
+		t.Errorf("got %d pin(s) released on the second call, want 0", released)
+	}
+
+	time.Sleep(400 * time.Millisecond)
+	if cb.IsOpen(pinnedA, "test-provider") {
+		t.Error("with the pin lifted, the configured cooldown must let a probe through")
+	}
+}
+
+// TestReleaseAllQuotaPins_DoesNotCloseCircuits holds the same contract boundary
+// as the recovered-set release: quota chooses cooldowns, nothing else. A blunt
+// release-all must not be a back door to closing circuits.
+func TestReleaseAllQuotaPins_DoesNotCloseCircuits(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Hour})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+	cb.ReleaseAllQuotaPins()
+
+	if got := cb.GetState(id); got != StateOpen {
+		t.Errorf("got state %v after releasing every pin, want open", got)
+	}
+	if !cb.IsOpen(id, "test-provider") {
+		t.Error("the configured cooldown has not elapsed; the circuit must still refuse traffic")
+	}
+	if s := cb.Status()[0]; s.ConsecutiveFails == 0 {
+		t.Error("releasing pins must not reset the failure count that opened the circuit")
+	}
+}
+
+func TestReleaseAllQuotaPins_EmptyBreakerIsANoOp(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	if released := cb.ReleaseAllQuotaPins(); released != 0 {
+		t.Errorf("got %d pin(s) released on an empty breaker, want 0", released)
+	}
+	if len(cb.Status()) != 0 {
+		t.Error("releasing pins must not create circuits")
+	}
+}
+
+// TestReleaseAllQuotaPins_LogsTheReason keeps the two releases distinguishable
+// in the log. An operator reading "pin released" needs to know whether the
+// provider recovered or whether they switched the poller off, because only one
+// of those means the window is actually back.
+func TestReleaseAllQuotaPins_LogsTheReason(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Hour})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+
+	capt := captureLogs(t)
+	cb.ReleaseAllQuotaPins()
+
+	level, attrs, found := capt.last("circuit-breaker: quota pin released (quota polling disabled)")
+	if !found {
+		t.Fatal("releasing every pin must leave a log trail of its own")
+	}
+	if level != slog.LevelInfo {
+		t.Errorf("got level %v, want info", level)
+	}
+	if got, _ := attrs["provider_id"].(string); got != id.String() {
+		t.Errorf("got provider_id=%v, want %s", attrs["provider_id"], id)
+	}
+	if got, _ := attrs["cooldown_ms"].(int64); got != time.Hour.Milliseconds() {
+		t.Errorf("got cooldown_ms=%v, want the configured cooldown %d", attrs["cooldown_ms"], time.Hour.Milliseconds())
+	}
+}
+
 func TestGetState_ConcurrentReads(t *testing.T) {
 	t.Parallel()
 	cb := newTestCB(100, 30*time.Second)
@@ -1251,6 +1610,20 @@ func (h *logCaptureHandler) forProvider(id uuid.UUID) []capturedLog {
 		}
 	}
 	return out
+}
+
+// last returns the most recent record with the given message. Used where the
+// line's own provider_id is a plain string (the circuits map is keyed by the
+// provider's UUID string), which forProvider's uuid.UUID assertion cannot match.
+func (h *logCaptureHandler) last(msg string) (slog.Level, map[string]any, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for i := len(h.records) - 1; i >= 0; i-- {
+		if h.records[i].msg == msg {
+			return h.records[i].level, h.records[i].attrs, true
+		}
+	}
+	return 0, nil, false
 }
 
 // captureLogs installs a capturing slog handler for the duration of the test.

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -176,12 +177,39 @@ func TestDiscoverProviderModels_DisabledProvider(t *testing.T) {
 	}
 }
 
+// unreachableDiscovery returns a discovery service whose every request fails at
+// the transport, without a dial, a DNS lookup, or a wait.
+//
+// Discovery retries a transient failure twice more with a 3-second base backoff,
+// so a test that lets a real "unreachable" URL fail for real pays 9-15 seconds of
+// sleeping for a result it already knows — and pays it against whatever the host
+// or the CI runner happens to do with that address (a DNS lookup for a name that
+// does not resolve is slower still, and flaky besides). The transport stub makes
+// the failure immediate and identical everywhere; SetRetryBaseDelay keeps the
+// retry path itself exercised rather than skipped.
+func unreachableDiscovery() *provider.DiscoveryService {
+	ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
+			return nil, fmt.Errorf("stubbed unreachable host %s", req.URL.Host)
+		}},
+	})
+	ds.SetRetryBaseDelay(time.Millisecond)
+	return ds
+}
+
 // TestDiscoverAllModels_DiscoveryError tests that DiscoverAllModels handles
 // discovery errors gracefully.
 func TestDiscoverAllModels_DiscoveryError(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
-	// Create a provider with unreachable URL (connection refused immediately)
+	// Must be overridden after newTestHandlerWithRouter: NewHandler installs its
+	// own SSRF-protected factory.
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = unreachableDiscovery
+
+	// Create a provider with an unreachable URL; the stubbed transport above is
+	// what actually makes the discovery call fail.
 	providerData := `{"name": "test-discovery-error", "base_url": "http://127.0.0.1:1", "api_key": "sk-test123"}`
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
@@ -374,7 +402,14 @@ func TestDiscoverAllModels_WithEnabledProvider(t *testing.T) {
 func TestDiscoverProviderModels_DiscoveryError(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
-	// Create a provider with unreachable URL (localhost port 1, refuses immediately)
+	// Must be overridden after newTestHandlerWithRouter: NewHandler installs its
+	// own SSRF-protected factory.
+	orig := newDiscoveryService
+	defer func() { newDiscoveryService = orig }()
+	newDiscoveryService = unreachableDiscovery
+
+	// Create a provider with an unreachable URL; the stubbed transport above is
+	// what actually makes the discovery call fail.
 	providerName := fmt.Sprintf("test-discover-error-%s", uuid.New().String()[:8])
 	providerData := fmt.Sprintf(`{"name": "%s", "base_url": "http://127.0.0.1:1", "api_key": "sk-test123"}`, providerName)
 	rec := httptest.NewRecorder()

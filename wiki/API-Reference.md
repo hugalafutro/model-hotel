@@ -549,6 +549,8 @@ On error:
 | `/api/failover-groups/sync` | POST | Re-sync all groups with current discovery data |
 | `/api/failover-groups/candidates` | GET | List candidate models available for failover groups |
 | `/api/failover-groups/circuit-breaker-status` | GET | Current circuit breaker state per provider (cached briefly; `?detail=1` adds per-circuit detail) |
+| `/api/failover-groups/circuit-breaker/{provider_id}/reset` | POST | Force one provider's circuit back into rotation |
+| `/api/failover-groups/circuit-breaker/reset` | POST | Force every tracked circuit back into rotation (API only, no UI control) |
 | `/api/failover-groups/by-model/{model_uuid}` | GET | Find which failover group a model belongs to |
 | `/api/failover-groups/{id}` | GET | Get group details with priority order |
 | `/api/failover-groups/{id}` | PUT | Update priority order, enable/disable entries, rename |
@@ -685,6 +687,52 @@ Returns available models that can be added to failover groups.
   }
 ]
 ```
+
+#### POST `/api/failover-groups/circuit-breaker/{provider_id}/reset`
+
+Clears one provider's circuit, returning it to rotation immediately instead of waiting out the cooldown. Use it when you have fixed the provider yourself (rotated a dead key, restarted a local runtime, topped up a spent plan) and do not want to wait for the breaker to find out.
+
+**Response:**
+```json
+{
+  "provider_id": "uuid",
+  "previous_state": "open",
+  "reset": true
+}
+```
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `provider_id` | string (UUID) | The provider whose circuit was cleared |
+| `previous_state` | string | `closed`, `open` or `half-open`: what the breaker reported a moment before the reset |
+| `reset` | bool | `false` when there was nothing to clear, so the response can say "no change" instead of implying a recovery |
+
+Resetting an untracked or already-closed provider is a successful no-op (`previous_state: "closed"`, `reset: false`), not an error: the breaker only tracks providers it has routed, so "no circuit" and "closed circuit" are the same healthy state. The reset clears state, failure count and any quota pin together; if the provider is still broken the circuit reopens after `circuit_breaker_threshold` failures.
+
+This endpoint backs the circular-arrow button ("Reset circuit breaker") beside each open or half-open member on the Failover page.
+
+**Response (400):** invalid provider UUID. **Response (503):** the circuit breaker is not available.
+
+#### POST `/api/failover-groups/circuit-breaker/reset`
+
+Clears every tracked circuit at once, for recovering from a fleet-wide upstream incident without resetting providers one by one.
+
+**Response:**
+```json
+{
+  "cleared": 7,
+  "recovered": 2
+}
+```
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `cleared` | int | Every circuit discarded, including healthy closed ones |
+| `recovered` | int | Only those that were actually sidelining their provider (open or half-open), so a bulk reset does not imply every tracked provider was broken |
+
+This endpoint is **deliberately API only: there is no UI control for it, by decision rather than omission.** Per-provider reset is the right operation almost every time and it names the provider being recovered, whereas a fleet-wide button placed beside it is too easy to reach for when one circuit is the problem, and it throws away the breaker's evidence about every other provider in the process. Bulk reset is left to scripts and runbooks, where its blast radius is written down.
+
+**Response (503):** the circuit breaker is not available.
 
 #### DELETE `/api/failover-groups/{id}`
 
@@ -1382,6 +1430,8 @@ Heartbeat comments (`: heartbeat`) are sent every 30 seconds.
 | `next_retry_at` | string (RFC3339) | only when `quota_pinned` is `true` | When the circuit is next eligible to probe |
 
 `next_retry_at` is the **retry deadline, not the quota reset time**. It is the moment the circuit opened plus the pin after it has been clamped to `circuit_breaker_quota_pin_max` and jittered, so on a weekly plan whose quota resets days out it lands at the 24h ceiling instead. It is the same value the circuit-breaker status API publishes under that name, and both derive from one predicate, so the number and the explanation beside it can never disagree.
+
+A `quota_pinned: true` circuit is **not** committed to waiting that long. Every successful quota refresh (each `quota_refresh_interval_min`, 5 minutes by default) lifts the pin from any provider whose fresh snapshot says it is no longer out of quota, dropping the circuit back to `circuit_breaker_cooldown`. A snapshot too stale to trust, one that could not be interpreted, or one whose own most recent refresh attempt failed (the dashboard keeps the last good payload on file, so a failed row can still look fresh) is not such a statement and leaves the pin alone; setting the interval to `0` turns polling off and releases every pin at once. No event is published when that happens, because nothing transitions: the circuit is still open, only its cooldown changed. Poll `/api/failover-groups/circuit-breaker-status?detail=1` to see it, where `quota_pinned` flips to `false` and `next_retry_at` moves in. See [Failover & Hotel Routing](Failover-and-Hotel-Routing#quota-pinned-cooldowns) for the full behaviour.
 
 **Quota schema drift metadata:**
 

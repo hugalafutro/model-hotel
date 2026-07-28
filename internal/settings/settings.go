@@ -456,6 +456,33 @@ func (r *Repository) SetTx(ctx context.Context, tx pgx.Tx, key, value string) er
 	return err
 }
 
+// DeleteKey removes a single key outside any transaction and evicts it from the
+// cache. Deliberately not allowlist-guarded, mirroring Set: the internal
+// `_`-prefixed keys (_fleet_*, _quota_schema_*) are written with Set precisely
+// because they are instance-local bookkeeping rather than operator settings, and
+// they need a removal path of the same shape. Operator-facing resets must keep
+// using DeleteKeysTx, which enforces the allowlist inside the caller's
+// transaction.
+//
+// Deleting an absent key is a no-op, not an error, so a caller cleaning up after
+// a record that was never written does not have to special-case it.
+//
+// Eviction follows Set's protocol exactly, including the unconditional
+// post-delete eviction before the error check: a failure reported in the
+// commit-acknowledgement window does not mean the row survived, and pinning a
+// stale value for the full cacheTTL against a delete that took effect is the
+// bug that eviction exists to close. Only the notification is gated on success.
+func (r *Repository) DeleteKey(ctx context.Context, key string) error {
+	r.evict(key)
+	_, err := r.pool.Exec(ctx, `DELETE FROM settings WHERE key = $1`, key)
+	r.evict(key)
+	if err != nil {
+		return err
+	}
+	r.notifyChange(key, "")
+	return nil
+}
+
 // DeleteKeysTx removes the given settings keys from the database within an
 // existing transaction. After deletion, callers that read the setting will
 // fall through to their hardcoded Go default.

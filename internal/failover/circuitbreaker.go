@@ -325,8 +325,9 @@ func (cb *CircuitBreaker) effectiveCooldown() time.Duration {
 // quotaPinnedFor reports whether a quota pin is actually governing this circuit
 // right now. The kill switch is deliberately re-read here rather than only at
 // the moment a circuit opens: an operator who disables quota pinning to recover
-// a provider sidelined for hours has no other lever (Reset/ResetAll have no
-// production caller), so a pin already in force must be released immediately.
+// a provider sidelined for hours expects every pin already in force to be
+// released at once, not only the circuits that open afterwards. It is the
+// fleet-wide lever; Reset is the per-provider one.
 //
 // Every surface derives from this one predicate — the cooldown the breaker
 // enforces, the CooldownMs/NextRetryAt the status API publishes, and the
@@ -398,6 +399,114 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit) {
 	c.cooldownOverride = d
 }
 
+// ReleaseQuotaPins lifts the quota cooldown override from every circuit whose
+// provider appears in recovered, and reports how many pins it lifted. It is how
+// a provider that has recovered (a topped-up plan, a reset window observed early
+// by the quota poller) stops serving out a pin that was stamped on when its
+// circuit opened and could otherwise run to the 24h ceiling.
+//
+// It only ever shortens a wait. The circuit keeps its state and its failure
+// count and simply reverts to the configured cooldown, so HTTP still decides
+// recovery through the ordinary half-open probe. That is the whole quota
+// contract: quota never opens a circuit, never closes one, never blocks a
+// request, and only chooses the cooldown of an already-open circuit.
+//
+// recovered must carry *affirmative* evidence: providers a successful refresh
+// assessed from a fresh snapshot and found not exhausted. Absence is not
+// evidence. A provider is equally absent when its snapshot went stale, when its
+// payload could not be assessed, and when it has no snapshot at all — and those
+// are precisely the cases where quota fetching is broken and the window is most
+// likely still spent. Releasing on absence would therefore unpin exactly the
+// provider the pin exists to protect, so anything not affirmatively recovered
+// is left untouched.
+func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	// Read once outside the loop: this runs on the quota poll goroutine every
+	// few minutes and the value is identical for every circuit.
+	base := cb.effectiveCooldown()
+
+	// Walk the recovered set rather than every circuit: it is the smaller side
+	// (a fleet has few providers recovering per pass), and the circuits map is
+	// keyed by the provider's UUID string, so one conversion per candidate
+	// replaces parsing every key.
+	released := 0
+	for providerID := range recovered {
+		id := providerID.String()
+		c, ok := cb.circuits[id]
+		if !ok || c.cooldownOverride == 0 {
+			continue
+		}
+		cb.releasePin("circuit-breaker: quota pin released (provider no longer exhausted)", id, c, base)
+		released++
+	}
+	return released
+}
+
+// ReleaseAllQuotaPins lifts the quota cooldown override from every circuit that
+// carries one, and reports how many it lifted.
+//
+// This is the other half of the release rule, and the reason it can be this
+// blunt where ReleaseQuotaPins must not be: it is called when quota polling has
+// been switched off. No refresh will ever report a recovery again, so every pin
+// still in force would be served out to its ceiling — up to 24 hours — on
+// evidence the operator deliberately stopped collecting. Absence of evidence
+// keeps a pin only while the gateway is still looking; once it stops looking it
+// stops holding, because benching a healthy provider is the expensive mistake
+// and an unnecessary probe is the cheap one.
+//
+// Like ReleaseQuotaPins it only shortens a wait: circuit state and failure
+// counts are untouched, and HTTP still decides recovery through the ordinary
+// half-open probe. It is idempotent, so a caller can run it once per disabled
+// span without bookkeeping.
+func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	base := cb.effectiveCooldown()
+
+	released := 0
+	for id, c := range cb.circuits {
+		if c.cooldownOverride == 0 {
+			continue
+		}
+		cb.releasePin("circuit-breaker: quota pin released (quota polling disabled)", id, c, base)
+		released++
+	}
+	return released
+}
+
+// releasePin drops one circuit's quota override and logs it. The message names
+// the reason rather than being assembled from parts: an operator reading "pin
+// released" needs to know whether the provider recovered or whether the poller
+// was switched off, because only one of those means the window is actually back.
+//
+// The open transition logged a cooldown_ms that may have promised hours of
+// darkness, so the line that says it ended early is logged at the same Info
+// level the half-open→closed recovery uses. Routing metadata only — never
+// payload or credentials. Must be called with cb.mu held.
+func (cb *CircuitBreaker) releasePin(msg, providerID string, c *circuit, base time.Duration) {
+	c.cooldownOverride = 0
+	debuglog.Info(msg, "provider_id", providerID, "state", cb.logicalState(c).String(), "cooldown_ms", base.Milliseconds())
+}
+
+// logicalState maps a circuit's stored state to the state every observer
+// reports: an open circuit whose cooldown has elapsed is "ready to probe" and
+// reads as half-open, even though the stored state only flips to StateHalfOpen
+// for the brief duration of an in-flight probe request. Without this the
+// half-open bucket is effectively unobservable (and the sidebar badge's middle
+// count never moves). Purely derived — it never mutates the circuit — so every
+// surface (Status, GetState, Reset) agrees on what a circuit is doing.
+//
+// Must be called with cb.mu held (read lock suffices).
+func (cb *CircuitBreaker) logicalState(c *circuit) State {
+	if c.state == StateOpen && !c.openedAt.IsZero() && time.Since(c.openedAt) >= cb.effectiveCooldownFor(c) {
+		return StateHalfOpen
+	}
+	return c.state
+}
+
 // Status returns the current status of all tracked providers.
 func (cb *CircuitBreaker) Status() []ProviderStatus {
 	cb.mu.RLock()
@@ -406,16 +515,7 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 	statuses := make([]ProviderStatus, 0, len(cb.circuits))
 	for id, c := range cb.circuits {
 		cooldown := cb.effectiveCooldownFor(c)
-		// Apply the same logical cooldown transition as GetState: an open
-		// circuit whose cooldown has elapsed is "ready to probe" and is
-		// reported as half-open, even though the internal state only flips to
-		// StateHalfOpen for the brief duration of an in-flight probe request.
-		// Without this the half-open bucket is effectively unobservable from
-		// the status API (and the sidebar badge's middle count never moves).
-		state := c.state
-		if state == StateOpen && !c.openedAt.IsZero() && time.Since(c.openedAt) >= cooldown {
-			state = StateHalfOpen
-		}
+		state := cb.logicalState(c)
 		s := ProviderStatus{
 			ProviderID:       id,
 			State:            state.String(),
@@ -446,24 +546,44 @@ func (cb *CircuitBreaker) GetState(providerID uuid.UUID) State {
 	if !ok {
 		return StateClosed
 	}
+	return cb.logicalState(c)
+}
 
-	// Check if an open circuit should transition to half-open
-	if c.state == StateOpen && time.Since(c.openedAt) >= cb.effectiveCooldownFor(c) {
-		return StateHalfOpen // logical state, don't mutate
+// Reset clears the circuit breaker state for a specific provider and returns
+// the logical state the circuit was in immediately before being cleared, so an
+// operator-facing caller can report whether the reset actually recovered a
+// sidelined provider or was a no-op.
+//
+// An untracked provider reports StateClosed: a provider only enters the map
+// once it has been routed, and until then it is implicitly healthy. Resetting
+// one is therefore harmless and idempotent, not an error.
+func (cb *CircuitBreaker) Reset(providerID uuid.UUID) State {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	c, ok := cb.circuits[providerID.String()]
+	if !ok {
+		return StateClosed
 	}
-	return c.state
-}
-
-// Reset clears the circuit breaker state for a specific provider.
-func (cb *CircuitBreaker) Reset(providerID uuid.UUID) {
-	cb.mu.Lock()
-	defer cb.mu.Unlock()
+	prev := cb.logicalState(c)
 	delete(cb.circuits, providerID.String())
+	return prev
 }
 
-// ResetAll clears all circuit breaker state.
-func (cb *CircuitBreaker) ResetAll() {
+// ResetAll clears all circuit breaker state. It returns how many circuits were
+// discarded in total and how many of those were actually sidelining their
+// provider (logically open or half-open), so a bulk reset can report what it
+// recovered instead of implying every tracked provider was broken.
+func (cb *CircuitBreaker) ResetAll() (cleared, recovered int) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
+
+	cleared = len(cb.circuits)
+	for _, c := range cb.circuits {
+		if cb.logicalState(c) != StateClosed {
+			recovered++
+		}
+	}
 	cb.circuits = make(map[string]*circuit)
+	return cleared, recovered
 }

@@ -6,14 +6,36 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 )
 
-// fakeBreakerReader is a CircuitBreakerReader stub for the metrics handler test.
+// fakeBreakerReader is a CircuitBreakerControl stub for the metrics handler
+// test. /metrics only ever reads Status; the reset methods exist because the
+// handler holds one breaker for both reads and operator resets, and they panic
+// so a metrics path that ever mutated breaker state would fail loudly here
+// instead of silently passing.
 type fakeBreakerReader struct{ statuses []failover.ProviderStatus }
 
 func (f fakeBreakerReader) Status() []failover.ProviderStatus { return f.statuses }
+
+func (f fakeBreakerReader) Reset(uuid.UUID) failover.State {
+	panic("metrics must never reset the circuit breaker")
+}
+
+func (f fakeBreakerReader) ResetAll() (int, int) {
+	panic("metrics must never reset the circuit breaker")
+}
+
+func (f fakeBreakerReader) ReleaseQuotaPins(map[uuid.UUID]struct{}) int {
+	panic("metrics must never mutate quota pins")
+}
+
+func (f fakeBreakerReader) ReleaseAllQuotaPins() int {
+	panic("metrics must never mutate quota pins")
+}
 
 func TestMetricsAuth_DedicatedToken(t *testing.T) {
 	h := &Handler{cfg: &config.Config{MetricsToken: "s3cret"}}
