@@ -400,10 +400,10 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit) {
 }
 
 // ReleaseQuotaPins lifts the quota cooldown override from every circuit whose
-// provider is absent from stillExhausted, and reports how many pins it lifted.
-// It is how a provider that has recovered (a topped-up plan, a reset window
-// observed early by the quota poller) stops serving out a pin that was stamped
-// on when its circuit opened and could otherwise run to the 24h ceiling.
+// provider appears in recovered, and reports how many pins it lifted. It is how
+// a provider that has recovered (a topped-up plan, a reset window observed early
+// by the quota poller) stops serving out a pin that was stamped on when its
+// circuit opened and could otherwise run to the 24h ceiling.
 //
 // It only ever shortens a wait. The circuit keeps its state and its failure
 // count and simply reverts to the configured cooldown, so HTTP still decides
@@ -411,32 +411,31 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit) {
 // contract: quota never opens a circuit, never closes one, never blocks a
 // request, and only chooses the cooldown of an already-open circuit.
 //
-// The caller must pass the exhausted set computed by a quota refresh that
-// actually succeeded. Absence from a *failed* refresh says nothing about
-// provider health — the advice map is cleared on those paths so stale data
-// cannot pin anything — and unpinning on it would throw the feature away for no
-// safety gain.
-func (cb *CircuitBreaker) ReleaseQuotaPins(stillExhausted map[uuid.UUID]struct{}) int {
+// recovered must carry *affirmative* evidence: providers a successful refresh
+// assessed from a fresh snapshot and found not exhausted. Absence is not
+// evidence. A provider is equally absent when its snapshot went stale, when its
+// payload could not be assessed, and when it has no snapshot at all — and those
+// are precisely the cases where quota fetching is broken and the window is most
+// likely still spent. Releasing on absence would therefore unpin exactly the
+// provider the pin exists to protect, so anything not affirmatively recovered
+// is left untouched.
+func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
-
-	// The circuits map is keyed by the provider's UUID string; convert once
-	// rather than parsing every key.
-	exhausted := make(map[string]struct{}, len(stillExhausted))
-	for id := range stillExhausted {
-		exhausted[id.String()] = struct{}{}
-	}
 
 	// Read once outside the loop: this runs on the quota poll goroutine every
 	// few minutes and the value is identical for every circuit.
 	base := cb.effectiveCooldown()
 
+	// Walk the recovered set rather than every circuit: it is the smaller side
+	// (a fleet has few providers recovering per pass), and the circuits map is
+	// keyed by the provider's UUID string, so one conversion per candidate
+	// replaces parsing every key.
 	released := 0
-	for id, c := range cb.circuits {
-		if c.cooldownOverride == 0 {
-			continue
-		}
-		if _, still := exhausted[id]; still {
+	for providerID := range recovered {
+		id := providerID.String()
+		c, ok := cb.circuits[id]
+		if !ok || c.cooldownOverride == 0 {
 			continue
 		}
 		c.cooldownOverride = 0

@@ -212,31 +212,33 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 		nameByID[p.ID] = p.Name
 	}
 
-	advice := buildQuotaAdvice(snaps, typeByID, maxAge, time.Now())
-
-	// Snapshot the provider set *before* handing the map to the advisor:
-	// Replace takes ownership of it, and ResetsAt may be reading it concurrently
-	// the instant after.
-	stillExhausted := make(map[uuid.UUID]struct{}, len(advice))
-	for id := range advice {
-		stillExhausted[id] = struct{}{}
-	}
+	// recovered is computed in the same pass as the advice, over the same
+	// snapshots, so it costs no extra query. It is a separate map that is never
+	// handed to the advisor, so Replace taking ownership of the advice below
+	// cannot touch it.
+	advice, recovered := buildQuotaAdvice(snaps, typeByID, maxAge, time.Now())
 	advised := len(advice)
 
 	h.quotaAdvisor.Replace(advice)
 
-	// This refresh succeeded, so its exhausted set is current: any circuit still
-	// carrying a pin for a provider outside it belongs to a provider that has
-	// recovered (a topped-up plan, a window that reset early), and serving out
-	// the rest of a pin that can run to 24h would bench a healthy provider for
-	// hours. Only reachable from here, never from the failure paths above: a
-	// refresh that could not read says nothing about provider health, and those
-	// paths only stop *new* pins rather than disturbing pins already in force.
+	// This refresh succeeded, so every provider it assessed fresh and found no
+	// longer exhausted has affirmatively recovered (a topped-up plan, a window
+	// that reset early), and serving out the rest of a pin that can run to 24h
+	// would bench a healthy provider for hours. Only reachable from here, never
+	// from the failure paths above: a refresh that could not read says nothing
+	// about provider health, and those paths only stop *new* pins rather than
+	// disturbing pins already in force.
+	//
+	// Recovery must be affirmative, which is why this passes the recovered set
+	// rather than inverting the exhausted one: a provider is equally missing
+	// from the advice when its snapshot is stale, when its payload could not be
+	// assessed, and when it has no snapshot at all — the states where quota
+	// fetching is broken and the window is most likely still spent.
 	//
 	// This shortens a cooldown; it never closes a circuit. HTTP still decides
 	// recovery through the ordinary half-open probe.
 	if h.circuitBreaker != nil {
-		h.circuitBreaker.ReleaseQuotaPins(stillExhausted)
+		h.circuitBreaker.ReleaseQuotaPins(recovered)
 	}
 	// Info once anything is actually advised: a quota pin can hold a circuit open
 	// for a day, and Debug is off in normal production, so this is the only log
@@ -270,29 +272,54 @@ func (h *Handler) ClearQuotaAdvice(_ context.Context) {
 
 // buildQuotaAdvice is the pure filtering step of RefreshQuotaAdvice, split out
 // so the staleness rule and the assessment filter are testable without a
-// database.
+// database. It returns both halves of the same judgement:
+//
+//   - advice: providers whose window is spent, mapped to their reset deadline.
+//     This pins the cooldown of a circuit that opens later.
+//   - recovered: providers a fresh snapshot was successfully assessed for and
+//     found *not* exhausted. This is the only thing that lifts a pin already in
+//     force, so it must be affirmative. A stale snapshot, a payload that could
+//     not be assessed, and a provider with no snapshot at all are all simply
+//     absent from both sets: they are unknowns, not recoveries, and the pin they
+//     would otherwise release is most likely still deserved.
 func buildQuotaAdvice(
 	snaps []quota.Snapshot,
 	typeByID map[uuid.UUID]string,
 	maxAge time.Duration,
 	now time.Time,
-) map[uuid.UUID]time.Time {
-	advice := make(map[uuid.UUID]time.Time)
+) (advice map[uuid.UUID]time.Time, recovered map[uuid.UUID]struct{}) {
+	advice = make(map[uuid.UUID]time.Time)
+	recovered = make(map[uuid.UUID]struct{})
 	if maxAge <= 0 {
 		// Quota polling is disabled (or the resolved interval is otherwise
 		// non-positive): there is no cadence to bound snapshot age against, so
 		// advise nothing rather than risk pinning the breaker on data that
-		// could predate a plan change or a manual top-up.
-		return advice
+		// could predate a plan change or a manual top-up. By the same token it
+		// reports no recoveries: an unbounded snapshot is no more trustworthy as
+		// evidence of health than as evidence of exhaustion.
+		return advice, recovered
 	}
 	for _, s := range snaps {
 		if now.Sub(s.FetchedAt) > maxAge {
 			continue
 		}
 		a := quota.Assess(typeByID[s.ProviderID], s)
-		if a.OK && a.Exhausted {
-			advice[s.ProviderID] = a.ResetsAt
+		if !a.OK {
+			continue
 		}
+		if a.Exhausted {
+			advice[s.ProviderID] = a.ResetsAt
+			continue
+		}
+		recovered[s.ProviderID] = struct{}{}
 	}
-	return advice
+	// A provider with rows of more than one kind could land in both sets (a
+	// base URL edited from one quota-capable type to another leaves the old
+	// row behind). Exhaustion wins: it is the reading that keeps the pin, and
+	// keeping a pin one pass too long costs a delayed probe while dropping one
+	// wrongly puts a spent provider back in rotation.
+	for id := range advice {
+		delete(recovered, id)
+	}
+	return advice, recovered
 }

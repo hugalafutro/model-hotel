@@ -470,7 +470,7 @@ func TestRefreshQuotaAdvice_LogsAdvisedProvidersAtInfoOnlyWhenAdvising(t *testin
 
 // pinReleaseRecorder is a CircuitBreakerControl that records every
 // ReleaseQuotaPins call, so a test can assert both *that* the refresh released
-// pins and *which* providers it declared still exhausted. Reset/ResetAll panic:
+// pins and *which* providers it declared recovered. Reset/ResetAll panic:
 // the quota refresh must never clear a circuit.
 type pinReleaseRecorder struct {
 	mu    sync.Mutex
@@ -487,10 +487,10 @@ func (p *pinReleaseRecorder) ResetAll() (int, int) {
 	panic("the quota refresh must never reset a circuit")
 }
 
-func (p *pinReleaseRecorder) ReleaseQuotaPins(stillExhausted map[uuid.UUID]struct{}) int {
+func (p *pinReleaseRecorder) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.calls = append(p.calls, stillExhausted)
+	p.calls = append(p.calls, recovered)
 	return 0
 }
 
@@ -504,8 +504,9 @@ func (p *pinReleaseRecorder) recorded() []map[uuid.UUID]struct{} {
 // path. A pin is stamped on when a circuit opens and nothing used to revisit it,
 // so an operator who topped up a spent plan watched a healthy provider stay
 // benched for the rest of a pin that can run to 24 hours. A successful refresh
-// now hands the breaker its fresh exhausted set: providers outside it lose their
-// pin and fall back to the configured cooldown.
+// now hands the breaker exactly one set, once: the providers it assessed fresh
+// and found no longer exhausted, which lose their pin and fall back to the
+// configured cooldown.
 func TestRefreshQuotaAdvice_ReleasesPinsForRecoveredProviders(t *testing.T) {
 	h := newTestHandler(t)
 	ctx := context.Background()
@@ -537,12 +538,126 @@ func TestRefreshQuotaAdvice_ReleasesPinsForRecoveredProviders(t *testing.T) {
 		t.Fatalf("got %d ReleaseQuotaPins call(s), want exactly 1 per successful refresh", len(calls))
 	}
 	set := calls[0]
-	if _, ok := set[spentID]; !ok {
-		t.Error("a provider whose window is still spent must be reported as still exhausted, keeping its pin")
+	if _, ok := set[recoveredID]; !ok {
+		t.Error("a provider assessed fresh and no longer exhausted must be reported as recovered, so its pin is lifted")
 	}
-	if _, ok := set[recoveredID]; ok {
-		t.Error("a provider that has recovered must be absent from the exhausted set, so its pin is lifted")
+	if _, ok := set[spentID]; ok {
+		t.Error("a provider whose window is still spent must be absent from the recovered set, keeping its pin")
 	}
+}
+
+// fixedQuotaAdvisor pins every provider to the same far-off deadline, so a test
+// can open several circuits and have each of them carry a quota pin without
+// caring which provider is which.
+type fixedQuotaAdvisor struct{ at time.Time }
+
+func (f fixedQuotaAdvisor) ResetsAt(uuid.UUID) (time.Time, bool) { return f.at, true }
+
+// TestRefreshQuotaAdvice_ReleasesPinsOnlyOnFreshRecoveryEvidence drives the real
+// breaker (not a recorder) through a refresh and asserts on observable breaker
+// state, because the rule being guarded is a whole-path one: a provider is
+// missing from the advice map for three different reasons and only one of them
+// is recovery.
+//
+// The stale case is the one that matters most. A provider whose quota fetches
+// keep failing keeps its last snapshot, that snapshot ages past the staleness
+// bound, and the provider then looks exactly like one that recovered. Releasing
+// its pin would probe a provider that is still genuinely exhausted — the feature
+// throwing itself away precisely when quota fetching is broken.
+func TestRefreshQuotaAdvice_ReleasesPinsOnlyOnFreshRecoveryEvidence(t *testing.T) {
+	h := newTestHandler(t)
+	ctx := context.Background()
+	h.SetQuotaAdvisor(NewQuotaAdvisor())
+
+	// A real breaker, with a cooldown short enough that a 6h quota deadline
+	// always clears the "pinning must never shorten a wait" floor.
+	cb := failover.NewCircuitBreaker(nil)
+	cb.Threshold = 1
+	cb.Cooldown = time.Minute
+	cb.SetQuotaAdvisor(fixedQuotaAdvisor{at: time.Now().Add(6 * time.Hour)})
+	h.SetCircuitBreaker(cb)
+
+	now := time.Now()
+	resetsAt := now.Add(4 * time.Hour)
+	// maxAge is three refresh intervals; the interval defaults to 5 minutes, so
+	// anything older than 15 minutes is stale.
+	cases := []struct {
+		name       string
+		payload    json.RawMessage
+		fetchedAt  time.Time
+		seed       bool
+		wantPinned bool
+		why        string
+	}{
+		{
+			name:      "zai-recovered",
+			payload:   json.RawMessage(`{"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"remaining":5000,"nextResetTime":0}]}}`),
+			fetchedAt: now, seed: true, wantPinned: false,
+			why: "a fresh snapshot assessed as not exhausted is the only affirmative recovery evidence there is",
+		},
+		{
+			name:    "zai-still-spent",
+			payload: exhaustedZaiCodingPayload(t, resetsAt), fetchedAt: now, seed: true, wantPinned: true,
+			why: "a provider this refresh still assessed as exhausted must keep its pin",
+		},
+		{
+			name:    "zai-stale",
+			payload: exhaustedZaiCodingPayload(t, resetsAt), fetchedAt: now.Add(-time.Hour), seed: true, wantPinned: true,
+			why: "a snapshot too old to trust is not recovery evidence — the window is probably still spent",
+		},
+		{
+			name:    "zai-unassessable",
+			payload: json.RawMessage(`{"data":{"limits":"unexpected shape"}}`), fetchedAt: now, seed: true, wantPinned: true,
+			why: "a payload that could not be assessed says nothing about the window",
+		},
+		{
+			name: "zai-no-snapshot", seed: false, wantPinned: true,
+			why: "a provider with no snapshot at all has never reported recovery",
+		},
+	}
+
+	ids := make([]uuid.UUID, len(cases))
+	for i, c := range cases {
+		ids[i] = insertQuotaPollProvider(t, h.dbPool.Pool(), c.name, "https://api.z.ai", true)
+		if c.seed {
+			if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+				ProviderID: ids[i], Kind: "usage", HTTPStatus: 200, Source: "poll",
+				FetchedAt: c.fetchedAt, Payload: c.payload,
+			}); err != nil {
+				t.Fatalf("seed %s snapshot: %v", c.name, err)
+			}
+		}
+		cb.RecordFailure(ids[i], c.name)
+	}
+
+	pinned := pinnedByProvider(cb)
+	for i, c := range cases {
+		if !pinned[ids[i].String()] {
+			t.Fatalf("setup: %s must start out quota-pinned", c.name)
+		}
+	}
+
+	h.RefreshQuotaAdvice(ctx)
+
+	pinned = pinnedByProvider(cb)
+	for i, c := range cases {
+		if got := pinned[ids[i].String()]; got != c.wantPinned {
+			t.Errorf("%s: got quota_pinned=%v, want %v — %s", c.name, got, c.wantPinned, c.why)
+		}
+	}
+
+	// Releasing a pin shortens a cooldown; it must never close a circuit.
+	if got := cb.GetState(ids[0]); got == failover.StateClosed {
+		t.Errorf("got state %v for the recovered provider, want it still open — quota must never close a circuit", got)
+	}
+}
+
+func pinnedByProvider(cb *failover.CircuitBreaker) map[string]bool {
+	out := make(map[string]bool)
+	for _, s := range cb.Status() {
+		out[s.ProviderID] = s.QuotaPinned
+	}
+	return out
 }
 
 // TestRefreshQuotaAdvice_FailedRefreshLeavesPinsUntouched is the safety half of

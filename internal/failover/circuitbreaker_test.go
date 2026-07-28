@@ -1224,8 +1224,9 @@ func TestReleaseQuotaPins_LiftsThePinWhenTheProviderRecovers(t *testing.T) {
 		t.Fatal("setup: a 6h deadline against a 300ms cooldown must pin the circuit")
 	}
 
-	// A successful advice refresh no longer reports this provider as exhausted.
-	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{}); released != 1 {
+	// A successful advice refresh assessed this provider fresh and found its
+	// window no longer spent: affirmative recovery evidence.
+	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}}); released != 1 {
 		t.Errorf("got %d pin(s) released, want 1", released)
 	}
 
@@ -1244,9 +1245,9 @@ func TestReleaseQuotaPins_LiftsThePinWhenTheProviderRecovers(t *testing.T) {
 }
 
 // TestReleaseQuotaPins_KeepsThePinForAStillExhaustedProvider guards the other
-// direction: a provider still in the fresh exhausted set keeps the long
-// cooldown it was given, and an unrelated provider recovering does not drag it
-// back into rotation.
+// direction: a provider the same refresh still assessed as exhausted keeps the
+// long cooldown it was given, and an unrelated provider recovering does not drag
+// it back into rotation.
 func TestReleaseQuotaPins_KeepsThePinForAStillExhaustedProvider(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Second})
 	stillSpent, recovered := uuid.New(), uuid.New()
@@ -1255,7 +1256,7 @@ func TestReleaseQuotaPins_KeepsThePinForAStillExhaustedProvider(t *testing.T) {
 	openBreaker(t, cb, stillSpent)
 	openBreaker(t, cb, recovered)
 
-	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{stillSpent: {}}); released != 1 {
+	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{recovered: {}}); released != 1 {
 		t.Errorf("got %d pin(s) released, want only the recovered provider's", released)
 	}
 
@@ -1264,10 +1265,10 @@ func TestReleaseQuotaPins_KeepsThePinForAStillExhaustedProvider(t *testing.T) {
 		byID[s.ProviderID] = s
 	}
 	if !byID[stillSpent.String()].QuotaPinned {
-		t.Error("a provider still in the exhausted set must keep its pin")
+		t.Error("a provider absent from the recovered set must keep its pin")
 	}
 	if byID[recovered.String()].QuotaPinned {
-		t.Error("a provider absent from the exhausted set must lose its pin")
+		t.Error("a provider in the recovered set must lose its pin")
 	}
 	if got := byID[stillSpent.String()].CooldownMs; got < (6*time.Hour - time.Minute).Milliseconds() {
 		t.Errorf("got CooldownMs=%d for the still-exhausted provider, want the ~6h pin intact", got)
@@ -1287,7 +1288,7 @@ func TestReleaseQuotaPins_DoesNotCloseTheCircuit(t *testing.T) {
 
 	openBreaker(t, cb, id)
 
-	cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{})
+	cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}})
 
 	if got := cb.GetState(id); got != StateOpen {
 		t.Errorf("got state %v after lifting the pin, want open — quota must never close a circuit", got)
@@ -1311,7 +1312,7 @@ func TestReleaseQuotaPins_LeavesUnpinnedCircuitsAlone(t *testing.T) {
 
 	openBreaker(t, cb, id)
 
-	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{}); released != 0 {
+	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}}); released != 0 {
 		t.Errorf("got %d pin(s) released, want 0 — nothing was pinned", released)
 	}
 	s := cb.Status()[0]
@@ -1320,6 +1321,38 @@ func TestReleaseQuotaPins_LeavesUnpinnedCircuitsAlone(t *testing.T) {
 	}
 	if s.CooldownMs != time.Hour.Milliseconds() {
 		t.Errorf("got CooldownMs=%d, want the configured hour untouched", s.CooldownMs)
+	}
+}
+
+// TestReleaseQuotaPins_KeepsThePinWithoutRecoveryEvidence is the asymmetry the
+// whole release rule turns on. A provider is absent from the recovered set for
+// three different reasons — its snapshot is stale, its payload could not be
+// assessed, or it has no snapshot at all — and none of them is evidence of
+// recovery. Releasing on absence would unpin exactly the provider whose quota
+// fetches are broken, i.e. the one whose window is most likely still spent, so
+// absence must leave the pin exactly as it was.
+func TestReleaseQuotaPins_KeepsThePinWithoutRecoveryEvidence(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Second})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+
+	openBreaker(t, cb, id)
+	if !cb.Status()[0].QuotaPinned {
+		t.Fatal("setup: a 6h deadline against a 1s cooldown must pin the circuit")
+	}
+
+	// A refresh that recovered somebody else entirely (or nobody at all) says
+	// nothing about this provider.
+	if released := cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{uuid.New(): {}}); released != 0 {
+		t.Errorf("got %d pin(s) released, want 0 — no fresh evidence for this provider", released)
+	}
+
+	s := cb.Status()[0]
+	if !s.QuotaPinned {
+		t.Error("a provider with no fresh recovery evidence must keep its pin")
+	}
+	if got := s.CooldownMs; got < (6*time.Hour - time.Minute).Milliseconds() {
+		t.Errorf("got CooldownMs=%d, want the ~6h pin intact", got)
 	}
 }
 
@@ -1348,7 +1381,7 @@ func TestReleaseQuotaPins_LogsTheLiftedPin(t *testing.T) {
 
 	capt := captureLogs(t)
 
-	cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{})
+	cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}})
 
 	level, attrs, found := capt.last("circuit-breaker: quota pin released (provider no longer exhausted)")
 	if !found {
