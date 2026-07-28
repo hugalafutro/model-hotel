@@ -7,6 +7,13 @@
 # Alpine patches — so it doubles as the signal to cut a patch release. It also
 # catches the publish workflow's GHA layer cache serving a stale apk upgrade
 # layer.
+#
+# Every step below is independent on purpose. This job is the only thing that
+# uploads Trivy SARIF, so one image being briefly unreachable must never cost
+# us the other image's report or gate: each step records its own outcome, and
+# the summary at the end fails the job while naming what actually broke. A red
+# run whose cause you have to go dig for is how this workflow already lost a
+# week of scan coverage to a transient Docker Hub timeout.
 name: Scan Published Image
 
 on:
@@ -18,6 +25,10 @@ permissions:
   contents: read
   security-events: write
 
+env:
+  APP_IMAGE: docker.io/hugalafutro/model-hotel:latest
+  FRONTDESK_IMAGE: docker.io/hugalafutro/model-hotel-frontdesk:latest
+
 jobs:
   scan:
     name: Trivy Scan (latest)
@@ -25,29 +36,26 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Each image is pulled immediately before its own scan, and never in a
-      # shared step: a failed pull aborts the job, so batching both pulls up
-      # front would mean an unreachable Front Desk image costs us the app
-      # image's report too. That is the same "lost a week of scanning to a
-      # registry blip" failure this workflow is trying to stop having.
-      #
       # We pull rather than letting Trivy fetch from the registry so a single
       # Docker Hub blip (`dial tcp ...: i/o timeout`) gets retried instead of
       # killing the run. Trivy resolves an image from the local docker daemon
       # before the registry, so each scan reuses the pull above it.
       - name: Pull published image (with retries)
-        env:
-          IMAGE: docker.io/hugalafutro/model-hotel:latest
-        run: scripts/ci/pull-image-with-retries.sh "$IMAGE"
+        id: pull_app
+        continue-on-error: true
+        run: scripts/ci/pull-image-with-retries.sh "$APP_IMAGE"
 
       # Full-picture report (all severities, unfixed included) for the GitHub
       # Security tab, so findings are tracked over time — deliberately broader
       # than the gate below, which only fails on what is actionable.
       - name: Scan published image (SARIF report)
+        id: scan_app
+        if: steps.pull_app.outcome == 'success'
+        continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: docker.io/hugalafutro/model-hotel:latest
+          image-ref: ${{ env.APP_IMAGE }}
           format: sarif
           output: trivy-image.sarif
           # Well above Trivy's 5m default: the image is already local, but the
@@ -55,6 +63,9 @@ jobs:
           timeout: 15m
 
       - name: Upload SARIF to GitHub Security tab
+        id: upload_app
+        if: steps.scan_app.outcome == 'success'
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
         with:
           sarif_file: trivy-image.sarif
@@ -64,45 +75,80 @@ jobs:
       # ages the same way and deserves the same weekly look. A distinct SARIF
       # category keeps its findings from overwriting the app image's.
       - name: Pull published Front Desk image (with retries)
-        env:
-          IMAGE: docker.io/hugalafutro/model-hotel-frontdesk:latest
-        run: scripts/ci/pull-image-with-retries.sh "$IMAGE"
+        id: pull_frontdesk
+        continue-on-error: true
+        run: scripts/ci/pull-image-with-retries.sh "$FRONTDESK_IMAGE"
 
       - name: Scan published Front Desk image (SARIF report)
+        id: scan_frontdesk
+        if: steps.pull_frontdesk.outcome == 'success'
+        continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: docker.io/hugalafutro/model-hotel-frontdesk:latest
+          image-ref: ${{ env.FRONTDESK_IMAGE }}
           format: sarif
           output: trivy-frontdesk-image.sarif
           timeout: 15m
 
       - name: Upload Front Desk SARIF to GitHub Security tab
+        id: upload_frontdesk
+        if: steps.scan_frontdesk.outcome == 'success'
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
         with:
           sarif_file: trivy-frontdesk-image.sarif
           category: published-frontdesk-image
 
-      # Gates run last, after both SARIF uploads: a failing gate must never cost
-      # us the Security tab record of why it failed.
+      # Gates run after both uploads, so a gate failure never costs us the
+      # Security tab record of why it failed, and each gate is tied only to its
+      # own image's pull: an unreachable Front Desk image must not let an
+      # actionable app-image vulnerability through unremarked.
       #
       # Same actionable-only policy as the CI gate: fixable HIGH/CRITICAL only.
       - name: Scan published image for fixable HIGH/CRITICAL vulnerabilities
+        id: gate_app
+        if: steps.pull_app.outcome == 'success'
+        continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: docker.io/hugalafutro/model-hotel:latest
+          image-ref: ${{ env.APP_IMAGE }}
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: 1
           timeout: 15m
 
       - name: Scan published Front Desk image for fixable HIGH/CRITICAL vulnerabilities
+        id: gate_frontdesk
+        if: steps.pull_frontdesk.outcome == 'success'
+        continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: docker.io/hugalafutro/model-hotel-frontdesk:latest
+          image-ref: ${{ env.FRONTDESK_IMAGE }}
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: 1
           timeout: 15m
+
+      # Single place that decides red or green. Every step above is
+      # continue-on-error so none of them can abort the others, which means the
+      # job's own status would be green no matter what happened; this step is
+      # what makes it honest, and it names the failing step so the run does not
+      # need archaeology to interpret.
+      - name: Summarise scan outcomes
+        if: always()
+        env:
+          OUTCOMES: >-
+            pull_app=${{ steps.pull_app.outcome }}
+            scan_app=${{ steps.scan_app.outcome }}
+            upload_app=${{ steps.upload_app.outcome }}
+            gate_app=${{ steps.gate_app.outcome }}
+            pull_frontdesk=${{ steps.pull_frontdesk.outcome }}
+            scan_frontdesk=${{ steps.scan_frontdesk.outcome }}
+            upload_frontdesk=${{ steps.upload_frontdesk.outcome }}
+            gate_frontdesk=${{ steps.gate_frontdesk.outcome }}
+        run: |
+          # shellcheck disable=SC2086 # deliberate split: one argument per outcome
+          scripts/ci/summarise-scan-outcomes.sh $OUTCOMES
