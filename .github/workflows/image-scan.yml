@@ -25,6 +25,27 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Pull the image ourselves, with retries, instead of letting Trivy fetch
+      # it from the registry: a single Docker Hub blip (`dial tcp ...: i/o
+      # timeout`) used to fail the whole job, and because this is the only
+      # workflow that uploads Trivy SARIF, the Security tab then showed the
+      # tool as failing for a week. Trivy resolves the image from the local
+      # docker daemon first, so both scans below reuse this one pull.
+      - name: Pull published image (with retries)
+        env:
+          IMAGE: docker.io/hugalafutro/model-hotel:latest
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if docker pull "$IMAGE"; then
+              exit 0
+            fi
+            echo "::warning::docker pull $IMAGE failed (attempt $attempt/3)"
+            sleep $((attempt * 30))
+          done
+          echo "::error::could not pull $IMAGE after 3 attempts"
+          exit 1
+
       # Full-picture report (all severities, unfixed included) for the GitHub
       # Security tab, so findings are tracked over time — deliberately broader
       # than the gate below, which only fails on what is actionable.
@@ -35,6 +56,9 @@ jobs:
           image-ref: docker.io/hugalafutro/model-hotel:latest
           format: sarif
           output: trivy-image.sarif
+          # Well above Trivy's 5m default: the image is already local, but the
+          # vulnerability DB download still goes over the network.
+          timeout: 15m
 
       - name: Upload SARIF to GitHub Security tab
         uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
@@ -51,3 +75,4 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: 1
+          timeout: 15m
