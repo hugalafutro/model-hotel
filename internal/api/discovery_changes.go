@@ -179,6 +179,28 @@ func collapseRoundTrips(entries []DiscoveryChangeEntry) []DiscoveryChangeEntry {
 	return out
 }
 
+// stripDisabledBucket removes the `disabled` membership bucket from every entry
+// and drops entries left empty by the removal. Those models are represented as
+// claims derived from live state, and showing the same fact in both zones would
+// give it two different lifecycles: the claim resolves when the model returns,
+// while the journal entry would sit there forever saying it left.
+func stripDisabledBucket(entries []DiscoveryChangeEntry) []DiscoveryChangeEntry {
+	out := make([]DiscoveryChangeEntry, 0, len(entries))
+	for _, e := range entries {
+		if e.Diff == nil {
+			continue
+		}
+		trimmed := *e.Diff
+		trimmed.Disabled = nil
+		if diffIsEmpty(&trimmed) {
+			continue
+		}
+		e.Diff = &trimmed
+		out = append(out, e)
+	}
+	return out
+}
+
 // AppendDiscoveryChange records one provider's background-discovery diff for
 // later review. Empty diffs are skipped. Returns true when a row was written so
 // the caller can decide whether to publish a live-update event. providerID may

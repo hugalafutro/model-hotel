@@ -83,10 +83,11 @@ func TestDiscoveryChangesStore_RoundTrip(t *testing.T) {
 	}
 }
 
-// TestDiscoveryChangesHandlers_HTTP exercises the GET /discovery/changes and
-// POST /discovery/changes/ack endpoints over the full router: the badge GET
-// reports the affected-model count, and ack clears the pending rows while
-// returning the just-cleared snapshot for the review modal.
+// TestDiscoveryChangesHandlers_HTTP exercises POST /discovery/changes/ack over
+// the full router: it clears the pending journal rows and returns exactly the
+// just-cleared snapshot for the review modal. (GET /discovery/changes no
+// longer exists — GetDiscoveryStatus's HTTP behavior is covered separately in
+// discovery_status_test.go.)
 func TestDiscoveryChangesHandlers_HTTP(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	pool := h.dbPool.Pool()
@@ -123,14 +124,14 @@ func TestDiscoveryChangesHandlers_HTTP(t *testing.T) {
 		return resp
 	}
 
-	// GET surfaces the pending entry and its affected-model count (2: one added,
-	// one updated).
-	got := doReq("GET", "/discovery/changes")
-	if got.Count != 2 {
-		t.Errorf("GET count = %d, want 2", got.Count)
+	// Sanity: the row is actually pending before the ack runs, so a no-op ack
+	// could not pass this test vacuously.
+	pending, err := listPendingDiscoveryChanges(ctx, pool)
+	if err != nil {
+		t.Fatalf("list pending: %v", err)
 	}
-	if len(got.Entries) != 1 || got.Entries[0].ProviderName != "DeepSeek" {
-		t.Fatalf("GET entries = %+v, want one DeepSeek entry", got.Entries)
+	if len(pending) != 1 || pending[0].ProviderName != "DeepSeek" {
+		t.Fatalf("pending before ack = %+v, want one DeepSeek entry", pending)
 	}
 
 	// Ack clears the badge (Count 0) but echoes the cleared rows for the modal.
@@ -138,14 +139,17 @@ func TestDiscoveryChangesHandlers_HTTP(t *testing.T) {
 	if acked.Count != 0 {
 		t.Errorf("ack count = %d, want 0", acked.Count)
 	}
-	if len(acked.Entries) != 1 {
-		t.Fatalf("ack entries = %+v, want the one cleared row", acked.Entries)
+	if len(acked.Entries) != 1 || acked.Entries[0].ProviderName != "DeepSeek" {
+		t.Fatalf("ack entries = %+v, want the one cleared DeepSeek row", acked.Entries)
 	}
 
-	// A second GET now sees nothing pending and reports an empty (non-nil) list.
-	after := doReq("GET", "/discovery/changes")
-	if after.Count != 0 || len(after.Entries) != 0 {
-		t.Errorf("post-ack GET = %+v, want empty", after)
+	// The row is gone from the pending set after ack.
+	after, err := listPendingDiscoveryChanges(ctx, pool)
+	if err != nil {
+		t.Fatalf("list pending after ack: %v", err)
+	}
+	if len(after) != 0 {
+		t.Errorf("pending after ack = %+v, want none", after)
 	}
 }
 

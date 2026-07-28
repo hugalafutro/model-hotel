@@ -67,27 +67,128 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 		r.Get("/", h.GetOllamaCloudAccount)
 	})
 	r.Route("/discovery/changes", func(r chi.Router) {
-		r.Get("/", h.GetDiscoveryChanges)
 		r.Post("/ack", h.AckDiscoveryChanges)
 	})
+	r.Get("/discovery/status", h.GetDiscoveryStatus)
 }
 
-// GetDiscoveryChanges returns the unseen background-discovery diffs (newest
-// first) and the total affected-model count powering the Models nav badge.
-func (h *Handler) GetDiscoveryChanges(w http.ResponseWriter, r *http.Request) {
-	entries, err := listPendingDiscoveryChanges(r.Context(), h.dbPool.Pool())
+// settingKeyDiscoveryLastReviewed marks when the operator last opened the
+// discrepancy modal, so flap counts can be reported "since your last visit".
+const settingKeyDiscoveryLastReviewed = "_discovery_last_reviewed_at"
+
+// DiscoveryStatusResponse powers the Models nav badge and its modal. ClaimCount
+// counts Gone models only: Stale and Suspect are shown but never inflate the
+// badge, so a non-zero badge always means something might actually be wrong.
+// InformationalUnseen drives the badge dot when ClaimCount is 0.
+type DiscoveryStatusResponse struct {
+	Claims              []ProviderClaims       `json:"claims"`
+	Informational       []DiscoveryChangeEntry `json:"informational"`
+	ClaimCount          int                    `json:"claim_count"`
+	InformationalUnseen int                    `json:"informational_unseen"`
+}
+
+// GetDiscoveryStatus derives the current claim set from live model state and
+// pairs it with the informational journal feed.
+//
+// With ?review=1 (the modal-open fetch) it reads the previous last-reviewed
+// stamp, computes flap counts against it, and only THEN writes the new stamp.
+// Reading before writing is what makes "since your last visit" describe the
+// previous visit instead of collapsing to zero. The 60s badge poll omits the
+// parameter and never writes.
+func (h *Handler) GetDiscoveryStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	pool := h.dbPool.Pool()
+	now := time.Now()
+	windowStart := now.Add(-ClaimWindow)
+
+	rows, err := listClaimRows(ctx, pool)
+	if err != nil {
+		respondError(w, "failed to load discovery claims", err, http.StatusInternalServerError)
+		return
+	}
+
+	window, err := flapCounts(ctx, pool, windowStart)
+	if err != nil {
+		respondError(w, "failed to load discovery flap counts", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Only the modal-open variant needs the since-review numbers, so the 60s
+	// badge poll never pays for the second flap query.
+	review := r.URL.Query().Get("review") == "1"
+	sinceReview := map[flapKey]int{}
+	if review {
+		lastReviewed := parseLastReviewed(ctx, h.settingsRepo)
+		switch {
+		case lastReviewed.IsZero():
+			// First ever review: everything in the window is new to this operator.
+			sinceReview = window
+		case lastReviewed.Before(windowStart):
+			// Journal rows are pruned at ClaimWindow (pruneDiscoveryChanges), so a
+			// stamp older than the window would ask flapCounts to look further
+			// back than the surviving journal actually reaches, silently
+			// deriving the number from rows that no longer exist. Clamp the
+			// lookback to the window: past that point the honest answer is
+			// "everything we still know about", which is exactly the window
+			// count already computed above.
+			sinceReview = window
+		default:
+			if sinceReview, err = flapCounts(ctx, pool, lastReviewed); err != nil {
+				respondError(w, "failed to load discovery flap counts", err, http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
+	claims, count := buildProviderClaims(rows, window, sinceReview, now)
+
+	pending, err := listPendingDiscoveryChanges(ctx, pool)
 	if err != nil {
 		respondError(w, "failed to load discovery changes", err, http.StatusInternalServerError)
 		return
 	}
-	// Fold net-zero metadata round-trips so a value that swung out and back across
-	// several background runs stops inflating the badge and cluttering the modal.
-	entries = collapseRoundTrips(entries)
-	count := 0
-	for i := range entries {
-		count += countAffected(entries[i].Diff)
+	pending = collapseRoundTrips(pending)
+	// InformationalUnseen counts the raw unseen journal rows, not the display
+	// list below: a disabled-only entry still gets acked (and must stop
+	// driving the badge dot) even though stripDisabledBucket hides it from
+	// the feed, so the badge count has to come from before that strip.
+	unseenCount := len(pending)
+	informational := stripDisabledBucket(pending)
+
+	// Stamp last, and never in read-only mode: a GET must not 403 there, so the
+	// write is skipped rather than rejected.
+	if review && !h.cfg.DemoReadOnly {
+		// RFC3339Nano, not RFC3339: discovery_changes.detected_at is a
+		// microsecond-precision TIMESTAMPTZ (`DEFAULT now()`), and a
+		// second-truncated stamp can land at or after a journal row that was
+		// actually written before this review — re-counting on the very next
+		// review something the operator just saw.
+		if err := h.settingsRepo.Set(ctx, settingKeyDiscoveryLastReviewed, now.Format(time.RFC3339Nano)); err != nil {
+			debuglog.Error("discovery: failed to stamp last-reviewed", "error", err)
+		}
 	}
-	writeJSON(w, DiscoveryChangesResponse{Entries: entries, Count: count})
+
+	writeJSON(w, DiscoveryStatusResponse{
+		Claims:              claims,
+		Informational:       informational,
+		ClaimCount:          count,
+		InformationalUnseen: unseenCount,
+	})
+}
+
+// parseLastReviewed returns the stored review stamp, or the zero time when it
+// is unset or unparseable. A corrupt value degrades to "never reviewed", which
+// over-reports flaps rather than hiding them.
+func parseLastReviewed(ctx context.Context, store SettingsStore) time.Time {
+	raw := store.GetWithDefault(ctx, settingKeyDiscoveryLastReviewed, "")
+	if raw == "" {
+		return time.Time{}
+	}
+	ts, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return time.Time{}
+	}
+	return ts
 }
 
 // AckDiscoveryChanges atomically marks all unseen background-discovery diffs as
