@@ -25,36 +25,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Pull the image ourselves, with retries, instead of letting Trivy fetch
-      # it from the registry: a single Docker Hub blip (`dial tcp ...: i/o
-      # timeout`) used to fail the whole job, and because this is the only
-      # workflow that uploads Trivy SARIF, the Security tab then showed the
-      # tool as failing for a week. Trivy resolves the image from the local
-      # docker daemon first, so both scans below reuse this one pull.
-      - name: Pull published images (with retries)
+      # Each image is pulled immediately before its own scan, and never in a
+      # shared step: a failed pull aborts the job, so batching both pulls up
+      # front would mean an unreachable Front Desk image costs us the app
+      # image's report too. That is the same "lost a week of scanning to a
+      # registry blip" failure this workflow is trying to stop having.
+      #
+      # We pull rather than letting Trivy fetch from the registry so a single
+      # Docker Hub blip (`dial tcp ...: i/o timeout`) gets retried instead of
+      # killing the run. Trivy resolves an image from the local docker daemon
+      # before the registry, so each scan reuses the pull above it.
+      - name: Pull published image (with retries)
         env:
-          IMAGES: >-
-            docker.io/hugalafutro/model-hotel:latest
-            docker.io/hugalafutro/model-hotel-frontdesk:latest
-        run: |
-          set -euo pipefail
-          for image in $IMAGES; do
-            pulled=false
-            for attempt in 1 2 3; do
-              if docker pull "$image"; then
-                pulled=true
-                break
-              fi
-              echo "::warning::docker pull $image failed (attempt $attempt/3)"
-              if [ "$attempt" -lt 3 ]; then
-                sleep $((attempt * 30))
-              fi
-            done
-            if [ "$pulled" = false ]; then
-              echo "::error::could not pull $image after 3 attempts"
-              exit 1
-            fi
-          done
+          IMAGE: docker.io/hugalafutro/model-hotel:latest
+        run: scripts/ci/pull-image-with-retries.sh "$IMAGE"
 
       # Full-picture report (all severities, unfixed included) for the GitHub
       # Security tab, so findings are tracked over time — deliberately broader
@@ -79,6 +63,11 @@ jobs:
       # The Front Desk control plane is published from the same release, so it
       # ages the same way and deserves the same weekly look. A distinct SARIF
       # category keeps its findings from overwriting the app image's.
+      - name: Pull published Front Desk image (with retries)
+        env:
+          IMAGE: docker.io/hugalafutro/model-hotel-frontdesk:latest
+        run: scripts/ci/pull-image-with-retries.sh "$IMAGE"
+
       - name: Scan published Front Desk image (SARIF report)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
