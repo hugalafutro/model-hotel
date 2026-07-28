@@ -296,6 +296,93 @@ func TestBuildQuotaAdvice_ZeroMaxAgeRecoversNothing(t *testing.T) {
 	}
 }
 
+// TestBuildQuotaAdvice_FailedRefreshIsNotRecoveryEvidence is the unit-level
+// reproduction of the Greptile P1: RecordFailure preserves the last good
+// payload and fetched_at, so a row whose most recent refresh attempt failed
+// can still look fresh and healthy. That must not count as affirmative proof
+// the provider recovered.
+func TestBuildQuotaAdvice_FailedRefreshIsNotRecoveryEvidence(t *testing.T) {
+	now := time.Now()
+	healthy, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 1000, "nextResetTime": now.Add(4 * time.Hour).UnixMilli()},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	id := uuid.New()
+	typeByID := map[uuid.UUID]string{id: "zai-coding"}
+
+	_, recovered := buildQuotaAdvice(
+		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: healthy, FetchedAt: now, LastError: "upstream 500"}},
+		typeByID, 15*time.Minute, now,
+	)
+
+	if _, ok := recovered[id]; ok {
+		t.Error("a fresh, healthy-looking snapshot whose latest refresh failed (LastError set) must not count as recovery")
+	}
+}
+
+// TestBuildQuotaAdvice_FailedRefreshGuardIsWhatMakesTheDifference is the
+// control for the test above: the exact same row, with LastError cleared,
+// must appear in recovered. Without this, the previous test could pass for
+// an unrelated reason (e.g. a payload-shape mistake) rather than because of
+// the LastError guard specifically.
+func TestBuildQuotaAdvice_FailedRefreshGuardIsWhatMakesTheDifference(t *testing.T) {
+	now := time.Now()
+	healthy, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 1000, "nextResetTime": now.Add(4 * time.Hour).UnixMilli()},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	id := uuid.New()
+	typeByID := map[uuid.UUID]string{id: "zai-coding"}
+
+	_, recovered := buildQuotaAdvice(
+		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: healthy, FetchedAt: now, LastError: ""}},
+		typeByID, 15*time.Minute, now,
+	)
+
+	if _, ok := recovered[id]; !ok {
+		t.Error("the same fresh, healthy row without LastError must count as recovery — proves the guard, not something else, made the difference")
+	}
+}
+
+// TestBuildQuotaAdvice_FailedRefreshStillAdvisesExhaustion pins the
+// deliberate asymmetry: a fresh, exhausted snapshot whose latest refresh
+// failed must still be advised. Holding a pin does not need the same proof
+// releasing one does — the last known good exhausted reading, still inside
+// the staleness bound, is a reasonable basis for continuing to hold. This
+// guards against a future "tidy up" that applies the LastError guard
+// symmetrically to both paths.
+func TestBuildQuotaAdvice_FailedRefreshStillAdvisesExhaustion(t *testing.T) {
+	now := time.Now()
+	resetsAt := now.Add(4 * time.Hour)
+	exhausted, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 0, "nextResetTime": resetsAt.UnixMilli()},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	id := uuid.New()
+	typeByID := map[uuid.UUID]string{id: "zai-coding"}
+
+	advice, _ := buildQuotaAdvice(
+		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: exhausted, FetchedAt: now, LastError: "upstream 500"}},
+		typeByID, 15*time.Minute, now,
+	)
+
+	if _, ok := advice[id]; !ok {
+		t.Error("a fresh, still-exhausted snapshot whose latest refresh failed must still be advised — holding a pin does not require affirmative proof, only releasing does")
+	}
+}
+
 // TestBuildQuotaAdvice_ExhaustionWinsOverRecoveryForTheSameProvider covers the
 // one way a provider can land in both halves: a base URL edited from one
 // quota-capable type to another leaves the old snapshot row behind, so two rows

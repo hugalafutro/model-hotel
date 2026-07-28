@@ -604,6 +604,7 @@ func TestRefreshQuotaAdvice_ReleasesPinsOnlyOnFreshRecoveryEvidence(t *testing.T
 		fetchedAt  time.Time
 		seed       bool
 		wantPinned bool
+		lastError  string
 		why        string
 	}{
 		{
@@ -631,6 +632,12 @@ func TestRefreshQuotaAdvice_ReleasesPinsOnlyOnFreshRecoveryEvidence(t *testing.T
 			name: "zai-no-snapshot", seed: false, wantPinned: true,
 			why: "a provider with no snapshot at all has never reported recovery",
 		},
+		{
+			name:      "zai-failed-refresh",
+			payload:   json.RawMessage(`{"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"remaining":5000,"nextResetTime":0}]}}`),
+			fetchedAt: now, seed: true, wantPinned: true, lastError: "upstream 500",
+			why: "a fresh, healthy-looking snapshot whose latest refresh attempt failed is not affirmative recovery evidence — RecordFailure preserves the last good payload, so this looks identical to a genuine recovery except for LastError",
+		},
 	}
 
 	ids := make([]uuid.UUID, len(cases))
@@ -642,6 +649,11 @@ func TestRefreshQuotaAdvice_ReleasesPinsOnlyOnFreshRecoveryEvidence(t *testing.T
 				FetchedAt: c.fetchedAt, Payload: c.payload,
 			}); err != nil {
 				t.Fatalf("seed %s snapshot: %v", c.name, err)
+			}
+			if c.lastError != "" {
+				if err := h.quotaRepo.RecordFailure(ctx, ids[i], "usage", c.lastError); err != nil {
+					t.Fatalf("record failure for %s: %v", c.name, err)
+				}
 			}
 		}
 		cb.RecordFailure(ids[i], c.name)

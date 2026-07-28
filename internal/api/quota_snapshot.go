@@ -304,9 +304,12 @@ func (h *Handler) DisableQuotaAdvice(ctx context.Context) {
 //   - recovered: providers a fresh snapshot was successfully assessed for and
 //     found *not* exhausted. This is the only thing that lifts a pin already in
 //     force, so it must be affirmative. A stale snapshot, a payload that could
-//     not be assessed, and a provider with no snapshot at all are all simply
-//     absent from both sets: they are unknowns, not recoveries, and the pin they
-//     would otherwise release is most likely still deserved.
+//     not be assessed, a provider with no snapshot at all, and a snapshot whose
+//     latest refresh attempt failed (LastError set — RecordFailure preserves the
+//     last good payload and fetched_at, so a failed row can still look fresh and
+//     healthy) are all simply absent from both sets: they are unknowns, not
+//     recoveries, and the pin they would otherwise release is most likely still
+//     deserved.
 func buildQuotaAdvice(
 	snaps []quota.Snapshot,
 	typeByID map[uuid.UUID]string,
@@ -334,6 +337,21 @@ func buildQuotaAdvice(
 		}
 		if a.Exhausted {
 			advice[s.ProviderID] = a.ResetsAt
+			continue
+		}
+		// A row whose latest refresh attempt failed still carries the last good
+		// payload and fetched_at (RecordFailure deliberately preserves both), so
+		// it can look fresh and healthy while the most recent attempt to verify
+		// it did not succeed. This guard applies to the recovered path only,
+		// not to advice above, and that asymmetry is deliberate: releasing a
+		// pin requires affirmative proof that the provider is healthy, so a
+		// reading whose latest refresh failed does not qualify. Holding a pin
+		// does not require the same proof: the last known good reading, still
+		// inside the staleness bound, is a reasonable basis for continuing to
+		// hold, and the bound already handles a prolonged outage. Wrongly
+		// holding costs a delayed probe; wrongly releasing puts a spent
+		// provider back in rotation.
+		if s.LastError != "" {
 			continue
 		}
 		recovered[s.ProviderID] = struct{}{}
