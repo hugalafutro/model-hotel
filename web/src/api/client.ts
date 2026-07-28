@@ -7,6 +7,7 @@ import type {
 	BackupClassification,
 	BackupEntry,
 	CandidateModel,
+	CircuitBreakerResetResult,
 	CircuitBreakerStatus,
 	CreateFailoverGroupRequest,
 	CreateProviderRequest,
@@ -1122,6 +1123,21 @@ export const api = {
 					headers: getAuthHeaders(),
 				},
 				"Failed to fetch circuit breaker status",
+			);
+		},
+		// Forces one provider's circuit closed so it returns to rotation without
+		// waiting out the cooldown. Not blocked on a managed fleet member: a
+		// circuit is local runtime health, not synced config.
+		resetCircuitBreaker: async (
+			providerId: string,
+		): Promise<CircuitBreakerResetResult> => {
+			return fetchJSON<CircuitBreakerResetResult>(
+				`${API_BASE}/api/failover-groups/circuit-breaker/${encodeURIComponent(providerId)}/reset`,
+				{
+					method: "POST",
+					headers: getAuthHeaders(),
+				},
+				"Failed to reset circuit breaker",
 			);
 		},
 	},

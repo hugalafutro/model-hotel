@@ -41,6 +41,8 @@ export function FailoverGroupCard({
 	onEdit,
 	managed,
 	cbProviderMap,
+	onResetCircuit,
+	resetPendingProviderId,
 }: {
 	group: FailoverGroup;
 	selected: boolean;
@@ -57,6 +59,11 @@ export function FailoverGroupCard({
 	// runtime overrides; selection/bulk affordances are gated upstream too.
 	managed?: boolean;
 	cbProviderMap: Map<string, CircuitBreakerProviderStatus>;
+	// Passed straight to the entries. Unlike every other write on this card it
+	// survives `managed`: clearing a circuit is local runtime recovery, not a
+	// config edit the primary would overwrite.
+	onResetCircuit?: (providerId: string, providerName: string) => void;
+	resetPendingProviderId?: string;
 }) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -225,6 +232,8 @@ export function FailoverGroupCard({
 								onToggle={onToggleEntry}
 								locked={managed}
 								cbStatus={cbProviderMap.get(entry.provider_id)}
+								onResetCircuit={onResetCircuit}
+								resetPending={resetPendingProviderId === entry.provider_id}
 							/>
 						))}
 					</div>

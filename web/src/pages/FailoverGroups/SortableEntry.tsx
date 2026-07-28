@@ -2,6 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { RotateCcw } from "@/lib/icons";
 import type { FailoverGroup } from "../../api/types";
 import { FuseOutline } from "../../components/FuseOutline";
 import { Toggle } from "../../components/Toggle";
@@ -26,6 +27,12 @@ export interface SortableEntryProps {
 		// that deadline.
 		quota_pinned?: boolean;
 	};
+	// Forces this provider's circuit closed. Omitted when the caller cannot
+	// reset (read-only demo mode), which is what hides the control. Deliberately
+	// NOT gated on `locked`: a breaker is local runtime health, not synced
+	// config, so a managed member must still be able to clear its own.
+	onResetCircuit?: (providerId: string, providerName: string) => void;
+	resetPending?: boolean;
 }
 
 // A quota pin can run for hours or days, and a CSS animation over that span is
@@ -40,6 +47,8 @@ export function SortableEntry({
 	onToggle,
 	locked,
 	cbStatus,
+	onResetCircuit,
+	resetPending,
 }: SortableEntryProps) {
 	const { t } = useTranslation();
 	const draggable = groupEnabled && !locked;
@@ -187,6 +196,23 @@ export function SortableEntry({
 					</span>
 				)}
 			</div>
+			{/* Offered exactly where the fuse burns, i.e. an enabled member whose
+			    circuit is open or half-open. A closed circuit has nothing to reset,
+			    and a member the operator has switched off shows no breaker state at
+			    all, so a lone reset button there would have no context to act on. */}
+			{showFuse && onResetCircuit && (
+				<button
+					type="button"
+					data-testid="failover-entry-reset-circuit"
+					className="ui-icon-btn ui-icon-btn-warning shrink-0"
+					disabled={resetPending}
+					onClick={() => onResetCircuit(entry.provider_id, entry.provider_name)}
+					title={t("failoverGroups.entry.resetCircuitBreaker")}
+					aria-label={t("failoverGroups.entry.resetCircuitBreaker")}
+				>
+					<RotateCcw size={14} />
+				</button>
+			)}
 			<Toggle
 				size="sm"
 				// Reflect effective state: an entry whose model/provider is disabled
