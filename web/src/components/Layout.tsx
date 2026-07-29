@@ -747,7 +747,7 @@ export function Layout({ children }: LayoutProps) {
 		error: discrepanciesError,
 		refreshError,
 		dismissClaim,
-		restoreSnapshot,
+		restoreClaim,
 	} = useDiscrepancies(showDiscrepancies);
 	const [retestErrors, setRetestErrors] = useState<Record<string, string>>({});
 	const [retestAllProgress, setRetestAllProgress] = useState<
@@ -896,12 +896,16 @@ export function Layout({ children }: LayoutProps) {
 
 	const onDismiss = useCallback(
 		async (providerId: string, modelId: string) => {
-			// LEDGERED: `before` is the whole snapshot array, so a rollback also
-			// discards anything a refresh landed while the dismiss was in flight.
-			// Narrow window (one request, and dismiss is not offered on rows a
-			// refresh is likely to be changing) and the alternative is a per-claim
-			// undo record; left as is deliberately rather than by oversight.
-			const before = snapshot;
+			// Only this claim's own status is captured, never the whole array. A
+			// refresh can settle while the dismiss is in flight (a retest finishing,
+			// an undo, a second dismiss), and replaying a stale array over it would
+			// resurrect claims that refresh had just resolved and erase ones it had
+			// just discovered. Defaults to `pending` for the unreachable case of the
+			// row having left the snapshot entirely between render and click.
+			const before =
+				snapshot
+					.find((p: MergedProvider) => p.provider_id === providerId)
+					?.gone.find((c) => c.model_id === modelId)?.status ?? "pending";
 			dismissClaim(providerId, modelId);
 			try {
 				// Exactly one model per request. The endpoint 200s with a short
@@ -929,7 +933,7 @@ export function Layout({ children }: LayoutProps) {
 					},
 				);
 			} catch (err) {
-				restoreSnapshot(before);
+				restoreClaim(providerId, modelId, before);
 				toast(
 					t("providers.discrepancies.dismissFailed", {
 						message: err instanceof Error ? err.message : String(err),
@@ -938,7 +942,7 @@ export function Layout({ children }: LayoutProps) {
 				);
 			}
 		},
-		[snapshot, dismissClaim, restoreSnapshot, refresh, toast, t, undoDismiss],
+		[snapshot, dismissClaim, restoreClaim, refresh, toast, t, undoDismiss],
 	);
 
 	// `exact: true` on BOTH invalidations below, and it is not optional.

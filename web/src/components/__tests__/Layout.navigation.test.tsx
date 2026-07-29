@@ -1165,6 +1165,89 @@ describe("Layout", () => {
 			expect(screen.queryByTestId("toast-action")).toBeNull();
 		});
 
+		it("reverts only the dismissed claim when the write fails, keeping newer state", async () => {
+			// Rollback used to put back the WHOLE snapshot array captured before the
+			// request. Anything that landed while the dismiss was in flight was then
+			// discarded: a claim the refresh resolved came back as pending, and a
+			// claim the refresh discovered vanished until the next fetch. The revert
+			// must touch exactly the one claim it optimistically changed.
+			let phase = 0;
+			let releaseDismiss: (() => void) | undefined;
+			const dismissGate = new Promise<void>((resolve) => {
+				releaseDismiss = resolve;
+			});
+			server.use(
+				http.get("/api/discovery/status", () => {
+					// After the retest: `b` has cleared and `c` has appeared.
+					const gone = (phase === 0 ? ["a", "b"] : ["a", "c"]).map((m) =>
+						claim(m),
+					);
+					return HttpResponse.json(
+						status({
+							claim_count: gone.length,
+							claims: [providerClaims("p1", "One", gone)],
+						}),
+					);
+				}),
+				http.post("/api/providers/:id/discover", () => {
+					phase = 1;
+					return HttpResponse.json({ discovered: 0, diff: {} });
+				}),
+				http.post("/api/discovery/dismiss", async () => {
+					await dismissGate;
+					return HttpResponse.json({ error: "boom" }, { status: 500 });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const row = (id: string) =>
+				screen
+					.queryAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === id);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await waitFor(() => expect(row("a")).toBeTruthy());
+
+			// Dismiss `a`; the request hangs.
+			await user.click(
+				row("a")?.querySelector(
+					'[data-testid="discrepancy-dismiss"]',
+				) as HTMLElement,
+			);
+			await waitFor(() =>
+				expect(row("a")).toHaveAttribute("data-status", "resolved"),
+			);
+
+			// A retest lands its refresh while the dismiss is still out.
+			await user.click(await screen.findByTestId("discrepancy-retest"));
+			await waitFor(() => expect(row("c")).toBeTruthy());
+			expect(row("b")).toHaveAttribute("data-status", "resolved");
+
+			releaseDismiss?.();
+
+			// The optimistic change is undone...
+			await waitFor(() =>
+				expect(row("a")).toHaveAttribute("data-status", "pending"),
+			);
+			// ...and nothing the refresh established is undone with it.
+			expect(row("c")).toBeTruthy();
+			expect(row("c")).toHaveAttribute("data-status", "new");
+			expect(row("b")).toHaveAttribute("data-status", "resolved");
+
+			// The revert restores the status the row actually held, not a hardcoded
+			// `pending`: `c` appeared during this session, and losing its "new"
+			// marker to a failed dismiss would erase that fact from the modal.
+			// The gate is already open, so this dismiss fails immediately.
+			await user.click(
+				row("c")?.querySelector(
+					'[data-testid="discrepancy-dismiss"]',
+				) as HTMLElement,
+			);
+			await waitFor(() =>
+				expect(row("c")).toHaveAttribute("data-status", "new"),
+			);
+		});
+
 		it("acknowledges the journal once it is expanded, without re-stamping review", async () => {
 			let acks = 0;
 			let reviewStamps = 0;

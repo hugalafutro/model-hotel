@@ -40,24 +40,65 @@ export function toSnapshot(claims: ProviderClaims[]): MergedProvider[] {
 	}));
 }
 
-function mergeGroup(
-	existing: MergedClaim[],
-	fresh: ModelClaim[],
-): MergedClaim[] {
-	const byID = new Map(fresh.map((c) => [c.model_id, c]));
-	// Existing entries keep their slot so a claim that clears is struck through
-	// where it already was, rather than vanishing out from under the cursor.
-	const merged: MergedClaim[] = existing.map((prev) => {
-		const now = byID.get(prev.model_id);
-		byID.delete(prev.model_id);
-		return now
-			? { ...now, status: "pending" as const }
-			: { ...prev, status: "resolved" as const };
-	});
-	for (const added of byID.values()) {
-		merged.push({ ...added, status: "new" });
+type Buckets = Record<GroupName, MergedClaim[]>;
+
+const emptyBuckets = (): Buckets => ({ gone: [], stale: [], suspect: [] });
+
+/**
+ * Reconciles ONE provider's three buckets against a refetch, keyed on
+ * `model_id` ACROSS the buckets rather than within each of them.
+ *
+ * Per-bucket reconciliation is wrong because the buckets are three states of the
+ * same claim, not three independent lists. A model that degrades suspect -> gone
+ * (or ages gone -> stale) leaves one bucket and enters another, so bucket-local
+ * merging reads one fact as two: `resolved` in the bucket it left and `new` in
+ * the bucket it entered. The operator then sees the same model twice, once
+ * struck through as fixed, at the exact moment it got worse.
+ *
+ * Ordering, in three tiers per bucket:
+ *
+ *  1. rows the snapshot already had in THIS bucket, at their original indices,
+ *     whether they stayed pending or resolved. Keeping a cleared claim exactly
+ *     where it sat is the invariant this whole rework exists for.
+ *  2. rows that moved in from another bucket, appended in snapshot order.
+ *  3. rows seen for the first time in this refetch, appended last.
+ *
+ * The refetch's own ordering is deliberately not honoured for tiers 1 and 2: it
+ * would shuffle untouched rows out from under the cursor. A mover appends rather
+ * than jumping to the top for the same reason, and outranks a genuinely new row
+ * because the operator has already seen it.
+ */
+function mergeProviderBuckets(prev: MergedProvider, fresh: ProviderClaims) {
+	const freshByID = new Map<string, { claim: ModelClaim; group: GroupName }>();
+	for (const g of GROUPS) {
+		for (const c of fresh[g]) freshByID.set(c.model_id, { claim: c, group: g });
 	}
-	return merged;
+
+	const kept = emptyBuckets();
+	const moved = emptyBuckets();
+	const reconciled = new Set<string>();
+
+	for (const g of GROUPS) {
+		for (const before of prev[g]) {
+			const now = freshByID.get(before.model_id);
+			if (!now) {
+				kept[g].push({ ...before, status: "resolved" });
+				continue;
+			}
+			reconciled.add(before.model_id);
+			const row: MergedClaim = { ...now.claim, status: "pending" };
+			if (now.group === g) kept[g].push(row);
+			else moved[now.group].push(row);
+		}
+	}
+
+	const out = emptyBuckets();
+	for (const g of GROUPS) out[g] = [...kept[g], ...moved[g]];
+	for (const [id, entry] of freshByID) {
+		if (reconciled.has(id)) continue;
+		out[entry.group].push({ ...entry.claim, status: "new" });
+	}
+	return out;
 }
 
 /**
@@ -82,12 +123,7 @@ export function mergeClaims(
 			stale: [],
 			suspect: [],
 		};
-		const source = now ?? empty;
-		const next: MergedProvider = { ...prev };
-		for (const g of GROUPS) {
-			next[g] = mergeGroup(prev[g], source[g]);
-		}
-		return next;
+		return { ...prev, ...mergeProviderBuckets(prev, now ?? empty) };
 	});
 	for (const added of byID.values()) {
 		out.push({
@@ -102,31 +138,40 @@ export function mergeClaims(
 }
 
 /**
- * Optimistic dismiss: marks one claim `resolved` in place.
+ * Sets ONE claim's status in place, leaving every other row untouched.
  *
- * Deliberately not a removal. A row that vanishes on a click is the exact
+ * Both halves of a dismiss go through here: the optimistic half sets
+ * `resolved`, the rollback sets back whatever the row held before the click.
+ * Deliberately not a removal — a row that vanishes on a click is the exact
  * complaint this rework exists to fix, and `resolved` is already the vocabulary
  * for "was wrong, is not any more": it strikes the row through where it sits and
- * names it in the resolved summary. Pure, so the caller can keep the
- * pre-dismiss array and put it back verbatim when the write fails.
+ * names it in the resolved summary.
  *
- * Only `gone` is touched, because only `gone` rows offer a Dismiss control.
+ * Pure and single-claim, so the caller can apply it FUNCTIONALLY against
+ * whatever the snapshot happens to be when the write settles. Restoring a whole
+ * captured array instead would silently discard anything a concurrent refresh
+ * established in the meantime.
+ *
+ * All three buckets are scanned even though only `gone` rows offer a Dismiss
+ * control: `model_id` is unique within a provider, and a refresh landing during
+ * the request can legitimately have moved the row to another bucket.
  */
-export function markClaimResolved(
+export function setClaimStatus(
 	snapshot: MergedProvider[],
 	providerID: string,
 	modelID: string,
+	status: ClaimStatus,
 ): MergedProvider[] {
-	return snapshot.map((p) =>
-		p.provider_id === providerID
-			? {
-					...p,
-					gone: p.gone.map((c) =>
-						c.model_id === modelID ? { ...c, status: "resolved" as const } : c,
-					),
-				}
-			: p,
-	);
+	return snapshot.map((p) => {
+		if (p.provider_id !== providerID) return p;
+		const next: MergedProvider = { ...p };
+		for (const g of GROUPS) {
+			next[g] = p[g].map((c) =>
+				c.model_id === modelID ? { ...c, status } : c,
+			);
+		}
+		return next;
+	});
 }
 
 /** True when nothing in any group is still pending or new. */
@@ -221,15 +266,29 @@ export function useDiscrepancies(open: boolean) {
 		}
 	}, []);
 
-	/** Optimistic half of a dismiss; see `markClaimResolved`. */
+	/** Optimistic half of a dismiss; see `setClaimStatus`. */
 	const dismissClaim = useCallback((providerID: string, modelID: string) => {
-		setSnapshot((prev) => markClaimResolved(prev, providerID, modelID));
+		setSnapshot((prev) =>
+			setClaimStatus(prev, providerID, modelID, "resolved"),
+		);
 	}, []);
 
-	/** Rollback half: puts back an array the caller captured before dismissing. */
-	const restoreSnapshot = useCallback((previous: MergedProvider[]) => {
-		setSnapshot(previous);
-	}, []);
+	/**
+	 * Rollback half: reverts the ONE claim the dismiss optimistically changed,
+	 * back to the status it held when the operator clicked.
+	 *
+	 * Applied functionally against the current snapshot rather than by restoring
+	 * an array captured before the request. A refresh (a retest, an undo, another
+	 * dismiss) can settle inside that window, and replaying the pre-request array
+	 * over it would resurrect claims the refresh had just resolved and erase ones
+	 * it had just discovered — for as long as it takes the next fetch to land.
+	 */
+	const restoreClaim = useCallback(
+		(providerID: string, modelID: string, status: ClaimStatus) => {
+			setSnapshot((prev) => setClaimStatus(prev, providerID, modelID, status));
+		},
+		[],
+	);
 
 	return {
 		snapshot,
@@ -245,6 +304,6 @@ export function useDiscrepancies(open: boolean) {
 		refresh,
 		refreshError,
 		dismissClaim,
-		restoreSnapshot,
+		restoreClaim,
 	};
 }
