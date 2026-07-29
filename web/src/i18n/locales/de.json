@@ -852,6 +852,7 @@
 		"discrepancies": {
 			"title": "Modellabweichungen",
 			"empty": "Keine fehlenden oder instabilen Modelle. Alles stimmt mit den Anbieterlisten überein.",
+			"loading": "Modellabweichungen werden geprüft…",
 			"error": "Fehler",
 			"recentChanges": "Letzte Änderungen",
 			"new": "Neu",
@@ -867,8 +868,6 @@
 			"flapped_other": "{{count}} Schwankungen",
 			"flapWindowTooltip_one": "{{count}} Schwankung in den letzten 30 Tagen",
 			"flapWindowTooltip_other": "{{count}} Schwankungen in den letzten 30 Tagen",
-			"flapSinceTooltip_one": "{{count}} Schwankung seit Ihrem letzten Besuch",
-			"flapSinceTooltip_other": "{{count}} Schwankungen seit Ihrem letzten Besuch",
 			"resolved": "Behoben",
 			"resolvedPlain": "{{model}} wird wieder gelistet",
 			"resolvedDetail_one": "{{model}} wird wieder gelistet, nach {{count}} Schwankung",

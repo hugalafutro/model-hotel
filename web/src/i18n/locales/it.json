@@ -863,6 +863,7 @@
 		"discrepancies": {
 			"title": "Discrepanze dei modelli",
 			"empty": "Nessun modello mancante o instabile. Tutto corrisponde agli elenchi dei provider.",
+			"loading": "Ricerca di discrepanze dei modelli…",
 			"error": "Errore",
 			"recentChanges": "Modifiche recenti",
 			"new": "Nuovo",
@@ -881,9 +882,6 @@
 			"flapWindowTooltip_one": "{{count}} oscillazione negli ultimi 30 giorni",
 			"flapWindowTooltip_many": "{{count}} oscillazioni negli ultimi 30 giorni",
 			"flapWindowTooltip_other": "{{count}} oscillazioni negli ultimi 30 giorni",
-			"flapSinceTooltip_one": "{{count}} oscillazione dalla tua ultima visita",
-			"flapSinceTooltip_many": "{{count}} oscillazioni dalla tua ultima visita",
-			"flapSinceTooltip_other": "{{count}} oscillazioni dalla tua ultima visita",
 			"resolved": "Risolto",
 			"resolvedPlain": "{{model}} è di nuovo nell'elenco",
 			"resolvedDetail_one": "{{model}} è di nuovo nell'elenco, dopo {{count}} oscillazione",

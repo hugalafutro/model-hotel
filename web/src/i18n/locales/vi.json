@@ -852,6 +852,7 @@
 		"discrepancies": {
 			"title": "Sai lệch mô hình",
 			"empty": "Không có mô hình nào bị thiếu hay không ổn định. Mọi thứ đều khớp với danh sách của các nhà cung cấp.",
+			"loading": "Đang kiểm tra sai lệch mô hình…",
 			"error": "Lỗi",
 			"recentChanges": "Thay đổi gần đây",
 			"new": "Mới",
@@ -867,8 +868,6 @@
 			"flapped_other": "{{count}} lần dao động",
 			"flapWindowTooltip_one": "{{count}} lần dao động trong 30 ngày qua",
 			"flapWindowTooltip_other": "{{count}} lần dao động trong 30 ngày qua",
-			"flapSinceTooltip_one": "{{count}} lần dao động kể từ lần truy cập trước của bạn",
-			"flapSinceTooltip_other": "{{count}} lần dao động kể từ lần truy cập trước của bạn",
 			"resolved": "Đã giải quyết",
 			"resolvedPlain": "{{model}} đã xuất hiện lại trong danh sách",
 			"resolvedDetail_one": "{{model}} đã xuất hiện lại trong danh sách, sau {{count}} lần dao động",

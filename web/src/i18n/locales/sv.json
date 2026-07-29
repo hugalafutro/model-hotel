@@ -852,6 +852,7 @@
 		"discrepancies": {
 			"title": "Modellavvikelser",
 			"empty": "Inga saknade eller instabila modeller. Allt stämmer överens med leverantörernas listor.",
+			"loading": "Söker efter modellavvikelser…",
 			"error": "Fel",
 			"recentChanges": "Senaste ändringar",
 			"new": "Ny",
@@ -867,8 +868,6 @@
 			"flapped_other": "{{count}} fluktuationer",
 			"flapWindowTooltip_one": "{{count}} fluktuation under de senaste 30 dagarna",
 			"flapWindowTooltip_other": "{{count}} fluktuationer under de senaste 30 dagarna",
-			"flapSinceTooltip_one": "{{count}} fluktuation sedan ditt senaste besök",
-			"flapSinceTooltip_other": "{{count}} fluktuationer sedan ditt senaste besök",
 			"resolved": "Löst",
 			"resolvedPlain": "{{model}} finns med i listan igen",
 			"resolvedDetail_one": "{{model}} finns med i listan igen, efter {{count}} fluktuation",

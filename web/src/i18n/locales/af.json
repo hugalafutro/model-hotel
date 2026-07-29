@@ -852,6 +852,7 @@
 		"discrepancies": {
 			"title": "Modelafwykings",
 			"empty": "Geen ontbrekende of onstabiele modelle nie. Alles stem ooreen met die verskaffers se lyste.",
+			"loading": "Kontroleer tans vir modelafwykings…",
 			"error": "Fout",
 			"recentChanges": "Onlangse veranderinge",
 			"new": "Nuut",
@@ -867,8 +868,6 @@
 			"flapped_other": "{{count}} skommelings",
 			"flapWindowTooltip_one": "{{count}} skommeling in die laaste 30 dae",
 			"flapWindowTooltip_other": "{{count}} skommelings in die laaste 30 dae",
-			"flapSinceTooltip_one": "{{count}} skommeling sedert jou laaste besoek",
-			"flapSinceTooltip_other": "{{count}} skommelings sedert jou laaste besoek",
 			"resolved": "Opgelos",
 			"resolvedPlain": "{{model}} word weer gelys",
 			"resolvedDetail_one": "{{model}} word weer gelys, na {{count}} skommeling",

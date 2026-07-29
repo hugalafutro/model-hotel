@@ -874,6 +874,7 @@
 		"discrepancies": {
 			"title": "Rozbieżności modeli",
 			"empty": "Brak brakujących lub niestabilnych modeli. Wszystko jest zgodne z listami dostawców.",
+			"loading": "Sprawdzanie rozbieżności modeli…",
 			"error": "Błąd",
 			"recentChanges": "Ostatnie zmiany",
 			"new": "Nowy",
@@ -895,10 +896,6 @@
 			"flapWindowTooltip_few": "{{count}} wahania w ciągu ostatnich 30 dni",
 			"flapWindowTooltip_many": "{{count}} wahań w ciągu ostatnich 30 dni",
 			"flapWindowTooltip_other": "{{count}} wahania w ciągu ostatnich 30 dni",
-			"flapSinceTooltip_one": "{{count}} wahanie od Twojej ostatniej wizyty",
-			"flapSinceTooltip_few": "{{count}} wahania od Twojej ostatniej wizyty",
-			"flapSinceTooltip_many": "{{count}} wahań od Twojej ostatniej wizyty",
-			"flapSinceTooltip_other": "{{count}} wahania od Twojej ostatniej wizyty",
 			"resolved": "Rozwiązane",
 			"resolvedPlain": "{{model}} znów znajduje się na liście",
 			"resolvedDetail_one": "{{model}} znów znajduje się na liście, po {{count}} wahaniu",

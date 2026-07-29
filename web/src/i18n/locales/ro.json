@@ -863,6 +863,7 @@
 		"discrepancies": {
 			"title": "Discrepanțe ale modelelor",
 			"empty": "Niciun model lipsă sau instabil. Totul corespunde listelor furnizorilor.",
+			"loading": "Se verifică discrepanțele modelelor…",
 			"error": "Eroare",
 			"recentChanges": "Modificări recente",
 			"new": "Nou",
@@ -881,9 +882,6 @@
 			"flapWindowTooltip_one": "{{count}} fluctuație în ultimele 30 de zile",
 			"flapWindowTooltip_few": "{{count}} fluctuații în ultimele 30 de zile",
 			"flapWindowTooltip_other": "{{count}} de fluctuații în ultimele 30 de zile",
-			"flapSinceTooltip_one": "{{count}} fluctuație de la ultima ta vizită",
-			"flapSinceTooltip_few": "{{count}} fluctuații de la ultima ta vizită",
-			"flapSinceTooltip_other": "{{count}} de fluctuații de la ultima ta vizită",
 			"resolved": "Rezolvat",
 			"resolvedPlain": "{{model}} apare din nou în listă",
 			"resolvedDetail_one": "{{model}} apare din nou în listă, după {{count}} fluctuație",

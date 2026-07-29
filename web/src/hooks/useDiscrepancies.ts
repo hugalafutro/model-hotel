@@ -177,6 +177,14 @@ export function useDiscrepancies(open: boolean) {
 		} else {
 			setSeeded(false);
 			setRefreshError(null);
+			// Everything the last visit collected goes with it. These arrays are
+			// answers to a question the next open re-asks, and the next open renders
+			// before its fetch lands: keeping them would paint the previous
+			// session's rows over the new one, struck-through resolved rows and
+			// already-dismissed models included, until the fresh response arrived.
+			setSnapshot([]);
+			setGroupClaims([]);
+			setInformational([]);
 		}
 	}
 
@@ -227,6 +235,10 @@ export function useDiscrepancies(open: boolean) {
 		snapshot,
 		groupClaims,
 		informational,
+		// True only while the per-open fetch is still out, since the collections
+		// above are cleared on close and the query key changes per open. The modal
+		// MUST render this as its own state: with nothing collected yet and no
+		// error, "no discrepancies" is a claim the hook cannot back.
 		loading: query.isLoading,
 		isError: query.isError,
 		error: query.error,

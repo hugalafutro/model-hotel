@@ -863,6 +863,7 @@
 		"discrepancies": {
 			"title": "Одступања модела",
 			"empty": "Нема модела који недостају нити нестабилних модела. Све одговара листама провајдера.",
+			"loading": "Провера одступања модела…",
 			"error": "Грешка",
 			"recentChanges": "Недавне промене",
 			"new": "Ново",
@@ -881,9 +882,6 @@
 			"flapWindowTooltip_one": "{{count}} колебање у последњих 30 дана",
 			"flapWindowTooltip_few": "{{count}} колебања у последњих 30 дана",
 			"flapWindowTooltip_other": "{{count}} колебања у последњих 30 дана",
-			"flapSinceTooltip_one": "{{count}} колебање од ваше последње посете",
-			"flapSinceTooltip_few": "{{count}} колебања од ваше последње посете",
-			"flapSinceTooltip_other": "{{count}} колебања од ваше последње посете",
 			"resolved": "Решено",
 			"resolvedPlain": "{{model}} се поново налази на листи",
 			"resolvedDetail_one": "{{model}} се поново налази на листи, после {{count}} колебања",

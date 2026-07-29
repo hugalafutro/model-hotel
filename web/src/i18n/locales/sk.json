@@ -874,6 +874,7 @@
 		"discrepancies": {
 			"title": "Nezrovnalosti modelov",
 			"empty": "Žiadne chýbajúce ani nestabilné modely. Všetko zodpovedá zoznamom poskytovateľov.",
+			"loading": "Kontrolujú sa nezrovnalosti modelov…",
 			"error": "Chyba",
 			"recentChanges": "Nedávne zmeny",
 			"new": "Nové",
@@ -895,10 +896,6 @@
 			"flapWindowTooltip_few": "{{count}} výkyvy za posledných 30 dní",
 			"flapWindowTooltip_many": "{{count}} výkyvu za posledných 30 dní",
 			"flapWindowTooltip_other": "{{count}} výkyvov za posledných 30 dní",
-			"flapSinceTooltip_one": "{{count}} výkyv od vašej poslednej návštevy",
-			"flapSinceTooltip_few": "{{count}} výkyvy od vašej poslednej návštevy",
-			"flapSinceTooltip_many": "{{count}} výkyvu od vašej poslednej návštevy",
-			"flapSinceTooltip_other": "{{count}} výkyvov od vašej poslednej návštevy",
 			"resolved": "Vyriešené",
 			"resolvedPlain": "{{model}} je znova v zozname",
 			"resolvedDetail_one": "{{model}} je znova v zozname, po {{count}} výkyve",

@@ -852,6 +852,7 @@
 		"discrepancies": {
 			"title": "Modeluoverensstemmelser",
 			"empty": "Ingen manglende eller ustabile modeller. Alt stemmer overens med udbydernes lister.",
+			"loading": "Kontrollerer for modeluoverensstemmelser…",
 			"error": "Fejl",
 			"recentChanges": "Seneste ændringer",
 			"new": "Ny",
@@ -867,8 +868,6 @@
 			"flapped_other": "{{count}} udsving",
 			"flapWindowTooltip_one": "{{count}} udsving i de seneste 30 dage",
 			"flapWindowTooltip_other": "{{count}} udsving i de seneste 30 dage",
-			"flapSinceTooltip_one": "{{count}} udsving siden dit sidste besøg",
-			"flapSinceTooltip_other": "{{count}} udsving siden dit sidste besøg",
 			"resolved": "Løst",
 			"resolvedPlain": "{{model}} er på listen igen",
 			"resolvedDetail_one": "{{model}} er på listen igen efter {{count}} udsving",

@@ -863,6 +863,7 @@
 		"discrepancies": {
 			"title": "Divergências de modelos",
 			"empty": "Nenhum modelo ausente ou instável. Tudo corresponde às listas dos provedores.",
+			"loading": "Verificando divergências de modelos…",
 			"error": "Erro",
 			"recentChanges": "Alterações recentes",
 			"new": "Novo",
@@ -881,9 +882,6 @@
 			"flapWindowTooltip_one": "{{count}} oscilação nos últimos 30 dias",
 			"flapWindowTooltip_many": "{{count}} oscilações nos últimos 30 dias",
 			"flapWindowTooltip_other": "{{count}} oscilações nos últimos 30 dias",
-			"flapSinceTooltip_one": "{{count}} oscilação desde a sua última visita",
-			"flapSinceTooltip_many": "{{count}} oscilações desde a sua última visita",
-			"flapSinceTooltip_other": "{{count}} oscilações desde a sua última visita",
 			"resolved": "Resolvido",
 			"resolvedPlain": "{{model}} voltou a constar na lista",
 			"resolvedDetail_one": "{{model}} voltou a constar na lista, após {{count}} oscilação",

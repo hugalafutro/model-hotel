@@ -854,6 +854,7 @@
 		"discrepancies": {
 			"title": "Model discrepancies",
 			"empty": "No missing or unstable models. Everything matches the provider listings.",
+			"loading": "Checking for model discrepancies…",
 			"error": "Error",
 			"recentChanges": "Recent changes",
 			"new": "New",
@@ -869,8 +870,6 @@
 			"flapped_other": "{{count}} fluctuations",
 			"flapWindowTooltip_one": "{{count}} fluctuation in the last 30 days",
 			"flapWindowTooltip_other": "{{count}} fluctuations in the last 30 days",
-			"flapSinceTooltip_one": "{{count}} fluctuation since your last visit",
-			"flapSinceTooltip_other": "{{count}} fluctuations since your last visit",
 			"resolved": "Resolved",
 			"resolvedPlain": "{{model}} is listed again",
 			"resolvedDetail_one": "{{model}} is listed again, after {{count}} fluctuation",

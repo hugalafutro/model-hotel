@@ -874,6 +874,7 @@
 		"discrepancies": {
 			"title": "Nesrovnalosti modelů",
 			"empty": "Žádné chybějící ani nestabilní modely. Vše odpovídá seznamům poskytovatelů.",
+			"loading": "Kontrolují se nesrovnalosti modelů…",
 			"error": "Chyba",
 			"recentChanges": "Nedávné změny",
 			"new": "Nové",
@@ -895,10 +896,6 @@
 			"flapWindowTooltip_few": "{{count}} výkyvy za posledních 30 dní",
 			"flapWindowTooltip_many": "{{count}} výkyvu za posledních 30 dní",
 			"flapWindowTooltip_other": "{{count}} výkyvů za posledních 30 dní",
-			"flapSinceTooltip_one": "{{count}} výkyv od vaší poslední návštěvy",
-			"flapSinceTooltip_few": "{{count}} výkyvy od vaší poslední návštěvy",
-			"flapSinceTooltip_many": "{{count}} výkyvu od vaší poslední návštěvy",
-			"flapSinceTooltip_other": "{{count}} výkyvů od vaší poslední návštěvy",
 			"resolved": "Vyřešeno",
 			"resolvedPlain": "{{model}} je znovu v seznamu",
 			"resolvedDetail_one": "{{model}} je znovu v seznamu, po {{count}} výkyvu",

@@ -863,6 +863,7 @@
 		"discrepancies": {
 			"title": "Discrepàncies de models",
 			"empty": "No hi ha cap model absent ni inestable. Tot coincideix amb les llistes dels proveïdors.",
+			"loading": "Comprovant les discrepàncies de models…",
 			"error": "Error",
 			"recentChanges": "Canvis recents",
 			"new": "Nou",
@@ -881,9 +882,6 @@
 			"flapWindowTooltip_one": "{{count}} fluctuació en els darrers 30 dies",
 			"flapWindowTooltip_many": "{{count}} fluctuacions en els darrers 30 dies",
 			"flapWindowTooltip_other": "{{count}} fluctuacions en els darrers 30 dies",
-			"flapSinceTooltip_one": "{{count}} fluctuació des de la teva darrera visita",
-			"flapSinceTooltip_many": "{{count}} fluctuacions des de la teva darrera visita",
-			"flapSinceTooltip_other": "{{count}} fluctuacions des de la teva darrera visita",
 			"resolved": "Resolt",
 			"resolvedPlain": "{{model}} torna a aparèixer a la llista",
 			"resolvedDetail_one": "{{model}} torna a aparèixer a la llista, després de {{count}} fluctuació",

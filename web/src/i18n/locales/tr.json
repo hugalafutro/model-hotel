@@ -852,6 +852,7 @@
 		"discrepancies": {
 			"title": "Model tutarsızlıkları",
 			"empty": "Eksik veya kararsız model yok. Her şey sağlayıcı listeleriyle uyumlu.",
+			"loading": "Model tutarsızlıkları kontrol ediliyor…",
 			"error": "Hata",
 			"recentChanges": "Son değişiklikler",
 			"new": "Yeni",
@@ -867,8 +868,6 @@
 			"flapped_other": "{{count}} dalgalanma",
 			"flapWindowTooltip_one": "Son 30 günde {{count}} dalgalanma",
 			"flapWindowTooltip_other": "Son 30 günde {{count}} dalgalanma",
-			"flapSinceTooltip_one": "Son ziyaretinizden bu yana {{count}} dalgalanma",
-			"flapSinceTooltip_other": "Son ziyaretinizden bu yana {{count}} dalgalanma",
 			"resolved": "Çözüldü",
 			"resolvedPlain": "{{model}} yeniden listede",
 			"resolvedDetail_one": "{{model}}, {{count}} dalgalanmanın ardından yeniden listede",

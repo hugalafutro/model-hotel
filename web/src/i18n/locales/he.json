@@ -863,6 +863,7 @@
 		"discrepancies": {
 			"title": "אי-התאמות במודלים",
 			"empty": "אין מודלים חסרים או לא יציבים. הכל תואם לרשימות הספקים.",
+			"loading": "בודק אי-התאמות במודלים…",
 			"error": "שגיאה",
 			"recentChanges": "שינויים אחרונים",
 			"new": "חדש",
@@ -881,9 +882,6 @@
 			"flapWindowTooltip_one": "{{count}} תנודה ב-30 הימים האחרונים",
 			"flapWindowTooltip_two": "{{count}} תנודות ב-30 הימים האחרונים",
 			"flapWindowTooltip_other": "{{count}} תנודות ב-30 הימים האחרונים",
-			"flapSinceTooltip_one": "{{count}} תנודה מאז הביקור האחרון שלך",
-			"flapSinceTooltip_two": "{{count}} תנודות מאז הביקור האחרון שלך",
-			"flapSinceTooltip_other": "{{count}} תנודות מאז הביקור האחרון שלך",
 			"resolved": "נפתר",
 			"resolvedPlain": "{{model}} מופיע שוב ברשימה",
 			"resolvedDetail_one": "{{model}} מופיע שוב ברשימה, אחרי {{count}} תנודה",

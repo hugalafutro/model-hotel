@@ -852,6 +852,7 @@
 		"discrepancies": {
 			"title": "模型差异",
 			"empty": "没有缺失或不稳定的模型。所有内容均与提供商列表一致。",
+			"loading": "正在检查模型差异…",
 			"error": "错误",
 			"recentChanges": "最近的变更",
 			"new": "新增",
@@ -867,8 +868,6 @@
 			"flapped_other": "波动 {{count}} 次",
 			"flapWindowTooltip_one": "最近 30 天内波动 {{count}} 次",
 			"flapWindowTooltip_other": "最近 30 天内波动 {{count}} 次",
-			"flapSinceTooltip_one": "自您上次查看以来波动 {{count}} 次",
-			"flapSinceTooltip_other": "自您上次查看以来波动 {{count}} 次",
 			"resolved": "已解决",
 			"resolvedPlain": "{{model}} 已重新出现在列表中",
 			"resolvedDetail_one": "{{model}} 在波动 {{count}} 次后已重新出现在列表中",

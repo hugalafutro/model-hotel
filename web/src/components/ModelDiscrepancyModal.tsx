@@ -60,6 +60,11 @@ export interface ModelDiscrepancyModalProps {
 	/** Message from a failed status fetch or refresh. Present means "we do not
 	 * know what is wrong", which must never render as "nothing is wrong". */
 	loadError?: string;
+	/** True while the per-open status fetch is still out. Same rule as loadError,
+	 * one step earlier: "still finding out" is not "nothing is wrong" either, and
+	 * an operator who clicked a badge reading 76 must not be told the opposite
+	 * for the width of a request. */
+	loading?: boolean;
 	readOnly: boolean;
 }
 
@@ -78,6 +83,7 @@ export function ModelDiscrepancyModal({
 	errors,
 	onExpandInformational,
 	loadError,
+	loading = false,
 	readOnly,
 }: ModelDiscrepancyModalProps) {
 	const { t } = useTranslation();
@@ -679,7 +685,20 @@ export function ModelDiscrepancyModal({
 						{providers.map(renderProvider)}
 						{renderGroupClaims()}
 					</div>
-				) : loadError ? null : (
+				) : loadError ? null : loading ? (
+					/* Distinct from both neighbours on purpose: the error says "we
+					   asked and could not find out", this says "we are still
+					   asking", and the empty state below says "we asked and the
+					   answer is nothing". Collapsing the first two into the third is
+					   the false reassurance this rework exists to remove. */
+					<p
+						className="text-sm text-(--text-tertiary)"
+						data-testid="discrepancy-loading"
+						aria-live="polite"
+					>
+						{t("providers.discrepancies.loading")}
+					</p>
+				) : (
 					<p
 						className="text-sm text-(--text-tertiary)"
 						data-testid="discrepancy-empty"

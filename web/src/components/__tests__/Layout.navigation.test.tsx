@@ -1275,6 +1275,111 @@ describe("Layout", () => {
 			expect(screen.queryByTestId("discrepancy-empty")).toBeNull();
 		});
 
+		it("shows a loading state instead of the empty state while the fetch is out", async () => {
+			// One step earlier than the failure case above: the operator clicked a
+			// badge reading 1, and until the answer lands the modal knows nothing.
+			// Telling them there are no discrepancies in that window is the same
+			// false reassurance, just shorter-lived.
+			let release: (() => void) | undefined;
+			const gate = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			let modalFetches = 0;
+			server.use(
+				http.get("/api/discovery/status", async ({ request }) => {
+					// Only the modal's review fetch is held; the badge poll answers
+					// immediately so the badge is there to click.
+					if (new URL(request.url).searchParams.get("review") === "1") {
+						modalFetches++;
+						await gate;
+					}
+					return HttpResponse.json(
+						status({
+							claim_count: 1,
+							claims: [providerClaims("p1", "NanoGPT", [claim("a")])],
+						}),
+					);
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await screen.findByTestId("discrepancy-modal");
+			await waitFor(() => expect(modalFetches).toBe(1));
+
+			expect(screen.queryByTestId("discrepancy-empty")).toBeNull();
+			expect(screen.getByTestId("discrepancy-loading")).toBeInTheDocument();
+
+			release?.();
+			expect(await screen.findByTestId("discrepancy-claim")).toHaveAttribute(
+				"data-model-id",
+				"a",
+			);
+			// And the loading line is a state, not a permanent header.
+			expect(screen.queryByTestId("discrepancy-loading")).toBeNull();
+		});
+
+		it("does not paint the previous session's rows when reopened", async () => {
+			// Close clears what the last visit collected. Without that the second
+			// open renders the first open's snapshot until its own fetch lands:
+			// struck-through resolved rows and already-dismissed models, presented
+			// as the current state of the world.
+			let opens = 0;
+			let release: (() => void) | undefined;
+			server.use(
+				http.get("/api/discovery/status", async ({ request }) => {
+					if (new URL(request.url).searchParams.get("review") === "1") {
+						opens++;
+						if (opens === 2) {
+							await new Promise<void>((resolve) => {
+								release = resolve;
+							});
+						}
+					}
+					return HttpResponse.json(
+						status({
+							claim_count: 1,
+							claims: [
+								providerClaims("p1", "NanoGPT", [
+									claim(opens <= 1 ? "first-open" : "second-open"),
+								]),
+							],
+						}),
+					);
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			expect(await screen.findByTestId("discrepancy-claim")).toHaveAttribute(
+				"data-model-id",
+				"first-open",
+			);
+
+			// Escape, not the close button: that control is labelled with a
+			// translated string and this suite stays locale-independent.
+			fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+			await waitFor(() =>
+				expect(screen.queryByTestId("discrepancy-modal")).toBeNull(),
+			);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await screen.findByTestId("discrepancy-modal");
+			await waitFor(() => expect(opens).toBe(2));
+
+			// The second open's fetch is still out, so there is nothing yet to show.
+			expect(screen.queryByTestId("discrepancy-claim")).toBeNull();
+			expect(screen.getByTestId("discrepancy-loading")).toBeInTheDocument();
+
+			release?.();
+			await waitFor(() =>
+				expect(screen.getByTestId("discrepancy-claim")).toHaveAttribute(
+					"data-model-id",
+					"second-open",
+				),
+			);
+		});
+
 		it("refetches the badge on a discovery.changes_pending SSE event", async () => {
 			let fetches = 0;
 			server.use(

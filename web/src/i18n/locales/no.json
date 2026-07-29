@@ -852,6 +852,7 @@
 		"discrepancies": {
 			"title": "Modellavvik",
 			"empty": "Ingen manglende eller ustabile modeller. Alt samsvarer med leverandørenes lister.",
+			"loading": "Ser etter modellavvik…",
 			"error": "Feil",
 			"recentChanges": "Nylige endringer",
 			"new": "Ny",
@@ -867,8 +868,6 @@
 			"flapped_other": "{{count}} svingninger",
 			"flapWindowTooltip_one": "{{count}} svingning de siste 30 dagene",
 			"flapWindowTooltip_other": "{{count}} svingninger de siste 30 dagene",
-			"flapSinceTooltip_one": "{{count}} svingning siden ditt forrige besøk",
-			"flapSinceTooltip_other": "{{count}} svingninger siden ditt forrige besøk",
 			"resolved": "Løst",
 			"resolvedPlain": "{{model}} er oppført igjen",
 			"resolvedDetail_one": "{{model}} er oppført igjen, etter {{count}} svingning",

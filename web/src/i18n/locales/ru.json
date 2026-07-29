@@ -874,6 +874,7 @@
 		"discrepancies": {
 			"title": "Расхождения по моделям",
 			"empty": "Нет отсутствующих или нестабильных моделей. Все соответствует спискам провайдеров.",
+			"loading": "Проверка расхождений по моделям…",
 			"error": "Ошибка",
 			"recentChanges": "Недавние изменения",
 			"new": "Новое",
@@ -895,10 +896,6 @@
 			"flapWindowTooltip_few": "{{count}} колебания за последние 30 дней",
 			"flapWindowTooltip_many": "{{count}} колебаний за последние 30 дней",
 			"flapWindowTooltip_other": "{{count}} колебания за последние 30 дней",
-			"flapSinceTooltip_one": "{{count}} колебание с вашего последнего визита",
-			"flapSinceTooltip_few": "{{count}} колебания с вашего последнего визита",
-			"flapSinceTooltip_many": "{{count}} колебаний с вашего последнего визита",
-			"flapSinceTooltip_other": "{{count}} колебания с вашего последнего визита",
 			"resolved": "Устранено",
 			"resolvedPlain": "{{model}} снова есть в списке",
 			"resolvedDetail_one": "{{model}} снова есть в списке, после {{count}} колебания",

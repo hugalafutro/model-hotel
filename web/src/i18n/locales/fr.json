@@ -863,6 +863,7 @@
 		"discrepancies": {
 			"title": "Écarts de modèles",
 			"empty": "Aucun modèle manquant ni instable. Tout correspond aux listes des fournisseurs.",
+			"loading": "Recherche d'écarts de modèles…",
 			"error": "Erreur",
 			"recentChanges": "Modifications récentes",
 			"new": "Nouveau",
@@ -881,9 +882,6 @@
 			"flapWindowTooltip_one": "{{count}} fluctuation au cours des 30 derniers jours",
 			"flapWindowTooltip_many": "{{count}} fluctuations au cours des 30 derniers jours",
 			"flapWindowTooltip_other": "{{count}} fluctuations au cours des 30 derniers jours",
-			"flapSinceTooltip_one": "{{count}} fluctuation depuis votre dernière visite",
-			"flapSinceTooltip_many": "{{count}} fluctuations depuis votre dernière visite",
-			"flapSinceTooltip_other": "{{count}} fluctuations depuis votre dernière visite",
 			"resolved": "Résolu",
 			"resolvedPlain": "{{model}} figure à nouveau dans la liste",
 			"resolvedDetail_one": "{{model}} figure à nouveau dans la liste, après {{count}} fluctuation",

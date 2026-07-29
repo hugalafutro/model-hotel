@@ -852,6 +852,7 @@
 		"discrepancies": {
 			"title": "Modelafwijkingen",
 			"empty": "Geen ontbrekende of instabiele modellen. Alles komt overeen met de lijsten van de providers.",
+			"loading": "Modelafwijkingen controleren…",
 			"error": "Fout",
 			"recentChanges": "Recente wijzigingen",
 			"new": "Nieuw",
@@ -867,8 +868,6 @@
 			"flapped_other": "{{count}} schommelingen",
 			"flapWindowTooltip_one": "{{count}} schommeling in de afgelopen 30 dagen",
 			"flapWindowTooltip_other": "{{count}} schommelingen in de afgelopen 30 dagen",
-			"flapSinceTooltip_one": "{{count}} schommeling sinds uw laatste bezoek",
-			"flapSinceTooltip_other": "{{count}} schommelingen sinds uw laatste bezoek",
 			"resolved": "Opgelost",
 			"resolvedPlain": "{{model}} staat weer in de lijst",
 			"resolvedDetail_one": "{{model}} staat weer in de lijst, na {{count}} schommeling",

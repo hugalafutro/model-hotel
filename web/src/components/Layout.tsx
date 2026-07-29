@@ -742,6 +742,7 @@ export function Layout({ children }: LayoutProps) {
 		groupClaims,
 		informational,
 		refresh,
+		loading: discrepanciesLoading,
 		isError: discrepanciesFailed,
 		error: discrepanciesError,
 		refreshError,
@@ -1487,6 +1488,7 @@ export function Layout({ children }: LayoutProps) {
 					errors={retestErrors}
 					onExpandInformational={onExpandInformational}
 					loadError={discrepancyLoadError}
+					loading={discrepanciesLoading}
 					readOnly={readOnly}
 				/>
 			)}

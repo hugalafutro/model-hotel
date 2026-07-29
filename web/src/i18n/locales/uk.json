@@ -874,6 +874,7 @@
 		"discrepancies": {
 			"title": "Розбіжності моделей",
 			"empty": "Немає відсутніх чи нестабільних моделей. Усе відповідає спискам постачальників.",
+			"loading": "Перевірка розбіжностей моделей…",
 			"error": "Помилка",
 			"recentChanges": "Нещодавні зміни",
 			"new": "Нове",
@@ -895,10 +896,6 @@
 			"flapWindowTooltip_few": "{{count}} коливання за останні 30 днів",
 			"flapWindowTooltip_many": "{{count}} коливань за останні 30 днів",
 			"flapWindowTooltip_other": "{{count}} коливання за останні 30 днів",
-			"flapSinceTooltip_one": "{{count}} коливання від вашого останнього відвідування",
-			"flapSinceTooltip_few": "{{count}} коливання від вашого останнього відвідування",
-			"flapSinceTooltip_many": "{{count}} коливань від вашого останнього відвідування",
-			"flapSinceTooltip_other": "{{count}} коливання від вашого останнього відвідування",
 			"resolved": "Усунено",
 			"resolvedPlain": "{{model}} знову є у списку",
 			"resolvedDetail_one": "{{model}} знову є у списку, після {{count}} коливання",

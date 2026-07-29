@@ -852,6 +852,7 @@
 		"discrepancies": {
 			"title": "モデルの不一致",
 			"empty": "欠落しているモデルも不安定なモデルもありません。すべてプロバイダーのリストと一致しています。",
+			"loading": "モデルの不一致を確認しています…",
 			"error": "エラー",
 			"recentChanges": "最近の変更",
 			"new": "新規",
@@ -867,8 +868,6 @@
 			"flapped_other": "変動 {{count}} 回",
 			"flapWindowTooltip_one": "過去 30 日間に変動 {{count}} 回",
 			"flapWindowTooltip_other": "過去 30 日間に変動 {{count}} 回",
-			"flapSinceTooltip_one": "前回の確認以降に変動 {{count}} 回",
-			"flapSinceTooltip_other": "前回の確認以降に変動 {{count}} 回",
 			"resolved": "解消済み",
 			"resolvedPlain": "{{model}} は再びリストに掲載されています",
 			"resolvedDetail_one": "{{model}} は変動 {{count}} 回のあと、再びリストに掲載されています",
