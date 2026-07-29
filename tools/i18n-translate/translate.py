@@ -13,7 +13,9 @@ Subcommands:
                  missing keys, has extra keys, breaks {{placeholder}} parity,
                  carries a non-string value, carries an English-equal value
                  that is not allowlisted, or omits a plural category its
-                 language requires (see PLURAL_CATEGORIES).
+                 language requires (see PLURAL_CATEGORIES). It also scans the
+                 TypeScript sources for literal t("...") keys that en.json does
+                 not define (see find_unresolved_source_keys).
     grandfather  Snapshot all current English-equal values into the
                  allowlist(s) so `check` only flags future additions.
 
@@ -396,6 +398,180 @@ def find_android_problems(allow: dict[str, list[str]]) -> dict[str, list[tuple[s
 	return problems
 
 
+# ── Source-key scan ──────────────────────────────────────────────────────────
+
+# Locale parity only ever compares catalogs against en.json, so a t("some.key")
+# whose key was never added to en.json is invisible to it: every catalog agrees,
+# and i18next renders the raw key string on screen. That is how ~40 such keys
+# shipped green in PR #583. This scan closes the other half of the loop by
+# reading the sources and checking each literal key resolves in en.json.
+#
+# Only the two web apps participate. Bellhop refers to its copy as R.string.foo,
+# which aapt2 and the Kotlin compiler resolve at build time (there is not one
+# getIdentifier() call in android/), so a missing Android string is already a
+# build failure rather than a silent raw key.
+SOURCE_TARGETS = {
+	"web": os.path.normpath(os.path.join(SCRIPT_DIR, "..", "..", "web", "src")),
+	"fd": os.path.normpath(
+		os.path.join(SCRIPT_DIR, "..", "..", "frontdesk", "web", "src")
+	),
+}
+
+SOURCE_EXTENSIONS = (".ts", ".tsx")
+
+# Tests are excluded on purpose: they never render to a user, and they routinely
+# name synthetic keys ("a.b.c") to exercise fallback and error paths, which the
+# catalog must not be forced to carry.
+SOURCE_SKIP_DIRS = {"__tests__", "node_modules", "dist"}
+SOURCE_SKIP_SUFFIXES = (".test.ts", ".test.tsx", ".d.ts")
+
+_IDENT_CHAR = re.compile(r"[A-Za-z0-9_$]")
+
+# `t(` / `i18next.t(` / `i18n.t(`, tolerating the line breaks Biome inserts. The
+# lookbehind is what keeps `parseInt(`, `expect(` and `at(` out; a preceding "."
+# is deliberately allowed, because i18next.t is the same lookup.
+_T_CALL = re.compile(r"t\s*\(\s*")
+
+
+def _read_js_string(src: str, i: int) -> tuple[str | None, int]:
+	"""Read the string literal starting at src[i] (a quote character).
+
+	Returns (value, index after the closing quote), or (None, i + 1) when this
+	is not in fact a complete single-line string. That second case is the
+	resync: a quote inside a regex literal (/["']/) would otherwise swallow the
+	rest of the file. Ordinary JS strings cannot span a newline, so hitting one
+	before the closing quote proves the opening quote was not a string start.
+
+	Template literals always return None: their value is only decidable when
+	they carry no ${...} substitution, and the caller skips them wholesale
+	rather than resolving half of a family (see the module docstring).
+	"""
+	quote = src[i]
+	if quote == "`":
+		# Still consume it, so a backtick string's contents are not scanned as
+		# code, but never offer its value as a key.
+		j = i + 1
+		while j < len(src):
+			if src[j] == "\\":
+				j += 2
+				continue
+			if src[j] == "`":
+				return None, j + 1
+			j += 1
+		return None, i + 1
+	out = []
+	j = i + 1
+	while j < len(src):
+		c = src[j]
+		if c == "\\":
+			out.append(src[j + 1 : j + 2])
+			j += 2
+			continue
+		if c == quote:
+			return "".join(out), j + 1
+		if c == "\n":
+			return None, i + 1
+		out.append(c)
+		j += 1
+	return None, i + 1
+
+
+def literal_t_keys(src: str) -> list[tuple[str, int]]:
+	"""Every literal translation key the source asks i18next to resolve.
+
+	Returns [(key, line number)]. A call is reported only when its key is a
+	plain string literal AND the call either ends there or continues with an
+	options object; both of those render the catalog value. Deliberately NOT
+	reported, because none of them can be missing keys:
+
+	  * t(expr) / t(`a.${b}`) / t("a." + b)  - undecidable statically.
+	  * t("key", "Fallback text")            - i18next renders the fallback, so
+	                                           the key is legitimately absent.
+
+	Distinguishing those last two is the whole reason this walks the file
+	instead of running a regex over it: the character after the comma decides
+	(a quote means a default string, "{" means options), and getting there
+	requires knowing where the key's own literal ended.
+	"""
+	keys: list[tuple[str, int]] = []
+	i, n = 0, len(src)
+	while i < n:
+		c = src[i]
+		pair = src[i : i + 2]
+		if pair == "//":
+			nl = src.find("\n", i)
+			i = n if nl < 0 else nl
+		elif pair == "/*":
+			end = src.find("*/", i + 2)
+			i = n if end < 0 else end + 2
+		elif c in "\"'`":
+			_, i = _read_js_string(src, i)
+		elif c == "t" and (i == 0 or not _IDENT_CHAR.match(src[i - 1])):
+			m = _T_CALL.match(src, i)
+			if m is None:
+				i += 1
+				continue
+			start, j = i, m.end()
+			if j >= n or src[j] not in "\"'":
+				i = j
+				continue
+			key, after = _read_js_string(src, j)
+			if key is None:
+				i = j
+				continue
+			k = after
+			while k < n and src[k] in " \t\r\n":
+				k += 1
+			nxt = src[k : k + 1]
+			if nxt == ",":
+				k += 1
+				while k < n and src[k] in " \t\r\n":
+					k += 1
+				nxt = src[k : k + 1]
+				# A default string renders instead of the catalog value.
+				if nxt not in "\"'`":
+					keys.append((key, src.count("\n", 0, start) + 1))
+			elif nxt == ")":
+				keys.append((key, src.count("\n", 0, start) + 1))
+			# Anything else ("+", "?", ":") means the literal was one fragment
+			# of a larger expression, which is undecidable.
+			i = after
+		else:
+			i += 1
+	return keys
+
+
+def source_files(root: str):
+	for dirpath, dirnames, filenames in os.walk(root):
+		dirnames[:] = sorted(d for d in dirnames if d not in SOURCE_SKIP_DIRS)
+		for name in sorted(filenames):
+			if name.endswith(SOURCE_EXTENSIONS) and not name.endswith(SOURCE_SKIP_SUFFIXES):
+				yield os.path.join(dirpath, name)
+
+
+def key_resolves(key: str, en: dict) -> bool:
+	"""Whether i18next would find a value for `key` in en.json.
+
+	A counted key is asked for as t("x", {count}) but stored as "x_one"/"x_other",
+	so the bare base must count as resolved when any category of it exists.
+	"""
+	return key in en or any(f"{key}_{c}" in en for c in PLURAL_SUFFIXES)
+
+
+def find_unresolved_source_keys(src_root: str, locales_dir: str) -> list[tuple[str, int, str]]:
+	"""[(file, line, key)] for literal t() keys en.json does not define."""
+	en = flatten(load_locale("en", locales_dir))
+	repo = os.path.normpath(os.path.join(SCRIPT_DIR, "..", ".."))
+	found = []
+	for path in source_files(src_root):
+		with open(path, encoding="utf-8") as f:
+			source = f.read()
+		for key, line in literal_t_keys(source):
+			if not key_resolves(key, en):
+				found.append((os.path.relpath(path, repo), line, key))
+	return found
+
+
 # ── check ───────────────────────────────────────────────────────────────────
 
 def find_problems(allow: dict[str, list[str]], locales_dir: str = WEB_LOCALES_DIR) -> dict[str, list[tuple[str, str]]]:
@@ -457,8 +633,20 @@ def _report(label: str, problems: dict[str, list[tuple[str, str]]], locales: int
 	return total
 
 
+def _report_source(label: str, unresolved: list[tuple[str, int, str]]) -> int:
+	"""Print one target's source scan; return its problem count."""
+	if not unresolved:
+		print(f"[{label}] source keys OK: every literal t() key resolves in en.json")
+		return 0
+	print(f"\n[{label}] unresolved source keys ({len(unresolved)}):")
+	for path, line, key in sorted(unresolved):
+		print(f"  {path}:{line}: {key}")
+	return len(unresolved)
+
+
 def cmd_check() -> int:
 	total = 0
+	source_failed = False
 	total += _report("android", find_android_problems(load_allowlist(ANDROID_ALLOWLIST_PATH)),
 	                 len(android_locale_codes()), "values/strings.xml")
 	web_problems = []
@@ -468,6 +656,12 @@ def cmd_check() -> int:
 		problems = find_problems(load_allowlist(ALLOWLIST_PATHS[label]), locales_dir)
 		web_problems.append(problems)
 		total += _report(label, problems, len(locale_codes(locales_dir)), "en.json")
+		src_root = SOURCE_TARGETS[label]
+		if os.path.isdir(src_root):
+			unresolved = find_unresolved_source_keys(src_root, locales_dir)
+			count = _report_source(label, unresolved)
+			source_failed = source_failed or count > 0
+			total += count
 	if total == 0:
 		print("i18n check OK: all targets in sync")
 		return 0
@@ -488,6 +682,13 @@ def cmd_check() -> int:
 	if any(p["malformed"] for p in web_problems):
 		print(
 			"Note: `malformed` entries (value is not a string) must be edited by hand."
+		)
+	if source_failed:
+		print(
+			"Note: `unresolved source keys` are t(\"...\") calls whose key is in no"
+			"\ncatalog at all, so i18next renders the raw key string on screen. Add the"
+			"\nkey to en.json (and translate it), point the call at the key that already"
+			"\nexists, or give the call an inline default: t(\"key\", \"Fallback text\")."
 		)
 	return 1
 

@@ -101,12 +101,14 @@
 			"settings": "Setări",
 			"security": "Securitate",
 			"failoverBadgeExplain": "Furnizori de failover în funcție de starea întrerupătorului de circuit - {{closed}} funcțional / {{halfOpen}} în recuperare / {{open}} declanșat",
-			"discoveryNewsBadge": "Modificări recente din descoperirea în fundal - faceți clic pentru a revizui",
 			"discoveryClaimsBadge_one": "{{count}} discrepanță de model necesită atenție - faceți clic pentru a revizui",
 			"discoveryClaimsBadge_few": "{{count}} discrepanțe de modele necesită atenție - faceți clic pentru a revizui",
 			"discoveryClaimsBadge_other": "{{count}} de discrepanțe de modele necesită atenție - faceți clic pentru a revizui",
 			"users": "Utilizatori",
-			"audit": "Audit"
+			"audit": "Audit",
+			"discoveryNewsBadge_one": "{{count}} modificare neverificată din descoperirea în fundal. Doar informativă, nu necesită atenție - clic pentru a citi.",
+			"discoveryNewsBadge_few": "{{count}} modificări neverificate din descoperirea în fundal. Doar informative, nu necesită atenție - clic pentru a citi.",
+			"discoveryNewsBadge_other": "{{count}} de modificări neverificate din descoperirea în fundal. Doar informative, nu necesită atenție - clic pentru a citi."
 		},
 		"status": {
 			"apiStatus": "Stare API",
@@ -443,7 +445,9 @@
 		"resetAll": "Resetează toate (șterge modelul și setările)",
 		"toast": {
 			"chatCleared": "Chat eliminat",
-			"conversationCleared": "Conversație ștearsă"
+			"conversationCleared": "Conversație ștearsă",
+			"chatReset": "Chat resetat",
+			"conversationReset": "Conversație resetată"
 		},
 		"chatCleared": "Chat eliminat",
 		"conversationCleared": "Conversație ștearsă",
@@ -2340,7 +2344,8 @@
 			"thinkingDots": "Gândire…",
 			"turn": "Rândul {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Oprește direcționarea cererilor către acest model până când îl reactivezi."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrează furnizorii",

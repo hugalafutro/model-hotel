@@ -287,6 +287,41 @@ describe("DiscoverySummaryModal", () => {
 		expect(toggles[1]).toHaveAttribute("aria-expanded", "true");
 	});
 
+	it("takes a collapsed provider section out of the accessibility tree", async () => {
+		const { user } = renderWithProviders(
+			<DiscoverySummaryModal
+				results={[
+					{ providerName: "Provider A", diff: fullDiff },
+					{ providerName: "Provider B", diff: fullDiff },
+				]}
+				onClose={vi.fn()}
+			/>,
+		);
+
+		const toggles = screen.getAllByTestId("discovery-summary-toggle");
+		// Resolve aria-controls the way assistive tech does, and prove each
+		// toggle points at its OWN section rather than at any element at all.
+		const regions = toggles.map((toggle) => {
+			const id = toggle.getAttribute("aria-controls");
+			expect(id).toBeTruthy();
+			const region = document.getElementById(id as string);
+			expect(region).not.toBeNull();
+			return region as HTMLElement;
+		});
+		expect(regions[0]).not.toBe(regions[1]);
+
+		// The body stays mounted while collapsed (grid-rows-[0fr] hides it
+		// visually), so `inert` is the only thing keeping a screen reader from
+		// reading a section the toggle above reports as collapsed.
+		expect(regions[0].firstElementChild).not.toHaveAttribute("inert");
+
+		await user.click(toggles[0]);
+
+		expect(regions[0].firstElementChild).toHaveAttribute("inert");
+		// Collapsing one section must not silence its neighbour.
+		expect(regions[1].firstElementChild).not.toHaveAttribute("inert");
+	});
+
 	it("shows a Retest button for a provider with disabled models and fires onRetest", async () => {
 		const onRetest = vi.fn();
 		const { user } = renderWithProviders(

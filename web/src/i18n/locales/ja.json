@@ -99,11 +99,12 @@
 			"settings": "設定",
 			"security": "セキュリティ",
 			"failoverBadgeExplain": "サーキットブレーカーの状態によるフェイルオーバープロバイダー - {{closed}} 正常 / {{halfOpen}} 復旧中 / {{open}} トリップ",
-			"discoveryNewsBadge": "バックグラウンド検出による最近の変更 - クリックして確認",
 			"discoveryClaimsBadge_one": "対応が必要なモデルの不一致が {{count}} 件あります - クリックして確認",
 			"discoveryClaimsBadge_other": "対応が必要なモデルの不一致が {{count}} 件あります - クリックして確認",
 			"users": "ユーザー",
-			"audit": "監査"
+			"audit": "監査",
+			"discoveryNewsBadge_other": "バックグラウンド検出による未確認の変更が {{count}} 件あります。情報のみで、対応が必要な問題ではありません。クリックして確認してください。",
+			"discoveryNewsBadge_one": "バックグラウンド検出による未確認の変更が {{count}} 件あります。情報のみで、対応が必要な問題ではありません。クリックして確認してください。"
 		},
 		"status": {
 			"apiStatus": "APIステータス",
@@ -438,7 +439,9 @@
 		"resetAll": "すべてリセット (モデルと設定のクリア)",
 		"toast": {
 			"chatCleared": "チャットを消去しました",
-			"conversationCleared": "会話を消去しました"
+			"conversationCleared": "会話を消去しました",
+			"chatReset": "チャットをリセットしました",
+			"conversationReset": "会話をリセットしました"
 		},
 		"chatCleared": "チャットを消去しました",
 		"conversationCleared": "会話を消去しました",
@@ -2294,7 +2297,8 @@
 			"thinkingDots": "思考中…",
 			"turn": "{{number}} のターン",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "再度有効にするまで、このモデルへのリクエスト転送を停止します。"
 		},
 		"providerFilter": {
 			"filterProviders": "プロバイダーを絞り込む",

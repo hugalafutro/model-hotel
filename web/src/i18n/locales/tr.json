@@ -99,11 +99,12 @@
 			"settings": "Ayarlar",
 			"security": "Güvenlik",
 			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları - {{closed}} sağlıklı / {{halfOpen}} kurtarma aşamasında / {{open}} devre dışı",
-			"discoveryNewsBadge": "Arka plan keşfinden gelen son değişiklikler - gözden geçirmek için tıklayın",
 			"discoveryClaimsBadge_one": "{{count}} model tutarsızlığı ilgi bekliyor - gözden geçirmek için tıklayın",
 			"discoveryClaimsBadge_other": "{{count}} model tutarsızlığı ilgi bekliyor - gözden geçirmek için tıklayın",
 			"users": "Kullanıcılar",
-			"audit": "Denetim"
+			"audit": "Denetim",
+			"discoveryNewsBadge_one": "Arka plan keşfinden {{count}} incelenmemiş değişiklik. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın.",
+			"discoveryNewsBadge_other": "Arka plan keşfinden {{count}} incelenmemiş değişiklik. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın."
 		},
 		"status": {
 			"apiStatus": "API Durumu",
@@ -438,7 +439,9 @@
 		"resetAll": "Tümünü sıfırla (modeli ve ayarları sil)",
 		"toast": {
 			"chatCleared": "Sohbet silindi",
-			"conversationCleared": "Sohbet silindi"
+			"conversationCleared": "Sohbet silindi",
+			"chatReset": "Sohbet sıfırlandı",
+			"conversationReset": "Sohbet sıfırlandı"
 		},
 		"chatCleared": "Sohbet silindi",
 		"conversationCleared": "Sohbet silindi",
@@ -2294,7 +2297,8 @@
 			"thinkingDots": "Düşünüyor…",
 			"turn": "Tur {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Yeniden etkinleştirene kadar bu modele istek yönlendirmeyi durdurur."
 		},
 		"providerFilter": {
 			"filterProviders": "Sağlayıcıları Filtrele",

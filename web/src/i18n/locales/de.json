@@ -99,11 +99,12 @@
 			"settings": "Einstellungen",
 			"security": "Sicherheit",
 			"failoverBadgeExplain": "Failover-Anbieter nach Circuit-Breaker-Status – {{closed}} intakt / {{halfOpen}} in Wiederherstellung / {{open}} ausgelöst",
-			"discoveryNewsBadge": "Letzte Änderungen aus der Hintergrunderkennung - zum Überprüfen anklicken",
 			"discoveryClaimsBadge_one": "{{count}} Modellabweichung erfordert Aufmerksamkeit - zum Überprüfen anklicken",
 			"discoveryClaimsBadge_other": "{{count}} Modellabweichungen erfordern Aufmerksamkeit - zum Überprüfen anklicken",
 			"users": "Benutzer",
-			"audit": "Audit"
+			"audit": "Audit",
+			"discoveryNewsBadge_one": "{{count}} ungeprüfte Änderung aus der Hintergrunderkennung. Nur zur Information, kein Handlungsbedarf - zum Ansehen klicken.",
+			"discoveryNewsBadge_other": "{{count}} ungeprüfte Änderungen aus der Hintergrunderkennung. Nur zur Information, kein Handlungsbedarf - zum Ansehen klicken."
 		},
 		"status": {
 			"apiStatus": "API-Status",
@@ -438,7 +439,9 @@
 		"resetAll": "Alle zurücksetzen (Modell & Einstellungen löschen)",
 		"toast": {
 			"chatCleared": "Chat gelöscht",
-			"conversationCleared": "Unterhaltung gelöscht"
+			"conversationCleared": "Unterhaltung gelöscht",
+			"chatReset": "Chat zurückgesetzt",
+			"conversationReset": "Unterhaltung zurückgesetzt"
 		},
 		"chatCleared": "Chat gelöscht",
 		"conversationCleared": "Unterhaltung gelöscht",
@@ -2294,7 +2297,8 @@
 			"thinkingDots": "Denken…",
 			"turn": "Runde {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Keine Anfragen mehr an dieses Modell leiten, bis Sie es wieder aktivieren."
 		},
 		"providerFilter": {
 			"filterProviders": "Anbieter filtern",

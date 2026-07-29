@@ -99,11 +99,12 @@
 			"settings": "Instellingen",
 			"security": "Beveiliging",
 			"failoverBadgeExplain": "Failover-providers op basis van circuit-breaker-status - {{closed}} gezond / {{halfOpen}} herstellend / {{open}} geactiveerd",
-			"discoveryNewsBadge": "Recente wijzigingen als gevolg van achtergronddetectie - klik om te bekijken",
 			"discoveryClaimsBadge_one": "{{count}} modelafwijking vraagt aandacht - klik om te bekijken",
 			"discoveryClaimsBadge_other": "{{count}} modelafwijkingen vragen aandacht - klik om te bekijken",
 			"users": "Gebruikers",
-			"audit": "Audit"
+			"audit": "Audit",
+			"discoveryNewsBadge_one": "{{count}} ongelezen wijziging uit achtergronddetectie. Alleen ter informatie, niets dat aandacht vraagt - klik om te lezen.",
+			"discoveryNewsBadge_other": "{{count}} ongelezen wijzigingen uit achtergronddetectie. Alleen ter informatie, niets dat aandacht vraagt - klik om te lezen."
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -438,7 +439,9 @@
 		"resetAll": "Reset alles (leeg model & instellingen)",
 		"toast": {
 			"chatCleared": "Chat gewist",
-			"conversationCleared": "Gesprek gewist"
+			"conversationCleared": "Gesprek gewist",
+			"chatReset": "Chat gereset",
+			"conversationReset": "Gesprek gereset"
 		},
 		"chatCleared": "Chat gewist",
 		"conversationCleared": "Gesprek gewist",
@@ -2294,7 +2297,8 @@
 			"thinkingDots": "Denken…",
 			"turn": "Beurt {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Stuur geen verzoeken meer naar dit model totdat je het weer inschakelt."
 		},
 		"providerFilter": {
 			"filterProviders": "Providers filteren",

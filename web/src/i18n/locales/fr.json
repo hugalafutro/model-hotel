@@ -101,12 +101,14 @@
 			"settings": "Paramètres",
 			"security": "Sécurité",
 			"failoverBadgeExplain": "Fournisseurs de basculement par état du disjoncteur - {{closed}} en bon état / {{halfOpen}} en cours de récupération / {{open}} déclenché",
-			"discoveryNewsBadge": "Modifications récentes issues de la découverte en arrière-plan - cliquez pour les consulter",
 			"discoveryClaimsBadge_one": "{{count}} écart de modèle requiert votre attention - cliquez pour le consulter",
 			"discoveryClaimsBadge_many": "{{count}} écarts de modèles requièrent votre attention - cliquez pour les consulter",
 			"discoveryClaimsBadge_other": "{{count}} écarts de modèles requièrent votre attention - cliquez pour les consulter",
 			"users": "Utilisateurs",
-			"audit": "Audit"
+			"audit": "Audit",
+			"discoveryNewsBadge_one": "{{count}} changement non consulté issu de la découverte en arrière-plan. Informatif uniquement, rien qui nécessite votre attention - cliquez pour consulter.",
+			"discoveryNewsBadge_many": "{{count}} changements non consultés issus de la découverte en arrière-plan. Informatifs uniquement, rien qui nécessite votre attention - cliquez pour consulter.",
+			"discoveryNewsBadge_other": "{{count}} changements non consultés issus de la découverte en arrière-plan. Informatifs uniquement, rien qui nécessite votre attention - cliquez pour consulter."
 		},
 		"status": {
 			"apiStatus": "État de l'API",
@@ -443,7 +445,9 @@
 		"resetAll": "Tout réinitialiser (effacer le modèle et les paramètres)",
 		"toast": {
 			"chatCleared": "Chat effacé",
-			"conversationCleared": "Conversation effacée"
+			"conversationCleared": "Conversation effacée",
+			"chatReset": "Chat réinitialisé",
+			"conversationReset": "Conversation réinitialisée"
 		},
 		"chatCleared": "Chat effacé",
 		"conversationCleared": "Conversation effacée",
@@ -2340,7 +2344,8 @@
 			"thinkingDots": "Réflexion…",
 			"turn": "Tour {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Cesser d'acheminer les requêtes vers ce modèle jusqu'à ce que vous le réactiviez."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrer les fournisseurs",

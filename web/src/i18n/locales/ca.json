@@ -101,12 +101,14 @@
 			"settings": "Configuració",
 			"security": "Seguretat",
 			"failoverBadgeExplain": "Proveïdors de failover per estat del circuit breaker - {{closed}} saludables / {{halfOpen}} en recuperació / {{open}} disparats",
-			"discoveryNewsBadge": "Canvis recents del descobriment en segon pla - fes clic per revisar",
 			"discoveryClaimsBadge_one": "{{count}} discrepància de model requereix atenció - fes clic per revisar",
 			"discoveryClaimsBadge_many": "{{count}} discrepàncies de models requereixen atenció - fes clic per revisar",
 			"discoveryClaimsBadge_other": "{{count}} discrepàncies de models requereixen atenció - fes clic per revisar",
 			"users": "Usuaris",
-			"audit": "Auditoria"
+			"audit": "Auditoria",
+			"discoveryNewsBadge_one": "{{count}} canvi sense revisar del descobriment en segon pla. Només informatiu, no és res que requereixi atenció - fes clic per revisar.",
+			"discoveryNewsBadge_many": "{{count}} canvis sense revisar del descobriment en segon pla. Només informatius, no són res que requereixi atenció - fes clic per revisar.",
+			"discoveryNewsBadge_other": "{{count}} canvis sense revisar del descobriment en segon pla. Només informatius, no són res que requereixi atenció - fes clic per revisar."
 		},
 		"status": {
 			"apiStatus": "Estat de l'API",
@@ -443,7 +445,9 @@
 		"resetAll": "Restablix tot (esborra el model i la configuració)",
 		"toast": {
 			"chatCleared": "Xat esborrat",
-			"conversationCleared": "Conversació esborrada"
+			"conversationCleared": "Conversació esborrada",
+			"chatReset": "Xat restablert",
+			"conversationReset": "Conversa restablerta"
 		},
 		"chatCleared": "Xat esborrat",
 		"conversationCleared": "Conversació esborrada",
@@ -2340,7 +2344,8 @@
 			"thinkingDots": "Pensant…",
 			"turn": "Torn {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Deixa d'encaminar sol·licituds a aquest model fins que el tornis a activar."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtra els proveïdors",

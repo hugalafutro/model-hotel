@@ -28,6 +28,69 @@ import { ObservabilitySettings } from "./Settings/ObservabilitySettings";
 import { ProxySettings } from "./Settings/ProxySettings";
 import { RateLimitSettings } from "./Settings/RateLimitSettings";
 
+/**
+ * Double-confirm dialog for "reset every setting": the operator has to type
+ * RESET before the destructive button unlocks.
+ *
+ * The typed text is state *here*, not on `Settings`. It used to live on the
+ * page root, which meant every single keystroke re-rendered all ten settings
+ * sections (~26 range inputs plus everything else) just to re-render one text
+ * field. That is wasted work in the browser, and under v8 coverage
+ * instrumentation it was slow enough that the reset tests blew the per-test
+ * timeout. Keeping the field's state local re-renders only this dialog.
+ *
+ * The dialog is unmounted by its parent when closed, so the field resets
+ * itself on the next open and no explicit clearing is needed.
+ */
+function ResetAllDialog({
+	pending,
+	onConfirm,
+	onClose,
+}: {
+	pending: boolean;
+	onConfirm: () => void;
+	onClose: () => void;
+}) {
+	const { t } = useTranslation();
+	const [confirmText, setConfirmText] = useState("");
+
+	return (
+		<Modal
+			title={t("settings.common.resetAllConfirmTitle")}
+			onClose={onClose}
+			maxWidth="max-w-sm"
+		>
+			<p className="text-sm text-amber-400 mb-3">
+				{t("settings.common.resetAllConfirmMessage")}
+			</p>
+			<input
+				type="text"
+				value={confirmText}
+				onChange={(e) => setConfirmText(e.target.value)}
+				placeholder={t("settings.common.resetAllConfirmField")}
+				className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-(--text-primary) placeholder-gray-400 focus:outline-none focus:border-amber-500 mb-4"
+			/>
+			<div className="flex gap-3 justify-end">
+				<button
+					type="button"
+					onClick={onClose}
+					className="ui-btn ui-btn-secondary"
+				>
+					{t("common.cancel")}
+				</button>
+				<button
+					type="button"
+					disabled={confirmText !== "RESET" || pending}
+					onClick={onConfirm}
+					className="ui-btn ui-btn-danger"
+				>
+					{t("settings.common.resetToDefaults")}
+				</button>
+			</div>
+		</Modal>
+	);
+}
+
 export function Settings() {
 	const managed = useManaged();
 	const { t } = useTranslation();
@@ -65,7 +128,6 @@ export function Settings() {
 
 	// --- Reset all settings (double-confirm: type RESET) ---
 	const [resetAllOpen, setResetAllOpen] = useState(false);
-	const [resetAllConfirmText, setResetAllConfirmText] = useState("");
 
 	const resetAllMutation = useMutation({
 		mutationFn: () => api.settings.reset(),
@@ -73,7 +135,6 @@ export function Settings() {
 			queryClient.invalidateQueries({ queryKey: ["settings"] });
 			toast(t("settings.common.resetAllDone"), "success");
 			setResetAllOpen(false);
-			setResetAllConfirmText("");
 		},
 		onError: (err: Error) => {
 			toast(
@@ -81,7 +142,6 @@ export function Settings() {
 				"error",
 			);
 			setResetAllOpen(false);
-			setResetAllConfirmText("");
 		},
 	});
 
@@ -199,47 +259,11 @@ export function Settings() {
 
 			{/* Double-confirm: type RESET to reset all */}
 			{resetAllOpen && (
-				<Modal
-					title={t("settings.common.resetAllConfirmTitle")}
-					onClose={() => {
-						setResetAllOpen(false);
-						setResetAllConfirmText("");
-					}}
-					maxWidth="max-w-sm"
-				>
-					<p className="text-sm text-amber-400 mb-3">
-						{t("settings.common.resetAllConfirmMessage")}
-					</p>
-					<input
-						type="text"
-						value={resetAllConfirmText}
-						onChange={(e) => setResetAllConfirmText(e.target.value)}
-						placeholder={t("settings.common.resetAllConfirmField")}
-						className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded text-(--text-primary) placeholder-gray-400 focus:outline-none focus:border-amber-500 mb-4"
-					/>
-					<div className="flex gap-3 justify-end">
-						<button
-							type="button"
-							onClick={() => {
-								setResetAllOpen(false);
-								setResetAllConfirmText("");
-							}}
-							className="ui-btn ui-btn-secondary"
-						>
-							{t("common.cancel")}
-						</button>
-						<button
-							type="button"
-							disabled={
-								resetAllConfirmText !== "RESET" || resetAllMutation.isPending
-							}
-							onClick={() => resetAllMutation.mutate()}
-							className="ui-btn ui-btn-danger"
-						>
-							{t("settings.common.resetToDefaults")}
-						</button>
-					</div>
-				</Modal>
+				<ResetAllDialog
+					pending={resetAllMutation.isPending}
+					onConfirm={() => resetAllMutation.mutate()}
+					onClose={() => setResetAllOpen(false)}
+				/>
 			)}
 
 			{/* Section reset: single confirm */}

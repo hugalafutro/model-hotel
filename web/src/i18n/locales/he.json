@@ -101,12 +101,14 @@
 			"settings": "הגדרות",
 			"security": "אבטחה",
 			"failoverBadgeExplain": "ספקי מעבר לגיבוי לפי מצב מפסק זרם - {{closed}} תקין / {{halfOpen}} מתאושש / {{open}} הופעל",
-			"discoveryNewsBadge": "שינויים אחרונים מגילוי ברקע - לחצו כדי לעיין",
 			"discoveryClaimsBadge_one": "{{count}} אי-התאמה במודל דורשת טיפול - לחצו כדי לעיין",
 			"discoveryClaimsBadge_two": "{{count}} אי-התאמות במודלים דורשות טיפול - לחצו כדי לעיין",
 			"discoveryClaimsBadge_other": "{{count}} אי-התאמות במודלים דורשות טיפול - לחצו כדי לעיין",
 			"users": "משתמשים",
-			"audit": "ביקורת"
+			"audit": "ביקורת",
+			"discoveryNewsBadge_one": "{{count}} שינוי שלא נסקר מהגילוי ברקע. מידע בלבד, לא משהו שדורש טיפול - לחץ לסקירה.",
+			"discoveryNewsBadge_two": "{{count}} שינויים שלא נסקרו מהגילוי ברקע. מידע בלבד, לא משהו שדורש טיפול - לחץ לסקירה.",
+			"discoveryNewsBadge_other": "{{count}} שינויים שלא נסקרו מהגילוי ברקע. מידע בלבד, לא משהו שדורש טיפול - לחץ לסקירה."
 		},
 		"status": {
 			"apiStatus": "סטטוס API",
@@ -443,7 +445,9 @@
 		"resetAll": "אפס הכל (נקה את הדגם וההגדרות)",
 		"toast": {
 			"chatCleared": "הצ'אט נמחק",
-			"conversationCleared": "השיחה נמחקה"
+			"conversationCleared": "השיחה נמחקה",
+			"chatReset": "הצ'אט אופס",
+			"conversationReset": "השיחה אופסה"
 		},
 		"chatCleared": "הצ'אט נמחק",
 		"conversationCleared": "השיחה נמחקה",
@@ -2340,7 +2344,8 @@
 			"thinkingDots": "חושב…",
 			"turn": "תור {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "טוק"
+			"tok": "טוק",
+			"disableModelTooltip": "הפסק לנתב בקשות למודל הזה עד שתפעיל אותו מחדש."
 		},
 		"providerFilter": {
 			"filterProviders": "סינון ספקים",

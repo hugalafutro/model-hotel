@@ -99,11 +99,12 @@
 			"settings": "Asetukset",
 			"security": "Turvallisuus",
 			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan - {{closed}} toimintakunnossa / {{halfOpen}} palautumassa / {{open}} laukeamassa",
-			"discoveryNewsBadge": "Viimeaikaiset muutokset taustahakutoiminnosta - napsauta tarkistaaksesi",
 			"discoveryClaimsBadge_one": "{{count}} mallipoikkeama vaatii huomiota - napsauta tarkistaaksesi",
 			"discoveryClaimsBadge_other": "{{count}} mallipoikkeamaa vaatii huomiota - napsauta tarkistaaksesi",
 			"users": "Käyttäjät",
-			"audit": "Auditointi"
+			"audit": "Auditointi",
+			"discoveryNewsBadge_one": "{{count}} lukematon muutos taustatunnistuksesta. Vain tiedoksi, ei vaadi toimenpiteitä - napsauta lukeaksesi.",
+			"discoveryNewsBadge_other": "{{count}} lukematonta muutosta taustatunnistuksesta. Vain tiedoksi, eivät vaadi toimenpiteitä - napsauta lukeaksesi."
 		},
 		"status": {
 			"apiStatus": "API:n tila",
@@ -438,7 +439,9 @@
 		"resetAll": "Nollaa kaikki (tyhjennä malli ja asetukset)",
 		"toast": {
 			"chatCleared": "Keskustelu tyhjennetty",
-			"conversationCleared": "Keskustelu tyhjennetty"
+			"conversationCleared": "Keskustelu tyhjennetty",
+			"chatReset": "Keskustelu nollattu",
+			"conversationReset": "Keskustelu nollattu"
 		},
 		"chatCleared": "Keskustelu tyhjennetty",
 		"conversationCleared": "Keskustelu tyhjennetty",
@@ -2294,7 +2297,8 @@
 			"thinkingDots": "Ajattelee…",
 			"turn": "Vuoro {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Lopeta pyyntöjen ohjaaminen tähän malliin, kunnes otat sen uudelleen käyttöön."
 		},
 		"providerFilter": {
 			"filterProviders": "Suodata tarjoajia",

@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../../api/client";
-import { mockAllDefaults } from "../../../test/helpers";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { Settings } from "../../Settings";
@@ -27,10 +26,23 @@ const resetSettingsHandler = http.delete(
 	},
 );
 
-describe("Settings reset flows", () => {
+// Every test here mounts the *entire* Settings page: ten sections, ~26 range
+// inputs, and several hundred focusable nodes. The byRole queries below have to
+// compute an accessible name for each of them, and they run inside waitFor, so
+// a single assertion re-walks that tree repeatedly. In isolation the file is
+// fast, but the pre-push hook runs it under v8 coverage instrumentation
+// alongside ~165 other files, and there the per-test cost lands close enough to
+// the global 15s testTimeout to trip it intermittently.
+//
+// This is a file-local budget, deliberately not a global testTimeout bump: the
+// 15s ceiling elsewhere is what catches a genuine hang, and only the two suites
+// that mount the whole Settings page are this heavy. Nothing here is skipped or
+// weakened -- the assertions are unchanged, they just get room to finish.
+const SETTINGS_PAGE_TIMEOUT_MS = 45_000;
+
+describe("Settings reset flows", { timeout: SETTINGS_PAGE_TIMEOUT_MS }, () => {
 	beforeEach(() => {
 		server.resetHandlers();
-		mockAllDefaults();
 		server.use(resetSettingsHandler);
 	});
 

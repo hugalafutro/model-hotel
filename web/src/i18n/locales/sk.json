@@ -103,13 +103,16 @@
 			"settings": "Nastavenia",
 			"security": "Zabezpečenie",
 			"failoverBadgeExplain": "Poskytovatelia failoveru podľa stavu ističa - {{closed}} v poriadku / {{halfOpen}} sa obnovuje / {{open}} vypnutý",
-			"discoveryNewsBadge": "Nedávne zmeny z automatického vyhľadávania na pozadí - kliknite na prehliadnutie",
 			"discoveryClaimsBadge_one": "{{count}} nezrovnalosť modelu si vyžaduje pozornosť - kliknite na prehliadnutie",
 			"discoveryClaimsBadge_few": "{{count}} nezrovnalosti modelov si vyžadujú pozornosť - kliknite na prehliadnutie",
 			"discoveryClaimsBadge_many": "{{count}} nezrovnalosti modelov si vyžaduje pozornosť - kliknite na prehliadnutie",
 			"discoveryClaimsBadge_other": "{{count}} nezrovnalostí modelov si vyžaduje pozornosť - kliknite na prehliadnutie",
 			"users": "Používatelia",
-			"audit": "Audit"
+			"audit": "Audit",
+			"discoveryNewsBadge_one": "{{count}} neskontrolovaná zmena zo zisťovania na pozadí. Len informatívne, nevyžaduje pozornosť - kliknutím zobrazíte.",
+			"discoveryNewsBadge_few": "{{count}} neskontrolované zmeny zo zisťovania na pozadí. Len informatívne, nevyžadujú pozornosť - kliknutím zobrazíte.",
+			"discoveryNewsBadge_many": "{{count}} neskontrolovaných zmien zo zisťovania na pozadí. Len informatívne, nevyžadujú pozornosť - kliknutím zobrazíte.",
+			"discoveryNewsBadge_other": "{{count}} neskontrolovaných zmien zo zisťovania na pozadí. Len informatívne, nevyžadujú pozornosť - kliknutím zobrazíte."
 		},
 		"status": {
 			"apiStatus": "Stav API",
@@ -448,7 +451,9 @@
 		"resetAll": "Vynulovať všetko (vymazať model a nastavenia)",
 		"toast": {
 			"chatCleared": "Chat bol vymazaný",
-			"conversationCleared": "Konverzácia bola vymazaná"
+			"conversationCleared": "Konverzácia bola vymazaná",
+			"chatReset": "Chat bol vynulovaný",
+			"conversationReset": "Konverzácia bola vynulovaná"
 		},
 		"chatCleared": "Chat bol vymazaný",
 		"conversationCleared": "Konverzácia bola vymazaná",
@@ -2386,7 +2391,8 @@
 			"thinkingDots": "Premýšľa…",
 			"turn": "Kolo {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Prestať smerovať požiadavky na tento model, kým ho znova nepovolíte."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrovať poskytovateľov",

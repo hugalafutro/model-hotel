@@ -101,12 +101,14 @@
 			"settings": "Ajustes",
 			"security": "Seguridad",
 			"failoverBadgeExplain": "Proveedores de conmutación por error según el estado del disyuntor: {{closed}} en buen estado / {{halfOpen}} en recuperación / {{open}} disparado",
-			"discoveryNewsBadge": "Cambios recientes de la detección en segundo plano - haz clic para revisarlos",
 			"discoveryClaimsBadge_one": "{{count}} discrepancia de modelo requiere atención - haz clic para revisarla",
 			"discoveryClaimsBadge_many": "{{count}} discrepancias de modelos requieren atención - haz clic para revisarlas",
 			"discoveryClaimsBadge_other": "{{count}} discrepancias de modelos requieren atención - haz clic para revisarlas",
 			"users": "Usuarios",
-			"audit": "Auditoría"
+			"audit": "Auditoría",
+			"discoveryNewsBadge_one": "{{count}} cambio sin revisar del descubrimiento en segundo plano. Solo informativo, no requiere atención - haz clic para revisar.",
+			"discoveryNewsBadge_many": "{{count}} cambios sin revisar del descubrimiento en segundo plano. Solo informativos, no requieren atención - haz clic para revisar.",
+			"discoveryNewsBadge_other": "{{count}} cambios sin revisar del descubrimiento en segundo plano. Solo informativos, no requieren atención - haz clic para revisar."
 		},
 		"status": {
 			"apiStatus": "Estado de la API",
@@ -443,7 +445,9 @@
 		"resetAll": "Restablecer todo (borrar modelo y ajustes)",
 		"toast": {
 			"chatCleared": "Chat borrado",
-			"conversationCleared": "Conversación borrada"
+			"conversationCleared": "Conversación borrada",
+			"chatReset": "Chat restablecido",
+			"conversationReset": "Conversación restablecida"
 		},
 		"chatCleared": "Chat borrado",
 		"conversationCleared": "Conversación borrada",
@@ -2340,7 +2344,8 @@
 			"thinkingDots": "Pensando…",
 			"turn": "Turno {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Deja de enrutar solicitudes a este modelo hasta que lo vuelvas a habilitar."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrar proveedores",

@@ -99,11 +99,12 @@
 			"settings": "Cài đặt",
 			"security": "Bảo mật",
 			"failoverBadgeExplain": "Các nhà cung cấp dự phòng theo trạng thái ngắt mạch - {{closed}} hoạt động bình thường / {{halfOpen}} đang phục hồi / {{open}} bị ngắt",
-			"discoveryNewsBadge": "Thay đổi gần đây từ tính năng phát hiện nền - nhấp để xem lại",
 			"discoveryClaimsBadge_one": "{{count}} sai lệch mô hình cần được chú ý - nhấp để xem lại",
 			"discoveryClaimsBadge_other": "{{count}} sai lệch mô hình cần được chú ý - nhấp để xem lại",
 			"users": "Người dùng",
-			"audit": "Kiểm tra"
+			"audit": "Kiểm tra",
+			"discoveryNewsBadge_other": "{{count}} thay đổi chưa xem từ quá trình khám phá nền. Chỉ mang tính thông tin, không phải vấn đề cần xử lý - nhấp để xem.",
+			"discoveryNewsBadge_one": "{{count}} thay đổi chưa xem từ quá trình khám phá nền. Chỉ mang tính thông tin, không phải vấn đề cần xử lý - nhấp để xem."
 		},
 		"status": {
 			"apiStatus": "Trạng thái API",
@@ -438,7 +439,9 @@
 		"resetAll": "Đặt lại tất cả (xóa mô hình và cài đặt)",
 		"toast": {
 			"chatCleared": "Cuộc trò chuyện đã bị xóa",
-			"conversationCleared": "Cuộc trò chuyện đã được xóa"
+			"conversationCleared": "Cuộc trò chuyện đã được xóa",
+			"chatReset": "Đã đặt lại cuộc trò chuyện",
+			"conversationReset": "Đã đặt lại cuộc trò chuyện"
 		},
 		"chatCleared": "Cuộc trò chuyện đã bị xóa",
 		"conversationCleared": "Cuộc trò chuyện đã được xóa",
@@ -2294,7 +2297,8 @@
 			"thinkingDots": "Đang suy nghĩ…",
 			"turn": "Lượt {{number}}",
 			"tokPerSec": "tok/giây",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Ngừng định tuyến yêu cầu đến mô hình này cho đến khi bạn bật lại."
 		},
 		"providerFilter": {
 			"filterProviders": "Lọc nhà cung cấp",

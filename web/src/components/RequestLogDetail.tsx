@@ -162,7 +162,7 @@ export function RequestLogDetail({
 						className={`text-lg font-bold ${requestLog.tokens_prompt_cache_hit > 0 ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
 						title={
 							requestLog.tokens_prompt_cache_hit > 0
-								? t("components.virtualLogTable.inflatedByCacheHits")
+								? t("components.virtualLogTable.cacheInflated")
 								: undefined
 						}
 					>

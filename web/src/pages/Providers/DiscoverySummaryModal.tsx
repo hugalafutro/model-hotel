@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { DiscoveryDiff } from "../../api/types";
 import { Modal } from "../../components/Modal";
@@ -70,6 +70,11 @@ export function DiscoverySummaryModal({
 	isAnyRetesting?: boolean;
 }) {
 	const { t } = useTranslation();
+
+	// Base for the aria-controls ids. Derived from useId rather than entryKey
+	// because entryKey is a provider name, which may contain spaces and is not a
+	// legal id fragment; the index within `visible` makes each one unique.
+	const sectionIdBase = useId();
 
 	// Provider sections start expanded; users collapse the ones they have already
 	// reviewed. Keyed by entryKey so duplicate provider names stay independent.
@@ -365,58 +370,69 @@ export function DiscoverySummaryModal({
 					</p>
 				) : (
 					<>
-						{visible.map((r) => (
-							<div key={entryKeyOf(r)} className="space-y-3">
-								{showHeaders ? (
-									<div className="flex items-center gap-2">
-										<button
-											type="button"
-											onClick={() => toggleCollapsed(entryKeyOf(r))}
-											aria-expanded={!collapsed.has(entryKeyOf(r))}
-											aria-label={t(
-												"providers.discoverySummary.toggleSection",
-												{ provider: r.providerName },
-											)}
-											className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-(--text-primary)"
-											data-testid="discovery-summary-toggle"
+						{visible.map((r, i) => {
+							const isCollapsed = collapsed.has(entryKeyOf(r));
+							const sectionId = `${sectionIdBase}-section-${i}`;
+							return (
+								<div key={entryKeyOf(r)} className="space-y-3">
+									{showHeaders ? (
+										<div className="flex items-center gap-2">
+											<button
+												type="button"
+												onClick={() => toggleCollapsed(entryKeyOf(r))}
+												aria-expanded={!isCollapsed}
+												aria-controls={sectionId}
+												aria-label={t(
+													"providers.discoverySummary.toggleSection",
+													{ provider: r.providerName },
+												)}
+												className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-(--text-primary)"
+												data-testid="discovery-summary-toggle"
+											>
+												<span className="truncate text-(--accent)">
+													{r.providerName}
+												</span>
+												<span className="h-px flex-1 bg-white/30" />
+												{isCollapsed ? (
+													<ChevronRight size={14} className="shrink-0" />
+												) : (
+													<ChevronDown size={14} className="shrink-0" />
+												)}
+											</button>
+											{renderRetestButton(r)}
+										</div>
+									) : null}
+									{showHeaders ? (
+										<div
+											id={sectionId}
+											className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+												isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+											}`}
 										>
-											<span className="truncate text-(--accent)">
-												{r.providerName}
-											</span>
-											<span className="h-px flex-1 bg-white/30" />
-											{collapsed.has(entryKeyOf(r)) ? (
-												<ChevronRight size={14} className="shrink-0" />
-											) : (
-												<ChevronDown size={14} className="shrink-0" />
-											)}
-										</button>
-										{renderRetestButton(r)}
-									</div>
-								) : null}
-								{showHeaders ? (
-									<div
-										className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-											collapsed.has(entryKeyOf(r))
-												? "grid-rows-[0fr]"
-												: "grid-rows-[1fr]"
-										}`}
-									>
-										<div className="overflow-hidden">{renderDiffBody(r)}</div>
-									</div>
-								) : (
-									renderDiffBody(r)
-								)}
-								{!showHeaders &&
-									(() => {
-										// Build the button once; the truthiness check and the
-										// rendered node must not be two separate calls.
-										const retest = renderRetestButton(r);
-										return retest ? (
-											<div className="flex justify-end">{retest}</div>
-										) : null;
-									})()}
-							</div>
-						))}
+											{/* grid-rows-[0fr] + overflow-hidden hides the body
+											    VISUALLY only: without `inert` a screen reader still
+											    reads every collapsed row while the toggle above says
+											    aria-expanded="false". inert sits on the inner div so
+											    the animated grid row keeps transitioning. */}
+											<div className="overflow-hidden" inert={isCollapsed}>
+												{renderDiffBody(r)}
+											</div>
+										</div>
+									) : (
+										renderDiffBody(r)
+									)}
+									{!showHeaders &&
+										(() => {
+											// Build the button once; the truthiness check and the
+											// rendered node must not be two separate calls.
+											const retest = renderRetestButton(r);
+											return retest ? (
+												<div className="flex justify-end">{retest}</div>
+											) : null;
+										})()}
+								</div>
+							);
+						})}
 						{unchanged.length > 0 && (
 							<section
 								className="space-y-1.5"

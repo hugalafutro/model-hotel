@@ -99,11 +99,12 @@
 			"settings": "设置",
 			"security": "安全",
 			"failoverBadgeExplain": "按断路器状态分组的故障转移提供商 - {{closed}} 正常 / {{halfOpen}} 恢复中 / {{open}} 已跳闸",
-			"discoveryNewsBadge": "来自后台发现的最近变更 - 点击查看",
 			"discoveryClaimsBadge_one": "{{count}} 项模型差异需要处理 - 点击查看",
 			"discoveryClaimsBadge_other": "{{count}} 项模型差异需要处理 - 点击查看",
 			"users": "用户",
-			"audit": "审计"
+			"audit": "审计",
+			"discoveryNewsBadge_other": "后台发现中有 {{count}} 项未查看的变更。仅供参考，并非需要处理的问题 - 点击查看。",
+			"discoveryNewsBadge_one": "后台发现中有 {{count}} 项未查看的变更。仅供参考，并非需要处理的问题 - 点击查看。"
 		},
 		"status": {
 			"apiStatus": "API 状态",
@@ -438,7 +439,9 @@
 		"resetAll": "重置所有 (清除模型和设置)",
 		"toast": {
 			"chatCleared": "聊天已清除",
-			"conversationCleared": "对话已清除"
+			"conversationCleared": "对话已清除",
+			"chatReset": "聊天已重置",
+			"conversationReset": "对话已重置"
 		},
 		"chatCleared": "聊天已清除",
 		"conversationCleared": "对话已清除",
@@ -2294,7 +2297,8 @@
 			"thinkingDots": "思考…",
 			"turn": "第 {{number}} 回合",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "停止将请求路由到此模型，直到您重新启用它。"
 		},
 		"providerFilter": {
 			"filterProviders": "筛选提供商",

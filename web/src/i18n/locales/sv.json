@@ -99,11 +99,12 @@
 			"settings": "Inställningar",
 			"security": "Säkerhet",
 			"failoverBadgeExplain": "Failover-leverantörer efter circuit-breaker-status - {{closed}} fungerar / {{halfOpen}} återställs / {{open}} utlöst",
-			"discoveryNewsBadge": "Senaste ändringarna från bakgrundsdetektering - klicka för att granska",
 			"discoveryClaimsBadge_one": "{{count}} modellavvikelse kräver åtgärd - klicka för att granska",
 			"discoveryClaimsBadge_other": "{{count}} modellavvikelser kräver åtgärd - klicka för att granska",
 			"users": "Användare",
-			"audit": "Granskning"
+			"audit": "Granskning",
+			"discoveryNewsBadge_one": "{{count}} oläst ändring från bakgrundsidentifieringen. Endast information, inget som kräver åtgärd - klicka för att läsa.",
+			"discoveryNewsBadge_other": "{{count}} olästa ändringar från bakgrundsidentifieringen. Endast information, inget som kräver åtgärd - klicka för att läsa."
 		},
 		"status": {
 			"apiStatus": "API-status",
@@ -438,7 +439,9 @@
 		"resetAll": "Återställ alla (rensa modell och inställningar)",
 		"toast": {
 			"chatCleared": "Chatt rensad",
-			"conversationCleared": "Konversation rensad"
+			"conversationCleared": "Konversation rensad",
+			"chatReset": "Chatt återställd",
+			"conversationReset": "Konversation återställd"
 		},
 		"chatCleared": "Chatt rensad",
 		"conversationCleared": "Konversation rensad",
@@ -2294,7 +2297,8 @@
 			"thinkingDots": "Tänker…",
 			"turn": "Tur {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Sluta dirigera förfrågningar till den här modellen tills du aktiverar den igen."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrera leverantörer",

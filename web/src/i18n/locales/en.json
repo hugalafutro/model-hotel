@@ -99,11 +99,12 @@
 			"appLogs": "Logs",
 			"settings": "Settings",
 			"security": "Security",
-			"discoveryNewsBadge": "Recent changes from background discovery - click to review",
 			"discoveryClaimsBadge_one": "{{count}} model discrepancy needs attention - click to review",
 			"discoveryClaimsBadge_other": "{{count}} model discrepancies need attention - click to review",
 			"users": "Users",
-			"audit": "Audit"
+			"audit": "Audit",
+			"discoveryNewsBadge_one": "{{count}} unreviewed change from background discovery. Informational, not something needing attention - click to review.",
+			"discoveryNewsBadge_other": "{{count}} unreviewed changes from background discovery. Informational, not something needing attention - click to review."
 		},
 		"status": {
 			"apiStatus": "API Status",
@@ -438,7 +439,9 @@
 		"resetAll": "Reset all (clear model & settings)",
 		"toast": {
 			"chatCleared": "Chat cleared",
-			"conversationCleared": "Conversation cleared"
+			"conversationCleared": "Conversation cleared",
+			"chatReset": "Chat reset",
+			"conversationReset": "Conversation reset"
 		},
 		"chatCleared": "Chat cleared",
 		"conversationCleared": "Conversation cleared",
@@ -2294,7 +2297,8 @@
 			"thinkingDots": "Thinking…",
 			"turn": "Turn {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Stop routing requests to this model until you re-enable it."
 		},
 		"providerFilter": {
 			"filterProviders": "Filter Providers",

@@ -101,12 +101,14 @@
 			"settings": "Impostazioni",
 			"security": "Sicurezza",
 			"failoverBadgeExplain": "Failover dei provider in base allo stato dell'interruttore automatico - {{closed}} funzionante / {{halfOpen}} in ripristino / {{open}} scattato",
-			"discoveryNewsBadge": "Modifiche recenti dal rilevamento in background - clicca per rivedere",
 			"discoveryClaimsBadge_one": "{{count}} discrepanza di modello richiede attenzione - clicca per rivedere",
 			"discoveryClaimsBadge_many": "{{count}} discrepanze di modelli richiedono attenzione - clicca per rivedere",
 			"discoveryClaimsBadge_other": "{{count}} discrepanze di modelli richiedono attenzione - clicca per rivedere",
 			"users": "Utenti",
-			"audit": "Audit"
+			"audit": "Audit",
+			"discoveryNewsBadge_one": "{{count}} modifica non esaminata dal rilevamento in background. Solo informativa, non richiede attenzione - fai clic per esaminare.",
+			"discoveryNewsBadge_many": "{{count}} modifiche non esaminate dal rilevamento in background. Solo informative, non richiedono attenzione - fai clic per esaminare.",
+			"discoveryNewsBadge_other": "{{count}} modifiche non esaminate dal rilevamento in background. Solo informative, non richiedono attenzione - fai clic per esaminare."
 		},
 		"status": {
 			"apiStatus": "Stato API",
@@ -443,7 +445,9 @@
 		"resetAll": "Reimposta tutto (cancella modello e impostazioni)",
 		"toast": {
 			"chatCleared": "Chat cancellata",
-			"conversationCleared": "Conversazione cancellata"
+			"conversationCleared": "Conversazione cancellata",
+			"chatReset": "Chat reimpostata",
+			"conversationReset": "Conversazione reimpostata"
 		},
 		"chatCleared": "Chat cancellata",
 		"conversationCleared": "Conversazione cancellata",
@@ -2340,7 +2344,8 @@
 			"thinkingDots": "Pensando…",
 			"turn": "Turno {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Interrompe l'instradamento delle richieste a questo modello finché non lo riattivi."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtro Fornitori",
