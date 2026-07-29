@@ -1936,7 +1936,8 @@
 				"fleet_conflict": "Front Desk-ägarskapskonflikt",
 				"failover_sync_error": "Synkroniseringen av failover-gruppen misslyckades",
 				"quota_schema_drift": "Leverantören ändrade strukturen på sitt kvotsvar",
-				"auth_sso_identity_bound": "SSO-identitet kopplad till ett konto"
+				"auth_sso_identity_bound": "SSO-identitet kopplad till ett konto",
+				"discovery_claims_outstanding": "Modellavvikelser förblir oåtgärdade"
 			},
 			"events": {
 				"all": "Markera allt",
@@ -1945,6 +1946,9 @@
 				"title": "Händelser som ska meddelas"
 			},
 			"eventsLabel": "Varningshändelser",
+			"claimAge": "Varning för oåtgärdade avvikelser (dagar)",
+			"claimAge.description_one": "Varna när den äldsta medräknade modellavvikelsen har varit oåtgärdad längre än detta. Avvikelser räknas inte längre när de är gamla nog att betraktas som utgångna, så maximum är {{count}} dag: ett högre tröskelvärde skulle aldrig utlösas.",
+			"claimAge.description_other": "Varna när den äldsta medräknade modellavvikelsen har varit oåtgärdad längre än detta. Avvikelser räknas inte längre när de är gamla nog att betraktas som utgångna, så maximum är {{count}} dagar: ett högre tröskelvärde skulle aldrig utlösas.",
 			"snippets": {
 				"browseAll": "Bläddra bland alla över 80 tjänster",
 				"description": "Exempel på Apprise-URL-format för populära tjänster – kopiera ett, fyll i dina uppgifter och klistra in det ovan."

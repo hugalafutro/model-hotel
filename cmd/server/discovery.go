@@ -42,6 +42,11 @@ type discoveryDeps struct {
 	modelRepo    *model.Repository
 	failoverRepo *failover.Repository
 	dialer       *proxy.SafeDialer
+	// settingsRepo carries the outstanding-claim alert's threshold and its
+	// persisted edge latch. Typed as the interface the API package already
+	// defines so this stays a dependency on the two reads and two writes the
+	// alert actually needs.
+	settingsRepo api.SettingsStore
 }
 
 func publishDiscoveryEvent(source string, result DiscoveryResult) {
@@ -121,6 +126,16 @@ func runDiscovery(deps discoveryDeps, source string) DiscoveryResult {
 		debuglog.Error("discovery: prune change journal failed", "error", err)
 	} else if deleted > 0 {
 		debuglog.Info("discovery: pruned change journal", "rows", deleted)
+	}
+
+	// The unattended-badge nudge. Derived from the same live claim set the
+	// badge reads, evaluated here because this is the only place that runs on
+	// the operator's discovery cadence. Housekeeping exactly like the prune
+	// above: the statement-scoped `if err :=` makes it structurally impossible
+	// to touch result or abort the run, so a broken settings store or a failed
+	// claim query cannot turn a completed scan into a failed one.
+	if err := api.EvaluateClaimAgeAlert(ctx, deps.pool, deps.settingsRepo, time.Now()); err != nil {
+		debuglog.Error("discovery: outstanding-claims alert evaluation failed", "error", err)
 	}
 
 	return result

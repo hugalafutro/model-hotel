@@ -1977,7 +1977,8 @@
 				"fleet_conflict": "Conflict de proprietate Front Desk",
 				"failover_sync_error": "Sincronizarea grupului de failover a eșuat",
 				"quota_schema_drift": "Furnizorul a modificat structura răspunsului privind cota",
-				"auth_sso_identity_bound": "Identitate SSO asociată unui cont"
+				"auth_sso_identity_bound": "Identitate SSO asociată unui cont",
+				"discovery_claims_outstanding": "Discrepanțe ale modelelor nerezolvate"
 			},
 			"events": {
 				"all": "Selectați tot",
@@ -1986,6 +1987,10 @@
 				"title": "Evenimente care trebuie notificate"
 			},
 			"eventsLabel": "Evenimente de alertă",
+			"claimAge": "Alertă pentru discrepanțe nerezolvate (zile)",
+			"claimAge.description_one": "Avertizează când cea mai veche discrepanță de model contorizată rămâne nerezolvată mai mult decât atât. Discrepanțele nu mai sunt contorizate odată ce sunt suficient de vechi pentru a fi considerate retrase, așa că maximul este {{count}} zi: un prag mai mare nu s-ar declanșa niciodată.",
+			"claimAge.description_few": "Avertizează când cea mai veche discrepanță de model contorizată rămâne nerezolvată mai mult decât atât. Discrepanțele nu mai sunt contorizate odată ce sunt suficient de vechi pentru a fi considerate retrase, așa că maximul este {{count}} zile: un prag mai mare nu s-ar declanșa niciodată.",
+			"claimAge.description_other": "Avertizează când cea mai veche discrepanță de model contorizată rămâne nerezolvată mai mult decât atât. Discrepanțele nu mai sunt contorizate odată ce sunt suficient de vechi pentru a fi considerate retrase, așa că maximul este {{count}} de zile: un prag mai mare nu s-ar declanșa niciodată.",
 			"snippets": {
 				"browseAll": "Răsfoiți toate cele peste 80 de servicii",
 				"description": "Exemple de formate de URL Apprise pentru servicii populare - copiați unul, completați detaliile dvs. și lipiți-l mai sus."

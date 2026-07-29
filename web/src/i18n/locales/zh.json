@@ -1936,7 +1936,8 @@
 				"fleet_conflict": "Front Desk 归属冲突",
 				"failover_sync_error": "故障转移组同步失败",
 				"quota_schema_drift": "提供商更改了配额响应结构",
-				"auth_sso_identity_bound": "SSO 身份已绑定到账户"
+				"auth_sso_identity_bound": "SSO 身份已绑定到账户",
+				"discovery_claims_outstanding": "未处理的模型差异"
 			},
 			"events": {
 				"all": "全选",
@@ -1945,6 +1946,9 @@
 				"title": "需通知的事件"
 			},
 			"eventsLabel": "警报事件",
+			"claimAge": "未处理差异提醒（天）",
+			"claimAge.description_other": "当计入统计的最早模型差异超过此时长仍未处理时发出提醒。差异一旦旧到可以视为已停用就不再计入统计，因此最大值为 {{count}} 天：更高的阈值永远不会触发。",
+			"claimAge.description_one": "当计入统计的最早模型差异超过此时长仍未处理时发出提醒。差异一旦旧到可以视为已停用就不再计入统计，因此最大值为 {{count}} 天：更高的阈值永远不会触发。",
 			"snippets": {
 				"browseAll": "浏览所有 80 多项服务",
 				"description": "常用服务的 Apprise URL 格式示例——复制其中一个，填写您的详细信息，然后将其粘贴到上方。"

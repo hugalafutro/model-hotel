@@ -1936,7 +1936,8 @@
 				"fleet_conflict": "Front Desk 소유권 충돌",
 				"failover_sync_error": "페일오버 그룹 동기화 실패",
 				"quota_schema_drift": "프로바이더가 할당량 응답 구조를 변경함",
-				"auth_sso_identity_bound": "SSO 아이디가 계정에 연결됨"
+				"auth_sso_identity_bound": "SSO 아이디가 계정에 연결됨",
+				"discovery_claims_outstanding": "처리되지 않은 모델 불일치"
 			},
 			"events": {
 				"all": "모두 선택",
@@ -1945,6 +1946,9 @@
 				"title": "알림 대상 이벤트"
 			},
 			"eventsLabel": "알림 이벤트",
+			"claimAge": "미처리 불일치 알림 (일)",
+			"claimAge.description_other": "집계된 모델 불일치 중 가장 오래된 항목이 이 기간보다 오래 처리되지 않으면 알립니다. 불일치는 폐기된 것으로 간주할 만큼 오래되면 집계에서 빠지므로 최댓값은 {{count}}일입니다. 이보다 높은 임계값은 절대 발동하지 않습니다.",
+			"claimAge.description_one": "집계된 모델 불일치 중 가장 오래된 항목이 이 기간보다 오래 처리되지 않으면 알립니다. 불일치는 폐기된 것으로 간주할 만큼 오래되면 집계에서 빠지므로 최댓값은 {{count}}일입니다. 이보다 높은 임계값은 절대 발동하지 않습니다.",
 			"snippets": {
 				"browseAll": "80개 이상의 모든 서비스 둘러보기",
 				"description": "일반적으로 사용되는 서비스의 Apprise URL 형식 예시 - 그중 하나를 복사한 후, 세부 정보를 입력하고 위에 붙여넣으십시오."

@@ -2018,7 +2018,8 @@
 				"fleet_conflict": "Konflikt vlastnictví Front Desku",
 				"failover_sync_error": "Synchronizace skupiny pro převzetí služeb při výpadku selhala",
 				"quota_schema_drift": "Poskytovatel změnil strukturu odpovědi o kvótě",
-				"auth_sso_identity_bound": "Identita SSO byla propojena s účtem"
+				"auth_sso_identity_bound": "Identita SSO byla propojena s účtem",
+				"discovery_claims_outstanding": "Nesrovnalosti modelů ponechané bez řešení"
 			},
 			"events": {
 				"all": "Vybrat vše",
@@ -2027,6 +2028,11 @@
 				"title": "Události, o kterých je třeba informovat"
 			},
 			"eventsLabel": "Upozornění na události",
+			"claimAge": "Upozornění na nevyřešené nesrovnalosti (dny)",
+			"claimAge.description_one": "Upozorní, když nejstarší započítaná nesrovnalost modelu zůstane bez řešení déle než tuto dobu. Nesrovnalosti se přestanou počítat, jakmile jsou dost staré na to, aby byly považovány za vyřazené, takže maximum je {{count}} den: vyšší práh by se nikdy nespustil.",
+			"claimAge.description_few": "Upozorní, když nejstarší započítaná nesrovnalost modelu zůstane bez řešení déle než tuto dobu. Nesrovnalosti se přestanou počítat, jakmile jsou dost staré na to, aby byly považovány za vyřazené, takže maximum je {{count}} dny: vyšší práh by se nikdy nespustil.",
+			"claimAge.description_many": "Upozorní, když nejstarší započítaná nesrovnalost modelu zůstane bez řešení déle než tuto dobu. Nesrovnalosti se přestanou počítat, jakmile jsou dost staré na to, aby byly považovány za vyřazené, takže maximum je {{count}} dne: vyšší práh by se nikdy nespustil.",
+			"claimAge.description_other": "Upozorní, když nejstarší započítaná nesrovnalost modelu zůstane bez řešení déle než tuto dobu. Nesrovnalosti se přestanou počítat, jakmile jsou dost staré na to, aby byly považovány za vyřazené, takže maximum je {{count}} dnů: vyšší práh by se nikdy nespustil.",
 			"snippets": {
 				"browseAll": "Prohlédněte si všech více než 80 služeb",
 				"description": "Příklady formátů URL pro Apprise u populárních služeb – zkopírujte jeden z nich, doplňte své údaje a vložte jej výše."

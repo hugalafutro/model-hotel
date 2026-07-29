@@ -1574,6 +1574,9 @@
 			"targetConfigured": "Configured (type to replace)",
 			"clear": "Clear",
 			"eventsLabel": "Alert events",
+			"claimAge": "Unaddressed discrepancy alert (days)",
+			"claimAge.description_one": "Alert when the oldest counted model discrepancy has been unaddressed for longer than this. Discrepancies stop counting once they are old enough to be treated as retired, so the maximum is {{count}} day: a higher threshold could never fire.",
+			"claimAge.description_other": "Alert when the oldest counted model discrepancy has been unaddressed for longer than this. Discrepancies stop counting once they are old enough to be treated as retired, so the maximum is {{count}} days: a higher threshold could never fire.",
 			"events": {
 				"title": "Events to notify on",
 				"reset": "Reset to defaults",
@@ -1587,7 +1590,8 @@
 				"discovery_provider_failed": "Provider failed during discovery",
 				"fleet_conflict": "Front Desk ownership conflict",
 				"quota_schema_drift": "Provider changed its quota response shape",
-				"auth_sso_identity_bound": "SSO identity bound to an account"
+				"auth_sso_identity_bound": "SSO identity bound to an account",
+				"discovery_claims_outstanding": "Model discrepancies left unaddressed"
 			},
 			"testButton": "Send test notification",
 			"testSending": "Sending…",

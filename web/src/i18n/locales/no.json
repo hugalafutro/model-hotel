@@ -1936,7 +1936,8 @@
 				"fleet_conflict": "Front Desk-eierskapskonflikt",
 				"failover_sync_error": "Synkronisering av failover-gruppe mislyktes",
 				"quota_schema_drift": "Leverandøren endret strukturen i kvotesvaret",
-				"auth_sso_identity_bound": "SSO-identitet knyttet til en konto"
+				"auth_sso_identity_bound": "SSO-identitet knyttet til en konto",
+				"discovery_claims_outstanding": "Modellavvik forblir uhåndtert"
 			},
 			"events": {
 				"all": "Velg alt",
@@ -1945,6 +1946,9 @@
 				"title": "Hendelser som skal varsles om"
 			},
 			"eventsLabel": "Varslingshendelser",
+			"claimAge": "Varsel om uhåndterte avvik (dager)",
+			"claimAge.description_one": "Varsle når det eldste medregnede modellavviket har vært uhåndtert lenger enn dette. Avvik telles ikke lenger når de er gamle nok til å regnes som utgått, så maksimum er {{count}} dag: en høyere terskel ville aldri utløses.",
+			"claimAge.description_other": "Varsle når det eldste medregnede modellavviket har vært uhåndtert lenger enn dette. Avvik telles ikke lenger når de er gamle nok til å regnes som utgått, så maksimum er {{count}} dager: en høyere terskel ville aldri utløses.",
 			"snippets": {
 				"browseAll": "Se alle de over 80 tjenestene",
 				"description": "Eksempler på Apprise-URL-formater for populære tjenester – kopier en, fyll inn dine opplysninger og lim den inn ovenfor."

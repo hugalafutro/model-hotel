@@ -1936,7 +1936,8 @@
 				"fleet_conflict": "Front Desk-eienaarskapkonflik",
 				"failover_sync_error": "Failover-groep-sinkronisering het misluk",
 				"quota_schema_drift": "Verskaffer het sy kwota-antwoord se vorm verander",
-				"auth_sso_identity_bound": "SSO-identiteit aan 'n rekening gekoppel"
+				"auth_sso_identity_bound": "SSO-identiteit aan 'n rekening gekoppel",
+				"discovery_claims_outstanding": "Modelafwykings wat onaangespreek bly"
 			},
 			"events": {
 				"all": "Kies alles",
@@ -1945,6 +1946,9 @@
 				"title": "Gebeure om oor in kennis te stel"
 			},
 			"eventsLabel": "Waarskuwingsgebeurtenisse",
+			"claimAge": "Waarskuwing oor onaangespreekte afwykings (dae)",
+			"claimAge.description_one": "Waarsku wanneer die oudste getelde modelafwyking langer as hierdie tydperk sonder aandag bly. Afwykings hou op tel sodra hulle oud genoeg is om as afgetree beskou te word, dus is die maksimum {{count}} dag: 'n hoër drempel sou nooit kon afgaan nie.",
+			"claimAge.description_other": "Waarsku wanneer die oudste getelde modelafwyking langer as hierdie tydperk sonder aandag bly. Afwykings hou op tel sodra hulle oud genoeg is om as afgetree beskou te word, dus is die maksimum {{count}} dae: 'n hoër drempel sou nooit kon afgaan nie.",
 			"snippets": {
 				"browseAll": "Blaai deur al die 80+ dienste",
 				"description": "Voorbeeld Apprise-URL-formate vir gewilde dienste - kopieer een, vul jou besonderhede in en plak dit hierbo."

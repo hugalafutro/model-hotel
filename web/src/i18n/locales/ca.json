@@ -1977,7 +1977,8 @@
 				"fleet_conflict": "Conflicte de propietat de Front Desk",
 				"failover_sync_error": "La sincronització del grup de fallada ha fallat",
 				"quota_schema_drift": "El proveïdor ha canviat l'estructura de la resposta de quota",
-				"auth_sso_identity_bound": "Identitat SSO vinculada a un compte"
+				"auth_sso_identity_bound": "Identitat SSO vinculada a un compte",
+				"discovery_claims_outstanding": "Discrepàncies de models sense atendre"
 			},
 			"events": {
 				"all": "Selecciona-ho tot",
@@ -1986,6 +1987,10 @@
 				"title": "Esdeveniments per notificar"
 			},
 			"eventsLabel": "Esdeveniments d'alerta",
+			"claimAge": "Alerta de discrepàncies sense atendre (dies)",
+			"claimAge.description_one": "Avisa quan la discrepància de models comptabilitzada més antiga porti sense atendre més temps que aquest. Les discrepàncies deixen de comptar quan són prou antigues per considerar-les retirades, de manera que el màxim és {{count}} dia: un llindar superior no s'activaria mai.",
+			"claimAge.description_many": "Avisa quan la discrepància de models comptabilitzada més antiga porti sense atendre més temps que aquest. Les discrepàncies deixen de comptar quan són prou antigues per considerar-les retirades, de manera que el màxim és {{count}} dies: un llindar superior no s'activaria mai.",
+			"claimAge.description_other": "Avisa quan la discrepància de models comptabilitzada més antiga porti sense atendre més temps que aquest. Les discrepàncies deixen de comptar quan són prou antigues per considerar-les retirades, de manera que el màxim és {{count}} dies: un llindar superior no s'activaria mai.",
 			"snippets": {
 				"browseAll": "Navega pels més de 80 serveis",
 				"description": "Formats d'URL d'exemple per a serveis populars - copia'n un, omple les teves dades i enganxa'l a dalt."

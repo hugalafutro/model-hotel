@@ -90,6 +90,10 @@ var buildCommit = "unknown"
 //   - log_export_json/metrics/otel: which log-export integrations are active,
 //     derived from process environment (LOG_FORMAT, METRICS_TOKEN, OTLP endpoint),
 //     for the Observability settings section to reflect.
+//   - discovery_claim_window_days: ClaimWindow in days. The Alerts section
+//     derives the outstanding-claim threshold's ceiling from it, so the number
+//     the operator is allowed to pick can never drift from the constant that
+//     decides when a claim stops counting.
 //
 // All three response handlers call this so a mutation response can't drop the
 // status keys from the client's settings cache. Returns a non-nil map.
@@ -102,6 +106,7 @@ func (h *Handler) injectReadOnlyStatus(all map[string]string) map[string]string 
 	all["log_export_json"] = strconv.FormatBool(debuglog.JSONFormat())
 	all["log_export_metrics"] = strconv.FormatBool(h.cfg != nil && h.cfg.MetricsToken != "")
 	all["log_export_otel"] = strconv.FormatBool(otelexport.LogsEnabled())
+	all["discovery_claim_window_days"] = strconv.Itoa(ClaimWindowDays)
 	// Mask secret values so neither the stored ciphertext nor any plaintext
 	// reaches the client. Every response path funnels through here, so no
 	// handler can accidentally leak a secret. A configured secret becomes a
@@ -150,21 +155,22 @@ var allowedSettings = map[string]struct {
 	"failover_on_rate_limit":            {typeName: "string"},                      // bool as string
 	"circuit_breaker_enabled":           {typeName: "string"},                      // bool as string
 	"circuit_breaker_threshold":         {typeName: "int", min: 1, max: 100},
-	"circuit_breaker_cooldown":          {typeName: "string"}, // duration (e.g. "1m0s")
-	"circuit_breaker_quota_pin_enabled": {typeName: "string"}, // bool as string
-	"circuit_breaker_quota_pin_max":     {typeName: "string"}, // duration (e.g. "24h0m0s")
-	"discovery_interval":                {typeName: "string"}, // predefined option
-	"discovery_on_startup":              {typeName: "string"}, // bool as string
-	"discovery_on_provider_create":      {typeName: "string"}, // bool as string
-	"log_retention":                     {typeName: "string"}, // predefined option
-	"stale_request_timeout":             {typeName: "string"}, // predefined option
-	"key_cache_ttl":                     {typeName: "string"}, // duration (e.g. "10m0s")
-	"ttft_timeout":                      {typeName: "string"}, // duration (e.g. "1m0s", "0s" = disabled)
-	"stream_stall_timeout":              {typeName: "string"}, // duration (e.g. "30s", "0s" = disabled)
-	"hedging_enabled":                   {typeName: "string"}, // bool as string
-	"hedge_delay":                       {typeName: "string"}, // duration (e.g. "4s") before racing a backup provider
-	"backup_enabled":                    {typeName: "string"}, // bool as string
-	"backup_interval":                   {typeName: "string"}, // duration (e.g. "24h")
+	"circuit_breaker_cooldown":          {typeName: "string"},                                       // duration (e.g. "1m0s")
+	"circuit_breaker_quota_pin_enabled": {typeName: "string"},                                       // bool as string
+	"circuit_breaker_quota_pin_max":     {typeName: "string"},                                       // duration (e.g. "24h0m0s")
+	"discovery_interval":                {typeName: "string"},                                       // predefined option
+	"discovery_on_startup":              {typeName: "string"},                                       // bool as string
+	"discovery_on_provider_create":      {typeName: "string"},                                       // bool as string
+	"discovery_claim_alert_days":        {typeName: "int", min: 1, max: float64(MaxClaimAlertDays)}, // unaddressed-claim alert age; ceiling derived from ClaimWindow
+	"log_retention":                     {typeName: "string"},                                       // predefined option
+	"stale_request_timeout":             {typeName: "string"},                                       // predefined option
+	"key_cache_ttl":                     {typeName: "string"},                                       // duration (e.g. "10m0s")
+	"ttft_timeout":                      {typeName: "string"},                                       // duration (e.g. "1m0s", "0s" = disabled)
+	"stream_stall_timeout":              {typeName: "string"},                                       // duration (e.g. "30s", "0s" = disabled)
+	"hedging_enabled":                   {typeName: "string"},                                       // bool as string
+	"hedge_delay":                       {typeName: "string"},                                       // duration (e.g. "4s") before racing a backup provider
+	"backup_enabled":                    {typeName: "string"},                                       // bool as string
+	"backup_interval":                   {typeName: "string"},                                       // duration (e.g. "24h")
 	"backup_son_retention":              {typeName: "int", min: 1, max: 365},
 	"backup_father_retention":           {typeName: "int", min: 0, max: 52},
 	"backup_grandfather_retention":      {typeName: "int", min: 0, max: 120},

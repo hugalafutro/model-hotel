@@ -1977,7 +1977,8 @@
 				"fleet_conflict": "Conflitto di proprietà del Front Desk",
 				"failover_sync_error": "Sincronizzazione del gruppo di failover non riuscita",
 				"quota_schema_drift": "Il provider ha modificato la struttura della risposta sulla quota",
-				"auth_sso_identity_bound": "Identità SSO associata a un account"
+				"auth_sso_identity_bound": "Identità SSO associata a un account",
+				"discovery_claims_outstanding": "Discrepanze dei modelli non gestite"
 			},
 			"events": {
 				"all": "Seleziona tutto",
@@ -1986,6 +1987,10 @@
 				"title": "Eventi da segnalare"
 			},
 			"eventsLabel": "Eventi di avviso",
+			"claimAge": "Avviso per discrepanze non gestite (giorni)",
+			"claimAge.description_one": "Avvisa quando la discrepanza dei modelli conteggiata più vecchia resta senza risposta più a lungo di questo. Le discrepanze smettono di essere conteggiate quando sono abbastanza vecchie da essere considerate ritirate, quindi il massimo è {{count}} giorno: una soglia superiore non scatterebbe mai.",
+			"claimAge.description_many": "Avvisa quando la discrepanza dei modelli conteggiata più vecchia resta senza risposta più a lungo di questo. Le discrepanze smettono di essere conteggiate quando sono abbastanza vecchie da essere considerate ritirate, quindi il massimo è {{count}} giorni: una soglia superiore non scatterebbe mai.",
+			"claimAge.description_other": "Avvisa quando la discrepanza dei modelli conteggiata più vecchia resta senza risposta più a lungo di questo. Le discrepanze smettono di essere conteggiate quando sono abbastanza vecchie da essere considerate ritirate, quindi il massimo è {{count}} giorni: una soglia superiore non scatterebbe mai.",
 			"snippets": {
 				"browseAll": "Sfoglia tutti gli oltre 80 servizi",
 				"description": "Esempi di formati URL Apprise per servizi diffusi: copiarne uno, inserire i propri dati e incollarlo sopra."

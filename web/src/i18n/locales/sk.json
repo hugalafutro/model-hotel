@@ -2018,7 +2018,8 @@
 				"fleet_conflict": "Konflikt vlastníctva Front Desku",
 				"failover_sync_error": "Synchronizácia skupiny pre prevzatie pri výpadku zlyhala",
 				"quota_schema_drift": "Poskytovateľ zmenil štruktúru odpovede o kvóte",
-				"auth_sso_identity_bound": "Identita SSO bola prepojená s účtom"
+				"auth_sso_identity_bound": "Identita SSO bola prepojená s účtom",
+				"discovery_claims_outstanding": "Nezrovnalosti modelov ponechané bez riešenia"
 			},
 			"events": {
 				"all": "Vybrať všetko",
@@ -2027,6 +2028,11 @@
 				"title": "Udalosti, o ktorých sa má zasielať upozornenie"
 			},
 			"eventsLabel": "Upozorňovacie udalosti",
+			"claimAge": "Upozornenie na nevyriešené nezrovnalosti (dni)",
+			"claimAge.description_one": "Upozorniť, keď najstaršia započítaná nezrovnalosť modelu zostane nevyriešená dlhšie ako tento čas. Nezrovnalosti sa prestanú počítať, keď sú dostatočne staré na to, aby sa považovali za vyradené, takže maximum je {{count}} deň: vyšší prah by sa nikdy nespustil.",
+			"claimAge.description_few": "Upozorniť, keď najstaršia započítaná nezrovnalosť modelu zostane nevyriešená dlhšie ako tento čas. Nezrovnalosti sa prestanú počítať, keď sú dostatočne staré na to, aby sa považovali za vyradené, takže maximum je {{count}} dni: vyšší prah by sa nikdy nespustil.",
+			"claimAge.description_many": "Upozorniť, keď najstaršia započítaná nezrovnalosť modelu zostane nevyriešená dlhšie ako tento čas. Nezrovnalosti sa prestanú počítať, keď sú dostatočne staré na to, aby sa považovali za vyradené, takže maximum je {{count}} dňa: vyšší prah by sa nikdy nespustil.",
+			"claimAge.description_other": "Upozorniť, keď najstaršia započítaná nezrovnalosť modelu zostane nevyriešená dlhšie ako tento čas. Nezrovnalosti sa prestanú počítať, keď sú dostatočne staré na to, aby sa považovali za vyradené, takže maximum je {{count}} dní: vyšší prah by sa nikdy nespustil.",
 			"snippets": {
 				"browseAll": "Prezrite si všetkých viac ako 80 služieb",
 				"description": "Príklady formátov URL adresy Apprise pre populárne služby – skopírujte jeden z nich, vyplňte svoje údaje a vložte ho vyššie."

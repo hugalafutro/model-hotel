@@ -2018,7 +2018,8 @@
 				"fleet_conflict": "Konflikt własności Front Desk",
 				"failover_sync_error": "Nie udało się zsynchronizować grupy awaryjnej",
 				"quota_schema_drift": "Dostawca zmienił strukturę odpowiedzi o kontyngencie",
-				"auth_sso_identity_bound": "Tożsamość SSO powiązana z kontem"
+				"auth_sso_identity_bound": "Tożsamość SSO powiązana z kontem",
+				"discovery_claims_outstanding": "Nierozwiązane rozbieżności modeli"
 			},
 			"events": {
 				"all": "Zaznacz wszystko",
@@ -2027,6 +2028,11 @@
 				"title": "Zdarzenia, o których należy powiadamiać"
 			},
 			"eventsLabel": "Zdarzenia alertowe",
+			"claimAge": "Alert o nierozwiązanych rozbieżnościach (dni)",
+			"claimAge.description_one": "Powiadom, gdy najstarsza zliczana rozbieżność modelu pozostaje bez reakcji dłużej niż ten czas. Rozbieżności przestają być zliczane, gdy są na tyle stare, że uznaje się je za wycofane, więc maksimum to {{count}} dzień: wyższy próg nigdy by się nie uruchomił.",
+			"claimAge.description_few": "Powiadom, gdy najstarsza zliczana rozbieżność modelu pozostaje bez reakcji dłużej niż ten czas. Rozbieżności przestają być zliczane, gdy są na tyle stare, że uznaje się je za wycofane, więc maksimum to {{count}} dni: wyższy próg nigdy by się nie uruchomił.",
+			"claimAge.description_many": "Powiadom, gdy najstarsza zliczana rozbieżność modelu pozostaje bez reakcji dłużej niż ten czas. Rozbieżności przestają być zliczane, gdy są na tyle stare, że uznaje się je za wycofane, więc maksimum to {{count}} dni: wyższy próg nigdy by się nie uruchomił.",
+			"claimAge.description_other": "Powiadom, gdy najstarsza zliczana rozbieżność modelu pozostaje bez reakcji dłużej niż ten czas. Rozbieżności przestają być zliczane, gdy są na tyle stare, że uznaje się je za wycofane, więc maksimum to {{count}} dni: wyższy próg nigdy by się nie uruchomił.",
 			"snippets": {
 				"browseAll": "Przeglądaj wszystkie ponad 80 usług",
 				"description": "Przykładowe formaty adresów URL serwisu Apprise dla popularnych usług - skopiuj jeden z nich, uzupełnij swoje dane i wklej go powyżej."

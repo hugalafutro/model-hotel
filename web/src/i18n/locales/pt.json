@@ -1977,7 +1977,8 @@
 				"fleet_conflict": "Conflito de propriedade do Front Desk",
 				"failover_sync_error": "Falha na sincronização do grupo de failover",
 				"quota_schema_drift": "O provedor alterou a estrutura da resposta de cota",
-				"auth_sso_identity_bound": "Identidade SSO vinculada a uma conta"
+				"auth_sso_identity_bound": "Identidade SSO vinculada a uma conta",
+				"discovery_claims_outstanding": "Divergências de modelos não tratadas"
 			},
 			"events": {
 				"all": "Selecionar tudo",
@@ -1986,6 +1987,10 @@
 				"title": "Eventos a serem notificados"
 			},
 			"eventsLabel": "Eventos de alerta",
+			"claimAge": "Alerta de divergências não tratadas (dias)",
+			"claimAge.description_one": "Avisa quando a divergência de modelos contabilizada mais antiga fica sem tratamento por mais tempo do que isto. As divergências deixam de contar assim que ficam antigas o suficiente para serem consideradas descontinuadas, por isso o máximo é {{count}} dia: um limite maior nunca seria acionado.",
+			"claimAge.description_many": "Avisa quando a divergência de modelos contabilizada mais antiga fica sem tratamento por mais tempo do que isto. As divergências deixam de contar assim que ficam antigas o suficiente para serem consideradas descontinuadas, por isso o máximo é {{count}} dias: um limite maior nunca seria acionado.",
+			"claimAge.description_other": "Avisa quando a divergência de modelos contabilizada mais antiga fica sem tratamento por mais tempo do que isto. As divergências deixam de contar assim que ficam antigas o suficiente para serem consideradas descontinuadas, por isso o máximo é {{count}} dias: um limite maior nunca seria acionado.",
 			"snippets": {
 				"browseAll": "Navegue por todos os mais de 80 serviços",
 				"description": "Exemplos de formatos de URL do Apprise para serviços populares - copie um, preencha seus dados e cole-o acima."

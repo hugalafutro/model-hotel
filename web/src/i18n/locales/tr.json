@@ -1936,7 +1936,8 @@
 				"fleet_conflict": "Front Desk sahiplik çakışması",
 				"failover_sync_error": "Yedekleme grubu senkronizasyonu başarısız oldu",
 				"quota_schema_drift": "Sağlayıcı kota yanıtının yapısını değiştirdi",
-				"auth_sso_identity_bound": "SSO kimliği bir hesaba bağlandı"
+				"auth_sso_identity_bound": "SSO kimliği bir hesaba bağlandı",
+				"discovery_claims_outstanding": "Ele alınmamış model tutarsızlıkları"
 			},
 			"events": {
 				"all": "Tümünü seç",
@@ -1945,6 +1946,9 @@
 				"title": "Bildirilecek olaylar"
 			},
 			"eventsLabel": "Uyarı olayları",
+			"claimAge": "Ele alınmamış tutarsızlık uyarısı (gün)",
+			"claimAge.description_one": "Sayıma dahil edilen en eski model tutarsızlığı bundan daha uzun süre ele alınmadığında uyar. Tutarsızlıklar, kullanımdan kaldırılmış sayılacak kadar eskidiklerinde sayımdan çıkar; bu nedenle en yüksek değer {{count}} gün: daha yüksek bir eşik asla tetiklenmez.",
+			"claimAge.description_other": "Sayıma dahil edilen en eski model tutarsızlığı bundan daha uzun süre ele alınmadığında uyar. Tutarsızlıklar, kullanımdan kaldırılmış sayılacak kadar eskidiklerinde sayımdan çıkar; bu nedenle en yüksek değer {{count}} gün: daha yüksek bir eşik asla tetiklenmez.",
 			"snippets": {
 				"browseAll": "80'den fazla hizmetin tümünü inceleyin",
 				"description": "Popüler hizmetler için örnek Apprise URL biçimleri - bunlardan birini kopyalayın, bilgilerinizi girin ve yukarıya yapıştırın."

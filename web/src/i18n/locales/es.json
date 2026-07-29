@@ -1977,7 +1977,8 @@
 				"fleet_conflict": "Conflicto de propiedad de Front Desk",
 				"failover_sync_error": "Error en la sincronización del grupo de conmutación por error",
 				"quota_schema_drift": "El proveedor ha cambiado la estructura de su respuesta de cuota",
-				"auth_sso_identity_bound": "Identidad SSO vinculada a una cuenta"
+				"auth_sso_identity_bound": "Identidad SSO vinculada a una cuenta",
+				"discovery_claims_outstanding": "Discrepancias de modelos sin atender"
 			},
 			"events": {
 				"all": "Seleccionar todo",
@@ -1986,6 +1987,10 @@
 				"title": "Eventos sobre los que se debe notificar"
 			},
 			"eventsLabel": "Eventos de alerta",
+			"claimAge": "Alerta de discrepancias sin atender (días)",
+			"claimAge.description_one": "Avisa cuando la discrepancia de modelos contabilizada más antigua lleve sin atender más tiempo que este. Las discrepancias dejan de contar cuando son lo bastante antiguas como para considerarse retiradas, así que el máximo es {{count}} día: un umbral mayor no se activaría nunca.",
+			"claimAge.description_many": "Avisa cuando la discrepancia de modelos contabilizada más antigua lleve sin atender más tiempo que este. Las discrepancias dejan de contar cuando son lo bastante antiguas como para considerarse retiradas, así que el máximo es {{count}} días: un umbral mayor no se activaría nunca.",
+			"claimAge.description_other": "Avisa cuando la discrepancia de modelos contabilizada más antigua lleve sin atender más tiempo que este. Las discrepancias dejan de contar cuando son lo bastante antiguas como para considerarse retiradas, así que el máximo es {{count}} días: un umbral mayor no se activaría nunca.",
 			"snippets": {
 				"browseAll": "Explora los más de 80 servicios",
 				"description": "Ejemplos de formatos de URL de Apprise para servicios populares: copia uno, rellena tus datos y pégalo más arriba."

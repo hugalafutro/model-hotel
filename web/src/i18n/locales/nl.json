@@ -1936,7 +1936,8 @@
 				"fleet_conflict": "Front Desk-eigendomsconflict",
 				"failover_sync_error": "Synchronisatie van de failovergroep is mislukt",
 				"quota_schema_drift": "Provider heeft de structuur van zijn quotarespons gewijzigd",
-				"auth_sso_identity_bound": "SSO-identiteit gekoppeld aan een account"
+				"auth_sso_identity_bound": "SSO-identiteit gekoppeld aan een account",
+				"discovery_claims_outstanding": "Modelafwijkingen blijven onopgelost"
 			},
 			"events": {
 				"all": "Alles selecteren",
@@ -1945,6 +1946,9 @@
 				"title": "Gebeurtenissen waarover moet worden gemeld"
 			},
 			"eventsLabel": "Waarschuwingsgebeurtenissen",
+			"claimAge": "Waarschuwing voor onopgeloste afwijkingen (dagen)",
+			"claimAge.description_one": "Waarschuw wanneer de oudste meegetelde modelafwijking langer dan dit onopgelost blijft. Afwijkingen tellen niet meer mee zodra ze oud genoeg zijn om als uitgefaseerd te gelden, dus het maximum is {{count}} dag: een hogere drempel zou nooit afgaan.",
+			"claimAge.description_other": "Waarschuw wanneer de oudste meegetelde modelafwijking langer dan dit onopgelost blijft. Afwijkingen tellen niet meer mee zodra ze oud genoeg zijn om als uitgefaseerd te gelden, dus het maximum is {{count}} dagen: een hogere drempel zou nooit afgaan.",
 			"snippets": {
 				"browseAll": "Bekijk alle meer dan 80 diensten",
 				"description": "Voorbeelden van Apprise-URL-formaten voor populaire diensten - kopieer er een, vul je gegevens in en plak deze hierboven."

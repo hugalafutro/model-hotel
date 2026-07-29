@@ -1936,7 +1936,8 @@
 				"fleet_conflict": "Front Desk の所有権競合",
 				"failover_sync_error": "フェイルオーバーグループの同期に失敗しました",
 				"quota_schema_drift": "プロバイダーがクォータ応答の構造を変更しました",
-				"auth_sso_identity_bound": "SSO ID がアカウントに関連付けられました"
+				"auth_sso_identity_bound": "SSO ID がアカウントに関連付けられました",
+				"discovery_claims_outstanding": "未対応のモデルの不一致"
 			},
 			"events": {
 				"all": "すべて選択",
@@ -1945,6 +1946,9 @@
 				"title": "通知対象のイベント"
 			},
 			"eventsLabel": "アラートイベント",
+			"claimAge": "未対応の不一致アラート (日)",
+			"claimAge.description_other": "計上されている最も古いモデルの不一致がこの期間を超えて未対応のままの場合に通知します。不一致は提供終了とみなせるほど古くなると計上されなくなるため、最大値は{{count}}日です。これより高いしきい値は決して発動しません。",
+			"claimAge.description_one": "計上されている最も古いモデルの不一致がこの期間を超えて未対応のままの場合に通知します。不一致は提供終了とみなせるほど古くなると計上されなくなるため、最大値は{{count}}日です。これより高いしきい値は決して発動しません。",
 			"snippets": {
 				"browseAll": "80以上のサービスをすべて閲覧する",
 				"description": "一般的なサービスにおけるAppriseのURL形式の例 - いずれかをコピーし、詳細情報を入力して、上記に貼り付けてください。"

@@ -1936,7 +1936,8 @@
 				"fleet_conflict": "Front Desk tulajdonjogi ütközés",
 				"failover_sync_error": "A failover-csoport szinkronizálása sikertelen",
 				"quota_schema_drift": "A szolgáltató megváltoztatta a kvótaválasz szerkezetét",
-				"auth_sso_identity_bound": "SSO-azonosító fiókhoz kapcsolva"
+				"auth_sso_identity_bound": "SSO-azonosító fiókhoz kapcsolva",
+				"discovery_claims_outstanding": "Kezeletlenül hagyott modelleltérések"
 			},
 			"events": {
 				"all": "Összes kijelölése",
@@ -1945,6 +1946,9 @@
 				"title": "Értesítendő események"
 			},
 			"eventsLabel": "Riasztási események",
+			"claimAge": "Riasztás kezeletlen eltérésekről (nap)",
+			"claimAge.description_one": "Riasszon, ha a legrégebbi beszámított modelleltérés ennél hosszabb ideje kezeletlen. Az eltérések már nem számítanak bele, amint elég régiek ahhoz, hogy kivontnak tekintsük őket, ezért a maximum {{count}} nap: ennél magasabb küszöb soha nem lépne életbe.",
+			"claimAge.description_other": "Riasszon, ha a legrégebbi beszámított modelleltérés ennél hosszabb ideje kezeletlen. Az eltérések már nem számítanak bele, amint elég régiek ahhoz, hogy kivontnak tekintsük őket, ezért a maximum {{count}} nap: ennél magasabb küszöb soha nem lépne életbe.",
 			"snippets": {
 				"browseAll": "Több mint 80 szolgáltatás böngészése",
 				"description": "Példák népszerű szolgáltatások Apprise URL-formátumaira – másoljon le egyet, töltse ki az adataival, majd illessze be a fenti helyre."

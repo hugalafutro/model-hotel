@@ -1936,7 +1936,8 @@
 				"fleet_conflict": "Front-Desk-Besitzkonflikt",
 				"failover_sync_error": "Synchronisierung der Failover-Gruppe fehlgeschlagen",
 				"quota_schema_drift": "Anbieter hat die Struktur seiner Quotenantwort geändert",
-				"auth_sso_identity_bound": "SSO-Identität mit einem Konto verknüpft"
+				"auth_sso_identity_bound": "SSO-Identität mit einem Konto verknüpft",
+				"discovery_claims_outstanding": "Modellabweichungen bleiben unbearbeitet"
 			},
 			"events": {
 				"all": "Alles auswählen",
@@ -1945,6 +1946,9 @@
 				"title": "Ereignisse, über die benachrichtigt werden soll"
 			},
 			"eventsLabel": "Alarmereignisse",
+			"claimAge": "Warnung bei unbearbeiteten Abweichungen (Tage)",
+			"claimAge.description_one": "Warnen, wenn die älteste gezählte Modellabweichung länger als diesen Zeitraum unbearbeitet bleibt. Abweichungen zählen nicht mehr, sobald sie alt genug sind, um als eingestellt zu gelten, daher liegt das Maximum bei {{count}} Tag: eine höhere Schwelle würde nie auslösen.",
+			"claimAge.description_other": "Warnen, wenn die älteste gezählte Modellabweichung länger als diesen Zeitraum unbearbeitet bleibt. Abweichungen zählen nicht mehr, sobald sie alt genug sind, um als eingestellt zu gelten, daher liegt das Maximum bei {{count}} Tage: eine höhere Schwelle würde nie auslösen.",
 			"snippets": {
 				"browseAll": "Alle über 80 Dienste durchsuchen",
 				"description": "Beispiele für Apprise-URL-Formate gängiger Dienste – kopieren Sie eines davon, geben Sie Ihre Daten ein und fügen Sie es oben ein."

@@ -1936,7 +1936,8 @@
 				"fleet_conflict": "Xung đột quyền sở hữu Front Desk",
 				"failover_sync_error": "Đồng bộ hóa nhóm dự phòng không thành công",
 				"quota_schema_drift": "Nhà cung cấp đã thay đổi cấu trúc phản hồi hạn ngạch",
-				"auth_sso_identity_bound": "Danh tính SSO đã được liên kết với một tài khoản"
+				"auth_sso_identity_bound": "Danh tính SSO đã được liên kết với một tài khoản",
+				"discovery_claims_outstanding": "Sai lệch mô hình chưa được xử lý"
 			},
 			"events": {
 				"all": "Chọn tất cả",
@@ -1945,6 +1946,9 @@
 				"title": "Các sự kiện cần thông báo"
 			},
 			"eventsLabel": "Sự kiện cảnh báo",
+			"claimAge": "Cảnh báo sai lệch chưa xử lý (ngày)",
+			"claimAge.description_other": "Cảnh báo khi sai lệch mô hình được tính lâu nhất vẫn chưa được xử lý lâu hơn khoảng thời gian này. Sai lệch ngừng được tính khi đã đủ cũ để coi là ngừng hỗ trợ, nên giá trị tối đa là {{count}} ngày: ngưỡng cao hơn sẽ không bao giờ kích hoạt.",
+			"claimAge.description_one": "Cảnh báo khi sai lệch mô hình được tính lâu nhất vẫn chưa được xử lý lâu hơn khoảng thời gian này. Sai lệch ngừng được tính khi đã đủ cũ để coi là ngừng hỗ trợ, nên giá trị tối đa là {{count}} ngày: ngưỡng cao hơn sẽ không bao giờ kích hoạt.",
 			"snippets": {
 				"browseAll": "Xem tất cả hơn 80 dịch vụ",
 				"description": "Ví dụ về định dạng URL Apprise cho các dịch vụ phổ biến - sao chép một định dạng, điền thông tin của bạn vào và dán vào phần trên."

@@ -1977,7 +1977,8 @@
 				"fleet_conflict": "Conflit de propriété Front Desk",
 				"failover_sync_error": "Échec de la synchronisation du groupe de basculement",
 				"quota_schema_drift": "Le fournisseur a modifié la structure de sa réponse de quota",
-				"auth_sso_identity_bound": "Identité SSO associée à un compte"
+				"auth_sso_identity_bound": "Identité SSO associée à un compte",
+				"discovery_claims_outstanding": "Écarts de modèles non traités"
 			},
 			"events": {
 				"all": "Tout sélectionner",
@@ -1986,6 +1987,10 @@
 				"title": "Événements à signaler"
 			},
 			"eventsLabel": "Événements d’alerte",
+			"claimAge": "Alerte d'écarts non traités (jours)",
+			"claimAge.description_one": "Alerter lorsque le plus ancien écart de modèle comptabilisé reste sans traitement plus longtemps que cela. Les écarts cessent d'être comptés dès qu'ils sont assez anciens pour être considérés comme retirés, le maximum est donc de {{count}} jour : un seuil supérieur ne se déclencherait jamais.",
+			"claimAge.description_many": "Alerter lorsque le plus ancien écart de modèle comptabilisé reste sans traitement plus longtemps que cela. Les écarts cessent d'être comptés dès qu'ils sont assez anciens pour être considérés comme retirés, le maximum est donc de {{count}} jours : un seuil supérieur ne se déclencherait jamais.",
+			"claimAge.description_other": "Alerter lorsque le plus ancien écart de modèle comptabilisé reste sans traitement plus longtemps que cela. Les écarts cessent d'être comptés dès qu'ils sont assez anciens pour être considérés comme retirés, le maximum est donc de {{count}} jours : un seuil supérieur ne se déclencherait jamais.",
 			"snippets": {
 				"browseAll": "Parcourir l'ensemble des plus de 80 services",
 				"description": "Exemples de formats d’URL Apprise pour des services courants : copiez-en un, complétez-le avec vos informations, puis collez-le ci-dessus."

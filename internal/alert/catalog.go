@@ -34,6 +34,11 @@ var catalog = []EventDef{
 	{Type: "circuit_breaker.closed", Category: "Failover", Severity: "success", DefaultOn: true},
 	{Type: "failover.sync_error", Category: "Failover", Severity: "warning", DefaultOn: true},
 	{Type: "discovery.provider_failed", Category: "Discovery", Severity: "error", DefaultOn: false},
+	// The Models badge has been asking for attention for longer than the
+	// operator's threshold. Default-off like its Discovery sibling: an instance
+	// upgrading with a long-standing backlog would otherwise be alerted about
+	// history it already knows about, on the very first scan after the upgrade.
+	{Type: "discovery.claims_outstanding", Category: "Discovery", Severity: "warning", DefaultOn: false},
 	{Type: "fleet.conflict", Category: "High Availability", Severity: "warning", DefaultOn: true},
 	{Type: "auth.sso_identity_bound", Category: "Security", Severity: "warning", DefaultOn: false},
 	// A provider reshaped its quota response. Default-on because the failure it

@@ -50,6 +50,12 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	alert_apprise_targets: "",
 	alert_events:
 		"circuit_breaker.open,circuit_breaker.closed,failover.sync_error",
+	// Days an unaddressed discovery claim may sit in the Models badge before
+	// discovery.claims_outstanding fires. Matches DefaultClaimAlertDays in
+	// internal/api/discovery_claim_alert.go. The ceiling is NOT here: it is
+	// derived from ClaimWindow and served as the read-only
+	// discovery_claim_window_days key, so the two cannot drift.
+	discovery_claim_alert_days: "7",
 
 	// Authentication. Dashboard auto-logout after inactivity, in minutes; 0
 	// disables it. Consumed entirely on the frontend (see useIdleLogout); the
@@ -111,6 +117,7 @@ export const SECTION_SETTINGS: Record<SectionName, string[]> = {
 		"alert_apprise_api_url",
 		"alert_apprise_targets",
 		"alert_events",
+		"discovery_claim_alert_days",
 	],
 };
 
@@ -143,6 +150,7 @@ export type SettingKey =
 	| "alert_apprise_api_url"
 	| "alert_apprise_targets"
 	| "alert_events"
+	| "discovery_claim_alert_days"
 	| "session_idle_timeout_minutes"
 	| "pwned_password_check_enabled";
 
@@ -179,6 +187,7 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	alert_apprise_api_url: "settings.alerts.apiUrl",
 	alert_apprise_targets: "settings.alerts.target",
 	alert_events: "settings.alerts.eventsLabel",
+	discovery_claim_alert_days: "settings.alerts.claimAge",
 	session_idle_timeout_minutes: "settings.sessionTimeout.label",
 	pwned_password_check_enabled: "settings.passwordPolicy.breachCheckLabel",
 };

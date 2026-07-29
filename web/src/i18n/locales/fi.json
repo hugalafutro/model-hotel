@@ -1936,7 +1936,8 @@
 				"fleet_conflict": "Front Deskin omistuskonflikti",
 				"failover_sync_error": "Failover-ryhmän synkronointi epäonnistui",
 				"quota_schema_drift": "Palveluntarjoaja muutti kiintiövastauksensa rakennetta",
-				"auth_sso_identity_bound": "SSO-identiteetti liitettiin tiliin"
+				"auth_sso_identity_bound": "SSO-identiteetti liitettiin tiliin",
+				"discovery_claims_outstanding": "Mallien poikkeamat jääneet käsittelemättä"
 			},
 			"events": {
 				"all": "Valitse kaikki",
@@ -1945,6 +1946,9 @@
 				"title": "Ilmoitettavat tapahtumat"
 			},
 			"eventsLabel": "Hälytystapahtumat",
+			"claimAge": "Ilmoitus käsittelemättömistä poikkeamista (päivää)",
+			"claimAge.description_one": "Ilmoita, kun vanhin laskettu mallipoikkeama on ollut käsittelemättä tätä kauemmin. Poikkeamat lakkaavat laskemasta, kun ne ovat riittävän vanhoja katsottaviksi poistetuiksi, joten enimmäisarvo on {{count}} päivä: korkeampi kynnys ei laukeaisi koskaan.",
+			"claimAge.description_other": "Ilmoita, kun vanhin laskettu mallipoikkeama on ollut käsittelemättä tätä kauemmin. Poikkeamat lakkaavat laskemasta, kun ne ovat riittävän vanhoja katsottaviksi poistetuiksi, joten enimmäisarvo on {{count}} päivää: korkeampi kynnys ei laukeaisi koskaan.",
 			"snippets": {
 				"browseAll": "Selaa kaikkia yli 80 palvelua",
 				"description": "Esimerkkejä Apprise-URL-muodoista suosituille palveluille - kopioi yksi, täytä omat tietosi ja liitä se yllä olevaan kenttään."

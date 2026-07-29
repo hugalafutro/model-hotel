@@ -18,6 +18,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/proxy"
+	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -64,6 +65,7 @@ func testDiscoveryDeps(t *testing.T) discoveryDeps {
 		modelRepo:    model.NewRepository(pool),
 		failoverRepo: failover.NewRepository(pool),
 		dialer:       proxy.NewSafeDialer([]string{"127.0.0.1"}, nil),
+		settingsRepo: settings.NewRepository(pool),
 	}
 }
 
@@ -186,6 +188,94 @@ func TestRunDiscoveryPrunesChangeJournal(t *testing.T) {
 	}
 	if !remaining["recent-row"] {
 		t.Error("recent seen row was pruned by runDiscovery; should have survived")
+	}
+}
+
+// seedOutstandingGroupClaim inserts a failover group discovery disabled the
+// given interval ago, which is a COUNTED claim (dead hotel/<model> routing).
+// A group rather than a gone model so the run needs no enabled provider: an
+// enabled provider would be scanned, fail against its fake base URL, and fill
+// result.Errors with noise the isolation assertions below are about.
+// revalidateCustomGroups skips already-disabled groups, so the seed survives
+// the run untouched.
+func seedOutstandingGroupClaim(t *testing.T, disabledFor time.Duration) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := cmdTestDB.Pool().Exec(ctx,
+		`INSERT INTO model_failover_groups (id, display_model, priority_order, group_enabled, auto_disabled_at)
+		 VALUES (gen_random_uuid(), 'claim-alert-group', '[]'::jsonb, false, now() - $1::interval)`,
+		disabledFor.String()); err != nil {
+		t.Fatalf("seed disabled failover group: %v", err)
+	}
+	// The alert latch is an ordinary settings row, so it outlives the table
+	// wipes and would suppress the very event these tests wait for.
+	if _, err := cmdTestDB.Pool().Exec(ctx,
+		`DELETE FROM settings WHERE key LIKE '_discovery_claim_alert%'`); err != nil {
+		t.Fatalf("clear alert latch: %v", err)
+	}
+}
+
+// TestRunDiscoveryAlertsOnUnaddressedClaims pins the call site: a full
+// runDiscovery must end by evaluating the outstanding-claims alert and, when
+// the oldest counted claim is past the threshold, publish it and persist the
+// edge latch that stops the next scan re-firing. The evaluation logic itself is
+// covered in internal/api; this is the wiring, which nothing else observes.
+func TestRunDiscoveryAlertsOnUnaddressedClaims(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	seedOutstandingGroupClaim(t, 20*24*time.Hour)
+
+	ch := events.DefaultBus.Subscribe()
+	defer events.DefaultBus.Unsubscribe(ch)
+
+	runDiscovery(testDiscoveryDeps(t), "test")
+
+	ev := waitForEvent(t, ch, api.EventTypeClaimsOutstanding)
+	if got := ev.Metadata["claim_count"]; got != 1 {
+		t.Errorf("claim_count = %v, want 1", got)
+	}
+
+	var latch string
+	if err := cmdTestDB.Pool().QueryRow(context.Background(),
+		`SELECT value FROM settings WHERE key = '_discovery_claim_alert_fired_at'`).Scan(&latch); err != nil {
+		t.Fatalf("the alert must persist its edge latch: %v", err)
+	}
+	if latch == "" {
+		t.Error("edge latch written empty; the next scan would re-fire the same alert")
+	}
+}
+
+// TestRunDiscoveryClaimAlertFailureDoesNotFailRun pins that the alert is
+// housekeeping, exactly like the journal prune beside it. The settings store is
+// backed by a closed pool, so the alert's latch write genuinely fails after the
+// event has been published; the run must still report a clean result rather
+// than folding a notification problem into the scan's own outcome.
+//
+// The published-event assertion is what keeps this honest: without it, deleting
+// the whole evaluation would satisfy "the run reports no errors" vacuously.
+func TestRunDiscoveryClaimAlertFailureDoesNotFailRun(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+	seedOutstandingGroupClaim(t, 20*24*time.Hour)
+
+	deps := testDiscoveryDeps(t)
+	deps.settingsRepo = settings.NewRepository(closedTestPool(t).Pool())
+
+	ch := events.DefaultBus.Subscribe()
+	defer events.DefaultBus.Unsubscribe(ch)
+
+	result := runDiscovery(deps, "test")
+
+	waitForEvent(t, ch, api.EventTypeClaimsOutstanding)
+	if len(result.Errors) != 0 {
+		t.Errorf("a failed alert latch must not become a discovery error, got %v", result.Errors)
+	}
+	if result.ProvidersScanned != 0 || result.ProvidersFailed != 0 {
+		t.Errorf("unexpected scan counters after an alert failure: %+v", result)
 	}
 }
 
