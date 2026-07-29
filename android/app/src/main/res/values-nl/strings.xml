@@ -274,6 +274,11 @@
     <string name="settings_widget_graphs_subtitle">Tonen per lid de verzoeken van het afgelopen uur. Verse balken kosten één extra verzoek per lid bij elke achtergrondcontrole.</string>
     <string name="settings_widget_quota_title">Quotabadges</string>
     <string name="settings_widget_quota_subtitle">Toon de quotastrook van de providers op de widget. Uit laat ook de quota-uitlezing bij elke achtergrondcontrole vervallen.</string>
+    <string name="settings_widget_align_title">Uitlijning van badges</string>
+    <string name="settings_widget_align_subtitle">Waar de quotabadges over de breedte van de widget staan.</string>
+    <string name="settings_widget_align_left">Links</string>
+    <string name="settings_widget_align_center">Midden</string>
+    <string name="settings_widget_align_right">Rechts</string>
 
     <string name="settings_quota_badges_title">Quotabadges</string>
     <string name="settings_quota_badges_subtitle">Kies welke quotabadges van providers worden getoond op het dashboard en de widget, herschik ze en kies gebruikt of resterend.</string>

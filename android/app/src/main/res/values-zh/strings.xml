@@ -268,6 +268,11 @@
     <string name="settings_widget_graphs_subtitle">在每个成员上叠加最近一小时的请求。保持更新会使每次后台检查对每个成员多发送一个请求。</string>
     <string name="settings_widget_quota_title">配额徽章</string>
     <string name="settings_widget_quota_subtitle">在小组件上显示各提供商的配额条。关闭后，每次后台检查也不再读取配额。</string>
+    <string name="settings_widget_align_title">徽章对齐</string>
+    <string name="settings_widget_align_subtitle">配额徽章在小组件宽度方向上的位置。</string>
+    <string name="settings_widget_align_left">左对齐</string>
+    <string name="settings_widget_align_center">居中</string>
+    <string name="settings_widget_align_right">右对齐</string>
 
     <string name="settings_quota_badges_title">配额徽章</string>
     <string name="settings_quota_badges_subtitle">选择在仪表盘和小组件上显示哪些服务商的配额徽章，调整顺序，并选择已用量或剩余量。</string>

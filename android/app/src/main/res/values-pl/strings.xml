@@ -286,6 +286,11 @@
     <string name="settings_widget_graphs_subtitle">Nakładają na każdy węzeł żądania z ostatniej godziny. Świeże słupki kosztują jedno dodatkowe żądanie na węzeł przy każdym sprawdzeniu w tle.</string>
     <string name="settings_widget_quota_title">Odznaki limitów</string>
     <string name="settings_widget_quota_subtitle">Pokazuj na widżecie pasek limitów dostawców. Wyłączenie usuwa też odczyt limitów z każdego sprawdzenia w tle.</string>
+    <string name="settings_widget_align_title">Wyrównanie odznak</string>
+    <string name="settings_widget_align_subtitle">Gdzie odznaki limitów znajdują się na szerokości widżetu.</string>
+    <string name="settings_widget_align_left">Do lewej</string>
+    <string name="settings_widget_align_center">Do środka</string>
+    <string name="settings_widget_align_right">Do prawej</string>
 
     <string name="settings_quota_badges_title">Odznaki limitów</string>
     <string name="settings_quota_badges_subtitle">Wybierz, które odznaki limitów dostawców są widoczne na dashboardzie i w widżecie, zmień ich kolejność i wybierz wykorzystane lub pozostałe.</string>

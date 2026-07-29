@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performScrollTo
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LockConfig
 import com.hugalafutro.bellhop.data.LockTimeout
+import com.hugalafutro.bellhop.data.QuotaBadgeAlign
 import com.hugalafutro.bellhop.data.TimeFormat
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import org.junit.Assert.assertEquals
@@ -61,6 +62,8 @@ class SettingsScreenTest {
         onToggleWidgetGraphs: (Boolean) -> Unit = {},
         widgetQuota: Boolean = true,
         onToggleWidgetQuota: (Boolean) -> Unit = {},
+        widgetQuotaAlign: QuotaBadgeAlign = QuotaBadgeAlign.LEFT,
+        onSetWidgetQuotaAlign: (QuotaBadgeAlign) -> Unit = {},
         timeFormat: TimeFormat = TimeFormat.SYSTEM,
         onSetTimeFormat: (TimeFormat) -> Unit = {},
         batteryUnrestricted: Boolean = true,
@@ -104,6 +107,8 @@ class SettingsScreenTest {
                     onToggleWidgetGraphs = onToggleWidgetGraphs,
                     widgetQuota = widgetQuota,
                     onToggleWidgetQuota = onToggleWidgetQuota,
+                    widgetQuotaAlign = widgetQuotaAlign,
+                    onSetWidgetQuotaAlign = onSetWidgetQuotaAlign,
                     timeFormat = timeFormat,
                     onSetTimeFormat = onSetTimeFormat,
                     alertCounts = alertCounts,
@@ -371,5 +376,25 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithTag("settings-unlink-force").performClick()
         assertTrue(dismissed)
         assertTrue(forced == 1)
+    }
+
+    @Test
+    fun widgetAlignmentPickerOffersAllThreeChoices() {
+        content()
+        composeTestRule.onNodeWithTag("settings-widget-align-LEFT").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("settings-widget-align-CENTER").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("settings-widget-align-RIGHT").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun pickingWidgetAlignmentFiresCallback() {
+        var picked: QuotaBadgeAlign? = null
+        content(widgetQuotaAlign = QuotaBadgeAlign.LEFT, onSetWidgetQuotaAlign = { picked = it })
+
+        composeTestRule.onNodeWithTag("settings-widget-align-CENTER").performScrollTo().performClick()
+        assertEquals(QuotaBadgeAlign.CENTER, picked)
+
+        composeTestRule.onNodeWithTag("settings-widget-align-RIGHT").performScrollTo().performClick()
+        assertEquals(QuotaBadgeAlign.RIGHT, picked)
     }
 }

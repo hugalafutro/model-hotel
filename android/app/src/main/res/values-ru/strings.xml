@@ -286,6 +286,11 @@
     <string name="settings_widget_graphs_subtitle">Показывают по каждому узлу запросы за последний час. Свежие столбцы стоят один дополнительный запрос на узел при каждой фоновой проверке.</string>
     <string name="settings_widget_quota_title">Значки квот</string>
     <string name="settings_widget_quota_subtitle">Показывать на виджете полосу квот провайдеров. Если выключено, запрос квот исчезает и из каждой фоновой проверки.</string>
+    <string name="settings_widget_align_title">Выравнивание значков</string>
+    <string name="settings_widget_align_subtitle">Где значки квот располагаются по ширине виджета.</string>
+    <string name="settings_widget_align_left">Слева</string>
+    <string name="settings_widget_align_center">По центру</string>
+    <string name="settings_widget_align_right">Справа</string>
 
     <string name="settings_quota_badges_title">Значки квот</string>
     <string name="settings_quota_badges_subtitle">Выберите, какие значки квот поставщиков показывать на дашборде и в виджете, измените их порядок и выберите использовано или осталось.</string>

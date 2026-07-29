@@ -268,6 +268,11 @@
     <string name="settings_widget_graphs_subtitle">各メンバーに直近1時間のリクエストを重ねて表示します。バックグラウンド確認ごとにメンバーあたり1リクエスト増えます。</string>
     <string name="settings_widget_quota_title">クォータバッジ</string>
     <string name="settings_widget_quota_subtitle">ウィジェットにプロバイダーのクォータ帯を表示します。オフにすると、バックグラウンド確認ごとのクォータ取得もなくなります。</string>
+    <string name="settings_widget_align_title">バッジの配置</string>
+    <string name="settings_widget_align_subtitle">ウィジェットの幅に対してクォータバッジを置く位置です。</string>
+    <string name="settings_widget_align_left">左</string>
+    <string name="settings_widget_align_center">中央</string>
+    <string name="settings_widget_align_right">右</string>
 
     <string name="settings_quota_badges_title">クォータバッジ</string>
     <string name="settings_quota_badges_subtitle">ダッシュボードとウィジェットに表示するプロバイダーのクォータバッジを選び、並べ替えて、使用量か残量かを選択します。</string>

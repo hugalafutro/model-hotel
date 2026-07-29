@@ -274,6 +274,11 @@
     <string name="settings_widget_graphs_subtitle">Superposent à chaque membre ses requêtes de la dernière heure. Leur fraîcheur coûte une requête de plus par membre à chaque vérification en arrière-plan.</string>
     <string name="settings_widget_quota_title">Badges de quota</string>
     <string name="settings_widget_quota_subtitle">Afficher la bande de quotas des fournisseurs sur le widget. Désactivé, la lecture des quotas disparaît aussi de chaque vérification en arrière-plan.</string>
+    <string name="settings_widget_align_title">Alignement des badges</string>
+    <string name="settings_widget_align_subtitle">Où les badges de quota se placent sur la largeur du widget.</string>
+    <string name="settings_widget_align_left">Gauche</string>
+    <string name="settings_widget_align_center">Centre</string>
+    <string name="settings_widget_align_right">Droite</string>
 
     <string name="settings_quota_badges_title">Badges de quota</string>
     <string name="settings_quota_badges_subtitle">Choisissez les badges de quota des fournisseurs affichés sur le tableau de bord et le widget, réorganisez-les, et choisissez utilisé ou restant.</string>
