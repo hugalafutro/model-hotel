@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -48,8 +49,8 @@ const DefaultClaimAlertDays = 7
 
 // SettingKeyClaimAlertDays is the operator-tunable threshold, in whole days.
 // It is in BOTH settings allowlists (api.allowedSettings and
-// settings.AllowedSettings); TestAllowedSettingsSync does not catch a key
-// present in only one of them, so both were verified by hand.
+// settings.AllowedSettings), which TestAllowedSettingsSync enforces in both
+// directions.
 const SettingKeyClaimAlertDays = "discovery_claim_alert_days"
 
 // settingKeyClaimAlertFired is the edge latch that stops the alert re-firing
@@ -64,6 +65,65 @@ const SettingKeyClaimAlertDays = "discovery_claim_alert_days"
 // _discovery_last_reviewed_at and the _fleet_* keys, deliberately NOT in
 // either settings allowlist: it is bookkeeping, not an operator setting.
 const settingKeyClaimAlertFired = "_discovery_claim_alert_fired_at"
+
+// claimAlertLatch is the persisted edge state. It carries a COUNT, not just a
+// flag, because a boolean latch can be held forever and thereby mute the alert
+// permanently.
+//
+// The deadlock a boolean produces: a model claim self-releases by ageing past
+// ClaimWindow out of Gone, but listGroupClaims has no window filter at all, so
+// a failover group left auto-disabled indefinitely (the operator having
+// accepted that hotel/<model> is dead) keeps the crossed condition true
+// forever. A boolean latch would then never clear, and no later crossing could
+// ever alert again, including a brand-new fifty-model backlog.
+//
+// Count is the level the operator was last told about, and it moves in both
+// directions:
+//   - it RISES only by firing, so an unchanged or improving situation stays
+//     quiet, which is the edge-trigger discipline the breaker enforces;
+//   - it FALLS silently whenever the live total drops below it, so the alert
+//     measures growth against where things stand now rather than against a
+//     high-water mark. Without the downward ratchet the deadlock returns after
+//     exactly one round trip: latched at 51, backlog fixed back to 1, a second
+//     fifty-model backlog reaches 51 again and is not "greater than" 51.
+//
+// Growth inside an episode is not chatty in practice: a model needs
+// model.MissingScanThreshold consecutive confirmed-missing scans to become
+// gone, so a single flapping scan cannot raise the count.
+type claimAlertLatch struct {
+	FiredAt string `json:"fired_at"`
+	Count   int    `json:"count"`
+}
+
+// parseClaimAlertLatch reads the stored latch, reporting whether one is set at
+// all.
+//
+// An unreadable value (written by an older build, hand-edited, or truncated)
+// degrades to "latched at zero" rather than to "not latched": the next crossed
+// evaluation re-fires exactly once and rewrites it in the current shape, which
+// costs one duplicate notification and self-heals. Treating it as unset would
+// behave identically today; treating it as a permanent latch would reproduce
+// the very mute this type exists to prevent.
+func parseClaimAlertLatch(raw string) (claimAlertLatch, bool) {
+	if strings.TrimSpace(raw) == "" {
+		return claimAlertLatch{}, false
+	}
+	var l claimAlertLatch
+	if err := json.Unmarshal([]byte(raw), &l); err != nil {
+		return claimAlertLatch{}, true
+	}
+	return l, true
+}
+
+// storeClaimAlertLatch persists the latch. A marshal failure is impossible for
+// a struct of a string and an int, so only the write can fail.
+func storeClaimAlertLatch(ctx context.Context, store SettingsStore, l claimAlertLatch) error {
+	raw, err := json.Marshal(l)
+	if err != nil {
+		return fmt.Errorf("marshal latch: %w", err)
+	}
+	return store.Set(ctx, settingKeyClaimAlertFired, string(raw))
+}
 
 // claimAlertWorstProviders caps how many providers the payload names. The
 // point is to aim the operator at the worst offender, not to reproduce the
@@ -159,12 +219,22 @@ func summarizeCountedClaims(ctx context.Context, pool *pgxpool.Pool, now time.Ti
 // counts, ages and provider names. No model IDs, no request or response
 // content, and nothing that could identify a prompt, matching the rule that
 // holds everywhere else in this codebase.
+//
+// The count and the threshold are deliberately kept in separate clauses. Only
+// the OLDEST claim is known to exceed the threshold; the rest can be minutes
+// old, so attaching the total to the threshold ("76 discrepancies unaddressed
+// for more than 7 days") states something the evaluation never established.
+// This string is the whole operator-facing artifact of the feature, so it has
+// to be exactly true. Keeping the ages in their own clause also makes
+// oldestDays' truncation read correctly: a 7d1h claim reports "7 days", which
+// is honest as a plain age and would have been a contradiction against a
+// "more than 7 days" claim.
 func claimAlertMessage(s claimAgeSummary, thresholdDays, oldestDays int) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s unaddressed for more than %s. The oldest has been outstanding for %s.",
+	fmt.Fprintf(&b, "%s outstanding. The oldest has been unaddressed for %s (threshold: %s).",
 		util.Count(s.total(), "model discrepancy", "model discrepancies"),
-		util.Count(thresholdDays, "day", "days"),
-		util.Count(oldestDays, "day", "days"))
+		util.Count(oldestDays, "day", "days"),
+		util.Count(thresholdDays, "day", "days"))
 	if len(s.worstNames) > 0 {
 		parts := make([]string, 0, len(s.worstNames))
 		for i, name := range s.worstNames {
@@ -181,7 +251,16 @@ func claimAlertMessage(s claimAgeSummary, thresholdDays, oldestDays int) string 
 
 // EvaluateClaimAgeAlert publishes EventTypeClaimsOutstanding when the oldest
 // currently-counted claim has been outstanding for longer than the operator's
-// threshold, and re-arms once nothing is crossed any more.
+// threshold. Three outcomes, in the switch below:
+//
+//   - not latched, or the situation is worse than the level last reported:
+//     publish and record the new level;
+//   - still crossed but improved: lower the recorded level silently, so the
+//     next worsening is measured from here rather than from an old peak;
+//   - nothing crossed: drop the latch entirely and re-arm.
+//
+// See claimAlertLatch for why the level is stored at all: a plain flag is
+// muted forever by a single permanently-disabled failover group.
 //
 // The oldest counted claim is a sound proxy for "the badge has been non-zero
 // continuously for at least this long": a claim that is still counted has been
@@ -210,10 +289,10 @@ func EvaluateClaimAgeAlert(ctx context.Context, pool *pgxpool.Pool, store Settin
 		oldestAge = now.Sub(summary.oldestAt)
 	}
 	crossed := summary.total() > 0 && oldestAge > threshold
-	fired := store.GetWithDefault(ctx, settingKeyClaimAlertFired, "") != ""
+	latch, latched := parseClaimAlertLatch(store.GetWithDefault(ctx, settingKeyClaimAlertFired, ""))
 
 	switch {
-	case crossed && !fired:
+	case crossed && (!latched || summary.total() > latch.Count):
 		oldestDays := int(oldestAge / (24 * time.Hour))
 		// Metadata deliberately carries no "provider", "provider_id" or
 		// "model_id" scalar: those are the dispatcher's debounce keys
@@ -238,10 +317,24 @@ func EvaluateClaimAgeAlert(ctx context.Context, pool *pgxpool.Pool, store Settin
 		// the next cycle re-fires, which is a duplicate notification; latching
 		// first and failing would instead lose the alert entirely, and a missed
 		// warning is worse than a repeated one.
-		if err := store.Set(ctx, settingKeyClaimAlertFired, now.Format(time.RFC3339Nano)); err != nil {
+		if err := storeClaimAlertLatch(ctx, store, claimAlertLatch{
+			FiredAt: now.Format(time.RFC3339Nano),
+			Count:   summary.total(),
+		}); err != nil {
 			return fmt.Errorf("latch outstanding-claims alert: %w", err)
 		}
-	case !crossed && fired:
+	case crossed && summary.total() < latch.Count:
+		// The situation improved without fully clearing. Lower the bar silently
+		// so the NEXT genuine worsening is measured against where things stand
+		// now, not against a peak the operator has already dealt with. The
+		// fired-at stamp is preserved: it still records when they were told.
+		if err := storeClaimAlertLatch(ctx, store, claimAlertLatch{
+			FiredAt: latch.FiredAt,
+			Count:   summary.total(),
+		}); err != nil {
+			return fmt.Errorf("lower outstanding-claims alert latch: %w", err)
+		}
+	case !crossed && latched:
 		if err := store.DeleteKey(ctx, settingKeyClaimAlertFired); err != nil {
 			return fmt.Errorf("re-arm outstanding-claims alert: %w", err)
 		}

@@ -61,9 +61,12 @@ func captureClaimAlerts(t *testing.T) func() (int, events.Event) {
 	ch := events.DefaultBus.Subscribe()
 	t.Cleanup(func() { events.DefaultBus.Unsubscribe(ch) })
 	return func() (int, events.Event) {
-		// The bus delivers asynchronously; give a published event time to land
-		// before concluding that none did.
-		deadline := time.After(2 * time.Second)
+		// Bus.Publish delivers into the subscriber's buffered channel
+		// synchronously, so an event published by the call under test is
+		// already queued by the time it returns. The wait is slack against a
+		// slow scheduler, not against asynchronous delivery, which is why it can
+		// be short: a "published nothing" assertion pays it in full.
+		deadline := time.After(500 * time.Millisecond)
 		n := 0
 		var last events.Event
 		for {
@@ -121,6 +124,16 @@ func TestEvaluateClaimAgeAlert_FiresOnceOnCrossing(t *testing.T) {
 	n, ev := drain()
 	if n != 1 {
 		t.Fatalf("crossing the threshold published %d alerts, want exactly 1", n)
+	}
+
+	// The message is the entire operator-facing artifact of this feature, so it
+	// is asserted whole rather than by substring. The fixture is exactly the
+	// case a looser wording gets wrong: only ONE of these three claims is over
+	// the 7-day threshold, so the total must not be attached to the threshold.
+	wantMsg := "3 model discrepancies outstanding. The oldest has been unaddressed for 12 days " +
+		"(threshold: 7 days). Worst: NanoGPT (2), Alpha (1)."
+	if ev.Message != wantMsg {
+		t.Errorf("message =\n  %q\nwant\n  %q", ev.Message, wantMsg)
 	}
 
 	// Payload: routing metadata only, and enough of it to act on.
@@ -214,6 +227,76 @@ func TestEvaluateClaimAgeAlert_QuietBelowThreshold(t *testing.T) {
 	if n, _ := drain(); n != 0 {
 		t.Fatalf("an out-of-range threshold must clamp to the ceiling, not to the default; published %d alerts", n)
 	}
+}
+
+// TestEvaluateClaimAgeAlert_RefiresWhenTheBacklogGrows pins that the latch
+// cannot mute the alert permanently.
+//
+// A disabled failover group never ages out (listGroupClaims has no window
+// filter), so an operator who accepts that one hotel/<model> is dead holds the
+// crossed condition true forever. With a boolean latch that state would swallow
+// every future alert, including a brand-new backlog. The latch therefore
+// carries the count it fired at, rises only by firing, and falls silently when
+// the situation improves.
+//
+// The second round trip is the half that a plain high-water mark fails: after
+// firing at 4 and being fixed back down to 1, an identical new backlog reaches
+// 4 again and is not "greater than" 4.
+func TestEvaluateClaimAgeAlert_RefiresWhenTheBacklogGrows(t *testing.T) {
+	h := newTestHandler(t)
+	pool := h.dbPool.Pool()
+	ctx := context.Background()
+	now := time.Now()
+	prov := seedClaimProvider(t, pool, "NanoGPT", true)
+
+	// The permanent claim: a group disabled well past ClaimWindow, which no
+	// amount of waiting will retire.
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO model_failover_groups (id, display_model, priority_order, group_enabled, auto_disabled_at)
+		 VALUES ($1, 'permanently-dead', '[]'::jsonb, false, $2)`,
+		uuid.New(), now.Add(-3*ClaimWindow)); err != nil {
+		t.Fatalf("seed permanent group claim: %v", err)
+	}
+
+	step := func(label string, wantAlerts int) events.Event {
+		t.Helper()
+		drain := captureClaimAlerts(t)
+		if err := EvaluateClaimAgeAlert(ctx, pool, h.settingsRepo, now); err != nil {
+			t.Fatalf("%s: %v", label, err)
+		}
+		n, ev := drain()
+		if n != wantAlerts {
+			t.Fatalf("%s: published %d alerts, want %d", label, n, wantAlerts)
+		}
+		return ev
+	}
+
+	step("first crossing", 1)
+	step("unchanged situation", 0)
+
+	// A real backlog arrives on top of the accepted group.
+	for _, id := range []string{"gone-a", "gone-b", "gone-c"} {
+		seedGoneModel(t, prov, id, now.Add(-10*24*time.Hour))
+	}
+	ev := step("backlog arrives", 1)
+	if got := ev.Metadata["claim_count"]; got != 4 {
+		t.Errorf("claim_count = %v, want 4 (3 models plus the group)", got)
+	}
+	step("backlog unchanged", 0)
+
+	// The operator fixes the models. The group remains, so nothing re-arms the
+	// latch, but the level they were told about must come down with the count.
+	if _, err := pool.Exec(ctx, `UPDATE models SET enabled = true, last_seen_at = $1`, now); err != nil {
+		t.Fatalf("resolve backlog: %v", err)
+	}
+	step("backlog resolved, group remains", 0)
+
+	// An identically sized second backlog. A high-water latch would still read
+	// 4 here and stay silent forever.
+	for _, id := range []string{"gone-d", "gone-e", "gone-f"} {
+		seedGoneModel(t, prov, id, now.Add(-10*24*time.Hour))
+	}
+	step("second backlog arrives", 1)
 }
 
 // TestEvaluateClaimAgeAlert_CountsDisabledFailoverGroups pins that a group

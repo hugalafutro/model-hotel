@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
@@ -80,5 +81,14 @@ func TestInjectReadOnlyStatusMasksSecrets(t *testing.T) {
 	empty := h.injectReadOnlyStatus(map[string]string{"alert_apprise_targets": ""})
 	if empty["alert_apprise_targets"] != "" {
 		t.Errorf("unset secret should stay empty, got %q", empty["alert_apprise_targets"])
+	}
+
+	// The Alerts section derives the outstanding-claim threshold's ceiling from
+	// this key and renders no control at all without it, so dropping the one
+	// line that serves it would silently remove the setting from the UI while
+	// leaving every Go and frontend test green (the frontend tests mock it).
+	// Asserted against the constant so it moves with ClaimWindow.
+	if got := empty["discovery_claim_window_days"]; got != strconv.Itoa(ClaimWindowDays) {
+		t.Errorf("discovery_claim_window_days = %q, want %q", got, strconv.Itoa(ClaimWindowDays))
 	}
 }
