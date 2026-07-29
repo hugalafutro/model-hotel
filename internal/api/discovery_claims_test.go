@@ -329,3 +329,61 @@ func seedClaimModel(t *testing.T, pool *pgxpool.Pool, providerID uuid.UUID, mode
 		t.Fatalf("seed model %s: %v", modelID, err)
 	}
 }
+
+// TestBuildProviderClaims_OrderingIsTotal pins that the provider ordering is a
+// total order, decided in the documented sequence and never by chance.
+//
+// out is built by ranging over a Go map and sorted with sort.Slice, which is
+// not stable, so any pair the comparator declares equivalent can swap position
+// between two calls on identical input. The dashboard re-fetches this list
+// every 60 seconds; a comparator that stops at the counted-claim count would
+// make the sections jump around under the operator's cursor while nothing had
+// actually changed.
+//
+// The fixture is built so that removing any single tiebreak changes the
+// expected order rather than merely making it non-deterministic:
+//   - Zeta wins on counted claims alone.
+//   - Alpha beats both Betas and Gamma only on the suspect count.
+//   - Beta beats Gamma only on name, and Gamma deliberately holds the
+//     lexicographically smallest provider ID, so dropping the name comparison
+//     would float it to the front.
+//   - The two Betas are separable only by provider ID.
+func TestBuildProviderClaims_OrderingIsTotal(t *testing.T) {
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	gone := func(providerID, name, modelID string) claimRow {
+		return claimRow{ProviderID: providerID, ProviderName: name, ModelID: modelID, LastSeenAt: now.Add(-24 * time.Hour)}
+	}
+	suspect := func(providerID, name, modelID string) claimRow {
+		return claimRow{ProviderID: providerID, ProviderName: name, ModelID: modelID,
+			LastSeenAt: now.Add(-time.Hour), Enabled: true, MissingScans: 1}
+	}
+	rows := []claimRow{
+		gone("p-zeta", "Zeta", "z1"), gone("p-zeta", "Zeta", "z2"),
+		gone("p-alpha", "Alpha", "a1"), suspect("p-alpha", "Alpha", "a2"), suspect("p-alpha", "Alpha", "a3"),
+		gone("p-beta-2", "Beta", "b1"), suspect("p-beta-2", "Beta", "b2"),
+		gone("p-beta-1", "Beta", "b3"), suspect("p-beta-1", "Beta", "b4"),
+		gone("p-0000000", "Gamma", "g1"), suspect("p-0000000", "Gamma", "g2"),
+	}
+	want := []string{"p-zeta", "p-alpha", "p-beta-1", "p-beta-2", "p-0000000"}
+
+	// Repeated because map iteration order is randomised per range: one pass
+	// could agree with the expectation by luck, twenty cannot.
+	for i := range 20 {
+		claims, count := buildProviderClaims(rows, nil, nil, now)
+		if count != 6 {
+			t.Fatalf("pass %d: counted claims = %d, want 6 (one gone model per provider, two for Zeta)", i, count)
+		}
+		got := make([]string, 0, len(claims))
+		for _, c := range claims {
+			got = append(got, c.ProviderID)
+		}
+		if len(got) != len(want) {
+			t.Fatalf("pass %d: got %d provider groups, want %d", i, len(got), len(want))
+		}
+		for j := range want {
+			if got[j] != want[j] {
+				t.Fatalf("pass %d: provider order = %v, want %v", i, got, want)
+			}
+		}
+	}
+}

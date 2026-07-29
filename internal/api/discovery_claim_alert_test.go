@@ -2,7 +2,10 @@ package api
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -330,4 +333,252 @@ func TestEvaluateClaimAgeAlert_CountsDisabledFailoverGroups(t *testing.T) {
 	if got := ev.Metadata["oldest_age_days"]; got != 20 {
 		t.Errorf("oldest_age_days = %v, want 20 (aged from auto_disabled_at)", got)
 	}
+}
+
+// TestParseClaimAlertLatch pins the two-value contract, and in particular the
+// direction an unreadable value degrades in.
+//
+// The second return is "is a latch set at all", and it is what decides between
+// firing and staying quiet. For a value that does not unmarshal, reporting
+// "not latched" would re-fire on every scan forever, and reporting a latch with
+// a huge count would mute the alert forever. Reporting "latched at zero" makes
+// the next crossed evaluation fire exactly once and rewrite the value in the
+// current shape: one duplicate notification, then self-healed.
+func TestParseClaimAlertLatch(t *testing.T) {
+	cases := []struct {
+		name      string
+		raw       string
+		wantLatch claimAlertLatch
+		wantSet   bool
+	}{
+		{"unset is not latched", "", claimAlertLatch{}, false},
+		{"blank is not latched", "   \n", claimAlertLatch{}, false},
+		{"a well-formed latch round-trips", `{"fired_at":"2026-08-01T00:00:00Z","count":4}`,
+			claimAlertLatch{FiredAt: "2026-08-01T00:00:00Z", Count: 4}, true},
+		{"unreadable JSON latches at zero", `{"count":`, claimAlertLatch{}, true},
+		{"a non-object latches at zero", `"7"`, claimAlertLatch{}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotLatch, gotSet := parseClaimAlertLatch(tc.raw)
+			if gotSet != tc.wantSet {
+				t.Fatalf("parseClaimAlertLatch(%q) latched = %t, want %t", tc.raw, gotSet, tc.wantSet)
+			}
+			if gotLatch != tc.wantLatch {
+				t.Fatalf("parseClaimAlertLatch(%q) = %+v, want %+v", tc.raw, gotLatch, tc.wantLatch)
+			}
+		})
+	}
+
+	// The property the "latches at zero" rows exist for: a corrupt value must
+	// never behave like a latch that can mute a crossing. Count 0 is below any
+	// live total, so `total() > latch.Count` still fires.
+	l, latched := parseClaimAlertLatch(`{"count":`)
+	if !latched || l.Count != 0 {
+		t.Fatalf("corrupt latch = (%+v, %t), want a set latch at count 0", l, latched)
+	}
+}
+
+// TestEvaluateClaimAgeAlert_NamesAtMostThreeWorstProviders pins the payload cap.
+//
+// The alert is delivered as a push notification, so the provider list exists to
+// aim the operator at the worst offender, not to reproduce the modal. An
+// instance with real history carries claims on many providers at once; naming
+// all of them makes the notification unreadable and, on some transports,
+// truncated at an arbitrary point. Providers with no counted claim must be
+// absent entirely rather than padding the list with zeroes.
+func TestEvaluateClaimAgeAlert_NamesAtMostThreeWorstProviders(t *testing.T) {
+	h := newTestHandler(t)
+	pool := h.dbPool.Pool()
+	ctx := context.Background()
+	now := time.Now()
+
+	// Four providers with 4, 3, 2 and 1 counted claims, all well past the
+	// default 7-day threshold, plus one whose models are merely suspect and
+	// therefore counted nowhere.
+	for _, p := range []struct {
+		name string
+		gone int
+	}{{"Delta", 4}, {"Charlie", 3}, {"Bravo", 2}, {"Alfa", 1}} {
+		id := seedClaimProvider(t, pool, p.name, true)
+		for i := range p.gone {
+			seedGoneModel(t, id, fmt.Sprintf("%s-gone-%d", p.name, i), now.Add(-10*24*time.Hour))
+		}
+	}
+	suspectOnly := seedClaimProvider(t, pool, "Echo", true)
+	seedClaimModel(t, pool, suspectOnly, "echo-wobbling", true, false, 1, nil)
+
+	drain := captureClaimAlerts(t)
+	if err := EvaluateClaimAgeAlert(ctx, pool, h.settingsRepo, now); err != nil {
+		t.Fatalf("evaluate: %v", err)
+	}
+	n, ev := drain()
+	if n != 1 {
+		t.Fatalf("published %d alerts, want 1", n)
+	}
+	// Sanity on the fixture: every gone model is counted, and the suspect one is
+	// not. Without this the assertions below could pass on a truncated summary.
+	if got := ev.Metadata["claim_count"]; got != 10 {
+		t.Fatalf("claim_count = %v, want 10 (4+3+2+1 gone models, the suspect one excluded)", got)
+	}
+
+	worst, ok := ev.Metadata["worst_providers"].([]map[string]any)
+	if !ok {
+		t.Fatalf("worst_providers = %#v, want []map[string]any", ev.Metadata["worst_providers"])
+	}
+	if len(worst) != claimAlertWorstProviders {
+		t.Fatalf("worst_providers named %d providers, want at most %d", len(worst), claimAlertWorstProviders)
+	}
+	wantNames := []string{"Delta", "Charlie", "Bravo"}
+	wantCounts := []int{4, 3, 2}
+	for i := range worst {
+		if worst[i]["provider"] != wantNames[i] || worst[i]["gone"] != wantCounts[i] {
+			t.Errorf("worst_providers[%d] = %#v, want %s (%d)", i, worst[i], wantNames[i], wantCounts[i])
+		}
+	}
+	// Explicit: the provider that was dropped by the cap and the one with no
+	// counted claims are both absent, not merely late in the list.
+	for _, entry := range worst {
+		if entry["provider"] == "Alfa" || entry["provider"] == "Echo" {
+			t.Errorf("worst_providers must not contain %v", entry["provider"])
+		}
+	}
+}
+
+// TestEvaluateClaimAgeAlert_StaysSilentWhenTheDatabaseFails pins that a
+// half-derived picture never becomes an alert.
+//
+// summarizeCountedClaims runs three queries and the total it produces is what
+// the operator is told. If a failure were swallowed the evaluation would
+// compare a zero or partial total against the threshold: it would either fire
+// with a wrong count or, worse, look "not crossed" and delete the latch,
+// re-arming the alert to fire again about a backlog nobody fixed. The error
+// goes back to the discovery run, which logs it as housekeeping.
+func TestEvaluateClaimAgeAlert_StaysSilentWhenTheDatabaseFails(t *testing.T) {
+	h := newTestHandler(t)
+	pool := h.dbPool.Pool()
+	ctx := context.Background()
+	now := time.Now()
+
+	prov := seedClaimProvider(t, pool, "db-down-prov", true)
+	seedGoneModel(t, prov, "long-gone", now.Add(-12*24*time.Hour))
+
+	drain := captureClaimAlerts(t)
+	err := EvaluateClaimAgeAlert(ctx, closedAPIPool(t).Pool(), h.settingsRepo, now)
+	if err == nil {
+		t.Fatal("a failed claim derivation must be reported, got nil")
+	}
+	if n, _ := drain(); n != 0 {
+		t.Errorf("published %d alerts on a failed derivation, want 0", n)
+	}
+	if v := h.settingsRepo.GetWithDefault(ctx, settingKeyClaimAlertFired, ""); v != "" {
+		t.Errorf("a failed derivation must not touch the latch, got %q", v)
+	}
+
+	// Anchor: the same fixture and the same store DO fire once the pool works,
+	// so the silence above is the failure path and not an unfireable fixture.
+	drain = captureClaimAlerts(t)
+	if err := EvaluateClaimAgeAlert(ctx, pool, h.settingsRepo, now); err != nil {
+		t.Fatalf("evaluate against a healthy pool: %v", err)
+	}
+	if n, _ := drain(); n != 1 {
+		t.Fatalf("healthy-pool evaluation published %d alerts, want 1", n)
+	}
+}
+
+// TestEvaluateClaimAgeAlert_LatchPersistenceFailuresAreReported pins that every
+// latch write is load-bearing enough to fail the evaluation, and that the
+// publish-before-latch ordering survives a write failure.
+//
+// The latch is the entire edge-trigger mechanism. A silently dropped write
+// means the alert either re-fires on every scan or never lowers its bar again,
+// and the caller has no way to notice. Each of the three writes therefore
+// reports its own failure, wrapped so the discovery log says which one.
+//
+// The firing case additionally pins the ordering the implementation comment
+// commits to: the event is published BEFORE the latch is stored, so a failed
+// latch costs a duplicate notification later rather than a lost warning now.
+func TestEvaluateClaimAgeAlert_LatchPersistenceFailuresAreReported(t *testing.T) {
+	h := newTestHandler(t)
+	pool := h.dbPool.Pool()
+	ctx := context.Background()
+	now := time.Now()
+
+	prov := seedClaimProvider(t, pool, "latch-fail-prov", true)
+	// Two counted claims, both well past the default threshold.
+	seedGoneModel(t, prov, "gone-one", now.Add(-12*24*time.Hour))
+	seedGoneModel(t, prov, "gone-two", now.Add(-11*24*time.Hour))
+
+	writeErr := errors.New("settings write refused")
+
+	t.Run("a failed firing latch still notifies", func(t *testing.T) {
+		store := &mockSettingsStore{
+			getWithDefaultFn: func(context.Context, string, string) string { return "" },
+			setFn:            func(context.Context, string, string) error { return writeErr },
+		}
+		drain := captureClaimAlerts(t)
+		err := EvaluateClaimAgeAlert(ctx, pool, store, now)
+		if !errors.Is(err, writeErr) {
+			t.Fatalf("error = %v, want it to wrap the store failure", err)
+		}
+		if !strings.Contains(err.Error(), "latch outstanding-claims alert") {
+			t.Errorf("error = %q, want it to name the failed write", err)
+		}
+		if n, _ := drain(); n != 1 {
+			t.Errorf("published %d alerts, want 1: the event must be out before the latch is written", n)
+		}
+	})
+
+	t.Run("a failed lowering of the latch is reported", func(t *testing.T) {
+		// Latched at 5, live total is 2: still crossed, so nothing new fires,
+		// but the level the operator was told about has to come down.
+		store := &mockSettingsStore{
+			getWithDefaultFn: func(_ context.Context, key, def string) string {
+				if key == settingKeyClaimAlertFired {
+					return `{"fired_at":"2026-08-01T00:00:00Z","count":5}`
+				}
+				return def
+			},
+			setFn: func(context.Context, string, string) error { return writeErr },
+		}
+		drain := captureClaimAlerts(t)
+		err := EvaluateClaimAgeAlert(ctx, pool, store, now)
+		if !errors.Is(err, writeErr) {
+			t.Fatalf("error = %v, want it to wrap the store failure", err)
+		}
+		if !strings.Contains(err.Error(), "lower outstanding-claims alert latch") {
+			t.Errorf("error = %q, want it to name the lowering write", err)
+		}
+		if n, _ := drain(); n != 0 {
+			t.Errorf("published %d alerts, want 0: an improving situation is lowered silently", n)
+		}
+	})
+
+	t.Run("a failed re-arm is reported", func(t *testing.T) {
+		// Nothing counted at all (an empty pool state is simulated by resolving
+		// every claim), so the latch must be deleted to re-arm the alert.
+		if _, err := pool.Exec(ctx, `UPDATE models SET enabled = true, last_seen_at = $1`, now); err != nil {
+			t.Fatalf("resolve claims: %v", err)
+		}
+		store := &mockSettingsStore{
+			getWithDefaultFn: func(_ context.Context, key, def string) string {
+				if key == settingKeyClaimAlertFired {
+					return `{"fired_at":"2026-08-01T00:00:00Z","count":2}`
+				}
+				return def
+			},
+			deleteKeyFn: func(context.Context, string) error { return writeErr },
+		}
+		drain := captureClaimAlerts(t)
+		err := EvaluateClaimAgeAlert(ctx, pool, store, now)
+		if !errors.Is(err, writeErr) {
+			t.Fatalf("error = %v, want it to wrap the store failure", err)
+		}
+		if !strings.Contains(err.Error(), "re-arm outstanding-claims alert") {
+			t.Errorf("error = %q, want it to name the re-arm delete", err)
+		}
+		if n, _ := drain(); n != 0 {
+			t.Errorf("published %d alerts while re-arming, want 0", n)
+		}
+	})
 }
