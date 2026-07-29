@@ -2,6 +2,8 @@ package com.hugalafutro.bellhop.ui.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -397,6 +399,19 @@ class SettingsScreenTest {
 
         composeTestRule.onNodeWithTag("settings-widget-align-RIGHT").performScrollTo().performClick()
         assertEquals(QuotaBadgeAlign.RIGHT, picked)
+    }
+
+    @Test
+    fun widgetAlignmentPickerMarksTheActiveChoiceSelected() {
+        // Selection reaches the semantics tree, not just the fill colour, so a
+        // screen reader can say which alignment is in effect. Asserting the two
+        // unselected pills as well pins the mapping: a pill that reported itself
+        // selected unconditionally would satisfy the first assertion alone.
+        content(widgetQuotaAlign = QuotaBadgeAlign.CENTER)
+
+        composeTestRule.onNodeWithTag("settings-widget-align-CENTER").performScrollTo().assertIsSelected()
+        composeTestRule.onNodeWithTag("settings-widget-align-LEFT").assertIsNotSelected()
+        composeTestRule.onNodeWithTag("settings-widget-align-RIGHT").assertIsNotSelected()
     }
 
     @Test
