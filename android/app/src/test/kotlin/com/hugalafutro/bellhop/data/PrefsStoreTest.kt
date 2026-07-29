@@ -90,4 +90,37 @@ class PrefsStoreTest {
 
             assertEquals(QuotaBarMode.REMAINING, PrefsStore(dataStore).quotaBarMode.first())
         }
+
+    @Test
+    fun widgetQuotaAlignDefaultsToLeft() =
+        runBlocking {
+            // LEFT is exactly what the widget did before this preference existed,
+            // so an upgrading user must see no change until they choose otherwise.
+            assertEquals(QuotaBadgeAlign.LEFT, newStore().widgetQuotaAlign.first())
+        }
+
+    @Test
+    fun widgetQuotaAlignRoundTripsThroughSet() =
+        runBlocking {
+            val store = newStore()
+            store.setWidgetQuotaAlign(QuotaBadgeAlign.CENTER)
+            assertEquals(QuotaBadgeAlign.CENTER, store.widgetQuotaAlign.first())
+
+            store.setWidgetQuotaAlign(QuotaBadgeAlign.RIGHT)
+            assertEquals(QuotaBadgeAlign.RIGHT, store.widgetQuotaAlign.first())
+
+            store.setWidgetQuotaAlign(QuotaBadgeAlign.LEFT)
+            assertEquals(QuotaBadgeAlign.LEFT, store.widgetQuotaAlign.first())
+        }
+
+    @Test
+    fun unrecognizedStoredWidgetQuotaAlignDegradesToDefault() =
+        runBlocking {
+            val dataStore = InMemoryPreferencesDataStore()
+            // A value written by a future build with an alignment this build does
+            // not know: must fall back to the default, not throw.
+            dataStore.edit { it[stringPreferencesKey("widget_quota_align")] = "DIAGONAL" }
+
+            assertEquals(QuotaBadgeAlign.LEFT, PrefsStore(dataStore).widgetQuotaAlign.first())
+        }
 }
