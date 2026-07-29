@@ -1,6 +1,7 @@
 package com.hugalafutro.bellhop.ui.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -396,5 +397,23 @@ class SettingsScreenTest {
 
         composeTestRule.onNodeWithTag("settings-widget-align-RIGHT").performScrollTo().performClick()
         assertEquals(QuotaBadgeAlign.RIGHT, picked)
+    }
+
+    @Test
+    fun widgetAlignmentPickerInertWhenQuotaStripOff() {
+        // BellhopWidget gates the whole badge strip on widgetQuota, so with the
+        // switch off the alignment choice has nothing left to arrange. The
+        // pills stay visible (the set still says what it offers) but faded and
+        // untappable, same as the WIDGET tab on the quota config screen.
+        var picked: QuotaBadgeAlign? = null
+        content(widgetQuota = false, onSetWidgetQuotaAlign = { picked = it })
+
+        composeTestRule.onNodeWithTag("settings-widget-align-LEFT").performScrollTo().assertIsDisplayed().assertIsNotEnabled()
+        composeTestRule.onNodeWithTag("settings-widget-align-CENTER").performScrollTo().assertIsNotEnabled()
+        composeTestRule.onNodeWithTag("settings-widget-align-RIGHT").performScrollTo().assertIsNotEnabled()
+
+        composeTestRule.onNodeWithTag("settings-widget-align-CENTER").performClick()
+        composeTestRule.waitForIdle()
+        assertNull(picked)
     }
 }

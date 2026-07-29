@@ -279,6 +279,10 @@ private fun quotaBadgeColor(type: QuotaType) = quotaBrand(type).let { ColorProvi
  * rows are laid out with. A function rather than an inline `when` so the mapping
  * is testable: the widget's render is only covered on-device, and a transposed
  * arm here would quietly send RIGHT to the left edge.
+ *
+ * LEFT/RIGHT are absolute labels mapped to Start/End, which Glance resolves
+ * against layout direction -- that only lines up while every shipped locale is
+ * LTR. Adding an RTL locale means revisiting either this mapping or the copy.
  */
 internal fun quotaRowAlignment(align: QuotaBadgeAlign): Alignment.Horizontal =
     when (align) {

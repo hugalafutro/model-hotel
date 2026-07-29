@@ -410,6 +410,7 @@ fun SettingsScreen(
                             tag = "settings-widget-align-${option.name}",
                             modifier = Modifier.weight(1f),
                             borderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            enabled = widgetQuota,
                         )
                     }
                 }
