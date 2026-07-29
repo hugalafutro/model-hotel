@@ -533,7 +533,11 @@ export interface DiscoveryDiff {
 	failover_disabled_groups?: DisabledGroupInfo[];
 }
 
-/** One provider's recorded background-discovery diff (GET /api/discovery/changes). */
+/**
+ * One provider's recorded background-discovery diff. Served as the
+ * `informational` feed of GET /api/discovery/status and as the rows returned by
+ * POST /api/discovery/changes/ack; the GET that used to serve it is gone.
+ */
 export interface DiscoveryChangeEntry {
 	/** Empty when the provider was deleted after the change was recorded. */
 	provider_id?: string;
@@ -543,6 +547,10 @@ export interface DiscoveryChangeEntry {
 	diff: DiscoveryDiff;
 }
 
+/**
+ * Response of POST /api/discovery/changes/ack: exactly the rows that call marked
+ * seen. `count` is always 0 (the badge is empty once they are acked).
+ */
 export interface DiscoveryChangesResponse {
 	entries: DiscoveryChangeEntry[];
 	count: number;

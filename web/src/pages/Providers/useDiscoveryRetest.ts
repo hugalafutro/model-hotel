@@ -81,7 +81,7 @@ export function useDiscoveryRetest(
 			// while one runs: three rapid clicks otherwise each overwrite
 			// retestingKey and stop the previous row's spinner while its request
 			// is still out. Guarding here (not just in the UI) keeps the lock
-			// correct even if a caller doesn't wire isRetesting into its buttons.
+			// correct even if a caller doesn't wire isAnyRetesting into its buttons.
 			if (mutation.isPending) return;
 			mutation.mutate({ entry });
 		},
