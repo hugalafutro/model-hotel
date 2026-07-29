@@ -264,6 +264,24 @@ describe("ModelDiscrepancyModal", () => {
 		).toStrictEqual(["since-review", "window-only"]);
 	});
 
+	it("keeps the flap chip's tooltip count in agreement with its visible count in the window-only case", () => {
+		render(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[
+					prov({
+						gone: [claimOf("window-only", "pending", "gone", { window: 4 })],
+					}),
+				]}
+			/>,
+		);
+		const chip = screen.getByTestId("discrepancy-flap");
+		const visibleCount = chip.textContent?.match(/\d+/)?.[0];
+		const tooltipCount = chip.getAttribute("title")?.match(/\d+/)?.[0];
+		expect(visibleCount).toBe("4");
+		expect(tooltipCount).toBe(visibleCount);
+	});
+
 	describe("failover group claims", () => {
 		it("renders one row per disabled group", () => {
 			render(
