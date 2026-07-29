@@ -872,6 +872,12 @@ export function Layout({ children }: LayoutProps) {
 		async (providerId: string, modelId: string) => {
 			try {
 				const res = await api.discovery.dismiss(providerId, [modelId], false);
+				// Unreachable today: the server 404s (and fetchJSON throws before `res`
+				// exists) whenever `affected == 0` (internal/api/discovery.go's dismiss
+				// handler), so a 0-updated response can never reach this branch. Kept
+				// anyway to implement the one-model-per-call contract: if the server
+				// ever starts 200ing on a partial or zero-count match, this stops a
+				// false "success" from being reported instead of silently trusting `res`.
 				if (res.updated === 0) {
 					throw new Error(t("providers.discrepancies.dismissNoMatch"));
 				}
@@ -903,6 +909,11 @@ export function Layout({ children }: LayoutProps) {
 				// batch cannot say which models it missed; one at a time makes
 				// `updated: 0` an unambiguous failure for this model.
 				const res = await api.discovery.dismiss(providerId, [modelId], true);
+				// Unreachable today: same as undoDismiss above, the server 404s (and
+				// fetchJSON throws) whenever `affected == 0`, so this branch cannot
+				// currently be hit. Kept as the guard for the one-model-per-call
+				// contract described above, in case the server ever starts 200ing on a
+				// partial or zero-count match.
 				if (res.updated === 0) {
 					throw new Error(t("providers.discrepancies.dismissNoMatch"));
 				}

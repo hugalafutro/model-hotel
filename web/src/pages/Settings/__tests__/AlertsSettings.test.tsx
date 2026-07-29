@@ -430,6 +430,27 @@ describe("AlertsSettings", () => {
 		expect(slider).toHaveValue(String(CEILING));
 	});
 
+	it("falls back to the default threshold, not the minimum, for a stored empty string", async () => {
+		// A restored backup or a hand-edited settings row can carry an empty
+		// string. `??` only substitutes for null/undefined, so this used to
+		// reach `Number("")` (0) and render the slider's minimum of 1 while the
+		// backend fell back to its own default of 7 — a visible/effective
+		// disagreement, exactly what this control exists to prevent.
+		mockSettings({
+			alert_enabled: "true",
+			discovery_claim_window_days: CLAIM_WINDOW_DAYS,
+			discovery_claim_alert_days: "",
+		});
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await screen.findByTestId("alert-claim-age");
+		const { number, slider } = claimAgeInputs();
+		expect(number).toHaveValue(7);
+		expect(slider).toHaveValue("7");
+	});
+
 	it("surfaces a failed status check instead of hiding it", async () => {
 		mockSettings({
 			alert_enabled: "true",

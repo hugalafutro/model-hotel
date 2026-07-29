@@ -97,8 +97,13 @@ export function AlertsSettings({
 	// by a config-sync import) must render as the number that is actually in
 	// effect: a slider showing 45 while the backend acts on 29 is exactly the
 	// kind of quiet disagreement this whole change exists to remove.
+	// `||`, not `??`: a restored backup or hand-edited row can store an empty
+	// string, which `??` only substitutes for null/undefined. `Number("")` is
+	// 0, a value the Number.isFinite check below treats as a legitimate
+	// (if out-of-range) stored number and clamps to the slider's minimum of 1
+	// instead of falling back to the backend's actual default.
 	const storedClaimAlertDays = Number(
-		settings?.discovery_claim_alert_days ??
+		settings?.discovery_claim_alert_days ||
 			SETTING_DEFAULTS.discovery_claim_alert_days,
 	);
 	const claimAlertDays =
