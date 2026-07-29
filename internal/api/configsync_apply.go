@@ -535,12 +535,26 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 				display_name   = EXCLUDED.display_name,
 				description    = EXCLUDED.description,
 				auto_created   = false,
-				-- The imported group_enabled is the PRIMARY's configuration, i.e.
-				-- operator intent as far as this member is concerned, so it must
-				-- never read as a local discovery auto-disable (migration 062).
-				-- This member's own revalidation re-stamps it on the next scan if
-				-- the group really is short of routable members here.
-				auto_disabled_at = NULL,
+				-- Migration 062: auto_disabled_at is what separates "discovery
+				-- disabled this group" from "an operator switched it off", and the
+				-- clear is ONE-WAY. revalidateCustomGroups skips groups that are
+				-- already disabled, so nothing re-stamps a disabled group; clearing
+				-- the stamp there is permanent, and a member whose hotel/<model>
+				-- routing is dead would go silent about it forever.
+				--
+				-- So only the enable direction clears. An imported
+				-- group_enabled = true is fleet-level operator intent to have this
+				-- group ON, which does contradict a local auto-disable, and it is
+				-- genuinely self-healing: with group_enabled = true this member's
+				-- next revalidation no longer skips the group and re-disables and
+				-- re-stamps it if it really is short of routable members here.
+				--
+				-- An imported group_enabled = false says nothing about THIS
+				-- member's routable membership (it is the primary's own group
+				-- state), so it must not erase a stamp this member's discovery
+				-- earned. A row inserted rather than updated starts at NULL, so a
+				-- claim is never invented either.
+				auto_disabled_at = CASE WHEN EXCLUDED.group_enabled THEN NULL ELSE model_failover_groups.auto_disabled_at END,
 				updated_at     = now()`,
 			g.DisplayModel, priorityJSON, entryEnabledJSON, g.GroupEnabled, g.DisplayName, g.Description); err != nil {
 			return err
