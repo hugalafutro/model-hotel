@@ -79,6 +79,24 @@ class PrefsStore(
     }
 
     /**
+     * widgetQuotaAlign emits where the widget's quota badge rows sit across its
+     * width; defaults to [QuotaBadgeAlign.LEFT], which is what the widget did
+     * before this preference existed. Purely a rendering choice: unlike
+     * [widgetQuota] it changes nothing about what the background poll reads.
+     * A stored value this build doesn't recognize falls back to the default
+     * rather than throwing, same stance as [quotaBarMode].
+     */
+    val widgetQuotaAlign: Flow<QuotaBadgeAlign> =
+        dataStore.data.map {
+            val stored = it[WIDGET_QUOTA_ALIGN] ?: return@map QuotaBadgeAlign.LEFT
+            runCatching { QuotaBadgeAlign.valueOf(stored) }.getOrDefault(QuotaBadgeAlign.LEFT)
+        }
+
+    suspend fun setWidgetQuotaAlign(align: QuotaBadgeAlign) {
+        dataStore.edit { it[WIDGET_QUOTA_ALIGN] = align.name }
+    }
+
+    /**
      * quotaBarMode emits which polarity ([QuotaBarMode.REMAINING] or
      * [QuotaBarMode.USED]) quota badges show for METERED types; defaults to
      * REMAINING, matching the web dashboard's default. A stored value this
@@ -120,6 +138,7 @@ class PrefsStore(
         private val WIDGET_GRAPHS = booleanPreferencesKey("widget_graphs")
         private val WIDGET_QUOTA = booleanPreferencesKey("widget_quota")
         private val QUOTA_BAR_MODE = stringPreferencesKey("quota_bar_mode")
+        private val WIDGET_QUOTA_ALIGN = stringPreferencesKey("widget_quota_align")
         private val TIME_FORMAT = stringPreferencesKey("time_format")
 
         /** Default traffic-graph lookback: the last hour. */

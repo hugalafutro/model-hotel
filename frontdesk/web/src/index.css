@@ -970,5 +970,28 @@ h3 {
 .fd-quota-badges {
 	display: flex;
 	flex-wrap: wrap;
+	/* Centered rather than left-hugging: the strip spans the page, so a fleet
+	   with two or three quota providers otherwise left a long empty run to the
+	   right. The container already wraps, so each wrapped line centers on its
+	   own, which is what a fleet with more providers than fit one line wants.
+	   Only the main axis: every .fd-quota-pill is the same height, so
+	   align-items would be a declaration nothing depends on. */
+	justify-content: center;
 	gap: 0.35rem;
+}
+
+/* Collapsed, the strip is nothing but its unroll caret: no band, no rule, no
+   label, so the page reads exactly as it did before quota badges existed.
+   .fd-header directly above already carries this background and its own
+   border-bottom, so keeping either here painted a second, empty header. The
+   horizontal padding is the one thing retained, so the caret lines up with the
+   header's right edge instead of sitting flush against the viewport.
+   The root's `gap` is deliberately left alone: collapsed, the strip has exactly
+   one child (the badges are gated on !collapsed and the modal cannot be open,
+   since toggleCollapsed nulls openKey on the way in), so overriding it would be
+   a dead declaration. */
+.fd-quota-strip-collapsed {
+	padding: 0 1.25rem;
+	border-bottom: none;
+	background: none;
 }

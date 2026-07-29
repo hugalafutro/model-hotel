@@ -54,6 +54,7 @@ import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LockConfig
 import com.hugalafutro.bellhop.data.LockTimeout
 import com.hugalafutro.bellhop.data.PrefsStore
+import com.hugalafutro.bellhop.data.QuotaBadgeAlign
 import com.hugalafutro.bellhop.data.TimeFormat
 import com.hugalafutro.bellhop.ui.alerts.ALERT_SEVERITIES
 import com.hugalafutro.bellhop.ui.common.BellhopSwitch
@@ -113,6 +114,10 @@ fun SettingsScreen(
     // strip before there was a switch for it.
     widgetQuota: Boolean = true,
     onToggleWidgetQuota: (Boolean) -> Unit = {},
+    // Defaults to LEFT like the preference itself: that is what the widget did
+    // before the picker existed.
+    widgetQuotaAlign: QuotaBadgeAlign = QuotaBadgeAlign.LEFT,
+    onSetWidgetQuotaAlign: (QuotaBadgeAlign) -> Unit = {},
     timeFormat: TimeFormat = TimeFormat.SYSTEM,
     onSetTimeFormat: (TimeFormat) -> Unit = {},
     // Enabled-alert counts per severity (error/warning/info/success), sourced from
@@ -381,6 +386,34 @@ fun SettingsScreen(
                     onCheckedChange = onToggleWidgetQuota,
                     tag = "settings-widget-quota-toggle",
                 )
+                // Not a WidgetToggleRow: alignment is a three-way choice, and
+                // unlike the two switches above it changes nothing about what the
+                // background poll reads -- only where the same badges sit.
+                Text(
+                    text = stringResource(R.string.settings_widget_align_title),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(R.string.settings_widget_align_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    QuotaBadgeAlign.entries.forEach { option ->
+                        FilterPill(
+                            text = stringResource(alignLabel(option)),
+                            selected = option == widgetQuotaAlign,
+                            onClick = { onSetWidgetQuotaAlign(option) },
+                            tag = "settings-widget-align-${option.name}",
+                            modifier = Modifier.weight(1f),
+                            borderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            enabled = widgetQuota,
+                        )
+                    }
+                }
             }
 
             // Clock: which face every wall-clock time in the app is drawn on.
@@ -793,6 +826,14 @@ private fun timeFormatLabel(format: TimeFormat): Int =
         TimeFormat.SYSTEM -> R.string.settings_time_format_system
         TimeFormat.H24 -> R.string.settings_time_format_24h
         TimeFormat.H12 -> R.string.settings_time_format_12h
+    }
+
+/** alignLabel maps a widget badge alignment to its picker label. */
+private fun alignLabel(align: QuotaBadgeAlign): Int =
+    when (align) {
+        QuotaBadgeAlign.LEFT -> R.string.settings_widget_align_left
+        QuotaBadgeAlign.CENTER -> R.string.settings_widget_align_center
+        QuotaBadgeAlign.RIGHT -> R.string.settings_widget_align_right
     }
 
 /**

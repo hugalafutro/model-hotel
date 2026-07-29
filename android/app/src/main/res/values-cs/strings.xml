@@ -286,6 +286,11 @@
     <string name="settings_widget_graphs_subtitle">Překryjí každého člena požadavky za poslední hodinu. Čerstvé sloupce stojí jeden požadavek na člena navíc při každé kontrole na pozadí.</string>
     <string name="settings_widget_quota_title">Odznaky kvót</string>
     <string name="settings_widget_quota_subtitle">Zobrazovat na widgetu pás kvót poskytovatelů. Vypnutí zároveň odebere čtení kvót z každé kontroly na pozadí.</string>
+    <string name="settings_widget_align_title">Zarovnání odznaků</string>
+    <string name="settings_widget_align_subtitle">Kde odznaky kvót sedí napříč šířkou widgetu.</string>
+    <string name="settings_widget_align_left">Vlevo</string>
+    <string name="settings_widget_align_center">Na střed</string>
+    <string name="settings_widget_align_right">Vpravo</string>
 
     <string name="settings_quota_badges_title">Odznaky kvót</string>
     <string name="settings_quota_badges_subtitle">Vyberte, které odznaky kvót poskytovatelů se zobrazí na dashboardu a ve widgetu, přeuspořádejte je a zvolte využité nebo zbývající.</string>

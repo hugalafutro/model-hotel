@@ -53,6 +53,7 @@ import com.hugalafutro.bellhop.data.LinkStore
 import com.hugalafutro.bellhop.data.MemberHealthState
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PrefsStore
+import com.hugalafutro.bellhop.data.QuotaBadgeAlign
 import com.hugalafutro.bellhop.data.QuotaType
 import com.hugalafutro.bellhop.data.TRAFFIC_BUCKETS
 import com.hugalafutro.bellhop.data.TimeFormat
@@ -143,14 +144,16 @@ class BellhopWidget : GlanceAppWidget() {
         val initialActive = monitorStore.active.first()
         val initialGraphs = prefsStore.widgetGraphs.first()
         val initialQuota = prefsStore.widgetQuota.first()
+        val initialQuotaAlign = prefsStore.widgetQuotaAlign.first()
         val initialTimeFormat = prefsStore.timeFormat.first()
         provideContent {
             val state by widgetStore.state.collectAsState(initial = initialState)
             val monitoringActive by monitorStore.active.collectAsState(initial = initialActive)
             val graphs by prefsStore.widgetGraphs.collectAsState(initial = initialGraphs)
             val quotaStrip by prefsStore.widgetQuota.collectAsState(initial = initialQuota)
+            val quotaAlign by prefsStore.widgetQuotaAlign.collectAsState(initial = initialQuotaAlign)
             val timeFormat by prefsStore.timeFormat.collectAsState(initial = initialTimeFormat)
-            WidgetContent(state, monitoringActive, fdName, graphs, quotaStrip, timeFormat)
+            WidgetContent(state, monitoringActive, fdName, graphs, quotaStrip, quotaAlign, timeFormat)
         }
     }
 
@@ -270,6 +273,23 @@ private val DotUnknown = ColorProvider(day = PaperInkMuted, night = Ink300)
 // rather than the app palette; quotaBrand is the shared source (ui/theme),
 // so the widget pill and the dashboard chip can never drift apart.
 private fun quotaBadgeColor(type: QuotaType) = quotaBrand(type).let { ColorProvider(day = it.day, night = it.night) }
+
+/**
+ * quotaRowAlignment maps the stored preference to the Glance alignment the badge
+ * rows are laid out with. A function rather than an inline `when` so the mapping
+ * is testable: the widget's render is only covered on-device, and a transposed
+ * arm here would quietly send RIGHT to the left edge.
+ *
+ * LEFT/RIGHT are absolute labels mapped to Start/End, which Glance resolves
+ * against layout direction -- that only lines up while every shipped locale is
+ * LTR. Adding an RTL locale means revisiting either this mapping or the copy.
+ */
+internal fun quotaRowAlignment(align: QuotaBadgeAlign): Alignment.Horizontal =
+    when (align) {
+        QuotaBadgeAlign.LEFT -> Alignment.Start
+        QuotaBadgeAlign.CENTER -> Alignment.CenterHorizontally
+        QuotaBadgeAlign.RIGHT -> Alignment.End
+    }
 
 private fun dotColor(state: MemberHealthState) =
     when (state) {
@@ -410,6 +430,7 @@ private fun WidgetContent(
     fdName: String,
     graphs: Boolean,
     quotaStrip: Boolean,
+    quotaAlign: QuotaBadgeAlign,
     timeFormat: TimeFormat,
 ) {
     val context = LocalContext.current
@@ -577,6 +598,11 @@ private fun WidgetContent(
                 val overflow = quotaBadgeOverflow(state.quota, rows)
                 rows.forEachIndexed { index, row ->
                     Row(
+                        // Where the strip sits across the widget. This can only
+                        // do anything because the badges below take no weight --
+                        // each pill is its own label's width, so the row has real
+                        // slack to distribute.
+                        horizontalAlignment = quotaRowAlignment(quotaAlign),
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = GlanceModifier.fillMaxWidth().padding(bottom = 1.dp),
                     ) {

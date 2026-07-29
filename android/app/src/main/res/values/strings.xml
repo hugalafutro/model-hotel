@@ -279,6 +279,11 @@
     <string name="settings_widget_graphs_subtitle">Overlay each member with its last hour of requests. Fresh bars cost one extra request per member on each background check.</string>
     <string name="settings_widget_quota_title">Quota badges</string>
     <string name="settings_widget_quota_subtitle">Carry the provider quota strip on the widget. Off also drops the quota read from each background check.</string>
+    <string name="settings_widget_align_title">Badge alignment</string>
+    <string name="settings_widget_align_subtitle">Where the quota badges sit across the width of the widget.</string>
+    <string name="settings_widget_align_left">Left</string>
+    <string name="settings_widget_align_center">Center</string>
+    <string name="settings_widget_align_right">Right</string>
 
     <string name="settings_quota_badges_title">Quota badges</string>
     <string name="settings_quota_badges_subtitle">Choose which provider quota badges show on the dashboard and the widget, reorder them, and pick used or remaining.</string>

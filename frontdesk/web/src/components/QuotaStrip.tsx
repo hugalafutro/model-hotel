@@ -147,10 +147,24 @@ export function QuotaStrip() {
 	if (models.length === 0) return null;
 
 	return (
-		<div className="fd-quota-strip" data-testid="quota-strip">
+		<div
+			// Collapsed, the strip is nothing but its unroll caret. The label and
+			// the stale note come out of the tree rather than being hidden in CSS,
+			// so a screen reader does not announce a QUOTA heading over a strip
+			// showing nothing.
+			className={`fd-quota-strip${collapsed ? " fd-quota-strip-collapsed" : ""}`}
+			data-testid="quota-strip"
+		>
 			<div className="fd-quota-strip-head">
-				<span className="fd-quota-strip-label">{t("quota.title")}</span>
-				{stale && (
+				{!collapsed && (
+					<span
+						className="fd-quota-strip-label"
+						data-testid="quota-strip-label"
+					>
+						{t("quota.title")}
+					</span>
+				)}
+				{!collapsed && stale && (
 					<span
 						className="fd-quota-stale"
 						data-testid="quota-stale"

@@ -1,6 +1,9 @@
 package com.hugalafutro.bellhop.ui.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -8,6 +11,7 @@ import androidx.compose.ui.test.performScrollTo
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LockConfig
 import com.hugalafutro.bellhop.data.LockTimeout
+import com.hugalafutro.bellhop.data.QuotaBadgeAlign
 import com.hugalafutro.bellhop.data.TimeFormat
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import org.junit.Assert.assertEquals
@@ -61,6 +65,8 @@ class SettingsScreenTest {
         onToggleWidgetGraphs: (Boolean) -> Unit = {},
         widgetQuota: Boolean = true,
         onToggleWidgetQuota: (Boolean) -> Unit = {},
+        widgetQuotaAlign: QuotaBadgeAlign = QuotaBadgeAlign.LEFT,
+        onSetWidgetQuotaAlign: (QuotaBadgeAlign) -> Unit = {},
         timeFormat: TimeFormat = TimeFormat.SYSTEM,
         onSetTimeFormat: (TimeFormat) -> Unit = {},
         batteryUnrestricted: Boolean = true,
@@ -104,6 +110,8 @@ class SettingsScreenTest {
                     onToggleWidgetGraphs = onToggleWidgetGraphs,
                     widgetQuota = widgetQuota,
                     onToggleWidgetQuota = onToggleWidgetQuota,
+                    widgetQuotaAlign = widgetQuotaAlign,
+                    onSetWidgetQuotaAlign = onSetWidgetQuotaAlign,
                     timeFormat = timeFormat,
                     onSetTimeFormat = onSetTimeFormat,
                     alertCounts = alertCounts,
@@ -371,5 +379,60 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithTag("settings-unlink-force").performClick()
         assertTrue(dismissed)
         assertTrue(forced == 1)
+    }
+
+    @Test
+    fun widgetAlignmentPickerOffersAllThreeChoices() {
+        content()
+        composeTestRule.onNodeWithTag("settings-widget-align-LEFT").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("settings-widget-align-CENTER").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("settings-widget-align-RIGHT").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun pickingWidgetAlignmentFiresCallback() {
+        var picked: QuotaBadgeAlign? = null
+        content(widgetQuotaAlign = QuotaBadgeAlign.LEFT, onSetWidgetQuotaAlign = { picked = it })
+
+        composeTestRule.onNodeWithTag("settings-widget-align-CENTER").performScrollTo().performClick()
+        assertEquals(QuotaBadgeAlign.CENTER, picked)
+
+        composeTestRule.onNodeWithTag("settings-widget-align-RIGHT").performScrollTo().performClick()
+        assertEquals(QuotaBadgeAlign.RIGHT, picked)
+    }
+
+    @Test
+    fun widgetAlignmentPickerMarksTheActiveChoiceSelected() {
+        // Selection reaches the semantics tree, not just the fill colour, so a
+        // screen reader can say which alignment is in effect. Asserting the two
+        // unselected pills as well pins the mapping: a pill that reported itself
+        // selected unconditionally would satisfy the first assertion alone.
+        content(widgetQuotaAlign = QuotaBadgeAlign.CENTER)
+
+        composeTestRule.onNodeWithTag("settings-widget-align-CENTER").performScrollTo().assertIsSelected()
+        composeTestRule.onNodeWithTag("settings-widget-align-LEFT").assertIsNotSelected()
+        composeTestRule.onNodeWithTag("settings-widget-align-RIGHT").assertIsNotSelected()
+    }
+
+    @Test
+    fun widgetAlignmentPickerInertWhenQuotaStripOff() {
+        // BellhopWidget gates the whole badge strip on widgetQuota, so with the
+        // switch off the alignment choice has nothing left to arrange. The
+        // pills stay visible (the set still says what it offers) but faded and
+        // untappable, same as the WIDGET tab on the quota config screen.
+        var picked: QuotaBadgeAlign? = null
+        content(widgetQuota = false, onSetWidgetQuotaAlign = { picked = it })
+
+        composeTestRule
+            .onNodeWithTag("settings-widget-align-LEFT")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertIsNotEnabled()
+        composeTestRule.onNodeWithTag("settings-widget-align-CENTER").performScrollTo().assertIsNotEnabled()
+        composeTestRule.onNodeWithTag("settings-widget-align-RIGHT").performScrollTo().assertIsNotEnabled()
+
+        composeTestRule.onNodeWithTag("settings-widget-align-CENTER").performClick()
+        composeTestRule.waitForIdle()
+        assertNull(picked)
     }
 }

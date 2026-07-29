@@ -274,6 +274,11 @@
     <string name="settings_widget_graphs_subtitle">Muestran sobre cada miembro sus solicitudes de la última hora. Mantenerlas al día cuesta una solicitud extra por miembro en cada comprobación en segundo plano.</string>
     <string name="settings_widget_quota_title">Insignias de cuota</string>
     <string name="settings_widget_quota_subtitle">Mostrar en el widget la tira de cuotas de los proveedores. Al desactivarla también se omite la lectura de cuotas en cada comprobación en segundo plano.</string>
+    <string name="settings_widget_align_title">Alineación de las insignias</string>
+    <string name="settings_widget_align_subtitle">Dónde se sitúan las insignias de cuota a lo ancho del widget.</string>
+    <string name="settings_widget_align_left">Izquierda</string>
+    <string name="settings_widget_align_center">Centro</string>
+    <string name="settings_widget_align_right">Derecha</string>
 
     <string name="settings_quota_badges_title">Insignias de cuota</string>
     <string name="settings_quota_badges_subtitle">Elige qué insignias de cuota de proveedor se muestran en el dashboard y en el widget, reordénalas y elige usado o restante.</string>

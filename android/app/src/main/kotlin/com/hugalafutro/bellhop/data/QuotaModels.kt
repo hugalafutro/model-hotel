@@ -429,6 +429,12 @@ private fun decodeQuotaPayload(
 enum class QuotaBarMode { REMAINING, USED }
 
 /**
+ * QuotaBadgeAlign is where the home-screen widget's badge rows sit across the
+ * widget's width. Widget-only: the phone dashboard strip has no such choice.
+ */
+enum class QuotaBadgeAlign { LEFT, CENTER, RIGHT }
+
+/**
  * quotaBadgeLabel formats [pq] into the short text a badge shows, in the
  * polarity [mode] selects for METERED types. Unavailable or payload-less
  * quotas (see [ProviderQuota.available]) render as "-", mirroring the web

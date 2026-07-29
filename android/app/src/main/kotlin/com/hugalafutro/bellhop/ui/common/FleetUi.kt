@@ -15,6 +15,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -131,7 +133,15 @@ internal fun FilterPill(
         contentColor = content.copy(alpha = stateAlpha),
         shape = MaterialTheme.shapes.small,
         border = if (selected) null else BorderStroke(1.dp, borderColor.copy(alpha = stateAlpha)),
-        modifier = modifier.testTag(tag),
+        // Selection has to reach the semantics tree, not just the palette above.
+        // Surface's own clickable publishes "is a button, is enabled" and nothing
+        // about which button is the active one, so before this a screen-reader
+        // user heard five identical buttons in every picker built on this pill
+        // (clock, graph range, severity, surface tabs, badge alignment) with no
+        // way to tell which was in effect -- the state was carried entirely by
+        // fill colour. It also makes assertIsSelected() meaningful in tests,
+        // which previously had nothing to read.
+        modifier = modifier.testTag(tag).semantics { this.selected = selected },
     ) {
         Text(
             text = text,

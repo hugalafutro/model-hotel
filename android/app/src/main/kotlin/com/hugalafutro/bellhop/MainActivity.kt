@@ -44,6 +44,7 @@ import com.hugalafutro.bellhop.data.LockStore
 import com.hugalafutro.bellhop.data.LockTimeout
 import com.hugalafutro.bellhop.data.MonitorStore
 import com.hugalafutro.bellhop.data.PrefsStore
+import com.hugalafutro.bellhop.data.QuotaBadgeAlign
 import com.hugalafutro.bellhop.data.QuotaBadgeConfigStore
 import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.data.TimeFormat
@@ -263,6 +264,9 @@ fun BellhopApp(
     val holdToCopy by prefsStore.holdToCopy.collectAsStateWithLifecycle(initialValue = true)
     val widgetGraphs by prefsStore.widgetGraphs.collectAsStateWithLifecycle(initialValue = false)
     val widgetQuota by prefsStore.widgetQuota.collectAsStateWithLifecycle(initialValue = true)
+    val widgetQuotaAlign by prefsStore.widgetQuotaAlign.collectAsStateWithLifecycle(
+        initialValue = QuotaBadgeAlign.LEFT,
+    )
     val quotaBarMode by prefsStore.quotaBarMode.collectAsStateWithLifecycle(initialValue = QuotaBarMode.REMAINING)
     val timeFormat by prefsStore.timeFormat.collectAsStateWithLifecycle(initialValue = TimeFormat.SYSTEM)
     val graphRangeMinutes by
@@ -617,6 +621,22 @@ fun BellhopApp(
                                 FleetPollWorker.runWidgetRefresh(context, supersedeInFlight = true)
                             }
                         },
+                        widgetQuotaAlign = widgetQuotaAlign,
+                        onSetWidgetQuotaAlign = {
+                            scope.launch {
+                                prefsStore.setWidgetQuotaAlign(it)
+                                // Deliberately BellhopWidget.update, not
+                                // FleetPollWorker.runWidgetRefresh like the two
+                                // toggles above: alignment changes nothing about
+                                // what gets fetched, only where the same badges
+                                // sit, so a network round trip would be waste.
+                                // The update call is still needed -- provideGlance
+                                // collects this flow, but only for a Glance session
+                                // that happens to be alive, and a widget on a home
+                                // screen nobody is looking at has none.
+                                BellhopWidget.update(context)
+                            }
+                        },
                         onUnlink = { runUnlink(state.fdUrl) },
                         onForceUnlink = { forceUnlink() },
                         requireOperatorAuth = { action -> requireOperatorAuth(action) },
@@ -674,6 +694,8 @@ private fun LinkedContent(
     onToggleWidgetGraphs: (Boolean) -> Unit,
     widgetQuota: Boolean,
     onToggleWidgetQuota: (Boolean) -> Unit,
+    widgetQuotaAlign: QuotaBadgeAlign,
+    onSetWidgetQuotaAlign: (QuotaBadgeAlign) -> Unit,
     onUnlink: () -> Unit,
     onForceUnlink: () -> Unit,
     requireOperatorAuth: (() -> Unit) -> Unit,
@@ -876,6 +898,8 @@ private fun LinkedContent(
                 onToggleWidgetGraphs = onToggleWidgetGraphs,
                 widgetQuota = widgetQuota,
                 onToggleWidgetQuota = onToggleWidgetQuota,
+                widgetQuotaAlign = widgetQuotaAlign,
+                onSetWidgetQuotaAlign = onSetWidgetQuotaAlign,
                 timeFormat = timeFormat,
                 onSetTimeFormat = onSetTimeFormat,
                 alertCounts = alertCounts,
