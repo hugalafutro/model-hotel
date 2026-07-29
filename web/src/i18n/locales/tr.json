@@ -99,11 +99,12 @@
 			"settings": "Ayarlar",
 			"security": "Güvenlik",
 			"failoverBadgeExplain": "Devre kesici durumuna göre yedekleme sağlayıcıları - {{closed}} sağlıklı / {{halfOpen}} kurtarma aşamasında / {{open}} devre dışı",
-			"discoveryNewsBadge": "Arka plan keşfinden gelen son değişiklikler - gözden geçirmek için tıklayın",
 			"discoveryClaimsBadge_one": "{{count}} model tutarsızlığı ilgi bekliyor - gözden geçirmek için tıklayın",
 			"discoveryClaimsBadge_other": "{{count}} model tutarsızlığı ilgi bekliyor - gözden geçirmek için tıklayın",
 			"users": "Kullanıcılar",
-			"audit": "Denetim"
+			"audit": "Denetim",
+			"discoveryNewsBadge_one": "Arka plan keşfinden {{count}} incelenmemiş değişiklik. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın.",
+			"discoveryNewsBadge_other": "Arka plan keşfinden {{count}} incelenmemiş değişiklik. Yalnızca bilgilendirme, ilgilenilmesi gereken bir sorun değil - incelemek için tıklayın."
 		},
 		"status": {
 			"apiStatus": "API Durumu",

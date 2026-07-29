@@ -1328,19 +1328,33 @@ export function Layout({ children }: LayoutProps) {
 																// clicks on it target its originating element).
 																"relative inline-block size-2 shrink-0 translate-y-[1px] rounded-full bg-(--accent) cursor-pointer before:absolute before:-inset-2 before:content-['']"
 													}
+													// One string for both, deliberately. The dot carries no
+													// visible text, so this IS its accessible name as well as
+													// its tooltip; splitting them would mean a sighted user
+													// reads one sentence and a screen-reader user hears
+													// another, which is the contradiction to avoid. It names
+													// the UNSEEN count, which is what the dot is triggered by
+													// and what makes it legible next to the "Recent changes"
+													// header inside the modal: that header counts every entry
+													// in the zone, this counts the ones you have not read.
+													// Counted key, so the number agrees in every language.
 													aria-label={
 														claimCount > 0
 															? t("layout.nav.discoveryClaimsBadge", {
 																	count: claimCount,
 																})
-															: t("layout.nav.discoveryNewsBadge")
+															: t("layout.nav.discoveryNewsBadge", {
+																	count: informationalUnseen,
+																})
 													}
 													title={
 														claimCount > 0
 															? t("layout.nav.discoveryClaimsBadge", {
 																	count: claimCount,
 																})
-															: t("layout.nav.discoveryNewsBadge")
+															: t("layout.nav.discoveryNewsBadge", {
+																	count: informationalUnseen,
+																})
 													}
 												>
 													{claimCount > 0 ? (

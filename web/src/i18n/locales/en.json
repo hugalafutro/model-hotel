@@ -99,11 +99,12 @@
 			"appLogs": "Logs",
 			"settings": "Settings",
 			"security": "Security",
-			"discoveryNewsBadge": "Recent changes from background discovery - click to review",
 			"discoveryClaimsBadge_one": "{{count}} model discrepancy needs attention - click to review",
 			"discoveryClaimsBadge_other": "{{count}} model discrepancies need attention - click to review",
 			"users": "Users",
-			"audit": "Audit"
+			"audit": "Audit",
+			"discoveryNewsBadge_one": "{{count}} unreviewed change from background discovery. Informational, not something needing attention - click to review.",
+			"discoveryNewsBadge_other": "{{count}} unreviewed changes from background discovery. Informational, not something needing attention - click to review."
 		},
 		"status": {
 			"apiStatus": "API Status",

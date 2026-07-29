@@ -99,11 +99,12 @@
 			"settings": "Asetukset",
 			"security": "Turvallisuus",
 			"failoverBadgeExplain": "Vikasietopalveluntarjoajat katkaisijan tilan mukaan - {{closed}} toimintakunnossa / {{halfOpen}} palautumassa / {{open}} laukeamassa",
-			"discoveryNewsBadge": "Viimeaikaiset muutokset taustahakutoiminnosta - napsauta tarkistaaksesi",
 			"discoveryClaimsBadge_one": "{{count}} mallipoikkeama vaatii huomiota - napsauta tarkistaaksesi",
 			"discoveryClaimsBadge_other": "{{count}} mallipoikkeamaa vaatii huomiota - napsauta tarkistaaksesi",
 			"users": "Käyttäjät",
-			"audit": "Auditointi"
+			"audit": "Auditointi",
+			"discoveryNewsBadge_one": "{{count}} lukematon muutos taustatunnistuksesta. Vain tiedoksi, ei vaadi toimenpiteitä - napsauta lukeaksesi.",
+			"discoveryNewsBadge_other": "{{count}} lukematonta muutosta taustatunnistuksesta. Vain tiedoksi, eivät vaadi toimenpiteitä - napsauta lukeaksesi."
 		},
 		"status": {
 			"apiStatus": "API:n tila",

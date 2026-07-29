@@ -99,11 +99,12 @@
 			"settings": "Beállítások",
 			"security": "Biztonság",
 			"failoverBadgeExplain": "Failover szolgáltatók áramkör-megszakító állapot szerint - {{closed}} működőképes / {{halfOpen}} helyreállítási fázisban / {{open}} kioldott",
-			"discoveryNewsBadge": "Legutóbbi módosítások a háttérbeli felderítésből - kattintson a felülvizsgálathoz",
 			"discoveryClaimsBadge_one": "{{count}} modelleltérés igényel figyelmet - kattintson a felülvizsgálathoz",
 			"discoveryClaimsBadge_other": "{{count}} modelleltérés igényel figyelmet - kattintson a felülvizsgálathoz",
 			"users": "Felhasználók",
-			"audit": "Audit"
+			"audit": "Audit",
+			"discoveryNewsBadge_one": "{{count}} át nem nézett változás a háttérfelderítésből. Csak tájékoztatás, nem igényel beavatkozást - kattintson az elolvasáshoz.",
+			"discoveryNewsBadge_other": "{{count}} át nem nézett változás a háttérfelderítésből. Csak tájékoztatás, nem igényel beavatkozást - kattintson az elolvasáshoz."
 		},
 		"status": {
 			"apiStatus": "API-állapot",

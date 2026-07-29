@@ -101,12 +101,14 @@
 			"settings": "הגדרות",
 			"security": "אבטחה",
 			"failoverBadgeExplain": "ספקי מעבר לגיבוי לפי מצב מפסק זרם - {{closed}} תקין / {{halfOpen}} מתאושש / {{open}} הופעל",
-			"discoveryNewsBadge": "שינויים אחרונים מגילוי ברקע - לחצו כדי לעיין",
 			"discoveryClaimsBadge_one": "{{count}} אי-התאמה במודל דורשת טיפול - לחצו כדי לעיין",
 			"discoveryClaimsBadge_two": "{{count}} אי-התאמות במודלים דורשות טיפול - לחצו כדי לעיין",
 			"discoveryClaimsBadge_other": "{{count}} אי-התאמות במודלים דורשות טיפול - לחצו כדי לעיין",
 			"users": "משתמשים",
-			"audit": "ביקורת"
+			"audit": "ביקורת",
+			"discoveryNewsBadge_one": "{{count}} שינוי שלא נסקר מהגילוי ברקע. מידע בלבד, לא משהו שדורש טיפול - לחץ לסקירה.",
+			"discoveryNewsBadge_two": "{{count}} שינויים שלא נסקרו מהגילוי ברקע. מידע בלבד, לא משהו שדורש טיפול - לחץ לסקירה.",
+			"discoveryNewsBadge_other": "{{count}} שינויים שלא נסקרו מהגילוי ברקע. מידע בלבד, לא משהו שדורש טיפול - לחץ לסקירה."
 		},
 		"status": {
 			"apiStatus": "סטטוס API",

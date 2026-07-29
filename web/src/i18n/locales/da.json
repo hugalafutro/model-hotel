@@ -99,11 +99,12 @@
 			"settings": "Indstillinger",
 			"security": "Sikkerhed",
 			"failoverBadgeExplain": "Failover-udbydere efter afbryderstatus - {{closed}} fungerer / {{halfOpen}} genopretter / {{open}} udløst",
-			"discoveryNewsBadge": "Seneste ændringer fra baggrundsdetektering - klik for at gennemgå",
 			"discoveryClaimsBadge_one": "{{count}} modeluoverensstemmelse kræver opmærksomhed - klik for at gennemgå",
 			"discoveryClaimsBadge_other": "{{count}} modeluoverensstemmelser kræver opmærksomhed - klik for at gennemgå",
 			"users": "Brugere",
-			"audit": "Revision"
+			"audit": "Revision",
+			"discoveryNewsBadge_one": "{{count}} ulæst ændring fra baggrundsopdagelsen. Kun til orientering, ikke noget der kræver handling - klik for at læse.",
+			"discoveryNewsBadge_other": "{{count}} ulæste ændringer fra baggrundsopdagelsen. Kun til orientering, ikke noget der kræver handling - klik for at læse."
 		},
 		"status": {
 			"apiStatus": "API-status",

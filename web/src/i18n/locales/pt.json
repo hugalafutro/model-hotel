@@ -101,12 +101,14 @@
 			"settings": "Definições",
 			"security": "Segurança",
 			"failoverBadgeExplain": "Provedores de failover por estado do disjuntor - {{closed}} em bom estado / {{halfOpen}} em recuperação / {{open}} desarmado",
-			"discoveryNewsBadge": "Alterações recentes decorrentes da descoberta em segundo plano - clique para revisar",
 			"discoveryClaimsBadge_one": "{{count}} divergência de modelo exige atenção - clique para revisar",
 			"discoveryClaimsBadge_many": "{{count}} divergências de modelos exigem atenção - clique para revisar",
 			"discoveryClaimsBadge_other": "{{count}} divergências de modelos exigem atenção - clique para revisar",
 			"users": "Utilizadores",
-			"audit": "Auditoria"
+			"audit": "Auditoria",
+			"discoveryNewsBadge_one": "{{count}} alteração não revista da deteção em segundo plano. Apenas informativa, não requer atenção - clique para rever.",
+			"discoveryNewsBadge_many": "{{count}} alterações não revistas da deteção em segundo plano. Apenas informativas, não requerem atenção - clique para rever.",
+			"discoveryNewsBadge_other": "{{count}} alterações não revistas da deteção em segundo plano. Apenas informativas, não requerem atenção - clique para rever."
 		},
 		"status": {
 			"apiStatus": "Estado da API",

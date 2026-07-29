@@ -103,13 +103,16 @@
 			"settings": "Nastavení",
 			"security": "Zabezpečení",
 			"failoverBadgeExplain": "Poskytovatelé failoveru podle stavu jističe - {{closed}} v pořádku / {{halfOpen}} se zotavuje / {{open}} vypnutý",
-			"discoveryNewsBadge": "Nedávné změny z automatického vyhledávání na pozadí - kliknutím zobrazíte přehled",
 			"discoveryClaimsBadge_one": "{{count}} nesrovnalost modelu vyžaduje pozornost - kliknutím zobrazíte přehled",
 			"discoveryClaimsBadge_few": "{{count}} nesrovnalosti modelů vyžadují pozornost - kliknutím zobrazíte přehled",
 			"discoveryClaimsBadge_many": "{{count}} nesrovnalosti modelů vyžaduje pozornost - kliknutím zobrazíte přehled",
 			"discoveryClaimsBadge_other": "{{count}} nesrovnalostí modelů vyžaduje pozornost - kliknutím zobrazíte přehled",
 			"users": "Uživatelé",
-			"audit": "Audit"
+			"audit": "Audit",
+			"discoveryNewsBadge_one": "{{count}} nezkontrolovaná změna ze zjišťování na pozadí. Pouze informativní, nevyžaduje pozornost - kliknutím zobrazíte.",
+			"discoveryNewsBadge_few": "{{count}} nezkontrolované změny ze zjišťování na pozadí. Pouze informativní, nevyžadují pozornost - kliknutím zobrazíte.",
+			"discoveryNewsBadge_many": "{{count}} nezkontrolovaných změn ze zjišťování na pozadí. Pouze informativní, nevyžadují pozornost - kliknutím zobrazíte.",
+			"discoveryNewsBadge_other": "{{count}} nezkontrolovaných změn ze zjišťování na pozadí. Pouze informativní, nevyžadují pozornost - kliknutím zobrazíte."
 		},
 		"status": {
 			"apiStatus": "Stav API",

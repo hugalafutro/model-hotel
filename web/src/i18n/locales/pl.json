@@ -103,13 +103,16 @@
 			"settings": "Ustawienia",
 			"security": "Bezpieczeństwo",
 			"failoverBadgeExplain": "Dostawcy awaryjni według stanu wyłącznika - {{closed}} sprawny / {{halfOpen}} w trakcie przywracania / {{open}} wyłączony",
-			"discoveryNewsBadge": "Ostatnie zmiany z wykrywania w tle - kliknij, aby przejrzeć",
 			"discoveryClaimsBadge_one": "{{count}} rozbieżność modelu wymaga uwagi - kliknij, aby przejrzeć",
 			"discoveryClaimsBadge_few": "{{count}} rozbieżności modeli wymagają uwagi - kliknij, aby przejrzeć",
 			"discoveryClaimsBadge_many": "{{count}} rozbieżności modeli wymaga uwagi - kliknij, aby przejrzeć",
 			"discoveryClaimsBadge_other": "{{count}} rozbieżności modeli wymaga uwagi - kliknij, aby przejrzeć",
 			"users": "Użytkownicy",
-			"audit": "Audyt"
+			"audit": "Audyt",
+			"discoveryNewsBadge_one": "{{count}} nieprzejrzana zmiana z wykrywania w tle. Tylko informacyjnie, nie wymaga uwagi - kliknij, aby przejrzeć.",
+			"discoveryNewsBadge_few": "{{count}} nieprzejrzane zmiany z wykrywania w tle. Tylko informacyjnie, nie wymagają uwagi - kliknij, aby przejrzeć.",
+			"discoveryNewsBadge_many": "{{count}} nieprzejrzanych zmian z wykrywania w tle. Tylko informacyjnie, nie wymagają uwagi - kliknij, aby przejrzeć.",
+			"discoveryNewsBadge_other": "{{count}} nieprzejrzanych zmian z wykrywania w tle. Tylko informacyjnie, nie wymagają uwagi - kliknij, aby przejrzeć."
 		},
 		"status": {
 			"apiStatus": "Status API",

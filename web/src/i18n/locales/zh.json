@@ -99,11 +99,12 @@
 			"settings": "设置",
 			"security": "安全",
 			"failoverBadgeExplain": "按断路器状态分组的故障转移提供商 - {{closed}} 正常 / {{halfOpen}} 恢复中 / {{open}} 已跳闸",
-			"discoveryNewsBadge": "来自后台发现的最近变更 - 点击查看",
 			"discoveryClaimsBadge_one": "{{count}} 项模型差异需要处理 - 点击查看",
 			"discoveryClaimsBadge_other": "{{count}} 项模型差异需要处理 - 点击查看",
 			"users": "用户",
-			"audit": "审计"
+			"audit": "审计",
+			"discoveryNewsBadge_other": "后台发现中有 {{count}} 项未查看的变更。仅供参考，并非需要处理的问题 - 点击查看。",
+			"discoveryNewsBadge_one": "后台发现中有 {{count}} 项未查看的变更。仅供参考，并非需要处理的问题 - 点击查看。"
 		},
 		"status": {
 			"apiStatus": "API 状态",

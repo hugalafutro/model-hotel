@@ -97,7 +97,6 @@
 			"failoverBadgeExplain": "مزودي التحويل التلقائي حسب حالة قاطع الدائرة - {{closed}} سليم / {{halfOpen}} قيد الاستعادة / {{open}} تعطل",
 			"users": "المستخدمون",
 			"audit": "التدقيق",
-			"discoveryNewsBadge": "تغييرات أخيرة من الاكتشاف في الخلفية - انقر للمراجعة",
 			"discoveryClaimsBadge_zero": "{{count}} تباين في النماذج يحتاج إلى انتباه - انقر للمراجعة",
 			"discoveryClaimsBadge_one": "{{count}} تباين في النماذج يحتاج إلى انتباه - انقر للمراجعة",
 			"discoveryClaimsBadge_two": "{{count}} تباينان في النماذج يحتاجان إلى انتباه - انقر للمراجعة",
@@ -115,7 +114,13 @@
 			"failoverBadgeTooltip_two": "{{count}} قاطعا دائرة مفتوحان/نصف مفتوحان: {{providers}}",
 			"failoverBadgeTooltip_few": "{{count}} قواطع دائرة مفتوحة/نصف مفتوحة: {{providers}}",
 			"failoverBadgeTooltip_many": "{{count}} قاطع دائرة مفتوح/نصف مفتوح: {{providers}}",
-			"failoverBadgeTooltip_other": "{{count}} قاطع دائرة مفتوح/نصف مفتوح: {{providers}}"
+			"failoverBadgeTooltip_other": "{{count}} قاطع دائرة مفتوح/نصف مفتوح: {{providers}}",
+			"discoveryNewsBadge_zero": "{{count}} تغيير لم تتم مراجعته من الاكتشاف في الخلفية. للعلم فقط، وليس أمرًا يتطلب انتباهك - انقر للمراجعة.",
+			"discoveryNewsBadge_one": "{{count}} تغيير لم تتم مراجعته من الاكتشاف في الخلفية. للعلم فقط، وليس أمرًا يتطلب انتباهك - انقر للمراجعة.",
+			"discoveryNewsBadge_two": "{{count}} تغييران لم تتم مراجعتهما من الاكتشاف في الخلفية. للعلم فقط، وليس أمرًا يتطلب انتباهك - انقر للمراجعة.",
+			"discoveryNewsBadge_few": "{{count}} تغييرات لم تتم مراجعتها من الاكتشاف في الخلفية. للعلم فقط، وليست أمرًا يتطلب انتباهك - انقر للمراجعة.",
+			"discoveryNewsBadge_many": "{{count}} تغييرًا لم تتم مراجعتها من الاكتشاف في الخلفية. للعلم فقط، وليست أمرًا يتطلب انتباهك - انقر للمراجعة.",
+			"discoveryNewsBadge_other": "{{count}} تغيير لم تتم مراجعته من الاكتشاف في الخلفية. للعلم فقط، وليس أمرًا يتطلب انتباهك - انقر للمراجعة."
 		},
 		"status": {
 			"apiStatus": "حالة API",

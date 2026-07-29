@@ -99,11 +99,12 @@
 			"settings": "Instellings",
 			"security": "Sekuriteit",
 			"failoverBadgeExplain": "Failover-verskaffers volgens kringbreker-toestand - {{closed}} gesond / {{halfOpen}} besig om te herstel / {{open}} uitgeskakel",
-			"discoveryNewsBadge": "Onlangse veranderinge vanaf agtergrondontdekking - klik om te hersien",
 			"discoveryClaimsBadge_one": "{{count}} modelafwyking verg aandag - klik om te hersien",
 			"discoveryClaimsBadge_other": "{{count}} modelafwykings verg aandag - klik om te hersien",
 			"users": "Gebruikers",
-			"audit": "Oudit"
+			"audit": "Oudit",
+			"discoveryNewsBadge_one": "{{count}} ongelese verandering vanaf agtergrondontdekking. Slegs inligting, nie iets wat aandag verg nie - klik om te lees.",
+			"discoveryNewsBadge_other": "{{count}} ongelese veranderinge vanaf agtergrondontdekking. Slegs inligting, nie iets wat aandag verg nie - klik om te lees."
 		},
 		"status": {
 			"apiStatus": "API-status",

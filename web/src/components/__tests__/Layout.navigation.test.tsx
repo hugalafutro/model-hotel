@@ -873,6 +873,31 @@ describe("Layout", () => {
 			expect(badge.getAttribute("aria-label")).not.toMatch(/^layout\.nav\./);
 		});
 
+		it("explains what the dot means instead of leaving it an unlabelled mark", async () => {
+			// The dot fires on unseen informational news while the modal's "Recent
+			// changes" header shows every entry in that zone. Both numbers are right
+			// and they mean different things, so the dot has to say which one it is.
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status({ informational_unseen: 31 })),
+				),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const badge = await screen.findByTestId("discovery-status-badge");
+			expect(badge).toHaveAttribute("data-variant", "dot");
+			const label = badge.getAttribute("aria-label") ?? "";
+			// Key prefix, not copy: this has to hold in all 29 locales.
+			expect(label).not.toMatch(/^layout\.nav\./);
+			// It names the UNSEEN count, the number the dot is actually triggered
+			// by, which is what makes it legible next to the zone's total.
+			expect(label).toContain("31");
+			// A sighted user reads the tooltip and a screen-reader user hears the
+			// accessible name. If the two ever diverge the control says two
+			// different things about itself.
+			expect(badge.getAttribute("title")).toBe(label);
+		});
+
 		it("hides the badge when there is nothing at all", async () => {
 			let fetches = 0;
 			server.use(

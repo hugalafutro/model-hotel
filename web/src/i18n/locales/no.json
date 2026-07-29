@@ -99,11 +99,12 @@
 			"settings": "Innstillinger",
 			"security": "Sikkerhet",
 			"failoverBadgeExplain": "Failover-leverandører etter kretsbrytertilstand - {{closed}} i orden / {{halfOpen}} gjenoppretter / {{open}} utløst",
-			"discoveryNewsBadge": "Nylige endringer fra bakgrunnsoppdagelse - klikk for å se gjennom",
 			"discoveryClaimsBadge_one": "{{count}} modellavvik krever oppmerksomhet - klikk for å se gjennom",
 			"discoveryClaimsBadge_other": "{{count}} modellavvik krever oppmerksomhet - klikk for å se gjennom",
 			"users": "Brukere",
-			"audit": "Revisjon"
+			"audit": "Revisjon",
+			"discoveryNewsBadge_one": "{{count}} ulest endring fra bakgrunnsoppdagelsen. Kun til informasjon, ikke noe som krever oppmerksomhet - klikk for å lese.",
+			"discoveryNewsBadge_other": "{{count}} uleste endringer fra bakgrunnsoppdagelsen. Kun til informasjon, ikke noe som krever oppmerksomhet - klikk for å lese."
 		},
 		"status": {
 			"apiStatus": "API-status",
