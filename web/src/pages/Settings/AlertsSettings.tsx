@@ -5,10 +5,12 @@ import { Bell, ChevronDown, ChevronRight, RefreshCw } from "@/lib/icons";
 import { api } from "../../api/client";
 import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
+import { SettingsSlider } from "../../components/SettingsSlider";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
 import { AlertEventPicker } from "./AlertEventPicker";
 import { AlertSnippets } from "./AlertSnippets";
+import { SETTING_DEFAULTS } from "./defaults";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 interface AlertsSettingsProps {
@@ -78,6 +80,44 @@ export function AlertsSettings({
 	};
 
 	const canTest = enabled && apiUrl !== "" && targetConfigured;
+
+	// The ceiling for the outstanding-discrepancy threshold is served by the
+	// backend (ClaimWindow in days, read-only) and is never a literal here. A
+	// discrepancy stops counting once it is older than the claim window, so a
+	// threshold at or above the window could never fire; the maximum is
+	// therefore one day below it. Until settings load there is no honest
+	// ceiling to draw, so the control waits rather than guessing one.
+	const claimWindowDays = Number(settings?.discovery_claim_window_days);
+	const maxClaimAlertDays =
+		Number.isFinite(claimWindowDays) && claimWindowDays > 1
+			? claimWindowDays - 1
+			: null;
+	// Clamped for DISPLAY as well as for saving. A value stored above the
+	// ceiling (written through the API, restored from a backup, or carried in
+	// by a config-sync import) must render as the number that is actually in
+	// effect: a slider showing 45 while the backend acts on 29 is exactly the
+	// kind of quiet disagreement this whole change exists to remove.
+	// `||`, not `??`: a restored backup or hand-edited row can store an empty
+	// string, which `??` only substitutes for null/undefined. `Number("")` is
+	// 0, a value the Number.isFinite check below treats as a legitimate
+	// (if out-of-range) stored number and clamps to the slider's minimum of 1
+	// instead of falling back to the backend's actual default.
+	const storedClaimAlertDays = Number(
+		settings?.discovery_claim_alert_days ||
+			SETTING_DEFAULTS.discovery_claim_alert_days,
+	);
+	const claimAlertDays =
+		maxClaimAlertDays === null
+			? 0
+			: Math.min(
+					maxClaimAlertDays,
+					Math.max(
+						1,
+						Number.isFinite(storedClaimAlertDays)
+							? storedClaimAlertDays
+							: Number(SETTING_DEFAULTS.discovery_claim_alert_days),
+					),
+				);
 
 	const status = statusQuery.data;
 	const statusDot =
@@ -188,6 +228,37 @@ export function AlertsSettings({
 							)}
 						</div>
 					</div>
+
+					{/* Age threshold for discovery.claims_outstanding. Inside the
+					    managed fieldset because config sync replicates this key, so a
+					    managed member must not edit it locally. */}
+					{maxClaimAlertDays !== null && (
+						<div className="mt-5" data-testid="alert-claim-age">
+							<SettingsSlider
+								id="alert-claim-age-days"
+								disabled={!enabled}
+								label={t("settings.alerts.claimAge")}
+								value={claimAlertDays}
+								min={1}
+								max={maxClaimAlertDays}
+								step={1}
+								unit="d"
+								hideUnit
+								onChange={(v) =>
+									updateMutation.mutate({
+										discovery_claim_alert_days: String(v),
+									})
+								}
+								description={t("settings.alerts.claimAge.description", {
+									count: maxClaimAlertDays,
+								})}
+								onReset={() =>
+									resetSettingMutation.mutate(["discovery_claim_alert_days"])
+								}
+								resetTooltip={t("settings.common.resetSetting")}
+							/>
+						</div>
+					)}
 				</fieldset>
 
 				{enabled && (

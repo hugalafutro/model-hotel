@@ -33,32 +33,6 @@ func TestDiffIsEmpty(t *testing.T) {
 	}
 }
 
-// TestCountAffected sums every diff bucket into the badge number. A nil diff is
-// 0; a diff touching one entity in each bucket is the bucket count.
-func TestCountAffected(t *testing.T) {
-	if got := countAffected(nil); got != 0 {
-		t.Errorf("countAffected(nil) = %d, want 0", got)
-	}
-	if got := countAffected(&DiscoveryDiff{}); got != 0 {
-		t.Errorf("countAffected(empty) = %d, want 0", got)
-	}
-
-	d := &DiscoveryDiff{
-		Added:                  []ModelChange{{ModelID: "a"}},
-		Reenabled:              []ModelChange{{ModelID: "b"}},
-		Disabled:               []ModelChange{{ModelID: "c"}},
-		Updated:                []ModelUpdate{{ModelID: "d"}, {ModelID: "e"}},
-		FailoverDeletedGroups:  []failover.DeletedGroupInfo{{}},
-		FailoverUpdatedGroups:  []failover.UpdatedGroupInfo{{}},
-		FailoverDisabledGroups: []failover.DisabledGroupInfo{{}},
-	}
-	// Three single-entry buckets, two updated models, three single-entry failover
-	// buckets sum to eight affected entities.
-	if got := countAffected(d); got != 8 {
-		t.Errorf("countAffected = %d, want 8", got)
-	}
-}
-
 // TestFloatPtrEq covers the pointer-aware, float32-precision price equality used
 // to fold discovery round-trips: both-nil is equal, exactly-one-nil is not, and
 // equal-vs-different values compare at float32 precision.
@@ -84,5 +58,36 @@ func TestFloatPtrEq(t *testing.T) {
 	// the price columns are REAL and the original diff recorded at float32.
 	if !floatPtrEq(f(0.1), f(0.1+1e-9)) {
 		t.Error("sub-float32 differences should be treated as equal")
+	}
+}
+
+// TestNilDiffEntriesAreInvisible pins how the two feed post-processors treat a
+// journal row that carries no diff at all.
+//
+// The column is scanned into a pointer, so a row written by a future/older
+// build, or one whose JSON failed to decode, arrives here as nil. Such a row
+// has nothing to render: the modal would draw an empty card for it, and
+// counting it would light the "something changed" dot with nothing behind it,
+// which is exactly the ignorable indicator the claim badge exists not to be.
+// Both functions must drop it, and both must keep the real entry beside it.
+func TestNilDiffEntriesAreInvisible(t *testing.T) {
+	entries := []DiscoveryChangeEntry{
+		{ProviderName: "broken-row", Diff: nil},
+		{ProviderName: "real-row", Diff: &DiscoveryDiff{Added: []ModelChange{{ModelID: "m"}}}},
+	}
+
+	kept := stripClaimedBuckets(entries, map[string]struct{}{})
+	if len(kept) != 1 {
+		t.Fatalf("stripClaimedBuckets kept %d entries, want 1 (the nil-diff row must not survive)", len(kept))
+	}
+	if kept[0].ProviderName != "real-row" {
+		t.Errorf("survivor = %q, want the entry that actually has a diff", kept[0].ProviderName)
+	}
+
+	if n := countInformationalUnseen(entries); n != 1 {
+		t.Errorf("countInformationalUnseen = %d, want 1: a diff-less row must not light the indicator", n)
+	}
+	if n := countInformationalUnseen([]DiscoveryChangeEntry{{ProviderName: "broken-row", Diff: nil}}); n != 0 {
+		t.Errorf("countInformationalUnseen of nil-diff rows alone = %d, want 0", n)
 	}
 }

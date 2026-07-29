@@ -132,9 +132,10 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 				"pruned", len(prunedIDs),
 				"remaining", len(validPriority))
 		} else {
-			// Group still viable — update with pruned entries.
-			// Preserve the group's existing enabled state so we don't
-			// silently re-enable a manually-disabled group.
+			// Group still viable — rewrite its membership only. pruneMembership
+			// never writes group_enabled, so the group's enabled state (and the
+			// discovery stamp that goes with it) is preserved structurally
+			// rather than by round-tripping the current value.
 			validEntryEnabled := make(map[string]bool)
 			for _, id := range validPriority {
 				if enabled, ok := g.EntryEnabled[id.String()]; ok {
@@ -143,7 +144,7 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 					validEntryEnabled[id.String()] = true
 				}
 			}
-			_, err := r.Update(ctx, g.ID, validPriority, validEntryEnabled, &g.GroupEnabled, nil, nil, nil)
+			err := r.pruneMembership(ctx, g.ID, g.DisplayModel, validPriority, validEntryEnabled)
 			if err != nil {
 				debuglog.Error("failover: failed to update group after pruning", "display_model", g.DisplayModel, "error", err)
 			} else {
@@ -159,6 +160,46 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 			}
 		}
 	}
+}
+
+// pruneMembership rewrites one group's membership after stale entries were
+// removed. It is deliberately narrower than Update: it writes priority_order and
+// entry_enabled only, never group_enabled — and therefore never
+// auto_disabled_at.
+//
+// That narrowness is the whole reason it exists instead of reusing Update.
+// Update is the OPERATOR's path and clears the discovery stamp on every call,
+// which is right there and destructive here: pruning is triggered by a member's
+// model row being DELETED (provider removal, bulk delete, rename), which is
+// nobody's opinion about the group. Clearing the stamp from here would erase a
+// live claim for a group that is still disabled and still unroutable, and
+// nothing would ever put it back, because revalidateCustomGroups skips groups
+// that are already disabled. The group would stay dead, `hotel/<model>` with it,
+// and the badge would be silent about it forever.
+//
+// Not writing group_enabled at all also expresses "don't silently re-enable a
+// manually-disabled group" structurally, instead of reading the current value
+// and writing it back through a call that has side effects on other columns.
+func (r *Repository) pruneMembership(ctx context.Context, id uuid.UUID, displayModel string, priorityOrder []uuid.UUID, entryEnabled map[string]bool) error {
+	priorityJSON, err := jsonMarshal(priorityOrder)
+	if err != nil {
+		return err
+	}
+	entryEnabledJSON, err := jsonMarshal(entryEnabled)
+	if err != nil {
+		return err
+	}
+	if _, err := r.pool.Exec(ctx,
+		`UPDATE model_failover_groups
+		    SET priority_order = $2, entry_enabled = $3, updated_at = now()
+		  WHERE id = $1`, id, priorityJSON, entryEnabledJSON); err != nil {
+		return err
+	}
+	// Drop the cached copy instead of re-reading and re-caching it: the next
+	// lookup refetches, and a surviving cache entry would still list the member
+	// that was just pruned. Same idiom as revalidateCustomGroups.
+	InvalidateFailoverCacheKey(displayModel)
+	return nil
 }
 
 // routableMemberIDs returns the subset of ids whose model is enabled and whose
@@ -246,8 +287,16 @@ func (r *Repository) revalidateCustomGroups(ctx context.Context, groups []*Failo
 		if count >= 2 {
 			continue
 		}
+		// auto_disabled_at is what makes this distinguishable from the operator
+		// switching the same group off by hand: both write group_enabled = false
+		// and bump updated_at, and nothing else in the row tells them apart. The
+		// discovery-claim badge counts only groups carrying this stamp, so a
+		// deliberate operator disable never nags them (migration 062). Every
+		// operator-driven write of group_enabled clears it back to NULL.
 		if _, err := r.pool.Exec(ctx,
-			`UPDATE model_failover_groups SET group_enabled = false, updated_at = now() WHERE id = $1`,
+			`UPDATE model_failover_groups
+			    SET group_enabled = false, auto_disabled_at = now(), updated_at = now()
+			  WHERE id = $1`,
 			g.ID); err != nil {
 			debuglog.Error("failover: failed to auto-disable undersized custom group", "display_model", g.DisplayModel, "error", err)
 			continue
@@ -361,10 +410,18 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 	// clause can reference them directly — we just conditionally include
 	// display_name and description columns.
 	// An empty-string pointer signals "clear to NULL".
+	// auto_disabled_at is cleared on every group_enabled write that is not the
+	// discovery auto-disable itself (migration 062). This path covers the sync's
+	// upsertAutoGroup, which re-enables an auto group: an enabled group is by
+	// definition not a claim, and a stale stamp left behind would make the NEXT
+	// auto-disable read as an old one. The config-sync member import does NOT
+	// go through here; it clears conditionally on its own (see the ON CONFLICT
+	// clause in internal/api/configsync_apply.go).
 	doSetClauses := []string{
 		"priority_order = $2",
 		"entry_enabled = $3",
 		"group_enabled = $4",
+		"auto_disabled_at = NULL",
 	}
 	// Pre-process displayName: empty string means "clear to NULL"
 	insertDisplayName := displayName
@@ -472,6 +529,15 @@ func (r *Repository) GetEnabled(ctx context.Context) ([]*FailoverGroup, error) {
 }
 
 // Update modifies an existing failover group by ID.
+//
+// This is the OPERATOR-facing update: it always writes group_enabled, and it
+// always clears auto_disabled_at because every call to it represents someone's
+// deliberate choice about the group (PUT /api/failover-groups/{id}, including
+// the dashboard cascade that disables a group when toggling a member drops it
+// below two routable entries). Internal maintenance must NOT come through here
+// — a discovery-disabled group would lose its claim stamp as a side effect.
+// pruneStaleEntries uses pruneMembership for exactly that reason; anything new
+// that adjusts a group without an operator behind it should do the same.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []uuid.UUID,
 	entryEnabled map[string]bool, groupEnabled *bool, displayName, description, displayModel *string) (*FailoverGroup, error) {
 	priorityJSON, err := jsonMarshal(priorityOrder)
@@ -504,6 +570,15 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 	setClauses = append(setClauses, fmt.Sprintf("group_enabled = $%d", argIdx))
 	args = append(args, groupEnabledVal)
 	argIdx++
+
+	// Update is reachable only from the operator's PUT /api/failover-groups/{id}
+	// (including the dashboard's cascade that disables a group when toggling a
+	// member drops it below two routable entries). Every write through here is
+	// therefore operator intent, so the discovery stamp is cleared
+	// unconditionally: an operator-disabled group must never be counted as a
+	// discovery claim, and re-enabling must leave no stamp for a later
+	// auto-disable to inherit (migration 062).
+	setClauses = append(setClauses, "auto_disabled_at = NULL")
 
 	if displayName != nil {
 		if *displayName == "" {

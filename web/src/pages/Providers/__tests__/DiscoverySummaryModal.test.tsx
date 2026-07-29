@@ -337,4 +337,50 @@ describe("DiscoverySummaryModal", () => {
 			screen.queryByTestId("discovery-summary-retest"),
 		).not.toBeInTheDocument();
 	});
+
+	it("disables every Retest button while any retest is in flight, but spins only the matching row", () => {
+		// The hook serializes retests behind a single in-flight lock, so once one
+		// row's request is out every other row's button must go dead too — not
+		// just stay clickable and silently no-op. Only the row whose entryKey
+		// matches retestingKey is the one actually running, so only it spins.
+		renderWithProviders(
+			<DiscoverySummaryModal
+				results={[
+					{
+						providerName: "Provider A",
+						entryKey: "a",
+						providerId: "p1",
+						diff: fullDiff,
+					},
+					{
+						providerName: "Provider B",
+						entryKey: "b",
+						providerId: "p2",
+						diff: fullDiff,
+					},
+				]}
+				onClose={vi.fn()}
+				onRetest={vi.fn()}
+				retestingKey="a"
+				isAnyRetesting
+			/>,
+		);
+
+		const buttons = screen.getAllByTestId("discovery-summary-retest");
+		expect(buttons).toHaveLength(2);
+		for (const button of buttons) {
+			expect(button).toBeDisabled();
+		}
+
+		// Rely on the icon's structural spin class, not any translated label.
+		// querySelector is scoped per-button (not the RTL container, which the
+		// Modal portals past) so each row's icon is checked independently.
+		const [rowASpin, rowBSpin] = buttons.map((button) =>
+			button.querySelector(".icon-refresh-cw"),
+		);
+		expect(rowASpin).not.toBeNull();
+		expect(rowBSpin).not.toBeNull();
+		expect(rowASpin?.classList.contains("animate-spin")).toBe(true);
+		expect(rowBSpin?.classList.contains("animate-spin")).toBe(false);
+	});
 });

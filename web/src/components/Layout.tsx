@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import {
@@ -30,20 +30,23 @@ import { api, clearAuth } from "../api/client";
 import { useIdentity } from "../context/IdentityContext";
 import { useSidebarMode } from "../context/SidebarModeContext";
 import { useTheme } from "../context/ThemeContext";
+import { useToast } from "../context/ToastContext";
+import {
+	type MergedProvider,
+	providerIsResolved,
+	useDiscrepancies,
+} from "../hooks/useDiscrepancies";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
 import { useIdleLogout } from "../hooks/useIdleLogout";
 import { useReadOnly } from "../hooks/useReadOnly";
 import i18next, { LANGUAGE_STORAGE_KEY } from "../i18n";
-import {
-	type DiscoverySummaryEntry,
-	DiscoverySummaryModal,
-} from "../pages/Providers/DiscoverySummaryModal";
 import { useDiscoveryRetest } from "../pages/Providers/useDiscoveryRetest";
 import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CountryFlag } from "./CountryFlag";
 import { ErrorShelf } from "./ErrorShelf";
 import { Logo } from "./Logo";
+import { ModelDiscrepancyModal } from "./ModelDiscrepancyModal";
 import { ProviderQuotaPanel } from "./ProviderQuotaPanel";
 
 const u = "text-(--text-muted)";
@@ -713,71 +716,278 @@ export function Layout({ children }: LayoutProps) {
 		return () => window.removeEventListener("server-event", handler);
 	}, [queryClient]);
 
-	// Unseen changes recorded by background discovery → Models nav badge.
-	const { data: discoveryChanges } = useQuery({
-		queryKey: ["discovery-changes"],
-		queryFn: () => api.discovery.changes(),
+	// Live discrepancy state → Models nav badge. `claim_count` is what the number
+	// shows; `informational_unseen` only ever produces a dot.
+	//
+	// `status(false)`, never `status(true)`: the review variant stamps the
+	// server-side last-reviewed marker, and a 60s poll doing that would collapse
+	// every "since your last visit" flap count to zero, permanently. Only the
+	// modal-open fetch inside useDiscrepancies is allowed to stamp.
+	const { data: discoveryStatus } = useQuery({
+		queryKey: ["discovery-status"],
+		queryFn: () => api.discovery.status(false),
 		refetchInterval: 60_000,
 		placeholderData: (prev) => prev,
 	});
-	const discoveryChangeCount = discoveryChanges?.count ?? 0;
-	const [showDiscoveryChanges, setShowDiscoveryChanges] = useState(false);
-	const [discoveryChangeEntries, setDiscoveryChangeEntries] = useState<
-		DiscoverySummaryEntry[]
-	>([]);
-	const { onRetest: onRetestDiscovery, retestingKey: discoveryRetestingKey } =
-		useDiscoveryRetest((key, diff) =>
-			setDiscoveryChangeEntries((prev) =>
-				prev.map((e) =>
-					(e.entryKey ?? e.providerName) === key ? { ...e, diff } : e,
-				),
-			),
+	const claimCount = discoveryStatus?.claim_count ?? 0;
+	const informationalUnseen = discoveryStatus?.informational_unseen ?? 0;
+	const [showDiscrepancies, setShowDiscrepancies] = useState(false);
+	// Called unconditionally at Layout's top level, and Layout never unmounts
+	// while the dashboard is up. That is load-bearing, not incidental: the hook
+	// keys its fetch on a session counter that only advances on an open
+	// transition, so unmounting it on close would reset the counter, replay the
+	// first query from cache on reopen, and stop the per-open ?review=1 stamp.
+	const {
+		snapshot,
+		groupClaims,
+		informational,
+		refresh,
+		loading: discrepanciesLoading,
+		isError: discrepanciesFailed,
+		error: discrepanciesError,
+		refreshError,
+		dismissClaim,
+		restoreClaim,
+	} = useDiscrepancies(showDiscrepancies);
+	const [retestErrors, setRetestErrors] = useState<Record<string, string>>({});
+	const [retestAllProgress, setRetestAllProgress] = useState<
+		{ done: number; total: number } | undefined
+	>(undefined);
+	const { toast } = useToast();
+	const readOnly = useReadOnly();
+
+	// The retest response's own diff is deliberately discarded. It describes what
+	// THAT run changed, which is empty when the model is still missing, and
+	// reading that emptiness as "fixed" is the original defect. Truth comes from
+	// re-reading /api/discovery/status instead.
+	const { retestAsync, retestingKey, isAnyRetesting } = useDiscoveryRetest(
+		() => {},
+	);
+
+	// Serialises retests inside this component. A ref, not `isAnyRetesting`: a
+	// running walk holds a closure from one render, so any state read inside it is
+	// frozen at that render's value and cannot act as a lock.
+	const retestInFlight = useRef(false);
+
+	const runRetest = useCallback(
+		async (
+			providerId: string,
+			providerName: string,
+			// The walk silences the shared hook's per-provider toast and reports once
+			// at the end: eight providers would otherwise stack eight toasts, none of
+			// which ToastContext can dedupe because each names a different provider.
+			silent = false,
+		): Promise<boolean> => {
+			if (retestInFlight.current) return false;
+			retestInFlight.current = true;
+			try {
+				await retestAsync(
+					{
+						providerName,
+						providerId,
+						// keyOf() prefers entryKey, so this is what `retestingKey` becomes
+						// and is what the modal matches against `provider_id`.
+						entryKey: providerId,
+					},
+					silent,
+				);
+				setRetestErrors((prev) => {
+					if (!(providerId in prev)) return prev;
+					const next = { ...prev };
+					delete next[providerId];
+					return next;
+				});
+				await refresh();
+				return true;
+			} catch (err) {
+				// Recorded per provider, not only toasted: a toast fades before it is
+				// read, and the section must keep saying why it did not clear.
+				setRetestErrors((prev) => ({
+					...prev,
+					[providerId]: err instanceof Error ? err.message : String(err),
+				}));
+				return false;
+			} finally {
+				retestInFlight.current = false;
+			}
+		},
+		[retestAsync, refresh],
+	);
+
+	// Set by Cancel, read at the top of each walk iteration.
+	const cancelRetestAll = useRef(false);
+	const onCancelRetestAll = useCallback(() => {
+		cancelRetestAll.current = true;
+	}, []);
+
+	const onRetestAll = useCallback(async () => {
+		const targets = snapshot.filter(
+			(p: MergedProvider) => !providerIsResolved(p),
 		);
-	// Guards against a re-entrant open (rapid double-click / repeated Enter) while
-	// the ack is in flight: the first ack returns and clears the rows, a second
-	// would return an empty list and blank the modal. A ref (not state) so the
-	// re-entrant call sees the flag synchronously, before any await yields.
-	const ackInFlight = useRef(false);
+		if (targets.length === 0 || retestInFlight.current) return;
+		cancelRetestAll.current = false;
+		setRetestAllProgress({ done: 0, total: targets.length });
+		let failed = 0;
+		let done = 0;
+		for (const p of targets) {
+			// Checked here and nowhere else: Cancel stops the walk BEFORE the next
+			// provider starts, so the run already in flight finishes. Aborting a
+			// discovery request mid-call would leave that provider half-applied.
+			if (cancelRetestAll.current) break;
+			if (!(await runRetest(p.provider_id, p.provider_name, true))) failed++;
+			done++;
+			setRetestAllProgress({ done, total: targets.length });
+		}
+		// Read before the reset: the summary below must know whether the walk ran
+		// out of providers or was stopped.
+		const cancelled = cancelRetestAll.current;
+		cancelRetestAll.current = false;
+		setRetestAllProgress(undefined);
+		// One report for the whole walk, since the per-provider toasts are silenced.
+		// Failures also stay bannered in their own provider section, so this is a
+		// summary and not the only record.
+		//
+		// Cancellation is reported ahead of failures precisely because it is the one
+		// outcome with no other record: a failed provider keeps its banner, but a
+		// walk that stopped early leaves untouched providers looking retested.
+		if (cancelled) {
+			toast(
+				t("providers.discrepancies.retestAllCancelled", { count: done }),
+				"info",
+			);
+		} else if (failed > 0) {
+			toast(
+				t("providers.discrepancies.retestAllFailed", { count: failed }),
+				"error",
+			);
+		} else {
+			toast(
+				t("providers.discrepancies.retestAllDone", { count: done }),
+				"success",
+			);
+		}
+	}, [snapshot, runRetest, toast, t]);
+
+	const undoDismiss = useCallback(
+		async (providerId: string, modelId: string) => {
+			try {
+				const res = await api.discovery.dismiss(providerId, [modelId], false);
+				// Unreachable today: the server 404s (and fetchJSON throws before `res`
+				// exists) whenever `affected == 0` (internal/api/discovery.go's dismiss
+				// handler), so a 0-updated response can never reach this branch. Kept
+				// anyway to implement the one-model-per-call contract: if the server
+				// ever starts 200ing on a partial or zero-count match, this stops a
+				// false "success" from being reported instead of silently trusting `res`.
+				if (res.updated === 0) {
+					throw new Error(t("providers.discrepancies.dismissNoMatch"));
+				}
+				await refresh();
+			} catch (err) {
+				toast(
+					t("providers.discrepancies.undoFailed", {
+						message: err instanceof Error ? err.message : String(err),
+					}),
+					"error",
+				);
+			}
+		},
+		[refresh, toast, t],
+	);
+
+	const onDismiss = useCallback(
+		async (providerId: string, modelId: string) => {
+			// Nothing is captured here, not the array and not the claim's status. A
+			// refresh can settle while the dismiss is in flight (a retest finishing,
+			// an undo, a second dismiss), and anything read before the request went
+			// out is stale by the time the rollback would replay it. The hook records
+			// the displaced status ON the claim and reverts it only if that write is
+			// still what the row holds; see revertDismissal.
+			dismissClaim(providerId, modelId);
+			try {
+				// Exactly one model per request. The endpoint 200s with a short
+				// `updated` for a mixed list and only 404s when NOTHING matched, so a
+				// batch cannot say which models it missed; one at a time makes
+				// `updated: 0` an unambiguous failure for this model.
+				const res = await api.discovery.dismiss(providerId, [modelId], true);
+				// Unreachable today: same as undoDismiss above, the server 404s (and
+				// fetchJSON throws) whenever `affected == 0`, so this branch cannot
+				// currently be hit. Kept as the guard for the one-model-per-call
+				// contract described above, in case the server ever starts 200ing on a
+				// partial or zero-count match.
+				if (res.updated === 0) {
+					throw new Error(t("providers.discrepancies.dismissNoMatch"));
+				}
+				await refresh();
+				toast(
+					t("providers.discrepancies.dismissed", { model: modelId }),
+					"success",
+					{
+						label: t("providers.discrepancies.undo"),
+						onClick: () => {
+							void undoDismiss(providerId, modelId);
+						},
+					},
+				);
+			} catch (err) {
+				restoreClaim(providerId, modelId);
+				toast(
+					t("providers.discrepancies.dismissFailed", {
+						message: err instanceof Error ? err.message : String(err),
+					}),
+					"error",
+				);
+			}
+		},
+		[dismissClaim, restoreClaim, refresh, toast, t, undoDismiss],
+	);
+
+	// `exact: true` on BOTH invalidations below, and it is not optional.
+	//
+	// TanStack Query matches query keys by PREFIX, and the modal's key is
+	// ["discovery-status", "modal", n] — a prefix child of the poll's
+	// ["discovery-status"]. A non-exact invalidation therefore also refetches the
+	// modal's query whenever the modal is open, and that query calls
+	// api.discovery.status(TRUE), which stamps the server's last-reviewed marker.
+	// The refetch itself is inert (`seeded` is already true, so the snapshot does
+	// not change) but the stamp is not: it moves the "since your last visit"
+	// baseline to now, zeroing every flap_since_review for the next visit.
+	// Requirement 5 keeps that write off the timer; this keeps it off a click.
+	const refreshBadge = useCallback(() => {
+		queryClient.invalidateQueries({
+			queryKey: ["discovery-status"],
+			exact: true,
+		});
+	}, [queryClient]);
+
+	// Expanding the journal is what marks it read; the destructive ack-on-open is
+	// gone, so nothing clears the dot until the operator actually looks.
+	const onExpandInformational = useCallback(() => {
+		api.discovery
+			.ackChanges()
+			.catch(() => {
+				// Badge dot simply stays lit for a later attempt.
+			})
+			.finally(refreshBadge);
+	}, [refreshBadge]);
 
 	useEffect(() => {
 		const handler = (e: Event) => {
 			const detail = (e as CustomEvent).detail;
 			if (detail?.type === "discovery.changes_pending") {
-				queryClient.invalidateQueries({ queryKey: ["discovery-changes"] });
+				refreshBadge();
 			}
 		};
 		window.addEventListener("server-event", handler);
 		return () => window.removeEventListener("server-event", handler);
-	}, [queryClient]);
+	}, [refreshBadge]);
 
-	// Ack atomically marks the unseen rows seen and returns exactly those rows, so
-	// the modal snapshots from the ack response rather than the possibly-stale
-	// query cache — a change recorded between the last poll and this click is shown
-	// instead of silently buried. Fall back to the cached entries if ack fails (the
-	// badge then stays until a later successful ack).
-	const openDiscoveryChanges = async () => {
-		if (ackInFlight.current) return;
-		ackInFlight.current = true;
-		const failoverLabel = t("providers.discoverySummary.failover");
-		let entries = discoveryChanges?.entries ?? [];
-		try {
-			entries = (await api.discovery.ackChanges()).entries;
-		} catch {
-			// Keep the cached snapshot; the badge persists for a later retry.
-		} finally {
-			ackInFlight.current = false;
-			queryClient.invalidateQueries({ queryKey: ["discovery-changes"] });
-		}
-		setDiscoveryChangeEntries(
-			entries.map((entry, i) => ({
-				providerName: entry.provider_name || failoverLabel,
-				diff: entry.diff,
-				entryKey: `${entry.provider_name}-${entry.detected_at}-${i}`,
-				providerId: entry.provider_id,
-			})),
-		);
-		setShowDiscoveryChanges(true);
-	};
+	// A failed fetch must reach the modal: it renders a failure banner and, more
+	// importantly, suppresses the "nothing is wrong" empty state.
+	const discrepancyLoadError = discrepanciesFailed
+		? discrepanciesError instanceof Error
+			? discrepanciesError.message
+			: String(discrepanciesError)
+		: refreshError?.message;
 
 	// Each item names the access it needs: a grant key checked via can()
 	// (admins pass everything) or "admin" for admin-only surfaces. Cosmetic
@@ -1082,39 +1292,68 @@ export function Layout({ children }: LayoutProps) {
 												</span>
 											</span>
 										) : item.href === "/models" &&
-											discoveryChangeCount > 0 &&
-											!showDiscoveryChanges ? (
+											(claimCount > 0 || informationalUnseen > 0) &&
+											!showDiscrepancies ? (
 											<span className="flex items-center gap-1.5">
 												<span>{item.name}</span>
 												{/* biome-ignore lint/a11y/useSemanticElements: a real <button> can't nest inside the nav <a>; role+keydown make this span an accessible control */}
 												<span
 													role="button"
 													tabIndex={0}
-													data-testid="discovery-changes-badge"
+													data-testid="discovery-status-badge"
+													// A number means "something may be broken". A bare dot
+													// means "there is news". Price churn moves on nearly
+													// every scan, so it must never produce a count.
+													data-variant={claimCount > 0 ? "count" : "dot"}
 													onClick={(e) => {
 														e.preventDefault();
 														e.stopPropagation();
-														void openDiscoveryChanges();
+														setShowDiscrepancies(true);
 													}}
 													onKeyDown={(e) => {
 														if (e.key === "Enter" || e.key === " ") {
 															e.preventDefault();
 															e.stopPropagation();
-															void openDiscoveryChanges();
+															setShowDiscrepancies(true);
 														}
 													}}
-													className="inline-flex items-center leading-[1.6] translate-y-[1px] ui-badge ui-badge-accent cursor-pointer"
-													aria-label={t("layout.nav.discoveryChangesBadge", {
-														count: discoveryChangeCount,
-													})}
-													title={t("layout.nav.discoveryChangesBadge", {
-														count: discoveryChangeCount,
-													})}
+													className={
+														claimCount > 0
+															? "inline-flex items-center leading-[1.6] translate-y-[1px] ui-badge ui-badge-accent cursor-pointer"
+															: // The dot is only 8x8 CSS px but it is the sole way
+																// into the informational journal, so a ::before
+																// overlay widens the hit area to 24x24 without
+																// changing how it looks or shifting the nav row
+																// (a pseudo-element takes no space in the flow, and
+																// clicks on it target its originating element).
+																"relative inline-block size-2 shrink-0 translate-y-[1px] rounded-full bg-(--accent) cursor-pointer before:absolute before:-inset-2 before:content-['']"
+													}
+													aria-label={
+														claimCount > 0
+															? t("layout.nav.discoveryClaimsBadge", {
+																	count: claimCount,
+																})
+															: t("layout.nav.discoveryNewsBadge")
+													}
+													title={
+														claimCount > 0
+															? t("layout.nav.discoveryClaimsBadge", {
+																	count: claimCount,
+																})
+															: t("layout.nav.discoveryNewsBadge")
+													}
 												>
-													<span aria-hidden="true" className="opacity-70 mr-px">
-														±
-													</span>
-													{discoveryChangeCount}
+													{claimCount > 0 ? (
+														<>
+															<span
+																aria-hidden="true"
+																className="opacity-70 mr-px"
+															>
+																!
+															</span>
+															{claimCount}
+														</>
+													) : null}
 												</span>
 											</span>
 										) : (
@@ -1233,12 +1472,35 @@ export function Layout({ children }: LayoutProps) {
 				</div>
 			</main>
 
-			{showDiscoveryChanges && (
-				<DiscoverySummaryModal
-					results={discoveryChangeEntries}
-					onClose={() => setShowDiscoveryChanges(false)}
-					onRetest={onRetestDiscovery}
-					retestingKey={discoveryRetestingKey}
+			{showDiscrepancies && (
+				<ModelDiscrepancyModal
+					providers={snapshot}
+					groupClaims={groupClaims}
+					informational={informational}
+					onClose={() => {
+						setShowDiscrepancies(false);
+						// Retest failures are per visit. Carrying them into the next open
+						// would banner a stale reason next to freshly fetched claims.
+						setRetestErrors({});
+					}}
+					onRetest={(providerId, providerName) => {
+						void runRetest(providerId, providerName);
+					}}
+					onRetestAll={() => {
+						void onRetestAll();
+					}}
+					onCancelRetestAll={onCancelRetestAll}
+					onDismiss={(providerId, modelId) => {
+						void onDismiss(providerId, modelId);
+					}}
+					retestingProviderId={retestingKey}
+					isRetesting={isAnyRetesting}
+					retestAllProgress={retestAllProgress}
+					errors={retestErrors}
+					onExpandInformational={onExpandInformational}
+					loadError={discrepancyLoadError}
+					loading={discrepanciesLoading}
+					readOnly={readOnly}
 				/>
 			)}
 		</div>

@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DiscoveryDiff } from "../../../api/types";
 import { AllProviders } from "../../../test/utils";
@@ -92,5 +92,107 @@ describe("useDiscoveryRetest", () => {
 		await waitFor(() => expect(result.current.retestingKey).toBeUndefined());
 		expect(discover).not.toHaveBeenCalled();
 		expect(patchEntry).not.toHaveBeenCalled();
+		// The rejection still runs through onSettled, so the global flag must
+		// clear too — otherwise every Retest button stays disabled for the rest
+		// of the session after one bad entry.
+		await waitFor(() => expect(result.current.isAnyRetesting).toBe(false));
+	});
+
+	it("reports a global in-flight flag and ignores a second onRetest while one is running", async () => {
+		// Three rapid clicks currently stomp each other: each onMutate overwrites the
+		// shared key, so the first row stops spinning while its request is still out.
+		// The modal disables all buttons off isAnyRetesting, so it must stay true for
+		// the whole in-flight window and clear only when the request settles. The
+		// real regression is a SECOND request starting at all, not just the flag
+		// reading true, so this asserts discover() is only ever called once.
+		let resolveDiscover: (value: unknown) => void = () => {};
+		discover.mockReturnValue(
+			new Promise((resolve) => {
+				resolveDiscover = resolve;
+			}),
+		);
+		const { result } = renderHook(() => useDiscoveryRetest(vi.fn()), {
+			wrapper: AllProviders,
+		});
+
+		expect(result.current.isAnyRetesting).toBe(false);
+
+		act(() => {
+			result.current.onRetest({
+				providerName: "NanoGPT",
+				providerId: "p1",
+				entryKey: "k1",
+			});
+		});
+		await waitFor(() => expect(result.current.isAnyRetesting).toBe(true));
+		expect(result.current.retestingKey).toBe("k1");
+
+		// A second click, e.g. on a different row, while the first is still in
+		// flight must not start another mutation.
+		act(() => {
+			result.current.onRetest({
+				providerName: "Other",
+				providerId: "p2",
+				entryKey: "k2",
+			});
+		});
+		expect(discover).toHaveBeenCalledTimes(1);
+		expect(discover).toHaveBeenCalledWith("p1");
+		expect(result.current.retestingKey).toBe("k1");
+
+		act(() => {
+			resolveDiscover({ discovered: 0, diff: {} });
+		});
+		await waitFor(() => expect(result.current.isAnyRetesting).toBe(false));
+		expect(discover).toHaveBeenCalledTimes(1);
+	});
+	it("toasts per provider by default", async () => {
+		discover.mockResolvedValue({ discovered: 1, diff });
+		const { result } = renderHook(() => useDiscoveryRetest(vi.fn()), {
+			wrapper: AllProviders,
+		});
+
+		await act(async () => {
+			await result.current.retestAsync({
+				providerName: "Prov",
+				providerId: "p1",
+			});
+		});
+
+		expect(screen.getAllByTestId("toast")).toHaveLength(1);
+	});
+
+	it("suppresses its own toast when the caller takes over the messaging", async () => {
+		// A walk over eight providers would otherwise stack eight toasts. Nothing
+		// collapses them: ToastContext dedupes by message and every message names a
+		// different provider.
+		discover.mockResolvedValue({ discovered: 1, diff });
+		const { result } = renderHook(() => useDiscoveryRetest(vi.fn()), {
+			wrapper: AllProviders,
+		});
+
+		await act(async () => {
+			await result.current.retestAsync(
+				{ providerName: "Prov", providerId: "p1" },
+				true,
+			);
+		});
+
+		expect(screen.queryAllByTestId("toast")).toHaveLength(0);
+	});
+
+	it("suppresses the failure toast too when silenced", async () => {
+		discover.mockRejectedValue(new Error("upstream down"));
+		const { result } = renderHook(() => useDiscoveryRetest(vi.fn()), {
+			wrapper: AllProviders,
+		});
+
+		await act(async () => {
+			await result.current
+				.retestAsync({ providerName: "Prov", providerId: "p1" }, true)
+				.catch(() => {});
+		});
+
+		expect(screen.queryAllByTestId("toast")).toHaveLength(0);
 	});
 });

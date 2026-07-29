@@ -22,14 +22,21 @@ export type ToastPosition =
 	| "bottom-center"
 	| "bottom-right";
 
+/** An inline control on the toast, e.g. "Undo" on a confirmed dismissal. */
+export interface ToastAction {
+	label: string;
+	onClick: () => void;
+}
+
 interface Toast {
 	id: number;
 	message: string;
 	type: ToastType;
+	action?: ToastAction;
 }
 
 interface ToastContextType {
-	toast: (message: string, type?: ToastType) => void;
+	toast: (message: string, type?: ToastType, action?: ToastAction) => void;
 	position: ToastPosition;
 	setPosition: (position: ToastPosition) => void;
 	timeout: number;
@@ -109,11 +116,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 	});
 
 	const addToast = useCallback(
-		(message: string, type: ToastType = "success") => {
+		(message: string, type: ToastType = "success", action?: ToastAction) => {
 			const id = nextId++;
 			setToasts((prev) => [
 				...prev.filter((t) => t.message !== message),
-				{ id, message, type },
+				{ id, message, type, action },
 			]);
 		},
 		[],
@@ -249,6 +256,8 @@ function ToastItem({
 	return (
 		<button
 			type="button"
+			data-testid="toast"
+			data-toast-type={toast.type}
 			onClick={handleClick}
 			onMouseEnter={handleMouseEnter}
 			onMouseLeave={handleMouseLeave}
@@ -269,6 +278,38 @@ function ToastItem({
 			}
 		>
 			{toast.message}
+			{toast.action ? (
+				// KNOWN LIMITATION, not a solved problem. The toast body is itself a
+				// <button> (clicking it dismisses, and copies for errors), so this is
+				// an interactive descendant of an interactive element either way:
+				// role="button" + tabIndex is exactly as invalid per the HTML content
+				// model as a nested <button> would be, and screen readers expose it
+				// unreliably. The span merely avoids the parse-level button-in-button.
+				// The honest fix is to stop making the toast body a button, which is a
+				// change to every existing toast and out of scope here.
+				// biome-ignore lint/a11y/useSemanticElements: nesting a real <button> inside the toast <button> is invalid; this span is a knowingly imperfect stand-in, see the note above
+				<span
+					role="button"
+					tabIndex={0}
+					data-testid="toast-action"
+					onClick={(e) => {
+						e.stopPropagation();
+						toast.action?.onClick();
+						onDone();
+					}}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" || e.key === " ") {
+							e.preventDefault();
+							e.stopPropagation();
+							toast.action?.onClick();
+							onDone();
+						}
+					}}
+					className="ui-btn ui-btn-ghost ui-btn-compact ml-2 inline-flex cursor-pointer items-center underline"
+				>
+					{toast.action.label}
+				</span>
+			) : null}
 			{fuse && (
 				<FuseOutline
 					color={strokeColors[toast.type]}

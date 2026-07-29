@@ -1,30 +1,10 @@
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { DiscoveryDiff } from "../../api/types";
 import { Modal } from "../../components/Modal";
 import { ChevronDown, ChevronRight, RefreshCw } from "../../lib/icons";
-import { formatTokens } from "../../utils/format";
-import { formatPrice } from "../../utils/model";
-
-// Pricing fields render as "$<price>"; the rest are token counts.
-const PRICE_FIELDS = new Set([
-	"input_price",
-	"output_price",
-	"input_price_cache",
-]);
-
-// formatFieldValue renders a metadata value for the Updated section, using the
-// same formatters as the Models table; a null/undefined value reads as `unset`.
-function formatFieldValue(
-	field: string,
-	value: number | null | undefined,
-	unset: string,
-): string {
-	if (value == null) return unset;
-	return PRICE_FIELDS.has(field)
-		? `$${formatPrice(value)}`
-		: formatTokens(value);
-}
+import { formatFieldValue } from "./discoveryFormat";
+import { CategoryGroup, Chip, DetailRow } from "./discoveryPrimitives";
 
 export interface DiscoverySummaryEntry {
 	providerName: string;
@@ -70,102 +50,12 @@ function entryKeyOf(r: DiscoverySummaryEntry): string {
 	return r.entryKey ?? r.providerName;
 }
 
-// A change category: a color-coded sign badge that encodes the direction of the
-// change (+ added, − removed, ↺ back, ± edited), the human label, and the body.
-function CategoryGroup({
-	sign,
-	count,
-	badgeVariant,
-	label,
-	testId,
-	children,
-}: {
-	sign: string;
-	count: number;
-	badgeVariant: string;
-	label: string;
-	testId: string;
-	children: ReactNode;
-}) {
-	return (
-		<section data-testid={testId} className="space-y-1.5">
-			<div className="flex items-center gap-2">
-				<span
-					className={`ui-badge ${badgeVariant} font-mono tabular-nums`}
-					aria-hidden
-				>
-					{sign}
-					{count}
-				</span>
-				<span className="text-[11px] font-semibold uppercase tracking-wider text-(--text-tertiary)">
-					{label}
-				</span>
-			</div>
-			{children}
-		</section>
-	);
-}
-
-// Compact wrapping chip; mono is used for model identifiers (matching the
-// Models table) and left off for human-readable provider names.
-function Chip({ label, mono }: { label: string; mono?: boolean }) {
-	return (
-		<span
-			className={`inline-flex max-w-full items-center truncate rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-1.5 py-0.5 text-[11px] text-(--text-secondary) ${
-				mono ? "font-mono" : ""
-			}`}
-			title={label}
-		>
-			{label}
-		</span>
-	);
-}
-
-// A single label → value·value row (failover detail / shared layout).
-// `stacked` puts the model name on its own (wrapping) line above the reason,
-// so a long reason can't squeeze the name down to a few visible characters.
-function DetailRow({
-	primary,
-	secondary,
-	stacked,
-}: {
-	primary: string;
-	secondary: ReactNode;
-	stacked?: boolean;
-}) {
-	if (stacked) {
-		return (
-			<div className="space-y-0.5">
-				<div
-					className="break-words font-mono text-xs text-(--text-primary)"
-					title={primary}
-				>
-					{primary}
-				</div>
-				<div className="text-[11px] text-(--text-tertiary)">{secondary}</div>
-			</div>
-		);
-	}
-	return (
-		<div className="flex items-baseline justify-between gap-3">
-			<span
-				className="truncate font-mono text-xs text-(--text-primary)"
-				title={primary}
-			>
-				{primary}
-			</span>
-			<span className="shrink-0 text-right text-[11px] text-(--text-tertiary)">
-				{secondary}
-			</span>
-		</div>
-	);
-}
-
 export function DiscoverySummaryModal({
 	results,
 	onClose,
 	onRetest,
 	retestingKey,
+	isAnyRetesting,
 }: {
 	results: DiscoverySummaryEntry[];
 	onClose: () => void;
@@ -174,6 +64,10 @@ export function DiscoverySummaryModal({
 	onRetest?: (entry: DiscoverySummaryEntry) => void;
 	/** entryKey of the provider whose retest is currently in flight, if any. */
 	retestingKey?: string;
+	/** True while any retest is in flight; disables every Retest button, not
+	 * just the one that was clicked, since discovery is a heavy upstream call
+	 * that the hook serializes. Only the row matching `retestingKey` spins. */
+	isAnyRetesting?: boolean;
 }) {
 	const { t } = useTranslation();
 
@@ -198,7 +92,7 @@ export function DiscoverySummaryModal({
 			<button
 				type="button"
 				onClick={() => onRetest(r)}
-				disabled={isRetesting}
+				disabled={isAnyRetesting || isRetesting}
 				title={t("providers.discoverySummary.retestTooltip")}
 				className="ui-btn ui-btn-secondary ui-btn-compact inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
 				data-testid="discovery-summary-retest"

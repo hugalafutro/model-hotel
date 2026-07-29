@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { server } from "../../../test/mocks/server";
@@ -328,6 +328,127 @@ describe("AlertsSettings", () => {
 		await waitFor(() =>
 			expect(screen.getByText(/apprise-api unreachable/i)).toBeInTheDocument(),
 		);
+	});
+
+	// --- outstanding-discrepancy threshold -----------------------------------
+	//
+	// discovery_claim_window_days is served read-only by the backend
+	// (ClaimWindow in days); the control's ceiling is one day below it, because
+	// a discrepancy stops counting once it is older than the window and a
+	// threshold at or above the window could therefore never fire.
+	const CLAIM_WINDOW_DAYS = "30";
+	const CEILING = Number(CLAIM_WINDOW_DAYS) - 1;
+
+	// claimAgeInputs returns the control's number field and its slider, scoped
+	// by testid so neither is found by translated label text.
+	function claimAgeInputs() {
+		const box = within(screen.getByTestId("alert-claim-age"));
+		return {
+			number: box.getByRole("spinbutton") as HTMLInputElement,
+			slider: box.getByRole("slider") as HTMLInputElement,
+		};
+	}
+
+	it("renders the stored threshold and a ceiling below the claim window", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			discovery_claim_window_days: CLAIM_WINDOW_DAYS,
+			discovery_claim_alert_days: "12",
+		});
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await screen.findByTestId("alert-claim-age");
+		const { number, slider } = claimAgeInputs();
+		expect(number).toHaveValue(12);
+		expect(slider).toHaveAttribute("max", String(CEILING));
+	});
+
+	it("persists a new threshold", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			discovery_claim_window_days: CLAIM_WINDOW_DAYS,
+			discovery_claim_alert_days: "7",
+		});
+		const put = capturePut();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await screen.findByTestId("alert-claim-age");
+		const { number } = claimAgeInputs();
+		fireEvent.change(number, { target: { value: "20" } });
+		fireEvent.blur(number);
+
+		await waitFor(() =>
+			expect(put.body).toEqual({ discovery_claim_alert_days: "20" }),
+		);
+	});
+
+	it("refuses a threshold above the ceiling and saves the ceiling instead", async () => {
+		mockSettings({
+			alert_enabled: "true",
+			discovery_claim_window_days: CLAIM_WINDOW_DAYS,
+			discovery_claim_alert_days: "7",
+		});
+		const put = capturePut();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await screen.findByTestId("alert-claim-age");
+		const { number } = claimAgeInputs();
+		fireEvent.change(number, { target: { value: "45" } });
+		fireEvent.blur(number);
+
+		await waitFor(() =>
+			expect(put.body).toEqual({
+				discovery_claim_alert_days: String(CEILING),
+			}),
+		);
+		// The field must show what was actually saved, not what was typed.
+		expect(claimAgeInputs().number).toHaveValue(CEILING);
+	});
+
+	it("shows a stored out-of-range threshold clamped to the ceiling", async () => {
+		// A value the API validator would reject can still reach the client:
+		// a restored backup or a config-sync import writes settings directly.
+		// It must render as the number the backend will actually act on.
+		mockSettings({
+			alert_enabled: "true",
+			discovery_claim_window_days: CLAIM_WINDOW_DAYS,
+			discovery_claim_alert_days: "45",
+		});
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await screen.findByTestId("alert-claim-age");
+		const { number, slider } = claimAgeInputs();
+		expect(number).toHaveValue(CEILING);
+		expect(slider).toHaveValue(String(CEILING));
+	});
+
+	it("falls back to the default threshold, not the minimum, for a stored empty string", async () => {
+		// A restored backup or a hand-edited settings row can carry an empty
+		// string. `??` only substitutes for null/undefined, so this used to
+		// reach `Number("")` (0) and render the slider's minimum of 1 while the
+		// backend fell back to its own default of 7 — a visible/effective
+		// disagreement, exactly what this control exists to prevent.
+		mockSettings({
+			alert_enabled: "true",
+			discovery_claim_window_days: CLAIM_WINDOW_DAYS,
+			discovery_claim_alert_days: "",
+		});
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await screen.findByTestId("alert-claim-age");
+		const { number, slider } = claimAgeInputs();
+		expect(number).toHaveValue(7);
+		expect(slider).toHaveValue("7");
 	});
 
 	it("surfaces a failed status check instead of hiding it", async () => {

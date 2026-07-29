@@ -5381,6 +5381,16 @@
 		"vi",
 		"zh"
 	],
+	"providers.discrepancies.error": [
+		"ca",
+		"es"
+	],
+	"providers.discrepancies.flapped_one": [
+		"fr"
+	],
+	"providers.discrepancies.flapped_other": [
+		"fr"
+	],
 	"providers.edit_autodiscovery_label": [
 		"it"
 	],

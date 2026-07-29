@@ -397,6 +397,7 @@ func main() {
 		modelRepo:    modelRepo,
 		failoverRepo: failoverRepo,
 		dialer:       sd,
+		settingsRepo: settingsRepo,
 	}
 
 	// Load models.dev catalogue synchronously before startup discovery so

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 // seedRawFailoverGroup inserts a custom group with the priority_order and
@@ -529,5 +530,96 @@ func TestConfigSync_ImportDeletesAbsentCustomGroupsButKeepsAuto(t *testing.T) {
 	}
 	if !exists("glm52") {
 		t.Error("synced custom group should be present")
+	}
+}
+
+// setGroupAutoDisabled models this member's OWN discovery having auto-disabled a
+// group: group_enabled = false plus the migration-062 provenance stamp that
+// makes it a discovery claim rather than an operator choice.
+func setGroupAutoDisabled(t *testing.T, displayModel string) {
+	t.Helper()
+	tag, err := apiTestDB.Pool().Exec(context.Background(),
+		`UPDATE model_failover_groups
+		    SET group_enabled = false, auto_disabled_at = now()
+		  WHERE display_model = $1`, displayModel)
+	if err != nil {
+		t.Fatalf("auto-disable group %s: %v", displayModel, err)
+	}
+	// A silently zero-row UPDATE would leave the group ENABLED and unstamped,
+	// which would make the preserve-half of the test below pass for the wrong
+	// reason on step 2 and fail confusingly on step 1.
+	if tag.RowsAffected() != 1 {
+		t.Fatalf("auto-disable group %s affected %d rows, want 1", displayModel, tag.RowsAffected())
+	}
+}
+
+// groupAutoDisabledAt reads the provenance stamp back, nil when it is SQL NULL.
+func groupAutoDisabledAt(t *testing.T, displayModel string) *time.Time {
+	t.Helper()
+	var at *time.Time
+	if err := apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT auto_disabled_at FROM model_failover_groups WHERE display_model = $1`,
+		displayModel).Scan(&at); err != nil {
+		t.Fatalf("read auto_disabled_at for %s: %v", displayModel, err)
+	}
+	return at
+}
+
+// A config-sync import must not erase a stamp this member's own discovery
+// earned. Clearing it is a ONE-WAY door: revalidateCustomGroups skips groups
+// that are already disabled, so nothing ever re-stamps a disabled group, and a
+// member whose hotel/<model> routing is dead would go silent about it forever.
+//
+// Both directions in one test, because the rule is a CASE on the imported flag
+// and either half alone would pass under a blanket clear or a blanket keep:
+//
+//   - imported group_enabled = false: that is the PRIMARY's group state and says
+//     nothing about this member's routable membership, so the local stamp stays.
+//   - imported group_enabled = true: fleet-level operator intent that does
+//     contradict a local auto-disable, and the only direction that is genuinely
+//     self-healing, since an ENABLED group is no longer skipped by revalidation
+//     and gets re-disabled and re-stamped on the next scan if it really is short
+//     of routable members here.
+func TestConfigSync_ImportPreservesLocalAutoDisableStamp(t *testing.T) {
+	cleanConfigTables(t)
+	exportRouter := newConfigSyncRouter(t, configSyncMasterKey)
+	provID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	pm1 := seedModel(t, provID, "gpt-4o")
+	pm2 := seedModel(t, provID, "gpt-4o-mini")
+	seedFailoverGroup(t, "glm52", []string{pm1, pm2}, nil, false)
+	env := doExport(t, exportRouter)
+	if len(env.Config.FailoverGroups) != 1 {
+		t.Fatalf("expected 1 exported group, got %+v", env.Config.FailoverGroups)
+	}
+
+	// A member carrying a live discovery claim on the same group.
+	seedMemberWithClaim := func() {
+		cleanConfigTables(t)
+		rProvID := seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+		rm1 := seedModel(t, rProvID, "gpt-4o")
+		rm2 := seedModel(t, rProvID, "gpt-4o-mini")
+		seedFailoverGroup(t, "glm52", []string{rm1, rm2}, nil, false)
+		setGroupAutoDisabled(t, "glm52")
+		if groupAutoDisabledAt(t, "glm52") == nil {
+			t.Fatal("seed anchor: the member must start with a stamped claim")
+		}
+	}
+
+	seedMemberWithClaim()
+	env.Config.FailoverGroups[0].GroupEnabled = false
+	if rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if groupAutoDisabledAt(t, "glm52") == nil {
+		t.Error("an import that leaves the group disabled erased the local discovery stamp; nothing can ever re-stamp a disabled group, so that claim is gone permanently")
+	}
+
+	seedMemberWithClaim()
+	env.Config.FailoverGroups[0].GroupEnabled = true
+	if rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, body %s", rec.Code, rec.Body.String())
+	}
+	if at := groupAutoDisabledAt(t, "glm52"); at != nil {
+		t.Errorf("an import that re-enables the group must clear the stamp (operator intent, and revalidation re-stamps it if still undersized), got %v", at)
 	}
 }

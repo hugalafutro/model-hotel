@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/hugalafutro/model-hotel/internal/failover"
 )
 
 // DiscoveryChangeEntry is one provider's recorded background-discovery diff.
@@ -23,8 +25,11 @@ type DiscoveryChangeEntry struct {
 	Diff         *DiscoveryDiff `json:"diff"`
 }
 
-// DiscoveryChangesResponse is the payload for GET /api/discovery/changes: the
-// unseen entries newest-first plus the total affected-model count for the badge.
+// DiscoveryChangesResponse is the payload for POST /api/discovery/changes/ack:
+// exactly the rows that call marked seen, newest-first. Count is always 0 there
+// (the badge is empty once the rows are acked) and the field is kept only so the
+// shape stays self-describing. The GET that used to serve this type is gone;
+// GET /api/discovery/status replaced it.
 type DiscoveryChangesResponse struct {
 	Entries []DiscoveryChangeEntry `json:"entries"`
 	Count   int                    `json:"count"`
@@ -42,20 +47,6 @@ func diffIsEmpty(d *DiscoveryDiff) bool {
 		len(d.FailoverDeletedGroups) == 0 &&
 		len(d.FailoverUpdatedGroups) == 0 &&
 		len(d.FailoverDisabledGroups) == 0
-}
-
-// countAffected sums the entities a diff touched — the badge number.
-func countAffected(d *DiscoveryDiff) int {
-	if d == nil {
-		return 0
-	}
-	return len(d.Added) +
-		len(d.Reenabled) +
-		len(d.Disabled) +
-		len(d.Updated) +
-		len(d.FailoverDeletedGroups) +
-		len(d.FailoverUpdatedGroups) +
-		len(d.FailoverDisabledGroups)
 }
 
 // floatPtrEq reports pointer-aware equality at float32 precision. Prices ride in
@@ -177,6 +168,86 @@ func collapseRoundTrips(entries []DiscoveryChangeEntry) []DiscoveryChangeEntry {
 		out = append(out, e)
 	}
 	return out
+}
+
+// stripClaimedBuckets removes from the informational feed everything that is
+// ALSO rendered as a live claim, and drops entries left empty by the removal.
+// Showing the same fact in both zones would give it two different lifecycles:
+// the claim resolves the instant the model is listed again or the group is
+// routable again, while the journal row would keep saying it left until it is
+// pruned at ClaimWindow.
+//
+// The `disabled` membership bucket goes unconditionally: every model discovery
+// disabled is derivable from `models`, so it is always represented in zone 1.
+//
+// `failover_disabled_groups` is filtered against claimedGroups instead, because
+// the same statement is NOT true of groups. A group disabled before migration
+// 062 carries no auto_disabled_at stamp, so listGroupClaims cannot see it and it
+// is not a claim; stripping that bucket by name would make those groups
+// invisible in BOTH zones for the whole retention window after an upgrade.
+// Keying on the live claim set means a group is removed from the feed exactly
+// when zone 1 has taken it over, and left in the feed whenever zone 1 has not.
+func stripClaimedBuckets(entries []DiscoveryChangeEntry, claimedGroups map[string]struct{}) []DiscoveryChangeEntry {
+	out := make([]DiscoveryChangeEntry, 0, len(entries))
+	for _, e := range entries {
+		if e.Diff == nil {
+			continue
+		}
+		trimmed := *e.Diff
+		trimmed.Disabled = nil
+		if len(trimmed.FailoverDisabledGroups) > 0 {
+			// Rebuilt into a fresh slice rather than filtered in place: trimmed is
+			// a shallow copy of the caller's diff, so writing through the shared
+			// backing array would mutate the original entry.
+			kept := make([]failover.DisabledGroupInfo, 0, len(trimmed.FailoverDisabledGroups))
+			for _, g := range trimmed.FailoverDisabledGroups {
+				if _, claimed := claimedGroups[g.DisplayModel]; claimed {
+					continue
+				}
+				kept = append(kept, g)
+			}
+			trimmed.FailoverDisabledGroups = kept
+		}
+		if diffIsEmpty(&trimmed) {
+			continue
+		}
+		e.Diff = &trimmed
+		out = append(out, e)
+	}
+	return out
+}
+
+// countInformationalUnseen counts the entries that carry something other than
+// the metadata-only `updated` bucket.
+//
+// The dot this drives means "something happened worth a glance". Prices move on
+// nearly every scan, so counting `updated` would light the dot permanently and
+// make it exactly the ignorable indicator the claim count was designed not to
+// be. Price and context changes stay fully visible in the feed once the modal is
+// open; they simply stop driving the indicator.
+//
+// The rule is expressed as "not empty once `updated` is removed" rather than an
+// explicit list of counting buckets, so any bucket added to DiscoveryDiff later
+// counts by default. `updated` is the one bucket that has to opt out by name,
+// which is a deliberate fail-loud direction: a new membership or failover signal
+// is visible until someone decides otherwise.
+//
+// Callers pass the post-collapseRoundTrips, post-stripClaimedBuckets slice, so
+// everything already rendered as a claim is gone and the count describes exactly
+// what the client renders.
+func countInformationalUnseen(entries []DiscoveryChangeEntry) int {
+	n := 0
+	for _, e := range entries {
+		if e.Diff == nil {
+			continue
+		}
+		probe := *e.Diff
+		probe.Updated = nil
+		if !diffIsEmpty(&probe) {
+			n++
+		}
+	}
+	return n
 }
 
 // AppendDiscoveryChange records one provider's background-discovery diff for

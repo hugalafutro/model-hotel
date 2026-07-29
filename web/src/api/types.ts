@@ -533,7 +533,11 @@ export interface DiscoveryDiff {
 	failover_disabled_groups?: DisabledGroupInfo[];
 }
 
-/** One provider's recorded background-discovery diff (GET /api/discovery/changes). */
+/**
+ * One provider's recorded background-discovery diff. Served as the
+ * `informational` feed of GET /api/discovery/status and as the rows returned by
+ * POST /api/discovery/changes/ack; the GET that used to serve it is gone.
+ */
 export interface DiscoveryChangeEntry {
 	/** Empty when the provider was deleted after the change was recorded. */
 	provider_id?: string;
@@ -543,9 +547,60 @@ export interface DiscoveryChangeEntry {
 	diff: DiscoveryDiff;
 }
 
+/**
+ * Response of POST /api/discovery/changes/ack: exactly the rows that call marked
+ * seen. `count` is always 0 (the badge is empty once they are acked).
+ */
 export interface DiscoveryChangesResponse {
 	entries: DiscoveryChangeEntry[];
 	count: number;
+}
+
+/** What discovery currently believes about one model. */
+export type ClaimState = "gone" | "stale" | "suspect";
+
+export interface ModelClaim {
+	model_id: string;
+	state: ClaimState;
+	/** When the provider last listed it; for a gone model, when it went missing. */
+	last_seen_at: string;
+	missing_scans: number;
+	/** Membership transitions over the 30-day claim window. */
+	flap_window: number;
+	/** Membership transitions since the operator last opened the modal. */
+	flap_since_review: number;
+}
+
+export interface ProviderClaims {
+	provider_id: string;
+	provider_name: string;
+	gone: ModelClaim[];
+	stale: ModelClaim[];
+	suspect: ModelClaim[];
+}
+
+/** One failover group discovery disabled: `hotel/<display_model>` routing for it
+ *  is dead until it is fixed. Operator-disabled groups never appear here. */
+export interface GroupClaim {
+	display_model: string;
+	/** Members configured on the group. */
+	member_count: number;
+	/** Members whose model AND provider are both enabled right now. */
+	routable_count: number;
+	/** When discovery disabled it. */
+	disabled_at: string;
+}
+
+/** GET /api/discovery/status. `claim_count` counts `gone` models plus
+ *  `group_claims`; `stale` and `suspect` are shown but never counted.
+ *  `informational_unseen` skips entries whose only content is metadata
+ *  (`updated`), so price churn cannot light the badge dot. */
+export interface DiscoveryStatusResponse {
+	claims: ProviderClaims[];
+	group_claims: GroupClaim[];
+	informational: DiscoveryChangeEntry[];
+	claim_count: number;
+	informational_unseen: number;
 }
 
 export interface DiscoverAllResult {

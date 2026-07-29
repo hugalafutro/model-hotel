@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -67,27 +68,150 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 		r.Get("/", h.GetOllamaCloudAccount)
 	})
 	r.Route("/discovery/changes", func(r chi.Router) {
-		r.Get("/", h.GetDiscoveryChanges)
 		r.Post("/ack", h.AckDiscoveryChanges)
 	})
+	r.Get("/discovery/status", h.GetDiscoveryStatus)
+	r.Post("/discovery/dismiss", h.DismissDiscoveryClaims)
 }
 
-// GetDiscoveryChanges returns the unseen background-discovery diffs (newest
-// first) and the total affected-model count powering the Models nav badge.
-func (h *Handler) GetDiscoveryChanges(w http.ResponseWriter, r *http.Request) {
-	entries, err := listPendingDiscoveryChanges(r.Context(), h.dbPool.Pool())
+// settingKeyDiscoveryLastReviewed marks when the operator last opened the
+// discrepancy modal, so flap counts can be reported "since your last visit".
+const settingKeyDiscoveryLastReviewed = "_discovery_last_reviewed_at"
+
+// DiscoveryStatusResponse powers the Models nav badge and its modal. ClaimCount
+// counts Gone models only: Stale and Suspect are shown but never inflate the
+// badge, so a non-zero badge always means something might actually be wrong.
+// InformationalUnseen drives the badge dot when ClaimCount is 0, and counts only
+// the entries carrying something other than metadata `updated` changes: prices
+// move on nearly every scan, so counting them would leave the dot permanently
+// lit (see countInformationalUnseen).
+// GroupClaims are the failover groups discovery disabled; they count toward
+// ClaimCount alongside Gone models, because a disabled group means `hotel/`
+// routing for that model has stopped working.
+type DiscoveryStatusResponse struct {
+	Claims              []ProviderClaims       `json:"claims"`
+	GroupClaims         []GroupClaim           `json:"group_claims"`
+	Informational       []DiscoveryChangeEntry `json:"informational"`
+	ClaimCount          int                    `json:"claim_count"`
+	InformationalUnseen int                    `json:"informational_unseen"`
+}
+
+// GetDiscoveryStatus derives the current claim set from live model state and
+// pairs it with the informational journal feed.
+//
+// With ?review=1 (the modal-open fetch) it reads the previous last-reviewed
+// stamp, computes flap counts against it, and only THEN writes the new stamp.
+// Reading before writing is what makes "since your last visit" describe the
+// previous visit instead of collapsing to zero. The 60s badge poll omits the
+// parameter and never writes.
+func (h *Handler) GetDiscoveryStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	pool := h.dbPool.Pool()
+	now := time.Now()
+	windowStart := now.Add(-ClaimWindow)
+
+	rows, err := listClaimRows(ctx, pool)
+	if err != nil {
+		respondError(w, "failed to load discovery claims", err, http.StatusInternalServerError)
+		return
+	}
+
+	window, err := flapCounts(ctx, pool, windowStart)
+	if err != nil {
+		respondError(w, "failed to load discovery flap counts", err, http.StatusInternalServerError)
+		return
+	}
+
+	// Only the modal-open variant needs the since-review numbers, so the 60s
+	// badge poll never pays for the second flap query.
+	review := r.URL.Query().Get("review") == "1"
+	sinceReview := map[flapKey]int{}
+	if review {
+		lastReviewed := parseLastReviewed(ctx, h.settingsRepo)
+		switch {
+		case lastReviewed.IsZero():
+			// First ever review: everything in the window is new to this operator.
+			sinceReview = window
+		case lastReviewed.Before(windowStart):
+			// Journal rows are pruned at ClaimWindow (PruneDiscoveryChanges), so a
+			// stamp older than the window would ask flapCounts to look further
+			// back than the surviving journal actually reaches, silently
+			// deriving the number from rows that no longer exist. Clamp the
+			// lookback to the window: past that point the honest answer is
+			// "everything we still know about", which is exactly the window
+			// count already computed above.
+			sinceReview = window
+		default:
+			if sinceReview, err = flapCounts(ctx, pool, lastReviewed); err != nil {
+				respondError(w, "failed to load discovery flap counts", err, http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
+	claims, count := buildProviderClaims(rows, window, sinceReview, now)
+
+	// A disabled failover group stops `hotel/<model>` routing outright, so it is
+	// a claim on the same footing as a gone model. Derived live from
+	// model_failover_groups, never from the journal, so it resolves by itself
+	// when the group comes back.
+	groupClaims, err := listGroupClaims(ctx, pool)
+	if err != nil {
+		respondError(w, "failed to load discovery group claims", err, http.StatusInternalServerError)
+		return
+	}
+	count += len(groupClaims)
+
+	pending, err := listPendingDiscoveryChanges(ctx, pool)
 	if err != nil {
 		respondError(w, "failed to load discovery changes", err, http.StatusInternalServerError)
 		return
 	}
-	// Fold net-zero metadata round-trips so a value that swung out and back across
-	// several background runs stops inflating the badge and cluttering the modal.
-	entries = collapseRoundTrips(entries)
-	count := 0
-	for i := range entries {
-		count += countAffected(entries[i].Diff)
+	// A group that zone 1 is already claiming must not also appear in the zone 2
+	// feed; one that is NOT claimed (disabled before migration 062, so it carries
+	// no provenance stamp) must, or it would be invisible everywhere. Hence the
+	// live claim set rather than a blanket strip of the bucket.
+	claimedGroups := make(map[string]struct{}, len(groupClaims))
+	for _, g := range groupClaims {
+		claimedGroups[g.DisplayModel] = struct{}{}
 	}
-	writeJSON(w, DiscoveryChangesResponse{Entries: entries, Count: count})
+	informational := stripClaimedBuckets(collapseRoundTrips(pending), claimedGroups)
+
+	// Stamp last, and never in read-only mode: a GET must not 403 there, so the
+	// write is skipped rather than rejected.
+	if review && !h.cfg.DemoReadOnly {
+		// RFC3339Nano, not RFC3339: discovery_changes.detected_at is a
+		// microsecond-precision TIMESTAMPTZ (`DEFAULT now()`), and a
+		// second-truncated stamp can land at or after a journal row that was
+		// actually written before this review — re-counting on the very next
+		// review something the operator just saw.
+		if err := h.settingsRepo.Set(ctx, settingKeyDiscoveryLastReviewed, now.Format(time.RFC3339Nano)); err != nil {
+			debuglog.Error("discovery: failed to stamp last-reviewed", "error", err)
+		}
+	}
+
+	writeJSON(w, DiscoveryStatusResponse{
+		Claims:              claims,
+		GroupClaims:         groupClaims,
+		Informational:       informational,
+		ClaimCount:          count,
+		InformationalUnseen: countInformationalUnseen(informational),
+	})
+}
+
+// parseLastReviewed returns the stored review stamp, or the zero time when it
+// is unset or unparseable. A corrupt value degrades to "never reviewed", which
+// over-reports flaps rather than hiding them.
+func parseLastReviewed(ctx context.Context, store SettingsStore) time.Time {
+	raw := store.GetWithDefault(ctx, settingKeyDiscoveryLastReviewed, "")
+	if raw == "" {
+		return time.Time{}
+	}
+	ts, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return time.Time{}
+	}
+	return ts
 }
 
 // AckDiscoveryChanges atomically marks all unseen background-discovery diffs as
@@ -622,4 +746,50 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 		"failed":    failed,
 		"skipped":   skipped,
 	})
+}
+
+// DismissDiscoveryClaimsRequest carries one provider's dismissal change.
+// Dismissed=false is the toast's Undo, so both directions share one endpoint.
+type DismissDiscoveryClaimsRequest struct {
+	ProviderID string   `json:"provider_id"`
+	ModelIDs   []string `json:"model_ids"`
+	Dismissed  bool     `json:"dismissed"`
+}
+
+// DismissDiscoveryClaims stamps or clears the operator dismissal for models on
+// one provider. setModelsDismissed only touches rows that are currently
+// enabled=false and not manually disabled, so a suspect (still enabled) or
+// healthy model cannot be pre-dismissed; those affect zero rows and fall
+// through the 404 path below like any other unmatched model ID.
+//
+// Deliberately NOT added to isReadOnlyExemptPost: unlike the discovery-change
+// ack it sits beside, this suppresses a real discrepancy from every operator's
+// view, which is a genuine state change.
+func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request) {
+	var req DismissDiscoveryClaimsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	providerID, err := uuid.Parse(req.ProviderID)
+	if err != nil {
+		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+		return
+	}
+	if len(req.ModelIDs) == 0 {
+		http.Error(w, "model_ids must not be empty", http.StatusBadRequest)
+		return
+	}
+
+	affected, err := setModelsDismissed(r.Context(), h.dbPool.Pool(), providerID, req.ModelIDs, req.Dismissed)
+	if err != nil {
+		respondError(w, "failed to update discovery dismissal", err, http.StatusInternalServerError)
+		return
+	}
+	if affected == 0 {
+		http.Error(w, "no matching models", http.StatusNotFound)
+		return
+	}
+
+	writeJSON(w, map[string]any{"updated": affected})
 }

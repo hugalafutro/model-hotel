@@ -218,16 +218,17 @@ export function Providers() {
 	// Retest re-runs discovery for a single provider straight from the summary
 	// modal and patches just that provider's entry with the fresh diff, leaving
 	// the rest of the summary intact.
-	const { onRetest, retestingKey } = useDiscoveryRetest((key, diff) =>
-		setDiscoverySummary((prev) =>
-			prev
-				? prev.map((e) =>
-						(e.entryKey ?? e.providerName) === key
-							? { ...e, diff, error: undefined }
-							: e,
-					)
-				: prev,
-		),
+	const { onRetest, retestingKey, isAnyRetesting } = useDiscoveryRetest(
+		(key, diff) =>
+			setDiscoverySummary((prev) =>
+				prev
+					? prev.map((e) =>
+							(e.entryKey ?? e.providerName) === key
+								? { ...e, diff, error: undefined }
+								: e,
+						)
+					: prev,
+			),
 	);
 
 	const deleteMutation = useMutation({
@@ -457,6 +458,7 @@ export function Providers() {
 					onClose={() => setDiscoverySummary(null)}
 					onRetest={onRetest}
 					retestingKey={retestingKey}
+					isAnyRetesting={isAnyRetesting}
 				/>
 			)}
 

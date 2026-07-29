@@ -807,122 +807,605 @@ describe("Layout", () => {
 		});
 	});
 
-	describe("Discovery Changes Badge", () => {
-		const changesResponse = {
-			count: 2,
-			entries: [
-				{
-					provider_name: "DeepSeek",
-					source: "scheduled",
-					detected_at: "2026-06-16T00:00:00Z",
-					diff: {
-						updated: [
-							{
-								model_id: "deepseek-chat",
-								changes: [{ field: "input_price", old: 1, new: 2 }],
-							},
-						],
-					},
-				},
-			],
+	describe("Discovery Discrepancies Badge", () => {
+		const claim = (model_id: string) => ({
+			model_id,
+			state: "gone",
+			last_seen_at: "2026-07-01T00:00:00Z",
+			missing_scans: 3,
+			flap_window: 0,
+			flap_since_review: 0,
+		});
+
+		const providerClaims = (
+			provider_id: string,
+			provider_name: string,
+			gone: ReturnType<typeof claim>[],
+		) => ({ provider_id, provider_name, gone, stale: [], suspect: [] });
+
+		const status = (over: Record<string, unknown> = {}) => ({
+			claims: [],
+			group_claims: [],
+			informational: [],
+			claim_count: 0,
+			informational_unseen: 0,
+			...over,
+		});
+
+		const infoEntry = {
+			provider_id: "p1",
+			provider_name: "One",
+			source: "background",
+			detected_at: "2026-07-25T00:00:00Z",
+			diff: { added: [{ model_id: "brand-new", reason: "new model" }] },
 		};
 
-		it("does not show the badge when count is zero", async () => {
+		it("shows the claim count on the Models badge", async () => {
 			server.use(
-				http.get("/api/discovery/changes", () =>
-					HttpResponse.json({ entries: [], count: 0 }),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status({ claim_count: 3 })),
 				),
 			);
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			expect(
-				screen.queryByTestId("discovery-changes-badge"),
-			).not.toBeInTheDocument();
+			const badge = await screen.findByTestId("discovery-status-badge");
+			expect(badge).toHaveAttribute("data-variant", "count");
+			expect(badge).toHaveTextContent("3");
+			expect(badge.getAttribute("aria-label")).not.toMatch(/^layout\.nav\./);
 		});
 
-		it("shows the badge with count and opens the modal on click, acking changes", async () => {
-			const user = userEvent.setup();
-			let ackCalled = false;
+		it("shows a dot rather than a number when only informational news is unseen", async () => {
+			// The badge means "things that might be wrong". A price move is news, not
+			// a problem, so it gets attention once without ever showing a count.
 			server.use(
-				http.get("/api/discovery/changes", () =>
-					HttpResponse.json(changesResponse),
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(status({ informational_unseen: 4 })),
 				),
-				// Ack atomically clears and returns the rows it marked seen; the
-				// modal snapshots from this response (not the poll cache), so it must
-				// echo the acked entries with a now-empty badge count.
-				http.post("/api/discovery/changes/ack", () => {
-					ackCalled = true;
-					return HttpResponse.json({
-						entries: changesResponse.entries,
-						count: 0,
-					});
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const badge = await screen.findByTestId("discovery-status-badge");
+			expect(badge).toHaveAttribute("data-variant", "dot");
+			expect(badge.textContent).toBe("");
+			// With no text, the accessible name is the control's ONLY affordance, so
+			// an unresolved key here is not cosmetic. Matched on the key prefix
+			// rather than on the copy, to stay locale-independent.
+			expect(badge.getAttribute("aria-label")).not.toMatch(/^layout\.nav\./);
+		});
+
+		it("hides the badge when there is nothing at all", async () => {
+			let fetches = 0;
+			server.use(
+				http.get("/api/discovery/status", () => {
+					fetches++;
+					return HttpResponse.json(status());
 				}),
 			);
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const badge = await screen.findByTestId("discovery-changes-badge");
-			expect(badge).toHaveTextContent("2");
-
-			await user.click(badge);
-
-			// Modal opens, populated from the store entries
-			expect(
-				await screen.findByTestId("discovery-summary"),
-			).toBeInTheDocument();
-			expect(screen.getByTestId("discovery-summary-updated")).toHaveTextContent(
-				"deepseek-chat",
-			);
-			await waitFor(() => expect(ackCalled).toBe(true));
+			// Wait for a real answer first, so this cannot pass merely because the
+			// query had not resolved yet.
+			await waitFor(() => expect(fetches).toBeGreaterThanOrEqual(1));
+			await screen.findByRole("navigation");
+			expect(screen.queryByTestId("discovery-status-badge")).toBeNull();
 		});
 
-		it("ignores a re-entrant click while the ack is in flight", async () => {
-			// Mirror the atomic server: the first ack clears and returns the rows;
-			// any concurrent second ack finds nothing unseen and returns []. Without
-			// the in-flight guard a double-click's empty response would blank the
-			// modal. The guard must keep ack to a single call and the modal populated.
-			let ackCount = 0;
+		it("never stamps the review marker from the badge poll", async () => {
+			// ?review=1 rebaselines "since your last visit" server-side. A poll doing
+			// that would hold every flap count at zero forever.
+			const urls: string[] = [];
 			server.use(
-				http.get("/api/discovery/changes", () =>
-					HttpResponse.json(changesResponse),
+				http.get("/api/discovery/status", ({ request }) => {
+					urls.push(request.url);
+					return HttpResponse.json(status({ claim_count: 1 }));
+				}),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await screen.findByTestId("discovery-status-badge");
+			expect(urls.length).toBeGreaterThan(0);
+			expect(urls.some((u) => u.includes("review=1"))).toBe(false);
+		});
+
+		it("renders the failover group claims that the badge count includes", async () => {
+			// claim_count counts discovery-disabled failover groups. If the modal
+			// cannot show them the badge points at rows that do not exist, which is
+			// the badge-that-lies defect this rework exists to remove.
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 1,
+							group_claims: [
+								{
+									display_model: "gpt-oss-120b",
+									member_count: 3,
+									routable_count: 1,
+									disabled_at: "2026-07-20T00:00:00Z",
+								},
+							],
+						}),
+					),
 				),
-				http.post("/api/discovery/changes/ack", () => {
-					ackCount++;
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+
+			const rows = await screen.findAllByTestId("discrepancy-group-claim");
+			expect(rows).toHaveLength(1);
+			expect(rows[0]).toHaveAttribute("data-display-model", "gpt-oss-120b");
+			expect(screen.queryByTestId("discrepancy-empty")).toBeNull();
+		});
+
+		it("refetches and re-stamps the review marker on a second open", async () => {
+			// The hook keys its fetch on a counter that only advances on an open
+			// transition, which works only while the hook stays mounted. If Layout
+			// ever unmounts it on close the counter resets, the first key is reused,
+			// the cache answers, and both bugs return: stale rows on reopen and a
+			// review stamp that stops firing per open.
+			let reviewStamps = 0;
+			server.use(
+				http.get("/api/discovery/status", ({ request }) => {
+					const review =
+						new URL(request.url).searchParams.get("review") === "1";
+					if (review) reviewStamps++;
 					return HttpResponse.json(
-						ackCount === 1
-							? { entries: changesResponse.entries, count: 0 }
-							: { entries: [], count: 0 },
+						status({
+							claim_count: 1,
+							claims: [
+								providerClaims("p1", "NanoGPT", [
+									claim(reviewStamps <= 1 ? "first-open" : "second-open"),
+								]),
+							],
+						}),
 					);
 				}),
 			);
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const badge = await screen.findByTestId("discovery-changes-badge");
-			// Two synchronous clicks: the second re-enters before the first ack's
-			// await yields, so the guard must drop it.
-			fireEvent.click(badge);
-			fireEvent.click(badge);
-
-			expect(
-				await screen.findByTestId("discovery-summary"),
-			).toBeInTheDocument();
-			expect(screen.getByTestId("discovery-summary-updated")).toHaveTextContent(
-				"deepseek-chat",
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			expect(await screen.findByTestId("discrepancy-claim")).toHaveAttribute(
+				"data-model-id",
+				"first-open",
 			);
-			await waitFor(() => expect(ackCount).toBe(1));
+			await waitFor(() => expect(reviewStamps).toBe(1));
+
+			// Escape, not the close button: that control is labelled with a
+			// translated string and this suite stays locale-independent.
+			fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+			await waitFor(() =>
+				expect(screen.queryByTestId("discrepancy-modal")).toBeNull(),
+			);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			// A cache replay would put the first open's row back and never reach the
+			// server, so this pins both halves at once: a real refetch, and a real
+			// second stamp.
+			await waitFor(() =>
+				expect(screen.getByTestId("discrepancy-claim")).toHaveAttribute(
+					"data-model-id",
+					"second-open",
+				),
+			);
+			expect(reviewStamps).toBe(2);
 		});
 
-		it("invalidates the changes query on a discovery.changes_pending SSE event", async () => {
-			let fetchCount = 0;
+		it("stops Retest all after the provider already in flight", async () => {
+			const discovered: string[] = [];
+			let release: (() => void) | undefined;
 			server.use(
-				http.get("/api/discovery/changes", () => {
-					fetchCount++;
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 2,
+							claims: [
+								providerClaims("p1", "One", [claim("a")]),
+								providerClaims("p2", "Two", [claim("b")]),
+							],
+						}),
+					),
+				),
+				http.post("/api/providers/:id/discover", async ({ params }) => {
+					discovered.push(String(params.id));
+					await new Promise<void>((resolve) => {
+						release = resolve;
+					});
+					return HttpResponse.json({ discovered: 0, diff: {} });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(await screen.findByTestId("discrepancy-retest-all"));
+
+			// p1's discovery run is out; Cancel has taken the Retest all slot.
+			await waitFor(() => expect(discovered).toEqual(["p1"]));
+			expect(screen.queryByTestId("discrepancy-retest-all")).toBeNull();
+			await user.click(
+				await screen.findByTestId("discrepancy-retest-all-cancel"),
+			);
+
+			// Cancel must not abort p1: a half-applied discovery run is worse than a
+			// slow one, so the walk only declines to start p2.
+			release?.();
+			await waitFor(() =>
+				expect(screen.queryByTestId("discrepancy-retest-progress")).toBeNull(),
+			);
+			expect(discovered).toEqual(["p1"]);
+			// The walk stopped early, so it must not sign off as a completed run.
+			// Asserted on the toast's type rather than its text, to stay
+			// locale-independent: a success toast here is the "done: 1" bug.
+			expect(await screen.findByTestId("toast")).toHaveAttribute(
+				"data-toast-type",
+				"info",
+			);
+		});
+
+		it("reports a Retest all walk once, not once per provider", async () => {
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 3,
+							claims: [
+								providerClaims("p1", "One", [claim("a")]),
+								providerClaims("p2", "Two", [claim("b")]),
+								providerClaims("p3", "Three", [claim("c")]),
+							],
+						}),
+					),
+				),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(await screen.findByTestId("discrepancy-retest-all"));
+
+			await waitFor(() =>
+				expect(screen.queryByTestId("discrepancy-retest-progress")).toBeNull(),
+			);
+			// Three providers, one toast. ToastContext dedupes by message and each
+			// per-provider message names a different provider, so nothing would
+			// collapse them if the walk did not silence them.
+			expect(screen.getAllByTestId("toast")).toHaveLength(1);
+		});
+
+		it("dismisses one model per request and offers an undo that restores it", async () => {
+			const bodies: { model_ids: string[]; dismissed: boolean }[] = [];
+			const dismissed = new Set<string>();
+			server.use(
+				http.get("/api/discovery/status", () => {
+					const gone = ["a", "b"]
+						.filter((m) => !dismissed.has(m))
+						.map((m) => claim(m));
+					return HttpResponse.json(
+						status({
+							claim_count: gone.length,
+							claims: [providerClaims("p1", "One", gone)],
+						}),
+					);
+				}),
+				http.post("/api/discovery/dismiss", async ({ request }) => {
+					const body = (await request.json()) as {
+						model_ids: string[];
+						dismissed: boolean;
+					};
+					bodies.push(body);
+					for (const m of body.model_ids) {
+						if (body.dismissed) dismissed.add(m);
+						else dismissed.delete(m);
+					}
+					return HttpResponse.json({ updated: body.model_ids.length });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			const rowA = () =>
+				screen
+					.getAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === "a");
+			await waitFor(() => expect(rowA()).toBeTruthy());
+			await user.click(
+				rowA()?.querySelector(
+					'[data-testid="discrepancy-dismiss"]',
+				) as HTMLElement,
+			);
+
+			// Struck through in place rather than removed: the row that vanishes on a
+			// click is the operator complaint this rework exists to fix.
+			await waitFor(() =>
+				expect(rowA()).toHaveAttribute("data-status", "resolved"),
+			);
+			// Exactly one model per request. A mixed batch 200s with a short
+			// `updated` and cannot say which ids it missed.
+			expect(bodies).toHaveLength(1);
+			expect(bodies[0].model_ids).toEqual(["a"]);
+			expect(bodies[0].dismissed).toBe(true);
+
+			await user.click(await screen.findByTestId("toast-action"));
+			await waitFor(() => expect(bodies).toHaveLength(2));
+			expect(bodies[1].model_ids).toEqual(["a"]);
+			expect(bodies[1].dismissed).toBe(false);
+			await waitFor(() =>
+				expect(rowA()).toHaveAttribute("data-status", "pending"),
+			);
+		});
+
+		it("treats updated: 0 as a failed dismissal", async () => {
+			// The endpoint 200s with a short `updated` and only 404s when nothing at
+			// all matched, so HTTP status alone would report a phantom success.
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 1,
+							claims: [providerClaims("p1", "One", [claim("a")])],
+						}),
+					),
+				),
+				http.post("/api/discovery/dismiss", () =>
+					HttpResponse.json({ updated: 0 }),
+				),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(await screen.findByTestId("discrepancy-dismiss"));
+
+			// No confirmation toast, so no Undo control: the success path is the only
+			// path that renders one.
+			await waitFor(() =>
+				expect(screen.getByTestId("discrepancy-claim")).toHaveAttribute(
+					"data-status",
+					"pending",
+				),
+			);
+			expect(screen.queryByTestId("toast-action")).toBeNull();
+		});
+
+		it("reverts only the dismissed claim when the write fails, keeping newer state", async () => {
+			// Rollback used to put back the WHOLE snapshot array captured before the
+			// request. Anything that landed while the dismiss was in flight was then
+			// discarded: a claim the refresh resolved came back as pending, and a
+			// claim the refresh discovered vanished until the next fetch. The revert
+			// must touch exactly the one claim it optimistically changed.
+			let phase = 0;
+			let releaseDismiss: (() => void) | undefined;
+			const dismissGate = new Promise<void>((resolve) => {
+				releaseDismiss = resolve;
+			});
+			server.use(
+				http.get("/api/discovery/status", () => {
+					// After the retest: `b` has cleared and `c` has appeared.
+					const gone = (phase === 0 ? ["a", "b"] : ["a", "c"]).map((m) =>
+						claim(m),
+					);
+					return HttpResponse.json(
+						status({
+							claim_count: gone.length,
+							claims: [providerClaims("p1", "One", gone)],
+						}),
+					);
+				}),
+				http.post("/api/providers/:id/discover", () => {
+					phase = 1;
+					return HttpResponse.json({ discovered: 0, diff: {} });
+				}),
+				http.post("/api/discovery/dismiss", async () => {
+					await dismissGate;
+					return HttpResponse.json({ error: "boom" }, { status: 500 });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const row = (id: string) =>
+				screen
+					.queryAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === id);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await waitFor(() => expect(row("a")).toBeTruthy());
+
+			// Dismiss `a`; the request hangs.
+			await user.click(
+				row("a")?.querySelector(
+					'[data-testid="discrepancy-dismiss"]',
+				) as HTMLElement,
+			);
+			await waitFor(() =>
+				expect(row("a")).toHaveAttribute("data-status", "resolved"),
+			);
+
+			// A retest lands its refresh while the dismiss is still out.
+			await user.click(await screen.findByTestId("discrepancy-retest"));
+			await waitFor(() => expect(row("c")).toBeTruthy());
+			expect(row("b")).toHaveAttribute("data-status", "resolved");
+
+			releaseDismiss?.();
+
+			// The optimistic change is undone...
+			//
+			// `a` is still reported in phase 1, so the refresh above has already put
+			// it back to `pending` on the server's authority and the rollback is a
+			// no-op here (see revertDismissal's compare-and-swap). This is an
+			// end-state assertion; the rollback itself is isolated by the `c` case at
+			// the bottom of this test and by the sibling test below.
+			await waitFor(() =>
+				expect(row("a")).toHaveAttribute("data-status", "pending"),
+			);
+			// ...and nothing the refresh established is undone with it.
+			expect(row("c")).toBeTruthy();
+			expect(row("c")).toHaveAttribute("data-status", "new");
+			expect(row("b")).toHaveAttribute("data-status", "resolved");
+
+			// The revert restores the status the row actually held, not a hardcoded
+			// `pending`: `c` appeared during this session, and losing its "new"
+			// marker to a failed dismiss would erase that fact from the modal.
+			// The gate is already open, so this dismiss fails immediately.
+			await user.click(
+				row("c")?.querySelector(
+					'[data-testid="discrepancy-dismiss"]',
+				) as HTMLElement,
+			);
+			await waitFor(() =>
+				expect(row("c")).toHaveAttribute("data-status", "new"),
+			);
+		});
+
+		it("leaves a claim a concurrent refresh resolved alone when the dismissal fails", async () => {
+			// The residual half of the rollback bug. Narrowing the revert to a single
+			// claim was not enough while it still wrote the CLICK-TIME status
+			// unconditionally: if a refresh legitimately clears that same claim while
+			// the request is out (the model came back), the failure replays `pending`
+			// over server truth and a resolved row reads as still-broken until the
+			// next fetch. An undo must only undo its own write.
+			let phase = 0;
+			let releaseDismiss: (() => void) | undefined;
+			const dismissGate = new Promise<void>((resolve) => {
+				releaseDismiss = resolve;
+			});
+			server.use(
+				http.get("/api/discovery/status", () => {
+					// After the retest `a` is no longer reported at all — it came back —
+					// and `c` has appeared, which is what makes the refresh observable.
+					const gone = (phase === 0 ? ["a", "b"] : ["b", "c"]).map((m) =>
+						claim(m),
+					);
+					return HttpResponse.json(
+						status({
+							claim_count: gone.length,
+							claims: [providerClaims("p1", "One", gone)],
+						}),
+					);
+				}),
+				http.post("/api/providers/:id/discover", () => {
+					phase = 1;
+					return HttpResponse.json({ discovered: 0, diff: {} });
+				}),
+				http.post("/api/discovery/dismiss", async () => {
+					await dismissGate;
+					return HttpResponse.json({ error: "boom" }, { status: 500 });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const row = (id: string) =>
+				screen
+					.queryAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === id);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await waitFor(() => expect(row("a")).toBeTruthy());
+
+			// Dismiss `a`; the request hangs.
+			await user.click(
+				row("a")?.querySelector(
+					'[data-testid="discrepancy-dismiss"]',
+				) as HTMLElement,
+			);
+			await waitFor(() =>
+				expect(row("a")).toHaveAttribute("data-status", "resolved"),
+			);
+
+			// A retest lands its refresh while the dismiss is still out. `c` arriving
+			// is the proof it landed; `a` is now resolved on the SERVER's authority,
+			// not on the strength of the optimistic write.
+			await user.click(await screen.findByTestId("discrepancy-retest"));
+			await waitFor(() => expect(row("c")).toBeTruthy());
+			expect(row("a")).toHaveAttribute("data-status", "resolved");
+
+			releaseDismiss?.();
+
+			// The error toast is the ordering anchor: the rollback runs immediately
+			// before it, in the same catch block, so a rendered toast means the
+			// rollback has already had its chance.
+			await waitFor(() =>
+				expect(
+					screen
+						.getAllByTestId("toast")
+						.some((el) => el.getAttribute("data-toast-type") === "error"),
+				).toBe(true),
+			);
+			// The newer, server-derived status wins over the click-time one.
+			expect(row("a")).toHaveAttribute("data-status", "resolved");
+			expect(row("c")).toHaveAttribute("data-status", "new");
+			expect(row("b")).toHaveAttribute("data-status", "pending");
+		});
+
+		it("acknowledges the journal once it is expanded, without re-stamping review", async () => {
+			let acks = 0;
+			let reviewStamps = 0;
+			server.use(
+				http.get("/api/discovery/status", ({ request }) => {
+					if (new URL(request.url).searchParams.get("review") === "1") {
+						reviewStamps++;
+					}
+					return HttpResponse.json(
+						status({
+							claim_count: 1,
+							claims: [providerClaims("p1", "One", [claim("a")])],
+							informational: [infoEntry],
+							informational_unseen: 1,
+						}),
+					);
+				}),
+				http.post("/api/discovery/changes/ack", () => {
+					acks++;
 					return HttpResponse.json({ entries: [], count: 0 });
 				}),
 			);
-			renderWithProviders(<Layout>{mockChildren}</Layout>);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			await waitFor(() => expect(fetchCount).toBeGreaterThanOrEqual(1));
-			const initial = fetchCount;
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			const toggle = await screen.findByTestId(
+				"discrepancy-informational-toggle",
+			);
+			// Opening must NOT ack. The destructive ack-on-open is what let the badge
+			// clear while the problem was still outstanding.
+			expect(acks).toBe(0);
+			await waitFor(() => expect(reviewStamps).toBe(1));
+
+			await user.click(toggle);
+			await waitFor(() => expect(acks).toBe(1));
+
+			// The ack's follow-up invalidation must be `exact`. Query keys match by
+			// prefix, so a non-exact invalidate of ["discovery-status"] also refetches
+			// the modal's ["discovery-status","modal",n] query, which fetches with
+			// review=1 and moves the server's "since your last visit" baseline to now
+			// — silently zeroing every flap count for the next visit, on a routine
+			// click rather than a timer.
+			await waitFor(() => expect(acks).toBe(1));
+			expect(reviewStamps).toBe(1);
+		});
+
+		it("does not re-stamp review when an SSE event lands while the modal is open", async () => {
+			// Same prefix-matching hazard as the ack path, on the listener that fires
+			// exactly when flap counts have just moved.
+			let reviewStamps = 0;
+			let polls = 0;
+			server.use(
+				http.get("/api/discovery/status", ({ request }) => {
+					if (new URL(request.url).searchParams.get("review") === "1") {
+						reviewStamps++;
+					} else {
+						polls++;
+					}
+					return HttpResponse.json(
+						status({
+							claim_count: 1,
+							claims: [providerClaims("p1", "One", [claim("a")])],
+						}),
+					);
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await screen.findByTestId("discrepancy-claim");
+			await waitFor(() => expect(reviewStamps).toBe(1));
+			const pollsBefore = polls;
 
 			await act(async () => {
 				window.dispatchEvent(
@@ -932,7 +1415,162 @@ describe("Layout", () => {
 				);
 			});
 
-			await waitFor(() => expect(fetchCount).toBeGreaterThan(initial));
+			// The badge poll must refetch (that is the point of the listener) while
+			// the modal's review query must not.
+			await waitFor(() => expect(polls).toBeGreaterThan(pollsBefore));
+			expect(reviewStamps).toBe(1);
+		});
+
+		it("shows a failure state instead of the empty state when the fetch fails", async () => {
+			server.use(
+				http.get("/api/discovery/status", ({ request }) => {
+					// The poll succeeds so the badge renders; only the modal's own
+					// review fetch fails.
+					if (new URL(request.url).searchParams.get("review") === "1") {
+						return HttpResponse.json({ error: "boom" }, { status: 500 });
+					}
+					return HttpResponse.json(status({ claim_count: 2 }));
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+
+			expect(
+				await screen.findByTestId("discrepancy-load-error"),
+			).toBeInTheDocument();
+			// "Nothing is wrong" when we could not find out is the same false
+			// reassurance this rework exists to remove.
+			expect(screen.queryByTestId("discrepancy-empty")).toBeNull();
+		});
+
+		it("shows a loading state instead of the empty state while the fetch is out", async () => {
+			// One step earlier than the failure case above: the operator clicked a
+			// badge reading 1, and until the answer lands the modal knows nothing.
+			// Telling them there are no discrepancies in that window is the same
+			// false reassurance, just shorter-lived.
+			let release: (() => void) | undefined;
+			const gate = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			let modalFetches = 0;
+			server.use(
+				http.get("/api/discovery/status", async ({ request }) => {
+					// Only the modal's review fetch is held; the badge poll answers
+					// immediately so the badge is there to click.
+					if (new URL(request.url).searchParams.get("review") === "1") {
+						modalFetches++;
+						await gate;
+					}
+					return HttpResponse.json(
+						status({
+							claim_count: 1,
+							claims: [providerClaims("p1", "NanoGPT", [claim("a")])],
+						}),
+					);
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await screen.findByTestId("discrepancy-modal");
+			await waitFor(() => expect(modalFetches).toBe(1));
+
+			expect(screen.queryByTestId("discrepancy-empty")).toBeNull();
+			expect(screen.getByTestId("discrepancy-loading")).toBeInTheDocument();
+
+			release?.();
+			expect(await screen.findByTestId("discrepancy-claim")).toHaveAttribute(
+				"data-model-id",
+				"a",
+			);
+			// And the loading line is a state, not a permanent header.
+			expect(screen.queryByTestId("discrepancy-loading")).toBeNull();
+		});
+
+		it("does not paint the previous session's rows when reopened", async () => {
+			// Close clears what the last visit collected. Without that the second
+			// open renders the first open's snapshot until its own fetch lands:
+			// struck-through resolved rows and already-dismissed models, presented
+			// as the current state of the world.
+			let opens = 0;
+			let release: (() => void) | undefined;
+			server.use(
+				http.get("/api/discovery/status", async ({ request }) => {
+					if (new URL(request.url).searchParams.get("review") === "1") {
+						opens++;
+						if (opens === 2) {
+							await new Promise<void>((resolve) => {
+								release = resolve;
+							});
+						}
+					}
+					return HttpResponse.json(
+						status({
+							claim_count: 1,
+							claims: [
+								providerClaims("p1", "NanoGPT", [
+									claim(opens <= 1 ? "first-open" : "second-open"),
+								]),
+							],
+						}),
+					);
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			expect(await screen.findByTestId("discrepancy-claim")).toHaveAttribute(
+				"data-model-id",
+				"first-open",
+			);
+
+			// Escape, not the close button: that control is labelled with a
+			// translated string and this suite stays locale-independent.
+			fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+			await waitFor(() =>
+				expect(screen.queryByTestId("discrepancy-modal")).toBeNull(),
+			);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await screen.findByTestId("discrepancy-modal");
+			await waitFor(() => expect(opens).toBe(2));
+
+			// The second open's fetch is still out, so there is nothing yet to show.
+			expect(screen.queryByTestId("discrepancy-claim")).toBeNull();
+			expect(screen.getByTestId("discrepancy-loading")).toBeInTheDocument();
+
+			release?.();
+			await waitFor(() =>
+				expect(screen.getByTestId("discrepancy-claim")).toHaveAttribute(
+					"data-model-id",
+					"second-open",
+				),
+			);
+		});
+
+		it("refetches the badge on a discovery.changes_pending SSE event", async () => {
+			let fetches = 0;
+			server.use(
+				http.get("/api/discovery/status", () => {
+					fetches++;
+					return HttpResponse.json(status());
+				}),
+			);
+			renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await waitFor(() => expect(fetches).toBeGreaterThanOrEqual(1));
+			const initial = fetches;
+
+			await act(async () => {
+				window.dispatchEvent(
+					new CustomEvent("server-event", {
+						detail: { type: "discovery.changes_pending" },
+					}),
+				);
+			});
+
+			await waitFor(() => expect(fetches).toBeGreaterThan(initial));
 		});
 	});
 
