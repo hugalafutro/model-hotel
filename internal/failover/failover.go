@@ -412,9 +412,11 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 	// An empty-string pointer signals "clear to NULL".
 	// auto_disabled_at is cleared on every group_enabled write that is not the
 	// discovery auto-disable itself (migration 062). This path covers the sync's
-	// upsertAutoGroup, which re-enables an auto group, and the config-sync member
-	// import: an enabled group is by definition not a claim, and a stale stamp
-	// left behind would make the NEXT auto-disable read as an old one.
+	// upsertAutoGroup, which re-enables an auto group: an enabled group is by
+	// definition not a claim, and a stale stamp left behind would make the NEXT
+	// auto-disable read as an old one. The config-sync member import does NOT
+	// go through here; it clears conditionally on its own (see the ON CONFLICT
+	// clause in internal/api/configsync_apply.go).
 	doSetClauses := []string{
 		"priority_order = $2",
 		"entry_enabled = $3",
