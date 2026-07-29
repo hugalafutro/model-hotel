@@ -408,7 +408,11 @@ class SettingsScreenTest {
         var picked: QuotaBadgeAlign? = null
         content(widgetQuota = false, onSetWidgetQuotaAlign = { picked = it })
 
-        composeTestRule.onNodeWithTag("settings-widget-align-LEFT").performScrollTo().assertIsDisplayed().assertIsNotEnabled()
+        composeTestRule
+            .onNodeWithTag("settings-widget-align-LEFT")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertIsNotEnabled()
         composeTestRule.onNodeWithTag("settings-widget-align-CENTER").performScrollTo().assertIsNotEnabled()
         composeTestRule.onNodeWithTag("settings-widget-align-RIGHT").performScrollTo().assertIsNotEnabled()
 
