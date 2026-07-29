@@ -167,7 +167,15 @@ func (h *Handler) GetDiscoveryStatus(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to load discovery changes", err, http.StatusInternalServerError)
 		return
 	}
-	informational := stripDisabledBucket(collapseRoundTrips(pending))
+	// A group that zone 1 is already claiming must not also appear in the zone 2
+	// feed; one that is NOT claimed (disabled before migration 062, so it carries
+	// no provenance stamp) must, or it would be invisible everywhere. Hence the
+	// live claim set rather than a blanket strip of the bucket.
+	claimedGroups := make(map[string]struct{}, len(groupClaims))
+	for _, g := range groupClaims {
+		claimedGroups[g.DisplayModel] = struct{}{}
+	}
+	informational := stripClaimedBuckets(collapseRoundTrips(pending), claimedGroups)
 
 	// Stamp last, and never in read-only mode: a GET must not 403 there, so the
 	// write is skipped rather than rejected.

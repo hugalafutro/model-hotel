@@ -327,3 +327,76 @@ func TestGetDiscoveryStatus_GroupClaimsSerializeAsEmptyArray(t *testing.T) {
 		t.Errorf("group_claims must serialize as [], not null; body: %s", body)
 	}
 }
+
+// TestGetDiscoveryStatus_StripsOnlyClaimedGroupsFromTheFeed pins the group half
+// of the two-zone rule, in both directions from a SINGLE journal row naming both
+// groups. That shape is what makes it a real test: a blanket
+// `trimmed.FailoverDisabledGroups = nil` and a no-op strip each satisfy exactly
+// one of the two assertions.
+//
+//   - claimed-group is a live claim, so zone 1 owns it and it must leave the
+//     feed. Left in both, it would carry two lifecycles: the claim disappears
+//     the instant the group is routable again, while the journal row would keep
+//     saying it was disabled until pruning at 30 days.
+//   - pre-062-group is disabled with NO auto_disabled_at, exactly what an
+//     upgrade leaves behind. It is not a claim, so the feed is the only place it
+//     shows at all; stripping it would make it invisible in both zones for the
+//     whole retention window.
+func TestGetDiscoveryStatus_StripsOnlyClaimedGroupsFromTheFeed(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+	ctx := context.Background()
+	truncateDiscoveryChanges(t)
+	truncateFailoverGroups(t)
+
+	provID := seedClaimProvider(t, pool, "strip-prov", true)
+	memberA := seedGroupMember(t, pool, provID, "strip-member-a")
+	memberB := seedGroupMember(t, pool, provID, "strip-member-b")
+
+	seedCustomGroup(t, pool, "claimed-group", []uuid.UUID{memberA, memberB})
+	preMigrationID := seedCustomGroup(t, pool, "pre-062-group", []uuid.UUID{memberA, memberB})
+	if _, err := pool.Exec(ctx,
+		`UPDATE model_failover_groups SET group_enabled = false, auto_disabled_at = NULL WHERE id = $1`,
+		preMigrationID); err != nil {
+		t.Fatalf("age the pre-062 group: %v", err)
+	}
+
+	if _, err := AppendDiscoveryChange(ctx, pool, "scheduled", &provID, "Failover", &DiscoveryDiff{
+		FailoverDisabledGroups: []failover.DisabledGroupInfo{
+			{DisplayModel: "claimed-group", EffectiveCount: 1, Reason: "fewer than 2 routable members"},
+			{DisplayModel: "pre-062-group", EffectiveCount: 1, Reason: "fewer than 2 routable members"},
+		},
+	}); err != nil {
+		t.Fatalf("seed journal: %v", err)
+	}
+
+	// Discovery takes claimed-group down for real. Never stamped by hand: the
+	// provenance has to come from the production path. pre-062-group is already
+	// disabled, so revalidation skips it and it stays unstamped.
+	setModelEnabled(t, pool, memberB, false)
+	runRevalidate(t, pool)
+
+	resp := getStatus(t, r, "/discovery/status")
+
+	// Anchors: the strip is keyed on the claim set, so both halves are meaningless
+	// unless exactly one of these groups is actually a claim.
+	if findGroupClaim(resp, "claimed-group") == nil {
+		t.Fatalf("anchor: claimed-group must be a live claim, got %+v", resp.GroupClaims)
+	}
+	if got := findGroupClaim(resp, "pre-062-group"); got != nil {
+		t.Fatalf("anchor: a group with no auto_disabled_at must not be a claim, got %+v", got)
+	}
+
+	fed := map[string]bool{}
+	for _, e := range resp.Informational {
+		for _, g := range e.Diff.FailoverDisabledGroups {
+			fed[g.DisplayModel] = true
+		}
+	}
+	if fed["claimed-group"] {
+		t.Errorf("a group already rendered as a claim must not also appear in the feed; feed = %v", fed)
+	}
+	if !fed["pre-062-group"] {
+		t.Errorf("a disabled group with no provenance stamp is not a claim, so the feed is its only home; feed = %v", fed)
+	}
+}
