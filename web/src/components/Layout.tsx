@@ -896,16 +896,12 @@ export function Layout({ children }: LayoutProps) {
 
 	const onDismiss = useCallback(
 		async (providerId: string, modelId: string) => {
-			// Only this claim's own status is captured, never the whole array. A
+			// Nothing is captured here, not the array and not the claim's status. A
 			// refresh can settle while the dismiss is in flight (a retest finishing,
-			// an undo, a second dismiss), and replaying a stale array over it would
-			// resurrect claims that refresh had just resolved and erase ones it had
-			// just discovered. Defaults to `pending` for the unreachable case of the
-			// row having left the snapshot entirely between render and click.
-			const before =
-				snapshot
-					.find((p: MergedProvider) => p.provider_id === providerId)
-					?.gone.find((c) => c.model_id === modelId)?.status ?? "pending";
+			// an undo, a second dismiss), and anything read before the request went
+			// out is stale by the time the rollback would replay it. The hook records
+			// the displaced status ON the claim and reverts it only if that write is
+			// still what the row holds; see revertDismissal.
 			dismissClaim(providerId, modelId);
 			try {
 				// Exactly one model per request. The endpoint 200s with a short
@@ -933,7 +929,7 @@ export function Layout({ children }: LayoutProps) {
 					},
 				);
 			} catch (err) {
-				restoreClaim(providerId, modelId, before);
+				restoreClaim(providerId, modelId);
 				toast(
 					t("providers.discrepancies.dismissFailed", {
 						message: err instanceof Error ? err.message : String(err),
@@ -942,7 +938,7 @@ export function Layout({ children }: LayoutProps) {
 				);
 			}
 		},
-		[snapshot, dismissClaim, restoreClaim, refresh, toast, t, undoDismiss],
+		[dismissClaim, restoreClaim, refresh, toast, t, undoDismiss],
 	);
 
 	// `exact: true` on BOTH invalidations below, and it is not optional.

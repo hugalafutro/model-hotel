@@ -16,6 +16,16 @@ export type ClaimStatus = "pending" | "resolved" | "new";
 
 export interface MergedClaim extends ModelClaim {
 	status: ClaimStatus;
+	/**
+	 * Written ONLY by the optimistic half of a dismiss, holding the status the row
+	 * carried when the operator clicked.
+	 *
+	 * Its PRESENCE is the compare half of the rollback's compare-and-swap: while
+	 * it is set, the row still holds the value that dismissal wrote and nothing
+	 * else has spoken since. Every merge strips it, because a refetch is newer
+	 * authority than an in-flight guess. Never rendered.
+	 */
+	optimisticFrom?: ClaimStatus;
 }
 
 export interface MergedProvider {
@@ -43,6 +53,20 @@ export function toSnapshot(claims: ProviderClaims[]): MergedProvider[] {
 type Buckets = Record<GroupName, MergedClaim[]>;
 
 const emptyBuckets = (): Buckets => ({ gone: [], stale: [], suspect: [] });
+
+/**
+ * A row the refetch no longer reports: resolved, kept in place, and no longer
+ * owned by any in-flight dismiss.
+ *
+ * Dropping `optimisticFrom` is what makes the merge authoritative over a dismiss
+ * that is still out. Every OTHER row a merge emits is rebuilt from the refetch's
+ * own `ModelClaim`, which cannot carry the marker; this branch is the one that
+ * spreads a snapshot row forward, so it is the one that has to strip it.
+ */
+function resolvedRow(before: MergedClaim): MergedClaim {
+	const { optimisticFrom: _superseded, ...rest } = before;
+	return { ...rest, status: "resolved" };
+}
 
 /**
  * Reconciles ONE provider's three buckets against a refetch, keyed on
@@ -82,7 +106,7 @@ function mergeProviderBuckets(prev: MergedProvider, fresh: ProviderClaims) {
 		for (const before of prev[g]) {
 			const now = freshByID.get(before.model_id);
 			if (!now) {
-				kept[g].push({ ...before, status: "resolved" });
+				kept[g].push(resolvedRow(before));
 				continue;
 			}
 			reconciled.add(before.model_id);
@@ -138,39 +162,79 @@ export function mergeClaims(
 }
 
 /**
- * Sets ONE claim's status in place, leaving every other row untouched.
- *
- * Both halves of a dismiss go through here: the optimistic half sets
- * `resolved`, the rollback sets back whatever the row held before the click.
- * Deliberately not a removal — a row that vanishes on a click is the exact
- * complaint this rework exists to fix, and `resolved` is already the vocabulary
- * for "was wrong, is not any more": it strikes the row through where it sits and
- * names it in the resolved summary.
- *
- * Pure and single-claim, so the caller can apply it FUNCTIONALLY against
- * whatever the snapshot happens to be when the write settles. Restoring a whole
- * captured array instead would silently discard anything a concurrent refresh
- * established in the meantime.
+ * Rewrites ONE claim in place, leaving every other row untouched.
  *
  * All three buckets are scanned even though only `gone` rows offer a Dismiss
  * control: `model_id` is unique within a provider, and a refresh landing during
- * the request can legitimately have moved the row to another bucket.
+ * the request can legitimately have moved the row to another bucket. Identity is
+ * therefore `(provider_id, model_id)`, never a bucket position.
  */
-export function setClaimStatus(
+function mapClaim(
 	snapshot: MergedProvider[],
 	providerID: string,
 	modelID: string,
-	status: ClaimStatus,
+	fn: (c: MergedClaim) => MergedClaim,
 ): MergedProvider[] {
 	return snapshot.map((p) => {
 		if (p.provider_id !== providerID) return p;
 		const next: MergedProvider = { ...p };
 		for (const g of GROUPS) {
-			next[g] = p[g].map((c) =>
-				c.model_id === modelID ? { ...c, status } : c,
-			);
+			next[g] = p[g].map((c) => (c.model_id === modelID ? fn(c) : c));
 		}
 		return next;
+	});
+}
+
+/**
+ * Optimistic half of a dismiss: strikes the claim through where it sits and
+ * remembers the status it is displacing.
+ *
+ * Deliberately not a removal — a row that vanishes on a click is the exact
+ * complaint this rework exists to fix, and `resolved` is already the vocabulary
+ * for "was wrong, is not any more".
+ *
+ * Pure and single-claim, so the caller can apply it FUNCTIONALLY against
+ * whatever the snapshot happens to be when the write settles. Capturing and
+ * replaying a whole array instead would silently discard anything a concurrent
+ * refresh established in the meantime.
+ */
+export function dismissOptimistically(
+	snapshot: MergedProvider[],
+	providerID: string,
+	modelID: string,
+): MergedProvider[] {
+	return mapClaim(snapshot, providerID, modelID, (c) => ({
+		...c,
+		status: "resolved",
+		optimisticFrom: c.status,
+	}));
+}
+
+/**
+ * Rollback half, as a compare-and-swap: reverts the claim ONLY if it still holds
+ * the value this dismissal wrote.
+ *
+ * `optimisticFrom` is the comparand. A merge strips it from every row it emits,
+ * so a claim that a refresh has resolved (the model came back), moved to another
+ * bucket, or simply re-reported since the click no longer matches and is left
+ * exactly as the refetch left it. That newer state is derived from the server and
+ * is more authoritative than a status read off the screen before the request was
+ * even sent; replaying the captured one over it would show a resolved claim as
+ * pending until the next fetch.
+ *
+ * Nothing is resurrected on a miss, which is what makes the moved-bucket case
+ * safe: the row lives in its new bucket with a merge-assigned status, and the
+ * rollback neither writes it there nor puts a copy back where it used to be.
+ */
+export function revertDismissal(
+	snapshot: MergedProvider[],
+	providerID: string,
+	modelID: string,
+): MergedProvider[] {
+	return mapClaim(snapshot, providerID, modelID, (c) => {
+		if (c.optimisticFrom === undefined) return c;
+		const { optimisticFrom, ...rest } = c;
+		return { ...rest, status: optimisticFrom };
 	});
 }
 
@@ -266,29 +330,25 @@ export function useDiscrepancies(open: boolean) {
 		}
 	}, []);
 
-	/** Optimistic half of a dismiss; see `setClaimStatus`. */
+	/** Optimistic half of a dismiss; see `dismissOptimistically`. */
 	const dismissClaim = useCallback((providerID: string, modelID: string) => {
-		setSnapshot((prev) =>
-			setClaimStatus(prev, providerID, modelID, "resolved"),
-		);
+		setSnapshot((prev) => dismissOptimistically(prev, providerID, modelID));
 	}, []);
 
 	/**
-	 * Rollback half: reverts the ONE claim the dismiss optimistically changed,
-	 * back to the status it held when the operator clicked.
+	 * Rollback half: undoes the ONE claim this dismiss optimistically changed, and
+	 * only while that write is still the row's current value.
 	 *
-	 * Applied functionally against the current snapshot rather than by restoring
-	 * an array captured before the request. A refresh (a retest, an undo, another
-	 * dismiss) can settle inside that window, and replaying the pre-request array
-	 * over it would resurrect claims the refresh had just resolved and erase ones
-	 * it had just discovered — for as long as it takes the next fetch to land.
+	 * Applied functionally against the live snapshot rather than by restoring an
+	 * array — or a status — captured before the request. A refresh (a retest, an
+	 * undo, another dismiss) can settle inside that window, and replaying
+	 * click-time state over it would resurrect claims the refresh had just
+	 * resolved and erase ones it had just discovered, for as long as it takes the
+	 * next fetch to land. See `revertDismissal` for the compare-and-swap.
 	 */
-	const restoreClaim = useCallback(
-		(providerID: string, modelID: string, status: ClaimStatus) => {
-			setSnapshot((prev) => setClaimStatus(prev, providerID, modelID, status));
-		},
-		[],
-	);
+	const restoreClaim = useCallback((providerID: string, modelID: string) => {
+		setSnapshot((prev) => revertDismissal(prev, providerID, modelID));
+	}, []);
 
 	return {
 		snapshot,

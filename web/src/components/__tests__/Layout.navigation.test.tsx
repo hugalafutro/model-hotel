@@ -1226,6 +1226,12 @@ describe("Layout", () => {
 			releaseDismiss?.();
 
 			// The optimistic change is undone...
+			//
+			// `a` is still reported in phase 1, so the refresh above has already put
+			// it back to `pending` on the server's authority and the rollback is a
+			// no-op here (see revertDismissal's compare-and-swap). This is an
+			// end-state assertion; the rollback itself is isolated by the `c` case at
+			// the bottom of this test and by the sibling test below.
 			await waitFor(() =>
 				expect(row("a")).toHaveAttribute("data-status", "pending"),
 			);
@@ -1246,6 +1252,86 @@ describe("Layout", () => {
 			await waitFor(() =>
 				expect(row("c")).toHaveAttribute("data-status", "new"),
 			);
+		});
+
+		it("leaves a claim a concurrent refresh resolved alone when the dismissal fails", async () => {
+			// The residual half of the rollback bug. Narrowing the revert to a single
+			// claim was not enough while it still wrote the CLICK-TIME status
+			// unconditionally: if a refresh legitimately clears that same claim while
+			// the request is out (the model came back), the failure replays `pending`
+			// over server truth and a resolved row reads as still-broken until the
+			// next fetch. An undo must only undo its own write.
+			let phase = 0;
+			let releaseDismiss: (() => void) | undefined;
+			const dismissGate = new Promise<void>((resolve) => {
+				releaseDismiss = resolve;
+			});
+			server.use(
+				http.get("/api/discovery/status", () => {
+					// After the retest `a` is no longer reported at all — it came back —
+					// and `c` has appeared, which is what makes the refresh observable.
+					const gone = (phase === 0 ? ["a", "b"] : ["b", "c"]).map((m) =>
+						claim(m),
+					);
+					return HttpResponse.json(
+						status({
+							claim_count: gone.length,
+							claims: [providerClaims("p1", "One", gone)],
+						}),
+					);
+				}),
+				http.post("/api/providers/:id/discover", () => {
+					phase = 1;
+					return HttpResponse.json({ discovered: 0, diff: {} });
+				}),
+				http.post("/api/discovery/dismiss", async () => {
+					await dismissGate;
+					return HttpResponse.json({ error: "boom" }, { status: 500 });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			const row = (id: string) =>
+				screen
+					.queryAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === id);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await waitFor(() => expect(row("a")).toBeTruthy());
+
+			// Dismiss `a`; the request hangs.
+			await user.click(
+				row("a")?.querySelector(
+					'[data-testid="discrepancy-dismiss"]',
+				) as HTMLElement,
+			);
+			await waitFor(() =>
+				expect(row("a")).toHaveAttribute("data-status", "resolved"),
+			);
+
+			// A retest lands its refresh while the dismiss is still out. `c` arriving
+			// is the proof it landed; `a` is now resolved on the SERVER's authority,
+			// not on the strength of the optimistic write.
+			await user.click(await screen.findByTestId("discrepancy-retest"));
+			await waitFor(() => expect(row("c")).toBeTruthy());
+			expect(row("a")).toHaveAttribute("data-status", "resolved");
+
+			releaseDismiss?.();
+
+			// The error toast is the ordering anchor: the rollback runs immediately
+			// before it, in the same catch block, so a rendered toast means the
+			// rollback has already had its chance.
+			await waitFor(() =>
+				expect(
+					screen
+						.getAllByTestId("toast")
+						.some((el) => el.getAttribute("data-toast-type") === "error"),
+				).toBe(true),
+			);
+			// The newer, server-derived status wins over the click-time one.
+			expect(row("a")).toHaveAttribute("data-status", "resolved");
+			expect(row("c")).toHaveAttribute("data-status", "new");
+			expect(row("b")).toHaveAttribute("data-status", "pending");
 		});
 
 		it("acknowledges the journal once it is expanded, without re-stamping review", async () => {

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ModelClaim, ProviderClaims } from "../../api/types";
-import { mergeClaims, toSnapshot } from "../useDiscrepancies";
+import {
+	dismissOptimistically,
+	mergeClaims,
+	revertDismissal,
+	toSnapshot,
+} from "../useDiscrepancies";
 
 const claim = (
 	model_id: string,
@@ -188,5 +193,89 @@ describe("mergeClaims", () => {
 		]);
 		expect(merged).toHaveLength(2);
 		expect(merged[1].suspect[0].status).toBe("new");
+	});
+});
+
+describe("dismiss rollback", () => {
+	it("reverts a claim that still holds its own optimistic write", () => {
+		const snapshot = toSnapshot([provider({ gone: [claim("a"), claim("b")] })]);
+		const after = revertDismissal(
+			dismissOptimistically(snapshot, "p1", "a"),
+			"p1",
+			"a",
+		);
+		expect(after[0].gone.map((c) => [c.model_id, c.status])).toEqual([
+			["a", "pending"],
+			["b", "pending"],
+		]);
+	});
+
+	it("reverts to the status the row actually held, not a hardcoded pending", () => {
+		// A claim discovered mid-session carries `new`. A failed dismiss must not
+		// quietly erase that marker.
+		const snapshot = mergeClaims(toSnapshot([provider()]), [
+			provider({ gone: [claim("a")] }),
+		]);
+		expect(snapshot[0].gone[0].status).toBe("new");
+		const after = revertDismissal(
+			dismissOptimistically(snapshot, "p1", "a"),
+			"p1",
+			"a",
+		);
+		expect(after[0].gone[0].status).toBe("new");
+	});
+
+	it("touches only the addressed provider's copy of a model id", () => {
+		// `model_id` is unique WITHIN a provider, not across them: two providers
+		// commonly serve the same model name. Both halves address a claim by
+		// (provider_id, model_id), so the other provider's row must not move.
+		const snapshot = toSnapshot([
+			provider({ gone: [claim("a")] }),
+			provider({ provider_id: "p2", provider_name: "Two", gone: [claim("a")] }),
+		]);
+		const optimistic = dismissOptimistically(snapshot, "p1", "a");
+		expect(optimistic[1].gone[0].status).toBe("pending");
+		const after = revertDismissal(optimistic, "p1", "a");
+		expect(after[0].gone[0].status).toBe("pending");
+		expect(after[1]).toBe(snapshot[1]);
+	});
+
+	it("leaves a claim alone once a refresh has resolved it", () => {
+		// The rollback must only undo its OWN write. A refresh landing while the
+		// request is out is newer authority: here the server stops reporting `a`
+		// (the model came back), so the merge resolves it on its own account and a
+		// later failure must not replay the click-time `pending` over that.
+		const optimistic = dismissOptimistically(
+			toSnapshot([provider({ gone: [claim("a")] })]),
+			"p1",
+			"a",
+		);
+		const refreshed = mergeClaims(optimistic, [provider()]);
+		expect(revertDismissal(refreshed, "p1", "a")).toEqual(refreshed);
+		expect(refreshed[0].gone[0].status).toBe("resolved");
+	});
+
+	it("leaves a claim a refresh moved to another bucket where the refresh put it", () => {
+		// Identity is (provider_id, model_id), so the rollback still FINDS a claim
+		// that changed bucket mid-request — and must still decline to touch it. The
+		// row belongs to the merge now: it is not reverted in its new bucket and
+		// no copy is resurrected in the old one.
+		//
+		// `a` is seeded as `new` so the two outcomes are distinguishable: the merge
+		// makes the moved row `pending`, and a revert that ignored the compare would
+		// stamp the click-time `new` back over it.
+		const discovered = mergeClaims(toSnapshot([provider()]), [
+			provider({ gone: [claim("a")] }),
+		]);
+		expect(discovered[0].gone[0].status).toBe("new");
+		const optimistic = dismissOptimistically(discovered, "p1", "a");
+		const refreshed = mergeClaims(optimistic, [
+			provider({ stale: [claim("a", { state: "stale" })] }),
+		]);
+		const after = revertDismissal(refreshed, "p1", "a");
+		expect(after[0].gone).toEqual([]);
+		expect(after[0].stale.map((c) => [c.model_id, c.status])).toEqual([
+			["a", "pending"],
+		]);
 	});
 });
