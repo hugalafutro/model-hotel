@@ -406,4 +406,104 @@ describe("ModelDiscrepancyModal", () => {
 			expect(onExpandInformational).toHaveBeenCalledTimes(1);
 		});
 	});
+
+	describe("accessibility", () => {
+		// Resolve a toggle's aria-controls the way assistive tech does, and prove
+		// it lands on the region that actually holds the content.
+		const regionOf = (toggle: HTMLElement, contained: HTMLElement) => {
+			const id = toggle.getAttribute("aria-controls");
+			expect(id).toBeTruthy();
+			const region = document.getElementById(id as string);
+			expect(region).not.toBeNull();
+			expect(region).toContainElement(contained);
+			return region as HTMLElement;
+		};
+
+		it("takes the collapsed journal out of the accessibility tree", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+					informational={[infoEntry]}
+				/>,
+			);
+			const toggle = screen.getByTestId("discrepancy-informational-toggle");
+			const region = regionOf(
+				toggle,
+				screen.getByTestId("discrepancy-informational-entry"),
+			);
+
+			// grid-rows-[0fr] + overflow-hidden hides the entries visually only, so
+			// without `inert` a screen reader reads all of them out while this very
+			// toggle claims the zone is collapsed.
+			expect(toggle).toHaveAttribute("aria-expanded", "false");
+			expect(region.firstElementChild).toHaveAttribute("inert");
+
+			await user.click(toggle);
+			expect(toggle).toHaveAttribute("aria-expanded", "true");
+			expect(region.firstElementChild).not.toHaveAttribute("inert");
+		});
+
+		it("takes the collapsed stale rows out of the accessibility tree", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ stale: [claimOf("old", "pending", "stale")] })]}
+				/>,
+			);
+			const toggle = screen.getByTestId("discrepancy-stale-toggle");
+			const region = regionOf(toggle, screen.getByTestId("discrepancy-claim"));
+
+			expect(toggle).toHaveAttribute("aria-expanded", "false");
+			expect(region.firstElementChild).toHaveAttribute("inert");
+
+			await user.click(toggle);
+			expect(toggle).toHaveAttribute("aria-expanded", "true");
+			expect(region.firstElementChild).not.toHaveAttribute("inert");
+		});
+
+		it("makes the read-only reason reachable from the controls it disables", () => {
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+					readOnly
+				/>,
+			);
+			const note = screen.getByTestId("discrepancy-readonly-note");
+			expect(note.id).toBeTruthy();
+			expect(note.textContent?.trim()).not.toBe("");
+
+			for (const testId of [
+				"discrepancy-dismiss",
+				"discrepancy-retest",
+				"discrepancy-retest-all",
+			]) {
+				const button = screen.getByTestId(testId);
+				// Disabled buttons are not focusable, so their `title` never reaches
+				// a keyboard or screen-reader user. The description has to.
+				expect(button).toBeDisabled();
+				expect(button).toHaveAttribute("aria-describedby", note.id);
+				// The two must not drift apart: whatever the tooltip says on hover is
+				// what assistive tech gets. Compared, never spelled out, so this holds
+				// in every locale.
+				expect(button.getAttribute("title")).toBe(note.textContent);
+			}
+		});
+
+		it("leaves no dangling description when the modal is writable", () => {
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				/>,
+			);
+			expect(screen.queryByTestId("discrepancy-readonly-note")).toBeNull();
+			expect(screen.getByTestId("discrepancy-dismiss")).not.toHaveAttribute(
+				"aria-describedby",
+			);
+		});
+	});
 });

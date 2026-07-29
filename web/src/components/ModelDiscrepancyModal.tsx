@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
 	DiscoveryChangeEntry,
@@ -137,6 +137,11 @@ export function ModelDiscrepancyModal({
 		if (next) notifyExpanded();
 	};
 
+	// Base for the aria-controls ids on the two collapsible zones. useId rather
+	// than provider_id so the ids stay unique even if the modal is ever mounted
+	// twice, and legal regardless of what a provider id looks like.
+	const regionIdBase = useId();
+
 	// Stale is aged-out history, collapsed behind its count until asked for.
 	const [staleOpen, setStaleOpen] = useState<Set<string>>(() => new Set());
 	const toggleStale = (providerID: string) =>
@@ -158,6 +163,16 @@ export function ModelDiscrepancyModal({
 	// started this rework, so the whole walk counts as blocked.
 	const retestBlocked =
 		isRetesting || readOnly || retestAllProgress !== undefined;
+
+	// The read-only reason lives only in a `title` on a DISABLED button, and a
+	// disabled button is not focusable, so keyboard and screen-reader users never
+	// reach it. One sr-only sentence carries it into the DOM instead (the reason
+	// is modal-wide, so a single node serves every blocked control) and each such
+	// button points at it with aria-describedby. Disabled buttons stay in the
+	// accessibility tree, so the description is announced in browse mode; the
+	// title stays for pointer users, and nothing about the visual design moves.
+	const readOnlyNoteId = `${regionIdBase}-readonly`;
+	const describedByReadOnly = readOnly ? readOnlyNoteId : undefined;
 
 	const flapChip = (c: MergedClaim) => {
 		// Primary number is "since your last visit"; the 30-day total is shown
@@ -255,6 +270,7 @@ export function ModelDiscrepancyModal({
 									? t("providers.discrepancies.readOnlyTooltip")
 									: t("providers.discrepancies.dismissTooltip")
 							}
+							aria-describedby={describedByReadOnly}
 							className="ui-btn ui-btn-ghost ui-btn-compact shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
 							data-testid="discrepancy-dismiss"
 						>
@@ -292,12 +308,14 @@ export function ModelDiscrepancyModal({
 	const renderStale = (p: MergedProvider) => {
 		if (p.stale.length === 0) return null;
 		const open = staleOpen.has(p.provider_id);
+		const regionId = `${regionIdBase}-stale-${p.provider_id}`;
 		return (
 			<section data-testid="discrepancy-group-stale" className="space-y-1.5">
 				<button
 					type="button"
 					onClick={() => toggleStale(p.provider_id)}
 					aria-expanded={open}
+					aria-controls={regionId}
 					className="flex w-full items-center gap-2 text-left"
 					data-testid="discrepancy-stale-toggle"
 				>
@@ -315,11 +333,16 @@ export function ModelDiscrepancyModal({
 					</span>
 				</button>
 				<div
+					id={regionId}
 					className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
 						open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
 					}`}
 				>
-					<div className="overflow-hidden">
+					{/* grid-rows-[0fr] + overflow-hidden hides these rows VISUALLY only:
+					    without `inert` a screen reader still announces every one of them
+					    while the toggle says aria-expanded="false". inert sits on the
+					    inner div so the animated grid row keeps transitioning. */}
+					<div className="overflow-hidden" inert={!open}>
 						<div className="space-y-1.5">
 							{p.stale.map((c) => renderClaim(p, c, "stale"))}
 						</div>
@@ -401,6 +424,7 @@ export function ModelDiscrepancyModal({
 									? t("providers.discrepancies.readOnlyTooltip")
 									: t("providers.discrepancies.retestTooltip")
 							}
+							aria-describedby={describedByReadOnly}
 							className="ui-btn ui-btn-secondary ui-btn-compact inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
 							data-testid="discrepancy-retest"
 						>
@@ -642,6 +666,7 @@ export function ModelDiscrepancyModal({
 									? t("providers.discrepancies.readOnlyTooltip")
 									: t("providers.discrepancies.retestAllTooltip")
 							}
+							aria-describedby={describedByReadOnly}
 							className="ui-btn ui-btn-secondary ui-btn-compact inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
 							data-testid="discrepancy-retest-all"
 						>
@@ -656,6 +681,15 @@ export function ModelDiscrepancyModal({
 			}
 		>
 			<div className="space-y-5" data-testid="discrepancy-modal">
+				{readOnly ? (
+					<span
+						id={readOnlyNoteId}
+						className="sr-only"
+						data-testid="discrepancy-readonly-note"
+					>
+						{t("providers.discrepancies.readOnlyTooltip")}
+					</span>
+				) : null}
 				{/* A failed load banners at the top and, crucially, suppresses the
 				    empty state below: "nothing is wrong" when we could not find out
 				    is the false reassurance this whole rework exists to remove. */}
@@ -717,6 +751,7 @@ export function ModelDiscrepancyModal({
 							type="button"
 							onClick={toggleInfo}
 							aria-expanded={infoOpen}
+							aria-controls={`${regionIdBase}-informational`}
 							className="flex w-full items-center gap-2 text-left"
 							data-testid="discrepancy-informational-toggle"
 						>
@@ -734,11 +769,15 @@ export function ModelDiscrepancyModal({
 							</span>
 						</button>
 						<div
+							id={`${regionIdBase}-informational`}
 							className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
 								infoOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
 							}`}
 						>
-							<div className="overflow-hidden">
+							{/* Same reason as the stale zone: collapsed here is a visual
+							    state only, so the journal must be made inert or it is read
+							    out in full under an aria-expanded="false" toggle. */}
+							<div className="overflow-hidden" inert={!infoOpen}>
 								<div className="space-y-2">
 									{informational.map((entry, i) =>
 										renderInformationalEntry(
