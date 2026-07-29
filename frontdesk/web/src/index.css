@@ -970,5 +970,12 @@ h3 {
 .fd-quota-badges {
 	display: flex;
 	flex-wrap: wrap;
+	/* Centered rather than left-hugging: the strip spans the page, so a fleet
+	   with two or three quota providers otherwise left a long empty run to the
+	   right. The container already wraps, so each wrapped line centers on its
+	   own, which is what a fleet with more providers than fit one line wants.
+	   Only the main axis: every .fd-quota-pill is the same height, so
+	   align-items would be a declaration nothing depends on. */
+	justify-content: center;
 	gap: 0.35rem;
 }
