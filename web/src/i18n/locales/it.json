@@ -443,7 +443,9 @@
 		"resetAll": "Reimposta tutto (cancella modello e impostazioni)",
 		"toast": {
 			"chatCleared": "Chat cancellata",
-			"conversationCleared": "Conversazione cancellata"
+			"conversationCleared": "Conversazione cancellata",
+			"chatReset": "Chat reimpostata",
+			"conversationReset": "Conversazione reimpostata"
 		},
 		"chatCleared": "Chat cancellata",
 		"conversationCleared": "Conversazione cancellata",
@@ -2340,7 +2342,8 @@
 			"thinkingDots": "Pensando…",
 			"turn": "Turno {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Interrompe l'instradamento delle richieste a questo modello finché non lo riattivi."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtro Fornitori",

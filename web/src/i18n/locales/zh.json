@@ -438,7 +438,9 @@
 		"resetAll": "重置所有 (清除模型和设置)",
 		"toast": {
 			"chatCleared": "聊天已清除",
-			"conversationCleared": "对话已清除"
+			"conversationCleared": "对话已清除",
+			"chatReset": "聊天已重置",
+			"conversationReset": "对话已重置"
 		},
 		"chatCleared": "聊天已清除",
 		"conversationCleared": "对话已清除",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "思考…",
 			"turn": "第 {{number}} 回合",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "停止将请求路由到此模型，直到您重新启用它。"
 		},
 		"providerFilter": {
 			"filterProviders": "筛选提供商",

@@ -438,7 +438,9 @@
 		"resetAll": "Alle zurücksetzen (Modell & Einstellungen löschen)",
 		"toast": {
 			"chatCleared": "Chat gelöscht",
-			"conversationCleared": "Unterhaltung gelöscht"
+			"conversationCleared": "Unterhaltung gelöscht",
+			"chatReset": "Chat zurückgesetzt",
+			"conversationReset": "Unterhaltung zurückgesetzt"
 		},
 		"chatCleared": "Chat gelöscht",
 		"conversationCleared": "Unterhaltung gelöscht",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "Denken…",
 			"turn": "Runde {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Keine Anfragen mehr an dieses Modell leiten, bis Sie es wieder aktivieren."
 		},
 		"providerFilter": {
 			"filterProviders": "Anbieter filtern",

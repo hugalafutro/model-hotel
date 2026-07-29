@@ -438,7 +438,9 @@
 		"resetAll": "Nollaa kaikki (tyhjennä malli ja asetukset)",
 		"toast": {
 			"chatCleared": "Keskustelu tyhjennetty",
-			"conversationCleared": "Keskustelu tyhjennetty"
+			"conversationCleared": "Keskustelu tyhjennetty",
+			"chatReset": "Keskustelu nollattu",
+			"conversationReset": "Keskustelu nollattu"
 		},
 		"chatCleared": "Keskustelu tyhjennetty",
 		"conversationCleared": "Keskustelu tyhjennetty",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "Ajattelee…",
 			"turn": "Vuoro {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Lopeta pyyntöjen ohjaaminen tähän malliin, kunnes otat sen uudelleen käyttöön."
 		},
 		"providerFilter": {
 			"filterProviders": "Suodata tarjoajia",

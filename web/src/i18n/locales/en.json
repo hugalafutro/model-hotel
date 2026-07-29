@@ -438,7 +438,9 @@
 		"resetAll": "Reset all (clear model & settings)",
 		"toast": {
 			"chatCleared": "Chat cleared",
-			"conversationCleared": "Conversation cleared"
+			"conversationCleared": "Conversation cleared",
+			"chatReset": "Chat reset",
+			"conversationReset": "Conversation reset"
 		},
 		"chatCleared": "Chat cleared",
 		"conversationCleared": "Conversation cleared",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "Thinking…",
 			"turn": "Turn {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Stop routing requests to this model until you re-enable it."
 		},
 		"providerFilter": {
 			"filterProviders": "Filter Providers",

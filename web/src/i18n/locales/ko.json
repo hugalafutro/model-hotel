@@ -438,7 +438,9 @@
 		"resetAll": "모두 초기화 (모델 및 설정 삭제)",
 		"toast": {
 			"chatCleared": "채팅 기록 삭제됨",
-			"conversationCleared": "대화 기록 삭제됨"
+			"conversationCleared": "대화 기록 삭제됨",
+			"chatReset": "채팅 초기화됨",
+			"conversationReset": "대화 초기화됨"
 		},
 		"chatCleared": "채팅 기록 삭제됨",
 		"conversationCleared": "대화 기록 삭제됨",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "생각 중…",
 			"turn": "{{number}}번째 차례",
 			"tokPerSec": "토큰/초",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "다시 활성화할 때까지 이 모델로 요청을 라우팅하지 않습니다."
 		},
 		"providerFilter": {
 			"filterProviders": "제공업체 필터",

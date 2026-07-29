@@ -448,7 +448,9 @@
 		"resetAll": "Скинути все (очистити модель і налаштування)",
 		"toast": {
 			"chatCleared": "Чат очищено",
-			"conversationCleared": "Бесіду очищено"
+			"conversationCleared": "Бесіду очищено",
+			"chatReset": "Чат скинуто",
+			"conversationReset": "Бесіду скинуто"
 		},
 		"chatCleared": "Чат очищено",
 		"conversationCleared": "Бесіду очищено",
@@ -2386,7 +2388,8 @@
 			"thinkingDots": "Мислення…",
 			"turn": "Хід {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Припинити спрямовувати запити до цієї моделі, доки ви знову її не ввімкнете."
 		},
 		"providerFilter": {
 			"filterProviders": "Фільтр постачальників",

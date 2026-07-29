@@ -448,7 +448,9 @@
 		"resetAll": "Vynulovať všetko (vymazať model a nastavenia)",
 		"toast": {
 			"chatCleared": "Chat bol vymazaný",
-			"conversationCleared": "Konverzácia bola vymazaná"
+			"conversationCleared": "Konverzácia bola vymazaná",
+			"chatReset": "Chat bol vynulovaný",
+			"conversationReset": "Konverzácia bola vynulovaná"
 		},
 		"chatCleared": "Chat bol vymazaný",
 		"conversationCleared": "Konverzácia bola vymazaná",
@@ -2386,7 +2388,8 @@
 			"thinkingDots": "Premýšľa…",
 			"turn": "Kolo {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Prestať smerovať požiadavky na tento model, kým ho znova nepovolíte."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrovať poskytovateľov",

@@ -438,7 +438,9 @@
 		"resetAll": "Tilbakestill alt (Fjern modell & innstillinger)",
 		"toast": {
 			"chatCleared": "Chatten er fjernet",
-			"conversationCleared": "Samtalen fjernet"
+			"conversationCleared": "Samtalen fjernet",
+			"chatReset": "Chatten er tilbakestilt",
+			"conversationReset": "Samtalen er tilbakestilt"
 		},
 		"chatCleared": "Chatten er fjernet",
 		"conversationCleared": "Samtalen fjernet",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "Tenker…",
 			"turn": "Tur {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Slutt å rute forespørsler til denne modellen til du aktiverer den igjen."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrer leverandører",

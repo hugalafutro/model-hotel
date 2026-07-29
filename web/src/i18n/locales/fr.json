@@ -443,7 +443,9 @@
 		"resetAll": "Tout réinitialiser (effacer le modèle et les paramètres)",
 		"toast": {
 			"chatCleared": "Chat effacé",
-			"conversationCleared": "Conversation effacée"
+			"conversationCleared": "Conversation effacée",
+			"chatReset": "Chat réinitialisé",
+			"conversationReset": "Conversation réinitialisée"
 		},
 		"chatCleared": "Chat effacé",
 		"conversationCleared": "Conversation effacée",
@@ -2340,7 +2342,8 @@
 			"thinkingDots": "Réflexion…",
 			"turn": "Tour {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Cesser d'acheminer les requêtes vers ce modèle jusqu'à ce que vous le réactiviez."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrer les fournisseurs",

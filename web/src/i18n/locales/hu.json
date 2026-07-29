@@ -438,7 +438,9 @@
 		"resetAll": "Minden visszaállítása (modell és beállítások törlése)",
 		"toast": {
 			"chatCleared": "A csevegés törölve",
-			"conversationCleared": "A beszélgetés törölve"
+			"conversationCleared": "A beszélgetés törölve",
+			"chatReset": "A csevegés visszaállítva",
+			"conversationReset": "A beszélgetés visszaállítva"
 		},
 		"chatCleared": "A csevegés törölve",
 		"conversationCleared": "A beszélgetés törölve",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "Gondolkodik…",
 			"turn": "{{number}}. kör",
 			"tokPerSec": "tok/mp",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Ne irányítson több kérést erre a modellre, amíg újra nem engedélyezi."
 		},
 		"providerFilter": {
 			"filterProviders": "Szolgáltatók szűrése",

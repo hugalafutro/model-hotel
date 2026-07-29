@@ -438,7 +438,9 @@
 		"resetAll": "Stel alles terug (vee model en instellings uit)",
 		"toast": {
 			"chatCleared": "Gesels skoongemaak",
-			"conversationCleared": "Gesprek skoongemaak"
+			"conversationCleared": "Gesprek skoongemaak",
+			"chatReset": "Gesels teruggestel",
+			"conversationReset": "Gesprek teruggestel"
 		},
 		"chatCleared": "Gesels skoongemaak",
 		"conversationCleared": "Gesprek skoongemaak",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "Dink…",
 			"turn": "Beurt {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "token"
+			"tok": "token",
+			"disableModelTooltip": "Stop om versoeke na hierdie model te stuur totdat jy dit weer aanskakel."
 		},
 		"providerFilter": {
 			"filterProviders": "Filter verskaffers",

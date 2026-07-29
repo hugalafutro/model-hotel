@@ -448,7 +448,9 @@
 		"resetAll": "Сбросить все (очистить модель и настройки)",
 		"toast": {
 			"chatCleared": "Чат очищен",
-			"conversationCleared": "Разговор очищен"
+			"conversationCleared": "Разговор очищен",
+			"chatReset": "Чат сброшен",
+			"conversationReset": "Разговор сброшен"
 		},
 		"chatCleared": "Чат очищен",
 		"conversationCleared": "Разговор очищен",
@@ -2386,7 +2388,8 @@
 			"thinkingDots": "Думаю…",
 			"turn": "Ход {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Прекратить направлять запросы к этой модели, пока вы снова её не включите."
 		},
 		"providerFilter": {
 			"filterProviders": "Фильтр провайдеров",

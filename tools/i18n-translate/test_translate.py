@@ -1,4 +1,5 @@
-"""Self-tests for the plural-category rule in translate.py's `check`.
+"""Self-tests for translate.py's `check`: the plural-category rule and the
+source-key scan.
 
 Run the same way as the coverage scripts' tests:
 
@@ -7,7 +8,8 @@ Run the same way as the coverage scripts' tests:
 The rest of `check` (missing/extra/placeholders/untranslated over ordinary
 keys) predates this file; these tests cover the plural rule and the four
 places it had to change the existing checks so a locale-only category is not
-mistaken for an extra key.
+mistaken for an extra key, plus the literal-t()-key scan, whose whole value is
+in what it refuses to report as much as in what it reports.
 """
 
 import json
@@ -183,6 +185,122 @@ class CategoryTableTest(unittest.TestCase):
 			translate.plural_bases({"toast_entry_min_two", "cache_zero", "n_few"}),
 			set(),
 		)
+
+
+class LiteralKeyScanTest(unittest.TestCase):
+	"""What literal_t_keys extracts from a source file, and what it declines to.
+
+	A false positive here fails CI on correct code, so the negative cases carry
+	as much weight as the positive one.
+	"""
+
+	def keys(self, src: str) -> list[str]:
+		return [k for k, _ in translate.literal_t_keys(src)]
+
+	def test_extracts_plain_calls_including_the_i18next_object_form(self):
+		src = 'const a = t("a.one");\nconst b = i18next.t(\'b.two\');\n'
+		self.assertEqual(self.keys(src), ["a.one", "b.two"])
+
+	def test_reports_the_line_the_call_starts_on(self):
+		src = 'x\ny\nconst a = t(\n\t"a.one",\n\t{ count },\n);\n'
+		self.assertEqual(translate.literal_t_keys(src), [("a.one", 3)])
+
+	def test_an_options_object_still_needs_the_key(self):
+		self.assertEqual(self.keys('t("a.one", { count: 2 })'), ["a.one"])
+
+	def test_an_inline_default_makes_the_key_optional(self):
+		# i18next renders the second argument when the key is absent, so such a
+		# call is not a missing key and must never be reported.
+		self.assertEqual(self.keys('t("a.one", "Fallback text")'), [])
+
+	def test_a_template_literal_key_is_skipped_rather_than_guessed(self):
+		self.assertEqual(self.keys("t(`field.${name}`)"), [])
+		self.assertEqual(self.keys("t(`field.plain`)"), [])
+
+	def test_a_computed_key_is_skipped(self):
+		# The literal is one fragment of a larger expression in each of these,
+		# so what i18next actually receives is not knowable here.
+		self.assertEqual(self.keys('t(item.labelKey)'), [])
+		self.assertEqual(self.keys('t("field." + name)'), [])
+		self.assertEqual(self.keys('t(on ? "a.on" : "a.off")'), [])
+
+	def test_a_key_named_only_in_a_comment_is_not_a_call(self):
+		src = '// see t("ghost.key")\n/* or t("other.ghost") */\nt("real.key")\n'
+		self.assertEqual(self.keys(src), ["real.key"])
+
+	def test_a_key_quoted_inside_a_string_is_not_a_call(self):
+		self.assertEqual(self.keys('const s = "t(\\"ghost.key\\")";'), [])
+
+	def test_a_quote_inside_a_regex_literal_does_not_swallow_the_rest(self):
+		# /["']/ opens a quote the scanner must not follow to the end of file,
+		# or every call after it disappears and the gate silently stops working.
+		src = 'const q = /["\']/g;\nt("after.regex")\n'
+		self.assertEqual(self.keys(src), ["after.regex"])
+
+	def test_identifiers_ending_in_t_are_not_translation_calls(self):
+		self.assertEqual(self.keys('parseInt("10"); expect("x"); arr.at("0")'), [])
+
+
+class UnresolvedSourceKeyTest(unittest.TestCase):
+	"""find_unresolved_source_keys over a throwaway source tree + catalog."""
+
+	def unresolved(self, en: dict, files: dict[str, str]):
+		with tempfile.TemporaryDirectory() as locales, tempfile.TemporaryDirectory() as src:
+			write_catalogs(locales, {"en": en})
+			for name, body in files.items():
+				path = os.path.join(src, name)
+				os.makedirs(os.path.dirname(path), exist_ok=True)
+				with open(path, "w", encoding="utf-8") as f:
+					f.write(body)
+			return [
+				(os.path.basename(p), line, key)
+				for p, line, key in translate.find_unresolved_source_keys(src, locales)
+			]
+
+	def test_a_key_no_catalog_defines_is_reported(self):
+		# The #583 failure mode: parity is perfect (every catalog agrees) and
+		# the screen still shows "chat.toast.chatReset".
+		found = self.unresolved(
+			{"chat": {"toast": {"chatCleared": "Chat cleared"}}},
+			{"Chat.tsx": 't("chat.toast.chatReset")\n'},
+		)
+		self.assertEqual(found, [("Chat.tsx", 1, "chat.toast.chatReset")])
+
+	def test_a_key_en_defines_is_not_reported(self):
+		found = self.unresolved(
+			{"chat": {"toast": {"chatCleared": "Chat cleared"}}},
+			{"Chat.tsx": 't("chat.toast.chatCleared")\n'},
+		)
+		self.assertEqual(found, [])
+
+	def test_a_counted_key_resolves_through_its_plural_categories(self):
+		# t("x", {count}) is never stored as "x"; only "x_one"/"x_other" exist.
+		found = self.unresolved(
+			{"models": {"badge_one": "{{count}} model", "badge_other": "{{count}} models"}},
+			{"Models.tsx": 't("models.badge", { count })\n'},
+		)
+		self.assertEqual(found, [])
+
+	def test_test_files_are_not_scanned(self):
+		# Tests name synthetic keys to exercise fallback paths; the catalog must
+		# not be forced to carry them.
+		found = self.unresolved(
+			{"a": "A"},
+			{
+				"__tests__/Chat.test.tsx": 't("synthetic.key")\n',
+				"Chat.test.tsx": 't("other.synthetic.key")\n',
+			},
+		)
+		self.assertEqual(found, [])
+
+	def test_every_shipped_source_tree_is_scanned(self):
+		# A typo in SOURCE_TARGETS would make the gate pass by scanning nothing.
+		for label, root in translate.SOURCE_TARGETS.items():
+			self.assertTrue(os.path.isdir(root), f"{label}: {root} is not a directory")
+			self.assertTrue(
+				any(True for _ in translate.source_files(root)),
+				f"{label}: no .ts/.tsx sources found under {root}",
+			)
 
 
 if __name__ == "__main__":

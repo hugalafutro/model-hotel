@@ -448,7 +448,9 @@
 		"resetAll": "Resetovat vše",
 		"toast": {
 			"chatCleared": "Chat byl vymazán",
-			"conversationCleared": "Konverzace byla vymazána"
+			"conversationCleared": "Konverzace byla vymazána",
+			"chatReset": "Chat byl resetován",
+			"conversationReset": "Konverzace byla resetována"
 		},
 		"chatCleared": "Chat byl vymazán",
 		"conversationCleared": "Konverzace byla vymazána",
@@ -2386,7 +2388,8 @@
 			"thinkingDots": "Přemýšlím…",
 			"turn": "Tah {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Přestat směrovat požadavky na tento model, dokud jej znovu nepovolíte."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrovat poskytovatele",

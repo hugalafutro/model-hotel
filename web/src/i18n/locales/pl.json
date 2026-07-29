@@ -448,7 +448,9 @@
 		"resetAll": "Zresetuj wszystkie (wyczyść model i ustawienia)",
 		"toast": {
 			"chatCleared": "Czat wyczyszczony",
-			"conversationCleared": "Rozmowa wyczyszczona"
+			"conversationCleared": "Rozmowa wyczyszczona",
+			"chatReset": "Czat zresetowany",
+			"conversationReset": "Rozmowa zresetowana"
 		},
 		"chatCleared": "Czat wyczyszczony",
 		"conversationCleared": "Rozmowa wyczyszczona",
@@ -2386,7 +2388,8 @@
 			"thinkingDots": "Myślenie…",
 			"turn": "Tura {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Przestań kierować żądania do tego modelu, dopóki go ponownie nie włączysz."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtruj dostawców",

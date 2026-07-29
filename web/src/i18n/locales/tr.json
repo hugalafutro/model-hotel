@@ -438,7 +438,9 @@
 		"resetAll": "Tümünü sıfırla (modeli ve ayarları sil)",
 		"toast": {
 			"chatCleared": "Sohbet silindi",
-			"conversationCleared": "Sohbet silindi"
+			"conversationCleared": "Sohbet silindi",
+			"chatReset": "Sohbet sıfırlandı",
+			"conversationReset": "Sohbet sıfırlandı"
 		},
 		"chatCleared": "Sohbet silindi",
 		"conversationCleared": "Sohbet silindi",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "Düşünüyor…",
 			"turn": "Tur {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Yeniden etkinleştirene kadar bu modele istek yönlendirmeyi durdurur."
 		},
 		"providerFilter": {
 			"filterProviders": "Sağlayıcıları Filtrele",

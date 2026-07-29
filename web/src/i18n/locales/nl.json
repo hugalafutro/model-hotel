@@ -438,7 +438,9 @@
 		"resetAll": "Reset alles (leeg model & instellingen)",
 		"toast": {
 			"chatCleared": "Chat gewist",
-			"conversationCleared": "Gesprek gewist"
+			"conversationCleared": "Gesprek gewist",
+			"chatReset": "Chat gereset",
+			"conversationReset": "Gesprek gereset"
 		},
 		"chatCleared": "Chat gewist",
 		"conversationCleared": "Gesprek gewist",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "Denken…",
 			"turn": "Beurt {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Stuur geen verzoeken meer naar dit model totdat je het weer inschakelt."
 		},
 		"providerFilter": {
 			"filterProviders": "Providers filteren",

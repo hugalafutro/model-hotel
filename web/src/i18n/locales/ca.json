@@ -443,7 +443,9 @@
 		"resetAll": "Restablix tot (esborra el model i la configuració)",
 		"toast": {
 			"chatCleared": "Xat esborrat",
-			"conversationCleared": "Conversació esborrada"
+			"conversationCleared": "Conversació esborrada",
+			"chatReset": "Xat restablert",
+			"conversationReset": "Conversa restablerta"
 		},
 		"chatCleared": "Xat esborrat",
 		"conversationCleared": "Conversació esborrada",
@@ -2340,7 +2342,8 @@
 			"thinkingDots": "Pensant…",
 			"turn": "Torn {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Deixa d'encaminar sol·licituds a aquest model fins que el tornis a activar."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtra els proveïdors",

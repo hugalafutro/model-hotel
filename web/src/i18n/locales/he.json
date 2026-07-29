@@ -443,7 +443,9 @@
 		"resetAll": "אפס הכל (נקה את הדגם וההגדרות)",
 		"toast": {
 			"chatCleared": "הצ'אט נמחק",
-			"conversationCleared": "השיחה נמחקה"
+			"conversationCleared": "השיחה נמחקה",
+			"chatReset": "הצ'אט אופס",
+			"conversationReset": "השיחה אופסה"
 		},
 		"chatCleared": "הצ'אט נמחק",
 		"conversationCleared": "השיחה נמחקה",
@@ -2340,7 +2342,8 @@
 			"thinkingDots": "חושב…",
 			"turn": "תור {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "טוק"
+			"tok": "טוק",
+			"disableModelTooltip": "הפסק לנתב בקשות למודל הזה עד שתפעיל אותו מחדש."
 		},
 		"providerFilter": {
 			"filterProviders": "סינון ספקים",

@@ -443,7 +443,9 @@
 		"resetAll": "Resetează toate (șterge modelul și setările)",
 		"toast": {
 			"chatCleared": "Chat eliminat",
-			"conversationCleared": "Conversație ștearsă"
+			"conversationCleared": "Conversație ștearsă",
+			"chatReset": "Chat resetat",
+			"conversationReset": "Conversație resetată"
 		},
 		"chatCleared": "Chat eliminat",
 		"conversationCleared": "Conversație ștearsă",
@@ -2340,7 +2342,8 @@
 			"thinkingDots": "Gândire…",
 			"turn": "Rândul {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Oprește direcționarea cererilor către acest model până când îl reactivezi."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrează furnizorii",

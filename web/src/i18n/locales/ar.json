@@ -458,7 +458,9 @@
 		"resetAll": "إعادة تعيين الكل (مسح النموذج و الإعدادات)",
 		"toast": {
 			"chatCleared": "تم مسح الدردشة",
-			"conversationCleared": "تم مسح المحادثة"
+			"conversationCleared": "تم مسح المحادثة",
+			"chatReset": "تمت إعادة تعيين الدردشة",
+			"conversationReset": "تمت إعادة تعيين المحادثة"
 		},
 		"chatCleared": "تم مسح الدردشة",
 		"conversationCleared": "تم مسح المحادثة",
@@ -2478,7 +2480,8 @@
 			"thinkingDots": "التفكير…",
 			"turn": "الدور {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "إيقاف توجيه الطلبات إلى هذا النموذج حتى تعيد تمكينه."
 		},
 		"providerFilter": {
 			"filterProviders": "تصفية المزودين",

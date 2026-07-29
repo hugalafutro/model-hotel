@@ -438,7 +438,9 @@
 		"resetAll": "Επαναφορά όλων (καθαρισμός & ρυθμίσεων μοντέλου)",
 		"toast": {
 			"chatCleared": "Η συνομιλία διαγράφηκε",
-			"conversationCleared": "Η συνομιλία εκκαθαρίστηκε"
+			"conversationCleared": "Η συνομιλία εκκαθαρίστηκε",
+			"chatReset": "Η συνομιλία επαναφέρθηκε",
+			"conversationReset": "Η συζήτηση επαναφέρθηκε"
 		},
 		"chatCleared": "Η συνομιλία διαγράφηκε",
 		"conversationCleared": "Η συνομιλία εκκαθαρίστηκε",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "Σκέφτεται…",
 			"turn": "Σειρά {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Διακοπή δρομολόγησης αιτημάτων προς αυτό το μοντέλο μέχρι να το ενεργοποιήσετε ξανά."
 		},
 		"providerFilter": {
 			"filterProviders": "Φιλτράρισμα παρόχων",

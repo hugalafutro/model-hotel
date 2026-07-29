@@ -104,8 +104,11 @@ test-db-down:
 # i18n-check is the CI gate: OFFLINE locale-parity validation, no network. New
 # user-facing strings are added to en.json and translated into every other
 # locale by hand (see AGENTS.md "i18n"). It also checks that each catalog
-# carries every plural form its own language defines, which parity cannot see;
-# the script's self-tests run first so a broken gate fails loudly.
+# carries every plural form its own language defines, and that every literal
+# t("...") key in web/src and frontdesk/web/src resolves in en.json - neither of
+# which parity can see, since a key missing from ALL catalogs leaves them in
+# perfect agreement while the screen shows the raw key string. The script's
+# self-tests run first so a broken gate fails loudly.
 
 i18n-check:
 	cd tools/i18n-translate && python3 -m unittest discover -p 'test_*.py'

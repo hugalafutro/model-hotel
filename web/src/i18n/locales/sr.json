@@ -443,7 +443,9 @@
 		"resetAll": "Ресетуј све (избриши модел и подешавања)",
 		"toast": {
 			"chatCleared": "Чет је очишћен",
-			"conversationCleared": "Разговор је очишћен"
+			"conversationCleared": "Разговор је очишћен",
+			"chatReset": "Чет је ресетован",
+			"conversationReset": "Разговор је ресетован"
 		},
 		"chatCleared": "Чет је очишћен",
 		"conversationCleared": "Разговор је очишћен",
@@ -2340,7 +2342,8 @@
 			"thinkingDots": "Размишља…",
 			"turn": "Потез {{number}}",
 			"tokPerSec": "ток/с",
-			"tok": "ток"
+			"tok": "ток",
+			"disableModelTooltip": "Заустави усмеравање захтева ка овом моделу док га поново не омогућиш."
 		},
 		"providerFilter": {
 			"filterProviders": "Филтрирај провајдере",

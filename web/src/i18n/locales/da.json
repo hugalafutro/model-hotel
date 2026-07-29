@@ -438,7 +438,9 @@
 		"resetAll": "Nulstil alle (ryd model og indstillinger)",
 		"toast": {
 			"chatCleared": "Chat ryddet",
-			"conversationCleared": "Samtale ryddet"
+			"conversationCleared": "Samtale ryddet",
+			"chatReset": "Chat nulstillet",
+			"conversationReset": "Samtale nulstillet"
 		},
 		"chatCleared": "Chat ryddet",
 		"conversationCleared": "Samtale ryddet",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "Tænker…",
 			"turn": "Tur {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Stop med at sende anmodninger til denne model, indtil du aktiverer den igen."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrer Udbydere",

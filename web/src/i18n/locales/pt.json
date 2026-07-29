@@ -443,7 +443,9 @@
 		"resetAll": "Reiniciar tudo (limpar modelo e configurações)",
 		"toast": {
 			"chatCleared": "Bate-papo limpo",
-			"conversationCleared": "Conversa apagada"
+			"conversationCleared": "Conversa apagada",
+			"chatReset": "Bate-papo redefinido",
+			"conversationReset": "Conversa redefinida"
 		},
 		"chatCleared": "Bate-papo limpo",
 		"conversationCleared": "Conversa apagada",
@@ -2340,7 +2342,8 @@
 			"thinkingDots": "Pensando…",
 			"turn": "Turno {{number}}",
 			"tokPerSec": "tok/s",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Parar de encaminhar pedidos para este modelo até o reativar."
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrar provedores",

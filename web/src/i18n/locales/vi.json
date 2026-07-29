@@ -438,7 +438,9 @@
 		"resetAll": "Đặt lại tất cả (xóa mô hình và cài đặt)",
 		"toast": {
 			"chatCleared": "Cuộc trò chuyện đã bị xóa",
-			"conversationCleared": "Cuộc trò chuyện đã được xóa"
+			"conversationCleared": "Cuộc trò chuyện đã được xóa",
+			"chatReset": "Đã đặt lại cuộc trò chuyện",
+			"conversationReset": "Đã đặt lại cuộc trò chuyện"
 		},
 		"chatCleared": "Cuộc trò chuyện đã bị xóa",
 		"conversationCleared": "Cuộc trò chuyện đã được xóa",
@@ -2294,7 +2296,8 @@
 			"thinkingDots": "Đang suy nghĩ…",
 			"turn": "Lượt {{number}}",
 			"tokPerSec": "tok/giây",
-			"tok": "tok"
+			"tok": "tok",
+			"disableModelTooltip": "Ngừng định tuyến yêu cầu đến mô hình này cho đến khi bạn bật lại."
 		},
 		"providerFilter": {
 			"filterProviders": "Lọc nhà cung cấp",
