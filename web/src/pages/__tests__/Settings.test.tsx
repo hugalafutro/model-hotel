@@ -5,7 +5,13 @@ import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { Settings } from "../Settings";
 
-describe("Settings", () => {
+// Mounting the whole Settings page is expensive enough under the pre-push
+// hook's coverage-instrumented full run to sit near the global 15s testTimeout.
+// See the matching note in src/pages/Settings/__tests__/Settings.reset.test.tsx
+// for why this is a per-file budget rather than a global bump.
+const SETTINGS_PAGE_TIMEOUT_MS = 45_000;
+
+describe("Settings", { timeout: SETTINGS_PAGE_TIMEOUT_MS }, () => {
 	beforeEach(() => {
 		server.resetHandlers();
 	});
