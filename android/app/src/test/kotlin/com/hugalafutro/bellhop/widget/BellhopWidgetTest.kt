@@ -3,7 +3,9 @@ package com.hugalafutro.bellhop.widget
 import android.app.Application
 import androidx.glance.GlanceId
 import androidx.glance.action.actionParametersOf
+import androidx.glance.layout.Alignment
 import com.hugalafutro.bellhop.MainActivity
+import com.hugalafutro.bellhop.data.QuotaBadgeAlign
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -61,4 +63,15 @@ class BellhopWidgetTest {
 
             assertNull(ShadowToast.getTextOfLatestToast())
         }
+
+    @Test
+    fun alignmentPreferenceMapsToTheMatchingGlanceAlignment() {
+        // The render itself is an on-device smoke test (see this class' header:
+        // Glance composables cannot be driven by createComposeRule), so the one
+        // thing worth pinning here is the mapping, where a transposition would
+        // silently send RIGHT to the left edge.
+        assertEquals(Alignment.Start, quotaRowAlignment(QuotaBadgeAlign.LEFT))
+        assertEquals(Alignment.CenterHorizontally, quotaRowAlignment(QuotaBadgeAlign.CENTER))
+        assertEquals(Alignment.End, quotaRowAlignment(QuotaBadgeAlign.RIGHT))
+    }
 }
