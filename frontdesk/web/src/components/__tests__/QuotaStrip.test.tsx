@@ -664,6 +664,72 @@ describe("QuotaStrip", () => {
 		// The cooldown outcome returns before calling the endpoint again.
 		expect(posted).toBe(1);
 	});
+
+	it("collapses to nothing but the caret", async () => {
+		localStorage.setItem("fdQuotaCollapsed", "true");
+		server.use(
+			http.get("/api/quota", () => HttpResponse.json({ quota: [nano] })),
+		);
+		renderStrip();
+		await waitFor(() =>
+			expect(screen.getByTestId("quota-strip")).toBeInTheDocument(),
+		);
+		// The caret is the whole collapsed strip: no label, and the modifier
+		// class that strips the band, the rule and the padding is on.
+		expect(screen.queryByTestId("quota-strip-label")).toBeNull();
+		expect(screen.getByTestId("quota-strip")).toHaveClass(
+			"fd-quota-strip-collapsed",
+		);
+		expect(screen.getByTestId("quota-collapse")).toBeInTheDocument();
+	});
+
+	it("keeps the label and the full band while expanded", async () => {
+		server.use(
+			http.get("/api/quota", () => HttpResponse.json({ quota: [nano] })),
+		);
+		renderStrip();
+		await waitFor(() =>
+			expect(screen.getByTestId("quota-strip-label")).toBeInTheDocument(),
+		);
+		expect(screen.getByTestId("quota-strip")).not.toHaveClass(
+			"fd-quota-strip-collapsed",
+		);
+	});
+
+	it("hides the stale marker once collapsed", async () => {
+		// Stale is `error && snapshots.length > 0`, so it needs one good read
+		// followed by a failed one; the refresh path is how the existing suite
+		// produces it. Collapsing must take the marker with the badges: polling
+		// stops while collapsed, so a freshness stamp there describes data the
+		// strip is no longer refreshing.
+		let getCalls = 0;
+		server.use(
+			http.get("/api/quota", () => {
+				getCalls++;
+				return getCalls === 1
+					? HttpResponse.json({ quota: [nano] })
+					: HttpResponse.json({ error: "x" }, { status: 502 });
+			}),
+			http.post("/api/quota/refresh", () =>
+				HttpResponse.json({
+					results: [],
+					refreshed: 1,
+					failed: 0,
+					skipped: 0,
+				}),
+			),
+		);
+		renderStrip();
+		await waitFor(() =>
+			expect(screen.getByTestId("quota-refresh")).toBeInTheDocument(),
+		);
+		await userEvent.click(screen.getByTestId("quota-refresh"));
+		await waitFor(() =>
+			expect(screen.getByTestId("quota-stale")).toBeInTheDocument(),
+		);
+		await userEvent.click(screen.getByTestId("quota-collapse"));
+		expect(screen.queryByTestId("quota-stale")).toBeNull();
+	});
 });
 
 // M-4 regression: a provider dropping out of a LATER, genuinely loaded poll

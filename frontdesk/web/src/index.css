@@ -979,3 +979,19 @@ h3 {
 	justify-content: center;
 	gap: 0.35rem;
 }
+
+/* Collapsed, the strip is nothing but its unroll caret: no band, no rule, no
+   label, so the page reads exactly as it did before quota badges existed.
+   .fd-header directly above already carries this background and its own
+   border-bottom, so keeping either here painted a second, empty header. The
+   horizontal padding is the one thing retained, so the caret lines up with the
+   header's right edge instead of sitting flush against the viewport.
+   The root's `gap` is deliberately left alone: collapsed, the strip has exactly
+   one child (the badges are gated on !collapsed and the modal cannot be open,
+   since toggleCollapsed nulls openKey on the way in), so overriding it would be
+   a dead declaration. */
+.fd-quota-strip-collapsed {
+	padding: 0 1.25rem;
+	border-bottom: none;
+	background: none;
+}
