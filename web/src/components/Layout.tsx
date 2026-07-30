@@ -51,14 +51,6 @@ import { ProviderQuotaPanel } from "./ProviderQuotaPanel";
 
 const u = "text-(--text-muted)";
 
-// Key for the per-model dismissal generation map (see `dismissGen`). Module
-// scope because it is pure in its arguments: defined inside the component it
-// would be a new function every render and have to be threaded through five
-// dependency arrays. A pipe separates the two halves, which is unambiguous
-// because a provider id is a UUID.
-const genKey = (providerId: string, modelId: string) =>
-	`${providerId}|${modelId}`;
-
 function formatDuration(seconds: number) {
 	const d = Math.floor(seconds / 86400);
 	const h = Math.floor((seconds % 86400) / 3600);
@@ -876,59 +868,8 @@ export function Layout({ children }: LayoutProps) {
 		}
 	}, [snapshot, runRetest, toast, t]);
 
-	/**
-	 * Per-model dismissal generation, so an Undo reverses ONLY the write it belongs
-	 * to.
-	 *
-	 * `POST /api/discovery/dismiss` with `dismissed: false` is an unconditional
-	 * clear: last write wins. A toast's Undo closes over the ids its own action
-	 * sent, so if any of those models were dismissed AGAIN afterwards, replaying the
-	 * clear erases the newer decision and the next refresh shows the model pending.
-	 * The operator's most recent intent loses to a stale button.
-	 *
-	 * This is the same compare-and-swap shape `optimisticFrom` uses for row status,
-	 * one level up: every dismissal stamps the models it touched with a monotonic
-	 * generation, and an Undo sends only the ids whose stamp is still its own. A
-	 * newer dismissal bumps the stamp, so the older Undo skips that model instead of
-	 * clobbering it.
-	 *
-	 * Client-side, therefore bounded: it cannot see a dismissal made in another tab
-	 * or by another operator. Closing that needs a conditional restore server-side
-	 * (clear only WHERE discovery_dismissed_at matches what we wrote), which is a
-	 * backend contract change and not in this PR.
-	 */
-	const dismissGen = useRef(new Map<string, number>());
-	const nextDismissGen = useRef(0);
-
-	/** Stamps a dismissal and returns the generation its Undo must match. */
-	const stampDismissals = useCallback(
-		(providerId: string, modelIds: string[]) => {
-			const gen = ++nextDismissGen.current;
-			for (const m of modelIds)
-				dismissGen.current.set(genKey(providerId, m), gen);
-			return gen;
-		},
-		[],
-	);
-
-	/** The ids of `modelIds` this generation still owns; a newer dismiss drops one. */
-	const stillOwnedBy = useCallback(
-		(providerId: string, modelIds: string[], gen: number) =>
-			modelIds.filter(
-				(m) => dismissGen.current.get(genKey(providerId, m)) === gen,
-			),
-		[],
-	);
-
 	const undoDismiss = useCallback(
-		async (providerId: string, modelId: string, gen: number) => {
-			// Skipped rather than replayed when this model has been dismissed again
-			// since: the clear is unconditional server-side, so an older Undo would
-			// erase the newer decision. See dismissGen.
-			if (stillOwnedBy(providerId, [modelId], gen).length === 0) {
-				toast(t("providers.discrepancies.dismissNoMatch"), "info");
-				return;
-			}
+		async (providerId: string, modelId: string) => {
 			try {
 				const res = await api.discovery.dismiss(providerId, [modelId], false);
 				// Unreachable today: the server 404s (and fetchJSON throws before `res`
@@ -940,7 +881,6 @@ export function Layout({ children }: LayoutProps) {
 				if (res.updated === 0) {
 					throw new Error(t("providers.discrepancies.dismissNoMatch"));
 				}
-				dismissGen.current.delete(genKey(providerId, modelId));
 				await refresh();
 			} catch (err) {
 				toast(
@@ -951,22 +891,13 @@ export function Layout({ children }: LayoutProps) {
 				);
 			}
 		},
-		[refresh, stillOwnedBy, toast, t],
+		[refresh, toast, t],
 	);
 
 	const undoDismissAll = useCallback(
-		async (providerId: string, modelIds: string[], gen: number) => {
-			const owned = stillOwnedBy(providerId, modelIds, gen);
-			if (owned.length === 0) {
-				// Every model this Undo covered has since been dismissed again. Saying
-				// so beats both clobbering the newer decision and silently doing
-				// nothing after a click.
-				toast(t("providers.discrepancies.dismissNoMatch"), "info");
-				return;
-			}
+		async (providerId: string, modelIds: string[]) => {
 			try {
-				await api.discovery.dismiss(providerId, owned, false);
-				for (const m of owned) dismissGen.current.delete(genKey(providerId, m));
+				await api.discovery.dismiss(providerId, modelIds, false);
 				await refresh();
 			} catch (err) {
 				toast(
@@ -977,7 +908,7 @@ export function Layout({ children }: LayoutProps) {
 				);
 			}
 		},
-		[refresh, stillOwnedBy, toast, t],
+		[refresh, toast, t],
 	);
 
 	/**
@@ -1011,12 +942,11 @@ export function Layout({ children }: LayoutProps) {
 			dismissClaim(providerId, ids);
 			try {
 				const res = await api.discovery.dismiss(providerId, modelIds, true);
-				const gen = stampDismissals(providerId, modelIds);
 				const fresh = await refresh();
 				const undo = {
 					label: t("providers.discrepancies.undo"),
 					onClick: () => {
-						void undoDismissAll(providerId, modelIds, gen);
+						void undoDismissAll(providerId, modelIds);
 					},
 				};
 				if (res.updated < modelIds.length) {
@@ -1051,15 +981,7 @@ export function Layout({ children }: LayoutProps) {
 				);
 			}
 		},
-		[
-			dismissClaim,
-			restoreClaim,
-			refresh,
-			stampDismissals,
-			toast,
-			t,
-			undoDismissAll,
-		],
+		[dismissClaim, restoreClaim, refresh, toast, t, undoDismissAll],
 	);
 
 	/**
@@ -1075,33 +997,12 @@ export function Layout({ children }: LayoutProps) {
 	 * and the toast names the first failure the way the per-provider path does.
 	 */
 	const undoDismissEverything = useCallback(
-		async (
-			batches: { providerID: string; modelIDs: string[]; gen: number }[],
-		) => {
-			// Only the ids this write still owns; see dismissGen. A model dismissed
-			// again since is skipped rather than un-dismissed out from under the newer
-			// decision.
-			const owned = batches
-				.map((b) => ({
-					...b,
-					modelIDs: stillOwnedBy(b.providerID, b.modelIDs, b.gen),
-				}))
-				.filter((b) => b.modelIDs.length > 0);
-			if (owned.length === 0) {
-				toast(t("providers.discrepancies.dismissNoMatch"), "info");
-				return;
-			}
+		async (batches: { providerID: string; modelIDs: string[] }[]) => {
 			const results = await Promise.allSettled(
-				owned.map((b) =>
+				batches.map((b) =>
 					api.discovery.dismiss(b.providerID, b.modelIDs, false),
 				),
 			);
-			owned.forEach((b, i) => {
-				if (results[i].status !== "fulfilled") return;
-				for (const m of b.modelIDs) {
-					dismissGen.current.delete(genKey(b.providerID, m));
-				}
-			});
 			await refresh();
 			const failed = results.find((r) => r.status === "rejected");
 			if (failed) {
@@ -1114,7 +1015,7 @@ export function Layout({ children }: LayoutProps) {
 				);
 			}
 		},
-		[refresh, stillOwnedBy, toast, t],
+		[refresh, toast, t],
 	);
 
 	/**
@@ -1143,8 +1044,7 @@ export function Layout({ children }: LayoutProps) {
 			);
 			// Roll back only the providers whose own request failed; the rest stand.
 			let dismissed = 0;
-			const stamped: { providerID: string; modelIDs: string[]; gen: number }[] =
-				[];
+			const landed: { providerID: string; modelIDs: string[] }[] = [];
 			batches.forEach((b, i) => {
 				const r = results[i];
 				if (r.status !== "fulfilled") {
@@ -1152,10 +1052,7 @@ export function Layout({ children }: LayoutProps) {
 					return;
 				}
 				dismissed += r.value.updated;
-				stamped.push({
-					...b,
-					gen: stampDismissals(b.providerID, b.modelIDs),
-				});
+				landed.push(b);
 				// A short `updated` does not say WHICH of this provider's ids it missed,
 				// so only a good refresh can reconcile them. Handled after the refresh,
 				// below, since its outcome is what decides.
@@ -1166,7 +1063,7 @@ export function Layout({ children }: LayoutProps) {
 			// are still actionable on the server. Under-claim instead: roll those
 			// batches back and let the next good refresh tell the truth.
 			if (!fresh) {
-				for (const b of stamped) {
+				for (const b of landed) {
 					const i = batches.findIndex((x) => x.providerID === b.providerID);
 					const r = results[i];
 					if (r.status === "fulfilled" && r.value.updated < b.modelIDs.length) {
@@ -1181,7 +1078,7 @@ export function Layout({ children }: LayoutProps) {
 			const undo = {
 				label: t("providers.discrepancies.undo"),
 				onClick: () => {
-					void undoDismissEverything(stamped);
+					void undoDismissEverything(landed);
 				},
 			};
 			toast(
@@ -1195,15 +1092,7 @@ export function Layout({ children }: LayoutProps) {
 				undo,
 			);
 		},
-		[
-			dismissClaim,
-			restoreClaim,
-			refresh,
-			stampDismissals,
-			toast,
-			t,
-			undoDismissEverything,
-		],
+		[dismissClaim, restoreClaim, refresh, toast, t, undoDismissEverything],
 	);
 
 	const onDismiss = useCallback(
@@ -1229,7 +1118,6 @@ export function Layout({ children }: LayoutProps) {
 				if (res.updated === 0) {
 					throw new Error(t("providers.discrepancies.dismissNoMatch"));
 				}
-				const gen = stampDismissals(providerId, [modelId]);
 				await refresh();
 				toast(
 					t("providers.discrepancies.dismissed", { model: modelId }),
@@ -1237,7 +1125,7 @@ export function Layout({ children }: LayoutProps) {
 					{
 						label: t("providers.discrepancies.undo"),
 						onClick: () => {
-							void undoDismiss(providerId, modelId, gen);
+							void undoDismiss(providerId, modelId);
 						},
 					},
 				);
@@ -1251,15 +1139,7 @@ export function Layout({ children }: LayoutProps) {
 				);
 			}
 		},
-		[
-			dismissClaim,
-			restoreClaim,
-			refresh,
-			stampDismissals,
-			toast,
-			t,
-			undoDismiss,
-		],
+		[dismissClaim, restoreClaim, refresh, toast, t, undoDismiss],
 	);
 
 	// `exact: true` on BOTH invalidations below, and it is not optional.
