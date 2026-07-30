@@ -1971,7 +1971,8 @@
 				"failover_sync_error": "A failover-csoport szinkronizálása sikertelen",
 				"quota_schema_drift": "A szolgáltató megváltoztatta a kvótaválasz szerkezetét",
 				"auth_sso_identity_bound": "SSO-azonosító fiókhoz kapcsolva",
-				"discovery_claims_outstanding": "Kezeletlenül hagyott modelleltérések"
+				"discovery_claims_outstanding": "Kezeletlenül hagyott modelleltérések",
+				"model_auto_disabled_gone": "Modell letiltva (a szolgáltató már nem kínálja)"
 			},
 			"events": {
 				"all": "Összes kijelölése",

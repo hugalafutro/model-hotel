@@ -2021,7 +2021,8 @@
 				"failover_sync_error": "Échec de la synchronisation du groupe de basculement",
 				"quota_schema_drift": "Le fournisseur a modifié la structure de sa réponse de quota",
 				"auth_sso_identity_bound": "Identité SSO associée à un compte",
-				"discovery_claims_outstanding": "Écarts de modèles non traités"
+				"discovery_claims_outstanding": "Écarts de modèles non traités",
+				"model_auto_disabled_gone": "Modèle désactivé (le fournisseur ne le propose plus)"
 			},
 			"events": {
 				"all": "Tout sélectionner",

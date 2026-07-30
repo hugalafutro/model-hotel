@@ -1971,7 +1971,8 @@
 				"failover_sync_error": "Failover-ryhmän synkronointi epäonnistui",
 				"quota_schema_drift": "Palveluntarjoaja muutti kiintiövastauksensa rakennetta",
 				"auth_sso_identity_bound": "SSO-identiteetti liitettiin tiliin",
-				"discovery_claims_outstanding": "Mallien poikkeamat jääneet käsittelemättä"
+				"discovery_claims_outstanding": "Mallien poikkeamat jääneet käsittelemättä",
+				"model_auto_disabled_gone": "Malli poistettu käytöstä (palveluntarjoaja ei enää tarjoa sitä)"
 			},
 			"events": {
 				"all": "Valitse kaikki",

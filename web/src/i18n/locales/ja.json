@@ -1971,7 +1971,8 @@
 				"failover_sync_error": "フェイルオーバーグループの同期に失敗しました",
 				"quota_schema_drift": "プロバイダーがクォータ応答の構造を変更しました",
 				"auth_sso_identity_bound": "SSO ID がアカウントに関連付けられました",
-				"discovery_claims_outstanding": "未対応のモデルの不一致"
+				"discovery_claims_outstanding": "未対応のモデルの不一致",
+				"model_auto_disabled_gone": "モデルを無効化（プロバイダーが提供を終了）"
 			},
 			"events": {
 				"all": "すべて選択",

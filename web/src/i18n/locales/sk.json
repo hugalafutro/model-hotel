@@ -2071,7 +2071,8 @@
 				"failover_sync_error": "Synchronizácia skupiny pre prevzatie pri výpadku zlyhala",
 				"quota_schema_drift": "Poskytovateľ zmenil štruktúru odpovede o kvóte",
 				"auth_sso_identity_bound": "Identita SSO bola prepojená s účtom",
-				"discovery_claims_outstanding": "Nezrovnalosti modelov ponechané bez riešenia"
+				"discovery_claims_outstanding": "Nezrovnalosti modelov ponechané bez riešenia",
+				"model_auto_disabled_gone": "Model deaktivovaný (poskytovateľ ho už neposkytuje)"
 			},
 			"events": {
 				"all": "Vybrať všetko",

@@ -1971,7 +1971,8 @@
 				"failover_sync_error": "Αποτυχία συγχρονισμού ομάδας failover",
 				"quota_schema_drift": "Ο πάροχος άλλαξε τη δομή της απόκρισης ποσόστωσης",
 				"auth_sso_identity_bound": "Ταυτότητα SSO συνδέθηκε με λογαριασμό",
-				"discovery_claims_outstanding": "Αποκλίσεις μοντέλων χωρίς αντιμετώπιση"
+				"discovery_claims_outstanding": "Αποκλίσεις μοντέλων χωρίς αντιμετώπιση",
+				"model_auto_disabled_gone": "Το μοντέλο απενεργοποιήθηκε (ο πάροχος δεν το προσφέρει πλέον)"
 			},
 			"events": {
 				"all": "Επιλογή όλων",

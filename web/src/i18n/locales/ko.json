@@ -1971,7 +1971,8 @@
 				"failover_sync_error": "페일오버 그룹 동기화 실패",
 				"quota_schema_drift": "프로바이더가 할당량 응답 구조를 변경함",
 				"auth_sso_identity_bound": "SSO 아이디가 계정에 연결됨",
-				"discovery_claims_outstanding": "처리되지 않은 모델 불일치"
+				"discovery_claims_outstanding": "처리되지 않은 모델 불일치",
+				"model_auto_disabled_gone": "모델 비활성화됨 (프로바이더가 더 이상 제공하지 않음)"
 			},
 			"events": {
 				"all": "모두 선택",

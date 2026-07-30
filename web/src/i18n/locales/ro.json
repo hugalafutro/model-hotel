@@ -2021,7 +2021,8 @@
 				"failover_sync_error": "Sincronizarea grupului de failover a eșuat",
 				"quota_schema_drift": "Furnizorul a modificat structura răspunsului privind cota",
 				"auth_sso_identity_bound": "Identitate SSO asociată unui cont",
-				"discovery_claims_outstanding": "Discrepanțe ale modelelor nerezolvate"
+				"discovery_claims_outstanding": "Discrepanțe ale modelelor nerezolvate",
+				"model_auto_disabled_gone": "Model dezactivat (furnizorul nu îl mai oferă)"
 			},
 			"events": {
 				"all": "Selectați tot",

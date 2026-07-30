@@ -1971,7 +1971,8 @@
 				"failover_sync_error": "Yedekleme grubu senkronizasyonu başarısız oldu",
 				"quota_schema_drift": "Sağlayıcı kota yanıtının yapısını değiştirdi",
 				"auth_sso_identity_bound": "SSO kimliği bir hesaba bağlandı",
-				"discovery_claims_outstanding": "Ele alınmamış model tutarsızlıkları"
+				"discovery_claims_outstanding": "Ele alınmamış model tutarsızlıkları",
+				"model_auto_disabled_gone": "Model devre dışı bırakıldı (sağlayıcı artık sunmuyor)"
 			},
 			"events": {
 				"all": "Tümünü seç",

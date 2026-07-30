@@ -45,6 +45,13 @@ var catalog = []EventDef{
 	// guards against is silent: a normalizer written against the old shape keeps
 	// answering, wrongly, and nothing else in the system would ever say so.
 	{Type: "quota.schema_drift", Category: "Quota", Severity: "warning", DefaultOn: true},
+	// The gateway disabled a model because the provider kept refusing it as
+	// retired. Default-on: this is the only warning an operator gets that a
+	// model they route to has died, and it is not recoverable by waiting.
+	// Discovery cannot raise it, because providers keep retired models in their
+	// listings (Google served gemini-2.0-flash from /models for two months after
+	// shutting it down), so nothing else in the system will ever say so.
+	{Type: "model.auto_disabled_gone", Category: "Discovery", Severity: "warning", DefaultOn: true},
 }
 
 // Catalog returns a copy of the event registry, safe for the caller to mutate.
