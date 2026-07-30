@@ -19,8 +19,33 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Analysing all five languages on every change meant a full no-daemon Gradle
+  # build of Bellhop, a Go autobuild, and a JS/TS extraction on pushes containing
+  # none of those languages: 481 runner-seconds for a docs-only PR. This job
+  # builds the matrix from what actually changed, sharing ci.yml's gate via the
+  # composite action so the two cannot drift.
+  #
+  # Unlike ci.yml this gate does NOT gate the job, it shrinks the matrix. The
+  # per-language `Analyze (...)` checks are not required contexts, so there is no
+  # skipped-leg hazard; what matters is that `actions` is always in the list, so
+  # SOME analysis is always uploaded and the required "CodeQL" context (posted by
+  # the code-scanning app, not by a job here) always reports.
+  changes:
+    name: CodeQL Surfaces
+    runs-on: ubuntu-latest
+    outputs:
+      langs: ${{ steps.filter.outputs.codeql_langs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - id: filter
+        uses: ./.github/actions/changed-surfaces
+
   analyze:
     name: Analyze (${{ matrix.language }})
+    needs: changes
     runs-on: ubuntu-latest
     permissions:
       security-events: write
@@ -30,19 +55,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - language: actions
-            build-mode: none
-          - language: go
-            build-mode: autobuild
-          - language: javascript-typescript
-            build-mode: none
-          - language: python
-            build-mode: none
-          # Pure-Kotlin (Bellhop) cannot be extracted with build-mode: none;
-          # it needs a real Gradle build (build-mode: manual).
-          - language: java-kotlin
-            build-mode: manual
+        # Pure-Kotlin (Bellhop) cannot be extracted with build-mode: none; it
+        # needs a real Gradle build (build-mode: manual). The build modes are
+        # paired with their languages inside the action.
+        include: ${{ fromJSON(needs.changes.outputs.langs) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

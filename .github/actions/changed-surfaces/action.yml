@@ -1,0 +1,227 @@
+name: Changed surfaces
+description: >-
+  Classify which parts of the tree a push or PR touches, so callers can skip work
+  that cannot be affected by it. Requires the repo already checked out with
+  fetch-depth 0.
+
+# A composite action rather than a reusable workflow on purpose: `uses:` at job
+# level renames the check run to "<caller job> / <called job>", and
+# "Changed Surfaces" is a REQUIRED context. A composite action runs as steps
+# inside the caller's job, so the job keeps its name.
+
+outputs:
+  go:
+    description: Go sources, module files, migrations or the lint config changed
+    value: ${{ steps.filter.outputs.go }}
+  web:
+    description: web/ (the dashboard frontend) changed
+    value: ${{ steps.filter.outputs.web }}
+  fdweb:
+    description: frontdesk/web/ changed
+    value: ${{ steps.filter.outputs.fdweb }}
+  workflows:
+    description: .github/ changed
+    value: ${{ steps.filter.outputs.workflows }}
+  deps:
+    description: dependency manifests, the notices generator, or the notices file changed
+    value: ${{ steps.filter.outputs.deps }}
+  i18n:
+    description: anything the offline locale gate reads changed
+    value: ${{ steps.filter.outputs.i18n }}
+  image:
+    description: something the Docker images actually carry changed
+    value: ${{ steps.filter.outputs.image }}
+  measurable:
+    description: a surface with coverage data changed
+    value: ${{ steps.filter.outputs.measurable }}
+  all_coverage:
+    description: >-
+      run every coverage suite regardless of surface (a master push that changes
+      anything measurable, because the badge aggregates all three)
+    value: ${{ steps.filter.outputs.all_coverage }}
+  codeql_langs:
+    description: >-
+      JSON matrix include list for codeql.yml, holding only the languages this
+      change can have affected. Never empty.
+    value: ${{ steps.filter.outputs.codeql_langs }}
+
+runs:
+  using: composite
+  steps:
+    - name: Detect changed surfaces
+      id: filter
+      shell: bash
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        BASE_REF: ${{ github.base_ref }}
+        BEFORE_SHA: ${{ github.event.before }}
+        HEAD_SHA: ${{ github.sha }}
+      # No `set -e`: every failure path is handled explicitly by run_everything,
+      # so this cannot die half-way and leave callers reading an empty (and
+      # therefore run-everything) output set by accident.
+      run: |
+        set -uo pipefail
+
+        # Every language codeql.yml knows how to analyse, with its build mode.
+        ALL_LANGS='[{"language":"actions","build-mode":"none"},{"language":"go","build-mode":"autobuild"},{"language":"javascript-typescript","build-mode":"none"},{"language":"python","build-mode":"none"},{"language":"java-kotlin","build-mode":"manual"}]'
+
+        # "I cannot establish the diff" -> run the whole suite. Also the
+        # workflow_dispatch answer: a manual run is an explicit "test it all".
+        run_everything() {
+          echo "running everything: $1"
+          for k in go web fdweb workflows deps i18n image python android measurable all_coverage; do
+            echo "$k=true" >> "$GITHUB_OUTPUT"
+          done
+          echo "codeql_langs=$ALL_LANGS" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Changed surfaces"
+            echo
+            echo "Running **everything**: $1"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        }
+
+        case "$EVENT_NAME" in
+          pull_request)
+            git fetch --no-tags --quiet origin "$BASE_REF" \
+              || run_everything "could not fetch base ref $BASE_REF"
+            # Three-dot: compare against the merge base, so commits that landed
+            # on master since the branch started are not counted as this PR's
+            # changes.
+            changed=$(git diff --name-only "origin/${BASE_REF}...HEAD") \
+              || run_everything "diff against origin/$BASE_REF failed"
+            ;;
+          push)
+            # A brand-new branch (or a force push) reports an all-zero or absent
+            # before-SHA; there is no previous state to diff.
+            if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+              run_everything "push carried no usable before-SHA"
+            fi
+            git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null \
+              || run_everything "before-SHA $BEFORE_SHA is not in this clone"
+            changed=$(git diff --name-only "$BEFORE_SHA" "$HEAD_SHA") \
+              || run_everything "diff $BEFORE_SHA..$HEAD_SHA failed"
+            ;;
+          *)
+            run_everything "$EVENT_NAME is an explicit request to run"
+            ;;
+        esac
+
+        if [ -z "$changed" ]; then
+          run_everything "the diff is empty"
+        fi
+
+        echo "changed files:"
+        printf '%s\n' "$changed"
+
+        match() {
+          if printf '%s\n' "$changed" | grep -qE "$1"; then echo true; else echo false; fi
+        }
+
+        any() {
+          for v in "$@"; do
+            if [ "$v" = true ]; then echo true; return; fi
+          done
+          echo false
+        }
+
+        # Go build/test/lint surface. Kept broad: `internal/` and `cmd/` carry
+        # the SQL migrations and testdata too, and the Makefile drives the local
+        # equivalents of these jobs.
+        go=$(match '^(cmd|internal)/|\.go$|^go\.(mod|sum)$|^\.golangci\.ya?ml$|^Makefile$')
+        web=$(match '^web/')
+        fdweb=$(match '^frontdesk/web/')
+        workflows=$(match '^\.github/')
+        # THIRD-PARTY-NOTICES.md is generated FROM these, so a hand-edit to the
+        # committed file must be caught by regenerating it.
+        deps=$(match '^go\.(mod|sum)$|^web/(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$|^tools/gen-notices/|^THIRD-PARTY-NOTICES\.md$')
+        # The locale gate reads both apps' sources, not just their catalogs: it
+        # verifies every literal t("...") key resolves in en.json.
+        i18n=$(match '^web/|^frontdesk/web/|^tools/i18n-translate/|^Makefile$')
+        # The coverage jobs run the coverage scripts' own self-tests, so a change
+        # to those scripts has to reach them even with no code change.
+        covtools=$(match '^scripts/coverage/')
+        python=$(match '\.py$')
+        android=$(match '^android/')
+        # Loose JS/TS outside the two app trees (build scripts, config).
+        jsts=$(match '\.(m|c)?[jt]sx?$')
+
+        # The images carry the compiled Go binary plus both built frontends. Test
+        # files are neither compiled nor bundled, so drop them before matching the
+        # surface the Dockerfiles COPY. publish-dev keeps its own independent copy
+        # of this predicate because it diffs against the last PUBLISHED image, not
+        # against this push's parent.
+        src=$(printf '%s\n' "$changed" | grep -vE '(_test\.go|\.test\.tsx?|\.spec\.tsx?)$')
+        if printf '%s\n' "$src" | grep -qE '^(internal/|cmd/|web/|frontdesk/web/|Dockerfile|docker-entrypoint|\.dockerignore|go\.(mod|sum))'; then
+          image=true
+        else
+          image=false
+        fi
+
+        measurable=$(any "$go" "$web" "$fdweb" "$covtools")
+
+        # The master coverage badge is one number aggregated from all three
+        # suites, so it can only be recomputed when all three have reported. On a
+        # push that changes any measurable surface we therefore run the full trio;
+        # on a docs-only push we run none of them and the badge correctly stays
+        # where it is. PRs gate each suite independently - they feed the diff
+        # gate, which is per-file.
+        if [ "$EVENT_NAME" = push ] && [ "$measurable" = true ]; then
+          all_coverage=true
+        else
+          all_coverage=false
+        fi
+
+        # CodeQL analyses only the languages this change can have affected.
+        # `actions` is UNCONDITIONAL and that is deliberate: the required "CodeQL"
+        # context is posted by the code-scanning app once an analysis is uploaded,
+        # so a run that analysed nothing at all risks a context that never
+        # reports and blocks the PR forever. It is also the cheapest leg.
+        langs='{"language":"actions","build-mode":"none"}'
+        if [ "$go" = true ]; then
+          langs="$langs,{\"language\":\"go\",\"build-mode\":\"autobuild\"}"
+        fi
+        if [ "$web" = true ] || [ "$fdweb" = true ] || [ "$jsts" = true ]; then
+          langs="$langs,{\"language\":\"javascript-typescript\",\"build-mode\":\"none\"}"
+        fi
+        if [ "$python" = true ]; then
+          langs="$langs,{\"language\":\"python\",\"build-mode\":\"none\"}"
+        fi
+        if [ "$android" = true ]; then
+          langs="$langs,{\"language\":\"java-kotlin\",\"build-mode\":\"manual\"}"
+        fi
+        codeql_langs="[$langs]"
+
+        {
+          echo "go=$go"
+          echo "web=$web"
+          echo "fdweb=$fdweb"
+          echo "workflows=$workflows"
+          echo "deps=$deps"
+          echo "i18n=$i18n"
+          echo "image=$image"
+          echo "python=$python"
+          echo "android=$android"
+          echo "measurable=$measurable"
+          echo "all_coverage=$all_coverage"
+          echo "codeql_langs=$codeql_langs"
+        } | tee -a "$GITHUB_OUTPUT"
+
+        {
+          echo "### Changed surfaces"
+          echo
+          echo "| surface | changed |"
+          echo "| --- | --- |"
+          echo "| Go | $go |"
+          echo "| web/ | $web |"
+          echo "| frontdesk/web/ | $fdweb |"
+          echo "| workflows | $workflows |"
+          echo "| dependencies | $deps |"
+          echo "| i18n | $i18n |"
+          echo "| image | $image |"
+          echo "| Python | $python |"
+          echo "| android/ | $android |"
+          echo "| coverage-measurable | $measurable |"
+          echo
+          echo "CodeQL languages: \`$codeql_langs\`"
+        } >> "$GITHUB_STEP_SUMMARY"
