@@ -116,22 +116,51 @@ const (
 	verdictServed
 )
 
-// verdictForStream maps a finished stream's error kind to what it proves.
+// verdictForStream maps a finished stream to what it proves about the model.
 //
 // The trap this encodes: treating "not gone" as "served" lets a retired model
 // stay routable forever, because its own unrelated failures (transient provider
 // errors, client disconnects, stalls) keep resetting the count that would have
 // retired it. Equally, treating any failure as evidence of death would disable
-// a healthy model during an outage. Only a clean finish clears, only an explicit
-// gone-report strikes, and everything else says nothing.
-func verdictForStream(kind ErrorKind) streamVerdict {
-	switch kind {
-	case KindProviderModelGone:
+// a healthy model during an outage.
+//
+// producedOutput is the second half of that care. An absent error kind is not by
+// itself proof the model answered: a stream can open, emit nothing and end
+// without ever recording an error, and crediting that as a success would clear a
+// retirement streak on the strength of nothing at all. Clearing therefore
+// requires positive evidence that content actually flowed.
+func verdictForStream(kind ErrorKind, producedOutput bool) streamVerdict {
+	switch {
+	case kind == KindProviderModelGone:
 		return verdictGone
-	case "":
+	case kind == "" && producedOutput:
 		return verdictServed
 	default:
 		return verdictInconclusive
+	}
+}
+
+// streamProducedOutput reports whether a finished stream actually delivered
+// content. Either signal alone is enough and neither is reliable on its own:
+// completion tokens are absent when a provider omits the usage chunk, and TTFT
+// is zero when the probe is disabled, so a stream that emitted content will
+// normally set at least one.
+func streamProducedOutput(logData *requestLogData) bool {
+	return logData != nil && (logData.tokensCompletion > 0 || logData.ttftMs > 0)
+}
+
+// noteStreamOutcome applies the model verdict once a stream has finished. Shared
+// by the sequential dispatch and the hedged winner so the two cannot drift —
+// the hedged path previously returned without recording any verdict at all, so
+// a model retired mid-stream stayed routable whenever hedging was enabled.
+func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCandidate) {
+	switch verdictForStream(logData.errorKind, streamProducedOutput(logData)) {
+	case verdictGone:
+		h.noteModelGone(candidate.model, candidate.provider.Name)
+	case verdictServed:
+		h.noteModelServed(candidate.model)
+	case verdictInconclusive:
+		// Deliberately nothing: see verdictForStream.
 	}
 }
 

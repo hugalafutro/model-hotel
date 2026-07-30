@@ -334,14 +334,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 	// evidence either way, so it must leave the streak alone: clearing it there
 	// would let a retired model stay routable indefinitely, since its own
 	// failures would keep resetting the count.
-	switch verdictForStream(logData.errorKind) {
-	case verdictGone:
-		h.noteModelGone(candidate.model, candidate.provider.Name)
-	case verdictServed:
-		h.noteModelServed(candidate.model)
-	case verdictInconclusive:
-		// Deliberately nothing: see verdictForStream.
-	}
+	h.noteStreamOutcome(logData, candidate)
 	return outcomeServed
 }
 

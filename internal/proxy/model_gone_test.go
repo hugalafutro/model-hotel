@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 // waitForDisable polls the mock for a recorded SetEnabled call, since
@@ -159,31 +160,110 @@ func TestVerdictForStream(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name string
-		kind ErrorKind
-		want streamVerdict
+		name     string
+		kind     ErrorKind
+		produced bool
+		want     streamVerdict
 	}{
-		{"clean finish proves the model answered", "", verdictServed},
-		{"explicit gone report strikes", KindProviderModelGone, verdictGone},
+		{"clean finish that delivered content proves the model answered", "", true, verdictServed},
+		{"explicit gone report strikes", KindProviderModelGone, true, verdictGone},
+		{"gone report strikes even with no content", KindProviderModelGone, false, verdictGone},
+		// A stream that opened, emitted nothing and ended without recording an
+		// error is not proof of anything. Crediting it would clear a retirement
+		// streak on the strength of an empty response.
+		{"truncated stream with no content is inconclusive", "", false, verdictInconclusive},
 		// Everything below is a failure that says nothing about whether the
 		// model exists, so it must not clear the streak.
-		{"transient provider error", KindProviderError, verdictInconclusive},
-		{"client hung up", KindClientDisconnect, verdictInconclusive},
-		{"provider stalled", KindProviderTimeout, verdictInconclusive},
-		{"failover deadline", KindFailoverTimeout, verdictInconclusive},
-		{"retry deadline", KindRetryTimeout, verdictInconclusive},
-		{"payload rejected", KindProviderBadRequest, verdictInconclusive},
-		{"not entitled", KindProviderNotEntitled, verdictInconclusive},
-		{"gateway fault", KindInternal, verdictInconclusive},
+		{"transient provider error", KindProviderError, true, verdictInconclusive},
+		{"client hung up", KindClientDisconnect, true, verdictInconclusive},
+		{"provider stalled", KindProviderTimeout, false, verdictInconclusive},
+		{"failover deadline", KindFailoverTimeout, false, verdictInconclusive},
+		{"retry deadline", KindRetryTimeout, false, verdictInconclusive},
+		{"payload rejected", KindProviderBadRequest, false, verdictInconclusive},
+		{"not entitled", KindProviderNotEntitled, false, verdictInconclusive},
+		{"gateway fault", KindInternal, false, verdictInconclusive},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := verdictForStream(tc.kind); got != tc.want {
-				t.Errorf("verdictForStream(%q) = %v, want %v", tc.kind, got, tc.want)
+			if got := verdictForStream(tc.kind, tc.produced); got != tc.want {
+				t.Errorf("verdictForStream(%q, produced=%v) = %v, want %v", tc.kind, tc.produced, got, tc.want)
 			}
 		})
+	}
+}
+
+// TestStreamProducedOutput covers the two independent signals that a stream
+// actually delivered content. Neither is reliable alone: completion tokens are
+// absent when a provider omits the usage chunk, TTFT is zero when the probe is
+// disabled.
+func TestStreamProducedOutput(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		log  *requestLogData
+		want bool
+	}{
+		{"tokens only", &requestLogData{tokensCompletion: 12}, true},
+		{"ttft only", &requestLogData{ttftMs: 42.5}, true},
+		{"both", &requestLogData{tokensCompletion: 12, ttftMs: 42.5}, true},
+		{"neither: nothing ever flowed", &requestLogData{}, false},
+		{"nil is not evidence", nil, false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := streamProducedOutput(tc.log); got != tc.want {
+				t.Errorf("streamProducedOutput() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestNoteStreamOutcome_EmptyStreamDoesNotClearStreak is the composed form of
+// the truncation case: a model accumulating strikes must not have them wiped by
+// a stream that delivered nothing.
+func TestNoteStreamOutcome_EmptyStreamDoesNotClearStreak(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	candidate := modelCandidate{model: m, provider: &provider.Provider{Name: "Google AI Studio (Gemini)"}}
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		// An empty, error-free stream lands between strikes.
+		h.noteStreamOutcome(&requestLogData{}, candidate)
+	}
+
+	if calls := waitForDisable(t, repo); len(calls) != 1 {
+		t.Fatalf("expected the model to still be disabled, got %d disable calls", len(calls))
+	}
+}
+
+// TestNoteStreamOutcome_RealSuccessClears is the other direction: a stream that
+// genuinely delivered content still resets the streak.
+func TestNoteStreamOutcome_RealSuccessClears(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "glm-5.2"}
+	candidate := modelCandidate{model: m, provider: &provider.Provider{Name: "OpenCode Zen"}}
+
+	for range goneStrikeThreshold * 3 {
+		for i := 1; i < goneStrikeThreshold; i++ {
+			h.noteModelGone(m, "OpenCode Zen")
+		}
+		h.noteStreamOutcome(&requestLogData{tokensCompletion: 5, ttftMs: 30}, candidate)
+	}
+
+	if calls := repo.disableCalls(); len(calls) != 0 {
+		t.Fatalf("a model that keeps streaming content must never be disabled, got %d", len(calls))
 	}
 }
 
@@ -203,7 +283,7 @@ func TestNoteModelGone_FailedStreamsDoNotResetStreak(t *testing.T) {
 		// A transient stream failure lands between strikes. Under the old
 		// "anything not gone is a success" rule this cleared the streak and the
 		// model could never be retired.
-		if v := verdictForStream(KindProviderError); v == verdictServed {
+		if v := verdictForStream(KindProviderError, true); v == verdictServed {
 			h.noteModelServed(m)
 		}
 	}
