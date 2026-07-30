@@ -57,6 +57,13 @@ export interface ModelDiscrepancyModalProps {
 	 * Suspect ids are never included: setModelsDismissed only touches
 	 * `enabled = false` rows, so a still-enabled model would be refused. */
 	onDismissAll: (providerId: string, modelIds: string[]) => void;
+	/** Dismisses every actionable gone/stale model across EVERY listed provider.
+	 * Batched by provider because the endpoint is provider-scoped, but reported as
+	 * one action: this is the "I saw the badge and do not care about the fallout"
+	 * path. */
+	onDismissEverything: (
+		batches: { providerID: string; modelIDs: string[] }[],
+	) => void;
 	/** Provider whose retest is in flight; only that section spins. */
 	retestingProviderId?: string;
 	/** True while ANY retest is in flight: every retest control goes disabled,
@@ -87,6 +94,7 @@ export function ModelDiscrepancyModal({
 	onCancelRetestAll,
 	onDismiss,
 	onDismissAll,
+	onDismissEverything,
 	retestingProviderId,
 	isRetesting,
 	retestAllProgress,
@@ -214,6 +222,10 @@ export function ModelDiscrepancyModal({
 		providerName: string;
 		modelIDs: string[];
 	} | null>(null);
+
+	/** Whether the modal-wide Dismiss all is awaiting confirmation. */
+	const [confirmDismissEverything, setConfirmDismissEverything] =
+		useState(false);
 
 	/**
 	 * The open provider's section, watched so the return-to-top control knows when
@@ -785,6 +797,27 @@ export function ModelDiscrepancyModal({
 		(p) => !providerHasNoPending(p),
 	);
 
+	/**
+	 * Every dismissible model in the modal, batched by provider.
+	 *
+	 * Batched because the endpoint is provider-scoped: `POST /api/discovery/dismiss`
+	 * takes one provider_id and its model_ids, so a modal-wide dismiss is N requests
+	 * however it is presented. Suspect ids are excluded here for the same reason as
+	 * on the pill: the server refuses a still-enabled model.
+	 */
+	const everythingDismissable = visibleProviders
+		.map((p) => ({
+			providerID: p.provider_id,
+			modelIDs: (["gone", "stale"] as const).flatMap((g) =>
+				actionableIn(p, g).map((c) => c.model_id),
+			),
+		}))
+		.filter((b) => b.modelIDs.length > 0);
+	const everythingCount = everythingDismissable.reduce(
+		(n, b) => n + b.modelIDs.length,
+		0,
+	);
+
 	return (
 		<>
 			<Modal
@@ -840,6 +873,28 @@ export function ModelDiscrepancyModal({
 									className={isRetesting ? "animate-spin" : ""}
 								/>
 								{t("providers.discrepancies.retestAll")}
+							</button>
+						) : null}
+						{/* The whole point of the badge: see a number you do not care about
+						    the detail of, clear it, done. Sends one request per provider
+						    (the endpoint is provider-scoped) but confirms once and toasts
+						    once. Hidden rather than disabled when there is nothing to
+						    dismiss, matching Retest all directly above. */}
+						{everythingDismissable.length > 0 ? (
+							<button
+								type="button"
+								onClick={() => setConfirmDismissEverything(true)}
+								disabled={readOnly}
+								title={
+									readOnly
+										? t("providers.discrepancies.readOnlyTooltip")
+										: t("providers.discrepancies.dismissEverythingTooltip")
+								}
+								aria-describedby={describedByReadOnly}
+								className="ui-btn ui-btn-ghost ui-btn-compact inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+								data-testid="discrepancy-dismiss-everything"
+							>
+								{t("providers.discrepancies.dismissEverything")}
 							</button>
 						) : null}
 					</div>
@@ -1034,6 +1089,24 @@ export function ModelDiscrepancyModal({
 						setConfirmDismiss(null);
 					}}
 					onCancel={() => setConfirmDismiss(null)}
+				/>
+			) : null}
+			{confirmDismissEverything ? (
+				<ConfirmDialog
+					title={t("providers.discrepancies.dismissEverythingConfirmTitle", {
+						count: everythingCount,
+					})}
+					message={t("providers.discrepancies.dismissEverythingConfirmBody", {
+						count: everythingCount,
+					})}
+					fields={[]}
+					confirmLabel={t("providers.discrepancies.dismissEverything")}
+					confirmTestId="discrepancy-dismiss-everything-confirm"
+					onConfirm={() => {
+						onDismissEverything(everythingDismissable);
+						setConfirmDismissEverything(false);
+					}}
+					onCancel={() => setConfirmDismissEverything(false)}
 				/>
 			) : null}
 		</>

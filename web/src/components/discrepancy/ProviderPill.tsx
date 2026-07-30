@@ -30,6 +30,8 @@ type PillChip = {
 	sign: string;
 	count: number;
 	label: string;
+	/** What the bucket actually means. "Gone" alone does not say gone where. */
+	tooltip: string;
 };
 
 /**
@@ -69,6 +71,7 @@ export function ProviderPill({
 					sign: "",
 					count: cleared.dismissed,
 					label: t("providers.discrepancies.chipDismissed"),
+					tooltip: t("providers.discrepancies.chipDismissedTooltip"),
 				},
 				cleared.resolved > 0 && {
 					key: "resolved",
@@ -76,6 +79,7 @@ export function ProviderPill({
 					sign: "✓",
 					count: cleared.resolved,
 					label: t("providers.discrepancies.chipResolved"),
+					tooltip: t("providers.discrepancies.chipResolvedTooltip"),
 				},
 			].filter((c): c is PillChip => c !== false)
 		: [
@@ -85,6 +89,7 @@ export function ProviderPill({
 					sign: "×",
 					count: counts.gone,
 					label: t("providers.discrepancies.group.gone"),
+					tooltip: t("providers.discrepancies.chipGoneTooltip"),
 				},
 				counts.suspect > 0 && {
 					key: "suspect",
@@ -92,6 +97,7 @@ export function ProviderPill({
 					sign: "?",
 					count: counts.suspect,
 					label: t("providers.discrepancies.group.suspect"),
+					tooltip: t("providers.discrepancies.chipSuspectTooltip"),
 				},
 				counts.stale > 0 && {
 					key: "stale",
@@ -99,6 +105,7 @@ export function ProviderPill({
 					sign: "",
 					count: counts.stale,
 					label: t("providers.discrepancies.group.stale"),
+					tooltip: t("providers.discrepancies.chipStaleTooltip"),
 				},
 			].filter((c): c is PillChip => c !== false);
 
@@ -138,6 +145,7 @@ export function ProviderPill({
 						key={c.key}
 						className={`ui-badge ${c.variant} shrink-0 tabular-nums`}
 						data-testid={`discrepancy-chip-${c.key}`}
+						title={c.tooltip}
 					>
 						{c.sign ? `${c.sign} ` : ""}
 						{c.count} {c.label}

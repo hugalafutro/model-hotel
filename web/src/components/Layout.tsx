@@ -972,6 +972,69 @@ export function Layout({ children }: LayoutProps) {
 		[dismissClaim, restoreClaim, refresh, toast, t, undoDismissAll],
 	);
 
+	/**
+	 * Clears the whole modal: every actionable gone/stale model on every provider.
+	 *
+	 * One request per provider, because the endpoint is provider-scoped, but ONE
+	 * confirm, ONE refresh and ONE toast. Eight providers must not produce eight
+	 * toasts stacked over each other, and the per-provider handler above would do
+	 * exactly that if this looped over it.
+	 *
+	 * `allSettled`, not `all`: one provider failing must not abandon the rest, and
+	 * the refresh underneath re-derives every row anyway, so a partial result
+	 * corrects itself on screen. The toast reports what actually landed.
+	 */
+	const onDismissEverything = useCallback(
+		async (batches: { providerID: string; modelIDs: string[] }[]) => {
+			if (batches.length === 0) return;
+			const total = batches.reduce((n, b) => n + b.modelIDs.length, 0);
+			for (const b of batches) {
+				dismissClaim(b.providerID, new Set(b.modelIDs));
+			}
+			const results = await Promise.allSettled(
+				batches.map((b) =>
+					api.discovery.dismiss(b.providerID, b.modelIDs, true),
+				),
+			);
+			// Roll back only the providers whose own request failed; the rest stand.
+			let dismissed = 0;
+			batches.forEach((b, i) => {
+				const r = results[i];
+				if (r.status === "fulfilled") dismissed += r.value.updated;
+				else restoreClaim(b.providerID, new Set(b.modelIDs));
+			});
+			await refresh();
+			if (dismissed === 0) {
+				toast(t("providers.discrepancies.dismissEverythingFailed"), "error");
+				return;
+			}
+			const undo = {
+				label: t("providers.discrepancies.undo"),
+				onClick: () => {
+					void (async () => {
+						await Promise.allSettled(
+							batches.map((b) =>
+								api.discovery.dismiss(b.providerID, b.modelIDs, false),
+							),
+						);
+						await refresh();
+					})();
+				},
+			};
+			toast(
+				dismissed < total
+					? t("providers.discrepancies.dismissAllPartial", {
+							count: dismissed,
+							total,
+						})
+					: t("providers.discrepancies.dismissAllDone", { count: dismissed }),
+				dismissed < total ? "warning" : "success",
+				undo,
+			);
+		},
+		[dismissClaim, restoreClaim, refresh, toast, t],
+	);
+
 	const onDismiss = useCallback(
 		async (providerId: string, modelId: string) => {
 			// Nothing is captured here, not the array and not the claim's status. A
@@ -1587,6 +1650,9 @@ export function Layout({ children }: LayoutProps) {
 					}}
 					onDismissAll={(providerId, modelIds) => {
 						void onDismissAll(providerId, modelIds);
+					}}
+					onDismissEverything={(batches) => {
+						void onDismissEverything(batches);
 					}}
 					retestingProviderId={retestingKey}
 					isRetesting={isAnyRetesting}

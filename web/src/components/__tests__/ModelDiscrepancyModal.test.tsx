@@ -46,6 +46,7 @@ const baseProps = {
 	onCancelRetestAll: vi.fn(),
 	onDismiss: vi.fn(),
 	onDismissAll: vi.fn(),
+	onDismissEverything: vi.fn(),
 	isRetesting: false,
 	errors: {},
 	onExpandInformational: vi.fn(),
@@ -908,6 +909,188 @@ describe("ModelDiscrepancyModal", () => {
 			await waitFor(() =>
 				expect(onDismissAll).toHaveBeenCalledWith("p1", ["live"]),
 			);
+		});
+	});
+
+	describe("modal-wide dismiss all", () => {
+		it("batches every provider's dismissible ids, one batch per provider", async () => {
+			// The endpoint is provider-scoped, so a modal-wide dismiss is N requests
+			// however it is presented. The modal's job is to hand over the batches;
+			// Layout turns them into one confirm, one refresh and one toast.
+			const user = userEvent.setup();
+			const onDismissEverything = vi.fn();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					onDismissEverything={onDismissEverything}
+					providers={[
+						prov({
+							gone: [claimOf("g1", "pending")],
+							stale: [claimOf("s1", "pending", "stale")],
+							suspect: [claimOf("q1", "pending", "suspect")],
+						}),
+						prov({
+							provider_id: "p2",
+							provider_name: "OpenRouter",
+							gone: [claimOf("g2", "pending")],
+						}),
+					]}
+				/>,
+			);
+
+			await user.click(screen.getByTestId("discrepancy-dismiss-everything"));
+			await user.click(
+				screen.getByTestId("discrepancy-dismiss-everything-confirm"),
+			);
+
+			await waitFor(() => expect(onDismissEverything).toHaveBeenCalledTimes(1));
+			// Suspect is excluded here for the same reason as on the pill: the server
+			// refuses a still-enabled model.
+			expect(onDismissEverything).toHaveBeenCalledWith([
+				{ providerID: "p1", modelIDs: ["g1", "s1"] },
+				{ providerID: "p2", modelIDs: ["g2"] },
+			]);
+		});
+
+		it("asks first and sends nothing when cancelled", async () => {
+			const user = userEvent.setup();
+			const onDismissEverything = vi.fn();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					onDismissEverything={onDismissEverything}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				/>,
+			);
+
+			await user.click(screen.getByTestId("discrepancy-dismiss-everything"));
+			expect(onDismissEverything).not.toHaveBeenCalled();
+
+			await user.click(screen.getByTestId("confirm-dialog-cancel"));
+
+			expect(onDismissEverything).not.toHaveBeenCalled();
+		});
+
+		it("omits providers with nothing dismissible from the batches", async () => {
+			const user = userEvent.setup();
+			const onDismissEverything = vi.fn();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					onDismissEverything={onDismissEverything}
+					providers={[
+						prov({ suspect: [claimOf("q1", "pending", "suspect")] }),
+						prov({
+							provider_id: "p2",
+							provider_name: "OpenRouter",
+							gone: [claimOf("g2", "pending")],
+						}),
+					]}
+				/>,
+			);
+
+			await user.click(screen.getByTestId("discrepancy-dismiss-everything"));
+			await user.click(
+				screen.getByTestId("discrepancy-dismiss-everything-confirm"),
+			);
+
+			await waitFor(() =>
+				expect(onDismissEverything).toHaveBeenCalledWith([
+					{ providerID: "p2", modelIDs: ["g2"] },
+				]),
+			);
+		});
+
+		it("is absent when nothing anywhere is dismissible", () => {
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ suspect: [claimOf("q1", "pending", "suspect")] })]}
+				/>,
+			);
+
+			// Hidden rather than disabled, matching Retest all beside it.
+			expect(screen.queryByTestId("discrepancy-dismiss-everything")).toBeNull();
+		});
+
+		it("excludes a cleaned provider from the batches", async () => {
+			// Clean is view-only, so a cleaned provider must not be swept back in by
+			// the modal-wide action either.
+			const user = userEvent.setup();
+			const onDismissEverything = vi.fn();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					onDismissEverything={onDismissEverything}
+					providers={[
+						prov({ gone: [claimOf("done", "dismissed")] }),
+						prov({
+							provider_id: "p2",
+							provider_name: "OpenRouter",
+							gone: [claimOf("g2", "pending")],
+						}),
+					]}
+				/>,
+			);
+			await user.click(screen.getByTestId("discrepancy-clean"));
+
+			await user.click(screen.getByTestId("discrepancy-dismiss-everything"));
+			await user.click(
+				screen.getByTestId("discrepancy-dismiss-everything-confirm"),
+			);
+
+			await waitFor(() =>
+				expect(onDismissEverything).toHaveBeenCalledWith([
+					{ providerID: "p2", modelIDs: ["g2"] },
+				]),
+			);
+		});
+	});
+
+	describe("chip tooltips", () => {
+		it("explains what each bucket means", () => {
+			// "Gone" on its own does not say gone from where.
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({
+							gone: [claimOf("a", "pending")],
+							stale: [claimOf("old", "pending", "stale")],
+							suspect: [claimOf("q", "pending", "suspect")],
+						}),
+					]}
+				/>,
+			);
+
+			for (const key of ["gone", "stale", "suspect"]) {
+				const chip = screen.getByTestId(`discrepancy-chip-${key}`);
+				const tip = chip.getAttribute("title");
+				// Compared against the label rather than spelled out, so this holds in
+				// every locale: a tooltip that just repeats the chip explains nothing.
+				expect(tip).toBeTruthy();
+				expect(tip).not.toBe(chip.textContent);
+				expect((tip as string).length).toBeGreaterThan(20);
+			}
+		});
+
+		it("explains the cleared chips too", () => {
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({
+							gone: [claimOf("a", "dismissed"), claimOf("b", "resolved")],
+						}),
+					]}
+				/>,
+			);
+
+			for (const key of ["dismissed", "resolved"]) {
+				expect(screen.getByTestId(`discrepancy-chip-${key}`)).toHaveAttribute(
+					"title",
+				);
+			}
 		});
 	});
 
