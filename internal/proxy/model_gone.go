@@ -32,6 +32,23 @@ import (
 // retiring a live model.
 const goneStrikeThreshold = 3
 
+// goneStreak is one model's consecutive-refusal count plus a tombstone for the
+// window between deciding to disable and the write landing.
+//
+// n must be atomic because a retired model is precisely the one taking
+// concurrent refusals; a read-modify-write would lose increments and the streak
+// would never reach the threshold.
+//
+// cancelled exists because the disable is detached. Between the threshold being
+// reached and the database write completing — as long as the database takes —
+// the model can answer a request and prove it is alive. noteModelServed sets
+// this so the queued write can stand down instead of retiring a model whose
+// evidence has already been superseded.
+type goneStreak struct {
+	n         atomic.Int64
+	cancelled atomic.Bool
+}
+
 // noteModelGone records one strike against a model the provider refused as
 // retired, and disables it once the streak reaches goneStrikeThreshold.
 //
@@ -54,15 +71,15 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 	// the same value and store the same increment, the streak would stall below
 	// the threshold, and the model would stay routable indefinitely.
 	//
-	// sync.Map holds a per-model *atomic.Int64 rather than a plain int, so
-	// LoadOrStore only races on creating the counter (harmless, the winner's is
-	// used by everyone) and the increment itself is atomic.
-	raw, _ := h.goneStrikes.LoadOrStore(m.ID, &atomic.Int64{})
-	counter, ok := raw.(*atomic.Int64)
+	// sync.Map holds a per-model *goneStreak rather than a plain int, so
+	// LoadOrStore only races on creating it (harmless, the winner's is used by
+	// everyone) and the increment itself is atomic.
+	raw, _ := h.goneStrikes.LoadOrStore(m.ID, &goneStreak{})
+	streak, ok := raw.(*goneStreak)
 	if !ok {
 		return
 	}
-	strikes := counter.Add(1)
+	strikes := streak.n.Add(1)
 
 	if strikes < goneStrikeThreshold {
 		debuglog.Info("proxy: provider reports model gone", "model", m.ModelID, "provider", providerName, "strikes", strikes, "threshold", goneStrikeThreshold)
@@ -91,6 +108,19 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 		// and the caller's error response must not wait on this write.
 		dctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
+
+		// The decision was made before this goroutine was scheduled, and the
+		// write below can take as long as the database does. If the model
+		// answered a request in the meantime it has proved it is alive, and
+		// disabling it now would take a working model out of routing on the
+		// strength of evidence that has already been superseded.
+		//
+		// noteModelServed marks the streak cancelled before dropping it, so this
+		// check sees any success that landed while the disable was queued.
+		if streak.cancelled.Load() {
+			debuglog.Info("proxy: skipping auto-disable, model answered while the disable was queued", "model", modelName, "provider", provider)
+			return
+		}
 
 		if _, err := h.modelRepo.SetEnabled(dctx, modelID, false); err != nil {
 			debuglog.Error("proxy: failed to auto-disable retired model", "model", modelName, "provider", provider, "error", err)
@@ -196,12 +226,23 @@ func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCand
 // The strike streak must be consecutive, so one success is enough to reset it.
 // The map lookup is deliberately the only work done for a healthy model: nothing
 // is written, and nothing touches the database.
+//
+// It also cancels a disable that has been decided but not yet written. The
+// ordering matters: mark the streak cancelled FIRST, then drop it from the map.
+// A queued disable holds a pointer to the streak, not the map entry, so marking
+// before deleting is what makes the flag visible to it — deleting first would
+// leave the goroutine holding an orphan it can never be told about.
 func (h *Handler) noteModelServed(m *model.Model) {
 	if m == nil || m.ID == uuid.Nil {
 		return
 	}
-	if _, ok := h.goneStrikes.Load(m.ID); ok {
-		h.goneStrikes.Delete(m.ID)
-		debuglog.Debug("proxy: model answered again, cleared gone-strikes", "model", m.ModelID)
+	raw, ok := h.goneStrikes.Load(m.ID)
+	if !ok {
+		return
 	}
+	if streak, ok := raw.(*goneStreak); ok {
+		streak.cancelled.Store(true)
+	}
+	h.goneStrikes.Delete(m.ID)
+	debuglog.Debug("proxy: model answered again, cleared gone-strikes", "model", m.ModelID)
 }

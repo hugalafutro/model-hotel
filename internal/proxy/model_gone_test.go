@@ -452,3 +452,69 @@ func TestNoteModelGone_FailedDisableIsRetried(t *testing.T) {
 	}
 	t.Fatalf("a failed disable must be retried, got %d attempts", len(repo.disableCalls()))
 }
+
+// TestNoteModelGone_SuccessCancelsAQueuedDisable pins the window between
+// deciding to disable and the write landing.
+//
+// The disable is detached so it never adds latency to the request path, which
+// means it can still be in flight — for as long as the database takes — when the
+// model answers a request and proves it is alive. Without a cancellation the
+// already-queued write lands anyway and retires a model that is demonstrably
+// working, on evidence that has since been superseded.
+func TestNoteModelGone_SuccessCancelsAQueuedDisable(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{
+		setEnabledGate:    make(chan struct{}),
+		setEnabledEntered: make(chan struct{}),
+	}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+
+	// Reach the threshold: the disable goroutine is now queued.
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+
+	// The model answers before the write is released.
+	h.noteModelServed(m)
+	close(repo.setEnabledGate)
+
+	// Give the goroutine room to run to completion either way.
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if len(repo.disableCalls()) > 0 {
+			t.Fatalf("a model that answered must not be disabled by an already-queued write")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// TestNoteModelGone_QueuedDisableStillLandsWithoutASuccess is the control: the
+// cancellation must only fire on an actual success, not swallow every disable
+// that happens to be slow.
+func TestNoteModelGone_QueuedDisableStillLandsWithoutASuccess(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{
+		setEnabledGate:    make(chan struct{}),
+		setEnabledEntered: make(chan struct{}),
+	}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+
+	// No success this time; release the slow write.
+	close(repo.setEnabledGate)
+
+	calls := waitForDisable(t, repo)
+	if len(calls) != 1 {
+		t.Fatalf("expected the queued disable to land, got %d calls", len(calls))
+	}
+	if calls[0].enabled {
+		t.Error("model must be disabled, not enabled")
+	}
+}
