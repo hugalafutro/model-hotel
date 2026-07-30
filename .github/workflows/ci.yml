@@ -23,8 +23,191 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Which parts of the tree this push/PR actually touches, so the gates below can
+  # skip work that cannot possibly be affected. A README edit has no business
+  # starting Postgres, sharding 5.6k vitest tests, or building a Docker image.
+  #
+  # Gating is per JOB (`if:`), never via `on.paths`, and that is load-bearing: a
+  # workflow skipped by a path filter never creates its check runs, so every
+  # required context stays "Expected — waiting for status" and the PR can never
+  # merge. A job skipped by a conditional reports Success and satisfies branch
+  # protection. See GitHub's "Troubleshooting required status checks".
+  #
+  # Fail-OPEN on purpose. Every gate below tests `!= 'false'`, so an output this
+  # job never wrote (empty string) runs the job anyway, and the script below
+  # answers "I don't know" with run-everything rather than a silent skip. The
+  # failure mode of a bug here must be a wasted run, never an untested merge —
+  # a skipped required check counts as passing, so a gate that guesses "unchanged"
+  # would wave work through.
+  changes:
+    name: Changed Surfaces
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      web: ${{ steps.filter.outputs.web }}
+      fdweb: ${{ steps.filter.outputs.fdweb }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+      deps: ${{ steps.filter.outputs.deps }}
+      i18n: ${{ steps.filter.outputs.i18n }}
+      image: ${{ steps.filter.outputs.image }}
+      measurable: ${{ steps.filter.outputs.measurable }}
+      all_coverage: ${{ steps.filter.outputs.all_coverage }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed surfaces
+        id: filter
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        # No `set -e`: every failure path is handled explicitly by
+        # run_everything, so the job cannot die half-way and leave the gates
+        # reading an empty (and therefore run-everything) output set by accident.
+        run: |
+          set -uo pipefail
+
+          # "I cannot establish the diff" -> run the whole suite. Also the
+          # workflow_dispatch answer: a manual run is an explicit "test it all".
+          run_everything() {
+            echo "running everything: $1"
+            for k in go web fdweb workflows deps i18n image measurable all_coverage; do
+              echo "$k=true" >> "$GITHUB_OUTPUT"
+            done
+            {
+              echo "### Changed surfaces"
+              echo
+              echo "Running **everything**: $1"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          }
+
+          case "$EVENT_NAME" in
+            pull_request)
+              git fetch --no-tags --quiet origin "$BASE_REF" \
+                || run_everything "could not fetch base ref $BASE_REF"
+              # Three-dot: compare against the merge base, so commits that
+              # landed on master since the branch started are not counted as
+              # this PR's changes.
+              changed=$(git diff --name-only "origin/${BASE_REF}...HEAD") \
+                || run_everything "diff against origin/$BASE_REF failed"
+              ;;
+            push)
+              # A brand-new branch (or a force push) reports an all-zero or
+              # absent before-SHA; there is no previous state to diff.
+              if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+                run_everything "push carried no usable before-SHA"
+              fi
+              git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null \
+                || run_everything "before-SHA $BEFORE_SHA is not in this clone"
+              changed=$(git diff --name-only "$BEFORE_SHA" "$HEAD_SHA") \
+                || run_everything "diff $BEFORE_SHA..$HEAD_SHA failed"
+              ;;
+            *)
+              run_everything "$EVENT_NAME is an explicit request to run"
+              ;;
+          esac
+
+          if [ -z "$changed" ]; then
+            run_everything "the diff is empty"
+          fi
+
+          echo "changed files:"
+          printf '%s\n' "$changed"
+
+          match() {
+            if printf '%s\n' "$changed" | grep -qE "$1"; then echo true; else echo false; fi
+          }
+
+          any() {
+            for v in "$@"; do
+              if [ "$v" = true ]; then echo true; return; fi
+            done
+            echo false
+          }
+
+          # Go build/test/lint surface. Kept broad: `internal/` and `cmd/` carry
+          # the SQL migrations and testdata too, and the Makefile drives the
+          # local equivalents of these jobs.
+          go=$(match '^(cmd|internal)/|\.go$|^go\.(mod|sum)$|^\.golangci\.ya?ml$|^Makefile$')
+          web=$(match '^web/')
+          fdweb=$(match '^frontdesk/web/')
+          workflows=$(match '^\.github/')
+          # THIRD-PARTY-NOTICES.md is generated FROM these, so a hand-edit to the
+          # committed file must be caught by regenerating it.
+          deps=$(match '^go\.(mod|sum)$|^web/(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$|^tools/gen-notices/|^THIRD-PARTY-NOTICES\.md$')
+          # The locale gate reads both apps' sources, not just their catalogs: it
+          # verifies every literal t("...") key resolves in en.json.
+          i18n=$(match '^web/|^frontdesk/web/|^tools/i18n-translate/|^Makefile$')
+          # The coverage jobs run the coverage scripts' own self-tests, so a
+          # change to those scripts has to reach them even with no code change.
+          covtools=$(match '^scripts/coverage/')
+
+          # The :dev image carries the compiled Go binary plus both built
+          # frontends. Test files are neither compiled nor bundled, so drop them
+          # before matching the surface the Dockerfiles COPY. Same predicate as
+          # publish-dev's own gate below, which keeps its independent copy
+          # because it diffs against the last PUBLISHED image, not against this
+          # push's parent.
+          src=$(printf '%s\n' "$changed" | grep -vE '(_test\.go|\.test\.tsx?|\.spec\.tsx?)$')
+          if printf '%s\n' "$src" | grep -qE '^(internal/|cmd/|web/|frontdesk/web/|Dockerfile|docker-entrypoint|\.dockerignore|go\.(mod|sum))'; then
+            image=true
+          else
+            image=false
+          fi
+
+          measurable=$(any "$go" "$web" "$fdweb" "$covtools")
+
+          # The master coverage badge is one number aggregated from all three
+          # suites, so it can only be recomputed when all three have reported.
+          # On a push that changes any measurable surface we therefore run the
+          # full trio; on a docs-only push we run none of them and the badge
+          # correctly stays where it is. PRs gate each suite independently -
+          # they feed the diff gate, which is per-file.
+          if [ "$EVENT_NAME" = push ] && [ "$measurable" = true ]; then
+            all_coverage=true
+          else
+            all_coverage=false
+          fi
+
+          {
+            echo "go=$go"
+            echo "web=$web"
+            echo "fdweb=$fdweb"
+            echo "workflows=$workflows"
+            echo "deps=$deps"
+            echo "i18n=$i18n"
+            echo "image=$image"
+            echo "measurable=$measurable"
+            echo "all_coverage=$all_coverage"
+          } | tee -a "$GITHUB_OUTPUT"
+
+          {
+            echo "### Changed surfaces"
+            echo
+            echo "| surface | changed |"
+            echo "| --- | --- |"
+            echo "| Go | $go |"
+            echo "| web/ | $web |"
+            echo "| frontdesk/web/ | $fdweb |"
+            echo "| workflows | $workflows |"
+            echo "| dependencies | $deps |"
+            echo "| i18n | $i18n |"
+            echo "| image | $image |"
+            echo "| coverage-measurable | $measurable |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   go-test:
     name: Go Test
+    needs: changes
+    # `!= 'false'` and not `== 'true'`: an output the gate never wrote must run
+    # the job, not skip it.
+    if: >-
+      needs.changes.outputs.go != 'false'
+      || needs.changes.outputs.all_coverage != 'false'
     runs-on: ubuntu-latest
     env:
       POSTGRES_PASSWORD: changeme
@@ -95,6 +278,8 @@ jobs:
 
   go-lint:
     name: Go Lint
+    needs: changes
+    if: needs.changes.outputs.go != 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -111,6 +296,8 @@ jobs:
 
   go-vet:
     name: Go Vet
+    needs: changes
+    if: needs.changes.outputs.go != 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -127,6 +314,8 @@ jobs:
   # analysis: it only fails on vulnerable functions our code actually calls.
   govulncheck:
     name: Go Vulncheck
+    needs: changes
+    if: needs.changes.outputs.go != 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -141,6 +330,8 @@ jobs:
 
   i18n-check:
     name: i18n Check
+    needs: changes
+    if: needs.changes.outputs.i18n != 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -154,6 +345,8 @@ jobs:
 
   workflow-lint:
     name: Workflow Lint
+    needs: changes
+    if: needs.changes.outputs.workflows != 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -169,6 +362,8 @@ jobs:
 
   frontend-checks:
     name: Frontend Lint & Build
+    needs: changes
+    if: needs.changes.outputs.web != 'false'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -203,8 +398,15 @@ jobs:
   # The 5k-test vitest suite was the sole CI wall-clock bottleneck (~7-8 min),
   # so it is split into parallel shards. Each shard writes a blob report (with
   # embedded coverage); frontend-coverage merges them for the gate.
+  # The ONLY job here gated per STEP rather than at job level, and it has to be:
+  # each shard is separately named in branch protection, and a matrix job skipped
+  # by a job-level `if:` is never expanded, so those three check runs are never
+  # created at all and the PR waits on them forever (actions/runner#952). Skipped
+  # STEPS still let each leg report, so the contexts resolve. The cost of a
+  # no-op leg is the runner spin-up, seconds against the suite's minutes.
   frontend-test:
     name: Frontend Test (shard ${{ matrix.shard }}/3)
+    needs: changes
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -213,20 +415,27 @@ jobs:
     defaults:
       run:
         working-directory: web
+    env:
+      RUN: >-
+        ${{ needs.changes.outputs.web != 'false'
+        || needs.changes.outputs.all_coverage != 'false' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+      - if: env.RUN == 'true'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
         with:
           version: 10
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - if: env.RUN == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Install dependencies
+        if: env.RUN == 'true'
         run: pnpm install --frozen-lockfile
 
       # blob feeds the coverage merge in frontend-coverage. github-actions
@@ -234,6 +443,7 @@ jobs:
       # test is named directly in the Actions log (blob writes only to
       # files, leaving the console silent on failure).
       - name: Test (shard ${{ matrix.shard }}/3)
+        if: env.RUN == 'true'
         run: >-
           pnpm exec vitest run --coverage
           --reporter=blob --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}.json
@@ -241,6 +451,7 @@ jobs:
           --shard=${{ matrix.shard }}/3
 
       - name: Upload blob report
+        if: env.RUN == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: vitest-blob-${{ matrix.shard }}
@@ -248,9 +459,16 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
+      - name: No frontend changes
+        if: env.RUN != 'true'
+        run: echo "web/ unchanged on this ${{ github.event_name }}; shard ${{ matrix.shard }}/3 has nothing to run"
+
   frontend-coverage:
     name: Frontend Coverage Gate
-    needs: frontend-test
+    needs: [changes, frontend-test]
+    if: >-
+      needs.changes.outputs.web != 'false'
+      || needs.changes.outputs.all_coverage != 'false'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -317,6 +535,10 @@ jobs:
 
   frontdesk-web-test:
     name: Front Desk Web Test
+    needs: changes
+    if: >-
+      needs.changes.outputs.fdweb != 'false'
+      || needs.changes.outputs.all_coverage != 'false'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -375,24 +597,35 @@ jobs:
   coverage-diff:
     name: Coverage Diff Gate
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    needs: [go-test, frontend-coverage, frontdesk-web-test]
+    # `!cancelled()` rather than the implicit success(): on a web-only PR the Go
+    # suite is skipped, and a skipped dependency would otherwise skip this gate
+    # too, silently dropping the diff check for the code that DID change. A
+    # genuinely failing suite still blocks the PR on its own check.
+    if: >-
+      !cancelled() && github.event_name == 'pull_request'
+      && needs.changes.outputs.measurable != 'false'
+    needs: [changes, go-test, frontend-coverage, frontdesk-web-test]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      # Each download is gated on the same surface as the job that uploads it:
+      # asking for an artifact a skipped job never produced fails the step.
+      - if: needs.changes.outputs.go != 'false'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: go-coverage
           path: cov/go
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - if: needs.changes.outputs.web != 'false'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: web-coverage
           path: cov/web
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - if: needs.changes.outputs.fdweb != 'false'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: fdweb-coverage
           path: cov/fdweb
@@ -405,22 +638,41 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: git fetch --no-tags origin "$BASE_REF"
 
+      # Only the surfaces that ran contribute a profile. diff_coverage.py ignores
+      # changed files it has no coverage data for, so a subset is not a loophole:
+      # a file is only skipped when its own suite was skipped, which only happens
+      # when nothing under that surface changed.
       - name: Check diff coverage (90% threshold)
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: >-
-          python3 scripts/coverage/diff_coverage.py
-          --diff-base "origin/$BASE_REF"
-          --go cov/go/coverage.out
-          --lcov "web/=cov/web/lcov.info"
-          --lcov "frontdesk/web/=cov/fdweb/lcov.info"
-          --threshold 90
+          GO: ${{ needs.changes.outputs.go }}
+          WEB: ${{ needs.changes.outputs.web }}
+          FDWEB: ${{ needs.changes.outputs.fdweb }}
+        run: |
+          set -euo pipefail
+          args=(--diff-base "origin/$BASE_REF" --threshold 90)
+          if [ "$GO" != false ]; then
+            args+=(--go cov/go/coverage.out)
+          fi
+          if [ "$WEB" != false ]; then
+            args+=(--lcov "web/=cov/web/lcov.info")
+          fi
+          if [ "$FDWEB" != false ]; then
+            args+=(--lcov "frontdesk/web/=cov/fdweb/lcov.info")
+          fi
+          python3 scripts/coverage/diff_coverage.py "${args[@]}"
 
   coverage-aggregate:
     name: Coverage Aggregate
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: [go-test, frontend-coverage, frontdesk-web-test]
+    # The badge is one number over all three suites, so this runs only when all
+    # three have reported — which on a push is exactly when any measurable
+    # surface changed (see all_coverage in the gate above). A docs-only push
+    # changes no coverage, so leaving the badge alone is the correct answer.
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/master'
+      && needs.changes.outputs.measurable != 'false'
+    needs: [changes, go-test, frontend-coverage, frontdesk-web-test]
     permissions:
       contents: write
     steps:
@@ -481,6 +733,8 @@ jobs:
   # `make notices`.
   notices:
     name: Third-Party Notices
+    needs: changes
+    if: needs.changes.outputs.deps != 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -518,6 +772,8 @@ jobs:
 
   docker-build:
     name: Docker Build
+    needs: changes
+    if: needs.changes.outputs.image != 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -555,10 +811,20 @@ jobs:
   publish-dev:
     name: Publish :dev image
     runs-on: ubuntu-latest
+    # `!failure() && !cancelled()` instead of the implicit success(): the gate
+    # above skips whichever suites this commit cannot have affected, and a
+    # skipped dependency would otherwise skip the publish, stranding :dev on a
+    # web-only or Go-only push. `!failure()` still means every needed job either
+    # passed or was skipped, so a red suite never becomes a staging image.
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/master')
-      || github.event_name == 'workflow_dispatch'
+      !failure() && !cancelled()
+      && ((github.event_name == 'push' && github.ref == 'refs/heads/master')
+      || github.event_name == 'workflow_dispatch')
     needs:
+      # The gate itself is a dependency: if it fails, every suite below it is
+      # skipped rather than failed, and `!failure()` would otherwise read that
+      # as "nothing went wrong" and publish an entirely untested image.
+      - changes
       - go-test
       - go-lint
       - go-vet
