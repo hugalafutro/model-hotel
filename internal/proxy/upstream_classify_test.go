@@ -136,3 +136,66 @@ func TestUpstreamClientMessage(t *testing.T) {
 		t.Errorf("unattributed message = %q", got)
 	}
 }
+
+// TestClassifyUpstreamError_NarrowPatterns pins the three misclassification
+// risks raised in review. Each one only ever affected the recorded error_kind,
+// the Prometheus label and the client message — routing stays status-driven —
+// but a wrong kind sends an operator to the wrong conclusion, and
+// provider_model_gone additionally accrues a strike towards auto-disabling a
+// live model.
+func TestClassifyUpstreamError_NarrowPatterns(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		status int
+		body   string
+		want   ErrorKind
+	}{
+		{
+			// A bare "billing" substring used to match here, so a transient
+			// fault naming a billing subsystem was recorded as a permanent
+			// entitlement failure.
+			name:   "transient fault naming a billing subsystem is not an entitlement failure",
+			status: 500,
+			body:   `{"error":{"message":"billing_engine_timeout: upstream unavailable","type":"server_error"}}`,
+			want:   KindProviderError,
+		},
+		{
+			name:   "402 is entitlement regardless of body",
+			status: 402,
+			body:   `{"error":{"message":"payment required"}}`,
+			want:   KindProviderNotEntitled,
+		},
+		{
+			// "does not exist" is too generic alone: a provider erroring about
+			// some other entity must not accrue gone-strikes against a live
+			// model.
+			name:   "does-not-exist about a non-model entity is not a dead model",
+			status: 404,
+			body:   `{"error":{"message":"the requested conversation does not exist"}}`,
+			want:   KindProviderError,
+		},
+		{
+			name:   "does-not-exist about a model still classifies as gone",
+			status: 404,
+			body:   "{\"error\":{\"message\":\"The model `gpt-4.5-preview` does not exist or you do not have access to it\"}}",
+			want:   KindProviderModelGone,
+		},
+		{
+			name:   "genuine insufficient balance still classifies",
+			status: 429,
+			body:   `{"error":{"code":"1113","message":"Insufficient balance or no resource package. Please recharge."}}`,
+			want:   KindProviderNotEntitled,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got, _ := classifyUpstreamError(tc.status, tc.body); got != tc.want {
+				t.Errorf("classifyUpstreamError(%d, %q) = %q, want %q", tc.status, tc.body, got, tc.want)
+			}
+		})
+	}
+}

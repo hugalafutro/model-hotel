@@ -183,8 +183,13 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
 	}
 
-	// The model answered, so any gone-strike streak it had accumulated is stale.
-	h.noteModelServed(candidate.model)
+	// A non-streaming 200 means the model answered, so any gone-strike streak it
+	// had accumulated is stale. Streaming cannot be judged yet: the provider can
+	// send 200 headers and only then report the model gone in an SSE error, so
+	// that verdict is deferred to dispatchStreaming once the stream has ended.
+	if !st.isStreaming {
+		h.noteModelServed(candidate.model)
+	}
 
 	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "native_anthropic", st.anthropicNativeAttempt, "responses_api", st.responsesAttempt, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 	if st.responsesAttempt {
@@ -317,6 +322,17 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 	}
 
 	h.handleStreamingResponse(w, r, logData, resp, st.startTime, opts)
+
+	// Judge the model only now. deriveStreamError classifies any in-stream SSE
+	// error into logData.errorKind, so a provider that returns 200 headers and
+	// then reports the model gone mid-stream is caught here rather than being
+	// credited with a success. Without this the streak could never accumulate on
+	// that path: the 200 would have cleared it before the error even arrived.
+	if logData.errorKind == KindProviderModelGone {
+		h.noteModelGone(candidate.model, candidate.provider.Name)
+	} else {
+		h.noteModelServed(candidate.model)
+	}
 	return outcomeServed
 }
 

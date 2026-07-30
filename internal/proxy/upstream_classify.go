@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"net/http"
 	"strconv"
 	"strings"
 )
@@ -41,12 +42,13 @@ func classifyUpstreamError(status int, body string) (ErrorKind, string) {
 	// models in its /models listing and only fails at generation time
 	// ("This model ... is no longer available"); OpenCode Zen answers
 	// "Model X is not supported"; xAI says "Model not found".
+	//
+	// These phrases are specific enough to stand alone.
 	for _, p := range []string{
 		"is no longer available",
 		"is not supported",
 		"not supported on the full model list",
 		"model not found",
-		"does not exist",
 		"unknown model",
 		"is not found for api version",
 	} {
@@ -55,17 +57,35 @@ func classifyUpstreamError(status int, body string) (ErrorKind, string) {
 		}
 	}
 
+	// "does not exist" is the OpenAI-family phrasing ("The model `x` does not
+	// exist") but is far too generic on its own — a provider erroring about some
+	// other entity ("the requested conversation does not exist") would otherwise
+	// accrue gone-strikes against a perfectly live model. Require the body to be
+	// talking about a model before treating it as one.
+	if strings.Contains(b, "does not exist") && strings.Contains(b, "model") {
+		return KindProviderModelGone, "the provider no longer serves this model"
+	}
+
 	// Account cannot pay for this model: Z.ai's coding-plan endpoint answers
 	// 429 code 1113 "Insufficient balance or no resource package. Please
 	// recharge." for models outside the subscription. Without this it is
 	// indistinguishable from ordinary rate limiting, so it looks retryable
 	// when it will never succeed until someone pays.
+	//
+	// 402 is the unambiguous signal and needs no body match at all. The phrases
+	// are each a full sentence fragment from a real provider; a bare "billing"
+	// was deliberately removed after review, because a transient fault naming a
+	// billing subsystem ("billing_engine_timeout" on a 500) would have been
+	// recorded as a permanent entitlement failure and sent an operator chasing a
+	// provider_not_entitled spike that was really a provider outage.
+	if status == http.StatusPaymentRequired {
+		return KindProviderNotEntitled, "the provider rejected this request for billing or plan reasons"
+	}
 	for _, p := range []string{
 		"insufficient balance",
 		"no resource package",
 		"please recharge",
 		"exceeded your current quota",
-		"billing",
 	} {
 		if strings.Contains(b, p) {
 			return KindProviderNotEntitled, "the provider rejected this request for billing or plan reasons"
