@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
 	DiscoveryChangeEntry,
@@ -298,15 +298,34 @@ export function useDiscrepancies(open: boolean) {
 		setSeeded(true);
 	}
 
+	/**
+	 * Monotonic sequence counter: refreshes overlap, so only the NEWEST in-flight
+	 * response is applied.
+	 *
+	 * Retest, dismiss and the modal's own reads all call `refresh`, and a status
+	 * read issued before a dismissal can land after it. Its payload predates the
+	 * write, so it still reports the dismissed model, and `mergeProviderBuckets`
+	 * would rebuild that row from the stale claim as `pending` — erasing a
+	 * confirmed dismissal and putting the controls back for a model that is gone.
+	 *
+	 * The same seqRef pattern MembersPage and useMembers use for their own
+	 * concurrent refetches.
+	 */
+	const refreshSeq = useRef(0);
+
 	const refresh = useCallback(async () => {
+		const seq = ++refreshSeq.current;
 		try {
 			const fresh = await api.discovery.status(false);
+			// A newer refresh has already landed; this payload is history.
+			if (seq !== refreshSeq.current) return fresh;
 			setSnapshot((prev) => mergeClaims(prev, fresh.claims));
 			setGroupClaims(fresh.group_claims);
 			setInformational(fresh.informational);
 			setRefreshError(null);
 			return fresh;
 		} catch (err) {
+			if (seq !== refreshSeq.current) return undefined;
 			// Surfaced via state rather than rethrown: callers fire this from a
 			// button handler (typically `void refresh()`), so rethrowing would only
 			// turn into an unhandled rejection instead of a renderable error.

@@ -1519,6 +1519,84 @@ describe("Layout", () => {
 			expect(screen.queryByTestId("toast-action")).toBeNull();
 		});
 
+		it("discards a stale status read instead of un-dismissing a row", async () => {
+			// Retest and dismiss each refresh, so their status reads overlap. A read
+			// issued BEFORE a dismissal still reports the model, and if it lands after
+			// the write the merge would rebuild that row as pending, handing back
+			// controls for a model that is gone.
+			//
+			// Retest is what puts a read in flight here: its refresh is held open, the
+			// dismissal completes underneath it, and only then is it released. The held
+			// payload is built BEFORE the await so it is genuinely stale.
+			let releaseStale: (() => void) | undefined;
+			const gate = new Promise<void>((resolve) => {
+				releaseStale = resolve;
+			});
+			let discovered = false;
+			let heldOne = false;
+			const dismissed = new Set<string>();
+			server.use(
+				http.get("/api/discovery/status", async ({ request }) => {
+					const isReview =
+						new URL(request.url).searchParams.get("review") === "1";
+					const gone = ["a"]
+						.filter((m) => !dismissed.has(m))
+						.map((m) => claim(m));
+					const payload = status({
+						claim_count: gone.length,
+						claims: [providerClaims("p1", "One", gone)],
+					});
+					// The retest's own refresh: snapshot taken above, then held.
+					if (!isReview && discovered && !heldOne) {
+						heldOne = true;
+						await gate;
+					}
+					return HttpResponse.json(payload);
+				}),
+				http.post("/api/providers/:id/discover", () => {
+					discovered = true;
+					return HttpResponse.json({ discovered: 0, diff: {} });
+				}),
+				http.post("/api/discovery/dismiss", async ({ request }) => {
+					const body = (await request.json()) as { model_ids: string[] };
+					for (const m of body.model_ids) dismissed.add(m);
+					return HttpResponse.json({
+						dismissed: body.model_ids,
+						updated: body.model_ids.length,
+					});
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
+			const rowA = () =>
+				screen
+					.queryAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === "a");
+			await waitFor(() => expect(rowA()).toBeTruthy());
+
+			// Retest puts a status read in flight and leaves it there.
+			await user.click(screen.getByTestId("discrepancy-retest"));
+			await waitFor(() => expect(heldOne).toBe(true));
+
+			// Dismiss lands while that read is still out.
+			await user.click(
+				rowA()?.querySelector(
+					'[data-testid="discrepancy-dismiss"]',
+				) as HTMLElement,
+			);
+			await waitFor(() =>
+				expect(rowA()).toHaveAttribute("data-status", "dismissed"),
+			);
+
+			// The stale read returns, still listing `a` as gone. It must be discarded.
+			releaseStale?.();
+			await waitFor(() => expect(heldOne).toBe(true));
+			await new Promise((r) => setTimeout(r, 50));
+			expect(rowA()).toHaveAttribute("data-status", "dismissed");
+		});
+
 		it("leaves a failed dismissal actionable and says so", async () => {
 			// Nothing is marked before the server confirms, so a failed dismiss has
 			// nothing to roll back: the row simply never left `pending`. What must
