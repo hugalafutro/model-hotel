@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ModelClaim, ProviderClaims } from "../../api/types";
 import {
-	dismissOptimistically,
+	markDismissed,
 	mergeClaims,
-	revertDismissal,
+	providerHasNoPending,
 	toSnapshot,
 } from "../useDiscrepancies";
 
@@ -196,86 +196,94 @@ describe("mergeClaims", () => {
 	});
 });
 
-describe("dismiss rollback", () => {
-	it("reverts a claim that still holds its own optimistic write", () => {
-		const snapshot = toSnapshot([provider({ gone: [claim("a"), claim("b")] })]);
-		const after = revertDismissal(
-			dismissOptimistically(snapshot, "p1", "a"),
-			"p1",
-			"a",
-		);
-		expect(after[0].gone.map((c) => [c.model_id, c.status])).toEqual([
-			["a", "pending"],
-			["b", "pending"],
-		]);
-	});
-
-	it("reverts to the status the row actually held, not a hardcoded pending", () => {
-		// A claim discovered mid-session carries `new`. A failed dismiss must not
-		// quietly erase that marker.
-		const snapshot = mergeClaims(toSnapshot([provider()]), [
-			provider({ gone: [claim("a")] }),
-		]);
-		expect(snapshot[0].gone[0].status).toBe("new");
-		const after = revertDismissal(
-			dismissOptimistically(snapshot, "p1", "a"),
-			"p1",
-			"a",
-		);
-		expect(after[0].gone[0].status).toBe("new");
-	});
-
-	it("touches only the addressed provider's copy of a model id", () => {
-		// `model_id` is unique WITHIN a provider, not across them: two providers
-		// commonly serve the same model name. Both halves address a claim by
-		// (provider_id, model_id), so the other provider's row must not move.
-		const snapshot = toSnapshot([
-			provider({ gone: [claim("a")] }),
-			provider({ provider_id: "p2", provider_name: "Two", gone: [claim("a")] }),
-		]);
-		const optimistic = dismissOptimistically(snapshot, "p1", "a");
-		expect(optimistic[1].gone[0].status).toBe("pending");
-		const after = revertDismissal(optimistic, "p1", "a");
-		expect(after[0].gone[0].status).toBe("pending");
-		expect(after[1]).toBe(snapshot[1]);
-	});
-
-	it("leaves a claim alone once a refresh has resolved it", () => {
-		// The rollback must only undo its OWN write. A refresh landing while the
-		// request is out is newer authority: here the server stops reporting `a`
-		// (the model came back), so the merge resolves it on its own account and a
-		// later failure must not replay the click-time `pending` over that.
-		const optimistic = dismissOptimistically(
+describe("dismissed survives a refetch", () => {
+	it("keeps a dismissed row dismissed when the refetch no longer reports it", () => {
+		// The headline fix. A dismissed model is absent from the refetch BECAUSE it
+		// was dismissed: listClaimRows filters on discovery_dismissed_at IS NULL.
+		// Reading that absence as "the provider listed it again" made the cleared
+		// summary announce every dismissal with `resolvedPlain`.
+		const snapshot = markDismissed(
 			toSnapshot([provider({ gone: [claim("a")] })]),
 			"p1",
-			"a",
+			new Set(["a"]),
 		);
-		const refreshed = mergeClaims(optimistic, [provider()]);
-		expect(revertDismissal(refreshed, "p1", "a")).toEqual(refreshed);
-		expect(refreshed[0].gone[0].status).toBe("resolved");
+		expect(snapshot[0].gone[0].status).toBe("dismissed");
+
+		const merged = mergeClaims(snapshot, [provider()]);
+
+		expect(merged[0].gone.map((c) => [c.model_id, c.status])).toEqual([
+			["a", "dismissed"],
+		]);
 	});
 
-	it("leaves a claim a refresh moved to another bucket where the refresh put it", () => {
-		// Identity is (provider_id, model_id), so the rollback still FINDS a claim
-		// that changed bucket mid-request — and must still decline to touch it. The
-		// row belongs to the merge now: it is not reverted in its new bucket and
-		// no copy is resurrected in the old one.
-		//
-		// `a` is seeded as `new` so the two outcomes are distinguishable: the merge
-		// makes the moved row `pending`, and a revert that ignored the compare would
-		// stamp the click-time `new` back over it.
-		const discovered = mergeClaims(toSnapshot([provider()]), [
-			provider({ gone: [claim("a")] }),
+	it("still resolves a row that was never dismissed", () => {
+		// The other half of the same branch: absence with no dismissal behind it
+		// does mean the provider is listing the model again.
+		const merged = mergeClaims(toSnapshot([provider({ gone: [claim("a")] })]), [
+			provider(),
 		]);
-		expect(discovered[0].gone[0].status).toBe("new");
-		const optimistic = dismissOptimistically(discovered, "p1", "a");
-		const refreshed = mergeClaims(optimistic, [
-			provider({ stale: [claim("a", { state: "stale" })] }),
+
+		expect(merged[0].gone[0].status).toBe("resolved");
+	});
+
+	it("rebuilds a still-reported row as pending when the server keeps reporting it", () => {
+		// A model the server still reports is not dismissed, whatever the snapshot
+		// says, so the refetch alone corrects the row. Nothing has to roll anything
+		// back: the merge is the only thing that sets status from server truth.
+		const fresh = [provider({ gone: [claim("a")] })];
+		const snapshot = markDismissed(toSnapshot(fresh), "p1", new Set(["a"]));
+
+		const merged = mergeClaims(snapshot, fresh);
+
+		expect(merged[0].gone[0].status).toBe("pending");
+	});
+});
+
+describe("bulk dismiss", () => {
+	it("dismisses every id in the set across buckets and leaves the rest alone", () => {
+		const snapshot = markDismissed(
+			toSnapshot([
+				provider({
+					gone: [claim("a"), claim("b")],
+					stale: [claim("c", { state: "stale" })],
+					suspect: [claim("d", { state: "suspect" })],
+				}),
+			]),
+			"p1",
+			new Set(["a", "c"]),
+		);
+
+		expect(snapshot[0].gone.map((c) => c.status)).toEqual([
+			"dismissed",
+			"pending",
 		]);
-		const after = revertDismissal(refreshed, "p1", "a");
-		expect(after[0].gone).toEqual([]);
-		expect(after[0].stale.map((c) => [c.model_id, c.status])).toEqual([
-			["a", "pending"],
+		expect(snapshot[0].stale[0].status).toBe("dismissed");
+		expect(snapshot[0].suspect[0].status).toBe("pending");
+	});
+
+	it("is false while a suspect row is still pending", () => {
+		// Suspect can never be dismissed (the server refuses a still-enabled
+		// model), so it is the case that keeps a provider actionable.
+		const [p] = toSnapshot([
+			provider({ suspect: [claim("d", { state: "suspect" })] }),
 		]);
+
+		expect(providerHasNoPending(p)).toBe(false);
+	});
+
+	it("is true when rows are a mix of dismissed and resolved", () => {
+		const base = toSnapshot([
+			provider({
+				gone: [claim("a")],
+				stale: [claim("b", { state: "stale" })],
+			}),
+		]);
+		const dismissed = markDismissed(base, "p1", new Set(["a"]));
+		// `b` was never dismissed, so its absence resolves it.
+		const merged = mergeClaims(dismissed, [provider()]);
+
+		expect(merged[0].gone[0].status).toBe("dismissed");
+		expect(merged[0].stale[0].status).toBe("resolved");
+		expect(providerHasNoPending(merged[0])).toBe(true);
 	});
 });

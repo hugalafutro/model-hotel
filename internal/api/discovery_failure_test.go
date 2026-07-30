@@ -198,14 +198,14 @@ func TestDismissDiscoveryClaims_RejectsMalformedRequests(t *testing.T) {
 	if code := post(`{"provider_id": not json at all`); code != http.StatusBadRequest {
 		t.Errorf("undecodable body = %d, want 400", code)
 	}
-	if code := post(`{"provider_id":"nanogpt","model_ids":["gone-model"],"dismissed":true}`); code != http.StatusBadRequest {
+	if code := post(`{"provider_id":"nanogpt","model_ids":["gone-model"]}`); code != http.StatusBadRequest {
 		t.Errorf("non-UUID provider_id = %d, want 400 (not 404: the request was never understood)", code)
 	}
 
 	// Anchor: an otherwise identical, well-formed request succeeds against the
 	// same fixture, so the 400s above are the validation firing rather than the
 	// endpoint rejecting everything.
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["gone-model"],"dismissed":true}`, providerID)); code != http.StatusOK {
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["gone-model"]}`, providerID)); code != http.StatusOK {
 		t.Fatalf("well-formed dismiss = %d, want 200", code)
 	}
 }
@@ -226,7 +226,7 @@ func TestDismissDiscoveryClaims_DatabaseFailureIs500(t *testing.T) {
 
 	h.dbPool = closedAPIPool(t)
 
-	body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["gone-model"],"dismissed":true}`, providerID)
+	body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["gone-model"]}`, providerID)
 	req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	req.Header.Set("Content-Type", "application/json")

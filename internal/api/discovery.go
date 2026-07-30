@@ -748,16 +748,19 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// DismissDiscoveryClaimsRequest carries one provider's dismissal change.
-// Dismissed=false is the toast's Undo, so both directions share one endpoint.
+// DismissDiscoveryClaimsRequest carries the models to dismiss on one provider.
+//
+// Dismiss-only, deliberately: there is no un-dismiss direction. A dismissal
+// already self-heals, because models.Upsert clears discovery_dismissed_at on any
+// sighting, so the next discovery run undoes it for any model that came back.
+// That is the only reversal the feature needs, and it needs no endpoint.
 type DismissDiscoveryClaimsRequest struct {
 	ProviderID string   `json:"provider_id"`
 	ModelIDs   []string `json:"model_ids"`
-	Dismissed  bool     `json:"dismissed"`
 }
 
-// DismissDiscoveryClaims stamps or clears the operator dismissal for models on
-// one provider. setModelsDismissed only touches rows that are currently
+// DismissDiscoveryClaims stamps the operator dismissal for models on one
+// provider. setModelsDismissed only touches rows that are currently
 // enabled=false and not manually disabled, so a suspect (still enabled) or
 // healthy model cannot be pre-dismissed; those affect zero rows and fall
 // through the 404 path below like any other unmatched model ID.
@@ -781,15 +784,18 @@ func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	affected, err := setModelsDismissed(r.Context(), h.dbPool.Pool(), providerID, req.ModelIDs, req.Dismissed)
+	dismissed, err := setModelsDismissed(r.Context(), h.dbPool.Pool(), providerID, req.ModelIDs)
 	if err != nil {
-		respondError(w, "failed to update discovery dismissal", err, http.StatusInternalServerError)
+		respondError(w, "failed to dismiss discovery claims", err, http.StatusInternalServerError)
 		return
 	}
-	if affected == 0 {
+	if len(dismissed) == 0 {
 		http.Error(w, "no matching models", http.StatusNotFound)
 		return
 	}
 
-	writeJSON(w, map[string]any{"updated": affected})
+	// `dismissed` names the models actually stamped, so a partial result is fully
+	// informative: the caller marks exactly those and leaves the rest alone.
+	// `updated` is kept for compatibility and is simply its length.
+	writeJSON(w, map[string]any{"dismissed": dismissed, "updated": len(dismissed)})
 }

@@ -63,17 +63,18 @@ describe("api.discovery", () => {
 	});
 
 	describe("dismiss", () => {
-		it("posts provider_id, model_ids and dismissed in the body", async () => {
-			const mockResult = { updated: 2 };
+		it("posts provider_id and model_ids in the body", async () => {
+			// No `dismissed` flag: the endpoint only stamps. A dismissal is reversed by
+			// discovery sighting the model again, not by a second call.
+			const mockResult = { dismissed: ["model-a", "model-b"], updated: 2 };
 			vi.spyOn(globalThis, "fetch").mockResolvedValue(
 				new Response(JSON.stringify(mockResult), { status: 200 }),
 			);
 
-			const result = await api.discovery.dismiss(
-				"prov-1",
-				["model-a", "model-b"],
-				true,
-			);
+			const result = await api.discovery.dismiss("prov-1", [
+				"model-a",
+				"model-b",
+			]);
 			expect(result).toEqual(mockResult);
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/discovery/dismiss",
@@ -85,7 +86,6 @@ describe("api.discovery", () => {
 					body: JSON.stringify({
 						provider_id: "prov-1",
 						model_ids: ["model-a", "model-b"],
-						dismissed: true,
 					}),
 				}),
 			);

@@ -11,7 +11,7 @@
  <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
  <img src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black" alt="React">
  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
- <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a>
+ <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a><br>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml/badge.svg" alt="golangci-lint"></a>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hugalafutro/model-hotel/badges/coverage.json" alt="Coverage"></a>
@@ -42,7 +42,7 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> High Availability](#-high-availability)
 Run several instances behind one client endpoint with no client-side change: a **Front Desk** control plane manages the fleet and replicates config to every member, while **Traefik** load-balances them with health checks and automatic failover. Members share one `MASTER_KEY` (so encrypted provider keys port across the fleet) and each keeps its own admin token.
 
-<p align="center"><a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members_pills.png" width="720" alt="Front Desk control plane: two healthy fleet members"></a></p>
+<p align="center"><a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members_pills.png" width="720" alt="Front Desk control plane: provider quota badge strip above two healthy fleet members"></a></p>
 
 Full deployment in the [High Availability wiki](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
 
@@ -51,16 +51,14 @@ Full deployment in the [High Availability wiki](https://github.com/hugalafutro/m
 **Bellhop**, the native Android companion app for Front Desk, turns a paired phone into a pocket view of the fleet: live member health, request traffic, provider quota badges, the event log, and, for operator devices, one-tap drain, activate, and config-sync behind a biometric prompt. A home-screen widget keeps the fleet and its badges on the launcher without opening anything. It talks only to Front Desk, holds no provider credentials, and authenticates with a device token you can revoke from either side.
 
 <p align="center">
-<a href="docs/screenshots/bellhop_dashboard.png"><img src="docs/screenshots/bellhop_dashboard.png" width="220" alt="Bellhop dashboard: linked fleet with quota badges, health and traffic sparklines"></a>
-<a href="docs/screenshots/bellhop_member.png"><img src="docs/screenshots/bellhop_member.png" width="220" alt="Bellhop member detail: request-traffic graph and operator controls"></a>
-<a href="docs/screenshots/bellhop_events.png"><img src="docs/screenshots/bellhop_events.png" width="220" alt="Bellhop fleet event log"></a>
+<a href="docs/screenshots/bellhop_dashboard.png"><img src="docs/screenshots/bellhop_dashboard.png" width="220" align="middle" alt="Bellhop dashboard: linked fleet with quota badges, health and traffic sparklines"></a>
+<a href="docs/screenshots/bellhop_member.png"><img src="docs/screenshots/bellhop_member.png" width="220" align="middle" alt="Bellhop member detail: request-traffic graph and operator controls"></a>
+<a href="docs/screenshots/bellhop_widget.png"><img src="docs/screenshots/bellhop_widget.png" width="280" align="middle" alt="Bellhop home-screen widget: member health, quota badge strip and the latest fleet event"></a>
 </p>
 
-<p align="center">
-<a href="docs/screenshots/bellhop_widget.png"><img src="docs/screenshots/bellhop_widget.png" width="500" alt="Bellhop home-screen widget: member health, quota badge strip and the latest fleet event"></a>
-</p>
-
-Full walkthrough in the [Bellhop wiki](https://github.com/hugalafutro/model-hotel/wiki/Bellhop); source under [`android/`](android/README.md).<br>APK download: [![Latest Bellhop release](https://img.shields.io/github/v/release/hugalafutro/model-hotel?filter=bellhop-v*&label=Bellhop%20APK&color=3ddc84)](https://github.com/hugalafutro/model-hotel/releases/tag/bellhop-latest) (signed; [Obtainium](https://github.com/ImranR98/Obtainium)-compatible).
+> [!NOTE]
+> Full walkthrough in the [Bellhop wiki](https://github.com/hugalafutro/model-hotel/wiki/Bellhop); source under [`android/`](android/README.md).<br>
+> APK download: [![Latest Bellhop release](https://img.shields.io/github/v/release/hugalafutro/model-hotel?filter=bellhop-v*&label=Bellhop%20APK&color=3ddc84)](https://github.com/hugalafutro/model-hotel/releases/tag/bellhop-latest) (signed; [Obtainium](https://github.com/ImranR98/Obtainium)-compatible).
 
 ### [<img src="docs/icons/providers.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> One Endpoint, Many Providers](#-one-endpoint-many-providers)
 Add any OpenAI-compatible provider ([Anthropic](https://claude.ai/), [AWS Bedrock](https://aws.amazon.com/bedrock/), [Azure AI Foundry](https://ai.azure.com/), [DeepSeek](https://deepseek.com/), [Kimi Code](https://www.kimi.com/), [KoboldCPP](https://koboldcpp.com/), [LMStudio](https://lmstudio.ai/), [MiniMax](https://www.minimax.io/), [NanoGPT](https://docs.nano-gpt.com/), [OpenRouter](https://openrouter.ai/), [Z.AI](https://z.ai/), [x.ai](https://x.ai/), [Google AI Studio](https://aistudio.google.com/), [Vertex AI](https://cloud.google.com/vertex-ai) (express keys), [Cohere](https://cohere.com/), [Ollama](https://github.com/ollama/ollama), [Ollama Cloud](https://ollama.com), [OpenCode Go](https://opencode.ai), [OpenCode Zen](https://opencode.ai), [OpenAI](https://openai.com/), or your own), and call them all through the same `/v1/chat/completions` endpoint. The proxy handles model ID mapping and failover transparently. Provider API keys are encrypted with AES-256-GCM at rest using your `MASTER_KEY`; only the proxy ever sees the decrypted credentials. Keyless providers (e.g. OpenCode Zen free models, local Ollama) are also supported (no API key required).
@@ -513,13 +511,6 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 
 
 <div align="center">
-<a href="https://www.star-history.com/?repos=hugalafutro%2Fmodel-hotel&type=timeline&legend=bottom-right">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=timeline&theme=dark&legend=bottom-right&sealed_token=qYH4XHAJT0zKbI1yOHAXDBo5V4-ZNql7EfTUxapzT0Co97Nz6Jc-b9GhWjboe4Fo8gELb5S9-wBNdv0QLvW9yvdouTXTfpO71Hw2pp5SVr1goMcJ3aFUfA" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=timeline&legend=bottom-right&sealed_token=qYH4XHAJT0zKbI1yOHAXDBo5V4-ZNql7EfTUxapzT0Co97Nz6Jc-b9GhWjboe4Fo8gELb5S9-wBNdv0QLvW9yvdouTXTfpO71Hw2pp5SVr1goMcJ3aFUfA" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=hugalafutro/model-hotel&type=timeline&legend=bottom-right&sealed_token=qYH4XHAJT0zKbI1yOHAXDBo5V4-ZNql7EfTUxapzT0Co97Nz6Jc-b9GhWjboe4Fo8gELb5S9-wBNdv0QLvW9yvdouTXTfpO71Hw2pp5SVr1goMcJ3aFUfA" />
- </picture>
-</a>
 
 [![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
 

@@ -47,6 +47,7 @@ export const Bell = withId(Ph.BellIcon, "Bell");
 export const BookOpen = withId(Ph.BookOpenIcon, "BookOpen");
 export const Braces = withId(Ph.BracketsCurlyIcon, "Braces");
 export const Brain = withId(Ph.BrainIcon, "Brain");
+export const Broom = withId(Ph.BroomIcon, "Broom");
 export const Calendar = withId(Ph.CalendarIcon, "Calendar");
 export const CalendarDays = withId(Ph.CalendarDotsIcon, "CalendarDays");
 export const CalendarPlus = withId(Ph.CalendarPlusIcon, "CalendarPlus");

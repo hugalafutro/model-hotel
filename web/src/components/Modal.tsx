@@ -171,7 +171,12 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 					// can't draw over full-width content (chevrons, divider rules).
 					// No negative margin: .ui-card clips to its rounded shape
 					// (clip-path) in some themes, which would eat a bled-out gutter.
-					<div className="min-h-0 overflow-y-auto pr-2">{children}</div>
+					// data-modal-scroll lets a descendant resolve its own scroll root
+					// (element.closest) without Modal growing a ref prop. Used by the
+					// discrepancy modal's return-to-top IntersectionObserver.
+					<div className="min-h-0 overflow-y-auto pr-2" data-modal-scroll>
+						{children}
+					</div>
 				) : (
 					children
 				)}

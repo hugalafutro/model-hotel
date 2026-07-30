@@ -33,7 +33,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import {
 	type MergedProvider,
-	providerIsResolved,
+	providerHasNoPending,
 	useDiscrepancies,
 } from "../hooks/useDiscrepancies";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
@@ -747,7 +747,6 @@ export function Layout({ children }: LayoutProps) {
 		error: discrepanciesError,
 		refreshError,
 		dismissClaim,
-		restoreClaim,
 	} = useDiscrepancies(showDiscrepancies);
 	const [retestErrors, setRetestErrors] = useState<Record<string, string>>({});
 	const [retestAllProgress, setRetestAllProgress] = useState<
@@ -822,7 +821,7 @@ export function Layout({ children }: LayoutProps) {
 
 	const onRetestAll = useCallback(async () => {
 		const targets = snapshot.filter(
-			(p: MergedProvider) => !providerIsResolved(p),
+			(p: MergedProvider) => !providerHasNoPending(p),
 		);
 		if (targets.length === 0 || retestInFlight.current) return;
 		cancelRetestAll.current = false;
@@ -868,68 +867,53 @@ export function Layout({ children }: LayoutProps) {
 		}
 	}, [snapshot, runRetest, toast, t]);
 
-	const undoDismiss = useCallback(
-		async (providerId: string, modelId: string) => {
+	const onDismissAll = useCallback(
+		async (providerId: string, modelIds: string[]) => {
+			if (modelIds.length === 0) return;
+			// NOT optimistic, unlike the per-row path, and that is the whole point.
+			//
+			// A batch can come back short, and `updated` does not say WHICH ids it
+			// missed. Marking every requested row dismissed up front and correcting
+			// afterwards cannot be made to work: only a successful refresh knows which
+			// took, `refresh` absorbs its own failure, and the rollback that was tried
+			// here could not survive a concurrent refresh.
+			//
+			// The cost of getting it wrong is not cosmetic. With every row dismissed,
+			// providerHasNoPending goes true, so the pill swaps Retest and Dismiss all
+			// for Clean: the operator loses the controls for models the server never
+			// dismissed. A refresh-error banner does not give those back.
+			//
+			// So nothing is claimed that the server did not confirm. A full-count
+			// response is confirmation for every id; a short one is confirmation for
+			// none of them in particular, so the rows stay actionable and the refresh
+			// reconciles. Costs the strike-through for one round trip, behind a
+			// confirmation dialog, which is a fair price for never showing a provider
+			// as clean when it is not.
 			try {
-				const res = await api.discovery.dismiss(providerId, [modelId], false);
-				// Unreachable today: the server 404s (and fetchJSON throws before `res`
-				// exists) whenever `affected == 0` (internal/api/discovery.go's dismiss
-				// handler), so a 0-updated response can never reach this branch. Kept
-				// anyway to implement the one-model-per-call contract: if the server
-				// ever starts 200ing on a partial or zero-count match, this stops a
-				// false "success" from being reported instead of silently trusting `res`.
-				if (res.updated === 0) {
-					throw new Error(t("providers.discrepancies.dismissNoMatch"));
-				}
+				const res = await api.discovery.dismiss(providerId, modelIds);
+				// The response NAMES what it dismissed, so a partial result needs no
+				// guessing: mark exactly those and leave the rest pending for the
+				// refresh. Marking all of them would strike through models the server
+				// skipped; marking none would let the merge read the ones that did land
+				// as "listed again", and could swap the pill to Clean on a partial.
+				dismissClaim(providerId, new Set(res.dismissed));
 				await refresh();
-			} catch (err) {
-				toast(
-					t("providers.discrepancies.undoFailed", {
-						message: err instanceof Error ? err.message : String(err),
-					}),
-					"error",
-				);
-			}
-		},
-		[refresh, toast, t],
-	);
-
-	const onDismiss = useCallback(
-		async (providerId: string, modelId: string) => {
-			// Nothing is captured here, not the array and not the claim's status. A
-			// refresh can settle while the dismiss is in flight (a retest finishing,
-			// an undo, a second dismiss), and anything read before the request went
-			// out is stale by the time the rollback would replay it. The hook records
-			// the displaced status ON the claim and reverts it only if that write is
-			// still what the row holds; see revertDismissal.
-			dismissClaim(providerId, modelId);
-			try {
-				// Exactly one model per request. The endpoint 200s with a short
-				// `updated` for a mixed list and only 404s when NOTHING matched, so a
-				// batch cannot say which models it missed; one at a time makes
-				// `updated: 0` an unambiguous failure for this model.
-				const res = await api.discovery.dismiss(providerId, [modelId], true);
-				// Unreachable today: same as undoDismiss above, the server 404s (and
-				// fetchJSON throws) whenever `affected == 0`, so this branch cannot
-				// currently be hit. Kept as the guard for the one-model-per-call
-				// contract described above, in case the server ever starts 200ing on a
-				// partial or zero-count match.
-				if (res.updated === 0) {
-					throw new Error(t("providers.discrepancies.dismissNoMatch"));
+				if (res.updated < modelIds.length) {
+					toast(
+						t("providers.discrepancies.dismissAllPartial", {
+							count: res.updated,
+							total: modelIds.length,
+						}),
+						"warning",
+					);
+					return;
 				}
-				await refresh();
 				toast(
-					t("providers.discrepancies.dismissed", { model: modelId }),
+					t("providers.discrepancies.dismissAllDone", { count: res.updated }),
 					"success",
-					{
-						label: t("providers.discrepancies.undo"),
-						onClick: () => {
-							void undoDismiss(providerId, modelId);
-						},
-					},
 				);
 			} catch (err) {
-				restoreClaim(providerId, modelId);
+				// No rollback needed: nothing was claimed before the response.
 				toast(
 					t("providers.discrepancies.dismissFailed", {
 						message: err instanceof Error ? err.message : String(err),
@@ -938,7 +922,90 @@ export function Layout({ children }: LayoutProps) {
 				);
 			}
 		},
-		[dismissClaim, restoreClaim, refresh, toast, t, undoDismiss],
+		[dismissClaim, refresh, toast, t],
+	);
+
+	const onDismissEverything = useCallback(
+		async (batches: { providerID: string; modelIDs: string[] }[]) => {
+			if (batches.length === 0) return;
+			const total = batches.reduce((n, b) => n + b.modelIDs.length, 0);
+			const results = await Promise.allSettled(
+				batches.map((b) => api.discovery.dismiss(b.providerID, b.modelIDs)),
+			);
+			// Per batch, claim only what that provider's own response confirmed; see
+			// onDismissAll for why nothing is claimed up front. A rejected batch and a
+			// short batch are both "not confirmed" and both stay actionable, so no
+			// rollback is needed for either.
+			let dismissed = 0;
+			batches.forEach((b, i) => {
+				const r = results[i];
+				if (r.status !== "fulfilled") return;
+				dismissed += r.value.updated;
+				dismissClaim(b.providerID, new Set(r.value.dismissed));
+			});
+			await refresh();
+			if (dismissed === 0) {
+				toast(t("providers.discrepancies.dismissEverythingFailed"), "error");
+				return;
+			}
+			toast(
+				dismissed < total
+					? t("providers.discrepancies.dismissAllPartial", {
+							count: dismissed,
+							total,
+						})
+					: t("providers.discrepancies.dismissAllDone", { count: dismissed }),
+				dismissed < total ? "warning" : "success",
+			);
+		},
+		[dismissClaim, refresh, toast, t],
+	);
+
+	const onDismiss = useCallback(
+		async (providerId: string, modelId: string) => {
+			try {
+				// Exactly one model per request. The endpoint 200s with a short
+				// `updated` for a mixed list and only 404s when NOTHING matched, so a
+				// batch cannot say which models it missed; one at a time makes
+				// `updated: 0` an unambiguous failure for this model.
+				const res = await api.discovery.dismiss(providerId, [modelId]);
+				// Unreachable today: the server 404s (and fetchJSON throws before `res`
+				// exists) whenever `affected == 0`, so a 0-updated response cannot reach
+				// this branch. Kept as the guard for the one-model-per-call contract
+				// described above, in case the server ever starts 200ing on a partial or
+				// zero-count match.
+				if (res.updated === 0) {
+					throw new Error(t("providers.discrepancies.dismissNoMatch"));
+				}
+				// Marked AFTER the server confirms, never before, and from the ids the
+				// response names, which is the same rule the provider-wide and
+				// modal-wide paths follow.
+				//
+				// Marking it up front raced any refresh that landed while the request was
+				// out: that refresh still saw the model reported, so it rebuilt the row as
+				// `pending` and dropped the dismissed status. The next refresh then found
+				// the model absent, and an absent row that is not marked dismissed reads
+				// as `resolved` - "is listed again" - for a model the operator had just
+				// dismissed by hand. Exactly the false relist this rework exists to
+				// remove. Setting the status only once the write is confirmed leaves
+				// nothing for a refresh to strip.
+				dismissClaim(providerId, new Set(res.dismissed));
+				await refresh();
+				toast(
+					t("providers.discrepancies.dismissed", { model: modelId }),
+					"success",
+				);
+			} catch (err) {
+				// No rollback: nothing was claimed before the response.
+				toast(
+					t("providers.discrepancies.dismissFailed", {
+						message: err instanceof Error ? err.message : String(err),
+					}),
+					"error",
+				);
+			}
+		},
+		[dismissClaim, refresh, toast, t],
 	);
 
 	// `exact: true` on BOTH invalidations below, and it is not optional.
@@ -1506,6 +1573,12 @@ export function Layout({ children }: LayoutProps) {
 					onCancelRetestAll={onCancelRetestAll}
 					onDismiss={(providerId, modelId) => {
 						void onDismiss(providerId, modelId);
+					}}
+					onDismissAll={(providerId, modelIds) => {
+						void onDismissAll(providerId, modelIds);
+					}}
+					onDismissEverything={(batches) => {
+						void onDismissEverything(batches);
 					}}
 					retestingProviderId={retestingKey}
 					isRetesting={isAnyRetesting}

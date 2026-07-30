@@ -7,6 +7,31 @@ import { renderWithProviders } from "../../test/utils";
 import * as webauthnUtils from "../../utils/webauthn";
 import { Layout } from "../Layout";
 
+/**
+ * Unrolls the first provider pill and one of its bucket lines.
+ *
+ * The claims accordion mounts model rows ONLY while their bucket is open, so any
+ * assertion about a row has to ask for it. Defaults to `gone`, which is where the
+ * per-row Dismiss control lives.
+ */
+async function openFirstBucket(
+	user: ReturnType<typeof userEvent.setup>,
+	bucket: "gone" | "stale" | "suspect" = "gone",
+	nth = 0,
+) {
+	await user.click(
+		(await screen.findAllByTestId("discrepancy-provider-pill"))[nth],
+	);
+	// Scoped to the opened provider's section: only one provider is unrolled at a
+	// time, so a document-wide query would still be ambiguous while two are listed.
+	const section = screen.getAllByTestId("discrepancy-provider")[nth];
+	await user.click(
+		section.querySelector(
+			`[data-testid='discrepancy-group-${bucket}-toggle']`,
+		) as HTMLElement,
+	);
+}
+
 describe("Layout", () => {
 	const mockChildren = <div data-testid="main-content">Page Content</div>;
 
@@ -990,6 +1015,7 @@ describe("Layout", () => {
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
 			expect(await screen.findByTestId("discrepancy-claim")).toHaveAttribute(
 				"data-model-id",
 				"first-open",
@@ -1004,9 +1030,11 @@ describe("Layout", () => {
 			);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			// The reopen starts fully collapsed, so the row has to be asked for again.
 			// A cache replay would put the first open's row back and never reach the
 			// server, so this pins both halves at once: a real refetch, and a real
 			// second stamp.
+			await openFirstBucket(user);
 			await waitFor(() =>
 				expect(screen.getByTestId("discrepancy-claim")).toHaveAttribute(
 					"data-model-id",
@@ -1096,12 +1124,23 @@ describe("Layout", () => {
 			expect(screen.getAllByTestId("toast")).toHaveLength(1);
 		});
 
-		it("dismisses one model per request and offers an undo that restores it", async () => {
-			const bodies: { model_ids: string[]; dismissed: boolean }[] = [];
+		it("dismisses one model per request", async () => {
+			// Exactly one model per request: the endpoint 200s with a short `updated`
+			// for a mixed list and only 404s when NOTHING matched, so one at a time
+			// makes `updated: 0` an unambiguous failure for this model.
+			//
+			// No undo is offered. A dismissal self-heals: models.Upsert nulls
+			// discovery_dismissed_at on any sighting, so the next discovery run brings
+			// back anything that actually came back.
+			const bodies: { model_ids: string[] }[] = [];
+			// listClaimRows filters on discovery_dismissed_at IS NULL, so a dismissed
+			// model stops being reported. The mock has to do the same or the refresh
+			// would rebuild the row as pending and the status assertion below would be
+			// testing the mock rather than the merge.
 			const dismissed = new Set<string>();
 			server.use(
 				http.get("/api/discovery/status", () => {
-					const gone = ["a", "b"]
+					const gone = ["a"]
 						.filter((m) => !dismissed.has(m))
 						.map((m) => claim(m));
 					return HttpResponse.json(
@@ -1112,21 +1151,19 @@ describe("Layout", () => {
 					);
 				}),
 				http.post("/api/discovery/dismiss", async ({ request }) => {
-					const body = (await request.json()) as {
-						model_ids: string[];
-						dismissed: boolean;
-					};
+					const body = (await request.json()) as { model_ids: string[] };
 					bodies.push(body);
-					for (const m of body.model_ids) {
-						if (body.dismissed) dismissed.add(m);
-						else dismissed.delete(m);
-					}
-					return HttpResponse.json({ updated: body.model_ids.length });
+					for (const m of body.model_ids) dismissed.add(m);
+					return HttpResponse.json({
+						dismissed: body.model_ids,
+						updated: body.model_ids.length,
+					});
 				}),
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
 			const rowA = () =>
 				screen
 					.getAllByTestId("discrepancy-claim")
@@ -1139,25 +1176,316 @@ describe("Layout", () => {
 			);
 
 			// Struck through in place rather than removed: the row that vanishes on a
-			// click is the operator complaint this rework exists to fix.
+			// click is the operator complaint this rework exists to fix. `dismissed`,
+			// not `resolved`: the cleared summary reports the latter as "is listed
+			// again", which is false for a model the operator retired by hand.
 			await waitFor(() =>
-				expect(rowA()).toHaveAttribute("data-status", "resolved"),
+				expect(rowA()).toHaveAttribute("data-status", "dismissed"),
 			);
-			// Exactly one model per request. A mixed batch 200s with a short
-			// `updated` and cannot say which ids it missed.
 			expect(bodies).toHaveLength(1);
 			expect(bodies[0].model_ids).toEqual(["a"]);
-			expect(bodies[0].dismissed).toBe(true);
+			expect(screen.queryByTestId("toast-action")).toBeNull();
+		});
 
-			await user.click(await screen.findByTestId("toast-action"));
-			await waitFor(() => expect(bodies).toHaveLength(2));
-			expect(bodies[1].model_ids).toEqual(["a"]);
-			expect(bodies[1].dismissed).toBe(false);
+		it("dismisses a whole provider in one request", async () => {
+			// ONE request carrying every id, not one request per model. No undo: a
+			// dismissal is reversed by discovery sighting the model again.
+			const bodies: { model_ids: string[] }[] = [];
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 2,
+							claims: [providerClaims("p1", "One", [claim("a"), claim("b")])],
+						}),
+					),
+				),
+				http.post("/api/discovery/dismiss", async ({ request }) => {
+					const body = (await request.json()) as { model_ids: string[] };
+					bodies.push(body);
+					return HttpResponse.json({
+						dismissed: body.model_ids,
+						updated: body.model_ids.length,
+					});
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(await screen.findByTestId("discrepancy-dismiss-all"));
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-all-confirm"),
+			);
+
+			await waitFor(() => expect(bodies).toHaveLength(1));
+			expect(bodies[0].model_ids.sort()).toEqual(["a", "b"]);
+			expect(screen.queryByTestId("toast-action")).toBeNull();
+		});
+
+		it("warns when a provider batch comes back short", async () => {
+			// A short `updated` cannot say WHICH ids it missed, so the toast reports the
+			// shortfall and the refresh underneath is what corrects the rows.
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 2,
+							claims: [providerClaims("p1", "One", [claim("a"), claim("b")])],
+						}),
+					),
+				),
+				http.post("/api/discovery/dismiss", () =>
+					// One of the two took, and the response names it.
+					HttpResponse.json({ dismissed: ["a"], updated: 1 }),
+				),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(await screen.findByTestId("discrepancy-dismiss-all"));
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-all-confirm"),
+			);
+
 			await waitFor(() =>
-				expect(rowA()).toHaveAttribute("data-status", "pending"),
+				expect(
+					screen
+						.getAllByTestId("toast")
+						.some((el) => el.getAttribute("data-toast-type") === "warning"),
+				).toBe(true),
 			);
 		});
 
+		it("rolls a provider batch back when its request fails", async () => {
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 2,
+							claims: [providerClaims("p1", "One", [claim("a"), claim("b")])],
+						}),
+					),
+				),
+				http.post("/api/discovery/dismiss", () =>
+					HttpResponse.json({ error: "boom" }, { status: 500 }),
+				),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(await screen.findByTestId("discrepancy-dismiss-all"));
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-all-confirm"),
+			);
+
+			await waitFor(() =>
+				expect(
+					screen
+						.getAllByTestId("toast")
+						.some((el) => el.getAttribute("data-toast-type") === "error"),
+				).toBe(true),
+			);
+			// Rolled back, not left struck through: the write never landed.
+			await openFirstBucket(user);
+			for (const row of screen.getAllByTestId("discrepancy-claim")) {
+				expect(row).toHaveAttribute("data-status", "pending");
+			}
+		});
+
+		it("keeps the providers that succeeded when one batch of a modal-wide dismiss fails", async () => {
+			// allSettled, not all: one provider failing must neither abandon the others
+			// nor roll them back. Only the failed provider's rows return to pending.
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 2,
+							claims: [
+								providerClaims("p1", "One", [claim("a")]),
+								providerClaims("p2", "Two", [claim("b")]),
+							],
+						}),
+					),
+				),
+				http.post("/api/discovery/dismiss", async ({ request }) => {
+					const body = (await request.json()) as { model_ids: string[] };
+					if (body.model_ids.includes("b")) {
+						return HttpResponse.json({ error: "boom" }, { status: 500 });
+					}
+					return HttpResponse.json({
+						dismissed: body.model_ids,
+						updated: body.model_ids.length,
+					});
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-everything"),
+			);
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-everything-confirm"),
+			);
+
+			// p1 landed, so a success-shaped toast is raised.
+			await waitFor(() =>
+				expect(screen.queryAllByTestId("toast").length).toBeGreaterThan(0),
+			);
+			const row = (id: string) =>
+				screen
+					.queryAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === id);
+			await openFirstBucket(user, "gone", 1);
+			await waitFor(() => expect(row("b")).toBeTruthy());
+			// b's provider failed, so b is back to pending rather than struck through.
+			expect(row("b")).toHaveAttribute("data-status", "pending");
+		});
+
+		it("reports outright failure when no batch of a modal-wide dismiss lands", async () => {
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 1,
+							claims: [providerClaims("p1", "One", [claim("a")])],
+						}),
+					),
+				),
+				http.post("/api/discovery/dismiss", () =>
+					HttpResponse.json({ error: "boom" }, { status: 500 }),
+				),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-everything"),
+			);
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-everything-confirm"),
+			);
+
+			await waitFor(() =>
+				expect(
+					screen
+						.getAllByTestId("toast")
+						.some((el) => el.getAttribute("data-toast-type") === "error"),
+				).toBe(true),
+			);
+			// Nothing landed, so no Undo is offered: there is nothing to undo.
+			expect(screen.queryByTestId("toast-action")).toBeNull();
+		});
+		it("surfaces the failure when the reconciling refresh after a dismissal fails", async () => {
+			// A short `updated` cannot say which ids the server skipped, so only a
+			// successful refresh reconciles them. When that refresh fails the rows keep
+			// their optimistic `dismissed` state, which over-claims. What must NOT
+			// happen is that going unreported: the operator has to be able to tell that
+			// the list is unconfirmed rather than clean.
+			//
+			// The guarantee is the modal's refresh-error banner, which is its existing
+			// vocabulary for "we could not find out". A rollback was tried instead and
+			// removed: revertDismissal compares on optimisticFrom, which any merge
+			// strips, so a concurrent successful refresh silently made it a no-op.
+			let statusCalls = 0;
+			server.use(
+				http.get("/api/discovery/status", ({ request }) => {
+					statusCalls++;
+					const isReview =
+						new URL(request.url).searchParams.get("review") === "1";
+					// The modal's own opening fetch succeeds; the reconciling refresh
+					// after the dismiss is the one that fails.
+					if (!isReview && statusCalls > 2) {
+						return HttpResponse.json({ error: "down" }, { status: 500 });
+					}
+					return HttpResponse.json(
+						status({
+							claim_count: 2,
+							claims: [providerClaims("p1", "One", [claim("a"), claim("b")])],
+						}),
+					);
+				}),
+				// Two requested, one applied: membership unknown.
+				http.post("/api/discovery/dismiss", () =>
+					// One of the two took, and the response names it.
+					HttpResponse.json({ dismissed: ["a"], updated: 1 }),
+				),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(await screen.findByTestId("discrepancy-dismiss-all"));
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-all-confirm"),
+			);
+
+			// The shortfall is named...
+			await waitFor(() =>
+				expect(
+					screen
+						.getAllByTestId("toast")
+						.some((el) => el.getAttribute("data-toast-type") === "warning"),
+				).toBe(true),
+			);
+			// ...the failure is visible as a live region...
+			const banner = await screen.findByTestId("discrepancy-load-error");
+			expect(banner).toHaveAttribute("role", "alert");
+
+			// ...and the rows land exactly as the response described them. The server
+			// named `a`, so `a` is dismissed and `b` is untouched. Marking both would
+			// strike through a model the server skipped and make providerHasNoPending
+			// true, swapping Retest and Dismiss all for the Clean broom; marking
+			// neither would let the merge read `a`'s absence as "listed again".
+			expect(screen.queryByTestId("discrepancy-clean")).toBeNull();
+			expect(screen.getByTestId("discrepancy-retest")).toBeInTheDocument();
+			expect(screen.getByTestId("discrepancy-dismiss-all")).toBeInTheDocument();
+			await openFirstBucket(user);
+			const statusOf = (id: string) =>
+				screen
+					.queryAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === id)
+					?.getAttribute("data-status");
+			expect(statusOf("a")).toBe("dismissed");
+			expect(statusOf("b")).toBe("pending");
+		});
+
+		it("dismisses every provider at once, one request per provider", async () => {
+			// The endpoint is provider-scoped, so a modal-wide dismiss is N requests.
+			const bodies: { model_ids: string[] }[] = [];
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 2,
+							claims: [
+								providerClaims("p1", "One", [claim("a")]),
+								providerClaims("p2", "Two", [claim("b")]),
+							],
+						}),
+					),
+				),
+				http.post("/api/discovery/dismiss", async ({ request }) => {
+					const body = (await request.json()) as { model_ids: string[] };
+					bodies.push(body);
+					return HttpResponse.json({
+						dismissed: body.model_ids,
+						updated: body.model_ids.length,
+					});
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-everything"),
+			);
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-everything-confirm"),
+			);
+
+			await waitFor(() => expect(bodies).toHaveLength(2));
+			expect(bodies.flatMap((b) => b.model_ids).sort()).toEqual(["a", "b"]);
+		});
 		it("treats updated: 0 as a failed dismissal", async () => {
 			// The endpoint 200s with a short `updated` and only 404s when nothing at
 			// all matched, so HTTP status alone would report a phantom success.
@@ -1177,6 +1505,7 @@ describe("Layout", () => {
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
 			await user.click(await screen.findByTestId("discrepancy-dismiss"));
 
 			// No confirmation toast, so no Undo control: the success path is the only
@@ -1190,162 +1519,116 @@ describe("Layout", () => {
 			expect(screen.queryByTestId("toast-action")).toBeNull();
 		});
 
-		it("reverts only the dismissed claim when the write fails, keeping newer state", async () => {
-			// Rollback used to put back the WHOLE snapshot array captured before the
-			// request. Anything that landed while the dismiss was in flight was then
-			// discarded: a claim the refresh resolved came back as pending, and a
-			// claim the refresh discovered vanished until the next fetch. The revert
-			// must touch exactly the one claim it optimistically changed.
-			let phase = 0;
-			let releaseDismiss: (() => void) | undefined;
-			const dismissGate = new Promise<void>((resolve) => {
-				releaseDismiss = resolve;
+		it("discards a stale status read instead of un-dismissing a row", async () => {
+			// Retest and dismiss each refresh, so their status reads overlap. A read
+			// issued BEFORE a dismissal still reports the model, and if it lands after
+			// the write the merge would rebuild that row as pending, handing back
+			// controls for a model that is gone.
+			//
+			// Retest is what puts a read in flight here: its refresh is held open, the
+			// dismissal completes underneath it, and only then is it released. The held
+			// payload is built BEFORE the await so it is genuinely stale.
+			let releaseStale: (() => void) | undefined;
+			const gate = new Promise<void>((resolve) => {
+				releaseStale = resolve;
 			});
+			let discovered = false;
+			let heldOne = false;
+			const dismissed = new Set<string>();
 			server.use(
-				http.get("/api/discovery/status", () => {
-					// After the retest: `b` has cleared and `c` has appeared.
-					const gone = (phase === 0 ? ["a", "b"] : ["a", "c"]).map((m) =>
-						claim(m),
-					);
-					return HttpResponse.json(
-						status({
-							claim_count: gone.length,
-							claims: [providerClaims("p1", "One", gone)],
-						}),
-					);
+				http.get("/api/discovery/status", async ({ request }) => {
+					const isReview =
+						new URL(request.url).searchParams.get("review") === "1";
+					const gone = ["a"]
+						.filter((m) => !dismissed.has(m))
+						.map((m) => claim(m));
+					const payload = status({
+						claim_count: gone.length,
+						claims: [providerClaims("p1", "One", gone)],
+					});
+					// The retest's own refresh: snapshot taken above, then held.
+					if (!isReview && discovered && !heldOne) {
+						heldOne = true;
+						await gate;
+					}
+					return HttpResponse.json(payload);
 				}),
 				http.post("/api/providers/:id/discover", () => {
-					phase = 1;
+					discovered = true;
 					return HttpResponse.json({ discovered: 0, diff: {} });
 				}),
-				http.post("/api/discovery/dismiss", async () => {
-					await dismissGate;
-					return HttpResponse.json({ error: "boom" }, { status: 500 });
+				http.post("/api/discovery/dismiss", async ({ request }) => {
+					const body = (await request.json()) as { model_ids: string[] };
+					for (const m of body.model_ids) dismissed.add(m);
+					return HttpResponse.json({
+						dismissed: body.model_ids,
+						updated: body.model_ids.length,
+					});
 				}),
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const row = (id: string) =>
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
+			const rowA = () =>
 				screen
 					.queryAllByTestId("discrepancy-claim")
-					.find((el) => el.getAttribute("data-model-id") === id);
+					.find((el) => el.getAttribute("data-model-id") === "a");
+			await waitFor(() => expect(rowA()).toBeTruthy());
 
-			await user.click(await screen.findByTestId("discovery-status-badge"));
-			await waitFor(() => expect(row("a")).toBeTruthy());
+			// Retest puts a status read in flight and leaves it there.
+			await user.click(screen.getByTestId("discrepancy-retest"));
+			await waitFor(() => expect(heldOne).toBe(true));
 
-			// Dismiss `a`; the request hangs.
+			// Dismiss lands while that read is still out.
 			await user.click(
-				row("a")?.querySelector(
+				rowA()?.querySelector(
 					'[data-testid="discrepancy-dismiss"]',
 				) as HTMLElement,
 			);
 			await waitFor(() =>
-				expect(row("a")).toHaveAttribute("data-status", "resolved"),
+				expect(rowA()).toHaveAttribute("data-status", "dismissed"),
 			);
 
-			// A retest lands its refresh while the dismiss is still out.
-			await user.click(await screen.findByTestId("discrepancy-retest"));
-			await waitFor(() => expect(row("c")).toBeTruthy());
-			expect(row("b")).toHaveAttribute("data-status", "resolved");
-
-			releaseDismiss?.();
-
-			// The optimistic change is undone...
-			//
-			// `a` is still reported in phase 1, so the refresh above has already put
-			// it back to `pending` on the server's authority and the rollback is a
-			// no-op here (see revertDismissal's compare-and-swap). This is an
-			// end-state assertion; the rollback itself is isolated by the `c` case at
-			// the bottom of this test and by the sibling test below.
-			await waitFor(() =>
-				expect(row("a")).toHaveAttribute("data-status", "pending"),
-			);
-			// ...and nothing the refresh established is undone with it.
-			expect(row("c")).toBeTruthy();
-			expect(row("c")).toHaveAttribute("data-status", "new");
-			expect(row("b")).toHaveAttribute("data-status", "resolved");
-
-			// The revert restores the status the row actually held, not a hardcoded
-			// `pending`: `c` appeared during this session, and losing its "new"
-			// marker to a failed dismiss would erase that fact from the modal.
-			// The gate is already open, so this dismiss fails immediately.
-			await user.click(
-				row("c")?.querySelector(
-					'[data-testid="discrepancy-dismiss"]',
-				) as HTMLElement,
-			);
-			await waitFor(() =>
-				expect(row("c")).toHaveAttribute("data-status", "new"),
-			);
+			// The stale read returns, still listing `a` as gone. It must be discarded.
+			releaseStale?.();
+			await waitFor(() => expect(heldOne).toBe(true));
+			await new Promise((r) => setTimeout(r, 50));
+			expect(rowA()).toHaveAttribute("data-status", "dismissed");
 		});
 
-		it("leaves a claim a concurrent refresh resolved alone when the dismissal fails", async () => {
-			// The residual half of the rollback bug. Narrowing the revert to a single
-			// claim was not enough while it still wrote the CLICK-TIME status
-			// unconditionally: if a refresh legitimately clears that same claim while
-			// the request is out (the model came back), the failure replays `pending`
-			// over server truth and a resolved row reads as still-broken until the
-			// next fetch. An undo must only undo its own write.
-			let phase = 0;
-			let releaseDismiss: (() => void) | undefined;
-			const dismissGate = new Promise<void>((resolve) => {
-				releaseDismiss = resolve;
-			});
+		it("leaves a failed dismissal actionable and says so", async () => {
+			// Nothing is marked before the server confirms, so a failed dismiss has
+			// nothing to roll back: the row simply never left `pending`. What must
+			// happen is that the failure is reported rather than swallowed.
 			server.use(
-				http.get("/api/discovery/status", () => {
-					// After the retest `a` is no longer reported at all — it came back —
-					// and `c` has appeared, which is what makes the refresh observable.
-					const gone = (phase === 0 ? ["a", "b"] : ["b", "c"]).map((m) =>
-						claim(m),
-					);
-					return HttpResponse.json(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
 						status({
-							claim_count: gone.length,
-							claims: [providerClaims("p1", "One", gone)],
+							claim_count: 1,
+							claims: [providerClaims("p1", "One", [claim("a")])],
 						}),
-					);
-				}),
-				http.post("/api/providers/:id/discover", () => {
-					phase = 1;
-					return HttpResponse.json({ discovered: 0, diff: {} });
-				}),
-				http.post("/api/discovery/dismiss", async () => {
-					await dismissGate;
-					return HttpResponse.json({ error: "boom" }, { status: 500 });
-				}),
+					),
+				),
+				http.post("/api/discovery/dismiss", () =>
+					HttpResponse.json({ error: "boom" }, { status: 500 }),
+				),
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
-			const row = (id: string) =>
-				screen
-					.queryAllByTestId("discrepancy-claim")
-					.find((el) => el.getAttribute("data-model-id") === id);
-
 			await user.click(await screen.findByTestId("discovery-status-badge"));
-			await waitFor(() => expect(row("a")).toBeTruthy());
-
-			// Dismiss `a`; the request hangs.
+			await openFirstBucket(user);
+			const rowA = () =>
+				screen
+					.getAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === "a");
+			await waitFor(() => expect(rowA()).toBeTruthy());
 			await user.click(
-				row("a")?.querySelector(
+				rowA()?.querySelector(
 					'[data-testid="discrepancy-dismiss"]',
 				) as HTMLElement,
 			);
-			await waitFor(() =>
-				expect(row("a")).toHaveAttribute("data-status", "resolved"),
-			);
 
-			// A retest lands its refresh while the dismiss is still out. `c` arriving
-			// is the proof it landed; `a` is now resolved on the SERVER's authority,
-			// not on the strength of the optimistic write.
-			await user.click(await screen.findByTestId("discrepancy-retest"));
-			await waitFor(() => expect(row("c")).toBeTruthy());
-			expect(row("a")).toHaveAttribute("data-status", "resolved");
-
-			releaseDismiss?.();
-
-			// The error toast is the ordering anchor: the rollback runs immediately
-			// before it, in the same catch block, so a rendered toast means the
-			// rollback has already had its chance.
 			await waitFor(() =>
 				expect(
 					screen
@@ -1353,10 +1636,10 @@ describe("Layout", () => {
 						.some((el) => el.getAttribute("data-toast-type") === "error"),
 				).toBe(true),
 			);
-			// The newer, server-derived status wins over the click-time one.
-			expect(row("a")).toHaveAttribute("data-status", "resolved");
-			expect(row("c")).toHaveAttribute("data-status", "new");
-			expect(row("b")).toHaveAttribute("data-status", "pending");
+			expect(rowA()).toHaveAttribute("data-status", "pending");
+			expect(
+				rowA()?.querySelector('[data-testid="discrepancy-dismiss"]'),
+			).not.toBeNull();
 		});
 
 		it("acknowledges the journal once it is expanded, without re-stamping review", async () => {
@@ -1428,6 +1711,7 @@ describe("Layout", () => {
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
 			await screen.findByTestId("discrepancy-claim");
 			await waitFor(() => expect(reviewStamps).toBe(1));
 			const pollsBefore = polls;
@@ -1505,6 +1789,8 @@ describe("Layout", () => {
 			expect(screen.getByTestId("discrepancy-loading")).toBeInTheDocument();
 
 			release?.();
+			await screen.findByTestId("discrepancy-provider-pill");
+			await openFirstBucket(user);
 			expect(await screen.findByTestId("discrepancy-claim")).toHaveAttribute(
 				"data-model-id",
 				"a",
@@ -1545,6 +1831,7 @@ describe("Layout", () => {
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
 			expect(await screen.findByTestId("discrepancy-claim")).toHaveAttribute(
 				"data-model-id",
 				"first-open",
@@ -1562,10 +1849,17 @@ describe("Layout", () => {
 			await waitFor(() => expect(opens).toBe(2));
 
 			// The second open's fetch is still out, so there is nothing yet to show.
+			// Asserted on the PILL, not on a row: rows are unmounted until a bucket is
+			// opened, so a row-level check would pass here even if the previous
+			// session's providers were still painted. The pill is the top-level render
+			// of a claim, which makes its absence the real invariant.
+			expect(screen.queryByTestId("discrepancy-provider-pill")).toBeNull();
 			expect(screen.queryByTestId("discrepancy-claim")).toBeNull();
 			expect(screen.getByTestId("discrepancy-loading")).toBeInTheDocument();
 
 			release?.();
+			await screen.findByTestId("discrepancy-provider-pill");
+			await openFirstBucket(user);
 			await waitFor(() =>
 				expect(screen.getByTestId("discrepancy-claim")).toHaveAttribute(
 					"data-model-id",
