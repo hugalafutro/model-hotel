@@ -432,6 +432,7 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model) bool {
 // Returns the number of models that were enriched (had at least one field filled).
 func (c *ModelsDevCache) EnrichModels(models []*model.Model) int {
 	if c == nil {
+		reportUnpricedModels(models)
 		return 0
 	}
 	count := 0
@@ -440,7 +441,39 @@ func (c *ModelsDevCache) EnrichModels(models []*model.Model) int {
 			count++
 		}
 	}
+	reportUnpricedModels(models)
 	return count
+}
+
+// reportUnpricedModels logs any model that finished discovery with no per-token
+// price on either side.
+//
+// This exists because the embedded catalogs were shrunk to overrides only: a
+// row that merely restated models.dev was deleted, since a stale duplicate is
+// worse than none (the catalog wins over models.dev, which is how xAI's
+// retired-model pricing sat 6x wrong until an audit found it). The cost of that
+// is a heavier reliance on models.dev, and a model it does not know now yields
+// no price at all rather than a catalog fallback.
+//
+// An unpriced model still works; it just meters at zero, which is invisible
+// until someone reconciles a bill. Naming it here turns that into something an
+// operator can see and fix by adding a catalog override.
+func reportUnpricedModels(models []*model.Model) {
+	var unpriced []string
+	for _, m := range models {
+		if m == nil || !m.Enabled {
+			continue
+		}
+		// Free tiers are legitimately zero, so only a wholly absent price counts.
+		if m.InputPricePerMillion == nil && m.OutputPricePerMillion == nil {
+			unpriced = append(unpriced, m.ModelID)
+		}
+	}
+	if len(unpriced) == 0 {
+		return
+	}
+	debuglog.Warn("discovery: models have no pricing from catalog or models.dev; they will meter at zero",
+		"count", len(unpriced), "models", strings.Join(unpriced, ","))
 }
 
 // contains removed — use slices.Contains from stdlib.

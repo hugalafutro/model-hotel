@@ -1956,7 +1956,7 @@ func TestDiscoverCohere_ModelWithPricing(t *testing.T) {
 		response := CohereModelsResponse{
 			Models: []CohereNativeModel{
 				{
-					Name:          "command-r-plus-08-2024",
+					Name:          "c4ai-aya-expanse-32b",
 					Endpoints:     []string{"chat"},
 					ContextLength: 128000,
 					Features:      []string{"tools", "vision"},
@@ -1992,16 +1992,16 @@ func TestDiscoverCohere_ModelWithPricing(t *testing.T) {
 	// Should have pricing from catalog
 	if m.InputPricePerMillion == nil {
 		t.Error("Expected InputPricePerMillion to be set for model in pricing catalog")
-	} else if *m.InputPricePerMillion != 2.50 {
-		t.Errorf("Expected input price 2.50, got %.2f", *m.InputPricePerMillion)
+	} else if *m.InputPricePerMillion != 0.50 {
+		t.Errorf("Expected input price 0.50, got %.2f", *m.InputPricePerMillion)
 	}
 	if m.OutputPricePerMillion == nil {
 		t.Error("Expected OutputPricePerMillion to be set for model in pricing catalog")
-	} else if *m.OutputPricePerMillion != 10.00 {
-		t.Errorf("Expected output price 10.00, got %.2f", *m.OutputPricePerMillion)
+	} else if *m.OutputPricePerMillion != 1.50 {
+		t.Errorf("Expected output price 1.50, got %.2f", *m.OutputPricePerMillion)
 	}
-	if m.DisplayName != "Command R+" {
-		t.Errorf("Expected DisplayName 'Command R+', got '%s'", m.DisplayName)
+	if m.DisplayName != "Aya Expanse 32B" {
+		t.Errorf("Expected DisplayName 'Aya Expanse 32B', got '%s'", m.DisplayName)
 	}
 	if m.MaxOutputTokens == nil {
 		t.Error("Expected MaxOutputTokens to be set")

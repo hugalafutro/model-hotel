@@ -20,28 +20,39 @@ func TestLoadCatalog_ValidJSON(t *testing.T) {
 	}
 }
 
-// TestLoadCatalog_AllCatalogsParse verifies every embedded JSON catalog
-// parses without panicking and returns a non-empty result.
+// TestLoadCatalog_AllCatalogsParse verifies every embedded JSON catalog parses
+// without panicking.
+//
+// Only the catalogs that carry models the live listing cannot supply on its own
+// are required to be non-empty. The pricing catalogs are OVERRIDE channels: a
+// row that merely restated models.dev has been deleted, because the catalog
+// wins over models.dev and so a stale duplicate silently overrides correct data
+// (xAI's retired models metered 6x wrong that way until an audit caught it). An
+// empty pricing catalog therefore means "models.dev is right about everything
+// here", which is the healthy state, not a missing file.
 func TestLoadCatalog_AllCatalogsParse(t *testing.T) {
 	type testCase struct {
-		name string
-		fn   func() int
+		name         string
+		fn           func() int
+		mustHaveRows bool
 	}
 	cases := []testCase{
-		{"opencode_go", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("opencode_go.json")) }},
-		{"opencode_zen", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("opencode_zen.json")) }},
-		{"xai", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("xai.json")) }},
-		{"zai", func() int { return len(loadCatalog[[]ZAICodingModelSpec]("zai.json")) }},
-		{"deepseek", func() int { return len(loadCatalog[[]DeepSeekModelSpec]("deepseek.json")) }},
-		{"openai", func() int { return len(loadCatalog[[]OpenAIModelSpec]("openai.json")) }},
-		{"anthropic", func() int { return len(loadCatalog[[]AnthropicPricingSpec]("anthropic.json")) }},
-		{"google", func() int { return len(loadCatalog[[]GoogleModelPricing]("google.json")) }},
-		{"cohere", func() int { return len(loadCatalog[[]CoherePricingEntry]("cohere.json")) }},
+		// Union / probe catalogs: emptying these would lose models outright.
+		{"opencode_go", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("opencode_go.json")) }, true},
+		{"opencode_zen", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("opencode_zen.json")) }, true},
+		{"xai", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("xai.json")) }, true},
+		{"zai", func() int { return len(loadCatalog[[]ZAICodingModelSpec]("zai.json")) }, true},
+		{"deepseek", func() int { return len(loadCatalog[[]DeepSeekModelSpec]("deepseek.json")) }, true},
+		{"openai", func() int { return len(loadCatalog[[]OpenAIModelSpec]("openai.json")) }, true},
+		// Pricing overrides: legitimately empty.
+		{"anthropic", func() int { return len(loadCatalog[[]AnthropicPricingSpec]("anthropic.json")) }, false},
+		{"google", func() int { return len(loadCatalog[[]GoogleModelPricing]("google.json")) }, false},
+		{"cohere", func() int { return len(loadCatalog[[]CoherePricingEntry]("cohere.json")) }, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			n := tc.fn()
-			if n == 0 {
+			if tc.mustHaveRows && n == 0 {
 				t.Errorf("%s catalog should have at least one entry", tc.name)
 			}
 		})
@@ -108,38 +119,31 @@ func TestLoadCatalog_ZAICatalog(t *testing.T) {
 	}
 }
 
+// google.json is an override channel and is legitimately empty while models.dev
+// is correct about every Google model, so this validates the shape of whatever
+// rows exist rather than demanding rows exist.
 func TestLoadCatalog_GooglePricingCatalog(t *testing.T) {
-	catalog := loadCatalog[[]GoogleModelPricing]("google.json")
-	if len(catalog) == 0 {
-		t.Error("google.json should contain at least one pricing entry")
-	}
-
-	first := catalog[0]
-	if first.ModelID == "" {
-		t.Error("first entry should have a non-empty ModelID")
+	for _, e := range loadCatalog[[]GoogleModelPricing]("google.json") {
+		if e.ModelID == "" {
+			t.Error("every entry should have a non-empty ModelID")
+		}
 	}
 }
 
+// anthropic.json is an override channel; see TestLoadCatalog_GooglePricingCatalog.
 func TestLoadCatalog_AnthropicPricingCatalog(t *testing.T) {
-	catalog := loadCatalog[[]AnthropicPricingSpec]("anthropic.json")
-	if len(catalog) == 0 {
-		t.Error("anthropic.json should contain at least one pricing entry")
-	}
-
-	first := catalog[0]
-	if first.ModelID == "" {
-		t.Error("first entry should have a non-empty ModelID")
+	for _, e := range loadCatalog[[]AnthropicPricingSpec]("anthropic.json") {
+		if e.ModelID == "" {
+			t.Error("every entry should have a non-empty ModelID")
+		}
 	}
 }
 
+// cohere.json keeps only the models models.dev has no price for.
 func TestLoadCatalog_CoherePricingCatalog(t *testing.T) {
-	catalog := loadCatalog[[]CoherePricingEntry]("cohere.json")
-	if len(catalog) == 0 {
-		t.Error("cohere.json should contain at least one pricing entry")
-	}
-
-	first := catalog[0]
-	if first.ModelID == "" {
-		t.Error("first entry should have a non-empty ModelID")
+	for _, e := range loadCatalog[[]CoherePricingEntry]("cohere.json") {
+		if e.ModelID == "" {
+			t.Error("every entry should have a non-empty ModelID")
+		}
 	}
 }

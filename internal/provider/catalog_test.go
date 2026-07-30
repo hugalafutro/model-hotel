@@ -122,11 +122,19 @@ func TestLookupCoherePricing_EmptyCatalog(t *testing.T) {
 	}
 }
 
-// Test GetGooglePricingCatalog and LookupGooglePricing
-func TestGetGooglePricingCatalog_NonEmpty(t *testing.T) {
-	catalog := GetGooglePricingCatalog()
-	if len(catalog) == 0 {
-		t.Error("GetGooglePricingCatalog should return non-empty catalog")
+// Test GetGooglePricingCatalog and LookupGooglePricing.
+//
+// google.json is an override channel, not a mirror: rows that merely restated
+// models.dev were removed, because the catalog wins over models.dev and a stale
+// duplicate silently overrides correct data. It is therefore legitimately
+// empty, and only the shape of whatever rows exist is asserted.
+// LookupGooglePricing itself is covered against a fixture in
+// TestLookupGooglePricing_Fixture.
+func TestGetGooglePricingCatalog_Loads(t *testing.T) {
+	for i, spec := range GetGooglePricingCatalog() {
+		if spec.ModelID == "" {
+			t.Errorf("catalog[%d]: ModelID is empty", i)
+		}
 	}
 }
 
@@ -148,24 +156,10 @@ func TestGetGooglePricingCatalog_AllFieldsValid(t *testing.T) {
 	}
 }
 
-func TestLookupGooglePricing_Found(t *testing.T) {
-	catalog := GetGooglePricingCatalog()
-	if len(catalog) == 0 {
-		t.Fatal("catalog is empty")
-	}
-	first := catalog[0]
-	result := LookupGooglePricing(catalog, first.ModelID)
-	if result == nil {
-		t.Fatalf("expected non-nil for %q", first.ModelID)
-		return
-	}
-	if result.ModelID != first.ModelID {
-		t.Errorf("ModelID = %q, want %q", result.ModelID, first.ModelID)
-	}
-	if result.DisplayName != first.DisplayName {
-		t.Errorf("DisplayName = %q, want %q", result.DisplayName, first.DisplayName)
-	}
-}
+// The positive lookup case lives in TestLookupGooglePricing_Fixture, which
+// supplies its own catalog. Asserting it against the shipped rows would only
+// pass while an override happens to be present, and google.json is an override
+// channel that is empty whenever models.dev is correct about everything.
 
 func TestLookupGooglePricing_NotFound(t *testing.T) {
 	catalog := GetGooglePricingCatalog()
