@@ -278,8 +278,8 @@ func TestDiscoverGoogleAIStudio_FiltersNonRelevantModels(t *testing.T) {
 				Models: []GoogleModel{
 					{
 						// Relevant model (has generateContent)
-						Name:                       "models/gemini-2.0-flash",
-						DisplayName:                "Gemini 2.0 Flash",
+						Name:                       "models/gemini-3.6-flash",
+						DisplayName:                "Gemini 3.6 Flash",
 						Description:                "Test model",
 						InputTokenLimit:            1000000,
 						OutputTokenLimit:           8192,
@@ -339,14 +339,94 @@ func TestDiscoverGoogleAIStudio_FiltersNonRelevantModels(t *testing.T) {
 	// Verify gemini model is included
 	found := false
 	for _, m := range models {
-		if m.ModelID == "gemini-2.0-flash" {
+		if m.ModelID == "gemini-3.6-flash" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Error("Expected gemini-2.0-flash to be included")
+		t.Error("Expected gemini-3.6-flash to be included")
 	}
+}
+
+// TestDiscoverGoogleAIStudio_FiltersRetiredModels pins the fix for a real
+// incident: Google kept gemini-2.0-flash and gemini-2.0-flash-lite in its
+// /models listing after their 2026-06-01 shutdown, so discovery imported them
+// as Enabled and every request to them 404'd. Dropping their pricing entries
+// did not help, because google.json only supplies pricing. A listed model must
+// therefore be dropped outright when it is known-retired.
+func TestDiscoverGoogleAIStudio_FiltersRetiredModels(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1beta/models" {
+			response := GoogleModelsResponse{
+				Models: []GoogleModel{
+					{
+						// Retired, but Google still lists it as generateContent-capable.
+						Name:                       "models/gemini-2.0-flash",
+						DisplayName:                "Gemini 2.0 Flash",
+						Description:                "Retired model still in the listing",
+						InputTokenLimit:            1000000,
+						OutputTokenLimit:           8192,
+						SupportedGenerationMethods: []string{"generateContent"},
+					},
+					{
+						// Retired dated alias of the same model.
+						Name:                       "models/gemini-2.0-flash-lite-001",
+						DisplayName:                "Gemini 2.0 Flash Lite 001",
+						Description:                "Retired model still in the listing",
+						InputTokenLimit:            1000000,
+						OutputTokenLimit:           8192,
+						SupportedGenerationMethods: []string{"generateContent"},
+					},
+					{
+						// Current model, must survive the filter.
+						Name:                       "models/gemini-3.6-flash",
+						DisplayName:                "Gemini 3.6 Flash",
+						Description:                "Current model",
+						InputTokenLimit:            1048576,
+						OutputTokenLimit:           65536,
+						SupportedGenerationMethods: []string{"generateContent"},
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: server.URL + "/v1beta/openai"}
+
+	models, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverGoogleAIStudio failed: %v", err)
+	}
+
+	for _, m := range models {
+		if IsRetiredGoogleModel(m.ModelID) {
+			t.Errorf("retired model %q was discovered; it would be upserted as Enabled=%v and 404 on every request", m.ModelID, m.Enabled)
+		}
+	}
+
+	if len(models) != 1 {
+		t.Fatalf("Expected only the current model to survive, got %d: %v", len(models), modelIDsOf(models))
+	}
+	if models[0].ModelID != "gemini-3.6-flash" {
+		t.Errorf("Expected gemini-3.6-flash to survive, got %q", models[0].ModelID)
+	}
+}
+
+func modelIDsOf(models []*model.Model) []string {
+	ids := make([]string, 0, len(models))
+	for _, m := range models {
+		ids = append(ids, m.ModelID)
+	}
+	return ids
 }
 
 func TestDiscoverGoogleAIStudio_WithPricingEnrichment(t *testing.T) {
@@ -412,8 +492,8 @@ func TestDiscoverGoogleAIStudio_VisionModel(t *testing.T) {
 			response := GoogleModelsResponse{
 				Models: []GoogleModel{
 					{
-						Name:                       "models/gemini-2.0-flash",
-						DisplayName:                "Gemini 2.0 Flash",
+						Name:                       "models/gemini-3.6-flash",
+						DisplayName:                "Gemini 3.6 Flash",
 						Description:                "Vision model",
 						InputTokenLimit:            1000000,
 						OutputTokenLimit:           8192,
@@ -454,7 +534,7 @@ func TestDiscoverGoogleAIStudio_VisionModel(t *testing.T) {
 	}
 
 	if !caps.Vision {
-		t.Error("Expected Vision capability for gemini-2.0-flash")
+		t.Error("Expected Vision capability for gemini-3.6-flash")
 	}
 
 	// Check input modalities include image
