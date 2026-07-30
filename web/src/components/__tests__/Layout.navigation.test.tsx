@@ -1139,9 +1139,11 @@ describe("Layout", () => {
 			);
 
 			// Struck through in place rather than removed: the row that vanishes on a
-			// click is the operator complaint this rework exists to fix.
+			// click is the operator complaint this rework exists to fix. `dismissed`,
+			// not `resolved`: the cleared summary reports the latter as "is listed
+			// again", which is false for a model the operator retired by hand.
 			await waitFor(() =>
-				expect(rowA()).toHaveAttribute("data-status", "resolved"),
+				expect(rowA()).toHaveAttribute("data-status", "dismissed"),
 			);
 			// Exactly one model per request. A mixed batch 200s with a short
 			// `updated` and cannot say which ids it missed.
@@ -1240,10 +1242,12 @@ describe("Layout", () => {
 				) as HTMLElement,
 			);
 			await waitFor(() =>
-				expect(row("a")).toHaveAttribute("data-status", "resolved"),
+				expect(row("a")).toHaveAttribute("data-status", "dismissed"),
 			);
 
-			// A retest lands its refresh while the dismiss is still out.
+			// A retest lands its refresh while the dismiss is still out. `b` cleared
+			// because the server stopped reporting it and nobody dismissed it, so it
+			// is `resolved`: the two causes of absence keep separate labels.
 			await user.click(await screen.findByTestId("discrepancy-retest"));
 			await waitFor(() => expect(row("c")).toBeTruthy());
 			expect(row("b")).toHaveAttribute("data-status", "resolved");
@@ -1279,13 +1283,19 @@ describe("Layout", () => {
 			);
 		});
 
-		it("leaves a claim a concurrent refresh resolved alone when the dismissal fails", async () => {
+		it("leaves a claim a concurrent refresh cleared alone when the dismissal fails", async () => {
 			// The residual half of the rollback bug. Narrowing the revert to a single
 			// claim was not enough while it still wrote the CLICK-TIME status
-			// unconditionally: if a refresh legitimately clears that same claim while
-			// the request is out (the model came back), the failure replays `pending`
-			// over server truth and a resolved row reads as still-broken until the
-			// next fetch. An undo must only undo its own write.
+			// unconditionally: if a refresh clears that same claim while the request is
+			// out, the failure replays `pending` over server truth and a cleared row
+			// reads as still-broken until the next fetch. An undo must only undo its
+			// own write, which is what `optimisticFrom` compares.
+			//
+			// The refresh's verdict here is `dismissed`: the server stops reporting `a`,
+			// and for a row the operator dismissed, absence confirms the dismissal
+			// rather than meaning the provider listed it again. The two are genuinely
+			// indistinguishable from the claims payload, and mislabelling a hand
+			// dismissal as "is listed again" was the reported bug.
 			let phase = 0;
 			let releaseDismiss: (() => void) | undefined;
 			const dismissGate = new Promise<void>((resolve) => {
@@ -1331,15 +1341,16 @@ describe("Layout", () => {
 				) as HTMLElement,
 			);
 			await waitFor(() =>
-				expect(row("a")).toHaveAttribute("data-status", "resolved"),
+				expect(row("a")).toHaveAttribute("data-status", "dismissed"),
 			);
 
 			// A retest lands its refresh while the dismiss is still out. `c` arriving
-			// is the proof it landed; `a` is now resolved on the SERVER's authority,
-			// not on the strength of the optimistic write.
+			// is the proof it landed; `a` is now cleared on the SERVER's authority and
+			// its `optimisticFrom` marker is gone, not held on the strength of the
+			// optimistic write.
 			await user.click(await screen.findByTestId("discrepancy-retest"));
 			await waitFor(() => expect(row("c")).toBeTruthy());
-			expect(row("a")).toHaveAttribute("data-status", "resolved");
+			expect(row("a")).toHaveAttribute("data-status", "dismissed");
 
 			releaseDismiss?.();
 
@@ -1354,7 +1365,7 @@ describe("Layout", () => {
 				).toBe(true),
 			);
 			// The newer, server-derived status wins over the click-time one.
-			expect(row("a")).toHaveAttribute("data-status", "resolved");
+			expect(row("a")).toHaveAttribute("data-status", "dismissed");
 			expect(row("c")).toHaveAttribute("data-status", "new");
 			expect(row("b")).toHaveAttribute("data-status", "pending");
 		});

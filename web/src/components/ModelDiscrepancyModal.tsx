@@ -8,7 +8,7 @@ import type {
 import {
 	type MergedClaim,
 	type MergedProvider,
-	providerIsResolved,
+	providerHasNoPending,
 } from "../hooks/useDiscrepancies";
 import { ChevronDown, ChevronRight, RefreshCw } from "../lib/icons";
 import { formatFieldValue } from "../pages/Providers/discoveryFormat";
@@ -399,7 +399,7 @@ export function ModelDiscrepancyModal({
 	const renderProvider = (p: MergedProvider) => {
 		// One predicate for both the resolved body and the missing Retest, so the
 		// two can never disagree and offer a re-probe with nothing to probe.
-		const resolved = providerIsResolved(p);
+		const resolved = providerHasNoPending(p);
 		const spinning = retestingProviderId === p.provider_id;
 		const error = errors[p.provider_id];
 		return (
@@ -619,7 +619,7 @@ export function ModelDiscrepancyModal({
 		);
 	};
 
-	const unresolvedProviders = providers.filter((p) => !providerIsResolved(p));
+	const unresolvedProviders = providers.filter((p) => !providerHasNoPending(p));
 
 	return (
 		<Modal

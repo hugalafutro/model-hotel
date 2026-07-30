@@ -33,7 +33,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
 import {
 	type MergedProvider,
-	providerIsResolved,
+	providerHasNoPending,
 	useDiscrepancies,
 } from "../hooks/useDiscrepancies";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
@@ -822,7 +822,7 @@ export function Layout({ children }: LayoutProps) {
 
 	const onRetestAll = useCallback(async () => {
 		const targets = snapshot.filter(
-			(p: MergedProvider) => !providerIsResolved(p),
+			(p: MergedProvider) => !providerHasNoPending(p),
 		);
 		if (targets.length === 0 || retestInFlight.current) return;
 		cancelRetestAll.current = false;
@@ -902,7 +902,7 @@ export function Layout({ children }: LayoutProps) {
 			// out is stale by the time the rollback would replay it. The hook records
 			// the displaced status ON the claim and reverts it only if that write is
 			// still what the row holds; see revertDismissal.
-			dismissClaim(providerId, modelId);
+			dismissClaim(providerId, new Set([modelId]));
 			try {
 				// Exactly one model per request. The endpoint 200s with a short
 				// `updated` for a mixed list and only 404s when NOTHING matched, so a
@@ -929,7 +929,7 @@ export function Layout({ children }: LayoutProps) {
 					},
 				);
 			} catch (err) {
-				restoreClaim(providerId, modelId);
+				restoreClaim(providerId, new Set([modelId]));
 				toast(
 					t("providers.discrepancies.dismissFailed", {
 						message: err instanceof Error ? err.message : String(err),
