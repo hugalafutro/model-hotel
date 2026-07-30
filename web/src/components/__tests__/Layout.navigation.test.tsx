@@ -1183,6 +1183,67 @@ describe("Layout", () => {
 			);
 		});
 
+		it("dismisses every provider at once and reports a failed undo", async () => {
+			// Two things at once, because they share one request path: the modal-wide
+			// Dismiss all batches per provider (the endpoint is provider-scoped), and its
+			// Undo must SAY SO when it fails. Inline, that undo was an allSettled with no
+			// catch and no toast, so a network-down Undo did nothing and reported nothing,
+			// leaving the operator believing their rows were back.
+			const undoBodies: { model_ids: string[]; dismissed: boolean }[] = [];
+			let failUndo = false;
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 2,
+							claims: [
+								providerClaims("p1", "One", [claim("a")]),
+								providerClaims("p2", "Two", [claim("b")]),
+							],
+						}),
+					),
+				),
+				http.post("/api/discovery/dismiss", async ({ request }) => {
+					const body = (await request.json()) as {
+						model_ids: string[];
+						dismissed: boolean;
+					};
+					undoBodies.push(body);
+					if (!body.dismissed && failUndo) {
+						return HttpResponse.json({ error: "boom" }, { status: 500 });
+					}
+					return HttpResponse.json({ updated: body.model_ids.length });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-everything"),
+			);
+			await user.click(
+				await screen.findByTestId("discrepancy-dismiss-everything-confirm"),
+			);
+
+			// One request per provider, both carrying dismissed: true.
+			await waitFor(() => expect(undoBodies).toHaveLength(2));
+			expect(undoBodies.every((b) => b.dismissed)).toBe(true);
+			expect(undoBodies.flatMap((b) => b.model_ids).sort()).toEqual(["a", "b"]);
+
+			failUndo = true;
+			await user.click(await screen.findByTestId("toast-action"));
+
+			await waitFor(() => expect(undoBodies).toHaveLength(4));
+			// The failure is surfaced, not swallowed.
+			await waitFor(() =>
+				expect(
+					screen
+						.getAllByTestId("toast")
+						.some((el) => el.getAttribute("data-toast-type") === "error"),
+				).toBe(true),
+			);
+		});
+
 		it("treats updated: 0 as a failed dismissal", async () => {
 			// The endpoint 200s with a short `updated` and only 404s when nothing at
 			// all matched, so HTTP status alone would report a phantom success.

@@ -107,21 +107,37 @@ export function ModelDiscrepancyModal({
 	const { t } = useTranslation();
 
 	/**
-	 * Providers the operator has cleaned away this session.
+	 * Providers the operator has cleaned away, honoured only WHILE they stay clear.
 	 *
-	 * View-only, and correct precisely because a cleaned provider has nothing left
-	 * to write: every row is either dismissed (already persisted) or resolved (the
-	 * model is healthy, so it is not a claim). It will not return on the next open,
-	 * since listClaimRows excludes dismissed rows and never reports healthy ones,
-	 * and if a refresh finds a genuinely NEW claim for it, mergeClaims re-adds it as
-	 * a new provider, which is what should happen.
+	 * View-only, and safe to write nothing for, because a cleaned provider has
+	 * nothing left to write: every row is either dismissed (already persisted) or
+	 * resolved (the model is healthy, so it is not a claim). It does not come back
+	 * on the next open either, since listClaimRows excludes dismissed rows and never
+	 * reports healthy ones.
+	 *
+	 * The `providerHasNoPending` half of the filter is the load-bearing part, and it
+	 * is not decoration. Membership alone would hide the provider FOREVER for the
+	 * life of the modal, so a model that flapped healthy -> gone again after the
+	 * Clean click would vanish silently: precisely the false reassurance this rework
+	 * exists to remove. (An earlier comment here claimed mergeClaims would "re-add
+	 * it as a new provider". It does not: Clean never touches the snapshot, so the
+	 * provider is merged in place and a stale id in this set kept filtering it.)
+	 *
+	 * Deriving it also means no effect and no pruning pass: the moment a refresh
+	 * gives the provider an actionable row, the predicate goes false and it
+	 * reappears, carrying both its new claim and the struck-through log above it. If
+	 * the operator then clears that row too, it hides again without a second click,
+	 * which is fine: by then they have seen it and acted on it, so nothing is being
+	 * hidden that they have not dealt with.
 	 *
 	 * Declared here rather than beside its handler because `hasContent` below reads
 	 * the filtered list: a modal holding nothing but cleaned providers must show the
 	 * empty state, not an empty claims zone.
 	 */
 	const [cleaned, setCleaned] = useState<Set<string>>(() => new Set());
-	const visibleProviders = providers.filter((p) => !cleaned.has(p.provider_id));
+	const visibleProviders = providers.filter(
+		(p) => !(cleaned.has(p.provider_id) && providerHasNoPending(p)),
+	);
 
 	// Recomputed every render: a refetch that brings back a claim must take the
 	// empty state away again.

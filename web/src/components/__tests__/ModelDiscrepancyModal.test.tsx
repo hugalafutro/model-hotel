@@ -836,6 +836,92 @@ describe("ModelDiscrepancyModal", () => {
 			// View-only: every row is already persisted as dismissed or is healthy.
 			expect(onDismissAll).not.toHaveBeenCalled();
 		});
+
+		it("brings a cleaned provider back when a refresh gives it a new claim", async () => {
+			// Hiding on membership alone hid the provider for the life of the modal, so
+			// a model that flapped healthy -> gone again after the Clean click vanished
+			// silently. That is the false reassurance this whole rework exists to
+			// remove, and the disappearance-only test above did not catch it.
+			const user = userEvent.setup();
+			const cleared = prov({ gone: [claimOf("done", "dismissed")] });
+			const { rerender } = render(
+				<ModelDiscrepancyModal {...baseProps} providers={[cleared]} />,
+			);
+			await user.click(screen.getByTestId("discrepancy-clean"));
+			expect(screen.queryByTestId("discrepancy-provider")).toBeNull();
+
+			// A refresh reports the same provider with a genuinely new gone model.
+			rerender(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({
+							gone: [claimOf("done", "dismissed"), claimOf("fresh", "new")],
+						}),
+					]}
+				/>,
+			);
+
+			expect(screen.getByTestId("discrepancy-provider")).toBeInTheDocument();
+			// And it carries both: the new claim, plus the struck-through log above it.
+			expect(screen.getByTestId("discrepancy-chip-gone")).toHaveTextContent(
+				"1",
+			);
+			await openBucket(user, "gone");
+			expect(
+				screen
+					.getAllByTestId("discrepancy-claim")
+					.map((r) => [
+						r.getAttribute("data-model-id"),
+						r.getAttribute("data-status"),
+					]),
+			).toStrictEqual([
+				["done", "dismissed"],
+				["fresh", "new"],
+			]);
+		});
+
+		it("hides it again once the new claim is dealt with, without a second Clean", async () => {
+			// The auto-re-hide is deliberate: by this point the operator has seen the
+			// new row and acted on it, so nothing is hidden that they have not dealt
+			// with, and it saves re-clicking Clean on a provider they already retired.
+			const user = userEvent.setup();
+			const { rerender } = render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("done", "dismissed")] })]}
+				/>,
+			);
+			await user.click(screen.getByTestId("discrepancy-clean"));
+
+			rerender(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({
+							gone: [claimOf("done", "dismissed"), claimOf("fresh", "new")],
+						}),
+					]}
+				/>,
+			);
+			expect(screen.getByTestId("discrepancy-provider")).toBeInTheDocument();
+
+			rerender(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({
+							gone: [
+								claimOf("done", "dismissed"),
+								claimOf("fresh", "dismissed"),
+							],
+						}),
+					]}
+				/>,
+			);
+
+			expect(screen.queryByTestId("discrepancy-provider")).toBeNull();
+		});
 	});
 
 	describe("dismiss all", () => {

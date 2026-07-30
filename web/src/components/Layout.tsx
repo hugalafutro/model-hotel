@@ -973,6 +973,40 @@ export function Layout({ children }: LayoutProps) {
 	);
 
 	/**
+	 * Undo half of the modal-wide dismiss.
+	 *
+	 * Extracted rather than inlined into the toast action so a failure is REPORTED.
+	 * Inline, it was an `allSettled` with no catch and no toast, which meant a
+	 * network-down Undo did nothing and said nothing: the operator is left believing
+	 * their rows are back. Harmless to the data (a failed undo is a server-side
+	 * no-op) and precisely the kind of silence that costs trust.
+	 *
+	 * The refresh runs even when a batch fails, so whatever DID restore shows up,
+	 * and the toast names the first failure the way the per-provider path does.
+	 */
+	const undoDismissEverything = useCallback(
+		async (batches: { providerID: string; modelIDs: string[] }[]) => {
+			const results = await Promise.allSettled(
+				batches.map((b) =>
+					api.discovery.dismiss(b.providerID, b.modelIDs, false),
+				),
+			);
+			await refresh();
+			const failed = results.find((r) => r.status === "rejected");
+			if (failed) {
+				const reason = (failed as PromiseRejectedResult).reason;
+				toast(
+					t("providers.discrepancies.undoFailed", {
+						message: reason instanceof Error ? reason.message : String(reason),
+					}),
+					"error",
+				);
+			}
+		},
+		[refresh, toast, t],
+	);
+
+	/**
 	 * Clears the whole modal: every actionable gone/stale model on every provider.
 	 *
 	 * One request per provider, because the endpoint is provider-scoped, but ONE
@@ -1011,14 +1045,7 @@ export function Layout({ children }: LayoutProps) {
 			const undo = {
 				label: t("providers.discrepancies.undo"),
 				onClick: () => {
-					void (async () => {
-						await Promise.allSettled(
-							batches.map((b) =>
-								api.discovery.dismiss(b.providerID, b.modelIDs, false),
-							),
-						);
-						await refresh();
-					})();
+					void undoDismissEverything(batches);
 				},
 			};
 			toast(
@@ -1032,7 +1059,7 @@ export function Layout({ children }: LayoutProps) {
 				undo,
 			);
 		},
-		[dismissClaim, restoreClaim, refresh, toast, t],
+		[dismissClaim, restoreClaim, refresh, toast, t, undoDismissEverything],
 	);
 
 	const onDismiss = useCallback(
