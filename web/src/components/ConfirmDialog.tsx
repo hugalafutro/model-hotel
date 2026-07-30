@@ -64,6 +64,8 @@ export function ConfirmDialog({
 					}}
 					className="ui-btn ui-btn-secondary"
 					disabled={closing}
+					// Stable handle for tests, which must not match a translated label.
+					data-testid="confirm-dialog-cancel"
 				>
 					{t("common.cancel")}
 				</button>

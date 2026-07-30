@@ -94,6 +94,7 @@ describe("ModelDiscrepancyModal i18n", () => {
 				onRetestAll={vi.fn()}
 				onCancelRetestAll={vi.fn()}
 				onDismiss={vi.fn()}
+				onDismissAll={vi.fn()}
 				isRetesting={false}
 				retestAllProgress={{ done: 1, total: 3 }}
 				errors={{ p1: "boom" }}

@@ -894,6 +894,84 @@ export function Layout({ children }: LayoutProps) {
 		[refresh, toast, t],
 	);
 
+	const undoDismissAll = useCallback(
+		async (providerId: string, modelIds: string[]) => {
+			try {
+				await api.discovery.dismiss(providerId, modelIds, false);
+				await refresh();
+			} catch (err) {
+				toast(
+					t("providers.discrepancies.undoFailed", {
+						message: err instanceof Error ? err.message : String(err),
+					}),
+					"error",
+				);
+			}
+		},
+		[refresh, toast, t],
+	);
+
+	/**
+	 * Dismisses every actionable gone/stale model on one provider at once.
+	 *
+	 * ONE request for the whole batch, unlike the per-row path below. That path
+	 * sends one model per call so `updated: 0` is unambiguous FOR THAT MODEL, but a
+	 * batch does not need the same guarantee: the refresh underneath is the
+	 * reconciliation. Any id that did not take is still reported by the server, so
+	 * mergeClaims rebuilds it from the fresh claim as `pending` and the row corrects
+	 * itself without anyone having to name it. N sequential requests would be the
+	 * 70-clicks problem moved into the network layer.
+	 */
+	const onDismissAll = useCallback(
+		async (providerId: string, modelIds: string[]) => {
+			if (modelIds.length === 0) return;
+			const ids = new Set(modelIds);
+			// Nothing is captured, for the same reason as onDismiss: a refresh can
+			// settle while this is in flight, and the hook records each displaced
+			// status ON the claim so the rollback reverts only what it still owns.
+			dismissClaim(providerId, ids);
+			try {
+				const res = await api.discovery.dismiss(providerId, modelIds, true);
+				await refresh();
+				const undo = {
+					label: t("providers.discrepancies.undo"),
+					onClick: () => {
+						void undoDismissAll(providerId, modelIds);
+					},
+				};
+				if (res.updated < modelIds.length) {
+					// A short count cannot say WHICH ids it missed, so the toast reports
+					// the shortfall and leaves the refresh-corrected rows to show which.
+					// Undo is still offered: it targets the same id list, and clearing a
+					// dismissal that was never written is a no-op server-side.
+					toast(
+						t("providers.discrepancies.dismissAllPartial", {
+							count: res.updated,
+							total: modelIds.length,
+						}),
+						"warning",
+						undo,
+					);
+					return;
+				}
+				toast(
+					t("providers.discrepancies.dismissAllDone", { count: res.updated }),
+					"success",
+					undo,
+				);
+			} catch (err) {
+				restoreClaim(providerId, ids);
+				toast(
+					t("providers.discrepancies.dismissFailed", {
+						message: err instanceof Error ? err.message : String(err),
+					}),
+					"error",
+				);
+			}
+		},
+		[dismissClaim, restoreClaim, refresh, toast, t, undoDismissAll],
+	);
+
 	const onDismiss = useCallback(
 		async (providerId: string, modelId: string) => {
 			// Nothing is captured here, not the array and not the claim's status. A
@@ -1506,6 +1584,9 @@ export function Layout({ children }: LayoutProps) {
 					onCancelRetestAll={onCancelRetestAll}
 					onDismiss={(providerId, modelId) => {
 						void onDismiss(providerId, modelId);
+					}}
+					onDismissAll={(providerId, modelIds) => {
+						void onDismissAll(providerId, modelIds);
 					}}
 					retestingProviderId={retestingKey}
 					isRetesting={isAnyRetesting}

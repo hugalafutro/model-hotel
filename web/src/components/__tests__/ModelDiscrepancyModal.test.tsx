@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DiscoveryChangeEntry, GroupClaim } from "../../api/types";
 import type { MergedProvider } from "../../hooks/useDiscrepancies";
 import { ModelDiscrepancyModal } from "../ModelDiscrepancyModal";
@@ -16,7 +16,7 @@ const prov = (over: Partial<MergedProvider> = {}): MergedProvider => ({
 
 const claimOf = (
 	model_id: string,
-	status: "pending" | "resolved" | "new",
+	status: "pending" | "resolved" | "new" | "dismissed",
 	state: "gone" | "stale" | "suspect" = "gone",
 	flaps: { window?: number; sinceReview?: number } = {},
 ) => ({
@@ -45,11 +45,40 @@ const baseProps = {
 	onRetestAll: vi.fn(),
 	onCancelRetestAll: vi.fn(),
 	onDismiss: vi.fn(),
+	onDismissAll: vi.fn(),
 	isRetesting: false,
 	errors: {},
 	onExpandInformational: vi.fn(),
 	readOnly: false,
 };
+
+/**
+ * Opens a provider pill and then one of its bucket lines, which is what the
+ * accordion now requires before any model row is mounted.
+ *
+ * Providers render collapsed and their bucket lines render collapsed inside them,
+ * so a test that wants rows has to ask for them. `nth` picks the provider when a
+ * case renders more than one.
+ */
+async function openBucket(
+	user: ReturnType<typeof userEvent.setup>,
+	bucket: "gone" | "stale" | "suspect" = "gone",
+	nth = 0,
+) {
+	const section = screen.getAllByTestId("discrepancy-provider")[nth];
+	await user.click(
+		section.querySelector(
+			"[data-testid='discrepancy-provider-pill']",
+		) as HTMLElement,
+	);
+	// Scoped to the section: every provider has its own line per bucket, so a
+	// document-wide query is ambiguous the moment a case renders two providers.
+	await user.click(
+		section.querySelector(
+			`[data-testid='discrepancy-group-${bucket}-toggle']`,
+		) as HTMLElement,
+	);
+}
 
 const infoEntry: DiscoveryChangeEntry = {
 	provider_id: "p1",
@@ -453,7 +482,11 @@ describe("ModelDiscrepancyModal", () => {
 					providers={[prov({ stale: [claimOf("old", "pending", "stale")] })]}
 				/>,
 			);
-			const toggle = screen.getByTestId("discrepancy-stale-toggle");
+			// The provider pill has to be unrolled before its bucket lines are usable;
+			// collapsed, the whole provider body is inert, which would make the
+			// bucket-level assertion below pass for the wrong reason.
+			await user.click(screen.getByTestId("discrepancy-provider-pill"));
+			const toggle = screen.getByTestId("discrepancy-group-stale-toggle");
 			const region = regionOf(toggle, screen.getByTestId("discrepancy-claim"));
 
 			expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -504,6 +537,519 @@ describe("ModelDiscrepancyModal", () => {
 			expect(screen.getByTestId("discrepancy-dismiss")).not.toHaveAttribute(
 				"aria-describedby",
 			);
+		});
+	});
+
+	describe("provider accordion", () => {
+		// Collapsed does NOT mean unmounted here: the rows stay in the DOM inside an
+		// `inert`, zero-height grid row so the open/close can animate. "Is it open?"
+		// is therefore aria-expanded on the toggle, never presence of the rows.
+		// `nth` matters once a case renders two providers: each has its own pill and
+		// its own line per bucket, so a document-wide query is ambiguous.
+		const isOpen = (testId: string, nth = 0) =>
+			screen.getAllByTestId(testId)[nth].getAttribute("aria-expanded") ===
+			"true";
+
+		it("renders every provider collapsed, with all bucket lines closed", () => {
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({
+							gone: [claimOf("a", "pending")],
+							stale: [claimOf("old", "pending", "stale")],
+						}),
+					]}
+				/>,
+			);
+
+			expect(isOpen("discrepancy-provider-pill")).toBe(false);
+			expect(isOpen("discrepancy-group-gone-toggle")).toBe(false);
+			expect(isOpen("discrepancy-group-stale-toggle")).toBe(false);
+		});
+
+		it("unrolls a provider without opening any of its bucket lines", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				/>,
+			);
+
+			await user.click(screen.getByTestId("discrepancy-provider-pill"));
+
+			// Two clicks to reach a model, by design: the pill answers "which
+			// provider", the line answers "which kind of problem".
+			expect(isOpen("discrepancy-provider-pill")).toBe(true);
+			expect(isOpen("discrepancy-group-gone-toggle")).toBe(false);
+		});
+
+		it("collapses the open provider and its line when a second provider opens", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({ gone: [claimOf("a", "pending")] }),
+						prov({
+							provider_id: "p2",
+							provider_name: "OpenRouter",
+							gone: [claimOf("b", "pending")],
+						}),
+					]}
+				/>,
+			);
+			await openBucket(user, "gone", 0);
+			expect(isOpen("discrepancy-group-gone-toggle")).toBe(true);
+
+			await user.click(screen.getAllByTestId("discrepancy-provider-pill")[1]);
+
+			const pills = screen.getAllByTestId("discrepancy-provider-pill");
+			expect(pills[0]).toHaveAttribute("aria-expanded", "false");
+			expect(pills[1]).toHaveAttribute("aria-expanded", "true");
+			// The line the first provider had open went with it: one atom holds both
+			// halves of the path, so switching provider cannot leave a stale line.
+			const toggles = screen.getAllByTestId("discrepancy-group-gone-toggle");
+			expect(toggles[0]).toHaveAttribute("aria-expanded", "false");
+			expect(toggles[1]).toHaveAttribute("aria-expanded", "false");
+		});
+
+		it("collapses the open bucket line when a sibling line opens", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({
+							gone: [claimOf("a", "pending")],
+							stale: [claimOf("old", "pending", "stale")],
+						}),
+					]}
+				/>,
+			);
+			await openBucket(user, "gone");
+			expect(isOpen("discrepancy-group-gone-toggle")).toBe(true);
+
+			await user.click(screen.getByTestId("discrepancy-group-stale-toggle"));
+
+			expect(isOpen("discrepancy-group-gone-toggle")).toBe(false);
+			expect(isOpen("discrepancy-group-stale-toggle")).toBe(true);
+		});
+
+		it("closes an open provider when its own pill is clicked again", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				/>,
+			);
+			await user.click(screen.getByTestId("discrepancy-provider-pill"));
+
+			await user.click(screen.getByTestId("discrepancy-provider-pill"));
+
+			expect(isOpen("discrepancy-provider-pill")).toBe(false);
+		});
+
+		it("leaves the open provider alone when the journal is toggled", async () => {
+			// The journal is a separate zone, not a third level of the accordion:
+			// reading the background-discovery log must not cost the operator their
+			// place in a provider.
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+					informational={[infoEntry]}
+				/>,
+			);
+			await openBucket(user, "gone");
+
+			await user.click(screen.getByTestId("discrepancy-informational-toggle"));
+
+			expect(isOpen("discrepancy-provider-pill")).toBe(true);
+			expect(isOpen("discrepancy-group-gone-toggle")).toBe(true);
+		});
+	});
+
+	describe("provider pill controls", () => {
+		it("offers Retest all and Dismiss all while rows are actionable", () => {
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				/>,
+			);
+
+			expect(screen.getByTestId("discrepancy-retest")).toBeEnabled();
+			expect(screen.getByTestId("discrepancy-dismiss-all")).toBeEnabled();
+			expect(screen.queryByTestId("discrepancy-clean")).toBeNull();
+		});
+
+		it("disables Dismiss all when every actionable row is suspect", () => {
+			// setModelsDismissed only touches enabled = false rows and a suspect model
+			// is still enabled, so the server would refuse it. Disabled rather than
+			// hidden, so it does not read as a missing feature.
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ suspect: [claimOf("s", "pending", "suspect")] })]}
+				/>,
+			);
+
+			expect(screen.getByTestId("discrepancy-dismiss-all")).toBeDisabled();
+			expect(screen.getByTestId("discrepancy-retest")).toBeEnabled();
+		});
+
+		it("replaces both controls with Clean once nothing is actionable", () => {
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "dismissed")] })]}
+				/>,
+			);
+
+			expect(screen.getByTestId("discrepancy-clean")).toBeInTheDocument();
+			expect(screen.queryByTestId("discrepancy-retest")).toBeNull();
+			expect(screen.queryByTestId("discrepancy-dismiss-all")).toBeNull();
+		});
+
+		it("keeps a cleared provider unrollable, with its rows struck through", async () => {
+			// The pill is the log of what the operator did until they Clean it away.
+			// Dropping the buckets on clear would be the #583 vanishing-rows bug one
+			// level up.
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({
+							gone: [claimOf("a", "dismissed"), claimOf("b", "dismissed")],
+						}),
+					]}
+				/>,
+			);
+
+			await openBucket(user, "gone");
+
+			const rows = screen.getAllByTestId("discrepancy-claim");
+			expect(rows).toHaveLength(2);
+			for (const row of rows) {
+				expect(row).toHaveAttribute("data-status", "dismissed");
+			}
+			expect(
+				screen.getByTestId("discrepancy-dismissed-summary"),
+			).toBeInTheDocument();
+		});
+
+		it("counts actionable rows in the chips, cleared rows once dealt with", () => {
+			const { rerender } = render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({ gone: [claimOf("a", "pending"), claimOf("b", "pending")] }),
+					]}
+				/>,
+			);
+			expect(screen.getByTestId("discrepancy-chip-gone")).toHaveTextContent(
+				"2",
+			);
+
+			rerender(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[
+						prov({
+							gone: [claimOf("a", "dismissed"), claimOf("b", "dismissed")],
+						}),
+					]}
+				/>,
+			);
+
+			// A chip reading "× 2 Gone" over two rows the operator already dismissed
+			// would advertise two live problems that no longer exist.
+			expect(screen.queryByTestId("discrepancy-chip-gone")).toBeNull();
+			expect(
+				screen.getByTestId("discrepancy-chip-dismissed"),
+			).toHaveTextContent("2");
+		});
+
+		it("drops a cleaned provider from the list without calling anything", async () => {
+			const user = userEvent.setup();
+			const onDismissAll = vi.fn();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					onDismissAll={onDismissAll}
+					providers={[prov({ gone: [claimOf("a", "dismissed")] })]}
+				/>,
+			);
+
+			await user.click(screen.getByTestId("discrepancy-clean"));
+
+			expect(screen.queryByTestId("discrepancy-provider")).toBeNull();
+			// View-only: every row is already persisted as dismissed or is healthy.
+			expect(onDismissAll).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("dismiss all", () => {
+		it("asks before sending, and sends nothing when cancelled", async () => {
+			const user = userEvent.setup();
+			const onDismissAll = vi.fn();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					onDismissAll={onDismissAll}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				/>,
+			);
+
+			await user.click(screen.getByTestId("discrepancy-dismiss-all"));
+			expect(onDismissAll).not.toHaveBeenCalled();
+
+			await user.click(screen.getByTestId("confirm-dialog-cancel"));
+
+			expect(onDismissAll).not.toHaveBeenCalled();
+		});
+
+		it("sends the gone and stale ids on confirm, never a suspect id", async () => {
+			const user = userEvent.setup();
+			const onDismissAll = vi.fn();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					onDismissAll={onDismissAll}
+					providers={[
+						prov({
+							gone: [claimOf("g1", "pending")],
+							stale: [claimOf("s1", "pending", "stale")],
+							suspect: [claimOf("q1", "pending", "suspect")],
+						}),
+					]}
+				/>,
+			);
+
+			await user.click(screen.getByTestId("discrepancy-dismiss-all"));
+			await user.click(screen.getByTestId("discrepancy-dismiss-all-confirm"));
+
+			// ConfirmDialog fires onConfirm from Modal's onClose, i.e. after the fade
+			// finishes, so this is asynchronous however synchronous the click looks.
+			await waitFor(() => expect(onDismissAll).toHaveBeenCalledTimes(1));
+			expect(onDismissAll).toHaveBeenCalledWith("p1", ["g1", "s1"]);
+		});
+
+		it("excludes rows that are already cleared from the batch", async () => {
+			const user = userEvent.setup();
+			const onDismissAll = vi.fn();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					onDismissAll={onDismissAll}
+					providers={[
+						prov({
+							gone: [
+								claimOf("live", "pending"),
+								claimOf("already", "dismissed"),
+								claimOf("back", "resolved"),
+							],
+						}),
+					]}
+				/>,
+			);
+
+			await user.click(screen.getByTestId("discrepancy-dismiss-all"));
+			await user.click(screen.getByTestId("discrepancy-dismiss-all-confirm"));
+
+			await waitFor(() =>
+				expect(onDismissAll).toHaveBeenCalledWith("p1", ["live"]),
+			);
+		});
+	});
+
+	describe("journal summary", () => {
+		it("summarises the collapsed journal and hides the line when expanded", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					// A claim keeps the journal collapsed on open, which is where the
+					// operator actually meets it.
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+					informational={[
+						infoEntry,
+						{ ...infoEntry, detected_at: "2026-07-04T00:00:00Z" },
+					]}
+				/>,
+			);
+			expect(
+				screen.getByTestId("discrepancy-journal-summary"),
+			).toBeInTheDocument();
+
+			await user.click(screen.getByTestId("discrepancy-informational-toggle"));
+
+			expect(screen.queryByTestId("discrepancy-journal-summary")).toBeNull();
+		});
+
+		it("uses different copy for a single entry than for a range", () => {
+			// One entry takes the journalSummaryOne branch, which interpolates a single
+			// timestamp; two or more take journalSummary, which interpolates newest and
+			// oldest. Comparing the two rendered strings pins that the branch exists
+			// without asserting on any translated wording.
+			const { rerender } = render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+					informational={[infoEntry]}
+				/>,
+			);
+			const single = screen.getByTestId(
+				"discrepancy-journal-summary",
+			).textContent;
+
+			rerender(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+					informational={[
+						infoEntry,
+						{ ...infoEntry, detected_at: "2026-07-04T00:00:00Z" },
+					]}
+				/>,
+			);
+			const range = screen.getByTestId(
+				"discrepancy-journal-summary",
+			).textContent;
+
+			expect(single).toBeTruthy();
+			expect(range).toBeTruthy();
+			expect(single).not.toBe(range);
+		});
+	});
+
+	describe("return to top", () => {
+		// jsdom has no layout, so the shared setup's IntersectionObserver stub never
+		// reports an intersection. These cases replace it with one that hands the
+		// callback back, which is the only way to exercise the observed behaviour.
+		let fire: ((entries: IntersectionObserverEntry[]) => void) | null = null;
+
+		beforeEach(() => {
+			fire = null;
+			Element.prototype.scrollIntoView = vi.fn();
+			vi.stubGlobal(
+				"IntersectionObserver",
+				class {
+					readonly root = null;
+					readonly rootMargin = "";
+					readonly thresholds: number[] = [];
+					constructor(cb: (entries: IntersectionObserverEntry[]) => void) {
+						fire = cb;
+					}
+					observe() {}
+					unobserve() {}
+					disconnect() {}
+					takeRecords(): IntersectionObserverEntry[] {
+						return [];
+					}
+				},
+			);
+		});
+
+		afterEach(() => {
+			vi.unstubAllGlobals();
+		});
+
+		const offscreen = async () => {
+			await act(async () => {
+				fire?.([{ isIntersecting: false } as IntersectionObserverEntry]);
+			});
+		};
+
+		it("is absent while no provider is open", () => {
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				/>,
+			);
+
+			// Nothing to return to: the observer is not even attached.
+			expect(screen.queryByTestId("discrepancy-return-to-top")).toBeNull();
+		});
+
+		it("stays hidden while the open provider's header is in view", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				/>,
+			);
+
+			await user.click(screen.getByTestId("discrepancy-provider-pill"));
+
+			expect(screen.queryByTestId("discrepancy-return-to-top")).toBeNull();
+		});
+
+		it("appears once the open provider's header scrolls out of view", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				/>,
+			);
+			await user.click(screen.getByTestId("discrepancy-provider-pill"));
+
+			await offscreen();
+
+			expect(
+				screen.getByTestId("discrepancy-return-to-top"),
+			).toBeInTheDocument();
+		});
+
+		it("scrolls without collapsing what the operator is reading", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				/>,
+			);
+			await openBucket(user, "gone");
+			await offscreen();
+
+			await user.click(screen.getByTestId("discrepancy-return-to-top"));
+
+			// Collapsing here would defeat the whole point of the control.
+			expect(screen.getByTestId("discrepancy-provider-pill")).toHaveAttribute(
+				"aria-expanded",
+				"true",
+			);
+			expect(
+				screen.getByTestId("discrepancy-group-gone-toggle"),
+			).toHaveAttribute("aria-expanded", "true");
+			expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+		});
+
+		it("goes away when the provider it belongs to is closed", async () => {
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				/>,
+			);
+			await user.click(screen.getByTestId("discrepancy-provider-pill"));
+			await offscreen();
+			expect(
+				screen.getByTestId("discrepancy-return-to-top"),
+			).toBeInTheDocument();
+
+			await user.click(screen.getByTestId("discrepancy-provider-pill"));
+
+			expect(screen.queryByTestId("discrepancy-return-to-top")).toBeNull();
 		});
 	});
 });
