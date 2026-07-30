@@ -131,7 +131,8 @@ describe("ModelDiscrepancyModal", () => {
 		).not.toBeDisabled();
 	});
 
-	it("keeps a resolved provider in place, drops its retest, and shows the resolved state", () => {
+	it("keeps a resolved provider in place, drops its retest, and shows the resolved state", async () => {
+		const user = userEvent.setup();
 		render(
 			<ModelDiscrepancyModal
 				{...baseProps}
@@ -145,13 +146,21 @@ describe("ModelDiscrepancyModal", () => {
 				]}
 			/>,
 		);
-		const sections = screen.getAllByTestId("discrepancy-provider");
+		let sections = screen.getAllByTestId("discrepancy-provider");
 		// Position is the point: the old modal dropped the row entirely, and a
 		// resolved section that merely survives at the BOTTOM of the list is the
 		// same defect in a milder form. getAllByTestId returns document order.
 		expect(
 			sections.map((s) => s.getAttribute("data-provider-id")),
 		).toStrictEqual(["p1", "p2"]);
+		// The cleared summary lives in the provider BODY, which is unmounted while
+		// the pill is collapsed, so it has to be unrolled to be asserted on.
+		await user.click(
+			sections[0].querySelector(
+				"[data-testid='discrepancy-provider-pill']",
+			) as HTMLElement,
+		);
+		sections = screen.getAllByTestId("discrepancy-provider");
 		expect(
 			sections[0].querySelector("[data-testid='discrepancy-resolved']"),
 		).not.toBeNull();
@@ -163,7 +172,8 @@ describe("ModelDiscrepancyModal", () => {
 		).not.toBeNull();
 	});
 
-	it("keeps a resolved claim struck through in its slot and takes only its dismiss away", () => {
+	it("keeps a resolved claim struck through in its slot and takes only its dismiss away", async () => {
+		const user = userEvent.setup();
 		render(
 			<ModelDiscrepancyModal
 				{...baseProps}
@@ -172,6 +182,7 @@ describe("ModelDiscrepancyModal", () => {
 				]}
 			/>,
 		);
+		await openBucket(user, "gone");
 		const rows = screen.getAllByTestId("discrepancy-claim");
 		// The row-level form of the headline bug: a claim that clears during a
 		// retest must stay in its slot, greyed, not vanish mid-list.
@@ -222,7 +233,8 @@ describe("ModelDiscrepancyModal", () => {
 		expect(screen.queryByTestId("discrepancy-empty")).toBeNull();
 	});
 
-	it("disables dismiss and retest in read-only mode instead of hiding them", () => {
+	it("disables dismiss and retest in read-only mode instead of hiding them", async () => {
+		const user = userEvent.setup();
 		render(
 			<ModelDiscrepancyModal
 				{...baseProps}
@@ -230,6 +242,7 @@ describe("ModelDiscrepancyModal", () => {
 				readOnly
 			/>,
 		);
+		await openBucket(user, "gone");
 		expect(screen.getByTestId("discrepancy-dismiss")).toBeDisabled();
 		// A retest is a real discovery run, which the backend rejects with 403 in
 		// read-only mode; an enabled button that always fails is the same lie.
@@ -237,7 +250,8 @@ describe("ModelDiscrepancyModal", () => {
 		expect(screen.getByTestId("discrepancy-retest-all")).toBeDisabled();
 	});
 
-	it("renders a per-provider error banner without dropping that provider's claims", () => {
+	it("renders a per-provider error banner without dropping that provider's claims", async () => {
+		const user = userEvent.setup();
 		render(
 			<ModelDiscrepancyModal
 				{...baseProps}
@@ -245,7 +259,10 @@ describe("ModelDiscrepancyModal", () => {
 				errors={{ p1: "upstream timeout" }}
 			/>,
 		);
+		// The banner sits OUTSIDE the collapsible body on purpose: it must be
+		// visible on a collapsed pill, which is where Retest was clicked.
 		expect(screen.getByTestId("discrepancy-error")).toBeInTheDocument();
+		await openBucket(user, "gone");
 		expect(screen.getByTestId("discrepancy-claim")).toHaveAttribute(
 			"data-model-id",
 			"a",
@@ -264,13 +281,15 @@ describe("ModelDiscrepancyModal", () => {
 				providers={[prov({ gone: [claimOf("a", "pending")] })]}
 			/>,
 		);
+		await openBucket(user, "gone");
 		await user.click(screen.getByTestId("discrepancy-dismiss"));
 		expect(onDismiss).toHaveBeenCalledWith("p1", "a");
 		await user.click(screen.getByTestId("discrepancy-retest"));
 		expect(onRetest).toHaveBeenCalledWith("p1", "NanoGPT");
 	});
 
-	it("shows the flap chip on a model that has moved, and not on one that has not", () => {
+	it("shows the flap chip on a model that has moved, and not on one that has not", async () => {
+		const user = userEvent.setup();
 		render(
 			<ModelDiscrepancyModal
 				{...baseProps}
@@ -285,6 +304,7 @@ describe("ModelDiscrepancyModal", () => {
 				]}
 			/>,
 		);
+		await openBucket(user, "gone");
 		const flagged = screen
 			.getAllByTestId("discrepancy-claim")
 			.filter((row) => row.querySelector("[data-testid='discrepancy-flap']"));
@@ -293,7 +313,8 @@ describe("ModelDiscrepancyModal", () => {
 		).toStrictEqual(["since-review", "window-only"]);
 	});
 
-	it("keeps the flap chip's tooltip count in agreement with its visible count in the window-only case", () => {
+	it("keeps the flap chip's tooltip count in agreement with its visible count in the window-only case", async () => {
+		const user = userEvent.setup();
 		render(
 			<ModelDiscrepancyModal
 				{...baseProps}
@@ -304,6 +325,7 @@ describe("ModelDiscrepancyModal", () => {
 				]}
 			/>,
 		);
+		await openBucket(user, "gone");
 		const chip = screen.getByTestId("discrepancy-flap");
 		const visibleCount = chip.textContent?.match(/\d+/)?.[0];
 		const tooltipCount = chip.getAttribute("title")?.match(/\d+/)?.[0];
@@ -343,7 +365,8 @@ describe("ModelDiscrepancyModal", () => {
 			expect(screen.queryByTestId("discrepancy-empty")).toBeNull();
 		});
 
-		it("carries no retest or dismiss controls", () => {
+		it("carries no retest or dismiss controls", async () => {
+			const user = userEvent.setup();
 			render(
 				<ModelDiscrepancyModal
 					{...baseProps}
@@ -351,6 +374,9 @@ describe("ModelDiscrepancyModal", () => {
 					groupClaims={[group()]}
 				/>,
 			);
+			// Unroll the provider so its own Dismiss exists; without it the assertion
+			// below would pass because the control is absent everywhere.
+			await openBucket(user, "gone");
 			const section = screen.getByTestId("discrepancy-group-claims");
 			// Anchored by the provider section, which does have both: this proves
 			// the controls are absent from the group rows, not from the whole modal.
@@ -482,22 +508,28 @@ describe("ModelDiscrepancyModal", () => {
 					providers={[prov({ stale: [claimOf("old", "pending", "stale")] })]}
 				/>,
 			);
-			// The provider pill has to be unrolled before its bucket lines are usable;
-			// collapsed, the whole provider body is inert, which would make the
-			// bucket-level assertion below pass for the wrong reason.
+			// Collapsed rows are UNMOUNTED, not merely inert. That is strictly better
+			// for a screen reader (a row that does not exist cannot be announced under
+			// an aria-expanded="false" toggle) and it is what keeps unrolling cheap:
+			// the modal holds one bucket's rows, not every bucket's.
 			await user.click(screen.getByTestId("discrepancy-provider-pill"));
 			const toggle = screen.getByTestId("discrepancy-group-stale-toggle");
-			const region = regionOf(toggle, screen.getByTestId("discrepancy-claim"));
 
 			expect(toggle).toHaveAttribute("aria-expanded", "false");
-			expect(region.firstElementChild).toHaveAttribute("inert");
+			expect(screen.queryByTestId("discrepancy-claim")).toBeNull();
 
 			await user.click(toggle);
+
 			expect(toggle).toHaveAttribute("aria-expanded", "true");
-			expect(region.firstElementChild).not.toHaveAttribute("inert");
+			expect(screen.getByTestId("discrepancy-claim")).toBeInTheDocument();
+			// aria-controls must still resolve, so the region wrapper is always there.
+			const regionId = toggle.getAttribute("aria-controls");
+			expect(regionId).toBeTruthy();
+			expect(document.getElementById(regionId as string)).not.toBeNull();
 		});
 
-		it("makes the read-only reason reachable from the controls it disables", () => {
+		it("makes the read-only reason reachable from the controls it disables", async () => {
+			const user = userEvent.setup();
 			render(
 				<ModelDiscrepancyModal
 					{...baseProps}
@@ -508,6 +540,8 @@ describe("ModelDiscrepancyModal", () => {
 			const note = screen.getByTestId("discrepancy-readonly-note");
 			expect(note.id).toBeTruthy();
 			expect(note.textContent?.trim()).not.toBe("");
+			// The per-row Dismiss only exists once its bucket is unrolled.
+			await openBucket(user, "gone");
 
 			for (const testId of [
 				"discrepancy-dismiss",
@@ -526,7 +560,8 @@ describe("ModelDiscrepancyModal", () => {
 			}
 		});
 
-		it("leaves no dangling description when the modal is writable", () => {
+		it("leaves no dangling description when the modal is writable", async () => {
+			const user = userEvent.setup();
 			render(
 				<ModelDiscrepancyModal
 					{...baseProps}
@@ -534,6 +569,7 @@ describe("ModelDiscrepancyModal", () => {
 				/>,
 			);
 			expect(screen.queryByTestId("discrepancy-readonly-note")).toBeNull();
+			await openBucket(user, "gone");
 			expect(screen.getByTestId("discrepancy-dismiss")).not.toHaveAttribute(
 				"aria-describedby",
 			);
@@ -550,7 +586,7 @@ describe("ModelDiscrepancyModal", () => {
 			screen.getAllByTestId(testId)[nth].getAttribute("aria-expanded") ===
 			"true";
 
-		it("renders every provider collapsed, with all bucket lines closed", () => {
+		it("renders every provider collapsed, with nothing below the pill mounted", () => {
 			render(
 				<ModelDiscrepancyModal
 					{...baseProps}
@@ -564,8 +600,12 @@ describe("ModelDiscrepancyModal", () => {
 			);
 
 			expect(isOpen("discrepancy-provider-pill")).toBe(false);
-			expect(isOpen("discrepancy-group-gone-toggle")).toBe(false);
-			expect(isOpen("discrepancy-group-stale-toggle")).toBe(false);
+			// A collapsed provider mounts NEITHER its bucket lines nor their rows.
+			// That is what keeps the modal cheap with eight providers on screen: it
+			// holds eight pills, not eight providers' worth of lists.
+			expect(screen.queryByTestId("discrepancy-group-gone-toggle")).toBeNull();
+			expect(screen.queryByTestId("discrepancy-group-stale-toggle")).toBeNull();
+			expect(screen.queryByTestId("discrepancy-claim")).toBeNull();
 		});
 
 		it("unrolls a provider without opening any of its bucket lines", async () => {
@@ -610,9 +650,12 @@ describe("ModelDiscrepancyModal", () => {
 			expect(pills[1]).toHaveAttribute("aria-expanded", "true");
 			// The line the first provider had open went with it: one atom holds both
 			// halves of the path, so switching provider cannot leave a stale line.
+			// Exactly ONE bucket line is mounted, the newly opened provider's, and it
+			// is closed.
 			const toggles = screen.getAllByTestId("discrepancy-group-gone-toggle");
+			expect(toggles).toHaveLength(1);
 			expect(toggles[0]).toHaveAttribute("aria-expanded", "false");
-			expect(toggles[1]).toHaveAttribute("aria-expanded", "false");
+			expect(screen.queryByTestId("discrepancy-claim")).toBeNull();
 		});
 
 		it("collapses the open bucket line when a sibling line opens", async () => {

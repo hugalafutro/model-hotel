@@ -103,7 +103,20 @@ export function ProviderPill({
 			].filter((c): c is PillChip => c !== false);
 
 	return (
-		<div className="flex items-center gap-2">
+		// A hairline outline is what makes these read as one pill per provider in a
+		// stack of eight. The open one takes the theme accent instead, so which
+		// provider you are inside is answerable without scrolling up to find the
+		// chevron.
+		//
+		// --border-input, not --border-default: the latter is 0.06 alpha, tuned for
+		// large card edges, and at this size it is invisible. The pill is an
+		// interactive toggle, so the token meant for interactive edges is both more
+		// visible and the semantically right one, in every theme.
+		<div
+			className={`flex items-center gap-2 rounded-(--radius-box) border px-2 py-1 ${
+				expanded ? "border-(--accent)" : "border-(--border-input)"
+			}`}
+		>
 			<button
 				type="button"
 				onClick={onToggle}

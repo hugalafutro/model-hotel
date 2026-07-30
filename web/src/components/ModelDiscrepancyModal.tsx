@@ -313,9 +313,19 @@ export function ModelDiscrepancyModal({
 					when: formatRelativeTime(c.last_seen_at),
 				});
 
+	/**
+	 * One model, as a TIGHT single line rather than a bordered card.
+	 *
+	 * The card treatment was the whole cost of this list: a bucket with 52 rows
+	 * meant 52 rounded, bordered, separately-filled boxes, each two lines tall
+	 * because the meta sat under the id. Dropping to one line with a hairline
+	 * divider between rows (the container owns those, see renderBucket) roughly
+	 * halves the height and removes the per-row paint work that made unrolling
+	 * stutter. Same idiom as Bellhop's event list.
+	 */
 	const renderClaim = (p: MergedProvider, c: MergedClaim, group: Group) => {
 		// `status`, never `state`: this is styling only.
-		const isResolved = c.status === "resolved";
+		const isCleared = c.status === "resolved" || c.status === "dismissed";
 		return (
 			<div
 				key={c.model_id}
@@ -323,57 +333,51 @@ export function ModelDiscrepancyModal({
 				data-model-id={c.model_id}
 				data-status={c.status}
 				data-state={c.state}
-				className="flex items-start justify-between gap-3 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2"
+				className="flex items-baseline gap-2 py-1 pl-1 pr-0.5"
 			>
-				<div className="min-w-0 flex-1 space-y-0.5">
-					<div className="flex items-center gap-1.5">
-						{c.status === "new" ? (
-							<span
-								className="ui-badge ui-badge-accent shrink-0"
-								data-testid="discrepancy-new"
-							>
-								{t("providers.discrepancies.new")}
-							</span>
-						) : null}
-						<span
-							className={`truncate font-mono text-xs ${
-								isResolved
-									? "text-(--text-muted) line-through"
-									: "text-(--text-primary)"
-							}`}
-							title={c.model_id}
-						>
-							{c.model_id}
-						</span>
-					</div>
-					<div
-						className={`text-[11px] ${
-							isResolved ? "text-(--text-muted)" : "text-(--text-tertiary)"
-						}`}
+				{c.status === "new" ? (
+					<span
+						className="ui-badge ui-badge-accent shrink-0"
+						data-testid="discrepancy-new"
 					>
-						{claimMeta(c, group)}
-					</div>
-				</div>
-				<div className="flex shrink-0 items-center gap-1.5">
-					{flapChip(c)}
-					{group === "gone" && !isResolved ? (
-						<button
-							type="button"
-							onClick={() => onDismiss(p.provider_id, c.model_id)}
-							disabled={readOnly}
-							title={
-								readOnly
-									? t("providers.discrepancies.readOnlyTooltip")
-									: t("providers.discrepancies.dismissTooltip")
-							}
-							aria-describedby={describedByReadOnly}
-							className="ui-btn ui-btn-ghost ui-btn-compact shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
-							data-testid="discrepancy-dismiss"
-						>
-							{t("providers.discrepancies.dismiss")}
-						</button>
-					) : null}
-				</div>
+						{t("providers.discrepancies.new")}
+					</span>
+				) : null}
+				<span
+					className={`min-w-0 flex-1 truncate font-mono text-xs ${
+						isCleared
+							? "text-(--text-muted) line-through"
+							: "text-(--text-primary)"
+					}`}
+					title={c.model_id}
+				>
+					{c.model_id}
+				</span>
+				<span
+					className={`shrink-0 text-[11px] ${
+						isCleared ? "text-(--text-muted)" : "text-(--text-tertiary)"
+					}`}
+				>
+					{claimMeta(c, group)}
+				</span>
+				{flapChip(c)}
+				{group === "gone" && !isCleared ? (
+					<button
+						type="button"
+						onClick={() => onDismiss(p.provider_id, c.model_id)}
+						disabled={readOnly}
+						title={
+							readOnly
+								? t("providers.discrepancies.readOnlyTooltip")
+								: t("providers.discrepancies.dismissTooltip")
+						}
+						aria-describedby={describedByReadOnly}
+						className="ui-btn ui-btn-ghost ui-btn-compact shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+						data-testid="discrepancy-dismiss"
+					>
+						{t("providers.discrepancies.dismiss")}
+					</button>
+				) : null}
 			</div>
 		);
 	};
@@ -396,6 +400,24 @@ export function ModelDiscrepancyModal({
 	 * only stale had a toggle, which is how a provider with 42 gone models produced
 	 * 42 rows on sight. All three now use the stale pattern, so the operator opens
 	 * exactly the list they asked for.
+	 *
+	 * The rows are MOUNTED ONLY WHILE OPEN, and there is no height animation. Both
+	 * are deliberate, and both are why unrolling is cheap:
+	 *
+	 *   - The animated `grid-template-rows: 0fr -> 1fr` this used to share with the
+	 *     journal zone forces the browser to lay out the entire subtree on every
+	 *     frame of the transition. With 52 rows that is the stutter, and it is paid
+	 *     on a machine fast enough to spin its fans doing it.
+	 *   - Keeping collapsed rows mounted only existed to give that transition
+	 *     something to animate. Nothing else needs them: the single-open rule means
+	 *     at most one bucket in the whole modal is ever open, so the modal now holds
+	 *     one bucket's rows instead of every bucket's rows of every provider (179 on
+	 *     the dev fleet).
+	 *
+	 * Unmounting also strictly beats the old `inert` trick for screen readers: rows
+	 * that do not exist cannot be announced under an aria-expanded="false" toggle.
+	 * The region wrapper stays rendered either way so `aria-controls` always
+	 * resolves to a real element.
 	 */
 	const renderBucket = (p: MergedProvider, group: Group) => {
 		const claims = p[group];
@@ -404,10 +426,7 @@ export function ModelDiscrepancyModal({
 			openPath?.providerID === p.provider_id && openPath.bucket === group;
 		const regionId = `${regionIdBase}-${group}-${p.provider_id}`;
 		return (
-			<section
-				data-testid={`discrepancy-group-${group}`}
-				className="space-y-1.5"
-			>
+			<section data-testid={`discrepancy-group-${group}`} className="space-y-1">
 				<button
 					type="button"
 					onClick={() => toggleBucket(p.provider_id, group)}
@@ -431,21 +450,15 @@ export function ModelDiscrepancyModal({
 					</span>
 					<span className="h-px flex-1 bg-white/30" />
 				</button>
-				<div
-					id={regionId}
-					className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-						open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-					}`}
-				>
-					{/* grid-rows-[0fr] + overflow-hidden hides these rows VISUALLY only:
-					    without `inert` a screen reader still announces every one of them
-					    while the toggle says aria-expanded="false". inert sits on the
-					    inner div so the animated grid row keeps transitioning. */}
-					<div className="overflow-hidden" inert={!open}>
-						<div className="space-y-1.5">
+				<div id={regionId}>
+					{open ? (
+						// The divider belongs to the container, not to each row: one
+						// hairline between neighbours reads tighter than 52 outlined boxes
+						// and costs a border instead of a filled, rounded surface each.
+						<div className="divide-y divide-(--border-subtle)">
 							{claims.map((c) => renderClaim(p, c, group))}
 						</div>
-					</div>
+					) : null}
 				</div>
 			</section>
 		);
@@ -589,24 +602,23 @@ export function ModelDiscrepancyModal({
 						<span className="break-words text-(--text-secondary)">{error}</span>
 					</div>
 				) : null}
-				<div
-					id={regionId}
-					className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-						expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-					}`}
-				>
-					<div className="overflow-hidden" inert={!expanded}>
-						{/* A cleared provider KEEPS its buckets: the struck-through rows are
-						    the log of what the operator did, and they stay reachable until
-						    Clean. Dropping them here would be the vanishing-rows complaint
-						    one level up. */}
-						<div className="space-y-3 pl-5">
+				{/* Mounted only while open, and unanimated, for the same reason as the
+				    bucket bodies: closing a provider that has a bucket open would
+				    otherwise animate the whole open list collapsing, which is the most
+				    expensive frame in the modal. See renderBucket. */}
+				<div id={regionId}>
+					{expanded ? (
+						// A cleared provider KEEPS its buckets: the struck-through rows are
+						// the log of what the operator did, and they stay reachable until
+						// Clean. Dropping them here would be the vanishing-rows complaint
+						// one level up.
+						<div className="space-y-2 pl-5">
 							{isCleared ? renderClearedSummary(p) : null}
 							{renderBucket(p, "gone")}
 							{renderBucket(p, "suspect")}
 							{renderBucket(p, "stale")}
 						</div>
-					</div>
+					) : null}
 				</div>
 			</section>
 		);
@@ -991,7 +1003,9 @@ export function ModelDiscrepancyModal({
 								aria-label={t("providers.discrepancies.returnToTop")}
 								data-testid="discrepancy-return-to-top"
 							>
-								<ChevronUp size={14} />
+								{/* Accent-tinted so it reads as a live control floating over
+								    the list rather than more of the list's own chrome. */}
+								<ChevronUp size={14} className="text-(--accent)" />
 							</button>
 						</div>
 					) : null}

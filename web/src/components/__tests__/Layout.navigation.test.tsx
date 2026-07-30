@@ -7,6 +7,25 @@ import { renderWithProviders } from "../../test/utils";
 import * as webauthnUtils from "../../utils/webauthn";
 import { Layout } from "../Layout";
 
+/**
+ * Unrolls the first provider pill and one of its bucket lines.
+ *
+ * The claims accordion mounts model rows ONLY while their bucket is open, so any
+ * assertion about a row has to ask for it. Defaults to `gone`, which is where the
+ * per-row Dismiss control lives.
+ */
+async function openFirstBucket(
+	user: ReturnType<typeof userEvent.setup>,
+	bucket: "gone" | "stale" | "suspect" = "gone",
+) {
+	await user.click(
+		(await screen.findAllByTestId("discrepancy-provider-pill"))[0],
+	);
+	await user.click(
+		(await screen.findAllByTestId(`discrepancy-group-${bucket}-toggle`))[0],
+	);
+}
+
 describe("Layout", () => {
 	const mockChildren = <div data-testid="main-content">Page Content</div>;
 
@@ -990,6 +1009,7 @@ describe("Layout", () => {
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
 			expect(await screen.findByTestId("discrepancy-claim")).toHaveAttribute(
 				"data-model-id",
 				"first-open",
@@ -1004,9 +1024,11 @@ describe("Layout", () => {
 			);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			// The reopen starts fully collapsed, so the row has to be asked for again.
 			// A cache replay would put the first open's row back and never reach the
 			// server, so this pins both halves at once: a real refetch, and a real
 			// second stamp.
+			await openFirstBucket(user);
 			await waitFor(() =>
 				expect(screen.getByTestId("discrepancy-claim")).toHaveAttribute(
 					"data-model-id",
@@ -1127,6 +1149,7 @@ describe("Layout", () => {
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
 			const rowA = () =>
 				screen
 					.getAllByTestId("discrepancy-claim")
@@ -1179,6 +1202,7 @@ describe("Layout", () => {
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
 			await user.click(await screen.findByTestId("discrepancy-dismiss"));
 
 			// No confirmation toast, so no Undo control: the success path is the only
@@ -1233,6 +1257,7 @@ describe("Layout", () => {
 					.find((el) => el.getAttribute("data-model-id") === id);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
 			await waitFor(() => expect(row("a")).toBeTruthy());
 
 			// Dismiss `a`; the request hangs.
@@ -1332,6 +1357,7 @@ describe("Layout", () => {
 					.find((el) => el.getAttribute("data-model-id") === id);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
 			await waitFor(() => expect(row("a")).toBeTruthy());
 
 			// Dismiss `a`; the request hangs.
@@ -1439,6 +1465,7 @@ describe("Layout", () => {
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
 			await screen.findByTestId("discrepancy-claim");
 			await waitFor(() => expect(reviewStamps).toBe(1));
 			const pollsBefore = polls;
@@ -1516,6 +1543,8 @@ describe("Layout", () => {
 			expect(screen.getByTestId("discrepancy-loading")).toBeInTheDocument();
 
 			release?.();
+			await screen.findByTestId("discrepancy-provider-pill");
+			await openFirstBucket(user);
 			expect(await screen.findByTestId("discrepancy-claim")).toHaveAttribute(
 				"data-model-id",
 				"a",
@@ -1556,6 +1585,7 @@ describe("Layout", () => {
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
 			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await openFirstBucket(user);
 			expect(await screen.findByTestId("discrepancy-claim")).toHaveAttribute(
 				"data-model-id",
 				"first-open",
@@ -1573,10 +1603,17 @@ describe("Layout", () => {
 			await waitFor(() => expect(opens).toBe(2));
 
 			// The second open's fetch is still out, so there is nothing yet to show.
+			// Asserted on the PILL, not on a row: rows are unmounted until a bucket is
+			// opened, so a row-level check would pass here even if the previous
+			// session's providers were still painted. The pill is the top-level render
+			// of a claim, which makes its absence the real invariant.
+			expect(screen.queryByTestId("discrepancy-provider-pill")).toBeNull();
 			expect(screen.queryByTestId("discrepancy-claim")).toBeNull();
 			expect(screen.getByTestId("discrepancy-loading")).toBeInTheDocument();
 
 			release?.();
+			await screen.findByTestId("discrepancy-provider-pill");
+			await openFirstBucket(user);
 			await waitFor(() =>
 				expect(screen.getByTestId("discrepancy-claim")).toHaveAttribute(
 					"data-model-id",
