@@ -117,15 +117,6 @@
     "structured_output": true
   },
   {
-    "model_id": "glm-4-32b-0414-128k",
-    "context_length": 128000,
-    "max_output_tokens": 16384,
-    "modality": "text",
-    "reasoning": false,
-    "tool_calling": true,
-    "structured_output": true
-  },
-  {
     "model_id": "glm-5v-turbo",
     "context_length": 200000,
     "max_output_tokens": 131072,

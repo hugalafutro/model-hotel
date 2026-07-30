@@ -36,12 +36,6 @@
     "output_price_per_million": 75
   },
   {
-    "model_id": "claude-opus-4",
-    "input_price_per_million": 15,
-    "input_price_per_million_cache_hit": 1.5,
-    "output_price_per_million": 75
-  },
-  {
     "model_id": "claude-sonnet-4-6",
     "input_price_per_million": 3,
     "input_price_per_million_cache_hit": 0.3,
@@ -49,12 +43,6 @@
   },
   {
     "model_id": "claude-sonnet-4-5",
-    "input_price_per_million": 3,
-    "input_price_per_million_cache_hit": 0.3,
-    "output_price_per_million": 15
-  },
-  {
-    "model_id": "claude-sonnet-4",
     "input_price_per_million": 3,
     "input_price_per_million_cache_hit": 0.3,
     "output_price_per_million": 15
