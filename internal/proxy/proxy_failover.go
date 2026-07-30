@@ -328,10 +328,19 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 	// then reports the model gone mid-stream is caught here rather than being
 	// credited with a success. Without this the streak could never accumulate on
 	// that path: the 200 would have cleared it before the error even arrived.
-	if logData.errorKind == KindProviderModelGone {
+	//
+	// The three cases are deliberately distinct. A stream that failed for any
+	// OTHER reason (transient provider error, client disconnect, stall) is not
+	// evidence either way, so it must leave the streak alone: clearing it there
+	// would let a retired model stay routable indefinitely, since its own
+	// failures would keep resetting the count.
+	switch verdictForStream(logData.errorKind) {
+	case verdictGone:
 		h.noteModelGone(candidate.model, candidate.provider.Name)
-	} else {
+	case verdictServed:
 		h.noteModelServed(candidate.model)
+	case verdictInconclusive:
+		// Deliberately nothing: see verdictForStream.
 	}
 	return outcomeServed
 }

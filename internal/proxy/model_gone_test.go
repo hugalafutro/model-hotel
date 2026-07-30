@@ -149,3 +149,66 @@ func TestNoteModelGone_NilSafe(t *testing.T) {
 		t.Errorf("expected no disable calls, got %d", len(calls))
 	}
 }
+
+// TestVerdictForStream pins the three-way rule that decides what a finished
+// stream proves about a model. Review caught this twice: first that a
+// gone-report mid-stream was never recorded at all, then that treating every
+// non-gone outcome as a success let a retired model reset its own strike streak
+// with its own failures and stay routable indefinitely.
+func TestVerdictForStream(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		kind ErrorKind
+		want streamVerdict
+	}{
+		{"clean finish proves the model answered", "", verdictServed},
+		{"explicit gone report strikes", KindProviderModelGone, verdictGone},
+		// Everything below is a failure that says nothing about whether the
+		// model exists, so it must not clear the streak.
+		{"transient provider error", KindProviderError, verdictInconclusive},
+		{"client hung up", KindClientDisconnect, verdictInconclusive},
+		{"provider stalled", KindProviderTimeout, verdictInconclusive},
+		{"failover deadline", KindFailoverTimeout, verdictInconclusive},
+		{"retry deadline", KindRetryTimeout, verdictInconclusive},
+		{"payload rejected", KindProviderBadRequest, verdictInconclusive},
+		{"not entitled", KindProviderNotEntitled, verdictInconclusive},
+		{"gateway fault", KindInternal, verdictInconclusive},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := verdictForStream(tc.kind); got != tc.want {
+				t.Errorf("verdictForStream(%q) = %v, want %v", tc.kind, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestNoteModelGone_FailedStreamsDoNotResetStreak is the composed consequence:
+// a model that is genuinely gone still reaches the threshold even when its
+// attempts are interleaved with unrelated stream failures, because those are
+// inconclusive and touch neither counter.
+func TestNoteModelGone_FailedStreamsDoNotResetStreak(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		// A transient stream failure lands between strikes. Under the old
+		// "anything not gone is a success" rule this cleared the streak and the
+		// model could never be retired.
+		if v := verdictForStream(KindProviderError); v == verdictServed {
+			h.noteModelServed(m)
+		}
+	}
+
+	if calls := waitForDisable(t, repo); len(calls) != 1 {
+		t.Fatalf("expected the model to still be disabled, got %d disable calls", len(calls))
+	}
+}

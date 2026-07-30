@@ -2,9 +2,18 @@ package proxy
 
 import (
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+// modelGonePattern matches a retired-model phrase only when the body names a
+// model ahead of it on the same line. Anchoring on "model" first is what keeps
+// a capability or parameter rejection ("... is not supported for this model")
+// from being read as a dead model and auto-disabling a healthy one. Matched
+// against a lowercased body.
+var modelGonePattern = regexp.MustCompile(
+	`model[^\n]{0,120}?(is no longer available|is not supported|does not exist|is not found for api version)`)
 
 // classifyUpstreamError turns an upstream non-2xx response into a stable
 // ErrorKind plus a short, gateway-authored reason for the client.
@@ -38,31 +47,36 @@ import (
 func classifyUpstreamError(status int, body string) (ErrorKind, string) {
 	b := strings.ToLower(body)
 
-	// Model retired or never served by this provider. Google keeps shut-down
-	// models in its /models listing and only fails at generation time
-	// ("This model ... is no longer available"); OpenCode Zen answers
-	// "Model X is not supported"; xAI says "Model not found".
-	//
-	// These phrases are specific enough to stand alone.
+	// Model retired or never served by this provider. Only these phrases name a
+	// model inherently, so only these are safe to match anywhere in the body.
 	for _, p := range []string{
-		"is no longer available",
-		"is not supported",
-		"not supported on the full model list",
 		"model not found",
 		"unknown model",
-		"is not found for api version",
+		"not supported on the full model list",
 	} {
 		if strings.Contains(b, p) {
 			return KindProviderModelGone, "the provider no longer serves this model"
 		}
 	}
 
-	// "does not exist" is the OpenAI-family phrasing ("The model `x` does not
-	// exist") but is far too generic on its own — a provider erroring about some
-	// other entity ("the requested conversation does not exist") would otherwise
-	// accrue gone-strikes against a perfectly live model. Require the body to be
-	// talking about a model before treating it as one.
-	if strings.Contains(b, "does not exist") && strings.Contains(b, "model") {
+	// Everything else is a generic failure phrase that only means "this model is
+	// gone" when it is talking about the model. Matching them loose is how a
+	// healthy model gets auto-disabled: "Parameter 'temperature' is not
+	// supported", "this operation is not supported in your region", "the
+	// requested conversation does not exist" would each have counted as proof
+	// the model no longer exists, and three of them retire it from routing.
+	//
+	// modelGonePattern therefore requires the word "model" to appear BEFORE the
+	// phrase, within one line, which is how every real payload reads:
+	//
+	//	This model models/gemini-2.0-flash is no longer available   (Google)
+	//	Model gemini-3-pro is not supported                         (OpenCode Zen)
+	//	The model `gpt-4.5-preview` does not exist                  (OpenAI)
+	//	models/gemini-embedding-001 is not found for API version    (Google)
+	//
+	// while "... is not supported for this model" — the parameter-error shape,
+	// where "model" trails the phrase — deliberately does not match.
+	if modelGonePattern.MatchString(b) {
 		return KindProviderModelGone, "the provider no longer serves this model"
 	}
 

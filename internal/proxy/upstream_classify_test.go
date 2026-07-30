@@ -199,3 +199,68 @@ func TestClassifyUpstreamError_NarrowPatterns(t *testing.T) {
 		})
 	}
 }
+
+// TestClassifyUpstreamError_CapabilityErrorsAreNotDeadModels is the negative
+// half of the model-gone patterns, added after review found that a bare
+// "is not supported" match would retire a healthy model.
+//
+// These bodies all describe a capability the provider refused — a parameter, an
+// operation, a region, an account feature — on a model that is very much alive.
+// Classifying any of them as provider_model_gone would accrue strikes and, on
+// the third, call SetEnabled(false) and pull a working model out of routing.
+func TestClassifyUpstreamError_CapabilityErrorsAreNotDeadModels(t *testing.T) {
+	t.Parallel()
+
+	bodies := []struct {
+		name string
+		body string
+	}{
+		{"rejected parameter", `{"error":{"message":"Parameter 'temperature' is not supported with this model","type":"invalid_request_error"}}`},
+		{"rejected parameter, model trailing", `{"error":{"message":"top_p is not supported for this model"}}`},
+		{"unsupported operation", `{"error":{"message":"This operation is not supported","type":"invalid_request_error"}}`},
+		{"region restriction", `{"error":{"message":"This feature is not supported in your region"}}`},
+		{"account capability", `{"error":{"message":"Streaming is not supported on your current plan"}}`},
+		{"tooling capability", `{"error":{"message":"Structured outputs is not supported"}}`},
+		{"other entity missing", `{"error":{"message":"the requested conversation does not exist"}}`},
+		{"file missing", `{"error":{"message":"The uploaded file does not exist"}}`},
+		{"endpoint retired", `{"error":{"message":"This API version is no longer available"}}`},
+	}
+
+	for _, tc := range bodies {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, _ := classifyUpstreamError(400, tc.body)
+			if got == KindProviderModelGone {
+				t.Errorf("capability error classified as a dead model, which would auto-disable it: %q", tc.body)
+			}
+		})
+	}
+}
+
+// TestClassifyUpstreamError_ModelGoneStillMatches guards the other direction:
+// tightening the patterns must not stop the real retired-model payloads from
+// classifying. Each of these was captured from a live provider.
+func TestClassifyUpstreamError_ModelGoneStillMatches(t *testing.T) {
+	t.Parallel()
+
+	bodies := []struct {
+		name string
+		body string
+	}{
+		{"google retired", `{"error":{"code":404,"message":"This model models/gemini-2.0-flash is no longer available. Please update your code to use a newer model."}}`},
+		{"google generateContent", `{"error":{"code":404,"message":"models/gemini-embedding-001 is not found for API version v1main, or is not supported for generateContent."}}`},
+		{"zen model error", `{"type":"error","error":{"type":"ModelError","message":"Model gemini-3-pro is not supported"}}`},
+		{"zen full model list", `{"type":"invalid_request_error","message":"Error from provider (Console): Model claude-sonnet-4 is not supported on the full model list."}`},
+		{"xai not found", `"Model not found: grok-imagine-image"`},
+		{"openai does not exist", "{\"error\":{\"message\":\"The model `gpt-4.5-preview` does not exist or you do not have access to it\"}}"},
+	}
+
+	for _, tc := range bodies {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got, _ := classifyUpstreamError(404, tc.body); got != KindProviderModelGone {
+				t.Errorf("real retired-model payload no longer classifies: got %q for %q", got, tc.body)
+			}
+		})
+	}
+}

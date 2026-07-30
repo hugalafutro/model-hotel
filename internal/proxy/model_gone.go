@@ -74,6 +74,18 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 		}
 
 		debuglog.Warn("proxy: auto-disabled retired model", "model", modelName, "provider", provider, "strikes", goneStrikeThreshold)
+
+		// Disabling a member does not resize the custom failover groups it
+		// belongs to, so a group can be left enabled while it no longer has two
+		// routable members. Discovery already revalidates after it disables a
+		// model (see discovery_diff.go); this path has to do the same or an
+		// undersized group stays enabled until some unrelated scan happens to
+		// fix it. Best-effort: a failure here must not undo the disable.
+		if h.failoverRepo != nil {
+			if _, err := h.failoverRepo.RevalidateCustomGroups(dctx); err != nil {
+				debuglog.Error("proxy: custom-group revalidation after auto-disable failed", "model", modelName, "error", err)
+			}
+		}
 		events.Publish(events.Event{
 			Type:     "model.auto_disabled_gone",
 			Severity: "warning",
@@ -88,6 +100,39 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 			},
 		})
 	}()
+}
+
+// streamVerdict is what a finished stream says about whether the model still
+// exists. Three-way on purpose, and the middle case is the one that matters.
+type streamVerdict int
+
+const (
+	// verdictInconclusive: the stream failed for a reason unrelated to the
+	// model's existence. Leave the strike streak untouched.
+	verdictInconclusive streamVerdict = iota
+	// verdictGone: the provider reported the model retired mid-stream.
+	verdictGone
+	// verdictServed: the stream completed cleanly, so the model answered.
+	verdictServed
+)
+
+// verdictForStream maps a finished stream's error kind to what it proves.
+//
+// The trap this encodes: treating "not gone" as "served" lets a retired model
+// stay routable forever, because its own unrelated failures (transient provider
+// errors, client disconnects, stalls) keep resetting the count that would have
+// retired it. Equally, treating any failure as evidence of death would disable
+// a healthy model during an outage. Only a clean finish clears, only an explicit
+// gone-report strikes, and everything else says nothing.
+func verdictForStream(kind ErrorKind) streamVerdict {
+	switch kind {
+	case KindProviderModelGone:
+		return verdictGone
+	case "":
+		return verdictServed
+	default:
+		return verdictInconclusive
+	}
 }
 
 // noteModelServed clears any accumulated gone-strikes after the model answers.
