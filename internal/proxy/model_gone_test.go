@@ -1,6 +1,8 @@
 package proxy
 
 import (
+	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -346,4 +348,107 @@ func TestNoteModelGone_RealRetirementStillDisables(t *testing.T) {
 	if calls := waitForDisable(t, repo); len(calls) != 1 {
 		t.Fatalf("a genuinely retired model must still be disabled, got %d disable calls", len(calls))
 	}
+}
+
+// TestNoteModelGone_ConcurrentStrikesAreNotLost pins the atomicity of the strike
+// counter. The counter was originally a plain int behind a sync.Map, read then
+// written, so two refusals racing both read the same value and stored the same
+// increment. A retired model is exactly the one that draws concurrent refusals —
+// clients retry it and a failover group can hit it from several requests at
+// once — so the lost update stalled the streak below the threshold and left the
+// model routable indefinitely.
+//
+// Run under -race this also catches the data race itself, not just the
+// arithmetic.
+func TestNoteModelGone_ConcurrentStrikesAreNotLost(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for range goneStrikeThreshold {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start // maximise overlap
+			h.noteModelGone(m, "Google AI Studio (Gemini)")
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	calls := waitForDisable(t, repo)
+	if len(calls) != 1 {
+		t.Fatalf("exactly %d concurrent refusals must disable the model once, got %d disable calls", goneStrikeThreshold, len(calls))
+	}
+	if calls[0].enabled {
+		t.Error("model must be disabled, not enabled")
+	}
+}
+
+// TestNoteModelGone_ConcurrentBurstDisablesOnce guards the other side of the
+// atomic counter: a flood of refusals well past the threshold must still issue a
+// single disable, not one per goroutine that observed the count at or above it.
+func TestNoteModelGone_ConcurrentBurstDisablesOnce(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "claude-sonnet-4"}
+
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for range 50 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			h.noteModelGone(m, "OpenCode Zen")
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	calls := waitForDisable(t, repo)
+	if len(calls) != 1 {
+		t.Fatalf("a burst must still disable exactly once, got %d disable calls", len(calls))
+	}
+}
+
+// TestNoteModelGone_FailedDisableIsRetried pins the failure path of the
+// no-clear-on-success rule. Leaving the count above the threshold is what stops
+// a burst re-disabling and re-alerting, but a disable that never landed must not
+// be parked there forever, or a transient database error would leave a dead
+// model enabled permanently.
+func TestNoteModelGone_FailedDisableIsRetried(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{setEnabledErr: errors.New("database unavailable")}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+	if calls := waitForDisable(t, repo); len(calls) != 1 {
+		t.Fatalf("expected the first (failing) attempt, got %d", len(calls))
+	}
+
+	// The streak was cleared by the failure, so a fresh run of refusals must
+	// reach the threshold and try again rather than being swallowed.
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(repo.disableCalls()) >= 2 {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("a failed disable must be retried, got %d attempts", len(repo.disableCalls()))
 }

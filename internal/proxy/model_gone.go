@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,20 +47,43 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 		return
 	}
 
-	raw, _ := h.goneStrikes.LoadOrStore(m.ID, 0)
-	strikes, _ := raw.(int)
-	strikes++
+	// The counter must be incremented atomically, not read-modify-written. A
+	// dead model is exactly the one that gets hammered concurrently — clients
+	// retry it, and a failover group can try it on several requests at once — so
+	// a lost update here is not theoretical: two refusals racing would both read
+	// the same value and store the same increment, the streak would stall below
+	// the threshold, and the model would stay routable indefinitely.
+	//
+	// sync.Map holds a per-model *atomic.Int64 rather than a plain int, so
+	// LoadOrStore only races on creating the counter (harmless, the winner's is
+	// used by everyone) and the increment itself is atomic.
+	raw, _ := h.goneStrikes.LoadOrStore(m.ID, &atomic.Int64{})
+	counter, ok := raw.(*atomic.Int64)
+	if !ok {
+		return
+	}
+	strikes := counter.Add(1)
 
 	if strikes < goneStrikeThreshold {
-		h.goneStrikes.Store(m.ID, strikes)
 		debuglog.Info("proxy: provider reports model gone", "model", m.ModelID, "provider", providerName, "strikes", strikes, "threshold", goneStrikeThreshold)
 		return
 	}
+	// Exactly one caller sees the threshold value, so a burst of concurrent
+	// refusals still issues a single disable; everyone past it drops out here.
+	//
+	// The counter is deliberately NOT cleared here. Clearing it would let the
+	// next refusal start a fresh count from zero, so a burst against a dead
+	// model — 50 concurrent retries, say — would disable it once every three
+	// strikes and publish an alert each time. Leaving the count above the
+	// threshold makes every later refusal a no-op. noteModelServed clears it if
+	// the model ever answers again, and the failure path below clears it so a
+	// disable that could not be written is retried rather than lost.
+	if strikes > goneStrikeThreshold {
+		return
+	}
 
-	// Threshold reached. Drop the counter first so a slow or failing disable
-	// cannot spin, then disable out of band: this runs on the request path and
+	// Threshold reached. Disable out of band: this runs on the request path and
 	// must not add latency to the error response the caller is already getting.
-	h.goneStrikes.Delete(m.ID)
 	modelID, modelName, provider := m.ID, m.ModelID, providerName
 
 	go func() {
@@ -70,6 +94,10 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 
 		if _, err := h.modelRepo.SetEnabled(dctx, modelID, false); err != nil {
 			debuglog.Error("proxy: failed to auto-disable retired model", "model", modelName, "provider", provider, "error", err)
+			// Clear the streak so the next refusals can rebuild it and try
+			// again. Without this a transient database error would leave the
+			// count parked above the threshold and the model enabled forever.
+			h.goneStrikes.Delete(modelID)
 			return
 		}
 

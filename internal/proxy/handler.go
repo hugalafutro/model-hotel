@@ -55,7 +55,11 @@ type Handler struct {
 	// goneStrikes counts consecutive KindProviderModelGone responses per model
 	// UUID, so a model the provider has retired is disabled after
 	// goneStrikeThreshold refusals. Deliberately in-memory and per-instance;
-	// see noteModelGone for why it is not persisted. Value: int.
+	// see noteModelGone for why it is not persisted.
+	//
+	// Value: *atomic.Int64, not a plain int. A retired model is precisely the
+	// one taking concurrent refusals, so the increment has to be atomic or
+	// racing strikes overwrite each other and the streak never lands.
 	goneStrikes sync.Map
 	// responsesRequiredCache remembers models whose upstream 400'd
 	// tools+reasoning over chat-completions and demanded /v1/responses (OpenAI
