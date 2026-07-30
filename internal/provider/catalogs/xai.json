@@ -1,5 +1,23 @@
 [
   {
+    "model_id": "grok-4.5",
+    "display_name": "Grok 4.5",
+    "description": "Truth-seeking model with reasoning and vision.",
+    "context_length": 500000,
+    "max_output_tokens": 30000,
+    "modality": "text",
+    "input_modalities": "[\"text\",\"image\"]",
+    "output_modalities": "[\"text\"]",
+    "streaming": true,
+    "reasoning": true,
+    "tool_calling": true,
+    "structured_output": true,
+    "vision": true,
+    "input_price_per_million": 2,
+    "input_price_per_million_cache_hit": 0.3,
+    "output_price_per_million": 6
+  },
+  {
     "model_id": "grok-4.3",
     "display_name": "Grok 4.3",
     "description": "Latest truth-seeking flagship model with reasoning and vision.",
