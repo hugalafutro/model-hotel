@@ -1420,20 +1420,25 @@ describe("Layout", () => {
 			// Nothing landed, so no Undo is offered: there is nothing to undo.
 			expect(screen.queryByTestId("toast-action")).toBeNull();
 		});
-		it("rolls a partial dismissal back when the reconciling refresh fails", async () => {
-			// The hole Greptile found. A short `updated` cannot say WHICH ids the server
-			// skipped, so only a successful refresh can reconcile them, and `refresh`
-			// absorbs its own error rather than throwing. Left unchecked, every
-			// optimistic row stays struck through, including the ones the server
-			// SKIPPED: still actionable, but hidden from the counts and controls.
+		it("surfaces the failure when the reconciling refresh after a dismissal fails", async () => {
+			// A short `updated` cannot say which ids the server skipped, so only a
+			// successful refresh reconciles them. When that refresh fails the rows keep
+			// their optimistic `dismissed` state, which over-claims. What must NOT
+			// happen is that going unreported: the operator has to be able to tell that
+			// the list is unconfirmed rather than clean.
+			//
+			// The guarantee is the modal's refresh-error banner, which is its existing
+			// vocabulary for "we could not find out". A rollback was tried instead and
+			// removed: revertDismissal compares on optimisticFrom, which any merge
+			// strips, so a concurrent successful refresh silently made it a no-op.
 			let statusCalls = 0;
 			server.use(
 				http.get("/api/discovery/status", ({ request }) => {
 					statusCalls++;
-					// The modal's own opening fetch must succeed; the reconciling refresh
-					// after the dismiss is the one that fails.
 					const isReview =
 						new URL(request.url).searchParams.get("review") === "1";
+					// The modal's own opening fetch succeeds; the reconciling refresh
+					// after the dismiss is the one that fails.
 					if (!isReview && statusCalls > 2) {
 						return HttpResponse.json({ error: "down" }, { status: 500 });
 					}
@@ -1457,6 +1462,7 @@ describe("Layout", () => {
 				await screen.findByTestId("discrepancy-dismiss-all-confirm"),
 			);
 
+			// The shortfall is named...
 			await waitFor(() =>
 				expect(
 					screen
@@ -1464,14 +1470,10 @@ describe("Layout", () => {
 						.some((el) => el.getAttribute("data-toast-type") === "warning"),
 				).toBe(true),
 			);
-			// Under-claiming beats over-claiming: nothing stays struck through that
-			// nothing can confirm was cleared.
-			await openFirstBucket(user);
-			for (const row of screen.getAllByTestId("discrepancy-claim")) {
-				expect(row).toHaveAttribute("data-status", "pending");
-			}
-			// And no Undo is offered, because there is no optimistic write left to undo.
-			expect(screen.queryByTestId("toast-action")).toBeNull();
+			// ...and the list carries a live-region banner saying its state is unknown,
+			// so a stale row is never presented as a clean one.
+			const banner = await screen.findByTestId("discrepancy-load-error");
+			expect(banner).toHaveAttribute("role", "alert");
 		});
 
 		it("dismisses every provider at once and reports a failed undo", async () => {

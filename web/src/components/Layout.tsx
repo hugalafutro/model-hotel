@@ -942,7 +942,7 @@ export function Layout({ children }: LayoutProps) {
 			dismissClaim(providerId, ids);
 			try {
 				const res = await api.discovery.dismiss(providerId, modelIds, true);
-				const fresh = await refresh();
+				await refresh();
 				const undo = {
 					label: t("providers.discrepancies.undo"),
 					onClick: () => {
@@ -950,19 +950,32 @@ export function Layout({ children }: LayoutProps) {
 					},
 				};
 				if (res.updated < modelIds.length) {
-					// A short count cannot say WHICH ids it missed. With a good refresh the
-					// merge has already corrected them; without one, nothing here knows
-					// which rows are honestly cleared, so none of them stay struck through.
-					if (!fresh) {
-						restoreClaim(providerId, ids);
-					}
+					// A short count cannot say WHICH ids it missed, so only a successful
+					// refresh reconciles them, and the merge above has already done it.
+					//
+					// When that refresh FAILS the rows keep their optimistic `dismissed`
+					// state, which over-claims: a model the server skipped is still
+					// actionable. That is not left silent, and it is deliberately not
+					// patched here either. `refresh` records the failure and the hook
+					// surfaces it as `refreshError`, which Layout feeds to the modal's
+					// `loadError`, which renders a role="alert" banner over the list. The
+					// modal's established vocabulary for "we could not find out" is that
+					// banner, not a rewritten row.
+					//
+					// Rolling the batch back instead was tried and removed: `revertDismissal`
+					// is a compare-and-swap on `optimisticFrom`, and ANY merge strips that
+					// marker (a refetch is newer authority, by design since #583). A
+					// successful refresh landing mid-flight therefore silently turned the
+					// rollback into a no-op, so it fixed the failure mode only when nothing
+					// else was happening. An unreliable correction on top of an honest
+					// banner is worse than the banner alone.
 					toast(
 						t("providers.discrepancies.dismissAllPartial", {
 							count: res.updated,
 							total: modelIds.length,
 						}),
 						"warning",
-						fresh ? undo : undefined,
+						undo,
 					);
 					return;
 				}
@@ -1057,20 +1070,10 @@ export function Layout({ children }: LayoutProps) {
 				// so only a good refresh can reconcile them. Handled after the refresh,
 				// below, since its outcome is what decides.
 			});
-			const fresh = await refresh();
-			// Without a successful refresh, nothing knows which ids a short batch
-			// actually cleared, and leaving them struck through would hide models that
-			// are still actionable on the server. Under-claim instead: roll those
-			// batches back and let the next good refresh tell the truth.
-			if (!fresh) {
-				for (const b of landed) {
-					const i = batches.findIndex((x) => x.providerID === b.providerID);
-					const r = results[i];
-					if (r.status === "fulfilled" && r.value.updated < b.modelIDs.length) {
-						restoreClaim(b.providerID, new Set(b.modelIDs));
-					}
-				}
-			}
+			// A failed refresh leaves short batches over-claiming, reported by the
+			// modal's refresh-error banner rather than corrected here; see the note in
+			// onDismissAll for why a rollback was tried and removed.
+			await refresh();
 			if (dismissed === 0) {
 				toast(t("providers.discrepancies.dismissEverythingFailed"), "error");
 				return;
