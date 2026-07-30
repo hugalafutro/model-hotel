@@ -23,6 +23,9 @@ type ModelRepository interface {
 	Get(ctx context.Context, id uuid.UUID) (*model.Model, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Model, error)
 	GetByProviderAndModelID(ctx context.Context, providerID uuid.UUID, modelID string) (*model.Model, error)
+	// SetEnabled toggles a model's enabled flag. The proxy uses it to disable a
+	// model the provider reports as retired (see noteModelGone).
+	SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error)
 }
 
 // VirtualKeyRepository defines the interface for virtual key operations.

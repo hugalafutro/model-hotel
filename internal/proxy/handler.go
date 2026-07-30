@@ -52,6 +52,11 @@ type Handler struct {
 	// max_completion_tokens for OpenAI gpt-5/o-series), keyed by
 	// "providerType:modelID". Value: map[string]string of old->new param names.
 	paramRenameCache sync.Map
+	// goneStrikes counts consecutive KindProviderModelGone responses per model
+	// UUID, so a model the provider has retired is disabled after
+	// goneStrikeThreshold refusals. Deliberately in-memory and per-instance;
+	// see noteModelGone for why it is not persisted. Value: int.
+	goneStrikes sync.Map
 	// responsesRequiredCache remembers models whose upstream 400'd
 	// tools+reasoning over chat-completions and demanded /v1/responses (OpenAI
 	// gpt-5.4+/gpt-5.6 families), keyed by "providerType:modelID". Once a model

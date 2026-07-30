@@ -164,8 +164,15 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	debuglog.Debug("proxy: failover decision", "status", resp.StatusCode, "is_failover_eligible", isFailoverEligible, "has_more_candidates", hasMoreCandidates, "should_failover_now", shouldFailoverNow, "attempt", attempt+1)
 
 	if shouldFailoverNow {
-		_, _ = io.ReadAll(resp.Body)
+		drained, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
+		// The body is being discarded anyway, so classify it on the way out.
+		// A retired model usually answers 404, which is failover-eligible, so
+		// without this the "model gone" signal would be lost precisely when
+		// there is another candidate to fall back to.
+		if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(drained), 10000)); kind == KindProviderModelGone {
+			h.noteModelGone(candidate.model, candidate.provider.Name)
+		}
 		st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
 		debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 		logData.failoverAttempt = attempt
@@ -175,6 +182,9 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	if resp.StatusCode != http.StatusOK {
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
 	}
+
+	// The model answered, so any gone-strike streak it had accumulated is stale.
+	h.noteModelServed(candidate.model)
 
 	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "native_anthropic", st.anthropicNativeAttempt, "responses_api", st.responsesAttempt, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 	if st.responsesAttempt {
@@ -612,6 +622,9 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	// Classify for the request log and metrics only — routing is unaffected,
 	// hasMoreCandidates was already decided from the status code.
 	kind, reason := classifyUpstreamError(resp.StatusCode, errMsg)
+	if kind == KindProviderModelGone {
+		h.noteModelGone(candidate.model, candidate.provider.Name)
+	}
 	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
 	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 	logData.responseHeaderMs = responseHeaderMs

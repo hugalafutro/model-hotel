@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -576,6 +577,35 @@ type mockModelRepo struct {
 	listEnabledResult []*model.Model
 	getResult         *model.Model
 	getErr            error
+
+	// setEnabledMu guards setEnabledCalls: noteModelGone disables out of band
+	// on its own goroutine, so tests read this while the handler may write it.
+	setEnabledMu    sync.Mutex
+	setEnabledCalls []setEnabledCall
+	setEnabledErr   error
+}
+
+// setEnabledCall records one SetEnabled invocation for assertions.
+type setEnabledCall struct {
+	id      uuid.UUID
+	enabled bool
+}
+
+func (m *mockModelRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error) {
+	m.setEnabledMu.Lock()
+	defer m.setEnabledMu.Unlock()
+	m.setEnabledCalls = append(m.setEnabledCalls, setEnabledCall{id: id, enabled: enabled})
+	if m.setEnabledErr != nil {
+		return nil, m.setEnabledErr
+	}
+	return &model.Model{ID: id, Enabled: enabled}, nil
+}
+
+// disableCalls returns a copy of the recorded calls under the lock.
+func (m *mockModelRepo) disableCalls() []setEnabledCall {
+	m.setEnabledMu.Lock()
+	defer m.setEnabledMu.Unlock()
+	return append([]setEnabledCall(nil), m.setEnabledCalls...)
 }
 
 func (m *mockModelRepo) ListEnabled(ctx context.Context) ([]*model.Model, error) {
@@ -2123,4 +2153,12 @@ func TestListModels_FilterByProvider(t *testing.T) {
 	if foundModels[provider.NormalizeName(providerName)+"/model-3"] {
 		t.Error("should not find disabled model-3")
 	}
+}
+
+func (m *coverageMockModelRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error) {
+	return &model.Model{ID: id, Enabled: enabled}, nil
+}
+
+func (m *listModelsMockRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error) {
+	return &model.Model{ID: id, Enabled: enabled}, nil
 }
