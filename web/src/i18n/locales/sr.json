@@ -961,8 +961,6 @@
 			"suspectMeta_one": "Пропуштено {{count}} скенирање",
 			"suspectMeta_other": "Пропуштено {{count}} скенирања",
 			"title": "Одступања модела",
-			"undo": "Опозови",
-			"undoFailed": "Опозивање није успело: {{message}}",
 			"updated": "Метаподаци ажурирани"
 		},
 		"toast_quota_detected_minimax": "MiniMax квота откривена",

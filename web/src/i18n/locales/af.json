@@ -934,8 +934,6 @@
 			"suspectMeta_one": "{{count}} skandering gemis",
 			"suspectMeta_other": "{{count}} skanderings gemis",
 			"title": "Modelafwykings",
-			"undo": "Ontdoen",
-			"undoFailed": "Kon nie ontdoen nie: {{message}}",
 			"updated": "Metagegewens bygewerk"
 		},
 		"toast_quota_detected_minimax": "MiniMax-kwota opgespoor",

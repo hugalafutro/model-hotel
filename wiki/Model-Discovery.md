@@ -152,6 +152,8 @@ Rows are mounted only while their bucket is open. That is a performance decision
 | **Dismiss all** | header | Same, across every listed provider. This is the "I saw the badge, I do not need the detail" path: confirm once and the badge clears. |
 | **Clean** (broom) | one provider | Appears only once nothing on that provider is actionable. Drops the pill from the view and writes nothing. |
 
+**Dismissing is one-way, and that is deliberate.** There is no undo, and the endpoint has no un-dismiss direction: a dismissal reverses itself when discovery next sights the model, which is the only reversal the feature needs. Nothing here writes anything a scan cannot correct on its own.
+
 **Dismissing never stops discovery.** It clears rows from this list. Discovery keeps sweeping, and `models.Upsert` clears `discovery_dismissed_at` on any sighting, so a dismissed model returns as a fresh claim if its provider lists it again and it later goes missing again. Suspect models cannot be dismissed at all: `setModelsDismissed` only touches `enabled = false` rows, because pre-dismissing a still-enabled model would silently hide the claim the next time it genuinely went missing.
 
 Nothing vanishes when you act on it. A dismissed or resolved row stays struck through where it sat, and a cleared provider keeps its buckets as the log of what you did, until you hit Clean.

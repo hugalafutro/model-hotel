@@ -934,8 +934,6 @@
 			"suspectMeta_one": "{{count}} tarama kaçırıldı",
 			"suspectMeta_other": "{{count}} tarama kaçırıldı",
 			"title": "Model tutarsızlıkları",
-			"undo": "Geri al",
-			"undoFailed": "Geri alınamadı: {{message}}",
 			"updated": "Metadata güncellendi"
 		},
 		"toast_quota_detected_minimax": "MiniMax kotası tespit edildi",

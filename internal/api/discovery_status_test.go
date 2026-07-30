@@ -302,27 +302,20 @@ func TestGetDiscoveryStatus_ReviewStampClampedToWindow(t *testing.T) {
 	}
 }
 
-// TestDismissDiscoveryClaims_BothDirections: one endpoint serves dismiss and the
-// toast's Undo, so the flag has to work in both directions. Asserted via
-// /discovery/status (the observable API contract), not by re-reading
-// discovery_dismissed_at from the database: TestSetModelsDismissed already
-// proves the stamp itself lands and clears at the SQL layer.
-func TestDismissDiscoveryClaims_BothDirections(t *testing.T) {
+// TestDismissDiscoveryClaims_RemovesClaim: dismissing a model takes it out of the
+// claim set. Asserted via /discovery/status (the observable API contract), not by
+// re-reading discovery_dismissed_at, which TestSetModelsDismissed already covers
+// at the SQL layer.
+//
+// There is no un-dismiss direction to test: the endpoint only stamps. The reversal
+// is a sighting, and that models.Upsert nulls the column on one is proved in
+// internal/model's TestUpsertClearsDiscoveryDismissedAt.
+func TestDismissDiscoveryClaims_RemovesClaim(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	pool := h.dbPool.Pool()
 
 	providerID := seedClaimProvider(t, pool, "dismiss-prov", true)
 	seedClaimModel(t, pool, providerID, "doomed", false, false, 0, nil)
-
-	post := func(dismissed bool) int {
-		body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["doomed"],"dismissed":%t}`, providerID, dismissed)
-		req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
-		req.Header.Set("Authorization", "Bearer test-admin-token")
-		req.Header.Set("Content-Type", "application/json")
-		rec := httptest.NewRecorder()
-		r.ServeHTTP(rec, req)
-		return rec.Code
-	}
 
 	// Anchor: the model must show up as a claim before it is dismissed, so the
 	// "0 claims after dismiss" assertion below cannot pass by the model never
@@ -331,18 +324,17 @@ func TestDismissDiscoveryClaims_BothDirections(t *testing.T) {
 		t.Fatalf("before dismiss, claims = %v, want [doomed]", ids)
 	}
 
-	if code := post(true); code != http.StatusOK {
-		t.Fatalf("dismiss = %d, want 200", code)
+	body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["doomed"]}`, providerID)
+	req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("dismiss = %d, want 200", rec.Code)
 	}
 	if len(claimIDs(t, r)) != 0 {
 		t.Error("a dismissed model must not appear as a claim")
-	}
-
-	if code := post(false); code != http.StatusOK {
-		t.Fatalf("undo = %d, want 200", code)
-	}
-	if ids := claimIDs(t, r); len(ids) != 1 || ids[0] != "doomed" {
-		t.Errorf("after undo, claims = %v, want [doomed]", ids)
 	}
 }
 
@@ -368,11 +360,11 @@ func TestDismissDiscoveryClaims_UnknownModel(t *testing.T) {
 	// the route is live before the 404 below is trusted to mean "no matching
 	// model" rather than "no matching route". This does not touch the store
 	// layer at all, so it does not duplicate TestSetModelsDismissed.
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":[],"dismissed":true}`, providerID)); code != http.StatusBadRequest {
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":[]}`, providerID)); code != http.StatusBadRequest {
 		t.Fatalf("empty model_ids = %d, want 400 (anchor: proves the route is mounted)", code)
 	}
 
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["not-a-model"],"dismissed":true}`, providerID)); code != http.StatusNotFound {
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["not-a-model"]}`, providerID)); code != http.StatusNotFound {
 		t.Errorf("unknown model = %d, want 404", code)
 	}
 }
@@ -417,11 +409,11 @@ func TestDismissDiscoveryClaims_SuspectModelNotDismissible(t *testing.T) {
 	// runs. This proves POST /discovery/dismiss is live before the 404 below
 	// is trusted to mean "suspect model correctly rejected" rather than
 	// "route not mounted".
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":[],"dismissed":true}`, providerID)); code != http.StatusBadRequest {
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":[]}`, providerID)); code != http.StatusBadRequest {
 		t.Fatalf("empty model_ids = %d, want 400 (anchor: proves the route is mounted)", code)
 	}
 
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["wobbling"],"dismissed":true}`, providerID)); code != http.StatusNotFound {
+	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["wobbling"]}`, providerID)); code != http.StatusNotFound {
 		t.Errorf("dismiss suspect model = %d, want 404", code)
 	}
 

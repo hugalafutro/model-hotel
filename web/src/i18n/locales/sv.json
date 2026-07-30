@@ -934,8 +934,6 @@
 			"suspectMeta_one": "Missade {{count}} genomsökning",
 			"suspectMeta_other": "Missade {{count}} genomsökningar",
 			"title": "Modellavvikelser",
-			"undo": "Ångra",
-			"undoFailed": "Kunde inte ångra: {{message}}",
 			"updated": "Metadata uppdaterad"
 		},
 		"toast_quota_detected_minimax": "MiniMax-kvot upptäckt",

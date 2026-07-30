@@ -988,8 +988,6 @@
 			"suspectMeta_one": "Pominięto {{count}} skanowanie",
 			"suspectMeta_other": "Pominięto {{count}} skanowania",
 			"title": "Rozbieżności modeli",
-			"undo": "Cofnij",
-			"undoFailed": "Nie udało się cofnąć: {{message}}",
 			"updated": "Zaktualizowane metadane"
 		},
 		"toast_quota_detected_minimax": "Wykryto limit MiniMax",

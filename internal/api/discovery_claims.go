@@ -293,27 +293,25 @@ func sortClaims(cs []ModelClaim) {
 	sort.Slice(cs, func(i, j int) bool { return cs[i].ModelID < cs[j].ModelID })
 }
 
-// setModelsDismissed stamps or clears the operator dismissal for the given
-// models. Returns how many rows changed so the handler can report an unknown
-// model instead of silently succeeding.
+// setModelsDismissed stamps the operator dismissal for the given models. Returns
+// how many rows changed so the handler can report an unknown model instead of
+// silently succeeding.
+//
+// Stamp-only: there is no clear direction. A dismissal is undone by discovery
+// itself, since Upsert nulls the column on any sighting, so nothing needs to
+// clear it by hand.
 //
 // The UPDATE only ever touches rows that are currently gone (enabled = false)
 // and not manually disabled: Upsert clears the stamp on a SIGHTING, and a
-// suspect (still enabled, missing_scans > 0) or healthy model is by
-// definition not being sighted, so pre-dismissing one would silently hide a
-// real claim the next time it actually goes gone. Undo (dismissed=false)
-// still works under this same restriction, because a dismissed model is still
-// enabled = false.
-func setModelsDismissed(ctx context.Context, pool *pgxpool.Pool, providerID uuid.UUID, modelIDs []string, dismissed bool) (int64, error) {
-	var stamp any
-	if dismissed {
-		stamp = time.Now()
-	}
+// suspect (still enabled, missing_scans > 0) or healthy model is by definition
+// not being sighted, so pre-dismissing one would silently hide a real claim the
+// next time it actually goes gone.
+func setModelsDismissed(ctx context.Context, pool *pgxpool.Pool, providerID uuid.UUID, modelIDs []string) (int64, error) {
 	tag, err := pool.Exec(ctx,
-		`UPDATE models SET discovery_dismissed_at = $3
+		`UPDATE models SET discovery_dismissed_at = now()
 		  WHERE provider_id = $1 AND model_id = ANY($2)
 		    AND enabled = false AND disabled_manually = false`,
-		providerID, modelIDs, stamp)
+		providerID, modelIDs)
 	if err != nil {
 		return 0, err
 	}

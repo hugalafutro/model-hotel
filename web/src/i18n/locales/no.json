@@ -934,8 +934,6 @@
 			"suspectMeta_one": "Gikk glipp av {{count}} skanning",
 			"suspectMeta_other": "Gikk glipp av {{count}} skanninger",
 			"title": "Modellavvik",
-			"undo": "Angre",
-			"undoFailed": "Kunne ikke angre: {{message}}",
 			"updated": "Metadata oppdatert"
 		},
 		"toast_quota_detected_minimax": "MiniMax-kvote oppdaget",

@@ -1124,12 +1124,23 @@ describe("Layout", () => {
 			expect(screen.getAllByTestId("toast")).toHaveLength(1);
 		});
 
-		it("dismisses one model per request and offers an undo that restores it", async () => {
-			const bodies: { model_ids: string[]; dismissed: boolean }[] = [];
+		it("dismisses one model per request", async () => {
+			// Exactly one model per request: the endpoint 200s with a short `updated`
+			// for a mixed list and only 404s when NOTHING matched, so one at a time
+			// makes `updated: 0` an unambiguous failure for this model.
+			//
+			// No undo is offered. A dismissal self-heals: models.Upsert nulls
+			// discovery_dismissed_at on any sighting, so the next discovery run brings
+			// back anything that actually came back.
+			const bodies: { model_ids: string[] }[] = [];
+			// listClaimRows filters on discovery_dismissed_at IS NULL, so a dismissed
+			// model stops being reported. The mock has to do the same or the refresh
+			// would rebuild the row as pending and the status assertion below would be
+			// testing the mock rather than the merge.
 			const dismissed = new Set<string>();
 			server.use(
 				http.get("/api/discovery/status", () => {
-					const gone = ["a", "b"]
+					const gone = ["a"]
 						.filter((m) => !dismissed.has(m))
 						.map((m) => claim(m));
 					return HttpResponse.json(
@@ -1140,15 +1151,9 @@ describe("Layout", () => {
 					);
 				}),
 				http.post("/api/discovery/dismiss", async ({ request }) => {
-					const body = (await request.json()) as {
-						model_ids: string[];
-						dismissed: boolean;
-					};
+					const body = (await request.json()) as { model_ids: string[] };
 					bodies.push(body);
-					for (const m of body.model_ids) {
-						if (body.dismissed) dismissed.add(m);
-						else dismissed.delete(m);
-					}
+					for (const m of body.model_ids) dismissed.add(m);
 					return HttpResponse.json({ updated: body.model_ids.length });
 				}),
 			);
@@ -1174,26 +1179,15 @@ describe("Layout", () => {
 			await waitFor(() =>
 				expect(rowA()).toHaveAttribute("data-status", "dismissed"),
 			);
-			// Exactly one model per request. A mixed batch 200s with a short
-			// `updated` and cannot say which ids it missed.
 			expect(bodies).toHaveLength(1);
 			expect(bodies[0].model_ids).toEqual(["a"]);
-			expect(bodies[0].dismissed).toBe(true);
-
-			await user.click(await screen.findByTestId("toast-action"));
-			await waitFor(() => expect(bodies).toHaveLength(2));
-			expect(bodies[1].model_ids).toEqual(["a"]);
-			expect(bodies[1].dismissed).toBe(false);
-			await waitFor(() =>
-				expect(rowA()).toHaveAttribute("data-status", "pending"),
-			);
+			expect(screen.queryByTestId("toast-action")).toBeNull();
 		});
 
-		it("dismisses a whole provider in one request and restores it on undo", async () => {
-			// Layout's per-provider handler had no integration test at all: the modal
-			// tests only assert the callback fires, so nothing exercised the request,
-			// the toast or the undo.
-			const bodies: { model_ids: string[]; dismissed: boolean }[] = [];
+		it("dismisses a whole provider in one request", async () => {
+			// ONE request carrying every id, not one request per model. No undo: a
+			// dismissal is reversed by discovery sighting the model again.
+			const bodies: { model_ids: string[] }[] = [];
 			server.use(
 				http.get("/api/discovery/status", () =>
 					HttpResponse.json(
@@ -1204,10 +1198,7 @@ describe("Layout", () => {
 					),
 				),
 				http.post("/api/discovery/dismiss", async ({ request }) => {
-					const body = (await request.json()) as {
-						model_ids: string[];
-						dismissed: boolean;
-					};
+					const body = (await request.json()) as { model_ids: string[] };
 					bodies.push(body);
 					return HttpResponse.json({ updated: body.model_ids.length });
 				}),
@@ -1220,16 +1211,9 @@ describe("Layout", () => {
 				await screen.findByTestId("discrepancy-dismiss-all-confirm"),
 			);
 
-			// ONE request carrying both ids, not one request per model.
 			await waitFor(() => expect(bodies).toHaveLength(1));
 			expect(bodies[0].model_ids.sort()).toEqual(["a", "b"]);
-			expect(bodies[0].dismissed).toBe(true);
-
-			await user.click(await screen.findByTestId("toast-action"));
-
-			await waitFor(() => expect(bodies).toHaveLength(2));
-			expect(bodies[1].dismissed).toBe(false);
-			expect(bodies[1].model_ids.sort()).toEqual(["a", "b"]);
+			expect(screen.queryByTestId("toast-action")).toBeNull();
 		});
 
 		it("warns when a provider batch comes back short", async () => {
@@ -1301,46 +1285,6 @@ describe("Layout", () => {
 			}
 		});
 
-		it("reports a failed per-provider undo instead of swallowing it", async () => {
-			let failUndo = false;
-			server.use(
-				http.get("/api/discovery/status", () =>
-					HttpResponse.json(
-						status({
-							claim_count: 1,
-							claims: [providerClaims("p1", "One", [claim("a")])],
-						}),
-					),
-				),
-				http.post("/api/discovery/dismiss", async ({ request }) => {
-					const body = (await request.json()) as { dismissed: boolean };
-					if (!body.dismissed && failUndo) {
-						return HttpResponse.json({ error: "boom" }, { status: 500 });
-					}
-					return HttpResponse.json({ updated: 1 });
-				}),
-			);
-			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
-
-			await user.click(await screen.findByTestId("discovery-status-badge"));
-			await user.click(await screen.findByTestId("discrepancy-dismiss-all"));
-			await user.click(
-				await screen.findByTestId("discrepancy-dismiss-all-confirm"),
-			);
-			await screen.findByTestId("toast-action");
-
-			failUndo = true;
-			await user.click(screen.getByTestId("toast-action"));
-
-			await waitFor(() =>
-				expect(
-					screen
-						.getAllByTestId("toast")
-						.some((el) => el.getAttribute("data-toast-type") === "error"),
-				).toBe(true),
-			);
-		});
-
 		it("keeps the providers that succeeded when one batch of a modal-wide dismiss fails", async () => {
 			// allSettled, not all: one provider failing must neither abandon the others
 			// nor roll them back. Only the failed provider's rows return to pending.
@@ -1374,8 +1318,10 @@ describe("Layout", () => {
 				await screen.findByTestId("discrepancy-dismiss-everything-confirm"),
 			);
 
-			// p1 landed, so a success-shaped toast with an undo is offered.
-			await screen.findByTestId("toast-action");
+			// p1 landed, so a success-shaped toast is raised.
+			await waitFor(() =>
+				expect(screen.queryAllByTestId("toast").length).toBeGreaterThan(0),
+			);
 			const row = (id: string) =>
 				screen
 					.queryAllByTestId("discrepancy-claim")
@@ -1488,14 +1434,9 @@ describe("Layout", () => {
 			}
 		});
 
-		it("dismisses every provider at once and reports a failed undo", async () => {
-			// Two things at once, because they share one request path: the modal-wide
-			// Dismiss all batches per provider (the endpoint is provider-scoped), and its
-			// Undo must SAY SO when it fails. Inline, that undo was an allSettled with no
-			// catch and no toast, so a network-down Undo did nothing and reported nothing,
-			// leaving the operator believing their rows were back.
-			const undoBodies: { model_ids: string[]; dismissed: boolean }[] = [];
-			let failUndo = false;
+		it("dismisses every provider at once, one request per provider", async () => {
+			// The endpoint is provider-scoped, so a modal-wide dismiss is N requests.
+			const bodies: { model_ids: string[] }[] = [];
 			server.use(
 				http.get("/api/discovery/status", () =>
 					HttpResponse.json(
@@ -1509,14 +1450,8 @@ describe("Layout", () => {
 					),
 				),
 				http.post("/api/discovery/dismiss", async ({ request }) => {
-					const body = (await request.json()) as {
-						model_ids: string[];
-						dismissed: boolean;
-					};
-					undoBodies.push(body);
-					if (!body.dismissed && failUndo) {
-						return HttpResponse.json({ error: "boom" }, { status: 500 });
-					}
+					const body = (await request.json()) as { model_ids: string[] };
+					bodies.push(body);
 					return HttpResponse.json({ updated: body.model_ids.length });
 				}),
 			);
@@ -1530,25 +1465,9 @@ describe("Layout", () => {
 				await screen.findByTestId("discrepancy-dismiss-everything-confirm"),
 			);
 
-			// One request per provider, both carrying dismissed: true.
-			await waitFor(() => expect(undoBodies).toHaveLength(2));
-			expect(undoBodies.every((b) => b.dismissed)).toBe(true);
-			expect(undoBodies.flatMap((b) => b.model_ids).sort()).toEqual(["a", "b"]);
-
-			failUndo = true;
-			await user.click(await screen.findByTestId("toast-action"));
-
-			await waitFor(() => expect(undoBodies).toHaveLength(4));
-			// The failure is surfaced, not swallowed.
-			await waitFor(() =>
-				expect(
-					screen
-						.getAllByTestId("toast")
-						.some((el) => el.getAttribute("data-toast-type") === "error"),
-				).toBe(true),
-			);
+			await waitFor(() => expect(bodies).toHaveLength(2));
+			expect(bodies.flatMap((b) => b.model_ids).sort()).toEqual(["a", "b"]);
 		});
-
 		it("treats updated: 0 as a failed dismissal", async () => {
 			// The endpoint 200s with a short `updated` and only 404s when nothing at
 			// all matched, so HTTP status alone would report a phantom success.

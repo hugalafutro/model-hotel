@@ -934,8 +934,6 @@
 			"suspectMeta_one": "Bỏ lỡ {{count}} lần quét",
 			"suspectMeta_other": "Bỏ lỡ {{count}} lần quét",
 			"title": "Sai lệch mô hình",
-			"undo": "Hoàn tác",
-			"undoFailed": "Không thể hoàn tác: {{message}}",
 			"updated": "Siêu dữ liệu được cập nhật"
 		},
 		"toast_quota_detected_minimax": "Đã phát hiện hạn ngạch MiniMax",

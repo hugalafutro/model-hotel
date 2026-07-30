@@ -961,8 +961,6 @@
 			"suspectMeta_one": "A ratat {{count}} scanare",
 			"suspectMeta_other": "A ratat {{count}} de scanări",
 			"title": "Discrepanțe ale modelelor",
-			"undo": "Anulează acțiunea",
-			"undoFailed": "Nu s-a putut anula: {{message}}",
 			"updated": "Metadate actualizate"
 		},
 		"toast_quota_detected_minimax": "Cotă MiniMax detectată",

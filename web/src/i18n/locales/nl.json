@@ -934,8 +934,6 @@
 			"suspectMeta_one": "{{count}} scan gemist",
 			"suspectMeta_other": "{{count}} scans gemist",
 			"title": "Modelafwijkingen",
-			"undo": "Ongedaan maken",
-			"undoFailed": "Ongedaan maken mislukt: {{message}}",
 			"updated": "Metadata bijgewerkt"
 		},
 		"toast_quota_detected_minimax": "MiniMax quotum gedetecteerd",

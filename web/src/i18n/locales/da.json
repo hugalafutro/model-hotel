@@ -934,8 +934,6 @@
 			"suspectMeta_one": "Sprang {{count}} scanning over",
 			"suspectMeta_other": "Sprang {{count}} scanninger over",
 			"title": "Modeluoverensstemmelser",
-			"undo": "Fortryd",
-			"undoFailed": "Kunne ikke fortryde: {{message}}",
 			"updated": "Metadata opdateret"
 		},
 		"toast_quota_detected_minimax": "Opdaget kvote for MiniMax",

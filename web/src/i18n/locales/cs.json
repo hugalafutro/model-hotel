@@ -988,8 +988,6 @@
 			"suspectMeta_one": "Vynecháno {{count}} skenování",
 			"suspectMeta_other": "Vynecháno {{count}} skenování",
 			"title": "Nesrovnalosti modelů",
-			"undo": "Zpět",
-			"undoFailed": "Nepodařilo se vrátit zpět: {{message}}",
 			"updated": "Aktualizovaná metadata"
 		},
 		"toast_quota_detected_minimax": "Zjištěna kvóta MiniMax",

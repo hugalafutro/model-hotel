@@ -961,8 +961,6 @@
 			"suspectMeta_one": "S'ha perdut {{count}} exploració",
 			"suspectMeta_other": "S'han perdut {{count}} exploracions",
 			"title": "Discrepàncies de models",
-			"undo": "Desfés",
-			"undoFailed": "No s'ha pogut desfer: {{message}}",
 			"updated": "Metadades actualitzades"
 		},
 		"toast_quota_detected_minimax": "Detectada quota de MiniMax",

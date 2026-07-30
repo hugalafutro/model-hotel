@@ -961,8 +961,6 @@
 			"suspectMeta_one": "{{count}} scansione mancata",
 			"suspectMeta_other": "{{count}} scansioni mancate",
 			"title": "Discrepanze dei modelli",
-			"undo": "Annulla",
-			"undoFailed": "Impossibile annullare: {{message}}",
 			"updated": "Metadati aggiornati"
 		},
 		"toast_quota_detected_minimax": "Rilevata quota MiniMax",

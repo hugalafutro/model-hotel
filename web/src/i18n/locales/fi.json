@@ -934,8 +934,6 @@
 			"suspectMeta_one": "{{count}} tarkistus väliin",
 			"suspectMeta_other": "{{count}} tarkistusta väliin",
 			"title": "Mallien poikkeamat",
-			"undo": "Kumoa",
-			"undoFailed": "Kumoaminen epäonnistui: {{message}}",
 			"updated": "Metatiedot päivitetty"
 		},
 		"toast_quota_detected_minimax": "MiniMax-kiintiö havaittu",

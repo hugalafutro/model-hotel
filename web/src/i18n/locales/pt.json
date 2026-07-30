@@ -961,8 +961,6 @@
 			"suspectMeta_one": "Perdeu {{count}} varredura",
 			"suspectMeta_other": "Perdeu {{count}} varreduras",
 			"title": "Divergências de modelos",
-			"undo": "Desfazer",
-			"undoFailed": "Não foi possível desfazer: {{message}}",
 			"updated": "Metadados atualizados"
 		},
 		"toast_quota_detected_minimax": "Cota MiniMax detectada",

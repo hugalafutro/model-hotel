@@ -961,8 +961,6 @@
 			"suspectMeta_one": "{{count}} analyse manquée",
 			"suspectMeta_other": "{{count}} analyses manquées",
 			"title": "Écarts de modèles",
-			"undo": "Annuler",
-			"undoFailed": "Impossible d'annuler : {{message}}",
 			"updated": "Métadonnées mises à jour"
 		},
 		"toast_quota_detected_minimax": "Quota MiniMax détecté",

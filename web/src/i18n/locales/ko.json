@@ -934,8 +934,6 @@
 			"suspectMeta_one": "스캔 {{count}}회 누락",
 			"suspectMeta_other": "스캔 {{count}}회 누락",
 			"title": "모델 불일치",
-			"undo": "실행 취소",
-			"undoFailed": "실행 취소할 수 없습니다: {{message}}",
 			"updated": "메타데이터 업데이트됨"
 		},
 		"toast_quota_detected_minimax": "MiniMax 할당량 감지됨",

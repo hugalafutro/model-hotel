@@ -868,70 +868,6 @@ export function Layout({ children }: LayoutProps) {
 		}
 	}, [snapshot, runRetest, toast, t]);
 
-	const undoDismiss = useCallback(
-		async (providerId: string, modelId: string) => {
-			try {
-				const res = await api.discovery.dismiss(providerId, [modelId], false);
-				// Unreachable today: the server 404s (and fetchJSON throws before `res`
-				// exists) whenever `affected == 0` (internal/api/discovery.go's dismiss
-				// handler), so a 0-updated response can never reach this branch. Kept
-				// anyway to implement the one-model-per-call contract: if the server
-				// ever starts 200ing on a partial or zero-count match, this stops a
-				// false "success" from being reported instead of silently trusting `res`.
-				if (res.updated === 0) {
-					throw new Error(t("providers.discrepancies.dismissNoMatch"));
-				}
-				await refresh();
-			} catch (err) {
-				toast(
-					t("providers.discrepancies.undoFailed", {
-						message: err instanceof Error ? err.message : String(err),
-					}),
-					"error",
-				);
-			}
-		},
-		[refresh, toast, t],
-	);
-
-	const undoDismissAll = useCallback(
-		async (providerId: string, modelIds: string[]) => {
-			try {
-				await api.discovery.dismiss(providerId, modelIds, false);
-				await refresh();
-			} catch (err) {
-				toast(
-					t("providers.discrepancies.undoFailed", {
-						message: err instanceof Error ? err.message : String(err),
-					}),
-					"error",
-				);
-			}
-		},
-		[refresh, toast, t],
-	);
-
-	/**
-	 * Dismisses every actionable gone/stale model on one provider at once.
-	 *
-	 * ONE request for the whole batch, unlike the per-row path below. That path
-	 * sends one model per call so `updated: 0` is unambiguous FOR THAT MODEL. A batch
-	 * cannot have that: a short `updated` does not say WHICH ids it missed, so a
-	 * SUCCESSFUL refresh is the only thing that can reconcile them. Any id that did
-	 * not take is still reported by the server, and mergeClaims rebuilds it as
-	 * `pending`. N sequential requests would be the 70-clicks problem moved into the
-	 * network layer.
-	 *
-	 * Which is why the refresh's RESULT is checked. `refresh` absorbs its own error
-	 * and returns undefined rather than throwing (it is normally called as
-	 * `void refresh()` from a click handler), so a failed refresh cannot be caught
-	 * below. Left unchecked, a partial dismissal whose refresh then failed would
-	 * leave every optimistic row struck through, including the ones the server
-	 * SKIPPED: models that are still actionable, hidden from the counts and controls
-	 * as though they were cleared. That is the false reassurance this whole rework
-	 * exists to remove, so an unconfirmed partial rolls the optimistic write back and
-	 * under-claims instead.
-	 */
 	const onDismissAll = useCallback(
 		async (providerId: string, modelIds: string[]) => {
 			if (modelIds.length === 0) return;
@@ -955,17 +891,11 @@ export function Layout({ children }: LayoutProps) {
 			// confirmation dialog, which is a fair price for never showing a provider
 			// as clean when it is not.
 			try {
-				const res = await api.discovery.dismiss(providerId, modelIds, true);
+				const res = await api.discovery.dismiss(providerId, modelIds);
 				if (res.updated === modelIds.length) {
 					dismissClaim(providerId, new Set(modelIds));
 				}
 				await refresh();
-				const undo = {
-					label: t("providers.discrepancies.undo"),
-					onClick: () => {
-						void undoDismissAll(providerId, modelIds);
-					},
-				};
 				if (res.updated < modelIds.length) {
 					toast(
 						t("providers.discrepancies.dismissAllPartial", {
@@ -973,14 +903,12 @@ export function Layout({ children }: LayoutProps) {
 							total: modelIds.length,
 						}),
 						"warning",
-						undo,
 					);
 					return;
 				}
 				toast(
 					t("providers.discrepancies.dismissAllDone", { count: res.updated }),
 					"success",
-					undo,
 				);
 			} catch (err) {
 				// No rollback needed: nothing was claimed before the response.
@@ -992,41 +920,7 @@ export function Layout({ children }: LayoutProps) {
 				);
 			}
 		},
-		[dismissClaim, refresh, toast, t, undoDismissAll],
-	);
-
-	/**
-	 * Undo half of the modal-wide dismiss.
-	 *
-	 * Extracted rather than inlined into the toast action so a failure is REPORTED.
-	 * Inline it was an `allSettled` with no catch and no toast, so a network-down
-	 * Undo did nothing and said nothing, leaving the operator believing their rows
-	 * were back. Harmless to the data (a failed undo is a server-side no-op) and
-	 * precisely the kind of silence that costs trust.
-	 *
-	 * The refresh runs even when a batch fails, so whatever DID restore shows up,
-	 * and the toast names the first failure the way the per-provider path does.
-	 */
-	const undoDismissEverything = useCallback(
-		async (batches: { providerID: string; modelIDs: string[] }[]) => {
-			const results = await Promise.allSettled(
-				batches.map((b) =>
-					api.discovery.dismiss(b.providerID, b.modelIDs, false),
-				),
-			);
-			await refresh();
-			const failed = results.find((r) => r.status === "rejected");
-			if (failed) {
-				const reason = (failed as PromiseRejectedResult).reason;
-				toast(
-					t("providers.discrepancies.undoFailed", {
-						message: reason instanceof Error ? reason.message : String(reason),
-					}),
-					"error",
-				);
-			}
-		},
-		[refresh, toast, t],
+		[dismissClaim, refresh, toast, t],
 	);
 
 	const onDismissEverything = useCallback(
@@ -1034,21 +928,17 @@ export function Layout({ children }: LayoutProps) {
 			if (batches.length === 0) return;
 			const total = batches.reduce((n, b) => n + b.modelIDs.length, 0);
 			const results = await Promise.allSettled(
-				batches.map((b) =>
-					api.discovery.dismiss(b.providerID, b.modelIDs, true),
-				),
+				batches.map((b) => api.discovery.dismiss(b.providerID, b.modelIDs)),
 			);
 			// Per batch, claim only what that provider's own response confirmed; see
 			// onDismissAll for why nothing is claimed up front. A rejected batch and a
 			// short batch are both "not confirmed" and both stay actionable, so no
 			// rollback is needed for either.
 			let dismissed = 0;
-			const landed: { providerID: string; modelIDs: string[] }[] = [];
 			batches.forEach((b, i) => {
 				const r = results[i];
 				if (r.status !== "fulfilled") return;
 				dismissed += r.value.updated;
-				landed.push(b);
 				if (r.value.updated === b.modelIDs.length) {
 					dismissClaim(b.providerID, new Set(b.modelIDs));
 				}
@@ -1058,12 +948,6 @@ export function Layout({ children }: LayoutProps) {
 				toast(t("providers.discrepancies.dismissEverythingFailed"), "error");
 				return;
 			}
-			const undo = {
-				label: t("providers.discrepancies.undo"),
-				onClick: () => {
-					void undoDismissEverything(landed);
-				},
-			};
 			toast(
 				dismissed < total
 					? t("providers.discrepancies.dismissAllPartial", {
@@ -1072,10 +956,9 @@ export function Layout({ children }: LayoutProps) {
 						})
 					: t("providers.discrepancies.dismissAllDone", { count: dismissed }),
 				dismissed < total ? "warning" : "success",
-				undo,
 			);
 		},
-		[dismissClaim, refresh, toast, t, undoDismissEverything],
+		[dismissClaim, refresh, toast, t],
 	);
 
 	const onDismiss = useCallback(
@@ -1092,12 +975,12 @@ export function Layout({ children }: LayoutProps) {
 				// `updated` for a mixed list and only 404s when NOTHING matched, so a
 				// batch cannot say which models it missed; one at a time makes
 				// `updated: 0` an unambiguous failure for this model.
-				const res = await api.discovery.dismiss(providerId, [modelId], true);
-				// Unreachable today: same as undoDismiss above, the server 404s (and
-				// fetchJSON throws) whenever `affected == 0`, so this branch cannot
-				// currently be hit. Kept as the guard for the one-model-per-call
-				// contract described above, in case the server ever starts 200ing on a
-				// partial or zero-count match.
+				const res = await api.discovery.dismiss(providerId, [modelId]);
+				// Unreachable today: the server 404s (and fetchJSON throws before `res`
+				// exists) whenever `affected == 0`, so a 0-updated response cannot reach
+				// this branch. Kept as the guard for the one-model-per-call contract
+				// described above, in case the server ever starts 200ing on a partial or
+				// zero-count match.
 				if (res.updated === 0) {
 					throw new Error(t("providers.discrepancies.dismissNoMatch"));
 				}
@@ -1105,12 +988,6 @@ export function Layout({ children }: LayoutProps) {
 				toast(
 					t("providers.discrepancies.dismissed", { model: modelId }),
 					"success",
-					{
-						label: t("providers.discrepancies.undo"),
-						onClick: () => {
-							void undoDismiss(providerId, modelId);
-						},
-					},
 				);
 			} catch (err) {
 				restoreClaim(providerId, new Set([modelId]));
@@ -1122,7 +999,7 @@ export function Layout({ children }: LayoutProps) {
 				);
 			}
 		},
-		[dismissClaim, restoreClaim, refresh, toast, t, undoDismiss],
+		[dismissClaim, restoreClaim, refresh, toast, t],
 	);
 
 	// `exact: true` on BOTH invalidations below, and it is not optional.

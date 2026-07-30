@@ -934,8 +934,6 @@
 			"suspectMeta_one": "{{count}} Suchlauf verpasst",
 			"suspectMeta_other": "{{count}} Suchläufe verpasst",
 			"title": "Modellabweichungen",
-			"undo": "Rückgängig",
-			"undoFailed": "Rückgängig machen fehlgeschlagen: {{message}}",
 			"updated": "Metadaten aktualisiert"
 		},
 		"toast_quota_detected_minimax": "MiniMax Kontingent erkannt",

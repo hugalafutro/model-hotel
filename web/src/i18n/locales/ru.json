@@ -988,8 +988,6 @@
 			"suspectMeta_one": "Пропущено {{count}} сканирование",
 			"suspectMeta_other": "Пропущено {{count}} сканирования",
 			"title": "Расхождения по моделям",
-			"undo": "Отменить",
-			"undoFailed": "Не удалось отменить: {{message}}",
 			"updated": "Метаданные обновлены"
 		},
 		"toast_quota_detected_minimax": "Обнаружена квота MiniMax",

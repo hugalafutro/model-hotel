@@ -241,13 +241,13 @@ func TestPruneDiscoveryChanges(t *testing.T) {
 }
 
 // TestSetModelsDismissed exercises the one write claim derivation depends on:
-// stamping and clearing discovery_dismissed_at, and reporting 0 rows for a
-// model ID that does not exist so the future dismiss endpoint (Task 4) can
-// tell an operator they targeted something real. Not in the brief's test
-// list (Task 4 exercises this end-to-end via HTTP), added here so the
-// function is not committed dead: golangci-lint's `unused` check flags it
-// otherwise, since nothing in this package calls it until the dismiss
-// endpoint lands.
+// stamping discovery_dismissed_at, and reporting 0 rows for a model ID that does
+// not exist so the dismiss endpoint can tell an operator they targeted something
+// real.
+//
+// There is no clearing direction any more. A dismissal is undone by discovery
+// sighting the model again, which nulls the column in models.Upsert; nothing
+// clears it by hand.
 func TestSetModelsDismissed(t *testing.T) {
 	h, _ := newTestHandlerWithRouter(t)
 	pool := h.dbPool.Pool()
@@ -256,7 +256,7 @@ func TestSetModelsDismissed(t *testing.T) {
 	prov := seedClaimProvider(t, pool, "claims-dismiss", true)
 	seedClaimModel(t, pool, prov, "to-dismiss", false, false, 0, nil)
 
-	n, err := setModelsDismissed(ctx, pool, prov, []string{"to-dismiss"}, true)
+	n, err := setModelsDismissed(ctx, pool, prov, []string{"to-dismiss"})
 	if err != nil {
 		t.Fatalf("dismiss: %v", err)
 	}
@@ -272,22 +272,7 @@ func TestSetModelsDismissed(t *testing.T) {
 		t.Fatal("discovery_dismissed_at not set after dismiss")
 	}
 
-	n, err = setModelsDismissed(ctx, pool, prov, []string{"to-dismiss"}, false)
-	if err != nil {
-		t.Fatalf("undismiss: %v", err)
-	}
-	if n != 1 {
-		t.Fatalf("undismiss rows affected = %d, want 1", n)
-	}
-	if err := pool.QueryRow(ctx, `SELECT discovery_dismissed_at FROM models WHERE provider_id = $1 AND model_id = $2`,
-		prov, "to-dismiss").Scan(&dismissedAt); err != nil {
-		t.Fatalf("query: %v", err)
-	}
-	if dismissedAt != nil {
-		t.Fatal("discovery_dismissed_at not cleared after undismiss")
-	}
-
-	n, err = setModelsDismissed(ctx, pool, prov, []string{"does-not-exist"}, true)
+	n, err = setModelsDismissed(ctx, pool, prov, []string{"does-not-exist"})
 	if err != nil {
 		t.Fatalf("dismiss unknown: %v", err)
 	}

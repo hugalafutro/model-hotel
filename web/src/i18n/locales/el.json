@@ -934,8 +934,6 @@
 			"suspectMeta_one": "Χάθηκε {{count}} σάρωση",
 			"suspectMeta_other": "Χάθηκαν {{count}} σαρώσεις",
 			"title": "Αποκλίσεις μοντέλων",
-			"undo": "Αναίρεση",
-			"undoFailed": "Δεν ήταν δυνατή η αναίρεση: {{message}}",
 			"updated": "Ενημερωμένα μεταδεδομένα"
 		},
 		"toast_quota_detected_minimax": "Ανιχνεύθηκε ποσόστωση MiniMax",

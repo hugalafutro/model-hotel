@@ -934,8 +934,6 @@
 			"suspectMeta_one": "错过了 {{count}} 次扫描",
 			"suspectMeta_other": "错过了 {{count}} 次扫描",
 			"title": "模型差异",
-			"undo": "撤销",
-			"undoFailed": "无法撤销：{{message}}",
 			"updated": "元数据已更新"
 		},
 		"toast_quota_detected_minimax": "检测到 MiniMax 配额",

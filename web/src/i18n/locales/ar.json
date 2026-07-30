@@ -1018,8 +1018,6 @@
 			"suspectMeta_two": "فاته {{count}} فحصان",
 			"suspectMeta_zero": "فاته {{count}} فحص",
 			"title": "تباينات النماذج",
-			"undo": "تراجع",
-			"undoFailed": "تعذّر التراجع: {{message}}",
 			"updated": "تم تحديث البيانات الوصفية"
 		},
 		"toast_quota_detected_minimax": "تم اكتشاف حصة MiniMax",

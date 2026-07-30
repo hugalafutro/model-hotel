@@ -934,8 +934,6 @@
 			"suspectMeta_one": "{{count}} vizsgálat kimaradt",
 			"suspectMeta_other": "{{count}} vizsgálat kimaradt",
 			"title": "Modelleltérések",
-			"undo": "Visszavonás",
-			"undoFailed": "Nem sikerült visszavonni: {{message}}",
 			"updated": "Frissített metaadatok"
 		},
 		"toast_quota_detected_minimax": "MiniMax kvóta észlelve",

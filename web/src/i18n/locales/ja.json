@@ -934,8 +934,6 @@
 			"suspectMeta_one": "スキャンを {{count}} 回逃しました",
 			"suspectMeta_other": "スキャンを {{count}} 回逃しました",
 			"title": "モデルの不一致",
-			"undo": "元に戻す",
-			"undoFailed": "元に戻せませんでした: {{message}}",
 			"updated": "メタデータが更新されました"
 		},
 		"toast_quota_detected_minimax": "MiniMax のクオータを検出しました",

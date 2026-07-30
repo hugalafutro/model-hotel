@@ -936,8 +936,6 @@
 			"suspectMeta_one": "Missed {{count}} scan",
 			"suspectMeta_other": "Missed {{count}} scans",
 			"title": "Model discrepancies",
-			"undo": "Undo",
-			"undoFailed": "Could not undo: {{message}}",
 			"updated": "Metadata updated"
 		},
 		"toast_refresh_success_one": "Refreshed {{count}} quota/balance",

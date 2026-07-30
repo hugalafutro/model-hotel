@@ -428,10 +428,12 @@ export const api = {
 			);
 		},
 		// Suppress (or, with dismissed=false, restore) a discrepancy.
+		// Dismiss only. There is deliberately no un-dismiss: a dismissal self-heals
+		// when discovery next sights the model, which is the only reversal the modal
+		// needs.
 		dismiss: async (
 			providerId: string,
 			modelIds: string[],
-			dismissed: boolean,
 		): Promise<{ updated: number }> => {
 			return fetchJSON<{ updated: number }>(
 				`${API_BASE}/api/discovery/dismiss`,
@@ -441,10 +443,9 @@ export const api = {
 					body: JSON.stringify({
 						provider_id: providerId,
 						model_ids: modelIds,
-						dismissed,
 					}),
 				},
-				"Failed to update discovery dismissal",
+				"Failed to dismiss discovery claims",
 			);
 		},
 		ackChanges: async (): Promise<DiscoveryChangesResponse> => {

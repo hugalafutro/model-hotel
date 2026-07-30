@@ -988,8 +988,6 @@
 			"suspectMeta_one": "Пропущено {{count}} сканування",
 			"suspectMeta_other": "Пропущено {{count}} сканування",
 			"title": "Розбіжності моделей",
-			"undo": "Скасувати дію",
-			"undoFailed": "Не вдалося скасувати: {{message}}",
 			"updated": "Оновлено метадані"
 		},
 		"toast_quota_detected_minimax": "MiniMax виявлена квота",

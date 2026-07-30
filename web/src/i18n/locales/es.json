@@ -961,8 +961,6 @@
 			"suspectMeta_one": "Se perdió {{count}} análisis",
 			"suspectMeta_other": "Se perdieron {{count}} análisis",
 			"title": "Discrepancias de modelos",
-			"undo": "Deshacer",
-			"undoFailed": "No se pudo deshacer: {{message}}",
 			"updated": "Metadatos actualizados"
 		},
 		"toast_quota_detected_minimax": "Cuota de MiniMax detectada",

@@ -961,8 +961,6 @@
 			"suspectMeta_other": "החמיץ {{count}} סריקות",
 			"suspectMeta_two": "החמיץ {{count}} סריקות",
 			"title": "אי-התאמות במודלים",
-			"undo": "בטל",
-			"undoFailed": "לא ניתן היה לבטל: {{message}}",
 			"updated": "מטא-נתונים עודכנו"
 		},
 		"toast_quota_detected_minimax": "זוהתה מכסת MiniMax",
