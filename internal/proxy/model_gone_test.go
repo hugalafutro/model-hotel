@@ -319,7 +319,7 @@ func TestNoteModelGone_CapabilityRefusalsNeverDisable(t *testing.T) {
 	// Well past the threshold, cycling through every refusal shape.
 	for i := range goneStrikeThreshold * 3 {
 		body := refusals[i%len(refusals)]
-		if kind, _ := classifyUpstreamError(400, body); kind == KindProviderModelGone {
+		if kind, _ := classifyUpstreamError(400, body, "gpt-5.6-sol"); kind == KindProviderModelGone {
 			h.noteModelGone(m, "OpenAI")
 		}
 	}
@@ -340,7 +340,7 @@ func TestNoteModelGone_RealRetirementStillDisables(t *testing.T) {
 	body := `{"error":{"code":404,"message":"This model models/gemini-2.0-flash is no longer available. Please update your code to use a newer model."}}`
 
 	for range goneStrikeThreshold {
-		if kind, _ := classifyUpstreamError(404, body); kind == KindProviderModelGone {
+		if kind, _ := classifyUpstreamError(404, body, "gemini-2.0-flash"); kind == KindProviderModelGone {
 			h.noteModelGone(m, "Google AI Studio (Gemini)")
 		}
 	}

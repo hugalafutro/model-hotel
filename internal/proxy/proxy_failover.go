@@ -170,7 +170,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		// A retired model usually answers 404, which is failover-eligible, so
 		// without this the "model gone" signal would be lost precisely when
 		// there is another candidate to fall back to.
-		if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(drained), 10000)); kind == KindProviderModelGone {
+		if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(drained), 10000), candidate.model.ModelID); kind == KindProviderModelGone {
 			h.noteModelGone(candidate.model, candidate.provider.Name)
 		}
 		st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
@@ -639,7 +639,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	errMsg := util.SanitizeLogBody(string(body), 10000)
 	// Classify for the request log and metrics only — routing is unaffected,
 	// hasMoreCandidates was already decided from the status code.
-	kind, reason := classifyUpstreamError(resp.StatusCode, errMsg)
+	kind, reason := classifyUpstreamError(resp.StatusCode, errMsg, candidate.model.ModelID)
 	if kind == KindProviderModelGone {
 		h.noteModelGone(candidate.model, candidate.provider.Name)
 	}

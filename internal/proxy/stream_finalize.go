@@ -185,7 +185,7 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 		// intact — a provider is free to echo the request back inside an error,
 		// and an unbounded provider string must not land in the log either way.
 		errMsg = util.SanitizeLogBody(errMsg, 10000)
-		logData.errorKind, _ = classifyUpstreamError(logData.statusCode, errMsg)
+		logData.errorKind, _ = classifyUpstreamError(logData.statusCode, errMsg, logData.modelID)
 	}
 	if errMsg == "" && scanErr != nil {
 		switch {

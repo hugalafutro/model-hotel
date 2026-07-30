@@ -17,66 +17,77 @@ func TestClassifyUpstreamError_RealProviderBodies(t *testing.T) {
 		name   string
 		status int
 		body   string
+		model  string
 		want   ErrorKind
 	}{
 		{
 			name:   "google retired model, still in its own /models listing",
 			status: 404,
 			body:   `{"error":{"code":404,"message":"This model models/gemini-2.0-flash is no longer available. Please update your code to use a newer model."}}`,
+			model:  "gemini-2.0-flash",
 			want:   KindProviderModelGone,
 		},
 		{
 			name:   "google generateContent on an unsupported model",
 			status: 404,
 			body:   `{"error":{"code":404,"message":"models/gemini-embedding-001 is not found for API version v1main, or is not supported for generateContent."}}`,
+			model:  "gemini-embedding-001",
 			want:   KindProviderModelGone,
 		},
 		{
 			name:   "opencode zen unsupported model",
 			status: 401,
 			body:   `{"type":"error","error":{"type":"ModelError","message":"Model gemini-3-pro is not supported"}}`,
+			model:  "gemini-3-pro",
 			want:   KindProviderModelGone,
 		},
 		{
 			name:   "opencode zen model off the full model list",
 			status: 400,
 			body:   `{"type":"invalid_request_error","message":"Error from provider (Console): Model claude-sonnet-4 is not supported on the full model list."}`,
+			model:  "claude-sonnet-4",
 			want:   KindProviderModelGone,
 		},
 		{
 			name:   "xai model not found",
 			status: 400,
 			body:   `"Model not found: grok-imagine-image"`,
+			model:  "grok-imagine-image",
 			want:   KindProviderModelGone,
 		},
 		{
 			name:   "zai coding plan, model outside the subscription",
 			status: 429,
 			body:   `{"error":{"code":"1113","message":"Insufficient balance or no resource package. Please recharge."}}`,
+			model:  "some-model",
 			want:   KindProviderNotEntitled,
 		},
 		{
 			name:   "gemini native route rejecting an openai-shaped body",
 			status: 400,
 			body:   `{"code":400,"message":"Error from provider (Console): Invalid JSON request body: Missing key\n  at [\"contents\"]","status":"INVALID_ARGUMENT"}`,
+			model:  "some-model",
 			want:   KindProviderBadRequest,
 		},
 		{
 			name:   "transient aggregator backend fault stays the default",
 			status: 400,
 			body:   `{"message":"Error from provider (Console): Upstream request failed","type":"server_error"}`,
+			model:  "some-model",
 			want:   KindProviderError,
 		},
 		{
 			name:   "plain 5xx stays the default",
 			status: 503,
 			body:   `service unavailable`,
+			model:  "some-model",
 			want:   KindProviderError,
 		},
 		{
 			name:   "empty body stays the default",
 			status: 502,
 			body:   ``,
+			model:  "some-model",
 			want:   KindProviderError,
 		},
 	}
@@ -84,7 +95,7 @@ func TestClassifyUpstreamError_RealProviderBodies(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got, reason := classifyUpstreamError(tc.status, tc.body)
+			got, reason := classifyUpstreamError(tc.status, tc.body, tc.model)
 			if got != tc.want {
 				t.Errorf("classifyUpstreamError(%d, %q) kind = %q, want %q", tc.status, tc.body, got, tc.want)
 			}
@@ -110,7 +121,7 @@ func TestClassifyUpstreamError_ReasonNeverEchoesBody(t *testing.T) {
 	}
 
 	for _, body := range bodies {
-		_, reason := classifyUpstreamError(400, body)
+		_, reason := classifyUpstreamError(400, body, "some-model")
 		if strings.Contains(reason, secret) {
 			t.Errorf("reason leaked the upstream body: %q", reason)
 		}
@@ -150,6 +161,7 @@ func TestClassifyUpstreamError_NarrowPatterns(t *testing.T) {
 		name   string
 		status int
 		body   string
+		model  string
 		want   ErrorKind
 	}{
 		{
@@ -159,12 +171,14 @@ func TestClassifyUpstreamError_NarrowPatterns(t *testing.T) {
 			name:   "transient fault naming a billing subsystem is not an entitlement failure",
 			status: 500,
 			body:   `{"error":{"message":"billing_engine_timeout: upstream unavailable","type":"server_error"}}`,
+			model:  "some-model",
 			want:   KindProviderError,
 		},
 		{
 			name:   "402 is entitlement regardless of body",
 			status: 402,
 			body:   `{"error":{"message":"payment required"}}`,
+			model:  "some-model",
 			want:   KindProviderNotEntitled,
 		},
 		{
@@ -174,18 +188,21 @@ func TestClassifyUpstreamError_NarrowPatterns(t *testing.T) {
 			name:   "does-not-exist about a non-model entity is not a dead model",
 			status: 404,
 			body:   `{"error":{"message":"the requested conversation does not exist"}}`,
+			model:  "some-model",
 			want:   KindProviderError,
 		},
 		{
 			name:   "does-not-exist about a model still classifies as gone",
 			status: 404,
 			body:   "{\"error\":{\"message\":\"The model `gpt-4.5-preview` does not exist or you do not have access to it\"}}",
+			model:  "gpt-4.5-preview",
 			want:   KindProviderModelGone,
 		},
 		{
 			name:   "genuine insufficient balance still classifies",
 			status: 429,
 			body:   `{"error":{"code":"1113","message":"Insufficient balance or no resource package. Please recharge."}}`,
+			model:  "some-model",
 			want:   KindProviderNotEntitled,
 		},
 	}
@@ -193,7 +210,7 @@ func TestClassifyUpstreamError_NarrowPatterns(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got, _ := classifyUpstreamError(tc.status, tc.body); got != tc.want {
+			if got, _ := classifyUpstreamError(tc.status, tc.body, tc.model); got != tc.want {
 				t.Errorf("classifyUpstreamError(%d, %q) = %q, want %q", tc.status, tc.body, got, tc.want)
 			}
 		})
@@ -229,7 +246,7 @@ func TestClassifyUpstreamError_CapabilityErrorsAreNotDeadModels(t *testing.T) {
 	for _, tc := range bodies {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got, _ := classifyUpstreamError(400, tc.body)
+			got, _ := classifyUpstreamError(400, tc.body, modelInBody(tc.body))
 			if got == KindProviderModelGone {
 				t.Errorf("capability error classified as a dead model, which would auto-disable it: %q", tc.body)
 			}
@@ -258,7 +275,7 @@ func TestClassifyUpstreamError_ModelGoneStillMatches(t *testing.T) {
 	for _, tc := range bodies {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got, _ := classifyUpstreamError(404, tc.body); got != KindProviderModelGone {
+			if got, _ := classifyUpstreamError(404, tc.body, modelInBody(tc.body)); got != KindProviderModelGone {
 				t.Errorf("real retired-model payload no longer classifies: got %q for %q", got, tc.body)
 			}
 		})
@@ -291,9 +308,104 @@ func TestClassifyUpstreamError_OperationRefusalsAreNotDeadModels(t *testing.T) {
 	for _, tc := range bodies {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got, _ := classifyUpstreamError(400, tc.body)
+			got, _ := classifyUpstreamError(400, tc.body, modelInBody(tc.body))
 			if got == KindProviderModelGone {
 				t.Errorf("capability refusal classified as a dead model, which would auto-disable a live one: %q", tc.body)
+			}
+		})
+	}
+}
+
+// modelInBody pulls the model id a test payload is talking about, so the
+// classifier is exercised the way the proxy calls it: with the id of the model
+// the request actually asked for. Falls back to a placeholder for bodies that
+// name no model, which is exactly the "cannot be about this model" case.
+func modelInBody(body string) string {
+	for _, id := range []string{
+		"gemini-2.0-flash", "gemini-embedding-001", "gemini-3-pro", "gemini-3.6-flash",
+		"claude-sonnet-4", "claude-opus-5", "grok-imagine-image", "grok-4.5",
+		"gpt-4.5-preview", "gpt-5.6-sol", "glm-5.2", "kimi-k3", "minimax-m3",
+		"deepseek-v4-pro", "qwen3.6-plus",
+	} {
+		if strings.Contains(body, id) {
+			return id
+		}
+	}
+	return "some-model"
+}
+
+// TestClassifyUpstreamError_MustBeAboutTheRequestedModel is the constraint that
+// replaced four rounds of trying to get the wording right: a retirement verdict
+// requires the provider to be talking about THIS model.
+//
+// Without it, any body that merely mentioned some other missing model, or
+// echoed request content that happened to contain "unknown model", counted as
+// proof the requested model was retired — and three of those disable it.
+func TestClassifyUpstreamError_MustBeAboutTheRequestedModel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		body      string
+		requested string
+		want      ErrorKind
+	}{
+		{
+			name:      "error naming a different model is not about ours",
+			body:      `{"error":{"message":"The model ` + "`gpt-4.5-preview`" + ` does not exist"}}`,
+			requested: "gpt-5.6-sol",
+			want:      KindProviderError,
+		},
+		{
+			name:      "fallback chain mentioning another dead model",
+			body:      `{"error":{"message":"upstream failed; note: model gemini-1.0-pro is no longer available"}}`,
+			requested: "gemini-3.6-flash",
+			want:      KindProviderError,
+		},
+		{
+			name:      "provider echoing request content containing the phrase",
+			body:      `{"error":{"message":"invalid request","input":"please explain what an unknown model is"}}`,
+			requested: "claude-opus-5",
+			want:      KindProviderError,
+		},
+		{
+			name:      "echoed prompt saying model not found",
+			body:      `{"error":{"message":"bad request","echo":"the user wrote: model not found errors are annoying"}}`,
+			requested: "glm-5.2",
+			want:      KindProviderError,
+		},
+		{
+			name:      "no model id available cannot substantiate a retirement",
+			body:      `{"error":{"message":"The model ` + "`gpt-4.5-preview`" + ` does not exist"}}`,
+			requested: "",
+			want:      KindProviderError,
+		},
+		// The positive control: same phrasing, and this time it IS our model.
+		{
+			name:      "error about the requested model does classify",
+			body:      `{"error":{"message":"The model ` + "`gpt-4.5-preview`" + ` does not exist"}}`,
+			requested: "gpt-4.5-preview",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "google prefixes the id, we store it bare",
+			body:      `{"error":{"code":404,"message":"This model models/gemini-2.0-flash is no longer available."}}`,
+			requested: "gemini-2.0-flash",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "we hold the prefixed id, provider reports it bare",
+			body:      `{"error":{"message":"Model gemini-2.0-flash is no longer available."}}`,
+			requested: "models/gemini-2.0-flash",
+			want:      KindProviderModelGone,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got, _ := classifyUpstreamError(400, tc.body, tc.requested); got != tc.want {
+				t.Errorf("classifyUpstreamError(body=%q, requested=%q) = %q, want %q", tc.body, tc.requested, got, tc.want)
 			}
 		})
 	}

@@ -557,7 +557,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// error_kind, and only claim "upstream HTTP n" when n actually was a
 		// failure — reporting "upstream provider returned HTTP 200" for an
 		// undecodable success body sent operators hunting the wrong thing.
-		kind, reason := classifyUpstreamError(resp.StatusCode, errMsg)
+		kind, reason := classifyUpstreamError(resp.StatusCode, errMsg, logData.modelID)
 		if resp.StatusCode < 300 {
 			kind = KindProviderBadRequest
 			reason = "the provider returned a response the gateway could not decode"

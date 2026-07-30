@@ -50,8 +50,10 @@ func TestDeriveStreamError_SanitizesProviderMessage(t *testing.T) {
 	t.Run("classifies an in-stream retired-model error", func(t *testing.T) {
 		t.Parallel()
 
+		// modelID must be set: a retirement verdict now requires the body to be
+		// the provider talking about the model this request actually asked for.
 		st := &streamState{lastErrMsg: "Model gemini-3-pro is not supported"}
-		logData := &requestLogData{statusCode: 401}
+		logData := &requestLogData{statusCode: 401, modelID: "gemini-3-pro"}
 
 		deriveStreamError(st, nil, streamOptions{}, logData)
 
