@@ -68,6 +68,14 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 			continue
 		}
 
+		// Google keeps shut-down models in its listing, so a live entry is not
+		// proof the model still answers. Drop the known-retired IDs here rather
+		// than upserting them as Enabled and 404ing on every request.
+		if IsRetiredGoogleModel(modelID) {
+			debuglog.Info("discovery: google skipping retired model", "model", modelID)
+			continue
+		}
+
 		pricing := LookupGooglePricing(pricingCatalog, gm.Name)
 
 		// Build capabilities from API data

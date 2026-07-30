@@ -911,8 +911,8 @@ Model IDs follow the format provided by each provider:
 | OpenAI | `gpt-4o`, `gpt-4o-2024-08-06`, `o1-preview` |
 | Anthropic | `claude-sonnet-4-5-20250514`, `claude-3-5-haiku-20241022` |
 | DeepSeek | `deepseek-chat`, `deepseek-reasoner` |
-| xAI | `grok-3`, `grok-3-mini` |
-| Google | `gemini-2.5-flash`, `gemini-2.0-flash` (stripped from `models/gemini-2.5-flash`) |
+| xAI | `grok-4.3`, `grok-4.5` |
+| Google | `gemini-2.5-flash`, `gemini-3.6-flash` (stripped from `models/gemini-3.6-flash`) |
 | Ollama | `llama3.2:3b`, `gemma3:4b` |
 | OpenRouter | `openai/gpt-4.1`, `anthropic/claude-3-5-sonnet` |
 

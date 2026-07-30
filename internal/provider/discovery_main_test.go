@@ -654,7 +654,7 @@ func TestDiscoverModels_GoogleDispatch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1beta/models" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"models": [{"name": "models/gemini-2.0-flash", "displayName": "Gemini 2.0 Flash", "description": "Test", "inputTokenLimit": 1000000, "outputTokenLimit": 8192, "supportedGenerationMethods": ["generateContent"], "thinking": false}]}`))
+			w.Write([]byte(`{"models": [{"name": "models/gemini-3.6-flash", "displayName": "Gemini 3.6 Flash", "description": "Test", "inputTokenLimit": 1000000, "outputTokenLimit": 8192, "supportedGenerationMethods": ["generateContent"], "thinking": false}]}`))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
