@@ -17,6 +17,7 @@ Model discovery is the process by which Model Hotel learns about available model
 ## Table of Contents
 
 - [Discovery Triggers](#discovery-triggers)
+- [The Model Discrepancy Modal](#the-model-discrepancy-modal)
 - [Provider-Specific Discovery](#provider-specific-discovery)
 - [Models.dev Enrichment](#modelsdev-enrichment)
 - [Model Metadata Fields](#model-metadata-fields)
@@ -87,7 +88,9 @@ Both endpoints upsert discovered models and re-sync failover groups for what the
 
 Both endpoints also return a `diff` describing what the scan changed - models added or re-enabled (with machine-readable reason codes `new_model`, `reappeared`) plus any failover groups updated as a result. (The background sweep's diff can also carry `disabled` entries with reason `not_listed`; manual scans never disable, so theirs will not.) It also reports `updated` models whose live pricing or context-length metadata moved since the previous scan: each entry carries per-field `changes` (codes `input_price`, `output_price`, `input_price_cache`, `context_length`, each with `old`/`new` numbers). Only fields the provider's own live API supplied this scan are compared (tracked via transient per-field live provenance), so catalog/models.dev backfills, flaky probes, and manual price edits never surface as spurious changes. The dashboard renders this diff as a post-scan summary modal after manual Discover / Discover All runs; an all-empty diff still confirms "scanned, nothing changed".
 
-Scheduled/startup background discovery does not pop the modal (SSE events cover it). Instead, any changes it records are persisted to a `discovery_changes` store (migration `047`) and surfaced as a count badge on the **Models** sidebar item; clicking the badge opens a summary modal of the recorded changes and acks the unseen rows server-side (clearing the badge). A `discovery.changes_pending` SSE event fires when a background scan records changes. See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the `GET /api/discovery/changes` and `POST /api/discovery/changes/ack` endpoints.
+Scheduled/startup background discovery does not pop the modal (SSE events cover it). Instead, any changes it records are persisted to a `discovery_changes` store (migration `047`) and surfaced as a badge on the **Models** sidebar item; clicking the badge opens the [Model Discrepancy Modal](#the-model-discrepancy-modal). A `discovery.changes_pending` SSE event fires when a background scan records changes. See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the `GET /api/discovery/changes` and `POST /api/discovery/changes/ack` endpoints.
+
+Opening the modal does **not** clear the badge. Nothing is acked until the operator actually expands the Recent changes section, because a badge that clears on a glance is a badge that hides things.
 
 ```json
 {
@@ -107,6 +110,68 @@ Scheduled/startup background discovery does not pop the modal (SSE events cover 
 ```
 
 In `discover-all` responses the same `diff` object appears per provider inside each `results[]` entry (omitted for providers whose scan failed).
+
+---
+
+## The Model Discrepancy Modal
+
+The badge on the **Models** sidebar item opens this. It answers one question: what does discovery currently believe is wrong, and what can you do about it.
+
+<div align="center">
+<img src="screenshots/discrepancy_modal.png" alt="Model discrepancy modal: one collapsed pill per provider with gone and stale counts" width="720"><br>
+</div>
+
+### Claims are derived, never stored
+
+Every row is computed from live state (`models`, `model_failover_groups`) on each request. Nothing is read back from the `discovery_changes` journal, so a claim cannot drift from reality and a rescan always corrects it. The only persisted operator intent is two columns: `models.discovery_dismissed_at` (migration `061`) and `model_failover_groups.auto_disabled_at` (`062`).
+
+### The three buckets
+
+| Bucket | Meaning | Counted by the badge? |
+| --- | --- | --- |
+| **Gone** | The provider stopped listing it and discovery disabled it here. | **Yes** |
+| **Suspect** | Still enabled, but absent from recent scans. One more miss and it goes. | No, early warning only |
+| **Stale** | Missing over 30 days with no flapping, so almost certainly retired rather than broken. | No |
+
+`ClaimWindow` (30 days) bounds three things that must agree: how far back flap counts are computed, how long journal rows are retained, and how long a quiet gone model waits before it stops counting. Auto-dismiss at that horizon is a *predicate*, not a write, so changing the constant re-derives every claim with no backfill.
+
+### Navigating it
+
+Providers render as collapsed pills carrying their actionable counts. Click a pill to reveal its bucket lines; click a line to reveal the models. **Only one provider and only one bucket line are ever open**, so opening a second collapses the first.
+
+Rows are mounted only while their bucket is open. That is a performance decision, not a cosmetic one: a fleet with eight providers and 179 discrepancies would otherwise hold every row in the DOM at once, and animating a 52-row list open forces a full-subtree relayout on every frame. Scroll past the open provider's header and a return-to-top control floats in; it scrolls without collapsing what you are reading.
+
+### Acting on it
+
+| Control | Scope | Effect |
+| --- | --- | --- |
+| **Retest** | one provider | Re-runs discovery for it and re-checks its models. |
+| **Retest all** | header | Walks every listed provider in turn, cancellable. |
+| **Dismiss** | one model | Clears that row from the list. |
+| **Dismiss all** | one provider | Clears every gone and stale model on it, in one request, after a confirm. |
+| **Dismiss all** | header | Same, across every listed provider. This is the "I saw the badge, I do not need the detail" path: confirm once and the badge clears. |
+| **Clean** (broom) | one provider | Appears only once nothing on that provider is actionable. Drops the pill from the view and writes nothing. |
+
+**Dismissing never stops discovery.** It clears rows from this list. Discovery keeps sweeping, and `models.Upsert` clears `discovery_dismissed_at` on any sighting, so a dismissed model returns as a fresh claim if its provider lists it again and it later goes missing again. Suspect models cannot be dismissed at all: `setModelsDismissed` only touches `enabled = false` rows, because pre-dismissing a still-enabled model would silently hide the claim the next time it genuinely went missing.
+
+Nothing vanishes when you act on it. A dismissed or resolved row stays struck through where it sat, and a cleared provider keeps its buckets as the log of what you did, until you hit Clean.
+
+### Dismissed is not resolved
+
+The modal distinguishes two reasons a row can clear, because they mean opposite things:
+
+- **dismissed** - you acknowledged it. The model is still gone.
+- **back** - the provider is listing it again. It fixed itself.
+
+Both are absent from the next fetch, which is why the distinction has to be tracked client-side rather than inferred from absence.
+
+### Failover group claims
+
+Failover groups that discovery disabled appear in their own section, with live member and routable counts (`1 of 3 members routable` points at a specific broken member where a bare "group disabled" would not). They carry no Retest (a retest is provider-scoped, a group is not) and no dismiss: the claim clears itself once the group is routable again. Deleted groups are deliberately not represented, since both deletion reasons are downstream of gone-model claims that are already counted.
+
+### Recent changes
+
+The informational journal, newest first. It never holds the badge count open, only its dot, and collapsing or expanding it is what marks it seen. Price and context-length moves land here rather than as claims: a price change is news, not a fault.
 
 ---
 
