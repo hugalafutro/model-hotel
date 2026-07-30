@@ -11,11 +11,13 @@
  <img src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
  <img src="https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black" alt="React">
  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL">
- <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a><br>
+ <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a>
+ <br>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml/badge.svg" alt="golangci-lint"></a>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hugalafutro/model-hotel/badges/coverage.json" alt="Coverage"></a>
- <img src="https://img.shields.io/github/stars/hugalafutro/model-hotel" alt="GitHub Stars"><br>
+ <img src="https://img.shields.io/github/stars/hugalafutro/model-hotel" alt="GitHub Stars">
+ <br>
 </p>
 
 > [!IMPORTANT]
@@ -24,25 +26,32 @@
 
 <div align="center">
   
-<sub>Localised by AI - _expect mistakes_ - translation fixes welcome as PRs against [`web/src/i18n/locales/`](https://github.com/hugalafutro/model-hotel/tree/master/web/src/i18n/locales)!<br>Made with [OpenCode](https://opencode.ai) + [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) & [Claude Code](https://claude.com/claude-code)</sub>
-<br>
-
- <a href="https://mh.site19.ddns.net"><img src="https://img.shields.io/badge/%F0%9F%8F%A8%20Live%20Demo-Try%20it%20now-D97757?style=for-the-badge" alt="Live Demo"></a><br>
+ <sub>Localised by AI - _expect mistakes_ - translation fixes welcome as PRs against [`web/src/i18n/locales/`](https://github.com/hugalafutro/model-hotel/tree/master/web/src/i18n/locales)!<br>Made with [OpenCode](https://opencode.ai) + [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) & [Claude Code](https://claude.com/claude-code)</sub>
+ <br>
+ <br>
+ <a href="https://mh.site19.ddns.net"><img src="https://img.shields.io/badge/%F0%9F%8F%A8%20Live%20Demo-Try%20it%20now-D97757?style=for-the-badge" alt="Live Demo"></a>
+ <br>
  <sub>Poke around a real instance at <a href="https://mh.site19.ddns.net">mh.site19.ddns.net</a> - rebuilds fresh every 30 minutes</sub>
-<br><br>
-
+ <br>
+ <br>
 </div>
 
 A single OpenAI-compatible endpoint that sits in front of all your LLM providers. Models are auto-discovered the moment you add a provider and optionally on schedule; failover groups form automatically around shared model names and retry transparently when a provider goes down; no prompt data is ever stored.
 
-<div align="center">
-<br><img src="docs/screenshots/dashboard_themes.webp" alt="Dashboard cycling through the Clean SaaS, Cyber Terminal, and Glassmorphism UI styles" width="720"><br>
-</div>
+<p align="center">
+ <img src="docs/screenshots/dashboard_themes.webp" alt="Dashboard cycling through the Clean SaaS, Cyber Terminal, and Glassmorphism UI styles" width="720">
+ <br>
+ <sub>Model Hotel Dashboard</sub>
+</p>
 
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> High Availability](#-high-availability)
 Run several instances behind one client endpoint with no client-side change: a **Front Desk** control plane manages the fleet and replicates config to every member, while **Traefik** load-balances them with health checks and automatic failover. Members share one `MASTER_KEY` (so encrypted provider keys port across the fleet) and each keeps its own admin token.
 
-<p align="center"><a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members_pills.png" width="720" alt="Front Desk control plane: provider quota badge strip above two healthy fleet members"></a></p>
+<p align="center">
+  <a href="docs/screenshots/frontdesk_members.png"><img src="docs/screenshots/frontdesk_members_pills.png" width="720" alt="Front Desk control plane: provider quota badge strip above two healthy fleet members"></a>
+  <br>
+  <sub>Front Desk (HA control app) Dashboard</sub>
+</p>
 
 Full deployment in the [High Availability wiki](https://github.com/hugalafutro/model-hotel/wiki/High-Availability).
 
@@ -51,9 +60,14 @@ Full deployment in the [High Availability wiki](https://github.com/hugalafutro/m
 **Bellhop**, the native Android companion app for Front Desk, turns a paired phone into a pocket view of the fleet: live member health, request traffic, provider quota badges, the event log, and, for operator devices, one-tap drain, activate, and config-sync behind a biometric prompt. A home-screen widget keeps the fleet and its badges on the launcher without opening anything. It talks only to Front Desk, holds no provider credentials, and authenticates with a device token you can revoke from either side.
 
 <p align="center">
-<a href="docs/screenshots/bellhop_dashboard.png"><img src="docs/screenshots/bellhop_dashboard.png" width="220" align="middle" alt="Bellhop dashboard: linked fleet with quota badges, health and traffic sparklines"></a>
-<a href="docs/screenshots/bellhop_member.png"><img src="docs/screenshots/bellhop_member.png" width="220" align="middle" alt="Bellhop member detail: request-traffic graph and operator controls"></a>
-<a href="docs/screenshots/bellhop_widget.png"><img src="docs/screenshots/bellhop_widget.png" width="280" align="middle" alt="Bellhop home-screen widget: member health, quota badge strip and the latest fleet event"></a>
+ <a href="docs/screenshots/bellhop_dashboard.png"><img src="docs/screenshots/bellhop_dashboard.png" width="220" align="middle" alt="Bellhop dashboard: linked fleet with quota badges, health and traffic sparklines"></a>
+ <a href="docs/screenshots/bellhop_member.png"><img src="docs/screenshots/bellhop_member.png" width="220" align="middle" alt="Bellhop member detail: request-traffic graph and operator controls"></a>
+ <br>
+ <sub>Bellhop (Android HA companion) Dashboard - Fleet member details</sub>
+</p>
+<p align="center">
+ <a href="docs/screenshots/bellhop_widget.png"><img src="docs/screenshots/bellhop_widget.png" width="280" align="middle" alt="Bellhop home-screen widget: member health, quota badge strip and the latest fleet event"></a>
+ <br><sub>Bellhop Android Home screen widget</sub>
 </p>
 
 > [!NOTE]
@@ -63,16 +77,20 @@ Full deployment in the [High Availability wiki](https://github.com/hugalafutro/m
 ### [<img src="docs/icons/providers.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> One Endpoint, Many Providers](#-one-endpoint-many-providers)
 Add any OpenAI-compatible provider ([Anthropic](https://claude.ai/), [AWS Bedrock](https://aws.amazon.com/bedrock/), [Azure AI Foundry](https://ai.azure.com/), [DeepSeek](https://deepseek.com/), [Kimi Code](https://www.kimi.com/), [KoboldCPP](https://koboldcpp.com/), [LMStudio](https://lmstudio.ai/), [MiniMax](https://www.minimax.io/), [NanoGPT](https://docs.nano-gpt.com/), [OpenRouter](https://openrouter.ai/), [Z.AI](https://z.ai/), [x.ai](https://x.ai/), [Google AI Studio](https://aistudio.google.com/), [Vertex AI](https://cloud.google.com/vertex-ai) (express keys), [Cohere](https://cohere.com/), [Ollama](https://github.com/ollama/ollama), [Ollama Cloud](https://ollama.com), [OpenCode Go](https://opencode.ai), [OpenCode Zen](https://opencode.ai), [OpenAI](https://openai.com/), or your own), and call them all through the same `/v1/chat/completions` endpoint. The proxy handles model ID mapping and failover transparently. Provider API keys are encrypted with AES-256-GCM at rest using your `MASTER_KEY`; only the proxy ever sees the decrypted credentials. Keyless providers (e.g. OpenCode Zen free models, local Ollama) are also supported (no API key required).
 
-<div align="center">
-<br><img src="docs/screenshots/providers.png" alt="Providers" width="720"><br>
-</div>
+<p align="center">
+ <img src="docs/screenshots/providers.png" alt="Providers" width="720">
+ <br>
+ <sub>Provider management screen overview</sub>
+</p>
 
 ### [<img src="docs/icons/failover.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Transparent Failover](#-transparent-failover)
 Requests that fail (server errors, rate limits, auth issues, request timeouts, and TTFT probe timeouts) are automatically retried on the next available provider. For streaming requests, a **TTFT probe** reads ahead to confirm the first token arrives before committing the stream to your client; if the provider fails to produce a token within the configured timeout (default 60s), the request fails over to the next provider. Once streaming begins, a **stall watchdog** monitors for silence: if no data arrives within the configured window (default 30s), the connection is terminated and the circuit breaker records a failure. After 50 chunks the stall threshold is multiplied by 3 to tolerate tool-call pauses and long reasoning chains. Both timeouts are configurable in **Settings → Proxy** (set to `0s` to disable). Retries are paced with exponential backoff and jitter to avoid overloading failing providers.
 
-<div align="center">
-<br><img src="docs/screenshots/failover.png" alt="Failover Groups" width="720"><br>
-</div>
+<p align="center">
+ <img src="docs/screenshots/failover.png" alt="Failover Groups" width="720">
+ <br>
+ <sub>Failover groups management</sub>
+</p>
 
 ### [<img src="docs/icons/hotel.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Hotel Routing](#-hotel-routing)
 Prefix a model with `hotel/` to use its failover group. `hotel/gpt-4o` resolves to every provider offering `gpt-4o`, tried in priority order. Groups form automatically when 2+ providers share a model name (auto-created groups show an "auto" badge and are deleted when they drop below 2 providers). Manually created groups persist regardless of provider count. Individual entries can be toggled on/off, priorities are preserved across syncs, and stale entries are pruned when a model is deleted from a provider or leaves the provider's listing (discovery re-syncs the affected groups automatically). The UI shows each entry's *effective* state: entries whose model or provider is disabled are greyed out with a badge, since the router skips them regardless of the entry toggle. A manual sync can be triggered from the dashboard or via `POST /api/failover-groups/sync`.
@@ -82,9 +100,11 @@ Provider health is tracked with a **circuit breaker**. Each provider is tracked 
 ### [<img src="docs/icons/virtualkeys.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Per-Client Virtual Keys](#-per-client-virtual-keys)
 Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, set per-key rate limits (requests/sec and burst) plus an optional tokens-per-minute (TPM) cap, restrict which providers a key may reach, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
 
-<div align="center">
-<br><img src="docs/screenshots/virtual_keys.png" alt="Virtual Keys" width="720"><br>
-</div>
+<p align="center">
+ <img src="docs/screenshots/virtual_keys.png" alt="Virtual Keys" width="720">
+ <br>
+ <sub>Virtual keys management</sub>
+</p>
 
 ### [<img src="docs/icons/privacy.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> No Prompts Logged](#-no-prompts-logged)
 > [!NOTE]
@@ -108,18 +128,22 @@ Every request is logged with full latency decomposition:
 - **Proxy overhead** split into request parsing, model/failover lookup, provider lookup, and key decryption
 - **Tokens per second**, prompt / completion counts
 
-<div align="center">
-<br><img src="docs/screenshots/logs.png" alt="Requests" width="720"><br><br>
-</div>
+<p align="center">
+ <img src="docs/screenshots/logs.png" alt="Requests" width="720">
+ <br>
+ <sub>Overview of requests served with proxy overhead breakdown</sub>
+</p>
 
 Streaming requests are captured as they start and updated as they finish, so you can see in-flight requests in the Logs view. The overhead breakdown helps you determine whether latency is coming from your provider or from the proxy itself.
 
 ### [<img src="docs/icons/discovery.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Built-In Model Discovery](#-built-in-model-discovery)
 Add a provider and the service pulls the model list automatically via the provider's own API. Models are kept in sync on a schedule you control (default every 6 hours, configurable). Models that disappear from a provider's listing are disabled (never deleted) and come back automatically if the provider lists them again; manual disables are always respected. After a manual scan, a summary modal shows exactly what changed: models added, re-enabled, or disabled, any live pricing or context-length changes on existing models, plus any failover groups that were updated or deleted as a result. Changes detected by scheduled/startup background discovery instead surface as a count badge on the Models nav item; clicking the badge opens a summary of those changes and clears it. Discovery-disabled models carry a "not listed by the provider since…" tooltip on the Models page so they're easy to tell apart from manual disables. The following providers get enriched metadata beyond what the generic OpenAI-compatible endpoint returns:
 
-<div align="center">
-<br><img src="docs/screenshots/models.png" alt="Models" width="720"><br><br>
-</div>
+<p align="center">
+ <img src="docs/screenshots/models.png" alt="Models" width="720">
+ <br>
+ <sub>Models overview</sub>
+</p>
 
 | Provider | Context Length | Pricing | Reasoning Flags | Input/Output Modalities | Source |
 |---|---|---|---|---|---|
@@ -157,6 +181,8 @@ For providers that expose it, click a provider's quota badge (on its card or in 
   <a href="docs/screenshots/quota_nanogpt.png"><img src="docs/screenshots/quota_nanogpt.png" height="200" alt="NanoGPT weekly token & image quotas"></a>
   &nbsp;&nbsp;
   <a href="docs/screenshots/quota_neuralwatt.png"><img src="docs/screenshots/quota_neuralwatt_thumb.png" height="200" alt="NeuralWatt energy quota - click for full"></a>
+  <br>
+  <sub>Quota limits/balance/spend modals for supported providers</sub>
 </p>
 
 ### [<img src="docs/icons/settings.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Themeable UI](#-themeable-ui)
@@ -168,27 +194,35 @@ Make the dashboard your own from the Appearance settings. Pick one of three **UI
   <img src="docs/screenshots/dashboard_terminal.png" width="265" alt="Cyber Terminal UI style">
   &nbsp;
   <img src="docs/screenshots/dashboard_glass.png" width="265" alt="Glassmorphism UI style">
+  <br>
+  <sub>Available themes with their default color accents</sub>
 </p>
 
 ### [<img src="docs/icons/api.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Interactive Chat & Arena](#-interactive-chat--arena)
 The dashboard includes a built-in **Chat** interface for testing models interactively, with support for system personas (presets or custom prompts), generation parameters (temperature, top_p, max_tokens, min_p, top_k, frequency/presence penalties), and streaming responses with collapsible thinking-block rendering. Vision-capable models show an image upload button: attach a photo for the model to describe or analyze. Audio-capable models show an audio upload button for sending audio input. Attachments are sent as OpenAI-compatible multimodal content parts (`image_url`, `input_audio`). Switch to **Conversation** mode to watch two models talk to each other: enter a starter prompt, set the number of rounds and optional delay between turns, and observe the back-and-forth with per-message metrics (duration, tokens, chars/sec).
 
-<div align="center">
-<br><img src="docs/screenshots/chat.png" alt="Chat" width="720"><br><br>
-</div>
+<p align="center">
+ <img src="docs/screenshots/chat.png" alt="Chat" width="720">
+ <br>
+ <sub>Test conversational capabilities of models served by the proxy</sub>
+</p>
 
 **Arena** mode offers two sub-modes: **Competition** runs bracket tournaments where models face off in pairwise matchups. Vote for winners, and the bracket auto-advances to the next round until a champion emerges. **Compare** places two or more models in a grid with the same prompt for parallel evaluation, with per-slot personas and voting. Both modes support per-model generation parameters, streaming with thinking-block rendering, and per-response metrics. Past sessions are saved to an arena history modal for review and restoration.
 
-<div align="center">
-<br><img src="docs/screenshots/arena.png" alt="Arena" width="720"><br>
-</div>
+<p align="center">
+ <img src="docs/screenshots/arena.png" alt="Arena" width="720">
+ <br>
+ <sub>Compare outputs of models served by the proxy</sub>
+</p>
 
 ### [<img src="docs/icons/settings.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Real-Time Events & System Status](#-real-time-events--system-status)
 A live SSE event bus delivers toast notifications for discovery outcomes, model disabling events, token counting errors, circuit breaker state transitions, and stale-request alerts straight to the dashboard. Failover retries during proxying are logged but **not** pushed as SSE events. The sidebar polls system stats every 10 seconds, showing CPU, memory, disk I/O, and network throughput with color-coded warnings (orange at 75%, red at 90%). When running under Docker Compose, stats are aggregated across containers; otherwise, cgroup metrics are used. Goroutine count, database health (size, connections, cache hit ratio), API uptime, and process count are also displayed.
 
-<div align="center">
-<br><img src="docs/screenshots/settings.png" alt="Settings" width="720"><br>
-</div>
+<p align="center">
+ <img src="docs/screenshots/settings.png" alt="Settings" width="720">
+ <br>
+ <sub>Options and settings</sub>
+</p>
 
 ### [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Security & Privacy](#-security--privacy)
 Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is strengthened via **Argon2id** key derivation (with per-provider random salts) before use as the AES key. Virtual keys are SHA-256 hashed. The admin token is SHA-256 hashed before storage: the plaintext token is displayed once on first run and never stored on disk. To regenerate a lost token, delete the `admin-token` file in your configured `DATA_DIR` and restart. Outbound connections to providers are protected against SSRF and DNS rebinding attacks: the proxy resolves hostnames and blocks connections to private, loopback, link-local, and cloud-metadata IP addresses, then dials by IP (not hostname) to close the DNS-rebinding TOCTOU gap. Redirect targets are also validated. Use `KNOWN_PROXIES` to allow specific private CIDR ranges for internal LLM servers, and `ALLOWED_PROVIDER_HOSTS` to allow specific hostnames. Standard security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Strict-Transport-Security (when TLS is active), Content-Security-Policy) are applied to all responses. Decrypted provider keys are cached in memory for up to 10 minutes (configurable via the `key_cache_ttl` setting) to avoid repeated key derivation overhead. WebAuthn session tokens are SHA-256 hashed and never stored in plaintext, with a 30-day TTL.
@@ -196,9 +230,11 @@ Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is st
 ### [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Passkey Authentication](#-passkey-authentication)
 Log into the admin dashboard using a FIDO2/WebAuthn passkey (Touch ID, Windows Hello, YubiKey, etc.) instead of the admin token. Register passkeys from the Settings page and use them on the login screen alongside the traditional admin token.
 
-<div align="center">
-<br><img src="docs/screenshots/login_passkey.png" alt="Login screen with passkey, SSO, GitHub, username/password, and TOTP" width="360"><br><br>
-</div>
+<p align="center">
+ <img src="docs/screenshots/login_passkey.png" alt="Login screen with passkey, SSO, GitHub, username/password, and TOTP" width="360">
+ <br>
+ <sub>Various login mechanisms supported</sub>
+</p>
 
 Passkey login is disabled by default. Enable it by setting `WEBAUTHN_RP_ID` (your domain) in the environment; `WEBAUTHN_RP_ORIGINS` (your origin URLs) falls back to `CORS_ORIGINS`, then to `http://localhost:<port>`. Session tokens are SHA-256 hashed, never stored in plaintext, and expire after 30 days.
 
@@ -218,9 +254,9 @@ Let admins sign in through an external OpenID Connect provider (Authentik, Authe
   <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_oidc.png" width="390" alt="Authentication settings: OIDC single sign-on"></a>
   &nbsp;&nbsp;
   <a href="docs/screenshots/settings_authentication.png"><img src="docs/screenshots/settings_auth_github.png" width="390" alt="Authentication settings: GitHub sign-in"></a>
+  <br>
+  <sub>The Authentication settings page, split into its three sections. Click any panel for the full view.</sub>
 </p>
-<p align="center"><sub>The Authentication settings page, split into its three sections. Click any panel for the full view.</sub></p>
-<br>
 
 SSO is a third login path, not a replacement: after the provider confirms an allowlisted, email-verified identity it mints the same session token as passkey and TOTP login, so nothing downstream changes. Logins are gated by the email allowlist (empty allowlist denies everyone) and matched only on verified emails, while the provider's stable `sub` and issuer are logged on each login (app log, source `oidc`). The client secret is AES-256-GCM encrypted at rest with `MASTER_KEY`, the flow uses PKCE plus single-use state and nonce, and the minted token is handed to the browser in the URL fragment, so it is never sent back to the server on later requests (no Referer leak, nothing in request logs). The one place it does appear is the callback's `302 Location` response header; if your reverse proxy logs response headers, redact `Location` on `/api/auth/oidc/callback`.
 
@@ -231,7 +267,11 @@ GitHub works the same way as a separate option. GitHub is OAuth2 only (no OpenID
 ### [<img src="docs/icons/users.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Multi-User Access](#-multi-user-access)
 Beyond the shared admin token, you can provision named dashboard accounts that sign in with a username and password (plus their own optional TOTP second factor) on the same login screen. Two roles: **admin** sees and does everything, while **user** accounts are scoped by granular grants (Chat/Arena, Usage dashboards, Request Logs, Models, Virtual Keys) so a teammate gets exactly the access they need and nothing more. Virtual keys belong to a user, and per-account rate limits (RPS/burst/TPM) aggregate across the keys that user owns.
 
-<br><img src="docs/screenshots/users.png" alt="Users page" width="720"><br>
+<p align="center">
+ <img src="docs/screenshots/users.png" alt="Users page" width="720">
+ <br>
+ <sub>User overview</sub>
+</p>
 
 Manage accounts from the Users page (admin only): create a user, assign grants, set an initial password, reset a password or second factor, enable or disable, and read last-login and TOTP status at a glance. The username/password form appears on the login screen only once at least one user exists, so a fresh install keeps the single admin-token flow, and local token login is never removed so you cannot lock yourself out. See the [Multi-User wiki page](https://github.com/hugalafutro/model-hotel/wiki/Multi-User) for roles, grants, and the per-user rate-limit model.
 
