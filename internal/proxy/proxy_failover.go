@@ -609,17 +609,22 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	body, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	errMsg := util.SanitizeLogBody(string(body), 10000)
-	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
+	// Classify for the request log and metrics only — routing is unaffected,
+	// hasMoreCandidates was already decided from the status code.
+	kind, reason := classifyUpstreamError(resp.StatusCode, errMsg)
+	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
 	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 	logData.responseHeaderMs = responseHeaderMs
-	h.failRequest(logData, resp.StatusCode, KindProviderError, errMsg, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+	h.failRequest(logData, resp.StatusCode, kind, errMsg, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 
 	if !hasMoreCandidates {
-		// All failover candidates exhausted — return a generic error.
-		// The upstream body is recorded to the DB request log via failRequest
-		// (not the structured server log) and is not forwarded to the client,
-		// as it may contain provider-specific details.
-		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
+		// All failover candidates exhausted. The upstream body is recorded to the
+		// DB request log via failRequest (not the structured server log) and is
+		// never forwarded to the client, as it may echo the request back. The
+		// caller gets the classified reason instead of a bare status, which is
+		// enough to tell "this model is gone" from "top up your account" from
+		// "try again shortly".
+		writeOpenAIError(w, upstreamClientMessage(candidate.provider.Name, resp.StatusCode, reason), resp.StatusCode)
 		return outcomeFatal
 	}
 

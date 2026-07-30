@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // Progressive stall timeout knobs, shared by the scanner loop (which pings the
@@ -178,8 +179,13 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logData *requestLogData) string {
 	errMsg := st.lastErrMsg
 	if errMsg != "" {
-		// An in-stream SSE error body from the provider.
-		logData.errorKind = KindProviderError
+		// An in-stream SSE error body from the provider. Unlike the non-streaming
+		// path (forwardUpstreamError) this text never went through
+		// SanitizeLogBody, so it reached request_logs uncapped and with UUIDs
+		// intact — a provider is free to echo the request back inside an error,
+		// and an unbounded provider string must not land in the log either way.
+		errMsg = util.SanitizeLogBody(errMsg, 10000)
+		logData.errorKind, _ = classifyUpstreamError(logData.statusCode, errMsg)
 	}
 	if errMsg == "" && scanErr != nil {
 		switch {

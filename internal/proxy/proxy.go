@@ -551,12 +551,24 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.settingsReadMs = settingsReadMs
 		logData.responseHeaderMs = responseHeaderMs
 		logData.errorMessage = fmt.Sprintf("response decode error: %s", errMsg)
+		// This branch is reached when the upstream body would not decode, which
+		// happens both for a non-2xx error body and for a 2xx that is not a chat
+		// completion. Classify from the body so the row is not left with an empty
+		// error_kind, and only claim "upstream HTTP n" when n actually was a
+		// failure — reporting "upstream provider returned HTTP 200" for an
+		// undecodable success body sent operators hunting the wrong thing.
+		kind, reason := classifyUpstreamError(resp.StatusCode, errMsg)
+		if resp.StatusCode < 300 {
+			kind = KindProviderBadRequest
+			reason = "the provider returned a response the gateway could not decode"
+		}
+		logData.errorKind = kind
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
 		// Fire-and-forget: skip WaitForInsert to avoid blocking before error response.
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
-		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "duration_ms", totalDuration)
-		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
+		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", errMsg, "duration_ms", totalDuration)
+		writeOpenAIError(w, upstreamClientMessage(logData.providerName, resp.StatusCode, reason), resp.StatusCode)
 	}
 }
 

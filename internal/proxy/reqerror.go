@@ -15,7 +15,24 @@ const (
 	// KindClientDisconnect means the calling client hung up before we responded.
 	KindClientDisconnect ErrorKind = "client_disconnect"
 	// KindProviderError is an upstream non-2xx response or a transport failure.
+	// It stays the default for anything classifyUpstreamError cannot place,
+	// including transient aggregator faults and every 5xx.
 	KindProviderError ErrorKind = "provider_error"
+	// KindProviderModelGone means the provider no longer serves the model. It is
+	// a permanent condition an operator must fix (drop it from the catalog or
+	// stop routing to it), unlike KindProviderError which usually passes on its
+	// own. Google notably keeps retired models in its /models listing and only
+	// fails at generation time, so discovery cannot see this coming.
+	KindProviderModelGone ErrorKind = "provider_model_gone"
+	// KindProviderNotEntitled means the account cannot pay for the model
+	// (empty balance, or a model outside the subscription). Providers report it
+	// as a 429, which makes it look like ordinary rate limiting even though
+	// retrying can never succeed until someone tops up or changes plan.
+	KindProviderNotEntitled ErrorKind = "provider_not_entitled"
+	// KindProviderBadRequest means the provider understood the request and
+	// refused the payload — normally a gateway bug (wrong dialect for the
+	// upstream route), not a provider fault.
+	KindProviderBadRequest ErrorKind = "provider_bad_request"
 	// KindProviderTimeout means the TTFT probe or stall watchdog fired — the
 	// provider accepted the connection but did not produce output in time.
 	KindProviderTimeout ErrorKind = "provider_timeout"
@@ -119,6 +136,12 @@ func (e reqError) render() string {
 		return "invalid request"
 	case KindAuth:
 		return "authorization failed"
+	case KindProviderModelGone:
+		return e.withUnderlying(fmt.Sprintf("%s no longer serves this model (attempt %d)", e.providerLabel(), n))
+	case KindProviderNotEntitled:
+		return e.withUnderlying(fmt.Sprintf("%s rejected the request for billing or plan reasons on attempt %d", e.providerLabel(), n))
+	case KindProviderBadRequest:
+		return e.withUnderlying(fmt.Sprintf("%s rejected the request payload on attempt %d", e.providerLabel(), n))
 	default: // KindProviderError and any unclassified failure
 		if e.Detail != "" {
 			return fmt.Sprintf("%s returned %s on attempt %d", e.providerLabel(), e.Detail, n)

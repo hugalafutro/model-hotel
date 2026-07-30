@@ -1386,8 +1386,9 @@ func TestChatCompletions_UpstreamErrorForwarding(t *testing.T) {
 		}
 
 		bodyStr := w.Body.String()
-		if !strings.Contains(bodyStr, "upstream provider returned HTTP 400") {
-			t.Errorf("expected generic error message, got: %s", bodyStr)
+		// Classified reason plus the upstream status, never the provider's body.
+		if !strings.Contains(bodyStr, "upstream HTTP 400") {
+			t.Errorf("expected classified error naming the upstream status, got: %s", bodyStr)
 		}
 		if strings.Contains(bodyStr, "context_length_exceeded") {
 			t.Errorf("should NOT forward upstream JSON details, got: %s", bodyStr)
@@ -1764,9 +1765,10 @@ func TestChatCompletions_UpstreamErrorForwarding(t *testing.T) {
 		}
 
 		bodyStr := w.Body.String()
-		// Should contain generic error, NOT the specific upstream errors
-		if !strings.Contains(bodyStr, "upstream provider returned HTTP 500") {
-			t.Errorf("expected generic error message, got: %s", bodyStr)
+		// Should contain the classified reason and status, NOT the specific
+		// upstream error bodies from either provider.
+		if !strings.Contains(bodyStr, "upstream HTTP 500") {
+			t.Errorf("expected classified error naming the upstream status, got: %s", bodyStr)
 		}
 		if strings.Contains(bodyStr, "provider1_error") || strings.Contains(bodyStr, "provider2_error") {
 			t.Errorf("should NOT forward upstream JSON details, got: %s", bodyStr)
