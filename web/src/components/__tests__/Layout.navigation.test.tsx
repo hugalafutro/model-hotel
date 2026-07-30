@@ -1470,10 +1470,22 @@ describe("Layout", () => {
 						.some((el) => el.getAttribute("data-toast-type") === "warning"),
 				).toBe(true),
 			);
-			// ...and the list carries a live-region banner saying its state is unknown,
-			// so a stale row is never presented as a clean one.
+			// ...the failure is visible as a live region...
 			const banner = await screen.findByTestId("discrepancy-load-error");
 			expect(banner).toHaveAttribute("role", "alert");
+
+			// ...and, the part that actually matters, the provider stays ACTIONABLE.
+			// Marking every requested row dismissed would make providerHasNoPending
+			// true, swapping Retest and Dismiss all for the Clean broom and taking away
+			// the controls for models the server never dismissed. The banner does not
+			// give those back, which is why nothing is claimed without confirmation.
+			expect(screen.queryByTestId("discrepancy-clean")).toBeNull();
+			expect(screen.getByTestId("discrepancy-retest")).toBeInTheDocument();
+			expect(screen.getByTestId("discrepancy-dismiss-all")).toBeInTheDocument();
+			await openFirstBucket(user);
+			for (const row of screen.getAllByTestId("discrepancy-claim")) {
+				expect(row).toHaveAttribute("data-status", "pending");
+			}
 		});
 
 		it("dismisses every provider at once and reports a failed undo", async () => {

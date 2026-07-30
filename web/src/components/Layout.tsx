@@ -935,13 +935,30 @@ export function Layout({ children }: LayoutProps) {
 	const onDismissAll = useCallback(
 		async (providerId: string, modelIds: string[]) => {
 			if (modelIds.length === 0) return;
-			const ids = new Set(modelIds);
-			// Nothing is captured, for the same reason as onDismiss: a refresh can
-			// settle while this is in flight, and the hook records each displaced
-			// status ON the claim so the rollback reverts only what it still owns.
-			dismissClaim(providerId, ids);
+			// NOT optimistic, unlike the per-row path, and that is the whole point.
+			//
+			// A batch can come back short, and `updated` does not say WHICH ids it
+			// missed. Marking every requested row dismissed up front and correcting
+			// afterwards cannot be made to work: only a successful refresh knows which
+			// took, `refresh` absorbs its own failure, and the rollback that was tried
+			// here compared on `optimisticFrom`, which any merge strips.
+			//
+			// The cost of getting it wrong is not cosmetic. With every row dismissed,
+			// providerHasNoPending goes true, so the pill swaps Retest and Dismiss all
+			// for Clean: the operator loses the controls for models the server never
+			// dismissed. A refresh-error banner does not give those back.
+			//
+			// So nothing is claimed that the server did not confirm. A full-count
+			// response is confirmation for every id; a short one is confirmation for
+			// none of them in particular, so the rows stay actionable and the refresh
+			// reconciles. Costs the strike-through for one round trip, behind a
+			// confirmation dialog, which is a fair price for never showing a provider
+			// as clean when it is not.
 			try {
 				const res = await api.discovery.dismiss(providerId, modelIds, true);
+				if (res.updated === modelIds.length) {
+					dismissClaim(providerId, new Set(modelIds));
+				}
 				await refresh();
 				const undo = {
 					label: t("providers.discrepancies.undo"),
@@ -950,25 +967,6 @@ export function Layout({ children }: LayoutProps) {
 					},
 				};
 				if (res.updated < modelIds.length) {
-					// A short count cannot say WHICH ids it missed, so only a successful
-					// refresh reconciles them, and the merge above has already done it.
-					//
-					// When that refresh FAILS the rows keep their optimistic `dismissed`
-					// state, which over-claims: a model the server skipped is still
-					// actionable. That is not left silent, and it is deliberately not
-					// patched here either. `refresh` records the failure and the hook
-					// surfaces it as `refreshError`, which Layout feeds to the modal's
-					// `loadError`, which renders a role="alert" banner over the list. The
-					// modal's established vocabulary for "we could not find out" is that
-					// banner, not a rewritten row.
-					//
-					// Rolling the batch back instead was tried and removed: `revertDismissal`
-					// is a compare-and-swap on `optimisticFrom`, and ANY merge strips that
-					// marker (a refetch is newer authority, by design since #583). A
-					// successful refresh landing mid-flight therefore silently turned the
-					// rollback into a no-op, so it fixed the failure mode only when nothing
-					// else was happening. An unreliable correction on top of an honest
-					// banner is worse than the banner alone.
 					toast(
 						t("providers.discrepancies.dismissAllPartial", {
 							count: res.updated,
@@ -985,7 +983,7 @@ export function Layout({ children }: LayoutProps) {
 					undo,
 				);
 			} catch (err) {
-				restoreClaim(providerId, ids);
+				// No rollback needed: nothing was claimed before the response.
 				toast(
 					t("providers.discrepancies.dismissFailed", {
 						message: err instanceof Error ? err.message : String(err),
@@ -994,17 +992,17 @@ export function Layout({ children }: LayoutProps) {
 				);
 			}
 		},
-		[dismissClaim, restoreClaim, refresh, toast, t, undoDismissAll],
+		[dismissClaim, refresh, toast, t, undoDismissAll],
 	);
 
 	/**
 	 * Undo half of the modal-wide dismiss.
 	 *
 	 * Extracted rather than inlined into the toast action so a failure is REPORTED.
-	 * Inline, it was an `allSettled` with no catch and no toast, which meant a
-	 * network-down Undo did nothing and said nothing: the operator is left believing
-	 * their rows are back. Harmless to the data (a failed undo is a server-side
-	 * no-op) and precisely the kind of silence that costs trust.
+	 * Inline it was an `allSettled` with no catch and no toast, so a network-down
+	 * Undo did nothing and said nothing, leaving the operator believing their rows
+	 * were back. Harmless to the data (a failed undo is a server-side no-op) and
+	 * precisely the kind of silence that costs trust.
 	 *
 	 * The refresh runs even when a batch fails, so whatever DID restore shows up,
 	 * and the toast names the first failure the way the per-provider path does.
@@ -1031,48 +1029,30 @@ export function Layout({ children }: LayoutProps) {
 		[refresh, toast, t],
 	);
 
-	/**
-	 * Clears the whole modal: every actionable gone/stale model on every provider.
-	 *
-	 * One request per provider, because the endpoint is provider-scoped, but ONE
-	 * confirm, ONE refresh and ONE toast. Eight providers must not produce eight
-	 * toasts stacked over each other, and the per-provider handler above would do
-	 * exactly that if this looped over it.
-	 *
-	 * `allSettled`, not `all`: one provider failing must not abandon the rest, and
-	 * the refresh underneath re-derives every row anyway, so a partial result
-	 * corrects itself on screen. The toast reports what actually landed.
-	 */
 	const onDismissEverything = useCallback(
 		async (batches: { providerID: string; modelIDs: string[] }[]) => {
 			if (batches.length === 0) return;
 			const total = batches.reduce((n, b) => n + b.modelIDs.length, 0);
-			for (const b of batches) {
-				dismissClaim(b.providerID, new Set(b.modelIDs));
-			}
 			const results = await Promise.allSettled(
 				batches.map((b) =>
 					api.discovery.dismiss(b.providerID, b.modelIDs, true),
 				),
 			);
-			// Roll back only the providers whose own request failed; the rest stand.
+			// Per batch, claim only what that provider's own response confirmed; see
+			// onDismissAll for why nothing is claimed up front. A rejected batch and a
+			// short batch are both "not confirmed" and both stay actionable, so no
+			// rollback is needed for either.
 			let dismissed = 0;
 			const landed: { providerID: string; modelIDs: string[] }[] = [];
 			batches.forEach((b, i) => {
 				const r = results[i];
-				if (r.status !== "fulfilled") {
-					restoreClaim(b.providerID, new Set(b.modelIDs));
-					return;
-				}
+				if (r.status !== "fulfilled") return;
 				dismissed += r.value.updated;
 				landed.push(b);
-				// A short `updated` does not say WHICH of this provider's ids it missed,
-				// so only a good refresh can reconcile them. Handled after the refresh,
-				// below, since its outcome is what decides.
+				if (r.value.updated === b.modelIDs.length) {
+					dismissClaim(b.providerID, new Set(b.modelIDs));
+				}
 			});
-			// A failed refresh leaves short batches over-claiming, reported by the
-			// modal's refresh-error banner rather than corrected here; see the note in
-			// onDismissAll for why a rollback was tried and removed.
 			await refresh();
 			if (dismissed === 0) {
 				toast(t("providers.discrepancies.dismissEverythingFailed"), "error");
@@ -1095,7 +1075,7 @@ export function Layout({ children }: LayoutProps) {
 				undo,
 			);
 		},
-		[dismissClaim, restoreClaim, refresh, toast, t, undoDismissEverything],
+		[dismissClaim, refresh, toast, t, undoDismissEverything],
 	);
 
 	const onDismiss = useCallback(
