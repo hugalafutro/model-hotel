@@ -114,8 +114,15 @@ runs:
         echo "changed files:"
         printf '%s\n' "$changed"
 
+        # Herestring, NEVER `printf ... | grep -q`. Under `pipefail`, grep -q
+        # exits the moment it matches and closes the pipe; on a diff bigger than
+        # the 64KB pipe buffer the still-writing producer takes SIGPIPE, the
+        # pipeline reports 141, and an EARLY match comes back as `false`. That
+        # fails closed - a changed surface reported as unchanged - which is the
+        # one direction this gate must never fail in. Measured threshold: around
+        # 1,500 to 2,000 changed paths.
         match() {
-          if printf '%s\n' "$changed" | grep -qE "$1"; then echo true; else echo false; fi
+          if grep -qE "$1" <<< "$changed"; then echo true; else echo false; fi
         }
 
         any() {
@@ -151,8 +158,12 @@ runs:
         # surface the Dockerfiles COPY. publish-dev keeps its own independent copy
         # of this predicate because it diffs against the last PUBLISHED image, not
         # against this push's parent.
-        src=$(printf '%s\n' "$changed" | grep -vE '(_test\.go|\.test\.tsx?|\.spec\.tsx?)$')
-        if printf '%s\n' "$src" | grep -qE '^(internal/|cmd/|web/|frontdesk/web/|Dockerfile|docker-entrypoint|\.dockerignore|go\.(mod|sum))'; then
+        # `grep -v` consumes all of its input so it cannot SIGPIPE its producer,
+        # but the -q below can, so both use herestrings for the same reason as
+        # match() above. An all-test-files diff filters to empty, which correctly
+        # yields image=false.
+        src=$(grep -vE '(_test\.go|\.test\.tsx?|\.spec\.tsx?)$' <<< "$changed")
+        if grep -qE '^(internal/|cmd/|web/|frontdesk/web/|Dockerfile|docker-entrypoint|\.dockerignore|go\.(mod|sum))' <<< "$src"; then
           image=true
         else
           image=false
