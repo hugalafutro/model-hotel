@@ -747,7 +747,6 @@ export function Layout({ children }: LayoutProps) {
 		error: discrepanciesError,
 		refreshError,
 		dismissClaim,
-		restoreClaim,
 	} = useDiscrepancies(showDiscrepancies);
 	const [retestErrors, setRetestErrors] = useState<Record<string, string>>({});
 	const [retestAllProgress, setRetestAllProgress] = useState<
@@ -877,7 +876,7 @@ export function Layout({ children }: LayoutProps) {
 			// missed. Marking every requested row dismissed up front and correcting
 			// afterwards cannot be made to work: only a successful refresh knows which
 			// took, `refresh` absorbs its own failure, and the rollback that was tried
-			// here compared on `optimisticFrom`, which any merge strips.
+			// here could not survive a concurrent refresh.
 			//
 			// The cost of getting it wrong is not cosmetic. With every row dismissed,
 			// providerHasNoPending goes true, so the pill swaps Retest and Dismiss all
@@ -963,13 +962,6 @@ export function Layout({ children }: LayoutProps) {
 
 	const onDismiss = useCallback(
 		async (providerId: string, modelId: string) => {
-			// Nothing is captured here, not the array and not the claim's status. A
-			// refresh can settle while the dismiss is in flight (a retest finishing,
-			// an undo, a second dismiss), and anything read before the request went
-			// out is stale by the time the rollback would replay it. The hook records
-			// the displaced status ON the claim and reverts it only if that write is
-			// still what the row holds; see revertDismissal.
-			dismissClaim(providerId, new Set([modelId]));
 			try {
 				// Exactly one model per request. The endpoint 200s with a short
 				// `updated` for a mixed list and only 404s when NOTHING matched, so a
@@ -984,13 +976,25 @@ export function Layout({ children }: LayoutProps) {
 				if (res.updated === 0) {
 					throw new Error(t("providers.discrepancies.dismissNoMatch"));
 				}
+				// Marked AFTER the server confirms, never before, which is the same rule
+				// the provider-wide and modal-wide paths follow.
+				//
+				// Marking it up front raced any refresh that landed while the request was
+				// out: that refresh still saw the model reported, so it rebuilt the row as
+				// `pending` and dropped the dismissed status. The next refresh then found
+				// the model absent, and an absent row that is not marked dismissed reads
+				// as `resolved` - "is listed again" - for a model the operator had just
+				// dismissed by hand. Exactly the false relist this rework exists to
+				// remove. Setting the status only once the write is confirmed leaves
+				// nothing for a refresh to strip.
+				dismissClaim(providerId, new Set([modelId]));
 				await refresh();
 				toast(
 					t("providers.discrepancies.dismissed", { model: modelId }),
 					"success",
 				);
 			} catch (err) {
-				restoreClaim(providerId, new Set([modelId]));
+				// No rollback: nothing was claimed before the response.
 				toast(
 					t("providers.discrepancies.dismissFailed", {
 						message: err instanceof Error ? err.message : String(err),
@@ -999,7 +1003,7 @@ export function Layout({ children }: LayoutProps) {
 				);
 			}
 		},
-		[dismissClaim, restoreClaim, refresh, toast, t],
+		[dismissClaim, refresh, toast, t],
 	);
 
 	// `exact: true` on BOTH invalidations below, and it is not optional.
