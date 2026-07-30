@@ -14,7 +14,7 @@
  <a href="https://hub.docker.com/r/hugalafutro/model-hotel"><img src="https://img.shields.io/docker/pulls/hugalafutro/model-hotel.svg" alt="Docker Pulls"></a>
  <br>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
- <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/lint.yml/badge.svg" alt="golangci-lint"></a>
+ <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/codeql.yml"><img src="https://github.com/hugalafutro/model-hotel/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
  <a href="https://github.com/hugalafutro/model-hotel/actions/workflows/ci.yml"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/hugalafutro/model-hotel/badges/coverage.json" alt="Coverage"></a>
  <img src="https://img.shields.io/github/stars/hugalafutro/model-hotel" alt="GitHub Stars">
  <br>
