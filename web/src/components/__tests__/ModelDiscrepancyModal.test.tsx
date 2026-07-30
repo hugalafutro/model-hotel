@@ -933,9 +933,11 @@ describe("ModelDiscrepancyModal", () => {
 		// reports an intersection. These cases replace it with one that hands the
 		// callback back, which is the only way to exercise the observed behaviour.
 		let fire: ((entries: IntersectionObserverEntry[]) => void) | null = null;
+		let observed: Element | null = null;
 
 		beforeEach(() => {
 			fire = null;
+			observed = null;
 			Element.prototype.scrollIntoView = vi.fn();
 			vi.stubGlobal(
 				"IntersectionObserver",
@@ -946,7 +948,9 @@ describe("ModelDiscrepancyModal", () => {
 					constructor(cb: (entries: IntersectionObserverEntry[]) => void) {
 						fire = cb;
 					}
-					observe() {}
+					observe(target: Element) {
+						observed = target;
+					}
 					unobserve() {}
 					disconnect() {}
 					takeRecords(): IntersectionObserverEntry[] {
@@ -976,6 +980,32 @@ describe("ModelDiscrepancyModal", () => {
 
 			// Nothing to return to: the observer is not even attached.
 			expect(screen.queryByTestId("discrepancy-return-to-top")).toBeNull();
+		});
+
+		it("watches the pill row, not the whole provider section", async () => {
+			// The bug this pins cost a real debugging round: observing the <section>
+			// meant an unrolled provider stayed "intersecting" for as long as its open
+			// bucket filled the viewport, so the control never appeared however far the
+			// header scrolled away. The observed node must contain the pill and NOT the
+			// model rows.
+			const user = userEvent.setup();
+			render(
+				<ModelDiscrepancyModal
+					{...baseProps}
+					providers={[prov({ gone: [claimOf("a", "pending")] })]}
+				/>,
+			);
+
+			await openBucket(user, "gone");
+
+			expect(observed).not.toBeNull();
+			const target = observed as unknown as HTMLElement;
+			expect(
+				target.querySelector("[data-testid='discrepancy-provider-pill']"),
+			).not.toBeNull();
+			expect(
+				target.querySelector("[data-testid='discrepancy-claim']"),
+			).toBeNull();
 		});
 
 		it("stays hidden while the open provider's header is in view", async () => {

@@ -227,7 +227,7 @@ export function ModelDiscrepancyModal({
 	 * also have left the control briefly pointing at the previous provider until
 	 * the new observer's first callback landed.
 	 */
-	const openHeaderRef = useRef<HTMLElement | null>(null);
+	const openHeaderRef = useRef<HTMLDivElement | null>(null);
 	const [offscreenFor, setOffscreenFor] = useState<string | null>(null);
 	const headerOffscreen =
 		offscreenFor !== null && offscreenFor === openPath?.providerID;
@@ -534,41 +534,46 @@ export function ModelDiscrepancyModal({
 		return (
 			<section
 				key={p.provider_id}
-				ref={expanded ? openHeaderRef : undefined}
 				data-testid="discrepancy-provider"
 				data-provider-id={p.provider_id}
 				className="space-y-2"
 			>
-				<ProviderPill
-					providerName={p.provider_name}
-					expanded={expanded}
-					onToggle={() => toggleProvider(p.provider_id)}
-					counts={{
-						gone: gone.length,
-						stale: stale.length,
-						suspect: suspect.length,
-					}}
-					cleared={{
-						dismissed: all.filter((c) => c.status === "dismissed").length,
-						resolved: all.filter((c) => c.status === "resolved").length,
-					}}
-					isCleared={isCleared}
-					canDismiss={dismissable.length > 0}
-					retestDisabled={retestBlocked}
-					retesting={spinning}
-					onRetest={() => onRetest(p.provider_id, p.provider_name)}
-					onDismissAll={() =>
-						setConfirmDismiss({
-							providerID: p.provider_id,
-							providerName: p.provider_name,
-							modelIDs: dismissable,
-						})
-					}
-					onClean={() => onClean(p.provider_id)}
-					describedByReadOnly={describedByReadOnly}
-					readOnly={readOnly}
-					regionId={regionId}
-				/>
+				{/* The ref goes on a wrapper around the PILL ROW, never on the section.
+				    An unrolled section is as tall as its open bucket, so it keeps
+				    intersecting the scroll container long after its header has left the
+				    viewport, and the return-to-top control would never appear. */}
+				<div ref={expanded ? openHeaderRef : undefined}>
+					<ProviderPill
+						providerName={p.provider_name}
+						expanded={expanded}
+						onToggle={() => toggleProvider(p.provider_id)}
+						counts={{
+							gone: gone.length,
+							stale: stale.length,
+							suspect: suspect.length,
+						}}
+						cleared={{
+							dismissed: all.filter((c) => c.status === "dismissed").length,
+							resolved: all.filter((c) => c.status === "resolved").length,
+						}}
+						isCleared={isCleared}
+						canDismiss={dismissable.length > 0}
+						retestDisabled={retestBlocked}
+						retesting={spinning}
+						onRetest={() => onRetest(p.provider_id, p.provider_name)}
+						onDismissAll={() =>
+							setConfirmDismiss({
+								providerID: p.provider_id,
+								providerName: p.provider_name,
+								modelIDs: dismissable,
+							})
+						}
+						onClean={() => onClean(p.provider_id)}
+						describedByReadOnly={describedByReadOnly}
+						readOnly={readOnly}
+						regionId={regionId}
+					/>
+				</div>
 				{/* A failed retest banners inside the section and keeps its claims: a
 				    toast fades before it is read, and dropping the claims would read as
 				    "fixed". OUTSIDE the collapsible region, so it is visible on a
