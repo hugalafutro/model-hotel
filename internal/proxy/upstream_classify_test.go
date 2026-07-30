@@ -264,3 +264,37 @@ func TestClassifyUpstreamError_ModelGoneStillMatches(t *testing.T) {
 		})
 	}
 }
+
+// TestClassifyUpstreamError_OperationRefusalsAreNotDeadModels covers the shape
+// that survived the previous tightening: the model IS named before the phrase,
+// so the trailing-model guard does not catch it, but the provider is only
+// refusing one capability. Three of these would call SetEnabled(false) on a
+// model that is serving every other request perfectly.
+func TestClassifyUpstreamError_OperationRefusalsAreNotDeadModels(t *testing.T) {
+	t.Parallel()
+
+	bodies := []struct {
+		name string
+		body string
+	}{
+		{"operation", `{"error":{"message":"Model gpt-5.6-sol is not supported for this operation"}}`},
+		{"endpoint", `{"error":{"message":"Model claude-opus-5 is not supported for this endpoint"}}`},
+		{"method", `{"error":{"message":"Model gemini-3.6-flash is not supported for this method"}}`},
+		{"api route", `{"error":{"message":"Model glm-5.2 is not supported on this route"}}`},
+		{"request type", `{"error":{"message":"Model kimi-k3 is not supported for this request type"}}`},
+		{"region", `{"error":{"message":"Model minimax-m3 is not supported in your region"}}`},
+		{"plan", `{"error":{"message":"Model grok-4.5 is not supported on your plan"}}`},
+		{"account tier", `{"error":{"message":"Model deepseek-v4-pro is not supported for your account"}}`},
+		{"availability qualifier", `{"error":{"message":"Model qwen3.6-plus is no longer available for this endpoint"}}`},
+	}
+
+	for _, tc := range bodies {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, _ := classifyUpstreamError(400, tc.body)
+			if got == KindProviderModelGone {
+				t.Errorf("capability refusal classified as a dead model, which would auto-disable a live one: %q", tc.body)
+			}
+		})
+	}
+}

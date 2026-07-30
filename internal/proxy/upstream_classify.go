@@ -15,6 +15,26 @@ import (
 var modelGonePattern = regexp.MustCompile(
 	`model[^\n]{0,120}?(is no longer available|is not supported|does not exist|is not found for api version)`)
 
+// modelCapabilityRefusal matches the other shape that names a model before a
+// rejection phrase: the provider still serves the model, it just will not do
+// THIS with it. "Model X is not supported for this operation" and "... for this
+// endpoint" both satisfy modelGonePattern — the model is named first, so the
+// trailing-model guard does not catch them — yet neither says the model is
+// retired, and three of them would disable a live model.
+//
+// A trailing qualifier is therefore a veto, checked after modelGonePattern
+// matches. It cannot be folded into that pattern as a negative lookahead
+// because RE2 has none, and it must not be a blanket "any trailing text"
+// rule: real retirement messages continue past the phrase too
+// ("...does not exist or you do not have access to it").
+//
+// Note that Zen's "not supported on the full model list" is deliberately not
+// vetoed — "full model list" is not a capability, and that phrase is matched
+// as a standalone retirement signal anyway.
+var modelCapabilityRefusal = regexp.MustCompile(
+	`(is not supported|is no longer available|is not available) (for|with|on|in) (this |your |that |the )?` +
+		`(operation|endpoint|method|route|api|api version|request|request type|mode|task|region|plan|tier|account|subscription)`)
+
 // classifyUpstreamError turns an upstream non-2xx response into a stable
 // ErrorKind plus a short, gateway-authored reason for the client.
 //
@@ -76,7 +96,10 @@ func classifyUpstreamError(status int, body string) (ErrorKind, string) {
 	//
 	// while "... is not supported for this model" — the parameter-error shape,
 	// where "model" trails the phrase — deliberately does not match.
-	if modelGonePattern.MatchString(b) {
+	// The veto runs second: a body can name a model ahead of a rejection phrase
+	// and still only be refusing one capability ("Model X is not supported for
+	// this operation"), which must not retire a model that is serving fine.
+	if modelGonePattern.MatchString(b) && !modelCapabilityRefusal.MatchString(b) {
 		return KindProviderModelGone, "the provider no longer serves this model"
 	}
 

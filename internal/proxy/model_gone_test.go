@@ -292,3 +292,58 @@ func TestNoteModelGone_FailedStreamsDoNotResetStreak(t *testing.T) {
 		t.Fatalf("expected the model to still be disabled, got %d disable calls", len(calls))
 	}
 }
+
+// TestNoteModelGone_CapabilityRefusalsNeverDisable is the composed consequence
+// review asked for: the classifier and the strike counter together must not
+// retire a live model that keeps refusing one capability.
+//
+// It drives the same two steps the proxy does — classify the upstream body,
+// then strike only on provider_model_gone — so a future loosening of the
+// patterns fails here rather than silently disabling a working model in
+// production.
+func TestNoteModelGone_CapabilityRefusalsNeverDisable(t *testing.T) {
+	t.Parallel()
+
+	refusals := []string{
+		`{"error":{"message":"Model gpt-5.6-sol is not supported for this operation"}}`,
+		`{"error":{"message":"Model gpt-5.6-sol is not supported for this endpoint"}}`,
+		`{"error":{"message":"Parameter 'temperature' is not supported with this model"}}`,
+	}
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol"}
+
+	// Well past the threshold, cycling through every refusal shape.
+	for i := range goneStrikeThreshold * 3 {
+		body := refusals[i%len(refusals)]
+		if kind, _ := classifyUpstreamError(400, body); kind == KindProviderModelGone {
+			h.noteModelGone(m, "OpenAI")
+		}
+	}
+
+	if calls := repo.disableCalls(); len(calls) != 0 {
+		t.Fatalf("a live model refusing one capability must never be auto-disabled, got %d disable calls", len(calls))
+	}
+}
+
+// TestNoteModelGone_RealRetirementStillDisables is the paired positive: the
+// veto must not have blunted the feature itself.
+func TestNoteModelGone_RealRetirementStillDisables(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	body := `{"error":{"code":404,"message":"This model models/gemini-2.0-flash is no longer available. Please update your code to use a newer model."}}`
+
+	for range goneStrikeThreshold {
+		if kind, _ := classifyUpstreamError(404, body); kind == KindProviderModelGone {
+			h.noteModelGone(m, "Google AI Studio (Gemini)")
+		}
+	}
+
+	if calls := waitForDisable(t, repo); len(calls) != 1 {
+		t.Fatalf("a genuinely retired model must still be disabled, got %d disable calls", len(calls))
+	}
+}
