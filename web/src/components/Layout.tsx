@@ -891,9 +891,12 @@ export function Layout({ children }: LayoutProps) {
 			// as clean when it is not.
 			try {
 				const res = await api.discovery.dismiss(providerId, modelIds);
-				if (res.updated === modelIds.length) {
-					dismissClaim(providerId, new Set(modelIds));
-				}
+				// The response NAMES what it dismissed, so a partial result needs no
+				// guessing: mark exactly those and leave the rest pending for the
+				// refresh. Marking all of them would strike through models the server
+				// skipped; marking none would let the merge read the ones that did land
+				// as "listed again", and could swap the pill to Clean on a partial.
+				dismissClaim(providerId, new Set(res.dismissed));
 				await refresh();
 				if (res.updated < modelIds.length) {
 					toast(
@@ -938,9 +941,7 @@ export function Layout({ children }: LayoutProps) {
 				const r = results[i];
 				if (r.status !== "fulfilled") return;
 				dismissed += r.value.updated;
-				if (r.value.updated === b.modelIDs.length) {
-					dismissClaim(b.providerID, new Set(b.modelIDs));
-				}
+				dismissClaim(b.providerID, new Set(r.value.dismissed));
 			});
 			await refresh();
 			if (dismissed === 0) {
@@ -976,8 +977,9 @@ export function Layout({ children }: LayoutProps) {
 				if (res.updated === 0) {
 					throw new Error(t("providers.discrepancies.dismissNoMatch"));
 				}
-				// Marked AFTER the server confirms, never before, which is the same rule
-				// the provider-wide and modal-wide paths follow.
+				// Marked AFTER the server confirms, never before, and from the ids the
+				// response names, which is the same rule the provider-wide and
+				// modal-wide paths follow.
 				//
 				// Marking it up front raced any refresh that landed while the request was
 				// out: that refresh still saw the model reported, so it rebuilt the row as
@@ -987,7 +989,7 @@ export function Layout({ children }: LayoutProps) {
 				// dismissed by hand. Exactly the false relist this rework exists to
 				// remove. Setting the status only once the write is confirmed leaves
 				// nothing for a refresh to strip.
-				dismissClaim(providerId, new Set([modelId]));
+				dismissClaim(providerId, new Set(res.dismissed));
 				await refresh();
 				toast(
 					t("providers.discrepancies.dismissed", { model: modelId }),

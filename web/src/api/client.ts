@@ -434,8 +434,8 @@ export const api = {
 		dismiss: async (
 			providerId: string,
 			modelIds: string[],
-		): Promise<{ updated: number }> => {
-			return fetchJSON<{ updated: number }>(
+		): Promise<{ dismissed: string[]; updated: number }> => {
+			return fetchJSON<{ dismissed: string[]; updated: number }>(
 				`${API_BASE}/api/discovery/dismiss`,
 				{
 					method: "POST",

@@ -256,12 +256,14 @@ func TestSetModelsDismissed(t *testing.T) {
 	prov := seedClaimProvider(t, pool, "claims-dismiss", true)
 	seedClaimModel(t, pool, prov, "to-dismiss", false, false, 0, nil)
 
-	n, err := setModelsDismissed(ctx, pool, prov, []string{"to-dismiss"})
+	got, err := setModelsDismissed(ctx, pool, prov, []string{"to-dismiss"})
 	if err != nil {
 		t.Fatalf("dismiss: %v", err)
 	}
-	if n != 1 {
-		t.Fatalf("dismiss rows affected = %d, want 1", n)
+	// Names what it stamped, not just how many: the caller cannot derive WHICH ids
+	// a short result covered, and guessing is what mislabels them downstream.
+	if len(got) != 1 || got[0] != "to-dismiss" {
+		t.Fatalf("dismissed = %v, want [to-dismiss]", got)
 	}
 	var dismissedAt *time.Time
 	if err := pool.QueryRow(ctx, `SELECT discovery_dismissed_at FROM models WHERE provider_id = $1 AND model_id = $2`,
@@ -272,12 +274,12 @@ func TestSetModelsDismissed(t *testing.T) {
 		t.Fatal("discovery_dismissed_at not set after dismiss")
 	}
 
-	n, err = setModelsDismissed(ctx, pool, prov, []string{"does-not-exist"})
+	got, err = setModelsDismissed(ctx, pool, prov, []string{"does-not-exist"})
 	if err != nil {
 		t.Fatalf("dismiss unknown: %v", err)
 	}
-	if n != 0 {
-		t.Fatalf("dismiss unknown rows affected = %d, want 0", n)
+	if len(got) != 0 {
+		t.Fatalf("dismissed unknown = %v, want empty", got)
 	}
 }
 

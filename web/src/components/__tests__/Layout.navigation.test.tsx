@@ -1154,7 +1154,10 @@ describe("Layout", () => {
 					const body = (await request.json()) as { model_ids: string[] };
 					bodies.push(body);
 					for (const m of body.model_ids) dismissed.add(m);
-					return HttpResponse.json({ updated: body.model_ids.length });
+					return HttpResponse.json({
+						dismissed: body.model_ids,
+						updated: body.model_ids.length,
+					});
 				}),
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
@@ -1200,7 +1203,10 @@ describe("Layout", () => {
 				http.post("/api/discovery/dismiss", async ({ request }) => {
 					const body = (await request.json()) as { model_ids: string[] };
 					bodies.push(body);
-					return HttpResponse.json({ updated: body.model_ids.length });
+					return HttpResponse.json({
+						dismissed: body.model_ids,
+						updated: body.model_ids.length,
+					});
 				}),
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
@@ -1229,7 +1235,8 @@ describe("Layout", () => {
 					),
 				),
 				http.post("/api/discovery/dismiss", () =>
-					HttpResponse.json({ updated: 1 }),
+					// One of the two took, and the response names it.
+					HttpResponse.json({ dismissed: ["a"], updated: 1 }),
 				),
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
@@ -1305,7 +1312,10 @@ describe("Layout", () => {
 					if (body.model_ids.includes("b")) {
 						return HttpResponse.json({ error: "boom" }, { status: 500 });
 					}
-					return HttpResponse.json({ updated: body.model_ids.length });
+					return HttpResponse.json({
+						dismissed: body.model_ids,
+						updated: body.model_ids.length,
+					});
 				}),
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
@@ -1397,7 +1407,8 @@ describe("Layout", () => {
 				}),
 				// Two requested, one applied: membership unknown.
 				http.post("/api/discovery/dismiss", () =>
-					HttpResponse.json({ updated: 1 }),
+					// One of the two took, and the response names it.
+					HttpResponse.json({ dismissed: ["a"], updated: 1 }),
 				),
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
@@ -1420,18 +1431,22 @@ describe("Layout", () => {
 			const banner = await screen.findByTestId("discrepancy-load-error");
 			expect(banner).toHaveAttribute("role", "alert");
 
-			// ...and, the part that actually matters, the provider stays ACTIONABLE.
-			// Marking every requested row dismissed would make providerHasNoPending
-			// true, swapping Retest and Dismiss all for the Clean broom and taking away
-			// the controls for models the server never dismissed. The banner does not
-			// give those back, which is why nothing is claimed without confirmation.
+			// ...and the rows land exactly as the response described them. The server
+			// named `a`, so `a` is dismissed and `b` is untouched. Marking both would
+			// strike through a model the server skipped and make providerHasNoPending
+			// true, swapping Retest and Dismiss all for the Clean broom; marking
+			// neither would let the merge read `a`'s absence as "listed again".
 			expect(screen.queryByTestId("discrepancy-clean")).toBeNull();
 			expect(screen.getByTestId("discrepancy-retest")).toBeInTheDocument();
 			expect(screen.getByTestId("discrepancy-dismiss-all")).toBeInTheDocument();
 			await openFirstBucket(user);
-			for (const row of screen.getAllByTestId("discrepancy-claim")) {
-				expect(row).toHaveAttribute("data-status", "pending");
-			}
+			const statusOf = (id: string) =>
+				screen
+					.queryAllByTestId("discrepancy-claim")
+					.find((el) => el.getAttribute("data-model-id") === id)
+					?.getAttribute("data-status");
+			expect(statusOf("a")).toBe("dismissed");
+			expect(statusOf("b")).toBe("pending");
 		});
 
 		it("dismisses every provider at once, one request per provider", async () => {
@@ -1452,7 +1467,10 @@ describe("Layout", () => {
 				http.post("/api/discovery/dismiss", async ({ request }) => {
 					const body = (await request.json()) as { model_ids: string[] };
 					bodies.push(body);
-					return HttpResponse.json({ updated: body.model_ids.length });
+					return HttpResponse.json({
+						dismissed: body.model_ids,
+						updated: body.model_ids.length,
+					});
 				}),
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);

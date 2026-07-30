@@ -306,16 +306,36 @@ func sortClaims(cs []ModelClaim) {
 // suspect (still enabled, missing_scans > 0) or healthy model is by definition
 // not being sighted, so pre-dismissing one would silently hide a real claim the
 // next time it actually goes gone.
-func setModelsDismissed(ctx context.Context, pool *pgxpool.Pool, providerID uuid.UUID, modelIDs []string) (int64, error) {
-	tag, err := pool.Exec(ctx,
+func setModelsDismissed(ctx context.Context, pool *pgxpool.Pool, providerID uuid.UUID, modelIDs []string) ([]string, error) {
+	// RETURNING, not a row count. A count says HOW MANY of the requested models
+	// were dismissed but not WHICH, and the caller cannot derive the difference:
+	// the WHERE clause can skip a model for reasons the caller has no view of (it
+	// was sighted and re-enabled, disabled by hand, or deleted since the list was
+	// read). A dashboard left guessing then mislabels the ones that did land - the
+	// UI reads a dismissed model's absence from the next status read as "listed
+	// again" - so the endpoint names them instead.
+	rows, err := pool.Query(ctx,
 		`UPDATE models SET discovery_dismissed_at = now()
 		  WHERE provider_id = $1 AND model_id = ANY($2)
-		    AND enabled = false AND disabled_manually = false`,
+		    AND enabled = false AND disabled_manually = false
+		RETURNING model_id`,
 		providerID, modelIDs)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return tag.RowsAffected(), nil
+	defer rows.Close()
+
+	// Never nil: the JSON response promises dismissed: string[] with no null guard
+	// on the client.
+	out := []string{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
 }
 
 // PruneDiscoveryChanges deletes seen journal rows older than the window. Safe

@@ -66,7 +66,7 @@ describe("api.discovery", () => {
 		it("posts provider_id and model_ids in the body", async () => {
 			// No `dismissed` flag: the endpoint only stamps. A dismissal is reversed by
 			// discovery sighting the model again, not by a second call.
-			const mockResult = { updated: 2 };
+			const mockResult = { dismissed: ["model-a", "model-b"], updated: 2 };
 			vi.spyOn(globalThis, "fetch").mockResolvedValue(
 				new Response(JSON.stringify(mockResult), { status: 200 }),
 			);

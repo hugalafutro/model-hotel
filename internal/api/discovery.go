@@ -784,15 +784,18 @@ func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	affected, err := setModelsDismissed(r.Context(), h.dbPool.Pool(), providerID, req.ModelIDs)
+	dismissed, err := setModelsDismissed(r.Context(), h.dbPool.Pool(), providerID, req.ModelIDs)
 	if err != nil {
 		respondError(w, "failed to dismiss discovery claims", err, http.StatusInternalServerError)
 		return
 	}
-	if affected == 0 {
+	if len(dismissed) == 0 {
 		http.Error(w, "no matching models", http.StatusNotFound)
 		return
 	}
 
-	writeJSON(w, map[string]any{"updated": affected})
+	// `dismissed` names the models actually stamped, so a partial result is fully
+	// informative: the caller marks exactly those and leaves the rest alone.
+	// `updated` is kept for compatibility and is simply its length.
+	writeJSON(w, map[string]any{"dismissed": dismissed, "updated": len(dismissed)})
 }
