@@ -409,7 +409,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	// Vertex express egress adapter: chat requests to a vertex-express
 	// provider are translated to Gemini generateContent on the way out and
 	// back on the response side (see gemini_egress.go).
-	if isGeminiEgressAttempt(st, providerType) {
+	if isGeminiEgressAttempt(st, providerType, candidate.model.ModelID) {
 		st.geminiAttempt = true
 		return h.buildGeminiRequest(ctx, st, candidate, providerType)
 	}

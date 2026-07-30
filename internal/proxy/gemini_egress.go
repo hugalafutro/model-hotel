@@ -25,10 +25,59 @@ import (
 // probe, stall watchdog, transforms and metering all run unchanged.
 
 // isGeminiEgressAttempt reports whether this candidate is served through the
-// gemini egress adapter: a plain chat-completions request (no explicit
-// endpoint override, no multipart body) to a vertex-express provider.
-func isGeminiEgressAttempt(st *requestState, providerType string) bool {
-	return providerType == "vertex-express" && st.endpointPath == "" && st.makeUpstreamBody == nil
+// gemini egress adapter: a plain chat-completions request (no explicit endpoint
+// override, no multipart body) bound for a provider that only speaks Gemini's
+// native dialect for this model.
+//
+// Two providers qualify. vertex-express speaks it for every model. OpenCode Zen
+// speaks it for its Gemini models only: Zen routes each model family to a
+// different upstream shape, and its Gemini models are a thin passthrough to
+// Google, so an OpenAI-shaped body sent to Zen's /chat/completions comes back
+// with Google's own `Invalid JSON request body: Missing key at ["contents"]`.
+// Every other Zen family stays on chat-completions.
+func isGeminiEgressAttempt(st *requestState, providerType, modelID string) bool {
+	if st.endpointPath != "" || st.makeUpstreamBody != nil {
+		return false
+	}
+	return providerType == "vertex-express" || isZenGeminiModel(providerType, modelID)
+}
+
+// isZenGeminiModel reports whether this is an OpenCode Zen candidate for a
+// Gemini model. Zen's Gemini IDs are unprefixed and unsuffixed
+// (gemini-3-flash, gemini-3.1-pro, gemini-3.5-flash, gemini-3.5-flash-lite,
+// gemini-3.6-flash), so the family prefix is the whole test.
+func isZenGeminiModel(providerType, modelID string) bool {
+	return providerType == "opencode-zen" && strings.HasPrefix(strings.ToLower(modelID), "gemini-")
+}
+
+// geminiEgressEndpoint builds the native-dialect path for a provider. Vertex
+// express keys only work on the publisher routes; Zen exposes the same
+// generateContent verbs directly under its own /models/{id}.
+func geminiEgressEndpoint(providerType, model string, stream bool) string {
+	prefix := "/publishers/google/models/"
+	if providerType == "opencode-zen" {
+		prefix = "/models/"
+	}
+	if stream {
+		return prefix + url.PathEscape(model) + ":streamGenerateContent?alt=sse"
+	}
+	return prefix + url.PathEscape(model) + ":generateContent"
+}
+
+// setGeminiEgressAuth applies the auth scheme the native Google routes require.
+// Both providers reject Bearer here: Vertex reads it as an OAuth2 expectation,
+// and Zen's Gemini passthrough answers a Bearer token with
+// {"type":"AuthError","message":"Missing API key."}. Only x-goog-api-key works,
+// which is why this cannot go through SetProviderAuthHeaders for Zen — that
+// switches on provider type alone, and Zen's other families do need Bearer.
+func setGeminiEgressAuth(req *http.Request, providerType, apiKey string) {
+	if providerType == "opencode-zen" {
+		if apiKey != "" {
+			req.Header.Set("x-goog-api-key", apiKey)
+		}
+		return
+	}
+	util.SetProviderAuthHeaders(req, providerType, apiKey)
 }
 
 // buildGeminiRequest builds the upstream request for a vertex-express attempt.
@@ -44,10 +93,7 @@ func (h *Handler) buildGeminiRequest(ctx context.Context, st *requestState, cand
 		return nil, providerType, "", err
 	}
 
-	endpoint := "/publishers/google/models/" + url.PathEscape(model) + ":generateContent"
-	if stream {
-		endpoint = "/publishers/google/models/" + url.PathEscape(model) + ":streamGenerateContent?alt=sse"
-	}
+	endpoint := geminiEgressEndpoint(providerType, model, stream)
 	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, endpoint)
 	debuglog.Info("proxy: routing via gemini egress adapter", "target_url", targetURL, "model", candidate.model.ModelID, "provider", candidate.provider.Name, "stream", stream)
 
@@ -55,7 +101,7 @@ func (h *Handler) buildGeminiRequest(ctx context.Context, st *requestState, cand
 	if err != nil {
 		return nil, providerType, targetURL, err
 	}
-	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
+	setGeminiEgressAuth(proxyReq, providerType, candidate.apiKey)
 	proxyReq.Header.Set("Content-Type", "application/json")
 	return proxyReq, providerType, targetURL, nil
 }

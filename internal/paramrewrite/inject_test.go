@@ -11,7 +11,9 @@ func TestNeedsProviderInjection(t *testing.T) {
 		want         bool
 	}{
 		{"zai-coding", true},
-		{"opencode-zen", true},
+		// opencode-zen is false on purpose: Zen rejects chat_template_args (see
+		// TestInjectProviderParams_OpencodeZen_NotInjected).
+		{"opencode-zen", false},
 		{"opencode-go", true},
 		{"deepseek", true},
 		{"openai", false},
@@ -69,21 +71,25 @@ func TestInjectProviderParams_ZaiCoding_AlreadyPresent(t *testing.T) {
 	}
 }
 
-func TestInjectProviderParams_OpencodeZen(t *testing.T) {
+// TestInjectProviderParams_OpencodeZen_NotInjected pins a live-verified
+// regression: OpenCode Zen used to be injected with chat_template_args like Go,
+// but Zen's backend now rejects it. A/B testing every Zen model on 2026-07-30
+// showed glm-5, glm-5.1, glm-5.2, minimax-m3, kimi-k2.6, kimi-k3 and
+// deepseek-v4-pro all fail with "Upstream request failed" when the parameter is
+// present and all succeed without it; only qwen3.6-plus tolerated it. Zen's
+// error is too generic for the 400 param-strip retry to recognise as a
+// parameter fault, so injecting it made those models unusable outright.
+func TestInjectProviderParams_OpencodeZen_NotInjected(t *testing.T) {
 	raw := map[string]any{
-		"model":    "kimi-k2-thinking",
+		"model":    "glm-5.2",
 		"messages": []any{},
 	}
-	modified := InjectProviderParams(raw, "opencode-zen", "kimi-k2-thinking")
-	if !modified {
-		t.Fatal("expected modification for opencode-zen")
+	modified := InjectProviderParams(raw, "opencode-zen", "glm-5.2")
+	if modified {
+		t.Fatal("opencode-zen must not be modified: Zen rejects chat_template_args")
 	}
-	args, ok := raw["chat_template_args"].(map[string]any)
-	if !ok {
-		t.Fatal("expected chat_template_args map to be injected")
-	}
-	if args["enable_thinking"] != true {
-		t.Errorf("chat_template_args.enable_thinking = %v, want true", args["enable_thinking"])
+	if _, present := raw["chat_template_args"]; present {
+		t.Error("chat_template_args must never be injected for opencode-zen")
 	}
 }
 
