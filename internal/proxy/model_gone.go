@@ -383,12 +383,26 @@ func verdictForStream(kind, upstreamKind ErrorKind, producedOutput bool) streamV
 }
 
 // streamProducedOutput reports whether a finished stream actually delivered
-// content. Either signal alone is enough and neither is reliable on its own:
+// content.
+//
+// deliveredContent is the authoritative signal, set where the content itself is
+// observed. The other two are corroboration and neither can be relied on alone:
 // completion tokens are absent when a provider omits the usage chunk, and TTFT
-// is zero when the probe is disabled, so a stream that emitted content will
-// normally set at least one.
+// is zero when the probe is switched off. With only those two, a provider that
+// streams a perfectly good answer and reports no usage, on a gateway with the
+// probe off, reads as having produced nothing — the success then fails to clear
+// the streak, and later refusals retire a model whose failures were never
+// consecutive.
+//
+// The direction of the error matters here, which is why the bar is positive
+// evidence rather than absence of an error: a stream can open, emit nothing and
+// end without recording anything, and crediting that would clear a retirement
+// streak on the strength of an empty response.
 func streamProducedOutput(logData *requestLogData) bool {
-	return logData != nil && (logData.tokensCompletion > 0 || logData.ttftMs > 0)
+	if logData == nil {
+		return false
+	}
+	return logData.deliveredContent || logData.tokensCompletion > 0 || logData.ttftMs > 0
 }
 
 // noteStreamOutcome applies the model verdict once a stream has finished. Shared

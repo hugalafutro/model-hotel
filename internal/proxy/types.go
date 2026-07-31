@@ -135,12 +135,18 @@ type requestLogData struct {
 	// provider's own statement that the model is gone — the evidence destroyed
 	// by the client reacting to it. Not persisted; it exists so the retirement
 	// verdict can be drawn from the provider alone.
-	upstreamKind    ErrorKind
-	failoverAttempt int
-	state           string
-	resolvedModelID string
-	endpointType    string         // endpoint family: chat, embeddings, rerank, image, tts, stt
-	insertWg        sync.WaitGroup // signals when the async INSERT has completed
+	upstreamKind ErrorKind
+	// deliveredContent records that the stream actually produced content. Not
+	// persisted; it exists because the two signals that used to stand in for it
+	// are both optional — a provider can omit the usage chunk and the TTFT probe
+	// can be switched off — and a real success that reports neither would
+	// otherwise look indistinguishable from a stream that emitted nothing.
+	deliveredContent bool
+	failoverAttempt  int
+	state            string
+	resolvedModelID  string
+	endpointType     string         // endpoint family: chat, embeddings, rerank, image, tts, stt
+	insertWg         sync.WaitGroup // signals when the async INSERT has completed
 }
 
 type modelCandidate struct {

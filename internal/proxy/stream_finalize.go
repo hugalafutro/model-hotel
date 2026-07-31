@@ -35,8 +35,13 @@ type streamState struct {
 	lastErrMsg            string
 	sawDone               bool
 	sawMessageStop        bool // native Anthropic passthrough: terminal message_stop event seen
-	clientDisconnected    bool
-	stalled               bool
+	// sawContent records that at least one non-empty content or reasoning delta
+	// reached the client. It is the only signal that a stream actually answered
+	// which does not depend on optional behaviour: usage chunks are omitted by
+	// some providers, and the TTFT probe can be turned off.
+	sawContent         bool
+	clientDisconnected bool
+	stalled            bool
 
 	// Observer state carried across chunks (Phase 4). Not consumed by the
 	// finalizer, but co-located here so the data-chunk observers operate on one
@@ -132,6 +137,10 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	logData.tokensCompletionReasoning = st.reasoningTokens
 	logData.tokensPromptCacheHit = st.promptCacheHitTokens
 	logData.tokensPromptCacheMiss = st.promptCacheMissTokens
+	// Carried for the retirement verdict, which has to decide whether the model
+	// answered. On the native Anthropic passthrough the chunks are never parsed
+	// into deltas, so its terminal message_stop stands in for the same fact.
+	logData.deliveredContent = st.sawContent || st.sawMessageStop
 	logData.errorMessage = errMsg
 	logData.failoverAttempt = opts.attempt
 	if errMsg != "" {

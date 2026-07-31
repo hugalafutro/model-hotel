@@ -236,6 +236,12 @@ func TestStreamProducedOutput(t *testing.T) {
 		{"tokens only", &requestLogData{tokensCompletion: 12}, true},
 		{"ttft only", &requestLogData{ttftMs: 42.5}, true},
 		{"both", &requestLogData{tokensCompletion: 12, ttftMs: 42.5}, true},
+		// The case the other two miss between them, and it is an ordinary
+		// configuration rather than an exotic one: a provider that omits the
+		// usage chunk, on a gateway with the TTFT probe switched off. Without
+		// this the success does not clear the streak, and later refusals retire
+		// a model whose failures were never consecutive.
+		{"content only: no usage reported, probe disabled", &requestLogData{deliveredContent: true}, true},
 		{"neither: nothing ever flowed", &requestLogData{}, false},
 		{"nil is not evidence", nil, false},
 	}
