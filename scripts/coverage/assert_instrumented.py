@@ -29,7 +29,20 @@ def missing_files(lcov_text: str, root: str, changed: list) -> list:
     cov = covlib.parse_lcov(lcov_text, root)
     # is_excluded mirrors diff_coverage's own filter: a file it would ignore
     # anyway is not evidence that the scoped run was incomplete.
-    return [f for f in changed if not covlib.is_excluded(f) and f not in cov]
+    #
+    # emits_no_runtime_code covers the other way a file can be legitimately
+    # absent. A types-only module compiles to nothing, so it appears in no lcov
+    # report ever produced and its absence says nothing about which tests ran.
+    # Without this the guard failed permanently on web/src/api/types.ts, and
+    # since that is the typed boundary to the backend, most API-surface branches
+    # paid the full suite on every push for a file that could never pass.
+    return [
+        f
+        for f in changed
+        if not covlib.is_excluded(f)
+        and not covlib.emits_no_runtime_code(f)
+        and f not in cov
+    ]
 
 
 def main() -> int:
