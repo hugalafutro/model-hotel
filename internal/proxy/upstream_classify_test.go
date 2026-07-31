@@ -404,6 +404,58 @@ func TestClassifyUpstreamError_MustBeAboutTheRequestedModel(t *testing.T) {
 	runClassifyCases(t, tests)
 }
 
+// TestClassifyUpstreamError_MixedMessages covers responses that say two things
+// at once, which is where a body-wide rule gets it wrong in both directions.
+//
+// The capability veto has to cancel the phrase it qualifies and nothing else.
+// Applied to the whole body it suppressed genuine retirements that happened to
+// share a response with an unrelated capability refusal — the model stays
+// enabled and routable while the provider is plainly saying it is gone. Applied
+// too narrowly it would let a capability refusal through as a retirement.
+func TestClassifyUpstreamError_MixedMessages(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		body      string
+		requested string
+		want      ErrorKind
+	}{
+		{
+			name:      "retirement of ours plus a capability refusal of another model",
+			body:      `{"error":{"message":"Model gemini-2.0-flash does not exist. Separately, tool-only-model is not supported for this endpoint."}}`,
+			requested: "gemini-2.0-flash",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "order reversed: the refusal comes first",
+			body:      `{"error":{"message":"tool-only-model is not supported for this endpoint. Also, model gemini-2.0-flash is no longer available."}}`,
+			requested: "gemini-2.0-flash",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "our model refused a capability, another model retired",
+			body:      `{"error":{"message":"Model gemini-2.0-flash is not supported for this operation. Separately, gpt-4.5-preview does not exist."}}`,
+			requested: "gemini-2.0-flash",
+			want:      KindProviderError,
+		},
+		{
+			name:      "both phrases about our model: the retirement still wins",
+			body:      `{"error":{"message":"Model gpt-4 is not supported for this operation, and gpt-4 does not exist."}}`,
+			requested: "gpt-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "capability refusal alone is still vetoed",
+			body:      `{"error":{"message":"Model gpt-4 is not supported for this operation"}}`,
+			requested: "gpt-4",
+			want:      KindProviderError,
+		},
+	}
+
+	runClassifyCases(t, tests)
+}
+
 // TestClassifyUpstreamError_OverlappingModelIDs covers the case where the error
 // names a model whose id CONTAINS the requested one.
 //

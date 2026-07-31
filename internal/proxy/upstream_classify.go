@@ -38,9 +38,24 @@ const modelPhraseWindow = 80
 // phrase too ("... does not exist or you do not have access to it"), and Zen's
 // "not supported on the full model list" is a retirement whose qualifier simply
 // is not a capability.
+//
+// Anchored, and applied to ONE phrase rather than to the whole body. A response
+// can say two things at once — "Model gemini-2.0-flash does not exist.
+// Separately, tool-only-model is not supported for this endpoint." — and vetoing
+// on a match anywhere let the second sentence suppress the first. The model
+// would then never accrue strikes and would stay routable while the provider
+// was plainly saying it is gone. The veto now only cancels the phrase it
+// actually qualifies.
 var modelCapabilityRefusal = regexp.MustCompile(
-	`(is not supported|is no longer available|is not available) (for|with|on|in) (this |your |that |the )?` +
+	`^(is not supported|is no longer available|is not available) (for|with|on|in) (this |your |that |the )?` +
 		`(operation|endpoint|method|route|api|api version|request|request type|mode|task|region|plan|tier|account|subscription)`)
+
+// refusesCapabilityAt reports whether the phrase starting at pos is a capability
+// refusal rather than a retirement. The pattern is anchored, so this tests that
+// one position and no other.
+func refusesCapabilityAt(body string, pos int) bool {
+	return modelCapabilityRefusal.MatchString(body[pos:])
+}
 
 // isModelIDChar reports whether b can appear inside a model identifier.
 //
@@ -132,7 +147,10 @@ func modelGoneAbout(body, modelID string) bool {
 			pos := off + at
 			lo := max(0, pos-modelPhraseWindow)
 			hi := min(len(body), pos+len(verb)+modelPhraseWindow)
-			if namesModelID(body, lo, hi, id) {
+			// The capability veto is applied per phrase, so a body that both
+			// retires this model and refuses some other model's capability
+			// still classifies on the retirement.
+			if namesModelID(body, lo, hi, id) && !refusesCapabilityAt(body, pos) {
 				return true
 			}
 			off = pos + len(verb)
@@ -177,10 +195,12 @@ func modelGoneAbout(body, modelID string) bool {
 func classifyUpstreamError(status int, body, modelID string) (ErrorKind, string) {
 	b := strings.ToLower(body)
 
-	// Model retired or never served by this provider. The verdict requires the
-	// requested model's own id beside the phrase (modelGoneAbout), and then that
-	// the phrase is not merely refusing one capability (the veto).
-	if modelGoneAbout(b, modelID) && !modelCapabilityRefusal.MatchString(b) {
+	// Model retired or never served by this provider. modelGoneAbout requires
+	// the requested model's own id beside the phrase AND that the phrase is not
+	// merely refusing one capability — both checks are per phrase, so an
+	// unrelated sentence elsewhere in the body can neither create the verdict
+	// nor suppress it.
+	if modelGoneAbout(b, modelID) {
 		return KindProviderModelGone, "the provider no longer serves this model"
 	}
 
