@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -342,6 +343,75 @@ func TestProbeEndpointForFamily(t *testing.T) {
 			}
 			if endpoint != tc.endpoint {
 				t.Errorf("endpoint = %q, want %q", endpoint, tc.endpoint)
+			}
+		})
+	}
+}
+
+// TestProbeModel_OpenCircuitCostsNoRequest pins that the probe asks the breaker
+// before it asks the provider.
+//
+// The probe skips the breaker's ACCOUNTING deliberately: charging a provider's
+// circuit for a verification the operator did not request would let the
+// verification itself take a healthy provider out of routing. Skipping the
+// CHECK is a different thing entirely, and it was never argued — a probe to a
+// provider the gateway has already sidelined is a guaranteed-wasted call to a
+// host nothing else is being sent to, and its answer postpones anyway. The
+// fixture refuses the model by name, so a probe that went out would RETIRE it;
+// the whole assertion is that no request is made and the retirement postpones.
+func TestProbeModel_OpenCircuitCostsNoRequest(t *testing.T) {
+	t.Parallel()
+
+	srv, rec := probeServer(t, http.StatusNotFound, `{"error":{"message":"The model `+"`claude-sonnet-4`"+` does not exist"}}`)
+	h := newProbeHandler(t)
+	h.circuitBreaker = failover.NewCircuitBreaker(nil)
+	cand := probeCandidateFor(srv.URL, "claude-sonnet-4")
+
+	// Driven through the breaker's own API rather than by reaching into its
+	// state: the check has to agree with what the routing path would see, and
+	// the threshold is the breaker's to define.
+	for range h.circuitBreaker.Threshold {
+		h.circuitBreaker.RecordFailure(cand.provider.ID, cand.provider.Name)
+	}
+	if state := h.circuitBreaker.GetState(cand.provider.ID); state != failover.StateOpen {
+		t.Fatalf("fixture: the circuit did not open, state = %v", state)
+	}
+
+	if got := runProbe(t, h, cand, endpointTypeChat); got != probeInconclusive {
+		t.Errorf("a probe to a sidelined provider must establish nothing, got %v", got)
+	}
+	if _, _, _, called := rec.snapshot(); called != 0 {
+		t.Errorf("a sidelined provider must not be asked, got %d request(s)", called)
+	}
+}
+
+// TestProbeVerdictString pins that an unhandled verdict is named as one.
+//
+// noteModelGone's default arm exists specifically to surface a verdict nobody
+// wrote a case for, and it fails the retirement closed and logs this string.
+// While String's default returned "inconclusive", the one diagnostic designed
+// to name the unknown value was guaranteed to misname it as the zero value it
+// is not — so a fourth verdict silently postponing every retirement for a whole
+// class of models would have read, in the logs, exactly like an ordinary
+// unproven probe. The unknown case is the only reason this test exists; the
+// three named ones are here so a renumbering cannot quietly shuffle them.
+func TestProbeVerdictString(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		verdict probeVerdict
+		want    string
+	}{
+		{probeInconclusive, "inconclusive"},
+		{probeRefused, "refused"},
+		{probeServed, "served"},
+		{probeVerdict(7), "unknown(7)"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.want, func(t *testing.T) {
+			t.Parallel()
+			if got := tc.verdict.String(); got != tc.want {
+				t.Errorf("String() = %q, want %q", got, tc.want)
 			}
 		})
 	}

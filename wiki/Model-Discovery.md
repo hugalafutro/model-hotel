@@ -998,6 +998,62 @@ In summary:
 - **Auto-disabled** models (removed from the provider API) have `disabled_manually = false` and are re-enabled if they reappear.
 - **Manually disabled** models have `disabled_manually = true` and stay disabled even if the model reappears in the provider API.
 
+### Traffic-driven retirement: verified before it is written
+
+Discovery can only act when a model leaves a provider's listing. Some providers
+keep serving a listing entry for a model they have already shut down (Google
+kept `gemini-2.0-flash` listed for two months after retirement, OpenCode Zen
+lists `claude-sonnet-4` and refuses it), so the only thing that knows such a
+model is dead is a real request to it. The proxy therefore also retires models
+from traffic, and every one of those retirements is verified with an upstream
+request before anything is written.
+
+How a retirement is reached:
+
+1. **Nomination.** A request that the provider refuses with retirement-shaped
+   prose counts one strike against that model. Three strikes within 30 minutes,
+   with no successful request in between, nominate it. Strikes are in-memory and
+   per gateway instance: they are not persisted, and each HA member reaches its
+   own conclusion from its own traffic.
+2. **Adjudication.** At the threshold the gateway sends a real, minimal request
+   to the model itself (a 64-token chat completion, or a one-input embedding),
+   off the request path. Content coming back means the model works: the streak
+   is cleared, nothing is disabled, and a warning is logged because a model that
+   refuses real traffic and answers a probe is worth a look. The provider
+   refusing the model by name is what writes the disable. Anything else (a 429,
+   a 5xx, an entitlement failure, a timeout, an unreadable answer) establishes
+   nothing and postpones.
+3. **The write.** A confirmed retirement sets `enabled = false` and stamps
+   `auto_retired_at`, revalidates the custom failover groups the model belonged
+   to, and publishes a `model.auto_disabled_gone` event.
+
+Two consequences worth knowing about before you upgrade:
+
+- **Every retirement decision costs one upstream request.** It is a call you did
+  not make, so it is logged as one: the `proxy: auto-disabled retired model`
+  line and the `model.auto_disabled_gone` event both carry `probe_verdict` and
+  the endpoint family. A retirement without `probe_verdict: refused` did not
+  come from this path. The rate is bounded on two axes: a model is probed at
+  most once every 5 minutes however hard it is being retried, and at most 4
+  probes are in flight against any one provider at a time. Probes deliberately
+  skip rate limiting and circuit-breaker accounting (a verification must not be
+  able to sideline a healthy provider), but they do respect an already-open
+  circuit and postpone instead of calling a provider the gateway has sidelined.
+- **Some endpoint families are never auto-retired from traffic.** Only chat,
+  messages and embeddings models can be verified cheaply and safely. Image, TTS,
+  STT and rerank models are never auto-retired at all, because a chat probe
+  against one fails for reasons that have nothing to do with retirement and that
+  failure would read as confirmation. Retiring them without verification is the
+  guessing this design exists to remove, so a retired image or TTS model stays
+  enabled until discovery drops it from the listing or you disable it by hand.
+  Refusals on those families are logged at debug level and no strikes are kept.
+
+A model retired this way is distinct from both a manual disable and a discovery
+disable (see migration `063`): re-appearing in a listing does not revive it,
+because the provider was refusing it while still listing it. Enabling it by hand
+clears the stamp, and if the model really is gone it re-earns its strikes, is
+re-probed and is retired again with a fresh alert.
+
 ### Manual Enable/Disable (API)
 
 Users can manually enable or disable a model via:

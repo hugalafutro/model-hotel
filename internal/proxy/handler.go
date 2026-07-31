@@ -64,6 +64,16 @@ type Handler struct {
 	// refusals in one streak may be, and the tombstone a success uses to stand
 	// down a disable that has been decided but not yet written.
 	goneStrikes sync.Map
+	// goneProbeSlots bounds how many pre-retirement probes may be in flight
+	// against one provider at once, keyed by provider UUID. Value: a
+	// chan struct{} of goneProbeMaxConcurrent capacity, used as a non-blocking
+	// semaphore (see acquireProbeSlot).
+	//
+	// Per gateway instance rather than per process, exactly like goneStrikes
+	// beside it: the cap describes what THIS gateway is willing to aim at a
+	// provider, and each HA member reaches its own conclusions from its own
+	// traffic.
+	goneProbeSlots sync.Map
 	// responsesRequiredCache remembers models whose upstream 400'd
 	// tools+reasoning over chat-completions and demanded /v1/responses (OpenAI
 	// gpt-5.4+/gpt-5.6 families), keyed by "providerType:modelID". Once a model

@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -15,7 +17,32 @@ import (
 // reasoning model spends a 1-token budget on thinking, returns an empty
 // completion, and some providers wrap that in a 400 — a manufactured false
 // failure that cost half a day during the July catalog audit.
+//
+// Best-effort, and knowingly so. The probe goes through the real egress builder
+// (see newProbeState), whose step 6 strips params this provider+model has
+// LEARNED the upstream rejects. A model that once answered 400 for max_tokens
+// outright therefore gets probed with no cap at all and answers at whatever
+// length it likes. That is the right trade rather than a gap to close: the
+// alternative is a bespoke body that keeps the cap by skipping the rewrite, and
+// a probe that is easier to satisfy than the requests it adjudicates is worse
+// than no probe. The cost is bounded anyway — one uncapped completion per
+// retirement decision, at goneProbeCooldown apiece.
 const goneProbeMaxTokens = 64
+
+// goneProbeMaxBody bounds how much of a probe answer is read into memory.
+//
+// The expected body is a couple of hundred bytes — one refusal, or one 64-token
+// completion. The read happens on the detached disable goroutine with no client
+// backpressure behind it, so nothing downstream would notice a provider (or
+// something impersonating one) streaming megabytes into it. 64 KiB is orders of
+// magnitude above any real answer and orders of magnitude below anything that
+// matters to the process.
+//
+// Truncation is safe by construction on both judgement paths: a cut-off body
+// either fails to parse, or parses into something the judgement reads as
+// unproven, and both postpone. See judgeProbeFailure for the one case where
+// that had to be reasoned about rather than assumed.
+const goneProbeMaxBody = 64 << 10
 
 // goneProbeTimeout bounds the pre-retirement probe. It runs on the detached
 // disable goroutine, so nothing on the request path is waiting on it.
@@ -57,14 +84,24 @@ const (
 // rather than the value itself: debuglog's arguments are evaluated eagerly, so
 // an explicit conversion keeps the rendered name independent of whether the
 // Debug scope happens to be enabled.
+//
+// probeInconclusive has its own case and the default renders the number, which
+// is the opposite of the obvious arrangement and is the point. noteModelGone's
+// default arm exists specifically to surface a verdict nobody has handled, and
+// it logs this string; folding unknown values into "inconclusive" meant the one
+// diagnostic designed to name the unknown value was guaranteed to misname it,
+// and a fourth verdict would have been indistinguishable in the logs from the
+// zero value it is not.
 func (v probeVerdict) String() string {
 	switch v {
+	case probeInconclusive:
+		return "inconclusive"
 	case probeRefused:
 		return "refused"
 	case probeServed:
 		return "served"
 	default:
-		return "inconclusive"
+		return "unknown(" + strconv.Itoa(int(v)) + ")"
 	}
 }
 
@@ -79,6 +116,18 @@ func (v probeVerdict) String() string {
 // adjudicate — the probe would manufacture exactly the wrong answer. Image,
 // speech and transcription probes also cost real money and real seconds per
 // call, which a background verification must not spend.
+//
+// Rerank is excluded on a different and weaker ground, recorded here so nobody
+// reads it as belonging to the sentence above. A /rerank call with one document
+// is about as cheap as the embeddings call this function already allows, so the
+// cost argument does not apply to it. It is excluded because a rerank probe
+// would need its own request body, its own answer shape and its own "did the
+// model actually produce something" judgement, none of which exist yet and none
+// of which anything has asked for — and shipping an unexercised third judgement
+// path is a worse trade than the consequence, which is that rerank models are
+// never auto-retired and simply stay enabled until an operator disables one.
+// This is a deliberately conservative choice and the cheap one to reverse:
+// adding the family here plus a body and a content check is all it takes.
 //
 // So where a family cannot be probed cheaply, the correct outcome is to not
 // auto-retire that family at all. The alternative — falling back to trusting
@@ -122,6 +171,24 @@ type probeEmbeddingsRequest struct {
 // because a bespoke request builder would be able to succeed where real traffic
 // fails and a probe that is easier to satisfy than the requests it adjudicates
 // is worse than no probe at all.
+//
+// One divergence from that, named rather than left to be discovered. anthropicIn
+// and anthropicRawBody are NOT set, so an endpointTypeMessages candidate on an
+// anthropic-type provider is probed with an OpenAI chat body at
+// {base}/v1/chat/completions, whereas the traffic that nominated it went out
+// natively at /v1/messages (see anthropic_native.go). Setting them is not
+// available here: anthropicRawBody is the CLIENT's /v1/messages body, and a
+// probe has no client, so the native path would have to be handed a body this
+// function invented — which is the bespoke request the paragraph above rules
+// out, on the one dialect where it is easiest to get subtly wrong.
+//
+// It is acceptable because of which way the difference can fail. Anthropic's
+// compat layer serves the same model catalog, so a live model answers on both
+// surfaces and a retired one is refused by name on both. If the compat layer
+// itself is the problem — not enabled, differently gated, differently shaped —
+// the probe draws an error that is not a retirement, classifies as such, and
+// returns probeInconclusive. The retirement is postponed, never manufactured,
+// which is the direction every unproven case in this file already takes.
 //
 // endpointPath is deliberately left empty for the chat families even though
 // probeEndpointForFamily names "/chat/completions". Empty IS chat to the
@@ -220,6 +287,30 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 		return probeInconclusive
 	}
 
+	// Skipping the breaker's ACCOUNTING is argued at length above. Skipping its
+	// CHECK would be a separate decision and is not one this makes: if the
+	// gateway has already sidelined this provider, a probe to it is a
+	// guaranteed-wasted call to a host nothing else is being sent to, and its
+	// answer would be inconclusive anyway. So the breaker is consulted, and
+	// consulted through the one entry point that records nothing.
+	//
+	// GetState rather than IsOpen, and the difference is the whole reason this
+	// check is safe to make. IsOpen is the routing gate: it takes a write lock
+	// and performs the Open→HalfOpen transition, which spends the provider's
+	// one half-open trial slot on a request the operator did not make and would
+	// let a verification decide a provider's fate. GetState takes a read lock
+	// and derives the same logical state without touching the circuit, so an
+	// open circuit past its cooldown already reads as half-open here — which is
+	// exactly the semantics wanted: postpone only while the breaker is actually
+	// holding traffic back, proceed the moment it is ready to be probed again.
+	//
+	// A nil breaker means nobody has an opinion, which is not a reason to
+	// postpone.
+	if h.circuitBreaker != nil && h.circuitBreaker.GetState(candidate.provider.ID) == failover.StateOpen {
+		debuglog.Debug("proxy: retirement probe skipped, the provider's circuit is open", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "verdict", probeInconclusive.String())
+		return probeInconclusive
+	}
+
 	st := newProbeState(candidate, endpointType, endpoint)
 
 	req, providerType, _, err := h.buildCandidateRequest(ctx, st, candidate)
@@ -257,8 +348,11 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 		return probeInconclusive
 	}
 	defer func() {
-		// Drain before closing so the transport can reuse the connection.
-		_, _ = io.Copy(io.Discard, resp.Body)
+		// Drain before closing so the transport can reuse the connection, and
+		// drain no more than the judgement was willing to read. A body past
+		// goneProbeMaxBody costs the connection its reuse and nothing else,
+		// which is the cheaper of the two ways to be wrong here.
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, goneProbeMaxBody))
 		_ = resp.Body.Close()
 	}()
 
@@ -281,7 +375,7 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 // no status-code shortcut around the classifier here — a bare "404 means gone"
 // would retire every model behind a misconfigured base URL.
 func judgeProbeFailure(resp *http.Response, candidate modelCandidate, endpointType string) probeVerdict {
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, goneProbeMaxBody))
 	if err != nil {
 		// The one place in this file where a discarded read error could RETIRE
 		// a model: a truncated body whose surviving prefix happens to name the
@@ -320,7 +414,16 @@ func judgeProbeSuccess(resp *http.Response, st *requestState, candidate modelCan
 		return probeInconclusive
 	}
 
-	body, _ := io.ReadAll(resp.Body)
+	// The read error IS discarded here, and deliberately, which is the opposite
+	// of the care judgeProbeFailure takes over the same call. The asymmetry is
+	// in what a truncated body can produce, not in how much attention the two
+	// paths deserve. There, a surviving prefix naming the model beside a
+	// gone-phrase classifies as a refusal and RETIRES; here, the worst a partial
+	// body can do is fail to parse (probeDeliveredContent returns false, and the
+	// probe postpones) or carry content, which can only ever PREVENT a disable.
+	// Neither outcome can retire a model, so a separate branch for the error
+	// would postpone exactly where the code already postpones.
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, goneProbeMaxBody))
 	verdict := probeInconclusive
 	if probeDeliveredContent(endpointType, body) {
 		verdict = probeServed
