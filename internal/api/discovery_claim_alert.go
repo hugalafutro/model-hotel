@@ -32,7 +32,12 @@ const ClaimWindowDays = int(ClaimWindow / (24 * time.Hour))
 //
 // A gone model stops counting the moment its age exceeds ClaimWindow: the
 // stale predicate in buildProviderClaims is strictly greater, so at that
-// instant the claim leaves the badge count entirely. The alert fires when the
+// instant the claim leaves the badge count entirely. (A traffic-retired model
+// never ages out this way — it is checked before the stale predicate and stays
+// counted indefinitely — so the ceiling is not needed for its sake. It is kept
+// as one ceiling for both because the gone case is what can go silently dead,
+// and a per-state maximum would be a configuration nobody could reason about.)
+// The alert fires when the
 // oldest still-COUNTED claim exceeds the threshold. Set the threshold to
 // exactly ClaimWindow and those two conditions have no overlap at all: the
 // claim ages out of the count at precisely the instant the alert would
@@ -70,12 +75,14 @@ const settingKeyClaimAlertFired = "_discovery_claim_alert_fired_at"
 // flag, because a boolean latch can be held forever and thereby mute the alert
 // permanently.
 //
-// The deadlock a boolean produces: a model claim self-releases by ageing past
-// ClaimWindow out of Gone, but listGroupClaims has no window filter at all, so
-// a failover group left auto-disabled indefinitely (the operator having
-// accepted that hotel/<model> is dead) keeps the crossed condition true
-// forever. A boolean latch would then never clear, and no later crossing could
-// ever alert again, including a brand-new fifty-model backlog.
+// The deadlock a boolean produces: a GONE model claim self-releases by ageing
+// past ClaimWindow out of Gone, but two other counted things never age out at
+// all — a failover group left auto-disabled indefinitely (the operator having
+// accepted that hotel/<model> is dead), and a traffic-retired model, which is
+// classified before the stale predicate and stays counted until someone acts on
+// it. Either keeps the crossed condition true forever. A boolean latch would
+// then never clear, and no later crossing could ever alert again, including a
+// brand-new fifty-model backlog.
 //
 // Count is the level the operator was last told about, and it moves in both
 // directions:
@@ -135,9 +142,12 @@ const claimAlertWorstProviders = 3
 // actually fire, reporting whether it had to be clamped.
 //
 // A value at or above ClaimWindowDays is rejected rather than honoured for the
-// reason spelled out on MaxClaimAlertDays: the claim would age out of the
-// count before the alert could ever trigger. A non-positive or absent value is
-// not a clamp, it is a missing setting, and falls back to the default.
+// reason spelled out on MaxClaimAlertDays: a GONE claim would age out of the
+// count before the alert could ever trigger. It is clamped for every claim kind,
+// including the retired ones that never age out, because one comprehensible
+// ceiling beats a maximum that depends on which kind of claim happens to be
+// oldest. A non-positive or absent value is not a clamp, it is a missing
+// setting, and falls back to the default.
 func clampClaimAlertDays(days int) (int, bool) {
 	if days < 1 {
 		return DefaultClaimAlertDays, false

@@ -874,7 +874,7 @@
 			"chipResolved": "de vuelta",
 			"chipResolvedTooltip": "El proveedor los vuelve a ofrecer, así que se han resuelto solos.",
 			"chipRetiredTooltip": "Sigue en la lista de modelos del proveedor, pero rechazó todas las solicitudes, así que la pasarela los desactivó aquí. Son los que cuenta la insignia de la barra lateral.",
-			"chipStaleTooltip": "Ausentes desde hace más de 30 días sin fluctuaciones, así que casi con seguridad retirados y no averiados. Se muestran, nunca se cuentan.",
+			"chipStaleTooltip": "Ausente desde hace más de 30 días sin fluctuaciones, así que casi seguro está descontinuado y no roto. Se muestra, nunca se cuenta.",
 			"chipSuspectTooltip": "Todavía activo, pero ausente en los últimos escaneos. Un fallo más y la detección lo desactiva.",
 			"clean": "Limpiar este proveedor",
 			"cleanTooltip": "Quita este proveedor de la lista. No se cambia nada; la detección informará de una nueva discrepancia si aparece alguna.",
@@ -893,7 +893,7 @@
 			"dismissAllPartial_one": "Solo se descartó 1 de {{total}} modelos",
 			"dismissAllPartial_other": "Solo se descartaron {{count}} de {{total}} modelos",
 			"dismissAllSuspectOnlyTooltip": "Un modelo sospechoso no se puede descartar hasta que realmente desaparezca.",
-			"dismissAllTooltip": "Quita ahora de esta lista todos los modelos ausentes y los desaparecidos hace tiempo de este proveedor. El descubrimiento sigue: todo lo que el proveedor vuelva a listar reaparecerá.",
+			"dismissAllTooltip": "Quita ahora de esta lista todos los modelos ausentes y los desaparecidos hace tiempo de este proveedor. El descubrimiento sigue, así que todo lo que el proveedor vuelva a listar reaparecerá, salvo los modelos que la pasarela rechazó, que siguen fuera hasta que los actives a mano.",
 			"dismissEverything": "Descartar todo",
 			"dismissEverythingConfirmBody_many": "Eso abarca todo lo que aparece aquí: modelos desactivados por la detección, más los retirados hace tiempo que la insignia nunca contó. Salen de esta lista y la insignia se vacía. La detección sigue funcionando, y un modelo vuelve como nueva discrepancia solo si su proveedor lo ofrece de nuevo y más tarde desaparece.",
 			"dismissEverythingConfirmBody_one": "Sale de esta lista y la insignia se vacía. La detección sigue funcionando, y el modelo vuelve como nueva discrepancia solo si su proveedor lo ofrece de nuevo y más tarde desaparece.",
@@ -902,7 +902,7 @@
 			"dismissEverythingConfirmTitle_one": "¿Descartar 1 discrepancia?",
 			"dismissEverythingConfirmTitle_other": "¿Descartar las {{count}} discrepancias?",
 			"dismissEverythingFailed": "No se pudo descartar nada. No se cambió nada.",
-			"dismissEverythingTooltip": "Vacía todos los proveedores de esta lista a la vez. La detección sigue funcionando: lo que un proveedor vuelva a ofrecer reaparecerá.",
+			"dismissEverythingTooltip": "Quita de una vez todos los proveedores de esta lista. El descubrimiento sigue, así que todo lo que un proveedor vuelva a listar reaparecerá, salvo los modelos que la pasarela rechazó, que siguen fuera hasta que los actives a mano.",
 			"dismissFailed": "No se pudo descartar: {{message}}",
 			"dismissNoMatch": "Ese modelo ya no coincide. Actualiza e inténtalo de nuevo.",
 			"dismissRetiredTooltip": "Quita este modelo de la lista. Sigue desactivado y sigue quitado: el proveedor lo sigue listando, así que solo activarlo a mano lo devuelve.",
@@ -2015,6 +2015,10 @@
 		"alerts": {
 			"apiUrl": "URL de la API de Apprise",
 			"apiUrlDescription": "URL base del contenedor apprise-api que ejecutas (por ejemplo, http://apprise:8000).",
+			"claimAge": "Alerta de discrepancias sin atender (días)",
+			"claimAge.description_many": "Avisa cuando la discrepancia de modelos contabilizada más antigua lleve sin atender más tiempo que este. Las discrepancias dejan de contar cuando son lo bastante antiguas como para considerarse retiradas, así que el máximo es {{count}} días: un umbral mayor no se activaría nunca.",
+			"claimAge.description_one": "Avisa cuando la discrepancia de modelo contada más antigua lleve sin atender más tiempo que esto. Los modelos ausentes dejan de contar cuando son lo bastante antiguos para considerarlos descontinuados, así que el máximo es {{count}} día.",
+			"claimAge.description_other": "Avisa cuando la discrepancia de modelo contada más antigua lleve sin atender más tiempo que esto. Los modelos ausentes dejan de contar cuando son lo bastante antiguos para considerarlos descontinuados, así que el máximo es de {{count}} días.",
 			"clear": "Borrar",
 			"description": "Envía notificaciones push de eventos destacados (una interrupción del servicio del proveedor, la activación de un cortacircuitos) a Telegram, correo electrónico, Discord y otras plataformas a través de un contenedor Apprise sin estado que tú mismo ejecutas. Nunca se envía el contenido de la solicitud, solo el resumen del evento.",
 			"enable": "Habilitar las alertas",
@@ -2037,13 +2041,17 @@
 				"title": "Eventos sobre los que se debe notificar"
 			},
 			"eventsLabel": "Eventos de alerta",
-			"claimAge": "Alerta de discrepancias sin atender (días)",
-			"claimAge.description_one": "Avisa cuando la discrepancia de modelos contabilizada más antigua lleve sin atender más tiempo que este. Las discrepancias dejan de contar cuando son lo bastante antiguas como para considerarse retiradas, así que el máximo es {{count}} día: un umbral mayor no se activaría nunca.",
-			"claimAge.description_many": "Avisa cuando la discrepancia de modelos contabilizada más antigua lleve sin atender más tiempo que este. Las discrepancias dejan de contar cuando son lo bastante antiguas como para considerarse retiradas, así que el máximo es {{count}} días: un umbral mayor no se activaría nunca.",
-			"claimAge.description_other": "Avisa cuando la discrepancia de modelos contabilizada más antigua lleve sin atender más tiempo que este. Las discrepancias dejan de contar cuando son lo bastante antiguas como para considerarse retiradas, así que el máximo es {{count}} días: un umbral mayor no se activaría nunca.",
 			"snippets": {
 				"browseAll": "Explora los más de 80 servicios",
 				"description": "Ejemplos de formatos de URL de Apprise para servicios populares: copia uno, rellena tus datos y pégalo más arriba."
+			},
+			"status": {
+				"checking": "Comprobando apprise-api…",
+				"issues": "apprise-api está accesible, pero se notifican problemas",
+				"reachable": "apprise-api accesible",
+				"recheck": "Vuelve a comprobarlo",
+				"unreachable": "apprise-api inaccesible: comprueba la URL y que el contenedor se esté ejecutando",
+				"checkFailed": "Comprobación de estado fallida"
 			},
 			"target": "Destinatario de la notificación",
 			"targetConfigured": "Configurado - escribe para sustituir",
@@ -2053,15 +2061,7 @@
 			"testHint": "Activa las alertas y configura tanto una URL de la API de Apprise como un destino para enviar una prueba.",
 			"testSending": "Enviando…",
 			"testSent": "Se ha enviado una notificación de prueba.",
-			"title": "Alertas",
-			"status": {
-				"checking": "Comprobando apprise-api…",
-				"issues": "apprise-api está accesible, pero se notifican problemas",
-				"reachable": "apprise-api accesible",
-				"recheck": "Vuelve a comprobarlo",
-				"unreachable": "apprise-api inaccesible: comprueba la URL y que el contenedor se esté ejecutando",
-				"checkFailed": "Comprobación de estado fallida"
-			}
+			"title": "Alertas"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Cancelar la inscripción en TOTP",

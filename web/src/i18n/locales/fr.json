@@ -874,7 +874,7 @@
 			"chipResolved": "de retour",
 			"chipResolvedTooltip": "Le fournisseur les propose à nouveau : ils se sont réglés d'eux-mêmes.",
 			"chipRetiredTooltip": "Toujours dans la liste de modèles du fournisseur, mais il a refusé chaque requête les concernant, donc la passerelle les a désactivés ici. Ce sont ceux que compte le badge de la barre latérale.",
-			"chipStaleTooltip": "Absents depuis plus de 30 jours sans fluctuation, donc presque certainement retirés plutôt que défaillants. Affichés, jamais comptés.",
+			"chipStaleTooltip": "Absent depuis plus de 30 jours sans fluctuation, donc presque certainement abandonné plutôt que cassé. Affiché, jamais compté.",
 			"chipSuspectTooltip": "Encore actif, mais absent des derniers scans. Un échec de plus et la découverte le désactive.",
 			"clean": "Nettoyer ce fournisseur",
 			"cleanTooltip": "Retire ce fournisseur de la liste. Rien n'est modifié ; la découverte signalera un nouvel écart s'il en apparaît un.",
@@ -893,7 +893,7 @@
 			"dismissAllPartial_one": "Seul 1 modèle sur {{total}} a été ignoré",
 			"dismissAllPartial_other": "Seuls {{count}} modèles sur {{total}} ont été ignorés",
 			"dismissAllSuspectOnlyTooltip": "Un modèle suspect ne peut pas être ignoré avant d'avoir réellement disparu.",
-			"dismissAllTooltip": "Retire maintenant de cette liste tous les modèles absents et disparus de longue date chez ce fournisseur. La découverte continue : tout ce que le fournisseur liste à nouveau reviendra.",
+			"dismissAllTooltip": "Retire maintenant de cette liste tous les modèles absents et disparus de longue date chez ce fournisseur. La découverte continue, donc tout ce que le fournisseur liste à nouveau revient — sauf les modèles refusés par la passerelle, qui restent retirés jusqu'à ce que vous les activiez à la main.",
 			"dismissEverything": "Tout ignorer",
 			"dismissEverythingConfirmBody_many": "Cela couvre tout ce qui est listé ici : les modèles désactivés par la découverte, plus ceux retirés depuis longtemps que le badge n'a jamais comptés. Ils quittent cette liste et le badge se vide. La découverte continue, et un modèle ne revient comme nouvel écart que si son fournisseur le propose à nouveau et qu'il disparaît ensuite.",
 			"dismissEverythingConfirmBody_one": "Il quitte cette liste et le badge se vide. La découverte continue, et le modèle ne revient comme nouvel écart que si son fournisseur le propose à nouveau et qu'il disparaît ensuite.",
@@ -902,7 +902,7 @@
 			"dismissEverythingConfirmTitle_one": "Ignorer 1 écart ?",
 			"dismissEverythingConfirmTitle_other": "Ignorer les {{count}} écarts ?",
 			"dismissEverythingFailed": "Rien n'a pu être ignoré. Rien n'a été modifié.",
-			"dismissEverythingTooltip": "Vide tous les fournisseurs de cette liste d'un coup. La découverte continue : ce qu'un fournisseur propose à nouveau réapparaîtra.",
+			"dismissEverythingTooltip": "Retire d'un coup tous les fournisseurs de cette liste. La découverte continue, donc tout ce qu'un fournisseur liste à nouveau revient — sauf les modèles refusés par la passerelle, qui restent retirés jusqu'à ce que vous les activiez à la main.",
 			"dismissFailed": "Impossible d'ignorer : {{message}}",
 			"dismissNoMatch": "Ce modèle ne correspond plus. Actualisez et réessayez.",
 			"dismissRetiredTooltip": "Retire ce modèle de la liste. Il reste désactivé et retiré : le fournisseur le liste toujours, donc seule une activation manuelle le ramène.",
@@ -2015,6 +2015,10 @@
 		"alerts": {
 			"apiUrl": "URL de l’API Apprise",
 			"apiUrlDescription": "URL de base du conteneur apprise-api que vous exécutez (par exemple http://apprise:8000).",
+			"claimAge": "Alerte d'écarts non traités (jours)",
+			"claimAge.description_many": "Alerter lorsque le plus ancien écart de modèle comptabilisé reste sans traitement plus longtemps que cela. Les écarts cessent d'être comptés dès qu'ils sont assez anciens pour être considérés comme retirés, le maximum est donc de {{count}} jours : un seuil supérieur ne se déclencherait jamais.",
+			"claimAge.description_one": "Alerter quand le plus ancien écart de modèle compté reste non traité plus longtemps que cela. Les modèles absents cessent de compter dès qu'ils sont assez anciens pour être considérés comme abandonnés, le maximum est donc de {{count}} jour.",
+			"claimAge.description_other": "Alerter quand le plus ancien écart de modèle compté reste non traité plus longtemps que cela. Les modèles absents cessent de compter dès qu'ils sont assez anciens pour être considérés comme abandonnés, le maximum est donc de {{count}} jours.",
 			"clear": "Effacer",
 			"description": "Envoyez des notifications push pour les événements importants (indisponibilité d’un fournisseur, déclenchement d’un disjoncteur) vers Telegram, par e-mail, sur Discord et plus encore via un conteneur Apprise sans état que vous exécutez. Aucun contenu de requête n’est jamais envoyé - seul le résumé de l’événement est transmis.",
 			"enable": "Activer les alertes",
@@ -2037,13 +2041,17 @@
 				"title": "Événements à signaler"
 			},
 			"eventsLabel": "Événements d’alerte",
-			"claimAge": "Alerte d'écarts non traités (jours)",
-			"claimAge.description_one": "Alerter lorsque le plus ancien écart de modèle comptabilisé reste sans traitement plus longtemps que cela. Les écarts cessent d'être comptés dès qu'ils sont assez anciens pour être considérés comme retirés, le maximum est donc de {{count}} jour : un seuil supérieur ne se déclencherait jamais.",
-			"claimAge.description_many": "Alerter lorsque le plus ancien écart de modèle comptabilisé reste sans traitement plus longtemps que cela. Les écarts cessent d'être comptés dès qu'ils sont assez anciens pour être considérés comme retirés, le maximum est donc de {{count}} jours : un seuil supérieur ne se déclencherait jamais.",
-			"claimAge.description_other": "Alerter lorsque le plus ancien écart de modèle comptabilisé reste sans traitement plus longtemps que cela. Les écarts cessent d'être comptés dès qu'ils sont assez anciens pour être considérés comme retirés, le maximum est donc de {{count}} jours : un seuil supérieur ne se déclencherait jamais.",
 			"snippets": {
 				"browseAll": "Parcourir l'ensemble des plus de 80 services",
 				"description": "Exemples de formats d’URL Apprise pour des services courants : copiez-en un, complétez-le avec vos informations, puis collez-le ci-dessus."
+			},
+			"status": {
+				"checking": "Vérification de l’API « apprise-api »…",
+				"issues": "apprise-api est accessible mais signale des problèmes",
+				"reachable": "apprise-api accessible",
+				"recheck": "Vérifier à nouveau",
+				"unreachable": "apprise-api inaccessible - vérifiez l’URL et assurez-vous que le conteneur est en cours d’exécution",
+				"checkFailed": "Échec de la vérification de l'état"
 			},
 			"target": "Cible de notification",
 			"targetConfigured": "Configuré - saisir le texte de remplacement",
@@ -2053,15 +2061,7 @@
 			"testHint": "Activez les alertes et configurez à la fois une URL API Apprise et une cible pour envoyer un test.",
 			"testSending": "Envoi en cours…",
 			"testSent": "Notification de test envoyée.",
-			"title": "Alertes",
-			"status": {
-				"checking": "Vérification de l’API « apprise-api »…",
-				"issues": "apprise-api est accessible mais signale des problèmes",
-				"reachable": "apprise-api accessible",
-				"recheck": "Vérifier à nouveau",
-				"unreachable": "apprise-api inaccessible - vérifiez l’URL et assurez-vous que le conteneur est en cours d’exécution",
-				"checkFailed": "Échec de la vérification de l'état"
-			}
+			"title": "Alertes"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Annuler l'inscription au TOTP",

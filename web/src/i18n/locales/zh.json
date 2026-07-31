@@ -862,7 +862,7 @@
 			"chipResolved": "已恢复",
 			"chipResolvedTooltip": "提供方又开始列出它们了，所以它们自行恢复了。",
 			"chipRetiredTooltip": "仍在提供商的模型列表中，但对它们的每个请求都被拒绝，因此网关在此将其禁用。侧边栏徽标统计的正是这些。",
-			"chipStaleTooltip": "缺失超过 30 天且没有波动，因此几乎肯定是下线而非故障。会显示，但从不计入。",
+			"chipStaleTooltip": "已缺失超过 30 天且没有反复出现，因此几乎可以确定是已停止提供而非出故障。会显示，但从不计入。",
 			"chipSuspectTooltip": "仍处于启用状态，但最近几次扫描中缺失。再错一次，发现流程就会停用它。",
 			"clean": "清理此提供方",
 			"cleanTooltip": "将此提供方从列表中移除。不会更改任何内容；如果出现新的差异，发现流程会再次报告。",
@@ -877,14 +877,14 @@
 			"dismissAllPartial_one": "{{total}} 个模型中仅忽略了 1 个",
 			"dismissAllPartial_other": "{{total}} 个模型中仅忽略了 {{count}} 个",
 			"dismissAllSuspectOnlyTooltip": "可疑模型在真正缺失之前无法忽略。",
-			"dismissAllTooltip": "立即从此列表中移除该提供商所有缺失的以及早已消失的模型。发现仍在运行：提供商再次列出的任何内容都会回来。",
+			"dismissAllTooltip": "立即从此列表中移除该提供商所有缺失的以及早已消失的模型。发现仍在运行，因此提供商再次列出的内容都会回来——但被网关拒绝的模型除外，它们会保持移除，直到你手动启用。",
 			"dismissEverything": "全部忽略",
 			"dismissEverythingConfirmBody_one": "它将从此列表中移除，徽标随之清空。发现流程继续运行，只有当它的提供方再次列出该模型、而它之后又缺失时，才会作为新的差异出现。",
 			"dismissEverythingConfirmBody_other": "这涵盖此处列出的一切：被发现禁用的模型、被网关从流量中撤下的模型，以及徽标从未统计过的早已消失的模型。它们会离开此列表，徽标也会清空。发现仍在运行，只有当提供商再次列出某个模型而它随后又消失时，它才会作为新的差异回来。",
 			"dismissEverythingConfirmTitle_one": "忽略 1 项差异？",
 			"dismissEverythingConfirmTitle_other": "忽略全部 {{count}} 项差异？",
 			"dismissEverythingFailed": "没有能忽略的内容。未做任何更改。",
-			"dismissEverythingTooltip": "一次清空此列表中的所有提供方。发现流程继续运行：提供方再次列出的会回来。",
+			"dismissEverythingTooltip": "一次性移除此列表中的所有提供商。发现仍在运行，因此提供商再次列出的内容都会回来——但被网关拒绝的模型除外，它们会保持移除，直到你手动启用。",
 			"dismissFailed": "无法忽略：{{message}}",
 			"dismissNoMatch": "该模型已不再匹配。请刷新后重试。",
 			"dismissRetiredTooltip": "将此模型从列表中移除。它会保持禁用并保持移除：提供商仍在列表中提供它，因此只有手动启用才能让它回来。",
@@ -1965,6 +1965,9 @@
 		"alerts": {
 			"apiUrl": "Apprise API URL",
 			"apiUrlDescription": "您运行的 apprise-api 容器的基础 URL（例如 http://apprise:8000）。",
+			"claimAge": "未处理差异提醒（天）",
+			"claimAge.description_one": "当计入的最早模型差异超过此时长仍未处理时告警。缺失的模型一旦久到可视为已停止提供，就不再计入，因此最大为 {{count}} 天。",
+			"claimAge.description_other": "当计入的最早模型差异超过此时长仍未处理时告警。缺失的模型一旦久到可视为已停止提供，就不再计入，因此最大为 {{count}} 天。",
 			"clear": "清除",
 			"description": "通过您运行的无状态 Apprise 容器，将重要事件（如提供商服务中断、断路器触发）的推送通知发送至 Telegram、电子邮件、Discord 等平台。绝不发送任何请求内容——仅发送事件摘要。",
 			"enable": "启用警报功能",
@@ -1987,12 +1990,17 @@
 				"title": "需通知的事件"
 			},
 			"eventsLabel": "警报事件",
-			"claimAge": "未处理差异提醒（天）",
-			"claimAge.description_other": "当计入统计的最早模型差异超过此时长仍未处理时发出提醒。差异一旦旧到可以视为已停用就不再计入统计，因此最大值为 {{count}} 天：更高的阈值永远不会触发。",
-			"claimAge.description_one": "当计入统计的最早模型差异超过此时长仍未处理时发出提醒。差异一旦旧到可以视为已停用就不再计入统计，因此最大值为 {{count}} 天：更高的阈值永远不会触发。",
 			"snippets": {
 				"browseAll": "浏览所有 80 多项服务",
 				"description": "常用服务的 Apprise URL 格式示例——复制其中一个，填写您的详细信息，然后将其粘贴到上方。"
+			},
+			"status": {
+				"checking": "正在检查 apprise-api…",
+				"issues": "apprise-api 可访问但报告存在问题",
+				"reachable": "apprise-api 可访问",
+				"recheck": "请重新检查",
+				"unreachable": "apprise-api 无法访问 - 请检查 URL 并确认容器是否正在运行",
+				"checkFailed": "状态检查失败"
 			},
 			"target": "通知目标",
 			"targetConfigured": "已配置 - 输入内容以替换",
@@ -2002,15 +2010,7 @@
 			"testHint": "启用警报功能，并同时设置 Apprise API URL 和目标地址以发送测试消息。",
 			"testSending": "正在发送……",
 			"testSent": "已发送测试通知。",
-			"title": "警报",
-			"status": {
-				"checking": "正在检查 apprise-api…",
-				"issues": "apprise-api 可访问但报告存在问题",
-				"reachable": "apprise-api 可访问",
-				"recheck": "请重新检查",
-				"unreachable": "apprise-api 无法访问 - 请检查 URL 并确认容器是否正在运行",
-				"checkFailed": "状态检查失败"
-			}
+			"title": "警报"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "取消 TOTP 注册",

@@ -874,7 +874,7 @@
 			"chipResolved": "revenite",
 			"chipResolvedTooltip": "Furnizorul le listează din nou, deci s-au rezolvat singure.",
 			"chipRetiredTooltip": "Este încă în lista de modele a furnizorului, dar acesta a refuzat fiecare cerere, așa că gateway-ul le-a dezactivat aici. Acestea sunt numărate de insigna din bara laterală.",
-			"chipStaleTooltip": "Lipsesc de peste 30 de zile fără fluctuații, deci aproape sigur retrase și nu defecte. Se afișează, nu se numără niciodată.",
+			"chipStaleTooltip": "Lipsește de peste 30 de zile fără fluctuații, deci aproape sigur a fost retras din ofertă, nu stricat. Se afișează, nu se numără niciodată.",
 			"chipSuspectTooltip": "Încă activ, dar absent din scanările recente. Încă o ratare și descoperirea îl dezactivează.",
 			"clean": "Curăță acest furnizor",
 			"cleanTooltip": "Elimină acest furnizor din listă. Nimic nu se modifică; descoperirea va raporta o nouă discrepanță dacă apare vreuna.",
@@ -893,7 +893,7 @@
 			"dismissAllPartial_one": "Doar 1 din {{total}} modele a fost respins",
 			"dismissAllPartial_other": "Doar {{count}} din {{total}} modele au fost respinse",
 			"dismissAllSuspectOnlyTooltip": "Un model suspect nu poate fi respins până când nu lipsește efectiv.",
-			"dismissAllTooltip": "Elimină acum din listă toate modelele lipsă și pe cele dispărute de mult ale acestui furnizor. Descoperirea continuă: tot ce furnizorul listează din nou revine.",
+			"dismissAllTooltip": "Elimină acum din listă toate modelele lipsă și pe cele dispărute de mult ale acestui furnizor. Descoperirea continuă, așa că tot ce furnizorul listează din nou revine — cu excepția modelelor refuzate de gateway, care rămân eliminate până le activezi manual.",
 			"dismissEverything": "Respinge tot",
 			"dismissEverythingConfirmBody_few": "Aceasta acoperă tot ce apare aici: modelele dezactivate de descoperire, plus cele retrase de mult pe care insigna nu le-a numărat niciodată. Ies din această listă și insigna se golește. Descoperirea continuă, iar un model revine ca discrepanță nouă doar dacă furnizorul său îl listează din nou și ulterior lipsește.",
 			"dismissEverythingConfirmBody_one": "Iese din această listă și insigna se golește. Descoperirea continuă, iar modelul revine ca discrepanță nouă doar dacă furnizorul său îl listează din nou și ulterior lipsește.",
@@ -902,7 +902,7 @@
 			"dismissEverythingConfirmTitle_one": "Respingi 1 discrepanță?",
 			"dismissEverythingConfirmTitle_other": "Respingi toate cele {{count}} discrepanțe?",
 			"dismissEverythingFailed": "Nu s-a putut respinge nimic. Nimic nu a fost modificat.",
-			"dismissEverythingTooltip": "Golește toți furnizorii din această listă dintr-o dată. Descoperirea continuă: ce listează un furnizor din nou revine.",
+			"dismissEverythingTooltip": "Elimină dintr-o dată toți furnizorii din această listă. Descoperirea continuă, așa că tot ce un furnizor listează din nou revine — cu excepția modelelor refuzate de gateway, care rămân eliminate până le activezi manual.",
 			"dismissFailed": "Nu s-a putut respinge: {{message}}",
 			"dismissNoMatch": "Acest model nu mai corespunde. Reîmprospătează și încearcă din nou.",
 			"dismissRetiredTooltip": "Elimină acest model din listă. Rămâne dezactivat și rămâne eliminat: furnizorul îl listează în continuare, deci doar activarea manuală îl aduce înapoi.",
@@ -2015,6 +2015,10 @@
 		"alerts": {
 			"apiUrl": "URL-ul API-ului Apprise",
 			"apiUrlDescription": "URL-ul de bază al containerului apprise-api pe care îl rulați (de exemplu, http://apprise:8000).",
+			"claimAge": "Alertă pentru discrepanțe nerezolvate (zile)",
+			"claimAge.description_few": "Avertizează când cea mai veche discrepanță de model contorizată rămâne nerezolvată mai mult decât atât. Discrepanțele nu mai sunt contorizate odată ce sunt suficient de vechi pentru a fi considerate retrase, așa că maximul este {{count}} zile: un prag mai mare nu s-ar declanșa niciodată.",
+			"claimAge.description_one": "Avertizează când cea mai veche discrepanță numărată rămâne nerezolvată mai mult de atât. Modelele lipsă nu mai sunt numărate odată ce sunt suficient de vechi încât să fie tratate ca retrase din ofertă, deci maximul este {{count}} zi.",
+			"claimAge.description_other": "Avertizează când cea mai veche discrepanță numărată rămâne nerezolvată mai mult de atât. Modelele lipsă nu mai sunt numărate odată ce sunt suficient de vechi încât să fie tratate ca retrase din ofertă, deci maximul este de {{count}} zile.",
 			"clear": "Ștergeți",
 			"description": "Trimiteți notificări push pentru evenimente importante (o întrerupere a serviciului unui furnizor, declanșarea unui circuit breaker) către Telegram, e-mail, Discord și altele prin intermediul unui container Apprise fără stare pe care îl rulați. Nu se trimite niciodată conținutul cererii - doar rezumatul evenimentului.",
 			"enable": "Activați alertele",
@@ -2037,13 +2041,17 @@
 				"title": "Evenimente care trebuie notificate"
 			},
 			"eventsLabel": "Evenimente de alertă",
-			"claimAge": "Alertă pentru discrepanțe nerezolvate (zile)",
-			"claimAge.description_one": "Avertizează când cea mai veche discrepanță de model contorizată rămâne nerezolvată mai mult decât atât. Discrepanțele nu mai sunt contorizate odată ce sunt suficient de vechi pentru a fi considerate retrase, așa că maximul este {{count}} zi: un prag mai mare nu s-ar declanșa niciodată.",
-			"claimAge.description_few": "Avertizează când cea mai veche discrepanță de model contorizată rămâne nerezolvată mai mult decât atât. Discrepanțele nu mai sunt contorizate odată ce sunt suficient de vechi pentru a fi considerate retrase, așa că maximul este {{count}} zile: un prag mai mare nu s-ar declanșa niciodată.",
-			"claimAge.description_other": "Avertizează când cea mai veche discrepanță de model contorizată rămâne nerezolvată mai mult decât atât. Discrepanțele nu mai sunt contorizate odată ce sunt suficient de vechi pentru a fi considerate retrase, așa că maximul este {{count}} de zile: un prag mai mare nu s-ar declanșa niciodată.",
 			"snippets": {
 				"browseAll": "Răsfoiți toate cele peste 80 de servicii",
 				"description": "Exemple de formate de URL Apprise pentru servicii populare - copiați unul, completați detaliile dvs. și lipiți-l mai sus."
+			},
+			"status": {
+				"checking": "Verificarea apprise-api…",
+				"issues": "apprise-api este accesibil, dar raportează probleme",
+				"reachable": "apprise-api accesibil",
+				"recheck": "Verificați din nou",
+				"unreachable": "apprise-api inaccesibil - verificați adresa URL și asigurați-vă că containerul rulează",
+				"checkFailed": "Verificarea stării a eșuat"
 			},
 			"target": "Destinatarul notificării",
 			"targetConfigured": "Configurat - introduceți textul de înlocuire",
@@ -2053,15 +2061,7 @@
 			"testHint": "Activați alertele și configurați atât o adresă URL a API-ului Apprise, cât și o destinație pentru a trimite un test.",
 			"testSending": "Se trimite…",
 			"testSent": "Notificare de testare trimisă.",
-			"title": "Alerte",
-			"status": {
-				"checking": "Verificarea apprise-api…",
-				"issues": "apprise-api este accesibil, dar raportează probleme",
-				"reachable": "apprise-api accesibil",
-				"recheck": "Verificați din nou",
-				"unreachable": "apprise-api inaccesibil - verificați adresa URL și asigurați-vă că containerul rulează",
-				"checkFailed": "Verificarea stării a eșuat"
-			}
+			"title": "Alerte"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Anulează înscrierea la TOTP",

@@ -294,6 +294,43 @@ describe("ModelDiscrepancyModal", () => {
 		expect(screen.getByTestId("discrepancy-retest")).toBeEnabled();
 	});
 
+	// The modal-wide walk has to agree with the per-provider control. With Retest
+	// all walking a provider whose own pill declares a retest pointless, it would
+	// make a slow upstream call for exactly the providers each control refused to
+	// offer it for.
+	it("keeps retest all away from providers whose only claims are retirements", () => {
+		const { rerender } = render(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[
+					prov({ retired: [claimOf("dead", "pending", "retired")] }),
+					prov({
+						provider_id: "p2",
+						provider_name: "OpenRouter",
+						retired: [claimOf("dead2", "pending", "retired")],
+					}),
+				]}
+			/>,
+		);
+		expect(screen.queryByTestId("discrepancy-retest-all")).toBeNull();
+
+		// One provider discovery can act on brings the walk back.
+		rerender(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[
+					prov({ retired: [claimOf("dead", "pending", "retired")] }),
+					prov({
+						provider_id: "p2",
+						provider_name: "OpenRouter",
+						gone: [claimOf("missing", "pending")],
+					}),
+				]}
+			/>,
+		);
+		expect(screen.getByTestId("discrepancy-retest-all")).toBeInTheDocument();
+	});
+
 	it("shows the empty state only when no group anywhere has content", () => {
 		const { rerender } = render(
 			<ModelDiscrepancyModal {...baseProps} providers={[]} />,

@@ -601,6 +601,24 @@ export function ModelDiscrepancyModal({
 	const actionableIn = (p: MergedProvider, group: Group) =>
 		p[group].filter((c) => c.status === "pending" || c.status === "new");
 
+	/**
+	 * True when a retest of this provider could only confirm what is already
+	 * known. Discovery asks the provider what it lists, and a provider whose only
+	 * outstanding claims are retirements has models that ARE listed — which is
+	 * precisely the problem — so the answer changes nothing.
+	 *
+	 * Shared by the per-provider control and the modal-wide walk deliberately.
+	 * They have to agree: with the pill declaring a retest pointless while Retest
+	 * all walks that same provider anyway, the walk would make a slow upstream
+	 * call for every provider each individual control had just refused to offer.
+	 */
+	const retestProvesNothing = (p: MergedProvider) =>
+		!providerHasNoPending(p) &&
+		actionableIn(p, "retired").length > 0 &&
+		actionableIn(p, "gone").length === 0 &&
+		actionableIn(p, "stale").length === 0 &&
+		actionableIn(p, "suspect").length === 0;
+
 	const renderProvider = (p: MergedProvider) => {
 		const expanded = openPath?.providerID === p.provider_id;
 		const spinning = retestingProviderId === p.provider_id;
@@ -617,19 +635,7 @@ export function ModelDiscrepancyModal({
 		// `enabled = false` rows, and a suspect model is still enabled, so sending
 		// one would undercount `updated` and report an unknown model.
 		const dismissable = [...retired, ...gone, ...stale].map((c) => c.model_id);
-		// A retest re-runs discovery, which asks the provider what it lists. For a
-		// provider whose only outstanding claims are retirements that answers a
-		// question nobody asked: those models ARE listed, which is the whole
-		// problem — they are listed and refused. The retest would come back
-		// reporting everything present and change nothing, so it is offered as
-		// disabled with a reason rather than as an action that appears to do
-		// something.
-		const retestProvesNothing =
-			!isCleared &&
-			retired.length > 0 &&
-			gone.length === 0 &&
-			stale.length === 0 &&
-			suspect.length === 0;
+		const pointlessRetest = retestProvesNothing(p);
 		const all = ALL_GROUPS.flatMap((g) => p[g]);
 		const regionId = `${regionIdBase}-provider-${p.provider_id}`;
 		return (
@@ -660,8 +666,8 @@ export function ModelDiscrepancyModal({
 						}}
 						isCleared={isCleared}
 						canDismiss={dismissable.length > 0}
-						retestDisabled={retestBlocked || retestProvesNothing}
-						retestProvesNothing={retestProvesNothing}
+						retestDisabled={retestBlocked || pointlessRetest}
+						retestProvesNothing={pointlessRetest}
 						retesting={spinning}
 						onRetest={() => onRetest(p.provider_id, p.provider_name)}
 						onDismissAll={() =>
@@ -873,7 +879,7 @@ export function ModelDiscrepancyModal({
 	};
 
 	const unresolvedProviders = visibleProviders.filter(
-		(p) => !providerHasNoPending(p),
+		(p) => !providerHasNoPending(p) && !retestProvesNothing(p),
 	);
 
 	/**

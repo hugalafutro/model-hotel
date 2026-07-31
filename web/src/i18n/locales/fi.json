@@ -862,7 +862,7 @@
 			"chipResolved": "palasi",
 			"chipResolvedTooltip": "Tarjoaja tarjoaa niitä taas, eli ne korjautuivat itsestään.",
 			"chipRetiredTooltip": "Yhä palveluntarjoajan mallilistalla, mutta se hylkäsi jokaisen pyynnön, joten yhdyskäytävä poisti ne käytöstä täällä. Nämä sivupalkin merkki laskee.",
-			"chipStaleTooltip": "Puuttuneet yli 30 päivää ilman heilahtelua, joten lähes varmasti poistettuja eivätkä rikkinäisiä. Näytetään, ei koskaan lasketa.",
+			"chipStaleTooltip": "Puuttunut yli 30 päivää ilman heilahtelua, joten lähes varmasti lopetettu eikä rikki. Näytetään, ei lasketa koskaan.",
 			"chipSuspectTooltip": "Vielä käytössä, mutta puuttuu viimeisimmistä tarkistuksista. Yksi huti lisää ja tunnistus poistaa sen käytöstä.",
 			"clean": "Siivoa tämä tarjoaja",
 			"cleanTooltip": "Poistaa tämän tarjoajan listalta. Mitään ei muuteta; tunnistus ilmoittaa uudesta poikkeamasta heti kun sellainen ilmenee.",
@@ -877,14 +877,14 @@
 			"dismissAllPartial_one": "Vain 1 mallia {{total}} mallista hylättiin",
 			"dismissAllPartial_other": "Vain {{count}} mallia {{total}} mallista hylättiin",
 			"dismissAllSuspectOnlyTooltip": "Epäiltyä mallia ei voi hylätä, ennen kuin se todella puuttuu.",
-			"dismissAllTooltip": "Poista nyt listalta kaikki tämän palveluntarjoajan puuttuvat ja kauan sitten kadonneet mallit. Kartoitus jatkuu: kaikki, minkä palveluntarjoaja listaa uudelleen, palaa.",
+			"dismissAllTooltip": "Poista nyt listalta kaikki tämän palveluntarjoajan puuttuvat ja kauan sitten kadonneet mallit. Kartoitus jatkuu, joten kaikki minkä palveluntarjoaja listaa uudelleen palaa — paitsi mallit jotka yhdyskäytävä hylkäsi, jotka pysyvät poistettuina kunnes otat ne käsin käyttöön.",
 			"dismissEverything": "Hylkää kaikki",
 			"dismissEverythingConfirmBody_one": "Se poistuu tästä listasta ja merkki tyhjenee. Tunnistus jatkuu, ja malli palaa uutena poikkeamana vain, jos sen tarjoaja tarjoaa sitä uudelleen ja se puuttuu myöhemmin taas.",
 			"dismissEverythingConfirmBody_other": "Tämä kattaa kaiken täällä: kartoituksen poistamat mallit, yhdyskäytävän liikenteestä vetämät mallit ja kauan sitten kadonneet, joita merkki ei koskaan laskenut. Ne poistuvat listalta ja merkki tyhjenee. Kartoitus jatkuu, ja malli palaa uutena poikkeamana vain, jos sen palveluntarjoaja listaa sen uudelleen ja se katoaa myöhemmin.",
 			"dismissEverythingConfirmTitle_one": "Hylätäänkö 1 poikkeama?",
 			"dismissEverythingConfirmTitle_other": "Hylätäänkö kaikki {{count}} poikkeamaa?",
 			"dismissEverythingFailed": "Mitään ei voitu hylätä. Mitään ei muutettu.",
-			"dismissEverythingTooltip": "Tyhjentää listan kaikki tarjoajat kerralla. Tunnistus jatkuu: se, mitä tarjoaja tarjoaa uudelleen, palaa.",
+			"dismissEverythingTooltip": "Poista kaikki listan palveluntarjoajat kerralla. Kartoitus jatkuu, joten kaikki minkä palveluntarjoaja listaa uudelleen palaa — paitsi mallit jotka yhdyskäytävä hylkäsi, jotka pysyvät poistettuina kunnes otat ne käsin käyttöön.",
 			"dismissFailed": "Hylkääminen epäonnistui: {{message}}",
 			"dismissNoMatch": "Tämä malli ei enää täsmää. Päivitä sivu ja yritä uudelleen.",
 			"dismissRetiredTooltip": "Poista tämä malli listalta. Se pysyy poissa käytöstä ja poistettuna: palveluntarjoaja listaa sen yhä, joten vain käsin käyttöönotto tuo sen takaisin.",
@@ -1965,6 +1965,9 @@
 		"alerts": {
 			"apiUrl": "Apprise-API:n URL-osoite",
 			"apiUrlDescription": "Käynnistämäsi apprise-api-kontin perus-URL (esimerkiksi http://apprise:8000).",
+			"claimAge": "Ilmoitus käsittelemättömistä poikkeamista (päivää)",
+			"claimAge.description_one": "Ilmoita, kun vanhin laskettu mallipoikkeama on ollut hoitamatta tätä kauemmin. Puuttuvat mallit lakkaavat laskemasta, kun ne ovat tarpeeksi vanhoja pidettäväksi lopetettuina, joten enimmäisarvo on {{count}} päivä.",
+			"claimAge.description_other": "Ilmoita, kun vanhin laskettu mallipoikkeama on ollut hoitamatta tätä kauemmin. Puuttuvat mallit lakkaavat laskemasta, kun ne ovat tarpeeksi vanhoja pidettäväksi lopetettuina, joten enimmäisarvo on {{count}} päivää.",
 			"clear": "Tyhjennä",
 			"description": "Lähetä merkittävistä tapahtumista (palveluntarjoajan katkeaminen, katkaisijan laukeaminen) push-ilmoitukset Telegramiin, sähköpostiin, Discordiin ja muihin kanaviin käyttämällä itse ylläpitämääsi tilatonta Apprise-konttia. Pyynnön sisältöä ei koskaan lähetetä – vain tapahtuman yhteenveto.",
 			"enable": "Ota hälytykset käyttöön",
@@ -1987,12 +1990,17 @@
 				"title": "Ilmoitettavat tapahtumat"
 			},
 			"eventsLabel": "Hälytystapahtumat",
-			"claimAge": "Ilmoitus käsittelemättömistä poikkeamista (päivää)",
-			"claimAge.description_one": "Ilmoita, kun vanhin laskettu mallipoikkeama on ollut käsittelemättä tätä kauemmin. Poikkeamat lakkaavat laskemasta, kun ne ovat riittävän vanhoja katsottaviksi poistetuiksi, joten enimmäisarvo on {{count}} päivä: korkeampi kynnys ei laukeaisi koskaan.",
-			"claimAge.description_other": "Ilmoita, kun vanhin laskettu mallipoikkeama on ollut käsittelemättä tätä kauemmin. Poikkeamat lakkaavat laskemasta, kun ne ovat riittävän vanhoja katsottaviksi poistetuiksi, joten enimmäisarvo on {{count}} päivää: korkeampi kynnys ei laukeaisi koskaan.",
 			"snippets": {
 				"browseAll": "Selaa kaikkia yli 80 palvelua",
 				"description": "Esimerkkejä Apprise-URL-muodoista suosituille palveluille - kopioi yksi, täytä omat tietosi ja liitä se yllä olevaan kenttään."
+			},
+			"status": {
+				"checking": "Tarkistetaan apprise-api…",
+				"issues": "apprise-api on käytettävissä, mutta siinä on raportoitavia ongelmia",
+				"reachable": "apprise-api tavoitettavissa",
+				"recheck": "Tarkista uudelleen",
+				"unreachable": "apprise-api ei tavoitettavissa - tarkista URL-osoite ja varmista, että kontti on käynnissä",
+				"checkFailed": "Tilan tarkistus epäonnistui"
 			},
 			"target": "Ilmoituksen kohde",
 			"targetConfigured": "Määritetty - kirjoita korvaava teksti",
@@ -2002,15 +2010,7 @@
 			"testHint": "Ota hälytykset käyttöön ja määritä sekä Apprise-API-URL että kohde testiviestin lähettämistä varten.",
 			"testSending": "Lähetetään…",
 			"testSent": "Testiviesti lähetetty.",
-			"title": "Hälytykset",
-			"status": {
-				"checking": "Tarkistetaan apprise-api…",
-				"issues": "apprise-api on käytettävissä, mutta siinä on raportoitavia ongelmia",
-				"reachable": "apprise-api tavoitettavissa",
-				"recheck": "Tarkista uudelleen",
-				"unreachable": "apprise-api ei tavoitettavissa - tarkista URL-osoite ja varmista, että kontti on käynnissä",
-				"checkFailed": "Tilan tarkistus epäonnistui"
-			}
+			"title": "Hälytykset"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Peruuta TOTP-rekisteröinti",

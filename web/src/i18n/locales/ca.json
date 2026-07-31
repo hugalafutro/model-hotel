@@ -874,7 +874,7 @@
 			"chipResolved": "de tornada",
 			"chipResolvedTooltip": "El proveïdor els torna a oferir, així que s'han resolt sols.",
 			"chipRetiredTooltip": "Encara és a la llista de models del proveïdor, però ha rebutjat totes les peticions, així que la passarel·la els ha desactivat aquí. Són els que compta la insígnia de la barra lateral.",
-			"chipStaleTooltip": "Absents des de fa més de 30 dies sense fluctuacions, així que gairebé segur retirats i no espatllats. Es mostren, mai no es compten.",
+			"chipStaleTooltip": "Absent des de fa més de 30 dies sense fluctuacions, així que gairebé segur que s'ha descontinuat i no que estigui trencat. Es mostra, mai es compta.",
 			"chipSuspectTooltip": "Encara actiu, però absent dels darrers escanejos. Un error més i la detecció el desactiva.",
 			"clean": "Neteja aquest proveïdor",
 			"cleanTooltip": "Treu aquest proveïdor de la llista. No es canvia res; la detecció informarà d'una nova discrepància si n'apareix cap.",
@@ -893,7 +893,7 @@
 			"dismissAllPartial_one": "Només s'ha descartat 1 de {{total}} models",
 			"dismissAllPartial_other": "Només s'han descartat {{count}} de {{total}} models",
 			"dismissAllSuspectOnlyTooltip": "Un model sospitós no es pot descartar fins que realment desaparegui.",
-			"dismissAllTooltip": "Treu ara d'aquesta llista tots els models absents i els desapareguts fa temps d'aquest proveïdor. El descobriment continua: tot allò que el proveïdor torni a llistar reapareixerà.",
+			"dismissAllTooltip": "Treu ara d'aquesta llista tots els models absents i els desapareguts fa temps d'aquest proveïdor. El descobriment continua, així que tot allò que el proveïdor torni a llistar reapareixerà — llevat dels models que la passarel·la ha rebutjat, que continuen fora fins que els activis a mà.",
 			"dismissEverything": "Descarta-ho tot",
 			"dismissEverythingConfirmBody_many": "Això inclou tot el que apareix aquí: models desactivats per la detecció, més els retirats fa temps que la insígnia no ha comptat mai. Surten d'aquesta llista i la insígnia es buida. La detecció continua, i un model només torna com a discrepància nova si el seu proveïdor el torna a oferir i més tard desapareix.",
 			"dismissEverythingConfirmBody_one": "Surt d'aquesta llista i la insígnia es buida. La detecció continua, i el model només torna com a discrepància nova si el seu proveïdor el torna a oferir i més tard desapareix.",
@@ -902,7 +902,7 @@
 			"dismissEverythingConfirmTitle_one": "Vols descartar 1 discrepància?",
 			"dismissEverythingConfirmTitle_other": "Vols descartar les {{count}} discrepàncies?",
 			"dismissEverythingFailed": "No s'ha pogut descartar res. No s'ha canviat res.",
-			"dismissEverythingTooltip": "Buida tots els proveïdors d'aquesta llista de cop. La detecció continua: el que un proveïdor torni a oferir reapareixerà.",
+			"dismissEverythingTooltip": "Treu de cop tots els proveïdors d'aquesta llista. El descobriment continua, així que tot allò que un proveïdor torni a llistar reapareixerà — llevat dels models que la passarel·la ha rebutjat, que continuen fora fins que els activis a mà.",
 			"dismissFailed": "No s'ha pogut descartar: {{message}}",
 			"dismissNoMatch": "Aquest model ja no coincideix. Actualitza i torna-ho a provar.",
 			"dismissRetiredTooltip": "Treu aquest model de la llista. Continua desactivat i continua tret: el proveïdor encara el llista, així que només activar-lo a mà el torna.",
@@ -2015,6 +2015,10 @@
 		"alerts": {
 			"apiUrl": "URL de l'API Apprise",
 			"apiUrlDescription": "URL base del contenidor apprise-api que executeu (per exemple http://apprise:8000).",
+			"claimAge": "Alerta de discrepàncies sense atendre (dies)",
+			"claimAge.description_many": "Avisa quan la discrepància de models comptabilitzada més antiga porti sense atendre més temps que aquest. Les discrepàncies deixen de comptar quan són prou antigues per considerar-les retirades, de manera que el màxim és {{count}} dies: un llindar superior no s'activaria mai.",
+			"claimAge.description_one": "Avisa quan la discrepància de model comptada més antiga porti més temps sense atendre. Els models absents deixen de comptar quan són prou antics per considerar-los descontinuats, així que el màxim és {{count}} dia.",
+			"claimAge.description_other": "Avisa quan la discrepància de model comptada més antiga porti més temps sense atendre. Els models absents deixen de comptar quan són prou antics per considerar-los descontinuats, així que el màxim és de {{count}} dies.",
 			"clear": "Esborra",
 			"description": "Notificacions push d'esdeveniments destacats (un proveïdor que cau, un circuit de protecció que salta) a Telegram, correu electrònic, Discord i més, mitjançant un contenidor Apprise sense estat que executeu. No s'envia mai cap contingut de la sol·licitud, només el resum de l'esdeveniment.",
 			"enable": "Activa les alertes",
@@ -2037,13 +2041,17 @@
 				"title": "Esdeveniments per notificar"
 			},
 			"eventsLabel": "Esdeveniments d'alerta",
-			"claimAge": "Alerta de discrepàncies sense atendre (dies)",
-			"claimAge.description_one": "Avisa quan la discrepància de models comptabilitzada més antiga porti sense atendre més temps que aquest. Les discrepàncies deixen de comptar quan són prou antigues per considerar-les retirades, de manera que el màxim és {{count}} dia: un llindar superior no s'activaria mai.",
-			"claimAge.description_many": "Avisa quan la discrepància de models comptabilitzada més antiga porti sense atendre més temps que aquest. Les discrepàncies deixen de comptar quan són prou antigues per considerar-les retirades, de manera que el màxim és {{count}} dies: un llindar superior no s'activaria mai.",
-			"claimAge.description_other": "Avisa quan la discrepància de models comptabilitzada més antiga porti sense atendre més temps que aquest. Les discrepàncies deixen de comptar quan són prou antigues per considerar-les retirades, de manera que el màxim és {{count}} dies: un llindar superior no s'activaria mai.",
 			"snippets": {
 				"browseAll": "Navega pels més de 80 serveis",
 				"description": "Formats d'URL d'exemple per a serveis populars - copia'n un, omple les teves dades i enganxa'l a dalt."
+			},
+			"status": {
+				"checking": "Comprovant apprise-api…",
+				"issues": "apprise-api accessible però amb problemes de resposta",
+				"reachable": "apprise-api accessible",
+				"recheck": "Recomprova",
+				"unreachable": "apprise-api inaccessible - comproveu l'URL i que el contenidor s'està executant",
+				"checkFailed": "Comprovació d'estat fallida"
 			},
 			"target": "Destinació de notificació",
 			"targetConfigured": "Configurat (escriviu-hi per substituir-lo)",
@@ -2053,15 +2061,7 @@
 			"testHint": "Activa les alertes i configura tant una URL de l'API Apprise com un destinatari per enviar una prova.",
 			"testSending": "Enviant…",
 			"testSent": "Notificació de prova enviada.",
-			"title": "Alertes",
-			"status": {
-				"checking": "Comprovant apprise-api…",
-				"issues": "apprise-api accessible però amb problemes de resposta",
-				"reachable": "apprise-api accessible",
-				"recheck": "Recomprova",
-				"unreachable": "apprise-api inaccessible - comproveu l'URL i que el contenidor s'està executant",
-				"checkFailed": "Comprovació d'estat fallida"
-			}
+			"title": "Alertes"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Cancel·la la inscripció de TOTP",

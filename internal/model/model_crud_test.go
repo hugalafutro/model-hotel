@@ -1531,6 +1531,70 @@ func TestUpsert_RetiredModelKeepsItsDismissal(t *testing.T) {
 	}
 }
 
+// TestSetEnabled_ClearsADismissalSoAReRetirementIsVisible covers the way a
+// claim could be lost permanently.
+//
+// Upsert keeps a retired model's dismissal, because it is sighted on every scan
+// and would otherwise be impossible to silence. That makes clearing it the
+// operator's enable's job, and the timing is the whole point: traffic reaches a
+// re-enabled model in seconds while a discovery scan is roughly an hour away, so
+// a model that fails again immediately gets its retirement stamp back BEFORE any
+// sighting. If the enable had not already cleared the dismissal, the
+// preserve-it rule would re-arm around a stamp nothing could ever clear, and the
+// model would sit disabled and absent from the claim list for good. It fails
+// safe for routing and silent for the operator, which is the worse half.
+func TestSetEnabled_ClearsADismissalSoAReRetirementIsVisible(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-dismissal-recovery")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	modelID := insertTestModel(ctx, t, providerID, "twice-retired")
+
+	// Retired by traffic, then dismissed by the operator: hidden, as intended.
+	if _, err := repo.AutoRetireIfConfirmed(ctx, modelID, func() bool { return true }); err != nil {
+		t.Fatalf("AutoRetireIfConfirmed failed: %v", err)
+	}
+	if _, err := testPool.Exec(ctx,
+		`UPDATE models SET discovery_dismissed_at = now() WHERE id = $1`, modelID); err != nil {
+		t.Fatalf("seed dismissal: %v", err)
+	}
+
+	// The operator enables it by hand.
+	if _, err := repo.SetEnabled(ctx, modelID, true); err != nil {
+		t.Fatalf("SetEnabled failed: %v", err)
+	}
+	var dismissedAt *time.Time
+	if err := testPool.QueryRow(ctx,
+		`SELECT discovery_dismissed_at FROM models WHERE id = $1`, modelID).Scan(&dismissedAt); err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+	if dismissedAt != nil {
+		t.Fatal("enabling by hand must clear the dismissal in the same write, not leave it to a scan that may arrive too late")
+	}
+
+	// It fails again before any scan, so it is retired a second time.
+	if _, err := repo.AutoRetireIfConfirmed(ctx, modelID, func() bool { return true }); err != nil {
+		t.Fatalf("second AutoRetireIfConfirmed failed: %v", err)
+	}
+
+	// The second retirement must be visible: disabled, not dismissed, so the
+	// claim query surfaces it.
+	var enabled bool
+	if err := testPool.QueryRow(ctx,
+		`SELECT enabled, discovery_dismissed_at FROM models WHERE id = $1`,
+		modelID).Scan(&enabled, &dismissedAt); err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+	if enabled {
+		t.Error("the second retirement should have disabled the model")
+	}
+	if dismissedAt != nil {
+		t.Error("a re-retired model must raise a fresh claim, not inherit the old dismissal and vanish")
+	}
+}
+
 // TestAutoRetireIfConfirmed_DeadContextReportsNotCommitted pins the failure
 // direction, which matters more here than for an ordinary write.
 //

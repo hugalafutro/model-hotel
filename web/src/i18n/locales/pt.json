@@ -874,7 +874,7 @@
 			"chipResolved": "de volta",
 			"chipResolvedTooltip": "O provedor está listando-os novamente, então eles se resolveram sozinhos.",
 			"chipRetiredTooltip": "Continua na lista de modelos do fornecedor, mas este recusou todos os pedidos, por isso o gateway desativou-os aqui. São estes que o emblema da barra lateral conta.",
-			"chipStaleTooltip": "Ausentes há mais de 30 dias sem oscilações, portanto quase certamente retirados e não avariados. Exibidos, nunca contados.",
+			"chipStaleTooltip": "Em falta há mais de 30 dias sem oscilações, por isso quase de certeza descontinuado e não avariado. Mostrado, nunca contado.",
 			"chipSuspectTooltip": "Ainda ativo, mas ausente das verificações recentes. Uma falha a mais e a descoberta o desativa.",
 			"clean": "Limpar este provedor",
 			"cleanTooltip": "Remove este provedor da lista. Nada é alterado; a descoberta comunicará uma nova divergência se surgir alguma.",
@@ -893,7 +893,7 @@
 			"dismissAllPartial_one": "Apenas 1 de {{total}} modelos foi descartado",
 			"dismissAllPartial_other": "Apenas {{count}} de {{total}} modelos foram descartados",
 			"dismissAllSuspectOnlyTooltip": "Um modelo suspeito não pode ser descartado antes de realmente desaparecer.",
-			"dismissAllTooltip": "Remove agora desta lista todos os modelos em falta e há muito desaparecidos deste fornecedor. A descoberta continua: tudo o que o fornecedor voltar a listar reaparece.",
+			"dismissAllTooltip": "Remove agora desta lista todos os modelos em falta e há muito desaparecidos deste fornecedor. A descoberta continua, por isso tudo o que o fornecedor voltar a listar reaparece — exceto os modelos que o gateway recusou, que ficam removidos até os ativares à mão.",
 			"dismissEverything": "Descartar tudo",
 			"dismissEverythingConfirmBody_many": "Isso abrange tudo o que está listado aqui: modelos desativados pela descoberta, mais os retirados há muito tempo que o selo nunca contou. Elas saem desta lista e o selo fica vazio. A descoberta continua, e um modelo só volta como nova divergência se o seu provedor o listar novamente e ele desaparecer depois.",
 			"dismissEverythingConfirmBody_one": "Ela sai desta lista e o selo fica vazio. A descoberta continua, e o modelo só volta como nova divergência se o seu provedor o listar novamente e ele desaparecer depois.",
@@ -902,7 +902,7 @@
 			"dismissEverythingConfirmTitle_one": "Descartar 1 divergência?",
 			"dismissEverythingConfirmTitle_other": "Descartar as {{count}} divergências?",
 			"dismissEverythingFailed": "Não foi possível descartar nada. Nada foi alterado.",
-			"dismissEverythingTooltip": "Limpa todos os provedores desta lista de uma vez. A descoberta continua: o que um provedor listar novamente volta.",
+			"dismissEverythingTooltip": "Remove de uma vez todos os fornecedores desta lista. A descoberta continua, por isso tudo o que um fornecedor voltar a listar reaparece — exceto os modelos que o gateway recusou, que ficam removidos até os ativares à mão.",
 			"dismissFailed": "Não foi possível dispensar: {{message}}",
 			"dismissNoMatch": "Esse modelo já não corresponde. Atualize e tente novamente.",
 			"dismissRetiredTooltip": "Remove este modelo da lista. Continua desativado e continua removido: o fornecedor ainda o lista, por isso só ativá-lo à mão o traz de volta.",
@@ -2015,6 +2015,10 @@
 		"alerts": {
 			"apiUrl": "URL da API do Apprise",
 			"apiUrlDescription": "URL base do contêiner apprise-api que você executa (por exemplo, http://apprise:8000).",
+			"claimAge": "Alerta de divergências não tratadas (dias)",
+			"claimAge.description_many": "Avisa quando a divergência de modelos contabilizada mais antiga fica sem tratamento por mais tempo do que isto. As divergências deixam de contar assim que ficam antigas o suficiente para serem consideradas descontinuadas, por isso o máximo é {{count}} dias: um limite maior nunca seria acionado.",
+			"claimAge.description_one": "Alerta quando a discrepância de modelo contada mais antiga fica por resolver mais tempo do que isto. Os modelos em falta deixam de contar assim que são suficientemente antigos para serem tratados como descontinuados, por isso o máximo é {{count}} dia.",
+			"claimAge.description_other": "Alerta quando a discrepância de modelo contada mais antiga fica por resolver mais tempo do que isto. Os modelos em falta deixam de contar assim que são suficientemente antigos para serem tratados como descontinuados, por isso o máximo é {{count}} dias.",
 			"clear": "Limpar",
 			"description": "Envie notificações push para eventos importantes (falha de um provedor, acionamento de um disjuntor) para o Telegram, e-mail, Discord e outros canais por meio de um contêiner Apprise sem estado executado por você. Nenhum conteúdo da solicitação é enviado - apenas o resumo do evento.",
 			"enable": "Ativar alertas",
@@ -2037,13 +2041,17 @@
 				"title": "Eventos a serem notificados"
 			},
 			"eventsLabel": "Eventos de alerta",
-			"claimAge": "Alerta de divergências não tratadas (dias)",
-			"claimAge.description_one": "Avisa quando a divergência de modelos contabilizada mais antiga fica sem tratamento por mais tempo do que isto. As divergências deixam de contar assim que ficam antigas o suficiente para serem consideradas descontinuadas, por isso o máximo é {{count}} dia: um limite maior nunca seria acionado.",
-			"claimAge.description_many": "Avisa quando a divergência de modelos contabilizada mais antiga fica sem tratamento por mais tempo do que isto. As divergências deixam de contar assim que ficam antigas o suficiente para serem consideradas descontinuadas, por isso o máximo é {{count}} dias: um limite maior nunca seria acionado.",
-			"claimAge.description_other": "Avisa quando a divergência de modelos contabilizada mais antiga fica sem tratamento por mais tempo do que isto. As divergências deixam de contar assim que ficam antigas o suficiente para serem consideradas descontinuadas, por isso o máximo é {{count}} dias: um limite maior nunca seria acionado.",
 			"snippets": {
 				"browseAll": "Navegue por todos os mais de 80 serviços",
 				"description": "Exemplos de formatos de URL do Apprise para serviços populares - copie um, preencha seus dados e cole-o acima."
+			},
+			"status": {
+				"checking": "Verificando a API apprise…",
+				"issues": "apprise-api está acessível, mas está relatando problemas",
+				"reachable": "apprise-api acessível",
+				"recheck": "Verifique novamente",
+				"unreachable": "apprise-api inacessível - verifique a URL e se o contêiner está em execução",
+				"checkFailed": "Falha na verificação de status"
 			},
 			"target": "Destino da notificação",
 			"targetConfigured": "Configurado - digite para substituir",
@@ -2053,15 +2061,7 @@
 			"testHint": "Habilite os alertas e defina tanto uma URL da API do Apprise quanto um destino para enviar um teste.",
 			"testSending": "Enviando…",
 			"testSent": "Notificação de teste enviada.",
-			"title": "Alertas",
-			"status": {
-				"checking": "Verificando a API apprise…",
-				"issues": "apprise-api está acessível, mas está relatando problemas",
-				"reachable": "apprise-api acessível",
-				"recheck": "Verifique novamente",
-				"unreachable": "apprise-api inacessível - verifique a URL e se o contêiner está em execução",
-				"checkFailed": "Falha na verificação de status"
-			}
+			"title": "Alertas"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Cancelar o cadastro no TOTP",

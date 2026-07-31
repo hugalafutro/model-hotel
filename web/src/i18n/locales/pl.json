@@ -886,7 +886,7 @@
 			"chipResolved": "powróciły",
 			"chipResolvedTooltip": "Dostawca znowu je udostępnia, więc rozwiązały się same.",
 			"chipRetiredTooltip": "Nadal są na liście modeli dostawcy, ale odrzucił on każde żądanie, więc brama wyłączyła je tutaj. To właśnie je liczy odznaka na pasku bocznym.",
-			"chipStaleTooltip": "Brakuje ich od ponad 30 dni bez wahań, więc niemal na pewno zostały wycofane, a nie zepsute. Pokazywane, nigdy nieliczone.",
+			"chipStaleTooltip": "Brak od ponad 30 dni bez wahań, więc niemal na pewno wycofany, a nie zepsuty. Pokazywany, nigdy nieliczony.",
 			"chipSuspectTooltip": "Nadal włączony, ale nieobecny w ostatnich skanach. Jeszcze jedno pudło i wykrywanie go wyłączy.",
 			"clean": "Uporządkuj tego dostawcę",
 			"cleanTooltip": "Usuwa tego dostawcę z listy. Nic nie jest zmieniane; wykrywanie zgłosi nową rozbieżność, gdy tylko wystąpi.",
@@ -909,7 +909,7 @@
 			"dismissAllPartial_one": "Odrzucono tylko 1 model z {{total}}",
 			"dismissAllPartial_other": "Odrzucono tylko {{count}} modeli z {{total}}",
 			"dismissAllSuspectOnlyTooltip": "Podejrzanego modelu nie można odrzucić, dopóki faktycznie nie zniknie.",
-			"dismissAllTooltip": "Usuń teraz z tej listy wszystkie brakujące i dawno zniknięte modele tego dostawcy. Wykrywanie działa dalej: wszystko, co dostawca znów wymieni, wróci.",
+			"dismissAllTooltip": "Usuń teraz z tej listy wszystkie brakujące i dawno zniknięte modele tego dostawcy. Wykrywanie działa dalej, więc wszystko, co dostawca znów wymieni, wróci — poza modelami odrzuconymi przez bramę, które pozostają usunięte, dopóki nie włączysz ich ręcznie.",
 			"dismissEverything": "Odrzuć wszystko",
 			"dismissEverythingConfirmBody_few": "Obejmuje to wszystko, co jest tu wymienione: modele wyłączone przez wykrywanie oraz dawno wycofane, których plakietka nigdy nie liczyła. Znikną z tej listy, a plakietka się opróżni. Wykrywanie działa dalej, a model wraca jako nowa rozbieżność tylko wtedy, gdy jego dostawca znowu go udostępni, a później ponownie zniknie.",
 			"dismissEverythingConfirmBody_many": "Obejmuje to wszystko, co jest tu wymienione: modele wyłączone przez wykrywanie oraz dawno wycofane, których plakietka nigdy nie liczyła. Znikną z tej listy, a plakietka się opróżni. Wykrywanie działa dalej, a model wraca jako nowa rozbieżność tylko wtedy, gdy jego dostawca znowu go udostępni, a później ponownie zniknie.",
@@ -920,7 +920,7 @@
 			"dismissEverythingConfirmTitle_one": "Odrzucić 1 rozbieżność?",
 			"dismissEverythingConfirmTitle_other": "Odrzucić wszystkie {{count}} rozbieżności?",
 			"dismissEverythingFailed": "Nie udało się nic odrzucić. Nic nie zostało zmienione.",
-			"dismissEverythingTooltip": "Opróżnia wszystkich dostawców na tej liście naraz. Wykrywanie działa dalej: co dostawca znowu udostępni, wróci.",
+			"dismissEverythingTooltip": "Usuń naraz wszystkich dostawców z tej listy. Wykrywanie działa dalej, więc wszystko, co dostawca znów wymieni, wróci — poza modelami odrzuconymi przez bramę, które pozostają usunięte, dopóki nie włączysz ich ręcznie.",
 			"dismissFailed": "Nie udało się odrzucić: {{message}}",
 			"dismissNoMatch": "Ten model już nie pasuje. Odśwież stronę i spróbuj ponownie.",
 			"dismissRetiredTooltip": "Usuń ten model z listy. Pozostaje wyłączony i usunięty: dostawca nadal go wymienia, więc przywróci go tylko ręczne włączenie.",
@@ -2065,6 +2065,11 @@
 		"alerts": {
 			"apiUrl": "Adres URL interfejsu API Apprise",
 			"apiUrlDescription": "Podstawowy adres URL kontenera apprise-api, który uruchamiasz (na przykład http://apprise:8000).",
+			"claimAge": "Alert o nierozwiązanych rozbieżnościach (dni)",
+			"claimAge.description_few": "Powiadom, gdy najstarsza zliczana rozbieżność modelu pozostaje bez reakcji dłużej niż ten czas. Rozbieżności przestają być zliczane, gdy są na tyle stare, że uznaje się je za wycofane, więc maksimum to {{count}} dni: wyższy próg nigdy by się nie uruchomił.",
+			"claimAge.description_many": "Powiadom, gdy najstarsza zliczana rozbieżność modelu pozostaje bez reakcji dłużej niż ten czas. Rozbieżności przestają być zliczane, gdy są na tyle stare, że uznaje się je za wycofane, więc maksimum to {{count}} dni: wyższy próg nigdy by się nie uruchomił.",
+			"claimAge.description_one": "Ostrzegaj, gdy najstarsza liczona rozbieżność modelu pozostaje nierozwiązana dłużej niż to. Brakujące modele przestają się liczyć, gdy są na tyle stare, by uznać je za wycofane, więc maksimum to {{count}} dzień.",
+			"claimAge.description_other": "Ostrzegaj, gdy najstarsza liczona rozbieżność modelu pozostaje nierozwiązana dłużej niż to. Brakujące modele przestają się liczyć, gdy są na tyle stare, by uznać je za wycofane, więc maksimum to {{count}} dni.",
 			"clear": "Wyczyść",
 			"description": "Powiadomienia push o istotnych zdarzeniach (awaria dostawcy, zadziałanie wyłącznika awaryjnego) do Telegramu, poczty e-mail, Discorda i innych kanałów za pośrednictwem uruchomionego przez użytkownika bezstanowego kontenera Apprise. Nigdy nie są wysyłane treści żądań - jedynie podsumowanie zdarzenia.",
 			"enable": "Włącz powiadomienia",
@@ -2087,14 +2092,17 @@
 				"title": "Zdarzenia, o których należy powiadamiać"
 			},
 			"eventsLabel": "Zdarzenia alertowe",
-			"claimAge": "Alert o nierozwiązanych rozbieżnościach (dni)",
-			"claimAge.description_one": "Powiadom, gdy najstarsza zliczana rozbieżność modelu pozostaje bez reakcji dłużej niż ten czas. Rozbieżności przestają być zliczane, gdy są na tyle stare, że uznaje się je za wycofane, więc maksimum to {{count}} dzień: wyższy próg nigdy by się nie uruchomił.",
-			"claimAge.description_few": "Powiadom, gdy najstarsza zliczana rozbieżność modelu pozostaje bez reakcji dłużej niż ten czas. Rozbieżności przestają być zliczane, gdy są na tyle stare, że uznaje się je za wycofane, więc maksimum to {{count}} dni: wyższy próg nigdy by się nie uruchomił.",
-			"claimAge.description_many": "Powiadom, gdy najstarsza zliczana rozbieżność modelu pozostaje bez reakcji dłużej niż ten czas. Rozbieżności przestają być zliczane, gdy są na tyle stare, że uznaje się je za wycofane, więc maksimum to {{count}} dni: wyższy próg nigdy by się nie uruchomił.",
-			"claimAge.description_other": "Powiadom, gdy najstarsza zliczana rozbieżność modelu pozostaje bez reakcji dłużej niż ten czas. Rozbieżności przestają być zliczane, gdy są na tyle stare, że uznaje się je za wycofane, więc maksimum to {{count}} dni: wyższy próg nigdy by się nie uruchomił.",
 			"snippets": {
 				"browseAll": "Przeglądaj wszystkie ponad 80 usług",
 				"description": "Przykładowe formaty adresów URL serwisu Apprise dla popularnych usług - skopiuj jeden z nich, uzupełnij swoje dane i wklej go powyżej."
+			},
+			"status": {
+				"checking": "Sprawdzanie apprise-api…",
+				"issues": "apprise-api jest dostępne, ale zgłasza problemy",
+				"reachable": "apprise-api dostępny",
+				"recheck": "Sprawdź ponownie",
+				"unreachable": "apprise-api niedostępne - sprawdź adres URL i upewnij się, że kontener działa",
+				"checkFailed": "Sprawdzenie stanu nie powiodło się"
 			},
 			"target": "Odbiorca powiadomienia",
 			"targetConfigured": "Skonfigurowane - wpisz tekst zastępczy",
@@ -2104,15 +2112,7 @@
 			"testHint": "Włącz powiadomienia i ustaw zarówno adres URL interfejsu API Apprise, jak i adres docelowy, aby wysłać test.",
 			"testSending": "Wysyłanie…",
 			"testSent": "Wysłano powiadomienie testowe.",
-			"title": "Powiadomienia",
-			"status": {
-				"checking": "Sprawdzanie apprise-api…",
-				"issues": "apprise-api jest dostępne, ale zgłasza problemy",
-				"reachable": "apprise-api dostępny",
-				"recheck": "Sprawdź ponownie",
-				"unreachable": "apprise-api niedostępne - sprawdź adres URL i upewnij się, że kontener działa",
-				"checkFailed": "Sprawdzenie stanu nie powiodło się"
-			}
+			"title": "Powiadomienia"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Anuluj rejestrację TOTP",

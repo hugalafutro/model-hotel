@@ -886,7 +886,7 @@
 			"chipResolved": "späť",
 			"chipResolvedTooltip": "Poskytovateľ ich znova ponúka, vyriešili sa teda samy.",
 			"chipRetiredTooltip": "Stále sú v zozname modelov poskytovateľa, ale ten odmietol každú požiadavku na ne, takže ich brána tu zakázala. Práve tieto počíta odznak v bočnom paneli.",
-			"chipStaleTooltip": "Chýbajú viac ako 30 dní bez výkyvov, takže takmer isto vyradené, nie pokazené. Zobrazujú sa, nikdy sa nepočítajú.",
+			"chipStaleTooltip": "Chýba viac než 30 dní bez kolísania, takže je takmer isto ukončený, nie pokazený. Zobrazuje sa, nikdy sa nepočíta.",
 			"chipSuspectTooltip": "Stále zapnutý, no chýba v posledných kontrolách. Ešte jedno minutie a zisťovanie ho vypne.",
 			"clean": "Uprav tohto poskytovateľa",
 			"cleanTooltip": "Odoberie tohto poskytovateľa zo zoznamu. Nič sa nemení; zisťovanie nahlási novú nezrovnalosť, keď nejaká nastane.",
@@ -909,7 +909,7 @@
 			"dismissAllPartial_one": "Zamietnutý bol len 1 model z {{total}}",
 			"dismissAllPartial_other": "Zamietnutých bolo len {{count}} modelov z {{total}}",
 			"dismissAllSuspectOnlyTooltip": "Podozrivý model nemožno zamietnuť, kým skutočne nechýba.",
-			"dismissAllTooltip": "Odstráň teraz z tohto zoznamu všetky chýbajúce a dávno zmiznuté modely tohto poskytovateľa. Zisťovanie beží ďalej: čokoľvek poskytovateľ znova uvedie, sa vráti.",
+			"dismissAllTooltip": "Odstráň teraz z tohto zoznamu všetky chýbajúce a dávno zmiznuté modely tohto poskytovateľa. Zisťovanie beží ďalej, takže čokoľvek poskytovateľ znova uvedie sa vráti — okrem modelov, ktoré brána odmietla; tie zostanú odstránené, kým ich ručne nepovolíš.",
 			"dismissEverything": "Zamietnuť všetko",
 			"dismissEverythingConfirmBody_few": "To zahŕňa všetko, čo je tu uvedené: modely vypnuté zisťovaním a dávno vyradené, ktoré odznak nikdy nepočítal. Zmiznú z tohto zoznamu a odznak sa vyprázdni. Zisťovanie beží ďalej a model sa vráti ako nová nezrovnalosť len vtedy, keď ho jeho poskytovateľ znova ponúkne a neskôr bude opäť chýbať.",
 			"dismissEverythingConfirmBody_many": "To zahŕňa všetko, čo je tu uvedené: modely vypnuté zisťovaním a dávno vyradené, ktoré odznak nikdy nepočítal. Zmiznú z tohto zoznamu a odznak sa vyprázdni. Zisťovanie beží ďalej a model sa vráti ako nová nezrovnalosť len vtedy, keď ho jeho poskytovateľ znova ponúkne a neskôr bude opäť chýbať.",
@@ -920,7 +920,7 @@
 			"dismissEverythingConfirmTitle_one": "Zamietnuť 1 nezrovnalosť?",
 			"dismissEverythingConfirmTitle_other": "Zamietnuť všetkých {{count}} nezrovnalostí?",
 			"dismissEverythingFailed": "Nepodarilo sa zamietnuť nič. Nič sa nezmenilo.",
-			"dismissEverythingTooltip": "Vyprázdni všetkých poskytovateľov v tomto zozname naraz. Zisťovanie beží ďalej: čo poskytovateľ znova ponúkne, sa vráti.",
+			"dismissEverythingTooltip": "Odstráň naraz všetkých poskytovateľov v tomto zozname. Zisťovanie beží ďalej, takže čokoľvek poskytovateľ znova uvedie sa vráti — okrem modelov, ktoré brána odmietla; tie zostanú odstránené, kým ich ručne nepovolíš.",
 			"dismissFailed": "Nepodarilo sa skryť: {{message}}",
 			"dismissNoMatch": "Tento model už nezodpovedá. Obnovte stránku a skúste to znova.",
 			"dismissRetiredTooltip": "Odstráň tento model zo zoznamu. Zostane zakázaný aj odstránený: poskytovateľ ho stále uvádza, takže ho vráti len ručné povolenie.",
@@ -2065,6 +2065,11 @@
 		"alerts": {
 			"apiUrl": "URL rozhrania Apprise API",
 			"apiUrlDescription": "Základná URL adresa kontajnera apprise-api, ktorý spúšťate (napríklad http://apprise:8000).",
+			"claimAge": "Upozornenie na nevyriešené nezrovnalosti (dni)",
+			"claimAge.description_few": "Upozorniť, keď najstaršia započítaná nezrovnalosť modelu zostane nevyriešená dlhšie ako tento čas. Nezrovnalosti sa prestanú počítať, keď sú dostatočne staré na to, aby sa považovali za vyradené, takže maximum je {{count}} dni: vyšší prah by sa nikdy nespustil.",
+			"claimAge.description_many": "Upozorniť, keď najstaršia započítaná nezrovnalosť modelu zostane nevyriešená dlhšie ako tento čas. Nezrovnalosti sa prestanú počítať, keď sú dostatočne staré na to, aby sa považovali za vyradené, takže maximum je {{count}} dňa: vyšší prah by sa nikdy nespustil.",
+			"claimAge.description_one": "Upozorni, keď najstarší počítaný rozdiel modelov zostane neriešený dlhšie než toto. Chýbajúce modely sa prestanú počítať, len čo sú dosť staré na to, aby sa považovali za ukončené, takže maximum je {{count}} deň.",
+			"claimAge.description_other": "Upozorni, keď najstarší počítaný rozdiel modelov zostane neriešený dlhšie než toto. Chýbajúce modely sa prestanú počítať, len čo sú dosť staré na to, aby sa považovali za ukončené, takže maximum je {{count}} dní.",
 			"clear": "Vymazať",
 			"description": "Push notifikácie o dôležitých udalostiach (výpadok poskytovateľa, aktivácia ochranného vypínača) odosielajte do aplikácií Telegram, e-mailu, Discord a ďalších prostredníctvom bezstavového kontajnera Apprise, ktorý prevádzkujete. Nikdy sa neodosiela obsah požiadavky – iba súhrn udalosti.",
 			"enable": "Aktivujte upozornenia",
@@ -2087,14 +2092,17 @@
 				"title": "Udalosti, o ktorých sa má zasielať upozornenie"
 			},
 			"eventsLabel": "Upozorňovacie udalosti",
-			"claimAge": "Upozornenie na nevyriešené nezrovnalosti (dni)",
-			"claimAge.description_one": "Upozorniť, keď najstaršia započítaná nezrovnalosť modelu zostane nevyriešená dlhšie ako tento čas. Nezrovnalosti sa prestanú počítať, keď sú dostatočne staré na to, aby sa považovali za vyradené, takže maximum je {{count}} deň: vyšší prah by sa nikdy nespustil.",
-			"claimAge.description_few": "Upozorniť, keď najstaršia započítaná nezrovnalosť modelu zostane nevyriešená dlhšie ako tento čas. Nezrovnalosti sa prestanú počítať, keď sú dostatočne staré na to, aby sa považovali za vyradené, takže maximum je {{count}} dni: vyšší prah by sa nikdy nespustil.",
-			"claimAge.description_many": "Upozorniť, keď najstaršia započítaná nezrovnalosť modelu zostane nevyriešená dlhšie ako tento čas. Nezrovnalosti sa prestanú počítať, keď sú dostatočne staré na to, aby sa považovali za vyradené, takže maximum je {{count}} dňa: vyšší prah by sa nikdy nespustil.",
-			"claimAge.description_other": "Upozorniť, keď najstaršia započítaná nezrovnalosť modelu zostane nevyriešená dlhšie ako tento čas. Nezrovnalosti sa prestanú počítať, keď sú dostatočne staré na to, aby sa považovali za vyradené, takže maximum je {{count}} dní: vyšší prah by sa nikdy nespustil.",
 			"snippets": {
 				"browseAll": "Prezrite si všetkých viac ako 80 služieb",
 				"description": "Príklady formátov URL adresy Apprise pre populárne služby – skopírujte jeden z nich, vyplňte svoje údaje a vložte ho vyššie."
+			},
+			"status": {
+				"checking": "Kontrola apprise-api…",
+				"issues": "apprise-api je dostupné, ale hlási problémy",
+				"reachable": "apprise-api je dostupné",
+				"recheck": "Znovu skontrolujte",
+				"unreachable": "apprise-api nedostupné - skontrolujte URL a či kontajner beží",
+				"checkFailed": "Kontrola stavu zlyhala"
 			},
 			"target": "Cieľ oznámenia",
 			"targetConfigured": "Nakonfigurované (píšte pre nahradenie)",
@@ -2104,15 +2112,7 @@
 			"testHint": "Aktivujte upozornenia a nastavte URL rozhrania Apprise API aj cieľ na odoslanie testu.",
 			"testSending": "Odosielanie…",
 			"testSent": "Oznámenie o teste bolo odoslané.",
-			"title": "Upozornenia",
-			"status": {
-				"checking": "Kontrola apprise-api…",
-				"issues": "apprise-api je dostupné, ale hlási problémy",
-				"reachable": "apprise-api je dostupné",
-				"recheck": "Znovu skontrolujte",
-				"unreachable": "apprise-api nedostupné - skontrolujte URL a či kontajner beží",
-				"checkFailed": "Kontrola stavu zlyhala"
-			}
+			"title": "Upozornenia"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Zrušiť registráciu TOTP",

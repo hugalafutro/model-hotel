@@ -862,7 +862,7 @@
 			"chipResolved": "zurück",
 			"chipResolvedTooltip": "Der Anbieter listet sie wieder, sie haben sich also selbst erledigt.",
 			"chipRetiredTooltip": "Weiterhin in der Modellliste des Anbieters, aber er hat jede Anfrage dafür abgelehnt, daher hat das Gateway sie hier deaktiviert. Diese zählt das Abzeichen in der Seitenleiste.",
-			"chipStaleTooltip": "Seit über 30 Tagen ohne Schwankungen nicht auffindbar, also fast sicher ausgemustert und nicht defekt. Wird angezeigt, nie gezählt.",
+			"chipStaleTooltip": "Seit über 30 Tagen fehlend und ohne Schwanken, also mit ziemlicher Sicherheit eingestellt statt defekt. Wird gezeigt, nie gezählt.",
 			"chipSuspectTooltip": "Noch aktiv, aber in den letzten Scans nicht dabei. Ein weiterer Fehlschlag und die Erkennung deaktiviert es.",
 			"clean": "Diesen Anbieter ausblenden",
 			"cleanTooltip": "Entfernt diesen Anbieter aus der Liste. Es wird nichts geändert; die Erkennung meldet eine neue Abweichung, sobald eine auftritt.",
@@ -877,14 +877,14 @@
 			"dismissAllPartial_one": "Nur 1 von {{total}} Modellen wurde verworfen",
 			"dismissAllPartial_other": "Nur {{count}} von {{total}} Modellen wurden verworfen",
 			"dismissAllSuspectOnlyTooltip": "Ein verdächtiges Modell kann erst verworfen werden, wenn es tatsächlich fehlt.",
-			"dismissAllTooltip": "Jetzt jedes fehlende und längst verschwundene Modell dieses Anbieters aus dieser Liste entfernen. Die Erkennung läuft weiter: alles, was der Anbieter wieder führt, kommt zurück.",
+			"dismissAllTooltip": "Jetzt jedes fehlende und längst verschwundene Modell dieses Anbieters aus dieser Liste entfernen. Die Erkennung läuft weiter, alles was der Anbieter wieder führt kommt also zurück — außer vom Gateway abgelehnten Modellen, die entfernt bleiben, bis Sie sie von Hand aktivieren.",
 			"dismissEverything": "Alle verwerfen",
 			"dismissEverythingConfirmBody_one": "Sie verschwindet aus dieser Liste und das Abzeichen wird leer. Die Erkennung läuft weiter, und das Modell kehrt nur als neue Abweichung zurück, wenn sein Anbieter es wieder anbietet und es später erneut fehlt.",
 			"dismissEverythingConfirmBody_other": "Das umfasst alles hier Aufgeführte: von der Erkennung deaktivierte Modelle, vom Gateway aus dem Verkehr genommene Modelle und längst verschwundene, die das Abzeichen nie gezählt hat. Sie verlassen diese Liste und das Abzeichen wird geleert. Die Erkennung läuft weiter, und ein Modell kehrt nur dann als neue Abweichung zurück, wenn sein Anbieter es wieder führt und es später verschwindet.",
 			"dismissEverythingConfirmTitle_one": "1 Abweichung verwerfen?",
 			"dismissEverythingConfirmTitle_other": "Alle {{count}} Abweichungen verwerfen?",
 			"dismissEverythingFailed": "Es konnte nichts verworfen werden. Nichts wurde geändert.",
-			"dismissEverythingTooltip": "Leert alle Anbieter dieser Liste auf einmal. Die Erkennung läuft weiter: was ein Anbieter wieder anbietet, kommt zurück.",
+			"dismissEverythingTooltip": "Alle Anbieter dieser Liste auf einmal entfernen. Die Erkennung läuft weiter, alles was ein Anbieter wieder führt kommt also zurück — außer vom Gateway abgelehnten Modellen, die entfernt bleiben, bis Sie sie von Hand aktivieren.",
 			"dismissFailed": "Ausblenden fehlgeschlagen: {{message}}",
 			"dismissNoMatch": "Dieses Modell passt nicht mehr. Aktualisieren und erneut versuchen.",
 			"dismissRetiredTooltip": "Dieses Modell aus der Liste entfernen. Es bleibt deaktiviert und entfernt: der Anbieter führt es weiterhin, also holt es nur manuelles Aktivieren zurück.",
@@ -1965,6 +1965,9 @@
 		"alerts": {
 			"apiUrl": "Apprise-API-URL",
 			"apiUrlDescription": "Basis-URL des von Ihnen ausgeführten apprise-api-Containers (zum Beispiel http://apprise:8000).",
+			"claimAge": "Warnung bei unbearbeiteten Abweichungen (Tage)",
+			"claimAge.description_one": "Warnen, wenn die älteste gezählte Modellabweichung länger als dies unbearbeitet bleibt. Fehlende Modelle zählen nicht mehr, sobald sie alt genug sind, um als eingestellt zu gelten, daher liegt das Maximum bei {{count}} Tag.",
+			"claimAge.description_other": "Warnen, wenn die älteste gezählte Modellabweichung länger als dies unbearbeitet bleibt. Fehlende Modelle zählen nicht mehr, sobald sie alt genug sind, um als eingestellt zu gelten, daher liegt das Maximum bei {{count}} Tagen.",
 			"clear": "Löschen",
 			"description": "Push-Benachrichtigungen zu wichtigen Ereignissen (Ausfall eines Anbieters, Auslösen eines Circuit Breakers) an Telegram, E-Mail, Discord und weitere Kanäle über einen von Ihnen betriebenen zustandslosen Apprise-Container. Es werden niemals Request-Inhalte gesendet – lediglich die Zusammenfassung des Ereignisses.",
 			"enable": "Benachrichtigungen aktivieren",
@@ -1987,12 +1990,17 @@
 				"title": "Ereignisse, über die benachrichtigt werden soll"
 			},
 			"eventsLabel": "Alarmereignisse",
-			"claimAge": "Warnung bei unbearbeiteten Abweichungen (Tage)",
-			"claimAge.description_one": "Warnen, wenn die älteste gezählte Modellabweichung länger als diesen Zeitraum unbearbeitet bleibt. Abweichungen zählen nicht mehr, sobald sie alt genug sind, um als eingestellt zu gelten, daher liegt das Maximum bei {{count}} Tag: eine höhere Schwelle würde nie auslösen.",
-			"claimAge.description_other": "Warnen, wenn die älteste gezählte Modellabweichung länger als diesen Zeitraum unbearbeitet bleibt. Abweichungen zählen nicht mehr, sobald sie alt genug sind, um als eingestellt zu gelten, daher liegt das Maximum bei {{count}} Tage: eine höhere Schwelle würde nie auslösen.",
 			"snippets": {
 				"browseAll": "Alle über 80 Dienste durchsuchen",
 				"description": "Beispiele für Apprise-URL-Formate gängiger Dienste – kopieren Sie eines davon, geben Sie Ihre Daten ein und fügen Sie es oben ein."
+			},
+			"status": {
+				"checking": "Überprüfung von apprise-api…",
+				"issues": "apprise-api ist erreichbar, meldet jedoch Probleme",
+				"reachable": "apprise-api erreichbar",
+				"recheck": "Nochmals überprüfen",
+				"unreachable": "apprise-api nicht erreichbar – Überprüfen Sie die URL und stellen Sie sicher, dass der Container läuft",
+				"checkFailed": "Statusprüfung fehlgeschlagen"
 			},
 			"target": "Benachrichtigungsziel",
 			"targetConfigured": "Konfiguriert – Text zum Ersetzen",
@@ -2002,15 +2010,7 @@
 			"testHint": "Aktivieren Sie die Benachrichtigungsfunktion und legen Sie sowohl eine Apprise-API-URL als auch ein Ziel fest, um einen Test zu senden.",
 			"testSending": "Senden…",
 			"testSent": "Testbenachrichtigung gesendet.",
-			"title": "Warnmeldungen",
-			"status": {
-				"checking": "Überprüfung von apprise-api…",
-				"issues": "apprise-api ist erreichbar, meldet jedoch Probleme",
-				"reachable": "apprise-api erreichbar",
-				"recheck": "Nochmals überprüfen",
-				"unreachable": "apprise-api nicht erreichbar – Überprüfen Sie die URL und stellen Sie sicher, dass der Container läuft",
-				"checkFailed": "Statusprüfung fehlgeschlagen"
-			}
+			"title": "Warnmeldungen"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "TOTP-Registrierung abbrechen",

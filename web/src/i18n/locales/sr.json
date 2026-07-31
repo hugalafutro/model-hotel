@@ -874,7 +874,7 @@
 			"chipResolved": "vratile se",
 			"chipResolvedTooltip": "Provajder ih ponovo nudi, pa su se sami rešili.",
 			"chipRetiredTooltip": "И даље је на листи модела добављача, али је одбио сваки захтев за њима, па их је мрежни пролаз овде онемогућио. Управо њих броји ознака у бочној траци.",
-			"chipStaleTooltip": "Nedostaju više od 30 dana bez kolebanja, pa su gotovo sigurno ukinuti, a ne pokvareni. Prikazuju se, nikada se ne broje.",
+			"chipStaleTooltip": "Недостаје више од 30 дана без осцилација, па је готово сигурно повучен из понуде, а не покварен. Приказује се, никада се не броји.",
 			"chipSuspectTooltip": "Još je uključen, ali ga nema u nedavnim skeniranjima. Još jedan promašaj i otkrivanje ga isključuje.",
 			"clean": "Očisti ovog provajdera",
 			"cleanTooltip": "Uklanja ovog provajdera sa liste. Ništa se ne menja; otkrivanje će prijaviti novo neslaganje kada se pojavi.",
@@ -893,7 +893,7 @@
 			"dismissAllPartial_one": "Odbačen je samo 1 model od {{total}}",
 			"dismissAllPartial_other": "Odbačeno je samo {{count}} modela od {{total}}",
 			"dismissAllSuspectOnlyTooltip": "Sumnjiv model ne može da se odbaci dok stvarno ne nedostaje.",
-			"dismissAllTooltip": "Уклони сада са ове листе све недостајуће и одавно нестале моделе овог добављача. Откривање наставља да ради: све што добављач поново наведе, вратиће се.",
+			"dismissAllTooltip": "Уклони сада са ове листе све недостајуће и одавно нестале моделе овог добављача. Откривање наставља да ради, па се све што добављач поново наведе враћа — осим модела које је мрежни пролаз одбио; они остају уклоњени док их ручно не омогућиш.",
 			"dismissEverything": "Odbaci sve",
 			"dismissEverythingConfirmBody_few": "To pokriva sve što je ovde navedeno: modele koje je otkrivanje isključilo i one davno ukinute koje oznaka nikada nije brojala. Izlaze sa ove liste i oznaka se prazni. Otkrivanje nastavlja da radi, a model se vraća kao novo neslaganje samo ako ga njegov provajder ponovo ponudi i kasnije opet nedostaje.",
 			"dismissEverythingConfirmBody_one": "Izlazi sa ove liste i oznaka se prazni. Otkrivanje nastavlja da radi, a model se vraća kao novo neslaganje samo ako ga njegov provajder ponovo ponudi i kasnije opet nedostaje.",
@@ -902,7 +902,7 @@
 			"dismissEverythingConfirmTitle_one": "Odbaciti 1 neslaganje?",
 			"dismissEverythingConfirmTitle_other": "Odbaciti svih {{count}} neslaganja?",
 			"dismissEverythingFailed": "Nije moglo ništa da se odbaci. Ništa nije promenjeno.",
-			"dismissEverythingTooltip": "Prazni sve provajdere sa ove liste odjednom. Otkrivanje nastavlja da radi: ono što provajder ponovo ponudi vraća se.",
+			"dismissEverythingTooltip": "Уклони одједном све добављаче са ове листе. Откривање наставља да ради, па се све што добављач поново наведе враћа — осим модела које је мрежни пролаз одбио; они остају уклоњени док их ручно не омогућиш.",
 			"dismissFailed": "Одбацивање није успело: {{message}}",
 			"dismissNoMatch": "Тај модел више не одговара. Освежите страницу и покушајте поново.",
 			"dismissRetiredTooltip": "Уклони овај модел са листе. Остаје онемогућен и уклоњен: добављач га и даље наводи, па га враћа само ручно омогућавање.",
@@ -2015,6 +2015,10 @@
 		"alerts": {
 			"apiUrl": "Apprise API URL",
 			"apiUrlDescription": "Основни URL контејнера apprise-api који покрећете (на пример http://apprise:8000).",
+			"claimAge": "Упозорење о нерешеним одступањима (дани)",
+			"claimAge.description_few": "Упозори када најстарије урачунато одступање модела остане нерешено дуже од овога. Одступања престају да се рачунају када постану довољно стара да се сматрају повученима, па је максимум {{count}} дана: виши праг се никада не би активирао.",
+			"claimAge.description_one": "Упозори када најстарије бројано одступање модела остане нерешено дуже од овога. Недостајући модели престају да се броје чим постану довољно стари да се сматрају повученима, па је максимум {{count}} дан.",
+			"claimAge.description_other": "Упозори када најстарије бројано одступање модела остане нерешено дуже од овога. Недостајући модели престају да се броје чим постану довољно стари да се сматрају повученима, па је максимум {{count}} дана.",
 			"clear": "Очисти",
 			"description": "Push обавештења за значајне догађаје (прекид рада провајдера, активирање заштитног уређаја) на Telegram, е-пошту, Discord и друге платформе преко stateless Apprise контејнера који покрећете. Никада се не шаље садржај захтева - само резиме догађаја.",
 			"enable": "Омогућите обавештавање",
@@ -2037,13 +2041,17 @@
 				"title": "Догађаји за обавештавање"
 			},
 			"eventsLabel": "Догађаји упозорења",
-			"claimAge": "Упозорење о нерешеним одступањима (дани)",
-			"claimAge.description_one": "Упозори када најстарије урачунато одступање модела остане нерешено дуже од овога. Одступања престају да се рачунају када постану довољно стара да се сматрају повученима, па је максимум {{count}} дан: виши праг се никада не би активирао.",
-			"claimAge.description_few": "Упозори када најстарије урачунато одступање модела остане нерешено дуже од овога. Одступања престају да се рачунају када постану довољно стара да се сматрају повученима, па је максимум {{count}} дана: виши праг се никада не би активирао.",
-			"claimAge.description_other": "Упозори када најстарије урачунато одступање модела остане нерешено дуже од овога. Одступања престају да се рачунају када постану довољно стара да се сматрају повученима, па је максимум {{count}} дана: виши праг се никада не би активирао.",
 			"snippets": {
 				"browseAll": "Прегледајте све 80+ услуга",
 				"description": "Примери Apprise URL формата за популарне услуге - копирајте један, унесите своје податке и налепите га изнад."
+			},
+			"status": {
+				"checking": "Провера apprise-api…",
+				"issues": "apprise-api доступан, али пријављује проблеме",
+				"reachable": "apprise-api доступан",
+				"recheck": "Поново проверите",
+				"unreachable": "apprise-api недостижан - проверите URL и да контејнер ради",
+				"checkFailed": "Проверка статуса није успела"
 			},
 			"target": "Циљ обавештења",
 			"targetConfigured": "Конфигурисано - куцајте да замените",
@@ -2053,15 +2061,7 @@
 			"testHint": "Омогућите слање упозорења и подесите и Apprise API URL и циљ за слање теста.",
 			"testSending": "Слање…",
 			"testSent": "Порука за тестирање послата.",
-			"title": "Обавештења",
-			"status": {
-				"checking": "Провера apprise-api…",
-				"issues": "apprise-api доступан, али пријављује проблеме",
-				"reachable": "apprise-api доступан",
-				"recheck": "Поново проверите",
-				"unreachable": "apprise-api недостижан - проверите URL и да контејнер ради",
-				"checkFailed": "Проверка статуса није успела"
-			}
+			"title": "Обавештења"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Откажи TOTP регистрацију",

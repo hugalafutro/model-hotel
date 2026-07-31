@@ -874,7 +874,7 @@
 			"chipResolved": "di nuovo attivi",
 			"chipResolvedTooltip": "Il provider li offre di nuovo, quindi si sono risolti da soli.",
 			"chipRetiredTooltip": "È ancora nell'elenco dei modelli del provider, ma ha rifiutato ogni richiesta, quindi il gateway li ha disattivati qui. Sono quelli contati dal badge nella barra laterale.",
-			"chipStaleTooltip": "Mancanti da oltre 30 giorni senza oscillazioni, quindi quasi certamente dismessi e non guasti. Mostrati, mai conteggiati.",
+			"chipStaleTooltip": "Assente da oltre 30 giorni senza oscillazioni, quindi quasi certamente dismesso e non guasto. Mostrato, mai conteggiato.",
 			"chipSuspectTooltip": "Ancora attivo, ma assente dalle scansioni recenti. Un altro mancato rilevamento e il rilevamento lo disattiva.",
 			"clean": "Pulisci questo provider",
 			"cleanTooltip": "Rimuove questo provider dall'elenco. Nulla viene modificato; il rilevamento segnalerà una nuova discrepanza se ne comparirà una.",
@@ -893,7 +893,7 @@
 			"dismissAllPartial_one": "È stato ignorato solo 1 modello su {{total}}",
 			"dismissAllPartial_other": "Sono stati ignorati solo {{count}} modelli su {{total}}",
 			"dismissAllSuspectOnlyTooltip": "Un modello sospetto non può essere ignorato finché non risulta effettivamente mancante.",
-			"dismissAllTooltip": "Rimuovi ora da questo elenco tutti i modelli assenti e scomparsi da tempo di questo provider. Il rilevamento continua: tutto ciò che il provider elenca di nuovo torna.",
+			"dismissAllTooltip": "Rimuovi ora da questo elenco tutti i modelli assenti e scomparsi da tempo di questo provider. Il rilevamento continua, quindi tutto ciò che il provider elenca di nuovo torna — tranne i modelli rifiutati dal gateway, che restano rimossi finché non li attivi a mano.",
 			"dismissEverything": "Ignora tutto",
 			"dismissEverythingConfirmBody_many": "Questo comprende tutto ciò che è elencato qui: i modelli disattivati dal rilevamento, più quelli dismessi da tempo che il badge non ha mai conteggiato. Escono da questo elenco e il badge si svuota. Il rilevamento continua, e un modello torna come nuova discrepanza solo se il suo provider lo offre di nuovo e successivamente risulta mancante.",
 			"dismissEverythingConfirmBody_one": "Esce da questo elenco e il badge si svuota. Il rilevamento continua, e il modello torna come nuova discrepanza solo se il suo provider lo offre di nuovo e successivamente risulta mancante.",
@@ -902,7 +902,7 @@
 			"dismissEverythingConfirmTitle_one": "Ignorare 1 discrepanza?",
 			"dismissEverythingConfirmTitle_other": "Ignorare tutte le {{count}} discrepanze?",
 			"dismissEverythingFailed": "Non è stato possibile ignorare nulla. Nulla è stato modificato.",
-			"dismissEverythingTooltip": "Svuota tutti i provider di questo elenco in una volta. Il rilevamento continua: ciò che un provider offre di nuovo ricomparirà.",
+			"dismissEverythingTooltip": "Rimuovi in una volta tutti i provider di questo elenco. Il rilevamento continua, quindi tutto ciò che un provider elenca di nuovo torna — tranne i modelli rifiutati dal gateway, che restano rimossi finché non li attivi a mano.",
 			"dismissFailed": "Impossibile ignorare: {{message}}",
 			"dismissNoMatch": "Questo modello non corrisponde più. Aggiorna e riprova.",
 			"dismissRetiredTooltip": "Rimuovi questo modello dall'elenco. Resta disattivato e resta rimosso: il provider continua a elencarlo, quindi solo attivarlo a mano lo riporta.",
@@ -2015,6 +2015,10 @@
 		"alerts": {
 			"apiUrl": "URL dell’API Apprise",
 			"apiUrlDescription": "URL di base del container apprise-api in esecuzione (ad esempio http://apprise:8000).",
+			"claimAge": "Avviso per discrepanze non gestite (giorni)",
+			"claimAge.description_many": "Avvisa quando la discrepanza dei modelli conteggiata più vecchia resta senza risposta più a lungo di questo. Le discrepanze smettono di essere conteggiate quando sono abbastanza vecchie da essere considerate ritirate, quindi il massimo è {{count}} giorni: una soglia superiore non scatterebbe mai.",
+			"claimAge.description_one": "Avvisa quando la discrepanza di modello conteggiata più vecchia resta non gestita più a lungo di così. I modelli assenti smettono di contare quando sono abbastanza vecchi da essere considerati dismessi, quindi il massimo è {{count}} giorno.",
+			"claimAge.description_other": "Avvisa quando la discrepanza di modello conteggiata più vecchia resta non gestita più a lungo di così. I modelli assenti smettono di contare quando sono abbastanza vecchi da essere considerati dismessi, quindi il massimo è di {{count}} giorni.",
 			"clear": "Cancella",
 			"description": "Invia notifiche push per eventi rilevanti (interruzione del servizio di un provider, attivazione di un circuit breaker) su Telegram, e-mail, Discord e altre piattaforme tramite un container Apprise stateless da te gestito. Non viene mai inviato alcun contenuto della richiesta, ma solo il riepilogo dell’evento.",
 			"enable": "Abilitare gli avvisi",
@@ -2037,13 +2041,17 @@
 				"title": "Eventi da segnalare"
 			},
 			"eventsLabel": "Eventi di avviso",
-			"claimAge": "Avviso per discrepanze non gestite (giorni)",
-			"claimAge.description_one": "Avvisa quando la discrepanza dei modelli conteggiata più vecchia resta senza risposta più a lungo di questo. Le discrepanze smettono di essere conteggiate quando sono abbastanza vecchie da essere considerate ritirate, quindi il massimo è {{count}} giorno: una soglia superiore non scatterebbe mai.",
-			"claimAge.description_many": "Avvisa quando la discrepanza dei modelli conteggiata più vecchia resta senza risposta più a lungo di questo. Le discrepanze smettono di essere conteggiate quando sono abbastanza vecchie da essere considerate ritirate, quindi il massimo è {{count}} giorni: una soglia superiore non scatterebbe mai.",
-			"claimAge.description_other": "Avvisa quando la discrepanza dei modelli conteggiata più vecchia resta senza risposta più a lungo di questo. Le discrepanze smettono di essere conteggiate quando sono abbastanza vecchie da essere considerate ritirate, quindi il massimo è {{count}} giorni: una soglia superiore non scatterebbe mai.",
 			"snippets": {
 				"browseAll": "Sfoglia tutti gli oltre 80 servizi",
 				"description": "Esempi di formati URL Apprise per servizi diffusi: copiarne uno, inserire i propri dati e incollarlo sopra."
+			},
+			"status": {
+				"checking": "Verifica di apprise-api…",
+				"issues": "apprise-api è raggiungibile ma segnala dei problemi",
+				"reachable": "apprise-api raggiungibile",
+				"recheck": "Ricontrollare",
+				"unreachable": "apprise-api irraggiungibile - controllare l’URL e verificare che il container sia in esecuzione",
+				"checkFailed": "Verifica dello stato non riuscita"
 			},
 			"target": "Destinatario della notifica",
 			"targetConfigured": "Configurato - digitare per sostituire",
@@ -2053,15 +2061,7 @@
 			"testHint": "Abilitare gli avvisi e impostare sia un URL API di Apprise sia una destinazione per l’invio di un test.",
 			"testSending": "Invio in corso…",
 			"testSent": "Notifica di test inviata.",
-			"title": "Avvisi",
-			"status": {
-				"checking": "Verifica di apprise-api…",
-				"issues": "apprise-api è raggiungibile ma segnala dei problemi",
-				"reachable": "apprise-api raggiungibile",
-				"recheck": "Ricontrollare",
-				"unreachable": "apprise-api irraggiungibile - controllare l’URL e verificare che il container sia in esecuzione",
-				"checkFailed": "Verifica dello stato non riuscita"
-			}
+			"title": "Avvisi"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Annulla la registrazione TOTP",
