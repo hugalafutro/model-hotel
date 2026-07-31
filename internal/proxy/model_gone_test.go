@@ -182,33 +182,40 @@ func TestVerdictForStream(t *testing.T) {
 	tests := []struct {
 		name     string
 		kind     ErrorKind
+		upstream ErrorKind
 		produced bool
 		want     streamVerdict
 	}{
-		{"clean finish that delivered content proves the model answered", "", true, verdictServed},
-		{"explicit gone report strikes", KindProviderModelGone, true, verdictGone},
-		{"gone report strikes even with no content", KindProviderModelGone, false, verdictGone},
+		{"clean finish that delivered content proves the model answered", "", "", true, verdictServed},
+		{"explicit gone report strikes", KindProviderModelGone, KindProviderModelGone, true, verdictGone},
+		{"gone report strikes even with no content", KindProviderModelGone, KindProviderModelGone, false, verdictGone},
+		// The provider's verdict must survive a later cause overwriting the
+		// recorded kind. A client hanging up on the error chunk is the ordinary
+		// case, and judging the model by that would let the client suppress the
+		// evidence by reacting to it.
+		{"client hangup cannot erase the provider's gone report", KindClientDisconnect, KindProviderModelGone, false, verdictGone},
+		{"nor can a stall reported after it", KindProviderTimeout, KindProviderModelGone, false, verdictGone},
 		// A stream that opened, emitted nothing and ended without recording an
 		// error is not proof of anything. Crediting it would clear a retirement
 		// streak on the strength of an empty response.
-		{"truncated stream with no content is inconclusive", "", false, verdictInconclusive},
+		{"truncated stream with no content is inconclusive", "", "", false, verdictInconclusive},
 		// Everything below is a failure that says nothing about whether the
 		// model exists, so it must not clear the streak.
-		{"transient provider error", KindProviderError, true, verdictInconclusive},
-		{"client hung up", KindClientDisconnect, true, verdictInconclusive},
-		{"provider stalled", KindProviderTimeout, false, verdictInconclusive},
-		{"failover deadline", KindFailoverTimeout, false, verdictInconclusive},
-		{"retry deadline", KindRetryTimeout, false, verdictInconclusive},
-		{"payload rejected", KindProviderBadRequest, false, verdictInconclusive},
-		{"not entitled", KindProviderNotEntitled, false, verdictInconclusive},
-		{"gateway fault", KindInternal, false, verdictInconclusive},
+		{"transient provider error", KindProviderError, KindProviderError, true, verdictInconclusive},
+		{"client hung up", KindClientDisconnect, "", true, verdictInconclusive},
+		{"provider stalled", KindProviderTimeout, "", false, verdictInconclusive},
+		{"failover deadline", KindFailoverTimeout, "", false, verdictInconclusive},
+		{"retry deadline", KindRetryTimeout, "", false, verdictInconclusive},
+		{"payload rejected", KindProviderBadRequest, KindProviderBadRequest, false, verdictInconclusive},
+		{"not entitled", KindProviderNotEntitled, KindProviderNotEntitled, false, verdictInconclusive},
+		{"gateway fault", KindInternal, "", false, verdictInconclusive},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := verdictForStream(tc.kind, tc.produced); got != tc.want {
-				t.Errorf("verdictForStream(%q, produced=%v) = %v, want %v", tc.kind, tc.produced, got, tc.want)
+			if got := verdictForStream(tc.kind, tc.upstream, tc.produced); got != tc.want {
+				t.Errorf("verdictForStream(%q, upstream=%q, produced=%v) = %v, want %v", tc.kind, tc.upstream, tc.produced, got, tc.want)
 			}
 		})
 	}
@@ -303,7 +310,7 @@ func TestNoteModelGone_FailedStreamsDoNotResetStreak(t *testing.T) {
 		// A transient stream failure lands between strikes. Under the old
 		// "anything not gone is a success" rule this cleared the streak and the
 		// model could never be retired.
-		if v := verdictForStream(KindProviderError, true); v == verdictServed {
+		if v := verdictForStream(KindProviderError, KindProviderError, true); v == verdictServed {
 			h.noteModelServed(m)
 		}
 	}

@@ -186,6 +186,14 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 		// and an unbounded provider string must not land in the log either way.
 		errMsg = util.SanitizeLogBody(errMsg, 10000)
 		logData.errorKind, _ = classifyUpstreamError(logData.statusCode, errMsg, logData.modelID)
+		// Kept separately as well, because everything below can overwrite
+		// errorKind with a later cause. A client that receives this error chunk
+		// and hangs up — which is exactly what a client does on seeing an error
+		// — would otherwise replace the provider's "this model is gone" with
+		// client_disconnect, and the retirement would lose the very strike the
+		// provider just handed it. What the provider said about the model does
+		// not depend on what the client did next.
+		logData.upstreamKind = logData.errorKind
 	}
 	if errMsg == "" && scanErr != nil {
 		switch {

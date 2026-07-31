@@ -62,6 +62,38 @@ func TestDeriveStreamError_SanitizesProviderMessage(t *testing.T) {
 		}
 	})
 
+	// A client that receives an error chunk and hangs up is the ordinary case,
+	// not an edge one, and the disconnect overwrites errorKind on its way out.
+	// If the retirement verdict were read from errorKind, the client would be
+	// suppressing the evidence by reacting to it, and a retired model would stay
+	// routable for as long as clients kept disconnecting on its errors.
+	t.Run("a client hangup does not erase the provider's retirement verdict", func(t *testing.T) {
+		t.Parallel()
+
+		st := &streamState{
+			lastErrMsg:         "Model gemini-2.0-flash is no longer available",
+			clientDisconnected: true,
+		}
+		logData := &requestLogData{statusCode: 404, modelID: "gemini-2.0-flash"}
+
+		got := deriveStreamError(st, nil, streamOptions{}, logData)
+
+		// The recorded kind still describes how the request ended.
+		if logData.errorKind != KindClientDisconnect {
+			t.Errorf("errorKind = %q, want %q", logData.errorKind, KindClientDisconnect)
+		}
+		if got != "client disconnected" {
+			t.Errorf("errorMessage = %q, want the disconnect message", got)
+		}
+		// What the provider said about the model survives alongside it.
+		if logData.upstreamKind != KindProviderModelGone {
+			t.Errorf("upstreamKind = %q, want %q", logData.upstreamKind, KindProviderModelGone)
+		}
+		if v := verdictForStream(logData.errorKind, logData.upstreamKind, false); v != verdictGone {
+			t.Errorf("verdict = %v, want verdictGone: a retirement must still be recorded", v)
+		}
+	})
+
 	t.Run("an unclassifiable in-stream error stays provider_error", func(t *testing.T) {
 		t.Parallel()
 

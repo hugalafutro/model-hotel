@@ -324,9 +324,20 @@ const (
 // without ever recording an error, and crediting that as a success would clear a
 // retirement streak on the strength of nothing at all. Clearing therefore
 // requires positive evidence that content actually flowed.
-func verdictForStream(kind ErrorKind, producedOutput bool) streamVerdict {
+// upstreamKind is what the provider said, which is the only thing that can
+// establish a retirement. kind is how the request ended, and it is what rules a
+// success out.
+//
+// The two are separate because they answer different questions and the second
+// overwrites the first. A provider can report the model retired mid-stream and
+// the client can then hang up — the likeliest thing for a client to do on
+// receiving an error — at which point the recorded kind becomes
+// client_disconnect. Judging the model by that would let a client suppress the
+// evidence by reacting to it, and a retired model would stay routable for as
+// long as clients kept disconnecting on its errors.
+func verdictForStream(kind, upstreamKind ErrorKind, producedOutput bool) streamVerdict {
 	switch {
-	case kind == KindProviderModelGone:
+	case upstreamKind == KindProviderModelGone || kind == KindProviderModelGone:
 		return verdictGone
 	case kind == "" && producedOutput:
 		return verdictServed
@@ -349,7 +360,7 @@ func streamProducedOutput(logData *requestLogData) bool {
 // the hedged path previously returned without recording any verdict at all, so
 // a model retired mid-stream stayed routable whenever hedging was enabled.
 func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCandidate) {
-	switch verdictForStream(logData.errorKind, streamProducedOutput(logData)) {
+	switch verdictForStream(logData.errorKind, logData.upstreamKind, streamProducedOutput(logData)) {
 	case verdictGone:
 		h.noteModelGone(candidate.model, candidate.provider.Name)
 	case verdictServed:
