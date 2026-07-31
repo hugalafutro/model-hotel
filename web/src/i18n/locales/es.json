@@ -873,6 +873,7 @@
 			"chipGoneTooltip": "Desaparecidos de la propia lista de modelos del proveedor, así que la detección los desactivó aquí. Es lo que cuenta la insignia de la barra lateral.",
 			"chipResolved": "de vuelta",
 			"chipResolvedTooltip": "El proveedor los vuelve a ofrecer, así que se han resuelto solos.",
+			"chipRetiredTooltip": "Sigue en la lista de modelos del proveedor, pero rechazó todas las solicitudes, así que la pasarela los desactivó aquí. Son los que cuenta la insignia de la barra lateral.",
 			"chipStaleTooltip": "Ausentes desde hace más de 30 días sin fluctuaciones, así que casi con seguridad retirados y no averiados. Se muestran, nunca se cuentan.",
 			"chipSuspectTooltip": "Todavía activo, pero ausente en los últimos escaneos. Un fallo más y la detección lo desactiva.",
 			"clean": "Limpiar este proveedor",
@@ -920,8 +921,9 @@
 			"flapped_other": "{{count}} fluctuaciones",
 			"group": {
 				"gone": "Desaparecidos",
-				"suspect": "Sospechosos",
-				"stale": "Obsoletos"
+				"retired": "Rechazado",
+				"stale": "Obsoletos",
+				"suspect": "Sospechosos"
 			},
 			"groupClaims": "Grupos de conmutación por error con el descubrimiento desactivado",
 			"groupDisabledAt": "Desactivado {{when}}",
@@ -956,6 +958,7 @@
 			"retestProgress": "{{done}} de {{total}}",
 			"retestTooltip": "Vuelve a ejecutar el descubrimiento de este proveedor y revisa de nuevo sus modelos.",
 			"retesting": "Volviendo a probar…",
+			"retiredMeta": "Desactivado {{when}}",
 			"returnToTop": "Volver al inicio de este proveedor",
 			"suspectMeta_many": "Se perdieron {{count}} análisis",
 			"suspectMeta_one": "Se perdió {{count}} análisis",

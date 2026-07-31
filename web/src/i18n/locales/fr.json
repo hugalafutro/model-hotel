@@ -873,6 +873,7 @@
 			"chipGoneTooltip": "Disparus de la propre liste de modèles du fournisseur, donc désactivés ici par la découverte. C'est ce que compte le badge de la barre latérale.",
 			"chipResolved": "de retour",
 			"chipResolvedTooltip": "Le fournisseur les propose à nouveau : ils se sont réglés d'eux-mêmes.",
+			"chipRetiredTooltip": "Toujours dans la liste de modèles du fournisseur, mais il a refusé chaque requête les concernant, donc la passerelle les a désactivés ici. Ce sont ceux que compte le badge de la barre latérale.",
 			"chipStaleTooltip": "Absents depuis plus de 30 jours sans fluctuation, donc presque certainement retirés plutôt que défaillants. Affichés, jamais comptés.",
 			"chipSuspectTooltip": "Encore actif, mais absent des derniers scans. Un échec de plus et la découverte le désactive.",
 			"clean": "Nettoyer ce fournisseur",
@@ -920,8 +921,9 @@
 			"flapped_other": "{{count}} fluctuations",
 			"group": {
 				"gone": "Disparus",
-				"suspect": "Suspects",
-				"stale": "Obsolètes"
+				"retired": "Refusé",
+				"stale": "Obsolètes",
+				"suspect": "Suspects"
 			},
 			"groupClaims": "Groupes de basculement dont la découverte est désactivée",
 			"groupDisabledAt": "Désactivé {{when}}",
@@ -956,6 +958,7 @@
 			"retestProgress": "{{done}} sur {{total}}",
 			"retestTooltip": "Relancez la découverte pour ce fournisseur et revérifiez ses modèles.",
 			"retesting": "Nouveau test…",
+			"retiredMeta": "Désactivé {{when}}",
 			"returnToTop": "Revenir en haut de ce fournisseur",
 			"suspectMeta_many": "{{count}} analyses manquées",
 			"suspectMeta_one": "{{count}} analyse manquée",

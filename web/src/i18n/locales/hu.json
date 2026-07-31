@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "Eltűntek a szolgáltató saját modelllistájáról, ezért a felderítés itt letiltotta őket. Ezeket számolja az oldalsáv jelvénye.",
 			"chipResolved": "visszatért",
 			"chipResolvedTooltip": "A szolgáltató újra felsorolja őket, tehát maguktól rendeződtek.",
+			"chipRetiredTooltip": "Továbbra is szerepel a szolgáltató modell-listáján, de minden rá irányuló kérést elutasított, ezért az átjáró itt letiltotta őket. Az oldalsáv jelvénye ezeket számolja.",
 			"chipStaleTooltip": "Több mint 30 napja hiányoznak ingadozás nélkül, tehát szinte biztosan kivonták őket, nem elromlottak. Megjelennek, de soha nem számítanak bele.",
 			"chipSuspectTooltip": "Még engedélyezett, de hiányzik a legutóbbi vizsgálatokból. Még egy kihagyás és a felderítés letiltja.",
 			"clean": "Szolgáltató elrejtése",
@@ -899,8 +900,9 @@
 			"flapped_other": "{{count}} ingadozás",
 			"group": {
 				"gone": "Eltűnt",
-				"suspect": "Gyanús",
-				"stale": "Elavult"
+				"retired": "Elutasítva",
+				"stale": "Elavult",
+				"suspect": "Gyanús"
 			},
 			"groupClaims": "Failover csoportok letiltott felfedezéssel",
 			"groupDisabledAt": "Letiltva {{when}}",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{done}} / {{total}}",
 			"retestTooltip": "Futtassa újra a felfedezést ehhez a szolgáltatóhoz, és ellenőrizze ismét a modelljeit.",
 			"retesting": "Újratesztelés…",
+			"retiredMeta": "Letiltva {{when}}",
 			"returnToTop": "Vissza a szolgáltató elejére",
 			"suspectMeta_one": "{{count}} vizsgálat kimaradt",
 			"suspectMeta_other": "{{count}} vizsgálat kimaradt",

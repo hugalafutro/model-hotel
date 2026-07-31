@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "Weg uit die verskaffer se eie modellys, daarom het ontdekking hulle hier gedeaktiveer. Dit is wat die kantbalk-kenteken tel.",
 			"chipResolved": "terug",
 			"chipResolvedTooltip": "Die verskaffer lys hulle weer, hulle het hulself dus regmaak.",
+			"chipRetiredTooltip": "Steeds in die verskaffer se modellys, maar dit het elke versoek daarvoor geweier, so die poort het hulle hier gedeaktiveer. Hierdie is wat die kantbalk-kenteken tel.",
 			"chipStaleTooltip": "Meer as 30 dae vermis sonder wisseling, dus byna seker afgeskaf eerder as gebreek. Word gewys, nooit getel nie.",
 			"chipSuspectTooltip": "Steeds geaktiveer, maar afwesig uit onlangse skanderings. Nog een misslag en ontdekking deaktiveer dit.",
 			"clean": "Ruim hierdie verskaffer op",
@@ -899,8 +900,9 @@
 			"flapped_other": "{{count}} skommelings",
 			"group": {
 				"gone": "Verdwyn",
-				"suspect": "Verdag",
-				"stale": "Verouderd"
+				"retired": "Geweier",
+				"stale": "Verouderd",
+				"suspect": "Verdag"
 			},
 			"groupClaims": "Failover-groepe met ontdekking gedeaktiveer",
 			"groupDisabledAt": "Gedeaktiveer {{when}}",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{done}} van {{total}}",
 			"retestTooltip": "Voer ontdekking vir hierdie verskaffer weer uit en kontroleer sy modelle opnuut.",
 			"retesting": "Hertoets tans…",
+			"retiredMeta": "Gedeaktiveer {{when}}",
 			"returnToTop": "Terug na die bokant van hierdie verskaffer",
 			"suspectMeta_one": "{{count}} skandering gemis",
 			"suspectMeta_other": "{{count}} skanderings gemis",

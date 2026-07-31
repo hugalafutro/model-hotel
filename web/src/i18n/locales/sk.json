@@ -885,6 +885,7 @@
 			"chipGoneTooltip": "Zmizli z vlastného zoznamu modelov poskytovateľa, preto ich tu zisťovanie vyplo. Práve tieto počíta odznak v bočnom paneli.",
 			"chipResolved": "späť",
 			"chipResolvedTooltip": "Poskytovateľ ich znova ponúka, vyriešili sa teda samy.",
+			"chipRetiredTooltip": "Stále sú v zozname modelov poskytovateľa, ale ten odmietol každú požiadavku na ne, takže ich brána tu zakázala. Práve tieto počíta odznak v bočnom paneli.",
 			"chipStaleTooltip": "Chýbajú viac ako 30 dní bez výkyvov, takže takmer isto vyradené, nie pokazené. Zobrazujú sa, nikdy sa nepočítajú.",
 			"chipSuspectTooltip": "Stále zapnutý, no chýba v posledných kontrolách. Ešte jedno minutie a zisťovanie ho vypne.",
 			"clean": "Uprav tohto poskytovateľa",
@@ -941,8 +942,9 @@
 			"flapped_other": "{{count}} výkyvov",
 			"group": {
 				"gone": "Zmiznuté",
-				"suspect": "Podozrivé",
-				"stale": "Zastarané"
+				"retired": "Odmietnuté",
+				"stale": "Zastarané",
+				"suspect": "Podozrivé"
 			},
 			"groupClaims": "Failover skupiny so zakázaným zisťovaním",
 			"groupDisabledAt": "Zakázané {{when}}",
@@ -982,6 +984,7 @@
 			"retestProgress": "{{done}} z {{total}}",
 			"retestTooltip": "Znova spustite zisťovanie pre tohto poskytovateľa a prekontrolujte jeho modely.",
 			"retesting": "Prebieha nový test…",
+			"retiredMeta": "Zakázané {{when}}",
 			"returnToTop": "Späť na začiatok tohto poskytovateľa",
 			"suspectMeta_few": "Vynechané {{count}} skenovania",
 			"suspectMeta_many": "Vynechané {{count}} skenovania",

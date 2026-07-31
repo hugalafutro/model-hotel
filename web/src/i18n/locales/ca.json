@@ -873,6 +873,7 @@
 			"chipGoneTooltip": "Desapareguts de la llista de models del proveïdor, així que la detecció els ha desactivat aquí. És el que compta la insígnia de la barra lateral.",
 			"chipResolved": "de tornada",
 			"chipResolvedTooltip": "El proveïdor els torna a oferir, així que s'han resolt sols.",
+			"chipRetiredTooltip": "Encara és a la llista de models del proveïdor, però ha rebutjat totes les peticions, així que la passarel·la els ha desactivat aquí. Són els que compta la insígnia de la barra lateral.",
 			"chipStaleTooltip": "Absents des de fa més de 30 dies sense fluctuacions, així que gairebé segur retirats i no espatllats. Es mostren, mai no es compten.",
 			"chipSuspectTooltip": "Encara actiu, però absent dels darrers escanejos. Un error més i la detecció el desactiva.",
 			"clean": "Neteja aquest proveïdor",
@@ -920,8 +921,9 @@
 			"flapped_other": "{{count}} fluctuacions",
 			"group": {
 				"gone": "Desapareguts",
-				"suspect": "Sospitosos",
-				"stale": "Obsolets"
+				"retired": "Rebutjat",
+				"stale": "Obsolets",
+				"suspect": "Sospitosos"
 			},
 			"groupClaims": "Grups de fallada amb el descobriment desactivat",
 			"groupDisabledAt": "Desactivat {{when}}",
@@ -956,6 +958,7 @@
 			"retestProgress": "{{done}} de {{total}}",
 			"retestTooltip": "Torna a executar el descobriment d'aquest proveïdor i revisa'n els models.",
 			"retesting": "S'està reprovant…",
+			"retiredMeta": "Desactivat {{when}}",
 			"returnToTop": "Torna a l'inici d'aquest proveïdor",
 			"suspectMeta_many": "S'han perdut {{count}} exploracions",
 			"suspectMeta_one": "S'ha perdut {{count}} exploració",

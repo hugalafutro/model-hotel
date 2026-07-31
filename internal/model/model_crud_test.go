@@ -1470,6 +1470,67 @@ func TestRevertAutoRetire_DoesNotOverwriteAnOperatorDisable(t *testing.T) {
 	}
 }
 
+// TestUpsert_RetiredModelKeepsItsDismissal covers the interaction that decides
+// whether a traffic-retired model can be silenced at all.
+//
+// A sighting normally clears an operator's dismissal, so a model that goes,
+// comes back and goes again raises a fresh claim instead of staying suppressed
+// by a stale stamp. A retired model breaks that assumption: it never left the
+// listing, so it is sighted on EVERY scan. Clearing the stamp for it would mean
+// the operator dismisses the claim, the next scan brings it straight back, and
+// there is no way to stop it.
+func TestUpsert_RetiredModelKeepsItsDismissal(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-retired-dismissal")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	retiredID := insertTestModel(ctx, t, providerID, "retired-model")
+	vanishedID := insertTestModel(ctx, t, providerID, "vanished-model")
+
+	if _, err := repo.AutoRetireIfConfirmed(ctx, retiredID, func() bool { return true }); err != nil {
+		t.Fatalf("AutoRetireIfConfirmed failed: %v", err)
+	}
+	// The other model is discovery-disabled, which is an automatic disable with
+	// no retirement stamp.
+	if _, err := testPool.Exec(ctx, `UPDATE models SET enabled = false WHERE id = $1`, vanishedID); err != nil {
+		t.Fatalf("seed discovery disable: %v", err)
+	}
+
+	// The operator dismisses both claims.
+	if _, err := testPool.Exec(ctx,
+		`UPDATE models SET discovery_dismissed_at = now() WHERE id = ANY($1)`,
+		[]uuid.UUID{retiredID, vanishedID}); err != nil {
+		t.Fatalf("seed dismissal: %v", err)
+	}
+
+	// The provider lists both again.
+	for _, id := range []string{"retired-model", "vanished-model"} {
+		if err := repo.Upsert(ctx, newBareModel(providerID, id)); err != nil {
+			t.Fatalf("Upsert %q failed: %v", id, err)
+		}
+	}
+
+	dismissed := func(t *testing.T, id uuid.UUID) bool {
+		t.Helper()
+		var at *time.Time
+		if err := testPool.QueryRow(ctx,
+			`SELECT discovery_dismissed_at FROM models WHERE id = $1`, id).Scan(&at); err != nil {
+			t.Fatalf("read failed: %v", err)
+		}
+		return at != nil
+	}
+
+	if !dismissed(t, retiredID) {
+		t.Error("a sighting must not un-dismiss a retired model: it is sighted on every scan, so the claim could never be silenced")
+	}
+	// The control: the existing behaviour for everything else is unchanged.
+	if dismissed(t, vanishedID) {
+		t.Error("a model that came back after vanishing must have its dismissal cleared, as before")
+	}
+}
+
 // TestAutoRetireIfConfirmed_DeadContextReportsNotCommitted pins the failure
 // direction, which matters more here than for an ordinary write.
 //

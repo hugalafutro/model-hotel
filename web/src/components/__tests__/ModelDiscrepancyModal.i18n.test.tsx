@@ -7,7 +7,7 @@ import { ModelDiscrepancyModal } from "../ModelDiscrepancyModal";
 const claim = (
 	model_id: string,
 	status: "pending" | "resolved" | "new",
-	state: "gone" | "stale" | "suspect",
+	state: "gone" | "stale" | "suspect" | "retired",
 	flaps: { window?: number; sinceReview?: number } = {},
 ) => ({
 	model_id,
@@ -35,6 +35,14 @@ describe("ModelDiscrepancyModal i18n", () => {
 				],
 				stale: [claim("c", "pending", "stale")],
 				suspect: [claim("d", "pending", "suspect")],
+				// The proxy-retired bucket renders its own label, chip tooltip and
+				// meta line, none of which any other branch exercises.
+				retired: [
+					{
+						...claim("g", "pending", "retired"),
+						retired_at: "2026-07-28T00:00:00Z",
+					},
+				],
 			},
 			{
 				provider_id: "p2",
@@ -42,6 +50,7 @@ describe("ModelDiscrepancyModal i18n", () => {
 				gone: [claim("e", "resolved", "gone", { sinceReview: 2 })],
 				stale: [],
 				suspect: [],
+				retired: [],
 			},
 			{
 				provider_id: "p3",
@@ -49,6 +58,7 @@ describe("ModelDiscrepancyModal i18n", () => {
 				gone: [claim("f", "resolved", "gone")],
 				stale: [],
 				suspect: [],
+				retired: [],
 			},
 		];
 		const groupClaims: GroupClaim[] = [

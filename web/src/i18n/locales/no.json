@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "Borte fra leverandørens egen modelliste, så oppdagelsen har slått dem av her. Dette er hva merket i sidepanelet teller.",
 			"chipResolved": "tilbake",
 			"chipResolvedTooltip": "Leverandøren lister dem igjen, så de har ordnet seg selv.",
+			"chipRetiredTooltip": "Fortsatt i leverandørens modelliste, men den avviste alle forespørsler om dem, så gatewayen deaktiverte dem her. Det er disse merket i sidefeltet teller.",
 			"chipStaleTooltip": "Manglet i over 30 dager uten svingninger, så nesten sikkert utfaset heller enn ødelagt. Vises, telles aldri.",
 			"chipSuspectTooltip": "Fortsatt aktiv, men fraværende i nylige skanninger. Én bom til og oppdagelsen slår den av.",
 			"clean": "Rydd denne leverandøren",
@@ -899,8 +900,9 @@
 			"flapped_other": "{{count}} svingninger",
 			"group": {
 				"gone": "Forsvunnet",
-				"suspect": "Mistenkelig",
-				"stale": "Utdatert"
+				"retired": "Avvist",
+				"stale": "Utdatert",
+				"suspect": "Mistenkelig"
 			},
 			"groupClaims": "Failover-grupper med oppdagelse deaktivert",
 			"groupDisabledAt": "Deaktivert {{when}}",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{done}} av {{total}}",
 			"retestTooltip": "Kjør oppdagelse for denne leverandøren på nytt og kontroller modellene igjen.",
 			"retesting": "Tester på nytt…",
+			"retiredMeta": "Deaktivert {{when}}",
 			"returnToTop": "Tilbake til toppen av denne leverandøren",
 			"suspectMeta_one": "Gikk glipp av {{count}} skanning",
 			"suspectMeta_other": "Gikk glipp av {{count}} skanninger",

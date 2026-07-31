@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "Đã biến mất khỏi danh sách mô hình của chính nhà cung cấp, nên việc phát hiện đã tắt chúng ở đây. Đây chính là những gì huy hiệu ở thanh bên đếm.",
 			"chipResolved": "đã trở lại",
 			"chipResolvedTooltip": "Nhà cung cấp đang liệt kê lại chúng, nên chúng đã tự khắc phục.",
+			"chipRetiredTooltip": "Vẫn nằm trong danh sách mô hình của nhà cung cấp, nhưng mọi yêu cầu đều bị từ chối, nên cổng đã tắt chúng ở đây. Đây là những gì huy hiệu ở thanh bên đếm.",
 			"chipStaleTooltip": "Thiếu hơn 30 ngày mà không dao động, nên gần như chắc chắn đã ngừng cung cấp chứ không phải bị lỗi. Được hiển thị, không bao giờ được đếm.",
 			"chipSuspectTooltip": "Vẫn đang bật nhưng không có trong các lần quét gần đây. Thiếu một lần nữa là việc phát hiện sẽ tắt nó.",
 			"clean": "Dọn nhà cung cấp này",
@@ -899,8 +900,9 @@
 			"flapped_other": "{{count}} lần dao động",
 			"group": {
 				"gone": "Đã biến mất",
-				"suspect": "Nghi ngờ",
-				"stale": "Cũ"
+				"retired": "Bị từ chối",
+				"stale": "Cũ",
+				"suspect": "Nghi ngờ"
 			},
 			"groupClaims": "Các nhóm dự phòng đã tắt tính năng khám phá",
 			"groupDisabledAt": "Đã tắt {{when}}",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{done}} trên {{total}}",
 			"retestTooltip": "Chạy lại quá trình khám phá cho nhà cung cấp này và kiểm tra lại các mô hình của nó.",
 			"retesting": "Đang kiểm tra lại…",
+			"retiredMeta": "Đã tắt {{when}}",
 			"returnToTop": "Trở về đầu nhà cung cấp này",
 			"suspectMeta_one": "Bỏ lỡ {{count}} lần quét",
 			"suspectMeta_other": "Bỏ lỡ {{count}} lần quét",

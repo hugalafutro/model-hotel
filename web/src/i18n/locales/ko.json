@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "공급자의 자체 모델 목록에서 사라져 검색이 여기서 비활성화했습니다. 사이드바 배지가 세는 것이 바로 이들입니다.",
 			"chipResolved": "복귀",
 			"chipResolvedTooltip": "공급자가 다시 제공하고 있으므로 스스로 해결되었습니다.",
+			"chipRetiredTooltip": "제공자의 모델 목록에는 남아 있지만 모든 요청이 거부되어 게이트웨이에서 비활성화했습니다. 사이드바 배지가 세는 항목입니다.",
 			"chipStaleTooltip": "30일 넘게 변동 없이 누락되었으므로 고장이 아니라 거의 확실히 폐기된 것입니다. 표시되지만 절대 계산되지 않습니다.",
 			"chipSuspectTooltip": "아직 활성 상태지만 최근 검사에서 빠졌습니다. 한 번 더 누락되면 검색이 비활성화합니다.",
 			"clean": "이 공급자 정리",
@@ -899,8 +900,9 @@
 			"flapped_other": "{{count}}회 변동",
 			"group": {
 				"gone": "사라짐",
-				"suspect": "의심됨",
-				"stale": "오래됨"
+				"retired": "거부됨",
+				"stale": "오래됨",
+				"suspect": "의심됨"
 			},
 			"groupClaims": "검색이 비활성화된 페일오버 그룹",
 			"groupDisabledAt": "비활성화 {{when}}",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{total}}개 중 {{done}}개",
 			"retestTooltip": "이 공급자에 대한 검색을 다시 실행하여 모델을 다시 확인합니다.",
 			"retesting": "다시 테스트 중…",
+			"retiredMeta": "비활성화됨 {{when}}",
 			"returnToTop": "이 공급자의 맨 위로 돌아가기",
 			"suspectMeta_one": "스캔 {{count}}회 누락",
 			"suspectMeta_other": "스캔 {{count}}회 누락",

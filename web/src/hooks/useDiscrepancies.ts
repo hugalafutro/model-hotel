@@ -29,10 +29,11 @@ export interface MergedProvider {
 	gone: MergedClaim[];
 	stale: MergedClaim[];
 	suspect: MergedClaim[];
+	retired: MergedClaim[];
 }
 
-type GroupName = "gone" | "stale" | "suspect";
-const GROUPS: GroupName[] = ["gone", "stale", "suspect"];
+type GroupName = "gone" | "stale" | "suspect" | "retired";
+const GROUPS: GroupName[] = ["gone", "stale", "suspect", "retired"];
 
 /** Seeds a fresh snapshot; everything the server reports is pending. */
 export function toSnapshot(claims: ProviderClaims[]): MergedProvider[] {
@@ -42,12 +43,18 @@ export function toSnapshot(claims: ProviderClaims[]): MergedProvider[] {
 		gone: p.gone.map((c) => ({ ...c, status: "pending" as const })),
 		stale: p.stale.map((c) => ({ ...c, status: "pending" as const })),
 		suspect: p.suspect.map((c) => ({ ...c, status: "pending" as const })),
+		retired: p.retired.map((c) => ({ ...c, status: "pending" as const })),
 	}));
 }
 
 type Buckets = Record<GroupName, MergedClaim[]>;
 
-const emptyBuckets = (): Buckets => ({ gone: [], stale: [], suspect: [] });
+const emptyBuckets = (): Buckets => ({
+	gone: [],
+	stale: [],
+	suspect: [],
+	retired: [],
+});
 
 /**
  * A row the refetch no longer reports: cleared, kept in place.
@@ -142,6 +149,7 @@ export function mergeClaims(
 			gone: [],
 			stale: [],
 			suspect: [],
+			retired: [],
 		};
 		return { ...prev, ...mergeProviderBuckets(prev, now ?? empty) };
 	});
@@ -152,6 +160,7 @@ export function mergeClaims(
 			gone: added.gone.map((c) => ({ ...c, status: "new" as const })),
 			stale: added.stale.map((c) => ({ ...c, status: "new" as const })),
 			suspect: added.suspect.map((c) => ({ ...c, status: "new" as const })),
+			retired: added.retired.map((c) => ({ ...c, status: "new" as const })),
 		});
 	}
 	return out;

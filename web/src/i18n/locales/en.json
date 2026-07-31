@@ -863,6 +863,7 @@
 			"chipGoneTooltip": "Gone from the provider's own model list, so discovery disabled them here. These are what the sidebar badge counts.",
 			"chipResolved": "back",
 			"chipResolvedTooltip": "The provider is listing these again, so they fixed themselves.",
+			"chipRetiredTooltip": "Still in the provider's model list, but it refused every request for them, so the gateway disabled them here. These are what the sidebar badge counts.",
 			"chipStaleTooltip": "Missing for over 30 days with no flapping, so almost certainly retired rather than broken. Shown, never counted.",
 			"chipSuspectTooltip": "Still enabled, but absent from recent scans. One more miss and discovery disables it.",
 			"clean": "Clear this provider",
@@ -901,8 +902,9 @@
 			"flapped_other": "{{count}} fluctuations",
 			"group": {
 				"gone": "Gone",
-				"suspect": "Suspect",
-				"stale": "Stale"
+				"retired": "Refused",
+				"stale": "Stale",
+				"suspect": "Suspect"
 			},
 			"groupClaims": "Failover groups with discovery disabled",
 			"groupDisabledAt": "Disabled {{when}}",
@@ -932,6 +934,7 @@
 			"retestProgress": "{{done}} of {{total}}",
 			"retestTooltip": "Re-run discovery for this provider and re-check its models.",
 			"retesting": "Retesting…",
+			"retiredMeta": "Disabled {{when}}",
 			"returnToTop": "Back to the top of this provider",
 			"suspectMeta_one": "Missed {{count}} scan",
 			"suspectMeta_other": "Missed {{count}} scans",

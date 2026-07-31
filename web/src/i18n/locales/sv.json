@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "Borta från leverantörens egen modellista, så upptäckten har stängt av dem här. Det är dessa som märket i sidopanelen räknar.",
 			"chipResolved": "tillbaka",
 			"chipResolvedTooltip": "Leverantören listar dem igen, så de har löst sig själva.",
+			"chipRetiredTooltip": "Finns kvar i leverantörens modellista, men den avvisade varje förfrågan om dem, så gatewayen inaktiverade dem här. Det är dessa som sidofältets märke räknar.",
 			"chipStaleTooltip": "Saknad i över 30 dagar utan svängningar, så nästan säkert utfasad snarare än trasig. Visas, räknas aldrig.",
 			"chipSuspectTooltip": "Fortfarande aktiv men saknad i de senaste skanningarna. Ytterligare en miss och upptäckten stänger av den.",
 			"clean": "Rensa den här leverantören",
@@ -899,8 +900,9 @@
 			"flapped_other": "{{count}} fluktuationer",
 			"group": {
 				"gone": "Försvunna",
-				"suspect": "Misstänkta",
-				"stale": "Föråldrade"
+				"retired": "Avvisad",
+				"stale": "Föråldrade",
+				"suspect": "Misstänkta"
 			},
 			"groupClaims": "Failover-grupper med identifiering inaktiverad",
 			"groupDisabledAt": "Inaktiverad {{when}}",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{done}} av {{total}}",
 			"retestTooltip": "Kör identifiering för den här leverantören igen och kontrollera modellerna på nytt.",
 			"retesting": "Testar igen…",
+			"retiredMeta": "Inaktiverad {{when}}",
 			"returnToTop": "Tillbaka till början av den här leverantören",
 			"suspectMeta_one": "Missade {{count}} genomsökning",
 			"suspectMeta_other": "Missade {{count}} genomsökningar",

@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "プロバイダー自身のモデル一覧から消えたため、ここでは検出が無効にしました。サイドバーのバッジが数えているのはこれです。",
 			"chipResolved": "復帰",
 			"chipResolvedTooltip": "プロバイダーが再び提供しているので、自然に解決しました。",
+			"chipRetiredTooltip": "プロバイダーのモデル一覧には残っていますが、すべてのリクエストが拒否されたため、ゲートウェイ側で無効化しました。サイドバーのバッジはこれを数えます。",
 			"chipStaleTooltip": "30 日以上、変動なく欠落しています。壊れたのではなく廃止された可能性が高いものです。表示はされますが、決して数えません。",
 			"chipSuspectTooltip": "まだ有効ですが、最近のスキャンには現れていません。あと 1 回外れると検出が無効にします。",
 			"clean": "このプロバイダーを片付ける",
@@ -899,8 +900,9 @@
 			"flapped_other": "変動 {{count}} 回",
 			"group": {
 				"gone": "消失",
-				"suspect": "疑わしい",
-				"stale": "古い記録"
+				"retired": "拒否",
+				"stale": "古い記録",
+				"suspect": "疑わしい"
 			},
 			"groupClaims": "探索が無効になっているフェイルオーバーグループ",
 			"groupDisabledAt": "無効化 {{when}}",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{total}} 件中 {{done}} 件",
 			"retestTooltip": "このプロバイダーの探索を再実行して、モデルを再確認します。",
 			"retesting": "再テスト中…",
+			"retiredMeta": "無効化 {{when}}",
 			"returnToTop": "このプロバイダーの先頭に戻る",
 			"suspectMeta_one": "スキャンを {{count}} 回逃しました",
 			"suspectMeta_other": "スキャンを {{count}} 回逃しました",

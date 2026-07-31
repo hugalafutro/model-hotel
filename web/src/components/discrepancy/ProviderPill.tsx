@@ -6,7 +6,7 @@ export interface ProviderPillProps {
 	expanded: boolean;
 	onToggle: () => void;
 	/** Actionable-row counts per bucket; a zero renders no chip. */
-	counts: { gone: number; stale: number; suspect: number };
+	counts: { gone: number; stale: number; suspect: number; retired: number };
 	/** Cleared-row counts, rendered INSTEAD of `counts` when nothing is actionable. */
 	cleared: { dismissed: number; resolved: number };
 	/** True when no row is actionable: Clean replaces Retest all + Dismiss all. */
@@ -83,6 +83,14 @@ export function ProviderPill({
 				},
 			].filter((c): c is PillChip => c !== false)
 		: [
+				counts.retired > 0 && {
+					key: "retired",
+					variant: "ui-badge-error",
+					sign: "!",
+					count: counts.retired,
+					label: t("providers.discrepancies.group.retired"),
+					tooltip: t("providers.discrepancies.chipRetiredTooltip"),
+				},
 				counts.gone > 0 && {
 					key: "gone",
 					variant: "ui-badge-error",

@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "Sağlayıcının kendi model listesinden kayboldular, bu yüzden keşif onları burada devre dışı bıraktı. Kenar çubuğundaki simgenin saydığı bunlardır.",
 			"chipResolved": "geri döndü",
 			"chipResolvedTooltip": "Sağlayıcı onları yeniden listeliyor, yani kendiliğinden düzeldiler.",
+			"chipRetiredTooltip": "Sağlayıcının model listesinde hâlâ var, ancak bunlara yönelik her isteği reddetti; bu yüzden ağ geçidi burada devre dışı bıraktı. Kenar çubuğu rozeti bunları sayar.",
 			"chipStaleTooltip": "30 günden uzun süredir dalgalanma olmadan eksik, yani bozuk değil neredeyse kesin olarak kaldırılmış. Gösterilir, asla sayılmaz.",
 			"chipSuspectTooltip": "Hâlâ etkin ama son taramalarda yok. Bir kaçırma daha ve keşif onu devre dışı bırakır.",
 			"clean": "Bu sağlayıcıyı temizle",
@@ -899,8 +900,9 @@
 			"flapped_other": "{{count}} dalgalanma",
 			"group": {
 				"gone": "Kayıp",
-				"suspect": "Şüpheli",
-				"stale": "Eskimiş"
+				"retired": "Reddedildi",
+				"stale": "Eskimiş",
+				"suspect": "Şüpheli"
 			},
 			"groupClaims": "Keşfi devre dışı bırakılmış yedekleme grupları",
 			"groupDisabledAt": "{{when}} devre dışı bırakıldı",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{total}} sağlayıcıdan {{done}} tanesi",
 			"retestTooltip": "Bu sağlayıcı için keşfi yeniden çalıştırın ve modellerini yeniden kontrol edin.",
 			"retesting": "Yeniden test ediliyor…",
+			"retiredMeta": "Devre dışı {{when}}",
 			"returnToTop": "Bu sağlayıcının başına dön",
 			"suspectMeta_one": "{{count}} tarama kaçırıldı",
 			"suspectMeta_other": "{{count}} tarama kaçırıldı",

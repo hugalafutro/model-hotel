@@ -873,6 +873,7 @@
 			"chipGoneTooltip": "Desapareceram da própria lista de modelos do provedor, por isso a descoberta os desativou aqui. É isto que o selo da barra lateral conta.",
 			"chipResolved": "de volta",
 			"chipResolvedTooltip": "O provedor está listando-os novamente, então eles se resolveram sozinhos.",
+			"chipRetiredTooltip": "Continua na lista de modelos do fornecedor, mas este recusou todos os pedidos, por isso o gateway desativou-os aqui. São estes que o emblema da barra lateral conta.",
 			"chipStaleTooltip": "Ausentes há mais de 30 dias sem oscilações, portanto quase certamente retirados e não avariados. Exibidos, nunca contados.",
 			"chipSuspectTooltip": "Ainda ativo, mas ausente das verificações recentes. Uma falha a mais e a descoberta o desativa.",
 			"clean": "Limpar este provedor",
@@ -920,8 +921,9 @@
 			"flapped_other": "{{count}} oscilações",
 			"group": {
 				"gone": "Ausentes",
-				"suspect": "Suspeitos",
-				"stale": "Obsoletos"
+				"retired": "Recusado",
+				"stale": "Obsoletos",
+				"suspect": "Suspeitos"
 			},
 			"groupClaims": "Grupos de failover com a descoberta desativada",
 			"groupDisabledAt": "Desativado {{when}}",
@@ -956,6 +958,7 @@
 			"retestProgress": "{{done}} de {{total}}",
 			"retestTooltip": "Execute novamente a descoberta deste provedor e verifique os modelos de novo.",
 			"retesting": "Testando novamente…",
+			"retiredMeta": "Desativado {{when}}",
 			"returnToTop": "Voltar ao início deste provedor",
 			"suspectMeta_many": "Perdeu {{count}} varreduras",
 			"suspectMeta_one": "Perdeu {{count}} varredura",

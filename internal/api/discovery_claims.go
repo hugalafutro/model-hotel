@@ -33,6 +33,17 @@ const (
 	// ClaimStateSuspect means still enabled but mid-streak, one bad scan from
 	// being disabled. Early warning only, never counted.
 	ClaimStateSuspect ClaimState = "suspect"
+	// ClaimStateRetired means the PROXY disabled it from live traffic: the
+	// provider kept listing the model and refused every request for it
+	// (models.auto_retired_at, migration 063). Counted, like gone.
+	//
+	// It is a separate state because the operator's next step is different and
+	// the other states' wording is actively wrong here. A gone model is missing
+	// from the provider's listing, so "last seen" dates it and a retest is the
+	// obvious move. A retired model is still listed and was seen moments ago, so
+	// a retest finds it present and proves nothing — what happened is that
+	// requests for it failed.
+	ClaimStateRetired ClaimState = "retired"
 )
 
 // ModelClaim is one model's current standing.
@@ -47,6 +58,11 @@ type ModelClaim struct {
 	// FlapSinceReview counts them since the operator last opened the modal.
 	FlapWindow      int `json:"flap_window"`
 	FlapSinceReview int `json:"flap_since_review"`
+	// RetiredAt is when the proxy retired it from traffic, set only on a retired
+	// claim. LastSeenAt cannot serve here: the provider still lists the model, so
+	// it keeps being refreshed and would read as "last seen a minute ago" beside
+	// a row saying the model is unavailable.
+	RetiredAt *time.Time `json:"retired_at,omitempty"`
 }
 
 // ProviderClaims groups one provider's claims by state.
@@ -56,6 +72,7 @@ type ProviderClaims struct {
 	Gone         []ModelClaim `json:"gone"`
 	Stale        []ModelClaim `json:"stale"`
 	Suspect      []ModelClaim `json:"suspect"`
+	Retired      []ModelClaim `json:"retired"`
 }
 
 // GroupClaim is one failover group that discovery disabled, i.e. one model name
@@ -134,6 +151,9 @@ type claimRow struct {
 	LastSeenAt   time.Time
 	Enabled      bool
 	MissingScans int
+	// RetiredAt is set when the proxy retired the model from traffic rather than
+	// discovery disabling it for vanishing. Nil for every other row.
+	RetiredAt *time.Time
 }
 
 // flapKey identifies one model under one provider for flap counting.
@@ -149,7 +169,8 @@ type flapKey struct {
 func listClaimRows(ctx context.Context, pool *pgxpool.Pool) ([]claimRow, error) {
 	rows, err := pool.Query(ctx, `
 		SELECT m.provider_id::text, p.name, m.model_id,
-		       COALESCE(m.last_seen_at, m.created_at), m.enabled, m.missing_scans
+		       COALESCE(m.last_seen_at, m.created_at), m.enabled, m.missing_scans,
+		       m.auto_retired_at
 		  FROM models m
 		  JOIN providers p ON p.id = m.provider_id
 		 WHERE p.enabled = true
@@ -166,7 +187,7 @@ func listClaimRows(ctx context.Context, pool *pgxpool.Pool) ([]claimRow, error) 
 	var out []claimRow
 	for rows.Next() {
 		var r claimRow
-		if err := rows.Scan(&r.ProviderID, &r.ProviderName, &r.ModelID, &r.LastSeenAt, &r.Enabled, &r.MissingScans); err != nil {
+		if err := rows.Scan(&r.ProviderID, &r.ProviderName, &r.ModelID, &r.LastSeenAt, &r.Enabled, &r.MissingScans, &r.RetiredAt); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -226,6 +247,7 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 			MissingScans:    r.MissingScans,
 			FlapWindow:      window[k],
 			FlapSinceReview: sinceReview[k],
+			RetiredAt:       r.RetiredAt,
 		}
 
 		g := byProvider[r.ProviderID]
@@ -241,6 +263,7 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 				Gone:         []ModelClaim{},
 				Stale:        []ModelClaim{},
 				Suspect:      []ModelClaim{},
+				Retired:      []ModelClaim{},
 			}
 			byProvider[r.ProviderID] = g
 		}
@@ -249,6 +272,15 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 		case r.Enabled:
 			c.State = ClaimStateSuspect
 			g.Suspect = append(g.Suspect, c)
+		// Ahead of the stale check on purpose. Staleness is measured from
+		// last_seen_at, and a retired model is still being listed, so that clock
+		// keeps resetting and it could never age out anyway — but reading the
+		// order as "retired models can go stale" would be wrong, and the reason
+		// is worth stating where the decision is made.
+		case r.RetiredAt != nil:
+			c.State = ClaimStateRetired
+			g.Retired = append(g.Retired, c)
+			count++
 		case now.Sub(r.LastSeenAt) > ClaimWindow && c.FlapWindow == 0:
 			c.State = ClaimStateStale
 			g.Stale = append(g.Stale, c)
@@ -264,6 +296,7 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 		sortClaims(g.Gone)
 		sortClaims(g.Stale)
 		sortClaims(g.Suspect)
+		sortClaims(g.Retired)
 		out = append(out, *g)
 	}
 	// Most counted claims first, then most suspect, then by name, then by ID.
@@ -274,7 +307,15 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 	// Go map (unordered), and sort.Slice is not stable, so without it two
 	// identically-named providers with identical bucket counts could swap
 	// position between refreshes and jitter the UI.
+	// Counted claims are what the ordering is about, and retired ones count, so
+	// they rank alongside gone rather than after it. A provider whose only
+	// problem is a retired model would otherwise sort below one with nothing
+	// counted against it at all.
+	counted := func(p ProviderClaims) int { return len(p.Gone) + len(p.Retired) }
 	sort.Slice(out, func(i, j int) bool {
+		if counted(out[i]) != counted(out[j]) {
+			return counted(out[i]) > counted(out[j])
+		}
 		if len(out[i].Gone) != len(out[j].Gone) {
 			return len(out[i].Gone) > len(out[j].Gone)
 		}

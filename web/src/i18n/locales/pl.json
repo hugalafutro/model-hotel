@@ -885,6 +885,7 @@
 			"chipGoneTooltip": "Zniknęły z własnej listy modeli dostawcy, więc wykrywanie je tu wyłączyło. Właśnie te liczy plakietka na pasku bocznym.",
 			"chipResolved": "powróciły",
 			"chipResolvedTooltip": "Dostawca znowu je udostępnia, więc rozwiązały się same.",
+			"chipRetiredTooltip": "Nadal są na liście modeli dostawcy, ale odrzucił on każde żądanie, więc brama wyłączyła je tutaj. To właśnie je liczy odznaka na pasku bocznym.",
 			"chipStaleTooltip": "Brakuje ich od ponad 30 dni bez wahań, więc niemal na pewno zostały wycofane, a nie zepsute. Pokazywane, nigdy nieliczone.",
 			"chipSuspectTooltip": "Nadal włączony, ale nieobecny w ostatnich skanach. Jeszcze jedno pudło i wykrywanie go wyłączy.",
 			"clean": "Uporządkuj tego dostawcę",
@@ -941,8 +942,9 @@
 			"flapped_other": "{{count}} wahania",
 			"group": {
 				"gone": "Zniknęły",
-				"suspect": "Podejrzane",
-				"stale": "Nieaktualne"
+				"retired": "Odrzucone",
+				"stale": "Nieaktualne",
+				"suspect": "Podejrzane"
 			},
 			"groupClaims": "Grupy przełączania awaryjnego z wyłączonym wykrywaniem",
 			"groupDisabledAt": "Wyłączono {{when}}",
@@ -982,6 +984,7 @@
 			"retestProgress": "{{done}} z {{total}}",
 			"retestTooltip": "Uruchom ponownie wykrywanie dla tego dostawcy i sprawdź jego modele od nowa.",
 			"retesting": "Ponowne testowanie…",
+			"retiredMeta": "Wyłączono {{when}}",
 			"returnToTop": "Powrót na początek tego dostawcy",
 			"suspectMeta_few": "Pominięto {{count}} skanowania",
 			"suspectMeta_many": "Pominięto {{count}} skanowań",

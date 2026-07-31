@@ -873,6 +873,7 @@
 			"chipGoneTooltip": "Dispărute din propria listă de modele a furnizorului, deci descoperirea le-a dezactivat aici. Acestea sunt cele numărate de insigna din bara laterală.",
 			"chipResolved": "revenite",
 			"chipResolvedTooltip": "Furnizorul le listează din nou, deci s-au rezolvat singure.",
+			"chipRetiredTooltip": "Este încă în lista de modele a furnizorului, dar acesta a refuzat fiecare cerere, așa că gateway-ul le-a dezactivat aici. Acestea sunt numărate de insigna din bara laterală.",
 			"chipStaleTooltip": "Lipsesc de peste 30 de zile fără fluctuații, deci aproape sigur retrase și nu defecte. Se afișează, nu se numără niciodată.",
 			"chipSuspectTooltip": "Încă activ, dar absent din scanările recente. Încă o ratare și descoperirea îl dezactivează.",
 			"clean": "Curăță acest furnizor",
@@ -920,8 +921,9 @@
 			"flapped_other": "{{count}} de fluctuații",
 			"group": {
 				"gone": "Dispărute",
-				"suspect": "Suspecte",
-				"stale": "Învechite"
+				"retired": "Refuzat",
+				"stale": "Învechite",
+				"suspect": "Suspecte"
 			},
 			"groupClaims": "Grupuri de failover cu descoperirea dezactivată",
 			"groupDisabledAt": "Dezactivat {{when}}",
@@ -956,6 +958,7 @@
 			"retestProgress": "{{done}} din {{total}}",
 			"retestTooltip": "Rulează din nou descoperirea pentru acest furnizor și verifică-i modelele încă o dată.",
 			"retesting": "Se retestează…",
+			"retiredMeta": "Dezactivat {{when}}",
 			"returnToTop": "Înapoi la începutul acestui furnizor",
 			"suspectMeta_few": "A ratat {{count}} scanări",
 			"suspectMeta_one": "A ratat {{count}} scanare",

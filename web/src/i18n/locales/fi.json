@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "Kadonneet tarjoajan omasta mallilistasta, joten tunnistus poisti ne täällä käytöstä. Juuri näitä sivupalkin merkki laskee.",
 			"chipResolved": "palasi",
 			"chipResolvedTooltip": "Tarjoaja tarjoaa niitä taas, eli ne korjautuivat itsestään.",
+			"chipRetiredTooltip": "Yhä palveluntarjoajan mallilistalla, mutta se hylkäsi jokaisen pyynnön, joten yhdyskäytävä poisti ne käytöstä täällä. Nämä sivupalkin merkki laskee.",
 			"chipStaleTooltip": "Puuttuneet yli 30 päivää ilman heilahtelua, joten lähes varmasti poistettuja eivätkä rikkinäisiä. Näytetään, ei koskaan lasketa.",
 			"chipSuspectTooltip": "Vielä käytössä, mutta puuttuu viimeisimmistä tarkistuksista. Yksi huti lisää ja tunnistus poistaa sen käytöstä.",
 			"clean": "Siivoa tämä tarjoaja",
@@ -899,8 +900,9 @@
 			"flapped_other": "{{count}} vaihtelua",
 			"group": {
 				"gone": "Kadonneet",
-				"suspect": "Epäilyttävät",
-				"stale": "Vanhentuneet"
+				"retired": "Hylätty",
+				"stale": "Vanhentuneet",
+				"suspect": "Epäilyttävät"
 			},
 			"groupClaims": "Vikasietoryhmät, joilta tunnistus on poistettu käytöstä",
 			"groupDisabledAt": "Poistettu käytöstä {{when}}",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{done}} / {{total}}",
 			"retestTooltip": "Suorita tämän palveluntarjoajan tunnistus uudelleen ja tarkista sen mallit uudestaan.",
 			"retesting": "Testataan uudelleen…",
+			"retiredMeta": "Poistettu käytöstä {{when}}",
 			"returnToTop": "Takaisin tämän tarjoajan alkuun",
 			"suspectMeta_one": "{{count}} tarkistus väliin",
 			"suspectMeta_other": "{{count}} tarkistusta väliin",

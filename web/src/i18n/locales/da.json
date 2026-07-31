@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "Forsvundet fra udbyderens egen modelliste, så opdagelsen har slået dem fra her. Det er dem, badget i sidepanelet tæller.",
 			"chipResolved": "tilbage",
 			"chipResolvedTooltip": "Udbyderen viser dem igen, så de har løst sig selv.",
+			"chipRetiredTooltip": "Stadig på udbyderens modelliste, men den afviste hver eneste forespørgsel på dem, så gatewayen deaktiverede dem her. Det er dem, sidebjælkens badge tæller.",
 			"chipStaleTooltip": "Manglet i over 30 dage uden udsving, så næsten helt sikkert udfaset snarere end i stykker. Vises, tælles aldrig.",
 			"chipSuspectTooltip": "Stadig aktiv, men fraværende i de seneste scanninger. Én fejl mere, og opdagelsen slår den fra.",
 			"clean": "Ryd denne udbyder",
@@ -899,8 +900,9 @@
 			"flapped_other": "{{count}} udsving",
 			"group": {
 				"gone": "Forsvundet",
-				"suspect": "Mistænkelig",
-				"stale": "Forældet"
+				"retired": "Afvist",
+				"stale": "Forældet",
+				"suspect": "Mistænkelig"
 			},
 			"groupClaims": "Failover-grupper med registrering deaktiveret",
 			"groupDisabledAt": "Deaktiveret {{when}}",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{done}} af {{total}}",
 			"retestTooltip": "Kør registrering for denne udbyder igen, og kontroller dens modeller på ny.",
 			"retesting": "Tester igen…",
+			"retiredMeta": "Deaktiveret {{when}}",
 			"returnToTop": "Tilbage til toppen af denne udbyder",
 			"suspectMeta_one": "Sprang {{count}} scanning over",
 			"suspectMeta_other": "Sprang {{count}} scanninger over",

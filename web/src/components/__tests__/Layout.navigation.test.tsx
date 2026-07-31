@@ -846,7 +846,14 @@ describe("Layout", () => {
 			provider_id: string,
 			provider_name: string,
 			gone: ReturnType<typeof claim>[],
-		) => ({ provider_id, provider_name, gone, stale: [], suspect: [] });
+		) => ({
+			provider_id,
+			provider_name,
+			gone,
+			stale: [],
+			suspect: [],
+			retired: [],
+		});
 
 		const status = (over: Record<string, unknown> = {}) => ({
 			claims: [],

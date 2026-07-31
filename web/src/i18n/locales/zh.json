@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "已从提供方自己的模型列表中消失，因此发现流程在此将它们停用。侧栏徽标统计的正是这些。",
 			"chipResolved": "已恢复",
 			"chipResolvedTooltip": "提供方又开始列出它们了，所以它们自行恢复了。",
+			"chipRetiredTooltip": "仍在提供商的模型列表中，但对它们的每个请求都被拒绝，因此网关在此将其禁用。侧边栏徽标统计的正是这些。",
 			"chipStaleTooltip": "缺失超过 30 天且没有波动，因此几乎肯定是下线而非故障。会显示，但从不计入。",
 			"chipSuspectTooltip": "仍处于启用状态，但最近几次扫描中缺失。再错一次，发现流程就会停用它。",
 			"clean": "清理此提供方",
@@ -899,8 +900,9 @@
 			"flapped_other": "波动 {{count}} 次",
 			"group": {
 				"gone": "已消失",
-				"suspect": "可疑",
-				"stale": "过期"
+				"retired": "已拒绝",
+				"stale": "过期",
+				"suspect": "可疑"
 			},
 			"groupClaims": "已停用发现的故障转移组",
 			"groupDisabledAt": "已于 {{when}} 停用",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{total}} 个中的 {{done}} 个",
 			"retestTooltip": "重新运行此提供商的发现，并重新检查其模型。",
 			"retesting": "正在重新测试…",
+			"retiredMeta": "已禁用 {{when}}",
 			"returnToTop": "返回此提供方顶部",
 			"suspectMeta_one": "错过了 {{count}} 次扫描",
 			"suspectMeta_other": "错过了 {{count}} 次扫描",

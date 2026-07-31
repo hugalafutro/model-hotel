@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DiscoveryChangeEntry, GroupClaim } from "../../api/types";
 import type { MergedProvider } from "../../hooks/useDiscrepancies";
+import { formatRelativeTime } from "../../utils/format";
 import { ModelDiscrepancyModal } from "../ModelDiscrepancyModal";
 
 const prov = (over: Partial<MergedProvider> = {}): MergedProvider => ({
@@ -11,13 +12,14 @@ const prov = (over: Partial<MergedProvider> = {}): MergedProvider => ({
 	gone: [],
 	stale: [],
 	suspect: [],
+	retired: [],
 	...over,
 });
 
 const claimOf = (
 	model_id: string,
 	status: "pending" | "resolved" | "new" | "dismissed",
-	state: "gone" | "stale" | "suspect" = "gone",
+	state: "gone" | "stale" | "suspect" | "retired" = "gone",
 	flaps: { window?: number; sinceReview?: number } = {},
 ) => ({
 	model_id,
@@ -63,7 +65,7 @@ const baseProps = {
  */
 async function openBucket(
 	user: ReturnType<typeof userEvent.setup>,
-	bucket: "gone" | "stale" | "suspect" = "gone",
+	bucket: "gone" | "stale" | "suspect" | "retired" = "gone",
 	nth = 0,
 ) {
 	const section = screen.getAllByTestId("discrepancy-provider")[nth];
@@ -217,6 +219,49 @@ describe("ModelDiscrepancyModal", () => {
 		// Stale still keeps the provider's Retest: a long-gone model is exactly
 		// what you would re-probe on demand.
 		expect(screen.getByTestId("discrepancy-retest")).toBeInTheDocument();
+	});
+
+	// The proxy-retired bucket is the one claim state that did not come from
+	// discovery: the provider kept listing the model and refused every request for
+	// it. It has to be dismissible like gone (an operator who accepts the
+	// retirement needs a way to silence it), and it must be dated by when the
+	// gateway retired it, because "last seen" for these is minutes ago and would
+	// read as contradicting the row it sits on.
+	it("offers dismiss on a retired claim and dates it by the retirement", async () => {
+		const user = userEvent.setup();
+		// Relative to the real clock, so the two format to clearly different
+		// strings ("2 hours ago" vs "40 days ago") whatever day the suite runs.
+		const retiredAt = new Date(Date.now() - 2 * 3600_000).toISOString();
+		const lastSeenAt = new Date(Date.now() - 40 * 86400_000).toISOString();
+		render(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[
+					prov({
+						retired: [
+							{
+								...claimOf("dead-model", "pending", "retired"),
+								last_seen_at: lastSeenAt,
+								retired_at: retiredAt,
+							},
+						],
+					}),
+				]}
+			/>,
+		);
+		await openBucket(user, "retired");
+		const row = screen.getByTestId("discrepancy-claim");
+		expect(row).toHaveAttribute("data-state", "retired");
+		expect(
+			row.querySelector("[data-testid='discrepancy-dismiss']"),
+		).not.toBeNull();
+		// The meta line must be derived from the RETIREMENT, not from last_seen_at.
+		// Both are run through the same formatter and compared against the
+		// rendered text, so the assertion holds in any locale and fails if the
+		// wrong timestamp is used: the two are deliberately far enough apart that
+		// they can never format to the same string.
+		expect(row.textContent).toContain(formatRelativeTime(retiredAt));
+		expect(row.textContent).not.toContain(formatRelativeTime(lastSeenAt));
 	});
 
 	it("shows the empty state only when no group anywhere has content", () => {

@@ -873,6 +873,7 @@
 			"chipGoneTooltip": "Nestali su sa provajderove sopstvene liste modela, pa ih je otkrivanje ovde isključilo. Upravo njih broji oznaka u bočnoj traci.",
 			"chipResolved": "vratile se",
 			"chipResolvedTooltip": "Provajder ih ponovo nudi, pa su se sami rešili.",
+			"chipRetiredTooltip": "И даље је на листи модела добављача, али је одбио сваки захтев за њима, па их је мрежни пролаз овде онемогућио. Управо њих броји ознака у бочној траци.",
 			"chipStaleTooltip": "Nedostaju više od 30 dana bez kolebanja, pa su gotovo sigurno ukinuti, a ne pokvareni. Prikazuju se, nikada se ne broje.",
 			"chipSuspectTooltip": "Još je uključen, ali ga nema u nedavnim skeniranjima. Još jedan promašaj i otkrivanje ga isključuje.",
 			"clean": "Očisti ovog provajdera",
@@ -920,8 +921,9 @@
 			"flapped_other": "{{count}} колебања",
 			"group": {
 				"gone": "Нестали",
-				"suspect": "Сумњиви",
-				"stale": "Застарели"
+				"retired": "Одбијено",
+				"stale": "Застарели",
+				"suspect": "Сумњиви"
 			},
 			"groupClaims": "Фејловер групе са онемогућеним откривањем",
 			"groupDisabledAt": "Онемогућено {{when}}",
@@ -956,6 +958,7 @@
 			"retestProgress": "{{done}} од {{total}}",
 			"retestTooltip": "Поново покрените откривање за овог добављача и изнова проверите његове моделе.",
 			"retesting": "Поновно тестирање…",
+			"retiredMeta": "Онемогућено {{when}}",
 			"returnToTop": "Nazad na početak ovog provajdera",
 			"suspectMeta_few": "Пропуштена {{count}} скенирања",
 			"suspectMeta_one": "Пропуштено {{count}} скенирање",

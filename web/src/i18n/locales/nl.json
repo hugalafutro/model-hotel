@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "Verdwenen uit de eigen modellijst van de provider, dus hier door detectie uitgeschakeld. Dit is wat de badge in de zijbalk telt.",
 			"chipResolved": "terug",
 			"chipResolvedTooltip": "De provider biedt ze weer aan, dus ze hebben zichzelf opgelost.",
+			"chipRetiredTooltip": "Staat nog in de modellijst van de provider, maar die weigerde elk verzoek erom, dus de gateway heeft ze hier uitgeschakeld. Dit is wat de badge in de zijbalk telt.",
 			"chipStaleTooltip": "Meer dan 30 dagen afwezig zonder schommelingen, dus vrijwel zeker uitgefaseerd in plaats van defect. Wel getoond, nooit geteld.",
 			"chipSuspectTooltip": "Nog ingeschakeld, maar afwezig in recente scans. Nog één misser en detectie schakelt het uit.",
 			"clean": "Deze provider opruimen",
@@ -899,8 +900,9 @@
 			"flapped_other": "{{count}} schommelingen",
 			"group": {
 				"gone": "Verdwenen",
-				"suspect": "Verdacht",
-				"stale": "Verouderd"
+				"retired": "Geweigerd",
+				"stale": "Verouderd",
+				"suspect": "Verdacht"
 			},
 			"groupClaims": "Failover-groepen met detectie uitgeschakeld",
 			"groupDisabledAt": "Uitgeschakeld {{when}}",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{done}} van {{total}}",
 			"retestTooltip": "Voer detectie voor deze provider opnieuw uit en controleer de modellen opnieuw.",
 			"retesting": "Opnieuw testen…",
+			"retiredMeta": "Uitgeschakeld {{when}}",
 			"returnToTop": "Terug naar het begin van deze provider",
 			"suspectMeta_one": "{{count}} scan gemist",
 			"suspectMeta_other": "{{count}} scans gemist",

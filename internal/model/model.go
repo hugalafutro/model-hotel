@@ -154,7 +154,19 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			-- A sighting also retires any operator dismissal, so a model that is
 			-- dismissed, comes back, and vanishes again counts as a new claim
 			-- instead of staying suppressed by a stale stamp.
-			discovery_dismissed_at = NULL,
+			--
+			-- Except for a model the proxy retired from traffic. That one never
+			-- left the listing, so it is sighted on every single scan, and
+			-- clearing the stamp here would make dismissing it impossible: the
+			-- operator would silence the claim and the next scan would bring it
+			-- straight back, with no way to stop it. Once an operator enables the
+			-- model the retirement stamp goes (SetEnabled/Update null it), and
+			-- the very next sighting takes this branch again and clears the
+			-- dismissal, so nothing stays suppressed by a stale stamp.
+			discovery_dismissed_at = CASE
+				WHEN models.auto_retired_at IS NULL THEN NULL
+				ELSE models.discovery_dismissed_at
+			END,
 			last_seen_at = now()
 		RETURNING ` + upsertColumns
 

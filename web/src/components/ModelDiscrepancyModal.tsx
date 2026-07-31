@@ -32,9 +32,9 @@ import { Modal } from "./Modal";
  * how the row is styled. Threading the group through as an argument makes it
  * impossible for a row to be rendered under one heading and act like another.
  */
-type Group = "gone" | "stale" | "suspect";
+type Group = "gone" | "stale" | "suspect" | "retired";
 
-const ALL_GROUPS: Group[] = ["gone", "stale", "suspect"];
+const ALL_GROUPS: Group[] = ["gone", "stale", "suspect", "retired"];
 
 /** Which provider is unrolled, and which of its bucket lines. */
 type OpenPath = { providerID: string; bucket: Group | null };
@@ -334,12 +334,24 @@ export function ModelDiscrepancyModal({
 		return null;
 	};
 
-	const claimMeta = (c: MergedClaim, group: Group) =>
-		group === "suspect"
-			? t("providers.discrepancies.suspectMeta", { count: c.missing_scans })
-			: t("providers.discrepancies.lastSeenMeta", {
-					when: formatRelativeTime(c.last_seen_at),
-				});
+	const claimMeta = (c: MergedClaim, group: Group) => {
+		if (group === "suspect") {
+			return t("providers.discrepancies.suspectMeta", {
+				count: c.missing_scans,
+			});
+		}
+		// A retired model is still listed, so it was "last seen" moments ago and
+		// that reading would contradict the row it sits on. Date it by when the
+		// proxy retired it instead.
+		if (group === "retired" && c.retired_at) {
+			return t("providers.discrepancies.retiredMeta", {
+				when: formatRelativeTime(c.retired_at),
+			});
+		}
+		return t("providers.discrepancies.lastSeenMeta", {
+			when: formatRelativeTime(c.last_seen_at),
+		});
+	};
 
 	/**
 	 * One model, as a TIGHT single line rather than a bordered card.
@@ -389,7 +401,7 @@ export function ModelDiscrepancyModal({
 					{claimMeta(c, group)}
 				</span>
 				{flapChip(c)}
-				{group === "gone" && !isCleared ? (
+				{(group === "gone" || group === "retired") && !isCleared ? (
 					<button
 						type="button"
 						onClick={() => onDismiss(p.provider_id, c.model_id)}
@@ -413,11 +425,13 @@ export function ModelDiscrepancyModal({
 	const BUCKET_SIGN: Record<Group, string> = {
 		gone: "×",
 		suspect: "?",
+		retired: "!",
 		stale: "·",
 	};
 	const BUCKET_VARIANT: Record<Group, string> = {
 		gone: "ui-badge-error",
 		suspect: "ui-badge-warning",
+		retired: "ui-badge-error",
 		stale: "ui-badge-neutral",
 	};
 
@@ -562,6 +576,7 @@ export function ModelDiscrepancyModal({
 		const gone = actionableIn(p, "gone");
 		const stale = actionableIn(p, "stale");
 		const suspect = actionableIn(p, "suspect");
+		const retired = actionableIn(p, "retired");
 		// One predicate behind the pill's either-or controls and behind whether the
 		// cleared summary renders, so the two can never disagree and offer a
 		// re-probe with nothing to probe.
@@ -569,7 +584,7 @@ export function ModelDiscrepancyModal({
 		// Suspect ids are deliberately excluded: setModelsDismissed only touches
 		// `enabled = false` rows, and a suspect model is still enabled, so sending
 		// one would undercount `updated` and report an unknown model.
-		const dismissable = [...gone, ...stale].map((c) => c.model_id);
+		const dismissable = [...retired, ...gone, ...stale].map((c) => c.model_id);
 		const all = ALL_GROUPS.flatMap((g) => p[g]);
 		const regionId = `${regionIdBase}-provider-${p.provider_id}`;
 		return (
@@ -592,6 +607,7 @@ export function ModelDiscrepancyModal({
 							gone: gone.length,
 							stale: stale.length,
 							suspect: suspect.length,
+							retired: retired.length,
 						}}
 						cleared={{
 							dismissed: all.filter((c) => c.status === "dismissed").length,
@@ -642,6 +658,7 @@ export function ModelDiscrepancyModal({
 						// one level up.
 						<div className="space-y-2 pl-5">
 							{isCleared ? renderClearedSummary(p) : null}
+							{renderBucket(p, "retired")}
 							{renderBucket(p, "gone")}
 							{renderBucket(p, "suspect")}
 							{renderBucket(p, "stale")}

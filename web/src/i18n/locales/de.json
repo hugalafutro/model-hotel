@@ -861,6 +861,7 @@
 			"chipGoneTooltip": "Aus der Modellliste des Anbieters verschwunden, daher hier von der Erkennung deaktiviert. Genau diese zählt das Seitenleisten-Abzeichen.",
 			"chipResolved": "zurück",
 			"chipResolvedTooltip": "Der Anbieter listet sie wieder, sie haben sich also selbst erledigt.",
+			"chipRetiredTooltip": "Weiterhin in der Modellliste des Anbieters, aber er hat jede Anfrage dafür abgelehnt, daher hat das Gateway sie hier deaktiviert. Diese zählt das Abzeichen in der Seitenleiste.",
 			"chipStaleTooltip": "Seit über 30 Tagen ohne Schwankungen nicht auffindbar, also fast sicher ausgemustert und nicht defekt. Wird angezeigt, nie gezählt.",
 			"chipSuspectTooltip": "Noch aktiv, aber in den letzten Scans nicht dabei. Ein weiterer Fehlschlag und die Erkennung deaktiviert es.",
 			"clean": "Diesen Anbieter ausblenden",
@@ -899,8 +900,9 @@
 			"flapped_other": "{{count}} Schwankungen",
 			"group": {
 				"gone": "Verschwunden",
-				"suspect": "Verdächtig",
-				"stale": "Veraltet"
+				"retired": "Abgelehnt",
+				"stale": "Veraltet",
+				"suspect": "Verdächtig"
 			},
 			"groupClaims": "Failover-Gruppen mit deaktivierter Erkennung",
 			"groupDisabledAt": "Deaktiviert {{when}}",
@@ -930,6 +932,7 @@
 			"retestProgress": "{{done}} von {{total}}",
 			"retestTooltip": "Erkennung für diesen Anbieter erneut ausführen und seine Modelle neu prüfen.",
 			"retesting": "Wird erneut getestet…",
+			"retiredMeta": "Deaktiviert {{when}}",
 			"returnToTop": "Zurück zum Anfang dieses Anbieters",
 			"suspectMeta_one": "{{count}} Suchlauf verpasst",
 			"suspectMeta_other": "{{count}} Suchläufe verpasst",
