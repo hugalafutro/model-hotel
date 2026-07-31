@@ -32,6 +32,19 @@ import (
 // retiring a live model.
 const goneStrikeThreshold = 3
 
+// goneWriteTimeout bounds each out-of-band write the auto-disable makes.
+//
+// Each write gets its OWN deadline rather than sharing one across the sequence.
+// They run one after another, so a shared budget lets a slow first write starve
+// everything after it: a disable that took the full ten seconds but succeeded
+// would leave group revalidation to fail instantly with a deadline that was
+// already spent — exactly when the database is under the load that made the
+// disable slow, and exactly when an undersized group most needs resizing.
+//
+// The work is already detached from the request path, so nothing is waiting on
+// the total. Bounding each step is what keeps every step able to do its job.
+const goneWriteTimeout = 10 * time.Second
+
 // goneStreak is one model's consecutive-refusal count plus a tombstone for the
 // window between deciding to disable and the write landing.
 //
@@ -110,11 +123,6 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 	modelID, modelName, provider := m.ID, m.ModelID, providerName
 
 	go func() {
-		// Detached on purpose: the request context is already being torn down,
-		// and the caller's error response must not wait on this write.
-		dctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
 		// The decision was made before this goroutine was scheduled, and the
 		// write below can take as long as the database does. If the model
 		// answered a request in the meantime it has proved it is alive, and
@@ -128,7 +136,10 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 			return
 		}
 
-		if _, err := h.modelRepo.SetEnabled(dctx, modelID, false); err != nil {
+		dctx, cancel := context.WithTimeout(context.Background(), goneWriteTimeout)
+		_, err := h.modelRepo.SetEnabled(dctx, modelID, false)
+		cancel()
+		if err != nil {
 			debuglog.Error("proxy: failed to auto-disable retired model", "model", modelName, "provider", provider, "error", err)
 			// Clear the streak so the next refusals can rebuild it and try
 			// again. Without this a transient database error would leave the
@@ -151,16 +162,13 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 		// costs one extra write in a window that is rarely hit, and only ever on
 		// a model that has just been shown to work.
 		if streak.cancelled.Load() {
-			// A fresh context: dctx may have little or none of its budget left
-			// precisely when this matters most, since a slow write is what
-			// opens the window in the first place. The undo must not inherit
-			// the timeout that the disable already spent.
-			rctx, rcancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer rcancel()
-			if _, err := h.modelRepo.SetEnabled(rctx, modelID, true); err != nil {
+			rctx, rcancel := context.WithTimeout(context.Background(), goneWriteTimeout)
+			_, rerr := h.modelRepo.SetEnabled(rctx, modelID, true)
+			rcancel()
+			if rerr != nil {
 				// Nothing safe is left to try. Log loudly: the model is
 				// disabled and the gateway believes it should not be.
-				debuglog.Error("proxy: model answered while its auto-disable was in flight, and re-enabling it failed", "model", modelName, "provider", provider, "error", err)
+				debuglog.Error("proxy: model answered while its auto-disable was in flight, and re-enabling it failed", "model", modelName, "provider", provider, "error", rerr)
 				return
 			}
 			debuglog.Info("proxy: reverted auto-disable, model answered while the write was in flight", "model", modelName, "provider", provider)
@@ -179,8 +187,11 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 		// undersized group stays enabled until some unrelated scan happens to
 		// fix it. Best-effort: a failure here must not undo the disable.
 		if h.failoverRepo != nil {
-			if _, err := h.failoverRepo.RevalidateCustomGroups(dctx); err != nil {
-				debuglog.Error("proxy: custom-group revalidation after auto-disable failed", "model", modelName, "error", err)
+			vctx, vcancel := context.WithTimeout(context.Background(), goneWriteTimeout)
+			_, verr := h.failoverRepo.RevalidateCustomGroups(vctx)
+			vcancel()
+			if verr != nil {
+				debuglog.Error("proxy: custom-group revalidation after auto-disable failed", "model", modelName, "error", verr)
 			}
 		}
 		events.Publish(events.Event{

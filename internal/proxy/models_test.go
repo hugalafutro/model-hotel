@@ -601,9 +601,18 @@ type mockModelRepo struct {
 type setEnabledCall struct {
 	id      uuid.UUID
 	enabled bool
+	// budget is how much of its deadline the call's context had left on entry,
+	// sampled before any gating so the mock's own blocking does not skew it. It
+	// is what distinguishes a fresh per-write deadline from one inherited half
+	// spent by the write before it.
+	budget time.Duration
 }
 
 func (m *mockModelRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error) {
+	var budget time.Duration
+	if deadline, ok := ctx.Deadline(); ok {
+		budget = time.Until(deadline)
+	}
 	if m.setEnabledEntered != nil {
 		m.enteredOnce.Do(func() { close(m.setEnabledEntered) })
 	}
@@ -616,7 +625,7 @@ func (m *mockModelRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bo
 	}
 	m.setEnabledMu.Lock()
 	defer m.setEnabledMu.Unlock()
-	m.setEnabledCalls = append(m.setEnabledCalls, setEnabledCall{id: id, enabled: enabled})
+	m.setEnabledCalls = append(m.setEnabledCalls, setEnabledCall{id: id, enabled: enabled, budget: budget})
 	if m.setEnabledErr != nil {
 		return nil, m.setEnabledErr
 	}

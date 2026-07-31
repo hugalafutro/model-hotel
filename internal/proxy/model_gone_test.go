@@ -27,6 +27,24 @@ func waitForDisable(t *testing.T, repo *mockModelRepo) []setEnabledCall {
 	return repo.disableCalls()
 }
 
+// waitForStreakCleared blocks until the disable goroutine has finished dropping
+// the model's streak. Observing the SetEnabled call is not enough: the call is
+// recorded inside the mock, while the streak is cleared only after it returns,
+// so a test that starts a second round on the call alone can strike the OLD
+// streak — pushing it past the threshold, where every strike is a no-op — and
+// then watch the first goroutine delete the evidence.
+func waitForStreakCleared(t *testing.T, h *Handler, id uuid.UUID) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, ok := h.goneStrikes.Load(id); !ok {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("the streak was never cleared")
+}
+
 func newGoneHandler(repo *mockModelRepo) *Handler {
 	return &Handler{modelRepo: repo}
 }
@@ -436,6 +454,7 @@ func TestNoteModelGone_FailedDisableIsRetried(t *testing.T) {
 	if calls := waitForDisable(t, repo); len(calls) != 1 {
 		t.Fatalf("expected the first (failing) attempt, got %d", len(calls))
 	}
+	waitForStreakCleared(t, h, m.ID)
 
 	// The streak was cleared by the failure, so a fresh run of refusals must
 	// reach the threshold and try again rather than being swallowed.
@@ -461,6 +480,14 @@ func TestNoteModelGone_FailedDisableIsRetried(t *testing.T) {
 // model answers a request and proves it is alive. Without a cancellation the
 // already-queued write lands anyway and retires a model that is demonstrably
 // working, on evidence that has since been superseded.
+//
+// The assertion is the end state rather than the branch taken, because which
+// branch runs is genuinely up to the scheduler: a success racing a queued
+// disable can arrive before the goroutine's pre-write check (skipped outright)
+// or after it (written, then reverted). Both are correct and neither can be
+// forced from outside, so pinning either one specifically would be pinning the
+// Go scheduler. What must hold every time is that the model is not left
+// disabled. The revert branch has its own deterministic test below.
 func TestNoteModelGone_SuccessCancelsAQueuedDisable(t *testing.T) {
 	t.Parallel()
 
@@ -481,12 +508,14 @@ func TestNoteModelGone_SuccessCancelsAQueuedDisable(t *testing.T) {
 	close(repo.setEnabledGate)
 
 	// Give the goroutine room to run to completion either way.
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		if len(repo.disableCalls()) > 0 {
-			t.Fatalf("a model that answered must not be disabled by an already-queued write")
-		}
-		time.Sleep(5 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
+
+	calls := repo.disableCalls()
+	if len(calls) == 0 {
+		return // Skipped before the write: nothing was ever disabled.
+	}
+	if !calls[len(calls)-1].enabled {
+		t.Fatalf("a model that answered must not be left disabled, got %+v", calls)
 	}
 }
 
@@ -537,6 +566,68 @@ func TestNoteModelGone_SuccessDuringTheWriteIsReverted(t *testing.T) {
 			return
 		}
 		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("expected the disable to be reverted, got %+v", repo.disableCalls())
+}
+
+// TestNoteModelGone_EachWriteGetsAFreshDeadline pins that the out-of-band
+// writes do not share one budget.
+//
+// They run in sequence, so a shared deadline lets a slow write starve every
+// write after it — and slowness is correlated, not random: the database load
+// that made the disable take its whole budget is the same load the follow-up
+// work has to get through. The follow-up would then fail instantly with a
+// deadline that was already spent, in precisely the conditions where it matters.
+//
+// Asserted on the compensating re-enable because that is the sequence this mock
+// can observe. The custom-group revalidation after a disable has the same shape
+// and the same fix, but failoverRepo is a concrete *failover.Repository and
+// needs PostgreSQL, so it is not covered here — stating that rather than letting
+// this test imply it.
+func TestNoteModelGone_EachWriteGetsAFreshDeadline(t *testing.T) {
+	t.Parallel()
+
+	// Long enough that inheriting it would be unmistakable against the
+	// tolerance below, short enough to keep the test quick.
+	const slowWrite = 500 * time.Millisecond
+
+	repo := &mockModelRepo{
+		setEnabledGate:    make(chan struct{}),
+		setEnabledEntered: make(chan struct{}),
+	}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+
+	select {
+	case <-repo.setEnabledEntered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the disable write never started")
+	}
+
+	// Hold the disable open so it burns a visible slice of its budget, then
+	// have the model answer so the compensating re-enable actually runs.
+	time.Sleep(slowWrite)
+	h.noteModelServed(m)
+	close(repo.setEnabledGate)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		calls := repo.disableCalls()
+		if len(calls) < 2 {
+			time.Sleep(5 * time.Millisecond)
+			continue
+		}
+		// Tolerance well under slowWrite: an inherited deadline would show up
+		// as roughly goneWriteTimeout-slowWrite, a fresh one as the full budget
+		// minus only the scheduling gap.
+		if floor := goneWriteTimeout - slowWrite/2; calls[1].budget < floor {
+			t.Fatalf("the re-enable inherited a spent deadline: %v left, want more than %v", calls[1].budget, floor)
+		}
+		return
 	}
 	t.Fatalf("expected the disable to be reverted, got %+v", repo.disableCalls())
 }
