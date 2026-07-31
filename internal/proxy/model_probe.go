@@ -366,16 +366,22 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 	// gets: a provider that redirects must not be able to walk this request's
 	// credential to another host just because it arrived off the request path.
 	//
-	// The nil check is load-bearing, not defensive tidiness. upstreamTransport
-	// is a concrete *http.Transport, so assigning a nil one into the
-	// RoundTripper field produces a non-nil interface holding a nil pointer:
-	// net/http does not fall back to DefaultTransport, it panics inside
-	// RoundTrip — on the detached disable goroutine, where a panic takes the
-	// process down.
-	client := &http.Client{}
-	if h.upstreamTransport != nil {
-		client.Transport = h.upstreamTransport
+	// No transport, no probe. The nil check has to exist — upstreamTransport is a
+	// concrete *http.Transport, so assigning a nil one into the RoundTripper
+	// field produces a non-nil interface holding a nil pointer, and net/http does
+	// not fall back to DefaultTransport, it panics inside RoundTrip, on the
+	// detached disable goroutine — but leaving the field unset instead is not the
+	// harmless half of that choice. An unset Transport IS http.DefaultTransport,
+	// which carries no DialContext, so the SafeDialer's guard against a provider
+	// URL resolving into the gateway's own network would be silently absent for
+	// exactly the request nobody is watching. Every other outbound site in this
+	// package assigns the shared transport unconditionally; a probe that cannot
+	// have it postpones, which costs nothing in a process that always sets it.
+	if h.upstreamTransport == nil {
+		debuglog.Debug("proxy: retirement probe has no upstream transport to make a guarded request with", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "verdict", probeInconclusive.String())
+		return probeInconclusive
 	}
+	client := &http.Client{Transport: h.upstreamTransport}
 	if h.safeDialer != nil {
 		client.CheckRedirect = h.safeDialer.CheckRedirect
 	}

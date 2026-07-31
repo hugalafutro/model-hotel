@@ -1011,10 +1011,12 @@ request before anything is written.
 How a retirement is reached:
 
 1. **Nomination.** A request that the provider refuses with retirement-shaped
-   prose counts one strike against that model. Three strikes within 30 minutes,
-   with no successful request in between, nominate it. Strikes are in-memory and
-   per gateway instance: they are not persisted, and each HA member reaches its
-   own conclusion from its own traffic.
+   prose counts one strike against that model. Three strikes nominate it, with no
+   successful request in between and no more than 30 minutes between one strike
+   and the next. That is a gap, not a deadline: refusals at 0, 29 and 58 minutes
+   are one streak of three, while a model refused once an hour never accumulates
+   one. Strikes are in-memory and per gateway instance: they are not persisted,
+   and each HA member reaches its own conclusion from its own traffic.
 2. **Adjudication.** At the threshold the gateway sends a real, minimal request
    to the model itself (a 64-token chat completion, or a one-input embedding),
    off the request path. Content coming back means the model works: the strike

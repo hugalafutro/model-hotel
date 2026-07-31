@@ -212,14 +212,6 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
 	}
 
-	// A non-streaming 200 means the model answered, so any gone-strike streak it
-	// had accumulated is stale. Streaming cannot be judged yet: the provider can
-	// send 200 headers and only then report the model gone in an SSE error, so
-	// that verdict is deferred to dispatchStreaming once the stream has ended.
-	if !st.isStreaming {
-		h.noteModelServed(candidate.model)
-	}
-
 	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "native_anthropic", st.anthropicNativeAttempt, "responses_api", st.responsesAttempt, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 	if st.responsesAttempt {
 		// Translate the /v1/responses answer back to the chat-completions
@@ -248,6 +240,31 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			return outcomeFailover
 		}
 	}
+	// A non-streaming 200 that survived the dialect translation above means the
+	// model answered, so any gone-strike streak it had accumulated is stale.
+	// Streaming cannot be judged yet: the provider can send 200 headers and only
+	// then report the model gone in an SSE error, so that verdict is deferred to
+	// dispatchStreaming once the stream has ended.
+	//
+	// After the two translations rather than on the 200, and that is the whole
+	// point of where it sits. Either of them reads the body, fails, and sends the
+	// attempt to FAILOVER — a provider that answered 200 with something that is
+	// not a Responses object or not a Gemini answer has not served the model, and
+	// crediting it there cleared the streak of a model the gateway was in the act
+	// of giving up on.
+	//
+	// It is still ahead of the non-streaming handler's own decode, which is the
+	// last place a plain 200 can turn out to be empty. That is deliberate rather
+	// than overlooked: this path records its breaker outcome from the status too
+	// (see recordBreakerOutcome above), no failover follows the decode, and the
+	// only cost of being wrong is a cleared streak on a response the client got a
+	// 502 for — the direction that leaves a model enabled. Threading a served
+	// signal back out of handleNonStreamingResponse and its native twin would buy
+	// precision this path does not otherwise keep.
+	if !st.isStreaming {
+		h.noteModelServed(candidate.model)
+	}
+
 	if st.isStreaming {
 		return h.dispatchStreaming(w, r, st, candidate, resp, attempt, responseHeaderMs, streamCancelOrigin)
 	}

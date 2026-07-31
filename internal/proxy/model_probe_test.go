@@ -178,14 +178,39 @@ func TestProbeModel_EmptyAnswerPostpones(t *testing.T) {
 	t.Parallel()
 
 	srv, _ := probeServer(t, http.StatusOK, `{"choices":[{"message":{"role":"assistant","content":""}}]}`)
-	// Deliberately the ONLY case left on a nil upstreamTransport: it
-	// completes a real round trip, so it pins that the nil guard falls back
-	// to DefaultTransport instead of panicking on a nil *http.Transport
-	// wrapped in a non-nil RoundTripper interface.
+	h := newProbeHandler(t)
+
+	if got := runProbe(t, h, probeCandidateFor(srv.URL, "glm-5.2"), endpointTypeChat); got != probeInconclusive {
+		t.Fatalf("verdict = %s, want inconclusive", got)
+	}
+}
+
+// TestProbeModel_NoTransportPostpones pins that the probe refuses to fall back
+// to net/http's default client.
+//
+// The nil check cannot go away — upstreamTransport is a concrete
+// *http.Transport, so assigning a nil one panics inside RoundTrip rather than
+// falling back — but leaving Transport unset is not a safe way to satisfy it: an
+// unset Transport is http.DefaultTransport, which has no DialContext, so the
+// SafeDialer's guard against a provider URL that resolves into the gateway's own
+// network would be silently gone for the one request nobody is watching. The
+// probe postpones instead, which is what it does with every other question it
+// cannot answer safely.
+//
+// The fake provider records every call, so this asserts the request was never
+// sent rather than merely that the verdict came out inconclusive — which it
+// would either way.
+func TestProbeModel_NoTransportPostpones(t *testing.T) {
+	t.Parallel()
+
+	srv, rec := probeServer(t, http.StatusOK, `{"choices":[{"message":{"content":"Hi"}}]}`)
 	h := &Handler{}
 
 	if got := runProbe(t, h, probeCandidateFor(srv.URL, "glm-5.2"), endpointTypeChat); got != probeInconclusive {
 		t.Fatalf("verdict = %s, want inconclusive", got)
+	}
+	if _, _, _, called := rec.snapshot(); called != 0 {
+		t.Fatalf("the provider was called %d times over an unguarded transport", called)
 	}
 }
 
@@ -254,7 +279,11 @@ func TestProbeModel_UnreachableProviderPostpones(t *testing.T) {
 	// Deliberately not "start a server and close it" — that releases the port
 	// back to the ephemeral range, where the OS can hand it straight to another
 	// parallel test's server and this probe would then reach a live listener.
-	h := &Handler{}
+	//
+	// A real transport, so the refused connection is what produces the verdict.
+	// On a bare Handler the probe now postpones before it dials at all, and this
+	// test would pass without a packet being sent.
+	h := newProbeHandler(t)
 	if got := runProbe(t, h, probeCandidateFor("http://127.0.0.1:1", "gemini-2.0-flash"), endpointTypeChat); got != probeInconclusive {
 		t.Fatalf("verdict = %s, want inconclusive", got)
 	}

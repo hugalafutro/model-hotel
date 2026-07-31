@@ -55,11 +55,17 @@ const goneStrikeThreshold = 3
 // A strike arriving after this long starts the streak over rather than adding to
 // it, so a retirement is always drawn from one run of recent traffic.
 //
+// It bounds the GAP between consecutive strikes, not the span of the streak.
+// Refusals at 0, 29 and 58 minutes are one streak of three, because neither gap
+// exceeds the window; the count only restarts when a strike arrives more than
+// this long after the one before it. Written out because "three strikes within
+// 30 minutes" is the natural way to say it and is not what the code does.
+//
 // Thirty minutes is chosen against real traffic rather than as a round number:
-// three requests to the same model have to fall inside it, which a gateway with
-// any load does easily, while a model receiving one request an hour will never
-// accumulate a streak. That second case is deliberate — a model too idle to fail
-// three times in half an hour is also too idle for its staying enabled to cost
+// each refusal only has to arrive within half an hour of the last one, which a
+// gateway with any load does easily, while a model refused once an hour never
+// accumulates a streak at all. That second case is deliberate — a model too idle
+// to fail twice in half an hour is also too idle for its staying enabled to cost
 // anything, and traffic-driven retirement should not be guessing from sparse
 // evidence.
 const goneStrikeWindow = 30 * time.Minute
@@ -425,11 +431,13 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// The counter is still deliberately NOT cleared on the way to a disable.
 	// Clearing it would let the next refusal start a fresh count from zero, so a
 	// burst against a dead model would re-enter the threshold every three
-	// strikes. Only two paths clear it now: noteModelServed, when the model
-	// proves it is alive, and a disable that could not be WRITTEN, so the
-	// attempt is retried rather than lost. A retirement that did land does not
-	// need the guard — the model is disabled, so no traffic reaches it to strike
-	// it again, and a straggler that arrives past the cooldown finds
+	// strikes. Exactly two things clear it, and both are the model answering:
+	// noteModelServed, when a request to it succeeds, and the served-probe branch
+	// below, when the probe gets content out of it. A disable that could not be
+	// written clears nothing at all — the streak stays as it is and the next
+	// refusal past the cooldown retries it. A retirement that did land does not
+	// need the guard either: the model is disabled, so no traffic reaches it to
+	// strike it again, and a straggler that arrives past the cooldown finds
 	// AutoRetireIfConfirmed refusing to write over an already-retired row, which
 	// reports as an uncommitted attempt and publishes no second alert.
 	if !streak.claimProbe(now) {
@@ -506,7 +514,11 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			// tombstone. There is nothing here for the tombstone to stand down:
 			// the only disable this streak can have queued is this goroutine,
 			// which is about to return.
-			debuglog.Warn("proxy: not auto-disabling, the model answered a direct probe after being reported gone", "model", modelName, "provider", provider, "endpoint", endpointType, "strikes", goneStrikeThreshold, "retry_after", goneProbeCooldown.String())
+			// The streak's own count, for the reason the disable line below gives:
+			// under claimProbe the number that bought this probe is not always
+			// three. Read before the park, so it is the count that nominated the
+			// model rather than the zero it is about to become.
+			debuglog.Warn("proxy: not auto-disabling, the model answered a direct probe after being reported gone", "model", modelName, "provider", provider, "endpoint", endpointType, "strikes", streak.count(), "retry_after", goneProbeCooldown.String())
 			streak.park()
 			return
 		case probeInconclusive:
@@ -672,7 +684,16 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 		// surface was asked and whether the model was eligible for auto-
 		// retirement at all, so a retirement that cannot be traced back to a
 		// family cannot be argued with.
-		debuglog.Warn("proxy: auto-disabled retired model", "model", modelName, "provider", provider, "strikes", goneStrikeThreshold, "endpoint", endpointType, "probe_verdict", probeRefused.String())
+		//
+		// The strike count is the streak's own, not goneStrikeThreshold. The
+		// constant was accurate while a retirement could only be triggered by the
+		// caller that saw exactly three; claimProbe replaced that gate, so this
+		// write can equally stand on a streak sitting at fifty under a retry
+		// loop, or on a single refusal that re-claimed a streak parked since the
+		// last cooldown. Reporting the constant would tell every operator the
+		// same story about a decision that was reached differently.
+		strikes := streak.count()
+		debuglog.Warn("proxy: auto-disabled retired model", "model", modelName, "provider", provider, "strikes", strikes, "endpoint", endpointType, "probe_verdict", probeRefused.String())
 
 		// Disabling a member does not resize the custom failover groups it
 		// belongs to, so a group can be left enabled while it no longer has two
@@ -697,7 +718,7 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 				"model_id":      modelName,
 				"model_uuid":    modelID.String(),
 				"provider_name": provider,
-				"strikes":       goneStrikeThreshold,
+				"strikes":       strikes,
 				"reason":        string(KindProviderModelGone),
 				"probe_verdict": probeRefused.String(),
 				"endpoint_type": endpointType,

@@ -577,7 +577,18 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	// the provider is where a 200 stops being a promise. See the twin call in
 	// serveBufferedJSONPassthrough for why it is here, ungated by the breaker
 	// setting, and ungated by the endpoint family.
-	h.noteModelServed(candidate.model)
+	//
+	// Gated on a byte having actually arrived, which the breaker call above is
+	// deliberately not. They are answering different questions. A 204 that
+	// carries nothing is a legitimate HTTP success and the provider is plainly
+	// alive, so it belongs in the breaker's ledger; but it says nothing whatever
+	// about whether this MODEL is still served, and "a response that carried
+	// nothing is not evidence" is the same rule judgeProbeSuccess applies to the
+	// probe's own 200s. Clearing a streak on it would credit the model with an
+	// answer nobody received.
+	if n > 0 {
+		h.noteModelServed(candidate.model)
+	}
 
 	copyPassthroughHeaders(w, resp, contentType)
 	if isSSE {

@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -1431,6 +1432,120 @@ func TestNoteModelGone_AnsweredProbeKeepsTheCooldown(t *testing.T) {
 	expireProbeCooldown(t, h, m.ID)
 	h.noteModelGone(cand, endpointTypeChat)
 	waitForProbes(t, script, 2)
+}
+
+// TestAttemptCandidate_ATranslationFailureKeepsTheStreak pins where the chat
+// path is allowed to call a 200 a success.
+//
+// A vertex-express candidate answers in Gemini's wire format, and a 200 whose
+// body is not a Gemini answer is a provider fault: the attempt FAILS OVER to the
+// next candidate. Crediting the model on the 200 headers cleared the streak of a
+// model the gateway was in the act of giving up on, so a dead model behind a
+// provider that 200s garbage could never accumulate three consecutive strikes.
+func TestAttemptCandidate_ATranslationFailureKeepsTheStreak(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	// A 200 that is not a Gemini answer, so translateGeminiResponseBody fails.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `<html>502 Bad Gateway</html>`)
+	}))
+	defer srv.Close()
+	h.upstreamTransport = dialToTestServer(t, srv)
+
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	// The hostname decides the dialect, which is why the transport above dials
+	// the test server regardless of it.
+	cand := goneCandidateAt(m, "Vertex Express", "http://us-central1-aiplatform.googleapis.com/v1")
+
+	// One real refusal, so there is a streak for the 200 to wrongly clear.
+	h.noteModelGone(cand, endpointTypeChat)
+	streak := goneStreakFor(t, h, m.ID)
+	if n := streak.count(); n != 1 {
+		t.Fatalf("streak = %d, want 1 before the attempt", n)
+	}
+
+	st := &requestState{
+		startTime:       time.Now(),
+		reqModel:        "gemini-2.0-flash",
+		bodyBytes:       []byte(`{"model":"gemini-2.0-flash","messages":[{"role":"user","content":"hi"}]}`),
+		failoverTimeout: 30 * time.Second,
+		logData:         &requestLogData{modelID: "gemini-2.0-flash", endpointType: endpointTypeChat},
+	}
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+
+	// Two candidates, so a failover is available and the attempt is free to
+	// reject this one.
+	if got := h.attemptCandidate(w, r, st, cand, 0, 2); got != outcomeFailover {
+		t.Fatalf("outcome = %v, want a failover on an untranslatable 200", got)
+	}
+	if n := streak.count(); n != 1 {
+		t.Fatalf("streak = %d, want the strike kept: an attempt that failed over did not serve the model", n)
+	}
+}
+
+// TestNoteModelGone_TheRetirementEventReportsTheRealStrikeCount pins that the
+// number an operator reads is the number that happened.
+//
+// Both the log line and the alert reported goneStrikeThreshold, which was
+// accurate while a retirement could only be triggered by the caller that saw
+// exactly three. claimProbe replaced that gate: the write can equally stand on a
+// streak sitting at thirteen under a client's retry loop, or on a single refusal
+// that re-claimed a streak parked since the last cooldown. A constant would tell
+// every operator the same story about decisions that were reached differently.
+func TestNoteModelGone_TheRetirementEventReportsTheRealStrikeCount(t *testing.T) {
+	// Not parallel: it subscribes to the process-wide event bus.
+	const extraRefusals = 10
+
+	repo := &mockModelRepo{
+		setEnabledGate:    make(chan struct{}),
+		setEnabledEntered: make(chan struct{}),
+	}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
+
+	ch := events.Subscribe()
+	defer events.Unsubscribe(ch)
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+	select {
+	case <-repo.setEnabledEntered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the disable write never started")
+	}
+
+	// The client keeps retrying the dead model while the write is held open.
+	// None of these buys a probe (the cooldown is running), but every one of
+	// them is a strike, so the streak is well past the threshold by the time the
+	// retirement is announced.
+	for range extraRefusals {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+	close(repo.setEnabledGate)
+
+	want := int64(goneStrikeThreshold + extraRefusals)
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case ev := <-ch:
+			// The bus fans out to every subscriber, so other tests' events
+			// interleave; filter to this model's retirement.
+			if ev.Type != "model.auto_disabled_gone" || ev.Metadata["model_uuid"] != m.ID.String() {
+				continue
+			}
+			if got := ev.Metadata["strikes"]; got != want {
+				t.Fatalf("event reported strikes = %v (%T), want %d", got, got, want)
+			}
+			return
+		case <-deadline:
+			t.Fatal("the retirement was never announced")
+		}
+	}
 }
 
 // TestProbeForRetirement_NilCandidatePostponesInsteadOfPanicking pins that the

@@ -437,6 +437,62 @@ func TestEmbeddings_ADeadBodyDoesNotClearTheGoneStrikes(t *testing.T) {
 	}
 }
 
+// TestEmbeddings_AnEmptyResponseDoesNotClearTheGoneStrikes is the streamed
+// commit point's version of the question the test above asks of the buffered
+// one: a 2xx that carried no bytes is not the model answering.
+//
+// A 204 is a legitimate HTTP success and belongs in the breaker's ledger — the
+// provider is plainly alive. It says nothing whatever about whether this MODEL
+// is still served, which is the same distinction judgeProbeSuccess draws for the
+// probe's own 200s. Clearing the streak on it credits the model with an answer
+// nobody received.
+func TestEmbeddings_AnEmptyResponseDoesNotClearTheGoneStrikes(t *testing.T) {
+	var goneModelName atomic.Value
+	var refuse atomic.Bool
+	refuse.Store(true)
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if refuse.Load() {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			name, _ := goneModelName.Load().(string)
+			_, _ = fmt.Fprintf(w, "{\"error\":{\"message\":\"The model `%s` does not exist\"}}", name)
+			return
+		}
+		// No content type and no body: the pass-through takes its streamed
+		// branch and finds nothing to commit on.
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	goneModelName.Store(env.modelName)
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)
+	embed := func() int {
+		req := env.request("/v1/embeddings", "application/json", strings.NewReader(body))
+		w := httptest.NewRecorder()
+		env.handler.Embeddings(w, req)
+		return w.Code
+	}
+
+	if code := embed(); code != http.StatusNotFound {
+		t.Fatalf("status = %d, want the provider's 404", code)
+	}
+	raw, ok := env.handler.goneStrikes.Load(env.modelUUID)
+	if !ok {
+		t.Fatal("the refusal accrued no strike")
+	}
+	streak, ok := raw.(*goneStreak)
+	if !ok {
+		t.Fatalf("unexpected streak type %T", raw)
+	}
+
+	refuse.Store(false)
+	if code := embed(); code != http.StatusNoContent {
+		t.Fatalf("status = %d, want the provider's 204 forwarded", code)
+	}
+	if n := streak.count(); n != 1 {
+		t.Fatalf("streak = %d, want the strike kept: a response that carried nothing is not evidence about the model", n)
+	}
+}
+
 func TestEmbeddings_UpstreamErrorReturnsOpenAIError(t *testing.T) {
 	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
