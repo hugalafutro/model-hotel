@@ -717,6 +717,61 @@ func TestNoteModelGone_FailedRollbackStopsThere(t *testing.T) {
 	t.Fatalf("the rollback was never attempted, got %+v", repo.disableCalls())
 }
 
+// TestNoteModelGone_StaleStrikesDoNotAccumulate pins that a streak is
+// consecutive in time, not merely in sequence.
+//
+// The count had no time bound, so two refusals from a provider incident this
+// morning and one this afternoon combined into a retirement, on evidence whose
+// halves had nothing to do with each other. The stale half is also the dangerous
+// half: those strikes may predate an operator looking at the model and enabling
+// it, and a count they cannot see then finishes and turns it off again.
+//
+// The age is driven through the streak's own timestamp rather than a knob on the
+// production code, so nothing here exists only for the test.
+func TestNoteModelGone_StaleStrikesDoNotAccumulate(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+
+	// Two refusals, one short of the threshold.
+	for range goneStrikeThreshold - 1 {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+
+	// Age them past the window, as if the incident were hours ago.
+	raw, ok := h.goneStrikes.Load(m.ID)
+	if !ok {
+		t.Fatal("the strikes did not start a streak")
+	}
+	streak, ok := raw.(*goneStreak)
+	if !ok {
+		t.Fatal("unexpected streak type")
+	}
+	streak.lastStrike.Store(time.Now().Add(-2 * goneStrikeWindow).UnixNano())
+
+	// The next refusal begins a new streak instead of completing the old one.
+	h.noteModelGone(m, "Google AI Studio (Gemini)")
+	if n := streak.n.Load(); n != 1 {
+		t.Errorf("a strike after the window must start over, got a streak of %d", n)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+	if calls := repo.disableCalls(); len(calls) != 0 {
+		t.Fatalf("stale evidence must not retire a model, got %+v", calls)
+	}
+
+	// Fresh traffic still retires it: the window bounds the evidence, it does
+	// not disarm the feature.
+	for range goneStrikeThreshold - 1 {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+	if calls := waitForDisable(t, repo); len(calls) != 1 {
+		t.Fatalf("three recent refusals must still retire, got %+v", calls)
+	}
+}
+
 // TestNoteModelGone_SupersededRevertStandsDown covers the undo finding that the
 // row has moved on — in practice, an operator disabling the model by hand while
 // the retirement was committing.

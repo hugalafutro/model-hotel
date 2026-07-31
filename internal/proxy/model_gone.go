@@ -32,6 +32,27 @@ import (
 // retiring a live model.
 const goneStrikeThreshold = 3
 
+// goneStrikeWindow is how long a strike stays part of the streak it belongs to.
+//
+// "Three consecutive refusals" was counting refusals with no bound on how far
+// apart they were, so two strikes from a provider incident this morning and one
+// this afternoon retired a model on evidence that had nothing to do with each
+// other. Worse, the older strikes are exactly the ones an operator may already
+// have acted on — they enable the model, and a count they cannot see finishes
+// and turns it off again.
+//
+// A strike arriving after this long starts the streak over rather than adding to
+// it, so a retirement is always drawn from one run of recent traffic.
+//
+// Thirty minutes is chosen against real traffic rather than as a round number:
+// three requests to the same model have to fall inside it, which a gateway with
+// any load does easily, while a model receiving one request an hour will never
+// accumulate a streak. That second case is deliberate — a model too idle to fail
+// three times in half an hour is also too idle for its staying enabled to cost
+// anything, and traffic-driven retirement should not be guessing from sparse
+// evidence.
+const goneStrikeWindow = 30 * time.Minute
+
 // goneWriteTimeout bounds each out-of-band write the auto-disable makes.
 //
 // Each write gets its OWN deadline rather than sharing one across the sequence.
@@ -63,9 +84,34 @@ const goneWriteTimeout = 10 * time.Second
 // that landed while the write was in flight, which the first read is by
 // definition too early to see. The second case cannot be prevented, only
 // undone, so noteModelGone reverts rather than skips there.
+//
+// lastStrike carries the time of the most recent strike, in Unix nanoseconds so
+// it can live in an atomic alongside the count. It is what makes the streak
+// consecutive in time as well as in sequence — see goneStrikeWindow.
 type goneStreak struct {
-	n         atomic.Int64
-	cancelled atomic.Bool
+	n          atomic.Int64
+	cancelled  atomic.Bool
+	lastStrike atomic.Int64
+}
+
+// strike records a refusal and returns the streak length it belongs to.
+//
+// A strike that arrives more than goneStrikeWindow after the previous one starts
+// the count over instead of extending it, so a retirement is always drawn from
+// one run of recent traffic rather than from unrelated failures that happen to
+// share a model.
+//
+// Swap is what keeps the reset safe under concurrency: whichever caller takes
+// the stale timestamp is the only one that sees it, so exactly one resets and
+// the rest add. A burst against a genuinely dead model can therefore lose at
+// most one strike to a reset, and re-earns it on the next request.
+func (s *goneStreak) strike(now time.Time) int64 {
+	prev := s.lastStrike.Swap(now.UnixNano())
+	if prev != 0 && now.UnixNano()-prev > int64(goneStrikeWindow) {
+		s.n.Store(1)
+		return 1
+	}
+	return s.n.Add(1)
 }
 
 // noteModelGone records one strike against a model the provider refused as
@@ -98,7 +144,7 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 	if !ok {
 		return
 	}
-	strikes := streak.n.Add(1)
+	strikes := streak.strike(time.Now())
 
 	if strikes < goneStrikeThreshold {
 		debuglog.Info("proxy: provider reports model gone", "model", m.ModelID, "provider", providerName, "strikes", strikes, "threshold", goneStrikeThreshold)
