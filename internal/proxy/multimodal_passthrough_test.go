@@ -42,6 +42,18 @@ type multimodalTestEnv struct {
 // upstream handler: provider + model + virtual key + canonical proxy Handler.
 func newMultimodalEnv(t *testing.T, upstreamHandler http.Handler) *multimodalTestEnv {
 	t.Helper()
+	return newMultimodalEnvWith(t, upstreamHandler, "[]")
+}
+
+// newMultimodalEnvWith is the same environment with the model's declared output
+// modalities under the test's control.
+//
+// It exists because a gone-classified refusal on /embeddings only counts against
+// a model the catalog says produces embeddings (see modalityRulesOutSurface), so
+// a test about embeddings retirement has to describe an embeddings model rather
+// than the "[]" every uncatalogued row carries.
+func newMultimodalEnvWith(t *testing.T, upstreamHandler http.Handler, outputModalities string) *multimodalTestEnv {
+	t.Helper()
 	pool := testDB.Pool()
 	settingsRepo := settings.NewRepository(pool)
 	failoverRepo := failover.NewRepository(pool)
@@ -54,7 +66,7 @@ func newMultimodalEnv(t *testing.T, upstreamHandler http.Handler) *multimodalTes
 	upstream := httptest.NewServer(upstreamHandler)
 	t.Cleanup(upstream.Close)
 
-	providerName, providerID, modelUUID, modelName := createMultimodalProvider(t, upstream.URL)
+	providerName, providerID, modelUUID, modelName := createMultimodalProviderWith(t, upstream.URL, outputModalities)
 
 	virtualKeyName := "mm-key-" + uuid.New().String()[:8]
 	keyHash := virtualkey.Hash(virtualKeyName)
@@ -78,6 +90,13 @@ func newMultimodalEnv(t *testing.T, upstreamHandler http.Handler) *multimodalTes
 // createMultimodalProvider registers a provider pointing at baseURL and one
 // enabled model under it. Returns the generated names/IDs.
 func createMultimodalProvider(t *testing.T, baseURL string) (providerName string, providerID, modelUUID uuid.UUID, modelName string) {
+	t.Helper()
+	return createMultimodalProviderWith(t, baseURL, "[]")
+}
+
+// createMultimodalProviderWith is the same, with the model's declared output
+// modalities under the caller's control.
+func createMultimodalProviderWith(t *testing.T, baseURL, outputModalities string) (providerName string, providerID, modelUUID uuid.UUID, modelName string) {
 	t.Helper()
 	pool := testDB.Pool()
 	providerRepo := provider.NewRepository(pool)
@@ -108,7 +127,7 @@ func createMultimodalProvider(t *testing.T, baseURL string) (providerName string
 		Capabilities:     "{}",
 		Params:           "{}",
 		InputModalities:  "[]",
-		OutputModalities: "[]",
+		OutputModalities: outputModalities,
 		Enabled:          true,
 		ProviderName:     providerName,
 		ProviderEnabled:  true,
@@ -256,12 +275,12 @@ func TestEmbeddings_FailoverStillRecordsTheGoneSignal(t *testing.T) {
 	// NAME: classifyUpstreamError only reads a gone-phrase as a retirement when
 	// the body names the model the request asked for.
 	var goneModelName atomic.Value
-	envGone := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	envGone := newMultimodalEnvWith(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
 		name, _ := goneModelName.Load().(string)
 		_, _ = fmt.Fprintf(w, "{\"error\":{\"message\":\"The model `%s` does not exist\"}}", name)
-	}))
+	}), `["embedding"]`)
 	goneModelName.Store(envGone.modelName)
 
 	goodUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -322,7 +341,7 @@ func TestEmbeddings_ASuccessClearsTheGoneStrikes(t *testing.T) {
 	var goneModelName atomic.Value
 	var refuse atomic.Bool
 	refuse.Store(true)
-	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	env := newMultimodalEnvWith(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if refuse.Load() {
 			w.WriteHeader(http.StatusNotFound)
@@ -331,7 +350,7 @@ func TestEmbeddings_ASuccessClearsTheGoneStrikes(t *testing.T) {
 			return
 		}
 		_, _ = io.WriteString(w, `{"object":"list","data":[{"object":"embedding","embedding":[0.1],"index":0}]}`)
-	}))
+	}), `["embedding"]`)
 	goneModelName.Store(env.modelName)
 
 	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)
@@ -382,7 +401,7 @@ func TestEmbeddings_ADeadBodyDoesNotClearTheGoneStrikes(t *testing.T) {
 	var goneModelName atomic.Value
 	var refuse atomic.Bool
 	refuse.Store(true)
-	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	env := newMultimodalEnvWith(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if refuse.Load() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
@@ -405,7 +424,7 @@ func TestEmbeddings_ADeadBodyDoesNotClearTheGoneStrikes(t *testing.T) {
 		_, _ = buf.WriteString("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 1000\r\n\r\n{\"object\":")
 		_ = buf.Flush()
 		_ = conn.Close()
-	}))
+	}), `["embedding"]`)
 	goneModelName.Store(env.modelName)
 
 	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)
@@ -450,7 +469,7 @@ func TestEmbeddings_AnEmptyResponseDoesNotClearTheGoneStrikes(t *testing.T) {
 	var goneModelName atomic.Value
 	var refuse atomic.Bool
 	refuse.Store(true)
-	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	env := newMultimodalEnvWith(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if refuse.Load() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
@@ -461,7 +480,7 @@ func TestEmbeddings_AnEmptyResponseDoesNotClearTheGoneStrikes(t *testing.T) {
 		// No content type and no body: the pass-through takes its streamed
 		// branch and finds nothing to commit on.
 		w.WriteHeader(http.StatusNoContent)
-	}))
+	}), `["embedding"]`)
 	goneModelName.Store(env.modelName)
 
 	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)

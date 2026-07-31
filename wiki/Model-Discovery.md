@@ -1019,16 +1019,23 @@ How a retirement is reached:
    and each HA member reaches its own conclusion from its own traffic.
 
    Strikes are counted per surface, and a refusal only counts on a surface the
-   model is for. Chat and embeddings keep separate counts, because the probe asks
-   on the surface the strikes came from and the two are different questions. A
-   refusal that contradicts the model's own catalog modality is ignored outright:
-   sending a chat model to `/v1/embeddings` draws a capability error that names
-   the model, which reads exactly like a retirement, and a misconfigured client
-   must not be able to disable a model that serves chat perfectly. A model whose
-   catalog entry declares no modality is not second-guessed, so nothing is
-   switched off for entries that predate the modality columns. A success clears
-   every surface, because it is evidence about the model rather than about one
-   endpoint.
+   model is known to serve. Chat and embeddings keep separate counts, because the
+   probe asks on the surface the strikes came from and the two are different
+   questions. Sending a chat model to `/v1/embeddings` draws a capability error
+   that names the model, which reads exactly like a retirement, and a
+   misconfigured client must not be able to disable a model that serves chat
+   perfectly.
+
+   The two surfaces treat a silent catalog differently, on purpose. A refusal on
+   `/v1/embeddings` only counts when the model's `output_modalities` say it
+   produces embeddings, so an embeddings model whose catalog entry declares
+   nothing is never auto-retired. A refusal on chat counts unless the entry says
+   the model produces embeddings and nothing else. Chat is what most models are
+   and where most refusals arrive, so requiring a declared modality there would
+   switch traffic-driven retirement off for every uncatalogued model at once,
+   while guessing wrong on embeddings retires a working chat model everywhere. A
+   success clears every surface, because it is evidence about the model rather
+   than about one endpoint.
 2. **Adjudication.** At the threshold the gateway sends a real, minimal request
    to the model itself (a 64-token chat completion, or a one-input embedding),
    off the request path. Content coming back means the model works: the strike

@@ -160,34 +160,49 @@ type goneStreakKey struct {
 // streaks on every surface, so it enumerates them rather than scanning the map.
 var goneProbeSurfaces = [...]string{probeChatEndpoint, probeEmbeddingsEndpoint}
 
-// modalityContradictsSurface reports whether the model's own catalog metadata
-// says it is not for this upstream surface.
+// modalityRulesOutSurface reports whether a gone-classified refusal that arrived
+// on this upstream surface may count against the model at all.
 //
-// Positive evidence of a mismatch only. An empty, unparseable or unrecognised
-// modality list is not a contradiction: rows predating the modality columns and
-// providers that report nothing must keep the retirement they have today, and
-// the alternative — treating "we cannot tell" as "do not retire" — would switch
-// auto-retirement off silently for whole catalogs. What it catches is the case
-// the catalog is explicit about: a text model refused on /embeddings, or an
-// embedding-only model refused on /chat/completions.
+// The two surfaces answer to different burdens of proof, and the asymmetry is
+// the point rather than an inconsistency. What is at stake is the same in both
+// cases — the disable is model-wide, so a strike drawn on the wrong surface can
+// take a working model out of routing everywhere — but the cost of guessing is
+// not.
+//
+// The embeddings surface requires POSITIVE evidence: the catalog has to say this
+// model produces embeddings. Nothing filters a request by modality on the way
+// in, so `POST /v1/embeddings` naming a chat model is forwarded to the
+// provider's embeddings endpoint, and a provider that answers "gpt-4o is not
+// supported for embeddings" has named the model beside a gone-phrase. The probe
+// cannot rescue it: it asks on the surface the strikes arrived on, so it
+// reproduces the misuse and confirms. Being wrong here retires a live chat model
+// gateway-wide; being cautious only means an embeddings model whose catalog
+// entry declares nothing is never auto-retired — the same trade
+// probeEndpointForFamily already takes for rerank, and it matters because
+// liveModelStub writes "[]" for every model no catalog covers.
+//
+// The chat surface keeps the opposite default, because there the two costs
+// invert. Chat is what most models are and what most refusals arrive on, so
+// demanding a declared modality would switch traffic-driven retirement off for
+// every uncatalogued model at once — silently, and precisely where it does the
+// most work. Only a positively embedding-ONLY model rules the chat surface out.
 //
 // Reading output modalities rather than input: discovery classifies an
 // embeddings model by what it PRODUCES (["embedding"]), which is the only field
 // that separates it from a chat model taking the same text input.
-func modalityContradictsSurface(m *model.Model, probeEndpoint string) bool {
-	if m.OutputModalities == "" || m.OutputModalities == "[]" {
-		return false
-	}
+func modalityRulesOutSurface(m *model.Model, probeEndpoint string) bool {
 	var out []string
-	if json.Unmarshal([]byte(m.OutputModalities), &out) != nil || len(out) == 0 {
-		return false
+	if m.OutputModalities != "" && m.OutputModalities != "[]" {
+		if json.Unmarshal([]byte(m.OutputModalities), &out) != nil {
+			out = nil
+		}
 	}
 	embeds := slices.Contains(out, "embedding")
 	if probeEndpoint == probeEmbeddingsEndpoint {
 		return !embeds
 	}
-	// The chat surface: only an embedding-ONLY model contradicts it. A model
-	// that produces embeddings alongside text is not evidence of anything.
+	// A model that produces embeddings alongside text says nothing against the
+	// chat surface; only an embedding-only one does.
 	return embeds && len(out) == 1
 }
 
@@ -454,24 +469,15 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 
 	// The second gate: the refusal has to be about a surface this model is FOR.
 	//
-	// Nothing filters a request by modality on the way in. `POST /v1/embeddings`
-	// with a chat model's name is forwarded to the provider's embeddings
-	// endpoint, and a provider that answers "gpt-4o is not supported for
-	// embeddings" has named the model beside a gone-phrase, which
-	// classifyUpstreamError reads as a retirement. Three of those from one
-	// misconfigured client used to nominate the model, and the probe could not
-	// save it: the probe asks on the family the strikes arrived on, so it
-	// reproduces the misuse faithfully, draws the same refusal and confirms a
-	// retirement of a model that serves chat perfectly. The disable is
-	// model-wide, so a surface-specific refusal would take the model out of
-	// routing everywhere.
-	//
 	// This is the same argument as the family gate above, applied to the one
-	// direction that gate cannot see: chat and embeddings are both probeable, so
+	// direction that gate cannot see. Chat and embeddings are both probeable, so
 	// the mismatch is between the model and the surface rather than between the
-	// surface and the probe.
-	if modalityContradictsSurface(m, probeEndpoint) {
-		debuglog.Debug("proxy: ignoring a gone-classified refusal on a surface this model is not for", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "output_modalities", m.OutputModalities)
+	// surface and the probe — and the probe cannot catch it, because it asks on
+	// the surface the strikes arrived on and would reproduce the misuse
+	// faithfully. What each surface demands of the catalog, and why the two
+	// differ, is argued in modalityRulesOutSurface.
+	if modalityRulesOutSurface(m, probeEndpoint) {
+		debuglog.Debug("proxy: ignoring a gone-classified refusal on a surface this model is not known to serve", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "output_modalities", m.OutputModalities)
 		return
 	}
 
@@ -613,11 +619,10 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			// tombstone. There is nothing here for the tombstone to stand down:
 			// the only disable this streak can have queued is this goroutine,
 			// which is about to return.
-			// The streak's own count, for the reason the disable line below gives:
-			// under claimProbe the number that bought this probe is not always
-			// three. Read before the park, so it is the count that nominated the
-			// model rather than the zero it is about to become.
-			debuglog.Warn("proxy: not auto-disabling, the model answered a direct probe after being reported gone", "model", modelName, "provider", provider, "endpoint", endpointType, "strikes", streak.count(), "retry_after", goneProbeCooldown.String())
+			// The count that claimed the probe, for the reason the disable line
+			// below gives: under claimProbe the number that bought it is not
+			// always three.
+			debuglog.Warn("proxy: not auto-disabling, the model answered a direct probe after being reported gone", "model", modelName, "provider", provider, "endpoint", endpointType, "strikes", strikes, "retry_after", goneProbeCooldown.String())
 			streak.park()
 			return
 		case probeInconclusive:
@@ -791,7 +796,13 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 		// loop, or on a single refusal that re-claimed a streak parked since the
 		// last cooldown. Reporting the constant would tell every operator the
 		// same story about a decision that was reached differently.
-		strikes := streak.count()
+		//
+		// It is the count this refusal SAW, captured before the probe rather than
+		// read back here. Nothing clears the counter on the retire path, and this
+		// point is up to a probe timeout and a database write later, so reading it
+		// now would report a number inflated by every refusal that arrived while
+		// the decision was being made — which is the opposite of "how was this
+		// decision reached".
 		debuglog.Warn("proxy: auto-disabled retired model", "model", modelName, "provider", provider, "strikes", strikes, "endpoint", endpointType, "probe_verdict", probeRefused.String())
 
 		// Disabling a member does not resize the custom failover groups it

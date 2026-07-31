@@ -690,7 +690,21 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 // returns outcomeFatal.
 func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, hasMoreCandidates bool, responseHeaderMs float64) candidateOutcome {
 	logData := st.logData
-	body, _ := io.ReadAll(resp.Body)
+	// How much of the body is worth holding depends on what happens to it below,
+	// which hasMoreCandidates already decides. Forwarded, it is read whole:
+	// truncating a body on its way to the client would hand them invalid JSON
+	// where the provider sent something complete. Discarded, it is read under the
+	// same cap as the two drain sites, because all that is left to take from it
+	// is a classification and the first 10 000 bytes of request log — and on the
+	// multimodal endpoints the body behind an error status can be an image
+	// payload rather than a sentence.
+	var body []byte
+	if hasMoreCandidates {
+		body, _ = io.ReadAll(resp.Body)
+	} else {
+		body, _ = io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
+		_, _ = io.Copy(io.Discard, resp.Body)
+	}
 	_ = resp.Body.Close()
 	errMsg := util.SanitizeLogBody(string(body), 10000)
 	// Classify for the request log and metrics only — routing is unaffected,

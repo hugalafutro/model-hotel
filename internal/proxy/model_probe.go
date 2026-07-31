@@ -589,6 +589,18 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 		if s, ok := choice.Message.Content.(string); ok && s != "" {
 			return true
 		}
+		// Content is `any` because a provider may answer with content PARTS
+		// rather than a string. Judging only the string shape would call such a
+		// model empty: the probe would return inconclusive on a model that is
+		// demonstrably alive, the streak would never be parked, and every fresh
+		// refusal past the cooldown would buy another upstream request for as
+		// long as the disagreement lasted. Non-empty is the whole test — the
+		// parts are the model's output whatever their shape, and reaching into
+		// them to find a non-empty text field would be judging providers' part
+		// vocabularies from here.
+		if parts, ok := choice.Message.Content.([]any); ok && len(parts) > 0 {
+			return true
+		}
 		if choice.Message.ReasoningContent != "" || choice.Message.Reasoning != "" {
 			return true
 		}

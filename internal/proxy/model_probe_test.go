@@ -497,6 +497,13 @@ func TestProbeDeliveredContent(t *testing.T) {
 		{"reasoning field only", endpointTypeChat, `{"choices":[{"message":{"content":"","reasoning":"thinking"}}]}`, true},
 		{"tool calls only", endpointTypeChat, `{"choices":[{"message":{"content":"","tool_calls":[{"id":"c1","type":"function","function":{"name":"f","arguments":"{}"}}]}}]}`, true},
 		{"completion tokens only", endpointTypeChat, `{"choices":[],"usage":{"completion_tokens":7}}`, true},
+		// Content is `any` on the wire: a provider may answer with content parts
+		// instead of a string. Judging only the string shape calls such a model
+		// empty, and the probe then returns inconclusive on a model that is
+		// demonstrably alive — the streak is never parked, and every fresh
+		// refusal past the cooldown buys another upstream request indefinitely.
+		{"content parts", endpointTypeChat, `{"choices":[{"message":{"content":[{"type":"text","text":"Hi"}]}}]}`, true},
+		{"empty content parts", endpointTypeChat, `{"choices":[{"message":{"content":[]}}]}`, false},
 		{"nothing at all", endpointTypeChat, `{"choices":[]}`, false},
 		{"unparseable", endpointTypeChat, `<html>502 Bad Gateway</html>`, false},
 		{"embedding vector", endpointTypeEmbeddings, `{"data":[{"embedding":[0.5]}]}`, true},

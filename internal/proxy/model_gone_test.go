@@ -1488,14 +1488,18 @@ func TestAttemptCandidate_ATranslationFailureKeepsTheStreak(t *testing.T) {
 }
 
 // TestNoteModelGone_TheRetirementEventReportsTheRealStrikeCount pins that the
-// number an operator reads is the number that happened.
+// number an operator reads is the number the decision was made on.
 //
-// Both the log line and the alert reported goneStrikeThreshold, which was
-// accurate while a retirement could only be triggered by the caller that saw
-// exactly three. claimProbe replaced that gate: the write can equally stand on a
-// streak sitting at thirteen under a client's retry loop, or on a single refusal
-// that re-claimed a streak parked since the last cooldown. A constant would tell
-// every operator the same story about decisions that were reached differently.
+// Both the log line and the alert used to report goneStrikeThreshold, which was
+// accurate only while a retirement could be triggered by the caller that saw
+// exactly three. claimProbe replaced that gate, so a write can equally stand on
+// a single refusal that re-claimed a streak parked since the last cooldown, or
+// on a streak already past the threshold.
+//
+// The sequence below produces three different plausible answers, which is the
+// point of its shape: the constant would say 3, a count read back after the
+// probe and the write would say 14, and the count the claiming refusal actually
+// saw is 4. Only the last one answers "how was this decision reached".
 func TestNoteModelGone_TheRetirementEventReportsTheRealStrikeCount(t *testing.T) {
 	// Not parallel: it subscribes to the process-wide event bus.
 	const extraRefusals = 10
@@ -1506,7 +1510,10 @@ func TestNoteModelGone_TheRetirementEventReportsTheRealStrikeCount(t *testing.T)
 	}
 	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
-	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
+	// Rate limited first, so the first probe establishes nothing and parks the
+	// streak at the threshold instead of retiring on it.
+	srv, script := newGoneScriptedServer(t, http.StatusTooManyRequests, goneRateLimitedAnswer)
+	cand := goneCandidateAt(m, "Google AI Studio (Gemini)", srv.URL)
 
 	ch := events.Subscribe()
 	defer events.Unsubscribe(ch)
@@ -1514,6 +1521,15 @@ func TestNoteModelGone_TheRetirementEventReportsTheRealStrikeCount(t *testing.T)
 	for range goneStrikeThreshold {
 		h.noteModelGone(cand, endpointTypeChat)
 	}
+	waitForProbes(t, script, 1)
+
+	// The incident passes and the model turns out to be genuinely gone. One
+	// refusal now claims the probe, and the count it sees is one past the
+	// threshold — a number no constant could produce.
+	script.answer(http.StatusNotFound, goneRefusalBody(m.ModelID))
+	expireProbeCooldown(t, h, m.ID, probeChatEndpoint)
+	h.noteModelGone(cand, endpointTypeChat)
+
 	select {
 	case <-repo.setEnabledEntered:
 	case <-time.After(2 * time.Second):
@@ -1521,15 +1537,14 @@ func TestNoteModelGone_TheRetirementEventReportsTheRealStrikeCount(t *testing.T)
 	}
 
 	// The client keeps retrying the dead model while the write is held open.
-	// None of these buys a probe (the cooldown is running), but every one of
-	// them is a strike, so the streak is well past the threshold by the time the
-	// retirement is announced.
+	// None of these buys a probe (the cooldown is running again) and none of
+	// them was part of the decision, but every one is a strike.
 	for range extraRefusals {
 		h.noteModelGone(cand, endpointTypeChat)
 	}
 	close(repo.setEnabledGate)
 
-	want := int64(goneStrikeThreshold + extraRefusals)
+	want := int64(goneStrikeThreshold + 1)
 	deadline := time.After(2 * time.Second)
 	for {
 		select {
@@ -1965,10 +1980,19 @@ func TestNoteModelGone_ASurfaceTheModelIsNotForNeverStrikes(t *testing.T) {
 		{"embedding model on embeddings", `["embedding"]`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, true},
 		// A model that produces both is not evidence against either surface.
 		{"multimodal on chat", `["text","embedding"]`, endpointTypeChat, probeChatEndpoint, true},
-		// No metadata is not evidence either: rows predating the modality
-		// columns must keep the retirement they have today.
-		{"unknown modality on embeddings", "", endpointTypeEmbeddings, probeEmbeddingsEndpoint, true},
+		{"multimodal on embeddings", `["text","embedding"]`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, true},
+		// The two surfaces answer to different burdens of proof when the catalog
+		// says nothing, and this is where that shows. liveModelStub writes "[]"
+		// for every model no catalog covers, so failing open on embeddings would
+		// leave the whole misuse case reachable for exactly those rows; failing
+		// closed on chat would switch traffic-driven retirement off for them
+		// altogether.
+		{"unknown modality on embeddings", "", endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
+		{"empty modality on embeddings", "[]", endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
+		{"unparseable modality on embeddings", `{"not":"a list"}`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
+		{"unknown modality on chat", "", endpointTypeChat, probeChatEndpoint, true},
 		{"empty modality on chat", "[]", endpointTypeChat, probeChatEndpoint, true},
+		{"unparseable modality on chat", `{"not":"a list"}`, endpointTypeChat, probeChatEndpoint, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -2008,9 +2032,9 @@ func TestNoteModelGone_SurfacesDoNotPoolTheirStrikes(t *testing.T) {
 
 	repo := &mockModelRepo{}
 	h := newGoneHandler(t, repo)
-	// No declared modality, so neither surface is contradicted and the split is
-	// the only thing keeping the two counters apart.
-	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol"}
+	// A model the catalog says produces both, so neither surface is ruled out
+	// and the split is the only thing keeping the two counters apart.
+	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol", OutputModalities: `["text","embedding"]`}
 	srv, script := newGoneScriptedServer(t, http.StatusNotFound, goneRefusalBody("gpt-5.6-sol"))
 	cand := goneCandidateAt(m, "OpenAI", srv.URL)
 
@@ -2051,7 +2075,7 @@ func TestNoteModelServed_ClearsEverySurface(t *testing.T) {
 
 	repo := &mockModelRepo{}
 	h := newGoneHandler(t, repo)
-	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol"}
+	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol", OutputModalities: `["text","embedding"]`}
 	cand := goneCandidateFor(t, m, "OpenAI")
 
 	h.noteModelGone(cand, endpointTypeChat)
@@ -2098,7 +2122,9 @@ func TestNoteModelGone_EmbeddingsAreProbedOnTheirOwnEndpoint(t *testing.T) {
 
 	repo := &mockModelRepo{}
 	h := newGoneHandler(t, repo)
-	m := &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"}
+	// An embeddings model as the catalog describes one: a refusal on
+	// /embeddings only counts against a model that says it produces embeddings.
+	m := &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small", OutputModalities: `["embedding"]`}
 	srv, script := newGoneScriptedServer(t, http.StatusNotFound, goneRefusalBody("text-embedding-3-small"))
 	cand := goneCandidateAt(m, "OpenAI", srv.URL)
 
