@@ -133,6 +133,11 @@ export interface Api {
             "export * from './x';\n",
             "export { thing } from './x';\n",
             "import './side-effect.css';\n",
+            # No other tell: without `abstract` in the modifier list this reads
+            # as erased and skips the guard entirely.
+            "export abstract class Base {}\n",
+            "using handle = open();\n",
+            "export = Legacy;\n",
         ):
             with self.subTest(src=src):
                 p = self._write("v.ts", src)

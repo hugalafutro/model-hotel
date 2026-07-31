@@ -37,12 +37,20 @@ def is_excluded(path: str) -> bool:
 # WRONG in this direction only means the caller keeps today's behaviour and
 # reruns the full suite, whereas guessing wrong the other way would let an
 # untested change through the gate.
+#
+# The modifiers are listed rather than matched loosely because a missing one is
+# silent: `abstract class` has no other tell, so without it here a file whose
+# only runtime construct were an abstract class would read as erased and skip
+# the guard entirely. `using` and `export =` are here for the same reason. None
+# of the three appears in either frontend today; they are cheap to cover and
+# expensive to notice missing.
 _EMITS_RE = re.compile(
     r"""^\s*(?:
-          (?:export\s+)?(?:declare\s+)?(?:default\s+)?(?:async\s+)?
-              (?:const|let|var|function|class|enum|namespace|module)\b
+          (?:export\s+)?(?:declare\s+)?(?:default\s+)?(?:abstract\s+)?(?:async\s+)?
+              (?:const|let|var|using|function|class|enum|namespace|module)\b
         | export\s+default\b
         | export\s*\*
+        | export\s*=
         | export\s*\{(?!\s*type\b)
         | import\s+['"]
     )""",
