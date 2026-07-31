@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
@@ -74,6 +76,17 @@ func probeCandidateFor(baseURL, modelID string) modelCandidate {
 	}
 }
 
+// newProbeHandler builds a Handler carrying a real shared upstream transport,
+// which is what production has. Most cases use it so the probe is exercised
+// over the same egress machinery real traffic uses rather than over the nil
+// fallback.
+func newProbeHandler(t *testing.T) *Handler {
+	t.Helper()
+	tr := &http.Transport{}
+	t.Cleanup(tr.CloseIdleConnections)
+	return &Handler{upstreamTransport: tr}
+}
+
 // runProbe drives the real helper under the production budget. Deliberately
 // goneProbeTimeout rather than a number picked for the tests: probeModel takes
 // its deadline from the caller, so a case that only passes with more (or less)
@@ -98,7 +111,7 @@ func TestProbeModel_ServedAnswerIsNotARetirement(t *testing.T) {
 	t.Parallel()
 
 	srv, rec := probeServer(t, http.StatusOK, `{"choices":[{"message":{"role":"assistant","content":"Hi"}}]}`)
-	h := &Handler{}
+	h := newProbeHandler(t)
 	candidate := probeCandidateFor(srv.URL, "gemini-2.0-flash")
 
 	if got := runProbe(t, h, candidate, endpointTypeChat); got != probeServed {
@@ -145,7 +158,7 @@ func TestProbeModel_ReasoningModelServedOnUsageAlone(t *testing.T) {
 	t.Parallel()
 
 	srv, _ := probeServer(t, http.StatusOK, `{"choices":[{"message":{"role":"assistant","content":""}}],"usage":{"completion_tokens":12}}`)
-	h := &Handler{}
+	h := newProbeHandler(t)
 
 	if got := runProbe(t, h, probeCandidateFor(srv.URL, "gpt-5.6-sol"), endpointTypeChat); got != probeServed {
 		t.Fatalf("verdict = %s, want served", got)
@@ -160,6 +173,10 @@ func TestProbeModel_EmptyAnswerPostpones(t *testing.T) {
 	t.Parallel()
 
 	srv, _ := probeServer(t, http.StatusOK, `{"choices":[{"message":{"role":"assistant","content":""}}]}`)
+	// Deliberately the ONLY case left on a nil upstreamTransport: it
+	// completes a real round trip, so it pins that the nil guard falls back
+	// to DefaultTransport instead of panicking on a nil *http.Transport
+	// wrapped in a non-nil RoundTripper interface.
 	h := &Handler{}
 
 	if got := runProbe(t, h, probeCandidateFor(srv.URL, "glm-5.2"), endpointTypeChat); got != probeInconclusive {
@@ -173,7 +190,7 @@ func TestProbeModel_RefusalByNameRetires(t *testing.T) {
 	t.Parallel()
 
 	srv, _ := probeServer(t, http.StatusNotFound, "{\"error\":{\"message\":\"The model `gemini-2.0-flash` does not exist\"}}")
-	h := &Handler{}
+	h := newProbeHandler(t)
 
 	if got := runProbe(t, h, probeCandidateFor(srv.URL, "gemini-2.0-flash"), endpointTypeChat); got != probeRefused {
 		t.Fatalf("verdict = %s, want refused", got)
@@ -187,7 +204,7 @@ func TestProbeModel_RateLimitPostpones(t *testing.T) {
 	t.Parallel()
 
 	srv, _ := probeServer(t, http.StatusTooManyRequests, `{"error":{"message":"Rate limit reached for gemini-2.0-flash"}}`)
-	h := &Handler{}
+	h := newProbeHandler(t)
 
 	if got := runProbe(t, h, probeCandidateFor(srv.URL, "gemini-2.0-flash"), endpointTypeChat); got != probeInconclusive {
 		t.Fatalf("verdict = %s, want inconclusive", got)
@@ -213,7 +230,7 @@ func TestProbeModel_EntitlementFailurePostpones(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			srv, _ := probeServer(t, tc.status, tc.body)
-			h := &Handler{}
+			h := newProbeHandler(t)
 			if got := runProbe(t, h, probeCandidateFor(srv.URL, "glm-4.6"), endpointTypeChat); got != probeInconclusive {
 				t.Fatalf("verdict = %s, want inconclusive", got)
 			}
@@ -251,7 +268,7 @@ func TestProbeModel_DeadlinePostpones(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	h := &Handler{}
+	h := newProbeHandler(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 
@@ -268,7 +285,7 @@ func TestProbeModel_EmbeddingsProbeUsesItsOwnEndpoint(t *testing.T) {
 	t.Parallel()
 
 	srv, rec := probeServer(t, http.StatusOK, `{"data":[{"embedding":[0.1,0.2,0.3]}]}`)
-	h := &Handler{}
+	h := newProbeHandler(t)
 
 	if got := runProbe(t, h, probeCandidateFor(srv.URL, "text-embedding-3-small"), endpointTypeEmbeddings); got != probeServed {
 		t.Fatalf("verdict = %s, want served", got)
@@ -400,12 +417,15 @@ func TestProbeDeliveredContent(t *testing.T) {
 // DialContext, which is how the real one reaches providers too. The hostname
 // still has to be Google's, because that is what DetectProviderType reads to
 // decide a candidate is vertex-express.
-func dialToTestServer(srv *httptest.Server) *http.Transport {
-	return &http.Transport{
+func dialToTestServer(t *testing.T, srv *httptest.Server) *http.Transport {
+	t.Helper()
+	tr := &http.Transport{
 		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
 			return (&net.Dialer{}).DialContext(ctx, network, srv.Listener.Addr().String())
 		},
 	}
+	t.Cleanup(tr.CloseIdleConnections)
+	return tr
 }
 
 // TestProbeModel_VertexExpressProbeSpeaksGemini is why the probe goes through
@@ -418,7 +438,7 @@ func TestProbeModel_VertexExpressProbeSpeaksGemini(t *testing.T) {
 	t.Parallel()
 
 	srv, rec := probeServer(t, http.StatusOK, `{"candidates":[{"content":{"role":"model","parts":[{"text":"Hi"}]},"finishReason":"STOP"}]}`)
-	h := &Handler{upstreamTransport: dialToTestServer(srv)}
+	h := &Handler{upstreamTransport: dialToTestServer(t, srv)}
 	candidate := probeCandidateFor("http://us-central1-aiplatform.googleapis.com/v1", "gemini-2.0-flash")
 
 	if got := runProbe(t, h, candidate, endpointTypeChat); got != probeServed {
@@ -441,7 +461,7 @@ func TestProbeModel_UntranslatableDialectAnswerPostpones(t *testing.T) {
 	t.Parallel()
 
 	srv, _ := probeServer(t, http.StatusOK, `<html>502 Bad Gateway</html>`)
-	h := &Handler{upstreamTransport: dialToTestServer(srv)}
+	h := &Handler{upstreamTransport: dialToTestServer(t, srv)}
 	candidate := probeCandidateFor("http://us-central1-aiplatform.googleapis.com/v1", "gemini-2.0-flash")
 
 	if got := runProbe(t, h, candidate, endpointTypeChat); got != probeInconclusive {
@@ -480,11 +500,85 @@ func TestProbeModel_RedirectGuardAppliesToTheProbe(t *testing.T) {
 	}))
 	t.Cleanup(redirector.Close)
 
-	h := &Handler{safeDialer: NewSafeDialer(nil, nil)}
+	h := newProbeHandler(t)
+	h.safeDialer = NewSafeDialer(nil, nil)
 	if got := runProbe(t, h, probeCandidateFor(redirector.URL, "gemini-2.0-flash"), endpointTypeChat); got != probeInconclusive {
 		t.Fatalf("verdict = %s, want inconclusive", got)
 	}
 	if _, _, _, called := targetRec.snapshot(); called != 0 {
 		t.Fatalf("the redirect target was called %d times, want none", called)
+	}
+}
+
+// TestProbeModel_LearnedParamRenameIsApplied is the invariant that justifies
+// going through buildCandidateRequest at all: the probe must not be able to
+// fail where real traffic succeeds.
+//
+// OpenAI's reasoning models reject max_tokens and demand
+// max_completion_tokens, which the gateway learns from a 400 and caches. Real
+// traffic to such a model always carries that rename, because every request
+// goes through paramrewrite.BuildUpstreamBody. A probe that skipped it would
+// send the exact parameter the model rejects, collect a 400, classify it as
+// not-a-retirement and postpone forever — permanently unable to CLEAR the
+// reasoning family the 64-token budget was chosen for.
+func TestProbeModel_LearnedParamRenameIsApplied(t *testing.T) {
+	t.Parallel()
+
+	srv, rec := probeServer(t, http.StatusOK, `{"choices":[{"message":{"content":"Hi"}}]}`)
+	h := newProbeHandler(t)
+	// Seeded through the production writer, keyed exactly as
+	// BuildUpstreamBody keys it: "<provider type>:<resolved model id>". An
+	// httptest URL detects as the openai provider type.
+	paramrewrite.MergeLearnedParamCache(&h.paramRenameCache, "openai:gpt-5.6-sol", map[string]string{
+		"max_tokens": "max_completion_tokens",
+	})
+
+	if got := runProbe(t, h, probeCandidateFor(srv.URL, "gpt-5.6-sol"), endpointTypeChat); got != probeServed {
+		t.Fatalf("verdict = %s, want served", got)
+	}
+
+	_, _, body, _ := rec.snapshot()
+	var sent map[string]any
+	if err := json.Unmarshal(body, &sent); err != nil {
+		t.Fatalf("probe body is not JSON: %v", err)
+	}
+	if _, stillThere := sent["max_tokens"]; stillThere {
+		t.Errorf("probe sent max_tokens, which this model rejects: %s", body)
+	}
+	budget, renamed := sent["max_completion_tokens"]
+	if !renamed {
+		t.Fatalf("probe body carried no max_completion_tokens: %s", body)
+	}
+	if budget != float64(goneProbeMaxTokens) {
+		t.Errorf("renamed budget = %v, want %d", budget, goneProbeMaxTokens)
+	}
+	if sent["model"] != "gpt-5.6-sol" {
+		t.Errorf("probe asked for %v, want the candidate's upstream model id", sent["model"])
+	}
+}
+
+// TestProbeModel_TruncatedRefusalPostpones pins the one place a discarded read
+// error could RETIRE a model. The provider declares more body than it delivers
+// and the connection dies mid-answer; the surviving prefix happens to name the
+// model beside a gone-phrase, so classifying it would read exactly like a real
+// refusal. A body that could not be read to the end is not the provider saying
+// anything.
+func TestProbeModel_TruncatedRefusalPostpones(t *testing.T) {
+	t.Parallel()
+
+	refusal := "{\"error\":{\"message\":\"The model `gemini-2.0-flash` does not exist\"}}"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// Promise far more than is written, then return: the server closes the
+		// connection and the client's read fails with an unexpected EOF.
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Length", strconv.Itoa(len(refusal)*4))
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = io.WriteString(w, refusal)
+	}))
+	t.Cleanup(srv.Close)
+
+	h := newProbeHandler(t)
+	if got := runProbe(t, h, probeCandidateFor(srv.URL, "gemini-2.0-flash"), endpointTypeChat); got != probeInconclusive {
+		t.Fatalf("verdict = %s, want inconclusive", got)
 	}
 }

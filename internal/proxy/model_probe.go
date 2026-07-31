@@ -132,6 +132,21 @@ type probeEmbeddingsRequest struct {
 // and a vertex-express candidate would be probed with an OpenAI body against a
 // path Google does not serve.
 //
+// reqModel is deliberately left EMPTY, and that is load-bearing for the same
+// reason. It is the model the CLIENT asked for, and a probe has no client, so
+// there is no alias to record — but the builder's rewrite gate is
+// `st.reqModel != candidate.model.ModelID || ...` (proxy_failover.go), so
+// naming the upstream model here closes every disjunct and
+// paramrewrite.BuildUpstreamBody never runs. The probe would then skip the
+// learned renames and strips that real traffic to the same candidate gets:
+// an OpenAI reasoning model that has learned max_tokens -> max_completion_tokens
+// would be probed with the very parameter it rejects, answer 400, classify as
+// not-a-retirement and return inconclusive forever. That is the exact inversion
+// this function exists to prevent — the probe failing where real traffic
+// succeeds — and it would land on the reasoning family the 64-token budget was
+// chosen for. Empty opens the gate honestly, and BuildUpstreamBody then writes
+// the resolved id into the body itself.
+//
 // The marshal errors are discarded rather than propagated, and that is a
 // statement about the inputs rather than a shortcut: both payloads are fixed
 // structs of strings and ints, so encoding/json has no failure to report here.
@@ -140,9 +155,11 @@ type probeEmbeddingsRequest struct {
 func newProbeState(candidate modelCandidate, endpointType, endpoint string) *requestState {
 	modelID := candidate.model.ModelID
 	st := &requestState{
-		reqModel: modelID,
 		logData: &requestLogData{
-			modelID:      modelID,
+			modelID: modelID,
+			// The builder logs the provider on its rewrite-check line; without
+			// this every probe would report an empty one.
+			providerName: candidate.provider.Name,
 			endpointType: endpointType,
 		},
 	}
@@ -264,7 +281,16 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 // no status-code shortcut around the classifier here — a bare "404 means gone"
 // would retire every model behind a misconfigured base URL.
 func judgeProbeFailure(resp *http.Response, candidate modelCandidate, endpointType string) probeVerdict {
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		// The one place in this file where a discarded read error could RETIRE
+		// a model: a truncated body whose surviving prefix happens to name the
+		// model beside a gone-phrase classifies exactly like a real refusal.
+		// A body we could not finish reading is not the provider saying
+		// anything, so it postpones like every other unproven case.
+		debuglog.Debug("proxy: retirement probe could not read the provider's answer", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "status", resp.StatusCode, "verdict", probeInconclusive.String(), "error", err)
+		return probeInconclusive
+	}
 	kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(body), 10000), candidate.model.ModelID)
 
 	verdict := probeInconclusive
@@ -273,7 +299,7 @@ func judgeProbeFailure(resp *http.Response, candidate modelCandidate, endpointTy
 	}
 	// Never the body, never the key: this is a provider response and the
 	// no-content rule applies to it exactly as it does on the request path.
-	debuglog.Debug("proxy: retirement probe refused", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "status", resp.StatusCode, "error_kind", string(kind), "verdict", verdict.String())
+	debuglog.Debug("proxy: retirement probe drew an error status", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "status", resp.StatusCode, "error_kind", string(kind), "verdict", verdict.String())
 	return verdict
 }
 
@@ -289,7 +315,7 @@ func judgeProbeSuccess(resp *http.Response, st *requestState, candidate modelCan
 	// for the same reason attemptCandidate does: everything downstream judges
 	// the chat-completions shape. An answer that cannot be translated is not a
 	// refusal, so it postpones like every other unreadable result.
-	if err := translateProbeDialect(resp, st); err != nil {
+	if err := translateProbeDialect(resp, st, candidate.model.ModelID); err != nil {
 		debuglog.Debug("proxy: retirement probe could not read the provider's dialect", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "error", err)
 		return probeInconclusive
 	}
@@ -317,12 +343,16 @@ func judgeProbeSuccess(resp *http.Response, st *requestState, candidate modelCan
 // by anything here. If the re-route rules widen, a probe that skipped the
 // translation would read a Responses object as an empty chat completion and
 // postpone every retirement for those models forever, silently.
-func translateProbeDialect(resp *http.Response, st *requestState) error {
+func translateProbeDialect(resp *http.Response, st *requestState, modelID string) error {
+	// The upstream model id, NOT st.reqModel: the served path passes the name
+	// the client asked for, and a probe has no client (st.reqModel is empty by
+	// design, see newProbeState). The synthesized response is named after the
+	// model actually asked for, which is the only name this request ever had.
 	switch {
 	case st.responsesAttempt:
-		return translateResponsesResponseBody(resp, st.reqModel)
+		return translateResponsesResponseBody(resp, modelID)
 	case st.geminiAttempt:
-		return translateGeminiResponseBody(resp, st.reqModel)
+		return translateGeminiResponseBody(resp, modelID)
 	default:
 		return nil
 	}
