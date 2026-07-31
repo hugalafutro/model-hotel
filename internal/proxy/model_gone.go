@@ -16,7 +16,13 @@ import (
 
 // goneStrikeThreshold is how many consecutive KindProviderModelGone responses a
 // model must draw, with no successful request in between, before the gateway
-// disables it.
+// PROBES it.
+//
+// It is no longer the retirement bar. What disables a model is probeModel
+// refusing it on a request the gateway makes itself (see noteModelGone); the
+// strikes decide only that the question is worth one upstream call. Reading
+// this as the retirement bar is the mistake to avoid: three strikes on their
+// own now disable nothing.
 //
 // Why traffic and not discovery: a provider listing is not a promise. Google
 // kept gemini-2.0-flash in /models for two months after shutting it down,
@@ -24,13 +30,17 @@ import (
 // hy3-preview and refuses it. RecordMissingModels can only act when a model
 // leaves the listing, so none of those were ever going to be caught by
 // discovery. The only source that knows a model is dead is a real request to
-// it, which is exactly what classifyUpstreamError now labels.
+// it, which is exactly what classifyUpstreamError labels.
 //
 // Three rather than the discovery sweep's two: a scan is a deliberate, spaced
 // observation, whereas requests can arrive in a burst during a provider
 // incident. Requiring three consecutive refusals with no success in between
 // keeps a brief upstream wobble that happens to match a gone-pattern from
-// retiring a live model.
+// spending a probe on a live model — and, before the probe existed, from
+// retiring one outright. The probe has since taken over the second job, which
+// is why three is now a cost control rather than the last line of defence, and
+// why it has not been raised: a wrong nomination costs one cheap request, and
+// the probe throws it out.
 const goneStrikeThreshold = 3
 
 // goneStrikeWindow is how long a strike stays part of the streak it belongs to.
@@ -189,8 +199,17 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// chat traffic and image traffic must not have its chat streak — the one
 	// that CAN retire it — topped up by image refusals nothing will ever
 	// adjudicate.
+	//
+	// Debug rather than Info, and that is a consequence of returning before the
+	// strike rather than a preference. Nothing throttles this line: no counter
+	// is kept, so there is no threshold to cross and nothing ever goes quiet. A
+	// genuinely retired image or TTS model used to log twice, reach the
+	// threshold, be disabled and stop; it now logs once per refused request for
+	// as long as traffic keeps arriving, precisely BECAUSE it is never retired
+	// to make it stop. At Info that is an unbounded line in every operator's log
+	// for a condition that is by design permanent.
 	if _, ok := probeEndpointForFamily(endpointType); !ok {
-		debuglog.Info("proxy: provider reports model gone on an endpoint family that cannot be probed, so it is never auto-retired", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType)
+		debuglog.Debug("proxy: provider reports model gone on an endpoint family that cannot be probed, so it is never auto-retired", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType)
 		return
 	}
 
@@ -313,6 +332,18 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			// The provider refused the model by name to a request the gateway
 			// made itself. That is the fourth independent piece of evidence and
 			// the one the disable is actually written on; fall through.
+		default:
+			// Unreachable while probeVerdict has three values, and present
+			// because the cost of the two outcomes is not symmetric. Go does not
+			// check switch exhaustiveness and no linter here does either, so a
+			// fourth verdict added later would silently fall out of this switch
+			// and into the write below — the one direction the probe is not
+			// allowed to take, since it may only ever PREVENT a disable. Failing
+			// closed means a new verdict postpones until someone decides
+			// otherwise, which is the same answer this file gives to every other
+			// case it cannot substantiate.
+			debuglog.Warn("proxy: postponing auto-disable, unrecognised retirement probe verdict", "model", modelName, "provider", provider, "endpoint", endpointType, "verdict", verdict.String())
+			return
 		}
 
 		// Staged, not written outright. confirm runs with the row already

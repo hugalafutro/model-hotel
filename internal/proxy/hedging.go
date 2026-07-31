@@ -91,6 +91,15 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		// probe a private throwaway logData so they never overlap. (A plain
 		// *st.logData copy is impossible: requestLogData embeds a sync.WaitGroup.
 		// The orchestrator keeps using the real st for all terminal logging.)
+		//
+		// Constraint on future edits: this throwaway must never reach
+		// noteStreamOutcome. It carries no endpointType, and an empty endpoint
+		// family switches auto-retirement off silently — noteModelGone's family
+		// gate rejects it BEFORE recording a strike, and says so only at Debug, so
+		// hedged streams would quietly stop retiring dead models with nothing in
+		// the logs to show for it. serveHedgeWinner deliberately re-binds logData
+		// to the real, ingest-stamped st.logData before it judges the model; keep
+		// it that way.
 		snap.logData = &requestLogData{modelID: st.logData.modelID, providerName: candidates[idx].provider.Name}
 		go func() {
 			results <- probeOne(ctx, &snap, candidates[idx], idx, ttftTimeout, stallTimeout)

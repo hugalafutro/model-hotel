@@ -422,7 +422,12 @@ func TestNoteModelGone_CapabilityRefusalsNeverDisable(t *testing.T) {
 	repo := &mockModelRepo{}
 	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol"}
-	cand := goneCandidateFor(t, m, "OpenAI")
+	// Deliberately NOT goneCandidateFor: the classifier never returns
+	// KindProviderModelGone for these bodies, so noteModelGone is never reached
+	// and no probe is ever sent. A listener here would be dead weight, and worse,
+	// it would read as though the provider had a say in the outcome. What this
+	// test pins is that the classifier alone declines to nominate the model.
+	cand := modelCandidate{model: m, provider: &provider.Provider{ID: uuid.New(), Name: "OpenAI"}}
 
 	// Well past the threshold, cycling through every refusal shape.
 	for i := range goneStrikeThreshold * 3 {
