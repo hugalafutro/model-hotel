@@ -153,7 +153,7 @@ func TestEvaluateClaimAgeAlert_FiresOnceOnCrossing(t *testing.T) {
 	if !ok || len(worst) != 2 {
 		t.Fatalf("worst_providers = %#v, want 2 entries", ev.Metadata["worst_providers"])
 	}
-	if worst[0]["provider"] != "NanoGPT" || worst[0]["gone"] != 2 {
+	if worst[0]["provider"] != "NanoGPT" || worst[0]["counted"] != 2 {
 		t.Errorf("worst_providers[0] = %#v, want the provider with the most claims first", worst[0])
 	}
 	// No model identifiers anywhere in the payload: the alert names counts and
@@ -432,7 +432,7 @@ func TestEvaluateClaimAgeAlert_NamesAtMostThreeWorstProviders(t *testing.T) {
 	wantNames := []string{"Delta", "Charlie", "Bravo"}
 	wantCounts := []int{4, 3, 2}
 	for i := range worst {
-		if worst[i]["provider"] != wantNames[i] || worst[i]["gone"] != wantCounts[i] {
+		if worst[i]["provider"] != wantNames[i] || worst[i]["counted"] != wantCounts[i] {
 			t.Errorf("worst_providers[%d] = %#v, want %s (%d)", i, worst[i], wantNames[i], wantCounts[i])
 		}
 	}
@@ -494,7 +494,7 @@ func TestEvaluateClaimAgeAlert_NamesProvidersWithOnlyRetiredModels(t *testing.T)
 	}
 	named := map[string]any{}
 	for _, entry := range worst {
-		named[entry["provider"].(string)] = entry["gone"]
+		named[entry["provider"].(string)] = entry["counted"]
 	}
 	if named["Retiring"] != 3 {
 		t.Errorf("a provider whose claims are all retirements must be named with its count, got %#v", worst)

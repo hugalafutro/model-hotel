@@ -362,10 +362,15 @@ func EvaluateClaimAgeAlert(ctx context.Context, pool *pgxpool.Pool, store Settin
 
 // worstProviderMetadata renders the worst-offender list as structured metadata
 // for SSE consumers.
+//
+// The count is keyed "counted", not "gone". It has always been the number of
+// claims counted towards the badge, and once retirements began counting too, a
+// key called "gone" could report {"provider": "Google", "gone": 3} for a
+// provider with no gone models at all.
 func worstProviderMetadata(s claimAgeSummary) []map[string]any {
 	out := make([]map[string]any, 0, len(s.worstNames))
 	for i, name := range s.worstNames {
-		out = append(out, map[string]any{"provider": name, "gone": s.worstCounts[i]})
+		out = append(out, map[string]any{"provider": name, "counted": s.worstCounts[i]})
 	}
 	return out
 }

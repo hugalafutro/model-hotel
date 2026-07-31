@@ -1057,6 +1057,7 @@ describe("ModelDiscrepancyModal", () => {
 					onDismissEverything={onDismissEverything}
 					providers={[
 						prov({
+							retired: [claimOf("r1", "pending", "retired")],
 							gone: [claimOf("g1", "pending")],
 							stale: [claimOf("s1", "pending", "stale")],
 							suspect: [claimOf("q1", "pending", "suspect")],
@@ -1065,6 +1066,16 @@ describe("ModelDiscrepancyModal", () => {
 							provider_id: "p2",
 							provider_name: "OpenRouter",
 							gone: [claimOf("g2", "pending")],
+						}),
+						// A provider whose ONLY claims are retirements. If the batch
+						// skipped retired rows this one would produce an empty batch,
+						// be dropped by the filter, and the modal-wide button would
+						// never account for it — while its own pill still offers
+						// Dismiss all, which is the inconsistency this guards.
+						prov({
+							provider_id: "p3",
+							provider_name: "Google",
+							retired: [claimOf("r2", "pending", "retired")],
 						}),
 					]}
 				/>,
@@ -1079,8 +1090,9 @@ describe("ModelDiscrepancyModal", () => {
 			// Suspect is excluded here for the same reason as on the pill: the server
 			// refuses a still-enabled model.
 			expect(onDismissEverything).toHaveBeenCalledWith([
-				{ providerID: "p1", modelIDs: ["g1", "s1"] },
+				{ providerID: "p1", modelIDs: ["r1", "g1", "s1"] },
 				{ providerID: "p2", modelIDs: ["g2"] },
+				{ providerID: "p3", modelIDs: ["r2"] },
 			]);
 		});
 

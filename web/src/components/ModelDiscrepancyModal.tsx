@@ -841,7 +841,14 @@ export function ModelDiscrepancyModal({
 	const everythingDismissable = visibleProviders
 		.map((p) => ({
 			providerID: p.provider_id,
-			modelIDs: (["gone", "stale"] as const).flatMap((g) =>
+			// Same buckets as the per-provider Dismiss all above, and in the same
+			// order. They have to agree: if this list is narrower, the confirm
+			// dialog undercounts what it is about to clear, the rows it missed
+			// come back on the next refresh looking like a failed dismissal, and
+			// a provider whose claims are ALL in a missing bucket produces an
+			// empty batch that the filter below drops, so the button never
+			// appears at all.
+			modelIDs: (["retired", "gone", "stale"] as const).flatMap((g) =>
 				actionableIn(p, g).map((c) => c.model_id),
 			),
 		}))

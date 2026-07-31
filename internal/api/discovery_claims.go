@@ -229,7 +229,8 @@ func flapCounts(ctx context.Context, pool *pgxpool.Pool, since time.Time) (map[f
 }
 
 // buildProviderClaims classifies rows and groups them by provider, returning
-// the groups in display order and the badge count (Gone only).
+// the groups in display order and the badge count (see countedClaims: Gone and
+// Retired, never Stale or Suspect).
 //
 // Auto-dismiss is applied here as a predicate rather than by stamping a column:
 // nothing is written, so aged-out stays distinguishable from operator-dismissed,
