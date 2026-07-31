@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -134,7 +135,18 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			input_price_per_million_cache_hit = CASE WHEN $22 THEN COALESCE(EXCLUDED.input_price_per_million_cache_hit, models.input_price_per_million_cache_hit) ELSE COALESCE(models.input_price_per_million_cache_hit, EXCLUDED.input_price_per_million_cache_hit) END,
 			output_price_per_million = CASE WHEN $23 THEN COALESCE(EXCLUDED.output_price_per_million, models.output_price_per_million) ELSE COALESCE(models.output_price_per_million, EXCLUDED.output_price_per_million) END,
 			owned_by = EXCLUDED.owned_by,
-			enabled = CASE WHEN models.disabled_manually = false THEN true ELSE models.enabled END,
+			-- A sighting re-enables a model that discovery disabled for going
+			-- missing, because reappearing in the listing is genuine new
+			-- evidence there. It must NOT re-enable one the proxy retired from
+			-- traffic: that model never left the listing, the provider was
+			-- refusing it while still advertising it, so a sighting says
+			-- nothing new. Reviving it would put it back into routing to fail,
+			-- re-alert and churn failover groups on every scan. Only an
+			-- operator clears auto_retired_at (migration 063).
+			enabled = CASE
+				WHEN models.disabled_manually = false AND models.auto_retired_at IS NULL THEN true
+				ELSE models.enabled
+			END,
 			-- Any sighting resets the consecutive-miss streak used by
 			-- RecordMissingModels, so a model that reappears (even via a manual
 			-- re-test between scheduled scans) starts over from zero misses.
@@ -417,9 +429,12 @@ func (r *Repository) RecordMissingModels(ctx context.Context, providerID uuid.UU
 	return disabled, pending, nil
 }
 
-// SetEnabled enables or disables a model by its UUID.
+// SetEnabled enables or disables a model by its UUID. This is the OPERATOR
+// path: it records the choice in disabled_manually and clears any traffic
+// retirement, since a hand-written enabled flag supersedes what the gateway
+// concluded on its own (migration 063).
 func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*Model, error) {
-	query := `UPDATE models SET enabled = $1, disabled_manually = NOT $1 WHERE id = $2`
+	query := `UPDATE models SET enabled = $1, disabled_manually = NOT $1, auto_retired_at = NULL WHERE id = $2`
 	_, err := r.pool.Exec(ctx, query, enabled, id)
 	if err != nil {
 		debuglog.Error("model: set enabled failed", "id", id, "enabled", enabled, "error", err)
@@ -427,6 +442,126 @@ func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool)
 	}
 	InvalidateModelCache()
 	return r.Get(ctx, id)
+}
+
+// AutoRetireIfConfirmed disables a model the proxy has concluded the provider no
+// longer serves, staging the write inside a transaction and committing it only
+// if confirm still holds once the row is written. It reports whether the change
+// was committed.
+//
+// Staging exists because the justification can expire while the write is being
+// made: the model can answer a request — proving the decision wrong — mid-write.
+// Deciding, writing, then undoing would work on the model row alone, but the
+// undo is not enough, because the disabled state is VISIBLE to other sessions in
+// between. A concurrent custom-group revalidation that samples it will
+// auto-disable the group for having too few routable members, and nothing
+// re-enables that group when the model comes back. Staging removes the
+// intermediate state rather than correcting it: an abandoned write is never
+// committed, so nothing can derive state from it.
+//
+// It stamps auto_retired_at instead of disabled_manually, which keeps this
+// distinct from both an operator's disable and discovery's. See migration 063
+// for why all three have to be told apart; the short version is that a
+// re-sighting must not revive this model, because the provider was refusing it
+// while still listing it.
+//
+// The write is conditional on the row still being a routable, untouched model.
+// What it cannot see is evidence that predates an operator's action: strikes
+// gathered before they enabled the model still read as a routable model here.
+// That resolves itself rather than needing to be detected — if the model really
+// is gone it refuses three more requests and is retired again, with a fresh
+// alert, which is the correct answer to an operator enabling a dead model.
+//
+// confirm runs with the row already written and locked, so keep it to an
+// in-memory check — anything slow holds a row lock for its duration.
+func (r *Repository) AutoRetireIfConfirmed(ctx context.Context, id uuid.UUID, confirm func() bool) (bool, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		debuglog.Error("model: auto-retire begin failed", "id", id, "error", err)
+		return false, err
+	}
+	// Safe on both paths: Rollback after a successful Commit is a no-op.
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Lock the row and check it still looks like the model the evidence was
+	// gathered against, before writing anything.
+	//
+	// The decision is made on the request path and executed here, so the row can
+	// have moved on in between — an operator disabling it by hand, an operator
+	// re-enabling it after an earlier retirement, another member of the fleet
+	// retiring it first. Writing by id alone would overwrite whatever they did
+	// with a conclusion drawn from traffic that predates it.
+	//
+	// FOR UPDATE is what makes the check worth making: it holds the row from
+	// here until the transaction ends, so no operator write can slip between the
+	// check and the commit. Combined with the staging below, the entire decision
+	// is atomic with respect to everything else touching this model.
+	var enabled, manual bool
+	var retiredAt *time.Time
+	switch err := tx.QueryRow(ctx,
+		`SELECT enabled, disabled_manually, auto_retired_at FROM models WHERE id = $1 FOR UPDATE`,
+		id).Scan(&enabled, &manual, &retiredAt); {
+	case errors.Is(err, pgx.ErrNoRows):
+		// Deleted since the decision. Nothing to retire, and not an error.
+		return false, nil
+	case err != nil:
+		debuglog.Error("model: auto-retire state read failed", "id", id, "error", err)
+		return false, err
+	}
+	if !enabled || manual || retiredAt != nil {
+		debuglog.Info("model: skipping auto-retire, the model's state changed since the decision",
+			"id", id, "enabled", enabled, "disabled_manually", manual, "already_retired", retiredAt != nil)
+		return false, nil
+	}
+
+	query := `UPDATE models SET enabled = false, auto_retired_at = now() WHERE id = $1`
+	if _, err := tx.Exec(ctx, query, id); err != nil {
+		debuglog.Error("model: auto-retire failed", "id", id, "error", err)
+		return false, err
+	}
+
+	if !confirm() {
+		// The deferred rollback discards the write. Nothing else ever saw it,
+		// so there is no cache to invalidate and nothing to undo.
+		return false, nil
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		debuglog.Error("model: auto-retire commit failed", "id", id, "error", err)
+		return false, err
+	}
+	InvalidateModelCache()
+	return true, nil
+}
+
+// RevertAutoRetire undoes a traffic retirement this gateway wrote, and reports
+// whether it actually undid one.
+//
+// Conditional on the row still being exactly as the retirement left it. The undo
+// runs after the disable has committed, so anything can have happened in
+// between — and the case that matters is an operator disabling the model by hand
+// in that window. An unconditional re-enable would silently return their
+// disabled model to routing, overwriting a deliberate decision with a stale
+// one. The predicate also covers the model having been re-enabled already, and
+// the retirement having been cleared by an operator, both of which mean there is
+// nothing here to revert.
+func (r *Repository) RevertAutoRetire(ctx context.Context, id uuid.UUID) (bool, error) {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE models
+		   SET enabled = true, auto_retired_at = NULL
+		 WHERE id = $1
+		   AND enabled = false
+		   AND disabled_manually = false
+		   AND auto_retired_at IS NOT NULL`, id)
+	if err != nil {
+		debuglog.Error("model: revert auto-retire failed", "id", id, "error", err)
+		return false, err
+	}
+	if tag.RowsAffected() == 0 {
+		return false, nil
+	}
+	InvalidateModelCache()
+	return true, nil
 }
 
 // DeleteByID removes a model by its UUID.
@@ -513,6 +648,8 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 		argIdx++
 		setClauses = append(setClauses, fmt.Sprintf("disabled_manually = $%d", argIdx))
 		args = append(args, !*req.Enabled)
+		// Operator intent supersedes a traffic retirement, same as SetEnabled.
+		setClauses = append(setClauses, "auto_retired_at = NULL")
 	}
 
 	if len(setClauses) == 0 {

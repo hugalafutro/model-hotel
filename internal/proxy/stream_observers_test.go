@@ -148,3 +148,58 @@ func TestCaptureSSEError(t *testing.T) {
 		}
 	})
 }
+
+// TestObserveDataChunk_RecordsThatContentFlowed pins the signal the retirement
+// verdict relies on to decide that a stream actually answered.
+//
+// It exists because the two signals that used to stand in for it are both
+// optional: a provider can omit the usage chunk, and the TTFT probe can be
+// switched off. With only those, a provider streaming a perfectly good answer on
+// a gateway with the probe disabled reads as having produced nothing, the
+// success fails to clear the strike streak, and later refusals retire a model
+// whose failures were never consecutive.
+func TestObserveDataChunk_RecordsThatContentFlowed(t *testing.T) {
+	ld := &requestLogData{}
+
+	t.Run("a content delta counts", func(t *testing.T) {
+		st := &streamState{}
+		st.observeDataChunk(parseStreamChunk(t, `{"choices":[{"delta":{"content":"Hello"}}]}`), false, 1, ld)
+		if !st.sawContent {
+			t.Error("a delta carrying text must record that the model answered")
+		}
+	})
+
+	t.Run("a reasoning delta counts", func(t *testing.T) {
+		st := &streamState{}
+		st.observeDataChunk(parseStreamChunk(t, `{"choices":[{"delta":{"reasoning_content":"thinking"}}]}`), false, 1, ld)
+		if !st.sawContent {
+			t.Error("reasoning is still the model producing output")
+		}
+	})
+
+	// The negatives matter as much: crediting these would clear a retirement
+	// streak on the strength of a stream that delivered nothing.
+	t.Run("an empty delta does not count", func(t *testing.T) {
+		st := &streamState{}
+		st.observeDataChunk(parseStreamChunk(t, `{"choices":[{"delta":{"content":""}}]}`), false, 1, ld)
+		if st.sawContent {
+			t.Error("an empty content delta is not output")
+		}
+	})
+
+	t.Run("a role-only opening delta does not count", func(t *testing.T) {
+		st := &streamState{}
+		st.observeDataChunk(parseStreamChunk(t, `{"choices":[{"delta":{"role":"assistant"}}]}`), false, 1, ld)
+		if st.sawContent {
+			t.Error("opening a stream is not answering it")
+		}
+	})
+
+	t.Run("an error chunk does not count", func(t *testing.T) {
+		st := &streamState{}
+		st.observeDataChunk(parseStreamChunk(t, `{"error":{"message":"Model gemini-2.0-flash is no longer available"}}`), false, 1, ld)
+		if st.sawContent {
+			t.Error("a refusal must never read as the model having answered")
+		}
+	})
+}

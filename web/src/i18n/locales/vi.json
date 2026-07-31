@@ -1971,7 +1971,8 @@
 				"failover_sync_error": "Đồng bộ hóa nhóm dự phòng không thành công",
 				"quota_schema_drift": "Nhà cung cấp đã thay đổi cấu trúc phản hồi hạn ngạch",
 				"auth_sso_identity_bound": "Danh tính SSO đã được liên kết với một tài khoản",
-				"discovery_claims_outstanding": "Sai lệch mô hình chưa được xử lý"
+				"discovery_claims_outstanding": "Sai lệch mô hình chưa được xử lý",
+				"model_auto_disabled_gone": "Đã tắt mô hình (nhà cung cấp không còn phục vụ)"
 			},
 			"events": {
 				"all": "Chọn tất cả",

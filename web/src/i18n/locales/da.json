@@ -1971,7 +1971,8 @@
 				"failover_sync_error": "Synkronisering af failover-gruppe mislykkedes",
 				"quota_schema_drift": "Udbyderen ændrede strukturen i sit kvotesvar",
 				"auth_sso_identity_bound": "SSO-identitet knyttet til en konto",
-				"discovery_claims_outstanding": "Modeluoverensstemmelser efterladt uadresseret"
+				"discovery_claims_outstanding": "Modeluoverensstemmelser efterladt uadresseret",
+				"model_auto_disabled_gone": "Model deaktiveret (udbyderen leverer den ikke længere)"
 			},
 			"events": {
 				"all": "Vælg alt",

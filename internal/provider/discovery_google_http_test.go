@@ -429,10 +429,22 @@ func modelIDsOf(models []*model.Model) []string {
 	return ids
 }
 
-func TestDiscoverGoogleAIStudio_WithPricingEnrichment(t *testing.T) {
+// TestDiscoverGoogleAIStudio_WithPricingEnrichment used to assert that a
+// discovered Google model came back priced from google.json. That catalog is
+// now an override channel and is empty, because every row in it merely restated
+// models.dev and a stale duplicate silently overrides correct data (the way
+// xAI's retired models metered 6x wrong). Google pricing therefore arrives from
+// models.dev enrichment, which runs a layer above this function.
+//
+// What is still worth pinning here is that discovery does not INVENT a price:
+// with no override present, the model must come out unpriced and let enrichment
+// fill it, rather than defaulting to a fabricated zero that would meter wrong.
+// LookupGooglePricing itself is covered against a fixture in
+// TestLookupGooglePricing_Fixture.
+func TestDiscoverGoogleAIStudio_WithoutPricingOverride(t *testing.T) {
 	t.Parallel()
 
-	// Create test server with a model that has pricing in catalog
+	// Create test server with a model that has no override entry
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1beta/models" {
 			response := GoogleModelsResponse{
@@ -474,12 +486,44 @@ func TestDiscoverGoogleAIStudio_WithPricingEnrichment(t *testing.T) {
 		t.Fatalf("Expected 1 model, got %d", len(models))
 	}
 
-	// Verify pricing was enriched
-	if models[0].InputPricePerMillion == nil {
-		t.Error("Expected InputPricePerMillion to be set from pricing catalog")
+	// No override for this model, so discovery must leave the price unset for
+	// models.dev to fill rather than fabricating one.
+	if models[0].InputPricePerMillion != nil {
+		t.Errorf("expected no catalog price, got %v", *models[0].InputPricePerMillion)
 	}
-	if models[0].OutputPricePerMillion == nil {
-		t.Error("Expected OutputPricePerMillion to be set from pricing catalog")
+	if models[0].OutputPricePerMillion != nil {
+		t.Errorf("expected no catalog price, got %v", *models[0].OutputPricePerMillion)
+	}
+	// The rest of the live metadata must still be carried through.
+	if models[0].ModelID != "gemini-2.5-flash" {
+		t.Errorf("ModelID = %q", models[0].ModelID)
+	}
+	if models[0].ContextLength == nil || *models[0].ContextLength != 1000000 {
+		t.Error("context length from the live listing should survive")
+	}
+}
+
+// TestLookupGooglePricing_Fixture covers the lookup itself independently of
+// what google.json currently ships, so the override mechanism stays tested even
+// while the catalog is empty.
+func TestLookupGooglePricing_Fixture(t *testing.T) {
+	t.Parallel()
+
+	catalog := []GoogleModelPricing{
+		{ModelID: "models/gemini-3.6-flash", DisplayName: "Gemini 3.6 Flash", InputPricePerMillion: 1.5, OutputPricePerMillion: 7.5},
+	}
+
+	if got := LookupGooglePricing(catalog, "models/gemini-3.6-flash"); got == nil {
+		t.Fatal("expected a hit for a catalogued model")
+	} else if got.InputPricePerMillion != 1.5 {
+		t.Errorf("InputPricePerMillion = %v, want 1.5", got.InputPricePerMillion)
+	}
+
+	if got := LookupGooglePricing(catalog, "models/gemini-2.5-pro"); got != nil {
+		t.Error("expected no hit for a model with no override")
+	}
+	if got := LookupGooglePricing(nil, "models/gemini-3.6-flash"); got != nil {
+		t.Error("empty catalog must return nil, not panic")
 	}
 }
 

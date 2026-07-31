@@ -134,6 +134,14 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 				debuglog.Debug("proxy: thinking/reasoning block started", "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
 			}
 		}
+		if currentContent != "" {
+			// The model produced something. Recorded here, at the only place
+			// that sees content itself, because the retirement verdict needs to
+			// know a stream really answered and cannot learn it from usage
+			// (providers omit the usage chunk) or from TTFT (the probe can be
+			// switched off).
+			st.sawContent = true
+		}
 		if currentContent == st.lastContent && currentContent != "" {
 			st.repeatedCount++
 			if st.repeatedCount == repeatedContentLimit {

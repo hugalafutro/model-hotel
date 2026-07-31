@@ -2171,7 +2171,8 @@
 				"failover_sync_error": "فشلت مزامنة مجموعة التحويل التلقائي",
 				"quota_schema_drift": "غيّر المزود بنية استجابة الحصة",
 				"auth_sso_identity_bound": "تم ربط هوية SSO بحساب",
-				"discovery_claims_outstanding": "تباينات النماذج التي تُركت دون معالجة"
+				"discovery_claims_outstanding": "تباينات النماذج التي تُركت دون معالجة",
+				"model_auto_disabled_gone": "تم تعطيل النموذج (المزود لم يعد يقدمه)"
 			},
 			"events": {
 				"all": "تحديد الكل",

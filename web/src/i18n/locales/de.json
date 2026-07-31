@@ -1971,7 +1971,8 @@
 				"failover_sync_error": "Synchronisierung der Failover-Gruppe fehlgeschlagen",
 				"quota_schema_drift": "Anbieter hat die Struktur seiner Quotenantwort geändert",
 				"auth_sso_identity_bound": "SSO-Identität mit einem Konto verknüpft",
-				"discovery_claims_outstanding": "Modellabweichungen bleiben unbearbeitet"
+				"discovery_claims_outstanding": "Modellabweichungen bleiben unbearbeitet",
+				"model_auto_disabled_gone": "Modell deaktiviert (Anbieter stellt es nicht mehr bereit)"
 			},
 			"events": {
 				"all": "Alles auswählen",

@@ -32,9 +32,13 @@ func TestOpenAIDiscoveryHybrid(t *testing.T) {
 	}
 
 	// Simulate API response with some known and some unknown models
+	// The first two are the overrides openai.json still carries (pro tiers, whose
+	// lack of a cache discount models.dev does not record); the rest exercise the
+	// catalog-miss path, which is now the common case since every row that merely
+	// restated models.dev was dropped.
 	apiModels := []OpenAIModel{
-		{ID: "gpt-5.5", Object: "model", OwnedBy: "system"},
-		{ID: "gpt-5.4", Object: "model", OwnedBy: "system"},
+		{ID: "gpt-5.5-pro", Object: "model", OwnedBy: "system"},
+		{ID: "gpt-5.4-pro", Object: "model", OwnedBy: "system"},
 		{ID: "gpt-5-nano", Object: "model", OwnedBy: "system"},
 		{ID: "some-future-model", Object: "model", OwnedBy: "system"},
 	}
@@ -104,17 +108,25 @@ func TestOpenAIDiscoveryHybrid(t *testing.T) {
 	}
 
 	// Check catalog-matched model has pricing
-	if result[0].InputPricePerMillion == nil || *result[0].InputPricePerMillion != 5.00 {
-		t.Errorf("gpt-5.5 input price wrong: got %v", result[0].InputPricePerMillion)
+	if result[0].InputPricePerMillion == nil || *result[0].InputPricePerMillion != 30.00 {
+		t.Errorf("gpt-5.5-pro input price wrong: got %v", result[0].InputPricePerMillion)
 	}
-	if result[0].DisplayName != "GPT 5.5" {
-		t.Errorf("gpt-5.5 display name wrong: got %s", result[0].DisplayName)
+	if result[0].DisplayName != "GPT 5.5 Pro" {
+		t.Errorf("gpt-5.5-pro display name wrong: got %s", result[0].DisplayName)
 	}
-	if result[0].ContextLength == nil || *result[0].ContextLength != 272000 {
-		t.Errorf("gpt-5.5 context length wrong: got %v", result[0].ContextLength)
+	// 1,050,000 is the real window; 272,000 is only the 2x-pricing threshold,
+	// which this catalog used to store as the context length.
+	if result[0].ContextLength == nil || *result[0].ContextLength != 1050000 {
+		t.Errorf("gpt-5.5-pro context length wrong: got %v", result[0].ContextLength)
 	}
-	if result[0].InputPricePerMillionCacheHit == nil || *result[0].InputPricePerMillionCacheHit != 0.50 {
-		t.Errorf("gpt-5.5 cache hit price wrong: got %v", result[0].InputPricePerMillionCacheHit)
+	if result[0].InputPricePerMillionCacheHit == nil || *result[0].InputPricePerMillionCacheHit != 30.00 {
+		t.Errorf("gpt-5.5-pro cache hit price wrong: got %v", result[0].InputPricePerMillionCacheHit)
+	}
+
+	// gpt-5-nano is no longer catalogued (models.dev covers it), so it takes the
+	// same minimal-stub path as a model we have never heard of.
+	if result[2].InputPricePerMillion != nil {
+		t.Errorf("uncatalogued model should have no catalog price: got %v", result[2].InputPricePerMillion)
 	}
 
 	// Check unknown model gets minimal entry
@@ -129,7 +141,11 @@ func TestOpenAIDiscoveryHybrid(t *testing.T) {
 }
 
 func TestOpenAIDiscoveryWithMockServer(t *testing.T) {
-	apiResponse := `{"object":"list","data":[{"id":"gpt-5.5","object":"model","created":1700000000,"owned_by":"system"},{"id":"unknown-model-xyz","object":"model","created":1700000000,"owned_by":"system"}]}`
+	// gpt-5.5-pro is one of the two rows openai.json still carries: models.dev
+	// has no cache-read price for the pro tiers, so it is a genuine override
+	// rather than a duplicate. Plain gpt-5.5 was removed once its context was
+	// corrected, because the row then only restated models.dev.
+	apiResponse := `{"object":"list","data":[{"id":"gpt-5.5-pro","object":"model","created":1700000000,"owned_by":"system"},{"id":"unknown-model-xyz","object":"model","created":1700000000,"owned_by":"system"}]}`
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
@@ -154,7 +170,7 @@ func TestOpenAIDiscoveryWithMockServer(t *testing.T) {
 		t.Fatalf("discoverOpenAI failed: %v", err)
 	}
 
-	// Backfill-only (no union): the two live models are returned, gpt-5.5
+	// Backfill-only (no union): the two live models are returned, gpt-5.5-pro
 	// enriched from the catalog and unknown-model-xyz left as a minimal stub.
 	if len(models) != 2 {
 		t.Fatalf("expected 2 models, got %d", len(models))
@@ -162,23 +178,28 @@ func TestOpenAIDiscoveryWithMockServer(t *testing.T) {
 
 	// First model should be catalog-matched
 	m1 := models[0]
-	if m1.ModelID != "gpt-5.5" {
-		t.Errorf("expected gpt-5.5, got %s", m1.ModelID)
+	if m1.ModelID != "gpt-5.5-pro" {
+		t.Errorf("expected gpt-5.5-pro, got %s", m1.ModelID)
 	}
-	if m1.DisplayName != "GPT 5.5" {
-		t.Errorf("expected 'GPT 5.5', got '%s'", m1.DisplayName)
+	if m1.DisplayName != "GPT 5.5 Pro" {
+		t.Errorf("expected 'GPT 5.5 Pro', got '%s'", m1.DisplayName)
 	}
-	if m1.InputPricePerMillion == nil || *m1.InputPricePerMillion != 5.00 {
-		t.Errorf("expected input price 5.00, got %v", m1.InputPricePerMillion)
+	if m1.InputPricePerMillion == nil || *m1.InputPricePerMillion != 30.00 {
+		t.Errorf("expected input price 30.00, got %v", m1.InputPricePerMillion)
 	}
-	if m1.OutputPricePerMillion == nil || *m1.OutputPricePerMillion != 30.00 {
-		t.Errorf("expected output price 30.00, got %v", m1.OutputPricePerMillion)
+	if m1.OutputPricePerMillion == nil || *m1.OutputPricePerMillion != 180.00 {
+		t.Errorf("expected output price 180.00, got %v", m1.OutputPricePerMillion)
 	}
-	if m1.InputPricePerMillionCacheHit == nil || *m1.InputPricePerMillionCacheHit != 0.50 {
-		t.Errorf("expected cache hit price 0.50, got %v", m1.InputPricePerMillionCacheHit)
+	// Pro tiers get no cache discount, which is exactly what models.dev does not
+	// record and why this row survives the shrink.
+	if m1.InputPricePerMillionCacheHit == nil || *m1.InputPricePerMillionCacheHit != 30.00 {
+		t.Errorf("expected cache hit price 30.00, got %v", m1.InputPricePerMillionCacheHit)
 	}
-	if m1.ContextLength == nil || *m1.ContextLength != 272000 {
-		t.Errorf("expected context length 272000, got %v", m1.ContextLength)
+	// 1,050,000 is the real context window. 272,000 is only the threshold above
+	// which OpenAI charges 2x input / 1.5x output, and the catalog used to store
+	// it as the context length, under-reporting the window by nearly 4x.
+	if m1.ContextLength == nil || *m1.ContextLength != 1050000 {
+		t.Errorf("expected context length 1050000, got %v", m1.ContextLength)
 	}
 
 	// Check capabilities

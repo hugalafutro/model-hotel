@@ -1971,7 +1971,8 @@
 				"failover_sync_error": "Synkronisering av failover-gruppe mislyktes",
 				"quota_schema_drift": "Leverandøren endret strukturen i kvotesvaret",
 				"auth_sso_identity_bound": "SSO-identitet knyttet til en konto",
-				"discovery_claims_outstanding": "Modellavvik forblir uhåndtert"
+				"discovery_claims_outstanding": "Modellavvik forblir uhåndtert",
+				"model_auto_disabled_gone": "Modell deaktivert (leverandøren tilbyr den ikke lenger)"
 			},
 			"events": {
 				"all": "Velg alt",

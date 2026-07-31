@@ -1971,7 +1971,8 @@
 				"failover_sync_error": "Synchronisatie van de failovergroep is mislukt",
 				"quota_schema_drift": "Provider heeft de structuur van zijn quotarespons gewijzigd",
 				"auth_sso_identity_bound": "SSO-identiteit gekoppeld aan een account",
-				"discovery_claims_outstanding": "Modelafwijkingen blijven onopgelost"
+				"discovery_claims_outstanding": "Modelafwijkingen blijven onopgelost",
+				"model_auto_disabled_gone": "Model uitgeschakeld (provider biedt het niet meer aan)"
 			},
 			"events": {
 				"all": "Alles selecteren",

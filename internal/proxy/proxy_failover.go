@@ -164,8 +164,15 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	debuglog.Debug("proxy: failover decision", "status", resp.StatusCode, "is_failover_eligible", isFailoverEligible, "has_more_candidates", hasMoreCandidates, "should_failover_now", shouldFailoverNow, "attempt", attempt+1)
 
 	if shouldFailoverNow {
-		_, _ = io.ReadAll(resp.Body)
+		drained, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
+		// The body is being discarded anyway, so classify it on the way out.
+		// A retired model usually answers 404, which is failover-eligible, so
+		// without this the "model gone" signal would be lost precisely when
+		// there is another candidate to fall back to.
+		if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(drained), 10000), candidate.model.ModelID); kind == KindProviderModelGone {
+			h.noteModelGone(candidate.model, candidate.provider.Name)
+		}
 		st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
 		debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 		logData.failoverAttempt = attempt
@@ -174,6 +181,14 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 
 	if resp.StatusCode != http.StatusOK {
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
+	}
+
+	// A non-streaming 200 means the model answered, so any gone-strike streak it
+	// had accumulated is stale. Streaming cannot be judged yet: the provider can
+	// send 200 headers and only then report the model gone in an SSE error, so
+	// that verdict is deferred to dispatchStreaming once the stream has ended.
+	if !st.isStreaming {
+		h.noteModelServed(candidate.model)
 	}
 
 	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "native_anthropic", st.anthropicNativeAttempt, "responses_api", st.responsesAttempt, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
@@ -307,6 +322,19 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 	}
 
 	h.handleStreamingResponse(w, r, logData, resp, st.startTime, opts)
+
+	// Judge the model only now. deriveStreamError classifies any in-stream SSE
+	// error into logData.errorKind, so a provider that returns 200 headers and
+	// then reports the model gone mid-stream is caught here rather than being
+	// credited with a success. Without this the streak could never accumulate on
+	// that path: the 200 would have cleared it before the error even arrived.
+	//
+	// The three cases are deliberately distinct. A stream that failed for any
+	// OTHER reason (transient provider error, client disconnect, stall) is not
+	// evidence either way, so it must leave the streak alone: clearing it there
+	// would let a retired model stay routable indefinitely, since its own
+	// failures would keep resetting the count.
+	h.noteStreamOutcome(logData, candidate)
 	return outcomeServed
 }
 
@@ -409,7 +437,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	// Vertex express egress adapter: chat requests to a vertex-express
 	// provider are translated to Gemini generateContent on the way out and
 	// back on the response side (see gemini_egress.go).
-	if isGeminiEgressAttempt(st, providerType) {
+	if isGeminiEgressAttempt(st, providerType, candidate.model.ModelID) {
 		st.geminiAttempt = true
 		return h.buildGeminiRequest(ctx, st, candidate, providerType)
 	}
@@ -609,17 +637,25 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	body, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 	errMsg := util.SanitizeLogBody(string(body), 10000)
-	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
+	// Classify for the request log and metrics only — routing is unaffected,
+	// hasMoreCandidates was already decided from the status code.
+	kind, reason := classifyUpstreamError(resp.StatusCode, errMsg, candidate.model.ModelID)
+	if kind == KindProviderModelGone {
+		h.noteModelGone(candidate.model, candidate.provider.Name)
+	}
+	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
 	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 	logData.responseHeaderMs = responseHeaderMs
-	h.failRequest(logData, resp.StatusCode, KindProviderError, errMsg, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+	h.failRequest(logData, resp.StatusCode, kind, errMsg, attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 
 	if !hasMoreCandidates {
-		// All failover candidates exhausted — return a generic error.
-		// The upstream body is recorded to the DB request log via failRequest
-		// (not the structured server log) and is not forwarded to the client,
-		// as it may contain provider-specific details.
-		writeOpenAIError(w, fmt.Sprintf("upstream provider returned HTTP %d", resp.StatusCode), resp.StatusCode)
+		// All failover candidates exhausted. The upstream body is recorded to the
+		// DB request log via failRequest (not the structured server log) and is
+		// never forwarded to the client, as it may echo the request back. The
+		// caller gets the classified reason instead of a bare status, which is
+		// enough to tell "this model is gone" from "top up your account" from
+		// "try again shortly".
+		writeOpenAIError(w, upstreamClientMessage(candidate.provider.Name, resp.StatusCode, reason), resp.StatusCode)
 		return outcomeFatal
 	}
 

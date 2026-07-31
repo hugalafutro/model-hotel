@@ -283,10 +283,16 @@ func TestHandleNonStreamingResponse_InvalidJSON(t *testing.T) {
 
 	errorObj, ok := responseBody["error"].(map[string]any)
 	require.True(t, ok, "Should have error object in response")
-	assert.Contains(t, errorObj["message"], "upstream provider returned HTTP 200")
+	// The upstream returned 200 with a body we could not decode, so the message
+	// must describe that and must NOT claim an upstream HTTP failure — it used to
+	// say "upstream provider returned HTTP 200", which sent operators looking for
+	// a provider outage that never happened.
+	assert.Contains(t, errorObj["message"], "could not decode")
+	assert.NotContains(t, errorObj["message"], "upstream HTTP 200")
 
 	assert.Equal(t, "failed", logData.state)
 	assert.Contains(t, logData.errorMessage, "response decode error")
+	assert.Equal(t, KindProviderBadRequest, logData.errorKind)
 	// Note: "invalid json response" may be truncated/omitted by SanitizeLogBody
 	// depending on the exact error message format
 }
@@ -332,7 +338,9 @@ func TestHandleNonStreamingResponse_EmptyBody(t *testing.T) {
 
 	errorObj, ok := responseBody["error"].(map[string]any)
 	require.True(t, ok, "Should have error object in response")
-	assert.Contains(t, errorObj["message"], "upstream provider returned HTTP 200")
+	// Empty 200 body: same contract as the invalid-JSON case above.
+	assert.Contains(t, errorObj["message"], "could not decode")
+	assert.NotContains(t, errorObj["message"], "upstream HTTP 200")
 
 	assert.Equal(t, "failed", logData.state)
 	assert.Contains(t, logData.errorMessage, "response decode error")

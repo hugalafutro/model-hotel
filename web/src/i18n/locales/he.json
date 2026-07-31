@@ -2021,7 +2021,8 @@
 				"failover_sync_error": "נכשל סנכרון קבוצת הגיבוי",
 				"quota_schema_drift": "הספק שינה את מבנה תגובת המכסה",
 				"auth_sso_identity_bound": "זהות SSO שויכה לחשבון",
-				"discovery_claims_outstanding": "אי-התאמות במודלים שנותרו ללא טיפול"
+				"discovery_claims_outstanding": "אי-התאמות במודלים שנותרו ללא טיפול",
+				"model_auto_disabled_gone": "הדגם הושבת (הספק כבר אינו מספק אותו)"
 			},
 			"events": {
 				"all": "בחר הכל",

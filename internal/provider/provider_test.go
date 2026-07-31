@@ -392,10 +392,15 @@ func TestLookupOpenAICatalog_EmptySlice(t *testing.T) {
 // GetAnthropicPricing — catalog validation
 // ---------------------------------------------------------------------------
 
-func TestGetAnthropicPricing_NonEmpty(t *testing.T) {
-	catalog := GetAnthropicPricing()
-	if len(catalog) == 0 {
-		t.Error("GetAnthropicPricing should return non-empty catalog")
+// anthropic.json is an override channel and is legitimately empty while
+// models.dev is correct about every Claude model; only the shape of whatever
+// rows exist is asserted. The date-stripping lookup is covered against a
+// fixture in TestAnthropicPricingLookupDated.
+func TestGetAnthropicPricing_Loads(t *testing.T) {
+	for i, spec := range GetAnthropicPricing() {
+		if spec.ModelID == "" {
+			t.Errorf("catalog[%d]: ModelID is empty", i)
+		}
 	}
 }
 
@@ -724,8 +729,9 @@ func TestLoadCatalog_ReturnsNonEmpty(t *testing.T) {
 		len  int
 	}{
 		{"OpenAI", len(GetOpenAIModels())},
-		{"Anthropic", len(GetAnthropicPricing())},
 	}
+	// Anthropic is deliberately excluded: its pricing catalog is an override
+	// channel and is empty while models.dev is correct about every Claude model.
 	for _, c := range catalogs {
 		if c.len == 0 {
 			t.Errorf("loadCatalog: %s catalog should not be empty", c.name)

@@ -23,6 +23,15 @@ type ModelRepository interface {
 	Get(ctx context.Context, id uuid.UUID) (*model.Model, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Model, error)
 	GetByProviderAndModelID(ctx context.Context, providerID uuid.UUID, modelID string) (*model.Model, error)
+	// SetEnabled toggles a model's enabled flag.
+	SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error)
+	// AutoRetireIfConfirmed disables a model the provider has reported retired,
+	// staging the write so a model that answers while it is in flight never has
+	// a disabled state other sessions can act on (see noteModelGone).
+	AutoRetireIfConfirmed(ctx context.Context, id uuid.UUID, confirm func() bool) (bool, error)
+	// RevertAutoRetire undoes such a retirement, but only while the row is still
+	// as the retirement left it, so it cannot overwrite an operator's disable.
+	RevertAutoRetire(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
 // VirtualKeyRepository defines the interface for virtual key operations.
@@ -119,11 +128,25 @@ type requestLogData struct {
 	ownerUserID               string // owning dashboard user's UUID; "" for unowned keys (admin-only visibility)
 	errorMessage              string
 	errorKind                 ErrorKind // machine-readable classification; "" = unclassified (NULL in DB)
-	failoverAttempt           int
-	state                     string
-	resolvedModelID           string
-	endpointType              string         // endpoint family: chat, embeddings, rerank, image, tts, stt
-	insertWg                  sync.WaitGroup // signals when the async INSERT has completed
+	// upstreamKind is what the PROVIDER said, kept apart from errorKind because
+	// errorKind records how the request ended and later causes overwrite earlier
+	// ones. A client that hangs up on receiving an in-stream error turns the
+	// recorded kind into client_disconnect, which would otherwise erase the
+	// provider's own statement that the model is gone — the evidence destroyed
+	// by the client reacting to it. Not persisted; it exists so the retirement
+	// verdict can be drawn from the provider alone.
+	upstreamKind ErrorKind
+	// deliveredContent records that the stream actually produced content. Not
+	// persisted; it exists because the two signals that used to stand in for it
+	// are both optional — a provider can omit the usage chunk and the TTFT probe
+	// can be switched off — and a real success that reports neither would
+	// otherwise look indistinguishable from a stream that emitted nothing.
+	deliveredContent bool
+	failoverAttempt  int
+	state            string
+	resolvedModelID  string
+	endpointType     string         // endpoint family: chat, embeddings, rerank, image, tts, stt
+	insertWg         sync.WaitGroup // signals when the async INSERT has completed
 }
 
 type modelCandidate struct {

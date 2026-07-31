@@ -2021,7 +2021,8 @@
 				"failover_sync_error": "Sincronizzazione del gruppo di failover non riuscita",
 				"quota_schema_drift": "Il provider ha modificato la struttura della risposta sulla quota",
 				"auth_sso_identity_bound": "Identità SSO associata a un account",
-				"discovery_claims_outstanding": "Discrepanze dei modelli non gestite"
+				"discovery_claims_outstanding": "Discrepanze dei modelli non gestite",
+				"model_auto_disabled_gone": "Modello disattivato (il provider non lo fornisce più)"
 			},
 			"events": {
 				"all": "Seleziona tutto",

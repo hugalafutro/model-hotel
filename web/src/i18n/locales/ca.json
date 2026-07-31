@@ -2021,7 +2021,8 @@
 				"failover_sync_error": "La sincronització del grup de fallada ha fallat",
 				"quota_schema_drift": "El proveïdor ha canviat l'estructura de la resposta de quota",
 				"auth_sso_identity_bound": "Identitat SSO vinculada a un compte",
-				"discovery_claims_outstanding": "Discrepàncies de models sense atendre"
+				"discovery_claims_outstanding": "Discrepàncies de models sense atendre",
+				"model_auto_disabled_gone": "Model desactivat (el proveïdor ja no l'ofereix)"
 			},
 			"events": {
 				"all": "Selecciona-ho tot",

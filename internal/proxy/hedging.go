@@ -354,6 +354,9 @@ func (h *Handler) serveHedgeWinner(w http.ResponseWriter, r *http.Request, st *r
 	}
 	debuglog.Info("proxy: hedge winner", "provider", candidate.provider.Name, "attempt", res.idx+1, "true_ttft_ms", res.trueTtftMs)
 	h.handleStreamingResponse(w, r, logData, res.resp, st.startTime, opts)
+	// Same verdict the sequential dispatch applies: a hedged winner is still a
+	// real stream, so a model reported gone mid-stream must strike here too.
+	h.noteStreamOutcome(logData, candidate)
 }
 
 // failHedgeDisconnect handles r.Context() cancellation during a hedged race. It

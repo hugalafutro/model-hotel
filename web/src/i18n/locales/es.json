@@ -2021,7 +2021,8 @@
 				"failover_sync_error": "Error en la sincronización del grupo de conmutación por error",
 				"quota_schema_drift": "El proveedor ha cambiado la estructura de su respuesta de cuota",
 				"auth_sso_identity_bound": "Identidad SSO vinculada a una cuenta",
-				"discovery_claims_outstanding": "Discrepancias de modelos sin atender"
+				"discovery_claims_outstanding": "Discrepancias de modelos sin atender",
+				"model_auto_disabled_gone": "Modelo desactivado (el proveedor ya no lo ofrece)"
 			},
 			"events": {
 				"all": "Seleccionar todo",

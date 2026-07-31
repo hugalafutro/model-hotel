@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // Progressive stall timeout knobs, shared by the scanner loop (which pings the
@@ -34,8 +35,13 @@ type streamState struct {
 	lastErrMsg            string
 	sawDone               bool
 	sawMessageStop        bool // native Anthropic passthrough: terminal message_stop event seen
-	clientDisconnected    bool
-	stalled               bool
+	// sawContent records that at least one non-empty content or reasoning delta
+	// reached the client. It is the only signal that a stream actually answered
+	// which does not depend on optional behaviour: usage chunks are omitted by
+	// some providers, and the TTFT probe can be turned off.
+	sawContent         bool
+	clientDisconnected bool
+	stalled            bool
 
 	// Observer state carried across chunks (Phase 4). Not consumed by the
 	// finalizer, but co-located here so the data-chunk observers operate on one
@@ -131,6 +137,10 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	logData.tokensCompletionReasoning = st.reasoningTokens
 	logData.tokensPromptCacheHit = st.promptCacheHitTokens
 	logData.tokensPromptCacheMiss = st.promptCacheMissTokens
+	// Carried for the retirement verdict, which has to decide whether the model
+	// answered. On the native Anthropic passthrough the chunks are never parsed
+	// into deltas, so its terminal message_stop stands in for the same fact.
+	logData.deliveredContent = st.sawContent || st.sawMessageStop
 	logData.errorMessage = errMsg
 	logData.failoverAttempt = opts.attempt
 	if errMsg != "" {
@@ -178,8 +188,21 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logData *requestLogData) string {
 	errMsg := st.lastErrMsg
 	if errMsg != "" {
-		// An in-stream SSE error body from the provider.
-		logData.errorKind = KindProviderError
+		// An in-stream SSE error body from the provider. Unlike the non-streaming
+		// path (forwardUpstreamError) this text never went through
+		// SanitizeLogBody, so it reached request_logs uncapped and with UUIDs
+		// intact — a provider is free to echo the request back inside an error,
+		// and an unbounded provider string must not land in the log either way.
+		errMsg = util.SanitizeLogBody(errMsg, 10000)
+		logData.errorKind, _ = classifyUpstreamError(logData.statusCode, errMsg, logData.modelID)
+		// Kept separately as well, because everything below can overwrite
+		// errorKind with a later cause. A client that receives this error chunk
+		// and hangs up — which is exactly what a client does on seeing an error
+		// — would otherwise replace the provider's "this model is gone" with
+		// client_disconnect, and the retirement would lose the very strike the
+		// provider just handed it. What the provider said about the model does
+		// not depend on what the client did next.
+		logData.upstreamKind = logData.errorKind
 	}
 	if errMsg == "" && scanErr != nil {
 		switch {

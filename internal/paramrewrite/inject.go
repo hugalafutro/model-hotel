@@ -10,7 +10,7 @@ import (
 // parameter injection for reasoning/thinking to work correctly.
 func NeedsProviderInjection(providerType string) bool {
 	switch providerType {
-	case "zai-coding", "opencode-zen", "opencode-go", "deepseek":
+	case "zai-coding", "opencode-go", "deepseek":
 		return true
 	}
 	return false
@@ -39,8 +39,18 @@ func InjectProviderParams(raw map[string]any, providerType, modelID string) bool
 			debuglog.Debug("proxy: injected thinking config for z.ai", "model", modelID)
 		}
 
-	case "opencode-zen", "opencode-go":
-		// Baseten/OpenCode Zen and Go require chat_template_args to enable thinking.
+	// NOTE: opencode-zen is deliberately absent. It used to share this branch,
+	// but Zen's backend no longer tolerates chat_template_args: live A/B testing
+	// on 2026-07-30 showed it breaks 6 of 7 models with "Upstream request
+	// failed" (glm-5, glm-5.1, glm-5.2, minimax-m3, kimi-k2.6, kimi-k3,
+	// deepseek-v4-pro all fail with it and succeed without it; only qwen3.6-plus
+	// tolerates it). Zen's own error is generic enough that the 400 param-strip
+	// retry does not recognise it as a parameter problem, so those models were
+	// simply unusable through the gateway. OpenCode Go still accepts the
+	// parameter (verified on the same day against glm-5.2, hy3, mimo-v2.5 and
+	// qwen3.7-max), so Go keeps it and only Zen loses it.
+	case "opencode-go":
+		// Baseten/OpenCode Go requires chat_template_args to enable thinking.
 		// Without this, reasoning_content is never returned.
 		if _, exists := raw["chat_template_args"]; !exists {
 			raw["chat_template_args"] = map[string]any{

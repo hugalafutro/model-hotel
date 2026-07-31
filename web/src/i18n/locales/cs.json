@@ -2071,7 +2071,8 @@
 				"failover_sync_error": "Synchronizace skupiny pro převzetí služeb při výpadku selhala",
 				"quota_schema_drift": "Poskytovatel změnil strukturu odpovědi o kvótě",
 				"auth_sso_identity_bound": "Identita SSO byla propojena s účtem",
-				"discovery_claims_outstanding": "Nesrovnalosti modelů ponechané bez řešení"
+				"discovery_claims_outstanding": "Nesrovnalosti modelů ponechané bez řešení",
+				"model_auto_disabled_gone": "Model deaktivován (poskytovatel jej již neposkytuje)"
 			},
 			"events": {
 				"all": "Vybrat vše",

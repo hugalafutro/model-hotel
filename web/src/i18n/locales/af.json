@@ -1971,7 +1971,8 @@
 				"failover_sync_error": "Failover-groep-sinkronisering het misluk",
 				"quota_schema_drift": "Verskaffer het sy kwota-antwoord se vorm verander",
 				"auth_sso_identity_bound": "SSO-identiteit aan 'n rekening gekoppel",
-				"discovery_claims_outstanding": "Modelafwykings wat onaangespreek bly"
+				"discovery_claims_outstanding": "Modelafwykings wat onaangespreek bly",
+				"model_auto_disabled_gone": "Model gedeaktiveer (verskaffer bied dit nie meer aan nie)"
 			},
 			"events": {
 				"all": "Kies alles",

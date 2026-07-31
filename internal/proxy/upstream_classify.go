@@ -1,0 +1,365 @@
+package proxy
+
+import (
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+)
+
+// modelGoneVerbs are the phrasings a provider uses to say a model is gone. They
+// are matched only in the immediate neighbourhood of the requested model's own
+// id — see modelGoneAbout for why that constraint, not the wording, is what
+// makes this safe.
+var modelGoneVerbs = []string{
+	"is no longer available",
+	"is not supported",
+	"does not exist",
+	"is not found for api version",
+	"model not found",
+	"unknown model",
+}
+
+// modelPhraseWindow is how many characters may separate the model id from the
+// phrase asserting it is gone. Wide enough for the real payloads, which put them
+// adjacent or a few words apart, and far too narrow to bridge an unrelated
+// sentence elsewhere in the body.
+const modelPhraseWindow = 80
+
+// modelCapabilityRefusal matches the shape that names a model before a rejection
+// phrase and yet is NOT a retirement: the provider still serves the model, it
+// just will not do THIS with it. "Model X is not supported for this operation"
+// and "... for this endpoint" both read like a retirement, and three of them
+// would disable a live model.
+//
+// It is a veto applied after a positive match rather than part of the pattern,
+// because RE2 has no negative lookahead. It must not be a blanket "any trailing
+// text disqualifies" rule either: real retirement messages continue past the
+// phrase too ("... does not exist or you do not have access to it"), and Zen's
+// "not supported on the full model list" is a retirement whose qualifier simply
+// is not a capability.
+//
+// Anchored, and applied to ONE phrase rather than to the whole body. A response
+// can say two things at once — "Model gemini-2.0-flash does not exist.
+// Separately, tool-only-model is not supported for this endpoint." — and vetoing
+// on a match anywhere let the second sentence suppress the first. The model
+// would then never accrue strikes and would stay routable while the provider
+// was plainly saying it is gone. The veto now only cancels the phrase it
+// actually qualifies.
+// The qualifier is allowed to be several words: providers write "on your
+// current plan" and "for this specific operation" as readily as the bare forms,
+// and matching only the bare ones let the wordier phrasings through as
+// retirements — retiring a model that is still served for other requests. The
+// run of filler words cannot cross punctuation, so it stays inside one clause,
+// and it still has to END on a whole capability noun. That is what keeps genuine
+// retirements out: Zen's "is not supported on the full model list" walks the
+// same filler run and lands on "model", which is not a capability, so it remains
+// a retirement.
+//
+// The trailing \b is load-bearing rather than tidiness. Without it "mode"
+// matches the front of "model", and that one prefix turns Zen's real retirement
+// payload into a capability refusal — the widened filler run is what lets the
+// pattern reach that far into the sentence in the first place.
+var modelCapabilityRefusal = regexp.MustCompile(
+	`^(is not supported|is no longer available|is not available) (for|with|on|in) ` +
+		`((this|that|the|your|our|any) )?([a-z]+ ){0,3}` +
+		`(operation|endpoint|method|route|api|api version|request|request type|mode|task|region|plan|tier|account|subscription)s?\b`)
+
+// refusesCapabilityAt reports whether the phrase starting at pos is a capability
+// refusal rather than a retirement. The pattern is anchored, so this tests that
+// one position and no other.
+func refusesCapabilityAt(body string, pos int) bool {
+	return modelCapabilityRefusal.MatchString(body[pos:])
+}
+
+// isModelIDChar reports whether b can appear inside a model identifier.
+//
+// It defines what counts as a neighbouring character for namesModelID, and the
+// membership is chosen from how providers actually spell ids:
+//
+//   - Letters, digits, '.', '-' and '_' are the ordinary body of an id. A
+//     neighbouring one means the match is part of a LONGER id, which is a
+//     different model.
+//   - ':' and '@' pin a variant apart from its base ("llama3:8b",
+//     "text-bison@001"), so they are id characters too.
+//   - '/' is deliberately absent. Providers path-qualify the same model
+//     ("models/gemini-2.0-flash", "openai/gpt-4"), so a slash neighbour still
+//     refers to this model and must not disqualify the match.
+func isModelIDChar(b byte) bool {
+	switch {
+	case b >= 'a' && b <= 'z', b >= 'A' && b <= 'Z', b >= '0' && b <= '9':
+		return true
+	case b == '.', b == '-', b == '_', b == ':', b == '@':
+		return true
+	default:
+		return false
+	}
+}
+
+// namesModelID reports whether id appears in body[lo:hi] as a WHOLE identifier
+// rather than as part of a longer one.
+//
+// A plain substring test is not enough, and the failure is not exotic: model
+// families are named by extension, so "gpt-4" sits inside "gpt-4.1" and
+// "gemini-3-flash" inside "gemini-3-flash-lite". An error about the newer model
+// would then read as proof the older one is retired, and three of them disable a
+// model that is serving perfectly well — the exact outcome this classifier
+// exists to avoid causing.
+//
+// Boundaries are checked against the FULL body, not the window, because the
+// window is a fixed-width cut: an id sliced by hi would otherwise look like it
+// ended cleanly there when the real text continues into a longer id.
+func isWholeIDAt(body string, pos, end int) bool {
+	startsClean := pos == 0 || !isModelIDChar(body[pos-1])
+	endsClean := end == len(body) || !isModelIDChar(body[end])
+	return startsClean && endsClean
+}
+
+// maxAttributionGap bounds the text allowed between the model id and the phrase
+// that retires it. Real payloads put them adjacent or a few words apart ("The
+// model `gpt-4` has been deprecated and does not exist"); anything longer is a
+// different clause that happens to be nearby.
+const maxAttributionGap = 40
+
+// isClauseBreak reports whether b ends the clause a phrase belongs to.
+//
+// A comma counts. "healthy-model was routed, but retired-model does not exist"
+// is two claims, and only the second one is a retirement.
+func isClauseBreak(b byte) bool {
+	switch b {
+	case '.', ',', ';', '!', '?', '\n', '\r', '{', '}', '[', ']':
+		return true
+	default:
+		return false
+	}
+}
+
+// looksLikeAModelID reports whether s contains a token shaped like a model id.
+// Digits and hyphens are the tell: "gpt-4", "retired-model" and "llama3" all
+// qualify, while ordinary words and vendor prefixes like "openai/" do not.
+func looksLikeAModelID(s string) bool {
+	tokenHasDigit, tokenHasDash := false, false
+	for i := 0; i <= len(s); i++ {
+		if i < len(s) && (isModelIDChar(s[i]) || s[i] == '/') {
+			switch {
+			case s[i] >= '0' && s[i] <= '9':
+				tokenHasDigit = true
+			case s[i] == '-':
+				tokenHasDash = true
+			}
+			continue
+		}
+		if tokenHasDigit || tokenHasDash {
+			return true
+		}
+		tokenHasDigit, tokenHasDash = false, false
+	}
+	return false
+}
+
+// gapBindsPhrase reports whether the text between a model id and a retirement
+// phrase is short and plain enough that the phrase is about THAT id.
+//
+// Proximity alone is not attribution, which is the trap this closes: an 80
+// character window around "is no longer available" catches any id that happens
+// to be nearby, so a response naming the requested model in one clause and
+// retiring a different model in the next retires the wrong one — and three of
+// those disable a model that is serving fine. The subject has to be adjacent to
+// its predicate, with no clause boundary and no competing id in between.
+func gapBindsPhrase(gap string) bool {
+	if len(gap) > maxAttributionGap {
+		return false
+	}
+	for i := range len(gap) {
+		if isClauseBreak(gap[i]) {
+			return false
+		}
+	}
+	return !looksLikeAModelID(gap)
+}
+
+// phraseIsAbout reports whether the phrase occupying [verbPos, verbEnd) is the
+// provider talking about id, searching the surrounding window for an occurrence
+// bound tightly enough to be its subject or object.
+//
+// Both sides are allowed because provider wording splits along grammatical
+// lines: predicates take the id before them ("gpt-4 does not exist"), while the
+// noun-phrase verbs take it after ("unknown model openai/gpt-4").
+func phraseIsAbout(body string, verbPos, verbEnd, lo, hi int, id string) bool {
+	for off := lo; off+len(id) <= hi; {
+		at := strings.Index(body[off:hi], id)
+		if at < 0 {
+			return false
+		}
+		pos := off + at
+		end := pos + len(id)
+		if isWholeIDAt(body, pos, end) {
+			var gap string
+			switch {
+			case end <= verbPos:
+				gap = body[end:verbPos]
+			case pos >= verbEnd:
+				gap = body[verbEnd:pos]
+			default:
+				// Overlapping the phrase itself; treat as bound.
+				return true
+			}
+			if gapBindsPhrase(gap) {
+				return true
+			}
+		}
+		// Advance by one rather than by len(id): ids can overlap themselves.
+		off = pos + 1
+	}
+	return false
+}
+
+// modelGoneAbout reports whether the body is the provider asserting that THIS
+// model — the one the request asked for — is gone.
+//
+// Requiring the model's own id next to the phrase is the constraint that makes
+// this safe, and it replaces four rounds of trying to get the wording alone
+// right. Matching prose without it meant any body that merely mentioned a
+// different missing model, or echoed request content containing "unknown
+// model", was read as proof the requested model had been retired — and three
+// such responses disable it. No amount of phrase-tuning fixes that, because the
+// text being matched was never required to be about the model in question.
+//
+// modelID is the upstream model id for the attempt. When it is empty nothing can
+// be verified, so nothing is claimed: the caller gets the generic provider
+// error rather than a retirement it cannot substantiate.
+func modelGoneAbout(body, modelID string) bool {
+	id := strings.ToLower(strings.TrimSpace(modelID))
+	if id == "" || body == "" {
+		return false
+	}
+	// Providers report Google models with the "models/" prefix the id omits, so
+	// compare on the last path segment; it is the distinctive part either way.
+	if i := strings.LastIndex(id, "/"); i >= 0 && i+1 < len(id) {
+		id = id[i+1:]
+	}
+
+	for _, verb := range modelGoneVerbs {
+		for off := 0; off < len(body); {
+			at := strings.Index(body[off:], verb)
+			if at < 0 {
+				break
+			}
+			pos := off + at
+			lo := max(0, pos-modelPhraseWindow)
+			hi := min(len(body), pos+len(verb)+modelPhraseWindow)
+			// The capability veto is applied per phrase, so a body that both
+			// retires this model and refuses some other model's capability
+			// still classifies on the retirement.
+			if phraseIsAbout(body, pos, pos+len(verb), lo, hi, id) && !refusesCapabilityAt(body, pos) {
+				return true
+			}
+			off = pos + len(verb)
+		}
+	}
+	return false
+}
+
+// classifyUpstreamError turns an upstream non-2xx response into a stable
+// ErrorKind plus a short, gateway-authored reason for the client.
+//
+// Why this exists: every upstream failure used to be recorded as
+// KindProviderError and reported to the caller as the bare "upstream provider
+// returned HTTP 400". Three failures that need completely different operator
+// responses were indistinguishable from each other on the wire and in metrics:
+//
+//   - a model the provider has retired (fix the catalog / stop routing to it)
+//   - a model the account is not entitled to (top up, or change plan)
+//   - a transient upstream fault (do nothing, it will pass)
+//
+// A catalog audit had to reconstruct that distinction by hand out of
+// request_logs.error_message. Classifying it here makes it a queryable
+// error_kind and a Prometheus label instead.
+//
+// IMPORTANT: this is observability only. Failover eligibility, circuit-breaker
+// trips and quota handling stay purely status-code driven (see
+// isFailoverEligible and the MiniMax 1008 -> 429 remap, which deliberately
+// funnels balance errors into the rate-limit path so failover moves on).
+// Returning a new kind here must never change where a request is routed.
+//
+// The returned reason is always gateway-authored static text. The upstream body
+// is never echoed to the caller: it can quote the request back at us, and the
+// no-request-content-in-logs rule extends to what we hand to clients.
+//
+// modelID is the upstream model id this attempt asked for. It is required for
+// the retirement verdict: the body has to be the provider talking about THAT
+// model, not merely text that reads like a retirement.
+//
+// body must already be sanitized (util.SanitizeLogBody); matching is done on a
+// lowercased copy and every phrase below was observed on a real provider
+// response.
+func classifyUpstreamError(status int, body, modelID string) (ErrorKind, string) {
+	b := strings.ToLower(body)
+
+	// Model retired or never served by this provider. modelGoneAbout requires
+	// the requested model's own id beside the phrase AND that the phrase is not
+	// merely refusing one capability — both checks are per phrase, so an
+	// unrelated sentence elsewhere in the body can neither create the verdict
+	// nor suppress it.
+	if modelGoneAbout(b, modelID) {
+		return KindProviderModelGone, "the provider no longer serves this model"
+	}
+
+	// Account cannot pay for this model: Z.ai's coding-plan endpoint answers
+	// 429 code 1113 "Insufficient balance or no resource package. Please
+	// recharge." for models outside the subscription. Without this it is
+	// indistinguishable from ordinary rate limiting, so it looks retryable
+	// when it will never succeed until someone pays.
+	//
+	// 402 is the unambiguous signal and needs no body match at all. The phrases
+	// are each a full sentence fragment from a real provider; a bare "billing"
+	// was deliberately removed after review, because a transient fault naming a
+	// billing subsystem ("billing_engine_timeout" on a 500) would have been
+	// recorded as a permanent entitlement failure and sent an operator chasing a
+	// provider_not_entitled spike that was really a provider outage.
+	if status == http.StatusPaymentRequired {
+		return KindProviderNotEntitled, "the provider rejected this request for billing or plan reasons"
+	}
+	for _, p := range []string{
+		"insufficient balance",
+		"no resource package",
+		"please recharge",
+		"exceeded your current quota",
+	} {
+		if strings.Contains(b, p) {
+			return KindProviderNotEntitled, "the provider rejected this request for billing or plan reasons"
+		}
+	}
+
+	// The provider understood us and refused the payload. Seen when a request
+	// is sent in the wrong dialect: OpenCode Zen routes its Gemini models to
+	// Google's native API, which rejects an OpenAI-shaped body with
+	// "Invalid JSON request body: Missing key at [\"contents\"]".
+	if status == 400 {
+		for _, p := range []string{
+			"invalid json request body",
+			"invalid_request_error",
+			"missing key",
+			"unsupported parameter",
+			"invalid argument",
+		} {
+			if strings.Contains(b, p) {
+				return KindProviderBadRequest, "the provider rejected the request payload"
+			}
+		}
+	}
+
+	// Everything else, including "Upstream request failed" (an aggregator's own
+	// backend fault) and any 5xx, stays the transient default.
+	return KindProviderError, "the provider failed to serve this request"
+}
+
+// upstreamClientMessage renders the message sent to an API client for an
+// upstream failure. It names the provider and status so a caller can act, and
+// carries the classified reason, but never the provider's own body.
+func upstreamClientMessage(providerName string, status int, reason string) string {
+	if providerName == "" {
+		return reason
+	}
+	return reason + " (provider " + providerName + ", upstream HTTP " + strconv.Itoa(status) + ")"
+}
