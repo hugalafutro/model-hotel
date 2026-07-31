@@ -1131,6 +1131,54 @@ describe("Layout", () => {
 			expect(screen.getAllByTestId("toast")).toHaveLength(1);
 		});
 
+		// The mixed-fleet case, which is where gating only the BUTTON was not enough.
+		// With one provider that needs retesting the button renders, and the walk
+		// then visited every provider with anything pending — including ones whose
+		// own pill sits disabled saying a retest proves nothing. Each of those is a
+		// slow upstream call that cannot change the answer.
+		it("skips retired-only providers in a Retest all walk", async () => {
+			const discovered: string[] = [];
+			server.use(
+				http.get("/api/discovery/status", () =>
+					HttpResponse.json(
+						status({
+							claim_count: 2,
+							claims: [
+								providerClaims("p1", "One", [claim("a")]),
+								// Nothing gone, one retirement: discovery has nothing to
+								// learn here, the provider still lists the model.
+								{
+									...providerClaims("p2", "Two", []),
+									retired: [
+										{
+											...claim("dead"),
+											state: "retired",
+											retired_at: "2026-07-28T00:00:00Z",
+										},
+									],
+								},
+							],
+						}),
+					),
+				),
+				http.post("/api/providers/:id/discover", async ({ params }) => {
+					discovered.push(String(params.id));
+					return HttpResponse.json({ discovered: 0, diff: {} });
+				}),
+			);
+			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
+
+			await user.click(await screen.findByTestId("discovery-status-badge"));
+			await user.click(await screen.findByTestId("discrepancy-retest-all"));
+
+			await waitFor(() =>
+				expect(screen.queryByTestId("discrepancy-retest-progress")).toBeNull(),
+			);
+			// The assertion the previous test could not make: what the walk actually
+			// requested, not whether a button was on screen.
+			expect(discovered).toStrictEqual(["p1"]);
+		});
+
 		it("dismisses one model per request", async () => {
 			// Exactly one model per request: the endpoint 200s with a short `updated`
 			// for a mixed list and only 404s when NOTHING matched, so one at a time

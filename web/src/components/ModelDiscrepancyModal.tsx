@@ -9,6 +9,7 @@ import {
 	type MergedClaim,
 	type MergedProvider,
 	providerHasNoPending,
+	retestProvesNothing,
 } from "../hooks/useDiscrepancies";
 import { ChevronDown, ChevronRight, ChevronUp, RefreshCw } from "../lib/icons";
 import { formatFieldValue } from "../pages/Providers/discoveryFormat";
@@ -601,24 +602,6 @@ export function ModelDiscrepancyModal({
 	const actionableIn = (p: MergedProvider, group: Group) =>
 		p[group].filter((c) => c.status === "pending" || c.status === "new");
 
-	/**
-	 * True when a retest of this provider could only confirm what is already
-	 * known. Discovery asks the provider what it lists, and a provider whose only
-	 * outstanding claims are retirements has models that ARE listed — which is
-	 * precisely the problem — so the answer changes nothing.
-	 *
-	 * Shared by the per-provider control and the modal-wide walk deliberately.
-	 * They have to agree: with the pill declaring a retest pointless while Retest
-	 * all walks that same provider anyway, the walk would make a slow upstream
-	 * call for every provider each individual control had just refused to offer.
-	 */
-	const retestProvesNothing = (p: MergedProvider) =>
-		!providerHasNoPending(p) &&
-		actionableIn(p, "retired").length > 0 &&
-		actionableIn(p, "gone").length === 0 &&
-		actionableIn(p, "stale").length === 0 &&
-		actionableIn(p, "suspect").length === 0;
-
 	const renderProvider = (p: MergedProvider) => {
 		const expanded = openPath?.providerID === p.provider_id;
 		const spinning = retestingProviderId === p.provider_id;
@@ -878,7 +861,7 @@ export function ModelDiscrepancyModal({
 		);
 	};
 
-	const unresolvedProviders = visibleProviders.filter(
+	const retestableProviders = visibleProviders.filter(
 		(p) => !providerHasNoPending(p) && !retestProvesNothing(p),
 	);
 
@@ -946,7 +929,7 @@ export function ModelDiscrepancyModal({
 							>
 								{t("providers.discrepancies.cancelRetestAll")}
 							</button>
-						) : unresolvedProviders.length > 0 ? (
+						) : retestableProviders.length > 0 ? (
 							<button
 								type="button"
 								onClick={onRetestAll}

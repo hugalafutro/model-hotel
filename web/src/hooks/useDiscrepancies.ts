@@ -238,6 +238,34 @@ export function providerHasNoPending(p: MergedProvider): boolean {
 }
 
 /**
+ * True when a retest of this provider could only confirm what is already known.
+ *
+ * A retest re-runs discovery, which asks the provider what it lists. A provider
+ * whose only outstanding claims are retirements has models that ARE listed —
+ * that is precisely the problem, listed and refused — so the answer changes
+ * nothing and costs a slow upstream call.
+ *
+ * It lives here rather than in the modal because BOTH the control and the walk
+ * have to honour it, and they are in different files. Gating only the modal's
+ * button hides the walk's Retest-all control when every provider is
+ * retired-only, which looks like agreement but is not: on a mixed fleet the
+ * button renders for the provider that does need retesting, and the walk then
+ * visits the retired-only ones too, each with its own pill sitting disabled
+ * saying a retest proves nothing.
+ */
+export function retestProvesNothing(p: MergedProvider): boolean {
+	const pending = (g: GroupName) =>
+		p[g].filter((c) => c.status === "pending" || c.status === "new").length;
+	return (
+		!providerHasNoPending(p) &&
+		pending("retired") > 0 &&
+		pending("gone") === 0 &&
+		pending("stale") === 0 &&
+		pending("suspect") === 0
+	);
+}
+
+/**
  * Owns the modal's snapshot. `refresh` refetches live status and merges it in;
  * it never replaces the snapshot, so resolved rows stay visible for the session.
  */
