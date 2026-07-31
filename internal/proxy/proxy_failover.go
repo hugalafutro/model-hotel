@@ -170,8 +170,15 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		// A retired model usually answers 404, which is failover-eligible, so
 		// without this the "model gone" signal would be lost precisely when
 		// there is another candidate to fall back to.
+		//
+		// The whole candidate goes through, not just the model: the retirement
+		// is adjudicated by a real request to this provider, so it needs the
+		// provider and the decrypted key that are already in hand here. The
+		// endpoint family comes off the log entry, which ingest stamped from the
+		// surface the request arrived on, and decides whether the refusal can be
+		// adjudicated at all.
 		if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(drained), 10000), candidate.model.ModelID); kind == KindProviderModelGone {
-			h.noteModelGone(candidate.model, candidate.provider.Name)
+			h.noteModelGone(candidate, logData.endpointType)
 		}
 		st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
 		debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
@@ -641,7 +648,10 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	// hasMoreCandidates was already decided from the status code.
 	kind, reason := classifyUpstreamError(resp.StatusCode, errMsg, candidate.model.ModelID)
 	if kind == KindProviderModelGone {
-		h.noteModelGone(candidate.model, candidate.provider.Name)
+		// Same as the drain path above: the candidate carries what the
+		// pre-retirement probe needs, and logData.endpointType is the family
+		// that decides whether this model can be adjudicated at all.
+		h.noteModelGone(candidate, logData.endpointType)
 	}
 	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
 	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)

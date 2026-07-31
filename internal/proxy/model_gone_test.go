@@ -2,6 +2,10 @@ package proxy
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"testing"
 	"time"
@@ -11,6 +15,11 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
+
+// goneAPIKey is the decrypted credential the fixture candidates carry. The
+// probe authenticates exactly like real traffic, so a candidate without one is
+// not the candidate production hands to noteModelGone.
+const goneAPIKey = "sk-gone-fixture-key"
 
 // waitForDisable polls the mock for a recorded SetEnabled call, since
 // noteModelGone disables on a detached goroutine so the request path is not
@@ -45,8 +54,50 @@ func waitForStreakCleared(t *testing.T, h *Handler, id uuid.UUID) {
 	t.Fatal("the streak was never cleared")
 }
 
-func newGoneHandler(repo *mockModelRepo) *Handler {
-	return &Handler{modelRepo: repo}
+// goneRefusalServer starts a fake provider that refuses modelID as retired on
+// every request: a 404 naming the model beside a phrase from modelGoneVerbs,
+// which is precisely what classifyUpstreamError reads as KindProviderModelGone.
+//
+// It exists because the probe now adjudicates every retirement. The tests below
+// are about what the disable machinery does once the evidence is in — the
+// threshold, the two cancellation windows, the rollback, the streak-identity
+// rules — and every one of them was written expecting the disable to be
+// written. Giving the probe nothing to reach would turn each of them into an
+// assertion about an unreachable provider instead, so the fixture reproduces
+// the evidence rather than standing in for it.
+func goneRefusalServer(t *testing.T, modelID string) *httptest.Server {
+	t.Helper()
+	body := fmt.Sprintf("{\"error\":{\"message\":\"The model `%s` does not exist\"}}", modelID)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = io.WriteString(w, body)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// goneCandidateFor builds the candidate the retirement path actually carries,
+// pointed at a provider that refuses this model. It is the whole candidate and
+// not just the model because the probe needs a base URL, a provider name and a
+// decrypted key to ask anything at all.
+func goneCandidateFor(t *testing.T, m *model.Model, providerName string) modelCandidate {
+	t.Helper()
+	return modelCandidate{
+		model:    m,
+		provider: &provider.Provider{ID: uuid.New(), Name: providerName, BaseURL: goneRefusalServer(t, m.ModelID).URL},
+		apiKey:   goneAPIKey,
+	}
+}
+
+// newGoneHandler builds a Handler carrying a real shared upstream transport,
+// which is what production has and what the pre-retirement probe now goes out
+// over.
+func newGoneHandler(t *testing.T, repo *mockModelRepo) *Handler {
+	t.Helper()
+	tr := &http.Transport{}
+	t.Cleanup(tr.CloseIdleConnections)
+	return &Handler{modelRepo: repo, upstreamTransport: tr}
 }
 
 // TestNoteModelGone_DisablesAfterThreshold covers the whole point of the
@@ -57,18 +108,19 @@ func TestNoteModelGone_DisablesAfterThreshold(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 
 	// Below the threshold nothing is touched.
 	for i := 1; i < goneStrikeThreshold; i++ {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 		if calls := repo.disableCalls(); len(calls) != 0 {
 			t.Fatalf("disabled after %d strike(s), threshold is %d", i, goneStrikeThreshold)
 		}
 	}
 
-	h.noteModelGone(m, "Google AI Studio (Gemini)")
+	h.noteModelGone(cand, endpointTypeChat)
 
 	calls := waitForDisable(t, repo)
 	if len(calls) != 1 {
@@ -89,13 +141,14 @@ func TestNoteModelServed_ResetsStreak(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "glm-5.2"}
+	cand := goneCandidateFor(t, m, "OpenCode Zen")
 
 	for range goneStrikeThreshold * 3 {
 		// One short of the threshold, then a success, forever.
 		for i := 1; i < goneStrikeThreshold; i++ {
-			h.noteModelGone(m, "OpenCode Zen")
+			h.noteModelGone(cand, endpointTypeChat)
 		}
 		h.noteModelServed(m)
 	}
@@ -111,12 +164,13 @@ func TestNoteModelGone_StrikesArePerModel(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	dead := &model.Model{ID: uuid.New(), ModelID: "claude-sonnet-4"}
 	alive := &model.Model{ID: uuid.New(), ModelID: "claude-sonnet-5"}
+	deadCand := goneCandidateFor(t, dead, "OpenCode Zen")
 
 	for range goneStrikeThreshold {
-		h.noteModelGone(dead, "OpenCode Zen")
+		h.noteModelGone(deadCand, endpointTypeChat)
 		h.noteModelServed(alive)
 	}
 
@@ -135,34 +189,53 @@ func TestNoteModelGone_ResetsAfterDisable(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "hy3-preview"}
+	cand := goneCandidateFor(t, m, "OpenCode Go")
 
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "OpenCode Go")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 	if calls := waitForDisable(t, repo); len(calls) != 1 {
 		t.Fatalf("expected one disable, got %d", len(calls))
 	}
 
 	// Two more refusals must not reach the threshold again on their own.
-	h.noteModelGone(m, "OpenCode Go")
-	h.noteModelGone(m, "OpenCode Go")
+	h.noteModelGone(cand, endpointTypeChat)
+	h.noteModelGone(cand, endpointTypeChat)
 	if calls := repo.disableCalls(); len(calls) != 1 {
 		t.Errorf("expected still one disable, got %d", len(calls))
 	}
 }
 
-// TestNoteModelGone_NilSafe: the failover drain path passes candidate.model
-// straight through, so a malformed candidate must not panic the proxy.
+// TestNoteModelGone_NilSafe: the failover drain path passes its candidate
+// straight through, so a malformed one must not panic the proxy.
+//
+// The nil provider is the case the widened signature adds. It used to be
+// unreachable — the old parameter was a provider NAME, and a missing one was
+// just an empty string in a log line — so a candidate with no provider counted
+// strikes and disabled the model like any other. It cannot now: the disable is
+// adjudicated by a real request, there is nobody to send it to, and the
+// retirement stops rather than being written on evidence that can never be
+// checked.
 func TestNoteModelGone_NilSafe(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 
-	h.noteModelGone(nil, "Somewhere")
-	h.noteModelGone(&model.Model{ModelID: "no-uuid"}, "Somewhere")
+	somewhere := &provider.Provider{ID: uuid.New(), Name: "Somewhere"}
+	noModel := modelCandidate{}
+	noID := modelCandidate{model: &model.Model{ModelID: "no-uuid"}, provider: somewhere}
+	// A real, stable model id with nothing to send a probe to. Stable on
+	// purpose: a fresh uuid per iteration could never accumulate, so the loop
+	// would prove nothing about the guard it is here to exercise.
+	noProvider := modelCandidate{model: &model.Model{ID: uuid.New(), ModelID: "no-provider"}}
+	for range goneStrikeThreshold {
+		h.noteModelGone(noModel, endpointTypeChat)
+		h.noteModelGone(noID, endpointTypeChat)
+		h.noteModelGone(noProvider, endpointTypeChat)
+	}
 	h.noteModelServed(nil)
 	h.noteModelServed(&model.Model{ModelID: "no-uuid"})
 
@@ -263,14 +336,16 @@ func TestNoteStreamOutcome_EmptyStreamDoesNotClearStreak(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
-	candidate := modelCandidate{model: m, provider: &provider.Provider{Name: "Google AI Studio (Gemini)"}}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
-		// An empty, error-free stream lands between strikes.
-		h.noteStreamOutcome(&requestLogData{}, candidate)
+		h.noteModelGone(cand, endpointTypeChat)
+		// An empty, error-free stream lands between strikes. The log entry
+		// carries its endpoint family exactly as ingest stamps it, since that is
+		// what noteStreamOutcome forwards on a gone verdict.
+		h.noteStreamOutcome(&requestLogData{endpointType: endpointTypeChat}, cand)
 	}
 
 	if calls := waitForDisable(t, repo); len(calls) != 1 {
@@ -284,15 +359,15 @@ func TestNoteStreamOutcome_RealSuccessClears(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "glm-5.2"}
-	candidate := modelCandidate{model: m, provider: &provider.Provider{Name: "OpenCode Zen"}}
+	cand := goneCandidateFor(t, m, "OpenCode Zen")
 
 	for range goneStrikeThreshold * 3 {
 		for i := 1; i < goneStrikeThreshold; i++ {
-			h.noteModelGone(m, "OpenCode Zen")
+			h.noteModelGone(cand, endpointTypeChat)
 		}
-		h.noteStreamOutcome(&requestLogData{tokensCompletion: 5, ttftMs: 30}, candidate)
+		h.noteStreamOutcome(&requestLogData{endpointType: endpointTypeChat, tokensCompletion: 5, ttftMs: 30}, cand)
 	}
 
 	if calls := repo.disableCalls(); len(calls) != 0 {
@@ -308,11 +383,12 @@ func TestNoteModelGone_FailedStreamsDoNotResetStreak(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 		// A transient stream failure lands between strikes. Under the old
 		// "anything not gone is a success" rule this cleared the streak and the
 		// model could never be retired.
@@ -344,14 +420,15 @@ func TestNoteModelGone_CapabilityRefusalsNeverDisable(t *testing.T) {
 	}
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol"}
+	cand := goneCandidateFor(t, m, "OpenAI")
 
 	// Well past the threshold, cycling through every refusal shape.
 	for i := range goneStrikeThreshold * 3 {
 		body := refusals[i%len(refusals)]
 		if kind, _ := classifyUpstreamError(400, body, "gpt-5.6-sol"); kind == KindProviderModelGone {
-			h.noteModelGone(m, "OpenAI")
+			h.noteModelGone(cand, endpointTypeChat)
 		}
 	}
 
@@ -366,13 +443,14 @@ func TestNoteModelGone_RealRetirementStillDisables(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 	body := `{"error":{"code":404,"message":"This model models/gemini-2.0-flash is no longer available. Please update your code to use a newer model."}}`
 
 	for range goneStrikeThreshold {
 		if kind, _ := classifyUpstreamError(404, body, "gemini-2.0-flash"); kind == KindProviderModelGone {
-			h.noteModelGone(m, "Google AI Studio (Gemini)")
+			h.noteModelGone(cand, endpointTypeChat)
 		}
 	}
 
@@ -395,8 +473,9 @@ func TestNoteModelGone_ConcurrentStrikesAreNotLost(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 
 	var wg sync.WaitGroup
 	start := make(chan struct{})
@@ -405,7 +484,7 @@ func TestNoteModelGone_ConcurrentStrikesAreNotLost(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start // maximise overlap
-			h.noteModelGone(m, "Google AI Studio (Gemini)")
+			h.noteModelGone(cand, endpointTypeChat)
 		}()
 	}
 	close(start)
@@ -427,8 +506,9 @@ func TestNoteModelGone_ConcurrentBurstDisablesOnce(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "claude-sonnet-4"}
+	cand := goneCandidateFor(t, m, "OpenCode Zen")
 
 	var wg sync.WaitGroup
 	start := make(chan struct{})
@@ -437,7 +517,7 @@ func TestNoteModelGone_ConcurrentBurstDisablesOnce(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			h.noteModelGone(m, "OpenCode Zen")
+			h.noteModelGone(cand, endpointTypeChat)
 		}()
 	}
 	close(start)
@@ -458,11 +538,12 @@ func TestNoteModelGone_FailedDisableIsRetried(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{setEnabledErr: errors.New("database unavailable")}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 	if calls := waitForDisable(t, repo); len(calls) != 1 {
 		t.Fatalf("expected the first (failing) attempt, got %d", len(calls))
@@ -472,7 +553,7 @@ func TestNoteModelGone_FailedDisableIsRetried(t *testing.T) {
 	// The streak was cleared by the failure, so a fresh run of refusals must
 	// reach the threshold and try again rather than being swallowed.
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -508,12 +589,13 @@ func TestNoteModelGone_SuccessCancelsAQueuedDisable(t *testing.T) {
 		setEnabledGate:    make(chan struct{}),
 		setEnabledEntered: make(chan struct{}),
 	}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 
 	// Reach the threshold: the disable goroutine is now queued.
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 
 	// The model answers before the write is released.
@@ -549,11 +631,12 @@ func TestNoteModelGone_SuccessDuringTheWriteIsAbandoned(t *testing.T) {
 		setEnabledGate:    make(chan struct{}),
 		setEnabledEntered: make(chan struct{}),
 	}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 
 	// Wait for the write to be genuinely in flight — past the pre-check and
@@ -587,12 +670,13 @@ func TestNoteModelGone_SuccessAfterConfirmIsRolledBack(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 	repo.afterConfirm = func() { h.noteModelServed(m) }
 
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -628,12 +712,13 @@ func TestNoteModelGone_StaleFailedDisableKeepsANewerStreak(t *testing.T) {
 		setEnabledGate:    make(chan struct{}),
 		setEnabledEntered: make(chan struct{}),
 	}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 
 	// Reach the threshold and let the (failing) write start.
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 	select {
 	case <-repo.setEnabledEntered:
@@ -645,7 +730,7 @@ func TestNoteModelGone_StaleFailedDisableKeepsANewerStreak(t *testing.T) {
 	// refuses again, building a new one one strike short of the threshold.
 	h.noteModelServed(m)
 	for range goneStrikeThreshold - 1 {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 	newer, ok := h.goneStrikes.Load(m.ID)
 	if !ok {
@@ -676,7 +761,7 @@ func TestNoteModelGone_StaleFailedDisableKeepsANewerStreak(t *testing.T) {
 	// One more refusal now completes the newer streak, so a second disable must
 	// be attempted. If the stale cleanup had erased it, this would be strike one
 	// of three and nothing would happen.
-	h.noteModelGone(m, "Google AI Studio (Gemini)")
+	h.noteModelGone(cand, endpointTypeChat)
 
 	deadline = time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
@@ -701,12 +786,13 @@ func TestNoteModelGone_FailedRollbackStopsThere(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{reEnableErr: errors.New("database unavailable")}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 	repo.afterConfirm = func() { h.noteModelServed(m) }
 
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -745,12 +831,13 @@ func TestNoteModelGone_StaleStrikesDoNotAccumulate(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 
 	// Two refusals, one short of the threshold.
 	for range goneStrikeThreshold - 1 {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 
 	// Age them past the window, as if the incident were hours ago.
@@ -767,7 +854,7 @@ func TestNoteModelGone_StaleStrikesDoNotAccumulate(t *testing.T) {
 	streak.mu.Unlock()
 
 	// The next refusal begins a new streak instead of completing the old one.
-	h.noteModelGone(m, "Google AI Studio (Gemini)")
+	h.noteModelGone(cand, endpointTypeChat)
 	if n := streak.count(); n != 1 {
 		t.Errorf("a strike after the window must start over, got a streak of %d", n)
 	}
@@ -780,7 +867,7 @@ func TestNoteModelGone_StaleStrikesDoNotAccumulate(t *testing.T) {
 	// Fresh traffic still retires it: the window bounds the evidence, it does
 	// not disarm the feature.
 	for range goneStrikeThreshold - 1 {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 	if calls := waitForDisable(t, repo); len(calls) != 1 {
 		t.Fatalf("three recent refusals must still retire, got %+v", calls)
@@ -845,8 +932,9 @@ func TestNoteModelGone_FreshEvidenceBeatsAStaleRevert(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 
 	// The success lands after confirm, so the retirement commits and an undo is
 	// scheduled. Before it runs, the model refuses again and reaches a fresh
@@ -858,13 +946,13 @@ func TestNoteModelGone_FreshEvidenceBeatsAStaleRevert(t *testing.T) {
 		once.Do(func() {
 			h.noteModelServed(m)
 			for range goneStrikeThreshold {
-				h.noteModelGone(m, "Google AI Studio (Gemini)")
+				h.noteModelGone(cand, endpointTypeChat)
 			}
 		})
 	}
 
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 
 	time.Sleep(200 * time.Millisecond)
@@ -887,12 +975,13 @@ func TestNoteModelGone_SupersededRevertStandsDown(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{revertSuperseded: true}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 	repo.afterConfirm = func() { h.noteModelServed(m) }
 
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -925,20 +1014,20 @@ func TestNoteStreamOutcome_InconclusiveTouchesNeitherCounter(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
-	candidate := modelCandidate{model: m, provider: &provider.Provider{Name: "Google AI Studio (Gemini)"}}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 
 	// One short of the threshold, so a stray strike would disable and a stray
 	// clear would be visible as a restart.
 	for range goneStrikeThreshold - 1 {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 
 	// A timeout, a client disconnect and a transient provider failure: none of
 	// them is evidence about whether the model still exists.
 	for _, kind := range []ErrorKind{KindProviderTimeout, KindClientDisconnect, KindProviderError} {
-		h.noteStreamOutcome(&requestLogData{errorKind: kind}, candidate)
+		h.noteStreamOutcome(&requestLogData{endpointType: endpointTypeChat, errorKind: kind}, cand)
 	}
 
 	if calls := repo.disableCalls(); len(calls) != 0 {
@@ -946,7 +1035,7 @@ func TestNoteStreamOutcome_InconclusiveTouchesNeitherCounter(t *testing.T) {
 	}
 
 	// The streak survived intact, so the next real refusal completes it.
-	h.noteModelGone(m, "Google AI Studio (Gemini)")
+	h.noteModelGone(cand, endpointTypeChat)
 	if calls := waitForDisable(t, repo); len(calls) != 1 {
 		t.Fatalf("an inconclusive stream cleared the streak: expected the disable, got %+v", calls)
 	}
@@ -977,14 +1066,15 @@ func TestNoteModelGone_EachWriteGetsAFreshDeadline(t *testing.T) {
 		setEnabledGate:    make(chan struct{}),
 		setEnabledEntered: make(chan struct{}),
 	}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 	// The success has to land AFTER confirm for a rollback to happen at all;
 	// landing earlier abandons the write and there is no second one to measure.
 	repo.afterConfirm = func() { h.noteModelServed(m) }
 
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 
 	select {
@@ -1026,11 +1116,12 @@ func TestNoteModelGone_QueuedDisableStillLandsWithoutASuccess(t *testing.T) {
 		setEnabledGate:    make(chan struct{}),
 		setEnabledEntered: make(chan struct{}),
 	}
-	h := newGoneHandler(repo)
+	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 
 	for range goneStrikeThreshold {
-		h.noteModelGone(m, "Google AI Studio (Gemini)")
+		h.noteModelGone(cand, endpointTypeChat)
 	}
 
 	// No success this time; release the slow write.
