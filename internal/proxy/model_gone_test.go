@@ -67,7 +67,7 @@ func waitForStreakCleared(t *testing.T, h *Handler, id uuid.UUID) {
 // the evidence rather than standing in for it.
 func goneRefusalServer(t *testing.T, modelID string) *httptest.Server {
 	t.Helper()
-	body := fmt.Sprintf("{\"error\":{\"message\":\"The model `%s` does not exist\"}}", modelID)
+	body := goneRefusalBody(modelID)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
@@ -77,15 +77,90 @@ func goneRefusalServer(t *testing.T, modelID string) *httptest.Server {
 	return srv
 }
 
+// goneRefusalBody is the retirement refusal itself, split out from the server so
+// a test that needs its own server can still produce the one body
+// classifyUpstreamError reads as KindProviderModelGone. The model id has to look
+// like one (looksLikeAModelID wants a digit or a hyphen) or the classifier will
+// not attribute the phrase to it.
+func goneRefusalBody(modelID string) string {
+	return fmt.Sprintf("{\"error\":{\"message\":\"The model `%s` does not exist\"}}", modelID)
+}
+
+// goneServedAnswer is a real completion: a 200 carrying visible content, which
+// is what probeDeliveredContent requires before it will call a probe served.
+// Deliberately not an empty 200 — that is inconclusive, not a success.
+const goneServedAnswer = `{"id":"chatcmpl-probe","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"completion_tokens":1}}`
+
+// goneRateLimitedAnswer is the provider incident the postponement exists for: a
+// 429 says nothing whatever about whether the model still exists.
+const goneRateLimitedAnswer = `{"error":{"message":"Rate limit reached for requests","type":"requests"}}`
+
+// goneScriptedServer is a fake provider whose answer a test can change while the
+// test is running, and which records every path it was asked for.
+//
+// Both halves are needed and neither is served by the fixtures already here.
+// goneRefusalServer only ever refuses, and the postponement test has to switch a
+// live candidate from a 429 to a refusal without moving it to a second base URL
+// — the candidate is built once and carries the URL. probeServer (model_probe_test.go)
+// keeps only the LAST path, whereas the family tests assert over every path:
+// "never asked on /chat/completions" and "never asked at all" are claims about
+// all of them.
+type goneScriptedServer struct {
+	mu     sync.Mutex
+	status int
+	body   string
+	paths  []string
+}
+
+// answer replaces what the server returns from the next request onwards.
+func (s *goneScriptedServer) answer(status int, body string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.status, s.body = status, body
+}
+
+// requestedPaths returns a copy of every path the server was asked for, in
+// order. Copied under the lock: the probe runs on a detached goroutine, so the
+// server's handler may be appending while a test reads.
+func (s *goneScriptedServer) requestedPaths() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.paths...)
+}
+
+// newGoneScriptedServer starts the fake provider with its opening answer.
+func newGoneScriptedServer(t *testing.T, status int, body string) (*httptest.Server, *goneScriptedServer) {
+	t.Helper()
+	script := &goneScriptedServer{status: status, body: body}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		script.mu.Lock()
+		status, body := script.status, script.body
+		script.paths = append(script.paths, r.URL.Path)
+		script.mu.Unlock()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_, _ = io.WriteString(w, body)
+	}))
+	t.Cleanup(srv.Close)
+	return srv, script
+}
+
 // goneCandidateFor builds the candidate the retirement path actually carries,
 // pointed at a provider that refuses this model. It is the whole candidate and
 // not just the model because the probe needs a base URL, a provider name and a
 // decrypted key to ask anything at all.
 func goneCandidateFor(t *testing.T, m *model.Model, providerName string) modelCandidate {
 	t.Helper()
+	return goneCandidateAt(m, providerName, goneRefusalServer(t, m.ModelID).URL)
+}
+
+// goneCandidateAt is the same candidate pointed at a base URL the test chose,
+// for the cases whose whole subject is what the provider answers.
+func goneCandidateAt(m *model.Model, providerName, baseURL string) modelCandidate {
 	return modelCandidate{
 		model:    m,
-		provider: &provider.Provider{ID: uuid.New(), Name: providerName, BaseURL: goneRefusalServer(t, m.ModelID).URL},
+		provider: &provider.Provider{ID: uuid.New(), Name: providerName, BaseURL: baseURL},
 		apiKey:   goneAPIKey,
 	}
 }
@@ -1138,5 +1213,268 @@ func TestNoteModelGone_QueuedDisableStillLandsWithoutASuccess(t *testing.T) {
 	}
 	if calls[0].enabled {
 		t.Error("model must be disabled, not enabled")
+	}
+}
+
+// TestNoteModelGone_AnsweredProbePreventsTheDisable is the whole point of
+// verifying before retiring: three refusals read out of provider prose are a
+// nomination, not a verdict, and a model that answers a request the gateway
+// makes itself is not retired however the classifier read the traffic.
+//
+// Delete this and a drifted gone-pattern — a phrasing some provider starts using
+// for a transient fault — takes a working model out of routing after three
+// requests, which is exactly what the old code did.
+func TestNoteModelGone_AnsweredProbePreventsTheDisable(t *testing.T) {
+	t.Parallel()
+
+	// Guard on the fixture rather than trusting it. A served verdict and an
+	// inconclusive one are indistinguishable from outside — neither writes
+	// anything and both drop the streak — so a body that failed to parse would
+	// let every assertion below pass without the served branch ever running.
+	if !probeDeliveredContent(endpointTypeChat, []byte(goneServedAnswer)) {
+		t.Fatal("the fixture answer does not read as served, so this test would pass on an inconclusive probe")
+	}
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol"}
+	srv, script := newGoneScriptedServer(t, http.StatusOK, goneServedAnswer)
+	cand := goneCandidateAt(m, "OpenAI", srv.URL)
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+
+	// disableCalls records every attempt, committed or not, and RevertAutoRetire
+	// records into the same list — so an empty list is the full claim: nothing
+	// was written, and nothing had to be undone.
+	if calls := waitForDisable(t, repo); len(calls) != 0 {
+		t.Fatalf("a model that answered a direct probe must not be retired, got %+v", calls)
+	}
+	// The streak is dropped by the served branch (through noteModelServed), so
+	// the model needs three FRESH refusals before it is reconsidered.
+	waitForStreakCleared(t, h, m.ID)
+	// And the outcome came from asking rather than from nothing happening.
+	if paths := script.requestedPaths(); len(paths) != 1 || paths[0] != probeChatEndpoint {
+		t.Fatalf("expected exactly one probe on %s, got %v", probeChatEndpoint, paths)
+	}
+}
+
+// TestNoteModelGone_RefusedProbeStillDisables is the paired control for the test
+// above: identical strikes, identical code path, the provider's answer the only
+// difference, and the opposite outcome.
+//
+// Together they pin that the retirement is written on what the probe found and
+// not on the strike count. This is the half that keeps the verification from
+// quietly disarming the feature — the probe may only ever PREVENT a disable,
+// never weaken one that three refusals and a refused probe have earned.
+func TestNoteModelGone_RefusedProbeStillDisables(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol"}
+	srv, script := newGoneScriptedServer(t, http.StatusNotFound, goneRefusalBody("gpt-5.6-sol"))
+	cand := goneCandidateAt(m, "OpenAI", srv.URL)
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+
+	calls := waitForDisable(t, repo)
+	if len(calls) != 1 {
+		t.Fatalf("a probe that refused the model must still retire it, got %+v", calls)
+	}
+	if calls[0].id != m.ID || calls[0].enabled || !calls[0].committed {
+		t.Errorf("expected a committed disable of %s, got %+v", m.ID, calls[0])
+	}
+	if paths := script.requestedPaths(); len(paths) != 1 || paths[0] != probeChatEndpoint {
+		t.Fatalf("expected exactly one probe on %s, got %v", probeChatEndpoint, paths)
+	}
+}
+
+// TestNoteModelGone_RateLimitedProbePostponesThenRetires pins the postponement
+// and its exit in one sequence.
+//
+// A 429 is the provider incident case: it establishes nothing about whether the
+// model exists, so retiring on it would turn one bad afternoon at a provider
+// into a mass retirement of its whole catalog. But postponing must not become
+// permanent either — a model that is genuinely dead has to be retirable once the
+// incident passes. Deleting this test loses one or the other: either the
+// gateway retires models it never verified, or the inconclusive branch parks the
+// streak above the threshold where every later refusal is a no-op and the dead
+// model stays enabled forever.
+func TestNoteModelGone_RateLimitedProbePostponesThenRetires(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "claude-sonnet-4"}
+	// One server that changes its answer, not two servers: the candidate is built
+	// once and carries the base URL, so the provider has to be the same host
+	// before and after the incident.
+	srv, script := newGoneScriptedServer(t, http.StatusTooManyRequests, goneRateLimitedAnswer)
+	cand := goneCandidateAt(m, "OpenCode Zen", srv.URL)
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+	if calls := waitForDisable(t, repo); len(calls) != 0 {
+		t.Fatalf("a rate-limited probe proved nothing, so nothing may be retired on it, got %+v", calls)
+	}
+	// The postponement drops the streak so later refusals can rebuild it. Without
+	// this the count stays parked at the threshold and the second round below is
+	// swallowed entirely.
+	waitForStreakCleared(t, h, m.ID)
+
+	// The incident passes and the model turns out to be genuinely gone.
+	script.answer(http.StatusNotFound, goneRefusalBody(m.ModelID))
+	for range goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+
+	calls := waitForDisable(t, repo)
+	if len(calls) != 1 {
+		t.Fatalf("a postponed retirement must still be reachable once the provider answers again, got %+v", calls)
+	}
+	if calls[0].enabled || !calls[0].committed {
+		t.Errorf("expected a committed disable, got %+v", calls[0])
+	}
+	if paths := script.requestedPaths(); len(paths) != 2 {
+		t.Errorf("expected one probe per completed streak, got %v", paths)
+	}
+}
+
+// TestNoteModelGone_EmbeddingsAreProbedOnTheirOwnEndpoint pins that the probe
+// asks the question on the surface the model actually serves.
+//
+// An embeddings model has no /chat/completions, so a chat probe against one
+// fails for a reason that has nothing to do with retirement — and that failure
+// reads as confirmation of the retirement it was supposed to adjudicate. The
+// verification would then manufacture exactly the wrong answer, and every
+// embeddings model that drew three classifier strikes would be retired
+// unverified.
+func TestNoteModelGone_EmbeddingsAreProbedOnTheirOwnEndpoint(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"}
+	srv, script := newGoneScriptedServer(t, http.StatusNotFound, goneRefusalBody("text-embedding-3-small"))
+	cand := goneCandidateAt(m, "OpenAI", srv.URL)
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeEmbeddings)
+	}
+
+	if calls := waitForDisable(t, repo); len(calls) != 1 {
+		t.Fatalf("an embeddings model refused by its own endpoint must still be retired, got %+v", calls)
+	}
+
+	paths := script.requestedPaths()
+	if len(paths) != 1 || paths[0] != probeEmbeddingsEndpoint {
+		t.Fatalf("expected exactly one probe on %s, got %v", probeEmbeddingsEndpoint, paths)
+	}
+	for _, p := range paths {
+		if p == probeChatEndpoint {
+			t.Errorf("an embeddings model was probed on the chat endpoint (%s), which fails for reasons unrelated to retirement", p)
+		}
+	}
+}
+
+// TestNoteModelGone_UnprobeableFamiliesAreNeverRetired pins the family gate, and
+// pins it before the strike rather than after.
+//
+// Image, speech and transcription models cannot be probed cheaply or safely: the
+// call costs real money and real seconds, and a chat probe against one fails for
+// reasons unrelated to retirement. Where the answer cannot be substantiated the
+// correct outcome is to never auto-retire the family at all — falling back to
+// the classifier alone would leave the guessing running unsupervised precisely
+// where it is least observed.
+//
+// The streak assertion is the other half. A counter that can never fire is not
+// evidence, and recording one would both manufacture the appearance of some and
+// let image refusals top up a chat streak that CAN retire the model.
+func TestNoteModelGone_UnprobeableFamiliesAreNeverRetired(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+
+	families := []struct {
+		name         string
+		endpointType string
+		modelID      string
+	}{
+		{"image", endpointTypeImage, "dall-e-3"},
+		{"speech", endpointTypeTTS, "tts-1-hd"},
+		// An entry whose family was never stamped is unprobeable for the same
+		// reason as the two above: nothing can be established about it.
+		{"unstamped", "", "gpt-5.6-sol"},
+	}
+
+	scripts := make([]*goneScriptedServer, len(families))
+	for i, f := range families {
+		m := &model.Model{ID: uuid.New(), ModelID: f.modelID}
+		srv, script := newGoneScriptedServer(t, http.StatusNotFound, goneRefusalBody(f.modelID))
+		scripts[i] = script
+		cand := goneCandidateAt(m, "OpenAI", srv.URL)
+
+		// Well past the threshold: the gate is unconditional, not a delay.
+		for range goneStrikeThreshold + 3 {
+			h.noteModelGone(cand, f.endpointType)
+		}
+		if _, ok := h.goneStrikes.Load(m.ID); ok {
+			t.Errorf("%s: a family that can never be adjudicated must not record a streak", f.name)
+		}
+	}
+
+	if calls := waitForDisable(t, repo); len(calls) != 0 {
+		t.Fatalf("an unprobeable family must never be auto-retired, got %+v", calls)
+	}
+	for i, script := range scripts {
+		if paths := script.requestedPaths(); len(paths) != 0 {
+			t.Errorf("%s: an unprobeable family must not spend an upstream request, got %v", families[i].name, paths)
+		}
+	}
+}
+
+// TestNoteStreamOutcome_GoneVerdictReachesTheProbe covers the third call site.
+//
+// A model can be reported retired mid-stream, and that report arrives through
+// noteStreamOutcome rather than through the non-streaming error path. If the
+// gone verdict did not forward to the retirement machinery — or forwarded a
+// family other than the one the log entry carries — a model that only ever fails
+// on streaming requests would stay routable forever, which is most of the
+// gateway's traffic.
+//
+// The probe assertion is what makes this about the verdict reaching the PROBE:
+// a disable that landed without an upstream request would be the unverified
+// retirement this whole change removes.
+func TestNoteStreamOutcome_GoneVerdictReachesTheProbe(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	srv, script := newGoneScriptedServer(t, http.StatusNotFound, goneRefusalBody("gemini-2.0-flash"))
+	cand := goneCandidateAt(m, "Google AI Studio (Gemini)", srv.URL)
+
+	for range goneStrikeThreshold {
+		// upstreamKind is what the provider said, which is the only thing that can
+		// establish a retirement; the endpoint family is stamped at ingest exactly
+		// as newPendingRequestLog leaves it.
+		h.noteStreamOutcome(&requestLogData{endpointType: endpointTypeChat, upstreamKind: KindProviderModelGone}, cand)
+	}
+
+	calls := waitForDisable(t, repo)
+	if len(calls) != 1 {
+		t.Fatalf("a model reported retired mid-stream must be retired like any other, got %+v", calls)
+	}
+	if calls[0].id != m.ID || calls[0].enabled || !calls[0].committed {
+		t.Errorf("expected a committed disable of %s, got %+v", m.ID, calls[0])
+	}
+	if paths := script.requestedPaths(); len(paths) != 1 || paths[0] != probeChatEndpoint {
+		t.Fatalf("the stream verdict must be adjudicated by a probe on %s, got %v", probeChatEndpoint, paths)
 	}
 }
