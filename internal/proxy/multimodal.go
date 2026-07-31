@@ -409,6 +409,23 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
 	}
 
+	// The provider served the model, so any gone-strike streak it had is stale.
+	// This is the success half of the signal the failover branch above records,
+	// and without it "three CONSECUTIVE refusals" was not true on this path:
+	// embeddings is the one pass-through family that can be auto-retired, and its
+	// strikes only ever expired with goneStrikeWindow. Three refusals scattered
+	// across half an hour of otherwise healthy traffic reached the threshold and
+	// spent a probe, where the chat path would have cleared the count on the first
+	// success in between.
+	//
+	// Unconditional on the family, unlike the strike. A strike has to be gated
+	// because it cannot be adjudicated for an image or TTS model, but a 2xx from
+	// any surface is evidence the provider still serves the model, and clearing a
+	// streak can only ever PREVENT a retirement. Nothing is at risk from being
+	// generous here, and a model taking both chat and embeddings traffic gets the
+	// same answer from either.
+	h.noteModelServed(candidate.model)
+
 	// Breaker success for 2xx is recorded inside servePassthroughResponse at
 	// the commit point (headers for buffered JSON, first body byte for
 	// SSE/binary), so a provider that returns 200 and then stalls or dies

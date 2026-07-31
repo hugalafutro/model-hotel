@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -1430,6 +1431,63 @@ func TestNoteModelGone_AnsweredProbeKeepsTheCooldown(t *testing.T) {
 	expireProbeCooldown(t, h, m.ID)
 	h.noteModelGone(cand, endpointTypeChat)
 	waitForProbes(t, script, 2)
+}
+
+// TestGoneStreak_SupersedeIsAtomicToAReader pins the one ordering the revert
+// path depends on and cannot check for itself.
+//
+// The disable goroutine reads the tombstone without the lock and then asks for
+// the count, and it treats "cancelled, but the strikes are still standing" as
+// "the model is refusing again" and skips the revert. If a success sets the flag
+// before it clears the count, that reader can land in the gap and see the very
+// strikes that caused the retirement it is holding — so a model that has just
+// answered stays disabled, the count is parked at zero a moment later, and
+// nothing ever triggers a revert again. An operator has to re-enable it by hand,
+// which is the outcome the whole cancellation exists to prevent.
+//
+// Driven directly against the streak, and by holding its lock rather than by
+// racing it. The real window is one mutex acquire, so a test that merely raced
+// would pass against the broken ordering almost every time — a test that cannot
+// fail pins nothing. Holding mu is what any concurrent strike or claim does
+// anyway, and it makes the question exact: while the count CANNOT be cleared,
+// the tombstone must not be visible either.
+func TestGoneStreak_SupersedeIsAtomicToAReader(t *testing.T) {
+	t.Parallel()
+
+	s := &goneStreak{}
+	now := time.Now()
+	for range goneStrikeThreshold {
+		s.strike(now)
+	}
+
+	s.mu.Lock()
+	started := make(chan struct{})
+	go func() {
+		close(started)
+		s.supersede()
+	}()
+	<-started
+	// Long enough that a supersede setting the tombstone outside the lock would
+	// have done it by now. The fixed one cannot do it at any wait, so the
+	// assertion below has no flaky direction.
+	time.Sleep(50 * time.Millisecond)
+	visible := s.cancelled.Load()
+	s.mu.Unlock()
+	if visible {
+		t.Fatal("the tombstone became visible while the strikes it stands down were still on the streak: a reader landing here skips the revert and leaves a model that just answered disabled")
+	}
+
+	// And once it can run, both halves land together.
+	deadline := time.Now().Add(2 * time.Second)
+	for !s.cancelled.Load() && time.Now().Before(deadline) {
+		runtime.Gosched()
+	}
+	if !s.cancelled.Load() {
+		t.Fatal("the success never stood the disable down")
+	}
+	if n := s.count(); n != 0 {
+		t.Fatalf("streak = %d, want the evidence cleared alongside the tombstone", n)
+	}
 }
 
 // TestNoteModelGone_ASuccessDoesNotResetTheProbeCooldown closes the other door

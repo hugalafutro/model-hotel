@@ -13,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // hedgeResult is the outcome of probing one candidate in a hedged streaming race.
@@ -92,15 +93,22 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		// *st.logData copy is impossible: requestLogData embeds a sync.WaitGroup.
 		// The orchestrator keeps using the real st for all terminal logging.)
 		//
-		// Constraint on future edits: this throwaway must never reach
-		// noteStreamOutcome. It carries no endpointType, and an empty endpoint
-		// family switches auto-retirement off silently — noteModelGone's family
-		// gate rejects it BEFORE recording a strike, and says so only at Debug, so
-		// hedged streams would quietly stop retiring dead models with nothing in
-		// the logs to show for it. serveHedgeWinner deliberately re-binds logData
-		// to the real, ingest-stamped st.logData before it judges the model; keep
-		// it that way.
-		snap.logData = &requestLogData{modelID: st.logData.modelID, providerName: candidates[idx].provider.Name}
+		// endpointType is copied across and is load-bearing, not decoration: a
+		// losing candidate's refusal is classified against this throwaway (see
+		// probeStreamingCandidate), and an empty endpoint family switches
+		// auto-retirement off SILENTLY — noteModelGone's family gate rejects it
+		// before recording a strike and says so only at Debug, so hedged streams
+		// would quietly stop retiring dead models with nothing in the logs to
+		// show for it. It is safe to copy where the rest is not: ingest stamps it
+		// once and nothing writes it afterwards, so it cannot race
+		// serveHedgeWinner the way providerName and the timings would.
+		//
+		// Constraint on future edits: this throwaway must still never reach
+		// noteStreamOutcome, which judges a finished stream from fields the probe
+		// never fills in (upstreamKind, the content flag). serveHedgeWinner
+		// deliberately re-binds logData to the real st.logData before it judges
+		// the model; keep it that way.
+		snap.logData = &requestLogData{modelID: st.logData.modelID, providerName: candidates[idx].provider.Name, endpointType: st.logData.endpointType}
 		go func() {
 			results <- probeOne(ctx, &snap, candidates[idx], idx, ttftTimeout, stallTimeout)
 		}()
@@ -235,8 +243,10 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 
 	if resp.StatusCode != http.StatusOK {
 		// Any non-200 drops this candidate. The orchestrator owns the terminal
-		// write if every candidate fails; drain so the connection can be reused.
-		errBody, _ := io.ReadAll(resp.Body)
+		// write if every candidate fails; drain so the connection can be reused,
+		// keeping only as much as the two readers below can use.
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
+		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 		if resp.StatusCode == http.StatusBadRequest {
 			// A hedged probe cannot retry in-race (a second upstream round-trip
@@ -244,6 +254,16 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			// still LEARN the /v1/responses requirement from the 400 so every
 			// subsequent request — hedged or sequential — routes preemptively.
 			h.learnResponsesRequirement(st, candidate, providerType, errBody)
+		}
+		// The third and last place a retired model's refusal was being thrown
+		// away. A hedged race drops every candidate but the winner here, so
+		// without this a dead model in a hedged group accrued strikes only on
+		// the runs it happened to win — which is to say almost never, since a
+		// model answering 404 loses the TTFT contest to anything that works.
+		// Same classification the sequential and pass-through loops do, on a
+		// body that is being discarded either way.
+		if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(errBody), 10000), candidate.model.ModelID); kind == KindProviderModelGone {
+			h.noteModelGone(candidate, st.logData.endpointType)
 		}
 		res.reqErr = reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}
 		return res

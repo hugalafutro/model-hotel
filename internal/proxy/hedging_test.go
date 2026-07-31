@@ -350,6 +350,66 @@ func TestRunHedgedStreaming_RealProbesConcurrent(t *testing.T) {
 	}
 }
 
+// TestRunHedgedStreaming_LosingCandidateStrikesTheRightFamily pins the one field
+// the orchestrator has to copy into each probe's throwaway logData.
+//
+// The probes cannot share the real logData (serveHedgeWinner writes the winner's
+// identity onto it), so each gets a private one carrying only what the probe
+// path reads. A losing candidate's refusal is now classified against that
+// throwaway, and noteModelGone's family gate rejects an empty endpointType
+// BEFORE recording a strike, at Debug and nowhere else. Drop the copy and hedged
+// streaming silently stops retiring dead models with nothing in the logs to show
+// for it, which is the failure this test exists to make loud.
+func TestRunHedgedStreaming_LosingCandidateStrikesTheRightFamily(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	refused := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = io.WriteString(w, goneRefusalBody("gemini-2.0-flash"))
+	}))
+	defer refused.Close()
+	winner := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"x\"}}]}\n\ndata: [DONE]\n\n")
+	}))
+	defer winner.Close()
+
+	st, logData := newHedgeState(25 * time.Millisecond)
+	// What ingest stamps on every real request, and what the throwaway has to
+	// carry through to the probe.
+	logData.endpointType = endpointTypeChat
+	st.reqModel = "orig-model"
+	st.bodyBytes = []byte(`{"model":"orig-model","messages":[{"role":"user","content":"hi"}],"stream":true}`)
+
+	dead := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	cands := []modelCandidate{
+		{model: dead, provider: &provider.Provider{ID: uuid.New(), Name: "retired", BaseURL: refused.URL}},
+		{model: &model.Model{ID: uuid.New(), ModelID: "m1"}, provider: &provider.Provider{ID: uuid.New(), Name: "healthy", BaseURL: winner.URL}},
+	}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	h.runHedgedStreaming(w, req, st, cands, h.probeStreamingCandidate)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected the healthy member to win, got %d", w.Code)
+	}
+	raw, ok := h.goneStrikes.Load(dead.ID)
+	if !ok {
+		t.Fatal("the refused candidate accrued no strike, so a hedged group can never retire a dead model")
+	}
+	streak, ok := raw.(*goneStreak)
+	if !ok {
+		t.Fatalf("unexpected streak type %T", raw)
+	}
+	if n := streak.count(); n != 1 {
+		t.Errorf("streak = %d, want exactly 1 strike for one refusal", n)
+	}
+}
+
 // closeTrackingBody is an io.ReadCloser that records whether Close was called.
 type closeTrackingBody struct {
 	closed bool
@@ -522,6 +582,44 @@ func TestProbeStreamingCandidate(t *testing.T) {
 		}
 		if res.resp != nil {
 			_ = res.resp.Body.Close()
+		}
+	})
+
+	t.Run("a refused model still strikes", func(t *testing.T) {
+		// The third and last path that drops a candidate's error body. A hedged
+		// race discards every loser here, so a dead model in a hedged group only
+		// ever accrued strikes on the runs it happened to WIN — and a model
+		// answering 404 loses the first-token race to anything that works. Delete
+		// this and traffic-driven retirement is silently off for every streaming
+		// failover group whenever hedging is enabled.
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = io.WriteString(w, goneRefusalBody("gemini-2.0-flash"))
+		}))
+		defer srv.Close()
+
+		st, cand := probeStateForServer(srv.URL)
+		// What the orchestrator's throwaway logData carries. An empty endpoint
+		// family drops the strike before it is recorded, which is the failure
+		// this subtest would otherwise sail past.
+		st.logData.endpointType = endpointTypeChat
+		cand.model = &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+
+		res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 5*time.Second, 30*time.Second)
+		if res.won {
+			t.Fatal("a 404 must not win")
+		}
+		raw, ok := h.goneStrikes.Load(cand.model.ID)
+		if !ok {
+			t.Fatal("a losing candidate's refusal accrued no strike")
+		}
+		streak, ok := raw.(*goneStreak)
+		if !ok {
+			t.Fatalf("unexpected streak type %T", raw)
+		}
+		if n := streak.count(); n != 1 {
+			t.Errorf("streak = %d, want exactly 1 strike for one refusal", n)
 		}
 	})
 

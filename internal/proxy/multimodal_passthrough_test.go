@@ -306,6 +306,68 @@ func TestEmbeddings_FailoverStillRecordsTheGoneSignal(t *testing.T) {
 	}
 }
 
+// TestEmbeddings_ASuccessClearsTheGoneStrikes pins the success half of
+// traffic-driven retirement on the pass-through path.
+//
+// The strike is only half a signal. What makes three strikes mean anything is
+// that they have to be CONSECUTIVE: a success in between resets the count, so a
+// retirement is drawn from a run of failures rather than from three unrelated
+// ones. The chat loop has always done that; the pass-through loop recorded
+// strikes and never cleared them, so for embeddings — the one pass-through
+// family that can be auto-retired — nothing but the 30-minute window bounded
+// them. A model serving thousands of requests an hour that drew three scattered
+// 404s in half an hour reached the threshold and spent a probe on a model that
+// was demonstrably working the whole time.
+func TestEmbeddings_ASuccessClearsTheGoneStrikes(t *testing.T) {
+	var goneModelName atomic.Value
+	var refuse atomic.Bool
+	refuse.Store(true)
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if refuse.Load() {
+			w.WriteHeader(http.StatusNotFound)
+			name, _ := goneModelName.Load().(string)
+			_, _ = fmt.Fprintf(w, "{\"error\":{\"message\":\"The model `%s` does not exist\"}}", name)
+			return
+		}
+		_, _ = io.WriteString(w, `{"object":"list","data":[{"object":"embedding","embedding":[0.1],"index":0}]}`)
+	}))
+	goneModelName.Store(env.modelName)
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)
+	embed := func() int {
+		req := env.request("/v1/embeddings", "application/json", strings.NewReader(body))
+		w := httptest.NewRecorder()
+		env.handler.Embeddings(w, req)
+		return w.Code
+	}
+
+	if code := embed(); code != http.StatusNotFound {
+		t.Fatalf("status = %d, want the provider's 404", code)
+	}
+	raw, ok := env.handler.goneStrikes.Load(env.modelUUID)
+	if !ok {
+		t.Fatal("the refusal accrued no strike")
+	}
+	streak, ok := raw.(*goneStreak)
+	if !ok {
+		t.Fatalf("unexpected streak type %T", raw)
+	}
+	if n := streak.count(); n != 1 {
+		t.Fatalf("streak = %d, want 1 after one refusal", n)
+	}
+
+	// The same model now answers. That is the evidence a strike is measured
+	// against, and it must reset the count.
+	refuse.Store(false)
+	if code := embed(); code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", code)
+	}
+	if n := streak.count(); n != 0 {
+		t.Fatalf("streak = %d, want 0 after the model answered", n)
+	}
+}
+
 func TestEmbeddings_UpstreamErrorReturnsOpenAIError(t *testing.T) {
 	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

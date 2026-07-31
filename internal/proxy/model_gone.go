@@ -270,6 +270,34 @@ func (s *goneStreak) claimProbe(now time.Time) bool {
 func (s *goneStreak) park() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.clearLocked()
+}
+
+// supersede is park plus the tombstone: the model answered, so a disable that
+// has been decided stands down and the evidence behind it is cleared.
+//
+// One critical section, and that is the whole reason this is not two calls at
+// the call site. The disable goroutine reads the tombstone without the lock and
+// then asks for the count, so the two updates have to be indivisible from its
+// point of view: seeing cancelled set while the count still shows the strikes
+// that caused this retirement reads as "the model is refusing again", and the
+// revert is skipped — leaving a model that has just answered disabled, with the
+// count parked at zero immediately afterwards so nothing ever triggers a revert
+// again. An operator would have to re-enable it by hand, which is the exact
+// outcome the cancellation exists to prevent.
+//
+// Storing inside the lock is what closes it: once a reader observes the
+// tombstone the writer is still holding mu, so the count it goes on to ask for
+// cannot be read until this has finished zeroing it.
+func (s *goneStreak) supersede() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cancelled.Store(true)
+	s.clearLocked()
+}
+
+// clearLocked resets the evidence. Callers hold mu.
+func (s *goneStreak) clearLocked() {
 	s.n = 0
 	s.lastStrike = time.Time{}
 }
@@ -584,20 +612,22 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 		// cycle, and the model ends up correct either way.
 		if streak.cancelled.Load() {
 			// The success that cancelled this retirement can itself be out of
-			// date. Its streak was dropped, new refusals can have built another
-			// one, and that replacement stands down when it finds the model
-			// already retired — by this very write. Reverting on the strength of
-			// the older success would then re-enable a model that current
-			// evidence says is gone, and the fresh streak, parked above the
-			// threshold, would never disable it again.
+			// date: it cleared the count, and refusals arriving since can have
+			// rebuilt it past the threshold inside this same write window.
+			// Reverting on the strength of the older success would re-enable a
+			// model that current evidence says is gone, and the rebuilt streak
+			// would stand down at its own claim when it found the model already
+			// retired — by this very write.
 			//
 			// So the revert defers to whatever the model is saying NOW rather
-			// than to the success that scheduled it.
-			if fresh, ok := h.goneStrikes.Load(modelID); ok {
-				if s, ok := fresh.(*goneStreak); ok && s.count() >= goneStrikeThreshold {
-					debuglog.Info("proxy: not reverting the auto-disable, the model is refusing again", "model", modelName, "provider", provider)
-					return
-				}
+			// than to the success that scheduled it. The count is read off this
+			// streak directly: nothing removes an entry from h.goneStrikes, so a
+			// lookup by model id could only ever return the same struct, and
+			// supersede's single critical section is what guarantees the count
+			// read here is the one that belongs to the tombstone read above.
+			if streak.count() >= goneStrikeThreshold {
+				debuglog.Info("proxy: not reverting the auto-disable, the model is refusing again", "model", modelName, "provider", provider)
+				return
 			}
 
 			rctx, rcancel := context.WithTimeout(context.Background(), goneWriteTimeout)
@@ -845,10 +875,9 @@ func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCand
 // pays a miss plus an uncontended mutex on a request that is already waiting on
 // an upstream call. Nothing is written and nothing touches the database.
 //
-// It also cancels a disable that has been decided but not yet written. The
-// ordering matters: mark the streak cancelled FIRST, then clear the count. A
-// queued disable holds a pointer to the streak, so setting the flag before
-// standing the evidence down is what makes it visible to that goroutine.
+// It also cancels a disable that has been decided but not yet written, which is
+// why it goes through supersede rather than setting the flag and parking
+// separately: a queued disable reads both, and has to see them change together.
 //
 // The entry is parked, not dropped, and the difference is the probe cooldown.
 // Deleting it took nextProbeAt with it, so a success between refusals reset the
@@ -869,7 +898,6 @@ func (h *Handler) noteModelServed(m *model.Model) {
 	if !ok {
 		return
 	}
-	streak.cancelled.Store(true)
-	streak.park()
+	streak.supersede()
 	debuglog.Debug("proxy: model answered again, cleared gone-strikes", "model", m.ModelID)
 }
