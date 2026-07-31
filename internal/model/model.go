@@ -446,6 +446,16 @@ func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool)
 // correcting it: an abandoned write is never committed, so no other session can
 // observe it and no downstream state is derived from it.
 //
+// It is the AUTOMATIC form of SetEnabled and deliberately leaves
+// disabled_manually untouched, matching how RecordMissingModels retires a model
+// that has vanished from a provider's listing. That flag records an operator's
+// decision, and two things read it: Upsert re-enables a model on re-sighting
+// only while it is false, and the discovery-claim list hides models where it is
+// true. Setting it here would make an automatic disable permanent AND invisible
+// — the model would stay off after the provider restored it, with nothing
+// surfaced for an operator to act on. The proxy's own alert is what announces
+// this disable; the flag is not the gateway's to claim.
+//
 // confirm runs with the row already written and locked, so keep it to an
 // in-memory check — anything slow holds a row lock for its duration.
 func (r *Repository) SetEnabledIfConfirmed(ctx context.Context, id uuid.UUID, enabled bool, confirm func() bool) (bool, error) {
@@ -457,7 +467,7 @@ func (r *Repository) SetEnabledIfConfirmed(ctx context.Context, id uuid.UUID, en
 	// Safe on both paths: Rollback after a successful Commit is a no-op.
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	query := `UPDATE models SET enabled = $1, disabled_manually = NOT $1 WHERE id = $2`
+	query := `UPDATE models SET enabled = $1 WHERE id = $2`
 	if _, err := tx.Exec(ctx, query, enabled, id); err != nil {
 		debuglog.Error("model: set enabled failed", "id", id, "enabled", enabled, "error", err)
 		return false, err

@@ -1228,6 +1228,58 @@ func TestSetEnabledIfConfirmed_AbandonedWriteIsNeverVisible(t *testing.T) {
 	}
 }
 
+// TestSetEnabledIfConfirmed_AutoDisableIsRecoverable pins that an automatic
+// disable does not claim to be an operator's decision.
+//
+// disabled_manually is read by two things: Upsert re-enables a model on
+// re-sighting only while it is false, and the discovery-claim list hides models
+// where it is true. Setting it on an automatic disable would therefore make the
+// disable permanent AND invisible — the provider could restore the model and it
+// would stay off, with nothing surfaced for anyone to act on. This is the same
+// separation RecordMissingModels already keeps for models that vanish from a
+// listing.
+func TestSetEnabledIfConfirmed_AutoDisableIsRecoverable(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-setenabled-recoverable")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	modelID := insertTestModel(ctx, t, providerID, "auto-disabled-model")
+
+	committed, err := repo.SetEnabledIfConfirmed(ctx, modelID, false, func() bool { return true })
+	if err != nil {
+		t.Fatalf("SetEnabledIfConfirmed failed: %v", err)
+	}
+	if !committed {
+		t.Fatal("the disable should have committed")
+	}
+
+	var enabled, manual bool
+	if err := testPool.QueryRow(ctx,
+		`SELECT enabled, disabled_manually FROM models WHERE id = $1`, modelID).Scan(&enabled, &manual); err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+	if enabled {
+		t.Error("the model should be disabled")
+	}
+	if manual {
+		t.Fatal("an automatic disable must not be recorded as an operator's choice")
+	}
+
+	// The provider lists the model again. Upsert must bring it back.
+	if err := repo.Upsert(ctx, newBareModel(providerID, "auto-disabled-model")); err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	if err := testPool.QueryRow(ctx,
+		`SELECT enabled FROM models WHERE id = $1`, modelID).Scan(&enabled); err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+	if !enabled {
+		t.Error("a restored model must come back on re-sighting, not stay retired forever")
+	}
+}
+
 // TestSetEnabledIfConfirmed_DeadContextReportsNotCommitted pins the failure
 // direction, which matters more here than for an ordinary write.
 //

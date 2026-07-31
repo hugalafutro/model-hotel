@@ -404,6 +404,79 @@ func TestClassifyUpstreamError_MustBeAboutTheRequestedModel(t *testing.T) {
 	runClassifyCases(t, tests)
 }
 
+// TestClassifyUpstreamError_NearbyClauseIsNotAttribution covers the difference
+// between a model being MENTIONED near a retirement phrase and being its
+// subject.
+//
+// Proximity was doing the work: any occurrence of the requested id inside an
+// 80-character window counted, so a response that names the model we asked for
+// in one clause and retires a different model in the next was read as retiring
+// ours. Three of those disable a model that is serving fine — the failure this
+// classifier exists to avoid causing, arrived at from a new direction.
+func TestClassifyUpstreamError_NearbyClauseIsNotAttribution(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		body      string
+		requested string
+		want      ErrorKind
+	}{
+		{
+			name:      "our model named, a different model retired in the same sentence",
+			body:      `{"error":{"message":"Request for healthy-model failed because retired-model is no longer available"}}`,
+			requested: "healthy-model",
+			want:      KindProviderError,
+		},
+		{
+			name:      "clause boundary between our model and the phrase",
+			body:      `{"error":{"message":"healthy-model was routed; retired-model does not exist"}}`,
+			requested: "healthy-model",
+			want:      KindProviderError,
+		},
+		{
+			name:      "comma-separated claims are separate claims",
+			body:      `{"error":{"message":"healthy-model was selected, but retired-model does not exist"}}`,
+			requested: "healthy-model",
+			want:      KindProviderError,
+		},
+		{
+			name:      "our model precedes a noun-phrase verb naming another model",
+			body:      `{"error":{"message":"routing healthy-model failed. unknown model retired-model"}}`,
+			requested: "healthy-model",
+			want:      KindProviderError,
+		},
+		{
+			name:      "our model in a separate JSON field from the message",
+			body:      `{"model":"healthy-model","error":{"message":"retired-model does not exist"}}`,
+			requested: "healthy-model",
+			want:      KindProviderError,
+		},
+		// Positive controls: attribution must still be found when the id really
+		// is the subject, including the wordier phrasings providers use.
+		{
+			name:      "adjacent subject still classifies",
+			body:      `{"error":{"message":"retired-model is no longer available"}}`,
+			requested: "retired-model",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "a few words between subject and phrase still classifies",
+			body:      `{"error":{"message":"The model ` + "`gpt-4`" + ` has been deprecated and does not exist"}}`,
+			requested: "gpt-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "noun-phrase verb with the id after it still classifies",
+			body:      `{"error":{"message":"unknown model openai/gpt-4"}}`,
+			requested: "gpt-4",
+			want:      KindProviderModelGone,
+		},
+	}
+
+	runClassifyCases(t, tests)
+}
+
 // TestClassifyUpstreamError_MixedMessages covers responses that say two things
 // at once, which is where a body-wide rule gets it wrong in both directions.
 //

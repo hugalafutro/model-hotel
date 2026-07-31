@@ -94,18 +94,104 @@ func isModelIDChar(b byte) bool {
 // Boundaries are checked against the FULL body, not the window, because the
 // window is a fixed-width cut: an id sliced by hi would otherwise look like it
 // ended cleanly there when the real text continues into a longer id.
-func namesModelID(body string, lo, hi int, id string) bool {
+func isWholeIDAt(body string, pos, end int) bool {
+	startsClean := pos == 0 || !isModelIDChar(body[pos-1])
+	endsClean := end == len(body) || !isModelIDChar(body[end])
+	return startsClean && endsClean
+}
+
+// maxAttributionGap bounds the text allowed between the model id and the phrase
+// that retires it. Real payloads put them adjacent or a few words apart ("The
+// model `gpt-4` has been deprecated and does not exist"); anything longer is a
+// different clause that happens to be nearby.
+const maxAttributionGap = 40
+
+// isClauseBreak reports whether b ends the clause a phrase belongs to.
+//
+// A comma counts. "healthy-model was routed, but retired-model does not exist"
+// is two claims, and only the second one is a retirement.
+func isClauseBreak(b byte) bool {
+	switch b {
+	case '.', ',', ';', '!', '?', '\n', '\r', '{', '}', '[', ']':
+		return true
+	default:
+		return false
+	}
+}
+
+// looksLikeAModelID reports whether s contains a token shaped like a model id.
+// Digits and hyphens are the tell: "gpt-4", "retired-model" and "llama3" all
+// qualify, while ordinary words and vendor prefixes like "openai/" do not.
+func looksLikeAModelID(s string) bool {
+	tokenHasDigit, tokenHasDash := false, false
+	for i := 0; i <= len(s); i++ {
+		if i < len(s) && (isModelIDChar(s[i]) || s[i] == '/') {
+			switch {
+			case s[i] >= '0' && s[i] <= '9':
+				tokenHasDigit = true
+			case s[i] == '-':
+				tokenHasDash = true
+			}
+			continue
+		}
+		if tokenHasDigit || tokenHasDash {
+			return true
+		}
+		tokenHasDigit, tokenHasDash = false, false
+	}
+	return false
+}
+
+// gapBindsPhrase reports whether the text between a model id and a retirement
+// phrase is short and plain enough that the phrase is about THAT id.
+//
+// Proximity alone is not attribution, which is the trap this closes: an 80
+// character window around "is no longer available" catches any id that happens
+// to be nearby, so a response naming the requested model in one clause and
+// retiring a different model in the next retires the wrong one — and three of
+// those disable a model that is serving fine. The subject has to be adjacent to
+// its predicate, with no clause boundary and no competing id in between.
+func gapBindsPhrase(gap string) bool {
+	if len(gap) > maxAttributionGap {
+		return false
+	}
+	for i := range len(gap) {
+		if isClauseBreak(gap[i]) {
+			return false
+		}
+	}
+	return !looksLikeAModelID(gap)
+}
+
+// phraseIsAbout reports whether the phrase occupying [verbPos, verbEnd) is the
+// provider talking about id, searching the surrounding window for an occurrence
+// bound tightly enough to be its subject or object.
+//
+// Both sides are allowed because provider wording splits along grammatical
+// lines: predicates take the id before them ("gpt-4 does not exist"), while the
+// noun-phrase verbs take it after ("unknown model openai/gpt-4").
+func phraseIsAbout(body string, verbPos, verbEnd, lo, hi int, id string) bool {
 	for off := lo; off+len(id) <= hi; {
 		at := strings.Index(body[off:hi], id)
 		if at < 0 {
 			return false
 		}
 		pos := off + at
-		startsClean := pos == 0 || !isModelIDChar(body[pos-1])
 		end := pos + len(id)
-		endsClean := end == len(body) || !isModelIDChar(body[end])
-		if startsClean && endsClean {
-			return true
+		if isWholeIDAt(body, pos, end) {
+			var gap string
+			switch {
+			case end <= verbPos:
+				gap = body[end:verbPos]
+			case pos >= verbEnd:
+				gap = body[verbEnd:pos]
+			default:
+				// Overlapping the phrase itself; treat as bound.
+				return true
+			}
+			if gapBindsPhrase(gap) {
+				return true
+			}
 		}
 		// Advance by one rather than by len(id): ids can overlap themselves.
 		off = pos + 1
@@ -150,7 +236,7 @@ func modelGoneAbout(body, modelID string) bool {
 			// The capability veto is applied per phrase, so a body that both
 			// retires this model and refuses some other model's capability
 			// still classifies on the retirement.
-			if namesModelID(body, lo, hi, id) && !refusesCapabilityAt(body, pos) {
+			if phraseIsAbout(body, pos, pos+len(verb), lo, hi, id) && !refusesCapabilityAt(body, pos) {
 				return true
 			}
 			off = pos + len(verb)
