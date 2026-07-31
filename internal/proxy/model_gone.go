@@ -166,7 +166,12 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 		}
 
 		if !committed {
-			debuglog.Info("proxy: abandoned auto-disable, model answered while the write was staged", "model", modelName, "provider", provider)
+			// Either the model answered while the write was staged, or the row
+			// had already moved on — an operator's own disable or enable, or
+			// another member retiring it first. The repository logs which; from
+			// here they are the same outcome, and the same correct response is
+			// to leave the row alone.
+			debuglog.Info("proxy: auto-disable did not commit, the model or its state changed while the write was staged", "model", modelName, "provider", provider)
 			return
 		}
 

@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -464,6 +465,13 @@ func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool)
 // re-sighting must not revive this model, because the provider was refusing it
 // while still listing it.
 //
+// The write is conditional on the row still being a routable, untouched model.
+// What it cannot see is evidence that predates an operator's action: strikes
+// gathered before they enabled the model still read as a routable model here.
+// That resolves itself rather than needing to be detected — if the model really
+// is gone it refuses three more requests and is retired again, with a fresh
+// alert, which is the correct answer to an operator enabling a dead model.
+//
 // confirm runs with the row already written and locked, so keep it to an
 // in-memory check — anything slow holds a row lock for its duration.
 func (r *Repository) AutoRetireIfConfirmed(ctx context.Context, id uuid.UUID, confirm func() bool) (bool, error) {
@@ -474,6 +482,37 @@ func (r *Repository) AutoRetireIfConfirmed(ctx context.Context, id uuid.UUID, co
 	}
 	// Safe on both paths: Rollback after a successful Commit is a no-op.
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Lock the row and check it still looks like the model the evidence was
+	// gathered against, before writing anything.
+	//
+	// The decision is made on the request path and executed here, so the row can
+	// have moved on in between — an operator disabling it by hand, an operator
+	// re-enabling it after an earlier retirement, another member of the fleet
+	// retiring it first. Writing by id alone would overwrite whatever they did
+	// with a conclusion drawn from traffic that predates it.
+	//
+	// FOR UPDATE is what makes the check worth making: it holds the row from
+	// here until the transaction ends, so no operator write can slip between the
+	// check and the commit. Combined with the staging below, the entire decision
+	// is atomic with respect to everything else touching this model.
+	var enabled, manual bool
+	var retiredAt *time.Time
+	switch err := tx.QueryRow(ctx,
+		`SELECT enabled, disabled_manually, auto_retired_at FROM models WHERE id = $1 FOR UPDATE`,
+		id).Scan(&enabled, &manual, &retiredAt); {
+	case errors.Is(err, pgx.ErrNoRows):
+		// Deleted since the decision. Nothing to retire, and not an error.
+		return false, nil
+	case err != nil:
+		debuglog.Error("model: auto-retire state read failed", "id", id, "error", err)
+		return false, err
+	}
+	if !enabled || manual || retiredAt != nil {
+		debuglog.Info("model: skipping auto-retire, the model's state changed since the decision",
+			"id", id, "enabled", enabled, "disabled_manually", manual, "already_retired", retiredAt != nil)
+		return false, nil
+	}
 
 	query := `UPDATE models SET enabled = false, auto_retired_at = now() WHERE id = $1`
 	if _, err := tx.Exec(ctx, query, id); err != nil {

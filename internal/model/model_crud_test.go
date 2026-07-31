@@ -1311,6 +1311,105 @@ func TestAutoRetireIfConfirmed_SurvivesReSighting(t *testing.T) {
 	}
 }
 
+// TestAutoRetireIfConfirmed_StandsDownOnceTheRowMovedOn covers the other half of
+// the same window as RevertAutoRetire's condition.
+//
+// The retirement is decided on the request path and executed on a detached
+// goroutine, so the row can change in between. Writing by id alone would
+// overwrite an operator's own decision with a conclusion drawn from traffic that
+// predates it — and the operator has no way to tell that happened, because the
+// gateway's alert says exactly what it would have said anyway.
+func TestAutoRetireIfConfirmed_StandsDownOnceTheRowMovedOn(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-autoretire-standdown")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	assertNotRetired := func(t *testing.T, id uuid.UUID) {
+		t.Helper()
+		var retired *time.Time
+		if err := testPool.QueryRow(ctx,
+			`SELECT auto_retired_at FROM models WHERE id = $1`, id).Scan(&retired); err != nil {
+			t.Fatalf("read failed: %v", err)
+		}
+		if retired != nil {
+			t.Error("a retirement that stood down must not stamp the row")
+		}
+	}
+
+	t.Run("operator disabled it by hand first", func(t *testing.T) {
+		id := insertTestModel(ctx, t, providerID, "operator-disabled")
+		if _, err := repo.SetEnabled(ctx, id, false); err != nil {
+			t.Fatalf("operator disable failed: %v", err)
+		}
+
+		confirmed := false
+		committed, err := repo.AutoRetireIfConfirmed(ctx, id, func() bool {
+			confirmed = true
+			return true
+		})
+		if err != nil {
+			t.Fatalf("AutoRetireIfConfirmed failed: %v", err)
+		}
+		if committed {
+			t.Error("a retirement must not overwrite an operator's disable")
+		}
+		if confirmed {
+			t.Error("confirm must not run once the row has already moved on")
+		}
+		assertNotRetired(t, id)
+
+		var manual bool
+		if err := testPool.QueryRow(ctx,
+			`SELECT disabled_manually FROM models WHERE id = $1`, id).Scan(&manual); err != nil {
+			t.Fatalf("read failed: %v", err)
+		}
+		if !manual {
+			t.Error("the operator's choice must survive intact")
+		}
+	})
+
+	t.Run("already retired", func(t *testing.T) {
+		id := insertTestModel(ctx, t, providerID, "already-retired")
+		if _, err := repo.AutoRetireIfConfirmed(ctx, id, func() bool { return true }); err != nil {
+			t.Fatalf("AutoRetireIfConfirmed failed: %v", err)
+		}
+		committed, err := repo.AutoRetireIfConfirmed(ctx, id, func() bool { return true })
+		if err != nil {
+			t.Fatalf("AutoRetireIfConfirmed failed: %v", err)
+		}
+		if committed {
+			t.Error("a model already retired must not be retired a second time")
+		}
+	})
+
+	t.Run("deleted since the decision", func(t *testing.T) {
+		id := insertTestModel(ctx, t, providerID, "deleted-model")
+		if err := repo.DeleteByID(ctx, id); err != nil {
+			t.Fatalf("delete failed: %v", err)
+		}
+		committed, err := repo.AutoRetireIfConfirmed(ctx, id, func() bool { return true })
+		if err != nil {
+			t.Fatalf("a missing row is an outcome, not an error: %v", err)
+		}
+		if committed {
+			t.Error("a deleted model cannot be retired")
+		}
+	})
+
+	t.Run("an untouched model still retires", func(t *testing.T) {
+		id := insertTestModel(ctx, t, providerID, "untouched-model")
+		committed, err := repo.AutoRetireIfConfirmed(ctx, id, func() bool { return true })
+		if err != nil {
+			t.Fatalf("AutoRetireIfConfirmed failed: %v", err)
+		}
+		if !committed {
+			t.Fatal("the condition must not swallow a legitimate retirement")
+		}
+	})
+}
+
 // TestRevertAutoRetire_DoesNotOverwriteAnOperatorDisable covers the window
 // between a retirement committing and the gateway undoing it because the model
 // answered.
