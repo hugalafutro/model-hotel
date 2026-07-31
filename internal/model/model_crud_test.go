@@ -1150,10 +1150,10 @@ func TestSetEnabled_Disable(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TestSetEnabledIfConfirmed
+// TestAutoRetireIfConfirmed
 // ---------------------------------------------------------------------------
 
-// TestSetEnabledIfConfirmed_AbandonedWriteIsNeverVisible is the reason this
+// TestAutoRetireIfConfirmed_AbandonedWriteIsNeverVisible is the reason this
 // method exists, and it needs a real database because the property under test is
 // cross-session visibility, which no mock can demonstrate.
 //
@@ -1164,7 +1164,7 @@ func TestSetEnabled_Disable(t *testing.T) {
 // group for having too few routable members. Re-enabling the model does not
 // bring the group back, so the intermediate state has to not exist rather than
 // be corrected afterwards.
-func TestSetEnabledIfConfirmed_AbandonedWriteIsNeverVisible(t *testing.T) {
+func TestAutoRetireIfConfirmed_AbandonedWriteIsNeverVisible(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
@@ -1194,14 +1194,14 @@ func TestSetEnabledIfConfirmed_AbandonedWriteIsNeverVisible(t *testing.T) {
 	}
 
 	var sawDuringWrite bool
-	committed, err := repo.SetEnabledIfConfirmed(ctx, modelID, false, func() bool {
+	committed, err := repo.AutoRetireIfConfirmed(ctx, modelID, func() bool {
 		// The row is written and locked at this point. Another session must
 		// still see the old value.
 		sawDuringWrite = readEnabled(t)
 		return false
 	})
 	if err != nil {
-		t.Fatalf("SetEnabledIfConfirmed failed: %v", err)
+		t.Fatalf("AutoRetireIfConfirmed failed: %v", err)
 	}
 
 	if committed {
@@ -1216,9 +1216,9 @@ func TestSetEnabledIfConfirmed_AbandonedWriteIsNeverVisible(t *testing.T) {
 
 	// The control: the same call commits when confirm holds, so the staging is
 	// not swallowing legitimate writes.
-	committed, err = repo.SetEnabledIfConfirmed(ctx, modelID, false, func() bool { return true })
+	committed, err = repo.AutoRetireIfConfirmed(ctx, modelID, func() bool { return true })
 	if err != nil {
-		t.Fatalf("SetEnabledIfConfirmed failed: %v", err)
+		t.Fatalf("AutoRetireIfConfirmed failed: %v", err)
 	}
 	if !committed {
 		t.Error("a confirmed write must commit")
@@ -1228,31 +1228,134 @@ func TestSetEnabledIfConfirmed_AbandonedWriteIsNeverVisible(t *testing.T) {
 	}
 }
 
-// TestSetEnabledIfConfirmed_AutoDisableIsRecoverable pins that an automatic
-// disable does not claim to be an operator's decision.
+// TestAutoRetireIfConfirmed_SurvivesReSighting pins the three states apart, and
+// the whole reason auto_retired_at exists.
 //
-// disabled_manually is read by two things: Upsert re-enables a model on
-// re-sighting only while it is false, and the discovery-claim list hides models
-// where it is true. Setting it on an automatic disable would therefore make the
-// disable permanent AND invisible — the provider could restore the model and it
-// would stay off, with nothing surfaced for anyone to act on. This is the same
-// separation RecordMissingModels already keeps for models that vanish from a
-// listing.
-func TestSetEnabledIfConfirmed_AutoDisableIsRecoverable(t *testing.T) {
+// enabled plus disabled_manually can express two kinds of disable, and there are
+// three. An operator's must never be undone automatically. Discovery's SHOULD be
+// undone by a re-sighting, because the model had vanished from the listing and
+// its return is new evidence. A traffic retirement is neither: the model never
+// left the listing — the provider was refusing it while still advertising it —
+// so a sighting proves nothing, and reviving on one puts the model back into
+// routing to fail, re-alert and churn failover groups on every scan.
+//
+// The discovery half is asserted alongside it, because "does not revive" is only
+// correct if the mechanism it shares with discovery still revives what it should.
+func TestAutoRetireIfConfirmed_SurvivesReSighting(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
-	providerID := insertTestProvider(ctx, t, "test-setenabled-recoverable")
+	providerID := insertTestProvider(ctx, t, "test-autoretire-resighting")
 	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
 
-	modelID := insertTestModel(ctx, t, providerID, "auto-disabled-model")
+	retiredID := insertTestModel(ctx, t, providerID, "traffic-retired-model")
+	vanishedID := insertTestModel(ctx, t, providerID, "went-missing-model")
 
-	committed, err := repo.SetEnabledIfConfirmed(ctx, modelID, false, func() bool { return true })
-	if err != nil {
-		t.Fatalf("SetEnabledIfConfirmed failed: %v", err)
+	readState := func(t *testing.T, id uuid.UUID) (enabled, manual bool, retired *time.Time) {
+		t.Helper()
+		if err := testPool.QueryRow(ctx,
+			`SELECT enabled, disabled_manually, auto_retired_at FROM models WHERE id = $1`,
+			id).Scan(&enabled, &manual, &retired); err != nil {
+			t.Fatalf("read failed: %v", err)
+		}
+		return enabled, manual, retired
 	}
-	if !committed {
-		t.Fatal("the disable should have committed")
+
+	// The proxy retires one model from traffic; discovery disables the other for
+	// disappearing, which is what an unstamped automatic disable looks like.
+	if committed, err := repo.AutoRetireIfConfirmed(ctx, retiredID, func() bool { return true }); err != nil {
+		t.Fatalf("AutoRetireIfConfirmed failed: %v", err)
+	} else if !committed {
+		t.Fatal("the retirement should have committed")
+	}
+	if _, err := testPool.Exec(ctx, `UPDATE models SET enabled = false WHERE id = $1`, vanishedID); err != nil {
+		t.Fatalf("seed discovery disable: %v", err)
+	}
+
+	enabled, manual, retired := readState(t, retiredID)
+	if enabled {
+		t.Error("the retired model should be disabled")
+	}
+	if manual {
+		t.Error("an automatic retirement must not be recorded as an operator's choice")
+	}
+	if retired == nil {
+		t.Fatal("the retirement must be stamped, or nothing can tell it from discovery's")
+	}
+
+	// The provider lists both models again.
+	for _, id := range []string{"traffic-retired-model", "went-missing-model"} {
+		if err := repo.Upsert(ctx, newBareModel(providerID, id)); err != nil {
+			t.Fatalf("Upsert %q failed: %v", id, err)
+		}
+	}
+
+	if enabled, _, _ := readState(t, retiredID); enabled {
+		t.Error("a re-sighting must not revive a model the provider refuses; it never left the listing")
+	}
+	if enabled, _, _ := readState(t, vanishedID); !enabled {
+		t.Error("a model that came back after vanishing must be re-enabled, as it was before")
+	}
+
+	// An operator enabling by hand clears the retirement, which is how they tell
+	// the gateway to trust the listing again.
+	if _, err := repo.SetEnabled(ctx, retiredID, true); err != nil {
+		t.Fatalf("SetEnabled failed: %v", err)
+	}
+	enabled, _, retired = readState(t, retiredID)
+	if !enabled {
+		t.Error("the operator's enable should stand")
+	}
+	if retired != nil {
+		t.Error("an operator's enable must clear the retirement, not leave a stale stamp")
+	}
+}
+
+// TestRevertAutoRetire_DoesNotOverwriteAnOperatorDisable covers the window
+// between a retirement committing and the gateway undoing it because the model
+// answered.
+//
+// The undo runs after the disable has committed, so anything can have happened
+// in between — and the case that matters is an operator disabling the model by
+// hand right then. An unconditional re-enable would silently put their disabled
+// model back into routing, replacing a deliberate decision with a stale
+// automatic one.
+func TestRevertAutoRetire_DoesNotOverwriteAnOperatorDisable(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-revert-autoretire")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	modelID := insertTestModel(ctx, t, providerID, "contested-model")
+
+	if _, err := repo.AutoRetireIfConfirmed(ctx, modelID, func() bool { return true }); err != nil {
+		t.Fatalf("AutoRetireIfConfirmed failed: %v", err)
+	}
+
+	// The control first: with the row untouched, the undo restores the model.
+	reverted, err := repo.RevertAutoRetire(ctx, modelID)
+	if err != nil {
+		t.Fatalf("RevertAutoRetire failed: %v", err)
+	}
+	if !reverted {
+		t.Fatal("an untouched retirement must be revertible")
+	}
+
+	// Retire again, then have an operator disable it by hand before the undo.
+	if _, err := repo.AutoRetireIfConfirmed(ctx, modelID, func() bool { return true }); err != nil {
+		t.Fatalf("AutoRetireIfConfirmed failed: %v", err)
+	}
+	if _, err := repo.SetEnabled(ctx, modelID, false); err != nil {
+		t.Fatalf("operator disable failed: %v", err)
+	}
+
+	reverted, err = repo.RevertAutoRetire(ctx, modelID)
+	if err != nil {
+		t.Fatalf("RevertAutoRetire failed: %v", err)
+	}
+	if reverted {
+		t.Error("the undo must stand down once someone else owns the row's state")
 	}
 
 	var enabled, manual bool
@@ -1261,33 +1364,21 @@ func TestSetEnabledIfConfirmed_AutoDisableIsRecoverable(t *testing.T) {
 		t.Fatalf("read failed: %v", err)
 	}
 	if enabled {
-		t.Error("the model should be disabled")
+		t.Error("an operator's disabled model must not be returned to routing")
 	}
-	if manual {
-		t.Fatal("an automatic disable must not be recorded as an operator's choice")
-	}
-
-	// The provider lists the model again. Upsert must bring it back.
-	if err := repo.Upsert(ctx, newBareModel(providerID, "auto-disabled-model")); err != nil {
-		t.Fatalf("Upsert failed: %v", err)
-	}
-	if err := testPool.QueryRow(ctx,
-		`SELECT enabled FROM models WHERE id = $1`, modelID).Scan(&enabled); err != nil {
-		t.Fatalf("read failed: %v", err)
-	}
-	if !enabled {
-		t.Error("a restored model must come back on re-sighting, not stay retired forever")
+	if !manual {
+		t.Error("the operator's choice must survive intact")
 	}
 }
 
-// TestSetEnabledIfConfirmed_DeadContextReportsNotCommitted pins the failure
+// TestAutoRetireIfConfirmed_DeadContextReportsNotCommitted pins the failure
 // direction, which matters more here than for an ordinary write.
 //
 // The caller acts on the returned bool: a true tells the proxy its disable
 // landed, so it announces the retirement and resizes failover groups around it.
 // If a write that never reached the database reported itself committed, the
 // gateway would publish a model retirement that did not happen.
-func TestSetEnabledIfConfirmed_DeadContextReportsNotCommitted(t *testing.T) {
+func TestAutoRetireIfConfirmed_DeadContextReportsNotCommitted(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testPool)
 
@@ -1306,7 +1397,7 @@ func TestSetEnabledIfConfirmed_DeadContextReportsNotCommitted(t *testing.T) {
 	cancel()
 
 	confirmed := false
-	committed, err := repo.SetEnabledIfConfirmed(dead, modelID, false, func() bool {
+	committed, err := repo.AutoRetireIfConfirmed(dead, modelID, func() bool {
 		confirmed = true
 		return true
 	})

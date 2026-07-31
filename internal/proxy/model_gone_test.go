@@ -717,6 +717,43 @@ func TestNoteModelGone_FailedRollbackStopsThere(t *testing.T) {
 	t.Fatalf("the rollback was never attempted, got %+v", repo.disableCalls())
 }
 
+// TestNoteModelGone_SupersededRevertStandsDown covers the undo finding that the
+// row has moved on — in practice, an operator disabling the model by hand while
+// the retirement was committing.
+//
+// The repository refuses the write in that case; this pins that the proxy treats
+// the refusal as an outcome rather than an error, and stops there. Carrying on
+// would announce a retirement for a model whose state it no longer owns.
+func TestNoteModelGone_SupersededRevertStandsDown(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{revertSuperseded: true}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	repo.afterConfirm = func() { h.noteModelServed(m) }
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		calls := repo.disableCalls()
+		if len(calls) < 2 {
+			time.Sleep(5 * time.Millisecond)
+			continue
+		}
+		if len(calls) != 2 {
+			t.Fatalf("expected the retirement and one refused undo, got %+v", calls)
+		}
+		if calls[1].committed {
+			t.Error("a superseded undo must not be recorded as having restored the model")
+		}
+		return
+	}
+	t.Fatalf("the undo was never attempted, got %+v", repo.disableCalls())
+}
+
 // TestNoteStreamOutcome_InconclusiveTouchesNeitherCounter pins the middle
 // verdict end to end, through the shared entry point both dispatch paths use.
 //

@@ -594,6 +594,10 @@ type mockModelRepo struct {
 	// It exists to exercise a rollback that cannot be written, which needs the
 	// disable to have succeeded first.
 	reEnableErr error
+	// revertSuperseded makes RevertAutoRetire report that it changed nothing,
+	// standing in for the row having moved on — an operator disabling the model
+	// by hand while the retirement was committing.
+	revertSuperseded bool
 	// afterConfirm, when non-nil, runs immediately after the confirm callback
 	// and before the commit is recorded. It is the seam for the one interleaving
 	// staging cannot prevent: a success arriving once the write is already
@@ -636,10 +640,11 @@ func ctxBudget(ctx context.Context) time.Duration {
 	return 0
 }
 
-// SetEnabledIfConfirmed mirrors the real repository's staging behaviour: the
+// AutoRetireIfConfirmed mirrors the real repository's staging behaviour: the
 // write is held open (the gate stands in for a slow UPDATE), confirm decides
 // whether it commits, and an abandoned write is never recorded as committed.
-func (m *mockModelRepo) SetEnabledIfConfirmed(ctx context.Context, id uuid.UUID, enabled bool, confirm func() bool) (bool, error) {
+func (m *mockModelRepo) AutoRetireIfConfirmed(ctx context.Context, id uuid.UUID, confirm func() bool) (bool, error) {
+	const enabled = false
 	budget := ctxBudget(ctx)
 	if m.setEnabledEntered != nil {
 		m.enteredOnce.Do(func() { close(m.setEnabledEntered) })
@@ -691,6 +696,22 @@ func (m *mockModelRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bo
 		return nil, err
 	}
 	return &model.Model{ID: id, Enabled: enabled}, nil
+}
+
+// RevertAutoRetire records the undo as an enable, and honours reEnableErr and
+// revertSuperseded so tests can drive both ways it fails to restore the model.
+func (m *mockModelRepo) RevertAutoRetire(ctx context.Context, id uuid.UUID) (bool, error) {
+	budget := ctxBudget(ctx)
+	if m.reEnableErr != nil {
+		m.record(setEnabledCall{id: id, enabled: true, budget: budget})
+		return false, m.reEnableErr
+	}
+	if m.revertSuperseded {
+		m.record(setEnabledCall{id: id, enabled: true, budget: budget})
+		return false, nil
+	}
+	m.record(setEnabledCall{id: id, enabled: true, budget: budget, committed: true})
+	return true, nil
 }
 
 // disableCalls returns a copy of every recorded attempt under the lock,
@@ -2264,14 +2285,22 @@ func (m *coverageMockModelRepo) SetEnabled(ctx context.Context, id uuid.UUID, en
 	return &model.Model{ID: id, Enabled: enabled}, nil
 }
 
-func (m *coverageMockModelRepo) SetEnabledIfConfirmed(ctx context.Context, id uuid.UUID, enabled bool, confirm func() bool) (bool, error) {
+func (m *coverageMockModelRepo) AutoRetireIfConfirmed(ctx context.Context, id uuid.UUID, confirm func() bool) (bool, error) {
 	return confirm(), nil
+}
+
+func (m *coverageMockModelRepo) RevertAutoRetire(ctx context.Context, id uuid.UUID) (bool, error) {
+	return true, nil
 }
 
 func (m *listModelsMockRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error) {
 	return &model.Model{ID: id, Enabled: enabled}, nil
 }
 
-func (m *listModelsMockRepo) SetEnabledIfConfirmed(ctx context.Context, id uuid.UUID, enabled bool, confirm func() bool) (bool, error) {
+func (m *listModelsMockRepo) AutoRetireIfConfirmed(ctx context.Context, id uuid.UUID, confirm func() bool) (bool, error) {
 	return confirm(), nil
+}
+
+func (m *listModelsMockRepo) RevertAutoRetire(ctx context.Context, id uuid.UUID) (bool, error) {
+	return true, nil
 }

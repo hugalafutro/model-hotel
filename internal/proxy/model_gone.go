@@ -144,7 +144,7 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 		// auto-disables the group for having too few routable members, and
 		// re-enabling the model does not bring the group back.
 		dctx, cancel := context.WithTimeout(context.Background(), goneWriteTimeout)
-		committed, err := h.modelRepo.SetEnabledIfConfirmed(dctx, modelID, false, func() bool {
+		committed, err := h.modelRepo.AutoRetireIfConfirmed(dctx, modelID, func() bool {
 			return !streak.cancelled.Load()
 		})
 		cancel()
@@ -188,12 +188,23 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 		// cycle, and the model ends up correct either way.
 		if streak.cancelled.Load() {
 			rctx, rcancel := context.WithTimeout(context.Background(), goneWriteTimeout)
-			_, rerr := h.modelRepo.SetEnabled(rctx, modelID, true)
+			// Conditional on the row still being as the retirement left it. An
+			// operator can disable the model by hand inside this same window,
+			// and an unconditional re-enable would put their disabled model
+			// back into routing — replacing a deliberate decision with a stale
+			// automatic one.
+			reverted, rerr := h.modelRepo.RevertAutoRetire(rctx, modelID)
 			rcancel()
-			if rerr != nil {
+			switch {
+			case rerr != nil:
 				// Nothing safe is left to try. Log loudly: the model is
 				// disabled and the gateway believes it should not be.
 				debuglog.Error("proxy: model answered while its auto-disable was in flight, and re-enabling it failed", "model", modelName, "provider", provider, "error", rerr)
+				return
+			case !reverted:
+				// Someone else owns the row's state now. Leaving it alone is
+				// the whole point of the condition.
+				debuglog.Info("proxy: auto-disable was superseded before it could be reverted", "model", modelName, "provider", provider)
 				return
 			}
 			debuglog.Info("proxy: reverted auto-disable, model answered while the write was in flight", "model", modelName, "provider", provider)

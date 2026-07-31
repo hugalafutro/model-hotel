@@ -23,13 +23,15 @@ type ModelRepository interface {
 	Get(ctx context.Context, id uuid.UUID) (*model.Model, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Model, error)
 	GetByProviderAndModelID(ctx context.Context, providerID uuid.UUID, modelID string) (*model.Model, error)
-	// SetEnabled toggles a model's enabled flag. The proxy uses it to re-enable
-	// a model whose retirement turned out to be wrong (see noteModelGone).
+	// SetEnabled toggles a model's enabled flag.
 	SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error)
-	// SetEnabledIfConfirmed stages the flag and commits only if confirm still
-	// holds. The auto-disable uses it so a model that answers while the write is
-	// in flight never has a disabled state other sessions can act on.
-	SetEnabledIfConfirmed(ctx context.Context, id uuid.UUID, enabled bool, confirm func() bool) (bool, error)
+	// AutoRetireIfConfirmed disables a model the provider has reported retired,
+	// staging the write so a model that answers while it is in flight never has
+	// a disabled state other sessions can act on (see noteModelGone).
+	AutoRetireIfConfirmed(ctx context.Context, id uuid.UUID, confirm func() bool) (bool, error)
+	// RevertAutoRetire undoes such a retirement, but only while the row is still
+	// as the retirement left it, so it cannot overwrite an operator's disable.
+	RevertAutoRetire(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
 // VirtualKeyRepository defines the interface for virtual key operations.
