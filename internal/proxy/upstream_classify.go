@@ -46,9 +46,24 @@ const modelPhraseWindow = 80
 // would then never accrue strikes and would stay routable while the provider
 // was plainly saying it is gone. The veto now only cancels the phrase it
 // actually qualifies.
+// The qualifier is allowed to be several words: providers write "on your
+// current plan" and "for this specific operation" as readily as the bare forms,
+// and matching only the bare ones let the wordier phrasings through as
+// retirements — retiring a model that is still served for other requests. The
+// run of filler words cannot cross punctuation, so it stays inside one clause,
+// and it still has to END on a whole capability noun. That is what keeps genuine
+// retirements out: Zen's "is not supported on the full model list" walks the
+// same filler run and lands on "model", which is not a capability, so it remains
+// a retirement.
+//
+// The trailing \b is load-bearing rather than tidiness. Without it "mode"
+// matches the front of "model", and that one prefix turns Zen's real retirement
+// payload into a capability refusal — the widened filler run is what lets the
+// pattern reach that far into the sentence in the first place.
 var modelCapabilityRefusal = regexp.MustCompile(
-	`^(is not supported|is no longer available|is not available) (for|with|on|in) (this |your |that |the )?` +
-		`(operation|endpoint|method|route|api|api version|request|request type|mode|task|region|plan|tier|account|subscription)`)
+	`^(is not supported|is no longer available|is not available) (for|with|on|in) ` +
+		`((this|that|the|your|our|any) )?([a-z]+ ){0,3}` +
+		`(operation|endpoint|method|route|api|api version|request|request type|mode|task|region|plan|tier|account|subscription)s?\b`)
 
 // refusesCapabilityAt reports whether the phrase starting at pos is a capability
 // refusal rather than a retirement. The pattern is anchored, so this tests that

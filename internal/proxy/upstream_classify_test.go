@@ -303,12 +303,28 @@ func TestClassifyUpstreamError_OperationRefusalsAreNotDeadModels(t *testing.T) {
 		{"plan", `{"error":{"message":"Model grok-4.5 is not supported on your plan"}}`},
 		{"account tier", `{"error":{"message":"Model deepseek-v4-pro is not supported for your account"}}`},
 		{"availability qualifier", `{"error":{"message":"Model qwen3.6-plus is no longer available for this endpoint"}}`},
+		// Providers write the qualifier out in full as readily as they write the
+		// bare noun. Matching only the bare forms let these through as
+		// retirements and auto-disabled a model still served for other requests.
+		//
+		// The ids here must be ones modelInBody knows: an unrecognised id falls
+		// back to a name that is absent from the body, and the classifier then
+		// declines to attribute the phrase at all — so the case would pass
+		// without the veto ever being consulted.
+		{"adjective before the plan", `{"error":{"message":"Model gpt-5.6-sol is not supported on your current plan"}}`},
+		{"adjective before the operation", `{"error":{"message":"Model glm-5.2 is not supported for this specific operation"}}`},
+		{"two adjectives", `{"error":{"message":"Model kimi-k3 is not supported on the current pricing plan"}}`},
+		{"no determiner", `{"error":{"message":"Model minimax-m3 is not supported for streaming requests"}}`},
+		{"plural noun", `{"error":{"message":"Model deepseek-v4-pro is not supported for enterprise accounts"}}`},
 	}
 
 	for _, tc := range bodies {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got, _ := classifyUpstreamError(400, tc.body, modelInBody(tc.body))
+			// modelNamedInBody, not modelInBody: every case here names a model
+			// on purpose, and a fallback id would let the case pass without the
+			// veto being consulted at all.
+			got, _ := classifyUpstreamError(400, tc.body, modelNamedInBody(t, tc.body))
 			if got == KindProviderModelGone {
 				t.Errorf("capability refusal classified as a dead model, which would auto-disable a live one: %q", tc.body)
 			}
@@ -320,18 +336,46 @@ func TestClassifyUpstreamError_OperationRefusalsAreNotDeadModels(t *testing.T) {
 // classifier is exercised the way the proxy calls it: with the id of the model
 // the request actually asked for. Falls back to a placeholder for bodies that
 // name no model, which is exactly the "cannot be about this model" case.
+// modelInBody returns the requested-model id for a table body, falling back to a
+// name that is deliberately absent when the body names no model at all — several
+// cases are about bodies with no model in them ("Streaming is not supported").
+//
+// Use modelNamedInBody instead wherever the case is meant to exercise the
+// classifier's WORDING checks. An absent id short-circuits attribution, so those
+// cases would pass without the wording ever being examined.
 func modelInBody(body string) string {
-	for _, id := range []string{
-		"gemini-2.0-flash", "gemini-embedding-001", "gemini-3-pro", "gemini-3.6-flash",
-		"claude-sonnet-4", "claude-opus-5", "grok-imagine-image", "grok-4.5",
-		"gpt-4.5-preview", "gpt-5.6-sol", "glm-5.2", "kimi-k3", "minimax-m3",
-		"deepseek-v4-pro", "qwen3.6-plus",
-	} {
+	for _, id := range knownTestModelIDs {
 		if strings.Contains(body, id) {
 			return id
 		}
 	}
 	return "some-model"
+}
+
+var knownTestModelIDs = []string{
+	"gemini-2.0-flash", "gemini-embedding-001", "gemini-3-pro", "gemini-3.6-flash",
+	"claude-sonnet-4", "claude-opus-5", "grok-imagine-image", "grok-4.5",
+	"gpt-4.5-preview", "gpt-5.6-sol", "glm-5.2", "kimi-k3", "minimax-m3",
+	"deepseek-v4-pro", "qwen3.6-plus",
+}
+
+// modelNamedInBody is modelInBody for tables whose every case must reach the
+// wording checks, and it fails rather than falling back.
+//
+// The fallback is a silent trap in those tables: the classifier declines to
+// attribute a phrase to a model whose id is absent from the body, so a case
+// written with an unrecognised id passes for that reason alone. A whole table
+// can look green while testing nothing — which is exactly what happened to the
+// first version of the multi-word qualifier cases below.
+func modelNamedInBody(t *testing.T, body string) string {
+	t.Helper()
+	for _, id := range knownTestModelIDs {
+		if strings.Contains(body, id) {
+			return id
+		}
+	}
+	t.Fatalf("no known model id in %q: this case would pass without reaching the wording checks", body)
+	return ""
 }
 
 // TestClassifyUpstreamError_MustBeAboutTheRequestedModel is the constraint that
