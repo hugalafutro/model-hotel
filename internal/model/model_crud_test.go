@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -1145,6 +1146,85 @@ func TestSetEnabled_Disable(t *testing.T) {
 
 	if updated.Enabled {
 		t.Error("model should be disabled")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// TestSetEnabledIfConfirmed
+// ---------------------------------------------------------------------------
+
+// TestSetEnabledIfConfirmed_AbandonedWriteIsNeverVisible is the reason this
+// method exists, and it needs a real database because the property under test is
+// cross-session visibility, which no mock can demonstrate.
+//
+// The proxy disables a model it believes the provider has retired, and the model
+// can answer a request — disproving that — while the write is in flight. Writing
+// and then undoing would leave the disabled row readable by everyone in between,
+// and a concurrent custom-group revalidation that samples it auto-disables the
+// group for having too few routable members. Re-enabling the model does not
+// bring the group back, so the intermediate state has to not exist rather than
+// be corrected afterwards.
+func TestSetEnabledIfConfirmed_AbandonedWriteIsNeverVisible(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-setenabled-confirm")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	modelID := uuid.New()
+	if _, err := testPool.Exec(ctx, `
+		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
+		VALUES ($1, $2, $3, $4, true, now())
+	`, modelID, providerID, "confirm-abandon", "Confirm Abandon Test"); err != nil {
+		t.Fatalf("insert failed: %v", err)
+	}
+
+	readEnabled := func(t *testing.T) bool {
+		t.Helper()
+		// Bounded: this runs while a transaction holds the row, so a pool that
+		// cannot hand out a second connection must fail the test rather than
+		// hang the suite.
+		rctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		var enabled bool
+		if err := testPool.QueryRow(rctx, `SELECT enabled FROM models WHERE id = $1`, modelID).Scan(&enabled); err != nil {
+			t.Fatalf("read from a separate session failed: %v", err)
+		}
+		return enabled
+	}
+
+	var sawDuringWrite bool
+	committed, err := repo.SetEnabledIfConfirmed(ctx, modelID, false, func() bool {
+		// The row is written and locked at this point. Another session must
+		// still see the old value.
+		sawDuringWrite = readEnabled(t)
+		return false
+	})
+	if err != nil {
+		t.Fatalf("SetEnabledIfConfirmed failed: %v", err)
+	}
+
+	if committed {
+		t.Error("an unconfirmed write must not report itself committed")
+	}
+	if !sawDuringWrite {
+		t.Error("a staged disable leaked to another session before it was committed")
+	}
+	if !readEnabled(t) {
+		t.Error("an abandoned write must leave the model enabled")
+	}
+
+	// The control: the same call commits when confirm holds, so the staging is
+	// not swallowing legitimate writes.
+	committed, err = repo.SetEnabledIfConfirmed(ctx, modelID, false, func() bool { return true })
+	if err != nil {
+		t.Fatalf("SetEnabledIfConfirmed failed: %v", err)
+	}
+	if !committed {
+		t.Error("a confirmed write must commit")
+	}
+	if readEnabled(t) {
+		t.Error("a confirmed disable must be visible afterwards")
 	}
 }
 

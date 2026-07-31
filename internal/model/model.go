@@ -429,6 +429,54 @@ func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool)
 	return r.Get(ctx, id)
 }
 
+// SetEnabledIfConfirmed stages the enabled flag inside a transaction and commits
+// it only if confirm still holds once the row is written. It reports whether the
+// change was committed.
+//
+// This exists for writes whose justification can expire while they are being
+// made. The proxy's auto-disable is one: it decides a model is retired from
+// failed traffic, and the model can answer a request — proving the decision
+// wrong — while the write is in flight. Deciding, writing, then undoing would
+// work on the model row alone, but the undo is not enough, because the disabled
+// state is VISIBLE to other sessions in between. A concurrent custom-group
+// revalidation that samples it will auto-disable the group for having too few
+// routable members, and nothing re-enables that group when the model comes back.
+//
+// Staging inside a transaction removes the intermediate state instead of
+// correcting it: an abandoned write is never committed, so no other session can
+// observe it and no downstream state is derived from it.
+//
+// confirm runs with the row already written and locked, so keep it to an
+// in-memory check — anything slow holds a row lock for its duration.
+func (r *Repository) SetEnabledIfConfirmed(ctx context.Context, id uuid.UUID, enabled bool, confirm func() bool) (bool, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		debuglog.Error("model: set enabled begin failed", "id", id, "enabled", enabled, "error", err)
+		return false, err
+	}
+	// Safe on both paths: Rollback after a successful Commit is a no-op.
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	query := `UPDATE models SET enabled = $1, disabled_manually = NOT $1 WHERE id = $2`
+	if _, err := tx.Exec(ctx, query, enabled, id); err != nil {
+		debuglog.Error("model: set enabled failed", "id", id, "enabled", enabled, "error", err)
+		return false, err
+	}
+
+	if !confirm() {
+		// The deferred rollback discards the write. Nothing else ever saw it,
+		// so there is no cache to invalidate and nothing to undo.
+		return false, nil
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		debuglog.Error("model: set enabled commit failed", "id", id, "enabled", enabled, "error", err)
+		return false, err
+	}
+	InvalidateModelCache()
+	return true, nil
+}
+
 // DeleteByID removes a model by its UUID.
 func (r *Repository) DeleteByID(ctx context.Context, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM models WHERE id = $1`, id)

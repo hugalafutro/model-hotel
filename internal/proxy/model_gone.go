@@ -136,8 +136,17 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 			return
 		}
 
+		// Staged, not written outright. confirm runs with the row already
+		// updated but the transaction still open, so a success that lands
+		// before the commit abandons the write instead of producing a disabled
+		// state that other sessions can see and act on. That mattered: a
+		// concurrent custom-group revalidation sampling the intermediate state
+		// auto-disables the group for having too few routable members, and
+		// re-enabling the model does not bring the group back.
 		dctx, cancel := context.WithTimeout(context.Background(), goneWriteTimeout)
-		_, err := h.modelRepo.SetEnabled(dctx, modelID, false)
+		committed, err := h.modelRepo.SetEnabledIfConfirmed(dctx, modelID, false, func() bool {
+			return !streak.cancelled.Load()
+		})
 		cancel()
 		if err != nil {
 			debuglog.Error("proxy: failed to auto-disable retired model", "model", modelName, "provider", provider, "error", err)
@@ -156,19 +165,27 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 			return
 		}
 
-		// Re-check AFTER the write, not only before it. The check above cannot
-		// cover the write itself: a success landing while the UPDATE was in
-		// flight sets the flag too late to stop it, and the model is then
-		// retired in the moment it proved it still serves traffic.
+		if !committed {
+			debuglog.Info("proxy: abandoned auto-disable, model answered while the write was staged", "model", modelName, "provider", provider)
+			return
+		}
+
+		// One window is left, and it is the only one staging cannot close: a
+		// success that lands after confirm has already returned, while the
+		// commit is on its way to the database. That write cannot be recalled,
+		// so it is undone instead.
 		//
-		// Serialising instead — holding a lock across the write so a success
-		// has to wait for it — is not available here. noteModelServed runs on
-		// the request path BEFORE a non-streaming response is written to the
-		// client (see proxy_failover.go), so blocking it would put client
-		// latency behind a database write on an unrelated request's error path.
-		// Undoing a disable that has been superseded is the cheaper trade: it
-		// costs one extra write in a window that is rarely hit, and only ever on
-		// a model that has just been shown to work.
+		// Serialising would close it, and is not available here.
+		// noteModelServed runs on the request path BEFORE a non-streaming
+		// response is written to the client (see proxy_failover.go), so holding
+		// a lock across the write would put client latency behind a database
+		// write belonging to an unrelated request's error path.
+		//
+		// The disabled state IS briefly visible on this path, which is what the
+		// staging above exists to avoid. Accepted, because the alternative is
+		// worse: leaving the model disabled when it has just proved it works.
+		// The window is now one commit rather than a whole check-write-check
+		// cycle, and the model ends up correct either way.
 		if streak.cancelled.Load() {
 			rctx, rcancel := context.WithTimeout(context.Background(), goneWriteTimeout)
 			_, rerr := h.modelRepo.SetEnabled(rctx, modelID, true)

@@ -510,24 +510,26 @@ func TestNoteModelGone_SuccessCancelsAQueuedDisable(t *testing.T) {
 	// Give the goroutine room to run to completion either way.
 	time.Sleep(200 * time.Millisecond)
 
-	calls := repo.disableCalls()
+	calls := repo.committedCalls()
 	if len(calls) == 0 {
-		return // Skipped before the write: nothing was ever disabled.
+		return // Skipped or abandoned: nothing was ever committed.
 	}
 	if !calls[len(calls)-1].enabled {
 		t.Fatalf("a model that answered must not be left disabled, got %+v", calls)
 	}
 }
 
-// TestNoteModelGone_SuccessDuringTheWriteIsReverted covers the half of the
-// window the pre-write check cannot reach.
+// TestNoteModelGone_SuccessDuringTheWriteIsAbandoned covers the window the
+// pre-write check cannot reach: the model answers once the write has already
+// started.
 //
-// TestNoteModelGone_SuccessCancelsAQueuedDisable pins a success that arrives
-// before the write starts, which is simply skipped. This one arrives after the
-// write has begun: the cancellation flag is then set too late to stop it, the
-// disable lands, and the model is retired in the moment it proved it works.
-// Nothing can prevent that write, so the contract is that it is undone.
-func TestNoteModelGone_SuccessDuringTheWriteIsReverted(t *testing.T) {
+// The contract is that nothing COMMITS, not merely that the model ends up
+// enabled. A committed-then-undone disable is briefly visible to every other
+// session, and a custom-group revalidation that samples it will disable the
+// group for having too few routable members — which re-enabling the model does
+// not undo. Staging the write inside a transaction is what keeps that
+// intermediate state private.
+func TestNoteModelGone_SuccessDuringTheWriteIsAbandoned(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{
@@ -542,32 +544,58 @@ func TestNoteModelGone_SuccessDuringTheWriteIsReverted(t *testing.T) {
 	}
 
 	// Wait for the write to be genuinely in flight — past the pre-check and
-	// inside SetEnabled — so the interleaving is deterministic rather than a
-	// bet on goroutine scheduling.
+	// inside the staged write — so the interleaving is deterministic rather
+	// than a bet on goroutine scheduling.
 	select {
 	case <-repo.setEnabledEntered:
 	case <-time.After(2 * time.Second):
 		t.Fatal("the disable write never started")
 	}
 
-	// The model answers while the disable is mid-write.
+	// The model answers while the disable is staged.
 	h.noteModelServed(m)
 	close(repo.setEnabledGate)
 
+	// Let the goroutine run to completion, then assert on what was durable.
+	time.Sleep(200 * time.Millisecond)
+	if committed := repo.committedCalls(); len(committed) != 0 {
+		t.Fatalf("a staged disable that a success overtook must not commit, got %+v", committed)
+	}
+	if attempts := repo.disableCalls(); len(attempts) != 1 {
+		t.Fatalf("expected exactly one abandoned attempt, got %+v", attempts)
+	}
+}
+
+// TestNoteModelGone_SuccessAfterConfirmIsRolledBack covers the one interleaving
+// staging cannot close: the success lands after confirm has returned, while the
+// commit is already on its way. That write cannot be recalled, so the contract
+// there is that it is undone rather than prevented.
+func TestNoteModelGone_SuccessAfterConfirmIsRolledBack(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	repo.afterConfirm = func() { h.noteModelServed(m) }
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if calls := repo.disableCalls(); len(calls) == 2 {
+		if calls := repo.committedCalls(); len(calls) == 2 {
 			if calls[0].enabled {
-				t.Errorf("first write should be the disable, got enabled=%v", calls[0].enabled)
+				t.Errorf("first committed write should be the disable, got enabled=%v", calls[0].enabled)
 			}
 			if !calls[1].enabled {
-				t.Error("a model that answered mid-write must be re-enabled, not left disabled")
+				t.Error("a model that answered mid-commit must be re-enabled, not left disabled")
 			}
 			return
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	t.Fatalf("expected the disable to be reverted, got %+v", repo.disableCalls())
+	t.Fatalf("expected the committed disable to be rolled back, got %+v", repo.committedCalls())
 }
 
 // TestNoteModelGone_StaleFailedDisableKeepsANewerStreak pins that a disable
@@ -674,6 +702,9 @@ func TestNoteModelGone_EachWriteGetsAFreshDeadline(t *testing.T) {
 	}
 	h := newGoneHandler(repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	// The success has to land AFTER confirm for a rollback to happen at all;
+	// landing earlier abandons the write and there is no second one to measure.
+	repo.afterConfirm = func() { h.noteModelServed(m) }
 
 	for range goneStrikeThreshold {
 		h.noteModelGone(m, "Google AI Studio (Gemini)")
@@ -685,15 +716,14 @@ func TestNoteModelGone_EachWriteGetsAFreshDeadline(t *testing.T) {
 		t.Fatal("the disable write never started")
 	}
 
-	// Hold the disable open so it burns a visible slice of its budget, then
-	// have the model answer so the compensating re-enable actually runs.
+	// Hold the disable open so it burns a visible slice of its budget before it
+	// commits and the rollback follows.
 	time.Sleep(slowWrite)
-	h.noteModelServed(m)
 	close(repo.setEnabledGate)
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		calls := repo.disableCalls()
+		calls := repo.committedCalls()
 		if len(calls) < 2 {
 			time.Sleep(5 * time.Millisecond)
 			continue
@@ -706,7 +736,7 @@ func TestNoteModelGone_EachWriteGetsAFreshDeadline(t *testing.T) {
 		}
 		return
 	}
-	t.Fatalf("expected the disable to be reverted, got %+v", repo.disableCalls())
+	t.Fatalf("expected the disable to be rolled back, got %+v", repo.committedCalls())
 }
 
 // TestNoteModelGone_QueuedDisableStillLandsWithoutASuccess is the control: the

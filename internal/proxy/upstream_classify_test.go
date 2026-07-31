@@ -401,6 +401,98 @@ func TestClassifyUpstreamError_MustBeAboutTheRequestedModel(t *testing.T) {
 		},
 	}
 
+	runClassifyCases(t, tests)
+}
+
+// TestClassifyUpstreamError_OverlappingModelIDs covers the case where the error
+// names a model whose id CONTAINS the requested one.
+//
+// Families are named by extension — gpt-4 inside gpt-4.1, gemini-3-flash inside
+// gemini-3-flash-lite — so a plain substring test reads an error about the newer
+// model as proof the older one is retired, and three of those disable a model
+// that is serving perfectly well. The requested id has to match as a whole
+// identifier, while still tolerating the path and quoting providers wrap it in.
+func TestClassifyUpstreamError_OverlappingModelIDs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		body      string
+		requested string
+		want      ErrorKind
+	}{
+		{
+			name:      "longer sibling id is a different model",
+			body:      `{"error":{"message":"The model ` + "`gpt-4.1`" + ` does not exist"}}`,
+			requested: "gpt-4",
+			want:      KindProviderError,
+		},
+		{
+			name:      "suffixed variant is a different model",
+			body:      `{"error":{"message":"Model gemini-3-flash-lite is no longer available."}}`,
+			requested: "gemini-3-flash",
+			want:      KindProviderError,
+		},
+		{
+			name:      "tagged variant is a different model",
+			body:      `{"error":{"message":"model llama3:8b does not exist"}}`,
+			requested: "llama3",
+			want:      KindProviderError,
+		},
+		{
+			name:      "versioned publisher variant is a different model",
+			body:      `{"error":{"message":"text-bison@001 does not exist"}}`,
+			requested: "text-bison",
+			want:      KindProviderError,
+		},
+		{
+			name:      "a prefix of the requested id is not the requested id",
+			body:      `{"error":{"message":"The model ` + "`gpt-4`" + ` does not exist"}}`,
+			requested: "gpt-4.1",
+			want:      KindProviderError,
+		},
+		// Positive controls: the boundary rule must not break the spellings
+		// providers actually use around a genuine retirement.
+		{
+			name:      "backtick-quoted exact id still classifies",
+			body:      `{"error":{"message":"The model ` + "`gpt-4`" + ` does not exist"}}`,
+			requested: "gpt-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "path-qualified exact id still classifies",
+			body:      `{"error":{"message":"publishers/google/models/gemini-2.0-flash is no longer available"}}`,
+			requested: "gemini-2.0-flash",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "vendor-prefixed exact id still classifies",
+			body:      `{"error":{"message":"unknown model openai/gpt-4"}}`,
+			requested: "gpt-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "the exact tagged id still classifies",
+			body:      `{"error":{"message":"model llama3:8b does not exist"}}`,
+			requested: "llama3:8b",
+			want:      KindProviderModelGone,
+		},
+	}
+
+	runClassifyCases(t, tests)
+}
+
+// runClassifyCases drives the shared table shape used by the model-identity
+// tests, which assert on the kind alone.
+func runClassifyCases(t *testing.T, tests []struct {
+	name      string
+	body      string
+	requested string
+	want      ErrorKind
+},
+) {
+	t.Helper()
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

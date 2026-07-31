@@ -42,6 +42,62 @@ var modelCapabilityRefusal = regexp.MustCompile(
 	`(is not supported|is no longer available|is not available) (for|with|on|in) (this |your |that |the )?` +
 		`(operation|endpoint|method|route|api|api version|request|request type|mode|task|region|plan|tier|account|subscription)`)
 
+// isModelIDChar reports whether b can appear inside a model identifier.
+//
+// It defines what counts as a neighbouring character for namesModelID, and the
+// membership is chosen from how providers actually spell ids:
+//
+//   - Letters, digits, '.', '-' and '_' are the ordinary body of an id. A
+//     neighbouring one means the match is part of a LONGER id, which is a
+//     different model.
+//   - ':' and '@' pin a variant apart from its base ("llama3:8b",
+//     "text-bison@001"), so they are id characters too.
+//   - '/' is deliberately absent. Providers path-qualify the same model
+//     ("models/gemini-2.0-flash", "openai/gpt-4"), so a slash neighbour still
+//     refers to this model and must not disqualify the match.
+func isModelIDChar(b byte) bool {
+	switch {
+	case b >= 'a' && b <= 'z', b >= 'A' && b <= 'Z', b >= '0' && b <= '9':
+		return true
+	case b == '.', b == '-', b == '_', b == ':', b == '@':
+		return true
+	default:
+		return false
+	}
+}
+
+// namesModelID reports whether id appears in body[lo:hi] as a WHOLE identifier
+// rather than as part of a longer one.
+//
+// A plain substring test is not enough, and the failure is not exotic: model
+// families are named by extension, so "gpt-4" sits inside "gpt-4.1" and
+// "gemini-3-flash" inside "gemini-3-flash-lite". An error about the newer model
+// would then read as proof the older one is retired, and three of them disable a
+// model that is serving perfectly well — the exact outcome this classifier
+// exists to avoid causing.
+//
+// Boundaries are checked against the FULL body, not the window, because the
+// window is a fixed-width cut: an id sliced by hi would otherwise look like it
+// ended cleanly there when the real text continues into a longer id.
+func namesModelID(body string, lo, hi int, id string) bool {
+	for off := lo; off+len(id) <= hi; {
+		at := strings.Index(body[off:hi], id)
+		if at < 0 {
+			return false
+		}
+		pos := off + at
+		startsClean := pos == 0 || !isModelIDChar(body[pos-1])
+		end := pos + len(id)
+		endsClean := end == len(body) || !isModelIDChar(body[end])
+		if startsClean && endsClean {
+			return true
+		}
+		// Advance by one rather than by len(id): ids can overlap themselves.
+		off = pos + 1
+	}
+	return false
+}
+
 // modelGoneAbout reports whether the body is the provider asserting that THIS
 // model — the one the request asked for — is gone.
 //
@@ -76,7 +132,7 @@ func modelGoneAbout(body, modelID string) bool {
 			pos := off + at
 			lo := max(0, pos-modelPhraseWindow)
 			hi := min(len(body), pos+len(verb)+modelPhraseWindow)
-			if strings.Contains(body[lo:hi], id) {
+			if namesModelID(body, lo, hi, id) {
 				return true
 			}
 			off = pos + len(verb)

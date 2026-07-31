@@ -590,6 +590,11 @@ type mockModelRepo struct {
 	// re-enable that follows it to run to completion.
 	setEnabledGate chan struct{}
 	gateOnce       sync.Once
+	// afterConfirm, when non-nil, runs immediately after the confirm callback
+	// and before the commit is recorded. It is the seam for the one interleaving
+	// staging cannot prevent: a success arriving once the write is already
+	// committing.
+	afterConfirm func()
 	// setEnabledEntered is closed by the first SetEnabled call once it has been
 	// entered but before it blocks, so a test knows the write is genuinely in
 	// flight rather than racing the goroutine's scheduling.
@@ -606,13 +611,32 @@ type setEnabledCall struct {
 	// is what distinguishes a fresh per-write deadline from one inherited half
 	// spent by the write before it.
 	budget time.Duration
+	// committed distinguishes a write that landed from one that was staged and
+	// then abandoned. Only committed writes are observable to anything else, so
+	// tests about what the rest of the system can see must assert on these.
+	committed bool
 }
 
-func (m *mockModelRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error) {
-	var budget time.Duration
+// record appends a call under the lock.
+func (m *mockModelRepo) record(c setEnabledCall) {
+	m.setEnabledMu.Lock()
+	defer m.setEnabledMu.Unlock()
+	m.setEnabledCalls = append(m.setEnabledCalls, c)
+}
+
+// ctxBudget reports the remaining deadline, or zero when there is none.
+func ctxBudget(ctx context.Context) time.Duration {
 	if deadline, ok := ctx.Deadline(); ok {
-		budget = time.Until(deadline)
+		return time.Until(deadline)
 	}
+	return 0
+}
+
+// SetEnabledIfConfirmed mirrors the real repository's staging behaviour: the
+// write is held open (the gate stands in for a slow UPDATE), confirm decides
+// whether it commits, and an abandoned write is never recorded as committed.
+func (m *mockModelRepo) SetEnabledIfConfirmed(ctx context.Context, id uuid.UUID, enabled bool, confirm func() bool) (bool, error) {
+	budget := ctxBudget(ctx)
 	if m.setEnabledEntered != nil {
 		m.enteredOnce.Do(func() { close(m.setEnabledEntered) })
 	}
@@ -623,20 +647,62 @@ func (m *mockModelRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bo
 			<-m.setEnabledGate
 		}
 	}
-	m.setEnabledMu.Lock()
-	defer m.setEnabledMu.Unlock()
-	m.setEnabledCalls = append(m.setEnabledCalls, setEnabledCall{id: id, enabled: enabled, budget: budget})
+	if m.setEnabledErr != nil {
+		// The real write fails before confirm is ever consulted.
+		m.record(setEnabledCall{id: id, enabled: enabled, budget: budget})
+		return false, m.setEnabledErr
+	}
+	ok := confirm()
+	if m.afterConfirm != nil {
+		// Stands in for a success landing between confirm and commit, the one
+		// window staging cannot close.
+		m.afterConfirm()
+	}
+	if !ok {
+		m.record(setEnabledCall{id: id, enabled: enabled, budget: budget})
+		return false, nil
+	}
+	m.record(setEnabledCall{id: id, enabled: enabled, budget: budget, committed: true})
+	return true, nil
+}
+
+func (m *mockModelRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error) {
+	budget := ctxBudget(ctx)
+	if m.setEnabledEntered != nil {
+		m.enteredOnce.Do(func() { close(m.setEnabledEntered) })
+	}
+	if m.setEnabledGate != nil {
+		first := false
+		m.gateOnce.Do(func() { first = true })
+		if first {
+			<-m.setEnabledGate
+		}
+	}
+	m.record(setEnabledCall{id: id, enabled: enabled, budget: budget, committed: m.setEnabledErr == nil})
 	if m.setEnabledErr != nil {
 		return nil, m.setEnabledErr
 	}
 	return &model.Model{ID: id, Enabled: enabled}, nil
 }
 
-// disableCalls returns a copy of the recorded calls under the lock.
+// disableCalls returns a copy of every recorded attempt under the lock,
+// committed or not.
 func (m *mockModelRepo) disableCalls() []setEnabledCall {
 	m.setEnabledMu.Lock()
 	defer m.setEnabledMu.Unlock()
 	return append([]setEnabledCall(nil), m.setEnabledCalls...)
+}
+
+// committedCalls returns only the writes that actually landed — the ones any
+// other session could see.
+func (m *mockModelRepo) committedCalls() []setEnabledCall {
+	var out []setEnabledCall
+	for _, c := range m.disableCalls() {
+		if c.committed {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func (m *mockModelRepo) ListEnabled(ctx context.Context) ([]*model.Model, error) {
@@ -2190,6 +2256,14 @@ func (m *coverageMockModelRepo) SetEnabled(ctx context.Context, id uuid.UUID, en
 	return &model.Model{ID: id, Enabled: enabled}, nil
 }
 
+func (m *coverageMockModelRepo) SetEnabledIfConfirmed(ctx context.Context, id uuid.UUID, enabled bool, confirm func() bool) (bool, error) {
+	return confirm(), nil
+}
+
 func (m *listModelsMockRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error) {
 	return &model.Model{ID: id, Enabled: enabled}, nil
+}
+
+func (m *listModelsMockRepo) SetEnabledIfConfirmed(ctx context.Context, id uuid.UUID, enabled bool, confirm func() bool) (bool, error) {
+	return confirm(), nil
 }
