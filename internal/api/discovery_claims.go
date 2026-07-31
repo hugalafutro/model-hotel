@@ -346,7 +346,10 @@ func sortClaims(cs []ModelClaim) {
 //
 // Stamp-only: there is no clear direction. A dismissal is undone by discovery
 // itself, since Upsert nulls the column on any sighting, so nothing needs to
-// clear it by hand.
+// clear it by hand. A traffic-retired model is the one exception to that
+// sighting rule (Upsert keeps its stamp, or it could never be silenced), and it
+// gets there instead via an operator enabling the model: that drops the
+// retirement stamp, and the next sighting clears the dismissal as usual.
 //
 // The UPDATE only ever touches rows that are currently gone (enabled = false)
 // and not manually disabled: Upsert clears the stamp on a SIGHTING, and a

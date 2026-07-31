@@ -14,6 +14,10 @@ export interface ProviderPillProps {
 	/** False when every actionable row is suspect, so nothing can be dismissed. */
 	canDismiss: boolean;
 	retestDisabled: boolean;
+	/** True when the only outstanding claims are retirements, so a retest can
+	 *  only confirm the models are listed — which is already known, and is the
+	 *  problem. Drives the reason shown on the disabled control. */
+	retestProvesNothing?: boolean;
 	retesting: boolean;
 	onRetest: () => void;
 	onDismissAll: () => void;
@@ -50,6 +54,7 @@ export function ProviderPill({
 	isCleared,
 	canDismiss,
 	retestDisabled,
+	retestProvesNothing,
 	retesting,
 	onRetest,
 	onDismissAll,
@@ -184,7 +189,9 @@ export function ProviderPill({
 						title={
 							readOnly
 								? t("providers.discrepancies.readOnlyTooltip")
-								: t("providers.discrepancies.retestTooltip")
+								: retestProvesNothing
+									? t("providers.discrepancies.retestRetiredOnlyTooltip")
+									: t("providers.discrepancies.retestTooltip")
 						}
 						aria-describedby={describedByReadOnly}
 						className="ui-btn ui-btn-secondary ui-btn-compact inline-flex shrink-0 items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"

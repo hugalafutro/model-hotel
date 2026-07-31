@@ -265,6 +265,35 @@ describe("ModelDiscrepancyModal", () => {
 		expect(row.textContent).not.toContain(formatRelativeTime(lastSeenAt));
 	});
 
+	// A retest asks the provider what it lists. For a provider whose only claims
+	// are retirements, the answer is already known and is the problem: the models
+	// ARE listed, and refused. Offering the control would offer a no-op.
+	it("disables retest when every claim is a retirement, and keeps it otherwise", () => {
+		const { rerender } = render(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[prov({ retired: [claimOf("dead", "pending", "retired")] })]}
+			/>,
+		);
+		expect(screen.getByTestId("discrepancy-retest")).toBeDisabled();
+
+		// One claim discovery can actually act on is enough to make it useful
+		// again, so the disable must be about the bucket mix and not about the
+		// mere presence of a retirement.
+		rerender(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[
+					prov({
+						retired: [claimOf("dead", "pending", "retired")],
+						gone: [claimOf("missing", "pending")],
+					}),
+				]}
+			/>,
+		);
+		expect(screen.getByTestId("discrepancy-retest")).toBeEnabled();
+	});
+
 	it("shows the empty state only when no group anywhere has content", () => {
 		const { rerender } = render(
 			<ModelDiscrepancyModal {...baseProps} providers={[]} />,

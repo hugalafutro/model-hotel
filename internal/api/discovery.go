@@ -754,9 +754,16 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 // DismissDiscoveryClaimsRequest carries the models to dismiss on one provider.
 //
 // Dismiss-only, deliberately: there is no un-dismiss direction. A dismissal
-// already self-heals, because models.Upsert clears discovery_dismissed_at on any
+// self-heals, because models.Upsert clears discovery_dismissed_at on any
 // sighting, so the next discovery run undoes it for any model that came back.
 // That is the only reversal the feature needs, and it needs no endpoint.
+//
+// A traffic-retired model reaches the same place by a longer route, since Upsert
+// deliberately preserves its dismissal (it is sighted on every scan, so clearing
+// on a sighting would make it impossible to silence). There the operator enables
+// the model, which drops the retirement stamp, and the next sighting then clears
+// the dismissal as usual — so a model that is retired again afterwards raises a
+// fresh claim rather than staying suppressed. Still no endpoint needed.
 type DismissDiscoveryClaimsRequest struct {
 	ProviderID string   `json:"provider_id"`
 	ModelIDs   []string `json:"model_ids"`
