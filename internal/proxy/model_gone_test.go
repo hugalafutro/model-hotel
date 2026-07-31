@@ -756,11 +756,13 @@ func TestNoteModelGone_StaleStrikesDoNotAccumulate(t *testing.T) {
 	if !ok {
 		t.Fatal("unexpected streak type")
 	}
-	streak.lastStrike.Store(time.Now().Add(-2 * goneStrikeWindow).UnixNano())
+	streak.mu.Lock()
+	streak.lastStrike = time.Now().Add(-2 * goneStrikeWindow)
+	streak.mu.Unlock()
 
 	// The next refusal begins a new streak instead of completing the old one.
 	h.noteModelGone(m, "Google AI Studio (Gemini)")
-	if n := streak.n.Load(); n != 1 {
+	if n := streak.count(); n != 1 {
 		t.Errorf("a strike after the window must start over, got a streak of %d", n)
 	}
 
@@ -776,6 +778,95 @@ func TestNoteModelGone_StaleStrikesDoNotAccumulate(t *testing.T) {
 	}
 	if calls := waitForDisable(t, repo); len(calls) != 1 {
 		t.Fatalf("three recent refusals must still retire, got %+v", calls)
+	}
+}
+
+// TestGoneStreak_ConcurrentResetKeepsEveryStrike pins the window reset against
+// the increments racing it.
+//
+// Deciding whether the window has lapsed and applying that decision is one
+// operation. Split across two atomics it is not: a reset storing 1 after two
+// increments have already added erases them, so a model refused three times ends
+// the burst on a count of one and never reaches the threshold — a dead model
+// left routable by the very traffic proving it is dead.
+//
+// Every strike here is deliberately at the boundary, so the reset branch and the
+// increment branch race on every iteration rather than only by luck.
+func TestGoneStreak_ConcurrentResetKeepsEveryStrike(t *testing.T) {
+	t.Parallel()
+
+	for range 200 {
+		s := &goneStreak{}
+		// Seed a last strike old enough that the first caller to look must
+		// reset, while the others arrive at the same instant.
+		s.mu.Lock()
+		s.lastStrike = time.Now().Add(-2 * goneStrikeWindow)
+		s.mu.Unlock()
+
+		var wg sync.WaitGroup
+		start := make(chan struct{})
+		now := time.Now()
+		for range goneStrikeThreshold {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				<-start
+				s.strike(now)
+			}()
+		}
+		close(start)
+		wg.Wait()
+
+		// One strike resets to 1 and the other two add, so the streak must be
+		// exactly the number of refusals.
+		if n := s.count(); n != goneStrikeThreshold {
+			t.Fatalf("concurrent strikes at the window boundary lost some: streak = %d, want %d", n, goneStrikeThreshold)
+		}
+	}
+}
+
+// TestNoteModelGone_FreshEvidenceBeatsAStaleRevert covers a retirement being
+// undone by a success that current traffic has already contradicted.
+//
+// The undo is scheduled by a success and runs after the disable commits. In
+// between, new refusals can build a replacement streak — and that replacement
+// finds the model already retired and stands down, correctly, because the
+// disable it wanted is already there. If the older undo then runs unconditionally
+// it re-enables the model, and the replacement streak, parked above the
+// threshold, never disables it again. The model stays routable with three fresh
+// refusals against it.
+func TestNoteModelGone_FreshEvidenceBeatsAStaleRevert(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+
+	// The success lands after confirm, so the retirement commits and an undo is
+	// scheduled. Before it runs, the model refuses again and reaches a fresh
+	// threshold.
+	// Once: the hook runs on every staged write, and the replacement retirement
+	// below is itself a staged write, so an unguarded hook would recurse.
+	var once sync.Once
+	repo.afterConfirm = func() {
+		once.Do(func() {
+			h.noteModelServed(m)
+			for range goneStrikeThreshold {
+				h.noteModelGone(m, "Google AI Studio (Gemini)")
+			}
+		})
+	}
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	for _, c := range repo.committedCalls() {
+		if c.enabled {
+			t.Fatalf("a model with three fresh refusals against it was re-enabled: %+v", repo.committedCalls())
+		}
 	}
 }
 

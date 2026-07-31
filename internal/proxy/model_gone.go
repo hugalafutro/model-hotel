@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -85,33 +86,51 @@ const goneWriteTimeout = 10 * time.Second
 // definition too early to see. The second case cannot be prevented, only
 // undone, so noteModelGone reverts rather than skips there.
 //
-// lastStrike carries the time of the most recent strike, in Unix nanoseconds so
-// it can live in an atomic alongside the count. It is what makes the streak
-// consecutive in time as well as in sequence — see goneStrikeWindow.
+// The count and the time of the last strike are guarded by mu rather than being
+// separate atomics. Two atomics cannot express this: deciding whether the window
+// has lapsed and then applying the decision is one operation, and splitting it
+// loses strikes. A reset racing two increments stores 1 after both have added,
+// erasing them, so a model refused three times ends the burst on a count of one
+// and never reaches the threshold.
+//
+// The lock is held for a comparison and an addition, on a per-model struct that
+// is only contended while that one model is failing, so it costs nothing worth
+// measuring.
+//
+// cancelled stays atomic because it is read by the detached disable goroutine
+// while the request path may be writing it, and it is independent of the pair
+// above.
 type goneStreak struct {
-	n          atomic.Int64
-	cancelled  atomic.Bool
-	lastStrike atomic.Int64
+	mu         sync.Mutex
+	n          int64
+	lastStrike time.Time
+
+	cancelled atomic.Bool
 }
 
-// strike records a refusal and returns the streak length it belongs to.
+// strike records a refusal and returns the length of the streak it belongs to.
 //
-// A strike that arrives more than goneStrikeWindow after the previous one starts
-// the count over instead of extending it, so a retirement is always drawn from
-// one run of recent traffic rather than from unrelated failures that happen to
-// share a model.
-//
-// Swap is what keeps the reset safe under concurrency: whichever caller takes
-// the stale timestamp is the only one that sees it, so exactly one resets and
-// the rest add. A burst against a genuinely dead model can therefore lose at
-// most one strike to a reset, and re-earns it on the next request.
+// A strike arriving more than goneStrikeWindow after the previous one starts the
+// count over instead of extending it, so a retirement is always drawn from one
+// run of recent traffic rather than from unrelated failures that happen to share
+// a model.
 func (s *goneStreak) strike(now time.Time) int64 {
-	prev := s.lastStrike.Swap(now.UnixNano())
-	if prev != 0 && now.UnixNano()-prev > int64(goneStrikeWindow) {
-		s.n.Store(1)
-		return 1
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.lastStrike.IsZero() && now.Sub(s.lastStrike) > goneStrikeWindow {
+		s.n = 1
+	} else {
+		s.n++
 	}
-	return s.n.Add(1)
+	s.lastStrike = now
+	return s.n
+}
+
+// count reports the current streak length.
+func (s *goneStreak) count() int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.n
 }
 
 // noteModelGone records one strike against a model the provider refused as
@@ -238,6 +257,23 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 		// The window is now one commit rather than a whole check-write-check
 		// cycle, and the model ends up correct either way.
 		if streak.cancelled.Load() {
+			// The success that cancelled this retirement can itself be out of
+			// date. Its streak was dropped, new refusals can have built another
+			// one, and that replacement stands down when it finds the model
+			// already retired — by this very write. Reverting on the strength of
+			// the older success would then re-enable a model that current
+			// evidence says is gone, and the fresh streak, parked above the
+			// threshold, would never disable it again.
+			//
+			// So the revert defers to whatever the model is saying NOW rather
+			// than to the success that scheduled it.
+			if fresh, ok := h.goneStrikes.Load(modelID); ok {
+				if s, ok := fresh.(*goneStreak); ok && s.count() >= goneStrikeThreshold {
+					debuglog.Info("proxy: not reverting the auto-disable, the model is refusing again", "model", modelName, "provider", provider)
+					return
+				}
+			}
+
 			rctx, rcancel := context.WithTimeout(context.Background(), goneWriteTimeout)
 			// Conditional on the row still being as the retirement left it. An
 			// operator can disable the model by hand inside this same window,
