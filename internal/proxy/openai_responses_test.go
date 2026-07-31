@@ -245,6 +245,22 @@ func TestProbeStreamingCandidate_LearnsResponsesRequirement(t *testing.T) {
 	if _, learned := h.responsesRequiredCache.Load("openai:" + cand.model.ModelID); learned {
 		t.Error("generic 400 must not be learned as a responses requirement")
 	}
+
+	// The hedged path reads a bounded prefix of an error body, because it also
+	// hands it to the classifier and the classifier's window is small. This
+	// learner is the reader that needs the WHOLE document: RequiresResponsesAPI
+	// json.Unmarshals it, and a body cut off mid-JSON does not parse at all, so
+	// a cap sized for the classifier would silently stop teaching the
+	// requirement — and the sequential path that learns the same thing reads
+	// unbounded, so the two would disagree about the same fact.
+	padded := fmt.Sprintf(`{"error":{"message":"Function tools with reasoning_effort are not supported in the Chat Completions API for this model. Please use the /v1/responses endpoint, or set reasoning_effort to 'none'."},"padding":"%s"}`, strings.Repeat("a", 4*failoverErrorClassifyCap))
+	res, cand = run(t, "gpt-hedge-oversized", padded)
+	if res.won {
+		t.Error("400 probe must fail the candidate")
+	}
+	if _, learned := h.responsesRequiredCache.Load("openai:" + cand.model.ModelID); !learned {
+		t.Errorf("a %d-byte 400 was truncated past parsing, so the responses requirement was never learned", len(padded))
+	}
 }
 
 // End-to-end through the real ChatCompletions pipeline (plan §11 in

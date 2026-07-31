@@ -245,7 +245,20 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// Any non-200 drops this candidate. The orchestrator owns the terminal
 		// write if every candidate fails; drain so the connection can be reused,
 		// keeping only as much as the two readers below can use.
-		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
+		//
+		// The two readers want different amounts, so the cap follows the status.
+		// classifyUpstreamError never sees past SanitizeLogBody's 10 000 bytes,
+		// which is what failoverErrorClassifyCap is sized against; but a 400 is
+		// also handed to learnResponsesRequirement, which json.Unmarshals it, and
+		// a document cut short does not parse at all. Capping a 400 at 16 KiB
+		// would silently stop teaching the /v1/responses requirement, and the
+		// sequential path that learns the same thing reads unbounded — the two
+		// must not disagree about the same learner.
+		readCap := int64(failoverErrorClassifyCap)
+		if resp.StatusCode == http.StatusBadRequest {
+			readCap = responsesLearnBodyCap
+		}
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, readCap))
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 		if resp.StatusCode == http.StatusBadRequest {

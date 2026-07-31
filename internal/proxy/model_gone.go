@@ -2,7 +2,9 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -136,6 +138,58 @@ const goneProbeMaxConcurrent = 4
 // The work is already detached from the request path, so nothing is waiting on
 // the total. Bounding each step is what keeps every step able to do its job.
 const goneWriteTimeout = 10 * time.Second
+
+// goneStreakKey identifies a streak: one model, on one upstream surface.
+//
+// The surface is the PROBE endpoint (see probeEndpointForFamily), not the
+// endpoint family, so chat and messages share a streak while embeddings keeps
+// its own. That is the right grain because it is exactly what the probe can ask:
+// two front doors onto the same question are one question, and a different door
+// onto a different question is a different streak.
+type goneStreakKey struct {
+	model    uuid.UUID
+	endpoint string
+}
+
+// goneProbeSurfaces is every endpoint a streak can be keyed on.
+//
+// It has to agree with probeEndpointForFamily's returns, and
+// TestProbeEndpointForFamily_SurfacesAreCovered fails if a new probeable family
+// introduces a surface that is missing here. The one caller that needs it is
+// noteModelServed, which has a model and no family: a success clears the model's
+// streaks on every surface, so it enumerates them rather than scanning the map.
+var goneProbeSurfaces = [...]string{probeChatEndpoint, probeEmbeddingsEndpoint}
+
+// modalityContradictsSurface reports whether the model's own catalog metadata
+// says it is not for this upstream surface.
+//
+// Positive evidence of a mismatch only. An empty, unparseable or unrecognised
+// modality list is not a contradiction: rows predating the modality columns and
+// providers that report nothing must keep the retirement they have today, and
+// the alternative — treating "we cannot tell" as "do not retire" — would switch
+// auto-retirement off silently for whole catalogs. What it catches is the case
+// the catalog is explicit about: a text model refused on /embeddings, or an
+// embedding-only model refused on /chat/completions.
+//
+// Reading output modalities rather than input: discovery classifies an
+// embeddings model by what it PRODUCES (["embedding"]), which is the only field
+// that separates it from a chat model taking the same text input.
+func modalityContradictsSurface(m *model.Model, probeEndpoint string) bool {
+	if m.OutputModalities == "" || m.OutputModalities == "[]" {
+		return false
+	}
+	var out []string
+	if json.Unmarshal([]byte(m.OutputModalities), &out) != nil || len(out) == 0 {
+		return false
+	}
+	embeds := slices.Contains(out, "embedding")
+	if probeEndpoint == probeEmbeddingsEndpoint {
+		return !embeds
+	}
+	// The chat surface: only an embedding-ONLY model contradicts it. A model
+	// that produces embeddings alongside text is not evidence of anything.
+	return embeds && len(out) == 1
+}
 
 // goneStreak is one model's consecutive-refusal count plus a tombstone for the
 // window between deciding to disable and the write landing.
@@ -295,11 +349,23 @@ func (s *goneStreak) park() {
 // Storing inside the lock is what closes it: once a reader observes the
 // tombstone the writer is still holding mu, so the count it goes on to ask for
 // cannot be read until this has finished zeroing it.
-func (s *goneStreak) supersede() {
+//
+// It reports whether it changed anything, for the caller's log line rather than
+// for control flow. A streak already at zero with the tombstone already set has
+// been superseded by an earlier success and there is nothing left to stand down
+// — which is the steady state for any model that drew one refusal and then went
+// on serving, since nothing removes entries. The early return is deliberately
+// that narrow: a count of zero with no tombstone can still belong to a disable
+// this success has to cancel.
+func (s *goneStreak) supersede() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.n == 0 && s.cancelled.Load() {
+		return false
+	}
 	s.cancelled.Store(true)
 	s.clearLocked()
+	return true
 }
 
 // clearLocked resets the evidence. Callers hold mu.
@@ -380,8 +446,32 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// as long as traffic keeps arriving, precisely BECAUSE it is never retired
 	// to make it stop. At Info that is an unbounded line in every operator's log
 	// for a condition that is by design permanent.
-	if _, ok := probeEndpointForFamily(endpointType); !ok {
+	probeEndpoint, ok := probeEndpointForFamily(endpointType)
+	if !ok {
 		debuglog.Debug("proxy: provider reports model gone on an endpoint family that cannot be probed, so it is never auto-retired", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType)
+		return
+	}
+
+	// The second gate: the refusal has to be about a surface this model is FOR.
+	//
+	// Nothing filters a request by modality on the way in. `POST /v1/embeddings`
+	// with a chat model's name is forwarded to the provider's embeddings
+	// endpoint, and a provider that answers "gpt-4o is not supported for
+	// embeddings" has named the model beside a gone-phrase, which
+	// classifyUpstreamError reads as a retirement. Three of those from one
+	// misconfigured client used to nominate the model, and the probe could not
+	// save it: the probe asks on the family the strikes arrived on, so it
+	// reproduces the misuse faithfully, draws the same refusal and confirms a
+	// retirement of a model that serves chat perfectly. The disable is
+	// model-wide, so a surface-specific refusal would take the model out of
+	// routing everywhere.
+	//
+	// This is the same argument as the family gate above, applied to the one
+	// direction that gate cannot see: chat and embeddings are both probeable, so
+	// the mismatch is between the model and the surface rather than between the
+	// surface and the probe.
+	if modalityContradictsSurface(m, probeEndpoint) {
+		debuglog.Debug("proxy: ignoring a gone-classified refusal on a surface this model is not for", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "output_modalities", m.OutputModalities)
 		return
 	}
 
@@ -395,7 +485,16 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// sync.Map holds a per-model *goneStreak rather than a plain int, so
 	// LoadOrStore only races on creating it (harmless, the winner's is used by
 	// everyone) and the increment itself is atomic.
-	raw, _ := h.goneStrikes.LoadOrStore(m.ID, &goneStreak{})
+	//
+	// Keyed by model AND probe surface, not by model alone. The two are separate
+	// questions — a model can be served on one surface and refused on another —
+	// and the probe is sent to the surface the strikes came from, so pooling them
+	// let two chat refusals plus one embeddings refusal buy an embeddings probe.
+	// Keyed this way, every streak names one surface, and what the probe asks is
+	// always what the strikes were about. Chat and messages share a key by
+	// design: they resolve to the same probe endpoint, so they are the same
+	// question asked through two front doors.
+	raw, _ := h.goneStrikes.LoadOrStore(goneStreakKey{model: m.ID, endpoint: probeEndpoint}, &goneStreak{})
 	streak, ok := raw.(*goneStreak)
 	if !ok {
 		return
@@ -919,18 +1018,35 @@ func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCand
 // a success wiped the stamp, three more refusals bought another, indefinitely.
 // A success clears what the model is accused of; it does not buy the gateway
 // another free upstream call. See park.
+//
+// Every surface, because a success is evidence about the MODEL. The caller has a
+// model and no endpoint family (a streaming verdict, a pass-through 2xx and a
+// chat 200 all arrive here the same way), and enumerating the two probe surfaces
+// is cheaper and more predictable than scanning the map for a model's keys. It
+// is also the answer that was wanted before the streaks were split: clearing a
+// streak can only ever PREVENT a retirement, so being generous across surfaces
+// costs nothing, while a strike is gated tightly in both directions.
+//
+// supersede reports whether it changed anything, and the log line is conditional
+// on that. Since nothing removes entries, a model that drew one refusal at 09:00
+// keeps its parked streak for the life of the process, and an unconditional line
+// would then claim to have "cleared gone-strikes" on every successful request to
+// that model from then on — a log that describes work nobody did.
 func (h *Handler) noteModelServed(m *model.Model) {
 	if m == nil || m.ID == uuid.Nil {
 		return
 	}
-	raw, ok := h.goneStrikes.Load(m.ID)
-	if !ok {
-		return
+	for _, endpoint := range goneProbeSurfaces {
+		raw, ok := h.goneStrikes.Load(goneStreakKey{model: m.ID, endpoint: endpoint})
+		if !ok {
+			continue
+		}
+		streak, ok := raw.(*goneStreak)
+		if !ok {
+			continue
+		}
+		if streak.supersede() {
+			debuglog.Debug("proxy: model answered again, cleared gone-strikes", "model", m.ModelID, "endpoint", endpoint)
+		}
 	}
-	streak, ok := raw.(*goneStreak)
-	if !ok {
-		return
-	}
-	streak.supersede()
-	debuglog.Debug("proxy: model answered again, cleared gone-strikes", "model", m.ModelID)
 }

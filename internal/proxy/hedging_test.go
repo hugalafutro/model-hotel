@@ -397,7 +397,7 @@ func TestRunHedgedStreaming_LosingCandidateStrikesTheRightFamily(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected the healthy member to win, got %d", w.Code)
 	}
-	raw, ok := h.goneStrikes.Load(dead.ID)
+	raw, ok := h.goneStrikes.Load(goneStreakKey{model: dead.ID, endpoint: probeChatEndpoint})
 	if !ok {
 		t.Fatal("the refused candidate accrued no strike, so a hedged group can never retire a dead model")
 	}
@@ -610,7 +610,7 @@ func TestProbeStreamingCandidate(t *testing.T) {
 		if res.won {
 			t.Fatal("a 404 must not win")
 		}
-		raw, ok := h.goneStrikes.Load(cand.model.ID)
+		raw, ok := h.goneStrikes.Load(goneStreakKey{model: cand.model.ID, endpoint: probeChatEndpoint})
 		if !ok {
 			t.Fatal("a losing candidate's refusal accrued no strike")
 		}

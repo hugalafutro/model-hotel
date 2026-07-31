@@ -39,6 +39,16 @@ import (
 // answer with.
 const failoverErrorClassifyCap = 16 << 10
 
+// responsesLearnBodyCap bounds a 400 that has to be parsed rather than scanned.
+//
+// openairesponses.RequiresResponsesAPI json.Unmarshals the whole error document,
+// so the classifier's window is the wrong size for it: a body cut off mid-JSON
+// does not parse, and the /v1/responses requirement would silently stop being
+// learned. A megabyte is far past any real 400 (they are sentences) and still
+// bounded, which is more than the sequential path that learns the same thing
+// gives itself.
+const responsesLearnBodyCap = 1 << 20
+
 // paramRetryResult is the outcome of the 400 param-stripping auto-retry
 // (retryWithStrippedParams). It tells the failover loop how to proceed:
 //   - resp: the response to continue handling with — the retry's response on a

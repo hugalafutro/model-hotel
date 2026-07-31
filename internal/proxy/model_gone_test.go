@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"runtime"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -42,9 +43,9 @@ func waitForDisable(t *testing.T, repo *mockModelRepo) []setEnabledCall {
 // goneStreakFor returns the model's live streak, failing the test if there is
 // none. The streak is what the postponement paths now leave behind, so several
 // tests below assert on it directly rather than on the absence of a write.
-func goneStreakFor(t *testing.T, h *Handler, id uuid.UUID) *goneStreak {
+func goneStreakFor(t *testing.T, h *Handler, id uuid.UUID, endpoint string) *goneStreak {
 	t.Helper()
-	raw, ok := h.goneStrikes.Load(id)
+	raw, ok := h.goneStrikes.Load(goneStreakKey{model: id, endpoint: endpoint})
 	if !ok {
 		t.Fatal("the model has no streak")
 	}
@@ -59,11 +60,11 @@ func goneStreakFor(t *testing.T, h *Handler, id uuid.UUID) *goneStreak {
 // paths that reset the count in place instead of dropping the entry. The reset
 // happens on the detached goroutine, so reading the count straight after the
 // refusals that triggered it races the reset rather than observing it.
-func waitForStreakCount(t *testing.T, h *Handler, id uuid.UUID, want int64) {
+func waitForStreakCount(t *testing.T, h *Handler, id uuid.UUID, endpoint string, want int64) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if raw, ok := h.goneStrikes.Load(id); ok {
+		if raw, ok := h.goneStrikes.Load(goneStreakKey{model: id, endpoint: endpoint}); ok {
 			if s, ok := raw.(*goneStreak); ok && s.count() == want {
 				return
 			}
@@ -80,9 +81,9 @@ func waitForStreakCount(t *testing.T, h *Handler, id uuid.UUID, want int64) {
 // lastStrike. The alternative — a knob, an injected clock, a var instead of a
 // const — would put a seam in production code that exists only for tests, and
 // the wait it replaces is five minutes.
-func expireProbeCooldown(t *testing.T, h *Handler, id uuid.UUID) {
+func expireProbeCooldown(t *testing.T, h *Handler, id uuid.UUID, endpoint string) {
 	t.Helper()
-	streak := goneStreakFor(t, h, id)
+	streak := goneStreakFor(t, h, id, endpoint)
 	streak.mu.Lock()
 	streak.nextProbeAt = time.Now().Add(-time.Second)
 	streak.mu.Unlock()
@@ -700,7 +701,7 @@ func TestNoteModelGone_FailedDisableIsRetried(t *testing.T) {
 
 	// Once it lapses, the parked evidence is still there and one refusal is
 	// enough to try the write again.
-	expireProbeCooldown(t, h, m.ID)
+	expireProbeCooldown(t, h, m.ID, probeChatEndpoint)
 	h.noteModelGone(cand, endpointTypeChat)
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -896,7 +897,7 @@ func TestNoteModelGone_StaleFailedDisableKeepsTheEvidence(t *testing.T) {
 	}
 	watch := time.Now().Add(300 * time.Millisecond)
 	for time.Now().Before(watch) {
-		if n := goneStreakFor(t, h, m.ID).count(); n != goneStrikeThreshold-1 {
+		if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != goneStrikeThreshold-1 {
 			t.Fatalf("the stale failed disable took the newer evidence with it: streak = %d", n)
 		}
 		time.Sleep(5 * time.Millisecond)
@@ -905,7 +906,7 @@ func TestNoteModelGone_StaleFailedDisableKeepsTheEvidence(t *testing.T) {
 	// One more refusal completes the rebuilt streak. The cooldown from the first
 	// claim is still running, so this is also the point at which the retry
 	// becomes reachable rather than immediate.
-	expireProbeCooldown(t, h, m.ID)
+	expireProbeCooldown(t, h, m.ID, probeChatEndpoint)
 	h.noteModelGone(cand, endpointTypeChat)
 
 	deadline = time.Now().Add(2 * time.Second)
@@ -986,7 +987,7 @@ func TestNoteModelGone_StaleStrikesDoNotAccumulate(t *testing.T) {
 	}
 
 	// Age them past the window, as if the incident were hours ago.
-	raw, ok := h.goneStrikes.Load(m.ID)
+	raw, ok := h.goneStrikes.Load(goneStreakKey{model: m.ID, endpoint: probeChatEndpoint})
 	if !ok {
 		t.Fatal("the strikes did not start a streak")
 	}
@@ -1319,7 +1320,7 @@ func TestNoteModelGone_AnsweredProbePreventsTheDisable(t *testing.T) {
 	// The count is reset by the served branch, so the model needs three FRESH
 	// refusals before it is reconsidered. The entry itself stays — it is what
 	// carries the probe cooldown, which the test below is about.
-	waitForStreakCount(t, h, m.ID, 0)
+	waitForStreakCount(t, h, m.ID, probeChatEndpoint, 0)
 	// And the outcome came from asking rather than from nothing happening.
 	if paths := script.requestedPaths(); len(paths) != 1 || paths[0] != probeChatEndpoint {
 		t.Fatalf("expected exactly one probe on %s, got %v", probeChatEndpoint, paths)
@@ -1412,7 +1413,7 @@ func TestNoteModelGone_AnsweredProbeKeepsTheCooldown(t *testing.T) {
 	// finished with the streak. Without both, "no second probe" and "the first
 	// probe has not landed yet" are the same observation.
 	waitForProbes(t, script, 1)
-	waitForStreakCount(t, h, m.ID, 0)
+	waitForStreakCount(t, h, m.ID, probeChatEndpoint, 0)
 
 	// The traffic goes back to refusing, which is what a real disagreement looks
 	// like. The count is allowed to climb again — that is the backoff working —
@@ -1429,7 +1430,7 @@ func TestNoteModelGone_AnsweredProbeKeepsTheCooldown(t *testing.T) {
 
 	// And it is a delay rather than a lockout: once the cooldown lapses the model
 	// is reconsidered on the strikes it has rebuilt since.
-	expireProbeCooldown(t, h, m.ID)
+	expireProbeCooldown(t, h, m.ID, probeChatEndpoint)
 	h.noteModelGone(cand, endpointTypeChat)
 	waitForProbes(t, script, 2)
 }
@@ -1461,7 +1462,7 @@ func TestAttemptCandidate_ATranslationFailureKeepsTheStreak(t *testing.T) {
 
 	// One real refusal, so there is a streak for the 200 to wrongly clear.
 	h.noteModelGone(cand, endpointTypeChat)
-	streak := goneStreakFor(t, h, m.ID)
+	streak := goneStreakFor(t, h, m.ID, probeChatEndpoint)
 	if n := streak.count(); n != 1 {
 		t.Fatalf("streak = %d, want 1 before the attempt", n)
 	}
@@ -1580,6 +1581,44 @@ func TestProbeForRetirement_NilCandidatePostponesInsteadOfPanicking(t *testing.T
 	}
 }
 
+// TestGoneStreak_SupersedeReportsWhetherItChangedAnything pins the report the
+// log line depends on.
+//
+// Nothing removes a streak any more, which is what keeps the probe cooldown. The
+// consequence is that a model which drew a single refusal at 09:00 carries a
+// parked streak for the life of the process, and every successful request to it
+// from then on reaches supersede with nothing left to do. An unconditional line
+// would claim to have "cleared gone-strikes" on every one of them.
+func TestGoneStreak_SupersedeReportsWhetherItChangedAnything(t *testing.T) {
+	t.Parallel()
+
+	s := &goneStreak{}
+	s.strike(time.Now())
+	if !s.supersede() {
+		t.Fatal("the first success had a strike to clear and said it did nothing")
+	}
+	if s.supersede() {
+		t.Fatal("a second success on an already-superseded streak did no work but reported that it had")
+	}
+
+	// A fresh refusal makes it real work again.
+	s.strike(time.Now())
+	if !s.supersede() {
+		t.Fatal("a success after a new strike had evidence to clear")
+	}
+
+	// And the early return is deliberately narrow: an empty count with no
+	// tombstone can still belong to a disable this success has to stand down,
+	// which is the state a claim leaves behind.
+	claimed := &goneStreak{}
+	if !claimed.claimProbe(time.Now()) {
+		t.Fatal("a fresh streak must admit the first claim")
+	}
+	if !claimed.supersede() {
+		t.Fatal("a success against a claimed streak must still set the tombstone")
+	}
+}
+
 // TestGoneStreak_SupersedeIsAtomicToAReader pins the one ordering the revert
 // path depends on and cannot check for itself.
 //
@@ -1661,7 +1700,7 @@ func TestNoteModelGone_ASuccessDoesNotResetTheProbeCooldown(t *testing.T) {
 		h.noteModelGone(cand, endpointTypeChat)
 	}
 	waitForProbes(t, script, 1)
-	waitForStreakCount(t, h, m.ID, 0)
+	waitForStreakCount(t, h, m.ID, probeChatEndpoint, 0)
 
 	// An ordinary request to the same model succeeds, exactly as the request
 	// path reports it.
@@ -1680,7 +1719,7 @@ func TestNoteModelGone_ASuccessDoesNotResetTheProbeCooldown(t *testing.T) {
 	}
 
 	// Still a delay rather than a lockout.
-	expireProbeCooldown(t, h, m.ID)
+	expireProbeCooldown(t, h, m.ID, probeChatEndpoint)
 	h.noteModelGone(cand, endpointTypeChat)
 	waitForProbes(t, script, 2)
 }
@@ -1753,14 +1792,14 @@ func TestNoteModelGone_RateLimitedProbePostponesThenRetires(t *testing.T) {
 	// rate unbounded: three fresh refusals bought another probe, forever, at a
 	// provider that was already rate limiting us. The claim is what gates the
 	// retry now, so the strikes stay where they are.
-	if n := goneStreakFor(t, h, m.ID).count(); n != goneStrikeThreshold {
+	if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != goneStrikeThreshold {
 		t.Fatalf("a postponed retirement must keep the strikes it was built on, got a streak of %d", n)
 	}
 
 	// The incident passes and the model turns out to be genuinely gone. One
 	// refusal is now enough, precisely because the earlier strikes survived.
 	script.answer(http.StatusNotFound, goneRefusalBody(m.ModelID))
-	expireProbeCooldown(t, h, m.ID)
+	expireProbeCooldown(t, h, m.ID, probeChatEndpoint)
 	h.noteModelGone(cand, endpointTypeChat)
 
 	calls := waitForDisable(t, repo)
@@ -1818,7 +1857,7 @@ func TestNoteModelGone_ProbeCooldownBoundsTheProbeRate(t *testing.T) {
 	// The bound is a delay, not a lockout: once the cooldown lapses the next
 	// refusal probes again.
 	script.answer(http.StatusNotFound, goneRefusalBody(m.ModelID))
-	expireProbeCooldown(t, h, m.ID)
+	expireProbeCooldown(t, h, m.ID, probeChatEndpoint)
 	h.noteModelGone(cand, endpointTypeChat)
 
 	if calls := waitForDisable(t, repo); len(calls) != 1 {
@@ -1871,14 +1910,14 @@ func TestNoteModelGone_ExhaustedProbeSlotsPostponeWithoutAsking(t *testing.T) {
 	if paths := script.requestedPaths(); len(paths) != 0 {
 		t.Fatalf("no slot was free, so no upstream request may be spent, got %v", paths)
 	}
-	if n := goneStreakFor(t, h, m.ID).count(); n != goneStrikeThreshold {
+	if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != goneStrikeThreshold {
 		t.Fatalf("the strikes must survive so the retry is reachable, got a streak of %d", n)
 	}
 
 	// A slot frees up and the cooldown lapses: the retirement lands on the
 	// evidence that was already there.
 	<-full
-	expireProbeCooldown(t, h, m.ID)
+	expireProbeCooldown(t, h, m.ID, probeChatEndpoint)
 	h.noteModelGone(cand, endpointTypeChat)
 
 	calls := waitForDisable(t, repo)
@@ -1890,6 +1929,158 @@ func TestNoteModelGone_ExhaustedProbeSlotsPostponeWithoutAsking(t *testing.T) {
 	}
 	if paths := waitForProbes(t, script, 1); len(paths) != 1 {
 		t.Errorf("expected exactly one probe, got %v", paths)
+	}
+}
+
+// TestNoteModelGone_ASurfaceTheModelIsNotForNeverStrikes pins the second gate.
+//
+// Nothing filters a request by modality on the way in: `POST /v1/embeddings`
+// naming a chat model is forwarded to the provider's embeddings endpoint, and a
+// provider that answers "gpt-4o is not supported for embeddings" has named the
+// model beside a gone-phrase, which the classifier reads as a retirement. The
+// probe cannot save the model from that, because it asks on the family the
+// strikes arrived on: it reproduces the misuse, draws the same refusal, and
+// confirms a retirement of a model that serves chat perfectly. And the disable
+// is model-wide, so one misconfigured client would take it out of routing
+// everywhere.
+//
+// The control case is the same model, same refusal, on the surface it IS for.
+func TestNoteModelGone_ASurfaceTheModelIsNotForNeverStrikes(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name             string
+		outputModalities string
+		endpointType     string
+		endpoint         string
+		wantStrike       bool
+	}{
+		// A chat model sent to the embeddings surface: the refusal is about the
+		// misuse, not about the model.
+		{"text model on embeddings", `["text"]`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, false},
+		// And the mirror image, which is just as wrong.
+		{"embedding model on chat", `["embedding"]`, endpointTypeChat, probeChatEndpoint, false},
+		// The same refusals on the surfaces the models are for.
+		{"text model on chat", `["text"]`, endpointTypeChat, probeChatEndpoint, true},
+		{"embedding model on embeddings", `["embedding"]`, endpointTypeEmbeddings, probeEmbeddingsEndpoint, true},
+		// A model that produces both is not evidence against either surface.
+		{"multimodal on chat", `["text","embedding"]`, endpointTypeChat, probeChatEndpoint, true},
+		// No metadata is not evidence either: rows predating the modality
+		// columns must keep the retirement they have today.
+		{"unknown modality on embeddings", "", endpointTypeEmbeddings, probeEmbeddingsEndpoint, true},
+		{"empty modality on chat", "[]", endpointTypeChat, probeChatEndpoint, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			repo := &mockModelRepo{}
+			h := newGoneHandler(t, repo)
+			m := &model.Model{ID: uuid.New(), ModelID: "gpt-4o", OutputModalities: tc.outputModalities}
+			cand := goneCandidateFor(t, m, "OpenAI")
+
+			h.noteModelGone(cand, tc.endpointType)
+
+			raw, ok := h.goneStrikes.Load(goneStreakKey{model: m.ID, endpoint: tc.endpoint})
+			if ok != tc.wantStrike {
+				t.Fatalf("streak recorded = %v, want %v", ok, tc.wantStrike)
+			}
+			if !tc.wantStrike {
+				return
+			}
+			if streak, isStreak := raw.(*goneStreak); !isStreak || streak.count() != 1 {
+				t.Fatalf("expected exactly one strike, got %+v", raw)
+			}
+		})
+	}
+}
+
+// TestNoteModelGone_SurfacesDoNotPoolTheirStrikes pins that a streak is about
+// one surface.
+//
+// The streak used to be keyed by model UUID alone while the probe endpoint came
+// from whichever refusal crossed the threshold, so two chat refusals plus one
+// embeddings refusal bought an EMBEDDINGS probe — a question nobody had
+// accumulated evidence for. Keyed per surface, each counter means one thing and
+// the probe always asks what the strikes were about.
+func TestNoteModelGone_SurfacesDoNotPoolTheirStrikes(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	// No declared modality, so neither surface is contradicted and the split is
+	// the only thing keeping the two counters apart.
+	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol"}
+	srv, script := newGoneScriptedServer(t, http.StatusNotFound, goneRefusalBody("gpt-5.6-sol"))
+	cand := goneCandidateAt(m, "OpenAI", srv.URL)
+
+	// Two on chat, two on embeddings: four refusals, and neither surface has
+	// reached the threshold.
+	for range goneStrikeThreshold - 1 {
+		h.noteModelGone(cand, endpointTypeChat)
+		h.noteModelGone(cand, endpointTypeEmbeddings)
+	}
+	if calls := waitForDisable(t, repo); len(calls) != 0 {
+		t.Fatalf("no surface reached the threshold, so nothing may be probed or retired, got %+v", calls)
+	}
+	if paths := script.requestedPaths(); len(paths) != 0 {
+		t.Fatalf("pooled strikes bought a probe, got %v", paths)
+	}
+	if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != goneStrikeThreshold-1 {
+		t.Errorf("chat streak = %d, want %d", n, goneStrikeThreshold-1)
+	}
+	if n := goneStreakFor(t, h, m.ID, probeEmbeddingsEndpoint).count(); n != goneStrikeThreshold-1 {
+		t.Errorf("embeddings streak = %d, want %d", n, goneStrikeThreshold-1)
+	}
+
+	// The third chat refusal completes the CHAT streak, so the probe goes to
+	// the chat surface.
+	h.noteModelGone(cand, endpointTypeChat)
+	if paths := waitForProbes(t, script, 1); len(paths) != 1 || paths[0] != probeChatEndpoint {
+		t.Fatalf("expected one probe on %s, got %v", probeChatEndpoint, paths)
+	}
+}
+
+// TestNoteModelServed_ClearsEverySurface pins the other side of the split: a
+// success is evidence about the MODEL, and the caller has no family to pass.
+// If a chat 200 only cleared the chat streak, an embeddings streak would keep
+// its strikes across an arbitrary amount of healthy traffic and eventually
+// spend a probe on a model that has been answering all along.
+func TestNoteModelServed_ClearsEverySurface(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol"}
+	cand := goneCandidateFor(t, m, "OpenAI")
+
+	h.noteModelGone(cand, endpointTypeChat)
+	h.noteModelGone(cand, endpointTypeEmbeddings)
+
+	h.noteModelServed(m)
+
+	for _, endpoint := range goneProbeSurfaces {
+		if n := goneStreakFor(t, h, m.ID, endpoint).count(); n != 0 {
+			t.Errorf("%s streak = %d, want 0 after the model answered", endpoint, n)
+		}
+	}
+}
+
+// TestProbeEndpointForFamily_SurfacesAreCovered is the guard on goneProbeSurfaces
+// drifting from probeEndpointForFamily. noteModelServed enumerates that list to
+// clear a model's streaks, so a new probeable family whose endpoint is missing
+// from it would accumulate strikes no success could ever clear.
+func TestProbeEndpointForFamily_SurfacesAreCovered(t *testing.T) {
+	t.Parallel()
+
+	for _, family := range []string{endpointTypeChat, endpointTypeMessages, endpointTypeEmbeddings, endpointTypeImage, endpointTypeTTS, endpointTypeSTT, endpointTypeRerank, ""} {
+		endpoint, ok := probeEndpointForFamily(family)
+		if !ok {
+			continue
+		}
+		if !slices.Contains(goneProbeSurfaces[:], endpoint) {
+			t.Errorf("family %q probes %q, which goneProbeSurfaces does not list", family, endpoint)
+		}
 	}
 }
 
@@ -1972,8 +2163,12 @@ func TestNoteModelGone_UnprobeableFamiliesAreNeverRetired(t *testing.T) {
 		for range goneStrikeThreshold + 3 {
 			h.noteModelGone(cand, f.endpointType)
 		}
-		if _, ok := h.goneStrikes.Load(m.ID); ok {
-			t.Errorf("%s: a family that can never be adjudicated must not record a streak", f.name)
+		// Every surface a streak can be keyed on, so this cannot pass by
+		// looking under a key nothing would have written.
+		for _, endpoint := range goneProbeSurfaces {
+			if _, ok := h.goneStrikes.Load(goneStreakKey{model: m.ID, endpoint: endpoint}); ok {
+				t.Errorf("%s: a family that can never be adjudicated must not record a streak (%s)", f.name, endpoint)
+			}
 		}
 	}
 

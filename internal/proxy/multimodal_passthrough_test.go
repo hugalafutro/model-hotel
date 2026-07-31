@@ -293,7 +293,7 @@ func TestEmbeddings_FailoverStillRecordsTheGoneSignal(t *testing.T) {
 
 	// The strike itself is recorded synchronously — only the disable is detached
 	// — so this is the state the request left behind, not a race.
-	raw, ok := envGone.handler.goneStrikes.Load(envGone.modelUUID)
+	raw, ok := envGone.handler.goneStrikes.Load(goneStreakKey{model: envGone.modelUUID, endpoint: probeEmbeddingsEndpoint})
 	if !ok {
 		t.Fatal("the refused model accrued no strike, so it can never be auto-retired from a failover group")
 	}
@@ -345,7 +345,7 @@ func TestEmbeddings_ASuccessClearsTheGoneStrikes(t *testing.T) {
 	if code := embed(); code != http.StatusNotFound {
 		t.Fatalf("status = %d, want the provider's 404", code)
 	}
-	raw, ok := env.handler.goneStrikes.Load(env.modelUUID)
+	raw, ok := env.handler.goneStrikes.Load(goneStreakKey{model: env.modelUUID, endpoint: probeEmbeddingsEndpoint})
 	if !ok {
 		t.Fatal("the refusal accrued no strike")
 	}
@@ -419,7 +419,7 @@ func TestEmbeddings_ADeadBodyDoesNotClearTheGoneStrikes(t *testing.T) {
 	if code := embed(); code != http.StatusNotFound {
 		t.Fatalf("status = %d, want the provider's 404", code)
 	}
-	raw, ok := env.handler.goneStrikes.Load(env.modelUUID)
+	raw, ok := env.handler.goneStrikes.Load(goneStreakKey{model: env.modelUUID, endpoint: probeEmbeddingsEndpoint})
 	if !ok {
 		t.Fatal("the refusal accrued no strike")
 	}
@@ -475,7 +475,7 @@ func TestEmbeddings_AnEmptyResponseDoesNotClearTheGoneStrikes(t *testing.T) {
 	if code := embed(); code != http.StatusNotFound {
 		t.Fatalf("status = %d, want the provider's 404", code)
 	}
-	raw, ok := env.handler.goneStrikes.Load(env.modelUUID)
+	raw, ok := env.handler.goneStrikes.Load(goneStreakKey{model: env.modelUUID, endpoint: probeEmbeddingsEndpoint})
 	if !ok {
 		t.Fatal("the refusal accrued no strike")
 	}
