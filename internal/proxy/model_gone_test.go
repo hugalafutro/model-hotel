@@ -570,6 +570,83 @@ func TestNoteModelGone_SuccessDuringTheWriteIsReverted(t *testing.T) {
 	t.Fatalf("expected the disable to be reverted, got %+v", repo.disableCalls())
 }
 
+// TestNoteModelGone_StaleFailedDisableKeepsANewerStreak pins that a disable
+// goroutine may only retire the streak it was actually started for.
+//
+// The sequence is reachable because the write is detached: the goroutine can
+// still be inside SetEnabled when the model answers (clearing its streak) and
+// later refusals build a fresh one. If its cleanup then deleted by model id, it
+// would erase that newer count on its way out — and a model refusing every
+// request would restart from zero each time a disable failed, staying enabled
+// exactly when it is most clearly dead.
+func TestNoteModelGone_StaleFailedDisableKeepsANewerStreak(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{
+		setEnabledErr:     errors.New("database unavailable"),
+		setEnabledGate:    make(chan struct{}),
+		setEnabledEntered: make(chan struct{}),
+	}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+
+	// Reach the threshold and let the (failing) write start.
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+	select {
+	case <-repo.setEnabledEntered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the disable write never started")
+	}
+
+	// While it is held open: the model answers, dropping that streak, and then
+	// refuses again, building a new one one strike short of the threshold.
+	h.noteModelServed(m)
+	for range goneStrikeThreshold - 1 {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+	newer, ok := h.goneStrikes.Load(m.ID)
+	if !ok {
+		t.Fatal("the later refusals did not start a new streak")
+	}
+
+	// Release the stale write, then hold the newer streak under observation.
+	// Asserting on identity rather than on the disable count is what makes this
+	// deterministic: an unconditional delete erases the entry within
+	// microseconds of the write returning, whereas counting disables would race
+	// the cleanup against the strike below and could pass either way.
+	close(repo.setEnabledGate)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && len(repo.disableCalls()) < 1 {
+		time.Sleep(5 * time.Millisecond)
+	}
+	watch := time.Now().Add(300 * time.Millisecond)
+	for time.Now().Before(watch) {
+		switch current, ok := h.goneStrikes.Load(m.ID); {
+		case !ok:
+			t.Fatal("the stale failed disable deleted the newer streak")
+		case current != newer:
+			t.Fatal("the newer streak was replaced while the stale disable unwound")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	// One more refusal now completes the newer streak, so a second disable must
+	// be attempted. If the stale cleanup had erased it, this would be strike one
+	// of three and nothing would happen.
+	h.noteModelGone(m, "Google AI Studio (Gemini)")
+
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(repo.disableCalls()) >= 2 {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("a stale failed disable erased the newer streak: only %d disable attempts", len(repo.disableCalls()))
+}
+
 // TestNoteModelGone_EachWriteGetsAFreshDeadline pins that the out-of-band
 // writes do not share one budget.
 //

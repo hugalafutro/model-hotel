@@ -144,7 +144,15 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 			// Clear the streak so the next refusals can rebuild it and try
 			// again. Without this a transient database error would leave the
 			// count parked above the threshold and the model enabled forever.
-			h.goneStrikes.Delete(modelID)
+			//
+			// Conditional on identity, because this goroutine may be stale. It
+			// can sit in the write while a success clears the streak it was
+			// started for and later refusals build a NEW one; deleting by model
+			// id would then throw away that newer count on its way out, and the
+			// model would keep restarting from zero instead of reaching the
+			// threshold. Only the streak this attempt actually belongs to may
+			// be retired by it.
+			h.goneStrikes.CompareAndDelete(modelID, streak)
 			return
 		}
 
@@ -290,9 +298,14 @@ func (h *Handler) noteModelServed(m *model.Model) {
 	if !ok {
 		return
 	}
-	if streak, ok := raw.(*goneStreak); ok {
-		streak.cancelled.Store(true)
+	streak, ok := raw.(*goneStreak)
+	if !ok {
+		return
 	}
-	h.goneStrikes.Delete(m.ID)
+	streak.cancelled.Store(true)
+	// Also conditional on identity: between the load above and here the streak
+	// can be dropped by a failing disable and a fresh one started by new
+	// refusals, and this success is not evidence about that later streak.
+	h.goneStrikes.CompareAndDelete(m.ID, streak)
 	debuglog.Debug("proxy: model answered again, cleared gone-strikes", "model", m.ModelID)
 }
