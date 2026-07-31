@@ -153,7 +153,7 @@ func TestEvaluateClaimAgeAlert_FiresOnceOnCrossing(t *testing.T) {
 	if !ok || len(worst) != 2 {
 		t.Fatalf("worst_providers = %#v, want 2 entries", ev.Metadata["worst_providers"])
 	}
-	if worst[0]["provider"] != "NanoGPT" || worst[0]["gone"] != 2 {
+	if worst[0]["provider"] != "NanoGPT" || worst[0]["counted"] != 2 {
 		t.Errorf("worst_providers[0] = %#v, want the provider with the most claims first", worst[0])
 	}
 	// No model identifiers anywhere in the payload: the alert names counts and
@@ -432,7 +432,7 @@ func TestEvaluateClaimAgeAlert_NamesAtMostThreeWorstProviders(t *testing.T) {
 	wantNames := []string{"Delta", "Charlie", "Bravo"}
 	wantCounts := []int{4, 3, 2}
 	for i := range worst {
-		if worst[i]["provider"] != wantNames[i] || worst[i]["gone"] != wantCounts[i] {
+		if worst[i]["provider"] != wantNames[i] || worst[i]["counted"] != wantCounts[i] {
 			t.Errorf("worst_providers[%d] = %#v, want %s (%d)", i, worst[i], wantNames[i], wantCounts[i])
 		}
 	}
@@ -442,6 +442,65 @@ func TestEvaluateClaimAgeAlert_NamesAtMostThreeWorstProviders(t *testing.T) {
 		if entry["provider"] == "Alfa" || entry["provider"] == "Echo" {
 			t.Errorf("worst_providers must not contain %v", entry["provider"])
 		}
+	}
+}
+
+// TestEvaluateClaimAgeAlert_NamesProvidersWithOnlyRetiredModels pins that the
+// providers named in the alert account for the total the alert reports.
+//
+// A retired model counts towards claim_count exactly like a gone one, so a
+// provider whose claims are all retirements is part of that total. Selecting the
+// worst offenders by their gone count alone would report a backlog and then
+// attribute it to nobody — in the extreme, a non-zero claim_count with an empty
+// worst_providers list, which reads as the alert contradicting itself.
+func TestEvaluateClaimAgeAlert_NamesProvidersWithOnlyRetiredModels(t *testing.T) {
+	h := newTestHandler(t)
+	pool := h.dbPool.Pool()
+	ctx := context.Background()
+	now := time.Now()
+	old := now.Add(-10 * 24 * time.Hour)
+
+	// One provider with nothing but traffic-retired models, one with nothing but
+	// discovery-gone ones, so the ordering between the two kinds is exercised
+	// as well as their presence.
+	retiredOnly := seedClaimProvider(t, pool, "Retiring", true)
+	for i := range 3 {
+		id := uuid.New()
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO models (id, provider_id, model_id, enabled, disabled_manually, missing_scans, last_seen_at, auto_retired_at)
+			 VALUES ($1, $2, $3, false, false, 0, $4, $5)`,
+			id, retiredOnly, fmt.Sprintf("retired-%d", i), now, old); err != nil {
+			t.Fatalf("seed retired model: %v", err)
+		}
+	}
+	goneOnly := seedClaimProvider(t, pool, "Vanishing", true)
+	seedGoneModel(t, goneOnly, "vanished-0", old)
+
+	drain := captureClaimAlerts(t)
+	if err := EvaluateClaimAgeAlert(ctx, pool, h.settingsRepo, now); err != nil {
+		t.Fatalf("evaluate: %v", err)
+	}
+	n, ev := drain()
+	if n != 1 {
+		t.Fatalf("published %d alerts, want 1", n)
+	}
+	if got := ev.Metadata["claim_count"]; got != 4 {
+		t.Fatalf("claim_count = %v, want 4 (3 retired + 1 gone)", got)
+	}
+
+	worst, ok := ev.Metadata["worst_providers"].([]map[string]any)
+	if !ok {
+		t.Fatalf("worst_providers = %#v", ev.Metadata["worst_providers"])
+	}
+	named := map[string]any{}
+	for _, entry := range worst {
+		named[entry["provider"].(string)] = entry["counted"]
+	}
+	if named["Retiring"] != 3 {
+		t.Errorf("a provider whose claims are all retirements must be named with its count, got %#v", worst)
+	}
+	if named["Vanishing"] != 1 {
+		t.Errorf("the gone-only provider must still be named, got %#v", worst)
 	}
 }
 

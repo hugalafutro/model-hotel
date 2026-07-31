@@ -183,7 +183,9 @@ func TestGetDiscoveryStatus_GroupClaimsOnlyCountDiscoveryDisabled(t *testing.T) 
 // provenance lifecycle. Steps 3 and 4 are the ones that would silently rot: if
 // re-enabling left the stamp behind, the operator's own later disable would
 // inherit it and read as a discovery claim forever — the exact stale-stamp trap
-// models.Upsert avoids by clearing discovery_dismissed_at on every sighting.
+// models.Upsert avoids by clearing discovery_dismissed_at on a sighting (with
+// one deliberate exception for traffic-retired models, which are sighted on
+// every scan and clear theirs on an operator enable instead).
 func TestGetDiscoveryStatus_GroupClaimStampSurvivesReEnableCycle(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	_, fr := newFailoverHandlerWithAuth(t)

@@ -861,7 +861,8 @@
 			"chipGoneTooltip": "Eltűntek a szolgáltató saját modelllistájáról, ezért a felderítés itt letiltotta őket. Ezeket számolja az oldalsáv jelvénye.",
 			"chipResolved": "visszatért",
 			"chipResolvedTooltip": "A szolgáltató újra felsorolja őket, tehát maguktól rendeződtek.",
-			"chipStaleTooltip": "Több mint 30 napja hiányoznak ingadozás nélkül, tehát szinte biztosan kivonták őket, nem elromlottak. Megjelennek, de soha nem számítanak bele.",
+			"chipRetiredTooltip": "Továbbra is szerepel a szolgáltató modell-listáján, de minden rá irányuló kérést elutasított, ezért az átjáró itt letiltotta őket. Az oldalsáv jelvénye ezeket számolja.",
+			"chipStaleTooltip": "Több mint 30 napja hiányzik ingadozás nélkül, tehát szinte biztosan megszűnt, nem elromlott. Megjelenik, sosem számít bele.",
 			"chipSuspectTooltip": "Még engedélyezett, de hiányzik a legutóbbi vizsgálatokból. Még egy kihagyás és a felderítés letiltja.",
 			"clean": "Szolgáltató elrejtése",
 			"cleanTooltip": "Eltávolítja ezt a szolgáltatót a listáról. Semmi nem változik; a felderítés új eltérést jelez, ha megjelenik egy.",
@@ -876,16 +877,17 @@
 			"dismissAllPartial_one": "{{total}} modell közül csak 1 lett elvetve",
 			"dismissAllPartial_other": "{{total}} modell közül csak {{count}} lett elvetve",
 			"dismissAllSuspectOnlyTooltip": "Egy gyanús modell nem vethető el, amíg valóban nem hiányzik.",
-			"dismissAllTooltip": "Most eltávolítja a listáról a szolgáltató összes hiányzó és kivont modelljét. A felderítés tovább fut: amit a szolgáltató újra felsorol, visszatér.",
+			"dismissAllTooltip": "Távolítsd el most a listáról a szolgáltató összes hiányzó és rég eltűnt modelljét. A felderítés tovább fut, így amit a szolgáltató újra felsorol visszatér, kivéve az átjáró által elutasított modelleket, amelyek eltávolítva maradnak, amíg kézzel nem engedélyezed őket.",
 			"dismissEverything": "Összes elvetése",
 			"dismissEverythingConfirmBody_one": "Kikerül erről a listáról és a jelvény kiürül. A felderítés tovább fut, és a modell csak akkor jelenik meg új eltérésként, ha a szolgáltatója újra felsorolja, majd később ismét eltűnik.",
-			"dismissEverythingConfirmBody_other": "Ez mindent magában foglal, ami itt szerepel: a felderítés által letiltott modelleket, valamint a régen kivontakat, amelyeket a jelvény soha nem számolt. Kikerülnek erről a listáról és a jelvény kiürül. A felderítés tovább fut, és egy modell csak akkor jelenik meg új eltérésként, ha a szolgáltatója újra felsorolja, majd később ismét eltűnik.",
+			"dismissEverythingConfirmBody_other": "Ez mindent lefed, ami itt szerepel: a felderítés által letiltott modelleket, az átjáró által a forgalomból kivont modelleket, és a rég eltűnteket, amelyeket a jelvény sosem számolt. Lekerülnek a listáról és a jelvény kiürül. A felderítés tovább fut, és egy modell csak akkor tér vissza új eltérésként, ha a szolgáltatója újra felsorolja, majd később eltűnik.",
 			"dismissEverythingConfirmTitle_one": "Elveti 1 eltérést?",
 			"dismissEverythingConfirmTitle_other": "Elveti mind a {{count}} eltérést?",
 			"dismissEverythingFailed": "Semmit sem lehetett elvetni. Semmi nem változott.",
-			"dismissEverythingTooltip": "Egyszerre kiüríti a lista minden szolgáltatóját. A felderítés tovább fut: amit egy szolgáltató újra felsorol, visszatér.",
+			"dismissEverythingTooltip": "Távolítsd el egyszerre a lista összes szolgáltatóját. A felderítés tovább fut, így amit egy szolgáltató újra felsorol visszatér, kivéve az átjáró által elutasított modelleket, amelyek eltávolítva maradnak, amíg kézzel nem engedélyezed őket.",
 			"dismissFailed": "Nem sikerült elvetni: {{message}}",
 			"dismissNoMatch": "Ez a modell már nem egyezik. Frissítse az oldalt, és próbálja újra.",
+			"dismissRetiredTooltip": "Távolítsd el ezt a modellt a listáról. Letiltva és eltávolítva marad: a szolgáltató továbbra is felsorolja, így csak kézi engedélyezés hozza vissza.",
 			"dismissTooltip": "Eltávolítja ezt a modellt a listáról. A felderítés tovább fut: visszatér, ha a szolgáltató újra felsorolja.",
 			"dismissed": "A(z) {{model}} elvetve",
 			"dismissedSummary_one": "1 modell elvetve",
@@ -899,8 +901,9 @@
 			"flapped_other": "{{count}} ingadozás",
 			"group": {
 				"gone": "Eltűnt",
-				"suspect": "Gyanús",
-				"stale": "Elavult"
+				"retired": "Elutasított",
+				"stale": "Elavult",
+				"suspect": "Gyanús"
 			},
 			"groupClaims": "Failover csoportok letiltott felfedezéssel",
 			"groupDisabledAt": "Letiltva {{when}}",
@@ -918,6 +921,7 @@
 			"resolvedDetail_one": "A(z) {{model}} ismét szerepel a listán, {{count}} ingadozás után",
 			"resolvedDetail_other": "A(z) {{model}} ismét szerepel a listán, {{count}} ingadozás után",
 			"resolvedPlain": "A(z) {{model}} ismét szerepel a listán",
+			"resolvedRetiredPlain": "{{model}} ismét kiszolgál",
 			"retest": "Újratesztelés",
 			"retestAll": "Összes újratesztelése",
 			"retestAllCancelled_one": "A tesztelés {{count}} szolgáltató után leállt",
@@ -928,8 +932,10 @@
 			"retestAllFailed_other": "A tesztelés {{count}} szolgáltatónál meghiúsult",
 			"retestAllTooltip": "Futtassa újra a felfedezést az itt felsorolt minden szolgáltatóra, egymás után.",
 			"retestProgress": "{{done}} / {{total}}",
+			"retestRetiredOnlyTooltip": "Az ismételt teszt csak azt kérdezi, mit sorol fel a szolgáltató, és ezek a modellek szerepelnek benne. Épp ez a baj: szerepelnek és el vannak utasítva.",
 			"retestTooltip": "Futtassa újra a felfedezést ehhez a szolgáltatóhoz, és ellenőrizze ismét a modelljeit.",
 			"retesting": "Újratesztelés…",
+			"retiredMeta": "Letiltva {{when}}",
 			"returnToTop": "Vissza a szolgáltató elejére",
 			"suspectMeta_one": "{{count}} vizsgálat kimaradt",
 			"suspectMeta_other": "{{count}} vizsgálat kimaradt",
@@ -1959,6 +1965,9 @@
 		"alerts": {
 			"apiUrl": "Apprise API URL",
 			"apiUrlDescription": "Az Ön által futtatott apprise-api konténer alap-URL-je (például http://apprise:8000).",
+			"claimAge": "Riasztás kezeletlen eltérésekről (nap)",
+			"claimAge.description_one": "Riasszon, ha a legrégebbi beszámított modelleltérés ennél tovább marad kezeletlenül. A hiányzó modellek megszűnnek beszámítani, amint elég régiek ahhoz, hogy megszűntnek tekintsük őket, így a maximum {{count}} nap.",
+			"claimAge.description_other": "Riasszon, ha a legrégebbi beszámított modelleltérés ennél tovább marad kezeletlenül. A hiányzó modellek megszűnnek beszámítani, amint elég régiek ahhoz, hogy megszűntnek tekintsük őket, így a maximum {{count}} nap.",
 			"clear": "Törlés",
 			"description": "Küldjön push-értesítéseket figyelemre méltó eseményekről (szolgáltató leállása, áramkör-megszakító kioldása) a Telegramra, e-mailre, Discordra és más platformokra egy Ön által futtatott, állapotmentes Apprise-konténeren keresztül. Soha nem kerül elküldésre kérés tartalma - csupán az esemény összefoglalása.",
 			"enable": "Riasztások engedélyezése",
@@ -1981,12 +1990,17 @@
 				"title": "Értesítendő események"
 			},
 			"eventsLabel": "Riasztási események",
-			"claimAge": "Riasztás kezeletlen eltérésekről (nap)",
-			"claimAge.description_one": "Riasszon, ha a legrégebbi beszámított modelleltérés ennél hosszabb ideje kezeletlen. Az eltérések már nem számítanak bele, amint elég régiek ahhoz, hogy kivontnak tekintsük őket, ezért a maximum {{count}} nap: ennél magasabb küszöb soha nem lépne életbe.",
-			"claimAge.description_other": "Riasszon, ha a legrégebbi beszámított modelleltérés ennél hosszabb ideje kezeletlen. Az eltérések már nem számítanak bele, amint elég régiek ahhoz, hogy kivontnak tekintsük őket, ezért a maximum {{count}} nap: ennél magasabb küszöb soha nem lépne életbe.",
 			"snippets": {
 				"browseAll": "Több mint 80 szolgáltatás böngészése",
 				"description": "Példák népszerű szolgáltatások Apprise URL-formátumaira – másoljon le egyet, töltse ki az adataival, majd illessze be a fenti helyre."
+			},
+			"status": {
+				"checking": "Az apprise-api ellenőrzése…",
+				"issues": "Az apprise-api elérhető, de problémákat jelent",
+				"reachable": "apprise-api elérhető",
+				"recheck": "Ellenőrizze újra",
+				"unreachable": "Az apprise-api nem érhető el - ellenőrizze az URL-t, és hogy a konténer fut-e",
+				"checkFailed": "Az állapotellenőrzés sikertelen volt"
 			},
 			"target": "Értesítési cél",
 			"targetConfigured": "Beállítva (gépeljen a cseréhez)",
@@ -1996,15 +2010,7 @@
 			"testHint": "Engedélyezze a riasztásokat, és állítsa be mind az Apprise API URL-jét, mind a tesztküldés célját.",
 			"testSending": "Küldés…",
 			"testSent": "Tesztértesítés elküldve.",
-			"title": "Riasztások",
-			"status": {
-				"checking": "Az apprise-api ellenőrzése…",
-				"issues": "Az apprise-api elérhető, de problémákat jelent",
-				"reachable": "apprise-api elérhető",
-				"recheck": "Ellenőrizze újra",
-				"unreachable": "Az apprise-api nem érhető el - ellenőrizze az URL-t, és hogy a konténer fut-e",
-				"checkFailed": "Az állapotellenőrzés sikertelen volt"
-			}
+			"title": "Riasztások"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "TOTP-regisztráció törlése",

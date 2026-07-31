@@ -154,7 +154,19 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			-- A sighting also retires any operator dismissal, so a model that is
 			-- dismissed, comes back, and vanishes again counts as a new claim
 			-- instead of staying suppressed by a stale stamp.
-			discovery_dismissed_at = NULL,
+			--
+			-- Except for a model the proxy retired from traffic. That one never
+			-- left the listing, so it is sighted on every single scan, and
+			-- clearing the stamp here would make dismissing it impossible: the
+			-- operator would silence the claim and the next scan would bring it
+			-- straight back, with no way to stop it. Once an operator enables the
+			-- model the retirement stamp goes (SetEnabled/Update null it), and
+			-- the very next sighting takes this branch again and clears the
+			-- dismissal, so nothing stays suppressed by a stale stamp.
+			discovery_dismissed_at = CASE
+				WHEN models.auto_retired_at IS NULL THEN NULL
+				ELSE models.discovery_dismissed_at
+			END,
 			last_seen_at = now()
 		RETURNING ` + upsertColumns
 
@@ -433,8 +445,20 @@ func (r *Repository) RecordMissingModels(ctx context.Context, providerID uuid.UU
 // path: it records the choice in disabled_manually and clears any traffic
 // retirement, since a hand-written enabled flag supersedes what the gateway
 // concluded on its own (migration 063).
+//
+// It clears the operator's own dismissal for the same reason, and clearing it
+// HERE rather than leaving it to the next sighting is what keeps a claim
+// recoverable. Upsert only clears the stamp while auto_retired_at is NULL, so a
+// model that is dismissed, enabled by hand, and then retired again by traffic
+// before the next discovery scan — seconds versus about an hour, so the likely
+// order, not the unlikely one — would carry a dismissal that nothing could ever
+// clear again. It would sit disabled and absent from the claim list for good.
+// Doing it in the same statement as the enable makes the recovery atomic instead
+// of dependent on scan timing.
 func (r *Repository) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*Model, error) {
-	query := `UPDATE models SET enabled = $1, disabled_manually = NOT $1, auto_retired_at = NULL WHERE id = $2`
+	query := `UPDATE models SET enabled = $1, disabled_manually = NOT $1,
+	                            auto_retired_at = NULL, discovery_dismissed_at = NULL
+	           WHERE id = $2`
 	_, err := r.pool.Exec(ctx, query, enabled, id)
 	if err != nil {
 		debuglog.Error("model: set enabled failed", "id", id, "enabled", enabled, "error", err)
@@ -648,8 +672,11 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 		argIdx++
 		setClauses = append(setClauses, fmt.Sprintf("disabled_manually = $%d", argIdx))
 		args = append(args, !*req.Enabled)
-		// Operator intent supersedes a traffic retirement, same as SetEnabled.
-		setClauses = append(setClauses, "auto_retired_at = NULL")
+		// Operator intent supersedes a traffic retirement AND their own earlier
+		// dismissal, same as SetEnabled — and for the same reason it has to happen
+		// in this statement rather than on the next sighting: a model retired
+		// again before that scan would keep a dismissal nothing could clear.
+		setClauses = append(setClauses, "auto_retired_at = NULL", "discovery_dismissed_at = NULL")
 	}
 
 	if len(setClauses) == 0 {

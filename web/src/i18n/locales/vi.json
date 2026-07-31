@@ -861,7 +861,8 @@
 			"chipGoneTooltip": "Đã biến mất khỏi danh sách mô hình của chính nhà cung cấp, nên việc phát hiện đã tắt chúng ở đây. Đây chính là những gì huy hiệu ở thanh bên đếm.",
 			"chipResolved": "đã trở lại",
 			"chipResolvedTooltip": "Nhà cung cấp đang liệt kê lại chúng, nên chúng đã tự khắc phục.",
-			"chipStaleTooltip": "Thiếu hơn 30 ngày mà không dao động, nên gần như chắc chắn đã ngừng cung cấp chứ không phải bị lỗi. Được hiển thị, không bao giờ được đếm.",
+			"chipRetiredTooltip": "Vẫn nằm trong danh sách mô hình của nhà cung cấp, nhưng mọi yêu cầu đều bị từ chối, nên cổng đã tắt chúng ở đây. Đây là những gì huy hiệu ở thanh bên đếm.",
+			"chipStaleTooltip": "Vắng mặt hơn 30 ngày mà không dao động, nên gần như chắc chắn là đã ngừng cung cấp chứ không phải hỏng. Được hiển thị, không bao giờ được đếm.",
 			"chipSuspectTooltip": "Vẫn đang bật nhưng không có trong các lần quét gần đây. Thiếu một lần nữa là việc phát hiện sẽ tắt nó.",
 			"clean": "Dọn nhà cung cấp này",
 			"cleanTooltip": "Bỏ nhà cung cấp này khỏi danh sách. Không có gì thay đổi; việc phát hiện sẽ báo cáo một sai lệch mới nếu xuất hiện.",
@@ -876,16 +877,17 @@
 			"dismissAllPartial_one": "Chỉ 1 trong {{total}} mô hình được bỏ qua",
 			"dismissAllPartial_other": "Chỉ {{count}} trong {{total}} mô hình được bỏ qua",
 			"dismissAllSuspectOnlyTooltip": "Không thể bỏ qua một mô hình đáng ngờ cho đến khi nó thực sự biến mất.",
-			"dismissAllTooltip": "Bỏ ngay khỏi danh sách này mọi mô hình bị thiếu và đã ngừng cung cấp của nhà cung cấp này. Việc phát hiện vẫn chạy: những gì nhà cung cấp liệt kê lại sẽ trở về.",
+			"dismissAllTooltip": "Xóa ngay khỏi danh sách này mọi mô hình đang thiếu và đã biến mất từ lâu của nhà cung cấp này. Việc dò tìm vẫn chạy, nên bất cứ thứ gì nhà cung cấp liệt kê lại sẽ quay về, trừ các mô hình bị cổng từ chối, chúng vẫn bị xóa cho đến khi bạn bật thủ công.",
 			"dismissEverything": "Bỏ qua tất cả",
 			"dismissEverythingConfirmBody_one": "Nó rời khỏi danh sách này và huy hiệu được xóa. Việc phát hiện vẫn chạy, và mô hình chỉ trở lại thành sai lệch mới nếu nhà cung cấp của nó liệt kê lại và sau đó nó lại biến mất.",
-			"dismissEverythingConfirmBody_other": "Điều đó bao gồm mọi thứ được liệt kê ở đây: các mô hình mà việc phát hiện đã tắt, cùng những mô hình đã ngừng cung cấp từ lâu mà huy hiệu chưa bao giờ đếm. Chúng rời khỏi danh sách này và huy hiệu được xóa. Việc phát hiện vẫn chạy, và một mô hình chỉ trở lại thành sai lệch mới nếu nhà cung cấp của nó liệt kê lại và sau đó nó lại biến mất.",
+			"dismissEverythingConfirmBody_other": "Việc này bao gồm mọi thứ được liệt kê ở đây: các mô hình bị dò tìm tắt đi, các mô hình cổng đã rút khỏi lưu lượng, và những mô hình biến mất từ lâu mà huy hiệu chưa từng đếm. Chúng rời khỏi danh sách và huy hiệu được xóa. Việc dò tìm vẫn chạy, và một mô hình chỉ quay lại như một khác biệt mới nếu nhà cung cấp liệt kê lại rồi sau đó nó biến mất.",
 			"dismissEverythingConfirmTitle_one": "Bỏ qua 1 sai lệch?",
 			"dismissEverythingConfirmTitle_other": "Bỏ qua toàn bộ {{count}} sai lệch?",
 			"dismissEverythingFailed": "Không thể bỏ qua gì cả. Không có gì bị thay đổi.",
-			"dismissEverythingTooltip": "Dọn tất cả nhà cung cấp trong danh sách này cùng lúc. Việc phát hiện vẫn chạy: những gì nhà cung cấp liệt kê lại sẽ trở về.",
+			"dismissEverythingTooltip": "Xóa cùng lúc mọi nhà cung cấp trong danh sách này. Việc dò tìm vẫn chạy, nên bất cứ thứ gì nhà cung cấp liệt kê lại sẽ quay về, trừ các mô hình bị cổng từ chối, chúng vẫn bị xóa cho đến khi bạn bật thủ công.",
 			"dismissFailed": "Không thể bỏ qua: {{message}}",
 			"dismissNoMatch": "Mô hình đó không còn khớp nữa. Hãy làm mới và thử lại.",
+			"dismissRetiredTooltip": "Xóa mô hình này khỏi danh sách. Nó vẫn bị tắt và vẫn được xóa: nhà cung cấp vẫn liệt kê nó, nên chỉ bật thủ công mới đưa nó trở lại.",
 			"dismissTooltip": "Bỏ mô hình này khỏi danh sách. Việc phát hiện vẫn chạy: nó trở về nếu nhà cung cấp liệt kê lại.",
 			"dismissed": "Đã bỏ qua {{model}}",
 			"dismissedSummary_one": "Đã bỏ qua 1 mô hình",
@@ -899,8 +901,9 @@
 			"flapped_other": "{{count}} lần dao động",
 			"group": {
 				"gone": "Đã biến mất",
-				"suspect": "Nghi ngờ",
-				"stale": "Cũ"
+				"retired": "Bị từ chối",
+				"stale": "Cũ",
+				"suspect": "Nghi ngờ"
 			},
 			"groupClaims": "Các nhóm dự phòng đã tắt tính năng khám phá",
 			"groupDisabledAt": "Đã tắt {{when}}",
@@ -918,6 +921,7 @@
 			"resolvedDetail_one": "{{model}} đã xuất hiện lại trong danh sách, sau {{count}} lần dao động",
 			"resolvedDetail_other": "{{model}} đã xuất hiện lại trong danh sách, sau {{count}} lần dao động",
 			"resolvedPlain": "{{model}} đã xuất hiện lại trong danh sách",
+			"resolvedRetiredPlain": "{{model}} đang phục vụ trở lại",
 			"retest": "Kiểm tra lại",
 			"retestAll": "Kiểm tra lại tất cả",
 			"retestAllCancelled_one": "Đã dừng kiểm tra sau {{count}} nhà cung cấp",
@@ -928,8 +932,10 @@
 			"retestAllFailed_other": "Kiểm tra thất bại với {{count}} nhà cung cấp",
 			"retestAllTooltip": "Chạy lại quá trình khám phá cho từng nhà cung cấp trong danh sách này, lần lượt.",
 			"retestProgress": "{{done}} trên {{total}}",
+			"retestRetiredOnlyTooltip": "Kiểm tra lại chỉ hỏi nhà cung cấp liệt kê những gì, và các mô hình này đều có trong danh sách. Đó chính là vấn đề: được liệt kê nhưng bị từ chối.",
 			"retestTooltip": "Chạy lại quá trình khám phá cho nhà cung cấp này và kiểm tra lại các mô hình của nó.",
 			"retesting": "Đang kiểm tra lại…",
+			"retiredMeta": "Đã tắt {{when}}",
 			"returnToTop": "Trở về đầu nhà cung cấp này",
 			"suspectMeta_one": "Bỏ lỡ {{count}} lần quét",
 			"suspectMeta_other": "Bỏ lỡ {{count}} lần quét",
@@ -1959,6 +1965,9 @@
 		"alerts": {
 			"apiUrl": "URL API Apprise",
 			"apiUrlDescription": "URL cơ sở của container apprise-api mà bạn đang chạy (ví dụ: http://apprise:8000).",
+			"claimAge": "Cảnh báo sai lệch chưa xử lý (ngày)",
+			"claimAge.description_one": "Cảnh báo khi khác biệt mô hình được đếm lâu nhất chưa được xử lý quá thời gian này. Các mô hình đang thiếu ngừng được đếm khi đã đủ cũ để coi là ngừng cung cấp, nên tối đa là {{count}} ngày.",
+			"claimAge.description_other": "Cảnh báo khi khác biệt mô hình được đếm lâu nhất chưa được xử lý quá thời gian này. Các mô hình đang thiếu ngừng được đếm khi đã đủ cũ để coi là ngừng cung cấp, nên tối đa là {{count}} ngày.",
 			"clear": "Xóa",
 			"description": "Gửi thông báo đẩy cho các sự kiện đáng chú ý (nhà cung cấp ngừng hoạt động, bộ ngắt mạch kích hoạt) đến Telegram, email, Discord và các nền tảng khác thông qua container Apprise không trạng thái mà bạn đang chạy. Không bao giờ gửi nội dung yêu cầu - chỉ gửi tóm tắt sự kiện.",
 			"enable": "Kích hoạt tính năng cảnh báo",
@@ -1981,12 +1990,17 @@
 				"title": "Các sự kiện cần thông báo"
 			},
 			"eventsLabel": "Sự kiện cảnh báo",
-			"claimAge": "Cảnh báo sai lệch chưa xử lý (ngày)",
-			"claimAge.description_other": "Cảnh báo khi sai lệch mô hình được tính lâu nhất vẫn chưa được xử lý lâu hơn khoảng thời gian này. Sai lệch ngừng được tính khi đã đủ cũ để coi là ngừng hỗ trợ, nên giá trị tối đa là {{count}} ngày: ngưỡng cao hơn sẽ không bao giờ kích hoạt.",
-			"claimAge.description_one": "Cảnh báo khi sai lệch mô hình được tính lâu nhất vẫn chưa được xử lý lâu hơn khoảng thời gian này. Sai lệch ngừng được tính khi đã đủ cũ để coi là ngừng hỗ trợ, nên giá trị tối đa là {{count}} ngày: ngưỡng cao hơn sẽ không bao giờ kích hoạt.",
 			"snippets": {
 				"browseAll": "Xem tất cả hơn 80 dịch vụ",
 				"description": "Ví dụ về định dạng URL Apprise cho các dịch vụ phổ biến - sao chép một định dạng, điền thông tin của bạn vào và dán vào phần trên."
+			},
+			"status": {
+				"checking": "Đang kiểm tra apprise-api…",
+				"issues": "apprise-api có thể truy cập được nhưng đang báo cáo sự cố",
+				"reachable": "apprise-api có thể truy cập được",
+				"recheck": "Kiểm tra lại",
+				"unreachable": "Không thể truy cập apprise-api - kiểm tra URL và đảm bảo rằng container đang chạy",
+				"checkFailed": "Kiểm tra trạng thái không thành công"
 			},
 			"target": "Đối tượng nhận thông báo",
 			"targetConfigured": "Đã cấu hình - nhập nội dung để thay thế",
@@ -1996,15 +2010,7 @@
 			"testHint": "Kích hoạt tính năng cảnh báo và thiết lập cả URL API Apprise lẫn đích đến để gửi yêu cầu thử nghiệm.",
 			"testSending": "Đang gửi…",
 			"testSent": "Đã gửi thông báo thử nghiệm.",
-			"title": "Cảnh báo",
-			"status": {
-				"checking": "Đang kiểm tra apprise-api…",
-				"issues": "apprise-api có thể truy cập được nhưng đang báo cáo sự cố",
-				"reachable": "apprise-api có thể truy cập được",
-				"recheck": "Kiểm tra lại",
-				"unreachable": "Không thể truy cập apprise-api - kiểm tra URL và đảm bảo rằng container đang chạy",
-				"checkFailed": "Kiểm tra trạng thái không thành công"
-			}
+			"title": "Cảnh báo"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Hủy đăng ký TOTP",

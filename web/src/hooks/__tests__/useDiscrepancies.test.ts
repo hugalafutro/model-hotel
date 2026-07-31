@@ -26,6 +26,7 @@ const provider = (over: Partial<ProviderClaims> = {}): ProviderClaims => ({
 	gone: [],
 	stale: [],
 	suspect: [],
+	retired: [],
 	...over,
 });
 

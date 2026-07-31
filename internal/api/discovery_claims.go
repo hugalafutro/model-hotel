@@ -33,6 +33,17 @@ const (
 	// ClaimStateSuspect means still enabled but mid-streak, one bad scan from
 	// being disabled. Early warning only, never counted.
 	ClaimStateSuspect ClaimState = "suspect"
+	// ClaimStateRetired means the PROXY disabled it from live traffic: the
+	// provider kept listing the model and refused every request for it
+	// (models.auto_retired_at, migration 063). Counted, like gone.
+	//
+	// It is a separate state because the operator's next step is different and
+	// the other states' wording is actively wrong here. A gone model is missing
+	// from the provider's listing, so "last seen" dates it and a retest is the
+	// obvious move. A retired model is still listed and was seen moments ago, so
+	// a retest finds it present and proves nothing — what happened is that
+	// requests for it failed.
+	ClaimStateRetired ClaimState = "retired"
 )
 
 // ModelClaim is one model's current standing.
@@ -47,6 +58,11 @@ type ModelClaim struct {
 	// FlapSinceReview counts them since the operator last opened the modal.
 	FlapWindow      int `json:"flap_window"`
 	FlapSinceReview int `json:"flap_since_review"`
+	// RetiredAt is when the proxy retired it from traffic, set only on a retired
+	// claim. LastSeenAt cannot serve here: the provider still lists the model, so
+	// it keeps being refreshed and would read as "last seen a minute ago" beside
+	// a row saying the model is unavailable.
+	RetiredAt *time.Time `json:"retired_at,omitempty"`
 }
 
 // ProviderClaims groups one provider's claims by state.
@@ -56,6 +72,7 @@ type ProviderClaims struct {
 	Gone         []ModelClaim `json:"gone"`
 	Stale        []ModelClaim `json:"stale"`
 	Suspect      []ModelClaim `json:"suspect"`
+	Retired      []ModelClaim `json:"retired"`
 }
 
 // GroupClaim is one failover group that discovery disabled, i.e. one model name
@@ -134,6 +151,9 @@ type claimRow struct {
 	LastSeenAt   time.Time
 	Enabled      bool
 	MissingScans int
+	// RetiredAt is set when the proxy retired the model from traffic rather than
+	// discovery disabling it for vanishing. Nil for every other row.
+	RetiredAt *time.Time
 }
 
 // flapKey identifies one model under one provider for flap counting.
@@ -149,7 +169,8 @@ type flapKey struct {
 func listClaimRows(ctx context.Context, pool *pgxpool.Pool) ([]claimRow, error) {
 	rows, err := pool.Query(ctx, `
 		SELECT m.provider_id::text, p.name, m.model_id,
-		       COALESCE(m.last_seen_at, m.created_at), m.enabled, m.missing_scans
+		       COALESCE(m.last_seen_at, m.created_at), m.enabled, m.missing_scans,
+		       m.auto_retired_at
 		  FROM models m
 		  JOIN providers p ON p.id = m.provider_id
 		 WHERE p.enabled = true
@@ -166,7 +187,7 @@ func listClaimRows(ctx context.Context, pool *pgxpool.Pool) ([]claimRow, error) 
 	var out []claimRow
 	for rows.Next() {
 		var r claimRow
-		if err := rows.Scan(&r.ProviderID, &r.ProviderName, &r.ModelID, &r.LastSeenAt, &r.Enabled, &r.MissingScans); err != nil {
+		if err := rows.Scan(&r.ProviderID, &r.ProviderName, &r.ModelID, &r.LastSeenAt, &r.Enabled, &r.MissingScans, &r.RetiredAt); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -208,7 +229,8 @@ func flapCounts(ctx context.Context, pool *pgxpool.Pool, since time.Time) (map[f
 }
 
 // buildProviderClaims classifies rows and groups them by provider, returning
-// the groups in display order and the badge count (Gone only).
+// the groups in display order and the badge count (see countedClaims: Gone and
+// Retired, never Stale or Suspect).
 //
 // Auto-dismiss is applied here as a predicate rather than by stamping a column:
 // nothing is written, so aged-out stays distinguishable from operator-dismissed,
@@ -226,6 +248,7 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 			MissingScans:    r.MissingScans,
 			FlapWindow:      window[k],
 			FlapSinceReview: sinceReview[k],
+			RetiredAt:       r.RetiredAt,
 		}
 
 		g := byProvider[r.ProviderID]
@@ -241,6 +264,7 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 				Gone:         []ModelClaim{},
 				Stale:        []ModelClaim{},
 				Suspect:      []ModelClaim{},
+				Retired:      []ModelClaim{},
 			}
 			byProvider[r.ProviderID] = g
 		}
@@ -249,6 +273,15 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 		case r.Enabled:
 			c.State = ClaimStateSuspect
 			g.Suspect = append(g.Suspect, c)
+		// Ahead of the stale check on purpose. Staleness is measured from
+		// last_seen_at, and a retired model is still being listed, so that clock
+		// keeps resetting and it could never age out anyway — but reading the
+		// order as "retired models can go stale" would be wrong, and the reason
+		// is worth stating where the decision is made.
+		case r.RetiredAt != nil:
+			c.State = ClaimStateRetired
+			g.Retired = append(g.Retired, c)
+			count++
 		case now.Sub(r.LastSeenAt) > ClaimWindow && c.FlapWindow == 0:
 			c.State = ClaimStateStale
 			g.Stale = append(g.Stale, c)
@@ -264,6 +297,7 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 		sortClaims(g.Gone)
 		sortClaims(g.Stale)
 		sortClaims(g.Suspect)
+		sortClaims(g.Retired)
 		out = append(out, *g)
 	}
 	// Most counted claims first, then most suspect, then by name, then by ID.
@@ -275,6 +309,9 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 	// identically-named providers with identical bucket counts could swap
 	// position between refreshes and jitter the UI.
 	sort.Slice(out, func(i, j int) bool {
+		if countedClaims(out[i]) != countedClaims(out[j]) {
+			return countedClaims(out[i]) > countedClaims(out[j])
+		}
 		if len(out[i].Gone) != len(out[j].Gone) {
 			return len(out[i].Gone) > len(out[j].Gone)
 		}
@@ -289,6 +326,16 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 	return out, count
 }
 
+// countedClaims is how many of a provider's claims count towards the badge, and
+// therefore towards the alert. Gone and Retired both do; Stale and Suspect never
+// have.
+//
+// One function rather than the count repeated at each site: the badge total, the
+// provider ordering and the alert's per-provider figures all have to agree, and
+// they disagreed the moment Retired was added to the total but not to the other
+// two.
+func countedClaims(p ProviderClaims) int { return len(p.Gone) + len(p.Retired) }
+
 func sortClaims(cs []ModelClaim) {
 	sort.Slice(cs, func(i, j int) bool { return cs[i].ModelID < cs[j].ModelID })
 }
@@ -299,7 +346,10 @@ func sortClaims(cs []ModelClaim) {
 //
 // Stamp-only: there is no clear direction. A dismissal is undone by discovery
 // itself, since Upsert nulls the column on any sighting, so nothing needs to
-// clear it by hand.
+// clear it by hand. A traffic-retired model is the one exception to that
+// sighting rule (Upsert keeps its stamp, or it could never be silenced), and it
+// gets there instead via an operator enabling the model: that drops the
+// retirement stamp, and the next sighting clears the dismissal as usual.
 //
 // The UPDATE only ever touches rows that are currently gone (enabled = false)
 // and not manually disabled: Upsert clears the stamp on a SIGHTING, and a

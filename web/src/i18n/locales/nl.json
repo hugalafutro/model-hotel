@@ -861,7 +861,8 @@
 			"chipGoneTooltip": "Verdwenen uit de eigen modellijst van de provider, dus hier door detectie uitgeschakeld. Dit is wat de badge in de zijbalk telt.",
 			"chipResolved": "terug",
 			"chipResolvedTooltip": "De provider biedt ze weer aan, dus ze hebben zichzelf opgelost.",
-			"chipStaleTooltip": "Meer dan 30 dagen afwezig zonder schommelingen, dus vrijwel zeker uitgefaseerd in plaats van defect. Wel getoond, nooit geteld.",
+			"chipRetiredTooltip": "Staat nog in de modellijst van de provider, maar die weigerde elk verzoek erom, dus de gateway heeft ze hier uitgeschakeld. Dit is wat de badge in de zijbalk telt.",
+			"chipStaleTooltip": "Al meer dan 30 dagen afwezig zonder schommelingen, dus vrijwel zeker uitgefaseerd in plaats van kapot. Wordt getoond, nooit meegeteld.",
 			"chipSuspectTooltip": "Nog ingeschakeld, maar afwezig in recente scans. Nog één misser en detectie schakelt het uit.",
 			"clean": "Deze provider opruimen",
 			"cleanTooltip": "Haalt deze provider uit de lijst. Er wordt niets gewijzigd; detectie meldt een nieuwe afwijking zodra die zich voordoet.",
@@ -876,16 +877,17 @@
 			"dismissAllPartial_one": "Slechts 1 van {{total}} modellen is genegeerd",
 			"dismissAllPartial_other": "Slechts {{count}} van {{total}} modellen zijn genegeerd",
 			"dismissAllSuspectOnlyTooltip": "Een verdacht model kan pas worden genegeerd als het daadwerkelijk ontbreekt.",
-			"dismissAllTooltip": "Haalt elk ontbrekend en uitgefaseerd model van deze provider nu uit deze lijst. Detectie blijft lopen: wat de provider opnieuw aanbiedt, komt terug.",
+			"dismissAllTooltip": "Verwijder nu elk ontbrekend en allang verdwenen model van deze provider uit deze lijst. Detectie loopt door, dus alles wat de provider opnieuw vermeldt komt terug, behalve modellen die de gateway weigerde; die blijven verwijderd tot je ze handmatig inschakelt.",
 			"dismissEverything": "Alles negeren",
 			"dismissEverythingConfirmBody_one": "Deze verdwijnt uit de lijst en de badge wordt leeg. Detectie blijft lopen, en het model komt alleen terug als nieuwe afwijking als zijn provider het opnieuw aanbiedt en het later weer ontbreekt.",
-			"dismissEverythingConfirmBody_other": "Dat omvat alles wat hier staat: door detectie uitgeschakelde modellen plus lang uitgefaseerde die de badge nooit meetelde. Ze verdwijnen uit de lijst en de badge wordt leeg. Detectie blijft lopen, en een model komt alleen terug als nieuwe afwijking als zijn provider het opnieuw aanbiedt en het later weer ontbreekt.",
+			"dismissEverythingConfirmBody_other": "Dat omvat alles wat hier staat: modellen die detectie heeft uitgeschakeld, modellen die de gateway uit het verkeer heeft gehaald, en allang verdwenen modellen die de badge nooit meetelde. Ze verlaten deze lijst en de badge wordt leeg. Detectie loopt door, en een model keert alleen als nieuw verschil terug als de provider het opnieuw vermeldt en het daarna verdwijnt.",
 			"dismissEverythingConfirmTitle_one": "1 afwijking negeren?",
 			"dismissEverythingConfirmTitle_other": "Alle {{count}} afwijkingen negeren?",
 			"dismissEverythingFailed": "Er kon niets worden genegeerd. Niets is gewijzigd.",
-			"dismissEverythingTooltip": "Leegt alle providers in deze lijst tegelijk. Detectie blijft lopen: wat een provider opnieuw aanbiedt, komt terug.",
+			"dismissEverythingTooltip": "Verwijder alle providers in deze lijst in één keer. Detectie loopt door, dus alles wat een provider opnieuw vermeldt komt terug, behalve modellen die de gateway weigerde; die blijven verwijderd tot je ze handmatig inschakelt.",
 			"dismissFailed": "Negeren mislukt: {{message}}",
 			"dismissNoMatch": "Dat model komt niet meer overeen. Vernieuw en probeer het opnieuw.",
+			"dismissRetiredTooltip": "Verwijder dit model uit de lijst. Het blijft uitgeschakeld en verwijderd: de provider vermeldt het nog steeds, dus alleen handmatig inschakelen haalt het terug.",
 			"dismissTooltip": "Haalt dit model uit de lijst. Detectie blijft lopen: het komt terug als de provider het opnieuw aanbiedt.",
 			"dismissed": "{{model}} genegeerd",
 			"dismissedSummary_one": "1 model genegeerd",
@@ -899,8 +901,9 @@
 			"flapped_other": "{{count}} schommelingen",
 			"group": {
 				"gone": "Verdwenen",
-				"suspect": "Verdacht",
-				"stale": "Verouderd"
+				"retired": "Geweigerd",
+				"stale": "Verouderd",
+				"suspect": "Verdacht"
 			},
 			"groupClaims": "Failover-groepen met detectie uitgeschakeld",
 			"groupDisabledAt": "Uitgeschakeld {{when}}",
@@ -918,6 +921,7 @@
 			"resolvedDetail_one": "{{model}} staat weer in de lijst, na {{count}} schommeling",
 			"resolvedDetail_other": "{{model}} staat weer in de lijst, na {{count}} schommelingen",
 			"resolvedPlain": "{{model}} staat weer in de lijst",
+			"resolvedRetiredPlain": "{{model}} bedient weer",
 			"retest": "Opnieuw testen",
 			"retestAll": "Alles opnieuw testen",
 			"retestAllCancelled_one": "Test gestopt na {{count}} provider",
@@ -928,8 +932,10 @@
 			"retestAllFailed_other": "Test mislukt voor {{count}} providers",
 			"retestAllTooltip": "Voer detectie opnieuw uit voor elke provider in deze lijst, een voor een.",
 			"retestProgress": "{{done}} van {{total}}",
+			"retestRetiredOnlyTooltip": "Een hertest vraagt alleen wat de provider vermeldt, en deze modellen staan erin. Dat is juist het probleem: vermeld en geweigerd.",
 			"retestTooltip": "Voer detectie voor deze provider opnieuw uit en controleer de modellen opnieuw.",
 			"retesting": "Opnieuw testen…",
+			"retiredMeta": "Uitgeschakeld {{when}}",
 			"returnToTop": "Terug naar het begin van deze provider",
 			"suspectMeta_one": "{{count}} scan gemist",
 			"suspectMeta_other": "{{count}} scans gemist",
@@ -1959,6 +1965,9 @@
 		"alerts": {
 			"apiUrl": "Apprise API-URL",
 			"apiUrlDescription": "Basis-URL van de apprise-api-container die u draait (bijvoorbeeld http://apprise:8000).",
+			"claimAge": "Waarschuwing voor onopgeloste afwijkingen (dagen)",
+			"claimAge.description_one": "Waarschuw wanneer het oudste meegetelde modelverschil langer dan dit onopgelost blijft. Ontbrekende modellen tellen niet meer mee zodra ze oud genoeg zijn om als uitgefaseerd te gelden, dus het maximum is {{count}} dag.",
+			"claimAge.description_other": "Waarschuw wanneer het oudste meegetelde modelverschil langer dan dit onopgelost blijft. Ontbrekende modellen tellen niet meer mee zodra ze oud genoeg zijn om als uitgefaseerd te gelden, dus het maximum is {{count}} dagen.",
 			"clear": "Wissen",
 			"description": "Stuur pushmeldingen voor opmerkelijke gebeurtenissen (een provider die uitvalt, een circuitbreaker die afgaat) naar Telegram, e-mail, Discord en meer via een stateless Apprise-container die u draait. Er wordt nooit verzoekinhoud verzonden - alleen de samenvatting van de gebeurtenis.",
 			"enable": "Schakel waarschuwingen in",
@@ -1981,12 +1990,17 @@
 				"title": "Gebeurtenissen waarover moet worden gemeld"
 			},
 			"eventsLabel": "Waarschuwingsgebeurtenissen",
-			"claimAge": "Waarschuwing voor onopgeloste afwijkingen (dagen)",
-			"claimAge.description_one": "Waarschuw wanneer de oudste meegetelde modelafwijking langer dan dit onopgelost blijft. Afwijkingen tellen niet meer mee zodra ze oud genoeg zijn om als uitgefaseerd te gelden, dus het maximum is {{count}} dag: een hogere drempel zou nooit afgaan.",
-			"claimAge.description_other": "Waarschuw wanneer de oudste meegetelde modelafwijking langer dan dit onopgelost blijft. Afwijkingen tellen niet meer mee zodra ze oud genoeg zijn om als uitgefaseerd te gelden, dus het maximum is {{count}} dagen: een hogere drempel zou nooit afgaan.",
 			"snippets": {
 				"browseAll": "Bekijk alle meer dan 80 diensten",
 				"description": "Voorbeelden van Apprise-URL-formaten voor populaire diensten - kopieer er een, vul je gegevens in en plak deze hierboven."
+			},
+			"status": {
+				"checking": "Apprise-API wordt gecontroleerd…",
+				"issues": "apprise-api is bereikbaar, maar er worden problemen gemeld",
+				"reachable": "apprise-api bereikbaar",
+				"recheck": "Controleer nogmaals",
+				"unreachable": "apprise-api niet bereikbaar - controleer de URL en of de container actief is",
+				"checkFailed": "Statuscontrole mislukt"
 			},
 			"target": "Ontvanger van de melding",
 			"targetConfigured": "Geconfigureerd - typ om te vervangen",
@@ -1996,15 +2010,7 @@
 			"testHint": "Schakel waarschuwingen in en stel zowel een Apprise API-URL als een doel in om een test te verzenden.",
 			"testSending": "Bezig met verzenden…",
 			"testSent": "Testmelding verzonden.",
-			"title": "Waarschuwingen",
-			"status": {
-				"checking": "Apprise-API wordt gecontroleerd…",
-				"issues": "apprise-api is bereikbaar, maar er worden problemen gemeld",
-				"reachable": "apprise-api bereikbaar",
-				"recheck": "Controleer nogmaals",
-				"unreachable": "apprise-api niet bereikbaar - controleer de URL en of de container actief is",
-				"checkFailed": "Statuscontrole mislukt"
-			}
+			"title": "Waarschuwingen"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "TOTP-registratie annuleren",

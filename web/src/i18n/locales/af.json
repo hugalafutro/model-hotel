@@ -861,7 +861,8 @@
 			"chipGoneTooltip": "Weg uit die verskaffer se eie modellys, daarom het ontdekking hulle hier gedeaktiveer. Dit is wat die kantbalk-kenteken tel.",
 			"chipResolved": "terug",
 			"chipResolvedTooltip": "Die verskaffer lys hulle weer, hulle het hulself dus regmaak.",
-			"chipStaleTooltip": "Meer as 30 dae vermis sonder wisseling, dus byna seker afgeskaf eerder as gebreek. Word gewys, nooit getel nie.",
+			"chipRetiredTooltip": "Steeds in die verskaffer se modellys, maar dit het elke versoek daarvoor geweier, so die poort het hulle hier gedeaktiveer. Hierdie is wat die kantbalk-kenteken tel.",
+			"chipStaleTooltip": "Meer as 30 dae vermis sonder wisseling, dus byna seker gestaak eerder as stukkend. Gewys, nooit getel nie.",
 			"chipSuspectTooltip": "Steeds geaktiveer, maar afwesig uit onlangse skanderings. Nog een misslag en ontdekking deaktiveer dit.",
 			"clean": "Ruim hierdie verskaffer op",
 			"cleanTooltip": "Verwyder hierdie verskaffer uit die lys. Niks word verander nie; ontdekking meld 'n nuwe afwyking sodra een opduik.",
@@ -876,16 +877,17 @@
 			"dismissAllPartial_one": "Slegs 1 van {{total}} modelle is afgewys",
 			"dismissAllPartial_other": "Slegs {{count}} van {{total}} modelle is afgewys",
 			"dismissAllSuspectOnlyTooltip": "'n Verdagte model kan nie afgewys word voordat dit werklik vermis is nie.",
-			"dismissAllTooltip": "Verwyder nou elke vermiste en afgeskafte model van hierdie verskaffer uit die lys. Ontdekking hou aan loop: wat die verskaffer weer lys, kom terug.",
+			"dismissAllTooltip": "Verwyder nou elke vermiste en lank verdwene model op hierdie verskaffer uit hierdie lys. Ontdekking hou aan loop, so enigiets wat die verskaffer weer lys kom terug, behalwe modelle wat die poort geweier het, wat verwyder bly totdat jy hulle met die hand aktiveer.",
 			"dismissEverything": "Wys alles af",
 			"dismissEverythingConfirmBody_one": "Dit verlaat hierdie lys en die kenteken word leeg. Ontdekking hou aan loop, en die model kom net as 'n nuwe afwyking terug as sy verskaffer dit weer lys en dit later weer vermis raak.",
-			"dismissEverythingConfirmBody_other": "Dit dek alles wat hier gelys is: modelle wat ontdekking gedeaktiveer het, plus lank afgeskafte wat die kenteken nooit getel het nie. Hulle verlaat hierdie lys en die kenteken word leeg. Ontdekking hou aan loop, en 'n model kom net as 'n nuwe afwyking terug as sy verskaffer dit weer lys en dit later weer vermis raak.",
+			"dismissEverythingConfirmBody_other": "Dit dek alles wat hier gelys is: modelle wat ontdekking gedeaktiveer het, modelle wat die poort weens verkeer onttrek het, en lank verdwene modelle wat die kenteken nooit getel het nie. Hulle verlaat hierdie lys en die kenteken maak skoon. Ontdekking hou aan loop, en 'n model keer net as 'n nuwe verskil terug as sy verskaffer dit weer lys en dit later verdwyn.",
 			"dismissEverythingConfirmTitle_one": "Wys 1 afwyking af?",
 			"dismissEverythingConfirmTitle_other": "Wys al {{count}} afwykings af?",
 			"dismissEverythingFailed": "Niks kon afgewys word nie. Niks is verander nie.",
-			"dismissEverythingTooltip": "Maak elke verskaffer in hierdie lys gelyktydig skoon. Ontdekking hou aan loop: wat 'n verskaffer weer lys, kom terug.",
+			"dismissEverythingTooltip": "Verwyder elke verskaffer in hierdie lys gelyk. Ontdekking hou aan loop, so enigiets wat 'n verskaffer weer lys kom terug, behalwe modelle wat die poort geweier het, wat verwyder bly totdat jy hulle met die hand aktiveer.",
 			"dismissFailed": "Kon nie verwerp nie: {{message}}",
 			"dismissNoMatch": "Daardie model stem nie meer ooreen nie. Verfris en probeer weer.",
+			"dismissRetiredTooltip": "Verwyder hierdie model uit die lys. Dit bly gedeaktiveer en bly verwyder: die verskaffer lys dit steeds, so net om dit met die hand te aktiveer bring dit terug.",
 			"dismissTooltip": "Verwyder hierdie model uit die lys. Ontdekking hou aan loop: dit kom terug as die verskaffer dit weer lys.",
 			"dismissed": "{{model}} verwerp",
 			"dismissedSummary_one": "1 model afgewys",
@@ -899,8 +901,9 @@
 			"flapped_other": "{{count}} skommelings",
 			"group": {
 				"gone": "Verdwyn",
-				"suspect": "Verdag",
-				"stale": "Verouderd"
+				"retired": "Geweier",
+				"stale": "Verouderd",
+				"suspect": "Verdag"
 			},
 			"groupClaims": "Failover-groepe met ontdekking gedeaktiveer",
 			"groupDisabledAt": "Gedeaktiveer {{when}}",
@@ -918,6 +921,7 @@
 			"resolvedDetail_one": "{{model}} word weer gelys, na {{count}} skommeling",
 			"resolvedDetail_other": "{{model}} word weer gelys, na {{count}} skommelings",
 			"resolvedPlain": "{{model}} word weer gelys",
+			"resolvedRetiredPlain": "{{model}} bedien weer",
 			"retest": "Hertoets",
 			"retestAll": "Hertoets almal",
 			"retestAllCancelled_one": "Hertoets gestop na {{count}} verskaffer",
@@ -928,8 +932,10 @@
 			"retestAllFailed_other": "Hertoets het misluk vir {{count}} verskaffers",
 			"retestAllTooltip": "Voer ontdekking vir elke verskaffer hier gelys weer uit, een na die ander.",
 			"retestProgress": "{{done}} van {{total}}",
+			"retestRetiredOnlyTooltip": "'n Hertoets vra net vir die verskaffer se lys, en hierdie modelle is gelys. Dit is juis die probleem: gelys en geweier.",
 			"retestTooltip": "Voer ontdekking vir hierdie verskaffer weer uit en kontroleer sy modelle opnuut.",
 			"retesting": "Hertoets tans…",
+			"retiredMeta": "Gedeaktiveer {{when}}",
 			"returnToTop": "Terug na die bokant van hierdie verskaffer",
 			"suspectMeta_one": "{{count}} skandering gemis",
 			"suspectMeta_other": "{{count}} skanderings gemis",
@@ -1959,6 +1965,9 @@
 		"alerts": {
 			"apiUrl": "Apprise API-URL",
 			"apiUrlDescription": "Basislink van die apprise-api-houer wat jy gebruik (byvoorbeeld http://apprise:8000).",
+			"claimAge": "Waarskuwing oor onaangespreekte afwykings (dae)",
+			"claimAge.description_one": "Waarsku wanneer die oudste getelde modelverskil langer as dit onaangespreek bly. Vermiste modelle hou op tel sodra hulle oud genoeg is om as gestaak beskou te word, dus is die maksimum {{count}} dag.",
+			"claimAge.description_other": "Waarsku wanneer die oudste getelde modelverskil langer as dit onaangespreek bly. Vermiste modelle hou op tel sodra hulle oud genoeg is om as gestaak beskou te word, dus is die maksimum {{count}} dae.",
 			"clear": "Maak skoon",
 			"description": "Stootkennisgewings vir noemenswaardige gebeure ('n verskaffer wat uitval, 'n stroombreker wat afskakel) na Telegram, e-pos, Discord en meer via 'n statelose Apprise-houer wat jy laat loop. Geen versoekinhoud word ooit gestuur nie - net die gebeurtenissamevatting.",
 			"enable": "Aktiveer kennisgewing",
@@ -1981,12 +1990,17 @@
 				"title": "Gebeure om oor in kennis te stel"
 			},
 			"eventsLabel": "Waarskuwingsgebeurtenisse",
-			"claimAge": "Waarskuwing oor onaangespreekte afwykings (dae)",
-			"claimAge.description_one": "Waarsku wanneer die oudste getelde modelafwyking langer as hierdie tydperk sonder aandag bly. Afwykings hou op tel sodra hulle oud genoeg is om as afgetree beskou te word, dus is die maksimum {{count}} dag: 'n hoër drempel sou nooit kon afgaan nie.",
-			"claimAge.description_other": "Waarsku wanneer die oudste getelde modelafwyking langer as hierdie tydperk sonder aandag bly. Afwykings hou op tel sodra hulle oud genoeg is om as afgetree beskou te word, dus is die maksimum {{count}} dae: 'n hoër drempel sou nooit kon afgaan nie.",
 			"snippets": {
 				"browseAll": "Blaai deur al die 80+ dienste",
 				"description": "Voorbeeld Apprise-URL-formate vir gewilde dienste - kopieer een, vul jou besonderhede in en plak dit hierbo."
+			},
+			"status": {
+				"checking": "Kontroleer apprise-api…",
+				"issues": "apprise-api bereikbaar, maar meld probleme",
+				"reachable": "apprise-api bereikbaar",
+				"recheck": "Hersien",
+				"unreachable": "apprise-api onbereikbaar - kontroleer die URL en dat die houer aan die gang is",
+				"checkFailed": "Statuskontrole misluk"
 			},
 			"target": "Kennisgewingsteiken",
 			"targetConfigured": "Gekonfigureer (tik om te vervang)",
@@ -1996,15 +2010,7 @@
 			"testHint": "Aktiveer kennisgewing en stel beide 'n Apprise API-URL en 'n teiken in om 'n toets te stuur.",
 			"testSending": "Stuur…",
 			"testSent": "Toetskennisgewing gestuur.",
-			"title": "Waarskuwings",
-			"status": {
-				"checking": "Kontroleer apprise-api…",
-				"issues": "apprise-api bereikbaar, maar meld probleme",
-				"reachable": "apprise-api bereikbaar",
-				"recheck": "Hersien",
-				"unreachable": "apprise-api onbereikbaar - kontroleer die URL en dat die houer aan die gang is",
-				"checkFailed": "Statuskontrole misluk"
-			}
+			"title": "Waarskuwings"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Annuleer TOTP-inskrywing",

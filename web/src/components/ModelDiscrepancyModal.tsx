@@ -9,6 +9,7 @@ import {
 	type MergedClaim,
 	type MergedProvider,
 	providerHasNoPending,
+	retestProvesNothing,
 } from "../hooks/useDiscrepancies";
 import { ChevronDown, ChevronRight, ChevronUp, RefreshCw } from "../lib/icons";
 import { formatFieldValue } from "../pages/Providers/discoveryFormat";
@@ -32,9 +33,9 @@ import { Modal } from "./Modal";
  * how the row is styled. Threading the group through as an argument makes it
  * impossible for a row to be rendered under one heading and act like another.
  */
-type Group = "gone" | "stale" | "suspect";
+type Group = "gone" | "stale" | "suspect" | "retired";
 
-const ALL_GROUPS: Group[] = ["gone", "stale", "suspect"];
+const ALL_GROUPS: Group[] = ["gone", "stale", "suspect", "retired"];
 
 /** Which provider is unrolled, and which of its bucket lines. */
 type OpenPath = { providerID: string; bucket: Group | null };
@@ -334,12 +335,52 @@ export function ModelDiscrepancyModal({
 		return null;
 	};
 
-	const claimMeta = (c: MergedClaim, group: Group) =>
-		group === "suspect"
-			? t("providers.discrepancies.suspectMeta", { count: c.missing_scans })
-			: t("providers.discrepancies.lastSeenMeta", {
-					when: formatRelativeTime(c.last_seen_at),
-				});
+	/**
+	 * Tooltip for a row's Dismiss control.
+	 *
+	 * The ordinary promise — "it comes back if the provider lists it again" — is
+	 * specifically untrue for a retired model. The provider lists it on every
+	 * scan, and the dismissal is deliberately kept through that (see the Upsert
+	 * exception), or the claim could never be silenced at all.
+	 *
+	 * Written as separate statements with literal keys rather than as one t()
+	 * call picking a key: the i18n source-key check only follows literal
+	 * arguments, so a key chosen inside the call is invisible to it and could go
+	 * missing from en.json with nothing failing.
+	 */
+	const dismissTitle = (group: Group) => {
+		if (readOnly) return t("providers.discrepancies.readOnlyTooltip");
+		if (group === "retired") {
+			return t("providers.discrepancies.dismissRetiredTooltip");
+		}
+		return t("providers.discrepancies.dismissTooltip");
+	};
+
+	const claimMeta = (c: MergedClaim, group: Group) => {
+		if (group === "suspect") {
+			return t("providers.discrepancies.suspectMeta", {
+				count: c.missing_scans,
+			});
+		}
+		// A retired model is still listed, so it was "last seen" moments ago and
+		// that reading would contradict the row it sits on. Date it by when the
+		// proxy retired it instead.
+		//
+		// The whole branch is on the group, not on the timestamp: the server sets
+		// retired_at on every retired claim, but if one ever arrived without it,
+		// falling through would print the "last seen" wording this state exists to
+		// avoid. Better to say nothing about the timing than to say that.
+		if (group === "retired") {
+			return c.retired_at
+				? t("providers.discrepancies.retiredMeta", {
+						when: formatRelativeTime(c.retired_at),
+					})
+				: "";
+		}
+		return t("providers.discrepancies.lastSeenMeta", {
+			when: formatRelativeTime(c.last_seen_at),
+		});
+	};
 
 	/**
 	 * One model, as a TIGHT single line rather than a bordered card.
@@ -389,16 +430,12 @@ export function ModelDiscrepancyModal({
 					{claimMeta(c, group)}
 				</span>
 				{flapChip(c)}
-				{group === "gone" && !isCleared ? (
+				{(group === "gone" || group === "retired") && !isCleared ? (
 					<button
 						type="button"
 						onClick={() => onDismiss(p.provider_id, c.model_id)}
 						disabled={readOnly}
-						title={
-							readOnly
-								? t("providers.discrepancies.readOnlyTooltip")
-								: t("providers.discrepancies.dismissTooltip")
-						}
+						title={dismissTitle(group)}
 						aria-describedby={describedByReadOnly}
 						className="ui-btn ui-btn-ghost ui-btn-compact shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
 						data-testid="discrepancy-dismiss"
@@ -413,11 +450,13 @@ export function ModelDiscrepancyModal({
 	const BUCKET_SIGN: Record<Group, string> = {
 		gone: "×",
 		suspect: "?",
+		retired: "!",
 		stale: "·",
 	};
 	const BUCKET_VARIANT: Record<Group, string> = {
 		gone: "ui-badge-error",
 		suspect: "ui-badge-warning",
+		retired: "ui-badge-error",
 		stale: "ui-badge-neutral",
 	};
 
@@ -537,14 +576,22 @@ export function ModelDiscrepancyModal({
 						className="text-[11px] text-(--text-tertiary)"
 						data-testid="discrepancy-resolved-detail"
 					>
-						{c.flap_since_review > 0
-							? t("providers.discrepancies.resolvedDetail", {
+						{/* A retired model was never missing from the listing, so "listed
+						    again" would be false for it — what changed is that it serves
+						    again. The flap variant is skipped too: flapping counts a model
+						    entering and leaving the listing, which this one never did. */}
+						{c.state === "retired"
+							? t("providers.discrepancies.resolvedRetiredPlain", {
 									model: c.model_id,
-									count: c.flap_since_review,
 								})
-							: t("providers.discrepancies.resolvedPlain", {
-									model: c.model_id,
-								})}
+							: c.flap_since_review > 0
+								? t("providers.discrepancies.resolvedDetail", {
+										model: c.model_id,
+										count: c.flap_since_review,
+									})
+								: t("providers.discrepancies.resolvedPlain", {
+										model: c.model_id,
+									})}
 					</p>
 				))}
 			</div>
@@ -562,6 +609,7 @@ export function ModelDiscrepancyModal({
 		const gone = actionableIn(p, "gone");
 		const stale = actionableIn(p, "stale");
 		const suspect = actionableIn(p, "suspect");
+		const retired = actionableIn(p, "retired");
 		// One predicate behind the pill's either-or controls and behind whether the
 		// cleared summary renders, so the two can never disagree and offer a
 		// re-probe with nothing to probe.
@@ -569,7 +617,8 @@ export function ModelDiscrepancyModal({
 		// Suspect ids are deliberately excluded: setModelsDismissed only touches
 		// `enabled = false` rows, and a suspect model is still enabled, so sending
 		// one would undercount `updated` and report an unknown model.
-		const dismissable = [...gone, ...stale].map((c) => c.model_id);
+		const dismissable = [...retired, ...gone, ...stale].map((c) => c.model_id);
+		const pointlessRetest = retestProvesNothing(p);
 		const all = ALL_GROUPS.flatMap((g) => p[g]);
 		const regionId = `${regionIdBase}-provider-${p.provider_id}`;
 		return (
@@ -592,6 +641,7 @@ export function ModelDiscrepancyModal({
 							gone: gone.length,
 							stale: stale.length,
 							suspect: suspect.length,
+							retired: retired.length,
 						}}
 						cleared={{
 							dismissed: all.filter((c) => c.status === "dismissed").length,
@@ -599,7 +649,8 @@ export function ModelDiscrepancyModal({
 						}}
 						isCleared={isCleared}
 						canDismiss={dismissable.length > 0}
-						retestDisabled={retestBlocked}
+						retestDisabled={retestBlocked || pointlessRetest}
+						retestProvesNothing={pointlessRetest}
 						retesting={spinning}
 						onRetest={() => onRetest(p.provider_id, p.provider_name)}
 						onDismissAll={() =>
@@ -642,6 +693,7 @@ export function ModelDiscrepancyModal({
 						// one level up.
 						<div className="space-y-2 pl-5">
 							{isCleared ? renderClearedSummary(p) : null}
+							{renderBucket(p, "retired")}
 							{renderBucket(p, "gone")}
 							{renderBucket(p, "suspect")}
 							{renderBucket(p, "stale")}
@@ -809,8 +861,8 @@ export function ModelDiscrepancyModal({
 		);
 	};
 
-	const unresolvedProviders = visibleProviders.filter(
-		(p) => !providerHasNoPending(p),
+	const retestableProviders = visibleProviders.filter(
+		(p) => !providerHasNoPending(p) && !retestProvesNothing(p),
 	);
 
 	/**
@@ -824,7 +876,14 @@ export function ModelDiscrepancyModal({
 	const everythingDismissable = visibleProviders
 		.map((p) => ({
 			providerID: p.provider_id,
-			modelIDs: (["gone", "stale"] as const).flatMap((g) =>
+			// Same buckets as the per-provider Dismiss all above, and in the same
+			// order. They have to agree: if this list is narrower, the confirm
+			// dialog undercounts what it is about to clear, the rows it missed
+			// come back on the next refresh looking like a failed dismissal, and
+			// a provider whose claims are ALL in a missing bucket produces an
+			// empty batch that the filter below drops, so the button never
+			// appears at all.
+			modelIDs: (["retired", "gone", "stale"] as const).flatMap((g) =>
 				actionableIn(p, g).map((c) => c.model_id),
 			),
 		}))
@@ -870,7 +929,7 @@ export function ModelDiscrepancyModal({
 							>
 								{t("providers.discrepancies.cancelRetestAll")}
 							</button>
-						) : unresolvedProviders.length > 0 ? (
+						) : retestableProviders.length > 0 ? (
 							<button
 								type="button"
 								onClick={onRetestAll}

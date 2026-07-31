@@ -861,7 +861,8 @@
 			"chipGoneTooltip": "Sağlayıcının kendi model listesinden kayboldular, bu yüzden keşif onları burada devre dışı bıraktı. Kenar çubuğundaki simgenin saydığı bunlardır.",
 			"chipResolved": "geri döndü",
 			"chipResolvedTooltip": "Sağlayıcı onları yeniden listeliyor, yani kendiliğinden düzeldiler.",
-			"chipStaleTooltip": "30 günden uzun süredir dalgalanma olmadan eksik, yani bozuk değil neredeyse kesin olarak kaldırılmış. Gösterilir, asla sayılmaz.",
+			"chipRetiredTooltip": "Sağlayıcının model listesinde hâlâ var, ancak bunlara yönelik her isteği reddetti; bu yüzden ağ geçidi burada devre dışı bıraktı. Kenar çubuğu rozeti bunları sayar.",
+			"chipStaleTooltip": "30 günden uzun süredir yok ve dalgalanma da yok, yani bozuk olmaktan çok kaldırılmış olması neredeyse kesin. Gösterilir, asla sayılmaz.",
 			"chipSuspectTooltip": "Hâlâ etkin ama son taramalarda yok. Bir kaçırma daha ve keşif onu devre dışı bırakır.",
 			"clean": "Bu sağlayıcıyı temizle",
 			"cleanTooltip": "Bu sağlayıcıyı listeden kaldırır. Hiçbir şey değişmez; yeni bir tutarsızlık çıkarsa keşif bunu bildirir.",
@@ -876,16 +877,17 @@
 			"dismissAllPartial_one": "{{total}} modelden yalnızca 1 tanesi yok sayıldı",
 			"dismissAllPartial_other": "{{total}} modelden yalnızca {{count}} tanesi yok sayıldı",
 			"dismissAllSuspectOnlyTooltip": "Şüpheli bir model, gerçekten kaybolmadan yok sayılamaz.",
-			"dismissAllTooltip": "Bu sağlayıcının eksik ve kaldırılmış tüm modellerini şimdi bu listeden çıkarır. Keşif çalışmaya devam eder: sağlayıcının yeniden listelediği geri gelir.",
+			"dismissAllTooltip": "Bu sağlayıcıdaki eksik ve çoktan kaybolmuş tüm modelleri şimdi bu listeden çıkar. Keşif çalışmayı sürdürür, bu yüzden sağlayıcının yeniden listelediği her şey geri gelir, ağ geçidinin reddettiği modeller hariç; onlar siz elle etkinleştirene kadar çıkarılmış kalır.",
 			"dismissEverything": "Tümünü yok say",
 			"dismissEverythingConfirmBody_one": "Bu listeden çıkar ve simge boşalır. Keşif çalışmaya devam eder ve model, yalnızca sağlayıcısı onu yeniden listelerse ve sonra tekrar kaybolursa yeni bir tutarsızlık olarak döner.",
-			"dismissEverythingConfirmBody_other": "Bu, burada listelenen her şeyi kapsar: keşfin devre dışı bıraktığı modeller ve simgenin hiç saymadığı, uzun süre önce kaldırılmış olanlar. Bu listeden çıkarlar ve simge boşalır. Keşif çalışmaya devam eder ve bir model, yalnızca sağlayıcısı onu yeniden listelerse ve sonra tekrar kaybolursa yeni bir tutarsızlık olarak döner.",
+			"dismissEverythingConfirmBody_other": "Bu, burada listelenen her şeyi kapsar: keşfin devre dışı bıraktığı modeller, ağ geçidinin trafikten çektiği modeller ve rozetin hiç saymadığı çoktan kaybolmuş olanlar. Bu listeden çıkarlar ve rozet temizlenir. Keşif sürer ve bir model ancak sağlayıcısı onu yeniden listeler ve sonra kaybolursa yeni bir uyuşmazlık olarak döner.",
 			"dismissEverythingConfirmTitle_one": "1 tutarsızlık yok sayılsın mı?",
 			"dismissEverythingConfirmTitle_other": "{{count}} tutarsızlığın tümü yok sayılsın mı?",
 			"dismissEverythingFailed": "Hiçbir şey yok sayılamadı. Hiçbir şey değişmedi.",
-			"dismissEverythingTooltip": "Bu listedeki tüm sağlayıcıları tek seferde temizler. Keşif çalışmaya devam eder: bir sağlayıcının yeniden listelediği geri gelir.",
+			"dismissEverythingTooltip": "Bu listedeki tüm sağlayıcıları bir kerede çıkar. Keşif çalışmayı sürdürür, bu yüzden bir sağlayıcının yeniden listelediği her şey geri gelir, ağ geçidinin reddettiği modeller hariç; onlar siz elle etkinleştirene kadar çıkarılmış kalır.",
 			"dismissFailed": "Yoksayılamadı: {{message}}",
 			"dismissNoMatch": "Bu model artık eşleşmiyor. Sayfayı yenileyip tekrar deneyin.",
+			"dismissRetiredTooltip": "Bu modeli listeden çıkar. Devre dışı ve çıkarılmış kalır: sağlayıcı onu hâlâ listeliyor, bu yüzden yalnızca elle etkinleştirmek geri getirir.",
 			"dismissTooltip": "Bu modeli listeden çıkarır. Keşif çalışmaya devam eder: sağlayıcı onu yeniden listelerse geri gelir.",
 			"dismissed": "{{model}} yoksayıldı",
 			"dismissedSummary_one": "1 model yok sayıldı",
@@ -899,8 +901,9 @@
 			"flapped_other": "{{count}} dalgalanma",
 			"group": {
 				"gone": "Kayıp",
-				"suspect": "Şüpheli",
-				"stale": "Eskimiş"
+				"retired": "Reddedilmiş",
+				"stale": "Eskimiş",
+				"suspect": "Şüpheli"
 			},
 			"groupClaims": "Keşfi devre dışı bırakılmış yedekleme grupları",
 			"groupDisabledAt": "{{when}} devre dışı bırakıldı",
@@ -918,6 +921,7 @@
 			"resolvedDetail_one": "{{model}}, {{count}} dalgalanmanın ardından yeniden listede",
 			"resolvedDetail_other": "{{model}}, {{count}} dalgalanmanın ardından yeniden listede",
 			"resolvedPlain": "{{model}} yeniden listede",
+			"resolvedRetiredPlain": "{{model}} yeniden yanıt veriyor",
 			"retest": "Yeniden test et",
 			"retestAll": "Tümünü yeniden test et",
 			"retestAllCancelled_one": "Test {{count}} sağlayıcıdan sonra durduruldu",
@@ -928,8 +932,10 @@
 			"retestAllFailed_other": "{{count}} sağlayıcı için test başarısız oldu",
 			"retestAllTooltip": "Burada listelenen her sağlayıcı için keşfi sırayla yeniden çalıştırın.",
 			"retestProgress": "{{total}} sağlayıcıdan {{done}} tanesi",
+			"retestRetiredOnlyTooltip": "Yeniden test yalnızca sağlayıcının neyi listelediğini sorar ve bu modeller listede. Sorun tam da bu: listede ve reddediliyor.",
 			"retestTooltip": "Bu sağlayıcı için keşfi yeniden çalıştırın ve modellerini yeniden kontrol edin.",
 			"retesting": "Yeniden test ediliyor…",
+			"retiredMeta": "Devre dışı {{when}}",
 			"returnToTop": "Bu sağlayıcının başına dön",
 			"suspectMeta_one": "{{count}} tarama kaçırıldı",
 			"suspectMeta_other": "{{count}} tarama kaçırıldı",
@@ -1959,6 +1965,9 @@
 		"alerts": {
 			"apiUrl": "Apprise API URL'si",
 			"apiUrlDescription": "Çalıştırdığınız apprise-api konteynerinin temel URL'si (örneğin http://apprise:8000).",
+			"claimAge": "Ele alınmamış tutarsızlık uyarısı (gün)",
+			"claimAge.description_one": "Sayılan en eski model uyuşmazlığı bundan uzun süre ele alınmadığında uyar. Eksik modeller, kaldırılmış sayılacak kadar eskidiklerinde sayılmaz olur; bu nedenle en fazla {{count}} gündür.",
+			"claimAge.description_other": "Sayılan en eski model uyuşmazlığı bundan uzun süre ele alınmadığında uyar. Eksik modeller, kaldırılmış sayılacak kadar eskidiklerinde sayılmaz olur; bu nedenle en fazla {{count}} gündür.",
 			"clear": "Temizle",
 			"description": "Önemli olaylar (bir sağlayıcının hizmetinin kesilmesi, bir devre kesicinin devreye girmesi) için, çalıştırdığınız durum bilgisi içermeyen bir Apprise konteyneri aracılığıyla Telegram, e-posta, Discord ve diğer platformlara push bildirimleri gönderin. Hiçbir istek içeriği gönderilmez - yalnızca olay özeti gönderilir.",
 			"enable": "Uyarı özelliğini etkinleştirin",
@@ -1981,12 +1990,17 @@
 				"title": "Bildirilecek olaylar"
 			},
 			"eventsLabel": "Uyarı olayları",
-			"claimAge": "Ele alınmamış tutarsızlık uyarısı (gün)",
-			"claimAge.description_one": "Sayıma dahil edilen en eski model tutarsızlığı bundan daha uzun süre ele alınmadığında uyar. Tutarsızlıklar, kullanımdan kaldırılmış sayılacak kadar eskidiklerinde sayımdan çıkar; bu nedenle en yüksek değer {{count}} gün: daha yüksek bir eşik asla tetiklenmez.",
-			"claimAge.description_other": "Sayıma dahil edilen en eski model tutarsızlığı bundan daha uzun süre ele alınmadığında uyar. Tutarsızlıklar, kullanımdan kaldırılmış sayılacak kadar eskidiklerinde sayımdan çıkar; bu nedenle en yüksek değer {{count}} gün: daha yüksek bir eşik asla tetiklenmez.",
 			"snippets": {
 				"browseAll": "80'den fazla hizmetin tümünü inceleyin",
 				"description": "Popüler hizmetler için örnek Apprise URL biçimleri - bunlardan birini kopyalayın, bilgilerinizi girin ve yukarıya yapıştırın."
+			},
+			"status": {
+				"checking": "Apprise-api kontrol ediliyor…",
+				"issues": "apprise-api erişilebilir ancak sorunlar bildiriliyor",
+				"reachable": "apprise-api erişilebilir",
+				"recheck": "Tekrar kontrol edin",
+				"unreachable": "apprise-api erişilemiyor - URL'yi kontrol edin ve konteynerin çalışır durumda olup olmadığını kontrol edin",
+				"checkFailed": "Durum kontrolü başarısız"
 			},
 			"target": "Bildirim hedefi",
 			"targetConfigured": "Yapılandırıldı (değiştirmek için yazın)",
@@ -1996,15 +2010,7 @@
 			"testHint": "Uyarı özelliğini etkinleştirin ve bir test göndermek için hem bir Apprise API URL'si hem de bir hedef belirleyin.",
 			"testSending": "Gönderiliyor…",
 			"testSent": "Test bildirimi gönderildi.",
-			"title": "Uyarılar",
-			"status": {
-				"checking": "Apprise-api kontrol ediliyor…",
-				"issues": "apprise-api erişilebilir ancak sorunlar bildiriliyor",
-				"reachable": "apprise-api erişilebilir",
-				"recheck": "Tekrar kontrol edin",
-				"unreachable": "apprise-api erişilemiyor - URL'yi kontrol edin ve konteynerin çalışır durumda olup olmadığını kontrol edin",
-				"checkFailed": "Durum kontrolü başarısız"
-			}
+			"title": "Uyarılar"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "TOTP kaydını iptal et",

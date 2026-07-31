@@ -556,8 +556,15 @@ export interface DiscoveryChangesResponse {
 	count: number;
 }
 
-/** What discovery currently believes about one model. */
-export type ClaimState = "gone" | "stale" | "suspect";
+/** What discovery currently believes about one model.
+ *
+ *  `retired` is the odd one out: it did not come from discovery at all. The
+ *  proxy disabled the model from live traffic because the provider kept listing
+ *  it and refused every request for it. The distinction matters to the operator,
+ *  because a retired model is still listed and was seen moments ago, so the
+ *  "last seen" wording and the Retest button that fit the other states would
+ *  both mislead. */
+export type ClaimState = "gone" | "stale" | "suspect" | "retired";
 
 export interface ModelClaim {
 	model_id: string;
@@ -569,6 +576,9 @@ export interface ModelClaim {
 	flap_window: number;
 	/** Membership transitions since the operator last opened the modal. */
 	flap_since_review: number;
+	/** When the proxy retired it from traffic. Present only on a `retired` claim;
+	 *  `last_seen_at` keeps being refreshed for those, so it cannot date them. */
+	retired_at?: string;
 }
 
 export interface ProviderClaims {
@@ -577,6 +587,7 @@ export interface ProviderClaims {
 	gone: ModelClaim[];
 	stale: ModelClaim[];
 	suspect: ModelClaim[];
+	retired: ModelClaim[];
 }
 
 /** One failover group discovery disabled: `hotel/<display_model>` routing for it
@@ -591,8 +602,8 @@ export interface GroupClaim {
 	disabled_at: string;
 }
 
-/** GET /api/discovery/status. `claim_count` counts `gone` models plus
- *  `group_claims`; `stale` and `suspect` are shown but never counted.
+/** GET /api/discovery/status. `claim_count` counts `gone` and `retired` models
+ *  plus `group_claims`; `stale` and `suspect` are shown but never counted.
  *  `informational_unseen` skips entries whose only content is metadata
  *  (`updated`), so price churn cannot light the badge dot. */
 export interface DiscoveryStatusResponse {

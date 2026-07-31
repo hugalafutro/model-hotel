@@ -861,7 +861,8 @@
 			"chipGoneTooltip": "Forsvundet fra udbyderens egen modelliste, så opdagelsen har slået dem fra her. Det er dem, badget i sidepanelet tæller.",
 			"chipResolved": "tilbage",
 			"chipResolvedTooltip": "Udbyderen viser dem igen, så de har løst sig selv.",
-			"chipStaleTooltip": "Manglet i over 30 dage uden udsving, så næsten helt sikkert udfaset snarere end i stykker. Vises, tælles aldrig.",
+			"chipRetiredTooltip": "Stadig på udbyderens modelliste, men den afviste hver eneste forespørgsel på dem, så gatewayen deaktiverede dem her. Det er dem, sidebjælkens badge tæller.",
+			"chipStaleTooltip": "Manglet i over 30 dage uden udsving, så næsten helt sikkert udgået frem for i stykker. Vises, tælles aldrig.",
 			"chipSuspectTooltip": "Stadig aktiv, men fraværende i de seneste scanninger. Én fejl mere, og opdagelsen slår den fra.",
 			"clean": "Ryd denne udbyder",
 			"cleanTooltip": "Fjerner denne udbyder fra listen. Intet ændres; opdagelsen melder en ny uoverensstemmelse, hvis der opstår en.",
@@ -876,16 +877,17 @@
 			"dismissAllPartial_one": "Kun 1 af {{total}} modeller blev afvist",
 			"dismissAllPartial_other": "Kun {{count}} af {{total}} modeller blev afvist",
 			"dismissAllSuspectOnlyTooltip": "En mistænkelig model kan først afvises, når den faktisk mangler.",
-			"dismissAllTooltip": "Fjerner nu alle manglende og udfasede modeller hos denne udbyder fra listen. Opdagelsen kører videre: det udbyderen viser igen, kommer tilbage.",
+			"dismissAllTooltip": "Fjern nu alle manglende og for længst forsvundne modeller hos denne udbyder fra listen. Opdagelse kører videre, så alt udbyderen viser igen kommer tilbage, undtagen modeller gatewayen afviste, som forbliver fjernet, indtil du aktiverer dem manuelt.",
 			"dismissEverything": "Afvis alle",
 			"dismissEverythingConfirmBody_one": "Den forsvinder fra listen, og badget bliver tomt. Opdagelsen kører videre, og modellen vender kun tilbage som en ny uoverensstemmelse, hvis dens udbyder viser den igen, og den senere forsvinder.",
-			"dismissEverythingConfirmBody_other": "Det dækker alt, der står her: modeller opdagelsen har slået fra, plus længe udfasede, som badget aldrig talte. De forsvinder fra listen, og badget bliver tomt. Opdagelsen kører videre, og en model vender kun tilbage som en ny uoverensstemmelse, hvis dens udbyder viser den igen, og den senere forsvinder.",
+			"dismissEverythingConfirmBody_other": "Det dækker alt her: modeller som opdagelse deaktiverede, modeller gatewayen trak ud af trafikken, og for længst forsvundne som badget aldrig talte. De forlader listen, og badget ryddes. Opdagelse kører videre, og en model vender kun tilbage som en ny uoverensstemmelse, hvis udbyderen viser den igen og den senere forsvinder.",
 			"dismissEverythingConfirmTitle_one": "Afvis 1 uoverensstemmelse?",
 			"dismissEverythingConfirmTitle_other": "Afvis alle {{count}} uoverensstemmelser?",
 			"dismissEverythingFailed": "Intet kunne afvises. Intet blev ændret.",
-			"dismissEverythingTooltip": "Rydder alle udbydere på listen på én gang. Opdagelsen kører videre: det en udbyder viser igen, kommer tilbage.",
+			"dismissEverythingTooltip": "Fjern alle udbydere på listen på én gang. Opdagelse kører videre, så alt en udbyder viser igen kommer tilbage, undtagen modeller gatewayen afviste, som forbliver fjernet, indtil du aktiverer dem manuelt.",
 			"dismissFailed": "Kunne ikke afvise: {{message}}",
 			"dismissNoMatch": "Den model stemmer ikke længere. Opdater, og prøv igen.",
+			"dismissRetiredTooltip": "Fjern denne model fra listen. Den forbliver deaktiveret og fjernet: udbyderen viser den stadig, så kun manuel aktivering bringer den tilbage.",
 			"dismissTooltip": "Fjerner denne model fra listen. Opdagelsen kører videre: den kommer tilbage, hvis udbyderen viser den igen.",
 			"dismissed": "{{model}} afvist",
 			"dismissedSummary_one": "1 model afvist",
@@ -899,8 +901,9 @@
 			"flapped_other": "{{count}} udsving",
 			"group": {
 				"gone": "Forsvundet",
-				"suspect": "Mistænkelig",
-				"stale": "Forældet"
+				"retired": "Afvist",
+				"stale": "Forældet",
+				"suspect": "Mistænkelig"
 			},
 			"groupClaims": "Failover-grupper med registrering deaktiveret",
 			"groupDisabledAt": "Deaktiveret {{when}}",
@@ -918,6 +921,7 @@
 			"resolvedDetail_one": "{{model}} er på listen igen efter {{count}} udsving",
 			"resolvedDetail_other": "{{model}} er på listen igen efter {{count}} udsving",
 			"resolvedPlain": "{{model}} er på listen igen",
+			"resolvedRetiredPlain": "{{model}} betjener igen",
 			"retest": "Test igen",
 			"retestAll": "Test alle igen",
 			"retestAllCancelled_one": "Testen blev stoppet efter {{count}} udbyder",
@@ -928,8 +932,10 @@
 			"retestAllFailed_other": "Testen mislykkedes for {{count}} udbydere",
 			"retestAllTooltip": "Kør registrering igen for hver udbyder på listen her, én ad gangen.",
 			"retestProgress": "{{done}} af {{total}}",
+			"retestRetiredOnlyTooltip": "En ny test spørger kun, hvad udbyderen viser, og disse modeller er vist. Det er netop problemet: vist og afvist.",
 			"retestTooltip": "Kør registrering for denne udbyder igen, og kontroller dens modeller på ny.",
 			"retesting": "Tester igen…",
+			"retiredMeta": "Deaktiveret {{when}}",
 			"returnToTop": "Tilbage til toppen af denne udbyder",
 			"suspectMeta_one": "Sprang {{count}} scanning over",
 			"suspectMeta_other": "Sprang {{count}} scanninger over",
@@ -1959,6 +1965,9 @@
 		"alerts": {
 			"apiUrl": "Apprise API-URL",
 			"apiUrlDescription": "Base-URL for den apprise-api-container, du kører (f.eks. http://apprise:8000).",
+			"claimAge": "Advarsel om uadresserede uoverensstemmelser (dage)",
+			"claimAge.description_one": "Advar når den ældste talte modeluoverensstemmelse har været uadresseret længere end dette. Manglende modeller holder op med at tælle, når de er gamle nok til at blive regnet som udgået, så maksimum er {{count}} dag.",
+			"claimAge.description_other": "Advar når den ældste talte modeluoverensstemmelse har været uadresseret længere end dette. Manglende modeller holder op med at tælle, når de er gamle nok til at blive regnet som udgået, så maksimum er {{count}} dage.",
 			"clear": "Ryd",
 			"description": "Send push-notifikationer om vigtige hændelser (f.eks. at en udbyder går ned eller en afbryder udløses) til Telegram, e-mail, Discord og mere via en stateless Apprise-container, som du kører. Der sendes aldrig noget anmodningsindhold - kun en oversigt over hændelsen.",
 			"enable": "Aktivér alarmer",
@@ -1981,12 +1990,17 @@
 				"title": "Begivenheder, der skal meddeles"
 			},
 			"eventsLabel": "Advarselshændelser",
-			"claimAge": "Advarsel om uadresserede uoverensstemmelser (dage)",
-			"claimAge.description_one": "Advar, når den ældste medregnede modeluoverensstemmelse har været uadresseret længere end dette. Uoverensstemmelser tælles ikke længere, når de er gamle nok til at blive betragtet som udgåede, så maksimum er {{count}} dag: en højere tærskel ville aldrig udløses.",
-			"claimAge.description_other": "Advar, når den ældste medregnede modeluoverensstemmelse har været uadresseret længere end dette. Uoverensstemmelser tælles ikke længere, når de er gamle nok til at blive betragtet som udgåede, så maksimum er {{count}} dage: en højere tærskel ville aldrig udløses.",
 			"snippets": {
 				"browseAll": "Gennemse alle de over 80 tjenester",
 				"description": "Eksempler på Apprise-URL-formater for populære tjenester - kopier et af dem, udfyld dine oplysninger og indsæt det ovenfor."
+			},
+			"status": {
+				"checking": "Kontrollerer apprise-api…",
+				"issues": "apprise-api er tilgængelig, men der rapporteres om problemer",
+				"reachable": "apprise-api tilgængelig",
+				"recheck": "Kontroller igen",
+				"unreachable": "apprise-api kan ikke nås - tjek URL'en, og at containeren kører",
+				"checkFailed": "Statuskontrol mislykkedes"
 			},
 			"target": "Mål for notifikation",
 			"targetConfigured": "Konfigureret - skriv for at erstatte",
@@ -1996,15 +2010,7 @@
 			"testHint": "Aktivér alarmering, og angiv både en Apprise API-URL og en modtager for at sende en test.",
 			"testSending": "Sender…",
 			"testSent": "Testmeddelelse sendt.",
-			"title": "Advarsler",
-			"status": {
-				"checking": "Kontrollerer apprise-api…",
-				"issues": "apprise-api er tilgængelig, men der rapporteres om problemer",
-				"reachable": "apprise-api tilgængelig",
-				"recheck": "Kontroller igen",
-				"unreachable": "apprise-api kan ikke nås - tjek URL'en, og at containeren kører",
-				"checkFailed": "Statuskontrol mislykkedes"
-			}
+			"title": "Advarsler"
 		},
 		"totp": {
 			"cancelEnrollAriaLabel": "Annuller TOTP-tilmelding",

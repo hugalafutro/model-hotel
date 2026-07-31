@@ -34,6 +34,7 @@ import { useToast } from "../context/ToastContext";
 import {
 	type MergedProvider,
 	providerHasNoPending,
+	retestProvesNothing,
 	useDiscrepancies,
 } from "../hooks/useDiscrepancies";
 import { useGitHubVersion } from "../hooks/useGitHubVersion";
@@ -820,8 +821,15 @@ export function Layout({ children }: LayoutProps) {
 	}, []);
 
 	const onRetestAll = useCallback(async () => {
+		// Same predicate the modal's controls use, and applied HERE because this is
+		// the walk. Gating only the button meant a mixed fleet still retested the
+		// retired-only providers: the button rendered for the one that needed it,
+		// and the walk then visited every provider with anything pending, each
+		// pointless one costing a slow upstream call while its own pill sat
+		// disabled saying so. The progress readout counted them too.
 		const targets = snapshot.filter(
-			(p: MergedProvider) => !providerHasNoPending(p),
+			(p: MergedProvider) =>
+				!providerHasNoPending(p) && !retestProvesNothing(p),
 		);
 		if (targets.length === 0 || retestInFlight.current) return;
 		cancelRetestAll.current = false;

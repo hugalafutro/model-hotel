@@ -79,8 +79,11 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 const settingKeyDiscoveryLastReviewed = "_discovery_last_reviewed_at"
 
 // DiscoveryStatusResponse powers the Models nav badge and its modal. ClaimCount
-// counts Gone models only: Stale and Suspect are shown but never inflate the
-// badge, so a non-zero badge always means something might actually be wrong.
+// counts Gone and Retired models: Stale and Suspect are shown but never inflate
+// the badge, so a non-zero badge always means something might actually be wrong.
+// Retired counts because it is the same kind of fact as Gone — a model that was
+// working and now is not — even though it came from the proxy refusing traffic
+// rather than from the provider dropping it from its listing.
 // InformationalUnseen drives the badge dot when ClaimCount is 0, and counts only
 // the entries carrying something other than metadata `updated` changes: prices
 // move on nearly every scan, so counting them would leave the dot permanently
@@ -751,9 +754,20 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 // DismissDiscoveryClaimsRequest carries the models to dismiss on one provider.
 //
 // Dismiss-only, deliberately: there is no un-dismiss direction. A dismissal
-// already self-heals, because models.Upsert clears discovery_dismissed_at on any
+// self-heals, because models.Upsert clears discovery_dismissed_at on any
 // sighting, so the next discovery run undoes it for any model that came back.
 // That is the only reversal the feature needs, and it needs no endpoint.
+//
+// A traffic-retired model gets there by a different route, since Upsert
+// deliberately preserves its dismissal (it is sighted on every scan, so clearing
+// on a sighting would make it impossible to silence). For those, the operator
+// enabling the model clears the dismissal in the same statement as the enable
+// (models.SetEnabled and models.Update), so a model retired again afterwards
+// raises a fresh claim. That has to be atomic rather than left to the next
+// sighting: traffic reaches a re-enabled model in seconds and a scan is about an
+// hour away, so a second retirement would otherwise arrive first and re-arm the
+// preserve-the-dismissal rule around a stamp nothing could clear. Still no
+// endpoint needed.
 type DismissDiscoveryClaimsRequest struct {
 	ProviderID string   `json:"provider_id"`
 	ModelIDs   []string `json:"model_ids"`

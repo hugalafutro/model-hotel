@@ -117,8 +117,83 @@ func TestBuildProviderClaims_EmptyBucketsSerializeAsEmptyArray(t *testing.T) {
 	if !strings.Contains(got, `"suspect":[]`) {
 		t.Errorf("suspect bucket must serialize as [], got %s", got)
 	}
+	if !strings.Contains(got, `"retired":[]`) {
+		t.Errorf("retired bucket must serialize as [], got %s", got)
+	}
 	if strings.Contains(got, "null") {
 		t.Errorf("no bucket may serialize as null, got %s", got)
+	}
+}
+
+// TestBuildProviderClaims_RetiredIsItsOwnState covers the state that does not
+// come from discovery at all: the proxy disabled the model from live traffic
+// because the provider kept listing it and refused every request for it.
+//
+// It has to be told apart from gone, and the reason is what the operator reads.
+// A gone model is missing from the provider's listing, so "last seen" dates it
+// and a retest is the obvious next move. A retired model is still listed and was
+// seen moments ago, so the same row would say "last seen a minute ago" beside a
+// claim that it is unavailable, and a retest would find it present and prove
+// nothing.
+func TestBuildProviderClaims_RetiredIsItsOwnState(t *testing.T) {
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	retiredAt := now.Add(-2 * time.Hour)
+	rows := []claimRow{
+		// Still listed (seen a minute ago) but refused by the provider.
+		{ProviderID: "p1", ProviderName: "Google", ModelID: "traffic-retired", LastSeenAt: now.Add(-time.Minute), RetiredAt: &retiredAt},
+		// Genuinely missing from the listing.
+		{ProviderID: "p1", ProviderName: "Google", ModelID: "vanished", LastSeenAt: now.Add(-3 * 24 * time.Hour)},
+	}
+
+	claims, count := buildProviderClaims(rows, map[flapKey]int{}, map[flapKey]int{}, now)
+	if len(claims) != 1 {
+		t.Fatalf("expected 1 provider group, got %d", len(claims))
+	}
+	g := claims[0]
+
+	if len(g.Retired) != 1 || g.Retired[0].ModelID != "traffic-retired" {
+		t.Fatalf("retired bucket = %+v, want just traffic-retired", g.Retired)
+	}
+	if g.Retired[0].State != ClaimStateRetired {
+		t.Errorf("state = %q, want %q", g.Retired[0].State, ClaimStateRetired)
+	}
+	if g.Retired[0].RetiredAt == nil || !g.Retired[0].RetiredAt.Equal(retiredAt) {
+		t.Errorf("retired claim must carry when it was retired, got %v", g.Retired[0].RetiredAt)
+	}
+	if len(g.Gone) != 1 || g.Gone[0].ModelID != "vanished" {
+		t.Errorf("gone bucket = %+v, want just vanished", g.Gone)
+	}
+	if g.Gone[0].RetiredAt != nil {
+		t.Error("a discovery-gone claim must not carry a retirement timestamp")
+	}
+	// Both are actionable, so both count towards the badge.
+	if count != 2 {
+		t.Errorf("claim count = %d, want 2", count)
+	}
+}
+
+// TestBuildProviderClaims_RetiredNeverAgesIntoStale pins the ordering of the two
+// checks. Staleness is measured from last_seen_at, and a retired model is still
+// being listed, so that clock keeps resetting; but a model retired before a
+// provider outage could still present an old last_seen_at, and filing it as
+// stale would drop it out of the counted set and stop it being shown as
+// something the gateway did.
+func TestBuildProviderClaims_RetiredNeverAgesIntoStale(t *testing.T) {
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	retiredAt := now.Add(-2 * time.Hour)
+	rows := []claimRow{
+		{ProviderID: "p1", ProviderName: "Google", ModelID: "old-and-retired", LastSeenAt: now.Add(-90 * 24 * time.Hour), RetiredAt: &retiredAt},
+	}
+
+	claims, count := buildProviderClaims(rows, map[flapKey]int{}, map[flapKey]int{}, now)
+	if len(claims[0].Stale) != 0 {
+		t.Errorf("a retired model must not be filed as stale, got %+v", claims[0].Stale)
+	}
+	if len(claims[0].Retired) != 1 {
+		t.Fatalf("retired bucket = %+v", claims[0].Retired)
+	}
+	if count != 1 {
+		t.Errorf("claim count = %d, want 1: a retired model stays counted", count)
 	}
 }
 

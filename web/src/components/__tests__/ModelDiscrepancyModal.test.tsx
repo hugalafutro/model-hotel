@@ -1,8 +1,9 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DiscoveryChangeEntry, GroupClaim } from "../../api/types";
 import type { MergedProvider } from "../../hooks/useDiscrepancies";
+import { formatRelativeTime } from "../../utils/format";
 import { ModelDiscrepancyModal } from "../ModelDiscrepancyModal";
 
 const prov = (over: Partial<MergedProvider> = {}): MergedProvider => ({
@@ -11,13 +12,14 @@ const prov = (over: Partial<MergedProvider> = {}): MergedProvider => ({
 	gone: [],
 	stale: [],
 	suspect: [],
+	retired: [],
 	...over,
 });
 
 const claimOf = (
 	model_id: string,
 	status: "pending" | "resolved" | "new" | "dismissed",
-	state: "gone" | "stale" | "suspect" = "gone",
+	state: "gone" | "stale" | "suspect" | "retired" = "gone",
 	flaps: { window?: number; sinceReview?: number } = {},
 ) => ({
 	model_id,
@@ -63,7 +65,7 @@ const baseProps = {
  */
 async function openBucket(
 	user: ReturnType<typeof userEvent.setup>,
-	bucket: "gone" | "stale" | "suspect" = "gone",
+	bucket: "gone" | "stale" | "suspect" | "retired" = "gone",
 	nth = 0,
 ) {
 	const section = screen.getAllByTestId("discrepancy-provider")[nth];
@@ -217,6 +219,116 @@ describe("ModelDiscrepancyModal", () => {
 		// Stale still keeps the provider's Retest: a long-gone model is exactly
 		// what you would re-probe on demand.
 		expect(screen.getByTestId("discrepancy-retest")).toBeInTheDocument();
+	});
+
+	// The proxy-retired bucket is the one claim state that did not come from
+	// discovery: the provider kept listing the model and refused every request for
+	// it. It has to be dismissible like gone (an operator who accepts the
+	// retirement needs a way to silence it), and it must be dated by when the
+	// gateway retired it, because "last seen" for these is minutes ago and would
+	// read as contradicting the row it sits on.
+	it("offers dismiss on a retired claim and dates it by the retirement", async () => {
+		const user = userEvent.setup();
+		// Relative to the real clock, so the two format to clearly different
+		// strings ("2 hours ago" vs "40 days ago") whatever day the suite runs.
+		const retiredAt = new Date(Date.now() - 2 * 3600_000).toISOString();
+		const lastSeenAt = new Date(Date.now() - 40 * 86400_000).toISOString();
+		render(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[
+					prov({
+						retired: [
+							{
+								...claimOf("dead-model", "pending", "retired"),
+								last_seen_at: lastSeenAt,
+								retired_at: retiredAt,
+							},
+						],
+					}),
+				]}
+			/>,
+		);
+		await openBucket(user, "retired");
+		const row = screen.getByTestId("discrepancy-claim");
+		expect(row).toHaveAttribute("data-state", "retired");
+		// getByRole rather than the test id, per AGENTS.md; scoped to the row and
+		// without a name filter, because the button's label is translated and
+		// these tests must not depend on the active locale.
+		expect(within(row).getByRole("button")).toBeInTheDocument();
+		// The meta line must be derived from the RETIREMENT, not from last_seen_at.
+		// Both are run through the same formatter and compared against the
+		// rendered text, so the assertion holds in any locale and fails if the
+		// wrong timestamp is used: the two are deliberately far enough apart that
+		// they can never format to the same string.
+		expect(row.textContent).toContain(formatRelativeTime(retiredAt));
+		expect(row.textContent).not.toContain(formatRelativeTime(lastSeenAt));
+	});
+
+	// A retest asks the provider what it lists. For a provider whose only claims
+	// are retirements, the answer is already known and is the problem: the models
+	// ARE listed, and refused. Offering the control would offer a no-op.
+	it("disables retest when every claim is a retirement, and keeps it otherwise", () => {
+		const { rerender } = render(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[prov({ retired: [claimOf("dead", "pending", "retired")] })]}
+			/>,
+		);
+		expect(screen.getByTestId("discrepancy-retest")).toBeDisabled();
+
+		// One claim discovery can actually act on is enough to make it useful
+		// again, so the disable must be about the bucket mix and not about the
+		// mere presence of a retirement.
+		rerender(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[
+					prov({
+						retired: [claimOf("dead", "pending", "retired")],
+						gone: [claimOf("missing", "pending")],
+					}),
+				]}
+			/>,
+		);
+		expect(screen.getByTestId("discrepancy-retest")).toBeEnabled();
+	});
+
+	// The modal-wide walk has to agree with the per-provider control. With Retest
+	// all walking a provider whose own pill declares a retest pointless, it would
+	// make a slow upstream call for exactly the providers each control refused to
+	// offer it for.
+	it("keeps retest all away from providers whose only claims are retirements", () => {
+		const { rerender } = render(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[
+					prov({ retired: [claimOf("dead", "pending", "retired")] }),
+					prov({
+						provider_id: "p2",
+						provider_name: "OpenRouter",
+						retired: [claimOf("dead2", "pending", "retired")],
+					}),
+				]}
+			/>,
+		);
+		expect(screen.queryByTestId("discrepancy-retest-all")).toBeNull();
+
+		// One provider discovery can act on brings the walk back.
+		rerender(
+			<ModelDiscrepancyModal
+				{...baseProps}
+				providers={[
+					prov({ retired: [claimOf("dead", "pending", "retired")] }),
+					prov({
+						provider_id: "p2",
+						provider_name: "OpenRouter",
+						gone: [claimOf("missing", "pending")],
+					}),
+				]}
+			/>,
+		);
+		expect(screen.getByTestId("discrepancy-retest-all")).toBeInTheDocument();
 	});
 
 	it("shows the empty state only when no group anywhere has content", () => {
@@ -1011,6 +1123,7 @@ describe("ModelDiscrepancyModal", () => {
 					onDismissEverything={onDismissEverything}
 					providers={[
 						prov({
+							retired: [claimOf("r1", "pending", "retired")],
 							gone: [claimOf("g1", "pending")],
 							stale: [claimOf("s1", "pending", "stale")],
 							suspect: [claimOf("q1", "pending", "suspect")],
@@ -1019,6 +1132,16 @@ describe("ModelDiscrepancyModal", () => {
 							provider_id: "p2",
 							provider_name: "OpenRouter",
 							gone: [claimOf("g2", "pending")],
+						}),
+						// A provider whose ONLY claims are retirements. If the batch
+						// skipped retired rows this one would produce an empty batch,
+						// be dropped by the filter, and the modal-wide button would
+						// never account for it — while its own pill still offers
+						// Dismiss all, which is the inconsistency this guards.
+						prov({
+							provider_id: "p3",
+							provider_name: "Google",
+							retired: [claimOf("r2", "pending", "retired")],
 						}),
 					]}
 				/>,
@@ -1033,8 +1156,9 @@ describe("ModelDiscrepancyModal", () => {
 			// Suspect is excluded here for the same reason as on the pill: the server
 			// refuses a still-enabled model.
 			expect(onDismissEverything).toHaveBeenCalledWith([
-				{ providerID: "p1", modelIDs: ["g1", "s1"] },
+				{ providerID: "p1", modelIDs: ["r1", "g1", "s1"] },
 				{ providerID: "p2", modelIDs: ["g2"] },
+				{ providerID: "p3", modelIDs: ["r2"] },
 			]);
 		});
 

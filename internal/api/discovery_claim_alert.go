@@ -32,7 +32,12 @@ const ClaimWindowDays = int(ClaimWindow / (24 * time.Hour))
 //
 // A gone model stops counting the moment its age exceeds ClaimWindow: the
 // stale predicate in buildProviderClaims is strictly greater, so at that
-// instant the claim leaves the badge count entirely. The alert fires when the
+// instant the claim leaves the badge count entirely. (A traffic-retired model
+// never ages out this way — it is checked before the stale predicate and stays
+// counted indefinitely — so the ceiling is not needed for its sake. It is kept
+// as one ceiling for both because the gone case is what can go silently dead,
+// and a per-state maximum would be a configuration nobody could reason about.)
+// The alert fires when the
 // oldest still-COUNTED claim exceeds the threshold. Set the threshold to
 // exactly ClaimWindow and those two conditions have no overlap at all: the
 // claim ages out of the count at precisely the instant the alert would
@@ -70,12 +75,14 @@ const settingKeyClaimAlertFired = "_discovery_claim_alert_fired_at"
 // flag, because a boolean latch can be held forever and thereby mute the alert
 // permanently.
 //
-// The deadlock a boolean produces: a model claim self-releases by ageing past
-// ClaimWindow out of Gone, but listGroupClaims has no window filter at all, so
-// a failover group left auto-disabled indefinitely (the operator having
-// accepted that hotel/<model> is dead) keeps the crossed condition true
-// forever. A boolean latch would then never clear, and no later crossing could
-// ever alert again, including a brand-new fifty-model backlog.
+// The deadlock a boolean produces: a GONE model claim self-releases by ageing
+// past ClaimWindow out of Gone, but two other counted things never age out at
+// all — a failover group left auto-disabled indefinitely (the operator having
+// accepted that hotel/<model> is dead), and a traffic-retired model, which is
+// classified before the stale predicate and stays counted until someone acts on
+// it. Either keeps the crossed condition true forever. A boolean latch would
+// then never clear, and no later crossing could ever alert again, including a
+// brand-new fifty-model backlog.
 //
 // Count is the level the operator was last told about, and it moves in both
 // directions:
@@ -135,9 +142,12 @@ const claimAlertWorstProviders = 3
 // actually fire, reporting whether it had to be clamped.
 //
 // A value at or above ClaimWindowDays is rejected rather than honoured for the
-// reason spelled out on MaxClaimAlertDays: the claim would age out of the
-// count before the alert could ever trigger. A non-positive or absent value is
-// not a clamp, it is a missing setting, and falls back to the default.
+// reason spelled out on MaxClaimAlertDays: a GONE claim would age out of the
+// count before the alert could ever trigger. It is clamped for every claim kind,
+// including the retired ones that never age out, because one comprehensible
+// ceiling beats a maximum that depends on which kind of claim happens to be
+// oldest. A non-positive or absent value is not a clamp, it is a missing
+// setting, and falls back to the default.
 func clampClaimAlertDays(days int) (int, bool) {
 	if days < 1 {
 		return DefaultClaimAlertDays, false
@@ -192,18 +202,36 @@ func summarizeCountedClaims(ctx context.Context, pool *pgxpool.Pool, now time.Ti
 
 	// claims is already ordered by counted-claim count descending, so the worst
 	// offenders are simply the first few providers that still have any.
+	//
+	// Counted, not Gone: a retired model counts towards s.models the same way, so
+	// naming providers by their Gone count alone would let the alert report a
+	// total it then attributes to nobody — worst case, "12 models" with no
+	// provider named at all, when every claim is a retirement.
 	for _, p := range claims {
-		if len(p.Gone) == 0 || len(s.worstNames) >= claimAlertWorstProviders {
+		if countedClaims(p) == 0 || len(s.worstNames) >= claimAlertWorstProviders {
 			continue
 		}
 		s.worstNames = append(s.worstNames, p.ProviderName)
-		s.worstCounts = append(s.worstCounts, len(p.Gone))
+		s.worstCounts = append(s.worstCounts, countedClaims(p))
 	}
 
 	for _, p := range claims {
 		for _, c := range p.Gone {
 			if s.oldestAt.IsZero() || c.LastSeenAt.Before(s.oldestAt) {
 				s.oldestAt = c.LastSeenAt
+			}
+		}
+		// Retired claims are dated by the retirement. LastSeenAt is meaningless
+		// for them — the provider still lists the model, so it is refreshed on
+		// every scan and would drag "oldest" to a few minutes ago no matter how
+		// long the model has been broken.
+		for _, c := range p.Retired {
+			at := c.LastSeenAt
+			if c.RetiredAt != nil {
+				at = *c.RetiredAt
+			}
+			if s.oldestAt.IsZero() || at.Before(s.oldestAt) {
+				s.oldestAt = at
 			}
 		}
 	}
@@ -344,10 +372,15 @@ func EvaluateClaimAgeAlert(ctx context.Context, pool *pgxpool.Pool, store Settin
 
 // worstProviderMetadata renders the worst-offender list as structured metadata
 // for SSE consumers.
+//
+// The count is keyed "counted", not "gone". It has always been the number of
+// claims counted towards the badge, and once retirements began counting too, a
+// key called "gone" could report {"provider": "Google", "gone": 3} for a
+// provider with no gone models at all.
 func worstProviderMetadata(s claimAgeSummary) []map[string]any {
 	out := make([]map[string]any, 0, len(s.worstNames))
 	for i, name := range s.worstNames {
-		out = append(out, map[string]any{"provider": name, "gone": s.worstCounts[i]})
+		out = append(out, map[string]any{"provider": name, "counted": s.worstCounts[i]})
 	}
 	return out
 }

@@ -29,10 +29,11 @@ export interface MergedProvider {
 	gone: MergedClaim[];
 	stale: MergedClaim[];
 	suspect: MergedClaim[];
+	retired: MergedClaim[];
 }
 
-type GroupName = "gone" | "stale" | "suspect";
-const GROUPS: GroupName[] = ["gone", "stale", "suspect"];
+type GroupName = "gone" | "stale" | "suspect" | "retired";
+const GROUPS: GroupName[] = ["gone", "stale", "suspect", "retired"];
 
 /** Seeds a fresh snapshot; everything the server reports is pending. */
 export function toSnapshot(claims: ProviderClaims[]): MergedProvider[] {
@@ -42,12 +43,18 @@ export function toSnapshot(claims: ProviderClaims[]): MergedProvider[] {
 		gone: p.gone.map((c) => ({ ...c, status: "pending" as const })),
 		stale: p.stale.map((c) => ({ ...c, status: "pending" as const })),
 		suspect: p.suspect.map((c) => ({ ...c, status: "pending" as const })),
+		retired: p.retired.map((c) => ({ ...c, status: "pending" as const })),
 	}));
 }
 
 type Buckets = Record<GroupName, MergedClaim[]>;
 
-const emptyBuckets = (): Buckets => ({ gone: [], stale: [], suspect: [] });
+const emptyBuckets = (): Buckets => ({
+	gone: [],
+	stale: [],
+	suspect: [],
+	retired: [],
+});
 
 /**
  * A row the refetch no longer reports: cleared, kept in place.
@@ -142,6 +149,7 @@ export function mergeClaims(
 			gone: [],
 			stale: [],
 			suspect: [],
+			retired: [],
 		};
 		return { ...prev, ...mergeProviderBuckets(prev, now ?? empty) };
 	});
@@ -152,6 +160,7 @@ export function mergeClaims(
 			gone: added.gone.map((c) => ({ ...c, status: "new" as const })),
 			stale: added.stale.map((c) => ({ ...c, status: "new" as const })),
 			suspect: added.suspect.map((c) => ({ ...c, status: "new" as const })),
+			retired: added.retired.map((c) => ({ ...c, status: "new" as const })),
 		});
 	}
 	return out;
@@ -225,6 +234,34 @@ export function markDismissed(
 export function providerHasNoPending(p: MergedProvider): boolean {
 	return GROUPS.every((g) =>
 		p[g].every((c) => c.status === "resolved" || c.status === "dismissed"),
+	);
+}
+
+/**
+ * True when a retest of this provider could only confirm what is already known.
+ *
+ * A retest re-runs discovery, which asks the provider what it lists. A provider
+ * whose only outstanding claims are retirements has models that ARE listed —
+ * that is precisely the problem, listed and refused — so the answer changes
+ * nothing and costs a slow upstream call.
+ *
+ * It lives here rather than in the modal because BOTH the control and the walk
+ * have to honour it, and they are in different files. Gating only the modal's
+ * button hides the walk's Retest-all control when every provider is
+ * retired-only, which looks like agreement but is not: on a mixed fleet the
+ * button renders for the provider that does need retesting, and the walk then
+ * visits the retired-only ones too, each with its own pill sitting disabled
+ * saying a retest proves nothing.
+ */
+export function retestProvesNothing(p: MergedProvider): boolean {
+	const pending = (g: GroupName) =>
+		p[g].filter((c) => c.status === "pending" || c.status === "new").length;
+	return (
+		!providerHasNoPending(p) &&
+		pending("retired") > 0 &&
+		pending("gone") === 0 &&
+		pending("stale") === 0 &&
+		pending("suspect") === 0
 	);
 }
 

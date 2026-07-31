@@ -1,3 +1,6 @@
+import os
+import shutil
+import tempfile
 import unittest
 import covlib
 
@@ -76,6 +79,83 @@ class TestColor(unittest.TestCase):
         self.assertEqual(covlib.color_for(65.0), "yellow")
         self.assertEqual(covlib.color_for(55.0), "orange")
         self.assertEqual(covlib.color_for(40.0), "red")
+
+
+class TestEmitsNoRuntimeCode(unittest.TestCase):
+    """The guard that stops a types-only module forcing a full-suite rerun.
+
+    Wrong in the "emits" direction only costs the old behaviour (rerun the full
+    suite). Wrong in the "erased" direction would let an untested change through
+    the gate, so every ambiguous shape below is asserted to answer False.
+    """
+
+    def _write(self, name, src):
+        path = os.path.join(self.tmp, name)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(src)
+        return path
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp)
+
+    def test_types_only_module_is_erased(self):
+        p = self._write("types.ts", """
+import type { Foo } from "./foo";
+
+/** A model claim. */
+export interface Claim {
+	model_id: string;
+	state: "gone" | "retired";
+}
+
+export type ClaimState = Claim["state"];
+""")
+        self.assertTrue(covlib.emits_no_runtime_code(p))
+
+    def test_interface_method_signature_does_not_count_as_a_call(self):
+        # Indented `refresh(): void;` inside an interface must not read as a
+        # top-level call, or every interface-bearing file would look emitting.
+        p = self._write("iface.ts", """
+export interface Api {
+	refresh(): void;
+	load<T>(id: string): Promise<T>;
+}
+""")
+        self.assertTrue(covlib.emits_no_runtime_code(p))
+
+    def test_value_declarations_emit(self):
+        for src in (
+            "export const x = 1;\n",
+            "function f() {}\n",
+            "export default class A {}\n",
+            "export enum E { A }\n",
+            "export * from './x';\n",
+            "export { thing } from './x';\n",
+            "import './side-effect.css';\n",
+            # No other tell: without `abstract` in the modifier list this reads
+            # as erased and skips the guard entirely.
+            "export abstract class Base {}\n",
+            "using handle = open();\n",
+            "export = Legacy;\n",
+        ):
+            with self.subTest(src=src):
+                p = self._write("v.ts", src)
+                self.assertFalse(covlib.emits_no_runtime_code(p))
+
+    def test_bare_top_level_call_emits(self):
+        p = self._write("setup.ts", "configure({ adapter: 1 });\n")
+        self.assertFalse(covlib.emits_no_runtime_code(p))
+
+    def test_type_only_reexport_is_erased(self):
+        p = self._write("reexport.ts", "export type { Foo } from './foo';\n")
+        self.assertTrue(covlib.emits_no_runtime_code(p))
+
+    def test_non_typescript_and_missing_paths_answer_false(self):
+        self.assertFalse(covlib.emits_no_runtime_code("nope.go"))
+        self.assertFalse(
+            covlib.emits_no_runtime_code(os.path.join(self.tmp, "absent.ts"))
+        )
 
 
 if __name__ == "__main__":
