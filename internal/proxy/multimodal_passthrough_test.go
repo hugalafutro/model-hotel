@@ -237,6 +237,75 @@ func TestEmbeddings_FailoverToNextProvider(t *testing.T) {
 	}
 }
 
+// TestEmbeddings_FailoverStillRecordsTheGoneSignal pins that failing over does
+// not throw the retirement evidence away.
+//
+// A retired model usually answers 404, which is failover-eligible, so the branch
+// that hands the request to the next candidate is the branch a dead model's
+// refusals actually take. It drained the body and moved on without classifying
+// it, which meant a model sitting anywhere but LAST in a failover group accrued
+// no strikes at all: only the final candidate reaches forwardUpstreamError,
+// where the strike is recorded. attemptCandidate has classified on the way out
+// for chat since the feature was written; the pass-through loop is the same
+// request path for embeddings, which is now an auto-retirable family.
+//
+// Delete this and traffic-driven retirement quietly stops working for exactly
+// the models that have somewhere to fail over to.
+func TestEmbeddings_FailoverStillRecordsTheGoneSignal(t *testing.T) {
+	// The upstream handler needs the model's generated name to refuse it BY
+	// NAME: classifyUpstreamError only reads a gone-phrase as a retirement when
+	// the body names the model the request asked for.
+	var goneModelName atomic.Value
+	envGone := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		name, _ := goneModelName.Load().(string)
+		_, _ = fmt.Fprintf(w, "{\"error\":{\"message\":\"The model `%s` does not exist\"}}", name)
+	}))
+	goneModelName.Store(envGone.modelName)
+
+	goodUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"object":"list","data":[{"object":"embedding","embedding":[0.1],"index":0}]}`)
+	}))
+	t.Cleanup(goodUpstream.Close)
+	_, _, goodModelUUID, _ := createMultimodalProvider(t, goodUpstream.URL)
+
+	groupName := envGone.modelName
+	failoverRepo := failover.NewRepository(testDB.Pool())
+	if _, err := failoverRepo.UpsertWithConfig(context.Background(), groupName,
+		[]uuid.UUID{envGone.modelUUID, goodModelUUID},
+		map[string]bool{envGone.modelUUID.String(): true, goodModelUUID.String(): true},
+		nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+
+	body := fmt.Sprintf(`{"model":"hotel/%s","input":"hi"}`, groupName)
+	req := envGone.request("/v1/embeddings", "application/json", strings.NewReader(body))
+	w := httptest.NewRecorder()
+	envGone.handler.Embeddings(w, req)
+
+	// The client is served by the second candidate, exactly as before: recording
+	// the signal must not change what the request returns.
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 after failover (body: %s)", w.Code, w.Body.String())
+	}
+
+	// The strike itself is recorded synchronously — only the disable is detached
+	// — so this is the state the request left behind, not a race.
+	raw, ok := envGone.handler.goneStrikes.Load(envGone.modelUUID)
+	if !ok {
+		t.Fatal("the refused model accrued no strike, so it can never be auto-retired from a failover group")
+	}
+	streak, ok := raw.(*goneStreak)
+	if !ok {
+		t.Fatalf("unexpected streak type %T", raw)
+	}
+	if n := streak.count(); n != 1 {
+		t.Errorf("streak = %d, want exactly 1 strike for one refusal", n)
+	}
+}
+
 func TestEmbeddings_UpstreamErrorReturnsOpenAIError(t *testing.T) {
 	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -226,6 +226,46 @@ func (s *goneStreak) claimProbe(now time.Time) bool {
 	return true
 }
 
+// parkServed records that a direct probe got content out of the model: the
+// count goes, the cooldown stays.
+//
+// It exists because "clear the streak" and "delete the streak" are the same
+// thing everywhere else in this file and must not be here. noteModelServed —
+// the request path's version, which this deliberately does not call — drops the
+// whole entry, and nextProbeAt goes with it. A model whose real traffic keeps
+// drawing retirement prose while a minimal probe keeps succeeding would then
+// rebuild three strikes against a fresh zero-valued streak, whose claimProbe
+// admits immediately, and probe again: one probe per three refusals, forever.
+// That is the unbounded rate goneProbeCooldown was added to close, reopened by
+// the one verdict that is expected to repeat, since a probe that disagrees with
+// the traffic is precisely the case this whole feature exists to catch.
+//
+// So the count is reset — the model needs three FRESH refusals before it is
+// reconsidered, which is the backoff the served path always meant — and the
+// stamp is kept, so the reconsideration also waits out the cooldown. Both must
+// hold before another upstream request is spent.
+//
+// Mutating this streak in place rather than reaching into h.goneStrikes by
+// model id is what makes it identity-scoped for free: sync.Map holds the
+// pointer, so a park lands on the map entry when this is still the live streak
+// and touches nothing when it is not. That matters for a probe goroutine that
+// began up to goneProbeTimeout ago — a success may have dropped its streak and
+// fresh refusals built another, and this evidence is not about that one.
+//
+// cancelled is cleared for the same reason the count is: what stays behind must
+// be a streak that can still work. A parked entry carrying a stale tombstone
+// would fail its next disable's pre-write check and silently never retire the
+// model again. Nothing can be racing it — claimProbe admits one probe per
+// cooldown and the whole goroutine lives well inside that — so this is the
+// last writer.
+func (s *goneStreak) parkServed() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.n = 0
+	s.lastStrike = time.Time{}
+	s.cancelled.Store(false)
+}
+
 // count reports the current streak length.
 func (s *goneStreak) count() int64 {
 	s.mu.Lock()
@@ -366,6 +406,20 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	modelID, modelName, provider := m.ID, m.ModelID, candidate.provider.Name
 
 	go func() {
+		// Every other detached goroutine in this package recovers
+		// (touchProviderLastUsed, the log writer, the usage recorder) and this
+		// one now has far more reason to. It used to call repository methods and
+		// nothing else; it now makes an upstream request and runs bytes a
+		// provider chose through the dialect translators, so a panic anywhere in
+		// json, the transport or a translator would take the whole gateway down
+		// over one model's retirement. Recovering leaves the model enabled, which
+		// is the direction every unproven case on this path already takes.
+		defer func() {
+			if r := recover(); r != nil {
+				debuglog.Error("proxy: panic while auto-disabling a retired model", "model", modelName, "provider", provider, "error", r)
+			}
+		}()
+
 		// The decision was made before this goroutine was scheduled, and the
 		// write below can take as long as the database does. If the model
 		// answered a request in the meantime it has proved it is alive, and
@@ -405,35 +459,20 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			// does not — an operator should see it, because it is the case in
 			// which the old code would have retired a working model.
 			//
-			// noteModelServed is the existing machinery for "this model works":
-			// it stands down any queued disable and clears the streak, so the
-			// model needs three FRESH refusals before it is reconsidered. That
-			// is the backoff, and it is why no durable "never retire this model"
-			// store is being added — a model that is genuinely dead simply earns
-			// the strikes again, and one that is alive keeps clearing them.
+			// parkServed is the backoff, and it is why no durable "never retire
+			// this model" store is being added: the count is reset, so the model
+			// needs three FRESH refusals before it is reconsidered, and one that
+			// is genuinely dead simply earns them again while one that is alive
+			// keeps clearing them.
 			//
-			// noteModelServed is called unconditionally, and that is the one
-			// place on this path where a stale goroutine can act on a streak
-			// that is not the one it was started for. This probe can have begun
-			// up to goneProbeTimeout ago; in the meantime a success could have
-			// dropped its streak and fresh refusals built another, and
-			// noteModelServed cancels and deletes whatever it finds under the
-			// model id. The revert path below guards exactly this hazard
-			// explicitly (it re-reads the streak and stands down if the model is
-			// refusing again), and the asymmetry is deliberate rather than an
-			// omission.
-			//
-			// Why this one does not need the guard: it fails safe and it heals.
-			// The probe just had CONTENT out of the model, which is stronger and
-			// more recent evidence than any classifier strike sitting in that
-			// newer streak — the revert path is defending a database write made
-			// on older evidence, and this path is defending nothing, because it
-			// writes nothing. Cancelling a newer in-flight disable postpones a
-			// retirement; it cannot cause one. And the streak is deleted rather
-			// than parked, so refusals that are still real rebuild it from zero
-			// and reach the threshold again on their own.
-			debuglog.Warn("proxy: not auto-disabling, the model answered a direct probe after being reported gone", "model", modelName, "provider", provider, "endpoint", endpointType, "strikes", goneStrikeThreshold)
-			h.noteModelServed(m)
+			// Deliberately not noteModelServed, which is the request path's
+			// version of the same idea. That one deletes the whole streak, and
+			// the probe cooldown is part of the streak — see parkServed for what
+			// deleting it costs. Its other job, standing down a queued disable,
+			// has nothing to do here either: the only disable this streak can
+			// have queued is this goroutine, which is about to return.
+			debuglog.Warn("proxy: not auto-disabling, the model answered a direct probe after being reported gone", "model", modelName, "provider", provider, "endpoint", endpointType, "strikes", goneStrikeThreshold, "retry_after", goneProbeCooldown.String())
+			streak.parkServed()
 			return
 		case probeInconclusive:
 			// Nothing was established: a 429, a 5xx, an entitlement failure, a

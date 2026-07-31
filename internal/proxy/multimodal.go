@@ -17,6 +17,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // Multimodal proxy endpoints: OpenAI-compatible pass-through for embeddings,
@@ -368,8 +369,30 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	if isFailoverEligible {
 		h.recordBreakerOutcome(st, candidate, resp.StatusCode, true)
 		if hasMoreCandidates {
-			_, _ = io.ReadAll(resp.Body)
+			// The body is discarded anyway, so classify it on the way out —
+			// exactly what attemptCandidate does for chat, and for the same
+			// reason: a retired model usually answers 404, which is
+			// failover-eligible, so without this the "model gone" signal is lost
+			// precisely when there is another candidate to fall back to. Only the
+			// LAST candidate in a group reached forwardUpstreamError and struck,
+			// which meant an embeddings model sitting anywhere else in a
+			// multi-candidate group accrued no strikes at all.
+			//
+			// It costs nothing that was not already being spent: the same read,
+			// the same discard, one classifier call on a body the request path
+			// has already given up on.
+			//
+			// Bounded rather than read whole, unlike the chat path. These are the
+			// multimodal endpoints, where a body can be a multi-megabyte image
+			// payload; the classifier only ever sees the first 10 000 characters
+			// of it, so anything past the cap is drained straight to Discard
+			// instead of being held in memory to be thrown away.
+			drained, _ := io.ReadAll(io.LimitReader(resp.Body, passthroughErrorClassifyCap))
+			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
+			if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(drained), 10000), candidate.model.ModelID); kind == KindProviderModelGone {
+				h.noteModelGone(candidate, logData.endpointType)
+			}
 			st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
 			debuglog.Info("proxy: failover triggered", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 			logData.failoverAttempt = attempt
@@ -395,6 +418,13 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	h.servePassthroughResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
 	return outcomeServed
 }
+
+// passthroughErrorClassifyCap bounds how much of a discarded failover error body
+// is held in memory long enough to be classified. classifyUpstreamError never
+// sees more than util.SanitizeLogBody's own 10 000 characters, so reading
+// further would retain bytes nothing can read — and on these endpoints the body
+// behind an error status can be an image payload rather than a sentence.
+const passthroughErrorClassifyCap = 16 << 10
 
 // passthroughJSONBufferCap bounds how much of a JSON pass-through response is
 // buffered for token-usage extraction. Bodies beyond the cap (e.g. multi-image

@@ -31,18 +31,27 @@ const goneProbeMaxTokens = 64
 
 // goneProbeMaxBody bounds how much of a probe answer is read into memory.
 //
-// The expected body is a couple of hundred bytes — one refusal, or one 64-token
-// completion. The read happens on the detached disable goroutine with no client
-// backpressure behind it, so nothing downstream would notice a provider (or
-// something impersonating one) streaming megabytes into it. 64 KiB is orders of
-// magnitude above any real answer and orders of magnitude below anything that
-// matters to the process.
+// The read happens on the detached disable goroutine with no client backpressure
+// behind it, so nothing downstream would notice a provider (or something
+// impersonating one) streaming megabytes into it. probeModel applies this to
+// resp.Body itself rather than at each read site, because the reads are not all
+// in this file: remapMiniMaxBusinessError and both dialect translators consume
+// the body whole, and a cap that only covered the two judgement functions would
+// have left every MiniMax, vertex-express and Responses probe unbounded.
 //
-// Truncation is safe by construction on both judgement paths: a cut-off body
-// either fails to parse, or parses into something the judgement reads as
-// unproven, and both postpone. See judgeProbeFailure for the one case where
-// that had to be reasoned about rather than assumed.
-const goneProbeMaxBody = 64 << 10
+// A megabyte rather than the couple of hundred bytes a chat refusal or a
+// 64-token completion actually needs, because the embeddings family shares the
+// constant: a 3072-dimension embedding serialised at full float precision runs
+// past 60 KiB, so a tighter cap would truncate legitimate answers from exactly
+// the models this probe is supposed to adjudicate. Still orders of magnitude
+// below anything that matters to the process, at one probe per model per
+// goneProbeCooldown.
+//
+// The value is not load-bearing for correctness in either direction, which is
+// the point of judgeProbeFailure's explicit length check: a truncated body
+// postpones because it was measured to be truncated, not because 1 MiB happens
+// to sit above the classifier's own 10 000-character window.
+const goneProbeMaxBody = 1 << 20
 
 // goneProbeTimeout bounds the pre-retirement probe. It runs on the detached
 // disable goroutine, so nothing on the request path is waiting on it.
@@ -145,6 +154,18 @@ func probeEndpointForFamily(endpointType string) (endpoint string, ok bool) {
 	default:
 		return "", false
 	}
+}
+
+// cappedBody is a response body bounded by goneProbeMaxBody whose Close still
+// closes the transport's own body underneath.
+//
+// The Closer half is the point. Wrapping in an io.NopCloser would leave nothing
+// holding the real body, and every reader downstream — including the two in
+// other packages — would then be reading through a cap while the connection it
+// belongs to leaked.
+type cappedBody struct {
+	io.Reader
+	io.Closer
 }
 
 // probeChatRequest is the minimal chat body the probe sends. It reuses the
@@ -364,12 +385,34 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 		debuglog.Debug("proxy: retirement probe did not reach the provider", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "verdict", probeInconclusive.String(), "error", err)
 		return probeInconclusive
 	}
+	// The cap goes on the body here, once, and everything past this line reads
+	// through it. Applying it at the read sites instead would have missed three
+	// of them: remapMiniMaxBusinessError and both dialect translators call
+	// io.ReadAll(resp.Body) inside packages that know nothing about this budget,
+	// so a MiniMax, vertex-express or Responses candidate answering a 200 with a
+	// multi-gigabyte body would have been read into memory in full.
+	//
+	// rawBody is held separately because resp.Body is replaced here and replaced
+	// again by remapMiniMaxBusinessError, and the drain below has to read the
+	// transport's own body rather than whichever wrapper is in the field by then.
+	// The close can stay on the field precisely because cappedBody passes Close
+	// through — see cappedBody for why the obvious io.NopCloser cannot.
+	//
+	// One byte past the cap, so a truncated body can be recognised as truncated:
+	// io.ReadAll reports no error when a LimitReader runs out, so length is the
+	// only signal there is (see judgeProbeFailure).
+	rawBody := resp.Body
+	resp.Body = cappedBody{Reader: io.LimitReader(rawBody, goneProbeMaxBody+1), Closer: rawBody}
 	defer func() {
 		// Drain before closing so the transport can reuse the connection, and
 		// drain no more than the judgement was willing to read. A body past
 		// goneProbeMaxBody costs the connection its reuse and nothing else,
 		// which is the cheaper of the two ways to be wrong here.
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, goneProbeMaxBody))
+		_, _ = io.Copy(io.Discard, io.LimitReader(rawBody, goneProbeMaxBody))
+		// Whatever is in the field: the cap above on every path, or the
+		// NopCloser remapMiniMaxBusinessError leaves behind — and that path has
+		// already closed the cap, and through it the transport's own body. The
+		// real body is closed exactly once either way.
 		_ = resp.Body.Close()
 	}()
 
@@ -392,14 +435,29 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 // no status-code shortcut around the classifier here — a bare "404 means gone"
 // would retire every model behind a misconfigured base URL.
 func judgeProbeFailure(resp *http.Response, candidate modelCandidate, endpointType string) probeVerdict {
-	body, err := io.ReadAll(io.LimitReader(resp.Body, goneProbeMaxBody))
-	if err != nil {
-		// The one place in this file where a discarded read error could RETIRE
-		// a model: a truncated body whose surviving prefix happens to name the
-		// model beside a gone-phrase classifies exactly like a real refusal.
+	// One byte past the cap on purpose. This is the one place in this file where
+	// a body we did not receive in full could RETIRE a model: a surviving prefix
+	// that happens to name the model beside a gone-phrase classifies exactly like
+	// a real refusal, and the classifier only ever sees the first 10 000
+	// characters, so it cannot tell that the rest went missing.
+	//
+	// Reading exactly goneProbeMaxBody could not tell either. io.ReadAll returns
+	// a nil error when a LimitReader is exhausted — that is not a read failure,
+	// it is the reader ending — so the err branch below catches genuine transport
+	// failures and never catches truncation. The extra byte is what turns "we hit
+	// the cap" into something observable, and probeModel sizes its own wrapper to
+	// let it through.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, goneProbeMaxBody+1))
+	switch {
+	case err != nil:
 		// A body we could not finish reading is not the provider saying
 		// anything, so it postpones like every other unproven case.
 		debuglog.Debug("proxy: retirement probe could not read the provider's answer", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "status", resp.StatusCode, "verdict", probeInconclusive.String(), "error", err)
+		return probeInconclusive
+	case len(body) > goneProbeMaxBody:
+		// Over the cap: what is in hand is a prefix of an answer whose real
+		// content is unknown. Postpone rather than classify it.
+		debuglog.Debug("proxy: retirement probe answer exceeded the read cap", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "status", resp.StatusCode, "verdict", probeInconclusive.String(), "max_bytes", goneProbeMaxBody)
 		return probeInconclusive
 	}
 	kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(body), 10000), candidate.model.ModelID)
@@ -431,15 +489,16 @@ func judgeProbeSuccess(resp *http.Response, st *requestState, candidate modelCan
 		return probeInconclusive
 	}
 
-	// The read error IS discarded here, and deliberately, which is the opposite
-	// of the care judgeProbeFailure takes over the same call. The asymmetry is
-	// in what a truncated body can produce, not in how much attention the two
+	// Both the read error and the cap are ignored here, which is the opposite of
+	// the care judgeProbeFailure takes over the same call. The asymmetry is in
+	// what an incomplete body can produce, not in how much attention the two
 	// paths deserve. There, a surviving prefix naming the model beside a
-	// gone-phrase classifies as a refusal and RETIRES; here, the worst a partial
-	// body can do is fail to parse (probeDeliveredContent returns false, and the
-	// probe postpones) or carry content, which can only ever PREVENT a disable.
-	// Neither outcome can retire a model, so a separate branch for the error
-	// would postpone exactly where the code already postpones.
+	// gone-phrase would classify as a refusal and RETIRE, so it has to be
+	// detected; here, the worst a partial body can do is fail to parse
+	// (probeDeliveredContent returns false, and the probe postpones) or carry
+	// content, which can only ever PREVENT a disable. Neither outcome can retire
+	// a model, so the branches would postpone exactly where the code already
+	// postpones.
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, goneProbeMaxBody))
 	verdict := probeInconclusive
 	if probeDeliveredContent(endpointType, body) {

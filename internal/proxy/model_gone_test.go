@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -68,6 +69,24 @@ func goneStreakFor(t *testing.T, h *Handler, id uuid.UUID) *goneStreak {
 		t.Fatal("unexpected streak type")
 	}
 	return streak
+}
+
+// waitForStreakCount blocks until the model's streak holds want strikes, for the
+// paths that reset the count in place instead of dropping the entry. The reset
+// happens on the detached goroutine, so reading the count straight after the
+// refusals that triggered it races the reset rather than observing it.
+func waitForStreakCount(t *testing.T, h *Handler, id uuid.UUID, want int64) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if raw, ok := h.goneStrikes.Load(id); ok {
+			if s, ok := raw.(*goneStreak); ok && s.count() == want {
+				return
+			}
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("the streak never settled at %d strikes", want)
 }
 
 // expireProbeCooldown ages the model's probe claim so the next refusal may spend
@@ -1299,13 +1318,122 @@ func TestNoteModelGone_AnsweredProbePreventsTheDisable(t *testing.T) {
 	if calls := waitForDisable(t, repo); len(calls) != 0 {
 		t.Fatalf("a model that answered a direct probe must not be retired, got %+v", calls)
 	}
-	// The streak is dropped by the served branch (through noteModelServed), so
-	// the model needs three FRESH refusals before it is reconsidered.
-	waitForStreakCleared(t, h, m.ID)
+	// The count is reset by the served branch, so the model needs three FRESH
+	// refusals before it is reconsidered. The entry itself stays — it is what
+	// carries the probe cooldown, which the test below is about.
+	waitForStreakCount(t, h, m.ID, 0)
 	// And the outcome came from asking rather than from nothing happening.
 	if paths := script.requestedPaths(); len(paths) != 1 || paths[0] != probeChatEndpoint {
 		t.Fatalf("expected exactly one probe on %s, got %v", probeChatEndpoint, paths)
 	}
+}
+
+// TestNoteModelGone_APanicWhileDisablingDoesNotKillTheGateway pins the
+// recover() on the detached goroutine.
+//
+// That goroutine used to call repository methods and nothing else. It now makes
+// an upstream request and runs bytes a provider chose through json and the
+// dialect translators, and an unrecovered panic on any goroutine takes the whole
+// process down — so one model's retirement would be able to kill a gateway that
+// is serving everything else fine. Every other detached goroutine in this
+// package already recovers.
+//
+// The failure mode is why this test looks the way it does: without the recover,
+// the panic is not a failed assertion, it is the test binary dying, and the
+// second half below never runs at all. What is asserted is that the gateway
+// carried on and retired the next model normally.
+func TestNoteModelGone_APanicWhileDisablingDoesNotKillTheGateway(t *testing.T) {
+	t.Parallel()
+
+	// Panic once, on the first retirement only, so the second one exercises a
+	// gateway that is still working rather than a mock that stopped panicking.
+	var panicked atomic.Bool
+	repo := &mockModelRepo{afterConfirm: func() {
+		if panicked.CompareAndSwap(false, true) {
+			panic("a provider answer blew up mid-retirement")
+		}
+	}}
+	h := newGoneHandler(t, repo)
+
+	doomed := &model.Model{ID: uuid.New(), ModelID: "claude-sonnet-4"}
+	doomedCand := goneCandidateFor(t, doomed, "OpenCode Zen")
+	for range goneStrikeThreshold {
+		h.noteModelGone(doomedCand, endpointTypeChat)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for !panicked.Load() && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if !panicked.Load() {
+		t.Fatal("the retirement never reached the write, so nothing was proved about surviving one")
+	}
+
+	// The gateway is still here, and still retiring models.
+	next := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	nextCand := goneCandidateFor(t, next, "Google AI Studio (Gemini)")
+	for range goneStrikeThreshold {
+		h.noteModelGone(nextCand, endpointTypeChat)
+	}
+
+	calls := waitForDisable(t, repo)
+	if len(calls) != 1 || calls[0].id != next.ID || !calls[0].committed {
+		t.Fatalf("the retirement after the panic must land normally, got %+v", calls)
+	}
+}
+
+// TestNoteModelGone_AnsweredProbeKeepsTheCooldown pins the bound on the one
+// verdict that is expected to REPEAT.
+//
+// A model whose real traffic keeps drawing retirement prose while a minimal
+// probe keeps answering is not an edge case: it is the disagreement the whole
+// feature exists to catch, and it does not resolve itself. Three refusals, a
+// probe, a served verdict, and the traffic goes straight back to refusing. If
+// the served branch drops the whole streak the way a real success does, the
+// cooldown goes with it, the rebuilt streak starts from a zero-valued one that
+// admits immediately, and the gateway probes once per three refusals for as long
+// as the disagreement lasts — roughly three upstream requests a second under a
+// client retry loop, at a provider that is already answering everything with an
+// error.
+//
+// Delete this test and that regression is invisible: every other served-probe
+// assertion still passes, because the model is still not retired.
+func TestNoteModelGone_AnsweredProbeKeepsTheCooldown(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol"}
+	srv, script := newGoneScriptedServer(t, http.StatusOK, goneServedAnswer)
+	cand := goneCandidateAt(m, "OpenAI", srv.URL)
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+	// Wait for the probe to have happened, then for the served branch to have
+	// finished with the streak. Without both, "no second probe" and "the first
+	// probe has not landed yet" are the same observation.
+	waitForProbes(t, script, 1)
+	waitForStreakCount(t, h, m.ID, 0)
+
+	// The traffic goes back to refusing, which is what a real disagreement looks
+	// like. The count is allowed to climb again — that is the backoff working —
+	// but not one of these may buy an upstream request inside the cooldown.
+	for range 10 * goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+	if calls := waitForDisable(t, repo); len(calls) != 0 {
+		t.Fatalf("a model that answered a direct probe must not be retired, got %+v", calls)
+	}
+	if paths := script.requestedPaths(); len(paths) != 1 {
+		t.Fatalf("refusals inside the cooldown must cost no further upstream requests, got %v", paths)
+	}
+
+	// And it is a delay rather than a lockout: once the cooldown lapses the model
+	// is reconsidered on the strikes it has rebuilt since.
+	expireProbeCooldown(t, h, m.ID)
+	h.noteModelGone(cand, endpointTypeChat)
+	waitForProbes(t, script, 2)
 }
 
 // TestNoteModelGone_RefusedProbeStillDisables is the paired control for the test

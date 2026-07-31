@@ -1017,9 +1017,12 @@ How a retirement is reached:
    own conclusion from its own traffic.
 2. **Adjudication.** At the threshold the gateway sends a real, minimal request
    to the model itself (a 64-token chat completion, or a one-input embedding),
-   off the request path. Content coming back means the model works: the streak
-   is cleared, nothing is disabled, and a warning is logged because a model that
-   refuses real traffic and answers a probe is worth a look. The provider
+   off the request path. Content coming back means the model works: the strike
+   count is cleared, nothing is disabled, and a warning is logged because a model
+   that refuses real traffic and answers a probe is worth a look. Such a model
+   needs three fresh strikes AND the probe cooldown below before it is asked
+   again, which matters because a provider whose prose disagrees with its own
+   behaviour keeps producing this outcome. The provider
    refusing the model by name is what writes the disable. Anything else (a 429,
    a 5xx, an entitlement failure, a timeout, an unreadable answer) establishes
    nothing and postpones.

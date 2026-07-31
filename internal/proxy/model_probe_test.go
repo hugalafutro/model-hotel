@@ -1,14 +1,18 @@
 package proxy
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -650,5 +654,119 @@ func TestProbeModel_TruncatedRefusalPostpones(t *testing.T) {
 	h := newProbeHandler(t)
 	if got := runProbe(t, h, probeCandidateFor(srv.URL, "gemini-2.0-flash"), endpointTypeChat); got != probeInconclusive {
 		t.Fatalf("verdict = %s, want inconclusive", got)
+	}
+}
+
+// paddedRefusal builds a retirement refusal of roughly size bytes: the
+// gone-phrase first, so the classifier sees it inside its own 10 000-character
+// window whatever the total length, then filler.
+//
+// The point is a body whose CLASSIFICATION is identical at every size, so a
+// verdict that changes with the size changed because of the size.
+func paddedRefusal(modelID string, size int) string {
+	head := fmt.Sprintf("{\"error\":{\"message\":\"The model `%s` does not exist\",\"detail\":\"", modelID)
+	const tail = "\"}}"
+	if pad := size - len(head) - len(tail); pad > 0 {
+		return head + strings.Repeat("a", pad) + tail
+	}
+	return head + tail
+}
+
+// TestProbeModel_OversizedRefusalPostpones pins the read cap as a real guard
+// rather than a comment.
+//
+// io.ReadAll returns a NIL error when a LimitReader is exhausted, so a body cut
+// off at goneProbeMaxBody arrives looking exactly like a body that ended: no
+// error, and a prefix that still names the model beside a gone-phrase, because
+// the classifier only ever reads the first 10 000 characters and the phrase is
+// at the front. The model gets RETIRED on an answer the gateway never received
+// in full — the one direction a probe is never allowed to take.
+//
+// The under-cap half is the control. Without it the test would also pass if the
+// probe simply stopped retiring anything on a large body, or on any body at all.
+func TestProbeModel_OversizedRefusalPostpones(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		size int
+		want probeVerdict
+	}{
+		// Comfortably inside the cap: an ordinary refusal, read whole, retires.
+		{"within the cap", goneProbeMaxBody - (8 << 10), probeRefused},
+		// Past it: the same words, but what arrived is a prefix of an answer
+		// whose real content nobody knows.
+		{"past the cap", goneProbeMaxBody + (8 << 10), probeInconclusive},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			srv, _ := probeServer(t, http.StatusNotFound, paddedRefusal("claude-sonnet-4", tc.size))
+			h := newProbeHandler(t)
+			if got := runProbe(t, h, probeCandidateFor(srv.URL, "claude-sonnet-4"), endpointTypeChat); got != tc.want {
+				t.Fatalf("verdict = %s, want %s", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestProbeModel_DialectAnswerIsBounded pins that the cap covers the reads this
+// file does not make.
+//
+// goneProbeMaxBody is applied to resp.Body once, in probeModel, and that is the
+// only reason it binds at all: remapMiniMaxBusinessError and both dialect
+// translators live in other files and read the body WHOLE, with io.ReadAll and
+// no budget of their own. Capping at the two judgement functions instead would
+// have left every MiniMax, vertex-express and OpenAI-Responses candidate
+// unbounded — and this all happens on the detached disable goroutine, with no
+// client backpressure behind it, so a provider (or something impersonating one)
+// answering 200 with a multi-gigabyte body would be read into memory in full
+// with nothing to notice.
+//
+// The assertion is on the bytes the provider managed to send, because that is
+// the only observable: the verdict is inconclusive either way, since a truncated
+// Gemini answer does not parse and neither does a complete one made of filler.
+func TestProbeModel_DialectAnswerIsBounded(t *testing.T) {
+	t.Parallel()
+
+	// Eight times the cap. The probe reads at most the cap plus its own drain of
+	// the same size, so the margin is wide enough that neither socket buffering
+	// nor the drain can be mistaken for the translator having read it all.
+	const flood = 8 * goneProbeMaxBody
+	var written atomic.Int64
+	done := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		defer close(done)
+		w.Header().Set("Content-Type", "application/json")
+		// Bounded so the handler always terminates: once the probe closes the
+		// body these writes fail, and if they somehow do not, the loop still ends
+		// rather than hanging the test's server shutdown.
+		chunk := bytes.Repeat([]byte("a"), 32<<10)
+		for written.Load() < flood {
+			n, err := w.Write(chunk)
+			written.Add(int64(n))
+			if err != nil {
+				return
+			}
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	// A vertex-express candidate, so the answer goes through
+	// translateGeminiResponseBody rather than through this file's own reads.
+	h := &Handler{upstreamTransport: dialToTestServer(t, srv)}
+	candidate := probeCandidateFor("http://us-central1-aiplatform.googleapis.com/v1", "gemini-2.0-flash")
+
+	if got := runProbe(t, h, candidate, endpointTypeChat); got != probeInconclusive {
+		t.Fatalf("verdict = %s, want inconclusive", got)
+	}
+	select {
+	case <-done:
+	case <-time.After(goneProbeTimeout):
+		t.Fatal("the provider never stopped writing, so the probe never stopped reading")
+	}
+	if n := written.Load(); n >= flood {
+		t.Fatalf("the provider sent all %d bytes, so nothing bounded the read; the cap is %d", n, goneProbeMaxBody)
 	}
 }
