@@ -1433,6 +1433,38 @@ func TestNoteModelGone_AnsweredProbeKeepsTheCooldown(t *testing.T) {
 	waitForProbes(t, script, 2)
 }
 
+// TestProbeForRetirement_NilCandidatePostponesInsteadOfPanicking pins that the
+// guard is where the dereferences are.
+//
+// probeModel checks the same two fields, but every field probeForRetirement
+// touches on the way there — the provider's id for the semaphore, the model's id
+// for the postpone log — would already have panicked, so the downstream guard
+// was promising an outcome it could never deliver. The panic is caught by the
+// disable goroutine's recover and reported as a panic, which is the wrong answer
+// to "is this model still served": nothing was established, and that is what
+// probeInconclusive means.
+func TestProbeForRetirement_NilCandidatePostponesInsteadOfPanicking(t *testing.T) {
+	t.Parallel()
+
+	h := &Handler{}
+	cases := []struct {
+		name      string
+		candidate modelCandidate
+	}{
+		{"no provider", modelCandidate{model: &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}}},
+		{"no model", modelCandidate{provider: &provider.Provider{ID: uuid.New(), Name: "Google AI Studio (Gemini)"}}},
+		{"neither", modelCandidate{}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := h.probeForRetirement(tc.candidate, endpointTypeChat); got != probeInconclusive {
+				t.Fatalf("verdict = %s, want inconclusive", got)
+			}
+		})
+	}
+}
+
 // TestGoneStreak_SupersedeIsAtomicToAReader pins the one ordering the revert
 // path depends on and cannot check for itself.
 //

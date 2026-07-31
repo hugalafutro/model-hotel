@@ -729,6 +729,18 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 // retirement rather than confirming it, which is the safe direction but still a
 // wasted call. Nothing on the request path is waiting on any of it.
 func (h *Handler) probeForRetirement(candidate modelCandidate, endpointType string) probeVerdict {
+	// Before anything is dereferenced, and that is the point of it being here.
+	// probeModel makes the same check, but every field this function touches on
+	// the way there — the provider's id for the semaphore, the model's id for
+	// the log line — would already have panicked, so the guard downstream was
+	// promising a postponement it could never deliver. A panic here is caught by
+	// the disable goroutine's recover and reported as a panic, which is the
+	// wrong answer to "is this model still served": nothing was established, and
+	// nothing being established is what probeInconclusive means.
+	if candidate.model == nil || candidate.provider == nil {
+		return probeInconclusive
+	}
+
 	release, ok := h.acquireProbeSlot(candidate.provider.ID)
 	if !ok {
 		debuglog.Info("proxy: postponing auto-disable, too many retirement probes are already in flight for this provider", "model", candidate.model.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "limit", goneProbeMaxConcurrent, "retry_after", goneProbeCooldown.String())

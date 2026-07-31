@@ -409,27 +409,12 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, hasMoreCandidates, responseHeaderMs)
 	}
 
-	// The provider served the model, so any gone-strike streak it had is stale.
-	// This is the success half of the signal the failover branch above records,
-	// and without it "three CONSECUTIVE refusals" was not true on this path:
-	// embeddings is the one pass-through family that can be auto-retired, and its
-	// strikes only ever expired with goneStrikeWindow. Three refusals scattered
-	// across half an hour of otherwise healthy traffic reached the threshold and
-	// spent a probe, where the chat path would have cleared the count on the first
-	// success in between.
-	//
-	// Unconditional on the family, unlike the strike. A strike has to be gated
-	// because it cannot be adjudicated for an image or TTS model, but a 2xx from
-	// any surface is evidence the provider still serves the model, and clearing a
-	// streak can only ever PREVENT a retirement. Nothing is at risk from being
-	// generous here, and a model taking both chat and embeddings traffic gets the
-	// same answer from either.
-	h.noteModelServed(candidate.model)
-
 	// Breaker success for 2xx is recorded inside servePassthroughResponse at
-	// the commit point (headers for buffered JSON, first body byte for
+	// the commit point (the buffered read for JSON, the first body byte for
 	// SSE/binary), so a provider that returns 200 and then stalls or dies
-	// before producing any data still accrues breaker failures.
+	// before producing any data still accrues breaker failures. The
+	// gone-strike streak is cleared at those same two points and for the same
+	// reason: 200 headers are a promise, not evidence.
 	debuglog.Debug("proxy: upstream responded OK, dispatching passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"))
 	h.servePassthroughResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
 	return outcomeServed
@@ -506,6 +491,31 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	if st.circuitBreakerEnabled {
 		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 	}
+	// The commit point is also where the model has proved it is alive, so this
+	// is where its gone-strike streak stops being current. It is the success
+	// half of the signal the failover loop records, and without it "three
+	// CONSECUTIVE refusals" is not true on this path: embeddings is the one
+	// pass-through family that can be auto-retired, and its strikes would
+	// otherwise only expire with goneStrikeWindow, so three refusals scattered
+	// across half an hour of otherwise healthy traffic would reach the threshold
+	// and spend a probe.
+	//
+	// Here rather than on the 200 headers, and NOT beside the breaker call by
+	// coincidence. The read above is what distinguishes a provider that served
+	// the model from one that promised to: a body that died mid-read is the
+	// failure branch, and clearing the streak there would let a model that never
+	// actually answers stay out of reach of a retirement forever.
+	//
+	// Not gated on circuitBreakerEnabled either, unlike its neighbour. The
+	// breaker is an operator's routing choice; whether a model still exists is
+	// not, and turning the breaker off must not silently stop strikes being
+	// cleared.
+	//
+	// Unconditional on the family, unlike the strike. A strike has to be gated
+	// because it cannot be adjudicated for an image or TTS model, but a served
+	// body from any surface is evidence the provider still serves the model, and
+	// clearing a streak can only ever PREVENT a retirement.
+	h.noteModelServed(candidate.model)
 	copyPassthroughHeaders(w, resp, contentType)
 
 	if len(body) > passthroughJSONBufferCap {
@@ -563,6 +573,11 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	if st.circuitBreakerEnabled {
 		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name)
 	}
+	// The streamed commit point, matching the buffered one: a first byte out of
+	// the provider is where a 200 stops being a promise. See the twin call in
+	// serveBufferedJSONPassthrough for why it is here, ungated by the breaker
+	// setting, and ungated by the endpoint family.
+	h.noteModelServed(candidate.model)
 
 	copyPassthroughHeaders(w, resp, contentType)
 	if isSSE {

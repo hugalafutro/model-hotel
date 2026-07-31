@@ -368,6 +368,75 @@ func TestEmbeddings_ASuccessClearsTheGoneStrikes(t *testing.T) {
 	}
 }
 
+// TestEmbeddings_ADeadBodyDoesNotClearTheGoneStrikes is the other half of the
+// test above: which 200 counts.
+//
+// 200 headers are a promise. The provider can send them and then die before a
+// byte of body arrives, which this file already treats as a provider FAILURE
+// everywhere else — the breaker records one, and the client gets a 502. Clearing
+// the streak on the headers would let a model that never actually answers keep
+// resetting its own count between refusals, so it would never reach three
+// consecutive strikes, never be probed, and never be retired: exactly the state
+// the strike machinery exists to escape.
+func TestEmbeddings_ADeadBodyDoesNotClearTheGoneStrikes(t *testing.T) {
+	var goneModelName atomic.Value
+	var refuse atomic.Bool
+	refuse.Store(true)
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if refuse.Load() {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			name, _ := goneModelName.Load().(string)
+			_, _ = fmt.Fprintf(w, "{\"error\":{\"message\":\"The model `%s` does not exist\"}}", name)
+			return
+		}
+		// 200 headers, a promise of 1000 bytes, and then the connection dies
+		// nine bytes in.
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			t.Error("test server does not support hijacking")
+			return
+		}
+		conn, buf, err := hj.Hijack()
+		if err != nil {
+			t.Errorf("hijack: %v", err)
+			return
+		}
+		_, _ = buf.WriteString("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 1000\r\n\r\n{\"object\":")
+		_ = buf.Flush()
+		_ = conn.Close()
+	}))
+	goneModelName.Store(env.modelName)
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hi"}`, env.providerName, env.modelName)
+	embed := func() int {
+		req := env.request("/v1/embeddings", "application/json", strings.NewReader(body))
+		w := httptest.NewRecorder()
+		env.handler.Embeddings(w, req)
+		return w.Code
+	}
+
+	if code := embed(); code != http.StatusNotFound {
+		t.Fatalf("status = %d, want the provider's 404", code)
+	}
+	raw, ok := env.handler.goneStrikes.Load(env.modelUUID)
+	if !ok {
+		t.Fatal("the refusal accrued no strike")
+	}
+	streak, ok := raw.(*goneStreak)
+	if !ok {
+		t.Fatalf("unexpected streak type %T", raw)
+	}
+
+	refuse.Store(false)
+	if code := embed(); code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502 for a body that died mid-read", code)
+	}
+	if n := streak.count(); n != 1 {
+		t.Fatalf("streak = %d, want the strike kept: a 200 that produced no body is not the model answering", n)
+	}
+}
+
 func TestEmbeddings_UpstreamErrorReturnsOpenAIError(t *testing.T) {
 	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

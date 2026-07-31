@@ -304,6 +304,11 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 		// answer is still that nothing was established.
 		return probeInconclusive
 	}
+	// Kept although probeForRetirement now checks first, because this function
+	// takes a candidate and dereferences it and must be able to say so on its
+	// own terms rather than by the grace of its only production caller. It is
+	// reachable and exercised: the tests drive probeModel directly, which is
+	// also how any future caller would.
 	if candidate.model == nil || candidate.provider == nil {
 		return probeInconclusive
 	}
