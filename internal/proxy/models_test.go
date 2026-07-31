@@ -583,10 +583,13 @@ type mockModelRepo struct {
 	setEnabledMu    sync.Mutex
 	setEnabledCalls []setEnabledCall
 	setEnabledErr   error
-	// setEnabledGate, when non-nil, blocks SetEnabled until it is closed. It
-	// exists so a test can hold the detached disable write open and interleave
-	// another event against it deterministically.
+	// setEnabledGate, when non-nil, blocks the FIRST SetEnabled call until it is
+	// closed. It exists so a test can hold the detached disable write open and
+	// interleave another event against it deterministically. Only the first
+	// call: a test that holds the disable open still needs any compensating
+	// re-enable that follows it to run to completion.
 	setEnabledGate chan struct{}
+	gateOnce       sync.Once
 	// setEnabledEntered is closed by the first SetEnabled call once it has been
 	// entered but before it blocks, so a test knows the write is genuinely in
 	// flight rather than racing the goroutine's scheduling.
@@ -605,7 +608,11 @@ func (m *mockModelRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bo
 		m.enteredOnce.Do(func() { close(m.setEnabledEntered) })
 	}
 	if m.setEnabledGate != nil {
-		<-m.setEnabledGate
+		first := false
+		m.gateOnce.Do(func() { first = true })
+		if first {
+			<-m.setEnabledGate
+		}
 	}
 	m.setEnabledMu.Lock()
 	defer m.setEnabledMu.Unlock()

@@ -490,6 +490,57 @@ func TestNoteModelGone_SuccessCancelsAQueuedDisable(t *testing.T) {
 	}
 }
 
+// TestNoteModelGone_SuccessDuringTheWriteIsReverted covers the half of the
+// window the pre-write check cannot reach.
+//
+// TestNoteModelGone_SuccessCancelsAQueuedDisable pins a success that arrives
+// before the write starts, which is simply skipped. This one arrives after the
+// write has begun: the cancellation flag is then set too late to stop it, the
+// disable lands, and the model is retired in the moment it proved it works.
+// Nothing can prevent that write, so the contract is that it is undone.
+func TestNoteModelGone_SuccessDuringTheWriteIsReverted(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{
+		setEnabledGate:    make(chan struct{}),
+		setEnabledEntered: make(chan struct{}),
+	}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+
+	// Wait for the write to be genuinely in flight — past the pre-check and
+	// inside SetEnabled — so the interleaving is deterministic rather than a
+	// bet on goroutine scheduling.
+	select {
+	case <-repo.setEnabledEntered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the disable write never started")
+	}
+
+	// The model answers while the disable is mid-write.
+	h.noteModelServed(m)
+	close(repo.setEnabledGate)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if calls := repo.disableCalls(); len(calls) == 2 {
+			if calls[0].enabled {
+				t.Errorf("first write should be the disable, got enabled=%v", calls[0].enabled)
+			}
+			if !calls[1].enabled {
+				t.Error("a model that answered mid-write must be re-enabled, not left disabled")
+			}
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("expected the disable to be reverted, got %+v", repo.disableCalls())
+}
+
 // TestNoteModelGone_QueuedDisableStillLandsWithoutASuccess is the control: the
 // cancellation must only fire on an actual success, not swallow every disable
 // that happens to be slow.

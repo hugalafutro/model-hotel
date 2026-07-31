@@ -44,6 +44,12 @@ const goneStrikeThreshold = 3
 // the model can answer a request and prove it is alive. noteModelServed sets
 // this so the queued write can stand down instead of retiring a model whose
 // evidence has already been superseded.
+//
+// It is read twice, and both reads are needed. Before the write it prevents a
+// disable that is now known to be wrong; after the write it catches a success
+// that landed while the write was in flight, which the first read is by
+// definition too early to see. The second case cannot be prevented, only
+// undone, so noteModelGone reverts rather than skips there.
 type goneStreak struct {
 	n         atomic.Int64
 	cancelled atomic.Bool
@@ -128,6 +134,39 @@ func (h *Handler) noteModelGone(m *model.Model, providerName string) {
 			// again. Without this a transient database error would leave the
 			// count parked above the threshold and the model enabled forever.
 			h.goneStrikes.Delete(modelID)
+			return
+		}
+
+		// Re-check AFTER the write, not only before it. The check above cannot
+		// cover the write itself: a success landing while the UPDATE was in
+		// flight sets the flag too late to stop it, and the model is then
+		// retired in the moment it proved it still serves traffic.
+		//
+		// Serialising instead — holding a lock across the write so a success
+		// has to wait for it — is not available here. noteModelServed runs on
+		// the request path BEFORE a non-streaming response is written to the
+		// client (see proxy_failover.go), so blocking it would put client
+		// latency behind a database write on an unrelated request's error path.
+		// Undoing a disable that has been superseded is the cheaper trade: it
+		// costs one extra write in a window that is rarely hit, and only ever on
+		// a model that has just been shown to work.
+		if streak.cancelled.Load() {
+			// A fresh context: dctx may have little or none of its budget left
+			// precisely when this matters most, since a slow write is what
+			// opens the window in the first place. The undo must not inherit
+			// the timeout that the disable already spent.
+			rctx, rcancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer rcancel()
+			if _, err := h.modelRepo.SetEnabled(rctx, modelID, true); err != nil {
+				// Nothing safe is left to try. Log loudly: the model is
+				// disabled and the gateway believes it should not be.
+				debuglog.Error("proxy: model answered while its auto-disable was in flight, and re-enabling it failed", "model", modelName, "provider", provider, "error", err)
+				return
+			}
+			debuglog.Info("proxy: reverted auto-disable, model answered while the write was in flight", "model", modelName, "provider", provider)
+			// Deliberately no alert and no group revalidation: as far as
+			// operators are concerned nothing happened, and publishing a
+			// retirement for a model that is still enabled would be a lie.
 			return
 		}
 
