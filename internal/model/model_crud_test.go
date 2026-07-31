@@ -1228,6 +1228,55 @@ func TestSetEnabledIfConfirmed_AbandonedWriteIsNeverVisible(t *testing.T) {
 	}
 }
 
+// TestSetEnabledIfConfirmed_DeadContextReportsNotCommitted pins the failure
+// direction, which matters more here than for an ordinary write.
+//
+// The caller acts on the returned bool: a true tells the proxy its disable
+// landed, so it announces the retirement and resizes failover groups around it.
+// If a write that never reached the database reported itself committed, the
+// gateway would publish a model retirement that did not happen.
+func TestSetEnabledIfConfirmed_DeadContextReportsNotCommitted(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-setenabled-deadctx")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	modelID := uuid.New()
+	if _, err := testPool.Exec(ctx, `
+		INSERT INTO models (id, provider_id, model_id, name, enabled, created_at)
+		VALUES ($1, $2, $3, $4, true, now())
+	`, modelID, providerID, "confirm-deadctx", "Confirm Dead Context Test"); err != nil {
+		t.Fatalf("insert failed: %v", err)
+	}
+
+	dead, cancel := context.WithCancel(ctx)
+	cancel()
+
+	confirmed := false
+	committed, err := repo.SetEnabledIfConfirmed(dead, modelID, false, func() bool {
+		confirmed = true
+		return true
+	})
+	if err == nil {
+		t.Fatal("a cancelled context must surface an error")
+	}
+	if committed {
+		t.Error("a write that never reached the database must not report itself committed")
+	}
+	if confirmed {
+		t.Error("confirm must not run once the write has already failed")
+	}
+
+	var enabled bool
+	if err := testPool.QueryRow(ctx, `SELECT enabled FROM models WHERE id = $1`, modelID).Scan(&enabled); err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+	if !enabled {
+		t.Error("a failed write must leave the model untouched")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // TestDeleteByID
 // ---------------------------------------------------------------------------

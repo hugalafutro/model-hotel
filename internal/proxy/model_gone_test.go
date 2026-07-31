@@ -675,6 +675,87 @@ func TestNoteModelGone_StaleFailedDisableKeepsANewerStreak(t *testing.T) {
 	t.Fatalf("a stale failed disable erased the newer streak: only %d disable attempts", len(repo.disableCalls()))
 }
 
+// TestNoteModelGone_FailedRollbackStopsThere pins the worst case on the
+// rollback path: the disable committed, the model then answered, and the undo
+// could not be written.
+//
+// The model is left disabled and the gateway knows it should not be, which is
+// the one state this path cannot repair. What it must NOT do is carry on as
+// though the disable stood — announcing a retirement and resizing failover
+// groups around a model it has just been told is alive. It stops instead, and
+// the operator has the error log.
+func TestNoteModelGone_FailedRollbackStopsThere(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{reEnableErr: errors.New("database unavailable")}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	repo.afterConfirm = func() { h.noteModelServed(m) }
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		calls := repo.disableCalls()
+		if len(calls) < 2 {
+			time.Sleep(5 * time.Millisecond)
+			continue
+		}
+		if len(calls) != 2 {
+			t.Fatalf("expected the disable and one failed rollback, got %+v", calls)
+		}
+		if calls[0].enabled || !calls[0].committed {
+			t.Errorf("first write should be a committed disable, got %+v", calls[0])
+		}
+		if !calls[1].enabled || calls[1].committed {
+			t.Errorf("second write should be a failed re-enable, got %+v", calls[1])
+		}
+		return
+	}
+	t.Fatalf("the rollback was never attempted, got %+v", repo.disableCalls())
+}
+
+// TestNoteStreamOutcome_InconclusiveTouchesNeitherCounter pins the middle
+// verdict end to end, through the shared entry point both dispatch paths use.
+//
+// The verdict table is tested directly elsewhere, but that does not prove
+// noteStreamOutcome acts on it: a stream that failed for an unrelated reason
+// must leave the streak exactly where it was. Clearing it there lets a retired
+// model stay routable forever on the strength of its own unrelated failures,
+// and striking there retires a healthy model during an outage.
+func TestNoteStreamOutcome_InconclusiveTouchesNeitherCounter(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
+	candidate := modelCandidate{model: m, provider: &provider.Provider{Name: "Google AI Studio (Gemini)"}}
+
+	// One short of the threshold, so a stray strike would disable and a stray
+	// clear would be visible as a restart.
+	for range goneStrikeThreshold - 1 {
+		h.noteModelGone(m, "Google AI Studio (Gemini)")
+	}
+
+	// A timeout, a client disconnect and a transient provider failure: none of
+	// them is evidence about whether the model still exists.
+	for _, kind := range []ErrorKind{KindProviderTimeout, KindClientDisconnect, KindProviderError} {
+		h.noteStreamOutcome(&requestLogData{errorKind: kind}, candidate)
+	}
+
+	if calls := repo.disableCalls(); len(calls) != 0 {
+		t.Fatalf("an inconclusive stream must not disable anything, got %+v", calls)
+	}
+
+	// The streak survived intact, so the next real refusal completes it.
+	h.noteModelGone(m, "Google AI Studio (Gemini)")
+	if calls := waitForDisable(t, repo); len(calls) != 1 {
+		t.Fatalf("an inconclusive stream cleared the streak: expected the disable, got %+v", calls)
+	}
+}
+
 // TestNoteModelGone_EachWriteGetsAFreshDeadline pins that the out-of-band
 // writes do not share one budget.
 //

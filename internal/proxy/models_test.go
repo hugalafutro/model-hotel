@@ -590,6 +590,10 @@ type mockModelRepo struct {
 	// re-enable that follows it to run to completion.
 	setEnabledGate chan struct{}
 	gateOnce       sync.Once
+	// reEnableErr, when non-nil, fails only writes that turn a model back ON.
+	// It exists to exercise a rollback that cannot be written, which needs the
+	// disable to have succeeded first.
+	reEnableErr error
 	// afterConfirm, when non-nil, runs immediately after the confirm callback
 	// and before the commit is recorded. It is the seam for the one interleaving
 	// staging cannot prevent: a success arriving once the write is already
@@ -678,9 +682,13 @@ func (m *mockModelRepo) SetEnabled(ctx context.Context, id uuid.UUID, enabled bo
 			<-m.setEnabledGate
 		}
 	}
-	m.record(setEnabledCall{id: id, enabled: enabled, budget: budget, committed: m.setEnabledErr == nil})
-	if m.setEnabledErr != nil {
-		return nil, m.setEnabledErr
+	err := m.setEnabledErr
+	if enabled && m.reEnableErr != nil {
+		err = m.reEnableErr
+	}
+	m.record(setEnabledCall{id: id, enabled: enabled, budget: budget, committed: err == nil})
+	if err != nil {
+		return nil, err
 	}
 	return &model.Model{ID: id, Enabled: enabled}, nil
 }

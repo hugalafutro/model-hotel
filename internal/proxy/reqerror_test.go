@@ -99,6 +99,36 @@ func TestReqErrorRender(t *testing.T) {
 			err:  reqError{Kind: KindProviderError, Attempt: 0},
 			want: `the provider failed on attempt 1`,
 		},
+		// The three kinds split out of KindProviderError. Their whole purpose is
+		// that a caller can tell them apart, so the wording is the contract: a
+		// retired model, a billing or plan refusal, and a rejected payload each
+		// need a different operator response, and every one of them used to
+		// arrive as the same "returned HTTP 400".
+		{
+			name: "model gone",
+			err:  reqError{Kind: KindProviderModelGone, Attempt: 0, Provider: "google"},
+			want: `provider "google" no longer serves this model (attempt 1)`,
+		},
+		{
+			name: "model gone keeps the provider's own words",
+			err:  reqError{Kind: KindProviderModelGone, Attempt: 1, Provider: "google", Underlying: "model not found"},
+			want: `provider "google" no longer serves this model (attempt 2); last provider error: model not found`,
+		},
+		{
+			name: "not entitled",
+			err:  reqError{Kind: KindProviderNotEntitled, Attempt: 0, Provider: "zai"},
+			want: `provider "zai" rejected the request for billing or plan reasons on attempt 1`,
+		},
+		{
+			name: "bad request",
+			err:  reqError{Kind: KindProviderBadRequest, Attempt: 0, Provider: "groq"},
+			want: `provider "groq" rejected the request payload on attempt 1`,
+		},
+		{
+			name: "bad request without a provider name",
+			err:  reqError{Kind: KindProviderBadRequest, Attempt: 0},
+			want: `the provider rejected the request payload on attempt 1`,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
