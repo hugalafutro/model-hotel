@@ -216,6 +216,16 @@ func (s *goneStreak) strike(now time.Time) int64 {
 //
 // The zero value admits the first caller, which is what a model that has never
 // been probed should get.
+//
+// Granting a claim also clears the cancelled tombstone, and that is what makes
+// a streak reusable rather than something to be thrown away. The flag means "a
+// success landed after the disable now in flight was decided", so it belongs to
+// one decision; a claim starts the next one, on three fresh strikes that the
+// success itself is older than. Leaving it set would make the disable this claim
+// spawns stand down at its own pre-write check, and the model would never be
+// retired again on this streak. Nothing can be racing it: a claim cannot be
+// granted while an earlier probe is alive, because goneProbeCooldown is five
+// minutes and the whole goroutine lives at most goneProbeTimeout plus one write.
 func (s *goneStreak) claimProbe(now time.Time) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -223,47 +233,45 @@ func (s *goneStreak) claimProbe(now time.Time) bool {
 		return false
 	}
 	s.nextProbeAt = now.Add(goneProbeCooldown)
+	s.cancelled.Store(false)
 	return true
 }
 
-// parkServed records that a direct probe got content out of the model: the
-// count goes, the cooldown stays.
+// park clears the evidence a streak has accumulated and keeps the probe
+// cooldown it has earned. It is what "clear the streak" means everywhere in
+// this file; nothing removes the entry.
 //
-// It exists because "clear the streak" and "delete the streak" are the same
-// thing everywhere else in this file and must not be here. noteModelServed —
-// the request path's version, which this deliberately does not call — drops the
-// whole entry, and nextProbeAt goes with it. A model whose real traffic keeps
-// drawing retirement prose while a minimal probe keeps succeeding would then
-// rebuild three strikes against a fresh zero-valued streak, whose claimProbe
-// admits immediately, and probe again: one probe per three refusals, forever.
-// That is the unbounded rate goneProbeCooldown was added to close, reopened by
-// the one verdict that is expected to repeat, since a probe that disagrees with
-// the traffic is precisely the case this whole feature exists to catch.
+// Deleting was the obvious spelling and it silently discarded the rate bound.
+// nextProbeAt lives on the streak, so dropping the entry drops the stamp, and
+// the next refusal builds a fresh zero-valued streak whose claimProbe admits
+// immediately. Every reason a streak used to be deleted is a reason it is
+// likely to be rebuilt at once: a probe that answered while traffic keeps
+// drawing retirement prose, a real request that succeeded between refusals, a
+// disable that failed to write. Each of those turned into three fresh refusals
+// buying another upstream call, forever, which is precisely the loop
+// goneProbeCooldown exists to close.
 //
-// So the count is reset — the model needs three FRESH refusals before it is
-// reconsidered, which is the backoff the served path always meant — and the
-// stamp is kept, so the reconsideration also waits out the cooldown. Both must
-// hold before another upstream request is spent.
+// Parking gives both halves of the bound instead. The count is reset, so the
+// model needs three FRESH refusals before it is reconsidered, and the stamp
+// survives, so the reconsideration also waits out the cooldown.
 //
-// Mutating this streak in place rather than reaching into h.goneStrikes by
-// model id is what makes it identity-scoped for free: sync.Map holds the
-// pointer, so a park lands on the map entry when this is still the live streak
-// and touches nothing when it is not. That matters for a probe goroutine that
-// began up to goneProbeTimeout ago — a success may have dropped its streak and
-// fresh refusals built another, and this evidence is not about that one.
+// Mutating the streak in place rather than reaching into h.goneStrikes by model
+// id is what makes every caller identity-scoped for free: sync.Map holds the
+// pointer, so a park lands on the map entry while this is still the live streak
+// and touches nothing once it is not.
 //
-// cancelled is cleared for the same reason the count is: what stays behind must
-// be a streak that can still work. A parked entry carrying a stale tombstone
-// would fail its next disable's pre-write check and silently never retire the
-// model again. Nothing can be racing it — claimProbe admits one probe per
-// cooldown and the whole goroutine lives well inside that — so this is the
-// last writer.
-func (s *goneStreak) parkServed() {
+// The tombstone is deliberately not touched here: a success has to set it (see
+// noteModelServed) and a claim has to clear it (see claimProbe), and both of
+// those are decisions about a disable rather than about the evidence.
+//
+// Nothing is ever deleted, so the map holds one small struct per model that has
+// ever drawn a gone-classified refusal. That is bounded by the catalog and is
+// the point: a model's probe cooldown has to outlive the streak that earned it.
+func (s *goneStreak) park() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.n = 0
 	s.lastStrike = time.Time{}
-	s.cancelled.Store(false)
 }
 
 // count reports the current streak length.
@@ -459,20 +467,19 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			// does not — an operator should see it, because it is the case in
 			// which the old code would have retired a working model.
 			//
-			// parkServed is the backoff, and it is why no durable "never retire
+			// The park is the backoff, and it is why no durable "never retire
 			// this model" store is being added: the count is reset, so the model
 			// needs three FRESH refusals before it is reconsidered, and one that
 			// is genuinely dead simply earns them again while one that is alive
 			// keeps clearing them.
 			//
-			// Deliberately not noteModelServed, which is the request path's
-			// version of the same idea. That one deletes the whole streak, and
-			// the probe cooldown is part of the streak — see parkServed for what
-			// deleting it costs. Its other job, standing down a queued disable,
-			// has nothing to do here either: the only disable this streak can
-			// have queued is this goroutine, which is about to return.
+			// The streak is parked directly rather than through noteModelServed,
+			// which does the same to the count and additionally sets the
+			// tombstone. There is nothing here for the tombstone to stand down:
+			// the only disable this streak can have queued is this goroutine,
+			// which is about to return.
 			debuglog.Warn("proxy: not auto-disabling, the model answered a direct probe after being reported gone", "model", modelName, "provider", provider, "endpoint", endpointType, "strikes", goneStrikeThreshold, "retry_after", goneProbeCooldown.String())
-			streak.parkServed()
+			streak.park()
 			return
 		case probeInconclusive:
 			// Nothing was established: a 429, a 5xx, an entitlement failure, a
@@ -533,19 +540,19 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 		})
 		cancel()
 		if err != nil {
-			debuglog.Error("proxy: failed to auto-disable retired model", "model", modelName, "provider", provider, "error", err)
-			// Clear the streak so the next refusals can rebuild it and try
-			// again. Without this a transient database error would leave the
-			// count parked above the threshold and the model enabled forever.
+			debuglog.Error("proxy: failed to auto-disable retired model", "model", modelName, "provider", provider, "error", err, "retry_after", goneProbeCooldown.String())
+			// Nothing is touched, and that is the retry. The streak keeps its
+			// count and its stamp, so the next refusal past goneProbeCooldown
+			// claims a probe and the disable is attempted again.
 			//
-			// Conditional on identity, because this goroutine may be stale. It
-			// can sit in the write while a success clears the streak it was
-			// started for and later refusals build a NEW one; deleting by model
-			// id would then throw away that newer count on its way out, and the
-			// model would keep restarting from zero instead of reaching the
-			// threshold. Only the streak this attempt actually belongs to may
-			// be retired by it.
-			h.goneStrikes.CompareAndDelete(modelID, streak)
+			// This used to delete the streak, for the same reason the
+			// inconclusive path did and with the same cost. Under the old
+			// strikes == goneStrikeThreshold gate a parked count was
+			// unreachable, so dropping it was the only way a model whose write
+			// failed could ever be retired; claimProbe made it reachable, and
+			// deleting also threw away the cooldown — which turned a database
+			// outage into three fresh refusals buying another upstream probe,
+			// on repeat, for every model refusing traffic at the time.
 			return
 		}
 
@@ -832,14 +839,24 @@ func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCand
 
 // noteModelServed clears any accumulated gone-strikes after the model answers.
 // The strike streak must be consecutive, so one success is enough to reset it.
-// The map lookup is deliberately the only work done for a healthy model: nothing
-// is written, and nothing touches the database.
+//
+// It runs on the request path, so what it costs there is part of the design: a
+// model that has never been refused misses the map entirely, and one that has
+// pays a miss plus an uncontended mutex on a request that is already waiting on
+// an upstream call. Nothing is written and nothing touches the database.
 //
 // It also cancels a disable that has been decided but not yet written. The
-// ordering matters: mark the streak cancelled FIRST, then drop it from the map.
-// A queued disable holds a pointer to the streak, not the map entry, so marking
-// before deleting is what makes the flag visible to it — deleting first would
-// leave the goroutine holding an orphan it can never be told about.
+// ordering matters: mark the streak cancelled FIRST, then clear the count. A
+// queued disable holds a pointer to the streak, so setting the flag before
+// standing the evidence down is what makes it visible to that goroutine.
+//
+// The entry is parked, not dropped, and the difference is the probe cooldown.
+// Deleting it took nextProbeAt with it, so a success between refusals reset the
+// rate bound — and a model that refuses some request shapes while serving
+// others produces exactly that interleaving. Three refusals then bought a probe,
+// a success wiped the stamp, three more refusals bought another, indefinitely.
+// A success clears what the model is accused of; it does not buy the gateway
+// another free upstream call. See park.
 func (h *Handler) noteModelServed(m *model.Model) {
 	if m == nil || m.ID == uuid.Nil {
 		return
@@ -853,9 +870,6 @@ func (h *Handler) noteModelServed(m *model.Model) {
 		return
 	}
 	streak.cancelled.Store(true)
-	// Also conditional on identity: between the load above and here the streak
-	// can be dropped by a failing disable and a fresh one started by new
-	// refusals, and this success is not evidence about that later streak.
-	h.goneStrikes.CompareAndDelete(m.ID, streak)
+	streak.park()
 	debuglog.Debug("proxy: model answered again, cleared gone-strikes", "model", m.ModelID)
 }

@@ -408,6 +408,15 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 		// drain no more than the judgement was willing to read. A body past
 		// goneProbeMaxBody costs the connection its reuse and nothing else,
 		// which is the cheaper of the two ways to be wrong here.
+		//
+		// It is a plain-path drain and knowingly a no-op elsewhere: MiniMax and
+		// both dialect translators read the body to EOF and CLOSE it themselves,
+		// so on those candidates this copy reads an already-closed body and
+		// discards the error. Nothing is lost by that. A body those paths could
+		// finish was already drained by them, and one they could not finish is
+		// past the cap, where the connection is forfeit either way. The branch it
+		// would take to skip the copy would cost more to read than the copy costs
+		// to run.
 		_, _ = io.Copy(io.Discard, io.LimitReader(rawBody, goneProbeMaxBody))
 		// Whatever is in the field: the cap above on every path, or the
 		// NopCloser remapMiniMaxBusinessError leaves behind — and that path has

@@ -24,6 +24,21 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// failoverErrorClassifyCap bounds how much of a discarded failover error body is
+// held in memory long enough to be classified.
+//
+// The body is on its way to being thrown away: the client is served by the next
+// candidate, and the only thing still wanted from it is whether the provider
+// said the model is retired. classifyUpstreamError never sees more than
+// util.SanitizeLogBody's own 10 000 characters, so everything above this cap is
+// read and discarded rather than retained.
+//
+// Shared by the chat loop and the multimodal pass-through loop, which run the
+// same drain-and-classify block. Sixteen kibibytes is comfortably above any
+// error message and well below the multi-megabyte bodies the image endpoints can
+// answer with.
+const failoverErrorClassifyCap = 16 << 10
+
 // paramRetryResult is the outcome of the 400 param-stripping auto-retry
 // (retryWithStrippedParams). It tells the failover loop how to proceed:
 //   - resp: the response to continue handling with — the retry's response on a
@@ -164,7 +179,14 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	debuglog.Debug("proxy: failover decision", "status", resp.StatusCode, "is_failover_eligible", isFailoverEligible, "has_more_candidates", hasMoreCandidates, "should_failover_now", shouldFailoverNow, "attempt", attempt+1)
 
 	if shouldFailoverNow {
-		drained, _ := io.ReadAll(resp.Body)
+		// Read only what can be classified, then drain the rest straight to
+		// Discard so the connection stays reusable without the body being held
+		// in memory. The classifier never sees past util.SanitizeLogBody's own
+		// 10 000 characters, so everything above the cap was being retained to
+		// be thrown away — once per concurrent failing request, on the request
+		// path, at whatever size the provider chose to send.
+		drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
+		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 		// The body is being discarded anyway, so classify it on the way out.
 		// A retired model usually answers 404, which is failover-eligible, so

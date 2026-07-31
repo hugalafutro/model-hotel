@@ -382,12 +382,11 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 			// the same discard, one classifier call on a body the request path
 			// has already given up on.
 			//
-			// Bounded rather than read whole, unlike the chat path. These are the
-			// multimodal endpoints, where a body can be a multi-megabyte image
-			// payload; the classifier only ever sees the first 10 000 characters
-			// of it, so anything past the cap is drained straight to Discard
-			// instead of being held in memory to be thrown away.
-			drained, _ := io.ReadAll(io.LimitReader(resp.Body, passthroughErrorClassifyCap))
+			// Bounded, and the cap matters more here than on the chat path that
+			// shares it: these are the multimodal endpoints, where the body
+			// behind an error status can be an image payload rather than a
+			// sentence.
+			drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
 			if kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(drained), 10000), candidate.model.ModelID); kind == KindProviderModelGone {
@@ -418,13 +417,6 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	h.servePassthroughResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
 	return outcomeServed
 }
-
-// passthroughErrorClassifyCap bounds how much of a discarded failover error body
-// is held in memory long enough to be classified. classifyUpstreamError never
-// sees more than util.SanitizeLogBody's own 10 000 characters, so reading
-// further would retain bytes nothing can read — and on these endpoints the body
-// behind an error status can be an image payload rather than a sentence.
-const passthroughErrorClassifyCap = 16 << 10
 
 // passthroughJSONBufferCap bounds how much of a JSON pass-through response is
 // buffered for token-usage extraction. Bodies beyond the cap (e.g. multi-image

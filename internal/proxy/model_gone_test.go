@@ -37,24 +37,6 @@ func waitForDisable(t *testing.T, repo *mockModelRepo) []setEnabledCall {
 	return repo.disableCalls()
 }
 
-// waitForStreakCleared blocks until the disable goroutine has finished dropping
-// the model's streak. Observing the SetEnabled call is not enough: the call is
-// recorded inside the mock, while the streak is cleared only after it returns,
-// so a test that starts a second round on the call alone can strike the OLD
-// streak — pushing it past the threshold, where every strike is a no-op — and
-// then watch the first goroutine delete the evidence.
-func waitForStreakCleared(t *testing.T, h *Handler, id uuid.UUID) {
-	t.Helper()
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		if _, ok := h.goneStrikes.Load(id); !ok {
-			return
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	t.Fatal("the streak was never cleared")
-}
-
 // goneStreakFor returns the model's live streak, failing the test if there is
 // none. The streak is what the postponement paths now leave behind, so several
 // tests below assert on it directly rather than on the absence of a write.
@@ -676,18 +658,24 @@ func TestNoteModelGone_ConcurrentBurstDisablesOnce(t *testing.T) {
 	}
 }
 
-// TestNoteModelGone_FailedDisableIsRetried pins the failure path of the
-// no-clear-on-success rule. Leaving the count above the threshold is what stops
-// a burst re-disabling and re-alerting, but a disable that never landed must not
-// be parked there forever, or a transient database error would leave a dead
-// model enabled permanently.
+// TestNoteModelGone_FailedDisableIsRetried pins both halves of what a write
+// that never landed must do.
+//
+// It must be retried: a transient database error may not leave a dead model
+// enabled forever. And the retry must respect the same bound as everything else
+// on this path — the failure says nothing about the provider, so it is no reason
+// to spend another upstream request now. The old shape deleted the streak to
+// make the retry reachable, which cost the cooldown with it and turned a
+// database outage into three fresh refusals buying another probe, on repeat, for
+// every model refusing traffic at the time.
 func TestNoteModelGone_FailedDisableIsRetried(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{setEnabledErr: errors.New("database unavailable")}
 	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
-	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
+	srv, script := newGoneScriptedServer(t, http.StatusNotFound, goneRefusalBody("gemini-2.0-flash"))
+	cand := goneCandidateAt(m, "Google AI Studio (Gemini)", srv.URL)
 
 	for range goneStrikeThreshold {
 		h.noteModelGone(cand, endpointTypeChat)
@@ -695,13 +683,23 @@ func TestNoteModelGone_FailedDisableIsRetried(t *testing.T) {
 	if calls := waitForDisable(t, repo); len(calls) != 1 {
 		t.Fatalf("expected the first (failing) attempt, got %d", len(calls))
 	}
-	waitForStreakCleared(t, h, m.ID)
 
-	// The streak was cleared by the failure, so a fresh run of refusals must
-	// reach the threshold and try again rather than being swallowed.
-	for range goneStrikeThreshold {
+	// Refusals inside the cooldown cost nothing: no second probe, no second
+	// write attempt.
+	for range 10 * goneStrikeThreshold {
 		h.noteModelGone(cand, endpointTypeChat)
 	}
+	if paths := script.requestedPaths(); len(paths) != 1 {
+		t.Fatalf("a failed write is not a reason to re-probe the provider, got %v", paths)
+	}
+	if calls := repo.disableCalls(); len(calls) != 1 {
+		t.Fatalf("expected no retry inside the cooldown, got %+v", calls)
+	}
+
+	// Once it lapses, the parked evidence is still there and one refusal is
+	// enough to try the write again.
+	expireProbeCooldown(t, h, m.ID)
+	h.noteModelGone(cand, endpointTypeChat)
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
@@ -842,16 +840,20 @@ func TestNoteModelGone_SuccessAfterConfirmIsRolledBack(t *testing.T) {
 	t.Fatalf("expected the committed disable to be rolled back, got %+v", repo.committedCalls())
 }
 
-// TestNoteModelGone_StaleFailedDisableKeepsANewerStreak pins that a disable
-// goroutine may only retire the streak it was actually started for.
+// TestNoteModelGone_StaleFailedDisableKeepsTheEvidence pins what a disable
+// goroutine may do to a streak that has moved on underneath it, and what the
+// next claim owes the disable it spawns.
 //
 // The sequence is reachable because the write is detached: the goroutine can
-// still be inside SetEnabled when the model answers (clearing its streak) and
-// later refusals build a fresh one. If its cleanup then deleted by model id, it
-// would erase that newer count on its way out — and a model refusing every
-// request would restart from zero each time a disable failed, staying enabled
-// exactly when it is most clearly dead.
-func TestNoteModelGone_StaleFailedDisableKeepsANewerStreak(t *testing.T) {
+// still be inside SetEnabled when the model answers — standing its write down
+// and clearing the count — and fresh refusals then start rebuilding. Two things
+// must survive that. The unwinding goroutine must not erase the evidence
+// accumulated after it (a model refusing every request would otherwise restart
+// from zero each time a disable failed, staying enabled exactly when it is most
+// clearly dead), and the tombstone that success left behind must not outlive the
+// decision it belonged to, or the next disable stands down at its own pre-write
+// check and the model is never retired again.
+func TestNoteModelGone_StaleFailedDisableKeepsTheEvidence(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{
@@ -873,22 +875,18 @@ func TestNoteModelGone_StaleFailedDisableKeepsANewerStreak(t *testing.T) {
 		t.Fatal("the disable write never started")
 	}
 
-	// While it is held open: the model answers, dropping that streak, and then
-	// refuses again, building a new one one strike short of the threshold.
+	// While it is held open: the model answers, which cancels that write and
+	// clears the count, and then refuses again — evidence that belongs to the
+	// next decision, not to the one now unwinding.
 	h.noteModelServed(m)
 	for range goneStrikeThreshold - 1 {
 		h.noteModelGone(cand, endpointTypeChat)
 	}
-	newer, ok := h.goneStrikes.Load(m.ID)
-	if !ok {
-		t.Fatal("the later refusals did not start a new streak")
-	}
 
-	// Release the stale write, then hold the newer streak under observation.
-	// Asserting on identity rather than on the disable count is what makes this
-	// deterministic: an unconditional delete erases the entry within
-	// microseconds of the write returning, whereas counting disables would race
-	// the cleanup against the strike below and could pass either way.
+	// Release the stale write and watch what it does on its way out. Asserting
+	// on the count rather than on a later disable is what makes this
+	// deterministic: a cleanup that erases evidence does so within microseconds
+	// of the write returning, whereas counting disables would race it.
 	close(repo.setEnabledGate)
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) && len(repo.disableCalls()) < 1 {
@@ -896,18 +894,16 @@ func TestNoteModelGone_StaleFailedDisableKeepsANewerStreak(t *testing.T) {
 	}
 	watch := time.Now().Add(300 * time.Millisecond)
 	for time.Now().Before(watch) {
-		switch current, ok := h.goneStrikes.Load(m.ID); {
-		case !ok:
-			t.Fatal("the stale failed disable deleted the newer streak")
-		case current != newer:
-			t.Fatal("the newer streak was replaced while the stale disable unwound")
+		if n := goneStreakFor(t, h, m.ID).count(); n != goneStrikeThreshold-1 {
+			t.Fatalf("the stale failed disable took the newer evidence with it: streak = %d", n)
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
 
-	// One more refusal now completes the newer streak, so a second disable must
-	// be attempted. If the stale cleanup had erased it, this would be strike one
-	// of three and nothing would happen.
+	// One more refusal completes the rebuilt streak. The cooldown from the first
+	// claim is still running, so this is also the point at which the retry
+	// becomes reachable rather than immediate.
+	expireProbeCooldown(t, h, m.ID)
 	h.noteModelGone(cand, endpointTypeChat)
 
 	deadline = time.Now().Add(2 * time.Second)
@@ -917,7 +913,7 @@ func TestNoteModelGone_StaleFailedDisableKeepsANewerStreak(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	t.Fatalf("a stale failed disable erased the newer streak: only %d disable attempts", len(repo.disableCalls()))
+	t.Fatalf("the rebuilt streak never reached a second disable: only %d attempts", len(repo.disableCalls()))
 }
 
 // TestNoteModelGone_FailedRollbackStopsThere pins the worst case on the
@@ -1431,6 +1427,54 @@ func TestNoteModelGone_AnsweredProbeKeepsTheCooldown(t *testing.T) {
 
 	// And it is a delay rather than a lockout: once the cooldown lapses the model
 	// is reconsidered on the strikes it has rebuilt since.
+	expireProbeCooldown(t, h, m.ID)
+	h.noteModelGone(cand, endpointTypeChat)
+	waitForProbes(t, script, 2)
+}
+
+// TestNoteModelGone_ASuccessDoesNotResetTheProbeCooldown closes the other door
+// into the same unbounded loop.
+//
+// Clearing the count on a served probe was only half the bound, because a real
+// request succeeding clears it too — and that is the MIXED case, which is at
+// least as likely as the pure one: a provider that refuses one request shape
+// with retirement prose while serving another produces both signals from the
+// same client traffic. If the success drops the whole streak, the probe cooldown
+// goes with it, and three more refusals buy another upstream call immediately.
+// A success clears what the model is accused of; it does not buy the gateway a
+// free probe.
+func TestNoteModelGone_ASuccessDoesNotResetTheProbeCooldown(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gpt-5.6-sol"}
+	srv, script := newGoneScriptedServer(t, http.StatusOK, goneServedAnswer)
+	cand := goneCandidateAt(m, "OpenAI", srv.URL)
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+	waitForProbes(t, script, 1)
+	waitForStreakCount(t, h, m.ID, 0)
+
+	// An ordinary request to the same model succeeds, exactly as the request
+	// path reports it.
+	h.noteModelServed(m)
+
+	// And the traffic that does not succeed carries on refusing. None of it may
+	// buy an upstream request while the cooldown is running.
+	for range 10 * goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+	if calls := waitForDisable(t, repo); len(calls) != 0 {
+		t.Fatalf("a model that answered must not be retired, got %+v", calls)
+	}
+	if paths := script.requestedPaths(); len(paths) != 1 {
+		t.Fatalf("a success must not reset the probe cooldown, got %v", paths)
+	}
+
+	// Still a delay rather than a lockout.
 	expireProbeCooldown(t, h, m.ID)
 	h.noteModelGone(cand, endpointTypeChat)
 	waitForProbes(t, script, 2)
