@@ -79,8 +79,11 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 const settingKeyDiscoveryLastReviewed = "_discovery_last_reviewed_at"
 
 // DiscoveryStatusResponse powers the Models nav badge and its modal. ClaimCount
-// counts Gone models only: Stale and Suspect are shown but never inflate the
-// badge, so a non-zero badge always means something might actually be wrong.
+// counts Gone and Retired models: Stale and Suspect are shown but never inflate
+// the badge, so a non-zero badge always means something might actually be wrong.
+// Retired counts because it is the same kind of fact as Gone — a model that was
+// working and now is not — even though it came from the proxy refusing traffic
+// rather than from the provider dropping it from its listing.
 // InformationalUnseen drives the badge dot when ClaimCount is 0, and counts only
 // the entries carrying something other than metadata `updated` changes: prices
 // move on nearly every scan, so counting them would leave the dot permanently

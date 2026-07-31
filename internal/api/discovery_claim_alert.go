@@ -192,18 +192,36 @@ func summarizeCountedClaims(ctx context.Context, pool *pgxpool.Pool, now time.Ti
 
 	// claims is already ordered by counted-claim count descending, so the worst
 	// offenders are simply the first few providers that still have any.
+	//
+	// Counted, not Gone: a retired model counts towards s.models the same way, so
+	// naming providers by their Gone count alone would let the alert report a
+	// total it then attributes to nobody — worst case, "12 models" with no
+	// provider named at all, when every claim is a retirement.
 	for _, p := range claims {
-		if len(p.Gone) == 0 || len(s.worstNames) >= claimAlertWorstProviders {
+		if countedClaims(p) == 0 || len(s.worstNames) >= claimAlertWorstProviders {
 			continue
 		}
 		s.worstNames = append(s.worstNames, p.ProviderName)
-		s.worstCounts = append(s.worstCounts, len(p.Gone))
+		s.worstCounts = append(s.worstCounts, countedClaims(p))
 	}
 
 	for _, p := range claims {
 		for _, c := range p.Gone {
 			if s.oldestAt.IsZero() || c.LastSeenAt.Before(s.oldestAt) {
 				s.oldestAt = c.LastSeenAt
+			}
+		}
+		// Retired claims are dated by the retirement. LastSeenAt is meaningless
+		// for them — the provider still lists the model, so it is refreshed on
+		// every scan and would drag "oldest" to a few minutes ago no matter how
+		// long the model has been broken.
+		for _, c := range p.Retired {
+			at := c.LastSeenAt
+			if c.RetiredAt != nil {
+				at = *c.RetiredAt
+			}
+			if s.oldestAt.IsZero() || at.Before(s.oldestAt) {
+				s.oldestAt = at
 			}
 		}
 	}

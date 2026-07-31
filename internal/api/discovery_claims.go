@@ -307,14 +307,9 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 	// Go map (unordered), and sort.Slice is not stable, so without it two
 	// identically-named providers with identical bucket counts could swap
 	// position between refreshes and jitter the UI.
-	// Counted claims are what the ordering is about, and retired ones count, so
-	// they rank alongside gone rather than after it. A provider whose only
-	// problem is a retired model would otherwise sort below one with nothing
-	// counted against it at all.
-	counted := func(p ProviderClaims) int { return len(p.Gone) + len(p.Retired) }
 	sort.Slice(out, func(i, j int) bool {
-		if counted(out[i]) != counted(out[j]) {
-			return counted(out[i]) > counted(out[j])
+		if countedClaims(out[i]) != countedClaims(out[j]) {
+			return countedClaims(out[i]) > countedClaims(out[j])
 		}
 		if len(out[i].Gone) != len(out[j].Gone) {
 			return len(out[i].Gone) > len(out[j].Gone)
@@ -329,6 +324,16 @@ func buildProviderClaims(rows []claimRow, window, sinceReview map[flapKey]int, n
 	})
 	return out, count
 }
+
+// countedClaims is how many of a provider's claims count towards the badge, and
+// therefore towards the alert. Gone and Retired both do; Stale and Suspect never
+// have.
+//
+// One function rather than the count repeated at each site: the badge total, the
+// provider ordering and the alert's per-provider figures all have to agree, and
+// they disagreed the moment Retired was added to the total but not to the other
+// two.
+func countedClaims(p ProviderClaims) int { return len(p.Gone) + len(p.Retired) }
 
 func sortClaims(cs []ModelClaim) {
 	sort.Slice(cs, func(i, j int) bool { return cs[i].ModelID < cs[j].ModelID })

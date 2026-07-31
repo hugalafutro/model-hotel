@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DiscoveryChangeEntry, GroupClaim } from "../../api/types";
@@ -252,9 +252,10 @@ describe("ModelDiscrepancyModal", () => {
 		await openBucket(user, "retired");
 		const row = screen.getByTestId("discrepancy-claim");
 		expect(row).toHaveAttribute("data-state", "retired");
-		expect(
-			row.querySelector("[data-testid='discrepancy-dismiss']"),
-		).not.toBeNull();
+		// getByRole rather than the test id, per AGENTS.md; scoped to the row and
+		// without a name filter, because the button's label is translated and
+		// these tests must not depend on the active locale.
+		expect(within(row).getByRole("button")).toBeInTheDocument();
 		// The meta line must be derived from the RETIREMENT, not from last_seen_at.
 		// Both are run through the same formatter and compared against the
 		// rendered text, so the assertion holds in any locale and fails if the
