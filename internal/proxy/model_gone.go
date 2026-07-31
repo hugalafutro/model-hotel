@@ -668,10 +668,14 @@ func (h *Handler) probeForRetirement(candidate modelCandidate, endpointType stri
 // acquireProbeSlot takes one of the provider's goneProbeMaxConcurrent probe
 // slots without waiting, returning the release for it.
 //
-// The per-provider semaphore is created on first use through LoadOrStore, so a
-// race only duplicates the channel that loses, and the winner's is the one
-// everyone counts against — the same pattern, and the same reasoning, as the
-// per-model streaks in goneStrikes.
+// Load is tried first and LoadOrStore only on a miss, so the common case — a
+// provider whose semaphore already exists, which is every probe after the
+// first for that provider — does not allocate and immediately discard a
+// channel it will never use. The allocation only happens on a genuine miss,
+// and the per-provider semaphore is still created on first use through
+// LoadOrStore there, so a race on that miss only duplicates the channel that
+// loses, and the winner's is the one everyone counts against — the same
+// pattern, and the same reasoning, as the per-model streaks in goneStrikes.
 //
 // Entries are never removed, and that is a bounded leak by construction rather
 // than an oversight: the key space is the operator's configured providers, a
@@ -679,7 +683,10 @@ func (h *Handler) probeForRetirement(candidate modelCandidate, endpointType stri
 // need to prove no probe is in flight for that provider first, which is more
 // machinery and more ways to be wrong than the bytes are worth.
 func (h *Handler) acquireProbeSlot(providerID uuid.UUID) (release func(), ok bool) {
-	raw, _ := h.goneProbeSlots.LoadOrStore(providerID, make(chan struct{}, goneProbeMaxConcurrent))
+	raw, loaded := h.goneProbeSlots.Load(providerID)
+	if !loaded {
+		raw, _ = h.goneProbeSlots.LoadOrStore(providerID, make(chan struct{}, goneProbeMaxConcurrent))
+	}
 	sem, isChan := raw.(chan struct{})
 	if !isChan {
 		return nil, false

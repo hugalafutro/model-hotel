@@ -306,6 +306,23 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 	//
 	// A nil breaker means nobody has an opinion, which is not a reason to
 	// postpone.
+	//
+	// This gate is on the breaker alone, unlike every other breaker consultation
+	// in the proxy (resolve.go's cbEnabled, the record sites' st.circuitBreakerEnabled),
+	// which also checks the circuit_breaker_enabled setting before consulting the
+	// breaker at all. That is a known asymmetry, not an oversight: reading the
+	// setting here means calling h.settingsRepo.GetBool, and h.settingsRepo is nil
+	// on the path every probe unit test in this file exercises (newProbeHandler
+	// builds a bare *Handler with no settings repository, deliberately, so these
+	// tests do not need a database). Wiring a live settings repository through
+	// that fixture to read one flag is a cost this check does not justify, because
+	// the failure mode of skipping it is bounded and always in the safe direction:
+	// an operator who disables the breaker after a provider's circuit has already
+	// opened sees that provider's probes deferred until the breaker's own cooldown
+	// clears rather than immediately, and a deferred probe can only leave a model
+	// enabled longer, never retire it early or wrongly. If a later change threads a
+	// testable settings source through this path for some other reason, honoring
+	// the setting here becomes free and should be done then.
 	if h.circuitBreaker != nil && h.circuitBreaker.GetState(candidate.provider.ID) == failover.StateOpen {
 		debuglog.Debug("proxy: retirement probe skipped, the provider's circuit is open", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "verdict", probeInconclusive.String())
 		return probeInconclusive

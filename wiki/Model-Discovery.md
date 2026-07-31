@@ -1051,8 +1051,16 @@ Two consequences worth knowing about before you upgrade:
 A model retired this way is distinct from both a manual disable and a discovery
 disable (see migration `063`): re-appearing in a listing does not revive it,
 because the provider was refusing it while still listing it. Enabling it by hand
-clears the stamp, and if the model really is gone it re-earns its strikes, is
-re-probed and is retired again with a fresh alert.
+clears the stamp, and if the model really is gone it is retired again with a
+fresh alert, always behind a fresh probe. What differs is how it gets there.
+Strikes are kept in memory (see above), so if the streak was dropped (the
+gateway restarted, 30 minutes passed with no further refusal, or the previous
+disable attempt failed to write and reset the count) the model re-earns its
+three strikes before the next probe. If the streak is still parked at the
+threshold in the same running process, with no successful request in between,
+the first refusal past the probe cooldown claims a probe directly instead of
+re-earning three strikes. Either way, nothing is retired without a probe
+confirming it first.
 
 ### Manual Enable/Disable (API)
 
