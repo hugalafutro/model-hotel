@@ -798,15 +798,91 @@ func TestClassifyUpstreamError_StructuredRetirementSignals(t *testing.T) {
 // the signal is usually near the front while the truncation is at the end. The
 // key scan is looser than the parse, which is why what it finds only counts
 // against an allowlisted code or beside the model's own id.
+//
+// The fixture is the REAL captured body, envelope and all, because the envelope
+// is what makes this hard: `{"type":"error","error":{"type":"not_found_error"`
+// puts a decoy in front of the signal, and a scan of the whole document reads
+// the outer one and finds "error", which retires nothing. An earlier version of
+// this test dropped the outer field and passed against a scan that could not
+// handle the payload it was written for.
 func TestClassifyUpstreamError_TruncatedStructuredBodyStillClassifies(t *testing.T) {
 	t.Parallel()
 
-	// A complete error object followed by a cut-off tail: valid JSON never
-	// arrives, so json.Unmarshal fails and the scan is what is left.
-	body := `{"error":{"type":"not_found_error","message":"model: claude-sonnet-4-20250514"},"usage":{"input_tok`
-	if got, _ := classifyUpstreamError(404, body, "claude-sonnet-4"); got != KindProviderModelGone {
-		t.Errorf("kind = %q, want %q: the signal was in the part that survived truncation", got, KindProviderModelGone)
+	tests := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "the captured body, cut mid-tail",
+			body: `{"type":"error","error":{"type":"not_found_error",` +
+				`"message":"error from provider (anthropic): model: claude-sonnet-4-20250514"},"request_id":"req_011Cda`,
+		},
+		{
+			name: "an error object with no envelope around it",
+			body: `{"error":{"type":"not_found_error","message":"model: claude-sonnet-4-20250514"},"usage":{"input_tok`,
+		},
 	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got, _ := classifyUpstreamError(404, tc.body, "claude-sonnet-4"); got != KindProviderModelGone {
+				t.Errorf("kind = %q, want %q: the signal was in the part that survived truncation", got, KindProviderModelGone)
+			}
+		})
+	}
+}
+
+// TestClassifyUpstreamError_ProseNamingADatedSnapshot pins that the alias rule
+// reaches the prose path too.
+//
+// A provider that resolves the alias and says so in a sentence is making the
+// same claim as one that says so in a JSON field, and identity is the thing that
+// was failing in both. Handling only the structured half would have left the
+// other silently unfixed, which is the shape of the bug this whole change came
+// from.
+//
+// The negatives are the ones that matter: extending an occurrence over a dated
+// tail must not extend it over anything else.
+func TestClassifyUpstreamError_ProseNamingADatedSnapshot(t *testing.T) {
+	t.Parallel()
+
+	runClassifyCases(t, []struct {
+		name      string
+		body      string
+		requested string
+		want      ErrorKind
+	}{
+		{
+			name:      "prose naming a dated snapshot of the requested alias",
+			body:      "the model `gpt-4-0613` does not exist",
+			requested: "gpt-4",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "prose naming a segmented-date snapshot",
+			body:      "model gpt-4-turbo-2024-04-09 is no longer available",
+			requested: "gpt-4-turbo",
+			want:      KindProviderModelGone,
+		},
+		{
+			name:      "prose naming a sibling family member is still not us",
+			body:      "the model `gpt-4.1` does not exist",
+			requested: "gpt-4",
+			want:      KindProviderError,
+		},
+		{
+			name:      "prose naming a named variant is still not us",
+			body:      "the model `gemini-3-flash-lite` does not exist",
+			requested: "gemini-3-flash",
+			want:      KindProviderError,
+		},
+		{
+			name:      "prose naming a size variant is still not us",
+			body:      "the model `gpt-4-32k` does not exist",
+			requested: "gpt-4",
+			want:      KindProviderError,
+		},
+	})
 }
 
 // TestVersionSuffixIdentity is the table from the plan, and the negatives in it

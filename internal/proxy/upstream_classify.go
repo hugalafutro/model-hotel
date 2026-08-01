@@ -152,11 +152,15 @@ const minVersionSuffixDigits = 4
 // an id is never a suffix of another id's dated form, so nothing that ends in
 // letters ("-lite", "-32k") or in a decimal (".1") can reach this at all.
 func idEndAllowingVersion(body string, pos, end int) (int, bool) {
+	// The whole-identifier rule first and by name, because the extension below
+	// sits on top of it rather than instead of it.
+	if isWholeIDAt(body, pos, end) {
+		return end, true
+	}
+	// Only the tail may differ. A dirty START means the match is inside a longer
+	// id, which no suffix can rescue.
 	if pos != 0 && isModelIDChar(body[pos-1]) {
 		return 0, false
-	}
-	if end == len(body) || !isModelIDChar(body[end]) {
-		return end, true
 	}
 	suffix := versionSuffix.FindString(body[end:])
 	if suffix == "" {
@@ -283,12 +287,17 @@ func phraseIsAbout(body string, verbPos, verbEnd, lo, hi int, id string) bool {
 			return false
 		}
 		pos := off + at
-		end := pos + len(id)
-		if isWholeIDAt(body, pos, end) {
+		// The occurrence may be a dated snapshot of the id we asked for, and
+		// then it is the snapshot that has to clear the phrase: the gap below
+		// starts after the suffix, not after the alias. Prose carries this shape
+		// as readily as a JSON field does — "model `gpt-4-0613` does not exist"
+		// is the same claim as an error.message saying so — and reading only one
+		// of the two would leave the other silently unhandled.
+		if occEnd, ok := idEndAllowingVersion(body, pos, pos+len(id)); ok {
 			var gap string
 			switch {
-			case end <= verbPos:
-				gap = body[end:verbPos]
+			case occEnd <= verbPos:
+				gap = body[occEnd:verbPos]
 			case pos >= verbEnd:
 				gap = body[verbEnd:pos]
 			default:
@@ -336,13 +345,45 @@ type structuredError struct {
 	message string
 }
 
-// structuredFieldScan finds a quoted string field by name in a body that could
-// not be parsed. Deliberately anchored on the key so it cannot pick up a value
-// that merely looks like one.
-var structuredFieldScan = map[string]*regexp.Regexp{
-	"code":    regexp.MustCompile(`"code"\s*:\s*"([^"]*)"`),
-	"type":    regexp.MustCompile(`"type"\s*:\s*"([^"]*)"`),
-	"message": regexp.MustCompile(`"message"\s*:\s*"([^"]*)"`),
+// The scan fallback's patterns: a quoted string field by name, anchored on the
+// key so a value that merely looks like one cannot be picked up.
+var (
+	scanCode    = regexp.MustCompile(`"code"\s*:\s*"([^"]*)"`)
+	scanType    = regexp.MustCompile(`"type"\s*:\s*"([^"]*)"`)
+	scanMessage = regexp.MustCompile(`"message"\s*:\s*"([^"]*)"`)
+	// errorObjectStart finds where the error object opens, so the scan reads
+	// the fields belonging to it rather than the first ones in the document.
+	errorObjectStart = regexp.MustCompile(`"error"\s*:\s*\{`)
+)
+
+// scanStructuredError extracts the three fields from a body no parser would
+// accept, scoped to the error object when one can be found.
+//
+// The scoping is the whole point rather than tidiness. The payload this change
+// exists for opens `{"type":"error","error":{"type":"not_found_error",…}}`, so a
+// scan of the whole document finds the ENVELOPE's type first and reads "error" —
+// which is not a retirement signal, and shadows the one that is. A truncated
+// body is the normal case for a large error, so the fallback has to handle the
+// real shape rather than a tidier one.
+//
+// Falling back to the whole document when no error object is found keeps a
+// provider that reports its fields at the top level working; it is looser, and
+// what the callers do with the result is what bounds it.
+func scanStructuredError(body string) structuredError {
+	scoped := body
+	if at := errorObjectStart.FindStringIndex(body); at != nil {
+		scoped = body[at[1]:]
+	}
+	first := func(re *regexp.Regexp) string {
+		if m := re.FindStringSubmatch(scoped); m != nil {
+			return m[1]
+		}
+		if m := re.FindStringSubmatch(body); m != nil {
+			return m[1]
+		}
+		return ""
+	}
+	return structuredError{code: first(scanCode), typ: first(scanType), message: first(scanMessage)}
 }
 
 // parseStructuredError pulls the error code, type and message out of a body,
@@ -385,22 +426,7 @@ func parseStructuredError(body string) structuredError {
 		}
 	}
 
-	var found structuredError
-	for field, re := range structuredFieldScan {
-		m := re.FindStringSubmatch(body)
-		if m == nil {
-			continue
-		}
-		switch field {
-		case "code":
-			found.code = m[1]
-		case "type":
-			found.typ = m[1]
-		case "message":
-			found.message = m[1]
-		}
-	}
-	return found
+	return scanStructuredError(body)
 }
 
 func firstNonEmpty(a, b string) string {
