@@ -145,18 +145,19 @@ type DiscoveryDiff struct {
 	FailoverDisabledGroups []failover.DisabledGroupInfo `json:"failover_disabled_groups,omitempty"`
 }
 
-// ModelSnapshot captures a model's pre-scan state — enabled flags plus the
-// pricing/context fields compared to detect metadata changes. The type is
+// ModelSnapshot captures a model's pre-scan state — whether it was routable,
+// plus the pricing/context fields compared to detect metadata changes. Why it
+// carries no disabled_manually or auto_retired_at: what the scan did about
+// either is read off the row Upsert returned, not re-derived here. The type is
 // exported so the scheduled discovery loop (package main) can hold the snapshot
 // returned by SnapshotProviderModels and pass it to BuildDiscoveryDiff; its
 // fields stay package-private.
 type ModelSnapshot struct {
-	enabled          bool
-	disabledManually bool
-	inputPrice       *float64
-	inputPriceCache  *float64
-	outputPrice      *float64
-	contextLength    *int
+	enabled         bool
+	inputPrice      *float64
+	inputPriceCache *float64
+	outputPrice     *float64
+	contextLength   *int
 }
 
 // SnapshotProviderModels maps model_id to its pre-scan state for one provider.
@@ -168,22 +169,30 @@ func SnapshotProviderModels(ctx context.Context, repo *model.Repository, provide
 	snap := make(map[string]ModelSnapshot, len(existing))
 	for _, m := range existing {
 		snap[m.ModelID] = ModelSnapshot{
-			enabled:          m.Enabled,
-			disabledManually: m.DisabledManually,
-			inputPrice:       m.InputPricePerMillion,
-			inputPriceCache:  m.InputPricePerMillionCacheHit,
-			outputPrice:      m.OutputPricePerMillion,
-			contextLength:    m.ContextLength,
+			enabled:         m.Enabled,
+			inputPrice:      m.InputPricePerMillion,
+			inputPriceCache: m.InputPricePerMillionCacheHit,
+			outputPrice:     m.OutputPricePerMillion,
+			contextLength:   m.ContextLength,
 		}
 	}
 	return snap, nil
 }
 
 // BuildDiscoveryDiff classifies one provider scan against its before-snapshot:
-// upserted models absent from the snapshot are new; snapshot models that were
-// discovery-disabled (not manually — Upsert never re-enables those) count as
-// reappeared; an unchanged-membership model whose pricing/context fields moved
-// is an update; disabledRefs are the models this scan just disabled.
+// upserted models absent from the snapshot are new; a snapshot model the scan
+// actually brought back counts as reappeared; an unchanged-membership model
+// whose pricing/context fields moved is an update; disabledRefs are the models
+// this scan just disabled.
+//
+// The re-enable is read off the row Upsert returned rather than re-derived from
+// the conditions Upsert applies. Those conditions have grown — a model the
+// operator disabled by hand stays off, and so does one the proxy retired from
+// traffic (auto_retired_at, migration 063) — and a copy of them here drifted
+// from the SQL and reported a revival that never happened. An auto-retired model
+// is the case that made it permanent rather than occasional: it never left the
+// listing, so it is sighted on every single scan, and every scan claimed to have
+// re-enabled it while the write correctly declined to.
 func BuildDiscoveryDiff(snapshot map[string]ModelSnapshot, upserted []*model.Model, disabledRefs []model.DisabledModelRef) *DiscoveryDiff {
 	diff := &DiscoveryDiff{}
 	for _, m := range upserted {
@@ -191,13 +200,15 @@ func BuildDiscoveryDiff(snapshot map[string]ModelSnapshot, upserted []*model.Mod
 		switch {
 		case !ok:
 			diff.Added = append(diff.Added, ModelChange{ModelID: m.ModelID, Reason: changeReasonNewModel})
-		case !prev.enabled && !prev.disabledManually:
+		case !m.Enabled:
+			// Still off after the sighting, so the sighting changed nothing worth
+			// reporting. Metadata-change detection is skipped for the same reason
+			// it is skipped for any disabled model: a hidden model's price and
+			// context churn must not raise the discovery-changes badge. (It is
+			// still upserted, so the values stay current for whenever it comes
+			// back.)
+		case !prev.enabled:
 			diff.Reenabled = append(diff.Reenabled, ModelChange{ModelID: m.ModelID, Reason: changeReasonReappeared})
-		case prev.disabledManually:
-			// The user has manually disabled this model, so skip metadata-change
-			// detection: a hidden model's price/context churn should not raise the
-			// discovery-changes badge. (It is still upserted so the value stays
-			// current if the user re-enables it.)
 		default:
 			if changes := diffModelFields(prev, m); len(changes) > 0 {
 				diff.Updated = append(diff.Updated, ModelUpdate{ModelID: m.ModelID, Changes: changes})

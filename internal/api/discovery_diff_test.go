@@ -38,17 +38,29 @@ func TestBuildDiscoveryDiff(t *testing.T) {
 		{
 			name: "reappeared model (discovery-disabled before)",
 			snapshot: map[string]ModelSnapshot{
-				"model-back": {enabled: false, disabledManually: false},
+				"model-back": {enabled: false},
 			},
 			upserted:      models("model-back"),
 			wantReenabled: []string{"model-back"},
 		},
 		{
-			name: "manually disabled model stays excluded",
+			// A sighting Upsert declined to act on. Both causes land here and
+			// neither is distinguishable from a discovery-disabled model in the
+			// snapshot alone — enabled=false either way — which is the whole
+			// reason the classification reads the returned row instead:
+			//
+			//   - the operator disabled it by hand (disabled_manually)
+			//   - the proxy retired it from traffic (auto_retired_at, 063)
+			//
+			// The second is why this must be right rather than merely tidy: a
+			// retired model never leaves the listing, so it is sighted on EVERY
+			// scan, and classifying it from the snapshot reported a revival that
+			// never happened forever, keeping the discovery-changes badge lit.
+			name: "a sighting that did not re-enable is not a change",
 			snapshot: map[string]ModelSnapshot{
-				"model-manual": {enabled: false, disabledManually: true},
+				"model-still-off": {enabled: false},
 			},
-			upserted: models("model-manual"),
+			upserted: disabledModels("model-still-off"),
 		},
 		{
 			name: "already enabled model is no change",
@@ -69,7 +81,7 @@ func TestBuildDiscoveryDiff(t *testing.T) {
 			name: "mixed scan",
 			snapshot: map[string]ModelSnapshot{
 				"model-kept": {enabled: true},
-				"model-back": {enabled: false, disabledManually: false},
+				"model-back": {enabled: false},
 				"model-gone": {enabled: true},
 			},
 			upserted: models("model-kept", "model-back", "model-new"),
@@ -107,13 +119,29 @@ func TestBuildDiscoveryDiff(t *testing.T) {
 	}
 }
 
-// models builds bare *model.Model values carrying only a ModelID, for the
+// models builds the rows Upsert returns for a routable sighting, for the
 // membership-classification cases (no pricing/context fields, so no metadata
 // updates are detected).
+//
+// Enabled is set because these stand in for what Upsert RETURNS, not for what
+// discovery sent it: the classification reads the post-write state off that row.
+// Leaving it at the zero value would describe a model the write left disabled.
 func models(ids ...string) []*model.Model {
 	out := make([]*model.Model, len(ids))
 	for i, id := range ids {
-		out[i] = &model.Model{ModelID: id}
+		out[i] = &model.Model{ModelID: id, Enabled: true}
+	}
+	return out
+}
+
+// disabledModels builds the rows Upsert returns for a sighting it declined to
+// re-enable: a model the operator disabled by hand, or one the proxy retired
+// from traffic (auto_retired_at). Both are still upserted on every scan, and
+// both come back with enabled=false.
+func disabledModels(ids ...string) []*model.Model {
+	out := make([]*model.Model, len(ids))
+	for i, id := range ids {
+		out[i] = &model.Model{ModelID: id, Enabled: false}
 	}
 	return out
 }
@@ -133,7 +161,7 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			name: "live input price changed",
 			prev: ModelSnapshot{enabled: true, inputPrice: new(float64(1))},
 			model: &model.Model{
-				ModelID: "m", InputPricePerMillion: new(float64(2)),
+				ModelID: "m", Enabled: true, InputPricePerMillion: new(float64(2)),
 				LiveMeta: model.LiveMetaFields{InputPrice: true},
 			},
 			wantChanges: []FieldChange{
@@ -147,7 +175,7 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// flood the modal with phantom price flips.
 			name:        "non-live value change is not reported",
 			prev:        ModelSnapshot{enabled: true, inputPrice: new(float64(1))},
-			model:       &model.Model{ModelID: "m", InputPricePerMillion: new(float64(2))},
+			model:       &model.Model{ModelID: "m", Enabled: true, InputPricePerMillion: new(float64(2))},
 			wantChanges: nil,
 		},
 		{
@@ -155,7 +183,7 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// Upsert fills the gap, so it is a genuine new value.
 			name:  "context length set from unset (non-live fill)",
 			prev:  ModelSnapshot{enabled: true},
-			model: &model.Model{ModelID: "m", ContextLength: new(8192)},
+			model: &model.Model{ModelID: "m", Enabled: true, ContextLength: new(8192)},
 			wantChanges: []FieldChange{
 				{Field: changeFieldContextLength, Old: nil, New: new(float64(8192))},
 			},
@@ -165,13 +193,13 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// preserves the stored value, so the diff stays quiet.
 			name:        "scan omits a value — preserved, not reported",
 			prev:        ModelSnapshot{enabled: true, outputPrice: new(float64(5))},
-			model:       &model.Model{ModelID: "m"},
+			model:       &model.Model{ModelID: "m", Enabled: true},
 			wantChanges: nil,
 		},
 		{
 			name:  "value gained from unset",
 			prev:  ModelSnapshot{enabled: true},
-			model: &model.Model{ModelID: "m", OutputPricePerMillion: new(float64(3))},
+			model: &model.Model{ModelID: "m", Enabled: true, OutputPricePerMillion: new(float64(3))},
 			wantChanges: []FieldChange{
 				{Field: changeFieldOutputPrice, Old: nil, New: new(float64(3))},
 			},
@@ -185,6 +213,7 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			},
 			model: &model.Model{
 				ModelID:                      "m",
+				Enabled:                      true,
 				InputPricePerMillionCacheHit: new(0.25),
 				ContextLength:                new(262144),
 				LiveMeta:                     model.LiveMetaFields{InputPriceCache: true, ContextLength: true},
@@ -199,7 +228,7 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// alone produces no update.
 			name: "max output tokens change is ignored",
 			prev: ModelSnapshot{enabled: true},
-			model: &model.Model{ModelID: "m", MaxOutputTokens: new(8192),
+			model: &model.Model{ModelID: "m", Enabled: true, MaxOutputTokens: new(8192),
 				LiveMeta: model.LiveMetaFields{MaxOutputTokens: true}},
 			wantChanges: nil,
 		},
@@ -208,7 +237,7 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// even for a live field.
 			name: "context length unit difference is ignored",
 			prev: ModelSnapshot{enabled: true, contextLength: new(262144)},
-			model: &model.Model{ModelID: "m", ContextLength: new(262000),
+			model: &model.Model{ModelID: "m", Enabled: true, ContextLength: new(262000),
 				LiveMeta: model.LiveMetaFields{ContextLength: true}},
 			wantChanges: nil,
 		},
@@ -217,7 +246,7 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// past tolerance.
 			name: "real live context length jump is reported",
 			prev: ModelSnapshot{enabled: true, contextLength: new(200000)},
-			model: &model.Model{ModelID: "m", ContextLength: new(256000),
+			model: &model.Model{ModelID: "m", Enabled: true, ContextLength: new(256000),
 				LiveMeta: model.LiveMetaFields{ContextLength: true}},
 			wantChanges: []FieldChange{
 				{Field: changeFieldContextLength, Old: new(float64(200000)), New: new(float64(256000))},
@@ -227,30 +256,30 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			// Float32 storage jitter on a live price must not register.
 			name: "price float32 jitter is ignored",
 			prev: ModelSnapshot{enabled: true, inputPrice: new(float64(float32(0.28)))},
-			model: &model.Model{ModelID: "m", InputPricePerMillion: new(0.28),
+			model: &model.Model{ModelID: "m", Enabled: true, InputPricePerMillion: new(0.28),
 				LiveMeta: model.LiveMetaFields{InputPrice: true}},
 			wantChanges: nil,
 		},
 		{
 			name: "unchanged live values produce no update",
 			prev: ModelSnapshot{enabled: true, inputPrice: new(float64(1)), contextLength: new(8192)},
-			model: &model.Model{ModelID: "m", InputPricePerMillion: new(float64(1)), ContextLength: new(8192),
+			model: &model.Model{ModelID: "m", Enabled: true, InputPricePerMillion: new(float64(1)), ContextLength: new(8192),
 				LiveMeta: model.LiveMetaFields{InputPrice: true, ContextLength: true}},
 			wantChanges: nil,
 		},
 		{
 			name:        "both unset is not a change",
 			prev:        ModelSnapshot{enabled: true},
-			model:       &model.Model{ModelID: "m"},
+			model:       &model.Model{ModelID: "m", Enabled: true},
 			wantChanges: nil,
 		},
 		{
 			// A model the user has manually disabled is skipped entirely: even a
 			// genuine live price change on a hidden model must not raise the badge.
 			name: "manually disabled model is not reported",
-			prev: ModelSnapshot{enabled: false, disabledManually: true, inputPrice: new(float64(1))},
+			prev: ModelSnapshot{enabled: false, inputPrice: new(float64(1))},
 			model: &model.Model{
-				ModelID: "m", InputPricePerMillion: new(float64(2)),
+				ModelID: "m", Enabled: false, InputPricePerMillion: new(float64(2)),
 				LiveMeta: model.LiveMetaFields{InputPrice: true},
 			},
 			wantChanges: nil,
@@ -289,11 +318,11 @@ func TestBuildDiscoveryDiff_NewAndReenabledSkipMetadata(t *testing.T) {
 	// A brand-new or reappearing model is classified by membership only; its
 	// field values are not also diffed (no snapshot baseline to compare).
 	snapshot := map[string]ModelSnapshot{
-		"back": {enabled: false, disabledManually: false, inputPrice: new(float64(1))},
+		"back": {enabled: false, inputPrice: new(float64(1))},
 	}
 	upserted := []*model.Model{
-		{ModelID: "new", InputPricePerMillion: new(float64(9))},
-		{ModelID: "back", InputPricePerMillion: new(float64(2))},
+		{ModelID: "new", Enabled: true, InputPricePerMillion: new(float64(9))},
+		{ModelID: "back", Enabled: true, InputPricePerMillion: new(float64(2))},
 	}
 	diff := BuildDiscoveryDiff(snapshot, upserted, nil)
 
