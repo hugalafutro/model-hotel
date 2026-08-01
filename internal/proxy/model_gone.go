@@ -151,15 +151,6 @@ type goneStreakKey struct {
 	endpoint string
 }
 
-// goneProbeSurfaces is every endpoint a streak can be keyed on.
-//
-// It has to agree with probeEndpointForFamily's returns, and
-// TestProbeEndpointForFamily_SurfacesAreCovered fails if a new probeable family
-// introduces a surface that is missing here. The one caller that needs it is
-// noteModelServed, which has a model and no family: a success clears the model's
-// streaks on every surface, so it enumerates them rather than scanning the map.
-var goneProbeSurfaces = [...]string{probeChatEndpoint, probeEmbeddingsEndpoint}
-
 // modalityRulesOutSurface reports whether a gone-classified refusal that arrived
 // on this upstream surface may count against the model at all.
 //
@@ -908,6 +899,13 @@ func (h *Handler) acquireProbeSlot(providerID uuid.UUID) (release func(), ok boo
 	}
 	sem, isChan := raw.(chan struct{})
 	if !isChan {
+		// Unreachable by construction: this function is the only writer of the
+		// map and only ever stores a chan struct{}. It is logged rather than
+		// left silent because the caller cannot tell this apart from a full
+		// semaphore, and reports the postponement as probe throttling — which
+		// would send an operator looking at a concurrency cap that has nothing
+		// to do with it.
+		debuglog.Error("proxy: retirement probe slot map holds an unexpected value, so no slot can be taken", "provider_id", providerID, "type", fmt.Sprintf("%T", raw))
 		return nil, false
 	}
 	select {
@@ -1004,7 +1002,7 @@ func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCand
 		// every path that can reach this.
 		h.noteModelGone(candidate, logData.endpointType)
 	case verdictServed:
-		h.noteModelServed(candidate.model)
+		h.noteModelServed(candidate.model, logData.endpointType)
 	case verdictInconclusive:
 		// Deliberately nothing: see verdictForStream.
 	}
@@ -1030,34 +1028,52 @@ func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCand
 // A success clears what the model is accused of; it does not buy the gateway
 // another free upstream call. See park.
 //
-// Every surface, because a success is evidence about the MODEL. The caller has a
-// model and no endpoint family (a streaming verdict, a pass-through 2xx and a
-// chat 200 all arrive here the same way), and enumerating the two probe surfaces
-// is cheaper and more predictable than scanning the map for a model's keys. It
-// is also the answer that was wanted before the streaks were split: clearing a
-// streak can only ever PREVENT a retirement, so being generous across surfaces
-// costs nothing, while a strike is gated tightly in both directions.
+// The success clears ONE surface: the one it arrived on. It used to clear all of
+// them, on the argument that a success is evidence about the model and that
+// clearing can only ever prevent a retirement — but that argument, taken
+// seriously, also justifies never retiring anything, and it undoes on the
+// clearing side exactly the split the strike side was given.
+//
+// The split exists because a model can be served on one surface and refused on
+// another, and the two are separate questions. Clearing globally answered them
+// as one: a provider that had retired a model's chat surface while still serving
+// its embeddings would have every embeddings success wipe the chat streak, so
+// the dead surface could never accumulate three consecutive strikes and would
+// never be adjudicated at all — the case this feature exists to catch.
+//
+// Tightening it is safe for the reason the whole branch is built on: what
+// retires a model is the PROBE, and the probe asks on the same surface. A chat
+// streak that survives an embeddings success still has to be refused by a real
+// request to /chat/completions before anything is written.
+//
+// A family that cannot be probed clears nothing, which is the same rule the
+// strike side follows: an image or TTS response is not evidence about the chat
+// surface any more than an image refusal is. It is also why this takes an
+// endpointType rather than deriving anything: every caller (a chat 200, a
+// pass-through 2xx, a finished stream) has the family that ingest stamped.
 //
 // supersede reports whether it changed anything, and the log line is conditional
 // on that. Since nothing removes entries, a model that drew one refusal at 09:00
 // keeps its parked streak for the life of the process, and an unconditional line
 // would then claim to have "cleared gone-strikes" on every successful request to
 // that model from then on — a log that describes work nobody did.
-func (h *Handler) noteModelServed(m *model.Model) {
+func (h *Handler) noteModelServed(m *model.Model, endpointType string) {
 	if m == nil || m.ID == uuid.Nil {
 		return
 	}
-	for _, endpoint := range goneProbeSurfaces {
-		raw, ok := h.goneStrikes.Load(goneStreakKey{model: m.ID, endpoint: endpoint})
-		if !ok {
-			continue
-		}
-		streak, ok := raw.(*goneStreak)
-		if !ok {
-			continue
-		}
-		if streak.supersede() {
-			debuglog.Debug("proxy: model answered again, cleared gone-strikes", "model", m.ModelID, "endpoint", endpoint)
-		}
+	endpoint, ok := probeEndpointForFamily(endpointType)
+	if !ok {
+		return
+	}
+	raw, ok := h.goneStrikes.Load(goneStreakKey{model: m.ID, endpoint: endpoint})
+	if !ok {
+		return
+	}
+	streak, ok := raw.(*goneStreak)
+	if !ok {
+		return
+	}
+	if streak.supersede() {
+		debuglog.Debug("proxy: model answered again, cleared gone-strikes", "model", m.ModelID, "endpoint", endpoint)
 	}
 }

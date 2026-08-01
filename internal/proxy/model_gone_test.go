@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"runtime"
-	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -277,7 +276,7 @@ func TestNoteModelServed_ResetsStreak(t *testing.T) {
 		for i := 1; i < goneStrikeThreshold; i++ {
 			h.noteModelGone(cand, endpointTypeChat)
 		}
-		h.noteModelServed(m)
+		h.noteModelServed(m, endpointTypeChat)
 	}
 
 	if calls := repo.disableCalls(); len(calls) != 0 {
@@ -298,7 +297,7 @@ func TestNoteModelGone_StrikesArePerModel(t *testing.T) {
 
 	for range goneStrikeThreshold {
 		h.noteModelGone(deadCand, endpointTypeChat)
-		h.noteModelServed(alive)
+		h.noteModelServed(alive, endpointTypeChat)
 	}
 
 	calls := waitForDisable(t, repo)
@@ -363,8 +362,8 @@ func TestNoteModelGone_NilSafe(t *testing.T) {
 		h.noteModelGone(noID, endpointTypeChat)
 		h.noteModelGone(noProvider, endpointTypeChat)
 	}
-	h.noteModelServed(nil)
-	h.noteModelServed(&model.Model{ModelID: "no-uuid"})
+	h.noteModelServed(nil, endpointTypeChat)
+	h.noteModelServed(&model.Model{ModelID: "no-uuid"}, endpointTypeChat)
 
 	if calls := repo.disableCalls(); len(calls) != 0 {
 		t.Errorf("expected no disable calls, got %d", len(calls))
@@ -520,7 +519,7 @@ func TestNoteModelGone_FailedStreamsDoNotResetStreak(t *testing.T) {
 		// "anything not gone is a success" rule this cleared the streak and the
 		// model could never be retired.
 		if v := verdictForStream(KindProviderError, KindProviderError, true); v == verdictServed {
-			h.noteModelServed(m)
+			h.noteModelServed(m, endpointTypeChat)
 		}
 	}
 
@@ -747,7 +746,7 @@ func TestNoteModelGone_SuccessCancelsAQueuedDisable(t *testing.T) {
 	}
 
 	// The model answers before the write is released.
-	h.noteModelServed(m)
+	h.noteModelServed(m, endpointTypeChat)
 	close(repo.setEnabledGate)
 
 	// Give the goroutine room to run to completion either way.
@@ -797,7 +796,7 @@ func TestNoteModelGone_SuccessDuringTheWriteIsAbandoned(t *testing.T) {
 	}
 
 	// The model answers while the disable is staged.
-	h.noteModelServed(m)
+	h.noteModelServed(m, endpointTypeChat)
 	close(repo.setEnabledGate)
 
 	// Let the goroutine run to completion, then assert on what was durable.
@@ -821,7 +820,7 @@ func TestNoteModelGone_SuccessAfterConfirmIsRolledBack(t *testing.T) {
 	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
 	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
-	repo.afterConfirm = func() { h.noteModelServed(m) }
+	repo.afterConfirm = func() { h.noteModelServed(m, endpointTypeChat) }
 
 	for range goneStrikeThreshold {
 		h.noteModelGone(cand, endpointTypeChat)
@@ -881,7 +880,7 @@ func TestNoteModelGone_StaleFailedDisableKeepsTheEvidence(t *testing.T) {
 	// While it is held open: the model answers, which cancels that write and
 	// clears the count, and then refuses again — evidence that belongs to the
 	// next decision, not to the one now unwinding.
-	h.noteModelServed(m)
+	h.noteModelServed(m, endpointTypeChat)
 	for range goneStrikeThreshold - 1 {
 		h.noteModelGone(cand, endpointTypeChat)
 	}
@@ -935,7 +934,7 @@ func TestNoteModelGone_FailedRollbackStopsThere(t *testing.T) {
 	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
 	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
-	repo.afterConfirm = func() { h.noteModelServed(m) }
+	repo.afterConfirm = func() { h.noteModelServed(m, endpointTypeChat) }
 
 	for range goneStrikeThreshold {
 		h.noteModelGone(cand, endpointTypeChat)
@@ -1090,7 +1089,7 @@ func TestNoteModelGone_FreshEvidenceBeatsAStaleRevert(t *testing.T) {
 	var once sync.Once
 	repo.afterConfirm = func() {
 		once.Do(func() {
-			h.noteModelServed(m)
+			h.noteModelServed(m, endpointTypeChat)
 			for range goneStrikeThreshold {
 				h.noteModelGone(cand, endpointTypeChat)
 			}
@@ -1124,7 +1123,7 @@ func TestNoteModelGone_SupersededRevertStandsDown(t *testing.T) {
 	h := newGoneHandler(t, repo)
 	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.0-flash"}
 	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
-	repo.afterConfirm = func() { h.noteModelServed(m) }
+	repo.afterConfirm = func() { h.noteModelServed(m, endpointTypeChat) }
 
 	for range goneStrikeThreshold {
 		h.noteModelGone(cand, endpointTypeChat)
@@ -1217,7 +1216,7 @@ func TestNoteModelGone_EachWriteGetsAFreshDeadline(t *testing.T) {
 	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
 	// The success has to land AFTER confirm for a rollback to happen at all;
 	// landing earlier abandons the write and there is no second one to measure.
-	repo.afterConfirm = func() { h.noteModelServed(m) }
+	repo.afterConfirm = func() { h.noteModelServed(m, endpointTypeChat) }
 
 	for range goneStrikeThreshold {
 		h.noteModelGone(cand, endpointTypeChat)
@@ -1719,7 +1718,7 @@ func TestNoteModelGone_ASuccessDoesNotResetTheProbeCooldown(t *testing.T) {
 
 	// An ordinary request to the same model succeeds, exactly as the request
 	// path reports it.
-	h.noteModelServed(m)
+	h.noteModelServed(m, endpointTypeChat)
 
 	// And the traffic that does not succeed carries on refusing. None of it may
 	// buy an upstream request while the cooldown is running.
@@ -2065,12 +2064,19 @@ func TestNoteModelGone_SurfacesDoNotPoolTheirStrikes(t *testing.T) {
 	}
 }
 
-// TestNoteModelServed_ClearsEverySurface pins the other side of the split: a
-// success is evidence about the MODEL, and the caller has no family to pass.
-// If a chat 200 only cleared the chat streak, an embeddings streak would keep
-// its strikes across an arbitrary amount of healthy traffic and eventually
-// spend a probe on a model that has been answering all along.
-func TestNoteModelServed_ClearsEverySurface(t *testing.T) {
+// TestNoteModelServed_ClearsOnlyItsOwnSurface pins the other side of the split.
+//
+// A streak is about one surface because a model can be served on one and refused
+// on another. Clearing every surface on any success answered both questions as
+// one, and the direction it failed in is the one that matters: a provider that
+// has retired a model's chat surface while still serving its embeddings would
+// have every embeddings success wipe the chat streak, so the dead surface could
+// never reach three consecutive strikes and would never be adjudicated at all.
+//
+// Narrowing it cannot retire anything wrongly, which is why it is safe to do:
+// the surviving streak still has to be refused by a real PROBE to that same
+// surface before a disable is written.
+func TestNoteModelServed_ClearsOnlyItsOwnSurface(t *testing.T) {
 	t.Parallel()
 
 	repo := &mockModelRepo{}
@@ -2081,29 +2087,44 @@ func TestNoteModelServed_ClearsEverySurface(t *testing.T) {
 	h.noteModelGone(cand, endpointTypeChat)
 	h.noteModelGone(cand, endpointTypeEmbeddings)
 
-	h.noteModelServed(m)
+	// An embeddings request succeeds. It says nothing about the chat surface.
+	h.noteModelServed(m, endpointTypeEmbeddings)
 
-	for _, endpoint := range goneProbeSurfaces {
-		if n := goneStreakFor(t, h, m.ID, endpoint).count(); n != 0 {
-			t.Errorf("%s streak = %d, want 0 after the model answered", endpoint, n)
-		}
+	if n := goneStreakFor(t, h, m.ID, probeEmbeddingsEndpoint).count(); n != 0 {
+		t.Errorf("embeddings streak = %d, want 0 after an embeddings success", n)
+	}
+	if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != 1 {
+		t.Errorf("chat streak = %d, want the strike kept: an embeddings success is not evidence about chat", n)
+	}
+
+	// And the mirror: /v1/messages resolves to the chat surface, so a success
+	// there clears the streak a /v1/chat/completions refusal built.
+	h.noteModelServed(m, endpointTypeMessages)
+	if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != 0 {
+		t.Errorf("chat streak = %d, want 0 after a success on the same surface", n)
 	}
 }
 
-// TestProbeEndpointForFamily_SurfacesAreCovered is the guard on goneProbeSurfaces
-// drifting from probeEndpointForFamily. noteModelServed enumerates that list to
-// clear a model's streaks, so a new probeable family whose endpoint is missing
-// from it would accumulate strikes no success could ever clear.
-func TestProbeEndpointForFamily_SurfacesAreCovered(t *testing.T) {
+// TestNoteModelServed_AnUnprobeableFamilyClearsNothing pins the rule the strike
+// side already follows, applied to the success side: a family that cannot be
+// adjudicated does not get to speak about one that can. An image or TTS response
+// says no more about the chat surface than an image refusal does, and crediting
+// it would let traffic on an unprobeable surface hold a genuinely dead chat
+// surface open indefinitely.
+func TestNoteModelServed_AnUnprobeableFamilyClearsNothing(t *testing.T) {
 	t.Parallel()
 
-	for _, family := range []string{endpointTypeChat, endpointTypeMessages, endpointTypeEmbeddings, endpointTypeImage, endpointTypeTTS, endpointTypeSTT, endpointTypeRerank, ""} {
-		endpoint, ok := probeEndpointForFamily(family)
-		if !ok {
-			continue
-		}
-		if !slices.Contains(goneProbeSurfaces[:], endpoint) {
-			t.Errorf("family %q probes %q, which goneProbeSurfaces does not list", family, endpoint)
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "gemini-2.5-flash-image"}
+	cand := goneCandidateFor(t, m, "Google AI Studio (Gemini)")
+
+	h.noteModelGone(cand, endpointTypeChat)
+
+	for _, family := range []string{endpointTypeImage, endpointTypeTTS, endpointTypeSTT, endpointTypeRerank, ""} {
+		h.noteModelServed(m, family)
+		if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != 1 {
+			t.Fatalf("a %q success cleared the chat streak (now %d)", family, n)
 		}
 	}
 }
@@ -2191,7 +2212,7 @@ func TestNoteModelGone_UnprobeableFamiliesAreNeverRetired(t *testing.T) {
 		}
 		// Every surface a streak can be keyed on, so this cannot pass by
 		// looking under a key nothing would have written.
-		for _, endpoint := range goneProbeSurfaces {
+		for _, endpoint := range []string{probeChatEndpoint, probeEmbeddingsEndpoint} {
 			if _, ok := h.goneStrikes.Load(goneStreakKey{model: m.ID, endpoint: endpoint}); ok {
 				t.Errorf("%s: a family that can never be adjudicated must not record a streak (%s)", f.name, endpoint)
 			}

@@ -529,7 +529,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, st *reques
 	// response schemas it deliberately does not have. "The provider sent
 	// something" is the same bar its neighbour applies.
 	if len(body) > 0 {
-		h.noteModelServed(candidate.model)
+		h.noteModelServed(candidate.model, logData.endpointType)
 	}
 	copyPassthroughHeaders(w, resp, contentType)
 
@@ -602,7 +602,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	// probe's own 200s. Clearing a streak on it would credit the model with an
 	// answer nobody received.
 	if n > 0 {
-		h.noteModelServed(candidate.model)
+		h.noteModelServed(candidate.model, logData.endpointType)
 	}
 
 	copyPassthroughHeaders(w, resp, contentType)

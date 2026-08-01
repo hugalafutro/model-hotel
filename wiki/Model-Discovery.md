@@ -1033,9 +1033,13 @@ How a retirement is reached:
    the model produces embeddings and nothing else. Chat is what most models are
    and where most refusals arrive, so requiring a declared modality there would
    switch traffic-driven retirement off for every uncatalogued model at once,
-   while guessing wrong on embeddings retires a working chat model everywhere. A
-   success clears every surface, because it is evidence about the model rather
-   than about one endpoint.
+   while guessing wrong on embeddings retires a working chat model everywhere.
+
+   A success clears the surface it arrived on and only that one, for the same
+   reason the counts are separate: a provider can retire a model's chat surface
+   while still serving its embeddings, and a global clear would let the healthy
+   surface hold the dead one open forever. Traffic on a surface that is never
+   auto-retired (images, speech, rerank) clears nothing at all.
 2. **Adjudication.** At the threshold the gateway sends a real, minimal request
    to the model itself (a 64-token chat completion, or a one-input embedding),
    off the request path. Content coming back means the model works: the strike

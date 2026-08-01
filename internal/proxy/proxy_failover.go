@@ -272,7 +272,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// signal back out of handleNonStreamingResponse and its native twin would buy
 	// precision this path does not otherwise keep.
 	if !st.isStreaming {
-		h.noteModelServed(candidate.model)
+		h.noteModelServed(candidate.model, logData.endpointType)
 	}
 
 	if st.isStreaming {
