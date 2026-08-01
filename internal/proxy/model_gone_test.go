@@ -1606,6 +1606,50 @@ func TestProbeForRetirement_NilCandidatePostponesInsteadOfPanicking(t *testing.T
 	}
 }
 
+// TestGoneStreak_ASuccessBetweenTheStrikeAndTheClaimWins pins the window between
+// the two lock acquisitions noteModelGone makes.
+//
+// A refusal strikes and then claims, and a success can land in between: it
+// clears the count and sets the tombstone, and the claim would then proceed on
+// strikes that no longer exist — spending an upstream request, wiping the
+// tombstone that success set, and reporting a strike count the streak does not
+// hold. The claim reads the count for exactly this reason, which is what makes
+// the comment's "a claim starts the next decision, on strikes the success is
+// older than" true rather than merely usual.
+func TestGoneStreak_ASuccessBetweenTheStrikeAndTheClaimWins(t *testing.T) {
+	t.Parallel()
+
+	s := &goneStreak{}
+	now := time.Now()
+	for range goneStrikeThreshold {
+		s.strike(now)
+	}
+
+	// The success lands after the last strike and before the claim.
+	s.supersede()
+
+	if s.canClaimProbe(now) {
+		t.Error("the cheap read admitted a claim on evidence a success had already cleared")
+	}
+	if s.claimProbe(now) {
+		t.Fatal("claimed a probe on evidence a success had already cleared")
+	}
+	if !s.cancelled.Load() {
+		t.Fatal("the claim wiped the tombstone the success set, so the queued disable would not stand down")
+	}
+
+	// Fresh refusals rebuild the case, and then the claim is real again.
+	for range goneStrikeThreshold {
+		s.strike(now)
+	}
+	if !s.claimProbe(now) {
+		t.Fatal("three fresh strikes must buy a claim")
+	}
+	if s.cancelled.Load() {
+		t.Error("a claim on strikes newer than the success must clear the tombstone")
+	}
+}
+
 // TestGoneStreak_CanClaimProbeDoesNotTakeTheClaim pins the read that lets the
 // cheap per-model reason to stop be checked before the shared per-provider one.
 //
@@ -1619,9 +1663,14 @@ func TestGoneStreak_CanClaimProbeDoesNotTakeTheClaim(t *testing.T) {
 
 	s := &goneStreak{}
 	now := time.Now()
+	// A claim needs evidence as well as an expired cooldown, so the streak has
+	// to be at the threshold before either can be asked about.
+	for range goneStrikeThreshold {
+		s.strike(now)
+	}
 
 	if !s.canClaimProbe(now) {
-		t.Fatal("a streak that has never been probed must admit a claim")
+		t.Fatal("a streak at the threshold that has never been probed must admit a claim")
 	}
 	if !s.canClaimProbe(now) {
 		t.Fatal("asking twice was refused, so the read spent the claim it was asking about")
@@ -1697,9 +1746,13 @@ func TestGoneStreak_SupersedeReportsWhetherItChangedAnything(t *testing.T) {
 	// tombstone can still belong to a disable this success has to stand down,
 	// which is the state a claim leaves behind.
 	claimed := &goneStreak{}
-	if !claimed.claimProbe(time.Now()) {
-		t.Fatal("a fresh streak must admit the first claim")
+	for range goneStrikeThreshold {
+		claimed.strike(time.Now())
 	}
+	if !claimed.claimProbe(time.Now()) {
+		t.Fatal("a streak at the threshold must admit the first claim")
+	}
+	claimed.park()
 	if !claimed.supersede() {
 		t.Fatal("a success against a claimed streak must still set the tombstone")
 	}

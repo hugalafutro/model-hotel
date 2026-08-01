@@ -198,6 +198,15 @@ type goneStreakKey struct {
 // declares image alone is an images-endpoint model whatever it can be coaxed
 // into. See canonicalModalityRank in internal/provider for the full vocabulary
 // these are drawn from.
+func modalityRulesOutSurface(m *model.Model, probeEndpoint string) bool {
+	out := declaredModalities(m.OutputModalities)
+	if probeEndpoint == probeEmbeddingsEndpoint {
+		// Positive evidence, so an undeclared list rules the surface out.
+		return !slices.Contains(out, "embedding")
+	}
+	return !admitsChatModalities(out) || !admitsChatModalities(declaredModalities(m.InputModalities))
+}
+
 // modalityAdmitsBothProbeSurfaces reports whether the catalog says this model
 // serves chat AND embeddings.
 //
@@ -221,15 +230,6 @@ type goneStreakKey struct {
 // empty modality list already rules the embeddings surface out.
 func modalityAdmitsBothProbeSurfaces(m *model.Model) bool {
 	return !modalityRulesOutSurface(m, probeChatEndpoint) && !modalityRulesOutSurface(m, probeEmbeddingsEndpoint)
-}
-
-func modalityRulesOutSurface(m *model.Model, probeEndpoint string) bool {
-	out := declaredModalities(m.OutputModalities)
-	if probeEndpoint == probeEmbeddingsEndpoint {
-		// Positive evidence, so an undeclared list rules the surface out.
-		return !slices.Contains(out, "embedding")
-	}
-	return !admitsChatModalities(out) || !admitsChatModalities(declaredModalities(m.InputModalities))
 }
 
 // declaredModalities parses one of the model's modality columns, returning nil
@@ -338,21 +338,33 @@ func (s *goneStreak) strike(now time.Time) int64 {
 //     A parked streak is re-probed by the next refusal past the cooldown, so
 //     postponing no longer has to throw the evidence away to stay reachable.
 //
-// The zero value admits the first caller, which is what a model that has never
+// A zero stamp admits the first caller, which is what a model that has never
 // been probed should get.
+//
+// The evidence has to still be standing, which is the other half of the same
+// critical section and not a formality. The caller strikes and then claims, and
+// those are two lock acquisitions: a success can land in between, clear the
+// count and set the tombstone, and the claim would otherwise proceed on strikes
+// that no longer exist — spending an upstream request, and reporting a strike
+// count the streak does not hold. Reading the count here is what makes "the
+// success is older than the strikes" true rather than merely usual.
 //
 // Granting a claim also clears the cancelled tombstone, and that is what makes
 // a streak reusable rather than something to be thrown away. The flag means "a
 // success landed after the disable now in flight was decided", so it belongs to
-// one decision; a claim starts the next one, on three fresh strikes that the
-// success itself is older than. Leaving it set would make the disable this claim
-// spawns stand down at its own pre-write check, and the model would never be
-// retired again on this streak. Nothing can be racing it: a claim cannot be
-// granted while an earlier probe is alive, because goneProbeCooldown is five
-// minutes and the whole goroutine lives at most goneProbeTimeout plus one write.
+// one decision; a claim starts the next one, and the count check above is what
+// guarantees the strikes it starts on are newer than any success that set the
+// flag. Leaving it set would make the disable this claim spawns stand down at
+// its own pre-write check, and the model would never be retired again on this
+// streak. Nothing can be racing an earlier probe either: a claim cannot be
+// granted while one is alive, because goneProbeCooldown is five minutes and the
+// whole goroutine lives at most goneProbeTimeout plus one write.
 func (s *goneStreak) claimProbe(now time.Time) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.n < goneStrikeThreshold {
+		return false
+	}
 	if !s.nextProbeAt.IsZero() && now.Before(s.nextProbeAt) {
 		return false
 	}
@@ -374,9 +386,17 @@ func (s *goneStreak) claimProbe(now time.Time) bool {
 // cooldowns can hold all four slots for the microseconds each take-and-release
 // costs, and the one model whose cooldown HAS expired is denied a genuine probe
 // by traffic that was never going to spend one.
+// It mirrors both of claimProbe's conditions, including the count. Reading only
+// the stamp would let a refusal whose evidence a success had already cleared
+// walk past the cheap check and go take a provider slot, to be turned away by
+// the claim a moment later — which is the shape of waste this read exists to
+// stop.
 func (s *goneStreak) canClaimProbe(now time.Time) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.n < goneStrikeThreshold {
+		return false
+	}
 	return s.nextProbeAt.IsZero() || !now.Before(s.nextProbeAt)
 }
 
