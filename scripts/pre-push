@@ -82,9 +82,13 @@ if [ "${#PUSH_HEADS[@]}" -eq 1 ] && [ "${PUSH_HEADS[0]}" = "$(git rev-parse HEAD
 fi
 # touched <regex> - true when a changed path matches, or when we have no diff to
 # go on (no merge-base), so an unknown state stays conservative and runs the check.
+#
+# `grep -c >/dev/null` rather than `grep -q`, for the reason spelled out on
+# has_measurable_change: -q exits on the first match, and under `set -o pipefail`
+# the SIGPIPE it deals the writer becomes the pipeline's status. See there.
 touched() {
 	[ -z "$SYNC_BASE" ] && return 0
-	printf '%s\n' "$CHANGED" | grep -qE "$1"
+	printf '%s\n' "$CHANGED" | grep -cE "$1" >/dev/null
 }
 
 # has_measurable_change <include-regex> <exclude-regex> - true when a changed file
@@ -104,6 +108,23 @@ touched() {
 # a line with `*`); anything unrecognised counts as code; and if the diff cannot be
 # computed at all we return true so the suite still runs. CI enforces coverage
 # against the real ref regardless.
+#
+# The final grep counts instead of using -q, and that is load-bearing under this
+# script's `set -o pipefail`. `grep -q` exits the moment it matches; the `sed` and
+# `grep` upstream of it then take SIGPIPE and die with 141, and pipefail makes 141
+# the status of the whole pipeline — which is this function's return value. So a
+# diff WITH measurable lines reported "none", and did it only once the diff grew
+# past the 64 KiB pipe buffer (below that the writers finish before the reader
+# closes and nothing is signalled).
+#
+# That inverted the gate exactly where it matters: small changes were measured,
+# large ones skipped, and "no measurable lines" was indistinguishable from "plenty".
+# A 123 KB Go diff on the retirement branch skipped the gate and shipped a file at
+# 0% changed-line coverage, which CI's aggregate threshold then hid.
+#
+# -c reads its input to the end, so nothing upstream is ever signalled, and the
+# exit status is still 0-on-match / 1-on-none. The count itself is unwanted, hence
+# the redirect. The cost is reading the diff in full: ~120 KB, once, per push.
 has_measurable_change() {
 	local files
 	files="$(printf '%s\n' "$CHANGED_FILES" | grep -E "$1" | grep -vE "$2" || true)"
@@ -119,7 +140,7 @@ has_measurable_change() {
 		grep -E '^[+-]' |
 		grep -vE '^(\+\+\+|---)' |
 		sed -E 's/^[+-][[:space:]]*//' |
-		grep -qvE '^$|^//'
+		grep -cvE '^$|^//' >/dev/null
 }
 
 # run_vitest_coverage <app-subdir> <source-file-regex> - build lcov for one
@@ -180,8 +201,12 @@ run_vitest_coverage() {
 }
 
 if [ -n "$SYNC_BASE" ]; then
-	if printf '%s\n' "$CHANGED" | grep -qx "README.md" &&
-		! printf '%s\n' "$CHANGED" | grep -qx "DOCKERHUB.md"; then
+	# -c over -q on both, for the pipefail reason argued on has_measurable_change.
+	# A file list only exceeds the pipe buffer on a very wide change (a locale
+	# sweep, a mass rename), so this one is latent rather than firing — but it is
+	# the same construct, and the way it fails is to wave the guard through.
+	if printf '%s\n' "$CHANGED" | grep -cx "README.md" >/dev/null &&
+		! printf '%s\n' "$CHANGED" | grep -cx "DOCKERHUB.md" >/dev/null; then
 		if [ "${DOCKERHUB_README_NOT_NEEDED:-}" = "1" ]; then
 			echo "pre-push: README.md changed without DOCKERHUB.md - acknowledged (DOCKERHUB_README_NOT_NEEDED=1)"
 			echo "  -> CI uses a LABEL, not this env var: add the 'dockerhub-readme-not-needed'" >&2
