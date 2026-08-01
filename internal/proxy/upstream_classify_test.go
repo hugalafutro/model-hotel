@@ -750,6 +750,33 @@ func TestClassifyUpstreamError_StructuredRetirementSignals(t *testing.T) {
 			want:      KindProviderError,
 		},
 		{
+			// The same hole through a different door: the error object supplies
+			// the type and says nothing else, and a top-level message mentions
+			// the model. Reading a field from each level pairs two unrelated
+			// statements, and the identity check meant to bound the type then
+			// answers about the wrong text.
+			name:      "a not-found type paired with a top-level message",
+			body:      `{"message":"please retry claude-sonnet-4 later","error":{"type":"not_found_error"}}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// And the truncated form of it, which takes the scan rather than
+			// the parse.
+			name:      "a truncated not-found type paired with a top-level message",
+			body:      `{"message":"claude-sonnet-4 was requested","error":{"type":"not_found_error"`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderError,
+		},
+		{
+			// A provider that reports at the top level still works, because
+			// then the error object said nothing to prefer.
+			name:      "a top-level not-found type naming the model",
+			body:      `{"type":"not_found_error","message":"model: claude-sonnet-4-20250514"}`,
+			requested: "claude-sonnet-4",
+			want:      KindProviderModelGone,
+		},
+		{
 			name:      "an invalid-request type naming the model",
 			body:      `{"error":{"type":"invalid_request_error","message":"model: claude-sonnet-4-20250514 rejected"}}`,
 			requested: "claude-sonnet-4",

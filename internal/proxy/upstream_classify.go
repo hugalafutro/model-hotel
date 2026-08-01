@@ -370,15 +370,18 @@ var (
 // provider that reports its fields at the top level working; it is looser, and
 // what the callers do with the result is what bounds it.
 func scanStructuredError(body string) structuredError {
-	scoped := body
+	// One region for all three fields, never a field-by-field fallback. Reading
+	// the type from inside the error object and the message from outside it
+	// pairs a real signal with an unrelated sentence, and the identity check
+	// that is meant to bound the type then answers about the wrong text: a body
+	// whose top-level message merely mentions the model would retire it. Fields
+	// that do not travel together are not evidence about each other.
+	region := body
 	if at := errorObjectStart.FindStringIndex(body); at != nil {
-		scoped = body[at[1]:]
+		region = body[at[1]:]
 	}
 	first := func(re *regexp.Regexp) string {
-		if m := re.FindStringSubmatch(scoped); m != nil {
-			return m[1]
-		}
-		if m := re.FindStringSubmatch(body); m != nil {
+		if m := re.FindStringSubmatch(region); m != nil {
 			return m[1]
 		}
 		return ""
@@ -419,21 +422,28 @@ func parseStructuredError(body string) structuredError {
 			s, _ := v.(string)
 			return s
 		}
+		nested := structuredError{
+			code:    codeOf(envelope.Error.Code),
+			typ:     envelope.Error.Type,
+			message: envelope.Error.Message,
+		}
+		// One level or the other, never a mixture, for the reason
+		// scanStructuredError gives: a type from the error object paired with a
+		// message from outside it is two unrelated statements, and the identity
+		// check that bounds the type would then be reading the wrong text. The
+		// error object wins whenever it said anything at all; a provider that
+		// reports at the top level still works because then it said nothing.
+		if nested != (structuredError{}) {
+			return nested
+		}
 		return structuredError{
-			code:    firstNonEmpty(codeOf(envelope.Error.Code), codeOf(envelope.Code)),
-			typ:     firstNonEmpty(envelope.Error.Type, envelope.Type),
-			message: firstNonEmpty(envelope.Error.Message, envelope.Message),
+			code:    codeOf(envelope.Code),
+			typ:     envelope.Type,
+			message: envelope.Message,
 		}
 	}
 
 	return scanStructuredError(body)
-}
-
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
 }
 
 // normalizeModelID reduces an upstream model id to the form the body is matched
