@@ -90,6 +90,64 @@ func TestHandleNativeNonStreaming(t *testing.T) {
 	}
 }
 
+// deliveredContent is what clears a model's gone-strike streak, so a native 200
+// is judged on content and not on bytes. `200 {"content":[]}` is what an
+// aggregator in front of a retired model returns between its refusals, and
+// crediting it would stop a streak ever reaching three CONSECUTIVE strikes — the
+// model would then never be nominated and never probed.
+func TestHandleNativeNonStreaming_JudgesContentNotBytes(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want bool
+	}{
+		{"content block", `{"id":"m","type":"message","content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":9,"output_tokens":3}}`, true},
+		// No block came back but the provider reported output: a model that
+		// spent its whole budget on reasoning still answered.
+		{"tokens without a block", `{"id":"m","type":"message","content":[],"usage":{"input_tokens":9,"output_tokens":3}}`, true},
+		{"empty message", `{"id":"m","type":"message","content":[],"usage":{"input_tokens":9,"output_tokens":0}}`, false},
+		// Nonempty bytes carrying nothing at all, which the byte-counting
+		// version credited as the model answering.
+		{"not a message", `{}`, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newIntegrationHandler()
+			t.Cleanup(func() { stopUnitHandler(h) })
+
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(tc.body)), Header: make(http.Header)}
+			rec := httptest.NewRecorder()
+			native := true
+			aw := newAnthropicResponseWriter(rec, "msg_j", "m")
+			aw.bindNativeFlag(&native)
+			req := httptest.NewRequest("POST", "/v1/messages", http.NoBody)
+			logData := &requestLogData{
+				id:             uuid.New().String(),
+				modelID:        "claude-x",
+				virtualKeyName: "test-key",
+				virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+				state:          "streaming",
+			}
+			st := &requestState{startTime: time.Now(), logData: logData}
+
+			if got := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0); got != outcomeServed {
+				t.Fatalf("outcome = %v, want outcomeServed", got)
+			}
+			aw.Finalize()
+
+			if logData.deliveredContent != tc.want {
+				t.Errorf("deliveredContent = %v, want %v", logData.deliveredContent, tc.want)
+			}
+			// The body still reaches the client verbatim whatever the verdict:
+			// this judgement is about the retirement streak, not about what is
+			// forwarded.
+			if rec.Body.String() != tc.body {
+				t.Errorf("body = %s, want %s", rec.Body.String(), tc.body)
+			}
+		})
+	}
+}
+
 // errorReadCloser fails on Read, simulating an upstream body that drops
 // mid-transfer after a 200 header.
 type errorReadCloser struct{}

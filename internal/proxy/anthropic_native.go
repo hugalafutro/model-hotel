@@ -79,12 +79,13 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	logData.tokensCompletion = outputTokens
 	logData.failoverAttempt = attempt
 	logData.state = "completed"
-	// The same signal the OpenAI-shaped path records, at the same bar the
-	// pass-through commit points use: bytes arrived from the provider. It is
-	// what clears the model's gone-strike streak (see attemptCandidate), and it
-	// is deliberately not a parse of Anthropic's content array — a body this
-	// path forwards verbatim is not one it should be judging the shape of.
-	logData.deliveredContent = len(body) > 0
+	// What clears the model's gone-strike streak (see attemptCandidate), so the
+	// bar is content and not bytes: `200 {"content":[]}` is what an aggregator in
+	// front of a retired model returns between its refusals, and crediting it
+	// would stop the streak ever reaching three consecutive strikes. Tokens
+	// corroborate, for a provider that answers without reporting usage. Same
+	// judgement the OpenAI-shaped path makes with chatAnswerCarriesContent.
+	logData.deliveredContent = outputTokens > 0 || anthropic.ResponseCarriesContent(body)
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
 	if st.vkHash != "" {

@@ -21,111 +21,100 @@ import (
 // model must draw, with no successful request in between, before the gateway
 // PROBES it.
 //
-// It is no longer the retirement bar. What disables a model is probeModel
-// refusing it on a request the gateway makes itself (see noteModelGone); the
-// strikes decide only that the question is worth one upstream call. Reading
-// this as the retirement bar is the mistake to avoid: three strikes on their
-// own now disable nothing.
+// It is NOT the retirement bar. What disables a model is probeModel refusing it
+// on a request the gateway makes itself (see noteModelGone); the strikes decide
+// only that the question is worth one upstream call.
 //
 // Why traffic and not discovery: a provider listing is not a promise. Google
 // kept gemini-2.0-flash in /models for two months after shutting it down,
-// OpenCode Zen lists claude-sonnet-4 and refuses it, OpenCode Go lists
-// hy3-preview and refuses it. RecordMissingModels can only act when a model
-// leaves the listing, so none of those were ever going to be caught by
-// discovery. The only source that knows a model is dead is a real request to
-// it, which is exactly what classifyUpstreamError labels.
+// OpenCode Zen lists claude-sonnet-4 and refuses it. RecordMissingModels can
+// only act when a model leaves the listing, so none of those were going to be
+// caught by discovery. The only source that knows a model is dead is a real
+// request to it, which is what classifyUpstreamError labels.
 //
-// Three rather than the discovery sweep's two: a scan is a deliberate, spaced
-// observation, whereas requests can arrive in a burst during a provider
-// incident. Requiring three consecutive refusals with no success in between
-// keeps a brief upstream wobble that happens to match a gone-pattern from
-// spending a probe on a live model — and, before the probe existed, from
-// retiring one outright. The probe has since taken over the second job, which
-// is why three is now a cost control rather than the last line of defence, and
-// why it has not been raised: a wrong nomination costs one cheap request, and
-// the probe throws it out.
+// Three rather than the discovery sweep's two, because requests can arrive in a
+// burst during a provider incident while a scan is a deliberate, spaced
+// observation. It is a cost control rather than the last line of defence: a
+// wrong nomination costs one cheap request, and the probe throws it out.
 const goneStrikeThreshold = 3
 
 // goneStrikeWindow is how long a strike stays part of the streak it belongs to.
 //
-// "Three consecutive refusals" was counting refusals with no bound on how far
-// apart they were, so two strikes from a provider incident this morning and one
-// this afternoon retired a model on evidence that had nothing to do with each
-// other. Worse, the older strikes are exactly the ones an operator may already
-// have acted on — they enable the model, and a count they cannot see finishes
-// and turns it off again.
-//
 // A strike arriving after this long starts the streak over rather than adding to
-// it, so a retirement is always drawn from one run of recent traffic.
+// it, so a retirement is always drawn from one run of recent traffic. Without
+// it, two strikes from this morning's incident plus one this afternoon retired a
+// model on unrelated evidence — including evidence an operator may already have
+// acted on by re-enabling it.
 //
 // It bounds the GAP between consecutive strikes, not the span of the streak.
 // Refusals at 0, 29 and 58 minutes are one streak of three, because neither gap
-// exceeds the window; the count only restarts when a strike arrives more than
-// this long after the one before it. Written out because "three strikes within
-// 30 minutes" is the natural way to say it and is not what the code does.
+// exceeds the window. Written out because "three strikes within 30 minutes" is
+// the natural way to say it and is not what the code does.
 //
-// Thirty minutes is chosen against real traffic rather than as a round number:
-// each refusal only has to arrive within half an hour of the last one, which a
-// gateway with any load does easily, while a model refused once an hour never
-// accumulates a streak at all. That second case is deliberate — a model too idle
-// to fail twice in half an hour is also too idle for its staying enabled to cost
-// anything, and traffic-driven retirement should not be guessing from sparse
-// evidence.
+// A model refused once an hour therefore never accumulates a streak, which is
+// deliberate: one too idle to fail twice in half an hour is also too idle for
+// staying enabled to cost anything.
 const goneStrikeWindow = 30 * time.Minute
 
 // goneProbeCooldown is the shortest interval between two probes of the same
 // model, and it is what makes an inconclusive probe a postponement rather than a
 // standing invitation to keep asking.
 //
-// The case it exists for is the one the design names: a provider rate limiting
-// the gateway. Real traffic draws the retirement prose, the probe draws a 429,
-// nothing is established. Without a cooldown the streak had to be dropped so a
-// later refusal could re-probe, and the steady state became one extra upstream
-// request per three refusals — forever, with no bound. A client retrying a dead
-// model at 10 req/s produced roughly three probes a second at a provider that
-// was already shedding load, and the probe deliberately bypasses both the rate
-// limiter and the circuit breaker, so nothing else was going to slow it down.
-// Before the probe existed, strike three disabled the model and the traffic
-// stopped; the cooldown is what restores that bound.
+// The case it exists for is a provider rate limiting the gateway: real traffic
+// draws the retirement prose, the probe draws a 429, nothing is established.
+// Unbounded, a client retrying a dead model at 10 req/s produced roughly three
+// probes a second at a provider already shedding load — and the probe
+// deliberately bypasses both the rate limiter and the circuit breaker, so
+// nothing else was going to slow it down.
 //
 // The floor is goneProbeTimeout (30s) and it is not a soft one: claimProbe
 // claims at SPAWN time, so the claim doubles as the "a probe is already in
-// flight" guard, and a cooldown shorter than the probe's own deadline would let
-// a second probe be claimed while the first was still waiting on the provider.
-// Five minutes clears it by an order of magnitude and caps the cost at 12
-// probes per model per hour in the worst case — a model under constant refusal
-// whose probe never establishes anything — against the roughly 1,200 an hour
-// the uncapped version allowed for the same traffic.
+// flight" guard, and a shorter cooldown would let a second probe be claimed
+// while the first was still waiting on the provider. Five minutes clears that by
+// an order of magnitude and caps the worst case at 12 probes per model per hour.
 //
 // It bounds one model. goneProbeMaxConcurrent bounds the burst across models.
 const goneProbeCooldown = 5 * time.Minute
+
+// goneProbeInconclusiveWarnAfter is how many probes in a row may establish
+// nothing before the postponement is reported at Warn instead of Info.
+//
+// Nothing bounds how long a streak can sit unadjudicable. A provider that rate
+// limits the gateway, or one whose model cannot be reached on the surface the
+// probe asks (an endpointTypeMessages candidate is probed over the
+// OpenAI-compatible surface — see newProbeState), postpones every time: the
+// model keeps its strikes and spends one upstream request per cooldown for as
+// long as traffic keeps refusing it. Before the probe existed that model was
+// disabled and the traffic stopped.
+//
+// The direction is safe and the rate is bounded, but the cost is real and at
+// Info it was indistinguishable from an ordinary single postponement. Three in a
+// row is roughly fifteen minutes of paying for an answer that is not coming.
+//
+// It warns on every inconclusive probe past the threshold rather than only on
+// the crossing, because the line is what the cost looks like: one per model per
+// goneProbeCooldown, exactly the rate of the requests being spent. The run ends
+// with the evidence it belonged to — see clearLocked.
+const goneProbeInconclusiveWarnAfter = 3
 
 // goneProbeMaxConcurrent bounds how many retirement probes may be in flight
 // against one provider at a time.
 //
 // The cooldown above bounds one model, and one model was never the shape of the
-// problem: a provider event that nominates 200 models nominates them all within
-// the same few seconds, and every nomination that reached the threshold spawned
-// its own goroutine holding a connection to the SAME host for up to
-// goneProbeTimeout. Two hundred simultaneous verification requests at a
-// provider already misbehaving is the gateway adding to an incident it is
-// supposed to be diagnosing — and each HA member does it independently.
+// problem: a provider event nominates 200 models within the same few seconds,
+// each spawning its own goroutine holding a connection to the SAME host for up
+// to goneProbeTimeout. That is the gateway adding to an incident it is supposed
+// to be diagnosing, and each HA member does it independently.
 //
 // Per provider rather than one counter for the whole gateway, because the harm
-// is per host. A cap on the total cannot tell 200 probes at one struggling
-// provider from 200 spread over 200 healthy ones, so it either throttles the
-// case that is fine or fails to throttle the case that is not. Keyed by
-// provider it throttles exactly the burst that lands on one host, and a second
-// provider's retirements are not postponed by the first provider's incident.
+// is per host: a total cap cannot tell 200 probes at one struggling provider
+// from 200 spread over 200 healthy ones.
 //
-// Four slots, following the argon2 semaphore in internal/user: enough that an
-// ordinary trickle of retirements never queues, small enough that the worst case
-// is a handful of extra connections. The acquire is non-blocking on purpose: a
-// probe that cannot get a slot drops out rather than waiting, and costs nothing
-// on the way — the slot is taken before the model's claim is spent, so the next
-// refusal retries immediately (see noteModelGone). Blocking would hold
-// goroutines and slots for work whose whole justification is that it is not
-// urgent.
+// Four slots, following the argon2 semaphore in internal/user. The acquire is
+// non-blocking: a probe that cannot get a slot drops out rather than waiting and
+// costs nothing on the way, since the slot is taken before the model's claim is
+// spent (see noteModelGone). Blocking would hold goroutines for work whose whole
+// justification is that it is not urgent.
 const goneProbeMaxConcurrent = 4
 
 // goneWriteTimeout bounds each out-of-band write the auto-disable makes.
@@ -133,12 +122,9 @@ const goneProbeMaxConcurrent = 4
 // Each write gets its OWN deadline rather than sharing one across the sequence.
 // They run one after another, so a shared budget lets a slow first write starve
 // everything after it: a disable that took the full ten seconds but succeeded
-// would leave group revalidation to fail instantly with a deadline that was
-// already spent — exactly when the database is under the load that made the
-// disable slow, and exactly when an undersized group most needs resizing.
-//
-// The work is already detached from the request path, so nothing is waiting on
-// the total. Bounding each step is what keeps every step able to do its job.
+// would leave group revalidation to fail instantly with a spent deadline —
+// exactly when an undersized group most needs resizing. Nothing on the request
+// path is waiting on the total.
 const goneWriteTimeout = 10 * time.Second
 
 // goneStreakKey identifies a streak: one model, on one upstream surface.
@@ -156,48 +142,37 @@ type goneStreakKey struct {
 // modalityRulesOutSurface reports whether a gone-classified refusal that arrived
 // on this upstream surface may count against the model at all.
 //
-// The two surfaces answer to different burdens of proof, and the asymmetry is
-// the point rather than an inconsistency. What is at stake is the same in both
-// cases — the disable is model-wide, so a strike drawn on the wrong surface can
-// take a working model out of routing everywhere — but the cost of guessing is
-// not.
-//
-// The embeddings surface requires POSITIVE evidence: the catalog has to say this
-// model produces embeddings. Nothing filters a request by modality on the way
-// in, so `POST /v1/embeddings` naming a chat model is forwarded to the
-// provider's embeddings endpoint, and a provider that answers "gpt-4o is not
+// Nothing filters a request by modality on the way in, so `POST /v1/embeddings`
+// naming a chat model is forwarded, and a provider answering "gpt-4o is not
 // supported for embeddings" has named the model beside a gone-phrase. The probe
 // cannot rescue it: it asks on the surface the strikes arrived on, so it
-// reproduces the misuse and confirms. Being wrong here retires a live chat model
-// gateway-wide; being cautious only means an embeddings model whose catalog
-// entry declares nothing is never auto-retired — the same trade
-// probeEndpointForFamily already takes for rerank, and it matters because
-// liveModelStub writes "[]" for every model no catalog covers.
+// reproduces the misuse and confirms.
 //
-// The chat surface keeps the opposite default, because there the two costs
-// invert. Chat is what most models are and what most refusals arrive on, so
-// demanding a declared modality would switch traffic-driven retirement off for
-// every uncatalogued model at once — silently, and precisely where it does the
-// most work. So a silent catalog is allowed to strike on chat, and a catalog
-// that positively describes something a chat completion cannot be about is not.
+// The two surfaces answer to different burdens of proof, because the cost of
+// guessing is not symmetric:
 //
-// "Something a chat completion cannot be about" is read from both arrays,
-// because either one can settle it and neither can on its own. An image model
-// declares output ["image"] and a TTS model ["audio"]; a speech-to-text model
-// declares output ["text"] like any chat model and gives itself away on the
-// INPUT side with ["audio"]. All four are reachable: nothing filters a request
-// by modality on the way in, so POST /v1/chat/completions naming flux-1.1-pro is
-// forwarded, and a provider answering "Model 'flux-1.1-pro' is not supported for
-// chat completions" has named the model beside a gone-phrase. Three of those and
-// the probe re-sends the same misuse, draws the same refusal, and retires a
-// working image model on every surface including the one it serves.
+//   - Embeddings requires POSITIVE evidence — the catalog has to say this model
+//     produces embeddings. Being wrong retires a live chat model gateway-wide;
+//     being cautious only means an embeddings model whose catalog declares
+//     nothing is never auto-retired, the same trade probeEndpointForFamily takes
+//     for rerank. It matters because liveModelStub writes "[]" for every model no
+//     catalog covers.
+//   - Chat keeps the opposite default. Chat is what most models are and what
+//     most refusals arrive on, so demanding a declared modality would switch
+//     traffic-driven retirement off for every uncatalogued model at once. A
+//     silent catalog may strike; one that positively describes something a chat
+//     completion cannot be about may not.
 //
-// Text and code are the whole allow-list, and it is deliberately not the
-// vocabulary of things a chat completion can CARRY. A chat model that also emits
-// images declares ["text","image"] and is admitted by the text; a model that
-// declares image alone is an images-endpoint model whatever it can be coaxed
-// into. See canonicalModalityRank in internal/provider for the full vocabulary
-// these are drawn from.
+// The chat test reads both arrays because either can settle it and neither can
+// alone: an image model declares output ["image"] and a TTS model ["audio"],
+// while a speech-to-text model declares output ["text"] like any chat model and
+// gives itself away on the INPUT side with ["audio"].
+//
+// Text and code are the whole allow-list, and deliberately not the vocabulary of
+// things a chat completion can CARRY: a chat model that also emits images
+// declares ["text","image"] and is admitted by the text, while one declaring
+// image alone is an images-endpoint model whatever it can be coaxed into. See
+// canonicalModalityRank in internal/provider for the full vocabulary.
 func modalityRulesOutSurface(m *model.Model, probeEndpoint string) bool {
 	out := declaredModalities(m.OutputModalities)
 	if probeEndpoint == probeEmbeddingsEndpoint {
@@ -210,24 +185,21 @@ func modalityRulesOutSurface(m *model.Model, probeEndpoint string) bool {
 // modalityAdmitsBothProbeSurfaces reports whether the catalog says this model
 // serves chat AND embeddings.
 //
-// Such a model is not auto-retired at all, and the reason is the mismatch
-// between what the evidence is about and what the action does. Strikes, probes
-// and successes are all per surface, because a provider can retire one surface
-// of a model and keep serving the other — but AutoRetireIfConfirmed disables the
-// model ROW, so a chat retirement would take the working embeddings surface with
-// it. That is a false positive of exactly the kind this whole path exists to
-// stop writing, and no probe can catch it: the probe is right, the model really
-// is gone on chat, and the disable is simply broader than the finding.
+// Such a model is not auto-retired at all, because of the mismatch between what
+// the evidence is about and what the action does. Strikes, probes and successes
+// are per surface, but AutoRetireIfConfirmed disables the model ROW, so a chat
+// retirement would take the working embeddings surface with it. No probe can
+// catch that: the probe is right, the model really is gone on chat, and the
+// disable is simply broader than the finding.
 //
-// Retiring per surface is the honest fix and the schema does not offer it: one
-// row is one model, enabled or not. So this takes the same trade as every other
-// case where the verdict cannot justify the action — image, TTS, STT and rerank
-// models are not auto-retired either — and leaves the model enabled until
-// discovery drops it or an operator disables it by hand.
+// Retiring per surface is the honest fix and the schema does not offer it — one
+// row is one model, enabled or not — so this takes the same trade as image, TTS,
+// STT and rerank and leaves the model enabled until discovery drops it or an
+// operator disables it by hand.
 //
 // It costs almost nothing: it needs a provider serving one model id on both
-// surfaces, which is rare, and the undeclared case is unaffected because an
-// empty modality list already rules the embeddings surface out.
+// surfaces, which is rare, and an empty modality list already rules the
+// embeddings surface out.
 func modalityAdmitsBothProbeSurfaces(m *model.Model) bool {
 	return !modalityRulesOutSurface(m, probeChatEndpoint) && !modalityRulesOutSurface(m, probeEmbeddingsEndpoint)
 }
@@ -258,44 +230,30 @@ func admitsChatModalities(list []string) bool {
 // goneStreak is one model's consecutive-refusal count plus a tombstone for the
 // window between deciding to disable and the write landing.
 //
-// n must be atomic because a retired model is precisely the one taking
-// concurrent refusals; a read-modify-write would lose increments and the streak
-// would never reach the threshold.
-//
-// cancelled exists because the disable is detached. Between the threshold being
-// reached and the database write completing — as long as the database takes —
-// the model can answer a request and prove it is alive. noteModelServed sets
-// this so the queued write can stand down instead of retiring a model whose
-// evidence has already been superseded.
-//
-// It is read twice, and both reads are needed. Before the write it prevents a
-// disable that is now known to be wrong; after the write it catches a success
-// that landed while the write was in flight, which the first read is by
-// definition too early to see. The second case cannot be prevented, only
-// undone, so noteModelGone reverts rather than skips there.
-//
-// The count, the time of the last strike and the next time a probe may be spent
-// are guarded by mu rather than being separate atomics. Atomics cannot express
-// any of the three: deciding whether the window has lapsed and then applying the
-// decision is one operation, and splitting it loses strikes. A reset racing two
-// increments stores 1 after both have added, erasing them, so a model refused
-// three times ends the burst on a count of one and never reaches the threshold.
-// nextProbeAt is the same shape of decision — read the deadline, decide, stamp
+// The counters are guarded by mu rather than being separate atomics, because
+// none of the three decisions can be expressed atomically: deciding whether the
+// strike window has lapsed and then applying the decision is one operation, and
+// splitting it loses strikes (a reset racing two increments stores 1 after both
+// have added). nextProbeAt is the same shape — read the deadline, decide, stamp
 // the new one — and splitting it would let two callers past the same expired
-// deadline and issue two probes where the whole point is to issue one.
+// deadline and issue two probes where the point is to issue one. The lock is
+// held for a comparison and an addition on a per-model struct that is contended
+// only while that model is failing.
 //
-// The lock is held for a comparison and an addition, on a per-model struct that
-// is only contended while that one model is failing, so it costs nothing worth
-// measuring.
-//
-// cancelled stays atomic because it is read by the detached disable goroutine
-// while the request path may be writing it, and it is independent of the three
-// above.
+// cancelled is a tombstone for the window between deciding to disable and the
+// write landing, during which the model can answer a request and prove it is
+// alive. It stays atomic because the detached disable goroutine reads it while
+// the request path may be writing it. It is read twice and both reads are
+// needed: before the write to prevent a disable now known to be wrong, and after
+// it to catch a success that landed while the write was in flight — which the
+// first read is by definition too early to see, and which can only be undone
+// rather than prevented.
 type goneStreak struct {
-	mu          sync.Mutex
-	n           int64
-	lastStrike  time.Time
-	nextProbeAt time.Time
+	mu           sync.Mutex
+	n            int64
+	lastStrike   time.Time
+	nextProbeAt  time.Time
+	inconclusive int
 
 	cancelled atomic.Bool
 }
@@ -321,44 +279,33 @@ func (s *goneStreak) strike(now time.Time) int64 {
 // claimProbe reports whether this caller may spend an upstream request on the
 // model, and takes the right to do so if it may.
 //
-// It is one operation and not two, which is what makes it serve both of its
-// jobs. Claiming at spawn time rather than crediting at completion means a
-// second caller arriving while the first probe is still in flight finds the
-// stamp already set and drops out, so this is also the "a probe is already in
-// flight" guard — hence goneProbeCooldown's floor being the probe's own
-// deadline rather than a matter of taste.
-//
-// The two jobs it replaced:
-//
-//   - "exactly one caller sees the threshold value", which the old
-//     strikes == goneStrikeThreshold test did. A burst of concurrent refusals
-//     still issues a single probe, but now because everyone after the first is
-//     inside the cooldown rather than because their count happened to overshoot.
-//   - the retry, which the inconclusive path used to get by deleting the streak.
-//     A parked streak is re-probed by the next refusal past the cooldown, so
-//     postponing no longer has to throw the evidence away to stay reachable.
+// It is one operation and not two, which is what makes it serve both jobs.
+// Claiming at spawn time rather than crediting at completion means a second
+// caller arriving while the first probe is still in flight finds the stamp
+// already set and drops out, so this is also the "a probe is already in flight"
+// guard — hence goneProbeCooldown's floor being the probe's own deadline. A
+// burst of concurrent refusals therefore issues a single probe, and a parked
+// streak stays re-probeable by the next refusal past the cooldown, so postponing
+// does not have to throw the evidence away to stay reachable.
 //
 // A zero stamp admits the first caller, which is what a model that has never
 // been probed should get.
 //
-// The evidence has to still be standing, which is the other half of the same
-// critical section and not a formality. The caller strikes and then claims, and
-// those are two lock acquisitions: a success can land in between, clear the
-// count and set the tombstone, and the claim would otherwise proceed on strikes
-// that no longer exist — spending an upstream request, and reporting a strike
-// count the streak does not hold. Reading the count here is what makes "the
-// success is older than the strikes" true rather than merely usual.
+// The count check is the other half of the same critical section and not a
+// formality. The caller strikes and then claims, and those are two lock
+// acquisitions: a success can land in between, clear the count and set the
+// tombstone, and the claim would otherwise spend an upstream request on strikes
+// that no longer exist.
 //
-// Granting a claim also clears the cancelled tombstone, and that is what makes
-// a streak reusable rather than something to be thrown away. The flag means "a
-// success landed after the disable now in flight was decided", so it belongs to
-// one decision; a claim starts the next one, and the count check above is what
-// guarantees the strikes it starts on are newer than any success that set the
-// flag. Leaving it set would make the disable this claim spawns stand down at
-// its own pre-write check, and the model would never be retired again on this
-// streak. Nothing can be racing an earlier probe either: a claim cannot be
-// granted while one is alive, because goneProbeCooldown is five minutes and the
-// whole goroutine lives at most goneProbeTimeout plus one write.
+// Granting a claim also clears the tombstone, which is what makes a streak
+// reusable. The flag means "a success landed after the disable now in flight was
+// decided", so it belongs to one decision; a claim starts the next one, and the
+// count check guarantees the strikes it starts on are newer than any success
+// that set the flag. Leaving it set would make the disable this claim spawns
+// stand down at its own pre-write check, and the model would never be retired
+// again on this streak. Nothing can be racing an earlier probe: goneProbeCooldown
+// is five minutes and the whole goroutine lives at most goneProbeTimeout plus
+// one write.
 func (s *goneStreak) claimProbe(now time.Time) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -376,27 +323,21 @@ func (s *goneStreak) claimProbe(now time.Time) bool {
 // canClaimProbe answers the same question as claimProbe without taking anything.
 //
 // It is not a substitute for the claim and cannot be: two callers can both read
-// true and only one of them may proceed, which is what claimProbe's single
-// critical section decides. It exists so the cheap, per-model reason to stop can
-// be checked before the shared, per-provider one — a refusal inside its cooldown
-// then never touches the semaphore at all.
+// true and only one may proceed. It exists so the cheap, per-model reason to
+// stop is checked before the shared, per-provider one, which is what keeps the
+// semaphore counting adjudications rather than refusals — without it, a retry
+// storm across models that are all inside their cooldowns holds all four slots
+// for the microseconds each take-and-release costs, denying a genuine probe to
+// the one model whose cooldown HAS expired.
 //
-// That ordering is what keeps the semaphore counting adjudications rather than
-// refusals. Without it, a retry storm across models that are all inside their
-// cooldowns can hold all four slots for the microseconds each take-and-release
-// costs, and the one model whose cooldown HAS expired is denied a genuine probe
-// by traffic that was never going to spend one.
-// It mirrors both of claimProbe's conditions, including the count. Reading only
-// the stamp would let a refusal whose evidence a success had already cleared
-// walk past the cheap check and go take a provider slot, to be turned away by
-// the claim a moment later — which is the shape of waste this read exists to
-// stop.
-// The reason is returned alongside the answer because the caller logs it, and
-// the two are not the same event: a cooldown is a deliberate wait, while a count
-// below the threshold means a success cleared the evidence between the strike
-// and this read. Reporting the first for the second told an operator a model was
-// waiting out five minutes when its streak had in fact gone back to zero — the
-// distinction the line exists to make.
+// It mirrors both of claimProbe's conditions, including the count: reading only
+// the stamp would let a refusal whose evidence a success had already cleared go
+// take a provider slot, to be turned away by the claim a moment later.
+//
+// The reason is returned because the caller logs it and the two cases are not
+// the same event: a cooldown is a deliberate wait, while a count below the
+// threshold means a success cleared the evidence between the strike and this
+// read.
 func (s *goneStreak) canClaimProbe(now time.Time) (ok bool, reason string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -413,32 +354,29 @@ func (s *goneStreak) canClaimProbe(now time.Time) (ok bool, reason string) {
 // cooldown it has earned. It is what "clear the streak" means everywhere in
 // this file; nothing removes the entry.
 //
-// Deleting was the obvious spelling and it silently discarded the rate bound.
-// nextProbeAt lives on the streak, so dropping the entry drops the stamp, and
-// the next refusal builds a fresh zero-valued streak whose claimProbe admits
-// immediately. Every reason a streak used to be deleted is a reason it is
-// likely to be rebuilt at once: a probe that answered while traffic keeps
-// drawing retirement prose, a real request that succeeded between refusals, a
-// disable that failed to write. Each of those turned into three fresh refusals
-// buying another upstream call, forever, which is precisely the loop
-// goneProbeCooldown exists to close.
+// Deleting the entry would silently discard the rate bound: nextProbeAt lives on
+// the streak, so the next refusal would build a fresh zero-valued one whose
+// claimProbe admits immediately. Every reason a streak is cleared is a reason it
+// may be rebuilt at once — a probe that answered while traffic keeps drawing
+// retirement prose, a success between refusals, a disable that failed to write —
+// so each would turn into three fresh refusals buying another upstream call,
+// forever.
 //
-// Parking gives both halves of the bound instead. The count is reset, so the
-// model needs three FRESH refusals before it is reconsidered, and the stamp
-// survives, so the reconsideration also waits out the cooldown.
+// Parking keeps both halves of the bound: the count is reset, so the model needs
+// three FRESH refusals, and the stamp survives, so the reconsideration also
+// waits out the cooldown.
 //
-// Mutating the streak in place rather than reaching into h.goneStrikes by model
-// id is what makes every caller identity-scoped for free: sync.Map holds the
-// pointer, so a park lands on the map entry while this is still the live streak
-// and touches nothing once it is not.
+// Mutating in place rather than reaching into h.goneStrikes by model id makes
+// every caller identity-scoped for free: sync.Map holds the pointer, so a park
+// lands on the map entry while this is still the live streak.
 //
-// The tombstone is deliberately not touched here: a success has to set it (see
-// noteModelServed) and a claim has to clear it (see claimProbe), and both of
-// those are decisions about a disable rather than about the evidence.
+// The tombstone is deliberately not touched: a success sets it (noteModelServed)
+// and a claim clears it (claimProbe), and both are decisions about a disable
+// rather than about the evidence.
 //
 // Nothing is ever deleted, so the map holds one small struct per model that has
-// ever drawn a gone-classified refusal. That is bounded by the catalog and is
-// the point: a model's probe cooldown has to outlive the streak that earned it.
+// ever drawn a gone-classified refusal — bounded by the catalog, and the point:
+// a model's probe cooldown has to outlive the streak that earned it.
 func (s *goneStreak) park() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -448,27 +386,19 @@ func (s *goneStreak) park() {
 // supersede is park plus the tombstone: the model answered, so a disable that
 // has been decided stands down and the evidence behind it is cleared.
 //
-// One critical section, and that is the whole reason this is not two calls at
-// the call site. The disable goroutine reads the tombstone without the lock and
-// then asks for the count, so the two updates have to be indivisible from its
-// point of view: seeing cancelled set while the count still shows the strikes
-// that caused this retirement reads as "the model is refusing again", and the
-// revert is skipped — leaving a model that has just answered disabled, with the
-// count parked at zero immediately afterwards so nothing ever triggers a revert
-// again. An operator would have to re-enable it by hand, which is the exact
-// outcome the cancellation exists to prevent.
-//
-// Storing inside the lock is what closes it: once a reader observes the
-// tombstone the writer is still holding mu, so the count it goes on to ask for
-// cannot be read until this has finished zeroing it.
+// One critical section, which is why this is not two calls at the call site. The
+// disable goroutine reads the tombstone without the lock and then asks for the
+// count, so the two updates have to be indivisible from its point of view:
+// seeing cancelled set while the count still shows the strikes that caused this
+// retirement reads as "the model is refusing again", the revert is skipped, and
+// the count is parked at zero immediately afterwards so nothing triggers one
+// again — leaving a model that has just answered disabled until an operator
+// re-enables it by hand. Storing inside the lock closes that: once a reader
+// observes the tombstone the writer still holds mu.
 //
 // It reports whether it changed anything, for the caller's log line rather than
-// for control flow. A streak already at zero with the tombstone already set has
-// been superseded by an earlier success and there is nothing left to stand down
-// — which is the steady state for any model that drew one refusal and then went
-// on serving, since nothing removes entries. The early return is deliberately
-// that narrow: a count of zero with no tombstone can still belong to a disable
-// this success has to cancel.
+// for control flow. The early return is deliberately narrow — a count of zero
+// with no tombstone can still belong to a disable this success has to cancel.
 func (s *goneStreak) supersede() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -481,9 +411,24 @@ func (s *goneStreak) supersede() bool {
 }
 
 // clearLocked resets the evidence. Callers hold mu.
+//
+// The inconclusive run goes with it: it counts probes that could not answer a
+// question, so clearing the question ends the run. Every caller is the model
+// answering — a success, or a probe that got content out of it — which is the
+// outcome the run was waiting for.
 func (s *goneStreak) clearLocked() {
 	s.n = 0
 	s.lastStrike = time.Time{}
+	s.inconclusive = 0
+}
+
+// noteInconclusiveProbe records a probe that established nothing and reports how
+// many in a row this streak has now taken. See goneProbeInconclusiveWarnAfter.
+func (s *goneStreak) noteInconclusiveProbe() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.inconclusive++
+	return s.inconclusive
 }
 
 // count reports the current streak length.
@@ -499,35 +444,28 @@ func (s *goneStreak) count() int64 {
 //
 // The classifier nominates, the probe adjudicates. Every strike here was read
 // out of provider prose by classifyUpstreamError, and prose drifts: a phrasing
-// that means "retired" today is a phrasing some provider will use for something
-// else tomorrow, and the disable was being written on that reading alone. The
-// threshold is now the bar for spending one upstream request on the question
-// rather than the verdict itself, and the model is retired only when a real
-// request to it is refused as well.
+// that means "retired" today is one some provider will use for something else
+// tomorrow. The threshold is the bar for spending one upstream request on the
+// question, not the verdict itself.
 //
 // The probe can only ever PREVENT a disable. It never causes one that three
-// strikes had not already earned, so widening it cannot make the gateway retire
-// more than it did before.
+// strikes had not already earned.
 //
 // The whole candidate is taken rather than the model plus a provider name
 // because the probe needs a provider to talk to: its base URL, its dialect and
-// the already-decrypted key. A name was enough to log with and is not enough to
-// verify anything.
+// the already-decrypted key.
 //
 // Strikes are in-memory and deliberately not persisted. They are a heuristic
-// over recent traffic, not an audit trail: losing them on restart just means a
-// genuinely dead model re-earns them on the next few requests, while keeping
-// the hot path free of a database write per failed request. Each HA member
-// therefore reaches its own conclusion from its own traffic, which is the safer
-// direction — nothing fans a disable out across the fleet on one member's
-// evidence.
+// over recent traffic, not an audit trail: losing them on restart means a
+// genuinely dead model re-earns them on the next few requests, while the hot
+// path stays free of a database write per failed request. Each HA member reaches
+// its own conclusion from its own traffic, so nothing fans a disable out across
+// the fleet on one member's evidence.
 func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	m := candidate.model
-	// A nil provider now stops the retirement outright instead of being papered
-	// over. Under the old signature it could not: providerName was a string, so
-	// a candidate with no provider still counted strikes and still disabled the
-	// model. There is nothing to probe without one, and an unprobeable
-	// retirement is exactly what this change exists to stop writing.
+	// A nil provider stops the retirement outright: there is nothing to probe
+	// without one, and an unprobeable retirement is what this path exists to stop
+	// writing.
 	if m == nil || m.ID == uuid.Nil || candidate.provider == nil {
 		return
 	}
@@ -537,27 +475,18 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	// Only chat and embeddings can be probed cheaply (see
 	// probeEndpointForFamily). A chat probe against an image, TTS, STT or rerank
 	// model fails for reasons that have nothing to do with retirement, and that
-	// failure would read as confirmation of it — the verification would
-	// manufacture the very answer it was added to check. Falling back to
-	// classifier-only for those families is not the alternative it looks like
-	// either: it would leave the guessing this change removes running
-	// unsupervised in the corner where it is least observed.
+	// failure would read as confirmation of it. Falling back to classifier-only
+	// for those families would leave the guessing running unsupervised where it
+	// is least observed.
 	//
-	// Gating before the strike rather than after is what keeps the counter
-	// honest. A streak that can never fire is not evidence, so recording it
-	// would only manufacture the appearance of some; and a model that takes
-	// chat traffic and image traffic must not have its chat streak — the one
-	// that CAN retire it — topped up by image refusals nothing will ever
-	// adjudicate.
+	// Before the strike rather than after, because a streak that can never fire
+	// is not evidence, and a model taking both chat and image traffic must not
+	// have its chat streak — the one that CAN retire it — topped up by image
+	// refusals nothing will ever adjudicate.
 	//
-	// Debug rather than Info, and that is a consequence of returning before the
-	// strike rather than a preference. Nothing throttles this line: no counter
-	// is kept, so there is no threshold to cross and nothing ever goes quiet. A
-	// genuinely retired image or TTS model used to log twice, reach the
-	// threshold, be disabled and stop; it now logs once per refused request for
-	// as long as traffic keeps arriving, precisely BECAUSE it is never retired
-	// to make it stop. At Info that is an unbounded line in every operator's log
-	// for a condition that is by design permanent.
+	// Debug rather than Info because nothing throttles this line: the model is
+	// never retired to make it stop, so it fires once per refused request for as
+	// long as traffic keeps arriving.
 	probeEndpoint, ok := probeEndpointForFamily(endpointType)
 	if !ok {
 		debuglog.Debug("proxy: provider reports model gone on an endpoint family that cannot be probed, so it is never auto-retired", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType)
@@ -566,13 +495,11 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 
 	// The second gate: the refusal has to be about a surface this model is FOR.
 	//
-	// This is the same argument as the family gate above, applied to the one
-	// direction that gate cannot see. Chat and embeddings are both probeable, so
-	// the mismatch is between the model and the surface rather than between the
-	// surface and the probe — and the probe cannot catch it, because it asks on
-	// the surface the strikes arrived on and would reproduce the misuse
-	// faithfully. What each surface demands of the catalog, and why the two
-	// differ, is argued in modalityRulesOutSurface.
+	// Chat and embeddings are both probeable, so here the mismatch is between the
+	// model and the surface rather than between the surface and the probe — and
+	// the probe cannot catch it, because it asks on the surface the strikes
+	// arrived on and would reproduce the misuse faithfully. What each surface
+	// demands of the catalog is argued in modalityRulesOutSurface.
 	if modalityRulesOutSurface(m, probeEndpoint) {
 		debuglog.Debug("proxy: ignoring a gone-classified refusal on a surface this model is not known to serve", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "input_modalities", m.InputModalities, "output_modalities", m.OutputModalities)
 		return
@@ -588,24 +515,19 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 		return
 	}
 
-	// The counter must be incremented atomically, not read-modify-written. A
-	// dead model is exactly the one that gets hammered concurrently — clients
+	// A dead model is exactly the one that gets hammered concurrently — clients
 	// retry it, and a failover group can try it on several requests at once — so
-	// a lost update here is not theoretical: two refusals racing would both read
-	// the same value and store the same increment, the streak would stall below
-	// the threshold, and the model would stay routable indefinitely.
-	//
-	// sync.Map holds a per-model *goneStreak rather than a plain int, so
+	// a lost update is not theoretical: two racing refusals would store the same
+	// increment, the streak would stall below the threshold, and the model would
+	// stay routable indefinitely. sync.Map holds a per-model *goneStreak, so
 	// LoadOrStore only races on creating it (harmless, the winner's is used by
-	// everyone) and the increment itself is atomic.
+	// everyone) and the increment itself is guarded.
 	//
-	// Keyed by model AND probe surface, not by model alone. The two are separate
-	// questions — a model can be served on one surface and refused on another —
-	// and the probe is sent to the surface the strikes came from, so pooling them
-	// let two chat refusals plus one embeddings refusal buy an embeddings probe.
-	// Keyed this way, every streak names one surface, and what the probe asks is
-	// always what the strikes were about. Chat and messages share a key by
-	// design: they resolve to the same probe endpoint, so they are the same
+	// Keyed by model AND probe surface, not by model alone: a model can be served
+	// on one surface and refused on another, and the probe is sent to the surface
+	// the strikes came from, so pooling them let two chat refusals plus one
+	// embeddings refusal buy an embeddings probe. Chat and messages share a key
+	// by design — they resolve to the same probe endpoint, so they are one
 	// question asked through two front doors.
 	raw, _ := h.goneStrikes.LoadOrStore(goneStreakKey{model: m.ID, endpoint: probeEndpoint}, &goneStreak{})
 	streak, ok := raw.(*goneStreak)
@@ -621,99 +543,61 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	}
 
 	// At or above the threshold every refusal asks for a probe, and the streak's
-	// own cooldown decides which one gets it. The old shape tested for the
-	// threshold value exactly, so only the caller that saw a count of three ever
-	// proceeded; claimProbe now does that job and two more besides.
+	// own cooldown decides which one gets it. A burst issues ONE probe — fifty
+	// concurrent retries all ask, one wins the claim, the rest drop out inside
+	// the cooldown — and a parked streak stays reachable, so a single refusal
+	// after the cooldown re-probes a streak still sitting at three. Postponing
+	// therefore costs no evidence and the retry costs no extra strikes.
 	//
-	// What each version buys:
+	// The counter is deliberately NOT cleared on the way to a disable: clearing
+	// it would let a burst against a dead model re-enter the threshold every
+	// three strikes. Exactly two things clear it and both are the model
+	// answering: noteModelServed, and the served-probe branch below. A disable
+	// that could not be written clears nothing, so the next refusal past the
+	// cooldown retries it. A retirement that did land needs no guard either — the
+	// model is disabled, so no traffic reaches it, and a straggler finds
+	// AutoRetireIfConfirmed refusing to write over an already-retired row.
 	//
-	//   - A burst still issues ONE probe. Fifty concurrent retries all reach
-	//     here, all ask, one wins the claim and the other forty-nine drop out
-	//     inside the cooldown. Same outcome as the equality test, on a rule that
-	//     survives the count moving on.
-	//   - A parked streak stays reachable. The equality test made every refusal
-	//     past the threshold a permanent no-op, which is why the inconclusive
-	//     path below had to DELETE the streak to be retried at all — and
-	//     deleting it is what left the probe rate unbounded. With the claim
-	//     gating instead, a single refusal after the cooldown re-probes a streak
-	//     that is still sitting at three, so postponing costs no evidence and
-	//     the retry costs no extra strikes.
-	//   - The rate is bounded. See goneProbeCooldown.
+	// The provider's slot is taken BEFORE the model's claim. Both are
+	// non-blocking, but only one is spent: the claim stamps a five-minute
+	// cooldown, while a refused slot costs nothing. Taking the claim first meant
+	// a model that lost the race for a slot had already burnt its cooldown for
+	// zero upstream work — so a provider incident nominating two hundred models
+	// would adjudicate four and push the rest out a full cooldown each,
+	// converging in hours rather than in the time four slots take to turn over.
+	// The refused caller leaves the streak untouched and the next refusal retries
+	// immediately, which is safe because the semaphore is itself the rate bound
+	// in that window.
 	//
-	// The counter is still deliberately NOT cleared on the way to a disable.
-	// Clearing it would let the next refusal start a fresh count from zero, so a
-	// burst against a dead model would re-enter the threshold every three
-	// strikes. Exactly two things clear it, and both are the model answering:
-	// noteModelServed, when a request to it succeeds, and the served-probe branch
-	// below, when the probe gets content out of it. A disable that could not be
-	// written clears nothing at all — the streak stays as it is and the next
-	// refusal past the cooldown retries it. A retirement that did land does not
-	// need the guard either: the model is disabled, so no traffic reaches it to
-	// strike it again, and a straggler that arrives past the cooldown finds
-	// AutoRetireIfConfirmed refusing to write over an already-retired row, which
-	// reports as an uncommitted attempt and publishes no second alert.
-	// The provider's slot is taken BEFORE the model's claim, and the order is the
-	// whole point. Both are non-blocking, but only one of them is spent: the
-	// claim stamps a five-minute cooldown on the model, while a refused slot
-	// costs nothing at all.
-	//
-	// Taking the claim first meant a model that lost the race for a slot had
-	// already burnt its cooldown for zero upstream work — and that is exactly the
-	// event goneProbeMaxConcurrent exists for. A provider incident nominating two
-	// hundred models adjudicates four of them and pushes every other one out a
-	// full cooldown, so a batch that should converge in the time it takes the
-	// four slots to turn over (a probe is ≤30s) instead converges at four models
-	// per five minutes. Hours rather than minutes, with the gateway idle in
-	// between.
-	//
-	// This way the refused caller leaves the streak untouched and the next
-	// refusal tries again immediately, which is safe because the semaphore is
-	// itself the rate bound in that window: no upstream request can be spent
-	// without a slot, whatever the retry rate.
-	//
-	// The cooldown is still read FIRST, without taking anything, so a refusal
-	// that could not have probed anyway never reaches the semaphore. Otherwise
-	// the shared, per-provider resource ends up counting refusals rather than
-	// adjudications: a retry storm across models that are all inside their
-	// cooldowns can hold the four slots for the moment each take-and-release
-	// costs, and deny them to the one model whose cooldown has actually expired.
-	// The read cannot replace the claim — two callers can both see true and only
-	// one may proceed — which is why claimProbe still decides below.
+	// The cooldown is read FIRST, without taking anything, so a refusal that
+	// could not have probed anyway never reaches the semaphore. See
+	// canClaimProbe, which also explains why that read cannot replace the claim.
 	if claimable, reason := streak.canClaimProbe(now); !claimable {
-		// The only postponement on this path that used to be silent, and the one
-		// an operator is most likely to be looking at: it is the steady state
-		// for every refusal against a model already at the threshold. Without a
-		// line here, strikes 1 and 2 log at Info and then five minutes go quiet,
-		// with nothing to distinguish waiting out the cooldown from a strike
-		// dropped by one of the gates above.
+		// The steady state for every refusal against a model already at the
+		// threshold. Without a line here, strikes 1 and 2 log at Info and then
+		// five minutes go quiet, with nothing to distinguish waiting out the
+		// cooldown from a strike dropped by one of the gates above.
 		//
-		// Debug for the same reason as the semaphore line below: nothing
-		// throttles it, and a client retry loop against a dead model reaches it
-		// on every request.
+		// Debug because nothing throttles it: a client retry loop against a dead
+		// model reaches it on every request.
 		debuglog.Debug("proxy: postponing auto-disable, "+reason, "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "strikes", streak.count(), "retry_after", goneProbeCooldown.String())
 		return
 	}
 
-	// And the breaker is read before the claim for the same reason the cooldown
-	// is: a claim must only ever be spent on a probe that can actually leave the
-	// process. probeModel asks this too, but it asks from inside the goroutine,
-	// by which point the five minutes are already gone — so a model whose third
-	// strike landed in the gap between the provider's last answer and its circuit
-	// opening bought nothing with them.
+	// The breaker is read before the claim for the same reason the cooldown is: a
+	// claim must only be spent on a probe that can actually leave the process.
+	// probeModel asks this too, but from inside the goroutine, by which point the
+	// five minutes are already gone.
 	//
-	// The window is narrow rather than open-ended, and worth naming so the check
-	// is not read as more than it is: resolveCandidates skips providers whose
-	// circuit is open, so while it stays open nothing is routed to them, no
-	// refusal is classified and no strike is recorded. Only nominations already
-	// at the threshold when the circuit opened are affected, and each is delayed
-	// once.
+	// The window is narrow: resolveCandidates skips providers whose circuit is
+	// open, so while it stays open nothing is routed to them and no strike is
+	// recorded. Only nominations already at the threshold when the circuit opened
+	// are affected, and each is delayed once.
 	//
-	// GetState rather than IsOpen, exactly as probeModel does: IsOpen is the
-	// routing gate and performs the Open->HalfOpen transition, which would spend
-	// the provider's one half-open trial slot on a request the operator never
-	// made. GetState derives the same logical state under a read lock and touches
-	// nothing. The check inside probeModel stays where it is — it is that
-	// function's own contract, and it is what any future caller gets.
+	// GetState rather than IsOpen, exactly as probeModel does — IsOpen is the
+	// routing gate and would spend the provider's one half-open trial slot on a
+	// request the operator never made. The check inside probeModel stays where it
+	// is: it is that function's own contract.
 	if h.circuitBreaker != nil && h.circuitBreaker.GetState(candidate.provider.ID) == failover.StateOpen {
 		debuglog.Debug("proxy: postponing auto-disable, the provider's circuit is open", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType)
 		return
@@ -721,13 +605,11 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 
 	release, ok := h.acquireProbeSlot(candidate.provider.ID)
 	if !ok {
-		// Debug, for the same reason the family gate above is: nothing throttles
-		// this line. Since the slot is taken before the claim is spent, every
-		// refusal past the cooldown reaches it, and the case it reports is a
-		// provider-wide nomination event under a client's retry loop — thousands
-		// of lines a second describing a condition an operator can already see in
-		// the probes that ARE going out. The postponement itself costs nothing
-		// and is retried by the next refusal.
+		// Debug because nothing throttles this line: the slot is taken before the
+		// claim is spent, so every refusal past the cooldown reaches it, and the
+		// case it reports is a provider-wide nomination event under a client's
+		// retry loop. The postponement costs nothing and is retried by the next
+		// refusal.
 		debuglog.Debug("proxy: postponing auto-disable, too many retirement probes are already in flight for this provider", "model", m.ModelID, "provider", candidate.provider.Name, "endpoint", endpointType, "limit", goneProbeMaxConcurrent)
 		return
 	}
@@ -744,21 +626,18 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 	modelID, modelName, provider := m.ID, m.ModelID, candidate.provider.Name
 
 	// announceRetirement is everything a disable owes the rest of the system once
-	// the row is actually off, and it is one function because the goroutine below
-	// has four exits that leave it off and only one that does not.
+	// the row is actually off, in one function because the goroutine below has
+	// four exits that leave it off and only one that does not.
 	//
-	// The revalidation is unconditional among those four. Disabling a member does
+	// The revalidation is unconditional among those four: disabling a member does
 	// not resize the custom failover groups it belongs to, so a group can be left
-	// enabled while it no longer has two routable members. Discovery already
-	// revalidates after it disables a model (see discovery_diff.go); this path has
-	// to do the same or an undersized group stays enabled until some unrelated
-	// scan happens to fix it. Best-effort: a failure here must not undo the
-	// disable.
+	// enabled with fewer than two routable members until some unrelated scan
+	// notices. Discovery already revalidates after its own disables (see
+	// discovery_diff.go). Best-effort — a failure here must not undo the disable.
 	//
-	// The alert is not, which is why it is a parameter rather than assumed. It
-	// asserts that THIS model is retired, so it is published only where the
-	// goroutine still knows that to be true — not where the row has moved on
-	// under someone else, and not where the retirement was successfully undone.
+	// The alert is a parameter rather than assumed because it asserts that THIS
+	// model is retired, so it is published only where that is still known to be
+	// true.
 	announceRetirement := func(publish bool) {
 		if h.failoverRepo != nil {
 			vctx, vcancel := context.WithTimeout(context.Background(), goneWriteTimeout)
@@ -796,13 +675,12 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 		defer release()
 
 		// Every other detached goroutine in this package recovers
-		// (touchProviderLastUsed, the log writer, the usage recorder) and this
-		// one now has far more reason to. It used to call repository methods and
-		// nothing else; it now makes an upstream request and runs bytes a
-		// provider chose through the dialect translators, so a panic anywhere in
-		// json, the transport or a translator would take the whole gateway down
-		// over one model's retirement. Recovering leaves the model enabled, which
-		// is the direction every unproven case on this path already takes.
+		// (touchProviderLastUsed, the log writer, the usage recorder), and this
+		// one makes an upstream request and runs bytes a provider chose through
+		// the dialect translators — so a panic in json, the transport or a
+		// translator would take the whole gateway down over one model's
+		// retirement. Recovering leaves the model enabled, which is the direction
+		// every unproven case on this path takes.
 		defer func() {
 			if r := recover(); r != nil {
 				debuglog.Error("proxy: panic while auto-disabling a retired model", "model", modelName, "provider", provider, "error", r)
@@ -822,52 +700,37 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			return
 		}
 
-		// Ask the provider itself. The three strikes decided this model was
-		// worth one upstream request; what retires it is the answer to that
-		// request.
+		// Ask the provider itself. The strikes decided this model was worth one
+		// upstream request; what retires it is the answer.
 		//
-		// Placed after the cancelled check above and before the write below, and
-		// both halves of that are deliberate. After, because a success that
-		// landed while the disable was queued has already settled the question,
-		// and paying for a probe to re-establish it would spend an upstream call
-		// on an answer already in hand. Before, because the whole point is that
-		// the write is not made on the classifier's reading alone.
-		//
-		// The deadline lives in probeForRetirement, which is still this file
-		// rather than probeModel: the production budget stays with the decision
-		// that owns it, and probeModel stays a helper that issues one request and
-		// reports what came back.
+		// After the cancelled check because a success that landed while the
+		// disable was queued has already settled the question, and before the
+		// write because the whole point is that the write is not made on the
+		// classifier's reading alone.
 		verdict := h.probeForRetirement(candidate, endpointType)
 		// The upstream request is over, so the provider's slot goes back now
 		// rather than at the end of the write. Holding it across
 		// AutoRetireIfConfirmed and the revalidation would tie a cap on
-		// CONNECTIONS to how fast the database is, and halve what four slots can
-		// adjudicate during exactly the provider event they exist for.
+		// CONNECTIONS to how fast the database is.
 		release()
 
 		switch verdict {
 		case probeServed:
-			// The model refused real traffic three times and then answered a
-			// direct request. Warn rather than Info: whatever is going on —
-			// drifted classifier patterns, a provider returning retirement prose
-			// for a transient fault, traffic that carries something the probe
-			// does not — an operator should see it, because it is the case in
-			// which the old code would have retired a working model.
+			// The model refused real traffic and then answered a direct request.
+			// Warn rather than Info: whatever is going on — drifted classifier
+			// patterns, a provider returning retirement prose for a transient
+			// fault, traffic carrying something the probe does not — an operator
+			// should see it, because it is the case in which the classifier alone
+			// would have retired a working model.
 			//
-			// The park is the backoff, and it is why no durable "never retire
-			// this model" store is being added: the count is reset, so the model
-			// needs three FRESH refusals before it is reconsidered, and one that
-			// is genuinely dead simply earns them again while one that is alive
-			// keeps clearing them.
+			// The park is the backoff, and why no durable "never retire this
+			// model" store is needed: the count is reset, so a genuinely dead
+			// model simply earns three FRESH refusals again while a live one keeps
+			// clearing them.
 			//
-			// The streak is parked directly rather than through noteModelServed,
-			// which does the same to the count and additionally sets the
-			// tombstone. There is nothing here for the tombstone to stand down:
-			// the only disable this streak can have queued is this goroutine,
-			// which is about to return.
-			// The count that claimed the probe, for the reason the disable line
-			// below gives: under claimProbe the number that bought it is not
-			// always three.
+			// Parked directly rather than through noteModelServed because there is
+			// nothing here for the tombstone to stand down: the only disable this
+			// streak can have queued is this goroutine, which is about to return.
 			debuglog.Warn("proxy: not auto-disabling, the model answered a direct probe after being reported gone", "model", modelName, "provider", provider, "endpoint", endpointType, "strikes", strikes, "retry_after", goneProbeCooldown.String())
 			streak.park()
 			return
@@ -875,33 +738,27 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			// Nothing was established: a 429, a 5xx, an entitlement failure, a
 			// connection that never landed, or an expired deadline. Postpone.
 			//
-			// Deliberately NOT the postponements that happen before this
-			// goroutine exists — a busy provider semaphore, an open circuit, a
-			// cooldown still running. Those return on the request path without
-			// producing a verdict at all, and each says so on its own Debug line;
-			// looking for them here is looking in the wrong place.
+			// The count is left exactly where it is. The strikes were real
+			// evidence and nothing has contradicted them, so an unanswered
+			// question must not cost the model its whole case; the next refusal
+			// past goneProbeCooldown re-probes the parked streak.
 			//
-			// The count is left exactly where it is, and neither half of that is
-			// incidental. Postponing means postponing: the strikes were real
-			// evidence and nothing has contradicted them, so throwing them away
-			// would make an unanswered question cost the model its whole case.
+			// The model is NOT credited with a success either. noteModelServed is
+			// not called, so no in-flight disable stands down and no cancelled
+			// flag is set: treating "we could not tell" as "it works" would let a
+			// provider outage clear the streaks of everything behind it.
 			//
-			// This used to delete the streak, for a reason that no longer holds.
-			// Under the old strikes == goneStrikeThreshold gate a parked streak
-			// was unreachable — every later refusal was a no-op — so deleting it
-			// was the only way a model whose first probe hit a 429 could ever be
-			// retired. The cost was that three fresh refusals then bought another
-			// probe, and another, with nothing bounding the rate at a provider
-			// that was already rate limiting us. claimProbe replaces that: the
-			// streak stays parked and the next refusal past goneProbeCooldown
-			// re-probes it, so the retirement stays reachable at one probe per
-			// cooldown instead of one per three refusals.
-			//
-			// The model is still deliberately NOT credited with a success.
-			// noteModelServed is not called, so no in-flight disable is stood
-			// down and no cancelled flag is set — the model has not proved
-			// anything, and treating "we could not tell" as "it works" would let
-			// a provider outage clear the streaks of everything behind it.
+			// Only verdicts are reported here. The postponements that happen
+			// before this goroutine exists — a busy semaphore, an open circuit, a
+			// cooldown still running — never produce one, and log on their own
+			// lines on the request path.
+			if run := streak.noteInconclusiveProbe(); run >= goneProbeInconclusiveWarnAfter {
+				// A model that cannot be adjudicated is costing an upstream
+				// request per cooldown indefinitely. See
+				// goneProbeInconclusiveWarnAfter.
+				debuglog.Warn("proxy: auto-disable postponed repeatedly, the retirement probe keeps establishing nothing", "model", modelName, "provider", provider, "endpoint", endpointType, "strikes", streak.count(), "inconclusive_probes", run, "retry_after", goneProbeCooldown.String())
+				return
+			}
 			debuglog.Info("proxy: postponing auto-disable, the retirement probe established nothing", "model", modelName, "provider", provider, "endpoint", endpointType, "strikes", streak.count(), "retry_after", goneProbeCooldown.String())
 			return
 		case probeRefused:
@@ -910,14 +767,10 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			// the one the disable is actually written on; fall through.
 		default:
 			// Unreachable while probeVerdict has three values, and present
-			// because the cost of the two outcomes is not symmetric. Go does not
-			// check switch exhaustiveness and no linter here does either, so a
-			// fourth verdict added later would silently fall out of this switch
-			// and into the write below — the one direction the probe is not
-			// allowed to take, since it may only ever PREVENT a disable. Failing
-			// closed means a new verdict postpones until someone decides
-			// otherwise, which is the same answer this file gives to every other
-			// case it cannot substantiate.
+			// because Go does not check switch exhaustiveness and no linter here
+			// does either: a fourth verdict added later would fall through into
+			// the write below, the one direction the probe is not allowed to
+			// take. Failing closed postpones until someone decides otherwise.
 			debuglog.Warn("proxy: postponing auto-disable, unrecognised retirement probe verdict", "model", modelName, "provider", provider, "endpoint", endpointType, "verdict", verdict.String())
 			return
 		}
@@ -938,16 +791,10 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			debuglog.Error("proxy: failed to auto-disable retired model", "model", modelName, "provider", provider, "error", err, "retry_after", goneProbeCooldown.String())
 			// Nothing is touched, and that is the retry. The streak keeps its
 			// count and its stamp, so the next refusal past goneProbeCooldown
-			// claims a probe and the disable is attempted again.
-			//
-			// This used to delete the streak, for the same reason the
-			// inconclusive path did and with the same cost. Under the old
-			// strikes == goneStrikeThreshold gate a parked count was
-			// unreachable, so dropping it was the only way a model whose write
-			// failed could ever be retired; claimProbe made it reachable, and
-			// deleting also threw away the cooldown — which turned a database
-			// outage into three fresh refusals buying another upstream probe,
-			// on repeat, for every model refusing traffic at the time.
+			// claims a probe and the disable is attempted again. Dropping the
+			// streak instead would throw away the cooldown with it, turning a
+			// database outage into three fresh refusals buying another upstream
+			// probe on repeat, for every model refusing traffic at the time.
 			return
 		}
 
@@ -962,56 +809,38 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 		}
 
 		// One window is left, and it is the only one staging cannot close: a
-		// success that lands after confirm has already returned, while the
-		// commit is on its way to the database. That write cannot be recalled,
-		// so it is undone instead.
+		// success that lands after confirm has returned, while the commit is on
+		// its way to the database. That write cannot be recalled, so it is undone
+		// instead.
 		//
-		// Serialising would close it, and is not available here.
-		// noteModelServed runs on the request path (see proxy_failover.go), so
-		// holding a lock across the write would put client latency behind a
-		// database write belonging to an unrelated request's error path.
+		// Serialising would close it and is not available here: noteModelServed
+		// runs on the request path (see proxy_failover.go), so holding a lock
+		// across the write would put client latency behind a database write
+		// belonging to an unrelated request's error path.
 		//
-		// It runs AFTER the non-streaming response is written now, not before:
-		// the clear is judged on what the handler decoded rather than on the 200
-		// that preceded it. That widens this window slightly — the cancel signal
-		// lands later, so AutoRetireIfConfirmed has more room to commit before a
-		// success is observed — which changes nothing here, because the window
-		// this comment is about is the one the revert below exists for.
-		//
-		// The disabled state IS briefly visible on this path, which is what the
-		// staging above exists to avoid. Accepted, because the alternative is
-		// worse: leaving the model disabled when it has just proved it works.
-		// The window is now one commit rather than a whole check-write-check
-		// cycle, and the model ends up correct either way.
+		// The disabled state IS briefly visible here, which is what the staging
+		// above exists to avoid. Accepted, because the alternative is leaving the
+		// model disabled when it has just proved it works, and the window is one
+		// commit rather than a whole check-write-check cycle.
 		if streak.cancelled.Load() {
 			// The success that cancelled this retirement can itself be out of
 			// date: it cleared the count, and refusals arriving since can have
 			// rebuilt it past the threshold inside this same write window.
-			// Reverting on the strength of the older success would re-enable a
-			// model that current evidence says is gone, and the rebuilt streak
-			// would stand down at its own claim when it found the model already
-			// retired — by this very write.
+			// Reverting on the older success would re-enable a model that current
+			// evidence says is gone, and the rebuilt streak would stand down at
+			// its own claim on finding the model already retired — by this write.
+			// So the revert defers to what the model is saying NOW.
 			//
-			// So the revert defers to whatever the model is saying NOW rather
-			// than to the success that scheduled it. The count is read off this
-			// streak directly: nothing removes an entry from h.goneStrikes, so a
-			// lookup by model id could only ever return the same struct, and
-			// supersede's single critical section is what guarantees the count
-			// read here is the one that belongs to the tombstone read above.
-			// Three of the four ways out of here leave the model DISABLED, and
-			// each of them still owes the retirement its follow-through. The
-			// revalidation is the load-bearing half: a disabled member does not
-			// resize the custom groups it belongs to, so skipping it leaves a
-			// group enabled with fewer than two routable members until some
-			// unrelated scan happens to notice — which is the whole reason the
-			// call exists. Only a revert that actually landed is exempt, because
-			// then nothing happened as far as anyone outside this goroutine is
-			// concerned.
+			// The count is read off this streak directly: nothing removes an entry
+			// from h.goneStrikes, and supersede's single critical section is what
+			// guarantees the count read here belongs to the tombstone read above.
 			//
-			// The alert is judged separately, because it asserts something
-			// stronger than the revalidation does. It says this model is retired,
-			// so it is published only where that is known to be true: the two
-			// arms below where the row is still exactly as this write left it.
+			// Three of the four ways out leave the model DISABLED and each still
+			// owes the retirement its revalidation; only a revert that landed is
+			// exempt, because then nothing happened as far as anyone outside this
+			// goroutine is concerned. The alert is judged separately because it
+			// asserts something stronger: it is published only on the arms where
+			// the row is still exactly as this write left it.
 			if streak.count() >= goneStrikeThreshold {
 				debuglog.Info("proxy: not reverting the auto-disable, the model is refusing again", "model", modelName, "provider", provider)
 				announceRetirement(true)
@@ -1053,36 +882,20 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 			return
 		}
 
-		// The verdict is stamped on the line and in the event, and it is the
-		// point of the line rather than decoration. Before the probe existed
-		// this log and this alert were written on three classifier readings of
-		// provider prose; they now mean something materially different, and they
-		// said exactly the same words. An operator upgrading could not tell a
-		// verified retirement from an unverified one in their own logs, and the
-		// refused verdict is both the common outcome and the only one that costs
-		// an upstream call AND writes to the database. The design asked for this
-		// directly: the probe is a call the operator did not make, so it should
-		// be logged as what it is.
+		// The verdict is stamped on the line and in the event so a verified
+		// retirement can be told from an unverified one: the words were identical
+		// before the probe existed, and the probe is a call the operator did not
+		// make. The endpoint family rides along because it decides which surface
+		// was asked and whether the model was eligible for auto-retirement at all.
 		//
-		// The endpoint family rides along for the same reason. It decides which
-		// surface was asked and whether the model was eligible for auto-
-		// retirement at all, so a retirement that cannot be traced back to a
-		// family cannot be argued with.
-		//
-		// The strike count is the streak's own, not goneStrikeThreshold. The
-		// constant was accurate while a retirement could only be triggered by the
-		// caller that saw exactly three; claimProbe replaced that gate, so this
-		// write can equally stand on a streak sitting at fifty under a retry
-		// loop, or on a single refusal that re-claimed a streak parked since the
-		// last cooldown. Reporting the constant would tell every operator the
-		// same story about a decision that was reached differently.
+		// The strike count is the streak's own, not goneStrikeThreshold: under
+		// claimProbe this write can stand on a streak sitting at fifty under a
+		// retry loop, or on a single refusal that re-claimed a parked streak.
 		//
 		// It is the count this refusal SAW, captured before the probe rather than
-		// read back here. Nothing clears the counter on the retire path, and this
-		// point is up to a probe timeout and a database write later, so reading it
-		// now would report a number inflated by every refusal that arrived while
-		// the decision was being made — which is the opposite of "how was this
-		// decision reached".
+		// read back here — this point is up to a probe timeout and a database
+		// write later, so reading it now would report a number inflated by every
+		// refusal that arrived while the decision was being made.
 		debuglog.Warn("proxy: auto-disabled retired model", "model", modelName, "provider", provider, "strikes", strikes, "endpoint", endpointType, "probe_verdict", probeRefused.String())
 		announceRetirement(true)
 	}()
@@ -1091,39 +904,30 @@ func (h *Handler) noteModelGone(candidate modelCandidate, endpointType string) {
 // probeForRetirement runs the pre-retirement probe under the production
 // deadline and reports what it found.
 //
-// It is a separate function because the deadline belongs here and not inside
-// probeModel: the number the operator's cost depends on stays beside the
-// decision that spends it rather than buried in a helper, and a test can still
-// drive the real probe with a deadline measured in milliseconds.
+// Separate from probeModel because the deadline belongs beside the decision that
+// spends it rather than buried in a helper, and a test can then drive the real
+// probe with a deadline measured in milliseconds.
 //
-// The per-provider slot is NOT taken here. It is taken by the caller before the
+// The per-provider slot is NOT taken here. The caller takes it before the
 // model's claim is spent, because a refused slot must cost nothing — see
-// noteModelGone for what taking them in the other order did to a provider-wide
-// nomination event.
+// noteModelGone.
 //
-// The deadline is generous. A cold model can take tens of seconds to answer,
-// and a probe that times out on a slow but living model postpones the
-// retirement rather than confirming it, which is the safe direction but still a
-// wasted call. Nothing on the request path is waiting on any of it.
+// The deadline is generous: a cold model can take tens of seconds, and a probe
+// that times out on a slow but living model postpones rather than confirms.
+// Nothing on the request path is waiting on any of it.
 //
 // The context is Background and not tied to server shutdown, which is what the
-// detachment costs and is worth stating rather than leaving to be discovered.
-// The retirement's worst case is now this probe plus up to three ten-second
-// writes, so a nomination that lands just before shutdown can spend one upstream
-// request and then find a closing pool. What that produces is a failed write on
-// a path that already treats a failed write as "change nothing and retry": the
-// streak keeps its strikes, nothing is disabled, and the next process re-earns
-// the decision from its own traffic. Closing it properly means a handler-scoped
-// parent context, which is a lifecycle this Handler does not have and is not
-// worth inventing for one background probe.
+// detachment costs. A nomination landing just before shutdown can spend one
+// upstream request and then find a closing pool, which produces a failed write
+// on a path that already treats one as "change nothing and retry". Closing that
+// properly means a handler-scoped parent context, a lifecycle this Handler does
+// not have.
 func (h *Handler) probeForRetirement(candidate modelCandidate, endpointType string) probeVerdict {
-	// Before anything is dereferenced, and that is the point of it being here.
-	// probeModel makes the same check, but the fields this function touches on
-	// the way there would already have panicked, so the guard downstream was
-	// promising a postponement it could never deliver. A panic here is caught by
-	// the disable goroutine's recover and reported as a panic, which is the
-	// wrong answer to "is this model still served": nothing was established, and
-	// nothing being established is what probeInconclusive means.
+	// Before anything is dereferenced. probeModel makes the same check, but the
+	// fields this function touches on the way there would already have panicked,
+	// so the guard downstream was promising a postponement it could not deliver.
+	// A panic is the wrong answer to "is this model still served": nothing was
+	// established, which is what probeInconclusive means.
 	if candidate.model == nil || candidate.provider == nil {
 		return probeInconclusive
 	}
@@ -1136,27 +940,20 @@ func (h *Handler) probeForRetirement(candidate modelCandidate, endpointType stri
 // acquireProbeSlot takes one of the provider's goneProbeMaxConcurrent probe
 // slots without waiting, returning the release for it.
 //
-// The release is idempotent, because the caller has two of them: an explicit one
+// The release is idempotent because the caller has two of them: an explicit one
 // the moment the upstream request is done, so the slot is not held across a
 // database write, and a deferred one covering the paths that never reach it.
 // Without sync.OnceFunc the second call would drain a slot belonging to somebody
-// else's probe, which is the kind of bug that only shows up under the burst the
-// semaphore exists for.
+// else's probe.
 //
-// Load is tried first and LoadOrStore only on a miss, so the common case — a
-// provider whose semaphore already exists, which is every probe after the
-// first for that provider — does not allocate and immediately discard a
-// channel it will never use. The allocation only happens on a genuine miss,
-// and the per-provider semaphore is still created on first use through
-// LoadOrStore there, so a race on that miss only duplicates the channel that
-// loses, and the winner's is the one everyone counts against — the same
-// pattern, and the same reasoning, as the per-model streaks in goneStrikes.
+// Load is tried first and LoadOrStore only on a miss, so the common case does
+// not allocate a channel it will never use. A race on that miss only duplicates
+// the channel that loses — the same pattern as the per-model streaks in
+// goneStrikes.
 //
-// Entries are never removed, and that is a bounded leak by construction rather
-// than an oversight: the key space is the operator's configured providers, a
-// number in the tens, and each entry is one small channel. Reclaiming them would
-// need to prove no probe is in flight for that provider first, which is more
-// machinery and more ways to be wrong than the bytes are worth.
+// Entries are never removed: the key space is the operator's configured
+// providers, a number in the tens, each one small channel. Reclaiming them would
+// need to prove no probe is in flight for that provider first.
 func (h *Handler) acquireProbeSlot(providerID uuid.UUID) (release func(), ok bool) {
 	raw, loaded := h.goneProbeSlots.Load(providerID)
 	if !loaded {
@@ -1165,11 +962,9 @@ func (h *Handler) acquireProbeSlot(providerID uuid.UUID) (release func(), ok boo
 	sem, isChan := raw.(chan struct{})
 	if !isChan {
 		// Unreachable by construction: this function is the only writer of the
-		// map and only ever stores a chan struct{}. It is logged rather than
-		// left silent because the caller cannot tell this apart from a full
-		// semaphore, and reports the postponement as probe throttling — which
-		// would send an operator looking at a concurrency cap that has nothing
-		// to do with it.
+		// map and only ever stores a chan struct{}. Logged rather than left
+		// silent because the caller cannot tell it apart from a full semaphore
+		// and would report the postponement as probe throttling.
 		debuglog.Error("proxy: retirement probe slot map holds an unexpected value, so no slot can be taken", "provider_id", providerID, "type", fmt.Sprintf("%T", raw))
 		return nil, false
 	}
@@ -1261,12 +1056,10 @@ func producedOutput(logData *requestLogData) bool {
 // the hedged path previously returned without recording any verdict at all, so
 // a model retired mid-stream stayed routable whenever hedging was enabled.
 func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCandidate) {
-	// The guard belongs here, not in producedOutput. That function checks
-	// for nil too and is tested for it, but this expression dereferences logData
-	// to build its arguments, and Go evaluates all of them before the call — so
-	// on this path the helper's guard could never run and a nil would panic
-	// before reaching it. Same shape as probeForRetirement's: a check downstream
-	// of the dereference promises something it cannot deliver.
+	// The guard belongs here, not in producedOutput. That function checks for nil
+	// too, but this expression dereferences logData to build its arguments and Go
+	// evaluates all of them before the call, so the helper's guard could never
+	// run. Same shape as probeForRetirement's.
 	if logData == nil {
 		return
 	}
@@ -1295,45 +1088,31 @@ func (h *Handler) noteStreamOutcome(logData *requestLogData, candidate modelCand
 //
 // It also cancels a disable that has been decided but not yet written, which is
 // why it goes through supersede rather than setting the flag and parking
-// separately: a queued disable reads both, and has to see them change together.
+// separately: a queued disable reads both and has to see them change together.
 //
 // The entry is parked, not dropped, and the difference is the probe cooldown.
 // Deleting it took nextProbeAt with it, so a success between refusals reset the
-// rate bound — and a model that refuses some request shapes while serving
-// others produces exactly that interleaving. Three refusals then bought a probe,
-// a success wiped the stamp, three more refusals bought another, indefinitely.
-// A success clears what the model is accused of; it does not buy the gateway
-// another free upstream call. See park.
+// rate bound — and a model that refuses some request shapes while serving others
+// produces exactly that interleaving. A success clears what the model is accused
+// of; it does not buy the gateway another free upstream call. See park.
 //
-// The success clears ONE surface: the one it arrived on. It used to clear all of
-// them, on the argument that a success is evidence about the model and that
-// clearing can only ever prevent a retirement — but that argument, taken
-// seriously, also justifies never retiring anything, and it undoes on the
-// clearing side exactly the split the strike side was given.
+// The success clears ONE surface: the one it arrived on. Clearing globally
+// answered two separate questions as one — a provider that had retired a model's
+// chat surface while still serving its embeddings would have every embeddings
+// success wipe the chat streak, so the dead surface could never accumulate three
+// consecutive strikes and would never be adjudicated at all. Tightening it is
+// safe because what retires a model is the PROBE, and the probe asks on the same
+// surface.
 //
-// The split exists because a model can be served on one surface and refused on
-// another, and the two are separate questions. Clearing globally answered them
-// as one: a provider that had retired a model's chat surface while still serving
-// its embeddings would have every embeddings success wipe the chat streak, so
-// the dead surface could never accumulate three consecutive strikes and would
-// never be adjudicated at all — the case this feature exists to catch.
+// A family that cannot be probed clears nothing, following the strike side: an
+// image or TTS response is not evidence about the chat surface any more than an
+// image refusal is. It is also why this takes an endpointType rather than
+// deriving one — every caller has the family that ingest stamped.
 //
-// Tightening it is safe for the reason the whole branch is built on: what
-// retires a model is the PROBE, and the probe asks on the same surface. A chat
-// streak that survives an embeddings success still has to be refused by a real
-// request to /chat/completions before anything is written.
-//
-// A family that cannot be probed clears nothing, which is the same rule the
-// strike side follows: an image or TTS response is not evidence about the chat
-// surface any more than an image refusal is. It is also why this takes an
-// endpointType rather than deriving anything: every caller (a chat 200, a
-// pass-through 2xx, a finished stream) has the family that ingest stamped.
-//
-// supersede reports whether it changed anything, and the log line is conditional
-// on that. Since nothing removes entries, a model that drew one refusal at 09:00
-// keeps its parked streak for the life of the process, and an unconditional line
-// would then claim to have "cleared gone-strikes" on every successful request to
-// that model from then on — a log that describes work nobody did.
+// The log line is conditional on supersede having changed something. Nothing
+// removes entries, so a model that drew one refusal at 09:00 keeps its parked
+// streak for the life of the process, and an unconditional line would claim to
+// have "cleared gone-strikes" on every successful request from then on.
 func (h *Handler) noteModelServed(m *model.Model, endpointType string) {
 	if m == nil || m.ID == uuid.Nil {
 		return

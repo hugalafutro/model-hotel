@@ -42,8 +42,8 @@ func waitForDisable(t *testing.T, repo *mockModelRepo) []setEnabledCall {
 }
 
 // goneStreakFor returns the model's live streak, failing the test if there is
-// none. The streak is what the postponement paths now leave behind, so several
-// tests below assert on it directly rather than on the absence of a write.
+// none. The postponement paths leave a streak behind rather than a write, so
+// several tests below assert on it directly.
 func goneStreakFor(t *testing.T, h *Handler, id uuid.UUID, endpoint string) *goneStreak {
 	t.Helper()
 	raw, ok := h.goneStrikes.Load(goneStreakKey{model: id, endpoint: endpoint})
@@ -86,18 +86,36 @@ func probeClaimAt(t *testing.T, h *Handler, id uuid.UUID, endpoint string) time.
 }
 
 // expireProbeCooldown ages the model's probe claim so the next refusal may spend
-// a probe, standing in for goneProbeCooldown having elapsed.
-//
-// Driven through the streak's own field, exactly as the staleness test drives
-// lastStrike. The alternative — a knob, an injected clock, a var instead of a
-// const — would put a seam in production code that exists only for tests, and
-// the wait it replaces is five minutes.
+// a probe, standing in for goneProbeCooldown having elapsed. Driven through the
+// streak's own field, as the staleness test drives lastStrike: a knob or an
+// injected clock would put a seam in production code that exists only for tests.
 func expireProbeCooldown(t *testing.T, h *Handler, id uuid.UUID, endpoint string) {
 	t.Helper()
 	streak := goneStreakFor(t, h, id, endpoint)
 	streak.mu.Lock()
 	streak.nextProbeAt = time.Now().Add(-time.Second)
 	streak.mu.Unlock()
+}
+
+// waitForInconclusiveRun blocks until the model's streak reports want probes in
+// a row that established nothing. The verdict is applied on the detached probe
+// goroutine, so reading the run straight after the refusal that triggered it
+// races the update.
+func waitForInconclusiveRun(t *testing.T, h *Handler, id uuid.UUID, endpoint string, want int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	var got int
+	for time.Now().Before(deadline) {
+		streak := goneStreakFor(t, h, id, endpoint)
+		streak.mu.Lock()
+		got = streak.inconclusive
+		streak.mu.Unlock()
+		if got == want {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("inconclusive run settled at %d, want %d", got, want)
 }
 
 // waitForProbes blocks until the fake provider has been asked n times, so a
@@ -119,15 +137,13 @@ func waitForProbes(t *testing.T, script *goneScriptedServer, n int) []string {
 
 // goneRefusalServer starts a fake provider that refuses modelID as retired on
 // every request: a 404 naming the model beside a phrase from modelGoneVerbs,
-// which is precisely what classifyUpstreamError reads as KindProviderModelGone.
+// which classifyUpstreamError reads as KindProviderModelGone.
 //
-// It exists because the probe now adjudicates every retirement. The tests below
-// are about what the disable machinery does once the evidence is in — the
-// threshold, the two cancellation windows, the rollback, the streak-identity
-// rules — and every one of them was written expecting the disable to be
-// written. Giving the probe nothing to reach would turn each of them into an
-// assertion about an unreachable provider instead, so the fixture reproduces
-// the evidence rather than standing in for it.
+// The tests below are about what the disable machinery does once the evidence is
+// in — the threshold, the two cancellation windows, the rollback, the
+// streak-identity rules — and the probe adjudicates every retirement, so giving
+// it nothing to reach would turn each of them into an assertion about an
+// unreachable provider instead.
 func goneRefusalServer(t *testing.T, modelID string) *httptest.Server {
 	t.Helper()
 	body := goneRefusalBody(modelID)
@@ -161,13 +177,11 @@ const goneRateLimitedAnswer = `{"error":{"message":"Rate limit reached for reque
 // goneScriptedServer is a fake provider whose answer a test can change while the
 // test is running, and which records every path it was asked for.
 //
-// Both halves are needed and neither is served by the fixtures already here.
-// goneRefusalServer only ever refuses, and the postponement test has to switch a
-// live candidate from a 429 to a refusal without moving it to a second base URL
-// — the candidate is built once and carries the URL. probeServer (model_probe_test.go)
-// keeps only the LAST path, whereas the family tests assert over every path:
-// "never asked on /chat/completions" and "never asked at all" are claims about
-// all of them.
+// Neither half is served by the fixtures already here: goneRefusalServer only
+// ever refuses, and the candidate is built once and carries its base URL, so a
+// postponement test cannot switch to a second server. probeServer
+// (model_probe_test.go) keeps only the LAST path, whereas the family tests
+// assert over all of them.
 type goneScriptedServer struct {
 	mu     sync.Mutex
 	status int
@@ -349,13 +363,9 @@ func TestNoteModelGone_ResetsAfterDisable(t *testing.T) {
 // TestNoteModelGone_NilSafe: the failover drain path passes its candidate
 // straight through, so a malformed one must not panic the proxy.
 //
-// The nil provider is the case the widened signature adds. It used to be
-// unreachable — the old parameter was a provider NAME, and a missing one was
-// just an empty string in a log line — so a candidate with no provider counted
-// strikes and disabled the model like any other. It cannot now: the disable is
-// adjudicated by a real request, there is nobody to send it to, and the
-// retirement stops rather than being written on evidence that can never be
-// checked.
+// A candidate with no provider must stop the retirement outright rather than
+// counting strikes: the disable is adjudicated by a real request, and there is
+// nobody to send it to.
 func TestNoteModelGone_NilSafe(t *testing.T) {
 	t.Parallel()
 
@@ -527,9 +537,9 @@ func TestNoteModelGone_FailedStreamsDoNotResetStreak(t *testing.T) {
 
 	for range goneStrikeThreshold {
 		h.noteModelGone(cand, endpointTypeChat)
-		// A transient stream failure lands between strikes. Under the old
-		// "anything not gone is a success" rule this cleared the streak and the
-		// model could never be retired.
+		// A transient stream failure lands between strikes. Under an "anything
+		// not gone is a success" rule this would clear the streak and the model
+		// could never be retired.
 		if v := verdictForStream(KindProviderError, KindProviderError, true); v == verdictServed {
 			h.noteModelServed(m, endpointTypeChat)
 		}
@@ -1341,12 +1351,10 @@ func TestNoteModelGone_AnsweredProbePreventsTheDisable(t *testing.T) {
 // TestNoteModelGone_APanicWhileDisablingDoesNotKillTheGateway pins the
 // recover() on the detached goroutine.
 //
-// That goroutine used to call repository methods and nothing else. It now makes
-// an upstream request and runs bytes a provider chose through json and the
-// dialect translators, and an unrecovered panic on any goroutine takes the whole
-// process down — so one model's retirement would be able to kill a gateway that
-// is serving everything else fine. Every other detached goroutine in this
-// package already recovers.
+// It makes an upstream request and runs bytes a provider chose through json and
+// the dialect translators, and an unrecovered panic on any goroutine takes the
+// whole process down — so one model's retirement could kill a gateway serving
+// everything else fine. Every other detached goroutine in this package recovers.
 //
 // The failure mode is why this test looks the way it does: without the recover,
 // the panic is not a failed assertion, it is the test binary dying, and the
@@ -1608,11 +1616,10 @@ func TestNoteModelGone_ARetirementThatStandsIsStillAnnounced(t *testing.T) {
 // TestNoteModelGone_TheRetirementEventReportsTheRealStrikeCount pins that the
 // number an operator reads is the number the decision was made on.
 //
-// Both the log line and the alert used to report goneStrikeThreshold, which was
-// accurate only while a retirement could be triggered by the caller that saw
-// exactly three. claimProbe replaced that gate, so a write can equally stand on
-// a single refusal that re-claimed a streak parked since the last cooldown, or
-// on a streak already past the threshold.
+// Reporting goneStrikeThreshold would be accurate only if a retirement could
+// only be triggered by the caller that saw exactly three. Under claimProbe a
+// write can equally stand on a single refusal that re-claimed a streak parked
+// since the last cooldown, or on a streak already past the threshold.
 //
 // The sequence below produces three different plausible answers, which is the
 // point of its shape: the constant would say 3, a count read back after the
@@ -2038,11 +2045,10 @@ func TestNoteModelGone_RateLimitedProbePostponesThenRetires(t *testing.T) {
 		t.Fatalf("a rate-limited probe proved nothing, so nothing may be retired on it, got %+v", calls)
 	}
 
-	// The postponement KEEPS the evidence. Dropping the streak was how the
-	// retirement used to stay reachable, and it was also what left the probe
-	// rate unbounded: three fresh refusals bought another probe, forever, at a
-	// provider that was already rate limiting us. The claim is what gates the
-	// retry now, so the strikes stay where they are.
+	// The postponement KEEPS the evidence. Dropping the streak to stay reachable
+	// would leave the probe rate unbounded — three fresh refusals buying another
+	// probe, forever, at a provider already rate limiting us — so the claim gates
+	// the retry instead and the strikes stay where they are.
 	if n := goneStreakFor(t, h, m.ID, probeChatEndpoint).count(); n != goneStrikeThreshold {
 		t.Fatalf("a postponed retirement must keep the strikes it was built on, got a streak of %d", n)
 	}
@@ -2075,6 +2081,46 @@ func TestNoteModelGone_RateLimitedProbePostponesThenRetires(t *testing.T) {
 // limiter and the circuit breaker, so nothing else would slow it down. Deleting
 // this test loses the only thing standing between a provider incident and the
 // gateway hammering the provider that is having it.
+// A model whose probe can never answer keeps its strikes and keeps spending one
+// upstream request per cooldown, indefinitely — a provider rate limiting the
+// gateway, or a model that cannot be reached on the surface the probe asks. The
+// run counter is what escalates that from Info to Warn, so it has to survive
+// repeated postponements and end when the question is finally settled.
+func TestNoteModelGone_UnadjudicableModelIsEscalated(t *testing.T) {
+	t.Parallel()
+
+	repo := &mockModelRepo{}
+	h := newGoneHandler(t, repo)
+	m := &model.Model{ID: uuid.New(), ModelID: "claude-sonnet-4"}
+	srv, script := newGoneScriptedServer(t, http.StatusTooManyRequests, goneRateLimitedAnswer)
+	cand := goneCandidateAt(m, "OpenCode Zen", srv.URL)
+
+	for range goneStrikeThreshold {
+		h.noteModelGone(cand, endpointTypeChat)
+	}
+	waitForProbes(t, script, 1)
+	waitForInconclusiveRun(t, h, m.ID, probeChatEndpoint, 1)
+
+	// Each further refusal past the cooldown buys another probe that answers
+	// nothing, and the run counts them rather than resetting with each verdict.
+	for probes := 2; probes <= goneProbeInconclusiveWarnAfter; probes++ {
+		expireProbeCooldown(t, h, m.ID, probeChatEndpoint)
+		h.noteModelGone(cand, endpointTypeChat)
+		waitForProbes(t, script, probes)
+		waitForInconclusiveRun(t, h, m.ID, probeChatEndpoint, probes)
+	}
+
+	// The model answers, which is the outcome the run was waiting for. Nothing
+	// is disabled and the run ends with the evidence it belonged to.
+	script.answer(http.StatusOK, goneServedAnswer)
+	expireProbeCooldown(t, h, m.ID, probeChatEndpoint)
+	h.noteModelGone(cand, endpointTypeChat)
+	waitForInconclusiveRun(t, h, m.ID, probeChatEndpoint, 0)
+	if calls := repo.disableCalls(); len(calls) != 0 {
+		t.Fatalf("a model that answered its probe must not be retired, got %+v", calls)
+	}
+}
+
 func TestNoteModelGone_ProbeCooldownBoundsTheProbeRate(t *testing.T) {
 	t.Parallel()
 

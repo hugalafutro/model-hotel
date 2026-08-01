@@ -1078,6 +1078,14 @@ Two consequences worth knowing about before you upgrade:
   skip rate limiting and circuit-breaker accounting (a verification must not be
   able to sideline a healthy provider), but they do respect an already-open
   circuit and postpone instead of calling a provider the gateway has sidelined.
+
+  A model whose probe can never answer keeps its strikes and keeps paying that
+  cost. After three postponements in a row the line escalates from info to
+  warning (`proxy: auto-disable postponed repeatedly`, carrying
+  `inconclusive_probes`), so a provider that rate limits the gateway, or a model
+  that cannot be reached on the surface the probe asks, shows up as itself rather
+  than as ordinary noise. Nothing is retired on the strength of it; the run ends
+  as soon as the model answers.
 - **Some endpoint families are never auto-retired from traffic.** Only chat,
   messages and embeddings models can be verified cheaply and safely. Image, TTS,
   STT and rerank models are never auto-retired at all, because a chat probe
